@@ -28,11 +28,14 @@ collectgarbage()
 
 local trans11, spdSwitch, spdSe, spdSeId, spdSePa, maxSpd, VrefSpd, VrefCall
 local spdInter = 10
-local selFt, mod_spd, oldStep, alt, selFtIndex, selFtSt = false, 0, 0, 0
+local selFt, selFtSt, mod_spd, oldStep = true, 1, 0, 0
+local selFtIndex
 local shortAnn, shortAnnIndex, shortAnnSt = false
 
 local ovrSpd = false
 local aboveVref = false
+local aboveVref_ever = false
+local stall_warn=false
 local old_mod_sec = 0
 local old_mod_spd = 0
 local last_sgTC = 0
@@ -40,6 +43,12 @@ local last_sgTC = 0
 local sensorLalist = { "..." }
 local sensorIdlist = { "..." }
 local sensorPalist = { "..." }
+
+-- Locals for loop timing
+
+local lastLoopTime = 0
+local avgLoopTime = 0
+local loopCount = 0
 
 local DEBUG = true
 --------------------------------------------------------------------------------
@@ -147,7 +156,7 @@ local function initForm()
    if (fw >= 4.22) then
         
       form.addRow(1)
-      form.addLabel({label="---         Dave's Jeti Tools       ---",font=FONT_BIG})
+      form.addLabel({label="---           Dave's Jeti Tools         ---",font=FONT_BIG})
       
       form.addRow(2)
       form.addLabel({label="Select Speed Sensor", width=220})
@@ -162,7 +171,7 @@ local function initForm()
       form.addIntbox(spdInter, 0, 100, 10, 0, 1, spdInterChanged)
       
       form.addRow(2)
-      form.addLabel({label="Vref", width=220})
+      form.addLabel({label="Vref (1.3 Vs0)", width=220})
       form.addIntbox(VrefSpd, 0, 1000, 0, 0, 1, VrefSpdChanged)
 
       form.addRow(2)
@@ -174,7 +183,7 @@ local function initForm()
       form.addIntbox(maxSpd, 0, 10000, 200, 0, 1, maxSpdChanged)
         
       form.addRow(2)
-      form.addLabel({label="Use mph (default km/hr)", width=270})
+      form.addLabel({label="Use km/hr (default mph)", width=270})
       selFtIndex = form.addCheckbox(selFt, selFtClicked)
       
       form.addRow(2)
@@ -198,6 +207,9 @@ local function loop()
    local sensor = system.getSensorByID(spdSeId, spdSePa)
    local mod_sec, rem_sec
    local rem_spd -- mod_spd defined at higher scope
+   local mult
+
+   
    
    if(sensor and sensor.valid) then
       local spd = sensor.value
@@ -219,15 +231,27 @@ local function loop()
       ovrSpd = true
       system.playFile('overspeed.wav', AUDIO_QUEUE)
       if DEBUG then print("Overspeed!") end
+      system.vibration(true, 3) -- 2x vibrations on right stick
    end
    if (spd > VrefSpd) then
       aboveVref = true
+      aboveVref_ever = true
    end
    if (spd <= VrefSpd and aboveVref) then
       aboveVref = false
       system.playFile('V_ref_speed.wav', AUDIO_QUEUE)
       if DEBUG then print("At Vref") end
    end
+   if ((spd <= VrefSpd/1.3) and (not stall_warn) and aboveVref_ever) then
+     stall_warn = true
+     system.playFile('stall_warn.wav', AUDIO_QUEUE)
+     system.vibration(true, 4) -- 4 short pulses on right stick
+     if DEBUG then print("Stall warning") end
+   end
+   if (spd > VrefSpd) then -- re-arm it above Vref
+      stall_warn = false
+   end
+     
 
    if(swi and swi < 1) then
       mod_spd = 0
@@ -237,33 +261,60 @@ local function loop()
       mod_spd, rem_spd = math.modf(spd / spdInter) -- look at modulo to see if we need to re-announce
       sgTC = system.getTimeCounter()
       mod_sec, rem_sec = math.modf(sgTC/(1000.0*VrefCall))
-      if(mod_spd ~= old_mod_spd) or ((mod_sec ~= old_mod_sec) and not aboveVref and spd > VrefSpd/2) then
+
+      --[[ 
+        announce speed if: speed changes by "every" parameter (e.g. 10 mph) -- using modf on speed
+                    or if: speed is below Vref, then for every "callout" time interval (e.g. 2 sec) -- using modf on time
+        do not announce speed if below Vref/2
+        always announce overspeed (e.g. 200 mph) and crossing Vref going down in speed (e.g. 60-59 mph)
+      --]]
+      
+        if( (mod_spd ~= old_mod_spd) or ((mod_sec ~= old_mod_sec) and not aboveVref) and (spd > VrefSpd/2.0) ) then
 	 -- if DEBUG then print("spd, mod_spd, rem_spd: ", spd, mod_spd, rem_spd) end
-	 old_mod_spd = mod_spd
+
 	 old_mod_sec = mod_sec
-	 print( spd, (sgTC - last_sgTC)/1000, VrefCall)
-	 if ((sgTC - last_sgTC)/1000 > VrefCall/2) then
+	 -- print( spd, sgTC, last_sgTC, (sgTC - last_sgTC)/1000., VrefCall)
+        if aboveVref then mult = 1.5 else mult = 0.5 end
+	 if (((sgTC - last_sgTC)/1000.> VrefCall*mult)) then
+	    old_mod_spd = mod_spd 
+           last_ann = spd
 	    last_sgTC = sgTC
+           local sss = string.format("%.0f", spd)
 	    if (selFt) then
 	       if(shortAnn or not aboveVref) then
-		  system.playNumber(spd, 0, "mph")
-		  if DEBUG then  print("speed: ", spd, " mph") end
+		  system.playNumber(spd, 0)
+		  if DEBUG then  print("(s)speed: ", sss, " mph") end
 	       else
 		  system.playNumber(spd, 0, "mph", "Speed")
-		  if DEBUG then  print("speed: ", spd, " mph") end
+		  if DEBUG then  print("speed: ", sss, " mph") end
 	       end
 	    else
 	       if(shortAnn or not aboveVref) then
-		  system.playNumber(spd, 0, "km/h")
-		  if DEBUG then  print("speed: ", spd, " km/hr") end
+		  system.playNumber(spd, 0)
+		  if DEBUG then  print("(s)speed: ", sss, " km/hr") end
 	       else
 		  system.playNumber(spd, 0, "km/h", "Speed")
-		  if DEBUG then  print("speed: ", spd, " km/hr") end
+		  if DEBUG then  print("speed: ", sss, " km/hr") end
 	       end
 	    end
-	 end
+	  end
       end
    end
+
+   local newLoopTime = system.getTimeCounter()
+   local loopDelta = newLoopTime - lastLoopTime
+   lastLoopTime = newLoopTime
+   if avgLoopTime ~=0 then
+      avgLoopTime = avgLoopTime * 0.95 + 0.05* loopDelta
+   else
+      avgLoopTime = 1
+   end
+   loopCount = loopCount+1
+   if loopCount > 100 then
+      loopCount = 0
+      print('SpdAnn: Avg Loop Time: ', avgLoopTime)
+   end
+
    collectgarbage()
 end
 --------------------------------------------------------------------------------
@@ -278,7 +329,7 @@ local function init()
    spdSeId = system.pLoad("spdSeId", 0)
    spdSePa = system.pLoad("spdSePa", 0)
    annDnSt = system.pLoad("annDnSt", 0)
-   selFtSt = system.pLoad("selFtSt", 0)
+   selFtSt = system.pLoad("selFtSt", 1)
    shortAnnSt = system.pLoad("shortAnnSt", 0)
 
    if(selFtSt == 1) then
