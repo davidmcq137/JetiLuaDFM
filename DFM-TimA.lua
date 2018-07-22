@@ -18,6 +18,10 @@
 	----------------------------------------------------------------------
 	DFM-TimA.lua released under MIT license by DFM 2018
 	----------------------------------------------------------------------
+
+    Todo items: selft -- hard coded now to convert m to ft -- put choice in menu
+                make 30 second interval settable?
+		
 --]]
 
 collectgarbage()
@@ -26,7 +30,7 @@ collectgarbage()
 
 -- Locals for application
 
-local trans11
+--local trans11
 local gearSwitch
 local thrControl
 
@@ -34,10 +38,10 @@ local FuelSe, FuelSeId, FuelSePa
 
 local GraphSe, GraphSeId, GraphSePa
 
-local GraphScale=1000
-local GraphValue=0
-local GraphName='---'
-local GraphUnit='---'
+local GraphScale = 1000
+local GraphValue = 0
+local GraphName = '---'
+local GraphUnit = '---'
 
 local shortAnn, shortAnnIndex, shortAnnSt = false
 
@@ -60,25 +64,28 @@ local sensorUnlist = { "..." }  -- sensor Units
 
 local batt_id   = {0,0,0,0} -- hardcoded IDs for sensors related to batt current and mah
 local batt_pa   = {0,0,0,0}
-local batt_val =  {0,0,0,0}
+local batt_val  = {0,0,0,0}
 
 --------------------------------------------------------------------------------
 
--- Read and set translations (out for now till we have translations)
+-- Read and set translations (out for now till we have translations, simplifies install)
 
 local function setLanguage()
 --[[
     local lng=system.getLocale()
   local file = io.readall("Apps/Lang/DFM-TimA.jsn")
-  local obj = json.decode(file)
+  local obj = json.decode(file)cd 
   if(obj) then
     trans11 = obj[lng] or obj[obj.default]
   end
 --]]
 end
+
 --------------------------------------------------------------------------------
--- Read available sensors for user to select
+
+-- Read available sensors for user to select - done once at startup
 -- Capture battery sensor IDs as specified in batt_info
+-- Additionally look for the telemetry labels in <batt_info>, note id & param
 
 local function readSensors()
 
@@ -87,12 +94,12 @@ local function readSensors()
   local sensors = system.getSensors()
   for i, sensor in ipairs(sensors) do
     if (sensor.label ~= "") then
-      print(sensor.label,",",sensor.id, ",", sensor.param, ",", sensor.unit)
+      -- print(sensor.label,",",sensor.id, ",", sensor.param, ",", sensor.unit)
       table.insert(sensorLalist, sensor.label)
-      for j, name in ipairs(batt_info) do
+      for j, name in ipairs(batt_info) do 
         if sensor.label == batt_info[j] then
           batt_id[j] = sensor.id
-          batt_pa[j] = sensor.para
+          batt_pa[j] = sensor.param
         end
       end
       table.insert(sensorIdlist, sensor.id)
@@ -147,6 +154,9 @@ local function graphsensorChanged(value)
   system.pSave("GraphSe", value)
   system.pSave("GraphSeId", GraphSeId)
   system.pSave("GraphSePa", GraphSePa)
+  system.pSave("GraphScale", GraphScale)
+  system.pSave("GraphName", GraphName)
+  system.pSave("GraphUnit", GraphUnit)
 end
 
 local function shortAnnClicked(value)
@@ -200,7 +210,7 @@ local function initForm()
   else
 
     form.addRow(1)
-    form.addLabel({label="Please update, min. fw 4.22 required!"})
+    form.addLabel({label="Please update, min. fw 4.22 required"})
   end
 end
 --------------------------------------------------------------------------------
@@ -211,7 +221,9 @@ local function timePrint(width, height)
 
   local mm, rr = math.modf(running_time/60)
   local pts = string.format("%02d:%02d", mm, rr*60)
+
   local fstr
+
   if (fuel_pct) then
     fstr = string.format("%d", fuel_pct)
   else
@@ -283,8 +295,13 @@ local function timePrint(width, height)
   if GraphName == '---' then
     ss = '---'
   else
-    ss= string.format(GraphName .. ": %d " .. GraphUnit, GraphValue)
+    if GraphUnit == 'm' then -- ought to add "selft" to menu
+      ss= string.format(GraphName .. ": %d " .. "ft", GraphValue*3.28084)
+    else
+      ss= string.format(GraphName .. ": %d " .. GraphUnit, GraphValue)
+    end
   end
+
   ww = lcd.getTextWidth(FONT_MINI, ss)
   lcd.drawText((300-ww)/2+3,70-13, ss, FONT_MINI)
 
@@ -336,18 +353,18 @@ end
 local function loop()
 
 
--- first read fuel state from selected telemetry sensor
+-- first read fuel state and graph item from selected telemetry sensors
     
   local sensor = system.getSensorByID(FuelSeId, FuelSePa)
 
   if(sensor and sensor.valid) then
-    fuel_pct = tonumber(string.format("%.0f", sensor.value))
+    fuel_pct = sensor.value
   end
 
   local sensor = system.getSensorByID(GraphSeId, GraphSePa)
 
   if(sensor and sensor.valid) then
-    GraphValue  = tonumber(string.format("%.0f", sensor.value))
+    GraphValue  = sensor.value
   end
 
   for i = 1, 4 do -- get "hard coded" batt properties
@@ -361,11 +378,11 @@ local function loop()
     
  -- now read the retract/gear switch ... when put "up" for first time, start timer
     
-  local swi  = system.getInputsVal(gearSwitch)          -- read the retract switch
+  local swi  = system.getInputsVal(gearSwitch) 
 
   if (swi and swi ~= oldswi) then
     oldswi = swi
-    if (swi == 1 and start_time == 0) then             -- when the gear retracted first time, startup
+    if (swi == 1 and start_time == 0) then            -- when the gear retracted first time, startup
       start_time = system.getTimeCounter()/1000       -- convert from ms to seconds
       next_ann_time = start_time + 30                 -- next announce in 30 seconds
       system.playFile('Sup_Tim_Start.wav', AUDIO_QUEUE)
@@ -381,7 +398,7 @@ local function loop()
   local tim = sgT / 1000
   local mod_sec, rem_sec = math.modf(tim - start_time)
 
-  if mod_sec ~= old_mod_sec then
+  if mod_sec ~= old_mod_sec then -- the scope of this <if> is what is done once per second
     old_mod_sec = mod_sec
     if (start_time > 0) then
       running_time = tim - start_time
@@ -391,39 +408,40 @@ local function loop()
 	system.messageBox("Turbine shut down, timer stopped")
       end
     end
-  end
+  
     -- if not fuel_pct then  -- for debug .. in prod just don't play fuel info if no sensor
     --   fuel_pct = 137
     -- end
       
 -- Now insert selected variable into table for graph
 
-  if not GraphValue and DEBUG then -- for debug
-    mrs = 0.85 * mrs + 0.15 * math.random(1,999) -- default scale is 1000
-    table.insert(ytable, #ytable+1, mrs)
-  else
-    table.insert(ytable, #ytable+1, GraphValue)
-  end
+    if not GraphValue and DEBUG then -- for debug
+      mrs = 0.85 * mrs + 0.15 * math.random(1,999) -- default scale is 1000
+      table.insert(ytable, #ytable+1, mrs)
+    else
+      table.insert(ytable, #ytable+1, GraphValue)
+    end
 
-  if #ytable > 60 then
-    table.remove(ytable, 1)
+    if #ytable > 60 then
+      table.remove(ytable, 1)
+    end
   end
-
+  
 -- now see if the next interval is passed
 -- start_time is also used for state info ... it's zero if timer has never started or has
 -- been stopped by shutting down turbine
     
-  if (start_time > 0 and tim > next_ann_time) then    -- we are running and it's time to announce
+    if (start_time > 0 and tim > next_ann_time) then    -- we are running and it's time to announce
 
-    next_ann_time = next_ann_time + 30                -- schedule next ann 30 seconds in future
-    running_time = tim-start_time
-    local min_time = running_time / 60
-    local mod_min, rem_min = math.modf(min_time)
-    system.playFile('Sup_Tim_Tim.wav', AUDIO_QUEUE)   -- "Time Elapsed"
-    if DEBUG then print('Sup_Tim_Tim.wav - Time elapsed') end
+      next_ann_time = next_ann_time + 30                -- schedule next ann 30 seconds in future
+      running_time = tim-start_time
+      local min_time = running_time / 60
+      local mod_min, rem_min = math.modf(min_time)
+      system.playFile('Sup_Tim_Tim.wav', AUDIO_QUEUE)   -- "Time Elapsed"
+      if DEBUG then print('Sup_Tim_Tim.wav - Time elapsed') end
 
-    if mod_min > 0 then
-      system.playNumber(mod_min, 0, 'min')
+      if mod_min > 0 then
+        system.playNumber(mod_min, 0, 'min')
       if DEBUG then print(mod_min, 'min') end
     end
 
@@ -444,7 +462,7 @@ local function loop()
       if DEBUG then print(0, '-%-') end
     end
   end
-    collectgarbage() -- really? in each loop every 30 ms?
+  collectgarbage() -- really? in each loop every 30 ms?
 end
 --------------------------------------------------------------------------------
 local function init()
@@ -460,6 +478,10 @@ local function init()
     GraphSeId    = system.pLoad("GraphSeId", 0)
     GraphSePa    = system.pLoad("GraphSePa", 0)
 
+    GraphScale   = system.pLoad("GraphScale", 1000)
+    GraphName    = system.pLoad("GraphName", 0)
+    GraphUnit    = system.pLoad("GraphUnit", 0)
+    
     shortAnnSt = system.pLoad("shortAnnSt", 0)
     
     if(shortAnnSt == 1) then
@@ -467,9 +489,11 @@ local function init()
         else
         shortAnn = false
     end
+    
     system.registerForm(1, MENU_APPS, "Super Time Announcer", initForm)
     system.registerTelemetry(1, "Super Timer", 4, timePrint)
     system.playFile('Tim_Ann_Act.wav', AUDIO_IMMEDIATE)
+
     if DEBUG then print('Tim_Ann_Act.wav') end
     readSensors()
     collectgarbage()
