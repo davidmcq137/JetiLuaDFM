@@ -191,7 +191,7 @@ local function initForm()
       shortAnnIndex = form.addCheckbox(shortAnn, shortAnnClicked)
       
       form.addRow(1)
-      form.addLabel({label="Thanks to Tero/RCT. Version "..SpdAnnVersion.." ", font=FONT_MINI, alignRight=true})
+      form.addLabel({label="DFM-SpdA.lua Version "..SpdAnnVersion.." ", font=FONT_MINI, alignRight=true})
    else
       form.addRow(1)
       form.addLabel({label="Please update, min. fw 4.22 required!"})
@@ -300,7 +300,7 @@ local function loop()
 	  end
       end
    end
-
+--[[
    local newLoopTime = system.getTimeCounter()
    local loopDelta = newLoopTime - lastLoopTime
    lastLoopTime = newLoopTime
@@ -314,7 +314,7 @@ local function loop()
       loopCount = 0
       print('SpdAnn: Avg Loop Time: ', avgLoopTime)
    end
-
+--]]
    collectgarbage()
 end
 --------------------------------------------------------------------------------
@@ -347,8 +347,7 @@ local function init()
    if VrefSpd == 0 then VrefSpd = 60 end
    if maxSpd == 0 then maxSpd = 200 end
    if spdInter == 0 then spdInter = 10 end
-   
-      
+
    system.registerForm(1, MENU_APPS, "Speed Announcer", initForm)
    system.playFile('Spd_ann_act.wav', AUDIO_QUEUE)
    readSensors()

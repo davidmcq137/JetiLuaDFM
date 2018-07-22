@@ -55,7 +55,7 @@ local mrs = math.random(1, 999) -- for debugging
 
 local ytable = {} -- table of values for "chart recorder" graph
 
-local DEBUG = false -- if set to <true> will print to console the speech files and output
+local DEBUG = true -- if set to <true> will print to console the speech files and output
 
 local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
@@ -65,6 +65,10 @@ local sensorUnlist = { "..." }  -- sensor Units
 local batt_id   = {0,0,0,0} -- hardcoded IDs for sensors related to batt current and mah
 local batt_pa   = {0,0,0,0}
 local batt_val  = {0,0,0,0}
+
+local lastLoopTime = 0
+local avgLoopTime = 0
+local loopCount = 0
 
 --------------------------------------------------------------------------------
 
@@ -365,83 +369,91 @@ local function loop()
 
 -- first read fuel state and graph item from selected telemetry sensors
     
-  local sensor = system.getSensorByID(FuelSeId, FuelSePa)
+   local sensor = system.getSensorByID(FuelSeId, FuelSePa)
 
-  if(sensor and sensor.valid) then
-    fuel_pct = sensor.value
-  end
+   if(sensor and sensor.valid) then
+      fuel_pct = sensor.value
+   end
 
-  local sensor = system.getSensorByID(GraphSeId, GraphSePa)
+   local sensor = system.getSensorByID(GraphSeId, GraphSePa)
 
-  if(sensor and sensor.valid) then
-    GraphValue  = sensor.value
-  end
+   if(sensor and sensor.valid) then
+      GraphValue  = sensor.value
+   end
 
-  for i = 1, 4 do -- get "hard coded" batt properties
-    if batt_id[i] ~= 0 then
-      local sensor = system.getSensorByID(batt_id[i], batt_pa[i])
-      if (sensor and sensor.valid) then
-        batt_val[i] = sensor.value
+   for i = 1, 4 do -- get "hard coded" batt properties
+      if batt_id[i] ~= 0 then
+	 local sensor = system.getSensorByID(batt_id[i], batt_pa[i])
+	 if (sensor and sensor.valid) then
+	    batt_val[i] = sensor.value
+	 end
       end
-    end
-  end
+   end
     
  -- now read the retract/gear switch ... when put "up" for first time, start timer
     
-  local swi  = system.getInputsVal(gearSwitch) 
+   local swi  = system.getInputsVal(gearSwitch) 
 
-  if (swi and swi ~= oldswi) then
-    oldswi = swi
-    if (swi == 1 and start_time == 0) then            -- when the gear retracted first time, startup
-      start_time = system.getTimeCounter()/1000       -- convert from ms to seconds
-      next_ann_time = start_time + 30                 -- next announce in 30 seconds
-      system.playFile('Sup_Tim_Start.wav', AUDIO_QUEUE)
-      if DEBUG then print('Sup_Tim_Start.wav - Timer starting') end
-    end
-    if ( swi and swi == -1) then
-      system.playFile('Landing_Gear_Extended.wav')
-      if DEBUG then print('Landing_Gear_Extended.wav') end
-    end
-  end
-  
-  local sgT = system.getTimeCounter()
-  local tim = sgT / 1000
-  local mod_sec, rem_sec = math.modf(tim - start_time)
-
-  if mod_sec ~= old_mod_sec then -- the scope of this <if> is what is done once per second
-    old_mod_sec = mod_sec
-    if (start_time > 0) then
-      running_time = tim - start_time
-      local turbine_state = system.getInputsVal(thrControl)
-      if (turbine_state and turbine_state > 0) then -- turbine is off .. stop timer
-        start_time = 0
-	system.messageBox("Turbine shut down, timer stopped")
+   if (swi and swi ~= oldswi) then
+      oldswi = swi
+      if (swi == 1 and start_time == 0) then            -- when the gear retracted first time, startup
+	 start_time = system.getTimeCounter()/1000       -- convert from ms to seconds
+	 next_ann_time = start_time + 30                 -- next announce in 30 seconds
+	 system.playFile('Sup_Tim_Start.wav', AUDIO_QUEUE)
+	 if DEBUG then print('Sup_Tim_Start.wav - Timer starting') end
       end
-    end
-  
-    -- if not fuel_pct then  -- for debug .. in prod just don't play fuel info if no sensor
-    --   fuel_pct = 137
-    -- end
+      if ( swi and swi == -1) then
+	 system.playFile('Landing_Gear_Extended.wav')
+	 if DEBUG then print('Landing_Gear_Extended.wav') end
+      end
+   end
+   
+   local sgT = system.getTimeCounter()
+   local tim = sgT / 1000
+   local mod_sec, rem_sec = math.modf(tim - start_time)
+   
+   if mod_sec ~= old_mod_sec then -- the scope of this <if> is what is done once per second
+      old_mod_sec = mod_sec
+      if (start_time > 0) then
+	 running_time = tim - start_time
+	 local turbine_state = system.getInputsVal(thrControl)
+	 if (turbine_state and turbine_state > 0) then -- turbine is off .. stop timer
+	    start_time = 0
+	    system.messageBox("Turbine shut down, timer stopped")
+	 end
+      end
+      
+      if not fuel_pct and DEBUG then  -- for debug .. in prod just don't play fuel info if no sensor
+	 fuel_pct = 137
+      end
+      
+      if DEBUG then
+	 batt_val[1] = mrs/1000*6
+	 batt_val[2] = batt_val[1]
+	 batt_val[3] = batt_val[3] + 1
+	 batt_val[4] = batt_val[4] + 1
+      end
+   
       
 -- Now insert selected variable into table for graph
 
-    if not GraphValue and DEBUG then -- for debug
-      mrs = 0.85 * mrs + 0.15 * math.random(1,999) -- default scale is 1000
-      table.insert(ytable, #ytable+1, mrs)
-    else
-      table.insert(ytable, #ytable+1, GraphValue)
-    end
-
-    if #ytable > 60 then
-      table.remove(ytable, 1)
-    end
-  end
+      if GraphValue==0 and DEBUG then
+	 mrs = 0.85 * mrs + 0.15 * math.random(1,999) -- default scale is 1000
+	 table.insert(ytable, #ytable+1, mrs)
+      else
+	 table.insert(ytable, #ytable+1, GraphValue)
+      end
+      
+      if #ytable > 60 then
+	 table.remove(ytable, 1)
+      end
+   end
   
 -- now see if the next interval is passed
 -- start_time is also used for state info ... it's zero if timer has never started or has
 -- been stopped by shutting down turbine
     
-    if (start_time > 0 and tim > next_ann_time) then    -- we are running and it's time to announce
+   if (start_time > 0 and tim > next_ann_time) then    -- we are running and it's time to announce
 
       next_ann_time = next_ann_time + 30                -- schedule next ann 30 seconds in future
       running_time = tim-start_time
@@ -451,28 +463,48 @@ local function loop()
       if DEBUG then print('Sup_Tim_Tim.wav - Time elapsed') end
 
       if mod_min > 0 then
-        system.playNumber(mod_min, 0, 'min')
-      if DEBUG then print(mod_min, 'min') end
-    end
+	 system.playNumber(mod_min, 0, 'min')
+	 if DEBUG then print(mod_min, 'min') end
+      end
 
-    if rem_min > 0.1 then
-      system.playNumber(30, 0, 's')
-      if DEBUG then print(30, 's') end
-    end
-	
-    if not shortAnn then
-      system.playFile('Sup_Tim_Fuel.wav', AUDIO_QUEUE)  -- "Fuel Remaining"
-      if DEBUG then print('Sup_Tim_Fuel.wav - Fuel Remaining') end
-    end
-    if (fuel_pct) then
-      system.playNumber(fuel_pct, 0, '%')
-      if DEBUG then print(fuel_pct, '%') end
-    else
-      system.playNumber(0, 0, '%')
-      if DEBUG then print(0, '-%-') end
-    end
-  end
-  collectgarbage() -- really? in each loop every 30 ms?
+      if rem_min > 0.1 then
+	 system.playNumber(30, 0, 's')
+	 if DEBUG then print(30, 's') end
+      end
+      
+      if not shortAnn then
+	 system.playFile('Sup_Tim_Fuel.wav', AUDIO_QUEUE)  -- "Fuel Remaining"
+	 if DEBUG then print('Sup_Tim_Fuel.wav - Fuel Remaining') end
+      end
+      if (fuel_pct) then
+	 system.playNumber(fuel_pct, 0, '%')
+	 if DEBUG then print(fuel_pct, '%') end
+      else
+	 system.playNumber(0, 0, '%')
+	 if DEBUG then print(0, '-%-') end
+      end
+   end
+
+   local newLoopTime = system.getTimeCounter()
+   local loopDelta = newLoopTime - lastLoopTime
+
+   lastLoopTime = newLoopTime
+
+   if avgLoopTime ~=0 then
+      avgLoopTime = avgLoopTime * 0.95 + 0.05* loopDelta
+   else
+      avgLoopTime = 1
+   end
+
+   loopCount = loopCount+1
+
+   if loopCount > 100 then
+      loopCount = 0
+      print('SpdAnn: Avg Loop Time: ', avgLoopTime)
+   end
+
+   
+   collectgarbage() -- really? in each loop every 30 ms?
 end
 --------------------------------------------------------------------------------
 local function init()
