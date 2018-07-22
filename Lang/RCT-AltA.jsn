@@ -1,0 +1,36 @@
+{
+  "default":"en",
+  "en":{
+    "appName":"RCT Alt-Announcer",
+    "altSensor":"Select Altitude Sensor",
+    "sw":"Select Switch",
+	"inter":"Activate Every (m/ft)",
+    "minAltTr":"Min. Altitude (m/ft)",
+    "maxAltTr":"Max. Altitude (m/ft)",
+    "annDn":"Announce Down",
+	"selFeet":"Use feet (Default is meter)",
+    "shortAnn":"Short Announcement"
+  },
+  "cz":{
+    "appName":"RCT Hlásič výšky",
+    "altSensor":"Zvolit senzor",
+    "sw":"Přepínač",
+    "inter":"Krok (m/ft)",
+    "minAltTr":"Min. výška (m/ft)",
+    "maxAltTr":"Max. výška (m/ft)",
+    "annDn":"Oznámit dolů",
+    "selFeet":"Hlášení ve stopách (ft)",
+    "shortAnn":"Zkrácené hlášení"
+  },
+  "de":{
+    "appName":"RCT Höhenansage",
+    "altSensor":"Höhensensor",
+    "sw":"Schalter",
+    "inter":"Ansage alle (m/ft)",
+    "minAltTr":"Min. Höhe (m/ft)",
+    "maxAltTr":"Max. Höhe (m/ft)",
+    "annDn":"Sinken ansagen",
+    "selFeet":"Ansage in ft",
+    "shortAnn":"Kurzansage"
+ }
+}

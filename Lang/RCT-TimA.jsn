@@ -1,0 +1,10 @@
+{
+  "default":"en",
+  "en":{
+    "appName":"Super Time Announcer",
+    "timSensor":"Select Fuel Sensor",
+    "sw":"Select Retract Switch (Up)",
+    "thr":"Select Throttle Control (Off)",
+    "shortAnn":"Short Announcement"
+  }
+}

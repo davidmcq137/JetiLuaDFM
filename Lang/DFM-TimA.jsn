@@ -1,0 +1,12 @@
+{
+  "default":"en",
+  "en":{
+    "appName":"Super Time Announcer",
+    "fuelSensor":"Select Fuel Sensor",
+    "graphSensor":"Select Sensor to Graph",
+    "graphVsc":"Vertical Scale of Graph",
+    "sw":"Select Retract Switch (Up)",
+    "thr":"Select Throttle Control (Off)",
+    "shortAnn":"Short Announcement"
+  }
+}
