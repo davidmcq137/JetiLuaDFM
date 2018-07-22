@@ -349,6 +349,16 @@ local function timePrint(width, height)
 
 end
 
+local function keypress(key)
+
+   --print("key press: ", key)
+
+end
+
+local function printform()
+   -- print("printform")
+end
+
 --------------------------------------------------------------------------------
 local function loop()
 
@@ -490,7 +500,7 @@ local function init()
         shortAnn = false
     end
     
-    system.registerForm(1, MENU_APPS, "Super Time Announcer", initForm)
+    system.registerForm(1, MENU_APPS, "Super Time Announcer", initForm, keypress, printform)
     system.registerTelemetry(1, "Super Timer", 4, timePrint)
     system.playFile('Tim_Ann_Act.wav', AUDIO_IMMEDIATE)
 
