@@ -20,7 +20,7 @@
 	----------------------------------------------------------------------
 
     Todo items: selft -- hard coded now to convert m to ft -- put choice in menu
-                make 30 second interval settable?
+                make 30 second timer announce interval settable?
 		
 --]]
 
@@ -55,7 +55,7 @@ local mrs = math.random(1, 999) -- for debugging
 
 local ytable = {} -- table of values for "chart recorder" graph
 
-local DEBUG = true -- if set to <true> will print to console the speech files and output
+local DEBUG = false -- if set to <true> will print to console the speech files and output
 
 local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
@@ -209,7 +209,7 @@ local function initForm()
     shortAnnIndex = form.addCheckbox(shortAnn, shortAnnClicked)
         
     form.addRow(1)
-    form.addLabel({label="Thanks to RC-Thoughts.com - v."..TimAnnVersion.." ", font=FONT_MINI, alignRight=true})
+    form.addLabel({label="DFM - v."..TimAnnVersion.." ", font=FONT_MINI, alignRight=true})
 
   else
 
@@ -300,7 +300,7 @@ local function timePrint(width, height)
     ss = '---'
   else
     if GraphUnit == 'm' then -- ought to add "selft" to menu
-      ss= string.format(GraphName .. ": %d " .. "ft", GraphValue*3.28084)
+       ss= string.format(GraphName .. ": %d " .. "ft", GraphValue) -- loop() converts m to ft
     else
       ss= string.format(GraphName .. ": %d " .. GraphUnit, GraphValue)
     end
@@ -379,6 +379,11 @@ local function loop()
 
    if(sensor and sensor.valid) then
       GraphValue  = sensor.value
+      if GraphUnit == 'm' then -- ought to add "selft" to menu
+	 ss= string.format(GraphName .. ": %d " .. "ft", GraphValue*3.28084)
+      else
+	 ss= string.format(GraphName .. ": %d " .. GraphUnit, GraphValue)
+      end
    end
 
    for i = 1, 4 do -- get "hard coded" batt properties
@@ -500,7 +505,7 @@ local function loop()
 
    if loopCount > 100 then
       loopCount = 0
-      print('SpdAnn: Avg Loop Time: ', avgLoopTime)
+      -- print('TimA: Avg Loop Time: ', avgLoopTime)
    end
 
    
@@ -541,7 +546,7 @@ local function init()
     collectgarbage()
 end
 --------------------------------------------------------------------------------
-TimAnnVersion = "1.0"
+TimAnnVersion = "1.1"
 setLanguage()
 collectgarbage()
-return {init=init, loop=loop, author="DFM/RCT        ", version=TimAnnVersion, name="Super Time Announcer"}
+return {init=init, loop=loop, author="DFM", version=TimAnnVersion, name="Super Time Announcer"}

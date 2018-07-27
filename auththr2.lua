@@ -117,13 +117,15 @@ local function printForm()
 
     iy = 2+50/2 + (50/2)*P4
     iy2 = 2+50/2 + (50/2) * P8
-    iy3 = e_val*60/100
+    iy3 = e_val*50/100
 
     if iy < 2 then iy = 2 end
     if iy > 50+2 then iy = 50+2 end   
     if iy2 < 2 then iy2 = 2 end
-    if iy2 > 50+2 then iy2 = 50+2 end   
-    -- iy3 already clipped
+    if iy2 > 50+2 then iy2 = 50+2 end
+    if iy3 < 2 then iy3 = 2 end
+    if iy3 > 50+2 then iy3 = 50+2 end       
+
 
     table.insert(ytable, #ytable+1, iy)
     -- print('#ytable: ', #ytable)
@@ -156,19 +158,19 @@ local function printForm()
   lcd.drawText(5+(300-ww)/2-1,2+60,ss, FONT_MINI)
 
 
-  local ix = 0
+  local ix = 1
 
   for i = 1,#ytable,1 do
-    ix = ix + 1
-    iy = 60-ytable[i]
+    ix = ix + 1 -- start at 2 pixels for point 1
+    iy = 50-ytable[i]
     lcd.setColor(200, 0, 0)
-    lcd.drawPoint(ix+1,iy)
-    iy2 = 60-ytable2[i]
+    lcd.drawCircle(ix,iy+2,1)
+    iy2 = 50-ytable2[i]
     lcd.setColor(0, 0, 200)
-    lcd.drawPoint(ix+1, iy2)
-    iy3 = 60-ytable3[i]
+    lcd.drawCircle(ix, iy2+2,1)
+    iy3 = 50-ytable3[i]
     lcd.setColor(200,0,0)
-    lcd.drawPoint(ix+1, iy3+60)
+    lcd.drawCircle(ix, iy3+60+2,1)
   end
 
   lcd.setColor(0, 0, 0)

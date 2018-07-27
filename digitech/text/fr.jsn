@@ -1,0 +1,34 @@
+{
+    "lang": "Français",
+    "code": "fr",
+    "message": {
+        "sizeOptions":{
+            "1":"Compact",
+            "2":"Large"
+        },
+        "vibrationOptions":{
+            "1":"Gauche",
+            "2":"Droit",
+            "3":"les deux",
+            "4":"Aucun"
+        },
+        "menuLabelDisplaySize":"Taille de l'écran",
+        "menuLabelColour":"Schéma de couleurs",
+        "menuLabelMaxRPM":"Max RPM (x1000)",
+        "menuLabelMaxEGT":"Max EGT",
+        "menuLabelConfMess":"Configuration des messages >>",
+        "menuLabelFuelWarns":"Alerte carburant >>",
+        "buttonCancel":"Annul",
+        "menuInfoForm2":"Marquer les messages actifs",
+        "menuInfoNoECU":"ECU non detecté",
+        "menuLabelBack":"<< Retour",
+        "menuLabelBackSave":"<< Enregistrer et retourner",
+        "menuInfoForm3":"Configurer les alertes carburant",
+        "menuLabelEnableFuelWarn":"Activer les alertes",
+        "menuLabelLowFuel":"Seuil d'alerte (%)",
+        "menuLabelFuelVoice":"Message audio",
+        "menuLabelFuelVibration":"Vibration",
+        "menuLabelFuelInterval":"Interval de repetition (sec)",
+        "menuLabelLang":"Langue"
+    }
+}

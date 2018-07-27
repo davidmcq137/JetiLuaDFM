@@ -3,20 +3,12 @@
     SpdAnnouncer makes voice announcement of speed with
     user set intevals when model goes faster or slower
     
-    Copied from AltA
+    Adapted/derived from RCT's AltA
     
     Requires transmitter firmware 4.22 or higher.
     
-    Works in DC/DS-14/16/24
-    
-    Czech translation by Michal Hutnik
-    German translation by Norbert Kolb
 	---------------------------------------------------------
-	Localisation-file has to be as /Apps/Lang/RCT-AltA.jsn
-	---------------------------------------------------------
-	AltAnnouncer is part of RC-Thoughts Jeti Tools.
-	---------------------------------------------------------
-	Released under MIT-license by Tero @ RC-Thoughts.com 2017
+	Released under MIT-license by DFM 2018
 	---------------------------------------------------------
 --]]
 
@@ -50,7 +42,7 @@ local lastLoopTime = 0
 local avgLoopTime = 0
 local loopCount = 0
 
-local DEBUG = true
+local DEBUG = false
 --------------------------------------------------------------------------------
 
 -- Read and set translations
@@ -269,17 +261,20 @@ local function loop()
         always announce overspeed (e.g. 200 mph) and crossing Vref going down in speed (e.g. 60-59 mph)
       --]]
       
-        if( (mod_spd ~= old_mod_spd) or ((mod_sec ~= old_mod_sec) and not aboveVref) and (spd > VrefSpd/2.0) ) then
-	 -- if DEBUG then print("spd, mod_spd, rem_spd: ", spd, mod_spd, rem_spd) end
+      if( ( (mod_spd ~= old_mod_spd) or ( (mod_sec ~= old_mod_sec) and (not aboveVref)) ) and (spd > VrefSpd/2.0) ) then
 
+	 old_mod_spd = mod_spd
 	 old_mod_sec = mod_sec
-	 -- print( spd, sgTC, last_sgTC, (sgTC - last_sgTC)/1000., VrefCall)
-        if aboveVref then mult = 1.5 else mult = 0.5 end
-	 if (((sgTC - last_sgTC)/1000.> VrefCall*mult)) then
-	    old_mod_spd = mod_spd 
-           last_ann = spd
+
+	 -- if DEBUG then print("spd, mod_spd, rem_spd, old_mod_spd: ", spd, mod_spd, rem_spd, old_mod_spd) end
+
+	 -- if DEBUG then print( spd, (sgTC - last_sgTC)/1000., VrefSpd, aboveVref) end
+	 if aboveVref then mult = 1.5 else mult = 0.5 end
+	 if (((sgTC - last_sgTC)/1000.> VrefCall*mult)) then -- min time interval even if alt changes
+	    
+	    -- last_ann = spd
 	    last_sgTC = sgTC
-           local sss = string.format("%.0f", spd)
+	    local sss = string.format("%.0f", spd)
 	    if (selFt) then
 	       if(shortAnn or not aboveVref) then
 		  system.playNumber(spd, 0)
@@ -297,10 +292,10 @@ local function loop()
 		  if DEBUG then  print("speed: ", sss, " km/hr") end
 	       end
 	    end
-	  end
+	 end
       end
    end
---[[
+   --[[
    local newLoopTime = system.getTimeCounter()
    local loopDelta = newLoopTime - lastLoopTime
    lastLoopTime = newLoopTime
@@ -356,7 +351,7 @@ end
 
 --------------------------------------------------------------------------------
 
-SpdAnnVersion = "1.0"
+SpdAnnVersion = "1.1"
 setLanguage()
 collectgarbage()
-return {init=init, loop=loop, author="DFM/RC-Thoughts", version=SpdAnnVersion, name="Speed Announcer"}
+return {init=init, loop=loop, author="DFM", version=SpdAnnVersion, name="Speed Announcer"}

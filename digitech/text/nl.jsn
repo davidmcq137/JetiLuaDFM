@@ -1,0 +1,34 @@
+{
+    "lang": "NL-BE",
+    "code":"NL",
+    "message": {
+        "sizeOptions":{
+            "1":"Kompakt",
+            "2":"Groot"
+        },
+        "vibrationOptions":{
+            "1":"Links",
+            "2":"Rechts",
+            "3":"Beide",
+            "4":"Geen"
+        },
+        "menuLabelDisplaySize":"Scherm groote",
+        "menuLabelColour":"Kleur Schema",
+        "menuLabelMaxRPM":"Max RPM (x1000)",
+        "menuLabelMaxEGT":"Max Temp",
+        "menuLabelConfMess":"Configureer Berichten >>",
+        "menuLabelFuelWarns":"Brandstof Waarschuwingen >>",
+        "buttonCancel":"Afbreken",
+        "menuInfoForm2":"Selekteer welke Berichten er Gemeld moeten worden ",
+        "menuInfoNoECU":"Geen ECU aangesloten",
+        "menuLabelBack":"<< Terug",
+        "menuLabelBackSave":"<< Opslaan & Terug",
+        "menuInfoForm3":"Configureer Brandstof waarschuwingen",
+        "menuLabelEnableFuelWarn":"Zet Brandstof waarschuwingen aan",
+        "menuLabelLowFuel":"Lage Brandstof Faktor (%)",
+        "menuLabelFuelVoice":"Stem aankondiging",
+        "menuLabelFuelVibration":"Vibratie Alarm",
+        "menuLabelFuelInterval":"Herhaal interval (sec)",
+        "menuLabelLang":"Taal"
+    }
+}
