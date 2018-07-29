@@ -31,6 +31,7 @@ local stall_warn=false
 local old_mod_sec = 0
 local old_mod_spd = 0
 local last_sgTC = 0
+local pending_spd = 0
 
 local sensorLalist = { "..." }
 local sensorIdlist = { "..." }
@@ -42,7 +43,7 @@ local lastLoopTime = 0
 local avgLoopTime = 0
 local loopCount = 0
 
-local DEBUG = false
+local DEBUG = true
 --------------------------------------------------------------------------------
 
 -- Read and set translations
@@ -64,13 +65,11 @@ end
 
 local function readSensors()
    local sensors = system.getSensors()
-   local format = string.format
-   local insert = table.insert
    for i, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
-	 insert(sensorLalist, format("%s", sensor.label))
-	 insert(sensorIdlist, format("%s", sensor.id))
-	 insert(sensorPalist, format("%s", sensor.param))
+	 table.insert(sensorLalist, string.format("%s", sensor.label))
+	 table.insert(sensorIdlist, string.format("%s", sensor.id))
+	 table.insert(sensorPalist, string.format("%s", sensor.param))
       end
    end
 end
@@ -81,27 +80,27 @@ end
 
 local function spdSwitchChanged(value)
    spdSwitch = value
-   system.pSave("spdSwitch", value)
+   system.pSave("spdSwitch", spdSwitch)
 end
 
 local function spdInterChanged(value)
    spdInter = value
-   system.pSave("spdInter", value)
+   system.pSave("spdInter", spdInter)
 end
 
 local function VrefSpdChanged(value)
    VrefSpd = value
-   system.pSave("VrefSpd", value)
+   system.pSave("VrefSpd", VrefSpd)
 end
 
 local function VrefCallChanged(value)
    VrefCall = value
-   system.pSave("VrefCall", value)
+   system.pSave("VrefCall", VrefCall)
 end
 
 local function maxSpdChanged(value)
    maxSpd = value
-   system.pSave("maxSpd", value)
+   system.pSave("maxSpd", maxSpd)
 end
 
 local function sensorChanged(value)
@@ -112,7 +111,7 @@ local function sensorChanged(value)
       spdSeId = 0
       spdSePa = 0 
    end
-   system.pSave("spdSe", value)
+   system.pSave("spdSe", spdSe)
    system.pSave("spdSeId", spdSeId)
    system.pSave("spdSePa", spdSePa)
 end
@@ -176,7 +175,7 @@ local function initForm()
         
       form.addRow(2)
       form.addLabel({label="Use km/hr (default mph)", width=270})
-      selFtIndex = form.addCheckbox(selFt, selFtClicked)
+      selFtIndex = form.addCheckbox(not selFt, selFtClicked)
       
       form.addRow(2)
       form.addLabel({label="Short Announcement", width=270})
@@ -200,102 +199,129 @@ local function loop()
    local mod_sec, rem_sec
    local rem_spd -- mod_spd defined at higher scope
    local mult
-
-   
+   local spd
+	 
+   if swi and swi < 1 then return end
    
    if(sensor and sensor.valid) then
-      local spd = sensor.value
+      spd = sensor.value
    else
       if DEBUG then
-	 spd = (system.getInputs("P8")+1)*150.0 -- make P8 go from 0 to 300
+	 spd = (system.getInputs("P8")+1)*160.0 -- make P8 go from 0 to 320
       else
-	 return
+	 spd = 0
       end
    end
-   
-   if (selft) then
+
+   if (selFt) then
       spd = spd * 0.621371
    end
    if (spd <= maxSpd) then
       ovrSpd = false
    end
-   if (spd > maxSpd and not ovrSpd) then
-      ovrSpd = true
-      system.playFile('overspeed.wav', AUDIO_QUEUE)
-      if DEBUG then print("Overspeed!") end
-      system.vibration(true, 3) -- 2x vibrations on right stick
-   end
    if (spd > VrefSpd) then
       aboveVref = true
       aboveVref_ever = true
    end
-   if (spd <= VrefSpd and aboveVref) then
-      aboveVref = false
-      system.playFile('V_ref_speed.wav', AUDIO_QUEUE)
-      if DEBUG then print("At Vref") end
-   end
-   if ((spd <= VrefSpd/1.3) and (not stall_warn) and aboveVref_ever) then
-     stall_warn = true
-     system.playFile('stall_warn.wav', AUDIO_QUEUE)
-     system.vibration(true, 4) -- 4 short pulses on right stick
-     if DEBUG then print("Stall warning") end
-   end
-   if (spd > VrefSpd) then -- re-arm it above Vref
+   if (spd > VrefSpd/1.3) then -- re-arm it
       stall_warn = false
    end
-     
+
+--[[   
+   loopCount = loopCount + 1
+   if loopCount > 100 then
+      loopCount = 0
+      print("swi,spd, VrefSpd, selFt: ", swi, spd, VrefSpd, selFt)
+      if sensor then
+	 print("sensor.value: ", sensor.value)
+	 print("sensor.label, sensor.type, sensor.name, sensor.unit: ", sensor.label, sensor.type, sensor.name, sensor.unit) 
+      else
+	 print("no sensor selected")
+      end
+   end
+--]]     
 
    if(swi and swi < 1) then
       mod_spd = 0
       old_mod_spd = 0
    end
-   if(swi and swi == 1) then
+
+   if (swi and swi == 1) and (spd > VrefSpd / 4) then
+
+      if (spd > maxSpd and not ovrSpd) then
+	 ovrSpd = true
+	 system.playFile('overspeed.wav', AUDIO_QUEUE)
+	 if DEBUG then print("Overspeed!") end
+	 system.vibration(true, 3) -- 2x vibrations on right stick
+      end
+      if (spd <= VrefSpd and aboveVref) then
+	 aboveVref = false
+	 system.playFile('V_ref_speed.wav', AUDIO_QUEUE)
+	 if DEBUG then print("At Vref") end
+      end
+      if ((spd <= VrefSpd/1.3) and (not stall_warn) and aboveVref_ever) then
+	 stall_warn = true
+	 system.playFile('stall_warning.wav', AUDIO_QUEUE)
+	 system.vibration(true, 4) -- 4 short pulses on right stick
+	 if DEBUG then print("Stall warning") end
+      end
+ 
+
       mod_spd, rem_spd = math.modf(spd / spdInter) -- look at modulo to see if we need to re-announce
+
       sgTC = system.getTimeCounter()
       mod_sec, rem_sec = math.modf(sgTC/(1000.0*VrefCall))
 
       --[[ 
         announce speed if: speed changes by "every" parameter (e.g. 10 mph) -- using modf on speed
                     or if: speed is below Vref, then for every "callout" time interval (e.g. 2 sec) -- using modf on time
-        do not announce speed if below Vref/2
+        do not announce speed if below Vref/4
         always announce overspeed (e.g. 200 mph) and crossing Vref going down in speed (e.g. 60-59 mph)
       --]]
       
-      if( ( (mod_spd ~= old_mod_spd) or ( (mod_sec ~= old_mod_sec) and (not aboveVref)) ) and (spd > VrefSpd/2.0) ) then
+      if( (mod_spd ~= old_mod_spd) or (pending_spd > 0) or ((mod_sec ~= old_mod_sec) and (not aboveVref)) ) then
 
-	 old_mod_spd = mod_spd
 	 old_mod_sec = mod_sec
+	 old_mod_spd = mod_spd
+	 
+	 -- if pending_spd > 0  then print("Pending_spd: ", pending_spd) end
 
 	 -- if DEBUG then print("spd, mod_spd, rem_spd, old_mod_spd: ", spd, mod_spd, rem_spd, old_mod_spd) end
 
 	 -- if DEBUG then print( spd, (sgTC - last_sgTC)/1000., VrefSpd, aboveVref) end
 	 if aboveVref then mult = 1.5 else mult = 0.5 end
 	 if (((sgTC - last_sgTC)/1000.> VrefCall*mult)) then -- min time interval even if alt changes
-	    
-	    -- last_ann = spd
+
+	    pending_spd = 0
+	    old_mod_spd = mod_spd -- need this?
 	    last_sgTC = sgTC
-	    local sss = string.format("%.0f", spd)
+	    round_spd = math.floor(spd + 0.5)
+
+	    local sss = string.format("%.0f", round_spd)
 	    if (selFt) then
 	       if(shortAnn or not aboveVref) then
-		  system.playNumber(spd, 0)
+		  system.playNumber(round_spd, 0)
 		  if DEBUG then  print("(s)speed: ", sss, " mph") end
 	       else
-		  system.playNumber(spd, 0, "mph", "Speed")
+		  system.playNumber(round_spd, 0, "mph", "Speed")
 		  if DEBUG then  print("speed: ", sss, " mph") end
 	       end
 	    else
 	       if(shortAnn or not aboveVref) then
-		  system.playNumber(spd, 0)
+		  system.playNumber(round_spd, 0)
 		  if DEBUG then  print("(s)speed: ", sss, " km/hr") end
 	       else
-		  system.playNumber(spd, 0, "km/h", "Speed")
+		  system.playNumber(round_spd, 0, "km/h", "Speed")
 		  if DEBUG then  print("speed: ", sss, " km/hr") end
 	       end
 	    end
+	 else -- (sgTC - last_sgTC)
+	    if aboveVref then pending_spd = spd end
 	 end
       end
    end
-   --[[
+
+--[[
    local newLoopTime = system.getTimeCounter()
    local loopDelta = newLoopTime - lastLoopTime
    lastLoopTime = newLoopTime
@@ -310,6 +336,7 @@ local function loop()
       print('SpdAnn: Avg Loop Time: ', avgLoopTime)
    end
 --]]
+
    collectgarbage()
 end
 --------------------------------------------------------------------------------

@@ -379,8 +379,10 @@ local function loop()
 
    if(sensor and sensor.valid) then
       GraphValue  = sensor.value
+      GraphUnit = sensor.unit
       if GraphUnit == 'm' then -- ought to add "selft" to menu
-	 ss= string.format(GraphName .. ": %d " .. "ft", GraphValue*3.28084)
+         GraphValue = GraphValue*3.28024
+	 ss= string.format(GraphName .. ": %d " .. "ft", GraphValue)
       else
 	 ss= string.format(GraphName .. ": %d " .. GraphUnit, GraphValue)
       end
