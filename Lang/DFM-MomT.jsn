@@ -1,0 +1,23 @@
+{
+  "default":"en",
+  "en":{
+    "appName":"Momentary to Toggle",
+    "swi1":"Switch 1 M01 on",
+    "swi2":"Switch 2 M01 off",
+    "swi3":"Switch 3 M03 on",
+    "swi4":"Switch 4 M03 off",
+    "swi5":"Switch 5",
+    "latchSts1":"M01 status:",
+    "latchSts3":"M03 status:",
+    "latchSw1":"Latching SW1",
+    "latchSw2":"Latching SW2",
+    "latchSw3":"Latching SW3",
+    "latchSw4":"Latching SW4",
+    "latchSw5":"Latching SW5",
+    "swCntr1":"MO1",
+    "swCntr2":"MO2",
+    "swCntr3":"MO3",
+    "swCntr4":"MO4",
+    "swCntr5":"MO5"
+  }
+}

@@ -18,7 +18,10 @@ collectgarbage()
 
 -- Locals for application
 
-local trans11, spdSwitch, spdSe, spdSeId, spdSePa, maxSpd, VrefSpd, VrefCall
+local trans11, spdSwitch, spdSe
+local spdSeId = 0
+local spdSePa
+local maxSpd, VrefSpd, VrefCall
 local spdInter = 10
 local selFt, selFtSt, mod_spd, oldStep = true, 1, 0, 0
 local selFtIndex
@@ -43,7 +46,7 @@ local lastLoopTime = 0
 local avgLoopTime = 0
 local loopCount = 0
 
-local DEBUG = true
+local DEBUG = false
 --------------------------------------------------------------------------------
 
 -- Read and set translations
@@ -85,6 +88,8 @@ end
 
 local function spdInterChanged(value)
    spdInter = value
+   if spdInter == 99 then DEBUG = true end
+   if spdInter == 0  then DEBUG = false end
    system.pSave("spdInter", spdInter)
 end
 
@@ -195,13 +200,20 @@ local function loop()
 
 
    local swi  = system.getInputsVal(spdSwitch)
-   local sensor = system.getSensorByID(spdSeId, spdSePa)
+   if swi and swi < 1 then return end
+   
+   local sensor
+   if (spdSeId ~= 0) then
+      sensor = system.getSensorByID(spdSeId, spdSePa)
+   else
+      if not DEBUG then return end
+   end
+
    local mod_sec, rem_sec
    local rem_spd -- mod_spd defined at higher scope
    local mult
    local spd
 	 
-   if swi and swi < 1 then return end
    
    if(sensor and sensor.valid) then
       spd = sensor.value
@@ -250,7 +262,7 @@ local function loop()
 
       if (spd > maxSpd and not ovrSpd) then
 	 ovrSpd = true
-	 system.playFile('overspeed.wav', AUDIO_QUEUE)
+	 system.playFile('overspeed.wav', AUDIO_IMMEDIATE)
 	 if DEBUG then print("Overspeed!") end
 	 system.vibration(true, 3) -- 2x vibrations on right stick
       end
@@ -261,14 +273,16 @@ local function loop()
       end
       if ((spd <= VrefSpd/1.3) and (not stall_warn) and aboveVref_ever) then
 	 stall_warn = true
-	 system.playFile('stall_warning.wav', AUDIO_QUEUE)
+	 system.playFile('stall_warning.wav', AUDIO_IMMEDIATE)
 	 system.vibration(true, 4) -- 4 short pulses on right stick
-	 if DEBUG then print("Stall warning") end
+	 if DEBUG then print("Stall warning!") end
       end
  
 
-      mod_spd, rem_spd = math.modf(spd / spdInter) -- look at modulo to see if we need to re-announce
-
+      if spdInter ~= 0 then
+	 mod_spd, rem_spd = math.modf(spd / spdInter) -- look at modulo to see if we need to re-announce
+      end
+      
       sgTC = system.getTimeCounter()
       mod_sec, rem_sec = math.modf(sgTC/(1000.0*VrefCall))
 
@@ -337,7 +351,7 @@ local function loop()
    end
 --]]
 
-   collectgarbage()
+   -- collectgarbage()
 end
 --------------------------------------------------------------------------------
 local function init()
