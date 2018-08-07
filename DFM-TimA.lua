@@ -61,6 +61,7 @@ local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
 local sensorPalist = { "..." }  -- sensor parameters
 local sensorUnlist = { "..." }  -- sensor Units
+local sensorTylist = { "..." }  -- sensor Type
 
 local batt_id   = {0,0,0,0} -- hardcoded IDs for sensors related to batt current and mah
 local batt_pa   = {0,0,0,0}
@@ -93,24 +94,28 @@ end
 
 local function readSensors()
 
-  local batt_info = {"I Accu 1", "I Accu 2", "Capacity 1", "Capacity 2"}
-
-  local sensors = system.getSensors()
-  for i, sensor in ipairs(sensors) do
-    if (sensor.label ~= "") then
-      -- print(sensor.label,",",sensor.id, ",", sensor.param, ",", sensor.unit)
-      table.insert(sensorLalist, sensor.label)
-      for j, name in ipairs(batt_info) do 
-        if sensor.label == batt_info[j] then
-          batt_id[j] = sensor.id
-          batt_pa[j] = sensor.param
-        end
+   local batt_info = {"I Accu 1", "I Accu 2", "Capacity 1", "Capacity 2"}
+   
+   local sensors = system.getSensors()
+   for i, sensor in ipairs(sensors) do
+      if (sensor.label ~= "") then
+	 -- if i < 12 then
+	    -- print(sensor.label,",",sensor.id, ",", sensor.param, ",", sensor.unit, ",", sensor.type)
+	 -- end
+	 
+	 table.insert(sensorLalist, sensor.label)
+	 for j, name in ipairs(batt_info) do 
+	    if sensor.label == batt_info[j] then
+	       batt_id[j] = sensor.id
+	       batt_pa[j] = sensor.param
+	    end
+	 end
+	 table.insert(sensorIdlist, sensor.id)
+	 table.insert(sensorPalist, sensor.param)
+	 table.insert(sensorUnlist, sensor.unit)
+	 table.insert(sensorTylist, sensor.type)
       end
-      table.insert(sensorIdlist, sensor.id)
-      table.insert(sensorPalist, sensor.param)
-      table.insert(sensorUnlist, sensor.unit)
-    end
-  end
+   end
 end
 
 ----------------------------------------------------------------------
