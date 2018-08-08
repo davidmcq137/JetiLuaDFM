@@ -526,8 +526,9 @@ local function drawSpeed()
   delta = speed % 10
   deltaY = 1 + math.floor(2.4 * delta)
   lcd.drawText(colSpeed-30, heightAH+2, "mph", FONT_MINI)
+  -- stick this in here: xscale x yscale
   local text=string.format("%d x %d", mapXrange, mapYrange)
-  lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2, heightAH+2, text, FONT_MINI)
+  lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
 
   lcd.setClipping(colSpeed-37,0,45,heightAH)
   --print("dS clipping: ", colSpeed-37, 0, 45, heightAH)
@@ -648,10 +649,10 @@ local function drawVario()
    lcd.drawFilledRectangle(colVario-9, rowVario-1, 20, 2)
 
    lcd.drawText(colVario-10, heightAH+2, "fpm", FONT_MINI)
-   
+
    lcd.drawFilledRectangle(colVario-48,rowAH-8,38,lcd.getTextHeight(FONT_NORMAL))
    lcd.setColor(255-txtr,255-txtg,255-txtb)
-   local text = string.format("%.0d", vario)
+   local text = string.format("%d", math.floor(vario*0.1+0.5)/0.1)
    lcd.drawText(colVario-12- lcd.getTextWidth(FONT_NORMAL,text), rowAH-8, text, FONT_NORMAL | FONT_XOR)
 
    lcd.setColor(r,g,b)  
@@ -693,8 +694,12 @@ local function mapPrint(windowWidth, windowHeight)
 
    end
 
+--   for i=1, #rwShape do
+      
+--   end
+   
 
- --[[   
+--[[   
    if compcrsDeg then
       ss = string.format("Magnetic Course: %d".."\u{B0}", compcrsDeg + magneticVar)
    else
@@ -937,18 +942,21 @@ local function loop()
    mapXrange = mapXmax - mapXmin
    mapYrange = mapYmax - mapYmin
    
-   if xExp or yExp then
+   mapYrange = math.floor(mapYrange/50+1)*50	 
+   mapXrange = math.floor(mapXrange/100+1)*100
+
+   --if xExp or yExp then
       if mapXrange > 2 * mapYrange and xExp then
 	 mapYmin = mapYmin*mapXrange/oldXrange
 	 mapYmax = mapYmax*mapXrange/oldXrange
+	 mapYrange = mapYmax - mapYmin
       end
       if mapYrange > 0.5 * mapXrange and yExp then
 	 mapXmin = mapXmin*mapYrange/oldYrange
 	 mapXmax = mapXmax*mapYrange/oldYrange
+	 mapXrange = mapXmax - mapXmin
       end
-      mapYrange = mapYmax - mapYmin
-      mapXrange = mapXmax - mapXmin
-   end
+   --end
    
    
    --tt = system.getTimeCounter()/1000
