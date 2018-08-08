@@ -1,22 +1,19 @@
 --[[
-	---------------------------------------------------------
-    ILS descr
+
+   --------------------------------------------------------------------------------------------------
     
-    Derived from DFM's Speed and Time Announcers, which were turn was derived from RCT's Alt Announcer
+   Derived from DFM's Speed and Time Announcers, which were turn was derived from RCT's Alt Announcer.
+   Borrowed and modified code from Jeti's AH example for tapes and heading indicator.
+   Significant new code to project Lat/Long via Mercatur projection to XY plane, and to
+   compute heading from the projected XY plane track for GPS sensors that don't have this feature 
     
-    Requires transmitter firmware 4.22 or higher.
+   Requires transmitter firmware 4.22 or higher.
     
-    Works in DS-24
-    
-	----------------------------------------------------------------------
-	Localisation-file has to be as /Apps/Lang/DFM-TimA.jsn if used
-	----------------------------------------------------------------------
-	Derived from AltAnnouncer - a part of RC-Thoughts Jeti Tools.
-	----------------------------------------------------------------------
-	AltAnnouncer released under MIT-license by Tero @ RC-Thoughts.com 2017
-	----------------------------------------------------------------------
-	DFM-LSO.lua released under MIT license by DFM 2018
-	----------------------------------------------------------------------
+   Works in DS-24
+
+   --------------------------------------------------------------------------------------------------
+   DFM-ILS.lua released under MIT license by DFM 2018
+   --------------------------------------------------------------------------------------------------
 
 --]]
 
@@ -46,6 +43,11 @@ local magneticVar
 local xtable = {}
 local ytable = {}
 local ztable = {}
+
+local vviAlt = {}
+local vviTim = {}
+local vvi, va
+local ivvi = 1
 
 local mapXmin, mapXmax = -100, 100
 local mapYmin, mapYmax = -50, 50
@@ -101,13 +103,16 @@ local rE = 6371*1000
 local rad = 180/math.pi
 local compcrs
 local heading, compcrsDeg = 0, 0
+local vario=0
 local lineAvgPts = 4  -- number of points to linear fit to compute course
+local vviSlopeTime = 0
 
 local ren=lcd.renderer()
 local txtr, txtg, txtb = 0,0,0
 
 local ff
 local qq
+local sysTimeStart = system.getTimeCounter()
 
 --------------------------------------------------------------------------------
 
@@ -521,6 +526,9 @@ local function drawSpeed()
   delta = speed % 10
   deltaY = 1 + math.floor(2.4 * delta)
   lcd.drawText(colSpeed-30, heightAH+2, "mph", FONT_MINI)
+  local text=string.format("%d x %d", mapXrange, mapYrange)
+  lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2, heightAH+2, text, FONT_MINI)
+
   lcd.setClipping(colSpeed-37,0,45,heightAH)
   --print("dS clipping: ", colSpeed-37, 0, 45, heightAH)
   
@@ -612,6 +620,50 @@ local function drawHeading()
    lcd.resetClipping()
 end
 
+
+local bgr,bgg,bgb
+local alphadot
+local function mixBgColor(r,g,b,alpha)
+  bgr,bgg,bgb = lcd.getBgColor()
+  alphadot = 1 - alpha
+  r = bgr*alphadot + r*alpha
+  g = bgg*alphadot + g*alpha
+  b = bgb*alphadot + b*alpha
+  return r,g,b
+end
+
+--- draw Vario (vvi) 
+
+local rowVario = 80
+local colVario = 260
+
+local function drawVario()
+
+   r,g,b = lcd.getFgColor()
+   lcd.setColor(r,g,b)
+
+   for i = -60, 60, 30 do
+      lcd.drawLine(colVario-7, rowVario+i, colVario+8, rowVario+i)
+   end
+   lcd.drawFilledRectangle(colVario-9, rowVario-1, 20, 2)
+
+   lcd.drawText(colVario-10, heightAH+2, "fpm", FONT_MINI)
+   
+   lcd.drawFilledRectangle(colVario-48,rowAH-8,38,lcd.getTextHeight(FONT_NORMAL))
+   lcd.setColor(255-txtr,255-txtg,255-txtb)
+   local text = string.format("%.0d", vario)
+   lcd.drawText(colVario-12- lcd.getTextWidth(FONT_NORMAL,text), rowAH-8, text, FONT_NORMAL | FONT_XOR)
+
+   lcd.setColor(r,g,b)  
+   if(vario > 1200) then vario = 1200 end
+   if(vario < -1200) then vario = -1200 end
+      if (vario > 0) then 
+      lcd.drawFilledRectangle(colVario-4,rowVario-math.floor(vario/16.66 + 0.5),10,math.floor(vario/16.66+0.5),170)
+   elseif(vario < 0) then 
+      lcd.drawFilledRectangle(colVario-4,rowVario+1,10,math.floor(-vario/16.66 + 0.5), 170)
+   end   
+end
+
 ---------------------------------------------------------------------------------
 
 local function mapPrint(windowWidth, windowHeight)
@@ -627,6 +679,7 @@ local function mapPrint(windowWidth, windowHeight)
    drawAltitude()
    drawHeading()
    drawDistance()
+   drawVario()
    
    for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
 
@@ -735,12 +788,14 @@ local function loop()
    local x, y, xyslope
    local oldXrange, oldYrange
    local MAXTABLE = 100
+   local MAXVVITABLE = 15 -- points to fit to compute vertical speed -- 3 seconds at 0.2 sec sample
    local OFFGROUND = 10 -- units?
    local xExp, yExp
    local tt
    local hasPitot
    local hasCourseGPS
    local sensor
+   local adelta = 0.1
    
    if resetOrigin then
       gotInitPos = false
@@ -750,16 +805,12 @@ local function loop()
 
    if DEBUG then
 
-      debugTime = math.fmod(debugTime + .005, 2*math.pi)
-
-      speed = math.fmod(speed + .3, 200)
-      altitude = math.fmod(altitude + .2, 1000)
-      --heading = math.fmod(heading + 2, 360)
-
+      debugTime =debugTime + .005
+      speed = 40 + 80 * (math.sin(.3*debugTime) + 1)
+      altitude = 20 + 240 * (math.cos(.3*debugTime)+1)
       x = 600*math.sin(5*debugTime)
       y = 300*math.cos(7*debugTime)
-      --print("x,y: ", x, y)
-      
+
       goto computedXY
    end
    
@@ -856,6 +907,7 @@ local function loop()
    
    ::computedXY::   
 
+
    xExp = false
    yExp = false
    
@@ -922,6 +974,22 @@ local function loop()
    end
    
    compcrsDeg = compcrs*180/math.pi
+   
+   tt = system.getTimeCounter() - sysTimeStart
+
+   if tt > vviSlopeTime then
+      if #vviTim + 1 > MAXVVITABLE then
+	 table.remove(vviTim, 1)
+	 table.remove(vviAlt, 1)
+      end
+      table.insert(vviTim, #vviTim+1, tt/60000.)
+      table.insert(vviAlt, #vviAlt+1, altitude)
+      vvi, va = fslope(vviTim, vviAlt)
+      --print('tt/60000, altitude, vvi, va: ', tt/60000., altitude, vvi, va)
+      vario = vvi
+      vviSlopeTime = tt + 200. -- next data point in 0.2 sec
+   end
+   
    
    if DEBUG then
       heading = compcrsDeg
