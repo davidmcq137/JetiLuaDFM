@@ -656,7 +656,7 @@ local function drawVario()
    for i = -60, 60, 30 do
       lcd.drawLine(colVario-7, rowVario+i, colVario+8, rowVario+i)
    end
-   lcd.drawFilledRectangle(colVario-9, rowVario-1, 20, 2)
+   lcd.drawFilledRectangle(colVario-9, rowVario-2, 20, 3)
 
    lcd.drawText(colVario-10, heightAH+2, "fpm", FONT_MINI)
 
@@ -668,11 +668,11 @@ local function drawVario()
    lcd.setColor(r,g,b)  
    if(vario > 1200) then vario = 1200 end
    if(vario < -1200) then vario = -1200 end
-      if (vario > 0) then 
+   if (vario > 0) then 
       lcd.drawFilledRectangle(colVario-4,rowVario-math.floor(vario/16.66 + 0.5),10,math.floor(vario/16.66+0.5),170)
    elseif(vario < 0) then 
       lcd.drawFilledRectangle(colVario-4,rowVario+1,10,math.floor(-vario/16.66 + 0.5), 170)
-   end   
+   end
 end
 
 local function toXPixel(coord, min, range, width)
@@ -738,6 +738,10 @@ local function ilsPrint(windowWidth, windowHeight)
    local xc = 155
    local yc = 79
    local aa, mm
+   local hyp, perpd, d2r, cdi
+   local dr, dl
+   local dx, dy=0,0
+   local vA=0
    
    r, g, b = lcd.getFgColor()
    lcd.setColor(r, g, b)
@@ -756,18 +760,52 @@ local function ilsPrint(windowWidth, windowHeight)
    xl2r, yl2r = rotateXY(xl2, yl2, rrad)
 
    mm, aa = fslope({xTSr,xTCr}, {yTSr, yTCr})
-   print('runway - aa,mm: ', math.deg(aa), mm)
-   
-   local dx = math.floor(35*math.sin(1.1*debugTime)+.5)
-   local dy = math.floor(35*math.cos(0.8*debugTime)+.5)
-   
-   lcd.setColor(250,0,0) -- red ILS bars
-   
-   -- first the horiz bar
-   lcd.drawFilledRectangle(xc-55, yc-2+dy, 110, 4)
-   -- now vertical
-   lcd.drawFilledRectangle(xc-2+dx,yc-55, 4, 110)
+   --print('runway - aa,mm: ', math.deg(aa), mm)
 
+   -- First compute determinants to see what side of the right and left lines we are on
+   -- ILS course is between them -- also compute which side of the course we are on
+   
+   dr = (xtable[#xtable]-xr1r)*(yr2r-yr1r) - (ytable[#ytable]-yr1r)*(xr2r-xr1r)
+   dl = (xtable[#xtable]-xl1r)*(yl2r-yl1r) - (ytable[#ytable]-yl1r)*(xl2r-xl1r)
+   dc = (xtable[#xtable]-xTSr)*(yTCr-yTSr) - (ytable[#ytable]-yTSr)*(xTCr-xTSr)
+   
+   if dl <= 0 and dr >= 0 then
+   
+      hyp = math.sqrt( (ytable[#ytable]-yTSr)^2 + (xtable[#xtable]-yTSr)^2 )
+      perpd  = math.abs((yTCr-yTSr)*xtable[#xtable] - (xTCr-xTSr)*ytable[#ytable]+xTCr*yTSr-yTCr*xTSr) / hyp
+      d2r = math.sqrt(hyp^2 - perpd^2)
+      rA = math.deg(math.atan(perpd/d2r))
+      vA = math.deg(math.atan(altitude/d2r))
+      --print('d2r, altitude, vA', d2r, altitude, vA)
+      --print('hyp, perpd, d2r, rA: ', hyp, perpd, d2r, rA)
+      
+      if dc> 0 then dx = rA*-12 else dx=rA*12 end
+      dy = (vA-3)*12
+      if dy > 60 then dy = 60 end
+      if dy < -60 then dy = -60 end
+   else
+      dx=0
+      dy=0
+   end
+   
+      
+   lcd.setColor(lcd.getFgColor())
+   
+   -- draw no bars if not in the ILS zone
+
+   if dl <= 0 and dr >= 0 then
+      -- first the horiz bar
+      lcd.drawFilledRectangle(xc-55, yc-2+dy, 110, 4)
+      -- now vertical bar and glideslope angle display
+      local text = string.format("%.0f", math.floor(vA/0.01+5)*.01)
+      lcd.drawFilledRectangle(52,rowAH-8,lcd.getTextWidth(FONT_NORMAL, text)+8,lcd.getTextHeight(FONT_NORMAL))
+      lcd.setColor(255-txtr,255-txtg,255-txtb)
+      lcd.drawText(56, rowAH-8, text, FONT_NORMAL | FONT_XOR)
+      lcd.setColor(255,0,0)
+
+      lcd.drawFilledRectangle(xc-2+dx,yc-55, 4, 110)
+   end
+   
    text = string.format("%03d",heading)
    w = lcd.getTextWidth(FONT_NORMAL,text) 
    lcd.setColor(txtr,txtg,txtb)
@@ -807,9 +845,12 @@ local function mapPrint(windowWidth, windowHeight)
    lcd.drawCircle(toXPixel(0, mapXmin, mapXrange, windowWidth), toYPixel(0, mapYmin, mapYrange, windowHeight), 5)
 
    -- use the "P8" control to rotate the runway for testing
+   if DEBUG then
+      rrad = system.getInputs("P8")*math.pi
+   else
+      rrad = 0
+   end
    
-   rrad = system.getInputs("P8")*math.pi
-  
    xTSr, yTSr = rotateXY(xTakeoffStart, yTakeoffStart, rrad)
    xTCr, yTCr = rotateXY(xTakeoffComplete, yTakeoffComplete, rrad)
    xr1r, yr1r = rotateXY(xr1, yr1, rrad)
@@ -839,7 +880,7 @@ local function mapPrint(windowWidth, windowHeight)
 
    for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
 
-      -- first compute determinants to see what side of the right and left lines we are on
+      -- First compute determinants to see what side of the right and left lines we are on
       -- ILS course is between them
       
       dr = (xtable[i]-xr1r)*(yr2r-yr1r) - (ytable[i]-yr1r)*(xr2r-xr1r)
@@ -938,12 +979,12 @@ local function loop()
    end
 
    if DEBUG then
-
-      debugTime =debugTime + .005
+      local p7 = .010/2*(system.getInputs("P7")+1)
+      debugTime =debugTime + p7
       speed = 40 + 80 * (math.sin(.3*debugTime) + 1)
-      altitude = 20 + 240 * (math.cos(.3*debugTime)+1)
-      x = 600*math.sin(5*debugTime)
-      y = 300*math.cos(7*debugTime)
+      altitude = 20 + 200 * (math.cos(.3*debugTime)+1)
+      x = 600*math.sin(2*debugTime)
+      y = 300*math.cos(3*debugTime)
 
       goto computedXY
    end
@@ -1080,7 +1121,7 @@ local function loop()
    mapYrange = math.floor(mapYrange/50+1)*50	 
    mapXrange = math.floor(mapXrange/100+1)*100
 
-   if mapXrange > 2 * mapYrange and xExp then
+   if mapXrange > 2 * mapYrange then
       if maxExp then mapXmin = mapXmin*mapXrange/oldXrange end
       if minExp then mapXmax = mapXmax*mapXrange/oldXrange end
 	 
@@ -1088,7 +1129,7 @@ local function loop()
       mapYmax = mapYmax*mapXrange/oldXrange
       mapYrange = mapYmax - mapYmin
    end
-   if mapYrange > 0.5 * mapXrange and yExp then
+   if mapYrange > 0.5 * mapXrange then
       if maxExp then mapYmin = mapYmin*mapYrange/oldYrange end
       if minExp then mapYmax = mapYmax*mapYrange/oldYrange end
       mapXmin = mapXmin*mapYrange/oldYrange
