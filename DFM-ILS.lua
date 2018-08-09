@@ -54,7 +54,7 @@ local mapYmin, mapYmax = -50, 50
 local mapXrange = mapXmax - mapXmin
 local mapYrange = mapYmax - mapYmin
 
-local DEBUG = true -- if set to <true> will print to console the speech files and output
+local DEBUG = false -- if set to <true> will print to console the speech files and output
 local debugTime = 0
 
 -- these are the non-GPS sensors
@@ -750,7 +750,16 @@ local function ilsPrint(windowWidth, windowHeight)
    lcd.drawLine (60, yc, 250, yc) -- horiz axis
    lcd.drawLine (xc,1,xc,159)  -- vert axis
 
-   rrad = system.getInputs("P8")*math.pi
+   drawSpeed()
+   drawAltitude()
+   drawVario()   
+
+   if DEBUG then
+      rrad = system.getInputs("P8")*math.pi
+   else
+      rrad = 0
+   end
+   
   
    xTSr, yTSr = rotateXY(xTakeoffStart, yTakeoffStart, rrad)
    xTCr, yTCr = rotateXY(xTakeoffComplete, yTakeoffComplete, rrad)
@@ -764,47 +773,46 @@ local function ilsPrint(windowWidth, windowHeight)
 
    -- First compute determinants to see what side of the right and left lines we are on
    -- ILS course is between them -- also compute which side of the course we are on
-   
-   dr = (xtable[#xtable]-xr1r)*(yr2r-yr1r) - (ytable[#ytable]-yr1r)*(xr2r-xr1r)
-   dl = (xtable[#xtable]-xl1r)*(yl2r-yl1r) - (ytable[#ytable]-yl1r)*(xl2r-xl1r)
-   dc = (xtable[#xtable]-xTSr)*(yTCr-yTSr) - (ytable[#ytable]-yTSr)*(xTCr-xTSr)
-   
-   if dl <= 0 and dr >= 0 then
-   
-      hyp = math.sqrt( (ytable[#ytable]-yTSr)^2 + (xtable[#xtable]-yTSr)^2 )
-      perpd  = math.abs((yTCr-yTSr)*xtable[#xtable] - (xTCr-xTSr)*ytable[#ytable]+xTCr*yTSr-yTCr*xTSr) / hyp
-      d2r = math.sqrt(hyp^2 - perpd^2)
-      rA = math.deg(math.atan(perpd/d2r))
-      vA = math.deg(math.atan(altitude/d2r))
-      --print('d2r, altitude, vA', d2r, altitude, vA)
-      --print('hyp, perpd, d2r, rA: ', hyp, perpd, d2r, rA)
+   if #xtable >=1 then
+      dr = (xtable[#xtable]-xr1r)*(yr2r-yr1r) - (ytable[#ytable]-yr1r)*(xr2r-xr1r)
+      dl = (xtable[#xtable]-xl1r)*(yl2r-yl1r) - (ytable[#ytable]-yl1r)*(xl2r-xl1r)
+      dc = (xtable[#xtable]-xTSr)*(yTCr-yTSr) - (ytable[#ytable]-yTSr)*(xTCr-xTSr)
       
-      if dc> 0 then dx = rA*-12 else dx=rA*12 end
-      dy = (vA-3)*12
-      if dy > 60 then dy = 60 end
-      if dy < -60 then dy = -60 end
-   else
-      dx=0
-      dy=0
-   end
+      if dl <= 0 and dr >= 0 then
+	 
+	 hyp = math.sqrt( (ytable[#ytable]-yTSr)^2 + (xtable[#xtable]-yTSr)^2 )
+	 perpd  = math.abs((yTCr-yTSr)*xtable[#xtable] - (xTCr-xTSr)*ytable[#ytable]+xTCr*yTSr-yTCr*xTSr) / hyp
+	 d2r = math.sqrt(hyp^2 - perpd^2)
+	 rA = math.deg(math.atan(perpd/d2r))
+	 vA = math.deg(math.atan(altitude/d2r))
+	 --print('d2r, altitude, vA', d2r, altitude, vA)
+	 --print('hyp, perpd, d2r, rA: ', hyp, perpd, d2r, rA)
+	 
+	 if dc> 0 then dx = rA*-12 else dx=rA*12 end
+	 dy = (vA-3)*12
+	 if dy > 60 then dy = 60 end
+	 if dy < -60 then dy = -60 end
+      else
+	 dx=0
+	 dy=0
+      end
+      lcd.setColor(lcd.getFgColor())
    
+      -- draw no bars if not in the ILS zone
+
+      if dl <= 0 and dr >= 0 then
+	 -- first the horiz bar
+	 lcd.drawFilledRectangle(xc-55, yc-2+dy, 110, 4)
+	 -- now vertical bar and glideslope angle display
+	 local text = string.format("%.0f", math.floor(vA/0.01+5)*.01)
+	 lcd.drawFilledRectangle(52,rowAH-8,lcd.getTextWidth(FONT_NORMAL, text)+8,lcd.getTextHeight(FONT_NORMAL))
+	 lcd.setColor(255-txtr,255-txtg,255-txtb)
+	 lcd.drawText(56, rowAH-8, text, FONT_NORMAL | FONT_XOR)
+	 lcd.setColor(255,0,0)
+	 lcd.drawFilledRectangle(xc-2+dx,yc-55, 4, 110)
+      end
+   end
       
-   lcd.setColor(lcd.getFgColor())
-   
-   -- draw no bars if not in the ILS zone
-
-   if dl <= 0 and dr >= 0 then
-      -- first the horiz bar
-      lcd.drawFilledRectangle(xc-55, yc-2+dy, 110, 4)
-      -- now vertical bar and glideslope angle display
-      local text = string.format("%.0f", math.floor(vA/0.01+5)*.01)
-      lcd.drawFilledRectangle(52,rowAH-8,lcd.getTextWidth(FONT_NORMAL, text)+8,lcd.getTextHeight(FONT_NORMAL))
-      lcd.setColor(255-txtr,255-txtg,255-txtb)
-      lcd.drawText(56, rowAH-8, text, FONT_NORMAL | FONT_XOR)
-      lcd.setColor(255,0,0)
-
-      lcd.drawFilledRectangle(xc-2+dx,yc-55, 4, 110)
-   end
    
    text = string.format("%03d",heading)
    w = lcd.getTextWidth(FONT_NORMAL,text) 
@@ -813,9 +821,6 @@ local function ilsPrint(windowWidth, windowHeight)
    lcd.setColor(255-txtr,255-txtg,255-txtb)
    lcd.drawText(xc - w/2,143,text,  FONT_XOR)
    
-   drawSpeed()
-   drawAltitude()
-   drawVario()   
 
 end
 
@@ -985,7 +990,6 @@ local function loop()
       altitude = 20 + 200 * (math.cos(.3*debugTime)+1)
       x = 600*math.sin(2*debugTime)
       y = 300*math.cos(3*debugTime)
-
       goto computedXY
    end
    
@@ -998,8 +1002,7 @@ local function loop()
       if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
 	 longitude = longitude * -1
       end
-   else
-      return
+      
    end
    
    sensor = system.getSensorByID(LatitudeSeId, LatitudeSePa)
@@ -1011,59 +1014,47 @@ local function loop()
       if sensor.decimals == 2 then -- "South" .. make it negative
 	 latitude = latitude * -1
       end
-   else
-      return
+      
    end
    
    sensor = system.getSensorByID(AltitudeSeId, AltitudeSePa)
 
    if(sensor and sensor.valid) then
-      altitude = sensor.value
-   else
-      return
+      altitude = sensor.value*3.28084 -- convert to ft, telem apis only report native values
    end
 
    sensor = system.getSensorByID(SpeedNonGPSSeId, SpeedNonGPSSePa)
 
    hasPitot = false
    if(sensor and sensor.valid) then
-      SpeedNonGPS = sensor.value
+      SpeedNonGPS = sensor.value * 0.621371 -- unit conversion to mph
       hasPitot = true
-   else
-      return
    end
 
    sensor = system.getSensorByID(SpeedGPSSeId, SpeedGPSSePa)
 
    if(sensor and sensor.valid) then
-      SpeedGPS = sensor.value
-   else
-      return
+      SpeedGPS = sensor.value *.621371
    end
 
    sensor = system.getSensorByID(DistanceGPSSeId, DistanceGPSSePa)
 
    if(sensor and sensor.valid) then
-      DistanceGPS = sensor.value
-   else
-      return
+      DistanceGPS = sensor.value*3.2808
    end      
 
    hasCourseGPS = false
    sensor = system.getSensorByID(CourseGPSSeId, CourseGPSSeId)
-   if sensor.valid then
+   if sensor and sensor.valid then
       courseGPS = sensor.value
       HasCourseGPS = true
-   else
-      return
    end
    
-   -- if we got here, lat, long and alt are all valid
-   -- so we can compute x, y and heading
    -- only recompute when lat and long have changed
 
    if latitude == lastlat and longitude == lastlong then return end
-   
+
+   print("changed: ", longitude, latitude, altitude)
    lastlat = latitude
    lastlong = longitude
 
@@ -1081,7 +1072,6 @@ local function loop()
    -- map?xxxx are all in ft .. convert to pixels in telem draw function
    
    ::computedXY::   
-
 
    xExp = false
    yExp = false
@@ -1190,9 +1180,9 @@ local function loop()
    
    
    if not DEBUG then
-      if hasPitot then
+      if hasPitot and SpeedNonGPS ~= nil then
 	 speed = SpeedNonGPS
-      else
+      elseif SpeedGPS ~= nil then
 	 speed = SpeedGPS
       end
    end
