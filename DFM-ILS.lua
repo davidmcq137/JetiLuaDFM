@@ -55,6 +55,7 @@ local mapXrange = mapXmax - mapXmin
 local mapYrange = mapYmax - mapYmin
 
 local DEBUG = true -- if set to <true> will print to console the speech files and output
+local debugTime = 0
 
 -- these are the non-GPS sensors
 
@@ -78,14 +79,15 @@ local brakeControl
 local brakeReleaseTime = 0
 local oldBrake = 0
 
-local xTakeoffStart
-local yTakeoffStart
-local zTakeoffStart
+local xTakeoffStart=-200
+local yTakeoffStart=0
+local zTakeoffStart=0
 
-local xTakeoffComplete
-local yTakeoffComplete
-local zTakeoffComplete
+local xTakeoffComplete=200
+local yTakeoffComplete=0
+local zTakeoffComplete=0
 local TakeoffHeading
+local RunwayHeading
 
 local neverAirborne=true
 
@@ -107,12 +109,14 @@ local vario=0
 local lineAvgPts = 4  -- number of points to linear fit to compute course
 local vviSlopeTime = 0
 
+
 local ren=lcd.renderer()
 local txtr, txtg, txtb = 0,0,0
 
 local ff
 local qq
 local sysTimeStart = system.getTimeCounter()
+local glideSlopePNG
 
 --------------------------------------------------------------------------------
 
@@ -454,6 +458,15 @@ local function drawShape(col, row, shape, rotation)
    ren:renderPolygon()
 end
 
+local function rotateXY(x, y, rotation)
+   local sinShape, cosShape
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   xr = (x * cosShape - y * sinShape)
+   yr = (x * sinShape + y * cosShape)
+   return xr, yr
+end
+
 local function drawDistance()
 
    lcd.setColor(txtr,txtg,txtb)
@@ -526,9 +539,6 @@ local function drawSpeed()
   delta = speed % 10
   deltaY = 1 + math.floor(2.4 * delta)
   lcd.drawText(colSpeed-30, heightAH+2, "mph", FONT_MINI)
-  -- stick this in here: xscale x yscale
-  local text=string.format("%d x %d", mapXrange, mapYrange)
-  lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
 
   lcd.setClipping(colSpeed-37,0,45,heightAH)
   --print("dS clipping: ", colSpeed-37, 0, 45, heightAH)
@@ -640,7 +650,7 @@ local colVario = 260
 
 local function drawVario()
 
-   r,g,b = lcd.getFgColor()
+   local r,g,b = lcd.getFgColor()
    lcd.setColor(r,g,b)
 
    for i = -60, 60, 30 do
@@ -665,13 +675,122 @@ local function drawVario()
    end   
 end
 
----------------------------------------------------------------------------------
+local function toXPixel(coord, min, range, width)
+   local pix
+   pix = (coord - min)/range * width
+   pix = (pix*0.98125) + 3
+   return pix
+end
 
+local function toYPixel(coord, min, range, height)
+   local pix
+   pix = height-(coord - min)/range * height
+   pix = (pix*0.98125) + 3
+   return pix
+end
+
+-- 'local globals' shared by ilsPrint and mapPrint .. maybe just for testing?
+
+local xr1,yr1, xr2, yr2 = xTakeoffStart, yTakeoffStart, 2*xTakeoffStart, yTakeoffStart - 50
+local xl1,yl1, xl2, yl2 = xTakeoffStart, yTakeoffStart, 2*xTakeoffStart, yTakeoffStart + 50local xTSr, yTSr
+local xTCr, yTCr
+local xr1r, yr1r
+local xr2r, yr2r
+local xl1r, yl1r
+local xl2r, yl2r
+
+local function fslope(x, y)
+
+    local xbar, ybar, sxy, sx2 = 0,0,0,0
+    
+    for i = 1, #x do
+       xbar = xbar + x[i]
+       ybar = ybar + y[i]
+    end
+
+    xbar = xbar/#x
+    ybar = ybar/#y
+
+    for i = 1, #x do
+        sxy = sxy + (x[i]-xbar)*(y[i]-ybar)
+        sx2 = sx2 + (x[i] - xbar)^2
+    end
+    
+    if sx2 < 1.0E-6 then -- would it be more proper to set slope to inf and let atan do its thing?
+       sx2 = 1.0E-6      -- or just let it div0 and set to inf itself?
+    end                  -- for now this is only a .00001-ish degree error
+    
+    slope = sxy/sx2
+    
+    theta = math.atan(slope)
+    tt=0
+    if x[1] < x[#x] then
+       tt = math.pi/2 - theta
+    else
+       tt = math.pi*3/2 - theta
+    end
+ 
+    return slope, tt
+end
+
+local function ilsPrint(windowWidth, windowHeight)
+
+   local xc = 155
+   local yc = 79
+   local aa, mm
+   
+   r, g, b = lcd.getFgColor()
+   lcd.setColor(r, g, b)
+   
+   lcd.drawImage( (310-glideSlopePNG.width)/2+1,10, glideSlopePNG)
+   lcd.drawLine (60, yc, 250, yc) -- horiz axis
+   lcd.drawLine (xc,1,xc,159)  -- vert axis
+
+   rrad = system.getInputs("P8")*math.pi
+  
+   xTSr, yTSr = rotateXY(xTakeoffStart, yTakeoffStart, rrad)
+   xTCr, yTCr = rotateXY(xTakeoffComplete, yTakeoffComplete, rrad)
+   xr1r, yr1r = rotateXY(xr1, yr1, rrad)
+   xr2r, yr2r = rotateXY(xr2, yr2, rrad)
+   xl1r, yl1r = rotateXY(xl1, yl1, rrad)
+   xl2r, yl2r = rotateXY(xl2, yl2, rrad)
+
+   mm, aa = fslope({xTSr,xTCr}, {yTSr, yTCr})
+   print('runway - aa,mm: ', math.deg(aa), mm)
+   
+   local dx = math.floor(35*math.sin(1.1*debugTime)+.5)
+   local dy = math.floor(35*math.cos(0.8*debugTime)+.5)
+   
+   lcd.setColor(250,0,0) -- red ILS bars
+   
+   -- first the horiz bar
+   lcd.drawFilledRectangle(xc-55, yc-2+dy, 110, 4)
+   -- now vertical
+   lcd.drawFilledRectangle(xc-2+dx,yc-55, 4, 110)
+
+   text = string.format("%03d",heading)
+   w = lcd.getTextWidth(FONT_NORMAL,text) 
+   lcd.setColor(txtr,txtg,txtb)
+   lcd.drawFilledRectangle(xc - w/2,143 , w, lcd.getTextHeight(FONT_NORMAL))
+   lcd.setColor(255-txtr,255-txtg,255-txtb)
+   lcd.drawText(xc - w/2,143,text,  FONT_XOR)
+   
+   drawSpeed()
+   drawAltitude()
+   drawVario()   
+
+end
+
+
+   
 local function mapPrint(windowWidth, windowHeight)
 
    local xpix, ypix
    local r, g, b
    local ss, ww
+   local d1, d2
+   local xr1,yr1, xr2, yr2 = xTakeoffStart, yTakeoffStart, 2*xTakeoffStart, yTakeoffStart - 50
+   local xl1,yl1, xl2, yl2 = xTakeoffStart, yTakeoffStart, 2*xTakeoffStart, yTakeoffStart + 50
    
    r, g, b = lcd.getFgColor()
    lcd.setColor(r, g, b)
@@ -682,18 +801,62 @@ local function mapPrint(windowWidth, windowHeight)
    drawDistance()
    drawVario()
    
+   local text=string.format("%d x %d", mapXrange, mapYrange)
+   lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
+
+   lcd.drawCircle(toXPixel(0, mapXmin, mapXrange, windowWidth), toYPixel(0, mapYmin, mapYrange, windowHeight), 5)
+
+   -- use the "P8" control to rotate the runway for testing
+   
+   rrad = system.getInputs("P8")*math.pi
+  
+   xTSr, yTSr = rotateXY(xTakeoffStart, yTakeoffStart, rrad)
+   xTCr, yTCr = rotateXY(xTakeoffComplete, yTakeoffComplete, rrad)
+   xr1r, yr1r = rotateXY(xr1, yr1, rrad)
+   xr2r, yr2r = rotateXY(xr2, yr2, rrad)
+   xl1r, yl1r = rotateXY(xl1, yl1, rrad)
+   xl2r, yl2r = rotateXY(xl2, yl2, rrad)
+   
+   lcd.drawLine(toXPixel(xTSr,    mapXmin, mapXrange, windowWidth),
+		toYPixel(yTSr,    mapYmin, mapYrange, windowHeight),
+		toXPixel(xTCr, mapXmin, mapXrange, windowWidth),
+		toYPixel(yTCr, mapYmin, mapYrange, windowHeight))
+   
+   
+   lcd.setColor(0,0,255)  -- make the points with the ISL range a different color
+   
+   lcd.drawLine(toXPixel(xr1r, mapXmin, mapXrange, windowWidth),
+		toYPixel(yr1r, mapYmin, mapYrange, windowHeight),
+		toXPixel(xr2r, mapXmin, mapXrange, windowWidth),
+		toYPixel(yr2r, mapYmin, mapYrange, windowHeight))
+
+   lcd.setColor(r,g,b)
+
+   lcd.drawLine(toXPixel(xl1r, mapXmin, mapXrange, windowWidth),
+		toYPixel(yl1r, mapYmin, mapYrange, windowHeight),
+		toXPixel(xl2r, mapXmin, mapXrange, windowWidth),
+		toYPixel(yl2r, mapYmin, mapYrange, windowHeight))      
+
    for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
 
-      xpix = (xtable[i] - mapXmin)/mapXrange * windowWidth
-      xpix = (xpix * 0.98125) + 3 -- keep a 3 pixel border buffer
+      -- first compute determinants to see what side of the right and left lines we are on
+      -- ILS course is between them
+      
+      dr = (xtable[i]-xr1r)*(yr2r-yr1r) - (ytable[i]-yr1r)*(xr2r-xr1r)
+      dl = (xtable[i]-xl1r)*(yl2r-yl1r) - (ytable[i]-yl1r)*(xl2r-xl1r)
 
-      ypix = windowHeight-((ytable[i] - mapYmin)/mapYrange * windowHeight)
-      ypix = (ypix * 0.98125) + 3 
+      if dl <= 0 and dr >= 0 then
+	 lcd.setColor(0,0,255)
+      end
 
-      lcd.drawCircle(xpix, ypix, 1)
+      lcd.drawCircle(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
+		     toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
+      		     1)
 
+      lcd.setColor(r, g, b)
+      
    end
-
+   
 --   for i=1, #rwShape do
       
 --   end
@@ -750,42 +913,8 @@ end
 
 --------------------------------------------------------------------------------
 
-local function fslope(x, y)
-
-    local xbar, ybar, sxy, sx2 = 0,0,0,0
-    
-    for i = 1, #x do
-       xbar = xbar + x[i]
-       ybar = ybar + y[i]
-    end
-
-    xbar = xbar/#x
-    ybar = ybar/#y
-
-    for i = 1, #x do
-        sxy = sxy + (x[i]-xbar)*(y[i]-ybar)
-        sx2 = sx2 + (x[i] - xbar)^2
-    end
-    
-    if sx2 < 1.0E-6 then -- would it be more proper to set slope to inf and let atan do its thing?
-       sx2 = 1.0E-6      -- or just let it div0 and set to inf itself?
-    end                  -- for now this is only a .00001-ish degree error
-    
-    slope = sxy/sx2
-    
-    theta = math.atan(slope)
-    tt=0
-    if x[1] < x[#x] then
-       tt = math.pi/2 - theta
-    else
-       tt = math.pi*3/2 - theta
-    end
- 
-    return slope, tt
-end
 
 --------------------------------------------------------------------------------
-local debugTime = 0
 
 local function loop()
 
@@ -795,7 +924,7 @@ local function loop()
    local MAXTABLE = 100
    local MAXVVITABLE = 15 -- points to fit to compute vertical speed -- 3 seconds at 0.2 sec sample
    local OFFGROUND = 10 -- units?
-   local xExp, yExp
+   local xExp, yExp, maxExp, minExp
    local tt
    local hasPitot
    local hasCourseGPS
@@ -915,25 +1044,31 @@ local function loop()
 
    xExp = false
    yExp = false
+   maxExp = false
+   minExp = false
    
    if x > mapXmax then
       mapXmax = x
       xExp = true
+      maxExp = true
    end
    
    if x < mapXmin then
       mapXmin = x
       xExp = true
+      minExp = true
    end
    
    if y > mapYmax then
       mapYmax = y
       yExp = true
+      maxExp = true
    end
    
    if y < mapYmin then
       mapYmin = y
       yExp = true
+      minExp = true
    end
    
    oldYrange = mapYrange
@@ -941,22 +1076,25 @@ local function loop()
    
    mapXrange = mapXmax - mapXmin
    mapYrange = mapYmax - mapYmin
-   
+
    mapYrange = math.floor(mapYrange/50+1)*50	 
    mapXrange = math.floor(mapXrange/100+1)*100
 
-   --if xExp or yExp then
-      if mapXrange > 2 * mapYrange and xExp then
-	 mapYmin = mapYmin*mapXrange/oldXrange
-	 mapYmax = mapYmax*mapXrange/oldXrange
-	 mapYrange = mapYmax - mapYmin
-      end
-      if mapYrange > 0.5 * mapXrange and yExp then
-	 mapXmin = mapXmin*mapYrange/oldYrange
-	 mapXmax = mapXmax*mapYrange/oldYrange
-	 mapXrange = mapXmax - mapXmin
-      end
-   --end
+   if mapXrange > 2 * mapYrange and xExp then
+      if maxExp then mapXmin = mapXmin*mapXrange/oldXrange end
+      if minExp then mapXmax = mapXmax*mapXrange/oldXrange end
+	 
+      mapYmin = mapYmin*mapXrange/oldXrange
+      mapYmax = mapYmax*mapXrange/oldXrange
+      mapYrange = mapYmax - mapYmin
+   end
+   if mapYrange > 0.5 * mapXrange and yExp then
+      if maxExp then mapYmin = mapYmin*mapYrange/oldYrange end
+      if minExp then mapYmax = mapYmax*mapYrange/oldYrange end
+      mapXmin = mapXmin*mapYrange/oldYrange
+      mapXmax = mapXmax*mapYrange/oldYrange
+      mapXrange = mapXmax - mapXmin
+   end
    
    
    --tt = system.getTimeCounter()/1000
@@ -1049,7 +1187,7 @@ local function loop()
       end
    end
    
-   if xTakeoffStart and neverAirborne then
+   if the and thr > 0 and xTakeoffStart and neverAirborne then
       if altitude - zTakeoffStart > OFFGROUND then
 	 neverAirborne = false
 	 xTakeoffComplete = x
@@ -1123,7 +1261,9 @@ local function init()
    resetOrigin     = false
    
    system.registerForm(1, MENU_APPS, "GPS ILS", initForm, nil, nil)
-   system.registerTelemetry(1, "GPS ILS", 4, mapPrint)
+   system.registerTelemetry(1, "GPS MAP", 4, mapPrint)
+   system.registerTelemetry(2, "GPS ILS", 4, ilsPrint)
+   glideSlopePNG = lcd.loadImage("Img/glideslope.png")
     
    system.playFile('ILS_Active.wav', AUDIO_QUEUE)
    
