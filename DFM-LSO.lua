@@ -1,7 +1,8 @@
 --[[
 
    --------------------------------------------------------------------------------------------------
-    
+   DFM-LSO.lua -- "Landing Signal Officer" -- GPS Map and "ILS" system
+
    Derived from DFM's Speed and Time Announcers, which were turn was derived from RCT's Alt Announcer.
    Borrowed and modified code from Jeti's AH example for tapes and heading indicator.
    Significant new code to project Lat/Long via Mercatur projection to XY plane, and to
@@ -12,7 +13,7 @@
    Works in DS-24
 
    --------------------------------------------------------------------------------------------------
-   DFM-ILS.lua released under MIT license by DFM 2018
+   DFM-LSO.lua released under MIT license by DFM 2018
    --------------------------------------------------------------------------------------------------
 
 --]]
@@ -57,14 +58,14 @@ local mapYrange = mapYmax - mapYmin
 local DEBUG = false -- if set to <true> will print to console the speech files and output
 local debugTime = 0
 
--- these are the non-GPS sensors
+-- these lists are the non-GPS sensors
 
 local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
 local sensorPalist = { "..." }  -- sensor parameters
 local sensorUnlist = { "..." }  -- sensor Units
 
--- these are the GPS sensors
+-- these lists are the GPS sensors that have to be processed differently
 
 local GPSsensorLalist = { "..." }
 local GPSsensorIdlist = { "..." }
@@ -120,6 +121,7 @@ local glideSlopePNG
 
 --------------------------------------------------------------------------------
 
+--------------------
 -- Read and set translations (out for now till we have translations, simplifies install)
 
 local function setLanguage()
@@ -143,11 +145,6 @@ local function readSensors()
    local sensors = system.getSensors()
    for i, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
-
-	 -- if (sensor.label == "Altitude" or sensor.label == "Longitude" or sensor.label == "Latitude") then
-	   -- print(sensor.label,",",sensor.id, ",", sensor.param, ",", sensor.unit, ",", sensor.type)
-	 -- end
-
 	 if sensor.type ~= 9 then
 	    table.insert(sensorLalist, sensor.label)
 	    table.insert(sensorIdlist, sensor.id)
@@ -162,7 +159,7 @@ local function readSensors()
 	    table.insert(GPSsensorLalist, sensor.label)
 	    table.insert(GPSsensorIdlist, sensor.id)
 	    table.insert(GPSsensorPalist, sensor.param)
-
+	    
 	    if sensor.label == 'Longitude' and sensor.param == 3 then
 	       LongitudeSe = #GPSsensorLalist
 	       LongitudeSeId = sensor.id
@@ -363,7 +360,7 @@ local function initForm()
     form.addCheckbox(resetOrigin, resetOriginChanged)
         
     form.addRow(1)
-    form.addLabel({label="DFM - v."..ILSVersion.." ", font=FONT_MINI, alignRight=true})
+    form.addLabel({label="DFM - v."..LSOVersion.." ", font=FONT_MINI, alignRight=true})
 
   else
 
@@ -394,32 +391,6 @@ local heightAH = 145
 local colHeading = colAH
 local rowHeading = 30 -- 160
 local rowDistance = rowAH + radAH + 3
-
-local homeShape = {
-  { 0, -10},
-  {-8,  8},
-  { 0,  4},
-  { 8,  8}
-}
-
-local coolShape = {
-   {0,-10},
-   {-2,-3},
-   {-5,0},
-   {-5,1},
-   {-1,1},
-   {-1,2},
-   {-3,4},
-   {-3,5},
-   {0,5},
-   {3,5},
-   {3,4},
-   {1,2},
-   {1,1},
-   {5,1},
-   {5,0},
-   {2,-3}
-}
 
 local T38Shape = {
    {0,-20},
@@ -656,7 +627,7 @@ local function drawVario()
    for i = -60, 60, 30 do
       lcd.drawLine(colVario-7, rowVario+i, colVario+8, rowVario+i)
    end
-   lcd.drawFilledRectangle(colVario-9, rowVario-2, 20, 3)
+   lcd.drawFilledRectangle(colVario-9, rowVario, 20, 3)
 
    lcd.drawText(colVario-10, heightAH+2, "fpm", FONT_MINI)
 
@@ -903,64 +874,7 @@ local function mapPrint(windowWidth, windowHeight)
       
    end
    
---   for i=1, #rwShape do
-      
---   end
-   
-
---[[   
-   if compcrsDeg then
-      ss = string.format("Magnetic Course: %d".."\u{B0}", compcrsDeg + magneticVar)
-   else
-      ss = "---"
-   end
-   
-
-   ww = lcd.getTextWidth(FONT_NORMAL, ss)
-   lcd.drawText(2, 5, ss, FONT_NORMAL)
-
-   if xpix then ss = string.format("x,xpix: %d,%d", xtable[#xtable], xpix) else ss = "---" end
-   ww = lcd.getTextWidth(FONT_NORMAL, ss)
-   lcd.drawText(2, 20, ss, FONT_NORMAL)
-      
-   if ypix then ss = string.format("y,ypix: %d,%d", ytable[#ytable], ypix) else ss = "---" end 
-   ww = lcd.getTextWidth(FONT_NORMAL, ss)
-   lcd.drawText(2, 35, ss, FONT_NORMAL)   
-
-   
-   ss= string.format("x:%d, y:%d, r:%d", mapXmin,mapYmin,mapXrange)
-   ww = lcd.getTextWidth(FONT_MINI, ss)
-   lcd.drawText(2, 140, ss, FONT_MINI)
-
-   ss= string.format("x:%d, y:%d, r:%d", mapXmax,mapYmax,mapYrange)
-   ww = lcd.getTextWidth(FONT_MINI, ss)
-   lcd.drawText(windowWidth-ww-2, 5, ss, FONT_MINI)
---]]
-   
---[[
-  local ss = string.format("Scale: %d", GraphScale)
-  ww = lcd.getTextWidth(FONT_MINI, ss)
-  lcd.drawText(75+(75-ww)/2+1,70+1, ss, FONT_MINI)
-
-  local ss = string.format("Timeline %s", "1:00")
-  ww = lcd.getTextWidth(FONT_MINI, ss)
-  lcd.drawText(150+(75-ww)/2+2,70+1, ss, FONT_MINI)
-
-  local ss = string.format("Bat 1: %2.2f A", batt_val[1])
-  ww = lcd.getTextWidth(FONT_MINI, ss)
-  lcd.drawText(75+(75-ww)/2+1,70+15, ss, FONT_MINI)
-
-  local ss = string.format("Bat 2: %2.2f A", batt_val[2])
-  ww = lcd.getTextWidth(FONT_MINI, ss)
-  lcd.drawText(150+(75-ww)/2+2,70+15, ss, FONT_MINI)
---]]
-   
 end
-
---------------------------------------------------------------------------------
-
-
---------------------------------------------------------------------------------
 
 local function loop()
 
@@ -1052,6 +966,7 @@ local function loop()
    
    -- only recompute when lat and long have changed
 
+   if not latitude or not longitude then return end
    if latitude == lastlat and longitude == lastlong then return end
 
    print("changed: ", longitude, latitude, altitude)
@@ -1199,6 +1114,7 @@ local function loop()
    if brk and brk < 0 and oldBrake > 0 then
       brakeReleaseTime = system.getTimeCounter()
       print("Brake release time: ", brakeReleaseTime)
+      system.playFile("brakes_released.wav", AUDIO_QUEUE)
    end
    if brk and brk > 0 then
       brakeReleaseTime = 0
@@ -1215,6 +1131,7 @@ local function loop()
 	 yTakeoffStart = y
 	 zTakeoffStart = altitide
 	 print("Takeoff Start: ", brakeReleaseTime, x, y, altitude)
+	 system.playFile("starting_takeoff_roll.wav", AUDIO_QUEUE)
       end
    end
    
@@ -1226,6 +1143,8 @@ local function loop()
 	 zTakeoffComplete = altitude
 	 TakeoffHeading = compcrsDeg + magneticVar
 	 print("Takeoff Complete:", system.getTimeCounter(), TakeoffHeading)
+	 system.playFile("takeoff_complete.wav", AUDIO_QUEUE)
+	 system.playNumber(course, 0, "\u{B0}")
       end
    end
    
@@ -1291,22 +1210,22 @@ local function init()
 
    resetOrigin     = false
    
-   system.registerForm(1, MENU_APPS, "GPS ILS", initForm, nil, nil)
-   system.registerTelemetry(1, "GPS MAP", 4, mapPrint)
-   system.registerTelemetry(2, "GPS ILS", 4, ilsPrint)
+   system.registerForm(1, MENU_APPS, "Landing Signal Officer", initForm, nil, nil)
+   system.registerTelemetry(1, "LSO Map", 4, mapPrint)
+   system.registerTelemetry(2, "LSO ILS", 4, ilsPrint)
    glideSlopePNG = lcd.loadImage("Img/glideslope.png")
     
-   system.playFile('ILS_Active.wav', AUDIO_QUEUE)
+   system.playFile('L_S_O_active.wav', AUDIO_QUEUE)
    
    if DEBUG then
-      print('ILS_Active.wav')
+      print('L_S_O_Active.wav')
    end
     readSensors()
     collectgarbage()
 end
 
 
-ILSVersion = "1.0"
+LSOVersion = "1.0"
 setLanguage()
 collectgarbage()
-return {init=init, loop=loop, author="DFM", version=ILSVersion, name="GPS ILS"}
+return {init=init, loop=loop, author="DFM", version=LSOVersion, name="GPS LSO"}
