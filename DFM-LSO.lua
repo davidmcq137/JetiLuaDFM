@@ -1,12 +1,13 @@
 --[[
 
    --------------------------------------------------------------------------------------------------
-   DFM-LSO.lua -- "Landing Signal Officer" -- GPS Map and "ILS" system
+   DFM-LSO.lua -- "Landing Signal Officer" -- GPS Map and "ILS"/GPS RNAV system
 
-   Derived from DFM's Speed and Time Announcers, which were turn was derived from RCT's Alt Announcer.
+   Derived from DFM's Speed and Time Announcers, which were turn was derived from RCT's Alt Announcer
    Borrowed and modified code from Jeti's AH example for tapes and heading indicator.
-   Significant new code to project Lat/Long via Mercatur projection to XY plane, and to
+   New code to project Lat/Long via Mercatur projection to XY plane, and to
    compute heading from the projected XY plane track for GPS sensors that don't have this feature 
+   and create an map of flightpath and an  ILS "localizer" based on GPS (e.g a model version of GPS RNAV)
     
    Requires transmitter firmware 4.22 or higher.
     
@@ -52,10 +53,11 @@ local ivvi = 1
 
 local mapXmin, mapXmax = -100, 100
 local mapYmin, mapYmax = -50, 50
+local xmin, xmax, ymin, ymax
 local mapXrange = mapXmax - mapXmin
 local mapYrange = mapYmax - mapYmin
 
-local DEBUG = false -- if set to <true> will print to console the speech files and output
+local DEBUG = true -- if set to <true> will print to console the speech files and output
 local debugTime = 0
 
 -- these lists are the non-GPS sensors
@@ -79,14 +81,16 @@ local throttleControl
 local brakeControl
 local brakeReleaseTime = 0
 local oldBrake = 0
+local oldThrottle=0
 
-local xTakeoffStart=-200
-local yTakeoffStart=0
-local zTakeoffStart=0
+local xTakeoffStart
+local yTakeoffStart
+local zTakeoffStart
 
-local xTakeoffComplete=200
-local yTakeoffComplete=0
-local zTakeoffComplete=0
+local xTakeoffComplete
+local yTakeoffComplete
+local zTakeoffComplete
+
 local TakeoffHeading
 local RunwayHeading
 
@@ -109,6 +113,8 @@ local heading, compcrsDeg = 0, 0
 local vario=0
 local lineAvgPts = 4  -- number of points to linear fit to compute course
 local vviSlopeTime = 0
+local oldx, oldy=0,0
+
 
 
 local ren=lcd.renderer()
@@ -305,6 +311,9 @@ end
 
 local function resetOriginChanged(value)
    resetOrigin = not value
+   print("mem before: ", collectgarbage("count"))
+   collectgarbage()
+   print("mem after: ", collectgarbage("count"))
 end
 
 --------------------------------------------------------------------------------
@@ -316,7 +325,7 @@ local function initForm()
   if (tonumber(system.getVersion()) >= 4.22) then
 
     form.addRow(2)
-    form.addLabel({label="Select Pitot-Static Speed Sensor", width=220})
+    form.addLabel({label="Select Pitot-Static Sensor", width=220})
     form.addSelectbox(sensorLalist, SpeedNonGPSSe, true, SpeedNonGPSSensorChanged)
 
     form.addRow(2)
@@ -328,23 +337,23 @@ local function initForm()
     form.addInputbox(brakeControl, true, brakeControlChanged)
 
     form.addRow(2)
-    form.addLabel({label="Select GPS Longitude Sensor", width=220})
+    form.addLabel({label="Select GPS Long Sensor", width=220})
     form.addSelectbox(GPSsensorLalist, LongitudeSe, true, LongitudeSensorChanged)
 
     form.addRow(2)
-    form.addLabel({label="Select GPS Latitude Sensor", width=220})
+    form.addLabel({label="Select GPS Lat Sensor", width=220})
     form.addSelectbox(GPSsensorLalist, LatitudeSe, true, LatitudeSensorChanged)
 
     form.addRow(2)
-    form.addLabel({label="Select GPS Altitude Sensor", width=220})
+    form.addLabel({label="Select GPS Alt Sensor", width=220})
     form.addSelectbox(sensorLalist, AltitudeSe, true, AltitudeSensorChanged)
 
     form.addRow(2)
-    form.addLabel({label="Select GPS Speed Sensor", width=220})
+    form.addLabel({label="Select GPS Spd Sensor", width=220})
     form.addSelectbox(sensorLalist, SpeedGPSSe, true, SpeedGPSSensorChanged)
 
     form.addRow(2)
-    form.addLabel({label="Select GPS Distance", width=220})
+    form.addLabel({label="Select GPS Dist", width=220})
     form.addSelectbox(sensorLalist, DistanceGPSSe, true, DistanceGPSSensorChanged)
 
     form.addRow(2)
@@ -352,7 +361,7 @@ local function initForm()
     form.addSelectbox(sensorLalist, CourseGPSSe, true, CourseGPSSensorChanged)    
 
     form.addRow(2)
-    form.addLabel({label="Local Magnetic Variation (\u{B0}W)", width=220})
+    form.addLabel({label="Local Magnetic Var (\u{B0}W)", width=220})
     form.addIntbox(magneticVar, -30, 30, -13, 0, 1, magneticVarChanged)
     
     form.addRow(2)
@@ -411,6 +420,13 @@ local T38Shape = {
    {3,-6}
 }
 
+local runwayShape = {
+   {-2,-20},
+   {-2, 20},
+   {2, 20},
+   {2,-20}
+}
+
 -- *****************************************************
 -- Draw a shape
 -- *****************************************************
@@ -424,6 +440,20 @@ local function drawShape(col, row, shape, rotation)
       ren:addPoint(
 	 col + (point[1] * cosShape - point[2] * sinShape + 0.5),
 	 row + (point[1] * sinShape + point[2] * cosShape + 0.5)
+      ) 
+   end
+   ren:renderPolygon()
+end
+
+local function drawShapeS(col, row, shape, rotation,scale)
+   local sinShape, cosShape
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   ren:reset()
+   for index, point in pairs(shape) do
+      ren:addPoint(
+	 col + (scale*point[1] * cosShape - scale*point[2] * sinShape + 0.5),
+	 row + (scale*point[1] * sinShape + scale*point[2] * cosShape + 0.5)
       ) 
    end
    ren:renderPolygon()
@@ -525,7 +555,6 @@ local function drawSpeed()
 
   text = string.format("%d",speed)
   lcd.drawFilledRectangle(0,rowAH-8,35,lcd.getTextHeight(FONT_NORMAL))
-  --lcd.drawNumber(9, 1 + rowAH - 3, altitude, FONT_MINI)
   lcd.setColor(255-txtr,255-txtg,255-txtb)
   lcd.drawText(35 - lcd.getTextWidth(FONT_NORMAL,text), rowAH-8, text, FONT_NORMAL | FONT_XOR)
   lcd.resetClipping() 
@@ -555,6 +584,7 @@ local function drawHeading()
    ii = ii + 1
 
    lcd.setColor(txtr,txtg,txtb)
+
 --[[
    p1,p2,p3,p4=system.getInputs("P5", "P6", "P7", "P8")
 
@@ -591,6 +621,12 @@ local function drawHeading()
 	 end
       end
    end 
+   
+   local tyH = type(heading)
+   if tyH ~= 'number' then
+      print('non number type to format heading, type, heading')
+      print(tyH, heading)
+   end
    
    text = string.format("%03d",heading)
    w = lcd.getTextWidth(FONT_NORMAL,text) 
@@ -653,8 +689,10 @@ local function toXPixel(coord, min, range, width)
    return pix
 end
 
+
 local function toYPixel(coord, min, range, height)
    local pix
+   --print('toYP: ', coord, min, range, height)
    pix = height-(coord - min)/range * height
    pix = (pix*0.98125) + 3
    return pix
@@ -662,6 +700,7 @@ end
 
 -- 'local globals' shared by ilsPrint and mapPrint .. maybe just for testing?
 
+--[[
 local xr1,yr1, xr2, yr2 = xTakeoffStart, yTakeoffStart, 2*xTakeoffStart, yTakeoffStart - 50
 local xl1,yl1, xl2, yl2 = xTakeoffStart, yTakeoffStart, 2*xTakeoffStart, yTakeoffStart + 50local xTSr, yTSr
 local xTCr, yTCr
@@ -669,6 +708,7 @@ local xr1r, yr1r
 local xr2r, yr2r
 local xl1r, yl1r
 local xl2r, yl2r
+--]]
 
 local function fslope(x, y)
 
@@ -731,20 +771,24 @@ local function ilsPrint(windowWidth, windowHeight)
       rrad = 0
    end
    
-  
+   
+   --[[  
    xTSr, yTSr = rotateXY(xTakeoffStart, yTakeoffStart, rrad)
    xTCr, yTCr = rotateXY(xTakeoffComplete, yTakeoffComplete, rrad)
    xr1r, yr1r = rotateXY(xr1, yr1, rrad)
    xr2r, yr2r = rotateXY(xr2, yr2, rrad)
    xl1r, yl1r = rotateXY(xl1, yl1, rrad)
    xl2r, yl2r = rotateXY(xl2, yl2, rrad)
-
-   mm, aa = fslope({xTSr,xTCr}, {yTSr, yTCr})
-   --print('runway - aa,mm: ', math.deg(aa), mm)
+   --]]
+   
+   -- mm, aa = fslope({xTSr,xTCr}, {yTSr, yTCr})
+   -- print('runway - aa,mm: ', math.deg(aa), mm)
 
    -- First compute determinants to see what side of the right and left lines we are on
    -- ILS course is between them -- also compute which side of the course we are on
+
    if #xtable >=1 then
+      --[[
       dr = (xtable[#xtable]-xr1r)*(yr2r-yr1r) - (ytable[#ytable]-yr1r)*(xr2r-xr1r)
       dl = (xtable[#xtable]-xl1r)*(yl2r-yl1r) - (ytable[#ytable]-yl1r)*(xl2r-xl1r)
       dc = (xtable[#xtable]-xTSr)*(yTCr-yTSr) - (ytable[#ytable]-yTSr)*(xTCr-xTSr)
@@ -767,21 +811,23 @@ local function ilsPrint(windowWidth, windowHeight)
 	 dx=0
 	 dy=0
       end
+
+            
       lcd.setColor(lcd.getFgColor())
    
       -- draw no bars if not in the ILS zone
 
       if dl <= 0 and dr >= 0 then
 	 -- first the horiz bar
+	 lcd.setColor(255-txtr,255-txtg,255-txtb)
 	 lcd.drawFilledRectangle(xc-55, yc-2+dy, 110, 4)
 	 -- now vertical bar and glideslope angle display
 	 local text = string.format("%.0f", math.floor(vA/0.01+5)*.01)
 	 lcd.drawFilledRectangle(52,rowAH-8,lcd.getTextWidth(FONT_NORMAL, text)+8,lcd.getTextHeight(FONT_NORMAL))
-	 lcd.setColor(255-txtr,255-txtg,255-txtb)
 	 lcd.drawText(56, rowAH-8, text, FONT_NORMAL | FONT_XOR)
-	 lcd.setColor(255,0,0)
 	 lcd.drawFilledRectangle(xc-2+dx,yc-55, 4, 110)
       end
+      --]]
    end
       
    
@@ -803,8 +849,11 @@ local function mapPrint(windowWidth, windowHeight)
    local r, g, b
    local ss, ww
    local d1, d2
-   local xr1,yr1, xr2, yr2 = xTakeoffStart, yTakeoffStart, 2*xTakeoffStart, yTakeoffStart - 50
-   local xl1,yl1, xl2, yl2 = xTakeoffStart, yTakeoffStart, 2*xTakeoffStart, yTakeoffStart + 50
+   local xr1,yr1, xr2, yr2
+   local xl1,yl1, xl2, yl2
+   local xRW, yRW
+   local scale
+   local lRW
    
    r, g, b = lcd.getFgColor()
    lcd.setColor(r, g, b)
@@ -820,13 +869,31 @@ local function mapPrint(windowWidth, windowHeight)
 
    lcd.drawCircle(toXPixel(0, mapXmin, mapXrange, windowWidth), toYPixel(0, mapYmin, mapYrange, windowHeight), 5)
 
+   if xTakeoffStart then
+      lcd.drawCircle(toXPixel(xTakeoffStart, mapXmin, mapXrange, windowWidth),
+		     toYPixel(yTakeoffStart, mapYmin, mapYrange, windowHeight), 4)
+   end
+   
+   if xTakeoffComplete then
+      lcd.drawCircle(toXPixel(xTakeoffComplete, mapXmin, mapXrange, windowWidth),
+		     toYPixel(yTakeoffComplete, mapYmin, mapYrange, windowHeight), 4)
+      xRW = (xTakeoffStart + xTakeoffComplete)/2
+      yRW = (yTakeoffStart + yTakeoffComplete)/2
+      lRW = math.sqrt((xTakeoffComplete-xTakeoffStart)^2 + (yTakeoffComplete-xTakeoffStart)^2)
+      -- use xscale since it does not have width-y .. correct for 2x mult
+      scale = toXPixel(lRW, mapXmin, mapXrange, windowWidth)/(40*2)
+--      print('lRW, toX, scale: ', lRW, toXPixel(lRW, mapXmin, mapXrange, windowWidth), scale)
+      drawShapeS(toXPixel(xRW, mapXmin, mapXrange, windowWidth),
+		toYPixel(yRW, mapYmin, mapYrange, windowHeight), runwayShape, math.rad(TakeoffHeading), scale)
+   end
+
    -- use the "P8" control to rotate the runway for testing
    if DEBUG then
       rrad = system.getInputs("P8")*math.pi
    else
       rrad = 0
    end
-   
+   --[[
    xTSr, yTSr = rotateXY(xTakeoffStart, yTakeoffStart, rrad)
    xTCr, yTCr = rotateXY(xTakeoffComplete, yTakeoffComplete, rrad)
    xr1r, yr1r = rotateXY(xr1, yr1, rrad)
@@ -852,29 +919,30 @@ local function mapPrint(windowWidth, windowHeight)
    lcd.drawLine(toXPixel(xl1r, mapXmin, mapXrange, windowWidth),
 		toYPixel(yl1r, mapYmin, mapYrange, windowHeight),
 		toXPixel(xl2r, mapXmin, mapXrange, windowWidth),
-		toYPixel(yl2r, mapYmin, mapYrange, windowHeight))      
-
+		toYPixel(yl2r, mapYmin, mapYrange, windowHeight))
+   --]]
+   
    for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
-
+      
       -- First compute determinants to see what side of the right and left lines we are on
       -- ILS course is between them
       
-      dr = (xtable[i]-xr1r)*(yr2r-yr1r) - (ytable[i]-yr1r)*(xr2r-xr1r)
-      dl = (xtable[i]-xl1r)*(yl2r-yl1r) - (ytable[i]-yl1r)*(xl2r-xl1r)
-
-      if dl <= 0 and dr >= 0 then
-	 lcd.setColor(0,0,255)
-      end
-
+--      dr = (xtable[i]-xr1r)*(yr2r-yr1r) - (ytable[i]-yr1r)*(xr2r-xr1r)
+--      dl = (xtable[i]-xl1r)*(yl2r-yl1r) - (ytable[i]-yl1r)*(xl2r-xl1r)
+      
+--      if dl <= 0 and dr >= 0 then
+--	 lcd.setColor(0,0,255)
+--      end
+      
       lcd.drawCircle(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
 		     toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
-      		     1)
-
+		     1)
+      
       lcd.setColor(r, g, b)
       
    end
-   
 end
+
 
 local function loop()
 
@@ -890,6 +958,12 @@ local function loop()
    local hasCourseGPS
    local sensor
    local adelta = 0.1
+   local tA
+   local goodlat, goodlong 
+   local brk, thr
+   
+   goodlat = false
+   goodlong = false
    
    if resetOrigin then
       gotInitPos = false
@@ -901,7 +975,7 @@ local function loop()
       local p7 = .010/2*(system.getInputs("P7")+1)
       debugTime =debugTime + p7
       speed = 40 + 80 * (math.sin(.3*debugTime) + 1)
-      altitude = 20 + 200 * (math.cos(.3*debugTime)+1)
+--      altitude = 20 + 200 * (math.cos(.3*debugTime)+1)
       x = 600*math.sin(2*debugTime)
       y = 300*math.cos(3*debugTime)
       goto computedXY
@@ -916,7 +990,7 @@ local function loop()
       if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
 	 longitude = longitude * -1
       end
-      
+      goodlong = true
    end
    
    sensor = system.getSensorByID(LatitudeSeId, LatitudeSePa)
@@ -928,7 +1002,7 @@ local function loop()
       if sensor.decimals == 2 then -- "South" .. make it negative
 	 latitude = latitude * -1
       end
-      
+      goodlat = true
    end
    
    sensor = system.getSensorByID(AltitudeSeId, AltitudeSePa)
@@ -966,87 +1040,51 @@ local function loop()
    
    -- only recompute when lat and long have changed
 
-   if not latitude or not longitude then return end
+   if not latitude or not longitude then
+      print('lat or long is nil')
+      return
+   end
+   if not goodlat or not goodlong then
+      print('goodlat, goodlong: ', goodlat, goodlong)
+      return
+   end
+
    if latitude == lastlat and longitude == lastlong then return end
 
-   print("changed: ", longitude, latitude, altitude)
+   if latitude > 89.9 then latitude = 89.9 end
+   if latitude < -89.9 then latitude = -89.9 end
+      
    lastlat = latitude
    lastlong = longitude
 
+   tA = (45+latitude/2)/rad -- problem when lat near -/- 90 -- poles!
+   
    if not gotInitPos then
       L0 = longitude
-      y0 = rE*math.log(math.tan(( 45+latitude/2)/rad ) )
+      y0 = rE*math.log(math.tan(tA) )
       gotInitPos = true
    end
    
    x = rE*(longitude-L0)/rad
-   y = rE*math.log(math.tan(( 45+latitude/2)/rad ) ) - y0
-   
+   y = rE*math.log(math.tan(tA)) - y0
+
    -- update overall min and max for drawing the GPS
    -- maintain same pixel size (in feet) in X and Y (screen is 320x160)
    -- map?xxxx are all in ft .. convert to pixels in telem draw function
    
    ::computedXY::   
 
-   xExp = false
-   yExp = false
-   maxExp = false
-   minExp = false
+-- print('lat,long,x,y: ', latitude, longitude, x, y)
    
-   if x > mapXmax then
-      mapXmax = x
-      xExp = true
-      maxExp = true
+   if math.abs(oldx-x) > 10000 or math.abs(oldy-y) > 1000 then
+      print('bailing on bad xy')
+      return
    end
-   
-   if x < mapXmin then
-      mapXmin = x
-      xExp = true
-      minExp = true
-   end
-   
-   if y > mapYmax then
-      mapYmax = y
-      yExp = true
-      maxExp = true
-   end
-   
-   if y < mapYmin then
-      mapYmin = y
-      yExp = true
-      minExp = true
-   end
-   
-   oldYrange = mapYrange
-   oldXrange = mapXrange
-   
-   mapXrange = mapXmax - mapXmin
-   mapYrange = mapYmax - mapYmin
-
-   mapYrange = math.floor(mapYrange/50+1)*50	 
-   mapXrange = math.floor(mapXrange/100+1)*100
-
-   if mapXrange > 2 * mapYrange then
-      if maxExp then mapXmin = mapXmin*mapXrange/oldXrange end
-      if minExp then mapXmax = mapXmax*mapXrange/oldXrange end
-	 
-      mapYmin = mapYmin*mapXrange/oldXrange
-      mapYmax = mapYmax*mapXrange/oldXrange
-      mapYrange = mapYmax - mapYmin
-   end
-   if mapYrange > 0.5 * mapXrange then
-      if maxExp then mapYmin = mapYmin*mapYrange/oldYrange end
-      if minExp then mapYmax = mapYmax*mapYrange/oldYrange end
-      mapXmin = mapXmin*mapYrange/oldYrange
-      mapXmax = mapXmax*mapYrange/oldYrange
-      mapXrange = mapXmax - mapXmin
-   end
-   
-   
+      
    --tt = system.getTimeCounter()/1000
    --ss1 = string.format("%.2f, %.0f, %.0f, %.0f, %.0f, %.0f, %.0f", tt, mapXmin, mapXmax, mapYmin, mapYmax, mapXrange, mapYrange)
    --print(ss1)
-   
+
    if #xtable+1 > MAXTABLE then
       table.remove(xtable, 1)
       table.remove(ytable, 1)
@@ -1056,13 +1094,46 @@ local function loop()
    table.insert(xtable, x)
    table.insert(ytable, y)
    table.insert(ztable, altitude)
+
+--   print('long,lat, x, y, alt', longitude, latitude, x, y, altitude)
+   
+   if #xtable == 1 then
+      xmin = mapXmin
+      xmax = mapXmax
+      ymin = mapYmin
+      ymax = mapYmax
+   end
+   
+   if x > xmax then xmax = x end
+   if x < xmin then xmin = x end
+   if y > ymax then ymax = y end
+   if y < ymin then ymin = y end
+   
+   local xspan = xmax-xmin
+   local yspan = ymax-ymin
+
+   mapXrange = math.floor(xspan/100 + .5) *100
+   mapYrange = math.floor(yspan/50 + .5) * 50
+
+   if mapYrange > mapXrange/2 then
+      mapXrange = mapYrange*2
+   end
+   if mapXrange > mapYrange*2 then
+      mapYrange = mapXrange/2
+   end
+
+   mapXmin = xmin - (mapXrange - xspan)/2
+   mapXmax = xmax + (mapXrange - xspan)/2
+   
+   mapYmin = ymin - (mapYrange - yspan)/2
+   mapYmax = ymax + (mapYrange - yspan)/2 
    
    if #xtable > lineAvgPts then
       xyslope, compcrs = fslope(table.move(xtable, #xtable-lineAvgPts+1, #xtable, 1, {}),
 				table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {}))
    else
       xyslope = 0
-      compcrs = math.pi/2
+      compcrs = 0
    end
    
    compcrsDeg = compcrs*180/math.pi
@@ -1086,11 +1157,16 @@ local function loop()
    if DEBUG then
       heading = compcrsDeg
    else
-	 if hasCourseGPS then
-	    heading = CourseGPS
-	 else
+      if hasCourseGPS and courseGPS then
+	 heading = courseGPS
+      else
+	 if compcrsDeg then
 	    heading = compcrsDeg
+	 else
+	    heading = 0
 	 end
+	    
+      end
    end
    
    
@@ -1102,14 +1178,14 @@ local function loop()
       end
    end
    
-   --ss2 = string.format("%.0f, %.0f, %.0f, %.0f, %.0f, %.0f", #xtable, x, y, altitude, course, compcrsDeg)
-   --print(ss2)
+   -- ss2 = string.format("%.0f, %.0f, %.0f, %.0f, %.0f, %.0f", #xtable, x, y, altitude, heading, compcrsDeg)
+   -- print(ss2)
    
    -- system.getInputs for thr and brake
    -- monitor brake release, throttle up, takeoff roll, actual takeoff
-   
+
    if (brakeControl) then
-      local brk = system.getInputsVal(brakeControl)
+      brk = system.getInputsVal(brakeControl)
    end
    if brk and brk < 0 and oldBrake > 0 then
       brakeReleaseTime = system.getTimeCounter()
@@ -1119,35 +1195,39 @@ local function loop()
    if brk and brk > 0 then
       brakeReleaseTime = 0
    end
-
-   if brk then oldBrake = brk end
+   if brk  then
+      oldBrake = brk
+      if DEBUG then altitude = altitude + .15 end ------------------- DEBUG only
+   end
    
    if (throttleControl) then
-      local thr = system.getInputsVal(throttleControl)
+      thr = system.getInputsVal(throttleControl)
    end
    if thr and thr > 0 and oldThrottle < 0 then
       if system.getTimeCounter() - brakeReleaseTime < 5000 then
 	 xTakeoffStart = x
 	 yTakeoffStart = y
-	 zTakeoffStart = altitide
+	 zTakeoffStart = altitude
 	 print("Takeoff Start: ", brakeReleaseTime, x, y, altitude)
 	 system.playFile("starting_takeoff_roll.wav", AUDIO_QUEUE)
       end
    end
+   if thr then oldThrottle = thr end
    
-   if the and thr > 0 and xTakeoffStart and neverAirborne then
+   if thr and thr > 0 and xTakeoffStart and neverAirborne then
       if altitude - zTakeoffStart > OFFGROUND then
 	 neverAirborne = false
 	 xTakeoffComplete = x
 	 yTakeoffComplete = y
 	 zTakeoffComplete = altitude
-	 TakeoffHeading = compcrsDeg + magneticVar
-	 print("Takeoff Complete:", system.getTimeCounter(), TakeoffHeading)
+	 TakeoffHeading = compcrsDeg
+	 print("Takeoff Complete:", system.getTimeCounter(), TakeoffHeading, xTakeoffComplete, yTakeoffComplete)
 	 system.playFile("takeoff_complete.wav", AUDIO_QUEUE)
-	 system.playNumber(course, 0, "\u{B0}")
+	 system.playNumber(heading, 0, "\u{B0}")
       end
    end
    
+
    --if ff then
      -- io.write(ff,ss1..', '..ss2.."\n")
    --end
