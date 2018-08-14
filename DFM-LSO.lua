@@ -44,21 +44,25 @@ local magneticVar
 
 local xtable = {}
 local ytable = {}
-local ztable = {}
+--local ztable = {}
 
 local vviAlt = {}
 local vviTim = {}
 local vvi, va
 local ivvi = 1
+local xd1, yd1
+local xd2, yd2
+local td1, td2
 
-local mapXmin, mapXmax = -100, 100
-local mapYmin, mapYmax = -50, 50
+local mapXmin, mapXmax = -80, 80
+local mapYmin, mapYmax = -60, 60
 local xmin, xmax, ymin, ymax
 local mapXrange = mapXmax - mapXmin
 local mapYrange = mapYmax - mapYmin
 
 local DEBUG = true -- if set to <true> will print to console the speech files and output
 local debugTime = 0
+local DEBUGLOG = true
 
 -- these lists are the non-GPS sensors
 
@@ -92,6 +96,7 @@ local yTakeoffComplete
 local zTakeoffComplete
 
 local TakeoffHeading
+local ReleaseHeading
 local RunwayHeading
 
 local neverAirborne=true
@@ -113,11 +118,14 @@ local heading, compcrsDeg = 0, 0
 local vario=0
 local lineAvgPts = 4  -- number of points to linear fit to compute course
 local vviSlopeTime = 0
+local speedTime = 0
 local oldx, oldy=0,0
 
 
 
 local ren=lcd.renderer()
+local ren2=lcd.renderer()
+
 local txtr, txtg, txtb = 0,0,0
 
 local ff
@@ -423,8 +431,14 @@ local T38Shape = {
 local runwayShape = {
    {-2,-20},
    {-2, 20},
-   {2, 20},
-   {2,-20}
+   { 2, 20},
+   { 2,-20},
+   {-2,-20}
+}
+
+local ILSshape = {
+   {-2,0,-5,20},
+   {2, 0,5,20},
 }
 
 -- *****************************************************
@@ -445,18 +459,30 @@ local function drawShape(col, row, shape, rotation)
    ren:renderPolygon()
 end
 
-local function drawShapeS(col, row, shape, rotation,scale)
+local function drawShapePL(col, row, shape, rotation,scale, width, alpha)
    local sinShape, cosShape
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
-   ren:reset()
+   ren2:reset()
    for index, point in pairs(shape) do
-      ren:addPoint(
-	 col + (scale*point[1] * cosShape - scale*point[2] * sinShape + 0.5),
-	 row + (scale*point[1] * sinShape + scale*point[2] * cosShape + 0.5)
-      ) 
+      ren2:addPoint(
+	 col + (scale*point[1] * cosShape - scale*point[2] * sinShape),
+	 row + (scale*point[1] * sinShape + scale*point[2] * cosShape))
    end
-   ren:renderPolygon()
+   ren2:renderPolyline(width, alpha)
+end
+
+local function drawILS(col, row, rotation, scale)
+   local sinShape, cosShape
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   for index, point in pairs(ILSshape) do
+      lcd.drawLine(col + (scale*point[1] * cosShape - scale*point[2] * sinShape),
+		   row + (scale*point[1] * sinShape + scale*point[2] * cosShape),
+		   col + (scale*point[3] * cosShape - scale*point[4] * sinShape),
+		   row + (scale*point[3] * sinShape + scale*point[4] * cosShape))      
+      
+   end
 end
 
 local function rotateXY(x, y, rotation)
@@ -539,6 +565,7 @@ local function drawSpeed()
   lcd.setColor(txtr,txtg,txtb)
   delta = speed % 10
   deltaY = 1 + math.floor(2.4 * delta)
+--  print('speed, delta, deltaY', speed, delta, deltaY)
   lcd.drawText(colSpeed-30, heightAH+2, "mph", FONT_MINI)
 
   lcd.setClipping(colSpeed-37,0,45,heightAH)
@@ -546,13 +573,15 @@ local function drawSpeed()
   
   lcd.drawLine(37, -1, 37, heightAH)
   for index, line in pairs(parmLine) do
-    lcd.drawLine(38, line[1] + deltaY, 38 + line[2], line[1] + deltaY)
-    if line[3] then
-      text = string.format("%d",speed+0.5 + line[3] - delta)
-      lcd.drawText(35 - lcd.getTextWidth(FONT_NORMAL,text), line[1] + deltaY - 8, text, FONT_NORMAL)
-    end
+--     print ("l1+dy: ", line[1]+deltaY)
+     
+     lcd.drawLine(38, line[1] + deltaY, 38 + line[2], line[1] + deltaY)
+     if line[3] then
+	text = string.format("%d",speed+0.5 + line[3] - delta)
+	lcd.drawText(35 - lcd.getTextWidth(FONT_NORMAL,text), line[1] + deltaY - 8, text, FONT_NORMAL)
+     end
   end
-
+  
   text = string.format("%d",speed)
   lcd.drawFilledRectangle(0,rowAH-8,35,lcd.getTextHeight(FONT_NORMAL))
   lcd.setColor(255-txtr,255-txtg,255-txtb)
@@ -685,7 +714,7 @@ end
 local function toXPixel(coord, min, range, width)
    local pix
    pix = (coord - min)/range * width
-   pix = (pix*0.98125) + 3
+--   pix = (pix*0.98125) + 3
    return pix
 end
 
@@ -694,7 +723,7 @@ local function toYPixel(coord, min, range, height)
    local pix
    --print('toYP: ', coord, min, range, height)
    pix = height-(coord - min)/range * height
-   pix = (pix*0.98125) + 3
+--   pix = (pix*0.98125) + 3
    return pix
 end
 
@@ -753,6 +782,7 @@ local function ilsPrint(windowWidth, windowHeight)
    local dr, dl
    local dx, dy=0,0
    local vA=0
+   local rrad
    
    r, g, b = lcd.getFgColor()
    lcd.setColor(r, g, b)
@@ -765,13 +795,6 @@ local function ilsPrint(windowWidth, windowHeight)
    drawAltitude()
    drawVario()   
 
-   if DEBUG then
-      rrad = system.getInputs("P8")*math.pi
-   else
-      rrad = 0
-   end
-   
-   
    --[[  
    xTSr, yTSr = rotateXY(xTakeoffStart, yTakeoffStart, rrad)
    xTCr, yTCr = rotateXY(xTakeoffComplete, yTakeoffComplete, rrad)
@@ -854,6 +877,7 @@ local function mapPrint(windowWidth, windowHeight)
    local xRW, yRW
    local scale
    local lRW
+   local phi
    
    r, g, b = lcd.getFgColor()
    lcd.setColor(r, g, b)
@@ -863,9 +887,6 @@ local function mapPrint(windowWidth, windowHeight)
    drawHeading()
    drawDistance()
    drawVario()
-   
-   local text=string.format("%d x %d", mapXrange, mapYrange)
-   lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
 
    lcd.drawCircle(toXPixel(0, mapXmin, mapXrange, windowWidth), toYPixel(0, mapYmin, mapYrange, windowHeight), 5)
 
@@ -877,22 +898,60 @@ local function mapPrint(windowWidth, windowHeight)
    if xTakeoffComplete then
       lcd.drawCircle(toXPixel(xTakeoffComplete, mapXmin, mapXrange, windowWidth),
 		     toYPixel(yTakeoffComplete, mapYmin, mapYrange, windowHeight), 4)
-      xRW = (xTakeoffStart + xTakeoffComplete)/2
-      yRW = (yTakeoffStart + yTakeoffComplete)/2
-      lRW = math.sqrt((xTakeoffComplete-xTakeoffStart)^2 + (yTakeoffComplete-xTakeoffStart)^2)
-      -- use xscale since it does not have width-y .. correct for 2x mult
-      scale = toXPixel(lRW, mapXmin, mapXrange, windowWidth)/(40*2)
---      print('lRW, toX, scale: ', lRW, toXPixel(lRW, mapXmin, mapXrange, windowWidth), scale)
-      drawShapeS(toXPixel(xRW, mapXmin, mapXrange, windowWidth),
-		toYPixel(yRW, mapYmin, mapYrange, windowHeight), runwayShape, math.rad(TakeoffHeading), scale)
+      xRW = (xTakeoffComplete - xTakeoffStart)/2 + xTakeoffStart 
+      yRW = (yTakeoffComplete - yTakeoffStart)/2 + yTakeoffStart
+      -- lcd.drawCircle(toXPixel(xRW, mapXmin, mapXrange, windowWidth), toYPixel(yRW, mapYmin, mapYrange, windowHeight), 2)
+      lRW = math.sqrt((xTakeoffComplete-xTakeoffStart)^2 + (yTakeoffComplete-yTakeoffStart)^2)
+      scale = (lRW/mapXrange)*(windowWidth/40) -- rw shape is 40 units long
+      lcd.setColor(0,240,0)
+      drawShapePL(toXPixel(xRW, mapXmin, mapXrange, windowWidth),
+		  toYPixel(yRW, mapYmin, mapYrange, windowHeight), runwayShape, math.rad(RunwayHeading), scale, 2, 255)
+      --local recipHDG = (RunwayHeading + 180)%360
+      drawILS (toXPixel(xTakeoffStart, mapXmin, mapXrange, windowWidth),
+	       toYPixel(yTakeoffStart, mapYmin, mapYrange, windowHeight), math.rad(RunwayHeading), scale)
+
+
+      lcd.setColor(r,g,b)
+
+      local text=string.format("Map: %d x %d    Rwy: %d", mapXrange, mapYrange, math.floor(RunwayHeading/10+.5) )
+      lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
+
+   else
+
+      local text=string.format("Map: %d x %d", mapXrange, mapYrange)
+      lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
+
    end
 
-   -- use the "P8" control to rotate the runway for testing
-   if DEBUG then
-      rrad = system.getInputs("P8")*math.pi
-   else
-      rrad = 0
+   if RunwayHeading then
+      phi = (90-RunwayHeading+360)%360
+      -- pre-calc trig here --
+      xr1 = xTakeoffStart - lRW/10 * math.cos(math.rad(phi-12))
+      yr1 = yTakeoffStart - lRW/10 * math.sin(math.rad(phi-12))
+      
+      xr2 = xTakeoffStart - lRW/4 * math.cos(math.rad(phi-12))
+      yr2 = yTakeoffStart - lRW/4 * math.sin(math.rad(phi-12))
+
+      xl1 = xTakeoffStart - lRW/10 * math.cos(math.rad(phi+12))
+      yl1 = yTakeoffStart - lRW/10 * math.sin(math.rad(phi+12))
+      
+      xl2 = xTakeoffStart - lRW/4 * math.cos(math.rad(phi+12))
+      yl2 = yTakeoffStart - lRW/4 * math.sin(math.rad(phi+12))
+      
+      lcd.drawCircle(toXPixel(xr1, mapXmin, mapXrange, windowWidth), toYPixel(yr1, mapYmin, mapYrange, windowHeight), 3)      
+      lcd.drawCircle(toXPixel(xl1, mapXmin, mapXrange, windowWidth), toYPixel(yl1, mapYmin, mapYrange, windowHeight), 3)
+      
+      lcd.drawCircle(toXPixel(xr2, mapXmin, mapXrange, windowWidth), toYPixel(yr2, mapYmin, mapYrange, windowHeight), 3)      
+      lcd.drawCircle(toXPixel(xl2, mapXmin, mapXrange, windowWidth), toYPixel(yl2, mapYmin, mapYrange, windowHeight), 3)
+
+      if DEBUGLOG then
+	 print(string.format("%d, %d, %d, %d, %d", phi, lRW/4*math.cos(math.rad(phi-7)), lRW/4*math.sin(math.rad(phi-7)), xr2, yr2))
+	 DEBUGLOG = false
+      end
+      
    end
+   
+   
    --[[
    xTSr, yTSr = rotateXY(xTakeoffStart, yTakeoffStart, rrad)
    xTCr, yTCr = rotateXY(xTakeoffComplete, yTakeoffComplete, rrad)
@@ -974,7 +1033,7 @@ local function loop()
    if DEBUG then
       local p7 = .010/2*(system.getInputs("P7")+1)
       debugTime =debugTime + p7
-      speed = 40 + 80 * (math.sin(.3*debugTime) + 1)
+--      speed = 40 + 80 * (math.sin(.3*debugTime) + 1)
 --      altitude = 20 + 200 * (math.cos(.3*debugTime)+1)
       x = 600*math.sin(2*debugTime)
       y = 300*math.cos(3*debugTime)
@@ -1064,7 +1123,10 @@ local function loop()
       y0 = rE*math.log(math.tan(tA) )
       gotInitPos = true
    end
-   
+
+   oldx = x
+   oldy = y
+
    x = rE*(longitude-L0)/rad
    y = rE*math.log(math.tan(tA)) - y0
 
@@ -1076,7 +1138,7 @@ local function loop()
 
 -- print('lat,long,x,y: ', latitude, longitude, x, y)
    
-   if math.abs(oldx-x) > 10000 or math.abs(oldy-y) > 1000 then
+   if math.abs(oldx-x) > 10000 or math.abs(oldy-y) > 10000 then
       print('bailing on bad xy')
       return
    end
@@ -1088,12 +1150,12 @@ local function loop()
    if #xtable+1 > MAXTABLE then
       table.remove(xtable, 1)
       table.remove(ytable, 1)
-      table.remove(ztable, 1)
+--      table.remove(ztable, 1)
    end
    
    table.insert(xtable, x)
    table.insert(ytable, y)
-   table.insert(ztable, altitude)
+--   table.insert(ztable, altitude)
 
 --   print('long,lat, x, y, alt', longitude, latitude, x, y, altitude)
    
@@ -1112,14 +1174,14 @@ local function loop()
    local xspan = xmax-xmin
    local yspan = ymax-ymin
 
-   mapXrange = math.floor(xspan/100 + .5) *100
+   mapXrange = math.floor(xspan/100 + .5) * 100 -- telemetry screens are 320x160 or 2:1
    mapYrange = math.floor(yspan/50 + .5) * 50
 
-   if mapYrange > mapXrange/2 then
-      mapXrange = mapYrange*2
+   if mapYrange > mapXrange/(2) then
+      mapXrange = mapYrange*(2)
    end
-   if mapXrange > mapYrange*2 then
-      mapYrange = mapXrange/2
+   if mapXrange > mapYrange*(2) then
+      mapYrange = mapXrange/(2)
    end
 
    mapXmin = xmin - (mapXrange - xspan)/2
@@ -1147,12 +1209,40 @@ local function loop()
       end
       table.insert(vviTim, #vviTim+1, tt/60000.)
       table.insert(vviAlt, #vviAlt+1, altitude)
+      
       vvi, va = fslope(vviTim, vviAlt)
       --print('tt/60000, altitude, vvi, va: ', tt/60000., altitude, vvi, va)
       vario = vvi
+
       vviSlopeTime = tt + 200. -- next data point in 0.2 sec
    end
+
+   if tt > speedTime then
+      if not xd1 and not yd1 then
+	 xd1=x
+	 yd1=y
+	 td1 =system.getTimeCounter()/1000
+	 speed = 0
+	 --print('init speed', xd1, yd1, td1)
+	 speedTime = tt + 200
+      else
+	 xd2=x
+	 yd2=y
+	 td2=system.getTimeCounter()/1000
+	 dd = math.sqrt( (xd2-xd1)^2 + (yd2-yd1)^2 )
+	 if dd > 50 then -- wait 1000 msec or dist changed by more than 50
+	    xd1=x
+	    yd1=y
+	    speed = dd/(td2-td1)
+	    --print(string.format("x1 %f y1 %f x2 %f y2 %f dd %f t1 %d t2 %d dt %d speed %f", xd1,yd1,xd2,yd2,dd,td1,td2,(td2-td1)*1000,speed))
+	    td1 = td2
+	 end
+	 speedTime = tt + 1000
+      end
+   end
    
+
+
    
    if DEBUG then
       heading = compcrsDeg
@@ -1169,6 +1259,7 @@ local function loop()
       end
    end
    
+   -- need to uppdate for speed computed from GPS
    
    if not DEBUG then
       if hasPitot and SpeedNonGPS ~= nil then
@@ -1194,10 +1285,12 @@ local function loop()
    end
    if brk and brk > 0 then
       brakeReleaseTime = 0
+      xTakeoffStart = nil  -- do we really want to erase the runway when the brakes go back on?
+      xTakeoffComplete = nil
    end
    if brk  then
       oldBrake = brk
-      if DEBUG then altitude = altitude + .15 end ------------------- DEBUG only
+      if DEBUG and brk < 0 then altitude = altitude + .15 end ------------------- DEBUG only
    end
    
    if (throttleControl) then
@@ -1208,7 +1301,9 @@ local function loop()
 	 xTakeoffStart = x
 	 yTakeoffStart = y
 	 zTakeoffStart = altitude
+	 ReleaseHeading = compcrsDeg
 	 print("Takeoff Start: ", brakeReleaseTime, x, y, altitude)
+	 print("Brake Release Heading: ", ReleaseHeading)
 	 system.playFile("starting_takeoff_roll.wav", AUDIO_QUEUE)
       end
    end
@@ -1221,7 +1316,14 @@ local function loop()
 	 yTakeoffComplete = y
 	 zTakeoffComplete = altitude
 	 TakeoffHeading = compcrsDeg
+	 local _, rDeg  = fslope({xTakeoffStart, xTakeoffComplete}, {yTakeoffStart, yTakeoffComplete})
+	 RunwayHeading = math.deg(rDeg)
 	 print("Takeoff Complete:", system.getTimeCounter(), TakeoffHeading, xTakeoffComplete, yTakeoffComplete)
+	 print("Takeoff Heading: ", TakeoffHeading)
+	 print("Runway heading: ", RunwayHeading)
+	 print("Runway length: ", math.sqrt((xTakeoffComplete-xTakeoffStart)^2 + (yTakeoffComplete-yTakeoffStart)^2))
+	 print("atan2: ", math.deg(math.atan( (xTakeoffComplete-xTakeoffStart), (yTakeoffComplete-yTakeoffStart))))
+	 print("WxH: ", windowWidth, windowHeight)
 	 system.playFile("takeoff_complete.wav", AUDIO_QUEUE)
 	 system.playNumber(heading, 0, "\u{B0}")
       end
