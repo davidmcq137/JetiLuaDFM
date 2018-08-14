@@ -773,6 +773,12 @@ local function fslope(x, y)
     return slope, tt
 end
 
+-- these variables are shared by mapPrint and ilsPrint
+
+local xr1,yr1, xr2, yr2
+local xl1,yl1, xl2, yl2
+
+
 local function ilsPrint(windowWidth, windowHeight)
 
    local xc = 155
@@ -783,6 +789,7 @@ local function ilsPrint(windowWidth, windowHeight)
    local dx, dy=0,0
    local vA=0
    local rrad
+   local dd
    
    r, g, b = lcd.getFgColor()
    lcd.setColor(r, g, b)
@@ -795,34 +802,37 @@ local function ilsPrint(windowWidth, windowHeight)
    drawAltitude()
    drawVario()   
 
-   --[[  
-   xTSr, yTSr = rotateXY(xTakeoffStart, yTakeoffStart, rrad)
-   xTCr, yTCr = rotateXY(xTakeoffComplete, yTakeoffComplete, rrad)
-   xr1r, yr1r = rotateXY(xr1, yr1, rrad)
-   xr2r, yr2r = rotateXY(xr2, yr2, rrad)
-   xl1r, yl1r = rotateXY(xl1, yl1, rrad)
-   xl2r, yl2r = rotateXY(xl2, yl2, rrad)
-   --]]
-   
-   -- mm, aa = fslope({xTSr,xTCr}, {yTSr, yTCr})
-   -- print('runway - aa,mm: ', math.deg(aa), mm)
-
    -- First compute determinants to see what side of the right and left lines we are on
    -- ILS course is between them -- also compute which side of the course we are on
 
-   if #xtable >=1 then
-      --[[
-      dr = (xtable[#xtable]-xr1r)*(yr2r-yr1r) - (ytable[#ytable]-yr1r)*(xr2r-xr1r)
-      dl = (xtable[#xtable]-xl1r)*(yl2r-yl1r) - (ytable[#ytable]-yl1r)*(xl2r-xl1r)
-      dc = (xtable[#xtable]-xTSr)*(yTCr-yTSr) - (ytable[#ytable]-yTSr)*(xTCr-xTSr)
+   if #xtable >=1  and RunwayHeading then
+ 
+      xTS = xTakeoffStart -- redundant .. fix code below
+      yTS = yTakeoffStart
+      xTC = xTakeoffComplete
+      yTC = yTakeoffComplete
+
+      dr = (xtable[#xtable]-xr1)*(yr2-yr1) - (ytable[#ytable]-yr1)*(xr2-xr1)
+      dl = (xtable[#xtable]-xl1)*(yl2-yl1) - (ytable[#ytable]-yl1)*(xl2-xl1)
+      dc = (xtable[#xtable]-xTS)*(yTC-yTS) - (ytable[#ytable]-yTS)*(xTC-xTS)
       
-      if dl <= 0 and dr >= 0 then
-	 
-	 hyp = math.sqrt( (ytable[#ytable]-yTSr)^2 + (xtable[#xtable]-yTSr)^2 )
-	 perpd  = math.abs((yTCr-yTSr)*xtable[#xtable] - (xTCr-xTSr)*ytable[#ytable]+xTCr*yTSr-yTCr*xTSr) / hyp
-	 d2r = math.sqrt(hyp^2 - perpd^2)
-	 rA = math.deg(math.atan(perpd/d2r))
-	 vA = math.deg(math.atan(altitude/d2r))
+      hyp = math.sqrt( (ytable[#ytable]-yTS)^2 + (xtable[#xtable]-xTS)^2 )
+
+      if dl >= 0 and dr <= 0 and math.abs(hyp) > 0.1 then
+
+	 perpd  = math.abs((yTC-yTS)*xtable[#xtable] - (xTC-xTS)*ytable[#ytable]+xTC*yTS-yTC*xTS) / hyp
+	 dd = hyp^2 - perpd^2
+	 if dd < 0.1 then dd = 0.1 end
+	 d2r = math.sqrt(dd)
+	 rA = math.deg(math.atan(perpd, d2r))
+	 vA = math.deg(math.atan(altitude, d2r))
+
+	 if vA > 89.9 then vA = 89.9 end
+	 if vA < -89.9 then vA = -89.9 end
+	 if rA > 89.9 then rA = 89.9 end
+	 if rA < -89.9 then rA = -89.9 end
+	    
+	
 	 --print('d2r, altitude, vA', d2r, altitude, vA)
 	 --print('hyp, perpd, d2r, rA: ', hyp, perpd, d2r, rA)
 	 
@@ -840,28 +850,37 @@ local function ilsPrint(windowWidth, windowHeight)
    
       -- draw no bars if not in the ILS zone
 
-      if dl <= 0 and dr >= 0 then
+      if dl >= 0 and dr <= 0 then
 	 -- first the horiz bar
-	 lcd.setColor(255-txtr,255-txtg,255-txtb)
+	 lcd.setColor(255,0,0) -- red bars for now
 	 lcd.drawFilledRectangle(xc-55, yc-2+dy, 110, 4)
 	 -- now vertical bar and glideslope angle display
 	 local text = string.format("%.0f", math.floor(vA/0.01+5)*.01)
 	 lcd.drawFilledRectangle(52,rowAH-8,lcd.getTextWidth(FONT_NORMAL, text)+8,lcd.getTextHeight(FONT_NORMAL))
-	 lcd.drawText(56, rowAH-8, text, FONT_NORMAL | FONT_XOR)
 	 lcd.drawFilledRectangle(xc-2+dx,yc-55, 4, 110)
+	 lcd.setColor(255,255,255) -- white text for vertical angle box
+	 lcd.drawText(56, rowAH-8, text, FONT_NORMAL | FONT_XOR)
+
       end
-      --]]
    end
       
    
+   lcd.setColor(txtr,txtg,txtb)
    text = string.format("%03d",heading)
    w = lcd.getTextWidth(FONT_NORMAL,text) 
-   lcd.setColor(txtr,txtg,txtb)
-   lcd.drawFilledRectangle(xc - w/2,143 , w, lcd.getTextHeight(FONT_NORMAL))
+   lcd.drawFilledRectangle(xc - w/2,0 , w, lcd.getTextHeight(FONT_NORMAL))
    lcd.setColor(255-txtr,255-txtg,255-txtb)
-   lcd.drawText(xc - w/2,143,text,  FONT_XOR)
-   
+   lcd.drawText(xc - w/2,0,text,  FONT_XOR)
 
+   if RunwayHeading then
+      lcd.setColor(txtr,txtg,txtb)
+      local distFromTO = math.sqrt( (xtable[#xtable] - xTakeoffStart)^2 + (ytable[#ytable] - yTakeoffStart)^2)
+      text = string.format("%d",distFromTO)
+      w = lcd.getTextWidth(FONT_NORMAL,text) 
+      lcd.drawFilledRectangle(xc - w/2,143 , w, lcd.getTextHeight(FONT_NORMAL))
+      lcd.setColor(255-txtr,255-txtg,255-txtb)
+      lcd.drawText(xc - w/2,143,text,  FONT_XOR)
+   end
 end
 
 
@@ -872,8 +891,6 @@ local function mapPrint(windowWidth, windowHeight)
    local r, g, b
    local ss, ww
    local d1, d2
-   local xr1,yr1, xr2, yr2
-   local xl1,yl1, xl2, yl2
    local xRW, yRW
    local scale
    local lRW
@@ -926,17 +943,17 @@ local function mapPrint(windowWidth, windowHeight)
    if RunwayHeading then
       phi = (90-RunwayHeading+360)%360
       -- pre-calc trig here --
-      xr1 = xTakeoffStart - lRW/10 * math.cos(math.rad(phi-12))
-      yr1 = yTakeoffStart - lRW/10 * math.sin(math.rad(phi-12))
+      xr1 = xTakeoffComplete - lRW/2 * math.cos(math.rad(phi-12))
+      yr1 = yTakeoffComplete - lRW/2 * math.sin(math.rad(phi-12))
       
-      xr2 = xTakeoffStart - lRW/4 * math.cos(math.rad(phi-12))
-      yr2 = yTakeoffStart - lRW/4 * math.sin(math.rad(phi-12))
+      xr2 = xTakeoffComplete - lRW * math.cos(math.rad(phi-12))
+      yr2 = yTakeoffComplete - lRW * math.sin(math.rad(phi-12))
 
-      xl1 = xTakeoffStart - lRW/10 * math.cos(math.rad(phi+12))
-      yl1 = yTakeoffStart - lRW/10 * math.sin(math.rad(phi+12))
+      xl1 = xTakeoffComplete - lRW/2 * math.cos(math.rad(phi+12))
+      yl1 = yTakeoffComplete - lRW/2 * math.sin(math.rad(phi+12))
       
-      xl2 = xTakeoffStart - lRW/4 * math.cos(math.rad(phi+12))
-      yl2 = yTakeoffStart - lRW/4 * math.sin(math.rad(phi+12))
+      xl2 = xTakeoffComplete - lRW * math.cos(math.rad(phi+12))
+      yl2 = yTakeoffComplete - lRW * math.sin(math.rad(phi+12))
       
       lcd.drawCircle(toXPixel(xr1, mapXmin, mapXrange, windowWidth), toYPixel(yr1, mapYmin, mapYrange, windowHeight), 3)      
       lcd.drawCircle(toXPixel(xl1, mapXmin, mapXrange, windowWidth), toYPixel(yl1, mapYmin, mapYrange, windowHeight), 3)
@@ -944,54 +961,21 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawCircle(toXPixel(xr2, mapXmin, mapXrange, windowWidth), toYPixel(yr2, mapYmin, mapYrange, windowHeight), 3)      
       lcd.drawCircle(toXPixel(xl2, mapXmin, mapXrange, windowWidth), toYPixel(yl2, mapYmin, mapYrange, windowHeight), 3)
 
-      if DEBUGLOG then
-	 print(string.format("%d, %d, %d, %d, %d", phi, lRW/4*math.cos(math.rad(phi-7)), lRW/4*math.sin(math.rad(phi-7)), xr2, yr2))
-	 DEBUGLOG = false
-      end
-      
    end
-   
-   
-   --[[
-   xTSr, yTSr = rotateXY(xTakeoffStart, yTakeoffStart, rrad)
-   xTCr, yTCr = rotateXY(xTakeoffComplete, yTakeoffComplete, rrad)
-   xr1r, yr1r = rotateXY(xr1, yr1, rrad)
-   xr2r, yr2r = rotateXY(xr2, yr2, rrad)
-   xl1r, yl1r = rotateXY(xl1, yl1, rrad)
-   xl2r, yl2r = rotateXY(xl2, yl2, rrad)
-   
-   lcd.drawLine(toXPixel(xTSr,    mapXmin, mapXrange, windowWidth),
-		toYPixel(yTSr,    mapYmin, mapYrange, windowHeight),
-		toXPixel(xTCr, mapXmin, mapXrange, windowWidth),
-		toYPixel(yTCr, mapYmin, mapYrange, windowHeight))
-   
-   
-   lcd.setColor(0,0,255)  -- make the points with the ISL range a different color
-   
-   lcd.drawLine(toXPixel(xr1r, mapXmin, mapXrange, windowWidth),
-		toYPixel(yr1r, mapYmin, mapYrange, windowHeight),
-		toXPixel(xr2r, mapXmin, mapXrange, windowWidth),
-		toYPixel(yr2r, mapYmin, mapYrange, windowHeight))
-
-   lcd.setColor(r,g,b)
-
-   lcd.drawLine(toXPixel(xl1r, mapXmin, mapXrange, windowWidth),
-		toYPixel(yl1r, mapYmin, mapYrange, windowHeight),
-		toXPixel(xl2r, mapXmin, mapXrange, windowWidth),
-		toYPixel(yl2r, mapYmin, mapYrange, windowHeight))
-   --]]
    
    for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
       
       -- First compute determinants to see what side of the right and left lines we are on
       -- ILS course is between them
+      if RunwayHeading then
+	 dr = (xtable[i]-xr1)*(yr2-yr1) - (ytable[i]-yr1)*(xr2-xr1)
+	 dl = (xtable[i]-xl1)*(yl2-yl1) - (ytable[i]-yl1)*(xl2-xl1)
+     
+	 if dl >= 0 and dr <= 0 then
+	    lcd.setColor(0,255,0)
+	 end
+      end
       
---      dr = (xtable[i]-xr1r)*(yr2r-yr1r) - (ytable[i]-yr1r)*(xr2r-xr1r)
---      dl = (xtable[i]-xl1r)*(yl2r-yl1r) - (ytable[i]-yl1r)*(xl2r-xl1r)
-      
---      if dl <= 0 and dr >= 0 then
---	 lcd.setColor(0,0,255)
---      end
       
       lcd.drawCircle(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
 		     toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
@@ -1280,13 +1264,14 @@ local function loop()
    end
    if brk and brk < 0 and oldBrake > 0 then
       brakeReleaseTime = system.getTimeCounter()
-      print("Brake release time: ", brakeReleaseTime)
+      print("Brake release")
       system.playFile("brakes_released.wav", AUDIO_QUEUE)
    end
    if brk and brk > 0 then
       brakeReleaseTime = 0
       xTakeoffStart = nil  -- do we really want to erase the runway when the brakes go back on?
       xTakeoffComplete = nil
+      RunwayHeading = nil
    end
    if brk  then
       oldBrake = brk
@@ -1302,8 +1287,8 @@ local function loop()
 	 yTakeoffStart = y
 	 zTakeoffStart = altitude
 	 ReleaseHeading = compcrsDeg
-	 print("Takeoff Start: ", brakeReleaseTime, x, y, altitude)
-	 print("Brake Release Heading: ", ReleaseHeading)
+	 print("Takeoff Start")
+--	 print("Brake Release Heading: ", ReleaseHeading)
 	 system.playFile("starting_takeoff_roll.wav", AUDIO_QUEUE)
       end
    end
@@ -1318,12 +1303,11 @@ local function loop()
 	 TakeoffHeading = compcrsDeg
 	 local _, rDeg  = fslope({xTakeoffStart, xTakeoffComplete}, {yTakeoffStart, yTakeoffComplete})
 	 RunwayHeading = math.deg(rDeg)
-	 print("Takeoff Complete:", system.getTimeCounter(), TakeoffHeading, xTakeoffComplete, yTakeoffComplete)
-	 print("Takeoff Heading: ", TakeoffHeading)
-	 print("Runway heading: ", RunwayHeading)
+--	 print("Takeoff Complete:", system.getTimeCounter(), TakeoffHeading, xTakeoffComplete, yTakeoffComplete)
+--	 print("Takeoff Heading: ", TakeoffHeading)
+--	 print("Runway heading: ", RunwayHeading)
 	 print("Runway length: ", math.sqrt((xTakeoffComplete-xTakeoffStart)^2 + (yTakeoffComplete-yTakeoffStart)^2))
-	 print("atan2: ", math.deg(math.atan( (xTakeoffComplete-xTakeoffStart), (yTakeoffComplete-yTakeoffStart))))
-	 print("WxH: ", windowWidth, windowHeight)
+--	 print("atan2: ", math.deg(math.atan( (xTakeoffComplete-xTakeoffStart), (yTakeoffComplete-yTakeoffStart))))
 	 system.playFile("takeoff_complete.wav", AUDIO_QUEUE)
 	 system.playNumber(heading, 0, "\u{B0}")
       end
