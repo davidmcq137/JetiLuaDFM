@@ -173,7 +173,8 @@ local function readSensors()
 	    table.insert(GPSsensorLalist, sensor.label)
 	    table.insert(GPSsensorIdlist, sensor.id)
 	    table.insert(GPSsensorPalist, sensor.param)
-	    
+	    -- these labels and params work for the Jeti MGPS .. not sure if params are same for the Xicoy FC
+	    -- it uses GPSLat, GPSLon and GPSAlt as labels .. need to check the params and do the same for it
 	    if sensor.label == 'Longitude' and sensor.param == 3 then
 	       LongitudeSe = #GPSsensorLalist
 	       LongitudeSeId = sensor.id
@@ -901,6 +902,7 @@ local function mapPrint(windowWidth, windowHeight)
    local lRW
    local phi
    local PATTERNALT = 9999 -- specified as AGL
+   local radpt
    
    r, g, b = lcd.getFgColor()
    lcd.setColor(r, g, b)
@@ -982,10 +984,11 @@ local function mapPrint(windowWidth, windowHeight)
 	 end
       end
       
+      if i==#xtable then radpt = 2 else radpt = 1 end
       
       lcd.drawCircle(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
 		     toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
-		     1)
+		     radpt)
       
       lcd.setColor(r, g, b)
       
@@ -1065,14 +1068,25 @@ local function loop()
 
    hasPitot = false
    if(sensor and sensor.valid) then
-      SpeedNonGPS = sensor.value * 0.621371 -- unit conversion to mph
+      if sensor.unit == "kmh" or sensor.unit == "km/h" then
+	 SpeedNonGPS = sensor.value * 0.621371 -- unit conversion to mph
+      end
+      if sensor.unit == "m/s" then
+	 SpeedNonGPS = sensor.value * 2.23694
+      end
+      
       hasPitot = true
    end
 
    sensor = system.getSensorByID(SpeedGPSSeId, SpeedGPSSePa)
 
    if(sensor and sensor.valid) then
-      SpeedGPS = sensor.value *.621371
+      if sensor.unit == "kmh" or sensor.unit == "km/h" then
+	 SpeedGPS = sensor.value * 0.621371 -- unit conversion to mph
+      end
+      if sensor.unit == "m/s" then
+	 SpeedGPS = sensor.value * 2.23694
+      end
    end
 
    sensor = system.getSensorByID(DistanceGPSSeId, DistanceGPSSePa)
@@ -1095,19 +1109,21 @@ local function loop()
       return
    end
    if not goodlat or not goodlong then
-      print('goodlat, goodlong: ', goodlat, goodlong)
+      -- print('goodlat, goodlong: ', goodlat, goodlong)
       return
    end
 
    if latitude == lastlat and longitude == lastlong then return end
 
+   -- avoid problem when lat near +/- 90 -- poles!
+   
    if latitude > 89.9 then latitude = 89.9 end
    if latitude < -89.9 then latitude = -89.9 end
       
    lastlat = latitude
    lastlong = longitude
 
-   tA = (45+latitude/2)/rad -- problem when lat near -/- 90 -- poles!
+   tA = (45+latitude/2)/rad
    
    if not gotInitPos then
       L0 = longitude
@@ -1115,8 +1131,14 @@ local function loop()
       gotInitPos = true
    end
 
-   oldx = x
-   oldy = y
+   if x and y then
+      oldx = x
+      oldy = y
+   else
+      oldx=0
+      oldy=0
+   end
+   
 
    x = rE*(longitude-L0)/rad
    y = rE*math.log(math.tan(tA)) - y0
@@ -1127,8 +1149,9 @@ local function loop()
    
    ::computedXY::   
 
--- print('lat,long,x,y: ', latitude, longitude, x, y)
+   -- print('lat,long,x,y: ', latitude, longitude, x, y)
    
+
    if math.abs(oldx-x) > 10000 or math.abs(oldy-y) > 10000 then
       print('bailing on bad xy')
       return
@@ -1148,7 +1171,7 @@ local function loop()
    table.insert(ytable, y)
 --   table.insert(ztable, altitude)
 
---   print('long,lat, x, y, alt', longitude, latitude, x, y, altitude)
+   print('long,lat, x, y, alt', longitude, latitude, x, y, altitude)
    
    if #xtable == 1 then
       xmin = mapXmin
@@ -1224,7 +1247,7 @@ local function loop()
 	 if dd > 50 then -- wait 1000 msec or dist changed by more than 50
 	    xd1=x
 	    yd1=y
-	    speed = dd/(td2-td1)
+	    speed = dd/(td2-td1) * 0.681818 -- convert feet/s to mph 
 	    --print(string.format("x1 %f y1 %f x2 %f y2 %f dd %f t1 %d t2 %d dt %d speed %f", xd1,yd1,xd2,yd2,dd,td1,td2,(td2-td1)*1000,speed))
 	    td1 = td2
 	 end

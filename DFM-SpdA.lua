@@ -241,10 +241,17 @@ local function loop()
       end
    end
 
-   if (selFt) then -- sensor reports only in native units, in this case m/s
-      spd = speed * 2.23694 -- mph
+   if (selFt) then
+      if sensor.unit == "m/s" then
+	 spd = speed * 2.23694 -- m/s to mph
+      end
+      if sensor.unit == "kmh" or sensor.unit == "km/h" then
+	 spd = speed * 0.621371 -- km/hr to mph
+      end
    else
-      spd = speed * 3.6 -- km/hr
+      if sensor.unit == "m/s" then
+	 spd = speed * 3.6 -- km/hr
+      end
    end
    
    if (spd <= maxSpd) then
