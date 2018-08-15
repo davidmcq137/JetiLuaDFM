@@ -60,9 +60,9 @@ local xmin, xmax, ymin, ymax
 local mapXrange = mapXmax - mapXmin
 local mapYrange = mapYmax - mapYmin
 
-local DEBUG = true -- if set to <true> will print to console the speech files and output
+local DEBUG = false -- if set to <true> will print to console the speech files and output
 local debugTime = 0
-local DEBUGLOG = true
+local DEBUGLOG = true -- persistent state var for debugging (e.g. to print something in a loop only once)
 
 -- these lists are the non-GPS sensors
 
@@ -437,8 +437,13 @@ local runwayShape = {
 }
 
 local ILSshape = {
-   {-2,0,-5,20},
-   {2, 0,5,20},
+   {0,0,0,20},
+   {0,0,-2,2},
+   {0,0, 2,2},
+   {0,2,-2,4},
+   {0,2, 2,4},
+   {0,4,-2,6},
+   {0,4, 2,6}
 }
 
 -- *****************************************************
@@ -816,7 +821,7 @@ local function ilsPrint(windowWidth, windowHeight)
       dl = (xtable[#xtable]-xl1)*(yl2-yl1) - (ytable[#ytable]-yl1)*(xl2-xl1)
       dc = (xtable[#xtable]-xTS)*(yTC-yTS) - (ytable[#ytable]-yTS)*(xTC-xTS)
       
-      hyp = math.sqrt( (ytable[#ytable]-yTS)^2 + (xtable[#xtable]-xTS)^2 )
+      hyp = math.sqrt( (ytable[#ytable]-yTC)^2 + (xtable[#xtable]-xTC)^2 )
 
       if dl >= 0 and dr <= 0 and math.abs(hyp) > 0.1 then
 
@@ -895,6 +900,7 @@ local function mapPrint(windowWidth, windowHeight)
    local scale
    local lRW
    local phi
+   local PATTERNALT = 9999 -- specified as AGL
    
    r, g, b = lcd.getFgColor()
    lcd.setColor(r, g, b)
@@ -995,6 +1001,7 @@ local function loop()
    local MAXTABLE = 100
    local MAXVVITABLE = 15 -- points to fit to compute vertical speed -- 3 seconds at 0.2 sec sample
    local OFFGROUND = 10 -- units?
+   local PATTERNALT = 9999
    local xExp, yExp, maxExp, minExp
    local tt
    local hasPitot
