@@ -34,7 +34,7 @@ local SpeedNonGPSSe, SpeedNonGPSId, SpeedNonGPSPa
 local SpeedGPSSe, SpeedGPSSeId, SpeedGPSSePa
 local DistanceGPSSe, DistanceGPSSeId, DistanceGPSSePa
 local CourseGPSSe, CourseGPSSeId, CourseGPSSePa
-
+local BaroAltSe, BaroAltSeId, BaroAltSePa
 local latitude, longitude
 local speedGPS, speedNonGPS = 0,0
 local courseGPS, courseNonGPS, course
@@ -76,6 +76,7 @@ local sensorUnlist = { "..." }  -- sensor Units
 local GPSsensorLalist = { "..." }
 local GPSsensorIdlist = { "..." }
 local GPSsensorPalist = { "..." }
+
 local mapXmin, mapXmax = -100, 100
 local mapYmin, mapYmax = -50, 50
 local mapXrange = mapXmax - mapXmin
@@ -111,7 +112,7 @@ local lastlat = 0
 local lastlong = 0
 local gotInitPos = false
 local L0, y0
-local rE = 6371*1000
+local rE = 20902231.64  -- 6371*1000*3.28084 radius of earth in ft
 local rad = 180/math.pi
 local compcrs
 local heading, compcrsDeg = 0, 0
@@ -131,6 +132,8 @@ local txtr, txtg, txtb = 0,0,0
 local ff
 local qq
 local sysTimeStart = system.getTimeCounter()
+local newPosTime = 0
+
 local glideSlopePNG
 
 --------------------------------------------------------------------------------
@@ -301,6 +304,19 @@ local function CourseGPSSensorChanged(value)
   system.pSave("CourseGPSSePa", CourseGPSSePa)
 end
 
+local function BaroAltSensorChanged(value)
+  BaroAltSe = value
+  BaroAltSeId = sensorIdlist[BaroAltSe]
+  BaroAltSePa = sensorPalist[BaroAltSe]
+  if (BaroAltSeId == "...") then
+    BaroAltSeId = 0
+    BaroAltSePa = 0 
+  end
+  system.pSave("BaroAltSe", value)
+  system.pSave("BaroAltSeId", SpeedNonGPSSeId)
+  system.pSave("BaroAltSePa", SpeedNonGPSSePa)
+end
+
 local function throttleControlChanged(value)
    throttleControl = value
    print("Throttle Control: ", throttleControl)
@@ -336,6 +352,10 @@ local function initForm()
     form.addRow(2)
     form.addLabel({label="Select Pitot-Static Sensor", width=220})
     form.addSelectbox(sensorLalist, SpeedNonGPSSe, true, SpeedNonGPSSensorChanged)
+
+    form.addRow(2)
+    form.addLabel({label="Select Baro Alt Sensor", width=220})
+    form.addSelectbox(sensorLalist, BaroAltSe, true, BaroAltSensorChanged)
 
     form.addRow(2)
     form.addLabel({label="Select Throttle Control", width=220})
@@ -1014,6 +1034,9 @@ local function loop()
    local tA
    local goodlat, goodlong 
    local brk, thr
+   local newpos
+   local deltaPosTime = 1000 -- min sample interval in ms
+   local baroAlt, GPSalt
    
    goodlat = false
    goodlong = false
@@ -1061,11 +1084,11 @@ local function loop()
    sensor = system.getSensorByID(AltitudeSeId, AltitudeSePa)
 
    if(sensor and sensor.valid) then
-      altitude = sensor.value*3.28084 -- convert to ft, telem apis only report native values
+      GPSalt = sensor.value*3.28084 -- convert to ft, telem apis only report native values
    end
-
+   
    sensor = system.getSensorByID(SpeedNonGPSSeId, SpeedNonGPSSePa)
-
+   
    hasPitot = false
    if(sensor and sensor.valid) then
       if sensor.unit == "kmh" or sensor.unit == "km/h" then
@@ -1077,9 +1100,16 @@ local function loop()
       
       hasPitot = true
    end
-
+   
+   sensor = system.getSensorByID(BaroAltSeId, BaroAltSePa)
+   
+   if(sensor and sensor.valid) then
+      BaroAlt = sensor.value * 3.28084 -- unit conversion m to ft
+   end
+   
+   
    sensor = system.getSensorByID(SpeedGPSSeId, SpeedGPSSePa)
-
+   
    if(sensor and sensor.valid) then
       if sensor.unit == "kmh" or sensor.unit == "km/h" then
 	 SpeedGPS = sensor.value * 0.621371 -- unit conversion to mph
@@ -1088,13 +1118,13 @@ local function loop()
 	 SpeedGPS = sensor.value * 2.23694
       end
    end
-
+   
    sensor = system.getSensorByID(DistanceGPSSeId, DistanceGPSSePa)
-
+   
    if(sensor and sensor.valid) then
       DistanceGPS = sensor.value*3.2808
    end      
-
+   
    hasCourseGPS = false
    sensor = system.getSensorByID(CourseGPSSeId, CourseGPSSeId)
    if sensor and sensor.valid then
@@ -1103,26 +1133,39 @@ local function loop()
    end
    
    -- only recompute when lat and long have changed
-
+   
    if not latitude or not longitude then
-      print('lat or long is nil')
+      print('returning: lat or long is nil')
       return
    end
    if not goodlat or not goodlong then
-      -- print('goodlat, goodlong: ', goodlat, goodlong)
+      print('returning: goodlat, goodlong: ', goodlat, goodlong)
       return
    end
 
-   if latitude == lastlat and longitude == lastlong then return end
+   if not DEBUG then
+      if GPSAlt then
+	 altitude = GPSAlt
+      end
+      if BaroAlt then -- let BaroAlt "win" if both defined
+	 altitude = BaroAlt
+      end
+   end
 
+   if (latitude == lastlat and longitude == lastlong) or (system.getTimeCounter() < newPosTime) then
+      newpos = false
+   else
+      newpos = true
+      lastlat = latitude
+      lastlong = longitude
+      newPosTime = system.getTimeCounter() + deltaPosTime
+   end
+   
    -- avoid problem when lat near +/- 90 -- poles!
    
    if latitude > 89.9 then latitude = 89.9 end
    if latitude < -89.9 then latitude = -89.9 end
       
-   lastlat = latitude
-   lastlong = longitude
-
    tA = (45+latitude/2)/rad
    
    if not gotInitPos then
@@ -1151,68 +1194,69 @@ local function loop()
 
    -- print('lat,long,x,y: ', latitude, longitude, x, y)
    
-
-   if math.abs(oldx-x) > 10000 or math.abs(oldy-y) > 10000 then
-      print('bailing on bad xy')
-      return
-   end
+-- was failing on startup .. fix at some point to defend against rogue points
+--   if math.abs(oldx-x) > 10000 or math.abs(oldy-y) > 10000 then
+--      print('bailing on bad xy')
+--      return
+--  end
       
    --tt = system.getTimeCounter()/1000
    --ss1 = string.format("%.2f, %.0f, %.0f, %.0f, %.0f, %.0f, %.0f", tt, mapXmin, mapXmax, mapYmin, mapYmax, mapXrange, mapYrange)
    --print(ss1)
 
-   if #xtable+1 > MAXTABLE then
-      table.remove(xtable, 1)
-      table.remove(ytable, 1)
---      table.remove(ztable, 1)
-   end
-   
-   table.insert(xtable, x)
-   table.insert(ytable, y)
---   table.insert(ztable, altitude)
+   if newpos then -- only enter a new xy in the "comet tail" if lat/lon changed
+      
+      if #xtable+1 > MAXTABLE then
+	 table.remove(xtable, 1)
+	 table.remove(ytable, 1)
+      end
+      
+      table.insert(xtable, x)
+      table.insert(ytable, y)
+      
+      print('long,lat, x, y, alt', longitude, latitude, x, y, altitude)
+      
+      if #xtable == 1 then
+	 xmin = mapXmin
+	 xmax = mapXmax
+	 ymin = mapYmin
+	 ymax = mapYmax
+      end
+      
+      if x > xmax then xmax = x end
+      if x < xmin then xmin = x end
+      if y > ymax then ymax = y end
+      if y < ymin then ymin = y end
+      
+      local xspan = 1.02*(xmax-xmin) -- allow a few pixels "buffer" at edges
+      local yspan = 1.04*(ymax-ymin)
 
-   print('long,lat, x, y, alt', longitude, latitude, x, y, altitude)
+      mapXrange = math.floor(xspan/100 + .5) * 100 -- telemetry screens are 320x160 or 2:1
+      mapYrange = math.floor(yspan/50 + .5) * 50
+      
+      if mapYrange > mapXrange/(2) then
+	 mapXrange = mapYrange*(2)
+      end
+      if mapXrange > mapYrange*(2) then
+	 mapYrange = mapXrange/(2)
+      end
+      
+      mapXmin = xmin - (mapXrange - xspan)/2
+      mapXmax = xmax + (mapXrange - xspan)/2
+      
+      mapYmin = ymin - (mapYrange - yspan)/2
+      mapYmax = ymax + (mapYrange - yspan)/2 
    
-   if #xtable == 1 then
-      xmin = mapXmin
-      xmax = mapXmax
-      ymin = mapYmin
-      ymax = mapYmax
+      if #xtable > lineAvgPts then
+	 xyslope, compcrs = fslope(table.move(xtable, #xtable-lineAvgPts+1, #xtable, 1, {}),
+				   table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {}))
+      else
+	 xyslope = 0
+	 compcrs = 0
+      end
+   
+      compcrsDeg = compcrs*180/math.pi
    end
-   
-   if x > xmax then xmax = x end
-   if x < xmin then xmin = x end
-   if y > ymax then ymax = y end
-   if y < ymin then ymin = y end
-   
-   local xspan = xmax-xmin
-   local yspan = ymax-ymin
-
-   mapXrange = math.floor(xspan/100 + .5) * 100 -- telemetry screens are 320x160 or 2:1
-   mapYrange = math.floor(yspan/50 + .5) * 50
-
-   if mapYrange > mapXrange/(2) then
-      mapXrange = mapYrange*(2)
-   end
-   if mapXrange > mapYrange*(2) then
-      mapYrange = mapXrange/(2)
-   end
-
-   mapXmin = xmin - (mapXrange - xspan)/2
-   mapXmax = xmax + (mapXrange - xspan)/2
-   
-   mapYmin = ymin - (mapYrange - yspan)/2
-   mapYmax = ymax + (mapYrange - yspan)/2 
-   
-   if #xtable > lineAvgPts then
-      xyslope, compcrs = fslope(table.move(xtable, #xtable-lineAvgPts+1, #xtable, 1, {}),
-				table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {}))
-   else
-      xyslope = 0
-      compcrs = 0
-   end
-   
-   compcrsDeg = compcrs*180/math.pi
    
    tt = system.getTimeCounter() - sysTimeStart
 
@@ -1256,8 +1300,6 @@ local function loop()
    end
    
 
-
-   
    if DEBUG then
       heading = compcrsDeg
    else
@@ -1388,6 +1430,10 @@ local function init()
    SpeedNonGPSSeId = system.pLoad("SpeedNonGPSSeId", 0)
    SpeedNonGPSSePa = system.pLoad("SpeedNonGPSSePa", 0)
 
+   BaroAltSe   = system.pLoad("BaroAltSe", 0)
+   BaroAltSeId = system.pLoad("BaroAltSeId", 0)
+   BaroAltSePa = system.pLoad("BaroAltSePa", 0)
+   
    SpeedGPSSe      = system.pLoad("SpeedGPSSe", 0)
    SpeedGPSSeId    = system.pLoad("SpeedGPSSeId", 0)
    SpeedGPSSePa    = system.pLoad("SpeedGPSSePa", 0)        
