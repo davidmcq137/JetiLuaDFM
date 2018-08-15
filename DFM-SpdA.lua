@@ -198,6 +198,12 @@ end
 
 local function loop()
 
+   local mod_sec, rem_sec
+   local rem_spd -- mod_spd defined at higher scope
+   local mult
+   local spd
+   local speed
+	 
 
    local swi  = system.getInputsVal(spdSwitch)
    if swi and swi < 1 then return end
@@ -209,25 +215,38 @@ local function loop()
       if not DEBUG then return end
    end
 
-   local mod_sec, rem_sec
-   local rem_spd -- mod_spd defined at higher scope
-   local mult
-   local spd
-	 
+    --[[   
+   loopCount = loopCount + 1
+   if loopCount > 100 then
+      loopCount = 0
+      print("swi, VrefSpd, selFt: ", swi, VrefSpd, selFt)
+      if sensor then
+	 print("sensor.value: , sensor.valid", sensor.value, sensor.valid)
+	 print("sensor.label, sensor.type, sensor.name, sensor.unit: ", sensor.label, sensor.type, sensor.name, sensor.unit) 
+      else
+	 print("no sensor selected")
+	 return
+      end
+   end
+--]]     
+
    
    if(sensor and sensor.valid) then
-      spd = sensor.value
+      speed = sensor.value
    else
       if DEBUG then
-	 spd = (system.getInputs("P8")+1)*160.0 -- make P8 go from 0 to 320
+	 speed = (system.getInputs("P8")+1)*160.0 -- make P8 go from 0 to 320
       else
-	 spd = 0
+	 return 
       end
    end
 
-   if (selFt) then
-      spd = spd * 0.621371
+   if (selFt) then -- sensor reports only in native units, in this case m/s
+      spd = speed * 2.23694 -- mph
+   else
+      spd = speed * 3.6 -- km/hr
    end
+   
    if (spd <= maxSpd) then
       ovrSpd = false
    end
@@ -239,19 +258,6 @@ local function loop()
       stall_warn = false
    end
 
---[[   
-   loopCount = loopCount + 1
-   if loopCount > 100 then
-      loopCount = 0
-      print("swi,spd, VrefSpd, selFt: ", swi, spd, VrefSpd, selFt)
-      if sensor then
-	 print("sensor.value: ", sensor.value)
-	 print("sensor.label, sensor.type, sensor.name, sensor.unit: ", sensor.label, sensor.type, sensor.name, sensor.unit) 
-      else
-	 print("no sensor selected")
-      end
-   end
---]]     
 
    if(swi and swi < 1) then
       mod_spd = 0
