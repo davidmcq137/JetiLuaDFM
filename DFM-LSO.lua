@@ -54,9 +54,9 @@ local xd1, yd1
 local xd2, yd2
 local td1, td2
 
-local mapXmin, mapXmax = -80, 80
-local mapYmin, mapYmax = -60, 60
-local xmin, xmax, ymin, ymax
+local mapXmin, mapXmax = -200, 200
+local mapYmin, mapYmax = -100, 100
+local xmin, xmax, ymin, ymax = mapXmin, mapXmax, mapYmin, mapYmax
 local mapXrange = mapXmax - mapXmin
 local mapYrange = mapYmax - mapYmin
 
@@ -76,11 +76,6 @@ local sensorUnlist = { "..." }  -- sensor Units
 local GPSsensorLalist = { "..." }
 local GPSsensorIdlist = { "..." }
 local GPSsensorPalist = { "..." }
-
-local mapXmin, mapXmax = -100, 100
-local mapYmin, mapYmax = -50, 50
-local mapXrange = mapXmax - mapXmin
-local mapYrange = mapYmax - mapYmin
 
 local throttleControl
 local brakeControl
@@ -350,7 +345,7 @@ local function initForm()
   if (tonumber(system.getVersion()) >= 4.22) then
 
     form.addRow(2)
-    form.addLabel({label="Select Pitot-Static Sensor", width=220})
+    form.addLabel({label="Select Pitot Speed Sensor", width=220})
     form.addSelectbox(sensorLalist, SpeedNonGPSSe, true, SpeedNonGPSSensorChanged)
 
     form.addRow(2)
@@ -1036,7 +1031,7 @@ local function loop()
    local brk, thr
    local newpos
    local deltaPosTime = 1000 -- min sample interval in ms
-   local baroAlt, GPSalt
+   local baroAlt, GPSAlt
    
    goodlat = false
    goodlong = false
@@ -1084,7 +1079,7 @@ local function loop()
    sensor = system.getSensorByID(AltitudeSeId, AltitudeSePa)
 
    if(sensor and sensor.valid) then
-      GPSalt = sensor.value*3.28084 -- convert to ft, telem apis only report native values
+      GPSAlt = sensor.value*3.28084 -- convert to ft, telem apis only report native values
    end
    
    sensor = system.getSensorByID(SpeedNonGPSSeId, SpeedNonGPSSePa)
@@ -1104,7 +1099,7 @@ local function loop()
    sensor = system.getSensorByID(BaroAltSeId, BaroAltSePa)
    
    if(sensor and sensor.valid) then
-      BaroAlt = sensor.value * 3.28084 -- unit conversion m to ft
+      baroAlt = sensor.value * 3.28084 -- unit conversion m to ft
    end
    
    
@@ -1135,11 +1130,11 @@ local function loop()
    -- only recompute when lat and long have changed
    
    if not latitude or not longitude then
-      print('returning: lat or long is nil')
+--      print('returning: lat or long is nil')
       return
    end
    if not goodlat or not goodlong then
-      print('returning: goodlat, goodlong: ', goodlat, goodlong)
+--      print('returning: goodlat, goodlong: ', goodlat, goodlong)
       return
    end
 
@@ -1147,8 +1142,8 @@ local function loop()
       if GPSAlt then
 	 altitude = GPSAlt
       end
-      if BaroAlt then -- let BaroAlt "win" if both defined
-	 altitude = BaroAlt
+      if baroAlt then -- let baroAlt "win" if both defined
+	 altitude = baroAlt
       end
    end
 
@@ -1216,6 +1211,13 @@ local function loop()
       
       print('long,lat, x, y, alt', longitude, latitude, x, y, altitude)
       
+      if not mapXmax then
+	 mapXmax=   200
+	 mapXmin = -200
+	 mapYmax =  100
+	 mapYmin = -100
+      end
+
       if #xtable == 1 then
 	 xmin = mapXmin
 	 xmax = mapXmax
@@ -1228,11 +1230,11 @@ local function loop()
       if y > ymax then ymax = y end
       if y < ymin then ymin = y end
       
-      local xspan = 1.02*(xmax-xmin) -- allow a few pixels "buffer" at edges
-      local yspan = 1.04*(ymax-ymin)
+      local xspan = 1.03*(xmax-xmin) -- allow a few pixels "buffer" at edges
+      local yspan = 1.06*(ymax-ymin)
 
-      mapXrange = math.floor(xspan/100 + .5) * 100 -- telemetry screens are 320x160 or 2:1
-      mapYrange = math.floor(yspan/50 + .5) * 50
+      mapXrange = math.floor(xspan/200 + .5) * 200 -- telemetry screens are 320x160 or 2:1
+      mapYrange = math.floor(yspan/100 + .5) * 100
       
       if mapYrange > mapXrange/(2) then
 	 mapXrange = mapYrange*(2)
@@ -1270,7 +1272,7 @@ local function loop()
       
       vvi, va = fslope(vviTim, vviAlt)
       --print('tt/60000, altitude, vvi, va: ', tt/60000., altitude, vvi, va)
-      vario = vvi
+      vario = 0.8*vario + 0.2*vvi
 
       vviSlopeTime = tt + 200. -- next data point in 0.2 sec
    end
@@ -1288,14 +1290,13 @@ local function loop()
 	 yd2=y
 	 td2=system.getTimeCounter()/1000
 	 dd = math.sqrt( (xd2-xd1)^2 + (yd2-yd1)^2 )
-	 if dd > 50 then -- wait 1000 msec or dist changed by more than 50
+	 if dd > 50 then -- wait 2000 msec or dist changed by more than 50
 	    xd1=x
 	    yd1=y
-	    speed = dd/(td2-td1) * 0.681818 -- convert feet/s to mph 
-	    --print(string.format("x1 %f y1 %f x2 %f y2 %f dd %f t1 %d t2 %d dt %d speed %f", xd1,yd1,xd2,yd2,dd,td1,td2,(td2-td1)*1000,speed))
+	    speed = 0.8*speed + 0.2*dd*0.681818/(td2-td1)
 	    td1 = td2
 	 end
-	 speedTime = tt + 1000
+	 speedTime = tt + 2000 -- time to next reading in ms
       end
    end
    
