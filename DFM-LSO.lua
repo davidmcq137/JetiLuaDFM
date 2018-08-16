@@ -116,7 +116,7 @@ local lineAvgPts = 4  -- number of points to linear fit to compute course
 local vviSlopeTime = 0
 local speedTime = 0
 local oldx, oldy=0,0
-
+local numGPSreads = 0
 
 
 local ren=lcd.renderer()
@@ -1124,7 +1124,7 @@ local function loop()
    sensor = system.getSensorByID(CourseGPSSeId, CourseGPSSeId)
    if sensor and sensor.valid then
       courseGPS = sensor.value
-      HasCourseGPS = true
+      hasCourseGPS = true
    end
    
    -- only recompute when lat and long have changed
@@ -1147,6 +1147,25 @@ local function loop()
       end
    end
 
+   -- Xicoy FC sends a lat/long of 0,0 on startup .. don't use it
+   if math.abs(latitude) < 1 then
+      -- print("Latitude < 1: ", latitude, longitude, goodlat, goodlong)
+      return
+   end
+
+   -- Jeti MGPS sends a reading of 240N, 48E on startup .. don't use it
+   if latitude > 239 then
+      -- print("Latitude > 239: ", latitude, longitude, goodlat, goodlong)
+      return
+   end 
+
+   -- throw away first 10 GPS readings to let unit settle
+   numGPSreads = numGPSreads + 1
+   if numGPSreads < 10 then 
+      print("Discarding reading: ", numGPSreads, latitude, longitude, goodlat, goodlong)
+      return
+   end
+   
    if (latitude == lastlat and longitude == lastlong) or (system.getTimeCounter() < newPosTime) then
       newpos = false
    else
@@ -1160,7 +1179,7 @@ local function loop()
    
    if latitude > 89.9 then latitude = 89.9 end
    if latitude < -89.9 then latitude = -89.9 end
-      
+
    tA = (45+latitude/2)/rad
    
    if not gotInitPos then
@@ -1169,12 +1188,14 @@ local function loop()
       gotInitPos = true
    end
 
-   if x and y then
-      oldx = x
-      oldy = y
-   else
-      oldx=0
-      oldy=0
+   if newpos then
+      if x and y then
+	 oldx = x
+	 oldy = y
+      else
+	 oldx=0
+	 oldy=0
+      end
    end
    
 
@@ -1272,9 +1293,9 @@ local function loop()
       
       vvi, va = fslope(vviTim, vviAlt)
       --print('tt/60000, altitude, vvi, va: ', tt/60000., altitude, vvi, va)
-      vario = 0.8*vario + 0.2*vvi
+      vario = 0.8*vario + 0.2*vvi -- light smoothing
 
-      vviSlopeTime = tt + 200. -- next data point in 0.2 sec
+      vviSlopeTime = tt + 300. -- next data point in 0.3 sec
    end
 
    if tt > speedTime then
@@ -1284,18 +1305,16 @@ local function loop()
 	 td1 =system.getTimeCounter()/1000
 	 speed = 0
 	 --print('init speed', xd1, yd1, td1)
-	 speedTime = tt + 200
+	 speedTime = tt + 2000
       else
 	 xd2=x
 	 yd2=y
 	 td2=system.getTimeCounter()/1000
 	 dd = math.sqrt( (xd2-xd1)^2 + (yd2-yd1)^2 )
-	 if dd > 50 then -- wait 2000 msec or dist changed by more than 50
-	    xd1=x
-	    yd1=y
-	    speed = 0.8*speed + 0.2*dd*0.681818/(td2-td1)
-	    td1 = td2
-	 end
+	 xd1=x
+	 yd1=y
+	 speed = 0.8*speed + 0.2*dd*0.681818/(td2-td1) -- speed is in ft/s .. convert to mph
+	 td1 = td2
 	 speedTime = tt + 2000 -- time to next reading in ms
       end
    end
