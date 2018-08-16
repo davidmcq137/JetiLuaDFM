@@ -1,7 +1,7 @@
 {
   "default":"en",
   "en":{
-    "appName":"Momentary to Toggle",
+    "appName":"Momentary to FlipFlop",
     "swi1":"Switch 1 M01 on",
     "swi2":"Switch 2 M01 off",
     "swi3":"Switch 3 M03 on",

@@ -1,10 +1,13 @@
 --[[
 	---------------------------------------------------------
-    Momentary application takes any switch as input
-	(including voice commands!) and creates latching
-	switches from momentary action.
+   Adapted from momentary to toggle program by Tero of RC Thoughts
+
+   Acts as a SR Flip Flop .. one switch turns a channel on, a second switch turns it off
 	
-	Example: 
+   For example, instead of momentary to toggle controlling smoke by saying "smoke" and having each reco of "smoke" 
+   change the smoke channel state (toggling) from ON to OFF, you set up "smoke on" and "smoke off" commands so the
+   channnel is in a known state
+   
 	Switch 1 ON-OFF makes Momentary switch 1 to ON
 	next time used it will be turned off:
 	Switch 1 ON-OFF makes Momentary switch 1 to OFF
@@ -15,7 +18,7 @@
 	
 	All momentary switches are OFF when model is loaded.
 	
-	Localisation-file has to be as /Apps/Lang/RCT-Batt.jsn
+	Localisation-file has to be as /Apps/Lang/...
     
     Requires DC/DS-14/16/24 firmware 4.22 or up
 	
@@ -40,7 +43,7 @@ local tStamp1, tStamp2, tStamp3, tStamp4, tStamp5 = 0, 0, 0, 0, 0
 -- Read translations
 local function setLanguage()
     local lng=system.getLocale()
-    local file = io.readall("Apps/Lang/DFM-MomT.jsn")
+    local file = io.readall("Apps/Lang/DFM-MomFF.jsn")
     local obj = json.decode(file)
     if(obj) then
         trans4 = obj[lng] or obj[obj.default]
@@ -206,8 +209,8 @@ local function init()
     collectgarbage()
 end
 --------------------------------------------------------------------------------
-momtVersion = "1.0"
+momFFVersion = "1.0"
 setLanguage()
 collectgarbage()
 --------------------------------------------------------------------------------
-return {init=init, loop=loop, author="RC-Thoughts", version=momtVersion, name=trans4.appName}
+return {init=init, loop=loop, author="DFM", version=momFFVersion, name=trans4.appName}
