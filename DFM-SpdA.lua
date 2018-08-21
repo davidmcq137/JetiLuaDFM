@@ -254,7 +254,7 @@ local function loop()
       end
    end
    
-   if (spd <= maxSpd) then
+   if maxspd and (spd <= maxSpd) then
       ovrSpd = false
    end
    if (spd > VrefSpd) then

@@ -5,7 +5,7 @@
 
    Derived from DFM's Speed and Time Announcers, which were turn was derived from RCT's Alt Announcer
    Borrowed and modified code from Jeti's AH example for tapes and heading indicator.
-   New code to project Lat/Long via Mercatur projection to XY plane, and to
+   New code to project Lat/Long via simple equirectangular projection to XY plane, and to
    compute heading from the projected XY plane track for GPS sensors that don't have this feature 
    and create an map of flightpath and an  ILS "localizer" based on GPS (e.g a model version of GPS RNAV)
     
@@ -98,6 +98,8 @@ local RunwayHeading
 local neverAirborne=true
 
 local resetOrigin=false
+local resetClick=false
+local resetCompIndex
 
 local lastLoopTime = 0
 local avgLoopTime = 0
@@ -106,8 +108,11 @@ local loopCount = 0
 local lastlat = 0
 local lastlong = 0
 local gotInitPos = false
+local baroAltZero = 0
 local L0, y0
-local rE = 20902231.64  -- 6371*1000*3.28084 radius of earth in ft
+local long0, lat0, coslat0
+local rE = 21220539.7  -- 6371*1000*3.28084 radius of earth in ft, fudge factor of 1/0.985
+local rEff = 0.74 -- fudge factor to get x,y calcs to match google earth
 local rad = 180/math.pi
 local compcrs
 local heading, compcrsDeg = 0, 0
@@ -117,7 +122,7 @@ local vviSlopeTime = 0
 local speedTime = 0
 local oldx, oldy=0,0
 local numGPSreads = 0
-
+local timeRO = 0
 
 local ren=lcd.renderer()
 local ren2=lcd.renderer()
@@ -326,14 +331,20 @@ end
 
 local function magneticVarChanged(value)
    magneticVar = value
-   system.psave("magneticVar", value)
+   system.pSave("magneticVar", value)
 end
 
 local function resetOriginChanged(value)
-   resetOrigin = not value
-   print("mem before: ", collectgarbage("count"))
-   collectgarbage()
-   print("mem after: ", collectgarbage("count"))
+   resetClick = value
+   if not resetClick then
+      resetClick = true
+      form.setValue(resetCompIndex, resetClick)
+      resetOrigin=true
+      timeRO = system.getTimeCounter()
+      print("mem before: ", collectgarbage("count"))
+      collectgarbage()
+      print("mem after: ", collectgarbage("count"))
+   end
 end
 
 --------------------------------------------------------------------------------
@@ -390,7 +401,7 @@ local function initForm()
     
     form.addRow(2)
     form.addLabel({label="Reset GPS origin", width=274})
-    form.addCheckbox(resetOrigin, resetOriginChanged)
+    resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
         
     form.addRow(1)
     form.addLabel({label="DFM - v."..LSOVersion.." ", font=FONT_MINI, alignRight=true})
@@ -555,7 +566,7 @@ local parmLine = {
 
 local function drawAltitude()
   lcd.setColor(txtr,txtg,txtb)
-  delta = altitude % 10
+  delta = (altitude-baroAltZero) % 10
   deltaY = 1 + math.floor(2.4 * delta)  
   lcd.drawText(colAlt+2, heightAH+2, "ft", FONT_MINI)
   lcd.setClipping(colAlt-7,0,45,heightAH)
@@ -565,11 +576,11 @@ local function drawAltitude()
   for index, line in pairs(parmLine) do
     lcd.drawLine(6 - line[2], line[1] + deltaY, 6, line[1] + deltaY)
     if line[3] then
-      lcd.drawNumber(11, line[1] + deltaY - 8, altitude+0.5 + line[3] - delta, FONT_NORMAL)
+      lcd.drawNumber(11, line[1] + deltaY - 8, altitude-baroAltZero+0.5 + line[3] - delta, FONT_NORMAL)
     end
   end
 
-  text = string.format("%d",altitude)
+  text = string.format("%d",altitude-baroAltZero)
   lcd.drawFilledRectangle(11,rowAH-8,42,lcd.getTextHeight(FONT_NORMAL))
 
   lcd.setColor(255-txtr,255-txtg,255-txtb)
@@ -846,7 +857,7 @@ local function ilsPrint(windowWidth, windowHeight)
 	 if dd < 0.1 then dd = 0.1 end
 	 d2r = math.sqrt(dd)
 	 rA = math.deg(math.atan(perpd, d2r))
-	 vA = math.deg(math.atan(altitude, d2r))
+	 vA = math.deg(math.atan(altitude-baroAltZero, d2r))
 
 	 if vA > 89.9 then vA = 89.9 end
 	 if vA < -89.9 then vA = -89.9 end
@@ -964,8 +975,8 @@ local function mapPrint(windowWidth, windowHeight)
    end
 
    if RunwayHeading then
-      phi = (90-RunwayHeading+360)%360
-      -- pre-calc trig here --
+      phi = (90-RunwayHeading-magneticVar+360)%360
+      -- todo: pre-calculate these trig values .. do it once for efficiency  --
       xr1 = xTakeoffComplete - lRW/2 * math.cos(math.rad(phi-12))
       yr1 = yTakeoffComplete - lRW/2 * math.sin(math.rad(phi-12))
       
@@ -1036,9 +1047,23 @@ local function loop()
    goodlat = false
    goodlong = false
    
-   if resetOrigin then
+   if resetOrigin and (system.getTimeCounter() > (timeRO+300)) then
       gotInitPos = false
-      resetOrigin = false
+      resetOrigin=false
+      resetClick = false
+      form.setValue(resetCompIndex, resetClick) -- prob should double check same form still displayed...
+
+      -- reset map window too
+      mapXmax=   200
+      mapXmin = -200
+      mapYmax =  100
+      mapYmin = -100
+      
+      xmin = mapXmin
+      xmax = mapXmax
+      ymin = mapYmin
+      ymax = mapYmax
+
       --io.close(ff)
    end
 
@@ -1046,7 +1071,7 @@ local function loop()
       local p7 = .010/2*(system.getInputs("P7")+1)
       debugTime =debugTime + p7
 --      speed = 40 + 80 * (math.sin(.3*debugTime) + 1)
---      altitude = 20 + 200 * (math.cos(.3*debugTime)+1)
+      altitude = 20 + 200 * (math.cos(.3*debugTime)+1)
       x = 600*math.sin(2*debugTime)
       y = 300*math.cos(3*debugTime)
       goto computedXY
@@ -1175,16 +1200,11 @@ local function loop()
       newPosTime = system.getTimeCounter() + deltaPosTime
    end
    
-   -- avoid problem when lat near +/- 90 -- poles!
-   
-   if latitude > 89.9 then latitude = 89.9 end
-   if latitude < -89.9 then latitude = -89.9 end
-
-   tA = (45+latitude/2)/rad
-   
    if not gotInitPos then
-      L0 = longitude
-      y0 = rE*math.log(math.tan(tA) )
+      long0 = longitude
+      lat0 = latitude
+      coslat0 = math.cos(math.rad(lat0))
+      baroAltZero = altitude
       gotInitPos = true
    end
 
@@ -1198,10 +1218,9 @@ local function loop()
       end
    end
    
-
-   x = rE*(longitude-L0)/rad
-   y = rE*math.log(math.tan(tA)) - y0
-
+   x = rE*(longitude-long0)*coslat0/rad
+   y = rE*(latitude-lat0)/rad
+   
    -- update overall min and max for drawing the GPS
    -- maintain same pixel size (in feet) in X and Y (screen is 320x160)
    -- map?xxxx are all in ft .. convert to pixels in telem draw function
@@ -1220,7 +1239,7 @@ local function loop()
    --ss1 = string.format("%.2f, %.0f, %.0f, %.0f, %.0f, %.0f, %.0f", tt, mapXmin, mapXmax, mapYmin, mapYmax, mapXrange, mapYrange)
    --print(ss1)
 
-   if newpos then -- only enter a new xy in the "comet tail" if lat/lon changed
+   if newpos or DEBUG then -- only enter a new xy in the "comet tail" if lat/lon changed
       
       if #xtable+1 > MAXTABLE then
 	 table.remove(xtable, 1)
@@ -1230,7 +1249,9 @@ local function loop()
       table.insert(xtable, x)
       table.insert(ytable, y)
       
-      print('long,lat, x, y, alt', longitude, latitude, x, y, altitude)
+      if not DEBUG then
+	 print('long,lat, x, y, alt', longitude, latitude, x, y, altitude)
+      end
       
       if not mapXmax then
 	 mapXmax=   200
@@ -1251,8 +1272,8 @@ local function loop()
       if y > ymax then ymax = y end
       if y < ymin then ymin = y end
       
-      local xspan = 1.03*(xmax-xmin) -- allow a few pixels "buffer" at edges
-      local yspan = 1.06*(ymax-ymin)
+      local xspan = (xmax-xmin) 
+      local yspan = (ymax-ymin)
 
       mapXrange = math.floor(xspan/200 + .5) * 200 -- telemetry screens are 320x160 or 2:1
       mapYrange = math.floor(yspan/100 + .5) * 100
@@ -1289,7 +1310,7 @@ local function loop()
 	 table.remove(vviAlt, 1)
       end
       table.insert(vviTim, #vviTim+1, tt/60000.)
-      table.insert(vviAlt, #vviAlt+1, altitude)
+      table.insert(vviAlt, #vviAlt+1, altitude) -- no need to consider baroAltZero here, just a slope
       
       vvi, va = fslope(vviTim, vviAlt)
       --print('tt/60000, altitude, vvi, va: ', tt/60000., altitude, vvi, va)
@@ -1321,13 +1342,13 @@ local function loop()
    
 
    if DEBUG then
-      heading = compcrsDeg
+      heading = compcrsDeg + magneticVar
    else
       if hasCourseGPS and courseGPS then
-	 heading = courseGPS
+	 heading = courseGPS + magneticVar
       else
 	 if compcrsDeg then
-	    heading = compcrsDeg
+	    heading = compcrsDeg + magneticVar
 	 else
 	    heading = 0
 	 end
@@ -1377,8 +1398,8 @@ local function loop()
       if system.getTimeCounter() - brakeReleaseTime < 5000 then
 	 xTakeoffStart = x
 	 yTakeoffStart = y
-	 zTakeoffStart = altitude
-	 ReleaseHeading = compcrsDeg
+	 zTakeoffStart = altitude-baroAltZero
+	 ReleaseHeading = compcrsDeg + magneticVar
 	 print("Takeoff Start")
 --	 print("Brake Release Heading: ", ReleaseHeading)
 	 system.playFile("starting_takeoff_roll.wav", AUDIO_QUEUE)
@@ -1387,14 +1408,14 @@ local function loop()
    if thr then oldThrottle = thr end
    
    if thr and thr > 0 and xTakeoffStart and neverAirborne then
-      if altitude - zTakeoffStart > OFFGROUND then
+      if (altitude - baroAltZero) - zTakeoffStart > OFFGROUND then
 	 neverAirborne = false
 	 xTakeoffComplete = x
 	 yTakeoffComplete = y
-	 zTakeoffComplete = altitude
-	 TakeoffHeading = compcrsDeg
+	 zTakeoffComplete = altitude - baroAltZero
+	 TakeoffHeading = compcrsDeg + magneticVar
 	 local _, rDeg  = fslope({xTakeoffStart, xTakeoffComplete}, {yTakeoffStart, yTakeoffComplete})
-	 RunwayHeading = math.deg(rDeg)
+	 RunwayHeading = math.deg(rDeg) + magneticVar
 --	 print("Takeoff Complete:", system.getTimeCounter(), TakeoffHeading, xTakeoffComplete, yTakeoffComplete)
 --	 print("Takeoff Heading: ", TakeoffHeading)
 --	 print("Runway heading: ", RunwayHeading)
@@ -1470,8 +1491,6 @@ local function init()
    brakeControl    = system.pLoad("brakeControl")
    magneticVar     = system.pLoad("magneticVar", 13)
 
-   resetOrigin     = false
-   
    system.registerForm(1, MENU_APPS, "Landing Signal Officer", initForm, nil, nil)
    system.registerTelemetry(1, "LSO Map", 4, mapPrint)
    system.registerTelemetry(2, "LSO ILS", 4, ilsPrint)
