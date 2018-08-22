@@ -167,11 +167,12 @@ local function readSensors()
 	    table.insert(sensorIdlist, sensor.id)
 	    table.insert(sensorPalist, sensor.param)
 	    table.insert(sensorUnlist, sensor.unit)
-	    if sensor.label == 'Altitude' and sensor.param == 6 then
-	       AltitudeSe = #sensorLalist
-	       AltitudeSeId = sensor.id
-	       AltitudeSePa = sensor.param
-	    end	    	    
+-- don't auto assign gps alt
+--	    if sensor.label == 'Altitude' and sensor.param == 6 then -- 
+--	       AltitudeSe = #sensorLalist
+--	       AltitudeSeId = sensor.id
+--	       AltitudeSePa = sensor.param
+--	    end	    	    
 	 else
 	    table.insert(GPSsensorLalist, sensor.label)
 	    table.insert(GPSsensorIdlist, sensor.id)
@@ -400,7 +401,7 @@ local function initForm()
     form.addIntbox(magneticVar, -30, 30, -13, 0, 1, magneticVarChanged)
     
     form.addRow(2)
-    form.addLabel({label="Reset GPS origin", width=274})
+    form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
     resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
         
     form.addRow(1)
@@ -975,7 +976,7 @@ local function mapPrint(windowWidth, windowHeight)
    end
 
    if RunwayHeading then
-      phi = (90-RunwayHeading-magneticVar+360)%360
+      phi = (90-(RunwayHeading-magneticVar)+360)%360
       -- todo: pre-calculate these trig values .. do it once for efficiency  --
       xr1 = xTakeoffComplete - lRW/2 * math.cos(math.rad(phi-12))
       yr1 = yTakeoffComplete - lRW/2 * math.sin(math.rad(phi-12))
@@ -1063,6 +1064,11 @@ local function loop()
       xmax = mapXmax
       ymin = mapYmin
       ymax = mapYmax
+      
+      --reset baro alt zero too
+      baroAltZero = altitude
+
+      print("Zero-d origin and baro alt. baroAltZero: ", baroAltZero)
 
       --io.close(ff)
    end
@@ -1204,7 +1210,6 @@ local function loop()
       long0 = longitude
       lat0 = latitude
       coslat0 = math.cos(math.rad(lat0))
-      baroAltZero = altitude
       gotInitPos = true
    end
 
@@ -1334,7 +1339,7 @@ local function loop()
 	 dd = math.sqrt( (xd2-xd1)^2 + (yd2-yd1)^2 )
 	 xd1=x
 	 yd1=y
-	 speed = 0.8*speed + 0.2*dd*0.681818/(td2-td1) -- speed is in ft/s .. convert to mph
+	 speed = 0.7*speed + 0.3*dd*0.681818/(td2-td1) -- speed is in ft/s .. convert to mph
 	 td1 = td2
 	 speedTime = tt + 2000 -- time to next reading in ms
       end

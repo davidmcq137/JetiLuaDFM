@@ -1,0 +1,16 @@
+{
+  "default":"en",
+  "en":{
+    "appName":"Momentary to FlipFlop",
+    "swi1":"Switch 1 FF1 on",
+    "swi2":"Switch 2 FF1 off",
+    "swi3":"Switch 3 FF2 on",
+    "swi4":"Switch 4 FF2 off",
+    "latchSts1":"FF01 status:",
+    "latchSts2":"FF02 status:",
+    "latchSw1":"FlipFlop SW1",
+    "latchSw2":"FlipFlop SW2",
+    "swCntr1":"FF1",
+    "swCntr2":"FF2"
+  }
+}
