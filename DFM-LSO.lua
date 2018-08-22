@@ -60,7 +60,7 @@ local xmin, xmax, ymin, ymax = mapXmin, mapXmax, mapYmin, mapYmax
 local mapXrange = mapXmax - mapXmin
 local mapYrange = mapYmax - mapYmin
 
-local DEBUG = false -- if set to <true> will print to console the speech files and output
+local DEBUG = true -- if set to <true> will print to console the speech files and output
 local debugTime = 0
 local DEBUGLOG = true -- persistent state var for debugging (e.g. to print something in a loop only once)
 
@@ -537,7 +537,7 @@ local function drawDistance()
    end
 --]]
    lcd.setColor(lcd.getFgColor())
-   drawShape(colAH, rowAH+20, T38Shape, math.rad(heading))
+   drawShape(colAH, rowAH+20, T38Shape, math.rad(heading-magneticVar))
 end
 
 -- *****************************************************
@@ -957,10 +957,10 @@ local function mapPrint(windowWidth, windowHeight)
       scale = (lRW/mapXrange)*(windowWidth/40) -- rw shape is 40 units long
       lcd.setColor(0,240,0)
       drawShapePL(toXPixel(xRW, mapXmin, mapXrange, windowWidth),
-		  toYPixel(yRW, mapYmin, mapYrange, windowHeight), runwayShape, math.rad(RunwayHeading), scale, 2, 255)
+		  toYPixel(yRW, mapYmin, mapYrange, windowHeight), runwayShape, math.rad(RunwayHeading-magneticVar), scale, 2, 255)
       --local recipHDG = (RunwayHeading + 180)%360
       drawILS (toXPixel(xTakeoffStart, mapXmin, mapXrange, windowWidth),
-	       toYPixel(yTakeoffStart, mapYmin, mapYrange, windowHeight), math.rad(RunwayHeading), scale)
+	       toYPixel(yTakeoffStart, mapYmin, mapYrange, windowHeight), math.rad(RunwayHeading-magneticVar), scale)
 
 
       lcd.setColor(r,g,b)
