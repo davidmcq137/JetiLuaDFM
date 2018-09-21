@@ -1,6 +1,6 @@
 --[[
 	---------------------------------------------------------
-    "Super timer" - calls 30 second intervals with time from gear
+    "Super timer" - calls 60 second intervals with time from gear
     retract and fuel capacity remaining
     
     Derived from DFM's Speed Announcer, which in turn was derived from RCT's Alt Announcer
@@ -18,6 +18,8 @@
 	----------------------------------------------------------------------
 	DFM-TimA.lua released under MIT license by DFM 2018
 	----------------------------------------------------------------------
+    
+    Note: original version was 30 secs hardcoded interval, now set to 60 seconds
 
     Todo items: selft -- hard coded now to convert m to ft -- put choice in menu
                 make 30 second timer announce interval settable?
@@ -39,8 +41,8 @@ local FuelSe, FuelSeId, FuelSePa
 local GraphSe, GraphSeId, GraphSePa
 
 local GraphScale = 1000
-local GraphValue = 0
-local GraphName = '---'
+local GraphValue
+local GraphName 
 local GraphUnit = '---'
 
 local shortAnn, shortAnnIndex, shortAnnSt = false
@@ -301,13 +303,17 @@ local function timePrint(width, height)
     
   local ss
 
-  if GraphName == '---' then
-    ss = '---'
+  if GraphName == '---' or not GraphValue then
+     if not DEBUG then
+	ss = '---'
+     else
+	ss = '<debug: math.random>'
+     end
   else
     if GraphUnit == 'm' then -- ought to add "selft" to menu
-       ss= string.format(GraphName .. ": %d " .. "ft", GraphValue) -- loop() converts m to ft
+       ss= string.format(GraphName .. ": %d ft", GraphValue) -- loop() converts m to ft
     else
-      ss= string.format(GraphName .. ": %d " .. GraphUnit, GraphValue)
+      ss= string.format(GraphName .. ": %d %s ", GraphValue, GraphUnit)
     end
   end
 
@@ -410,7 +416,7 @@ local function loop()
       oldswi = swi
       if (swi == 1 and start_time == 0) then            -- when the gear retracted first time, startup
 	 start_time = system.getTimeCounter()/1000       -- convert from ms to seconds
-	 next_ann_time = start_time + 30                 -- next announce in 30 seconds
+	 next_ann_time = start_time + 60                 -- next announce in 60 seconds
 	 system.playFile('Sup_Tim_Start.wav', AUDIO_QUEUE)
 	 if DEBUG then print('Sup_Tim_Start.wav - Timer starting') end
       end
@@ -449,13 +455,13 @@ local function loop()
       
 -- Now insert selected variable into table for graph
 
-      if GraphValue==0 and DEBUG then
+      if not GraphValue and DEBUG then
 	 mrs = 0.85 * mrs + 0.15 * math.random(1,999) -- default scale is 1000
 	 table.insert(ytable, #ytable+1, mrs)
-      else
+      end
+      if GraphValue then
 	 table.insert(ytable, #ytable+1, GraphValue)
       end
-      
       if #ytable > 60 then
 	 table.remove(ytable, 1)
       end
@@ -467,7 +473,7 @@ local function loop()
     
    if (start_time > 0 and tim > next_ann_time) then    -- we are running and it's time to announce
 
-      next_ann_time = next_ann_time + 30                -- schedule next ann 30 seconds in future
+      next_ann_time = next_ann_time + 60                -- schedule next ann 60 seconds in future
       running_time = tim-start_time
       local min_time = running_time / 60
       local mod_min, rem_min = math.modf(min_time)
@@ -516,7 +522,7 @@ local function loop()
    end
 
    
-   collectgarbage() -- really? in each loop every 30 ms?
+   -- collectgarbage() -- really? in each loop every 30 ms?
 end
 --------------------------------------------------------------------------------
 local function init()
@@ -533,7 +539,7 @@ local function init()
     GraphSePa    = system.pLoad("GraphSePa", 0)
 
     GraphScale   = system.pLoad("GraphScale", 1000)
-    GraphName    = system.pLoad("GraphName", 0)
+    GraphName    = system.pLoad("GraphName", "---")
     GraphUnit    = system.pLoad("GraphUnit", 0)
     
     shortAnnSt = system.pLoad("shortAnnSt", 0)

@@ -60,7 +60,7 @@ local xmin, xmax, ymin, ymax = mapXmin, mapXmax, mapYmin, mapYmax
 local mapXrange = mapXmax - mapXmin
 local mapYrange = mapYmax - mapYmin
 
-local DEBUG = false -- if set to <true> will print to console the speech files and output
+local DEBUG = true -- if set to <true> will print to console the speech files and output
 local debugTime = 0
 local DEBUGLOG = true -- persistent state var for debugging (e.g. to print something in a loop only once)
 
@@ -472,6 +472,37 @@ local ILSshape = {
    {0,2, 2,4},
    {0,4,-2,6},
    {0,4, 2,6}
+}
+
+-- local originShape = {
+--    {1,3},
+--    {1,1},
+--    {3,1},
+--    {3,-1},
+--    {1,-1},
+--    {1,-3},
+--    {-1,-3},
+--    {-1,-1},
+--    {-3,-1},
+--    {-3,1},
+--    {-1,1},
+--    {-1,3}
+-- }
+
+
+local originShape = {
+   {2,6},
+   {2,2},
+   {6,2},
+   {6,-2},
+   {2,-2},
+   {2,-6},
+   {-2,-6},
+   {-2,-2},
+   {-6,-2},
+   {-6,2},
+   {-2,2},
+   {-2,6}
 }
 
 -- *****************************************************
@@ -928,7 +959,6 @@ local function mapPrint(windowWidth, windowHeight)
    local scale
    local lRW
    local phi
-   local PATTERNALT = 9999 -- specified as AGL
    local radpt
    
    r, g, b = lcd.getFgColor()
@@ -937,11 +967,16 @@ local function mapPrint(windowWidth, windowHeight)
    drawSpeed()
    drawAltitude()
    drawHeading()
-   drawDistance()
+--   drawDistance()
    drawVario()
 
-   lcd.drawCircle(toXPixel(0, mapXmin, mapXrange, windowWidth), toYPixel(0, mapYmin, mapYrange, windowHeight), 5)
+   -- lcd.drawCircle(toXPixel(0, mapXmin, mapXrange, windowWidth), toYPixel(0, mapYmin, mapYrange, windowHeight), 5)
 
+   drawShape(toXPixel(0, mapXmin, mapXrange, windowWidth),
+	     toYPixel(0, mapYmin, mapYrange, windowHeight),
+	     originShape, 0)
+
+	 
    if xTakeoffStart then
       lcd.drawCircle(toXPixel(xTakeoffStart, mapXmin, mapXrange, windowWidth),
 		     toYPixel(yTakeoffStart, mapYmin, mapYrange, windowHeight), 4)
@@ -1011,11 +1046,20 @@ local function mapPrint(windowWidth, windowHeight)
 	 end
       end
       
-      if i==#xtable then radpt = 2 else radpt = 1 end
+      if i==#xtable then
+	 lcd.setColor(lcd.getFgColor())
+	 -- drawShape(colAH, rowAH+20, T38Shape, math.rad(heading-magneticVar))
+	 drawShape(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
+		   toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
+		   T38Shape, math.rad(heading-magneticVar))
+      else
+	 radpt = 1
+	 lcd.drawCircle(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
+			toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
+			radpt)
+      end
       
-      lcd.drawCircle(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
-		     toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
-		     radpt)
+
       
       lcd.setColor(r, g, b)
       
@@ -1028,10 +1072,9 @@ local function loop()
    local minutes, degs
    local x, y, xyslope
    local oldXrange, oldYrange
-   local MAXTABLE = 100
+   local MAXTABLE = 20
    local MAXVVITABLE = 15 -- points to fit to compute vertical speed -- 3 seconds at 0.2 sec sample
-   local OFFGROUND = 10 -- units?
-   local PATTERNALT = 9999
+   local PATTERNALT = 200
    local xExp, yExp, maxExp, minExp
    local tt
    local hasPitot
@@ -1074,8 +1117,7 @@ local function loop()
    end
 
    if DEBUG then
-      local p7 = .010/2*(system.getInputs("P7")+1)
-      debugTime =debugTime + p7
+      debugTime =debugTime + 0.01/2*(system.getInputs("P7")+1)
 --      speed = 40 + 80 * (math.sin(.3*debugTime) + 1)
       altitude = 20 + 200 * (math.cos(.3*debugTime)+1)
       x = 600*math.sin(2*debugTime)
@@ -1413,7 +1455,7 @@ local function loop()
    if thr then oldThrottle = thr end
    
    if thr and thr > 0 and xTakeoffStart and neverAirborne then
-      if (altitude - baroAltZero) - zTakeoffStart > OFFGROUND then
+      if (altitude - baroAltZero) - zTakeoffStart > PATTERNALT/2 then
 	 neverAirborne = false
 	 xTakeoffComplete = x
 	 yTakeoffComplete = y

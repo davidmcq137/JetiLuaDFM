@@ -77,7 +77,7 @@ local function loadLang()
     local content,e
 
     -- print(string.format("Lang %s", cfgLang))
-    local file = io.readall(string.format("/Apps/%s/text/%s.jsn", wBrand, cfgLang)) -- read the correct config file
+    local file = io.readall(string.format("Apps/%s/text/%s.jsn", wBrand, cfgLang)) -- read the correct config file
     if (file) then
         textMessage = json.decode(file)
     end
@@ -91,12 +91,12 @@ local function loadLang()
     langList={}
     langCode={}
 
-    for name, filetype, size in  dir(string.format("/Apps/%s/text", wBrand)) do
+    for name, filetype, size in  dir(string.format("Apps/%s/text", wBrand)) do
         
         if(string.sub(name,1,1)==".") then
             
         else
-            local f = io.readall(string.format("/Apps/%s/text/%s", wBrand, name)) -- read the correct config file
+            local f = io.readall(string.format("Apps/%s/text/%s", wBrand, name)) -- read the correct config file
             if (f) then
                 content = json.decode(f)
             end
@@ -150,7 +150,7 @@ local function fuelAlarm(percentage)
             if(fuelWarnTrigger<system.getTime()) then
                 fuelWarnTrigger=system.getTime()+fuelRepeat
                 if(fuelVoiceEnabled) then
-                    local fuelLowFile=string.format("/Apps/%s/audio/%s-low_fuel.wav",wBrand, cfgLang)
+                    local fuelLowFile=string.format("Apps/%s/audio/%s-low_fuel.wav",wBrand, cfgLang)
                     system.playFile(fuelLowFile, AUDIO_IMMEDIATE)
                 end
                 if(fuelVibration~=4) then
@@ -301,35 +301,61 @@ local function DrawTurbineStatus(status, size)
 end
 --------------------------------------------------------------------
 -- Voltages
-local function DrawVoltages(u_pump, u_ecu, size)
+local function DrawVoltages(u_pump, u_ecu, u_rpm, size)
 
     local ox,oy
-
+    local u_thr
+    local u_rpmK
+    
     local W = 44
-    local H = 47
+    local H
 
     if(size==1) then
-        ox=53
-        oy=5
+       H=47
+       ox=53
+       oy=5
     else
-        ox=137
-        oy=3
+       H = 70
+       ox=137
+       oy=3
     end
 
     lcd.drawRectangle(ox, oy, W, H)
     lcd.drawText(8 + ox, oy, "PUMP", FONT_MINI)
     lcd.drawText(12 + ox, 23 + oy, "ECU", FONT_MINI)
     lcd.drawLine(ox, oy + 23, ox + W - 1, oy + 23)
+    if size ~= 1 then
+       lcd.drawText(1 + ox, 46 + oy, "THRUST", FONT_MINI)
+       lcd.drawLine(ox, oy + 46, ox + W - 1, oy + 46)
+    end
+    
 
     if (lPumpUnit == "V") then
         textPump = string.format("%.2f", u_pump)
     else
         textPump = string.format("%d", u_pump)
     end
+    
     lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textPump)) / 2, oy + 7, textPump, FONT_BOLD)
 
     textEcu = string.format("%.1f%s", u_ecu, "v")
     lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textEcu)) / 2, oy + 30, textEcu, FONT_BOLD)
+
+    if size ~=1 then
+       -- DEBUG
+       u_rpm = 60000*(system.getInputs('P8')+1)
+       lRPM = u_rpm
+       -- DEBUG
+       u_rpmK = u_rpm / 1000.
+       if u_rpmK and u_rpmK  > 30 then
+	  u_thr = 7.E-05 * u_rpmK^3 - 0.0083 * u_rpmK^2 + 0.5036 * u_rpmK - 8.1673
+       else
+	  u_thr = 0
+       end
+       textThr = string.format("%.0f%s", u_thr, "#")
+       lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textThr)) / 2, oy + 53, textThr, FONT_BOLD)
+    end
+    
 end
 
 --------------------------------------------------------------------
@@ -339,7 +365,7 @@ local function wbTele(w,h)
     DrawRpmGauge(lRPM, cfgSize)
     DrawEgtGauge(lEGT, cfgSize)
     DrawTurbineStatus(lStatus, cfgSize)
-    DrawVoltages(lPump, lBatt, cfgSize)
+    DrawVoltages(lPump, lBatt, lRPM, cfgSize)
 end
 
 ------------------------------------------------------------------------
@@ -356,7 +382,7 @@ end
 --------------------------------------------------------------------
 -- Read messages file
 local function readCatalog()
-    local file = io.readall(string.format("/Apps/%s/catalog.jsn",wBrand)) -- read the catalog config file
+    local file = io.readall(string.format("Apps/%s/catalog.jsn",wBrand)) -- read the catalog config file
     if (file) then
         catalog = json.decode(file)
     end
@@ -366,7 +392,7 @@ end
 -- Read messages file
 local function readConfig(wECUType)
     print(string.format("ECU Type %s", wECUType))
-    local file = io.readall(string.format("/Apps/%s/%s", wBrand, catalog.ecu[tostring(wECUType)].file)) -- read the correct config file
+    local file = io.readall(string.format("Apps/%s/%s", wBrand, catalog.ecu[tostring(wECUType)].file)) -- read the correct config file
     if (file) then
         config = json.decode(file)
     end
@@ -405,7 +431,7 @@ local function getStatusText(statusSensorID)
                     end
                     if (lSpeech ~= nil) then
                         print(string.format("Status  %s", tostring(lSpeech)))
-                        system.playFile(string.format("/Apps/%s/audio/%s", wBrand, lSpeech), AUDIO_IMMEDIATE)
+                        system.playFile(string.format("Apps/%s/audio/%s", wBrand, lSpeech), AUDIO_IMMEDIATE)
                     end
                 end
             end
@@ -574,7 +600,7 @@ end
 local function saveMsgConfig()
     local configEncoded
     configEncoded=json.encode(config)
-    local f = io.open(string.format("/Apps/%s/%s", wBrand, catalog.ecu[tostring(wbECUType)].file),"w")
+    local f = io.open(string.format("Apps/%s/%s", wBrand, catalog.ecu[tostring(wbECUType)].file),"w")
     io.write(f,configEncoded)
     io.close(f)
     form.reinit(1)
