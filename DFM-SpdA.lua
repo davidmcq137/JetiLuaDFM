@@ -384,7 +384,7 @@ end
 
 --------------------------------------------------------------------------------
 
-SpdAnnVersion = "1.2"
+SpdAnnVersion = "1.3"
 setLanguage()
 collectgarbage()
 return {init=init, loop=loop, author="DFM", version=SpdAnnVersion, name="Speed Announcer"}
