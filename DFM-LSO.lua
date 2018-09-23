@@ -60,7 +60,7 @@ local xmin, xmax, ymin, ymax = mapXmin, mapXmax, mapYmin, mapYmax
 local mapXrange = mapXmax - mapXmin
 local mapYrange = mapYmax - mapYmin
 
-local DEBUG = true -- if set to <true> will print to console the speech files and output
+local DEBUG = false -- if set to <true> will print to console the speech files and output
 local debugTime = 0
 local DEBUGLOG = true -- persistent state var for debugging (e.g. to print something in a loop only once)
 

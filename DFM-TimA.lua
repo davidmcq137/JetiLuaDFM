@@ -559,7 +559,7 @@ local function init()
     collectgarbage()
 end
 --------------------------------------------------------------------------------
-TimAnnVersion = "1.1"
+TimAnnVersion = "1.2"
 setLanguage()
 collectgarbage()
 return {init=init, loop=loop, author="DFM", version=TimAnnVersion, name="Super Time Announcer"}

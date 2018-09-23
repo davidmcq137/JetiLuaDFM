@@ -166,8 +166,8 @@ local function initForm()
       form.addInputbox(spdSwitch, true, spdSwitchChanged) 
       
       form.addRow(2)
-      form.addLabel({label="Speed change scale (mph / km/hr)", width=220})
-      form.addIntbox(spdInter, 0, 100, 10, 0, 1, spdInterChanged)
+      form.addLabel({label="Speed change scale", width=220})
+      form.addIntbox(spdInter, 1, 100, 10, 0, 1, spdInterChanged)
       
       form.addRow(2)
       form.addLabel({label="Vref (1.3 Vs0)", width=220})
@@ -201,7 +201,6 @@ end
 
 local function loop()
 
-   local mult
    local spd
    local speed
    local deltaSA
@@ -275,15 +274,9 @@ local function loop()
 	 if DEBUG then print("Stall warning!") end
       end
 
-      deltaSA = math.abs(spd - lastAnnSpd)
-
-      if deltaSA / spdInter > 1 then
-	 mult = 10
-      else
-	 mult = 20 - 10 * deltaSA / spdInter
-      end
-      nextAnnTC = lastAnnTC + (VrefCall * 1000 * mult) 
-      -- print(nextAnnTC, lastAnnTC, system.getTimeCounter())
+      deltaSA = math.min(math.max(math.abs((spd-lastAnnSpd) / spdInter), 0.5), 10)
+      
+      nextAnnTC = lastAnnTC + (VrefCall * 1000 * 10 / deltaSA) 
 
       if spd <= VrefSpd then -- override if below Vref
 	 nextAnnTC = lastAnnTC + VrefCall * 1000 -- at and below Vref .. ann every VrefCall secs
@@ -391,7 +384,7 @@ end
 
 --------------------------------------------------------------------------------
 
-SpdAnnVersion = "1.1"
+SpdAnnVersion = "1.2"
 setLanguage()
 collectgarbage()
 return {init=init, loop=loop, author="DFM", version=SpdAnnVersion, name="Speed Announcer"}
