@@ -18,7 +18,10 @@ collectgarbage()
 
 -- Locals for application
 
-local trans11, spdSwitch, spdSe
+local trans11
+local spdSwitch
+local contSwitch
+local spdSe
 local spdSeId = 0
 local spdSePa
 local maxSpd, VrefSpd, VrefCall
@@ -71,7 +74,7 @@ end
 
 local function readSensors()
    local sensors = system.getSensors()
-   for i, sensor in ipairs(sensors) do
+   for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 	 table.insert(sensorLalist, string.format("%s", sensor.label))
 	 table.insert(sensorIdlist, string.format("%s", sensor.id))
@@ -89,10 +92,15 @@ local function spdSwitchChanged(value)
    system.pSave("spdSwitch", spdSwitch)
 end
 
+local function contSwitchChanged(value)
+   contSwitch = value
+   system.pSave("contSwitch", contSwitch)
+end
+
 local function spdInterChanged(value)
    spdInter = value
    if spdInter == 99 then DEBUG = true end
-   if spdInter == 0  then DEBUG = false end
+   if spdInter == 98 then DEBUG = false end
    system.pSave("spdInter", spdInter)
 end
 
@@ -163,7 +171,11 @@ local function initForm()
       
       form.addRow(2)
       form.addLabel({label="Select Enable Switch", width=220})
-      form.addInputbox(spdSwitch, true, spdSwitchChanged) 
+      form.addInputbox(spdSwitch, true, spdSwitchChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Select Continuous Ann Switch", width=220})
+      form.addInputbox(contSwitch, true, contSwitchChanged)       
       
       form.addRow(2)
       form.addLabel({label="Speed change scale", width=220})
@@ -206,7 +218,9 @@ local function loop()
    local deltaSA
 
    local swi  = system.getInputsVal(spdSwitch)
-   if swi and swi < 1 then return end
+   local swc  = system.getInputsVal(contSwitch)
+   
+   if (swi and swi < 1) and (swc and swc < 1) then return end
    
    local sensor
    if (spdSeId ~= 0) then
@@ -252,7 +266,7 @@ local function loop()
    end
 
 
-   if (swi and swi == 1) and (spd > VrefSpd / 4) then
+   if (swi and swi == 1) or (swc and swc == 1) then
       
       if (spd > maxSpd and not ovrSpd) then
 	 ovrSpd = true
@@ -278,7 +292,7 @@ local function loop()
       
       nextAnnTC = lastAnnTC + (VrefCall * 1000 * 10 / deltaSA) 
 
-      if spd <= VrefSpd then -- override if below Vref
+      if (spd <= VrefSpd) or (swc and swc == 1) then -- override if below Vref or cont ann is on
 	 nextAnnTC = lastAnnTC + VrefCall * 1000 -- at and below Vref .. ann every VrefCall secs
       end
 
@@ -286,7 +300,7 @@ local function loop()
       
       sgTC = system.getTimeCounter()
 
-      if (sgTC > nextAnnTC) and (spd > VrefSpd / 4) then
+      if (sgTC > nextAnnTC) and ( (spd > VrefSpd / 4) or (swc and swc == 1) ) then
 
 	 round_spd = math.floor(spd + 0.5)
 	 lastAnnSpd = round_spd
@@ -295,7 +309,7 @@ local function loop()
 	 
 	 local sss = string.format("%.0f", round_spd)
 	 if (selFt) then
-	    if(shortAnn or not aboveVref) then
+	    if (shortAnn or not aboveVref or (swc and swc == 1) ) then
 	       system.playNumber(round_spd, 0)
 	       if DEBUG then
 		  print("(s)speed: ", sss, " mph")
@@ -309,7 +323,7 @@ local function loop()
 	       end
 	    end
 	 else
-	    if(shortAnn or not aboveVref) then
+	    if (shortAnn or not aboveVref or (swc and swc == 1) ) then
 	       system.playNumber(round_spd, 0)
 	       if DEBUG then
 		  print("(s)speed: ", sss, " km/hr")
@@ -349,6 +363,7 @@ end
 local function init()
 
    spdSwitch = system.pLoad("spdSwitch")
+   contSwitch = system.pLoad("contSwitch")
    spdInter = system.pLoad("spdInter", 0)
    VrefSpd = system.pLoad("VrefSpd", 0)
    VrefCall = system.pLoad("VrefCall", 0)
@@ -384,7 +399,7 @@ end
 
 --------------------------------------------------------------------------------
 
-SpdAnnVersion = "1.3"
+SpdAnnVersion = "1.5"
 setLanguage()
 collectgarbage()
 return {init=init, loop=loop, author="DFM", version=SpdAnnVersion, name="Speed Announcer"}
