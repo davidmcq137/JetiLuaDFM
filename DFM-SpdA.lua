@@ -1,9 +1,9 @@
 --[[
 	---------------------------------------------------------
     SpdAnnouncer makes voice announcement of speed with
-    user set intevals when model goes faster or slower
-    
-    Adapted/derived from RCT's AltA
+    variable intevals when model goes faster or slower
+    or on final approach 
+    Originally adapted/derived from RCT's AltA
     
     Requires transmitter firmware 4.22 or higher.
     
@@ -178,7 +178,7 @@ local function initForm()
       form.addInputbox(contSwitch, true, contSwitchChanged)       
       
       form.addRow(2)
-      form.addLabel({label="Speed change scale", width=220})
+      form.addLabel({label="Speed change scale factor", width=220})
       form.addIntbox(spdInter, 1, 100, 10, 0, 1, spdInterChanged)
       
       form.addRow(2)
