@@ -1,7 +1,7 @@
--- CTU-Dashboard.lua
+--CTU-Dashboard.lua
 
 local wVersion="1.5"
-local wAppname="CTU DashXM200"
+local wAppname="CTU DashM200"
 
 -- Locals for the application
 
@@ -12,8 +12,6 @@ local wbFuelParam = 1
 local wbBattParam = 5
 local wbPumpParam = 6
 local wbStatusParam = 9
-
-local ren = lcd.renderer()
 
 local wbSensorID = nil
 local wbECUType = nil
@@ -61,17 +59,16 @@ local vibrationOptions = {"Left","Right","Both","None"}
 -- Load images arrays
 local function loadImages()
     local sizeOpt = {"Compact","Large"}
-    local idx = 0
-    -- for idx = 0, 20, 1 do
-    imgName = string.format("Apps/%s/images/"..sizeOpt[cfgSize].."/"..schemeOptions[cfgScheme].."/c-%.3d.png", wBrand, idx * 5)
-    -- print("loading image: ", imgName)
-    gauge_c[idx] = lcd.loadImage(imgName)
-    -- end
+    local idx
+    for idx = 0, 20, 1 do
+        imgName = string.format("Apps/%s/images/"..sizeOpt[cfgSize].."/"..schemeOptions[cfgScheme].."/c-%.3d.png", wBrand, idx * 5)
+        gauge_c[idx] = lcd.loadImage(imgName)
+    end
 
-    --for idx = 0, 5, 1 do
-      --  imgName = string.format("Apps/%s/images/"..sizeOpt[cfgSize].."/"..schemeOptions[cfgScheme].."/f-%.3d.png", wBrand, idx * 20)
-        --gauge_f[idx] = lcd.loadImage(imgName)
-    --end
+    for idx = 0, 5, 1 do
+        imgName = string.format("Apps/%s/images/"..sizeOpt[cfgSize].."/"..schemeOptions[cfgScheme].."/f-%.3d.png", wBrand, idx * 20)
+        gauge_f[idx] = lcd.loadImage(imgName)
+    end
 end
 
 ------------------------------------------------------------------------
@@ -175,15 +172,9 @@ end
 -- Fuel Gauge
 local function DrawFuelGauge(percentage,size)
 
-    local ox, oy, textPct
+    local ox, oy
 
     value = percentage / 20
-
-    -- DEBUG
-    -- value = 2.5 * (system.getInputs('P4')+1)
-    -- percentage = value * 20
-    -- /DEBUG
-    
     upValue = math.ceil(value)
     downValue = math.floor(value)
 
@@ -193,93 +184,27 @@ local function DrawFuelGauge(percentage,size)
         value = upValue
     end
 
---    if (percentage < fuelThreshold and system.getTime() % 2 == 0) then
---        value = 0
---    end
+    if (percentage < fuelThreshold and system.getTime() % 2 == 0) then
+        value = 0
+    end
 
     if(size==1) then
         ox=75
         oy=56
         lcd.drawText(ox, oy, "FUEL", FONT_MINI)
-
-	if percentage > fuelThreshold or system.getTime() % 2 == 0 then
-	   lcd.drawFilledRectangle(ox + 26, oy - 2, math.max(2, 48 * percentage/100), 12)
-	end
-
-	if percentage < 30 then
-	   textPct = string.format("%d%%", percentage)
-	   lcd.drawText(ox + 50 - lcd.getTextWidth(FONT_MINI, textPct)/2, oy - 2, textPct, FONT_MINI)
-	end
-	
-	lcd.drawRectangle(ox + 26, oy-2, 48, 13)
-	--for i = 1, 3, 1 do
-	  --lcd.drawLine(ox + 26 + i * 12, oy - 2, ox + 26 + i * 12, oy + 3)
-	--end
-
-	
-        -- lcd.drawImage(ox + 25, oy + 1, gauge_f[value])
+        lcd.drawImage(ox + 25, oy + 1, gauge_f[value])
     else
         ox=160
         oy=135
-
-	lcd.drawText(ox+7, oy+2, "FUEL", FONT_BOLD)
-
-	if percentage > fuelThreshold or system.getTime() % 2 == 0 then
-	   lcd.drawFilledRectangle(ox + 46, oy-1, math.max(2, 110*percentage/100), 25)
-	end
-
-	if percentage < 30 then
-	   textPct = string.format("%d%%", percentage)
-	   lcd.drawText(ox + 100 - lcd.getTextWidth(FONT_BOLD, textPct)/2, oy + 2, textPct, FONT_BOLD)
-	end
-	
-	lcd.drawRectangle(ox + 46, oy-1, 108, 25)
-	for i = 1, 3, 1 do
-	   lcd.drawLine(ox + 46 + i * 27, oy - 1, ox + 46 + i * 27, oy + 4)
-	end
-
-        --lcd.drawImage(ox + 49, oy + 1, gauge_f[value])
+        lcd.drawText(ox+7, oy+2, "FUEL", FONT_BOLD)
+        lcd.drawImage(ox + 49, oy + 1, gauge_f[value])
     end
 end
---------------------------------------------------------------------
---
-
-local needle_poly_large = {
-   {-4,28},
-   {-2,65},
-   {2,65},
-   {4,28}
-}
-
-local needle_poly_small = {
-   {-2,12},
-   {-1,26},
-   {1,26},
-   {2,12}
-}
-
-local function drawShape(col, row, shape, rotation)
-   local sinShape, cosShape
-
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
-   ren:reset()
-   for index, point in pairs(shape) do
-      ren:addPoint(
-	 col + (point[1] * cosShape - point[2] * sinShape + 0.5),
-	 row + (point[1] * sinShape + point[2] * cosShape + 0.5)
-      ) 
-   end
-   lcd.setColor(255, 0, 0)
-   ren:renderPolygon()
-   lcd.setColor(0, 0, 0)
-end
-
 --------------------------------------------------------------------
 -- RPM Gauge
 local function DrawRpmGauge(iRPM, size)
 
-    local value, upValue, downValue, textRPM, ox, oy, theta
+    local value, upValue, downValue, textRPM, ox, oy
 
     ox=1
     oy=2
@@ -308,38 +233,25 @@ local function DrawRpmGauge(iRPM, size)
         lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MAXI, textRPM) / 2, oy + 40, textRPM, FONT_MAXI)
     end
 
-    theta = math.pi - math.rad(135 - 2*135*iRPM / (maxRPM * 1000))
-
-    if gauge_c[0] ~= nil then
-       if size == 1 then
-	  lcd.drawImage(ox, oy, gauge_c[0])
-	  drawShape(ox+25, oy+26, needle_poly_small, theta)
-       else
-	  lcd.drawImage(ox, oy, gauge_c[0])    
-	  drawShape(ox+65, oy+60, needle_poly_large, theta)
-       end
+    if gauge_c[value] ~= nil then
+        lcd.drawImage(ox, oy, gauge_c[value])
     end
-    
+
 end
 
 --------------------------------------------------------------------
 -- EGT Gauge
 local function DrawEgtGauge(iEGT, size)
-    local value, upValue, downValue, textEGT, ox, oy, jEGT
+    local value, upValue, downValue, textEGT, ox, oy
 
     -- if (iEGT > maxEGT) then
     --    maxEGTChanged(iEGT)
     -- end
 
-    jEGT = iEGT
-    -- DEBUG
-    -- jEGT = 400*(system.getInputs('P4')+1)
-    -- /DEBUG
-    
-    value = jEGT / maxEGT * 20
+    value = iEGT / maxEGT * 20
     upValue = math.ceil(value)
     downValue = math.floor(value)
-    textEGT = string.format("%d", jEGT)
+    textEGT = string.format("%d", iEGT)
 
     if math.abs(value - upValue) > math.abs(value - downValue) then
         value = downValue
@@ -359,27 +271,14 @@ local function DrawEgtGauge(iEGT, size)
         lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MAXI, textEGT) / 2, oy + 40, textEGT, FONT_MAXI)
     end
 
-    theta = math.pi - math.rad(135 - 2*135*jEGT / maxEGT)
-    -- print(system.getInputs('P6'), jEGT, theta)
-
-    if gauge_c[0] ~= nil then
-       if size == 1 then
-	  lcd.drawImage(ox, oy, gauge_c[0])
-	  drawShape(ox+25, oy+26, needle_poly_small, theta)
-       else
-	  lcd.drawImage(ox, oy, gauge_c[0])    
-	  drawShape(ox+65, oy+60, needle_poly_large, theta)
-       end
+    if gauge_c[value] ~= nil then
+        lcd.drawImage(ox, oy, gauge_c[value])
     end
-
-    -- if gauge_c[value] ~= nil then
-        --  lcd.drawImage(ox, oy, gauge_c[value])
-    -- end
 end
 --------------------------------------------------------------------
--- Turbine Status
+-- Trubine Status
 local function DrawTurbineStatus(status, size)
-    local ox, oy, H, W, wFont, pstatus
+    local ox, oy, H, W, wFont
 
     if(size==1) then
         ox= 0
@@ -397,14 +296,7 @@ local function DrawTurbineStatus(status, size)
 
     lcd.drawFilledRectangle(ox, oy, W, H)
     lcd.setColor(255, 255, 255)
-
-    if #status == 0 then
-       pstatus = "---"
-    else
-       pstatus = status
-    end
-    
-    lcd.drawText(ox + (W - lcd.getTextWidth(wFont, pstatus)) / 2, oy, pstatus, wFont)
+    lcd.drawText(ox + (W - lcd.getTextWidth(wFont, status)) / 2, oy, status, wFont)
     lcd.setColor(0, 0, 0)
 end
 --------------------------------------------------------------------
@@ -430,10 +322,10 @@ local function DrawVoltages(u_pump, u_ecu, u_rpm, size)
 
     lcd.drawRectangle(ox, oy, W, H)
     lcd.drawText(8 + ox, oy, "PUMP", FONT_MINI)
-    lcd.drawText(1 + ox, 23 + oy, "THRUST", FONT_MINI)
+    lcd.drawText(12 + ox, 23 + oy, "ECU", FONT_MINI)
     lcd.drawLine(ox, oy + 23, ox + W - 1, oy + 23)
     if size ~= 1 then
-       lcd.drawText(12 + ox, 46 + oy, "ECU", FONT_MINI)
+       lcd.drawText(1 + ox, 46 + oy, "THRUST", FONT_MINI)
        lcd.drawLine(ox, oy + 46, ox + W - 1, oy + 46)
     end
     
@@ -446,28 +338,27 @@ local function DrawVoltages(u_pump, u_ecu, u_rpm, size)
     
     lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textPump)) / 2, oy + 7, textPump, FONT_BOLD)
 
-    if size ~= 1 then
-       textEcu = string.format("%.1f%s", u_ecu, "v")
-       lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textEcu)) / 2, oy + 53, textEcu, FONT_BOLD)
-    end
-    
-    -- DEBUG
-    -- u_rpm = 57000*(system.getInputs('P4')+1)
-    -- lRPM = u_rpm
-    -- u_rpmK = u_rpm / 1000.
-    -- /DEBUG
-       
-    if u_rpm then u_rpmK = u_rpm / 1000. end
-    if u_rpmK and u_rpmK  > 30 then
-       u_thr = 7.E-05 * u_rpmK^3 - 0.0083 * u_rpmK^2 + 0.5036 * u_rpmK - 8.1673
-    else
-       u_thr = 0
-    end
-    if u_thr ~= 0 then
-       textThr = string.format("%.1f%s", u_thr, "#")
-       lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textThr)) / 2, oy + 30, textThr, FONT_BOLD)
-    else
-       lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, '---')) / 2, oy + 30, '---', FONT_BOLD)	  
+    textEcu = string.format("%.1f%s", u_ecu, "v")
+    lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textEcu)) / 2, oy + 30, textEcu, FONT_BOLD)
+
+    if size ~=1 then
+       -- DEBUG
+       -- u_rpm = 57000*(system.getInputs('P4')+1)
+       -- lRPM = u_rpm
+       -- u_rpmK = u_rpm / 1000.
+       -- /DEBUG
+       if u_rpm then u_rpmK = u_rpm / 1000. end
+       if u_rpmK and u_rpmK  > 30 then
+	  u_thr = 7.E-05 * u_rpmK^3 - 0.0083 * u_rpmK^2 + 0.5036 * u_rpmK - 8.1673
+       else
+	  u_thr = 0
+       end
+       if u_thr ~= 0 then
+	  textThr = string.format("%.1f%s", u_thr, "#")
+	  lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textThr)) / 2, oy + 53, textThr, FONT_BOLD)
+       else
+	  lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, '---')) / 2, oy + 53, '---', FONT_BOLD)	  
+       end
     end
 end
 
@@ -828,8 +719,8 @@ local function init(code)
 
     wbSensorID = getWBSensorID()
 
-    maxRPM = system.pLoad("maxRPM", 114)
-    maxEGT = system.pLoad("maxEGT", 800)
+    maxRPM = system.pLoad("maxRPM", 1)
+    maxEGT = system.pLoad("maxEGT", 1)
     cfgSize = system.pLoad("cfgSize",1)
     cfgScheme = system.pLoad("cfgScheme",1)
     fuelThreshold = system.pLoad("cfgFuelThreshold",20)
