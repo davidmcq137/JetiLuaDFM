@@ -3,6 +3,8 @@
 local wVersion="1.5"
 local wAppname="CTU DashXM200"
 
+local DEBUG = true
+
 -- Locals for the application
 
 local wBrand="digitech"
@@ -62,16 +64,11 @@ local vibrationOptions = {"Left","Right","Both","None"}
 local function loadImages()
     local sizeOpt = {"Compact","Large"}
     local idx = 0
-    -- for idx = 0, 20, 1 do
-    imgName = string.format("Apps/%s/images/"..sizeOpt[cfgSize].."/"..schemeOptions[cfgScheme].."/c-%.3d.png", wBrand, idx * 5)
+    imgName = string.format("Apps/%s/images/"..sizeOpt[cfgSize].."/"..
+			       schemeOptions[cfgScheme].."/c-%.3d.png", wBrand, idx * 5)
     -- print("loading image: ", imgName)
     gauge_c[idx] = lcd.loadImage(imgName)
-    -- end
 
-    --for idx = 0, 5, 1 do
-      --  imgName = string.format("Apps/%s/images/"..sizeOpt[cfgSize].."/"..schemeOptions[cfgScheme].."/f-%.3d.png", wBrand, idx * 20)
-        --gauge_f[idx] = lcd.loadImage(imgName)
-    --end
 end
 
 ------------------------------------------------------------------------
@@ -116,17 +113,17 @@ end
 
 --------------------------------------------------------------------
 -- Get the ID of the WB Sensor
-function getWBSensorID()
+local function getWBSensorID()
     local tmpSensorID = nil
 
     for index, sensor in ipairs(system.getSensors()) do
         if (sensor.param == 0) then
-            -- print("Sensor Name: ", sensor.label)
+            print("Sensor Name: ", sensor.label)
             hexSensorID = string.format("%x", sensor.id & 0xFFFF)
             hexSensorIndex = string.format("%x", math.floor(sensor.id/2^16))
-            -- print(string.format("Sensor ID: %s, Index: %s",hexSensorID,hexSensorIndex))
+            print(string.format("Sensor ID: %s, Index: %s",hexSensorID,hexSensorIndex))
             if (catalog.device[sensor.label] ~= nil) then
-                -- print(string.format("Brand:%s - Model:%s - Version %s",catalog.device[sensor.label].brand,catalog.device[sensor.label].model,catalog.device[sensor.label].version))
+                print(string.format("Brand:%s - Model:%s - Version %s",catalog.device[sensor.label].brand,catalog.device[sensor.label].model,catalog.device[sensor.label].version))
                 tmpSensorID = sensor.id
                 wbRPMParam = tonumber(catalog.device[sensor.label].RPM)
                 wbEGTParam = tonumber(catalog.device[sensor.label].EGT)
@@ -179,10 +176,10 @@ local function DrawFuelGauge(percentage,size)
 
     value = percentage / 20
 
-    -- DEBUG
-    -- value = 2.5 * (system.getInputs('P4')+1)
-    -- percentage = value * 20
-    -- /DEBUG
+    if DEBUG then
+       value = 2.5 * (system.getInputs('P4')+1)
+       percentage = value * 20
+    end
     
     upValue = math.ceil(value)
     downValue = math.floor(value)
@@ -279,25 +276,11 @@ end
 -- RPM Gauge
 local function DrawRpmGauge(iRPM, size)
 
-    local value, upValue, downValue, textRPM, ox, oy, theta
+    local textRPM, ox, oy, theta
 
     ox=1
     oy=2
 
-    -- if (iRPM > maxRPM * 1000) then
-    --    maxRPMChanged(math.ceil(iRPM / 1000))
-    -- end
-
-    value = iRPM / (maxRPM * 1000) * 20
-    upValue = math.ceil(value)
-    downValue = math.floor(value)
-
-    if math.abs(value - upValue) > math.abs(value - downValue) then
-        value = downValue
-    else
-        value = upValue
-    end
-    
     textRPM = string.format("%d", iRPM / 1000)
 
     if(size==1) then
@@ -325,27 +308,14 @@ end
 --------------------------------------------------------------------
 -- EGT Gauge
 local function DrawEgtGauge(iEGT, size)
-    local value, upValue, downValue, textEGT, ox, oy, jEGT
-
-    -- if (iEGT > maxEGT) then
-    --    maxEGTChanged(iEGT)
-    -- end
+    local textEGT, ox, oy, jEGT
 
     jEGT = iEGT
-    -- DEBUG
-    -- jEGT = 400*(system.getInputs('P4')+1)
-    -- /DEBUG
+    if DEBUG then
+       jEGT = 400*(system.getInputs('P4')+1)
+    end 
     
-    value = jEGT / maxEGT * 20
-    upValue = math.ceil(value)
-    downValue = math.floor(value)
     textEGT = string.format("%d", jEGT)
-
-    if math.abs(value - upValue) > math.abs(value - downValue) then
-        value = downValue
-    else
-        value = upValue
-    end
 
     if(size==1) then
         ox=99
@@ -360,7 +330,6 @@ local function DrawEgtGauge(iEGT, size)
     end
 
     theta = math.pi - math.rad(135 - 2*135*jEGT / maxEGT)
-    -- print(system.getInputs('P6'), jEGT, theta)
 
     if gauge_c[0] ~= nil then
        if size == 1 then
@@ -371,10 +340,6 @@ local function DrawEgtGauge(iEGT, size)
 	  drawShape(ox+65, oy+60, needle_poly_large, theta)
        end
     end
-
-    -- if gauge_c[value] ~= nil then
-        --  lcd.drawImage(ox, oy, gauge_c[value])
-    -- end
 end
 --------------------------------------------------------------------
 -- Turbine Status
@@ -451,15 +416,19 @@ local function DrawVoltages(u_pump, u_ecu, u_rpm, size)
        lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textEcu)) / 2, oy + 53, textEcu, FONT_BOLD)
     end
     
-    -- DEBUG
-    -- u_rpm = 57000*(system.getInputs('P4')+1)
-    -- lRPM = u_rpm
-    -- u_rpmK = u_rpm / 1000.
-    -- /DEBUG
+    if DEBUG then
+       u_rpm = 57000*(system.getInputs('P4')+1)
+       lRPM = u_rpm
+       u_rpmK = u_rpm / 1000.
+    end
        
     if u_rpm then u_rpmK = u_rpm / 1000. end
     if u_rpmK and u_rpmK  > 30 then
-       u_thr = 7.E-05 * u_rpmK^3 - 0.0083 * u_rpmK^2 + 0.5036 * u_rpmK - 8.1673
+       if wbECUType and wbECUType == 1 then -- Jetcat .. assume P300
+	  u_thr = 5.E-05 * u_rpmK^3 - 0.0003 * u_rpmK^2 + 0.0184 * u_rpmK - 0.1923
+       else -- assume Xicoy .. Merlin 200
+	  u_thr = 7.E-05 * u_rpmK^3 - 0.0083 * u_rpmK^2 + 0.5036 * u_rpmK - 8.1673
+       end
     else
        u_thr = 0
     end
@@ -504,7 +473,7 @@ end
 --------------------------------------------------------------------
 -- Read messages file
 local function readConfig(wECUType)
-    -- print(string.format("ECU Type %s", wECUType))
+    print(string.format("ECU Type %s", wECUType))
     local file = io.readall(string.format("Apps/%s/%s", wBrand, catalog.ecu[tostring(wECUType)].file)) -- read the correct config file
     if (file) then
         config = json.decode(file)
@@ -528,7 +497,7 @@ local function getStatusText(statusSensorID)
         ecuStatus = value & 0xFF
 
         if (ecuStatus ~= wbStatusPrev) then
-            print(string.format("Status %d",ecuStatus))
+            print(string.format("ECU Status %d",ecuStatus))
             if (config.message[tostring(ecuStatus)] ~= nil) then
                 lStatus = config.message[tostring(ecuStatus)].text
                 if (lStatus == nil) then
@@ -554,7 +523,7 @@ local function getStatusText(statusSensorID)
             lStatus = wbStatusText
         end
     else
-        lStatus = "          -- "
+        lStatus = "          XX "
     end
 
     return lStatus
@@ -579,6 +548,7 @@ local function getWBECUType(statusSensorID)
     else
         ecuType = nil
     end
+    -- print("returning ECU type: ", ecuType)
     return ecuType
 end
 ------------------------------------------------------------------------
@@ -825,13 +795,15 @@ local function init(code)
     readCatalog()
 
     wBrand = catalog.config.brand
-
+    -- print("wBrand: ", wBrand)
+    
     wbSensorID = getWBSensorID()
-
+    -- print("wbSensorID: ", wbSensorID)
+    
     maxRPM = system.pLoad("maxRPM", 114)
     maxEGT = system.pLoad("maxEGT", 800)
-    cfgSize = system.pLoad("cfgSize",1)
-    cfgScheme = system.pLoad("cfgScheme",1)
+    cfgSize = system.pLoad("cfgSize",2)
+    cfgScheme = system.pLoad("cfgScheme",2)
     fuelThreshold = system.pLoad("cfgFuelThreshold",20)
     fuelWarnEnabled = system.pLoad("cfgFuelWarn",0)==1
     fuelVoiceEnabled = system.pLoad("cfgFuelVoice",0)==1
