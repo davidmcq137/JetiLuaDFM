@@ -164,7 +164,7 @@ local function initForm()
         
       form.addRow(1)
       form.addLabel({label="---           Dave's Jeti Tools         ---",font=FONT_BIG})
-      
+      --                    1234567890123456789012345678901234567890123
       form.addRow(2)
       form.addLabel({label="Select Speed Sensor", width=220})
       form.addSelectbox(sensorLalist, spdSe, true, sensorChanged)
@@ -277,7 +277,7 @@ local function loop()
 
       if (spd <= VrefSpd and aboveVref) then
 	 aboveVref = false
-	 system.playFile('V_ref_speed.wav', AUDIO_QUEUE)
+	 system.playFile('V_ref_speed.wav', AUDIO_IMMEDIATE)
 	 if DEBUG then print("At Vref") end
       end
 
