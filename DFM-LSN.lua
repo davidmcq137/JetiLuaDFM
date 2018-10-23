@@ -46,7 +46,6 @@ local rotationAngle
 
 local xtable = {}
 local ytable = {}
---local ztable = {}
 local MAXTABLE = 5
 
 local vviAlt = {}
@@ -104,10 +103,6 @@ local resetOrigin=false
 local resetClick=false
 local resetCompIndex
 
--- local lastLoopTime = 0
--- local avgLoopTime = 0
--- local loopCount = 0
-
 local lastlat = 0
 local lastlong = 0
 local gotInitPos = false
@@ -122,7 +117,6 @@ local vario=0
 local lineAvgPts = 4  -- number of points to linear fit to compute course
 local vviSlopeTime = 0
 local speedTime = 0
-local oldx, oldy=0,0
 local numGPSreads = 0
 local timeRO = 0
 
@@ -482,21 +476,22 @@ local ILSshape = {
    {0,4,-2,6},
    {0,4, 2,6}
 }
-
--- local originShape = {
---    {1,3},
---    {1,1},
---    {3,1},
---    {3,-1},
---    {1,-1},
---    {1,-3},
---    {-1,-3},
---    {-1,-1},
---    {-3,-1},
---    {-3,1},
---    {-1,1},
---    {-1,3}
--- }
+--[[
+local originShape = {
+   {1,3},
+   {1,1},
+   {3,1},
+   {3,-1},
+   {1,-1},
+   {1,-3},
+   {-1,-3},
+   {-1,-1},
+   {-3,-1},
+   {-3,1},
+   {-1,1},
+   {-1,3}
+}
+--]]
 
 
 local originShape = {
@@ -512,6 +507,12 @@ local originShape = {
    {-6,2},
    {-2,2},
    {-2,6}
+}
+
+local arrowShape = {
+   {-3, -9},
+   {0, -18},
+   {3, -9}
 }
 
 -- *****************************************************
@@ -989,7 +990,7 @@ local function drawBezier(windowWidth, windowHeight, numT)
 	 py = py + binom(n, i)*t^i*(1-t)^(n-i)*ytable[i+1]
       end
 
-      px, py = rotateXY(px,py, math.rad(rotationAngle))
+--      px, py = rotateXY(px,py, math.rad(rotationAngle))
       
       ren:addPoint(toXPixel(px, mapXmin, mapXrange, windowWidth),
 		   toYPixel(py, mapYmin, mapYrange, windowHeight))
@@ -1011,6 +1012,7 @@ local function mapPrint(windowWidth, windowHeight)
    local lRW
    local phi
    local radpt
+   local text
    
    r, g, b = lcd.getFgColor()
    lcd.setColor(r, g, b)
@@ -1051,22 +1053,28 @@ local function mapPrint(windowWidth, windowHeight)
 
       lcd.setColor(r,g,b)
 
-      local text=string.format("Map: %d x %d    Rwy: %d", mapXrange, mapYrange, math.floor(RunwayHeading/10+.5) )
+      text=string.format("Map: %d x %d    Rwy: %d", mapXrange, mapYrange, math.floor(RunwayHeading/10+.5) )
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
 
    else
       local x = xtable[#xtable] or 0
       local y = ytable[#ytable] or 0
 
-      -- local text=string.format("Map: %04d x %04d  X=%05d, Y=%05d", mapXrange, mapYrange, x, y)
-      local text=string.format("Map: %d x %d", mapXrange, mapYrange)
+      -- text=string.format("Map: %04d x %04d  X=%05d, Y=%05d", mapXrange, mapYrange, x, y)
+      text=string.format("Map: %d x %d", mapXrange, mapYrange)
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
       
-      -- local text=string.format("GPS Alt, Baro Alt: %.2f, %.2f", (GPSAlt or 0), (baroAlt or 0) )
+      -- text=string.format("GPS Alt, Baro Alt: %.2f, %.2f", (GPSAlt or 0), (baroAlt or 0) )
       -- lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH-10, text, FONT_MINI)      
 
    end
 
+   rotationAngle = 80.
+      
+   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, "N") / 2, 14, "N", FONT_MINI)
+   drawShape(70, 20, arrowShape, math.rad(-1*rotationAngle))
+   lcd.drawCircle(70, 20, 7)
+   
    if RunwayHeading then
       phi = (90-(RunwayHeading-magneticVar)+360)%360
       -- todo: pre-calculate these trig values .. do it once for efficiency  --
@@ -1132,16 +1140,12 @@ local function loop()
 
    local minutes, degs
    local x, y, xyslope
-   local oldXrange, oldYrange
    local MAXVVITABLE = 5 -- points to fit to compute vertical speed
    local PATTERNALT = 200
-   local xExp, yExp, maxExp, minExp
    local tt
    local hasPitot
    local hasCourseGPS
    local sensor
-   local adelta = 0.1
-   local tA
    local goodlat, goodlong 
    local brk, thr
    local newpos
@@ -1366,19 +1370,6 @@ local function loop()
       gotInitPos = true
    end
 
-   -- this is likely incorrect: each time thru x and y are nil as local variables..
-   -- so newpos may be true but x and y won't be...
-   -- so fix this at some point!
-   
-   if newpos then
-      if x and y then
-	 oldx = x
-	 oldy = y
-      else
-	 oldx=0
-	 oldy=0
-      end
-   end
    
    x = rE*(longitude-long0)*coslat0/rad
    y = rE*(latitude-lat0)/rad
@@ -1391,18 +1382,6 @@ local function loop()
 
    x, y = rotateXY(x, y, math.rad(rotationAngle)) -- q+d for now .. rotate path only add ILS+RW later
    
-    -- print('lat,long,x,y: ', latitude, longitude, x, y)
-   
--- was failing on startup .. fix at some point to defend against rogue points
---   if math.abs(oldx-x) > 10000 or math.abs(oldy-y) > 10000 then
---      print('bailing on bad xy')
---      return
---  end
-      
-   --tt = system.getTimeCounter()/1000
-   --ss1 = string.format("%.2f, %.0f, %.0f, %.0f, %.0f, %.0f, %.0f", tt, mapXmin, mapXmax, mapYmin, mapYmax, mapXrange, mapYrange)
-   --print(ss1)
-
    if newpos or DEBUG then -- only enter a new xy in the "comet tail" if lat/lon changed
       
       if #xtable+1 > MAXTABLE then
@@ -1412,10 +1391,6 @@ local function loop()
       
       table.insert(xtable, x)
       table.insert(ytable, y)
-      
-      if not DEBUG then
-	 -- print('long,lat, x, y, alt', longitude, latitude, x, y, altitude)
-      end
       
       if not mapXmax then
 	 mapXmax=   200
@@ -1580,34 +1555,12 @@ local function loop()
 	 system.playNumber(heading, 0, "\u{B0}")
       end
    end
-   
-
-   --if ff then
-     -- io.write(ff,ss1..', '..ss2.."\n")
-   --end
-
---   local newLoopTime = system.getTimeCounter()
---   local loopDelta = newLoopTime - lastLoopTime
-   
---   lastLoopTime = newLoopTime
-   
---   if avgLoopTime ~=0 then
---      avgLoopTime = avgLoopTime * 0.95 + 0.05* loopDelta
---   else
---      avgLoopTime = 1
---   end
-   
---   loopCount = loopCount+1
-   
---   if loopCount > 100 then
---      loopCount = 0
-      -- print('TimA: Avg Loop Time: ', avgLoopTime)
---   end
 end
 
 local function init()
 
-   -- try opening the csv file for debugging .. if it does not exist then open a file for logging
+   -- try opening the csv file for debugging .. if it exists assume we are
+   -- doing a playback. If it does exist then, we are actually running, open a file for logging
    
    fd=io.open("DFM-LSO.csv", "r")
 
