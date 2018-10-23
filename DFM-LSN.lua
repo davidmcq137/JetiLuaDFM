@@ -47,6 +47,7 @@ local rotationAngle
 local xtable = {}
 local ytable = {}
 --local ztable = {}
+local MAXTABLE = 5
 
 local vviAlt = {}
 local vviTim = {}
@@ -114,7 +115,6 @@ local baroAltZero = 0
 local L0, y0
 local long0, lat0, coslat0
 local rE = 21220539.7  -- 6371*1000*3.28084 radius of earth in ft, fudge factor of 1/0.985
-local rEff = 0.74 -- fudge factor to get x,y calcs to match google earth
 local rad = 180/math.pi
 local compcrs
 local heading, compcrsDeg = 0, 0
@@ -127,12 +127,10 @@ local numGPSreads = 0
 local timeRO = 0
 
 local ren=lcd.renderer()
-local ren2=lcd.renderer()
 
 local txtr, txtg, txtb = 0,0,0
 
-local ff
-local qq
+local ff, fd
 local sysTimeStart = system.getTimeCounter()
 local newPosTime = 0
 
@@ -538,13 +536,13 @@ local function drawShapePL(col, row, shape, rotation,scale, width, alpha)
    local sinShape, cosShape
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
-   ren2:reset()
+   ren:reset()
    for index, point in pairs(shape) do
-      ren2:addPoint(
+      ren:addPoint(
 	 col + (scale*point[1] * cosShape - scale*point[2] * sinShape),
 	 row + (scale*point[1] * sinShape + scale*point[2] * cosShape))
    end
-   ren2:renderPolyline(width, alpha)
+   ren:renderPolyline(width, alpha)
 end
 
 local function drawILS(col, row, rotation, scale)
@@ -958,6 +956,48 @@ local function ilsPrint(windowWidth, windowHeight)
    end
 end
 
+local function binom(n, k)
+   
+   -- compute binomial coefficients to compute the Bernstein polynomials 
+
+   if k > n then return nil end
+   if k > n/2 then k = n - k end -- because (n k) = (n n-k) by symmetry
+   
+   numer, denom = 1, 1
+   for i = 1, k do
+      numer = numer * ( n - i + 1 )
+      denom = denom * i
+   end
+   return numer / denom
+end
+
+local function drawBezier(windowWidth, windowHeight, numT)
+
+   -- draw Bezier curve using control points in xtable[], ytable[] with numT points over the [0,1] interval
+   
+   local px, py
+   local t
+   local n = #xtable-1
+   
+   ren:reset()
+
+   for j = 0, numT, 1 do
+      t = j / numT
+      px, py = 0, 0
+      for i = 0, n do
+	 px = px + binom(n, i)*t^i*(1-t)^(n-i)*xtable[i+1]
+	 py = py + binom(n, i)*t^i*(1-t)^(n-i)*ytable[i+1]
+      end
+
+      px, py = rotateXY(px,py, math.rad(rotationAngle))
+      
+      ren:addPoint(toXPixel(px, mapXmin, mapXrange, windowWidth),
+		   toYPixel(py, mapYmin, mapYrange, windowHeight))
+   end
+   
+   ren:renderPolyline(3)
+end
+
 
    
 local function mapPrint(windowWidth, windowHeight)
@@ -1018,11 +1058,12 @@ local function mapPrint(windowWidth, windowHeight)
       local x = xtable[#xtable] or 0
       local y = ytable[#ytable] or 0
 
-      local text=string.format("Map: %d x %d  X=%d, Y=%d", mapXrange, mapYrange, x, y)
+      -- local text=string.format("Map: %04d x %04d  X=%05d, Y=%05d", mapXrange, mapYrange, x, y)
+      local text=string.format("Map: %d x %d", mapXrange, mapYrange)
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
       
-      local text=string.format("GPS Alt, Baro Alt: %.2f, %.2f", (GPSAlt or 0), (baroAlt or 0) )
-      lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH-10, text, FONT_MINI)      
+      -- local text=string.format("GPS Alt, Baro Alt: %.2f, %.2f", (GPSAlt or 0), (baroAlt or 0) )
+      -- lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH-10, text, FONT_MINI)      
 
    end
 
@@ -1061,15 +1102,17 @@ local function mapPrint(windowWidth, windowHeight)
 	    lcd.setColor(0,255,0)
 	 end
       end
+
+      if i == MAXTABLE then drawBezier(windowWidth, windowHeight, MAXTABLE+3) end
       
-      if i==#xtable then
+      if i == #xtable then
 	 lcd.setColor(lcd.getFgColor())
 	 -- drawShape(colAH, rowAH+20, T38Shape, math.rad(heading-magneticVar))
 	 drawShape(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
 		   toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
 		   T38Shape, math.rad(heading-magneticVar))
       else
-	 radpt = 1
+	 radpt = 2
 	 lcd.drawCircle(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
 			toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
 			radpt)
@@ -1082,14 +1125,15 @@ local function mapPrint(windowWidth, windowHeight)
    end
 end
 
+local blocked = false
+local timS = "0"
 
 local function loop()
 
    local minutes, degs
    local x, y, xyslope
    local oldXrange, oldYrange
-   local MAXTABLE = 20
-   local MAXVVITABLE = 15 -- points to fit to compute vertical speed -- 3 seconds at 0.2 sec sample
+   local MAXVVITABLE = 5 -- points to fit to compute vertical speed
    local PATTERNALT = 200
    local xExp, yExp, maxExp, minExp
    local tt
@@ -1102,7 +1146,7 @@ local function loop()
    local brk, thr
    local newpos
    local deltaPosTime = 100 -- min sample interval in ms
-
+   local latS, lonS, altS, spdS
    
    goodlat = false
    goodlong = false
@@ -1128,8 +1172,8 @@ local function loop()
       baroAltZero = altitude
 
       print("Zero-d origin and baro alt. baroAltZero: ", baroAltZero)
-
-      io.close(ff)
+      
+      if ff then io.close(ff) end
    end
 
    if DEBUG then
@@ -1141,6 +1185,38 @@ local function loop()
       goto computedXY
    end
    
+   -- if fd ~nil then we have a file open for reading a csv file
+   -- wait until realtime is equal to recorded time to plot the point
+   -- denominator under tonumber(timS) is acceleration factor for replay
+
+   if fd then
+      if ( (system.getTimeCounter() - sysTimeStart)/1000.) >= tonumber(timS)/10. and blocked then
+	 blocked = false
+	 goto fileInputLatLong
+      end
+
+      if blocked then return end
+      
+      tt = io.readline(fd, tt)
+      if tt then
+	 timS, latS, lonS, altS, spdS = string.match(tt,
+	 "(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)"
+	 )
+	 latitude = tonumber(latS)
+	 longitude = tonumber(lonS)
+	 altitude = tonumber(altS)
+	 speed = tonumber(spdS)
+	 blocked = true
+	 return
+      else
+	 io.close(fd)
+	 print('Closing csv file')
+	 fd = nil
+      end
+   end
+
+   if fd then print('Should not get here with fd true!') end
+
    sensor = system.getSensorByID(LongitudeSeId, LongitudeSePa)
 
    if(sensor and sensor.valid) then
@@ -1223,8 +1299,18 @@ local function loop()
       return
    end
    if not goodlat or not goodlong then
---      print('returning: goodlat, goodlong: ', goodlat, goodlong)
+      -- print('returning: goodlat, goodlong: ', goodlat, goodlong)
       return
+   end
+
+   -- if no GPS or pitot then code further below will compute speed from delta dist
+   
+   if not DEBUG then
+      if hasPitot and SpeedNonGPS ~= nil then
+	 speed = SpeedNonGPS
+      elseif SpeedGPS ~= nil then
+	 speed = SpeedGPS
+      end
    end
 
    if not DEBUG then
@@ -1255,13 +1341,19 @@ local function loop()
       return
    end
    
+   ::fileInputLatLong::
+   
    if (latitude == lastlat and longitude == lastlong) or (system.getTimeCounter() < newPosTime) then
       newpos = false
    else
       newpos = true
-      io.write(ff, string.format("%.4f, %.8f , %.8f , %.2f , %.2f\n",
-				 (system.getTimeCounter()-sysTimeStart)/1000.,
-				 latitude, longitude, altitude, speed))
+
+      if ff then
+	 io.write(ff, string.format("%.4f, %.8f , %.8f , %.2f , %.2f\n",
+				    (system.getTimeCounter()-sysTimeStart)/1000.,
+				    latitude, longitude, altitude, speed))
+      end
+      
       lastlat = latitude
       lastlong = longitude
       newPosTime = system.getTimeCounter() + deltaPosTime
@@ -1276,6 +1368,7 @@ local function loop()
 
    -- this is likely incorrect: each time thru x and y are nil as local variables..
    -- so newpos may be true but x and y won't be...
+   -- so fix this at some point!
    
    if newpos then
       if x and y then
@@ -1427,15 +1520,6 @@ local function loop()
       end
    end
    
-   -- need to uppdate for speed computed from GPS
-   
-   if not DEBUG then
-      if hasPitot and SpeedNonGPS ~= nil then
-	 speed = SpeedNonGPS
-      elseif SpeedGPS ~= nil then
-	 speed = SpeedGPS
-      end
-   end
    
    -- ss2 = string.format("%.0f, %.0f, %.0f, %.0f, %.0f, %.0f", #xtable, x, y, altitude, heading, compcrsDeg)
    -- print(ss2)
@@ -1523,13 +1607,20 @@ end
 
 local function init()
 
-   local dt = system.getDateTime()
-   local fn = string.format("GPS-LSO-%d%02d%02d-%d%02d%02d.csv",
-			    dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)
-   ff=io.open(fn, "w")
-   print("fn is: ", fn)
-   print("ff is: ", ff)
+   -- try opening the csv file for debugging .. if it does not exist then open a file for logging
+   
+   fd=io.open("DFM-LSO.csv", "r")
 
+   if fd then
+      form.question("Start replay?", "log file DFM-LSO.csv", "---", 0, true, 0)
+      print("Opened log file DFM-LSO.csv for reading")
+   else
+      local dt = system.getDateTime()
+      local fn = string.format("GPS-LSO-%d%02d%02d-%d%02d%02d.csv",
+			       dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)
+      ff=io.open(fn, "w")
+      print("Opening for writing csv log file: ", fn)
+   end
    
    LatitudeSe      = system.pLoad("LatitudeSe", 0)
    LatitudeSeId    = system.pLoad("LatitudeSeId", 0)
@@ -1584,7 +1675,7 @@ local function init()
 end
 
 
-LSOVersion = "1.0"
+LSOVersion = "1.1"
 setLanguage()
 collectgarbage()
 return {init=init, loop=loop, author="DFM", version=LSOVersion, name="GPS LSO"}
