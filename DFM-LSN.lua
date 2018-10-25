@@ -47,6 +47,10 @@ local rotationAngle
 local xtable = {}
 local ytable = {}
 local MAXTABLE = 5
+local bezierPath = { {x,y} }
+local geo = {}
+local rwy = { {x,y} }
+local poi = { {x,y} }
 
 local vviAlt = {}
 local vviTim = {}
@@ -107,7 +111,6 @@ local lastlat = 0
 local lastlong = 0
 local gotInitPos = false
 local baroAltZero = 0
-local L0, y0
 local long0, lat0, coslat0
 local rE = 21220539.7  -- 6371*1000*3.28084 radius of earth in ft, fudge factor of 1/0.985
 local rad = 180/math.pi
@@ -742,17 +745,6 @@ local function drawHeading()
 end
 
 
-local bgr,bgg,bgb
-local alphadot
-local function mixBgColor(r,g,b,alpha)
-  bgr,bgg,bgb = lcd.getBgColor()
-  alphadot = 1 - alpha
-  r = bgr*alphadot + r*alpha
-  g = bgg*alphadot + g*alpha
-  b = bgb*alphadot + b*alpha
-  return r,g,b
-end
-
 --- draw Vario (vvi) 
 
 local rowVario = 80
@@ -797,7 +789,7 @@ local function toYPixel(coord, min, range, height)
    local pix
    --print('toYP: ', coord, min, range, height)
    pix = height-(coord - min)/range * height
---   pix = (pix*0.98125) + 3
+   --   pix = (pix*0.98125) + 3
    return pix
 end
 
@@ -972,16 +964,14 @@ local function binom(n, k)
    return numer / denom
 end
 
-local function drawBezier(windowWidth, windowHeight, numT)
+local function computeBezier(numT)
 
-   -- draw Bezier curve using control points in xtable[], ytable[] with numT points over the [0,1] interval
+   -- compute Bezier curve points using control points in xtable[], ytable[] with numT points over the [0,1] interval
    
    local px, py
    local t
    local n = #xtable-1
    
-   ren:reset()
-
    for j = 0, numT, 1 do
       t = j / numT
       px, py = 0, 0
@@ -989,16 +979,43 @@ local function drawBezier(windowWidth, windowHeight, numT)
 	 px = px + binom(n, i)*t^i*(1-t)^(n-i)*xtable[i+1]
 	 py = py + binom(n, i)*t^i*(1-t)^(n-i)*ytable[i+1]
       end
-
---      px, py = rotateXY(px,py, math.rad(rotationAngle))
-      
-      ren:addPoint(toXPixel(px, mapXmin, mapXrange, windowWidth),
-		   toYPixel(py, mapYmin, mapYrange, windowHeight))
+      bezierPath[j+1] = {x=px, y=py}
    end
-   
+end
+
+local function drawBezier(windowWidth, windowHeight)
+
+   -- draw Bezier curve points computed in computeBezier()
+
+   if bezierPath[1].x == nil then return end
+
+   ren:reset()
+
+   for j=1, #bezierPath do
+      ren:addPoint(toXPixel(bezierPath[j].x, mapXmin, mapXrange, windowWidth),
+		   toYPixel(bezierPath[j].y, mapYmin, mapYrange, windowHeight))
+   end
    ren:renderPolyline(3)
 end
 
+local function drawGeo(windowWidth, windowHeight)
+
+   ren:reset()
+
+   for j=1, #rwy do
+      ren:addPoint(toXPixel(rwy[j].x, mapXmin, mapXrange, windowWidth),
+		   toYPixel(rwy[j].y, mapYmin, mapYrange, windowHeight))
+   end
+
+   ren:renderPolyline(2)
+
+   for j=1, #poi do
+      drawShape(toXPixel(poi[j].x, mapXmin, mapXrange, windowWidth),
+		toYPixel(poi[j].y, mapYmin, mapYrange, windowHeight),
+		originShape, 0)
+   end
+   
+end
 
    
 local function mapPrint(windowWidth, windowHeight)
@@ -1025,9 +1042,9 @@ local function mapPrint(windowWidth, windowHeight)
 
    -- lcd.drawCircle(toXPixel(0, mapXmin, mapXrange, windowWidth), toYPixel(0, mapYmin, mapYrange, windowHeight), 5)
 
-   drawShape(toXPixel(0, mapXmin, mapXrange, windowWidth),
-	     toYPixel(0, mapYmin, mapYrange, windowHeight),
-	     originShape, 0)
+--   drawShape(toXPixel(0, mapXmin, mapXrange, windowWidth),
+--	     toYPixel(0, mapYmin, mapYrange, windowHeight),
+--	     originShape, 0)
 
 	 
    if xTakeoffStart then
@@ -1062,14 +1079,16 @@ local function mapPrint(windowWidth, windowHeight)
 
       -- text=string.format("Map: %04d x %04d  X=%05d, Y=%05d", mapXrange, mapYrange, x, y)
       text=string.format("Map: %d x %d", mapXrange, mapYrange)
-      lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
+      lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH-10, text, FONT_MINI)
+
+      if geo.fields[1].name then
+	 text=geo.fields[1].name
+	 lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
+      end
       
-      -- text=string.format("GPS Alt, Baro Alt: %.2f, %.2f", (GPSAlt or 0), (baroAlt or 0) )
-      -- lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH-10, text, FONT_MINI)      
 
    end
 
-   rotationAngle = 80.
       
    lcd.drawText(70-lcd.getTextWidth(FONT_MINI, "N") / 2, 14, "N", FONT_MINI)
    drawShape(70, 20, arrowShape, math.rad(-1*rotationAngle))
@@ -1111,7 +1130,6 @@ local function mapPrint(windowWidth, windowHeight)
 	 end
       end
 
-      if i == MAXTABLE then drawBezier(windowWidth, windowHeight, MAXTABLE+3) end
       
       if i == #xtable then
 	 lcd.setColor(lcd.getFgColor())
@@ -1125,12 +1143,42 @@ local function mapPrint(windowWidth, windowHeight)
 			toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
 			radpt)
       end
-      
-
-      
       lcd.setColor(r, g, b)
       
    end
+   drawBezier(windowWidth, windowHeight)
+   drawGeo(windowWidth, windowHeight)
+end
+
+local function graphScale(x, y)
+
+   if not mapXmax then
+      mapXmax=   200
+      mapXmin = -200
+      mapYmax =  100
+      mapYmin = -100
+   end
+   
+   if x > xmax then xmax = x end
+   if x < xmin then xmin = x end
+   if y > ymax then ymax = y end
+   if y < ymin then ymin = y end
+   
+   mapXrange = math.floor((xmax-xmin)/200 + .5) * 200 -- telemetry screens are 320x160 or 2:1
+   mapYrange = math.floor((ymax-ymin)/100 + .5) * 100
+   
+   if mapYrange > mapXrange/(2) then
+      mapXrange = mapYrange*(2)
+   end
+   if mapXrange > mapYrange*(2) then
+      mapYrange = mapXrange/(2)
+   end
+   
+   mapXmin = xmin - (mapXrange - (xmax-xmin))/2
+   mapXmax = xmax + (mapXrange - (xmax-xmin))/2
+   
+   mapYmin = ymin - (mapYrange - (ymax-ymin))/2
+   mapYmax = ymax + (mapYrange - (ymax-ymin))/2 
 end
 
 local blocked = false
@@ -1347,11 +1395,12 @@ local function loop()
    
    ::fileInputLatLong::
    
+   
    if (latitude == lastlat and longitude == lastlong) or (system.getTimeCounter() < newPosTime) then
       newpos = false
    else
       newpos = true
-
+      
       if ff then
 	 io.write(ff, string.format("%.4f, %.8f , %.8f , %.2f , %.2f\n",
 				    (system.getTimeCounter()-sysTimeStart)/1000.,
@@ -1362,10 +1411,17 @@ local function loop()
       lastlong = longitude
       newPosTime = system.getTimeCounter() + deltaPosTime
    end
+
    
    if not gotInitPos then
-      long0 = longitude
-      lat0 = latitude
+      if geo.fields[1].runway.lat then
+	 long0 = geo.fields[1].runway.long
+	 lat0  = geo.fields[1].runway.lat
+      else
+	 long0 = longitude
+	 lat0 = latitude
+      end
+      
       coslat0 = math.cos(math.rad(lat0))
       gotInitPos = true
    end
@@ -1391,14 +1447,9 @@ local function loop()
       
       table.insert(xtable, x)
       table.insert(ytable, y)
-      
-      if not mapXmax then
-	 mapXmax=   200
-	 mapXmin = -200
-	 mapYmax =  100
-	 mapYmin = -100
-      end
 
+      graphScale(x, y)
+      
       if #xtable == 1 then
 	 xmin = mapXmin
 	 xmax = mapXmax
@@ -1406,30 +1457,6 @@ local function loop()
 	 ymax = mapYmax
       end
       
-      if x > xmax then xmax = x end
-      if x < xmin then xmin = x end
-      if y > ymax then ymax = y end
-      if y < ymin then ymin = y end
-      
-      local xspan = (xmax-xmin) 
-      local yspan = (ymax-ymin)
-
-      mapXrange = math.floor(xspan/200 + .5) * 200 -- telemetry screens are 320x160 or 2:1
-      mapYrange = math.floor(yspan/100 + .5) * 100
-      
-      if mapYrange > mapXrange/(2) then
-	 mapXrange = mapYrange*(2)
-      end
-      if mapXrange > mapYrange*(2) then
-	 mapYrange = mapXrange/(2)
-      end
-      
-      mapXmin = xmin - (mapXrange - xspan)/2
-      mapXmax = xmax + (mapXrange - xspan)/2
-      
-      mapYmin = ymin - (mapYrange - yspan)/2
-      mapYmax = ymax + (mapYrange - yspan)/2 
-   
       if #xtable > lineAvgPts then
 	 xyslope, compcrs = fslope(table.move(xtable, #xtable-lineAvgPts+1, #xtable, 1, {}),
 				   table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {}))
@@ -1440,6 +1467,9 @@ local function loop()
    
       compcrsDeg = compcrs*180/math.pi
    end
+
+   computeBezier(MAXTABLE+3)
+      
    
    tt = system.getTimeCounter() - sysTimeStart
 
@@ -1561,20 +1591,73 @@ local function init()
 
    -- try opening the csv file for debugging .. if it exists assume we are
    -- doing a playback. If it does exist then, we are actually running, open a file for logging
-   
+
+
    fd=io.open("DFM-LSO.csv", "r")
 
    if fd then
       form.question("Start replay?", "log file DFM-LSO.csv", "---", 0, true, 0)
       print("Opened log file DFM-LSO.csv for reading")
    else
-      local dt = system.getDateTime()
-      local fn = string.format("GPS-LSO-%d%02d%02d-%d%02d%02d.csv",
-			       dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)
-      ff=io.open(fn, "w")
-      print("Opening for writing csv log file: ", fn)
+      if DEBUG == false then
+	 local dt = system.getDateTime()
+	 local fn = string.format("GPS-LSO-%d%02d%02d-%d%02d%02d.csv",
+				  dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)
+	 ff=io.open(fn, "w")
+	 print("Opening for writing csv log file: ", fn)
+      end
    end
+
+   local fg = io.readall("DFM-LSO.jsn")
+   if fg then
+      geo = json.decode(fg)
+   end
+
    
+   if(geo) then
+      print("Len of geo.fields: ", #geo.fields)
+      print("Fieldname: ", geo.fields[1].name)
+      print("Fieldname: ", geo.fields[2].name)
+      print("Fieldname: ", geo.fields[3].name)
+      print("Lat: ", geo.fields[1].runway.lat)
+      print("Long: ", geo.fields[1].runway.long)
+      print("TrueDir: ", geo.fields[1].runway.trueDir)
+      print("length: ", geo.fields[1].runway.length)
+      print("width: ", geo.fields[1].runway.width)
+      print("point 1: ", geo.fields[1].POI[1].lat)
+
+      
+      rwy[1] = {x=-geo.fields[1].runway.width/2, y=-geo.fields[1].runway.length/2}
+      rwy[2] = {x=-geo.fields[1].runway.width/2, y=geo.fields[1].runway.length/2}
+      rwy[3] = {x=geo.fields[1].runway.width/2, y=geo.fields[1].runway.length/2}
+      rwy[4] = {x=geo.fields[1].runway.width/2, y=-geo.fields[1].runway.length/2}
+      rwy[5] = {x=-geo.fields[1].runway.width/2, y=-geo.fields[1].runway.length/2}
+
+      rotationAngle = geo.fields[1].runway.trueDir-270
+      
+      for i=1, 5, 1 do
+	 rwy[i].x, rwy[i].y  =
+	    rotateXY(rwy[i].x, rwy[i].y, math.rad(270) )
+	 print(i, rwy[i].x, rwy[i].y)
+	 graphScale(2*rwy[i].x, 2*rwy[i].y)
+      end
+      
+      long0 = geo.fields[1].runway.long
+      lat0  = geo.fields[1].runway.lat
+      coslat0 = math.cos(math.rad(lat0))
+
+      print("gfp: ", #geo.fields[1].POI)
+
+      for i=1, #geo.fields[1].POI,1 do
+	 poi[i] = {x=rE*(geo.fields[1].POI[i].long-long0)*coslat0/rad,
+		   y=rE*(geo.fields[1].POI[i].lat-lat0)/rad}
+	 poi[i].x, poi[i].y = rotateXY(poi[i].x, poi[i].y, math.rad(rotationAngle))
+	 -- graphScale(poi[i].x, poi[i].y)
+	 print(poi[i].x, poi[i].y)
+      end
+      
+   end   
+
    LatitudeSe      = system.pLoad("LatitudeSe", 0)
    LatitudeSeId    = system.pLoad("LatitudeSeId", 0)
    LatitudeSePa    = system.pLoad("LatitudeSePa", 0)
@@ -1609,7 +1692,7 @@ local function init()
    
    throttleControl = system.pLoad("throttleControl")
    brakeControl    = system.pLoad("brakeControl")
-   rotationAngle   = system.pLoad("rotationAngle", 0)
+   if not rotationAngle then   rotationAngle   = system.pLoad("rotationAngle", 0) end
    magneticVar     = system.pLoad("magneticVar", 13)
    
 
