@@ -1608,7 +1608,7 @@ local function init()
       end
    end
 
-   local fg = io.readall("DFM-LSO.jsn")
+   local fg = io.readall("Apps/DFM-LSO.jsn")
    if fg then
       geo = json.decode(fg)
    end
