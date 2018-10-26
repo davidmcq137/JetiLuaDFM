@@ -47,10 +47,11 @@ local rotationAngle
 local xtable = {}
 local ytable = {}
 local MAXTABLE = 5
-local bezierPath = { {x,y} }
+local bezierPath = {{x,y}}
+local rwy = {{x,y}}
+local poi = {{x,y}}
 local geo = {}
-local rwy = { {x,y} }
-local poi = { {x,y} }
+local iField
 
 local vviAlt = {}
 local vviTim = {}
@@ -66,8 +67,9 @@ local xmin, xmax, ymin, ymax = mapXmin, mapXmax, mapYmin, mapYmax
 local mapXrange = mapXmax - mapXmin
 local mapYrange = mapYmax - mapYmin
 
-local DEBUG = false -- if set to <true> will print to console the speech files and output
+local DEBUG = true -- if set to <true> will print to console the speech files and output
 local debugTime = 0
+local debugNext = 0
 local DEBUGLOG = true -- persistent state var for debugging (e.g. to print something in a loop only once)
 
 -- these lists are the non-GPS sensors
@@ -89,7 +91,7 @@ local brakeReleaseTime = 0
 local oldBrake = 0
 local oldThrottle=0
 
-local xTakeoffStart
+local TakeoffStart
 local yTakeoffStart
 local zTakeoffStart
 
@@ -432,7 +434,6 @@ local text
 local colAH = 110 + 50
 local rowAH = 63
 local radAH = 62
-local pitchR = radAH / 25
  
 
 local colAlt = colAH + 73 + 45
@@ -441,9 +442,10 @@ local heightAH = 145
 
 local colHeading = colAH
 local rowHeading = 30 -- 160
-local rowDistance = rowAH + radAH + 3
 
-local T38Shape = {
+local shapes={} -- prob should move the shapes out to a jsn file
+
+shapes.T38 = {
    {0,-20},
    {-3,-6},
    {-10,0},
@@ -462,7 +464,7 @@ local T38Shape = {
    {3,-6}
 }
 
-local runwayShape = {
+shapes.runway = {
    {-2,-20},
    {-2, 20},
    { 2, 20},
@@ -470,7 +472,7 @@ local runwayShape = {
    {-2,-20}
 }
 
-local ILSshape = {
+shapes.ILS = {
    {0,0,0,20},
    {0,0,-2,2},
    {0,0, 2,2},
@@ -479,25 +481,8 @@ local ILSshape = {
    {0,4,-2,6},
    {0,4, 2,6}
 }
---[[
-local originShape = {
-   {1,3},
-   {1,1},
-   {3,1},
-   {3,-1},
-   {1,-1},
-   {1,-3},
-   {-1,-3},
-   {-1,-1},
-   {-3,-1},
-   {-3,1},
-   {-1,1},
-   {-1,3}
-}
---]]
 
-
-local originShape = {
+shapes.origin = {
    {2,6},
    {2,2},
    {6,2},
@@ -512,7 +497,7 @@ local originShape = {
    {-2,6}
 }
 
-local arrowShape = {
+shapes.arrow = {
    {-3, -9},
    {0, -18},
    {3, -9}
@@ -553,7 +538,7 @@ local function drawILS(col, row, rotation, scale)
    local sinShape, cosShape
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
-   for index, point in pairs(ILSshape) do
+   for index, point in pairs(shapes.ILS) do
       lcd.drawLine(col + (scale*point[1] * cosShape - scale*point[2] * sinShape),
 		   row + (scale*point[1] * sinShape + scale*point[2] * cosShape),
 		   col + (scale*point[3] * cosShape - scale*point[4] * sinShape),
@@ -581,7 +566,7 @@ local function drawDistance()
    end
 --]]
    lcd.setColor(lcd.getFgColor())
-   drawShape(colAH, rowAH+20, T38Shape, math.rad(heading-magneticVar))
+   drawShape(colAH, rowAH+20, shapes.T38, math.rad(heading-magneticVar))
 end
 
 -- *****************************************************
@@ -681,8 +666,6 @@ local parmHeading = {
 
 local wrkHeading = 0
 local w
--- local p1,p2,p3,p4
--- local c1,c2,c3,c4
 local ii=0
 
 local function drawHeading()
@@ -691,22 +674,6 @@ local function drawHeading()
 
    lcd.setColor(txtr,txtg,txtb)
 
---[[
-   p1,p2,p3,p4=system.getInputs("P5", "P6", "P7", "P8")
-
-   c1 = math.floor((p1+1)*160)
-   c2 = math.floor((p2+1)*80)
-   c3 = math.floor((p3+1)*160)
-   c4 = math.floor((p4+1)*80)
-   
-   lcd.setClipping(c1,c2,c3,c4)
-
-   if ii > 50 then
-      print(c1,c2,c3,c4)
-      ii = 0
-   end
---]]
-   
    lcd.drawFilledRectangle(colHeading-70, rowHeading, 140, 2)
    lcd.drawFilledRectangle(colHeading+65, rowHeading-20, 6,22)
    lcd.drawFilledRectangle(colHeading-65-6, rowHeading-20, 6,22)
@@ -780,30 +747,15 @@ end
 local function toXPixel(coord, min, range, width)
    local pix
    pix = (coord - min)/range * width
---   pix = (pix*0.98125) + 3
    return pix
 end
 
 
 local function toYPixel(coord, min, range, height)
    local pix
-   --print('toYP: ', coord, min, range, height)
    pix = height-(coord - min)/range * height
-   --   pix = (pix*0.98125) + 3
    return pix
 end
-
--- 'local globals' shared by ilsPrint and mapPrint .. maybe just for testing?
-
---[[
-local xr1,yr1, xr2, yr2 = xTakeoffStart, yTakeoffStart, 2*xTakeoffStart, yTakeoffStart - 50
-local xl1,yl1, xl2, yl2 = xTakeoffStart, yTakeoffStart, 2*xTakeoffStart, yTakeoffStart + 50local xTSr, yTSr
-local xTCr, yTCr
-local xr1r, yr1r
-local xr2r, yr2r
-local xl1r, yl1r
-local xl2r, yl2r
---]]
 
 local function fslope(x, y)
 
@@ -873,20 +825,19 @@ local function ilsPrint(windowWidth, windowHeight)
 
    if #xtable >=1  and RunwayHeading then
  
-      xTS = xTakeoffStart -- redundant .. fix code below
-      yTS = yTakeoffStart
-      xTC = xTakeoffComplete
-      yTC = yTakeoffComplete
 
       dr = (xtable[#xtable]-xr1)*(yr2-yr1) - (ytable[#ytable]-yr1)*(xr2-xr1)
       dl = (xtable[#xtable]-xl1)*(yl2-yl1) - (ytable[#ytable]-yl1)*(xl2-xl1)
-      dc = (xtable[#xtable]-xTS)*(yTC-yTS) - (ytable[#ytable]-yTS)*(xTC-xTS)
+      dc = (xtable[#xtable]-xTakeoffStart)*(yTakeoffComplete-yTakeoffStart) -
+	 (ytable[#ytable]-yTakeoffStart)*(xTakeoffComplete-xTakeoffStart)
       
-      hyp = math.sqrt( (ytable[#ytable]-yTC)^2 + (xtable[#xtable]-xTC)^2 )
+      hyp = math.sqrt( (ytable[#ytable]-yTakeoffComplete)^2 + (xtable[#xtable]-xTakeoffComplete)^2 )
 
       if dl >= 0 and dr <= 0 and math.abs(hyp) > 0.1 then
 
-	 perpd  = math.abs((yTC-yTS)*xtable[#xtable] - (xTC-xTS)*ytable[#ytable]+xTC*yTS-yTC*xTS) / hyp
+	 perpd  = math.abs((yTakeoffComplete-yTakeoffStart)*xtable[#xtable] -
+	       (xTakeoffComplete-xTakeoffStart)*ytable[#ytable]+xTakeoffComplete*yTakeoffStart-
+	       yTakeoffComplete*xTakeoffStart) / hyp
 	 dd = hyp^2 - perpd^2
 	 if dd < 0.1 then dd = 0.1 end
 	 d2r = math.sqrt(dd)
@@ -898,10 +849,6 @@ local function ilsPrint(windowWidth, windowHeight)
 	 if rA > 89.9 then rA = 89.9 end
 	 if rA < -89.9 then rA = -89.9 end
 	    
-	
-	 --print('d2r, altitude, vA', d2r, altitude, vA)
-	 --print('hyp, perpd, d2r, rA: ', hyp, perpd, d2r, rA)
-	 
 	 if dc> 0 then dx = rA*-12 else dx=rA*12 end
 	 dy = (vA-3)*12
 	 if dy > 60 then dy = 60 end
@@ -922,7 +869,8 @@ local function ilsPrint(windowWidth, windowHeight)
 	 lcd.drawFilledRectangle(xc-55, yc-2+dy, 110, 4)
 	 -- now vertical bar and glideslope angle display
 	 local text = string.format("%.0f", math.floor(vA/0.01+5)*.01)
-	 lcd.drawFilledRectangle(52,rowAH-8,lcd.getTextWidth(FONT_NORMAL, text)+8,lcd.getTextHeight(FONT_NORMAL))
+	 lcd.drawFilledRectangle(52,rowAH-8,lcd.getTextWidth(FONT_NORMAL, text)+8,
+				 lcd.getTextHeight(FONT_NORMAL))
 	 lcd.drawFilledRectangle(xc-2+dx,yc-55, 4, 110)
 	 lcd.setColor(255,255,255) -- white text for vertical angle box
 	 lcd.drawText(56, rowAH-8, text, FONT_NORMAL | FONT_XOR)
@@ -951,7 +899,7 @@ end
 
 local function binom(n, k)
    
-   -- compute binomial coefficients to compute the Bernstein polynomials 
+   -- compute binomial coefficients to then compute the Bernstein polynomials for Bezier
 
    if k > n then return nil end
    if k > n/2 then k = n - k end -- because (n k) = (n n-k) by symmetry
@@ -966,7 +914,8 @@ end
 
 local function computeBezier(numT)
 
-   -- compute Bezier curve points using control points in xtable[], ytable[] with numT points over the [0,1] interval
+   -- compute Bezier curve points using control points in xtable[], ytable[]
+   -- with numT points over the [0,1] interval
    
    local px, py
    local t
@@ -987,7 +936,7 @@ local function drawBezier(windowWidth, windowHeight)
 
    -- draw Bezier curve points computed in computeBezier()
 
-   if bezierPath[1].x == nil then return end
+   if not bezierPath[1].x  then return end
 
    ren:reset()
 
@@ -996,9 +945,12 @@ local function drawBezier(windowWidth, windowHeight)
 		   toYPixel(bezierPath[j].y, mapYmin, mapYrange, windowHeight))
    end
    ren:renderPolyline(3)
+
 end
 
 local function drawGeo(windowWidth, windowHeight)
+
+   if not rwy[1].x then return end
 
    ren:reset()
 
@@ -1009,18 +961,19 @@ local function drawGeo(windowWidth, windowHeight)
 
    ren:renderPolyline(2)
 
+   if not poi[1].x then return end
+   
    for j=1, #poi do
       drawShape(toXPixel(poi[j].x, mapXmin, mapXrange, windowWidth),
 		toYPixel(poi[j].y, mapYmin, mapYrange, windowHeight),
-		originShape, 0)
+		shapes.origin, 0)
    end
-   
+
 end
 
    
 local function mapPrint(windowWidth, windowHeight)
 
-   local xpix, ypix
    local r, g, b
    local ss, ww
    local d1, d2
@@ -1028,7 +981,6 @@ local function mapPrint(windowWidth, windowHeight)
    local scale
    local lRW
    local phi
-   local radpt
    local text
    
    r, g, b = lcd.getFgColor()
@@ -1037,35 +989,33 @@ local function mapPrint(windowWidth, windowHeight)
    drawSpeed()
    drawAltitude()
    drawHeading()
---   drawDistance()
    drawVario()
 
-   -- lcd.drawCircle(toXPixel(0, mapXmin, mapXrange, windowWidth), toYPixel(0, mapYmin, mapYrange, windowHeight), 5)
-
---   drawShape(toXPixel(0, mapXmin, mapXrange, windowWidth),
---	     toYPixel(0, mapYmin, mapYrange, windowHeight),
---	     originShape, 0)
-
-	 
    if xTakeoffStart then
       lcd.drawCircle(toXPixel(xTakeoffStart, mapXmin, mapXrange, windowWidth),
 		     toYPixel(yTakeoffStart, mapYmin, mapYrange, windowHeight), 4)
    end
    
    if xTakeoffComplete then
+
       lcd.drawCircle(toXPixel(xTakeoffComplete, mapXmin, mapXrange, windowWidth),
 		     toYPixel(yTakeoffComplete, mapYmin, mapYrange, windowHeight), 4)
+
       xRW = (xTakeoffComplete - xTakeoffStart)/2 + xTakeoffStart 
       yRW = (yTakeoffComplete - yTakeoffStart)/2 + yTakeoffStart
-      -- lcd.drawCircle(toXPixel(xRW, mapXmin, mapXrange, windowWidth), toYPixel(yRW, mapYmin, mapYrange, windowHeight), 2)
       lRW = math.sqrt((xTakeoffComplete-xTakeoffStart)^2 + (yTakeoffComplete-yTakeoffStart)^2)
+
       scale = (lRW/mapXrange)*(windowWidth/40) -- rw shape is 40 units long
+
       lcd.setColor(0,240,0)
+
       drawShapePL(toXPixel(xRW, mapXmin, mapXrange, windowWidth),
-		  toYPixel(yRW, mapYmin, mapYrange, windowHeight), runwayShape, math.rad(RunwayHeading-magneticVar), scale, 2, 255)
-      --local recipHDG = (RunwayHeading + 180)%360
+		  toYPixel(yRW, mapYmin, mapYrange, windowHeight),
+		  shapes.runway, math.rad(RunwayHeading-magneticVar), scale, 2, 255)
+      
       drawILS (toXPixel(xTakeoffStart, mapXmin, mapXrange, windowWidth),
-	       toYPixel(yTakeoffStart, mapYmin, mapYrange, windowHeight), math.rad(RunwayHeading-magneticVar), scale)
+	       toYPixel(yTakeoffStart, mapYmin, mapYrange, windowHeight),
+	       math.rad(RunwayHeading-magneticVar), scale)
 
 
       lcd.setColor(r,g,b)
@@ -1074,26 +1024,29 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
 
    else
+
       local x = xtable[#xtable] or 0
       local y = ytable[#ytable] or 0
 
-      -- text=string.format("Map: %04d x %04d  X=%05d, Y=%05d", mapXrange, mapYrange, x, y)
       text=string.format("Map: %d x %d", mapXrange, mapYrange)
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH-10, text, FONT_MINI)
 
-      if geo.fields[1].name then
-	 text=geo.fields[1].name
-	 lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
+      if iField then
+	 text=geo.fields[iField].name
+      else
+	 text='Unknown Field'
       end
       
+      lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
+            
 
    end
 
       
    lcd.drawText(70-lcd.getTextWidth(FONT_MINI, "N") / 2, 14, "N", FONT_MINI)
-   drawShape(70, 20, arrowShape, math.rad(-1*rotationAngle))
+   drawShape(70, 20, shapes.arrow, math.rad(-1*rotationAngle))
    lcd.drawCircle(70, 20, 7)
-   
+
    if RunwayHeading then
       phi = (90-(RunwayHeading-magneticVar)+360)%360
       -- todo: pre-calculate these trig values .. do it once for efficiency  --
@@ -1109,11 +1062,14 @@ local function mapPrint(windowWidth, windowHeight)
       xl2 = xTakeoffComplete - lRW * math.cos(math.rad(phi+12))
       yl2 = yTakeoffComplete - lRW * math.sin(math.rad(phi+12))
       
-      lcd.drawCircle(toXPixel(xr1, mapXmin, mapXrange, windowWidth), toYPixel(yr1, mapYmin, mapYrange, windowHeight), 3)      
-      lcd.drawCircle(toXPixel(xl1, mapXmin, mapXrange, windowWidth), toYPixel(yl1, mapYmin, mapYrange, windowHeight), 3)
-      
-      lcd.drawCircle(toXPixel(xr2, mapXmin, mapXrange, windowWidth), toYPixel(yr2, mapYmin, mapYrange, windowHeight), 3)      
-      lcd.drawCircle(toXPixel(xl2, mapXmin, mapXrange, windowWidth), toYPixel(yl2, mapYmin, mapYrange, windowHeight), 3)
+      lcd.drawCircle(toXPixel(xr1, mapXmin, mapXrange, windowWidth),
+		     toYPixel(yr1, mapYmin, mapYrange, windowHeight), 3)      
+      lcd.drawCircle(toXPixel(xl1, mapXmin, mapXrange, windowWidth),
+		     toYPixel(yl1, mapYmin, mapYrange, windowHeight), 3)
+      lcd.drawCircle(toXPixel(xr2, mapXmin, mapXrange, windowWidth),
+		     toYPixel(yr2, mapYmin, mapYrange, windowHeight), 3)      
+      lcd.drawCircle(toXPixel(xl2, mapXmin, mapXrange, windowWidth),
+		     toYPixel(yl2, mapYmin, mapYrange, windowHeight), 3)
 
    end
    
@@ -1121,33 +1077,33 @@ local function mapPrint(windowWidth, windowHeight)
       
       -- First compute determinants to see what side of the right and left lines we are on
       -- ILS course is between them
+
+      lcd.setColor(lcd.getFgColor())
+      
       if RunwayHeading then
 	 dr = (xtable[i]-xr1)*(yr2-yr1) - (ytable[i]-yr1)*(xr2-xr1)
 	 dl = (xtable[i]-xl1)*(yl2-yl1) - (ytable[i]-yl1)*(xl2-xl1)
      
 	 if dl >= 0 and dr <= 0 then
-	    lcd.setColor(0,255,0)
+	    lcd.setColor(0,255,0) -- Green!
 	 end
       end
 
-      
       if i == #xtable then
-	 lcd.setColor(lcd.getFgColor())
-	 -- drawShape(colAH, rowAH+20, T38Shape, math.rad(heading-magneticVar))
-	 drawShape(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
+ 	 drawShape(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
 		   toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
-		   T38Shape, math.rad(heading-magneticVar))
+		   shapes.T38, math.rad(heading-magneticVar))
       else
-	 radpt = 2
 	 lcd.drawCircle(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
 			toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
-			radpt)
+			2)
       end
-      lcd.setColor(r, g, b)
-      
    end
+
+   lcd.setColor(lcd.getFgColor())
    drawBezier(windowWidth, windowHeight)
    drawGeo(windowWidth, windowHeight)
+
 end
 
 local function graphScale(x, y)
@@ -1178,7 +1134,54 @@ local function graphScale(x, y)
    mapXmax = xmax + (mapXrange - (xmax-xmin))/2
    
    mapYmin = ymin - (mapYrange - (ymax-ymin))/2
-   mapYmax = ymax + (mapYrange - (ymax-ymin))/2 
+   mapYmax = ymax + (mapYrange - (ymax-ymin))/2
+   
+end
+
+local function initField()
+
+   -- this function uses the GPS coords to see if we are near a known flying field in the jsn file
+   -- and if it finds one, imports the field's properties 
+   
+   if long0 and lat0 then -- if location was detected by the GPS system
+      for i=1, #geo.fields, 1 do -- see if we are near a known field (lat and long within ~ a mile)
+	 if (math.abs(lat0 - geo.fields[i].runway.lat) < 1/60)
+	 and (math.abs(long0 - geo.fields[i].runway.long) < 1/60) then
+	    iField = i
+	    long0 = geo.fields[iField].runway.long -- reset to origin to coords in jsn file
+	    lat0  = geo.fields[iField].runway.lat
+	    coslat0 = math.cos(math.rad(lat0))
+	    rotationAngle = geo.fields[iField].runway.trueDir-270
+	    for i=1, #geo.fields[iField].POI,1 do
+	       poi[i] = {x=rE*(geo.fields[iField].POI[i].long-long0)*coslat0/rad,
+			 y=rE*(geo.fields[iField].POI[i].lat-lat0)/rad}
+	       poi[i].x, poi[i].y = rotateXY(poi[i].x, poi[i].y, math.rad(rotationAngle))
+	       -- graphScale(poi[i].x, poi[i].y) -- maybe note in POI coords jsn if should autoscale or not?
+	    end
+	    
+	    if (geo and iField) then -- if we read the jsn file then extract the info from it
+      
+	       rwy[1] = {x=-geo.fields[iField].runway.width/2,  y=-geo.fields[iField].runway.length/2}
+	       rwy[2] = {x=-geo.fields[iField].runway.width/2,  y= geo.fields[iField].runway.length/2}
+	       rwy[3] = {x= geo.fields[iField].runway.width/2,  y= geo.fields[iField].runway.length/2}
+	       rwy[4] = {x= geo.fields[iField].runway.width/2,  y=-geo.fields[iField].runway.length/2}
+	       rwy[5] = {x=-geo.fields[iField].runway.width/2,  y=-geo.fields[iField].runway.length/2}
+	       
+	       for i=1, 5, 1 do
+		  rwy[i].x, rwy[i].y  =
+		     rotateXY(rwy[i].x, rwy[i].y, math.rad(90) )
+		  graphScale(2*rwy[i].x, 2*rwy[i].y)
+	       end
+	    end   
+	    break
+	 end
+      end
+   end
+   if iField then
+      system.messageBox("Current location: " .. geo.fields[iField].name, 2)
+   else
+      system.messageBox("Current location: not a known field", 2)
+   end
 end
 
 local blocked = false
@@ -1229,13 +1232,19 @@ local function loop()
    end
 
    if DEBUG then
-      debugTime =debugTime + 0.01/2*(system.getInputs("P7")+1)
+      debugTime =debugTime + 0.01*(system.getInputs("P7")+1)
 --      speed = 40 + 80 * (math.sin(.3*debugTime) + 1)
       altitude = 20 + 200 * (math.cos(.3*debugTime)+1)
       x = 600*math.sin(2*debugTime)
       y = 300*math.cos(3*debugTime)
-      goto computedXY
+      if system.getTimeCounter() > debugNext then
+	 debugNext = system.getTimeCounter() + 100
+	 goto computedXY
+      else
+	 return
+      end
    end
+      
    
    -- if fd ~nil then we have a file open for reading a csv file
    -- wait until realtime is equal to recorded time to plot the point
@@ -1414,16 +1423,16 @@ local function loop()
 
    
    if not gotInitPos then
-      if geo.fields[1].runway.lat then
-	 long0 = geo.fields[1].runway.long
-	 lat0  = geo.fields[1].runway.lat
-      else
-	 long0 = longitude
-	 lat0 = latitude
+
+      if not iField then       -- if field not selected yet
+	 long0 = longitude     -- set long0, lat0, coslat0 in case not near a field
+	 lat0 = latitude       -- initField will reset if we are
+	 coslat0 = math.cos(math.rad(lat0))	 
       end
-      
-      coslat0 = math.cos(math.rad(lat0))
+
+      initField() -- use this lat/long to see if we are at a known flying field
       gotInitPos = true
+
    end
 
    
@@ -1568,7 +1577,7 @@ local function loop()
    if thr then oldThrottle = thr end
    
    if thr and thr > 0 and xTakeoffStart and neverAirborne then
-      if (altitude - baroAltZero) - zTakeoffStart > PATTERNALT/2 then
+      if (altitude - baroAltZero) - zTakeoffStart > PATTERNALT/4 then
 	 neverAirborne = false
 	 xTakeoffComplete = x
 	 yTakeoffComplete = y
@@ -1586,6 +1595,7 @@ local function loop()
       end
    end
 end
+
 
 local function init()
 
@@ -1612,51 +1622,6 @@ local function init()
    if fg then
       geo = json.decode(fg)
    end
-
-   
-   if(geo) then
-      print("Len of geo.fields: ", #geo.fields)
-      print("Fieldname: ", geo.fields[1].name)
-      print("Fieldname: ", geo.fields[2].name)
-      print("Fieldname: ", geo.fields[3].name)
-      print("Lat: ", geo.fields[1].runway.lat)
-      print("Long: ", geo.fields[1].runway.long)
-      print("TrueDir: ", geo.fields[1].runway.trueDir)
-      print("length: ", geo.fields[1].runway.length)
-      print("width: ", geo.fields[1].runway.width)
-      print("point 1: ", geo.fields[1].POI[1].lat)
-
-      
-      rwy[1] = {x=-geo.fields[1].runway.width/2, y=-geo.fields[1].runway.length/2}
-      rwy[2] = {x=-geo.fields[1].runway.width/2, y=geo.fields[1].runway.length/2}
-      rwy[3] = {x=geo.fields[1].runway.width/2, y=geo.fields[1].runway.length/2}
-      rwy[4] = {x=geo.fields[1].runway.width/2, y=-geo.fields[1].runway.length/2}
-      rwy[5] = {x=-geo.fields[1].runway.width/2, y=-geo.fields[1].runway.length/2}
-
-      rotationAngle = geo.fields[1].runway.trueDir-270
-      
-      for i=1, 5, 1 do
-	 rwy[i].x, rwy[i].y  =
-	    rotateXY(rwy[i].x, rwy[i].y, math.rad(270) )
-	 print(i, rwy[i].x, rwy[i].y)
-	 graphScale(2*rwy[i].x, 2*rwy[i].y)
-      end
-      
-      long0 = geo.fields[1].runway.long
-      lat0  = geo.fields[1].runway.lat
-      coslat0 = math.cos(math.rad(lat0))
-
-      print("gfp: ", #geo.fields[1].POI)
-
-      for i=1, #geo.fields[1].POI,1 do
-	 poi[i] = {x=rE*(geo.fields[1].POI[i].long-long0)*coslat0/rad,
-		   y=rE*(geo.fields[1].POI[i].lat-lat0)/rad}
-	 poi[i].x, poi[i].y = rotateXY(poi[i].x, poi[i].y, math.rad(rotationAngle))
-	 -- graphScale(poi[i].x, poi[i].y)
-	 print(poi[i].x, poi[i].y)
-      end
-      
-   end   
 
    LatitudeSe      = system.pLoad("LatitudeSe", 0)
    LatitudeSeId    = system.pLoad("LatitudeSeId", 0)
