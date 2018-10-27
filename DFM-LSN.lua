@@ -23,54 +23,58 @@ collectgarbage()
 
 ------------------------------------------------------------------------------
 
--- Locals for application
+-- Persistent and global variables for entire progrem
 
--- local trans11
+local latitude
+local longitude
+local courseGPS
+local courseNonGPS
+local course
+local baroAlt
+local GPSAlt
+local DistanceGPS
+local distance
+local heading = 0
+local speedGPS = 0
+local speedNonGPS = 0
+local altitude = 0
+local speed = 0
+local vario=0
 
-local LatitudeSe, LatitudeSeId, LatitudeSePa
-local LongitudeSe, LongitudeSeId, LongitudeSePa
-local AltitudeSe , AltitudeSeId , AltitudeSePa
-local SpeedNonGPSSe, SpeedNonGPSId, SpeedNonGPSPa
-local SpeedGPSSe, SpeedGPSSeId, SpeedGPSSePa
-local DistanceGPSSe, DistanceGPSSeId, DistanceGPSSePa
-local CourseGPSSe, CourseGPSSeId, CourseGPSSePa
-local BaroAltSe, BaroAltSeId, BaroAltSePa
-local latitude, longitude
-local speedGPS, speedNonGPS = 0,0
-local courseGPS, courseNonGPS, course
-local altitude, speed = 0,0
-local baroAlt, GPSAlt
-local DistanceGPS, distance
-local magneticVar
-local rotationAngle
+local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
+	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"}
+telem.Latitude={}
+telem.Longitude={}
+telem.Altitude={}
+telem.SpeedNonGPS={}
+telem.SpeedGPS={}
+telem.DistanceGPS={}
+telem.CourseGPS={}
+telem.BaroAlt={}
+
+local variables = {"magneticVar", "rotationAngle"}
+local controls={"Throttle", "Brake"}
 
 local xtable = {}
 local ytable = {}
 local MAXTABLE = 5
-local bezierPath = {{x,y}}
-local rwy = {{x,y}}
-local poi = {{x,y}}
+
+local bezierPath = {}
+local rwy = {}
+local poi = {}
+
 local geo = {}
 local iField
 
-local vviAlt = {}
-local vviTim = {}
-local vvi, va
-local ivvi = 1
-local xd1, yd1
-local xd2, yd2
-local td1, td2
+local map={}
+local path={}
 
-local mapXmin, mapXmax = -200, 200
-local mapYmin, mapYmax = -100, 100
-local xmin, xmax, ymin, ymax = mapXmin, mapXmax, mapYmin, mapYmax
-local mapXrange = mapXmax - mapXmin
-local mapYrange = mapYmax - mapYmin
 
-local DEBUG = true -- if set to <true> will print to console the speech files and output
-local debugTime = 0
-local debugNext = 0
-local DEBUGLOG = true -- persistent state var for debugging (e.g. to print something in a loop only once)
+local takeoff={}; takeoff.Complete={}; takeoff.Start={}
+takeoff.NeverAirborne = true
+takeoff.BrakeReleaseTime = 0
+takeoff.oldBrake = 0
+takeoff.oldThrottle = 0
 
 -- these lists are the non-GPS sensors
 
@@ -85,60 +89,16 @@ local GPSsensorLalist = { "..." }
 local GPSsensorIdlist = { "..." }
 local GPSsensorPalist = { "..." }
 
-local throttleControl
-local brakeControl
-local brakeReleaseTime = 0
-local oldBrake = 0
-local oldThrottle=0
-
-local TakeoffStart
-local yTakeoffStart
-local zTakeoffStart
-
-local xTakeoffComplete
-local yTakeoffComplete
-local zTakeoffComplete
-
-local TakeoffHeading
-local ReleaseHeading
-local RunwayHeading
-
-local neverAirborne=true
-
-local resetOrigin=false
-local resetClick=false
-local resetCompIndex
-
-local lastlat = 0
-local lastlong = 0
-local gotInitPos = false
-local baroAltZero = 0
-local long0, lat0, coslat0
-local rE = 21220539.7  -- 6371*1000*3.28084 radius of earth in ft, fudge factor of 1/0.985
-local rad = 180/math.pi
-local compcrs
-local heading, compcrsDeg = 0, 0
-local vario=0
-local lineAvgPts = 4  -- number of points to linear fit to compute course
-local vviSlopeTime = 0
-local speedTime = 0
-local numGPSreads = 0
-local timeRO = 0
-
-local ren=lcd.renderer()
-
-local txtr, txtg, txtb = 0,0,0
-
-local ff, fd
 local sysTimeStart = system.getTimeCounter()
-local newPosTime = 0
 
-local glideSlopePNG
+local DEBUG = true -- if set to <true> will print to console the speech files and output
+local debugTime = 0
+local debugNext = 0
+local DEBUGLOG = true -- persistent state var for debugging (e.g. to print something in a loop only once)
 
---------------------------------------------------------------------------------
-
---------------------
 -- Read and set translations (out for now till we have translations, simplifies install)
+
+--local trans11
 
 local function setLanguage()
 --[[
@@ -166,178 +126,84 @@ local function readSensors()
 	    table.insert(sensorIdlist, sensor.id)
 	    table.insert(sensorPalist, sensor.param)
 	    table.insert(sensorUnlist, sensor.unit)
--- don't auto assign gps alt
---	    if sensor.label == 'Altitude' and sensor.param == 6 then -- 
---	       AltitudeSe = #sensorLalist
---	       AltitudeSeId = sensor.id
---	       AltitudeSePa = sensor.param
---	    end	    	    
 	 else
 	    table.insert(GPSsensorLalist, sensor.label)
 	    table.insert(GPSsensorIdlist, sensor.id)
 	    table.insert(GPSsensorPalist, sensor.param)
-	    -- these labels and params work for the Jeti MGPS .. not sure if params are same for the Xicoy FC
-	    -- it uses GPSLat, GPSLon and GPSAlt as labels .. need to check the params and do the same for it
-	    if sensor.label == 'Longitude' and sensor.param == 3 then
-	       LongitudeSe = #GPSsensorLalist
-	       LongitudeSeId = sensor.id
-	       LongitudeSePa = sensor.param
-	    end
+	    -- these labels and params work for the Jeti MGPS .. 
 	    if sensor.label == 'Latitude' and sensor.param == 2 then
-	       LatitudeSe = #GPSsensorLalist
-	       LatitudeSeId = sensor.id
-	       LatitudeSePa = sensor.param
+	       telem.Latitude.Se = #GPSsensorLalist
+	       telem.Latitude.SeId = sensor.id
+	       telem.Latitude.SePa = sensor.param
+	    end
+	    if sensor.label == 'Longitude' and sensor.param == 3 then
+	       telem.Longitude.Se = #GPSsensorLalist
+	       telem.Longitude.SeId = sensor.id
+	       telem.Longitude.SePa = sensor.param
+	    end
+	    if sensor.label == 'Altitude' and sensor.param == 6 then
+  	       telem.Altitude.Se = #GPSsensorLalist
+	       telem.Altitude.SeId = sensor.id
+	       telem.Altitude.SePa = sensor.param
+	    end	    	    
+	    if sensor.label == 'Distance' and sensor.param == 7 then
+	       telem.DistanceGPS.Se = #GPSsensorLalist
+	       telem.DistanceGPS.SeId = sensor.id
+	       telem.DistanceGPS.SePa = sensor.param
 	    end
 	    if sensor.label == 'Speed' and sensor.param == 8 then
-	       SpeedGPSSe = #GPSsensorLalist
-	       SpeedGPSSeId = sensor.id
-	       SpeedGPSSePa = sensor.param
-	    end
-	    if sensor.label == 'Distance' and sensor.param == 7 then
-	       DistanceGPSse = #GPSsensorLalist
-	       DistanceGPSSeId = sensor.id
-	       DistanceGPSSePa = sensor.param
+	       telem.SpeedGPS.Se = #GPSsensorLalist
+	       telem.SpeedGPS.SeId = sensor.id
+	       telem.SpeedGPS.SePa = sensor.param
 	    end
 	    if sensor.label == 'Course' and sensor.param == 10 then
-	       CourseGPSse = #GPSsensorLalist
-	       CourseGPSSeId = sensor.id
-	       CourseGPSSePa = sensor.param
+	       telem.CourseGPS.Se = #GPSsensorLalist
+	       telem.CourseGPS.SeId = sensor.id
+	       telem.CourseGPS.SePa = sensor.param
 	    end
 	 end
       end
    end
 end
-
 ----------------------------------------------------------------------
 
 -- Actions when settings changed
 
+local function sensorChanged(value, str, isGPS)
 
-local function LatitudeSensorChanged(value)
-   LatitudeSe = value
-   LatitudeSeId = GPSsensorIdlist[LatitudeSe]
-   LatitudeSePa = GPSsensorPalist[LatitudeSe]
-   if (LatitudeSeId == "...") then
-      LatitudeSeId = 0
-      LatitudeSePa = 0 
+   telem[str].Se = value
+   
+   if isGPS then
+      telem[str].SeId = GPSsensorIdlist[telem[str].Se]
+      telem[str].SePa = GPSsensorPalist[telem[str].Se]
+   else
+      telem[str].SeId = sensorIdlist[telem[str].Se]
+      telem[str].SePa = sensorPalist[telem[str].Se]
    end
-   system.pSave("LatitudeSe", value)
-   system.pSave("LatitudeSeId", LatitudeSeId)
-   system.pSave("LatitudeSePa", LatitudeSePa)
-end
-
-local function LongitudeSensorChanged(value)
-   LongitudeSe = value
-   LongitudeSeId = GPSsensorIdlist[LongitudeSe]
-   LongitudeSePa = GPSsensorPalist[LongitudeSe]
-   if (LongitudeSeId == "...") then
-      LongitudeSeId = 0
-      LongitudeSePa = 0 
+   
+   if (telem[str].SeId == "...") then
+      telem[str].SeId = 0
+      telem[str].SePa = 0 
    end
-   system.pSave("LongitudeSe", value)
-   system.pSave("LongitudeSeId", LongitudeSeId)
-   system.pSave("LongitudeSePa", LongitudeSePa)
+
+   system.pSave("telem."..str..".Se", value)
+   system.pSave("telem."..str..".SeId", telem[str].SeId)
+   system.pSave("telem."..str..".SePa", telem[str].SePa)
 end
 
-local function AltitudeSensorChanged(value)
-  AltitudeSe = value
-  AltitudeSeId = sensorIdlist[AltitudeSe]
-  AltitudeSePa = sensorPalist[AltitudeSe]
-  if (AltitudeSeId == "...") then
-    AltitudeSeId = 0
-    AltitudeSePa = 0 
-  end
-  system.pSave("AltitudeSe", value)
-  system.pSave("AltitudeSeId", AltitudeSeId)
-  system.pSave("AltitudeSePa", AltitudeSePa)
+local function controlChanged(value, ctl)
+   controls[ctl] = value
+   system.pSave(ctl, value)
 end
 
-local function SpeedNonGPSSensorChanged(value)
-  SpeedNonGPSSe = value
-  SpeedNonGPSSeId = sensorIdlist[SpeedNonGPSSe]
-  SpeedNonGPSSePa = sensorPalist[SpeedNonGPSSe]
-  if (SpeedNonGPSSeId == "...") then
-    SpeedNonGPSSeId = 0
-    SpeedNonGPSSePa = 0 
-  end
-  system.pSave("SpeedNonGPSSe", value)
-  system.pSave("SpeedNonGPSSeId", SpeedNonGPSSeId)
-  system.pSave("SpeedNonGPSSePa", SpeedNonGPSSePa)
+local function variableChanged(value, var)
+   variables[var] = value
+   system.pSave(var, value)
 end
 
-local function SpeedGPSSensorChanged(value)
-  SpeedGPSSe = value
-  SpeedGPSSeId = sensorIdlist[SpeedGPSSe]
-  SpeedGPSSePa = sensorPalist[SpeedGPSSe]
-  if (SpeedGPSSeId == "...") then
-    SpeedGPSSeId = 0
-    SpeedGPSSePa = 0 
-  end
-  system.pSave("SpeedGPSSe", value)
-  system.pSave("SpeedGPSSeId", SpeedGPSSeId)
-  system.pSave("SpeedGPSSePa", SpeedGPSSePa)
-end
-
-local function DistanceGPSSensorChanged(value)
-  DistanceGPSSe = value
-  DistanceGPSSeId = sensorIdlist[DistanceGPSSe]
-  DistanceGPSSePa = sensorPalist[DistanceGPSSe]
-  if (DistanceGPSSeId == "...") then
-    DistanceGPSSeId = 0
-    DistanceGPSSePa = 0 
-  end
-  system.pSave("DistanceGPSSe", value)
-  system.pSave("DistanceGPSSeId", DistanceGPSSeId)
-  system.pSave("DistanceGPSSePa", DistanceGPSSePa)
-end
-
-local function CourseGPSSensorChanged(value)
-  CourseGPSSe = value
-  CourseGPSSeId = sensorIdlist[CourseGPSSe]
-  CourseGPSSePa = sensorPalist[CourseGPSSe]
-  if (CourseGPSSeId == "...") then
-    CourseGPSSeId = 0
-    CourseGPSSePa = 0 
-  end
-  system.pSave("CourseGPSSe", value)
-  system.pSave("CourseGPSSeId", CourseGPSSeId)
-  system.pSave("CourseGPSSePa", CourseGPSSePa)
-end
-
-local function BaroAltSensorChanged(value)
-  BaroAltSe = value
-  BaroAltSeId = sensorIdlist[BaroAltSe]
-  BaroAltSePa = sensorPalist[BaroAltSe]
-  if (BaroAltSeId == "...") then
-    BaroAltSeId = 0
-    BaroAltSePa = 0 
-  end
-  system.pSave("BaroAltSe", value)
-  system.pSave("BaroAltSeId", BaroAltSeId)
-  system.pSave("BaroAltSePa", BaroAltSePa)
-end
-
-local function throttleControlChanged(value)
-   throttleControl = value
-   print("Throttle Control: ", throttleControl)
-   system.pSave("throttleControl", value)
-end
-
-local function brakeControlChanged(value)
-   brakeControl = value
-   print("Brake Control: ", brakeControl)
-   system.pSave("brakeControl", value)
-end
-
-local function rotationAngleChanged(value)
-   rotationAngle = value
-   system.pSave("rotationAngle", value)
-end
-
-local function magneticVarChanged(value)
-   magneticVar = value
-   system.pSave("magneticVar", value)
-end
+local resetOrigin=false
+local resetClick=false
+local resetCompIndex
 
 local function resetOriginChanged(value)
    resetClick = value
@@ -360,66 +226,82 @@ local function initForm()
 
   if (tonumber(system.getVersion()) >= 4.22) then
 
-    form.addRow(2)
-    form.addLabel({label="Select Pitot Speed Sensor", width=220})
-    form.addSelectbox(sensorLalist, SpeedNonGPSSe, true, SpeedNonGPSSensorChanged)
+     local menuInput = {Throttle = "Select Throttle Control", Brake = "Select Brake Control"}
 
-    form.addRow(2)
-    form.addLabel({label="Select Baro Alt Sensor", width=220})
-    form.addSelectbox(sensorLalist, BaroAltSe, true, BaroAltSensorChanged)
+     for var, txt in ipairs(menuInput) do
+	form.addRow(2)
+	form.addLabel({label=txt, width=220})
+	form.addInputbox(controls.Throttle, true,
+			 (function(x) return controlChanged(x, var) end) )
+     end
+     
+     local menuSelectGPS = { -- for lat/long only
+	Longitude="Select GPS Long Sensor",
+	Latitude ="Select GPS Lat Sensor",
+     }
 
-    form.addRow(2)
-    form.addLabel({label="Select Throttle Control", width=220})
-    form.addInputbox(throttleControl, true, throttleControlChanged)
+     local menuSelect1 = { -- not from the GPS sensor
+	SpeedNonGPS="Select Pitot Speed Sensor",
+	BaroAlt="Select Baro Alt Sensor",
+     }
 
-    form.addRow(2)
-    form.addLabel({label="Select Brake Control", width=220})
-    form.addInputbox(brakeControl, true, brakeControlChanged)
+     local menuSelect2 = { -- non lat/long from GPS sensor
+	Altitude ="Select GPS Alt Sensor",
+	SpeedGPS="Select GPS Spd Sensor",
+	DistanceGPS="Select GPS Dist Sensor",
+	CourseGPS="Select GPS Course Sensor",
+     }     
+     
+     for var, txt in pairs(menuSelect1) do
+	form.addRow(2)
+	form.addLabel({label=txt, width=220})
+	form.addSelectbox(sensorLalist, telem[var].Se, true,
+		       (function(x) return sensorChanged(x, var, false) end) )
+     end
 
-    form.addRow(2)
-    form.addLabel({label="Select GPS Long Sensor", width=220})
-    form.addSelectbox(GPSsensorLalist, LongitudeSe, true, LongitudeSensorChanged)
+     for var, txt in pairs(menuSelectGPS) do
+	form.addRow(2)
+	form.addLabel({label=txt, width=220})
+	form.addSelectbox(GPSsensorLalist, telem[var].Se, true,
+		       (function(x) return sensorChanged(x, var, true) end) )
+     end
 
-    form.addRow(2)
-    form.addLabel({label="Select GPS Lat Sensor", width=220})
-    form.addSelectbox(GPSsensorLalist, LatitudeSe, true, LatitudeSensorChanged)
+     for var, txt in pairs(menuSelect2) do
+	form.addRow(2)
+	form.addLabel({label=txt, width=220})
+	form.addSelectbox(sensorLalist, telem[var].Se, true,
+		       (function(x) return sensorChanged(x, var, false) end) )
+     end
 
-    form.addRow(2)
-    form.addLabel({label="Select GPS Alt Sensor", width=220})
-    form.addSelectbox(sensorLalist, AltitudeSe, true, AltitudeSensorChanged)
 
-    form.addRow(2)
-    form.addLabel({label="Select GPS Spd Sensor", width=220})
-    form.addSelectbox(sensorLalist, SpeedGPSSe, true, SpeedGPSSensorChanged)
+     -- not worth it do to a loop with a menu item table for Intbox due to the
+     -- variation in defaults etc nor for addCheckbox due to specialized nature
+     
+     form.addRow(2)
+     form.addLabel({label="Rotation (\u{B0}CCW)", width=220})
+     form.addIntbox(variables.rotationAngle, 0, 359, 0, 0, 1,
+		    (function(x) return variableChanged(x, "rotationAngle") end) )
+     
+     -- decomission magneticVar for now .. reconsider if we want this functionality
+     -- let if default to zero
+     
+     --    form.addRow(2)
+     --    form.addLabel({label="Local Magnetic Var (\u{B0}W)", width=220})
+     --    form.addIntbox(variables.magneticVar, -30, 30, -13, 0, 1,
+     --                   (function(x) return variableChanged(x, "magneticVar") end) )
 
-    form.addRow(2)
-    form.addLabel({label="Select GPS Dist", width=220})
-    form.addSelectbox(sensorLalist, DistanceGPSSe, true, DistanceGPSSensorChanged)
-
-    form.addRow(2)
-    form.addLabel({label="Select GPS Course", width=220})
-    form.addSelectbox(sensorLalist, CourseGPSSe, true, CourseGPSSensorChanged)    
-
-    form.addRow(2)
-    form.addLabel({label="Local Magnetic Var (\u{B0}W)", width=220})
-    form.addIntbox(magneticVar, -30, 30, -13, 0, 1, magneticVarChanged)
-
-    form.addRow(2)
-    form.addLabel({label="Rotation (\u{B0}CCW)", width=220})
-    form.addIntbox(rotationAngle, 0, 359, 0, 0, 1, rotationAngleChanged)    
-    
-    form.addRow(2)
-    form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
-    resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
-        
-    form.addRow(1)
-    form.addLabel({label="DFM - v."..LSOVersion.." ", font=FONT_MINI, alignRight=true})
-
+     form.addRow(2)
+     form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
+     resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
+     
+     form.addRow(1)
+     form.addLabel({label="DFM - v."..LSOVersion.." ", font=FONT_MINI, alignRight=true})
+     
   else
-
-    form.addRow(1)
-    form.addLabel({label="Please update, min. fw 4.22 required"})
-
+     
+     form.addRow(1)
+     form.addLabel({label="Please update, min. fw 4.22 required"})
+     
   end
 end
 --------------------------------------------------------------------------------
@@ -507,6 +389,8 @@ shapes.arrow = {
 -- Draw a shape
 -- *****************************************************
 
+local ren=lcd.renderer()
+
 local function drawShape(col, row, shape, rotation)
    local sinShape, cosShape
    sinShape = math.sin(rotation)
@@ -543,7 +427,6 @@ local function drawILS(col, row, rotation, scale)
 		   row + (scale*point[1] * sinShape + scale*point[2] * cosShape),
 		   col + (scale*point[3] * cosShape - scale*point[4] * sinShape),
 		   row + (scale*point[3] * sinShape + scale*point[4] * cosShape))      
-      
    end
 end
 
@@ -556,6 +439,8 @@ local function rotateXY(x, y, rotation)
    return xr, yr
 end
 
+local txtr, txtg, txtb = 0,0,0
+
 local function drawDistance()
 
    lcd.setColor(txtr,txtg,txtb)
@@ -566,7 +451,7 @@ local function drawDistance()
    end
 --]]
    lcd.setColor(lcd.getFgColor())
-   drawShape(colAH, rowAH+20, shapes.T38, math.rad(heading-magneticVar))
+   drawShape(colAH, rowAH+20, shapes.T38, math.rad(heading-variables.magneticVar))
 end
 
 -- *****************************************************
@@ -594,7 +479,9 @@ local parmLine = {
   {rowAH + 72, 7, -30}  -- -30
 }
 
-local function drawAltitude()
+local baroAltZero = 0
+
+ local function drawAltitude()
   lcd.setColor(txtr,txtg,txtb)
   delta = (altitude-baroAltZero) % 10
   deltaY = 1 + math.floor(2.4 * delta)  
@@ -791,10 +678,11 @@ local function fslope(x, y)
     return slope, tt
 end
 
--- these variables are shared by mapPrint and ilsPrint
+-- persistent and shared (with mapPrint) variables for ilsPrint
 
 local xr1,yr1, xr2, yr2
 local xl1,yl1, xl2, yl2
+local glideSlopePNG
 
 
 local function ilsPrint(windowWidth, windowHeight)
@@ -823,21 +711,21 @@ local function ilsPrint(windowWidth, windowHeight)
    -- First compute determinants to see what side of the right and left lines we are on
    -- ILS course is between them -- also compute which side of the course we are on
 
-   if #xtable >=1  and RunwayHeading then
+   if #xtable >=1  and takeoff.RunwayHeading then
  
 
       dr = (xtable[#xtable]-xr1)*(yr2-yr1) - (ytable[#ytable]-yr1)*(xr2-xr1)
       dl = (xtable[#xtable]-xl1)*(yl2-yl1) - (ytable[#ytable]-yl1)*(xl2-xl1)
-      dc = (xtable[#xtable]-xTakeoffStart)*(yTakeoffComplete-yTakeoffStart) -
-	 (ytable[#ytable]-yTakeoffStart)*(xTakeoffComplete-xTakeoffStart)
+      dc = (xtable[#xtable]-takeoff.Start.X)*(takeoff.Complete.Y-takeoff.Start.Y) -
+	 (ytable[#ytable]-takeoff.Start.Y)*(takeoff.Complete.X-takeoff.Start.X)
       
-      hyp = math.sqrt( (ytable[#ytable]-yTakeoffComplete)^2 + (xtable[#xtable]-xTakeoffComplete)^2 )
+      hyp = math.sqrt( (ytable[#ytable]-takeoff.Complete.Y)^2 + (xtable[#xtable]-takeoff.Complete.X)^2 )
 
       if dl >= 0 and dr <= 0 and math.abs(hyp) > 0.1 then
 
-	 perpd  = math.abs((yTakeoffComplete-yTakeoffStart)*xtable[#xtable] -
-	       (xTakeoffComplete-xTakeoffStart)*ytable[#ytable]+xTakeoffComplete*yTakeoffStart-
-	       yTakeoffComplete*xTakeoffStart) / hyp
+	 perpd  = math.abs((takeoff.Complete.Y-takeoff.Start.Y)*xtable[#xtable] -
+	       (takeoff.Complete.X-takeoff.Start.X)*ytable[#ytable]+takeoff.Complete.X*takeoff.Start.Y-
+	       takeoff.Complete.Y*takeoff.Start.X) / hyp
 	 dd = hyp^2 - perpd^2
 	 if dd < 0.1 then dd = 0.1 end
 	 d2r = math.sqrt(dd)
@@ -886,9 +774,9 @@ local function ilsPrint(windowWidth, windowHeight)
    lcd.setColor(255-txtr,255-txtg,255-txtb)
    lcd.drawText(xc - w/2,0,text,  FONT_XOR)
 
-   if RunwayHeading then
+   if takeoff.RunwayHeading then
       lcd.setColor(txtr,txtg,txtb)
-      local distFromTO = math.sqrt( (xtable[#xtable] - xTakeoffStart)^2 + (ytable[#ytable] - yTakeoffStart)^2)
+      local distFromTO = math.sqrt( (xtable[#xtable] - takeoff.Start.X)^2 + (ytable[#ytable] - takeoff.Start.Y)^2)
       text = string.format("%d",distFromTO)
       w = lcd.getTextWidth(FONT_NORMAL,text) 
       lcd.drawFilledRectangle(xc - w/2,143 , w, lcd.getTextHeight(FONT_NORMAL))
@@ -941,8 +829,8 @@ local function drawBezier(windowWidth, windowHeight)
    ren:reset()
 
    for j=1, #bezierPath do
-      ren:addPoint(toXPixel(bezierPath[j].x, mapXmin, mapXrange, windowWidth),
-		   toYPixel(bezierPath[j].y, mapYmin, mapYrange, windowHeight))
+      ren:addPoint(toXPixel(bezierPath[j].x, map.Xmin, map.Xrange, windowWidth),
+		   toYPixel(bezierPath[j].y, map.Ymin, map.Yrange, windowHeight))
    end
    ren:renderPolyline(3)
 
@@ -950,22 +838,22 @@ end
 
 local function drawGeo(windowWidth, windowHeight)
 
-   if not rwy[1].x then return end
+   if not rwy[1] then return end
 
    ren:reset()
 
    for j=1, #rwy do
-      ren:addPoint(toXPixel(rwy[j].x, mapXmin, mapXrange, windowWidth),
-		   toYPixel(rwy[j].y, mapYmin, mapYrange, windowHeight))
+      ren:addPoint(toXPixel(rwy[j].x, map.Xmin, map.Xrange, windowWidth),
+		   toYPixel(rwy[j].y, map.Ymin, map.Yrange, windowHeight))
    end
 
    ren:renderPolyline(2)
 
-   if not poi[1].x then return end
+   if not poi[1] then return end
    
    for j=1, #poi do
-      drawShape(toXPixel(poi[j].x, mapXmin, mapXrange, windowWidth),
-		toYPixel(poi[j].y, mapYmin, mapYrange, windowHeight),
+      drawShape(toXPixel(poi[j].x, map.Xmin, map.Xrange, windowWidth),
+		toYPixel(poi[j].y, map.Ymin, map.Yrange, windowHeight),
 		shapes.origin, 0)
    end
 
@@ -991,36 +879,38 @@ local function mapPrint(windowWidth, windowHeight)
    drawHeading()
    drawVario()
 
-   if xTakeoffStart then
-      lcd.drawCircle(toXPixel(xTakeoffStart, mapXmin, mapXrange, windowWidth),
-		     toYPixel(yTakeoffStart, mapYmin, mapYrange, windowHeight), 4)
+   if takeoff.Start.X then
+      lcd.drawCircle(toXPixel(takeoff.Start.X, map.Xmin, map.Xrange, windowWidth),
+		     toYPixel(takeoff.Start.Y, map.Ymin, map.Yrange, windowHeight), 4)
    end
    
-   if xTakeoffComplete then
+   if takeoff.Complete.X then
 
-      lcd.drawCircle(toXPixel(xTakeoffComplete, mapXmin, mapXrange, windowWidth),
-		     toYPixel(yTakeoffComplete, mapYmin, mapYrange, windowHeight), 4)
+      lcd.drawCircle(toXPixel(takeoff.Complete.X, map.Xmin, map.Xrange, windowWidth),
+		     toYPixel(takeoff.Complete.Y, map.Ymin, map.Yrange, windowHeight), 4)
 
-      xRW = (xTakeoffComplete - xTakeoffStart)/2 + xTakeoffStart 
-      yRW = (yTakeoffComplete - yTakeoffStart)/2 + yTakeoffStart
-      lRW = math.sqrt((xTakeoffComplete-xTakeoffStart)^2 + (yTakeoffComplete-yTakeoffStart)^2)
+      xRW = (takeoff.Complete.X - takeoff.Start.X)/2 + takeoff.Start.X 
+      yRW = (takeoff.Complete.Y - takeoff.Start.Y)/2 + takeoff.Start.Y
+      lRW = math.sqrt((takeoff.Complete.X-takeoff.Start.X)^2 + (takeoff.Complete.Y-takeoff.Start.Y)^2)
 
-      scale = (lRW/mapXrange)*(windowWidth/40) -- rw shape is 40 units long
+      scale = (lRW/map.Xrange)*(windowWidth/40) -- rw shape is 40 units long
 
       lcd.setColor(0,240,0)
 
-      drawShapePL(toXPixel(xRW, mapXmin, mapXrange, windowWidth),
-		  toYPixel(yRW, mapYmin, mapYrange, windowHeight),
-		  shapes.runway, math.rad(RunwayHeading-magneticVar), scale, 2, 255)
+      drawShapePL(toXPixel(xRW, map.Xmin, map.Xrange, windowWidth),
+		  toYPixel(yRW, map.Ymin, map.Yrange, windowHeight),
+		  shapes.runway, math.rad(takeoff.RunwayHeading-variables.magneticVar), scale, 2, 255)
       
-      drawILS (toXPixel(xTakeoffStart, mapXmin, mapXrange, windowWidth),
-	       toYPixel(yTakeoffStart, mapYmin, mapYrange, windowHeight),
-	       math.rad(RunwayHeading-magneticVar), scale)
+      drawILS (toXPixel(takeoff.Start.X, map.Xmin, map.Xrange, windowWidth),
+	       toYPixel(takeoff.Start.Y, map.Ymin, map.Yrange, windowHeight),
+	       math.rad(takeoff.RunwayHeading-variables.magneticVar), scale)
 
 
       lcd.setColor(r,g,b)
 
-      text=string.format("Map: %d x %d    Rwy: %d", mapXrange, mapYrange, math.floor(RunwayHeading/10+.5) )
+      text=string.format("Map: %d x %d    Rwy: %dT", map.Xrange, map.Yrange,
+			 math.floor(takeoff.RunwayHeading/10+.5) )
+
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
 
    else
@@ -1028,7 +918,7 @@ local function mapPrint(windowWidth, windowHeight)
       local x = xtable[#xtable] or 0
       local y = ytable[#ytable] or 0
 
-      text=string.format("Map: %d x %d", mapXrange, mapYrange)
+      text=string.format("Map: %d x %d", map.Xrange, map.Yrange)
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH-10, text, FONT_MINI)
 
       if iField then
@@ -1044,32 +934,32 @@ local function mapPrint(windowWidth, windowHeight)
 
       
    lcd.drawText(70-lcd.getTextWidth(FONT_MINI, "N") / 2, 14, "N", FONT_MINI)
-   drawShape(70, 20, shapes.arrow, math.rad(-1*rotationAngle))
+   drawShape(70, 20, shapes.arrow, math.rad(-1*variables.rotationAngle))
    lcd.drawCircle(70, 20, 7)
 
-   if RunwayHeading then
-      phi = (90-(RunwayHeading-magneticVar)+360)%360
+   if takeoff.RunwayHeading then
+      phi = (90-(takeoff.RunwayHeading-variables.magneticVar)+360)%360
       -- todo: pre-calculate these trig values .. do it once for efficiency  --
-      xr1 = xTakeoffComplete - lRW/2 * math.cos(math.rad(phi-12))
-      yr1 = yTakeoffComplete - lRW/2 * math.sin(math.rad(phi-12))
+      xr1 = takeoff.Complete.X - lRW/2 * math.cos(math.rad(phi-12))
+      yr1 = takeoff.Complete.Y - lRW/2 * math.sin(math.rad(phi-12))
       
-      xr2 = xTakeoffComplete - lRW * math.cos(math.rad(phi-12))
-      yr2 = yTakeoffComplete - lRW * math.sin(math.rad(phi-12))
+      xr2 = takeoff.Complete.X - lRW * math.cos(math.rad(phi-12))
+      yr2 = takeoff.Complete.Y - lRW * math.sin(math.rad(phi-12))
 
-      xl1 = xTakeoffComplete - lRW/2 * math.cos(math.rad(phi+12))
-      yl1 = yTakeoffComplete - lRW/2 * math.sin(math.rad(phi+12))
+      xl1 = takeoff.Complete.X - lRW/2 * math.cos(math.rad(phi+12))
+      yl1 = takeoff.Complete.Y - lRW/2 * math.sin(math.rad(phi+12))
       
-      xl2 = xTakeoffComplete - lRW * math.cos(math.rad(phi+12))
-      yl2 = yTakeoffComplete - lRW * math.sin(math.rad(phi+12))
+      xl2 = takeoff.Complete.X - lRW * math.cos(math.rad(phi+12))
+      yl2 = takeoff.Complete.Y - lRW * math.sin(math.rad(phi+12))
       
-      lcd.drawCircle(toXPixel(xr1, mapXmin, mapXrange, windowWidth),
-		     toYPixel(yr1, mapYmin, mapYrange, windowHeight), 3)      
-      lcd.drawCircle(toXPixel(xl1, mapXmin, mapXrange, windowWidth),
-		     toYPixel(yl1, mapYmin, mapYrange, windowHeight), 3)
-      lcd.drawCircle(toXPixel(xr2, mapXmin, mapXrange, windowWidth),
-		     toYPixel(yr2, mapYmin, mapYrange, windowHeight), 3)      
-      lcd.drawCircle(toXPixel(xl2, mapXmin, mapXrange, windowWidth),
-		     toYPixel(yl2, mapYmin, mapYrange, windowHeight), 3)
+      lcd.drawCircle(toXPixel(xr1, map.Xmin, map.Xrange, windowWidth),
+		     toYPixel(yr1, map.Ymin, map.Yrange, windowHeight), 3)      
+      lcd.drawCircle(toXPixel(xl1, map.Xmin, map.Xrange, windowWidth),
+		     toYPixel(yl1, map.Ymin, map.Yrange, windowHeight), 3)
+      lcd.drawCircle(toXPixel(xr2, map.Xmin, map.Xrange, windowWidth),
+		     toYPixel(yr2, map.Ymin, map.Yrange, windowHeight), 3)      
+      lcd.drawCircle(toXPixel(xl2, map.Xmin, map.Xrange, windowWidth),
+		     toYPixel(yl2, map.Ymin, map.Yrange, windowHeight), 3)
 
    end
    
@@ -1080,7 +970,7 @@ local function mapPrint(windowWidth, windowHeight)
 
       lcd.setColor(lcd.getFgColor())
       
-      if RunwayHeading then
+      if takeoff.RunwayHeading then
 	 dr = (xtable[i]-xr1)*(yr2-yr1) - (ytable[i]-yr1)*(xr2-xr1)
 	 dl = (xtable[i]-xl1)*(yl2-yl1) - (ytable[i]-yl1)*(xl2-xl1)
      
@@ -1090,12 +980,12 @@ local function mapPrint(windowWidth, windowHeight)
       end
 
       if i == #xtable then
- 	 drawShape(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
-		   toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
-		   shapes.T38, math.rad(heading-magneticVar))
+ 	 drawShape(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
+		   toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight),
+		   shapes.T38, math.rad(heading-variables.magneticVar))
       else
-	 lcd.drawCircle(toXPixel(xtable[i], mapXmin, mapXrange, windowWidth),
-			toYPixel(ytable[i], mapYmin, mapYrange, windowHeight),
+	 lcd.drawCircle(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
+			toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight),
 			2)
       end
    end
@@ -1108,33 +998,33 @@ end
 
 local function graphScale(x, y)
 
-   if not mapXmax then
-      mapXmax=   200
-      mapXmin = -200
-      mapYmax =  100
-      mapYmin = -100
+   if not map.Xmax then
+      map.Xmax=   200
+      map.Xmin = -200
+      map.Ymax =  100
+      map.Ymin = -100
    end
    
-   if x > xmax then xmax = x end
-   if x < xmin then xmin = x end
-   if y > ymax then ymax = y end
-   if y < ymin then ymin = y end
+   if x > path.xmax then path.xmax = x end
+   if x < path.xmin then path.xmin = x end
+   if y > path.ymax then path.ymax = y end
+   if y < path.ymin then path.ymin = y end
    
-   mapXrange = math.floor((xmax-xmin)/200 + .5) * 200 -- telemetry screens are 320x160 or 2:1
-   mapYrange = math.floor((ymax-ymin)/100 + .5) * 100
+   map.Xrange = math.floor((path.xmax-path.xmin)/200 + .5) * 200 -- telemetry screens are 320x160 or 2:1
+   map.Yrange = math.floor((path.ymax-path.ymin)/100 + .5) * 100
    
-   if mapYrange > mapXrange/(2) then
-      mapXrange = mapYrange*(2)
+   if map.Yrange > map.Xrange/(2) then
+      map.Xrange = map.Yrange*(2)
    end
-   if mapXrange > mapYrange*(2) then
-      mapYrange = mapXrange/(2)
+   if map.Xrange > map.Yrange*(2) then
+      map.Yrange = map.Xrange/(2)
    end
    
-   mapXmin = xmin - (mapXrange - (xmax-xmin))/2
-   mapXmax = xmax + (mapXrange - (xmax-xmin))/2
+   map.Xmin = path.xmin - (map.Xrange - (path.xmax-path.xmin))/2
+   map.Xmax = path.xmax + (map.Xrange - (path.xmax-path.xmin))/2
    
-   mapYmin = ymin - (mapYrange - (ymax-ymin))/2
-   mapYmax = ymax + (mapYrange - (ymax-ymin))/2
+   map.Ymin = path.ymin - (map.Yrange - (path.ymax-path.ymin))/2
+   map.Ymax = path.ymax + (map.Yrange - (path.ymax-path.ymin))/2
    
 end
 
@@ -1145,17 +1035,17 @@ local function initField()
    
    if long0 and lat0 then -- if location was detected by the GPS system
       for i=1, #geo.fields, 1 do -- see if we are near a known field (lat and long within ~ a mile)
-	 if (math.abs(lat0 - geo.fields[i].runway.lat) < 1/60)
+	 if (math.abs(lat0 - geo.fields[i].runway.lat) < 1/60) -- 1/60 = 1 minute of arc
 	 and (math.abs(long0 - geo.fields[i].runway.long) < 1/60) then
 	    iField = i
 	    long0 = geo.fields[iField].runway.long -- reset to origin to coords in jsn file
 	    lat0  = geo.fields[iField].runway.lat
 	    coslat0 = math.cos(math.rad(lat0))
-	    rotationAngle = geo.fields[iField].runway.trueDir-270
+	    variables.rotationAngle = geo.fields[iField].runway.trueDir-270 -- draw rwy along x axis
 	    for i=1, #geo.fields[iField].POI,1 do
 	       poi[i] = {x=rE*(geo.fields[iField].POI[i].long-long0)*coslat0/rad,
 			 y=rE*(geo.fields[iField].POI[i].lat-lat0)/rad}
-	       poi[i].x, poi[i].y = rotateXY(poi[i].x, poi[i].y, math.rad(rotationAngle))
+	       poi[i].x, poi[i].y = rotateXY(poi[i].x, poi[i].y, math.rad(variables.rotationAngle))
 	       -- graphScale(poi[i].x, poi[i].y) -- maybe note in POI coords jsn if should autoscale or not?
 	    end
 	    
@@ -1184,8 +1074,31 @@ local function initField()
    end
 end
 
+-- presistent and global variables for loop()
+
+local lastlat = 0
+local lastlong = 0
+local gotInitPos = false
+local long0, lat0, coslat0
 local blocked = false
 local timS = "0"
+local rE = 21220539.7  -- 6371*1000*3.28084 radius of earth in ft, fudge factor of 1/0.985
+local compcrs
+local compcrsDeg = 0
+local vviAlt = {}
+local vviTim = {}
+local vvi, va
+local ivvi = 1
+local xd1, yd1
+local xd2, yd2
+local td1, td2
+local lineAvgPts = 4  -- number of points to linear fit to compute course
+local vviSlopeTime = 0
+local speedTime = 0
+local numGPSreads = 0
+local timeRO = 0
+local newPosTime = 0
+local rad = 180/math.pi
 
 local function loop()
 
@@ -1213,20 +1126,20 @@ local function loop()
       form.setValue(resetCompIndex, resetClick) -- prob should double check same form still displayed...
 
       -- reset map window too
-      mapXmax=   200
-      mapXmin = -200
-      mapYmax =  100
-      mapYmin = -100
+      map.Xmax=   200
+      map.Xmin = -200
+      map.Ymax =  100
+      map.Ymin = -100
       
-      xmin = mapXmin
-      xmax = mapXmax
-      ymin = mapYmin
-      ymax = mapYmax
+      path.xmin = map.Xmin
+      path.xmax = map.Xmax
+      path.ymin = map.Ymin
+      path.ymax = map.Ymax
       
       --reset baro alt zero too
       baroAltZero = altitude
 
-      print("Zero-d origin and baro alt. baroAltZero: ", baroAltZero)
+      print("Reset origin and barometric altitude. New baroAltZero is ", baroAltZero)
       
       if ff then io.close(ff) end
    end
@@ -1267,6 +1180,7 @@ local function loop()
 	 longitude = tonumber(lonS)
 	 altitude = tonumber(altS)
 	 speed = tonumber(spdS)
+	 -- add code here to read heading once magneticVar decided to be included or not
 	 blocked = true
 	 return
       else
@@ -1278,7 +1192,7 @@ local function loop()
 
    if fd then print('Should not get here with fd true!') end
 
-   sensor = system.getSensorByID(LongitudeSeId, LongitudeSePa)
+   sensor = system.getSensorByID(telem.Longitude.SeId, telem.Longitude.SePa)
 
    if(sensor and sensor.valid) then
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
@@ -1290,7 +1204,7 @@ local function loop()
       goodlong = true
    end
    
-   sensor = system.getSensorByID(LatitudeSeId, LatitudeSePa)
+   sensor = system.getSensorByID(telem.Latitude.SeId, telem.Latitude.SePa)
 
    if(sensor and sensor.valid) then
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
@@ -1302,13 +1216,13 @@ local function loop()
       goodlat = true
    end
    
-   sensor = system.getSensorByID(AltitudeSeId, AltitudeSePa)
+   sensor = system.getSensorByID(telem.Altitude.SeId, telem.Altitude.SePa)
 
    if(sensor and sensor.valid) then
       GPSAlt = sensor.value*3.28084 -- convert to ft, telem apis only report native values
    end
    
-   sensor = system.getSensorByID(SpeedNonGPSSeId, SpeedNonGPSSePa)
+   sensor = system.getSensorByID(telem.SpeedNonGPS.SeId, telem.SpeedNonGPS.SePa)
    
    hasPitot = false
    if(sensor and sensor.valid) then
@@ -1322,14 +1236,14 @@ local function loop()
       hasPitot = true
    end
    
-   sensor = system.getSensorByID(BaroAltSeId, BaroAltSePa)
+   sensor = system.getSensorByID(telem.BaroAlt.SeId, telem.BaroAlt.SePa)
    
    if(sensor and sensor.valid) then
       baroAlt = sensor.value * 3.28084 -- unit conversion m to ft
    end
    
    
-   sensor = system.getSensorByID(SpeedGPSSeId, SpeedGPSSePa)
+   sensor = system.getSensorByID(telem.SpeedGPS.SeId, telem.SpeedGPS.SePa)
    
    if(sensor and sensor.valid) then
       if sensor.unit == "kmh" or sensor.unit == "km/h" then
@@ -1340,14 +1254,14 @@ local function loop()
       end
    end
    
-   sensor = system.getSensorByID(DistanceGPSSeId, DistanceGPSSePa)
+   sensor = system.getSensorByID(telem.DistanceGPS.SeId, telem.DistanceGPS.SePa)
    
    if(sensor and sensor.valid) then
       DistanceGPS = sensor.value*3.2808
    end      
    
    hasCourseGPS = false
-   sensor = system.getSensorByID(CourseGPSSeId, CourseGPSSeId)
+   sensor = system.getSensorByID(telem.CourseGPS.SeId, telem.CourseGPS.SeId)
    if sensor and sensor.valid then
       courseGPS = sensor.value
       hasCourseGPS = true
@@ -1411,9 +1325,9 @@ local function loop()
       newpos = true
       
       if ff then
-	 io.write(ff, string.format("%.4f, %.8f , %.8f , %.2f , %.2f\n",
+	 io.write(ff, string.format("%.4f, %.8f , %.8f , %.2f , %.2f , %.2f\n",
 				    (system.getTimeCounter()-sysTimeStart)/1000.,
-				    latitude, longitude, altitude, speed))
+				    latitude, longitude, altitude, speed, (heading-variables.magneticVar) ) )
       end
       
       lastlat = latitude
@@ -1445,7 +1359,7 @@ local function loop()
    
    ::computedXY::   
 
-   x, y = rotateXY(x, y, math.rad(rotationAngle)) -- q+d for now .. rotate path only add ILS+RW later
+   x, y = rotateXY(x, y, math.rad(variables.rotationAngle)) -- q+d for now .. rotate path only add ILS+RW later
    
    if newpos or DEBUG then -- only enter a new xy in the "comet tail" if lat/lon changed
       
@@ -1460,10 +1374,10 @@ local function loop()
       graphScale(x, y)
       
       if #xtable == 1 then
-	 xmin = mapXmin
-	 xmax = mapXmax
-	 ymin = mapYmin
-	 ymax = mapYmax
+	 path.xmin = map.Xmin
+	 path.xmax = map.Xmax
+	 path.ymin = map.Ymin
+	 path.ymax = map.Ymax
       end
       
       if #xtable > lineAvgPts then
@@ -1520,13 +1434,13 @@ local function loop()
    
 
    if DEBUG then
-      heading = compcrsDeg + magneticVar
+      heading = compcrsDeg + variables.magneticVar
    else
       if hasCourseGPS and courseGPS then
-	 heading = courseGPS + magneticVar
+	 heading = courseGPS + variables.magneticVar
       else
 	 if compcrsDeg then
-	    heading = compcrsDeg + magneticVar
+	    heading = compcrsDeg + variables.magneticVar
 	 else
 	    heading = 0
 	 end
@@ -1541,67 +1455,70 @@ local function loop()
    -- system.getInputs for thr and brake
    -- monitor brake release, throttle up, takeoff roll, actual takeoff
 
-   if (brakeControl) then
-      brk = system.getInputsVal(brakeControl)
+   if (controls.Brake) then
+      brk = system.getInputsVal(controls.Brake)
    end
-   if brk and brk < 0 and oldBrake > 0 then
-      brakeReleaseTime = system.getTimeCounter()
+   if brk and brk < 0 and takeoff.oldBrake > 0 then
+      takeoff.BrakeReleaseTime = system.getTimeCounter()
       print("Brake release")
       system.playFile("brakes_released.wav", AUDIO_QUEUE)
    end
    if brk and brk > 0 then
-      brakeReleaseTime = 0
-      xTakeoffStart = nil  -- do we really want to erase the runway when the brakes go back on?
-      xTakeoffComplete = nil
-      RunwayHeading = nil
+      takeoff.BrakeReleaseTime = 0
+      takeoff.Start.X = nil  -- do we really want to erase the runway when the brakes go back on?
+      takeoff.Complete.X = nil
+      takeoff.RunwayHeading = nil
+      takeoff.NeverAirborne = true
    end
    if brk  then
-      oldBrake = brk
+      takeoff.oldBrake = brk
       if DEBUG and brk < 0 then altitude = altitude + .15 end ------------------- DEBUG only
    end
    
-   if (throttleControl) then
-      thr = system.getInputsVal(throttleControl)
+   if (controls.Throttle) then
+      thr = system.getInputsVal(controls.Throttle)
    end
-   if thr and thr > 0 and oldThrottle < 0 then
-      if system.getTimeCounter() - brakeReleaseTime < 5000 then
-	 xTakeoffStart = x
-	 yTakeoffStart = y
-	 zTakeoffStart = altitude-baroAltZero
-	 ReleaseHeading = compcrsDeg + magneticVar
+   if thr and thr > 0 and takeoff.oldThrottle < 0 then
+      if system.getTimeCounter() - takeoff.BrakeReleaseTime < 5000 then
+	 takeoff.Start.X = x
+	 takeoff.Start.Y = y
+	 takeoff.Start.Z = altitude-baroAltZero
+	 takeoff.ReleaseHeading = compcrsDeg + variables.magneticVar
 	 print("Takeoff Start")
---	 print("Brake Release Heading: ", ReleaseHeading)
 	 system.playFile("starting_takeoff_roll.wav", AUDIO_QUEUE)
       end
    end
-   if thr then oldThrottle = thr end
+   if thr then takeoff.oldThrottle = thr end
    
-   if thr and thr > 0 and xTakeoffStart and neverAirborne then
-      if (altitude - baroAltZero) - zTakeoffStart > PATTERNALT/4 then
-	 neverAirborne = false
-	 xTakeoffComplete = x
-	 yTakeoffComplete = y
-	 zTakeoffComplete = altitude - baroAltZero
-	 TakeoffHeading = compcrsDeg + magneticVar
-	 local _, rDeg  = fslope({xTakeoffStart, xTakeoffComplete}, {yTakeoffStart, yTakeoffComplete})
-	 RunwayHeading = math.deg(rDeg) + magneticVar
---	 print("Takeoff Complete:", system.getTimeCounter(), TakeoffHeading, xTakeoffComplete, yTakeoffComplete)
---	 print("Takeoff Heading: ", TakeoffHeading)
---	 print("Runway heading: ", RunwayHeading)
-	 print("Runway length: ", math.sqrt((xTakeoffComplete-xTakeoffStart)^2 + (yTakeoffComplete-yTakeoffStart)^2))
---	 print("atan2: ", math.deg(math.atan( (xTakeoffComplete-xTakeoffStart), (yTakeoffComplete-yTakeoffStart))))
+   if thr and thr > 0 and takeoff.Start.X and takeoff.NeverAirborne then
+      if (altitude - baroAltZero) - takeoff.Start.Z > PATTERNALT/4 then
+	 takeoff.NeverAirborne = false
+	 takeoff.Complete.X = x
+	 takeoff.Complete.Y = y
+	 takeoff.Complete.Z = altitude - baroAltZero
+	 takeoff.Heading = compcrsDeg + variables.magneticVar
+	 local _, rDeg  = fslope({takeoff.Start.X, takeoff.Complete.X}, {takeoff.Start.Y, takeoff.Complete.Y})
+	 takeoff.RunwayHeading = math.deg(rDeg) + variables.magneticVar
+	 print("Runway length: ", math.sqrt((takeoff.Complete.X-takeoff.Start.X)^2 +
+		     (takeoff.Complete.Y-takeoff.Start.Y)^2))
 	 system.playFile("takeoff_complete.wav", AUDIO_QUEUE)
 	 system.playNumber(heading, 0, "\u{B0}")
       end
    end
 end
 
+local ff, fd
 
 local function init()
 
+   map.Xmin, map.Xmax = -200, 200
+   map.Ymin, map.Ymax = -100, 100
+   map.Xrange = map.Xmax - map.Xmin
+   map.Yrange = map.Ymax - map.Ymin
+   path.xmin, path.xmax, path.ymin, path.ymax = map.Xmin, map.Xmax, map.Ymin, map.Ymax
+   
    -- try opening the csv file for debugging .. if it exists assume we are
    -- doing a playback. If it does exist then, we are actually running, open a file for logging
-
 
    fd=io.open("DFM-LSO.csv", "r")
 
@@ -1623,44 +1540,20 @@ local function init()
       geo = json.decode(fg)
    end
 
-   LatitudeSe      = system.pLoad("LatitudeSe", 0)
-   LatitudeSeId    = system.pLoad("LatitudeSeId", 0)
-   LatitudeSePa    = system.pLoad("LatitudeSePa", 0)
-   
-   LongitudeSe     = system.pLoad("LongitudeSe", 0)
-   LongitudeSeId   = system.pLoad("LongitudeSeId", 0)
-   LongitudeSePa   = system.pLoad("LongitudeSePa", 0)
-   
-   AltitudeSe      = system.pLoad("AltitudeSe", 0) -- this is the GPS altitute -- cf BaroAlt...
-   AltitudeSeId    = system.pLoad("AltitudeSeId", 0)
-   AltitudeSePa    = system.pLoad("AltitudeSePa", 0)        
+   for i, j in ipairs(telem) do
+      telem[j].Se   = system.pLoad("telem."..telem[i]..".Se", 0)
+      telem[j].SeId = system.pLoad("telem."..telem[i]..".SeId", 0)
+      telem[j].SePa = system.pLoad("telem."..telem[i]..".SePa", 0)
+   end
 
-   SpeedNonGPSSe   = system.pLoad("SpeedNonGPSSe", 0)
-   SpeedNonGPSSeId = system.pLoad("SpeedNonGPSSeId", 0)
-   SpeedNonGPSSePa = system.pLoad("SpeedNonGPSSePa", 0)
-
-   BaroAltSe   = system.pLoad("BaroAltSe", 0)
-   BaroAltSeId = system.pLoad("BaroAltSeId", 0)
-   BaroAltSePa = system.pLoad("BaroAltSePa", 0)
+   for i, j in ipairs(controls) do
+      controls[j] = system.pLoad("controls."..controls[i])
+   end
    
-   SpeedGPSSe      = system.pLoad("SpeedGPSSe", 0)
-   SpeedGPSSeId    = system.pLoad("SpeedGPSSeId", 0)
-   SpeedGPSSePa    = system.pLoad("SpeedGPSSePa", 0)        
-
-   DistanceGPSSe   = system.pLoad("DistanceGPSSe", 0)
-   DistanceGPSSeId = system.pLoad("DistanceGPSSeId", 0)
-   DistanceGPSSePa = system.pLoad("DistanceGPSSePa", 0)
-
-   CourseGPSSe   = system.pLoad("CourseGPSSe", 0)
-   CourseGPSSeId = system.pLoad("CourseGPSSeId", 0)
-   CourseGPSSePa = system.pLoad("CourseGPSSePa", 0)        
+   for i, j in ipairs(variables) do
+      variables[j] = system.pLoad("variables."..variables[i], 0)
+   end
    
-   throttleControl = system.pLoad("throttleControl")
-   brakeControl    = system.pLoad("brakeControl")
-   if not rotationAngle then   rotationAngle   = system.pLoad("rotationAngle", 0) end
-   magneticVar     = system.pLoad("magneticVar", 13)
-   
-
    system.registerForm(1, MENU_APPS, "Landing Signal Officer", initForm, nil, nil)
    system.registerTelemetry(1, "LSO Map", 4, mapPrint)
    system.registerTelemetry(2, "LSO ILS", 4, ilsPrint)
@@ -1676,7 +1569,7 @@ local function init()
 end
 
 
-LSOVersion = "1.1"
+LSOVersion = "1.2"
 setLanguage()
 collectgarbage()
 return {init=init, loop=loop, author="DFM", version=LSOVersion, name="GPS LSO"}
