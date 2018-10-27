@@ -59,17 +59,15 @@ local controls  = {"Throttle", "Brake"}
 local xtable = {}
 local ytable = {}
 local MAXTABLE = 5
+local map={}
 
+local path={}
 local bezierPath = {}
+
 local rwy = {}
 local poi = {}
-
 local geo = {}
 local iField
-
-local map={}
-local path={}
-
 
 local takeoff={}; takeoff.Complete={}; takeoff.Start={}
 takeoff.NeverAirborne = true
@@ -115,7 +113,10 @@ end
 --------------------------------------------------------------------------------
 
 -- Read available sensors for user to select - done once at startup
--- Make separate lists for GPS (type 9) sensors since they require different processing
+-- Make separate lists for GPS lat and long sensors since they require different processing
+-- Other GPS sensors (also if type 9, but diff params) are treated like non GPS sensors
+-- The labels and values for sensor.param work for the Jeti MGPS .. 
+-- Other GPSs have to be selected manually via the screen
 
 local function readSensors()
 
@@ -128,8 +129,8 @@ local function readSensors()
 	    table.insert(sensorPalist, sensor.param)
 	    table.insert(sensorUnlist, sensor.unit)
 	 else
-	    if ( (sensor.label == 'Longitude' and sensor.param == 2) or
-		 (sensor.label == 'Latitude'  and sensor.param == 3)  ) then
+	    if ( (sensor.label == 'Latitude' and sensor.param == 2) or
+		 (sensor.label == 'Longitude'  and sensor.param == 3)  ) then
 	       table.insert(GPSsensorLalist, sensor.label)
 	       table.insert(GPSsensorIdlist, sensor.id)
 	       table.insert(GPSsensorPalist, sensor.param)
@@ -140,8 +141,6 @@ local function readSensors()
 	       table.insert(sensorUnlist, sensor.unit)
 	    end
 	    
-	    -- these labels and params work for the Jeti MGPS .. 
-
 	    if sensor.label == 'Latitude' and sensor.param == 2 then
 	       telem.Latitude.Se = #GPSsensorLalist
 	       telem.Latitude.SeId = sensor.id
@@ -247,19 +246,19 @@ local function initForm()
      end
      
      local menuSelectGPS = { -- for lat/long only
-	Longitude="Select GPS Long Sensor",
-	Latitude ="Select GPS Lat Sensor",
+	Longitude="Select GPS Longitude Sensor",
+	Latitude ="Select GPS Latitude Sensor",
      }
 
      local menuSelect1 = { -- not from the GPS sensor
 	SpeedNonGPS="Select Pitot Speed Sensor",
-	BaroAlt="Select Baro Alt Sensor",
+	BaroAlt="Select Baro Altimeter Sensor",
      }
 
      local menuSelect2 = { -- non lat/long from GPS sensor
-	Altitude ="Select GPS Alt Sensor",
-	SpeedGPS="Select GPS Spd Sensor",
-	DistanceGPS="Select GPS Dist Sensor",
+	Altitude ="Select GPS Altitude Sensor",
+	SpeedGPS="Select GPS Speed Sensor",
+	DistanceGPS="Select GPS Distance Sensor",
 	CourseGPS="Select GPS Course Sensor",
      }     
      
@@ -289,7 +288,7 @@ local function initForm()
      -- variation in defaults etc nor for addCheckbox due to specialized nature
      
      form.addRow(2)
-     form.addLabel({label="Rotation (\u{B0}CCW)", width=220})
+     form.addLabel({label="Map Rotation (\u{B0}CCW)", width=220})
      form.addIntbox(variables.rotationAngle, 0, 359, 0, 0, 1,
 		    (function(x) return variableChanged(x, "rotationAngle") end) )
      
@@ -315,11 +314,8 @@ local function initForm()
      
   end
 end
---------------------------------------------------------------------------------
 
 -- Telemetry window draw functions
-
----------------------------------------------------------------------------------
 
 local delta, deltaX, deltaY
 local text
@@ -336,72 +332,8 @@ local heightAH = 145
 local colHeading = colAH
 local rowHeading = 30 -- 160
 
---[[
-local shapes={} -- prob should move the shapes out to a jsn file
 
-shapes.T38 = {
-   {0,-20},
-   {-3,-6},
-   {-10,0},
-   {-10,2},
-   {-2,2},
-   {-2,4},
-   {-6,8},
-   {-6,10},
-   {0,10},
-   {6,10},
-   {6,8},
-   {2,4},
-   {2,2},
-   {10,2},
-   {10,0},
-   {3,-6}
-}
-
-shapes.runway = {
-   {-2,-20},
-   {-2, 20},
-   { 2, 20},
-   { 2,-20},
-   {-2,-20}
-}
-
-shapes.ILS = {
-   {0,0,0,20},
-   {0,0,-2,2},
-   {0,0, 2,2},
-   {0,2,-2,4},
-   {0,2, 2,4},
-   {0,4,-2,6},
-   {0,4, 2,6}
-}
-
-shapes.origin = {
-   {2,6},
-   {2,2},
-   {6,2},
-   {6,-2},
-   {2,-2},
-   {2,-6},
-   {-2,-6},
-   {-2,-2},
-   {-6,-2},
-   {-6,2},
-   {-2,2},
-   {-2,6}
-}
-
-shapes.arrow = {
-   {-3, -9},
-   {0, -18},
-   {3, -9}
-}
-
---]]
-
--- *****************************************************
--- Draw a shape
--- *****************************************************
+-- Various shape and polyline functions using the anti-aliasing renderer
 
 local ren=lcd.renderer()
 
@@ -468,14 +400,10 @@ local function drawDistance()
    drawShape(colAH, rowAH+20, shapes.T38, math.rad(heading-variables.magneticVar))
 end
 
--- *****************************************************
 -- Draw altitude indicator
--- *****************************************************
 
 
--- *****************************************************
--- Vertical line parameters (to improve or supress)
--- *****************************************************
+-- Vertical line parameters
 
 local parmLine = {
   {rowAH - 72, 7, 30},  -- +30
@@ -519,25 +447,17 @@ local baroAltZero = 0
   lcd.resetClipping()
 end
 
-
--- *****************************************************
 -- Draw speed indicator
--- *****************************************************
 
 local function drawSpeed() 
   lcd.setColor(txtr,txtg,txtb)
   delta = speed % 10
   deltaY = 1 + math.floor(2.4 * delta)
---  print('speed, delta, deltaY', speed, delta, deltaY)
   lcd.drawText(colSpeed-30, heightAH+2, "mph", FONT_MINI)
-
   lcd.setClipping(colSpeed-37,0,45,heightAH)
-  --print("dS clipping: ", colSpeed-37, 0, 45, heightAH)
-  
   lcd.drawLine(37, -1, 37, heightAH)
+
   for index, line in pairs(parmLine) do
---     print ("l1+dy: ", line[1]+deltaY)
-     
      lcd.drawLine(38, line[1] + deltaY, 38 + line[2], line[1] + deltaY)
      if line[3] then
 	text = string.format("%d",speed+0.5 + line[3] - delta)
@@ -552,11 +472,7 @@ local function drawSpeed()
   lcd.resetClipping() 
 end
 
-
-
--- *****************************************************
 -- Draw heading indicator
--- *****************************************************
 
 local parmHeading = {
   {0, 2, "N"}, {30, 5}, {60, 5},
@@ -612,7 +528,6 @@ local function drawHeading()
    lcd.resetClipping()
 end
 
-
 --- draw Vario (vvi) 
 
 local rowVario = 80
@@ -639,7 +554,8 @@ local function drawVario()
    if(vario > 1200) then vario = 1200 end
    if(vario < -1200) then vario = -1200 end
    if (vario > 0) then 
-      lcd.drawFilledRectangle(colVario-4,rowVario-math.floor(vario/16.66 + 0.5),10,math.floor(vario/16.66+0.5),170)
+      lcd.drawFilledRectangle(colVario-4,rowVario-math.floor(vario/16.66 + 0.5),
+			      10,math.floor(vario/16.66+0.5),170)
    elseif(vario < 0) then 
       lcd.drawFilledRectangle(colVario-4,rowVario+1,10,math.floor(-vario/16.66 + 0.5), 170)
    end
@@ -790,7 +706,8 @@ local function ilsPrint(windowWidth, windowHeight)
 
    if takeoff.RunwayHeading then
       lcd.setColor(txtr,txtg,txtb)
-      local distFromTO = math.sqrt( (xtable[#xtable] - takeoff.Start.X)^2 + (ytable[#ytable] - takeoff.Start.Y)^2)
+      local distFromTO = math.sqrt( (xtable[#xtable] - takeoff.Start.X)^2 +
+	    (ytable[#ytable] - takeoff.Start.Y)^2)
       text = string.format("%d",distFromTO)
       w = lcd.getTextWidth(FONT_NORMAL,text) 
       lcd.drawFilledRectangle(xc - w/2,143 , w, lcd.getTextHeight(FONT_NORMAL))
@@ -953,8 +870,7 @@ local function mapPrint(windowWidth, windowHeight)
 
    if takeoff.RunwayHeading then
       phi = (90-(takeoff.RunwayHeading-variables.magneticVar)+360)%360
-      -- todo: pre-calculate these trig values .. do it once for efficiency  --
-      if not xr1 then
+      if not xr1 then -- do not recompute unless runway is reset noted by setting xr1 to nil
 	 xr1 = takeoff.Complete.X - lRW/2 * math.cos(math.rad(phi-12))
 	 yr1 = takeoff.Complete.Y - lRW/2 * math.sin(math.rad(phi-12))
       
