@@ -3,7 +3,7 @@
    --------------------------------------------------------------------------------------------------
    DFM-LSO.lua -- "Landing Signal Officer" -- GPS Map and "ILS"/GPS RNAV system
 
-   Derived from DFM's Speed and Time Announcers, which were turn was derived from RCT's Alt Announcer
+   Derived from DFM's Speed and Time Announcers, which were turn was derived from Tero's RCT's Alt Announcer
    Borrowed and modified code from Jeti's AH example for tapes and heading indicator.
    New code to project Lat/Long via simple equirectangular projection to XY plane, and to
    compute heading from the projected XY plane track for GPS sensors that don't have this feature 
@@ -42,7 +42,8 @@ local speed = 0
 local vario=0
 
 local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
-	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"}
+	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"
+            }
 telem.Latitude={}
 telem.Longitude={}
 telem.Altitude={}
@@ -53,7 +54,7 @@ telem.CourseGPS={}
 telem.BaroAlt={}
 
 local variables = {"magneticVar", "rotationAngle"}
-local controls={"Throttle", "Brake"}
+local controls  = {"Throttle", "Brake"}
 
 local xtable = {}
 local ytable = {}
@@ -127,10 +128,20 @@ local function readSensors()
 	    table.insert(sensorPalist, sensor.param)
 	    table.insert(sensorUnlist, sensor.unit)
 	 else
-	    table.insert(GPSsensorLalist, sensor.label)
-	    table.insert(GPSsensorIdlist, sensor.id)
-	    table.insert(GPSsensorPalist, sensor.param)
+	    if ( (sensor.label == 'Longitude' and sensor.param == 2) or
+		 (sensor.label == 'Latitude'  and sensor.param == 3)  ) then
+	       table.insert(GPSsensorLalist, sensor.label)
+	       table.insert(GPSsensorIdlist, sensor.id)
+	       table.insert(GPSsensorPalist, sensor.param)
+	    else
+	       table.insert(sensorLalist, sensor.label)
+	       table.insert(sensorIdlist, sensor.id)
+	       table.insert(sensorPalist, sensor.param)
+	       table.insert(sensorUnlist, sensor.unit)
+	    end
+	    
 	    -- these labels and params work for the Jeti MGPS .. 
+
 	    if sensor.label == 'Latitude' and sensor.param == 2 then
 	       telem.Latitude.Se = #GPSsensorLalist
 	       telem.Latitude.SeId = sensor.id
@@ -142,22 +153,22 @@ local function readSensors()
 	       telem.Longitude.SePa = sensor.param
 	    end
 	    if sensor.label == 'Altitude' and sensor.param == 6 then
-  	       telem.Altitude.Se = #GPSsensorLalist
+  	       telem.Altitude.Se = #sensorLalist
 	       telem.Altitude.SeId = sensor.id
 	       telem.Altitude.SePa = sensor.param
 	    end	    	    
 	    if sensor.label == 'Distance' and sensor.param == 7 then
-	       telem.DistanceGPS.Se = #GPSsensorLalist
+	       telem.DistanceGPS.Se = #sensorLalist
 	       telem.DistanceGPS.SeId = sensor.id
 	       telem.DistanceGPS.SePa = sensor.param
 	    end
 	    if sensor.label == 'Speed' and sensor.param == 8 then
-	       telem.SpeedGPS.Se = #GPSsensorLalist
+	       telem.SpeedGPS.Se = #sensorLalist
 	       telem.SpeedGPS.SeId = sensor.id
 	       telem.SpeedGPS.SePa = sensor.param
 	    end
 	    if sensor.label == 'Course' and sensor.param == 10 then
-	       telem.CourseGPS.Se = #GPSsensorLalist
+	       telem.CourseGPS.Se = #sensorLalist
 	       telem.CourseGPS.SeId = sensor.id
 	       telem.CourseGPS.SePa = sensor.param
 	    end
@@ -228,7 +239,7 @@ local function initForm()
 
      local menuInput = {Throttle = "Select Throttle Control", Brake = "Select Brake Control"}
 
-     for var, txt in ipairs(menuInput) do
+     for var, txt in pairs(menuInput) do
 	form.addRow(2)
 	form.addLabel({label=txt, width=220})
 	form.addInputbox(controls.Throttle, true,
@@ -325,6 +336,7 @@ local heightAH = 145
 local colHeading = colAH
 local rowHeading = 30 -- 160
 
+--[[
 local shapes={} -- prob should move the shapes out to a jsn file
 
 shapes.T38 = {
@@ -384,6 +396,8 @@ shapes.arrow = {
    {0, -18},
    {3, -9}
 }
+
+--]]
 
 -- *****************************************************
 -- Draw a shape
@@ -940,17 +954,19 @@ local function mapPrint(windowWidth, windowHeight)
    if takeoff.RunwayHeading then
       phi = (90-(takeoff.RunwayHeading-variables.magneticVar)+360)%360
       -- todo: pre-calculate these trig values .. do it once for efficiency  --
-      xr1 = takeoff.Complete.X - lRW/2 * math.cos(math.rad(phi-12))
-      yr1 = takeoff.Complete.Y - lRW/2 * math.sin(math.rad(phi-12))
+      if not xr1 then
+	 xr1 = takeoff.Complete.X - lRW/2 * math.cos(math.rad(phi-12))
+	 yr1 = takeoff.Complete.Y - lRW/2 * math.sin(math.rad(phi-12))
       
-      xr2 = takeoff.Complete.X - lRW * math.cos(math.rad(phi-12))
-      yr2 = takeoff.Complete.Y - lRW * math.sin(math.rad(phi-12))
-
-      xl1 = takeoff.Complete.X - lRW/2 * math.cos(math.rad(phi+12))
-      yl1 = takeoff.Complete.Y - lRW/2 * math.sin(math.rad(phi+12))
-      
-      xl2 = takeoff.Complete.X - lRW * math.cos(math.rad(phi+12))
-      yl2 = takeoff.Complete.Y - lRW * math.sin(math.rad(phi+12))
+	 xr2 = takeoff.Complete.X - lRW * math.cos(math.rad(phi-12))
+	 yr2 = takeoff.Complete.Y - lRW * math.sin(math.rad(phi-12))
+	 
+	 xl1 = takeoff.Complete.X - lRW/2 * math.cos(math.rad(phi+12))
+	 yl1 = takeoff.Complete.Y - lRW/2 * math.sin(math.rad(phi+12))
+	 
+	 xl2 = takeoff.Complete.X - lRW * math.cos(math.rad(phi+12))
+	 yl2 = takeoff.Complete.Y - lRW * math.sin(math.rad(phi+12))
+      end
       
       lcd.drawCircle(toXPixel(xr1, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(yr1, map.Ymin, map.Yrange, windowHeight), 3)      
@@ -1465,10 +1481,11 @@ local function loop()
    end
    if brk and brk > 0 then
       takeoff.BrakeReleaseTime = 0
-      takeoff.Start.X = nil  -- do we really want to erase the runway when the brakes go back on?
+      takeoff.Start.X = nil  -- erase the runway when the brakes go back on
       takeoff.Complete.X = nil
       takeoff.RunwayHeading = nil
       takeoff.NeverAirborne = true
+      xr1 = nil -- recompute ILS points when new rwy coords
    end
    if brk  then
       takeoff.oldBrake = brk
@@ -1535,7 +1552,14 @@ local function init()
       end
    end
 
-   local fg = io.readall("Apps/DFM-LSO.jsn")
+   local fg = io.readall("Apps/DFM-LSO-Shapes.jsn")
+   if fg then
+      shapes = json.decode(fg)
+   else
+      print("Could not open Apps/DFM-LSO-Shapes.jsn")
+   end
+
+   local fg = io.readall("Apps/DFM-LSO-Fields.jsn")
    if fg then
       geo = json.decode(fg)
    end
@@ -1558,6 +1582,9 @@ local function init()
    system.registerTelemetry(1, "LSO Map", 4, mapPrint)
    system.registerTelemetry(2, "LSO ILS", 4, ilsPrint)
    glideSlopePNG = lcd.loadImage("Img/glideslope.png")
+   
+   print("Model: ", system.getProperty("Model"))
+   print("Model File: ", system.getProperty("ModelFile"))
     
    system.playFile('L_S_O_active.wav', AUDIO_QUEUE)
    
