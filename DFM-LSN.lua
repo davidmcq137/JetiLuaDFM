@@ -11,7 +11,7 @@
     
    Requires transmitter firmware 4.22 or higher.
     
-   Works in DS-24
+   Developed on DS-24, only tested on DS-24
 
    --------------------------------------------------------------------------------------------------
    DFM-LSO.lua released under MIT license by DFM 2018
@@ -24,6 +24,8 @@ collectgarbage()
 ------------------------------------------------------------------------------
 
 -- Persistent and global variables for entire progrem
+
+local LSOVersion = "1.2"
 
 local latitude
 local longitude
@@ -64,6 +66,7 @@ local map={}
 local path={}
 local bezierPath = {}
 
+local shapes = {}
 local rwy = {}
 local poi = {}
 local geo = {}
@@ -90,17 +93,20 @@ local GPSsensorPalist = { "..." }
 
 local sysTimeStart = system.getTimeCounter()
 
-local DEBUG = true -- if set to <true> will print to console the speech files and output
+local DEBUG = false -- if set to <true> will generate flightpath automatically for demo purposes
 local debugTime = 0
 local debugNext = 0
 local DEBUGLOG = true -- persistent state var for debugging (e.g. to print something in a loop only once)
 
 -- Read and set translations (out for now till we have translations, simplifies install)
 
---local trans11
+
+
+--[[
+local trans11
 
 local function setLanguage()
---[[
+   
     local lng=system.getLocale()
   local file = io.readall("Apps/Lang/DFM-TimA.jsn")
   local obj = json.decode(file)cd 
@@ -108,9 +114,32 @@ local function setLanguage()
     trans11 = obj[lng] or obj[obj.default]
   end
 --]]
+   
 end
 
---------------------------------------------------------------------------------
+--[[
+
+-- function to show all global variables .. uncomment for debug .. called from reset origin menu
+
+local seen={}
+function dump(t,i)
+	seen[t]=true
+	local s={}
+	local n=0
+	for k in pairs(t) do
+		n=n+1 s[n]=k
+	end
+	table.sort(s)
+	for k,v in ipairs(s) do
+		print(i,v)
+		v=t[v]
+		if type(v)=="table" and not seen[v] then
+			dump(v,i.."\t")
+		end
+	end
+end
+
+--]]
 
 -- Read available sensors for user to select - done once at startup
 -- Make separate lists for GPS lat and long sensors since they require different processing
@@ -118,44 +147,74 @@ end
 -- The labels and values for sensor.param work for the Jeti MGPS .. 
 -- Other GPSs have to be selected manually via the screen
 
+local satCountID = 0
+local satCountPa = 0
+local satCount = 0
+
+local satQualityID = 0
+local satQualityPa = 0
+local satQuality = 0
+
 local function readSensors()
+
+   local labelTxt
 
    local sensors = system.getSensors()
    for i, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
-	 if sensor.type ~= 9 then
-	    table.insert(sensorLalist, sensor.label)
-	    table.insert(sensorIdlist, sensor.id)
-	    table.insert(sensorPalist, sensor.param)
-	    table.insert(sensorUnlist, sensor.unit)
-	 else
-	    if ( (sensor.label == 'Latitude' and sensor.param == 2) or
-		 (sensor.label == 'Longitude'  and sensor.param == 3)  ) then
-	       table.insert(GPSsensorLalist, sensor.label)
-	       table.insert(GPSsensorIdlist, sensor.id)
-	       table.insert(GPSsensorPalist, sensor.param)
-	    else
-	       table.insert(sensorLalist, sensor.label)
-	       table.insert(sensorIdlist, sensor.id)
-	       table.insert(sensorPalist, sensor.param)
-	       table.insert(sensorUnlist, sensor.unit)
-	    end
-	    
-	    if sensor.label == 'Latitude' and sensor.param == 2 then
-	       telem.Latitude.Se = #GPSsensorLalist
-	       telem.Latitude.SeId = sensor.id
-	       telem.Latitude.SePa = sensor.param
-	    end
-	    if sensor.label == 'Longitude' and sensor.param == 3 then
+
+	 --[[
+	    Note:
+	    Digitech CTU Altitude is type 1, param 13 (vs. MGPS Altitude type 1, param 6)
+	    MSpeed Velocity (airspeed) is type 1, param 1
+	 
+	    Code below will put sensor names in the choose list and auto-assign the relevant
+	    selections for the Jeti MGPS, Digitech CTU and Jeti MSpeed
+	 --]]
+
+	 if sensor.param == 0 then -- it's a label
+	    labelTxt = sensor.label
+	    table.insert(sensorLalist, '--> '..sensor.label)
+	    table.insert(sensorIdlist, 0)
+	    table.insert(sensorPalist, 0)	    
+	 elseif sensor.type == 9 then  -- lat/long
+	    table.insert(GPSsensorLalist, sensor.label)
+	    table.insert(GPSsensorIdlist, sensor.id)
+	    table.insert(GPSsensorPalist, sensor.param)
+	    if (sensor.label == 'Longitude' and sensor.param == 3) then
 	       telem.Longitude.Se = #GPSsensorLalist
 	       telem.Longitude.SeId = sensor.id
 	       telem.Longitude.SePa = sensor.param
 	    end
+	    if (sensor.label == 'Latitude' and sensor.param == 2) then
+	       telem.Latitude.Se = #GPSsensorLalist
+	       telem.Latitude.SeId = sensor.id
+	       telem.Latitude.SePa = sensor.param
+	    end
+	 elseif sensor.type == 5 then -- date - ignore
+	   
+	 else  -- "regular" numeric
+
+	    table.insert(sensorLalist, sensor.label)
+	    table.insert(sensorIdlist, sensor.id)
+	    table.insert(sensorPalist, sensor.param)
+	    table.insert(sensorUnlist, sensor.unit)
+
+	    if sensor.label == 'Velocity' and sensor.param == 1 then
+  	       telem.SpeedNonGPS.Se = #sensorLalist
+	       telem.SpeedNonGPS.SeId = sensor.id
+	       telem.SpeedNonGPS.SePa = sensor.param
+	    end
+	    if sensor.label == 'Altitude' and sensor.param == 13 then
+  	       telem.BaroAlt.Se = #sensorLalist
+	       telem.BaroAlt.SeId = sensor.id
+	       telem.BaroAlt.SePa = sensor.param
+	    end	    
 	    if sensor.label == 'Altitude' and sensor.param == 6 then
   	       telem.Altitude.Se = #sensorLalist
 	       telem.Altitude.SeId = sensor.id
 	       telem.Altitude.SePa = sensor.param
-	    end	    	    
+	    end
 	    if sensor.label == 'Distance' and sensor.param == 7 then
 	       telem.DistanceGPS.Se = #sensorLalist
 	       telem.DistanceGPS.SeId = sensor.id
@@ -171,10 +230,20 @@ local function readSensors()
 	       telem.CourseGPS.SeId = sensor.id
 	       telem.CourseGPS.SePa = sensor.param
 	    end
+	    if sensor.label == 'SatCount' and sensor.param == 5 then -- remember these last two separately
+	       satCountID = sensor.id
+	       satCountPa = sensor.param
+	    end
+	    if sensor.label == 'Quality' and sensor.param == 4 then
+	       satQualityID = sensor.id
+	       satQualityPa = sensor.param
+	    end	    
+	    
 	 end
       end
    end
 end
+
 ----------------------------------------------------------------------
 
 -- Actions when settings changed
@@ -255,7 +324,7 @@ local function initForm()
 	BaroAlt="Select Baro Altimeter Sensor",
      }
 
-     local menuSelect2 = { -- non lat/long from GPS sensor
+     local menuSelect2 = { -- non lat/long but still from GPS sensor
 	Altitude ="Select GPS Altitude Sensor",
 	SpeedGPS="Select GPS Speed Sensor",
 	DistanceGPS="Select GPS Distance Sensor",
@@ -638,12 +707,17 @@ local function ilsPrint(windowWidth, windowHeight)
    drawAltitude()
    drawVario()   
 
+   local x = xtable[#xtable] or 0
+   local y = ytable[#ytable] or 0
+   
+   text=string.format("X,Y = %4d,%4d", x, y)
+   lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH, text, FONT_MINI)
+
    -- First compute determinants to see what side of the right and left lines we are on
    -- ILS course is between them -- also compute which side of the course we are on
 
    if #xtable >=1  and takeoff.RunwayHeading then
  
-
       dr = (xtable[#xtable]-xr1)*(yr2-yr1) - (ytable[#ytable]-yr1)*(xr2-xr1)
       dl = (xtable[#xtable]-xl1)*(yl2-yl1) - (ytable[#ytable]-yl1)*(xl2-xl1)
       dc = (xtable[#xtable]-takeoff.Start.X)*(takeoff.Complete.Y-takeoff.Start.Y) -
@@ -755,7 +829,7 @@ local function drawBezier(windowWidth, windowHeight)
 
    -- draw Bezier curve points computed in computeBezier()
 
-   if not bezierPath[1].x  then return end
+   if not bezierPath[1]  then return end
 
    ren:reset()
 
@@ -845,7 +919,6 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
 
    else
-
       local x = xtable[#xtable] or 0
       local y = ytable[#ytable] or 0
 
@@ -859,14 +932,17 @@ local function mapPrint(windowWidth, windowHeight)
       end
       
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
-            
-
    end
 
-      
    lcd.drawText(70-lcd.getTextWidth(FONT_MINI, "N") / 2, 14, "N", FONT_MINI)
    drawShape(70, 20, shapes.arrow, math.rad(-1*variables.rotationAngle))
    lcd.drawCircle(70, 20, 7)
+
+   text=string.format("%2d", satCount)
+   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 28, text, FONT_MINI)
+   
+   text=string.format("%.1f", satQuality)
+   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)   
 
    if takeoff.RunwayHeading then
       phi = (90-(takeoff.RunwayHeading-variables.magneticVar)+360)%360
@@ -960,11 +1036,14 @@ local function graphScale(x, y)
    
 end
 
+local long0, lat0, coslat0
+local rE = 21220539.7  -- 6371*1000*3.28084 radius of earth in ft, fudge factor of 1/0.985
+local rad = 180/math.pi
+
 local function initField()
 
    -- this function uses the GPS coords to see if we are near a known flying field in the jsn file
    -- and if it finds one, imports the field's properties 
-   
    if long0 and lat0 then -- if location was detected by the GPS system
       for i=1, #geo.fields, 1 do -- see if we are near a known field (lat and long within ~ a mile)
 	 if (math.abs(lat0 - geo.fields[i].runway.lat) < 1/60) -- 1/60 = 1 minute of arc
@@ -974,13 +1053,14 @@ local function initField()
 	    lat0  = geo.fields[iField].runway.lat
 	    coslat0 = math.cos(math.rad(lat0))
 	    variables.rotationAngle = geo.fields[iField].runway.trueDir-270 -- draw rwy along x axis
-	    for i=1, #geo.fields[iField].POI,1 do
-	       poi[i] = {x=rE*(geo.fields[iField].POI[i].long-long0)*coslat0/rad,
-			 y=rE*(geo.fields[iField].POI[i].lat-lat0)/rad}
-	       poi[i].x, poi[i].y = rotateXY(poi[i].x, poi[i].y, math.rad(variables.rotationAngle))
-	       -- graphScale(poi[i].x, poi[i].y) -- maybe note in POI coords jsn if should autoscale or not?
+	    if geo.fields[iField].POI then
+	       for i=1, #geo.fields[iField].POI,1 do
+		  poi[i] = {x=rE*(geo.fields[iField].POI[i].long-long0)*coslat0/rad,
+			    y=rE*(geo.fields[iField].POI[i].lat-lat0)/rad}
+		  poi[i].x, poi[i].y = rotateXY(poi[i].x, poi[i].y, math.rad(variables.rotationAngle))
+		  -- graphScale(poi[i].x, poi[i].y) -- maybe note in POI coords jsn if should autoscale or not?
+	       end
 	    end
-	    
 	    if (geo and iField) then -- if we read the jsn file then extract the info from it
       
 	       rwy[1] = {x=-geo.fields[iField].runway.width/2,  y=-geo.fields[iField].runway.length/2}
@@ -1011,10 +1091,8 @@ end
 local lastlat = 0
 local lastlong = 0
 local gotInitPos = false
-local long0, lat0, coslat0
 local blocked = false
 local timS = "0"
-local rE = 21220539.7  -- 6371*1000*3.28084 radius of earth in ft, fudge factor of 1/0.985
 local compcrs
 local compcrsDeg = 0
 local vviAlt = {}
@@ -1030,7 +1108,6 @@ local speedTime = 0
 local numGPSreads = 0
 local timeRO = 0
 local newPosTime = 0
-local rad = 180/math.pi
 
 local function loop()
 
@@ -1072,7 +1149,9 @@ local function loop()
       baroAltZero = altitude
 
       print("Reset origin and barometric altitude. New baroAltZero is ", baroAltZero)
-      
+
+--    dump(_G,"") -- print all globals for debuging
+
       if ff then io.close(ff) end
    end
 
@@ -1185,7 +1264,7 @@ local function loop()
 	 SpeedGPS = sensor.value * 2.23694
       end
    end
-   
+
    sensor = system.getSensorByID(telem.DistanceGPS.SeId, telem.DistanceGPS.SePa)
    
    if(sensor and sensor.valid) then
@@ -1198,6 +1277,17 @@ local function loop()
       courseGPS = sensor.value
       hasCourseGPS = true
    end
+
+   sensor = system.getSensorByID(satCountID, satCountPa)
+   if sensor and sensor.valid then
+      satCount = sensor.value
+   end
+
+   sensor = system.getSensorByID(satQualityID, satQualityPa)
+   if sensor and sensor.valid then
+      satQuality = sensor.value
+   end   
+
    
    -- only recompute when lat and long have changed
    
@@ -1244,7 +1334,7 @@ local function loop()
    -- throw away first 10 GPS readings to let unit settle
    numGPSreads = numGPSreads + 1
    if numGPSreads <= 10 then 
-      print("Discarding reading: ", numGPSreads, latitude, longitude, goodlat, goodlong)
+      -- print("Discarding reading: ", numGPSreads, latitude, longitude, goodlat, goodlong)
       return
    end
    
@@ -1499,8 +1589,8 @@ local function init()
    system.registerTelemetry(2, "LSO ILS", 4, ilsPrint)
    glideSlopePNG = lcd.loadImage("Img/glideslope.png")
    
-   print("Model: ", system.getProperty("Model"))
-   print("Model File: ", system.getProperty("ModelFile"))
+   -- print("Model: ", system.getProperty("Model"))
+   -- print("Model File: ", system.getProperty("ModelFile"))
     
    system.playFile('L_S_O_active.wav', AUDIO_QUEUE)
    
@@ -1512,7 +1602,6 @@ local function init()
 end
 
 
-LSOVersion = "1.2"
-setLanguage()
+-- setLanguage()
 collectgarbage()
 return {init=init, loop=loop, author="DFM", version=LSOVersion, name="GPS LSO"}
