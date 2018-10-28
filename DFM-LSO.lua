@@ -17,6 +17,14 @@
    DFM-LSO.lua released under MIT license by DFM 2018
    --------------------------------------------------------------------------------------------------
 
+   Work items:
+
+   - initialization of map to +/- 200 x +/- 400 -- seems to happen in several places. rationalize
+   - rotationAngle not working correctly with selected iField .. set to 90 and set back .. messes up 
+     north pointer, does not rotate runway. do we want to do both iField and manual rotation...
+   - figure out a nicer way to do log file replays
+   - any optimization of CPU% possible? 20% seems high. only 8% with no GPS data to plot
+
 --]]
 
 collectgarbage()
@@ -98,11 +106,10 @@ local debugTime = 0
 local debugNext = 0
 local DEBUGLOG = true -- persistent state var for debugging (e.g. to print something in a loop only once)
 
+--[[
+
 -- Read and set translations (out for now till we have translations, simplifies install)
 
-
-
---[[
 local trans11
 
 local function setLanguage()
@@ -194,7 +201,7 @@ local function readSensors()
 	    end
 	 elseif sensor.type == 5 then -- date - ignore
 	   
-	 else  -- "regular" numeric
+	 else  -- "regular" numeric sensor
 
 	    table.insert(sensorLalist, sensor.label)
 	    table.insert(sensorIdlist, sensor.id)
@@ -292,9 +299,9 @@ local function resetOriginChanged(value)
       form.setValue(resetCompIndex, resetClick)
       resetOrigin=true
       timeRO = system.getTimeCounter()
-      print("mem before: ", collectgarbage("count"))
+      print("GC Memory before: ", collectgarbage("count"))
       collectgarbage()
-      print("mem after: ", collectgarbage("count"))
+      print("GC Memory after: ", collectgarbage("count"))
    end
 end
 
@@ -581,12 +588,6 @@ local function drawHeading()
 	 end
       end
    end 
-   
-   local tyH = type(heading)
-   if tyH ~= 'number' then
-      print('non number type to format heading, type, heading')
-      print(tyH, heading)
-   end
    
    text = string.format("%03d",heading)
    w = lcd.getTextWidth(FONT_NORMAL,text) 
@@ -1012,10 +1013,10 @@ end
 local function graphScale(x, y)
 
    if not map.Xmax then
-      map.Xmax=   200
-      map.Xmin = -200
-      map.Ymax =  100
-      map.Ymin = -100
+      map.Xmax=   400
+      map.Xmin = -400
+      map.Ymax =  200
+      map.Ymin = -200
    end
    
    if x > path.xmax then path.xmax = x end
@@ -1023,7 +1024,7 @@ local function graphScale(x, y)
    if y > path.ymax then path.ymax = y end
    if y < path.ymin then path.ymin = y end
    
-   map.Xrange = math.floor((path.xmax-path.xmin)/200 + .5) * 200 -- telemetry screens are 320x160 or 2:1
+   map.Xrange = math.floor((path.xmax-path.xmin)/200 + .5) * 200 -- use 2:1 aspect ratio
    map.Yrange = math.floor((path.ymax-path.ymin)/100 + .5) * 100
    
    if map.Yrange > map.Xrange/(2) then
@@ -1140,10 +1141,10 @@ local function loop()
       form.setValue(resetCompIndex, resetClick) -- prob should double check same form still displayed...
 
       -- reset map window too
-      map.Xmax=   200
-      map.Xmin = -200
-      map.Ymax =  100
-      map.Ymin = -100
+      map.Xmax=   400
+      map.Xmin = -400
+      map.Ymax =  200
+      map.Ymin = -200
       
       path.xmin = map.Xmin
       path.xmax = map.Xmax
@@ -1539,16 +1540,26 @@ local ff, fd
 
 local function init()
 
-   map.Xmin, map.Xmax = -200, 200
-   map.Ymin, map.Ymax = -100, 100
+   local fname
+   map.Xmin, map.Xmax = -400, 400
+   map.Ymin, map.Ymax = -200, 200
    map.Xrange = map.Xmax - map.Xmin
    map.Yrange = map.Ymax - map.Ymin
    path.xmin, path.xmax, path.ymin, path.ymax = map.Xmin, map.Xmax, map.Ymin, map.Ymax
-   
-   -- try opening the csv file for debugging .. if it exists assume we are
-   -- doing a playback. If it does exist then, we are actually running, open a file for logging
 
-   fd=io.open("DFM-LSO.csv", "r")
+--[[
+ 
+try opening the csv file for debugging .. we just give it a magic name for now. if it exists assume we will
+do a playback. this is a kludge .. experimenting with pSave/pLoad of last log file but how to best ask if it 
+should be replayed? Always ask and default to no? Initiate from a menu (hard to do since already running 
+at that point)
+
+--]]
+   
+   fname = system.pLoad("LogFile","...")
+   print("Saved LogFile: ", fname)
+   
+   fd=io.open("DFM-LSO.csv", "r") -- "magic" name
 
    if fd then
       form.question("Start replay?", "log file DFM-LSO.csv", "---", 0, true, 0)
@@ -1560,6 +1571,7 @@ local function init()
 				  dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)
 	 ff=io.open(fn, "w")
 	 print("Opening for writing csv log file: ", fn)
+	 system.pSave("LogFile", fn)
       end
    end
 
