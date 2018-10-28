@@ -798,12 +798,11 @@ local function binom(n, k)
    -- compute binomial coefficients to then compute the Bernstein polynomials for Bezier
    -- n will always be MAXTABLE-1
    -- as we compute for each k, remember in a table and save
+   -- for MAXTABLE = 5, there are only ever 3 values needed (!)
    
-   local b
-
    if n ~= MAXTABLE-1 then return 0 end
 
-   if k > n then return nil end
+   if k > n then return 0  end
    if k > n/2 then k = n - k end -- because (n k) = (n n-k) by symmetry
    
    if binomC[k] then return binomC[k] end
@@ -815,10 +814,10 @@ local function binom(n, k)
       denom = denom * i
    end
 
-   b = numer / denom
-   binomC[k] = b
+
+   binomC[k] = numer / denom
    
-   return b
+   return binomC[k]
 end
 
 local function computeBezier(numT)
