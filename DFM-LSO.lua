@@ -101,7 +101,7 @@ local GPSsensorPalist = { "..." }
 
 local sysTimeStart = system.getTimeCounter()
 
-local DEBUG = true -- if set to <true> will generate flightpath automatically for demo purposes
+local DEBUG = false -- if set to <true> will generate flightpath automatically for demo purposes
 local debugTime = 0
 local debugNext = 0
 local DEBUGLOG = true -- persistent state var for debugging (e.g. to print something in a loop only once)
@@ -1098,6 +1098,7 @@ local lastlat = 0
 local lastlong = 0
 local gotInitPos = false
 local blocked = false
+local fd
 local timS = "0"
 local compcrs
 local compcrsDeg = 0
@@ -1529,7 +1530,7 @@ local function loop()
    end
 end
 
-local ff, fd
+local ff
 
 local function init()
 
@@ -1555,8 +1556,13 @@ at that point)
    fd=io.open("Apps/DFM-LSO/DFM-LSO.csv", "r") -- "magic" name
 
    if fd then
-      form.question("Start replay?", "log file DFM-LSO.csv", "---", 0, true, 0)
-      print("Opened log file DFM-LSO.csv for reading")
+      if form.question("Start replay?", "log file DFM-LSO.csv", "---",2000, false, 0) == 1 then
+	 print("Opened log file Apps/DFM-LSO/DFM-LSO.csv for reading")
+      else
+	 print("No replay")
+	 io.close(fd)
+	 fd = nil
+      end
    else
       if DEBUG == false then
 	 local dt = system.getDateTime()
