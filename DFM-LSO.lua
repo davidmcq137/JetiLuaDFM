@@ -114,12 +114,12 @@ local trans11
 
 local function setLanguage()
    
-    local lng=system.getLocale()
-  local file = io.readall("Apps/Lang/DFM-TimA.jsn")
-  local obj = json.decode(file)cd 
-  if(obj) then
-    trans11 = obj[lng] or obj[obj.default]
-  end
+   local lng=system.getLocale()
+   local file = io.readall("Apps/DFM-LSO/Languages.jsn")
+   local obj = json.decode(file)cd 
+   if(obj) then
+      trans11 = obj[lng] or obj[obj.default]
+   end
 end
 
 --]]
@@ -713,7 +713,7 @@ local function ilsPrint(windowWidth, windowHeight)
    local y = ytable[#ytable] or 0
    
    text=string.format("X,Y = %4d,%4d", x, y)
-   lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH, text, FONT_MINI)
+   lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-60, heightAH-17, text, FONT_MINI)
 
    -- First compute determinants to see what side of the right and left lines we are on
    -- ILS course is between them -- also compute which side of the course we are on
@@ -1190,7 +1190,7 @@ local function loop()
       
       tt = io.readline(fd, tt)
       if tt then
-	 timS, latS, lonS, altS, spdS = string.match(tt,
+	 timS, latS, lonS, altS, spdS = string.match(tt, -- next string reads csv data -- really! :-)
 	 "(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)"
 	 )
 	 latitude = tonumber(latS)
@@ -1476,20 +1476,13 @@ local function loop()
       end
    end
    
-   
-   -- ss2 = string.format("%.0f, %.0f, %.0f, %.0f, %.0f, %.0f", #xtable, x, y, altitude, heading, compcrsDeg)
-   -- print(ss2)
-   
-   -- system.getInputs for thr and brake
-   -- monitor brake release, throttle up, takeoff roll, actual takeoff
-
    if (controls.Brake) then
       brk = system.getInputsVal(controls.Brake)
    end
    if brk and brk < 0 and takeoff.oldBrake > 0 then
       takeoff.BrakeReleaseTime = system.getTimeCounter()
       print("Brake release")
-      system.playFile("brakes_released.wav", AUDIO_QUEUE)
+      system.playFile("Apps/DFM-LSO/brakes_released.wav", AUDIO_QUEUE)
    end
    if brk and brk > 0 then
       takeoff.BrakeReleaseTime = 0
@@ -1514,7 +1507,7 @@ local function loop()
 	 takeoff.Start.Z = altitude-baroAltZero
 	 takeoff.ReleaseHeading = compcrsDeg + variables.magneticVar
 	 print("Takeoff Start")
-	 system.playFile("starting_takeoff_roll.wav", AUDIO_QUEUE)
+	 system.playFile("Apps/DFM-LSO/starting_takeoff_roll.wav", AUDIO_QUEUE)
       end
    end
    if thr then takeoff.oldThrottle = thr end
@@ -1530,7 +1523,7 @@ local function loop()
 	 takeoff.RunwayHeading = math.deg(rDeg) + variables.magneticVar
 	 print("Runway length: ", math.sqrt((takeoff.Complete.X-takeoff.Start.X)^2 +
 		     (takeoff.Complete.Y-takeoff.Start.Y)^2))
-	 system.playFile("takeoff_complete.wav", AUDIO_QUEUE)
+	 system.playFile("Apps/DFM-LSO/takeoff_complete.wav", AUDIO_QUEUE)
 	 system.playNumber(heading, 0, "\u{B0}")
       end
    end
@@ -1559,7 +1552,7 @@ at that point)
    fname = system.pLoad("LogFile","...")
    print("Saved LogFile: ", fname)
    
-   fd=io.open("DFM-LSO.csv", "r") -- "magic" name
+   fd=io.open("Apps/DFM-LSO/DFM-LSO.csv", "r") -- "magic" name
 
    if fd then
       form.question("Start replay?", "log file DFM-LSO.csv", "---", 0, true, 0)
@@ -1567,7 +1560,7 @@ at that point)
    else
       if DEBUG == false then
 	 local dt = system.getDateTime()
-	 local fn = string.format("GPS-LSO-%d%02d%02d-%d%02d%02d.csv",
+	 local fn = string.format("Log/DFM-LSO-%d%02d%02d-%d%02d%02d.csv",
 				  dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)
 	 ff=io.open(fn, "w")
 	 print("Opening for writing csv log file: ", fn)
@@ -1575,14 +1568,14 @@ at that point)
       end
    end
 
-   local fg = io.readall("Apps/DFM-LSO-Shapes.jsn")
+   local fg = io.readall("Apps/DFM-LSO/Shapes.jsn")
    if fg then
       shapes = json.decode(fg)
    else
-      print("Could not open Apps/DFM-LSO-Shapes.jsn")
+      print("Could not open Apps/DFM-LSO/Shapes.jsn")
    end
 
-   local fg = io.readall("Apps/DFM-LSO-Fields.jsn")
+   local fg = io.readall("Apps/DFM-LSO/Fields.jsn")
    if fg then
       geo = json.decode(fg)
    end
@@ -1604,12 +1597,12 @@ at that point)
    system.registerForm(1, MENU_APPS, "Landing Signal Officer", initForm, nil, nil)
    system.registerTelemetry(1, "LSO Map", 4, mapPrint)
    system.registerTelemetry(2, "LSO ILS", 4, ilsPrint)
-   glideSlopePNG = lcd.loadImage("Img/glideslope.png")
+   glideSlopePNG = lcd.loadImage("Apps/DFM-LSO/glideslope.png")
    
    -- print("Model: ", system.getProperty("Model"))
    -- print("Model File: ", system.getProperty("ModelFile"))
     
-   system.playFile('L_S_O_active.wav', AUDIO_QUEUE)
+   system.playFile('Apps/DFM-LSO/L_S_O_active.wav', AUDIO_QUEUE)
    
    if DEBUG then
       print('L_S_O_Active.wav')
