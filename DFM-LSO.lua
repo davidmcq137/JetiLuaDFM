@@ -101,7 +101,7 @@ local GPSsensorPalist = { "..." }
 
 local sysTimeStart = system.getTimeCounter()
 
-local DEBUG = false -- if set to <true> will generate flightpath automatically for demo purposes
+local DEBUG = true -- if set to <true> will generate flightpath automatically for demo purposes
 local debugTime = 0
 local debugNext = 0
 local DEBUGLOG = true -- persistent state var for debugging (e.g. to print something in a loop only once)
@@ -383,7 +383,6 @@ local function initForm()
      
      form.addRow(1)
      form.addLabel({label="DFM - v."..LSOVersion.." ", font=FONT_MINI, alignRight=true})
-     
   else
      
      form.addRow(1)
@@ -792,19 +791,34 @@ local function ilsPrint(windowWidth, windowHeight)
    end
 end
 
+local binomC = {}
+
 local function binom(n, k)
    
    -- compute binomial coefficients to then compute the Bernstein polynomials for Bezier
+   -- n will always be MAXTABLE-1
+   -- as we compute for each k, remember in a table and save
+   
+   local b
+
+   if n ~= MAXTABLE-1 then return 0 end
 
    if k > n then return nil end
    if k > n/2 then k = n - k end -- because (n k) = (n n-k) by symmetry
    
+   if binomC[k] then return binomC[k] end
+
    numer, denom = 1, 1
+
    for i = 1, k do
       numer = numer * ( n - i + 1 )
       denom = denom * i
    end
-   return numer / denom
+
+   b = numer / denom
+   binomC[k] = b
+   
+   return b
 end
 
 local function computeBezier(numT)
@@ -877,7 +891,7 @@ local function mapPrint(windowWidth, windowHeight)
    local lRW
    local phi
    local text
-   
+
    r, g, b = lcd.getFgColor()
    lcd.setColor(r, g, b)
 
@@ -1134,6 +1148,8 @@ local function loop()
    
    goodlat = false
    goodlong = false
+
+   -- keep the checkmark on the menu for 300 msec
    
    if resetOrigin and (system.getTimeCounter() > (timeRO+300)) then
       gotInitPos = false
@@ -1157,7 +1173,7 @@ local function loop()
 
       print("Reset origin and barometric altitude. New baroAltZero is ", baroAltZero)
 
---    dump(_G,"") -- print all globals for debuging
+--    dump(_G,"") -- print all globals for debugging
 
       if ff then io.close(ff) end
    end
