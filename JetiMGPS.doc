@@ -1,0 +1,19 @@
+MGPS telemetry sensor info
+
+value  	       type	param
+MGPS   	       0	0
+TimeStamp      5	1
+Latitude       9	2
+Longitude      9	3
+Quality	       0	4
+SatCount       0	5
+Altitude       1	6
+Distance       4	7
+Speed	       1	8
+AltRelat       1	9
+Course	       1	10
+Azimuth	       1	11
+Impulse	       1	12
+Trip	       4	13
+Date	       5	14
+
