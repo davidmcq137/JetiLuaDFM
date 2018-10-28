@@ -40,7 +40,8 @@ Once the aircraft has reached 50' altitude (AGL) it will then draw a second circ
 
 As the airplane files, a trail of 6 past positions is kept as a "comet tail". These points are fit with a Bezier curve to offer
 a nicer visualization of the aircraft's flight path. As you may note, the little aircraft shape changes color if the ILS course 
-has beenb established .. it turns green when with the "cone" of the ILS in the XY plane.
+has beenb established .. it turns green when with the "cone" of the ILS in the XY plane. I kind of like the T-38ish shape for
+the aircraft, but of course you can edit Shapes.jsn if you prefer something else.
 
 As the program executes, it also saves its own log file in the Log directory. The program can play that file back if desired. 
 Check the source code for how to do that. Best done on the emulator...
