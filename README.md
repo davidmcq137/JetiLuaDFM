@@ -43,5 +43,7 @@ a nicer visualization of the aircraft's flight path. As you may note, the little
 has beenb established .. it turns green when with the "cone" of the ILS in the XY plane. I kind of like the T-38ish shape for
 the aircraft, but of course you can edit Shapes.jsn if you prefer something else.
 
+The map automatically zooms out as the flight path of the aircraft requires it, there is no way at present to do this manually. The program wakes up with an 800x400' window.
+
 As the program executes, it also saves its own log file in the Log directory. The program can play that file back if desired. 
 Check the source code for how to do that. Best done on the emulator...
