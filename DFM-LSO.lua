@@ -125,7 +125,7 @@ end
 --]]
    
 
---[[
+---[[
 
 -- function to show all global variables .. uncomment for debug .. called from reset origin menu
 
@@ -303,92 +303,123 @@ local function resetOriginChanged(value)
       collectgarbage()
       print("GC Memory after: ", collectgarbage("count"))
    end
+   DEBUG = false -- in case we forget and ship a version with DEBUG = true to the TX!
+end
+
+local function logFileChanged(value, fn)
+   -- print("Saving: ", string.match(fn[value], "(%S+)"))
+   system.pSave("logPlayBack", string.match(fn[value], "(%S+)")) -- remove file size from string
 end
 
 --------------------------------------------------------------------------------
 
 -- Draw the main form (Application inteface)
 
-local function initForm()
+local function initForm(subform)
 
-  if (tonumber(system.getVersion()) >= 4.22) then
+   if subform == 1 then
 
-     local menuInput = {Throttle = "Select Throttle Control", Brake = "Select Brake Control"}
+      if (tonumber(system.getVersion()) >= 4.22) then
+	 
+	 local menuInput = {Throttle = "Select Throttle Control", Brake = "Select Brake Control"}
+      
+	 for var, txt in pairs(menuInput) do
+	    form.addRow(2)
+	    form.addLabel({label=txt, width=220})
+	    form.addInputbox(controls.Throttle, true,
+			     (function(x) return controlChanged(x, var) end) )
+	 end
+	 
+	 local menuSelectGPS = { -- for lat/long only
+	    Longitude="Select GPS Longitude Sensor",
+	    Latitude ="Select GPS Latitude Sensor",
+	 }
+	 
+	 local menuSelect1 = { -- not from the GPS sensor
+	    SpeedNonGPS="Select Pitot Speed Sensor",
+	    BaroAlt="Select Baro Altimeter Sensor",
+	 }
+	 
+	 local menuSelect2 = { -- non lat/long but still from GPS sensor
+	    Altitude ="Select GPS Altitude Sensor",
+	    SpeedGPS="Select GPS Speed Sensor",
+	    DistanceGPS="Select GPS Distance Sensor",
+	    CourseGPS="Select GPS Course Sensor",
+	 }     
+	 
+	 for var, txt in pairs(menuSelect1) do
+	    form.addRow(2)
+	    form.addLabel({label=txt, width=220})
+	    form.addSelectbox(sensorLalist, telem[var].Se, true,
+			      (function(x) return sensorChanged(x, var, false) end) )
+	 end
+	 
+	 for var, txt in pairs(menuSelectGPS) do
+	    form.addRow(2)
+	    form.addLabel({label=txt, width=220})
+	    form.addSelectbox(GPSsensorLalist, telem[var].Se, true,
+			      (function(x) return sensorChanged(x, var, true) end) )
+	 end
+	 
 
-     for var, txt in pairs(menuInput) do
-	form.addRow(2)
-	form.addLabel({label=txt, width=220})
-	form.addInputbox(controls.Throttle, true,
-			 (function(x) return controlChanged(x, var) end) )
-     end
-     
-     local menuSelectGPS = { -- for lat/long only
-	Longitude="Select GPS Longitude Sensor",
-	Latitude ="Select GPS Latitude Sensor",
-     }
+	 for var, txt in pairs(menuSelect2) do
+	    form.addRow(2)
+	    form.addLabel({label=txt, width=220})
+	    form.addSelectbox(sensorLalist, telem[var].Se, true,
+			      (function(x) return sensorChanged(x, var, false) end) )
+	 end
+	 
+	 
+	 -- not worth it do to a loop with a menu item table for Intbox due to the
+	 -- variation in defaults etc nor for addCheckbox due to specialized nature
+	 
+	 form.addRow(2)
+	 form.addLabel({label="Map Rotation (\u{B0}CCW)", width=220})
+	 form.addIntbox(variables.rotationAngle, 0, 359, 0, 0, 1,
+			(function(x) return variableChanged(x, "rotationAngle") end) )
+	 
+	 -- decomission magneticVar for now .. reconsider if we want this functionality
+	 -- let if default to zero
+	 
+	 --    form.addRow(2)
+	 --    form.addLabel({label="Local Magnetic Var (\u{B0}W)", width=220})
+	 --    form.addIntbox(variables.magneticVar, -30, 30, -13, 0, 1,
+	 --                   (function(x) return variableChanged(x, "magneticVar") end) )
+	 
+	 form.addRow(2)
+	 form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
+	 resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
+      
 
-     local menuSelect1 = { -- not from the GPS sensor
-	SpeedNonGPS="Select Pitot Speed Sensor",
-	BaroAlt="Select Baro Altimeter Sensor",
-     }
+	 form.addLink((function() form.reinit(2) end), {label="Select File for Replay on next Startup"})
+	 
+	 
+	 form.addRow(1)
+	 form.addLabel({label="DFM - v."..LSOVersion.." ", font=FONT_MINI, alignRight=true})
+      else
+	 
+	 form.addRow(1)
+	 form.addLabel({label="Please update, min. fw 4.22 required"})
+	 
+      end
+   elseif subform == 2 then
 
-     local menuSelect2 = { -- non lat/long but still from GPS sensor
-	Altitude ="Select GPS Altitude Sensor",
-	SpeedGPS="Select GPS Speed Sensor",
-	DistanceGPS="Select GPS Distance Sensor",
-	CourseGPS="Select GPS Course Sensor",
-     }     
-     
-     for var, txt in pairs(menuSelect1) do
-	form.addRow(2)
-	form.addLabel({label=txt, width=220})
-	form.addSelectbox(sensorLalist, telem[var].Se, true,
-		       (function(x) return sensorChanged(x, var, false) end) )
-     end
+      form.addLink((function() form.reinit(1) end), {label = "Back to main menu",font=FONT_BOLD})
+      local i = 0
+      local fns={}
 
-     for var, txt in pairs(menuSelectGPS) do
-	form.addRow(2)
-	form.addLabel({label=txt, width=220})
-	form.addSelectbox(GPSsensorLalist, telem[var].Se, true,
-		       (function(x) return sensorChanged(x, var, true) end) )
-     end
+      for fname, ftype, fsize in dir("/Log") do
+	 if ftype == 'file' then -- and fsize ~= 0 then
+	    i = i + 1
+	    fns[i] = string.format("%s  %s", fname, fsize)
+	 end
+      end
 
-     for var, txt in pairs(menuSelect2) do
-	form.addRow(2)
-	form.addLabel({label=txt, width=220})
-	form.addSelectbox(sensorLalist, telem[var].Se, true,
-		       (function(x) return sensorChanged(x, var, false) end) )
-     end
-
-
-     -- not worth it do to a loop with a menu item table for Intbox due to the
-     -- variation in defaults etc nor for addCheckbox due to specialized nature
-     
-     form.addRow(2)
-     form.addLabel({label="Map Rotation (\u{B0}CCW)", width=220})
-     form.addIntbox(variables.rotationAngle, 0, 359, 0, 0, 1,
-		    (function(x) return variableChanged(x, "rotationAngle") end) )
-     
-     -- decomission magneticVar for now .. reconsider if we want this functionality
-     -- let if default to zero
-     
-     --    form.addRow(2)
-     --    form.addLabel({label="Local Magnetic Var (\u{B0}W)", width=220})
-     --    form.addIntbox(variables.magneticVar, -30, 30, -13, 0, 1,
-     --                   (function(x) return variableChanged(x, "magneticVar") end) )
-
-     form.addRow(2)
-     form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
-     resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
-     
-     form.addRow(1)
-     form.addLabel({label="DFM - v."..LSOVersion.." ", font=FONT_MINI, alignRight=true})
-  else
-     
-     form.addRow(1)
-     form.addLabel({label="Please update, min. fw 4.22 required"})
-     
-  end
+      form.addRow(2)
+      form.addLabel({label="Select Log File for Playback", width=220})
+      form.addSelectbox(fns, 0, true, (function(value) return logFileChanged(value, fns) end ) )
+      fns = nil -- release storage for file names ... no longer needed
+   end
 end
 
 -- Telemetry window draw functions
@@ -456,9 +487,7 @@ local function rotateXY(x, y, rotation)
    local sinShape, cosShape
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
-   xr = (x * cosShape - y * sinShape)
-   yr = (x * sinShape + y * cosShape)
-   return xr, yr
+   return (x * cosShape - y * sinShape), (x * sinShape + y * cosShape)
 end
 
 local txtr, txtg, txtb = 0,0,0
@@ -647,6 +676,7 @@ end
 local function fslope(x, y)
 
     local xbar, ybar, sxy, sx2 = 0,0,0,0
+    local theta, tt
     
     for i = 1, #x do
        xbar = xbar + x[i]
@@ -791,33 +821,34 @@ local function ilsPrint(windowWidth, windowHeight)
    end
 end
 
-local binomC = {}
+local binomC = {} -- array of binomial coefficients for n=MAXTABLE-1, indexed by k
 
 local function binom(n, k)
    
    -- compute binomial coefficients to then compute the Bernstein polynomials for Bezier
-   -- n will always be MAXTABLE-1
+   -- n will always be MAXTABLE-1 once past initialization
    -- as we compute for each k, remember in a table and save
-   -- for MAXTABLE = 5, there are only ever 3 values needed (!)
+   -- for MAXTABLE = 5, there are only ever 3 values needed in steady state: (4,0), (4,1), (4,2)
    
-   if n ~= MAXTABLE-1 then return 0 end
-
-   if k > n then return 0  end
+   if k > n then return nil end  -- error .. let caller die
    if k > n/2 then k = n - k end -- because (n k) = (n n-k) by symmetry
    
-   if binomC[k] then return binomC[k] end
+   if (n == MAXTABLE-1) and binomC[k] then return binomC[k] end
 
-   numer, denom = 1, 1
+   local numer, denom = 1, 1
 
    for i = 1, k do
       numer = numer * ( n - i + 1 )
       denom = denom * i
    end
 
-
-   binomC[k] = numer / denom
+   if n == MAXTABLE-1 then
+      binomC[k] = numer / denom
+      return binomC[k]
+   else
+      return numer / denom
+   end
    
-   return binomC[k]
 end
 
 local function computeBezier(numT)
@@ -827,14 +858,20 @@ local function computeBezier(numT)
    
    local px, py
    local t
+   local ti, oti
    local n = #xtable-1
-   
+
    for j = 0, numT, 1 do
       t = j / numT
       px, py = 0, 0
+      ti = 1 -- first loop t^i = 0^0 which lua says is 1
       for i = 0, n do
-	 px = px + binom(n, i)*t^i*(1-t)^(n-i)*xtable[i+1]
-	 py = py + binom(n, i)*t^i*(1-t)^(n-i)*ytable[i+1]
+	 -- px = px + binom(n, i)*t^i*(1-t)^(n-i)*xtable[i+1]
+	 -- py = py + binom(n, i)*t^i*(1-t)^(n-i)*ytable[i+1]
+	 oti = (1-t)^(n-i)
+	 px = px + binom(n, i)*ti*oti*xtable[i+1]
+	 py = py + binom(n, i)*ti*oti*ytable[i+1]
+	 ti = ti * t
       end
       bezierPath[j+1] = {x=px, y=py}
    end
@@ -1135,7 +1172,7 @@ local function loop()
    local x, y, xyslope
    local MAXVVITABLE = 5 -- points to fit to compute vertical speed
    local PATTERNALT = 200
-   local tt
+   local tt, dd
    local hasPitot
    local hasCourseGPS
    local sensor
@@ -1172,8 +1209,11 @@ local function loop()
 
       print("Reset origin and barometric altitude. New baroAltZero is ", baroAltZero)
 
---    dump(_G,"") -- print all globals for debugging
+      dump(_G,"") -- print all globals for debugging
+---[[
 
+--]]
+      
       if ff then io.close(ff) end
    end
 
@@ -1398,7 +1438,7 @@ local function loop()
    y = rE*(latitude-lat0)/rad
    
    -- update overall min and max for drawing the GPS
-   -- maintain same pixel size (in feet) in X and Y (screen is 320x160)
+   -- maintain same pixel size (in feet) in X and Y (telem screen is 320x160)
    -- map?xxxx are all in ft .. convert to pixels in telem draw function
    
    ::computedXY::   
@@ -1565,21 +1605,27 @@ at that point)
 
 --]]
    
-   fname = system.pLoad("LogFile","...")
-   print("Saved LogFile: ", fname)
+   fname = system.pLoad("logPlayBack", "...")
+   print("Saved LogFile for replay: ", fname)
    
-   fd=io.open("Apps/DFM-LSO/DFM-LSO.csv", "r") -- "magic" name
+   if fname ~= "..." then fd=io.open("Log/"..fname, "r") else 
+      fname = "DFM-LSO.csv" -- try magic name if running on emulator
+      fd = io.open("Apps/DFM-LSO/"..fname, "r")
+   end
+   
 
    if fd then
-      if form.question("Start replay?", "log file DFM-LSO.csv", "---",2000, false, 0) == 1 then
-	 print("Opened log file Apps/DFM-LSO/DFM-LSO.csv for reading")
+      if form.question("Start replay?", "log file "..fname, "---",4000, false, 0) == 1 then
+	 print("Opened log file "..fname.." for reading")
+	 system.pSave("logPlayBack", "...")
+	 DEBUG = false
       else
 	 print("No replay")
 	 io.close(fd)
 	 fd = nil
       end
    else
-      if DEBUG == false then
+      if DEBUG == false and not fd then
 	 local dt = system.getDateTime()
 	 local fn = string.format("Log/DFM-LSO-%d%02d%02d-%d%02d%02d.csv",
 				  dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)
