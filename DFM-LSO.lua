@@ -409,7 +409,7 @@ local function initForm(subform)
       local fns={}
 
       for fname, ftype, fsize in dir("/Log") do
-	 if ftype == 'file' then -- and fsize ~= 0 then
+	 if ftype == 'file' and fsize ~= 0 then
 	    i = i + 1
 	    fns[i] = string.format("%s  %s", fname, fsize)
 	 end
