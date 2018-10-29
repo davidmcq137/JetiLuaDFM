@@ -303,7 +303,7 @@ local function resetOriginChanged(value)
       collectgarbage()
       print("GC Memory after: ", collectgarbage("count"))
    end
-   DEBUG = false -- in case we forget and ship a version with DEBUG = true to the TX!
+   DEBUG = not DEBUG -- in case we forget and ship a version with DEBUG = true to the TX!
 end
 
 local function logFileChanged(value, fn)
@@ -1118,16 +1118,12 @@ local function initField()
 	       end
 	    end
 	    if (geo and iField) then -- if we read the jsn file then extract the info from it
-      
-	       rwy[1] = {x=-geo.fields[iField].runway.width/2,  y=-geo.fields[iField].runway.length/2}
-	       rwy[2] = {x=-geo.fields[iField].runway.width/2,  y= geo.fields[iField].runway.length/2}
-	       rwy[3] = {x= geo.fields[iField].runway.width/2,  y= geo.fields[iField].runway.length/2}
-	       rwy[4] = {x= geo.fields[iField].runway.width/2,  y=-geo.fields[iField].runway.length/2}
-	       rwy[5] = {x=-geo.fields[iField].runway.width/2,  y=-geo.fields[iField].runway.length/2}
 	       
-	       for i=1, 5, 1 do
-		  rwy[i].x, rwy[i].y  =
-		     rotateXY(rwy[i].x, rwy[i].y, math.rad(90) )
+	       -- build the rectangle for the runway, make a closed shape, scale to 2x size
+
+	       for i,j in ipairs({ {x=-1,y=-1},{x=-1,y=1},{x=1,y=1},{x=1,y=-1},{x=-1,y=-1} }) do
+		  rwy[i] = {x=j.x * geo.fields[iField].runway.length/2,
+			    y=j.y * geo.fields[iField].runway.width/2}
 		  graphScale(2*rwy[i].x, 2*rwy[i].y)
 	       end
 	    end   
@@ -1609,13 +1605,13 @@ at that point)
    print("Saved LogFile for replay: ", fname)
    
    if fname ~= "..." then fd=io.open("Log/"..fname, "r") else 
-      fname = "DFM-LSO.csv" -- try magic name if running on emulator
+      fname = "DFM-LSO.csv" -- try magic name if running on emulator since dir() does not work there%^&$%@
       fd = io.open("Apps/DFM-LSO/"..fname, "r")
    end
    
 
    if fd then
-      if form.question("Start replay?", "log file "..fname, "---",4000, false, 0) == 1 then
+      if form.question("Start replay?", "log file "..fname, "---",2500, false, 0) == 1 then
 	 print("Opened log file "..fname.." for reading")
 	 system.pSave("logPlayBack", "...")
 	 DEBUG = false
@@ -1628,7 +1624,7 @@ at that point)
       if DEBUG == false and not fd then
 	 local dt = system.getDateTime()
 	 local fn = string.format("Log/DFM-LSO-%d%02d%02d-%d%02d%02d.csv",
-				  dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)
+				  dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)	
 	 ff=io.open(fn, "w")
 	 print("Opening for writing csv log file: ", fn)
 	 system.pSave("LogFile", fn)
