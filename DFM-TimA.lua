@@ -33,6 +33,7 @@ collectgarbage()
 -- Locals for application
 
 --local trans11
+local TimAnnVersion = "1.3"
 local gearSwitch
 local thrControl
 
@@ -188,9 +189,6 @@ local function initForm()
 
   if (tonumber(system.getVersion()) >= 4.22) then
 
-    form.addRow(1)
-    form.addLabel({label="---          Dave's Jeti Tools      ---",font=FONT_BIG})
-
     form.addRow(2)
     form.addLabel({label="Select Fuel Sensor", width=220})
     form.addSelectbox(sensorLalist, FuelSe, true, fuelsensorChanged)
@@ -228,6 +226,9 @@ end
 
 -- Telemetry window draw functions
 
+local ww1max, ww2max = 0, 0
+local aa1max, aa2max = 0, 0
+
 local function timePrint(width, height)
 
   local mm, rr = math.modf(running_time/60)
@@ -245,7 +246,7 @@ local function timePrint(width, height)
   lcd.drawLine(100+2, 15, 100+2, 54)
   lcd.drawLine(200+2, 15, 200+2, 54)
 
-  local ww
+  local ww, ss
 
   ww = lcd.getTextWidth(FONT_MAXI, pts)
   lcd.drawText(5+(100-ww)/2-1,15,pts, FONT_MAXI)
@@ -253,7 +254,7 @@ local function timePrint(width, height)
   ww = lcd.getTextWidth(FONT_MAXI, fstr)
   lcd.drawText(100+5+(100-ww)/2-1,15,fstr, FONT_MAXI)
 
-  local ss = string.format("%d", batt_val[3] + batt_val[4])
+  ss = string.format("%d", batt_val[3] + batt_val[4])
   ww = lcd.getTextWidth(FONT_MAXI, ss)
   lcd.drawText(200+5+(100-ww)/2-1,15,ss, FONT_MAXI)
 
@@ -301,8 +302,6 @@ local function timePrint(width, height)
   end
 
     
-  local ss
-
   if GraphName == '---' or not GraphValue then
      if not DEBUG then
 	ss = '---'
@@ -320,19 +319,19 @@ local function timePrint(width, height)
   ww = lcd.getTextWidth(FONT_MINI, ss)
   lcd.drawText((300-ww)/2+3,70-13, ss, FONT_MINI)
 
-  local ss = string.format("Scale: %d", GraphScale)
+  ss = string.format("Scale: %d", GraphScale)
   ww = lcd.getTextWidth(FONT_MINI, ss)
   lcd.drawText(75+(75-ww)/2+1,70+1, ss, FONT_MINI)
 
-  local ss = string.format("Timeline %s", "1:00")
+  ss = string.format("Timeline %s", "1:00")
   ww = lcd.getTextWidth(FONT_MINI, ss)
   lcd.drawText(150+(75-ww)/2+2,70+1, ss, FONT_MINI)
 
-  local ss = string.format("Bat 1: %2.2f A", batt_val[1])
+  ss = string.format("Bat 1: %2.2f A", batt_val[1])
   ww = lcd.getTextWidth(FONT_MINI, ss)
   lcd.drawText(75+(75-ww)/2+1,70+15, ss, FONT_MINI)
 
-  local ss = string.format("Bat 2: %2.2f A", batt_val[2])
+  ss = string.format("Bat 2: %2.2f A", batt_val[2])
   ww = lcd.getTextWidth(FONT_MINI, ss)
   lcd.drawText(150+(75-ww)/2+2,70+15, ss, FONT_MINI)
 
@@ -350,15 +349,40 @@ local function timePrint(width, height)
   lcd.drawRectangle(2, 133, 150, 10)
   lcd.drawRectangle(3+150, 133, 149, 10)
 
-  lcd.setColor(0,0,200)
-
   ww = math.floor(batt_val[1]/6.0*149.0)
-  lcd.drawFilledRectangle(4, 135, ww, 6, 200)
+  if ww > ww1max then
+     ww1max = ww
+     aa1max = batt_val[1]
+  end
 
+  lcd.setColor(0, 0, 200)
+  lcd.drawFilledRectangle(4-1, 133, ww, 10, 200)
+  lcd.setColor(200, 0, 0)
+  lcd.drawFilledRectangle(4-1+ww1max, 133, 3, 10)
+  lcd.setColor(0, 0, 0)
+  ss = string.format("Bat 1 Max: %2.1f A", aa1max)
+  ww = lcd.getTextWidth(FONT_MINI, ss)
+  lcd.drawText(50+(50-ww)/2+1,145, ss, FONT_MINI)
+    
   ww = math.floor(batt_val[2]/6.0*149.0)
-  lcd.drawFilledRectangle(300-ww, 135, ww+1, 6, 200)
-  
-  lcd.setColor(0,0,0)
+  if ww > ww2max then
+     ww2max = ww
+     aa2max = batt_val[2]
+  end
+
+  lcd.setColor(0, 0, 200)
+  lcd.drawFilledRectangle(300-ww, 133, ww+1, 10, 200)
+  lcd.setColor(200, 0, 0)
+  lcd.drawFilledRectangle(300-ww2max-3, 133, 3, 10)
+  lcd.setColor(0, 0, 0)
+  ss = string.format("Bat 2 Max: %2.1f A", aa2max)
+  ww = lcd.getTextWidth(FONT_MINI, ss)
+  lcd.drawText(175+(75-ww)/2+2,145, ss, FONT_MINI)
+
+
+
+
+  lcd.setColor(0, 0, 0)
 
   collectgarbage()
 
@@ -417,17 +441,16 @@ local function loop()
       if (swi == 1 and start_time == 0) then            -- when the gear retracted first time, startup
 	 start_time = system.getTimeCounter()/1000       -- convert from ms to seconds
 	 next_ann_time = start_time + 60                 -- next announce in 60 seconds
-	 system.playFile('Sup_Tim_Start.wav', AUDIO_QUEUE)
+	 system.playFile('/Apps/DFM-TimA/Sup_Tim_Start.wav', AUDIO_QUEUE)
 	 if DEBUG then print('Sup_Tim_Start.wav - Timer starting') end
       end
       if ( swi and swi == -1) then
-	 system.playFile('Landing_Gear_Extended.wav')
+	 system.playFile('/Apps/DFM-TimA/Landing_Gear_Extended.wav')
 	 if DEBUG then print('Landing_Gear_Extended.wav') end
       end
    end
-   
-   local sgT = system.getTimeCounter()
-   local tim = sgT / 1000
+   local sgTC = system.getTimeCounter()
+   local tim = sgTC / 1000
    local mod_sec, rem_sec = math.modf(tim - start_time)
    
    if mod_sec ~= old_mod_sec then -- the scope of this <if> is what is done once per second
@@ -477,7 +500,7 @@ local function loop()
       running_time = tim-start_time
       local min_time = running_time / 60
       local mod_min, rem_min = math.modf(min_time)
-      system.playFile('Sup_Tim_Tim.wav', AUDIO_QUEUE)   -- "Time Elapsed"
+      system.playFile('/Apps/DFM-TimA/Sup_Tim_Tim.wav', AUDIO_QUEUE)   -- "Time Elapsed"
       if DEBUG then print('Sup_Tim_Tim.wav - Time elapsed') end
 
       if mod_min > 0 then
@@ -491,7 +514,7 @@ local function loop()
       end
       
       if not shortAnn then
-	 system.playFile('Sup_Tim_Fuel.wav', AUDIO_QUEUE)  -- "Fuel Remaining"
+	 system.playFile('/Apps/DFM-TimA/Sup_Tim_Fuel.wav', AUDIO_QUEUE)  -- "Fuel Remaining"
 	 if DEBUG then print('Sup_Tim_Fuel.wav - Fuel Remaining') end
       end
       if (fuel_pct) then
@@ -545,21 +568,20 @@ local function init()
     shortAnnSt = system.pLoad("shortAnnSt", 0)
     
     if(shortAnnSt == 1) then
-        shortAnn = true
-        else
-        shortAnn = false
+       shortAnn = true
+    else
+       shortAnn = false
     end
     
     system.registerForm(1, MENU_APPS, "Super Time Announcer", initForm, keypress, printform)
     system.registerTelemetry(1, "Super Timer", 4, timePrint)
-    system.playFile('Tim_Ann_Act.wav', AUDIO_IMMEDIATE)
+    system.playFile('/Apps/DFM-TimA/Tim_Ann_Act.wav', AUDIO_IMMEDIATE)
 
     if DEBUG then print('Tim_Ann_Act.wav') end
     readSensors()
     collectgarbage()
 end
 --------------------------------------------------------------------------------
-TimAnnVersion = "1.2"
 setLanguage()
 collectgarbage()
 return {init=init, loop=loop, author="DFM", version=TimAnnVersion, name="Super Time Announcer"}

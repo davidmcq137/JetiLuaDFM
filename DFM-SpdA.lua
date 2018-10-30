@@ -28,7 +28,7 @@ local maxSpd, VrefSpd, VrefCall
 local spdInter
 local selFt
 local selFtIndex
-local shortAnn, shortAnnIndex, shortAnnSt
+local shortAnn, shortAnnIndex
 
 local ovrSpd = false
 local aboveVref = false
@@ -37,9 +37,11 @@ local stall_warn=false
 local nextAnnTC = 0
 local lastAnnTC = 0
 local lastAnnSpd = 0
-local last_sgTC = 0
+local sgTC
 local sgTC0
 local airspeedCal
+local round_spd
+local SpdAnnVersion
 
 local sensorLalist = { "..." }
 local sensorIdlist = { "..." }
@@ -247,7 +249,7 @@ local function loop()
       end
    end
 
-   if maxspd and (spd <= maxSpd) then ovrSpd = false end
+   if maxSpd and (spd <= maxSpd) then ovrSpd = false end
 
    if (spd > VrefSpd) then
       aboveVref = true
@@ -263,20 +265,20 @@ local function loop()
       
       if (spd > maxSpd and not ovrSpd) then
 	 ovrSpd = true
-	 system.playFile('Apps/DFM-SpdA/overspeed.wav', AUDIO_IMMEDIATE)
+	 system.playFile('/Apps/DFM-SpdA/overspeed.wav', AUDIO_IMMEDIATE)
 	 if DEBUG then print("Overspeed!") end
 	 system.vibration(true, 3) -- 2x vibrations on right stick
       end
 
       if (spd <= VrefSpd and aboveVref) then
 	 aboveVref = false
-	 system.playFile('Apps/DFM-SpdA/V_ref_speed.wav', AUDIO_IMMEDIATE)
+	 system.playFile('/Apps/DFM-SpdA/V_ref_speed.wav', AUDIO_IMMEDIATE)
 	 if DEBUG then print("At Vref") end
       end
 
       if ((spd <= VrefSpd/1.3) and (not stall_warn) and aboveVref_ever) then
 	 stall_warn = true
-	 system.playFile('Apps/DFM-SpdA/stall_warning.wav', AUDIO_IMMEDIATE)
+	 system.playFile('/Apps/DFM-SpdA/stall_warning.wav', AUDIO_IMMEDIATE)
 	 system.vibration(true, 4) -- 4 short pulses on right stick
 	 if DEBUG then print("Stall warning!") end
       end
@@ -347,7 +349,6 @@ local function init()
    spdSe = system.pLoad("spdSe", 0)
    spdSeId = system.pLoad("spdSeId", 0)
    spdSePa = system.pLoad("spdSePa", 0)
-   annDnSt = system.pLoad("annDnSt", 0)
    selFt = system.pLoad("selFt", "true")
    shortAnn = system.pLoad("shortAnn", "false")
 
@@ -355,7 +356,7 @@ local function init()
    shortAnn = (shortAnn == "true") -- convert back to boolean here
 
    system.registerForm(1, MENU_APPS, "Speed Announcer", initForm)
-   system.playFile('Apps/DFM-SpdA/Spd_ann_act.wav', AUDIO_QUEUE)
+   system.playFile('/Apps/DFM-SpdA/Spd_ann_act.wav', AUDIO_QUEUE)
    readSensors()
 
 end
