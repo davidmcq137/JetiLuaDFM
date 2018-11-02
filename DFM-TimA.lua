@@ -53,7 +53,7 @@ local old_mod_sec = 0
 local running_time = 0
 local next_ann_time = 0
 local start_time = 0
-local fuel_pct
+local fuel_pct = 100
 local mrs = math.random(1, 999) -- for debugging
 
 local ytable = {} -- table of values for "chart recorder" graph
@@ -405,7 +405,8 @@ local function loop()
 -- first read fuel state and graph item from selected telemetry sensors
     
    local sensor = system.getSensorByID(FuelSeId, FuelSePa)
-
+   local burnRate, remainingTime
+   
    if(sensor and sensor.valid) then
       fuel_pct = sensor.value
    end
@@ -465,7 +466,7 @@ local function loop()
       end
       
       if not fuel_pct and DEBUG then  -- for debug .. in prod just don't play fuel info if no sensor
-	 fuel_pct = 137
+	 fuel_pct = 0
       end
       
       if DEBUG then
@@ -473,6 +474,7 @@ local function loop()
 	 batt_val[2] = batt_val[1]
 	 batt_val[3] = batt_val[3] + 1
 	 batt_val[4] = batt_val[4] + 1
+	 fuel_pct = fuel_pct - 0.2
       end
    
       
@@ -524,6 +526,19 @@ local function loop()
 	 system.playNumber(0, 0, '%')
 	 if DEBUG then print(0, '-%-') end
       end
+
+      if running_time > 270 then -- this const is 4:30 in secs, so start this ann at 5:00
+	 burnRate = (100-fuel_pct)/running_time -- long term average since gear up
+	 remainingTime = fuel_pct/burnRate      -- estimated time on fuel that is left
+	 min_time = remainingTime / 60
+	 mod_min, rem_min = math.modf(min_time)
+	 rem_min = rem_min * 60
+	 system.playFile('/Apps/DFM-TimA/Fuel_flight_time_remaining.wav', AUDIO_QUEUE)
+	 if DEBUG then print('Remaining Flight Time: ', string.format("%02d:%02d", mod_min, rem_min))  end
+	 system.playNumber(mod_min, 0, 'min')
+	 system.playNumber(rem_min, 0, 's')
+      end
+
    end
 
    local newLoopTime = system.getTimeCounter()

@@ -1,0 +1,110 @@
+{
+  "Steps": [
+    {
+      "StepName": "Check Fuel State",
+      "StepNameLong": "Confirm fuel is above minimum value for takeoff",
+      "fuelState": {
+        "Fuelmax<": 100,
+        "Fuelmin>": 90
+      }
+    },
+    {
+      "StepName": "Check Battery MaH",
+      "StepNameLong": "Confirm batteries have sufficient charge remaining",
+      "batteryCharge": {
+        "Batt1Min>": 2000,
+        "Batt2Min>": 2000
+      }
+    },
+    {
+      "StepName": "Check Battery Volts",
+      "batteryVolt": {
+        "Batt1Min>": 6,
+        "Batt2Min>": 6
+      }
+    },
+    {
+      "StepName": "Check Quiescent Current",
+      "batteryCurrent": {
+        "Batt1CurentMax<": 1,
+        "Batt2CurrentMax<": 1,
+        "TotCurrentMax<": 1.5
+      }
+    },
+    {
+      "StepName": "Check Turbine State",
+      "turbineState": {
+        "Pump>": 1.2,
+        "ECUBatt>": 9.9
+      }
+    },
+    {
+      "StepName": "Check Switch Positions",
+      "switchState": {
+        "Flaps": {
+          "Chan": "P7",
+          "max": 20,
+          "min": 15
+        },
+        "GyroSw": {
+          "Chan": "P9",
+          "max": 56,
+          "min": 59
+        },
+        "GyroGain": {
+          "Chan": "P10",
+          "max": -90,
+          "min": -100
+        }
+      }
+    },
+    {
+      "StepName": "Other Stuff"
+    },
+    {
+      "StepName": "CheckBattLoaded",
+      "moveSequence": [
+        {
+	  "maxCurrent":4,
+	  "minVoltage":5.9,
+          "subSeq": [
+            {
+              "moveSurface": "Left Aileron",
+              "Chan": "P4",
+              "Pos1": 100,
+              "Pos2": -100,
+              "Time": 2
+            },
+            {
+              "moveSurface": "Right Aileron",
+              "Chan": "P5",
+              "Pos1": -100,
+              "Pos2": 100,
+              "Time": 2
+            }
+          ]
+        },
+        {
+	  "maxCurrent":3,
+	  "minVoltage":6.2,	
+          "subSeq": [
+            {
+              "moveSurface": "Left Aileron",
+              "Chan": "P4",
+              "Pos1": 100,
+              "Pos2": -100,
+              "Time": 2
+            },
+            {
+              "moveSurface": "Right Aileron",
+              "Chan": "P5",
+              "Pos1": 100,
+              "Pos2": -100,
+              "Time": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

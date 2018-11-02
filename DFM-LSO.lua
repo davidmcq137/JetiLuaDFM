@@ -61,6 +61,8 @@ telem.CourseGPS={}
 telem.BaroAlt={}
 
 local variables = {"magneticVar", "rotationAngle"}
+variables.magneticVar = 0
+
 local controls  = {"Throttle", "Brake"}
 
 local xtable = {}
@@ -303,8 +305,10 @@ local function resetOriginChanged(value)
    DEBUG = not DEBUG -- in case we forget and ship a version with DEBUG = true to the TX!
 end
 
+local fns={}
+
 local function logFileChanged(value, fn)
-   -- print("Saving: ", string.match(fn[value], "(%S+)"))
+   --print("Saving: ", string.match(fn[value], "(%S+)"))
    system.pSave("logPlayBack", string.match(fn[value], "(%S+)")) -- remove file size from string
 end
 
@@ -403,8 +407,7 @@ local function initForm(subform)
 
       form.addLink((function() form.reinit(1) end), {label = "Back to main menu",font=FONT_BOLD})
       local i = 0
-      local fns={}
-
+      
       for fname, ftype, fsize in dir("/Log") do
 	 if ftype == 'file' and fsize ~= 0 then
 	    i = i + 1
@@ -415,7 +418,7 @@ local function initForm(subform)
       form.addRow(2)
       form.addLabel({label="Select Log File for Playback", width=220})
       form.addSelectbox(fns, 0, true, (function(value) return logFileChanged(value, fns) end ) )
-      fns = nil -- release storage for file names ... no longer needed
+      -- fns = nil -- release storage for file names ... no longer needed
    end
 end
 
@@ -907,6 +910,8 @@ local function drawGeo(windowWidth, windowHeight)
 
 end
 
+local fd
+local timSstr = "-:-"
    
 local function mapPrint(windowWidth, windowHeight)
 
@@ -925,15 +930,17 @@ local function mapPrint(windowWidth, windowHeight)
    drawHeading()
    drawVario()
 
-   if takeoff.Start.X then
+   if takeoff.Start.X and not fd then
       lcd.drawCircle(toXPixel(takeoff.Start.X, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(takeoff.Start.Y, map.Ymin, map.Yrange, windowHeight), 4)
    end
    
    if takeoff.Complete.X then
 
-      lcd.drawCircle(toXPixel(takeoff.Complete.X, map.Xmin, map.Xrange, windowWidth),
-		     toYPixel(takeoff.Complete.Y, map.Ymin, map.Yrange, windowHeight), 4)
+      if not iField then
+	 lcd.drawCircle(toXPixel(takeoff.Complete.X, map.Xmin, map.Xrange, windowWidth),
+			toYPixel(takeoff.Complete.Y, map.Ymin, map.Yrange, windowHeight), 4)
+      end
 
       xRW = (takeoff.Complete.X - takeoff.Start.X)/2 + takeoff.Start.X 
       yRW = (takeoff.Complete.Y - takeoff.Start.Y)/2 + takeoff.Start.Y
@@ -943,20 +950,33 @@ local function mapPrint(windowWidth, windowHeight)
 
       lcd.setColor(0,240,0)
 
-      drawShapePL(toXPixel(xRW, map.Xmin, map.Xrange, windowWidth),
-		  toYPixel(yRW, map.Ymin, map.Yrange, windowHeight),
-		  shapes.runway, math.rad(takeoff.RunwayHeading-variables.magneticVar), scale, 2, 255)
+      if (not iField) and takeoff.RunwayHeading then
+	 drawShapePL(toXPixel(xRW, map.Xmin, map.Xrange, windowWidth),
+		     toYPixel(yRW, map.Ymin, map.Yrange, windowHeight),
+		     shapes.runway, math.rad(takeoff.RunwayHeading-variables.magneticVar), scale, 2, 255)
+      end
+	 
+      if takeoff.RunwayHeading then
+	 drawILS (toXPixel(takeoff.Start.X, map.Xmin, map.Xrange, windowWidth),
+		  toYPixel(takeoff.Start.Y, map.Ymin, map.Yrange, windowHeight),
+		  math.rad(takeoff.RunwayHeading-variables.magneticVar), scale)
+      end
       
-      drawILS (toXPixel(takeoff.Start.X, map.Xmin, map.Xrange, windowWidth),
-	       toYPixel(takeoff.Start.Y, map.Ymin, map.Yrange, windowHeight),
-	       math.rad(takeoff.RunwayHeading-variables.magneticVar), scale)
-
-
       lcd.setColor(r,g,b)
 
       text=string.format("Map: %d x %d    Rwy: %dT", map.Xrange, map.Yrange,
-			 math.floor(takeoff.RunwayHeading/10+.5) )
+			 math.floor(( (takeoff.RunwayHeading+variables.rotationAngle)/10+.5) ) )
 
+      lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH-10, text, FONT_MINI)
+
+      if iField then
+	 text=geo.fields[iField].name
+      else
+	 text='Unknown Field'
+      end
+      
+      if fd then text = text .."   "..timSstr end
+      
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
 
    else
@@ -1001,15 +1021,17 @@ local function mapPrint(windowWidth, windowHeight)
 	 xl2 = takeoff.Complete.X - lRW * math.cos(math.rad(phi+12))
 	 yl2 = takeoff.Complete.Y - lRW * math.sin(math.rad(phi+12))
       end
-      
-      lcd.drawCircle(toXPixel(xr1, map.Xmin, map.Xrange, windowWidth),
-		     toYPixel(yr1, map.Ymin, map.Yrange, windowHeight), 3)      
-      lcd.drawCircle(toXPixel(xl1, map.Xmin, map.Xrange, windowWidth),
-		     toYPixel(yl1, map.Ymin, map.Yrange, windowHeight), 3)
-      lcd.drawCircle(toXPixel(xr2, map.Xmin, map.Xrange, windowWidth),
-		     toYPixel(yr2, map.Ymin, map.Yrange, windowHeight), 3)      
-      lcd.drawCircle(toXPixel(xl2, map.Xmin, map.Xrange, windowWidth),
-		     toYPixel(yl2, map.Ymin, map.Yrange, windowHeight), 3)
+
+      if not iField then
+	 lcd.drawCircle(toXPixel(xr1, map.Xmin, map.Xrange, windowWidth),
+			toYPixel(yr1, map.Ymin, map.Yrange, windowHeight), 3)      
+	 lcd.drawCircle(toXPixel(xl1, map.Xmin, map.Xrange, windowWidth),
+			toYPixel(yl1, map.Ymin, map.Yrange, windowHeight), 3)
+	 lcd.drawCircle(toXPixel(xr2, map.Xmin, map.Xrange, windowWidth),
+			toYPixel(yr2, map.Ymin, map.Yrange, windowHeight), 3)      
+	 lcd.drawCircle(toXPixel(xl2, map.Xmin, map.Xrange, windowWidth),
+			toYPixel(yl2, map.Ymin, map.Yrange, windowHeight), 3)
+      end
 
    end
    
@@ -1024,7 +1046,7 @@ local function mapPrint(windowWidth, windowHeight)
 	 dr = (xtable[i]-xr1)*(yr2-yr1) - (ytable[i]-yr1)*(xr2-xr1)
 	 dl = (xtable[i]-xl1)*(yl2-yl1) - (ytable[i]-yl1)*(xl2-xl1)
      
-	 if dl >= 0 and dr <= 0 then
+	 if (dl >= 0 and dr <= 0) and (not takeoff.NeverAirborne) then
 	    lcd.setColor(0,255,0) -- Green!
 	 end
       end
@@ -1112,6 +1134,13 @@ local function initField()
 			    y=j.y * geo.fields[iField].runway.width/2}
 		  graphScale(2*rwy[k].x, 2*rwy[k].y)
 	       end
+	       --new code
+	       takeoff.Start.X, takeoff.Start.Y = rwy[3].x, 0 -- end of rwy arrival end
+	       takeoff.Complete.X, takeoff.Complete.Y = rwy[1].x, 0  -- end of rwy departure end
+	       takeoff.Start.Z = altitude - baroAltZero
+	       takeoff.RunwayHeading = geo.fields[iField].runway.trueDir-variables.rotationAngle
+	       print('takeoff.RunwayHeading = ', takeoff.RunwayHeading)
+	       --end new code
 	    end   
 	    break
 	 end
@@ -1130,7 +1159,6 @@ local lastlat = 0
 local lastlong = 0
 local gotInitPos = false
 local blocked = false
-local fd
 local timS = "0"
 local compcrs
 local compcrsDeg = 0
@@ -1146,6 +1174,7 @@ local speedTime = 0
 local numGPSreads = 0
 local newPosTime = 0
 local ff
+local timSn = 0
 
 local function loop()
 
@@ -1161,7 +1190,7 @@ local function loop()
    local brk, thr
    local newpos
    local deltaPosTime = 100 -- min sample interval in ms
-   local latS, lonS, altS, spdS
+   local latS, lonS, altS, spdS, hdgS
    local _
    
    goodlat = false
@@ -1198,10 +1227,11 @@ local function loop()
    if DEBUG then
       debugTime =debugTime + 0.01*(system.getInputs("P7")+1)
 --      speed = 40 + 80 * (math.sin(.3*debugTime) + 1)
-      altitude = 20 + 200 * (math.cos(.3*debugTime)+1)
-      x = 600*math.sin(2*debugTime)
-      y = 300*math.cos(3*debugTime)
+      altitude = 20 + 200 * (math.cos(.3*debugTime)+1) + baroAltZero
+      x = 900*math.sin(2*debugTime)
+      y = 400*math.cos(3*debugTime)
       if system.getTimeCounter() > debugNext then
+
 	 debugNext = system.getTimeCounter() + 100
 	 goto computedXY
       else
@@ -1215,23 +1245,33 @@ local function loop()
    -- denominator under tonumber(timS) is acceleration factor for replay
 
    if fd then
-      if ( (system.getTimeCounter() - sysTimeStart)/1000.) >= tonumber(timS)/10. and blocked then
+      if ( (system.getTimeCounter() - sysTimeStart)/1000.) >= (tonumber(timS) - timSn)/10. and blocked then
 	 blocked = false
 	 goto fileInputLatLong
       end
 
       if blocked then return end
+
+      local timS0 = timS
       
       tt = io.readline(fd)
       if tt then
-	 timS, latS, lonS, altS, spdS = string.match(tt, -- next string reads csv data -- really! :-)
-	 "(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)"
+	 timS, latS, lonS, altS, spdS, hdgS = string.match(tt, -- next string reads csv data -- really! :-)
+ "(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)"
 	 )
 	 latitude = tonumber(latS)
 	 longitude = tonumber(lonS)
 	 altitude = tonumber(altS)
 	 speed = tonumber(spdS)
-	 -- add code here to read heading once magneticVar decided to be included or not
+	 --heading = tonumber(hdgS) -- don't use saved heading for now --
+	 if timS0 == "0" then
+	    timSn = tonumber(timS) -- first line in file even if t ~= 0 becomes time origin
+	 end
+	 local timSd60 = tonumber(timS)/60
+	 local min, sec = math.modf(timSd60)
+	 sec = sec * 60
+	 timSstr = string.format("%02d:%02d", min, sec)
+	 
 	 blocked = true
 	 return
       else
@@ -1384,17 +1424,16 @@ local function loop()
    ::fileInputLatLong::
    
    
+   if ff then
+      io.write(ff, string.format("%.4f, %.8f , %.8f , %.2f , %.2f , %.2f\n",
+				 (system.getTimeCounter()-sysTimeStart)/1000.,
+				 latitude, longitude, altitude, speed, (heading-variables.magneticVar) ) )
+   end
+   
    if (latitude == lastlat and longitude == lastlong) or (system.getTimeCounter() < newPosTime) then
       newpos = false
    else
       newpos = true
-      
-      if ff then
-	 io.write(ff, string.format("%.4f, %.8f , %.8f , %.2f , %.2f , %.2f\n",
-				    (system.getTimeCounter()-sysTimeStart)/1000.,
-				    latitude, longitude, altitude, speed, (heading-variables.magneticVar) ) )
-      end
-      
       lastlat = latitude
       lastlong = longitude
       newPosTime = system.getTimeCounter() + deltaPosTime
@@ -1505,7 +1544,7 @@ local function loop()
 
    if DEBUG then
       heading = compcrsDeg + variables.magneticVar
-   else
+   else -- elseif not fd then -- if fd we are doing a replay .. heading read from the file .. leave it alone
       if hasCourseGPS and courseGPS then
 	 heading = courseGPS + variables.magneticVar
       else
@@ -1517,7 +1556,7 @@ local function loop()
 	    
       end
    end
-   
+
    if (controls.Brake) then
       brk = system.getInputsVal(controls.Brake)
    end
@@ -1552,9 +1591,19 @@ local function loop()
 	 system.playFile("/Apps/DFM-LSO/starting_takeoff_roll.wav", AUDIO_QUEUE)
       end
    end
+
    if thr then takeoff.oldThrottle = thr end
+
+   -- if field is defined (iField has a value) then we already set takeoff start and complete to
+   -- runway endpoints .. just note takeoff complete when altitude exceeds triggerpoint
    
-   if thr and thr > 0 and takeoff.Start.X and takeoff.NeverAirborne then
+   if iField and takeoff.NeverAirborne and (altitude - baroAltZero) - takeoff.Start.Z > PATTERNALT/4 then
+      takeoff.NeverAirborne = false
+   end
+   
+   -- if no field is defined...we have to compute the runway parameters
+   
+   if thr and thr > 0 and takeoff.Start.X and takeoff.NeverAirborne and (not iField) then
       if (altitude - baroAltZero) - takeoff.Start.Z > PATTERNALT/4 then
 	 takeoff.NeverAirborne = false
 	 takeoff.Complete.X = x
