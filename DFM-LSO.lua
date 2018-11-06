@@ -63,7 +63,7 @@ telem.BaroAlt={}
 local variables = {"magneticVar", "rotationAngle"}
 variables.magneticVar = 0
 
-local controls  = {"Throttle", "Brake"}
+-- local controls  = {"Throttle", "Brake"}
 
 local xtable = {}
 local ytable = {}
@@ -78,6 +78,7 @@ local rwy = {}
 local poi = {}
 local geo = {}
 local iField
+local modelProps={}
 
 local takeoff={}; takeoff.Complete={}; takeoff.Start={}
 takeoff.NeverAirborne = true
@@ -85,7 +86,7 @@ takeoff.BrakeReleaseTime = 0
 takeoff.oldBrake = 0
 takeoff.oldThrottle = 0
 
--- these lists are the non-GPS sensors
+-- these lists are the non-GPS senggors
 
 local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
@@ -276,10 +277,10 @@ local function sensorChanged(value, str, isGPS)
    system.pSave("telem."..str..".SePa", telem[str].SePa)
 end
 
-local function controlChanged(value, ctl)
-   controls[ctl] = value
-   system.pSave(ctl, value)
-end
+--local function controlChanged(value, ctl)
+--   controls[ctl] = value
+--   system.pSave(ctl, value)
+--end
 
 local function variableChanged(value, var)
    variables[var] = value
@@ -321,7 +322,7 @@ local function initForm(subform)
    if subform == 1 then
 
       if (tonumber(system.getVersion()) >= 4.22) then
-	 
+	 --[[ throttle and brake not in model-specific jsn file
 	 local menuInput = {Throttle = "Select Throttle Control", Brake = "Select Brake Control"}
       
 	 for var, txt in pairs(menuInput) do
@@ -330,7 +331,7 @@ local function initForm(subform)
 	    form.addInputbox(controls.Throttle, true,
 			     (function(x) return controlChanged(x, var) end) )
 	 end
-	 
+	 --]] 
 	 local menuSelectGPS = { -- for lat/long only
 	    Longitude="Select GPS Longitude Sensor",
 	    Latitude ="Select GPS Latitude Sensor",
@@ -376,7 +377,7 @@ local function initForm(subform)
 	 
 	 form.addRow(2)
 	 form.addLabel({label="Map Rotation (\u{B0}CCW)", width=220})
-	 form.addIntbox(variables.rotationAngle, 0, 359, 0, 0, 1,
+	 form.addIntbox(variables.rotationAngle, -359, 359, 0, 0, 1,
 			(function(x) return variableChanged(x, "rotationAngle") end) )
 	 
 	 -- decomission magneticVar for now .. reconsider if we want this functionality
@@ -586,6 +587,8 @@ local ii=0
 
 local function drawHeading()
 
+   local dispHeading
+   
    ii = ii + 1
 
    lcd.setColor(txtr,txtg,txtb)
@@ -594,8 +597,10 @@ local function drawHeading()
    lcd.drawFilledRectangle(colHeading+65, rowHeading-20, 6,22)
    lcd.drawFilledRectangle(colHeading-65-6, rowHeading-20, 6,22)
 
+   dispHeading = (heading + variables.rotationAngle) % 360
+
    for index, point in pairs(parmHeading) do
-      wrkHeading = point[1] - heading
+      wrkHeading = point[1] - dispHeading
       if wrkHeading > 180 then wrkHeading = wrkHeading - 360 end
       if wrkHeading < -180 then wrkHeading = wrkHeading + 360 end
       deltaX = math.floor(wrkHeading / 1.6 + 0.5) - 1 -- was 2.2
@@ -610,8 +615,8 @@ local function drawHeading()
 	 end
       end
    end 
-   
-   text = string.format("%03d",heading)
+
+   text = string.format("%03d",dispHeading)
    w = lcd.getTextWidth(FONT_NORMAL,text) 
    lcd.setColor(txtr,txtg,txtb)
    lcd.drawFilledRectangle(colHeading - w/2, rowHeading-30, w, lcd.getTextHeight(FONT_NORMAL))
@@ -1134,13 +1139,13 @@ local function initField()
 			    y=j.y * geo.fields[iField].runway.width/2}
 		  graphScale(2*rwy[k].x, 2*rwy[k].y)
 	       end
-	       --new code
+	       -- new code
 	       takeoff.Start.X, takeoff.Start.Y = rwy[3].x, 0 -- end of rwy arrival end
 	       takeoff.Complete.X, takeoff.Complete.Y = rwy[1].x, 0  -- end of rwy departure end
 	       takeoff.Start.Z = altitude - baroAltZero
 	       takeoff.RunwayHeading = geo.fields[iField].runway.trueDir-variables.rotationAngle
-	       print('takeoff.RunwayHeading = ', takeoff.RunwayHeading)
-	       --end new code
+	       -- print('takeoff.RunwayHeading = ', takeoff.RunwayHeading)
+	       -- end new code
 	    end   
 	    break
 	 end
@@ -1245,7 +1250,7 @@ local function loop()
    -- denominator under tonumber(timS) is acceleration factor for replay
 
    if fd then
-      if ( (system.getTimeCounter() - sysTimeStart)/1000.) >= (tonumber(timS) - timSn)/10. and blocked then
+      if ( (system.getTimeCounter() - sysTimeStart)/1000.) >= (tonumber(timS) - timSn)/20. and blocked then
 	 blocked = false
 	 goto fileInputLatLong
       end
@@ -1263,6 +1268,7 @@ local function loop()
 	 longitude = tonumber(lonS)
 	 altitude = tonumber(altS)
 	 speed = tonumber(spdS)
+	 if speed > 1000 then speed = speed / 100 end -- hack: had x100 bug in files from nov 4
 	 --heading = tonumber(hdgS) -- don't use saved heading for now --
 	 if timS0 == "0" then
 	    timSn = tonumber(timS) -- first line in file even if t ~= 0 becomes time origin
@@ -1312,16 +1318,16 @@ local function loop()
    if(sensor and sensor.valid) then
       GPSAlt = sensor.value*3.28084 -- convert to ft, telem apis only report native values
    end
-   
+ 
    sensor = system.getSensorByID(telem.SpeedNonGPS.SeId, telem.SpeedNonGPS.SePa)
    
    hasPitot = false
    if(sensor and sensor.valid) then
       if sensor.unit == "kmh" or sensor.unit == "km/h" then
-	 SpeedNonGPS = sensor.value * 0.621371 -- unit conversion to mph
+	 SpeedNonGPS = sensor.value * 0.621371 * modelProps.pitotCal/100. -- unit conversion to mph
       end
       if sensor.unit == "m/s" then
-	 SpeedNonGPS = sensor.value * 2.23694
+	 SpeedNonGPS = sensor.value * 2.23694 * modelProps.pitotCal
       end
       
       hasPitot = true
@@ -1540,6 +1546,8 @@ local function loop()
 	 speedTime = tt + 2000 -- time to next reading in ms
       end
    end
+
+   
    
 
    if DEBUG then
@@ -1557,6 +1565,7 @@ local function loop()
       end
    end
 
+   --[[
    if (controls.Brake) then
       brk = system.getInputsVal(controls.Brake)
    end
@@ -1577,11 +1586,49 @@ local function loop()
       takeoff.oldBrake = brk
       if DEBUG and brk < 0 then altitude = altitude + .15 end ------------------- DEBUG only
    end
-   
-   if (controls.Throttle) then
-      thr = system.getInputsVal(controls.Throttle)
+   --]]
+
+   if (modelProps.brakeChannel) then
+      if modelProps.brakeOn > 0 then
+	 brk = system.getInputs(modelProps.brakeChannel) > modelProps.brakeOn
+      else
+	 brk = system.getInputs(modelProps.brakeChannel) < modelProps.brakeOn
+      end
+      
    end
-   if thr and thr > 0 and takeoff.oldThrottle < 0 then
+
+   if brk and not takeoff.oldBrake then
+      takeoff.BrakeReleaseTime = system.getTimeCounter()
+      print("Brake release")
+      system.playFile("/Apps/DFM-LSO/brakes_released.wav", AUDIO_QUEUE)
+   end
+
+   if not brk then
+      takeoff.BrakeReleaseTime = 0
+      takeoff.Start.X = nil  -- erase the runway when the brakes go back on
+      takeoff.Complete.X = nil
+      takeoff.RunwayHeading = nil
+      takeoff.NeverAirborne = true
+      xr1 = nil -- recompute ILS points when new rwy coords
+   end
+
+   takeoff.oldBrake = brk
+   
+   if DEBUG and brk  then altitude = altitude + .15 end ------------------- DEBUG only
+
+   
+   --
+   
+   if (modelProps.throttleChannel) then
+      if modelProps.throttleFull > 0 then
+	 thr = (system.getInputs(modelProps.throttleChannel) > modelProps.throttleFull)
+      else
+	 thr = (system.getInputs(modelProps.throttleChannel) < modelProps.throttleFull)
+      end
+   end
+
+   if thr and not takeoff.oldThrottle then
+      print("Throttle up")
       if system.getTimeCounter() - takeoff.BrakeReleaseTime < 5000 then
 	 takeoff.Start.X = x
 	 takeoff.Start.Y = y
@@ -1592,7 +1639,7 @@ local function loop()
       end
    end
 
-   if thr then takeoff.oldThrottle = thr end
+   takeoff.oldThrottle = thr
 
    -- if field is defined (iField has a value) then we already set takeoff start and complete to
    -- runway endpoints .. just note takeoff complete when altitude exceeds triggerpoint
@@ -1603,7 +1650,7 @@ local function loop()
    
    -- if no field is defined...we have to compute the runway parameters
    
-   if thr and thr > 0 and takeoff.Start.X and takeoff.NeverAirborne and (not iField) then
+   if thr and takeoff.Start.X and takeoff.NeverAirborne and (not iField) then
       if (altitude - baroAltZero) - takeoff.Start.Z > PATTERNALT/4 then
 	 takeoff.NeverAirborne = false
 	 takeoff.Complete.X = x
@@ -1624,6 +1671,7 @@ end
 local function init()
 
    local fname
+   local line
    map.Xmin, map.Xmax = -400, 400
    map.Ymin, map.Ymax = -200, 200
    map.Xrange = map.Xmax - map.Xmin
@@ -1652,6 +1700,8 @@ at that point)
       if form.question("Start replay?", "log file "..fname, "---",2500, false, 0) == 1 then
 	 print("Opened log file "..fname.." for reading")
 	 system.pSave("logPlayBack", "...")
+	 line = io.readline(fd) -- read the shebang line .. code goes here to take action on it
+	 -- print("Shebang line: ", line)
 	 DEBUG = false
       else
 	 print("No replay")
@@ -1664,8 +1714,12 @@ at that point)
 	 local fn = string.format("Log/DFM-LSO-%d%02d%02d-%d%02d%02d.csv",
 				  dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)	
 	 ff=io.open(fn, "w")
-	 print("Opening for writing csv log file: ", fn)
-	 system.pSave("LogFile", fn)
+	 if ff then
+	    print("Opening for writing csv log file: ", fn)
+	    system.pSave("LogFile", fn)
+	    io.write(ff, "#!DFM-LSO csv1.1 " .. system.getProperty("Model")  .. "\n") -- shebang for file format version
+	 end
+	 
       end
    end
 
@@ -1687,9 +1741,9 @@ at that point)
       telem[j].SePa = system.pLoad("telem."..telem[i]..".SePa", 0)
    end
 
-   for i, j in ipairs(controls) do
-      controls[j] = system.pLoad("controls."..controls[i])
-   end
+--   for i, j in ipairs(controls) do
+--      controls[j] = system.pLoad("controls."..controls[i])
+--   end
    
    for i, j in ipairs(variables) do
       variables[j] = system.pLoad("variables."..variables[i], 0)
@@ -1702,7 +1756,24 @@ at that point)
    
    -- print("Model: ", system.getProperty("Model"))
    -- print("Model File: ", system.getProperty("ModelFile"))
-    
+
+   -- replace spaces in filenames with underscore
+   -- print("reading: ", "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
+   
+   fg = nil
+
+   -- set default for pitotCal in case no "DFM-model.jsn" file
+
+   modelProps.pitotCal = 100
+   
+   fg = io.readall("Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
+   if fg then
+      modelProps=json.decode(fg)
+   end
+
+   -- print("mP.brakeChannel: ", modelProps.brakeChannel, "mP.brakeOn: ", modelProps.brakeOn)
+   -- print("mP.throttleChannel", modelProps.throttleChannel, "mP.throttleFull", modelProps.throttleFull)
+   
    system.playFile('/Apps/DFM-LSO/L_S_O_active.wav', AUDIO_QUEUE)
    
    if DEBUG then
