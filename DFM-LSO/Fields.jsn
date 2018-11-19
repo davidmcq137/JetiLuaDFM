@@ -1,83 +1,148 @@
 {
-  "fields": [
-    {
-      "name": "DCRC Walt Good Field",
-      "shortname":"DCRC",
-      "runway": {
-        "lat": 39.147398,
-        "long": -77.337639,
-        "trueDir": 347.5,
-        "length": 600,
-        "width": 40
-      },
-      "POI": [
-        {
-          "lat": 39.151492,
-          "long": -77.332648
-        },
-        {"lat": 39.152808,
-          "long": -77.338883
-        }
-      ]
+  "fields" : [ {
+    "name" : "DCRC Walt Good Field",
+    "shortname" : "DCRC",
+    "runway" : {
+      "lat" : 39.147398,
+      "long" : -77.337639,
+      "trueDir" : 347.5,
+      "length" : 600,
+      "width" : 40
     },
-    {
-      "name": "Black Dirt Field",
-      "shortname":"BDS",      
-      "runway": {
-        "lat": 41.339733,
-        "long": -74.431618,
-        "trueDir": 209.6,
-        "length": 735,
-        "width": 60
-      },
-      "POI": [
-        {
-          "lat": 41.339340,
-          "long": -74.433195
-        },
-        {
-          "lat": 41.341015,
-          "long": -74.431785
-        }
-      ]
+    "POI" : [ {
+      "lat" : 39.151492,
+      "long" : -77.332648
+    }, {
+      "lat" : 39.152808,
+      "long" : -77.338883
+    } ],
+    "images" : [ {
+      "filename" : "DCRC_1500_ft.png",
+      "xrange" : 1500
+    }, {
+      "filename" : "DCRC_3000_ft.png",
+      "xrange" : 3000
+    }, {
+      "filename" : "DCRC_6000_ft.png",
+      "xrange" : 6000
+    } ]
+  }, {
+    "name" : "Black Dirt Field",
+    "shortname" : "BDS",
+    "runway" : {
+      "lat" : 41.339733,
+      "long" : -74.431618,
+      "trueDir" : 214,
+      "length" : 735,
+      "width" : 60
     },
-   {
-      "name": "Floyd Bennett Field",
-      "shortname":"FBF",
-      "runway": {
-        "lat": 41.33975,
-        "long": -74.431614,
-        "trueDir": 2.46,
-        "length": 870,
-        "width": 300
-      },
-      "POI": [
-        {
-          "lat": 40.602581,
-          "long": -73.886961
-        },
-        {
-          "lat": 41.339336,
-          "long": -74.433198
-        }
-      ]
+    "images" : [ {
+      "filename" : "BDS_1500_ft.png",
+      "xrange" : 1500
+    }, {
+      "filename" : "BDS_3000_ft.png",
+      "xrange" : 3000
+    }, {
+      "filename" : "BDS_6000_ft.png",
+      "xrange" : 6000
+    } ],
+    "POI" : [ {
+      "lat" : 41.33934,
+      "long" : -74.433195
+    }, {
+      "lat" : 41.341015,
+      "long" : -74.431785
+    } ]
+  }, {
+    "name" : "Floyd Bennett Field",
+    "shortname" : "FBF",
+    "runway" : {
+      "lat" : 40.602454,
+      "long" : -73.889873,
+      "trueDir" : 2.46,
+      "length" : 854,
+      "width" : 300
     },
-   {
-      "name": "Area 74",
-      "shortname":"A74",
-      "runway": {
-        "lat": 71.245690,
-        "long": -43.759293,
-        "trueDir": 28,
-        "length":209,
-        "width": 20
-      },
-      "POI": [
-        {
-	  "lat": 71.245966,
-	  "long": -43.759336
-	}
-      ]
-    }	
-  ]
+    "POI" : [ {
+      "lat" : 40.602581,
+      "long" : -73.886961
+    }, {
+      "lat" : 41.339336,
+      "long" : -74.433198
+    } ],
+    "images" : [ {
+      "filename" : "FBF_1500_ft.png",
+      "xrange" : 1500
+    }, {
+      "filename" : "FBF_3000_ft.png",
+      "xrange" : 3000
+    }, {
+      "filename" : "FBF_6000_ft.png",
+      "xrange" : 6000
+    } ]
+  }, {
+    "name" : "Area 74",
+    "shortname" : "A74",
+    "runway" : {
+      "lat" : 41.24569,
+      "long" : -73.759293,
+      "trueDir" : 28,
+      "length" : 209,
+      "width" : 20
+    },
+    "POI" : [ {
+      "lat" : 71.245966,
+      "long" : -43.759336
+    } ],
+    "images" : [ {
+      "filename" : "A74_1500_ft.png",
+      "xrange" : 1500
+    }, {
+      "filename" : "A74_3000_ft.png",
+      "xrange" : 3000
+    }, {
+      "filename" : "A74_6000_ft.png",
+      "xrange" : 6000
+    } ]
+  }, {
+    "name" : "Wilson IAC",
+    "shortname" : "W03",
+    "runway" : {
+      "lat" : 35.769235,
+      "long" : -77.967381,
+      "trueDir" : 210.7,
+      "length" : 1000,
+      "width" : 140
+    },
+    "images" : [ {
+      "filename" : "W03_1500_ft.png",
+      "xrange" : 1500
+    }, {
+      "filename" : "W03_3000_ft.png",
+      "xrange" : 3000
+    }, {
+      "filename" : "W03_6000_ft.png",
+      "xrange" : 6000
+    } ]
+  }, {
+    "name" : "Georgia Jets",
+    "shortname" : "GAJets",
+    "runway" : {
+      "lat" : 33.1372,
+      "long" : -84.611143,
+      "trueDir" : 276,
+      "length" : 985,
+      "width" : 60
+    },
+    "images" : [ {
+      "filename" : "GAJets_1500_ft.png",
+      "xrange" : 1500
+    }, {
+      "filename" : "GAJets_3000_ft.png",
+      "xrange" : 3000
+    }, {
+      "filename" : "GAJets_6000_ft.png",
+      "xrange" : 6000
+    } ]
+  } ]
 }

@@ -105,6 +105,13 @@ local DEBUG = false -- if set to <true> will generate flightpath automatically f
 local debugTime = 0
 local debugNext = 0
 
+local fieldPNG={}
+local maxImage
+local currentImage
+local textColor = {}
+textColor.main = {red=0, green=0, blue=0}
+textColor.comp = {red=255, green=255, blue=255}
+
 --[[
 
 -- Read and set translations (out for now till we have translations, simplifies install)
@@ -488,13 +495,42 @@ local function rotateXY(x, y, rotation)
    return (x * cosShape - y * sinShape), (x * sinShape + y * cosShape)
 end
 
-local txtr, txtg, txtb = 0,0,0
+local function setColorMap()
+   -- when text and graphics overlayed on a map, best to use yellow
+   -- set comp color to 255-fg
+   textColor.main.red, textColor.main.green, textColor.main.blue = 255, 255,   0
+   textColor.comp.red, textColor.comp.green, textColor.comp.blue =   0,   0, 255
+end
+
+local function setColorILS()
+   -- default to foreground color if no map loaded .. change later if so
+   -- default complement color to 255 - fg color
+   textColor.main.red, textColor.main.green, textColor.main.blue = lcd.getFgColor()
+   -- indulge a personal preference when fg color is Jeti blue scheme
+   -- to use a white text as complementary color
+   if textColor.main.red == 30 and textColor.main.green == 48 and textColor.main.blue == 106 then
+      textColor.comp.red   = 255
+      textColor.comp.green = 255
+      textColor.comp.blue  = 255
+   else
+      textColor.comp.red   = 255 - textColor.main.red
+      textColor.comp.green = 255 - textColor.main.green
+      textColor.comp.blue  = 255 - textColor.main.blue
+   end
+end
+
+
+local function setColorMain()
+   lcd.setColor(textColor.main.red, textColor.main.green, textColor.main.blue)
+end
+
+local function setColorComp()
+   lcd.setColor(textColor.comp.red, textColor.comp.green, textColor.comp.blue)
+end
 
 --[[
 local function drawDistance()
 
-   lcd.setColor(txtr,txtg,txtb)
-   lcd.setColor(lcd.getFgColor())
    drawShape(colAH, rowAH+20, shapes.T38, math.rad(heading-variables.magneticVar))
 end
 --]]
@@ -523,7 +559,7 @@ local parmLine = {
 local baroAltZero = 0
 
 local function drawAltitude()
-   lcd.setColor(txtr,txtg,txtb)
+   setColorMain()
    delta = (altitude-baroAltZero) % 10
    deltaY = 1 + math.floor(2.4 * delta)  
    lcd.drawText(colAlt+2, heightAH+2, "ft", FONT_MINI)
@@ -540,7 +576,7 @@ local function drawAltitude()
    
    lcd.drawFilledRectangle(11,rowAH-8,42,lcd.getTextHeight(FONT_NORMAL))
    
-   lcd.setColor(255-txtr,255-txtg,255-txtb)
+   setColorComp()
    lcd.drawText(12, rowAH-8, string.format("%d",altitude-baroAltZero), FONT_NORMAL | FONT_XOR)
    lcd.resetClipping()
 end
@@ -550,26 +586,26 @@ end
 local text
 
 local function drawSpeed() 
-  lcd.setColor(txtr,txtg,txtb)
-  delta = speed % 10
-  deltaY = 1 + math.floor(2.4 * delta)
-  lcd.drawText(colSpeed-30, heightAH+2, "mph", FONT_MINI)
-  lcd.setClipping(colSpeed-37,0,45,heightAH)
-  lcd.drawLine(37, -1, 37, heightAH)
-
-  for index, line in pairs(parmLine) do
-     lcd.drawLine(38, line[1] + deltaY, 38 + line[2], line[1] + deltaY)
-     if line[3] then
-	text = string.format("%d",speed+0.5 + line[3] - delta)
-	lcd.drawText(35 - lcd.getTextWidth(FONT_NORMAL,text), line[1] + deltaY - 8, text, FONT_NORMAL)
-     end
-  end
-  
-  text = string.format("%d",speed)
-  lcd.drawFilledRectangle(0,rowAH-8,35,lcd.getTextHeight(FONT_NORMAL))
-  lcd.setColor(255-txtr,255-txtg,255-txtb)
-  lcd.drawText(35 - lcd.getTextWidth(FONT_NORMAL,text), rowAH-8, text, FONT_NORMAL | FONT_XOR)
-  lcd.resetClipping() 
+   setColorMain()
+   delta = speed % 10
+   deltaY = 1 + math.floor(2.4 * delta)
+   lcd.drawText(colSpeed-30, heightAH+2, "mph", FONT_MINI)
+   lcd.setClipping(colSpeed-37,0,45,heightAH)
+   lcd.drawLine(37, -1, 37, heightAH)
+   
+   for index, line in pairs(parmLine) do
+      lcd.drawLine(38, line[1] + deltaY, 38 + line[2], line[1] + deltaY)
+      if line[3] then
+	 text = string.format("%d",speed+0.5 + line[3] - delta)
+	 lcd.drawText(35 - lcd.getTextWidth(FONT_NORMAL,text), line[1] + deltaY - 8, text, FONT_NORMAL)
+      end
+   end
+   
+   text = string.format("%d",speed)
+   lcd.drawFilledRectangle(0,rowAH-8,35,lcd.getTextHeight(FONT_NORMAL))
+   setColorComp()
+   lcd.drawText(35 - lcd.getTextWidth(FONT_NORMAL,text), rowAH-8, text, FONT_NORMAL | FONT_XOR)
+   lcd.resetClipping() 
 end
 
 -- Draw heading indicator
@@ -591,7 +627,7 @@ local function drawHeading()
    
    ii = ii + 1
 
-   lcd.setColor(txtr,txtg,txtb)
+   setColorMain()
 
    lcd.drawFilledRectangle(colHeading-70, rowHeading, 140, 2)
    lcd.drawFilledRectangle(colHeading+65, rowHeading-20, 6,22)
@@ -618,9 +654,9 @@ local function drawHeading()
 
    text = string.format("%03d",dispHeading)
    w = lcd.getTextWidth(FONT_NORMAL,text) 
-   lcd.setColor(txtr,txtg,txtb)
+   setColorMain()
    lcd.drawFilledRectangle(colHeading - w/2, rowHeading-30, w, lcd.getTextHeight(FONT_NORMAL))
-   lcd.setColor(255-txtr,255-txtg,255-txtb)
+   setColorComp()
    lcd.drawText(colHeading - w/2,rowHeading-30,text,  FONT_XOR)
    
    lcd.resetClipping()
@@ -633,9 +669,8 @@ local colVario = 260
 
 local function drawVario()
 
-   local r,g,b = lcd.getFgColor()
-   lcd.setColor(r,g,b)
-
+   setColorMain()
+   
    for i = -60, 60, 30 do
       lcd.drawLine(colVario-7, rowVario+i, colVario+8, rowVario+i)
    end
@@ -643,12 +678,6 @@ local function drawVario()
 
    lcd.drawText(colVario-10, heightAH+2, "fpm", FONT_MINI)
 
-   lcd.drawFilledRectangle(colVario-48,rowAH-8,38,lcd.getTextHeight(FONT_NORMAL))
-   lcd.setColor(255-txtr,255-txtg,255-txtb)
-   text = string.format("%d", math.floor(vario*0.1+0.5)/0.1)
-   lcd.drawText(colVario-12- lcd.getTextWidth(FONT_NORMAL,text), rowAH-8, text, FONT_NORMAL | FONT_XOR)
-
-   lcd.setColor(r,g,b)  
    if(vario > 1200) then vario = 1200 end
    if(vario < -1200) then vario = -1200 end
    if (vario > 0) then 
@@ -657,6 +686,11 @@ local function drawVario()
    elseif(vario < 0) then 
       lcd.drawFilledRectangle(colVario-4,rowVario+1,10,math.floor(-vario/16.66 + 0.5), 170)
    end
+
+   lcd.drawFilledRectangle(colVario-48,rowAH-8,38,lcd.getTextHeight(FONT_NORMAL))
+   setColorComp()
+   text = string.format("%d", math.floor(vario*0.1+0.5)/0.1)
+   lcd.drawText(colVario-12- lcd.getTextWidth(FONT_NORMAL,text), rowAH-8, text, FONT_NORMAL | FONT_XOR)
 end
 
 local function toXPixel(coord, min, range, width)
@@ -724,10 +758,10 @@ local function ilsPrint(windowWidth, windowHeight)
    local vA=0
    local dd
    local rA
-   local r, g, b
+
+   setColorILS()
    
-   r, g, b = lcd.getFgColor()
-   lcd.setColor(r, g, b)
+   setColorMain()
    
    lcd.drawImage( (310-glideSlopePNG.width)/2+1,10, glideSlopePNG)
    lcd.drawLine (60, yc, 250, yc) -- horiz axis
@@ -737,6 +771,8 @@ local function ilsPrint(windowWidth, windowHeight)
    drawAltitude()
    drawVario()   
 
+   setColorMain()
+   
    local x = xtable[#xtable] or 0
    local y = ytable[#ytable] or 0
    
@@ -779,9 +815,6 @@ local function ilsPrint(windowWidth, windowHeight)
 	 dx=0
 	 dy=0
       end
-
-            
-      lcd.setColor(lcd.getFgColor())
    
       -- draw no bars if not in the ILS zone
 
@@ -801,21 +834,21 @@ local function ilsPrint(windowWidth, windowHeight)
    end
       
    
-   lcd.setColor(txtr,txtg,txtb)
+   setColorMain()
    text = string.format("%03d",heading)
    w = lcd.getTextWidth(FONT_NORMAL,text) 
    lcd.drawFilledRectangle(xc - w/2,0 , w, lcd.getTextHeight(FONT_NORMAL))
-   lcd.setColor(255-txtr,255-txtg,255-txtb)
+   setColorComp()
    lcd.drawText(xc - w/2,0,text,  FONT_XOR)
 
    if takeoff.RunwayHeading then
-      lcd.setColor(txtr,txtg,txtb)
+      setColorMain()
       local distFromTO = math.sqrt( (xtable[#xtable] - takeoff.Start.X)^2 +
 	    (ytable[#ytable] - takeoff.Start.Y)^2)
       text = string.format("%d",distFromTO)
       w = lcd.getTextWidth(FONT_NORMAL,text) 
       lcd.drawFilledRectangle(xc - w/2,143 , w, lcd.getTextHeight(FONT_NORMAL))
-      lcd.setColor(255-txtr,255-txtg,255-txtb)
+      lcd.setColorComp()
       lcd.drawText(xc - w/2,143,text,  FONT_XOR)
    end
 end
@@ -920,21 +953,28 @@ local timSstr = "-:-"
    
 local function mapPrint(windowWidth, windowHeight)
 
-   local r, g, b
    local xRW, yRW
    local scale
    local lRW
    local phi
    local dr, dl
    
-   r, g, b = lcd.getFgColor()
-   lcd.setColor(r, g, b)
+   setColorMap()
+   
+   setColorMain()
+   
+   if fieldPNG[currentImage] then
+      lcd.drawImage(0,0,fieldPNG[currentImage], 255)
+   end
 
    drawSpeed()
    drawAltitude()
    drawHeading()
    drawVario()
-
+   
+   -- in case the draw functions left color set to their specific values
+   setColorMain()
+   
    if takeoff.Start.X and not fd then
       lcd.drawCircle(toXPixel(takeoff.Start.X, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(takeoff.Start.Y, map.Ymin, map.Yrange, windowHeight), 4)
@@ -953,7 +993,6 @@ local function mapPrint(windowWidth, windowHeight)
 
       scale = (lRW/map.Xrange)*(windowWidth/40) -- rw shape is 40 units long
 
-      lcd.setColor(0,240,0)
 
       if (not iField) and takeoff.RunwayHeading then
 	 drawShapePL(toXPixel(xRW, map.Xmin, map.Xrange, windowWidth),
@@ -962,12 +1001,12 @@ local function mapPrint(windowWidth, windowHeight)
       end
 	 
       if takeoff.RunwayHeading then
+	 lcd.setColor(0,240,0) -- temporarily set to green for ILS path
 	 drawILS (toXPixel(takeoff.Start.X, map.Xmin, map.Xrange, windowWidth),
 		  toYPixel(takeoff.Start.Y, map.Ymin, map.Yrange, windowHeight),
 		  math.rad(takeoff.RunwayHeading-variables.magneticVar), scale)
+	 setColorMain()
       end
-      
-      lcd.setColor(r,g,b)
 
       text=string.format("Map: %d x %d    Rwy: %dT", map.Xrange, map.Yrange,
 			 math.floor(( (takeoff.RunwayHeading+variables.rotationAngle)/10+.5) ) )
@@ -993,6 +1032,8 @@ local function mapPrint(windowWidth, windowHeight)
       else
 	 text='Unknown Field'
       end
+
+      if fd then text = text .."   "..timSstr end
       
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
    end
@@ -1045,7 +1086,7 @@ local function mapPrint(windowWidth, windowHeight)
       -- First compute determinants to see what side of the right and left lines we are on
       -- ILS course is between them
 
-      lcd.setColor(lcd.getFgColor())
+      setColorMain()
       
       if takeoff.RunwayHeading then
 	 dr = (xtable[i]-xr1)*(yr2-yr1) - (ytable[i]-yr1)*(xr2-xr1)
@@ -1067,7 +1108,6 @@ local function mapPrint(windowWidth, windowHeight)
       end
    end
 
-   lcd.setColor(lcd.getFgColor())
    drawBezier(windowWidth, windowHeight)
    drawGeo(windowWidth, windowHeight)
 
@@ -1076,6 +1116,7 @@ end
 local function graphScale(x, y)
 
    if not map.Xmax then
+      print("BAD! -- setting max and min in graphScale")
       map.Xmax=   400
       map.Xmin = -400
       map.Ymax =  200
@@ -1086,24 +1127,75 @@ local function graphScale(x, y)
    if x < path.xmin then path.xmin = x end
    if y > path.ymax then path.ymax = y end
    if y < path.ymin then path.ymin = y end
-   
-   map.Xrange = math.floor((path.xmax-path.xmin)/200 + .5) * 200 -- use 2:1 aspect ratio
-   map.Yrange = math.floor((path.ymax-path.ymin)/100 + .5) * 100
-   
-   if map.Yrange > map.Xrange/(2) then
-      map.Xrange = map.Yrange*(2)
+
+   -- if we have an image then scale factor comes from the image
+   -- check each image scale .. maxs and mins are precomputed
+   -- starting from most zoomed in image (the first one), stop
+   -- when the path fits within the window or at max image size
+
+   if currentImage then 
+      for j = 1, maxImage, 1 do
+	 currentImage = j
+	 if path.xmax <= geo.fields[iField].images[j].xmax and
+	    path.ymax <= geo.fields[iField].images[j].ymax and
+	    path.xmin >= geo.fields[iField].images[j].xmin and
+	    path.ymin >= geo.fields[iField].images[j].ymin
+	 then
+	    break
+	 end
+      end
+      map.Xmin = geo.fields[iField].images[currentImage].xmin
+      map.Xmax = geo.fields[iField].images[currentImage].xmax
+      map.Ymin = geo.fields[iField].images[currentImage].ymin
+      map.Ymax = geo.fields[iField].images[currentImage].ymax
+      map.Xrange = map.Xmax - map.Xmin
+      map.Yrange = map.Ymax - map.Ymin
+      
+   else
+      -- if no image then just scale to keep the path on the map
+      -- round Xrange to nearest 200', Yrange to nearest 100' maintain 2:1 aspect ratio
+      map.Xrange = math.floor((path.xmax-path.xmin)/200 + .5) * 200
+      map.Yrange = math.floor((path.ymax-path.ymin)/100 + .5) * 100
+      
+      if map.Yrange > map.Xrange/2 then
+	 map.Xrange = map.Yrange*2
+      end
+      if map.Xrange > map.Yrange*2 then
+	 map.Yrange = map.Xrange/2
+      end
+      
+      map.Xmin = path.xmin - (map.Xrange - (path.xmax-path.xmin))/2
+      map.Xmax = path.xmax + (map.Xrange - (path.xmax-path.xmin))/2
+      
+      map.Ymin = path.ymin - (map.Yrange - (path.ymax-path.ymin))/2
+      map.Ymax = path.ymax + (map.Yrange - (path.ymax-path.ymin))/2
    end
-   if map.Xrange > map.Yrange*(2) then
-      map.Yrange = map.Xrange/(2)
-   end
    
-   map.Xmin = path.xmin - (map.Xrange - (path.xmax-path.xmin))/2
-   map.Xmax = path.xmax + (map.Xrange - (path.xmax-path.xmin))/2
-   
-   map.Ymin = path.ymin - (map.Yrange - (path.ymax-path.ymin))/2
-   map.Ymax = path.ymax + (map.Yrange - (path.ymax-path.ymin))/2
-   
+--   print("Xmin,Xmax,Ymin,Ymax", map.Xmin, map.Xmax, map.Ymin, map.Ymax)
 end
+
+local function graphInit()
+
+   -- if we have an image of the field, then use the precomputed min max value from
+   -- the first image (assumed to be the most zoomed-in) to set the initial scale
+   
+   if iField and geo.fields[iField].images[1] then
+      map.Xmin = geo.fields[iField].images[1].xmin
+      map.Xmax = geo.fields[iField].images[1].xmax
+      map.Ymin = geo.fields[iField].images[1].ymin
+      map.Ymax = geo.fields[iField].images[1].ymax
+   else
+      map.Xmin, map.Xmax = -400, 400
+      map.Ymin, map.Ymax = -200, 200
+   end
+
+   map.Xrange = map.Xmax - map.Xmin
+   map.Yrange = map.Ymax - map.Ymin
+   
+   path.xmin, path.xmax, path.ymin, path.ymax = map.Xmin, map.Xmax, map.Ymin, map.Ymax
+
+end
+
 
 local long0, lat0, coslat0
 local rE = 21220539.7  -- 6371*1000*3.28084 radius of earth in ft, fudge factor of 1/0.985
@@ -1122,6 +1214,7 @@ local function initField()
 	    lat0  = geo.fields[iField].runway.lat
 	    coslat0 = math.cos(math.rad(lat0))
 	    variables.rotationAngle = geo.fields[iField].runway.trueDir-270 -- draw rwy along x axis
+
 	    if geo.fields[iField].POI then
 	       for j=1, #geo.fields[iField].POI,1 do
 		  poi[j] = {x=rE*(geo.fields[iField].POI[j].long-long0)*coslat0/rad,
@@ -1130,6 +1223,15 @@ local function initField()
 		  -- graphScale(poi[j].x, poi[j].y) -- maybe note in POI coords jsn if should autoscale or not?
 	       end
 	    end
+	    
+	    --[[
+	    if geo.fields[iField].images then
+	       for j=1, #geo.fields[iField].images, 1 do
+		  print(j, geo.fields[iField].images[j].filename, geo.fields[iField].images[j].xrange)
+	       end
+	    end
+	    --]]
+	    
 	    if (geo and iField) then -- if we read the jsn file then extract the info from it
 	       
 	       -- build the rectangle for the runway, make a closed shape, scale to 2x size
@@ -1146,6 +1248,9 @@ local function initField()
 	       takeoff.RunwayHeading = geo.fields[iField].runway.trueDir-variables.rotationAngle
 	       -- print('takeoff.RunwayHeading = ', takeoff.RunwayHeading)
 	       -- end new code
+
+	       setColorMap()
+	       setColorMain()
 	    end   
 	    break
 	 end
@@ -1153,10 +1258,41 @@ local function initField()
    end
    if iField then
       system.messageBox("Current location: " .. geo.fields[iField].name, 2)
+      maxImage = #geo.fields[iField].images
+      if maxImage ~= 0 then
+	 for j=1, maxImage, 1 do
+	    fieldPNG[j] = lcd.loadImage("Apps/DFM-LSO/"..geo.fields[iField].images[j].filename)
+	    if fieldPNG[j] then
+	       -- precompute left, right, top, bottom for each image
+	       -- the runway center is at x,y=0,0
+	       -- set the window so that the runway is centered left-to-right
+	       -- and is 1/4 of the way up from the bottom of the screen
+	       -- image only specifies x range (total width of window), set y range to xrange/2
+	       geo.fields[iField].images[j].xmin = -geo.fields[iField].images[j].xrange/2
+	       geo.fields[iField].images[j].xmax =  geo.fields[iField].images[j].xrange/2
+	       local yrange = geo.fields[iField].images[j].xrange/2
+	       geo.fields[iField].images[j].ymin =  -0.25 * yrange
+	       geo.fields[iField].images[j].ymax =   0.75 * yrange
+	       
+	    else
+	       print("failed to load image", "Apps/DFM-LSO/"..geo.fields[iField].images[j].filename)
+	    end
+	 end
+	 currentImage = 1
+	 graphInit() -- re-init graph scales with images loaded
+      end
    else
       system.messageBox("Current location: not a known field", 2)
    end
+-------------------------------------------------------------------------------------------------
+--   fieldPNG = lcd.loadImage("Apps/DFM-LSO/r.png")
+--   print("fieldPNG: ", fieldPNG)
+--   print("width: ", fieldPNG.width)
+--   print("height: ", fieldPNG.height)
+   -------------------------------------------------------------------------------------------------
 end
+
+
 
 -- presistent and global variables for loop()
 
@@ -1210,15 +1346,7 @@ local function loop()
       form.setValue(resetCompIndex, resetClick) -- prob should double check same form still displayed...
 
       -- reset map window too
-      map.Xmax=   400
-      map.Xmin = -400
-      map.Ymax =  200
-      map.Ymin = -200
-      
-      path.xmin = map.Xmin
-      path.xmax = map.Xmax
-      path.ymin = map.Ymin
-      path.ymax = map.Ymax
+      graphInit()
       
       -- reset baro alt zero too
       baroAltZero = altitude
@@ -1667,16 +1795,10 @@ local function loop()
    end
 end
 
-
 local function init()
 
    local fname
    local line
-   map.Xmin, map.Xmax = -400, 400
-   map.Ymin, map.Ymax = -200, 200
-   map.Xrange = map.Xmax - map.Xmin
-   map.Yrange = map.Ymax - map.Ymin
-   path.xmin, path.xmax, path.ymin, path.ymax = map.Xmin, map.Xmax, map.Ymin, map.Ymax
 
 --[[
  
@@ -1723,6 +1845,7 @@ at that point)
       end
    end
 
+   
    local fg = io.readall("Apps/DFM-LSO/Shapes.jsn")
    if fg then
       shapes = json.decode(fg)
@@ -1734,6 +1857,11 @@ at that point)
    if fg then
       geo = json.decode(fg)
    end
+
+   setColorILS() -- this sets to a simple color scheme with fg color and complement color
+   setColorMain()-- if a map is present it will change color scheme later
+   
+   graphInit()
 
    for i, j in ipairs(telem) do
       telem[j].Se   = system.pLoad("telem."..telem[i]..".Se", 0)
@@ -1779,8 +1907,9 @@ at that point)
    if DEBUG then
       print('L_S_O_Active.wav')
    end
-    readSensors()
-    collectgarbage()
+
+   readSensors()
+   collectgarbage()
 end
 
 

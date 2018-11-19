@@ -210,7 +210,8 @@ local function loop()
    local speed
    local deltaSA
    local sensor
-
+   local sss, uuu
+   
    local swi  = system.getInputsVal(spdSwitch)
    local swc  = system.getInputsVal(contSwitch)
    
@@ -292,52 +293,44 @@ local function loop()
 	 nextAnnTC = lastAnnTC + VrefCall * 1000 -- at and below Vref .. ann every VrefCall secs
       end
 
-      if not sgTC0 then sgTC0 = system.getTimeCounter() end
-      
       sgTC = system.getTimeCounter()
+      if not sgTC0 then sgTC0 = sgTC end
+      
+      
+      -- added isPlayback() so that we don't create a backlog of messages if it takes longer than VrefCall time
+      -- to speak the speed .. was creating a "bow wave" of pending announcements. Wait till speaking is done, catch
+      -- it at the next call to loop()
 
-      if (sgTC > nextAnnTC) and ( (spd > VrefSpd / 4) or (swc and swc == 1) ) then
+      if (not system.isPlayback()) and ( (sgTC > nextAnnTC) and ( (spd > VrefSpd / 4) or (swc and swc == 1) ) ) then
 
 	 round_spd = math.floor(spd + 0.5)
 	 lastAnnSpd = round_spd
 
 	 lastAnnTC = sgTC -- note the time of this announcement
 	 
-	 local sss = string.format("%.0f", round_spd)
-	 if (selFt) then
-	    if (shortAnn or not aboveVref or (swc and swc == 1) ) then
-	       system.playNumber(round_spd, 0)
-	       if DEBUG then
-		  print("(s)speed: ", sss, " mph")
-		  print("time: ", (sgTC-sgTC0)/1000)
-	       end
-	    else
-	       system.playNumber(round_spd, 0, "mph", "Speed")
-	       if DEBUG then
-		  print("speed: ", sss, " mph")
-		  print("time: ", (sgTC-sgTC0)/1000)		  
-	       end
+	 sss = string.format("%.0f", round_spd)
+	 if (selFt) then uuu = "mph" else uuu = "km/hr" end
+	 
+	 if (shortAnn or not aboveVref or (swc and swc == 1) ) then
+	    system.playNumber(round_spd, 0)
+	    if DEBUG then
+	       print("(s)speed: ", sss)
+	       print("time: ", (sgTC-sgTC0)/1000)
 	    end
 	 else
-	    if (shortAnn or not aboveVref or (swc and swc == 1) ) then
-	       system.playNumber(round_spd, 0)
-	       if DEBUG then
-		  print("(s)speed: ", sss, " km/hr")
-		  print("time: ", (sgTC-sgTC0)/1000)
-	       end
-	    else
-	       system.playNumber(round_spd, 0, "km/h", "Speed")
-	       if DEBUG then
-		  print("speed: ", sss, " km/hr")
-		  print("time: ", (sgTC-sgTC0)/1000)
-	       end
+	    system.playNumber(round_spd, 0, uuu, "Speed")
+	    if DEBUG then
+	       print("speed: ", sss, uuu)
+	       print("time: ", (sgTC-sgTC0)/1000)		  
 	    end
 	 end
-      end
+      end -- if (not system...)
    end
 end
 --------------------------------------------------------------------------------
+
 local function init()
+
 
    spdSwitch = system.pLoad("spdSwitch")
    contSwitch = system.pLoad("contSwitch")
@@ -357,6 +350,7 @@ local function init()
 
    system.registerForm(1, MENU_APPS, "Speed Announcer", initForm)
    system.playFile('/Apps/DFM-SpdA/Spd_ann_act.wav', AUDIO_QUEUE)
+
    readSensors()
 
 end
