@@ -3,7 +3,7 @@
 local wVersion="1.5"
 local wAppname="CTU DashXM200"
 
-local DEBUG = true
+local DEBUG = false
 
 -- Locals for the application
 

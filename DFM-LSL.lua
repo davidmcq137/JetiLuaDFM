@@ -112,6 +112,18 @@ local textColor = {}
 textColor.main = {red=0, green=0, blue=0}
 textColor.comp = {red=255, green=255, blue=255}
 
+-- "globals" for log reading
+local logItems={}
+logItems.cols={}
+logItems.vals={}
+logItems.selectedSensors = {MGPS_Latitude  =1, -- keyvalues irrelevant for now, just need to be true
+			    MGPS_Longitude =2,
+			    CTU_Altitude   =3,
+			    MSPEED_Velocity=4,
+			    MGPS_Course    =5}
+local logSensorNameByID = {}
+
+
 --[[
 
 -- Read and set translations (out for now till we have translations, simplifies install)
@@ -313,14 +325,58 @@ local function resetOriginChanged(value)
    DEBUG = not DEBUG -- in case we forget and ship a version with DEBUG = true to the TX!
 end
 
-local fns={}
+local dirSelectEntries={}
+local fileSelectEntries={}
 
-local function logFileChanged(value, fn)
+--local function logFileChanged(value, fn)
    --print("Saving: ", string.match(fn[value], "(%S+)"))
-   system.pSave("logPlayBack", string.match(fn[value], "(%S+)")) -- remove file size from string
-end
+--   system.pSave("logPlayBack", string.match(fn[value], "(%S+)")) -- remove file size from string
+--   fns.selectedDir=fn[value]
+--end
 
 --------------------------------------------------------------------------------
+local function dir(type)
+
+   local dirnames={"20180909",
+		   "20180922",
+		   "20180927",
+		   "20180926",
+		   "20180928",
+		   "20180929",
+		   "20181007",
+		   "20181010",
+		   "20181013",
+		   "20181019",
+		   "20181020",
+		   "20181101",
+		   "20181102",
+		   "20181103",
+		   "20181104",
+		   "20181115"}
+   local filenames={"13-47-48.log",
+		    "16-50-25.log",
+		    "17-19-00.log",
+		    "18-09-31.log",
+		    "18-22-25.log",
+		    "21-16-47.log",
+		    "21-19-30.log"}
+   local idir, ifile=0,0
+   return function()
+      print("in iterator - type, idir, ifile:", type, idir, ifile)
+      if type=="/Log" then
+
+	 print("in /Log")
+	 idir = idir + 1
+	 if idir > #dirnames then return nil end
+	 print("returning", idir, dirnames[idir])
+	 return dirnames[idir], "folder", 0
+      else
+	 ifile = ifile + 1
+	 if ifile > #filenames then return nil end
+	 return filenames[ifile], "file", 1024+128*ifile
+      end
+   end
+end
 
 -- Draw the main form (Application inteface)
 
@@ -412,21 +468,65 @@ local function initForm(subform)
 	 
       end
    elseif subform == 2 then
-
+ 
       form.addLink((function() form.reinit(1) end), {label = "Back to main menu",font=FONT_BOLD})
       local i = 0
       
       for fname, ftype, fsize in dir("/Log") do
-	 if ftype == 'file' and fsize ~= 0 then
+	 print("in subform 2", fname, ftype, fsize)
+	 if ftype == 'folder' then
 	    i = i + 1
-	    fns[i] = string.format("%s  %s", fname, fsize)
+	    dirSelectEntries[i] = string.format("%s", fname)
+	    print("+", i, dirSelectEntries[i])
 	 end
       end
 
       form.addRow(2)
-      form.addLabel({label="Select Log File for Playback", width=220})
-      form.addSelectbox(fns, 0, true, (function(value) return logFileChanged(value, fns) end ) )
-      -- fns = nil -- release storage for file names ... no longer needed
+      form.addLabel({label="Select Log dir"})
+      print("$", #dirSelectEntries, dirSelectEntries[1], dirSelectEntries[#dirSelectEntries])
+      table.sort(dirSelectEntries, function(a,b) return a>b end)
+      dirSelectEntries.selectedDir = dirSelectEntries[1]
+
+      form.addSelectbox(dirSelectEntries, 1, true,
+			(function(value) dirSelectEntries.selectedDir = dirSelectEntries[value] end))
+
+      form.addLink((function() form.reinit(3) end), {label = "Select file >>"})
+      
+   elseif subform == 3 then
+      form.addLink((function()
+	       system.pSave("logPlayBack",fileSelectEntries.selectedFile)
+	       form.reinit(1)
+		   end),
+	 {label = "<< Back to main menu",font=FONT_BOLD})
+
+      form.addLink((function()
+ 	       system.pSave("logPlayBack",fileSelectEntries.selectedFile)
+	       form.reinit(2)
+		   end),
+	 {label = "<< Back to folder select menu",font=FONT_BOLD})
+      
+      local i = 0
+      local baseDir="/Log".."/"..dirSelectEntries.selectedDir.."/"
+      for fname, ftype, fsize in dir(baseDir) do
+	 print("in subform 3", fname, ftype, fsize)
+	 if ftype == 'file' then
+	    i = i + 1
+	    --add code here to open each file and read first line to get model name
+	    fileSelectEntries[i] = string.format("%s    %s    %s", fname, "TH ViperJet", fsize)
+	    print("+", i, fileSelectEntries[i])
+	 end
+      end
+      table.sort(fileSelectEntries, function(a,b) return a>b end)      
+      fileSelectEntries.selectedFile = nil -- no default, second parm of addSelectBox is 0 for same reason
+      -- fix pSaves in case this var is nil
+      form.addRow(2)
+      form.addLabel({label="Select Log File", width=195})
+      form.addSelectbox(fileSelectEntries, 0, true,
+			(function(value)
+			      fileSelectEntries.selectedFile = baseDir..fileSelectEntries[value] 
+			      print("@",baseDir..fileSelectEntries[value])
+			end), {width=118})
+      
    end
 end
 
@@ -1056,10 +1156,13 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 28, text, FONT_MINI)
    end
 
-   if satQuality then
-      text=string.format("%.1f", satQuality)
-      lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)   
-   end
+   text=string.format("%d", system.getCPU())
+   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)
+   
+   -- if satQuality then
+   --    text=string.format("%.1f", satQuality)
+   --    lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)   
+   -- end
    
    if takeoff.RunwayHeading then
       phi = (90-(takeoff.RunwayHeading-variables.magneticVar)+360)%360
@@ -1293,16 +1396,124 @@ local function initField()
    else
       system.messageBox("Current location: not a known field", 2)
    end
--------------------------------------------------------------------------------------------------
---   fieldPNG = lcd.loadImage("Apps/DFM-LSO/r.png")
---   print("fieldPNG: ", fieldPNG)
---   print("width: ", fieldPNG.width)
---   print("height: ", fieldPNG.height)
-   -------------------------------------------------------------------------------------------------
 end
 
+local function split(str, ch)
+   local index, acc = 0, {}
+   while index do
+      local nindex = string.find(str, ch, 1+index)
+      if not nindex then
+	 table.insert(acc, str:sub(index))
+	 break
+      end
+      table.insert(acc, str:sub(index, nindex-1))
+      index = 1+nindex
+   end
+   return acc
+end
 
+local function sensorName(device_name, param_name)
+   return device_name .. "_" .. param_name -- sensor name is human readable e.g. CTU_Altitude
+end
 
+local function sensorID(devID, devParm)
+   return devID..devParm -- sensor ID is machine readable e.g. 420460025613 (13 concat to 4204600256)
+end
+
+-- local function packAngle(angle)
+--    local d, m = math.modf(angle)
+--    return math.floor(m*60000+0.5) + (math.floor(d) << 16) -- math.floor forces to int
+-- end
+
+local function unpackAngle(packed)
+   return ((packed >> 16) & 0xFF)
+          + ((packed & 0xFFFF) * 0.001)/60
+end
+
+local rlhCount=0
+local rlhDone=false
+
+local function readLogHeader()
+
+   if rlhCount == 0 then
+      io.readline(fd) -- read the comment line and toss .. assume one comment line only (!)
+   end
+   rlhCount = rlhCount + 1
+   print ("rlh", rlhCount, system.getCPU())
+   for i=1, 4, 1 do -- process log file header 4 rows at a time
+      logItems.line = io.readline(fd, true) -- true param removes newline
+      logItems.cols = split(logItems.line, ";")
+      logItems.timestamp = tonumber(logItems.cols[1])
+      if logItems.timestamp ~= 0 then
+	 rlhDone = true
+	 return
+      end
+      if logItems.cols[3] == "0" then
+	 logItems.prefix=logItems.cols[4]
+      else
+	 logItems.name  = sensorName(logItems.prefix, logItems.cols[4])
+	 if logItems.selectedSensors[logItems.name] then
+	    logSensorNameByID[sensorID(logItems.cols[2], logItems.cols[3])] = logItems.name
+	 end
+      end
+   end
+   return
+end
+
+-----------------------------------------------------------------------------------------------------
+local function readLogTimeBlock()
+
+   logItems.timestamp = logItems.cols[1]
+   logItems.deviceID = tonumber(logItems.cols[2])
+
+   repeat
+      if logItems.deviceID ~= 0 then -- if logItems.deviceID == 0 then it's a message
+	 for i = 3, #logItems.cols, 4 do
+	    if logItems.timestamp == "000087425" then print(logItems.deviceID, system.getCPU()) end
+	    local sn = logSensorNameByID[sensorID(logItems.cols[2], logItems.cols[i])]
+	    if sn then
+	       logItems.encoding = tonumber(logItems.cols[i+1])
+	       logItems.decimals = tonumber(logItems.cols[i+2])
+	       logItems.value    = tonumber(logItems.cols[i+3])
+	       if logItems.encoding == 9 then
+		  local latlong = unpackAngle(logItems.value)
+		  if logItems.cols[i] == "3" then
+		     if logItems.decimals == 3 then -- "West" .. make it - (NESW coded in dec plcs as 0,1,2,3)
+			logItems.vals[sn] = -latlong
+		     else
+			logItems.vals[sn] = latlong
+		     end
+		  elseif logItems.cols[i] == "2" then
+		     if logItems.decimals == 2 then -- "South" .. make it negative
+			logItems.vals[sn] = -latlong
+		     else
+			logItems.vals[sn] = latlong
+		     end
+		  end
+	       else
+		  logItems.vals[sn] = logItems.value / 10^logItems.decimals
+	       end
+	    end
+	 end
+      else
+	 system.messageBox(logItems.cols[6], 2)	 
+      end
+      
+      logItems.line = io.readline(fd, true)
+
+      if not logItems.line then
+	 return nil
+      end
+
+      logItems.cols = split(logItems.line, ';')
+
+      if (logItems.cols[1] ~= logItems.timestamp) then -- new time block, dump vals and reset
+	 return logItems.vals
+      end
+   until false
+end
+
+-----------------------------------------------------------------------------------------------------
 -- presistent and global variables for loop()
 
 local lastlat = 0
@@ -1342,6 +1553,10 @@ local function loop()
    local deltaPosTime = 100 -- min sample interval in ms
    local latS, lonS, altS, spdS, hdgS
    local _
+
+   if not rlhDone and fd then
+      readLogHeader()
+   end
    
    goodlat = false
    goodlong = false
@@ -1363,7 +1578,7 @@ local function loop()
       print("Reset origin and barometric altitude. New baroAltZero is ", baroAltZero)
       -- dump(_G,"") -- print all globals for debugging
       
-      if ff then io.close(ff) end
+      -- if ff then io.close(ff) end
    end
 
    if DEBUG then
@@ -1386,45 +1601,68 @@ local function loop()
    -- wait until realtime is equal to recorded time to plot the point
    -- denominator under tonumber(timS) is acceleration factor for replay
 
-   if fd then
-      if ( (system.getTimeCounter() - sysTimeStart)/1000.) >= (tonumber(timS) - timSn)/20. and blocked then
+   if fd and rlhDone then
+      if (system.getTimeCounter() - logItems.sysStartTime) >= (tonumber(timS) - timSn)/10. and blocked then
 	 blocked = false
 	 goto fileInputLatLong
       end
 
       if blocked then return end
 
-      local timS0 = timS
-      
-      tt = io.readline(fd)
-      if tt then
-	 timS, latS, lonS, altS, spdS, hdgS = string.match(tt, -- next string reads csv data -- really! :-)
- "(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)"
-	 )
-	 latitude = tonumber(latS)
-	 longitude = tonumber(lonS)
-	 altitude = tonumber(altS)
-	 speed = tonumber(spdS)
-	 if speed > 1000 then speed = speed / 100 end -- hack: had x100 bug in files from nov 4
-	 --heading = tonumber(hdgS) -- don't use saved heading for now --
+      local timS0 = timS -- blocked initialized to false, will flow to here first time
+
+      if readLogTimeBlock() then
+	 timS      =  logItems.timestamp -- remember timS is a string, not a number
+	 latitude  =  logItems.vals['MGPS_Latitude'] or 0
+	 longitude =  logItems.vals['MGPS_Longitude'] or 0
+	 altitude  =  logItems.vals['CTU_Altitude'] or 0
+	 speed     =  logItems.vals['MSPEED_Velocity'] or 0
+	 
 	 if timS0 == "0" then
 	    timSn = tonumber(timS) -- first line in file even if t ~= 0 becomes time origin
 	 end
-	 local timSd60 = tonumber(timS)/60
+	 local timSd60 = tonumber(timS)/(60000) -- to mins from ms
 	 local min, sec = math.modf(timSd60)
 	 sec = sec * 60
 	 timSstr = string.format("%02d:%02d", min, sec)
-	 
 	 blocked = true
 	 return
       else
 	 io.close(fd)
-	 print('Closing csv file')
+	 print('Closing log reply file')
 	 fd = nil
       end
-   end
-
-   if fd then print('Should not get here with fd true!') end
+   end   
+      
+   --    tt = io.readline(fd)
+   --    if tt then
+   -- 	 timS, latS, lonS, altS, spdS, hdgS = string.match(tt, -- next string reads csv data -- really! :-)
+   -- 							   "(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)"
+   -- 	 )
+   -- 	 latitude = tonumber(latS)
+   -- 	 longitude = tonumber(lonS)
+   -- 	 altitude = tonumber(altS)
+   -- 	 speed = tonumber(spdS)
+   -- 	 if speed > 1000 then speed = speed / 100 end -- hack: had x100 bug in files from nov 4
+   -- 	 --heading = tonumber(hdgS) -- don't use saved heading for now --
+   -- 	 if timS0 == "0" then
+   -- 	    timSn = tonumber(timS) -- first line in file even if t ~= 0 becomes time origin
+   -- 	 end
+   -- 	 local timSd60 = tonumber(timS)/60
+   -- 	 local min, sec = math.modf(timSd60)
+   -- 	 sec = sec * 60
+   -- 	 timSstr = string.format("%02d:%02d", min, sec)
+	 
+   -- 	 blocked = true
+   -- 	 return
+   --    else
+   -- 	 io.close(fd)
+   -- 	 print('Closing csv file')
+   -- 	 fd = nil
+   --    end
+   -- end
+   
+   if fd then return end -- ok to get here if waiting for log file header to be read
 
    sensor = system.getSensorByID(telem.Longitude.SeId, telem.Longitude.SePa)
 
@@ -1567,11 +1805,11 @@ local function loop()
    ::fileInputLatLong::
    
    
-   if ff then
-      io.write(ff, string.format("%.4f, %.8f , %.8f , %.2f , %.2f , %.2f\n",
-				 (system.getTimeCounter()-sysTimeStart)/1000.,
-				 latitude, longitude, altitude, speed, (heading-variables.magneticVar) ) )
-   end
+   -- if ff then
+   --    io.write(ff, string.format("%.4f, %.8f , %.8f , %.2f , %.2f , %.2f\n",
+   -- 				 (system.getTimeCounter()-sysTimeStart)/1000.,
+   -- 				 latitude, longitude, altitude, speed, (heading-variables.magneticVar) ) )
+   -- end
    
    if (latitude == lastlat and longitude == lastlong) or (system.getTimeCounter() < newPosTime) then
       newpos = false
@@ -1811,19 +2049,19 @@ local function init()
 
 --[[
  
-try opening the csv file for debugging .. we just give it a magic name for now. if it exists assume we will
-do a playback. this is a kludge .. experimenting with pSave/pLoad of last log file but how to best ask if it 
-should be replayed? Always ask and default to no? Initiate from a menu (hard to do since already running 
-at that point)
+if the menu item to select a replay log file was used, the file is persisted by pSave in logPlayBacl
+but this only works correctly on the TX .. the emulator's dir() iterator does not work. So if we are
+running on the emulator, we check for the "magic name" of DFM-LSO.log -- if it exists we open it for
+replay
 
 --]]
    
    fname = system.pLoad("logPlayBack", "...")
-   print("Saved LogFile for replay: ", fname)
-   
-   if fname ~= "..." then fd=io.open("Log/"..fname, "r") else 
-      fname = "DFM-LSO.csv" -- try magic name if running on emulator since dir() does not work there%^&$%@
+
+   if fname ~= "..." then fd=io.open("Log/"..fname, "r") else
+      fname = "DFM-LSO.log" -- try magic name if running on emulator since dir() does not work there%^&$%@
       fd = io.open("Apps/DFM-LSO/"..fname, "r")
+      print("fd is", fd)
    end
    
 
@@ -1831,26 +2069,19 @@ at that point)
       if form.question("Start replay?", "log file "..fname, "---",2500, false, 0) == 1 then
 	 print("Opened log file "..fname.." for reading")
 	 system.pSave("logPlayBack", "...")
-	 line = io.readline(fd) -- read the shebang line .. code goes here to take action on it
-	 -- print("Shebang line: ", line)
+
+	 readLogHeader()
+	 print("rlh done")
+	 logItems.logStartTime = tonumber(logItems.timestamp)
+	 print("log ST:", logItems.logStartTime)
+	 logItems.sysStartTime = system.getTimeCounter()
+	 print("sys ST:", logItems.sysStartTime)
+	 logItems.timeDelta = logItems.sysStartTime - logItems.logStartTime
 	 DEBUG = false
       else
 	 print("No replay")
 	 io.close(fd)
 	 fd = nil
-      end
-   else
-      if DEBUG == false and not fd then
-	 local dt = system.getDateTime()
-	 local fn = string.format("Log/DFM-LSO-%d%02d%02d-%d%02d%02d.csv",
-				  dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)	
-	 ff=io.open(fn, "w")
-	 if ff then
-	    print("Opening for writing csv log file: ", fn)
-	    system.pSave("LogFile", fn)
-	    io.write(ff, "#!DFM-LSO csv1.1 " .. system.getProperty("Model")  .. "\n") -- shebang for file format version
-	 end
-	 
       end
    end
 
@@ -1871,6 +2102,25 @@ at that point)
    setColorMain()-- if a map is present it will change color scheme later
    
    graphInit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
    for i, j in ipairs(telem) do
       telem[j].Se   = system.pLoad("telem."..telem[i]..".Se", 0)
