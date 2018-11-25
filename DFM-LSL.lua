@@ -322,63 +322,50 @@ local function resetOriginChanged(value)
       collectgarbage()
       print("GC Memory after: ", collectgarbage("count"))
    end
-   DEBUG = not DEBUG -- in case we forget and ship a version with DEBUG = true to the TX!
+   --DEBUG = not DEBUG -- in case we forget and ship a version with DEBUG = true to the TX!
+   --maybe put in a separate command for this?
 end
 
-local dirSelectEntries={}
-local fileSelectEntries={}
-
---local function logFileChanged(value, fn)
-   --print("Saving: ", string.match(fn[value], "(%S+)"))
---   system.pSave("logPlayBack", string.match(fn[value], "(%S+)")) -- remove file size from string
---   fns.selectedDir=fn[value]
---end
-
 --------------------------------------------------------------------------------
-local function dir(type)
+local function mydir(dstr)
 
-   local dirnames={"20180909",
-		   "20180922",
-		   "20180927",
-		   "20180926",
-		   "20180928",
-		   "20180929",
-		   "20181007",
-		   "20181010",
-		   "20181013",
-		   "20181019",
-		   "20181020",
-		   "20181101",
-		   "20181102",
-		   "20181103",
-		   "20181104",
-		   "20181115"}
-   local filenames={"13-47-48.log",
-		    "16-50-25.log",
-		    "17-19-00.log",
-		    "18-09-31.log",
-		    "18-22-25.log",
-		    "21-16-47.log",
-		    "21-19-30.log"}
-   local idir, ifile=0,0
+   if system.getProperty("Model") ~= "Emulator" then -- are we running on the emulator?
+      dir(dstr) -- this iterator only works on the TX - remainder of code fakes it with helper files
+   end
+   
+   local fd, ff
+   if dstr == "Log" or dstr == "/Log" then
+      fd = io.open("Log/LogDirs.out", "r")
+   else
+      ff = io.open(dstr.."/LogFiles.out")
+   end
+
    return function()
-      print("in iterator - type, idir, ifile:", type, idir, ifile)
-      if type=="/Log" then
-
-	 print("in /Log")
-	 idir = idir + 1
-	 if idir > #dirnames then return nil end
-	 print("returning", idir, dirnames[idir])
-	 return dirnames[idir], "folder", 0
+      local ll
+      if dstr=="/Log" or dstr == "Log" then
+	 ll = io.readline(fd)
+	 if not ll then
+	    io.close(fd)
+	    return nil
+	 else
+	    return ll, "folder", 0
+	 end
       else
-	 ifile = ifile + 1
-	 if ifile > #filenames then return nil end
-	 return filenames[ifile], "file", 1024+128*ifile
+	 ll = io.readline(ff)
+	 if not ll then
+	    io.close(ff)
+	    return nil
+	 end
+	 fn, fs = string.match(ll, "(%S+) (%S+)")
+	 return fn, "file", tonumber(fs)
       end
    end
 end
 
 -- Draw the main form (Application inteface)
+
+local dirSelectEntries={}
+local fileSelectEntries={}
 
 local function initForm(subform)
 
@@ -472,18 +459,18 @@ local function initForm(subform)
       form.addLink((function() form.reinit(1) end), {label = "Back to main menu",font=FONT_BOLD})
       local i = 0
       
-      for fname, ftype, fsize in dir("/Log") do
-	 print("in subform 2", fname, ftype, fsize)
+      for fname, ftype, fsize in mydir("Log") do
+	 --print("in subform 2", fname, ftype, fsize)
 	 if ftype == 'folder' then
 	    i = i + 1
 	    dirSelectEntries[i] = string.format("%s", fname)
-	    print("+", i, dirSelectEntries[i])
+	    --print("+", i, dirSelectEntries[i])
 	 end
       end
 
       form.addRow(2)
       form.addLabel({label="Select Log dir"})
-      print("$", #dirSelectEntries, dirSelectEntries[1], dirSelectEntries[#dirSelectEntries])
+      --print("$", #dirSelectEntries, dirSelectEntries[1], dirSelectEntries[#dirSelectEntries])
       table.sort(dirSelectEntries, function(a,b) return a>b end)
       dirSelectEntries.selectedDir = dirSelectEntries[1]
 
@@ -494,39 +481,62 @@ local function initForm(subform)
       
    elseif subform == 3 then
       form.addLink((function()
-	       system.pSave("logPlayBack",fileSelectEntries.selectedFile)
+	       system.pSave("logPlayBack",string.match(fileSelectEntries.selectedFile, "(%S+)"))
+	       --print("about to reinit(1) - logPlayBack is:",
+	       --string.match(fileSelectEntries.selectedFile, "(%S+)"))
 	       form.reinit(1)
 		   end),
 	 {label = "<< Back to main menu",font=FONT_BOLD})
 
       form.addLink((function()
- 	       system.pSave("logPlayBack",fileSelectEntries.selectedFile)
+ 	       system.pSave("logPlayBack",string.match(fileSelectEntries.selectedFile, "(%S+)"))
+	       --print("about to reinit(2) - logPlayBack is:",
+	       --string.match(fileSelectEntries.selectedFile, "(%S+)"))
 	       form.reinit(2)
 		   end),
 	 {label = "<< Back to folder select menu",font=FONT_BOLD})
       
       local i = 0
-      local baseDir="/Log".."/"..dirSelectEntries.selectedDir.."/"
-      for fname, ftype, fsize in dir(baseDir) do
-	 print("in subform 3", fname, ftype, fsize)
+      local baseDir="Log".."/"..dirSelectEntries.selectedDir.."/"
+      for fname, ftype, fsize in mydir(baseDir) do
+	 --print("in subform 3", fname, ftype, fsize)
+	 local fmod
 	 if ftype == 'file' then
 	    i = i + 1
-	    --add code here to open each file and read first line to get model name
-	    fileSelectEntries[i] = string.format("%s    %s    %s", fname, "TH ViperJet", fsize)
-	    print("+", i, fileSelectEntries[i])
+	    --print("attempting opening of", string.format("!%s!", baseDir..fname))
+	    local mf = io.open(baseDir..fname, "r")
+	    if mf then
+	       fmod = io.readline(mf)
+	       --print("fmod:", string.format("!%s!", fmod))
+	       io.close(mf)
+	    else
+	       fmod = "<no model>"
+	    end
+	    
+	    
+	    fileSelectEntries[i] =
+	       string.format("%12s   %10.12s   %7d",
+			     fname,
+			     string.match(fmod, "(%w+%s+%w+)"),
+			     fsize)
+	    --print("+", i, fileSelectEntries[i])
 	 end
       end
       table.sort(fileSelectEntries, function(a,b) return a>b end)      
       fileSelectEntries.selectedFile = nil -- no default, second parm of addSelectBox is 0 for same reason
       -- fix pSaves in case this var is nil
       form.addRow(2)
-      form.addLabel({label="Select Log File", width=195})
-      form.addSelectbox(fileSelectEntries, 0, true,
-			(function(value)
-			      fileSelectEntries.selectedFile = baseDir..fileSelectEntries[value] 
-			      print("@",baseDir..fileSelectEntries[value])
-			end), {width=118})
-      
+      if #fileSelectEntries == 0 then
+	 form.addLabel({label="No files to select", width=220})
+      else
+	 
+	 form.addLabel({label="Select Log File", width=195})
+	 form.addSelectbox(fileSelectEntries, 0, true,
+			   (function(value)
+				 fileSelectEntries.selectedFile = baseDir..fileSelectEntries[value] 
+				 --print("@",baseDir..fileSelectEntries[value])
+			   end), {width=118})
+      end
    end
 end
 
@@ -1439,7 +1449,7 @@ local function readLogHeader()
       io.readline(fd) -- read the comment line and toss .. assume one comment line only (!)
    end
    rlhCount = rlhCount + 1
-   print ("rlh", rlhCount, system.getCPU())
+   --print ("rlh", rlhCount, system.getCPU())
    for i=1, 4, 1 do -- process log file header 4 rows at a time
       logItems.line = io.readline(fd, true) -- true param removes newline
       logItems.cols = split(logItems.line, ";")
@@ -1469,7 +1479,7 @@ local function readLogTimeBlock()
    repeat
       if logItems.deviceID ~= 0 then -- if logItems.deviceID == 0 then it's a message
 	 for i = 3, #logItems.cols, 4 do
-	    if logItems.timestamp == "000087425" then print(logItems.deviceID, system.getCPU()) end
+	    --if logItems.timestamp == "000087425" then print(logItems.deviceID, system.getCPU()) end
 	    local sn = logSensorNameByID[sensorID(logItems.cols[2], logItems.cols[i])]
 	    if sn then
 	       logItems.encoding = tonumber(logItems.cols[i+1])
@@ -1568,12 +1578,11 @@ local function loop()
       resetOrigin=false
       resetClick = false
       form.setValue(resetCompIndex, resetClick) -- prob should double check same form still displayed...
-
-      -- reset map window too
-      graphInit()
+      if currentImage then currentImage = 1 end -- must graphinit() after this!
+      graphInit()      -- reset map window too
       
-      -- reset baro alt zero too
-      baroAltZero = altitude
+      baroAltZero = altitude      -- reset baro alt zero 
+
 
       print("Reset origin and barometric altitude. New baroAltZero is ", baroAltZero)
       -- dump(_G,"") -- print all globals for debugging
@@ -1616,7 +1625,9 @@ local function loop()
 	 latitude  =  logItems.vals['MGPS_Latitude'] or 0
 	 longitude =  logItems.vals['MGPS_Longitude'] or 0
 	 altitude  =  logItems.vals['CTU_Altitude'] or 0
+	 altitude  =  altitude * 3.28084 -- CTU Alt is in m, convert to ft
 	 speed     =  logItems.vals['MSPEED_Velocity'] or 0
+	 speed     =  speed * 2.23694 -- MSPEED is m/s, convert to mph
 	 
 	 if timS0 == "0" then
 	    timSn = tonumber(timS) -- first line in file even if t ~= 0 becomes time origin
@@ -2057,13 +2068,13 @@ replay
 --]]
    
    fname = system.pLoad("logPlayBack", "...")
-
-   if fname ~= "..." then fd=io.open("Log/"..fname, "r") else
+   
+   if fname ~= "..." then
+      fd=io.open(fname, "r")
+   else
       fname = "DFM-LSO.log" -- try magic name if running on emulator since dir() does not work there%^&$%@
       fd = io.open("Apps/DFM-LSO/"..fname, "r")
-      print("fd is", fd)
    end
-   
 
    if fd then
       if form.question("Start replay?", "log file "..fname, "---",2500, false, 0) == 1 then
@@ -2071,11 +2082,11 @@ replay
 	 system.pSave("logPlayBack", "...")
 
 	 readLogHeader()
-	 print("rlh done")
+	 --print("rlh done")
 	 logItems.logStartTime = tonumber(logItems.timestamp)
-	 print("log ST:", logItems.logStartTime)
+	 --print("log ST:", logItems.logStartTime)
 	 logItems.sysStartTime = system.getTimeCounter()
-	 print("sys ST:", logItems.sysStartTime)
+	 --print("sys ST:", logItems.sysStartTime)
 	 logItems.timeDelta = logItems.sysStartTime - logItems.logStartTime
 	 DEBUG = false
       else
@@ -2085,7 +2096,6 @@ replay
       end
    end
 
-   
    local fg = io.readall("Apps/DFM-LSO/Shapes.jsn")
    if fg then
       shapes = json.decode(fg)
@@ -2102,25 +2112,6 @@ replay
    setColorMain()-- if a map is present it will change color scheme later
    
    graphInit()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
    for i, j in ipairs(telem) do
       telem[j].Se   = system.pLoad("telem."..telem[i]..".Se", 0)
