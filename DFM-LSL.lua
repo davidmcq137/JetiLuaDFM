@@ -151,7 +151,7 @@ end
 
 local seen={}
 
-function dump(t,i)
+local function dump(t,i)
 	seen[t]=true
 	local s={}
 	local n=0
@@ -166,6 +166,30 @@ function dump(t,i)
 			dump(v,i.."\t")
 		end
 	end
+end
+
+--]]
+
+
+
+--[[
+
+--dumps a table in human-readable format (sort of)
+--kills the script sometimes for a really big table!
+
+local function dumpt(o)
+   if type(o) == 'table' then
+      local s = '{ '
+      for k,v in pairs(o) do
+         if type(k) ~= 'number' then
+	    k = '"'..k..'"'
+	 end
+	 s = s .. '['..k..'] = ' .. dumpt(v) .. ','
+      end
+      return s .. '} '
+   else
+      return tostring(o)
+   end
 end
 
 --]]
@@ -185,8 +209,11 @@ local satQualityPa = 0
 local satQuality
 
 local function readSensors()
-
+   
    local sensors = system.getSensors()
+
+   --print(dumpt(sensors)) -- see file JETISensorDump.out for example
+   
    for i, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 
@@ -336,8 +363,10 @@ local function mydir(dstr)
    local fd, ff
    if dstr == "Log" or dstr == "/Log" then
       fd = io.open("Log/LogDirs.out", "r")
+      if not fd then print('no file Log/LogDirs.out') end
    else
       ff = io.open(dstr.."/LogFiles.out")
+      if not ff then print('no file:', dstr.."LogFiles.out")
    end
 
    return function()
@@ -1223,10 +1252,10 @@ local function mapPrint(windowWidth, windowHeight)
 	 drawShape(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight),
 		   shapes.T38, math.rad(heading-variables.magneticVar))
-      else
-	 lcd.drawCircle(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
-			toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight),
-			2)
+      -- else
+      -- 	 lcd.drawCircle(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
+      -- 			toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight),
+      -- 			2)
       end
    end
 
@@ -1296,16 +1325,18 @@ local function graphScale(x, y)
 --   print("Xmin,Xmax,Ymin,Ymax", map.Xmin, map.Xmax, map.Ymin, map.Ymax)
 end
 
-local function graphInit()
+local function graphInit(im)
 
    -- if we have an image of the field, then use the precomputed min max value from
    -- the first image (assumed to be the most zoomed-in) to set the initial scale
+   -- im or 1 construct allows im to be nil and if so selects images[1]
+   -- probably redundant since iField would be nil too...
    
-   if iField and geo.fields[iField].images[1] then
-      map.Xmin = geo.fields[iField].images[1].xmin
-      map.Xmax = geo.fields[iField].images[1].xmax
-      map.Ymin = geo.fields[iField].images[1].ymin
-      map.Ymax = geo.fields[iField].images[1].ymax
+   if iField and geo.fields[iField].images[im or 1] then
+      map.Xmin = geo.fields[iField].images[im or 1].xmin
+      map.Xmax = geo.fields[iField].images[im or 1].xmax
+      map.Ymin = geo.fields[iField].images[im or 1].ymin
+      map.Ymax = geo.fields[iField].images[im or 1].ymax
    else
       map.Xmin, map.Xmax = -400, 400
       map.Ymin, map.Ymax = -200, 200
@@ -1401,7 +1432,7 @@ local function initField()
 	    end
 	 end
 	 currentImage = 1
-	 graphInit() -- re-init graph scales with images loaded
+	 graphInit(currentImage) -- re-init graph scales with images loaded
       end
    else
       system.messageBox("Current location: not a known field", 2)
@@ -1452,6 +1483,10 @@ local function readLogHeader()
    --print ("rlh", rlhCount, system.getCPU())
    for i=1, 4, 1 do -- process log file header 4 rows at a time
       logItems.line = io.readline(fd, true) -- true param removes newline
+      if not logItems.line then
+	 print("Read eror on log header file")
+	 rlhDone=true
+	 return
       logItems.cols = split(logItems.line, ";")
       logItems.timestamp = tonumber(logItems.cols[1])
       if logItems.timestamp ~= 0 then
@@ -1474,9 +1509,9 @@ end
 local function readLogTimeBlock()
 
    logItems.timestamp = logItems.cols[1]
-   logItems.deviceID = tonumber(logItems.cols[2])
 
    repeat
+      logItems.deviceID = tonumber(logItems.cols[2])
       if logItems.deviceID ~= 0 then -- if logItems.deviceID == 0 then it's a message
 	 for i = 3, #logItems.cols, 4 do
 	    --if logItems.timestamp == "000087425" then print(logItems.deviceID, system.getCPU()) end
@@ -1562,7 +1597,6 @@ local function loop()
    local newpos
    local deltaPosTime = 100 -- min sample interval in ms
    local latS, lonS, altS, spdS, hdgS
-   local _
 
    if not rlhDone and fd then
       readLogHeader()
@@ -1571,15 +1605,22 @@ local function loop()
    goodlat = false
    goodlong = false
 
-   -- keep the checkmark on the menu for 300 msec
+   -- keep the checkmark on the menu for 300 msec when user does reset
    
    if resetOrigin and (system.getTimeCounter() > (timeRO+300)) then
-      gotInitPos = false
+      --gotInitPos = false
+
       resetOrigin=false
       resetClick = false
+
       form.setValue(resetCompIndex, resetClick) -- prob should double check same form still displayed...
-      if currentImage then currentImage = 1 end -- must graphinit() after this!
-      graphInit()      -- reset map window too
+      
+      if currentImage then -- if we have an image, allow user to cycle thru image mags one by one
+	 currentImage = currentImage + 1
+	 if currentImage > maxImage then currentImage = 1 end
+      end -- must graphinit() after this!
+
+      graphInit(currentImage)      -- reset map window too
       
       baroAltZero = altitude      -- reset baro alt zero 
 
@@ -2108,10 +2149,10 @@ replay
       geo = json.decode(fg)
    end
 
-   setColorILS() -- this sets to a simple color scheme with fg color and complement color
-   setColorMain()-- if a map is present it will change color scheme later
+   setColorILS()   -- this sets to a simple color scheme with fg color and complement color
+   setColorMain()  -- if a map is present it will change color scheme later
    
-   graphInit()
+   graphInit(currentImage)  -- ok that currentImage is not yet defined
 
    for i, j in ipairs(telem) do
       telem[j].Se   = system.pLoad("telem."..telem[i]..".Se", 0)
