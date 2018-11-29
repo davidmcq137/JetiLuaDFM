@@ -43,8 +43,8 @@
       "filename" : "BDS_3000_ft.png",
       "xrange" : 3000
     }, {
-      "filename" : "BDS_6000_ft.png",
-      "xrange" : 6000
+      "filename" : "BDS_5000_ft.png",
+      "xrange" : 5000
     } ],
     "POI" : [ {
       "lat" : 41.33934,
@@ -61,14 +61,14 @@
       "long" : -73.889873,
       "trueDir" : 2.46,
       "length" : 854,
-      "width" : 300
+      "width" : 60
     },
     "POI" : [ {
       "lat" : 40.602581,
       "long" : -73.886961
     }, {
-      "lat" : 41.339336,
-      "long" : -74.433198
+      "lat" : 40.599689,
+      "long" : -73.887776
     } ],
     "images" : [ {
       "filename" : "FBF_1500_ft.png",
@@ -114,6 +114,16 @@
       "length" : 1000,
       "width" : 140
     },
+    "POI" : [ {
+      "lat"  : 35.771842,
+      "long" : -77.972767
+      }, {
+      "lat"  : 35.773357,
+      "long" : -77.964355
+      }, {
+      "lat"  : 35.765052,
+      "long" : -77.970256
+    } ],
     "images" : [ {
       "filename" : "W03_1500_ft.png",
       "xrange" : 1500

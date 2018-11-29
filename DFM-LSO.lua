@@ -19,12 +19,6 @@
 
    Work items:
 
-   - initialization of map to +/- 200 x +/- 400 -- seems to happen in several places. rationalize
-   - rotationAngle not working correctly with selected iField .. set to 90 and set back .. messes up 
-     north pointer, does not rotate runway. do we want to do both iField and manual rotation...
-   - figure out a nicer way to do log file replays
-   - any optimization of CPU% possible? 20% seems high. only 8% with no GPS data to plot
-
 --]]
 
 collectgarbage()
@@ -33,7 +27,7 @@ collectgarbage()
 
 -- Persistent and global variables for entire progrem
 
-local LSOVersion = "1.2"
+local LSOVersion = "2.0"
 
 local latitude
 local longitude
@@ -112,6 +106,18 @@ local textColor = {}
 textColor.main = {red=0, green=0, blue=0}
 textColor.comp = {red=255, green=255, blue=255}
 
+-- "globals" for log reading
+local logItems={}
+logItems.cols={}
+logItems.vals={}
+logItems.selectedSensors = {MGPS_Latitude  =1, -- keyvalues irrelevant for now, just need to be true
+			    MGPS_Longitude =2,
+			    CTU_Altitude   =3,
+			    MSPEED_Velocity=4,
+			    MGPS_Course    =5}
+local logSensorNameByID = {}
+
+
 --[[
 
 -- Read and set translations (out for now till we have translations, simplifies install)
@@ -133,13 +139,14 @@ end
 
 ---[[
 
--- function to show all global variables .. uncomment for debug .. called from reset origin menu
 
 --[[
 
+-- function to show all global variables .. uncomment for debug .. called from reset origin menu
+
 local seen={}
 
-function dump(t,i)
+local function dump(t,i)
 	seen[t]=true
 	local s={}
 	local n=0
@@ -154,6 +161,30 @@ function dump(t,i)
 			dump(v,i.."\t")
 		end
 	end
+end
+
+--]]
+
+
+
+--[[
+
+--dumps a table in human-readable format (sort of)
+--kills the script sometimes for a really big table!
+
+local function dumpt(o)
+   if type(o) == 'table' then
+      local s = '{ '
+      for k,v in pairs(o) do
+         if type(k) ~= 'number' then
+	    k = '"'..k..'"'
+	 end
+	 s = s .. '['..k..'] = ' .. dumpt(v) .. ','
+      end
+      return s .. '} '
+   else
+      return tostring(o)
+   end
 end
 
 --]]
@@ -173,8 +204,11 @@ local satQualityPa = 0
 local satQuality
 
 local function readSensors()
-
+   
    local sensors = system.getSensors()
+
+   --print(dumpt(sensors)) -- see file JETISensorDump.out for example
+   
    for i, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 
@@ -310,19 +344,57 @@ local function resetOriginChanged(value)
       collectgarbage()
       print("GC Memory after: ", collectgarbage("count"))
    end
-   DEBUG = not DEBUG -- in case we forget and ship a version with DEBUG = true to the TX!
-end
-
-local fns={}
-
-local function logFileChanged(value, fn)
-   --print("Saving: ", string.match(fn[value], "(%S+)"))
-   system.pSave("logPlayBack", string.match(fn[value], "(%S+)")) -- remove file size from string
+   --DEBUG = not DEBUG -- in case we forget and ship a version with DEBUG = true to the TX!
+   --maybe put in a separate command for this?
 end
 
 --------------------------------------------------------------------------------
+--[[
+
+-- this is an iterator instead of dir() which I thought was not working on the emulator
+-- but that may have been wrong .. it appears that if you do dir("/LOG/20181104/") it crashes
+-- but if you leave off the trailing '/' it does now
+-- it depends on a helper program (scandir.py) to prepare the files
+
+local function mydir(dstr)
+   
+   local fd, ff
+   if dstr == "Log" or dstr == "/Log" then
+      fd = io.open("Log/LogDirs.out", "r")
+      if not fd then print('no file Log/LogDirs.out') end
+   else
+      ff = io.open(dstr.."/LogFiles.out")
+      if not ff then print('no file:', dstr.."LogFiles.out") end
+   end
+
+   return function()
+      local ll
+      if dstr=="/Log" or dstr == "Log" then
+	 ll = io.readline(fd)
+	 if not ll then
+	    io.close(fd)
+	    return nil
+	 else
+	    return ll, "folder", 0
+	 end
+      else
+	 ll = io.readline(ff)
+	 if not ll then
+	    io.close(ff)
+	    return nil
+	 end
+	 fn, fs = string.match(ll, "(%S+) (%S+)")
+	 return fn, "file", tonumber(fs)
+      end
+   end
+end
+
+--]]
 
 -- Draw the main form (Application inteface)
+
+local dirSelectEntries={}
+local fileSelectEntries={}
 
 local function initForm(subform)
 
@@ -412,21 +484,86 @@ local function initForm(subform)
 	 
       end
    elseif subform == 2 then
-
+ 
       form.addLink((function() form.reinit(1) end), {label = "Back to main menu",font=FONT_BOLD})
       local i = 0
-      
-      for fname, ftype, fsize in dir("/Log") do
-	 if ftype == 'file' and fsize ~= 0 then
+
+      for fname, ftype, fsize in dir("Log") do
+	 if ftype == 'folder' and string.len(fname) > 2 then -- elim "." and ".."
 	    i = i + 1
-	    fns[i] = string.format("%s  %s", fname, fsize)
+	    dirSelectEntries[i] = string.format("%s", fname)
 	 end
       end
 
       form.addRow(2)
-      form.addLabel({label="Select Log File for Playback", width=220})
-      form.addSelectbox(fns, 0, true, (function(value) return logFileChanged(value, fns) end ) )
-      -- fns = nil -- release storage for file names ... no longer needed
+      form.addLabel({label="Select Log dir"})
+      table.sort(dirSelectEntries, function(a,b) return a>b end)
+      dirSelectEntries.selectedDir = dirSelectEntries[1]
+
+      form.addSelectbox(dirSelectEntries, 1, true,
+			(function(value) dirSelectEntries.selectedDir = dirSelectEntries[value] end))
+
+      form.addLink((function() form.reinit(3) end), {label = "Select file >>"})
+      
+   elseif subform == 3 then
+      form.addLink((function()
+	       local ss
+	       if fileSelectEntries.selectedFile then
+		  ss = string.match(fileSelectEntries.selectedFile, "(%S+)")
+	       end
+	       if ss then system.pSave("logPlayBack", ss) end
+	       form.reinit(1)
+		   end),
+	 {label = "<< Back to main menu",font=FONT_BOLD})
+
+      form.addLink((function()
+	       local ss
+	       if fileSelectEntries.selectedFile then
+		  ss = string.match(fileSelectEntries.selectedFile, "(%S+)")
+	       end
+	       if ss then system.pSave("logPlayBack", ss) end
+	       form.reinit(2)
+		   end),
+	 {label = "<< Back to folder select menu",font=FONT_BOLD})
+      
+      local i = 0
+      local baseDir="Log".."/"..dirSelectEntries.selectedDir
+
+      for fname, ftype, fsize in dir(baseDir) do
+	 local fmod
+	 if ftype == 'file' then
+	    local mf = io.open(baseDir.."/"..fname, "r")
+	    if mf and  not string.find(baseDir.."/"..fname, "LogFiles.out") then
+	       fmod = io.readline(mf)
+	       io.close(mf)
+	    else
+	       fmod = nil
+	    end
+	    
+	    if fmod then
+	       i=i+1
+	       fileSelectEntries[i] =
+		  string.format("%12s   %10.12s   %7d",
+				fname,
+				string.match(fmod, "(%w+%s+%w+)"),
+				fsize)
+	    end
+	 end
+      end
+      table.sort(fileSelectEntries, function(a,b) return a>b end)      
+      fileSelectEntries.selectedFile = nil -- no default, 2nd parm of addSelectBox is 0 for same reason
+      form.addRow(2)
+      if #fileSelectEntries == 0 then
+	 form.addLabel({label="No files to select", width=220})
+      else
+	 
+	 form.addLabel({label="Select Log File", width=195})
+	 form.addSelectbox(fileSelectEntries, 0, true,
+			   (function(value)
+				 fileSelectEntries.selectedFile =
+				    baseDir..'/'..fileSelectEntries[value] 
+			   end), {width=118})
+      end
    end
 end
 
@@ -569,7 +706,6 @@ local function drawAltitude()
    deltaY = 1 + math.floor(2.4 * delta)  
    lcd.drawText(colAlt+2, heightAH+2, "ft", FONT_MINI)
    lcd.setClipping(colAlt-7,0,45,heightAH)
-   --print("dA clipping: ", colAlt-7, 0, 45, heightAH)
    lcd.drawLine(7, -1, 7, heightAH)
    
    for index, line in pairs(parmLine) do
@@ -649,7 +785,6 @@ local function drawHeading()
       if deltaX >= -64 and deltaX <= 62 then -- was 31
 	 if point[3] then
 	    lcd.drawText(colHeading + deltaX - 4, rowHeading - 16, point[3], FONT_NORMAL)
-	    --print("dT: ", colHeading + deltaX-4, rowHeading-16, point[3])
 	 end
 	 if point[2] > 0 then
 	    lcd.drawLine(colHeading + deltaX, rowHeading - point[2], colHeading + deltaX, rowHeading)
@@ -932,6 +1067,8 @@ end
 
 local function drawGeo(windowWidth, windowHeight)
 
+   if currentImage then return end -- no need to draw rwy and poi, they are on the image
+   
    if not rwy[1] then return end
 
    ren:reset()
@@ -950,7 +1087,7 @@ local function drawGeo(windowWidth, windowHeight)
 		toYPixel(poi[j].y, map.Ymin, map.Yrange, windowHeight),
 		shapes.origin, 0)
    end
-
+   
 end
 
 local fd
@@ -1056,10 +1193,13 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 28, text, FONT_MINI)
    end
 
-   if satQuality then
-      text=string.format("%.1f", satQuality)
-      lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)   
-   end
+   text=string.format("%d", system.getCPU())
+   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)
+   
+   -- if satQuality then
+   --    text=string.format("%.1f", satQuality)
+   --    lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)   
+   -- end
    
    if takeoff.RunwayHeading then
       phi = (90-(takeoff.RunwayHeading-variables.magneticVar)+360)%360
@@ -1110,10 +1250,10 @@ local function mapPrint(windowWidth, windowHeight)
 	 drawShape(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight),
 		   shapes.T38, math.rad(heading-variables.magneticVar))
-      else
-	 lcd.drawCircle(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
-			toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight),
-			2)
+      -- else
+      -- 	 lcd.drawCircle(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
+      -- 			toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight),
+      -- 			2)
       end
    end
 
@@ -1183,16 +1323,18 @@ local function graphScale(x, y)
 --   print("Xmin,Xmax,Ymin,Ymax", map.Xmin, map.Xmax, map.Ymin, map.Ymax)
 end
 
-local function graphInit()
+local function graphInit(im)
 
    -- if we have an image of the field, then use the precomputed min max value from
    -- the first image (assumed to be the most zoomed-in) to set the initial scale
+   -- im or 1 construct allows im to be nil and if so selects images[1]
+   -- probably redundant since iField would be nil too...
    
-   if iField and geo.fields[iField].images[1] then
-      map.Xmin = geo.fields[iField].images[1].xmin
-      map.Xmax = geo.fields[iField].images[1].xmax
-      map.Ymin = geo.fields[iField].images[1].ymin
-      map.Ymax = geo.fields[iField].images[1].ymax
+   if iField and geo.fields[iField].images[im or 1] then
+      map.Xmin = geo.fields[iField].images[im or 1].xmin
+      map.Xmax = geo.fields[iField].images[im or 1].xmax
+      map.Ymin = geo.fields[iField].images[im or 1].ymin
+      map.Ymax = geo.fields[iField].images[im or 1].ymax
    else
       map.Xmin, map.Xmax = -400, 400
       map.Ymin, map.Ymax = -200, 200
@@ -1255,8 +1397,6 @@ local function initField()
 	       takeoff.Complete.X, takeoff.Complete.Y = rwy[1].x, 0  -- end of rwy departure end
 	       takeoff.Start.Z = altitude - baroAltZero
 	       takeoff.RunwayHeading = geo.fields[iField].runway.trueDir-variables.rotationAngle
-	       -- print('takeoff.RunwayHeading = ', takeoff.RunwayHeading)
-	       -- end new code
 
 	       setColorMap()
 	       setColorMain()
@@ -1284,25 +1424,137 @@ local function initField()
 	       geo.fields[iField].images[j].ymax =   0.75 * yrange
 	       
 	    else
-	       print("failed to load image", "Apps/DFM-LSO/"..geo.fields[iField].images[j].filename)
+	       print("Failed to load image", "Apps/DFM-LSO/"..geo.fields[iField].images[j].filename)
 	    end
 	 end
 	 currentImage = 1
-	 graphInit() -- re-init graph scales with images loaded
+	 graphInit(currentImage) -- re-init graph scales with images loaded
       end
    else
       system.messageBox("Current location: not a known field", 2)
    end
--------------------------------------------------------------------------------------------------
---   fieldPNG = lcd.loadImage("Apps/DFM-LSO/r.png")
---   print("fieldPNG: ", fieldPNG)
---   print("width: ", fieldPNG.width)
---   print("height: ", fieldPNG.height)
-   -------------------------------------------------------------------------------------------------
 end
 
+local function split(str, ch)
+   local index, acc = 0, {}
+   while index do
+      local nindex = string.find(str, ch, 1+index)
+      if not nindex then
+	 table.insert(acc, str:sub(index))
+	 break
+      end
+      table.insert(acc, str:sub(index, nindex-1))
+      index = 1+nindex
+   end
+   return acc
+end
 
+local function sensorName(device_name, param_name)
+   return device_name .. "_" .. param_name -- sensor name is human readable e.g. CTU_Altitude
+end
 
+local function sensorID(devID, devParm)
+   return devID..devParm -- sensor ID is machine readable e.g. 420460025613 (13 concat to 4204600256)
+end
+
+-- local function packAngle(angle)
+--    local d, m = math.modf(angle)
+--    return math.floor(m*60000+0.5) + (math.floor(d) << 16) -- math.floor forces to int
+-- end
+
+local function unpackAngle(packed)
+   return ((packed >> 16) & 0xFF)
+          + ((packed & 0xFFFF) * 0.001)/60
+end
+
+local rlhCount=0
+local rlhDone=false
+
+local function readLogHeader()
+
+   if rlhCount == 0 then
+      io.readline(fd) -- read the comment line and toss .. assume one comment line only (!)
+   end
+   rlhCount = rlhCount + 1
+
+   for i=1, 4, 1 do -- process log file header 4 rows at a time
+      logItems.line = io.readline(fd, true) -- true param removes newline
+      if not logItems.line then
+	 print("Read eror on log header file")
+	 rlhDone=true
+	 return
+      end
+      logItems.cols = split(logItems.line, ";")
+      logItems.timestamp = tonumber(logItems.cols[1])
+      if logItems.timestamp ~= 0 then
+	 rlhDone = true
+	 return
+      end
+      if logItems.cols[3] == "0" then
+	 logItems.prefix=logItems.cols[4]
+      else
+	 logItems.name  = sensorName(logItems.prefix, logItems.cols[4])
+	 if logItems.selectedSensors[logItems.name] then
+	    logSensorNameByID[sensorID(logItems.cols[2], logItems.cols[3])] = logItems.name
+	 end
+      end
+   end
+   return
+end
+
+-----------------------------------------------------------------------------------------------------
+local function readLogTimeBlock()
+
+   logItems.timestamp = logItems.cols[1]
+
+   repeat
+      logItems.deviceID = tonumber(logItems.cols[2])
+      if logItems.deviceID ~= 0 then -- if logItems.deviceID == 0 then it's a message
+	 for i = 3, #logItems.cols, 4 do
+	    local sn = logSensorNameByID[sensorID(logItems.cols[2], logItems.cols[i])]
+	    if sn then
+	       logItems.encoding = tonumber(logItems.cols[i+1])
+	       logItems.decimals = tonumber(logItems.cols[i+2])
+	       logItems.value    = tonumber(logItems.cols[i+3])
+	       if logItems.encoding == 9 then
+		  local latlong = unpackAngle(logItems.value)
+		  if logItems.cols[i] == "3" then
+		     if logItems.decimals == 3 then -- "West" .. make it - (NESW coded in dec plcs as 0,1,2,3)
+			logItems.vals[sn] = -latlong
+		     else
+			logItems.vals[sn] = latlong
+		     end
+		  elseif logItems.cols[i] == "2" then
+		     if logItems.decimals == 2 then -- "South" .. make it negative
+			logItems.vals[sn] = -latlong
+		     else
+			logItems.vals[sn] = latlong
+		     end
+		  end
+	       else
+		  logItems.vals[sn] = logItems.value / 10^logItems.decimals
+	       end
+	    end
+	 end
+      else
+	 system.messageBox(logItems.cols[6], 2)	 
+      end
+      
+      logItems.line = io.readline(fd, true)
+
+      if not logItems.line then
+	 return nil
+      end
+
+      logItems.cols = split(logItems.line, ';')
+
+      if (logItems.cols[1] ~= logItems.timestamp) then -- new time block, dump vals and reset
+	 return logItems.vals
+      end
+   until false
+end
+
+-----------------------------------------------------------------------------------------------------
 -- presistent and global variables for loop()
 
 local lastlat = 0
@@ -1341,29 +1593,38 @@ local function loop()
    local newpos
    local deltaPosTime = 100 -- min sample interval in ms
    local latS, lonS, altS, spdS, hdgS
-   local _
+
+   if not rlhDone and fd then
+      readLogHeader()
+   end
    
    goodlat = false
    goodlong = false
 
-   -- keep the checkmark on the menu for 300 msec
+   -- keep the checkmark on the menu for 300 msec when user does reset
    
    if resetOrigin and (system.getTimeCounter() > (timeRO+300)) then
-      gotInitPos = false
+      --gotInitPos = false
+
       resetOrigin=false
       resetClick = false
-      form.setValue(resetCompIndex, resetClick) -- prob should double check same form still displayed...
 
-      -- reset map window too
-      graphInit()
+      form.setValue(resetCompIndex, resetClick) -- prob should double check same form still displayed...
       
-      -- reset baro alt zero too
-      baroAltZero = altitude
+      if currentImage then -- if we have an image, allow user to cycle thru image mags one by one
+	 currentImage = currentImage + 1
+	 if currentImage > maxImage then currentImage = 1 end
+      end -- must graphinit() after this!
+
+      graphInit(currentImage)      -- reset map window too
+      
+      baroAltZero = altitude      -- reset baro alt zero 
+
 
       print("Reset origin and barometric altitude. New baroAltZero is ", baroAltZero)
       -- dump(_G,"") -- print all globals for debugging
       
-      if ff then io.close(ff) end
+      -- if ff then io.close(ff) end
    end
 
    if DEBUG then
@@ -1386,45 +1647,42 @@ local function loop()
    -- wait until realtime is equal to recorded time to plot the point
    -- denominator under tonumber(timS) is acceleration factor for replay
 
-   if fd then
-      if ( (system.getTimeCounter() - sysTimeStart)/1000.) >= (tonumber(timS) - timSn)/20. and blocked then
+   if fd and rlhDone then
+      if (system.getTimeCounter() - logItems.sysStartTime) >= (tonumber(timS) - timSn)/10. and blocked then
 	 blocked = false
 	 goto fileInputLatLong
       end
 
       if blocked then return end
 
-      local timS0 = timS
-      
-      tt = io.readline(fd)
-      if tt then
-	 timS, latS, lonS, altS, spdS, hdgS = string.match(tt, -- next string reads csv data -- really! :-)
- "(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)%s*%,%s*(%-*%d+.%d+)"
-	 )
-	 latitude = tonumber(latS)
-	 longitude = tonumber(lonS)
-	 altitude = tonumber(altS)
-	 speed = tonumber(spdS)
-	 if speed > 1000 then speed = speed / 100 end -- hack: had x100 bug in files from nov 4
-	 --heading = tonumber(hdgS) -- don't use saved heading for now --
+      local timS0 = timS -- blocked initialized to false, will flow to here first time
+
+      if readLogTimeBlock() then
+	 timS      =  logItems.timestamp -- remember timS is a string, not a number
+	 latitude  =  logItems.vals['MGPS_Latitude'] or 0
+	 longitude =  logItems.vals['MGPS_Longitude'] or 0
+	 altitude  =  logItems.vals['CTU_Altitude'] or 0
+	 altitude  =  altitude * 3.28084 -- CTU Alt is in m, convert to ft
+	 speed     =  logItems.vals['MSPEED_Velocity'] or 0
+	 speed     =  speed * 2.23694 -- MSPEED is m/s, convert to mph
+	 
 	 if timS0 == "0" then
 	    timSn = tonumber(timS) -- first line in file even if t ~= 0 becomes time origin
 	 end
-	 local timSd60 = tonumber(timS)/60
+	 local timSd60 = tonumber(timS)/(60000) -- to mins from ms
 	 local min, sec = math.modf(timSd60)
 	 sec = sec * 60
 	 timSstr = string.format("%02d:%02d", min, sec)
-	 
 	 blocked = true
 	 return
       else
 	 io.close(fd)
-	 print('Closing csv file')
+	 print('Closing log reply file')
 	 fd = nil
       end
-   end
-
-   if fd then print('Should not get here with fd true!') end
+   end   
+      
+   if fd then return end -- ok to get here if waiting for log file header to be read
 
    sensor = system.getSensorByID(telem.Longitude.SeId, telem.Longitude.SePa)
 
@@ -1567,11 +1825,11 @@ local function loop()
    ::fileInputLatLong::
    
    
-   if ff then
-      io.write(ff, string.format("%.4f, %.8f , %.8f , %.2f , %.2f , %.2f\n",
-				 (system.getTimeCounter()-sysTimeStart)/1000.,
-				 latitude, longitude, altitude, speed, (heading-variables.magneticVar) ) )
-   end
+   -- if ff then
+   --    io.write(ff, string.format("%.4f, %.8f , %.8f , %.2f , %.2f , %.2f\n",
+   -- 				 (system.getTimeCounter()-sysTimeStart)/1000.,
+   -- 				 latitude, longitude, altitude, speed, (heading-variables.magneticVar) ) )
+   -- end
    
    if (latitude == lastlat and longitude == lastlong) or (system.getTimeCounter() < newPosTime) then
       newpos = false
@@ -1811,50 +2069,42 @@ local function init()
 
 --[[
  
-try opening the csv file for debugging .. we just give it a magic name for now. if it exists assume we will
-do a playback. this is a kludge .. experimenting with pSave/pLoad of last log file but how to best ask if it 
-should be replayed? Always ask and default to no? Initiate from a menu (hard to do since already running 
-at that point)
+if the menu item to select a replay log file was used, the file is persisted by pSave in logPlayBacl
+but this only works correctly on the TX .. the emulator's dir() iterator does not work. So if we are
+running on the emulator, we check for the "magic name" of DFM-LSO.log -- if it exists we open it for
+replay
 
 --]]
    
    fname = system.pLoad("logPlayBack", "...")
-   print("Saved LogFile for replay: ", fname)
    
-   if fname ~= "..." then fd=io.open("Log/"..fname, "r") else 
-      fname = "DFM-LSO.csv" -- try magic name if running on emulator since dir() does not work there%^&$%@
+   if fname ~= "..." then
+      fd=io.open(fname, "r")
+   else
+      fname = "DFM-LSO.log" -- try magic name if running on emulator since dir() does not work there%^&$%@
       fd = io.open("Apps/DFM-LSO/"..fname, "r")
    end
-   
 
    if fd then
       if form.question("Start replay?", "log file "..fname, "---",2500, false, 0) == 1 then
 	 print("Opened log file "..fname.." for reading")
 	 system.pSave("logPlayBack", "...")
-	 line = io.readline(fd) -- read the shebang line .. code goes here to take action on it
-	 -- print("Shebang line: ", line)
+
+	 readLogHeader()
+	 --print("rlh done")
+	 logItems.logStartTime = tonumber(logItems.timestamp)
+	 --print("log ST:", logItems.logStartTime)
+	 logItems.sysStartTime = system.getTimeCounter()
+	 --print("sys ST:", logItems.sysStartTime)
+	 logItems.timeDelta = logItems.sysStartTime - logItems.logStartTime
 	 DEBUG = false
       else
 	 print("No replay")
 	 io.close(fd)
 	 fd = nil
       end
-   else
-      if DEBUG == false and not fd then
-	 local dt = system.getDateTime()
-	 local fn = string.format("Log/DFM-LSO-%d%02d%02d-%d%02d%02d.csv",
-				  dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)	
-	 ff=io.open(fn, "w")
-	 if ff then
-	    print("Opening for writing csv log file: ", fn)
-	    system.pSave("LogFile", fn)
-	    io.write(ff, "#!DFM-LSO csv1.1 " .. system.getProperty("Model")  .. "\n") -- shebang for file format version
-	 end
-	 
-      end
    end
 
-   
    local fg = io.readall("Apps/DFM-LSO/Shapes.jsn")
    if fg then
       shapes = json.decode(fg)
@@ -1867,10 +2117,10 @@ at that point)
       geo = json.decode(fg)
    end
 
-   setColorILS() -- this sets to a simple color scheme with fg color and complement color
-   setColorMain()-- if a map is present it will change color scheme later
+   setColorILS()   -- this sets to a simple color scheme with fg color and complement color
+   setColorMain()  -- if a map is present it will change color scheme later
    
-   graphInit()
+   graphInit(currentImage)  -- ok that currentImage is not yet defined
 
    for i, j in ipairs(telem) do
       telem[j].Se   = system.pLoad("telem."..telem[i]..".Se", 0)
