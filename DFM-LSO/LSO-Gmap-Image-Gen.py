@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 from PIL import Image, ImageDraw
+from io import BytesIO
 import json
 import math
 import requests
@@ -41,21 +42,21 @@ def Gmaps_api_request(**kwargs):
 
 def get_Gmaps_image(zoom, latitude, longitude, API_key):
     latlong= str(latitude) + "," + str(longitude)
-    with open("temp%d.png" % zoom, "wb") as file:
-        file.write(Gmaps_api_request(
-            key=API_key,
-            center=latlong,
-            zoom="%d" % zoom,
-            size="640x640",
-            maptype="satellite"
-        ).content)
-    return Image.open("temp%d.png" % zoom).convert("RGB")
+    Greq = Gmaps_api_request(
+        key=API_key,
+        center=latlong,
+        zoom="%d" % zoom,
+        size="640x640",
+        maptype="satellite")
+    return Image.open(BytesIO(Greq.content)).convert("RGB")
 
 def Gmaps_feet_per_px(lat, zoom): # first constant from Google, second one converts to ft from m
     return 156543.03392 * 3.280839895013123 * math.cos(math.radians(lat)) / math.pow(2,zoom)
 
 def Gmaps_px_per_foot(lat, zoom):
     return 1.0 / Gmaps_feet_per_px(lat, zoom)
+
+# function to compute x and y distance in ft from two pairs of lat/long
 
 def delta_xy_from_latlong(latitude1, longitude1, latitude2, longitude2):
     rE = 21220539.7  # 6371 km * 1000 m/km * 3.28084 ft/m ... radius of earth in ft, fudge of 1/0.985
@@ -68,10 +69,10 @@ def rotateXY(x, y, rotation):
    cosShape = math.cos(math.radians(rotation))
    return ((x * cosShape - y * sinShape), (x * sinShape + y * cosShape))
 
-
 # experimentation showed these zooms best for these field image widths
+# probably only need 2-3 per field
 
-crop_to_zoom = {1500:17, 3000:16, 5000:15, 6000:15}
+crop_to_zoom = {1000:17, 1500:17, 2500:16, 3000:16, 4000:15, 5000:15, 6000:15}
 
 config=ConfigParser.ConfigParser()
 osp = os.path.expanduser('~/LSO-Gmap-Image-Gen.conf')
@@ -112,9 +113,6 @@ for fld in jd["fields"]:
     
         print(field_name, filename, latitude, longitude, field_image_width_ft, zoom)
 
-        # Russell stored intermediate reps in memory. We shall be lazy and store them
-        # in temp files since it's easy to do that with the data from requests()
-        
         Gmaps = get_Gmaps_image(zoom, latitude, longitude, Gmap_API_Key)
     
         # note that in PIL the image.rotate operation rotates about the image center, not
@@ -168,27 +166,41 @@ for fld in jd["fields"]:
 
         lat, lon = 0,0 # reset from last time in case no POIs
         
-        if fld.get("POI"):
+        if fld.get("POI"): # loop over POIs if any exist
             for iP in range(len(fld["POI"])):
+                
                 lat = fld["POI"][iP]["lat"]
                 lon = fld["POI"][iP]["long"]
+
+                # first compute distance in original x,y frame (north up, in ft) from
+                # POIs to center of runway ... then rotate POIs x,y coords same as image
+                # use the simple equirectangular projection as in DFM-LSO.lua
                 
                 dx, dy = delta_xy_from_latlong(latitude, longitude, lat, lon)
-                dxr, dyr = rotateXY(dx, dy, truedir-270)
+
+                dxr, dyr = rotateXY(dx, dy, truedir-270) 
+
+                # now adjust pixels per foot to current Jeti image
                 
                 dxr_px = dxr * Gmaps_px_per_foot(latitude, zoom) * wwj/wwGrc
                 dyr_px = dyr * Gmaps_px_per_foot(latitude, zoom) * hhj/hhGrc
                 
+                # compute "absolute" screen coords in screen coord system
+                
                 dxr_px_abs = int(wwj / 2 - dxr_px)
                 dyr_px_abs = int(hhj * 3 / 4 + dyr_px)
 
+                # warn user of some POIs not visible in largest image of field
+                
                 if field_image_width_ft == 6000:
                     if dxr_px_abs < 0 or dxr_px_abs > wwj or dyr_px_abs < 0 or dyr_px_abs > hhj:
                         print("Warning: POI out of bounds at min zoom:", lat, lon, filename)
                           
+                # mark POIs with a circle of 4x4 pixels on the image
+                
                 dd.ellipse( [(dxr_px_abs-2, dyr_px_abs-2), (dxr_px_abs+2, dyr_px_abs+2)],
                             fill="yellow")
-                
+
         Jeti.save(filename, "PNG")
 
 
