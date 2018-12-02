@@ -2206,11 +2206,11 @@ replay
    system.registerTelemetry(2, "LSO ILS", 4, ilsPrint)
    glideSlopePNG = lcd.loadImage("Apps/DFM-LSO/glideslope.png")
    
-   -- print("Model: ", system.getProperty("Model"))
-   -- print("Model File: ", system.getProperty("ModelFile"))
+   print("Model: ", system.getProperty("Model"))
+   print("Model File: ", system.getProperty("ModelFile"))
 
    -- replace spaces in filenames with underscore
-   -- print("reading: ", "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
+   print("reading: ", "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
    
    fg = nil
 
