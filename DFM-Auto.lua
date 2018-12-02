@@ -54,9 +54,9 @@ local sensorPalist = { "..." }
 local gauge_c={}
 local gauge_s={}
 local throttle=0
+local speed = 0
 local tgt_speed = 0
 local set_speed = 0
-local round_spd = 0
 local iTerm = 0
 local pTerm = 0
 local dTerm = 0
@@ -70,9 +70,13 @@ local autoForceOff = false
 local throttleDownTime = 0
 local lastValid = 0
 local throttlePosAtOn
-local pGain = 0.8    -- these values are good debug defaults for the emulator
-local iGain = 0.006  -- same defaults loaded by system.pLoad() on startup
-local dGain = 0.05
+local pGain
+local iGain
+local dGain
+local autoOffTime = 0
+local offThrottle
+local lastSetThr
+local playedBeep = true
 
 local DEBUG = true
 --------------------------------------------------------------------------------
@@ -153,19 +157,16 @@ end
 
 local function pGainChanged(value)
    pGainInput = value
-   pGain = pGainInput / 100.0
    system.pSave("pGainInput", pGainInput)
 end
 
 local function iGainChanged(value)
    iGainInput = value
-   iGain = iGainInput / 10000.0
    system.pSave("iGainInput", iGainInput)
 end
 
 local function dGainChanged(value)
    dGainInput = value
-   iGain = iGainInput / 1000.0
    system.pSave("dGainInput", dGainInput)
 end
 
@@ -381,6 +382,8 @@ local function DrawErrsig()
     local ierr = math.min(math.max(errsig, -100), 100)
     local theta = math.rad(135 * ierr / 100) - math.pi
 
+    if not autoOn then return end
+       
     lcd.setColor(255, 0, 0)
     if gauge_s then lcd.drawImage(ox-gauge_s.width//2, oy-gauge_s.width//2, gauge_s) end
     drawShape(ox+1, oy, needle_poly_small_small, theta)
@@ -395,6 +398,7 @@ end
 local function DrawThrottle()
 
     local ox, oy = 1, 8
+    local thetaThr, thetaOffThr
     
     local textThrottle = string.format("%d", math.floor(throttle + 0.5))
 
@@ -403,11 +407,21 @@ local function DrawThrottle()
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MAXI, textThrottle) // 2,
 		 oy + 40, textThrottle, FONT_MAXI)
 
-    local thetaThr = math.pi - math.rad(135 - 2 * 135 * throttle // 100)
-    
+    thetaThr = math.pi - math.rad(135 - 2 * 135 * throttle // 100)
+
     lcd.setColor(255, 0, 0)
     if gauge_c then lcd.drawImage(ox, oy, gauge_c) end
     drawShape(ox+65, oy+60, needle_poly_large, thetaThr)
+    if autoOn == false and system.getTimeCounter() - autoOffTime < 5000 then
+       if math.abs(throttle-offThrottle) < 2 and playedBeep == false then
+	  print("BEEP!")
+	  system.playBeep(2, 3000, 100)
+	  playedBeep = true
+       end
+       thetaOffThr = math.pi - math.rad(135 - 2 * 135 * offThrottle // 100)
+       lcd.setColor(0, 0, 255)
+       drawShape(ox+65, oy+60, needle_poly_large, thetaOffThr)
+    end
     lcd.setColor(0,0,0)
     
 end
@@ -418,14 +432,14 @@ local function DrawSpeed()
 
     local ox, oy = 186, 8
 
-    local textSpeed = string.format("%d", math.floor(round_spd + 0.5))
+    local textSpeed = string.format("%d", math.floor(speed + 0.5))
 
     lcd.drawText(ox + 50, oy + 100, "MPH", FONT_NORMAL)
     if autoOn then lcd.setColor(255,0,0) end
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MAXI, textSpeed) / 2, oy + 40,
 		 textSpeed, FONT_MAXI)
 
-    local thetaThr = math.pi - math.rad(135 - 2 * 135 * round_spd / 200)
+    local thetaThr = math.pi - math.rad(135 - 2 * 135 * speed / 200)
     local thetaSet = math.pi - math.rad(135 - 2 * 135 * set_speed / 200)
 
     if gauge_c then lcd.drawImage(ox, oy, gauge_c) end
@@ -523,7 +537,7 @@ end
 
 local function get_speed_from_sensor()
 
-   local sensor, slope, spd
+   local sensor, slope, sensor_speed, spd, tgt_speed
 
    if (spdSeId ~= 0) then
       sensor = system.getSensorByID(spdSeId, spdSePa)
@@ -532,13 +546,14 @@ local function get_speed_from_sensor()
    end
 
    if (sensor and sensor.valid) then
-      speed = sensor.value * airspeedCal/100.0
+      sensorSpeed = sensor.value * airspeedCal/100.0
       lastValid = system.getTimeCounter()
    else
       if DEBUG then
-	 spd = round_spd
-	 lastValid = system.getTimeCounter()
-	 --spd = (system.getInputs("P8")+1) * 160.0 * airspeedCal / 100. -- make P8 go from 0 to 320
+	 tgt_speed = (throttle/100)^2 * 200 -- simulate plane's response
+	 speed = speed + 0.008 * (tgt_speed - speed) -- give it a time lag
+	 lastValid = system.getTimeCounter() -- pretent we read a sensor and it was valid
+	 spd = speed -- so we return the correct variable
       else
 	 return 
       end
@@ -547,37 +562,28 @@ local function get_speed_from_sensor()
    if not DEBUG then
       if selFt then
 	 if sensor.unit == "m/s" then
-	    spd = speed * 2.23694 -- m/s to mph
+	    spd = sensorSpeed * 2.23694 -- m/s to mph
 	 end
 	 if sensor.unit == "kmh" or sensor.unit == "km/h" then
-	    spd = speed * 0.621371 -- km/hr to mph
+	    spd = sensorSpeed * 0.621371 -- km/hr to mph
 	 end
       else
 	 if sensor.unit == "m/s" then
-	    spd = speed * 3.6 -- km/hr
+	    spd = sensorSpeed * 3.6 -- km/hr
 	 end
       end
    end
 
-   if maxSpd and (spd <= maxSpd) then ovrSpd = false end
    
    if #spdTable+1 > MAXTABLE then
       table.remove(spdTable, 1)
       table.remove(timTable, 1)
    end
-   table.insert(spdTable, spd - set_speed)
+   table.insert(spdTable, speed - set_speed)
    table.insert(timTable, system.getTimeCounter()/1000.)
 
    slope, _ = fslope(timTable, spdTable)
 
-   if (spd > VrefSpd) then
-      aboveVref = true
-      aboveVref_ever = true
-   end
-
-   if (spd > VrefSpd/1.3) then -- re-arm it
-      stall_warn = false
-   end
 
    return spd, slope
 
@@ -587,11 +593,9 @@ end
 
 local function loop()
 
-   local spd
    local deltaSA
    local sss, uuu
    local slope
-
    local lowDelay = 6000
 
    local swi = system.getInputsVal(spdSwitch)
@@ -612,7 +616,7 @@ local function loop()
       autoForceOff = false
    end
    
-   spd, slope = get_speed_from_sensor()
+   speed, slope = get_speed_from_sensor()
 
    if autoOn and not DEBUG and (system.getTimeCounter() > lastValid + 10000.) then 
       print("AutoThrottle off because of invalid speed data > 10 s")
@@ -620,8 +624,6 @@ local function loop()
       autoForceOff = true -- force user to turn switch off then on again
    end
    
-   round_spd = spd
-
    if swa and swa == 1 and not autoForceOff then   
       if autoOn == false then print("AutoThrottle on by switch SWA") end
       autoOn = true
@@ -654,19 +656,11 @@ local function loop()
    end
    
    if autoOn and system.getTimeCounter() > throttleDownTime and throttle_stick > 4 then
-      print("AutoThrottle off by low stick timeout -- throttle not taken to idle in required time")
+      print("AutoThrottle off -- throttle not at idle")
       --print("throttle_stick:", throttle_stick)
       autoOn = false
       autoForceOff = true -- can't re-enable till turn switch swa off then on again
    end
-
-   lastAuto = autoOn
-   
-   --------- next two lines simulate airplane response to throttle ------------
-   
-   tgt_speed = (throttle/100)^2 * 200 -- simulate plane's response
-
-   round_spd = round_spd + 0.008 * (tgt_speed - round_spd) -- give it a time lag
 
    if setPtControl then
       set_speed =  100 * (1 + system.getInputsVal(setPtControl))
@@ -676,22 +670,38 @@ local function loop()
       print("Attempt to arm AutoThrottle with no setpoint speed")
    end
    
-   
    if autoOn then
-      errsig = set_speed - round_spd
+      
+      pGain = pGainInput / 50.0
+      iGain = iGainInput / 5000.0
+      dGain = dGainInput / 500.0
+
+      errsig = set_speed - speed
       pTerm = errsig * pGain
       dTerm = slope * dGain
       iTerm = math.max(0, math.min(iTerm + errsig * iGain, 100))
       
       throttle = pTerm + iTerm + dTerm
       throttle = math.max(0, math.min(throttle, 100))
-      system.setControl(autoIdx, (throttle-50)/50, 0) 
+      system.setControl(autoIdx, (throttle-50)/50, 0)
+      lastSetThr = throttle
    else
       iTerm = 0
+      pTerm = 0
+      dTerm = 0
       throttle = throttle_stick
       system.setControl(autoIdx, -1, 0) -- when off mix to 0% throttle (-1 on -1,1 scale)
    end
+
+   if autoOn == false and lastAuto == true then -- was just turned off
+      print("just turned off")
+      autoOffTime = system.getTimeCounter()
+      offThrottle = lastSetThr -- remember last steady-state throttle
+      playedBeep = false
+   end
+   
       
+   lastAuto = autoOn
    
    ----------------------------------------------------------------------------------
    -- this is the speed announcer section, return if announce not on or on continuous
@@ -699,20 +709,31 @@ local function loop()
 
    if (swi and swi == 1) or (swc and swc == 1) then
       
-      if (spd > maxSpd and not ovrSpd) then
+      if maxSpd and (speed <= maxSpd) then ovrSpd = false end
+
+      if (speed > VrefSpd) then
+	 aboveVref = true
+	 aboveVref_ever = true
+      end
+      
+      if (speed > VrefSpd/1.3) then -- re-arm it
+	 stall_warn = false
+      end
+
+      if (speed > maxSpd and not ovrSpd) then
 	 ovrSpd = true
 	 system.playFile('/Apps/DFM-SpdA/overspeed.wav', AUDIO_IMMEDIATE)
 	 if DEBUG then print("Overspeed!") end
 	 system.vibration(true, 3) -- 2x vibrations on right stick
       end
 
-      if (spd <= VrefSpd and aboveVref) then
+      if (speed <= VrefSpd and aboveVref) then
 	 aboveVref = false
 	 system.playFile('/Apps/DFM-SpdA/V_ref_speed.wav', AUDIO_IMMEDIATE)
 	 if DEBUG then print("At Vref") end
       end
 
-      if ((spd <= VrefSpd/1.3) and (not stall_warn) and aboveVref_ever) then
+      if ((speed <= VrefSpd/1.3) and (not stall_warn) and aboveVref_ever) then
 	 stall_warn = true
 	 system.playFile('/Apps/DFM-SpdA/stall_warning.wav', AUDIO_IMMEDIATE)
 	 system.vibration(true, 4) -- 4 short pulses on right stick
@@ -720,11 +741,11 @@ local function loop()
       end
 
       -- multiplier is scaled by spdInter, over range of 0.5 to 10 (20:1)
-      deltaSA = math.min(math.max(math.abs((spd-lastAnnSpd) / spdInter), 0.5), 10)
+      deltaSA = math.min(math.max(math.abs((speed-lastAnnSpd) / spdInter), 0.5), 10)
       
       nextAnnTC = lastAnnTC + (VrefCall * 1000 * 10 / deltaSA) 
 
-      if (spd <= VrefSpd) or (swc and swc == 1) then -- override if below Vref or cont ann is on
+      if (speed <= VrefSpd) or (swc and swc == 1) then -- override if below Vref or cont ann is on
 	 nextAnnTC = lastAnnTC + VrefCall * 1000 -- at and below Vref .. ann every VrefCall secs
       end
 
@@ -732,18 +753,17 @@ local function loop()
       if not sgTC0 then sgTC0 = sgTC end
       
       
-      -- added isPlayback() so that we don't create a backlog of messages if it takes
-      -- longer than VrefCall time
-      -- to speak the speed .. was creating a "bow wave" of pending announcements.
-      -- Wait till speaking is done, catch
-      -- it at the next call to loop()
+      -- Added isPlayback() so that we don't create a backlog of messages if it takes
+      -- longer than VrefCall time to speak the speed
+      -- This was creating a "bow wave" of pending announcements
+      -- Wait till speaking is done, catch it at the next call to loop()
 
       if (not system.isPlayback()) and
-      ( (sgTC > nextAnnTC) and ( (spd > VrefSpd / 4) or (swc and swc == 1) ) ) then
+      ( (sgTC > nextAnnTC) and ( (speed > VrefSpd / 4) or (swc and swc == 1) ) ) then
 
-	 --round_spd = math.floor(spd + 0.5) -- already set above
-	 lastAnnSpd = round_spd
-
+	 lastAnnSpd = speed
+	 round_spd = math.floor(speed+0.5)
+	 
 	 lastAnnTC = sgTC -- note the time of this announcement
 	 
 	 sss = string.format("%.0f", round_spd)
@@ -785,9 +805,9 @@ local function init()
    VrefSpd = system.pLoad("VrefSpd", 60)
    VrefCall = system.pLoad("VrefCall", 2)
    maxSpd = system.pLoad("maxSpd", 200)
-   pGainInput = system.pLoad("pGainInput", 80)
-   iGainInput = system.pLoad("iGainInput", 60)
-   dGainInput = system.pLoad("dGainInput", 50)   
+   pGainInput = system.pLoad("pGainInput", 40)
+   iGainInput = system.pLoad("iGainInput", 30)
+   dGainInput = system.pLoad("dGainInput", 30)   
    airspeedCal = system.pLoad("airspeedCal", 100)
    spdSe = system.pLoad("spdSe", 0)
    spdSeId = system.pLoad("spdSeId", 0)
