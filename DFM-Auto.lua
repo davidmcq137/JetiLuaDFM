@@ -380,15 +380,14 @@ local function DrawErrsig()
     local ox, oy = 158, 110
     local ierr = math.min(math.max(errsig, -100), 100)
     local theta = math.rad(135 * ierr / 100) - math.pi
-    
-    if gauge_c ~= nil then
-       lcd.setColor(255, 0, 0)
-       lcd.drawImage(ox-gauge_s.width//2, oy-gauge_s.width//2, gauge_s)
-       drawShape(ox, oy, needle_poly_small_small, theta)
-       lcd.drawFilledRectangle(ox, oy-24, 2, 20) -- should be ox-1 but roundoff problem?
-       lcd.setColor(0,0,0)
-    end
-    
+
+    lcd.setColor(255, 0, 0)
+    if gauge_s then lcd.drawImage(ox-gauge_s.width//2, oy-gauge_s.width//2, gauge_s) end
+    drawShape(ox+1, oy, needle_poly_small_small, theta)
+    lcd.drawFilledRectangle(ox, oy-24, 2, 20) -- should be ox-1 but roundoff problem?
+    lcd.setColor(0,0,0)
+    lcd.drawText(ox - lcd.getTextWidth(FONT_MINI, "Err") // 2, oy + 7, "Err", FONT_MINI)
+
 end
 
 --------------------------------------------------------
@@ -406,13 +405,10 @@ local function DrawThrottle()
 
     local thetaThr = math.pi - math.rad(135 - 2 * 135 * throttle // 100)
     
-    if gauge_c ~= nil then
-
-       lcd.setColor(255, 0, 0)
-       lcd.drawImage(ox, oy, gauge_c)    
-       drawShape(ox+65, oy+60, needle_poly_large, thetaThr)
-       lcd.setColor(0,0,0)
-    end
+    lcd.setColor(255, 0, 0)
+    if gauge_c then lcd.drawImage(ox, oy, gauge_c) end
+    drawShape(ox+65, oy+60, needle_poly_large, thetaThr)
+    lcd.setColor(0,0,0)
     
 end
 
@@ -432,14 +428,12 @@ local function DrawSpeed()
     local thetaThr = math.pi - math.rad(135 - 2 * 135 * round_spd / 200)
     local thetaSet = math.pi - math.rad(135 - 2 * 135 * set_speed / 200)
 
-    if gauge_c ~= nil then
-       lcd.drawImage(ox, oy, gauge_c)
-       lcd.setColor(0,255,0)
-       drawShape(ox+65, oy+60, needle_poly_xlarge, thetaSet)       
-       lcd.setColor(255,0,0)
-       drawShape(ox+65, oy+60, needle_poly_large, thetaThr)
-       lcd.setColor(0, 0, 0)
-    end
+    if gauge_c then lcd.drawImage(ox, oy, gauge_c) end
+    lcd.setColor(0,255,0)
+    drawShape(ox+65, oy+60, needle_poly_xlarge, thetaSet)       
+    lcd.setColor(255,0,0)
+    drawShape(ox+65, oy+60, needle_poly_large, thetaThr)
+    lcd.setColor(0, 0, 0)
     
 end
 
@@ -462,13 +456,13 @@ local function DrawCenterBox()
     lcd.drawLine(ox, oy + 23, ox + W - 1, oy + 23)
     lcd.drawLine(ox, oy + 46, ox + W - 1, oy + 46)
     
-    text = string.format("%d", set_speed)
+    text = string.format("%d", math.floor(set_speed+0.5))
     lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, text)) / 2, oy + 7, text, FONT_BOLD)
 
-    text = string.format("%d", iTerm)
+    text = string.format("%d", math.floor(iTerm + 0.5))
     lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, text)) / 2, oy + 30, text, FONT_BOLD)
 
-    if math.abs(errsig) < .01 then ierr = 0.0 else ierr = errsig end
+    if math.abs(errsig) < .015 then ierr = 0.0 else ierr = errsig end
     if ierr > 99 then ierr = 99 end
     if ierr < -99 then ierr = -99 end
     text = string.format("%2.2f", ierr)
@@ -605,7 +599,7 @@ local function loop()
    local swa = system.getInputsVal(autoSwitch)
    
    -----------------------------------------------------------------------------------
-   -- this first section is the autothrottle
+   -- this first section is the PID AutoThrottle
    -----------------------------------------------------------------------------------
 
    if lastValid == 0 and swa and swa == 1 then
@@ -614,7 +608,7 @@ local function loop()
       print("Cannot startup with AutoThrottle enabled .. turn off and back on")
    end
 
-   if swa and swa == -1 then
+   if swa and swa == -1 then -- if turned off, ok to re-enable if it was prohibited prev.
       autoForceOff = false
    end
    
@@ -636,13 +630,13 @@ local function loop()
       autoOn = false
    end
 
-   -- note that endpoints are not precisely 0% and 100%, e.g. 0.137 and 99.8
+   -- note that endpoints are not precisely 0% and 100%, e.g. 0.137 and 99.8 on real TX sticks
    -- so need a small fudge factor especially on detecting zero .. set to 4% (see below)
    
    throttle_stick = 50 * (system.getInputs("P4") + 1)
 
    if not lastAuto and autoOn then -- auto throttle just turned on
-      print("AutoThrottle turned on: throttle, throttle_stick", throttle, throttle_stick)
+      --print("AutoThrottle turned on: throttle, throttle_stick", throttle, throttle_stick)
       throttle = throttle_stick
       throttlePosAtOn = throttle_stick
       iTerm = throttle_stick -- precharge integrator to this thr setting
@@ -652,8 +646,8 @@ local function loop()
    if autoOn and math.abs(system.getTimeCounter() - throttleDownTime) < lowDelay then
       if throttle_stick > throttlePosAtOn + 4 then -- moved the stick up during the # secs...
 	 print("AutoThrottle off .. moved stick up in the arming interval")
-	 print("throttle_stick, throttlePosAtOn",
-	       throttle_stick, throttlePosAtOn, 4+throttlePosAtOn)
+	 --print("throttle_stick, throttlePosAtOn",
+	 --throttle_stick, throttlePosAtOn, 4+throttlePosAtOn)
 	 autoOn = false
 	 autoForceOff = true
       end
@@ -661,7 +655,7 @@ local function loop()
    
    if autoOn and system.getTimeCounter() > throttleDownTime and throttle_stick > 4 then
       print("AutoThrottle off by low stick timeout -- throttle not taken to idle in required time")
-      print("throttle_stick:", throttle_stick)
+      --print("throttle_stick:", throttle_stick)
       autoOn = false
       autoForceOff = true -- can't re-enable till turn switch swa off then on again
    end
@@ -670,7 +664,7 @@ local function loop()
    
    --------- next two lines simulate airplane response to throttle ------------
    
-   tgt_speed = throttle * 2 -- simulate plane's response. 50% thr -> 100 mph, 100% thr -> 200 mph
+   tgt_speed = (throttle/100)^2 * 200 -- simulate plane's response
 
    round_spd = round_spd + 0.008 * (tgt_speed - round_spd) -- give it a time lag
 
@@ -777,6 +771,7 @@ end
 local function loadImages()
     gauge_c = lcd.loadImage("Apps/digitech/images/Large/Blue/c-000.png")
     gauge_s = lcd.loadImage("Apps/digitech/images/Compact/Blue/c-000.png")
+    if not gauge_c or not gauge_s then print("Gauge png images(s) not loaded") end
 end
 --------------------------------------------------------------------------------
 local function init()
