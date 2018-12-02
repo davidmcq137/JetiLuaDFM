@@ -70,6 +70,9 @@ local autoForceOff = false
 local throttleDownTime = 0
 local lastValid = 0
 local throttlePosAtOn
+local pGain = 0.8    -- these values are good debug defaults for the emulator
+local iGain = 0.006  -- same defaults loaded by system.pLoad() on startup
+local dGain = 0.05
 
 local DEBUG = true
 --------------------------------------------------------------------------------
@@ -147,6 +150,25 @@ local function maxSpdChanged(value)
    maxSpd = value
    system.pSave("maxSpd", maxSpd)
 end
+
+local function pGainChanged(value)
+   pGainInput = value
+   pGain = pGainInput / 100.0
+   system.pSave("pGainInput", pGainInput)
+end
+
+local function iGainChanged(value)
+   iGainInput = value
+   iGain = iGainInput / 10000.0
+   system.pSave("iGainInput", iGainInput)
+end
+
+local function dGainChanged(value)
+   dGainInput = value
+   iGain = iGainInput / 1000.0
+   system.pSave("dGainInput", dGainInput)
+end
+
 
 local function airCalChanged(value)
    airspeedCal = value
@@ -228,6 +250,18 @@ local function initForm()
       form.addLabel({label="Airspeed Calibration Multiplier (%)", width=220})
       form.addIntbox(airspeedCal, 1, 200, 100, 0, 1, airCalChanged)
         
+      form.addRow(2)
+      form.addLabel({label="PID Proportional gain", width=220})
+      form.addIntbox(pGainInput, 0, 100, 1, 0, 1, pGainChanged)
+
+      form.addRow(2)
+      form.addLabel({label="PID Integral gain", width=220})
+      form.addIntbox(iGainInput, 0, 100, 1, 0, 1, iGainChanged)
+
+      form.addRow(2)
+      form.addLabel({label="PID Derivative gain", width=220})
+      form.addIntbox(dGainInput, 0, 100, 1, 0, 1, dGainChanged)
+      
       form.addRow(2)
       form.addLabel({label="Use mph or km/hr (x)", width=270})
       selFtIndex = form.addCheckbox(selFt, selFtClicked)
@@ -564,9 +598,6 @@ local function loop()
    local sss, uuu
    local slope
 
-   local pGain = 0.8
-   local iGain = 0.006
-   local dGain = 0.05
    local lowDelay = 6000
 
    local swi = system.getInputsVal(spdSwitch)
@@ -605,11 +636,13 @@ local function loop()
       autoOn = false
    end
 
-
+   -- note that endpoints are not precisely 0% and 100%, e.g. 0.137 and 99.8
+   -- so need a small fudge factor especially on detecting zero .. set to 4% (see below)
+   
    throttle_stick = 50 * (system.getInputs("P4") + 1)
 
    if not lastAuto and autoOn then -- auto throttle just turned on
-      --print("AutoThrottle turned on: throttle, throttle_stick", throttle, throttle_stick)
+      print("AutoThrottle turned on: throttle, throttle_stick", throttle, throttle_stick)
       throttle = throttle_stick
       throttlePosAtOn = throttle_stick
       iTerm = throttle_stick -- precharge integrator to this thr setting
@@ -617,15 +650,18 @@ local function loop()
    end
 
    if autoOn and math.abs(system.getTimeCounter() - throttleDownTime) < lowDelay then
-      if throttle_stick > throttlePosAtOn then -- moved the stick up during the # secs...
+      if throttle_stick > throttlePosAtOn + 4 then -- moved the stick up during the # secs...
 	 print("AutoThrottle off .. moved stick up in the arming interval")
+	 print("throttle_stick, throttlePosAtOn",
+	       throttle_stick, throttlePosAtOn, 4+throttlePosAtOn)
 	 autoOn = false
 	 autoForceOff = true
       end
    end
    
-   if autoOn and system.getTimeCounter() > throttleDownTime and throttle_stick > 0 then
+   if autoOn and system.getTimeCounter() > throttleDownTime and throttle_stick > 4 then
       print("AutoThrottle off by low stick timeout -- throttle not taken to idle in required time")
+      print("throttle_stick:", throttle_stick)
       autoOn = false
       autoForceOff = true -- can't re-enable till turn switch swa off then on again
    end
@@ -649,18 +685,19 @@ local function loop()
    
    if autoOn then
       errsig = set_speed - round_spd
-
       pTerm = errsig * pGain
       dTerm = slope * dGain
       iTerm = math.max(0, math.min(iTerm + errsig * iGain, 100))
       
       throttle = pTerm + iTerm + dTerm
       throttle = math.max(0, math.min(throttle, 100))
+      system.setControl(autoIdx, (throttle-50)/50, 0) 
    else
+      iTerm = 0
       throttle = throttle_stick
+      system.setControl(autoIdx, -1, 0) -- when off mix to 0% throttle (-1 on -1,1 scale)
    end
       
-   system.setControl(autoIdx, (throttle-50)/50, 0)
    
    ----------------------------------------------------------------------------------
    -- this is the speed announcer section, return if announce not on or on continuous
@@ -753,6 +790,9 @@ local function init()
    VrefSpd = system.pLoad("VrefSpd", 60)
    VrefCall = system.pLoad("VrefCall", 2)
    maxSpd = system.pLoad("maxSpd", 200)
+   pGainInput = system.pLoad("pGainInput", 80)
+   iGainInput = system.pLoad("iGainInput", 60)
+   dGainInput = system.pLoad("dGainInput", 50)   
    airspeedCal = system.pLoad("airspeedCal", 100)
    spdSe = system.pLoad("spdSe", 0)
    spdSeId = system.pLoad("spdSeId", 0)
