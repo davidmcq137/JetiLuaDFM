@@ -23,6 +23,8 @@ collectgarbage()
 local trans11
 local spdSwitch
 local contSwitch
+local autoSwitch
+local setPtControl
 local spdSe
 local spdSeId
 local spdSePa
@@ -119,6 +121,11 @@ local function autoSwitchChanged(value)
    system.pSave("autoSwitch", autoSwitch)
 end
 
+local function setPtControlChanged(value)
+    setPtControl= value
+   system.pSave("setPtControl", setPtControl)
+end
+
 local function spdInterChanged(value)
    spdInter = value
    if spdInter == 99 then DEBUG = true end
@@ -194,8 +201,12 @@ local function initForm()
       form.addInputbox(contSwitch, false, contSwitchChanged)
 
       form.addRow(2)
-      form.addLabel({label="Select Autothrottle Switch", width=220})
-      form.addInputbox(autoSwitch, false, autoSwitchChanged)       
+      form.addLabel({label="Select Autothr Switch", width=220})
+      form.addInputbox(autoSwitch, false, autoSwitchChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Select Autothr SetPt PropCtl", width=220})
+      form.addInputbox(setPtControl, true, setPtControlChanged)       
       
       form.addRow(2)
       form.addLabel({label="Speed change scale factor", width=220})
@@ -226,7 +237,7 @@ local function initForm()
       shortAnnIndex = form.addCheckbox(shortAnn, shortAnnClicked)
       
       form.addRow(1)
-      form.addLabel({label="DFM-SpdA.lua Version "..SpdAnnCCVersion.." ", font=FONT_MINI, alignRight=true})
+      form.addLabel({label="DFM-Auto.lua Version "..SpdAnnCCVersion.." ", font=FONT_MINI, alignRight=true})
    else
       form.addRow(1)
       form.addLabel({label="Please update, min. fw 4.22 required!"})
@@ -627,13 +638,15 @@ local function loop()
 
    round_spd = round_spd + 0.008 * (tgt_speed - round_spd) -- give it a time lag
 
-   ----------------------------------------------------------------------------------
-   -- this is the speed announcer section, return if announce not on or on continuous
-   ----------------------------------------------------------------------------------
-   if (swi and swi < 1) and (swc and swc < 1) then return end
+   if setPtControl then
+      set_speed =  100 * (1 + system.getInputsVal(setPtControl))
+   elseif autoOn then
+      autoOn = false
+      autoForceOff = true
+      print("Attempt to arm AutoThrottle with no setpoint speed")
+   end
    
-   set_speed =  100 * (1 + system.getInputs("P5")) -- testing .. setpoint is P5 
-
+   
    if autoOn then
       errsig = set_speed - round_spd
 
@@ -649,6 +662,10 @@ local function loop()
       
    system.setControl(autoIdx, (throttle-50)/50, 0)
    
+   ----------------------------------------------------------------------------------
+   -- this is the speed announcer section, return if announce not on or on continuous
+   ----------------------------------------------------------------------------------
+
    if (swi and swi == 1) or (swc and swc == 1) then
       
       if (spd > maxSpd and not ovrSpd) then
@@ -731,6 +748,7 @@ local function init()
    spdSwitch = system.pLoad("spdSwitch")
    contSwitch = system.pLoad("contSwitch")
    autoSwitch = system.pLoad("autoSwitch")
+   setPtControl = system.pLoad("setPtControl")
    spdInter = system.pLoad("spdInter", 10)
    VrefSpd = system.pLoad("VrefSpd", 60)
    VrefCall = system.pLoad("VrefCall", 2)
