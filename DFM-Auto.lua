@@ -44,7 +44,6 @@ local lastAnnSpd = 0
 local sgTC
 local sgTC0
 local airspeedCal
-local round_spd = 0
 local SpdAnnCCVersion
 
 local sensorLalist = { "..." }
@@ -62,7 +61,7 @@ local pTerm = 0
 local dTerm = 0
 local spdTable={}
 local timTable={}
-local MAXTABLE=100
+local MAXTABLE=20
 local errsig = 0
 local autoOn = false
 local lastAuto = false
@@ -77,6 +76,7 @@ local autoOffTime = 0
 local offThrottle
 local lastSetThr
 local playedBeep = true
+local slAvg
 
 local DEBUG = true
 --------------------------------------------------------------------------------
@@ -386,8 +386,8 @@ local function DrawErrsig()
        
     lcd.setColor(255, 0, 0)
     if gauge_s then lcd.drawImage(ox-gauge_s.width//2, oy-gauge_s.width//2, gauge_s) end
-    drawShape(ox+1, oy, needle_poly_small_small, theta)
-    lcd.drawFilledRectangle(ox, oy-24, 2, 20) -- should be ox-1 but roundoff problem?
+    drawShape(ox, oy, needle_poly_small_small, theta)
+    lcd.drawFilledRectangle(ox, oy-24, 2, 20)
     lcd.setColor(0,0,0)
     lcd.drawText(ox - lcd.getTextWidth(FONT_MINI, "Err") // 2, oy + 7, "Err", FONT_MINI)
 
@@ -597,10 +597,14 @@ local function loop()
    local sss, uuu
    local slope
    local lowDelay = 6000
+   local round_spd = 0
+   local swi, swc, swa
 
-   local swi = system.getInputsVal(spdSwitch)
-   local swc = system.getInputsVal(contSwitch)
-   local swa = system.getInputsVal(autoSwitch)
+   -- first read the configuration from the switches that have been assigned
+   
+   swi = system.getInputsVal(spdSwitch)  -- enable normal speed announce vary by delta speed
+   swc = system.getInputsVal(contSwitch) -- enable continuous annonucements
+   swa = system.getInputsVal(autoSwitch) -- enable/arm autothrottle
    
    -----------------------------------------------------------------------------------
    -- this first section is the PID AutoThrottle
@@ -618,17 +622,17 @@ local function loop()
    
    speed, slope = get_speed_from_sensor()
 
-   if autoOn and not DEBUG and (system.getTimeCounter() > lastValid + 10000.) then 
+   if autoOn and (system.getTimeCounter() > lastValid + 10000.) then 
       print("AutoThrottle off because of invalid speed data > 10 s")
       autoOn = false
       autoForceOff = true -- force user to turn switch off then on again
    end
    
    if swa and swa == 1 and not autoForceOff then   
-      if autoOn == false then print("AutoThrottle on by switch SWA") end
+      if autoOn == false then print("AutoThrottle turned on by switch SWA") end
       autoOn = true
    else
-      if autoOn == true then print("AutoThrottle off by switch SWA") end
+      if autoOn == true then print("AutoThrottle turned off by switch SWA") end
       autoOn = false
    end
 
@@ -638,7 +642,6 @@ local function loop()
    throttle_stick = 50 * (system.getInputs("P4") + 1)
 
    if not lastAuto and autoOn then -- auto throttle just turned on
-      --print("AutoThrottle turned on: throttle, throttle_stick", throttle, throttle_stick)
       throttle = throttle_stick
       throttlePosAtOn = throttle_stick
       iTerm = throttle_stick -- precharge integrator to this thr setting
@@ -648,8 +651,6 @@ local function loop()
    if autoOn and math.abs(system.getTimeCounter() - throttleDownTime) < lowDelay then
       if throttle_stick > throttlePosAtOn + 4 then -- moved the stick up during the # secs...
 	 print("AutoThrottle off .. moved stick up in the arming interval")
-	 --print("throttle_stick, throttlePosAtOn",
-	 --throttle_stick, throttlePosAtOn, 4+throttlePosAtOn)
 	 autoOn = false
 	 autoForceOff = true
       end
@@ -657,7 +658,6 @@ local function loop()
    
    if autoOn and system.getTimeCounter() > throttleDownTime and throttle_stick > 4 then
       print("AutoThrottle off -- throttle not at idle")
-      --print("throttle_stick:", throttle_stick)
       autoOn = false
       autoForceOff = true -- can't re-enable till turn switch swa off then on again
    end
@@ -671,18 +671,22 @@ local function loop()
    end
    
    if autoOn then
-      
       pGain = pGainInput / 50.0
-      iGain = iGainInput / 5000.0
       dGain = dGainInput / 500.0
+      iGain = iGainInput / 5000.0
 
       errsig = set_speed - speed
-      pTerm = errsig * pGain
-      dTerm = slope * dGain
-      iTerm = math.max(0, math.min(iTerm + errsig * iGain, 100))
+
+      -- average the derivate .. slopes are noisy probably due to time jitter
+      if not slAvg then slAvg = slope else slAvg = slAvg + 0.005*(slope - slAvg) end
+	 
+      pTerm  = errsig * pGain
+      dTerm  = slAvg * dGain * -1
+      iTerm  = math.max(0, math.min(iTerm + errsig * iGain, 100))
       
       throttle = pTerm + iTerm + dTerm
       throttle = math.max(0, math.min(throttle, 100))
+
       system.setControl(autoIdx, (throttle-50)/50, 0)
       lastSetThr = throttle
    else
@@ -694,7 +698,6 @@ local function loop()
    end
 
    if autoOn == false and lastAuto == true then -- was just turned off
-      print("just turned off")
       autoOffTime = system.getTimeCounter()
       offThrottle = lastSetThr -- remember last steady-state throttle
       playedBeep = false
@@ -740,7 +743,10 @@ local function loop()
 	 if DEBUG then print("Stall warning!") end
       end
 
-      -- multiplier is scaled by spdInter, over range of 0.5 to 10 (20:1)
+      -- this line is the heart of the speed announcer, it determies update timing
+      -- vs changes in speed
+      -- time-spacing multiplier is scaled by spdInter, over range of 0.5 to 10 (20:1)
+
       deltaSA = math.min(math.max(math.abs((speed-lastAnnSpd) / spdInter), 0.5), 10)
       
       nextAnnTC = lastAnnTC + (VrefCall * 1000 * 10 / deltaSA) 
@@ -751,15 +757,14 @@ local function loop()
 
       sgTC = system.getTimeCounter()
       if not sgTC0 then sgTC0 = sgTC end
-      
-      
+
       -- Added isPlayback() so that we don't create a backlog of messages if it takes
       -- longer than VrefCall time to speak the speed
       -- This was creating a "bow wave" of pending announcements
       -- Wait till speaking is done, catch it at the next call to loop()
 
       if (not system.isPlayback()) and
-      ( (sgTC > nextAnnTC) and ( (speed > VrefSpd / 4) or (swc and swc == 1) ) ) then
+         ((sgTC > nextAnnTC) and ( (speed > VrefSpd / 4) or (swc and swc == 1))) then
 
 	 lastAnnSpd = speed
 	 round_spd = math.floor(speed+0.5)
@@ -822,7 +827,7 @@ local function init()
 
    system.registerTelemetry(1, "Speed Announcer and AutoThrottle", 4, wbTele)    
 
-   --system.playFile('/Apps/DFM-SpdA/Spd_ann_act.wav', AUDIO_QUEUE)
+   system.playFile('/Apps/DFM-Auto/AutoThrottle_act.wav', AUDIO_QUEUE)
 
    readSensors()
    loadImages()
