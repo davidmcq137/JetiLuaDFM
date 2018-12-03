@@ -614,6 +614,7 @@ local function loop()
       autoOn = false
       autoForceOff = true
       print("Cannot startup with AutoThrottle enabled .. turn off and back on")
+      system.playFile('/Apps/DFM-Auto/ATCannotStartEnabled.wav', AUDIO_QUEUE)
    end
 
    if swa and swa == -1 then -- if turned off, ok to re-enable if it was prohibited prev.
@@ -622,17 +623,26 @@ local function loop()
    
    speed, slope = get_speed_from_sensor()
 
+   -- add code here for warning of sensor data gap of e.g. 3-5 secs
+   
    if autoOn and (system.getTimeCounter() > lastValid + 10000.) then 
       print("AutoThrottle off because of invalid speed data > 10 s")
+      system.playFile('/Apps/DFM-Auto/ATNoValidData.wav', AUDIO_QUEUE)
       autoOn = false
       autoForceOff = true -- force user to turn switch off then on again
    end
    
    if swa and swa == 1 and not autoForceOff then   
-      if autoOn == false then print("AutoThrottle turned on by switch SWA") end
+      if autoOn == false then
+	 print("AutoThrottle turned on by switch SWA")
+	 system.playFile('/Apps/DFM-Auto/ATEnabled.wav', AUDIO_QUEUE)
+      end
       autoOn = true
    else
-      if autoOn == true then print("AutoThrottle turned off by switch SWA") end
+      if autoOn == true then
+	 print("AutoThrottle turned off by switch SWA")
+	 system.playFile('/Apps/DFM-Auto/ATCancelled.wav', AUDIO_QUEUE)
+      end
       autoOn = false
    end
 
@@ -648,9 +658,10 @@ local function loop()
       throttleDownTime = system.getTimeCounter() + lowDelay -- # seconds to reduce thr to 0
    end
 
-   if autoOn and math.abs(system.getTimeCounter() - throttleDownTime) < lowDelay then
+   if autoOn and system.getTimeCounter() - throttleDownTime < lowDelay then
       if throttle_stick > throttlePosAtOn + 4 then -- moved the stick up during the # secs...
 	 print("AutoThrottle off .. moved stick up in the arming interval")
+	 system.playFile('/Apps/DFM-Auto/ATCancelledThrUp.wav', AUDIO_QUEUE)
 	 autoOn = false
 	 autoForceOff = true
       end
@@ -658,6 +669,7 @@ local function loop()
    
    if autoOn and system.getTimeCounter() > throttleDownTime and throttle_stick > 4 then
       print("AutoThrottle off -- throttle not at idle")
+      system.playFile('/Apps/DFM-Auto/ATCancelledThrNotIdle.wav', AUDIO_QUEUE)
       autoOn = false
       autoForceOff = true -- can't re-enable till turn switch swa off then on again
    end
@@ -668,6 +680,7 @@ local function loop()
       autoOn = false
       autoForceOff = true
       print("Attempt to arm AutoThrottle with no setpoint speed")
+      system.playFile('/Apps/DFM-Auto/ATCannotArmNoSet.wav', AUDIO_QUEUE)      
    end
    
    if autoOn then
