@@ -925,7 +925,7 @@ local function ilsPrint(windowWidth, windowHeight)
    
    text=string.format("X,Y = %4d,%4d", x, y)
    lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-60, heightAH-20, text, FONT_MINI)
-   text=string.format("#Reps = %d", countNoNewPos)
+   text=string.format("#Same = %d", countNoNewPos)
    lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-60, heightAH-10, text, FONT_MINI)
    
    -- First compute determinants to see what side of the right and left lines we are on
