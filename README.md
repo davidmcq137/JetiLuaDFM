@@ -120,10 +120,12 @@ autoscales from there as needed over the defined images.
 Included is a helper program LSO-Gmap-Image-Gen.py that can access the
 google maps developer API and create the required .png image files. It
 reads the Fields.jsn file and uses those lines to create the
-files. The helper program must be run by Python3. You will need a
-google maps API developer key to use the program. You can put it in
-the sourcecode but the program is designed to use the "conf" file
-which on a unix system goes in your home directory.
+files. Make sure you use Pip or Pipenv to install the required
+packages (e.g. Requests, Pillow). You will need a google maps API
+developer key to use the program. You can put it in the sourcecode but
+the program is designed to use the "conf" file which on a unix system
+goes in your home directory. Instructions are in the source file and
+in the example .conf file.
 
 When the program wakes up, it checks to see if there is a file
 DFM-LSO.log in the DFM-LSO directory. This is assumed to be a standard

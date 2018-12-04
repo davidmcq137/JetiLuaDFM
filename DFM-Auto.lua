@@ -400,7 +400,7 @@ local function DrawErrsig()
     lcd.setColor(255, 0, 0)
     if gauge_s then lcd.drawImage(ox-gauge_s.width//2, oy-gauge_s.width//2, gauge_s) end
     drawShape(ox, oy, needle_poly_small_small, theta)
-    lcd.drawFilledRectangle(ox, oy-24, 2, 20)
+    lcd.drawFilledRectangle(ox-1, oy-32, 2, 8)
     lcd.setColor(0,0,0)
     lcd.drawText(ox - lcd.getTextWidth(FONT_MINI, "Err") // 2, oy + 7, "Err", FONT_MINI)
 

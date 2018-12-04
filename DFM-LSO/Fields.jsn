@@ -154,5 +154,22 @@
       "filename" : "GAJets_6000_ft.png",
       "xrange" : 6000
     } ]
+  }, {
+    "name" : "Triple Tree Aerodrome",
+    "shortname" : "Nall",
+    "runway" : {
+      "lat" : 34.674994,
+      "long" : -81.995538,
+      "trueDir" : 25.34,
+      "length" : 812,
+      "width" : 260
+    },
+    "images" : [ {
+      "filename" : "Nall_3000_ft.png",
+      "xrange" : 3000
+    }, {
+      "filename" : "Nall_6000_ft.png",
+      "xrange" : 6000
+    } ]
   } ]
 }
