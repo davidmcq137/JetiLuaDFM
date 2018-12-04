@@ -1149,7 +1149,7 @@ local function mapPrint(windowWidth, windowHeight)
    drawSpeed()
    drawAltitude()
    drawHeading()
-   drawVario()
+   --drawVario()
    
    -- in case the draw functions left color set to their specific values
    setColorMain()
