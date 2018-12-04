@@ -702,8 +702,8 @@ local function loop()
       end
       if set_stable == 50 then
 	 set_stable = 51
-	 if set_speed > 10 then -- don't announce if setpoint near zero
-	    print("Set speed stable at", set_speed)
+	 if set_speed < VrefSpd / 1.3 then -- don't announce if setpoint below stall
+	    --print("Set speed stable at", set_speed)
 	    system.playFile('/Apps/DFM-Auto/ATSetPointStable.wav', AUDIO_QUEUE)      	    
 	    system.playNumber(math.floor(set_speed+0.5), 0, "mph")
 	 end
@@ -716,6 +716,13 @@ local function loop()
       system.playFile('/Apps/DFM-Auto/ATCannotArmNoSet.wav', AUDIO_QUEUE)      
    end
 
+   if setPtControl and set_speed < VrefSpd / 1.3 and autoOn then
+      autoOn = false
+      autoForceOff = true
+      print("Attempt to arm AutoThrottle with speed below stall", VrefSpd/1.3)
+      system.playFile('/Apps/DFM-Auto/ATSetBelowStall.wav', AUDIO_QUEUE)      
+   end
+   
    -- interesting to consider: loop time on the emulator is about 47 loops per second
    -- if this app runs by itself, it's about 41 lps on the TX. With the LSO program also
    -- running, the emulator drops to 42 and the TX drops to 28. Derivatve is calculated as
