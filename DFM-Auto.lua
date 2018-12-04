@@ -20,7 +20,7 @@ collectgarbage()
 
 -- Locals for application
 
-local trans11
+--local trans11
 local spdSwitch
 local contSwitch
 local autoSwitch
@@ -49,11 +49,12 @@ local SpdAnnCCVersion
 local sensorLalist = { "..." }
 local sensorIdlist = { "..." }
 local sensorPalist = { "..." }
-
+local modelProps = {}
 local gauge_c={}
 local gauge_s={}
 local throttle=0
 local speed = 0
+local slope
 local tgt_speed = 0
 local set_speed = 0
 local iTerm = 0
@@ -72,6 +73,9 @@ local throttlePosAtOn
 local pGain
 local iGain
 local dGain
+local pGainInput
+local iGainInput
+local dGainInput
 local autoOffTime = 0
 local offThrottle
 local lastSetThr
@@ -80,10 +84,10 @@ local slAvg
 local set_stable = 0
 local last_set = 0
 local nLoop = 0
-local avgLoopTime = 0
 local appStartTime
 local baseLineLPS, loopsPerSecond = 47, 47
 local autoWarn = false
+local autoIdx
 
 local DEBUG = true
 --------------------------------------------------------------------------------
@@ -302,12 +306,14 @@ local needle_poly_xlarge = {
    {4,28}
 }
 
+--[[
 local needle_poly_small = {
    {-2,12},
    {-1,26},
    {1,26},
    {2,12}
 }
+--]]
 
 local needle_poly_small_small = {
    {-2,2},
@@ -493,7 +499,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local function wbTele(w,h)
+local function wbTele()
     DrawThrottle(0,0)
     DrawSpeed(0,0)
     DrawCenterBox(0,0,0,0)
@@ -508,7 +514,7 @@ end
 local function fslope(x, y)
 
     local xbar, ybar, sxy, sx2 = 0,0,0,0
-    local theta, tt, slope
+    local theta, tt, slp
     
     for i = 1, #x do
        xbar = xbar + x[i]
@@ -527,9 +533,9 @@ local function fslope(x, y)
        sx2 = 1.0E-6      -- or just let it div0 and set to inf itself?
     end                  -- for now this is only a .00001-ish degree error
     
-    slope = sxy/sx2
+    slp = sxy/sx2
     
-    theta = math.atan(slope)
+    theta = math.atan(slp)
 
     if x[1] < x[#x] then
        tt = math.pi/2 - theta
@@ -537,14 +543,14 @@ local function fslope(x, y)
        tt = math.pi*3/2 - theta
     end
  
-    return slope, tt
+    return slp, tt
 end
 
 --------------------------------------------------------
 
 local function get_speed_from_sensor()
 
-   local sensor, slope, sensor_speed, spd, tgt_speed
+   local sensor, slp, sensorSpeed, spd, _
 
    if (spdSeId ~= 0) then
       sensor = system.getSensorByID(spdSeId, spdSePa)
@@ -560,11 +566,11 @@ local function get_speed_from_sensor()
 	 tgt_speed = (throttle/100)^2 * 200 -- simulate plane's response
 	 -- give the plane and engine response a time lag
 	 speed = speed + (baseLineLPS / loopsPerSecond) * (tgt_speed - speed) / 125  
-	 lastValid = system.getTimeCounter() -- pretent we read a sensor and it was valid
+	 lastValid = system.getTimeCounter() -- pretend we read a sensor and it was valid
 	 autoWarn = false -- reset warning for no data
-	 spd = speed -- so we return the correct variable
+	 spd = speed -- return the correct variable
       else
-	 return 
+	 return  nil, nil
       end
    end
 
@@ -591,10 +597,10 @@ local function get_speed_from_sensor()
    table.insert(spdTable, speed - set_speed)
    table.insert(timTable, system.getTimeCounter()/1000.)
 
-   slope, _ = fslope(timTable, spdTable)
+   slp, _ = fslope(timTable, spdTable)
 
 
-   return spd, slope
+   return spd, slp
 
 end
 
@@ -604,12 +610,13 @@ local function loop()
 
    local deltaSA
    local sss, uuu
-   local slope
    local lowDelay = 6000
-   local round_spd = 0
+   local round_spd
    local swi, swc, swa
+   local throttle_stick
+   local retSpd, retSlp
    
-   -- gather some stats on loop times
+   -- gather some stats on loop times so we can normalize integrator performance
    
    if not appStartTime then appStartTime = system.getTimeCounter() end
       
@@ -635,21 +642,27 @@ local function loop()
       autoForceOff = false
    end
    
-   speed, slope = get_speed_from_sensor()
-
-   if lastValid == 0 and swa and swa == 1 then
+   if lastValid == 0 and swa and swa == 1 then -- has to be called before get_speed_from_sensor()
       autoOn = false
       autoForceOff = true
       print("Cannot startup with AutoThrottle enabled .. turn off and back on")
       system.playFile('/Apps/DFM-Auto/ATCannotStartEnabled.wav', AUDIO_QUEUE)
    end
 
+   retSpd, retSlp = get_speed_from_sensor()
+
+   if retSpd then speed = retSpd end -- if no new data, nil is returned
+   if retSlp then slope = retSlp end -- in this case hold last data in speed and slope
+
+   -- warn if no valid data for 5 seconds .. leave Autothrottle on .. hold values (below)
+   
    if autoOn and (system.getTimeCounter() > lastValid + 5000.) and not autoWarn then 
       print("AutoThrottle warning: invalid speed data > 5 s")
       system.playFile('/Apps/DFM-Auto/ATNoDataWarning.wav', AUDIO_QUEUE)
       autoWarn = true -- remember we did the warning -- don't do again in this data gap
    end
-
+   
+   -- cancel if no valid data for 10 seconds
    
    if autoOn and (system.getTimeCounter() > lastValid + 10000.) then 
       print("AutoThrottle off because of invalid speed data > 10 s")
@@ -684,6 +697,9 @@ local function loop()
       throttleDownTime = system.getTimeCounter() + lowDelay -- # seconds to reduce thr to 0
    end
 
+   -- during the "put throttle stick low" interval after arming, can cancel by moving stick up
+   -- from position at time of arming. not sure there is a better way to do this...
+   
    if autoOn and system.getTimeCounter() - throttleDownTime < lowDelay then
       if throttle_stick > throttlePosAtOn + 4 then -- moved the stick up during the # secs...
 	 print("AutoThrottle off .. moved stick up in the arming interval")
@@ -692,6 +708,8 @@ local function loop()
 	 autoForceOff = true
       end
    end
+
+   -- cancel Autothrottle if stick moved off idle. use 4% as resolution level
    
    if autoOn and system.getTimeCounter() > throttleDownTime and throttle_stick > 4 then
       print("AutoThrottle off -- throttle not at idle")
@@ -700,6 +718,8 @@ local function loop()
       autoForceOff = true -- can't re-enable till turn switch swa off then on again
    end
 
+   -- check if a speed setpoint is set
+   
    if setPtControl then
       set_speed =  100 * (1 + system.getInputsVal(setPtControl))
       if math.abs(set_speed - last_set) < 4 then
@@ -736,6 +756,8 @@ local function loop()
    -- slope vs timestamps, so it won't change, propo not time dependent .. but integrator
    -- effective gain will decrease as loop time decreases ..
    -- scale iGain with lps to keep integrator response flat with sys load
+
+   -- if all good, then apply PID algorithm
    
    if autoOn then
       pGain = pGainInput / 50.0
@@ -899,13 +921,24 @@ local function init()
 
    system.registerTelemetry(1, "Speed Announcer and AutoThrottle", 4, wbTele)    
 
-   system.playFile('/Apps/DFM-Auto/AT_Active.wav', AUDIO_QUEUE)
 
+   -- set default for pitotCal in case no "DFM-model.jsn" file
+
+   modelProps.pitotCal = 100
+   
+   fg = io.readall("Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
+   if fg then
+      modelProps=json.decode(fg)
+   end
+
+   airspeedCal = modelProps.pitotCal
+   
    readSensors()
    loadImages()
 
    autoIdx = system.registerControl(1, "AutoThrottle", "A01")
-   print("autoIdx:", autoIdx)
+
+   system.playFile('/Apps/DFM-Auto/AT_Active.wav', AUDIO_QUEUE)
    
 end
 
