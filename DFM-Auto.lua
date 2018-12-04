@@ -83,6 +83,7 @@ local nLoop = 0
 local avgLoopTime = 0
 local appStartTime
 local baseLineLPS, loopsPerSecond = 47, 47
+local autoWarn = false
 
 local DEBUG = true
 --------------------------------------------------------------------------------
@@ -560,6 +561,7 @@ local function get_speed_from_sensor()
 	 -- give the plane and engine response a time lag
 	 speed = speed + (baseLineLPS / loopsPerSecond) * (tgt_speed - speed) / 125  
 	 lastValid = system.getTimeCounter() -- pretent we read a sensor and it was valid
+	 autoWarn = false -- reset warning for no data
 	 spd = speed -- so we return the correct variable
       else
 	 return 
@@ -612,7 +614,7 @@ local function loop()
    if not appStartTime then appStartTime = system.getTimeCounter() end
       
    nLoop = nLoop + 1
-   if nLoop >= 1000 then
+   if nLoop >= 100 then
       loopsPerSecond = 1000 * nLoop / (system.getTimeCounter() - appStartTime)
       appStartTime = system.getTimeCounter()
       nLoop = 0
@@ -629,6 +631,12 @@ local function loop()
    -- this first section is the PID AutoThrottle
    -----------------------------------------------------------------------------------
 
+   if swa and swa == -1 then -- if turned off, ok to re-enable if it was prohibited prev.
+      autoForceOff = false
+   end
+   
+   speed, slope = get_speed_from_sensor()
+
    if lastValid == 0 and swa and swa == 1 then
       autoOn = false
       autoForceOff = true
@@ -636,13 +644,12 @@ local function loop()
       system.playFile('/Apps/DFM-Auto/ATCannotStartEnabled.wav', AUDIO_QUEUE)
    end
 
-   if swa and swa == -1 then -- if turned off, ok to re-enable if it was prohibited prev.
-      autoForceOff = false
+   if autoOn and (system.getTimeCounter() > lastValid + 5000.) and not autoWarn then 
+      print("AutoThrottle warning: invalid speed data > 5 s")
+      system.playFile('/Apps/DFM-Auto/ATNoDataWarning.wav', AUDIO_QUEUE)
+      autoWarn = true -- remember we did the warning -- don't do again in this data gap
    end
-   
-   speed, slope = get_speed_from_sensor()
 
-   -- add code here for warning of sensor data gap of e.g. 3-5 secs
    
    if autoOn and (system.getTimeCounter() > lastValid + 10000.) then 
       print("AutoThrottle off because of invalid speed data > 10 s")
@@ -701,7 +708,7 @@ local function loop()
 	 set_stable = 1
       end
       if set_stable == 50 then
-	 set_stable = 51
+	 set_stable = 51 -- only play the number once when stabilized
 	 if set_speed < VrefSpd / 1.3 then -- don't announce if setpoint below stall
 	    --print("Set speed stable at", set_speed)
 	    system.playFile('/Apps/DFM-Auto/ATSetPointStable.wav', AUDIO_QUEUE)      	    
@@ -719,7 +726,7 @@ local function loop()
    if setPtControl and set_speed < VrefSpd / 1.3 and autoOn then
       autoOn = false
       autoForceOff = true
-      print("Attempt to arm AutoThrottle with speed below stall", VrefSpd/1.3)
+      print("Attempt to arm AutoThrottle with speed below stall: ", VrefSpd/1.3)
       system.playFile('/Apps/DFM-Auto/ATSetBelowStall.wav', AUDIO_QUEUE)      
    end
    
@@ -728,7 +735,7 @@ local function loop()
    -- running, the emulator drops to 42 and the TX drops to 28. Derivatve is calculated as
    -- slope vs timestamps, so it won't change, propo not time dependent .. but integrator
    -- effective gain will decrease as loop time decreases ..
-   -- experiment: scale iGain with lps to keep integrator response flat with sys load
+   -- scale iGain with lps to keep integrator response flat with sys load
    
    if autoOn then
       pGain = pGainInput / 50.0
