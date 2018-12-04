@@ -3,6 +3,7 @@
 *#*
 *.lc
 *.csv
+*.out
 DFM-*.jsn
 DFM-LSO/*_ft.png
 DFM-LSO/temp*.png
