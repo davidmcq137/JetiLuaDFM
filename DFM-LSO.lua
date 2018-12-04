@@ -19,6 +19,10 @@
 
    Work items:
 
+   Font mini on display "tapes" for better viz of flightpath
+   Not sure VSI is working properly .. maybe exaggerated readings?
+   When displaying info message from log file check if map screen visible before displaying
+
 --]]
 
 collectgarbage()
