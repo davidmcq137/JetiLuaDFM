@@ -75,6 +75,8 @@ local geo = {}
 local iField
 local modelProps={}
 
+local countNoNewPos = 0
+
 local takeoff={}; takeoff.Complete={}; takeoff.Start={}
 takeoff.NeverAirborne = true
 takeoff.BrakeReleaseTime = 0
@@ -922,8 +924,10 @@ local function ilsPrint(windowWidth, windowHeight)
    local y = ytable[#ytable] or 0
    
    text=string.format("X,Y = %4d,%4d", x, y)
-   lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-60, heightAH-17, text, FONT_MINI)
-
+   lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-60, heightAH-20, text, FONT_MINI)
+   text=string.format("#Reps = %d", countNoNewPos)
+   lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-60, heightAH-10, text, FONT_MINI)
+   
    -- First compute determinants to see what side of the right and left lines we are on
    -- ILS course is between them -- also compute which side of the course we are on
 
@@ -1875,13 +1879,14 @@ local function loop()
    -- 				 latitude, longitude, altitude, speed, (heading-variables.magneticVar) ) )
    -- end
 
---   print('latitude, lastlat, longitude, lastlong', latitude, lastlat, longitude, lastlong)
---   print('sgtc, newPosTime', system.getTimeCounter(), newPosTime)
+   --print('latitude, lastlat, longitude, lastlong', latitude, lastlat, longitude, lastlong)
+   --print('sgtc, newPosTime', system.getTimeCounter(), newPosTime)
    
    if (latitude == lastlat and longitude == lastlong) or
       (math.abs(system.getTimeCounter()) < newPosTime) or -- mac emulator had sgTC negative???
-      (manhat_xy_from_latlong(latitude, longitude, lastlat, lastlong)) < 12 -- manhat dist in ft
+      (fd and (manhat_xy_from_latlong(latitude, longitude, lastlat, lastlong) < 12)) -- only on repl
    then
+      countNoNewPos = countNoNewPos + 1
       newpos = false
       --print(manhat_xy_from_latlong(latitude, longitude, lastlat, lastlong))
    else
@@ -1889,6 +1894,7 @@ local function loop()
       lastlat = latitude
       lastlong = longitude
       newPosTime = system.getTimeCounter() + deltaPosTime
+      countNoNewPos = 0
    end
 
    
@@ -1934,6 +1940,8 @@ local function loop()
       table.insert(ytable, y)
 
       graphScale(x, y)
+      
+      --print("x,y:", x, y)
       
       if #xtable == 1 then
 	 path.xmin = map.Xmin
@@ -2137,7 +2145,7 @@ local function init()
 if the menu item to select a replay log file was used, the file is persisted by pSave in logPlayBacl
 but this only works correctly on the TX .. the emulator's dir() iterator does not work. So if we are
 running on the emulator, we check for the "magic name" of DFM-LSO.log -- if it exists we open it for
-replay
+replay .. wait .. maybe it does??
 
 --]]
    
@@ -2146,7 +2154,7 @@ replay
    if fname ~= "..." then
       fd=io.open(fname, "r")
    else
-      fname = "DFM-LSO.log" -- try magic name if running on emulator since dir() does not work there%^&$%@
+      fname = "DFM-LSO.log" -- try magic name if running on emulator
       fd = io.open("Apps/DFM-LSO/"..fname, "r")
    end
 

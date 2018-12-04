@@ -77,6 +77,12 @@ local offThrottle
 local lastSetThr
 local playedBeep = true
 local slAvg
+local set_stable = 0
+local last_set = 0
+local nLoop = 0
+local avgLoopTime = 0
+local appStartTime
+local baseLineLPS, loopsPerSecond = 47, 47
 
 local DEBUG = true
 --------------------------------------------------------------------------------
@@ -490,9 +496,9 @@ local function wbTele(w,h)
     DrawThrottle(0,0)
     DrawSpeed(0,0)
     DrawCenterBox(0,0,0,0)
-    DrawRectGaugeCenter( 66, 140, 70, 16, -100, 100, pTerm*10, "Proportional")
+    DrawRectGaugeCenter( 66, 140, 70, 16, -100, 100, pTerm*2, "Proportional")
     DrawRectGaugeAbs(158, 140, 70, 16, 0, 100, iTerm, "Integral")
-    DrawRectGaugeCenter(252, 140, 70, 16, -100, 100, dTerm*100, "Derivative")
+    DrawRectGaugeCenter(252, 140, 70, 16, -100, 100, dTerm*10, "Derivative")
     DrawErrsig(0,0)
 end
 
@@ -551,7 +557,8 @@ local function get_speed_from_sensor()
    else
       if DEBUG then
 	 tgt_speed = (throttle/100)^2 * 200 -- simulate plane's response
-	 speed = speed + 0.008 * (tgt_speed - speed) -- give it a time lag
+	 -- give the plane and engine response a time lag
+	 speed = speed + (baseLineLPS / loopsPerSecond) * (tgt_speed - speed) / 125  
 	 lastValid = system.getTimeCounter() -- pretent we read a sensor and it was valid
 	 spd = speed -- so we return the correct variable
       else
@@ -599,9 +606,21 @@ local function loop()
    local lowDelay = 6000
    local round_spd = 0
    local swi, swc, swa
-
-   -- first read the configuration from the switches that have been assigned
    
+   -- gather some stats on loop times
+   
+   if not appStartTime then appStartTime = system.getTimeCounter() end
+      
+   nLoop = nLoop + 1
+   if nLoop >= 1000 then
+      loopsPerSecond = 1000 * nLoop / (system.getTimeCounter() - appStartTime)
+      appStartTime = system.getTimeCounter()
+      nLoop = 0
+      --print("Loops per second:", loopsPerSecond)
+   end
+   
+   -- first read the configuration from the switches that have been assigned
+
    swi = system.getInputsVal(spdSwitch)  -- enable normal speed announce vary by delta speed
    swc = system.getInputsVal(contSwitch) -- enable continuous annonucements
    swa = system.getInputsVal(autoSwitch) -- enable/arm autothrottle
@@ -676,22 +695,48 @@ local function loop()
 
    if setPtControl then
       set_speed =  100 * (1 + system.getInputsVal(setPtControl))
-   elseif autoOn then
+      if math.abs(set_speed - last_set) < 4 then
+	 if set_stable < 50 then set_stable = set_stable + 1 end
+      else
+	 set_stable = 1
+      end
+      if set_stable == 50 then
+	 set_stable = 51
+	 if set_speed > 10 then -- don't announce if setpoint near zero
+	    print("Set speed stable at", set_speed)
+	    system.playFile('/Apps/DFM-Auto/ATSetPointStable.wav', AUDIO_QUEUE)      	    
+	    system.playNumber(math.floor(set_speed+0.5), 0, "mph")
+	 end
+      end
+      last_set = set_speed
+   elseif autoOn then -- no setpoint but trying to arm
       autoOn = false
       autoForceOff = true
       print("Attempt to arm AutoThrottle with no setpoint speed")
       system.playFile('/Apps/DFM-Auto/ATCannotArmNoSet.wav', AUDIO_QUEUE)      
    end
+
+   -- interesting to consider: loop time on the emulator is about 47 loops per second
+   -- if this app runs by itself, it's about 41 lps on the TX. With the LSO program also
+   -- running, the emulator drops to 42 and the TX drops to 28. Derivatve is calculated as
+   -- slope vs timestamps, so it won't change, propo not time dependent .. but integrator
+   -- effective gain will decrease as loop time decreases ..
+   -- experiment: scale iGain with lps to keep integrator response flat with sys load
    
    if autoOn then
       pGain = pGainInput / 50.0
-      dGain = dGainInput / 500.0
-      iGain = iGainInput / 5000.0
+      dGain = dGainInput / 20.0
+      iGain = iGainInput / 5000.0 * baseLineLPS / loopsPerSecond
 
       errsig = set_speed - speed
 
       -- average the derivate .. slopes are noisy probably due to time jitter
-      if not slAvg then slAvg = slope else slAvg = slAvg + 0.005*(slope - slAvg) end
+      if not slAvg then
+	 slAvg = slope
+      else
+	 slAvg = slAvg + (baseLineLPS / loopsPerSecond) * (slope - slAvg) / 200
+      end
+	 
 	 
       pTerm  = errsig * pGain
       dTerm  = slAvg * dGain * -1
@@ -840,7 +885,7 @@ local function init()
 
    system.registerTelemetry(1, "Speed Announcer and AutoThrottle", 4, wbTele)    
 
-   system.playFile('/Apps/DFM-Auto/AutoThrottle_act.wav', AUDIO_QUEUE)
+   system.playFile('/Apps/DFM-Auto/AT_Active.wav', AUDIO_QUEUE)
 
    readSensors()
    loadImages()
