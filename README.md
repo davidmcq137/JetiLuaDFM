@@ -3,8 +3,7 @@
 DFM-LSO.lua
 
 "Landing Signal Officer" - so named because the pilot can't look at it
-during flight, his/her "RIO" (backseater or spotter) can look at it as
-the LSO.
+during flight, his/her spotter can look at it as the LSO.
 
 It is intended to work with the Jeti MGPS GPS sensor, the Jeti MSpeed
 Pitot/Static system, and the Digitech CTU. GPS parameters come from

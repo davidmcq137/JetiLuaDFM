@@ -924,14 +924,13 @@ local function init()
 
    -- set default for pitotCal in case no "DFM-model.jsn" file
 
-   modelProps.pitotCal = 100
+   modelProps.pitotCal = airspeedCal -- start with the pLoad default
    
    fg = io.readall("Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
    if fg then
       modelProps=json.decode(fg)
+      airspeedCal = modelProps.pitotCal
    end
-
-   airspeedCal = modelProps.pitotCal
    
    readSensors()
    loadImages()
