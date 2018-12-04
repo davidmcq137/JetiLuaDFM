@@ -33,7 +33,7 @@ GPS and non-GPS altitudes are available the system selects the
 barometric sensor.
 
 To install the system, move the entire directory DFM-LSO into the Apps
-directory of the tansmitter or the Jeti emulator. This directory
+directory of the transmitter or the Jeti emulator. This directory
 contains all the support files needed by the program. Put the
 executable file (DFM-LSO.lua) directly into the Apps directory.
 
