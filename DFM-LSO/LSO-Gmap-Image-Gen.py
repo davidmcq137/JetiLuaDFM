@@ -77,9 +77,12 @@ crop_to_zoom = {1000:17, 1500:17, 2500:16, 3000:16, 4000:15, 5000:15, 6000:15}
 config=ConfigParser.ConfigParser()
 osp = os.path.expanduser('~/LSO-Gmap-Image-Gen.conf')
 
-config.read(osp)
+config.read(osp) # so that we don't get caught in the "post my API key on Github" trap...
 
 Gmap_API_Key = config.get('KEYS', 'api_key')
+
+# alternately fill in and uncomment the following line and comment out the config.get line:
+# Gmap_API_Key = 'asdf1234asdf or whatever'
 
 print("Using Google Maps API Key:", Gmap_API_Key)
 print("Reading Field Config file: Fields.jsn")

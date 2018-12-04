@@ -120,10 +120,19 @@ autoscales from there as needed over the defined images.
 Included is a helper program LSO-Gmap-Image-Gen.py that can access the
 google maps developer API and create the required .png image files. It
 reads the Fields.jsn file and uses those lines to create the
-files. The helper program must be run by Python3.
+files. The helper program must be run by Python3. You will need a
+google maps API developer key to use the program. You can put it in
+the sourcecode but the program is designed to use the "conf" file
+which on a unix system goes in your home directory.
 
 When the program wakes up, it checks to see if there is a file
 DFM-LSO.log in the DFM-LSO directory. This is assumed to be a standard
 Jeti log file. There is also a capability in the menu to select a log
 file for playback from the standard Jeti log file directories. The
-program will offer to replay the file when it is restarted.
+program will offer to replay the file when it is restarted. In the
+DFM-LSO directory there is a DFM-LSO.log file from an actual flight at
+the Black Dirt Field in NY that can be used as a demo. It was copied
+from a Jeti log file and was edited to jump ahead to the point that
+the plane starts moving at about 6:00.
+
+Have fun :-) Comments and suggestions welcome.
