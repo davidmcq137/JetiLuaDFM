@@ -3,7 +3,8 @@
 DFM-LSO.lua
 
 "Landing Signal Officer" - so named because the pilot can't look at it
-during flight, his/her "RIO" (backseater or spotter) can look at it.
+during flight, his/her "RIO" (backseater or spotter) can look at it as
+the LSO.
 
 It is intended to work with the Jeti MGPS GPS sensor, the Jeti MSpeed
 Pitot/Static system, and the Digitech CTU. GPS parameters come from
@@ -17,8 +18,8 @@ simple iso-rectangular projection to the X-Y plane.  It assumes a
 simple round earth model, and I've tweaked the Earth radius to give
 accurate conversions in the New York area.  I suspect it is only a few
 percent error on the absolute coords, in other locations and of
-virtually no concern for relative distances from the local rigin as we
-are doing here.
+virtually no concern for relative distances from the local origin as
+we are doing here.
 
 The MGPS provides heading and speed information and is capable of
 computing speed and heading from the path. Other GPSs may note do this
@@ -45,18 +46,24 @@ points of interest (POIs) that will be marked on the map if the map
 has zoomed out far enough to see them. This is useful for field
 boundaries, etc. On startup the program will display a messsage if it
 is at a known or unknown field. It will also label the map with this
-info. If it is an unknown field and no entry exists in the Fields.jsn
-file, there is a menu parameter to rotate the map so that the runway
-is displayed ahead of the pilot running left to right on the screen to
+info. Depending on what side of the runway the pilots stand on, you
+select the true (not magnetic) direction of the runway or its
+reciporical.  This can be measured from google maps.
+
+If it is an unknown field and no entry exists in the Fields.jsn file,
+there is a menu parameter to rotate the map so that the runway is
+displayed ahead of the pilot running left to right on the screen to
 maximize screen real estate. There is a north-pointer in the upper
 left of the map screen which will move if the screen rotates (either
 due to the rotate menu entry or a field in Fields.jsn).
 
 Start the program in the usual way from the User Applications menu,
 and confirm that the telemetry sensors are auto-assigned correctly, or
-assign them manually. Remember you also have to go into the telemetry
-setup menu and the displayed telemetry screen and add the two screens
-(LSO MAP and LSO ILS) to the list of screens to display.
+assign them manually.
+
+**Remember you also have to go into the telemetry setup menu and the
+"displayed telemetry" screen and add the two screens (LSO MAP and LSO
+ILS) to the list of screens to display.
 
 One interesting feature of the program is the ability to note the
 takeoff direction and position and thus, even if a runway is not
@@ -84,6 +91,18 @@ addition to the map. the P7 slider is used on the emulator in DEBUG
 mode to speed up or slow down simulated time. I usually use P4 for
 throttle and P5 for brakes.
 
+The program looks for a file named DFM-Model_Name.jsn on startup
+(e.g. for model "Viperjet XXL" it would be DFM-Viperjet_XXL.jsn),
+where "Model_Name" is the textual model name as entered in the TX. You
+need to replace any spaces in the model name with underscores for the
+filename to be created. In this file are "permanent" settings for the
+model so you don't have to keep entering them in the menus. For
+example, I have found that the Jeti airspeed sensors are
+systematically incorrectly calibrated and need a multiplier of about
+86% to be in agreement with the simple Physics model and all other
+airspeed sensors I have looked at. So that parameter is in this file.
+Also included are control assignments e.g. brakes, throttle.
+
 As the airplane files, a trail of past positions is kept as a "comet
 tail". These points are fit with a Bezier curve to offer a nicer
 visualization of the aircraft's flight path. As you may note, the
@@ -104,7 +123,7 @@ reads the Fields.jsn file and uses those lines to create the
 files. The helper program must be run by Python3.
 
 When the program wakes up, it checks to see if there is a file
-DFM-LSO.log. This is assumed to be a standard Jeti log file. There is
-also a capability in the menu to select a log file for playback from
-the standard Jeti log file directories. The program will offer to
-replay the file when it is restarted.
+DFM-LSO.log in the DFM-LSO directory. This is assumed to be a standard
+Jeti log file. There is also a capability in the menu to select a log
+file for playback from the standard Jeti log file directories. The
+program will offer to replay the file when it is restarted.
