@@ -41,7 +41,8 @@ not think it was useful to do further rounding (e.g. 2 mph or 5 mph granularity)
 announce with decimals like the Jeti default system does!
 
 To install the program in your system, create DFM-SpdA directory in the Apps folder of your transmitter.
-Copy all the files from the dropbox folder DFM-SpdA into the DFM-SpdA folder on your transmitter .. except for DFM-SpdA.lua .. put that file directly into the Apps folder of the transmitter.
+Copy all the files from the dropbox folder DFM-SpdA into the DFM-SpdA folder on your transmitter ..
+except for DFM-SpdA.lua .. put that file directly into the Apps folder of the transmitter.
 
 Then, when you open the DS-24s User Applications menu, and do "+" you will see DFM-SpdA on the menu ..
 select it .. then press the 3D button to go into the menu and set up your sensor, switch and any parameters

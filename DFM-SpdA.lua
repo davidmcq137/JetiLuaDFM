@@ -1,15 +1,32 @@
 --[[
-	---------------------------------------------------------
+    ---------------------------------------------------------
     SpdAnnouncer makes voice announcement of speed with
     variable intevals when model goes faster or slower
-    or on final approach 
+    with continuous ann on final approach (below Vref)
+    and stall warning at Vref/1.3
+
     Originally adapted/derived from RCT's AltA
     
     Requires transmitter firmware 4.22 or higher.
     
-	---------------------------------------------------------
-	Released under MIT-license by DFM 2018
-	---------------------------------------------------------
+    ---------------------------------------------------------
+    Released under MIT-license by DFM 2018, 2019
+    ---------------------------------------------------------
+
+    Version 1.7 - May 14, 2019
+      Added "airspeed alive" announcement when above Vref/4 for first time
+      Added read of model jsn file to get airspeed cal without using menu
+      Announces cal factor if not 100% to infom pilot (note Jeti MSPEED Velicity 
+      reading seems to require 90% cal factor .. it reads high compared to all 
+      other pitot systems)
+
+    Version 1.8 - May 29, 2019
+
+       Added max time between callouts as settable paramater
+
+    Note: For calibration purposes, pitot speed in mph is 45.504 * sqrt(P) where P 
+    is measured in inches of water
+
 --]]
 
 collectgarbage()
@@ -24,7 +41,7 @@ local contSwitch
 local spdSe
 local spdSeId
 local spdSePa
-local maxSpd, VrefSpd, VrefCall
+local maxSpd, VrefSpd, VrefCall, annMaxTime
 local spdInter
 local selFt
 local selFtIndex
@@ -34,9 +51,11 @@ local ovrSpd = false
 local aboveVref = false
 local aboveVref_ever = false
 local stall_warn=false
+local airspeedAlive = false
 local nextAnnTC = 0
 local lastAnnTC = 0
 local lastAnnSpd = 0
+local calSpd = 0
 local sgTC
 local sgTC0
 local airspeedCal
@@ -46,6 +65,8 @@ local SpdAnnVersion
 local sensorLalist = { "..." }
 local sensorIdlist = { "..." }
 local sensorPalist = { "..." }
+
+local modelProps = {}
 
 local DEBUG = false
 --------------------------------------------------------------------------------
@@ -107,6 +128,11 @@ end
 local function VrefCallChanged(value)
    VrefCall = value
    system.pSave("VrefCall", VrefCall)
+end
+
+local function annMaxTimeChanged(value)
+   annMaxTime = value
+   system.pSave("annMaxTime", annMaxTime)
 end
 
 local function maxSpdChanged(value)
@@ -177,6 +203,10 @@ local function initForm()
       form.addRow(2)
       form.addLabel({label="Call Speed < Vref every (sec)", width=220})
       form.addIntbox(VrefCall, 1, 10, 3, 0, 1, VrefCallChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Call Speed at least every (sec)", width=220})
+      form.addIntbox(annMaxTime, 10, 40, 40, 0, 1, annMaxTimeChanged)
         
       form.addRow(2)
       form.addLabel({label="Speed Max Warning", width=220})
@@ -211,7 +241,7 @@ local function loop()
    local deltaSA
    local sensor
    local sss, uuu
-   
+
    local swi  = system.getInputsVal(spdSwitch)
    local swc  = system.getInputsVal(contSwitch)
    
@@ -250,8 +280,11 @@ local function loop()
       end
    end
 
+   calSpd = spd
+
    if maxSpd and (spd <= maxSpd) then ovrSpd = false end
 
+   
    if (spd > VrefSpd) then
       aboveVref = true
       aboveVref_ever = true
@@ -284,10 +317,16 @@ local function loop()
 	 if DEBUG then print("Stall warning!") end
       end
 
+      if ( (spd > (VrefSpd / 2)) and (not airspeedAlive) ) then
+	 airspeedAlive = true
+	 system.playFile('/Apps/DFM-SpdA/airspeed_alive.wav', AUDIO_IMMEDIATE)
+	 if DEBUG then print("Airspeed Alive") end
+      end
+      
       -- multiplier is scaled by spdInter, over range of 0.5 to 10 (20:1)
       deltaSA = math.min(math.max(math.abs((spd-lastAnnSpd) / spdInter), 0.5), 10)
       
-      nextAnnTC = lastAnnTC + (VrefCall * 1000 * 10 / deltaSA) 
+      nextAnnTC = lastAnnTC + math.min(VrefCall * 1000 * 10 / deltaSA, annMaxTime * 1000) 
 
       if (spd <= VrefSpd) or (swc and swc == 1) then -- override if below Vref or cont ann is on
 	 nextAnnTC = lastAnnTC + VrefCall * 1000 -- at and below Vref .. ann every VrefCall secs
@@ -329,14 +368,22 @@ local function loop()
 end
 --------------------------------------------------------------------------------
 
+local function calAirspeed(w,h)
+   local u
+   if (selFt) then u = "mph" else u = "km/hr" end
+   lcd.drawText(5, 5, math.floor(calSpd+0.5) .. " " .. u)
+end
+
 local function init()
 
-
+   local fg
+   
    spdSwitch = system.pLoad("spdSwitch")
    contSwitch = system.pLoad("contSwitch")
    spdInter = system.pLoad("spdInter", 10)
    VrefSpd = system.pLoad("VrefSpd", 60)
    VrefCall = system.pLoad("VrefCall", 2)
+   annMaxTime = system.pLoad("annMaxTime", 40)
    maxSpd = system.pLoad("maxSpd", 200)
    airspeedCal = system.pLoad("airspeedCal", 100)
    spdSe = system.pLoad("spdSe", 0)
@@ -348,8 +395,27 @@ local function init()
    selFt = (selFt == "true") -- can't pSave and pLoad booleans...store as text 
    shortAnn = (shortAnn == "true") -- convert back to boolean here
 
+
+   -- set default for pitotCal in case no "DFM-model.jsn" file
+
+   modelProps.pitotCal = airspeedCal -- start with the pLoad default
+   
+   fg = io.readall("Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
+   if fg then
+      modelProps=json.decode(fg)
+      airspeedCal = modelProps.pitotCal
+   end
+
    system.registerForm(1, MENU_APPS, "Speed Announcer", initForm)
+
+   system.registerTelemetry(1, "Calibrated Airspeed", 1, calAirspeed)
+   
    system.playFile('/Apps/DFM-SpdA/Spd_ann_act.wav', AUDIO_QUEUE)
+   if airspeedCal ~= 100 then
+      system.playFile('/Apps/DFM-SpdA/airspeed_cal_factor.wav', AUDIO_QUEUE)
+      system.playNumber(airspeedCal, 0, "%")
+   end
+   
 
    readSensors()
 
@@ -357,7 +423,7 @@ end
 
 --------------------------------------------------------------------------------
 
-SpdAnnVersion = "1.6"
+SpdAnnVersion = "1.8"
 setLanguage()
 
 collectgarbage()

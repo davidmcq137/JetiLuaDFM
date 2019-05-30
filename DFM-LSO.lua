@@ -581,8 +581,8 @@ local delta, deltaX, deltaY
 local colAH = 110 + 50
 local rowAH = 63
 
-local colAlt = colAH + 73 + 45
-local colSpeed = colAH - 73 - 45
+local colAlt = colAH + 73 + 45 + 15
+local colSpeed = colAH - 73 - 45 - 25
 local heightAH = 145
 
 local colHeading = colAH
@@ -718,14 +718,14 @@ local function drawAltitude()
    for index, line in pairs(parmLine) do
       lcd.drawLine(6 - line[2], line[1] + deltaY, 6, line[1] + deltaY)
       if line[3] then
-	 lcd.drawNumber(11, line[1] + deltaY - 8, altitude-baroAltZero+0.5 + line[3] - delta, FONT_NORMAL)
+	 lcd.drawNumber(11, line[1] + deltaY - 8, altitude-baroAltZero+0.5 + line[3] - delta, FONT_MINI)
       end
    end
    
-   lcd.drawFilledRectangle(11,rowAH-8,42,lcd.getTextHeight(FONT_NORMAL))
+   lcd.drawFilledRectangle(11,rowAH-8,42,lcd.getTextHeight(FONT_MINI))
    
    setColorComp()
-   lcd.drawText(12, rowAH-8, string.format("%d",altitude-baroAltZero), FONT_NORMAL | FONT_XOR)
+   lcd.drawText(12, rowAH-8, string.format("%d",altitude-baroAltZero), FONT_MINI)
    lcd.resetClipping()
 end
  
@@ -737,22 +737,22 @@ local function drawSpeed()
    setColorMain()
    delta = speed % 10
    deltaY = 1 + math.floor(2.4 * delta)
-   lcd.drawText(colSpeed-30, heightAH+2, "mph", FONT_MINI)
-   lcd.setClipping(colSpeed-37,0,45,heightAH)
-   lcd.drawLine(37, -1, 37, heightAH)
+   lcd.drawText(colSpeed-30+20, heightAH+2, "mph", FONT_MINI)
+   lcd.setClipping(colSpeed-37,0,45+20,heightAH)
+   lcd.drawLine(37-10, -1, 37-10, heightAH)
    
    for index, line in pairs(parmLine) do
-      lcd.drawLine(38, line[1] + deltaY, 38 + line[2], line[1] + deltaY)
+      lcd.drawLine(38-10, line[1] + deltaY, 38 -10 + line[2], line[1] + deltaY)
       if line[3] then
 	 text = string.format("%d",speed+0.5 + line[3] - delta)
-	 lcd.drawText(35 - lcd.getTextWidth(FONT_NORMAL,text), line[1] + deltaY - 8, text, FONT_NORMAL)
+	 lcd.drawText(35-10 - lcd.getTextWidth(FONT_NORMAL,text), line[1] + deltaY - 8, text, FONT_MINI)
       end
    end
    
    text = string.format("%d",speed)
-   lcd.drawFilledRectangle(0,rowAH-8,35,lcd.getTextHeight(FONT_NORMAL))
+   lcd.drawFilledRectangle(0,rowAH-8,35,lcd.getTextHeight(FONT_MINI))
    setColorComp()
-   lcd.drawText(35 - lcd.getTextWidth(FONT_NORMAL,text), rowAH-8, text, FONT_NORMAL | FONT_XOR)
+   lcd.drawText(35-10 - lcd.getTextWidth(FONT_NORMAL,text), rowAH-8, text, FONT_MINI)
    lcd.resetClipping() 
 end
 
@@ -791,7 +791,7 @@ local function drawHeading()
       
       if deltaX >= -64 and deltaX <= 62 then -- was 31
 	 if point[3] then
-	    lcd.drawText(colHeading + deltaX - 4, rowHeading - 16, point[3], FONT_NORMAL)
+	    lcd.drawText(colHeading + deltaX - 4, rowHeading - 16, point[3], FONT_MINI)
 	 end
 	 if point[2] > 0 then
 	    lcd.drawLine(colHeading + deltaX, rowHeading - point[2], colHeading + deltaX, rowHeading)
@@ -802,9 +802,9 @@ local function drawHeading()
    text = string.format("%03d",dispHeading)
    w = lcd.getTextWidth(FONT_NORMAL,text) 
    setColorMain()
-   lcd.drawFilledRectangle(colHeading - w/2, rowHeading-30, w, lcd.getTextHeight(FONT_NORMAL))
+   lcd.drawFilledRectangle(colHeading - w/2, rowHeading-30, w, lcd.getTextHeight(FONT_MINI))
    setColorComp()
-   lcd.drawText(colHeading - w/2,rowHeading-30,text,  FONT_XOR)
+   lcd.drawText(colHeading - w/2,rowHeading-30,text,  FONT_MINI)
    
    lcd.resetClipping()
 end
@@ -1152,7 +1152,7 @@ local function mapPrint(windowWidth, windowHeight)
 
    drawSpeed()
    drawAltitude()
-   drawHeading()
+   --drawHeading()
    --drawVario()
    
    -- in case the draw functions left color set to their specific values
@@ -2075,7 +2075,8 @@ local function loop()
       system.playFile("/Apps/DFM-LSO/brakes_released.wav", AUDIO_QUEUE)
    end
 
-   if not brk then
+   if not brk and takeoff.oldBrake then
+      print("Brakes applied")
       takeoff.BrakeReleaseTime = 0
       takeoff.Start.X = nil  -- erase the runway when the brakes go back on
       takeoff.Complete.X = nil
@@ -2118,6 +2119,7 @@ local function loop()
    
    if iField and takeoff.NeverAirborne and (altitude - baroAltZero) - takeoff.Start.Z > PATTERNALT/4 then
       takeoff.NeverAirborne = false
+      system.playFile("/Apps/DFM-LSO/takeoff_complete.wav", AUDIO_QUEUE)
    end
    
    -- if no field is defined...we have to compute the runway parameters
@@ -2235,8 +2237,8 @@ replay .. wait .. maybe it does??
       modelProps=json.decode(fg)
    end
 
-   -- print("mP.brakeChannel: ", modelProps.brakeChannel, "mP.brakeOn: ", modelProps.brakeOn)
-   -- print("mP.throttleChannel", modelProps.throttleChannel, "mP.throttleFull", modelProps.throttleFull)
+   print("mP.brakeChannel: ", modelProps.brakeChannel, "mP.brakeOn: ", modelProps.brakeOn)
+   print("mP.throttleChannel", modelProps.throttleChannel, "mP.throttleFull", modelProps.throttleFull)
    
    system.playFile('/Apps/DFM-LSO/L_S_O_active.wav', AUDIO_QUEUE)
    

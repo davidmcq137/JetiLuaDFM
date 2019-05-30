@@ -1,31 +1,25 @@
-local result = 0
-local foo = 0
 
-local function printForm()        
-  lcd.drawRectangle(10,10,300,20)
-  lcd.setColor(200,0,0)
-  lcd.drawRectangle(10,40,300,20,5) 
-  lcd.setColor(0,200,0)
-  lcd.drawRectangle(10,70,300,40,20) 
+
+
+
+
+local function printForm()
+   xr = 310 * (1+system.getInputs("P7")) / 2
+   yr = 143 * (1+system.getInputs("P8")) / 2
+   wr = 310 * (1+system.getInputs("P5")) / 2
+   hr = 143 * (1+system.getInputs("P6")) / 2
+   lcd.setColor(200,0,0)
+   if xr+wr > 310 then wr=310-xr end
+   if yr+hr > 143 then hr=143-yr end
+   local str = string.format("xr=%d, yr=%d, wr=%d, hr=%d", xr, yr, wr, hr)
+   lcd.drawText(100, 80, str)
+   lcd.drawRectangle(xr,yr, wr, hr)
 end
 
-local function logIndex(i)
-   print("index: ", i)
-   print("index result: ", result)
-   result = result + 1
-   return result, 0
-end
 
-
-
-print("here!")
-print (foo)
-
-
-local function init() 
-  system.registerForm(1,MENU_MAIN,"Test 17 - Rectangles",nil, nil,printForm) 
-  foo = system.registerLogVariable("Virtual Var","Cnt", logIndex)
-  print("foo returned: ", foo)
+local function init()
+   system.registerForm(1,MENU_MAIN,"Test 17 - Rectangles",nil, nil,printForm)
 end
 --------------------------------------------------------------------------------
+
 return {init=init, author="JETI model", version="1.0"}

@@ -89,7 +89,7 @@ local baseLineLPS, loopsPerSecond = 47, 47
 local autoWarn = false
 local autoIdx
 
-local DEBUG = true
+local DEBUG = false
 --------------------------------------------------------------------------------
 
 -- Read and set translations
@@ -395,7 +395,7 @@ local function DrawErrsig()
     local ierr = math.min(math.max(errsig, -100), 100)
     local theta = math.rad(135 * ierr / 100) - math.pi
 
-    if not autoOn then return end
+    --if not autoOn then return end
        
     lcd.setColor(255, 0, 0)
     if gauge_s then lcd.drawImage(ox-gauge_s.width//2, oy-gauge_s.width//2, gauge_s) end
@@ -647,6 +647,7 @@ local function loop()
       autoForceOff = true
       print("Cannot startup with AutoThrottle enabled .. turn off and back on")
       system.playFile('/Apps/DFM-Auto/ATCannotStartEnabled.wav', AUDIO_QUEUE)
+      lastValid = -1 -- so it won't give this message again
    end
 
    retSpd, retSlp = get_speed_from_sensor()
@@ -729,7 +730,7 @@ local function loop()
       end
       if set_stable == 50 then
 	 set_stable = 51 -- only play the number once when stabilized
-	 if set_speed < VrefSpd / 1.3 then -- don't announce if setpoint below stall
+	 if set_speed > VrefSpd / 1.3 then -- don't announce if setpoint below stall
 	    --print("Set speed stable at", set_speed)
 	    system.playFile('/Apps/DFM-Auto/ATSetPointStable.wav', AUDIO_QUEUE)      	    
 	    system.playNumber(math.floor(set_speed+0.5), 0, "mph")
@@ -758,21 +759,23 @@ local function loop()
    -- scale iGain with lps to keep integrator response flat with sys load
 
    -- if all good, then apply PID algorithm
+
+   errsig = set_speed - speed
    
    if autoOn then
       pGain = pGainInput / 50.0
       dGain = dGainInput / 20.0
       iGain = iGainInput / 5000.0 * baseLineLPS / loopsPerSecond
 
-      errsig = set_speed - speed
+      --errsig = set_speed - speed
 
       -- average the derivate .. slopes are noisy probably due to time jitter
+      
       if not slAvg then
 	 slAvg = slope
       else
 	 slAvg = slAvg + (baseLineLPS / loopsPerSecond) * (slope - slAvg) / 200
       end
-	 
 	 
       pTerm  = errsig * pGain
       dTerm  = slAvg * dGain * -1
@@ -788,7 +791,11 @@ local function loop()
       pTerm = 0
       dTerm = 0
       throttle = throttle_stick
-      system.setControl(autoIdx, -1, 0) -- when off mix to 0% throttle (-1 on -1,1 scale)
+      if not autoForceOff then
+	 system.setControl(autoIdx, -1, 0) -- when off mix to 0% throttle (-1 on -1,1 scale)
+      else -- if we forced it off (e.g. throttle stick not taken to zero) then return control to stick
+	 system.setControl(autoIdx, (throttle-50)/50, 0)
+      end
    end
 
    if autoOn == false and lastAuto == true then -- was just turned off
