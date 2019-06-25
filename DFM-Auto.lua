@@ -41,6 +41,7 @@ local stall_warn=false
 local nextAnnTC = 0
 local lastAnnTC = 0
 local lastAnnSpd = 0
+local calSpd = 0
 local sgTC
 local sgTC0
 local airspeedCal
@@ -54,7 +55,7 @@ local gauge_c={}
 local gauge_s={}
 local throttle=0
 local speed = 0
-local slope
+local slope = 0
 local tgt_speed = 0
 local set_speed = 0
 local iTerm = 0
@@ -88,6 +89,7 @@ local appStartTime
 local baseLineLPS, loopsPerSecond = 47, 47
 local autoWarn = false
 local autoIdx
+local thrLogIdx, setLogIdx, errLogIdx
 
 local DEBUG = false
 --------------------------------------------------------------------------------
@@ -425,7 +427,7 @@ local function DrawThrottle()
     lcd.setColor(255, 0, 0)
     if gauge_c then lcd.drawImage(ox, oy, gauge_c) end
     drawShape(ox+65, oy+60, needle_poly_large, thetaThr)
-    if autoOn == false and system.getTimeCounter() - autoOffTime < 5000 then
+    if autoOn == false and offThrottle and system.getTimeCounter() - autoOffTime < 5000 then -- had a bug where next line was run when offThrottle was nil
        if math.abs(throttle-offThrottle) < 2 and playedBeep == false then
 	  print("BEEP!")
 	  system.playBeep(2, 3000, 100)
@@ -589,6 +591,7 @@ local function get_speed_from_sensor()
       end
    end
 
+   calSpd = spd
    
    if #spdTable+1 > MAXTABLE then
       table.remove(spdTable, 1)
@@ -604,17 +607,39 @@ local function get_speed_from_sensor()
 
 end
 
+local function logCB(idx)
+
+   --print("logCB", idx)
+
+   --print(throttle, set_speed, errLogIdx)
+	 
+   if idx == thrLogIdx then
+      return 100 * math.floor(throttle), 2
+   elseif idx == setLogIdx then
+      return 100 * math.floor(set_speed), 2
+   elseif idx == errLogIdx then
+      return 100 * math.floor(errsig), 2
+   else
+      print("bad idx in logCB",  idx)
+      return 0, 0
+   end
+
+end
+
 --------------------------------------------------------
+
 
 local function loop()
 
    local deltaSA
    local sss, uuu
    local lowDelay = 6000
+   local noDataWarn = 2000
+   local noDataOff = 5000
+   local retSpd, retSlp
    local round_spd
    local swi, swc, swa
    local throttle_stick
-   local retSpd, retSlp
    
    -- gather some stats on loop times so we can normalize integrator performance
    
@@ -655,18 +680,18 @@ local function loop()
    if retSpd then speed = retSpd end -- if no new data, nil is returned
    if retSlp then slope = retSlp end -- in this case hold last data in speed and slope
 
-   -- warn if no valid data for 5 seconds .. leave Autothrottle on .. hold values (below)
+   -- warn if no valid data for noDataWarn/1000 seconds .. leave Autothrottle on .. hold values (below)
    
-   if autoOn and (system.getTimeCounter() > lastValid + 5000.) and not autoWarn then 
-      print("AutoThrottle warning: invalid speed data > 5 s")
+   if autoOn and (system.getTimeCounter() > lastValid + noDataWarn) and not autoWarn then 
+      print("AutoThrottle warning: invalid speed data exceeds warning period")
       system.playFile('/Apps/DFM-Auto/ATNoDataWarning.wav', AUDIO_QUEUE)
       autoWarn = true -- remember we did the warning -- don't do again in this data gap
    end
    
-   -- cancel if no valid data for 10 seconds
+   -- cancel if no valid data for noDataOff/1000 seconds
    
-   if autoOn and (system.getTimeCounter() > lastValid + 10000.) then 
-      print("AutoThrottle off because of invalid speed data > 10 s")
+   if autoOn and (system.getTimeCounter() > lastValid + noDataOff) then 
+      print("AutoThrottle off because of invalid speed data")
       system.playFile('/Apps/DFM-Auto/ATNoValidData.wav', AUDIO_QUEUE)
       autoOn = false
       autoForceOff = true -- force user to turn switch off then on again
@@ -773,9 +798,10 @@ local function loop()
       
       if not slAvg then
 	 slAvg = slope
-      else
-	 slAvg = slAvg + (baseLineLPS / loopsPerSecond) * (slope - slAvg) / 200
       end
+
+      slAvg = slAvg + (baseLineLPS / loopsPerSecond) * (slope - slAvg) / 200
+
 	 
       pTerm  = errsig * pGain
       dTerm  = slAvg * dGain * -1
@@ -865,7 +891,7 @@ local function loop()
       -- Wait till speaking is done, catch it at the next call to loop()
 
       if (not system.isPlayback()) and
-         ((sgTC > nextAnnTC) and ( (speed > VrefSpd / 4) or (swc and swc == 1))) then
+         ((sgTC > nextAnnTC) and ( (speed > VrefSpd / 2) or (swc and swc == 1))) then
 
 	 lastAnnSpd = speed
 	 round_spd = math.floor(speed+0.5)
@@ -900,6 +926,13 @@ local function loadImages()
     if not gauge_c or not gauge_s then print("Gauge png images(s) not loaded") end
 end
 --------------------------------------------------------------------------------
+
+local function calAirspeed(w,h)
+   local u
+   if (selFt) then u = "mph" else u = "km/hr" end
+   lcd.drawText(5, 5, math.floor(calSpd+0.5) .. " " .. u)
+end
+
 local function init()
 
 
@@ -926,9 +959,15 @@ local function init()
  
    system.registerForm(1, MENU_APPS, "Speed Announcer and AutoThrottle", initForm)
 
-   system.registerTelemetry(1, "Speed Announcer and AutoThrottle", 4, wbTele)    
+   system.registerTelemetry(1, "Speed Announcer and AutoThrottle", 4, wbTele)
+   system.registerTelemetry(2, "Calibrated Airspeed", 1, calAirspeed)
 
+   thrLogIdx = system.registerLogVariable("Throttle",  "%", logCB)
+   setLogIdx = system.registerLogVariable("Set Speed", "%", logCB)
+   errLogIdx = system.registerLogVariable("Error Sig", "%", logCB)   
 
+   --print("thr,set,err LogIdx:", thrLogIdx, setLogIdx, errLogIdx)
+   
    -- set default for pitotCal in case no "DFM-model.jsn" file
 
    modelProps.pitotCal = airspeedCal -- start with the pLoad default

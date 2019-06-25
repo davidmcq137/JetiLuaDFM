@@ -340,7 +340,7 @@ local function loop()
       -- to speak the speed .. was creating a "bow wave" of pending announcements. Wait till speaking is done, catch
       -- it at the next call to loop()
 
-      if (not system.isPlayback()) and ( (sgTC > nextAnnTC) and ( (spd > VrefSpd / 4) or (swc and swc == 1) ) ) then
+      if (not system.isPlayback()) and ( (sgTC > nextAnnTC) and ( (spd > VrefSpd / 2) or (swc and swc == 1) ) ) then
 
 	 round_spd = math.floor(spd + 0.5)
 	 lastAnnSpd = round_spd
@@ -378,23 +378,22 @@ local function init()
 
    local fg
    
-   spdSwitch = system.pLoad("spdSwitch")
-   contSwitch = system.pLoad("contSwitch")
-   spdInter = system.pLoad("spdInter", 10)
-   VrefSpd = system.pLoad("VrefSpd", 60)
-   VrefCall = system.pLoad("VrefCall", 2)
-   annMaxTime = system.pLoad("annMaxTime", 40)
-   maxSpd = system.pLoad("maxSpd", 200)
+   spdSwitch   = system.pLoad("spdSwitch")
+   contSwitch  = system.pLoad("contSwitch")
+   spdInter    = system.pLoad("spdInter", 10)
+   VrefSpd     = system.pLoad("VrefSpd", 60)
+   VrefCall    = system.pLoad("VrefCall", 2)
+   annMaxTime  = system.pLoad("annMaxTime", 40)
+   maxSpd      = system.pLoad("maxSpd", 200)
    airspeedCal = system.pLoad("airspeedCal", 100)
-   spdSe = system.pLoad("spdSe", 0)
-   spdSeId = system.pLoad("spdSeId", 0)
-   spdSePa = system.pLoad("spdSePa", 0)
-   selFt = system.pLoad("selFt", "true")
-   shortAnn = system.pLoad("shortAnn", "false")
+   spdSe       = system.pLoad("spdSe", 0)
+   spdSeId     = system.pLoad("spdSeId", 0)
+   spdSePa     = system.pLoad("spdSePa", 0)
+   selFt       = system.pLoad("selFt", "true")
+   shortAnn    = system.pLoad("shortAnn", "false")
 
    selFt = (selFt == "true") -- can't pSave and pLoad booleans...store as text 
    shortAnn = (shortAnn == "true") -- convert back to boolean here
-
 
    -- set default for pitotCal in case no "DFM-model.jsn" file
 

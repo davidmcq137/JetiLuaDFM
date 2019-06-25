@@ -236,7 +236,7 @@ local function timePrint(width, height)
 
   local fstr
 
-  if (fuel_pct) then
+  if (fuel_pct and FuelSeId ~= 0) then
     fstr = string.format("%d", fuel_pct)
   else
     fstr = "---"
@@ -515,16 +515,13 @@ local function loop()
 	 if DEBUG then print(30, 's') end
       end
       
-      if not shortAnn then
+      if not shortAnn and FuelSeId ~= 0 then
 	 system.playFile('/Apps/DFM-TimA/Sup_Tim_Fuel.wav', AUDIO_QUEUE)  -- "Fuel Remaining"
 	 if DEBUG then print('Sup_Tim_Fuel.wav - Fuel Remaining') end
       end
-      if (fuel_pct) then
+      if (fuel_pct and FuelSeId ~= 0) then
 	 system.playNumber(fuel_pct, 0, '%')
 	 if DEBUG then print(fuel_pct, '%') end
-      else
-	 system.playNumber(0, 0, '%')
-	 if DEBUG then print(0, '-%-') end
       end
 
       if running_time > 270 then -- this const is 4:30 in secs, so start this ann at 5:00

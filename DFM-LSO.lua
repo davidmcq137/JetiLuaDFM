@@ -102,7 +102,7 @@ local GPSsensorPalist = { "..." }
 
 local sysTimeStart = system.getTimeCounter()
 
-local DEBUG = false -- if set to <true> will generate flightpath automatically for demo purposes
+local DEBUG = true -- if set to <true> will generate flightpath automatically for demo purposes
 local debugTime = 0
 local debugNext = 0
 
