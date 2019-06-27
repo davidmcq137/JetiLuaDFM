@@ -36,11 +36,16 @@ local wheelSe
 local wheelSeId
 local wheelSePa
 
+local deployHalfFlap
 local doorDelay
+local testDelay
 
 local deployIdx, deployControl
-local releaseIdx, releaseControl
+local jettisonIdx, jettisonControl
 local doorIdx, doorControl
+
+local loadOverRide
+local deployTest, deployTestStart
 
 local modelProps = {}
 
@@ -70,7 +75,7 @@ end
 
 local function depSwitchChanged(value)
    depSwitch = value
-   system.pSave("depSwitch", depwitch)
+   system.pSave("depSwitch", depSwitch)
 end
 
 local function relSwitchChanged(value)
@@ -78,9 +83,23 @@ local function relSwitchChanged(value)
    system.pSave("relSwitch", relSwitch)
 end
 
+
+local function testDelayChanged(value)
+   testDelay = value
+   system.pSave("testDelay", value)
+end
+
 local function doorDelayChanged(value)
    doorDelay = value
    system.pSave("doorDelay", value)
+end
+
+local function halfFlapChanged(value)
+  local dhf
+  deployHalfFlap = not value
+  form.setValue(halfFlapIndex,deployHalfFlap)
+  if deployHalfFlap then dhf = "true" else dhf = "false" end
+  system.pSave("deployHalfFlap", dhf)
 end
 
 
@@ -101,6 +120,39 @@ end
 
 --------------------------------------------------------------------------------
 
+local function keyPressed(key)
+   local depSw
+
+   print("key pressed: ", key)
+   if key == KEY_1 then 
+      depSw = system.getInputsVal(depSwitch)
+
+      print("DepSw: ", depSw)      
+      if depSw and depSw == 1 then
+        system.messageBox("Cannot load - Deploy Armed")
+        loadOverRide = false -- just in case!
+      end
+      if depSw and depSw == -1 then
+        loadOverRide = true
+        system.messageBox("Load Chute")
+        form.setButton(1, "Load", HIGHLIGHTED)
+      end
+      if not depSw then
+         system.messageBox("Cannot load - No deploy switch assigned")
+      end
+   end
+   if key == KEY_2 then
+      if not loadOverRide then
+         system.messageBox("Cannot test unless loading")
+      else
+         system.messageBox("Testing Deploy for " .. testDelay .. " ms")
+         deployTestTime = system.getTimeCounter() + testDelay
+         deployTest = true
+      end
+   end
+
+end
+
 -- Draw the main form (Application inteface)
 
 local function initForm()
@@ -109,12 +161,15 @@ local function initForm()
 
    if (fw >= 4.22) then
 
+      form.setButton(1, "Load", ENABLED)
+      form.setButton(2, "Test", ENABLED)
+
       form.addRow(2)
       form.addLabel({label="Select Deploy Switch", width=220})
       form.addInputbox(depSwitch, false, depSwitchChanged)
 
       form.addRow(2)
-      form.addLabel({label="Select Release Switch", width=220})
+      form.addLabel({label="Select Jettison Switch", width=220})
       form.addInputbox(relSwitch, false, relSwitchChanged)
 
       form.addRow(2)
@@ -122,9 +177,17 @@ local function initForm()
       form.addSelectbox(sensorLalist, wheelSe, true, sensorChanged)
 
       form.addRow(2)
-      form.addLabel({label="Door to Actuation Delay (ms)", width=220})
+      form.addLabel({label="Door Open to Deploy (ms)", width=220})
       form.addIntbox(doorDelay, 100, 1000, 100, 0, 100, doorDelayChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Jettison Test Time (ms)", width=220})
+      form.addIntbox(testDelay, 100, 5000, 500, 0, 100, testDelayChanged)
       
+      form.addRow(2)
+      form.addLabel({label="Deploy Chute at Mid Flap",width=270}) 
+      halfFlapIndex = form.addCheckbox(deployHalfFlap,halfFlapChanged)
+
       form.addRow(1)
       form.addLabel({label="DFM-Chute.lua Version "..chuteCCVersion.." ", font=FONT_MINI, alignRight=true})
    else
@@ -136,15 +199,36 @@ end
 
 
 --------------------------------------------------------------------------------
+local function readJSON()
+
+   local text, fg
+
+   text = "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_")
+   print("readall name:", text)
+   fg = io.readall(text)
+   print("fg:", fg)
+   if fg then modelProps=json.decode(fg) end
+
+end
+
 
 local throttleAuth, brakeAuth, flapAuth, gearAuth, wheelAuth
+local flapUpState
 local swd, swr
 local wheelState, wheelCount, lastValid
+
+
 
 local function loop()
 
    local sensor
    
+   if newJSON then 
+      print("New JSON") 
+      readJSON()
+      newJSON = false
+   end
+
    if not appStartTime then appStartTime = system.getTimeCounter() end
       
    nLoop = nLoop + 1
@@ -153,11 +237,48 @@ local function loop()
       appStartTime = system.getTimeCounter()
       nLoop = 0
       --print("Loops per second:", loopsPerSecond)
+      --print("brakeOn, brakeOff", modelProps.brakeOn, modelProps.brakeOff)
+      --print("brake channel:", system.getInputs(modelProps.brakeChannel))
+      --print("gear channel:", system.getInputs(modelProps.gearChannel))
+      --print("gearUp, gearDown:", modelProps.gearUp, modelProps.gearDown)
    end
+
    
    -- first read the configuration from the switches that have been assigned
 
    swd = system.getInputsVal(depSwitch)
+
+   if swd and swd == 1 and loadOverRide then
+      loadOverRide = false
+      system.messageBox("Chute Armed -  Load Terminated")
+      form.setButton(1, "Load", ENABLED)
+   end
+
+   -- if Load Override is set by pressing button on screen, then force controls to loading position
+   -- load is cancelled as soon as chute is armed
+
+   if loadOverRide then
+      if deployTest then
+         if system.getTimeCounter() > deployTestTime then
+            deployControl = -1
+            deployTest = false
+            print("deploy test done")
+         else
+            if deployControl == -1 then print ("deploy test start") end
+            deployControl = 1
+         end
+      end
+      --deployControl = -1
+      system.setControl(deployIdx, deployControl, 0)
+      jettisonControl = 1
+      system.setControl(jettisonIdx, jettisonControl, 0)
+      doorControl = 1
+      system.setControl(doorIdx, doorControl, 0)
+
+      return
+   end
+
+
    swr = system.getInputsVal(relSwitch)
 
    --if nLoop == 1 then print("swd, swr:", swd, swr) end
@@ -206,6 +327,19 @@ local function loop()
       else
 	 flapAuth = system.getInputs(modelProps.flapChannel) < modelProps.flapFull
       end
+
+      -- next line will authorize deployment at half/takeoff flap .. maybe needs to be a menu option?
+
+      if deployHalfFlap then
+         flapAuth = flapAuth or math.abs(system.getInputs(modelProps.flapChannel) - modelProps.flapTakeoff) < 0.05
+      end
+
+      if modelProps.flapUp > 0 then
+	 flapUpState = system.getInputs(modelProps.flapChannel) > modelProps.flapUp
+      else
+	 flapUpState = system.getInputs(modelProps.flapChannel) < modelProps.flapUp
+      end
+      if flapUpState then wheelCount = 0 end -- when flaps are fully up, reset wheel count
    else
       flapAuth = true
    end
@@ -216,7 +350,7 @@ local function loop()
       else
 	 gearAuth = system.getInputs(modelProps.gearChannel) < modelProps.gearDown
       end
-      if not gearAuth then wheelCount = 0 end
+      --if not gearAuth then wheelCount = 0 end -- change to flaps to reset wheelcount
    else
       gearAuth = true
    end
@@ -231,18 +365,20 @@ local function loop()
 
    if not flapAuth then
       if not swr or swr == 1 then
-	 releaseControl = 1
+	 jettisonControl = 1
+      else
+         jettisonControl = -1
       end
    else
-      releaseControl = -1
+      jettisonControl = -1
    end
-   system.setControl(releaseIdx, releaseControl, 0)
+   system.setControl(jettisonIdx, jettisonControl, 0)
    
    if allAuth then
       if doorControl and doorControl == -1 then
 	 doorOpenTime = system.getTimeCounter()
 	 system.playFile('/Apps/DFM-Chute/Chute_deploying.wav', AUDIO_QUEUE)	 
-	 print("Chute deploying")
+	 print("Chute deploying: Door opening")
       end
       doorControl = 1
    else
@@ -252,6 +388,7 @@ local function loop()
    system.setControl(doorIdx, doorControl, 0)
 
    if doorOpenTime and system.getTimeCounter() - doorOpenTime > doorDelay then
+      if deployControl == -1 then print("Chute deploying: Actuatiung") end
       deployControl = 1
    else
       deployControl = -1
@@ -260,7 +397,7 @@ local function loop()
    
 end
 
-local longName = {"ChuteDeploy", "ChuteRelease", "ChuteDoor"}
+local longName = {"ChuteDoor", "ChuteDeploy", "ChuteJettison"}
 local shortName = {"C01", "C02", "C03"}
 
 local function drawChan(x,y,ctl)
@@ -286,7 +423,7 @@ local function chuteCB(w,h)
    lcd.drawText(5, 5, "Deploy Switch: ")
    drawState(115,5, swd == 1)
 
-   lcd.drawText(5,20, "Release Switch: ")
+   lcd.drawText(5,20, "Jettison Switch: ")
    drawState(115, 20, swr == 1)
    
    lcd.drawText(5, 40, "Throttle: ")
@@ -301,14 +438,20 @@ local function chuteCB(w,h)
    lcd.drawText(5, 85, "Gear: ")
    drawState(70, 85, gearAuth)
 
+   if loadOverRide then
+      lcd.setColor(255,0,0)
+      lcd.drawText(140, 85, "CHUTE LOADING")
+      lcd.setColor(0,0,0)
+   end
+
    lcd.drawText(5, 105, longName[1] .. " (" .. shortName[1] .. ")")
-   drawChan(150, 105, deployControl)
+   drawChan(150, 105, doorControl)
 		   
    lcd.drawText(5, 120, longName[2] .. " (" .. shortName[2] .. ")")
-   drawChan(150, 120, releaseControl)
+   drawChan(150, 120, deployControl)
 
    lcd.drawText(5, 135, longName[3] .. " (" .. shortName[3] .. ")")
-   drawChan(150, 135, doorControl)
+   drawChan(150, 135, jettisonControl)
 
    if wheelSeId ~= 0 then
       if wheelCount then lcd.drawText(195, 5, "Count: " .. wheelCount) else lcd.drawText(195,5,"---") end
@@ -323,6 +466,7 @@ local function chute2CB(w,h)
    if wheelSeId ~= 0 then
       if wheelCount then lcd.drawText(5, 5, wheelCount) else lcd.drawText(5,5,"---") end
    else
+
       lcd.drawText(5,5,"No sensor")
    end
 end
@@ -343,35 +487,35 @@ end
 
 local function init()
 
-   local fg, text
+   local dhf
    
    depSwitch = system.pLoad("depSwitch")
    relSwitch = system.pLoad("relSwitch")
    wheelSe   = system.pLoad("wheelSe", 0)
    wheelSeId = system.pLoad("wheelSeId", 0)
    wheelSePa = system.pLoad("wheelSePa", 0)   
-   doorDelay = system.pLoad("doorDelay",100)   
+   doorDelay = system.pLoad("doorDelay",100)
+   testDelay = system.pLoad("testDelay",500)
+   dhf = system.pLoad("deployHalfFlap", "true")
+   if dhf == "true" then deployHalfFlap = true else deployHalfFlap = false end
 
+   print("dhf, deployHalfFlap", dhf, deployHalfFlap)
    -- note registerControl #1 reserved for auto throttle .. start at 2
    
    deployIdx  = system.registerControl(2, longName[1], shortName[1])
-   releaseIdx = system.registerControl(3, longName[2], shortName[2])
+   jettisonIdx = system.registerControl(3, longName[2], shortName[2])
    doorIdx    = system.registerControl(4, longName[3], shortName[3])   
 
    print("deployIdx:", deployIdx)
-   print("releaseIdx:", releaseIdx)
+   print("jettisonIdx:", jettisonIdx)
    print("doorIdx:", doorIdx)
 
-   system.registerForm(1, MENU_APPS, "AutoChute Controller", initForm)
+   system.registerForm(1, MENU_APPS, "AutoChute Controller", initForm, keyPressed)
 
-   system.registerTelemetry(1, "AutoChute L", 4, chuteCB)
-   system.registerTelemetry(2, "AutoChute S", 1, chute2CB)
+   system.registerTelemetry(1, "AutoChute Status", 4, chuteCB)
+   system.registerTelemetry(2, "AutoChute Wheel", 1, chute2CB)
    
-   text = "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_")
-   print("readall name:", text)
-   fg = io.readall(text)
-   print("fg:", fg)
-   if fg then modelProps=json.decode(fg) end
+   readJSON()
 
    print("modelProps.brakeChannel:", modelProps.brakeChannel)
    
@@ -384,7 +528,7 @@ end
 
 --------------------------------------------------------------------------------
 
-chuteCCVersion = "0.1"
+chuteCCVersion = "0.2"
 setLanguage()
 
 collectgarbage()

@@ -17,6 +17,10 @@ collectgarbage()
 
 --------------------------------------------------------------------------------
 
+-- global
+
+   newJSON = false
+
 -- Locals for application
 
 --local trans11
@@ -74,7 +78,7 @@ local function jsonSetLocals(ff)
    flapUp = modelProps.flapUp * 100
    flapTakeoff = modelProps.flapTakeoff * 100
    flapFull = modelProps.flapFull * 100
-   gearChannel = modelProps.gearChanne 
+   gearChannel = modelProps.gearChannel
    gearUp = modelProps.gearUp * 100
    gearDown = modelProps.gearDown * 100
    pitotCal = modelProps.pitotCal
@@ -104,6 +108,8 @@ local function jsonWriteFile()
    fg = io.open(jsonFile, "w")
    io.write(fg, jsonText)
    io.close(fg)
+   print("JsnE setting newJSON to true")
+   newJSON = true
 end
 
 -- Actions when settings changed
@@ -307,7 +313,7 @@ local function initForm()
    if (fw >= 4.22) then
       
       form.addRow(2)
-      form.addLabel({label="Select Throttle Channel", width=220, font=FONT_BOLD})
+      form.addLabel({label="Select Throttle Control", width=220, font=FONT_BOLD})
       form.addSelectbox(controlInputs, throttleIdx, true, throttleChannelChanged) 
       
       form.addRow(2)
@@ -318,7 +324,7 @@ local function initForm()
       form.addLabel({label="Throttle Idle Value (%)", width=220})
       throttleIdleForm = form.addIntbox(throttleIdle, -100, 100, -90, 0, 1, throttleIdleChanged)      
       form.addRow(2)
-      form.addLabel({label="Select Brake Channel", width=220, font=FONT_BOLD})
+      form.addLabel({label="Select Brake Control", width=220, font=FONT_BOLD})
       form.addSelectbox(controlInputs, brakeIdx, true, brakeChannelChanged)
 
       form.addRow(2)
@@ -330,7 +336,7 @@ local function initForm()
       brakeOffForm = form.addIntbox(brakeOff, -100, 100, -90, 0, 1, brakeOffChanged)      
       
       form.addRow(2)
-      form.addLabel({label="Select Flaps Channel", width=220, font=FONT_BOLD})
+      form.addLabel({label="Select Flap Control or Switch", width=220, font=FONT_BOLD})
       form.addSelectbox(controlInputs, flapIdx, true, flapChannelChanged)
 
       form.addRow(2)
@@ -338,15 +344,15 @@ local function initForm()
       flapUpForm = form.addIntbox(flapUp, -100, 100, 100, 0, 1, flapUpChanged)
 
       form.addRow(2)
-      form.addLabel({label="Flaps Takeoff (%)", width=220})
+      form.addLabel({label="Flaps Mid (%)", width=220})
       flapTakeoffForm = form.addIntbox(flapTakeoff, -100, 100, 0, 0, 1, flapTakeoffChanged)
 
       form.addRow(2)
-      form.addLabel({label="Flaps Down (%)", width=220})
+      form.addLabel({label="Flaps Full (%)", width=220})
       flapFullForm = form.addIntbox(flapFull, -100, 100, -90, 0, 1, flapFullChanged)      
 
       form.addRow(2)
-      form.addLabel({label="Select Gear Channel", width=220, font=FONT_BOLD})
+      form.addLabel({label="Select Gear Control", width=220, font=FONT_BOLD})
       form.addSelectbox(controlInputs, gearIdx, true, gearChannelChanged)
 
       form.addRow(2)
