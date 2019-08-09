@@ -1,0 +1,18 @@
+{
+    "BlueToothSensors" : [
+	{
+	    "Name" : "MGPS_Lat",
+	    "ShortName" : "Lat",
+	    "Format" : "%4.8f",
+	    "UpdateTime" : 200
+	},
+	{
+	    "Name" : "MGPS_Lon",
+	    "ShortName" : "Lon",
+	    "Format" : "4.8f",
+            "UpdateTime" : 200
+	}
+    ]
+}
+	
+	

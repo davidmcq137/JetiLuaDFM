@@ -44,15 +44,21 @@ local switch1, switch2, switch3, switch4
 --------------------------------------------------------------------------------
 -- Read translations
 local function setLanguage()
-    local lng=system.getLocale()
-    local file = io.readall("Apps/Lang/DFM-MomFF.jsn")
-    local obj = json.decode(file)
-    if(obj) then
-        trans4 = obj[lng] or obj[obj.default]
-    end
+   local lng=system.getLocale()
+   print("lng:", lng)
+   local file = io.readall("Apps/Lang/DFM-MomFF.jsn")
+   print("file:", file)
+   
+   local obj
+   if file then obj = json.decode(file) end
+   print("obj:", obj)
+   if(obj) then
+      trans4 = obj[lng] or obj[obj.default]
+   end
 end
 --------------------------------------------------------------------------------
 -- Store changed switch selections
+
 local function switch1Changed(value)
 	switch1 = value
 	system.pSave("switch1",value)

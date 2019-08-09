@@ -120,8 +120,8 @@ local distance = 0
 -- Local definitions
 -- *****************************************************
 local colAH = 160 --110
-local rowAH = 81 --63
-local radAH = 80 --62
+local rowAH = 80 --63
+local radAH = 79 --62
 local pitchR = radAH / 25
  
 
@@ -222,7 +222,8 @@ local function drawPitch()
   lcd.setColor(txtr,txtg,txtb)
   sinRoll = sin(rad(-roll))
   cosRoll = cos(rad(-roll))
-  --lcd.drawText(180,10,pitch..", "..roll)
+  --print("pitch", pitch, "roll", roll)
+  --lcd.drawText(0,10,pitch..", "..roll) --
   delta = pitch % 15    
   for i =  delta - 30 , 30 + delta, 15 do  
     XH = math.abs(pitch - i % 360)<0.01 and 30 or 13

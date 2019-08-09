@@ -53,7 +53,10 @@ local old_mod_sec = 0
 local running_time = 0
 local next_ann_time = 0
 local start_time = 0
-local fuel_pct = 100
+local fuel_pct = 0
+local fuel_max
+local fuel_qty
+
 local mrs = math.random(1, 999) -- for debugging
 
 local ytable = {} -- table of values for "chart recorder" graph
@@ -237,7 +240,8 @@ local function timePrint(width, height)
   local fstr
 
   if (fuel_pct and FuelSeId ~= 0) then
-    fstr = string.format("%d", fuel_pct)
+     
+     fstr = string.format("%d", math.floor(fuel_pct)) -- make sure it's an int if applying %d
   else
     fstr = "---"
   end
@@ -254,7 +258,7 @@ local function timePrint(width, height)
   ww = lcd.getTextWidth(FONT_MAXI, fstr)
   lcd.drawText(100+5+(100-ww)/2-1,15,fstr, FONT_MAXI)
 
-  ss = string.format("%d", batt_val[3] + batt_val[4])
+  ss = string.format("%d", math.floor(batt_val[3] + batt_val[4]))
   ww = lcd.getTextWidth(FONT_MAXI, ss)
   lcd.drawText(200+5+(100-ww)/2-1,15,ss, FONT_MAXI)
 
@@ -310,16 +314,16 @@ local function timePrint(width, height)
      end
   else
     if GraphUnit == 'm' then -- ought to add "selft" to menu
-       ss= string.format(GraphName .. ": %d ft", GraphValue) -- loop() converts m to ft
+       ss= string.format(GraphName .. ": %d ft", math.floor(GraphValue) ) -- loop() converts m to ft
     else
-      ss= string.format(GraphName .. ": %d %s ", GraphValue, GraphUnit)
+       ss= string.format(GraphName .. ": %d %s ", math.floor(GraphValue), GraphUnit)
     end
   end
 
   ww = lcd.getTextWidth(FONT_MINI, ss)
   lcd.drawText((300-ww)/2+3,70-13, ss, FONT_MINI)
 
-  ss = string.format("Scale: %d", GraphScale)
+  ss = string.format("Scale: %d", math.floor(GraphScale) )
   ww = lcd.getTextWidth(FONT_MINI, ss)
   lcd.drawText(75+(75-ww)/2+1,70+1, ss, FONT_MINI)
 
@@ -399,6 +403,8 @@ local function printform()
 end
 
 --------------------------------------------------------------------------------
+--local iii = 0
+
 local function loop()
 
 
@@ -406,11 +412,19 @@ local function loop()
     
    local sensor = system.getSensorByID(FuelSeId, FuelSePa)
    local burnRate, remainingTime
-   
    if(sensor and sensor.valid) then
-      fuel_pct = sensor.value
+      fuel_qty = sensor.value
+      if not fuel_max then fuel_max = sensor.max end
+      fuel_pct = 100 * fuel_qty / fuel_max
+      --iii = iii + 1
+      --if iii > 100 then
+	 --print("sensor value:", sensor.value)
+	 --print("sensor lab, un, min, max:", sensor.label, sensor.unit, sensor.min, sensor.max)
+	 --print("fuel_pct:", fuel_pct)
+	 --iii = 0
+      --end
    end
-
+   
    local sensor = system.getSensorByID(GraphSeId, GraphSePa)
 
    if(sensor and sensor.valid) then
@@ -418,9 +432,9 @@ local function loop()
       GraphUnit = sensor.unit
       if GraphUnit == 'm' then -- ought to add "selft" to menu
          GraphValue = GraphValue*3.28024
-	 ss= string.format(GraphName .. ": %d " .. "ft", GraphValue)
+	 ss= string.format(GraphName .. ": %d " .. "ft", math.floor(GraphValue) )
       else
-	 ss= string.format(GraphName .. ": %d " .. GraphUnit, GraphValue)
+	 ss= string.format(GraphName .. ": %d " .. GraphUnit, math.floor(GraphValue) )
       end
    end
 

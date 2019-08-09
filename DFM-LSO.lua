@@ -1326,6 +1326,14 @@ local function graphScale(x, y)
    if currentImage then 
       for j = 1, maxImage, 1 do
 	 currentImage = j
+	 --print("pb: paths", path.xmax, path.ymax, path.xmin, path.ymin)
+	 --print("pb: currentImage, maxImage:", currentImage, maxImage)
+
+	 --print("pb: geo.fields..xmax", geo.fields[iField].images[j].xmax)
+	 --print("pb: geo.fields..ymax", geo.fields[iField].images[j].ymax)
+	 --print("pb: geo.fields..xmin", geo.fields[iField].images[j].xmin)
+	 --print("pb: geo.fields..ymin", geo.fields[iField].images[j].ymin)
+	 
 	 if path.xmax <= geo.fields[iField].images[j].xmax and
 	    path.ymax <= geo.fields[iField].images[j].ymax and
 	    path.xmin >= geo.fields[iField].images[j].xmin and
@@ -1450,9 +1458,13 @@ local function initField()
       system.messageBox("Current location: " .. geo.fields[iField].name, 2)
       maxImage = #geo.fields[iField].images
       if maxImage ~= 0 then
+	 --print("pb: precomp - maxImage, iField", maxImage, iField)
 	 for j=1, maxImage, 1 do
+	    --print("pb: filename: ", geo.fields[iField].images[j].filename)
 	    fieldPNG[j] = lcd.loadImage("Apps/DFM-LSO/"..geo.fields[iField].images[j].filename)
+	    --print("pb: fieldPNG", fieldPNG[j])
 	    if fieldPNG[j] then
+	       --print ("pb: prepop", j)
 	       -- precompute left, right, top, bottom for each image
 	       -- the runway center is at x,y=0,0
 	       -- set the window so that the runway is centered left-to-right
@@ -1517,8 +1529,11 @@ local function readLogHeader()
       io.readline(fd) -- read the comment line and toss .. assume one comment line only (!)
    end
    rlhCount = rlhCount + 1
-
-   for i=1, 4, 1 do -- process log file header 4 rows at a time
+   --
+   -- process log file header 4 rows at a time so it keep cpu usage below cutoff
+   -- do 4 rows each call to loop()
+   --
+   for i=1, 4, 1 do
       logItems.line = io.readline(fd, true) -- true param removes newline
       if not logItems.line then
 	 print("Read eror on log header file")
@@ -1534,7 +1549,7 @@ local function readLogHeader()
       if logItems.cols[3] == "0" then
 	 logItems.prefix=logItems.cols[4]
       else
-	 logItems.name  = sensorName(logItems.prefix, logItems.cols[4])
+	 logItems.name  = string.gsub(sensorName(logItems.prefix, logItems.cols[4]), " ", "_")
 	 if logItems.selectedSensors[logItems.name] then
 	    logSensorNameByID[sensorID(logItems.cols[2], logItems.cols[3])] = logItems.name
 	 end
@@ -1712,11 +1727,15 @@ local function loop()
 	 altitude  =  altitude * 3.28084 -- CTU Alt is in m, convert to ft
 	 speed     =  logItems.vals['MSPEED_Velocity'] or 0
 	 speed     =  speed * 2.23694 -- MSPEED is m/s, convert to mph
-	 courseGPS =  logItems.vals['MGPS_Course'] 
+	 courseGPS =  logItems.vals['MGPS_Course']
+
+	 --print("log:", timS, latitude, longitude, altitude, speed, courseGPS)
+	 
 	 if courseGPS then
 	    courseGPS = courseGPS - variables.rotationAngle
 	    --hasCourseGPS=true
 	 end ----------------------------------------------------
+
 	 
 	 if timS0 == "0" then
 	    timSn = tonumber(timS) -- first line in file even if t ~= 0 becomes time origin

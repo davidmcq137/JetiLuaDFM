@@ -43,8 +43,8 @@
       "filename" : "BDS_3000_ft.png",
       "xrange" : 3000
     }, {
-      "filename" : "BDS_5000_ft.png",
-      "xrange" : 5000
+      "filename" : "BDS_6000_ft.png",
+      "xrange" : 6000
     } ],
     "POI" : [ {
       "lat" : 41.33934,
@@ -135,6 +135,36 @@
       "xrange" : 6000
     } ]
   }, {
+    "name" : "Paradise TG",
+    "shortname" : "LAL",
+    "runway" : {
+      "lat" : 27.977672,
+      "long" : -82.024717,
+      "trueDir" : 268.23,
+      "length" : 700,
+      "width" : 46
+    },
+    "POI" : [ {
+      "lat"  : 27.981456,
+      "long" : -82.027542
+      }, {
+      "lat"  : 27.977420,
+      "long" : -82.019098
+      }, {
+      "lat"  : 27.977638,
+      "long" : -82.028229
+    } ],
+    "images" : [ {
+      "filename" : "LAL_1500_ft.png",
+      "xrange" : 1500
+    }, {
+      "filename" : "LAL_3000_ft.png",
+      "xrange" : 3000
+    }, {
+      "filename" : "LAL_6000_ft.png",
+      "xrange" : 6000
+    } ]
+  }, {
     "name" : "Georgia Jets",
     "shortname" : "GAJets",
     "runway" : {
@@ -155,21 +185,52 @@
       "xrange" : 6000
     } ]
   }, {
-    "name" : "Triple Tree Aerodrome",
-    "shortname" : "Nall",
+    "name" : "Plum Island",
+    "shortname" : "2B2",
     "runway" : {
-      "lat" : 34.674994,
-      "long" : -81.995538,
-      "trueDir" : 25.34,
-      "length" : 812,
-      "width" : 260
+      "lat" : 42.795379,
+      "long" : -70.838702,
+      "trueDir" : 87,
+      "length" : 2530,
+      "width" : 50
     },
     "images" : [ {
-      "filename" : "Nall_3000_ft.png",
+      "filename" : "2B2_1500_ft.png",
+      "xrange" : 1500
+    }, {
+      "filename" : "2B2_3000_ft.png",
       "xrange" : 3000
     }, {
-      "filename" : "Nall_6000_ft.png",
+      "filename" : "2B2_6000_ft.png",
       "xrange" : 6000
+    }, {
+      "filename" : "2B2_12000_ft.png",
+      "xrange" : 12000
+    } ]
+  }, {
+    "name" : "Frankford Highland",
+    "shortname" : "6B4",
+    "runway" : {
+      "lat" : 43.016095,
+      "long" : -75.169516,
+      "trueDir" : 303,
+      "length" : 2732,
+      "width" : 60
+    },
+    "images" : [ {
+      "filename" : "6B4_1500_ft.png",
+      "xrange" : 1500
+    }, {
+      "filename" : "6B4_3000_ft.png",
+      "xrange" : 3000
+    }, {
+      "filename" : "6B4_6000_ft.png",
+      "xrange" : 6000
+    }, {
+      "filename" : "6B4_12000_ft.png",
+      "xrange" : 12000
     } ]
   } ]
 }
+  
+  

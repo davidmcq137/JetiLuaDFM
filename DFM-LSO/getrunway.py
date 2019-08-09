@@ -1,13 +1,18 @@
 from __future__ import print_function
 
 from PIL import Image, ImageDraw
-from io import BytesIO
 import json
 import math
 import requests
-import ConfigParser
 import os
+import ConfigParser
+import sys
 
+# note: relies on file ~/getrunway.conf in the home dir to store the google api key
+#
+# note: TX will display image with runway horizontal, with pilot position below runway
+# rotate field orientation by 180 if rendered upside down
+#
 # Google maps api zoom level -> scale
 # https://gis.stackexchange.com/questions/7430/
 # metersPerPx = 156543.03392 * Math.cos(latLng.lat() * Math.PI / 180) / Math.pow(2, zoom)
@@ -40,15 +45,22 @@ def Gmaps_api_request(**kwargs):
                             stream=True,
                             params=kwargs)
 
-def get_Gmaps_image(zoom, latitude, longitude, API_key):
+def get_Gmaps_image(zoom, latitude, longitude):
+    config = ConfigParser.ConfigParser()
+    osp = os.path.expanduser('~/getrunway.conf')
+    config.read(osp)
+    api_key = config.get('KEYS', 'api_key')
+    #print("api_key:", api_key)
     latlong= str(latitude) + "," + str(longitude)
-    Greq = Gmaps_api_request(
-        key=API_key,
-        center=latlong,
-        zoom="%d" % zoom,
-        size="640x640",
-        maptype="satellite")
-    return Image.open(BytesIO(Greq.content)).convert("RGB")
+    with open("temp%d.png" % zoom, "wb") as file:
+        file.write(Gmaps_api_request(
+            center=latlong,
+            zoom="%d" % zoom,
+            size=imageSize,
+            maptype="satellite",
+			key=api_key
+        ).content)
+    return Image.open("temp%d.png" % zoom).convert("RGB")
 
 def Gmaps_feet_per_px(lat, zoom): # first constant from Google, second one converts to ft from m
     return 156543.03392 * 3.280839895013123 * math.cos(math.radians(lat)) / math.pow(2,zoom)
@@ -56,36 +68,25 @@ def Gmaps_feet_per_px(lat, zoom): # first constant from Google, second one conve
 def Gmaps_px_per_foot(lat, zoom):
     return 1.0 / Gmaps_feet_per_px(lat, zoom)
 
-# function to compute x and y distance in ft from two pairs of lat/long
+#print (len(sys.argv))
+#print (sys.argv[1])
 
-def delta_xy_from_latlong(latitude1, longitude1, latitude2, longitude2):
-    rE = 21220539.7  # 6371 km * 1000 m/km * 3.28084 ft/m ... radius of earth in ft, fudge of 1/0.985
-    x = rE * math.radians(longitude1 - longitude2) * math.cos(math.radians((latitude1+latitude2) / 2))
-    y = rE * math.radians(latitude1 - latitude2)
-    return (x,y)
+print ("Give any commandline arg to generate iPad images")
 
-def rotateXY(x, y, rotation):
-   sinShape = math.sin(math.radians(rotation))
-   cosShape = math.cos(math.radians(rotation))
-   return ((x * cosShape - y * sinShape), (x * sinShape + y * cosShape))
-
+if len(sys.argv) > 1:
+    iPad = True
+    imageSize = "2048x2048"
+    imageOut = (2048, 1024)
+    print("iPad mode")
+else:
+    iPad = False
+    imageSize = "640x640"
+    imageOut = (320, 160)
+    print("Jeti mode")
+	
 # experimentation showed these zooms best for these field image widths
-# probably only need 2-3 per field
 
-crop_to_zoom = {1000:17, 1500:17, 2500:16, 3000:16, 4000:15, 5000:15, 6000:15}
-
-config=ConfigParser.ConfigParser()
-osp = os.path.expanduser('~/LSO-Gmap-Image-Gen.conf')
-
-config.read(osp) # so that we don't get caught in the "post my API key on Github" trap...
-
-Gmap_API_Key = config.get('KEYS', 'api_key')
-
-# alternately fill in and uncomment the following line and comment out the config.get line:
-# Gmap_API_Key = 'asdf1234asdf or whatever'
-
-print("Using Google Maps API Key:", Gmap_API_Key)
-print("Reading Field Config file: Fields.jsn")
+crop_to_zoom = {1500:17, 3000:16, 6000:15, 12000:14}
 
 with open("Fields.jsn") as json_data:
     jd  = json.load(json_data)
@@ -102,21 +103,25 @@ for fld in jd["fields"]:
     truedir =          fld["runway"]["trueDir"]
     runway_length_ft = fld["runway"]["length"]
     runway_width_ft =  fld["runway"]["width"]
-    
+
     # Then loop over all images for that field
 
-    print()
-    
     for im_index in range(len(fld["images"])): 
 
         filename = fld["images"][im_index]["filename"]
         field_image_width_ft  = fld["images"][im_index]["xrange"]
         field_image_height_ft =field_image_width_ft/2
         zoom = crop_to_zoom[field_image_width_ft] 
-    
+
+        if iPad:
+            filename = "iPad_" + filename
+
         print(field_name, filename, latitude, longitude, field_image_width_ft, zoom)
 
-        Gmaps = get_Gmaps_image(zoom, latitude, longitude, Gmap_API_Key)
+        # Russell stored intermediate reps in memory. We shall be lazy and store them
+        # in temp files since it's easy to do that with the data from requests()
+        
+        Gmaps = get_Gmaps_image(zoom, latitude, longitude)
     
         # note that in PIL the image.rotate operation rotates about the image center, not
         # the 0,0 point as was the case in Russell's original implementation so we have less
@@ -143,9 +148,15 @@ for fld in jd["fields"]:
 
         wwGrc, hhGrc = Gmaps_rotate_crop.size # note image size again...
 
+        runway_width_px  = runway_width_ft  * Gmaps_px_per_foot(latitude, zoom)
+        runway_length_px = runway_length_ft * Gmaps_px_per_foot(latitude, zoom)
+
         # now produce the transmitter-sized image
 
-        Jeti = Gmaps_rotate_crop.resize( (320, 160) )
+        print("imageOut: ", imageOut)
+		
+        Jeti = Gmaps_rotate_crop.resize( imageOut )
+
 
         # originally we put the yellow rectangle on the larger rotated image before cropping but
         # since it was a one pixel line (the width= option seems not to work), the vertical line
@@ -158,8 +169,8 @@ for fld in jd["fields"]:
         
         wwj, hhj = Jeti.size # note image size again... j/Grc ratio will adjust px per inch
         
-        runway_length_px = runway_length_ft * Gmaps_px_per_foot(latitude, zoom) * wwj/wwGrc
-        runway_width_px  = runway_width_ft  * Gmaps_px_per_foot(latitude, zoom) * hhj/hhGrc
+        runway_length_px = runway_length_px * wwj/wwGrc
+        runway_width_px  = runway_width_px  * hhj/hhGrc
 
         # draw the yellow rectangle for the runway to confirm registration
         
@@ -167,44 +178,11 @@ for fld in jd["fields"]:
                        (int(wwj/2 + runway_length_px/2), int(3*hhj/4 + runway_width_px/2) )),
                       outline='yellow')
 
-        lat, lon = 0,0 # reset from last time in case no POIs
-        
-        if fld.get("POI"): # loop over POIs if any exist
-            for iP in range(len(fld["POI"])):
-                
-                lat = fld["POI"][iP]["lat"]
-                lon = fld["POI"][iP]["long"]
-
-                # first compute distance in original x,y frame (north up, in ft) from
-                # POIs to center of runway ... then rotate POIs x,y coords same as image
-                # use the simple equirectangular projection as in DFM-LSO.lua
-                
-                dx, dy = delta_xy_from_latlong(latitude, longitude, lat, lon)
-
-                dxr, dyr = rotateXY(dx, dy, truedir-270) 
-
-                # now adjust pixels per foot to current Jeti image
-                
-                dxr_px = dxr * Gmaps_px_per_foot(latitude, zoom) * wwj/wwGrc
-                dyr_px = dyr * Gmaps_px_per_foot(latitude, zoom) * hhj/hhGrc
-                
-                # compute "absolute" screen coords in screen coord system
-                
-                dxr_px_abs = int(wwj / 2 - dxr_px)
-                dyr_px_abs = int(hhj * 3 / 4 + dyr_px)
-
-                # warn user of some POIs not visible in largest image of field
-                
-                if field_image_width_ft == 6000: # should not be 6000 but last item in crop_to_zoom dict
-                    if dxr_px_abs < 0 or dxr_px_abs > wwj or dyr_px_abs < 0 or dyr_px_abs > hhj:
-                        print("Warning: POI out of bounds at min zoom:", lat, lon, filename)
-                          
-                # mark POIs with a circle of 4x4 pixels on the image
-                
-                dd.ellipse( [(dxr_px_abs-2, dyr_px_abs-2), (dxr_px_abs+2, dyr_px_abs+2)],
-                            fill="yellow")
-
         Jeti.save(filename, "PNG")
+
+print(" ")
+print("Don't forget to copy the updated Fields.jsn file along with the PNGs !!!")
+
 
 
 
