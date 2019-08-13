@@ -1,0 +1,560 @@
+--[[
+
+   --------------------------------------------------------------------------------------------------
+   DFM-Tele.lua -- write telemetry values to the  serial link
+
+   Requires transmitter firmware 4.22 or higher.
+    
+   Developed on DS-24, only tested on DS-24
+
+   --------------------------------------------------------------------------------------------------
+   DFM-Tele.lua released under MIT license by DFM 2019
+   --------------------------------------------------------------------------------------------------
+
+--]]
+
+collectgarbage()
+
+------------------------------------------------------------------------------
+
+-- Persistent and global variables for entire progrem
+
+local TeleVersion = "0.0"
+
+local latitude
+local longitude
+local courseGPS
+local baroAlt
+local GPSAlt
+local heading = 0
+local altitude = 0
+local speed = 0
+local SpeedGPS
+local SpeedNonGPS = 0
+local vario=0
+-- local DistanceGPS
+
+local telem= {}
+
+--{"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
+--	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"
+--}
+
+
+telem.Latitude={}
+telem.Longitude={}
+telem.Altitude={}
+telem.SpeedNonGPS={}
+telem.SpeedGPS={}
+telem.DistanceGPS={}
+telem.CourseGPS={}
+telem.BaroAlt={}
+
+local modelProps={}
+
+local countNoNewPos = 0
+
+-- these lists are the non-GPS senggors
+
+local sensorLalist = { "..." }  -- sensor labels
+local sensorIdlist = { "..." }  -- sensor IDs
+local sensorPalist = { "..." }  -- sensor parameters
+local sensorUnlist = { "..." }  -- sensor Units
+
+-- these lists are the GPS sensors that have to be processed differently
+
+local GPSsensorLalist = { "..." }
+local GPSsensorIdlist = { "..." }
+local GPSsensorPalist = { "..." }
+
+local sysTimeStart = system.getTimeCounter()
+
+local DEBUG = false -- if set to <true> will generate flightpath automatically for demo purposes
+local debugTime = 0
+local debugNext = 0
+
+-- "globals" for log reading
+--local logItems={}
+--logItems.cols={}
+--logItems.vals={}
+--logItems.selectedSensors = {MGPS_Latitude  =1, -- keyvalues irrelevant for now, just need to be true
+--			    MGPS_Longitude =2,
+--			    CTU_Altitude   =3,
+--			    MSPEED_Velocity=4,
+--			    MGPS_Course    =5}
+--local logSensorNameByID = {}
+
+--dumps a table in human-readable format (sort of)
+--kills the script sometimes for a really big table!
+
+local function dumpt(o)
+   if type(o) == 'table' then
+      local s = '{ '
+      for k,v in pairs(o) do
+         if type(k) ~= 'number' then
+	    k = '"'..k..'"'
+	 end
+	 s = s .. '['..k..'] = ' .. dumpt(v) .. ','
+      end
+      return s .. '}\r\n\r\n '
+   else
+      return tostring(o)
+   end
+end
+
+-- Read available sensors for user to select - done once at startup
+-- Make separate lists for GPS lat and long sensors since they require different processing
+-- Other GPS sensors (also if type 9, but diff params) are treated like non GPS sensors
+-- The labels and values for sensor.param work for the Jeti MGPS .. 
+-- Other GPSs have to be selected manually via the screen
+
+local satCountID = 0
+local satCountPa = 0
+local satCount
+
+local satQualityID = 0
+local satQualityPa = 0
+local satQuality
+
+local currentLabel
+
+
+local function readSensors()
+
+   print("In readSensors()")
+   
+   for k,v in pairs(telem) do
+      telem[k].nextRead = 0
+      telem[k].lastVal = 0
+   end
+   
+   
+   local sensors = system.getSensors()
+   
+   print("getSensors done, printing dumpt")
+   print("#sensors=", #sensors)
+   
+   print(dumpt(sensors)) -- see file JETISensorDump.out for example
+   print("dumpt done")
+   
+   for i, sensor in ipairs(sensors) do
+      if (sensor.label ~= "") then
+
+	 --[[
+	    Note:
+	    Digitech CTU Altitude is type 1, param 13 (vs. MGPS Altitude type 1, param 6)
+	    MSpeed Velocity (airspeed) is type 1, param 1
+	 
+	    Code below will put sensor names in the choose list and auto-assign the relevant
+	    selections for the Jeti MGPS, Digitech CTU and Jeti MSpeed
+	 --]]
+
+	 if sensor.param == 0 then -- it's a label
+	    currentLabel = sensor.label
+	    table.insert(sensorLalist, '--> '..sensor.label)
+	    table.insert(sensorIdlist, 0)
+	    table.insert(sensorPalist, 0)	    
+	 elseif sensor.type == 9 then  -- lat/long
+	    table.insert(GPSsensorLalist, sensor.label)
+	    table.insert(GPSsensorIdlist, sensor.id)
+	    table.insert(GPSsensorPalist, sensor.param)
+	    if (sensor.label == 'Longitude' and sensor.param == 3) then
+	       telem.Longitude.label = currentLabel
+	       telem.Longitude.Se = #GPSsensorLalist
+	       telem.Longitude.SeId = sensor.id
+	       telem.Longitude.SePa = sensor.param
+	    end
+	    if (sensor.label == 'Latitude' and sensor.param == 2) then
+	       telem.Latitude.label = currentLabel
+	       telem.Latitude.Se = #GPSsensorLalist
+	       telem.Latitude.SeId = sensor.id
+	       telem.Latitude.SePa = sensor.param
+	    end
+	 elseif sensor.type == 5 then -- date - ignore
+	   
+	 else  -- "regular" numeric sensor
+
+	    table.insert(sensorLalist, sensor.label)
+	    table.insert(sensorIdlist, sensor.id)
+	    table.insert(sensorPalist, sensor.param)
+	    table.insert(sensorUnlist, sensor.unit)
+
+	    if sensor.label == 'Velocity' and sensor.param == 1 then
+	       telem.SpeedNonGPS.label = currentLabel
+	       telem.SpeedNonGPS.Se = #sensorLalist
+	       telem.SpeedNonGPS.SeId = sensor.id
+	       telem.SpeedNonGPS.SePa = sensor.param
+	    end
+	    if sensor.label == 'Altitude' and sensor.param == 13 then
+	       telem.BaroAlt.label = currentLabel
+	       telem.BaroAlt.Se = #sensorLalist
+	       telem.BaroAlt.SeId = sensor.id
+	       telem.BaroAlt.SePa = sensor.param
+	    end	    
+	    if sensor.label == 'Altitude' and sensor.param == 6 then
+	       telem.Altitude.label = currentLabel
+	       telem.Altitude.Se = #sensorLalist
+	       telem.Altitude.SeId = sensor.id
+	       telem.Altitude.SePa = sensor.param
+	    end
+	    if sensor.label == 'Distance' and sensor.param == 7 then
+	       telem.DistanceGPS.label = currentLabel
+	       telem.DistanceGPS.Se = #sensorLalist
+	       telem.DistanceGPS.SeId = sensor.id
+	       telem.DistanceGPS.SePa = sensor.param
+	    end
+	    if sensor.label == 'Speed' and sensor.param == 8 then
+	       telem.SpeedGPS.label = currentLabel
+	       telem.SpeedGPS.Se = #sensorLalist
+	       telem.SpeedGPS.SeId = sensor.id
+	       telem.SpeedGPS.SePa = sensor.param
+	    end
+	    if sensor.label == 'Course' and sensor.param == 10 then
+	       telem.CourseGPS.label = currentLabel
+	       telem.CourseGPS.Se = #sensorLalist
+	       telem.CourseGPS.SeId = sensor.id
+	       telem.CourseGPS.SePa = sensor.param
+	    end
+	    if sensor.label == 'SatCount' and sensor.param == 5 then -- remember these last two separately
+	       satCountID = sensor.id
+	       satCountPa = sensor.param
+	    end
+	    if sensor.label == 'Quality' and sensor.param == 4 then
+	       satQualityID = sensor.id
+	       satQualityPa = sensor.param
+	    end	    
+	    
+	 end
+      end
+   end
+end
+
+----------------------------------------------------------------------
+
+-- Actions when settings changed
+
+local function sensorChanged(value, str, isGPS)
+
+   telem[str].Se = value
+   
+   if isGPS then
+      telem[str].SeId = GPSsensorIdlist[telem[str].Se]
+      telem[str].SePa = GPSsensorPalist[telem[str].Se]
+   else
+      telem[str].SeId = sensorIdlist[telem[str].Se]
+      telem[str].SePa = sensorPalist[telem[str].Se]
+   end
+   
+   if (telem[str].SeId == "...") then
+      telem[str].SeId = 0
+      telem[str].SePa = 0 
+   end
+
+   system.pSave("telem."..str..".Se", value)
+   system.pSave("telem."..str..".SeId", telem[str].SeId)
+   system.pSave("telem."..str..".SePa", telem[str].SePa)
+end
+
+--------------------------------------------------------------------------------
+
+
+local function initForm(subform)
+
+   local menuSelectGPS = { -- for lat/long only
+      Longitude="Select GPS Longitude Sensor",
+      Latitude ="Select GPS Latitude Sensor",
+   }
+   
+   local menuSelect1 = { -- not from the GPS sensor
+      SpeedNonGPS="Select Pitot Speed Sensor",
+      BaroAlt="Select Baro Altimeter Sensor",
+   }
+   
+   local menuSelect2 = { -- non lat/long but still from GPS sensor
+      Altitude ="Select GPS Altitude Sensor",
+      SpeedGPS="Select GPS Speed Sensor",
+      DistanceGPS="Select GPS Distance Sensor",
+      CourseGPS="Select GPS Course Sensor",
+   }     
+   
+   for var, txt in pairs(menuSelect1) do
+      form.addRow(2)
+      form.addLabel({label=txt, width=220})
+      form.addSelectbox(sensorLalist, telem[var].Se, true,
+			(function(x) return sensorChanged(x, var, false) end) )
+   end
+   
+   for var, txt in pairs(menuSelectGPS) do
+      form.addRow(2)
+      form.addLabel({label=txt, width=220})
+      form.addSelectbox(GPSsensorLalist, telem[var].Se, true,
+			(function(x) return sensorChanged(x, var, true) end) )
+   end
+   
+   
+   for var, txt in pairs(menuSelect2) do
+      form.addRow(2)
+      form.addLabel({label=txt, width=220})
+      form.addSelectbox(sensorLalist, telem[var].Se, true,
+			(function(x) return sensorChanged(x, var, false) end) )
+   end
+   
+   form.addRow(1)
+   
+end
+
+local function sensorName(device_name, param_name)
+   return device_name .. "_" .. param_name -- sensor name is human readable e.g. CTU_Altitude
+end
+
+local function sensorID(devID, devParm)
+   return devID..devParm -- sensor ID is machine readable e.g. 420460025613 (13 concat to 4204600256)
+end
+
+local function unpackAngle(packed)
+   return ((packed >> 16) & 0xFF)
+          + ((packed & 0xFFFF) * 0.001)/60
+end
+
+-- presistent and global variables for loop()
+
+local lastlat = 0
+local lastlong = 0
+local gotInitPos = false
+local compcrs
+local compcrsDeg = 0
+local numGPSreads = 0
+local newPosTime = 0
+local hasCourseGPS
+
+local function loop()
+
+   local minutes, degs
+   local hasPitot
+   local sensor
+   local goodlat, goodlong 
+   local newpos
+   local deltaPosTime = 100 -- min sample interval in ms
+   local latS, lonS, altS, spdS, hdgS
+
+   goodlat = false
+   goodlong = false
+
+   sensor = system.getSensorByID(telem.Longitude.SeId, telem.Longitude.SePa)
+
+   if(sensor and sensor.valid) then
+      minutes = (sensor.valGPS & 0xFFFF) * 0.001
+      degs = (sensor.valGPS >> 16) & 0xFF
+      longitude = degs + minutes/60
+      if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
+	 longitude = longitude * -1
+      end
+      goodlong = true
+   end
+   
+   sensor = system.getSensorByID(telem.Latitude.SeId, telem.Latitude.SePa)
+
+   if(sensor and sensor.valid) then
+      minutes = (sensor.valGPS & 0xFFFF) * 0.001
+      degs = (sensor.valGPS >> 16) & 0xFF
+      latitude = degs + minutes/60
+      if sensor.decimals == 2 then -- "South" .. make it negative
+	 latitude = latitude * -1
+      end
+      goodlat = true
+      numGPSreads = numGPSreads + 1
+   end
+
+   -- throw away first 10 GPS readings to let unit settle
+   if numGPSreads <= 10 then 
+      -- print("Discarding reading: ", numGPSreads, latitude, longitude, goodlat, goodlong)
+      return
+   end
+   
+   -- Xicoy FC sends a lat/long of 0,0 on startup .. don't use it
+   if math.abs(latitude) < 1 then
+      -- print("Latitude < 1: ", latitude, longitude, goodlat, goodlong)
+      return
+   end
+
+   -- Jeti MGPS sends a reading of 240N, 48E on startup .. don't use it
+   if latitude > 239 then
+      -- print("Latitude > 239: ", latitude, longitude, goodlat, goodlong)
+      return
+   end 
+
+   sensor = system.getSensorByID(telem.Altitude.SeId, telem.Altitude.SePa)
+
+   if(sensor and sensor.valid) then
+      GPSAlt = sensor.value*3.28084 -- convert to ft, telem apis only report native values
+   end
+ 
+   sensor = system.getSensorByID(telem.SpeedNonGPS.SeId, telem.SpeedNonGPS.SePa)
+   
+   hasPitot = false
+   if(sensor and sensor.valid) then
+      if sensor.unit == "kmh" or sensor.unit == "km/h" then
+	 SpeedNonGPS = sensor.value * 0.621371 * modelProps.pitotCal/100. -- unit conversion to mph
+      end
+      if sensor.unit == "m/s" then
+	 SpeedNonGPS = sensor.value * 2.23694 * modelProps.pitotCal
+      end
+      
+      hasPitot = true
+   end
+   
+   sensor = system.getSensorByID(telem.BaroAlt.SeId, telem.BaroAlt.SePa)
+   
+   if(sensor and sensor.valid) then
+      baroAlt = sensor.value * 3.28084 -- unit conversion m to ft
+   end
+   
+   
+   sensor = system.getSensorByID(telem.SpeedGPS.SeId, telem.SpeedGPS.SePa)
+   
+   if(sensor and sensor.valid) then
+      if sensor.unit == "kmh" or sensor.unit == "km/h" then
+	 SpeedGPS = sensor.value * 0.621371 -- unit conversion to mph
+      end
+      if sensor.unit == "m/s" then
+	 SpeedGPS = sensor.value * 2.23694
+      end
+   end
+
+   hasCourseGPS = false
+   sensor = system.getSensorByID(telem.CourseGPS.SeId, telem.CourseGPS.SeId)
+   if sensor and sensor.valid then
+      courseGPS = sensor.value
+      hasCourseGPS = true
+   end
+
+   sensor = system.getSensorByID(satCountID, satCountPa)
+   if sensor and sensor.valid then
+      satCount = sensor.value
+   end
+
+   sensor = system.getSensorByID(satQualityID, satQualityPa)
+   if sensor and sensor.valid then
+      satQuality = sensor.value
+   end   
+
+   
+   -- only recompute when lat and long have changed
+   
+   if not latitude or not longitude then
+--      print('returning: lat or long is nil')
+      return
+   end
+   if not goodlat or not goodlong then
+      -- print('returning: goodlat, goodlong: ', goodlat, goodlong)
+      return
+   end
+
+   -- if no GPS or pitot then code further below will compute speed from delta dist
+   
+   if not DEBUG then
+      if hasPitot and (SpeedNonGPS ~= nil) then
+	 speed = SpeedNonGPS
+      elseif SpeedGPS ~= nil then
+	 speed = SpeedGPS
+      end
+   end
+
+   if not DEBUG then
+      if GPSAlt then
+	 altitude = GPSAlt
+      end
+      if baroAlt then -- let baroAlt "win" if both defined
+	 altitude = baroAlt
+      end
+   end
+   
+   if (latitude == lastlat and longitude == lastlong) or
+      (math.abs(system.getTimeCounter()) < newPosTime) -- mac emulator had sgTC negative???
+   then
+      countNoNewPos = countNoNewPos + 1
+      newpos = false
+   else
+      newpos = true
+      lastlat = latitude
+      lastlong = longitude
+      newPosTime = system.getTimeCounter() + deltaPosTime
+      countNoNewPos = 0
+   end
+
+   
+   -- defend against random bad points ... 1/6th degree is about 10 mi
+
+--   if (math.abs(longitude-long0) > 1/6) or (math.abs(latitude-lat0) > 1/6) then
+--      print('Bad lat/long: ', latitude, longitude, satCount, satQuality)
+--      return
+--   end
+   
+   if DEBUG then
+      heading = compcrsDeg    else
+      if hasCourseGPS and courseGPS then
+	 heading = courseGPS
+      else
+	 if compcrsDeg then
+	    heading = compcrsDeg
+	 else
+	   heading = 0
+	 end
+      end
+   end
+
+
+   -- if we get to this point we have a new and valid GPS position
+
+   
+end
+
+local function init()
+
+--   for i, j in ipairs(telem) do
+--      telem[j].Se   = system.pLoad("telem."..telem[i]..".Se", 0)
+--      telem[j].SeId = system.pLoad("telem."..telem[i]..".SeId", 0)
+--      telem[j].SePa = system.pLoad("telem."..telem[i]..".SePa", 0)
+--   end
+
+   system.registerForm(1, MENU_APPS, "Telemetry to Serial", initForm, nil, nil)
+   
+   print("Model: ", system.getProperty("Model"))
+   print("Model File: ", system.getProperty("ModelFile"))
+
+   -- replace spaces in filenames with underscore
+   print("reading: ", "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
+   
+   fg = nil
+
+   -- set default for pitotCal in case no "DFM-model.jsn" file
+
+   modelProps.pitotCal = 100
+   
+   fg = io.readall("Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
+   if fg then
+      modelProps=json.decode(fg)
+   end
+
+   print("mP.brakeChannel: ", modelProps.brakeChannel, "mP.brakeOn: ", modelProps.brakeOn)
+   print("mP.throttleChannel", modelProps.throttleChannel, "mP.throttleFull", modelProps.throttleFull)
+   
+   --system.playFile('/Apps/DFM-LSO/L_S_O_active.wav', AUDIO_QUEUE)
+   
+   if DEBUG then
+      --print('L_S_O_Active.wav')
+   end
+
+   readSensors()
+
+   print("dumping telem")
+   print(dumpt(telem))
+   print("done")
+   
+   collectgarbage()
+end
+
+
+-- setLanguage()
+collectgarbage()
+return {init=init, loop=loop, author="DFM", version=TeleVersion, name="Tele to Serial"}

@@ -102,7 +102,7 @@ local GPSsensorPalist = { "..." }
 
 local sysTimeStart = system.getTimeCounter()
 
-local DEBUG = true -- if set to <true> will generate flightpath automatically for demo purposes
+local DEBUG = false -- if set to <true> will generate flightpath automatically for demo purposes
 local debugTime = 0
 local debugNext = 0
 
@@ -1017,6 +1017,8 @@ local function binom(n, k)
    
    if k > n then return nil end  -- error .. let caller die
    if k > n/2 then k = n - k end -- because (n k) = (n n-k) by symmetry
+
+   --print("binom: n,k=", n, k)
    
    if (n == MAXTABLE-1) and binomC[k] then return binomC[k] end
 
