@@ -34,21 +34,33 @@ local SpeedNonGPS = 0
 local vario=0
 -- local DistanceGPS
 
+local serialFile
+
 local telem= {}
 
---{"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
---	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"
---}
-
-
 telem.Latitude={}
+telem.Latitude.Format="%4.8f"
+telem.Latitude.updateTime = 200
+
 telem.Longitude={}
+telem.Longitude.Format="%4.8f"
+telem.Longitude.updateTime = 200
+
 telem.Altitude={}
-telem.SpeedNonGPS={}
-telem.SpeedGPS={}
-telem.DistanceGPS={}
-telem.CourseGPS={}
-telem.BaroAlt={}
+telem.Altitude.Format="%4.2f"
+telem.Altitude.updateTime = 200
+
+telem.Speed={}
+telem.Speed.Format="%4.2f"
+telem.Speed.updateTime = 200
+
+telem.Distance={}
+telem.Distance.Format="%4.2f"
+telem.Distance.updateTime = 200
+
+telem.Heading={}
+telem.Heading.Format="%4.2f"
+telem.Heading.updateTime = 200
 
 local modelProps={}
 
@@ -72,17 +84,6 @@ local sysTimeStart = system.getTimeCounter()
 local DEBUG = false -- if set to <true> will generate flightpath automatically for demo purposes
 local debugTime = 0
 local debugNext = 0
-
--- "globals" for log reading
---local logItems={}
---logItems.cols={}
---logItems.vals={}
---logItems.selectedSensors = {MGPS_Latitude  =1, -- keyvalues irrelevant for now, just need to be true
---			    MGPS_Longitude =2,
---			    CTU_Altitude   =3,
---			    MSPEED_Velocity=4,
---			    MGPS_Course    =5}
---local logSensorNameByID = {}
 
 --dumps a table in human-readable format (sort of)
 --kills the script sometimes for a really big table!
@@ -121,15 +122,28 @@ local currentLabel
 
 local function readSensors()
 
+   local fr
+
    print("In readSensors()")
    
    for k,v in pairs(telem) do
       telem[k].nextRead = 0
-      telem[k].lastVal = 0
+      telem[k].currentVal = 0.0
+      telem[k].lastVal = 0.0
    end
    
    
    local sensors = system.getSensors()
+   local dumped = dumpt(sensors)
+
+   fr = io.open("sensord.tbl", "w")
+   if fr then
+      io.write(fr, dumped)
+      io.close(fr)
+   else
+      print("readSensors: Could not open write file for dump")
+   end
+   
    
    print("getSensors done, printing dumpt")
    print("#sensors=", #sensors)
@@ -483,7 +497,7 @@ local function loop()
    end
 
    
-   -- defend against random bad points ... 1/6th degree is about 10 mi
+-- defend against random bad points ... 1/6th degree is about 10 mi
 
 --   if (math.abs(longitude-long0) > 1/6) or (math.abs(latitude-lat0) > 1/6) then
 --      print('Bad lat/long: ', latitude, longitude, satCount, satQuality)
@@ -504,8 +518,18 @@ local function loop()
    end
 
 
-   -- if we get to this point we have a new and valid GPS position
+   -- if we get to this point we have a new and valid GPS position and should write to the
+   -- serial port
 
+   local ss = string.format("(Pos:%4.8f$%4.8f)", latitude, longitude)
+   io.write(serialFile, ss)
+   local ss = string.format("(Alt:%4.2f)", altitude)
+   io.write(serialFile, ss)
+   local ss = string.format("(Spd:%4.2f)", altitude)
+   io.write(serialFile, ss)
+   
+   
+   
    
 end
 
@@ -517,6 +541,8 @@ local function init()
 --      telem[j].SePa = system.pLoad("telem."..telem[i]..".SePa", 0)
 --   end
 
+   local fg, fn
+   
    system.registerForm(1, MENU_APPS, "Telemetry to Serial", initForm, nil, nil)
    
    print("Model: ", system.getProperty("Model"))
@@ -538,6 +564,13 @@ local function init()
 
    print("mP.brakeChannel: ", modelProps.brakeChannel, "mP.brakeOn: ", modelProps.brakeOn)
    print("mP.throttleChannel", modelProps.throttleChannel, "mP.throttleFull", modelProps.throttleFull)
+
+   local dt = system.getDateTime()
+   fn = string.format("Tele_%02d%02d_%d%02d%02d.dat", dt.mon, dt.day, dt.hour, dt.min, dt.sec)
+   print("fn:", fn)
+
+   serialFile = io.open(fn, "w")
+   print("serialFile: ", serialFile)
    
    --system.playFile('/Apps/DFM-LSO/L_S_O_active.wav', AUDIO_QUEUE)
    
