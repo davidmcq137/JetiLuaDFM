@@ -26,30 +26,20 @@ local selFt
 local selFtIndex
 local shortAnn, shortAnnIndex
 
-local ATStateLabel
-local ATStateSe
 local ATStateSeId
 local ATStateSePa
 
 local ATState
 
-local ATPresetLabel
-local ATPresetSe
 local ATPresetSeId
 local ATPresetSePa
 
-local ATAirspeedLabel
-local ATAirspeedSe
 local ATAirspeedSeId
 local ATAirspeedSePa
 
-local ATengLabel
-local ATengSe
 local ATengSeId
 local ATengSePa
 
-local CTUThrLabel
-local CTUThrSe
 local CTUThrSeId
 local CTUThrSePa
 
@@ -73,14 +63,17 @@ local sensorPalist = { "..." }
 local modelProps = {}
 local gauge_c={}
 local gauge_s={}
+
 local throttle=0
 local speed = 0
-local tgt_speed = 0
 local set_speed = 0
+local errsig = 0
+local tgt_speed = 0
+
 local iTerm = 0
 local pTerm = 0
 local dTerm = 0
-local errsig = 0
+
 local autoOn = false
 local autoOffTime = 0
 local offThrottle
@@ -129,54 +122,36 @@ local function readSensors()
 	 table.insert(sensorPalist, sensor.param)
       end
       
-      -- special case code for CTU Autothrottle sensors State, Preset and Airspeed plus CTU Throttle
+      -- special case code for CTU Autothrottle sensors: State, Preset Speed and Airspeed plus CTU Throttle
       -- search for the device name, label and parameter matching the desired device and
       -- put it into the table of sensors so that user does not have to select them
+      -- not filling in ATxxxSe since never need to use the sensor list in the menu
 
-      --if currentLabel == "Autothrottle" then
-      --   print("sensor.label: ", currentLabel .. "--> " .. sensor.label, "sensor.param: ", sensor.param)
-      --end
-      
       if currentLabel == "Autothrottle" and sensor.label == 'State' and sensor.param == 1 then
-	 ATStateLabel = currentLabel
-	 ATStateSe = #sensorLalist
 	 ATStateSeId = sensor.id
 	 ATStateSePa = sensor.param
       end
 
       if currentLabel == "Autothrottle" and sensor.label == 'Preset speed' and sensor.param == 2 then
-	 ATPresetLabel = currentLabel
-	 ATPresetSe = #sensorLalist
 	 ATPresetSeId = sensor.id
 	 ATPresetSePa = sensor.param
       end
       
       if currentLabel == "Autothrottle" and sensor.label == 'Airspeed' and sensor.param == 3 then
-	 ATAirspeedLabel = currentLabel
-	 ATAirspeedSe = #sensorLalist
 	 ATAirspeedSeId = sensor.id
 	 ATAirspeedSePa = sensor.param
       end      
 
       if currentLabel == "Autothrottle" and sensor.label == 'ATeng' and sensor.param == 4 then
-	 ATengLabel = currentLabel
-	 ATengSe = #sensorLalist
 	 ATengSeId = sensor.id
 	 ATengSePa = sensor.param
       end
       
       if currentLabel == "CTU" and sensor.label == 'Throttle' and sensor.param == 11 then
-	 CTUThrLabel = currentLabel
-	 CTUThrSe = #sensorLalist
 	 CTUThrSeId = sensor.id
 	 CTUThrSePa = sensor.param
       end      
    end
-   
-   --print("IDs: ", ATStateSeId, ATPresetSeId, ATAirspeedSeId, ATengSeId, CTUThrSeId)
-   --print("Pas: ", ATStateSePa, ATPresetSePa, ATAirspeedSePa, ATengSePa, CTUThrSePa)
-   --print("CTU Thr label: ", CTUThrLabel)
-   
 end
 
 ----------------------------------------------------------------------
@@ -337,7 +312,9 @@ local function DrawRectGaugeCenter(oxc, oyc, w, h, min, max, val, str)
    lcd.setColor(0, 0, 255)
    lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
    lcd.drawLine(oxc, oyc-h//2, oxc, oyc+h//2-1 )
-
+   -- for debugging:
+   lcd.drawText((oxc-w//2) - 10, (oyc-h//2) - 15, string.format("%d", math.floor(val)), FONT_MINI)
+   
    if val > 0 then
       d = math.max(math.min((val/max)*(w/2), w/2), 0)
          lcd.drawFilledRectangle(oxc, oyc-h/2, d, h)
@@ -363,7 +340,9 @@ local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str)
    
    lcd.setColor(0, 0, 255)
    lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
-
+   -- for debugging:
+   lcd.drawText((oxc-w//2) - 10, (oyc-h//2) - 15, string.format("%d", math.floor(val)), FONT_MINI)
+   
    d = math.max(math.min((val/(max-min))*w, w), 0)
    lcd.drawFilledRectangle(oxc-w//2, oyc-h/2, d, h)
    lcd.setColor(0,0,0)
@@ -489,9 +468,9 @@ local function wbTele()
     DrawThrottle(0,0)
     DrawSpeed(0,0)
     DrawCenterBox(0,0,0,0)
-    DrawRectGaugeCenter( 66, 140, 70, 16, -100, 100, pTerm, "Proportional")
+    DrawRectGaugeCenter( 66, 140, 70, 16, -255, 255, pTerm, "Proportional")
     DrawRectGaugeAbs(158, 140, 70, 16, 0, 100, iTerm, "Integral")
-    DrawRectGaugeCenter(252, 140, 70, 16, -100, 100, dTerm, "Derivative")
+    DrawRectGaugeCenter(252, 140, 70, 16, -20, 20, dTerm, "Derivative")
     DrawErrsig(0,0)
 end
 
@@ -584,8 +563,15 @@ local function loop()
 	 autoOffTime = system.getTimeCounter() -- note when it went off
 	 offThrottle = throttle                -- note it's last value (last time thru loop)
 	 playedBeep = false                    -- make sure we only beep once
+	 system.playFile('/Apps/DFM-CTUat/ATCancelled.wav', AUDIO_QUEUE)
+	 if DEBUG or true then print("AutoThrottle Cancelled") end
       end
-      
+
+      if autoOn == false and ATState == 2 then  -- it's just turning on
+	 system.playFile('/Apps/DFM-CTUat/ATEnabled.wav', AUDIO_QUEUE)
+	 if DEBUG or true then print("AutoThrottle Enabled") end
+      end
+
       autoOn = ATState > 1
    end
 
@@ -623,7 +609,7 @@ local function loop()
 	 set_stable = 51 -- only play the number once when stabilized
 	 if set_speed > VrefSpd / 1.3 then -- don't announce if setpoint below stall
 	    if DEBUG then print("Set speed stable at", set_speed) end
-	    system.playFile('/Apps/DFM-Auto/ATSetPointStable.wav', AUDIO_QUEUE)      	    
+	    system.playFile('/Apps/DFM-CTUat/ATSetPointStable.wav', AUDIO_QUEUE)      	    
 	    system.playNumber(math.floor(set_speed+0.5), 0, "mph")
 	 end
       end
@@ -639,7 +625,7 @@ local function loop()
    end
 
    if (sensor and sensor.valid) then
-      if nLoop == 0 then print("Raw AT speed: ", sensor.value) end
+      --if nLoop == 0 then print("Raw AT speed: ", sensor.value) end
       speed = convertSpeed(sensor)
       --print("ATAirspeed: ", sensor.value)
       --print("ATA unit: ", sensor.unit)
@@ -654,7 +640,6 @@ local function loop()
       end
    end
    
-
    -- get engineering parameters from the CTU (live PID loop values)
    -- unpack the bytes. deriv in byte 0, Integ in byte 1, propo in byte 2
    
@@ -665,24 +650,24 @@ local function loop()
    if (sensor and sensor.valid) then
       isen = math.floor(sensor.value)
       
-      dTerm = (isen & 0xFF)
+      dTerm = isen & 0xFF
       isen = isen >> 8
-      iTerm = (isen & 0xFF)
+      iTerm = isen & 0xFF
       isen = isen >> 8
-      pTerm = (isen & 0xFF)
+      pTerm = isen & 0xFF
 
-      if nLoop == 0 then
-	 print("p,i,d: ", pTerm, iTerm, dTerm)
-      end
+      --if nLoop == 0 then
+	 --print("p,i,d: ", pTerm, iTerm, dTerm)
+      --end
    end
    
    if CTUThrSeId and CTUThrSeId ~= 0 then
       sensor = system.getSensorByID(CTUThrSeId, CTUThrSePa)
    end
 
-   if sensor and sensor.valid then
-      if nLoop == 0 then print("Raw CTU Thr: ", sensor.value) end
-   end
+   --if sensor and sensor.valid then
+      --if nLoop == 0 then print("Raw CTU Thr: ", sensor.value) end
+   --end
    
    if sensor and sensor.valid and ATState and ATState > 0 then
       throttle = sensor.value
@@ -788,8 +773,8 @@ end
 -- TODO .. copy these two images into this app's own directory
 
 local function loadImages()
-    gauge_c = lcd.loadImage("Apps/digitech/images/Large/Blue/c-000.png")
-    gauge_s = lcd.loadImage("Apps/digitech/images/Compact/Blue/c-000.png")
+    gauge_c = lcd.loadImage("Apps/DFM-CTUat/c-000.png")
+    gauge_s = lcd.loadImage("Apps/DFM-CTUat/s-000.png")
     if not gauge_c or not gauge_s then print("Gauge png images(s) not loaded") end
 end
 --------------------------------------------------------------------------------
@@ -852,13 +837,13 @@ local function init()
    readSensors()
    loadImages()
 
-   system.playFile('/Apps/DFM-Auto/AT_Active.wav', AUDIO_QUEUE)
+   system.playFile('/Apps/DFM-CTUat/ATSpeedAnnCTUrunning.wav', AUDIO_QUEUE)
    
 end
 
 --------------------------------------------------------------------------------
 
-SpdAnnCTUVersion = "0.0"
+SpdAnnCTUVersion = "0.01"
 setLanguage()
 
 collectgarbage()
