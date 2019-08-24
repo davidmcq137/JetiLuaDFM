@@ -24,6 +24,9 @@ local maxSpd, VrefSpd, VrefCall
 local spdInter
 local selFt
 local selFtIndex
+local MAXSPEEDMPH = 200
+local MAXSPEEDKPH = 320
+local gaugeMaxSpeed
 local shortAnn, shortAnnIndex
 
 local ATStateSeId
@@ -73,6 +76,10 @@ local tgt_speed = 0
 local iTerm = 0
 local pTerm = 0
 local dTerm = 0
+
+local CTUpLogIdx
+local CTUiLogIdx
+local CTUdLogIdx
 
 local autoOn = false
 local autoOffTime = 0
@@ -170,8 +177,6 @@ end
 
 local function spdInterChanged(value)
    spdInter = value
-   if spdInter == 99 then DEBUG = true end
-   if spdInter == 98 then DEBUG = false end
    system.pSave("spdInter", spdInter)
 end
 
@@ -198,6 +203,7 @@ end
 local function selFtClicked(value)
    selFt = not value
    form.setValue(selFtIndex, selFt)
+   if selFt then gaugeMaxSpeed = MAXSPEEDMPH else gaugeMaxSpeed = MAXSPEEDKPH end
    system.pSave("selFt", tostring(selFt))
 end
 
@@ -239,7 +245,7 @@ local function initForm()
         
       form.addRow(2)
       form.addLabel({label="Speed Max Warning", width=220})
-      form.addIntbox(maxSpd, 0, 10000, 200, 0, 1, maxSpdChanged)
+      form.addIntbox(maxSpd, 0, 10000, 350, 0, 1, maxSpdChanged)
 
       form.addRow(2)
       form.addLabel({label="Airspeed Calibration Multiplier (%)", width=220})
@@ -366,7 +372,7 @@ local function DrawErrsig()
     drawShape(ox, oy, needle_poly_small_small, theta)
     lcd.drawFilledRectangle(ox-1, oy-32, 2, 8)
     lcd.setColor(0,0,0)
-    lcd.drawText(ox - lcd.getTextWidth(FONT_MINI, "Err") // 2, oy + 7, "Err", FONT_MINI)
+    lcd.drawText(ox - lcd.getTextWidth(FONT_MINI, "Err") // 2, oy + 0, "Err", FONT_MINI)
 
 end
 
@@ -412,13 +418,18 @@ local function DrawSpeed()
 
     local textSpeed = string.format("%d", math.floor(speed + 0.5))
 
-    lcd.drawText(ox + 50, oy + 100, "MPH", FONT_NORMAL)
+    if selFt then
+       lcd.drawText(ox + 50, oy + 100, "MPH", FONT_NORMAL)
+    else
+       lcd.drawText(ox + 50, oy + 100, "km/h", FONT_NORMAL)
+    end
+    
     if autoOn then lcd.setColor(255,0,0) end
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MAXI, textSpeed) / 2, oy + 40,
 		 textSpeed, FONT_MAXI)
 
-    local thetaThr = math.pi - math.rad(135 - 2 * 135 * speed / 200)
-    local thetaSet = math.pi - math.rad(135 - 2 * 135 * set_speed / 200)
+    local thetaThr = math.pi - math.rad(135 - 2 * 135 * speed / gaugeMaxSpeed)
+    local thetaSet = math.pi - math.rad(135 - 2 * 135 * set_speed / gaugeMaxSpeed)
 
     if gauge_c then lcd.drawImage(ox, oy, gauge_c) end
     lcd.setColor(0,255,0)
@@ -465,13 +476,13 @@ end
 --------------------------------------------------------------------------------
 
 local function wbTele()
-    DrawThrottle(0,0)
-    DrawSpeed(0,0)
+    DrawThrottle()
+    DrawSpeed()
     DrawCenterBox(0,0,0,0)
     DrawRectGaugeCenter( 66, 140, 70, 16, -255, 255, pTerm, "Proportional")
     DrawRectGaugeAbs(158, 140, 70, 16, 0, 100, iTerm, "Integral")
     DrawRectGaugeCenter(252, 140, 70, 16, -20, 20, dTerm, "Derivative")
-    DrawErrsig(0,0)
+    DrawErrsig()
 end
 
 --------------------------------------------------------------------------------
@@ -480,19 +491,14 @@ local function convertSpeed(sensor)
 
    local spd, sensorSpeed
 
-   sensorSpeed = sensor.value * airspeedCal/100.0
+   sensorSpeed = sensor.value * airspeedCal / 100.0
+
+   -- telemetry comes in with native units (m/s)
    
    if selFt then
-      if sensor.unit == "m/s" then
-	 spd = sensorSpeed * 2.23694 -- m/s to mph
-      end
-      if sensor.unit == "kmh" or sensor.unit == "km/h" then
-	 spd = sensorSpeed * 0.621371 -- km/hr to mph
-      end
+      spd = sensorSpeed * 2.23694 -- m/s to mph
    else
-      if sensor.unit == "m/s" then
-	 spd = sensorSpeed * 3.6 -- km/hr
-      end
+      spd = sensorSpeed * 3.6 -- m/s to km/hr
    end
    
    return spd
@@ -501,32 +507,30 @@ end
 
 --------------------------------------------------------------------------------
 
-
---[[
-
--- maybe bring this back later when we log pid terms?
-
 local function logCB(idx)
 
-   --print("logCB", idx)
-   --print(throttle, set_speed, errLogIdx)
-	 
-   if idx == thrLogIdx then
-      return 100 * math.floor(throttle), 2
-   elseif idx == setLogIdx then
-      return 100 * math.floor(set_speed), 2
-   elseif idx == errLogIdx then
-      return 100 * math.floor(errsig), 2
+   if idx == CTUpLogIdx then
+      return math.floor(pTerm), 0
+   elseif idx == CTUiLogIdx then
+      return math.floor(iTerm), 0
+   elseif idx == CTUdLogIdx then
+      return math.floor(dTerm), 0
    else
-      print("bad idx in logCB",  idx)
       return 0, 0
    end
 
 end
 
---]]
---------------------------------------------------------
+--------------------------------------------------------------------------------
 
+-- persistent vars to keep ring buffer of last MAXRING throttle settings
+-- for 20 msec loop time, 10 entries spans a 200msec telem update interval
+-- need to "look back" at throttle setting in case throttle telem value set to
+-- zero before it can be noted by the lua program
+
+local thrRingBuf = {}
+local thrSeq = 0
+local MAXRING = 20
 
 local function loop()
 
@@ -535,7 +539,7 @@ local function loop()
    local round_spd
    local swi, swc
    local isen
-   local thrStick
+   local thrStick, thrIdx
    
    -- gather some stats on loop times so we can normalize integrator performance
    
@@ -548,7 +552,7 @@ local function loop()
       nLoop = 0
       --print("Loops per second:", loopsPerSecond)
    end
-   
+
    thrStick = 50 * (system.getInputs("P4") + 1) -- 0 to 100% of stick movement .. ignores trim
    
    -- first get AT state from CTU. 0 is off, 1 is armed, waiting to turn on, 2 is on
@@ -561,7 +565,8 @@ local function loop()
       ATState = sensor.value
       if autoOn == true and ATState < 2 then   -- it's just turning off
 	 autoOffTime = system.getTimeCounter() -- note when it went off
-	 offThrottle = throttle                -- note it's last value (last time thru loop)
+	 --offThrottle = throttle                -- note it's last value (last time thru loop)
+	 offThrottle = thrRingBuf[(thrSeq + 1) % MAXRING + 1] or 0 -- oldest value or 0 if buf not full
 	 playedBeep = false                    -- make sure we only beep once
 	 system.playFile('/Apps/DFM-CTUat/ATCancelled.wav', AUDIO_QUEUE)
 	 if DEBUG or true then print("AutoThrottle Cancelled") end
@@ -584,14 +589,14 @@ local function loop()
    end
 
    if (sensor and sensor.valid) then
-      if nLoop == 0 then print("Raw AT Preset: ", sensor.value) end
+      --if nLoop == 0 then print("Raw AT Preset: ", sensor.value) end
       set_speed = convertSpeed(sensor)
       --print("ATPreset: ", sensor.value)
       --print("ATP units: ", sensor.unit)
       --print("ATPreset Converted: ", set_speed)
    else
       if DEBUG then
-	 set_speed = 100 * (1 + system.getInputs("P5"))
+	 set_speed = gaugeMaxSpeed/2 * (1 + system.getInputs("P5"))
       end
    end
 
@@ -610,9 +615,11 @@ local function loop()
 	 if set_speed > VrefSpd / 1.3 then -- don't announce if setpoint below stall
 	    if DEBUG then print("Set speed stable at", set_speed) end
 	    system.playFile('/Apps/DFM-CTUat/ATSetPointStable.wav', AUDIO_QUEUE)      	    
-	    system.playNumber(math.floor(set_speed+0.5), 0, "mph")
+	    if selFt then uuu = "mph" else uuu = "km/h" end
+	    system.playNumber(math.floor(set_speed+0.5), 0, uuu)
 	 end
       end
+      if set_stable == 51 and math.abs(set_speed - last_set) > 0 then set_stable = 1 end
    end
 
    last_set = set_speed
@@ -632,7 +639,7 @@ local function loop()
       --print("Converted ATA: ", speed)
    else
       if DEBUG then
-	 tgt_speed = (throttle/100)^2 * 200 -- simulate plane's response
+	 tgt_speed = (throttle/100)^2 * gaugeMaxSpeed -- simulate plane's response
 	 -- give the plane and engine response a time lag
 	 speed = speed + (baseLineLPS / loopsPerSecond) * (tgt_speed - speed) / 125  
       else
@@ -675,6 +682,14 @@ local function loop()
       throttle = thrStick
    end
 
+   --if thrSeq < 100 then
+      --print("seq, thr, ot would be: ", thrSeq, throttle, thrRingBuf[(thrSeq + 1) % MAXRING + 1] or 0)
+   --end
+   
+   thrSeq = thrSeq + 1
+   thrIdx = thrSeq % MAXRING + 1 -- 1 ..MAXRING
+   thrRingBuf[thrIdx] = throttle
+   
 
    errsig = speed - set_speed
    
@@ -748,7 +763,7 @@ local function loop()
 	 lastAnnTC = sgTC -- note the time of this announcement
 	 
 	 sss = string.format("%.0f", round_spd)
-	 if (selFt) then uuu = "mph" else uuu = "km/hr" end
+	 if (selFt) then uuu = "mph" else uuu = "km/h" end
 	 
 	 if (shortAnn or not aboveVref or (swc and swc == 1) ) then
 	    system.playNumber(round_spd, 0)
@@ -770,8 +785,6 @@ end
 --------------------------------------------------------------------------------
 -- Load images arrays
 
--- TODO .. copy these two images into this app's own directory
-
 local function loadImages()
     gauge_c = lcd.loadImage("Apps/DFM-CTUat/c-000.png")
     gauge_s = lcd.loadImage("Apps/DFM-CTUat/s-000.png")
@@ -781,7 +794,7 @@ end
 
 local function calAirspeed()
    local u
-   if (selFt) then u = "mph" else u = "km/hr" end -- metric does not really work yet...
+   if (selFt) then u = "mph" else u = "kph" end -- metric does not really work yet...
    lcd.drawText(5, 5, math.floor(calSpd+0.5) .. " " .. u)
 end
 
@@ -800,6 +813,7 @@ local function init()
    shortAnn = system.pLoad("shortAnn", "false")
 
    selFt = (selFt == "true") -- can't pSave and pLoad booleans...store as text 
+   if selFt then gaugeMaxSpeed = MAXSPEEDMPH else gaugeMaxSpeed = MAXSPEEDKPH end
    shortAnn = (shortAnn == "true") -- convert back to boolean here
  
    system.registerForm(1, MENU_APPS, "Speed Announcer and AutoThrottle", initForm)
@@ -807,12 +821,11 @@ local function init()
    system.registerTelemetry(1, "Speed Announcer / CTU AutoThrottle Display", 4, wbTele)
    system.registerTelemetry(2, "Calibrated Airspeed", 1, calAirspeed)
 
-   --deleted these global variables...
-   --thrLogIdx = system.registerLogVariable("Throttle",  "%", logCB)
-   --setLogIdx = system.registerLogVariable("Set Speed", "%", logCB)
-   --errLogIdx = system.registerLogVariable("Error Sig", "%", logCB)   
+   CTUpLogIdx = system.registerLogVariable("CTUpropo", "%", logCB)
+   CTUiLogIdx = system.registerLogVariable("CTUinteg", "%", logCB)
+   CTUdLogIdx = system.registerLogVariable("CTUderiv", "%", logCB)   
 
-   --print("thr,set,err LogIdx:", thrLogIdx, setLogIdx, errLogIdx)
+   print("p,i,d LogIdx:", CTUpLogIdx, CTUiLogIdx, CTUdLogIdx)
    
    -- set default for pitotCal in case no "DFM-model.jsn" file
 
@@ -825,14 +838,7 @@ local function init()
    end
 
    dev, em = system.getDeviceType()
-
-   print("Device: ", dev)
-   if em == 1 then
-      print("DEBUG ON")
-      DEBUG = true
-   else
-      print("DEBUG OFF")
-   end
+   DEBUG = em == 1
 
    readSensors()
    loadImages()
