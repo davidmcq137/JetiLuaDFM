@@ -232,11 +232,9 @@ local function CRUTele(w)
 	 lcd.drawCircle(76-15, 52+6, 6)
 	 lcd.drawCircle(76+15, 52+6, 6)
       end
-      
-      
    end
 
-   if emFlag == 1 then gs = 1 end
+   if emFlag == 1 then gs = 1 end -- for testing
    
    if (gs == 1 and lastgs ~= 1)  or (gs == 3 and lastgs ~= 3) then -- just started to move down/up
       for _,v in pairs(mtable) do -- reset max and avg, clear moved flag
@@ -245,6 +243,11 @@ local function CRUTele(w)
 	 CRU_Telem[v].sum = 0
 	 CRU_Telem[v].avg = 0
 	 CRU_Telem[v].moved = false
+      end
+      if gs == 1 then
+	 for _,v in pairs(btable) do -- reset max on brakes when gear starting down
+	    CRU_Telem[v].max = 0
+	 end
       end
    end
 
@@ -284,7 +287,6 @@ local function CRUTele(w)
 		  CRU_Telem[v].avg = 0
 	       end
 	    end
-	    
 	    if w > 160 then
 	       for _,vv in pairs(lightPosFull) do
 		  lcd.drawImage(vv.x, vv.y, icol)
