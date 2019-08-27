@@ -4,6 +4,12 @@
 
    CRU Telemetry Window
 
+   Displays brake and retract motor current and indicates gear state
+   for Carsten Groen's CRU device
+
+   Implements two telemetry windows (large and fullscreen), no menus
+   or settable items
+
    Requires transmitter firmware 4.22 or higher.
     
 ----------------------------------------------------------------------------
@@ -12,20 +18,11 @@
 
 --]]
 
-local emFlag
-
-local sensorLalist = { "..." }
-local sensorIdlist = { "..." }
-local sensorPalist = { "..." }
-local currentLabel
-
-local red_circle={}
-local green_circle={}
-local blue_circle={}
-
-local small_red_circle={}
-local small_green_circle={}
-local small_blue_circle={}
+local appShort   = "DFM-CRU"
+local appName    = "CRU Telemetry"
+local appAuthor  = "DFM"
+local appVersion = "0.01"
+local transFile  = "Apps/DFM-CRU/Trans.jsn"
 
 -- scale of motor and brake bargraphs .. 0 to maxXXXCurr (presumed to be in ma) - adj as preferred
 -- leave minMotCurr alone
@@ -33,38 +30,50 @@ local small_blue_circle={}
 local maxMotCurr = 1000
 local maxBrkCurr = 1000
 
+----------------------------------------------------------------------------
+
 local minMotCurr = 1
 
+local pngFileNames = {large={red="red_circle",green="green_circle",blue="blue_circle"},
+		      small={red="small_red_circle", green="small_green_circle", blue="small_blue_circle"}
+		     }
+local pngFiles = {}
+pngFiles.large={}
+pngFiles.small={}
+
+local emFlag
 local lastgs = 0
 
 local mtable={"M1","M2","M3"}
 local btable={"B1","B2","B3"}
 
-local lightPosFull ={M1={x=114,y=121}, M2={x=144,y=83}, M3={x=174,y=121}}
-local lightPosLarge={M1={x=69, y=31},  M2={x=54, y=51}, M3={x=84, y=51}}
+local lightPosFull ={M1={x=114,y=121},M2={x=144,y=83},M3={x=174,y=121}}
+local lightPosLarge={M1={x=69, y=31}, M2={x=54, y=51},M3={x=84, y=51}}
 
 local MBartbl
 local BBartbl
 
-local MBartbl4={M1={x=66, y=140,w=70,h=16,color='blue'},
-		M2={x=158,y=50, w=70,h=16,color='blue'},
-		M3={x=252,y=140,w=70,h=16,color='blue'}
+local MBartbl4={M1={x=66, y=140,w=70,h=16,type='M'},
+		M2={x=158,y=50, w=70,h=16,type='M'},
+		M3={x=252,y=140,w=70,h=16,type='M'}
 	       }
 
-local MBartbl2={M1={x=30, y=60,w=35,h=8,color='blue'},
-		M2={x=76,y=25, w=35,h=8,color='blue'},
-		M3={x=123,y=60,w=35,h=8,color='blue'}
+local MBartbl2={M1={x=30, y=60,w=35,h=8,type='M'},
+		M2={x=76, y=25,w=35,h=8,type='M'},
+		M3={x=123,y=60,w=35,h=8,type='M'}
 	       }
 
-local BBartbl4={B1={x=66, y=110,w=70,h=16,color='red'},
-		B2={x=158,y=20, w=70,h=16,color='red'},
-		B3={x=252,y=110,w=70,h=16,color='red'}
+local BBartbl4={B1={x=66, y=110,w=70,h=16,type='B'},
+		B2={x=158,y=20, w=70,h=16,type='B'},
+		B3={x=252,y=110,w=70,h=16,type='B'}
 	       }
 
-local BBartbl2={B1={x=30, y=50,w=35,h=8,color='red'},
-		B2={x=76,y=15, w=35,h=8,color='red'},
-		B3={x=123,y=50,w=35,h=8,color='red'}
+local BBartbl2={B1={x=30, y=50,w=35,h=8,type='B'},
+		B2={x=76, y=15,w=35,h=8,type='B'},
+		B3={x=123,y=50,w=35,h=8,type='B'}
 	       }
+
+local CRU_DeviceID = 16819268
 
 local CRU_Telem = {
    ["Batt"]=        {index=1,SeId=0,SePa=0,value=0,max=0,avg=0,sum=0,nsample=0,moved=false},
@@ -80,51 +89,91 @@ local CRU_Telem = {
 		    
 --------------------------------------------------------------------------------
 
+local function setLanguage()
+   local obj
+   local lng=system.getLocale()
+   local file = io.readall(transFile)
+   if file then
+      obj = json.decode(file)
+   end
+   if obj then
+      trans11 = obj[lng] or obj.default
+   end
+   if not trans11 then
+      system.messageBox(appShort..": missing "..transFile)
+   end
+end
+
+--------------------------------------------------------------------------------
+
+-- function to show all global variables
+
+--[[
+local seen={}
+
+local function dump(t,i)
+   seen[t]=true
+   local s={}
+   local n=0
+   for k in pairs(t) do
+      n=n+1 s[n]=k
+   end
+   table.sort(s)
+   for _,v in ipairs(s) do
+      print(i,v)
+      v=t[v]
+      if type(v)=="table" and not seen[v] then
+	 dump(v,i.."\t")
+      end
+   end
+end
+--]]
+
+--------------------------------------------------------------------------------
+
 local function readSensors()
    local sensors = system.getSensors()
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
-	 if sensor.param == 0 then -- it's a label
-	    currentLabel = sensor.label
-	    table.insert(sensorLalist, '--> '..sensor.label)
-	    table.insert(sensorIdlist, 0)
-	    table.insert(sensorPalist, 0)
-	 end
-	 table.insert(sensorLalist, sensor.label)
-	 table.insert(sensorIdlist, sensor.id)
-	 table.insert(sensorPalist, sensor.param)
-      end
-      -- special case code for CRU Sensors defined in CRU_Telem{}
-      -- search for the device name, label and parameter matching the desired device and
-      -- put it into the table of sensors so that user does not have to select them
-      for k,v in pairs(CRU_Telem) do
-	 if currentLabel == "CRU" and sensor.label == k and sensor.param == v.index then
-	    v.SeId = sensor.id
-	    v.SePa = sensor.param
+	 if sensor.id == CRU_DeviceID and sensor.param ~= 0 then
+	    CRU_Telem[sensor.label].SeId = sensor.id
+	    CRU_Telem[sensor.label].SePa = sensor.param
 	 end
       end
    end
 end
 
+--------------------------------------------------------------------------------
 
---------------------------------------------------------
+local function drawHeavyRectangle(x,y,w,h,lw)
+   --draw filled rectangles to form the overall rectangle: bot, right, top, left
+   lcd.drawFilledRectangle(x,y,w,lw)
+   lcd.drawFilledRectangle(x+w-lw,y,lw,h)
+   lcd.drawFilledRectangle(x,y+h-lw,w,lw)
+   lcd.drawFilledRectangle(x,y,lw,h)
+end
 
-local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, color, maxval, avgval, winw)
 
+--------------------------------------------------------------------------------
+
+local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, type, maxval, avgval, winw)
+
+   -- draws bar gauge for positive readings, from min to max
+   
    local d
-   local ct = {red={r=255,g=0,b=0}, green={r=0,g=255,b=0}, blue={r=0,g=0,b=255}}
+   local x1
 
-   if not ct[color] then
-      lcd.setColor(0, 0, 0)
-   else
-      lcd.setColor(ct[color].r, ct[color].g,ct[color].b)
+   if type == "M" then -- draw motor bargraphs in fg color
+      lcd.setColor(lcd.getFgColor())
+   else 
+      lcd.setColor(0,0,0) -- draw brake bargraphs black (or should it be complem. color?)
    end
    
    -- first draw outline of entire bar graph
-   
-   lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
 
-   if winw > 160 then -- only put numbers on full screen graph
+   drawHeavyRectangle(oxc-w//2, oyc-h//2, w, h, winw > 160 and 2 or 1)
+
+   if winw > 160 then   -- only put numbers on full screen graph
       if oxc < 160 then -- place numbers on "outside" of bar graph
 	 x1 = (oxc-w//2) - 30
       else
@@ -146,6 +195,9 @@ local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, color, maxva
       lcd.drawFilledRectangle(oxc-w//2 + d - 1, oyc-h/2, 2, h)
    end
 
+   -- then a 2-pixel vertical line to note avg value
+   -- but only if avgval > 0
+
    if avgval > 0 then
       lcd.setColor(164,147,147) -- nice gray
       d = math.max(math.min((avgval/(max-min))*w, w), 0)
@@ -162,7 +214,23 @@ local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, color, maxva
    
 end
 
---------------------------------------------------------
+--------------------------------------------------------------------------------
+
+local function drawImage(x,y,img,w)
+   local x0, y0, r0
+   if w > 160 then
+      x0,y0,r0=14,14,12
+   else
+      x0,y0,r0=7,7,6
+   end
+   if img then
+      lcd.drawImage(x,y,img)
+   else
+      lcd.drawCircle(x+x0, y+y0, r0)
+   end
+end
+
+--------------------------------------------------------------------------------
 
 local function CRUTele(w)
 
@@ -171,7 +239,7 @@ local function CRUTele(w)
    if w > 160 then -- fullscreen telemetry window
       MBartbl = MBartbl4
       BBartbl = BBartbl4
-   else            -- large telemetry window
+   else            -- large (2-box) telemetry window
       MBartbl = MBartbl2
       BBartbl = BBartbl2
    end
@@ -190,9 +258,7 @@ local function CRUTele(w)
 	 else
 	    v.value = 500 * (system.getInputs("P5") + 1)
 	 end
-	 
       end
-	 
    end
 
    gs = math.floor(CRU_Telem["Gear State"].value)
@@ -205,35 +271,35 @@ local function CRUTele(w)
       end
    end
    
-   -- draw misc telem values
+   -- draw misc telem values as text
 
-   if w > 160 then
-      lcd.drawText(220, 10, string.format("Batt: %2.2f", CRU_Telem.Batt.value), FONT_MINI)
-      lcd.drawText(220, 30, string.format("Gear State: %d", gs), FONT_MINI)
-      lcd.drawText(220, 50, string.format("Doors: %d", math.floor(CRU_Telem.Doors.value)), FONT_MINI)
+   if w > 160 and trans11 then
+      lcd.drawText(220, 10, string.format(trans11.Battery..": %2.2f", CRU_Telem.Batt.value), FONT_MINI)
+      lcd.drawText(220, 30, string.format(trans11.State..": %d", gs), FONT_MINI)
+      lcd.drawText(220, 50, string.format(trans11.Doors..": %d",
+					  math.floor(CRU_Telem.Doors.value)),FONT_MINI)
+      if emFlag == 1 then lcd.drawText(220,70, string.format("CPU%%: %d", system.getCPU()), FONT_MINI) end
+   elseif trans11 then
+      lcd.drawText(2, 5,  string.format(trans11.BatteryL..": %2.1f", CRU_Telem.Batt.value), FONT_MINI)
+      lcd.drawText(2, 15, string.format(trans11.StateL..": %d", gs), FONT_MINI)
+      lcd.drawText(2, 25, string.format(trans11.DoorsL..": %d",
+					math.floor(CRU_Telem.Doors.value)), FONT_MINI)
    else
-      lcd.drawText(2, 5,  string.format("Bat: %2.1f", CRU_Telem.Batt.value), FONT_MINI)
-      lcd.drawText(2, 15, string.format("State: %d", gs), FONT_MINI)
-      lcd.drawText(2, 25, string.format("Doors: %d", math.floor(CRU_Telem.Doors.value)), FONT_MINI)
+      lcd.drawText(2, 5,  string.format("No "..": %2.1f", CRU_Telem.Batt.value), FONT_MINI)
+      lcd.drawText(2, 15, string.format("Trans.jsn "..": %2.1f", CRU_Telem.Batt.value), FONT_MINI)
+      lcd.drawText(2, 25, string.format("file "..": %2.1f", CRU_Telem.Batt.value), FONT_MINI)      
    end
-   
 
    -- compute state of the three lights
    -- assume gs = 1 is moving down, gs = 2 is down, gs = 3 is moving up, gs = 4 is up
    -- up is blue, down is green, moving is red
 
-   if gs == 0 then -- no signal / unknown
-      if w > 160 then
-	 lcd.drawCircle(160-2,80+17, 12)
-	 lcd.drawCircle(160-30-2, 120+16, 12)
-	 lcd.drawCircle(160+30-2, 120+16, 12)
-      else
-	 lcd.drawCircle(76,32+6, 6)
-	 lcd.drawCircle(76-15, 52+6, 6)
-	 lcd.drawCircle(76+15, 52+6, 6)
+   if gs == 0 then -- no signal / unknown draw open black circles to indicate no gs
+      for _,v in pairs(w > 160 and lightPosFull or lightPosLarge) do
+	 drawImage(v.x, v.y, nil, w)
       end
    end
-
+      
    if emFlag == 1 then gs = 1 end -- for testing
    
    if (gs == 1 and lastgs ~= 1)  or (gs == 3 and lastgs ~= 3) then -- just started to move down/up
@@ -254,17 +320,11 @@ local function CRUTele(w)
    -- preset correct light color for end of travel
    
    if gs == 1 or gs == 2 then
-      if w > 160 then
-	 icol = green_circle
-      else
-	 s_icol = small_green_circle
-      end
+      icol = w > 160 and pngFiles.large.green or pngFiles.small.green
    elseif gs == 3 or gs == 4 then
-      if w > 160 then
-	 icol = blue_circle
-      else
-	 s_icol = small_blue_circle
-      end
+      icol = w > 160 and pngFiles.large.blue or pngFiles.small.blue
+   else
+      icol = nil
    end
    
    -- take actions based on gear state
@@ -287,24 +347,12 @@ local function CRUTele(w)
 		  CRU_Telem[v].avg = 0
 	       end
 	    end
-	    if w > 160 then
-	       for _,vv in pairs(lightPosFull) do
-		  lcd.drawImage(vv.x, vv.y, icol)
-	       end
-	    else
-	       for _,vv in pairs(lightPosLarge) do
-		  lcd.drawImage(vv.x, vv.y, s_icol)
-	       end
+	    for _,vv in pairs(w > 160 and lightPosFull or lightPosLarge) do
+	       drawImage(vv.x, vv.y, icol, w)
 	    end
 	 else
-	    if w > 160 then
-	       for _,vv in pairs(lightPosFull) do
-		  lcd.drawImage(vv.x, vv.y, red_circle)
-	       end
-	    else
-	       for _,vv in pairs(lightPosLarge) do
-		  lcd.drawImage(vv.x, vv.y, small_red_circle)
-	       end
+	    for _,vv in pairs(w > 160 and lightPosFull or lightPosLarge) do
+	       drawImage(vv.x, vv.y, w > 160 and pngFiles.large.red or pngFiles.small.red, w)
 	    end
 	 end
       end
@@ -318,28 +366,22 @@ local function CRUTele(w)
 	    CRU_Telem[v].avg = 0
 	 end
       end
-      if w > 160 then
-	 for _,v in pairs(lightPosFull) do
-	    lcd.drawImage(v.x, v.y, icol)
-	 end
-      else
-	 for _,v in pairs(lightPosLarge) do
-	    lcd.drawImage(v.x, v.y, s_icol)
-	 end
+      for _,v in pairs(w > 160 and lightPosFull or lightPosLarge) do
+	 drawImage(v.x, v.y, icol, w)
       end
    end
 
    lastgs = gs
    
-   -- draw bar graphs for each M and B with current value max and avg if applicable
+   -- draw bar graphs for each M and B with current(mA) max and avg if applicable
    
    for k,v in pairs(MBartbl) do
-      DrawRectGaugeAbs(v.x, v.y, v.w, v.h, 0,maxMotCurr, CRU_Telem[k].value, k, v.color,
+      DrawRectGaugeAbs(v.x, v.y, v.w, v.h, 0,maxMotCurr, CRU_Telem[k].value, k, v.type,
 		       CRU_Telem[k].max, CRU_Telem[k].avg, w)
    end
 
    for k,v in pairs(BBartbl) do
-      DrawRectGaugeAbs(v.x, v.y, v.w, v.h, 0, maxBrkCurr, CRU_Telem[k].value, k, v.color,
+      DrawRectGaugeAbs(v.x, v.y, v.w, v.h, 0, maxBrkCurr, CRU_Telem[k].value, k, v.type,
 		       CRU_Telem[k].max, 0, w)
    end   
 
@@ -348,28 +390,29 @@ end
 --------------------------------------------------------------------------------
 
 local function loop()
-
 end
 
 --------------------------------------------------------------------------------
 
 local function loadImages()
+   local missing = false
+   local ll
+   local fn
    
-    red_circle   = lcd.loadImage("Apps/DFM-CRU/red_circle.png")
-    green_circle = lcd.loadImage("Apps/DFM-CRU/green_circle.png")
-    blue_circle  = lcd.loadImage("Apps/DFM-CRU/blue_circle.png")
+   for k,v in pairs(pngFileNames) do
+      for kk,_ in pairs(v) do
+	 fn = "Apps/DFM-CRU/"..v[kk]..".png"
+	 ll = lcd.loadImage(fn)
+	 if not ll then missing = fn end
+	 pngFiles[k][kk] = ll
+      end
+   end
 
-    small_red_circle   = lcd.loadImage("Apps/DFM-CRU/small_red_circle.png")
-    small_green_circle = lcd.loadImage("Apps/DFM-CRU/small_green_circle.png")
-    small_blue_circle  = lcd.loadImage("Apps/DFM-CRU/small_blue_circle.png")
-    
-    if not red_circle or not green_circle or not blue_circle then
-       print("Filled circle images(s) not loaded")
-    end
-
-    if not small_red_circle or not small_green_circle or not small_blue_circle then
-       print("Small filled circle images(s) not loaded")
-    end    
+   if missing then
+      print("Missing: ", missing)
+      system.messageBox(appShort..": Missing png file(s)")
+   end
+   
 end
 
 --------------------------------------------------------------------------------
@@ -380,21 +423,22 @@ local function init()
    
    system.registerTelemetry(1, "CRU Telemetry FS", 4, CRUTele)
    system.registerTelemetry(2, "CRU Telemetry", 2, CRUTele)
-   
+
    readSensors()
    loadImages()
-
+   setLanguage()
+   
    dev, emFlag = system.getDeviceType()
-   print("Device Type: ", dev)
+
+   --uncomment next line to check dump of global variables
+   --if emFlag == 1 then dump(_G, "") end -- dump globals
    
 end
 
 --------------------------------------------------------------------------------
 
-CRUVersion = "0.01"
-
 collectgarbage()
 
-return {init=init, loop=loop, author="DFM", version=CRUVersion,
-	name="CRU Telemetry"}
+return {init=init, loop=loop, author=appAuthor, version=appVersion,
+	name=appName}
  

@@ -1,0 +1,19 @@
+{
+  "default":"en",
+  "en":{
+    "Battery":"Batt",
+    "BatteryL":"Bat",
+    "State":"Gear State",
+    "StateL":"State",
+    "Doors":"Doors",
+    "DoorsL":"Doors"    
+  },
+  "de":{
+    "Battery":"DEBatt",
+    "BatteryL":"DEBat",
+    "State":"DEGear State",
+    "StateL":"DEState",
+    "Doors":"DEDoors",
+    "DoorsL":"DEDoors"    
+  }
+}

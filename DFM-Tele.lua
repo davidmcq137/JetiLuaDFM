@@ -31,7 +31,7 @@ local altitude = 0
 local speed = 0
 local SpeedGPS
 local SpeedNonGPS = 0
-local vario=0
+
 -- local DistanceGPS
 
 local serialFile
@@ -50,17 +50,37 @@ telem.Altitude={}
 telem.Altitude.Format="%4.2f"
 telem.Altitude.updateTime = 200
 
+telem.BaroAlt={}
+telem.BaroAlt.Format="%4.2f"
+telem.BaroAlt.updateTime = 200
+
 telem.Speed={}
 telem.Speed.Format="%4.2f"
 telem.Speed.updateTime = 200
+
+telem.SpeedGPS={}
+telem.SpeedGPS.Format="%4.2f"
+telem.SpeedGPS.updateTime = 200
+
+telem.SpeedNonGPS={}
+telem.SpeedNonGPS.Format="%4.2f"
+telem.SpeedNonGPS.updateTime = 200
 
 telem.Distance={}
 telem.Distance.Format="%4.2f"
 telem.Distance.updateTime = 200
 
+telem.DistanceGPS={}
+telem.DistanceGPS.Format="%4.2f"
+telem.DistanceGPS.updateTime = 200
+
 telem.Heading={}
 telem.Heading.Format="%4.2f"
 telem.Heading.updateTime = 200
+
+telem.CourseGPS={}
+telem.CourseGPS.Format="%4.2f"
+telem.CourseGPS.updateTime = 200
 
 local modelProps={}
 
@@ -82,8 +102,6 @@ local GPSsensorPalist = { "..." }
 local sysTimeStart = system.getTimeCounter()
 
 local DEBUG = false -- if set to <true> will generate flightpath automatically for demo purposes
-local debugTime = 0
-local debugNext = 0
 
 --dumps a table in human-readable format (sort of)
 --kills the script sometimes for a really big table!
@@ -126,7 +144,7 @@ local function readSensors()
 
    print("In readSensors()")
    
-   for k,v in pairs(telem) do
+   for k,_ in pairs(telem) do
       telem[k].nextRead = 0
       telem[k].currentVal = 0.0
       telem[k].lastVal = 0.0
@@ -137,6 +155,9 @@ local function readSensors()
    local dumped = dumpt(sensors)
 
    fr = io.open("sensord.tbl", "w")
+
+   print("fr:", fr)
+   
    if fr then
       io.write(fr, dumped)
       io.close(fr)
@@ -144,14 +165,7 @@ local function readSensors()
       print("readSensors: Could not open write file for dump")
    end
    
-   
-   print("getSensors done, printing dumpt")
-   print("#sensors=", #sensors)
-   
-   print(dumpt(sensors)) -- see file JETISensorDump.out for example
-   print("dumpt done")
-   
-   for i, sensor in ipairs(sensors) do
+   for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 
 	 --[[
@@ -237,7 +251,6 @@ local function readSensors()
 	       satQualityID = sensor.id
 	       satQualityPa = sensor.param
 	    end	    
-	    
 	 end
       end
    end
@@ -334,8 +347,6 @@ end
 
 local lastlat = 0
 local lastlong = 0
-local gotInitPos = false
-local compcrs
 local compcrsDeg = 0
 local numGPSreads = 0
 local newPosTime = 0
@@ -349,34 +360,36 @@ local function loop()
    local goodlat, goodlong 
    local newpos
    local deltaPosTime = 100 -- min sample interval in ms
-   local latS, lonS, altS, spdS, hdgS
 
    goodlat = false
    goodlong = false
 
-   sensor = system.getSensorByID(telem.Longitude.SeId, telem.Longitude.SePa)
-
-   if(sensor and sensor.valid) then
-      minutes = (sensor.valGPS & 0xFFFF) * 0.001
-      degs = (sensor.valGPS >> 16) & 0xFF
-      longitude = degs + minutes/60
-      if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
-	 longitude = longitude * -1
+   if telem.Longitude.SeId ~= 0 then
+      sensor = system.getSensorByID(telem.Longitude.SeId, telem.Longitude.SePa)
+      if(sensor and sensor.valid) then
+	 minutes = (sensor.valGPS & 0xFFFF) * 0.001
+	 degs = (sensor.valGPS >> 16) & 0xFF
+	 longitude = degs + minutes/60
+	 if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in dec. places as 0,1,2,3)
+	    longitude = longitude * -1
+	 end
+	 goodlong = true
       end
-      goodlong = true
    end
    
-   sensor = system.getSensorByID(telem.Latitude.SeId, telem.Latitude.SePa)
-
-   if(sensor and sensor.valid) then
-      minutes = (sensor.valGPS & 0xFFFF) * 0.001
-      degs = (sensor.valGPS >> 16) & 0xFF
-      latitude = degs + minutes/60
-      if sensor.decimals == 2 then -- "South" .. make it negative
-	 latitude = latitude * -1
+   
+   if telem.Latitude.SeId ~= 0 then
+      sensor = system.getSensorByID(telem.Latitude.SeId, telem.Latitude.SePa)
+      if(sensor and sensor.valid) then
+	 minutes = (sensor.valGPS & 0xFFFF) * 0.001
+	 degs = (sensor.valGPS >> 16) & 0xFF
+	 latitude = degs + minutes/60
+	 if sensor.decimals == 2 then -- "South" .. make it negative
+	    latitude = latitude * -1
+	 end
+	 goodlat = true
+	 numGPSreads = numGPSreads + 1
       end
-      goodlat = true
-      numGPSreads = numGPSreads + 1
    end
 
    -- throw away first 10 GPS readings to let unit settle
@@ -397,61 +410,69 @@ local function loop()
       return
    end 
 
-   sensor = system.getSensorByID(telem.Altitude.SeId, telem.Altitude.SePa)
-
-   if(sensor and sensor.valid) then
-      GPSAlt = sensor.value*3.28084 -- convert to ft, telem apis only report native values
-   end
- 
-   sensor = system.getSensorByID(telem.SpeedNonGPS.SeId, telem.SpeedNonGPS.SePa)
-   
-   hasPitot = false
-   if(sensor and sensor.valid) then
-      if sensor.unit == "kmh" or sensor.unit == "km/h" then
-	 SpeedNonGPS = sensor.value * 0.621371 * modelProps.pitotCal/100. -- unit conversion to mph
-      end
-      if sensor.unit == "m/s" then
-	 SpeedNonGPS = sensor.value * 2.23694 * modelProps.pitotCal
-      end
-      
-      hasPitot = true
-   end
-   
-   sensor = system.getSensorByID(telem.BaroAlt.SeId, telem.BaroAlt.SePa)
-   
-   if(sensor and sensor.valid) then
-      baroAlt = sensor.value * 3.28084 -- unit conversion m to ft
-   end
-   
-   
-   sensor = system.getSensorByID(telem.SpeedGPS.SeId, telem.SpeedGPS.SePa)
-   
-   if(sensor and sensor.valid) then
-      if sensor.unit == "kmh" or sensor.unit == "km/h" then
-	 SpeedGPS = sensor.value * 0.621371 -- unit conversion to mph
-      end
-      if sensor.unit == "m/s" then
-	 SpeedGPS = sensor.value * 2.23694
+   if telem.Altitude.SeId ~= 0 then
+      sensor = system.getSensorByID(telem.Altitude.SeId, telem.Altitude.SePa)
+      if(sensor and sensor.valid) then
+	 GPSAlt = sensor.value*3.28084 -- convert to ft, telem apis only report native values
       end
    end
 
-   hasCourseGPS = false
-   sensor = system.getSensorByID(telem.CourseGPS.SeId, telem.CourseGPS.SeId)
-   if sensor and sensor.valid then
-      courseGPS = sensor.value
-      hasCourseGPS = true
+   if telem.SpeedNonGPS.SeId ~= 0 then
+      sensor = system.getSensorByID(telem.SpeedNonGPS.SeId, telem.SpeedNonGPS.SePa)
+      hasPitot = false
+      if(sensor and sensor.valid) then
+	 if sensor.unit == "kmh" or sensor.unit == "km/h" then
+	    SpeedNonGPS = sensor.value * 0.621371 * modelProps.pitotCal/100. -- unit conversion to mph
+	 end
+	 if sensor.unit == "m/s" then
+	    SpeedNonGPS = sensor.value * 2.23694 * modelProps.pitotCal
+	 end
+	 hasPitot = true
+      end
+   end
+   
+   if telem.BaroAlt.SeId ~= 0 then
+      sensor = system.getSensorByID(telem.BaroAlt.SeId, telem.BaroAlt.SePa)
+      if(sensor and sensor.valid) then
+	 baroAlt = sensor.value * 3.28084 -- unit conversion m to ft
+      end
+   end
+   
+   if telem.SpeedGPS.SeId ~= 0 then
+      sensor = system.getSensorByID(telem.SpeedGPS.SeId, telem.SpeedGPS.SePa)
+      if(sensor and sensor.valid) then
+	 if sensor.unit == "kmh" or sensor.unit == "km/h" then
+	    SpeedGPS = sensor.value * 0.621371 -- unit conversion to mph
+	 end
+	 if sensor.unit == "m/s" then
+	    SpeedGPS = sensor.value * 2.23694
+	 end
+      end
    end
 
-   sensor = system.getSensorByID(satCountID, satCountPa)
-   if sensor and sensor.valid then
-      satCount = sensor.value
+   if telem.CourseGPS ~= 0 then
+      hasCourseGPS = false
+      sensor = system.getSensorByID(telem.CourseGPS.SeId, telem.CourseGPS.SeId)
+      if sensor and sensor.valid then
+	 courseGPS = sensor.value
+	 hasCourseGPS = true
+      end
+   end
+   
+   if satCountID ~= 0 then
+      sensor = system.getSensorByID(satCountID, satCountPa)
+      if sensor and sensor.valid then
+	 satCount = sensor.value
+      end
    end
 
-   sensor = system.getSensorByID(satQualityID, satQualityPa)
-   if sensor and sensor.valid then
-      satQuality = sensor.value
-   end   
-
+   if satQualityID ~= 0 then
+      sensor = system.getSensorByID(satQualityID, satQualityPa)
+      if sensor and sensor.valid then
+	 satQuality = sensor.value
+      end   
+   end
+   
    
    -- only recompute when lat and long have changed
    
@@ -521,16 +542,15 @@ local function loop()
    -- if we get to this point we have a new and valid GPS position and should write to the
    -- serial port
 
-   local ss = string.format("(Pos:%4.8f$%4.8f)", latitude, longitude)
+   local ss
+   
+   ss = string.format("(Pos:%4.8f$%4.8f)", latitude, longitude)
    io.write(serialFile, ss)
-   local ss = string.format("(Alt:%4.2f)", altitude)
+   ss = string.format("(Alt:%4.2f)", altitude)
    io.write(serialFile, ss)
-   local ss = string.format("(Spd:%4.2f)", altitude)
+   ss = string.format("(Spd:%4.2f)", altitude)
    io.write(serialFile, ss)
-   
-   
-   
-   
+
 end
 
 local function init()
@@ -551,8 +571,6 @@ local function init()
    -- replace spaces in filenames with underscore
    print("reading: ", "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
    
-   fg = nil
-
    -- set default for pitotCal in case no "DFM-model.jsn" file
 
    modelProps.pitotCal = 100
@@ -580,9 +598,9 @@ local function init()
 
    readSensors()
 
-   print("dumping telem")
-   print(dumpt(telem))
-   print("done")
+--   print("dumping telem")
+--   print(dumpt(telem))
+--   print("done")
    
    collectgarbage()
 end
