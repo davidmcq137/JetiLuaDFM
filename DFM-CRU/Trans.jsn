@@ -1,19 +1,27 @@
 {
   "default":"en",
   "en":{
-    "Battery":"Batt",
+    "Battery":"Battery",
     "BatteryL":"Bat",
     "State":"Gear State",
     "StateL":"State",
-    "Doors":"Doors",
+    "Doors":"Gear Doors",
     "DoorsL":"Doors"    
   },
   "de":{
-    "Battery":"DEBatt",
-    "BatteryL":"DEBat",
-    "State":"DEGear State",
-    "StateL":"DEState",
-    "Doors":"DEDoors",
-    "DoorsL":"DEDoors"    
-  }
+    "Battery":"Batterie",
+    "BatteryL":"Bat",
+    "State":"Zustand",
+    "StateL":"Zust.",
+    "Doors":"Tür",
+    "DoorsL":"Tür"    
+  },
+  "fr":{
+    "Battery":"Batterie",
+    "BatteryL":"Bat",
+    "State":"Rang",
+    "StateL":"Rang",
+    "Doors":"Portes",
+    "DoorsL":"Portes"    
+  }  
 }

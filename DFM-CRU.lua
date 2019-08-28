@@ -24,7 +24,9 @@ local appAuthor  = "DFM"
 local appVersion = "0.01"
 local transFile  = "Apps/DFM-CRU/Trans.jsn"
 
--- scale of motor and brake bargraphs .. 0 to maxXXXCurr (presumed to be in ma) - adj as preferred
+local CRU_DeviceID = 16819268
+
+-- scale of motor and brake bargraphs .. 0 to maxXXXCurr (presumed to be in mA) - adj as preferred
 -- leave minMotCurr alone
 
 local maxMotCurr = 1000
@@ -33,6 +35,8 @@ local maxBrkCurr = 1000
 ----------------------------------------------------------------------------
 
 local minMotCurr = 1
+local emFlag
+local lastgs = 0
 
 local pngFileNames = {large={red="red_circle",green="green_circle",blue="blue_circle"},
 		      small={red="small_red_circle", green="small_green_circle", blue="small_blue_circle"}
@@ -40,40 +44,6 @@ local pngFileNames = {large={red="red_circle",green="green_circle",blue="blue_ci
 local pngFiles = {}
 pngFiles.large={}
 pngFiles.small={}
-
-local emFlag
-local lastgs = 0
-
-local mtable={"M1","M2","M3"}
-local btable={"B1","B2","B3"}
-
-local lightPosFull ={M1={x=114,y=121},M2={x=144,y=83},M3={x=174,y=121}}
-local lightPosLarge={M1={x=69, y=31}, M2={x=54, y=51},M3={x=84, y=51}}
-
-local MBartbl
-local BBartbl
-
-local MBartbl4={M1={x=66, y=140,w=70,h=16,type='M'},
-		M2={x=158,y=50, w=70,h=16,type='M'},
-		M3={x=252,y=140,w=70,h=16,type='M'}
-	       }
-
-local MBartbl2={M1={x=30, y=60,w=35,h=8,type='M'},
-		M2={x=76, y=25,w=35,h=8,type='M'},
-		M3={x=123,y=60,w=35,h=8,type='M'}
-	       }
-
-local BBartbl4={B1={x=66, y=110,w=70,h=16,type='B'},
-		B2={x=158,y=20, w=70,h=16,type='B'},
-		B3={x=252,y=110,w=70,h=16,type='B'}
-	       }
-
-local BBartbl2={B1={x=30, y=50,w=35,h=8,type='B'},
-		B2={x=76, y=15,w=35,h=8,type='B'},
-		B3={x=123,y=50,w=35,h=8,type='B'}
-	       }
-
-local CRU_DeviceID = 16819268
 
 local CRU_Telem = {
    ["Batt"]=        {index=1,SeId=0,SePa=0,value=0,max=0,avg=0,sum=0,nsample=0,moved=false},
@@ -86,12 +56,44 @@ local CRU_Telem = {
    ["Doors"] =      {index=8,SeId=0,SePa=0,value=0,max=0,avg=0,nsample=0,moved=false},
    ["Gear State"] = {index=9,SeId=0,SePa=0,value=0}
 }
-		    
+
+local lightPosFull ={M1={x=114,y=121},M2={x=144,y=83},M3={x=174,y=121}}
+local lightPosLarge={M1={x=69, y=31}, M2={x=54, y=51},M3={x=84, y=51}}
+
+-- code 4 is full screen, code 2 is double window
+
+local MBartbl4={M1={x=66, y=140,w=70,h=16,typ='M'},
+		M2={x=158,y=50, w=70,h=16,typ='M'},
+		M3={x=252,y=140,w=70,h=16,typ='M'}
+	       }
+
+local MBartbl2={M1={x=30, y=60,w=35,h=8,typ='M'},
+		M2={x=76, y=25,w=35,h=8,typ='M'},
+		M3={x=123,y=60,w=35,h=8,typ='M'}
+	       }
+
+local BBartbl4={B1={x=66, y=110,w=70,h=16,typ='B'},
+		B2={x=158,y=20, w=70,h=16,typ='B'},
+		B3={x=252,y=110,w=70,h=16,typ='B'}
+	       }
+
+local BBartbl2={B1={x=30, y=50,w=35,h=8,typ='B'},
+		B2={x=76, y=15,w=35,h=8,typ='B'},
+		B3={x=123,y=50,w=35,h=8,typ='B'}
+	       }
+
+local mtable={"M1","M2","M3"}
+local btable={"B1","B2","B3"}
+
+local MBartbl
+local BBartbl
+
 --------------------------------------------------------------------------------
 
 local function setLanguage()
    local obj
    local lng=system.getLocale()
+   --lng="fr"
    local file = io.readall(transFile)
    if file then
       obj = json.decode(file)
@@ -156,14 +158,14 @@ end
 
 --------------------------------------------------------------------------------
 
-local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, type, maxval, avgval, winw)
+local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, typ, maxval, avgval, winw)
 
    -- draws bar gauge for positive readings, from min to max
    
    local d
    local x1
 
-   if type == "M" then -- draw motor bargraphs in fg color
+   if typ == "M" then -- draw motor bargraphs in fg color
       lcd.setColor(lcd.getFgColor())
    else 
       lcd.setColor(0,0,0) -- draw brake bargraphs black (or should it be complem. color?)
@@ -187,7 +189,7 @@ local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, type, maxval
    d = math.max(math.min((val/(max-min))*w, w), 0)
    lcd.drawFilledRectangle(oxc-w//2, oyc-h/2, d, h)
 
-   -- then a 2-pixel vertical line to note max value
+   -- draw a 2-pixel vertical line to note max value
    -- but only if maxval > 0
    
    if maxval > 0 then
@@ -199,9 +201,11 @@ local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, type, maxval
    -- but only if avgval > 0
 
    if avgval > 0 then
+      local ofst = winw > 160 and 1 or 0
+      
       lcd.setColor(164,147,147) -- nice gray
       d = math.max(math.min((avgval/(max-min))*w, w), 0)
-      lcd.drawFilledRectangle(oxc-w//2 + d - 1, oyc-h/2, 2, h)
+      lcd.drawFilledRectangle(oxc-w//2 + d - 1, (oyc-h/2)+ofst, 2, h-2*ofst)
    end
    
    lcd.setColor(0,0,0)
@@ -376,12 +380,12 @@ local function CRUTele(w)
    -- draw bar graphs for each M and B with current(mA) max and avg if applicable
    
    for k,v in pairs(MBartbl) do
-      DrawRectGaugeAbs(v.x, v.y, v.w, v.h, 0,maxMotCurr, CRU_Telem[k].value, k, v.type,
+      DrawRectGaugeAbs(v.x, v.y, v.w, v.h, 0,maxMotCurr, CRU_Telem[k].value, k, v.typ,
 		       CRU_Telem[k].max, CRU_Telem[k].avg, w)
    end
 
    for k,v in pairs(BBartbl) do
-      DrawRectGaugeAbs(v.x, v.y, v.w, v.h, 0, maxBrkCurr, CRU_Telem[k].value, k, v.type,
+      DrawRectGaugeAbs(v.x, v.y, v.w, v.h, 0, maxBrkCurr, CRU_Telem[k].value, k, v.typ,
 		       CRU_Telem[k].max, 0, w)
    end   
 
