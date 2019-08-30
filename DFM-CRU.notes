@@ -1,0 +1,6 @@
+8/30/2019
+
+Changed color choices back to blue for motors and red for brakes, had moved to default foreground
+color but Carsten reported that it was not readable on the light yellow screen. need to find a better
+solution to color management to be visible but also matching with selected screen.
+
