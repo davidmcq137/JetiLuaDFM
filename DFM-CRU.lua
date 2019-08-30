@@ -165,10 +165,10 @@ local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, typ, maxval,
    local d
    local x1
 
-   if typ == "M" then -- draw motor bargraphs in fg color
-      lcd.setColor(lcd.getFgColor())
+   if typ == "M" then -- draw motor bargraphs in blue
+      lcd.setColor(0,0,255)
    else 
-      lcd.setColor(0,0,0) -- draw brake bargraphs black (or should it be complem. color?)
+      lcd.setColor(255,0,0) -- draw brake bargraphs red
    end
    
    -- first draw outline of entire bar graph
@@ -385,7 +385,7 @@ local function CRUTele(w)
    end
 
    for k,v in pairs(BBartbl) do
-      DrawRectGaugeAbs(v.x, v.y, v.w, v.h, 0, maxBrkCurr, CRU_Telem[k].value, k, v.typ,
+      DrawRectGaugeAbs(v.x, v.y, v.w, v.h, 0, maxBrkCurr, CRU_Telem[k].value, k, v.type,
 		       CRU_Telem[k].max, 0, w)
    end   
 
@@ -425,8 +425,8 @@ local function init()
 
    local dev
    
-   system.registerTelemetry(1, "CRU Telemetry FS", 4, CRUTele)
-   system.registerTelemetry(2, "CRU Telemetry", 2, CRUTele)
+   system.registerTelemetry(1, appName.." FS", 4, CRUTele) -- fullscreen
+   system.registerTelemetry(2, appName, 2, CRUTele)        -- large (2-box) tele window  
 
    readSensors()
    loadImages()
