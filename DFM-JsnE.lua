@@ -19,7 +19,7 @@ collectgarbage()
 
 -- global
 
-   newJSON = false
+   newJSON = false -- global read by Chute program!
 
 -- Locals for application
 
@@ -32,11 +32,11 @@ local throttleFullForm, throttleIdleForm
 local brakeChannel, brakeOn, brakeOff, brakeIdx
 local brakeOnForm, brakeOffForm
 local flapChannel, flapUp, flapFull, flapTakeoff, flapIdx
-local flapUpForm, flapDownForm, flapTakeoffForm
+local flapUpForm, flapFullForm, flapTakeoffForm
 local gearChannel, gearUp, gearDown, gearIdx
 local gearUpForm, gearDownForm
-
-local pitotCal
+local defaultWheelDia = 6.0 -- inches
+local pitotCal, wheelDia
 
 local controlInputs = {
    "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10",
@@ -82,6 +82,7 @@ local function jsonSetLocals(ff)
    gearUp = modelProps.gearUp * 100
    gearDown = modelProps.gearDown * 100
    pitotCal = modelProps.pitotCal
+   wheelDia = modelProps.wheelDiameter
    
 end
 
@@ -103,6 +104,7 @@ local function jsonWriteFile()
    modelProps.gearUp = gearUp/100
    modelProps.gearDown = gearDown/100
    modelProps.pitotCal = pitotCal
+   modelProps.wheelDiameter = wheelDia
    
    jsonText = json.encode(modelProps)
    fg = io.open(jsonFile, "w")
@@ -198,7 +200,14 @@ end
 
 local function pitotCalChanged(value)
    pitotCal = value
-   system.pSave("PitotFactor", PitotFactor)
+   system.pSave("pitotCal", pitotCal)
+   jsonWriteFile()
+end
+
+local function wheelDiaChanged(value)
+   wheelDia = value / 10.0
+   print("value, wheelDia", value, wheelDia)
+   system.pSave("wheelDia", wheelDia)
    jsonWriteFile()
 end
 
@@ -244,7 +253,8 @@ end
 
 local function keyPressed(key)
    
-   local fr, text
+   local fr
+   --local text
 
    --print("KeyPressed: ", key)
    
@@ -260,7 +270,7 @@ local function keyPressed(key)
 	 form.setValue(throttleIdleForm, math.floor(system.getInputs(throttleChannel)*100))
       end
       
-      text = throttleChannel .. " value: " .. controlInputs[throttleIdx]
+      --text = throttleChannel .. " value: " .. controlInputs[throttleIdx]
    end
 
    if fr and fr >= 5 and fr <= 6 and brakeIdx > 0 then
@@ -270,7 +280,7 @@ local function keyPressed(key)
       if fr == 6 then
 	 form.setValue(brakeOffForm, math.floor(system.getInputs(brakeChannel)*100))
       end
-      text = brakeChannel .. " value: " .. controlInputs[brakeIdx]
+      --text = brakeChannel .. " value: " .. controlInputs[brakeIdx]
    end
    
    if fr and fr >= 8 and fr <= 10 and flapIdx > 0 then
@@ -284,7 +294,7 @@ local function keyPressed(key)
 	 form.setValue(flapFullForm, math.floor(system.getInputs(flapChannel)*100))
       end
       
-      text = flapChannel .. " value: " .. controlInputs[flapIdx]
+      --text = flapChannel .. " value: " .. controlInputs[flapIdx]
    end
 
    if fr and fr >= 12 and fr <= 13 and gearIdx > 0 then
@@ -295,7 +305,7 @@ local function keyPressed(key)
 	 form.setValue(gearDownForm, math.floor(system.getInputs(gearChannel)*100))
       end      
 
-      text = gearChannel .. " value: " .. controlInputs[gearIdx]
+      --text = gearChannel .. " value: " .. controlInputs[gearIdx]
    end
 
 end
@@ -305,8 +315,6 @@ end
 local function initForm()
 
    local fw = tonumber(system.getVersion())
-   local idx
-   local txt
    
    form.setButton(1, "Enter", ENABLED)
    
@@ -366,7 +374,13 @@ local function initForm()
       form.addRow(2)
       form.addLabel({label="Pitot Calibration Factor (%)", width=220})
       form.addIntbox(pitotCal, 1, 200, 100, 0, 1, pitotCalChanged)
-      
+
+      print("init form: wheelDia:", wheelDia)
+      form.addRow(2)
+      form.addLabel({label="Wheel Diameter (in)", width=220})
+      if not wheelDia then wheelDia = defaultWheelDia end
+      form.addIntbox(wheelDia*10, 0, 100, 60, 1, 1, wheelDiaChanged)
+
       form.addRow(1)
       form.addLabel({label="DFM-JsnE.lua Version "..jsonEditorVersion.." ", font=FONT_MINI, alignRight=true})
    else
@@ -378,9 +392,6 @@ end
 
 
 --------------------------------------------------------------------------------
-
-
-
 
 -- Read available sensors for user to select
 
@@ -427,6 +438,7 @@ local function init()
    gearUp = system.pLoad("gearUp", 90)
    gearDown = system.pLoad("gearDown", -90)
    pitotCal = system.pLoad("pitotCal", 100)
+   wheelDia = system.pLoad("wheelDia", 6.0)   
 
    system.registerForm(1, MENU_APPS, "Config File Editor", initForm, keyPressed, printForm)
 
@@ -446,7 +458,8 @@ local function init()
       --print("writing file")
       jsonWriteFile()
    end
-   
+
+   print("JsnE: wheel dia:", wheelDia)
 
    --readSensors()
    
@@ -459,5 +472,5 @@ setLanguage()
 
 collectgarbage()
 
-return {init=init, loop=loop, author="DFM", version=jsonEditorVersion,
+return {init=init, loop=nil, author="DFM", version=jsonEditorVersion,
 	name="Config File Editor"}

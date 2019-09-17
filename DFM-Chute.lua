@@ -25,16 +25,24 @@ collectgarbage()
 
 local chuteCCVersion
 
-local depSwitch, swd
-local relSwitch, swr
+local depSwitch, swd -- deploy
+local relSwitch, swr -- jettison
 
 local sensorLalist = { "..." }
 local sensorIdlist = { "..." }
 local sensorPalist = { "..." }
 
-local wheelSe
-local wheelSeId
-local wheelSePa
+local RPMSe
+local RPMSeId
+local RPMSePa
+
+local RPMHighLimit
+local RPMLowLimit
+local MPHHighLimit
+local MPHLowLimit
+local defaultWheelDia = 6.0 -- inches
+
+local mphLogIdx
 
 local deployHalfFlap
 local doorDelay
@@ -52,16 +60,15 @@ local shortName = {"C01", "C02", "C03"}
 
 local modelProps = {}
 
-local throttleAuth, brakeAuth, flapAuth, gearAuth, wheelAuth
+local throttleAuth, brakeAuth, flapAuth, gearAuth, RPMAuth, allAuth, allAuthEver
 local flapUpState
-local swd, swr
-local wheelState, wheelCount, lastWheelTransition, halfPeriod
+local wheelRPM, wheelRPMMax
 
 local nLoop = 0
 local appStartTime
 local baseLineLPS, loopsPerSecond = 47, 47
 
-local DEBUG = false
+local DEBUG
 --------------------------------------------------------------------------------
 
 -- Read and set translations
@@ -75,6 +82,17 @@ local function setLanguage()
       trans11 = obj[lng] or obj[obj.default]
    end
 --]]
+end
+
+--------------------------------------------------------------------------------
+
+local function wheelRPM2MPH()
+   -- 0.002975 = (pi * 60) / (12 * 5280)
+   return (wheelRPM or 0) * (modelProps.wheelDiameter or 0) * 0.002975   
+end
+
+local function wheelMPH2RPM(wmph)
+   return wmph / ( (modelProps.wheelDiameter or defaultWheelDia) * 0.002975)
 end
 
 --------------------------------------------------------------------------------
@@ -110,18 +128,31 @@ local function halfFlapChanged(value)
   system.pSave("deployHalfFlap", dhf)
 end
 
+local function MPHHighLimitChanged(value)
+   MPHHighLimit = value
+   RPMHighLimit = wheelMPH2RPM(value)
+   print("rpm high limit set to: ", RPMHighLimit)
+   system.pSave("MPHHighLimit", value)
+end
+
+local function MPHLowLimitChanged(value)
+   MPHLowLimit = value
+   RPMLowLimit = wheelMPH2RPM(value)
+   print("rpm low limit set to: ", RPMLowLimit)
+   system.pSave("MPHLowLimit", value)   
+end
 
 local function sensorChanged(value)
-   wheelSe = value
-   wheelSeId = sensorIdlist[wheelSe]
-   wheelSePa = sensorPalist[wheelSe]
-   if (wheelSeId == "...") then
-      wheelSeId = 0
-      wheelSePa = 0 
+   RPMSe = value
+   RPMSeId = sensorIdlist[RPMSe]
+   RPMSePa = sensorPalist[RPMSe]
+   if (RPMSeId == "...") then
+      RPMSeId = 0
+      RPMSePa = 0 
    end
-   system.pSave("wheelSe", wheelSe)
-   system.pSave("wheelSeId", wheelSeId)
-   system.pSave("wheelSePa", wheelSePa)
+   system.pSave("RPMSe", RPMSe)
+   system.pSave("RPMSeId", RPMSeId)
+   system.pSave("RPMSePa", RPMSePa)
 end
 
 local function testTerminated()
@@ -232,11 +263,19 @@ local function initForm(subForm)
 	 
 	 form.addRow(2)
 	 form.addLabel({label="Select Wheel Sensor", width=200})
-	 form.addSelectbox(sensorLalist, wheelSe, true, sensorChanged)
+	 form.addSelectbox(sensorLalist, RPMSe, true, sensorChanged)
 	 
 	 form.addRow(2)
 	 form.addLabel({label="Door Open to Deploy (ms)", width=220})
 	 form.addIntbox(doorDelay, 100, 1000, 100, 0, 100, doorDelayChanged)
+
+	 form.addRow(2)
+	 form.addLabel({label="MPH High Limit", width=220})
+	 form.addIntbox(MPHHighLimit, 10, 100, 50, 0, 1, MPHHighLimitChanged)
+
+	 form.addRow(2)
+	 form.addLabel({label="MPH Low Limit", width=220})
+	 form.addIntbox(MPHLowLimit, 10, 100, 40, 0, 1, MPHLowLimitChanged)	 
 	 
 	 --form.addRow(2)
 	 --form.addLabel({label="Jettison Test Time (ms)", width=220})
@@ -339,9 +378,10 @@ end
 local function loop()
 
    local sensor
+   local saveAuth
    
    if newJSON then 
-      print("New JSON") 
+      print("Chute: New JSON") 
       readJSON()
       newJSON = false
    end
@@ -353,18 +393,17 @@ local function loop()
       loopsPerSecond = 1000 * nLoop / (system.getTimeCounter() - appStartTime)
       appStartTime = system.getTimeCounter()
       nLoop = 0
-      print("Loops per second:", loopsPerSecond)
+      --print("Loops per second:", loopsPerSecond)
       --print("brakeOn, brakeOff", modelProps.brakeOn, modelProps.brakeOff)
       --print("brake channel:", system.getInputs(modelProps.brakeChannel))
       --print("gear channel:", system.getInputs(modelProps.gearChannel))
       --print("gearUp, gearDown:", modelProps.gearUp, modelProps.gearDown)
    end
-
    
    -- first read the configuration from the switches that have been assigned
 
    swd = system.getInputsVal(depSwitch)
-   swr = system.getInputsVal(relSwitch)
+   swr = system.getInputsVal(relSwitch) -- rel switch is jettison switch by new nomenclature
 
    if swd and swd == 1 and loadOverRide then
       loadTerminated()
@@ -391,84 +430,89 @@ local function loop()
    -- test is cancelled as soon as chute is armed
 
    if deployTest then
-      deployControl = -1
-      system.setControl(deployIdx, deployControl, 0)
+      --print("deployTest activated")
+      deployControl = -1 -- assume closed until delay runs after door opening
 
       if swr and swr == 1 then -- special case: jettison control when testing
+	 --print("special case")
 	 jettisonControl = 1
       else
+	 --print("not special case")
 	 jettisonControl = -1
       end
       
       system.setControl(jettisonIdx, jettisonControl, 0)
       if doorControl == -1 then
-	 --system.messageBox("Test: Door Opening")
+	 --print("Test: Door Opening")
       end
       doorControl = 1
       system.setControl(doorIdx, doorControl, 0)
       if system.getTimeCounter() - doorOpenTime > doorDelay then
 	 if deployControl == -1 then
-	    --system.messageBox("Test: Deploying")
+	    --print("Test: Deploying")
+	    deployControl = 1
 	 end
-	 deployControl = 1
       end
+      system.setControl(deployIdx, deployControl, 0)
       return
    end
 
    --if nLoop == 1 then print("swd, swr:", swd, swr) end
 
-   -- next read the wheel sensor if defined
+   -- next read the wheel RPM sensor if defined
 
-   if wheelSeId ~= 0 then
-      sensor = system.getSensorByID(wheelSeId, wheelSePa)
+   if RPMSeId ~= 0 then
+      sensor = system.getSensorByID(RPMSeId, RPMSePa)
    end
 
    if sensor and sensor.valid then
-      if not wheelState then wheelState = sensor.value end
-      if lastWheelTransition and system.getTimeCounter() - lastWheelTranstition > 1000 then
-	 halfPeriod = 0
-      end
-      
-      if wheelState ~= sensor.value then
-	 if lastWheelTransition then
-	    halfPeriod = system.getTimeCounter() - lastWheelTransition
-	 end
-	 if not wheelCount then wheelCount = 0 else wheelCount = wheelCount + 1 end
-	 --print("wheelCount:", wheelCount)
-	 wheelState = sensor.value
-	 lastWheelTransition = system.getTimeCounter()
+      wheelRPM = sensor.value
+      if not wheelRPMMax or wheelRPM > wheelRPMMax then
+	 wheelRPMMax = wheelRPM
       end
    end
-   
+
+   if DEBUG then
+      wheelRPM = 2500 * (system.getInputs("P6") + 1)
+      if not wheelRPMMax or wheelRPM > wheelRPMMax then
+	 wheelRPMMax = wheelRPM
+      end
+   end
+
    -- next check all defined "auth" channels
    
    if modelProps.throttleChannel then
+      saveAuth = throttleAuth
       if modelProps.throttleIdle > 0 then
 	 throttleAuth = system.getInputs(modelProps.throttleChannel) > modelProps.throttleIdle
       else
 	 throttleAuth = system.getInputs(modelProps.throttleChannel) < modelProps.throttleIdle
       end
+      if throttleAuth and not saveAuth then print("Throttle Auth becoming true") end
    else
       throttleAuth = true
    end
 
    if modelProps.brakeChannel then
+      saveAuth = brakeAuth
       if modelProps.brakeOn > 0 then
 	 brakeAuth = system.getInputs(modelProps.brakeChannel) > modelProps.brakeOn
       else
 	 brakeAuth = system.getInputs(modelProps.brakeChannel) < modelProps.brakeOn
       end
+      if brakeAuth and not saveAuth then print("Brake Auth becoming true") end
    else
       brakeAuth = true
    end
    
    if modelProps.flapChannel then
+      saveAuth = flapAuth
       if modelProps.flapFull > 0 then
 	 flapAuth = system.getInputs(modelProps.flapChannel) > modelProps.flapFull
       else
 	 flapAuth = system.getInputs(modelProps.flapChannel) < modelProps.flapFull
       end
-
+      
       -- next line will authorize deployment at half/takeoff flap .. maybe needs to be a menu option?
 
       if deployHalfFlap then
@@ -480,34 +524,57 @@ local function loop()
       else
 	 flapUpState = system.getInputs(modelProps.flapChannel) < modelProps.flapUp
       end
-      if flapUpState then wheelCount = 0 end -- when flaps are fully up, reset wheel count
+      if flapUpState then
+	 --if wheelRPMMax then print("resetting wheelRPMMax, was:", wheelRPMMax) end
+	 wheelRPMMax = nil -- when flaps are fully up, reset wheel max RPM
+	 allAuthEver = false -- when flaps up, reset "have we ever had all auth"
+      end
+      if flapAuth and not saveAuth then print("Flap auth becoming true") end
    else
       flapAuth = true
    end
 
    if modelProps.gearChannel then
+      saveAuth = gearAuth
       if modelProps.gearDown > 0 then
 	 gearAuth = system.getInputs(modelProps.gearChannel) > modelProps.gearDown
       else
 	 gearAuth = system.getInputs(modelProps.gearChannel) < modelProps.gearDown
       end
-      --if not gearAuth then wheelCount = 0 end -- change to flaps to reset wheelcount
+      if gearAuth and not saveAuth then print("Gear auth becoming true") end
    else
       gearAuth = true
    end
 
-   -- this is just for testing .. need to be replaced with correct logic
-   if wheelCount then wheelAuth = wheelCount > 10 else wheelAuth = false end
+   if (RPMSeId ~= 0) or DEBUG then -- if there is an RPM sensor...
+      saveAuth = RPMAuth
+      --print("wheelRPM:", wheelRPM)
+      --print("RPM Limits:", RPMHighLimit, RPMLowLimit)
+      --print("wheelRPMMax:", wheelRPMMax)
+      
+      if wheelRPMMax and (wheelRPMMax > RPMHighLimit) and (wheelRPM < RPMLowLimit) then
+	 RPMAuth = true
+      else
+	 RPMAuth = false
+      end
+      if RPMAuth and not saveAuth then print("RPMAuth becoming true") end
+   else
+      RPMAuth = true
+   end
 
-   -- if no wheel sensor...
-   if wheelSeId == 0 then wheelAuth = true end
+   saveAuth = allAuth
+
+   allAuth = throttleAuth and brakeAuth and flapAuth and gearAuth and RPMAuth and swd == 1
    
-   allAuth = throttleAuth and brakeAuth and flapAuth and gearAuth and wheelAuth and swd == 1
-
+   if allAuth and not saveAuth then
+      allAuthEver = true
+      print("AllAuth becoming true")
+   end
+   
    jettisonControl = -1 -- assume not jettisoning .. this is in case flaps not down
    
-   if not flapAuth then
-      if not swr or swr == 1 then
+   if not flapAuth and allAuthEver then -- jettison if jet. enabled and flaps up after deploy 
+   if not swr or swr == 1 then                     
 	 jettisonControl = 1
       else
          jettisonControl = -1
@@ -515,6 +582,7 @@ local function loop()
    else
       jettisonControl = -1
    end
+
    system.setControl(jettisonIdx, jettisonControl, 0)
    
    if allAuth then
@@ -525,8 +593,12 @@ local function loop()
       end
       doorControl = 1
    else
-      doorControl = -1
-      doorOpenTime = nil
+      if not allAuthEver then 
+	 doorControl = -1
+	 doorOpenTime = nil
+      else
+	 doorControl = 1 -- if we have deployed, then retracted flaps, keep door open
+      end
    end
 
    if jettisonControl == 1 then doorControl = 1 end -- force door to stay open if jettisoning
@@ -534,7 +606,7 @@ local function loop()
    system.setControl(doorIdx, doorControl, 0)
 
    if doorOpenTime and system.getTimeCounter() - doorOpenTime > doorDelay then
-      if deployControl == -1 then print("Chute deploying: Actuatiung") end
+      if deployControl == -1 then print("Chute deploying: Actuating") end
       deployControl = 1
    else
       deployControl = -1
@@ -545,6 +617,8 @@ end
 
 local function chuteCB(w,h)
 
+   local text
+   
    lcd.drawText(5, 5, "Deploy Switch: ")
    drawState(115,5, swd == 1)
 
@@ -553,42 +627,74 @@ local function chuteCB(w,h)
    
    lcd.drawText(5, 40, "Throttle: ")
    drawState(70, 40, throttleAuth)
+   lcd.drawText(100, 43,string.format("%+2.1f%%",
+				      100 * system.getInputs(modelProps.throttleChannel)),FONT_MINI)
+   lcd.drawText(160, 43,string.format("(Idle: %+2.1f", 100 * modelProps.throttleIdle),FONT_MINI)
+   lcd.drawText(215, 43,string.format("Full: %+2.1f)", 100 * modelProps.throttleFull),FONT_MINI)
 
    lcd.drawText(5, 55, "Flap: ")
    drawState(70, 55, flapAuth)
-
+   lcd.drawText(100, 58, string.format("%+2.1f%%",
+				       100 * system.getInputs(modelProps.flapChannel)), FONT_MINI)
+   lcd.drawText(160, 58, string.format("(Up: %+2.1f", 100 * modelProps.flapUp),FONT_MINI)
+   lcd.drawText(215, 58, string.format("Mid: %+2.1f", 100 * modelProps.flapTakeoff),FONT_MINI)
+   lcd.drawText(265, 58, string.format("Full: %+2.1f)", 100 * modelProps.flapFull),FONT_MINI)   
+   
    lcd.drawText(5, 70, "Brake: ")
    drawState(70,70, brakeAuth)
-
+   lcd.drawText(100, 73, string.format("%+2.1f%%",
+				       100 * system.getInputs(modelProps.brakeChannel)), FONT_MINI)
+   lcd.drawText(160, 73, string.format("(Off: %+2.1f", 100 * modelProps.brakeOff),FONT_MINI)
+   lcd.drawText(215, 73, string.format("On: %+2.1f)", 100 * modelProps.brakeOn),FONT_MINI)
+   
    lcd.drawText(5, 85, "Gear: ")
    drawState(70, 85, gearAuth)
+   lcd.drawText(100, 88, string.format("%+2.1f%%",
+				       100 * system.getInputs(modelProps.gearChannel)), FONT_MINI)
+   lcd.drawText(160, 88, string.format("(Up: %+2.1f", 100 * modelProps.gearUp),FONT_MINI)
+   lcd.drawText(215, 88, string.format("Dn: %+2.1f)", 100 * modelProps.gearDown),FONT_MINI)
 
+   
    drawChuteChan(0)
 
-   if wheelSeId ~= 0 then
-      if wheelCount then
-	 lcd.drawText(195, 5, "Count: " .. wheelCount)
+   if RPMSeId ~= 0 or DEBUG then
+      if RPMAuth then
+	 lcd.setColor(0, 255, 0)    -- green
       else
-	 lcd.drawText(195,5,"---")
+	 if wheelRPMMax and (wheelRPMMax > RPMHighLimit) then
+	    lcd.setColor(0,0,255)   -- blue
+	 else
+	    lcd.setColor(255,0,0)   -- red
+	 end
       end
-      if halfPeriod then
-	 lcd.drawText(195, 20, "halfPeriod: " .. halfPeriod)
-	 lcd.drawText(195, 35, "frequency: " .. 500. / halfPeriod)
-      else
-	 lcd.drawText(195, 20, "---")
-      end
+
+      text = string.format("MPH: %3.1f", (wheelRPM2MPH(wheelRPM or 0)))
+      lcd.drawText(195, 5, text)
+      lcd.setColor(0,0,0)
+      text = string.format("(MPH Hi/Lo: %3.1f, %3.1f)", MPHHighLimit, MPHLowLimit)
+      lcd.drawText(195, 25, text, FONT_MINI)
+      --text = string.format("MPH Low Limit: %3.1f", (MPHLowLimit))      
+      --lcd.drawText(195, 35, text, FONT_MINI)      
    else
-      lcd.drawText(195,5, "No Sensor")
+      lcd.drawText(195,5, "No RPM Sensor")
    end
    
    
 end
 
-local function chute2CB(w,h)
-   if wheelSeId ~= 0 then
-      if wheelCount then lcd.drawText(5, 5, wheelCount) else lcd.drawText(5,5,"---") end
-   else
 
+local function mphCB()
+   return wheelRPM2MPH(), 0
+end
+
+local function chute2CB(w,h)
+   local ss, mph
+   
+   if RPMSeId ~= 0 or DEBUG then
+      mph = wheelRPM2MPH()
+      ss = string.format("Gnd Spd: %d mph", math.floor(mph))
+      lcd.drawText(5, 5, ss)
+   else
       lcd.drawText(5,5,"No sensor")
    end
 end
@@ -610,12 +716,15 @@ end
 local function init()
 
    local dhf
+   local dev, em
    
    depSwitch = system.pLoad("depSwitch")
    relSwitch = system.pLoad("relSwitch")
-   wheelSe   = system.pLoad("wheelSe", 0)
-   wheelSeId = system.pLoad("wheelSeId", 0)
-   wheelSePa = system.pLoad("wheelSePa", 0)   
+   RPMSe   = system.pLoad("RPMSe", 0)
+   RPMSeId = system.pLoad("RPMSeId", 0)
+   RPMSePa = system.pLoad("RPMSePa", 0)   
+   MPHHighLimit = system.pLoad("MPHHighLimit", 40)
+   MPHLowLimit = system.pLoad("MPHLowLimit", 30)
    doorDelay = system.pLoad("doorDelay",100)
    testDelay = system.pLoad("testDelay",500)
    dhf = system.pLoad("deployHalfFlap", "false")
@@ -628,21 +737,41 @@ local function init()
    deployIdx = system.registerControl(3, longName[2], shortName[2])
    jettisonIdx = system.registerControl(4, longName[3], shortName[3])   
 
-   --print("deployIdx:", deployIdx)
-   --print("jettisonIdx:", jettisonIdx)
-   --print("doorIdx:", doorIdx)
+   deployTest = false
+   allAuthEver = false
+   
+   print("deployIdx:", deployIdx)
+   print("jettisonIdx:", jettisonIdx)
+   print("doorIdx:", doorIdx)
 
    system.registerForm(1, MENU_APPS, "AutoChute Controller", initForm, keyPressed, printForm)
 
    system.registerTelemetry(1, "AutoChute Status", 4, chuteCB)
    system.registerTelemetry(2, "AutoChute Sensor", 1, chute2CB)
-   
+
    readJSON()
+   
+   if not modelProps.wheelDiameter then modelProps.wheelDiameter = defaultWheelDia end
 
    print("modelProps.brakeChannel:", modelProps.brakeChannel)
+   print("wheel dia: ", modelProps.wheelDiameter)
+
+   RPMHighLimit = wheelMPH2RPM(MPHHighLimit)
+   RPMLowLimit = wheelMPH2RPM(MPHLowLimit)
    
    readSensors()
-   
+
+   mphLogIdx = system.registerLogVariable("wheelMPH", "mph", mphCB)
+   if not mphLogIdx then print("cannot register log var wheelMPH") end
+
+   dev, em = system.getDeviceType()
+   DEBUG = (em == 1)
+
+   --if DEBUG then
+   --   for k,v in pairs(_G) do
+   --	 print("_G:", k,v)
+   --     end
+   --end
 
    system.playFile('/Apps/DFM-Chute/Auto_chute_active.wav', AUDIO_QUEUE)
    
@@ -650,7 +779,7 @@ end
 
 --------------------------------------------------------------------------------
 
-chuteCCVersion = "0.3"
+chuteCCVersion = "0.4"
 setLanguage()
 
 collectgarbage()

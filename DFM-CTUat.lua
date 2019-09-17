@@ -421,7 +421,7 @@ local function DrawSpeed()
     if selFt then
        lcd.drawText(ox + 50, oy + 100, "MPH", FONT_NORMAL)
     else
-       lcd.drawText(ox + 50, oy + 100, "km/h", FONT_NORMAL)
+       lcd.drawText(ox + 50, oy + 100, "kph", FONT_NORMAL)
     end
     
     if autoOn then lcd.setColor(255,0,0) end
@@ -479,30 +479,22 @@ local function wbTele()
     DrawThrottle()
     DrawSpeed()
     DrawCenterBox(0,0,0,0)
-    DrawRectGaugeCenter( 66, 140, 70, 16, -255, 255, pTerm, "Proportional")
-    DrawRectGaugeAbs(158, 140, 70, 16, 0, 100, iTerm, "Integral")
-    DrawRectGaugeCenter(252, 140, 70, 16, -20, 20, dTerm, "Derivative")
+    DrawRectGaugeCenter( 66, 140, 70, 16, -100, 100, pTerm, "Proportional")
+    DrawRectGaugeAbs(158, 140, 70, 16,    0, 100, iTerm, "Integral")
+    DrawRectGaugeCenter(252, 140, 70, 16,  -20,  20, dTerm, "Derivative")
     DrawErrsig()
 end
 
 --------------------------------------------------------------------------------
 
-local function convertSpeed(sensor)
-
-   local spd, sensorSpeed
-
-   sensorSpeed = sensor.value * airspeedCal / 100.0
-
+local function convertSpeed(s)
+   local spd
    -- telemetry comes in with native units (m/s)
-   
    if selFt then
-      spd = sensorSpeed * 2.23694 -- m/s to mph
+      return s * 2.23694 -- m/s to mph
    else
-      spd = sensorSpeed * 3.6 -- m/s to km/hr
+      return s * 3.6 -- m/s to km/hr
    end
-   
-   return spd
-   
 end
 
 --------------------------------------------------------------------------------
@@ -590,16 +582,15 @@ local function loop()
 
    if (sensor and sensor.valid) then
       --if nLoop == 0 then print("Raw AT Preset: ", sensor.value) end
-      set_speed = convertSpeed(sensor)
       --print("ATPreset: ", sensor.value)
       --print("ATP units: ", sensor.unit)
+      set_speed = convertSpeed(sensor.value)
       --print("ATPreset Converted: ", set_speed)
    else
       if DEBUG then
 	 set_speed = gaugeMaxSpeed/2 * (1 + system.getInputs("P5"))
       end
    end
-
       
    -- check to see if set speed has stopped changing. if so announce verbally one time only
    -- 50 loops is arbitrary .. picked because it created an appropriate delay time
@@ -633,10 +624,13 @@ local function loop()
 
    if (sensor and sensor.valid) then
       --if nLoop == 0 then print("Raw AT speed: ", sensor.value) end
-      speed = convertSpeed(sensor)
       --print("ATAirspeed: ", sensor.value)
       --print("ATA unit: ", sensor.unit)
+      speed = convertSpeed(sensor.value)
       --print("Converted ATA: ", speed)
+      speed = speed * airspeedCal / 100.0      
+      --print("Calibrated ATA:", speed)
+      
    else
       if DEBUG then
 	 tgt_speed = (throttle/100)^2 * gaugeMaxSpeed -- simulate plane's response
@@ -647,7 +641,7 @@ local function loop()
       end
    end
    
-   -- get engineering parameters from the CTU (live PID loop values)
+   -- get engineering parameters from the CTU (live PID loop term values)
    -- unpack the bytes. deriv in byte 0, Integ in byte 1, propo in byte 2
    
    if ATengSeId and ATengSeId ~= 0 then
@@ -662,6 +656,12 @@ local function loop()
       iTerm = isen & 0xFF
       isen = isen >> 8
       pTerm = isen & 0xFF
+
+      -- "sign extend" the values .. -100 to 100 coded as 8 bits .. MSB is sign
+    
+      if dTerm > 127 then dTerm = dTerm - 256 end
+      if iTerm > 127 then iTerm = iTerm - 256 end
+      if pTerm > 127 then pTerm = pTerm - 256 end      
 
       --if nLoop == 0 then
 	 --print("p,i,d: ", pTerm, iTerm, dTerm)
@@ -794,7 +794,7 @@ end
 
 local function calAirspeed()
    local u
-   if (selFt) then u = "mph" else u = "kph" end -- metric does not really work yet...
+   if (selFt) then u = "mph" else u = "kph" end 
    lcd.drawText(5, 5, math.floor(calSpd+0.5) .. " " .. u)
 end
 
@@ -829,16 +829,15 @@ local function init()
    
    -- set default for pitotCal in case no "DFM-model.jsn" file
 
-   modelProps.pitotCal = airspeedCal -- start with the pLoad default
    
    fg = io.readall("Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
    if fg then
       modelProps=json.decode(fg)
-      airspeedCal = modelProps.pitotCal
+      if modelProps.pitotCal then airspeedCal = modelProps.pitotCal end
    end
 
    dev, em = system.getDeviceType()
-   DEBUG = em == 1
+   DEBUG = (em == 1)
 
    readSensors()
    loadImages()
@@ -856,3 +855,4 @@ collectgarbage()
 
 return {init=init, loop=loop, author="DFM", version=SpdAnnCTUVersion,
 	name="Speed Announcer and CTU Autothrottle Display"}
+ 

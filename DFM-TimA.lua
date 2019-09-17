@@ -235,12 +235,12 @@ local aa1max, aa2max = 0, 0
 local function timePrint(width, height)
 
   local mm, rr = math.modf(running_time/60)
-  local pts = string.format("%02d:%02d", mm, rr*60)
+  local pts = string.format("%02d:%02d", math.floor(mm), math.floor(rr*60))
 
   local fstr
 
   if (fuel_pct and FuelSeId ~= 0) then
-     fstr = string.format("%d", math.floor(fuel_pct)) -- make sure it's an int if applying %d
+    fstr = string.format("%d", math.floor(fuel_pct)) -- make sure it's an int if applying %d
   else
     fstr = "---"
   end
@@ -421,8 +421,9 @@ local function loop()
       if not fuel_max then
 	 fuel_max = sensor.max
 	 print("fuel_max: ", fuel_max)
+      else
+	 fuel_pct = 100 * fuel_qty / fuel_max
       end
-      fuel_pct = 100 * fuel_qty / fuel_max
       iii = iii + 1
       if iii > 100 then
 	 print("sensor value:", sensor.value)
@@ -460,7 +461,7 @@ local function loop()
 
    if (swi and swi ~= oldswi) then
       oldswi = swi
-      if (swi == 1 and start_time == 0) then            -- when the gear retracted first time, startup
+      if (swi == 1 and start_time == 0) then             -- when the gear retracted first time, startup
 	 start_time = system.getTimeCounter()/1000       -- convert from ms to seconds
 	 next_ann_time = start_time + 60                 -- next announce in 60 seconds
 	 system.playFile('/Apps/DFM-TimA/Sup_Tim_Start.wav', AUDIO_QUEUE)
@@ -486,7 +487,7 @@ local function loop()
 	 end
       end
       
-      if not fuel_pct and DEBUG then  -- for debug .. in prod just don't play fuel info if no sensor
+      if not fuel_pct and DEBUG then  -- for debug .. in prod just don't display fuel info if no sensor
 	 fuel_pct = 0
       end
       
@@ -553,8 +554,8 @@ local function loop()
 	 rem_min = rem_min * 60
 	 system.playFile('/Apps/DFM-TimA/Fuel_flight_time_remaining.wav', AUDIO_QUEUE)
 	 if DEBUG then print('Remaining Flight Time: ', string.format("%02d:%02d", mod_min, rem_min))  end
-	 system.playNumber(mod_min, 0, 'min')
-	 system.playNumber(rem_min, 0, 's')
+	 system.playNumber(math.floor(mod_min), 0, 'min')
+	 system.playNumber(math.floor(rem_min), 0, 's')
       end
 
    end
