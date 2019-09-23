@@ -482,12 +482,7 @@ end
 --------------------------------------------------------------------------------
 
 local function wbTele()
-   if not DEBUG and ATState and ATState > 1 and dropOutTime > 0 then
-      lcd.drawText(5,5,string.format("%d", dropOutTime), FONT_MINI)
-   else
-      dropOutTime = 0
-   end
-   
+   if not DEBUG then lcd.drawText(5,5,string.format("%d", dropOutTime), FONT_MINI) end
    DrawThrottle()
    DrawSpeed()
    DrawCenterBox(0,0,0,0)
@@ -574,13 +569,11 @@ local function loop()
 	 playedBeep = false                    -- make sure we only beep once
 	 system.playFile('/Apps/DFM-CTUat/ATCancelled.wav', AUDIO_QUEUE)
 	 if DEBUG or true then print("AutoThrottle Cancelled") end
-	 system.messageBox("AT cancelled") -- also put in log file
       end
 
       if autoOn == false and ATState == 2 then  -- it's just turning on
 	 system.playFile('/Apps/DFM-CTUat/ATEnabled.wav', AUDIO_QUEUE)
 	 if DEBUG or true then print("AutoThrottle Enabled") end
-	 system.messageBox("AT enabled") -- also puts in log file
       end
 
       autoOn = ATState > 1
@@ -607,27 +600,24 @@ local function loop()
    end
       
    -- check to see if set speed has stopped changing. if so announce verbally one time only
-   -- 40 loops is arbitrary .. picked because it created an appropriate delay time
-
-   local sSC = 40
+   -- 50 loops is arbitrary .. picked because it created an appropriate delay time
    
    if set_speed and last_set and set_stable then
-      if math.abs(set_speed - last_set) < 2 then -- experimenting to find the right val for this abs
-	 if set_stable < sSC then set_stable = set_stable + 1 end 
+      if math.abs(set_speed - last_set) < 4 then
+	 if set_stable < 50 then set_stable = set_stable + 1 end
       else
 	 set_stable = 1
       end
-      if set_stable == sSC then
-	 set_stable = sSC+1 -- only play the number once when stabilized
-	 --if set_speed > VrefSpd / 1.3 then -- don't announce if setpoint below stall
-	 if DEBUG then print("Set speed stable at", set_speed) end
-	 system.playFile('/Apps/DFM-CTUat/ATSetPointStable.wav', AUDIO_QUEUE)      	    
-	 if selFt then uuu = "mph" else uuu = "km/h" end
-	 system.playNumber(math.floor(set_speed+0.5), 0, uuu)
-	 system.messageBox("Setpoint speed: "..math.floor(set_speed+0.5)) -- also puts in log file
-	 --end
+      if set_stable == 50 then
+	 set_stable = 51 -- only play the number once when stabilized
+	 if set_speed > VrefSpd / 1.3 then -- don't announce if setpoint below stall
+	    if DEBUG then print("Set speed stable at", set_speed) end
+	    system.playFile('/Apps/DFM-CTUat/ATSetPointStable.wav', AUDIO_QUEUE)      	    
+	    if selFt then uuu = "mph" else uuu = "km/h" end
+	    system.playNumber(math.floor(set_speed+0.5), 0, uuu)
+	 end
       end
-      --if set_stable == sSC+1 and math.abs(set_speed - last_set) > 0 then set_stable = 1 end
+      if set_stable == 51 and math.abs(set_speed - last_set) > 0 then set_stable = 1 end
    end
 
    last_set = set_speed
@@ -643,11 +633,11 @@ local function loop()
       --if nLoop == 0 then print("Raw AT speed: ", sensor.value) end
       --print("ATAirspeed: ", sensor.value)
       --print("ATA unit: ", sensor.unit)
-      if maxSpd == MAGICSPEED then
-	 speed = speed + (convertSpeed(sensor.value) - speed) / 20
-      else
-	 speed = convertSpeed(sensor.value) * airspeedCal / 100.0
-      end
+      speed = convertSpeed(sensor.value)
+      --print("Converted ATA: ", speed)
+      speed = speed * airspeedCal / 100.0
+      
+      --print("Calibrated ATA:", speed)
    end
 
    -- magic number when we have a servo connected to run the pitot pressure simulator
@@ -657,7 +647,7 @@ local function loop()
       -- give the plane and engine response a time lag
       srvSpeed = srvSpeed + (tgt_speed - srvSpeed) / 125
       srv = 2 * (srvSpeed / gaugeMaxSpeed - 0.5) -- -1 to 1
-      if servoIdx then system.setControl(servoIdx, srv, 200, 1) end
+      if servoIdx then system.setControl(servoIdx, srv, 0) end
    end
 
    -- get engineering parameters from the CTU (live PID loop term values)
@@ -702,9 +692,8 @@ local function loop()
       if lastGoodThr == 0 then lastGoodThr = system.getTimeCounter() end
       dropOutTime = math.floor(system.getTimeCounter() - lastGoodThr) 
       --print("CTUThr dropout", dropOutTime)
+      --throttle = thrStick
    end
-
-   if not ATState or ATState == 0 then throttle = thrStick end
 
    --if thrSeq < 100 then
       --print("seq, thr, ot would be: ", thrSeq, throttle, thrRingBuf[(thrSeq + 1) % MAXRING + 1] or 0)
@@ -851,6 +840,7 @@ local function init()
 
    print("p,i,d LogIdx:", CTUpLogIdx, CTUiLogIdx, CTUdLogIdx)
    
+   -- set default for pitotCal in case no "DFM-model.jsn" file
 
    if maxSpd == MAGICSPEED then -- for servo-driven pitot pressure simulator
       servoIdx  = system.registerControl(1, "PitotServo", "P01")
@@ -860,11 +850,7 @@ local function init()
    fg = io.readall("Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
    if fg then
       modelProps=json.decode(fg)
-      if modelProps.pitotCal then
-	 airspeedCal = modelProps.pitotCal
-      else
-	 modelProps.pitotCal = airSpeedCal -- make sure it has a value if not in jsn file
-      end
+      if modelProps.pitotCal then airspeedCal = modelProps.pitotCal end
    end
 
    dev, em = system.getDeviceType()

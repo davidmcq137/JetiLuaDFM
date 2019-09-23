@@ -496,8 +496,7 @@ local function loop()
       end   
    end
    
-   
-   -- only recompute when lat and long have changed
+      -- only recompute when lat and long have changed
    
    if not latitude or not longitude then
 --      print('returning: lat or long is nil')

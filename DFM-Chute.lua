@@ -27,6 +27,8 @@ local chuteCCVersion
 
 local depSwitch, swd -- deploy
 local relSwitch, swr -- jettison
+local jsnDebug = false
+local jetToggle = true
 
 local sensorLalist = { "..." }
 local sensorIdlist = { "..." }
@@ -159,12 +161,14 @@ local function testTerminated()
    deployTest = false
    --system.messageBox("Chute Armed -  Test Terminated")
    form.setButton(2, "Test", ENABLED)
+   jetToggle = true
 end
 
 local function loadTerminated()
    loadOverRide = false
    --system.messageBox("Chute Armed -  Load Terminated")
    form.setButton(1, "Load", ENABLED)
+   jetToggle = true
 end
 
 
@@ -177,6 +181,7 @@ local function keyPressed(key)
    if key == KEY_1 then
       if loadOverRide then
 	 loadTerminated()
+	 form.setButton(3, "Jett", DISABLED)
 	 return
       end
       
@@ -196,6 +201,8 @@ local function keyPressed(key)
         loadOverRide = true
         --system.messageBox("Load Chute")
         form.setButton(1, "Load", HIGHLIGHTED)
+	form.setButton(3, "Jett", ENABLED)
+	jetToggle = true
       end
       if not depSw then
          system.messageBox("Cannot load - No deploy switch assigned")
@@ -204,6 +211,8 @@ local function keyPressed(key)
    if key == KEY_2 then
       if deployTest then
 	 testTerminated()
+	 form.setButton(3, "Jett", DISABLED)
+	 jetToggle = true
 	 return
       end
       
@@ -223,6 +232,7 @@ local function keyPressed(key)
 	 doorOpenTime = system.getTimeCounter()
 	 --system.messageBox("Starting Chute Deploy Test")
 	 form.setButton(2, "Test", HIGHLIGHTED)
+	 form.setButton(3, "Jett", ENABLED)
       end
       if not depSw then
          system.messageBox("Cannot test - No deploy switch assigned")
@@ -238,7 +248,18 @@ local function keyPressed(key)
       end
       --]]
    end
-
+   if key == KEY_3 then
+      if loadOverRide or deployTest then 
+	 jetToggle = not jetToggle
+	 form.setButton(3, "Jett", jetToggle and ENABLED or HIGHLIGHTED)
+      end
+   end
+   
+   if key == KEY_4 then
+      jsnDebug = not jsnDebug
+      form.setButton(4, "Jsn", jsnDebug and HIGHLIGHTED or ENABLED)
+   end
+   
 end
 
 -- Draw the main form (Application inteface)
@@ -250,6 +271,10 @@ local function initForm(subForm)
    if (fw >= 4.22) then
 
       if subForm == 1 then
+
+	 deployTest = false
+	 loadOverRide = false
+	 
 	 form.addRow(2)
 	 form.addLink((function() form.reinit(2) end), {label="Load/Test >>"})
 	 
@@ -287,11 +312,14 @@ local function initForm(subForm)
 	 
 	 form.addRow(1)
 	 form.addLabel({label="DFM-Chute.lua Version "..chuteCCVersion.." ", font=FONT_MINI, alignRight=true})
+	 jetToggle = true
       else
-	 --form.addLabel({label="Load/Test SubMenu", font=FONT_BIG})
+	 --form.addLabel({label="AutoChute Load/Test", font=FONT_BIG})
 	 form.addLink((function() form.reinit(1) end), {label="<< Back"})
 	 form.setButton(1, "Load", ENABLED)
 	 form.setButton(2, "Test", ENABLED)
+	 form.setButton(3, "Jett", DISABLED) -- jetToggle and ENABLED or HIGHLIGHTED)
+	 form.setButton(4, "Jsn", jsnDebug and HIGHLIGHTED or ENABLED)
       end
       
    else
@@ -315,9 +343,21 @@ local function readJSON()
 
 end
 
-local function drawState(x,y,ctl)
+local function drawStateB(x,y,ctl)
    if ctl then lcd.setColor(0, 255, 0) else lcd.setColor(255, 0, 0) end
    lcd.drawImage(x,y+3, (ctl and ":ok" or ":cross") )
+   lcd.setColor(0,0,0)
+end
+
+local function drawStateI(x,y,ctl)
+   if not ctl then
+      lcd.setColor(0,0,255)
+      lcd.drawImage(x,y+3,":dec")      
+   else
+      if (ctl == 1) then lcd.setColor(0, 255, 0) else lcd.setColor(255, 0, 0) end
+      lcd.drawImage(x,y+3, ( (ctl == 1) and ":ok" or ":cross") )
+   end
+   
    lcd.setColor(0,0,0)
 end
 
@@ -335,13 +375,15 @@ end
 
 local function drawChuteChan(deltaY)
 
-   if loadOverRide then
+   local text, state = form.getButton(1)
+   
+   if loadOverRide and text == "Load" then -- only do  these msgs when the load/test screen is up
       lcd.setColor(255,0,0)
       lcd.drawText(150, 90-deltaY, "Chute Loading")
       lcd.setColor(0,0,0)
    end
 
-   if deployTest then
+   if deployTest and text == "Load" then
       lcd.setColor(255,0,0)
       lcd.drawText(150, 90-deltaY, "Deploy testing")
       lcd.setColor(0,0,0)
@@ -366,10 +408,10 @@ local function printForm()
    
    if text == "Load" then
       lcd.drawText(5, 30, "Deploy Switch: ")
-      drawState(115,30, swd == 1)
+      drawStateI(115,30, swd)
 
       lcd.drawText(5,45, "Jettison Switch: ")
-      drawState(115, 45, swr == 1)
+      drawStateI(115, 45, swr)
 
       drawChuteChan(40)
    end
@@ -379,6 +421,7 @@ local function loop()
 
    local sensor
    local saveAuth
+   local stbl
    
    if newJSON then 
       print("Chute: New JSON") 
@@ -403,8 +446,14 @@ local function loop()
    -- first read the configuration from the switches that have been assigned
 
    swd = system.getInputsVal(depSwitch)
-   swr = system.getInputsVal(relSwitch) -- rel switch is jettison switch by new nomenclature
 
+   stbl = system.getSwitchInfo(relSwitch)
+   if stbl and stbl.assigned then
+      swr = system.getInputsVal(relSwitch) -- rel switch is jettison switch by new nomenclature
+   else
+      swr = nil
+   end
+   
    if swd and swd == 1 and loadOverRide then
       loadTerminated()
    end
@@ -419,7 +468,17 @@ local function loop()
    if loadOverRide then
       deployControl = -1
       system.setControl(deployIdx, deployControl, 0)
-      jettisonControl = 1
+
+      if swr and swr == -1 then
+	 jettisonControl = -1
+      else
+	 jettisonControl = 1
+      end
+
+      --print("jet:", jettisonControl)
+      jettisonControl = jettisonControl * (jetToggle and 1 or -1)
+      --print("jet:", jettisonControl)
+      
       system.setControl(jettisonIdx, jettisonControl, 0)
       doorControl = 1
       system.setControl(doorIdx, doorControl, 0)
@@ -441,6 +500,10 @@ local function loop()
 	 jettisonControl = -1
       end
       
+      --print("jet:", jettisonControl)
+      jettisonControl = jettisonControl * (jetToggle and 1 or -1)
+      --print("jet:", jettisonControl)
+
       system.setControl(jettisonIdx, jettisonControl, 0)
       if doorControl == -1 then
 	 --print("Test: Door Opening")
@@ -484,9 +547,9 @@ local function loop()
    if modelProps.throttleChannel then
       saveAuth = throttleAuth
       if modelProps.throttleIdle > 0 then
-	 throttleAuth = system.getInputs(modelProps.throttleChannel) > modelProps.throttleIdle
+	 throttleAuth = system.getInputs(modelProps.throttleChannel) >= modelProps.throttleIdle
       else
-	 throttleAuth = system.getInputs(modelProps.throttleChannel) < modelProps.throttleIdle
+	 throttleAuth = system.getInputs(modelProps.throttleChannel) <= modelProps.throttleIdle
       end
       if throttleAuth and not saveAuth then print("Throttle Auth becoming true") end
    else
@@ -496,9 +559,9 @@ local function loop()
    if modelProps.brakeChannel then
       saveAuth = brakeAuth
       if modelProps.brakeOn > 0 then
-	 brakeAuth = system.getInputs(modelProps.brakeChannel) > modelProps.brakeOn
+	 brakeAuth = system.getInputs(modelProps.brakeChannel) >= modelProps.brakeOn
       else
-	 brakeAuth = system.getInputs(modelProps.brakeChannel) < modelProps.brakeOn
+	 brakeAuth = system.getInputs(modelProps.brakeChannel) <= modelProps.brakeOn
       end
       if brakeAuth and not saveAuth then print("Brake Auth becoming true") end
    else
@@ -508,9 +571,9 @@ local function loop()
    if modelProps.flapChannel then
       saveAuth = flapAuth
       if modelProps.flapFull > 0 then
-	 flapAuth = system.getInputs(modelProps.flapChannel) > modelProps.flapFull
+	 flapAuth = system.getInputs(modelProps.flapChannel) >= modelProps.flapFull
       else
-	 flapAuth = system.getInputs(modelProps.flapChannel) < modelProps.flapFull
+	 flapAuth = system.getInputs(modelProps.flapChannel) <= modelProps.flapFull
       end
       
       -- next line will authorize deployment at half/takeoff flap .. maybe needs to be a menu option?
@@ -520,9 +583,9 @@ local function loop()
       end
 
       if modelProps.flapUp > 0 then
-	 flapUpState = system.getInputs(modelProps.flapChannel) > modelProps.flapUp
+	 flapUpState = system.getInputs(modelProps.flapChannel) >= modelProps.flapUp
       else
-	 flapUpState = system.getInputs(modelProps.flapChannel) < modelProps.flapUp
+	 flapUpState = system.getInputs(modelProps.flapChannel) <= modelProps.flapUp
       end
       if flapUpState then
 	 --if wheelRPMMax then print("resetting wheelRPMMax, was:", wheelRPMMax) end
@@ -537,9 +600,9 @@ local function loop()
    if modelProps.gearChannel then
       saveAuth = gearAuth
       if modelProps.gearDown > 0 then
-	 gearAuth = system.getInputs(modelProps.gearChannel) > modelProps.gearDown
+	 gearAuth = system.getInputs(modelProps.gearChannel) >= modelProps.gearDown
       else
-	 gearAuth = system.getInputs(modelProps.gearChannel) < modelProps.gearDown
+	 gearAuth = system.getInputs(modelProps.gearChannel) <= modelProps.gearDown
       end
       if gearAuth and not saveAuth then print("Gear auth becoming true") end
    else
@@ -618,42 +681,54 @@ end
 local function chuteCB(w,h)
 
    local text
+   local x1,x2,x3,x4
    
    lcd.drawText(5, 5, "Deploy Switch: ")
-   drawState(115,5, swd == 1)
+   drawStateI(115,5, swd)
 
    lcd.drawText(5,20, "Jettison Switch: ")
-   drawState(115, 20, swr == 1)
+   drawStateI(115, 20, swr)
+
+   x1 = 100
+   x2,x3,x4 = x1+50, x1+100, x1+145
    
    lcd.drawText(5, 40, "Throttle: ")
-   drawState(70, 40, throttleAuth)
-   lcd.drawText(100, 43,string.format("%+2.1f%%",
+   drawStateB(70, 40, throttleAuth)
+   lcd.drawText(x1, 43,string.format("%+d%%",
 				      100 * system.getInputs(modelProps.throttleChannel)),FONT_MINI)
-   lcd.drawText(160, 43,string.format("(Idle: %+2.1f", 100 * modelProps.throttleIdle),FONT_MINI)
-   lcd.drawText(215, 43,string.format("Full: %+2.1f)", 100 * modelProps.throttleFull),FONT_MINI)
+   if jsnDebug then
+      lcd.drawText(x2, 43,string.format("(Idle: %+d", 100 * modelProps.throttleIdle),FONT_MINI)
+      lcd.drawText(x3, 43,string.format("Full: %+d)", 100 * modelProps.throttleFull),FONT_MINI)
+   end
+   
 
    lcd.drawText(5, 55, "Flap: ")
-   drawState(70, 55, flapAuth)
-   lcd.drawText(100, 58, string.format("%+2.1f%%",
+   drawStateB(70, 55, flapAuth)
+   lcd.drawText(x1, 58, string.format("%+d%%",
 				       100 * system.getInputs(modelProps.flapChannel)), FONT_MINI)
-   lcd.drawText(160, 58, string.format("(Up: %+2.1f", 100 * modelProps.flapUp),FONT_MINI)
-   lcd.drawText(215, 58, string.format("Mid: %+2.1f", 100 * modelProps.flapTakeoff),FONT_MINI)
-   lcd.drawText(265, 58, string.format("Full: %+2.1f)", 100 * modelProps.flapFull),FONT_MINI)   
+   if jsnDebug then
+      lcd.drawText(x2, 58, string.format("(Up: %+d", 100 * modelProps.flapUp),FONT_MINI)
+      lcd.drawText(x3, 58, string.format("Mid: %+d", 100 * modelProps.flapTakeoff),FONT_MINI)
+      lcd.drawText(x4, 58, string.format("Full: %+d)", 100 * modelProps.flapFull),FONT_MINI)   
+   end
    
    lcd.drawText(5, 70, "Brake: ")
-   drawState(70,70, brakeAuth)
-   lcd.drawText(100, 73, string.format("%+2.1f%%",
+   drawStateB(70,70, brakeAuth)
+   lcd.drawText(x1, 73, string.format("%+d%%",
 				       100 * system.getInputs(modelProps.brakeChannel)), FONT_MINI)
-   lcd.drawText(160, 73, string.format("(Off: %+2.1f", 100 * modelProps.brakeOff),FONT_MINI)
-   lcd.drawText(215, 73, string.format("On: %+2.1f)", 100 * modelProps.brakeOn),FONT_MINI)
+   if jsnDebug then
+      lcd.drawText(x2, 73, string.format("(Off: %+d", 100 * modelProps.brakeOff),FONT_MINI)
+      lcd.drawText(x3, 73, string.format("On: %+d)", 100 * modelProps.brakeOn),FONT_MINI)
+   end
    
    lcd.drawText(5, 85, "Gear: ")
-   drawState(70, 85, gearAuth)
-   lcd.drawText(100, 88, string.format("%+2.1f%%",
+   drawStateB(70, 85, gearAuth)
+   lcd.drawText(x1, 88, string.format("%+d%%",
 				       100 * system.getInputs(modelProps.gearChannel)), FONT_MINI)
-   lcd.drawText(160, 88, string.format("(Up: %+2.1f", 100 * modelProps.gearUp),FONT_MINI)
-   lcd.drawText(215, 88, string.format("Dn: %+2.1f)", 100 * modelProps.gearDown),FONT_MINI)
-
+   if jsnDebug then
+      lcd.drawText(x2, 88, string.format("(Up: %+d", 100 * modelProps.gearUp),FONT_MINI)
+      lcd.drawText(x3, 88, string.format("Dn: %+d)", 100 * modelProps.gearDown),FONT_MINI)
+   end
    
    drawChuteChan(0)
 
@@ -671,7 +746,7 @@ local function chuteCB(w,h)
       text = string.format("MPH: %3.1f", (wheelRPM2MPH(wheelRPM or 0)))
       lcd.drawText(195, 5, text)
       lcd.setColor(0,0,0)
-      text = string.format("(MPH Hi/Lo: %3.1f, %3.1f)", MPHHighLimit, MPHLowLimit)
+      text = string.format("(MPH Hi/Lo: %d/%d)", MPHHighLimit, MPHLowLimit)
       lcd.drawText(195, 25, text, FONT_MINI)
       --text = string.format("MPH Low Limit: %3.1f", (MPHLowLimit))      
       --lcd.drawText(195, 35, text, FONT_MINI)      
@@ -772,6 +847,9 @@ local function init()
    --	 print("_G:", k,v)
    --     end
    --end
+
+   jsnDebug = false
+   jetToggle = true
 
    system.playFile('/Apps/DFM-Chute/Auto_chute_active.wav', AUDIO_QUEUE)
    

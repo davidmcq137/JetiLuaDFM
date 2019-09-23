@@ -514,9 +514,9 @@ local function wbTele()
     DrawThrottle(0,0)
     DrawSpeed(0,0)
     DrawCenterBox(0,0,0,0)
-    DrawRectGaugeCenter( 66, 140, 70, 16, -100, 100, 5*pTerm, "Proportional")
+    DrawRectGaugeCenter( 66, 140, 70, 16, -100, 100, jTerm, "fast d/dt")
     DrawRectGaugeAbs(158, 140, 70, 16, 0, 100, iTerm, "Integral")
-    DrawRectGaugeCenter(252, 140, 70, 16, -100, 100, 5*dTerm, "Derivative")
+    DrawRectGaugeCenter(252, 140, 70, 16, -100, 100, kTerm, "linfit d/dt")
     DrawErrsig(0,0)
 end
 
@@ -632,7 +632,7 @@ local function get_speed_from_sensor()
    table.insert(spdTable, speed - set_speed)
    table.insert(timTable, system.getTimeCounter()/1000.)
 
-   --slp, _ = fslope(timTable, spdTable)
+   slp, _ = fslope(timTable, spdTable)
 
    -- now overwrite slp with the new calc
    
@@ -795,11 +795,11 @@ local function loop()
       end
       if set_stable == 50 then
 	 set_stable = 51 -- only play the number once when stabilized
-	 --if set_speed > VrefSpd / 1.3 then -- don't announce if setpoint below stall
-	 --print("Set speed stable at", set_speed)
-	 system.playFile('/Apps/DFM-Auto/ATSetPointStable.wav', AUDIO_QUEUE)      	    
-	 system.playNumber(math.floor(set_speed+0.5), 0, "mph")
-	 --end
+	 if set_speed > VrefSpd / 1.3 then -- don't announce if setpoint below stall
+	    --print("Set speed stable at", set_speed)
+	    system.playFile('/Apps/DFM-Auto/ATSetPointStable.wav', AUDIO_QUEUE)      	    
+	    system.playNumber(math.floor(set_speed+0.5), 0, "mph")
+	 end
       end
       last_set = set_speed
    elseif autoOn then -- no setpoint but trying to arm
@@ -809,12 +809,12 @@ local function loop()
       system.playFile('/Apps/DFM-Auto/ATCannotArmNoSet.wav', AUDIO_QUEUE)      
    end
 
-   --if setPtControl and set_speed < VrefSpd / 1.3 and autoOn then
-      --autoOn = false
-      --autoForceOff = true
-      --print("Attempt to arm AutoThrottle with speed below stall: ", VrefSpd/1.3)
-      --system.playFile('/Apps/DFM-Auto/ATSetBelowStall.wav', AUDIO_QUEUE)      
-   --end
+   if setPtControl and set_speed < VrefSpd / 1.3 and autoOn then
+      autoOn = false
+      autoForceOff = true
+      print("Attempt to arm AutoThrottle with speed below stall: ", VrefSpd/1.3)
+      system.playFile('/Apps/DFM-Auto/ATSetBelowStall.wav', AUDIO_QUEUE)      
+   end
    
    -- interesting to consider: loop time on the emulator is about 47 loops per second
    -- if this app runs by itself, it's about 41 lps on the TX. With the LSO program also
@@ -1039,7 +1039,7 @@ local function init()
    
    for i=1,MAXTABLE,1 do
       wt[i] = -(MAXTABLE+1)/2 + i
-      --print("i, wt[i]:", i, wt[i])
+      print("i, wt[i]:", i, wt[i])
    end
    
    -- handy function to compute sum of squares from 1-n
@@ -1050,12 +1050,12 @@ local function init()
    -- approx dt from loop time is 20msec ... about 50hz
    local dt = 0.020
    linfitden = (sumk2(MAXTABLE) - MAXTABLE*(MAXTABLE+1)*(MAXTABLE+1)/4)
-   print("N, denominator:", MAXTABLE, linfitden)
+   print("linfitden:", linfitden)
    linfitden = linfitden * dt
 
    -- linfitden is the denominator, a constant
    
-   --print("linfitden*dt:", linfitden)
+   print("linfitden*dt:", linfitden)
 
    --CARSTEN   
    
