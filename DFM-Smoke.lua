@@ -1,52 +1,91 @@
 --[[
 
-   While originally made for voice control, also works for "manual" smoke control, 
-   e.g. controlled by a slider. Smoke volume when on set by the slider. +100 if no slider
-   set. -100 for off. If you need 0-100 instead you can use a freemix.
+   Originally made for voice control, also works for "manual" smoke
+   control, e.g. controlled by a knob or slider or switch. Oct 2019
+   added a symbol string mode, a morse code mode and a
+   telemetry-controlled duty cycle mode
 
-   For voice control the program acts as an  SR Flip Flop
-   one voice command turns smoke on, a second command turns it off
+   For voice control the program can act as an SR Flip Flop - one
+   voice command turns smoke on, a second command turns it off
 
-   When using voice on/off .. if a volume control is defined, it determines the 
-   on value
+   Can have pump off value set to -100 or 0. Pump full-on is +100. Can
+   be changed in Tx servo setup if needed
+
+   Uses a lua control (default is 5, settable). Control (SMK) must be
+   linked to a Rx output to the pump via usual Tx programming
+
+   if a variable pump speed/volume control is defined (e.g. propo
+   slider), it determines the speed of the pump when on
 
    Prevents startup with smoke on
 
-   Optional master enable/disable switch
+   When run on the Jeti Emulator, P5 simulates the telemetry channel
 
    Released under MIT-license by DFM 2019
         
 --]]
 
-local smokeState, smV
+local smokeVersion = "1.0"
+local smokeName = "Smoke Controller"
+
+local smV, smOut
 local smokeOnSw, smokeOffSw, smokeEnableSw, smokeOnVal, smokeOffVal
 local smokeThrMin
-local smokeVolControl
-local smokeVolIdx
-local startupOn = false
+local smokeVol
+local startUp = true
+local startUpMessage = false
 local thrCtl
-local volString={"...", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10"}
 
--- using volString because addInputBox has a limitation. The input reads as nil if never assigned
--- but is not nil if assigned and then unassigned. this seems the only way to know. Same issue
--- with switchitems but no idea how to get around that with a 3-pos sw. 2-pos is nil if not
--- assigned, but returns 0 if assigned and unassigned .. that is ok since only +1 and -1 are
--- valid. With 3 pos no way to know if really 0 or unassigned. sigh.
+local sensorLalist = { "..." }
+local sensorIdlist = { "..." } -- maybe just {}? or {0}?
+local sensorPalist = { "..." } -- ditto??
 
-local function setLanguage()
-   --[[
-   local lng=system.getLocale()
-   print("lng:", lng)
-   local file = io.readall("Apps/Lang/DFM-MomFF.jsn")
-   print("file:", file)
-   
-   local obj
-   if file then obj = json.decode(file) end
-   print("obj:", obj)
-   if(obj) then
-      trans4 = obj[lng] or obj[obj.default]
+local smokeModeIdx
+local smokeModeString = {"Manual", "Symbol", "Morse", "Telem"}
+local smokeModeIndex =  { Manual=1, Symbol=2, Morse=3, Telem=4}
+
+local smokeInterval
+
+local EGTSe, EGTPa, EGTId, EGTLa
+local smokeEGTOff
+
+local runTime, runStep, lastTime
+local device, emflag
+
+local smokeSymbol, smokeMorse, MorseCode
+local smokeDutyCycle
+local smokeDutyCycleIdx
+
+local smokeSymbolIdx
+local smokeMorseIdx
+local smokeMorseOut = {}
+local smokeLetterOut = {}
+
+local smokeTelemSe, smokeTelemPa, smokeTelemId, smokeTelemLa
+local smokeLowTelem
+local smokeHighTelem
+local telemReading, telemReadingRaw
+local persistOn
+local loopIdx, loopChar
+local smokeControl
+local sensorLbl
+local smokeStateON
+
+local function setLanguage() end
+
+-- Read available sensors for user to select
+
+local function readSensors()
+   local sensors = system.getSensors()
+   for _, sensor in ipairs(sensors) do
+      if (sensor.label ~= "") then
+	 if sensor.param == 0 then sensorLbl = sensor.label else
+	    table.insert(sensorLalist, sensorLbl .. "-> " .. sensor.label)
+	    table.insert(sensorIdlist, sensor.id)
+	    table.insert(sensorPalist, sensor.param)
+	 end
+      end
    end
-   --]]
 end
 
 local function smokeOnSwChanged(value)
@@ -57,11 +96,6 @@ end
 local function smokeOffSwChanged(value)
    smokeOffSw = value
    system.pSave("smokeOffSw",value)
-end
-
-local function smokeOnValChanged(value)
-   smokeOnVal = value
-   system.pSave("smokeOnVal",value)
 end
 
 local function smokeOffValChanged(value)
@@ -79,25 +113,136 @@ local function smokeThrMinChanged(value)
    system.pSave("smokeThrMin", value)
 end
 
-local function smokeVolControlChanged(value)
-   smokeVolControl = value
-   system.pSave("smokeVolControl", value)
+local function smokeVolChanged(value)
+   smokeVol = value
+   system.pSave("smokeVol", value)
 end
 
-local function smokeVolIdxChanged(value)
-   smokeVolIdx = value
-   --print("idx:", value)
-   system.pSave("smokeVolIdx", value)
+local function smokeModeChanged(value)
+   smokeModeIdx = value
+   system.pSave("smokeModeIdx", value)
+   loopIdx = 1
 end
 
---------------------------------------------------------------------------------
+local function smokeIntervalChanged(value)
+   smokeInterval = value
+   system.pSave("smokeInterval", value)
+end
+
+local function smokeEGTSensorChanged(value)
+   EGTSe = value
+   EGTPa = sensorPalist[EGTSe]
+   EGTId = sensorIdlist[EGTSe]
+   EGTLa = sensorLalist[EGTSe]
+   if EGTLa == "..." then
+      EGTId = 0
+      EGTPa = 0
+   end
+   print("Se, Pa, Id: La:", EGTSe, EGTId, EGTPa, EGTLa)
+   system.pSave("EGTSe", EGTSe)   
+   system.pSave("EGTId", EGTId)
+   system.pSave("EGTPa", EGTPa)
+end
+
+local function smokeEGTOffChanged(value)
+   smokeEGTOff = value
+   system.pSave("smokeEGTOff", value)
+end
+
+local function smokeTelemSeChanged(value)
+   smokeTelemSe = value
+   smokeTelemPa = sensorPalist[smokeTelemSe]
+   smokeTelemId = sensorIdlist[smokeTelemSe]
+   smokeTelemLa = sensorLalist[smokeTelemSe]
+   if smokeTelemLa == "..." then
+      smokeTelemId = 0
+      smokeTelemPa = 0
+   end
+   print("Se, Pa, Id La:", smokeTelemSe, smokeTelemPa, smokeTelemId, smokeTelemLa)
+   system.pSave("smokeTelemSe", smokeTelemSe)
+   system.pSave("smokeTelemId", smokeTelemId)   
+   system.pSave("smokeTelemPa", smokeTelemPa)
+end
+
+local function smokeLowTelemChanged(value)
+   smokeLowTelem = value
+   system.pSave("smokeLowTelem", value)
+   loopIdx = 1
+end
+
+local function smokeHighTelemChanged(value)
+   smokeHighTelem = value
+   system.pSave("smokeHighTelem", value)
+end
+
+local function smokeSymbolChanged(value)
+   smokeSymbolIdx = value
+   system.pSave("smokeSymbolIdx", value)
+   loopIdx = 1
+end
+
+local function smokeMorseChanged(value)
+   smokeMorseIdx = value
+   system.pSave("smokeMorseIdx", value)
+   loopIdx = 1
+end
+
+local function smokeControlChanged(value)
+   smokeControl = value
+   system.pSave("smokeControl", value)
+end
+
 -- Draw the main form (Application inteface)
 
 local function initForm()
 
    form.addRow(2)
-   form.addLabel({label="Volume Control",font=FONT_NORMAL, width=220})
-   form.addSelectbox(volString, smokeVolIdx, true, smokeVolIdxChanged) 
+   form.addLabel({label="ON/OFF Switch",font=FONT_NORMAL, width=220})
+   form.addInputbox(smokeEnableSw, false, smokeEnableSwChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Smoke Mode",font=FONT_NORMAL, width=220})
+   form.addSelectbox(smokeModeString, smokeModeIdx, false, smokeModeChanged) 
+   
+   form.addRow(2)
+   form.addLabel({label="Symbol String",font=FONT_NORMAL, width=220})
+   form.addSelectbox(smokeSymbol.List, smokeSymbolIdx, true, smokeSymbolChanged) 
+
+   form.addRow(2)
+   form.addLabel({label="Morse String",font=FONT_NORMAL, width=220})
+   form.addSelectbox(smokeMorse.List, smokeMorseIdx, true, smokeMorseChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Telemetry Sensor",font=FONT_NORMAL, width=160})
+   form.addSelectbox(sensorLalist, smokeTelemSe, true, smokeTelemSeChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Low Telemetry Limit",font=FONT_NORMAL, width=220})
+   form.addIntbox(smokeLowTelem, -1000, 1000, 0, 0, 1, smokeLowTelemChanged)
+
+   form.addRow(2)
+   form.addLabel({label="High Telemetry Limit",font=FONT_NORMAL, width=220})
+   form.addIntbox(smokeHighTelem, -1000, 1000, 0, 0, 1, smokeHighTelemChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Base Interval time (ms)",font=FONT_NORMAL, width=220})
+   form.addIntbox(smokeInterval, 100, 2000, 0, 0, 1, smokeIntervalChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Turbine EGT Sensor",font=FONT_NORMAL, width=160})
+   form.addSelectbox(sensorLalist,EGTSe, true, smokeEGTSensorChanged)
+   
+   form.addRow(2)
+   form.addLabel({label="Low EGT Cutoff",font=FONT_NORMAL, width=220})
+   form.addIntbox(smokeEGTOff, 100, 1000, 0, 0, 1, smokeEGTOffChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Variable Pump Speed Control",font=FONT_NORMAL, width=220})
+   form.addInputbox(smokeVol, true, smokeVolChanged) 
+
+   form.addRow(2)
+   form.addLabel({label="Low throttle cutoff (0-100%)",font=FONT_NORMAL, width=220})
+   form.addIntbox(smokeThrMin, 0, 100, 0, 0, 1, smokeThrMinChanged)
    
    form.addRow(2)
    form.addLabel({label="ON Voice Control (V01...V15)",font=FONT_NORMAL, width=220})
@@ -107,235 +252,369 @@ local function initForm()
    form.addLabel({label="OFF Voice Control (V01...V15)",font=FONT_NORMAL, width=220})
    form.addInputbox(smokeOffSw, false, smokeOffSwChanged)
 
-   --form.addRow(2)
-   --form.addLabel({label="Smoke ON Value (%)",font=FONT_NORMAL, width=220})
-   --form.addIntbox(smokeOnVal, -100, 100, 100, 0, 10, smokeOnValChanged)
-
    form.addRow(2)
-   form.addLabel({label="OFF Value (-100% or 0%)",font=FONT_NORMAL, width=220})
+   form.addLabel({label="Pump OFF Value (-100% or 0%)",font=FONT_NORMAL, width=220})
    form.addIntbox(smokeOffVal, -100, 0, -100, 0, 100, smokeOffValChanged)
 
    form.addRow(2)
-   form.addLabel({label="Low throttle cutoff (0-100%)",font=FONT_NORMAL, width=220})
-   form.addIntbox(smokeThrMin, 0, 100, 0, 0, 1, smokeThrMinChanged)   
-   
-   form.addRow(2)
-   form.addLabel({label="Master Enable Switch",font=FONT_NORMAL, width=220})
-   form.addInputbox(smokeEnableSw, false, smokeEnableSwChanged)
-   
+   form.addLabel({label="Lua Control Number for SMK",font=FONT_NORMAL, width=220})
+   form.addIntbox(smokeControl, 1, 10, 5, 0, 1, smokeControlChanged)   
+
    form.addRow(1)
    form.addLabel({label="Version " .. smokeVersion .." ",font=FONT_MINI, alignRight=true})
 end
 
-
-
-local function printForm()
-   local ss
-   local text = smokeState == 1 and "ON" or "OFF"
-   local y0 = 0
-   local iV
-   iV = math.floor(smV + 0.5)
-  
-   form.setTitle("Smoke Function (S01): " .. text .. " (" .. iV .. ")",FONT_NORMAL)
-   --[[
-	
-   lcd.drawText(10,y0,"Smoke Function (S01): " .. text .. " (" .. smV .. ")",FONT_NORMAL)
-
-   lcd.setColor(0,0,255)
-   lcd.drawRectangle(195, y0+4, 96, 14)
-   lcd.drawLine(195+48, y0+4, 195+48, y0+17)
-
-   ss = smV/100
-   if ss >= 0 then
-      lcd.drawFilledRectangle(195+48, y0+4, ss*48, 14)
-   else
-      lcd.drawFilledRectangle(195+48+math.floor(ss*48+.5), y0+4, math.floor(-48*ss+.5), 14)
-   end
-   
-   lcd.setColor(0,0,0)
-   --]]
-end
+local function printForm() end
 
 local function loop()
 
-   local smOn, smOff, smEn
+   local smOn, smOff, smEn, smEnSw
    local thr 
    local vol
    local stm
-   local swtbl = {}
+   local swtbl
+   local sensor, currentEGT
    
-   smOn, smOff, smEn = system.getInputsVal(smokeOnSw,smokeOffSw,smokeEnableSw)
+   -- note smV always goes -100 to 100, smOut could be -100 to 100 or 0 to 100
+   -- depending on value of smokeOffVal
 
-   thr = system.getInputs(thrCtl)
-
-   if smokeVolIdx > 1 then
-      vol= system.getInputs(volString[smokeVolIdx])
-      --print("idx, vol:", smokeVolIdx, volString[smokeVolIdx])
-   end
-
-   -- if sm* never defined, it's nil. if defined and removed, it's 0
-   -- valid settings are -1 and 1 .. so make 0 be the undefnied indicator
-   -- good thing it's not 3 positions...
-
-   -- here is the soln!
+   -- read the switches and the proportional value for vol
    
-   --print("smokeOnSw: ", smokeOnSw)
-   --if smokeOnSw then
-   --   swtbl = system.getSwitchInfo(smokeOnSw)
-   --   print("label: ", swtbl.label)
-   --   print("value: ", swtbl.value)
-   --   print("proportional: ", swtbl.proportional)
-   ---  print("assigned: ", swtbl.assigned)
-   --end
+   smOn, smOff, smEn, vol = system.getInputsVal(smokeOnSw,smokeOffSw,smokeEnableSw, smokeVol)
+   smEnSw = smEn
    
-
-   if not smOn then smOn = 0 end
-   if not smOff then smOff = 0 end
-   if not smEn then smEn = 0 end
+   -- check if switches still assigned .. nil if never assigned .. but have to check if
+   -- assigned and then un-assigned
    
-   -- startupOn is to make sure we don't start w/smoke on   
+   swtbl = system.getSwitchInfo(smokeOnSw)
+   if not swtbl or not swtbl.assigned then smOn = nil end
 
-   if (smOn == 0 or smOn == -1) and (not vol or vol < -0.98) then startupOn = false end 
-      
-   if smOn ==1 and smOff == 1 then
-      --
-   elseif (smOn == 1 and smokeState == 0 and not startupOn) then
-      smokeState = 1
-      system.playFile('/Apps/DFM-Smoke/smoke_on.wav', AUDIO_IMMEDIATE)      
-   elseif (smOff == 1 and smokeState == 1) then
-      smokeState = 0
-      system.playFile('/Apps/DFM-Smoke/smoke_off.wav', AUDIO_IMMEDIATE)
-   end
+   swtbl = system.getSwitchInfo(smokeOffSw)
+   if not swtbl or not swtbl.assigned then smOff = nil end
 
-   -- if no voice switches enabled but the volume control _is_ defined, use that as control
-   -- no "smoke on" or "smoke off" announcement needed since we are moving a physical control
+   swtbl = system.getSwitchInfo(smokeEnableSw)
+   if not swtbl or not swtbl.assigned then smEn = nil end
 
-   if smOn == 0  and smOff == 0 and smokeVolIdx > 1 and not startupOn then
-      smokeState = 1
-   end
-
-   if (smEn == -1)  then
-      smokeState = 0
-   end
-
-   -- don't set smokeState to 0 when below min throttle .. so it can come back on
-   -- smokeThrMin is 0-100%, stm is -100 to 100
-   
-   stm = smokeThrMin * 2 - 100
-   
-   if smokeState == 0 or (thr*100 < stm) then
-      smV = smokeOffVal
-   else
-      if vol then smV = smokeOnVal * vol else smV = smokeOnVal end
-      if smokeOffVal == 0 then -- if smoke pump requires 0-100 vs -100 to 100
-	 smV = (smV + 100) / 2
+   -- have we defined on and off momentary/toggle switches?   
+   if smOn and smOff then  
+      if smOn == 1 and smOff == -1 then
+	 persistOn = true
+      elseif smOff == 1 and smOn == -1 then
+	 persistOn = false
       end
-      
+   end
+
+   -- smoke off if no master enable switch is defined
+   if not smEn then smEn = -1 end
+   
+   -- but allow toggle on/off to override on/off switch
+   if persistOn then smEn = 1 end
+   
+   -- see if throttle is below cutoff point
+   thr = system.getInputs(thrCtl)
+   stm = smokeThrMin * 2 - 100
+   if thr*100 < stm then
+      smEn = -1
+   end
+
+   -- see if it's time to take another time step
+   runTime = system.getTimeCounter()
+   
+   if runTime > lastTime + smokeInterval and not startUp and smEn == 1 then
+      if smokeModeIdx == smokeModeIndex.Symbol then
+	 loopIdx = runStep % #smokeSymbol.List[smokeSymbolIdx] + 1
+	 loopChar = string.sub(smokeSymbol.List[smokeSymbolIdx], loopIdx, loopIdx)
+      end
+      if smokeModeIdx == smokeModeIndex.Morse then
+	 loopIdx = runStep % #smokeMorseOut[smokeMorseIdx] + 1
+	 loopChar = string.sub(smokeMorseOut[smokeMorseIdx], loopIdx, loopIdx)
+      end
+      if smokeModeIdx == smokeModeIndex.Telem then
+	 sensor = system.getSensorByID(smokeTelemId, smokeTelemPa)
+	 if emflag ~= 1 then
+	    if sensor and sensor.valid then telemReadingRaw = sensor.value end
+	    telemReading = math.max(math.min(telemReadingRaw, smokeHighTelem), smokeLowTelem)
+	    print(telemReading, telemReadingRaw)
+	 else
+	    telemReadingRaw = smokeLowTelem +
+	       (system.getInputs("P5") + 1) * (smokeHighTelem - smokeLowTelem) / 2
+	    telemReading = telemReadingRaw
+	 end
+	 smokeDutyCycleIdx =
+	    math.floor(1 + 10 * (telemReading - smokeLowTelem) / (smokeHighTelem - smokeLowTelem))
+	 loopIdx = runStep % #smokeDutyCycle.List[smokeDutyCycleIdx] + 1
+	 loopChar = string.sub(smokeDutyCycle.List[smokeDutyCycleIdx], loopIdx, loopIdx)	 
+      end
+      runStep = runStep + 1
+      lastTime = runTime
+   end
+
+   if EGTSe ~= 0 then
+      sensor = system.getSensorByID(EGTId, EGTPa)
+      if sensor and sensor.valid then currentEGT = sensor.value end
+      if currentEGT < smokeEGTOff then smEn = -1 end
+   end
+
+   -- factor in variable speed pump if defined
+   if smEn == 1 then
+      if vol then smV = smokeOnVal * vol else smV = smokeOnVal end
+   else
+      smV = smEn * smokeOnVal
+   end
+
+   -- the '-' char represents pump off for seqence, morse and telem .. ignore for manual
+   if smokeModeIdx ~= smokeModeIndex.Manual then
+      if loopChar == '-' then smV = -1 * smokeOnVal end
+   end
+
+   -- check if smoke pump requires 0-100 vs -100 to 100 and adjust if needed
+   smOut = smV
+   if smokeOffVal == 0 then 
+      smOut = (smV + 100) / 2
    end
    
-   -- print("setting to: ", smV/100)
-   
-   system.setControl(5, smV/100, 10, 0)
-
+   -- make sure if we are starting we get to pump off before allowing it to run
+   if startUp then
+      if smEn == -1 and smEnSw == -1 and not persistOn then
+	 startUp = false
+      else
+	 smV = smokeOffVal
+	 smOut = smokeOffVal
+	 if not startUpMessage then
+	    system.messageBox("Startup: Please turn off smoke")
+	    startUpMessage = true
+	 end
+      end
+   else
+      system.setControl(smokeControl, smOut/100, 10, 0)
+   end
+   if smEn ~= -1 and not startUp then smokeStateON = true else smokeStateON = false end
 end
 
-local function smokeCB(w,h)
+local function smokeCBout()
 
    local y0 = 0
    local x0 = 10
+   local xr0 = -6
 
-   if smokeState == 0 then
-      lcd.drawText(x0,y0,"Smoke Off",FONT_NORMAL)
-      return
-   else
-      lcd.drawText(x0,y0, math.floor(smV+0.5) ,FONT_NORMAL)
-   end
+   lcd.setColor(lcd.getFgColor())
+   lcd.drawRectangle(x0+xr0, y0+4, 96, 14)
+   lcd.drawLine(x0+xr0+48, y0+4, x0+48+xr0, y0+17)
    
-   
-   lcd.setColor(0,0,255)
-   lcd.drawRectangle(x0+40, y0+4, 96, 14)
-   lcd.drawLine(x0+40+48, y0+4, x0+48+40, y0+17)
-   
-   ss = smV/100
+   ss = smOut/100
    if ss >= 0 then
-      lcd.drawFilledRectangle(x0+40+48, y0+4, ss*48, 14)
+      lcd.drawFilledRectangle(x0+xr0+48, y0+4, ss*48, 14)
    else
-      lcd.drawFilledRectangle(x0+40+48+math.floor(ss*48+.5), y0+4, math.floor(-48*ss+.5), 14)
+      lcd.drawFilledRectangle(x0+xr0+48+math.floor(ss*48+.5), y0+4, math.floor(-48*ss+.5), 14)
    end
-   
+
+   lcd.drawText(103,4, smokeModeString[smokeModeIdx], FONT_MINI)
+
+   if smokeStateON then lcd.setColor(0,255,0) else lcd.setColor(255,0,0) end
+   lcd.drawFilledRectangle(143, y0+8, 5,5)
    lcd.setColor(0,0,0)
 end
 
-local function smokeCBTxt(w,h)
+local function smokeCBseq()
 
-   local text, isV
-
-   isV = math.floor(smV + 0.5)
+   local y0 = 5
+   local x0 = 2
+   local boxSize = 4
+   local idx
+   local char, letter
+   local winWid = 151
+   local text
    
-   if smokeState == 0 then
-      text = "Smoke off"
-   else
-      if smV then text = "Smoke on " .. isV .. "%" end
+   lcd.setColor(lcd.getFgColor())
+
+   if smokeModeIdx == smokeModeIndex.Symbol then
+      idx = runStep % #smokeSymbol.List[smokeSymbolIdx] + 1
    end
 
-   lcd.drawText(5,5,text)
+   if smokeModeIdx == smokeModeIndex.Morse then
+      idx = runStep % #smokeMorseOut[smokeMorseIdx] + 1
+   end
 
-end
+   if smokeModeIdx == smokeModeIndex.Telem then
+      idx = runStep % #smokeDutyCycle.List[smokeDutyCycleIdx] + 1
+   end   
+   
+   for i=0, (winWid-4)-boxSize, boxSize do
 
-local function logCB(i)
-   return 1,2
+      if smokeModeIdx == smokeModeIndex.Symbol then
+	 char = string.sub(smokeSymbol.List[smokeSymbolIdx],idx,idx)
+	 if char == "+" then
+	    lcd.drawFilledRectangle(x0+i,y0,boxSize,boxSize)
+	 end
+	 idx = idx + 1
+	 if idx > #smokeSymbol.List[smokeSymbolIdx] then idx = 1 end
+      end
+      
+      if smokeModeIdx == smokeModeIndex.Morse then
+	 char = string.sub(smokeMorseOut[smokeMorseIdx],idx,idx)
+	 letter = string.sub(smokeLetterOut[smokeMorseIdx],idx,idx)
+	 if char == "+" then
+	    lcd.drawFilledRectangle(x0+i,y0,boxSize,boxSize)
+	    if letter ~= " " then lcd.drawText(x0+i, y0+3, letter, FONT_MINI) end
+	 end
+	 idx = idx + 1
+	 if idx > #smokeMorseOut[smokeMorseIdx] then idx = 1 end
+      end
+      
+      if smokeModeIdx == smokeModeIndex.Telem then
+	 char = string.sub(smokeDutyCycle.List[smokeDutyCycleIdx],idx,idx)
+	 if char == "+" then
+	    lcd.drawFilledRectangle(x0+i,y0,boxSize,boxSize)
+	 end
+	 idx = idx + 1
+	 if idx > #smokeDutyCycle.List[smokeDutyCycleIdx] then idx = 1 end
+      end
+   end
+   
+   if smokeModeIdx == smokeModeIndex.Telem then
+      --text = string.format("Duty Cycle: %d", 10 * math.floor(smokeDutyCycleIdx-1))
+      text = string.format("Se: %d Id: %d Pa: %d", smokeTelemSe, smokeTelemId, smokeTelemPa)
+      lcd.drawText(x0, y0+4,text, FONT_MINI)
+      if telemReadingRaw then
+	 text = string.format("Telem: %3.1f", telemReadingRaw)
+	 lcd.drawText(x0+80 , y0+4,text, FONT_MINI)
+      end
+   end
+   lcd.setColor(0,0,0)
 end
 
 local function init()
+
    local fg
+   local mstr, char, lstr
    
    system.registerForm(1,MENU_APPS, "Smoke Controller", initForm, nil, printForm)
-   system.registerControl(5, "Smoke Control", "S01")
-   system.registerTelemetry(1, "Smoke Controller", 1, smokeCB)
-   smokeOnSw = system.pLoad("smokeOnSw")
-   smokeOffSw = system.pLoad("smokeOffSw")
+   system.registerTelemetry(1, "Smoke Controller Sequence", 1, smokeCBseq)
+   system.registerTelemetry(2, "Smoke Controller Out SMK", 1, smokeCBout)   
 
-   smokeEnableSw = system.pLoad("smokeEnableSw")
-   smokeOnVal = system.pLoad("smokeOnVal", 100)
-   smokeOffVal = system.pLoad("smokeOffVal", -100)
-   smokeThrMin = system.pLoad("smokeThrMin", -100)
-   smokeVolControl = system.pLoad("smokeVolControl")
-   smokeVolIdx = system.pLoad("smokeVolIdx", 1)
+   smokeOnSw =      system.pLoad("smokeOnSw")
+   smokeOffSw =     system.pLoad("smokeOffSw")
+   smokeEnableSw =  system.pLoad("smokeEnableSw")
+   smokeOffVal =    system.pLoad("smokeOffVal", -100)
+   smokeThrMin =    system.pLoad("smokeThrMin", -100)
+   smokeVol =       system.pLoad("smokeVol")
+   smokeModeIdx =   system.pLoad("smokeModeIdx", 1)
+   smokeInterval =  system.pLoad("smokeInterval", 400)
+   smokeEGTOff =    system.pLoad("smokeEGTOff", 500)
+   EGTSe =          system.pLoad("EGTSe", 0)
+   EGTId =          system.pLoad("EGTId", 0)   
+   EGTPa =          system.pLoad("EGTPa", 0)   
+   smokeTelemSe =   system.pLoad("smokeTelemSe", 0)
+   smokeTelemPa =   system.pLoad("smokeTelemPa", 0)
+   smokeTelemId =   system.pLoad("smokeTelemId", 0)      
+   smokeLowTelem =  system.pLoad("smokeLowTelem", 0)
+   smokeHighTelem = system.pLoad("smokeHighTelem", 100)
+   smokeSymbolIdx = system.pLoad("smokeSymbolIdx", 1)
+   smokeMorseIdx =  system.pLoad("smokeMorseIdx", 1)
+   smokeControl =   system.pLoad("smokeControl", 5)
    
-   if smokeVolIdx > 1 and system.getInputs(volString[smokeVolIdx]) > -0.98 then
-      system.messageBox("Smoke Volume Ctl Not OFF")
-      print("system.getInputs(volString[smokeVolIdx]): ", system.getInputs(volString[smokeVolIdx]))
-      startupOn = true
-   end
+   smokeOnVal = 100
+   smV = -100
+   smOut = smokeOffVal
+   system.registerControl(smokeControl, "Smoke Control", "SMK")
+   system.setControl(smokeControl, smokeOffVal, 0, 0)
    
-   if system.getInputsVal(smokeOnSw) == 1 then
-      system.messageBox("Smoke enabled - forcing off")
-      startupOn = true
-   end
+   device, emflag = system.getDeviceType()
 
-   smokeState = 0
-   smV = smokeOffVal
-   system.setControl(5, smokeOffVal, 0, 0)
-   --system.setVario(1.2, true, false)
-   --system.registerLogVariable("TestLogVar", "m", logCB)
-   print("getDeviceType:", system.getDeviceType())
+   if emflag == 1 then
+      print("DFM-Smoke.lua running on device: " .. device)
+   end
 
    thrCtl = "P4"
-   
    fg = io.readall("Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
    if fg then
       modelProps=json.decode(fg)
       thrCtl = modelProps.throttleChannel
-      print("read thrCtl:", thrCtl)
    end
 
-   system.playFile('/Apps/DFM-Smoke/Smoke_Controller_Active.wav', AUDIO_QUEUE)
+   fg = io.readall("Apps/DFM-Smoke/Symbol.jsn")
+   if fg then
+      smokeSymbol = json.decode(fg)
+   else
+      system.messageBox("Cannot load Apps/DFM-Smoke/Symbol.jsn")
+   end
    
-   collectgarbage()
+   -- leave only "+" and "-" in the string
+   
+   for i = 1, #smokeSymbol.List do
+      smokeSymbol.List[i] = string.gsub(smokeSymbol.List[i], '[^%+%-]', '')
+   end
+   
+   fg = io.readall("Apps/DFM-Smoke/MorseCode.jsn")
+   if fg then
+      MorseCode = json.decode(fg)
+   else
+      system.messageBox("Cannot load DFM-Smoke/MorseCode.jsn")
+   end
+   
+   fg = io.readall("Apps/DFM-Smoke/Morse.jsn")
+   if fg then
+      smokeMorse = json.decode(fg)
+   else
+      system.messageBox("Cannot load Apps/DFM-Smoke/Morse.jsn")
+   end
+
+   -- convert the strings to Morse Code. First, leave only letters and spaces
+   -- then upper-casify the letters
+   
+   for i = 1, #smokeMorse.List do
+
+      smokeMorse.List[i] = string.gsub(smokeMorse.List[i], '[^%a%s]', '')
+      smokeMorse.List[i] = string.upper(smokeMorse.List[i])
+      
+      -- build the morse string and the letter to print below it
+
+      mstr = ''
+      lstr = ''
+
+      for j = 1, #smokeMorse.List[i] do
+
+	 char = string.sub(smokeMorse.List[i], j, j)
+
+	 if char == " " then
+	    mstr = mstr .. "-------"
+	    lstr = lstr .. "       "
+	 else
+	    mstr = mstr .. MorseCode[char] .. "---"
+	    lstr = lstr .. char .. string.rep(" ", #MorseCode[char]-1) .. "   "
+	 end
+	 
+	 if j == #smokeMorse.List[i] then
+	    mstr = mstr .. "-------"
+	    lstr = lstr .. "       "
+	 end
+	 
+      end
+      smokeMorseOut[i] = mstr
+      smokeLetterOut[i] = lstr
+   end
+   
+   fg = io.readall("Apps/DFM-Smoke/DutyCycle.jsn")
+   if fg then
+      smokeDutyCycle = json.decode(fg)
+      smokeDutyCycleIdx = 1
+   else
+      print("Cannot load Apps/DFM-Smoke/DutyCycle.jsn")
+   end
+   
+   lastTime = 0
+   runStep = 0
+   persistOn = false
+   telemReading = 0
+   telemReadingRaw = 0   
+   currentEGT = 0
+   smokeStateON = false
+   
+   readSensors()
+   setLanguage()   
+
+   system.playFile('/Apps/DFM-Smoke/Smoke_Controller_Active.wav', AUDIO_QUEUE)
+
 end
 
-smokeVersion = "1.0"
-setLanguage()
-collectgarbage()
-
-return {init=init, loop=loop, author="DFM", version=smokeVersion, name="Smoke Controller"}
+return {init=init, loop=loop, author="DFM", version=smokeVersion, name=smokeName}
