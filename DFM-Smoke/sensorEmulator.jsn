@@ -1,0 +1,8 @@
+[
+{"id":1,"param":0,"sensorName":"", "label":"PS1(P5)"},
+{"id":1,"param":1,"decimals":0,"type":1,"sensorName":"PS1(P5)","label":"EGT","unit":" ","control":"P5", "controlmin":0, "controlmax":1000,"value":0},
+{"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
+{"id":2,"param":1,"decimals":0,"type":1,"sensorName":"PS2(P6)", "label":"Airspeed","unit":" ", "control":"P6", "controlmin":0, "controlmax":200,"value":0},
+{"id":3,"param":0,"sensorName":"", "label":"PS3(P7)"},
+{"id":3,"param":1,"decimals":0,"type":1,"sensorName":"PS3(P7)","label":"Altitude","unit":" ", "control":"P7", "controlmin":0, "controlmax":400,"value":0}
+]

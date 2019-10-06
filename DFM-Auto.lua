@@ -526,7 +526,7 @@ end
 -- this is the simplified slope calculator .. called once per inner loop
 
 local function jslope(y)
-   local sxy
+   local sxy, jterm
 
    sxy=0
    for i=1,#y,1 do -- #y is always going to be MAXTABLE

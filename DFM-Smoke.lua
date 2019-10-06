@@ -37,8 +37,10 @@ local startUpMessage = false
 local thrCtl
 
 local sensorLalist = { "..." }
-local sensorIdlist = { "..." } -- maybe just {}? or {0}?
-local sensorPalist = { "..." } -- ditto??
+local sensorIdlist = { 0 }
+local sensorPalist = { 0 }
+
+local selFt, selFtIndex
 
 local smokeModeIdx
 local smokeModeString = {"Manual", "Symbol", "Morse", "Telem"}
@@ -48,9 +50,9 @@ local smokeInterval
 
 local EGTSe, EGTPa, EGTId, EGTLa
 local smokeEGTOff
+local currentEGT
 
 local runTime, runStep, lastTime
-local device, emflag
 
 local smokeSymbol, smokeMorse, MorseCode
 local smokeDutyCycle
@@ -64,20 +66,35 @@ local smokeLetterOut = {}
 local smokeTelemSe, smokeTelemPa, smokeTelemId, smokeTelemLa
 local smokeLowTelem
 local smokeHighTelem
-local telemReading, telemReadingRaw
+local telemReading, telemReadingRaw, telemReadingLast, telemReadingUnit
 local persistOn
 local loopIdx, loopChar
 local smokeControl
 local sensorLbl
 local smokeStateON
+local emulator
+
+
+-- If on emulator, see if we should emulate the telem sensors from a jsn file
+emulator = require('./sensorEmulator')
 
 local function setLanguage() end
 
 -- Read available sensors for user to select
 
 local function readSensors()
-   local sensors = system.getSensors()
+   local k=1
+   local sensors
+   
+   sensors = system.getSensors()
+   
    for _, sensor in ipairs(sensors) do
+      -- print("k,lbl,id,pa, name:",
+      -- k, sensor.label, sensor.id, sensor.param, sensor.sensorName, sensor.type)
+
+      -- print(sensor.control, sensor.controlmin, sensor.controlmax)
+      
+      k=k+1
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then sensorLbl = sensor.label else
 	    table.insert(sensorLalist, sensorLbl .. "-> " .. sensor.label)
@@ -135,10 +152,10 @@ local function smokeEGTSensorChanged(value)
    EGTId = sensorIdlist[EGTSe]
    EGTLa = sensorLalist[EGTSe]
    if EGTLa == "..." then
+      EGTSe = 0
       EGTId = 0
       EGTPa = 0
    end
-   print("Se, Pa, Id: La:", EGTSe, EGTId, EGTPa, EGTLa)
    system.pSave("EGTSe", EGTSe)   
    system.pSave("EGTId", EGTId)
    system.pSave("EGTPa", EGTPa)
@@ -155,10 +172,10 @@ local function smokeTelemSeChanged(value)
    smokeTelemId = sensorIdlist[smokeTelemSe]
    smokeTelemLa = sensorLalist[smokeTelemSe]
    if smokeTelemLa == "..." then
+      smokeTelemSe = 0
       smokeTelemId = 0
       smokeTelemPa = 0
    end
-   print("Se, Pa, Id La:", smokeTelemSe, smokeTelemPa, smokeTelemId, smokeTelemLa)
    system.pSave("smokeTelemSe", smokeTelemSe)
    system.pSave("smokeTelemId", smokeTelemId)   
    system.pSave("smokeTelemPa", smokeTelemPa)
@@ -192,6 +209,12 @@ local function smokeControlChanged(value)
    system.pSave("smokeControl", value)
 end
 
+local function selFtClicked(value)
+   selFt = not value
+   form.setValue(selFtIndex, selFt)
+   system.pSave("selFt", tostring(selFt))
+end
+
 -- Draw the main form (Application inteface)
 
 local function initForm()
@@ -217,6 +240,10 @@ local function initForm()
    form.addSelectbox(sensorLalist, smokeTelemSe, true, smokeTelemSeChanged)
 
    form.addRow(2)
+   form.addLabel({label="Use mph/ft or kmh/m (x) for telem", width=270})
+   selFtIndex = form.addCheckbox(selFt, selFtClicked)
+
+   form.addRow(2)
    form.addLabel({label="Low Telemetry Limit",font=FONT_NORMAL, width=220})
    form.addIntbox(smokeLowTelem, -1000, 1000, 0, 0, 1, smokeLowTelemChanged)
 
@@ -234,7 +261,7 @@ local function initForm()
    
    form.addRow(2)
    form.addLabel({label="Low EGT Cutoff",font=FONT_NORMAL, width=220})
-   form.addIntbox(smokeEGTOff, 100, 1000, 0, 0, 1, smokeEGTOffChanged)
+   form.addIntbox(smokeEGTOff, 0, 1000, 0, 0, 1, smokeEGTOffChanged)
 
    form.addRow(2)
    form.addLabel({label="Variable Pump Speed Control",font=FONT_NORMAL, width=220})
@@ -273,7 +300,7 @@ local function loop()
    local vol
    local stm
    local swtbl
-   local sensor, currentEGT
+   local sensor
    
    -- note smV always goes -100 to 100, smOut could be -100 to 100 or 0 to 100
    -- depending on value of smokeOffVal
@@ -284,7 +311,7 @@ local function loop()
    smEnSw = smEn
    
    -- check if switches still assigned .. nil if never assigned .. but have to check if
-   -- assigned and then un-assigned
+   -- they were assigned and then un-assigned
    
    swtbl = system.getSwitchInfo(smokeOnSw)
    if not swtbl or not swtbl.assigned then smOn = nil end
@@ -310,17 +337,25 @@ local function loop()
    -- but allow toggle on/off to override on/off switch
    if persistOn then smEn = 1 end
    
-   -- see if throttle is below cutoff point
+   -- see if throttle is below cutoff point for smoke on
    thr = system.getInputs(thrCtl)
    stm = smokeThrMin * 2 - 100
    if thr*100 < stm then
       smEn = -1
    end
 
+   -- if EGT sensor defined, is it hot enough for smoke?
+   if EGTSe ~= 0 then
+      sensor = system.getSensorByID(EGTId, EGTPa)
+      if sensor and sensor.valid then currentEGT = sensor.value end
+      if currentEGT < smokeEGTOff then smEn = -1 end
+   end
+
    -- see if it's time to take another time step
    runTime = system.getTimeCounter()
    
    if runTime > lastTime + smokeInterval and not startUp and smEn == 1 then
+      
       if smokeModeIdx == smokeModeIndex.Symbol then
 	 loopIdx = runStep % #smokeSymbol.List[smokeSymbolIdx] + 1
 	 loopChar = string.sub(smokeSymbol.List[smokeSymbolIdx], loopIdx, loopIdx)
@@ -330,29 +365,43 @@ local function loop()
 	 loopChar = string.sub(smokeMorseOut[smokeMorseIdx], loopIdx, loopIdx)
       end
       if smokeModeIdx == smokeModeIndex.Telem then
-	 sensor = system.getSensorByID(smokeTelemId, smokeTelemPa)
-	 if emflag ~= 1 then
+	 if smokeTelemSe ~= 0 then
+	    sensor = system.getSensorByID(smokeTelemId, smokeTelemPa)
 	    if sensor and sensor.valid then telemReadingRaw = sensor.value end
+	    telemReadingUnit = sensor.unit
+	    if sensor.unit == "m/s" then
+	       if selFt then
+		  telemReadingRaw = telemReadingRaw * 2.23694  -- m/s to mph
+		  telemReadingUnit = "mph"
+	       else
+		  telemReadingRaw = telemReadingRaw * 3.6 -- m/s to kmh
+		  telemReadingUnit = "kmh"
+	       end
+	    end
+	    if sensor.unit == "m" then
+	       if selFt then
+		  telemReadingRaw = telemReadingRaw * 3.28084 -- m to ft
+		  telemReadingUnit = "ft"
+	       else
+		  telemReadingUnit = "m"
+	       end
+	    end
+	    -- clip to max and min the telem reading used to compute duty cycle
 	    telemReading = math.max(math.min(telemReadingRaw, smokeHighTelem), smokeLowTelem)
-	    print(telemReading, telemReadingRaw)
+	    telemReadingLast = system.getTimeCounter()
+	    smokeDutyCycleIdx =
+	       math.floor(1+10*(telemReading - smokeLowTelem) / (smokeHighTelem - smokeLowTelem))
+	    loopIdx = runStep % #smokeDutyCycle.List[smokeDutyCycleIdx] + 1
+	    loopChar = string.sub(smokeDutyCycle.List[smokeDutyCycleIdx], loopIdx, loopIdx)
 	 else
-	    telemReadingRaw = smokeLowTelem +
-	       (system.getInputs("P5") + 1) * (smokeHighTelem - smokeLowTelem) / 2
-	    telemReading = telemReadingRaw
+	    telemReading = 0
+	    telemReadingLast = 0
+	    smokeDutyCycleIdx = 1
 	 end
-	 smokeDutyCycleIdx =
-	    math.floor(1 + 10 * (telemReading - smokeLowTelem) / (smokeHighTelem - smokeLowTelem))
-	 loopIdx = runStep % #smokeDutyCycle.List[smokeDutyCycleIdx] + 1
-	 loopChar = string.sub(smokeDutyCycle.List[smokeDutyCycleIdx], loopIdx, loopIdx)	 
+	 
       end
       runStep = runStep + 1
       lastTime = runTime
-   end
-
-   if EGTSe ~= 0 then
-      sensor = system.getSensorByID(EGTId, EGTPa)
-      if sensor and sensor.valid then currentEGT = sensor.value end
-      if currentEGT < smokeEGTOff then smEn = -1 end
    end
 
    -- factor in variable speed pump if defined
@@ -472,11 +521,14 @@ local function smokeCBseq()
    end
    
    if smokeModeIdx == smokeModeIndex.Telem then
-      --text = string.format("Duty Cycle: %d", 10 * math.floor(smokeDutyCycleIdx-1))
-      text = string.format("Se: %d Id: %d Pa: %d", smokeTelemSe, smokeTelemId, smokeTelemPa)
+      text = string.format("Duty Cycle: %d", 10 * math.floor(smokeDutyCycleIdx-1))
       lcd.drawText(x0, y0+4,text, FONT_MINI)
       if telemReadingRaw then
-	 text = string.format("Telem: %3.1f", telemReadingRaw)
+	 if (system.getTimeCounter() - telemReadingLast) < 2000 then
+	    text = string.format("Telem: %3.1f", telemReadingRaw)
+	 else
+	    text = 'Telem: ---'
+	 end
 	 lcd.drawText(x0+80 , y0+4,text, FONT_MINI)
       end
    end
@@ -512,6 +564,9 @@ local function init()
    smokeSymbolIdx = system.pLoad("smokeSymbolIdx", 1)
    smokeMorseIdx =  system.pLoad("smokeMorseIdx", 1)
    smokeControl =   system.pLoad("smokeControl", 5)
+   selFt =          system.pLoad("selFt", "true")
+
+   selFt = (selFt == "true") -- can't use booleans with pSave/pLoad
    
    smokeOnVal = 100
    smV = -100
@@ -519,12 +574,6 @@ local function init()
    system.registerControl(smokeControl, "Smoke Control", "SMK")
    system.setControl(smokeControl, smokeOffVal, 0, 0)
    
-   device, emflag = system.getDeviceType()
-
-   if emflag == 1 then
-      print("DFM-Smoke.lua running on device: " .. device)
-   end
-
    thrCtl = "P4"
    fg = io.readall("Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
    if fg then
@@ -601,18 +650,21 @@ local function init()
    else
       print("Cannot load Apps/DFM-Smoke/DutyCycle.jsn")
    end
-   
+
+   if emulator then emulator.init("DFM-Smoke") end
+
    lastTime = 0
    runStep = 0
    persistOn = false
    telemReading = 0
    telemReadingRaw = 0   
+   telemReadingLast = 0
    currentEGT = 0
    smokeStateON = false
    
    readSensors()
    setLanguage()   
-
+	 
    system.playFile('/Apps/DFM-Smoke/Smoke_Controller_Active.wav', AUDIO_QUEUE)
 
 end
