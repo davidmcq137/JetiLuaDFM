@@ -14,19 +14,23 @@
    Uses a lua control (default is 5, settable). Control (SMK) must be
    linked to a Rx output to the pump via usual Tx programming
 
+   This is because autothrottle uses control #1, and the chute
+   controller uses 2,3,4
+
    if a variable pump speed/volume control is defined (e.g. propo
    slider), it determines the speed of the pump when on
 
    Prevents startup with smoke on
 
-   When run on the Jeti Emulator, P5 simulates the telemetry channel
-
    Released under MIT-license by DFM 2019
         
 --]]
 
+local smokeName    = "Smoke Controller"
 local smokeVersion = "1.0"
-local smokeName = "Smoke Controller"
+local smokeAuthor  = "DFM"
+
+local modelProps
 
 local smV, smOut
 local smokeOnSw, smokeOffSw, smokeEnableSw, smokeOnVal, smokeOffVal
@@ -39,12 +43,14 @@ local thrCtl
 local sensorLalist = { "..." }
 local sensorIdlist = { 0 }
 local sensorPalist = { 0 }
+local formMode
 
 local selFt, selFtIndex
 
 local smokeModeIdx
 local smokeModeString = {"Manual", "Symbol", "Morse", "Telem"}
 local smokeModeIndex =  { Manual=1, Symbol=2, Morse=3, Telem=4}
+local smokeModeAvail =  { Manual=true, Symbol = false, Morse = false, Telem = false}
 
 local smokeInterval
 
@@ -72,29 +78,66 @@ local loopIdx, loopChar
 local smokeControl
 local sensorLbl
 local smokeStateON
-local emulator
 
+------------------------------------------------------------
+--[[
+local seen={}
 
--- If on emulator, see if we should emulate the telem sensors from a jsn file
-emulator = require('./sensorEmulator')
+local function dump(t,i)
+	seen[t]=true
+	local s={}
+	local n=0
+	for k in pairs(t) do
+		n=n+1 s[n]=k
+	end
+	table.sort(s)
+	for k,v in ipairs(s) do
+		print(i,v)
+		v=t[v]
+		if type(v)=="table" and not seen[v] then
+			dump(v,i.."\t")
+		end
+	end
+end
+--]]
+------------------------------------------------------------
+
+--[[
+local function checkEmulator()
+   
+   -- If on emulator, see if we should emulate the telem sensors from a jsn file
+   -- only do the require() if on the emulator and the file exists...
+   
+   local dev, emflag
+   local efg
+
+   dev, emflag = system.getDeviceType()
+
+   emulator = nil
+   
+   if emflag == 1 then
+      local efg = io.open("Apps/sensorEmulator.lua", "r")
+      if efg then
+	 io.close(efg)
+	 print("Loading sensor emulation package: sensorEmulator.lua")
+	 emulator = require('sensorEmulator')
+      end
+   end
+end
+
+--]]
+
 
 local function setLanguage() end
 
 -- Read available sensors for user to select
 
 local function readSensors()
-   local k=1
+
    local sensors
    
    sensors = system.getSensors()
-   
    for _, sensor in ipairs(sensors) do
-      -- print("k,lbl,id,pa, name:",
-      -- k, sensor.label, sensor.id, sensor.param, sensor.sensorName, sensor.type)
-
-      -- print(sensor.control, sensor.controlmin, sensor.controlmax)
-      
-      k=k+1
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then sensorLbl = sensor.label else
 	    table.insert(sensorLalist, sensorLbl .. "-> " .. sensor.label)
@@ -123,6 +166,8 @@ end
 local function smokeEnableSwChanged(value)
    smokeEnableSw = value
    system.pSave("smokeEnableSw",value)
+   startUp = true
+   startUpMessage = false
 end
 
 local function smokeThrMinChanged(value)
@@ -136,9 +181,15 @@ local function smokeVolChanged(value)
 end
 
 local function smokeModeChanged(value)
-   smokeModeIdx = value
-   system.pSave("smokeModeIdx", value)
-   loopIdx = 1
+   if smokeModeAvail[smokeModeString[value]]  then
+      smokeModeIdx = value
+      system.pSave("smokeModeIdx", value)
+      loopIdx = 1
+   else
+      smokeModeIdx = 1
+      form.setValue(formMode, smokeModeIdx)
+      system.pSave("smokeModeIdx", 1)
+   end
 end
 
 local function smokeIntervalChanged(value)
@@ -225,20 +276,27 @@ local function initForm()
 
    form.addRow(2)
    form.addLabel({label="Smoke Mode",font=FONT_NORMAL, width=220})
-   form.addSelectbox(smokeModeString, smokeModeIdx, false, smokeModeChanged) 
+   formMode = form.addSelectbox(smokeModeString, smokeModeIdx, false, smokeModeChanged) 
+   --print("formMode:", formMode)
+
+   if smokeModeAvail.Symbol then
+      form.addRow(2)
+      form.addLabel({label="Symbol String",font=FONT_NORMAL, width=220})
+      form.addSelectbox(smokeSymbol.List, smokeSymbolIdx, true, smokeSymbolChanged)
+   end
+
+   if smokeModeAvail.Morse then
+      form.addRow(2)
+      form.addLabel({label="Morse String",font=FONT_NORMAL, width=220})
+      form.addSelectbox(smokeMorse.List, smokeMorseIdx, true, smokeMorseChanged)
+   end
+
+   if smokeModeAvail.Telem then
+      form.addRow(2)
+      form.addLabel({label="Telemetry Sensor",font=FONT_NORMAL, width=160})
+      form.addSelectbox(sensorLalist, smokeTelemSe, true, smokeTelemSeChanged)
+   end
    
-   form.addRow(2)
-   form.addLabel({label="Symbol String",font=FONT_NORMAL, width=220})
-   form.addSelectbox(smokeSymbol.List, smokeSymbolIdx, true, smokeSymbolChanged) 
-
-   form.addRow(2)
-   form.addLabel({label="Morse String",font=FONT_NORMAL, width=220})
-   form.addSelectbox(smokeMorse.List, smokeMorseIdx, true, smokeMorseChanged)
-
-   form.addRow(2)
-   form.addLabel({label="Telemetry Sensor",font=FONT_NORMAL, width=160})
-   form.addSelectbox(sensorLalist, smokeTelemSe, true, smokeTelemSeChanged)
-
    form.addRow(2)
    form.addLabel({label="Use mph/ft or kmh/m (x) for telem", width=270})
    selFtIndex = form.addCheckbox(selFt, selFtClicked)
@@ -301,6 +359,7 @@ local function loop()
    local stm
    local swtbl
    local sensor
+   local negativeTime, runCond
    
    -- note smV always goes -100 to 100, smOut could be -100 to 100 or 0 to 100
    -- depending on value of smokeOffVal
@@ -308,8 +367,7 @@ local function loop()
    -- read the switches and the proportional value for vol
    
    smOn, smOff, smEn, vol = system.getInputsVal(smokeOnSw,smokeOffSw,smokeEnableSw, smokeVol)
-   smEnSw = smEn
-   
+
    -- check if switches still assigned .. nil if never assigned .. but have to check if
    -- they were assigned and then un-assigned
    
@@ -322,6 +380,12 @@ local function loop()
    swtbl = system.getSwitchInfo(smokeEnableSw)
    if not swtbl or not swtbl.assigned then smEn = nil end
 
+   swtbl = system.getSwitchInfo(smokeVol)
+   if not swtbl or not swtbl.assigned then vol = nil end
+
+   --note and store position of enable switch if defined
+   smEnSw = smEn
+
    -- have we defined on and off momentary/toggle switches?   
    if smOn and smOff then  
       if smOn == 1 and smOff == -1 then
@@ -332,7 +396,9 @@ local function loop()
    end
 
    -- smoke off if no master enable switch is defined
-   if not smEn then smEn = -1 end
+   if not smEn then
+      smEn = -1
+   end
    
    -- but allow toggle on/off to override on/off switch
    if persistOn then smEn = 1 end
@@ -353,9 +419,26 @@ local function loop()
 
    -- see if it's time to take another time step
    runTime = system.getTimeCounter()
-   
-   if runTime > lastTime + smokeInterval and not startUp and smEn == 1 then
+
+   -- getTimeCounter() returns a signed long int .. so can wrap to negative number
+   -- API doc says getTimeCounter counts from 0 at TX reset. Presumably this means powerup
+   -- so no chance of this wrapping on an actual TX .. but can (and does) happen on
+   -- the emulator. 
+
+   if runTime < 0 then negativeTime = true end
+
+   --if runTime % 10000 <= 30 then
+      --print("time:", system.getTimeCounter(), "time to neg (d):", (2^31-system.getTimeCounter())/(1000*86400))
+   --end
       
+   if negativeTime then
+      if runTime % 1000 <= 30 then print("Negative Time!") end
+      runCond = math.abs(runTime) < math.abs(lastTime) - smokeInterval
+   else
+      runCond = runTime > lastTime + smokeInterval
+   end
+         
+   if runCond and not startUp and smEn == 1 then
       if smokeModeIdx == smokeModeIndex.Symbol then
 	 loopIdx = runStep % #smokeSymbol.List[smokeSymbolIdx] + 1
 	 loopChar = string.sub(smokeSymbol.List[smokeSymbolIdx], loopIdx, loopIdx)
@@ -367,27 +450,31 @@ local function loop()
       if smokeModeIdx == smokeModeIndex.Telem then
 	 if smokeTelemSe ~= 0 then
 	    sensor = system.getSensorByID(smokeTelemId, smokeTelemPa)
-	    if sensor and sensor.valid then telemReadingRaw = sensor.value end
-	    telemReadingUnit = sensor.unit
-	    if sensor.unit == "m/s" then
-	       if selFt then
-		  telemReadingRaw = telemReadingRaw * 2.23694  -- m/s to mph
-		  telemReadingUnit = "mph"
-	       else
-		  telemReadingRaw = telemReadingRaw * 3.6 -- m/s to kmh
-		  telemReadingUnit = "kmh"
+	    --print("sensor, sensor.valid, sensor.value", sensor, sensor.valid, sensor.value)
+	    if sensor and sensor.valid then
+	       telemReadingRaw = sensor.value
+	       telemReadingUnit = sensor.unit
+	       if sensor.unit == "m/s" then
+		  if selFt then
+		     telemReadingRaw = telemReadingRaw * 2.23694  -- m/s to mph
+		     telemReadingUnit = "mph"
+		  else
+		     telemReadingRaw = telemReadingRaw * 3.6 -- m/s to kmh
+		     telemReadingUnit = "kmh"
+		  end
 	       end
-	    end
-	    if sensor.unit == "m" then
-	       if selFt then
-		  telemReadingRaw = telemReadingRaw * 3.28084 -- m to ft
-		  telemReadingUnit = "ft"
-	       else
-		  telemReadingUnit = "m"
+	       if sensor.unit == "m" then
+		  if selFt then
+		     telemReadingRaw = telemReadingRaw * 3.28084 -- m to ft
+		     telemReadingUnit = "ft"
+		  else
+		     telemReadingUnit = "m"
+		  end
 	       end
 	    end
 	    -- clip to max and min the telem reading used to compute duty cycle
 	    telemReading = math.max(math.min(telemReadingRaw, smokeHighTelem), smokeLowTelem)
+	    --print("raw, read:", telemReadingRaw, telemReading)
 	    telemReadingLast = system.getTimeCounter()
 	    smokeDutyCycleIdx =
 	       math.floor(1+10*(telemReading - smokeLowTelem) / (smokeHighTelem - smokeLowTelem))
@@ -397,8 +484,8 @@ local function loop()
 	    telemReading = 0
 	    telemReadingLast = 0
 	    smokeDutyCycleIdx = 1
+	    loopChar = '-' -- make sure smoke off if no sensor
 	 end
-	 
       end
       runStep = runStep + 1
       lastTime = runTime
@@ -423,14 +510,15 @@ local function loop()
    end
    
    -- make sure if we are starting we get to pump off before allowing it to run
+   -- if enable switch is defined, then it must be off (not smEnSw or smEnSw == -1)
    if startUp then
-      if smEn == -1 and smEnSw == -1 and not persistOn then
+      if smEn == -1 and (not smEnSw or smEnSw == -1) and not persistOn then
 	 startUp = false
       else
 	 smV = smokeOffVal
 	 smOut = smokeOffVal
 	 if not startUpMessage then
-	    system.messageBox("Startup: Please turn off smoke")
+	    system.messageBox("Startup: Please turn off smoke", 3)
 	    startUpMessage = true
 	 end
       end
@@ -520,6 +608,10 @@ local function smokeCBseq()
       end
    end
    
+   if smokeModeIdx == smokeModeIndex.Manual then
+      lcd.drawText(x0, y0, "Manual Control", FONT_MINI)
+   end
+   
    if smokeModeIdx == smokeModeIndex.Telem then
       text = string.format("Duty Cycle: %d", 10 * math.floor(smokeDutyCycleIdx-1))
       lcd.drawText(x0, y0+4,text, FONT_MINI)
@@ -539,6 +631,10 @@ local function init()
 
    local fg
    local mstr, char, lstr
+   local pcallOK, pcallRet
+   
+   pcallOK, emulator = pcall(require, "sensorEmulator")
+   if pcallOK and emulator then emulator.init("DFM-Smoke") end
    
    system.registerForm(1,MENU_APPS, "Smoke Controller", initForm, nil, printForm)
    system.registerTelemetry(1, "Smoke Controller Sequence", 1, smokeCBseq)
@@ -583,76 +679,117 @@ local function init()
 
    fg = io.readall("Apps/DFM-Smoke/Symbol.jsn")
    if fg then
-      smokeSymbol = json.decode(fg)
+      pcallOK, pcallRet = pcall(json.decode, fg)
+      if pcallOK then
+	 smokeSymbol = pcallRet
+	 smokeModeAvail.Symbol = true
+      else
+	 system.messageBox("Error decoding Symbol.jsn", 2)
+	 print("Error decoding Apps/DFM-Smoke/Symbol.jsn: " .. (pcallRet or ''))
+      end
    else
-      system.messageBox("Cannot load Apps/DFM-Smoke/Symbol.jsn")
+      system.messageBox("Cannot load Symbol.jsn", 2)
+      print("Cannot load Apps/DFM-Smoke/Symbol.jsn")      
+   end
+
+   -- if we loaded the jsn files...
+   -- leave only "+" and "-" in the symbol string
+   if smokeModeAvail.Symbol then
+      for i = 1, #smokeSymbol.List do
+	 smokeSymbol.List[i] = string.gsub(smokeSymbol.List[i], '[^%+%-]', '')
+      end
    end
    
-   -- leave only "+" and "-" in the string
    
-   for i = 1, #smokeSymbol.List do
-      smokeSymbol.List[i] = string.gsub(smokeSymbol.List[i], '[^%+%-]', '')
-   end
-   
+   -- now read the Morse Code translation table
    fg = io.readall("Apps/DFM-Smoke/MorseCode.jsn")
    if fg then
-      MorseCode = json.decode(fg)
+      pcallOK, pcallRet = pcall(json.decode, fg)
+      if pcallOK then
+	 MorseCode = pcallRet
+	 smokeModeAvail.Morse = true
+      else
+	 system.messageBox("Error decoding MorseCode.jsn", 2)
+	 print("Error decoding Apps/DFM-Smoke/MorseCode.jsn: " .. (pcallRet or ''))
+      end
    else
-      system.messageBox("Cannot load DFM-Smoke/MorseCode.jsn")
+      system.messageBox("Cannot load MorseCode.jsn", 3)
+      print("Cannot load Apps/DFM-Smoke/MorseCode.jsn")      
    end
-   
+
+   -- now read user Morse Code strings
    fg = io.readall("Apps/DFM-Smoke/Morse.jsn")
    if fg then
-      smokeMorse = json.decode(fg)
+      pcallOK, pcallRet = pcall(json.decode, fg)
+      if pcallOK then
+	 smokeMorse = pcallRet
+	 smokeModeAvail.Morse = smokeModeAvail.Morse and true -- need MorseCode.jsn and Morse.jsn
+      else
+	 system.messageBox("Error decoding DutyCycle.jsn", 2)
+	 print("Error decoding Apps/DFM-Smoke/Morse.jsn: " .. (pcallRet or ''))
+      end
    else
-      system.messageBox("Cannot load Apps/DFM-Smoke/Morse.jsn")
+      system.messageBox("Cannot load Morse.jsn", 2)
+      print("Cannot load Apps/DFM-Smoke/Morse.jsn")      
    end
 
-   -- convert the strings to Morse Code. First, leave only letters and spaces
+   -- if we have loaded the two jsn files ...
+   -- convert the strings to Morse Code. First, leave only letters, digits and spaces
    -- then upper-casify the letters
    
-   for i = 1, #smokeMorse.List do
+   if smokeModeAvail.Morse then
+      for i = 1, #smokeMorse.List do
 
-      smokeMorse.List[i] = string.gsub(smokeMorse.List[i], '[^%a%s]', '')
-      smokeMorse.List[i] = string.upper(smokeMorse.List[i])
-      
-      -- build the morse string and the letter to print below it
-
-      mstr = ''
-      lstr = ''
-
-      for j = 1, #smokeMorse.List[i] do
-
-	 char = string.sub(smokeMorse.List[i], j, j)
-
-	 if char == " " then
-	    mstr = mstr .. "-------"
-	    lstr = lstr .. "       "
-	 else
-	    mstr = mstr .. MorseCode[char] .. "---"
-	    lstr = lstr .. char .. string.rep(" ", #MorseCode[char]-1) .. "   "
-	 end
+	 smokeMorse.List[i] = string.gsub(smokeMorse.List[i], '[^%a%s%d]', '')
+	 smokeMorse.List[i] = string.upper(smokeMorse.List[i])
+	 -- print(i, smokeMorse.List[i])
+	 -- build the morse string and the letter to print below it
 	 
-	 if j == #smokeMorse.List[i] then
-	    mstr = mstr .. "-------"
-	    lstr = lstr .. "       "
-	 end
+	 mstr = ''
+	 lstr = ''
 	 
+	 for j = 1, #smokeMorse.List[i] do
+	    
+	    char = string.sub(smokeMorse.List[i], j, j)
+	    
+	    if char == " " then
+	       mstr = mstr .. "-------"
+	       lstr = lstr .. "       "
+	    else
+	       mstr = mstr .. MorseCode[char] .. "---"
+	       lstr = lstr .. char .. string.rep(" ", #MorseCode[char]-1) .. "   "
+	    end
+	    
+	    if j == #smokeMorse.List[i] then
+	       mstr = mstr .. "-------"
+	       lstr = lstr .. "       "
+	    end
+	    
+	 end
+	 smokeMorseOut[i] = mstr
+	 smokeLetterOut[i] = lstr
       end
-      smokeMorseOut[i] = mstr
-      smokeLetterOut[i] = lstr
    end
-   
+
+   -- read in the +- strings for various duty cycles
    fg = io.readall("Apps/DFM-Smoke/DutyCycle.jsn")
    if fg then
-      smokeDutyCycle = json.decode(fg)
-      smokeDutyCycleIdx = 1
+      pcallOK, pcallRet = pcall(json.decode, fg)
+      if pcallOK then
+	 smokeDutyCycle = pcallRet
+	 smokeDutyCycleIdx = 1
+	 smokeModeAvail.Telem = true
+      else
+	 system.messageBox("Error decoding DutyCycle.jsn", 2)
+	 print("Error decoding Apps/DFM-Smoke/DutyCycle.jsn: " .. (pcallRet or ''))
+	 smokeDutyCycleIdx = 0
+      end
    else
+      system.messageBox("Cannot read DutyCycle.jsn", 2)
       print("Cannot load Apps/DFM-Smoke/DutyCycle.jsn")
+      smokeDutyCycleIdx = 0
    end
-
-   if emulator then emulator.init("DFM-Smoke") end
-
+   
    lastTime = 0
    runStep = 0
    persistOn = false
@@ -664,9 +801,11 @@ local function init()
    
    readSensors()
    setLanguage()   
-	 
+
+   --dump(_G,"") -- print all globals
+   
    system.playFile('/Apps/DFM-Smoke/Smoke_Controller_Active.wav', AUDIO_QUEUE)
 
 end
 
-return {init=init, loop=loop, author="DFM", version=smokeVersion, name=smokeName}
+return {init=init, loop=loop, author=smokeAuthor, version=smokeVersion, name=smokeName}

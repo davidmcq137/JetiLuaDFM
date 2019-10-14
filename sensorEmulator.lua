@@ -69,29 +69,52 @@ local emulator={}
 local sensorTbl
 local sensorDir
 
+--[[
+function emulator.check(sd)
+   
+   -- If on emulator, see if we should emulate the telem sensors from a jsn file
+   -- only return true if on the emulator and the lua and jsn files exist
+   
+   local dev, emflag
+   local efg, jfg
+
+   sensorDir = sd
+   dev, emflag = system.getDeviceType()
+
+   if emflag == 1 then
+      local efg = io.open("Apps/sensorEmulator.lua", "r")
+      local jfg = io.open("Apps/"..sensorDir.."/sensorEmulator.jsn", "r")
+      print("efg, jfg:", efg, jfg)
+      if efg then
+	 io.close(efg)
+	 if jfg then
+	    io.close(jfg)
+	    return true
+	 end
+      end
+   end
+   return false
+end
+--]]
+
 function emulator.init(dir)
    
-   local ans, device, emflag
+   local ans
+   local dev, emflag
 
-   device, emflag = system.getDeviceType()
+   if dir then sensorDir = dir else sensorDir = '' end
    
-   --return immediately if running on the physical device
-   if emflag == 0 then return end
-
-   print("Device:", device, "Emulator dir:", dir)
-
+   dev, emflag = system.getDeviceType()
+   
    ans = form.question("Use sensor emulator",
-		       " Apps/" .. dir .. "/sensorEmulator.jsn ?",
+		       " Apps/" .. sensorDir .. "/sensorEmulator.jsn ?",
 		       "---",3500, false, 0)
-   if ans == 1 then
+   if ans == 1 and emflag == 1 then
+      print("Using Sensor Emulator")
       system.getSensors = emulator.getSensors
       system.getSensorByID = emulator.getSensorByID
-   end
-   
-   if dir then
-      sensorDir = dir
    else
-      sensorDir = ''
+      print("Using Native Sensors")
    end
 end
 

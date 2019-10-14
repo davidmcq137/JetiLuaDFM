@@ -10,6 +10,8 @@
    Implements two telemetry windows (large and fullscreen), no menus
    or settable items
 
+   Borrows some display code from Daniel's excellent CTU.lua program
+
    Requires transmitter firmware 4.22 or higher.
     
 ----------------------------------------------------------------------------
