@@ -355,8 +355,8 @@ local function loop()
 	 xtable={}
 	 wtable={}
 	 histogramX = 0
-	 system.playFile("/Apps/DFM-Ctrl/Test_Starting.wav", AUDIO_IMMEDIATE)
-	 system.playFile("/Apps/DFM-Ctrl/Steps.wav", AUDIO_IMMEDIATE)
+	 system.playFile("/Apps/DFM-Ctrl/Test_Starting.wav", AUDIO_QUEUE)
+	 system.playFile("/Apps/DFM-Ctrl/Steps.wav", AUDIO_QUEUE)
 	 system.playNumber(totalSteps, 0)
       else
 	 return
@@ -379,10 +379,10 @@ local function loop()
       end
       if step + 1 > #CTRL_steps then
 	 running = false
-	 system.playFile("/Apps/DFM-Ctrl/Test_Complete.wav", AUDIO_IMMEDIATE)
-	 system.playFile("/Apps/DFM-Ctrl/Maximum_current.wav", AUDIO_IMMEDIATE)
+	 system.playFile("/Apps/DFM-Ctrl/Test_Complete.wav", AUDIO_QUEUE)
+	 system.playFile("/Apps/DFM-Ctrl/Maximum_current.wav", AUDIO_QUEUE)
 	 system.playNumber(totalMaxI, 1, "A")
-	 system.playFile("/Apps/DFM-Ctrl/Average_current.wav", AUDIO_IMMEDIATE)
+	 system.playFile("/Apps/DFM-Ctrl/Average_current.wav", AUDIO_QUEUE)
 	 system.playNumber(totalSumI / totalN, 1, "A")	 
       else
 	 sampleMaxI = 0
