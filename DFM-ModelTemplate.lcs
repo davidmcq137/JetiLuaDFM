@@ -1,0 +1,72 @@
+--
+-- DFM.Test.lcs
+-- self-describing lua data for Jeti Lua App DFM-CTRL.lua
+--
+
+-- CTRL_l is the list of lua controls to use. controls must be between 1-10
+-- but can start at other than 1, skip etc. For example {2,3,4,5,6} or {3,7,8,9,10}
+-- to account for other lua programs having pre-defined controls
+-- all CTRL_x list will be traversed in the same order as this list
+
+CTRL_l {
+   1,2,3,4,5,6,7,8
+}
+
+-- long names of controls .. whatever you like, 31 char limit
+
+CTRL_n {
+   "Left Aileron", "Right Aileron", "Left Flap"    ,  "Right Flap",
+   "Left Rudder" , "Right Rudder" , "Left Elevator",  "Right Elevator"
+}
+
+-- short names of controls, 3 chars max, must match up with CTRL_st names
+
+CTRL_sn {
+   "L_A", "R_A", "L_F", "R_F", "L_R", "R_R", "L_E", "R_E"
+}
+
+-- control states for each time step, dt in ms, states must be -1..1
+
+CTRL_st {
+   {dt=500, L_A=0 ,R_A=0, L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+   
+   {dt=500, L_A=1 ,R_A=1, L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
+   {dt=1000,L_A=-1,R_A=-1,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=1 ,R_A=-1,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
+   {dt=1000,L_A=-1,R_A=1 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=0 ,R_A=0 ,L_F=0, R_F=0, L_R=0, R_R=0, L_E=0, R_E=0},
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=-1,R_F=-1,L_R=0, R_R=0, L_E=0, R_E=0},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=1, R_R=1, L_E=0, R_E=0},
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=-1,R_R=-1,L_E=0, R_E=0},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+   
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=-1,R_R=1, L_E=0, R_E=0},
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=1, R_R=-1,L_E=0, R_E=0},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=1, R_E= 1},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=-1,R_E=-1},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},
+   
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=1, R_E=-1},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=-1,R_E= 1},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},   
+}

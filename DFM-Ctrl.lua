@@ -11,12 +11,20 @@
 
    Released under MIT license by DFM 2019
 
+   Todo: 
+   
+   look at last histo .. did a trim if over .. do a pad if short?
+   Reminder to go to high rates before pushing button to start test?
+   Incorporate a pre-flight check list? Encoded in lcs file?
+   TX info e.g. RSSI for all antennas? other info from system.getTxTelemetry()
+   Other telemetry? Fuel state? Onboard batteries?
+
 --]]
 
 local appShort   = "DFM-Ctrl"
 local appName    = "Controls AutoTest"
 local appAuthor  = "DFM"
-local appVersion = "0.1"
+local appVersion = "1.0"
 
 local lastStep
 local step
@@ -52,9 +60,16 @@ local wtable={}
 
 local histogramWidth
 local histogramX
-local fg
+local ctrlFile
 
 -- read in self-describing data per Lua book, 4th Ed chapter 15
+
+local CTRL_list = {}
+function CTRL_l(e)
+   for k,v in ipairs(e) do
+      CTRL_list[k] = v
+   end
+end
 
 local CTRL_name = {}
 function CTRL_n(e)
@@ -77,7 +92,13 @@ function CTRL_st(e)
    end
 end
 
-dofile("Apps/DFM-Ctrl/DFM-CtrlSeq.lua")
+ctrlFile = "Apps/DFM-"..string.gsub(system.getProperty("Model")..".lcs", " ", "_")
+print("ctrlFile:", ctrlFile)
+
+dofile(ctrlFile)
+
+print("nCtrl=", #CTRL_list)
+print("CTRL_list[1]:", CTRL_list[1])
 
 -- Read available sensors for user to select - done once at startup
 -- Capture battery sensor IDs as specified in batt_info
@@ -112,7 +133,7 @@ end
 
 local function graphScaleChanged(value)
    graphScale = value / 10
-   system.pSave("graphScale", graphScale)
+   system.pSave("graphScale", value)
 end
 
 -- Draw the main form (Application inteface)
@@ -321,6 +342,7 @@ end
 local function loop()
    local now
    local sensor
+   local ctl
    
    sampleSumI = 0
    for i=1, #batt_id, 1 do
@@ -374,9 +396,14 @@ local function loop()
       table.insert(xtable, #xtable+1, histogramX)
       table.insert(ytable, #ytable+1, sampleMaxI)
       table.insert(wtable, #wtable+1, histogramWidth)
-      for ctl = 1, 8, 1 do
-	 system.setControl(ctl, CTRL_steps[step][CTRL_name[ctl]], deltaTStep, 0)
+
+      for i = 1, #CTRL_list, 1 do
+	 print(step, i, CTRL_list[i], CTRL_steps[step][CTRL_shortName[i]])
+	 if CTRL_steps[step][CTRL_shortName[i]] then
+	 system.setControl(CTRL_list[i], CTRL_steps[step][CTRL_shortName[i]], deltaTStep, 0)
+	 end
       end
+
       if step + 1 > #CTRL_steps then
 	 running = false
 	 system.playFile("/Apps/DFM-Ctrl/Test_Complete.wav", AUDIO_QUEUE)
@@ -394,7 +421,7 @@ end
 
 local function init()
 
-   local pcallOK
+   local pcallOK, ctl
    
    pcallOK, emulator = pcall(require, "sensorEmulator")
    if pcallOK and emulator then emulator.init("DFM-Ctrl") end
@@ -406,13 +433,14 @@ local function init()
    --end
 
    system.registerForm(1,MENU_APPS, appName, initForm, nil, nil)
-   testStartSw = system.pLoad("testStartSw")
-   graphScale = system.pLoad("graphScale", 10)
    
-   for ctl = 1, 8, 1 do
-      system.registerControl(
-	 ctl, string.format(CTRL_shortName[ctl], ctl),
-	 string.format(CTRL_name[ctl], ctl))
+   testStartSw = system.pLoad("testStartSw")
+   graphScale = system.pLoad("graphScale", 100) / 10
+   
+   for i = 1, #CTRL_list, 1 do
+      ctl = CTRL_list[i]
+      print(i, ctl, CTRL_name[i], CTRL_shortName[i])
+      system.registerControl(ctl, CTRL_name[i], CTRL_shortName[i])
    end
 
    step = 1
@@ -423,8 +451,9 @@ local function init()
    lastStep = 0
    histogramX = 0
    
-   for ctl = 1, 8, 1 do
-      system.setControl(ctl, CTRL_steps[step][CTRL_name[ctl]], 0, 0)
+   for i = 1, #CTRL_list, 1 do
+      ctl = CTRL_list[i]
+      system.setControl(ctl, CTRL_steps[step][CTRL_shortName[i]], 0, 0)
    end
    
    totalTime = 0

@@ -1,0 +1,64 @@
+--
+-- DFM.Test.lcs
+-- self-describing lua data for Jeti Lua App DFM-CTRL.lua
+--
+
+-- CTRL_l is the list of lua controls to use. controls must be between 1-10
+-- but can start at other than 1, skip etc. For example {2,3,4,5,6} or {3,7,8,9,10}
+-- to account for other lua programs having pre-defined controls
+-- all CTRL_x list will be traversed in the same order as this list
+
+CTRL_l {
+   6,7,8,9,10
+}
+
+-- long names of controls .. whatever you like, 31 char limit
+
+CTRL_n {
+       "Aileron", "Flap", "Rudder", "Elevator", "EleMixer"
+}
+
+-- short names of controls, 3 chars max, names must match up with CTRL_st names
+
+CTRL_sn {
+   "Ail", "Flp", "Rud", "Ele", "Elx"
+}
+
+-- control states for each time step, dt in ms, states must be -1..1
+-- dt is time to next step
+-- only have to specify changes after first step
+-- rows can be in any order, and all controls can move in each row
+-- controls in a row can be in any order
+-- make dt 2x as long for -1 to 1 as for 0 to 1
+
+CTRL_st {
+   {dt=500, Ail=0, Flp=1, Rud=0, Ele=0, Elx=0},
+   
+   {dt=500, Ail=1 },
+   {dt=500},
+   {dt=1000,Ail=-1},
+   {dt=500},
+   {dt=500, Ail=0 },
+
+   {dt=500, Flp=0 },
+   {dt=500},
+   {dt=500, Flp=-1},
+   {dt=500},
+   {dt=1000,Flp=1 },
+
+   {dt=500, Rud=-1},
+   {dt=500},
+   {dt=1000,Rud=1 },
+   {dt=500},
+   {dt=500, Rud=0 },
+   
+   {dt=500, Ele=1 },
+   {dt=500},
+   {dt=1000,Ele=-1},
+   {dt=500},
+   {dt=500, Ele=0 },
+
+   {dt=500, Elx=-1},
+   {dt=1000,Elx=1 },
+   {dt=500, Elx=0 },
+}

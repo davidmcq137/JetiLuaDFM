@@ -1,0 +1,60 @@
+--
+-- DFM.Test.lcs
+--
+
+CTRL_l {
+   1,2,3,4,5,6,7,8
+}
+
+CTRL_n {
+   "Left Aileron", "Right Aileron", "Left Flap"    ,  "Right Flap",
+   "Left Rudder" , "Right Rudder" , "Left Elevator",  "Right Elevator"
+}
+
+CTRL_sn {
+   "L_A", "R_A", "L_F", "R_F", "L_R", "R_R", "L_E", "R_E"
+}
+
+CTRL_st {
+   {dt=500, L_A=0 ,R_A=0, L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+   
+   {dt=500, L_A=1 ,R_A=1, L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
+   {dt=1000,L_A=-1,R_A=-1,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=1 ,R_A=-1,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
+   {dt=1000,L_A=-1,R_A=1 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=0 ,R_A=0 ,L_F=0, R_F=0, L_R=0, R_R=0, L_E=0, R_E=0},
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=-1,R_F=-1,L_R=0, R_R=0, L_E=0, R_E=0},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=1, R_R=1, L_E=0, R_E=0},
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=-1,R_R=-1,L_E=0, R_E=0},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+   
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=-1,R_R=1, L_E=0, R_E=0},
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=1, R_R=-1,L_E=0, R_E=0},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=1, R_E= 1},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=-1,R_E=-1},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},
+   
+   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
+
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=1, R_E=-1},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=-1,R_E= 1},
+   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},   
+}

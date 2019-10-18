@@ -233,14 +233,15 @@ local function smokeTelemSeChanged(value)
 end
 
 local function smokeLowTelemChanged(value)
-   smokeLowTelem = value
+   smokeLowTelem = value / 10
    system.pSave("smokeLowTelem", value)
    loopIdx = 1
 end
 
 local function smokeHighTelemChanged(value)
-   smokeHighTelem = value
+   smokeHighTelem = value / 10
    system.pSave("smokeHighTelem", value)
+   loopIdx = 1
 end
 
 local function smokeSymbolChanged(value)
@@ -303,11 +304,11 @@ local function initForm()
 
    form.addRow(2)
    form.addLabel({label="Low Telemetry Limit",font=FONT_NORMAL, width=220})
-   form.addIntbox(smokeLowTelem, -1000, 1000, 0, 0, 1, smokeLowTelemChanged)
+   form.addIntbox(smokeLowTelem*10, -1000, 1000, 0, 1, 1, smokeLowTelemChanged)
 
    form.addRow(2)
    form.addLabel({label="High Telemetry Limit",font=FONT_NORMAL, width=220})
-   form.addIntbox(smokeHighTelem, -1000, 1000, 0, 0, 1, smokeHighTelemChanged)
+   form.addIntbox(smokeHighTelem*10, -1000, 1000, 0, 1, 1, smokeHighTelemChanged)
 
    form.addRow(2)
    form.addLabel({label="Base Interval time (ms)",font=FONT_NORMAL, width=220})
@@ -655,8 +656,8 @@ local function init()
    smokeTelemSe =   system.pLoad("smokeTelemSe", 0)
    smokeTelemPa =   system.pLoad("smokeTelemPa", 0)
    smokeTelemId =   system.pLoad("smokeTelemId", 0)      
-   smokeLowTelem =  system.pLoad("smokeLowTelem", 0)
-   smokeHighTelem = system.pLoad("smokeHighTelem", 100)
+   smokeLowTelem =  system.pLoad("smokeLowTelem", 0) / 10
+   smokeHighTelem = system.pLoad("smokeHighTelem", 100) / 10
    smokeSymbolIdx = system.pLoad("smokeSymbolIdx", 1)
    smokeMorseIdx =  system.pLoad("smokeMorseIdx", 1)
    smokeControl =   system.pLoad("smokeControl", 5)
