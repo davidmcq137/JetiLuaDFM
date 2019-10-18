@@ -322,8 +322,12 @@ local function timePrint()
    for ix = 0, #ytable-1, 1 do
       iy =ytable[ix+1]/(graphScale)*60
       iy = math.max(math.min(iy, 60), 1)
-      xc = (2 + xtable[ix+1] + wtable[ix+1]) - 301
-      if xc < 0 then xc = 0 end -- shave last histo if over 
+      -- make sure last histo lines up w/edge of window
+      if ix + 1 == totalSteps then 
+	 xc = (2 + xtable[ix+1] + wtable[ix+1]) - 301
+      else
+	 xc = 0
+      end
       lcd.drawFilledRectangle(2+xtable[ix+1], 130-iy, wtable[ix+1]-xc, iy, 150)	 
    end
 
@@ -398,7 +402,7 @@ local function loop()
       table.insert(wtable, #wtable+1, histogramWidth)
 
       for i = 1, #CTRL_list, 1 do
-	 print(step, i, CTRL_list[i], CTRL_steps[step][CTRL_shortName[i]])
+	 --print(step, i, CTRL_list[i], CTRL_steps[step][CTRL_shortName[i]])
 	 if CTRL_steps[step][CTRL_shortName[i]] then
 	 system.setControl(CTRL_list[i], CTRL_steps[step][CTRL_shortName[i]], deltaTStep, 0)
 	 end
@@ -439,7 +443,7 @@ local function init()
    
    for i = 1, #CTRL_list, 1 do
       ctl = CTRL_list[i]
-      print(i, ctl, CTRL_name[i], CTRL_shortName[i])
+      --print(i, ctl, CTRL_name[i], CTRL_shortName[i])
       system.registerControl(ctl, CTRL_name[i], CTRL_shortName[i])
    end
 
