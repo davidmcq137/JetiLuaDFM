@@ -1,5 +1,5 @@
 --
--- DFM.Test.lcs
+-- DFM-Test.lcs
 -- self-describing lua data for Jeti Lua App DFM-CTRL.lua
 --
 
@@ -12,7 +12,7 @@ CTRL_l {
    6,7,8,9
 }
 
--- long names of controls .. whatever you like, 31 char limit
+-- long names of controls .. whatever you likef, 31 char limit
 
 CTRL_n {
        "Aileron", "Flap", "Rudder", "Elevator"
@@ -33,28 +33,32 @@ CTRL_sn {
 
 CTRL_st {
    {dt=500, Ail=0, Flp=1, Rud=0, Ele=0},
-   
+   -- test ailerons
+   {sn="Ail"},
    {dt=500, Ail=1 },
    {dt=500},
    {dt=1000,Ail=-1},
    {dt=500},
    {dt=500, Ail=0 },
    {dt=1000},
-
+   -- test flaps
+   {sn="Flp"},
    {dt=500, Flp=0 },
    {dt=500},
    {dt=500, Flp=-1},
    {dt=500},
    {dt=1000,Flp=1 },
    {dt=1000},
-   
+   -- test rudder
+   {sn="Rud"}, 
    {dt=500, Rud=-1},
    {dt=500},
    {dt=1000,Rud=1 },
    {dt=500},
    {dt=500, Rud=0 },
    {dt=1000},
-   
+   -- test elevator
+   {sn="Ele"},
    {dt=500, Ele=1 },
    {dt=500},
    {dt=1000,Ele=-1},

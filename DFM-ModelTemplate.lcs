@@ -9,64 +9,56 @@
 -- all CTRL_x list will be traversed in the same order as this list
 
 CTRL_l {
-   1,2,3,4,5,6,7,8
+   6,7,8,9
 }
 
 -- long names of controls .. whatever you like, 31 char limit
 
 CTRL_n {
-   "Left Aileron", "Right Aileron", "Left Flap"    ,  "Right Flap",
-   "Left Rudder" , "Right Rudder" , "Left Elevator",  "Right Elevator"
+       "Aileron", "Flap", "Rudder", "Elevator"
 }
 
--- short names of controls, 3 chars max, must match up with CTRL_st names
+-- short names of controls, 3 chars max, names must match up with CTRL_st names
 
 CTRL_sn {
-   "L_A", "R_A", "L_F", "R_F", "L_R", "R_R", "L_E", "R_E"
+   "Ail", "Flp", "Rud", "Ele"
 }
 
 -- control states for each time step, dt in ms, states must be -1..1
+-- dt is time to next step
+-- only have to specify changes after first step
+-- rows can be in any order, and all controls can move in each row
+-- controls in a row can be in any order
+-- make dt 2x as long for -1 to 1 as for 0 to 1
 
 CTRL_st {
-   {dt=500, L_A=0 ,R_A=0, L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
-   
-   {dt=500, L_A=1 ,R_A=1, L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
-   {dt=1000,L_A=-1,R_A=-1,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
-
-   {dt=500, L_A=1 ,R_A=-1,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
-   {dt=1000,L_A=-1,R_A=1 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0}, 
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
-
-   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
-
-   {dt=500, L_A=0 ,R_A=0 ,L_F=0, R_F=0, L_R=0, R_R=0, L_E=0, R_E=0},
-   {dt=1000,L_A=0 ,R_A=0 ,L_F=-1,R_F=-1,L_R=0, R_R=0, L_E=0, R_E=0},
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
-
-   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
-
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=1, R_R=1, L_E=0, R_E=0},
-   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=-1,R_R=-1,L_E=0, R_E=0},
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
-   
-   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
-
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=-1,R_R=1, L_E=0, R_E=0},
-   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=1, R_R=-1,L_E=0, R_E=0},
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
-
-   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
-
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=1, R_E= 1},
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=-1,R_E=-1},
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},
-   
-   {dt=1000,L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E=0},
-
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=1, R_E=-1},
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=-1,R_E= 1},
-   {dt=500, L_A=0 ,R_A=0 ,L_F=1, R_F=1, L_R=0, R_R=0, L_E=0, R_E= 0},   
+   {dt=500, Ail=0, Flp=1, Rud=0, Ele=0},
+   -- test ailerons   
+   {dt=500, Ail=1 },
+   {dt=500},
+   {dt=1000,Ail=-1},
+   {dt=500},
+   {dt=500, Ail=0 },
+   {dt=1000},
+   -test flaps
+   {dt=500, Flp=0 },
+   {dt=500},
+   {dt=500, Flp=-1},
+   {dt=500},
+   {dt=1000,Flp=1 },
+   {dt=1000},
+   --test rudder
+   {dt=500, Rud=-1},
+   {dt=500},
+   {dt=1000,Rud=1 },
+   {dt=500},
+   {dt=500, Rud=0 },
+   {dt=1000},
+   --test elevator
+   {dt=500, Ele=1 },
+   {dt=500},
+   {dt=1000,Ele=-1},
+   {dt=500},
+   {dt=500, Ele=0 },
+   {dt=1000},
 }
