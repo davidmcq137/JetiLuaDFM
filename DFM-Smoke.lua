@@ -799,6 +799,7 @@ local function init()
    telemReadingLast = 0
    currentEGT = 0
    smokeStateON = false
+   sensorLbl = "XXX" -- to debug Gary's issue on the Havoc 
    
    readSensors()
    setLanguage()   

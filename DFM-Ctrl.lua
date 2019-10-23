@@ -26,7 +26,6 @@
 
    Other telemetry? Fuel state? Onboard batteries?
 
-
 --]]
 
 local appShort   = "DFM-Ctrl"
@@ -41,6 +40,8 @@ local running
 
 local stepName
 local lastStepName
+local maxAmps
+local lastMaxAmps
 
 local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
@@ -65,14 +66,22 @@ local runningTime
 local runningTimeSeconds
 local totalTime
 local graphScale
+local redLineAmps
 
 local xtable={}
 local ytable={}
 local wtable={}
 local labels={}
+local amps={}
+local overamps={}
+local exactX={}
+
+local ctrlName={}
+local ctrlMaxa={}
 
 local histogramWidth
 local histogramX
+local sumHisto
 local ctrlFile
 
 -- read in self-describing data per Lua book, 4th Ed chapter 15
@@ -151,6 +160,13 @@ local function graphScaleChanged(value)
    system.pSave("graphScale", value)
 end
 
+local function redLineAmpsChanged(value)
+   redLineAmps = value / 10
+   maxAmps = redLineAmps
+   --print("set maxAmps to:", maxAmps)
+   system.pSave("redLineAmps", value)
+end
+
 -- Draw the main form (Application inteface)
 local function initForm()
 
@@ -162,10 +178,26 @@ local function initForm()
    form.addLabel({label="Graph Scale (Amps)", width=220})
    form.addIntbox(graphScale*10, 0, 200, 100, 1, 1, graphScaleChanged)
 
+   form.addRow(2)
+   form.addLabel({label="Red line current (Amps)", width=220})
+   form.addIntbox(redLineAmps*10, 0, 200, 100, 1, 1, redLineAmpsChanged)
+
    form.addRow(1)
    form.addLabel({label="Version " .. appVersion .." ",font=FONT_MINI, alignRight=true})
 
 end
+
+local function pixFromAmps(a)
+   local iy
+   iy = a / (graphScale) * 60
+   iy = math.floor(math.max(math.min(iy, 60), 0))
+   return iy
+end
+
+local function round1(x)
+   return math.floor(x*10 + 0.5) / 10.0
+end
+
 
 -- Telemetry window draw functions
 local ww1max, ww2max = 0, 0
@@ -252,11 +284,18 @@ local function timePrint()
       ss = "---"
    end
 
+   if sampleSumI and maxAmps and sampleSumI > maxAmps then
+      lcd.setColor(255,0,0)
+   else
+      lcd.setColor(0,0,0)
+   end
+   
    ww = lcd.getTextWidth(FONT_MAXI, ss)
    lcd.drawText(100+5+(100-ww)/2-1,15,ss, FONT_MAXI)
-
+   lcd.setColor(0,0,0)
+   
    if totalN and totalN ~= 0 then
-      ss = string.format("Avg: %.1f", totalSumI / totalN)
+      ss = string.format("Avg: %.1f", round1(totalSumI / totalN) )
    else
       ss = "---"
    end
@@ -265,7 +304,7 @@ local function timePrint()
    lcd.drawText(200+5+(100-ww)/2-1,15,ss, FONT_NORMAL)
 
    if totalMaxI then
-      ss = string.format("Max: %.1f", totalMaxI)
+      ss = string.format("Max: %.1f", round1(totalMaxI) )
    else
       ss = "---"
    end
@@ -319,27 +358,42 @@ local function timePrint()
       ih = ih + 2*ihd
    end
    
-   ss = string.format("Graph Scale: %.1f", graphScale)
+   ss = string.format("Graph Scale (A): %.1f", graphScale)
    ww = lcd.getTextWidth(FONT_MINI, ss)
-   lcd.drawText(150 - ww/2,70-15, ss, FONT_MINI)
+   lcd.drawText(75 - ww/2,70-15, ss, FONT_MINI)
+
+   if maxAmps then
+      ss = string.format("Hi Current Limit (A): %.1f", maxAmps)
+      ww = lcd.getTextWidth(FONT_MINI, ss)
+      lcd.drawText(225 - ww/2,70-15, ss, FONT_MINI)
+   end
    
    lcd.setColor(0,0,200)
 
    local iy, xc
    --draw the current histogram
-   for ix = 0, #ytable-1, 1 do
-      iy = ytable[ix+1] / (graphScale) * 60
-      iy = math.floor(math.max(math.min(iy, 60), 0))
-      -- print(ix+1, ytable[ix+1],iy)
+   for ix = 1, #ytable, 1 do
+      iy = pixFromAmps(ytable[ix])
       -- make sure last histo lines up w/edge of window
-      if ix + 1 == totalSteps then 
-	 xc = (2 + xtable[ix+1] + wtable[ix+1]) - 301
+      if ix  == totalSteps then
+	 xc = (xtable[ix] + wtable[ix]) - 300
       else
 	 xc = 0
       end
-      lcd.drawFilledRectangle(2+xtable[ix+1], 130-iy, wtable[ix+1]-xc, iy, 150)
-   end
 
+      if overamps[ix] == true then
+	 lcd.setColor(255,0,0)
+      else
+	 lcd.setColor(0,0,200)
+      end
+      if xtable[ix] + wtable[ix]  > 300 then
+	 --print(">300", ix, xtable[ix], wtable[ix], xc, totalSteps)
+      end
+      lcd.drawFilledRectangle(2+xtable[ix], 130-iy, wtable[ix]-xc, iy, 200)
+   end
+   
+   -- draw label for each step section if defined
+   lcd.setColor(0,0,200)
    if #labels > 0 then
       for i=1, #labels, 1 do
 	 if labels[i].text ~= "---" then
@@ -347,7 +401,17 @@ local function timePrint()
 	 end
       end
    end
+   
+   -- draw red line for max amps if defined for this step section
+   lcd.setColor(200, 0, 0)
 
+   if #amps > 0 and maxAmps < graphScale then
+      for i=1, #amps, 1 do
+	 lcd.drawLine(2 + amps[i].x0, 130 - pixFromAmps(amps[i].y0),
+		      math.min(2 + amps[i].x1, 300), 130 - pixFromAmps(amps[i].y1))
+      end
+   end
+   
    -- draw green line for average value
    lcd.setColor(0,200,0)
    if totalN and totalN ~= 0 then
@@ -364,6 +428,9 @@ local function loop()
    local now
    local sensor
    local lbl={}
+   local ampxy={}
+   local ex
+   local dx
    
    sampleSumI = 0
    for i=1, #batt_id, 1 do
@@ -398,12 +465,18 @@ local function loop()
 	 xtable={}
 	 wtable={}
 	 labels={}
+	 amps={}
+	 overamps={}
 	 histogramX = 0
 	 ww1max = 0
 	 ww2max = 0
 	 aa1max = 0
 	 aa2max = 0
 	 lastStepName=nil
+	 lastMaxAmps=nil
+	 maxAmps = redLineAmps -- set to this if nothing in lcs file
+	 sumHisto = 0
+	 --print("reinit - ma:", maxAmps)
 	 system.playFile("/Apps/"..appShort.."/Test_Starting.wav", AUDIO_QUEUE)
 	 system.playFile("/Apps/"..appShort.."/Steps.wav", AUDIO_QUEUE)
 	 system.playNumber(totalSteps, 0)
@@ -416,27 +489,93 @@ local function loop()
    runningTime = now - startTime
    runningTimeSeconds = runningTime / 1000
 
-   if now > lastStep + deltaTStep and step < totalSteps + 1 then
+   if now > lastStep + deltaTStep and step + 1 <= totalSteps  then
+      -- over-write max I to be the max in the step section that has just finished
+      -- to make sure we got any peaks during the section
+      if #ytable > 0 then
+	 ytable[#ytable] = sampleMaxI
+      end
+      
+      -- and record it for the drawing function
+      -- note same code below at end of sequence to catch end of last section
+      -- won't get there because step >= totalSteps+1
+      -- need a better way to structure it...
+      if sampleMaxI < (maxAmps or 1000) and #overamps > 0 then
+	 overamps[#overamps] = false
+      else
+	 overamps[#overamps] = true
+      end
+      
       if CTRL_steps[step+1].dt then
 	 step = step + 1
 	 deltaTStep = CTRL_steps[step].dt
 	 stepName = CTRL_steps[step].sn
-	 histogramWidth = math.floor(0.5 + deltaTStep / totalTime * 300)
+	 if CTRL_steps[step].maxa then
+	    maxAmps = CTRL_steps[step].maxa
+	 end
+	 
+	 -- compute trial histogram width
+	 histogramWidth = math.floor(0.5 + (deltaTStep / totalTime * 300) )
+
+	 -- see if the runing sum of histogram widths is tracking with the exact sum
+	 -- of dt's - the pixel counts for histos have to be integers and errors accumulate
+	 -- so make small periodic adjustments of 1 pixel to keep them in line
+	 -- see how we are doing up to the prior step, then adjust this histo width
+	 
+	 if step > 1 then
+	    ex = math.floor(0.5 + (exactX[step-1] / totalTime * 300))
+	    --print(sumHisto, ex)
+	    if ex > sumHisto then
+	       dx =  1
+	    elseif ex < sumHisto then
+	       dx = -1
+	    else
+	       dx = 0
+	    end
+	 else
+	    dx = 0
+	 end
+
+	 histogramWidth = histogramWidth + dx
+	 sumHisto = sumHisto + histogramWidth
+	 
 	 table.insert(xtable, #xtable+1, histogramX)
 	 table.insert(ytable, #ytable+1, sampleMaxI)
 	 table.insert(wtable, #wtable+1, histogramWidth)
-
+	 table.insert(overamps, #overamps+1, false) -- set to true as needed at end of section
+	 
 	 if stepName ~= lastStepName then
-	    print("new label:", stepName)
+	    --print("new label:", stepName)
 	    lbl.text = stepName
 	    lbl.x = histogramX
 	    lbl.y = 70
-	    print("ix, lbl.x, lbl.y:", ix,lbl.x, lbl.y)
+	    --print("ix, lbl.x, lbl.y:", ix,lbl.x, lbl.y)
 	    table.insert(labels, #labels+1, lbl)
-	    print("#labels:", #labels)
+	    --print("#labels:", #labels)
 	    lastStepName = stepName
 	 end
 
+	 if maxAmps ~= lastMaxAmps then
+	    --print("new maxA:", maxAmps, lastMaxAmps, step)
+	    --if #amps == 0 and step <= 2 then
+	       --ampxy.x0 = 0
+	    --else
+	       ampxy.x0 = histogramX
+	    --end
+	    
+	    ampxy.y0 = maxAmps
+	    ampxy.x1 = histogramX + histogramWidth
+	    ampxy.y1 = maxAmps
+	    table.insert(amps, #amps+1, ampxy)
+	    lastMaxAmps = maxAmps
+	 else
+	    if #amps > 0 then
+	       amps[#amps].x1 = histogramX + histogramWidth
+	       amps[#amps].y1 = maxAmps
+	       --print("else, x1,y1:", amps[#amps].x1, amps[#amps].y1)
+	    end
+	 end
+	 
 	 for i = 1, #CTRL_list, 1 do
 	    if CTRL_steps[step][CTRL_shortName[i]] then
 	       system.setControl(CTRL_list[i],
@@ -445,17 +584,33 @@ local function loop()
 	    end
 	 end
       end
-
+     
       stepName = CTRL_steps[step].sn
-      print(step, stepName)
+      --print(step, stepName)
 
       if step + 1 > totalSteps then
+
+	 -- code below repeated from above .. to catch end of sequence
+	 -- needs a better design
+	 --print("done.", #ytable, #overamps, sampleMaxI, xtable[#xtable], wtable[#wtable])
+	 if #ytable > 0 then
+	    ytable[#ytable] = sampleMaxI
+	 end
+	 
+	 if sampleMaxI < (maxAmps or 1000) and #overamps > 0 then
+	    overamps[#overamps] = false
+	    print("oa false")
+	 else
+	    overamps[#overamps] = true
+	    print("oa true")
+	 end
+	 
 	 running = false
 	 system.playFile("/Apps/"..appShort.."/Test_Complete.wav", AUDIO_QUEUE)
 	 system.playFile("/Apps/"..appShort.."/Maximum_current.wav", AUDIO_QUEUE)
-	 system.playNumber(totalMaxI, 1, "A")
+	 system.playNumber(round1(totalMaxI), 1, "A")
 	 system.playFile("/Apps/"..appShort.."/Average_current.wav", AUDIO_QUEUE)
-	 system.playNumber(totalSumI / totalN, 1, "A")	 
+	 system.playNumber(round1(totalSumI / totalN), 1, "A")	 
       else
 	 sampleMaxI = 0
 	 histogramX = histogramX + histogramWidth
@@ -472,11 +627,12 @@ local function init()
    if pcallOK and emulator then emulator.init(appShort) end
 
    readSensors()
-
+   print("Model: "..system.getProperty("Model"))
    system.registerForm(1,MENU_APPS, appName, initForm, nil, nil)
    
    testStartSw = system.pLoad("testStartSw")
    graphScale = system.pLoad("graphScale", 100) / 10
+   redLineAmps = system.pLoad("redLineAmps", 100) / 10
    
    for i = 1, #CTRL_list, 1 do
       ctl = CTRL_list[i]
@@ -488,24 +644,34 @@ local function init()
    totalN = 0
    lastStep = 0
    histogramX = 0
-   
+   maxAmps = nil
+   --print("init - ma:", maxAmps)
+   --print("init - rl:", redLineAmps)
    
    totalTime = 0
    totalSteps = 0
+   sumHisto = 0
    stepName = "---"
    
-   --print("#CL:", #CTRL_lines)
    for i = 1, #CTRL_lines, 1 do
-      if CTRL_lines[i].sn then stepName = CTRL_lines[i].sn end
+      if CTRL_lines[i].maxa then maxAmps = CTRL_lines[i].maxa end
+      if CTRL_lines[i].sn then
+	 stepName = CTRL_lines[i].sn
+	 table.insert(ctrlName, #ctrlName+1, stepName)
+	 table.insert(ctrlMaxa, #ctrlMaxa+1, maxAmps)
+      end
       if CTRL_lines[i].dt then
 	 totalSteps = totalSteps + 1
 	 CTRL_steps[totalSteps] = CTRL_lines[i]
 	 CTRL_steps[totalSteps].sn = stepName
+	 CTRL_steps[totalSteps].maxa = maxAmps
 	 totalTime = totalTime + CTRL_steps[totalSteps].dt
-	 print(i, totalSteps, CTRL_lines[i].dt, CTRL_steps[totalSteps].dt, CTRL_steps[totalSteps].sn)
+	 exactX[totalSteps] = totalTime
       end
    end
 
+   print("totalTime, totalSteps:", totalTime, totalSteps)
+   
    step = 0
    deltaTStep = CTRL_steps[step+1].dt
 
@@ -514,7 +680,7 @@ local function init()
       system.setControl(ctl, CTRL_steps[step+1][CTRL_shortName[i]], 0, 0)
    end
 
-   system.registerTelemetry(1, appName, 4, timePrint)
+   system.registerTelemetry(1, appName.." - Model: "..system.getProperty("Model"), 4, timePrint)
    
 end
 
@@ -524,33 +690,31 @@ return {init=init, loop=loop, name=appName, author=appAuthor, version=appVersion
 
 --[[
 
--- Example lcs file
-
 --
 -- DFM.Test.lcs
 -- self-describing lua data for Jeti Lua App DFM-CTRL.lua
+-- example for Yellow F-18
 --
 
 -- CTRL_l is the list of lua controls to use. controls must be between 1-10
 -- but can start at other than 1, skip etc. For example {2,3,4,5,6} or {3,7,8,9,10}
 -- to account for other lua programs having pre-defined controls
--- all CTRL_x lists will be traversed in the same order as this list
+-- all CTRL_x list will be traversed in the same order as this list
 
 CTRL_l {
-   6,7,8,9
+   5,6,7,8,9,10
 }
 
 -- long names of controls .. whatever you like, 31 char limit
 
 CTRL_n {
-       "Aileron", "Flap", "Rudder", "Elevator"
+       "Aileron", "Flap", "Rudder1", "Rudder2", "Elevator1", "Elevator2"
 }
 
 -- short names of controls, 3 chars max, names must match up with CTRL_st names
--- same order as CTRL_n
 
 CTRL_sn {
-   "Ail", "Flp", "Rud", "Ele"
+   "Ail", "Flp", "Ru1", "Ru2", "El1", "El2"
 }
 
 -- control states for each time step, dt in ms, states must be -1..1
@@ -561,35 +725,69 @@ CTRL_sn {
 -- make dt 2x as long for -1 to 1 as for 0 to 1
 
 CTRL_st {
-   {dt=500, Ail=0, Flp=1, Rud=0, Ele=0},
-   
-   {dt=500, Ail=1 },
-   {dt=500},
-   {dt=1000,Ail=-1},
-   {dt=500},
-   {dt=500, Ail=0 },
+
+   {dt=500, Ail=0, Flp=1, Ru1=0, Ru2=0, El1=0, El2=0},
+
+   {sn="Ail"},
+   {dt=200,Ail=1 },
+   {dt=600},
+   {dt=200,Ail=0 },
+   {dt=600},
+   {dt=200,Ail=-1},
+   {dt=600},
+   {dt=200,Ail=0 },
    {dt=1000},
 
-   {dt=500, Flp=0 },
+   {sn="Flp"},
+   {dt=500, Fl1=0 },
    {dt=500},
-   {dt=500, Flp=-1},
+   {dt=1500, Flp=-1},
    {dt=500},
-   {dt=1000,Flp=1 },
+   {dt=1500,Flp=1 },
+   {dt=1000},
+
+   {sn="Rud"},
+   {dt=200, Ru1=-1,Ru2=-1},
+   {dt=200},
+   {dt=400,Ru1=1, Ru2=1 },
+   {dt=200},
+   {dt=200, Ru1=0, Ru2=0 },
+   {dt=400},
+   
+   {dt=200, Ru1=-1,Ru2=1},
+   {dt=200},
+   {dt=400,Ru1=1, Ru2=-1},
+   {dt=200},
+   {dt=200, Ru1=0, Ru2=0 },
+   {dt=400},
+
+   {sn="Ele"},
+   {dt=200, El1=1, El2=-1 },
+   {dt=600},
+   {dt=200, El1=0, El2=0},
+   {dt=600},
+   {dt=200,El1=-1, El2=1},
+   {dt=600},
+   {dt=200, El1=0, El2=0 },
    {dt=1000},
    
-   {dt=500, Rud=-1},
-   {dt=500},
-   {dt=1000,Rud=1 },
-   {dt=500},
-   {dt=500, Rud=0 },
+   {dt=200, El1=1, El2=1 },
+   {dt=600},
+   {dt=200,El1=0, El2=0},
+   {dt=600},
+   {dt=200,El1=-1, El2=-1},   
+   {dt=600},
+   {dt=200, El1=0, El2=0 },
    {dt=1000},
-   
-   {dt=500, Ele=1 },
-   {dt=500},
-   {dt=1000,Ele=-1},
-   {dt=500},
-   {dt=500, Ele=0 },
-   {dt=1000},
+
+   {sn="All"},
+   {dt=200, Ail=1,  Flp=0,  Ru1=-1, Ru2=-1, El1=-1, El2=1},
+   {dt=600},
+   {dt=200, Ail=0,  Flp=-1, Ru1=0,  Ru2=0,  El1=0,  El2=0},
+   {dt=600},
+   {dt=200, Ail=-1, Flp=0,  Ru1=1,  Ru2=1,  El1=1,  El2=-1},
+   {dt=600},
+   {dt=200, Ail=0,  Flp=1,  Ru1=0,  Ru2=0,  El1=0,  El2=0},
 }
 
 --]]

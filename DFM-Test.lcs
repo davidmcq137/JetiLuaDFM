@@ -1,5 +1,5 @@
 --
--- DFM-Test.lcs
+-- DFM.Test.lcs
 -- self-describing lua data for Jeti Lua App DFM-CTRL.lua
 --
 
@@ -9,19 +9,19 @@
 -- all CTRL_x list will be traversed in the same order as this list
 
 CTRL_l {
-   6,7,8,9
+   5,6,7,8,9,10
 }
 
--- long names of controls .. whatever you likef, 31 char limit
+-- long names of controls .. whatever you like, 31 char limit
 
 CTRL_n {
-       "Aileron", "Flap", "Rudder", "Elevator"
+       "Aileron", "Flap", "Rudder1", "Rudder2", "Elevator1", "Elevator2"
 }
 
 -- short names of controls, 3 chars max, names must match up with CTRL_st names
 
 CTRL_sn {
-   "Ail", "Flp", "Rud", "Ele"
+   "Ail", "Flp", "Ru1", "Ru2", "El1", "El2"
 }
 
 -- control states for each time step, dt in ms, states must be -1..1
@@ -32,37 +32,66 @@ CTRL_sn {
 -- make dt 2x as long for -1 to 1 as for 0 to 1
 
 CTRL_st {
-   {dt=500, Ail=0, Flp=1, Rud=0, Ele=0},
-   -- test ailerons
+   {dt=500, Ail=0, Flp=1, Ru1=0, Ru2=0, El1=0, El2=0},
+
    {sn="Ail"},
-   {dt=500, Ail=1 },
-   {dt=500},
-   {dt=1000,Ail=-1},
-   {dt=500},
-   {dt=500, Ail=0 },
+   {dt=200,Ail=1 },
+   {dt=600},
+   {dt=200,Ail=0 },
+   {dt=600},
+   {dt=200,Ail=-1},
+   {dt=600},
+   {dt=200,Ail=0 },
    {dt=1000},
-   -- test flaps
+
    {sn="Flp"},
-   {dt=500, Flp=0 },
+   {dt=500, Fl1=0 },
    {dt=500},
-   {dt=500, Flp=-1},
+   {dt=1500, Flp=-1},
    {dt=500},
-   {dt=1000,Flp=1 },
+   {dt=1500,Flp=1 },
    {dt=1000},
-   -- test rudder
-   {sn="Rud"}, 
-   {dt=500, Rud=-1},
-   {dt=500},
-   {dt=1000,Rud=1 },
-   {dt=500},
-   {dt=500, Rud=0 },
-   {dt=1000},
-   -- test elevator
+
+   {sn="Rud"},
+   {dt=200, Ru1=-1,Ru2=-1},
+   {dt=200},
+   {dt=400,Ru1=1, Ru2=1 },
+   {dt=200},
+   {dt=200, Ru1=0, Ru2=0 },
+   {dt=400},
+   
+   {dt=200, Ru1=-1,Ru2=1},
+   {dt=200},
+   {dt=400,Ru1=1, Ru2=-1},
+   {dt=200},
+   {dt=200, Ru1=0, Ru2=0 },
+   {dt=400},
+
    {sn="Ele"},
-   {dt=500, Ele=1 },
-   {dt=500},
-   {dt=1000,Ele=-1},
-   {dt=500},
-   {dt=500, Ele=0 },
+   {dt=200, El1=1, El2=-1 },
+   {dt=600},
+   {dt=200, El1=0, El2=0},
+   {dt=600},
+   {dt=200,El1=-1, El2=1},
+   {dt=600},
+   {dt=200, El1=0, El2=0 },
    {dt=1000},
+   
+   {dt=200, El1=1, El2=1 },
+   {dt=600},
+   {dt=200,El1=0, El2=0},
+   {dt=600},
+   {dt=200,El1=-1, El2=-1},   
+   {dt=600},
+   {dt=200, El1=0, El2=0 },
+   {dt=1000},
+
+   {sn="All"},
+   {dt=200, Ail=1,  Flp=0,  Ru1=-1, Ru2=-1, El1=-1, El2=1},
+   {dt=600},
+   {dt=200, Ail=0,  Flp=-1, Ru1=0,  Ru2=0,  El1=0,  El2=0},
+   {dt=600},
+   {dt=200, Ail=-1, Flp=0,  Ru1=1,  Ru2=1,  El1=1,  El2=-1},
+   {dt=600},
+   {dt=200, Ail=0,  Flp=1,  Ru1=0,  Ru2=0,  El1=0,  El2=0},
 }
