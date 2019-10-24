@@ -1,5 +1,5 @@
 --
--- DFM-Test.lcs
+-- DFM.Test.lcs
 -- self-describing lua data for Jeti Lua App DFM-CTRL.lua
 --
 
@@ -30,9 +30,6 @@ CTRL_sn {
 -- rows can be in any order, and all controls can move in each row
 -- controls in a row can be in any order
 -- make dt 2x as long for -1 to 1 as for 0 to 1
--- sn is step section name, displayed on screen
--- can also add maxa=3.4 to the table with sn, e.g. {sn="Ail", maxa=3.4}
--- so that max amps limit is settable per sn
 
 CTRL_st {
    {dt=500, Ail=0, Flp=1, Ru1=0, Ru2=0, El1=0, El2=0},
@@ -48,8 +45,6 @@ CTRL_st {
    {dt=1000},
 
    {sn="Flp"},
-   {dt=500, Fl1=0 },
-   {dt=500},
    {dt=1500, Flp=-1},
    {dt=500},
    {dt=1500,Flp=1 },
@@ -90,11 +85,9 @@ CTRL_st {
    {dt=1000},
 
    {sn="All"},
-   {dt=200, Ail=1,  Flp=0,  Ru1=-1, Ru2=-1, El1=-1, El2=1},
-   {dt=600},
-   {dt=200, Ail=0,  Flp=-1, Ru1=0,  Ru2=0,  El1=0,  El2=0},
-   {dt=600},
-   {dt=200, Ail=-1, Flp=0,  Ru1=1,  Ru2=1,  El1=1,  El2=-1},
-   {dt=600},
-   {dt=200, Ail=0,  Flp=1,  Ru1=0,  Ru2=0,  El1=0,  El2=0},
+   {dt=300, Ail=1,  Flp=0,  Ru1=-1, Ru2=-1, El1=-1, El2=1},
+   {dt=300, Ail=0,  Flp=-1, Ru1=0,  Ru2=0,  El1=0,  El2=0},
+   {dt=300, Ail=-1, Flp=0,  Ru1=1,  Ru2=1,  El1=1,  El2=-1},
+   {dt=300, Ail=0,  Flp=1,  Ru1=0,  Ru2=0,  El1=0,  El2=0},
+   {dt=1000},
 }

@@ -799,7 +799,10 @@ local function init()
    telemReadingLast = 0
    currentEGT = 0
    smokeStateON = false
-   sensorLbl = "XXX" -- to debug Gary's issue on the Havoc 
+   sensorLbl = "***" -- to debug Gary's issue on the Havoc
+   -- apparently it is possible to have an item at the top of the sensor list that is not
+   -- preceeded by a header, so sensorLbl is nil the first time thru the loop. In Gary's
+   -- case this was an RX input pin, so put "***" there just in case...
    
    readSensors()
    setLanguage()   

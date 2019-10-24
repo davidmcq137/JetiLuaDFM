@@ -1,0 +1,7 @@
+{
+"throttleChannel": "P4",
+"throttleFull":0.90,
+"brakeChannel":"P7",
+"brakeOn": -1.0,
+"pitotCal":100
+}

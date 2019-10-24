@@ -89,31 +89,23 @@ local ctrlFile
 
 local CTRL_list = {}
 function CTRL_l(e)
-   for k,v in ipairs(e) do
-      CTRL_list[k] = v
-   end
+   for k,v in ipairs(e) do CTRL_list[k] = v end
 end
 
 local CTRL_name = {}
 function CTRL_n(e)
-   for k,v in ipairs(e) do
-      CTRL_name[k] = v
-   end
+   for k,v in ipairs(e) do CTRL_name[k] = v end
 end
 
 local CTRL_shortName = {}
 function CTRL_sn(e)
-   for k,v in ipairs(e) do
-      CTRL_shortName[k] = v
-   end
+   for k,v in ipairs(e) do CTRL_shortName[k] = v end
 end
 
 local CTRL_lines = {}
 local CTRL_steps = {}
 function CTRL_st(e)
-   for k,v in ipairs(e) do
-      CTRL_lines[k] = v
-   end
+   for k,v in ipairs(e) do CTRL_lines[k] = v end
 end
 
 -- get model name, form the appropriate lcs filename
@@ -125,11 +117,13 @@ print("Reading " .. ctrlFile)
 
 -- read/execute the lcs file -- should change to pcall with errorcode?
 -- maybe easier to just let system handle...
+
 dofile(ctrlFile)
 
 -- Read available sensors for user to select - done once at startup
 -- Capture battery sensor IDs as specified in batt_info
 -- Additionally look for the telemetry labels in <batt_info>, note id & param
+
 local function readSensors()
    local sensors = system.getSensors()
    for _, sensor in ipairs(sensors) do
@@ -150,6 +144,7 @@ local function readSensors()
 end
 
 -- main forms interface callbacks
+
 local function testStartSwChanged(value)
    testStartSw = value
    system.pSave("testStartSw",value)
@@ -168,6 +163,7 @@ local function redLineAmpsChanged(value)
 end
 
 -- Draw the main form (Application inteface)
+
 local function initForm()
 
    form.addRow(2)
@@ -187,19 +183,18 @@ local function initForm()
 
 end
 
+-- convenience functions
+
 local function pixFromAmps(a)
-   local iy
-   iy = a / (graphScale) * 60
-   iy = math.floor(math.max(math.min(iy, 60), 0))
-   return iy
+   return math.floor(math.max(math.min(a / (graphScale) * 60, 60), 0))
 end
 
 local function round1(x)
    return math.floor(x*10 + 0.5) / 10.0
 end
 
-
 -- Telemetry window draw functions
+
 local ww1max, ww2max = 0, 0
 local aa1max, aa2max = 0, 0
 
@@ -208,6 +203,7 @@ local function timePrint()
    local mm, rr
    local pts
    local fstr
+   local ww, ss
 
    lcd.setColor(0,0,0)
 
@@ -217,17 +213,15 @@ local function timePrint()
    ww = math.floor(batt_val[1]/(graphScale/2)*149.0)
    ww = math.max(math.min(146, ww), 0)
    
-   if ww > ww1max then
-      ww1max = ww
-   end
-   if batt_val[1] > aa1max then
-      aa1max = batt_val[1]
-   end
+   if ww > ww1max then ww1max = ww end
+   if batt_val[1] > aa1max then aa1max = batt_val[1] end
    
+   -- draw horizontal bar graphs for battery current
    lcd.setColor(0, 0, 200)
    lcd.drawFilledRectangle(4-1, 133, ww, 10, 200)
    lcd.setColor(200, 0, 0)
    lcd.drawFilledRectangle(4-1+ww1max, 133, 3, 10)
+   
    lcd.setColor(0, 0, 0)
    ss = string.format("Bat 1 Max: %2.1f A", aa1max)
    ww = lcd.getTextWidth(FONT_MINI, ss)
@@ -235,12 +229,8 @@ local function timePrint()
    
    ww = math.floor(batt_val[2]/(graphScale/2)*149.0)
    ww = math.max(math.min(145, ww), 0)
-   if ww > ww2max then
-      ww2max = ww
-   end
-   if batt_val[2] > aa2max then
-      aa2max = batt_val[2]
-   end
+   if ww > ww2max then ww2max = ww end
+   if batt_val[2] > aa2max then aa2max = batt_val[2] end
    
    lcd.setColor(0, 0, 200)
    lcd.drawFilledRectangle(300-ww, 133, ww+1, 10, 200)
@@ -255,9 +245,7 @@ local function timePrint()
    if runningTimeSeconds and runningTimeSeconds > 0 then
       mm, rr = math.modf(runningTimeSeconds/60)
       pts = string.format("Time: %02d:%02d", math.floor(mm), math.floor(rr*60))
-   else
-      pts = string.format("---", 0, 0)
-   end
+   else pts = string.format("---", 0, 0) end
 
    if running or step == totalSteps then
       fstr = string.format("Step: %d/%d", math.floor(step), math.floor(totalSteps))
@@ -270,8 +258,6 @@ local function timePrint()
    lcd.drawLine(100+2, 15, 100+2, 54)
    lcd.drawLine(200+2, 15, 200+2, 54)
    
-   local ww, ss
-   
    ww = lcd.getTextWidth(FONT_NORMAL, pts)
    lcd.drawText(5+(100-ww)/2-1,15,pts, FONT_NORMAL)
 
@@ -280,15 +266,11 @@ local function timePrint()
    
    if sampleSumI then
       ss = string.format("%.1f", sampleSumI)
-   else
-      ss = "---"
-   end
+   else ss = "---" end
 
    if sampleSumI and maxAmps and sampleSumI > maxAmps then
       lcd.setColor(255,0,0)
-   else
-      lcd.setColor(0,0,0)
-   end
+   else lcd.setColor(0,0,0) end
    
    ww = lcd.getTextWidth(FONT_MAXI, ss)
    lcd.drawText(100+5+(100-ww)/2-1,15,ss, FONT_MAXI)
@@ -296,18 +278,14 @@ local function timePrint()
    
    if totalN and totalN ~= 0 then
       ss = string.format("Avg: %.1f", round1(totalSumI / totalN) )
-   else
-      ss = "---"
-   end
+   else ss = "---" end
    
    ww = lcd.getTextWidth(FONT_NORMAL, ss)
    lcd.drawText(200+5+(100-ww)/2-1,15,ss, FONT_NORMAL)
 
    if totalMaxI then
       ss = string.format("Max: %.1f", round1(totalMaxI) )
-   else
-      ss = "---"
-   end
+   else ss = "---" end
    
    ww = lcd.getTextWidth(FONT_NORMAL, ss)
    lcd.drawText(200+5+(100-ww)/2-1,15 + 18,ss, FONT_NORMAL)
@@ -330,16 +308,10 @@ local function timePrint()
    
    -- draw vertical dashed lines
    while iv <= 130 do
-      if iv + ivd > 130 then
-	 ivdt = 130 - 1
-      else
-	 ivdt = iv + ivd - 1
-      end
-      
+      if iv + ivd > 130 then ivdt = 130 - 1 else ivdt = iv + ivd - 1 end
       lcd.drawLine(75+2, iv, 75+2, ivdt)
       lcd.drawLine(150+2, iv, 150+2, ivdt)
       lcd.drawLine(225+2, iv, 225+2, ivdt)
-      
       iv = iv + 2*ivd
    end
    
@@ -349,11 +321,7 @@ local function timePrint()
    local ihdt
    
    while ih <= 300 do
-      if ih + ihd > 300 then
-	 ihdt = 300
-      else
-	 ihdt = ih + ihd
-      end
+      if ih + ihd > 300 then ihdt = 300 else ihdt = ih + ihd end
       lcd.drawLine(ih, 70+60/2, ihdt, 70+60/2)
       ih = ih + 2*ihd
    end
@@ -380,14 +348,10 @@ local function timePrint()
       else
 	 xc = 0
       end
-
       if overamps[ix] == true then
 	 lcd.setColor(255,0,0)
       else
 	 lcd.setColor(0,0,200)
-      end
-      if xtable[ix] + wtable[ix]  > 300 then
-	 --print(">300", ix, xtable[ix], wtable[ix], xc, totalSteps)
       end
       lcd.drawFilledRectangle(2+xtable[ix], 130-iy, wtable[ix]-xc, iy, 200)
    end
@@ -404,7 +368,6 @@ local function timePrint()
    
    -- draw red line for max amps if defined for this step section
    lcd.setColor(200, 0, 0)
-
    if #amps > 0 and maxAmps < graphScale then
       for i=1, #amps, 1 do
 	 lcd.drawLine(2 + amps[i].x0, 130 - pixFromAmps(amps[i].y0),
@@ -476,7 +439,6 @@ local function loop()
 	 lastMaxAmps=nil
 	 maxAmps = redLineAmps -- set to this if nothing in lcs file
 	 sumHisto = 0
-	 --print("reinit - ma:", maxAmps)
 	 system.playFile("/Apps/"..appShort.."/Test_Starting.wav", AUDIO_QUEUE)
 	 system.playFile("/Apps/"..appShort.."/Steps.wav", AUDIO_QUEUE)
 	 system.playNumber(totalSteps, 0)
@@ -524,17 +486,8 @@ local function loop()
 	 
 	 if step > 1 then
 	    ex = math.floor(0.5 + (exactX[step-1] / totalTime * 300))
-	    --print(sumHisto, ex)
-	    if ex > sumHisto then
-	       dx =  1
-	    elseif ex < sumHisto then
-	       dx = -1
-	    else
-	       dx = 0
-	    end
-	 else
-	    dx = 0
-	 end
+	    if ex > sumHisto then dx =  1 elseif ex < sumHisto then dx = -1 else dx = 0 end
+	 else dx = 0 end
 
 	 histogramWidth = histogramWidth + dx
 	 sumHisto = sumHisto + histogramWidth
@@ -545,24 +498,15 @@ local function loop()
 	 table.insert(overamps, #overamps+1, false) -- set to true as needed at end of section
 	 
 	 if stepName ~= lastStepName then
-	    --print("new label:", stepName)
 	    lbl.text = stepName
 	    lbl.x = histogramX
 	    lbl.y = 70
-	    --print("ix, lbl.x, lbl.y:", ix,lbl.x, lbl.y)
 	    table.insert(labels, #labels+1, lbl)
-	    --print("#labels:", #labels)
 	    lastStepName = stepName
 	 end
 
 	 if maxAmps ~= lastMaxAmps then
-	    --print("new maxA:", maxAmps, lastMaxAmps, step)
-	    --if #amps == 0 and step <= 2 then
-	       --ampxy.x0 = 0
-	    --else
-	       ampxy.x0 = histogramX
-	    --end
-	    
+	    ampxy.x0 = histogramX
 	    ampxy.y0 = maxAmps
 	    ampxy.x1 = histogramX + histogramWidth
 	    ampxy.y1 = maxAmps
@@ -572,7 +516,6 @@ local function loop()
 	    if #amps > 0 then
 	       amps[#amps].x1 = histogramX + histogramWidth
 	       amps[#amps].y1 = maxAmps
-	       --print("else, x1,y1:", amps[#amps].x1, amps[#amps].y1)
 	    end
 	 end
 	 
@@ -589,22 +532,16 @@ local function loop()
       --print(step, stepName)
 
       if step + 1 > totalSteps then
-
 	 -- code below repeated from above .. to catch end of sequence
 	 -- needs a better design
-	 --print("done.", #ytable, #overamps, sampleMaxI, xtable[#xtable], wtable[#wtable])
 	 if #ytable > 0 then
 	    ytable[#ytable] = sampleMaxI
 	 end
-	 
 	 if sampleMaxI < (maxAmps or 1000) and #overamps > 0 then
 	    overamps[#overamps] = false
-	    print("oa false")
 	 else
 	    overamps[#overamps] = true
-	    print("oa true")
 	 end
-	 
 	 running = false
 	 system.playFile("/Apps/"..appShort.."/Test_Complete.wav", AUDIO_QUEUE)
 	 system.playFile("/Apps/"..appShort.."/Maximum_current.wav", AUDIO_QUEUE)
@@ -627,7 +564,6 @@ local function init()
    if pcallOK and emulator then emulator.init(appShort) end
 
    readSensors()
-   print("Model: "..system.getProperty("Model"))
    system.registerForm(1,MENU_APPS, appName, initForm, nil, nil)
    
    testStartSw = system.pLoad("testStartSw")
@@ -645,8 +581,6 @@ local function init()
    lastStep = 0
    histogramX = 0
    maxAmps = nil
-   --print("init - ma:", maxAmps)
-   --print("init - rl:", redLineAmps)
    
    totalTime = 0
    totalSteps = 0
@@ -670,8 +604,6 @@ local function init()
       end
    end
 
-   print("totalTime, totalSteps:", totalTime, totalSteps)
-   
    step = 0
    deltaTStep = CTRL_steps[step+1].dt
 
@@ -691,7 +623,7 @@ return {init=init, loop=loop, name=appName, author=appAuthor, version=appVersion
 --[[
 
 --
--- DFM.Test.lcs
+-- DFM-Test.lcs
 -- self-describing lua data for Jeti Lua App DFM-CTRL.lua
 -- example for Yellow F-18
 --
@@ -723,6 +655,9 @@ CTRL_sn {
 -- rows can be in any order, and all controls can move in each row
 -- controls in a row can be in any order
 -- make dt 2x as long for -1 to 1 as for 0 to 1
+-- sn is step section name, displayed on screen
+-- can also add maxa=3.4 to the table with sn, e.g. {sn="Ail", maxa=3.4}
+-- so that max amps limit is settable per sn
 
 CTRL_st {
 

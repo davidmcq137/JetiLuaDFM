@@ -27,8 +27,8 @@ collectgarbage()
 
 local jsonEditorVersion
 
-local throttleChannel, throttleFull, throttleIdle, throttleIdx
-local throttleFullForm, throttleIdleForm
+local throttleChannel, throttleFull, throttleIdle, throttleCutoff, throttleIdx
+local throttleFullForm, throttleIdleForm, throttleCutoffForm
 local brakeChannel, brakeOn, brakeOff, brakeIdx
 local brakeOnForm, brakeOffForm
 local flapChannel, flapUp, flapFull, flapTakeoff, flapIdx
@@ -37,12 +37,20 @@ local gearChannel, gearUp, gearDown, gearIdx
 local gearUpForm, gearDownForm
 local defaultWheelDia = 6.0 -- inches
 local pitotCal, wheelDia
+local turbineIdx, turbineIdxChanged
 
 local controlInputs = {
    "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10",
    "SA", "SB", "SC", "SD", "SE", "SF", "SG", "SH",
    "SI", "SJ", "SK", "SL", "SM", "SN", "SO", "SP"
 }
+
+-- note: order of list significant .. index to list stored in modelProps jsn file
+
+local tjson={}
+
+local turbineList = {}
+local turbineThrust= {}
 
 local modelProps = {}
 local jsonFile
@@ -63,49 +71,71 @@ local function setLanguage()
 --]]
 end
 
+local function getIdx(tbl, val)
+   for k,v in ipairs(tbl) do
+      if v == val then
+	 return k
+      end
+   end
+   return 0
+end
+
 --------------------------------------------------------------------------------
+
 local function jsonSetLocals(ff)
 
    modelProps=json.decode(ff)
    
-   throttleChannel = modelProps.throttleChannel
-   throttleFull = modelProps.throttleFull * 100
-   throttleIdle = modelProps.throttleIdle * 100
-   brakeChannel = modelProps.brakeChannel
-   brakeOn = modelProps.brakeOn * 100
-   brakeOff = modelProps.brakeOff * 100
-   flapChannel = modelProps.flapChannel 
-   flapUp = modelProps.flapUp * 100
-   flapTakeoff = modelProps.flapTakeoff * 100
-   flapFull = modelProps.flapFull * 100
-   gearChannel = modelProps.gearChannel
-   gearUp = modelProps.gearUp * 100
-   gearDown = modelProps.gearDown * 100
-   pitotCal = modelProps.pitotCal
-   wheelDia = modelProps.wheelDiameter
-   
+   if modelProps.throttleChannel then throttleChannel = modelProps.throttleChannel      end
+   if modelProps.throttleFull    then throttleFull    = modelProps.throttleFull * 100   end
+   if modelProps.throttleIdle    then throttleIdle    = modelProps.throttleIdle * 100   end
+   if modelProps.throttleCutoff  then throttleCutoff  = modelProps.throttleCutoff * 100 end
+   if modelProps.brakeChannel    then brakeChannel    = modelProps.brakeChannel         end
+   if modelProps.brakeOn         then brakeOn         = modelProps.brakeOn * 100        end
+   if modelProps.brakeOff        then brakeOff        = modelProps.brakeOff * 100       end
+   if modelProps.flapChannel     then flapChannel     = modelProps.flapChannel          end
+   if modelProps.flapUp          then flapUp          = modelProps.flapUp * 100         end
+   if modelProps.flapTakeoff     then flapTakeoff     = modelProps.flapTakeoff * 100    end
+   if modelProps.flapFull        then flapFull        = modelProps.flapFull * 100       end
+   if modelProps.gearChannel     then gearChannel     = modelProps.gearChannel          end
+   if modelProps.gearUp          then gearUp          = modelProps.gearUp * 100         end
+   if modelProps.gearDown        then gearDown        = modelProps.gearDown * 100       end
+   if modelProps.pitotCal        then pitotCal        = modelProps.pitotCal             end
+   if modelProps.wheelDiameter   then wheelDia        = modelProps.wheelDiameter        end
+
+   turbineIdx = getIdx(turbineList, modelProps.turbineName)
+   if turbineIdx == 0 then turbineIdx = 1 end
+
+   --print("json read - t list:", turbineList[1], turbineList[2], turbineList[3])
+   --print("json read - t name:", modelProps.turbineName)
+   --print("json read - turbineIdx:", turbineIdx)
 end
 
 local function jsonWriteFile()
 
    local fg, jsonText
 
-   modelProps.throttleChannel = throttleChannel
-   modelProps.throttleFull = throttleFull/100
-   modelProps.throttleIdle = throttleIdle/100
-   modelProps.brakeChannel = brakeChannel
-   modelProps.brakeOn = brakeOn/100
-   modelProps.brakeOff = brakeOff/100
-   modelProps.flapChannel = flapChannel
-   modelProps.flapUp = flapUp/100
-   modelProps.flapTakeoff = flapTakeoff/100   
-   modelProps.flapFull = flapFull/100
-   modelProps.gearChannel = gearChannel
-   modelProps.gearUp = gearUp/100
-   modelProps.gearDown = gearDown/100
-   modelProps.pitotCal = pitotCal
-   modelProps.wheelDiameter = wheelDia
-   
+   modelProps.throttleChannel    = throttleChannel
+   modelProps.throttleFull       = throttleFull / 100
+   modelProps.throttleIdle       = throttleIdle / 100
+   modelProps.throttleCutoff     = throttleCutoff / 100
+   modelProps.brakeChannel       = brakeChannel
+   modelProps.brakeOn            = brakeOn / 100
+   modelProps.brakeOff           = brakeOff / 100
+   modelProps.flapChannel        = flapChannel
+   modelProps.flapUp             = flapUp / 100
+   modelProps.flapTakeoff        = flapTakeoff / 100   
+   modelProps.flapFull           = flapFull / 100
+   modelProps.gearChannel        = gearChannel
+   modelProps.gearUp             = gearUp / 100
+   modelProps.gearDown           = gearDown / 100
+   modelProps.pitotCal           = pitotCal
+   modelProps.wheelDiameter      = wheelDia
+   modelProps.turbineName        = turbineList[turbineIdx]
+   modelProps.turbineThrustTable = turbineThrust[turbineIdx]
+
+   --print("idx, thrust cubic term:", turbineIdx, turbineThrust[turbineIdx][4])
+	 
    jsonText = json.encode(modelProps)
    fg = io.open(jsonFile, "w")
    io.write(fg, jsonText)
@@ -132,6 +162,12 @@ end
 local function throttleIdleChanged(value)
    throttleIdle = value
    system.pSave("throttleIdle", throttleIdle)
+   jsonWriteFile()
+end
+
+local function throttleCutoffChanged(value)
+   throttleCutoff = value
+   system.pSave("throttleCutoff", throttleCutoff)
    jsonWriteFile()
 end
 
@@ -206,8 +242,14 @@ end
 
 local function wheelDiaChanged(value)
    wheelDia = value / 10.0
-   print("value, wheelDia", value, wheelDia)
+   --print("value, wheelDia", value, wheelDia)
    system.pSave("wheelDia", wheelDia)
+   jsonWriteFile()
+end
+
+local function turbineIdxChanged(value)
+   turbineIdx = value
+   system.pSave("turbineIdx", value)
    jsonWriteFile()
 end
 
@@ -218,25 +260,27 @@ local function printForm()
 
    fr = form.getFocusedRow()
    
-   if fr and fr >= 2 and fr <= 3 and throttleIdx > 0 then
+   -- NB: if changing form, need to change fr limits in keyPressed and in printForm
+
+   if fr and fr >= 2 and fr <= 4 and throttleIdx > 0 then
       throttleChannel = controlInputs[throttleIdx]
       channel = throttleChannel
       text = string.format("%d", math.floor(system.getInputs(throttleChannel)*100))
    end
 
-   if fr and fr >= 5 and fr <= 6 and brakeIdx > 0 then
+   if fr and fr >= 6 and fr <= 7 and brakeIdx > 0 then
       brakeChannel = controlInputs[brakeIdx]
       channel = brakeChannel
       text = string.format("%d", math.floor(system.getInputs(brakeChannel)*100))
    end
 
-   if fr and fr >= 8 and fr <= 10 and flapIdx > 0 then
+   if fr and fr >= 9 and fr <= 11 and flapIdx > 0 then
       flapChannel = controlInputs[flapIdx]
       channel = flapChannel
       text = string.format("%d", math.floor(system.getInputs(flapChannel)*100))
    end
 
-   if fr and fr >= 12 and fr <= 13 and gearIdx > 0 then
+   if fr and fr >= 13 and fr <= 14 and gearIdx > 0 then
       gearChannel = controlInputs[gearIdx]
       channel = gearChannel
       text = string.format("%d", math.floor(system.getInputs(gearChannel)*100))
@@ -262,46 +306,51 @@ local function keyPressed(key)
 
    fr = form.getFocusedRow()
 
-   if fr and fr >= 2 and fr <= 3 and throttleIdx > 0 then
+   -- NB: if changing form, need to change fr limits in keyPressed and in printForm
+   
+   if fr and fr >= 2 and fr <= 4 and throttleIdx > 0 then
       if fr == 2 then
 	 form.setValue(throttleFullForm, math.floor(system.getInputs(throttleChannel)*100))
       end
       if fr == 3 then
 	 form.setValue(throttleIdleForm, math.floor(system.getInputs(throttleChannel)*100))
       end
+      if fr == 4 then
+	 form.setValue(throttleCutoffForm, math.floor(system.getInputs(throttleChannel)*100))
+      end
       
       --text = throttleChannel .. " value: " .. controlInputs[throttleIdx]
    end
 
-   if fr and fr >= 5 and fr <= 6 and brakeIdx > 0 then
-      if fr == 5 then
+   if fr and fr >= 6 and fr <= 7 and brakeIdx > 0 then
+      if fr == 6 then
 	 form.setValue(brakeOnForm, math.floor(system.getInputs(brakeChannel)*100))
       end
-      if fr == 6 then
+      if fr == 7 then
 	 form.setValue(brakeOffForm, math.floor(system.getInputs(brakeChannel)*100))
       end
       --text = brakeChannel .. " value: " .. controlInputs[brakeIdx]
    end
    
-   if fr and fr >= 8 and fr <= 10 and flapIdx > 0 then
-      if fr == 8 then
+   if fr and fr >= 9 and fr <= 11 and flapIdx > 0 then
+      if fr == 9 then
 	 form.setValue(flapUpForm, math.floor(system.getInputs(flapChannel)*100))
       end
-      if fr == 9 then
+      if fr == 10 then
 	 form.setValue(flapTakeoffForm, math.floor(system.getInputs(flapChannel)*100))
       end
-      if fr == 10 then
+      if fr == 11 then
 	 form.setValue(flapFullForm, math.floor(system.getInputs(flapChannel)*100))
       end
       
       --text = flapChannel .. " value: " .. controlInputs[flapIdx]
    end
 
-   if fr and fr >= 12 and fr <= 13 and gearIdx > 0 then
-      if fr == 12 then
+   if fr and fr >= 13 and fr <= 14 and gearIdx > 0 then
+      if fr == 13 then
 	 form.setValue(gearUpForm, math.floor(system.getInputs(gearChannel)*100))
       end
-      if fr == 13 then
+      if fr == 14 then
 	 form.setValue(gearDownForm, math.floor(system.getInputs(gearChannel)*100))
       end      
 
@@ -317,6 +366,8 @@ local function initForm()
    local fw = tonumber(system.getVersion())
    
    form.setButton(1, "Enter", ENABLED)
+
+   -- NB: if changing form, need to change fr limits in keyPressed and in printForm
    
    if (fw >= 4.22) then
       
@@ -331,6 +382,9 @@ local function initForm()
       form.addRow(2)
       form.addLabel({label="Throttle Idle Value (%)", width=220})
       throttleIdleForm = form.addIntbox(throttleIdle, -100, 100, -90, 0, 1, throttleIdleChanged)      
+      form.addRow(2)
+      form.addLabel({label="Throttle Cutoff Value (%)", width=220})
+      throttleCutoffForm = form.addIntbox(throttleCutoff, -100, 100, -100, 0, 1, throttleCutoffChanged)      
       form.addRow(2)
       form.addLabel({label="Select Brake Control", width=220, font=FONT_BOLD})
       form.addSelectbox(controlInputs, brakeIdx, true, brakeChannelChanged)
@@ -350,7 +404,8 @@ local function initForm()
       form.addRow(2)
       form.addLabel({label="Flaps Up (%)", width=220})
       flapUpForm = form.addIntbox(flapUp, -100, 100, 100, 0, 1, flapUpChanged)
-
+      --print("flapUpForm:", flapUpForm)
+      
       form.addRow(2)
       form.addLabel({label="Flaps Mid (%)", width=220})
       flapTakeoffForm = form.addIntbox(flapTakeoff, -100, 100, 0, 0, 1, flapTakeoffChanged)
@@ -372,15 +427,21 @@ local function initForm()
       gearDownForm = form.addIntbox(gearDown, -100, 100, 100, 0, 10, gearDownChanged)      
 
       form.addRow(2)
+      form.addLabel({label="Other Model Parameters", width=220, font=FONT_BOLD})
+      
+      form.addRow(2)
       form.addLabel({label="Pitot Calibration Factor (%)", width=220})
       form.addIntbox(pitotCal, 1, 200, 100, 0, 1, pitotCalChanged)
 
-      print("init form: wheelDia:", wheelDia)
       form.addRow(2)
       form.addLabel({label="Wheel Diameter (in)", width=220})
       if not wheelDia then wheelDia = defaultWheelDia end
       form.addIntbox(wheelDia*10, 0, 100, 60, 1, 1, wheelDiaChanged)
 
+      form.addRow(2)
+      form.addLabel({label="Turbine", width=170})
+      form.addSelectbox(turbineList, turbineIdx, true, turbineIdxChanged) 
+      
       form.addRow(1)
       form.addLabel({label="DFM-JsnE.lua Version "..jsonEditorVersion.." ", font=FONT_MINI, alignRight=true})
    else
@@ -406,16 +467,6 @@ local function readSensors()
    end
 end
 
-local function getIdx(tbl, val)
-   for k,v in ipairs(tbl) do
-      if v == val then
-	 return k
-      end
-   end
-   return 0
-end
-
-
 local function init()
 
    local fg
@@ -424,6 +475,7 @@ local function init()
    throttleIdx = getIdx(controlInputs, throttleChannel)
    throttleFull = system.pLoad("throttleFull", 90)
    throttleIdle = system.pLoad("throttleIdle", -90)
+   throttleCutoff = system.pLoad("throttleCutoff", -100)
    brakeChannel = system.pLoad("brakeChannel", "P5")
    brakeIdx = getIdx(controlInputs, brakeChannel)
    brakeOn = system.pLoad("brakeOn", 90)
@@ -439,31 +491,44 @@ local function init()
    gearDown = system.pLoad("gearDown", -90)
    pitotCal = system.pLoad("pitotCal", 100)
    wheelDia = system.pLoad("wheelDia", 6.0)   
+   turbineIdx = system.pLoad("turbineIdx", 1)
 
    system.registerForm(1, MENU_APPS, "Config File Editor", initForm, keyPressed, printForm)
 
-   jsonFile = "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_")
-   --print("jsonFile:", jsonFile)
+   -- DFM-turbines.jsn contains a list of known turbines and their cubic polynomial
+   -- coefficients for thrust as a fcn of RPM. terms in order of a,b,c,d where
+   -- r = RPM and thrust = a + b*r + c*r^2 + d*r^3
    
-   fg = io.readall(jsonFile)
-   --print("return from io.readall:", fg)
-
-   -- if model file exists, read it .. if not create it
-   
+   fg = io.readall("Apps/DFM-turbines.jsn")
    if fg then
-      --print("file read, decoding")
-      --modelProps=json.decode(fg)
+      tjson = json.decode(fg)
+   else
+      print("No DFM-turbines.jsn file")
+   end
+   
+   -- populate local tables set up to use with menu
+   for k,v in pairs(tjson) do
+      table.insert(turbineList, k)
+      table.insert(turbineThrust, v)
+   end
+      
+   jsonFile = "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_")
+   if form.question("Erase Contents?", "Model config file", jsonFile,3500, false, 0) == 1 then
+      fg = io.open(jsonFile, "w")
+      io.close(fg)
+      fg = io.readall(jsonFile)
+   end
+
+   fg = io.readall(jsonFile)
+   -- if model file exists, read it .. if not create it
+   if fg then
       jsonSetLocals(fg)
    else
-      --print("writing file")
       jsonWriteFile()
    end
 
-   print("JsnE: wheel dia:", wheelDia)
-
-   --readSensors()
-   
 end
+
 
 --------------------------------------------------------------------------------
 
