@@ -2,15 +2,26 @@
 
    DFM-Graph.lua
 
-   Graphs Telemetry Sensors
+   Graphs a Telemetry Sensor
+   Demonstrator for sensorEmulator.lua but also generally useful
+   
+   Currently set for time span of 2:30, derived from 150 histogram
+   bars, one histogram bar per second. Each histogram bar is 2 pixels
+   wide giving a 300 pixel wide window.
+
+   xbox is the width of the main screen in pixels
+   ybox is the height of the main screen in pixels
+   xboxWidth is the width of the histogram bars in pixels
+   maxPoints is the number of histogram bars on the screen
 
    Released by DFM 10/2019 MIT License
 
 --]]
 
-local graphVersion = "0.1"
+local graphVersion = "1.0"
 local appName = "Sensor Graph"
 local appDir = "DFM-Graph"
+local appAuthor = "DFM"
 
 local graphSe, graphSeId, graphSePa
 
@@ -28,10 +39,6 @@ local sensorPalist = { "..." }  -- sensor parameters
 local oldModSec 
 local runningTime 
 local startTime 
-
-local lastLoopTime = 0
-local avgLoopTime = 0
-local loopCount = 0
 
 local sensorLbl = "***"
 
@@ -53,13 +60,11 @@ local function readSensors()
 end
 
 local function graphScaleChanged(value)
-
    graphScale = value
    system.pSave("graphScale", value)
 end
 
 local function graphSensorChanged(value)
-
    graphSe = value
    graphSeId = sensorIdlist[graphSe]
    graphSePa = sensorPalist[graphSe]
@@ -77,15 +82,12 @@ local function graphSensorChanged(value)
 end
 
 local function initForm()
-
    form.addRow(2)
    form.addLabel({label="Select Sensor", width=220})
    form.addSelectbox(sensorLalist, graphSe, true, graphSensorChanged)
-   
    form.addRow(2)
    form.addLabel({label="Vertical Scale", width=220})
    form.addIntbox(graphScale, 1, 10000, 100, 0, 1, graphScaleChanged)
-   
    form.addRow(1)
    form.addLabel({label="DFM - v."..graphVersion.." ", font=FONT_MINI, alignRight=true})
 end
@@ -158,8 +160,6 @@ local function timePrint()
       lcd.drawFilledRectangle(xoff+xboxWidth*ix, ybox-iy+yoff, xboxWidth, iy, 160)
    end 
 
-   lcd.setColor(180,180,180)
-   lcd.drawText(xbox-62, ybox-10, string.format("Loop time: %d", avgLoopTime), FONT_MINI)
    lcd.setColor(0,0,0)
    
 end
@@ -200,23 +200,6 @@ local function loop()
 	 table.insert(histogram, #histogram+1, graphValue)
       end
    end
-  
-   local newLoopTime = system.getTimeCounter()
-   local loopDelta = newLoopTime - lastLoopTime
-
-   lastLoopTime = newLoopTime
-
-   if avgLoopTime ~=0 then
-      avgLoopTime = avgLoopTime * 0.95 + 0.05* loopDelta
-   else
-      avgLoopTime = 1
-   end
-
-   loopCount = loopCount+1
-
-   if loopCount > 100 then
-      loopCount = 0
-   end
 end
 --------------------------------------------------------------------------------
 local function init()
@@ -230,9 +213,9 @@ local function init()
    startTime = system.getTimeCounter() / 1000
    runningTime = startTime
    
-   graphSe      = system.pLoad("graphSe", 0)
-   graphSeId    = system.pLoad("graphSeId", 0)
-   graphSePa    = system.pLoad("graphSePa", 0)
+   graphSe      = system.pLoad("graphSe")
+   graphSeId    = system.pLoad("graphSeId")
+   graphSePa    = system.pLoad("graphSePa")
    
    graphScale   = system.pLoad("graphScale", 10)
    graphName    = system.pLoad("graphName", "---")
@@ -246,4 +229,4 @@ local function init()
 end
 --------------------------------------------------------------------------------
 
-return {init=init, loop=loop, author="DFM", version=graphVersion, name=appName}
+return {init=init, loop=loop, author=appAuthor, version=graphVersion, name=appName}

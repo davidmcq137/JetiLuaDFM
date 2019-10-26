@@ -2,45 +2,7 @@
 
    sensorEmulator.lua
 
-   This module is intended to be used with the Jeti DC/DS-24
-   emulator. It reads a file (sensorEmulator.jsn) that defines a set
-   of "pseudosensors" that can be created from the proportional
-   controls (e.g. sliders) in the emulator. You can define a simple
-   linear range of telemetry signal values that behave as standard
-   telemetry sensors as the sliders move. A sample JSON file is
-   included below.
-   
-   For more complex sensor behavior, you can specify a function string
-   (funcString) in the jsn file for each sensor which can be any valid
-   lua expression that is executed each time the sensor is read. The
-   environment in which that string is evaluated by the lua
-   interpreter is set up so that variable name s is the raw sensor
-   value, t is the system time in seconds (t = system.getTimeCounter()
-   / 1000), and most of the lua math library is available - without
-   the "math." prefix (see code below .. table env). Also available
-   are a triangle wave function with a period of 1s - tri() and a square
-   wave function with a period of 1s - sq(). The triangle and square
-   wave functions have an amplitude of +/-1, as do sin and cos which
-   have a period of 2*pi seconds as usual.
-
-   For example "funcString": "s*sin(2*pi*t/10)" gives a 10 second
-   period sine wave whose amplitude is set by the slider. Saying this
-   another way, you are creating a function, call if f where
-   pseudosensor output = f(s,t) with s = slider value and t = system
-   time in seconds and funcString defines the body of the function.
-
-   Future enhancements could be the addition of switches to emulate
-   the behavior of table entry <sensor.valid>. Currently we always
-   return sensor.value = true.
-
-   At present, several less common table entries (see source code) are
-   not implemented e.g. date and time and GPS. 
-
-   The module file sensorEmulator.lua is intended to be in the /Apps
-   directory along with the lua source files. The sensorEmulator.jsn
-   file is expected to be lua-program-specific so it resides in the
-   lua program's own directory, e.g. Apps/DFM-Smoke/sensorEmulator.jsn
-   for the lua program /Apps/DFM-Smoke.lua
+   See sensorEmulator.txt for a full description.
 
    Usage: 
 
@@ -51,71 +13,9 @@
    the lua function that is going to use it, and edit it as required
    for that lua app.
 
-   By putting the sensorEmulator.jsn file into the app's own
-   directory each app can define its own sensor names, ranges, etc
-
-   To use the sensor emulator, add to your init() function, assuming
-   your app is called DFM-Test.lua, the following code:
-
-   -- *** code snippet to add to init() ***
-
-   local pcallOK, emulator
-
-   pcallOK, emulator = pcall(require, "sensorEmulator")
-   if pcallOK and emulator then emulator.init("DFM-Test") end
-   
-   -- *** end of code snippet to add to init() ***
-   
-   This makes sure the emulator init function is only called if the
-   <require> was done to load the emulator module. 
-
-   You can put these "require" lines where you like in init(), but it
-   must be before you call system.getSensors(), which is also
-   typically called from init().
-
-   Upon startup in the emulator of a lua program that includes the
-   module, it asks if you want to use the pseudosensors or not,
-   default if no key pressed is "no".
-
-   If you press "yes" and do elect to use the module, the
-   emulator.init() routine automatically changes the system function
-   calls for system.getSensors(), system.getSensorById() and
-   system.getSensorValueById to instead be handled by the emulator
-   module functions with the pseudosensor functionality. Your
-   sourcecode does not change and still has the calls to the system
-   names in any case which is very convenient for debugging.
-
-   The <require> statements and call to emulator.init() can be left in
-   production code. When calling emulator.init() on the actual
-   transmitter, it returns immediately, does not read the JSON file
-   and leaves the system routines in place. The sensorEmulator.lua and
-   .jsn files are not intended to be put on the Tx .. they would not
-   execute anyway...
-
    The funcString capability is inspired by Jeti's V-sensor.lua app
 
    Released under MIT license by DFM 2019
-
-MIT License
-
-Permission is hereby granted, free of charge, to any person
-obtaining a copy of this software and associated documentation files
-(the "Software"), to deal in the Software without restriction,
-including without limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of the Software,
-and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
 
 --]]
@@ -166,10 +66,6 @@ end
 
 local returnTbl
 
--- note: need to implement max and min properly
--- not implemented: valSec, valMin, valHour
--- not implemented: valYear, valMonth, valDay
--- not implemented valGPS
 
 local function triangleWave(T)
    local t
@@ -189,6 +85,10 @@ local function squareWave(T)
    if t <= 0.5 then return 1 else return -1 end
 end
 
+
+-- not implemented: valSec, valMin, valHour
+-- not implemented: valYear, valMonth, valDay
+-- not implemented valGPS
 
 function emulator.getSensorValueByID(ID, Param)
    -- fake it .. return the extra info anyway
@@ -221,7 +121,6 @@ function emulator.getSensorByID(ID, Param)
 
    for _,v in ipairs(sensorTbl) do
       if v.id == ID and v.param == Param then
-	 --print("v.id, v.param, v.control:", v.id, v.param, v.control)
 	 returnTbl = {}
 	 returnTbl.id = v.id
 	 returnTbl.param = v.param
@@ -235,7 +134,6 @@ function emulator.getSensorByID(ID, Param)
 	 env.s = v.controlmin + (v.controlmax - v.controlmin) * ((c+1)/2)
 	 env.t = system.getTimeCounter()/1000
 
-	 --print(v.funcString, env.s, env.t)
 	 if v.funcString and v.funcString ~= "" then
 	    chunk, err = load("return "..v.funcString,"","t",env)
 	    
@@ -248,10 +146,9 @@ function emulator.getSensorByID(ID, Param)
 		  result = result or 0
 		  if not status then print("Bad status - result:", result) end
 	       else
-		  result = 0 -- hmm what else to do
+		  result = 0 
 	       end
 	    end
-	    --print("result", result)
 	    returnTbl.value = result
 	 else
 	    returnTbl.value = env.s
@@ -287,12 +184,50 @@ return emulator
 Sample sensorEmulator.jsn file
 
 [
+
 {"id":1,"param":0,"sensorName":"", "label":"PS1(P5)"},
-{"id":1,"param":1,"decimals":0,"type":1,"sensorName":"PS1(P5)","label":"EGT","unit":" ","control":"P5", "controlmin":0, "controlmax":1000,"value":0, "funcString": "s*sin(2*pi*t/10)+s"},
+{"id":1,"param":1,
+"decimals":0,
+"type":1,
+"sensorName":"PS1(P5)",
+"label":"EGT",
+"unit":"°C",
+"control":"P5",
+"controlmin":0,
+"controlmax":800,
+"value":0,
+"funcString":"s/2*tri(t/60)+s/2"
+},
+
 {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
-{"id":2,"param":1,"decimals":0,"type":1,"sensorName":"PS2(P6)", "label":"Airspeed","unit":" ", "control":"P6", "controlmin":0, "controlmax":200,"value":0},
+{"id":2,
+"param":1,
+"decimals":0,
+"type":1,
+"sensorName":"PS2(P6)",
+"label":"Airspeed",
+"unit":"m/s",
+"control":"P6",
+"controlmin":0,
+"controlmax":200,
+"value":0,
+"funcString":"s/2*sin(2*pi*t/60)+s/2"
+},
+
 {"id":3,"param":0,"sensorName":"", "label":"PS3(P7)"},
-{"id":3,"param":1,"decimals":0,"type":1,"sensorName":"PS3(P7)","label":"Altitude","unit":" ", "control":"P7", "controlmin":0, "controlmax":400,"value":0}
+{"id":3,
+"param":1,
+"decimals":0,
+"type":1,
+"sensorName":"PS3(P7)",
+"label":"G Force",
+"unit":"g",
+"control":"P7",
+"controlmin":-10,
+"controlmax":10,
+"value":0,
+"funcString":"abs(s)"}
+
 ]
 
 --]]
