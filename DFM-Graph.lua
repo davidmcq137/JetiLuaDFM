@@ -25,7 +25,7 @@ local appName = "Sensor Graph"
 local appDir = "DFM-Graph"
 local appAuthor = "DFM"
 
-local graphStyle = {"Histogram", "Point", "Line"}
+local graphStyle = {"Histogram", "Point", "Line", "Hazel"}
 local graphStyleIdx
 
 local graphSe, graphSeId, graphSePa
@@ -117,14 +117,15 @@ local function timePrint()
    local mm, rr
    local ww, ss
    local xp, yp
+   local yh
    local ren = lcd.renderer()
    
    -- make sure we are set to black
    lcd.setColor(0,0,0)
 
    -- draw graph titles - scale, time, sensor info
-   ss = string.format("Vertical Scale: %d     Timeline 2:30",
-		      math.floor(graphScale) )
+   ss = string.format("Vertical Scale: %d   Mode: %s   Timeline 2:30",
+		      math.floor(graphScale), graphStyle[graphStyleIdx])
    ww = lcd.getTextWidth(FONT_MINI, ss)
    lcd.drawText(xbox/2-ww/2+1,yoff+2, ss, FONT_MINI)
    mm, rr = math.modf(runningTime/60)
@@ -171,21 +172,27 @@ local function timePrint()
    
    -- now draw graph
    lcd.setColor(0,0,200)
-   if graphStyleIdx == 3 then ren:reset() end
+   if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then 
+      ren:reset()
+   end
    for ix = 0, #histogram-1, 1 do
-      local iy = histogram[ix+1] / graphScale*ybox
+      if graphStyle[graphStyleIdx] == "Hazel" then
+	 yh = histogram[ix+1] % graphScale
+      else
+	 yh = histogram[ix+1]
+      end
+      local iy = yh / graphScale*ybox
       if iy > ybox then iy=ybox end
       if iy < 1  then iy=1  end
       xp = xoff + xboxWidth*ix
       yp = ybox - iy + yoff
       xp = math.min(xbox + xoff, math.max(xoff, xp))
       yp = math.min(ybox + yoff, math.max(yoff, yp))      
-      --print("xp, yp", xp, yp)
-      if graphStyleIdx == 1 then
+      if graphStyle[graphStyleIdx] == "Histogram" then
 	 lcd.drawFilledRectangle(xp, yp, xboxWidth, iy, 160)
-      elseif graphStyleIdx == 2 then
+      elseif graphStyle[graphStyleIdx] == "Point" then
 	 lcd.drawFilledRectangle(xp, yp, xboxWidth, xboxWidth, 160)
-      else
+      else -- Line or Hazel
 	 ren:addPoint(xp, yp)
       end
    end

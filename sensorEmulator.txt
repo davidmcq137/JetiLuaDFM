@@ -59,6 +59,10 @@
    logged from a flight, would also be a nice addition. Since I
    already figured out how to read Jeti log files for the LSO app,
    this one might be up next :-)
+
+   Perhaps to avoid excessive CPU load we might only return a new
+   value (running the lua interpreter) every 200 msec or so to
+   simulate actual telemetry sensor behavior?
    
    At present, several less common table entries (see source code) are
    not implemented e.g. date and time and GPS.
