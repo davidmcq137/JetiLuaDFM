@@ -85,6 +85,10 @@ local function squareWave(T)
    if t <= 0.5 then return 1 else return -1 end
 end
 
+local function printFcn(...)
+   print(...)
+   return 0
+end
 
 -- not implemented: valSec, valMin, valHour
 -- not implemented: valYear, valMonth, valDay
@@ -117,6 +121,7 @@ function emulator.getSensorByID(ID, Param)
       rad   = math.rad,
       tri   = triangleWave,
       sq    = squareWave,
+      prt   = printFcn,
    }
 
    for _,v in ipairs(sensorTbl) do
@@ -132,6 +137,17 @@ function emulator.getSensorByID(ID, Param)
 	 returnTbl.sensorName = v.sensorName
 	 c=system.getInputs(v.control)
 	 env.s = v.controlmin + (v.controlmax - v.controlmin) * ((c+1)/2)
+	 env[v.control] = c -- can also get raw -1 to 1 by using name e.g. "P5"
+	 env[string.gsub(v.control, "P", "S")] = (c+1)/2 -- and raw 0 to 1 e.g. "S5"
+	 if v.auxcontrol and #v.auxcontrol > 0 then
+	    for i=1,#v.auxcontrol,1 do
+	       --print(v.label, i, v.auxcontrol[i], system.getInputs(v.auxcontrol[i]))
+	       c = system.getInputs(v.auxcontrol[i]) -- e.g P6 = <-1..1>
+	       env[v.auxcontrol[i]] = c
+	       env[string.gsub(v.auxcontrol[i], "P", "S")] = (1 + c) / 2 -- e.g. S6 = <0,1> 
+	    end
+	 end
+	 
 	 env.t = system.getTimeCounter()/1000
 
 	 if v.funcString and v.funcString ~= "" then
@@ -181,8 +197,6 @@ return emulator
 
 --[[
 
-Sample sensorEmulator.jsn file
-
 [
 
 {"id":1,"param":0,"sensorName":"", "label":"PS1(P5)"},
@@ -193,10 +207,10 @@ Sample sensorEmulator.jsn file
 "label":"EGT",
 "unit":"°C",
 "control":"P5",
+"auxcontrol":["P6","P7"],
 "controlmin":0,
 "controlmax":800,
-"value":0,
-"funcString":"s/2*tri(t/60)+s/2"
+"funcString":"s / 2 * sin(2*pi*t / ( 30*(S6+1) ) ) + s / 2 + prt('S7',S7)"
 },
 
 {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
@@ -210,8 +224,7 @@ Sample sensorEmulator.jsn file
 "control":"P6",
 "controlmin":0,
 "controlmax":200,
-"value":0,
-"funcString":"s/2*sin(2*pi*t/60)+s/2"
+"funcString":"s / 2 * sq(t / 30) + s / 2 + s / 5 * rand() + s / 5"
 },
 
 {"id":3,"param":0,"sensorName":"", "label":"PS3(P7)"},
@@ -225,8 +238,8 @@ Sample sensorEmulator.jsn file
 "control":"P7",
 "controlmin":-10,
 "controlmax":10,
-"value":0,
-"funcString":"abs(s)"}
+"funcString":"abs(s)"
+}
 
 ]
 

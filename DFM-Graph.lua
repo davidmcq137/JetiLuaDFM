@@ -9,6 +9,8 @@
    bars, one histogram bar per second. Each histogram bar is 2 pixels
    wide giving a 300 pixel wide window.
 
+   Can also graph as points or as a line with anti-aliased polyline
+
    xbox is the width of the main screen in pixels
    ybox is the height of the main screen in pixels
    xboxWidth is the width of the histogram bars in pixels
@@ -22,6 +24,9 @@ local graphVersion = "1.0"
 local appName = "Sensor Graph"
 local appDir = "DFM-Graph"
 local appAuthor = "DFM"
+
+local graphStyle = {"Histogram", "Point", "Line"}
+local graphStyleIdx
 
 local graphSe, graphSeId, graphSePa
 
@@ -42,8 +47,8 @@ local startTime
 
 local sensorLbl = "***"
 
-local xbox =    300 -- main box width
-local ybox =    150 -- main box height
+local xbox = 300 -- main box width
+local ybox = 150 -- main box height
 
 local function readSensors()
 
@@ -81,13 +86,24 @@ local function graphSensorChanged(value)
    system.pSave("graphUnit", graphUnit)
 end
 
+local function graphStyleChanged(value)
+   graphStyleIdx = value
+   system.pSave("graphStyleIdx", graphStyleIdx)
+end
+
 local function initForm()
    form.addRow(2)
-   form.addLabel({label="Select Sensor", width=220})
+   form.addLabel({label="Select Sensor", width=170})
    form.addSelectbox(sensorLalist, graphSe, true, graphSensorChanged)
+   
+   form.addRow(2)
+   form.addLabel({label="Style", width=170})
+   form.addSelectbox(graphStyle, graphStyleIdx, true, graphStyleChanged)
+   
    form.addRow(2)
    form.addLabel({label="Vertical Scale", width=220})
    form.addIntbox(graphScale, 1, 10000, 100, 0, 1, graphScaleChanged)
+   
    form.addRow(1)
    form.addLabel({label="DFM - v."..graphVersion.." ", font=FONT_MINI, alignRight=true})
 end
@@ -97,10 +113,12 @@ local function timePrint()
    local xoff =     10 -- x offset from 0,0
    local yoff =      5 -- y offset from 0,0
    local xboxWidth = 2 -- pixel width of histograms
-
+   
    local mm, rr
    local ww, ss
-
+   local xp, yp
+   local ren = lcd.renderer()
+   
    -- make sure we are set to black
    lcd.setColor(0,0,0)
 
@@ -151,14 +169,27 @@ local function timePrint()
       ih = ih + 2*ihd
    end
    
-   -- now draw histogram
+   -- now draw graph
    lcd.setColor(0,0,200)
+   if graphStyleIdx == 3 then ren:reset() end
    for ix = 0, #histogram-1, 1 do
-      local iy =histogram[ix+1]/graphScale*ybox
+      local iy = histogram[ix+1] / graphScale*ybox
       if iy > ybox then iy=ybox end
       if iy < 1  then iy=1  end
-      lcd.drawFilledRectangle(xoff+xboxWidth*ix, ybox-iy+yoff, xboxWidth, iy, 160)
-   end 
+      xp = xoff + xboxWidth*ix
+      yp = ybox - iy + yoff
+      xp = math.min(xbox + xoff, math.max(xoff, xp))
+      yp = math.min(ybox + yoff, math.max(yoff, yp))      
+      --print("xp, yp", xp, yp)
+      if graphStyleIdx == 1 then
+	 lcd.drawFilledRectangle(xp, yp, xboxWidth, iy, 160)
+      elseif graphStyleIdx == 2 then
+	 lcd.drawFilledRectangle(xp, yp, xboxWidth, xboxWidth, 160)
+      else
+	 ren:addPoint(xp, yp)
+      end
+   end
+   ren:renderPolyline(2, 160/255)
 
    lcd.setColor(0,0,0)
    
@@ -207,19 +238,21 @@ local function init()
    local pcallOK, emulator
 
    pcallOK, emulator = pcall(require, "sensorEmulator")
+   if not pcallOK then print("pcall error: ", emulator) end
    if pcallOK and emulator then emulator.init(appDir) end
 
    oldModSec = 0
    startTime = system.getTimeCounter() / 1000
    runningTime = startTime
+
+   graphStyleIdx = system.pLoad("graphStyleIdx", 1)
+   graphSe       = system.pLoad("graphSe", 1)
+   graphSeId     = system.pLoad("graphSeId", 0)
+   graphSePa     = system.pLoad("graphSePa", 0)
    
-   graphSe      = system.pLoad("graphSe")
-   graphSeId    = system.pLoad("graphSeId")
-   graphSePa    = system.pLoad("graphSePa")
-   
-   graphScale   = system.pLoad("graphScale", 10)
-   graphName    = system.pLoad("graphName", "---")
-   graphUnit    = system.pLoad("graphUnit", " ")
+   graphScale    = system.pLoad("graphScale", 100)
+   graphName     = system.pLoad("graphName", "---")
+   graphUnit     = system.pLoad("graphUnit", " ")
    
    system.registerForm(1, MENU_APPS, appName, initForm, keypress, printform)
    system.registerTelemetry(1, appName, 4, timePrint)

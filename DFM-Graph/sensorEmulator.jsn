@@ -8,10 +8,10 @@
 "label":"EGT",
 "unit":"°C",
 "control":"P5",
+"auxcontrol":["P6","P7"],
 "controlmin":0,
 "controlmax":800,
-"value":0,
-"funcString":"s/2*tri(t/60)+s/2"
+"funcString":"s / 2 * sin(2*pi*t / ( 30*(S6+1) ) ) + s / 2 + prt('S7',S7)"
 },
 
 {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
@@ -25,8 +25,7 @@
 "control":"P6",
 "controlmin":0,
 "controlmax":200,
-"value":0,
-"funcString":"s/2*sin(2*pi*t/60)+s/2"
+"funcString":"s / 2 * sq(t / 30) + s / 2 + s / 5 * rand() + s / 5"
 },
 
 {"id":3,"param":0,"sensorName":"", "label":"PS3(P7)"},
@@ -40,8 +39,8 @@
 "control":"P7",
 "controlmin":-10,
 "controlmax":10,
-"value":0,
-"funcString":"abs(s)"}
+"funcString":"abs(s)"
+}
 
 ]
    
