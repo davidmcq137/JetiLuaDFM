@@ -33,7 +33,8 @@ local smokeAuthor  = "DFM"
 local modelProps
 
 local smV, smOut
-local smokeOnSw, smokeOffSw, smokeEnableSw, smokeOnVal, smokeOffVal
+local smokeOnSw, smokeOffSw, smokeEnableSw, smokeContSw
+local smokeOnVal, smokeOffVal
 local smokeThrMin
 local smokeVol
 local startUp = true
@@ -77,7 +78,7 @@ local persistOn
 local loopIdx, loopChar
 local smokeControl
 local sensorLbl
-local smokeStateON
+local smokeState
 
 ------------------------------------------------------------
 --[[
@@ -166,6 +167,13 @@ end
 local function smokeEnableSwChanged(value)
    smokeEnableSw = value
    system.pSave("smokeEnableSw",value)
+   startUp = true
+   startUpMessage = false
+end
+
+local function smokeContSwChanged(value)
+   smokeContSw = value
+   system.pSave("smokeContSw",value)
    startUp = true
    startUpMessage = false
 end
@@ -272,8 +280,12 @@ end
 local function initForm()
 
    form.addRow(2)
-   form.addLabel({label="ON/OFF Switch",font=FONT_NORMAL, width=220})
+   form.addLabel({label="Sequence Enable Switch",font=FONT_NORMAL, width=220})
    form.addInputbox(smokeEnableSw, false, smokeEnableSwChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Continuous ON Switch",font=FONT_NORMAL, width=220})
+   form.addInputbox(smokeContSw, false, smokeContSwChanged)
 
    form.addRow(2)
    form.addLabel({label="Smoke Mode",font=FONT_NORMAL, width=220})
@@ -304,11 +316,11 @@ local function initForm()
 
    form.addRow(2)
    form.addLabel({label="Low Telemetry Limit",font=FONT_NORMAL, width=220})
-   form.addIntbox(smokeLowTelem*10, -1000, 1000, 0, 1, 1, smokeLowTelemChanged)
+   form.addIntbox(smokeLowTelem*10, -10000, 10000, 0, 1, 1, smokeLowTelemChanged)
 
    form.addRow(2)
    form.addLabel({label="High Telemetry Limit",font=FONT_NORMAL, width=220})
-   form.addIntbox(smokeHighTelem*10, -1000, 1000, 0, 1, 1, smokeHighTelemChanged)
+   form.addIntbox(smokeHighTelem*10, -10000, 10000, 0, 1, 1, smokeHighTelemChanged)
 
    form.addRow(2)
    form.addLabel({label="Base Interval time (ms)",font=FONT_NORMAL, width=220})
@@ -354,7 +366,8 @@ local function printForm() end
 
 local function loop()
 
-   local smOn, smOff, smEn, smEnSw
+   local smOn, smOff, smEn, smEnSw, smCn, smCnSw
+   local notEn, notCn
    local thr 
    local vol
    local stm
@@ -367,7 +380,8 @@ local function loop()
 
    -- read the switches and the proportional value for vol
    
-   smOn, smOff, smEn, vol = system.getInputsVal(smokeOnSw,smokeOffSw,smokeEnableSw, smokeVol)
+   smOn, smOff, smEn, smCn, vol =
+      system.getInputsVal(smokeOnSw,smokeOffSw,smokeEnableSw, smokeContSw, smokeVol)
 
    -- check if switches still assigned .. nil if never assigned .. but have to check if
    -- they were assigned and then un-assigned
@@ -381,12 +395,16 @@ local function loop()
    swtbl = system.getSwitchInfo(smokeEnableSw)
    if not swtbl or not swtbl.assigned then smEn = nil end
 
+   swtbl = system.getSwitchInfo(smokeContSw)
+   if not swtbl or not swtbl.assigned then smCn = nil end   
+
    swtbl = system.getSwitchInfo(smokeVol)
    if not swtbl or not swtbl.assigned then vol = nil end
 
-   --note and store position of enable switch if defined
+   --note and store position of enable and continouos switch if defined
    smEnSw = smEn
-
+   smCnSw = smCn
+   
    -- have we defined on and off momentary/toggle switches?   
    if smOn and smOff then  
       if smOn == 1 and smOff == -1 then
@@ -440,6 +458,9 @@ local function loop()
    end
          
    if runCond and not startUp and smEn == 1 then
+
+      if smEn == -1 and smCn == 1 then loopChar = "+" end -- continuous smoke mode
+      
       if smokeModeIdx == smokeModeIndex.Symbol then
 	 loopIdx = runStep % #smokeSymbol.List[smokeSymbolIdx] + 1
 	 loopChar = string.sub(smokeSymbol.List[smokeSymbolIdx], loopIdx, loopIdx)
@@ -455,6 +476,7 @@ local function loop()
 	    if sensor and sensor.valid then
 	       telemReadingRaw = sensor.value
 	       telemReadingUnit = sensor.unit
+	       --print("sensor.unit:", sensor.unit)
 	       if sensor.unit == "m/s" then
 		  if selFt then
 		     telemReadingRaw = telemReadingRaw * 2.23694  -- m/s to mph
@@ -479,6 +501,8 @@ local function loop()
 	    telemReadingLast = system.getTimeCounter()
 	    smokeDutyCycleIdx =
 	       math.floor(1+10*(telemReading - smokeLowTelem) / (smokeHighTelem - smokeLowTelem))
+	    --print(smokeDutyCycleIdx)
+	    smokeDutyCycleIdx = math.min(11, math.max(1, smokeDutyCycleIdx)) -- defensive
 	    loopIdx = runStep % #smokeDutyCycle.List[smokeDutyCycleIdx] + 1
 	    loopChar = string.sub(smokeDutyCycle.List[smokeDutyCycleIdx], loopIdx, loopIdx)
 	 else
@@ -493,14 +517,15 @@ local function loop()
    end
 
    -- factor in variable speed pump if defined
-   if smEn == 1 then
+   if smEn == 1 or smCn == 1 then
       if vol then smV = smokeOnVal * vol else smV = smokeOnVal end
    else
-      smV = smEn * smokeOnVal
+      smV = -1 * smokeOnVal
    end
 
    -- the '-' char represents pump off for seqence, morse and telem .. ignore for manual
-   if smokeModeIdx ~= smokeModeIndex.Manual then
+   -- and for continuous
+   if smokeModeIdx ~= smokeModeIndex.Manual and smCn == -1 then
       if loopChar == '-' then smV = -1 * smokeOnVal end
    end
 
@@ -509,11 +534,16 @@ local function loop()
    if smokeOffVal == 0 then 
       smOut = (smV + 100) / 2
    end
-   
+
    -- make sure if we are starting we get to pump off before allowing it to run
    -- if enable switch is defined, then it must be off (not smEnSw or smEnSw == -1)
+   -- if contin switch is defined, then it must be off (not smCnSw or smCnSw == -1)
    if startUp then
-      if smEn == -1 and (not smEnSw or smEnSw == -1) and not persistOn then
+      notEn = (smEn == -1) and (not smEnSw or smEnSw == -1)
+      notCn = not smCnSw or smCnSw == -1
+      if (notEn and notCn) and (not persistOn) then      
+	 --if smEn == -1 and (not smEnSw or smEnSw == -1) and not persistOn then
+	 --print("startUP false")
 	 startUp = false
       else
 	 smV = smokeOffVal
@@ -526,7 +556,15 @@ local function loop()
    else
       system.setControl(smokeControl, smOut/100, 10, 0)
    end
-   if smEn ~= -1 and not startUp then smokeStateON = true else smokeStateON = false end
+   if not startUp then
+      if smEn == 1 then
+	 smokeState = 1
+      elseif smCn == 1 then
+	 smokeState = 2
+      else
+	 smokeState=0
+      end
+   end
 end
 
 local function smokeCBout()
@@ -538,7 +576,7 @@ local function smokeCBout()
    lcd.setColor(lcd.getFgColor())
    lcd.drawRectangle(x0+xr0, y0+4, 96, 14)
    lcd.drawLine(x0+xr0+48, y0+4, x0+48+xr0, y0+17)
-   
+
    ss = smOut/100
    if ss >= 0 then
       lcd.drawFilledRectangle(x0+xr0+48, y0+4, ss*48, 14)
@@ -546,9 +584,17 @@ local function smokeCBout()
       lcd.drawFilledRectangle(x0+xr0+48+math.floor(ss*48+.5), y0+4, math.floor(-48*ss+.5), 14)
    end
 
-   lcd.drawText(103,4, smokeModeString[smokeModeIdx], FONT_MINI)
+   if smokeState == 0 then
+      lcd.drawText(103,4, "Off", FONT_MINI)
+      lcd.setColor(255,0,0) -- red
+   elseif smokeState == 1 then
+      lcd.drawText(103,4, smokeModeString[smokeModeIdx], FONT_MINI)
+      lcd.setColor(0,255,0) --green
+   elseif smokeState == 2 then
+      lcd.drawText(103,4, "Cont", FONT_MINI)
+      lcd.setColor(0,0,255) --blue
+   end
 
-   if smokeStateON then lcd.setColor(0,255,0) else lcd.setColor(255,0,0) end
    lcd.drawFilledRectangle(143, y0+8, 5,5)
    lcd.setColor(0,0,0)
 end
@@ -618,11 +664,11 @@ local function smokeCBseq()
       lcd.drawText(x0, y0+4,text, FONT_MINI)
       if telemReadingRaw then
 	 if (system.getTimeCounter() - telemReadingLast) < 2000 then
-	    text = string.format("Telem: %3.1f", telemReadingRaw)
+	    text = string.format("%3.1f %s", telemReadingRaw, telemReadingUnit)
 	 else
-	    text = 'Telem: ---'
+	    text = '---'
 	 end
-	 lcd.drawText(x0+80 , y0+4,text, FONT_MINI)
+	 lcd.drawText(x0+90 , y0+4,text, FONT_MINI)
       end
    end
    lcd.setColor(0,0,0)
@@ -633,8 +679,10 @@ local function init()
    local fg
    local mstr, char, lstr
    local pcallOK, pcallRet
+   local emulator
    
    pcallOK, emulator = pcall(require, "sensorEmulator")
+   --print("pcallOK, emulator", pcallOK, emulator)
    if pcallOK and emulator then emulator.init("DFM-Smoke") end
    
    system.registerForm(1,MENU_APPS, "Smoke Controller", initForm, nil, printForm)
@@ -644,6 +692,7 @@ local function init()
    smokeOnSw =      system.pLoad("smokeOnSw")
    smokeOffSw =     system.pLoad("smokeOffSw")
    smokeEnableSw =  system.pLoad("smokeEnableSw")
+   smokeContSw =    system.pLoad("smokeContSw")   
    smokeOffVal =    system.pLoad("smokeOffVal", -100)
    smokeThrMin =    system.pLoad("smokeThrMin", -100)
    smokeVol =       system.pLoad("smokeVol")
@@ -798,7 +847,7 @@ local function init()
    telemReadingRaw = 0   
    telemReadingLast = 0
    currentEGT = 0
-   smokeStateON = false
+   smokeState = 0
    sensorLbl = "***" -- to debug Gary's issue on the Havoc
    -- apparently it is possible to have an item at the top of the sensor list that is not
    -- preceeded by a header, so sensorLbl is nil the first time thru the loop. In Gary's

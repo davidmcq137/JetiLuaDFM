@@ -503,7 +503,7 @@ local function init()
    if fg then
       tjson = json.decode(fg)
    else
-      print("No DFM-turbines.jsn file")
+      print("Cannot open Apps/DFM-turbines.jsn")
    end
    
    -- populate local tables set up to use with menu

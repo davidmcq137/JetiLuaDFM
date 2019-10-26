@@ -29,7 +29,6 @@
 collectgarbage()
 
 ------------------------------------------------------------------------------
-
 -- Locals for application
 
 --local trans11
@@ -98,6 +97,8 @@ end
 -- Capture battery sensor IDs as specified in batt_info
 -- Additionally look for the telemetry labels in <batt_info>, note id & param
 
+local sensorLbl = "***"
+
 local function readSensors()
 
    local batt_info = {"I Accu 1", "I Accu 2", "Capacity 1", "Capacity 2"}
@@ -105,21 +106,19 @@ local function readSensors()
    local sensors = system.getSensors()
    for i, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
-	 -- if i < 12 then
-	    -- print(sensor.label,",",sensor.id, ",", sensor.param, ",", sensor.unit, ",", sensor.type)
-	 -- end
-	 
-	 table.insert(sensorLalist, sensor.label)
-	 for j, name in ipairs(batt_info) do 
-	    if sensor.label == batt_info[j] then
-	       batt_id[j] = sensor.id
-	       batt_pa[j] = sensor.param
+	 if sensor.param == 0 then sensorLbl = sensor.label else
+	    table.insert(sensorLalist, sensorLbl .. "-> " .. sensor.label)
+	    for j, name in ipairs(batt_info) do 
+	       if sensor.label == batt_info[j] then
+		  batt_id[j] = sensor.id
+		  batt_pa[j] = sensor.param
+	       end
 	    end
+	    table.insert(sensorIdlist, sensor.id)
+	    table.insert(sensorPalist, sensor.param)
+	    table.insert(sensorUnlist, sensor.unit)
+	    table.insert(sensorTylist, sensor.type)
 	 end
-	 table.insert(sensorIdlist, sensor.id)
-	 table.insert(sensorPalist, sensor.param)
-	 table.insert(sensorUnlist, sensor.unit)
-	 table.insert(sensorTylist, sensor.type)
       end
    end
 end
@@ -583,6 +582,12 @@ local function loop()
 end
 --------------------------------------------------------------------------------
 local function init()
+
+   local pcallOK, emulator
+
+   pcallOK, emulator = pcall(require, "sensorEmulator")
+   print("pcallOK, emulator", pcallOK, emulator)
+   if pcallOK and emulator then emulator.init("DFM-TimA") end
 
     gearSwitch = system.pLoad("gearSwitch")
     thrControl = system.pLoad("thrControl")
