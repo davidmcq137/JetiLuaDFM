@@ -20,6 +20,10 @@
 
 --]]
 
+local emulator
+local rlhFinished=false
+local readSensorsDone = false
+
 local graphVersion = "1.0"
 local appName = "Sensor Graph"
 local appDir = "DFM-Graph"
@@ -49,11 +53,15 @@ local sensorLbl = "***"
 
 local xbox = 300 -- main box width
 local ybox = 150 -- main box height
+local maxPoints = 100
 
 local function readSensors()
 
    local sensors = system.getSensors()
-   for _, sensor in ipairs(sensors) do
+
+   for i, sensor in ipairs(sensors) do
+      --print(i, type(sensor.id), type(sensor.param), type(sensor.label))
+      --print(i, sensor.id, sensor.param, sensor.label)
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then sensorLbl = sensor.label else
 	    table.insert(sensorLalist, sensorLbl .. "-> " .. sensor.label)
@@ -112,7 +120,7 @@ local function timePrint()
 
    local xoff =     10 -- x offset from 0,0
    local yoff =      5 -- y offset from 0,0
-   local xboxWidth = 2 -- pixel width of histograms
+   local xboxWidth = 3 -- pixel width of histograms
    
    local mm, rr
    local ww, ss
@@ -124,7 +132,7 @@ local function timePrint()
    lcd.setColor(0,0,0)
 
    -- draw graph titles - scale, time, sensor info
-   ss = string.format("Vertical Scale: %d   Mode: %s   Timeline 2:30",
+   ss = string.format("Vertical Scale: %d   Mode: %s   Timeline 100s",
 		      math.floor(graphScale), graphStyle[graphStyleIdx])
    ww = lcd.getTextWidth(FONT_MINI, ss)
    lcd.drawText(xbox/2-ww/2+1,yoff+2, ss, FONT_MINI)
@@ -136,6 +144,9 @@ local function timePrint()
    lcd.drawText((xbox-ww)/2-1,22,ss, FONT_MINI)
    
    -- draw main box for graph, double width lines
+
+   -- absolute max: lcd.drawRectangle(0,1,318,158)
+   
    lcd.drawRectangle(xoff, yoff, xbox, ybox)
    lcd.drawRectangle(xoff-1, yoff-1, xbox+2, ybox+2)
 
@@ -172,19 +183,22 @@ local function timePrint()
    
    -- now draw graph
    lcd.setColor(0,0,200)
-   if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then 
+   if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then
+      --print("rst")
       ren:reset()
    end
-   for ix = 0, #histogram-1, 1 do
+   local lx=0
+   local lp=0
+   for ix = 1, #histogram, 1 do
       if graphStyle[graphStyleIdx] == "Hazel" then
-	 yh = histogram[ix+1] % graphScale
+	 yh = histogram[ix] % graphScale
       else
-	 yh = histogram[ix+1]
+	 yh = histogram[ix]
       end
       local iy = yh / graphScale*ybox
       if iy > ybox then iy=ybox end
       if iy < 1  then iy=1  end
-      xp = xoff + xboxWidth*ix
+      xp = xoff + xboxWidth*(ix-1)*maxPoints/(maxPoints-1)
       yp = ybox - iy + yoff
       xp = math.min(xbox + xoff, math.max(xoff, xp))
       yp = math.min(ybox + yoff, math.max(yoff, yp))      
@@ -193,10 +207,17 @@ local function timePrint()
       elseif graphStyle[graphStyleIdx] == "Point" then
 	 lcd.drawFilledRectangle(xp, yp, xboxWidth, xboxWidth, 160)
       else -- Line or Hazel
+	 if xp <= lx then print("LESS OR EQ!") end
 	 ren:addPoint(xp, yp)
+	 lp=lp+1
+	 lx = xp
       end
    end
-   ren:renderPolyline(2, 160/255)
+   --print(lp)
+   if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then 
+      ren:renderPolyline(2, 0.7)
+   end
+   
 
    lcd.setColor(0,0,0)
    
@@ -215,8 +236,17 @@ local function loop()
    local sensor
    local sgTC, tim
    local modSec, remSec
-   local maxPoints = 150
    
+   if not emulator.readLogHeader() then return end
+   rlhFinished = true
+   if rlhFinished then
+      if not readSensorsDone then
+	 --print("calling readSensors()")
+	 readSensors()
+	 readSensorsDone =true
+      end
+   end
+
    sensor = system.getSensorByID(graphSeId, graphSePa)
 
    if sensor and sensor.valid then
@@ -239,12 +269,15 @@ local function loop()
       end
    end
 end
+
 --------------------------------------------------------------------------------
+
 local function init()
 
-   local pcallOK, emulator
+   local pcallOK
 
-   pcallOK, emulator = pcall(require, "sensorEmulator")
+   pcallOK, emulator = pcall(require, "sensorLogEm")
+   --print("pcallOK,   emulator", pcallOK, emulator)
    if not pcallOK then print("pcall error: ", emulator) end
    if pcallOK and emulator then emulator.init(appDir) end
 
@@ -256,7 +289,7 @@ local function init()
    graphSe       = system.pLoad("graphSe", 1)
    graphSeId     = system.pLoad("graphSeId", 0)
    graphSePa     = system.pLoad("graphSePa", 0)
-   
+  
    graphScale    = system.pLoad("graphScale", 100)
    graphName     = system.pLoad("graphName", "---")
    graphUnit     = system.pLoad("graphUnit", " ")
@@ -264,7 +297,8 @@ local function init()
    system.registerForm(1, MENU_APPS, appName, initForm, keypress, printform)
    system.registerTelemetry(1, appName, 4, timePrint)
    
-   readSensors()
+   
+   --readSensors()
 
 end
 --------------------------------------------------------------------------------

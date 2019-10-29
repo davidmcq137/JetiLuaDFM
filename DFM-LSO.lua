@@ -1,6 +1,6 @@
 --[[
 
-   --------------------------------------------------------------------------------------------------
+   ---------------------------------------------------------------------------------------
    DFM-LSO.lua -- "Landing Signal Officer" -- GPS Map and "ILS"/GPS RNAV system
 
    Derived from DFM's Speed and Time Announcers, which were turn was derived from Tero's RCT's Alt Announcer
@@ -13,9 +13,9 @@
     
    Developed on DS-24, only tested on DS-24
 
-   --------------------------------------------------------------------------------------------------
+   ---------------------------------------------------------------------------------------
    DFM-LSO.lua released under MIT license by DFM 2018
-   --------------------------------------------------------------------------------------------------
+   ---------------------------------------------------------------------------------------
 
    Work items:
 
@@ -87,7 +87,7 @@ takeoff.BrakeReleaseTime = 0
 takeoff.oldBrake = 0
 takeoff.oldThrottle = 0
 
--- these lists are the non-GPS senggors
+-- these lists are the non-GPS sensors
 
 local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
@@ -150,7 +150,7 @@ end
 --[[
 
 -- function to show all global variables .. uncomment for debug .. called from reset origin menu
-
+-- dump(_G,"") -- print all globals for debugging
 local seen={}
 
 local function dump(t,i)
@@ -1560,7 +1560,8 @@ local function readLogHeader()
    return
 end
 
------------------------------------------------------------------------------------------------------
+------------------------------------------------------------
+
 local function readLogTimeBlock()
 
    logItems.timestamp = logItems.cols[1]
@@ -1618,7 +1619,8 @@ local function manhat_xy_from_latlong(latitude1, longitude1, latitude2, longitud
           math.abs(rE * math.rad(latitude1 - latitude2))
 end
 
------------------------------------------------------------------------------------------------------
+------------------------------------------------------------
+
 -- presistent and global variables for loop()
 
 local lastlat = 0
@@ -2169,10 +2171,12 @@ local function init()
 
 --[[
  
-if the menu item to select a replay log file was used, the file is persisted by pSave in logPlayBacl
-but this only works correctly on the TX .. the emulator's dir() iterator does not work. So if we are
-running on the emulator, we check for the "magic name" of DFM-LSO.log -- if it exists we open it for
-replay .. wait .. maybe it does??
+if the menu item to select a replay log file was used, the file is
+persisted by pSave in logPlayBack but this only works correctly on the
+TX .. the emulator's dir() iterator does not work. So if we are
+running on the emulator, we check for the "magic name" of
+DFM-LSO.log -- if it exists we open it for replay .. wait .. maybe it
+does??
 
 --]]
    

@@ -29,7 +29,7 @@ function emulator.init(dir)
    
    local ans
    local dev, emflag
-
+   
    if dir then sensorDir = dir else sensorDir = '' end
    
    dev, emflag = system.getDeviceType()
