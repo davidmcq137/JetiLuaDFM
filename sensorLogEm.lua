@@ -6,24 +6,23 @@
 
    Usage: 
 
-   Put the following variable declarations at the top of your source file before 
-   any functions declarations:
+   Put this declaration at the top of your lua file before any function declarations:
 
-   ------------------------------
-   local emulator
-   local rlhFinished=false
-   local readSensorsDone = false
-   ------------------------------
+   ------------------------------------------------------------
+   local pcallOK, emulator
+   ------------------------------------------------------------
 
    Put this code snippet into init() near the top of the file:
 
    ------------------------------
-   local pcallOK
-
    pcallOK, emulator = pcall(require, "sensorLogEm")
    if not pcallOK then print("pcall error: ", emulator) end
-   if pcallOK and emulator then emulator.init(appDir) end
+   if pcallOK and emulator then emulator.init("sensorLogEm.jsn") end
    ------------------------------
+
+   You can supply whatever jsn file name you like in the call to
+   emulator.init. Inside the function, it is prepended with
+   "Apps/". Default if nil is passed is "sensorLogEm.jsn".
 
    Do not call readSensors() / system.getSensors() from the init file
    as usual practice would dictate
@@ -32,13 +31,8 @@
    readSensors() is a local wrapper that calls system.getSensors()
 
    ------------------------------
-   if not emulator.readLogHeader() then return end
-   rlhFinished = true
-   if rlhFinished then
-      if not readSensorsDone then
-	 readSensors()
-	 readSensorsDone =true
-      end
+   if pcallOK and emulator then
+      if emulator.startUp(readSensors) then return end
    end
    ------------------------------
 
@@ -53,10 +47,21 @@
 
    Since this is meant to be used on the emulator, all the config
    information is in the configuration json file Apps/sensorLogEm.jsn
-   where it is assumed it is easy to edit/change the file.
+   where it is assumed it is easy to edit/change the file. Sample
+   included below. Place in that config file the name of the log file
+   to process and the names of the telemetry log variables you want to
+   make available
 
-   Place in that config file the name of the log file to process and
-   the names of the telemetry log variables you want to make available
+   To Do: when sensor not valid, we set the value to -999 and then
+   don't put into the renderer (which is kind of bs...). End result is
+   similar to what Jeti studio does except we don't show the curve
+   dotted while not valid. Should be nil and we should not plot
+   anything .. should just show a gap. But this will take a bunch of
+   work to put nils in the histogram[] since then will have to keep
+   length separately. Then will have to figure out how to do line
+   segments with the renderer for line mode... ugg. Too bad there is
+   not a "pen up" and "pen down" capability on the renderer!
+
 
    Released under MIT license by DFM 2019
 
@@ -84,7 +89,6 @@ local lastTimeBlock = 0
 logItems.cols={}
 logItems.vals={}
 
-
 -- Utility functions --------------------------------------
 
 local function split(str, ch)
@@ -103,17 +107,32 @@ end
 
 ------------------------------------------------------------
 
+-- sensor name is human readable
+-- e.g. CTU_Altitude
 local function sensorFullName(device_name, param_name)
-   return device_name .. "_" .. param_name -- sensor name is human readable
-                                           -- e.g. CTU_Altitude
+   return device_name .. "_" .. param_name 
+
 end
 
 ------------------------------------------------------------
 
+-- sensor ID is machine readable
+-- e.g. 420460025613 (13 concat to 4204600256)
+-- note that this assumes the devID and devParam are left as strings!
 local function sensorFullID(devID, devParm)
-   return devID..devParm -- sensor ID is machine readable
-   -- e.g. 420460025613 (13 concat to 4204600256)
-   -- note that this assumes the devID and devParam are left as strings!
+   return tostring(devID)..tostring(devParm)
+end
+
+------------------------------------------------------------
+local readSenDone=false
+function emulator.startUp(readSen)
+
+   if not emulator.readLogHeader() then return true end
+   if not readSenDone then
+      readSen(0)
+      readSenDone = true
+   end
+   
 end
 
 ------------------------------------------------------------
@@ -124,7 +143,7 @@ function emulator.readLogHeader()
    local uid
    local iid
 
-   if not fd then return end
+   if not fd then return false end
    if rlhDone then return rlhDone end
 
    if rlhCount == 0 then
@@ -164,11 +183,12 @@ function emulator.readLogHeader()
       if logItems.cols[3] == "0" then
 	 logItems.sensorName=logItems.cols[4]
       else
+	 logItems.cols[4] = string.gsub(logItems.cols[4], " ", "_")
 	 uid = sensorFullName(logItems.sensorName, logItems.cols[4])
 	 table.insert(allSensors, uid)
 	 if config.selectedSensors[uid] then
 	    logSensorByName[uid] = {}
-	    iid = sensorFullID(logItems.cols[2], logItems.cols[3])
+	    iid = sensorFullID(tonumber(logItems.cols[2]), tonumber(logItems.cols[3]) )
 	    logSensorByID[iid] = {}
 	    logSensorByName[uid].label = logItems.cols[4]
 	    logSensorByID[iid].label = logItems.cols[4]	    
@@ -176,10 +196,10 @@ function emulator.readLogHeader()
 	    logSensorByID[iid].sensorName = logItems.sensorName
 	    logSensorByName[uid].unit = logItems.cols[5]
 	    logSensorByID[iid].unit = logItems.cols[5]
-	    logSensorByName[uid].id = logItems.cols[2]
-	    logSensorByID[iid].id = logItems.cols[2]
-	    logSensorByName[uid].param = logItems.cols[3]
-	    logSensorByID[iid].param = logItems.cols[3]
+	    logSensorByName[uid].id = tonumber(logItems.cols[2])
+	    logSensorByID[iid].id = tonumber(logItems.cols[2])
+	    logSensorByName[uid].param = tonumber(logItems.cols[3])
+	    logSensorByID[iid].param = tonumber(logItems.cols[3])
 	 end
       end
    end
@@ -198,15 +218,16 @@ local function readLogTimeBlock()
    -- load the data into the results table logSensorByID
    
    repeat
-      logItems.deviceID = logItems.cols[2]
-      if tonumber(logItems.deviceID) ~= 0 then -- if logItems.deviceID == 0 it's a message
+      logItems.deviceID = tonumber(logItems.cols[2])
+      if logItems.deviceID ~= 0 then -- if logItems.deviceID == 0 it's a message
 	 for i = 3, #logItems.cols, 4 do
-	    sf = sensorFullID(logItems.cols[2], logItems.cols[i])
+	    sf = sensorFullID(tonumber(logItems.cols[2]), tonumber(logItems.cols[i]))
 	    if logSensorByID[sf] then
 	       sn = logSensorByID[sf].sensorName
 	       sl = logSensorByID[sf].label
 	       if config.selectedSensors[sn.."_"..sl] then
 		  logSensorByID[sf].value = tonumber(logItems.cols[i+3])
+		  logSensorByID[sf].valGPS = tonumber(logItems.cols[i+3])		  
 		  logSensorByID[sf].decimals = tonumber(logItems.cols[i+2])
 		  logSensorByID[sf].type = tonumber(logItems.cols[i+1])
 		  logSensorByID[sf].max = logSensorByID[sf].max or logSensorByID[sf].value
@@ -242,16 +263,16 @@ end
 
 ------------------------------------------------------------
 
-function emulator.init(dir)
+function emulator.init(jtext)
    
    local ans
    local dev, emflag
-   local text
+   local text, jfile
    local fg
-   
-   text = "Apps/sensorLogEm.jsn"
-   fg = io.readall(text)
-   if not fg then print("Cannot read " .. text) else
+
+   if jtext then jfile = "Apps/" .. jtext else jfile = "Apps/sensorLogEm.jsn" end
+   fg = io.readall(jfile)
+   if not fg then print("Cannot read " .. jfile) else
       config=json.decode(fg)
    end
 
@@ -263,13 +284,14 @@ function emulator.init(dir)
    fd = io.open(text, "r")
    if not fg then print("Cannot read " .. text) else emulator.readLogHeader() end
    
-   if dir then sensorDir = dir else sensorDir = '' end
-   
    dev, emflag = system.getDeviceType()
    
-   ans = form.question("Use sensor emulator",
-		       " Apps/" .. sensorDir .. "/sensorEmulator.jsn ?",
-		       "---",3500, false, 0)
+   ans = form.question(
+      "Use sensor emulator?",
+      "Log File "..config.logFile,
+      "Config file /Apps/" .. jfile,
+      3500, false, 0)
+   
    if ans == 1 and emflag == 1 then
       print("Using Sensor Emulator")
       system.getSensors = emulator.getSensors
@@ -306,33 +328,26 @@ function emulator.getSensors()
    -- multiple sensor labels. 
 
    ll=nil
-   for _,v in ipairs(st) do
+   for k,v in ipairs(st) do
       vv = logSensorByName[v]
-      if vv.sensorName ~= ll  then
+      --print("k,v,vv", k,v,vv)
+      if type(vv) ~= "table"  then
+	 print("sensor not found in log header: "..v)
+	 ll=nil
+      else
+	 if vv.sensorName ~= ll  then
+	    table.insert(sensorTbl,
+			 {id=tonumber(vv.id),param=0,sensorName="",
+			  label=vv.sensorName})
+	 end
 	 table.insert(sensorTbl,
-		      {id=vv.id,param=0,sensorName="",
-		       label=vv.sensorName})
+		      {id=tonumber(vv.id),param=tonumber(vv.param),
+		       sensorName=vv.sensorName,
+		       label=vv.label,unit=vv.unit})
+	 ll = vv.sensorName -- see if next sensor is a different one
       end
-      table.insert(sensorTbl,
-		   {id=vv.id,param=vv.param,
-		    sensorName=vv.sensorName,
-		    label=vv.label,unit=vv.unit})
-      ll = vv.sensorName -- see if next sensor is a different one
+
    end
-
-   -- should we copy sensorTbl and convert ID and Param to numbers (vs. strings?)
-
---[[
-   for k,v in pairs(sensorTbl) do
-      print(k,v)
-
-      for kk,vv in pairs(v) do
-	 print(kk,vv)
-	 if kk == "id" then print(vv, type(vv),  tonumber(vv)) end
-	 if kk == "param" then print(vv, type(vv), tonumber(vv)) end	 
-      end
-   end
---]]
    
    return sensorTbl
 end
@@ -353,6 +368,11 @@ function emulator.getSensorByID(ID, Param)
    --local min, sec
    --local timstr
 
+   -- defend against bad inputs or invalid sensor
+   if (not ID) or (not Param) then return nil end
+   sf = sensorFullID(ID, Param)
+   if not logSensorByID[sf] then return nil end
+   
    -- log file still open? read log header done?
    if fd and rlhDone then
       -- only read the time block if it is time to do so...
@@ -385,24 +405,32 @@ function emulator.getSensorByID(ID, Param)
 	 returnTbl = {}
 	 -- first copy the info that does not change - loaded from log header
 	 returnTbl.id         = ID
-	 returnTbl.param      = Param
+	 returnTbl.param      = param
 	 returnTbl.sensorName = logSensorByID[sf].sensorName
 	 returnTbl.label      = logSensorByID[sf].label
 	 returnTbl.unit       = logSensorByID[sf].unit
 	 -- now get varying signals, be careful if not set yet
 	 if logSensorByID[sf].lastUpdate then -- ever updated?
-	    --local dtt = system.getTimeCounter() - logSensorByID[sf].lastUpdate 
-	    --if dtt > 200 then
-	    --   print("over 200", logSensorByID[sf].label, dtt)
-	    --end
-	    returnTbl.valid   = true
+	    local dtt = system.getTimeCounter() - logSensorByID[sf].lastUpdate 
+	    if dtt > 2000 then
+	       --print("sensor age over 2000 ms Name: "..
+		--	logSensorByID[sf].sensorName.."-->"..logSensorByID[sf].label..
+		--	"  "..dtt.." ms"
+	        --)
+	       returnTbl.valid = false
+	    else
+	       returnTbl.valid   = true
+	    end
 	 else
-	    print("Sensor not valid", logSensorByID[sf].name)
+	    print("Sensor not valid - Name: "..logSensorByID[sf].label..
+		     "  ID: "..ID.."  Param: "..Param.."  Log File Time:  "
+		     ..lastTimeBlock)
 	    returnTbl.valid   = false
 	 end
 	 -- be defensive ..even if valid=false, set  values that won't cause error
-	 returnTbl.decimals   = logSensorByID[sf].decimals or 0
-	 returnTbl.value      = logSensorByID[sf].value or 0
+	 returnTbl.decimals   = tonumber(logSensorByID[sf].decimals or 0)
+	 returnTbl.value      = tonumber(logSensorByID[sf].value or 0)
+	 returnTbl.valGPS     = tonumber(logSensorByID[sf].value or 0)	 
 	 returnTbl.value      = returnTbl.value / 10^returnTbl.decimals
 	 returnTbl.type       = logSensorByID[sf].type or 1
 	 returnTbl.max        = logSensorByID[sf].max or 0
@@ -424,11 +452,11 @@ Sample sensorLogEm.jsn file
 "logFile":"Apps/DFM-LSO.log",
 "selectedSensors":
    {
-   "MGPS_Latitude":1,
-   "MGPS_Longitude":2,
-   "CTU_Altitude":3,
-   "MSPEED_Velocity":4,
-   "MGPS_Course":5
+   "MGPS_Latitude":  true,
+   "MGPS_Longitude": true,
+   "CTU_Altitude":   true,
+   "MSPEED_Velocity":true,
+   "MGPS_Course":    true
    }
 }
 

@@ -1,13 +1,15 @@
 {
-"logFile":"Apps/DFM-LSO.log",
+"logFile":"Log/20190926/16-56-45.log",
 "selectedSensors":
    {
-   "MGPS_Latitude":1,
-   "MGPS_Longitude":2,
-   "CTU_Altitude":3,
-   "MSPEED_Velocity":4,
-   "MGPS_Course":5
+   "MGPS_Latitude":     true,
+   "MGPS_Longitude":    true,
+   "MGPS_AltRelat.":    true,
+   "CTU_Altitude":      true,
+   "CTU_G_Force":       true,
+   "CTU_Fuel_remaining":true,
+   "MSPEED_Velocity":   true,
+   "MGPS_Speed":        true,
+   "CBOX200":           true
    }
 }
-
-
