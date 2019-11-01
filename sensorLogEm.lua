@@ -413,7 +413,7 @@ function emulator.getSensorByID(ID, Param)
 	 if logSensorByID[sf].lastUpdate then -- ever updated?
 	    local dtt = system.getTimeCounter() - logSensorByID[sf].lastUpdate 
 	    if dtt > 2000 then
-	       --print("sensor age over 2000 ms Name: "..
+	       --print("sensor age over xxxx ms Name: "..
 		--	logSensorByID[sf].sensorName.."-->"..logSensorByID[sf].label..
 		--	"  "..dtt.." ms"
 	        --)

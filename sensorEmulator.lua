@@ -25,6 +25,19 @@ local emulator={}
 local sensorTbl
 local sensorDir
 
+-- include this for compatibility with sensorLogEm
+
+local didfcn = false
+function emulator.startUp(fcn)
+   if not didfcn then
+      --print("calling fcn")
+      fcn()
+      didfcn=true
+   end
+   return false
+end
+
+
 function emulator.init(dir)
    
    local ans
@@ -64,9 +77,6 @@ function emulator.getSensors()
    return sensorTbl
 end
 
-local returnTbl
-
-
 local function triangleWave(T)
    local t
    t = T % 1
@@ -102,6 +112,7 @@ end
 function emulator.getSensorByID(ID, Param)
    local c
    local chunk, err, status, result
+   local returnTbl
    local env = {
       s = 0,
       t = 0,
@@ -124,6 +135,8 @@ function emulator.getSensorByID(ID, Param)
       prt   = printFcn,
    }
 
+   if not sensorTbl then return nil end
+   
    for _,v in ipairs(sensorTbl) do
       if v.id == ID and v.param == Param then
 	 returnTbl = {}

@@ -55,14 +55,17 @@
    the behavior of table entry <sensor.valid>. Currently we always
    return sensor.valid = true.
 
-   Replaying a file with a specific set of sensor values, perhaps
-   logged from a flight, would also be a nice addition. Since I
-   already figured out how to read Jeti log files for the LSO app,
-   this one might be up next :-)
+   There is a companion lua program sensorLogEm.lua that is similar,
+   except that it reads a Jeti TX log file and replays the log file
+   and supplies sensor data for selected sensors as they occured
+   during the flight. This allows you to debug a lua program with
+   actual flight data from a prior flight with the code exactly as it
+   would be when deployed on the TX.
 
    Perhaps to avoid excessive CPU load we might only return a new
    value (running the lua interpreter) every 200 msec or so to
-   simulate actual telemetry sensor behavior?
+   simulate actual telemetry sensor behavior. Could be an option in
+   the jsn file.
    
    At present, several less common table entries (see source code) are
    not implemented e.g. date and time and GPS.
@@ -71,7 +74,7 @@
    directory along with the lua source files. The sensorEmulator.jsn
    file is expected to be lua-program-specific so it resides in the
    lua program's own directory, e.g. Apps/DFM-Smoke/sensorEmulator.jsn
-   for the lua program /Apps/DFM-Smoke.lua
+   for use with the lua program /Apps/DFM-Smoke.lua
 
    Usage: 
 
@@ -86,7 +89,7 @@
    directory each app can define its own sensor names, ranges, etc
 
    To use the sensor emulator, assuming your app is called
-   DFM-Test.lua, and has a directort DFM-Test associated with it, add
+   DFM-Test.lua, and has a directory DFM-Test associated with it, add
    the following code to init():
 
    -- *** code snippet to add to init() ***
@@ -110,8 +113,8 @@
    must be before you call system.getSensors(), which is also
    typically called from init().
 
-   Upon startup in the Jeti emulator of a lua program that includes the
-   module, it asks if you want to use the pseudosensors or not,
+   Upon startup in the Jeti emulator of a lua program that includes
+   the module, it asks if you want to use the pseudosensors or not,
    default if no key pressed after a few seconds is "no".
 
    If you press "yes" and do elect to use the module, the

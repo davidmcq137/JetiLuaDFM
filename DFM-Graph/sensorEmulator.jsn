@@ -11,7 +11,7 @@
 "auxcontrol":["P6","P7"],
 "controlmin":0,
 "controlmax":800,
-"funcString":"s / 2 * sin(2*pi*t / ( 30*(S6+1) ) ) + s / 2"
+"funcString":"s / 2 * sin(2*pi*t / ( 30*(S7+1) ) ) + s / 2"
 },
 
 {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
@@ -23,9 +23,10 @@
 "label":"Airspeed",
 "unit":"m/s",
 "control":"P6",
+"auxcontrol":["P7"],
 "controlmin":0,
 "controlmax":200,
-"funcString":"s / 2 * sq(t / 30) + s / 2 + s / 5 * rand() + s / 5"
+"funcString":"s / 2 * sq(t / (30*(S7+1) ) ) + s / 2 + s / 5 * rand() + s / 5"
 },
 
 {"id":3,"param":0,"sensorName":"", "label":"PS3(P7)"},

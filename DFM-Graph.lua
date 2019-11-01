@@ -5,26 +5,25 @@
    Graphs Telemetry Sensors
    Demonstrator for sensorEmulator.lua but also generally useful
    
-   Currently set for time span of 100s, derived from 100 histogram
-   bars, one histogram bar per second. Each histogram bar is 3 pixels
-   wide giving a 300 pixel wide window.
-
    Can also graph as points or as a line with anti-aliased polyline
 
    Discovered that with 150 points the renderer has issues .. backed
-   off to 100 points
+   off to 60 points which gives adequate resolution
 
    xbox is the width of the main screen in pixels
    ybox is the height of the main screen in pixels
    xboxWidth is the width of the histogram bars in pixels
    maxPoints is the number of histogram bars on the screen
+   timeline is the span of the x axis in seconds
 
    To Do:
 
    Two sensor implementation is awful/literal - consider cleaner
    update to n sensors. Interesting challenge on dynamically extending
    form as each sensor is added - always need "one more" menu item for
-   sensor N+1
+   sensor N+1 ... but ... might run into "script killed" issue since
+   usage for 2 graphs gets close to 50%. So perhaps 2 is a good place
+   to sit for now.
 
    Released by DFM 10/2019 MIT License
 
@@ -37,7 +36,7 @@ local appName = "Sensor Graph"
 local appDir = "DFM-Graph"
 local appAuthor = "DFM"
 
-local graphStyle = {"Histogram", "Point", "Line", "Hazel"}
+local graphStyle = {"Line", "Hazel","Point", "Histogram"}
 local graphStyleIdx
 
 local graphSe, graphSeId, graphSePa
@@ -52,8 +51,13 @@ local graphName2
 local graphUnit = '---'
 local graphUnit2 = '---'
 
+local timeline
+
 local histogram = {} -- table of values for "chart recorder" graph
+local penDown = {}
 local histogram2 = {} -- table of values for "chart recorder" graph
+local penDown2 = {}
+local x0, y0
 
 local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
@@ -62,11 +66,16 @@ local sensorPalist = { "..." }  -- sensor parameters
 local oldModSec 
 local runningTime 
 local startTime
+local nextsgTC 
+local deltasg = 2000
 
 local tpCPU = 0
 local lpCPU = 0
 
 local sensorLbl = "***"
+
+-- xboxWidth, maxPoints, xbox, ybox must be integers
+-- must have xbox = maxPoints * xboxWidth
 
 local xbox = 300 -- main box width
 local ybox = 150 -- main box height
@@ -100,6 +109,12 @@ local function graphScale2Changed(value)
    system.pSave("graphScale2", value)
 end
 
+local function timelineChanged(value)
+   timeline = value
+   deltasg = timeline * 1000 / maxPoints
+   system.pSave("timeline", value)
+end
+
 local function graphSensorChanged(value)
    graphSe = value
    graphSeId = sensorIdlist[graphSe]
@@ -119,11 +134,15 @@ local function graphSensorChanged(value)
    system.pSave("graphUnit", graphUnit)
    -- clear histograms so both sensors will have same time origin
    histogram = {}
+   penDown = {}
    histogram2 = {}
+   penDown2 = {}
 
    oldModSec = 0
-   startTime = system.getTimeCounter() / 1000
+   nextsgTC = system.getTimeCounter()
+   startTime = nextsgTC / 1000
    runningTime = startTime
+
 end
 
 
@@ -146,10 +165,13 @@ local function graphSensor2Changed(value)
    system.pSave("graphUnit2", graphUnit2)
    -- clear histograms so both sensors will have same time origin
    histogram = {}
+   penDown = {}
    histogram2 = {}
-
+   penDown2 = {}
+   
    oldModSec = 0
-   startTime = system.getTimeCounter() / 1000
+   nextsgTC = system.getTimeCounter()
+   startTime = nextsgTC / 1000
    runningTime = startTime
 end
 
@@ -159,6 +181,7 @@ local function graphStyleChanged(value)
 end
 
 local function initForm()
+
    form.addRow(2)
    form.addLabel({label="Select Sensor 1", width=170})
    form.addSelectbox(sensorLalist, graphSe, true, graphSensorChanged)
@@ -179,11 +202,51 @@ local function initForm()
    form.addLabel({label="Style", width=170})
    form.addSelectbox(graphStyle, graphStyleIdx, true, graphStyleChanged)
    
+   form.addRow(2)
+   form.addLabel({label="Timeline (seconds)", width=220})
+   form.addIntbox(timeline, 30, 10000, 60, 0, 1, timelineChanged)
+
    form.addRow(1)
    form.addLabel({label="DFM - v."..graphVersion.." ", font=FONT_MINI, alignRight=true})
 end
 
-local x0, y0
+local count=0
+
+local function dashLine(xp0, yp0, xp1, yp1)
+
+   local d, ratio
+   local xd0, xd1, yd0, yd1
+   local dlen = 12
+   ren = lcd.renderer()
+
+   d = math.abs(xp1-xp0) + math.abs(yp1-yp0)
+   --d = math.sqrt( (xp1-xp0)^2 + (yp1-yp0)^2 )
+   ratio = d / dlen
+
+   dx = (xp1-xp0) / ratio
+   dy = (yp1-yp0) / ratio
+
+   count = count + 1
+
+   if d < dlen*1.1 then -- 1.1 arbitrary chose to look best
+      return
+   end
+
+   ren:reset()
+   for i=1, math.floor(ratio+1), 1 do
+      xd0 = xp0 + (i-1) * dx
+      yd0 = yp0 + (i-1) * dy
+      xd1 = xd0 + dx/2
+      yd1 = yd0 + dy/2
+      xd1 = math.min(xp1, xd1)
+      yd1 = math.min(yp1, yd1)
+      --print(i, d, ratio, xd0, yd0, xd1, yd1)
+      ren:addPoint(xd0, yd0)
+      ren:addPoint(xd1, yd1)
+      ren:renderPolyline(2,0.4)
+      ren:reset()
+   end
+end
 
 local function timePrint()
 
@@ -191,19 +254,23 @@ local function timePrint()
    local yoff =      5 -- y offset from 0,0
    
    local mm, rr
+   local mmm, rrr
    local ww, ss
-   local xp, yp
    local yh
    local gv
    local ren = lcd.renderer()
+   local xp, yp, lastDown
+   local xup, yup, xdown, ydown
    
    -- make sure we are set to black
    lcd.setColor(0,0,0)
 
    -- draw graph titles - scale, time, sensor info
    mm, rr = math.modf(runningTime/60)
-   ss = string.format("Mode: %s  Runtime: %02d:%02d  Timeline 2:00",
-		      graphStyle[graphStyleIdx], math.floor(mm), math.floor(rr*60))
+   mmm, rrr = math.modf(timeline/60)
+   ss = string.format("Mode: %s  Runtime: %02d:%02d  Timeline %02d:%02d",
+		      graphStyle[graphStyleIdx], math.floor(mm), math.floor(rr*60),
+		      math.floor(mmm), math.floor(rrr*60) )
    ww = lcd.getTextWidth(FONT_MINI, ss)
    lcd.drawText(xoff + xbox/2-ww/2+1,yoff+2, ss, FONT_MINI)
 
@@ -240,6 +307,7 @@ local function timePrint()
    -- absolute max: lcd.drawRectangle(0,1,318,158)
 
    lcd.setColor(0,0,0)
+   --lcd.setClipping(xoff-1, yoff-1, xbox+4, ybox+4)
    lcd.drawRectangle(xoff, yoff, xbox, ybox)
    lcd.drawRectangle(xoff-1, yoff-1, xbox+2, ybox+2)
 
@@ -275,14 +343,18 @@ local function timePrint()
    end
    
    -- now draw graph
-   lcd.setColor(0,0,200)
+   
+   if graphSeId ~= 0 then
+      lcd.setColor(0,0,200)
 
-   if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then
-      --ren:reset()
-   end
+      if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then
+	 ren:reset()
+      end
 
-   for ix = 1, #histogram, 1 do
-      if histogram[ix] ~= -999 then
+      lastDown = true
+      x0, y0 = nil, nil
+      
+      for ix = 1, #histogram, 1 do
 	 if graphStyle[graphStyleIdx] == "Hazel" then
 	    yh = histogram[ix] % graphScale
 	 else
@@ -293,72 +365,40 @@ local function timePrint()
 	 if iy < 1  then iy=1  end
 	 yp = ybox - iy + yoff
 	 yp = math.min(ybox + yoff, math.max(yoff, yp))      
-      else
-	 yp = -999
-      end
-      xp = xoff + xboxWidth*(ix-1)*maxPoints/(maxPoints-1)
-      xp = math.min(xbox + xoff, math.max(xoff, xp))
-      if yp ~= -999 then
-	 if graphStyle[graphStyleIdx] == "Histogram" then
-	    lcd.drawFilledRectangle(xp, yp, xboxWidth, iy, 160)
-	 elseif graphStyle[graphStyleIdx] == "Point" then
-	    lcd.drawFilledRectangle(xp, yp, xboxWidth, xboxWidth, 160)
-	 else -- Line or Hazel
-	    if yp == -999 then
-	       x0 = nil
-	       y0 = nil
-	    end
-	    if x0 and y0 then
-	       lcd.drawLine(x0, y0, xp, yp)
-	    end
-	    if yp ~= -999 then
-	       x0 = xp
-	       y0 = yp
-	    end
-	    --ren:addPoint(xp, yp)
-	 end
-      end
-   end
-
-   if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then 
-      --ren:renderPolyline(2, 0.7)
-   end
-      
-
-   if graphSeId2 ~= 0 then
-      lcd.setColor(0,200,0)
-      
-      if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then
-	 ren:reset()
-      end
-      
-      for ix = 1, #histogram2, 1 do
-	 if histogram2[ix] ~= -999 then
-	    if graphStyle[graphStyleIdx] == "Hazel" then
-	       yh = histogram2[ix] % graphScale2
-	    else
-	       yh = histogram2[ix]
-	    end
-	    local iy = yh / graphScale2*ybox
-	    if iy > ybox then iy=ybox end
-	    if iy < 1  then iy=1  end
-	    yp = ybox - iy + yoff
-	    yp = math.min(ybox + yoff, math.max(yoff, yp))      
-	 else
-	    yp = -999
-	 end
-	 
 	 xp = xoff + xboxWidth*(ix-1)*maxPoints/(maxPoints-1)
 	 xp = math.min(xbox + xoff, math.max(xoff, xp))
-
-	 if yp ~= -999 then
-	    if graphStyle[graphStyleIdx] == "Histogram" then
-	       lcd.drawFilledRectangle(xp, yp, xboxWidth, iy, 160)
-	    elseif graphStyle[graphStyleIdx] == "Point" then
-	       lcd.drawFilledRectangle(xp, yp, xboxWidth, xboxWidth, 160)
-	    else -- Line or Hazel
+	 --squeeze so it fits .. otherwise last histogram box would go past xbox
+	 if graphStyle[graphStyleIdx] == "Histogram" then
+	    lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
+				    yp, xboxWidth, iy, 160)
+	 elseif graphStyle[graphStyleIdx] == "Point" then
+	    lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
+				    yp, xboxWidth, xboxWidth, 160)
+	 else -- Line or Hazel
+	    if penDown[ix] then
+	       if lastDown == false then
+		  lcd.drawCircle(xp, yp, 2) -- pen just went down after being up
+		  xdown = xp
+		  ydown = yp
+		  if xup and yup then
+		     dashLine(xup, yup, xdown, ydown)
+		  end
+	       end
 	       ren:addPoint(xp, yp)
+	    else
+	       if lastDown then
+		  if x0 and y0 then
+		     lcd.drawCircle(x0, y0, 2)
+		  end --pen just came up
+		  ren:renderPolyline(2, 0.7)
+		  ren:reset()
+		  xup = x0
+		  yup = y0
+	       end
 	    end
+	    lastDown = penDown[ix]
+	    x0 = xp
+	    y0 = yp
 	 end
       end
       
@@ -367,15 +407,72 @@ local function timePrint()
       end
    end
    
-   
+
+   if graphSeId2 ~= 0 then
+      lcd.setColor(0,200,0)
+      
+      if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then
+	 ren:reset()
+      end
+      
+      lastDown = true
+      x0, y0 = nil, nil
+
+      for ix = 1, #histogram2, 1 do
+	 if graphStyle[graphStyleIdx] == "Hazel" then
+	    yh = histogram2[ix] % graphScale
+	 else
+	    yh = histogram2[ix]
+	 end
+	 local iy = yh / graphScale2*ybox
+	 if iy > ybox then iy=ybox end
+	 if iy < 1  then iy=1  end
+	 yp = ybox - iy + yoff
+	 yp = math.min(ybox + yoff, math.max(yoff, yp))      
+	 xp = xoff + xboxWidth*(ix-1)*maxPoints/(maxPoints-1)
+	 xp = math.min(xbox + xoff, math.max(xoff, xp))
+	 --squeeze so it fits .. otherwise last histogram box would go past xbox
+	 if graphStyle[graphStyleIdx] == "Histogram" then
+	    lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
+				    yp, xboxWidth, iy, 160)
+	 elseif graphStyle[graphStyleIdx] == "Point" then
+	    lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
+				    yp, xboxWidth, xboxWidth, 160)
+	 else -- Line or Hazel
+	    if penDown2[ix] then
+	       if lastDown == false then
+		  lcd.drawCircle(xp, yp, 2) -- pen just went down after being up
+		  xdown = xp
+		  ydown = yp
+		  if xup and yup then
+		     dashLine(xup, yup, xdown, ydown)
+		  end
+	       end
+	       ren:addPoint(xp, yp)
+	    else
+	       if lastDown then
+		  if x0 and y0 then
+		     lcd.drawCircle(x0, y0, 2)
+		  end --pen just came up
+		  ren:renderPolyline(2, 0.7)
+		  ren:reset()
+		  xup = x0
+		  yup = y0
+	       end
+	    end
+	    lastDown = penDown2[ix]
+	    x0 = xp
+	    y0 = yp
+	 end
+      end
+      
+      if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then 
+	 ren:renderPolyline(2, 0.7)
+      end
+   end
+
    lcd.setColor(0,0,0)
    tpCPU = system.getCPU()
-end
-
-local function keypress()
-end
-
-local function printform()
 end
 
 --------------------------------------------------------------------------------
@@ -414,23 +511,38 @@ local function loop()
    modSec, remSec = math.modf(runningTime / 2) --2 secs per step
 
    --print(runningTime, modSec, remSec, oldModSec)
-   --nextPoint
-   if modSec ~= oldModSec then
+
+   if sgTC > nextsgTC then
+      nextsgTC = nextsgTC + deltasg
       oldModSec = modSec
-      if true then -- graphValue then
-	 if #histogram + 1 > maxPoints then
-	    table.remove(histogram, 1)
-	 end
-	 table.insert(histogram, #histogram+1, graphValue or -999)
+
+      if #histogram + 1 > maxPoints then
+	 table.remove(histogram, 1)
+	 table.remove(penDown, 1)
       end
-      if true then -- graphValue2 then
-	 if #histogram2 + 1 > maxPoints then
-	    table.remove(histogram2, 1)
-	 end
-	 table.insert(histogram2, #histogram2+1, graphValue2 or -999)
+
+      table.insert(histogram, #histogram+1, graphValue or 0)
+
+      if graphValue then
+	 table.insert(penDown, #penDown+1, true)
+      else
+	 table.insert(penDown, #penDown+1, false)
       end
       
+      if #histogram2 + 1 > maxPoints then
+	 table.remove(histogram2, 1)
+	 table.remove(penDown2, 1)
+      end
+
+      table.insert(histogram2, #histogram2+1, graphValue2 or 0)
+
+      if graphValue2 then
+	 table.insert(penDown2, #penDown2+1, true)
+      else
+	 table.insert(penDown2, #penDown2+1, false)
+      end
    end
+
    lpCPU = system.getCPU()
 end
 
@@ -438,13 +550,18 @@ end
 
 local function init()
 
-   pcallOK, emulator = pcall(require, "sensorLogEm")
-   if not pcallOK then print("pcall error: ", emulator) end
-   if pcallOK and emulator then emulator.init("sensorLogEm.jsn") end
+   local testLog = true
 
-   oldModSec = 0
-   startTime = system.getTimeCounter() / 1000
-   runningTime = startTime
+   if testLog then
+      pcallOK, emulator = pcall(require, "sensorLogEm")
+      if not pcallOK then print("pcall error: ", emulator) end
+      if pcallOK and emulator then emulator.init("sensorLogEm.jsn") end
+   else
+         pcallOK, emulator = pcall(require, "sensorEmulator")
+      if not pcallOK then print("pcall error: ", emulator) end
+      if pcallOK and emulator then emulator.init("DFM-Graph") end
+   end
+   
 
    graphStyleIdx = system.pLoad("graphStyleIdx", 1)
    graphSe       = system.pLoad("graphSe", 1)
@@ -463,11 +580,19 @@ local function init()
    graphName2    = system.pLoad("graphName2", "---")
    graphUnit2    = system.pLoad("graphUnit2", " ")
 
-   system.registerForm(1, MENU_APPS, appName, initForm, keypress, printform)
+   timeline      = system.pLoad("timeline", 120)
+
+   deltasg = timeline * 1000 / maxPoints
+   oldModSec = 0
+   nextsgTC = system.getTimeCounter()
+   startTime = nextsgTC / 1000
+   runningTime = startTime
+
+   system.registerForm(1, MENU_APPS, appName, initForm)
    system.registerTelemetry(1, appName, 4, timePrint)
    
-   
-   --readSensors()
+   -- if using emulator in some cases have to call readSensors from loop()
+   if not emulator then readSensors() end
 
 end
 --------------------------------------------------------------------------------
