@@ -29,19 +29,26 @@
 "funcString":"s / 2 * sq(t / (30*(S7+1) ) ) + s / 2 + s / 5 * rand() + s / 5"
 },
 
-{"id":3,"param":0,"sensorName":"", "label":"PS3(P7)"},
+{"id":3,"param":0,"sensorName":"", "label":"PS3(Lat)"},
 {"id":3,
-"param":1,
+"param":2,
 "decimals":0,
-"type":1,
-"sensorName":"PS3(P7)",
-"label":"G Force",
-"unit":"g",
-"control":"P7",
-"controlmin":-10,
-"controlmax":10,
-"funcString":"abs(s)"
+"type":9,
+"auxcontrol":["P6","P7"],
+"sensorName":"PS3(Lat)",
+"label":"Latitude",
+"unit":""
+},
+
+{"id":4,"param":0,"sensorName":"", "label":"PS4(Lon)"},
+{"id":4,
+"param":3,
+"decimals":0,
+"type":9,
+"auxcontrol":["P5","P6"],
+"sensorName":"PS4(Lon)",
+"label":"Longitude",
+"unit":""
 }
 
 ]
-   

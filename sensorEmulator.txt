@@ -1,12 +1,52 @@
-   sensorEmulator.lua
+   sensorEmulator.lua, sensorLogEm.lua
 
-   This module is intended to be used with the Jeti DC/DS-24
-   emulator. It reads a file (sensorEmulator.jsn) that defines a set
-   of "pseudosensors" that can be created from the proportional
-   controls (e.g. sliders) in the emulator. You can define a simple
-   linear range of telemetry signal values that behave as standard
-   telemetry sensors as the sliders move. A sample JSON file is
-   included below.
+   Summary
+   
+   When writing lua scripts for the Jeti transmitters, telemetry
+   sensors can be one of the most important sources of data for the
+   script. If you develop lua scripts on the Jeti DC/DS-24 emulator as
+   I do, it would be quite convenient to have a way to provide what
+   look like actual sensor readings on the emulator. In the past, I
+   had used a DEBUG variable, or I had queried the system routines to
+   know I was running on the emulator, then would add lua code to my
+   source files to insert computed values instead of calling the
+   system telemetry routines. Typically I would use the analog sliders
+   P5-P8 as data sources for this purpose. But the issue is that the
+   code path for the debugging is then different than it is at
+   runtime.
+
+   For a long time I have wanted to have the ability to call the
+   standard system routines (e.g. system.getSensorByID) and have them
+   return values that are similar to what the lua app would encounter
+   in actual flight. The tools described here are the first
+   implementation of that vision. One tool, sensorEmulator.lua can
+   read a json file that describes a set of sensors, and the values
+   they return. On its initialization it replaces the system routines
+   such as system.getSensors and system.getSensorByID and returns
+   values in a way that is specified in the json file. the file allows
+   the creation of a range from min to max for each analog slider and
+   also allows you to specify a lua expression that transforms this
+   simple linear range to whatever you like.
+
+   The tool can also simulate GPS sensors by giving a lat,long origin
+   and specifying the x and y values for a parametric equation that
+   can do things such as generating an ellipse or lissajous figure
+   flight path and return the appropriate GPS values in sensor.valGPS.
+
+   There is also a separate tool sensorLogEm.lua that reads a Jeti TX
+   log file and plays back selected sensors (these sensors are defined
+   in a json file) so that calls to the system telemetry routines work
+   as if the lua script is "flying" that flight.
+
+   Details
+   
+   The module sensorEmulator.lua is intended to be used with the Jeti
+   DC/DS-24 emulator. It reads a file (sensorEmulator.jsn) that
+   defines a set of "pseudosensors" that can be created from the
+   proportional controls (e.g. sliders) in the emulator. You can
+   define a simple linear range of telemetry signal values that behave
+   as standard telemetry sensors as the sliders move. A sample JSON
+   file is included below.
    
    For more complex sensor behavior, you can specify a function string
    (funcString) in the jsn file for each sensor which can be any valid
@@ -15,11 +55,11 @@
    interpreter is set up so that variable name s is the pseudo sensor
    value (returned as sensor.value), t is the system time in seconds
    (t = system.getTimeCounter() / 1000), and most of the lua math
-   library is available - without the "math." prefix (see code below
-   .. table env). Also available are a triangle wave function tri()
-   with a period of 1s and a square wave function sq() with a period
-   of 1s. The triangle and square wave functions have an amplitude of
-   +/-1.
+   library is available - without the "math." prefix (see the code and
+   look for table env). Also available are a triangle wave function
+   tri() with a period of 1s and a square wave function sq() with a
+   period of 1s. The triangle and square wave functions have an
+   amplitude of +/-1.
 
    In addition, you can specify a json array of auxiliary
    controls. These are other proportional controls in addition to the
@@ -51,30 +91,38 @@
    "funcString":"s*sin(2*pi*t/10) + prt('amp:', s) + prt('per:',10)".
    Note the use of single quotes around the strings in the expression.
 
+   Support for generating GPS sensor info has also been added, along
+   with a companion jsn file sensorEmulatorGPS.jsn that contains the
+   local origin specified as lat, lon, the radius of the earth in the
+   desired units (e.g. ft, m), and strings for creating a parametric
+   equation of x and y (e.g. a Lissajous figure) for testing GPS
+   applications. This file is also intended to be in the app's own
+   directory.
+
+   At present, several less common table entries (see source code) are
+   not implemented e.g. date and time. Easy to add if desired, format
+   of date and time values can be observed in sensorLogEm.lua.
+   
    Future enhancements could be the addition of switches to emulate
    the behavior of table entry <sensor.valid>. Currently we always
-   return sensor.valid = true.
-
+   return sensor.valid = true.  Perhaps to avoid excessive CPU load we
+   might only return a new value (running the lua interpreter) every
+   200 msec or so to simulate actual telemetry sensor behavior. Could
+   be an option in the jsn file.
+   
    There is a companion lua program sensorLogEm.lua that is similar,
    except that it reads a Jeti TX log file and replays the log file
    and supplies sensor data for selected sensors as they occured
    during the flight. This allows you to debug a lua program with
-   actual flight data from a prior flight with the code exactly as it
-   would be when deployed on the TX.
-
-   Perhaps to avoid excessive CPU load we might only return a new
-   value (running the lua interpreter) every 200 msec or so to
-   simulate actual telemetry sensor behavior. Could be an option in
-   the jsn file.
-   
-   At present, several less common table entries (see source code) are
-   not implemented e.g. date and time and GPS.
+   actual flight data from a prior flight with your lua code exactly
+   as it would be when deployed on the TX.
 
    The module file sensorEmulator.lua is intended to be in the /Apps
    directory along with the lua source files. The sensorEmulator.jsn
-   file is expected to be lua-program-specific so it resides in the
-   lua program's own directory, e.g. Apps/DFM-Smoke/sensorEmulator.jsn
-   for use with the lua program /Apps/DFM-Smoke.lua
+   file and its GPS counterpart (if used) is expected to be
+   lua-program-specific so it resides in the lua program's own
+   directory, e.g. Apps/DFM-Smoke/sensorEmulator.jsn for use with the
+   lua program /Apps/DFM-Smoke.lua
 
    Usage: 
 
@@ -83,9 +131,9 @@
 
    Put a copy of the sensorEmulator.jsn file into the directory for
    the lua function that is going to use it, and edit it as required
-   for that lua app.
+   for that lua app. Ditto for sensorEmulatorGPS.jsn.
 
-   By putting the sensorEmulator.jsn file into the app's own
+   By putting the sensorEmulator*.jsn file into the app's own
    directory each app can define its own sensor names, ranges, etc
 
    To use the sensor emulator, assuming your app is called
@@ -111,7 +159,7 @@
 
    You can put these "require" lines where you like in init(), but it
    must be before you call system.getSensors(), which is also
-   typically called from init().
+   typically called from init(). I recommend you put them at the top.
 
    Upon startup in the Jeti emulator of a lua program that includes
    the module, it asks if you want to use the pseudosensors or not,
@@ -136,7 +184,7 @@
 
    Released under MIT license by DFM 2019
 
-Example jsn file:
+Example sensorEmulator.jsn file:
 
 [
 
@@ -151,7 +199,7 @@ Example jsn file:
 "auxcontrol":["P6","P7"],
 "controlmin":0,
 "controlmax":800,
-"funcString":"s / 2 * sin(2*pi*t / ( 30*(S6+1) ) ) + s / 2 + prt('S7',S7)"
+"funcString":"s / 2 * sin(2*pi*t / ( 30*(S7+1) ) ) + s / 2"
 },
 
 {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
@@ -163,23 +211,42 @@ Example jsn file:
 "label":"Airspeed",
 "unit":"m/s",
 "control":"P6",
+"auxcontrol":["P7"],
 "controlmin":0,
 "controlmax":200,
-"funcString":"s / 2 * sq(t / 30) + s / 2 + s / 5 * rand() + s / 5"
+"funcString":"s / 2 * sq(t / (30*(S7+1) ) ) + s / 2 + s / 5 * rand() + s / 5"
 },
 
-{"id":3,"param":0,"sensorName":"", "label":"PS3(P7)"},
+{"id":3,"param":0,"sensorName":"", "label":"PS3(Lat)"},
 {"id":3,
-"param":1,
+"param":2,
 "decimals":0,
-"type":1,
-"sensorName":"PS3(P7)",
-"label":"G Force",
-"unit":"g",
-"control":"P7",
-"controlmin":-10,
-"controlmax":10,
-"funcString":"abs(s)"
+"type":9,
+"auxcontrol":["P6","P7"],
+"sensorName":"PS3(Lat)",
+"label":"Latitude",
+"unit":""
+},
+
+{"id":4,"param":0,"sensorName":"", "label":"PS3(Lon)"},
+{"id":4,
+"param":3,
+"decimals":0,
+"type":9,
+"auxcontrol":["P5","P6"],
+"sensorName":"PS3(Lon)",
+"label":"Longitude",
+"unit":""
 }
 
 ]
+
+Example sensorEmulatorGPS.jsn file:
+
+{
+    "lat0":41.00,
+    "lon0":-73.00,
+    "rE":21220539.7,
+    "xString":"300*sin(2*pi*t/5)",
+    "yString":"200*cos(2*pi*t/7)"
+}

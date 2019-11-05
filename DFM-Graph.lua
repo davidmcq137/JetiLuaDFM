@@ -219,8 +219,8 @@ local function dashLine(xp0, yp0, xp1, yp1)
    local dlen = 12
    ren = lcd.renderer()
 
-   d = math.abs(xp1-xp0) + math.abs(yp1-yp0)
-   --d = math.sqrt( (xp1-xp0)^2 + (yp1-yp0)^2 )
+   --d = math.abs(xp1-xp0) + math.abs(yp1-yp0)
+   d = math.sqrt( (xp1-xp0)^2 + (yp1-yp0)^2 )
    ratio = d / dlen
 
    dx = (xp1-xp0) / ratio
@@ -228,18 +228,18 @@ local function dashLine(xp0, yp0, xp1, yp1)
 
    count = count + 1
 
-   if d < dlen*1.1 then -- 1.1 arbitrary chose to look best
+   if d < dlen*.7 then -- 0.7 arbitrary chose to look best
       return
    end
 
    ren:reset()
-   for i=1, math.floor(ratio+1), 1 do
+   for i=1, math.floor(ratio+0.9), 1 do
       xd0 = xp0 + (i-1) * dx
       yd0 = yp0 + (i-1) * dy
       xd1 = xd0 + dx/2
       yd1 = yd0 + dy/2
-      xd1 = math.min(xp1, xd1)
-      yd1 = math.min(yp1, yd1)
+      --xd1 = math.min(xp1, xd1)
+      --yd1 = math.min(yp1, yd1)
       --print(i, d, ratio, xd0, yd0, xd1, yd1)
       ren:addPoint(xd0, yd0)
       ren:addPoint(xd1, yd1)
@@ -482,6 +482,12 @@ local function loop()
    local sensor, sensor2
    local sgTC, tim
    local modSec, remSec
+   local minutes, degs, latitude, longitude
+   local x, y
+
+   local lat0 = 41.0
+   local long0 = -73
+   local rE = 21220529.7
 
    if pcallOK and emulator then
       if emulator.startUp(readSensors) then return end
@@ -489,6 +495,56 @@ local function loop()
    
    sensor = system.getSensorByID(graphSeId, graphSePa)
    sensor2 = system.getSensorByID(graphSeId2, graphSePa2)   
+
+   local minlat, minlon
+   
+   if sensor and sensor.valGPS and sensor.type == 9 and sensor.param == 3 then
+      minutes = (sensor.valGPS & 0xFFFF) * 0.001
+      minlon = minutes
+      degs = (sensor.valGPS >> 16) & 0xFF
+      longitude = degs + minutes/60
+      if sensor.decimals == 3 then -- "West" .. make it negative 
+	 longitude = longitude * -1
+      end
+   end
+
+   if sensor and sensor.valGPS and sensor.type == 9 and sensor.param == 2 then
+      minutes = (sensor.valGPS & 0xFFFF) * 0.001
+      minlat = minutes
+      degs = (sensor.valGPS >> 16) & 0xFF
+      latitude = degs + minutes/60
+      if sensor.decimals == 2 then -- "South" .. make it negative
+	 latitude = latitude * -1
+      end
+   end
+
+   if sensor2 and sensor2.valGPS and sensor2.type == 9 and sensor2.param == 3 then
+      --print("sensor.decimals2", sensor2.decimals)
+      minutes = (sensor2.valGPS & 0xFFFF) * 0.001
+      minlon = minutes
+      degs = (sensor2.valGPS >> 16) & 0xFF
+      longitude = degs + minutes/60
+      if sensor2.decimals == 3 then -- "West" .. make it negative
+	 longitude = longitude * -1
+      end
+   end
+
+   if sensor2 and sensor2.valGPS and sensor2.type == 9 and sensor2.param == 2 then
+      minutes = (sensor2.valGPS & 0xFFFF) * 0.001
+      minlat = minutes
+      degs = (sensor2.valGPS >> 16) & 0xFF
+      latitude = degs + minutes/60
+      if sensor2.decimals == 2 then -- "South" .. make it negative
+	 latitude = latitude * -1
+      end
+   end
+
+   if longitude and latitude and minlat and minlon then
+      --print("Graph: latitude, longitude", latitude, longitude, minlat, minlon)
+      x = rE * (math.rad(longitude) - math.rad(long0)) * math.cos(math.rad(lat0))
+      y = rE * (math.rad(latitude) - math.rad(lat0))
+      --print("Graph: x,y", x,y)
+   end
 
    if sensor and sensor.valid then
       graphValue  = sensor.value
@@ -550,7 +606,7 @@ end
 
 local function init()
 
-   local testLog = true
+   local testLog = false
 
    if testLog then
       pcallOK, emulator = pcall(require, "sensorLogEm")

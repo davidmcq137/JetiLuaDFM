@@ -72,7 +72,7 @@ def rotateXY(x, y, rotation):
 # experimentation showed these zooms best for these field image widths
 # probably only need 2-3 per field
 
-crop_to_zoom = {1000:17, 1500:17, 2500:16, 3000:16, 4000:15, 5000:15, 6000:15}
+crop_to_zoom = {1000:17, 1500:17, 2500:16, 3000:16, 4000:15, 5000:15, 6000:15, 12000:14}
 
 config=ConfigParser.ConfigParser()
 osp = os.path.expanduser('~/LSO-Gmap-Image-Gen.conf')

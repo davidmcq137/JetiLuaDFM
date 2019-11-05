@@ -246,6 +246,8 @@ local function readSensors()
 	       telem.Latitude.SeId = sensor.id
 	       telem.Latitude.SePa = sensor.param
 	    end
+	    --print("#GPS..", #GPSsensorLalist, sensor.id, sensor.param, sensor.label)
+
 	 elseif sensor.type == 5 then -- date - ignore
 	   
 	 else  -- "regular" numeric sensor
@@ -1923,14 +1925,13 @@ local function loop()
       newPosTime = system.getTimeCounter() + deltaPosTime
       countNoNewPos = 0
    end
-
-   
+ 
    if not gotInitPos then
 
       if not iField then       -- if field not selected yet
 	 long0 = longitude     -- set long0, lat0, coslat0 in case not near a field
 	 lat0 = latitude       -- initField will reset if we are
-	 coslat0 = math.cos(math.rad(lat0))	 
+	 coslat0 = math.cos(math.rad(lat0)) 
       end
 
       initField() -- use this lat/long to see if we are at a known flying field
@@ -2180,6 +2181,12 @@ does??
 
 --]]
    
+   local pcallOK, emulator
+
+   pcallOK, emulator = pcall(require, "sensorEmulator")
+   if not pcallOK then print("Error:", emulator) end
+   if pcallOK and emulator then emulator.init("DFM-LSO") end
+
    fname = system.pLoad("logPlayBack", "...")
    
    if fname ~= "..." then
@@ -2245,11 +2252,11 @@ does??
    system.registerTelemetry(2, "LSO ILS", 4, ilsPrint)
    glideSlopePNG = lcd.loadImage("Apps/DFM-LSO/glideslope.png")
    
-   print("Model: ", system.getProperty("Model"))
-   print("Model File: ", system.getProperty("ModelFile"))
+   --print("Model: ", system.getProperty("Model"))
+   --print("Model File: ", system.getProperty("ModelFile"))
 
    -- replace spaces in filenames with underscore
-   print("reading: ", "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
+   --print("reading: ", "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
    
    fg = nil
 
@@ -2262,8 +2269,8 @@ does??
       modelProps=json.decode(fg)
    end
 
-   print("mP.brakeChannel: ", modelProps.brakeChannel, "mP.brakeOn: ", modelProps.brakeOn)
-   print("mP.throttleChannel", modelProps.throttleChannel, "mP.throttleFull", modelProps.throttleFull)
+   --print("mP.brakeChannel: ", modelProps.brakeChannel, "mP.brakeOn: ", modelProps.brakeOn)
+   --print("mP.throttleChannel", modelProps.throttleChannel, "mP.throttleFull", modelProps.throttleFull)
    
    system.playFile('/Apps/DFM-LSO/L_S_O_active.wav', AUDIO_QUEUE)
    

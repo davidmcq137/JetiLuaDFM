@@ -10,6 +10,7 @@
    "CTU_Fuel_remaining":true,
    "MSPEED_Velocity":   true,
    "MGPS_Speed":        true,
-   "CBOX200":           true
+   "MGPS_TimeStamp":    true,   
+   "MGPS_Date":         true
    }
 }

@@ -52,17 +52,6 @@
    to process and the names of the telemetry log variables you want to
    make available
 
-   To Do: when sensor not valid, we set the value to -999 and then
-   don't put into the renderer (which is kind of bs...). End result is
-   similar to what Jeti studio does except we don't show the curve
-   dotted while not valid. Should be nil and we should not plot
-   anything .. should just show a gap. But this will take a bunch of
-   work to put nils in the histogram[] since then will have to keep
-   length separately. Then will have to figure out how to do line
-   segments with the renderer for line mode... ugg. Too bad there is
-   not a "pen up" and "pen down" capability on the renderer!
-
-
    Released under MIT license by DFM 2019
 
 --]]
@@ -428,11 +417,28 @@ function emulator.getSensorByID(ID, Param)
 	    returnTbl.valid   = false
 	 end
 	 -- be defensive ..even if valid=false, set  values that won't cause error
+	 returnTbl.type       = logSensorByID[sf].type or 1
 	 returnTbl.decimals   = tonumber(logSensorByID[sf].decimals or 0)
 	 returnTbl.value      = tonumber(logSensorByID[sf].value or 0)
-	 returnTbl.valGPS     = tonumber(logSensorByID[sf].value or 0)	 
-	 returnTbl.value      = returnTbl.value / 10^returnTbl.decimals
-	 returnTbl.type       = logSensorByID[sf].type or 1
+	 if returnTbl.type == 9 then
+	    returnTbl.valGPS     = tonumber(logSensorByID[sf].value or 0)
+	 end
+	 if returnTbl.type == 5 then -- time and date
+	    if returnTbl.decimals == 0 then -- time
+	       returnTbl.valSec = returnTbl.value & 0xFF
+	       returnTbl.valMin = (returnTbl.value & 0xFF00) >> 8
+	       returnTbl.valHour = (returnTbl.value & 0xFF0000) >> 16
+	       --print(string.format("%d:%02d:%02d", returnTbl.valHour, returnTbl.valMin, returnTbl.valSec))
+	    else
+	       returnTbl.valYear = returnTbl.value & 0xFF
+	       returnTbl.valMonth = (returnTbl.value & 0xFF00) >> 8
+	       returnTbl.valDay = (returnTbl.value & 0xFF0000) >> 16
+	       --print(string.format("%d-%02d-%02d", returnTbl.valYear, returnTbl.valMonth, returnTbl.valDay))
+	    end
+	 end
+	 if returnTbl.decimals ~= 0 and returnTbl.type ~= 5 and returnTbl.type ~= 9 then
+	    returnTbl.value = returnTbl.value / 10^returnTbl.decimals
+	 end
 	 returnTbl.max        = logSensorByID[sf].max or 0
 	 returnTbl.min        = logSensorByID[sf].min or 0
 	 return returnTbl
