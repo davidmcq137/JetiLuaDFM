@@ -1,0 +1,77 @@
+[
+
+{"id":1,"param":0,"sensorName":"", "label":"PS1(P5)"},
+{"id":1,"param":1,
+"decimals":0,
+"type":1,
+"sensorName":"PS1(P5)",
+"label":"EGT",
+"unit":"°C",
+"control":"P5",
+"auxcontrol":["P6","P7"],
+"controlmin":0,
+"controlmax":800,
+"funcString":"s / 2 * sin(2*pi*t / ( 30*(S7+1) ) ) + s / 2"
+},
+{"id":1,"param":2,
+"decimals":0,
+"type":1,
+"sensorName":"PS1(P5)",
+"label":"Foo",
+"unit":"Bar",
+"control":"P5",
+"auxcontrol":["P6","P7"],
+"controlmin":0,
+"controlmax":800,
+"funcString":"s / 2 * sin(2*pi*t / ( 30*(S7+1) ) ) + s / 2"
+},
+
+{"id":1,"param":3,
+"decimals":0,
+"type":1,
+"sensorName":"PS1(P5)",
+"label":"Baz",
+"unit":"U",
+"control":"P5",
+"auxcontrol":["P6","P7"],
+"controlmin":0,
+"controlmax":800,
+"funcString":"s / 2 * sin(2*pi*t / ( 30*(S7+1) ) ) + s / 2"
+},
+    
+{"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
+{"id":2,
+"param":1,
+"decimals":0,
+"type":1,
+"sensorName":"PS2(P6)",
+"label":"Airspeed",
+"unit":"m/s",
+"control":"P6",
+"auxcontrol":["P7"],
+"controlmin":0,
+"controlmax":200,
+"funcString":"s / 2 * sq(t / (30*(S7+1) ) ) + s / 2 + s / 5 * rand() + s / 5"
+},
+
+{"id":3,"param":0,"sensorName":"", "label":"MGPS"},
+{"id":3,
+"param":2,
+"decimals":0,
+"type":9,
+"auxcontrol":["P5","P6","P7"],
+"sensorName":"MGPS",
+"label":"Latitude",
+"unit":""
+},
+{"id":3,
+"param":3,
+"decimals":0,
+"type":9,
+"auxcontrol":["P5","P6","P7"],
+"sensorName":"MGPS",
+"label":"Longitude",
+"unit":""
+}
+
+]
