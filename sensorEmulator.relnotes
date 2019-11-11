@@ -1,0 +1,22 @@
+release notes, sensor emulation
+
+31-Oct-2019
+
+Added new program sensorLogEm.lua that reads Jeti log files and
+replays them providing the sensor info via emulation of the standard
+telemetry routines.
+
+Updated sensorEmulator.lua with some bug fixes and cleaned up code,
+also added other proportional controls to each funcString .. see
+sensorEmulator.txt
+
+significant updates to DFM-Graph.lua which is a stand-alone lua
+graphing program but acts as a great demo/test environment for
+sensorEmulator.lua and sensorLogEm.lua. Available in the DFM-Graph
+directory on this dropbox
+
+4-Nov-2019
+
+New GPS emulation capability in sensorEmulator.lua, uses second jsn file
+to specify emulation parameters.
+
