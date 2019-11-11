@@ -2,16 +2,15 @@
 
 ----------------------------------------------------------------------------
 
-   AutoThrottle UI and Speed Announcer. Implements user interface for
+   AutoThrottle and Speed Announcer. Implements user interface for
    Digitech's CTU device's auththrottle. Also Makes voice announcement
    of speed with variable intevals when model goes faster or slower or
-   on final approach when speed < Vref. Stall warning (stick shaker)
-   triggers below Vref/1.3
+   on final approach
    
    Borrowed some display code from Daniel M's excellent CTU app
    
 ----------------------------------------------------------------------------
-   Released under MIT-license
+   Released under MIT-license by DFM 2019
 
    Copyright (c) 2019 DFM
 
@@ -124,8 +123,7 @@ local lang
 local lng
 local function setLanguage()
    local obj
-   lng = system.getLocale()
-   print("Locale: "..lng)
+   lng=system.getLocale()
    local file = io.readall(transFile)
    if file then
       obj = json.decode(file)
@@ -146,6 +144,7 @@ local function playFile(filename, parm)
    if lng == 'en' then prefix = slash..appDir else
       prefix = slash..appDir..lng.."-"
    end
+   --print("calling playfile:", prefix..filename, parm)
    system.playFile(prefix..filename, parm)
 end
 
@@ -312,12 +311,14 @@ local needle_poly_large = {
    {2,65},
    {4,28}
 }
+
 local needle_poly_xlarge = {
    {-4,28},
    {-2,70},
    {2,70},
    {4,28}
 }
+
 local needle_poly_small_small = {
    {-2,2},
    {-1,20},
@@ -353,6 +354,9 @@ local function DrawRectGaugeCenter(oxc, oyc, w, h, min, max, val, str)
    lcd.setColor(0, 0, 255)
    lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
    lcd.drawLine(oxc, oyc-h//2, oxc, oyc+h//2-1 )
+   -- for debugging:
+   --lcd.drawText((oxc-w//2) - 10, (oyc-h//2) - 15, string.format("%d", math.floor(val)), FONT_MINI)
+   
    if val > 0 then
       d = math.max(math.min((val/max)*(w/2), w/2), 0)
          lcd.drawFilledRectangle(oxc, oyc-h/2, d, h)
@@ -361,9 +365,12 @@ local function DrawRectGaugeCenter(oxc, oyc, w, h, min, max, val, str)
       
       lcd.drawFilledRectangle(oxc-d+1, oyc-h/2, d, h)
    end
+
    lcd.setColor(0,0,0)
+
    if str then
       lcd.drawText(oxc - lcd.getTextWidth(FONT_MINI, str)//2, oyc+7, str, FONT_MINI)
+
    end
 end
 
@@ -375,12 +382,17 @@ local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str)
    
    lcd.setColor(0, 0, 255)
    lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
+   -- for debugging:
+   --lcd.drawText((oxc-w//2) - 10, (oyc-h//2) - 15, string.format("%d", math.floor(val)), FONT_MINI)
+   
    d = math.max(math.min((val/(max-min))*w, w), 0)
    lcd.drawFilledRectangle(oxc-w//2, oyc-h/2, d, h)
    lcd.setColor(0,0,0)
+
    if str then
       lcd.drawText(oxc - lcd.getTextWidth(FONT_MINI, str)//2, oyc+7, str, FONT_MINI)
    end
+   
 end
 
 --------------------------------------------------------
@@ -584,17 +596,20 @@ local function loop()
       ATState = sensor.value
       if autoOn == true and ATState < 2 then   -- it's just turning off
 	 autoOffTime = system.getTimeCounter() -- note when it went off
-	 offThrottle = thrRingBuf[(thrSeq + 1) % MAXRING + 1] or 0 -- oldest val or 0 if ~full
+	 --offThrottle = throttle                -- note it's last value (last time thru loop)
+	 offThrottle = thrRingBuf[(thrSeq + 1) % MAXRING + 1] or 0 -- oldest value or 0 if buf not full
 	 playedBeep = false                    -- make sure we only beep once
 	 playFile('ATCancelled.wav', AUDIO_QUEUE)
 	 if DEBUG then print("AutoThrottle Cancelled") end
 	 system.messageBox(lang.labelATCancelled) -- also put in log file
       end
+
       if autoOn == false and ATState == 2 then  -- it's just turning on
 	 playFile('ATEnabled.wav', AUDIO_QUEUE)
 	 if DEBUG then print("AutoThrottle Enabled") end
 	 system.messageBox(lang.labelATEnabled) -- also puts in log file
       end
+
       autoOn = ATState > 1
    end
 
@@ -605,6 +620,7 @@ local function loop()
    if ATPresetSeId and ATPresetSeId ~= 0 then
       sensor = system.getSensorByID(ATPresetSeId, ATPresetSePa)
    end
+
    if (sensor and sensor.valid) then
       set_speed = convertSpeed(sensor.value)
    else
@@ -613,19 +629,6 @@ local function loop()
       end
    end
       
-   -- read pitot airspeed from CTU
-   
-   if ATAirspeedSeId and ATAirspeedSeId ~= 0 then
-      sensor = system.getSensorByID(ATAirspeedSeId, ATAirspeedSePa)
-   end
-   if (sensor and sensor.valid) then
-      speed = convertSpeed(sensor.value) * airspeedCal / 100.0
-   else
-      if DEBUG then
-	 speed = gaugeMaxSpeed/2 * (1 + system.getInputs("P6"))
-      end
-   end
-
    -- check to see if set speed has stopped changing. if so announce verbally one time only
    -- 40 loops is arbitrary .. picked because it created an appropriate delay time
 
@@ -639,6 +642,7 @@ local function loop()
       end
       if set_stable == sSC then
 	 set_stable = sSC+1 -- only play the number once when stabilized
+	 --if set_speed > VrefSpd / 1.3 then -- don't announce if setpoint below stall
 	 if DEBUG then print("Set speed stable at", set_speed) end
 	 playFile('ATSetPointStable.wav', AUDIO_QUEUE)      	    
 	 if selFt then uuu = "mph" else uuu = "km/h" end
@@ -648,6 +652,16 @@ local function loop()
    end
 
    last_set = set_speed
+
+   -- read pitot airspeed from CTU
+   
+   if ATAirspeedSeId and ATAirspeedSeId ~= 0 then
+      sensor = system.getSensorByID(ATAirspeedSeId, ATAirspeedSePa)
+   end
+
+   if (sensor and sensor.valid) then
+      speed = convertSpeed(sensor.value) * airspeedCal / 100.0
+   end
 
    -- get engineering parameters from the CTU (live PID loop term values)
    -- unpack the bytes. deriv in byte 0, Integ in byte 1, propo in byte 2
@@ -743,8 +757,8 @@ local function loop()
       
       nextAnnTC = lastAnnTC + (VrefCall * 1000 * 10 / deltaSA) 
 
-      if (speed <= VrefSpd) or (swc and swc == 1) then -- override if < Vref or cont ann is on
-	 nextAnnTC = lastAnnTC + VrefCall * 1000 -- at and < Vref .. ann every VrefCall secs
+      if (speed <= VrefSpd) or (swc and swc == 1) then -- override if below Vref or cont ann is on
+	 nextAnnTC = lastAnnTC + VrefCall * 1000 -- at and below Vref .. ann every VrefCall secs
       end
 
       sgTC = system.getTimeCounter()
@@ -779,7 +793,7 @@ local function loop()
 	       print("time: ", (sgTC-sgTC0)/1000)		  
 	    end
 	 end
-      end
+      end -- if (not system...)
    end
 end
 

@@ -31,6 +31,7 @@ local latVal
 local lonVal
 local latDecimals
 local lonDecimals
+local time0
 
 --local function sign(x)
 --   if x > 0 then return 1
@@ -38,6 +39,14 @@ local lonDecimals
 --   else return 0
 --   end
 --end
+
+
+local function rotateXY(x, y, rotation)
+   local sinShape, cosShape
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   return (x * cosShape - y * sinShape), (x * sinShape + y * cosShape)
+end
 
 -- include this for compatibility with sensorLogEm
 
@@ -95,10 +104,12 @@ function emulator.getSensors()
       coslat0 = math.cos(math.rad(GPSparms.lat0))
    end
 
+   
    --[[
    print("GPSparms.lat0", GPSparms.lat0)
    print("GPSparms.lon0", GPSparms.lon0)
    print("GPSparms.rE", GPSparms.rE)
+   print("GPSparms.trueDir", GPSparms.trueDir)
    print("GPSparms.xString", GPSparms.xString)
    print("GPSparms.yString", GPSparms.yString)   
    --]]
@@ -107,6 +118,8 @@ function emulator.getSensors()
    --for k,v in pairs(sensorTbl) do
    --   print(k,v.id, v.param, v.sensorName, v.label)
    --end
+
+   time0 = system.getTimeCounter()
    
    return sensorTbl
 end
@@ -214,7 +227,7 @@ function emulator.getSensorByID(ID, Param)
 	    end
 	 end
 
-	 env.t = system.getTimeCounter()/1000
+	 env.t = ((system.getTimeCounter() - time0)/1000) + GPSparms.startTime
 
 	 -- if we have GPS values spec'd, then load the GPS auxcontrols, env variables
 	 -- and evaluate the lua strings
@@ -278,6 +291,13 @@ function emulator.getSensorByID(ID, Param)
 	    -- the encoded values for GPS lat and GPS lon
 	    -- solve x,y equations for lat and long
 
+	    -- if true direction of runway is supplied, rotate x,y coords to be parallel
+	    -- to the runway .. else leave as-is
+	    
+	    if GPSparms.trueDir then
+	       xCart, yCart = rotateXY(xCart, yCart, math.rad(270-GPSparms.trueDir))
+	    end
+	    
 	    -- these will be lat and lon in radians
 	    lat = yCart/GPSparms.rE + math.rad(GPSparms.lat0)
 	    lon = xCart/(GPSparms.rE * coslat0) + math.rad(GPSparms.lon0)
