@@ -610,7 +610,7 @@ local function init()
 
    if testLog then
       pcallOK, emulator = pcall(require, "sensorLogEm")
-      if not pcallOK then print("pcall error: ", emulator) end
+      --if not pcallOK then print("pcall error: ", emulator) end
       if pcallOK and emulator then emulator.init("sensorLogEm.jsn") end
    else
          pcallOK, emulator = pcall(require, "sensorEmulator")

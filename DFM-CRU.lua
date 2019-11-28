@@ -26,6 +26,8 @@ local appAuthor  = "DFM"
 local appVersion = "0.01"
 local transFile  = "Apps/DFM-CRU/Trans.jsn"
 
+local pcallOK, emulator
+
 local CRU_DeviceID = 16819268
 
 -- scale of motor and brake bargraphs .. 0 to maxXXXCurr (presumed to be in mA) - adj as preferred
@@ -140,6 +142,7 @@ local function readSensors()
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 	 if sensor.id == CRU_DeviceID and sensor.param ~= 0 then
+	    print(sensor.label, sensor.id, sensor.param)
 	    CRU_Telem[sensor.label].SeId = sensor.id
 	    CRU_Telem[sensor.label].SePa = sensor.param
 	 end
@@ -426,6 +429,11 @@ end
 local function init()
 
    local dev
+
+   pcallOK, emulator = pcall(require, "sensorEmulator")
+   print("1", pcallOK, emulator)
+   if not pcallOK then print("pcall error: ", emulator) end
+   if pcallOK and emulator then emulator.init("DFM-CRU") end
    
    system.registerTelemetry(1, appName.." FS", 4, CRUTele) -- fullscreen
    system.registerTelemetry(2, appName, 2, CRUTele)        -- large (2-box) tele window  
@@ -436,6 +444,8 @@ local function init()
    
    dev, emFlag = system.getDeviceType()
 
+   emFlag = 0 -- override to use sensor emulator
+   
    --uncomment next line to check dump of global variables
    --if emFlag == 1 then dump(_G, "") end -- dump globals
    

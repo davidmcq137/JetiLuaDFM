@@ -3,11 +3,11 @@ local Images={}
 local tempReadings={400, 600, 800, 450, 950, 500, 400, 300}
 local tempProbes={1,2,3,4,5,6,7,8}
 
-local function tele(w,h)
-   local minW=0
+local function loop()
+end
+
+local function tele()
    local midW=160
-   local maxW=319
-   local minH=0
    local midH=80
    local maxH=159
    local x,y
@@ -15,9 +15,8 @@ local function tele(w,h)
    local xt, yt
    
    lcd.drawImage( (310-testimage.width)/2+2+60, 10, testimage)
-   for k = 1, #Images[1].Locations do
-      --print(k,Images[1].Locations[k].Name, Images[1].Locations[k].XP, Images[1].Locations[k].YP)
 
+   for k = 1, #Images[1].Locations do
       x=Images[1].Locations[k].XP
       y=Images[1].Locations[k].YP
       x = x + midW
@@ -47,15 +46,13 @@ local function tele(w,h)
       lcd.drawText(xt, yt,
 		   Images[1].Locations[k].Name.."("..tempProbes[k]..") : "..
 		      tempReadings[k].." "..Images[1].Units)
-      
    end
-   
 end
 
 local function init()
-   local fp = io.readall("Apps/SB-Temp.jsn")
+   local fp = io.readall("Apps/digitechSBT/SB-Temp.jsn")
    Images = json.decode(fp)
-   testimage = lcd.loadImage("Apps/"..Images[1].Name)
+   testimage = lcd.loadImage("Apps/digitechSBT/"..Images[1].Name)
    system.registerTelemetry(1,"SB-Temp", 4, tele)
 end
 

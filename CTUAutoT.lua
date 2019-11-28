@@ -11,6 +11,7 @@
    Borrowed some display code from Daniel M's excellent CTU app
    
 ----------------------------------------------------------------------------
+
    Released under MIT-license
 
    Copyright (c) 2019 DFM
@@ -34,6 +35,7 @@
    ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE.
+
 ----------------------------------------------------------------------------
 
 --]]
@@ -50,12 +52,15 @@ local spdSwitch
 local contSwitch
 local maxSpd, VrefSpd, VrefCall
 local spdInter
-local selFt
-local selFtIndex
 local MAXSPEEDMPH = 200
 local MAXSPEEDKPH = 320
+local MAXSPEEDKT  = 180 
 local gaugeMaxSpeed
 local shortAnn, shortAnnIndex
+
+local speedUnitsIdx
+local speedUnits = {"mph", "kmh", "knots"}
+local gaugeMaxSpeedArr = {MAXSPEEDMPH, MAXSPEEDKPH, MAXSPEEDKT}
 
 local ATStateSeId
 local ATStateSePa
@@ -120,21 +125,31 @@ local DEBUG = false
 --------------------------------------------------------------------------------
 
 -- Read and set translations
+
 local lang
-local lng
+local locale
+
 local function setLanguage()
+
    local obj
-   lng = system.getLocale()
-   print("Locale: "..lng)
-   local file = io.readall(transFile)
-   if file then
-      obj = json.decode(file)
+   local fp
+   local langFile
+
+   locale = system.getLocale()
+   fp = io.readall(transFile)
+   if not fp then -- translation does not exist yet .. literal string
+      error(appShort..": Missing "..transFile)
+   else
+      obj = json.decode(fp)
    end
    if obj then
-      lang = obj[lng] or obj.default
+      langFile = obj[locale] or obj.en
    end
-   if not lang then
-      system.messageBox(appShort..lang.labelMissing..transFile)
+   fp = io.readall(appDir..langFile)
+   if not fp then
+      error(appShort..": Missing "..appDir..langFile)      
+   else
+      lang = json.decode(fp)
    end
 end
 
@@ -143,8 +158,8 @@ end
 local function playFile(filename, parm)
    local slash
    if DEBUG then slash="" else slash="/" end
-   if lng == 'en' then prefix = slash..appDir else
-      prefix = slash..appDir..lng.."-"
+   if locale == 'en' then prefix = slash..appDir else
+      prefix = slash..appDir..locale.."-"
    end
    system.playFile(prefix..filename, parm)
 end
@@ -182,22 +197,18 @@ local function readSensors()
 	 ATStateSeId = sensor.id
 	 ATStateSePa = sensor.param
       end
-
       if currentLabel == "Autothrottle" and sensor.label == 'Preset speed' and sensor.param == 2 then
 	 ATPresetSeId = sensor.id
 	 ATPresetSePa = sensor.param
       end
-      
       if currentLabel == "Autothrottle" and sensor.label == 'Airspeed' and sensor.param == 3 then
 	 ATAirspeedSeId = sensor.id
 	 ATAirspeedSePa = sensor.param
       end      
-
       if currentLabel == "Autothrottle" and sensor.label == 'ATeng' and sensor.param == 4 then
 	 ATengSeId = sensor.id
 	 ATengSePa = sensor.param
       end
-      
       if currentLabel == "CTU" and sensor.label == 'Throttle' and sensor.param == 11 then
 	 CTUThrSeId = sensor.id
 	 CTUThrSePa = sensor.param
@@ -244,18 +255,18 @@ local function airCalChanged(value)
    system.pSave("airspeedCal", value)
 end
 
-local function selFtClicked(value)
-   selFt = not value
-   form.setValue(selFtIndex, selFt)
-   if selFt then gaugeMaxSpeed = MAXSPEEDMPH else gaugeMaxSpeed = MAXSPEEDKPH end
-   system.pSave("selFt", tostring(selFt))
-end
-
 local function shortAnnClicked(value)
    shortAnn = not value
    form.setValue(shortAnnIndex, shortAnn)
    system.pSave("shortAnn", tostring(shortAnn))
 end
+
+local function speedUnitsIdxChanged(value)
+   speedUnitsIdx = value
+   system.pSave("speedUnitsIdx", value)
+   gaugeMaxSpeed = gaugeMaxSpeedArr[value]
+end
+
 
 --------------------------------------------------------------------------------
 
@@ -290,10 +301,10 @@ local function initForm()
    form.addRow(2)
    form.addLabel({label=lang.menuAirSpCal, width=220})
    form.addIntbox(airspeedCal, 1, 200, 100, 0, 1, airCalChanged)
-   
+
    form.addRow(2)
-   form.addLabel({label=lang.menuMPHorKPH, width=270})
-   selFtIndex = form.addCheckbox(selFt, selFtClicked)
+   form.addLabel({label=lang.menuSpeedUnits, width=220})
+   form.addSelectbox(speedUnits, speedUnitsIdx, false, speedUnitsIdxChanged)
    
    form.addRow(2)
    form.addLabel({label=lang.menuShortAnn, width=270})
@@ -440,23 +451,28 @@ end
 local function DrawSpeed()
 
     local ox, oy = 186, 8
+    local txt
+    local textSpeed
 
-    local textSpeed = string.format("%d", math.floor(speed + 0.5))
+    textSpeed = string.format("%d", math.floor(speed + 0.5))
 
-    if selFt then
-       lcd.drawText(ox + 66 - lcd.getTextWidth(FONT_NORMAL, lang.labelMPH)/2,
-		    oy + 100, lang.labelMPH, FONT_NORMAL)
+    if speedUnitsIdx == 1 then
+       txt = lang.labelMPH
+    elseif speedUnitsIdx == 2 then
+       txt = lang.labelKPH
     else
-       lcd.drawText(ox + 66 - lcd.getTextWidth(FONT_NORMAL, lang.labelKPH)/2,
-		    oy + 100, lang.labelKPH, FONT_NORMAL)
+       txt = lang.labelKT
     end
+    
+    lcd.drawText(ox + 66 - lcd.getTextWidth(FONT_NORMAL, txt)/2,
+		    oy + 100, txt, FONT_NORMAL)
     
     if autoOn then lcd.setColor(255,0,0) end
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MAXI, textSpeed) / 2, oy + 40,
 		 textSpeed, FONT_MAXI)
 
     local thetaThr = math.pi - math.rad(135 - 2 * 135 * speed / gaugeMaxSpeed)
-    local thetaSet = math.pi - math.rad(135 - 2 * 135 * set_speed / gaugeMaxSpeed)
+    local thetaSet = math.pi - math.rad(135 - 2 * 135 * set_speed * (airspeedCal / 100) / gaugeMaxSpeed)
 
     if gauge_c then lcd.drawImage(ox, oy, gauge_c) end
     lcd.setColor(0,255,0)
@@ -488,7 +504,7 @@ local function DrawCenterBox()
     lcd.drawLine(ox, oy + 23, ox + W - 1, oy + 23)
     lcd.drawLine(ox, oy + 46, ox + W - 1, oy + 46)
     
-    text = string.format("%d", math.floor(set_speed+0.5))
+    text = string.format("%d", math.floor((set_speed+0.5) * airspeedCal / 100))
     lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, text)) / 2, oy + 7, text, FONT_BOLD)
 
     text = string.format("%d", math.floor(speed + 0.5))
@@ -525,10 +541,12 @@ end
 
 local function convertSpeed(s)
    -- telemetry comes in with native units (m/s)
-   if selFt then
+   if speedUnitsIdx == 1 then
       return s * 2.23694 -- m/s to mph
-   else
+   elseif speedUnitsIdx == 2 then
       return s * 3.6 -- m/s to km/hr
+   else
+      return s * 1.94384 -- m/s to kt
    end
 end
 
@@ -640,10 +658,16 @@ local function loop()
       if set_stable == sSC then
 	 set_stable = sSC+1 -- only play the number once when stabilized
 	 if DEBUG then print("Set speed stable at", set_speed) end
-	 playFile('ATSetPointStable.wav', AUDIO_QUEUE)      	    
-	 if selFt then uuu = "mph" else uuu = "km/h" end
-	 system.playNumber(math.floor(set_speed+0.5), 0, uuu)
-	 system.messageBox(lang.labelSetPtSpd..math.floor(set_speed+0.5)) -- goes in log 
+	 playFile('ATSetPointStable.wav', AUDIO_QUEUE)
+	 if speedUnitsIdx == 1 then
+	    uuu = "mph"
+	 elseif speedUnitsIdx == 2 then
+	    uuu = "km/h"
+	 else
+	    uuu = "kt."
+	 end
+	 system.playNumber(math.floor( (set_speed+0.5) * airspeedCal / 100), 0, uuu)
+	 system.messageBox(lang.labelSetPtSpd..math.floor((set_speed+0.5) * airspeedCal / 100)) -- goes in log 
       end
    end
 
@@ -764,8 +788,14 @@ local function loop()
 	 lastAnnTC = sgTC -- note the time of this announcement
 	 
 	 sss = string.format("%.0f", round_spd)
-	 if (selFt) then uuu = "mph" else uuu = "km/h" end
-	 
+	 if speedUnitsIdx == 1 then
+	    uuu = "mph"
+	 elseif speedUnitsIdx == 2 then
+	    uuu = "km/h"
+	 else
+	    uuu = "kt."
+	 end
+
 	 if (shortAnn or not aboveVref or (swc and swc == 1) ) then
 	    system.playNumber(round_spd, 0)
 	    if DEBUG then
@@ -795,7 +825,13 @@ end
 
 local function calAirspeed()
    local u
-   if (selFt) then u = lang.labelMPH else u = lang.labelKPH end 
+   if speedUnitsIdx == 1 then
+      u = lang.labelMPH
+   elseif speedUnitsIdx == 2 then
+      u = lang.labelKPH
+   else
+      u = lang.labelKT
+   end
    lcd.drawText(5, 5, math.floor(calSpd+0.5) .. " " .. u)
 end
 
@@ -810,11 +846,10 @@ local function init()
    VrefCall = system.pLoad("VrefCall", 2)
    maxSpd = system.pLoad("maxSpd", 200)
    airspeedCal = system.pLoad("airspeedCal", 100)
-   selFt = system.pLoad("selFt", "true")
+   speedUnitsIdx = system.pLoad("speedUnitsIdx", 1)
    shortAnn = system.pLoad("shortAnn", "false")
 
-   selFt = (selFt == "true") -- can't pSave and pLoad booleans...store as text 
-   if selFt then gaugeMaxSpeed = MAXSPEEDMPH else gaugeMaxSpeed = MAXSPEEDKPH end
+   gaugeMaxSpeed = gaugeMaxSpeedArr[speedUnitsIdx]
    shortAnn = (shortAnn == "true") -- convert back to boolean here
    
    system.registerForm(1, MENU_APPS, lang.appName, initForm)

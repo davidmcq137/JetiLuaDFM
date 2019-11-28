@@ -1,0 +1,104 @@
+[
+
+    {"id":16819268,"param":0,"sensorName":"", "label":"CRU"},
+
+    {"id":16819268,
+     "param":1,
+     "decimals":0,
+     "type":1,
+     "auxcontrol":["P5","P6"],
+     "sensorName":"CRU",
+     "label":"Batt",
+     "unit":"V",
+     "funcString":"9.4"
+    },
+    
+    {"id":16819268,
+     "param":2,
+     "decimals":0,
+     "type":1,
+     "auxcontrol":["P5","P6"],
+     "sensorName":"CRU",
+     "label":"M1",
+     "unit":"ma",
+     "funcString":"100*S5*seq(t/20, {0,1,0,1})"
+    },
+    
+    {"id":16819268,
+     "param":3,
+     "decimals":0,
+     "type":1,
+     "auxcontrol":["P5","P6"],
+     "sensorName":"CRU",
+     "label":"M2",
+     "unit":"ma",
+     "funcString":"150*S5*seq(t/20, {0,1,0,1})"
+    },
+    
+    {"id":16819268,
+     "param":4,
+     "decimals":0,
+     "type":1,
+     "auxcontrol":["P5","P6"],
+     "sensorName":"CRU",
+     "label":"M3",
+     "unit":"ma",
+     "funcString":"200*S5*seq(t/20, {0,1,0,1})"
+    },
+    
+    {"id":16819268,
+     "param":5,
+     "decimals":0,
+     "type":1,
+     "auxcontrol":["P5","P6"],
+     "sensorName":"CRU",
+     "label":"B1",
+     "unit":"ma",
+     "funcString":"10"
+    },
+    
+    {"id":16819268,
+     "param":6,
+     "decimals":0,
+     "type":1,
+     "auxcontrol":["P5","P6"],
+     "sensorName":"CRU",
+     "label":"B2",
+     "unit":"ma",
+     "funcString":"100*S6"
+    },
+    
+    {"id":16819268,
+     "param":7,
+     "decimals":0,
+     "type":1,
+     "auxcontrol":["P5","P6"],
+     "sensorName":"CRU",
+     "label":"B3",
+     "unit":"ma",
+     "funcString":"110*S6"
+    },
+    
+    {"id":16819268,
+     "param":8,
+     "decimals":0,
+     "type":1,
+     "auxcontrol":["P5","P6"],
+     "sensorName":"CRU",
+     "label":"Doors",
+     "unit":"ma",
+     "funcString":"120*S6"
+    },
+    
+    {"id":16819268,
+     "param":9,
+     "decimals":0,
+     "type":1,
+     "auxcontrol":["P5","P6"],
+     "sensorName":"CRU",
+     "label":"Gear State",
+     "unit":"",
+     "funcString":"seq(t/20, {2,3,4,1})"
+    }
+    
+]

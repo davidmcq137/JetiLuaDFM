@@ -99,7 +99,7 @@ function emulator.getSensors()
 
    text = "Apps/" .. sensorDir .."/sensorEmulatorGPS.jsn"
    fg = io.readall(text)
-   if not fg then print("Cannot read " .. text) else
+   if not fg then print("No GPS file " .. text) else
       GPSparms=json.decode(fg)
       coslat0 = math.cos(math.rad(GPSparms.lat0))
    end
@@ -142,6 +142,38 @@ local function squareWave(T)
    if t <= 0.5 then return 1 else return -1 end
 end
 
+local function sequencer(T, seq)
+   local t, tn
+   t = T % 1
+   if seq and #seq ~= 0 then
+      tn = 1 / #seq
+      ti = math.floor(t / tn)
+   else
+      return 0
+   end
+   return(seq[ti+1])
+end
+
+local function sinPerOne(T) -- sin with period 1
+   local t
+   t = T * math.pi * 2
+   return math.sin(t)
+end
+
+local function cosPerOne(T) -- sin with period 1
+   local t
+   t = T * math.pi * 2
+   return math.cos(t)
+end
+
+local function tanPerOne(T) -- sin with period 1
+   local t
+   t = T * math.pi * 2
+   return math.tan(t)
+end
+
+
+
 local function printFcn(...)
    print(...)
    return 0
@@ -178,8 +210,11 @@ function emulator.getSensorByID(ID, Param)
       s = 0,
       t = 0,
       sin   = math.sin,
+      sin1  = sinPerOne,
       cos   = math.cos,
+      cos1  = cosPerOne,
       tan   = math.tan,
+      tan1  = tanPerOne,
       abs   = math.abs,
       min   = math.min,
       max   = math.max,
@@ -194,6 +229,7 @@ function emulator.getSensorByID(ID, Param)
       tri   = triangleWave,
       sq    = squareWave,
       prt   = printFcn,
+      seq   = sequencer,
    }
 
    if not sensorTbl then return nil end
@@ -215,7 +251,7 @@ function emulator.getSensorByID(ID, Param)
 	    c=system.getInputs(v.control)
 	    env[v.control] = c -- can also get raw -1 to 1 by using name e.g. "P5"
 	    env[string.gsub(v.control, "P", "S")] = (c+1)/2 -- and raw 0 to 1 e.g. "S5"
-	    if v.controlmin and c.controlmax then
+	    if v.controlmin and v.controlmax then
 	       env.s = v.controlmin + (v.controlmax - v.controlmin) * ((c+1)/2)
 	    end
 	 end
@@ -227,7 +263,11 @@ function emulator.getSensorByID(ID, Param)
 	    end
 	 end
 
-	 env.t = ((system.getTimeCounter() - time0)/1000) + GPSparms.startTime
+	 env.t = ((system.getTimeCounter() - time0)/1000)
+	 if GPSParms and GPSParms.startTime then
+	    env.t = env.t + GPSParms.startTime
+	 end
+	 
 
 	 -- if we have GPS values spec'd, then load the GPS auxcontrols, env variables
 	 -- and evaluate the lua strings

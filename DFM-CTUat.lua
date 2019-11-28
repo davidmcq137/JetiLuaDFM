@@ -427,7 +427,7 @@ local function DrawSpeed()
     if selFt then
        lcd.drawText(ox + 50, oy + 100, "MPH", FONT_NORMAL)
     else
-       lcd.drawText(ox + 50, oy + 100, "kph", FONT_NORMAL)
+       lcd.drawText(ox + 50, oy + 100, "kmh", FONT_NORMAL)
     end
     
     if autoOn then lcd.setColor(255,0,0) end
@@ -644,7 +644,7 @@ local function loop()
       --print("ATAirspeed: ", sensor.value)
       --print("ATA unit: ", sensor.unit)
       if maxSpd == MAGICSPEED then
-	 speed = speed + (convertSpeed(sensor.value) - speed) / 20
+	 speed = speed + (convertSpeed(sensor.value) - speed) / 10
       else
 	 speed = convertSpeed(sensor.value) * airspeedCal / 100.0
       end
@@ -818,7 +818,7 @@ end
 
 local function calAirspeed()
    local u
-   if (selFt) then u = "mph" else u = "kph" end 
+   if (selFt) then u = "mph" else u = "kmh" end 
    lcd.drawText(5, 5, math.floor(calSpd+0.5) .. " " .. u)
 end
 

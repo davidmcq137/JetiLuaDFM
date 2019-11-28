@@ -59,7 +59,21 @@
    look for table env). Also available are a triangle wave function
    tri() with a period of 1s and a square wave function sq() with a
    period of 1s. The triangle and square wave functions have an
-   amplitude of +/-1.
+   amplitude of +/-1. For convenience we also have the trig functions
+   with a period of 1: sin1(), cos1() and tan1() .. this way you can
+   use the same time argument as sq and tri .. e.g. sq(t/10) and
+   sin1(t/10) will both have a period of 10 seconds. The regular trig
+   functions have a period of 2*pi as expected.
+
+   a Sequencing function is availble, seq(t, table) where t is the
+   time argument and the second parameter is a table. seq() divides is
+   period up into n equal time segments and steps through the entries
+   in the table in order. The amplitude of the seq function is equal
+   to the table entry. For example seq(t/20, {1,2,3,4}) creates a 20
+   second period repeating "staircase" function. from t=0 to t=5 it
+   has a value of 1, from t=5 to t=10 a value of 2, from t=10 to t=15
+   a value of 3 and from t=15 to t=20 a value of 4, at which point it
+   wraps around back to 1.
 
    In addition, you can specify a json array of auxiliary
    controls. These are other proportional controls in addition to the
