@@ -47,7 +47,7 @@
 local appShort   = "CRU"
 local appName    = "CRU Display"
 local appAuthor  = "DFM"
-local appVersion = "1.00"
+local appVersion = "1.01"
 local appDir = "Apps/digitechCRU/"
 local transFile  = appDir .. "Trans.jsn"
 local pcallOK, emulator
@@ -58,12 +58,13 @@ local CRU_DeviceID = 16819268
 
 local minMotCurr = 1
 local emFlag
+local gs, ds
 local lastgs = 0
 local gsCount = 0
 local gsCountTimeout = 25 -- # loops before delcaring unknown state. 50 is approx 1 sec
 local unkMsg = false
 local doorMsg = false
-
+local gearMoving = false
 local downAudio
 local upAudio
 
@@ -370,7 +371,7 @@ end
 
 local function CRUTele(w)
 
-   local sensor, gs, ds, icol
+   local icol
 
    if w > 160 then -- fullscreen telemetry window
       MBartbl = MBartbl4
@@ -379,29 +380,7 @@ local function CRUTele(w)
       MBartbl = MBartbl2
       BBartbl = BBartbl2
    end
-   
-   -- get all the sensor data and plug it into the CRU_Telem tables
-   
-   for _,v in pairs(CRU_Telem) do
-      if v.SeId and v.SeId ~= 0 then
-	 sensor = system.getSensorByID(v.SeId, v.SePa)
-      end
-      if sensor and sensor.valid then
-	 v.value = sensor.value
-      end
-   end
 
-   gs = math.floor(CRU_Telem["Gear State"].value)
-   ds = math.min(math.max(math.floor(CRU_Telem["Door State"].value) + 1, 1), 2)
-
-   -- check and possibly store largest brake values
-   
-   for _,v in pairs(btable) do
-      if CRU_Telem[v].value > CRU_Telem[v].max then
-	 CRU_Telem[v].max = CRU_Telem[v].value
-      end
-   end
-   
    -- draw misc telem values as text
 
    if w > 160 and lang then
@@ -428,52 +407,12 @@ local function CRUTele(w)
    -- assume gs = 1 is moving down, gs = 2 is down, gs = 3 is moving up, gs = 4 is up
    -- up is blue, down is green, moving is red
 
-   if ds ~= 2 then doorMsg = false end
+   -- if gsCount exceeds threshold, then unknown state: draw open black circles
+   -- only do this and print warning if this happens when gear are moving
 
-   if ds == 2 then
-      if not doorMsg then
-	 playFile("gear_door_overcurrent.wav", AUDIO_QUEUE)
-	 if lang then system.messageBox(lang.DoorOvercurr, 3) end
-	 doorMsg = true
-      end
-   end
-   
-   if gs ~= 0 then unkMsg = false end
-
-   if gs == 0 then
-      gsCount = gsCount + 1
-   else
-      gsCount = 0
-   end
-   
-   if gsCount >= gsCountTimeout then -- no signal / unknown draw open black circles to indicate no gs
+   if gsCount >= gsCountTimeout and gearMoving then 
       for _,v in pairs(w > 160 and lightPosFull or lightPosLarge) do
 	 drawImage(v.x, v.y, nil, w)
-      end
-      if not unkMsg then -- play once per gs == 0
-	 playFile("gear_in_unknown_state.wav", AUDIO_QUEUE)
-	 if lang then system.messageBox(lang.unknownState, 3) end
-	 unkMsg = true
-      end
-   end
-      
-   if (gs == 1 and lastgs ~= 1)  or (gs == 3 and lastgs ~= 3) then -- just started to move down/up
-      if gs == 1 then
-	 playFile("gear_extending.wav", AUDIO_QUEUE)
-      else
-	 playFile("gear_retracting.wav", AUDIO_QUEUE)
-      end
-      for _,v in pairs(mtable) do -- reset max and avg, clear moved flag
-	 CRU_Telem[v].max = 0
-	 CRU_Telem[v].nsample=0
-	 CRU_Telem[v].sum = 0
-	 CRU_Telem[v].avg = 0
-	 CRU_Telem[v].moved = false
-      end
-      if gs == 1 then
-	 for _,v in pairs(btable) do -- reset max on brakes when gear starting down
-	    CRU_Telem[v].max = 0
-	 end
       end
    end
 
@@ -488,26 +427,12 @@ local function CRUTele(w)
    end
    
    -- take actions based on gear state
-   
-   if gs == 1 or gs == 3 then -- moving down/up - turn each Mn to green/blue as it locks, red otherwise
+   -- moving down/up - turn each Mn to green/blue as it locks, red otherwise
+
+   if gs == 1 or gs == 3 then 
       for _,v in pairs(mtable) do
-	 if CRU_Telem[v].value > minMotCurr then
-	    CRU_Telem[v].moved = true
-	    CRU_Telem[v].nsample = CRU_Telem[v].nsample + 1
-	    CRU_Telem[v].sum = CRU_Telem[v].sum + CRU_Telem[v].value
-	    if CRU_Telem[v].value > CRU_Telem[v].max then
-	       CRU_Telem[v].max = CRU_Telem[v].value
-	    end
-	 end
 	 -- see if we moved and then stopped - actual motion
 	 if CRU_Telem[v].value <= minMotCurr and CRU_Telem[v].moved == true then
-	    if emFlag == 1 then
-	       if CRU_Telem[v].nsample > 0 then
-		  CRU_Telem[v].avg = CRU_Telem[v].sum / CRU_Telem[v].nsample
-	       else
-		  CRU_Telem[v].avg = 0
-	       end
-	    end
 	    for _,vv in pairs(w > 160 and lightPosFull or lightPosLarge) do
 	       drawImage(vv.x, vv.y, icol, w)
 	    end
@@ -520,27 +445,11 @@ local function CRUTele(w)
    end
 
    if gs == 2 or gs == 4 then -- all up and locked (4) or down and locked (2)
-      if gs == 2 and lastgs == 1 then
-	 if downAudio then playFile("gear_down_and_locked.wav", AUDIO_QUEUE) end
-      end
-      if gs == 4 and lastgs == 3 then
-	 if upAudio then playFile("gear_up_and_locked.wav", AUDIO_QUEUE) end
-      end
-      
-      for _,v in pairs(mtable) do
-	 if CRU_Telem[v].nsample > 0 then
-	    CRU_Telem[v].avg = CRU_Telem[v].sum / CRU_Telem[v].nsample
-	 else
-	    CRU_Telem[v].avg = 0
-	 end
-      end
       for _,v in pairs(w > 160 and lightPosFull or lightPosLarge) do
 	 drawImage(v.x, v.y, icol, w)
       end
    end
 
-   lastgs = gs
-   
    -- draw bar graphs for each M and B with current(mA) max and avg if applicable
    
    for k,v in pairs(MBartbl) do
@@ -559,8 +468,113 @@ end
 --------------------------------------------------------------------------------
 
 local function loop()
-end
 
+   local sensor
+   
+   -- get all the sensor data and plug it into the CRU_Telem tables
+   for _,v in pairs(CRU_Telem) do
+      if v.SeId and v.SeId ~= 0 then
+	 sensor = system.getSensorByID(v.SeId, v.SePa)
+      end
+      if sensor and sensor.valid then
+	 v.value = sensor.value
+      end
+   end
+   gs = math.floor(CRU_Telem["Gear State"].value)
+   ds = math.min(math.max(math.floor(CRU_Telem["Door State"].value) + 1, 1), 2)
+   -- check and possibly store largest brake values
+   for _,v in pairs(btable) do
+      if CRU_Telem[v].value > CRU_Telem[v].max then
+	 CRU_Telem[v].max = CRU_Telem[v].value
+      end
+   end
+   -- check door state (ok or overload) -- error message and audio if overload
+   if ds ~= 2 then doorMsg = false end
+   if ds == 2 then
+      if not doorMsg then
+	 playFile("gear_door_overcurrent.wav", AUDIO_QUEUE)
+	 if lang then system.messageBox(lang.DoorOvercurr, 3) end
+	 doorMsg = true
+      end
+   end
+   -- check for unknown state .. only do message and audio if it happens while moving
+   -- and then only if it repeats (parameter gsCountTimeout)
+   if gs ~= 0 then unkMsg = false end
+   if gs == 0 then
+      gsCount = gsCount + 1
+   else
+      gsCount = 0
+   end
+   if gsCount >= gsCountTimeout and gearMoving then 
+      if not unkMsg then -- play once per gs == 0
+	 playFile("gear_in_unknown_state.wav", AUDIO_QUEUE)
+	 if lang then system.messageBox(lang.unknownState, 3) end
+	 unkMsg = true
+      end
+   end
+   -- gear just started to move down/up
+   if (gs == 1 and lastgs ~= 1)  or (gs == 3 and lastgs ~= 3) then 
+      gearMoving = true
+      if gs == 1 then
+	 playFile("gear_extending.wav", AUDIO_QUEUE)
+      else
+	 playFile("gear_retracting.wav", AUDIO_QUEUE)
+      end
+      for _,v in pairs(mtable) do -- reset max and avg, clear moved flag
+	 CRU_Telem[v].max = 0
+	 CRU_Telem[v].nsample=0
+	 CRU_Telem[v].sum = 0
+	 CRU_Telem[v].avg = 0
+	 CRU_Telem[v].moved = false
+      end
+      if gs == 1 then
+	 for _,v in pairs(btable) do -- reset max on brakes when gear starting down
+	    CRU_Telem[v].max = 0
+	 end
+      end
+   end
+   -- gear is moving down/up 
+   if gs == 1 or gs == 3 then 
+      for _,v in pairs(mtable) do
+	 if CRU_Telem[v].value > minMotCurr then
+	    CRU_Telem[v].moved = true
+	    CRU_Telem[v].nsample = CRU_Telem[v].nsample + 1
+	    CRU_Telem[v].sum = CRU_Telem[v].sum + CRU_Telem[v].value
+	    if CRU_Telem[v].value > CRU_Telem[v].max then
+	       CRU_Telem[v].max = CRU_Telem[v].value
+	    end
+	 end
+	 -- see if we moved and then stopped - actual motion
+	 if CRU_Telem[v].value <= minMotCurr and CRU_Telem[v].moved == true then
+	    if emFlag == 1 then
+	       if CRU_Telem[v].nsample > 0 then
+		  CRU_Telem[v].avg = CRU_Telem[v].sum / CRU_Telem[v].nsample
+	       else
+		  CRU_Telem[v].avg = 0
+	       end
+	    end
+	 end
+      end
+   end
+   -- gear are all up and locked (4) or all down and locked (2)
+   if gs == 2 or gs == 4 then 
+      gearMoving = false
+      if gs == 2 and lastgs == 1 then
+	 if downAudio then playFile("gear_down_and_locked.wav", AUDIO_QUEUE) end
+      end
+      if gs == 4 and lastgs == 3 then
+	 if upAudio then playFile("gear_up_and_locked.wav", AUDIO_QUEUE) end
+      end
+      for _,v in pairs(mtable) do
+	 if CRU_Telem[v].nsample > 0 then
+	    CRU_Telem[v].avg = CRU_Telem[v].sum / CRU_Telem[v].nsample
+	 else
+	    CRU_Telem[v].avg = 0
+	 end
+      end
+   end
+   lastgs = gs
+end
 --------------------------------------------------------------------------------
 
 local function loadImages()
