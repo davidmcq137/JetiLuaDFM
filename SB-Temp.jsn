@@ -1,22 +1,19 @@
-[
-    { 
-	"Name"  : "FiveCylinderRadial.png",
-	"Units" : "°F",
-	"Green" : 0,
-	"Yellow": 500,
-	"Red"   : 800,
-	"Max"   : 1000,
-	"Locations": [
-	    {"Name":"H1", "XT": 10,"YT":   0,"XP":   0,"YP":  76},
-	    {"Name":"H2", "XT": 10,"YT":  20,"XP":  72,"YP":  24},
-	    {"Name":"H3", "XT": 10,"YT":  40,"XP":  45,"YP": -62},
-	    {"Name":"H4", "XT": 10,"YT":  60,"XP": -45,"YP": -62},
-	    {"Name":"H5", "XT": 10,"YT":  80,"XP": -72,"YP":  24},	    
-	    {"Name":"E1", "XT": 10,"YT": 100,"XP":  29,"YP":  53},
-	    {"Name":"E2", "XT": 10,"YT": 120,"XP":  59,"YP": -11},
-	    {"Name":"E3", "XT": 10,"YT": 140,"XP":   7,"YP": -60}
-	]
-    }
-]
+{ 
+    "Type"  : "Gauge",
+    "Units" : "°F",
+    "Min"   :    0,
+    "Mid"   :  50,
+    "Max"   : 100,
+    "Probes": [
+	{"Name":"T1", "Min": 0, "Mid": 50, "Max": 100},
+	{"Name":"T2", "Min": 0, "Mid": 50, "Max": 100},
+	{"Name":"T3", "Min": 0, "Mid": 50, "Max": 100},
+	{"Name":"T4", "Min": 0, "Mid": 50, "Max": 100},
+	{"Name":"T5", "Min": 0, "Mid": 50, "Max": 100},
+	{"Name":"T6", "Min": 0, "Mid": 50, "Max": 100},
+	{"Name":"T7", "Min": 0, "Mid": 50, "Max": 100},
+	{"Name":"T8", "Min": 0, "Mid": 50, "Max": 100}
+    ]
+}
 
 

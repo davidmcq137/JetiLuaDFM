@@ -17,12 +17,11 @@
 
    Released under MIT license by DFM 2019
 
-
 --]]
 
 local emulator={}
 
-local sensorTbl
+local sensorTbl={}
 local sensorDir
 local GPSparms
 local coslat0
@@ -32,14 +31,6 @@ local lonVal
 local latDecimals
 local lonDecimals
 local time0
-
---local function sign(x)
---   if x > 0 then return 1
---   elseif x < 0 then return -1
---   else return 0
---   end
---end
-
 
 local function rotateXY(x, y, rotation)
    local sinShape, cosShape
@@ -88,7 +79,7 @@ function emulator.getSensors()
 
    if not sensorDir then
       print("invalid sensorDir")
-      return nil
+      return {}
    end
    
    text = "Apps/" .. sensorDir .."/sensorEmulator.jsn"

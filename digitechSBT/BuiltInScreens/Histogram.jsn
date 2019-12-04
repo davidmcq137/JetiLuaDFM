@@ -1,15 +1,1 @@
-{ 
-    "Type"  : "Histogram",
-    "Probes": [
-	{"Name":"T1", "Min":   0, "Mid": 50, "Max": 100},
-	{"Name":"T2", "Min":   0, "Mid": 50, "Max": 100},
-	{"Name":"T3", "Min":   0, "Mid": 50, "Max": 100},
-	{"Name":"T4", "Min":   0, "Mid": 50, "Max": 100},
-	{"Name":"T5", "Min":   0, "Mid": 50, "Max": 100},
-	{"Name":"T6", "Min":   0, "Mid": 50, "Max": 100},
-	{"Name":"T7", "Min":   0, "Mid": 50, "Max": 100},
-	{"Name":"T8", "Min":   0, "Mid": 50, "Max": 100}
-    ]
-}
-
-
+{"Probes":[{"Name":"T1aaaa","Green":1,"Red":101,"Yellow":51},{"Name":"T2","Green":0,"Red":100,"Yellow":50},{"Name":"T3","Green":0,"Red":100,"Yellow":50},{"Name":"T4","Green":0,"Red":100,"Yellow":50},{"Name":"T5","Green":0,"Red":100,"Yellow":50},{"Name":"T6","Green":0,"Red":100,"Yellow":50},{"Name":"T7","Green":0,"Red":100,"Yellow":50},{"Name":"T8","Green":0,"Red":100,"Yellow":50}],"Type":"Histogram"}

@@ -46,6 +46,12 @@ local fuelWarnTrigger = system.getTime()
 local fuelWarnFormItem
 local fuelVoiceFormItem
 local fuelLowFile
+
+local lastValidFuel
+local lastValidFuelTime = 0
+local zeroFuelDelay = 4000
+local fuelValid = false
+
 local cfgLang="en"
 local textMessage={".."}
 local langList={".."}
@@ -65,6 +71,7 @@ local vibrationOptions = {"Left","Right","Both","None"}
 local function loadImages()
     local sizeOpt = {"Compact","Large"}
     local idx = 0
+    local wBrand="digitech"
     imgName = string.format("Apps/%s/images/"..sizeOpt[cfgSize].."/"..
 			       schemeOptions[cfgScheme].."/c-%.3d.png", wBrand, idx * 5)
     -- print("loading image: ", imgName)
@@ -179,7 +186,23 @@ local function DrawFuelGauge(percentage,size)
 
     if DEBUG then
        value = 2.5 * (system.getInputs('P4')+1)
-       percentage = value * 20
+       if system.getInputs('P5') > 0 then
+	  percentage = value * 20
+	  lastValidFuel = value * 20
+	  lastValidFuelTime = system.getTimeCounter()
+	  fuelValid = true
+	  --print("valid")
+       else
+	  fuelValid = false
+	  if system.getTimeCounter() - lastValidFuelTime < zeroFuelDelay then
+	     percentage = lastValidFuel
+	     --print("cached")
+	  else
+	     lastValidFuel = nil
+	     percentage = 0
+	     --print("cache dead --> 0")
+	  end
+       end
     end
     
     upValue = math.ceil(value)
@@ -198,8 +221,12 @@ local function DrawFuelGauge(percentage,size)
     if(size==1) then
         ox=75
         oy=56
-        lcd.drawText(ox, oy, "FUEL", FONT_MINI)
-
+	if not fuelValid then
+	   lcd.setColor(200,200,200)
+	end
+	lcd.drawText(ox, oy, "FUEL", FONT_MINI)
+	lcd.setColor(0,0,0)
+	
 	if percentage > fuelThreshold or system.getTime() % 2 == 0 then
 	   lcd.drawFilledRectangle(ox + 26, oy - 2, math.max(2, 48 * percentage/100), 12)
 	end
@@ -220,8 +247,12 @@ local function DrawFuelGauge(percentage,size)
         ox=160
         oy=135
 
+	if not fuelValid then
+	   lcd.setColor(200,200,200)
+	end
 	lcd.drawText(ox+7, oy+2, "FUEL", FONT_BOLD)
-
+	lcd.setColor(0,0,0)
+	
 	if percentage > fuelThreshold or system.getTime() % 2 == 0 then
 	   lcd.drawFilledRectangle(ox + 46, oy-1, math.max(2, 110*percentage/100), 25)
 	end
@@ -583,14 +614,27 @@ local function getRPM(statusSensorID)
 end
 ------------------------------------------------------------------------
 -- Get Fuel remaining From telemtry data
+
 local function getFuel(statusSensorID)
     local value = 0 -- sensor value
     local sensor = system.getSensorByID(statusSensorID, tonumber(wbFuelParam))
 
     if (sensor and sensor.valid) then
-        value = sensor.value
+       value = sensor.value
+       lastValidFuel = value
+       lastValidFuelTime = system.getTimeCounter()
+       fuelValid = true
     else
-        value = 0
+       fuelValid = false
+       if not lastValidFuel then
+	  return 0
+       end
+       if system.getTimeCounter() - lastValidFuelTime < zeroFuelDelay then
+	  return lastValidFuel
+       else
+	  lastValidFuel = nil
+	  return 0
+       end
     end
     return value
 end

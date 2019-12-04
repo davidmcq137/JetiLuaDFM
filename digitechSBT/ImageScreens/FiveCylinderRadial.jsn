@@ -1,18 +1,12 @@
-{
-    "Image": "FiveCylinderRadial.png",
-    "Green" :  0,
-    "Yellow": 50,
-    "Red"   : 80,
-    "Locations": [
-	{"Name":"HD1", "XT": 10,"YT":   0,"XP":   0,"YP":  76},
-	{"Name":"H2", "XT": 10,"YT":  20,"XP":  72,"YP":  24},
-	{"Name":"H3", "XT": 10,"YT":  40,"XP":  45,"YP": -62},
-	{"Name":"H4", "XT": 10,"YT":  60,"XP": -45,"YP": -62},
-	{"Name":"H5", "XT": 10,"YT":  80,"XP": -72,"YP":  24},	    
-	{"Name":"E1", "XT": 10,"YT": 100,"XP":  29,"YP":  53},
-	{"Name":"E2", "XT": 10,"YT": 120,"XP":  59,"YP": -11},
-	{"Name":"E3", "XT": 10,"YT": 140,"XP":   7,"YP": -60}
-    ]
+{"Image":"FiveCylinderRadial.png","Probes":
+[
+{"Red":100,"Yellow":50,"Name":"HD1a","XP":0,"Green":0,"YP":76,"XT":10,"YT":0},
+{"Red":100,"Yellow":50,"Name":"H2a","XP":72,"Green":11,"YP":24,"XT":10,"YT":20},
+{"Red":103,"Yellow":55,"Name":"H3","XP":45,"Green":1,"YP":-62,"XT":10,"YT":40},
+{"Red":100,"Yellow":50,"Name":"H4","XP":-45,"Green":0,"YP":-62,"XT":10,"YT":60},
+{"Red":100,"Yellow":50,"Name":"H5","XP":-72,"Green":0,"YP":24,"XT":10,"YT":80},
+{"Red":107,"Yellow":50,"Name":"E1","XP":29,"Green":0,"YP":53,"XT":10,"YT":100},
+{"Red":100,"Yellow":50,"Name":"E2","XP":59,"Green":0,"YP":-11,"XT":10,"YT":120},
+{"Red":50,"Yellow":25,"Name":"E3","XP":7,"Green":0,"YP":-60,"XT":10,"YT":140}
+]
 }
-
-
