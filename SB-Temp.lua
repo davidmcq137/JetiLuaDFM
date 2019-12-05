@@ -62,6 +62,7 @@ local builtIn
 local maxBuiltIn
 local backGndImage
 local jsnFileName
+local dx1, dx2 = 0, 0
 
 local SBT_Telem = {
    T1={SeId=0,SePa=0,value=0,unit=" "},
@@ -84,7 +85,7 @@ local needle_poly_small = {
 local function readSensors()
    local text
    local sensors = system.getSensors()
-   print("sensors:", sensors)
+   --print("sensors:", sensors)
    
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
@@ -204,37 +205,6 @@ local function drawGauge(label, min, mid, max, temp, unit, ox, oy)
    end
 end
 
-local function screenInit()
-   local text
-   if screenIdx <= maxBuiltIn then
-      ---print("builtin")
-      builtIn = true
-      jsnFileName = appDir.."BuiltInScreens/"..
-	 string.sub(screens[screenIdx], 2)..".jsn"
-      print("jsnFileName:", jsnFileName)
-      text = io.readall(jsnFileName)
-      print("readall:", text)
-      screenConfig = json.decode(text)
-   else
-      --print("image", #screens, maxBuiltIn, screenIdx)
-      if #screens > maxBuiltIn then
-	 builtIn = false
-	 jsnFileName = appDir.."ImageScreens/"..screens[screenIdx]..".jsn"
-	 fp = io.readall(jsnFileName)
-	 screenConfig = json.decode(fp)
-	 backGndImage = lcd.loadImage(appDir.."ImageScreens/"..screenConfig.Image)
-      else
-	 system.messageBox("No Image Screens Available", 3)
-      end
-   end
-end
-
-local function screenIdxChanged(value)
-   screenIdx = value
-   system.pSave("screenIdx", value)
-   screenInit()
-end
-
 local function jsnWrite()
    local fp
    local text
@@ -250,20 +220,86 @@ local function jsnWrite()
    io.close(fp)
 end
 
+local function screenInit(reset)
+   local text
+   local ext
+
+   --print("screenInit: reset", reset)
+   if reset == true then
+      ext = ".json"
+      dx1, dx2 = 0, 0
+   else
+      ext = ".jsn"
+   end
+   --print("ext:", ext)
+   
+   if screenIdx <= maxBuiltIn then
+      --print("builtin")
+      builtIn = true
+      jsnFileName = appDir.."BuiltInScreens/"..
+	 string.sub(screens[screenIdx], 2)
+      --print("jsnFileName:", jsnFileName)
+      text = io.readall(jsnFileName..ext)
+      --print("readall:", text)
+      jsnFileName = jsnFileName..".jsn"
+      screenConfig = json.decode(text)
+      if ext == ".json" then jsnWrite() end
+      form.reinit(1)
+   else
+      --print("image", #screens, maxBuiltIn, screenIdx)
+      if #screens > maxBuiltIn then
+	 builtIn = false
+	 jsnFileName = appDir.."ImageScreens/"..screens[screenIdx]
+	 --print("jsnFileName:", jsnFileName)
+	 text = io.readall(jsnFileName..ext)
+	 --print("readall:", text)
+	 jsnFileName = jsnFileName..".jsn"
+	 screenConfig = json.decode(text)
+	 backGndImage = lcd.loadImage(appDir.."ImageScreens/"..screenConfig.Image)
+	 if ext == ".json" then jsnWrite() end
+	 form.reinit(1)
+      else
+	 system.messageBox("No Image Screens Available", 3)
+      end
+   end
+end
+
+
+local function screenIdxChanged(value)
+   screenIdx = value
+   system.pSave("screenIdx", value)
+   screenInit()
+   form.reinit(1)
+end
+
+
 local function jsnChanged(value, k, elem)
    screenConfig.Probes[k][elem] = value
    jsnWrite()
 end
 
+local function keyPressed(key)
+   local ans
+   --print("key pressed:", key)
+   if key == 1 then
+      ans = form.question("Reset config data to default?",
+			  "Display: "..screens[screenIdx],
+		       "",4000, false, 0)
+      if ans == 1 then screenInit(true) end
+   end
+   --print("after")
+end
+
 local function initForm(subForm)
    SForm = subForm
    if subForm == 1 then
-      form.setTitle("appName")
+      form.setTitle(appName)
+      form.setButton(1, "Reset", ENABLED)
       form.addRow(2)
       form.addLabel({label="Select Display Screen", width=200})
       form.addSelectbox(screens, screenIdx, true, screenIdxChanged)
 
-      for j=1,8,1 do
+      for j=1, #screenConfig.Probes,1 do
 	 form.addRow(2)
 	 form.addLink((function() form.reinit(j+1) end),
 	    {label="Probe "..j.." ("..screenConfig.Probes[j].Name ..") >>"})
@@ -358,7 +394,6 @@ local function teleImage()
    local x,y
    local xp, yp
    local xt, yt
-   local dx1, dx2 = 0, 0
    local r,g,b
    local text
    
@@ -392,7 +427,7 @@ local function teleImage()
 
       xp = x - lcd.getTextWidth(FONT_NORMAL, screenConfig.Probes[k].Name)/2
       yp = y + lcd.getTextHeight(FONT_NORMAL)/2
-      lcd.drawText(xp,yp, screenConfig.Probes[k].Name)
+      lcd.drawText(xp,yp, screenConfig.Probes[k].Name, FONT_NORMAL)
 
       lcd.setColor(0,0,0)
       
@@ -437,7 +472,7 @@ local function init()
    imgName = appDir.."c-000.png"
    arcFile = lcd.loadImage(imgName)
 
-   system.registerForm(1, MENU_APPS, appName, initForm)
+   system.registerForm(1, MENU_APPS, appName, initForm, keyPressed)
    system.registerTelemetry(1,appShort, 4, tele)
 
    if emFlag == 1 then prefix = "" else prefix="/" end

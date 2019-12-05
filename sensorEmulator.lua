@@ -90,7 +90,7 @@ function emulator.getSensors()
 
    text = "Apps/" .. sensorDir .."/sensorEmulatorGPS.jsn"
    fg = io.readall(text)
-   if not fg then print("No GPS file " .. text) else
+   if not fg then print("Info: No GPS file " .. text) else
       GPSparms=json.decode(fg)
       coslat0 = math.cos(math.rad(GPSparms.lat0))
    end

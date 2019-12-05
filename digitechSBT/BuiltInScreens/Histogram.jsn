@@ -1,1 +1,12 @@
-{"Probes":[{"Name":"T1aaaa","Green":1,"Red":101,"Yellow":51},{"Name":"T2","Green":0,"Red":100,"Yellow":50},{"Name":"T3","Green":0,"Red":100,"Yellow":50},{"Name":"T4","Green":0,"Red":100,"Yellow":50},{"Name":"T5","Green":0,"Red":100,"Yellow":50},{"Name":"T6","Green":0,"Red":100,"Yellow":50},{"Name":"T7","Green":0,"Red":100,"Yellow":50},{"Name":"T8","Green":0,"Red":100,"Yellow":50}],"Type":"Histogram"}
+{"Probes":
+[
+{"Green":0,"Yellow":50,"Name":"T1","Red":100},
+{"Green":0,"Yellow":50,"Name":"T2","Red":100},
+{"Green":0,"Yellow":50,"Name":"T3","Red":100},
+{"Green":0,"Yellow":50,"Name":"T4","Red":100},
+{"Green":0,"Yellow":50,"Name":"T5","Red":100},
+{"Green":0,"Yellow":50,"Name":"T6","Red":100},
+{"Green":0,"Yellow":50,"Name":"T7","Red":100},
+{"Green":0,"Yellow":50,"Name":"T8","Red":100}
+],
+"Type":"Histogram"}
