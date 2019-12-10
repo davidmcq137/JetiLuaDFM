@@ -396,19 +396,28 @@ local function teleImage()
    local xt, yt
    local r,g,b
    local text
+   local fontSize
    
    lcd.drawImage( (310-backGndImage.width)/2+2+60, 10, backGndImage)
 
+   if screenConfig.XPFont == "FONT_MINI" then
+      fontSize = FONT_MINI
+   else
+      fontSize = FONT_NORMAL
+   end
+   
    for k = 1, #screenConfig.Probes do
       x=screenConfig.Probes[k].XP
       y=screenConfig.Probes[k].YP
-      x = x + midW
-      y = y + midH
-      y=maxH-y
-      y=y-15
-      x=x-2+60
+
+      -- coord system for image (140x140 px) is relative to top left corner of image
+      -- fine adjustments here to make sure alignment is perfect
       
+      x = x + midW - 11
+      y = y + 10
+	 
       kk = "T"..k
+
       if SBT_Telem[kk].value < screenConfig.Probes[k].Green then
 	 r,g,b = 0,0,255
 	 lcd.setColor(r,g,b)
@@ -425,9 +434,17 @@ local function teleImage()
 	 lcd.setColor(r,g,b)
       end
 
-      xp = x - lcd.getTextWidth(FONT_NORMAL, screenConfig.Probes[k].Name)/2
-      yp = y + lcd.getTextHeight(FONT_NORMAL)/2
-      lcd.drawText(xp,yp, screenConfig.Probes[k].Name, FONT_NORMAL)
+      -- coord system for xp, yp is native screen coords,
+      -- relative to top left corner of screen
+
+      fh = lcd.getTextHeight(fontSize)
+      fw = lcd.getTextWidth(fontSize, screenConfig.Probes[k].Name)
+      xp = x - fw/2
+      yp = y - fh/2
+      lcd.setColor(255,255,255)
+      lcd.drawFilledRectangle(xp, yp, fw, fh)
+      lcd.setColor(r,g,b)
+      lcd.drawText(xp,yp, screenConfig.Probes[k].Name, fontSize)
 
       lcd.setColor(0,0,0)
       
@@ -463,9 +480,9 @@ local function init()
 
    screenIdx = system.pLoad("screenIdx", 1)
    
-   pcallOK, emulator = pcall(require, "sensorEmulator")
-   --if not pcallOK then print("pcall error: ", emulator) end
-   if pcallOK and emulator then emulator.init("digitechSBT") end
+   --pcallOK, emulator = pcall(require, "sensorEmulator")
+   ----if not pcallOK then print("pcall error: ", emulator) end
+   --if pcallOK and emulator then emulator.init("digitechSBT") end
 
    readSensors()
 

@@ -1,0 +1,15 @@
+{
+    "Image": "LycomingIO360.png",
+    "Probes": [
+	{"Name":"H1",  "XT": 10,"YT":  0,"XP": 46,"YP": -5, "Green": 0, "Yellow":50, "Red":100},
+	{"Name":"H2",  "XT": 10,"YT": 20,"XP": 76,"YP": -5, "Green": 0, "Yellow":50, "Red":100},
+	{"Name":"H3",  "XT": 10,"YT": 40,"XP": 86,"YP":140, "Green": 0, "Yellow":50, "Red":100},
+	{"Name":"H4",  "XT": 10,"YT": 60,"XP": 57,"YP":140, "Green": 0, "Yellow":50, "Red":100},
+	{"Name":"E1",  "XT": 10,"YT": 80,"XP": 22,"YP": 22, "Green": 0, "Yellow":50, "Red":100},
+	{"Name":"E2",  "XT": 10,"YT":100,"XP": 99,"YP": 22, "Green": 0, "Yellow":50, "Red":100},
+	{"Name":"E3",  "XT": 10,"YT":120,"XP":115,"YP":110, "Green": 0, "Yellow":50, "Red":100},
+	{"Name":"E4",  "XT": 10,"YT":140,"XP": 30,"YP":110, "Green": 0, "Yellow":50, "Red":100}
+    ]
+}
+
+

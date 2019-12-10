@@ -10,7 +10,7 @@
      "control":"P5",
      "auxcontrol":["P6","P7"],
      "controlmin":0,
-     "controlmax":800,
+     "controlmax":100,
      "funcString":"s / 2 * sin1(t /30) + s / 2"
     },
     
@@ -25,7 +25,7 @@
      "control":"P6",
      "auxcontrol":["P7"],
      "controlmin":0,
-     "controlmax":200,
+     "controlmax":100,
      "funcString":"s/2 * sq(t / 30) + s/2 + s / 5 * rand() + s / 5"
     },
     

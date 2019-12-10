@@ -29,7 +29,7 @@
 
 --]]
 
-local pcallOK, emulator
+--local pcallOK, emulator
 
 local graphVersion = "1.0"
 local appName = "Sensor Graph"
@@ -83,9 +83,9 @@ local maxPoints = 60
 local xboxWidth = 5 -- pixel width of histograms
 
 local function readSensors()
-
-   local sensors = system.getSensors()
-
+   local sensors
+   sensors = system.getSensors()
+   --print("DFM-Graph - #sensors:", #sensors)
    for i, sensor in ipairs(sensors) do
       --print(i, type(sensor.id), type(sensor.param), type(sensor.label))
       --print(i, sensor.id, sensor.param, sensor.label)
@@ -489,10 +489,6 @@ local function loop()
    local long0 = -73
    local rE = 21220529.7
 
-   if pcallOK and emulator then
-      if emulator.startUp(readSensors) then return end
-   end
-   
    sensor = system.getSensorByID(graphSeId, graphSePa)
    sensor2 = system.getSensorByID(graphSeId2, graphSePa2)   
 
@@ -608,6 +604,9 @@ local function init()
 
    local testLog = false
 
+   -- changed to use new app-based emulator SensorE.lua
+   
+   --[[
    if testLog then
       pcallOK, emulator = pcall(require, "sensorLogEm")
       --if not pcallOK then print("pcall error: ", emulator) end
@@ -617,7 +616,8 @@ local function init()
       if not pcallOK then print("pcall error: ", emulator) end
       if pcallOK and emulator then emulator.init("DFM-Graph") end
    end
-   
+   emulator_init("DFM-Graph")
+   --]]
 
    graphStyleIdx = system.pLoad("graphStyleIdx", 1)
    graphSe       = system.pLoad("graphSe", 1)
@@ -647,8 +647,7 @@ local function init()
    system.registerForm(1, MENU_APPS, appName, initForm)
    system.registerTelemetry(1, appName, 4, timePrint)
    
-   -- if using emulator in some cases have to call readSensors from loop()
-   if not emulator then readSensors() end
+   readSensors()
 
 end
 --------------------------------------------------------------------------------

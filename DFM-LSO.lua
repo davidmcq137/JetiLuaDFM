@@ -113,6 +113,9 @@ local textColor = {}
 textColor.main = {red=0, green=0, blue=0}
 textColor.comp = {red=255, green=255, blue=255}
 
+local endInit
+local dev, emFlag
+
 -- "globals" for log reading
 local logItems={}
 logItems.cols={}
@@ -211,7 +214,8 @@ local satQualityPa = 0
 local satQuality
 
 local function readSensors()
-   
+
+   local name= '...'
    local sensors = system.getSensors()
 
    --print(dumpt(sensors)) -- see file JETISensorDump.out for example
@@ -227,11 +231,13 @@ local function readSensors()
 	    Code below will put sensor names in the choose list and auto-assign the relevant
 	    selections for the Jeti MGPS, Digitech CTU and Jeti MSpeed
 	 --]]
-
+	 if sensor.param == 0 then name = sensor.label end
+	 --print("$", i, name, sensor.label, sensor.param, sensor.id, sensor.type)
+	 
 	 if sensor.param == 0 then -- it's a label
 	    table.insert(sensorLalist, '--> '..sensor.label)
 	    table.insert(sensorIdlist, 0)
-	    table.insert(sensorPalist, 0)	    
+	    table.insert(sensorPalist, 0)
 	 elseif sensor.type == 9 then  -- lat/long
 	    table.insert(GPSsensorLalist, sensor.label)
 	    table.insert(GPSsensorIdlist, sensor.id)
@@ -1646,6 +1652,8 @@ local newPosTime = 0
 local ff
 local timSn = 0
 local hasCourseGPS
+local readSensorsDone = false
+local annDone = false
 
 local function loop()
 
@@ -1662,9 +1670,24 @@ local function loop()
    local deltaPosTime = 100 -- min sample interval in ms
    local latS, lonS, altS, spdS, hdgS
 
-   if not rlhDone and fd then
-      readLogHeader()
+   if emFlag == 1 then
+      if not annDone then
+	 print("DFM-LSO: Waiting 2 secs for SensorL")
+	 annDone = true
+      end
+      if (system.getTimeCounter() - endInit > 2000) and not readSensorsDone then
+	 readSensors()
+	 readSensorsDone = true
+      end
+   elseif not readSensorsDone then
+      readSensors()
+      readSensorsDone = true
    end
+   
+   
+--   if not rlhDone and fd then
+--      readLogHeader()
+--   end
    
    goodlat = false
    goodlong = false
@@ -2181,11 +2204,11 @@ does??
 
 --]]
    
-   local pcallOK, emulator
+--   local pcallOK, emulator
 
-   pcallOK, emulator = pcall(require, "sensorEmulator")
-   if not pcallOK then print("Error:", emulator) end
-   if pcallOK and emulator then emulator.init("DFM-LSO") end
+--   pcallOK, emulator = pcall(require, "sensorEmulator")
+--   if not pcallOK then print("Error:", emulator) end
+--   if pcallOK and emulator then emulator.init("DFM-LSO") end
 
    fname = system.pLoad("logPlayBack", "...")
    
@@ -2196,6 +2219,10 @@ does??
       fd = io.open("Apps/DFM-LSO/"..fname, "r")
    end
 
+   ----------------
+   fd = nil
+   ----------------
+   
    if fd then
       if form.question("Start replay?", "log file "..fname, "---",2500, false, 0) == 1 then
 	 print("Opened log file "..fname.." for reading")
@@ -2278,7 +2305,11 @@ does??
       print('L_S_O_Active.wav')
    end
 
-   readSensors()
+   endInit = system.getTimeCounter()
+   dev, emFlag = system.getDeviceType()
+
+   --   readSensors() --> moved to top of loop()
+
    collectgarbage()
 end
 
