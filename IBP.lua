@@ -64,6 +64,10 @@ local IBP_Sort = {
 
 local maxPacks=3
 local battNames = {"Rx1 (2S)", "Rx2 (2S)", "ECU (3S)"}
+local lCPU=0
+local tCPU=0
+local dev
+local emFlag
 
 local function readSensors()
    local sensors
@@ -92,11 +96,12 @@ local function readSensors()
 	 end
       end
    end
-
-   for k,v in pairs(IBP_Telem[packNo]) do
-      table.insert(IBP_Sort, k)
+   if IBP_Telem and #IBP_Telem > 0 then
+      for k,v in pairs(IBP_Telem[packNo]) do
+	 table.insert(IBP_Sort, k)
+      end
+      table.sort(IBP_Sort)
    end
-   table.sort(IBP_Sort)
 end
 
 local function drawTextCenter(font, txt, ox, oy)
@@ -117,19 +122,41 @@ local function initForm(subForm)
    end
 end
 
+saveLoopIdx = 1
+saveLoopKey = nil
+saveTime = system.getTimeCounter()
 local function loop()
+
    local sensor
-   if #IBP_Telem < 1 then return end
-   for ip,_ in ipairs(IBP_Telem) do
-      for k,v in pairs(IBP_Telem[ip]) do
-	 if v.SeId and v.SeId ~= 0 then
-	    sensor = system.getSensorByID(v.SeId, v.SePa)
-	 end
-	 if sensor and sensor.valid then
-	    v.value = sensor.value
-	 end
+   local k, v
+   local dt
+
+   -- decided to "uroll" the nested loops, this code was taking way too much CPU time
+   -- so instead of refreshing every telem param from every IBP on every loop(), we just
+   -- do one item per loop() call using next() instead of a pairs() loop. This gives an
+   -- overall refresh time of about 0.6 secs on the emulator which is totally reasonable
+   -- for batteries. should do to CRU too...
+   
+   if not IBP_Telem or #IBP_Telem < 1 then return end
+   k,v = next(IBP_Telem[saveLoopIdx], saveLoopKey)
+   saveLoopKey = k
+   if not saveLoopKey then
+      saveLoopIdx = saveLoopIdx + 1
+      if saveLoopIdx > #IBP_Telem then
+	 saveLoopIdx = 1
+	 dt = system.getTimeCounter() - saveTime
+	 saveTime = system.getTimeCounter()
+	 --print(dt)
       end
+      return
    end
+   if v.SeId and v.SeId ~= 0 then
+      sensor = system.getSensorByID(v.SeId, v.SePa)
+   end
+   if sensor and sensor.valid then
+      v.value = sensor.value
+   end
+   lCPU = system.getCPU()
 end
 
 
@@ -180,13 +207,16 @@ local function teleImage()
       end
       i = i + 1
    end
+   if emFlag == 1 then
+      tCPU = system.getCPU()
+      lcd.drawText(290,135, string.format("L: %02d", lCPU), FONT_MINI)
+      lcd.drawText(290,145, string.format("T: %02d", tCPU), FONT_MINI)
+   end
+   
 end
 
 local function init()
 
-   local dev
-   local emFlag
-   
    dev, emFlag = system.getDeviceType()   
 
    battImage = lcd.loadImage(appDir.."digitechV.png")
