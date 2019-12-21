@@ -151,7 +151,6 @@
 
    Put the sourcecode file SensorE.lua in the /Apps directory.
 
-
    Put a copy of the sensorEmulator.jsn file into the directory for
    the lua function that is going to use it, and edit it as required
    for that lua app. Ditto for sensorEmulatorGPS.jsn. Edit SensorE.jsn

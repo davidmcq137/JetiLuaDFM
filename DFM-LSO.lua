@@ -215,14 +215,25 @@ local satQuality
 
 local function readSensors()
 
+   local sensorCode
+   local sensorNumber
+   
    local name= '...'
    local sensors = system.getSensors()
 
    --print(dumpt(sensors)) -- see file JETISensorDump.out for example
-   
+   print("-------------------------")   
    for i, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 
+	 sensorNumber = ((sensor.id >> 16) & 0xF0) >> 4
+	 sensorCode = sensor.id & 0xFFFF
+	 print("sensor label: "..sensor.label.." sensor param: "..sensor.param)
+	 print("hex sensor.id:"..string.format("%x", sensor.id))
+	 print("sensorCode: "..string.format("%x", sensorCode))
+	 print("sensorNumber: "..string.format("%x", sensorNumber))
+	 print("-------------------------")
+	 
 	 --[[
 	    Note:
 	    Digitech CTU Altitude is type 1, param 13 (vs. MGPS Altitude type 1, param 6)
@@ -1652,8 +1663,8 @@ local newPosTime = 0
 local ff
 local timSn = 0
 local hasCourseGPS
-local readSensorsDone = false
-local annDone = false
+--local readSensorsDone = false
+--local annDone = false
 
 local function loop()
 
@@ -1670,24 +1681,9 @@ local function loop()
    local deltaPosTime = 100 -- min sample interval in ms
    local latS, lonS, altS, spdS, hdgS
 
-   if emFlag == 1 then
-      if not annDone then
-	 print("DFM-LSO: Waiting 2 secs for SensorL")
-	 annDone = true
-      end
-      if (system.getTimeCounter() - endInit > 2000) and not readSensorsDone then
-	 readSensors()
-	 readSensorsDone = true
-      end
-   elseif not readSensorsDone then
-      readSensors()
-      readSensorsDone = true
+   if select(2, system.getDeviceType()) == 1 then
+      if not emulatorSensorsReady or not emulatorSensorsReady(readSensors) then return end
    end
-   
-   
---   if not rlhDone and fd then
---      readLogHeader()
---   end
    
    goodlat = false
    goodlong = false
@@ -2308,7 +2304,9 @@ does??
    endInit = system.getTimeCounter()
    dev, emFlag = system.getDeviceType()
 
-   --   readSensors() --> moved to top of loop()
+   if select(2, system.getDeviceType()) ~= 1 then   
+      readSensors()
+   end
 
    collectgarbage()
 end

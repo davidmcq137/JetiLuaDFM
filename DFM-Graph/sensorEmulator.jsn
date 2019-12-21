@@ -53,7 +53,7 @@
     
     {"id":5,"param":0,"sensorName":"", "label":"PS5(Seq)"},
     {"id":5,
-     "param":3,
+     "param":1,
      "decimals":0,
      "type":1,
      "auxcontrol":["P5","P6"],
@@ -65,7 +65,7 @@
 
     {"id":6,"param":0,"sensorName":"", "label":"PS6(Seq2)"},
     {"id":6,
-     "param":3,
+     "param":1,
      "decimals":0,
      "type":1,
      "auxcontrol":["P5","P6"],
@@ -73,7 +73,18 @@
      "label":"Sequence2",
      "unit":"",
      "funcString":"5+5*seq(t/20, {0,1,0,1})"
-    }
+    },
     
+    {"id":7,"param":0,"sensorName":"", "label":"PS7(Dischg)"},
+    {"id":7,
+     "param":1,
+     "decimals":0,
+     "type":1,
+     "auxcontrol":["P5","P6"],
+     "sensorName":"PS7(Dischg)",
+     "label":"Dischg",
+     "unit":"",
+     "funcString":"max(0, 1/(1+exp(t%60-30)) + .1*((60-t%60)/60-1) )"
+    }
     
 ]

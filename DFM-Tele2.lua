@@ -18,6 +18,10 @@
 local TeleVersion = "0.0"
 
 local pcallOK, emulator
+local sidSerial
+local serialbb = 0
+local serialii = 0
+local sidTime0 = 0
 
 local latitude
 local longitude
@@ -465,6 +469,29 @@ local function init()
 
    serialFile = io.open(fn, "w")
    --print("serialFile: ", serialFile)
+
+   device, emflag = system.getDeviceType()
+
+   if emflag ~= 1 then
+      sidSerial = serial.init("COM1",9600) 
+      
+      if sidSerial then   
+	 print("sid succeeded: ", sidSerial)
+	 sidTime0 = system.getTimeCounter()
+      else
+	 print("sid failed")
+      end 
+      
+      
+      local success, descr = serial.onRead(sidSerial,onRead)   
+      if success then
+	 print("Callback registered")
+      else
+	 print("Error setting callback", descr)
+      end
+   end
+   
+   
    
    --system.playFile('/Apps/DFM-LSO/L_S_O_active.wav', AUDIO_QUEUE)
    if DEBUG then
@@ -478,7 +505,6 @@ local function init()
    --print(dumpt(telem))
    --print("done")
 
-   device, emflag = system.getDeviceType()
    --print("Device: "..device)
    
    --readSensors(0)

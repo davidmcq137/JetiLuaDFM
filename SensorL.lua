@@ -21,38 +21,52 @@ One caveat .. until I figure out a better way..
 
 Processing the log file header takes a long time for an aircraft with
 a complex setup, and that process has to complete before other apps
-ask for the sensor list via system.getSensors(). If we don't work
-around this issue the other lua files won't get the emulated sensors.
-We also have an issue where the script is killed for log files
-containing many telemetry sensors since it requires too much CPU
-time. Since co-routines are not part of Jeti's lua build, we have to
-take some other action on that.
+ask for the sensor list via system.getSensors(). 
 
-SensorL.lua, when first run with a new logfile in
-Apps/SensorL/SensorL.jsn processes the log headerfile and writes out
-some intermediate .jsn files so that when run again with the same log
-file it starts up quickly. It will them post a system message box
-asking that you reload lua, which starts the emulator with the
-pre-processed files. This works around the script killed issue for
-now.
+The simplest solution (sorry!) to this problem is to make a change to
+the lua script(s) that wish to use the emulated sensors. First, you
+must remove the call to system.getSensors() (or any user-defined local
+function that calls it) from your init() function. Then you must add
+this line to the top of your loop() callback function:
 
-We have observed in some cases that we can clear out all user apps and
-start SensorL.lua first, then load other programs and everything works
-as expected. In some cases, the lua runtime re-orders the apps and
-starts other lua programs first, which are expecting that SensorL ran
-first and set up the emulation. In these cases, regrettably, you will
-have to modify the lua scripts that run with SensorL and use its
-emulation. You need to move the call to system.getSensors into your
-main loop() (not in init() ), and put in a short timedelay (2-3 secs
-is fine) and only call system.getSensors after that delay (and only
-once!).
+if not emulatorSensorsReady or not emulatorSensorsReady(readSensors) then return end
 
-Since this is meant to be used on the emulator, all the config
-information is in the configuration json file Apps/SensorL/SensorL.jsn
-where it is assumed it is easy to edit/change the file. A sample
-SensorL.jsn is included below. Place in that config file the name of
-the log file to process and the names of the telemetry log variables
-you want to make available (formatted as shown with name and label).
+This assumes that the user-defined local function called readSensors()
+is the function that contains the call to system.getSensors(). The
+emulatorSensorsReady() function will monitor the state of the emulated
+sensors, returning false until they are ready. Then it will run
+your initialization routine (readSensors()) once and return. Subsequent
+calls will return true.
+
+When you want to run without the emulator, you will have to comment
+this line out in loop() and add this line back to init():
+
+readSensors()
+
+If you want to have code that can run on the TX or emulator without
+changes, then you can put this in init() - where the call to
+getsensors is typically done (getDeviceType returns 1 as its second
+arg when you are running on the emulator):
+
+if select(2, system.getDeviceType()) ~= 1 then
+   readSensors()
+end
+
+and put this at the top of loop():
+
+if select(2, system.getDeviceType()) == 1 then
+   if not emulatorSensorsReady or not emulatorSensorsReady(readSensors) then return end
+end
+
+Hopefully we can find a better way at some point in the future.
+
+Since this sensor emulator is meant to be used only on the DC/DS-24
+emulator, all the config information is in the configuration json file
+Apps/SensorL/SensorL.jsn where it is assumed it is easy to edit/change
+the file. A sample SensorL.jsn is included below. Place in SensorL.jsn
+the file the name of the log file to process and the names of the
+telemetry log variables you want to make available (formatted as shown
+with sensor name and label and spaces replaced by underscores).
 
 ----------------------------------------------------------------------------
 
@@ -92,7 +106,6 @@ local appVersion="1.00"
 local appAuthor="DFM"
 
 local sensorTbl={}
-local sensorDir
 
 -- "globals" for log reading
 
@@ -107,12 +120,15 @@ local logTime0
 local sysTime0
 local config = {}
 local lastTimeBlock = 0
-local logHeaderPos
-local lastLogHeaderPos
+--local logHeaderPos
+--local lastLogHeaderPos
 
 local sensorCache={}
 local activeSensors={}
-local selKeysStr
+--local selKeysStr
+
+--local startUpTime
+local dev, emFlag
 
 logItems.cols={}
 logItems.vals={}
@@ -153,12 +169,17 @@ end
 
 ------------------------------------------------------------
 
--- great mystery: why are device ID numbers in Jeti log files so many digits?
--- they cause a lot of headaches trying to store in a 32-bit int
--- so (gulp) truncate 4 high order digits and hope they are still unique
+-- The Jeti logfile stores the device ID as two concatenated strings
+-- one for the upper 16 bit value and one for the lower 16 bit values of the ID
+-- e.g. device ID 4204600256 might show up in the log file. Jeti Studio
+-- shows it as 42046:00256. In hex this would be A43E:0100
+-- but there is an endian issue .. on the Intel Linux system this should
+-- really be 0100A43E. So isolate the two 5-char strings, convert to numbers
+-- swap and reconstruct the ID in the right order (16819262 in this case)
+-- dealing with the native order causes headaches with ints greater than 2^31
 
 local function toID(logstr)
-   return tonumber(string.sub(logstr,5))
+   return (tonumber(string.sub(logstr, 6))<<16) +  tonumber(string.sub(logstr, 1, 5))
 end
 
 ------------------------------------------------------------
@@ -168,13 +189,16 @@ local function readLogHeader()
    local ff
    local uid
    local iid
+   local hdr
 
    if not fd then return false end
    if rlhDone then return rlhDone end
 
    if rlhCount == 0 then
-      -- read the comment line and toss .. assume one comment line only (!)      
-      logHeaderPos = logHeaderPos + #io.readline(fd) + 1
+      -- read the comment line and toss .. assume one comment line only (!)
+      hdr = io.readline(fd)
+      print("SensorL: Header line "..hdr)
+      --logHeaderPos = logHeaderPos + #hdr + 1
    end
    rlhCount = rlhCount + 1
 
@@ -182,9 +206,9 @@ local function readLogHeader()
    -- do 4 rows each call to loop()
 
    for _ = 1, 4, 1 do
-      lastLogHeaderPos = logHeaderPos
+      --lastLogHeaderPos = logHeaderPos
       logItems.line = io.readline(fd, true) -- true param removes newline
-      logHeaderPos = logHeaderPos + #logItems.line + 1
+      --logHeaderPos = logHeaderPos + #logItems.line + 1
       if not logItems.line then
 	 print("SensorL: Read eror on log header file")
 	 rlhDone=true
@@ -207,28 +231,6 @@ local function readLogHeader()
 	 io.write(ff, jsonText)
 	 io.close(ff)
 
-	 --print("lastLogHeaderPos:", lastLogHeaderPos, logHeaderPos)
-	 
-	 jsonText = json.encode(logSensorByID)
-	 ff = io.open(appDir .. "logSensorByID.jsn", "w")
-	 io.write(ff, jsonText)
-	 io.close(ff)
-	 
-	 jsonText = json.encode(logSensorByName)
-	 ff = io.open(appDir .. "logSensorByName.jsn", "w")
-	 io.write(ff, jsonText)
-	 io.close(ff)	 
-
-	 jsonText = json.encode({logFile=config.logFile, seekTo=lastLogHeaderPos,
-				 selKeysStr=selKeysStr})
-	 ff = io.open(appDir .. "logSensorInfo.jsn", "w")
-	 io.write(ff, jsonText)
-	 io.close(ff)	 
-
-	 print("SensorL: Wrote all jsn files")
-	 
-	 system.messageBox("Log sensors ready - please Reload Lua", 4)
-	 
 	 return rlhDone
       end
       
@@ -317,13 +319,10 @@ end
 
 local function emulator_init()
    
-   local ans
-   local dev, emflag
    local text, jfile
    local fg
-   local logSensorInfo
-   local savedLogFile
-   local selKeys={}
+   --local logSensorInfo
+   --local savedLogFile
 
    
    jfile = appDir .. appShort .. ".jsn"
@@ -332,63 +331,14 @@ local function emulator_init()
    if not fg then print("SensorL: Cannot read " .. jfile) else
       config=json.decode(fg)
    end
-
-   for k,_ in pairs(config.selectedSensors) do
-      table.insert(selKeys, k)
-   end
-   table.sort(selKeys)
-   for _,v in pairs(selKeys) do
-      if not selKeysStr then selKeysStr = v else selKeysStr = selKeysStr..v end
-   end
-   selKeysStr = selKeysStr..config.logFile
    
-   text = io.readall(appDir .. "logSensorInfo.jsn", "r")
-   if not text then
-      print("SensorL: logSensorInfo.jsn not available")
-   else
-      logSensorInfo = json.decode(text)
-   end
-
-   -- check to see if sensors and logfile name still the same as last time
-   if logSensorInfo and logSensorInfo.selKeysStr == selKeysStr then
-      print("SensorL: Using logSensor saved files")
-      text = io.readall(appDir .. "logSensorByID.jsn", "r")
-      if not text then
-	 print("SensorL: logSensorByID.jsn not available")
-	 logSensorByID = {}
-      else
-	 logSensorByID = json.decode(text)
-      end
-      
-      text = io.readall(appDir .. "logSensorByName.jsn", "r")
-      if not text then
-	 print("SensorL: logSensorByName.jsn not available")
-	 logSensorByName = {}
-      else
-	 logSensorByName = json.decode(text)
-      end
-   end
-
    text = config.logFile
    fd = io.open(text, "r")
    if not fd then print("SensorL: Cannot read logfile: " .. text) return end
-   logHeaderPos = 0
+   --logHeaderPos = 0
 
-   -- do we have valid json serializations?
-   if (next(logSensorByName) and next(logSensorByID)) then 
-      if logSensorInfo.seekTo then io.seek(fd, logSensorInfo.seekTo) end
-      -- readLogTimeBlock expects first real data line read and split into items
-      logItems.line = io.readline(fd, true)
-      if not logItems.line then return nil end
-      logItems.cols = split(logItems.line, ';')
-      rlhDone = true
-      logItems.timestamp = tonumber(logItems.cols[1])
-      logTime0 = logItems.timestamp
-      sysTime0 = system.getTimeCounter()
-   else
-      print("SensorL: Reading log header")
-      readLogHeader()
-   end
+   print("SensorL: Reading log header")
+   readLogHeader()
 
    dev, emflag = system.getDeviceType()
    
@@ -402,6 +352,24 @@ local function emulator_init()
    end
 end
 
+alreadyCalled=false
+annDone=false
+function emulatorSensorsReady(fcn)
+   if emFlag ~= 1 then return true end
+   if alreadyCalled then return true end
+   if not rlhDone then
+      if not annDone then
+	 print("SensorL: Waiting for emulated sensors")
+	 annDone=true
+      end
+      return false
+   else
+      print("SensorL: Emulator ready")
+      fcn()
+      alreadyCalled=true
+   end
+end
+
 function emulator_getSensors()
 
    local st={}
@@ -412,10 +380,9 @@ function emulator_getSensors()
    -- experimenting with MGPS hardware. Undefined keys get 1 as observed.
    local sensorType={MGPS=0, MGPS_Quality=0, MGPS_SatCount=0, MGPS_Latitude=9,MGPS_Longitude=9,
 		     MGPS_Date=5, MGPS_TimeStamp=5, MGPS_Trip=4, MGPS_Distance=4}
-
+   
    if not rlhDone then
-      print("SensorL: Called getSensors before log header read - reload lua")
-      system.messageBox("SensorL: Please Reload Lua", 4)
+      print("SensorL: Called getSensors before log header completely read")
       sensorTbl = {}
       return sensorTbl
    end
@@ -440,7 +407,7 @@ function emulator_getSensors()
    -- multiple sensor labels. 
 
    ll=nil
-   for k,v in ipairs(st) do
+   for _,v in ipairs(st) do
       vv = logSensorByName[v]
       --print("k,v,vv", k,v,vv)
       -- how does jeti return type from getSensors? It's not in the log header..
@@ -471,7 +438,7 @@ end
 
 function emulator_getSensorValueByID(ID, Param)
    -- fake it .. return the extra info anyway
-   return emulator_getSensorById(ID, Param)
+   return emulator_getSensorByID(ID, Param)
 end
 
 function emulator_getSensorByID(ID, Param)
@@ -528,7 +495,7 @@ function emulator_getSensorByID(ID, Param)
 	 returnTbl = {}
 	 -- first copy the info that does not change - loaded from log header
 	 returnTbl.id         = ID
-	 returnTbl.param      = param
+	 returnTbl.param      = Param
 	 returnTbl.sensorName = logSensorByID[sf].sensorName
 	 returnTbl.label      = logSensorByID[sf].label
 	 returnTbl.unit       = logSensorByID[sf].unit
@@ -608,11 +575,11 @@ local function telePrint()
    
    -- arrange into a 4 col 2 row (max) table
    
-   for k=0, math.min(math.floor(#activeSensors/5), 1) do
-      lcd.drawText(5, ls+ss*k,   "Unit", font)
-      lcd.drawText(5, ls*2+ss*k, "Val",  font)
-      lcd.drawText(5, ls*3+ss*k, "Max",  font)
-      lcd.drawText(5, ls*4+ss*k, "Min",  font)
+   for kk=0, math.min(math.floor(#activeSensors/5), 1) do
+      lcd.drawText(5, ls+ss*kk,   "Unit", font)
+      lcd.drawText(5, ls*2+ss*kk, "Val",  font)
+      lcd.drawText(5, ls*3+ss*kk, "Max",  font)
+      lcd.drawText(5, ls*4+ss*kk, "Min",  font)
    end
 
    col=0
@@ -666,7 +633,9 @@ end
 
 local function init()
 
-   system.registerTelemetry(1, appName, 4, telePrint)   
+   system.registerTelemetry(1, appName, 4, telePrint)
+   dev, emFlag = system.getDeviceType()
+   --startUpTime = system.getTimeCounter()
 
    emulator_init()
 

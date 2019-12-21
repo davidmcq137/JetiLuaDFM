@@ -16,6 +16,9 @@
    configDir to be Apps which puts the config file in the directory
    with all the lua apps.
 
+   If Apps/SensorE.jsn does not exist, we will try to read
+   Apps/SensorEmulator.jsn
+
    Start this app first, and then when subsequent apps are started they
    will have their system telemetry routines redirected to the
    emulator.
@@ -58,9 +61,9 @@
 
 --]]
 
-local appShort="SensorE"
 local appName="Sensor Emulator"
-local appDir=appShort.."/"
+--local appShort="SensorE"
+--local appDir=appShort.."/"
 local appVersion="1.00"
 local appAuthor="DFM"
 
@@ -75,7 +78,6 @@ local lonVal
 local latDecimals
 local lonDecimals
 local time0
-local rlhDone=true
 
 local function rotateXY(x, y, rotation)
    local sinShape, cosShape
@@ -84,16 +86,6 @@ local function rotateXY(x, y, rotation)
    return (x * cosShape - y * sinShape), (x * sinShape + y * cosShape)
 end
 
--- include this for compatibility with SensorL.lua
-local called = false
-function emulator_ready(fcn)
-   if rlhDone and not called then
-      fcn()
-      called = true
-   end
-   return(rlhDone)
-end
-   
 function emulator_init()
 
    local dev, emflag
@@ -113,18 +105,22 @@ end
 function emulator_getSensors()
 
    local fg, text
-   local SEjsn
+   local SEjsn={}
 
    text = "Apps/SensorE.jsn"
    fg = io.readall(text)
 
-   if not fg then print("Cannot read " .. text) else
+   if not fg then
+      print("Cannot read " .. text)
+      SEjsn.configDir = "Apps"
+   else
       SEjsn=json.decode(fg)
    end
 
    text = SEjsn.configDir .. "/sensorEmulator.jsn"
    fg = io.readall(text)
    if not fg then print("Cannot read " .. text) else
+      print("Sensor config: "..text)
       sensorTbl=json.decode(fg)
    end
 
@@ -209,7 +205,7 @@ details on bit packing for date and time are in sensorLogEm.lua
 
 function emulator_getSensorValueByID(ID, Param)
    -- fake it .. return the extra info anyway
-   return emulator.getSensorById(ID, Param)
+   return emulator_getSensorByID(ID, Param)
 end
 
 function emulator_getSensorByID(ID, Param)
@@ -280,10 +276,9 @@ function emulator_getSensorByID(ID, Param)
 	 end
 
 	 env.t = ((system.getTimeCounter() - time0)/1000)
-	 if GPSParms and GPSParms.startTime then
-	    env.t = env.t + GPSParms.startTime
+	 if GPSparms and GPSparms.startTime then
+	    env.t = env.t + GPSparms.startTime
 	 end
-	 
 
 	 -- if we have GPS values spec'd, then load the GPS auxcontrols, env variables
 	 -- and evaluate the lua strings
@@ -467,16 +462,13 @@ local function telePrint()
    local ss = 80 -- section spacing
    local deg, min
 
-   -- note: this code only works for "typical" sensors .. not GPS, time etc .. need
-   -- to at least protect against other types or implement them properly!
-   
    -- arrange into a 4 col 2 row (max) table
    
-   for k=0, math.min(math.floor(#activeSensors/5), 1) do
-      lcd.drawText(5, ls+ss*k,   "Unit", font)
-      lcd.drawText(5, ls*2+ss*k, "Val",  font)
-      lcd.drawText(5, ls*3+ss*k, "Max",  font)
-      lcd.drawText(5, ls*4+ss*k, "Min",  font)
+   for kk=0, math.min(math.floor(#activeSensors/5), 1) do
+      lcd.drawText(5, ls+ss*kk,   "Unit", font)
+      lcd.drawText(5, ls*2+ss*kk, "Val",  font)
+      lcd.drawText(5, ls*3+ss*kk, "Max",  font)
+      lcd.drawText(5, ls*4+ss*kk, "Min",  font)
    end
 
    col=0
@@ -519,35 +511,8 @@ local function telePrint()
    end
 end
 
---[[
-local function dirTableIdxChanged(value)
-   dirTableIdx = value
-   system.pSave("dirTableIdx", value)
-   dirName = dirTable[dirTableIdx]
-   system.pSave("dirName", dirName)
-   if dirName then
-      system.messageBox("Initializing in App directory "..dirName, 3)
-      emulator_init(dirName)
-   end
-end
-
-local function initForm()
-
-   form.addRow(2)
-   form.addLabel({label="Select App Directory", width=170})
-   form.addSelectbox(dirTable, dirTableIdx, true, dirTableIdxChanged)
-
-   form.addRow(1)
-   form.addLabel({label=appName.." v"..appVersion.." ("..appAuthor..")",
-		  font=FONT_MINI, alignRight=true})
-end
---]]
-
 local function init()
 
-   local ff
-
-   --system.registerForm(1, MENU_APPS, appName, initForm)
    system.registerTelemetry(1, appName, 4, telePrint)
    
    emulator_init()

@@ -49,7 +49,8 @@ local appDir = "Apps/digitechSBT/"
 local transFile  = appDir .. "Trans.jsn"
 local pcallOK, emulator
 
-local SBTDeviceID=16819270 -- 0x100A446
+local SBTDeviceID=42054 -- 0xA446 so device 0 is 0x0100a446 = 16819270
+local SBTDeviceNumber
 
 ----------------------------------------------------------------------------
 
@@ -84,12 +85,22 @@ local needle_poly_small = {
 
 local function readSensors()
    local text
-   local sensors = system.getSensors()
+   local sensors
+   local sensorCode
+   local sensorNumber
+   
+   sensors = system.getSensors()
    --print("sensors:", sensors)
    
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
-	 if sensor.id == SBTDeviceID and sensor.param ~= 0 then
+	 sensorNumber = ((sensor.id >> 16) & 0xF0) >> 4
+	 if not sensorCode then print("SB-Temp device: ", sensorNumber) end
+	 sensorCode = sensor.id & 0xFFFF
+	 --print("hex sensor.id:"..string.format("%x", sensor.id))
+	 --print("sensorCode: "..string.format("%x", sensorCode))
+	 --print("sensorNumber: "..string.format("%x", sensorNumber))
+	 if sensorCode == SBTDeviceID and sensorNumber == SBTDeviceNumber and sensor.param ~= 0 then
 	    SBT_Telem[sensor.label].SeId = sensor.id
 	    SBT_Telem[sensor.label].SePa = sensor.param
 	    SBT_Telem[sensor.label].unit = sensor.unit
@@ -265,6 +276,11 @@ local function screenInit(reset)
 end
 
 
+local function SBTDeviceNumberChanged(value)
+   SBTDeviceNumber = value
+   system.pSave("SBTDeviceNumber", value)
+end
+
 local function screenIdxChanged(value)
    screenIdx = value
    system.pSave("screenIdx", value)
@@ -295,6 +311,11 @@ local function initForm(subForm)
    if subForm == 1 then
       form.setTitle(appName)
       form.setButton(1, "Reset", ENABLED)
+
+      form.addRow(2)
+      form.addLabel({label="SB-Temp Device Number", width=220})
+      form.addIntbox(SBTDeviceNumber,0,7,1,0,1,SBTDeviceNumberChanged)      
+
       form.addRow(2)
       form.addLabel({label="Select Display Screen", width=200})
       form.addSelectbox(screens, screenIdx, true, screenIdxChanged)
@@ -479,6 +500,8 @@ local function init()
    dev, emFlag = system.getDeviceType()   
 
    screenIdx = system.pLoad("screenIdx", 1)
+
+   SBTDeviceNumber = system.pLoad("SBTDeviceNumber", 0)
    
    --pcallOK, emulator = pcall(require, "sensorEmulator")
    ----if not pcallOK then print("pcall error: ", emulator) end

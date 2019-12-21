@@ -604,21 +604,6 @@ local function init()
 
    local testLog = false
 
-   -- changed to use new app-based emulator SensorE.lua
-   
-   --[[
-   if testLog then
-      pcallOK, emulator = pcall(require, "sensorLogEm")
-      --if not pcallOK then print("pcall error: ", emulator) end
-      if pcallOK and emulator then emulator.init("sensorLogEm.jsn") end
-   else
-         pcallOK, emulator = pcall(require, "sensorEmulator")
-      if not pcallOK then print("pcall error: ", emulator) end
-      if pcallOK and emulator then emulator.init("DFM-Graph") end
-   end
-   emulator_init("DFM-Graph")
-   --]]
-
    graphStyleIdx = system.pLoad("graphStyleIdx", 1)
    graphSe       = system.pLoad("graphSe", 1)
    graphSeId     = system.pLoad("graphSeId", 0)
