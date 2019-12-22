@@ -130,6 +130,9 @@ local activeSensors={}
 --local startUpTime
 local dev, emFlag
 
+local egsCPU
+local egsIdCPU
+
 logItems.cols={}
 logItems.vals={}
 
@@ -186,51 +189,52 @@ end
 
 local function readLogHeader()
 
-   local ff
    local uid
    local iid
    local hdr
-
+   local logData
+   local logHeaderPos = 0
+   local lastHeaderPos = 0
+   local needHead=true
+   
    if not fd then return false end
-   if rlhDone then return rlhDone end
+   if rlhDone then return rlhDone end   
 
-   if rlhCount == 0 then
-      -- read the comment line and toss .. assume one comment line only (!)
-      hdr = io.readline(fd)
-      print("SensorL: Header line "..hdr)
-      --logHeaderPos = logHeaderPos + #hdr + 1
-   end
-   rlhCount = rlhCount + 1
+   -- read a large enough number of bytes so that we are sure we have the whole header
+   -- it is typically < 3K even in complex models...
+   
+   logData = io.read(fd, 8192)
 
-   -- process logfile header 4 rows at a time so it keep cpu usage below cutoff
-   -- do 4 rows each call to loop()
+   local icnt=0
 
-   for _ = 1, 4, 1 do
-      --lastLogHeaderPos = logHeaderPos
-      logItems.line = io.readline(fd, true) -- true param removes newline
-      --logHeaderPos = logHeaderPos + #logItems.line + 1
-      if not logItems.line then
+   for ll in string.gmatch(logData, "[^\r\n]+") do
+      icnt = icnt + 1
+      print("icnt, CPU:", icnt, system.getCPU())
+      logItems.line = ll
+      lastHeaderPos = logHeaderPos
+      logHeaderPos = logHeaderPos + #ll + 1
+      if not ll then
 	 print("SensorL: Read eror on log header file")
 	 rlhDone=true
 	 return rlhDone
       end
+      if needHead and string.find(ll, "#") == 1 then
+	 print("SensorL: Header line: "..ll)
+	 needHead = false
+	 goto continue
+      end
 
-      logItems.cols = split(logItems.line, ";")
-
+      logItems.cols={}
+      for w in string.gmatch(logItems.line, "[^;]+") do
+	 table.insert(logItems.cols, w)
+      end
+      
       logItems.timestamp = tonumber(logItems.cols[1])
       if logItems.timestamp ~= 0 then -- this must be the first real data line... 
 	 rlhDone = true
 	 logTime0 = logItems.timestamp
 	 sysTime0 = system.getTimeCounter()
-	 
-	 -- for convenience, write a file with the names of all the sensors
-	 -- and for future use the two sensor tables
-	 
-	 jsonText = json.encode(allSensors)
-	 ff = io.open(appDir .. "AllSensorNames.jsn", "w")
-	 io.write(ff, jsonText)
-	 io.close(ff)
-
+	 io.seek(fd, lastHeaderPos)
 	 return rlhDone
       end
       
@@ -241,31 +245,34 @@ local function readLogHeader()
 	 uid = sensorFullName(logItems.sensorName, logItems.cols[4])
 	 table.insert(allSensors, uid)
 	 if config.selectedSensors[uid] then
-	    logSensorByName[uid] = {}
+	    --logSensorByName[uid] = {}
 	    iid = sensorFullID(toID(logItems.cols[2]), tonumber(logItems.cols[3]) )
 	    logSensorByID[iid] = {}
-	    logSensorByName[uid].label = logItems.cols[4]
+	    --logSensorByName[uid].label = logItems.cols[4]
 	    logSensorByID[iid].label = logItems.cols[4]	    
-	    logSensorByName[uid].sensorName = logItems.sensorName
+	    --logSensorByName[uid].sensorName = logItems.sensorName
 	    logSensorByID[iid].sensorName = logItems.sensorName
-	    logSensorByName[uid].unit = logItems.cols[5]
+	    --logSensorByName[uid].unit = logItems.cols[5]
 	    logSensorByID[iid].unit = logItems.cols[5]
-	    logSensorByName[uid].id = toID(logItems.cols[2])
+	    --logSensorByName[uid].id = toID(logItems.cols[2])
 	    logSensorByID[iid].id = toID(logItems.cols[2])
-	    logSensorByName[uid].param = tonumber(logItems.cols[3])
+	    --logSensorByName[uid].param = tonumber(logItems.cols[3])
 	    logSensorByID[iid].param = tonumber(logItems.cols[3])
+	    logSensorByName[uid] = logSensorByID[iid]
 	 end
       end
+      ::continue::
    end
    return rlhDone
 end
 
 ------------------------------------------------------------
+local first = true
 
 local function readLogTimeBlock()
 
    local sn, sl, sf
-
+   
    logItems.timestamp = logItems.cols[1]
 
    -- read the time block (consecutive group of lines with same time stamp)
@@ -301,6 +308,7 @@ local function readLogTimeBlock()
       end
 
       logItems.line = io.readline(fd, true)
+      --if first then print(logItems.line);first=false end
       
       if not logItems.line then
 	 return nil
@@ -335,7 +343,6 @@ local function emulator_init()
    text = config.logFile
    fd = io.open(text, "r")
    if not fd then print("SensorL: Cannot read logfile: " .. text) return end
-   --logHeaderPos = 0
 
    print("SensorL: Reading log header")
    readLogHeader()
@@ -365,7 +372,7 @@ function emulatorSensorsReady(fcn)
       return false
    else
       print("SensorL: Emulator ready")
-      fcn()
+      if fcn then fcn() end
       alreadyCalled=true
    end
 end
@@ -432,6 +439,7 @@ function emulator_getSensors()
       --print("Label,Unit, type:", vv.label, vv.unit, styp)
    end
    --print("ret: sensorTbl, #, type:", sensorTbl, #sensorTbl, type(sensorTbl))
+   egsCPU = system.getCPU()
    return sensorTbl
 end
 
@@ -550,7 +558,7 @@ function emulator_getSensorByID(ID, Param)
 	    end
 	    sensorCache[k][kk] = vv
 	 end
-
+	 egsIdCPU = system.getCPU()
 	 return returnTbl
       end
    end
@@ -628,6 +636,9 @@ local function telePrint()
 	 sec = sec + 1
       end
    end
+   lcd.drawText(260,125, string.format("T: %02d", system.getCPU()), FONT_MINI)
+   lcd.drawText(260,135, string.format("egs: %02d", egsCPU or 0), FONT_MINI)
+   lcd.drawText(260,145, string.format("egsId: %02d", egsIdCPU or 0), FONT_MINI)
 end
 
 
@@ -641,16 +652,7 @@ local function init()
 
 end
 
-local iloop=0
-local function loop()
-   -- readLogHeader() returns true when done
-   if not readLogHeader() then
-      iloop = iloop + 1
-      return
-   end
-end
-
-return {init=init, loop=loop, author=appAuthor, version=appVersion, name=appName}
+return {init=init, loop=nil, author=appAuthor, version=appVersion, name=appName}
 
 --[[
 
