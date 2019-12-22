@@ -1,0 +1,28 @@
+SensorE.Readme
+
+For a quick demo of the sensor emulator, you can use the graphing
+program DFM-Graph.lua which was created for testing the emulator.
+
+First create a subdirectory in the Apps/ directory called DFM-Graph
+
+Into DFM-Graph put the sensorEmulator.jsn file, and also
+sensorEmulatorGPS.jsn for later use.
+
+Then copy SensorE.lua and SensorE.jsn to the Apps/ directory.
+
+Now start SensorE.lua, then DFM-Graph.lua.
+
+Go into the emulator menu for displayed telemetry (Lua) and enable
+both telemetry windows, Sensor Emulator (shows the list of sensors
+being emulated plus their values) and Sensor Graph (the actual graph
+screen).
+
+Once you have these launched, open the menu for DFM-Graph and select EGT
+for Sensor1 and Airspeed for Sensor2. You should have a sinewave and
+noisy square wave on the screen. The defaults should all fit nicely on
+the screen.
+
+You can then experiment with the parameters in sensorEmulator.jsn and
+get a feel for how it works.
+
+

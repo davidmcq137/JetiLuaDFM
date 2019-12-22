@@ -1,0 +1,10 @@
+{
+"logFile":"DFM-LSO.log",
+"selectedSensors":[
+"MGPS_Latitude",
+"MGPS_Longitude",
+"CTU_Altitude",
+"MSPEED_Velocity",
+"MGPS_Course"
+]
+}

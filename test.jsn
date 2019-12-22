@@ -1,0 +1,5 @@
+[
+{"id":1,"param":1,"decimals":0,"type":1,"label":"Foo","unit":"bar","valid":"true"},
+{"id":1,"param":2,"decimals":0,"type":1,"label":"Foo","unit":"bar","valid":"true"},
+{"id":1,"param":3,"decimals":0,"type":1,"label":"Foo","unit":"bar","valid":"true"}
+]
