@@ -4,6 +4,9 @@
 *.lc
 *.csv
 *.out
+*.zip
+DS/
+~DS/
 DFM-LSO/*_ft.png
 DFM-LSO/temp*.png
 
