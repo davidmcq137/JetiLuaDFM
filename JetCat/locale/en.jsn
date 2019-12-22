@@ -1,0 +1,20 @@
+{
+    "appName":"JetCat-Telemetry",
+    "cfgName":"ECU. Settings",
+    "window1":"JetCat: Fuel, Status, Volt",
+    "window2":"JetCat: Battery, RPMs, EGT",
+    "window3":"ECU: RPM and TEMP gauge",
+    "left": "left",
+    "right": "right",
+    "selectConverterType":"ECU telemetry converter",
+    "selectTurbineType":"ECU type",
+    "selectTurbineConfig":"Turbine type",
+    "selectBatteryConfig":"Battery type",
+	"selectTankSize":"Fueltank size (ml)",
+    "selectTurbineSensor":"ECU converter sensor",
+    "selectLeftTurbineSensor":"ECU sensor turbine left",
+    "selectRightTurbineSensor":"ECU sensor turbine right",
+    "AudioOffSwitch": "Audio off switch",
+    "HapticOffSwitch": "Haptic off switch",
+    "MessageOffSwitch": "Message off switch"
+}

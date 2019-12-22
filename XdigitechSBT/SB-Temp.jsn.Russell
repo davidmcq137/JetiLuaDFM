@@ -1,0 +1,58 @@
+[
+    { 
+	"Name"  : "FiveCylinderRadial.png",
+	"Units" : "°F",
+	"Green" : 0,
+	"Yellow": 500,
+	"Red"   : 800,
+	"Max"   : 1000,
+	"Locations": [
+	    {"Name":"H1", "XT": 10,"YT":   0,"XP":   0,"YP":  76},
+	    {"Name":"H2", "XT": 10,"YT":  20,"XP":  72,"YP":  24},
+	    {"Name":"H3", "XT": 10,"YT":  40,"XP":  45,"YP": -62},
+	    {"Name":"H4", "XT": 10,"YT":  60,"XP": -45,"YP": -62},
+	    {"Name":"H5", "XT": 10,"YT":  80,"XP": -72,"YP":  24},	    
+	    {"Name":"E1", "XT": 10,"YT": 100,"XP":  29,"YP":  53},
+	    {"Name":"E2", "XT": 10,"YT": 120,"XP":  59,"YP": -11},
+	    {"Name":"E3", "XT": 10,"YT": 140,"XP":   7,"YP": -60}
+	]
+    }
+]
+
+
+-------------- discussion w/Rusell ----------------------
+
+explicit association of temp probe # and name (vs implicit with [])
+more descriptive names of x,y coords .. row,col for screen coords, xy offset from center of image for pic annotations. add shortname. add sortnumber .. if not using array have to sort table for display default sort by probenumber, allow other sort order with sortnumber?
+
+
+[
+    { 
+	"Name"  : "FiveCylinderRadial.png",
+	"Units" : "°F",
+	"Green" : 0,
+	"Yellow": 500,
+	"Red"   : 800,
+	"Max"   : 1000,
+	"TempProbes": {
+	    "CylinderHead1": {
+		"ShortName": "H1",
+		"ProbeNumber":1,
+		"SortNumber":1
+		"LabelScreenCol":10,
+		"LabelScreenRow":0,
+		"ProbeOffsetFromCenterX":0,
+		"ProbeOffsetFromCenterY":76
+	    },
+	    
+	    "H2", {"SensorIndex::2, "XT": 10,"YT":  20,"XP":  72,"YP":  24},
+	    {"Name":"H3", "XT": 10,"YT":  40,"XP":  45,"YP": -62},
+	    {"Name":"H4", "XT": 10,"YT":  60,"XP": -45,"YP": -62},
+	    {"Name":"H5", "XT": 10,"YT":  80,"XP": -72,"YP":  24},	    
+	    {"Name":"E1", "XT": 10,"YT": 100,"XP":  29,"YP":  53},
+	    {"Name":"E2", "XT": 10,"YT": 120,"XP":  59,"YP": -11},
+	    {"Name":"E3", "XT": 10,"YT": 140,"XP":   7,"YP": -60}
+	}
+    }
+]
+

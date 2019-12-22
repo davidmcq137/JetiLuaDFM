@@ -1,0 +1,140 @@
+{
+    "sensorname": "fuel",
+    "tanksize" : 3000,
+    "unit"      : "%",
+    "sensorproblem"   : {
+        "text"      : "Fuelsensor problem",
+        "value"     : 0,
+        "message"   : {
+            "enable" : true,
+            "seconds": 3
+        },
+        "audio" : {
+            "enable"    : true,
+            "repeat"    : 1,
+            "file"      : "Fuel sensor problem.wav"
+        },
+        "haptic"    : {
+            "enable"    : true,
+            "repeat"    : 1,
+            "stick"     : "right",
+            "vibrationProfile"   : 4
+        }
+    },
+    "alarms": [
+        {
+            "text"      : "Critical fuel",
+            "value"     : 5,
+            "message"   : {
+                "enable" : true,
+                "seconds": 3
+            },
+            "audio" : {
+                "enable"    : true,
+                "repeat"    : 1,
+                "file"      : "fuel_critical.wav"
+            },
+            "haptic"    : {
+                "enable"    : true,
+                "repeat"    : 1,
+                "stick"     : "right",
+                "vibrationProfile"   : 4
+            }
+        },
+        {
+            "text"      : "Critical fuel",
+            "value"     : 10,
+            "message"   : {
+                "enable" : true,
+                "seconds": 3
+            },
+            "audio" : {
+                "enable"    : true,
+                "repeat"    : 1,
+                "file"      : "fuel_critical.wav"
+            },
+            "haptic"    : {
+                "enable"    : true,
+                "repeat"    : 1,
+                "stick"     : "right",
+                "vibrationProfile"   : 4
+            }
+        },
+        {
+            "text"      : "Warning fuel",
+            "value"     : 20,
+            "message"   : {
+                "enable" : true,
+                "seconds": 3
+            },
+            "audio" : {
+                "enable"    : true,
+                "repeat"    : 1,
+                "file"      : "fuel_warning.wav"
+            },
+            "haptic"    : {
+                "enable"    : true,
+                "repeat"    : 1,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        },
+        {
+            "text"      : "Fuellevel 30%",
+            "value"     : 30,
+            "message"   : {
+                "enable" : true,
+                "seconds": 3
+            },
+            "audio" : {
+                "enable"    : true,
+                "repeat"    : 1,
+                "file"      : "fuel_30%.wav"
+            },
+            "haptic"    : {
+                "enable"    : false,
+                "repeat"    : 1,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        },
+        {
+            "text"      : "Fuellevel 50%",
+            "value"     : 50,
+            "message"   : {
+                "enable" : true,
+                "seconds": 3
+            },
+            "audio" : {
+                "enable"    : true,
+                "repeat"    : 1,
+                "file"      : "fuel_50%.wav"
+            },
+            "haptic"    : {
+                "enable"    : false,
+                "repeat"    : 1,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        },
+        {
+            "text"      : "Fuellevel 75%",
+            "value"     : 75,
+            "message"   : {
+                "enable" : true,
+                "seconds": 3
+            },
+            "audio" : {
+                "enable"    : true,
+                "repeat"    : 1,
+                "file"      : "fuel_75%.wav"
+            },
+            "haptic"    : {
+                "enable"    : false,
+                "repeat"    : 1,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        }
+    ]
+}

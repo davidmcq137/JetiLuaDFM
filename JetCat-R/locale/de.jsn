@@ -1,0 +1,20 @@
+{
+    "appName":"JetCat-Telemetrie-R",
+    "cfgName":"ECU. Settings",
+    "window1":"JetCat-R: Fuel, Status, Volt",
+    "window2":"JetCat-R: Battery, RPMs, EGT",
+    "window3":"ECU: RPM und TEMP Anzeige",
+    "left": "links",
+    "right": "rechts",
+    "selectConverterType":"ECU Telemetrie Adapter-R",
+    "selectTurbineType":"ECU Typ-R",
+    "selectTurbineConfig":"Turbinen Type-R",
+    "selectBatteryConfig":"Akku Type-R",
+	"selectTankSize":"Tankinhalt-R (ml)",
+    "selectTurbineSensor":"ECU Konverter Sensor-R",
+    "selectLeftTurbineSensor":"ECU Sensor linke Turbine",
+    "selectRightTurbineSensor":"ECU Sensor rechte Turbine",
+    "AudioOffSwitch": "Audio AUS Schalter-R",
+    "HapticOffSwitch": "Vibration AUS Schalter-R",
+    "MessageOffSwitch": "Nachrichten AUS Schalter-R"
+}

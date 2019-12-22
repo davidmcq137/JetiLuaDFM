@@ -1,0 +1,49 @@
+{
+    "percentage" : {
+        "4.20" : "100",  
+        "4.15" : "90",  
+        "4.10" : "80",  
+        "4.05" : "70",  
+        "4.00" : "60",  
+        "3.95" : "50",  
+        "3.90" : "40",  
+        "3.85" : "30",  
+        "3.80" : "20",  
+        "3.70" : "10"
+    },
+    "high"  : {
+        "text"      : "ECU Battery high",
+        "value"     : 9,
+        "message"   : {
+            "enable" : true,
+            "seconds": 5
+        },
+        "audio" : {
+            "enable"    : true,
+            "repeat"    : 1,
+            "file"      : "ecuv_high.wav"
+        },
+        "haptic"    : {
+            "enable"    : false,
+            "stick"     : "left",
+            "vibrationProfile"   : 4
+        }
+    },
+    "low"   : {
+        "text"      : "ECU Battery low",
+        "value"     : 6,
+        "message"   : {
+            "enable" : true,
+            "seconds": 5
+        },
+        "audio" : {
+            "enable"    : true,
+            "file"      : "ecuv_low.wav"
+        },
+        "haptic"    : {
+            "enable"    : true,
+            "stick"     : "left",
+            "vibrationProfile"   : 4
+        }
+    }
+}

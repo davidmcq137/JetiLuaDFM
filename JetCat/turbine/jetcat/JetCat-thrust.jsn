@@ -1,0 +1,150 @@
+{
+    "rpm" : {
+        "sensorname": "rpm",
+        "high"  : {
+            "text"      : "Turbine RPM high",
+            "value"     : 250000,
+            "message"   : {
+                "enable" : false,
+                "seconds": 5
+            },
+            "audio" : {
+                "enable"    : true,
+                "file"      : "rpm_high.wav"
+            },
+            "haptic"    : {
+                "enable"    : false,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        },
+        "low"   : {
+            "text"      : "Turbine RPM low",
+            "value"     : 16000,
+            "message"   : {
+                "enable" : false,
+                "seconds": 5
+            },
+            "audio" : {
+                "enable"    : false,
+                "file"      : "rpm_low.wav"
+            },
+            "haptic"    : {
+                "enable"    : false,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        }
+    },
+    "rpm2" : {
+        "sensorname": "rpm2",
+        "high"  : {
+            "text"      : "Shaft RPM high",
+            "value"     : 8700,
+            "message"   : {
+                "enable" : false,
+                "seconds": 5
+            },
+            "audio" : {
+                "enable"    : true,
+                "file"      : "rpm2_high.wav"
+            },
+            "haptic"    : {
+                "enable"    : false,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        },
+        "low"   : {
+            "text"      : "Shaft RPM low",
+            "value"     : 1000,
+            "message"   : {
+                "enable" : false,
+                "seconds": 5
+            },
+            "audio" : {
+                "enable"    : false,
+                "file"      : "rpm2_low.wav"
+            },
+            "haptic"    : {
+                "enable"    : false,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        }
+    },
+    "egt" : {
+        "sensorname": "egt",
+        "high"  : {
+            "text"      : "EGT high",
+            "value"     : 750,
+            "message"   : {
+                "enable" : false,
+                "seconds": 5
+            },
+            "audio" : {
+                "enable"    : false,
+                "file"      : "egt_high.wav"
+            },
+            "haptic"    : {
+                "enable"    : false,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        },
+        "low"   : {
+            "text"      : "Turbine temperature low",
+            "value"     : 150,
+            "message"   : {
+                "enable" : false,
+                "seconds": 5
+            },
+            "audio" : {
+                "enable"    : false,
+                "file"      : "egt_low.wav"
+            },
+            "haptic"    : {
+                "enable"    : false,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        }            
+    },
+    "pumpv" : {
+        "sensorname": "pumpv",
+        "high"  : {
+            "text"      : "Pump volt high",
+            "value"     : 7.0,
+            "message"   : {
+                "enable" : false,
+                "seconds": 5
+            },
+            "audio" : {
+                "enable"    : false,
+                "file"      : "pumpv_high.wav"
+            },
+            "haptic"    : {
+                "enable"    : false,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        },
+        "low"   : {
+            "text"      : "Flameout",
+            "value"     : 0.2,
+            "message"   : {
+                "enable" : false,
+                "seconds": 5
+            },
+            "audio" : {
+                "enable"    : false,
+                "file"      : "pumpv_low.wav"
+            },
+            "haptic"    : {
+                "enable"    : false,
+                "stick"     : "left",
+                "vibrationProfile"   : 4
+            }
+        }
+    }
+}

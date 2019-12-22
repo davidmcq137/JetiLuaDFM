@@ -1,0 +1,40 @@
+{
+    "sensorname": "ecuv",
+    "type" : "nicd",
+    "cells" : 9,
+    "high"  : {
+        "text"      : "ECU Battery high",
+        "value"     : 10.8,
+        "message"   : {
+            "enable" : true,
+            "seconds": 5
+        },
+        "audio" : {
+            "enable"    : true,
+            "repeat"    : 1,
+            "file"      : "ecuv_high.wav"
+        },
+        "haptic"    : {
+            "enable"    : false,
+            "stick"     : "left",
+            "vibrationProfile"   : 4
+        }
+    },
+    "low"   : {
+        "text"      : "ECU Battery low",
+        "value"     : 8.1,
+        "message"   : {
+            "enable" : true,
+            "seconds": 5
+        },
+        "audio" : {
+            "enable"    : true,
+            "file"      : "ecuv_low.wav"
+        },
+        "haptic"    : {
+            "enable"    : true,
+            "stick"     : "left",
+            "vibrationProfile"   : 4
+        }
+    }
+}
