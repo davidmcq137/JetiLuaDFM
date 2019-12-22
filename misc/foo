@@ -1,0 +1,80 @@
+ok, here is my take on minimizing computation while calculating a
+slope (derivative) on a data stream.
+
+start with the simple formula for slope of a line fit to a set of
+points:
+
+m = sum( ( x[i]-xbar) * (y[i]-ybar) ) / sum( x[i] - xbar)^2)
+
+where the sum is from 1 to n points
+
+and xbar = sum(x)/n and ybar = sum(y)/n
+
+since x is just a repeating set of time steps we can show with a
+little algebra that
+
+xbar = dt * (n+1) / 2
+
+since we know that our x spacing is always the same, call it dt (in
+your case I think 0.010 secs) then we can compute much of this formula
+statically .. for example the denominator, let's call it den, with a
+little more algebra, is:
+
+den = dt*dt*(sumk2(n) - n*(n+1)*(n+1)/4)
+
+where sumk2(n) = n*(n+1)*(2*n+1)/6 .. the sum of squares from 1 to n
+
+Here is a table of sumk2 vs n
+
+n       sumk2
+--------------
+2	0.5
+3	2.0
+4	5.0
+5	10.0
+6	17.5
+7	28.0
+8	42.0
+9	60.0
+10	82.5
+11	110.0
+12	143.0
+13	182.0
+14	227.5
+15	280.0
+16	340.0
+
+We also note that the x[i]-xbar part of the sum in the numerator is
+essentially just a constant weighting vector the same each time we loop,
+
+wv[1..n] = { -(n+1)/2 + 1, ....,(n+1)/2 -1,  (n+1)/2 - 1}
+
+or, said another way...
+
+for i=1,n
+  wv[i] = -(n+1)/2 + i
+end
+
+that is, wv goes from -(n+1)/2 to +(n+1)/2 by steps of 1. Again, a
+loop-invariant value..wv is computed and filled in once at initialization.
+
+so all we are left with is the loop in the numerator which just n
+iteratons of a few multiplies, and you can use your existing running
+average for y (in your case this is the pitot speed) for ybar. you do have
+to keep the last n values of y in an array or ring buffer if you are not already...
+
+then we have:
+
+numerator = dt * sum ( wv[i] * (y[i] - ybar) ) -- where sum is a loop from 1..n
+
+demoninator = dt*dt*(sumk2(n) - n*(n+1)*(n+1)/4)
+
+slope = (numerator / demoninator) / dt
+
+nice that the time spacing comes out so simply at the end if you want real units.
+
+of course if you don't care about units, and are ok with a deriv in
+arbitrary units, you can toss out dt so long as its constant, and toss
+out the whole denominator since it's just a constant for a given n.
+
+so, I think this is pretty simple.. but let me know what you think.

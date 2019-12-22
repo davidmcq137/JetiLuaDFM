@@ -1,0 +1,46 @@
+{
+  "default":"en",
+  "cz":{
+    "appName":"Předletová kontrola",
+    "cfgName":"Nastavení předletové kontroly",
+    "audio":"Zvuková indikace",
+    "switch":"Spínač",
+    "data":"data-cz.jsn"
+  },
+  "en":{
+    "appName":"Preflight Check",
+    "cfgName":"Preflight Check Settings",
+    "audio":"Audio",
+    "switch":"Switch",
+    "data":"data-en.jsn" 
+  },
+  "de":{
+    "appName":"Vorflugcheck",
+    "cfgName":"Vorflugcheck Einstellungen",
+    "audio":"Audio",
+    "switch":"Switch",
+    "data":"data-de.jsn" 
+  },
+  "fr":{
+    "appName":"Contrôle Pré vol",
+    "cfgName":"Réglages paramètres Pré vol",
+    "audio":"Audio",
+    "switch":"Interrupteur",
+    "data":"data-fr.jsn" 
+  },
+  "it":{
+    "appName":"Checklist Prevolo",
+    "cfgName":"Regolazione parametri prevolo",
+    "audio":"Audio",
+    "switch":"Interruttore",
+    "data":"data-it.jsn" 
+
+  },
+  "es":{
+    "appName":"Control Pre-vuelo",
+    "cfgName":"Ajustes Control Pre-vuelo",
+    "audio":"Audio",
+    "switch":"Interruptor",
+    "data":"data-es.jsn" 
+  }
+}

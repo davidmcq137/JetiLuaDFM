@@ -1,0 +1,43 @@
+
+{
+   "Steps": [
+               {
+                  "StepName": "Check Fuel State",
+		  "StepNameLong":"Confirm fuel is above minimum value for takeoff",
+		  "StepFunction": {"FuelState": {"Fuelmax":100, "Fuelmin":90} }
+               },
+	       {
+	          "StepName": "Check Battery MaH",
+		  "StepNameLong":"Confirm batteries have sufficient charge remaining",
+		  "StepFunction": {"BatteryCharge": {"Batt1Min":2000, "Batt2Min":2000} }
+               },
+	       {
+	          "StepName": "Check Battery Volts",
+		  "StepFunction": {"BatteryVolt": {"Batt1Min":6.0, "Batt2Min":6.0} }
+               },	       
+	       {
+	          "StepName": "Check Quiescent Current",
+  "StepFunction": {"BatteryCurrent":{"Batt1CurentMax":1.0, "Batt2CurrentMax":1.0, "TotCurrentMax":1.5}}
+  	       },
+	       {
+	          "StepName": "Check Turbine State",
+		  "StepFunction": {"TurbineState": {"PumpMax":1.2,"ECUMinV":9.9} }
+	       },
+	       {
+	          "StepName": "Check Battery Current Under Load",
+		  "StepFunction":[
+		     
+		        [
+			   {"Surface":"Left Aileron", "Chan":"P4", "Pos1": 100, "Pos2":-100, "Time":2},
+		   	   {"Surface":"Right Aileron","Chan":"P5", "Pos1":-100, "Pos2": 100, "Time":2}
+			],
+			
+			[			
+			   {"Surface":"Left Aileron",  "Chan":"P4", "Pos1": 100, "Pos2":-100, "Time":2},
+		   	   {"Surface":"Right Aileron", "Chan":"P5", "Pos1": 100, "Pos2":-100, "Time":2}
+			]
+		    ]
+
+	       }
+	       ]
+}

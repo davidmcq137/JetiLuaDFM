@@ -1,0 +1,524 @@
+--[[
+
+   sensorLogEm.lua
+
+   Read a Jeti log file and replay the sensor information as a sensor emulation
+
+   Usage: 
+
+
+   Released under MIT license by DFM 2019
+
+
+--]]
+
+local emulator={}
+local fcnSave
+
+local sensorTbl={}
+local sensorDir
+local sensorList
+
+-- "globals" for log reading
+
+local fd
+local rlhCount=0
+local rlhDone=false
+local logSensorByID = {}
+local logSensorByName = {}
+local allSensors = {}
+local logItems={}
+local logTime0
+local sysTime0
+local deltaT
+
+logItems.cols={}
+logItems.vals={}
+
+--[[
+logItems.selectedSensors = {MGPS_Latitude  =1, -- keyvalues unimp, just need to be true
+			    MGPS_Longitude =2,
+			    CTU_Altitude   =3,
+			    MSPEED_Velocity=4,
+			    MGPS_Course    =5}
+--]]
+ -------------------------------------------------------------
+
+-- function to show all global variables .. uncomment for debug ..
+local seen={}
+
+local function dump(t,i)
+	seen[t]=true
+	local s={}
+	local n=0
+	for k in pairs(t) do
+		n=n+1 s[n]=k
+	end
+	table.sort(s)
+	for k,v in ipairs(s) do
+		print(i,v)
+		v=t[v]
+		if type(v)=="table" and not seen[v] then
+			dump(v,i.."\t")
+		end
+	end
+end
+
+------------------------------------------------------------
+
+local function split(str, ch)
+   local index, acc = 0, {}
+   while index do
+      local nindex = string.find(str, ch, 1+index)
+      if not nindex then
+	 table.insert(acc, str:sub(index))
+	 break
+      end
+      table.insert(acc, str:sub(index, nindex-1))
+      index = 1+nindex
+   end
+   return acc
+end
+
+------------------------------------------------------------
+
+local function sensorFullName(device_name, param_name)
+   return device_name .. "_" .. param_name -- sensor name is human readable
+                                           -- e.g. CTU_Altitude
+end
+
+------------------------------------------------------------
+
+local function sensorFullID(devID, devParm)
+   --print("in SensorID:", devID, devParm)
+   --print("returning", devID..devParm)
+   return devID..devParm -- sensor ID is machine readable
+                         -- e.g. 420460025613 (13 concat to 4204600256)
+end
+
+------------------------------------------------------------
+
+local function unpackAngle(packed)
+   return ((packed >> 16) & 0xFF)
+          + ((packed & 0xFFFF) * 0.001)/60
+end
+
+------------------------------------------------------------
+
+function emulator.readLogHeader()
+
+   local ff
+   local uid
+   local iid
+   
+   --print("in rlh")
+   
+   if not fd then return end
+   if rlhDone then return rlhDone end
+
+   if rlhCount == 0 then
+      io.readline(fd) -- read the comment line and toss .. assume one comment line only (!)
+   end
+   rlhCount = rlhCount + 1
+   --
+   -- process logfile header 4 rows at a time so it keep cpu usage below cutoff
+   -- do 4 rows each call to loop()
+   --
+   for i=1, 4, 1 do
+      logItems.line = io.readline(fd, true) -- true param removes newline
+      if not logItems.line then
+	 print("Read eror on log header file")
+	 rlhDone=true
+	 return rlhDone
+      end
+      logItems.cols = split(logItems.line, ";")
+
+      --for k,v in ipairs(logItems.cols) do
+	 --print(k,v)
+      --end
+      
+      logItems.timestamp = tonumber(logItems.cols[1])
+      if logItems.timestamp ~= 0 then
+	 rlhDone = true
+	 logTime0 = logItems.timestamp
+	 --print("logTime0", logTime0)
+	 sysTime0 = system.getTimeCounter()
+	 --print("sysTime0", sysTime0)
+	 deltaT = sysTime0 - logTime0 -- so that logTime + deltaT = sysTime
+	 --print("deltaT", deltaT)
+
+	 --for k,v in pairs(allSensors) do
+	 --   print(k,v)
+	 --end
+	 
+	 jsonText = json.encode(allSensors)
+	 ff = io.open("Apps/sensorLogEmAll.jsn", "w")
+	 io.write(ff, jsonText)
+	 io.close(ff)
+	 
+	 
+	 return rlhDone
+      end
+      if logItems.cols[3] == "0" then
+	 logItems.sensorName=logItems.cols[4]
+      else
+	 uid = sensorFullName(logItems.sensorName, logItems.cols[4])
+	 table.insert(allSensors, uid)
+	 if logItems.selectedSensors[uid] then
+	    logSensorByName[uid] = {}
+	    iid = sensorFullID(logItems.cols[2], logItems.cols[3])
+	    logSensorByID[iid] = {}
+	    --rt.label = logItems.cols[4]
+	    logSensorByName[uid].label = logItems.cols[4]
+	    logSensorByID[iid].label = logItems.cols[4]	    
+	    --rt.sensorName = logItems.sensorName
+	    logSensorByName[uid].sensorName = logItems.sensorName
+	    logSensorByID[iid].sensorName = logItems.sensorName
+	    
+	    --rt.unit = logItems.cols[5]
+	    logSensorByName[uid].unit = logItems.cols[5]
+	    logSensorByID[iid].unit = logItems.cols[5]
+
+	    --rt.id = tonumber(logItems.cols[2])
+	    logSensorByName[uid].id = logItems.cols[2]
+	    logSensorByID[iid].id = logItems.cols[2]
+
+	    --rt.param = tonumber(logItems.cols[3])
+	    logSensorByName[uid].param = logItems.cols[3]
+	    logSensorByID[iid].param = logItems.cols[3]
+
+	    --print("&&&", iid, uid, logItems.cols[2], logItems.cols[3])
+	    
+	    --rt.type = 1 -- MUST FIX!!!
+	    logSensorByName[uid].type = 1
+	    logSensorByID[iid].type = 1
+	    
+	    --rt.decimals = 0 -- SAME!!!
+	    logSensorByName[uid].decimals = 0
+	    logSensorByID[iid].decimals = 0
+	    
+	    --rt.value = 0
+	    logSensorByName[uid].value = 0
+	    logSensorByID[iid].value = 0
+	    
+	    --print("uid, iid:", uid, iid)
+
+	 end
+      end
+   end
+   return rlhDone
+end
+
+------------------------------------------------------------
+
+local logLines=0
+
+local function readLogTimeBlock()
+
+   local sn, sl, sf
+   local retItems = {}
+
+   logItems.timestamp = logItems.cols[1]
+
+   
+   repeat
+      logItems.deviceID = logItems.cols[2]
+      if tonumber(logItems.deviceID) ~= 0 then -- if logItems.deviceID == 0 then it's a message
+	 for i = 3, #logItems.cols, 4 do
+	    sf = sensorFullID(logItems.cols[2], logItems.cols[i])
+	    if logSensorByID[sf] then
+	       sn = logSensorByID[sf].sensorName
+	       sl = logSensorByID[sf].label
+	       --print("sn, sl", sn, sl)
+	       --print("sn_sl", sn.."_"..sl)
+	       --print("cols[2], cols[i]", logItems.cols[2], logItems.cols[i])
+	       if logItems.selectedSensors[sn.."_"..sl] then
+		  --print("selected:", sn, sl)
+		  logItems.encoding = tonumber(logItems.cols[i+1])
+		  logItems.decimals = tonumber(logItems.cols[i+2])
+		  logItems.value    = tonumber(logItems.cols[i+3])
+		  logItems.unit = logSensorByID[sf].unit
+		  retItems.id = logItems.cols[2]
+		  retItems.param = logItems.cols[i]
+		  retItems.value = logItems.value
+		  retItems.decimals = logItems.decimals
+		  retItems.type = logItems.encoding
+		  retItems.label = logSensorByID[sf].label
+		  retItems.unit = logItems.unit
+		  retItems.sensorName = sn
+		  
+	       end
+	    end
+	 end
+      else
+	 system.messageBox(logItems.cols[6], 2)	 
+      end
+
+
+      logItems.line = io.readline(fd, true)
+      --print("line:", logItems.line)
+      
+      logLines = logLines + 1
+      if not logItems.line then
+	 return nil
+      end
+
+      logItems.cols = split(logItems.line, ';')
+
+      if (logItems.cols[1] ~= logItems.timestamp) then -- new time block, dump vals and reset
+	 return logItems.timestamp, retItems
+      end
+   until false
+end
+
+------------------------------------------------------------
+
+
+function emulator.init(dir)
+   
+   local ans
+   local dev, emflag
+
+   print("in emulator.init")
+
+   fg = io.readall("Apps/testEM.jsn")
+   local config = json.decode(fg)
+
+   print("F", config.logFile)
+   print("1", config.selectedSensors["MGPS_Latitude"])
+   print("5", config.selectedSensors["MGPS_Course"])   
+   
+   fg = io.readall("Apps/sensorLogEm.jsn")
+   if not fg then print("Cannot read " .. text) else
+      logItems.selectedSensors=json.decode(fg)
+   end
+
+   --for k,v in pairs(logItems.selectedSensors) do
+   --   print(k,v)
+   --end
+   
+   fd = io.open("Apps/DFM-LSO.log", "r")
+   if fd then emulator.readLogHeader() end
+   
+   if dir then sensorDir = dir else sensorDir = '' end
+   
+   dev, emflag = system.getDeviceType()
+   
+   ans = form.question("Use sensor emulator",
+		       " Apps/" .. sensorDir .. "/sensorEmulator.jsn ?",
+		       "---",3500, false, 0)
+   if ans == 1 and emflag == 1 then
+      print("Using Sensor Emulator")
+      system.getSensors = emulator.getSensors
+      system.getSensorByID = emulator.getSensorByID
+      system.getSensorValueByID = emulator.getSensorValueByID
+   else
+      print("Using Native Sensors")
+   end
+end
+
+function emulator.getSensors()
+
+   local fg, text
+   local st={}
+   local vv
+   local ll
+   
+   -- this function is tasked with builting the sensor table that would
+   -- have been created for the subset of sensors we have chosen in the
+   -- sensorLogEm.jsn file
+   
+   --print("emulator.getSensors()")
+
+   -- we have to be careful to traverse the sensors so that each name and its
+   -- labels are grouped together and we have to make a kind of a header for
+   -- each one with the param=0 and sensorName="" record
+   
+   -- so ... first sort the keys
+   for k in pairs(logSensorByName) do table.insert(st,k) end
+   table.sort(st)
+
+   -- now traverse the table in the order of the sorted keys and produce
+   -- one param=0 record for each sensor name, each of which can contain
+   -- multiple sensor labels. 
+
+   ll=nil
+   for i,v in ipairs(st) do
+      vv = logSensorByName[v]
+      --print("i, ll, vv.label, vv.sensorName", i, ll, vv.label, vv.sensorName)
+      --print("i, vv.id, vv.param", i, vv.id, vv.param)
+      if vv.sensorName ~= ll  then
+	 table.insert(sensorTbl,
+		      {id=vv.id,param=0,sensorName="",label=vv.sensorName})
+      end
+      table.insert(sensorTbl,
+		   {id=vv.id,param=vv.param,sensorName=vv.sensorName,
+		    label=vv.label,unit=vv.unit})
+      ll = vv.sensorName -- see if next sensor is a different one
+   end
+
+   -- should we copy sensorTbl and convert ID and Param to numbers (vs. strings?)
+   
+   for k,v in pairs(sensorTbl) do
+      --print(k,v)
+
+      --for kk,vv in pairs(v) do
+	 --print(kk,vv)
+	 --if kk == "id" then print(vv, type(vv),  tonumber(vv)) end
+	 --if kk == "param" then print(vv, type(vv), tonumber(vv)) end	 
+      --end
+   end
+
+   return sensorTbl
+end
+
+-- not implemented: valSec, valMin, valHour
+-- not implemented: valYear, valMonth, valDay
+-- not implemented valGPS
+
+function emulator.getSensorValueByID(ID, Param)
+   -- fake it .. return the extra info anyway
+   return emulator.getSensorById(ID, Param)
+end
+
+local function getLogTelem()
+
+end
+
+local lastTimeBlock = 0
+
+
+function emulator.getSensorByID(ID, Param)
+
+      
+   local returnTbl
+   local ts, tb
+   local sf
+   local etS, etL
+   local timSd60
+   local min, sec
+   local timstr
+   local ic
+   
+   --print("in getSensorByID")
+
+   if fd and rlhDone then
+
+      -- only read the time block if it is time to do so...
+      etS = system.getTimeCounter() - sysTime0
+      etL = lastTimeBlock - logTime0
+
+      timSd60 = tonumber(etL)/(60000) -- to mins from ms
+      min, sec = math.modf(timSd60)
+      sec = sec * 60
+      timstr = string.format("%02d:%02.2f", min, sec)
+      if etS > etL then -- read new time block, otherwise use stored data
+	 --print("reading new time block(s) at "..timstr, etS/etL)
+	 local ic=0
+	 repeat
+	    ic =ic + 1
+	    if ic > 1 then print("WOW! ic:", ic) end
+	    lastTimeBlock, tb = readLogTimeBlock()
+	    if tb then
+	       --populate result tables
+	       for k,v in pairs(tb) do
+		  sf = sensorFullID(tb.id, tb.param)
+		  if logSensorByID[sf] then
+		     logSensorByID[sf].type = tb.type
+		     logSensorByID[sf].decimals = tb.decimals
+		     logSensorByID[sf].value = tb.value
+		     logSensorByID[sf].max = logSensorByID[sf].max or 0
+		     if tb.value > logSensorByID[sf].max then
+			logSensorByID[sf].max = tb.value
+		     end
+		     logSensorByID[sf].min = logSensorByID[sf].min or 0
+		     if tb.value < logSensorByID[sf].min then
+			logSensorByID[sf].min = tb.value
+		     end
+		     logSensorByID[sf].lastUpdate = system.getTimeCounter()
+		  end
+	       end
+	    else
+	       io.close(fd)
+	       print('Closing log replay file')
+	       fd = nil
+	       return nil
+	    end
+	 until tonumber(lastTimeBlock) > etS
+      end
+   end   
+   
+   for _,v in ipairs(sensorTbl) do
+      if v.id == ID and v.param == Param then
+	 sf = sensorFullID(ID, Param)
+	 returnTbl = {}
+	 returnTbl.id         = ID
+	 returnTbl.param      = Param
+	 returnTbl.decimals   = logSensorByID[sf].decimals
+	 returnTbl.type       = logSensorByID[sf].type
+	 returnTbl.label      = logSensorByID[sf].label
+	 returnTbl.unit       = logSensorByID[sf].unit
+	 returnTbl.valid      = true
+	 returnTbl.sensorName = logSensorByID[sf].sensorName
+	 returnTbl.value      = logSensorByID[sf].value / 10^returnTbl.decimals
+	 returnTbl.max        = logSensorByID[sf].max or 0
+	 returnTbl.min        = logSensorByID[sf].min or 0
+	 --print(returnTbl.label, returnTbl.value)
+	 return returnTbl
+      end
+   end
+   
+   return nil
+end
+
+return emulator
+
+--[[
+
+[
+
+{"id":1,"param":0,"sensorName":"", "label":"PS1(P5)"},
+{"id":1,"param":1,
+"decimals":0,
+"type":1,
+"sensorName":"PS1(P5)",
+"label":"EGT",
+"unit":"°C",
+"control":"P5",
+"auxcontrol":["P6","P7"],
+"controlmin":0,
+"controlmax":800,
+"funcString":"s / 2 * sin(2*pi*t / ( 30*(S6+1) ) ) + s / 2 + prt('S7',S7)"
+},
+
+{"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
+{"id":2,
+"param":1,
+"decimals":0,
+"type":1,
+"sensorName":"PS2(P6)",
+"label":"Airspeed",
+"unit":"m/s",
+"control":"P6",
+"controlmin":0,
+"controlmax":200,
+"funcString":"s / 2 * sq(t / 30) + s / 2 + s / 5 * rand() + s / 5"
+},
+
+{"id":3,"param":0,"sensorName":"", "label":"PS3(P7)"},
+{"id":3,
+"param":1,
+"decimals":0,
+"type":1,
+"sensorName":"PS3(P7)",
+"label":"G Force",
+"unit":"g",
+"control":"P7",
+"controlmin":-10,
+"controlmax":10,
+"funcString":"abs(s)"
+}
+
+]
+
+--]]

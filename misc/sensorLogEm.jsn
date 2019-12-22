@@ -1,0 +1,16 @@
+{
+"logFile":"Log/20190926/16-56-45.log",
+"selectedSensors":
+   {
+   "MGPS_Latitude":     true,
+   "MGPS_Longitude":    true,
+   "MGPS_AltRelat.":    true,
+   "CTU_Altitude":      true,
+   "CTU_G_Force":       true,
+   "CTU_Fuel_remaining":true,
+   "MSPEED_Velocity":   true,
+   "MGPS_Speed":        true,
+   "MGPS_TimeStamp":    true,   
+   "MGPS_Date":         true
+   }
+}

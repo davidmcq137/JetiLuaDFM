@@ -1,0 +1,12 @@
+{
+"throttleChannel": "P4",
+"throttleFull":0.90,
+"throttleIdle":-0.90,
+"brakeChannel":"P5",
+"brakeOn": 0.90,
+"flapChannel": "SD",
+"flapFull": -0.90,
+"gearChannel": "SB",
+"gearDown": -0.90,
+"pitotCal":90
+}
