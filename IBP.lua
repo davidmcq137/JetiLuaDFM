@@ -177,7 +177,7 @@ local function readSensors()
 		  IBP.Packs[packNo].Name = packNames[packNo]
 	       else
 		  IBP.Packs[packNo].Name = lang.Dev..device..
-		     "("..(IBP.Packs[packNo].Label["Cell 3"] and "2S)" or "3S)")
+		     "("..(IBP.Packs[packNo].Label["Cell 3"] and "3S)" or "2S)")
 	       end
 	       IBP.Packs[packNo].HiWater = {}
 	       IBP.Packs[packNo].HiWater.Current = 0
@@ -229,6 +229,8 @@ local function drawBattery4(ix,iy,packNo,name)
    lcd.setColor(0,255,0)
 
    soc = IBP.Packs[packNo].Label.SOC.value
+   if soc > 100 then soc = 100 end
+   if soc < 0 then soc = 0 end
    if soc <= 50 and soc > 25 then lcd.setColor(255,255,0) end
    if soc <= 25 and soc >  0 then lcd.setColor(255,0,0) end
    if soc > 15 or system.getTime() % 2 == 0 then
@@ -290,6 +292,8 @@ local function drawBattery2(ix,iy,packNo,name)
    drawTextCenter(FONT_MINI, name, ix+18/2+1, iy+63)
    lcd.setColor(0,255,0)
    soc = IBP.Packs[packNo].Label.SOC.value
+   if soc > 100 then soc = 100 end
+   if soc < 0 then soc = 0 end
    if soc <= 50 and soc > 25 then lcd.setColor(255,255,0) end
    if soc <= 25 and soc >  0 then lcd.setColor(255,0,0) end
    if soc > 15 or system.getTime() % 2 == 0 then

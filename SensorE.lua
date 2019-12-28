@@ -79,6 +79,32 @@ local latDecimals
 local lonDecimals
 local time0
 
+local LiFe={}
+LiFe[1]={s=100.00,v=3.59}
+LiFe[2]={s=95.71,v=3.32}
+LiFe[3]={s=91.47,v=3.31}
+LiFe[4]={s=87.09,v=3.31}
+LiFe[5]={s=82.85,v=3.30}
+LiFe[6]={s=78.54,v=3.30}
+LiFe[7]={s=74.18,v=3.29}
+LiFe[8]={s=69.92,v=3.28}
+LiFe[9]={s=65.61,v=3.27}
+LiFe[10]={s=61.31,v=3.27}
+LiFe[11]={s=57.05,v=3.27}
+LiFe[12]={s=52.74,v=3.27}
+LiFe[13]={s=48.46,v=3.26}
+LiFe[14]={s=44.14,v=3.26}
+LiFe[15]={s=39.83,v=3.26}
+LiFe[16]={s=35.55,v=3.25}
+LiFe[17]={s=31.24,v=3.24}
+LiFe[18]={s=26.87,v=3.23}
+LiFe[19]={s=22.59,v=3.22}
+LiFe[20]={s=18.24,v=3.20}
+LiFe[21]={s=13.88,v=3.19}
+LiFe[22]={s=9.63,v=3.17}
+LiFe[23]={s=5.35,v=3.12}
+LiFe[24]={s=1.01,v=2.90}
+
 local function rotateXY(x, y, rotation)
    local sinShape, cosShape
    sinShape = math.sin(rotation)
@@ -136,6 +162,21 @@ function emulator_getSensors()
    return sensorTbl
 end
 
+local function A123Volt(SOC)
+
+   --print("a123: SOC", SOC)
+   if SOC >= LiFe[1].s then return LiFe[1].v end
+   if SOC <= LiFe[#LiFe].s then return LiFe[#LiFe].v end
+
+   for i=1, #LiFe-1 do
+      if SOC >= LiFe[i+1].s and SOC <=LiFe[i].s then
+	 ds = (SOC - LiFe[i+1].s) / (LiFe[i].s - LiFe[i+1].s)
+	 --print("a123: ret:", LiFe[i+1].v + ds * (LiFe[i].v - LiFe[i+1].v))
+	 return LiFe[i+1].v + ds * (LiFe[i].v - LiFe[i+1].v)
+      end
+   end
+end
+
 local function triangleWave(T)
    local t
    t = T % 1
@@ -172,18 +213,36 @@ local function sinPerOne(T) -- sin with period 1
    return math.sin(t)
 end
 
-local function cosPerOne(T) -- sin with period 1
+local function cosPerOne(T) -- cos with period 1
    local t
    t = T * math.pi * 2
    return math.cos(t)
 end
 
-local function tanPerOne(T) -- sin with period 1
+local function tanPerOne(T) -- tan with period 1
    local t
    t = T * math.pi * 2
    return math.tan(t)
 end
 
+local GTbl={}
+
+local function globalInit(i, v)
+   if not GTbl[i] then
+      GTbl[i] = v
+   end
+   return 0
+end
+
+local function globalSet(i, v)
+   GTbl[i]=v
+   return v
+end
+
+local function globalRead(i, undef)
+   if GTbl[i] then return GTbl[i] end
+   if undef then return undef else return 0 end
+end
 
 
 local function printFcn(...)
@@ -208,6 +267,9 @@ function emulator_getSensorValueByID(ID, Param)
    return emulator_getSensorByID(ID, Param)
 end
 
+local lastT = {}
+local deltaT = {}
+
 function emulator_getSensorByID(ID, Param)
    local c
    local chunk, err, status, result
@@ -219,8 +281,9 @@ function emulator_getSensorByID(ID, Param)
    local GPSdt
    
    local env = {
-      s = 0,
-      t = 0,
+      s  = 0,
+      t  = 0,
+      dt = 0,
       sin   = math.sin,
       sin1  = sinPerOne,
       cos   = math.cos,
@@ -242,12 +305,17 @@ function emulator_getSensorByID(ID, Param)
       sq    = squareWave,
       prt   = printFcn,
       seq   = sequencer,
+      G     = globalRead,
+      GInit = globalInit,
+      GSet  = globalSet,
+      A123  = A123Volt,
    }
 
    if not sensorTbl then return nil end
    if not ID or not Param then return nil end
    if ID == 0 or Param == 0 then return nil end
    if system.getTimeCounter() < 0 then print("time negative") end
+   --print(env.t, lastT, 1000*env.dt)
    for k,v in ipairs(sensorTbl) do
       if v.id == ID and v.param == Param then
 	 returnTbl = {}
@@ -259,6 +327,20 @@ function emulator_getSensorByID(ID, Param)
 	 returnTbl.unit = v.unit
 	 returnTbl.valid = true
 	 returnTbl.sensorName = v.sensorName
+	 
+	 uid = tostring(math.floor(ID))..tostring(math.floor(Param))
+	 env.t = ((system.getTimeCounter() - time0)/1000)
+	 if lastT[uid] then
+	    deltaT[uid] = env.t - lastT[uid]
+	 else
+	    deltaT[uid] = 0
+	 end
+	 env.dt = deltaT[uid]
+	 lastT[uid] = env.t
+	 --if uid == "1681927210" then
+	 --   print(uid, env.t, lastT[uid], env.dt)
+	 --end
+	 
 	 if v.control then
 	    c=system.getInputs(v.control)
 	    env[v.control] = c -- can also get raw -1 to 1 by using name e.g. "P5"
@@ -275,7 +357,6 @@ function emulator_getSensorByID(ID, Param)
 	    end
 	 end
 
-	 env.t = ((system.getTimeCounter() - time0)/1000)
 	 if GPSparms and GPSparms.startTime then
 	    env.t = env.t + GPSparms.startTime
 	 end

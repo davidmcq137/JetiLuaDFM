@@ -21,17 +21,26 @@
    in actual flight. The tools described here are the first
    implementation of that vision. This tool, SensorE.lua can read a
    json file that describes a set of sensors, and the values they
-   should return. On its initialization this app replaces the system
-   routines such as system.getSensors and system.getSensorByID and
-   returns values in a way that is specified in the json file. the
-   file allows the creation of a range from min to max for each analog
-   slider and also allows you to specify a lua expression that
-   transforms this simple linear range to whatever you like.
+   should return.
+
+   The format of the json file (sensorEmulator.jsn) has the same structure
+   as the json representation of the table that system.getSensors()
+   returns in normal use, so it should be familiar.
+   
+   On its initialization this app replaces the system routines such as
+   system.getSensors and system.getSensorByID with its own
+   implementations, and returns values in a way that is specified in
+   the json file. The file allows the creation of a range from min to
+   max for each analog slider and also allows you to specify a lua
+   expression that transforms this simple linear range to whatever you
+   like.
 
    The tool can also simulate GPS sensors by giving a lat,long origin
    and specifying the x and y values for a parametric equation that
    can do things such as generating an ellipse or lissajous figure
    flight path and return the appropriate GPS values in sensor.valGPS.
+   This information is specified in a second json file
+   sensorEmulatorGPS.jsn.
 
    There is also a separate tool SensorL.lua that reads a Jeti TX
    log file and plays back selected sensors (these sensors are defined
@@ -97,6 +106,54 @@
    with a variable anount of noise added from the math.random
    function, with the noise amplitude going from 0 to 1 controlled by
    slider S6.
+
+   If your need support for persistence or global variables, there are
+   three functions available to address that requirement. GInit(n, v)
+   initializes global varible n (n=1,2,3,...) to the (numerical) value
+   v. GInit only sets the value of global n one time. The function returns
+   0 since it has to be put inline with the expression .. stand by for
+   an example. GSet(n, v) sets the value of global n to v. For
+   convenience it returns the value that the variable was set
+   to. G(n) returns the value of global n, or 0 if not defined.
+   
+   Example - for sensors emulating a battery monitor, for the current sensor
+   you might have this block of json in sensorEmulator.jsn:
+   
+    {"id":16819272,
+     "param": 10,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "control": "P7",
+     "controlmin": 0,
+     "controlmax": -4000,
+     "funcString":"GSet(1, s+200*rand())",
+     "label": "Current",
+     "unit": "mA"
+    },
+
+   Note the use of rand() to generate some noise for realism, and how
+   it is setting a global variable to that other sensors json blocks
+   can refer to it. Of course the variable s will be the value derived
+   from control P7 as it ranges from -1 to 1 the value of s will range
+   from 0 to -4000ma (-4A).
+
+   This would create a globally usable function G(1) that returned the
+   present value of current and make it available to any other sensor
+   emulator's funcString.
+
+   Then you could have on the sensor indicating capacity remaining (in
+   its own json block):
+
+   "funcString":"GInit(2, 5000) + GSet(2, max(0, G(2) + dt * G(1)/3600))"
+
+   This assumes the pack capacity is specified in mAh (hence the init
+   to 5000 mAh). The time in variable dt is supplied and indicates the
+   time in seconds since this sensor (the ID/param pair) was read. The
+   pre-defined variable dt is in seconds so we divide by 3600 to get
+   hours. Note that GInit() returns 0 so it can be part of the
+   expression and only "fire" once .. and not change the rest of the
+   computation.
 
    Also available is a print function prt() that can be used in
    expressions for info or debugging. It is a variadic function and
