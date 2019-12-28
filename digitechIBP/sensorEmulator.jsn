@@ -106,8 +106,8 @@
      "sensorName": "IBP",
      "control": "P7",
      "controlmin": 0,
-     "controlmax": 4000,
-     "funcString":"-s+200*rand()",
+     "controlmax": -4000,
+     "funcString":"s+200*rand()",
      "label": "Current",
      "unit": "mA"
     },
@@ -219,6 +219,7 @@
      "control": "P7",
      "controlmin": 0,
      "controlmax": -4000,
+     "funcString":"s+300*rand()",     
      "label": "Current",
      "unit": "mA"
     },
@@ -343,6 +344,7 @@
      "control": "P7",
      "controlmin": 0,
      "controlmax": -4000,
+     "funcString":"s+400*rand()",     
      "label": "Current",
      "unit": "mA"
     },
@@ -466,6 +468,7 @@
      "control": "P7",
      "controlmin": 0,
      "controlmax": -4000,
+     "funcString":"s+200*rand()",     
      "label": "Current",
      "unit": "mA"
     }

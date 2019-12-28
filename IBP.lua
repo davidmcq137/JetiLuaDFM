@@ -259,9 +259,11 @@ local function drawBattery4(ix,iy,packNo,name)
    lcd.drawFilledRectangle(ix+52, iy+130-math.floor(cur/(IBP.Menu.maxCurrent/100)*1.1-1)-2, 5,
 			   math.min(math.floor(cur/(IBP.Menu.maxCurrent/100)*1.1+1), 130))
    if HiW.Red then lcd.setColor(255,0,0) end
-   lcd.drawFilledRectangle(ix+52,
-			   iy+130-math.floor(HiW.Current/(IBP.Menu.maxCurrent/100)*1.1-1)-2, 5, 3)
-   
+   if HiW.Current > IBP.Menu.maxCurrent / 20 then
+      lcd.drawFilledRectangle(ix+52,
+			      iy+130-math.floor(HiW.Current/(IBP.Menu.maxCurrent/100)*1.1-1)-2, 5, 3)
+   end
+
    lcd.setColor(0,0,0)
 end
 
@@ -318,7 +320,9 @@ local function drawBattery2(ix,iy,packNo,name)
    lcd.drawFilledRectangle(ix+11, iy+60-0.9*cur/(IBP.Menu.maxCurrent/100)/2, 4, 0.9*cur/(IBP.Menu.maxCurrent/100)/2)
 
    if HiW.Red then lcd.setColor(255,0,0) end
-   lcd.drawFilledRectangle(ix+11, iy+60-0.9*HiW.Current/(IBP.Menu.maxCurrent/100)/2, 4,2)
+   if HiW.Current > IBP.Menu.maxCurrent / 20 then
+      lcd.drawFilledRectangle(ix+11, iy+60-0.9*HiW.Current/(IBP.Menu.maxCurrent/100)/2, 4,2)
+   end
    
    lcd.setColor(0,0,0)
 end
@@ -412,7 +416,8 @@ local function initForm(subForm)
 
       form.addRow(2)
       form.addLabel({label=lang.telemUpdate, width=220})
-      form.addSelectbox({lang.updSlw, lang.updMed, lang.updFst}, IBP.Menu.updateRate, false, updateRateChanged)
+      form.addSelectbox({lang.updSlw, lang.updMed, lang.updFst},
+	 IBP.Menu.updateRate, false, updateRateChanged)
 
       form.addRow(2)
       form.addLink((function() form.reinit(2) end),
@@ -427,7 +432,8 @@ local function initForm(subForm)
 	 {label=lang.packNames})
 
       form.addRow(1)
-      form.addLabel({label=appName..lang.lVer..appVersion,font=FONT_MINI, alignRight=true})      
+      form.addLabel({label=appName..lang.lVer..appVersion.." ("..appAuthor..")",
+		     font=FONT_MINI, alignRight=true})      
    elseif subForm == 2 then
       IBP.Menu.formShowing = subForm
       form.setTitle(lang.sttl13)
@@ -582,17 +588,16 @@ local function init()
 
    battImage   = lcd.loadImage(appDir.."digitechV.png")
    packNames   = system.pLoad("packNames", {})
+   lastCapLeft = system.pLoad("lastCapLeft", {})
    IBP.Menu.teleSelect  = system.pLoad("teleSelect", 1)
    IBP.Menu.maxCurrent  = system.pLoad("maxCurrent", 4000)
-   lastCapLeft = system.pLoad("lastCapLeft", {})
    IBP.Menu.updateRate  = system.pLoad("updateRate", 2)
    
-   if lastCapLeft then print("IBP: Valid lastCapLeft[]") end
-
+   --if lastCapLeft then print("IBP: Valid lastCapLeft[]") end
    --local jtext = json.encode(IBP)
    --local fp = io.open("Apps/IBP.jsn", "w")
-   io.write(fp, jtext)
-   io.close(fp)
+   --io.write(fp, jtext)
+   --io.close(fp)
 
    setLanguage()
    
