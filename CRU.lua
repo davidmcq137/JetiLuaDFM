@@ -181,13 +181,13 @@ end
 --------------------------------------------------------------------------------
 
 local function playFile(filename, parm)
-   local slash
+   local slash, prefix
    if emFlag == 1 then slash="" else slash="/" end
    if locale == 'en' then prefix = slash..appDir else
       prefix = slash..appDir..locale.."-"
    end
 
-   if emFlag == 1 then print("calling system.playFile with: "..prefix..filename) end
+   --if emFlag == 1 then print("calling system.playFile with: "..prefix..filename) end
    
    system.playFile(prefix..filename, parm)
 end

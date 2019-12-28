@@ -72,7 +72,7 @@
      "controlmin": 0,
      "controlmax": 5000,
      "label": "Cap. left",
-     "unit": "ma/h"
+     "unit": "mAh"
     },
     {"id":16819272,
      "param": 7,
@@ -84,7 +84,7 @@
      "controlmin": 0,
      "controlmax": 5000,
      "label": "Cap. total",
-     "unit": "ma/h"
+     "unit": "mAh"
     },
     {"id":16819272,
      "param": 8,
@@ -97,6 +97,19 @@
      "controlmax": 200,
      "label": "Temperature",
      "unit": "°C"
+    },
+    {"id":16819272,
+     "param": 10,
+     "decimals": 0,
+     "type": 1,
+     "auxcontrol": ["P6"],
+     "sensorName": "IBP",
+     "control": "P7",
+     "controlmin": 0,
+     "controlmax": 4000,
+     "funcString":"-s+200*rand()",
+     "label": "Current",
+     "unit": "mA"
     },
 
     {"id":17867848, "param": 0,"sensorName": "", "label": "IBP"},
@@ -171,7 +184,7 @@
      "controlmin": 0,
      "controlmax": 5000,
      "label": "Cap. left",
-     "unit": "ma/h"
+     "unit": "mAh"
     },
     {"id":17867848,
      "param": 7,
@@ -183,7 +196,7 @@
      "controlmin": 0,
      "controlmax": 5000,
      "label": "Cap. total",
-     "unit": "ma/h"
+     "unit": "mAh"
     },
     {"id":17867848,
      "param": 8,
@@ -197,6 +210,19 @@
      "label": "Temperature",
      "unit": "°C"
     },
+    {"id":17867848,
+     "param": 10,
+     "decimals": 0,
+     "type": 1,
+     "auxcontrol": ["P6"],
+     "sensorName": "IBP",
+     "control": "P7",
+     "controlmin": 0,
+     "controlmax": -4000,
+     "label": "Current",
+     "unit": "mA"
+    },
+    
 
     {"id":19965000, "param": 0,"sensorName": "", "label": "IBP"},
 
@@ -282,7 +308,7 @@
      "controlmin": 0,
      "controlmax": 5000,
      "label": "Cap. left",
-     "unit": "ma/h"
+     "unit": "mAh"
     },
     {"id":19965000,
      "param": 8,
@@ -294,7 +320,7 @@
      "controlmin": 0,
      "controlmax": 5000,
      "label": "Cap. total",
-     "unit": "ma/h"
+     "unit": "mAh"
     },
     {"id":19965000,
      "param": 9,
@@ -307,6 +333,18 @@
      "controlmax": 200,
      "label": "Temperature",
      "unit": "°C"
+    },
+    {"id":19965000,
+     "param": 10,
+     "decimals": 0,
+     "type": 1,
+     "auxcontrol": ["P6"],
+     "sensorName": "IBP",
+     "control": "P7",
+     "controlmin": 0,
+     "controlmax": -4000,
+     "label": "Current",
+     "unit": "mA"
     },
 
     {"id":21013576, "param": 0,"sensorName": "", "label": "IBP"},
@@ -393,7 +431,7 @@
      "controlmin": 0,
      "controlmax": 5000,
      "label": "Cap. left",
-     "unit": "ma/h"
+     "unit": "mAh"
     },
     {"id":21013576,
      "param": 8,
@@ -405,7 +443,7 @@
      "controlmin": 0,
      "controlmax": 5000,
      "label": "Cap. total",
-     "unit": "ma/h"
+     "unit": "mAh"
     },
     {"id":21013576,
      "param": 9,
@@ -418,9 +456,18 @@
      "controlmax": 200,
      "label": "Temperature",
      "unit": "°C"
+    },
+    {"id":21013576,
+     "param": 10,
+     "decimals": 0,
+     "type": 1,
+     "auxcontrol": ["P6"],
+     "sensorName": "IBP",
+     "control": "P7",
+     "controlmin": 0,
+     "controlmax": -4000,
+     "label": "Current",
+     "unit": "mA"
     }
-    
-    
-    
 
 ]
