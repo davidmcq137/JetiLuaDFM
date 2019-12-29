@@ -39,11 +39,12 @@
 local appShort   = "IBP"
 local appName    = "Intelligent Battery Pack"
 local appAuthor  = "DFM"
-local appVersion = "0.13"
+local appVersion = "0.14"
 local appDir = "Apps/digitechIBP/"
+local logDir = appDir.."Log/"
 local transFile  = appDir .. "Trans.jsn"
 
-local IBPDeviceID=42056 -- 0xA448 so device 0 is 0x0100a448 = 16819272
+local IBPDeviceID=42056 -- 0xA448 so device 0 is 0x0100a448 = 16819272 decimal
 
 ----------------------------------------------------------------------------
 
@@ -92,6 +93,7 @@ local maxPacks=6
 local battImage
 local packNames = {}
 local lastCapLeft = {}
+local lastVoltage = {}
 local lCPU=0
 local tCPU=0
 local dev
@@ -464,7 +466,7 @@ end
 local saveLoopIdx = 1
 local saveLoopKey = nil
 local saveTime = system.getTimeCounter()
-local lastpSave = saveTime
+local lastpSave = saveTime -8000 -- make sure first sample is at 2 secs
 local firstTime = true
 
 local function loop()
@@ -477,6 +479,8 @@ local function loop()
    local mult = 0.1 -- to make sure the change in capacity is above roundoff
    local nlt={1, 5, 10}
    local now
+   local fp
+   local fn
    
    -- decided to "uroll" the nested loops, this code was taking way too much CPU time
    -- so instead of refreshing every telem param from every IBP on every loop(), we just
@@ -529,12 +533,27 @@ local function loop()
 	    if lastCapLeft[i] then
 	       cap = math.floor(IBP.Packs[i].Label["Cap. left"].value)
 	       chg = cap - lastCapLeft[i]
+	       volt = lastVoltage[i] / 1000. or 0
+	       --print(i, lastCapLeft[i], cap, chg)
 	       if chg > cap*mult then
 		  print("IBP Speech: Battery pack " .. i .. " charged: " .. chg .. " mAh")
 		  playFile("battery_pack.wav", AUDIO_QUEUE)
 		  system.playNumber(i, 0)
 		  playFile("charged.wav", AUDIO_QUEUE)
 		  system.playNumber(chg, 0, "mAh")
+		  fn = logDir.."IBP_Pack_ID_"..
+		     string.format("%08X",IBP.Packs[i].Label["Cap. left"].SeId)..".csv"
+		  --print("Opening File:", fn)
+		  fp = io.open(fn, "a")
+		  if fp then
+		     dt = system.getDateTime()
+		     io.write(fp, string.format("%d-%02d-%02d %d:%02d:%02d,%d,%2.3f\r\n",
+					dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec, chg, volt))
+		     io.close(fp)
+		  else
+		     print("IBP: Cannot open file "..fn)
+		  end
+		  
 	       end
 	    end
 	 end
@@ -543,10 +562,14 @@ local function loop()
       
       for i = 1, #IBP.Packs do
 	 lastCapLeft[i] = math.floor(IBP.Packs[i].Label["Cap. left"].value)
+	 lastVoltage[i] = math.floor(IBP.Packs[i].Label.Pack.value)
+	 
 	 lastpSave = now
 	 lastRedLight = now
       end
-      system.pSave("lastCapLeft", lastCapLeft)      
+      system.pSave("lastCapLeft", lastCapLeft)
+      system.pSave("lastVoltage", lastVoltage)
+      
    end
    lCPU = system.getCPU()
 end
@@ -593,6 +616,7 @@ local function init()
    battImage   = lcd.loadImage(appDir.."digitechV.png")
    packNames   = system.pLoad("packNames", {})
    lastCapLeft = system.pLoad("lastCapLeft", {})
+   lastVoltage = system.pLoad("lastVoltage", {})
    IBP.Menu.teleSelect  = system.pLoad("teleSelect", 1)
    IBP.Menu.maxCurrent  = system.pLoad("maxCurrent", 4000)
    IBP.Menu.updateRate  = system.pLoad("updateRate", 2)
