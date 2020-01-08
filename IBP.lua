@@ -1,12 +1,12 @@
 --[[
 
-----------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
    IBP Display -- Display program for Carsten Groen's Intelligent Battery Pack
 
    Requires transmitter firmware 4.22 or higher.
     
-----------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
    Released under MIT-license
 
@@ -43,6 +43,7 @@ local appVersion = "0.14"
 local appDir = "Apps/digitechIBP/"
 local logDir = appDir.."Log/"
 local transFile  = appDir .. "Trans.jsn"
+local appStartTime
 
 local IBPDeviceID=42056 -- 0xA448 so device 0 is 0x0100a448 = 16819272 decimal
 
@@ -94,6 +95,9 @@ local battImage
 local packNames = {}
 local lastCapLeft = {}
 local lastVoltage = {}
+local lastRunTime={}
+local startRunTime={}
+
 local lCPU=0
 local tCPU=0
 local dev
@@ -202,6 +206,7 @@ local function drawBattery4(ix,iy,packNo,name)
    
    local soc
    local cur
+   local val
    local HiW
    
    if redLightOn then
@@ -221,8 +226,10 @@ local function drawBattery4(ix,iy,packNo,name)
 		      v.sname, v.font)
       end
       lcd.setColor(50,50, 255)
+      val = IBP.Packs[packNo].Label[k].value/v.scale
+      if k == "Current" and val < 0 then val = 0 end
       drawTextRight(v.font,
-		    string.format(v.fmt, IBP.Packs[packNo].Label[k].value/v.scale),
+		    string.format(v.fmt, val),
 		    ix+90, iy+18+21*v.iy)
    end
    
@@ -481,6 +488,7 @@ local function loop()
    local now
    local fp
    local fn
+   local time
    
    -- decided to "uroll" the nested loops, this code was taking way too much CPU time
    -- so instead of refreshing every telem param from every IBP on every loop(), we just
@@ -528,14 +536,26 @@ local function loop()
    
    if now - lastpSave > 10000 then
       if firstTime then
-	 --print("firstTime")
+	 -- if lastRunTime is {} then there is no runtime to carry over .. reset to 0
+	 -- otherwise save the "carryover" run time in startRunTime[]
+	 for i=1, #IBP.Packs do
+	    if not lastRunTime[i] then
+	       lastRunTime[i] = 0
+	       startRunTime[i] = 0
+	    else
+	       startRunTime[i] = lastRunTime[i]
+	    end
+	 end
 	 for i = 1, #IBP.Packs do
 	    if lastCapLeft[i] then
 	       cap = math.floor(IBP.Packs[i].Label["Cap. left"].value)
 	       chg = cap - lastCapLeft[i]
-	       volt = lastVoltage[i] / 1000. or 0
-	       --print(i, lastCapLeft[i], cap, chg)
 	       if chg > cap*mult then
+		  volt = lastVoltage[i] / 1000. or 0
+		  time = lastRunTime[i]
+		  -- if batt i was charged, reset running time counters
+		  lastRunTime[i] = 0
+		  startRunTime[i] = 0
 		  print("IBP Speech: Battery pack " .. i .. " charged: " .. chg .. " mAh")
 		  playFile("battery_pack.wav", AUDIO_QUEUE)
 		  system.playNumber(i, 0)
@@ -543,12 +563,14 @@ local function loop()
 		  system.playNumber(chg, 0, "mAh")
 		  fn = logDir.."IBP_Pack_ID_"..
 		     string.format("%08X",IBP.Packs[i].Label["Cap. left"].SeId)..".csv"
-		  --print("Opening File:", fn)
 		  fp = io.open(fn, "a")
 		  if fp then
 		     dt = system.getDateTime()
-		     io.write(fp, string.format("%d-%02d-%02d %d:%02d:%02d,%d,%2.3f\r\n",
-					dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec, chg, volt))
+		     io.write(fp,
+			      string.format("%d-%02d-%02d %d:%02d:%02d,%d,%2.3f,%4.2f\r\n",
+					    dt.year, dt.mon, dt.day,
+					    dt.hour, dt.min, dt.sec,
+					    chg, volt, time))
 		     io.close(fp)
 		  else
 		     print("IBP: Cannot open file "..fn)
@@ -563,12 +585,16 @@ local function loop()
       for i = 1, #IBP.Packs do
 	 lastCapLeft[i] = math.floor(IBP.Packs[i].Label["Cap. left"].value)
 	 lastVoltage[i] = math.floor(IBP.Packs[i].Label.Pack.value)
-	 
-	 lastpSave = now
-	 lastRedLight = now
+	 lastRunTime[i] = startRunTime[i] + (now - appStartTime)/1000
+	 --print(i, lastRunTime[i])
       end
+
+      lastpSave = now
+      lastRedLight = now
+
       system.pSave("lastCapLeft", lastCapLeft)
       system.pSave("lastVoltage", lastVoltage)
+      system.pSave("lastRunTime", lastRunTime)
       
    end
    lCPU = system.getCPU()
@@ -617,10 +643,14 @@ local function init()
    packNames   = system.pLoad("packNames", {})
    lastCapLeft = system.pLoad("lastCapLeft", {})
    lastVoltage = system.pLoad("lastVoltage", {})
+   lastRunTime = system.pLoad("lastRunTime", {})
+   
    IBP.Menu.teleSelect  = system.pLoad("teleSelect", 1)
    IBP.Menu.maxCurrent  = system.pLoad("maxCurrent", 4000)
    IBP.Menu.updateRate  = system.pLoad("updateRate", 2)
    
+   appStartTime = system.getTimeCounter()
+
    --if lastCapLeft then print("IBP: Valid lastCapLeft[]") end
    --local jtext = json.encode(IBP)
    --local fp = io.open("Apps/IBP.jsn", "w")

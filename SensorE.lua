@@ -78,103 +78,14 @@ local lonVal
 local latDecimals
 local lonDecimals
 local time0
-
-local LiFe={}
-LiFe[1]={s=100.00,v=3.59}
-LiFe[2]={s=95.71,v=3.32}
-LiFe[3]={s=91.47,v=3.31}
-LiFe[4]={s=87.09,v=3.31}
-LiFe[5]={s=82.85,v=3.30}
-LiFe[6]={s=78.54,v=3.30}
-LiFe[7]={s=74.18,v=3.29}
-LiFe[8]={s=69.92,v=3.28}
-LiFe[9]={s=65.61,v=3.27}
-LiFe[10]={s=61.31,v=3.27}
-LiFe[11]={s=57.05,v=3.27}
-LiFe[12]={s=52.74,v=3.27}
-LiFe[13]={s=48.46,v=3.26}
-LiFe[14]={s=44.14,v=3.26}
-LiFe[15]={s=39.83,v=3.26}
-LiFe[16]={s=35.55,v=3.25}
-LiFe[17]={s=31.24,v=3.24}
-LiFe[18]={s=26.87,v=3.23}
-LiFe[19]={s=22.59,v=3.22}
-LiFe[20]={s=18.24,v=3.20}
-LiFe[21]={s=13.88,v=3.19}
-LiFe[22]={s=9.63,v=3.17}
-LiFe[23]={s=5.35,v=3.12}
-LiFe[24]={s=1.01,v=2.90}
+local saveSwitch={}
+local switchSeq
 
 local function rotateXY(x, y, rotation)
    local sinShape, cosShape
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
    return (x * cosShape - y * sinShape), (x * sinShape + y * cosShape)
-end
-
-function emulator_init()
-
-   local dev, emflag
-   
-   dev, emflag = system.getDeviceType()
-   
-   if emflag == 1 then      
-      system.getSensors = emulator_getSensors
-      system.getSensorByID = emulator_getSensorByID
-      system.getSensorValueByID = emulator_getSensorValueByID
-      system.messageBox("SensorE: Using emulated sensors", 3)
-   else
-      system.messageBox("SensorE: Using native sensors", 3)
-   end
-end
-
-function emulator_getSensors()
-
-   local fg, text
-   local SEjsn={}
-
-   text = "Apps/SensorE.jsn"
-   fg = io.readall(text)
-
-   if not fg then
-      print("Cannot read " .. text)
-      SEjsn.configDir = "Apps"
-   else
-      SEjsn=json.decode(fg)
-   end
-
-   text = SEjsn.configDir .. "/sensorEmulator.jsn"
-   fg = io.readall(text)
-   if not fg then print("Cannot read " .. text) else
-      print("Sensor config: "..text)
-      sensorTbl=json.decode(fg)
-   end
-
-   text = SEjsn.configDir .. "/sensorEmulatorGPS.jsn"
-   fg = io.readall(text)
-   if not fg then print("Info: No GPS file " .. text) else
-      GPSparms=json.decode(fg)
-      coslat0 = math.cos(math.rad(GPSparms.lat0))
-   end
-
-   time0 = system.getTimeCounter()
-   
-   return sensorTbl
-end
-
-local function A123Volt(SOC)
-
-   --print("a123: SOC", SOC)
-   if SOC >= LiFe[1].s then return LiFe[1].v end
-   if SOC <= LiFe[#LiFe].s then return LiFe[#LiFe].v end
-
-   for i=1, #LiFe-1 do
-      if SOC >= LiFe[i+1].s and SOC <=LiFe[i].s then
-	 ds = (SOC - LiFe[i+1].s) / (LiFe[i].s - LiFe[i+1].s)
-	 --print("a123: ret:", LiFe[i+1].v + ds * (LiFe[i].v - LiFe[i+1].v))
-	 return LiFe[i+1].v + ds * (LiFe[i].v - LiFe[i+1].v)
-      end
-   end
 end
 
 local function triangleWave(T)
@@ -195,7 +106,7 @@ local function squareWave(T)
    if t <= 0.5 then return 1 else return -1 end
 end
 
-local function sequencer(T, seq)
+local function timeSequencer(T, seq)
    local t, tn
    t = T % 1
    if seq and #seq ~= 0 then
@@ -206,6 +117,21 @@ local function sequencer(T, seq)
    end
    return(seq[ti+1])
 end
+
+
+local function switchSequencer(sw, seq)
+   local s
+   if #seq < 1 then return 0 end
+   s = system.getInputs(sw)
+   if not s then return 0 end
+   if s ~= saveSwitch[sw] then
+      saveSwitch[sw] = s
+      switchSeq = switchSeq + 1
+      if switchSeq > #seq then switchSeq = 1 end
+   end
+   return seq[switchSeq]
+end
+
 
 local function sinPerOne(T) -- sin with period 1
    local t
@@ -225,29 +151,25 @@ local function tanPerOne(T) -- tan with period 1
    return math.tan(t)
 end
 
-local GTbl={}
 
-local function globalInit(i, v)
-   if not GTbl[i] then
-      GTbl[i] = v
+local function switch(sw)
+   return system.getInputs("S"..sw)
+end
+
+local function propCtlP(t, min, max)
+   -- if min and max defined, then range is min to max
+   -- if min only defined, then range is 0 to min
+   -- if no min and no max then -1 to 1
+   if min and max then
+      --print("t, sgI, min, max", t, system.getInputs("P"..t), min, max)
+      return min + (max - min) * (1 + system.getInputs("P"..t)) / 2
+   elseif min then
+      return min*(system.getInputs("P"..t) + 1)/2
+   else
+      --print("t", t)
+      --print(min,max)
+      return system.getInputs("P"..t)
    end
-   return 0
-end
-
-local function globalSet(i, v)
-   GTbl[i]=v
-   return v
-end
-
-local function globalRead(i, undef)
-   if GTbl[i] then return GTbl[i] end
-   if undef then return undef else return 0 end
-end
-
-
-local function printFcn(...)
-   print(...)
-   return 0
 end
 
 --[[
@@ -262,6 +184,127 @@ details on bit packing for date and time are in sensorLogEm.lua
 
 --]]
 
+local env = {
+   t  = 0,
+   dt = 0,
+   P1  = (function(a1,a2) return propCtlP(1,a1,a2)  end),
+   P2  = (function(a1,a2) return propCtlP(2,a1,a2)  end),
+   P3  = (function(a1,a2) return propCtlP(3,a1,a2)  end),
+   P4  = (function(a1,a2) return propCtlP(4,a1,a2)  end),
+   P5  = (function(a1,a2) return propCtlP(5,a1,a2)  end),
+   P6  = (function(a1,a2) return propCtlP(6,a1,a2)  end),
+   P7  = (function(a1,a2) return propCtlP(7,a1,a2)  end),
+   P8  = (function(a1,a2) return propCtlP(8,a1,a2)  end),
+   SA  = (function() return switch("A") end),
+   SB  = (function() return switch("B") end),
+   SC  = (function() return switch("C") end),
+   SD  = (function() return switch("D") end),
+   SE  = (function() return switch("E") end),
+   SF  = (function() return switch("F") end),
+   SG  = (function() return switch("G") end),
+   SH  = (function() return switch("H") end),
+   SI  = (function() return switch("I") end),
+   SJ  = (function() return switch("J") end),  
+   print    = print,
+   tonumber = tonumber,
+   tostring = tostring,
+   require  = require,
+   pairs    = pairs,
+   ipairs   = ipairs,
+   math     = math,
+   table    = table,
+   string   = string,
+   sin      = sinPerOne,
+   cos      = cosPerOne,
+   tan      = tanPerOne,
+   tri      = triangleWave,
+   sq       = squareWave,
+   tseq     = timeSequencer,
+   swseq    = switchSequencer,
+}
+
+function emulator_init()
+
+   local dev, emflag
+   
+   dev, emflag = system.getDeviceType()
+   
+   if emflag == 1 then      
+      system.getSensors = emulator_getSensors
+      system.getSensorByID = emulator_getSensorByID
+      system.getSensorValueByID = emulator_getSensorValueByID
+      system.messageBox("SensorE: Using emulated sensors", 3)
+   else
+      system.messageBox("SensorE: Using native sensors", 3)
+   end
+end
+
+
+function emulator_getSensors()
+
+   local fg, text
+   local SEjsn={}
+   local initStr
+   --local env = {}
+   local chunk, err, result, status
+   
+   text = "Apps/SensorE.jsn"
+   fg = io.readall(text)
+
+   if not fg then
+      print("Cannot read " .. text)
+      SEjsn.configDir = "Apps"
+   else
+      SEjsn=json.decode(fg)
+   end
+
+   switchSeq = 1
+   for c in string.gmatch("ABCDEFGHIJ",".") do
+      saveSwitch["S"..c] = system.getInputs("S"..c)
+   end
+   
+   text = SEjsn.configDir .. "/sensorEmulator.jsn"
+   fg = io.readall(text)
+   if not fg then print("Cannot read " .. text) else
+      print("Sensor config: "..text)
+      sensorTbl=json.decode(fg)
+      initStr = sensorTbl[1].initString
+      if initStr and initStr ~= "" then
+	 --print("initStr", initStr)
+	 chunk, err = load(initStr,"initString","t",env)
+	 if err then
+	    print("sensorEmulator: lua functionString load error, returning 0 - "..err)
+	    result = 0
+	 else
+	    if chunk then
+	       status, result = pcall(chunk)
+	       result = result or 0
+	       if not status then
+		  print("Bad status - result:", result)
+	       end
+	    else
+	       result = 0 
+	    end
+	 end
+	 
+	 -- print("result from initString:", result)
+	 -- result contains return from initString here .. no need for it?
+      end
+   end
+   
+   text = SEjsn.configDir .. "/sensorEmulatorGPS.jsn"
+   fg = io.readall(text)
+   if not fg then print("Info: No GPS file " .. text) else
+      GPSparms=json.decode(fg)
+      coslat0 = math.cos(math.rad(GPSparms.lat0))
+   end
+
+   time0 = system.getTimeCounter()
+   
+   return sensorTbl
+end
+
+
 function emulator_getSensorValueByID(ID, Param)
    -- fake it .. return the extra info anyway
    return emulator_getSensorByID(ID, Param)
@@ -273,6 +316,7 @@ local deltaT = {}
 function emulator_getSensorByID(ID, Param)
    local c
    local chunk, err, status, result
+   local expResult, funcResult
    local returnTbl
    local xCart, yCart
    local lat, lon
@@ -280,36 +324,6 @@ function emulator_getSensorByID(ID, Param)
    local lonDeg, lonFrac, lonMin
    local GPSdt
    
-   local env = {
-      s  = 0,
-      t  = 0,
-      dt = 0,
-      sin   = math.sin,
-      sin1  = sinPerOne,
-      cos   = math.cos,
-      cos1  = cosPerOne,
-      tan   = math.tan,
-      tan1  = tanPerOne,
-      abs   = math.abs,
-      min   = math.min,
-      max   = math.max,
-      ceil  = math.ceil,
-      floor = math.floor,
-      sqrt  = math.sqrt,
-      exp   = math.exp,
-      log   = math.log,
-      rand  = math.random,
-      pi    = math.pi,
-      rad   = math.rad,
-      tri   = triangleWave,
-      sq    = squareWave,
-      prt   = printFcn,
-      seq   = sequencer,
-      G     = globalRead,
-      GInit = globalInit,
-      GSet  = globalSet,
-      A123  = A123Volt,
-   }
 
    if not sensorTbl then return nil end
    if not ID or not Param then return nil end
@@ -328,7 +342,7 @@ function emulator_getSensorByID(ID, Param)
 	 returnTbl.valid = true
 	 returnTbl.sensorName = v.sensorName
 	 
-	 uid = tostring(math.floor(ID))..tostring(math.floor(Param))
+	 uid = tostring(math.floor(ID)).."-"..tostring(math.floor(Param))
 	 env.t = ((system.getTimeCounter() - time0)/1000)
 	 if lastT[uid] then
 	    deltaT[uid] = env.t - lastT[uid]
@@ -337,26 +351,26 @@ function emulator_getSensorByID(ID, Param)
 	 end
 	 env.dt = deltaT[uid]
 	 lastT[uid] = env.t
-	 --if uid == "1681927210" then
+	 --if uid == "16819272-10" then
 	 --   print(uid, env.t, lastT[uid], env.dt)
 	 --end
 	 
-	 if v.control then
-	    c=system.getInputs(v.control)
-	    env[v.control] = c -- can also get raw -1 to 1 by using name e.g. "P5"
-	    env[string.gsub(v.control, "P", "S")] = (c+1)/2 -- and raw 0 to 1 e.g. "S5"
-	    if v.controlmin and v.controlmax then
-	       env.s = v.controlmin + (v.controlmax - v.controlmin) * ((c+1)/2)
-	    end
-	 end
-	 if v.auxcontrol and #v.auxcontrol > 0 then
-	    for i=1,#v.auxcontrol,1 do
-	       c = system.getInputs(v.auxcontrol[i]) -- e.g P6 = <-1..1>
-	       env[v.auxcontrol[i]] = c
-	       env[string.gsub(v.auxcontrol[i], "P", "S")] = (1 + c) / 2 -- e.g. S6 = <0,1> 
-	    end
-	 end
-
+	 --if v.control then
+	 --   c=system.getInputs(v.control)
+	 --   env[v.control] = c -- can also get raw -1 to 1 by using name e.g. "P5"
+	 --   env[string.gsub(v.control, "P", "S")] = (c+1)/2 -- and raw 0 to 1 e.g. "S5"
+	 --   if v.controlmin and v.controlmax then
+	 --     env.s = v.controlmin + (v.controlmax - v.controlmin) * ((c+1)/2)
+	 --   end
+	 --end
+	 --if v.auxcontrol and #v.auxcontrol > 0 then
+	 --   for i=1,#v.auxcontrol,1 do
+	 --      c = system.getInputs(v.auxcontrol[i]) -- e.g P6 = <-1..1>
+	 --      env[v.auxcontrol[i]] = c
+	 --      env[string.gsub(v.auxcontrol[i], "P", "S")] = (1 + c) / 2 -- e.g. S6 = <0,1> 
+	 --   end
+	 --end
+   
 	 if GPSparms and GPSparms.startTime then
 	    env.t = env.t + GPSparms.startTime
 	 end
@@ -390,7 +404,9 @@ function emulator_getSensorByID(ID, Param)
 		  if chunk then
 		     status, result = pcall(chunk)
 		     result = result or 0
-		     if not status then print("Bad status - result:", result) end
+		     if not status then
+			print("Bad status - result:", result)
+		     end
 		  else
 		     result = 0 
 		  end
@@ -466,28 +482,79 @@ function emulator_getSensorByID(ID, Param)
 
 	    lastGPScalc = system.getTimeCounter()
 	 end
+
+	 --
+	 if v.funcString then
+	    v.luaExp = v.funcString
+	    print("funcString changed to luaExp - please update jsn file")
+	 end
+
+	 funcResult = nil
+	 expResult  = nil
 	 
-	 if v.funcString and v.funcString ~= "" then
-	    chunk, err = load("return "..v.funcString,"","t",env)
+	 if v.luaFunc and v.luaFunc ~= "" then
+	    chunk, err = load(v.luaFunc,"luaFunc: "..uid,"t",env)
 	    
 	    if err then
-	       print("sensorEmulator: lua functionString load error, returning 0 - "..err)
-	       result = 0
+	       print("sensorEmulator: luaFunc load error, returning 0 - "..err)
+	       funcResult = 0
 	    else
 	       if chunk then
-		  status, result = pcall(chunk)
-		  result = result or 0
-		  if not status then print("Bad status - result:", result) end
-	       else
-		  result = 0 
+		  status, funcResult = pcall(chunk)
+		  if not status then
+		     print("Bad status - result:", funcResult)
+		     print("in luaFunc: "..(v.luaFunc or "nil"))
+		     funcResult = nil
+		  end
 	       end
 	    end
-	    returnTbl.value = result
+	 end
+
+	 if v.luaExp and v.luaExp ~= "" then
+	    chunk, err = load("return "..v.luaExp,"luaExp: "..uid,"t",env)
+	    
+	    if err then
+	       print("sensorEmulator: lua load error, returning 0 - "..err)
+	       expResult = 0
+	    else
+	       if chunk then
+		  status, expResult = pcall(chunk)
+		  if not status then
+		     print("Bad status - result:", expResult)
+		     print("in luaExp: "..(v.luaExp or "nil"))
+		     expResult = nil
+		  end
+	       end
+	    end
+	 end
+
+	    
+	 --if uid == "16819272-1" then
+	 -- print("result: ", result)
+	 --end
+
+	 -- typically we will get a value from luaExp since we concatenate the luaExp string
+	 -- with "return " .. e.g. "return S1(0,-4000)"
+	 -- and will use luaFunc for generic lua code that when evaluated returns nil
+	 -- e.g. "a=a+1". But can also specify a return value from luaFunc
+	 -- e.g. "a=a+1; return S1(a,100)"
+	 -- but warn user if they try to return values from both .. if they do that we take the
+	 -- luaFunc return value as the result
+	 
+	 if expResult then -- take luaExp result if exists
+	    returnTbl.value = expResult
+	 elseif funcResult then -- if not fall back on luaFunc result if it exists
+	    returnTbl.value = funcResult
 	 else
-	    returnTbl.value = env.s
+	    returnTbl.value = 0 -- if no result return 0
+	 end
+
+	 if expResult and funcResult then
+	    print("Warning -- Got return values from both luaFunc and luaExp")
+	    print("Using luaExp result from "..v.luaExp)
 	 end
 	 
-	 -- now that funcString is applied, we can compute new min and max
+	 -- now that luaExp/luaFunc is applied, we can compute new min and max
 	 
 	 if not v.max then
 	    v.max = returnTbl.value
@@ -531,18 +598,85 @@ function emulator_getSensorByID(ID, Param)
    return nil
 end
 
+local function varPrint()
+
+   -- this is a very basic tele window to show the lua variables active in env{}
+   -- just shows them in a 2x9 line matrix, only shows the first 18
+   -- needs some further work to more intelligently handle numbers and tables
+   -- from a formatting/space point of view and possibly select subsets and sort order
+   
+   local col, line
+   local ls = 15 -- line spacing
+   local cs = 140 -- col spacing
+   local font = FONT_MINI
+   local full = false
+   
+   line=0
+   col=0
+   
+   for k,v in pairs(env) do
+      if type(v) == "number" and not full then
+	    lcd.drawText(20+cs*col, 6+ls*line,
+			 string.format("%s = %3.1f", k, v), font)
+	    col = col + 1
+	    if col > 1 then
+	       col = 0
+	       line = line + 1
+	    end
+	    if line > 9 then full = true end
+	    
+      elseif type(v) == "table" then
+	 for i=1, #v do
+	    if not full then
+	       lcd.drawText(20+cs*col, 6+ls*line,
+			    string.format("%s[%d] = %3.1f", k, i, v[i]), font)
+	    col = col + 1
+	    if col > 1 then
+	       col = 0
+	       line = line + 1
+	    end
+	    if line > 9 then full = true end
+	    end
+	 end
+      end
+   end
+end
+
+local ii=0
+
 local function telePrint()
 
+   -- shows the first (up to) 8 tele sensors with their associated data
+   -- very basic, needs a way select from a longer list
+   
    local text
    local ll
    local col, sec
    local k
-   local font=FONT_MINI
+   local font = FONT_MINI
    local ls = 15 -- line spacing
    local cs = 65 -- col spacing
    local ss = 80 -- section spacing
    local deg, min
 
+   ii = ii + 1
+   if ii > 100 then
+      print("env:")
+      for k,v in pairs(env) do
+	 if type(v) == "number" then
+	    print(k..' = '..v)
+	 end
+	 if type(v) == "table" then
+	    for i=1, #v do
+	       print(k..'['..i..']'..' = '..v[i])
+	       --print("Table: i, k, v[i]", i, k, v[i])
+	    end
+	 end
+	 --print(k,v, type(v))
+      end
+   ii=0
+   end
+   
    -- arrange into a 4 col 2 row (max) table
    
    for kk=0, math.min(math.floor(#activeSensors/5), 1) do
@@ -594,7 +728,8 @@ end
 
 local function init()
 
-   system.registerTelemetry(1, appName, 4, telePrint)
+   system.registerTelemetry(1, appName.." Sensors", 4, telePrint)
+   system.registerTelemetry(2, appName.." Variables", 4, varPrint)   
    
    emulator_init()
    

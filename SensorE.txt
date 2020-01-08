@@ -58,22 +58,27 @@
    range of telemetry signal values that behave as standard telemetry
    sensors as the sliders move. A sample JSON file is included below.
    
-   For more complex sensor behavior, you can specify a function string
-   (funcString) in the jsn file for each sensor which can be any valid
-   lua expression that is executed each time the sensor is read. The
-   environment in which that string is evaluated by the lua
+   For more complex sensor behavior, you can specify a string of lua
+   code that is interpreted as a lua expression (basically anything
+   that could be after "return" in a function call). You specify this
+   in the jsn file with key "luaExp" whose value is the expression to
+   be evaluated by the lua interpreter (see example below). This
+   expression is evaluated each time the sensor is "read"
+   
+   The environment in which that string is evaluated by the lua
    interpreter is set up so that variable name s is the pseudo sensor
-   value (returned as sensor.value), t is the system time in seconds
-   (t = system.getTimeCounter() / 1000), and most of the lua math
-   library is available - without the "math." prefix (see the code and
-   look for table env). Also available are a triangle wave function
-   tri() with a period of 1s and a square wave function sq() with a
-   period of 1s. The triangle and square wave functions have an
-   amplitude of +/-1. For convenience we also have the trig functions
-   with a period of 1: sin1(), cos1() and tan1() .. this way you can
-   use the same time argument as sq and tri .. e.g. sq(t/10) and
-   sin1(t/10) will both have a period of 10 seconds. The regular trig
-   functions have a period of 2*pi as expected.
+   value (which will be returned as sensor.value), t is the system time in seconds
+   (t = system.getTimeCounter() / 1000), dt is time elapsed since this
+   sensor was last read, and most of the lua math library is available
+   - without the "math." prefix (see the code and look for table
+   env). Also available are a triangle wave function tri() with a
+   period of 1s and a square wave function sq() with a period of
+   1s. The triangle and square wave functions have an amplitude of
+   +/-1. For convenience we also have the trig functions with a period
+   of 1: sin1(), cos1() and tan1() .. this way you can use the same
+   time argument as sq and tri .. e.g. sq(t/10) and sin1(t/10) will
+   both have a period of 10 seconds. The regular trig functions have a
+   period of 2*pi as expected.
 
    a Sequencing function is availble, seq(t, table) where t is the
    time argument and the second parameter is a table. seq() divides is
@@ -99,25 +104,43 @@
    value via variables P5 and S5 going from (-1 to 1) and (0 to 1)
    respectively.
    
-   For example "funcString":"s*sin(2*pi*t/10)" gives a 10 second
+   For example "luaExp":"s*sin(2*pi*t/10)" gives a 10 second
    period sine wave whose amplitude is set by the slider.
 
-   "funcString":"s*sin(2*pi*t/10) + S6*rand() gives the same sine wave
+   "luaExp":"s*sin(2*pi*t/10) + S6*rand() gives the same sine wave
    with a variable anount of noise added from the math.random
    function, with the noise amplitude going from 0 to 1 controlled by
    slider S6.
 
-   If your need support for persistence or global variables, there are
-   three functions available to address that requirement. GInit(n, v)
-   initializes global varible n (n=1,2,3,...) to the (numerical) value
-   v. GInit only sets the value of global n one time. The function returns
-   0 since it has to be put inline with the expression .. stand by for
-   an example. GSet(n, v) sets the value of global n to v. For
-   convenience it returns the value that the variable was set
-   to. G(n) returns the value of global n, or 0 if not defined.
-   
-   Example - for sensors emulating a battery monitor, for the current sensor
-   you might have this block of json in sensorEmulator.jsn:
+   You may declare global variables to be used in any of the luaExp
+   strings. These will also be persistent. To initialize these global
+   variables, you add an initString key to the first element of the
+   jsn table in sensorEmulator.jsn. The first line in
+   sensorEmulator.jsn will be the line with a new sensor ID, param of
+   0 and label equal to the sensor name. to that table, add element
+   "initString":"a=1;b=2;c=3" .. like this:
+
+    {"id":16819272, "param": 0,"sensorName": "", "label": "IBP",
+    "initString":"a=1;b=2;c=3"},
+
+   The lua expression in initString will be executed one and only one
+   time when the sensor table is first read in the system.getSensors()
+   call. Note that initString will be evaluated as a "chunk" of lua
+   code, not treated as the return paramater as it would be with
+   luaExp.
+
+   In addition to specifying a luaExp for each individual sensor (each
+   ID/param pair) you may also specify a luaFunc sting. The luaFunc
+   string will be evaluated as a lua chunk, not as a return value
+   which allows you total flexibility to actually "write code" in the
+   string. You may include a "return x" statement in luaFunc if you
+   wish, and skip luaExp. Since there is no numeric return from
+   luaFunc, you must either explicitly include a return value or you
+   can use a luaExp string in addition to luaFunc if you wish. luaFunc
+   is evaluated before luaExp as you would expect.
+
+   Example - for sensors emulating a battery monitor, for the current
+   sensor you might have this block of json in sensorEmulator.jsn:
    
     {"id":16819272,
      "param": 10,
@@ -127,40 +150,55 @@
      "control": "P7",
      "controlmin": 0,
      "controlmax": -4000,
-     "funcString":"GSet(1, s+200*rand())",
+     "luaFunc":"Current=s; if CapLeft > 0 then return s+200*rand() else return 0 end",
      "label": "Current",
      "unit": "mA"
     },
 
+   We are presuming that the variable Current was declared in the
+   initString at the top of the jsn file, for example:
+
+    {"id":16819272, "param": 0,"sensorName": "", "label": "IBP",
+     "initString":"CapTotal=5000; CapLeft=5000; Current=0"},
+   
    Note the use of rand() to generate some noise for realism, and how
-   it is setting a global variable to that other sensors json blocks
-   can refer to it. Of course the variable s will be the value derived
-   from control P7 as it ranges from -1 to 1 the value of s will range
-   from 0 to -4000ma (-4A).
+   it is setting a global variable (Current) so that other sensors
+   json blocks can refer to it by the same name. Of course the
+   variable s will be the value derived from control P7 as it ranges
+   from -1 to 1 the value of s will range from 0 to -4000ma (-4A).
 
-   This would create a globally usable function G(1) that returned the
-   present value of current and make it available to any other sensor
-   emulator's funcString.
+   A further example from a battery monitor emulator file:
+   
+    {"id":16819272,
+     "param": 6,
+     "decimals": 0,
+     "type": 1,
+     "auxcontrol": ["P6"],
+     "sensorName": "IBP",
+     "control": "P7",
+     "controlmin": 0,
+     "controlmax": 5000,
+     "luaFunc":"CapLeft = max(0, CapLeft + dt * Current/3600); return CapLeft",
+     "label": "Cap. left",
+     "unit": "mAh"
+    },
 
-   Then you could have on the sensor indicating capacity remaining (in
-   its own json block):
-
-   "funcString":"GInit(2, 5000) + GSet(2, max(0, G(2) + dt * G(1)/3600))"
-
-   This assumes the pack capacity is specified in mAh (hence the init
-   to 5000 mAh). The time in variable dt is supplied and indicates the
+   This assumes the pack capacity is specified in mAh. CapLeft is the
+   number of mAh left in the pack, CapTotal is the mAh capacity of the
+   pack, and Current is the discharge current in ma, with the
+   convention that a negative value is a d ischarge. These variables
+   would have been delcared at the top of the file in the
+   initString. The variable dt is supplied and indicates the
    time in seconds since this sensor (the ID/param pair) was read. The
    pre-defined variable dt is in seconds so we divide by 3600 to get
-   hours. Note that GInit() returns 0 so it can be part of the
-   expression and only "fire" once .. and not change the rest of the
-   computation.
+   hours.
 
    Also available is a print function prt() that can be used in
    expressions for info or debugging. It is a variadic function and
    can take any list of args that would go to the normal lua print
    statement. The prt() function always returns 0 so you can add it
    (perhaps several times) to the end of your expression:
-   "funcString":"s*sin(2*pi*t/10) + prt('amp:', s) + prt('per:',10)".
+   "luaExp":"s*sin(2*pi*t/10) + prt('amp:', s) + prt('per:',10)".
    Note the use of single quotes around the strings in the expression.
 
    Support for generating GPS sensor info has also been added, along
@@ -240,7 +278,7 @@
    calls to the system names in any case which is very convenient for
    debugging.
 
-   The funcString capability is inspired by Jeti's (very cool!)
+   The luaExp capability is inspired by Jeti's (very cool!)
    V-sensor.lua app. Thanks to Martin F at Jeti for suggesting to move
    this from a "require" module to a standalone app.
 
@@ -268,7 +306,7 @@ Example sensorEmulator.jsn file:
 "auxcontrol":["P6","P7"],
 "controlmin":0,
 "controlmax":800,
-"funcString":"s / 2 * sin(2*pi*t / ( 30*(S7+1) ) ) + s / 2"
+"luaExp":"s / 2 * sin(2*pi*t / ( 30*(S7+1) ) ) + s / 2"
 },
 
 {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
@@ -283,7 +321,7 @@ Example sensorEmulator.jsn file:
 "auxcontrol":["P7"],
 "controlmin":0,
 "controlmax":200,
-"funcString":"s / 2 * sq(t / (30*(S7+1) ) ) + s / 2 + s / 5 * rand() + s / 5"
+"luaExp":"s / 2 * sq(t / (30*(S7+1) ) ) + s / 2 + s / 5 * rand() + s / 5"
 },
 
 {"id":3,"param":0,"sensorName":"", "label":"PS3(Lat)"},
