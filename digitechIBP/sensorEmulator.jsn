@@ -15,7 +15,7 @@
      "sensorName": "IBP",
      "label": "SOC",
      "unit": "%",
-     "luaFunc":"print(SA(),swseq('SA', {1,2,3,4,5,6}) )",
+     "luaFunc":"--print(SA(),swseq('SA', {1,2,3,4,5,6}) )",
      "luaExp":"100*CapLeft[1]/CapTotal[1]"
     },
     {"id":16819272,

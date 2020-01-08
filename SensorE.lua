@@ -29,7 +29,8 @@
       system.getSensorByID()
       system.getSensorValueByID()
 
-   The funcString capability is inspired by Jeti's V-sensor.lua app
+   The capability to use lua code in the virtual sensors is inspired
+   by Jeti's V-sensor.lua app
 
 ----------------------------------------------------------------------------
 
@@ -118,7 +119,6 @@ local function timeSequencer(T, seq)
    return(seq[ti+1])
 end
 
-
 local function switchSequencer(sw, seq)
    local s
    if #seq < 1 then return 0 end
@@ -131,7 +131,6 @@ local function switchSequencer(sw, seq)
    end
    return seq[switchSeq]
 end
-
 
 local function sinPerOne(T) -- sin with period 1
    local t
@@ -151,7 +150,6 @@ local function tanPerOne(T) -- tan with period 1
    return math.tan(t)
 end
 
-
 local function switch(sw)
    return system.getInputs("S"..sw)
 end
@@ -161,13 +159,10 @@ local function propCtlP(t, min, max)
    -- if min only defined, then range is 0 to min
    -- if no min and no max then -1 to 1
    if min and max then
-      --print("t, sgI, min, max", t, system.getInputs("P"..t), min, max)
       return min + (max - min) * (1 + system.getInputs("P"..t)) / 2
    elseif min then
       return min*(system.getInputs("P"..t) + 1)/2
    else
-      --print("t", t)
-      --print(min,max)
       return system.getInputs("P"..t)
    end
 end
@@ -239,13 +234,11 @@ function emulator_init()
    end
 end
 
-
 function emulator_getSensors()
 
    local fg, text
    local SEjsn={}
    local initStr
-   --local env = {}
    local chunk, err, result, status
    
    text = "Apps/SensorE.jsn"
@@ -286,7 +279,6 @@ function emulator_getSensors()
 	       result = 0 
 	    end
 	 end
-	 
 	 -- print("result from initString:", result)
 	 -- result contains return from initString here .. no need for it?
       end
@@ -351,25 +343,6 @@ function emulator_getSensorByID(ID, Param)
 	 end
 	 env.dt = deltaT[uid]
 	 lastT[uid] = env.t
-	 --if uid == "16819272-10" then
-	 --   print(uid, env.t, lastT[uid], env.dt)
-	 --end
-	 
-	 --if v.control then
-	 --   c=system.getInputs(v.control)
-	 --   env[v.control] = c -- can also get raw -1 to 1 by using name e.g. "P5"
-	 --   env[string.gsub(v.control, "P", "S")] = (c+1)/2 -- and raw 0 to 1 e.g. "S5"
-	 --   if v.controlmin and v.controlmax then
-	 --     env.s = v.controlmin + (v.controlmax - v.controlmin) * ((c+1)/2)
-	 --   end
-	 --end
-	 --if v.auxcontrol and #v.auxcontrol > 0 then
-	 --   for i=1,#v.auxcontrol,1 do
-	 --      c = system.getInputs(v.auxcontrol[i]) -- e.g P6 = <-1..1>
-	 --      env[v.auxcontrol[i]] = c
-	 --      env[string.gsub(v.auxcontrol[i], "P", "S")] = (1 + c) / 2 -- e.g. S6 = <0,1> 
-	 --   end
-	 --end
    
 	 if GPSparms and GPSparms.startTime then
 	    env.t = env.t + GPSparms.startTime
@@ -528,11 +501,6 @@ function emulator_getSensorByID(ID, Param)
 	    end
 	 end
 
-	    
-	 --if uid == "16819272-1" then
-	 -- print("result: ", result)
-	 --end
-
 	 -- typically we will get a value from luaExp since we concatenate the luaExp string
 	 -- with "return " .. e.g. "return S1(0,-4000)"
 	 -- and will use luaFunc for generic lua code that when evaluated returns nil
@@ -617,7 +585,7 @@ local function varPrint()
    for k,v in pairs(env) do
       if type(v) == "number" and not full then
 	    lcd.drawText(20+cs*col, 6+ls*line,
-			 string.format("%s = %3.1f", k, v), font)
+			 string.format("%s = %4.2f", k, v), font)
 	    col = col + 1
 	    if col > 1 then
 	       col = 0
@@ -629,7 +597,7 @@ local function varPrint()
 	 for i=1, #v do
 	    if not full then
 	       lcd.drawText(20+cs*col, 6+ls*line,
-			    string.format("%s[%d] = %3.1f", k, i, v[i]), font)
+			    string.format("%s[%d] = %4.2f", k, i, v[i]), font)
 	    col = col + 1
 	    if col > 1 then
 	       col = 0
@@ -641,8 +609,6 @@ local function varPrint()
       end
    end
 end
-
-local ii=0
 
 local function telePrint()
 
@@ -659,24 +625,6 @@ local function telePrint()
    local ss = 80 -- section spacing
    local deg, min
 
-   ii = ii + 1
-   if ii > 100 then
-      print("env:")
-      for k,v in pairs(env) do
-	 if type(v) == "number" then
-	    print(k..' = '..v)
-	 end
-	 if type(v) == "table" then
-	    for i=1, #v do
-	       print(k..'['..i..']'..' = '..v[i])
-	       --print("Table: i, k, v[i]", i, k, v[i])
-	    end
-	 end
-	 --print(k,v, type(v))
-      end
-   ii=0
-   end
-   
    -- arrange into a 4 col 2 row (max) table
    
    for kk=0, math.min(math.floor(#activeSensors/5), 1) do
