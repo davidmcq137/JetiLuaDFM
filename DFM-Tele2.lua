@@ -34,6 +34,9 @@ local speed = 0
 local SpeedGPS
 local SpeedNonGPS = 0
 local fuelRem = 0
+local RPM = 0
+local EGT = 0
+
 -- local DistanceGPS
 
 local serialFile
@@ -75,6 +78,14 @@ local modelProps={}
 local countNoNewPos = 0
 
 local sysTimeStart=0
+local timeBack = 0
+
+local strCount=0
+local lastStrCount = 0
+local lastTime = system.getTime()
+local zeroTime = lastTime
+local cnt
+local bps
 
 local usedCPU
 local maxCPU
@@ -103,12 +114,16 @@ local function tele4()
 		   " Curr CPU: "..(usedCPU or 0) )
    ss = string.format("(Tim:%.2f)", (system.getTimeCounter() - sysTimeStart)/1000)
    lcd.drawText(5,25, ss)
+   if not timeBack then print ("bad timeback in tele4") end
+   ss = string.format("deltaT:%.2f",
+		      (timeBack or 0) - (system.getTimeCounter() - sysTimeStart)/1000)
+   lcd.drawText(135, 25, ss)
+   ss = string.format("baud:%.2f", 10*(bps or 0))
+   lcd.drawText(240, 25, ss)
    ss = string.format("(Lat:%4.6f)", latitude or 0)
    lcd.drawText(5,45, ss)
-
    ss = string.format("(Frm:%2.2f)", fuelRem or 0)
    lcd.drawText(135,45, ss)
-
    ss = string.format("(Lon:%4.6f)", longitude or 0)
    lcd.drawText(5,65, ss)
    ss = string.format("(Alt:%4.2f)", altitude)
@@ -190,10 +205,6 @@ local function unpackAngle(packed)
 end
 
 ----------------------------------------------------------------------
-local strCount=0
-local lastStrCount = 0
-local lastTime = system.getTime()
-local zeroTime = lastTime
 
 local function countedWrite(ff, str)
 
@@ -202,13 +213,19 @@ local function countedWrite(ff, str)
    strCount = strCount + #str
 
    time = system.getTime()
-   if time - lastTime > 60 then
-      print("time, total count, rate in last min:", time-zeroTime, strCount, (strCount-lastStrCount) / (time-lastTime) )
+   if time - lastTime > 10 then
+      --print("time, total count, rate in last min:", time-zeroTime, strCount, (strCount-lastStrCount) / (time-lastTime) )
+      bps = (strCount - lastStrCount) / (time-lastTime)
       lastStrCount = strCount
       lastTime = time
       maxCPU = 0
    end
-   io.write(ff, str)
+   if ff then io.write(ff, str) end
+   if sidSerial then
+      cnt = serial.write(sidSerial, str)
+      --print("cnt=", cnt)
+   end
+   
    
 end
 
@@ -238,7 +255,10 @@ local function loop()
 
    if pcallOK and emulator then
       if emulator.startUp(readSensors) then return end
+   else
+      --readSensors(0)
    end
+   
 
    if not rsdone then
       if readSensors(1) then return else rsdone = true end
@@ -258,7 +278,7 @@ local function loop()
 	    --print("not sensor: sens.id", sens.id)
 	    --print("not sensor: sens.param", sens.param)
 	    --print("closing serialFile")
-	    io.close(serialFile)
+	    if serialFile then io.close(serialFile) end
 	 end
 	 
 	 if sensor and sensor.valid then
@@ -379,7 +399,9 @@ local function loop()
    --print(P1,P2,P3,P4,lastP1,lastP2,lastP3,lastP4)
    
    now = system.getTimeCounter()
-   if now - lastWriteTime < 50 then return end -- max rate once per x00 msec
+   if now - lastWriteTime < 50 then
+      return
+   end 
    
    Tchg = false
    for name,sens in pairs(telem) do
@@ -388,14 +410,33 @@ local function loop()
    end
    
    Pchg = false
-   if lastP1 ~= P1 or lastP2 ~= P2 or lastP3 ~= P3 or lastP4 ~= P4 then Pchg = true end
-      if Pchg or Tchg then
+
+   --if lastP1 ~= P1 or lastP2 ~= P2 or lastP3 ~= P3 or lastP4 ~= P4 then Pchg = true end
+   local deltaP = 0.005
+   
+   if math.abs(lastP1-P1) > deltaP or math.abs(lastP2-P2) > deltaP or math.abs(lastP3-P3) > deltaP or math.abs(lastP4-P4) > deltaP then Pchg = true end
+      
+   --if Pchg then
+     -- if lastP1 ~= P1 then print("P1:", lastP1, P1, (lastP1-P1)/P1) end
+     -- if lastP2 ~= P2 then print("P2:", lastP2, P2, (lastP2-P2)/P2) end
+     -- if lastP3 ~= P3 then print("P3:", lastP3, P3, (lastP3-P3)/P3) end
+     -- if lastP4 ~= P4 then print("P4:", lastP4, P4, (lastP4-P4)/P4) end      
+   --end
+
+   if (now - lastWriteTime) > 400 then
+      Pchg = true
+      Tchg = true
+   end
+   
+   if Pchg or Tchg  then
       teleSeq = teleSeq + 1
       ss = string.format("(Seq:%d)", teleSeq)
-      countedWrite(serialFile, ss)
+      --countedWrite(serialFile, ss)
       --if emflag == 1 then print(ss) end
-      ss = string.format("(Tim:%d)", system.getTimeCounter() - sysTimeStart)
+      ss = string.format("(Tim:%d)", (system.getTimeCounter() - sysTimeStart)/1000)
+      --print(ss)
       countedWrite(serialFile, ss)
+      --print("delta T", (timeBack or 0) - (system.getTimeCounter() - sysTimeStart)/1000)
       --if emflag == 1 then print(ss) end
       if Tchg then
 	 if newpos then
@@ -404,21 +445,37 @@ local function loop()
 	    --if emflag == 1 then print(ss) end
 	 end
 
+	 local tsec = (system.getTimeCounter() - sysTimeStart) / 1000.0
+	 altitude = 200 + 200*math.sin(2*math.pi*tsec/300)
 	 ss = string.format("(Alt:%4.2f)", altitude)
 	 countedWrite(serialFile, ss)
 	 --if emflag == 1 then print(ss) end
-	 
+
+	 speed = 100 + 100*math.cos(2*math.pi*tsec/300)
 	 ss = string.format("(Spd:%4.2f)", speed)
 	 countedWrite(serialFile, ss)
 	 --if emflag == 1 then print(ss) end
-	 
+
+	 fuelRem = (P4+1)/2 * 100
 	 ss = string.format("(Frm:%4.2f)", fuelRem)
 	 countedWrite(serialFile, ss)
+
+	 EGT = 800 * (1+math.sin(2*math.pi*tsec/100)) / 2
+	 ss = string.format("(EGT:%4.2f)", EGT)
+	 countedWrite(serialFile, ss)
+
+	 RPM = 150 * (1+math.cos(2*math.pi*tsec/100)) / 2
+	 ss = string.format("(RPM:%4.2f)", RPM)
+	 countedWrite(serialFile, ss)	 
+
+	 
+	 --print(ss, (system.getTimeCounter() - sysTimeStart)/1000)
 	 --if emflag == 1 then print(ss) end	 
       end
       if Pchg then
 	 ss = string.format("(Ctl:%2.2f$%2.2f$%2.2f$%2.2f)", P1, P2, P3, P4)
 	 countedWrite(serialFile, ss)
+	 --print(ss)
 	 --if emflag == 1 then print(ss) end
       end
       countedWrite(serialFile, "\r\n")
@@ -430,6 +487,12 @@ local function loop()
    maxCPU = maxCPU or usedCPU
    if usedCPU  > maxCPU then maxCPU = usedCPU end
    
+end
+
+local function onRead(data)
+   --print("onRead:", data)
+   timeBack = tonumber(data)
+   if not timeBack then print("bad time:", data) end
 end
 
 local function init()
@@ -467,19 +530,22 @@ local function init()
    fn = string.format("Tele_%02d%02d_%d%02d%02d.dat", dt.mon, dt.day, dt.hour, dt.min, dt.sec)
    print("fn:", fn)
 
-   serialFile = io.open(fn, "w")
+   --serialFile = io.open(fn, "w")
    --print("serialFile: ", serialFile)
 
+   serialFile = nil
+   
    device, emflag = system.getDeviceType()
 
    if emflag ~= 1 then
+      print("about to serial init")
       sidSerial = serial.init("COM1",9600) 
       
       if sidSerial then   
 	 print("sid succeeded: ", sidSerial)
 	 sidTime0 = system.getTimeCounter()
       else
-	 print("sid failed")
+	 print("sid failed", sidSerial)
       end 
       
       
@@ -507,7 +573,7 @@ local function init()
 
    --print("Device: "..device)
    
-   --readSensors(0)
+   readSensors(0)
 end
 
 

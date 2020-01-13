@@ -6,7 +6,7 @@
    sensors can be one of the most important sources of data for the
    script. If you develop lua scripts on the Jeti DC/DS-24 emulator as
    I do, it would be quite convenient to have a way to provide what
-   look like actual sensor readings on the emulator. In the past, I
+   look like actual sensor readings in the emulator. In the past, I
    had used a DEBUG variable, or I had queried the system routines to
    know I was running on the emulator, then would add lua code to my
    source files to insert computed values instead of calling the
@@ -63,71 +63,79 @@
    that could be after "return" in a function call). You specify this
    in the jsn file with key "luaExp" whose value is the expression to
    be evaluated by the lua interpreter (see example below). This
-   expression is evaluated each time the sensor is "read"
+   expression is evaluated each time the sensor is "read".
    
    The environment in which that string is evaluated by the lua
-   interpreter is set up so that variable name s is the pseudo sensor
-   value (which will be returned as sensor.value), t is the system time in seconds
-   (t = system.getTimeCounter() / 1000), dt is time elapsed since this
-   sensor was last read, and most of the lua math library is available
-   - without the "math." prefix (see the code and look for table
-   env). Also available are a triangle wave function tri() with a
-   period of 1s and a square wave function sq() with a period of
-   1s. The triangle and square wave functions have an amplitude of
-   +/-1. For convenience we also have the trig functions with a period
-   of 1: sin1(), cos1() and tan1() .. this way you can use the same
-   time argument as sq and tri .. e.g. sq(t/10) and sin1(t/10) will
-   both have a period of 10 seconds. The regular trig functions have a
-   period of 2*pi as expected.
+   interpreter is set up with access to all the basic lua built-in
+   functions (e.g. math library, string and table library). It is also
+   set up with a few variables: t is the system time in seconds (t =
+   system.getTimeCounter() / 1000), dt is time elapsed since this
+   sensor was last read. You can see how the lua environment is set up
+   by looking at the variable env.
 
-   a Sequencing function is availble, seq(t, table) where t is the
-   time argument and the second parameter is a table. seq() divides is
-   period up into n equal time segments and steps through the entries
-   in the table in order. The amplitude of the seq function is equal
-   to the table entry. For example seq(t/20, {1,2,3,4}) creates a 20
-   second period repeating "staircase" function. from t=0 to t=5 it
-   has a value of 1, from t=5 to t=10 a value of 2, from t=10 to t=15
-   a value of 3 and from t=15 to t=20 a value of 4, at which point it
-   wraps around back to 1.
+   There is a one-time initialization lua string (initString, see
+   example) that is put in the first block of the json file where the
+   first sensor name is defined. It will be run when the
+   system.getSensors () call is made. This string is not expected to
+   return any value, and is typically used for declaration of
+   variables, functions and any "require" statements to bring in
+   external content.
 
-   In addition, you can specify a json array of auxiliary
-   controls. These are other proportional controls in addition to the
-   primary one specified by the "control" key in the json, and the
-   value of these controls will also be available in the lua
-   environment and can be used in your lua expression. They go into a
-   json array with key "auxcontrol".  See the example jsn file
-   below. They are available as "raw" values (-1 to 1) by their Jeti
-   name e.g. P6, and for convenience they are also available with an
-   "S" (e.g. S6) going from (0 to 1). The primary control, for example
-   P5, is available as noted above scaled from "controlmin" to
-   "controlmax" as variable s, and is also available as the "raw"
-   value via variables P5 and S5 going from (-1 to 1) and (0 to 1)
-   respectively.
+   To get access to the analog sliders (P1-P8) use the function Pn
+   where n = 1 to 8. The function takes two arguments a1 and a2, for
+   example P1(10,200). P1 will return values from 10 to 200 as the
+   slider is moved from full left to full right.  If only the first
+   parameter is specified, it returns values from 0 to that parameter,
+   for example P2(1000) will return values from 0 to 1000 as the P2
+   slider is moved. If no parameters are specified you get the
+   standard slider behavior varying from -1 to 1, for example P5().
+
+   The emulator's switches are also available as functions, for
+   example SA() returns the value of switch sa and can have the values
+   of -1, 0 and 1.
    
-   For example "luaExp":"s*sin(2*pi*t/10)" gives a 10 second
-   period sine wave whose amplitude is set by the slider.
+   Also available are a triangle wave function tri() with a period of
+   1s and a square wave function sq() with a period of 1s. The
+   triangle and square wave functions have an amplitude of +/-1. For
+   convenience we also have the trig functions with a period of 1:
+   sin(), cos() and tan() .. this way you can use the same time
+   argument as sq and tri .. e.g. sq(t/10) and sin1(t/10) will both
+   have a period of 10 seconds. The regular trig functions (math.sin,
+   math.cos ...)  have a period of 2*pi as expected.
 
-   "luaExp":"s*sin(2*pi*t/10) + S6*rand() gives the same sine wave
+   A time sequencing function is availble, tseq(t, table) where t is
+   the time argument and the second parameter is a table. seq()
+   divides is period up into n equal time segments and steps through
+   the entries in the table in order. The amplitude of the seq
+   function is equal to the table entry. For example seq(t/20,
+   {1,2,3,4}) creates a 20 second period repeating "staircase"
+   function. from t=0 to t=5 it has a value of 1, from t=5 to t=10 a
+   value of 2, from t=10 to t=15 a value of 3 and from t=15 to t=20 a
+   value of 4, at which point it wraps around back to 1.
+
+   There is also a switch sequencing function where you may specify an
+   emulator switch (e.g. SA, SB, ... SJ) and a table. Each time the
+   switch changes state, the output of the function becomes the next
+   value in the specified table. For example swseq("SA",
+   {1,2,3,4,5,6}). Since the "a" key on the keyboard changes state of
+   the SA switch in the emulator, as you repeatedly type "a" on the
+   keyboard, the function returns 1 then 2 then 3 ... then 6 then 1
+   then 2 ... you get the idea.
+
+   Within the json block that defines each sensor paramater, you can
+   specify a "luaExp" string. This string will be prepended with
+   "return " and run by the lua interpreter each time the sensor is
+   read, and its return value is what the system.getSensorByID()
+   function will return to the lua script.
+
+   For example "luaExp":"P2(10,100) * math.sin(2*pi*t/10)" gives a 10
+   second period sine wave whose amplitude varies from 10 to 100 as the
+   P2 slider is moved from left to right.
+
+   "luaExp":"P2(10,100) * math.sin(2*pi*t/10) + P6(1) * math.random() gives the same sine wave
    with a variable anount of noise added from the math.random
    function, with the noise amplitude going from 0 to 1 controlled by
-   slider S6.
-
-   You may declare global variables to be used in any of the luaExp
-   strings. These will also be persistent. To initialize these global
-   variables, you add an initString key to the first element of the
-   jsn table in sensorEmulator.jsn. The first line in
-   sensorEmulator.jsn will be the line with a new sensor ID, param of
-   0 and label equal to the sensor name. to that table, add element
-   "initString":"a=1;b=2;c=3" .. like this:
-
-    {"id":16819272, "param": 0,"sensorName": "", "label": "IBP",
-    "initString":"a=1;b=2;c=3"},
-
-   The lua expression in initString will be executed one and only one
-   time when the sensor table is first read in the system.getSensors()
-   call. Note that initString will be evaluated as a "chunk" of lua
-   code, not treated as the return paramater as it would be with
-   luaExp.
+   slider P6.
 
    In addition to specifying a luaExp for each individual sensor (each
    ID/param pair) you may also specify a luaFunc sting. The luaFunc
@@ -147,25 +155,21 @@
      "decimals": 0,
      "type": 1,
      "sensorName": "IBP",
-     "control": "P7",
-     "controlmin": 0,
-     "controlmax": -4000,
-     "luaFunc":"Current=s; if CapLeft > 0 then return s+200*rand() else return 0 end",
+     "luaFunc":"Current[1]=P1(0,-4000); if CapLeft[1] > 0 then
+      return P1(0,-4000) + 200 * math.random() else return 0 end",
      "label": "Current",
      "unit": "mA"
     },
 
-   We are presuming that the variable Current was declared in the
+   We are presuming that the tables, such as Current{} were declared in the
    initString at the top of the jsn file, for example:
 
     {"id":16819272, "param": 0,"sensorName": "", "label": "IBP",
-     "initString":"CapTotal=5000; CapLeft=5000; Current=0"},
+     "initString":"CapTotal={5000,2500}; CapLeft={5000,2500}; Current={0,0}"},
    
    Note the use of rand() to generate some noise for realism, and how
    it is setting a global variable (Current) so that other sensors
-   json blocks can refer to it by the same name. Of course the
-   variable s will be the value derived from control P7 as it ranges
-   from -1 to 1 the value of s will range from 0 to -4000ma (-4A).
+   json blocks can refer to it by the same name. 
 
    A further example from a battery monitor emulator file:
    
@@ -173,12 +177,8 @@
      "param": 6,
      "decimals": 0,
      "type": 1,
-     "auxcontrol": ["P6"],
      "sensorName": "IBP",
-     "control": "P7",
-     "controlmin": 0,
-     "controlmax": 5000,
-     "luaFunc":"CapLeft = max(0, CapLeft + dt * Current/3600); return CapLeft",
+     "luaFunc":"CapLeft[1] = math.max(0, CapLeft[1] + dt * Current[1]/3600); return CapLeft[1]",
      "label": "Cap. left",
      "unit": "mAh"
     },
@@ -192,14 +192,6 @@
    time in seconds since this sensor (the ID/param pair) was read. The
    pre-defined variable dt is in seconds so we divide by 3600 to get
    hours.
-
-   Also available is a print function prt() that can be used in
-   expressions for info or debugging. It is a variadic function and
-   can take any list of args that would go to the normal lua print
-   statement. The prt() function always returns 0 so you can add it
-   (perhaps several times) to the end of your expression:
-   "luaExp":"s*sin(2*pi*t/10) + prt('amp:', s) + prt('per:',10)".
-   Note the use of single quotes around the strings in the expression.
 
    Support for generating GPS sensor info has also been added, along
    with a companion jsn file sensorEmulatorGPS.jsn that contains the
@@ -261,8 +253,9 @@
    directory, e.g. Apps/DFM-Smoke/sensorEmulator.jsn for use with the
    lua program /Apps/DFM-Smoke.lua
 
-   The app makes one telemetry window where it displays the current
-   sensors and values being emulated.
+   The app makes two telemetry windows where one window displays the
+   current sensors and values being emulated. and the other one
+   displays the variables defined in the lue enviornment.
 
    Usage: 
 
@@ -291,62 +284,6 @@ Example SensorE.jsn file:
 "configDir":"Apps/DFM-Graph"
 }
 
-Example sensorEmulator.jsn file:
-
-[
-
-{"id":1,"param":0,"sensorName":"", "label":"PS1(P5)"},
-{"id":1,"param":1,
-"decimals":0,
-"type":1,
-"sensorName":"PS1(P5)",
-"label":"EGT",
-"unit":"°C",
-"control":"P5",
-"auxcontrol":["P6","P7"],
-"controlmin":0,
-"controlmax":800,
-"luaExp":"s / 2 * sin(2*pi*t / ( 30*(S7+1) ) ) + s / 2"
-},
-
-{"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
-{"id":2,
-"param":1,
-"decimals":0,
-"type":1,
-"sensorName":"PS2(P6)",
-"label":"Airspeed",
-"unit":"m/s",
-"control":"P6",
-"auxcontrol":["P7"],
-"controlmin":0,
-"controlmax":200,
-"luaExp":"s / 2 * sq(t / (30*(S7+1) ) ) + s / 2 + s / 5 * rand() + s / 5"
-},
-
-{"id":3,"param":0,"sensorName":"", "label":"PS3(Lat)"},
-{"id":3,
-"param":2,
-"decimals":0,
-"type":9,
-"auxcontrol":["P6","P7"],
-"sensorName":"PS3(Lat)",
-"label":"Latitude",
-"unit":""
-}, 
-
-{"id":4,"param":0,"sensorName":"", "label":"PS3(Lon)"},
-{"id":4,
-"param":3,
-"decimals":0,
-"type":9,
-"auxcontrol":["P5","P6"],
-"sensorName":"PS3(Lon)",
-"label":"Longitude",
-"unit":""
-}
-
-]
 
 Example sensorEmulatorGPS.jsn file:
 
@@ -357,3 +294,370 @@ Example sensorEmulatorGPS.jsn file:
     "xString":"300*sin(2*pi*t/5)",
     "yString":"200*cos(2*pi*t/7)"
 }
+
+Example sensorEmulator.jsn file:
+
+[
+
+    {"id":16819272, "param": 0,"sensorName": "", "label": "IBP",
+     "initString":
+     "CapTotal={5000,2500,2500,3500}; 
+      CapLeft={5000,2500, 2500,3500}; 
+      Current={0,0,0,0}; 
+      A123=require('A123')"
+    },
+
+    {"id":16819272,
+     "param": 1,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "SOC",
+     "unit": "%",
+     "luaFunc":"--print(SA(),swseq('SA', {1,2,3,4,5,6}) )",
+     "luaExp":"100*CapLeft[1]/CapTotal[1]"
+    },
+    {"id":16819272,
+     "param": 2,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cell 1",
+     "unit": "mV",
+     "luaExp":"A123.Volt(100*CapLeft[1]/CapTotal[1])*1000"
+    },
+    {"id":16819272,
+     "param": 3,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cell 2",
+     "unit": "mv",
+     "luaExp":"A123.Volt(100*CapLeft[1]/CapTotal[1])*1000"     
+    },
+    {"id":16819272,
+     "param": 4,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Pack",
+     "unit": "mV",
+     "luaExp":"2*A123.Volt(100*CapLeft[1]/CapTotal[1])*1000"     
+    },
+    {"id":16819272,
+     "param": 5,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaExp":"15",
+     "label": "Supply",
+     "unit": "V"
+    },
+    {"id":16819272,
+     "param": 6,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cap. left",
+     "unit": "mAh",
+     "luaFunc":
+     "CapLeft[1] = math.max(0, CapLeft[1] + dt * Current[1]/36); return CapLeft[1]"
+    },
+    {"id":16819272,
+     "param": 7,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaExp":"CapTotal[1]",
+     "label": "Cap. total",
+     "unit": "mAh"
+    },
+    {"id":16819272,
+     "param": 8,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Temperature",
+     "unit": "°C",
+     "luaExp":"P8(0,100)"
+    },
+    {"id":16819272,
+     "param": 9,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaFunc":
+     "Current[1]=P1(0,-4000);if CapLeft[1] > 0 then return P1(0,-4000)+200*math.random() else return 0 end",
+     "label": "Current",
+     "unit": "mA"
+    },
+
+    {"id":17867848, "param": 0,"sensorName": "", "label": "IBP"},
+
+    {"id":17867848,
+     "param": 1,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "SOC",
+     "unit": "%",
+     "luaExp":"100*CapLeft[2]/CapTotal[2]"
+    },
+    {"id":17867848,
+     "param": 2,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cell 1",
+     "unit": "mV",
+     "luaExp":"A123.Volt(100*CapLeft[2]/CapTotal[2])*1000"
+    },
+    {"id":17867848,
+     "param": 3,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cell 2",
+     "unit": "mv",
+     "luaExp":"A123.Volt(100*CapLeft[2]/CapTotal[2])*1000"     
+    },
+    {"id":17867848,
+     "param": 4,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cell 3",
+     "unit": "mv",
+     "luaExp":"A123.Volt(100*CapLeft[2]/CapTotal[2])*1000"     
+    },
+    {"id":17867848,
+     "param": 5,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Pack",
+     "unit": "mV",
+     "luaExp":"3*A123.Volt(100*CapLeft[2]/CapTotal[2])*1000"     
+    },
+    {"id":17867848,
+     "param": 6,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaExp":"15",
+     "label": "Supply",
+     "unit": "V"
+    },
+    {"id":17867848,
+     "param": 7,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cap. left",
+     "unit": "mAh",
+     "luaFunc":
+     "CapLeft[2] = math.max(0, CapLeft[2] + dt * Current[2]/36); return CapLeft[2]"
+    },
+    {"id":17867848,
+     "param": 8,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaExp":"CapTotal[2]",
+     "label": "Cap. total",
+     "unit": "mAh"
+    },
+    {"id":17867848,
+     "param": 9,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Temperature",
+     "unit": "°C",
+     "luaExp":"P8(0,100)"
+    },
+    {"id":17867848,
+     "param": 10,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaFunc":
+     "Current[2]=P2(0,-4000);if CapLeft[2] > 0 then return P2(0,-4000)+200*math.random() else return 0 end",
+     "label": "Current",
+     "unit": "mA"
+    },
+
+    {"id":19965000, "param": 0,"sensorName": "", "label": "IBP"},
+
+    {"id":19965000,
+     "param": 1,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "SOC",
+     "unit": "%",
+     "luaExp":"100*CapLeft[3]/CapTotal[3]"
+    },
+    {"id":19965000,
+     "param": 2,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cell 1",
+     "unit": "mV",
+     "luaExp":"A123.Volt(100*CapLeft[3]/CapTotal[3])*1000"
+    },
+    {"id":19965000,
+     "param": 3,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cell 2",
+     "unit": "mv",
+     "luaExp":"A123.Volt(100*CapLeft[3]/CapTotal[3])*1000"     
+    },
+    {"id":19965000,
+     "param": 4,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Pack",
+     "unit": "mV",
+     "luaExp":"2*A123.Volt(100*CapLeft[3]/CapTotal[3])*1000"     
+    },
+    {"id":19965000,
+     "param": 5,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaExp":"15",
+     "label": "Supply",
+     "unit": "V"
+    },
+    {"id":19965000,
+     "param": 6,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cap. left",
+     "unit": "mAh",
+     "luaFunc":
+     "CapLeft[3] = math.max(0, CapLeft[3] + dt * Current[3]/36); return CapLeft[3]"
+    },
+    {"id":19965000,
+     "param": 7,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaExp":"CapTotal[3]",
+     "label": "Cap. total",
+     "unit": "mAh"
+    },
+    {"id":19965000,
+     "param": 8,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Temperature",
+     "unit": "°C",
+     "luaExp":"P8(0,100)"
+    },
+    {"id":19965000,
+     "param": 10,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaFunc":
+     "Current[3]=P3(0,-4000);if CapLeft[3] > 0 then return P3(0,-4000)+200*math.random() else return 0 end",
+     "label": "Current",
+     "unit": "mA"
+    },
+
+    {"id":21013576, "param": 0,"sensorName": "", "label": "IBP"},
+
+    {"id":21013576,
+     "param": 1,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "SOC",
+     "unit": "%",
+     "luaExp":"100*CapLeft[4]/CapTotal[4]"
+    },
+    {"id":21013576,
+     "param": 2,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cell 1",
+     "unit": "mV",
+     "luaExp":"A123.Volt(100*CapLeft[4]/CapTotal[4])*1000"
+    },
+    {"id":21013576,
+     "param": 3,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cell 2",
+     "unit": "mv",
+     "luaExp":"A123.Volt(100*CapLeft[4]/CapTotal[4])*1000"     
+    },
+    {"id":21013576,
+     "param": 4,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Pack",
+     "unit": "mV",
+     "luaExp":"2*A123.Volt(100*CapLeft[4]/CapTotal[4])*1000"     
+    },
+    {"id":21013576,
+     "param": 5,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaExp":"15",
+     "label": "Supply",
+     "unit": "V"
+    },
+    {"id":21013576,
+     "param": 6,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cap. left",
+     "unit": "mAh",
+     "luaFunc":
+     "CapLeft[4] = math.max(0, CapLeft[4] + dt * Current[4]/36); return CapLeft[4]"
+    },
+    {"id":21013576,
+     "param": 7,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaExp":"CapTotal[4]",
+     "label": "Cap. total",
+     "unit": "mAh"
+    },
+    {"id":21013576,
+     "param": 8,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Temperature",
+     "unit": "°C",
+     "luaExp":"P8(0,100)"
+    },
+    {"id":21013576,
+     "param": 10,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "luaFunc":
+     "Current[4]=P4(0,-4000);if CapLeft[4] > 0 then return P4(0,-4000)+200*math.random() else return 0 end",
+     "label": "Current",
+     "unit": "mA"
+    }
+
+]
+
