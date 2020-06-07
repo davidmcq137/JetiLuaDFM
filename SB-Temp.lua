@@ -51,6 +51,7 @@ local pcallOK, emulator
 
 local SBTDeviceID=42054 -- 0xA446 so device 0 is 0x0100a446 = 16819270
 local SBTDeviceNumber
+local SBTChannelsActive
 
 ----------------------------------------------------------------------------
 
@@ -88,6 +89,7 @@ local function readSensors()
    local sensors
    local sensorCode
    local sensorNumber
+   local ii = 0
    
    sensors = system.getSensors()
    --print("sensors:", sensors)
@@ -101,12 +103,14 @@ local function readSensors()
 	 --print("sensorCode: "..string.format("%x", sensorCode))
 	 --print("sensorNumber: "..string.format("%x", sensorNumber))
 	 if sensorCode == SBTDeviceID and sensorNumber == SBTDeviceNumber and sensor.param ~= 0 then
+	    ii = ii + 1
 	    SBT_Telem[sensor.label].SeId = sensor.id
 	    SBT_Telem[sensor.label].SePa = sensor.param
 	    SBT_Telem[sensor.label].unit = sensor.unit
 	 end
       end
    end
+   SBTChannelsActive = ii -- remember how many sensors we found
 end
 
 local function drawShape(col, row, shape, rotation, clr)
@@ -280,6 +284,10 @@ local function SBTDeviceNumberChanged(value)
    SBTDeviceNumber = value
    system.pSave("SBTDeviceNumber", value)
 end
+local function SBTChannelsActiveChanged(value)
+   SBTChannelsActive = value
+   system.pSave("SBTChannelsActive", value)
+end
 
 local function screenIdxChanged(value)
    screenIdx = value
@@ -287,7 +295,6 @@ local function screenIdxChanged(value)
    screenInit()
    form.reinit(1)
 end
-
 
 local function jsnChanged(value, k, elem)
    screenConfig.Probes[k][elem] = value
@@ -314,13 +321,17 @@ local function initForm(subForm)
 
       form.addRow(2)
       form.addLabel({label="SB-Temp Device Number", width=220})
-      form.addIntbox(SBTDeviceNumber,0,7,1,0,1,SBTDeviceNumberChanged)      
+      form.addIntbox(SBTDeviceNumber,0,7,1,0,1,SBTDeviceNumberChanged)
+
+      form.addRow(2)
+      form.addLabel({label="SB-Temp Channels Active", width=220})
+      form.addIntbox(SBTChannelsActive,1,8,8,0,1,SBTChannelsActiveChanged)
 
       form.addRow(2)
       form.addLabel({label="Select Display Screen", width=200})
       form.addSelectbox(screens, screenIdx, true, screenIdxChanged)
 
-      for j=1, #screenConfig.Probes,1 do
+      for j=1, math.min(SBTChannelsActive, #screenConfig.Probes),1 do
 	 form.addRow(2)
 	 form.addLink((function() form.reinit(j+1) end),
 	    {label="Probe "..j.." ("..screenConfig.Probes[j].Name ..") >>"})
@@ -380,6 +391,9 @@ local function teleBuiltIn()
       for i=1,4,1 do
 	 for j=1,2,1 do
 	    idx = i+4*(j-1)	 
+	    if idx > SBTChannelsActive then
+	       break
+	    end
 	    k="T"..idx
 	    drawGauge(screenConfig.Probes[idx].Name,
 		      screenConfig.Probes[idx].Green,
@@ -394,6 +408,9 @@ local function teleBuiltIn()
       for i=1,4,1 do
 	 for j=1,2,1 do
 	    idx = i+4*(j-1)	 
+	    if idx > SBTChannelsActive then
+	       break
+	    end
 	    k="T"..idx
 	    drawHistogram(screenConfig.Probes[idx].Name,
 		      screenConfig.Probes[idx].Green,
@@ -502,6 +519,7 @@ local function init()
    screenIdx = system.pLoad("screenIdx", 1)
 
    SBTDeviceNumber = system.pLoad("SBTDeviceNumber", 0)
+   SBTChannelsActive = system.pLoad("SBTChannelsActive", 8)
    
    --pcallOK, emulator = pcall(require, "sensorEmulator")
    ----if not pcallOK then print("pcall error: ", emulator) end

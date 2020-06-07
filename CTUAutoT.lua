@@ -701,7 +701,12 @@ local function loop()
       sensor = system.getSensorByID(CTUThrSeId, CTUThrSePa)
    end
 
-   if sensor and sensor.valid and ATState and ATState > 0 then
+   -- Puzzle: would be good to make sure turbine is on (that is, not in "user off" state with
+   -- the trim low) and flag an error if the AT is turned on and the engine is not enabled
+   -- but we don't know what switch the CTU uses to turn AT on an off...
+   -- should we be checking RPM perhaps?
+   
+   if sensor and sensor.valid and ATState and ATState > 1 then
       throttle = sensor.value
       lastGoodThr = system.getTimeCounter()
    else -- TEST .. in case not valid don't set to value of thrStick (0)!

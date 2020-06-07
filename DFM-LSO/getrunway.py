@@ -40,10 +40,12 @@ import sys
 
 
 def Gmaps_api_request(**kwargs):
-    return requests.request("GET",
+    res =  requests.request("GET",
                             "https://maps.googleapis.com/maps/api/staticmap",
                             stream=True,
                             params=kwargs)
+    print("URL:", res.url)
+    return res
 
 def get_Gmaps_image(zoom, latitude, longitude):
     config = ConfigParser.ConfigParser()
@@ -122,17 +124,24 @@ for fld in jd["fields"]:
         # in temp files since it's easy to do that with the data from requests()
         
         Gmaps = get_Gmaps_image(zoom, latitude, longitude)
-    
-        # note that in PIL the image.rotate operation rotates about the image center, not
+        wwGr, hhGr = Gmaps.size  # note the image size    
+        print("size ww,hh:", wwGr, hhGr)
+
+
+		# note that in PIL the image.rotate operation rotates about the image center, not
         # the 0,0 point as was the case in Russell's original implementation so we have less
         # work to do (vs. translate, rotate, and then translate back)
-    
+
+        print("pre w:", Gmaps_px_per_foot(latitude,zoom), field_image_width_ft)
+        print("pre h:", Gmaps_px_per_foot(latitude,zoom), field_image_height_ft)						
         Gmaps_rotate = Gmaps.rotate(truedir-270)
     
         field_image_width_px =  Gmaps_px_per_foot(latitude, zoom) * field_image_width_ft
         field_image_height_px = Gmaps_px_per_foot(latitude, zoom) * field_image_height_ft
     
         wwGr, hhGr = Gmaps_rotate.size  # note the image size
+
+        print("size ww,hh:", wwGr, hhGr)
 
         # clip the rotated image to the requested field image size. Also offset the position of 
         # the runway in the image to be 1/4 of the way up from the bottom since we stand to that 

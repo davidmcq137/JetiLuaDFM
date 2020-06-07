@@ -111,17 +111,31 @@ end
 local function sensorFullID(devID, devParm)
    return tostring(devID)..tostring(devParm)
 end
-
 ------------------------------------------------------------
-local readSenDone=false
-function emulator.startUp(readSen)
 
-   if not emulator.readLogHeader() then return true end
-   if not readSenDone then
-      readSen(0)
-      readSenDone = true
-   end
+local readSenDone=false
+local readLogDone=false
+
+function emulator.startUp(readSen)
+   local rsd
+
+   if readSenDone and readLogDone then return false end
    
+   if not readLogDone then 
+      readLogDone = emulator.readLogHeader()
+      if readLogDone then readSen(0) end
+      return true
+   end
+
+   if not readSenDone then
+      rsd = readSen(1)
+      if rsd then
+	 return true
+      else
+	 readSenDone = true
+	 return false
+      end
+   end
 end
 
 ------------------------------------------------------------
@@ -132,6 +146,8 @@ function emulator.readLogHeader()
    local uid
    local iid
 
+   print("emulator.readLogHeader .. fd, rlhDone", fd, rlhDone)
+   
    if not fd then return false end
    if rlhDone then return rlhDone end
 
@@ -259,9 +275,10 @@ function emulator.init(jtext)
    local text, jfile
    local fg
 
+   print("emulator.init with jtext=", jtext)
    if jtext then jfile = "Apps/" .. jtext else jfile = "Apps/sensorLogEm.jsn" end
    fg = io.readall(jfile)
-   if not fg then print("Cannot read " .. jfile) else
+   if not fg then print("**Cannot read " .. jfile) else
       config=json.decode(fg)
    end
 
@@ -306,8 +323,9 @@ function emulator.getSensors()
    -- each one with the param=0 and sensorName="" record
    
    -- so ... first sort the keys
-
+   print("in emulator.getSensors")
    for k in pairs(logSensorByName) do
+      print("table insert", st, k)
       table.insert(st,k)
    end
    table.sort(st)
@@ -319,7 +337,7 @@ function emulator.getSensors()
    ll=nil
    for k,v in ipairs(st) do
       vv = logSensorByName[v]
-      --print("k,v,vv", k,v,vv)
+      print("k,v,vv, vv.param", k,v,vv, vv.param)
       if type(vv) ~= "table"  then
 	 print("sensor not found in log header: "..v)
 	 ll=nil

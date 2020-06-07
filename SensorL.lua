@@ -334,6 +334,7 @@ local function emulator_init()
 
    
    jfile = appDir .. appShort .. ".jsn"
+   print("in emulator_init with jfile=", jfile)
    fg = io.readall(jfile)
 
    if not fg then print("SensorL: Cannot read " .. jfile) else
@@ -643,13 +644,14 @@ end
 
 
 local function init()
-
+   print("in init()")
    system.registerTelemetry(1, appName, 4, telePrint)
    dev, emFlag = system.getDeviceType()
    --startUpTime = system.getTimeCounter()
-
+   print("before emulator_init")
    emulator_init()
-
+   print("after emulator_init")
+   
 end
 
 return {init=init, loop=nil, author=appAuthor, version=appVersion, name=appName}

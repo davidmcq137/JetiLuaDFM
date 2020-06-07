@@ -42,16 +42,20 @@ local EGT = 0
 local serialFile
 local teleSeq = 0
 local lastWriteTime = 0
+local lastStickWrite = 0
 local P1, P2, P3, P4 = 0,0,0,0
 local lastP1, lastP2, lastP3, lastP4 = 0,0,0,0
 local DEBUG = false
 local device, emflag
 
 local CTU_ID = 16819262    -- Digitech CTU, params: 5=fuel rem, 12=G, 13=baro alt
+                           -- 1=RPM, 3=EGT
 local GPS_ID = 0           -- Jeti MGPS, params: 2=lat,3=long,8=speed,9=AltRelat
 local MSP_ID = 0           -- Jeti MSpeed, params: 1=velocity
 
 local telem_list= {
+   ["RPM"]            = {id=0,name="CTU",   param=1},
+   ["EGT"]            = {id=0,name="CTU",   param=3},
    ["Fuel_remaining"] = {id=0,name="CTU",   param=5},
    ["G_Force"]        = {id=0,name="CTU",   param=12},
    ["Baro_Altitude"]  = {id=0,name="CTU",   param=13},
@@ -63,6 +67,8 @@ local telem_list= {
 }
 
 local telem= {
+   ["RPM"]            = {id=0,param=0,val=0,lastval=0},
+   ["EGT"]            = {id=0,param=0,val=0,lastval=0},      
    ["Fuel_remaining"] = {id=0,param=0,val=0,lastval=0},
    ["G_Force"]        = {id=0,param=0,val=0,lastval=0},
    ["Baro_Altitude"]  = {id=0,param=0,val=0,lastval=0},
@@ -143,6 +149,24 @@ end
 local isens
 local sensors
 
+local function readSensorsX()
+
+   local sensors
+   sensors = system.getSensors()
+   --print("#sensors:", #sensors)
+   for i, sensor in ipairs(sensors) do
+      print(i, type(sensor.id), type(sensor.param), type(sensor.label))
+      print(i, sensor.id, sensor.param, sensor.label)
+      if (sensor.label ~= "") then
+	 if sensor.param == 0 then sensorLbl = sensor.label else
+	    table.insert(sensorLalist, sensorLbl .. "-> " .. sensor.label)
+	    table.insert(sensorIdlist, sensor.id)
+	    table.insert(sensorPalist, sensor.param)
+	 end
+      end
+   end
+end
+
 local function readSensors(is)
 
    --this version intended to process one sensor per call ... repeat calls till returns nil
@@ -150,24 +174,25 @@ local function readSensors(is)
 
    local sensor, kfound
 
-   --print("IN readSensors", is)
+   print("IN readSensors", is)
    
    if not is or is == 0 then
       sensors = system.getSensors()
       print("Number of sensors returned from system.getSensors: "..#sensors)
-      --for k,v in pairs(sensors) do
+      for k,v in pairs(sensors) do
 	 --print("k: "..k.."  v.param "..v.param.."  v.id "..v.id.."  v.label "..
-		 -- v.label.."  v.sensorName "..v.sensorName)
-      --end
+		--v.label.."  v.sensorName "..v.sensorName)
+      end
       
       isens = 0
    end
 
    if isens + 1 > #sensors then
-      --print("telem")
-      --for k,v in pairs(telem) do
-	 --print("***",k,v.id, v.param, v.val, v.lastval)
-      --end
+      print("telem")
+      for k,v in pairs(telem) do
+	 print("***",k,v.id, v.param, v.val, v.lastval)
+      end
+      print("readsensors returning nil")
       return nil
    end
 
@@ -181,7 +206,7 @@ local function readSensors(is)
    if (sensor.label ~= "") then
       kfound=nil
       for k,v in pairs(telem_list) do
-	 --print("loop: isens, k,v, sensor.param, sensor.label",isens, k,v, sensor.param, sensor.label) 
+	 print("loop: isens, k,v, sensor.param, sensor.label",isens, k,v, sensor.param, sensor.label) 
 	 if sensor.param == 0 and sensor.label == v.name then
 	    v.id = sensor.id
 	 elseif v.id == sensor.id and v.param == sensor.param then
@@ -194,6 +219,7 @@ local function readSensors(is)
 	 telem_list[kfound]=nil
       end
    end
+   print("readsensors returning", isens)
    return isens
 end
 
@@ -223,7 +249,7 @@ local function countedWrite(ff, str)
    if ff then io.write(ff, str) end
    if sidSerial then
       cnt = serial.write(sidSerial, str)
-      --print("cnt=", cnt)
+      --print("str, cnt=", str,cnt)
    end
    
    
@@ -241,7 +267,7 @@ local numGPSreads = 0
 local newPosTime = 0
 local hasCourseGPS
 local rsdone=false
-
+local iii=0
 local function loop()
 
    local sensor
@@ -254,32 +280,41 @@ local function loop()
    local deltaPosTime = 100 -- min sample interval in ms
 
    if pcallOK and emulator then
-      if emulator.startUp(readSensors) then return end
-   else
-      --readSensors(0)
+      if emulator.startUp(readSensors) then -- returns true when it has to keep going
+	 iii = iii + 1
+	 print("iii:", iii)
+	 if iii > 40 then
+	    foo.bar()
+	 end
+	 
+	 return
+      end
    end
-   
 
-   if not rsdone then
-      if readSensors(1) then return else rsdone = true end
-    -- returns nil when sensors all read in
-   end
-   
    goodlat = false
    goodlong = false
 
    --shouldn't we compare param instead of name? equiv func but faster?
    
    for name, sens in pairs(telem) do
-      --print("name, sens:", name, sens)
+      --print("name, sens, sens.id, sens.param:", name, sens, sens.id, sens.param)
       if sens.id ~= 0 and sens.param ~= 0 then
 	 sensor = system.getSensorByID(sens.id, sens.param)
+	 --[[
 	 if not sensor then
-	    --print("not sensor: sens.id", sens.id)
-	    --print("not sensor: sens.param", sens.param)
-	    --print("closing serialFile")
+	    print("not sensor: sens.id", sens.id)
+	    print("not sensor: sens.param", sens.param)
+	    print("closing serialFile")
 	    if serialFile then io.close(serialFile) end
 	 end
+
+	 if not sensor.valid then
+	    print("not sensor valid: sens.id", sens.id)
+	    print("not sensor valid: sens.param", sens.param)
+	 end
+	 --]]
+	 --print("sensor.value", sensor.value)
+	 
 	 
 	 if sensor and sensor.valid then
 	    if sens.id == sensor.id and  name == "Longitude" then
@@ -310,6 +345,7 @@ local function loop()
 	       hasPitot = true
 	    elseif sens.id == sensor.id and name == "Baro_Altitude"  then
 	       sens.val = sensor.value
+	       --print("Baro_Altitude:", sensor.value)
 	       baroAlt = sensor.value * 3.28084 -- unit conversion m to ft
 	    elseif sens.id == sensor.id and name == "GPS_Speed" then
 	       sens.val = sensor.value
@@ -317,6 +353,12 @@ local function loop()
 	    elseif sens.id == sensor.id and name == "Fuel_remaining" then
 	       sens.val = sensor.value
 	       fuelRem = sensor.value
+	    elseif sens.id == sensor.id and name == "RPM" then
+	       sens.val = sensor.value
+	       RPM = sensor.value / 1000.0
+	    elseif sens.id == sensor.id and name == "EGT" then
+	       sens.val = sensor.value
+	       EGT = sensor.value
 	    else
 	       --print("bad sensor?")
 	    end
@@ -356,7 +398,7 @@ local function loop()
    if baroAlt then -- let baroAlt "win" if both defined
       altitude = baroAlt
    end
-   
+
    if latitude and longitude then
       if (latitude == lastlat and longitude == lastlong) or
 	 (math.abs(system.getTimeCounter()) < newPosTime) -- mac emulator had sgTC negative???
@@ -412,7 +454,7 @@ local function loop()
    Pchg = false
 
    --if lastP1 ~= P1 or lastP2 ~= P2 or lastP3 ~= P3 or lastP4 ~= P4 then Pchg = true end
-   local deltaP = 0.005
+   local deltaP = 0.05
    
    if math.abs(lastP1-P1) > deltaP or math.abs(lastP2-P2) > deltaP or math.abs(lastP3-P3) > deltaP or math.abs(lastP4-P4) > deltaP then Pchg = true end
       
@@ -423,7 +465,7 @@ local function loop()
      -- if lastP4 ~= P4 then print("P4:", lastP4, P4, (lastP4-P4)/P4) end      
    --end
 
-   if (now - lastWriteTime) > 400 then
+   if (now - lastWriteTime) > 250 then
       Pchg = true
       Tchg = true
    end
@@ -446,38 +488,49 @@ local function loop()
 	 end
 
 	 local tsec = (system.getTimeCounter() - sysTimeStart) / 1000.0
-	 altitude = 200 + 200*math.sin(2*math.pi*tsec/300)
+	 --altitude = 200 + 200*math.sin(2*math.pi*tsec/300)
 	 ss = string.format("(Alt:%4.2f)", altitude)
 	 countedWrite(serialFile, ss)
 	 --if emflag == 1 then print(ss) end
 
-	 speed = 100 + 100*math.cos(2*math.pi*tsec/300)
+	 --speed = 100 + 100*math.cos(2*math.pi*tsec/300)
 	 ss = string.format("(Spd:%4.2f)", speed)
 	 countedWrite(serialFile, ss)
 	 --if emflag == 1 then print(ss) end
 
-	 fuelRem = (P4+1)/2 * 100
+	 --fuelRem = 50 + 50*math.cos(2*math.pi*tsec/100)
+	 --fuelRem = fuelRem - 0.8
+	 if fuelRem < 0 then fuelRem = 100 end
+	 
+	 
 	 ss = string.format("(Frm:%4.2f)", fuelRem)
 	 countedWrite(serialFile, ss)
 
-	 EGT = 800 * (1+math.sin(2*math.pi*tsec/100)) / 2
+	 --EGT = 800 * (1+math.sin(2*math.pi*tsec/100)) / 2
 	 ss = string.format("(EGT:%4.2f)", EGT)
 	 countedWrite(serialFile, ss)
 
-	 RPM = 150 * (1+math.cos(2*math.pi*tsec/100)) / 2
+	 --RPM = 150 * (1+math.cos(2*math.pi*tsec/100)) / 2
 	 ss = string.format("(RPM:%4.2f)", RPM)
-	 countedWrite(serialFile, ss)	 
-
-	 
-	 --print(ss, (system.getTimeCounter() - sysTimeStart)/1000)
-	 --if emflag == 1 then print(ss) end	 
-      end
-      if Pchg then
-	 ss = string.format("(Ctl:%2.2f$%2.2f$%2.2f$%2.2f)", P1, P2, P3, P4)
 	 countedWrite(serialFile, ss)
-	 --print(ss)
-	 --if emflag == 1 then print(ss) end
+
+	 --local escale = system.getInputs("P8")
+	 --escale = (1 + escale) / 2
+	 escale = 1
+	 xp = 2500 * escale * math.sin(2*math.pi*tsec/50)
+	 yp = 1000 * escale * (1 + math.cos(2*math.pi*tsec/50))
+	 ss = string.format("(XYP:%4.2f$%4.2f)", xp, yp)
+	 --print(xp, yp)
+	 countedWrite(serialFile, ss)
+	 
       end
+
+      if Pchg and ((now - lastStickWrite) > 200) then
+	 ss = string.format("(Ctl:%1.2f$%1.2f$%1.2f$%1.2f)", P1, P2, P3, P4)
+	 countedWrite(serialFile, ss)
+	 lastStickWrite = now
+      end
+
       countedWrite(serialFile, "\r\n")
             
       lastWriteTime = system.getTimeCounter()
@@ -489,16 +542,29 @@ local function loop()
    
 end
 
+local lastTB = 0
+
 local function onRead(data)
-   --print("onRead:", data)
-   timeBack = tonumber(data)
-   if not timeBack then print("bad time:", data) end
+   print("onRead:", data)
+   local i
+   i = tonumber(data)
+   if not i then
+      print("bad time:", data)
+      return
+   end
+   if i < lastTB then
+      print("backwards time?")
+      return
+   end
+   timeBack = i
+   lastTB = timeBack
 end
 
 local function init()
 
    local fg, fn
-   
+
+   print("tele2 init")
    pcallOK, emulator = pcall(require, "sensorLogEm")
    print("pcallOK, emulator:", pcallOK, emulator)
    if not pcallOK then print("pcall error: ", emulator) end
@@ -537,9 +603,9 @@ local function init()
    
    device, emflag = system.getDeviceType()
 
-   if emflag ~= 1 then
+   if true then -- emflag ~= 1 then
       print("about to serial init")
-      sidSerial = serial.init("COM1",9600) 
+      sidSerial = serial.init("ttyUSB0",9600) 
       
       if sidSerial then   
 	 print("sid succeeded: ", sidSerial)
@@ -573,7 +639,7 @@ local function init()
 
    --print("Device: "..device)
    
-   readSensors(0)
+   --readSensors(0)
 end
 
 

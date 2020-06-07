@@ -1,6 +1,6 @@
 [
 
-    {"id":16819272, "param": 0,"sensorName": "", "label": "IBP",
+    {"id":16819272, "param": 0,"sensorName": "", "label": "IBP 2S LiFe",
      "initString":
      "CapTotal={5000,2500,2500,3500}; 
       CapLeft={5000,2500, 2500,3500}; 
@@ -93,7 +93,7 @@
      "unit": "mA"
     },
 
-    {"id":17867848, "param": 0,"sensorName": "", "label": "IBP"},
+    {"id":17867848, "param": 0,"sensorName": "", "label": "IBP 3S LiFe"},
 
     {"id":17867848,
      "param": 1,
@@ -188,7 +188,7 @@
      "unit": "mA"
     },
 
-    {"id":19965000, "param": 0,"sensorName": "", "label": "IBP"},
+    {"id":19965000, "param": 0,"sensorName": "", "label": "IBP 2S LiIon"},
 
     {"id":19965000,
      "param": 1,
@@ -274,7 +274,7 @@
      "unit": "mA"
     },
 
-    {"id":21013576, "param": 0,"sensorName": "", "label": "IBP"},
+    {"id":21013576, "param": 0,"sensorName": "", "label": "IBP 2S LiIon"},
 
     {"id":21013576,
      "param": 1,

@@ -64,15 +64,6 @@
      "luaExp":"P7(100)",
      "label": "T7",
      "unit": "°C"
-    },
-    {"id":16819270 ,
-     "param": 8,
-     "decimals": 0,
-     "type": 1,
-     "sensorName": "SB-TEMP",
-     "luaExp":"P8(100)",
-     "label": "T8",
-     "unit": "°C"
     }
 
 ]

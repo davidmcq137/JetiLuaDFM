@@ -33,12 +33,15 @@ import os
 # 2  : 295828775.300000
 # 1  : 591657550.500000
 
-
 def Gmaps_api_request(**kwargs):
-    return requests.request("GET",
+    #print("kwargs:", kwargs)
+	
+    foo = requests.request("GET",
                             "https://maps.googleapis.com/maps/api/staticmap",
                             stream=True,
                             params=kwargs)
+    #print(foo.url)
+    return foo
 
 def get_Gmaps_image(zoom, latitude, longitude, API_key):
     latlong= str(latitude) + "," + str(longitude)
@@ -121,12 +124,19 @@ for fld in jd["fields"]:
         # note that in PIL the image.rotate operation rotates about the image center, not
         # the 0,0 point as was the case in Russell's original implementation so we have less
         # work to do (vs. translate, rotate, and then translate back)
+
+        print("pre w:", Gmaps_px_per_foot(latitude,zoom), field_image_width_ft)
+        print("pre h:", Gmaps_px_per_foot(latitude,zoom), field_image_height_ft)				
     
         Gmaps_rotate = Gmaps.rotate(truedir-270)
     
         field_image_width_px =  Gmaps_px_per_foot(latitude, zoom) * field_image_width_ft
         field_image_height_px = Gmaps_px_per_foot(latitude, zoom) * field_image_height_ft
-    
+
+
+        print("w:", Gmaps_px_per_foot(latitude,zoom), field_image_width_ft)
+        print("h:", Gmaps_px_per_foot(latitude,zoom), field_image_height_ft)				
+		
         wwGr, hhGr = Gmaps_rotate.size  # note the image size
 
         # clip the rotated image to the requested field image size. Also offset the position of 

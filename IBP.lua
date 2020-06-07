@@ -151,13 +151,16 @@ local function readSensors()
    local packNo
    local lastSensorNumber = -1
    local lastLabel
+   local devName
    
    sensors = system.getSensors()
    
    packNo = 0
    
-   for _, sensor in ipairs(sensors) do
+   for foo, sensor in ipairs(sensors) do
+      --print("foo,sensor:", foo, sensor)
       if (sensor.label ~= "") then
+	 --print("top of loop: sensor.param, sensor.label: ", sensor.param, sensor.label)
 	 sensorNumber = ((sensor.id >> 16) & 0xF0) >> 4
 	 sensorCode = sensor.id & 0xFFFF
 	 if sensorCode == IBPDeviceID and sensor.param ~= 0 then
@@ -173,8 +176,10 @@ local function readSensors()
 	    if #IBP.Packs <= maxPacks then
 	       if sensor.label ~= lastLabel then
 		  IBP.Packs[packNo].Label[sensor.label] = {}
+		  --print("sensor.label:", sensor.label)
 		  lastLabel = sensor.label
 	       end
+	       IBP.Packs[packNo].Label[sensor.label].deviceName = devName
 	       IBP.Packs[packNo].Label[sensor.label].SeId = sensor.id
 	       IBP.Packs[packNo].Label[sensor.label].SePa = sensor.param
 	       IBP.Packs[packNo].Label[sensor.label].unit = sensor.unit
@@ -182,13 +187,18 @@ local function readSensors()
 	       if packNames[packNo] then
 		  IBP.Packs[packNo].Name = packNames[packNo]
 	       else
-		  IBP.Packs[packNo].Name = lang.Dev..device..
-		     "("..(IBP.Packs[packNo].Label["Cell 3"] and "3S)" or "2S)")
+		  IBP.Packs[packNo].Name = devName
+		  --IBP.Packs[packNo].Name = lang.Dev..device..
+		  --   "("..(IBP.Packs[packNo].Label["Cell 3"] and "3S)" or "2S)")
 	       end
 	       IBP.Packs[packNo].HiWater = {}
 	       IBP.Packs[packNo].HiWater.Current = 0
 	       IBP.Packs[packNo].HiWater.Red = false
 	    end
+	 end
+	 if sensorCode == IBPDeviceID and sensor.param == 0 then
+	    devName = sensor.label
+	    --print("devName: ", devName)
 	 end
       end
    end
@@ -283,7 +293,8 @@ local function drawBattery2(ix,iy,packNo,name)
    local soc
    local cur
    local HiW
-
+   local pname
+   
    lcd.drawRectangle(ix, iy+12, 19, 51, 3)   
    lcd.drawRectangle(ix+5, iy+10,  10, 3, 2)
    
@@ -298,7 +309,13 @@ local function drawBattery2(ix,iy,packNo,name)
 		   string.format(v.fmt, IBP.Packs[packNo].Label[k].value/v.scale), FONT_MINI)
    end
    lcd.setColor(0,0,0)
-   drawTextCenter(FONT_MINI, name, ix+18/2+1, iy+63)
+   if #name > 8 then
+      pname = string.sub(name,1,6) .. "..."
+   else
+      pname = name
+   end
+   
+   drawTextCenter(FONT_MINI, pname, ix+18/2+1, iy+63)
    lcd.setColor(0,255,0)
    soc = IBP.Packs[packNo].Label.SOC.value
    if soc > 100 then soc = 100 end
@@ -347,8 +364,8 @@ local function teleImage4(_,_,num)
    end
    if emFlag == 1 then
       tCPU = system.getCPU()
-      lcd.drawText(290,135, string.format("L: %02d", lCPU), FONT_MINI)
-      lcd.drawText(290,145, string.format("T: %02d", tCPU), FONT_MINI)
+      --lcd.drawText(290,135, string.format("L: %02d", lCPU), FONT_MINI)
+      --lcd.drawText(290,145, string.format("T: %02d", tCPU), FONT_MINI)
    end
 end
 

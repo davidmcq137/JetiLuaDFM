@@ -1,1 +1,1 @@
-pipenv run python LSO-Gmap-Image-Gen.py
+pipenv run python getrunway.py iPad
