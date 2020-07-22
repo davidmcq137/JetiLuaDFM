@@ -417,16 +417,17 @@ local function loop()
 
    if(sensor and sensor.valid) then
       fuel_qty = sensor.value
-      if not fuel_max then
-	 fuel_max = sensor.max
-	 print("fuel_max: ", fuel_max)
-      else
+      fuel_max = sensor.max
+      if fuel_max and fuel_qty then -- double check!
 	 fuel_pct = 100 * fuel_qty / fuel_max
+      else
+	 fuel_pct = 0
       end
       iii = iii + 1
       if iii > 100 then
-	 print("sensor value:", sensor.value)
-	 print("sensor lab, un, min, max:", sensor.label, sensor.unit, sensor.min, sensor.max)
+	 print("sensor.value:", sensor.value)
+	 print("sensor.max:", sensor.max)
+	 print("sensor lab, un, min:", sensor.label, sensor.unit, sensor.min)
 	 print("fuel_pct:", fuel_pct)
 	 iii = 0
       end
@@ -545,7 +546,8 @@ local function loop()
 	 if DEBUG then print(fuel_pct, '%') end
       end
 
-      if running_time > 270 then -- this const is 4:30 in secs, so start this ann at 5:00
+--      if running_time > 270 then -- this const is 4:30 in secs, so start this ann at 5:00
+      if fuel_pct < 50 then -- do after half emptied - better than a time
 	 burnRate = (100-fuel_pct)/running_time -- long term average since gear up
 	 remainingTime = fuel_pct/burnRate      -- estimated time on fuel that is left
 	 min_time = remainingTime / 60

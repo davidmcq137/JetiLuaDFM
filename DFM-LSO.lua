@@ -58,7 +58,7 @@ telem.DistanceGPS={}
 telem.CourseGPS={}
 telem.BaroAlt={}
 
-local variables = {"magneticVar", "rotationAngle"}
+local variables = {"magneticVar", "rotationAngle", "histSample", "histMax"}
 variables.magneticVar = 0
 
 -- local controls  = {"Throttle", "Brake"}
@@ -75,10 +75,16 @@ local bezierPath = {}
 local shapes = {}
 local rwy = {}
 local poi = {}
+local noFlyIn = true
+local maxpoiX = 0.0
 local geo = {}
 local iField
 local modelProps={}
-
+local xHist={}
+local yHist={}
+local MAXHIST = 240 -- 4 mins at 1/sec
+local xHistLast=0
+local yHistLast = 0
 local countNoNewPos = 0
 
 local takeoff={}; takeoff.Complete={}; takeoff.Start={}
@@ -312,7 +318,6 @@ local function readSensors()
 	       satQualityID = sensor.id
 	       satQualityPa = sensor.param
 	    end	    
-	    
 	 end
       end
    end
@@ -351,7 +356,7 @@ end
 
 local function variableChanged(value, var)
    variables[var] = value
-   system.pSave(var, value)
+   system.pSave("variables."..var, value)
 end
 
 local resetOrigin=false
@@ -484,6 +489,17 @@ local function initForm(subform)
 	 form.addLabel({label="Map Rotation (\u{B0}CCW)", width=220})
 	 form.addIntbox(variables.rotationAngle, -359, 359, 0, 0, 1,
 			(function(x) return variableChanged(x, "rotationAngle") end) )
+	 
+	 form.addRow(2)
+	 form.addLabel({label="History Sample Time (ms)", width=220})
+	 form.addIntbox(variables.histSample, 1000, 10000, 1000, 0, 100,
+			(function(x) return variableChanged(x, "histSample") end) )
+
+
+	 form.addRow(2)
+	 form.addLabel({label="Number of History Samples", width=220})
+	 form.addIntbox(variables.histMax, 0, 300, 240, 0, 10,
+			(function(x) return variableChanged(x, "histMax") end) )
 	 
 	 -- decomission magneticVar for now .. reconsider if we want this functionality
 	 -- let if default to zero
@@ -687,6 +703,9 @@ local function setColorMap()
    end
 end
 
+local function setColorNoFly()
+   lcd.setColor(255,0,0)
+end
 
 local function setColorMain()
    lcd.setColor(textColor.main.red, textColor.main.green, textColor.main.blue)
@@ -1129,32 +1148,143 @@ end
 
 local function drawGeo(windowWidth, windowHeight)
 
-   if currentImage then return end -- no need to draw rwy and poi, they are on the image
+   --if currentImage then return end -- no need to draw rwy and poi, they are on the image
    
    if not rwy[1] then return end
 
-   ren:reset()
+   -- ** if reactivating this code to draw runway here, incorporate new offset parameter
+   -- ** from Fields.jsn
+   
+   --ren:reset()
 
-   for j=1, #rwy do
-      ren:addPoint(toXPixel(rwy[j].x, map.Xmin, map.Xrange, windowWidth),
-		   toYPixel(rwy[j].y, map.Ymin, map.Yrange, windowHeight))
-   end
+   --for j=1, #rwy do
+     -- ren:addPoint(toXPixel(rwy[j].x, map.Xmin, map.Xrange, windowWidth),
+--		   toYPixel(rwy[j].y, map.Ymin, map.Yrange, windowHeight))
+  -- end
 
-   ren:renderPolyline(2)
+   --ren:renderPolyline(2)
 
    if not poi[1] then return end
+
+   ren:reset()
    
    for j=1, #poi do
-      drawShape(toXPixel(poi[j].x, map.Xmin, map.Xrange, windowWidth),
-		toYPixel(poi[j].y, map.Ymin, map.Yrange, windowHeight),
-		shapes.origin, 0)
+      --drawShape(toXPixel(poi[j].x, map.Xmin, map.Xrange, windowWidth),
+	--	toYPixel(poi[j].y, map.Ymin, map.Yrange, windowHeight),
+      --	shapes.origin, 0)
+      ren:addPoint(toXPixel(poi[j].x, map.Xmin, map.Xrange, windowWidth),
+		   toYPixel(poi[j].y, map.Ymin, map.Yrange, windowHeight) )
+
    end
-   
+   ren:addPoint(toXPixel(poi[1].x, map.Xmin, map.Xrange, windowWidth),
+		toYPixel(poi[1].y, map.Ymin, map.Yrange, windowHeight) )
+   lcd.setColor(255,0,0)
+   ren:renderPolyline(2, 0.75)
 end
 
 local fd
 local timSstr = "-:-"
+
+-- next set of function acknowledge
+-- https://www.geeksforgeeks.org/how-to-check-if-a-given-point-lies-inside-a-polygon/
+-- ported to lua D McQ 7/2020
+
+local function onSegment(p, q, r)
+   if (q.x <= math.max(p.x, r.x) and q.x >= math.min(p.x, r.x) and 
+            q.y <= math.max(p.y, r.y) and q.y >= math.min(p.y, r.y)) then
+      return true
+   else
+      return false
+   end
+end
+
+-- To find orientation of ordered triplet (p, q, r). 
+-- The function returns following values 
+-- 0 --> p, q and r are colinear 
+-- 1 --> Clockwise 
+-- 2 --> Counterclockwise 
+local function orientation(p, q, r) 
+   local val
+   --print("orientation:", p,q,r)
+   val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y)
+   if (val == 0) then return 0 end  -- colinear 
+   return val > 0 and 1 or 2
+   --return (val > 0)? 1: 2; // clock or counterclock wise 
+end
+
+-- The function that returns true if line segment 'p1q1' 
+-- and 'p2q2' intersect. 
+local function doIntersect(p1, q1, p2, q2) 
+   -- Find the four orientations needed for general and 
+   -- special cases
+   local o1, o2, o3, o4
+   o1 = orientation(p1, q1, p2)
+   o2 = orientation(p1, q1, q2) 
+   o3 = orientation(p2, q2, p1) 
+   o4 = orientation(p2, q2, q1) 
    
+   -- General case 
+   if (o1 ~= o2 and o3 ~= o4) then return true end
+   
+   -- Special Cases 
+   -- p1, q1 and p2 are colinear and p2 lies on segment p1q1 
+   if (o1 == 0 and onSegment(p1, p2, q1)) then return true end
+   
+   -- p1, q1 and p2 are colinear and q2 lies on segment p1q1 
+   if (o2 == 0 and onSegment(p1, q2, q1)) then return true end
+  
+   -- p2, q2 and p1 are colinear and p1 lies on segment p2q2 
+   if (o3 == 0 and onSegment(p2, p1, q2)) then return true end
+  
+   -- p2, q2 and q1 are colinear and q1 lies on segment p2q2 
+   if (o4 == 0 and onSegment(p2, q1, q2)) then return true end 
+  
+    return false -- Doesn't fall in any of the above cases 
+end
+
+-- Returns true if the point p lies inside the polygon[] with n vertices 
+local function isInside(polygon, n, p) 
+
+   -- There must be at least 3 vertices in polygon[]
+   -- normally would return false but in our case if we have no polygon
+   -- we don't want it to be a no-Fly zone
+   
+   if (n < 3)  then return true end
+
+   --print("isInside", n, p.x, p.y, polygon[1].x, polygon[1].y)
+   
+   --Create a point for line segment from p to infinite 
+   extreme = {x=2*maxpoiX, y=p.y}; 
+  
+   -- Count intersections of the above line with sides of polygon 
+   local count = 0
+   local i = 1
+    repeat
+       local next = i % n + 1
+       --print("i,n,next", i,n,next)
+  
+        -- Check if the line segment from 'p' to 'extreme' intersects 
+        -- with the line segment from 'polygon[i]' to 'polygon[next]' 
+        if (doIntersect(polygon[i], polygon[next], p, extreme)) then 
+            -- If the point 'p' is colinear with line segment 'i-next', 
+            -- then check if it lies on segment. If it lies, return true, 
+            -- otherwise false 
+            if (orientation(polygon[i], p, polygon[next]) == 0) then 
+               return onSegment(polygon[i], p, polygon[next])
+	    end
+            count = count + 1 
+	end
+
+        i = next
+    until (i == 1)
+  
+    -- Return true if count is odd, false otherwise 
+    return count % 2  == 1
+end
+    
+
+local noFlyLast = false
+
 local function mapPrint(windowWidth, windowHeight)
 
    local xRW, yRW
@@ -1255,7 +1385,10 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 28, text, FONT_MINI)
    end
 
-   text=string.format("%d%%", system.getCPU())
+--   text=string.format("%d%%", system.getCPU())
+--   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)
+
+   text=string.format("%d/%d", #xHist, variables.histMax)
    lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)
    
    -- if satQuality then
@@ -1291,6 +1424,31 @@ local function mapPrint(windowWidth, windowHeight)
       end
 
    end
+
+
+   for i=2, #xHist do
+      --lcd.drawCircle(toXPixel(xHist[i], map.Xmin, map.Xrange, windowWidth),
+      --	     toYPixel(yHist[i], map.Ymin, map.Yrange, windowHeight),
+      --	     2)
+      
+      --lcd.drawPoint(toXPixel(xHist[i], map.Xmin, map.Xrange, windowWidth),
+      	--    toYPixel(yHist[i], map.Ymin, map.Yrange, windowHeight))
+      
+      lcd.drawLine(toXPixel(xHist[i-1], map.Xmin, map.Xrange, windowWidth ),
+		   toYPixel(yHist[i-1], map.Ymin, map.Yrange, windowHeight),
+		   toXPixel(xHist[i], map.Xmin, map.Xrange,    windowWidth),
+		   toYPixel(yHist[i], map.Ymin, map.Yrange,   windowHeight)
+      )
+
+     
+   end
+   if variables.histMax > 0 and #xHist > 0 and #xtable > 0 then
+      lcd.drawLine(toXPixel(xHist[#xHist], map.Xmin, map.Xrange,    windowWidth),
+		   toYPixel(yHist[#yHist], map.Ymin, map.Yrange,   windowHeight),
+		   toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
+		   toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight)
+      )   
+   end
    
    for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
       
@@ -1308,7 +1466,23 @@ local function mapPrint(windowWidth, windowHeight)
 	 end
       end
 
+      
       if i == #xtable then
+	 noFly =  not isInside(poi, #poi, {x=xtable[i], y=ytable[i]})
+	 if noFlyIn == true then noFly = not noFly end
+	 if noFly then setColorNoFly() end
+	 if noFly ~= noFlyLast then
+	    if noFly then
+	       print("Enter no fly")
+	       system.playFile("/Apps/DFM-LSO/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
+	       system.vibration(false, 3) -- left stick, 2x short pulse
+	    else
+	       print("Exit no fly")
+	       system.playFile("/Apps/DFM-LSO/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
+	    end
+	    noFlyLast = noFly
+	 end
+	 
 	 drawShape(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight),
 		   shapes.T38, math.rad(heading-variables.magneticVar))
@@ -1435,16 +1609,27 @@ local function initField()
 	    lat0  = geo.fields[iField].runway.lat
 	    coslat0 = math.cos(math.rad(lat0))
 	    variables.rotationAngle = geo.fields[iField].runway.trueDir-270 -- draw rwy along x axis
-
-	    if geo.fields[iField].POI then
-	       for j=1, #geo.fields[iField].POI,1 do
-		  poi[j] = {x=rE*(geo.fields[iField].POI[j].long-long0)*coslat0/rad,
-			    y=rE*(geo.fields[iField].POI[j].lat-lat0)/rad}
+	    print("nfi: ", geo.fields[iField].noFlyInside)
+	    if geo.fields[iField].noFlyInside and geo.fields[iField].noFlyInside == "Normal" then
+	       noFlyIn = true
+	    else
+	       noFlyIn = false
+	    end
+	    print("noFlyIn: ", noFlyIn)
+	    if geo.fields[iField].NoFly then
+	       for j=1, #geo.fields[iField].NoFly,1 do
+		  poi[j] = {x=rE*(geo.fields[iField].NoFly[j].long-long0)*coslat0/rad,
+			    y=rE*(geo.fields[iField].NoFly[j].lat-lat0)/rad}
 		  poi[j].x, poi[j].y = rotateXY(poi[j].x, poi[j].y, math.rad(variables.rotationAngle))
-		  -- graphScale(poi[j].x, poi[j].y) -- maybe note in POI coords jsn if should autoscale or not?
+		  -- we know 0,0 is at center of runway .. we need an "infinity x" point for the
+		  -- no fly region computation ... keep track of largest positive x ..
+		  -- later we will double it to make sure it is well past the no fly polygon
+		  
+		  if poi[j].x > maxpoiX then maxpoiX = poi[j].x end
+		  
+		  -- graphScale(poi[j].x, poi[j].y) -- maybe note in NoFly coords jsn if should autoscale or not?
 	       end
 	    end
-	    
 	    --[[
 	    if geo.fields[iField].images then
 	       for j=1, #geo.fields[iField].images, 1 do
@@ -1665,6 +1850,8 @@ local timSn = 0
 local hasCourseGPS
 --local readSensorsDone = false
 --local annDone = false
+
+local lastHistTime=0
 
 local function loop()
 
@@ -1977,6 +2164,27 @@ local function loop()
    x, y = rotateXY(x, y, math.rad(variables.rotationAngle)) -- q+d for now .. rotate path only add ILS+RW later
    
    if newpos or DEBUG then -- only enter a new xy in the "comet tail" if lat/lon changed
+
+      -- experiment: save all points
+      -- only record if more than variables.histSample msec passed and manhattan dist > 50
+      -- keep a max of variables.histMax points
+      -- only record if moved 50' (Manhattan dist) .. about 35 mph if 1 sec min sample
+
+      if variables.histMax > 0 and (system.getTimeCounter() - lastHistTime > variables.histSample) and (math.abs(x-xHistLast) + math.abs(y - yHistLast) > 50) then 
+	 if #xHist+1 > variables.histMax then
+	    table.remove(xHist, 1)
+	    table.remove(yHist, 1)
+	 end
+	 table.insert(xHist, x)
+	 table.insert(yHist, y)
+	 xHistLast = x
+	 yHistLast = y
+	 --if #xHist % 20 == 0 then
+	 --   print("hist points: ", #xHist)
+	 --   print("T: ", (system.getTimeCounter() - sysTimeStart)/1000)
+	 --end
+	 lastHistTime = system.getTimeCounter()
+      end
       
       if #xtable+1 > MAXTABLE then
 	 table.remove(xtable, 1)
@@ -2202,7 +2410,7 @@ does??
    
 --   local pcallOK, emulator
 
---   pcallOK, emulator = pcall(require, "sensorEmulator")
+   --   pcallOK, emulator = pcall(require, "sensorEmulator")
 --   if not pcallOK then print("Error:", emulator) end
 --   if pcallOK and emulator then emulator.init("DFM-LSO") end
 
@@ -2265,9 +2473,13 @@ does??
 --   for i, j in ipairs(controls) do
 --      controls[j] = system.pLoad("controls."..controls[i])
 --   end
+   local vdef
    
    for i, j in ipairs(variables) do
-      variables[j] = system.pLoad("variables."..variables[i], 0)
+      idef = 0
+      if i == 3 then idef = 2000 end
+      if i == 4 then idef = 240 end
+      variables[j] = system.pLoad("variables."..variables[i], idef)
    end
    
    system.registerForm(1, MENU_APPS, "Landing Signal Officer", initForm, nil, nil)

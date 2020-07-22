@@ -289,7 +289,10 @@ function emulator_getSensors()
    if not fg then print("Info: No GPS file " .. text) else
       GPSparms=json.decode(fg)
       coslat0 = math.cos(math.rad(GPSparms.lat0))
+      print("GPS Config: "..text)
    end
+   
+
 
    time0 = system.getTimeCounter()
    
@@ -396,7 +399,10 @@ function emulator_getSensorByID(ID, Param)
 		  if chunk then
 		     status, result = pcall(chunk)
 		     result = result or 0
-		     if not status then print("Bad status - result:", result) end
+		     if not status then
+			print("Bad status - result:", result)
+			print("GPSparms.yString: ", GPSparms.yString)
+		     end
 		  else
 		     result = 0 
 		  end

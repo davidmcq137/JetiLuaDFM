@@ -369,6 +369,8 @@ end
 
 --------------------------------------------------------------------------------
 
+local lasticol = nil
+
 local function CRUTele(w)
 
    local icol
@@ -386,7 +388,11 @@ local function CRUTele(w)
    if w > 160 and lang then
       lcd.drawText(200, 10, string.format(lang.Battery..": %2.2f %s",
 					  CRU_Telem.Batt.value, battUnits), FONT_MINI)
-      lcd.drawText(200, 30, string.format(lang.State..": %s", gsString[gs]), FONT_MINI)
+      if not gsString[gs] then
+	 print("gsString[gs] is nil, gs:", gs)
+      end
+      
+      lcd.drawText(200, 30, string.format(lang.State..": %s", gsString[gs] or "---"), FONT_MINI)
       lcd.drawText(200, 50, string.format(lang.Doors..": %d %s",
 					  math.floor(CRU_Telem.Doors.value), doorUnits),FONT_MINI)
       lcd.drawText(200,70, string.format(lang.DoorState..": %s", doorString[ds]), FONT_MINI)
@@ -410,7 +416,7 @@ local function CRUTele(w)
    -- if gsCount exceeds threshold, then unknown state: draw open black circles
    -- only do this and print warning if this happens when gear are moving
 
-   if gsCount >= gsCountTimeout and gearMoving then 
+   if (gsCount >= gsCountTimeout and gearMoving) or gs == 0 then 
       for _,v in pairs(w > 160 and lightPosFull or lightPosLarge) do
 	 drawImage(v.x, v.y, nil, w)
       end
@@ -422,14 +428,14 @@ local function CRUTele(w)
       icol = w > 160 and pngFiles.large.green or pngFiles.small.green
    elseif gs == 3 or gs == 4 then
       icol = w > 160 and pngFiles.large.blue or pngFiles.small.blue
-   else
+   else -- presumably gs == 0
       icol = nil
    end
-   
+
    -- take actions based on gear state
    -- moving down/up - turn each Mn to green/blue as it locks, red otherwise
 
-   if gs == 1 or gs == 3 then 
+   if (gs == 1 or gs == 3)  then 
       for _,v in pairs(mtable) do
 	 -- see if we moved and then stopped - actual motion
 	 if CRU_Telem[v].value <= minMotCurr and CRU_Telem[v].moved == true then
@@ -443,13 +449,17 @@ local function CRUTele(w)
 	 end
       end
    end
+   
+   -- all up and locked (4) or down and locked (2)
 
-   if gs == 2 or gs == 4 then -- all up and locked (4) or down and locked (2)
+   if (gs == 2 or gs == 4) then 
       for _,v in pairs(w > 160 and lightPosFull or lightPosLarge) do
 	 drawImage(v.x, v.y, icol, w)
       end
    end
 
+   lasticol = icol
+   
    -- draw bar graphs for each M and B with current(mA) max and avg if applicable
    
    for k,v in pairs(MBartbl) do

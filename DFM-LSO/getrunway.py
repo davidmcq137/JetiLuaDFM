@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFile
 import json
 import math
 import requests
@@ -8,6 +8,9 @@ import os
 import ConfigParser
 import sys
 
+# note .. if you get an error on i/o to the image17 file probably the google api
+# call is broken .. need to get a better error message for this!!!
+#
 # note: relies on file ~/getrunway.conf in the home dir to store the google api key
 #
 # note: TX will display image with runway horizontal, with pilot position below runway
@@ -40,12 +43,10 @@ import sys
 
 
 def Gmaps_api_request(**kwargs):
-    res =  requests.request("GET",
+    return requests.request("GET",
                             "https://maps.googleapis.com/maps/api/staticmap",
                             stream=True,
                             params=kwargs)
-    print("URL:", res.url)
-    return res
 
 def get_Gmaps_image(zoom, latitude, longitude):
     config = ConfigParser.ConfigParser()
@@ -71,11 +72,14 @@ def Gmaps_px_per_foot(lat, zoom):
     return 1.0 / Gmaps_feet_per_px(lat, zoom)
 
 #print (len(sys.argv))
+#print (sys.argv[0])
 #print (sys.argv[1])
+#print (sys.argv[2])
 
-print ("Give any commandline arg to generate iPad images")
+print ("Takes two command line args. First is Fields filename, second creates iPad images")
+#print ("Give two commandline args to generate iPad images")
 
-if len(sys.argv) > 1:
+if len(sys.argv) > 2:
     iPad = True
     imageSize = "2048x2048"
     imageOut = (2048, 1024)
@@ -90,7 +94,16 @@ else:
 
 crop_to_zoom = {1500:17, 3000:16, 6000:15, 12000:14}
 
-with open("Fields.jsn") as json_data:
+if len(sys.argv) > 1:
+    fieldFile = sys.argv[1] + ".jsn"
+else:
+    fieldFile = "Fields.jsn"
+
+print("Reading Field file: ", fieldFile)
+
+exit()
+
+with open(fieldFile) as json_data:
     jd  = json.load(json_data)
 
 # First loop over all the fields read from Fields.jsn
@@ -105,7 +118,10 @@ for fld in jd["fields"]:
     truedir =          fld["runway"]["trueDir"]
     runway_length_ft = fld["runway"]["length"]
     runway_width_ft =  fld["runway"]["width"]
-
+    runway_offset_ft = fld["runway"]["offset"]
+    print("runway_offset_ft: ", runway_offset_ft)
+    print("runway_length_ft: ", runway_length_ft)
+		
     # Then loop over all images for that field
 
     for im_index in range(len(fld["images"])): 
@@ -124,24 +140,17 @@ for fld in jd["fields"]:
         # in temp files since it's easy to do that with the data from requests()
         
         Gmaps = get_Gmaps_image(zoom, latitude, longitude)
-        wwGr, hhGr = Gmaps.size  # note the image size    
-        print("size ww,hh:", wwGr, hhGr)
-
-
-		# note that in PIL the image.rotate operation rotates about the image center, not
+    
+        # note that in PIL the image.rotate operation rotates about the image center, not
         # the 0,0 point as was the case in Russell's original implementation so we have less
         # work to do (vs. translate, rotate, and then translate back)
-
-        print("pre w:", Gmaps_px_per_foot(latitude,zoom), field_image_width_ft)
-        print("pre h:", Gmaps_px_per_foot(latitude,zoom), field_image_height_ft)						
+    
         Gmaps_rotate = Gmaps.rotate(truedir-270)
     
         field_image_width_px =  Gmaps_px_per_foot(latitude, zoom) * field_image_width_ft
         field_image_height_px = Gmaps_px_per_foot(latitude, zoom) * field_image_height_ft
     
         wwGr, hhGr = Gmaps_rotate.size  # note the image size
-
-        print("size ww,hh:", wwGr, hhGr)
 
         # clip the rotated image to the requested field image size. Also offset the position of 
         # the runway in the image to be 1/4 of the way up from the bottom since we stand to that 
@@ -159,7 +168,8 @@ for fld in jd["fields"]:
 
         runway_width_px  = runway_width_ft  * Gmaps_px_per_foot(latitude, zoom)
         runway_length_px = runway_length_ft * Gmaps_px_per_foot(latitude, zoom)
-
+        runway_offset_px = runway_offset_ft  * Gmaps_px_per_foot(latitude, zoom)
+		
         # now produce the transmitter-sized image
 
         print("imageOut: ", imageOut)
@@ -180,11 +190,12 @@ for fld in jd["fields"]:
         
         runway_length_px = runway_length_px * wwj/wwGrc
         runway_width_px  = runway_width_px  * hhj/hhGrc
+        runway_offset_px = runway_offset_px * wwj/wwGrc
 
         # draw the yellow rectangle for the runway to confirm registration
-        
-        dd.rectangle( ((int(wwj/2 - runway_length_px/2), int(3*hhj/4 - runway_width_px/2) ),
-                       (int(wwj/2 + runway_length_px/2), int(3*hhj/4 + runway_width_px/2) )),
+        print("runway_length_px, runway_offset_px: ", runway_length_px, runway_offset_px)
+        dd.rectangle( ((int(wwj/2 - runway_length_px/2 + runway_offset_px), int(3*hhj/4 - runway_width_px/2) ),
+                       (int(wwj/2 + runway_length_px/2 + runway_offset_px), int(3*hhj/4 + runway_width_px/2) )),
                       outline='yellow')
 
         Jeti.save(filename, "PNG")
