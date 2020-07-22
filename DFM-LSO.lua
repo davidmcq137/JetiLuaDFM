@@ -1303,6 +1303,7 @@ local function mapPrint(windowWidth, windowHeight)
 
    drawSpeed()
    drawAltitude()
+   
    --drawHeading()
    --drawVario()
    
@@ -2171,6 +2172,26 @@ local function loop()
       -- only record if moved 50' (Manhattan dist) .. about 35 mph if 1 sec min sample
 
       if variables.histMax > 0 and (system.getTimeCounter() - lastHistTime > variables.histSample) and (math.abs(x-xHistLast) + math.abs(y - yHistLast) > 50) then 
+
+	 --[[
+	 if #xHist >= 3 then
+	    local i = #xHist
+	    local len = math.sqrt( (yHist[i] - yHist[i-2])^2 + (xHist[i] - xHist[i-2])^2 )
+	    local dist = math.abs( (yHist[i] - yHist[i-2]) * xHist[i-1] - (xHist[i] - xHist[i-2]) * yHist[i-1] + xHist[i] * yHist[i-2] - yHist[i] * xHist[i-2]) / len
+	    print("dist, len: ", dist, len, dist/len)
+	    if dist / len < 0.05 then
+	       print("remove:", i-1)
+	       table.remove(xHist, i-1)
+	       table.remove(yHist, i-1)
+	    end
+	    
+	    
+	 end
+	 --]]
+	 
+      
+
+
 	 if #xHist+1 > variables.histMax then
 	    table.remove(xHist, 1)
 	    table.remove(yHist, 1)
@@ -2185,7 +2206,7 @@ local function loop()
 	 --end
 	 lastHistTime = system.getTimeCounter()
       end
-      
+
       if #xtable+1 > MAXTABLE then
 	 table.remove(xtable, 1)
 	 table.remove(ytable, 1)
