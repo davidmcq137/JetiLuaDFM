@@ -2177,7 +2177,10 @@ local function loop()
 	 if #xHist >= 3 then
 	    local i = #xHist
 	    local len = math.sqrt( (yHist[i] - yHist[i-2])^2 + (xHist[i] - xHist[i-2])^2 )
-	    local dist = math.abs( (yHist[i] - yHist[i-2]) * xHist[i-1] - (xHist[i] - xHist[i-2]) * yHist[i-1] + xHist[i] * yHist[i-2] - yHist[i] * xHist[i-2]) / len
+	    --local dist = math.abs( (yHist[i] - yHist[i-2]) * xHist[i-1] - (xHist[i] - xHist[i-2]) * yHist[i-1] + xHist[i] * yHist[i-2] - yHist[i] * xHist[i-2]) / len
+
+	    local dist = math.abs( (xHist[i] - xHist[i-2]) * (yHist[i-2] -yHist[i-1]) - (xHist[i-2] - xHist[i-1]) * (yHist[i] - yHist[i-2]) ) / len
+
 	    print("dist, len: ", dist, len, dist/len)
 	    if dist / len < 0.05 then
 	       print("remove:", i-1)

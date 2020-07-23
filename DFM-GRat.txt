@@ -1,0 +1,5 @@
+1. what to do if sqrt arg is <0
+2. what to do if ratio large
+3. averaging?
+4. just ratio in tele win? or ratio, s and v? only mult if large window?
+5. ratio sign?

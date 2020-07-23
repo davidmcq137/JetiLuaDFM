@@ -1,0 +1,25 @@
+[
+
+    {"id":1,"param":0,"sensorName":"", "label":"PS1(P5)"},
+    {"id":1,"param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS1(P5)",
+     "label":"Vario",
+     "unit":"m/s",
+     "luaExp":"P5(-10,10)"
+    },
+    
+    {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
+    {"id":2,
+     "param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS2(P6)",
+     "label":"Airspeed",
+     "unit":"m/s",
+     "luaExp":"P6(0,100)"
+    }
+     
+    
+]
