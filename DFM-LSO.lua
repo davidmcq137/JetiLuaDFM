@@ -92,6 +92,7 @@ takeoff.NeverAirborne = true
 takeoff.BrakeReleaseTime = 0
 takeoff.oldBrake = 0
 takeoff.oldThrottle = 0
+takeoff.RunwayHeading = nil
 
 -- these lists are the non-GPS sensors
 
@@ -1165,7 +1166,8 @@ local function drawGeo(windowWidth, windowHeight)
    --ren:renderPolyline(2)
 
    if not poi[1] then return end
-
+   if #poi < 3 then return end
+   
    ren:reset()
    
    for j=1, #poi do
@@ -1310,7 +1312,7 @@ local function mapPrint(windowWidth, windowHeight)
    -- in case the draw functions left color set to their specific values
    setColorMain()
    
-   if takeoff.Start.X and not fd then
+   if takeoff.Start.X and takeoff.RunwayHeading and not fd then
       lcd.drawCircle(toXPixel(takeoff.Start.X, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(takeoff.Start.Y, map.Ymin, map.Yrange, windowHeight), 4)
    end
@@ -1343,9 +1345,10 @@ local function mapPrint(windowWidth, windowHeight)
 	 setColorMain()
       end
 
-      text=string.format("Map: %d x %d    Rwy: %dT", map.Xrange, map.Yrange,
-			 math.floor(( (takeoff.RunwayHeading+variables.rotationAngle)/10+.5) ) )
-
+--      text=string.format("Map: %d x %d    Rwy: %dT", map.Xrange, map.Yrange,
+--			 math.floor(( (takeoff.RunwayHeading+variables.rotationAngle)/10+.5) ) )
+-- maybe use trueDir?
+      text=string.format("Map: %d x %d", map.Xrange, map.Yrange)
       lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH-10, text, FONT_MINI)
 
       if iField then
@@ -1471,6 +1474,9 @@ local function mapPrint(windowWidth, windowHeight)
       if i == #xtable then
 	 noFly =  not isInside(poi, #poi, {x=xtable[i], y=ytable[i]})
 	 if noFlyIn == true then noFly = not noFly end
+
+	 if not geo.fields[iField].NoFly or #geo.fields[iField].NoFly < 3 then noFly = false end
+	 
 	 if noFly then setColorNoFly() end
 	 if noFly ~= noFlyLast then
 	    if noFly then
@@ -1499,6 +1505,32 @@ local function mapPrint(windowWidth, windowHeight)
 
 end
 
+local function xminImg(iF, iM)
+   return -0.50 * geo.fields[iF].images[iM]
+end
+
+local function xmaxImg(iF, iM)
+   return 0.50 * geo.fields[iF].images[iM]
+end
+
+local function yminImg(iF, iM)
+   local yrange = geo.fields[iF].images[iM] / 2
+   if not geo.fields[iF].view or geo.fields[iF].view == "Standard" then
+      return -0.25 * yrange
+   else
+      return -0.50 * yrange
+   end
+end
+
+local function ymaxImg(iF, iM)
+   local yrange = geo.fields[iF].images[iM] / 2 
+   if not geo.fields[iF].view or geo.fields[iF].view == "Standard" then
+      return 0.75 * yrange
+   else
+      return 0.50 * yrange
+   end
+end
+
 local function graphScale(x, y)
 
    if not map.Xmax then
@@ -1522,26 +1554,20 @@ local function graphScale(x, y)
    if currentImage then 
       for j = 1, maxImage, 1 do
 	 currentImage = j
-	 --print("pb: paths", path.xmax, path.ymax, path.xmin, path.ymin)
-	 --print("pb: currentImage, maxImage:", currentImage, maxImage)
-
-	 --print("pb: geo.fields..xmax", geo.fields[iField].images[j].xmax)
-	 --print("pb: geo.fields..ymax", geo.fields[iField].images[j].ymax)
-	 --print("pb: geo.fields..xmin", geo.fields[iField].images[j].xmin)
-	 --print("pb: geo.fields..ymin", geo.fields[iField].images[j].ymin)
-	 
-	 if path.xmax <= geo.fields[iField].images[j].xmax and
-	    path.ymax <= geo.fields[iField].images[j].ymax and
-	    path.xmin >= geo.fields[iField].images[j].xmin and
-	    path.ymin >= geo.fields[iField].images[j].ymin
+	 if path.xmax <= xmaxImg(iField, j) and
+	    path.ymax <= ymaxImg(iField, j) and
+	    path.xmin >= xminImg(iField, j) and
+	    path.ymin >= yminImg(iField, j)
 	 then
 	    break
 	 end
       end
-      map.Xmin = geo.fields[iField].images[currentImage].xmin
-      map.Xmax = geo.fields[iField].images[currentImage].xmax
-      map.Ymin = geo.fields[iField].images[currentImage].ymin
-      map.Ymax = geo.fields[iField].images[currentImage].ymax
+      --print("graphscale - x,y,currentImage", x, y, currentImage)
+      
+      map.Xmin = xminImg(iField, currentImage)
+      map.Xmax = xmaxImg(iField, currentImage)
+      map.Ymin = yminImg(iField, currentImage)
+      map.Ymax = ymaxImg(iField, currentImage)
       map.Xrange = map.Xmax - map.Xmin
       map.Yrange = map.Ymax - map.Ymin
       
@@ -1570,16 +1596,16 @@ end
 
 local function graphInit(im)
 
-   -- if we have an image of the field, then use the precomputed min max value from
-   -- the first image (assumed to be the most zoomed-in) to set the initial scale
    -- im or 1 construct allows im to be nil and if so selects images[1]
    -- probably redundant since iField would be nil too...
    
+   --print("graphInit: iField, im", iField, im)
    if iField and geo.fields[iField].images[im or 1] then
-      map.Xmin = geo.fields[iField].images[im or 1].xmin
-      map.Xmax = geo.fields[iField].images[im or 1].xmax
-      map.Ymin = geo.fields[iField].images[im or 1].ymin
-      map.Ymax = geo.fields[iField].images[im or 1].ymax
+      --print("geo.fields[iField]images[im or 1]", geo.fields[iField].images[im or 1], im)
+      map.Xmin = xminImg(iField, im or 1)
+      map.Xmax = xmaxImg(iField, im or 1)
+      map.Ymin = yminImg(iField, im or 1)
+      map.Ymax = ymaxImg(iField, im or 1)
    else
       map.Xmin, map.Xmax = -400, 400
       map.Ymin, map.Ymax = -200, 200
@@ -1601,22 +1627,32 @@ local function initField()
 
    -- this function uses the GPS coords to see if we are near a known flying field in the jsn file
    -- and if it finds one, imports the field's properties 
+
    if long0 and lat0 then -- if location was detected by the GPS system
       for i=1, #geo.fields, 1 do -- see if we are near a known field (lat and long within ~ a mile)
-	 if (math.abs(lat0 - geo.fields[i].runway.lat) < 1/60) -- 1/60 = 1 minute of arc
-	 and (math.abs(long0 - geo.fields[i].runway.long) < 1/60) then
+	 if (math.abs(lat0 - geo.fields[i].lat) < 1/60) -- 1/60 = 1 minute of arc
+	 and (math.abs(long0 - geo.fields[i].long) < 1/60) then
 	    iField = i
-	    long0 = geo.fields[iField].runway.long -- reset to origin to coords in jsn file
-	    lat0  = geo.fields[iField].runway.lat
+	    long0 = geo.fields[iField].long -- reset to origin to coords in jsn file
+	    lat0  = geo.fields[iField].lat
 	    coslat0 = math.cos(math.rad(lat0))
 	    variables.rotationAngle = geo.fields[iField].runway.trueDir-270 -- draw rwy along x axis
-	    print("nfi: ", geo.fields[iField].noFlyInside)
-	    if geo.fields[iField].noFlyInside and geo.fields[iField].noFlyInside == "Normal" then
+	    --print("nfi: ", geo.fields[iField].noFlyInside)
+	    if not geo.fields[iField].images then
+	       if not geo.images then
+		  geo.fields[iField].images = {1500, 3000, 6000}
+	       else
+		  geo.fields[iField].images = geo.images
+	       end
+	    end
+	    
+	    if geo.fields[iField].noFlyZone and geo.fields[iField].noFlyZone == "Inside" then
 	       noFlyIn = true
 	    else
 	       noFlyIn = false
 	    end
-	    print("noFlyIn: ", noFlyIn)
+	    --print("noFlyIn: ", noFlyIn)
+	    
 	    if geo.fields[iField].NoFly then
 	       for j=1, #geo.fields[iField].NoFly,1 do
 		  poi[j] = {x=rE*(geo.fields[iField].NoFly[j].long-long0)*coslat0/rad,
@@ -1652,7 +1688,7 @@ local function initField()
 	       takeoff.Start.X, takeoff.Start.Y = rwy[3].x, 0 -- end of rwy arrival end
 	       takeoff.Complete.X, takeoff.Complete.Y = rwy[1].x, 0  -- end of rwy departure end
 	       takeoff.Start.Z = altitude - baroAltZero
-	       takeoff.RunwayHeading = geo.fields[iField].runway.trueDir-variables.rotationAngle
+	       --takeoff.RunwayHeading = geo.fields[iField].runway.trueDir-variables.rotationAngle
 
 	       setColorMap()
 	       setColorMain()
@@ -1664,27 +1700,19 @@ local function initField()
    if iField then
       system.messageBox("Current location: " .. geo.fields[iField].name, 2)
       maxImage = #geo.fields[iField].images
+      --print("maxImage", maxImage)
       if maxImage ~= 0 then
-	 --print("pb: precomp - maxImage, iField", maxImage, iField)
 	 for j=1, maxImage, 1 do
-	    --print("pb: filename: ", geo.fields[iField].images[j].filename)
-	    fieldPNG[j] = lcd.loadImage("Apps/DFM-LSO/"..geo.fields[iField].images[j].filename)
-	    --print("pb: fieldPNG", fieldPNG[j])
-	    if fieldPNG[j] then
-	       --print ("pb: prepop", j)
-	       -- precompute left, right, top, bottom for each image
-	       -- the runway center is at x,y=0,0
-	       -- set the window so that the runway is centered left-to-right
-	       -- and is 1/4 of the way up from the bottom of the screen
-	       -- image only specifies x range (total width of window), set y range to xrange/2
-	       geo.fields[iField].images[j].xmin = -geo.fields[iField].images[j].xrange/2
-	       geo.fields[iField].images[j].xmax =  geo.fields[iField].images[j].xrange/2
-	       local yrange = geo.fields[iField].images[j].xrange/2
-	       geo.fields[iField].images[j].ymin =  -0.25 * yrange
-	       geo.fields[iField].images[j].ymax =   0.75 * yrange
-	       
-	    else
-	       print("Failed to load image", "Apps/DFM-LSO/"..geo.fields[iField].images[j].filename)
+	    --print("j", j)
+	    --print("shortname:", geo.fields[iField].shortname)
+	    --print("geo.fields[iField].images[j]", geo.fields[iField].images[j])
+	    local pfn
+	    pfn = "Apps/DFM-LSO/".. geo.fields[iField].shortname ..
+	       "_" ..tostring(math.floor(geo.fields[iField].images[j])) .."_ft.png"
+	    --print("pfn:", pfn)
+	    fieldPNG[j] = lcd.loadImage(pfn)
+	    if not fieldPNG[j] then
+	       print("Failed to load image", pfn)
 	    end
 	 end
 	 currentImage = 1
@@ -2494,9 +2522,6 @@ does??
       telem[j].SePa = system.pLoad("telem."..telem[i]..".SePa", 0)
    end
 
---   for i, j in ipairs(controls) do
---      controls[j] = system.pLoad("controls."..controls[i])
---   end
    local vdef
    
    for i, j in ipairs(variables) do

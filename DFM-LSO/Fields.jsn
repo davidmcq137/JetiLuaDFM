@@ -1,241 +1,97 @@
 {
+    "images": [1500, 3000, 4500, 6000, 12000],
     "fields" : [ {
 	"name" : "DCRC Walt Good Field",
 	"shortname" : "DCRC",
+	"lat" : 39.147398,
+	"long" : -77.337639,
 	"runway" : {
-	    "lat" : 39.147398,
-	    "long" : -77.337639,
 	    "trueDir" : 347.5,
-	    "length" : 600,
-	    "width" : 40,
-	    "offset": 0
-	},
-	"noFlyInside": "Normal",
-	"NoFly" : [ {
-	    "lat" : 39.151492,
-	    "long" : -77.332648
-	}, {
-	    "lat" : 39.152808,
-	    "long" : -77.338883
-	} ],
-	"images" : [ {
-	    "filename" : "DCRC_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "DCRC_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "DCRC_6000_ft.png",
-	    "xrange" : 6000
-	} ]
+	    "length" :600,
+	    "width" : 40
+	}
     }, {
-	"name" : "Black Dirt Field",
+	"name" : "Black Dirt Squadron",
 	"shortname" : "BDS",
+	"lat" : 41.339733,
+	"long" : -74.431618,
 	"runway" : {
-	    "lat" : 41.339733,
-	    "long" : -74.431618,
 	    "trueDir" : 214,
 	    "length" : 735,
-	    "offset": 0,
 	    "width" : 60
-	},
-	"noFlyInside": "Normal",
-	"images" : [ {
-	    "filename" : "BDS_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "BDS_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "BDS_6000_ft.png",
-	    "xrange" : 6000
-	} ],
-	"NoFly" : [ {
-	    "lat" : 41.33934,
-	    "long" : -74.433195
-	}, {
-	    "lat" : 41.341015,
-	    "long" : -74.431785
-	} ]
+	}
     }, {
 	"name" : "Floyd Bennett Field",
 	"shortname" : "FBF",
+	"lat" : 40.602454,
+	"long" : -73.889873,
 	"runway" : {
-	    "lat" : 40.602454,
-	    "long" : -73.889873,
 	    "trueDir" : 2.46,
 	    "length" : 854,
-	    "offset":0,
 	    "width" : 60
-	},
-	"noFlyInside": "Normal",
-	"NoFly" : [ {
-	    "lat" : 40.602581,
-	    "long" : -73.886961
-	}, {
-	    "lat" : 40.599689,
-	    "long" : -73.887776
-	} ],
-	"images" : [ {
-	    "filename" : "FBF_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "FBF_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "FBF_6000_ft.png",
-	    "xrange" : 6000
-	} ]
+	}
     }, {
 	"name" : "Area 74",
 	"shortname" : "A74",
+	"lat" : 41.24569,
+	"long" : -73.759293,
 	"runway" : {
-	    "lat" : 41.24569,
-	    "long" : -73.759293,
 	    "trueDir" : 28,
 	    "length" : 209,
-	    "offset": 0,
 	    "width" : 20
-
-	},
-	"noFlyInside": "Normal",
-	"NoFly" : [ {
-	    "lat" : 71.245966,
-	    "long" : -43.759336
-	} ],
-	"images" : [ {
-	    "filename" : "A74_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "A74_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "A74_6000_ft.png",
-	    "xrange" : 6000
-	} ]
+	}
     }, {
 	"name" : "Wilson IAC",
 	"shortname" : "W03",
+	"lat" : 35.769235,
+	"long" : -77.967381,
 	"runway" : {
-	    "lat" : 35.769235,
-	    "long" : -77.967381,
 	    "trueDir" : 210.7,
 	    "length" : 1000,
-	    "offset": 0,
 	    "width" : 140
-	},
-	"noFlyInside": "Normal",
-	"NoFly" : [ {
-	    "lat"  : 35.771842,
-	    "long" : -77.972767
-	}, {
-	    "lat"  : 35.773357,
-	    "long" : -77.964355
-	}, {
-	    "lat"  : 35.765052,
-	    "long" : -77.970256
-	} ],
-	"images" : [ {
-	    "filename" : "W03_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "W03_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "W03_6000_ft.png",
-	    "xrange" : 6000
-	} ]
+	}
     }, {
 	"name" : "Paradise TG",
 	"shortname" : "LAL",
+	"lat" : 27.977672,
+	"long" : -82.024717,
 	"runway" : {
-	    "lat" : 27.977672,
-	    "long" : -82.024717,
 	    "trueDir" : 268.23,
 	    "length" : 700,
-	    "offset":0,
 	    "width" : 46
-	},
-	"noFlyInside": "Normal",
-	"NoFly" : [ {
-	    "lat"  : 27.981456,
-	    "long" : -82.027542
-	}, {
-	    "lat"  : 27.977420,
-	    "long" : -82.019098
-	}, {
-	    "lat"  : 27.977638,
-	    "long" : -82.028229
-	} ],
-	"images" : [ {
-	    "filename" : "LAL_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "LAL_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "LAL_6000_ft.png",
-	    "xrange" : 6000
-	} ]
+	}
     }, {
 	"name" : "Georgia Jets",
 	"shortname" : "GAJets",
+	"lat" : 33.1372,
+	"long" : -84.611143,
 	"runway" : {
-	    "lat" : 33.1372,
-	    "long" : -84.611143,
 	    "trueDir" : 276,
 	    "length" : 985,
-	    "offset":0,
 	    "width" : 60
-	},
-	"noFlyInside": "Normal",
-	"images" : [ {
-	    "filename" : "GAJets_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "GAJets_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "GAJets_6000_ft.png",
-	    "xrange" : 6000
-	} ]
+	}
     }, {
 	"name" : "Plum Island",
 	"shortname" : "2B2",
+	"lat" : 42.795379,
+	"long" : -70.838702,
 	"runway" : {
-	    "lat" : 42.795379,
-	    "long" : -70.838702,
 	    "trueDir" : 87,
 	    "length" : 2530,
-	    "offset":0,
 	    "width" : 50
-	},
-	"noFlyInside": "Normal",
-	"images" : [ {
-	    "filename" : "2B2_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "2B2_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "2B2_6000_ft.png",
-	    "xrange" : 6000
-	}, {
-	    "filename" : "2B2_12000_ft.png",
-	    "xrange" : 12000
-	} ]
+	}
     },{
 	"name" : "NSA Westonzoyland",
 	"shortname" : "NSAW",
+	"lat" : 51.104800,
+	"long" : -2.892431,
 	"runway" : {
-	    "lat" : 51.104800,
-	    "long" : -2.892431,
 	    "trueDir" : 274,
 	    "length" : 2000,
 	    "width" : 100,
-	    "offset": -1200
+	    "x_offset": -1200
 	},
-	"noFlyInside": "Reverse",
+	"noFlyZone": "Outside",
 	"NoFly" : [ {
 	    "lat" : 51.105087,
 	    "long" : -2.902035
@@ -254,32 +110,18 @@
 	}, {
 	    "lat": 51.104613,
 	    "long": -2.892830
-	} ],
-	"images" : [ {
-	    "filename" : "NSAW_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "NSAW_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "NSAW_6000_ft.png",
-	    "xrange" : 6000
-	}, {
-	    "filename" : "NSAW_12000_ft.png",
-	    "xrange" : 12000
 	} ]
     }, {
 	"name" : "Harry Curzon Field",
 	"shortname" : "HCF",
+	"lat" : 51.882384,
+	"long" : -2.099486,
 	"runway" : {
-	    "lat" : 51.882384,
-	    "long" : -2.099486,
 	    "trueDir" : 274,
 	    "length" : 1000,
-	    "width" : 50,
-	    "offset": 0
+	    "width" : 50
 	},
-	"noFlyInside": "Reverse",
+	"noFlyZone": "Outside",
 	"NoFly" : [ {
 	    "lat" : 51.881928,
 	    "long" : -2.093274
@@ -292,55 +134,26 @@
 	}, {
 	    "lat": 51.884644,
 	    "long": -2.086376
-	} ],
-	"images" : [ {
-	    "filename" : "HCF_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "HCF_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "HCF_6000_ft.png",
-	    "xrange" : 6000
-	}, {
-	    "filename" : "HCF_12000_ft.png",
-	    "xrange" : 12000
 	} ]
     },{
 	"name" : "Wingmoor Farm",
 	"shortname" : "WFM",
+	"lat" : 51.951939,
+	"long" : -2.087407,
 	"runway" : {
-	    "lat" : 51.951939,
-	    "long" : -2.087407,
 	    "trueDir" : 355,
 	    "length" : 570,
-	    "width" : 50,
-	    "offset": 0
-	},
-	"noFlyInside": "Normal",
-	"images" : [ {
-	    "filename" : "WFM_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "WFM_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "WFM_6000_ft.png",
-	    "xrange" : 6000
-	}, {
-	    "filename" : "WFM_12000_ft.png",
-	    "xrange" : 12000
-	} ]
+	    "width" : 50
+	}
     },{
 	"name" : "Abingdon",
 	"shortname" : "ABI",
+	"lat" : 51.690696,
+	"long" : -1.316325,
 	"runway" : {
-	    "lat" : 51.690696,
-	    "long" : -1.316325,
 	    "trueDir" : 255,
 	    "length" : 3000,
-	    "width" : 145,
-	    "offset": 0
+	    "width" : 145
 	},
 	"noFlyInside": "Normal",
 	"NoFly" : [ {
@@ -355,45 +168,17 @@
 	}, {
 	    "lat": 51.696848,
 	    "long": -1.297657
-	} ],
-	"images" : [ {
-	    "filename" : "ABI_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "ABI_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "ABI_6000_ft.png",
-	    "xrange" : 6000
-	}, {
-	    "filename" : "ABI_12000_ft.png",
-	    "xrange" : 12000
 	} ]
     },{
 	"name" : "Frankford Highland",
 	"shortname" : "6B4",
+	"lat" : 43.016095,
+	"long" : -75.169516,
 	"runway" : {
-	    "lat" : 43.016095,
-	    "long" : -75.169516,
 	    "trueDir" : 303,
 	    "length" : 2732,
-	    "offset":0,
 	    "width" : 60
-	},
-	"noFlyInside": "Normal",
-	"images" : [ {
-	    "filename" : "6B4_1500_ft.png",
-	    "xrange" : 1500
-	}, {
-	    "filename" : "6B4_3000_ft.png",
-	    "xrange" : 3000
-	}, {
-	    "filename" : "6B4_6000_ft.png",
-	    "xrange" : 6000
-	}, {
-	    "filename" : "6B4_12000_ft.png",
-	    "xrange" : 12000
-	} ]
+	}
     } ]
 }
 

@@ -22,6 +22,8 @@ local varSe, varSeId, varSePa
 local annSwitch
 local shortAnn
 local shortAnnIndex
+local imperial
+local imperialIndex
 local glideRatio
 local lastAnnTime
 local maxRatio = 1000
@@ -65,6 +67,12 @@ local function shortAnnClicked(value)
    system.pSave("shortAnn", tostring(shortAnn))
 end
 
+local function imperialClicked(value)
+   imperial = not value
+   form.setValue(imperialIndex, imperial)
+   system.pSave("imperial", tostring(imperial))
+end
+
 -- Draw the main form (Application inteface)
 
 local function initForm()
@@ -85,6 +93,10 @@ local function initForm()
    form.addLabel({label="Short Announcements", width=270})
    shortAnnIndex = form.addCheckbox(shortAnn, shortAnnClicked)
    
+   form.addRow(2)
+   form.addLabel({label="Imperial / metric (x)", width=270})
+   imperialIndex = form.addCheckbox(imperial, imperialClicked)
+
    form.addRow(1)
    form.addLabel({label="DFM-GRat.lua Version "..GRatVersion.." ",
 		  font=FONT_MINI, alignRight=true})
@@ -105,6 +117,12 @@ local function readSensors()
       end
       
    end
+end
+
+local function rndInt(a)
+   -- rounds to nearest int handles neg same as pos
+   local sign = (a >= 0 and 1 or -1)
+   return math.floor(a*sign + 0.5) * sign
 end
 
 local function loop()
@@ -134,6 +152,7 @@ local function loop()
 	 arg = spdSensor.value*spdSensor.value - varSensor.value*varSensor.value
 	 if arg > 0 then
 	    glideRatio = math.sqrt(arg) / varSensor.value
+	    --print(spdSensor.value, varSensor.value, arg, glideRatio)
 	 else
 	    glideRatio = spdSensor.value / varSensor.value
 	 end
@@ -147,7 +166,7 @@ local function loop()
    
    if glideRatio and swa == 1 and (system.getTimeCounter() - lastAnnTime > 2000) then
       lastAnnTime = now
-      roundRat = math.floor(glideRatio + 0.5)
+      roundRat = rndInt(glideRatio)
       if (shortAnn) then
 	 print("Short ann: ", roundRat)
 	 system.playNumber(roundRat, 0)
@@ -168,19 +187,26 @@ end
 local function teleWindow(w,h)
    local gtext, stext, vtext
    if glideRatio and math.abs(glideRatio) < 1000 then
-      text = string.format("%.1f", math.floor(glideRatio + 0.5))
+      gtext = string.format("Ratio %.1f", rndInt(glideRatio))
    else
-      text = "---"
+      gtext = "---"
    end
-   stext = string.format(" S %.1f ", speed)
-   vtext = string.format(" V %.1f", vario)
-   lcd.drawText(5,3,text..stext..vtext,FONT_BOLD)
+   local sunit = imperial and "mph" or "m/s"
+   local vunit = imperial and "ft/s" or "m/s"
+   stext = string.format("Airspeed %.1f " .. sunit, speed * (imperial and 2.23694 or 1) )
+   vtext = string.format("Vario %.1f " .. vunit, vario * (imperial and 3.28084 or 1) )
+   lcd.drawText(5,3, gtext,FONT_BOLD)
+   if h > 24 then
+      lcd.drawText(5,23,stext,FONT_BOLD)
+      lcd.drawText(5,43,vtext,FONT_BOLD)
+   end
 end
 
 local function init()
 
    annSwitch   = system.pLoad("annSwitch")
    shortAnn    = system.pLoad("shortAnn", "false")
+   imperial    = system.pLoad("imperial", "true")
    spdSe       = system.pLoad("spdSe", 0)
    spdSeId     = system.pLoad("spdSeId", 0)
    spdSePa     = system.pLoad("spdSePa", 0)
@@ -191,6 +217,8 @@ local function init()
    readSensors()
 
    shortAnn = (shortAnn == "true") -- convert back to boolean here
+   imperial = (imperial == "true")
+   
    lastAnnTime = 0
    
    system.registerLogVariable("GlideRatio", "", glideLog)
