@@ -58,7 +58,7 @@ telem.DistanceGPS={}
 telem.CourseGPS={}
 telem.BaroAlt={}
 
-local variables = {"magneticVar", "rotationAngle", "histSample", "histMax"}
+local variables = {"magneticVar", "rotationAngle", "histSample", "histMax", "maxCPU"}
 variables.magneticVar = 0
 
 -- local controls  = {"Throttle", "Brake"}
@@ -82,11 +82,10 @@ local iField
 local modelProps={}
 local xHist={}
 local yHist={}
-local MAXHIST = 240 -- 4 mins at 1/sec
 local xHistLast=0
 local yHistLast = 0
 local countNoNewPos = 0
-
+local currMaxCPU = 0
 local takeoff={}; takeoff.Complete={}; takeoff.Start={}
 takeoff.NeverAirborne = true
 takeoff.BrakeReleaseTime = 0
@@ -499,9 +498,14 @@ local function initForm(subform)
 
 	 form.addRow(2)
 	 form.addLabel({label="Number of History Samples", width=220})
-	 form.addIntbox(variables.histMax, 0, 300, 240, 0, 10,
+	 form.addIntbox(variables.histMax, 0, 400, 240, 0, 10,
 			(function(x) return variableChanged(x, "histMax") end) )
 	 
+	 form.addRow(2)
+	 form.addLabel({label="Max CPU usage permitted (%)", width=220})
+	 form.addIntbox(variables.maxCPU, 0, 100, 80, 0, 1,
+			(function(x) return variableChanged(x, "maxCPU") end) )
+
 	 -- decomission magneticVar for now .. reconsider if we want this functionality
 	 -- let if default to zero
 	 
@@ -1385,14 +1389,14 @@ local function mapPrint(windowWidth, windowHeight)
    lcd.drawCircle(70, 20, 7)
 
    if satCount then
-      text=string.format("%2d", satCount)
+      text=string.format("%2d Sats", satCount)
       lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 28, text, FONT_MINI)
    end
 
 --   text=string.format("%d%%", system.getCPU())
 --   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)
 
-   text=string.format("%d/%d", #xHist, variables.histMax)
+   text=string.format("%d/%d %d%%", #xHist, variables.histMax, currMaxCPU)
    lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)
    
    -- if satQuality then
@@ -1502,7 +1506,12 @@ local function mapPrint(windowWidth, windowHeight)
 
    drawBezier(windowWidth, windowHeight)
    drawGeo(windowWidth, windowHeight)
-
+   
+   currMaxCPU = system.getCPU()
+   if currMaxCPU >= variables.maxCPU then
+      variables.histMax = #xHist -- no more points .. cpu nearing cutoff
+   end
+   
 end
 
 local function xminImg(iF, iM)
@@ -1618,7 +1627,6 @@ local function graphInit(im)
 
 end
 
-
 local long0, lat0, coslat0
 local rE = 21220539.7  -- 6371*1000*3.28084 radius of earth in ft, fudge factor of 1/0.985
 local rad = 180/math.pi
@@ -1639,10 +1647,10 @@ local function initField()
 	    variables.rotationAngle = geo.fields[iField].runway.trueDir-270 -- draw rwy along x axis
 	    --print("nfi: ", geo.fields[iField].noFlyInside)
 	    if not geo.fields[iField].images then
-	       if not geo.images then
+	       if not geo.fields_defaults.images then
 		  geo.fields[iField].images = {1500, 3000, 6000}
 	       else
-		  geo.fields[iField].images = geo.images
+		  geo.fields[iField].images = geo.fields_defaults.images
 	       end
 	    end
 	    
@@ -2527,7 +2535,8 @@ does??
    for i, j in ipairs(variables) do
       idef = 0
       if i == 3 then idef = 2000 end
-      if i == 4 then idef = 240 end
+      if i == 4 then idef = 300  end
+      if i == 5 then idef =  80  end
       variables[j] = system.pLoad("variables."..variables[i], idef)
    end
    

@@ -1,6 +1,13 @@
 {
-    "images": [1500, 3000, 4500, 6000, 12000],
-    "fields" : [ {
+    "fields_defaults": {
+	"View":"Standard",
+	"NoFlyZone":"Inside",
+	"images": [1500, 3000, 4500, 6000, 9000, 12000],
+	"runway": {
+	    "x_offset": 0,
+	    "y_offset": 0
+	}
+    },"fields" : [ {
 	"name" : "DCRC Walt Good Field",
 	"shortname" : "DCRC",
 	"lat" : 39.147398,

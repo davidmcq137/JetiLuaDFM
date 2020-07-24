@@ -84,7 +84,7 @@ def Gmaps_px_per_foot(lat, zoom):
 #print (sys.argv[1])
 #print (sys.argv[2])
 
-print ("Takes two command line args. First is Fields filename, second creates iPad images")
+#print ("Takes two command line args. First is Fields filename, second creates iPad images")
 #print ("Give two commandline args to generate iPad images")
 
 if len(sys.argv) > 2:
@@ -107,15 +107,24 @@ if len(sys.argv) > 1:
 else:
 	fieldFile = "Fields.jsn"
 
-print("Reading Field file: ", fieldFile)
+print("Reading Field file ", fieldFile)
 
 
 with open(fieldFile) as json_data:
-	jd	= json.load(json_data)
+	try:
+		jd	= json.load(json_data)
+	except ValueError as valmsg:
+		print("JSON Decode error in " + fieldFile)
+		print(valmsg)
+		exit()
 
+# in case no default for images
+
+	defImages = jd.get("fields_defaults").get("images", [1500, 3000, 6000])
+
+	#print("defImages", defImages)
+	
 # First loop over all the fields read from Fields.jsn
-
-defImages = jd.get("images", [1500, 3000, 6000])
 
 for fld in jd["fields"]:
 
@@ -130,8 +139,8 @@ for fld in jd["fields"]:
 	runway_width_ft =  fld["runway"]["width"]
 	runway_x_offset_ft = fld["runway"].get("x_offset", 0)
 	runway_y_offset_ft = -fld["runway"].get("y_offset", 0)
-	print("runway_x_offset_ft: ", runway_x_offset_ft)
-	print("runway_y_offset_ft: ", runway_y_offset_ft)	
+	#print("runway_x_offset_ft: ", runway_x_offset_ft)
+	#print("runway_y_offset_ft: ", runway_y_offset_ft)	
 	#print("runway_length_ft: ", runway_length_ft)
 		
 	# Then loop over all images for that field
