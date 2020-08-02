@@ -54,12 +54,13 @@ def Gmaps_api_request(**kwargs):
 	return ret
 
 def get_Gmaps_image(zoom, latitude, longitude):
-	#config = ConfigParser.ConfigParser()
-	#osp = os.path.expanduser('/home/getrunway.conf')
-	#config.read(osp)
-	#api_key = config.get('KEYS', 'api_key')
-	#print("api_key:", api_key)
-	fd = open("/home/davidmcq/getrunway.conf", "r")
+	if os.name == "posix":
+		fd = open("/home/davidmcq/getrunway.conf", "r") # Linux
+	elif os.name == "nt":
+		fd = open("getrunway.conf", "r")	# Windows
+	else:
+		print("unknown os", os.name)
+		exit()
 	api_key = fd.readline()
 	fd.close()
 	latlong= str(latitude) + "," + str(longitude)
@@ -78,6 +79,13 @@ def Gmaps_feet_per_px(lat, zoom): # first constant from Google, second one conve
 
 def Gmaps_px_per_foot(lat, zoom):
 	return 1.0 / Gmaps_feet_per_px(lat, zoom)
+
+def rotateXYdeg(x, y, rotation):
+	sind = math.sin(math.radians(rotation))
+	cosd = math.cos(math.radians(rotation))
+	return x * cosd - y * sind, x * sind + y * cosd
+
+rE = 21220539.7  # 6371*1000*3.28084 radius of earth in ft, fudge factor of 1/0.985
 
 #print (len(sys.argv))
 #print (sys.argv[0])
@@ -131,10 +139,12 @@ for fld in jd["fields"]:
 	field_name=fld["name"]
 	short_name=fld["shortname"]
 
-	view = fld.get("view", "Standard")
+	View = fld.get("View", "Standard")
+	#print(field_name, View)
 	latitude = fld["lat"]
+	coslat = math.cos(math.radians(latitude))
 	longitude =	fld["long"]
-	truedir = fld["runway"]["trueDir"]
+	trueDir = fld["runway"]["trueDir"]
 	runway_length_ft = fld["runway"]["length"]
 	runway_width_ft =  fld["runway"]["width"]
 	runway_x_offset_ft = fld["runway"].get("x_offset", 0)
@@ -156,6 +166,7 @@ for fld in jd["fields"]:
 		field_image_height_ft = field_image_width_ft/2
 		filename = short_name + "_" + str(field_image_width_ft) + "_ft.png"
 		#print("Constructed Filename: ", filename)
+		
 		if field_image_width_ft < 1500 or field_image_width_ft > 12000:
 			print("Field image width must be between 1500 and 12000")
 			exit()
@@ -193,7 +204,7 @@ for fld in jd["fields"]:
 		# the 0,0 point as was the case in Russell's original implementation so we have less
 		# work to do (vs. translate, rotate, and then translate back)
 	
-		Gmaps_rotate = Gmaps.rotate(truedir-270)
+		Gmaps_rotate = Gmaps.rotate(trueDir-270)
 	
 		field_image_width_px =	Gmaps_px_per_foot(latitude, zoom) * field_image_width_ft
 		field_image_height_px = Gmaps_px_per_foot(latitude, zoom) * field_image_height_ft
@@ -206,13 +217,13 @@ for fld in jd["fields"]:
 		# narrower side when flying
 		# for the "Centered" view put the runway in the center
 
-		if view == "Standard":
+		if View == "Standard":
 			botMult = 0.25
 			topMult = 0.75
 		else:
 			botMult = 0.50
 			topMult = 0.50
-			
+
 		clip_box = (wwGr/2 - field_image_width_px / 2,
 					hhGr/2 - field_image_height_px * topMult,
 					wwGr/2 + field_image_width_px / 2,
@@ -245,7 +256,7 @@ for fld in jd["fields"]:
 		dd = ImageDraw.Draw(Jeti)
 		
 		wwj, hhj = Jeti.size # note image size again... j/Grc ratio will adjust px per inch
-		
+
 		runway_length_px = runway_length_px * wwj/wwGrc
 		runway_width_px	 = runway_width_px	* hhj/hhGrc
 		runway_x_offset_px = runway_x_offset_px * wwj/wwGrc
@@ -256,6 +267,46 @@ for fld in jd["fields"]:
 		dd.rectangle( ((int(wwj/2 - runway_length_px/2 + runway_x_offset_px), int(hhj * topMult - runway_width_px/2 + runway_y_offset_px) ),
 					   (int(wwj/2 + runway_length_px/2 + runway_x_offset_px), int(hhj * topMult + runway_width_px/2 + runway_y_offset_px) )),
 					  outline='yellow')
+
+		NoFly = fld.get("NoFly")
+		if NoFly:
+			NoFly_pix = []
+			for i in range(len(NoFly)):
+				x = rE * (math.radians(NoFly[i]["long"]) - math.radians(longitude)) * coslat
+				y = rE * (math.radians(NoFly[i]["lat"]) - math.radians(latitude))
+				xr, yr = rotateXYdeg(x, y, trueDir - 270.0)
+				xr = xr * Gmaps_px_per_foot(latitude, zoom)
+				yr = yr * Gmaps_px_per_foot(latitude, zoom)
+				xr = xr * wwj / wwGrc + wwj / 2
+				yr = -yr * hhj / hhGrc + hhj * topMult
+				NoFly_pix.append((xr, yr))
+				if fld.get("noFlyZone") != "Outside":
+					color = "red"
+				else:
+					color = "greenyellow"
+					
+			dd.polygon(NoFly_pix, outline=color)
+
+		NoFlyC = fld.get("NoFlyCircle")
+		#print("NoFlyC", NoFlyC)
+		if NoFlyC:
+			for i in range(len(NoFlyC)):
+				x = rE * (math.radians(NoFlyC[i]["long"]) - math.radians(longitude)) * coslat
+				y = rE * (math.radians(NoFlyC[i]["lat"]) - math.radians(latitude))
+				r = NoFlyC[i]["radius"]
+				rp = r * Gmaps_px_per_foot(latitude, zoom) * wwj / wwGrc
+				#print("wwj/wwGrc, hhj/hhGrc", wwj/wwGrc, hhj/hhGrc)
+				xr, yr = rotateXYdeg(x, y, trueDir - 270.0)
+				xr = xr * Gmaps_px_per_foot(latitude, zoom)
+				yr = yr * Gmaps_px_per_foot(latitude, zoom)
+				xr = xr * wwj / wwGrc + wwj / 2
+				yr = -yr * hhj / hhGrc + hhj * topMult
+				if NoFlyC[i].get("noFlyZone") != "Outside":
+					color = "red"
+				else:
+					color = "greenyellow"
+				
+				dd.ellipse([xr - rp, yr - rp, xr + rp, yr + rp], outline=color, width=1)
 
 		Jeti.save(filename, "PNG")
 

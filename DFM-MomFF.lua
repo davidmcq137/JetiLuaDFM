@@ -31,7 +31,7 @@
 	---------------------------------------------------------
 	Released under MIT-license by Tero @ RC-Thoughts.com 2016
 	---------------------------------------------------------
-        Modified to toggle one channel on and off using two momentaries
+        Modified to toggle one channel on and off using two momentaries D. McQ
 	---------------------------------------------------------
 	Released under MIT-license by DFM 2018
         

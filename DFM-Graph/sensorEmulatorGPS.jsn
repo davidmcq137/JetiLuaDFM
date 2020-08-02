@@ -2,6 +2,7 @@
     "lat0":41.00,
     "lon0":-73.00,
     "rE":21220539.7,
-    "xString":"300*sin(2*pi*t/200)",
-    "yString":"200*cos(2*pi*t/300)"
+    "trueDir": 270,
+    "xString":"50*sin(2*math.pi*t/200)+50",
+    "yString":"50*cos(2*math.pi*t/200)+50"
 }

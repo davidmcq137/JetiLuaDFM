@@ -2,7 +2,7 @@
     "fields_defaults": {
 	"View":"Standard",
 	"NoFlyZone":"Inside",
-	"images": [1500, 3000, 4500, 6000, 9000, 12000],
+	"images": [1500, 2000, 3000, 4000, 5000, 8000],	
 	"runway": {
 	    "x_offset": 0,
 	    "y_offset": 0
@@ -12,11 +12,56 @@
 	"shortname" : "DCRC",
 	"lat" : 39.147398,
 	"long" : -77.337639,
+	"GPSPylon": [   {
+	    "lat": 39.146273,
+	    "long": -77.335852,
+	    "aimoff": 200
+	}, {
+	    "lat": 39.148120,
+	    "long": -77.334168,
+	    "aimoff": 200
+	}, {
+	    "lat": 39.149426,
+	    "long": -77.336689,
+	    "aimoff": 200
+	} ],
 	"runway" : {
 	    "trueDir" : 347.5,
 	    "length" :600,
-	    "width" : 40
+	    "width" : 42
 	}
+    },{
+	"name" : "NSA Westonzoyland",
+	"shortname" : "NSAW",
+	"lat" : 51.104800,
+	"long" : -2.892431,
+	"View":"Standard",
+	"runway" : {
+	    "trueDir" : 274,
+	    "length" : 2000,
+	    "width" : 100,
+	    "x_offset": -1200
+	},
+	"noFlyZone": "Outside",
+	"NoFly" : [ {
+	    "lat" : 51.105087,
+	    "long" : -2.902035
+	}, {
+	    "lat" : 51.106971,
+	    "long" : -2.901756
+	}, {
+	    "lat": 51.106876,
+	    "long": -2.899052
+	}, {
+	    "lat": 51.119471,
+	    "long": -2.862510
+	}, {
+	    "lat": 51.099075,
+	    "long": -2.859420
+	}, {
+	    "lat": 51.104613,
+	    "long": -2.892830
+	} ]
     }, {
 	"name" : "Black Dirt Squadron",
 	"shortname" : "BDS",
@@ -26,7 +71,20 @@
 	    "trueDir" : 214,
 	    "length" : 735,
 	    "width" : 60
-	}
+	},
+	"NoFly" : [ {
+	    "lat" : 41.339291,
+	    "long" : -74.433310
+	}, {
+	    "lat" : 41.341015,
+	    "long" : -74.431797
+	}, {
+	    "lat": 41.342578,
+	    "long": -74.434812
+	}, {
+	    "lat": 41.340959,
+	    "long": -74.436249
+	} ]
     }, {
 	"name" : "Floyd Bennett Field",
 	"shortname" : "FBF",
@@ -87,37 +145,6 @@
 	    "length" : 2530,
 	    "width" : 50
 	}
-    },{
-	"name" : "NSA Westonzoyland",
-	"shortname" : "NSAW",
-	"lat" : 51.104800,
-	"long" : -2.892431,
-	"runway" : {
-	    "trueDir" : 274,
-	    "length" : 2000,
-	    "width" : 100,
-	    "x_offset": -1200
-	},
-	"noFlyZone": "Outside",
-	"NoFly" : [ {
-	    "lat" : 51.105087,
-	    "long" : -2.902035
-	}, {
-	    "lat" : 51.106971,
-	    "long" : -2.901756
-	}, {
-	    "lat": 51.106876,
-	    "long": -2.899052
-	}, {
-	    "lat": 51.119471,
-	    "long": -2.862510
-	}, {
-	    "lat": 51.099075,
-	    "long": -2.859420
-	}, {
-	    "lat": 51.104613,
-	    "long": -2.892830
-	} ]
     }, {
 	"name" : "Harry Curzon Field",
 	"shortname" : "HCF",
@@ -162,7 +189,12 @@
 	    "length" : 3000,
 	    "width" : 145
 	},
-	"noFlyInside": "Normal",
+	"NoFlyCircle": [ {
+	    "lat": 51.692984,
+	    "long": -1.325343,
+	    "radius":1000
+	} ],
+	"noFlyZone": "Inside",
 	"NoFly" : [ {
 	    "lat" : 51.694879,
 	    "long" : -1.317719

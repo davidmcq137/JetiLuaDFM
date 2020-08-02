@@ -495,6 +495,7 @@ local function loop()
    local minlat, minlon
    
    if sensor and sensor.valGPS and sensor.type == 9 and sensor.param == 3 then
+      print("1/3")
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       minlon = minutes
       degs = (sensor.valGPS >> 16) & 0xFF
@@ -505,6 +506,7 @@ local function loop()
    end
 
    if sensor and sensor.valGPS and sensor.type == 9 and sensor.param == 2 then
+      print("1/2")
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       minlat = minutes
       degs = (sensor.valGPS >> 16) & 0xFF
@@ -515,7 +517,8 @@ local function loop()
    end
 
    if sensor2 and sensor2.valGPS and sensor2.type == 9 and sensor2.param == 3 then
-      --print("sensor.decimals2", sensor2.decimals)
+      print("2/3")
+      print("sensor.decimals2", sensor2.decimals)
       minutes = (sensor2.valGPS & 0xFFFF) * 0.001
       minlon = minutes
       degs = (sensor2.valGPS >> 16) & 0xFF
@@ -526,6 +529,7 @@ local function loop()
    end
 
    if sensor2 and sensor2.valGPS and sensor2.type == 9 and sensor2.param == 2 then
+      print("2/2")
       minutes = (sensor2.valGPS & 0xFFFF) * 0.001
       minlat = minutes
       degs = (sensor2.valGPS >> 16) & 0xFF
@@ -536,14 +540,19 @@ local function loop()
    end
 
    if longitude and latitude and minlat and minlon then
-      --print("Graph: latitude, longitude", latitude, longitude, minlat, minlon)
+      print("Graph: latitude, longitude", latitude, longitude, minlat, minlon)
       x = rE * (math.rad(longitude) - math.rad(long0)) * math.cos(math.rad(lat0))
       y = rE * (math.rad(latitude) - math.rad(lat0))
-      --print("Graph: x,y", x,y)
+      print("Graph: x,y", x,y)
    end
 
+   
    if sensor and sensor.valid then
-      graphValue  = sensor.value
+      if not x then
+	 graphValue  = sensor.value
+      else
+	 graphValue = x
+      end
       graphUnit = sensor.unit
    else
       graphValue = nil
@@ -551,7 +560,11 @@ local function loop()
    
 
    if sensor2 and sensor2.valid then
-      graphValue2  = sensor2.value
+      if not y then
+	 graphValue2  = sensor2.value
+      else
+	 graphValue2 = y
+      end
       graphUnit2 = sensor2.unit      
    else
       graphValue2 = nil

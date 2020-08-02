@@ -81,6 +81,8 @@ local lonDecimals
 local time0
 local saveSwitch={}
 local switchSeq
+local geo = {}
+local fieldnames = {}
 
 local function rotateXY(x, y, rotation)
    local sinShape, cosShape
@@ -166,6 +168,23 @@ local function propCtlP(t, min, max)
       return system.getInputs("P"..t)
    end
 end
+
+local function fieldIdxChanged(value)
+   fieldIdx = value
+   if GPSparms and geo then
+      GPSparms.lat0 = geo.fields[fieldIdx].lat
+      GPSparms.lon0 = geo.fields[fieldIdx].long
+      GPSparms.trueDir = geo.fields[fieldIdx].runway.trueDir
+   end
+end
+
+
+local function initForm()
+   form.addRow(2)
+   form.addLabel({label="Select Field for GPS Origin", width=220})
+   form.addSelectbox(fieldnames, fieldIdx, true, fieldIdxChanged)
+end
+
 
 --[[
 
@@ -290,10 +309,19 @@ function emulator_getSensors()
       GPSparms=json.decode(fg)
       coslat0 = math.cos(math.rad(GPSparms.lat0))
       print("GPS Config: "..text)
+      --print("lat0:", GPSparms.lat0)
+      --print("lon0:", GPSparms.lon0)
+   end
+
+   if GPSparms then
+      for i=1, #geo.fields do
+	 if  math.abs(geo.fields[i].lat  - GPSparms.lat0) < 1/60
+	 and math.abs(geo.fields[i].long - GPSparms.lon0) < 1/60 then
+	    fieldIdx = i
+	 end
+      end
    end
    
-
-
    time0 = system.getTimeCounter()
    
    return sensorTbl
@@ -420,8 +448,9 @@ function emulator_getSensorByID(ID, Param)
 
 	    -- if true direction of runway is supplied, rotate x,y coords to be parallel
 	    -- to the runway .. else leave as-is
-	    
+
 	    if GPSparms.trueDir then
+	       --print("GPSparms.trueDir:", GPSparms.trueDir)
 	       xCart, yCart = rotateXY(xCart, yCart, math.rad(270-GPSparms.trueDir))
 	    end
 	    
@@ -682,8 +711,25 @@ end
 
 local function init()
 
+   fieldIdx = 0
+   fg = io.readall("Apps/DFM-LSO/Fields.jsn")
+   if fg then
+      geo = json.decode(fg)
+      for i = 1, #geo.fields do
+	 fieldnames[i] = geo.fields[i].name
+	 --print(fieldnames[i])
+      end
+   end
+
+   if not geo then
+      print("Fields.jsn not decoded")
+   else
+      print("Fields.jsn decoded")
+   end
+
    system.registerTelemetry(1, appName.." Sensors", 4, telePrint)
-   system.registerTelemetry(2, appName.." Variables", 4, varPrint)   
+   system.registerTelemetry(2, appName.." Variables", 4, varPrint)
+   system.registerForm(1, MENU_APPS, "Sensor Emulator", initForm, nil, nil)
    
    emulator_init()
    

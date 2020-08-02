@@ -241,7 +241,7 @@
    Put a copy of the sensorEmulator.jsn file into the directory for
    the lua function that is going to use it, and edit it as required
    for that lua app. Ditto for sensorEmulatorGPS.jsn. Edit SensorE.jsn
-   to point to those directories.
+   to point to that directory.
 
    By putting the sensorEmulator.jsn file into the app's own
    directory each app can define its own sensor names, ranges, etc
@@ -255,11 +255,7 @@
 
    The app makes two telemetry windows where one window displays the
    current sensors and values being emulated. and the other one
-   displays the variables defined in the lue enviornment.
-
-   Usage: 
-
-   Put the sourcecode file SensorE.lua in the /Apps directory.
+   displays the variables defined in the lua enviornment.
 
    No changes are required to lua apps that run with SensorE.
    
@@ -291,8 +287,8 @@ Example sensorEmulatorGPS.jsn file:
     "lat0":41.00,
     "lon0":-73.00,
     "rE":21220539.7,
-    "xString":"300*sin(2*pi*t/5)",
-    "yString":"200*cos(2*pi*t/7)"
+    "xString":"300*sin(2*math.pi*t/5)",
+    "yString":"200*cos(2*math.pi*t/7)"
 }
 
 Example sensorEmulator.jsn file:

@@ -1,9 +1,9 @@
 {
-    "lat0":51.104800,
-    "lon0":-2.892431,
+    "lat0": 39.147398,
+    "lon0":-77.337639,
     "rE":21220539.7,
-    "trueDir": 274,
+    "trueDir": 347.5,
     "startTime":15,
-    "xString":"(P6(1000,4000)*math.sin(3*math.pi*t/50))",
-    "yString":"(P7(200,1000)*math.cos(5*math.pi*t/50)+P7(200,1000))"
+    "xString":"(P6(1000,4000)*math.sin(-math.pi*t/20))",
+    "yString":"(P7(200,1000)*math.cos(math.pi*t/20)+P7(200,1000))"
 }
