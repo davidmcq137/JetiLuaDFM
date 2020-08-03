@@ -15,15 +15,15 @@
 	"GPSPylon": [   {
 	    "lat": 39.146273,
 	    "long": -77.335852,
-	    "aimoff": 200
+	    "aimoff": 600
 	}, {
 	    "lat": 39.148120,
 	    "long": -77.334168,
-	    "aimoff": 200
+	    "aimoff": 600
 	}, {
 	    "lat": 39.149426,
 	    "long": -77.336689,
-	    "aimoff": 200
+	    "aimoff": 600
 	} ],
 	"runway" : {
 	    "trueDir" : 347.5,
