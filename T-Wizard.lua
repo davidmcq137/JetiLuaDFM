@@ -953,7 +953,7 @@ local function drawGeo(windowWidth, windowHeight)
 	       math.max(altitude - Field.startMaxAltitude, 0)
 	    print("PP:", penaltyPoints)
 	    playFile("/"..appInfo.Dir.."Audio/penalty_points.wav", AUDIO_QUEUE)
-	    playNumber(penaltyPoints, 0)
+	    playNumber(math.floor(penaltyPoints+0.5), 0)
 	 else
 	    playFile("/"..appInfo.Dir.."Audio/task_starting.wav", AUDIO_QUEUE)
 	    penaltyPoints = 0
@@ -1020,7 +1020,8 @@ local function drawGeo(windowWidth, windowHeight)
 	 tstr, FONT_BIG)
 
       tstr = string.format("Laps: %d, Net Score: %d, Penalty: %d",
-			   lapsComplete, rawScore - penaltyPoints, penaltyPoints)
+			   lapsComplete, math.floor(rawScore - penaltyPoints + 0.5),
+			   math.floor(penaltyPoints + 0.5))
       lcd.drawText((310 - lcd.getTextWidth(FONT_MINI, tstr))/2, 17, tstr, FONT_MINI)
    end
 
@@ -1830,7 +1831,11 @@ local function loop()
    end
 
    if GPSAlt then
-      altitude = GPSAlt
+      if Field and Field.elevation then
+	 altitude = GPSAlt - Field.elevation
+      else
+	 altitude = GPSAlt
+      end
    end
    if baroAlt then -- let baroAlt "win" if both defined
       altitude = baroAlt

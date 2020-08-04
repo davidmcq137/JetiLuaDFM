@@ -3,6 +3,7 @@
     "shortname" : "DCRC",
     "lat" : 39.147398,
     "long" : -77.337639,
+    "elevation":80,
     "View": "Standard",
     "triangle": 350,
     "aimoff": 100,
