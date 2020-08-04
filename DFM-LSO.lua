@@ -1393,17 +1393,17 @@ local function drawGeo(windowWidth, windowHeight, ydo)
 	    if emFlag then print("left", relb) end
 	    system.playFile("/Apps/DFM-LSO/left.wav", AUDIO_QUEUE)
 	    system.playNumber(relb, 0)
-	    system.playFile("/Apps/DFM-LSO/degrees.wav", AUDIO_QUEUE)	    
+	    --system.playFile("/Apps/DFM-LSO/degrees.wav", AUDIO_QUEUE)	    
 	 else
 	    if emFlag then print("straight") end
 	    system.playFile("/Apps/DFM-LSO/straight.wav", AUDIO_QUEUE)
 	 end
 	 lasttt[1] = tte
       elseif tt == variables.intraMsgT and tte ~= lasttt[2] then
-	 if emFlag then print("distance remaining", dist / 3) end
-	 system.playFile("/Apps/DFM-LSO/distance_remaining.wav", AUDIO_QUEUE)
+	 if emFlag then print("distance", dist / 3) end
+	 system.playFile("/Apps/DFM-LSO/distance.wav", AUDIO_QUEUE)
 	 system.playNumber(dist / 3, 0)
-	 system.playFile("/Apps/DFM-LSO/yards.wav", AUDIO_QUEUE)
+	 --system.playFile("/Apps/DFM-LSO/yards.wav", AUDIO_QUEUE)
 	 lasttt[2] = tte
       --elseif tt==3 and tte ~= lasttt[3] and speed ~= 0 then
 	-- if emFlag then print("time remaining", dist / speed) end

@@ -3,16 +3,15 @@
    ---------------------------------------------------------------------------------------
    T-Wizard.lua -- GPS triangle racing in a Jeti app
 
-   Derived from:
-   DFM-LSO.lua -- "Landing Signal Officer" -- GPS Map and "ILS"/GPS RNAV system
-   derived from DFM's Speed and Time Announcers, which were turn was
-   derived from Tero's RCT's Alt Announcer Borrowed and modified code
-   from Jeti's AH example for tapes and heading indicator.  New code
-   to project Lat/Long via simple equirectangular projection to XY
-   plane, and to compute heading from the projected XY plane track for
-   GPS sensors that don't have this feature and create an map of
-   flightpath and an ILS "localizer" based on GPS (e.g a model version
-   of GPS RNAV)
+   Derived from DFM-LSO.lua -- "Landing Signal Officer" -- GPS Map and
+   "ILS"/GPS RNAV system derived from DFM's Speed and Time Announcers,
+   which were turn was derived from Tero's RCT's Alt Announcer
+   Borrowed and modified code from Jeti's AH example for tapes and
+   heading indicator.  New code to project Lat/Long via simple
+   equirectangular projection to XY plane, and to compute heading from
+   the projected XY plane track for GPS sensors that don't have this
+   feature and create an map of flightpath and an ILS "localizer"
+   based on GPS (e.g a model version of GPS RNAV)
     
    Requires transmitter firmware 4.22 or higher.
     
@@ -24,11 +23,9 @@
 
 --]]
 
-collectgarbage()
-
-------------------------------------------------------------------------------
-
--- Persistent and global variables for entire progrem
+local appInfo={}
+appInfo.Name = "T-Wizard"
+appInfo.Dir  = "Apps/T-Wizard/"
 
 local latitude
 local longitude
@@ -44,11 +41,9 @@ local SpeedNonGPS = 0
 local vario=0
 local binomC = {} -- array of binomial coefficients for n=MAXTABLE-1, indexed by k
 
--- local DistanceGPS
-
 local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
-	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"
-            }
+	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"}
+
 telem.Latitude={}
 telem.Longitude={}
 telem.Altitude={}
@@ -60,7 +55,6 @@ telem.BaroAlt={}
 
 local variables = {"magneticVar", "rotationAngle", "histSample", "histMax", "maxCPU",
 		   "interMsgT", "intraMsgT", }
-variables.magneticVar = 0
 
 local xtable = {}
 local ytable = {}
@@ -71,30 +65,21 @@ local path={}
 local bezierPath = {}
 
 local shapes = {}
-local rwy = {}
 local poi = {}
 local nfc = {}
 local pylon = {}
 local maxpoiX = 0.0
---local geo = {}
 local Field = {}
---local iField
-local modelProps={}
 local xHist={}
 local yHist={}
 local xHistLast=0
 local yHistLast = 0
 local countNoNewPos = 0
 local currMaxCPU = 0
-local fieldNames = {}
---local fieldIdx = 0
 local gotInitPos = false
-local takeoff={}; takeoff.Complete={}; takeoff.Start={}
-takeoff.NeverAirborne = true
-takeoff.BrakeReleaseTime = 0
-takeoff.oldBrake = 0
-takeoff.oldThrottle = 0
-takeoff.RunwayHeading = nil
+local lastregion
+local lastregiontime=0
+local lasttt={0,0,0}
 
 -- these lists are the non-GPS sensors
 
@@ -113,12 +98,19 @@ local pointSwitch
 local tapeSwitch
 local zoomSwitch
 local triASwitch
-
+local startSwitch
+local startToggled = false
+local startArmed = false
+local racing = false
+local racingStartTime = 0
+local lapStartTime = 0
+local lapsComplete = 0
+local lastLapTime = 0
 local sysTimeStart = system.getTimeCounter()
-
---local DEBUG = false -- if set to <true> will generate flightpath automatically for demo purposes
---local debugTime = 0
---local debugNext = 0
+local raceFinished = false
+local raceEndTime = 0
+local rawScore = 0
+local penaltyPoints=0
 
 local fieldPNG={}
 local maxImage
@@ -145,11 +137,9 @@ local satQuality
 
 local function readSensors()
 
-   local sensorNumber
-   
    local sensors = system.getSensors()
 
-   for i, sensor in ipairs(sensors) do
+   for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 	 --[[
 	    Note:
@@ -159,7 +149,6 @@ local function readSensors()
 	    Code below will put sensor names in the choose list and auto-assign the relevant
 	    selections for the Jeti MGPS, Digitech CTU and Jeti MSpeed
 	 --]]
-	 if sensor.param == 0 then name = sensor.label end
 	 if sensor.param == 0 then -- it's a label
 	    table.insert(sensorLalist, '--> '..sensor.label)
 	    table.insert(sensorIdlist, 0)
@@ -304,6 +293,12 @@ local function triASwitchChanged(value)
    system.pSave("triASwitch", triASwitch)
 end
 
+local function startSwitchChanged(value)
+   print("startSwitch", value)
+   startSwitch = value
+   system.pSave("startSwitch", startSwitch)
+end
+
 --local function fieldIdxChanged(value)
 --   print("please make fieldIdxChanged work again")
 --   --fieldIdx = value
@@ -313,9 +308,6 @@ end
 
 --------------------------------------------------------------------------------
 -- Draw the main form (Application inteface)
-
-local dirSelectEntries={}
-local fileSelectEntries={}
 
 local function initForm(subform)
 
@@ -367,15 +359,9 @@ local function initForm(subform)
 	 -- variation in defaults etc nor for addCheckbox due to specialized nature
 	 
 	 form.addRow(2)
-	 form.addLabel({label="Map Rotation (\u{B0}CCW)", width=220})
-	 form.addIntbox(variables.rotationAngle, -359, 359, 0, 0, 1,
-			(function(x) return variableChanged(x, "rotationAngle") end) )
-	 
-	 form.addRow(2)
 	 form.addLabel({label="History Sample Time (ms)", width=220})
 	 form.addIntbox(variables.histSample, 1000, 10000, 1000, 0, 100,
 			(function(x) return variableChanged(x, "histSample") end) )
-
 
 	 form.addRow(2)
 	 form.addLabel({label="Number of History Samples", width=220})
@@ -397,10 +383,6 @@ local function initForm(subform)
 	 form.addIntbox(variables.intraMsgT, 1, 10, 2, 0, 1,
 			(function(x) return variableChanged(x, "intraMsgT") end) )
 
-	 --form.addRow(2)
-	 --form.addLabel({label="Select Field", width=220})
-	 --form.addSelectbox(fieldNames, fieldIdx, true, fieldIdxChanged)
-
 	 form.addRow(2)
 	 form.addLabel({label="Flight path points on/off sw", width=220})
 	 form.addInputbox(pointSwitch, false, pointSwitchChanged)
@@ -418,6 +400,10 @@ local function initForm(subform)
 	 form.addInputbox(triASwitch, false, triASwitchChanged)
 	 
 	 form.addRow(2)
+	 form.addLabel({label="Triangle racing START", width=220})
+	 form.addInputbox(startSwitch, false, startSwitchChanged)
+
+	 form.addRow(2)
 	 form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
 	 resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
 
@@ -426,25 +412,22 @@ local function initForm(subform)
 	 form.addRow(1)
 	 form.addLabel({label="DFM - v.3.0 ", font=FONT_MINI, alignRight=true})
       else
-	 
 	 form.addRow(1)
 	 form.addLabel({label="Please update, min. fw 4.22 required"})
-	 
       end
    elseif subform == 2 then
- 
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
-
       --form.addLink((function() form.reinit(3) end), {label = "Goto third menu >>"})
-      
    elseif subform == 3 then
+      form.addLink((function() form.reinit(1) end),
+	 {label = "Back to main menu",font=FONT_BOLD})
    end
 end
 
 -- Telemetry window draw functions
 
-local delta, deltaX, deltaY
+local delta, deltaY
 
 local colAH = 110 + 50
 local rowAH = 63
@@ -452,10 +435,6 @@ local rowAH = 63
 local colAlt = colAH + 73 + 45 + 15
 local colSpeed = colAH - 73 - 45 - 25
 local heightAH = 145
-
-local colHeading = colAH
-local rowHeading = 30 -- 160
-
 
 -- Various shape and polyline functions using the anti-aliasing renderer
 
@@ -589,88 +568,18 @@ local function drawSpeed()
    lcd.resetClipping() 
 end
 
--- Draw heading indicator
-
-local parmHeading = {
-  {0, 2, "N"}, {30, 5}, {60, 5},
-  {90, 2, "E"}, {120, 5}, {150, 5},
-  {180, 2, "S"}, {210, 5}, {240, 5},
-  {270, 2, "W"}, {300, 5}, {330, 5}
-}
-
-local wrkHeading = 0
-local w
-local ii=0
-
-local function drawHeading()
-
-   local dispHeading
-   
-   ii = ii + 1
-
-   setColorMain()
-
-   lcd.drawFilledRectangle(colHeading-70, rowHeading, 140, 2)
-   lcd.drawFilledRectangle(colHeading+65, rowHeading-20, 6,22)
-   lcd.drawFilledRectangle(colHeading-65-6, rowHeading-20, 6,22)
-
-   dispHeading = (heading + variables.rotationAngle) % 360
-
-   for index, point in pairs(parmHeading) do
-      wrkHeading = point[1] - dispHeading
-      if wrkHeading > 180 then wrkHeading = wrkHeading - 360 end
-      if wrkHeading < -180 then wrkHeading = wrkHeading + 360 end
-      deltaX = math.floor(wrkHeading / 1.6 + 0.5) - 1 -- was 2.2
-      
-      if deltaX >= -64 and deltaX <= 62 then -- was 31
-	 if point[3] then
-	    lcd.drawText(colHeading + deltaX - 4, rowHeading - 16, point[3], FONT_MINI)
-	 end
-	 if point[2] > 0 then
-	    lcd.drawLine(colHeading + deltaX, rowHeading - point[2], colHeading + deltaX, rowHeading)
-	 end
-      end
-   end 
-
-   text = string.format("%03d",dispHeading)
-   w = lcd.getTextWidth(FONT_NORMAL,text) 
-   setColorMain()
-   lcd.drawFilledRectangle(colHeading - w/2, rowHeading-30, w, lcd.getTextHeight(FONT_MINI))
-   setColorComp()
-   lcd.drawText(colHeading - w/2,rowHeading-30,text,  FONT_MINI)
-   
-   lcd.resetClipping()
+local function playFile(fn, as)
+   if emFlag then
+      print("Playing file "..fn.." status: "..as)
+   end
+   system.playFile(fn, as)
 end
 
---- draw Vario (vvi) 
-
-local rowVario = 80
-local colVario = 260
-
-local function drawVario()
-
-   setColorMain()
-   
-   for i = -60, 60, 30 do
-      lcd.drawLine(colVario-7, rowVario+i, colVario+8, rowVario+i)
+local function playNumber(n, dp)
+   if emFlag then
+      print("Playing number "..n.." dec places: "..dp)
    end
-   lcd.drawFilledRectangle(colVario-9, rowVario, 20, 3)
-
-   lcd.drawText(colVario-10, heightAH+2, "fpm", FONT_MINI)
-
-   if(vario > 1200) then vario = 1200 end
-   if(vario < -1200) then vario = -1200 end
-   if (vario > 0) then 
-      lcd.drawFilledRectangle(colVario-4,rowVario-math.floor(vario/16.66 + 0.5),
-			      10,math.floor(vario/16.66+0.5),170)
-   elseif(vario < 0) then 
-      lcd.drawFilledRectangle(colVario-4,rowVario+1,10,math.floor(-vario/16.66 + 0.5), 170)
-   end
-
-   lcd.drawFilledRectangle(colVario-48,rowAH-8,38,lcd.getTextHeight(FONT_NORMAL))
-   setColorComp()
-   text = string.format("%d", math.floor(vario*0.1+0.5)/0.1)
-   lcd.drawText(colVario-12- lcd.getTextWidth(FONT_NORMAL,text), rowAH-8, text, FONT_NORMAL | FONT_XOR)
+   system.playNumber(n, dp)
 end
 
 local function toXPixel(coord, min, range, width)
@@ -725,15 +634,6 @@ local function slope_to_deg(y, x)
    return math.deg(math.atan(y, x))
 end
 
--- XXXXXXXXXXXXXXXX are these still needed?
-
--- persistent and shared (with mapPrint) variables for ilsPrint
-
-local xr1,yr1, xr2, yr2
-local xl1,yl1, xl2, yl2
-local glideSlopePNG
-
-
 local function binom(n, k)
    
    -- compute binomial coefficients to then compute the Bernstein polynomials for Bezier
@@ -770,7 +670,6 @@ local function computeBezier(numT)
    -- with numT points over the [0,1] interval
    
    local px, py
-   local dx, dy
    local t, bn
    local ti, oti
    local n = #xtable-1
@@ -782,18 +681,10 @@ local function computeBezier(numT)
 
       ti = 1 -- first loop t^i = 0^0 which lua says is 1
       for i = 0, n do
-	 -- px = px + binom(n, i)*t^i*(1-t)^(n-i)*xtable[i+1]
-	 -- py = py + binom(n, i)*t^i*(1-t)^(n-i)*ytable[i+1]
 	 -- see: https://pages.mtu.edu/~shene/COURSES/cs3621/NOTES/spline/Bezier/bezier-der.html
 	 -- for Bezier derivatives
 	 -- 11/30/18 was not successful in getting bezier derivatives to improve heading calcs
 	 -- code commented out
-	 --
-	 -- if i > 0 and j == (numT-1) then
-	 --    dx = dx + bn * n * (xtable[i+1]-xtable[i]) -- this is really the "n-1" bn as req'd
-	 --    dy = dy + bn * n * (ytable[i+1]-ytable[i])
-	 --    --print(j, i, n, bn, ti, oti, dy, dx)
-	 -- end
 	 oti = (1-t)^(n-i)
 	 bn = binom(n, i)*ti*oti
 	 px = px + bn * xtable[i+1]
@@ -802,20 +693,7 @@ local function computeBezier(numT)
       end
       bezierPath[j+1]  = {x=px,   y=py}
       
-      -- if j == (numT-1) then
-      -- 	 bezierPath.slope = slope_to_deg(dy, dx)
-      -- end
    end
-
-   -- using alt approach of computing slope oflast two or three points of bezier curve also not
-   -- helful in smoothing out heading noise in taxi
-   --
-   -- local bx = {bezierPath[#bezierPath-2].x, bezierPath[#bezierPath-1].x, bezierPath[#bezierPath].x}
-   -- local by = {bezierPath[#bezierPath-2].y, bezierPath[#bezierPath-1].y, bezierPath[#bezierPath].y}
-
-   -- _, bezierHeading= fslope(bx, by)
-   -- bezierHeading = math.deg(bezierHeading)
-
 end
 
 local function drawBezier(windowWidth, windowHeight, yoff)
@@ -838,17 +716,15 @@ local function m3(i)
    return (i-1)%3 + 1
 end
 
-local lastregion
-local lastregiontime=0
---local dgt = 0
-local lasttt={0,0,0}
+local lastsws
+local lastdetS1 = -1
+local nextPylon=0
+local lastMin=0
 
-local function drawGeo(windowWidth, windowHeight, ydo)
+local function drawGeo(windowWidth, windowHeight)
 
-   -- code goes here to draw the environment. generally here for
-   -- debugging, then moved to getrunway.py so that it can be added to
-   -- the image and not require drawing at runtime.
-
+   local detS1, detS1
+   
    if #pylon < 1 and Field.name then
       pylon[1] = {x=Field.triangle,y=0,aimoff=Field.aimoff}
       pylon[2] = {x=0,y=Field.triangle,aimoff=Field.aimoff}
@@ -859,8 +735,6 @@ local function drawGeo(windowWidth, windowHeight, ydo)
 
    setColorMap()
 
-   lcd.drawText(60, 5, "12:34.34", FONT_BIG)
-   
    for j=1, #pylon do
       local txt = string.format("%d", j)
       lcd.drawText(
@@ -868,11 +742,14 @@ local function drawGeo(windowWidth, windowHeight, ydo)
 	 lcd.getTextWidth(FONT_MINI,txt)/2,
       toYPixel(pylon[j].y, map.Ymin, map.Yrange, windowHeight) -
 	 lcd.getTextHeight(FONT_MINI)/2 + 15,txt, FONT_MINI)
-      --drawShapePL( toXPixel(pylon[j].x, map.Xmin, map.Xrange, windowWidth),
-      --toYPixel(pylon[j].y, map.Ymin, map.Yrange, windowHeight),
-      --shapes.origin, math.pi, 1.0, 1, 1.0)
    end
 
+   -- first time thru, compute all the ancillary data that goes with each pylon
+   -- xm, ym is midpoint of opposite side from vertex
+   -- xe, ye is the extension of the midpoint to vertex line
+   -- xt, yt is the "target" or aiming point
+   -- z*, y* are the left and right sides of the turning zones
+   
    if (#pylon > 0) and (not pylon[1].xm) then
       for j=1, #pylon do
 	 local zx, zy
@@ -894,25 +771,32 @@ local function drawGeo(windowWidth, windowHeight, ydo)
       end
    end
    
-   if #pylon == 3 then
-      for j=1, #pylon do
-	 lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
-			toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
-			3)
-			--0.5*pylon[j].r * windowWidth /  map.Xrange)
-      end
+   -- compute determinants off the turning zone left and right lines
+   -- to see if the aircraft is in one of the turning zones
+
+   local detL = {}
+   local detR = {}
+   local inZone = {}
+   for j=1, #pylon do
+      detL[j] = (xtable[#xtable]-pylon[j].x)*(pylon[j].zyl-pylon[j].y) -
+	 (ytable[#ytable]-pylon[j].y)*(pylon[j].zxl-pylon[j].x)
+      detR[j] = (xtable[#xtable]-pylon[j].x)*(pylon[j].zyr-pylon[j].y) -
+	 (ytable[#ytable]-pylon[j].y)*(pylon[j].zxr-pylon[j].x)
+      inZone[j] = detL[j] >= 0 and detR[j] <= 0
    end
+   
+   setColorMain()
+
+   -- now compute determinants off the midpoint to vertext lines to find
+   -- out which of the six zones around the triangle the plane is in
+   -- use a binary code to number the zones
    
    local det = {}
    for j=1, #pylon do
-      --lcd.drawLine(toXPixel(pylon[j].x, map.Xmin, map.Xrange, windowWidth),
-      --toYPixel(pylon[j].y, map.Ymin, map.Yrange, windowHeight),
-      --toXPixel(pylon[j].xe, map.Xmin, map.Xrange, windowWidth),
-      --toYPixel(pylon[j].ye, map.Ymin, map.Yrange, windowHeight) )	
-      
       det[j] = (xtable[#xtable]-pylon[j].x)*(pylon[j].ye-pylon[j].y) -
 	 (ytable[#ytable]-pylon[j].y)*(pylon[j].xe-pylon[j].x)
    end
+   
    
    local p2=1
    local code=0
@@ -925,7 +809,7 @@ local function drawGeo(windowWidth, windowHeight, ydo)
       return
    end
    
-   
+   -- draw line from airplane to the aiming point
    
    lcd.drawLine(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 		toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight),
@@ -939,6 +823,7 @@ local function drawGeo(windowWidth, windowHeight, ydo)
 
    lcd.setColor(153,153,255)
    
+   -- draw the triangle race course
    for j = 1, #pylon do
       lcd.drawLine(toXPixel(pylon[j].x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[j].y, map.Ymin, map.Yrange, windowHeight),
@@ -946,9 +831,20 @@ local function drawGeo(windowWidth, windowHeight, ydo)
 		   toYPixel(pylon[m3(j+1)].y, map.Ymin, map.Yrange, windowHeight) )
    end
 
+   -- draw the startline
+   lcd.drawLine(toXPixel(pylon[2].x, map.Xmin, map.Xrange, windowWidth),
+		   toYPixel(pylon[2].y, map.Ymin, map.Yrange, windowHeight),
+		   toXPixel(pylon[2].x, map.Xmin, map.Xrange, windowWidth),
+		   toYPixel(pylon[2].y - 1.5*Field.triangle, map.Ymin, map.Yrange, windowHeight) )
+
+
    setColorMain()
+
+   -- draw the turning zones and the aiming points. The zones turn red when the airplane
+   -- is in them .. the aiming point you are flying to is red.
+   
    for j = 1, #pylon do
-      if region[code] == j then lcd.setColor(200,0,0) end
+      if inZone[j] then lcd.setColor(255,0,0) end
       lcd.drawLine(toXPixel(pylon[j].x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[j].y, map.Ymin, map.Yrange, windowHeight),
 		   toXPixel(pylon[j].zxl,map.Xmin, map.Xrange, windowWidth),
@@ -957,8 +853,178 @@ local function drawGeo(windowWidth, windowHeight, ydo)
 		   toYPixel(pylon[j].y, map.Ymin, map.Yrange, windowHeight),
 		   toXPixel(pylon[j].zxr, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[j].zyr, map.Ymin, map.Yrange, windowHeight) )
+      if inZone[j] then setColorMain() end
+      if region[code] == j then lcd.setColor(255,0,0) end
+      lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
+		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
+		     4)
+      lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
+		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
+		     2)	 
       if region[code] == j then setColorMain() end
    end
+
+-- start zone is left half plane divided by start line
+   
+   detS1 = xtable[#xtable]
+
+   detS2 = -1 --ytable[#ytable]
+   
+   local inStartZone
+   
+   --if detS1 <= 0 and detS2 <= 0 then inStartZone = true else inStartZone = false end
+   if detS1 <= 0 then inStartZone = true else inStartZone = false end
+   
+   -- read the start switch
+   
+   local sws
+   
+   if startSwitch then
+      sws = system.getInputsVal(startSwitch)
+   end
+
+   if startSwitch and sws then
+      if sws ~= lastsws then
+	 if sws == 1 then
+	    startToggled = true
+	 else
+	    startToggled = false
+	    startArmed = false
+	 end
+      end
+   end
+   lastsws = sws
+
+   -- see if racer wants to abort e.g. penalty start rejected
+   if racing and not startToggled then
+      racing = false
+      raceFinished = true
+      raceEndTime = system.getTimeCounter()
+      startArmed = false
+   end
+   
+   -- see if we are ready to start
+   if startToggled and not startArmed then
+      if inStartZone then
+	 playFile("/"..appInfo.Dir.."Audio/ready_to_start.wav", AUDIO_QUEUE)
+	 startArmed = true
+	 nextPylon = 0
+	 lapsComplete = 0
+      else
+	 playFile("/"..appInfo.Dir.."Audio/bad_start.wav", AUDIO_QUEUE)
+	 if not inStartZone then
+	    playFile("/"..appInfo.Dir.."Audio/outside_zone.wav", AUDIO_QUEUE)
+	 end
+	 -- could there be other reasons (altitude/nofly zones?) .. they go here
+	 startArmed = false
+	 startToggled = false
+      end
+   end
+
+   -- see if we are racing and we want to abort (e.g. redo a penalty start)
+   
+
+   -- this if determines we just crossed the start/finish line
+   -- now just left of origin ... does not have to be below hypot.
+   
+   --if detS2 <= 0 and lastdetS1 <= 0 and detS1 >= 0 then
+   if lastdetS1 <= 0 and detS1 >= 0 then
+      if racing then
+	 if nextPylon > 3 then -- lap complete
+	    playFile("/"..appInfo.Dir.."Audio/lap_complete.wav", AUDIO_QUEUE)
+	    lapsComplete = lapsComplete + 1
+	    rawScore = rawScore + 200.0
+	    lastLapTime = system.getTimeCounter() - lapStartTime
+	    lapStartTime = system.getTimeCounter()
+	    nextPylon = 1
+	 end
+      end
+      
+      if not racing and startArmed then
+	 if speed > Field.startMaxSpeed or altitude > Field.startMaxAltitude then
+	    playFile("/"..appInfo.Dir.."Audio/start_with_penalty.wav", AUDIO_QUEUE)	    
+	    if speed > Field.startMaxSpeed then
+	       playFile("/"..appInfo.Dir.."Audio/over_max_speed.wav", AUDIO_QUEUE)
+	    end
+	    if altitude > Field.startMaxAltitude then
+	       playFile("/"..appInfo.Dir.."Audio/over_max_altitude.wav", AUDIO_QUEUE)
+	    end
+	    penaltyPoints = 50 + 2 * math.max(speed - Field.startMaxSpeed, 0) + 2 *
+	       math.max(altitude - Field.startMaxAltitude, 0)
+	    print("PP:", penaltyPoints)
+	    playFile("/"..appInfo.Dir.."Audio/penalty_points.wav", AUDIO_QUEUE)
+	    playNumber(penaltyPoints, 0)
+	 else
+	    playFile("/"..appInfo.Dir.."Audio/task_starting.wav", AUDIO_QUEUE)
+	    penaltyPoints = 0
+	 end
+	 
+	 racing = true
+	 raceFinished = false
+	 racingStartTime = system.getTimeCounter()
+	 nextPylon = 1
+	 lapStartTime = system.getTimeCounter()
+	 lapsComplete = 0
+	 rawScore = 0
+      end
+   end
+   lastdetS1 = detS1
+   
+   local sgTC = system.getTimeCounter()
+
+   if racing and (sgTC - racingStartTime) / 1000 >= 1800 then
+      playFile("/"..appInfo.Dir.."Audio/race_finished.wav", AUDIO_QUEUE)	    	 
+      racing = false
+      raceFinished = true
+      raceEndTime = sgTC
+   end
+
+   if racing then
+      if inZone[nextPylon] then
+	 --print("incr nextPylon")
+	 nextPylon = nextPylon + 1 -- will go to "4" after passing pylon 3
+      end
+   end
+
+   if racing or (raceFinished and lapsComplete > 0) then
+
+      if raceFinished and lapsComplete > 0 then
+	 sgTC = raceEndTime
+      else
+	 sgTC = system.getTimeCounter()
+      end
+      
+      local tsec = (sgTC - racingStartTime) / 1000.0
+      
+      local tmin = tsec // 60
+      if tmin ~= lastMin and tmin > 0 then
+	 playNumber(tmin, 0)
+	 playFile("/"..appInfo.Dir.."Audio/minutes.wav", AUDIO_QUEUE)	    	 
+      end
+      lastMin = tmin
+      
+      tsec = tsec - tmin*60
+      local tstr = string.format("%02d:%04.1f / ", tmin, tsec)
+      
+      tsec = lastLapTime / 1000.0
+      tmin = tsec // 60
+      tsec = tsec - tmin*60
+      tstr = tstr .. string.format("%02d:%04.1f / ", tmin, tsec)
+      
+      tsec = (sgTC - lapStartTime) / 1000.0
+      tmin = tsec // 60
+      tsec = tsec - tmin*60      
+      tstr = tstr ..string.format("%02d:%04.1f",
+				  tmin, tsec)
+      lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, tstr))/2, 0,
+	 tstr, FONT_BIG)
+
+      tstr = string.format("Laps: %d, Net Score: %d, Penalty: %d",
+			   lapsComplete, rawScore - penaltyPoints, penaltyPoints)
+      lcd.drawText((310 - lcd.getTextWidth(FONT_MINI, tstr))/2, 17, tstr, FONT_MINI)
+   end
+
+   -- compute dist and relative bearing to aim point
    
    local dist = math.sqrt( (xtable[#xtable] - pylon[region[code]].xt)^2 +
 	 (ytable[#ytable] - pylon[region[code]].yt)^2 )
@@ -969,114 +1035,79 @@ local function drawGeo(windowWidth, windowHeight, ydo)
    _, vd = fslope(xt, yt)
    vd = vd * 180 / math.pi
    local relb = (heading - vd)
-   --print("heading, vd, relb:", heading, vd, relb)
    if relb < -360 then relb = relb + 360 end
    if relb > 360 then relb = relb - 360 end
-   --if relb < -180 or relb > 180 then relb = -(relb + 180) end
    if relb < -180 then relb = 360 + relb end
    if relb >  180 then relb = relb - 360 end
 
-   lcd.drawText(220, 5, string.format("Next Pylon %d (%d)", region[code], code), FONT_MINI)
-   lcd.drawText(220, 15, string.format("Dist to tgt (m) %.0f", dist), FONT_MINI)
-   lcd.drawText(220, 25, string.format("Cur Heading %.1f", heading), FONT_MINI)
-   lcd.drawText(220, 35, string.format("Tgt Course %.1f", vd), FONT_MINI)
-   lcd.drawText(220, 45, string.format("Rel Bearing %.1f", relb), FONT_MINI)
+   lcd.drawText(5, 75, "Speed: "..math.floor(speed), FONT_MINI)
+   lcd.drawText(5, 85, "Altitude: ".. math.floor(altitude), FONT_MINI)
+   
+   lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
+   lcd.drawText(265, 45, string.format("Dist %.0f", dist), FONT_MINI)
+   lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
+   lcd.drawText(265, 65, string.format("TCrs %.1f", vd), FONT_MINI)
+   lcd.drawText(265, 75, string.format("RelB %.1f", relb), FONT_MINI)
    if speed ~= 0 then
-      lcd.drawText(220, 55, string.format("Time %.1f", dist / speed), FONT_MINI)
+      lcd.drawText(265, 85, string.format("Time %.1f", dist / speed), FONT_MINI)
    end
-   
-   
-   --lcd.drawText(220, 55, string.format("delta T %d", system.getTimeCounter() - dgt), FONT_MINI)
-   --print(system.getTimeCounter() - dgt)
-   --dgt = system.getTimeCounter()
 
-   
    local tt= system.getTime() % variables.interMsgT
    local tte = system.getTime() // variables.interMsgT
    
-   --print(variables.interMsgT, variables.intraMsgT, tt, tte)
-
-   --print(tt, tte, lasttt[1], lasttt[2], lasttt[3])
-
    local swa
    
    if triASwitch then
       swa = system.getInputsVal(triASwitch)
-      --print("swa:", swa)
    end
 
-   --print(triASwitch, swa)
-
+   -- if announce enabled, announce left/right/straight and distance if ann switch
+   -- is on and we are racing. announce speed and altitude if we are preparing to cross
+   -- the start line so we know how to stay below the race limits
+   
    if triASwitch and (swa and swa == 1) then
       
       if tt == 1 and tte ~= lasttt[1] then
-	 if relb < -6 then
-	    if emFlag then print("right", -relb) end
-	    system.playFile("/Apps/DFM-LSO/right.wav", AUDIO_QUEUE)
-	    system.playNumber(-relb, 0)
-	    --system.playFile("/Apps/DFM-LSO/degrees.wav", AUDIO_QUEUE)
-	 elseif relb > 6 then
-	    if emFlag then print("left", relb) end
-	    system.playFile("/Apps/DFM-LSO/left.wav", AUDIO_QUEUE)
-	    system.playNumber(relb, 0)
-	    system.playFile("/Apps/DFM-LSO/degrees.wav", AUDIO_QUEUE)	    
+	 if not startArmed then
+	    if relb < -6 then
+	       playFile("/"..appInfo.Dir.."Audio/right.wav", AUDIO_QUEUE)
+	       playNumber(-relb, 0)
+	    elseif relb > 6 then
+	       playFile("/"..appInfo.Dir.."Audio/left.wav", AUDIO_QUEUE)
+	       playNumber(relb, 0)
+	    else
+	       playFile("/"..appInfo.Dir.."Audio/straight.wav", AUDIO_QUEUE)
+	    end
 	 else
-	    if emFlag then print("straight") end
-	    system.playFile("/Apps/DFM-LSO/straight.wav", AUDIO_QUEUE)
+	    playFile("/"..appInfo.Dir.."Audio/speed.wav", AUDIO_QUEUE)
+	    playNumber(math.floor(speed+0.5), 0)
 	 end
 	 lasttt[1] = tte
       elseif tt == variables.intraMsgT and tte ~= lasttt[2] then
-	 if emFlag then print("distance remaining", dist) end
-	 system.playFile("/Apps/DFM-LSO/distance_remaining.wav", AUDIO_QUEUE)
-	 system.playNumber(dist, 0)
-	 system.playFile("/Apps/DFM-LSO/meters.wav", AUDIO_QUEUE)
+	 if not startArmed then
+	    playFile("/"..appInfo.Dir.."Audio/distance.wav", AUDIO_QUEUE)
+	    playNumber(dist, 0)
+	 else
+	    playFile("/"..appInfo.Dir.."Audio/altitude.wav", AUDIO_QUEUE)
+	    playNumber(math.floor(altitude+0.5), 0)
+	 end
 	 lasttt[2] = tte
-      --elseif tt==3 and tte ~= lasttt[3] and speed ~= 0 then
-	-- if emFlag then print("time remaining", dist / speed) end
-	-- system.playFile("/Apps/DFM-LSO/time_remaining.wav", AUDIO_QUEUE)
-	-- system.playNumber(dist / speed, 0)      
-	-- lasttt[3] = tte
       end
+
       if region[code] ~= lastregion then
 	 lastregiontime = system.getTimeCounter()
 	 print("turn now")
-	 system.playFile("/Apps/DFM-LSO/turn_now.wav", AUDIO_IMMEDIATE)
+	 playFile("/"..appInfo.Dir.."Audio/turn_now.wav", AUDIO_IMMEDIATE)
       end
+
       if (system.getTimeCounter() - lastregiontime < 500) and lastregion then
-	 lcd.drawText(220, 65, "Turn Now!", FONT_MINI)
+	 lcd.drawText(265, 85, "Turn Now!", FONT_MINI)
       end
    end
    
    lastregion = region[code]
 
-   --[[
-   
-   ren:reset()
-   
-
-   for j=1, #poi do
-      --drawShape(toXPixel(poi[j].x, map.Xmin, map.Xrange, windowWidth),
-	--	toYPixel(poi[j].y, map.Ymin, map.Yrange, windowHeight),
-      --	shapes.origin, 0)
-      ren:addPoint(toXPixel(poi[j].x, map.Xmin, map.Xrange, windowWidth),
-		   toYPixel(poi[j].y, map.Ymin, map.Yrange, windowHeight) + ydo)
-
-   end
-   ren:addPoint(toXPixel(poi[1].x, map.Xmin, map.Xrange, windowWidth),
-		toYPixel(poi[1].y, map.Ymin, map.Yrange, windowHeight) + ydo)
-   if not Field.noFlyZone or Field.noFlyZone == "Inside" then
-      setColorNoFly()
-      --ren:renderPolyline(2, 0.75)
-   else
-      setColorYesFly()
-      --ren:renderPolyline(2, 0.75)
-   end
-   --]]
-
 end
-
-
-local fd
 
 -- next set of function acknowledge
 -- https://www.geeksforgeeks.org/how-to-check-if-a-given-point-lies-inside-a-polygon/
@@ -1098,11 +1129,9 @@ end
 -- 2 --> Counterclockwise 
 local function orientation(p, q, r) 
    local val
-   --print("orientation:", p,q,r)
    val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y)
    if (val == 0) then return 0 end  -- colinear 
    return val > 0 and 1 or 2
-   --return (val > 0)? 1: 2; // clock or counterclock wise 
 end
 
 -- The function that returns true if line segment 'p1q1' 
@@ -1155,8 +1184,6 @@ local function isInside(polygon, n, p)
 
    if (n < 3)  then return false end
 
-   --print("isInside", n, p.x, p.y, polygon[1].x, polygon[1].y)
-   
    --Create a point for line segment from p to infinite 
    extreme = {x=2*maxpoiX, y=p.y}; 
   
@@ -1236,11 +1263,6 @@ local swzTime = 0
 
 local function mapPrint(windowWidth, windowHeight)
 
-   local xRW, yRW
-   local scale
-   local lRW
-   local phi
-   local dr, dl
    local swt, swp, swz
 
    setColorMap()
@@ -1255,7 +1277,6 @@ local function mapPrint(windowWidth, windowHeight)
    -- if not defined, then show them
    -- if defined, then use switch to decide
 
-
    if zoomSwitch then
       swz = system.getInputsVal(zoomSwitch)
    end
@@ -1266,7 +1287,6 @@ local function mapPrint(windowWidth, windowHeight)
 	 swzTime = system.getTimeCounter()
       end
    end
-   
       
    if tapeSwitch then
       swt = system.getInputsVal(tapeSwitch)
@@ -1279,10 +1299,8 @@ local function mapPrint(windowWidth, windowHeight)
       drawAltitude()
    end
 
-   
    -- in case the draw functions left color set to their specific values
    setColorMain()
-   
    
    --text=string.format("Map: %d x %d m", map.Xrange, map.Yrange)
    --lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH-10, text, FONT_MINI)
@@ -1299,20 +1317,20 @@ local function mapPrint(windowWidth, windowHeight)
    
    --lcd.drawText(colAH-lcd.getTextWidth(FONT_MINI, text)/2-1, heightAH+2, text, FONT_MINI)
 
-   lcd.drawText(30-lcd.getTextWidth(FONT_MINI, "N") / 2, 14, "N", FONT_MINI)
-   drawShape(30, 20, shapes.arrow, math.rad(-1*variables.rotationAngle))
-   lcd.drawCircle(30, 20, 7)
+   lcd.drawText(30-lcd.getTextWidth(FONT_MINI, "N") / 2, 34, "N", FONT_MINI)
+   drawShape(30, 40, shapes.arrow, math.rad(-1*variables.rotationAngle))
+   lcd.drawCircle(30, 40, 7)
 
    if satCount then
       text=string.format("%2d Sats", satCount)
-      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 28, text, FONT_MINI)
+      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 48, text, FONT_MINI)
    end
 
 --   text=string.format("%d%%", system.getCPU())
 --   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)
 
    text=string.format("%d/%d %d%%", #xHist, variables.histMax, currMaxCPU)
-   lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)
+   lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 62, text, FONT_MINI)
    
    -- if satQuality then
    --    text=string.format("%.1f", satQuality)
@@ -1350,23 +1368,11 @@ local function mapPrint(windowWidth, windowHeight)
       end
    end
 
-   drawGeo(windowWidth, windowHeight, 0)
+   drawGeo(windowWidth, windowHeight)
    
    for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
       
-      -- First compute determinants to see what side of the right and left lines we are on
-      -- ILS course is between them
-
       setColorMain()
-
-      if takeoff.RunwayHeading and xtable and xtable[i] then
-	 dr = (xtable[i]-xr1)*(yr2-yr1) - (ytable[i]-yr1)*(xr2-xr1)
-	 dl = (xtable[i]-xl1)*(yl2-yl1) - (ytable[i]-yl1)*(xl2-xl1)
-     
-	 if (dl >= 0 and dr <= 0) and (not takeoff.NeverAirborne) then
-	    lcd.setColor(0,255,0) -- Green!
-	 end
-      end
 
       drawBezier(windowWidth, windowHeight, 0)
 
@@ -1400,22 +1406,18 @@ local function mapPrint(windowWidth, windowHeight)
 	 if noFly ~= noFlyLast then
 	    if noFly then
 	       print("Enter no fly")
-	       system.playFile("/Apps/DFM-LSO/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
+	       playFile("/"..appInfo.Dir.."Audio/Warning_No_Fly_Audio/Zone.wav", AUDIO_IMMEDIATE)
 	       system.vibration(false, 3) -- left stick, 2x short pulse
 	    else
 	       print("Exit no fly")
-	       system.playFile("/Apps/DFM-LSO/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
+	       playFile("/"..appInfo.Dir.."Audio/Leaving_no_fly_Audio/zone.wav", AUDIO_QUEUE)
 	    end
 	    noFlyLast = noFly
 	 end
 	 
 	 drawShape(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight) + 0,
-		   shapes.T38, math.rad(heading-variables.magneticVar))
-      -- else
-      -- 	 lcd.drawCircle(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
-      -- 			toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight),
-      -- 			2)
+		   shapes.T38, math.rad(heading))
       end
    end
 
@@ -1459,8 +1461,8 @@ local function graphScale(x, y)
 	 end
       end
       
-      --print("graphscale - x,y,currentImage", x, y, currentImage)
-      
+      --print("graphScale: currentImage", currentImage)
+            
       graphScaleRst(currentImage)
    else
       -- if no image then just scale to keep the path on the map
@@ -1547,20 +1549,16 @@ local function initField(iF)
 	    print("Looking for Apps/"..system.getProperty("Model").."_icon.jsn")
 	    local fg = io.readall("Apps/"..system.getProperty("Model").."_icon.jsn")
 	    if fg then
-	       --print("decoding")
-	       --print("T38 point1", shapes.T38[1][1], shapes.T38[1][2])
 	       shapes.T38 = json.decode(fg).icon
-	       --print("T38 point1", shapes.T38[1][1], shapes.T38[1][2])
 	    end
-	    Field.images = {2000, 3000, 4000}
+	    Field.images = {1500, 2000, 2500, 3000, 3500, 4000}
 	    nfc = {}
 	    if Field.NoFlyCircle then
 	       for j=1, #Field.NoFlyCircle, 1 do
-		  --print("j,lat,long", j, Field.NoFlyCircle[j].lat,
-			--Field.NoFlyCircle[j].long)
 		  nfc[j] = {x=rE*(Field.NoFlyCircle[j].long-long0)*coslat0/rad,
 			    y=rE*(Field.NoFlyCircle[j].lat-lat0)/rad}
-		  nfc[j].x, nfc[j].y = rotateXY(nfc[j].x,nfc[j].y,math.rad(variables.rotationAngle))
+		  nfc[j].x, nfc[j].y = rotateXY(nfc[j].x,nfc[j].y,
+						math.rad(variables.rotationAngle))
 		  nfc[j].r = Field.NoFlyCircle[j].radius
 		  if not Field.NoFlyCircle[j].noFlyZone or
 		  Field.NoFlyCircle[j].noFlyZone == "Inside" then
@@ -1589,9 +1587,10 @@ local function initField(iF)
 	       for j=1, #Field.NoFly,1 do
 		  poi[j] = {x=rE*(Field.NoFly[j].long-long0)*coslat0/rad,
 			    y=rE*(Field.NoFly[j].lat-lat0)/rad}
-		  poi[j].x, poi[j].y = rotateXY(poi[j].x, poi[j].y, math.rad(variables.rotationAngle))
+		  poi[j].x, poi[j].y = rotateXY(poi[j].x, poi[j].y,
+						math.rad(variables.rotationAngle))
 
-		  -- we know 0,0 is at center of runway .. we need an "infinity x" point for the
+		  -- we know 0,0 is at center of runway ... need an "infinity x" point for the
 		  -- no fly region computation ... keep track of largest positive x ..
 		  -- later we will double it to make sure it is well past the no fly polygon
 		  
@@ -1610,16 +1609,11 @@ local function initField(iF)
    if Field and Field.name then
       system.messageBox("Current location: " .. Field.name, 2)
       maxImage = #Field.images
-      --print("maxImage", maxImage)
       if maxImage ~= 0 then
 	 for j=1, maxImage, 1 do
-	    --print("j", j)
-	    --print("shortname:", Field.shortname)
-	    --print("Field.images[j]", Field.images[j])
 	    local pfn
 	    pfn = "Apps/T-Wizard/Fields/".. Field.shortname .. "/" .. Field.shortname ..
 	       "_Tri_" ..tostring(math.floor(Field.images[j])) .."_m.png"
-	    --print("pfn:", pfn)
 	    fieldPNG[j] = lcd.loadImage(pfn)
 	    if not fieldPNG[j] then
 	       print("Failed to load image", pfn)
@@ -1647,28 +1641,6 @@ local function split(str, ch)
    return acc
 end
 
-local function sensorName(device_name, param_name)
-   return device_name .. "_" .. param_name -- sensor name is human readable e.g. CTU_Altitude
-end
-
-local function sensorID(devID, devParm)
-   return devID..devParm -- sensor ID is machine readable e.g. 420460025613 (13 concat to 4204600256)
-end
-
--- local function packAngle(angle)
---    local d, m = math.modf(angle)
---    return math.floor(m*60000+0.5) + (math.floor(d) << 16) -- math.floor forces to int
--- end
-
-local function unpackAngle(packed)
-   return ((packed >> 16) & 0xFF)
-          + ((packed & 0xFFFF) * 0.001)/60
-end
-
-local rlhCount=0
-local rlhDone=false
-
-
 
 local function manhat_xy_from_latlong(latitude1, longitude1, latitude2, longitude2)
    if not coslat0 then return 0 end
@@ -1682,8 +1654,6 @@ end
 
 local lastlat = 0
 local lastlong = 0
-local blocked = false
-local timS = "0"
 local compcrs
 local compcrsDeg = 0
 local vviAlt = {}
@@ -1697,7 +1667,6 @@ local vviSlopeTime = 0
 local speedTime = 0
 local numGPSreads = 0
 local newPosTime = 0
-local timSn = 0
 local hasCourseGPS
 
 local lastHistTime=0
@@ -1707,12 +1676,10 @@ local function loop()
    local minutes, degs
    local x, y
    local MAXVVITABLE = 5 -- points to fit to compute vertical speed
-   local PATTERNALT = 200
    local tt, dd
    local hasPitot
    local sensor
    local goodlat, goodlong 
-   local brk, thr
    local newpos
    local deltaPosTime = 100 -- min sample interval in ms
 
@@ -1801,7 +1768,7 @@ local function loop()
    
    hasPitot = false
    if(sensor and sensor.valid) then
-      SpeedNonGPS = sensor.value * modelProps.pitotCal/100.0
+      SpeedNonGPS = sensor.value 
       hasPitot = true
    end
    
@@ -1819,9 +1786,7 @@ local function loop()
    end
 
 --[[   
-
    sensor = system.getSensorByID(telem.DistanceGPS.SeId, telem.DistanceGPS.SePa)
-   
    if(sensor and sensor.valid) then
       DistanceGPS = sensor.value
    end      
@@ -1872,12 +1837,9 @@ local function loop()
    end
    
    if (latitude == lastlat and longitude == lastlong) or
-      (math.abs(system.getTimeCounter()) < newPosTime) or -- mac emulator had sgTC negative???
-      (fd and (manhat_xy_from_latlong(latitude, longitude, lastlat, lastlong) < 12)) -- only on repl
-   then
-      countNoNewPos = countNoNewPos + 1
-      newpos = false
-      --print(manhat_xy_from_latlong(latitude, longitude, lastlat, lastlong))
+   (math.abs(system.getTimeCounter()) < newPosTime) then
+	 countNoNewPos = countNoNewPos + 1
+	 newpos = false
    else
       newpos = true
       lastlat = latitude
@@ -1933,17 +1895,17 @@ local function loop()
    -- map?
    
 
-   x, y = rotateXY(x, y, math.rad(variables.rotationAngle)) -- q+d for now .. rotate path only add ILS+RW later
+   x, y = rotateXY(x, y, math.rad(variables.rotationAngle))
    
-   if newpos or DEBUG then -- only enter a new xy in the "comet tail" if lat/lon changed
+   if newpos then -- only enter a new xy in the "comet tail" if lat/lon changed
 
       -- only record if more than variables.histSample msec passed and manhattan dist > 10m
       -- keep a max of variables.histMax points
       -- only record if moved 10m (Manhattan dist) 
 
-      if variables.histMax > 0 and (system.getTimeCounter() - lastHistTime > variables.histSample) and (math.abs(x-xHistLast) + math.abs(y - yHistLast) > 10) then 
-
-
+      if variables.histMax > 0 and
+	 (system.getTimeCounter() - lastHistTime > variables.histSample) and
+         (math.abs(x-xHistLast) + math.abs(y - yHistLast) > 10) then 
 	 if #xHist+1 > variables.histMax then
 	    table.remove(xHist, 1)
 	    table.remove(yHist, 1)
@@ -1973,8 +1935,8 @@ local function loop()
 	 path.ymin = map.Ymin
 	 path.ymax = map.Ymax
       end
-      -- maybe this should be a bezier curve calc .. which we're already doing .. just differentiate
-      -- the polynomial at the endpoint????
+      -- maybe this should be a bezier curve calc .. which we're already doing ..
+      -- just differentiate the polynomial at the endpoint????
       if #xtable > lineAvgPts then -- we have at least 4 points...
 	 -- make sure we have a least 15' of manhat dist over which to compute compcrs
 	 if (math.abs(xtable[#xtable]-xtable[#xtable-lineAvgPts+1]) +
@@ -2003,7 +1965,7 @@ local function loop()
 	 table.remove(vviAlt, 1)
       end
       table.insert(vviTim, #vviTim+1, tt/60000.)
-      table.insert(vviAlt, #vviAlt+1, altitude) -- no need to consider baroAltZero here, just a slope
+      table.insert(vviAlt, #vviAlt+1, altitude) -- no need for baroAltZero, just a slope
       
       vvi, _ = fslope(vviTim, vviAlt)
       --print('tt/60000, altitude, vvi, va: ', tt/60000., altitude, vvi, va)
@@ -2018,7 +1980,6 @@ local function loop()
 	 yd1=y
 	 td1 =system.getTimeCounter()/1000
 	 speed = 0
-	 --print('init speed', xd1, yd1, td1)
 	 speedTime = tt + 2000
       else
 	 xd2=x
@@ -2033,41 +1994,26 @@ local function loop()
       end
    end
 
-   
-   
-   --print('debug, hasCourseGPS, courseGPS', DEBUG, hasCourseGPS, courseGPS)
-   
-   if false then
-      heading = compcrsDeg + variables.magneticVar
+   if hasCourseGPS and courseGPS then
+      heading = courseGPS
    else
-      if hasCourseGPS and courseGPS then
-	 heading = courseGPS + variables.magneticVar
+      if compcrsDeg then
+	 heading = compcrsDeg
       else
-	 if compcrsDeg then
-	    heading = compcrsDeg + variables.magneticVar
-	 else
-	   heading = 0
-	 end
-	    
+	 heading = 0
       end
    end
 end
 
 local function init()
 
-   local fname
-   --local line
-   --local pcallOK, emulator
-
-   -- pcallOK, emulator = pcall(require, "sensorEmulator")
-   -- if not pcallOK then print("Error:", emulator) end
-   -- if pcallOK and emulator then emulator.init("DFM-LSO") end
-
-   local fg = io.readall("Apps/DFM-LSO/Shapes.jsn")
+   local fg = io.readall(appInfo.Dir.."JSON/Shapes.jsn")
+   print("fg after readall", fg)
    if fg then
       shapes = json.decode(fg)
+      print("shapes after json", shapes)
    else
-      print("Could not open Apps/DFM-LSO/Shapes.jsn")
+      print("Could not open "..appInfo.Dir.."JSON/Shapes.jsn")
    end
 
    setColorMain()  -- if a map is present it will change color scheme later
@@ -2093,18 +2039,17 @@ local function init()
    end
 
    pointSwitch = system.pLoad("pointSwitch")
-   tapeSwitch = system.pLoad("tapeSwitch")
-   zoomSwitch = system.pLoad("zoomSwitch")
-   triASwitch = system.pLoad("triASwitch")      
+   tapeSwitch  = system.pLoad("tapeSwitch")
+   zoomSwitch  = system.pLoad("zoomSwitch")
+   triASwitch  = system.pLoad("triASwitch")      
+   startSwitch = system.pLoad("startSwitch")
    
    system.registerForm(1, MENU_APPS, "GPS Triangle Racing", initForm, nil, nil)
-   system.registerTelemetry(1, "T-Wizard", 4, mapPrint)
+   system.registerTelemetry(1, appInfo.Name, 4, mapPrint)
    
    fg = nil
 
-   modelProps.pitotCal = 100
-   
-   system.playFile('/Apps/T-Wizard/t_wizard_active.wav', AUDIO_QUEUE)
+   playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
    
    emFlag = (select(2,system.getDeviceType()) == 1)
    print("emFlag", emFlag)
@@ -2115,4 +2060,4 @@ local function init()
 end
 
 collectgarbage()
-return {init=init, loop=loop, author="DFM", version=1, name="T-Wizard"}
+return {init=init, loop=loop, author="DFM", version=1, name=appInfo.Name}

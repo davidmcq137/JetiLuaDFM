@@ -7,7 +7,7 @@
     "triangle": 350,
     "aimoff": 100,
     "startHeading": 347.5,
-    "startMaxHeight": 400,
+    "startMaxAltitude": 400,
     "startMaxSpeed": 120,
     "maxAltitude": 400,
     "runway": {

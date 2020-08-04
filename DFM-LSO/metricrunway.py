@@ -121,7 +121,7 @@ with open(fieldFile) as json_data:
 # in case no default for images
 
 	#defImages = jd.get("fields_defaults").get("images", [1000, 2000, 4000])
-	defImages = [1000, 1500, 2000, 3000, 4000]	
+	defImages = [1000, 1500, 2000, 2500, 3000, 3500, 4000]	
 
 	#print("defImages", defImages)
 	
