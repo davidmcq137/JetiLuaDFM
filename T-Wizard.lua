@@ -819,7 +819,8 @@ local function drawGeo(windowWidth, windowHeight)
       inZone[j] = detL[j] >= 0 and detR[j] <= 0
       if inZone[j] ~= inZoneLast[j] and j == nextPylon then
 	 if inZone[j] == true then
-	    playFile("/"..appInfo.Dir.."Audio/turn_now.wav", AUDIO_QUEUE)
+	    playFile("/"..appInfo.Dir.."Audio/inside_sector.wav", AUDIO_QUEUE)
+	    playNumber(j, 0)
 	 end
 	 inZoneLast[j] = inZone[j]
       end
@@ -837,7 +838,6 @@ local function drawGeo(windowWidth, windowHeight)
 	 (ytable[#ytable]-pylon[j].y)*(pylon[j].xe-pylon[j].x)
    end
    
-   
    local p2=1
    local code=0
    for j = 1, #pylon do
@@ -850,13 +850,16 @@ local function drawGeo(windowWidth, windowHeight)
    end
    
    -- draw line from airplane to the aiming point
-
-   lcd.setColor(255,20,147) -- magenta ... like a flight director..
-   lcd.drawLine(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
-		toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight),
-		toXPixel(pylon[region[code]].xt, map.Xmin, map.Xrange, windowWidth),
-		toYPixel(pylon[region[code]].yt, map.Ymin, map.Yrange, windowHeight) )
-
+   if racing then
+      lcd.setColor(255,20,147) -- magenta ... like a flight director..
+      lcd.drawLine(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
+		   toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight),
+		   --toXPixel(pylon[region[code]].xt, map.Xmin, map.Xrange, windowWidth),
+		   --toYPixel(pylon[region[code]].yt, map.Ymin, map.Yrange, windowHeight) )
+		   toXPixel(pylon[m3(nextPylon)].xt, map.Xmin, map.Xrange, windowWidth),
+		   toYPixel(pylon[m3(nextPylon)].yt, map.Ymin, map.Yrange, windowHeight) )
+   end
+   
    if code < 1 or code > 6 then
       print("code out of range")
       return
@@ -986,9 +989,6 @@ local function drawGeo(windowWidth, windowHeight)
 	 startToggled = false
       end
    end
-
-   -- see if we are racing and we want to abort (e.g. redo a penalty start)
-   
 
    -- this if determines we just crossed the start/finish line
    -- now just left of origin ... does not have to be below hypot.
@@ -1137,10 +1137,10 @@ local function drawGeo(windowWidth, windowHeight)
    
    if triASwitch and (swa and swa == 1) then
 
-      if region[code] ~= lastregion then
-	 lastregiontime = system.getTimeCounter()
-	 playFile("/"..appInfo.Dir.."Audio/turn_now.wav", AUDIO_IMMEDIATE)
-      end
+      --if region[code] ~= lastregion then
+	 --lastregiontime = system.getTimeCounter()
+	 --playFile("/"..appInfo.Dir.."Audio/turn_now.wav", AUDIO_IMMEDIATE)
+      --end
       
       if tt == 1 and tte ~= lasttt[1] then
 	 if not startArmed then
