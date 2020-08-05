@@ -1143,7 +1143,7 @@ local function drawGeo(windowWidth, windowHeight)
       --end
       
       if tt == 1 and tte ~= lasttt[1] then
-	 if not startArmed then
+	 if racing then
 	    if relb < -6 then
 	       playFile("/"..appInfo.Dir.."Audio/right.wav", AUDIO_QUEUE)
 	       playNumber(-relb, 0)
@@ -1159,7 +1159,7 @@ local function drawGeo(windowWidth, windowHeight)
 	 end
 	 lasttt[1] = tte
       elseif tt == variables.intraMsgT and tte ~= lasttt[2] then
-	 if not startArmed then
+	 if racing then
 	    playFile("/"..appInfo.Dir.."Audio/distance.wav", AUDIO_QUEUE)
 	    playNumber(dist, 0)
 	 else

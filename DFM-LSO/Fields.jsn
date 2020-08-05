@@ -170,16 +170,6 @@
 	    "long": -2.086376
 	} ]
     },{
-	"name" : "Wingmoor Farm",
-	"shortname" : "WFM",
-	"lat" : 51.951939,
-	"long" : -2.087407,
-	"runway" : {
-	    "trueDir" : 355,
-	    "length" : 570,
-	    "width" : 50
-	}
-    },{
 	"name" : "Abingdon",
 	"shortname" : "ABI",
 	"lat" : 51.690696,
@@ -208,7 +198,31 @@
 	    "lat": 51.696848,
 	    "long": -1.297657
 	} ]
-    },{
+    }, {
+	"name" : "Cheltenham",
+	"shortname" : "CHEL",
+   	"mode":"GPSTriangle",
+	"lat" : 51.951939,
+	"long" : -2.087407,
+	"GPSPylon": [ {
+	"lat": 51.952250,
+	"long": -2.082344,
+	"aimoff": 100
+    }, {
+	"lat": 51.954551,
+	"long": -2.084512,
+	"aimoff": 100
+    }, {
+	"lat": 51.954164,
+	"long": -2.090670,
+	"aimoff": 100
+     } ],
+	"runway" : {
+	    "trueDir" : 263,
+	    "length" : 400,
+	    "width" : 40
+	}
+    }, {
 	"name" : "Frankford Highland",
 	"shortname" : "6B4",
 	"lat" : 43.016095,

@@ -7,6 +7,7 @@
 	"elevation":80,
 	"View": "Standard",
 	"triangle": 500,
+	"aimoff": 50,
 	"startHeading": 347.5,
 	"startMaxAltitude": 200,
 	"startMaxSpeed": 100,
@@ -17,7 +18,26 @@
 	    "x_offset": 0,
 	    "y_offset": -100
 	}
-    },{
+    }, {
+	"name" : "Cheltenham",
+	"shortname" : "CHEL",
+   	"lat" : 51.953262,
+	"long" : -2.087001,
+	"elevation": 35,
+	"View":"Standard",
+	"triangle":500,
+	"aimoff": 50,
+	"startHeading": 300,
+	"startMaxAltitude":200,
+	"startMaxSpeed": 100,
+	"maxAltitude":350,
+	"runway" : {
+	    "length" : 40,
+	    "width" : 40,
+	    "x_offset":0,
+	    "y_offset":-100
+	}
+    }, {
 	"name" : "Area 74",
 	"shortname" : "A74",
 	"lat" : 41.245671,
@@ -25,6 +45,7 @@
 	"elevation":142,
 	"View": "Standard",
 	"triangle": 30,
+	"aimoff": 50,
 	"startHeading": 330,
 	"startMaxAltitude": 200,
 	"startMaxSpeed": 100,
