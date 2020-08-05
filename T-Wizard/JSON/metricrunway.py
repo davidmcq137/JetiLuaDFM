@@ -100,7 +100,7 @@ else:
 	
 # experimentation showed these zooms best for these field image widths
 
-crop_to_zoom = {1000:16, 2000:15, 4000:14}
+crop_to_zoom = {250:18, 500:17, 1000:16, 2000:15, 4000:14}
 
 if len(sys.argv) > 1:
 	fieldFile = sys.argv[1] + ".jsn"
@@ -121,7 +121,7 @@ with open(fieldFile) as json_data:
 # in case no default for images
 
 	#defImages = jd.get("fields_defaults").get("images", [1000, 2000, 4000])
-	defImages = [1000, 1500, 2000, 2500, 3000, 3500, 4000]	
+	defImages = [250, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000]	
 
 	#print("defImages", defImages)
 	
@@ -153,14 +153,16 @@ for fld in jd["trifields"]:
 		field_image_height_m = field_image_width_m/2
 		filename = short_name + "_Tri_" + str(field_image_width_m) + "_m.png"
 		#print("Constructed Filename: ", filename)
-		
-		if field_image_width_m < 1000 or field_image_width_m > 4000:
-			print("Field image width must be between 1000 and 4000m")
+		#print("field_image_width_m", field_image_width_m)
+		if field_image_width_m < 250 or field_image_width_m > 4000:
+			print("Field image width must be between 250 and 4000m")
 			exit()
 
 		zoom = 0
 		iw = 0
-		for width in crop_to_zoom:
+		for width in sorted(crop_to_zoom):
+			zz=crop_to_zoom[width]
+			#print("zz, width, field_image_width_m", zz,width, field_image_width_m)
 			if field_image_width_m <= width:
 				zoom = crop_to_zoom[width]
 				iw = width

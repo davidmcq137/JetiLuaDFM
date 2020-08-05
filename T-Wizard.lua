@@ -38,7 +38,6 @@ local altitude = 0
 local speed = 0
 local SpeedGPS
 local SpeedNonGPS = 0
-local vario=0
 local binomC = {} -- array of binomial coefficients for n=MAXTABLE-1, indexed by k
 
 local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
@@ -54,7 +53,8 @@ telem.CourseGPS={}
 telem.BaroAlt={}
 
 local variables = {"magneticVar", "rotationAngle", "histSample", "histMax", "maxCPU",
-		   "interMsgT", "intraMsgT", }
+		   "interMsgT", "intraMsgT", "triLength", "maxSpeed", "maxAlt",
+		   "elev"}
 
 local xtable = {}
 local ytable = {}
@@ -106,11 +106,12 @@ local racingStartTime = 0
 local lapStartTime = 0
 local lapsComplete = 0
 local lastLapTime = 0
-local sysTimeStart = system.getTimeCounter()
 local raceFinished = false
 local raceEndTime = 0
 local rawScore = 0
 local penaltyPoints=0
+local flightStarted=0
+local flightLandTime=0
 
 local fieldPNG={}
 local maxImage
@@ -306,6 +307,25 @@ end
 --   gotInitPos = false
 --end
 
+local function triLengthChanged(value)
+   if Field then
+      Field.triangle = value
+      pylon = {}
+   end
+end
+
+local function maxSpeedChanged(value)
+   if Field then Field.startMaxSpeed = value end
+end
+
+local function maxAltitudeChanged(value)
+   if Field then Field.startMaxAltitude = value end
+end
+
+local function elevChanged(value)
+   if Field then Field.elevation = value end
+end
+
 --------------------------------------------------------------------------------
 -- Draw the main form (Application inteface)
 
@@ -382,6 +402,22 @@ local function initForm(subform)
 	 form.addLabel({label="Tri message ann spacing (s)", width=220})
 	 form.addIntbox(variables.intraMsgT, 1, 10, 2, 0, 1,
 			(function(x) return variableChanged(x, "intraMsgT") end) )
+
+	 form.addRow(2)
+	 form.addLabel({label="Triangle leg", width=220})
+	 form.addIntbox(variables.triLength, 10, 1000, 500, 0, 10, triLengthChanged)
+
+	 form.addRow(2)
+	 form.addLabel({label="Max Start Speed (m/s)", width=220})
+	 form.addIntbox(variables.maxSpeed, 10, 500, 100, 0, 10, maxSpeedChanged)
+
+	 form.addRow(2)
+	 form.addLabel({label="Max Start Alt (m)", width=220})
+	 form.addIntbox(variables.maxAlt, 10, 500, 100, 0, 10, maxAltChanged)
+
+	 form.addRow(2)
+	 form.addLabel({label="Field elev (m)", width=220})
+	 form.addIntbox(variables.elev, 0, 1000, 100, 0, 1, elevChanged)
 
 	 form.addRow(2)
 	 form.addLabel({label="Flight path points on/off sw", width=220})
@@ -485,10 +521,6 @@ end
 
 local function setColorNoFly()
    lcd.setColor(255,0,0)
-end
-
-local function setColorYesFly()
-   lcd.setColor(0,255,0)
 end
 
 local function setColorMain()
@@ -720,10 +752,11 @@ local lastsws
 local lastdetS1 = -1
 local nextPylon=0
 local lastMin=0
+local inZoneLast = {}
 
 local function drawGeo(windowWidth, windowHeight)
 
-   local detS1, detS1
+   local detS1
    
    if #pylon < 1 and Field.name then
       pylon[1] = {x=Field.triangle,y=0,aimoff=Field.aimoff}
@@ -768,6 +801,7 @@ local function drawGeo(windowWidth, windowHeight)
 	 zx, zy = rotateXY(0.4 * Field.triangle, 0.4 * Field.triangle, rot[j])
 	 pylon[j].zxr = zx + pylon[j].x
 	 pylon[j].zyr = zy + pylon[j].y
+	 inZoneLast[j] = false
       end
    end
    
@@ -783,6 +817,12 @@ local function drawGeo(windowWidth, windowHeight)
       detR[j] = (xtable[#xtable]-pylon[j].x)*(pylon[j].zyr-pylon[j].y) -
 	 (ytable[#ytable]-pylon[j].y)*(pylon[j].zxr-pylon[j].x)
       inZone[j] = detL[j] >= 0 and detR[j] <= 0
+      if inZone[j] ~= inZoneLast[j] and j == nextPylon then
+	 if inZone[j] == true then
+	    playFile("/"..appInfo.Dir.."Audio/turn_now.wav", AUDIO_QUEUE)
+	 end
+	 inZoneLast[j] = inZone[j]
+      end
    end
    
    setColorMain()
@@ -810,7 +850,8 @@ local function drawGeo(windowWidth, windowHeight)
    end
    
    -- draw line from airplane to the aiming point
-   
+
+   lcd.setColor(255,20,147) -- magenta ... like a flight director..
    lcd.drawLine(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 		toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight),
 		toXPixel(pylon[region[code]].xt, map.Xmin, map.Xrange, windowWidth),
@@ -854,25 +895,50 @@ local function drawGeo(windowWidth, windowHeight)
 		   toXPixel(pylon[j].zxr, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[j].zyr, map.Ymin, map.Yrange, windowHeight) )
       if inZone[j] then setColorMain() end
-      if region[code] == j then lcd.setColor(255,0,0) end
+      if j > 0 and j == m3(nextPylon) then lcd.setColor(255,0,0) end
+      --if region[code] == j 
       lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
 		     4)
       lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
-		     2)	 
-      if region[code] == j then setColorMain() end
+		     2)
+      if j > 0 and j == m3(nextPylon) then setColorMain() end
+      --if region[code] == j 
    end
 
 -- start zone is left half plane divided by start line
    
    detS1 = xtable[#xtable]
 
-   detS2 = -1 --ytable[#ytable]
+   -- see if we have taken off
+
+   if speed > 20 and altitude > 20 and flightStarted == 0 then
+      flightStarted = system.getTimeCounter()
+      playFile("/"..appInfo.Dir.."Audio/flight_started.wav", AUDIO_QUEUE)      
+   end
+
+   -- see if we have landed
+   -- we need to see if it stays in this state for more than 5s (5000 ms)
    
+   if flightStarted ~= 0  and altitude < 20 and speed < 5 and not raceFinished then
+      if flightLandTime == 0 then
+	 flightLandTime = system.getTimeCounter()
+      end
+      --print(system.getTimeCounter() - flightLandTime)
+      if system.getTimeCounter() - flightLandTime  > 5000 then
+	 playFile("/"..appInfo.Dir.."Audio/flight_ended.wav", AUDIO_QUEUE)
+	 racing = false
+	 raceFinished = true
+	 raceEndTime = system.getTimeCounter()
+	 startArmed = false
+      end
+   else
+      flightLandTime = 0
+   end
+
    local inStartZone
    
-   --if detS1 <= 0 and detS2 <= 0 then inStartZone = true else inStartZone = false end
    if detS1 <= 0 then inStartZone = true else inStartZone = false end
    
    -- read the start switch
@@ -899,12 +965,12 @@ local function drawGeo(windowWidth, windowHeight)
    if racing and not startToggled then
       racing = false
       raceFinished = true
-      raceEndTime = system.getTimeCounter()
       startArmed = false
+      raceEndTime = system.getTimeCounter()
    end
    
    -- see if we are ready to start
-   if startToggled and not startArmed then
+   if startToggled and not startArmed and not raceFinished and flightStarted ~= 0 then
       if inStartZone then
 	 playFile("/"..appInfo.Dir.."Audio/ready_to_start.wav", AUDIO_QUEUE)
 	 startArmed = true
@@ -927,7 +993,6 @@ local function drawGeo(windowWidth, windowHeight)
    -- this if determines we just crossed the start/finish line
    -- now just left of origin ... does not have to be below hypot.
    
-   --if detS2 <= 0 and lastdetS1 <= 0 and detS1 >= 0 then
    if lastdetS1 <= 0 and detS1 >= 0 then
       if racing then
 	 if nextPylon > 3 then -- lap complete
@@ -951,7 +1016,6 @@ local function drawGeo(windowWidth, windowHeight)
 	    end
 	    penaltyPoints = 50 + 2 * math.max(speed - Field.startMaxSpeed, 0) + 2 *
 	       math.max(altitude - Field.startMaxAltitude, 0)
-	    print("PP:", penaltyPoints)
 	    playFile("/"..appInfo.Dir.."Audio/penalty_points.wav", AUDIO_QUEUE)
 	    playNumber(math.floor(penaltyPoints+0.5), 0)
 	 else
@@ -976,6 +1040,7 @@ local function drawGeo(windowWidth, windowHeight)
       playFile("/"..appInfo.Dir.."Audio/race_finished.wav", AUDIO_QUEUE)	    	 
       racing = false
       raceFinished = true
+      startArmed = false
       raceEndTime = sgTC
    end
 
@@ -999,7 +1064,11 @@ local function drawGeo(windowWidth, windowHeight)
       local tmin = tsec // 60
       if tmin ~= lastMin and tmin > 0 then
 	 playNumber(tmin, 0)
-	 playFile("/"..appInfo.Dir.."Audio/minutes.wav", AUDIO_QUEUE)	    	 
+	 if tmin == 1 then
+	    playFile("/"..appInfo.Dir.."Audio/minutes.wav", AUDIO_QUEUE)
+	 else
+	    playFile("/"..appInfo.Dir.."Audio/minutes.wav", AUDIO_QUEUE)
+	 end
       end
       lastMin = tmin
       
@@ -1041,17 +1110,17 @@ local function drawGeo(windowWidth, windowHeight)
    if relb < -180 then relb = 360 + relb end
    if relb >  180 then relb = relb - 360 end
 
-   lcd.drawText(5, 75, "Speed: "..math.floor(speed), FONT_MINI)
-   lcd.drawText(5, 85, "Altitude: ".. math.floor(altitude), FONT_MINI)
+   lcd.drawText(5, 130, "Speed: "..math.floor(speed), FONT_MINI)
+   lcd.drawText(5, 140, "Altitude: ".. math.floor(altitude), FONT_MINI)
    
-   lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
-   lcd.drawText(265, 45, string.format("Dist %.0f", dist), FONT_MINI)
-   lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
-   lcd.drawText(265, 65, string.format("TCrs %.1f", vd), FONT_MINI)
-   lcd.drawText(265, 75, string.format("RelB %.1f", relb), FONT_MINI)
-   if speed ~= 0 then
-      lcd.drawText(265, 85, string.format("Time %.1f", dist / speed), FONT_MINI)
-   end
+   --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
+   --lcd.drawText(265, 45, string.format("Dist %.0f", dist), FONT_MINI)
+   --lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
+   --lcd.drawText(265, 65, string.format("TCrs %.1f", vd), FONT_MINI)
+   --lcd.drawText(265, 75, string.format("RelB %.1f", relb), FONT_MINI)
+   --if speed ~= 0 then
+   --   lcd.drawText(265, 85, string.format("Time %.1f", dist / speed), FONT_MINI)
+   --end
 
    local tt= system.getTime() % variables.interMsgT
    local tte = system.getTime() // variables.interMsgT
@@ -1067,6 +1136,11 @@ local function drawGeo(windowWidth, windowHeight)
    -- the start line so we know how to stay below the race limits
    
    if triASwitch and (swa and swa == 1) then
+
+      if region[code] ~= lastregion then
+	 lastregiontime = system.getTimeCounter()
+	 playFile("/"..appInfo.Dir.."Audio/turn_now.wav", AUDIO_IMMEDIATE)
+      end
       
       if tt == 1 and tte ~= lasttt[1] then
 	 if not startArmed then
@@ -1095,15 +1169,10 @@ local function drawGeo(windowWidth, windowHeight)
 	 lasttt[2] = tte
       end
 
-      if region[code] ~= lastregion then
-	 lastregiontime = system.getTimeCounter()
-	 print("turn now")
-	 playFile("/"..appInfo.Dir.."Audio/turn_now.wav", AUDIO_IMMEDIATE)
-      end
-
-      if (system.getTimeCounter() - lastregiontime < 500) and lastregion then
-	 lcd.drawText(265, 85, "Turn Now!", FONT_MINI)
-      end
+      
+      --if (system.getTimeCounter() - lastregiontime < 500) and lastregion then
+	-- lcd.drawText(265, 85, "Turn Now!", FONT_MINI)
+      --end
    end
    
    lastregion = region[code]
@@ -1516,12 +1585,21 @@ local rad = 180/math.pi
 
 local function initField(iF)
 
-   local fp, fn
-   
+   local fp, fn, basedir
+
    poi = {}
+   fieldDirs={}
+
+   for fname, ftype, fsize in dir("Apps/T-Wizard/Fields") do
+      if ftype == "folder" and fname ~= "." and fname ~= ".."  then
+	 table.insert(fieldDirs, fname)
+      end
+   end
    
    if long0 and lat0 then -- if location was detected by the GPS system
-      for fname, ftype, fsize in dir("Apps/T-Wizard/Fields") do
+      --for fname, ftype, fsize in dir(basedir) do
+      for _,fname in ipairs(fieldDirs) do
+	 print("fname:", fname)
 	 fn = "Apps/T-Wizard/Fields/"..fname.."/"..fname..".jsn"
 	 fp = io.readall(fn)
 	 if fp then
@@ -1552,7 +1630,7 @@ local function initField(iF)
 	    if fg then
 	       shapes.T38 = json.decode(fg).icon
 	    end
-	    Field.images = {1500, 2000, 2500, 3000, 3500, 4000}
+	    Field.images = {250, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000}
 	    nfc = {}
 	    if Field.NoFlyCircle then
 	       for j=1, #Field.NoFlyCircle, 1 do
@@ -1657,15 +1735,7 @@ local lastlat = 0
 local lastlong = 0
 local compcrs
 local compcrsDeg = 0
-local vviAlt = {}
-local vviTim = {}
-local vvi
-local xd1, yd1
-local xd2, yd2
-local td1, td2
 local lineAvgPts = 4  -- number of points to linear fit to compute course
-local vviSlopeTime = 0
-local speedTime = 0
 local numGPSreads = 0
 local newPosTime = 0
 local hasCourseGPS
@@ -1676,8 +1746,6 @@ local function loop()
 
    local minutes, degs
    local x, y
-   local MAXVVITABLE = 5 -- points to fit to compute vertical speed
-   local tt, dd
    local hasPitot
    local sensor
    local goodlat, goodlong 
@@ -1709,7 +1777,7 @@ local function loop()
       graphInit(currentImage)      -- reset map window too
       
       baroAltZero = altitude      -- reset baro alt zero 
-
+      -- XXXXXXXXXXXXXXXXXx
 
       print("Reset origin and barometric altitude. New baroAltZero is ", baroAltZero)
    end
@@ -1962,43 +2030,6 @@ local function loop()
 --   print("compcrsDEG, bezierPath.slope", compcrsDeg, bezierPath.slope)
 --   compcrsDeg = bezierPath.slope
    
-   tt = system.getTimeCounter() - sysTimeStart
-
-   if tt > vviSlopeTime then
-      if #vviTim + 1 > MAXVVITABLE then
-	 table.remove(vviTim, 1)
-	 table.remove(vviAlt, 1)
-      end
-      table.insert(vviTim, #vviTim+1, tt/60000.)
-      table.insert(vviAlt, #vviAlt+1, altitude) -- no need for baroAltZero, just a slope
-      
-      vvi, _ = fslope(vviTim, vviAlt)
-      --print('tt/60000, altitude, vvi, va: ', tt/60000., altitude, vvi, va)
-      vario = 0.8*vario + 0.2*vvi -- light smoothing
-
-      vviSlopeTime = tt + 300. -- next data point in 0.3 sec
-   end
-
-   if tt > speedTime then
-      if not xd1 and not yd1 then
-	 xd1=x
-	 yd1=y
-	 td1 =system.getTimeCounter()/1000
-	 speed = 0
-	 speedTime = tt + 2000
-      else
-	 xd2=x
-	 yd2=y
-	 td2=system.getTimeCounter()/1000
-	 dd = math.sqrt( (xd2-xd1)^2 + (yd2-yd1)^2 )
-	 xd1=x
-	 yd1=y
-	 speed = 0.7*speed + 0.3*dd*0.681818/(td2-td1) -- speed is in ft/s .. convert to mph
-	 td1 = td2
-	 speedTime = tt + 2000 -- time to next reading in ms
-      end
-   end
-
    if hasCourseGPS and courseGPS then
       heading = courseGPS
    else
@@ -2013,10 +2044,8 @@ end
 local function init()
 
    local fg = io.readall(appInfo.Dir.."JSON/Shapes.jsn")
-   print("fg after readall", fg)
    if fg then
       shapes = json.decode(fg)
-      print("shapes after json", shapes)
    else
       print("Could not open "..appInfo.Dir.."JSON/Shapes.jsn")
    end
@@ -2040,6 +2069,10 @@ local function init()
       if i == 5 then idef =  80  end
       if i == 6 then idef = 7 end
       if i == 7 then idef = 2 end
+      if i == 8 then idef = 500 end
+      if i == 9 then idef = 100 end
+      if i == 10 then idef = 200 end
+      if i == 11 then idef = 100 end
       variables[j] = system.pLoad("variables."..variables[i], idef)
    end
 
@@ -2052,8 +2085,6 @@ local function init()
    system.registerForm(1, MENU_APPS, "GPS Triangle Racing", initForm, nil, nil)
    system.registerTelemetry(1, appInfo.Name, 4, mapPrint)
    
-   fg = nil
-
    playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
    
    emFlag = (select(2,system.getDeviceType()) == 1)

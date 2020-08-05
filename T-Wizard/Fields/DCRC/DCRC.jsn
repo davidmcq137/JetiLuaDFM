@@ -13,7 +13,9 @@
     "maxAltitude": 400,
     "runway": {
 	"length": 183,
-	"width": 12
+	"width": 12,
+	"x_offset": 0,
+	"y_offset": -20
     }
 }
 

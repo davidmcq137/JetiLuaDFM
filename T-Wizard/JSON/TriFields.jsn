@@ -8,12 +8,30 @@
 	"View": "Standard",
 	"triangle": 500,
 	"startHeading": 347.5,
-	"startMaxHeight": 200,
+	"startMaxAltitude": 200,
 	"startMaxSpeed": 100,
 	"maxAltitude": 350,
 	"runway": {
 	    "length": 183,
-	    "width": 12
+	    "width": 12,
+	    "x_offset": 0,
+	    "y_offset": -100
+	}
+    },{
+	"name" : "Area 74",
+	"shortname" : "A74",
+	"lat" : 41.245671,
+	"long" : -73.759773,
+	"elevation":142,
+	"View": "Standard",
+	"triangle": 30,
+	"startHeading": 330,
+	"startMaxAltitude": 200,
+	"startMaxSpeed": 100,
+	"maxAltitude": 350,
+	"runway": {
+	    "length": 63,
+	    "width": 4
 	}
     } ]
 }

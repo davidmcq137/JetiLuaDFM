@@ -168,7 +168,7 @@ for fld in jd["fields"]:
 
 		zoom = 0
 		iw = 0
-		for width in crop_to_zoom:
+		for width in sorted(crop_to_zoom):
 			if field_image_width_ft <= width:
 				zoom = crop_to_zoom[width]
 				iw = width
