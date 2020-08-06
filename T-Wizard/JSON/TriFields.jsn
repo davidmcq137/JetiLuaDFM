@@ -1,24 +1,5 @@
 {
     "trifields" : [ {
-	"name" : "DCRC Walt Good Field",
-	"shortname" : "DCRC",
-	"lat" : 39.147398,
-	"long" : -77.337639,
-	"elevation":80,
-	"View": "Standard",
-	"triangle": 500,
-	"aimoff": 50,
-	"startHeading": 347.5,
-	"startMaxAltitude": 200,
-	"startMaxSpeed": 100,
-	"maxAltitude": 350,
-	"runway": {
-	    "length": 183,
-	    "width": 12,
-	    "x_offset": 0,
-	    "y_offset": -100
-	}
-    }, {
 	"name" : "Cheltenham",
 	"shortname" : "CHEL",
    	"lat" : 51.953262,
@@ -31,25 +12,48 @@
 	"startMaxAltitude":200,
 	"startMaxSpeed": 100,
 	"maxAltitude":350,
+	"raceTime":30,
 	"runway" : {
 	    "length" : 40,
 	    "width" : 40,
 	    "x_offset":0,
 	    "y_offset":-100
 	}
-    }, {
-	"name" : "Area 74",
-	"shortname" : "A74",
-	"lat" : 41.245671,
-	"long" : -73.759773,
-	"elevation":142,
+    },{
+	
+	"name" : "DCRC Walt Good Field",
+	"shortname" : "DCRC",
+	"lat" : 39.147398,
+	"long" : -77.337639,
+	"elevation":80,
 	"View": "Standard",
-	"triangle": 30,
+	"triangle": 500,
 	"aimoff": 50,
-	"startHeading": 330,
+	"startHeading": 347.5,
 	"startMaxAltitude": 200,
 	"startMaxSpeed": 100,
 	"maxAltitude": 350,
+	"raceTime":30,
+	"runway": {
+	    "length": 183,
+	    "width": 12,
+	    "x_offset": 0,
+	    "y_offset": -100
+	}
+    }, {
+	"name" : "Area 74",
+	"shortname" : "A74",
+	"lat" : 41.245597,
+	"long" : -73.759068,
+	"elevation":142,
+	"View": "Standard",
+	"triangle": 20,
+	"aimoff": 50,
+	"startHeading": 28,
+	"startMaxAltitude": 200,
+	"startMaxSpeed": 100,
+	"maxAltitude": 350,
+	"raceTime":30,
 	"runway": {
 	    "length": 63,
 	    "width": 4

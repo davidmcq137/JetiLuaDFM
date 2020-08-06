@@ -99,8 +99,13 @@ else:
 	print("Jeti mode")
 	
 # experimentation showed these zooms best for these field image widths
+# make sure largest zoom is 2x largest desired image
 
-crop_to_zoom = {250:18, 500:17, 1000:16, 2000:15, 4000:14}
+# Imperial version: crop_to_zoom = {1500:17, 3000:16, 6000:15, 12000:14}
+
+crop_to_zoom = {200:18, 400:17, 800:16, 1600:15, 3200:14, 6400:13}
+
+#crop_to_zoom = {300:18, 600:17, 1200:16, 2400:15, 4800:14, 9600:13}
 
 if len(sys.argv) > 1:
 	fieldFile = sys.argv[1] + ".jsn"
@@ -162,13 +167,13 @@ for fld in jd["trifields"]:
 		iw = 0
 		for width in sorted(crop_to_zoom):
 			zz=crop_to_zoom[width]
-			#print("zz, width, field_image_width_m", zz,width, field_image_width_m)
+			print("zz, width, field_image_width_m", zz,width, field_image_width_m)
 			if field_image_width_m <= width:
 				zoom = crop_to_zoom[width]
 				iw = width
-				#print("zoom=", zoom)
-				#print("imagewidth=", width)
-				#print("field_image_width_m=", field_image_width_m)
+				print("zoom=", zoom)
+				print("imagewidth=", width)
+				print("field_image_width_m=", field_image_width_m)
 				break
 
 		if zoom == 0:

@@ -107,6 +107,7 @@ local lapStartTime = 0
 local lapsComplete = 0
 local lastLapTime = 0
 local raceFinished = false
+local raceTime = 0
 local raceEndTime = 0
 local rawScore = 0
 local penaltyPoints=0
@@ -604,7 +605,8 @@ local function playFile(fn, as)
    if emFlag then
       print("Playing file "..fn.." status: "..as)
    end
-   system.playFile(fn, as)
+   print("/"..fn, as)
+   system.playFile("/"..fn, as)
 end
 
 local function playNumber(n, dp)
@@ -757,11 +759,18 @@ local inZoneLast = {}
 local function drawGeo(windowWidth, windowHeight)
 
    local detS1
+   local ao
+
+   if Field and Field.aimoff then
+      ao = Field.aimoff
+   else
+      ao = 0
+   end
    
    if #pylon < 1 and Field.name then
-      pylon[1] = {x=Field.triangle,y=0,aimoff=Field.aimoff}
-      pylon[2] = {x=0,y=Field.triangle,aimoff=Field.aimoff}
-      pylon[3] = {x=-Field.triangle,y=0,aimoff=Field.aimoff}
+      pylon[1] = {x=Field.triangle,y=0,aimoff=ao}
+      pylon[2] = {x=0,y=Field.triangle,aimoff=ao}
+      pylon[3] = {x=-Field.triangle,y=0,aimoff=ao}
    end
    
    local region={2,3,3,1,2,1,0}
@@ -817,9 +826,9 @@ local function drawGeo(windowWidth, windowHeight)
       detR[j] = (xtable[#xtable]-pylon[j].x)*(pylon[j].zyr-pylon[j].y) -
 	 (ytable[#ytable]-pylon[j].y)*(pylon[j].zxr-pylon[j].x)
       inZone[j] = detL[j] >= 0 and detR[j] <= 0
-      if inZone[j] ~= inZoneLast[j] and j == nextPylon then
+      if inZone[j] ~= inZoneLast[j] and j == nextPylon and racing then
 	 if inZone[j] == true then
-	    playFile("/"..appInfo.Dir.."Audio/inside_sector.wav", AUDIO_QUEUE)
+	    playFile(appInfo.Dir.."Audio/inside_sector.wav", AUDIO_QUEUE)
 	    playNumber(j, 0)
 	 end
 	 inZoneLast[j] = inZone[j]
@@ -879,7 +888,7 @@ local function drawGeo(windowWidth, windowHeight)
    lcd.drawLine(toXPixel(pylon[2].x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[2].y, map.Ymin, map.Yrange, windowHeight),
 		   toXPixel(pylon[2].x, map.Xmin, map.Xrange, windowWidth),
-		   toYPixel(pylon[2].y - 1.5*Field.triangle, map.Ymin, map.Yrange, windowHeight) )
+		   toYPixel(pylon[2].y - 1.5*Field.triangle,map.Ymin,map.Yrange,windowHeight))
 
 
    setColorMain()
@@ -888,7 +897,7 @@ local function drawGeo(windowWidth, windowHeight)
    -- is in them .. the aiming point you are flying to is red.
    
    for j = 1, #pylon do
-      if inZone[j] then lcd.setColor(255,0,0) end
+      if racing and inZone[j] then lcd.setColor(255,0,0) end
       lcd.drawLine(toXPixel(pylon[j].x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[j].y, map.Ymin, map.Yrange, windowHeight),
 		   toXPixel(pylon[j].zxl,map.Xmin, map.Xrange, windowWidth),
@@ -897,8 +906,8 @@ local function drawGeo(windowWidth, windowHeight)
 		   toYPixel(pylon[j].y, map.Ymin, map.Yrange, windowHeight),
 		   toXPixel(pylon[j].zxr, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[j].zyr, map.Ymin, map.Yrange, windowHeight) )
-      if inZone[j] then setColorMain() end
-      if j > 0 and j == m3(nextPylon) then lcd.setColor(255,0,0) end
+      if racing and inZone[j] then setColorMain() end
+      if racing and j > 0 and j == m3(nextPylon) then lcd.setColor(255,0,0) end
       --if region[code] == j 
       lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
@@ -906,7 +915,7 @@ local function drawGeo(windowWidth, windowHeight)
       lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
 		     2)
-      if j > 0 and j == m3(nextPylon) then setColorMain() end
+      if racing and j > 0 and j == m3(nextPylon) then setColorMain() end
       --if region[code] == j 
    end
 
@@ -918,7 +927,7 @@ local function drawGeo(windowWidth, windowHeight)
 
    if speed > 20 and altitude > 20 and flightStarted == 0 then
       flightStarted = system.getTimeCounter()
-      playFile("/"..appInfo.Dir.."Audio/flight_started.wav", AUDIO_QUEUE)      
+      playFile(appInfo.Dir.."Audio/flight_started.wav", AUDIO_QUEUE)      
    end
 
    -- see if we have landed
@@ -930,7 +939,7 @@ local function drawGeo(windowWidth, windowHeight)
       end
       --print(system.getTimeCounter() - flightLandTime)
       if system.getTimeCounter() - flightLandTime  > 5000 then
-	 playFile("/"..appInfo.Dir.."Audio/flight_ended.wav", AUDIO_QUEUE)
+	 playFile(appInfo.Dir.."Audio/flight_ended.wav", AUDIO_QUEUE)
 	 racing = false
 	 raceFinished = true
 	 raceEndTime = system.getTimeCounter()
@@ -975,14 +984,14 @@ local function drawGeo(windowWidth, windowHeight)
    -- see if we are ready to start
    if startToggled and not startArmed and not raceFinished and flightStarted ~= 0 then
       if inStartZone then
-	 playFile("/"..appInfo.Dir.."Audio/ready_to_start.wav", AUDIO_QUEUE)
+	 playFile(appInfo.Dir.."Audio/ready_to_start.wav", AUDIO_QUEUE)
 	 startArmed = true
 	 nextPylon = 0
 	 lapsComplete = 0
       else
-	 playFile("/"..appInfo.Dir.."Audio/bad_start.wav", AUDIO_QUEUE)
+	 playFile(appInfo.Dir.."Audio/bad_start.wav", AUDIO_QUEUE)
 	 if not inStartZone then
-	    playFile("/"..appInfo.Dir.."Audio/outside_zone.wav", AUDIO_QUEUE)
+	    playFile(appInfo.Dir.."Audio/outside_zone.wav", AUDIO_QUEUE)
 	 end
 	 -- could there be other reasons (altitude/nofly zones?) .. they go here
 	 startArmed = false
@@ -996,7 +1005,7 @@ local function drawGeo(windowWidth, windowHeight)
    if lastdetS1 <= 0 and detS1 >= 0 then
       if racing then
 	 if nextPylon > 3 then -- lap complete
-	    playFile("/"..appInfo.Dir.."Audio/lap_complete.wav", AUDIO_QUEUE)
+	    playFile(appInfo.Dir.."Audio/lap_complete.wav", AUDIO_QUEUE)
 	    lapsComplete = lapsComplete + 1
 	    rawScore = rawScore + 200.0
 	    lastLapTime = system.getTimeCounter() - lapStartTime
@@ -1007,19 +1016,19 @@ local function drawGeo(windowWidth, windowHeight)
       
       if not racing and startArmed then
 	 if speed > Field.startMaxSpeed or altitude > Field.startMaxAltitude then
-	    playFile("/"..appInfo.Dir.."Audio/start_with_penalty.wav", AUDIO_QUEUE)	    
+	    playFile(appInfo.Dir.."Audio/start_with_penalty.wav", AUDIO_QUEUE)	    
 	    if speed > Field.startMaxSpeed then
-	       playFile("/"..appInfo.Dir.."Audio/over_max_speed.wav", AUDIO_QUEUE)
+	       playFile(appInfo.Dir.."Audio/over_max_speed.wav", AUDIO_QUEUE)
 	    end
 	    if altitude > Field.startMaxAltitude then
-	       playFile("/"..appInfo.Dir.."Audio/over_max_altitude.wav", AUDIO_QUEUE)
+	       playFile(appInfo.Dir.."Audio/over_max_altitude.wav", AUDIO_QUEUE)
 	    end
 	    penaltyPoints = 50 + 2 * math.max(speed - Field.startMaxSpeed, 0) + 2 *
 	       math.max(altitude - Field.startMaxAltitude, 0)
-	    playFile("/"..appInfo.Dir.."Audio/penalty_points.wav", AUDIO_QUEUE)
+	    playFile(appInfo.Dir.."Audio/penalty_points.wav", AUDIO_QUEUE)
 	    playNumber(math.floor(penaltyPoints+0.5), 0)
 	 else
-	    playFile("/"..appInfo.Dir.."Audio/task_starting.wav", AUDIO_QUEUE)
+	    playFile(appInfo.Dir.."Audio/task_starting.wav", AUDIO_QUEUE)
 	    penaltyPoints = 0
 	 end
 	 
@@ -1036,8 +1045,8 @@ local function drawGeo(windowWidth, windowHeight)
    
    local sgTC = system.getTimeCounter()
 
-   if racing and (sgTC - racingStartTime) / 1000 >= 1800 then
-      playFile("/"..appInfo.Dir.."Audio/race_finished.wav", AUDIO_QUEUE)	    	 
+   if racing and (sgTC - racingStartTime) / 1000 >= raceTime*60 then
+      playFile(appInfo.Dir.."Audio/race_finished.wav", AUDIO_QUEUE)	    	 
       racing = false
       raceFinished = true
       startArmed = false
@@ -1065,9 +1074,9 @@ local function drawGeo(windowWidth, windowHeight)
       if tmin ~= lastMin and tmin > 0 then
 	 playNumber(tmin, 0)
 	 if tmin == 1 then
-	    playFile("/"..appInfo.Dir.."Audio/minutes.wav", AUDIO_QUEUE)
+	    playFile(appInfo.Dir.."Audio/minutes.wav", AUDIO_QUEUE)
 	 else
-	    playFile("/"..appInfo.Dir.."Audio/minutes.wav", AUDIO_QUEUE)
+	    playFile(appInfo.Dir.."Audio/minutes.wav", AUDIO_QUEUE)
 	 end
       end
       lastMin = tmin
@@ -1139,31 +1148,31 @@ local function drawGeo(windowWidth, windowHeight)
 
       --if region[code] ~= lastregion then
 	 --lastregiontime = system.getTimeCounter()
-	 --playFile("/"..appInfo.Dir.."Audio/turn_now.wav", AUDIO_IMMEDIATE)
+	 --playFile(appInfo.Dir.."Audio/turn_now.wav", AUDIO_IMMEDIATE)
       --end
       
       if tt == 1 and tte ~= lasttt[1] then
 	 if racing then
 	    if relb < -6 then
-	       playFile("/"..appInfo.Dir.."Audio/right.wav", AUDIO_QUEUE)
+	       playFile(appInfo.Dir.."Audio/right.wav", AUDIO_QUEUE)
 	       playNumber(-relb, 0)
 	    elseif relb > 6 then
-	       playFile("/"..appInfo.Dir.."Audio/left.wav", AUDIO_QUEUE)
+	       playFile(appInfo.Dir.."Audio/left.wav", AUDIO_QUEUE)
 	       playNumber(relb, 0)
 	    else
-	       playFile("/"..appInfo.Dir.."Audio/straight.wav", AUDIO_QUEUE)
+	       playFile(appInfo.Dir.."Audio/straight.wav", AUDIO_QUEUE)
 	    end
 	 else
-	    playFile("/"..appInfo.Dir.."Audio/speed.wav", AUDIO_QUEUE)
+	    playFile(appInfo.Dir.."Audio/speed.wav", AUDIO_QUEUE)
 	    playNumber(math.floor(speed+0.5), 0)
 	 end
 	 lasttt[1] = tte
       elseif tt == variables.intraMsgT and tte ~= lasttt[2] then
 	 if racing then
-	    playFile("/"..appInfo.Dir.."Audio/distance.wav", AUDIO_QUEUE)
+	    playFile(appInfo.Dir.."Audio/distance.wav", AUDIO_QUEUE)
 	    playNumber(dist, 0)
 	 else
-	    playFile("/"..appInfo.Dir.."Audio/altitude.wav", AUDIO_QUEUE)
+	    playFile(appInfo.Dir.."Audio/altitude.wav", AUDIO_QUEUE)
 	    playNumber(math.floor(altitude+0.5), 0)
 	 end
 	 lasttt[2] = tte
@@ -1341,7 +1350,11 @@ local function mapPrint(windowWidth, windowHeight)
    
    if fieldPNG[currentImage] then
       lcd.drawImage(0,0,fieldPNG[currentImage], 255)
+   else
+      local txt = "No GPS signal or no Image"
+      lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, txt))/2, 90, txt, FONT_BIG)
    end
+   
 
    -- check tape switch (for display of speed, alt tapes)
    -- if not defined, then show them
@@ -1476,11 +1489,11 @@ local function mapPrint(windowWidth, windowHeight)
 	 if noFly ~= noFlyLast then
 	    if noFly then
 	       print("Enter no fly")
-	       playFile("/"..appInfo.Dir.."Audio/Warning_No_Fly_Audio/Zone.wav", AUDIO_IMMEDIATE)
+	       playFile(appInfo.Dir.."Audio/Warning_No_Fly_Audio/Zone.wav", AUDIO_IMMEDIATE)
 	       system.vibration(false, 3) -- left stick, 2x short pulse
 	    else
 	       print("Exit no fly")
-	       playFile("/"..appInfo.Dir.."Audio/Leaving_no_fly_Audio/zone.wav", AUDIO_QUEUE)
+	       playFile(appInfo.Dir.."Audio/Leaving_no_fly_Audio/zone.wav", AUDIO_QUEUE)
 	    end
 	    noFlyLast = noFly
 	 end
@@ -1623,6 +1636,11 @@ local function initField(iF)
 	    lat0  = Field.lat
 	    coslat0 = math.cos(math.rad(lat0))
 	    variables.rotationAngle = Field.startHeading-270 -- draw rwy along x axis
+	    if Field.raceTime then
+	       raceTime = Field.raceTime
+	    else
+	       raceTime = 30
+	    end
 	    -- see if file <model name>_icon.jsn exists
 	    -- if so try to read airplane icon
 	    print("Looking for Apps/"..system.getProperty("Model").."_icon.jsn")
@@ -1644,20 +1662,6 @@ local function initField(iF)
 		     nfc[j].Inside = true
 		  else
 		     nfc[j].Inside = false
-		  end
-	       end
-	    end
-	    pylon = {}
-	    if Field.GPSPylon then
-	       for j=1, #Field.GPSPylon, 1 do
-		  pylon[j] = {x=rE*(Field.GPSPylon[j].long-long0)*coslat0/rad,
-			    y=rE*(Field.GPSPylon[j].lat-lat0)/rad}
-		  pylon[j].x, pylon[j].y = rotateXY
-		  (pylon[j].x,pylon[j].y,math.rad(variables.rotationAngle))
-		  if Field.GPSPylon[j].aimoff then
-		     pylon[j].aimoff = Field.GPSPylon[j].aimoff
-		  else
-		     pylon[j].aimoff = 0
 		  end
 	       end
 	    end
@@ -2085,11 +2089,11 @@ local function init()
    system.registerForm(1, MENU_APPS, "GPS Triangle Racing", initForm, nil, nil)
    system.registerTelemetry(1, appInfo.Name, 4, mapPrint)
    
-   playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
-   
    emFlag = (select(2,system.getDeviceType()) == 1)
    print("emFlag", emFlag)
 
+   playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
+   
    readSensors()
 
    collectgarbage()

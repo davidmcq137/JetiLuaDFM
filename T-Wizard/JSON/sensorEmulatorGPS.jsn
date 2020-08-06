@@ -1,8 +1,8 @@
 {
-    "lat0": 51.953222,
-    "lon0":-2.087194,
+    "lat0": 41.245597,
+    "lon0":-73.759068,
     "rE":6731000,
-    "trueDir": 293,
+    "trueDir": 28,
     "startTime":15,
     "xString":"(P6(50,1200)*math.sin(-math.pi*t/20))",
     "yString":"(P7(50,700)*math.cos(math.pi*t/20)+P7(50,700)/2)"
