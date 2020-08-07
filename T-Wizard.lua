@@ -54,7 +54,7 @@ telem.BaroAlt={}
 
 local variables = {"magneticVar", "rotationAngle", "histSample", "histMax", "maxCPU",
 		   "interMsgT", "intraMsgT", "triLength", "maxSpeed", "maxAlt",
-		   "elev"}
+		   "elev", "histDistance", "raceTime"}
 
 local xtable = {}
 local ytable = {}
@@ -315,11 +315,15 @@ local function triLengthChanged(value)
    end
 end
 
+local function raceTimeChanged(value)
+   if Field then Field.raceTime = value end
+end
+
 local function maxSpeedChanged(value)
    if Field then Field.startMaxSpeed = value end
 end
 
-local function maxAltitudeChanged(value)
+local function maxAltChanged(value)
    if Field then Field.startMaxAltitude = value end
 end
 
@@ -390,6 +394,11 @@ local function initForm(subform)
 			(function(x) return variableChanged(x, "histMax") end) )
 	 
 	 form.addRow(2)
+	 form.addLabel({label="Min Hist dist to new pt", width=220})
+	 form.addIntbox(variables.histDistance, 0, 50, 10, 0, 10,
+			(function(x) return variableChanged(x, "histDistance") end) )
+
+	 form.addRow(2)
 	 form.addLabel({label="Max CPU usage permitted (%)", width=220})
 	 form.addIntbox(variables.maxCPU, 0, 100, 80, 0, 1,
 			(function(x) return variableChanged(x, "maxCPU") end) )
@@ -407,6 +416,10 @@ local function initForm(subform)
 	 form.addRow(2)
 	 form.addLabel({label="Triangle leg", width=220})
 	 form.addIntbox(variables.triLength, 10, 1000, 500, 0, 10, triLengthChanged)
+
+	 form.addRow(2)
+	 form.addLabel({label="Triangle race time (m)", width=220})
+	 form.addIntbox(variables.raceTime, 1, 60, 30, 0, 10, raceTimeChanged)
 
 	 form.addRow(2)
 	 form.addLabel({label="Max Start Speed (m/s)", width=220})
@@ -603,9 +616,14 @@ end
 
 local function playFile(fn, as)
    if emFlag then
-      print("Playing file "..fn.." status: "..as)
+      local fp = io.open(fn)
+      if not fp then
+	 print("Cannot open file "..fn)
+      else
+	 io.close(fp)
+	 print("Playing file "..fn.." status: "..as)
+      end
    end
-   print("/"..fn, as)
    system.playFile("/"..fn, as)
 end
 
@@ -756,7 +774,7 @@ local nextPylon=0
 local lastMin=0
 local inZoneLast = {}
 
-local function drawGeo(windowWidth, windowHeight)
+local function drawTriRace(windowWidth, windowHeight)
 
    local detS1
    local ao
@@ -828,8 +846,9 @@ local function drawGeo(windowWidth, windowHeight)
       inZone[j] = detL[j] >= 0 and detR[j] <= 0
       if inZone[j] ~= inZoneLast[j] and j == nextPylon and racing then
 	 if inZone[j] == true then
-	    playFile(appInfo.Dir.."Audio/inside_sector.wav", AUDIO_QUEUE)
-	    playNumber(j, 0)
+	    --playFile(appInfo.Dir.."Audio/inside_sector.wav", AUDIO_QUEUE)
+	    --playNumber(j, 0)
+	    system.playBeep(j-1, 600, 300) 
 	 end
 	 inZoneLast[j] = inZone[j]
       end
@@ -1153,14 +1172,17 @@ local function drawGeo(windowWidth, windowHeight)
       
       if tt == 1 and tte ~= lasttt[1] then
 	 if racing then
-	    if relb < -6 then
-	       playFile(appInfo.Dir.."Audio/right.wav", AUDIO_QUEUE)
-	       playNumber(-relb, 0)
-	    elseif relb > 6 then
-	       playFile(appInfo.Dir.."Audio/left.wav", AUDIO_QUEUE)
-	       playNumber(relb, 0)
-	    else
-	       playFile(appInfo.Dir.."Audio/straight.wav", AUDIO_QUEUE)
+	    if true then --speed > 0 and dist / speed > variables.intraMsgT then 
+	       if relb < -6 then
+		  playFile(appInfo.Dir.."Audio/right.wav", AUDIO_QUEUE)
+		  playNumber(-relb, 0)
+	       elseif relb > 6 then
+		  playFile(appInfo.Dir.."Audio/left.wav", AUDIO_QUEUE)
+		  playNumber(relb, 0)
+	       else
+		  --playFile(appInfo.Dir.."Audio/straight.wav", AUDIO_QUEUE)
+		  system.playBeep(0, 1200, 200)		  
+	       end
 	    end
 	 else
 	    playFile(appInfo.Dir.."Audio/speed.wav", AUDIO_QUEUE)
@@ -1169,8 +1191,12 @@ local function drawGeo(windowWidth, windowHeight)
 	 lasttt[1] = tte
       elseif tt == variables.intraMsgT and tte ~= lasttt[2] then
 	 if racing then
-	    playFile(appInfo.Dir.."Audio/distance.wav", AUDIO_QUEUE)
-	    playNumber(dist, 0)
+	    -- stop dist and steering directions when close to the pylon so
+	    -- turn announcements will be heard more clearly
+	    if true then --speed > 0 and dist / speed > variables.intraMsgT then 
+	       playFile(appInfo.Dir.."Audio/distance.wav", AUDIO_QUEUE)
+	       playNumber(dist, 0)
+	    end
 	 else
 	    playFile(appInfo.Dir.."Audio/altitude.wav", AUDIO_QUEUE)
 	    playNumber(math.floor(altitude+0.5), 0)
@@ -1407,7 +1433,11 @@ local function mapPrint(windowWidth, windowHeight)
    if satCount then
       text=string.format("%2d Sats", satCount)
       lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 48, text, FONT_MINI)
+   else
+      text = "No Sats"
+      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 48, text, FONT_MINI)
    end
+   
 
 --   text=string.format("%d%%", system.getCPU())
 --   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)
@@ -1451,7 +1481,7 @@ local function mapPrint(windowWidth, windowHeight)
       end
    end
 
-   drawGeo(windowWidth, windowHeight)
+   drawTriRace(windowWidth, windowHeight)
    
    for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
       
@@ -1982,7 +2012,7 @@ local function loop()
 
       if variables.histMax > 0 and
 	 (system.getTimeCounter() - lastHistTime > variables.histSample) and
-         (math.abs(x-xHistLast) + math.abs(y - yHistLast) > 10) then 
+         (math.abs(x-xHistLast) + math.abs(y - yHistLast) > variables.histDistance) then 
 	 if #xHist+1 > variables.histMax then
 	    table.remove(xHist, 1)
 	    table.remove(yHist, 1)
@@ -2068,15 +2098,17 @@ local function init()
    
    for i, j in ipairs(variables) do
       idef = 0
-      if i == 3 then idef = 1000 end
-      if i == 4 then idef = 0  end
-      if i == 5 then idef =  80  end
-      if i == 6 then idef = 7 end
-      if i == 7 then idef = 2 end
-      if i == 8 then idef = 500 end
-      if i == 9 then idef = 100 end
-      if i == 10 then idef = 200 end
-      if i == 11 then idef = 100 end
+      if j == "histSample"   then idef = 1000 end
+      if j == "histMax"      then idef =    0 end
+      if j == "maxCPU"       then idef =   80 end
+      if j == "interMsgT"    then idef =    7 end
+      if j == "intraMsgT"    then idef =    2 end
+      if j == "triLength"    then idef =  500 end
+      if j == "maxSpeed"     then idef =  100 end
+      if j == "maxAlt"       then idef =  200 end
+      if j == "elev"         then idef =    0 end
+      if j == "histDistance" then idef =    0 end
+      if j == "raceTime"     then idef =   30 end
       variables[j] = system.pLoad("variables."..variables[i], idef)
    end
 
@@ -2093,6 +2125,7 @@ local function init()
    print("emFlag", emFlag)
 
    playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
+   --system.playBeep(2, 600, 300)
    
    readSensors()
 
