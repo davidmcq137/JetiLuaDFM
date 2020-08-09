@@ -367,136 +367,158 @@ end
 --------------------------------------------------------------------------------
 -- Draw the main form (Application inteface)
 
-local function initForm(subform)
+local savedRow = 1
 
+local function initForm(subform)
    if subform == 1 then
 
-      if (tonumber(system.getVersion()) >= 4.22) then
+      print("savedRow:", savedRow)
+      
+            
+      form.addLink((function() form.reinit(2) end),
+	 {label = "Telemetry Sensors >>"})
 
-	 local menuSelectGPS = { -- for lat/long only
-	    Longitude="Select GPS Longitude Sensor",
-	    Latitude ="Select GPS Latitude Sensor",
-	 }
-	 
-	 local menuSelect1 = { -- not from the GPS sensor
-	    SpeedNonGPS="Select Pitot Speed Sensor",
-	    BaroAlt="Select Baro Altimeter Sensor",
-	 }
-	 
-	 local menuSelect2 = { -- non lat/long but still from GPS sensor
-	    Altitude ="Select GPS Altitude Sensor",
-	    SpeedGPS="Select GPS Speed Sensor",
-	    DistanceGPS="Select GPS Distance Sensor",
-	    CourseGPS="Select GPS Course Sensor",
-	 }     
-	 
-	 for var, txt in pairs(menuSelect1) do
-	    form.addRow(2)
-	    form.addLabel({label=txt, width=220})
-	    form.addSelectbox(sensorLalist, telem[var].Se, true,
-			      (function(x) return sensorChanged(x, var, false) end) )
-	 end
-	 
-	 for var, txt in pairs(menuSelectGPS) do
-	    form.addRow(2)
-	    form.addLabel({label=txt, width=220})
-	    form.addSelectbox(GPSsensorLalist, telem[var].Se, true,
-			      (function(x) return sensorChanged(x, var, true) end) )
-	 end
-	 
+      form.addLink((function() form.reinit(3) end),
+	 {label = "Race Parameters >>"})
 
-	 for var, txt in pairs(menuSelect2) do
-	    form.addRow(2)
-	    form.addLabel({label=txt, width=220})
-	    form.addSelectbox(sensorLalist, telem[var].Se, true,
-			      (function(x) return sensorChanged(x, var, false) end) )
-	 end
-	 
-	 
-	 -- not worth it do to a loop with a menu item table for Intbox due to the
-	 -- variation in defaults etc nor for addCheckbox due to specialized nature
-	 
-	 form.addRow(2)
-	 form.addLabel({label="History Sample Time (ms)", width=220})
-	 form.addIntbox(variables.histSample, 1000, 10000, 1000, 0, 100,
-			(function(x) return variableChanged(x, "histSample") end) )
+      form.addLink((function() form.reinit(4) end),
+	 {label = "Track History >>"})
 
-	 form.addRow(2)
-	 form.addLabel({label="Number of History Samples", width=220})
-	 form.addIntbox(variables.histMax, 0, 400, 240, 0, 10,
-			(function(x) return variableChanged(x, "histMax") end) )
-	 
-	 form.addRow(2)
-	 form.addLabel({label="Min Hist dist to new pt", width=220})
-	 form.addIntbox(variables.histDistance, 1, 10, 3, 0, 1,
-			(function(x) return variableChanged(x, "histDistance") end) )
+      form.addLink((function() form.reinit(5) end),
+	 {label = "Settings >>"})            
 
-	 form.addRow(2)
-	 form.addLabel({label="Max CPU usage permitted (%)", width=220})
-	 form.addIntbox(variables.maxCPU, 0, 100, 80, 0, 1,
-			(function(x) return variableChanged(x, "maxCPU") end) )
+      form.addRow(1)
+      form.addLabel({label="DFM - v 0.4", font=FONT_MINI, alignRight=true})
 
-	 form.addRow(2)
-	 form.addLabel({label="Racing message sequence", width=220})
-	 form.addTextbox(annText, 30, annTextChanged)
-	 
-	 form.addRow(2)
-	 form.addLabel({label="Pre-racemessage sequence", width=220})
-	 form.addTextbox(preText, 30, preTextChanged)
+      form.setFocusedRow(savedRow)
 
-	 form.addRow(2)
-	 form.addLabel({label="Triangle leg", width=220})
-	 form.addIntbox(variables.triLength, 10, 1000, 500, 0, 10, triLengthChanged)
-
-	 form.addRow(2)
-	 form.addLabel({label="Triangle race time (m)", width=220})
-	 form.addIntbox(variables.raceTime, 1, 60, 30, 0, 10, raceTimeChanged)
-
-	 form.addRow(2)
-	 form.addLabel({label="Max Start Speed (m/s)", width=220})
-	 form.addIntbox(variables.maxSpeed, 10, 500, 100, 0, 10, maxSpeedChanged)
-
-	 form.addRow(2)
-	 form.addLabel({label="Max Start Alt (m)", width=220})
-	 form.addIntbox(variables.maxAlt, 10, 500, 100, 0, 10, maxAltChanged)
-
-	 form.addRow(2)
-	 form.addLabel({label="Field elev (m)", width=220})
-	 form.addIntbox(variables.elev, 0, 1000, 100, 0, 1, elevChanged)
-
-	 form.addRow(2)
-	 form.addLabel({label="Flight path points on/off sw", width=220})
-	 form.addInputbox(pointSwitch, false, pointSwitchChanged)
-
-	 form.addRow(2)
-	 form.addLabel({label="Zoom reset sw", width=220})
-	 form.addInputbox(zoomSwitch, false, zoomSwitchChanged)
-	 
-	 form.addRow(2)
-	 form.addLabel({label="Triangle racing ann", width=220})
-	 form.addInputbox(triASwitch, false, triASwitchChanged)
-	 
-	 form.addRow(2)
-	 form.addLabel({label="Triangle racing START", width=220})
-	 form.addInputbox(startSwitch, false, startSwitchChanged)
-
-	 form.addRow(2)
-	 form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
-	 resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
-
-	 form.addLink((function() form.reinit(2) end), {label="Second Menu"})
-	 
-	 form.addRow(1)
-	 form.addLabel({label="DFM - v.3.0 ", font=FONT_MINI, alignRight=true})
-      else
-	 form.addRow(1)
-	 form.addLabel({label="Please update, min. fw 4.22 required"})
-      end
    elseif subform == 2 then
+      savedRow = subform-1
+      local menuSelectGPS = { -- for lat/long only
+	 Longitude="Select GPS Longitude Sensor",
+	 Latitude ="Select GPS Latitude Sensor",
+      }
+      
+      local menuSelect1 = { -- not from the GPS sensor
+	 SpeedNonGPS="Select Pitot Speed Sensor",
+	 BaroAlt="Select Baro Altimeter Sensor",
+      }
+      
+      local menuSelect2 = { -- non lat/long but still from GPS sensor
+	 Altitude ="Select GPS Altitude Sensor",
+	 SpeedGPS="Select GPS Speed Sensor",
+	 DistanceGPS="Select GPS Distance Sensor",
+	 CourseGPS="Select GPS Course Sensor",
+      }     
+      
+      for var, txt in pairs(menuSelectGPS) do
+	 form.addRow(2)
+	 form.addLabel({label=txt, width=220})
+	 form.addSelectbox(GPSsensorLalist, telem[var].Se, true,
+			   (function(x) return sensorChanged(x, var, true) end) )
+      end
+      
+      
+      for var, txt in pairs(menuSelect2) do
+	 form.addRow(2)
+	 form.addLabel({label=txt, width=220})
+	 form.addSelectbox(sensorLalist, telem[var].Se, true,
+			   (function(x) return sensorChanged(x, var, false) end) )
+      end
+
+      for var, txt in pairs(menuSelect1) do
+	 form.addRow(2)
+	 form.addLabel({label=txt, width=220})
+	 form.addSelectbox(sensorLalist, telem[var].Se, true,
+			   (function(x) return sensorChanged(x, var, false) end) )
+      end
+      
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
-      --form.addLink((function() form.reinit(3) end), {label = "Goto third menu >>"})
-   elseif subform == 3 then
+      
+   elseif subform == 4 then
+      savedRow = subform-1
+      -- not worth it do to a loop with a menu item table for Intbox due to the
+      -- variation in defaults etc nor for addCheckbox due to specialized nature
+      
+      form.addRow(2)
+      form.addLabel({label="History Sample Time (ms)", width=220})
+      form.addIntbox(variables.histSample, 1000, 10000, 1000, 0, 100,
+		     (function(x) return variableChanged(x, "histSample") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Number of History Samples", width=220})
+      form.addIntbox(variables.histMax, 0, 400, 240, 0, 10,
+		     (function(x) return variableChanged(x, "histMax") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Min Hist dist to new pt", width=220})
+      form.addIntbox(variables.histDistance, 1, 10, 3, 0, 1,
+		     (function(x) return variableChanged(x, "histDistance") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Max CPU usage permitted (%)", width=220})
+      form.addIntbox(variables.maxCPU, 0, 100, 80, 0, 1,
+		     (function(x) return variableChanged(x, "maxCPU") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Flight path points on/off sw", width=220})
+      form.addInputbox(pointSwitch, false, pointSwitchChanged)
+      
+      form.addLink((function() form.reinit(1) end),
+	 {label = "Back to main menu",font=FONT_BOLD})
+      
+   elseif subform ==3 then
+      savedRow = subform-1
+      form.addRow(2)
+      form.addLabel({label="Triangle racing ann switch", width=220})
+      form.addInputbox(triASwitch, false, triASwitchChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Triangle racing START switch", width=220})
+      form.addInputbox(startSwitch, false, startSwitchChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Triangle leg", width=220})
+      form.addIntbox(variables.triLength, 10, 1000, 500, 0, 10, triLengthChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Triangle race time (m)", width=220})
+      form.addIntbox(variables.raceTime, 1, 60, 30, 0, 10, raceTimeChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Max Start Speed (m/s)", width=220})
+      form.addIntbox(variables.maxSpeed, 10, 500, 100, 0, 10, maxSpeedChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Max Start Alt (m)", width=220})
+      form.addIntbox(variables.maxAlt, 10, 500, 100, 0, 10, maxAltChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Racing announce sequence", width=220})
+      form.addTextbox(annText, 30, annTextChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Pre-race announce sequence", width=220})
+      form.addTextbox(preText, 30, preTextChanged)
+
+      form.addLink((function() form.reinit(1) end),
+	 {label = "Back to main menu",font=FONT_BOLD})
+
+   elseif subform == 5 then
+      savedRow = subform-1
+      form.addRow(2)
+      form.addLabel({label="Field elev (m)", width=220})
+      form.addIntbox(variables.elev, 0, 1000, 100, 0, 1, elevChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Zoom reset sw", width=220})
+      form.addInputbox(zoomSwitch, false, zoomSwitchChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
+      resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
+      
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
    end
