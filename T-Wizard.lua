@@ -83,8 +83,10 @@ local annText
 local annTextSeq = 1
 local preText
 local preTextSeq = 1
-
+local titleText
+local subtitleText
 local lastgetTime = 0
+local inZone = {}
 
 -- these lists are the non-GPS sensors
 
@@ -111,6 +113,7 @@ local lapStartTime = 0
 local lapsComplete = 0
 local lastLapTime = 0
 local lastLapSpeed = 0
+local avgSpeed = 0
 local raceFinished = false
 local raceTime = 0
 local raceEndTime = 0
@@ -749,23 +752,8 @@ local inZoneLast = {}
 
 local function drawTriRace(windowWidth, windowHeight)
 
-   local detS1
-   local ao
-
-   if Field and Field.aimoff then
-      ao = Field.aimoff
-   else
-      ao = 0
-   end
-   
-   if #pylon < 1 and Field.name then
-      pylon[1] = {x=Field.triangle,y=0,aimoff=ao}
-      pylon[2] = {x=0,y=Field.triangle,aimoff=ao}
-      pylon[3] = {x=-Field.triangle,y=0,aimoff=ao}
-   end
-   
-   local region={2,3,3,1,2,1,0}
-
+   if not pylon[1] then return end
+	 
    setColorMap()
 
    for j=1, #pylon do
@@ -777,95 +765,16 @@ local function drawTriRace(windowWidth, windowHeight)
 	 lcd.getTextHeight(FONT_MINI)/2 + 15,txt, FONT_MINI)
    end
 
-   -- first time thru, compute all the ancillary data that goes with each pylon
-   -- xm, ym is midpoint of opposite side from vertex
-   -- xe, ye is the extension of the midpoint to vertex line
-   -- xt, yt is the "target" or aiming point
-   -- z*, y* are the left and right sides of the turning zones
-   
-   if (#pylon > 0) and (not pylon[1].xm) then
-      for j=1, #pylon do
-	 local zx, zy
-	 local rot = {math.rad(-112.5), 0, math.rad(112.5)}
-	 pylon[j].xm = (pylon[m3(j+1)].x + pylon[m3(j+2)].x ) / 2.0
-	 pylon[j].ym = (pylon[m3(j+1)].y + pylon[m3(j+2)].y ) / 2.0
-	 pylon[j].xe = 2 * pylon[j].x - pylon[j].xm
-	 pylon[j].ye = 2 * pylon[j].y - pylon[j].ym
-	 pylon[j].alpha = pylon[j].aimoff /
-	    math.sqrt( (pylon[j].x - pylon[j].xm)^2 + (pylon[j].y - pylon[j].ym)^2 )
-	 pylon[j].xt = (1+pylon[j].alpha) * pylon[j].x - pylon[j].alpha*pylon[j].xm
-	 pylon[j].yt = (1+pylon[j].alpha) * pylon[j].y - pylon[j].alpha*pylon[j].ym
-	 zx, zy = rotateXY(-0.4 * Field.triangle, 0.4 * Field.triangle, rot[j])
-	 pylon[j].zxl = zx + pylon[j].x
-	 pylon[j].zyl = zy + pylon[j].y
-	 zx, zy = rotateXY(0.4 * Field.triangle, 0.4 * Field.triangle, rot[j])
-	 pylon[j].zxr = zx + pylon[j].x
-	 pylon[j].zyr = zy + pylon[j].y
-	 inZoneLast[j] = false
-      end
-   end
-   
-   -- compute determinants off the turning zone left and right lines
-   -- to see if the aircraft is in one of the turning zones
-
-   local detL = {}
-   local detR = {}
-   local inZone = {}
-   for j=1, #pylon do
-      detL[j] = (xtable[#xtable]-pylon[j].x)*(pylon[j].zyl-pylon[j].y) -
-	 (ytable[#ytable]-pylon[j].y)*(pylon[j].zxl-pylon[j].x)
-      detR[j] = (xtable[#xtable]-pylon[j].x)*(pylon[j].zyr-pylon[j].y) -
-	 (ytable[#ytable]-pylon[j].y)*(pylon[j].zxr-pylon[j].x)
-      inZone[j] = detL[j] >= 0 and detR[j] <= 0
-      if inZone[j] ~= inZoneLast[j] and j == nextPylon and racing then
-	 if inZone[j] == true then
-	    --playFile(appInfo.Dir.."Audio/inside_sector.wav", AUDIO_IMMEDIATE)
-	    --playNumber(j, 0)
-	    playFile(appInfo.Dir.."Audio/next_pylon.wav", AUDIO_IMMEDIATE)
-	    playNumber(m3(j+1), 0)
-	 end
-	 inZoneLast[j] = inZone[j]
-      end
-   end
-   
    setColorMain()
-
-   -- now compute determinants off the midpoint to vertext lines to find
-   -- out which of the six zones around the triangle the plane is in
-   -- use a binary code to number the zones
-   
-   local det = {}
-   for j=1, #pylon do
-      det[j] = (xtable[#xtable]-pylon[j].x)*(pylon[j].ye-pylon[j].y) -
-	 (ytable[#ytable]-pylon[j].y)*(pylon[j].xe-pylon[j].x)
-   end
-   
-   local p2=1
-   local code=0
-   for j = 1, #pylon do
-      code = code + (det[j] >= 0 and 0 or 1)*p2
-      p2 = p2 * 2
-   end
-
-   if #xtable < 1 then -- no points yet...
-      return
-   end
-   
    -- draw line from airplane to the aiming point
    if racing then
       lcd.setColor(255,20,147) -- magenta ... like a flight director..
       lcd.drawLine(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight),
-		   --toXPixel(pylon[region[code]].xt, map.Xmin, map.Xrange, windowWidth),
-		   --toYPixel(pylon[region[code]].yt, map.Ymin, map.Yrange, windowHeight) )
 	   toXPixel(pylon[m3(nextPylon)].xt, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[m3(nextPylon)].yt, map.Ymin, map.Yrange, windowHeight) )
    end
    
-   if code < 1 or code > 6 then
-      print("code out of range")
-      return
-   end
 
    lcd.setColor(153,153,255)
    
@@ -912,6 +821,143 @@ local function drawTriRace(windowWidth, windowHeight)
       --if region[code] == j 
    end
 
+   if titleText then
+      lcd.drawText((310 - lcd.getTextWidth(FONT_BOLD, titleText))/2, 0,
+	 titleText, FONT_BOLD)
+   end
+   
+   if subtitleText then
+      lcd.drawText((310 - lcd.getTextWidth(FONT_MINI, subtitleText))/2, 17,
+	 subtitleText, FONT_MINI)
+   end
+   
+
+   if flightStarted ~= 0 then
+      lcd.drawImage(5, 100, greenDotImage)
+   else
+      lcd.drawImage(5,100, redDotImage)
+   end
+
+   if startArmed then
+      if racing then
+	 lcd.drawImage(25, 100, blueDotImage)
+      else
+	 lcd.drawImage(25, 100, greenDotImage)
+      end
+   else
+      lcd.drawImage(25, 100, redDotImage)
+   end
+   
+   lcd.drawText(5, 120, "Spd: "..math.floor(speed), FONT_MINI)
+   lcd.drawText(5, 130, "Alt: ".. math.floor(altitude), FONT_MINI)
+   lcd.drawText(5, 140, string.format("Map: %d", map.Xrange), FONT_MINI)
+
+   --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
+   --lcd.drawText(265, 45, string.format("Dist %.0f", dist), FONT_MINI)
+   --lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
+   --lcd.drawText(265, 65, string.format("TCrs %.1f", vd), FONT_MINI)
+   --lcd.drawText(265, 75, string.format("RelB %.1f", relb), FONT_MINI)
+   --if speed ~= 0 then
+   --   lcd.drawText(265, 85, string.format("Time %.1f", dist / speed), FONT_MINI)
+   --end
+
+end
+
+local function calcTriRace()
+
+   local detS1
+   local ao
+
+   if Field and Field.aimoff then
+      ao = Field.aimoff
+   else
+      ao = 0
+   end
+   
+   if #pylon < 1 and Field.name then
+      pylon[1] = {x=Field.triangle,y=0,aimoff=ao}
+      pylon[2] = {x=0,y=Field.triangle,aimoff=ao}
+      pylon[3] = {x=-Field.triangle,y=0,aimoff=ao}
+   end
+   
+   local region={2,3,3,1,2,1,0}
+
+   -- first time thru, compute all the ancillary data that goes with each pylon
+   -- xm, ym is midpoint of opposite side from vertex
+   -- xe, ye is the extension of the midpoint to vertex line
+   -- xt, yt is the "target" or aiming point
+   -- z*, y* are the left and right sides of the turning zones
+   
+   if (#pylon > 0) and (not pylon[1].xm) then
+      for j=1, #pylon do
+	 local zx, zy
+	 local rot = {math.rad(-112.5), 0, math.rad(112.5)}
+	 pylon[j].xm = (pylon[m3(j+1)].x + pylon[m3(j+2)].x ) / 2.0
+	 pylon[j].ym = (pylon[m3(j+1)].y + pylon[m3(j+2)].y ) / 2.0
+	 pylon[j].xe = 2 * pylon[j].x - pylon[j].xm
+	 pylon[j].ye = 2 * pylon[j].y - pylon[j].ym
+	 pylon[j].alpha = pylon[j].aimoff /
+	    math.sqrt( (pylon[j].x - pylon[j].xm)^2 + (pylon[j].y - pylon[j].ym)^2 )
+	 pylon[j].xt = (1+pylon[j].alpha) * pylon[j].x - pylon[j].alpha*pylon[j].xm
+	 pylon[j].yt = (1+pylon[j].alpha) * pylon[j].y - pylon[j].alpha*pylon[j].ym
+	 zx, zy = rotateXY(-0.4 * Field.triangle, 0.4 * Field.triangle, rot[j])
+	 pylon[j].zxl = zx + pylon[j].x
+	 pylon[j].zyl = zy + pylon[j].y
+	 zx, zy = rotateXY(0.4 * Field.triangle, 0.4 * Field.triangle, rot[j])
+	 pylon[j].zxr = zx + pylon[j].x
+	 pylon[j].zyr = zy + pylon[j].y
+	 inZoneLast[j] = false
+      end
+   end
+   
+   -- compute determinants off the turning zone left and right lines
+   -- to see if the aircraft is in one of the turning zones
+
+   local detL = {}
+   local detR = {}
+   for j=1, #pylon do
+      detL[j] = (xtable[#xtable]-pylon[j].x)*(pylon[j].zyl-pylon[j].y) -
+	 (ytable[#ytable]-pylon[j].y)*(pylon[j].zxl-pylon[j].x)
+      detR[j] = (xtable[#xtable]-pylon[j].x)*(pylon[j].zyr-pylon[j].y) -
+	 (ytable[#ytable]-pylon[j].y)*(pylon[j].zxr-pylon[j].x)
+      inZone[j] = detL[j] >= 0 and detR[j] <= 0
+      if inZone[j] ~= inZoneLast[j] and j == nextPylon and racing then
+	 if inZone[j] == true then
+	    --playFile(appInfo.Dir.."Audio/inside_sector.wav", AUDIO_IMMEDIATE)
+	    --playNumber(j, 0)
+	    playFile(appInfo.Dir.."Audio/next_pylon.wav", AUDIO_IMMEDIATE)
+	    playNumber(m3(j+1), 0)
+	 end
+	 inZoneLast[j] = inZone[j]
+      end
+   end
+
+   -- now compute determinants off the midpoint to vertext lines to find
+   -- out which of the six zones around the triangle the plane is in
+   -- use a binary code to number the zones
+   
+   local det = {}
+   for j=1, #pylon do
+      det[j] = (xtable[#xtable]-pylon[j].x)*(pylon[j].ye-pylon[j].y) -
+	 (ytable[#ytable]-pylon[j].y)*(pylon[j].xe-pylon[j].x)
+   end
+   
+   local p2=1
+   local code=0
+   for j = 1, #pylon do
+      code = code + (det[j] >= 0 and 0 or 1)*p2
+      p2 = p2 * 2
+   end
+
+   if code < 1 or code > 6 then
+      print("code out of range")
+      return
+   end
+
+   if #xtable < 1 then -- no points yet...
+      return
+   end
+   
    -- see if we have taken off
 
    if speed > 20 and altitude > 20 and flightStarted == 0 then
@@ -1003,8 +1049,10 @@ local function drawTriRace(windowWidth, windowHeight)
 	    lapsComplete = lapsComplete + 1
 	    rawScore = rawScore + 200.0
 	    lastLapTime = system.getTimeCounter() - lapStartTime
-	    lastLapSpeed = 1000 * 3.6 * (Field.triangle * 2 * (1 + math.sqrt(2))) / lastLapTime
-	    print(Field.triangle, lastLapTime, lastLapSpeed)
+	    local mult = 1000 * 3.6 * (Field.triangle * 2 * (1 + math.sqrt(2)))
+	    lastLapSpeed = mult / lastLapTime
+	    --print(Field.triangle, lastLapTime, lastLapSpeed)
+	    avgSpeed = mult * lapsComplete / (system.getTimeCounter() - racingStartTime)
 	    lapStartTime = system.getTimeCounter()
 	    nextPylon = 1
 	 end
@@ -1079,29 +1127,32 @@ local function drawTriRace(windowWidth, windowHeight)
       lastMin = tmin
       
       tsec = tsec - tmin*60
-      local tstr = string.format("%02d:%04.1f / ", tmin, tsec)
+      titleText = string.format("%02d:%04.1f / ", tmin, tsec)
       
       
       tsec = (sgTC - lapStartTime) / 1000.0
       tmin = tsec // 60
       tsec = tsec - tmin*60      
-      tstr = tstr ..string.format("%02d:%04.1f / ",
+      titleText = titleText ..string.format("%02d:%04.1f / ",
 				  tmin, tsec)
 
       tsec = lastLapTime / 1000.0
       tmin = tsec // 60
       tsec = tsec - tmin*60
-      tstr = tstr .. string.format("%02d:%04.1f / ", tmin, tsec)
+      titleText = titleText .. string.format("%02d:%04.1f / ", tmin, tsec)
 
-      tstr = tstr .. string.format("%.1f", lastLapSpeed)
+      titleText = titleText .. string.format("%.1f / ", avgSpeed)
+
+      titleText = titleText .. string.format("%.1f", lastLapSpeed)
+
       
-      lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, tstr))/2, 0,
-	 tstr, FONT_BIG)
+      --lcd.drawText((310 - lcd.getTextWidth(FONT_BOLD, tstr))/2, 0,
+      --tstr, FONT_BOLD)
 
-      tstr = string.format("Laps: %d, Net Score: %d, Penalty: %d",
+      subtitleText = string.format("Laps: %d, Net Score: %d, Penalty: %d",
 			   lapsComplete, math.floor(rawScore - penaltyPoints + 0.5),
 			   math.floor(penaltyPoints + 0.5))
-      lcd.drawText((310 - lcd.getTextWidth(FONT_MINI, tstr))/2, 17, tstr, FONT_MINI)
+      --lcd.drawText((310 - lcd.getTextWidth(FONT_MINI, tstr))/2, 17, tstr, FONT_MINI)
    end
 
    -- compute dist and relative bearing to aim point
@@ -1128,40 +1179,6 @@ local function drawTriRace(windowWidth, windowHeight)
    if relb > 360 then relb = relb - 360 end
    if relb < -180 then relb = 360 + relb end
    if relb >  180 then relb = relb - 360 end
-   
-   --local bool
-   --if inStartZone then bool = "true" else bool = "false" end
-   --lcd.drawText(5, 110, "inStartZone: "..bool, FONT_MINI)   
-   --lcd.drawText(5, 120, "flightStarted: "..string.format("%d", flightStarted), FONT_MINI)
-
-   if flightStarted ~= 0 then
-      lcd.drawImage(5, 100, greenDotImage)
-   else
-      lcd.drawImage(5,100, redDotImage)
-   end
-
-   if startArmed then
-      if racing then
-	 lcd.drawImage(25, 100, blueDotImage)
-      else
-	 lcd.drawImage(25, 100, greenDotImage)
-      end
-   else
-      lcd.drawImage(25, 100, redDotImage)
-   end
-   
-   lcd.drawText(5, 120, "Spd: "..math.floor(speed), FONT_MINI)
-   lcd.drawText(5, 130, "Alt: ".. math.floor(altitude), FONT_MINI)
-   lcd.drawText(5, 140, string.format("Map: %d", map.Xrange), FONT_MINI)
-
-   --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
-   --lcd.drawText(265, 45, string.format("Dist %.0f", dist), FONT_MINI)
-   --lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
-   --lcd.drawText(265, 65, string.format("TCrs %.1f", vd), FONT_MINI)
-   --lcd.drawText(265, 75, string.format("RelB %.1f", relb), FONT_MINI)
-   --if speed ~= 0 then
-   --   lcd.drawText(265, 85, string.format("Time %.1f", dist / speed), FONT_MINI)
-   --end
 
    local swa
    
@@ -2126,6 +2143,8 @@ if GPSAlt then
       end
    end
 
+   calcTriRace()
+   
 end
 
 local function init()
