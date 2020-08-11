@@ -23,7 +23,7 @@
      "sensorName":"MGPS",
      "label":"Altitude",
      "unit":"m",
-     "luaExp":"P5(0,500)"
+     "luaExp":"P5(0,200)"
     },
     {"id":3,
      "param":8,
@@ -32,7 +32,7 @@
      "sensorName":"MGPS",
      "label":"Speed",
      "unit":"m",
-     "luaExp":"P8(0,200)"
+     "luaExp":"P8(0,200/3.6)"
     },
     {"id":1,"param":0,"sensorName":"MVario", "label":"MVario"},
     {"id":1,"param":1,

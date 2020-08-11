@@ -1,23 +1,43 @@
 {
     "trifields" : [ {
+	"name" : "Harry Curzon Field",
+	"shortname" : "HCF",
+	"lat" : 51.882709,
+	"long" : -2.098735,
+	"elevation":61,
+	"View": "Standard",
+	"triangle": 50,
+	"aimoff":10,
+	"startHeading": 274,
+	"startMaxAltitude": 200,
+	"startMaxSpeed": 100,
+	"maxAltitude": 350,
+	"raceTime":5,    
+	"runway": {
+	    "length": 10,
+	    "width": 10,
+	    "x_offset":0,
+	    "y_offset":-30
+	}
+    }, {
 	"name" : "Cheltenham",
 	"shortname" : "CHEL",
-   	"lat" : 51.953262,
-	"long" : -2.087001,
+   	"lat" : 51.951890,
+	"long" : -2.087456,
 	"elevation": 35,
 	"View":"Standard",
-	"triangle":500,
-	"aimoff": 50,
+	"triangle":250,
+	"aimoff": 20,
 	"startHeading": 300,
 	"startMaxAltitude":200,
 	"startMaxSpeed": 100,
 	"maxAltitude":350,
-	"raceTime":30,
+	"raceTime":10,
 	"runway" : {
 	    "length" : 40,
 	    "width" : 40,
 	    "x_offset":0,
-	    "y_offset":-100
+	    "y_offset":-20
 	}
     },{
 	
@@ -53,7 +73,7 @@
 	"startMaxAltitude": 200,
 	"startMaxSpeed": 100,
 	"maxAltitude": 350,
-	"raceTime":30,
+	"raceTime":5,
 	"runway": {
 	    "length": 63,
 	    "width": 4

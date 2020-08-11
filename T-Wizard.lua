@@ -39,6 +39,10 @@ local speed = 0
 local SpeedGPS = 0
 local SpeedNonGPS = 0
 local binomC = {} -- array of binomial coefficients for n=MAXTABLE-1, indexed by k
+local long0, lat0, coslat0
+local rE = 6731000  -- 6371*1000 radius of earth in m
+local rad = 180/math.pi
+
 
 local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
 	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"}
@@ -53,7 +57,8 @@ telem.CourseGPS={}
 telem.BaroAlt={}
 
 local variables = {"rotationAngle", "histSample", "histMax", "maxCPU",
-		   "triLength", "maxSpeed", "maxAlt", "elev", "histDistance", "raceTime"}
+		   "triLength", "maxSpeed", "maxAlt", "elev", "histDistance",
+		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd"}
 
 local xtable = {}
 local ytable = {}
@@ -166,10 +171,11 @@ local function readSensors()
 	    table.insert(sensorLalist, '--> '..sensor.label)
 	    table.insert(sensorIdlist, 0)
 	    table.insert(sensorPalist, 0)
-	 elseif sensor.sensorName == "MGPS" and sensor.type == 9 then  -- lat/long
+	 elseif sensor.type == 9 then  -- lat/long
 	    table.insert(GPSsensorLalist, sensor.label)
 	    table.insert(GPSsensorIdlist, sensor.id)
 	    table.insert(GPSsensorPalist, sensor.param)
+	    -- first two ifs are for MGPS, next two for RCT-GPS
 	    if (sensor.label == 'Longitude' and sensor.param == 3) then
 	       telem.Longitude.Se = #GPSsensorLalist
 	       telem.Longitude.SeId = sensor.id
@@ -180,10 +186,6 @@ local function readSensors()
 	       telem.Latitude.SeId = sensor.id
 	       telem.Latitude.SePa = sensor.param
 	    end
-	 elseif sensor.sensorName == "GPS" and sensor.type == 9 then  -- lat/long Tero sensor
-	    table.insert(GPSsensorLalist, sensor.label)
-	    table.insert(GPSsensorIdlist, sensor.id)
-	    table.insert(GPSsensorPalist, sensor.param)
 	    if (sensor.label == 'Longitude' and sensor.param == 2) then
 	       telem.Longitude.Se = #GPSsensorLalist
 	       telem.Longitude.SeId = sensor.id
@@ -216,37 +218,34 @@ local function readSensors()
 
 	    -- ADD any other baro alt sensors other than CTU here .. 
 
-	    if (sensor.sensorName == "MGPS" and sensor.param == 6) or
-	    (sensor.sensorName == "GPS" and sensor.param == 5) then
+	    if (sensor.label == "Altitude" and sensor.param == 6) or
+	       (sensor.label == "Altitude" and sensor.param == 5) then
 	       telem.Altitude.Se = #sensorLalist
 	       telem.Altitude.SeId = sensor.id
 	       telem.Altitude.SePa = sensor.param
 	    end
-	    if (sensor.sensorName == "MGPS" and sensor.param == 7) or 
-	    (sensor.sensorName == "GPS" and sensor.param == 7) then
+	    if (sensor.label == "Distance" and sensor.param == 7) then
 	       telem.DistanceGPS.Se = #sensorLalist
 	       telem.DistanceGPS.SeId = sensor.id
 	       telem.DistanceGPS.SePa = sensor.param
 	    end
-	    if (sensor.sensorName == "MGPS" and sensor.param == 8) or
-	    (sensor.sensorName == "GPS" and sensor.param == 3) then
+	    if (sensor.label == "Speed" and sensor.param == 8) or
+	       (sensor.label == "Speed" and sensor.param == 3) then
 	       telem.SpeedGPS.Se = #sensorLalist
 	       telem.SpeedGPS.SeId = sensor.id
 	       telem.SpeedGPS.SePa = sensor.param
 	    end
-	    if (sensor.sensorName == "MGPS" and sensor.param == 10) or
-	    (sensor.sensorName == "GPS" and sensor.param == 9) then
-	       telem.CourseGPS.Se = #sensorLalist
+	    if (sensor.label == "Course" and sensor.param == 10) then
 	       telem.CourseGPS.SeId = sensor.id
 	       telem.CourseGPS.SePa = sensor.param
 	    end
-	    if (sensor.sensorName == "MGPS" and sensor.param == 5) or
-	    (sensor.sensorName == "GPS" and sensor.param == 10) then
+	    if (sensor.label == "SatCount" and sensor.param == 5) or
+	       (sensor.label == "Satellites" and sensor.param == 10) then
 	       satCountID = sensor.id
 	       satCountPa = sensor.param
 	    end
-	    if (sensor.sensorName == "MGPS" and sensor.param == 4) or
-	    (sensor.sensorName == "GPS" and sensor.param == 11) then
+	    if (sensor.label == "Quality" and sensor.param == 4) or
+	       (sensor.label == "HDOP" and sensor.param == 11) then
 	       satQualityID = sensor.id
 	       satQualityPa = sensor.param
 	    end	    
@@ -339,6 +338,7 @@ local function triLengthChanged(value)
 end
 
 local function raceTimeChanged(value)
+   raceTime = value
    if Field then Field.raceTime = value end
 end
 
@@ -348,6 +348,19 @@ end
 
 local function maxAltChanged(value)
    if Field then Field.startMaxAltitude = value end
+end
+
+local function aimoffChanged(value)
+   if Field then Field.aimoff = value end
+   pylon={}
+end
+
+local function flightStartAltChanged(value)
+   variables.flightStartAlt = value
+end
+
+local function flightStartSpdChanged(value)
+   variables.flightStartSpd = value
 end
 
 local function elevChanged(value)
@@ -372,9 +385,6 @@ local savedRow = 1
 local function initForm(subform)
    if subform == 1 then
 
-      print("savedRow:", savedRow)
-      
-            
       form.addLink((function() form.reinit(2) end),
 	 {label = "Telemetry Sensors >>"})
 
@@ -480,20 +490,37 @@ local function initForm(subform)
       
       form.addRow(2)
       form.addLabel({label="Triangle leg", width=220})
+      if Field and Field.triangle then variables.triLength = Field.triangle end 
       form.addIntbox(variables.triLength, 10, 1000, 500, 0, 10, triLengthChanged)
       
       form.addRow(2)
       form.addLabel({label="Triangle race time (m)", width=220})
+      if Field and Field.raceTime then variables.raceTime = Field.raceTime end
       form.addIntbox(variables.raceTime, 1, 60, 30, 0, 10, raceTimeChanged)
       
       form.addRow(2)
-      form.addLabel({label="Max Start Speed (m/s)", width=220})
+      form.addLabel({label="Max Start Speed (km/h)", width=220})
+      if Field and Field.startMaxSpeed then variables.maxSpeed = Field.startMaxSpeed end
       form.addIntbox(variables.maxSpeed, 10, 500, 100, 0, 10, maxSpeedChanged)
       
       form.addRow(2)
       form.addLabel({label="Max Start Alt (m)", width=220})
+      if Field and Field.startMaxAltitude then variables.maxAlt = Field.startMaxAltitude end
       form.addIntbox(variables.maxAlt, 10, 500, 100, 0, 10, maxAltChanged)
       
+      form.addRow(2)
+      form.addLabel({label="Turn point aiming offset (m)", width=220})
+      if Field and Field.aimoff then variables.aimoff = Field.aimoff end
+      form.addIntbox(variables.aimoff, 0, 500, 50, 0, 1, aimoffChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Flight Start Speed (km/h)", width=220})
+      form.addIntbox(variables.flightStartSpd, 0, 100, 20, 0, 1, flightStartSpdChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Flight Start Altitude (m)", width=220})
+      form.addIntbox(variables.flightStartAlt, 0, 100, 20, 0, 1, flightStartAltChanged)
+
       form.addRow(2)
       form.addLabel({label="Racing announce sequence", width=220})
       form.addTextbox(annText, 30, annTextChanged)
@@ -867,10 +894,10 @@ local function drawTriRace(windowWidth, windowHeight)
 	 lcd.drawImage(25, 100, greenDotImage)
       end
    else
-      lcd.drawImage(25, 100, redDotImage)
+      if startSwitch then lcd.drawImage(25, 100, redDotImage) end
    end
    
-   lcd.drawText(5, 120, "Spd: "..math.floor(speed), FONT_MINI)
+   lcd.drawText(5, 120, "Spd: "..math.floor(speed * 3.6), FONT_MINI)
    lcd.drawText(5, 130, "Alt: ".. math.floor(altitude), FONT_MINI)
    lcd.drawText(5, 140, string.format("Map: %d", map.Xrange), FONT_MINI)
 
@@ -890,6 +917,8 @@ local function calcTriRace()
    local detS1
    local ao
 
+   if not Field or not Field.name then return end
+   
    if Field and Field.aimoff then
       ao = Field.aimoff
    else
@@ -982,7 +1011,8 @@ local function calcTriRace()
    
    -- see if we have taken off
 
-   if speed > 20 and altitude > 20 and flightStarted == 0 then
+   if speed * 3.6 > variables.flightStartSpd and
+   altitude > variables.flightStartAlt and flightStarted == 0 then
       flightStarted = system.getTimeCounter()
       playFile(appInfo.Dir.."Audio/flight_started.wav", AUDIO_IMMEDIATE)      
    end
@@ -1029,8 +1059,8 @@ local function calcTriRace()
 	    startArmed = false
 	 end
       end
+      lastsws = sws
    end
-   lastsws = sws
 
    -- see if racer wants to abort e.g. penalty start rejected
    if racing and not startToggled then
@@ -1040,8 +1070,9 @@ local function calcTriRace()
       --raceEndTime = system.getTimeCounter()
    end
    
+   
    -- see if we are ready to start
-   if startToggled and not startArmed and not raceFinished then
+   if startToggled and not startArmed then --and not raceFinished then
       if inStartZone and flightStarted ~= 0 then
 	 playFile(appInfo.Dir.."Audio/ready_to_start.wav", AUDIO_IMMEDIATE)
 	 startArmed = true
@@ -1081,7 +1112,7 @@ local function calcTriRace()
       end
       
       if not racing and startArmed then
-	 if speed > Field.startMaxSpeed or altitude > Field.startMaxAltitude then
+	 if speed * 3.6 > Field.startMaxSpeed or altitude > Field.startMaxAltitude then
 	    playFile(appInfo.Dir.."Audio/start_with_penalty.wav", AUDIO_IMMEDIATE)	    
 	    if speed > Field.startMaxSpeed then
 	       playFile(appInfo.Dir.."Audio/over_max_speed.wav", AUDIO_QUEUE)
@@ -1097,7 +1128,6 @@ local function calcTriRace()
 	    playFile(appInfo.Dir.."Audio/task_starting.wav", AUDIO_IMMEDIATE)
 	    penaltyPoints = 0
 	 end
-	 
 	 racing = true
 	 raceFinished = false
 	 racingStartTime = system.getTimeCounter()
@@ -1107,6 +1137,7 @@ local function calcTriRace()
 	 rawScore = 0
       end
    end
+
    lastdetS1 = detS1
    
    local sgTC = system.getTimeCounter()
@@ -1207,8 +1238,10 @@ local function calcTriRace()
    if triASwitch then
       swa = system.getInputsVal(triASwitch)
    end
+   
    local sChar
    local now = system.getTime()
+
    if now ~= lastgetTime and swa and swa == 1 then -- once a sec
       --print(m3(nextPylon+2), inZone[m3(nextPylon+2)] )
       if racing then
@@ -1244,7 +1277,7 @@ local function calcTriRace()
 	 else
 	    system.playBeep(0, 1200, 200)		  
 	 end
-      elseif sChar == "D" or sChar == "d" then
+      elseif sChar == "D" or sChar == "d" and racing then
 	 if sChar == "D" then
 	    playFile(appInfo.Dir.."Audio/distance.wav", AUDIO_QUEUE)
 	    playNumber(dist, 0)
@@ -1270,7 +1303,7 @@ local function calcTriRace()
 	       playNumber(perpD, 0)
 	    end
 	 end
-      elseif sChar == "T" or sChar == "t" then
+      elseif sChar == "T" or sChar == "t" and racing then
 	 if speed ~= 0 then
 	    playFile(appInfo.Dir.."Audio/time.wav", AUDIO_QUEUE)
 	    playNumber(dist/speed, 1)	  
@@ -1400,8 +1433,6 @@ local function isInside(polygon, n, p)
 
 end
     
-
-
 local function xminImg(iM)
    return -0.50 * Field.images[iM]
 end
@@ -1533,6 +1564,15 @@ local function mapPrint(windowWidth, windowHeight)
    end
 
    drawTriRace(windowWidth, windowHeight)
+
+
+   --lcd.drawText(250, 20, "sT: "..tostring(startToggled), FONT_MINI)
+   --lcd.drawText(250, 30, "sA: "..tostring(startArmed), FONT_MINI)
+   --lcd.drawText(250, 40, "rF: "..tostring(raceFinished), FONT_MINI)
+
+   --
+   -- NEED TO MOVE NOFLY STUFF TO loop() SO IT WILL HAPPEN IF SCREEN NOT DISPLAYED!!!
+   --
    
    for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
       
@@ -1690,10 +1730,6 @@ local function graphInit(im)
 end
 
 
-local long0, lat0, coslat0
-local rE = 6731000  -- 6371*1000 radius of earth in m
-local rad = 180/math.pi
-
 local function initField(iF)
 
    local fp, fn
@@ -1712,11 +1748,12 @@ local function initField(iF)
       for _,fname in ipairs(fieldDirs) do
 	 --print("fname:", fname)
 	 fn = "Apps/T-Wizard/Fields/"..fname.."/"..fname..".jsn"
+	 --print("fn", fn)
 	 fp = io.readall(fn)
 	 if fp then
 	    Field = json.decode(fp)
 	    if Field then
-	       --print("Decoded field")
+	       --print("Decoded Field in initField")
 	    else
 	       print("Failed to decode field")
 	       return
@@ -1725,11 +1762,20 @@ local function initField(iF)
 	    print("Cannot open ", fn)
 	    return
 	 end
+
+	 Field.images = {500, 1000, 1500, 2000, 2500, 3000}
+
+	 --print("coming into initField:", lat0, long0)
 	 
 	 local atField = (math.abs(lat0 - Field.lat) < 1/60) and
 	 (math.abs(long0 - Field.long) < 1/60) 
+
+	 Field.name = nil
 	 
-	 if (not iF and atField) then -- then or (iF and iF == i)then
+	 --if (not iF and atField) then -- then or (iF and iF == i)then
+	 if (atField) then -- then or (iF and iF == i)then
+	    --print("at field", fname)
+	    Field.name = fname
 	    long0 = Field.long -- reset to origin to coords in jsn file
 	    lat0  = Field.lat
 	    coslat0 = math.cos(math.rad(lat0))
@@ -1746,8 +1792,6 @@ local function initField(iF)
 	    if fg then
 	       shapes.T38 = json.decode(fg).icon
 	    end
-	    --Field.images = {250, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000}
-	    Field.images = {500, 1000, 1500, 2000, 2500, 3000}
 	    nfc = {}
 	    if Field.NoFlyCircle then
 	       for j=1, #Field.NoFlyCircle, 1 do
@@ -1788,6 +1832,9 @@ local function initField(iF)
 	 end
       end
    end
+   
+   --print("Field.name: ",Field.name)
+   
    if Field and Field.name then
       system.messageBox("Current location: " .. Field.name, 2)
       maxImage = #Field.images
@@ -2047,22 +2094,13 @@ if GPSAlt then
       countNoNewPos = 0
    end
  
-   if not gotInitPos then
+   if newpos and not gotInitPos then
 
-      if not Field.name then       -- if field not selected yet
-	 long0 = longitude     -- set long0, lat0, coslat0 in case not near a field
-	 lat0 = latitude       -- initField will reset if we are
-	 coslat0 = math.cos(math.rad(lat0)) 
-      end
-
-      if Field.name then -- we already have a field .. need to change it
-	 xHist={}
-	 yHist={}
-	 initField() -- PLEASE FIX ME .. placeholder -- need arg to pass to initfield
-      else
-	 --int("calling initField")
-	 initField()
-      end
+      long0 = longitude     -- set long0, lat0, coslat0 in case not near a field
+      lat0 = latitude       -- initField will reset if we are
+      coslat0 = math.cos(math.rad(lat0)) 
+      
+      initField()
 
       gotInitPos = true
 
@@ -2074,9 +2112,11 @@ if GPSAlt then
       --print("bad latlong")
       -- perhaps sensor emulator changed fields .. reinit...
       -- do reset only if running on emulator
-      if select(2, system.getDeviceType()) == 1  then   
+      if select(2, system.getDeviceType()) == 1  then
+	 print("emulator - new field")
 	 lat0 = latitude
 	 long0 = longitude
+	 fieldPNG={}
 	 initField()
 	 xHist = {}
 	 yHist = {}
@@ -2196,15 +2236,19 @@ local function init()
    
    for i, j in ipairs(variables) do
       idef = 0
-      if j == "histSample"   then idef = 1000 end
-      if j == "histMax"      then idef =    0 end
-      if j == "maxCPU"       then idef =   80 end
-      if j == "triLength"    then idef =  500 end
-      if j == "maxSpeed"     then idef =  100 end
-      if j == "maxAlt"       then idef =  200 end
-      if j == "elev"         then idef =    0 end
-      if j == "histDistance" then idef =    3 end
-      if j == "raceTime"     then idef =   30 end
+      if j == "histSample"     then idef = 1000 end
+      if j == "histMax"        then idef =    0 end
+      if j == "maxCPU"         then idef =   80 end
+      if j == "triLength"      then idef =  500 end
+      if j == "maxSpeed"       then idef =  100 end
+      if j == "maxAlt"         then idef =  200 end
+      if j == "elev"           then idef =    0 end
+      if j == "histDistance"   then idef =    3 end
+      if j == "raceTime"       then idef =   30 end
+      if j == "aimoff"         then idef =   50 end
+      if j == "flightStartSpd" then idef =   20 end
+      if j == "flightStartAlt" then idef =   20 end
+      
       variables[j] = system.pLoad("variables."..variables[i], idef)
    end
 
@@ -2212,7 +2256,7 @@ local function init()
    zoomSwitch  = system.pLoad("zoomSwitch")
    triASwitch  = system.pLoad("triASwitch")      
    startSwitch = system.pLoad("startSwitch")
-   annText     = system.pLoad("annText", "c-d-p--")
+   annText     = system.pLoad("annText", "c-d----")
    preText     = system.pLoad("preText", "s-a----")   
 
    -- DEBUG
@@ -2233,4 +2277,4 @@ local function init()
 end
 
 collectgarbage()
-return {init=init, loop=loop, author="DFM", version=1, name=appInfo.Name}
+return {init=init, loop=loop, author="DFM", version="0.3", name=appInfo.Name}
