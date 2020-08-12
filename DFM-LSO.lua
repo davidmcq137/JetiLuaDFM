@@ -1841,14 +1841,14 @@ local function mapPrint(windowWidth, windowHeight)
       -- defensive moves for squashing the indexing nil variable that Harry saw
 
       if i == #xtable then
-
-	 if (not geo.fields) or (not geo.fields[iField].NoFly) or #geo.fields[iField].NoFly < 3 then
+	 if not iField or (not geo.fields) or (not geo.fields[iField].NoFly) or
+	 #geo.fields[iField].NoFly < 3 then
 	    noFlyP = false
 	 else
 	    noFlyP = isInside (poi, #poi, {x=xtable[i], y=ytable[i]})
 	 end
 	 
-	 if (not geo.fields) or (not geo.fields[iField].NoFlyCircle) then
+	 if (not iField) or (not geo.fields) or (not geo.fields[iField].NoFlyCircle) then
 	    noFlyC = false
 	 else
 	    noFlyC = isInsideC(nfc, {x=xtable[i], y=ytable[i]})
@@ -1856,7 +1856,8 @@ local function mapPrint(windowWidth, windowHeight)
 	 
 	 noFly = noFlyP or noFlyC
 
-	 if geo.fields and geo.fields[iField].noFlyZone and geo.fields[iField].noFlyZone == "Outside" then
+	 if not iField or (geo.fields and geo.fields[iField].noFlyZone and
+			    geo.fields[iField].noFlyZone == "Outside") then
 	    noFly = not noFly
 	 end
 	 

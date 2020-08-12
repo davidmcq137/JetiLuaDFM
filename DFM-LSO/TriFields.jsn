@@ -1,0 +1,20 @@
+{
+    "trifields" : [ {
+	"name" : "DCRC Walt Good Field",
+	"shortname" : "DCRC",
+	"lat" : 39.147398,
+	"long" : -77.337639,
+	"View": "Standard",
+	"triangle": 500,
+	"startHeading": 347.5,
+	"startMaxHeight": 200,
+	"startMaxSpeed": 100,
+	"maxAltitude": 350,
+	"runway": {
+	    "length": 183,
+	    "width": 12
+	}
+    } ]
+}
+
+

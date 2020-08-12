@@ -42,9 +42,11 @@ local spdSe
 local spdSeId
 local spdSePa
 local maxSpd, VrefSpd, VrefCall, annMaxTime
+local Vs0Spd
 local spdInter
-local selFt
-local selFtIndex
+local unitsIdx
+local unitsList={"mph", "km/h", "kt.", "m/s", "ft./s"}
+local unitsMult={2.23694, 3.6, 1.94384, 1.0, 3.28084}
 local shortAnn, shortAnnIndex
 
 local ovrSpd = false
@@ -55,7 +57,7 @@ local airspeedAlive = false
 local nextAnnTC = 0
 local lastAnnTC = 0
 local lastAnnSpd = 0
-local calSpd = 0
+local calSpd
 local sgTC
 local sgTC0
 local airspeedCal
@@ -125,6 +127,11 @@ local function VrefSpdChanged(value)
    system.pSave("VrefSpd", VrefSpd)
 end
 
+local function Vs0SpdChanged(value)
+   Vs0Spd = value
+   system.pSave("Vs0Spd", Vs0Spd)
+end
+
 local function VrefCallChanged(value)
    VrefCall = value
    system.pSave("VrefCall", VrefCall)
@@ -158,10 +165,10 @@ local function sensorChanged(value)
    system.pSave("spdSePa", spdSePa)
 end
 
-local function selFtClicked(value)
-   selFt = not value
-   form.setValue(selFtIndex, selFt)
-   system.pSave("selFt", tostring(selFt))
+local function unitsIdxChanged(value)
+   print("unitsIdxChanged", value)
+   unitsIdx = value
+   system.pSave("unitsIdx", unitsIdx)
 end
 
 local function shortAnnClicked(value)
@@ -197,8 +204,12 @@ local function initForm()
       form.addIntbox(spdInter, 1, 100, 10, 0, 1, spdInterChanged)
       
       form.addRow(2)
-      form.addLabel({label="Vref (1.3 Vs0)", width=220})
+      form.addLabel({label="Reference speed (Vref)", width=220})
       form.addIntbox(VrefSpd, 0, 1000, 0, 0, 1, VrefSpdChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Stall speed (Vs0)", width=220})
+      form.addIntbox(Vs0Spd, 0, 1000, 0, 0, 1, Vs0SpdChanged)
 
       form.addRow(2)
       form.addLabel({label="Call Speed < Vref every (sec)", width=220})
@@ -217,8 +228,8 @@ local function initForm()
       form.addIntbox(airspeedCal, 1, 200, 100, 0, 1, airCalChanged)
         
       form.addRow(2)
-      form.addLabel({label="Use mph or km/hr (x)", width=270})
-      selFtIndex = form.addCheckbox(selFt, selFtClicked)
+      form.addLabel({label="Select speed units", width=220})
+      form.addSelectbox(unitsList, unitsIdx, false, unitsIdxChanged)
       
       form.addRow(2)
       form.addLabel({label="Short Announcement", width=270})
@@ -250,50 +261,29 @@ local function loop()
    if (spdSeId ~= 0) then
       sensor = system.getSensorByID(spdSeId, spdSePa)
    else
-      if not DEBUG then return end
+      return
    end
 
    if (sensor and sensor.valid) then
       speed = sensor.value * airspeedCal/100.
    else
-      if DEBUG then
-	 spd = (system.getInputs("P8")+1) * 160.0 * airspeedCal / 100. -- make P8 go from 0 to 320
-      else
-	 return 
-      end
+      return
    end
-   
-   
       
-   if not DEBUG then
-      if selFt then
-	 if sensor.unit == "m/s" then
-	    spd = speed * 2.23694 -- m/s to mph
-	 end
-	 if sensor.unit == "kmh" or sensor.unit == "km/h" then
-	    spd = speed * 0.621371 -- km/hr to mph
-	 end
-      else
-	 if sensor.unit == "m/s" then
-	    spd = speed * 3.6 -- km/hr
-	 end
-      end
-   end
+   spd = speed * unitsMult[unitsIdx] -- getSensorByID always returns native units (m/s)
 
    calSpd = spd
 
    if maxSpd and (spd <= maxSpd) then ovrSpd = false end
-
    
    if (spd > VrefSpd) then
       aboveVref = true
       aboveVref_ever = true
    end
 
-   if (spd > VrefSpd/1.3) then -- re-arm it
+   if (spd > Vs0Spd) then -- re-arm it
       stall_warn = false
    end
-
 
    if (swi and swi == 1) or (swc and swc == 1) then
       
@@ -310,7 +300,7 @@ local function loop()
 	 if DEBUG then print("At Vref") end
       end
 
-      if ((spd <= VrefSpd/1.3) and (not stall_warn) and aboveVref_ever) then
+      if ((spd <= Vs0Spd) and (not stall_warn) and aboveVref_ever) then
 	 stall_warn = true
 	 system.playFile('/Apps/DFM-SpdA/stall_warning.wav', AUDIO_IMMEDIATE)
 	 system.vibration(true, 4) -- 4 short pulses on right stick
@@ -336,11 +326,16 @@ local function loop()
       if not sgTC0 then sgTC0 = sgTC end
       
       
-      -- added isPlayback() so that we don't create a backlog of messages if it takes longer than VrefCall time
-      -- to speak the speed .. was creating a "bow wave" of pending announcements. Wait till speaking is done, catch
-      -- it at the next call to loop()
+      -- added isPlayback() so that we don't create a backlog of
+      -- messages if it takes longer than VrefCall time to speak the
+      -- speed .. was creating a "bow wave" of pending
+      -- announcements. Wait till speaking is done, catch it at the
+      -- next call to loop()
 
-      if (not system.isPlayback()) and ( (sgTC > nextAnnTC) and ( (spd > VrefSpd / 2) or (swc and swc == 1) ) ) then
+      if (not system.isPlayback()) and
+	 ( (sgTC > nextAnnTC) and
+	       ( (spd > VrefSpd / 2) or
+		  (swc and swc == 1) ) ) then
 
 	 round_spd = math.floor(spd + 0.5)
 	 lastAnnSpd = round_spd
@@ -348,7 +343,7 @@ local function loop()
 	 lastAnnTC = sgTC -- note the time of this announcement
 	 
 	 sss = string.format("%.0f", round_spd)
-	 if (selFt) then uuu = "mph" else uuu = "km/hr" end
+	 uuu = unitsList[unitsIdx]
 	 
 	 if (shortAnn or not aboveVref or (swc and swc == 1) ) then
 	    system.playNumber(round_spd, 0)
@@ -369,9 +364,10 @@ end
 --------------------------------------------------------------------------------
 
 local function calAirspeed(w,h)
-   local u
-   if (selFt) then u = "mph" else u = "km/hr" end
-   lcd.drawText(5, 5, math.floor(calSpd+0.5) .. " " .. u)
+   local u,ss
+   if not calSpd then ss = "---" else ss = string.format("%d", math.floor(calSpd + 0.5)) end
+   u = unitsList[unitsIdx]
+   lcd.drawText(5, 5, ss .. " " .. u .. "     Vs0 " ..Vs0Spd .. u, FONT_BOLD)
 end
 
 local function init()
@@ -382,6 +378,7 @@ local function init()
    contSwitch  = system.pLoad("contSwitch")
    spdInter    = system.pLoad("spdInter", 10)
    VrefSpd     = system.pLoad("VrefSpd", 60)
+   Vs0Spd     = system.pLoad("Vs0Spd", 45)   
    VrefCall    = system.pLoad("VrefCall", 2)
    annMaxTime  = system.pLoad("annMaxTime", 40)
    maxSpd      = system.pLoad("maxSpd", 200)
@@ -389,10 +386,9 @@ local function init()
    spdSe       = system.pLoad("spdSe", 0)
    spdSeId     = system.pLoad("spdSeId", 0)
    spdSePa     = system.pLoad("spdSePa", 0)
-   selFt       = system.pLoad("selFt", "true")
    shortAnn    = system.pLoad("shortAnn", "false")
-
-   selFt = (selFt == "true") -- can't pSave and pLoad booleans...store as text 
+   unitsIdx    = system.pLoad("unitsIdx", 1)
+   
    shortAnn = (shortAnn == "true") -- convert back to boolean here
 
    -- set default for pitotCal in case no "DFM-model.jsn" file
@@ -415,14 +411,15 @@ local function init()
       system.playNumber(airspeedCal, 0, "%")
    end
    
-
+   DEBUG = (select(2,system.getDeviceType()) == 1)-- true if on emulator
+   
    readSensors()
 
 end
 
 --------------------------------------------------------------------------------
 
-SpdAnnVersion = "1.8"
+SpdAnnVersion = "2.0"
 setLanguage()
 
 collectgarbage()

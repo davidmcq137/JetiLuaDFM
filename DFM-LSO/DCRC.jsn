@@ -1,0 +1,26 @@
+{
+    "name" : "DCRC Walt Good Field",
+    "shortname" : "DCRC",
+    "lat" : 39.147398,
+    "long" : -77.337639,
+    "GPSPylon": [   {
+	"lat": 39.146273,
+	"long": -77.335852,
+	"aimoff": 200
+    }, {
+	"lat": 39.148120,
+	"long": -77.334168,
+	"aimoff": 200
+    }, {
+	"lat": 39.149426,
+	"long": -77.336689,
+	"aimoff": 200
+    } ],
+    "runway" : {
+	"trueDir" : 347.5,
+	"length" :600,
+	"width" : 42
+    }
+}
+
+

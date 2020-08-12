@@ -42,7 +42,9 @@ local binomC = {} -- array of binomial coefficients for n=MAXTABLE-1, indexed by
 local long0, lat0, coslat0
 local rE = 6731000  -- 6371*1000 radius of earth in m
 local rad = 180/math.pi
-
+local relBearing
+local nextPylon=0
+local arcFile
 
 local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
 	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"}
@@ -795,7 +797,6 @@ end
 
 local lastsws
 local lastdetS1 = -1
-local nextPylon=0
 local lastMin=0
 local inZoneLast = {}
 
@@ -905,7 +906,7 @@ local function drawTriRace(windowWidth, windowHeight)
    --lcd.drawText(265, 45, string.format("Dist %.0f", dist), FONT_MINI)
    --lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
    --lcd.drawText(265, 65, string.format("TCrs %.1f", vd), FONT_MINI)
-   --lcd.drawText(265, 75, string.format("RelB %.1f", relb), FONT_MINI)
+   --lcd.drawText(265, 75, string.format("RelB %.1f", relBearing), FONT_MINI)
    --if speed ~= 0 then
    --   lcd.drawText(265, 85, string.format("Time %.1f", dist / speed), FONT_MINI)
    --end
@@ -927,7 +928,11 @@ local function calcTriRace()
    
    if #pylon < 1 and Field.name then
       pylon[1] = {x=Field.triangle,y=0,aimoff=ao}
-      pylon[2] = {x=0,y=Field.triangle,aimoff=ao}
+      if Field.extend then
+	 pylon[2] = {x=0,y=Field.extend + Field.triangle,aimoff=ao}
+      else
+	 pylon[2] = {x=0,y=Field.triangle,aimoff=ao}
+      end
       pylon[3] = {x=-Field.triangle,y=0,aimoff=ao}
    end
    
@@ -1227,11 +1232,11 @@ local function calcTriRace()
    local vd
    _, vd = fslope(xt, yt)
    vd = vd * 180 / math.pi
-   local relb = (heading - vd)
-   if relb < -360 then relb = relb + 360 end
-   if relb > 360 then relb = relb - 360 end
-   if relb < -180 then relb = 360 + relb end
-   if relb >  180 then relb = relb - 360 end
+   relBearing = (heading - vd)
+   if relBearing < -360 then relBearing = relBearing + 360 end
+   if relBearing > 360 then relBearing = relBearing - 360 end
+   if relBearing < -180 then relBearing = 360 + relBearing end
+   if relBearing >  180 then relBearing = relBearing - 360 end
 
    local swa
    
@@ -1258,21 +1263,21 @@ local function calcTriRace()
 	 sChar = preText:sub(preTextSeq,preTextSeq)
       end
       if (sChar == "C" or sChar == "c") and racing then
-	 if relb < -6 then
+	 if relBearing < -6 then
 	    if sChar == "C" then
 	       playFile(appInfo.Dir.."Audio/turn_right.wav", AUDIO_QUEUE)
-	       playNumber(-relb, 0)
+	       playNumber(-relBearing, 0)
 	    else
 	       playFile(appInfo.Dir.."Audio/right.wav", AUDIO_QUEUE)
-	       playNumber(-relb, 0)
+	       playNumber(-relBearing, 0)
 	    end
-	 elseif relb > 6 then
+	 elseif relBearing > 6 then
 	    if sChar == "C" then
 	       playFile(appInfo.Dir.."Audio/turn_left.wav", AUDIO_QUEUE)
-	       playNumber(relb, 0)
+	       playNumber(relBearing, 0)
 	    else
 	       playFile(appInfo.Dir.."Audio/left.wav", AUDIO_QUEUE)
-	       playNumber(relb, 0)
+	       playNumber(relBearing, 0)
 	    end
 	 else
 	    system.playBeep(0, 1200, 200)		  
@@ -1474,6 +1479,142 @@ local function graphScaleRst(i)
    path.ymax = map.Ymax
 end
 
+
+--------------------------
+
+
+
+
+-- Draw heading indicator
+
+local parmHeading = {
+  {0, 2, "N"}, {30, 5}, {60, 5},
+  {90, 2, "E"}, {120, 5}, {150, 5},
+  {180, 2, "S"}, {210, 5}, {240, 5},
+  {270, 2, "W"}, {300, 5}, {330, 5}
+}
+
+local wrkHeading = 0
+local w
+local ii=0
+local colHeading = 160
+local rowHeading = 30
+
+local function drawHeading()
+
+   local dispHeading
+   
+   ii = ii + 1
+
+   lcd.drawFilledRectangle(colHeading-70, rowHeading, 140, 2)
+   lcd.drawFilledRectangle(colHeading+65, rowHeading-20, 6,22)
+   lcd.drawFilledRectangle(colHeading-65-6, rowHeading-20, 6,22)
+
+   --dispHeading = (heading + variables.rotationAngle) % 360
+   dispHeading = (heading) % 360
+
+   for index, point in pairs(parmHeading) do
+      wrkHeading = point[1] - dispHeading
+      if wrkHeading > 180 then wrkHeading = wrkHeading - 360 end
+      if wrkHeading < -180 then wrkHeading = wrkHeading + 360 end
+      deltaX = math.floor(wrkHeading / 1.6 + 0.5) - 1 -- was 2.2
+      
+      if deltaX >= -64 and deltaX <= 62 then -- was 31
+	 if point[3] then
+	    lcd.drawText(colHeading + deltaX - 4, rowHeading - 16, point[3], FONT_MINI)
+	 end
+	 if point[2] > 0 then
+	    lcd.drawLine(colHeading + deltaX, rowHeading - point[2],
+			 colHeading + deltaX, rowHeading)
+	 end
+      end
+   end 
+
+   text = string.format(" %03d",dispHeading)
+   w = lcd.getTextWidth(FONT_NORMAL,text) 
+   lcd.drawFilledRectangle(colHeading - w/2, rowHeading-30, w, lcd.getTextHeight(FONT_MINI))
+   lcd.setColor(255,255,255)
+   lcd.drawText(colHeading - w/2,rowHeading-30,text,  FONT_MINI)
+   
+   lcd.resetClipping()
+end
+
+
+
+
+
+
+
+--------------------------
+
+local function drawTextCenter(font, txt, ox, oy)
+    lcd.drawText(ox - lcd.getTextWidth(font, txt) / 2, oy, txt, font)
+end
+
+local function drawGauge(label, min, mid, max, temp, unit, ox, oy)
+   
+   local color={}
+   local theta
+   
+   if temp <= mid then
+      color.r=255*(temp-min)/(mid-min)
+      color.g=255
+      color.b=0
+   else
+      color.r=255
+      color.g=255*(1-(temp-mid)/(max-mid))
+      color.b=0
+   end
+   
+   drawTextCenter(FONT_MINI, label, ox+25, oy+38)
+   lcd.setColor(0,0,255)
+   drawTextCenter(FONT_BOLD, string.format("%d", temp), ox+25, oy+16)
+   lcd.setColor(120,120,120)
+   if min ~= 0 then
+      drawTextCenter(FONT_MINI,
+		     string.format("%d", min) .. " - " .. string.format("%d", max) .. unit,
+		     ox + 25, oy+52)
+   else
+      drawTextCenter(FONT_MINI,
+		     string.format("%d", max) .. unit,
+		     ox + 25, oy+52)
+   end
+   
+   lcd.setColor(0,0,0)
+   
+   temp = math.min(max, math.max(temp, min))
+   theta = math.pi - math.rad(135 - 2 * 135 * (temp - min) / (max - min) )
+   
+   if arcFile ~= nil then
+      lcd.drawImage(ox, oy, arcFile)
+      drawShape(ox+25, oy+26, shapes.needle_poly_small, theta, color)
+   end
+end
+
+
+--------------------------
+
+local function dirPrint(windowWidth, windowHeight)
+   --lcd.drawLine(160,160,160, 0)
+   lcd.setColor(160,160,160)
+   lcd.drawFilledRectangle(158, 0, 4, 160)
+   lcd.setColor(255,0,0)
+   drawShape(160,100, shapes.bigArrow, math.rad(180 - (relBearing or 0)) )
+   --lcd.drawText(265, 35, string.format("NxtP %d", m3(nextPylon)), FONT_MINI)
+   --lcd.drawText(265, 45, string.format("Dist %.0f", dist), FONT_MINI)
+   --lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
+   --lcd.drawText(265, 65, string.format("TCrs %.1f", vd), FONT_MINI)
+   --lcd.drawText(265, 75, string.format("RelB %.1f", relBearing or 0), FONT_MINI)
+   --if speed ~= 0 then
+     -- lcd.drawText(265, 85, string.format("Time %.1f", dist / speed), FONT_MINI)
+   --end\
+   lcd.setColor(0,0,255)
+   drawHeading()
+   setColorMain()
+   drawGauge("bar", 0, 50, 100, altitude, "m", 250, 10)
+   drawGauge("foo", 0, 50, 100, 3.6 * speed, "km/hr", 250,90)
+end
+
 local noFlyLast = false
 local swzTime = 0
 
@@ -1585,7 +1726,9 @@ local function mapPrint(windowWidth, windowHeight)
       local noFly, noFlyP, noFlyC
 
       -- defensive moves for squashing the indexing nil variable that Harry saw
-
+      -- had to do with getting here (points in xtable) but no field selected
+      -- checks in Field being nil should take care of that
+      
       if i == #xtable then
 
 	 if (not Field) or (not Field.NoFly) or Field.NoFly < 3 then
@@ -2264,9 +2407,13 @@ local function init()
    
    system.registerForm(1, MENU_APPS, "GPS Triangle Racing", initForm, nil, nil)
    system.registerTelemetry(1, appInfo.Name, 4, mapPrint)
+   system.registerTelemetry(2, appInfo.Name, 4, dirPrint)   
+   
    
    emFlag = (select(2,system.getDeviceType()) == 1)
    --print("emFlag", emFlag)
+
+   arcFile = lcd.loadImage(appInfo.Dir .. "JSON/c-000.png")
 
    playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
    --system.playBeep(2, 600, 300)

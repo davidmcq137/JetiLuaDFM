@@ -1,0 +1,125 @@
+{
+    "fields_defaults": {
+	"View":"Standard",
+	"NoFlyZone":"Inside",
+	"images": [1500, 2000, 3000, 4000, 5000, 8000],
+	"runway": {
+	    "x_offset": 0,
+	    "y_offset": 0
+	}
+    },"fields" : [ {
+	"name" : "DCRC Walt Good Field",
+	"shortname" : "DCRC",
+	"lat" : 39.147398,
+	"long" : -77.337639,
+	"View":"Centered",
+	"NoFlyCircle": [ {
+	    "noFlyZone":"Outside",
+	    "lat": 39.147398,
+	    "long": -77.337639,
+	    "radius":1000
+	}, {
+	    "lat": 39.145075,
+	    "long": -77.336785,
+	    "radius": 500
+	} ],
+	"runway" : {
+	    "trueDir" : 347.5,
+	    "length" :600,
+	    "width" : 40
+	}
+    },{
+	"name" : "NSA Westonzoyland",
+	"shortname" : "NSAW",
+	"lat" : 51.104800,
+	"long" : -2.892431,
+	"View":"Standard",
+	"runway" : {
+	    "trueDir" : 274,
+	    "length" : 2000,
+	    "width" : 100,
+	    "x_offset": -1200
+	},
+	"noFlyZone": "Outside",
+	"NoFly" : [ {
+	    "lat" : 51.105087,
+	    "long" : -2.902035
+	}, {
+	    "lat" : 51.106971,
+	    "long" : -2.901756
+	}, {
+	    "lat": 51.106876,
+	    "long": -2.899052
+	}, {
+	    "lat": 51.119471,
+	    "long": -2.862510
+	}, {
+	    "lat": 51.099075,
+	    "long": -2.859420
+	}, {
+	    "lat": 51.104613,
+	    "long": -2.892830
+	} ]
+    }, {
+	"name" : "Black Dirt Squadron",
+	"shortname" : "BDS",
+	"lat" : 41.339733,
+	"long" : -74.431618,
+	"runway" : {
+	    "trueDir" : 214,
+	    "length" : 735,
+	    "width" : 60
+	}
+    }, {
+	"name" : "Floyd Bennett Field",
+	"shortname" : "FBF",
+	"lat" : 40.602454,
+	"long" : -73.889873,
+	"runway" : {
+	    "trueDir" : 2.46,
+	    "length" : 854,
+	    "width" : 60
+	}
+    }, {
+ 	"name" : "Abingdon",
+	"shortname" : "ABI",
+	"lat" : 51.690696,
+	"long" : -1.316325,
+	"runway" : {
+	    "trueDir" : 255,
+	    "length" : 3000,
+	    "width" : 145
+	},
+	"NoFlyCircle": [ {
+	    "lat": 51.692984,
+	    "long": -1.325343,
+	    "radius":1000
+	} ],
+	"noFlyZone": "Inside",
+	"NoFly" : [ {
+	    "lat" : 51.694879,
+	    "long" : -1.317719
+	}, {
+	    "lat" : 51.699601,
+	    "long" : -1.317505
+	}, {
+	    "lat": 51.700997,
+	    "long": -1.302892
+	}, {
+	    "lat": 51.696848,
+	    "long": -1.297657
+	} ]
+    },{
+	"name" : "Frankford Highland",
+	"shortname" : "6B4",
+	"lat" : 43.016095,
+	"long" : -75.169516,
+	"runway" : {
+	    "trueDir" : 303,
+	    "length" : 2732,
+	    "width" : 60
+	}
+    } ]
+}
+
+

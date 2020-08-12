@@ -1,0 +1,75 @@
+Instructions for DFM-LSO
+
+First unzip the file DFM-LSO.zip. Copy everything to the /Apps
+directory of your TX and the Jeti emulator (you can find the
+emulator's /Apps directory under the File menu of the emulator). You
+should have SensorE.lua, SensorE.jsn and DFM-LSO.lua and the DFM-LSO
+directory added to the /Apps directory. Note that you do not need to
+copy SensorE.lua or SensorE.jsn to the TX itself (it won't hurt
+anything if you do...) but they are only for use on the emulator.
+
+It is strongly recommended to start getting familiar with the app and
+is images using the DS-24 transmitter emulator in Jeti studio.
+
+Inside the DFM-LSO directory are all the files the program needs to
+run, e.g. the list of fields (Fields.jsn .. please copy
+FieldsExample.jsn to Fields.jsn to make your own copy to customize
+later). I do it this way so that if you get an update in the future
+you won't overwrite your own Fields.jsn
+
+Once they are generated (see below) this directory will also include
+the images for the various fields from Google maps at several
+resolutions (*.png) and some files for the emulator to instruct it how
+to "pretend" to be a Jeti MGPS at a certain lat/long
+(sensorEmulator.jsn and sensorEmulatorGPS.jsn).
+
+You will also find other misc stuff in the directory such as the
+Python program getrunway.py that gets the map images and creates the
+png files (it requires a key - you need to get your own from
+Google). Look here to get started:
+https://developers.google.com/maps/documentation/maps-static/overview
+Also included is a getrunway.exe for windows systems that was created
+with the python package pyinstaller.
+
+There are also .wav files in the DFM-LSO directory for each of the
+announcements the program can make. You can re-record them if you wish
+but the filename must be the same. I did them with Tero's TTS service
+on his website (rc-thoughts.com).
+
+Before you run the program you need to generate the images using the
+getrunway program .. either the python or the exe version. It needs a
+file to be created .. getrunway.conf .. inside that file put your
+google api map key as the first line .. no quotes .. just the text of
+the key on line 1 .. then save it. getrunway will read Fields.jsn and
+getrunway.conf and generate all the images at the specified
+resolutions.
+
+Once all the files are in place, start the emulator program (launch it
+as a user app in the emulator - SensorE.lua) then launch
+DFM-LSO.lua. You should be up and running now.
+
+On the TX, just start DFM-LSO.lua directly, the sensor emulator is not
+used on the TX. It selects the field automatically by looking up its
+gps location in the Fields.jsn file on the TX.
+
+Once you have it going on the emulator with the supplied Fields.jsn
+(copied from FieldsExample.jsn), you can edit Fields.jsn for your own
+fields. I think it is self-explanatory except for one thing. The
+parameter trueDir .. this is the true (not magnetic) direction of the
+runway at a flying field. trueDir of 0 is a north/south runway with
+the pilot standing on the west side of the runway. So for example an
+east-west runway with the pilot standing on the south side would be a
+trueDir of 270 degrees. With the pilot on the north side this would be
+trueDir of 90 degrees. You can use the measure tool on google maps on
+a browser .. right click for the measure function for runway width and
+length .. and you can either eyeball the rotation angle, create the
+images, look at one of them to see if you got the alignment right
+.. you'll get the idea quickly.
+
+Let me know if any issues.
+
+Dave
+
+
+
+
