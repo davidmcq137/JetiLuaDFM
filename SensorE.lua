@@ -724,7 +724,11 @@ local function init()
    if not geo then
       print("Fields.jsn not decoded")
    else
-      print("Fields.jsn decoded")
+      print("Fields.jsn decoded - creating DCRC")
+      geo.fields={}
+      geo.fields[1] =  {lat=39.147398, long=-77.337639,runway={}}
+      geo.fields[1].runway.trueDir=347.5
+      --print ("@", geo.fields[1].lat, geo.fields[1].long, geo.fields[1].runway.trueDir)
    end
 
    system.registerTelemetry(1, appName.." Sensors", 4, telePrint)

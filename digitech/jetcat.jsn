@@ -1,268 +1,313 @@
-     {
-
-	"brand": "JetCat",
-	"message": {
-		"0": {
-			"text": "Off",
-			"speech": "off.wav",
-			"de": "off-DE.wav"
-		},
-		"1": {
-			"text": "StandBy",
-			"speech": "standby.wav",
-			"de": "standby-DE.wav"
-		},
-		"2": {
-			"text": "Ignite",
-			"speech": "ignite.wav",
-			"de": "ignite-DE.wav"
-		},
-		"3": {
-			"text": "Acceleration",
-			"speech": "accelerate.wav",
-			"de": "accelerate-DE.wav"
-		},
-		"4": {
-			"text": "Stabilization",
-			"speech": "stabilize.wav",
-			"de": "stabilize-DE.wav"
-		},
-		"5": {
-			"text": "Learn Hi",
-			"speech": "learnhigh.wav",
-			"de": "learnhigh-DE.wav"
-		},
-		"6": {
-			"text": "Learn Lo",
-			"speech": "LearnLo.wav",
-			"de": "LearnLo-DE.wav"
-		},
-		"8": {
-			"text": "Slow Down",
-			"speech": "slowdown.wav",
-			"de": "slowdown-DE.wav"
-		},
-		"10": {
-			"text": "Auto Off",
-			"speech": "auto-off.wav",
-			"de": "auto-off-DE.wav"
-		},
-		"11": {
-			"text": "Run",
-			"speech": "run.wav",
-			"de": "run-DE.wav"
-		},
-		"12": {
-			"text": "Accel Delay",
-			"speech": "Accelrdly.wav",
-			"de": "Accelrdly-DE.wav"
-		},
-		"13": {
-			"text": "Speed Reg",
-			"speech": "speedctrl.wav",
-			"de": "speedctrl-DE.wav"
-		},
-		"14": {
-			"text": "TS-Reg",
-			"speech": "speedctrl.wav",
-			"de": "speedctrl-DE.wav"
-		},
-		"15": {
-			"text": "Pre Heat 1",
-			"speech": "preheat1.wav",
-			"de": "preheat1-DE.wav"
-		},
-		"16": {
-			"text": "Pre Heat 2",
-			"speech": "preheat2.wav",
-			"de": "preheat2-DE.wav"
-		},
-		"17": {
-			"text": "MainFStr",
-			"speech": "mainfstrt.wav",
-			"de": "mainfstrt-DE.wav"
-		},
-		"19": {
-			"text": "Kero Full",
-			"speech": "keros.full.wav",
-			"de": "keros.full-DE.wav"
-		},
-		"33": {
-			"text": "RC Off",
-			"speech": "rc-off.wav",
-			"de": "rc-off-DE.wav"
-		},
-		"34": {
-			"text": "Overtemperature",
-			"speech": "overtemp.wav",
-			"de": "overtemp-DE.wav"
-		},
-		"35": {
-			"text": "Ignition timeout",
-			"speech": "igntimout.wav",
-			"de": "igntimout-DE.wav"
-		},
-		"36": {
-			"text": "Accel timeout",
-			"speech": "acctimout.wav",
-			"de": "acctimout-DE.wav"
-		},
-		"37": {
-			"text": "Accel too slow",
-			"speech": "acc.slow.wav",
-			"de": "acc-slow-DE.wav"
-		},
-		"38": {
-			"text": "Over RPM",
-			"speech": "over-rpm.wav",
-			"de": "over-rpm-DE.wav"
-		},
-		"39": {
-			"text": "RPM too low",
-			"speech": "rpm_to_low.wav",
-			"de": "rpm_to_low-DE.wav"
-		},
-		"40": {
-			"text": "Battery low",
-			"speech": "battrylow.wav",
-			"de": "battrylow-DE.wav"
-		},
-		"41": {
-			"text": "Auto-Off",
-			"speech": "auto-off.wav",
-			"de": "auto-off-DE.wav"
-		},
-		"42": {
-			"text": "Temp too low",
-			"speech": "templow.wav",
-			"de": "templow-DE.wav"
-		},
-		"43": {
-			"text": "Temp too high",
-			"speech": "temphigh.wav",
-			"de": "temphigh-DE.wav"
-
-		},
-		"44": {
-			"text": "Glow bad",
-			"speech": "kerofail.wav",
-			"de": "kerofail-DE.wav"
-		},
-		"45": {
-			"text": "Watchdog",
-			"speech": "watchdog.wav",
-			"de": "watchdog-DE.wav"
-		},
-		"46": {
-			"text": "Failsafe",
-			"speech": "failsafe_detected.wav",
-			"de": "failsafe_detected-DE.wav"
-		},
-		"47": {
-			"text": "GSU off",
-			"speech": "gsu_offline.wav",
-			"de": "gsu_offline-DE.wav"
-		},
-		"48": {
-			"text": "Power failure",
-			"speech": "powerfail.wav",
-			"de": "powerfail.wav-DE.wav"
-		},
-		"49": {
-			"text": "EGT sensor fail",
-			"speech": "egt_sensor_failed.wav",
-			"de": "egt_sensor_failed-DE.wav"
-		},
-		"50": {
-			"text": "Fuel failure",
-			"speech": "fuelfail.wav",
-			"de": "fuelfail-DE.wav"
-
-		},
-		"51": {
-			"text": "Prop fail",
-			"speech": "propfail.wav",
-			"de": "propfail.wav-DE.wav"
-
-		},
-		"52": {
-			"text": "2nd engine fail",
-			"speech": "secfail.wav",
-			"de": "secfail.wav-DE.wav"
-
-		},
-		"53": {
-			"text": "2nd engine diff",
-			"speech": "secengdiff.wav",
-			"de": "secengdiff-DE.wav"
-		},
-		"54": {
-			"text": "2nd engine comm",
-			"speech": "seccom.wav",
-			"de": "seccom-DE.wav"
-		},
-		"55": {
-			"text": "No oil",
-			"speech": "no-oil.wav",
-			"de": "no-oil-DE.wav"
-		},
-		"56": {
-			"text": "Overcurrent",
-			"speech": "overcurr.wav",
-			"de": "overcurr-DE.wav"
-		},
-		"57": {
-			"text": "No pump",
-			"speech": "no pump!.wav",
-			"de": "no pump!-DE.wav"
-		},
-		"58": {
-			"text": "Wrong pump",
-			"speech": "wrongpump.wav",
-			"de": "wrongpump-DE.wav"
-
-		},
-		"59": {
-			"text": "Pump error",
-			"speech": "pumperr.wav",
-			"de": "pumperr-DE.wav"
-		},
-		"60": {
-			"text": "No fuel",
-			"speech": "warnofuel.wav",
-			"de": "warnofuel-DE.wav"
-		},
-		"61": {
-			"text": "Low RPM",
-			"speech": "low-rpm.wav",
-			"de": "low-rpm-DE.wav"
-		},
-		"62": {
-			"text": "Low RPM",
-			"speech": "low-rpm.wav",
-			"de": "low-rpm-DE.wav"
-		},
-		"63": {
-			"text": "Clutch fail",
-			"speech": "clutchfail.wav",
-			"de": "clutchfail-DE.wav"
-		},
-		"64": {
-			"text": "ECU reboot",
-			"speech": "ecu reboot.wav",
-			"de": "ecu reboot-DE.wav"
-		},
-		"65": {
-			"text": "Failure",
-			"speech": "failure.wav",
-			"de": "failure-DE.wav"
-		},
-		"255": {
-			"text": "ECU Offline",
-			"speech": "ecuoffline.wav",
-			"de": "ecuoffline-DE.wav"
-		}
-	}
-
-
+{
+  "message": {
+    "0": {
+      "active": true,
+      "speech": "off.wav",
+      "de": "off-DE.wav",
+      "text": "Off"
+    },
+    "1": {
+      "active": true,
+      "speech": "standby.wav",
+      "de": "standby-DE.wav",
+      "text": "StandBy"
+    },
+    "2": {
+      "active": true,
+      "speech": "ignite.wav",
+      "de": "ignite-DE.wav",
+      "text": "Ignite"
+    },
+    "3": {
+      "active": true,
+      "speech": "accelerate.wav",
+      "de": "accelerate-DE.wav",
+      "text": "Acceleration"
+    },
+    "4": {
+      "active": true,
+      "speech": "stabilize.wav",
+      "de": "stabilize-DE.wav",
+      "text": "Stabilization"
+    },
+    "5": {
+      "active": true,
+      "speech": "learnhigh.wav",
+      "de": "learnhigh-DE.wav",
+      "text": "Learn Hi"
+    },
+    "6": {
+      "active": true,
+      "speech": "LearnLo.wav",
+      "de": "LearnLo-DE.wav",
+      "text": "Learn Lo"
+    },
+    "8": {
+      "active": true,
+      "speech": "slowdown.wav",
+      "de": "slowdown-DE.wav",
+      "text": "Slow Down"
+    },
+    "10": {
+      "active": true,
+      "speech": "auto-off.wav",
+      "de": "auto-off-DE.wav",
+      "text": "Auto Off"
+    },
+    "11": {
+      "active": true,
+      "speech": "run.wav",
+      "de": "run-DE.wav",
+      "text": "Run"
+    },
+    "12": {
+      "active": true,
+      "speech": "Accelrdly.wav",
+      "de": "Accelrdly-DE.wav",
+      "text": "Accel Delay"
+    },
+    "13": {
+      "active": true,
+      "speech": "speedctrl.wav",
+      "de": "speedctrl-DE.wav",
+      "text": "Speed Reg"
+    },
+    "14": {
+      "active": true,
+      "speech": "speedctrl.wav",
+      "de": "speedctrl-DE.wav",
+      "text": "TS-Reg"
+    },
+    "15": {
+      "active": true,
+      "speech": "preheat1.wav",
+      "de": "preheat1-DE.wav",
+      "text": "Pre Heat 1"
+    },
+    "16": {
+      "active": true,
+      "speech": "preheat2.wav",
+      "de": "preheat2-DE.wav",
+      "text": "Pre Heat 2"
+    },
+    "17": {
+      "active": true,
+      "speech": "mainfstrt.wav",
+      "de": "mainfstrt-DE.wav",
+      "text": "MainFStr"
+    },
+    "19": {
+      "active": true,
+      "speech": "keros.full.wav",
+      "de": "keros.full-DE.wav",
+      "text": "Kero Full"
+    },
+    "33": {
+      "active": true,
+      "speech": "rc-off.wav",
+      "de": "rc-off-DE.wav",
+      "text": "RC Off"
+    },
+    "34": {
+      "active": true,
+      "speech": "overtemp.wav",
+      "de": "overtemp-DE.wav",
+      "text": "Overtemperature"
+    },
+    "35": {
+      "active": true,
+      "speech": "igntimout.wav",
+      "de": "igntimout-DE.wav",
+      "text": "Ignition timeout"
+    },
+    "36": {
+      "active": true,
+      "speech": "acctimout.wav",
+      "de": "acctimout-DE.wav",
+      "text": "Accel timeout"
+    },
+    "37": {
+      "active": true,
+      "speech": "acc.slow.wav",
+      "de": "acc-slow-DE.wav",
+      "text": "Accel too slow"
+    },
+    "38": {
+      "active": true,
+      "speech": "over-rpm.wav",
+      "de": "over-rpm-DE.wav",
+      "text": "Over RPM"
+    },
+    "39": {
+      "active": true,
+      "speech": "rpm_to_low.wav",
+      "de": "rpm_to_low-DE.wav",
+      "text": "RPM too low"
+    },
+    "40": {
+	"active": true,
+	"speech": "battrylow.wav",
+	"de": "battrylow-DE.wav",
+	"text": "Battery low",
+	"rep":3,
+	"rep_int":10
+    },
+    "41": {
+      "active": true,
+      "speech": "auto-off.wav",
+      "de": "auto-off-DE.wav",
+      "text": "Auto-Off"
+    },
+    "42": {
+      "active": true,
+      "speech": "templow.wav",
+      "de": "templow-DE.wav",
+      "text": "Temp too low"
+    },
+    "43": {
+      "active": true,
+      "speech": "temphigh.wav",
+      "de": "temphigh-DE.wav",
+      "text": "Temp too high"
+    },
+    "44": {
+      "active": true,
+      "speech": "kerofail.wav",
+      "de": "kerofail-DE.wav",
+      "text": "Glow bad"
+    },
+    "45": {
+      "active": true,
+      "speech": "watchdog.wav",
+      "de": "watchdog-DE.wav",
+      "text": "Watchdog"
+    },
+    "46": {
+      "active": true,
+      "speech": "failsafe_detected.wav",
+      "de": "failsafe_detected-DE.wav",
+      "text": "Failsafe"
+    },
+    "47": {
+      "active": true,
+      "speech": "gsu_offline.wav",
+      "de": "gsu_offline-DE.wav",
+      "text": "GSU off"
+    },
+    "48": {
+      "active": true,
+      "speech": "powerfail.wav",
+      "de": "powerfail.wav-DE.wav",
+      "text": "Power failure"
+    },
+    "49": {
+      "active": true,
+      "speech": "egt_sensor_failed.wav",
+      "de": "egt_sensor_failed-DE.wav",
+      "text": "EGT sensor fail"
+    },
+    "50": {
+      "active": true,
+      "speech": "fuelfail.wav",
+      "de": "fuelfail-DE.wav",
+      "text": "Fuel failure"
+    },
+    "51": {
+      "active": true,
+      "speech": "propfail.wav",
+      "de": "propfail.wav-DE.wav",
+      "text": "Prop fail"
+    },
+    "52": {
+      "active": true,
+      "speech": "secfail.wav",
+      "de": "secfail.wav-DE.wav",
+      "text": "2nd engine fail"
+    },
+    "53": {
+      "active": true,
+      "speech": "secengdiff.wav",
+      "de": "secengdiff-DE.wav",
+      "text": "2nd engine diff"
+    },
+    "54": {
+      "active": true,
+      "speech": "seccom.wav",
+      "de": "seccom-DE.wav",
+      "text": "2nd engine comm"
+    },
+    "55": {
+      "active": true,
+      "speech": "no-oil.wav",
+      "de": "no-oil-DE.wav",
+      "text": "No oil"
+    },
+    "56": {
+      "active": true,
+      "speech": "overcurr.wav",
+      "de": "overcurr-DE.wav",
+      "text": "Overcurrent"
+    },
+    "57": {
+      "active": true,
+      "speech": "no pump!.wav",
+      "de": "no pump!-DE.wav",
+      "text": "No pump"
+    },
+    "58": {
+      "active": true,
+      "speech": "wrongpump.wav",
+      "de": "wrongpump-DE.wav",
+      "text": "Wrong pump"
+    },
+    "59": {
+      "active": true,
+      "speech": "pumperr.wav",
+      "de": "pumperr-DE.wav",
+      "text": "Pump error"
+    },
+    "60": {
+      "active": true,
+      "speech": "warnofuel.wav",
+      "de": "warnofuel-DE.wav",
+      "text": "No fuel"
+    },
+    "61": {
+      "active": true,
+      "speech": "low-rpm.wav",
+      "de": "low-rpm-DE.wav",
+      "text": "Low RPM"
+    },
+    "62": {
+      "active": true,
+      "speech": "low-rpm.wav",
+      "de": "low-rpm-DE.wav",
+      "text": "Low RPM"
+    },
+    "63": {
+      "active": true,
+      "speech": "clutchfail.wav",
+      "de": "clutchfail-DE.wav",
+      "text": "Clutch fail"
+    },
+    "64": {
+      "active": true,
+      "speech": "ecu reboot.wav",
+      "de": "ecu reboot-DE.wav",
+      "text": "ECU reboot"
+    },
+    "65": {
+      "active": true,
+      "speech": "failure.wav",
+      "de": "failure-DE.wav",
+      "text": "Failure"
+    },
+    "255": {
+      "active": true,
+      "speech": "ecuoffline.wav",
+      "de": "ecuoffline-DE.wav",
+      "text": "ECU Offline"
+    }
+  },
+  "brand": "JetCat"
 }

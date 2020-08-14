@@ -15,7 +15,8 @@ local wbBattParam = 5
 local wbPumpParam = 6
 local wbStatusParam = 9
 local modelProps={}
-
+local dev, emflag
+local ann={}
 local ren = lcd.renderer()
 
 local wbSensorID = nil
@@ -139,6 +140,7 @@ local function getWBSensorID()
                 wbBattParam = tonumber(catalog.device[sensor.label].Batt)
                 wbPumpParam = tonumber(catalog.device[sensor.label].Pump)
                 wbStatusParam = tonumber(catalog.device[sensor.label].Status)
+		print("wbStatusParam: ", wbStatusParam)
                 collectgarbage()
                 return tmpSensorID
             end
@@ -508,12 +510,16 @@ end
 --------------------------------------------------------------------
 -- Read messages file
 local function readConfig(wECUType)
-    print(string.format("ECU Type %s", wECUType))
-    local file = io.readall(string.format("Apps/%s/%s", wBrand, catalog.ecu[tostring(wECUType)].file)) -- read the correct config file
-    if (file) then
-        config = json.decode(file)
-    end
-    collectgarbage()
+   print(string.format("ECU Type %s", wECUType))
+   local ss = string.format("Apps/%s/%s", wBrand, catalog.ecu[tostring(wECUType)].file)
+   print("ss:", ss)
+   
+   local file = io.readall(ss) -- read the correct config file
+   if (file) then
+      config = json.decode(file)
+      print("config:", config)
+   end
+   collectgarbage()
 end
 
 ------------------------------------------------------------------------
@@ -529,26 +535,49 @@ local function getStatusText(statusSensorID)
     if (sensor and sensor.valid) then
         value = string.format("%s", math.floor(sensor.value))
         wbECUTypePrev = value >> 8
+	--print("value", value)
+	--print("set wbECUTypePrev", wbECUTypePrev)
         ecuStatus = value & 0xFF
 
         if (ecuStatus ~= wbStatusPrev) then
             print(string.format("ECU Status %d",ecuStatus))
             if (config.message[tostring(ecuStatus)] ~= nil) then
-                lStatus = config.message[tostring(ecuStatus)].text
+	       lStatus = config.message[tostring(ecuStatus)].text
+	       --print("lStatus:", lStatus)
                 if (lStatus == nil) then
                     lStatus = "[unknown]"
                 end
+		--print("active:", config.message[tostring(ecuStatus)].active)
                 if(config.message[tostring(ecuStatus)].active) then
                     lSpeech=config.message[tostring(ecuStatus)][cfgLang]
-                    -- print("Lang:",cfgLang)
-                    -- print("Status audio file (localized):",lSpeech)
+                    --print("Lang:",cfgLang)
+		    --print("lSpeech:", lSpeech)
+                    print("Status audio file (localized):",lSpeech)
                     if(lSpeech==nil) then
                         lSpeech = config.message[tostring(ecuStatus)].speech
-                        -- print("Status audio file (default):",lSpeech)
+                        print("Status audio file (default):",lSpeech)
                     end
                     if (lSpeech ~= nil) then
-                        -- print(string.format("Status  %s", tostring(lSpeech)))
-                        system.playFile(string.format("Apps/%s/audio/%s", wBrand, lSpeech), AUDIO_IMMEDIATE)
+		       print(string.format("Status  %s", tostring(lSpeech)))
+		       local ss = string.format("Apps/%s/audio/%s", wBrand, lSpeech)
+		       --system.playFile(ss, AUDIO_IMMEDIATE)
+		       --if emflag == 1 then print("PlayFile:", ss) end
+
+		       local rep = config.message[tostring(ecuStatus)].rep
+		       local int = config.message[tostring(ecuStatus)].rep_int		       
+		       --print("rep, rep_int:",rep, int)
+		       if not rep then rep = 1 end
+		       if not int then int = 3 end
+		       for i = 1, rep do
+			  print("insert!")
+			  table.insert(ann,
+				       {time=system.getTimeCounter() + 1000 * int * (i - 1),
+					text=ss})
+		       end
+		       for i = 1, #ann do
+			  print(i, ann[i].time, ann[i].text)
+		       end
+		       
                     end
                 end
             end
@@ -573,9 +602,13 @@ local function getWBECUType(statusSensorID)
 
     if (sensor and sensor.valid) then
         value = sensor.value
+	print("sensor.value:", sensor.value)
         ecuType = value >> 8
+	print("ecuType:", ecuType)
         validECU = (catalog.ecu[tostring(ecuType)] ~= nil)
+	print("validECU:",validECU)
         if (validECU) then
+	   print("readConfig")
             readConfig(ecuType)
         else
             ecuType = nil
@@ -583,7 +616,7 @@ local function getWBECUType(statusSensorID)
     else
         ecuType = nil
     end
-    -- print("returning ECU type: ", ecuType)
+    print("returning ECU type: ", ecuType)
     return ecuType
 end
 ------------------------------------------------------------------------
@@ -841,10 +874,13 @@ local function init(code)
     local idx
     local fg
     local jsonFile
-    local dev, emflag
 
     dev, emflag = system.getDeviceType()
-    if emflag == 1 then DEBUG = true else DEBUG = false end
+    print("dev, emflag", dev, emflag)
+    
+    --    if emflag == 1 then DEBUG = true else DEBUG = false end
+
+    DEBUG = false
     
     readCatalog()
 
@@ -871,7 +907,7 @@ local function init(code)
 
     system.registerForm(1, MENU_APPS, wAppname .. " config", initForm)
     
-    jsonFile = "Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_")
+    jsonFile = "Apps/CTU-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_")
     fg = io.readall(jsonFile)
     modelProps = json.decode(fg)
 
@@ -889,11 +925,23 @@ end
 ------------------------------------------------------------------------
 -- Main Loop function is called in regular intervals
 local function loop()
+
+   local now = system.getTimeCounter()
+
+   if ann[1] and now >=  ann[1].time then
+      print("*", ann[1].time, ann[1].text)
+      table.remove(ann, 1)
+   end
+
+
+   
     if (wbSensorID ~= nil and wbSensorID ~= 0 and wbECUType ~= nil) then
 
         -- check if status parameter is present (avoid crash when rescaning sensor)
-        if(system.getSensorByID(wbSensorID,tonumber(wbStatusParam))~=nil) then
-            if (wbECUType ~= wbECUTypePrev) then
+       if(system.getSensorByID(wbSensorID,tonumber(wbStatusParam))~=nil) then
+	  --print("in first if", wbECUType, wbECUTypePrev)
+	  if (wbECUType ~= wbECUTypePrev) then
+	     print("in second if")
                 wbECUType = getWBECUType(wbSensorID)
             end
 

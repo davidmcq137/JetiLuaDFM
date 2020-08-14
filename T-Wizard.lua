@@ -45,6 +45,8 @@ local rad = 180/math.pi
 local relBearing
 local nextPylon=0
 local arcFile
+local lapAltitude
+local distance
 
 local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
 	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"}
@@ -571,7 +573,7 @@ local function drawShape(col, row, shape, rotation)
    ren:renderPolygon()
 end
 
-local function drawShapePL(col, row, shape, rotation,scale, width, alpha)
+local function drawShapePL(col, row, shape, rotation, scale, width, alpha)
    local sinShape, cosShape
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
@@ -794,6 +796,34 @@ local function perpDist(x0, y0, np)
    if det >= 0 then return pd else return -pd end
 end
 
+local function vertHistogram(x0, y0, val, scale, hgt, wid, vald)
+
+   lcd.setColor(0,0,0)
+   
+   lcd.drawRectangle(x0 - wid/2, y0 - hgt, wid, 2*hgt - 1)
+   lcd.drawLine(x0 - wid/2, y0, x0 + wid/2 - 1, y0)
+   
+   local a = math.min(math.abs(val) / scale, 1)
+
+   if val > 0 then
+      lcd.setColor(0,255,0)
+      lcd.drawFilledRectangle(x0 - wid/2, y0 - hgt * a+1, wid, hgt * a)
+   else
+      lcd.setColor(255,0,0)
+      lcd.drawFilledRectangle(x0 - wid/2, y0, wid, hgt * a)
+   end
+   lcd.setColor(0,0,0)
+
+   if vald then
+      lcd.drawText(x0+wid, y0 -lcd.getTextHeight(FONT_BOLD)/2, string.format("%4.1f m", vald), FONT_BOLD)
+   end
+   
+   lcd.drawText(x0 + wid - 5, y0 - hgt, string.format("+%dm", scale), FONT_MINI)
+   lcd.drawText(x0 + wid - 5, y0 + hgt - lcd.getTextHeight(FONT_MINI), string.format("-%dm", scale), FONT_MINI)   
+   
+		
+   
+end
 
 local lastsws
 local lastdetS1 = -1
@@ -903,12 +933,12 @@ local function drawTriRace(windowWidth, windowHeight)
    lcd.drawText(5, 140, string.format("Map: %d", map.Xrange), FONT_MINI)
 
    --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
-   --lcd.drawText(265, 45, string.format("Dist %.0f", dist), FONT_MINI)
+   --lcd.drawText(265, 45, string.format("Dist %.0f", distance), FONT_MINI)
    --lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
    --lcd.drawText(265, 65, string.format("TCrs %.1f", vd), FONT_MINI)
    --lcd.drawText(265, 75, string.format("RelB %.1f", relBearing), FONT_MINI)
    --if speed ~= 0 then
-   --   lcd.drawText(265, 85, string.format("Time %.1f", dist / speed), FONT_MINI)
+   --   lcd.drawText(265, 85, string.format("Time %.1f", distance / speed), FONT_MINI)
    --end
 
 end
@@ -1107,6 +1137,7 @@ local function calcTriRace()
 	    lapsComplete = lapsComplete + 1
 	    rawScore = rawScore + 200.0
 	    lastLapTime = system.getTimeCounter() - lapStartTime
+	    lapAltitude = altitude
 	    local mult = 1000 * 3.6 * (Field.triangle * 2 * (1 + math.sqrt(2)))
 	    lastLapSpeed = mult / lastLapTime
 	    --print(Field.triangle, lastLapTime, lastLapSpeed)
@@ -1132,6 +1163,7 @@ local function calcTriRace()
 	 else
 	    playFile(appInfo.Dir.."Audio/task_starting.wav", AUDIO_IMMEDIATE)
 	    penaltyPoints = 0
+	    lapAltitude = altitude
 	 end
 	 racing = true
 	 raceFinished = false
@@ -1215,13 +1247,13 @@ local function calcTriRace()
 
    -- compute dist and relative bearing to aim point
    
---   local dist = math.sqrt( (xtable[#xtable] - pylon[region[code]].xt)^2 +
+--   local distance = math.sqrt( (xtable[#xtable] - pylon[region[code]].xt)^2 +
 --	 (ytable[#ytable] - pylon[region[code]].yt)^2 )
 
 --   local xt = {xtable[#xtable], pylon[region[code]].xt}
 --   local yt = {ytable[#ytable], pylon[region[code]].yt}
 
-   local dist = math.sqrt( (xtable[#xtable] - pylon[m3(nextPylon)].xt)^2 +
+   distance = math.sqrt( (xtable[#xtable] - pylon[m3(nextPylon)].xt)^2 +
 	 (ytable[#ytable] - pylon[m3(nextPylon)].yt)^2 )
 
    local xt = {xtable[#xtable], pylon[m3(nextPylon)].xt}
@@ -1285,10 +1317,10 @@ local function calcTriRace()
       elseif sChar == "D" or sChar == "d" and racing then
 	 if sChar == "D" then
 	    playFile(appInfo.Dir.."Audio/distance.wav", AUDIO_QUEUE)
-	    playNumber(dist, 0)
+	    playNumber(distance, 0)
 	 else
 	    playFile(appInfo.Dir.."Audio/dis.wav", AUDIO_QUEUE)
-	    playNumber(dist, 0)
+	    playNumber(distance, 0)
 	 end
       elseif (sChar == "P" or sChar == "p") and racing and not inZone[m3(nextPylon+2)] then
 	 if perpD < 0 then
@@ -1311,7 +1343,7 @@ local function calcTriRace()
       elseif sChar == "T" or sChar == "t" and racing then
 	 if speed ~= 0 then
 	    playFile(appInfo.Dir.."Audio/time.wav", AUDIO_QUEUE)
-	    playNumber(dist/speed, 1)	  
+	    playNumber(distance/speed, 1)	  
 	 end
       elseif sChar == "S" or sChar == "s" then
 	 playFile(appInfo.Dir.."Audio/speed.wav", AUDIO_QUEUE)
@@ -1552,42 +1584,14 @@ local function drawTextCenter(font, txt, ox, oy)
 end
 
 local function drawGauge(label, min, mid, max, temp, unit, ox, oy)
-   
-   local color={}
    local theta
-   
-   if temp <= mid then
-      color.r=255*(temp-min)/(mid-min)
-      color.g=255
-      color.b=0
-   else
-      color.r=255
-      color.g=255*(1-(temp-mid)/(max-mid))
-      color.b=0
-   end
-   
    drawTextCenter(FONT_MINI, label, ox+25, oy+38)
-   lcd.setColor(0,0,255)
    drawTextCenter(FONT_BOLD, string.format("%d", temp), ox+25, oy+16)
-   lcd.setColor(120,120,120)
-   if min ~= 0 then
-      drawTextCenter(FONT_MINI,
-		     string.format("%d", min) .. " - " .. string.format("%d", max) .. unit,
-		     ox + 25, oy+52)
-   else
-      drawTextCenter(FONT_MINI,
-		     string.format("%d", max) .. unit,
-		     ox + 25, oy+52)
-   end
-   
-   lcd.setColor(0,0,0)
-   
-   temp = math.min(max, math.max(temp, min))
+    temp = math.min(max, math.max(temp, min))
    theta = math.pi - math.rad(135 - 2 * 135 * (temp - min) / (max - min) )
-   
-   if arcFile ~= nil then
+    if arcFile ~= nil then
       lcd.drawImage(ox, oy, arcFile)
-      drawShape(ox+25, oy+26, shapes.needle_poly_small, theta, color)
+      drawShape(ox+25, oy+26, shapes.needle_poly_small, theta)
    end
 end
 
@@ -1595,24 +1599,74 @@ end
 --------------------------
 
 local function dirPrint(windowWidth, windowHeight)
+   local xa, ya
+   local xp, yp
+   local theta
+   local dotpng
+   
+   xa = 160
+   ya = 90
    --lcd.drawLine(160,160,160, 0)
    lcd.setColor(160,160,160)
-   lcd.drawFilledRectangle(158, 0, 4, 160)
-   lcd.setColor(255,0,0)
-   drawShape(160,100, shapes.bigArrow, math.rad(180 - (relBearing or 0)) )
+   lcd.drawFilledRectangle(xa-2, ya-50, 4, 100)
+   lcd.drawFilledRectangle(xa-50, ya-2, 100, 4)
+   lcd.drawCircle(xa, ya, 50)
+   lcd.drawCircle(xa, ya, 51)      
+
+   if racing then
+      theta = math.rad(180 - (relBearing or 0))
+   else
+      theta = math.rad(180)
+   end
+   
+   lcd.setColor(255,200,0)
+   drawShape(xa, ya, shapes.bigArrow, theta )
+
+   if racing then
+      
+      if m3(nextPylon) == 1 then lcd.setColor(200,0,0)
+      elseif m3(nextPylon) == 2 then lcd.setColor(0,150,0)
+      elseif m3(nextPylon) == 3 then lcd.setColor(0,0,200)
+      end
+      
+      txt = string.format("Pylon %d: %dm, %ds", m3(nextPylon), distance, distance/speed)
+      lcd.drawText(xa - lcd.getTextWidth(FONT_BOLD, txt)/2, ya+52, txt, FONT_BOLD)
+   end
+      
    --lcd.drawText(265, 35, string.format("NxtP %d", m3(nextPylon)), FONT_MINI)
-   --lcd.drawText(265, 45, string.format("Dist %.0f", dist), FONT_MINI)
+   --lcd.drawText(265, 45, string.format("Dist %.0f", distance), FONT_MINI)
    --lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
    --lcd.drawText(265, 65, string.format("TCrs %.1f", vd), FONT_MINI)
    --lcd.drawText(265, 75, string.format("RelB %.1f", relBearing or 0), FONT_MINI)
    --if speed ~= 0 then
-     -- lcd.drawText(265, 85, string.format("Time %.1f", dist / speed), FONT_MINI)
-   --end\
+     -- lcd.drawText(265, 85, string.format("Time %.1f", distance / speed), FONT_MINI)
+   --end
+
    lcd.setColor(0,0,255)
+   if distance and racing then
+      xp, yp = rotateXY(0, 50 * distance / Field.triangle, theta)
+      if m3(nextPylon) == 1 then dotpng = redDotImage
+      elseif m3(nextPylon) == 2 then dotpng = greenDotImage
+      elseif m3(nextPylon) == 3 then dotpng = blueDotImage
+      end
+      lcd.drawImage((xp+xa-7), (yp+ya-7), dotpng)
+      --lcd.drawCircle(xp+xa, yp+ya,5)
+   else
+      lcd.drawImage(xa-7, ya-7, redDotImage)
+      --lcd.drawCircle(xa, ya,5)
+   end
+   
+      
    drawHeading()
-   setColorMain()
-   drawGauge("bar", 0, 50, 100, altitude, "m", 250, 10)
-   drawGauge("foo", 0, 50, 100, 3.6 * speed, "km/hr", 250,90)
+   lcd.setColor(0,0,0)
+   drawGauge("Alt", 0, 50, 100, altitude, "m", 250, 30)
+   drawGauge("Spd", 0, 50, 100, 3.6 * speed, "km/hr", 250,100)
+
+   if lapAltitude then
+      vertHistogram(25, ya, altitude - lapAltitude, 100, 60, 20, lapAltitude)
+   else
+      vertHistogram(25, ya, 0, 100, 60, 20)
+   end
 end
 
 local noFlyLast = false
@@ -2074,7 +2128,6 @@ local function loop()
       graphInit(currentImage)      -- reset map window too
       
       baroAltZero = altitude      -- reset baro alt zero 
-      -- XXXXXXXXXXXXXXXXXx
 
       print("Reset origin and barometric altitude. New baroAltZero is ", baroAltZero)
    end
@@ -2364,6 +2417,8 @@ local function init()
    blueDotImage = lcd.loadImage(appInfo.Dir.."/JSON/small_blue_circle.png")
    greenDotImage = lcd.loadImage(appInfo.Dir.."/JSON/small_green_circle.png")   
    redDotImage = lcd.loadImage(appInfo.Dir.."/JSON/small_red_circle.png")
+
+   --print(blueDotImage, greenDotImage, redDotImage)
    
    setColorMain()  -- if a map is present it will change color scheme later
    
@@ -2402,26 +2457,19 @@ local function init()
    annText     = system.pLoad("annText", "c-d----")
    preText     = system.pLoad("preText", "s-a----")   
 
-   -- DEBUG
-   --annText = "P"
-   
    system.registerForm(1, MENU_APPS, "GPS Triangle Racing", initForm, nil, nil)
-   system.registerTelemetry(1, appInfo.Name, 4, mapPrint)
-   system.registerTelemetry(2, appInfo.Name, 4, dirPrint)   
+   system.registerTelemetry(1, appInfo.Name.." Racecourse Map", 4, mapPrint)
+   system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
    
    
    emFlag = (select(2,system.getDeviceType()) == 1)
-   --print("emFlag", emFlag)
 
    arcFile = lcd.loadImage(appInfo.Dir .. "JSON/c-000.png")
 
    playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
-   --system.playBeep(2, 600, 300)
    
    readSensors()
 
-   collectgarbage()
 end
 
-collectgarbage()
 return {init=init, loop=loop, author="DFM", version="0.3", name=appInfo.Name}
