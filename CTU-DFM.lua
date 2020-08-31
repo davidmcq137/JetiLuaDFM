@@ -1,9 +1,7 @@
 -- CTU-Dashboard.lua
 
-local wVersion="1.5"
+local wVersion="2.0"
 local wAppname="CTU"
-
-local DEBUG
 
 -- Locals for the application
 
@@ -17,6 +15,7 @@ local wbStatusParam = 9
 local modelProps={}
 local dev, emflag
 local ann={}
+local start
 local ren = lcd.renderer()
 
 local wbSensorID = nil
@@ -75,7 +74,6 @@ local function loadImages()
     local wBrand="digitech"
     imgName = string.format("Apps/%s/images/"..sizeOpt[cfgSize].."/"..
 			       schemeOptions[cfgScheme].."/c-%.3d.png", wBrand, idx * 5)
-    -- print("loading image: ", imgName)
     gauge_c[idx] = lcd.loadImage(imgName)
 
 end
@@ -85,8 +83,7 @@ end
 local function loadLang()
     local content,e
 
-    -- print(string.format("Lang %s", cfgLang))
-    local file = io.readall(string.format("Apps/%s/text/%s.jsn", wBrand, cfgLang)) -- read the correct config file
+    local file = io.readall(string.format("Apps/%s/text/%s.jsn", wBrand, cfgLang)) 
     if (file) then
         textMessage = json.decode(file)
     end
@@ -105,7 +102,7 @@ local function loadLang()
         if(string.sub(name,1,1)==".") then
             
         else
-            local f = io.readall(string.format("Apps/%s/text/%s", wBrand, name)) -- read the correct config file
+            local f = io.readall(string.format("Apps/%s/text/%s", wBrand, name)) 
             if (f) then
                 content = json.decode(f)
             end
@@ -113,7 +110,6 @@ local function loadLang()
                 table.insert(langList,content.lang)
                 table.insert(langCode,content.code)
                 if(cfgLang==content.code) then cfgLangIdx=#langCode end
-                --print("Language "..content.lang.." detected")
             end
         end
     end
@@ -127,12 +123,11 @@ local function getWBSensorID()
 
     for index, sensor in ipairs(system.getSensors()) do
         if (sensor.param == 0) then
-            print("Sensor Name: ", sensor.label)
+            --print("Sensor Name: ", sensor.label)
             hexSensorID = string.format("%x", sensor.id & 0xFFFF)
             hexSensorIndex = string.format("%x", math.floor(sensor.id/2^16))
-            print(string.format("Sensor ID: %s, Index: %s",hexSensorID,hexSensorIndex))
+            --print(string.format("Sensor ID: %s, Index: %s",hexSensorID,hexSensorIndex))
             if (catalog.device[sensor.label] ~= nil) then
-                print(string.format("Brand:%s - Model:%s - Version %s",catalog.device[sensor.label].brand,catalog.device[sensor.label].model,catalog.device[sensor.label].version))
                 tmpSensorID = sensor.id
                 wbRPMParam = tonumber(catalog.device[sensor.label].RPM)
                 wbEGTParam = tonumber(catalog.device[sensor.label].EGT)
@@ -140,8 +135,7 @@ local function getWBSensorID()
                 wbBattParam = tonumber(catalog.device[sensor.label].Batt)
                 wbPumpParam = tonumber(catalog.device[sensor.label].Pump)
                 wbStatusParam = tonumber(catalog.device[sensor.label].Status)
-		print("wbStatusParam: ", wbStatusParam)
-                collectgarbage()
+		--print("wbStatusParam: ", wbStatusParam)
                 return tmpSensorID
             end
         end
@@ -162,6 +156,7 @@ local function fuelAlarm(percentage)
                 if(fuelVoiceEnabled) then
                     local fuelLowFile=string.format("Apps/%s/audio/%s-low_fuel.wav",wBrand, cfgLang)
                     system.playFile(fuelLowFile, AUDIO_IMMEDIATE)
+		    if emflag == 1 then print("Fuel Low Warning") end
                 end
                 if(fuelVibration~=4) then
                     if(fuelVibration==2 or fuelVibration==3) then
@@ -186,27 +181,6 @@ local function DrawFuelGauge(percentage,size)
 
     value = percentage / 20
 
-    if DEBUG then
-       value = 2.5 * (system.getInputs('P4')+1)
-       if system.getInputs('P5') > 0 then
-	  percentage = value * 20
-	  lastValidFuel = value * 20
-	  lastValidFuelTime = system.getTimeCounter()
-	  fuelValid = true
-	  --print("valid")
-       else
-	  fuelValid = false
-	  if system.getTimeCounter() - lastValidFuelTime < zeroFuelDelay then
-	     percentage = lastValidFuel
-	     --print("cached")
-	  else
-	     lastValidFuel = nil
-	     percentage = 0
-	     --print("cache dead --> 0")
-	  end
-       end
-    end
-    
     upValue = math.ceil(value)
     downValue = math.floor(value)
 
@@ -215,10 +189,6 @@ local function DrawFuelGauge(percentage,size)
     else
         value = upValue
     end
-
---    if (percentage < fuelThreshold and system.getTime() % 2 == 0) then
---        value = 0
---    end
 
     if(size==1) then
         ox=75
@@ -235,16 +205,11 @@ local function DrawFuelGauge(percentage,size)
 
 	if percentage < 50 then
 	   textPct = string.format("%d%%", percentage)
-	   lcd.drawText(ox + 50 + 10 - lcd.getTextWidth(FONT_MINI, textPct)/2, oy - 2, textPct, FONT_MINI)
+	   lcd.drawText(ox + 50 + 10 - lcd.getTextWidth(FONT_MINI, textPct)/2,
+			oy - 2, textPct, FONT_MINI)
 	end
 	
 	lcd.drawRectangle(ox + 26, oy-2, 48, 13)
-	--for i = 1, 3, 1 do
-	  --lcd.drawLine(ox + 26 + i * 12, oy - 2, ox + 26 + i * 12, oy + 3)
-	--end
-
-	
-        -- lcd.drawImage(ox + 25, oy + 1, gauge_f[value])
     else
         ox=160
         oy=135
@@ -268,12 +233,11 @@ local function DrawFuelGauge(percentage,size)
 	for i = 1, 3, 1 do
 	   lcd.drawLine(ox + 46 + i * 27, oy - 1, ox + 46 + i * 27, oy + 4)
 	end
-
-        --lcd.drawImage(ox + 49, oy + 1, gauge_f[value])
     end
 end
+
 --------------------------------------------------------------------
---
+
 
 local needle_poly_large = {
    {-4,28},
@@ -345,9 +309,6 @@ local function DrawEgtGauge(iEGT, size)
     local textEGT, ox, oy, jEGT
 
     jEGT = iEGT
-    if DEBUG then
-       jEGT = 400*(system.getInputs('P4')+1)
-    end 
     
     textEGT = string.format("%d", jEGT)
 
@@ -450,25 +411,19 @@ local function DrawVoltages(u_pump, u_ecu, u_rpm, size)
        lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textEcu)) / 2, oy + 53, textEcu, FONT_BOLD)
     end
     
-    if DEBUG then
-       u_rpm = 57000*(system.getInputs('P4')+1)
-       lRPM = u_rpm
-       u_rpmK = u_rpm / 1000.
-    end
-       
-    if u_rpm then u_rpmK = u_rpm / 1000. end
-    if u_rpmK and u_rpmK  > 30 then
-       if modelProps.turbineName ~= "Unknown" then
+    u_thr = 0
+    if u_rpm then u_rpmK = u_rpm / 1000 end
+    if u_rpmK and modelProps.turbineName ~= "Unknown" and modelProps.turbineIdleKRPM ~= 0 then
+       if modelProps.turbineThrustTable and u_rpmK >= modelProps.turbineIdleKRPM then
 	  u_thr = modelProps.turbineThrustTable[4] * u_rpmK^3
 	     + modelProps.turbineThrustTable[3] * u_rpmK^2
 	     + modelProps.turbineThrustTable[2] * u_rpmK
 	     + modelProps.turbineThrustTable[1]
        end
-    else
-       u_thr = 0
     end
+
     if u_thr ~= 0 then
-       textThr = string.format("%.1f%s", u_thr, "#")
+       textThr = string.format("%.1f", u_thr)
        lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textThr)) / 2, oy + 30, textThr, FONT_BOLD)
     else
        lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, '---')) / 2, oy + 30, '---', FONT_BOLD)	  
@@ -510,14 +465,14 @@ end
 --------------------------------------------------------------------
 -- Read messages file
 local function readConfig(wECUType)
-   print(string.format("ECU Type %s", wECUType))
+   --print(string.format("ECU Type %s", wECUType))
    local ss = string.format("Apps/%s/%s", wBrand, catalog.ecu[tostring(wECUType)].file)
-   print("ss:", ss)
+   --print("ss:", ss)
    
-   local file = io.readall(ss) -- read the correct config file
+   local file = io.readall(ss)
    if (file) then
       config = json.decode(file)
-      print("config:", config)
+      --print("config:", config)
    end
    collectgarbage()
 end
@@ -540,7 +495,7 @@ local function getStatusText(statusSensorID)
         ecuStatus = value & 0xFF
 
         if (ecuStatus ~= wbStatusPrev) then
-            print(string.format("ECU Status %d",ecuStatus))
+            --print(string.format("ECU Status %d",ecuStatus))
             if (config.message[tostring(ecuStatus)] ~= nil) then
 	       lStatus = config.message[tostring(ecuStatus)].text
 	       --print("lStatus:", lStatus)
@@ -552,31 +507,44 @@ local function getStatusText(statusSensorID)
                     lSpeech=config.message[tostring(ecuStatus)][cfgLang]
                     --print("Lang:",cfgLang)
 		    --print("lSpeech:", lSpeech)
-                    print("Status audio file (localized):",lSpeech)
+                    --print("Status audio file (localized):",lSpeech)
                     if(lSpeech==nil) then
                         lSpeech = config.message[tostring(ecuStatus)].speech
-                        print("Status audio file (default):",lSpeech)
+                        --print("Status audio file (default):",lSpeech)
                     end
                     if (lSpeech ~= nil) then
-		       print(string.format("Status  %s", tostring(lSpeech)))
+		       --print(string.format("Status  %s", tostring(lSpeech)))
 		       local ss = string.format("Apps/%s/audio/%s", wBrand, lSpeech)
 		       --system.playFile(ss, AUDIO_IMMEDIATE)
 		       --if emflag == 1 then print("PlayFile:", ss) end
 
 		       local rep = config.message[tostring(ecuStatus)].rep
-		       local int = config.message[tostring(ecuStatus)].rep_int		       
+		       local int = config.message[tostring(ecuStatus)].rep_int
+		       local pri = config.message[tostring(ecuStatus)].priority
 		       --print("rep, rep_int:",rep, int)
 		       if not rep then rep = 1 end
 		       if not int then int = 3 end
+		       if not pri then
+			  pri="N" -- normal 
+		       else
+			  pri="I" -- immediate
+		       end
+		       local now = system.getTimeCounter()
+		       local dt
 		       for i = 1, rep do
-			  print("insert!")
-			  table.insert(ann,
-				       {time=system.getTimeCounter() + 1000 * int * (i - 1),
-					text=ss})
+			  for j = 1, #ann + 1 do
+			     dt = 1000 * int * (i-1)
+			     if not ann[j] or (now + dt < ann[j].time) or (pri == "I" and (i==1)) then
+				--print("inserting, pri, i, j, ann[j].time, now+dt", pri, i, j, ann[j], now+dt - start)
+				table.insert(ann, j, {time=now + dt,file=ss, prio=pri})
+				break
+			     end
+			  end
 		       end
 		       for i = 1, #ann do
-			  print(i, ann[i].time, ann[i].text)
+			  --print("@", i, ann[i].time - start, ann[i].file, ann[i].prio)
 		       end
+		       --print(" ")
 		       
                     end
                 end
@@ -602,21 +570,21 @@ local function getWBECUType(statusSensorID)
 
     if (sensor and sensor.valid) then
         value = sensor.value
-	print("sensor.value:", sensor.value)
+	--print("sensor.value:", sensor.value)
         ecuType = value >> 8
-	print("ecuType:", ecuType)
+	--print("ecuType:", ecuType)
         validECU = (catalog.ecu[tostring(ecuType)] ~= nil)
-	print("validECU:",validECU)
+	--print("validECU:",validECU)
         if (validECU) then
-	   print("readConfig")
-            readConfig(ecuType)
+	   --print("readConfig")
+	   readConfig(ecuType)
         else
             ecuType = nil
         end
     else
         ecuType = nil
     end
-    print("returning ECU type: ", ecuType)
+    --print("returning ECU type: ", ecuType)
     return ecuType
 end
 ------------------------------------------------------------------------
@@ -876,11 +844,9 @@ local function init(code)
     local jsonFile
 
     dev, emflag = system.getDeviceType()
-    print("dev, emflag", dev, emflag)
-    
-    --    if emflag == 1 then DEBUG = true else DEBUG = false end
+    --print("dev, emflag", dev, emflag)
 
-    DEBUG = false
+    start = system.getTimeCounter()
     
     readCatalog()
 
@@ -888,7 +854,6 @@ local function init(code)
     -- print("wBrand: ", wBrand)
     
     wbSensorID = getWBSensorID()
-    if not wbSensorID and DEBUG then wbSensorID = 1 end
     -- print("wbSensorID: ", wbSensorID)
     
     maxRPM = system.pLoad("maxRPM", 114)
@@ -909,12 +874,16 @@ local function init(code)
     
     jsonFile = "Apps/CTU-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_")
     fg = io.readall(jsonFile)
-    modelProps = json.decode(fg)
+
+    if fg then modelProps = json.decode(fg) end
 
     if not modelProps.turbineName then modelProps.turbineName = "Unknown" end
+    if not modelProps.turbineIdleKRPM then modelProps.turbineIdleKRPM = 0 end    
     --print("modelProps:", modelProps)
     --print("modelProps.turbineName:", modelProps.turbineName)
+    --print("modelProps.turbineIdleKRPM:", modelProps.turbineIdleKRPM)
     --print("modelProps.turbineThrustTable[1]:", modelProps.turbineThrustTable[1])
+
     if modelProps.turbineName then print("Turbine: " .. modelProps.turbineName) end
 
     registerTelemetryForm(cfgSize)
@@ -926,45 +895,63 @@ end
 -- Main Loop function is called in regular intervals
 local function loop()
 
-   local now = system.getTimeCounter()
+   local now 
+   local play
 
-   if ann[1] and now >=  ann[1].time then
-      print("*", ann[1].time, ann[1].text)
-      table.remove(ann, 1)
-   end
-
-
+   now = system.getTimeCounter()
+   play = false
    
-    if (wbSensorID ~= nil and wbSensorID ~= 0 and wbECUType ~= nil) then
-
-        -- check if status parameter is present (avoid crash when rescaning sensor)
-       if(system.getSensorByID(wbSensorID,tonumber(wbStatusParam))~=nil) then
-	  --print("in first if", wbECUType, wbECUTypePrev)
-	  if (wbECUType ~= wbECUTypePrev) then
-	     print("in second if")
-                wbECUType = getWBECUType(wbSensorID)
-            end
-
-            local validData=system.getSensorByID(wbSensorID,tonumber(wbStatusParam)).valid
-
-            if(validData) then
-                lStatus = getStatusText(wbSensorID)
-                lFuel = getFuel(wbSensorID)
-                lPump = getPump(wbSensorID)
-                lBatt = getBatt(wbSensorID)
-                lRPM = getRPM(wbSensorID)
-                lEGT = getEGT(wbSensorID)
-                fuelAlarm(lFuel)
-            end
-        end
-    else
-        if (wbSensorID == nil) then
-            wbSensorID = getWBSensorID()
-        end
-        if (wbECUType == nil and wbSensorID ~= nil) then
-            wbECUType = getWBECUType(wbSensorID)
-        end
-    end
+   if ann[1] and now >=  ann[1].time then
+      for i = 1, #ann do
+	 --print("$", i, ann[i].time - start, ann[i].file, ann[i].prio)
+      end
+      --print("*", ann[1].time - start, ann[1].file, ann[1].prio)
+      if not system.isPlayback() then
+	 play = true
+      else
+	 if ann[1].prio == "I" then
+	    system.stopPlayback()
+	    play = true
+	 else
+	    --punt till next loop to let current wav file finish
+	 end
+      end
+      if play then
+	 system.playFile(ann[1].file, AUDIO_IMMEDIATE)
+	 if emflag == 1 then print("Playing:", ann[1].file) end
+	 table.remove(ann, 1)
+	 --print("#ann", #ann)
+      end
+   end
+   
+   if (wbSensorID ~= nil and wbSensorID ~= 0 and wbECUType ~= nil) then
+      
+      -- check if status parameter is present (avoid crash when rescaning sensor)
+      if(system.getSensorByID(wbSensorID,tonumber(wbStatusParam))~=nil) then
+	 if (wbECUType ~= wbECUTypePrev) then
+	    wbECUType = getWBECUType(wbSensorID)
+	 end
+	 
+	 local validData=system.getSensorByID(wbSensorID,tonumber(wbStatusParam)).valid
+	 
+	 if(validData) then
+	    lStatus = getStatusText(wbSensorID)
+	    lFuel = getFuel(wbSensorID)
+	    lPump = getPump(wbSensorID)
+	    lBatt = getBatt(wbSensorID)
+	    lRPM = getRPM(wbSensorID)
+	    lEGT = getEGT(wbSensorID)
+	    fuelAlarm(lFuel)
+	 end
+      end
+   else
+      if (wbSensorID == nil) then
+	 wbSensorID = getWBSensorID()
+      end
+      if (wbECUType == nil and wbSensorID ~= nil) then
+	 wbECUType = getWBECUType(wbSensorID)
+      end
+   end
 end
 
 WBDashVersion = wVersion

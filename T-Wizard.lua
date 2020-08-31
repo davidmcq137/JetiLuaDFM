@@ -47,7 +47,8 @@ local nextPylon=0
 local arcFile
 local lapAltitude
 local distance
-
+local x, y
+   
 local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
 	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"}
 
@@ -124,7 +125,6 @@ local lastLapTime = 0
 local lastLapSpeed = 0
 local avgSpeed = 0
 local raceFinished = false
-local raceTime = 0
 local raceEndTime = 0
 local rawScore = 0
 local penaltyPoints=0
@@ -342,8 +342,8 @@ local function triLengthChanged(value)
 end
 
 local function raceTimeChanged(value)
-   raceTime = value
-   if Field then Field.raceTime = value end
+   variables.raceTime = value
+   print("racetime:", variables.raceTime)
 end
 
 local function maxSpeedChanged(value)
@@ -499,8 +499,7 @@ local function initForm(subform)
       
       form.addRow(2)
       form.addLabel({label="Triangle race time (m)", width=220})
-      if Field and Field.raceTime then variables.raceTime = Field.raceTime end
-      form.addIntbox(variables.raceTime, 1, 60, 30, 0, 10, raceTimeChanged)
+      form.addIntbox(variables.raceTime, 1, 60, 30, 0, 1, raceTimeChanged)
       
       form.addRow(2)
       form.addLabel({label="Max Start Speed (km/h)", width=220})
@@ -956,6 +955,8 @@ local function calcTriRace()
       ao = 0
    end
    
+   -- if no course computed yet, start by defining the pylons
+   
    if #pylon < 1 and Field.name then
       pylon[1] = {x=Field.triangle,y=0,aimoff=ao}
       if Field.extend then
@@ -1011,6 +1012,7 @@ local function calcTriRace()
 	 if inZone[j] == true then
 	    --playFile(appInfo.Dir.."Audio/inside_sector.wav", AUDIO_IMMEDIATE)
 	    --playNumber(j, 0)
+	    system.playBeep(m3(j)-1, 800, 400)
 	    playFile(appInfo.Dir.."Audio/next_pylon.wav", AUDIO_IMMEDIATE)
 	    playNumber(m3(j+1), 0)
 	 end
@@ -1061,7 +1063,7 @@ local function calcTriRace()
       end
       --print(system.getTimeCounter() - flightLandTime)
       if system.getTimeCounter() - flightLandTime  > 5000 then
-	 playFile(appInfo.Dir.."Audio/flight_ended.wav", AUDIO_IMMEDIATE)
+	 playFile(appInfo.Dir.."Audio/flight_ended.wav", AUDIO_QUEUE)
 	 racing = false
 	 raceFinished = true
 	 raceEndTime = system.getTimeCounter()
@@ -1115,11 +1117,11 @@ local function calcTriRace()
 	 lapsComplete = 0
       else
 	 --playFile(appInfo.Dir.."Audio/bad_start.wav", AUDIO_IMMEDIATE)
-	 if not inStartZone then
-	    playFile(appInfo.Dir.."Audio/outside_zone.wav", AUDIO_IMMEDIATE)
+	 if not inStartZone and not raceFinished then
+	    playFile(appInfo.Dir.."Audio/outside_zone.wav", AUDIO_QUEUE)
 	 end
 	 if flightStarted == 0 then
-	    playFile(appInfo.Dir.."Audio/flight_not_started.wav", AUDIO_IMMEDIATE)
+	    playFile(appInfo.Dir.."Audio/flight_not_started.wav", AUDIO_QUEUE)
 	 end
 	 -- could there be other reasons (altitude/nofly zones?) .. they go here
 	 startArmed = false
@@ -1133,6 +1135,7 @@ local function calcTriRace()
    if lastdetS1 <= 0 and detS1 >= 0 then
       if racing then
 	 if nextPylon > 3 then -- lap complete
+	    system.playBeep(0, 800, 400)
 	    playFile(appInfo.Dir.."Audio/lap_complete.wav", AUDIO_IMMEDIATE)
 	    lapsComplete = lapsComplete + 1
 	    rawScore = rawScore + 200.0
@@ -1149,8 +1152,8 @@ local function calcTriRace()
       
       if not racing and startArmed then
 	 if speed * 3.6 > Field.startMaxSpeed or altitude > Field.startMaxAltitude then
-	    playFile(appInfo.Dir.."Audio/start_with_penalty.wav", AUDIO_IMMEDIATE)	    
-	    if speed > Field.startMaxSpeed then
+	    playFile(appInfo.Dir.."Audio/start_with_penalty.wav", AUDIO_QUEUE)	    
+	    if speed * 3.6 > Field.startMaxSpeed then
 	       playFile(appInfo.Dir.."Audio/over_max_speed.wav", AUDIO_QUEUE)
 	    end
 	    if altitude > Field.startMaxAltitude then
@@ -1161,7 +1164,7 @@ local function calcTriRace()
 	    playFile(appInfo.Dir.."Audio/penalty_points.wav", AUDIO_QUEUE)
 	    playNumber(math.floor(penaltyPoints+0.5), 0)
 	 else
-	    playFile(appInfo.Dir.."Audio/task_starting.wav", AUDIO_IMMEDIATE)
+	    playFile(appInfo.Dir.."Audio/task_starting.wav", AUDIO_QUEUE)
 	    penaltyPoints = 0
 	    lapAltitude = altitude
 	 end
@@ -1179,7 +1182,8 @@ local function calcTriRace()
    
    local sgTC = system.getTimeCounter()
 
-   if racing and (sgTC - racingStartTime) / 1000 >= raceTime*60 then
+   --print( (sgTC - racingStartTime) / 1000, variables.raceTime*60)
+   if racing and (sgTC - racingStartTime) / 1000 >= variables.raceTime*60 then
       playFile(appInfo.Dir.."Audio/race_finished.wav", AUDIO_IMMEDIATE)	    	 
       racing = false
       raceFinished = true
@@ -1667,6 +1671,13 @@ local function dirPrint(windowWidth, windowHeight)
    else
       vertHistogram(25, ya, 0, 100, 60, 20)
    end
+
+   local text=string.format("NNP %d", countNoNewPos)
+   lcd.drawText(80-lcd.getTextWidth(FONT_MINI, text) / 2, 110, text, FONT_MINI)
+
+   text=string.format("(%d,%d)", x or 0, y or 0)
+   lcd.drawText(80-lcd.getTextWidth(FONT_MINI, text) / 2, 120, text, FONT_MINI)
+
 end
 
 local noFlyLast = false
@@ -1721,6 +1732,9 @@ local function mapPrint(windowWidth, windowHeight)
    
    text=string.format("%d/%d %d%%", #xHist, variables.histMax, currMaxCPU)
    lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 62, text, FONT_MINI)
+
+   --text=string.format("NNP %d", countNoNewPos)
+   --lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 76, text, FONT_MINI)
    
    -- if satQuality then
    --    text=string.format("%.1f", satQuality)
@@ -1978,9 +1992,9 @@ local function initField(iF)
 	    coslat0 = math.cos(math.rad(lat0))
 	    variables.rotationAngle = Field.startHeading-270 -- draw rwy along x axis
 	    if Field.raceTime then
-	       raceTime = Field.raceTime
+	       variables.raceTime = Field.raceTime
 	    else
-	       raceTime = 30
+	       variables.raceTime = 30
 	    end
 	    -- see if file <model name>_icon.jsn exists
 	    -- if so try to read airplane icon
@@ -2096,7 +2110,6 @@ local lastHistTime=0
 local function loop()
 
    local minutes, degs
-   local x, y
    local hasPitot
    local sensor
    local goodlat, goodlong 

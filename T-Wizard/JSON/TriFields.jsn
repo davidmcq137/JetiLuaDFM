@@ -60,6 +60,27 @@
 	    "x_offset": 0,
 	    "y_offset": -100
 	}
+    },{
+	
+	"name" : "Black Dirt Squadron",
+	"shortname" : "BDS",
+	"lat" : 41.339816,
+	"long" : -74.430756,
+	"elevation":118,
+	"View": "Standard",
+	"triangle": 250,
+	"aimoff": 25,
+	"startHeading": 350,
+	"startMaxAltitude": 200,
+	"startMaxSpeed": 100,
+	"maxAltitude": 350,
+	"raceTime":10,
+	"runway": {
+	    "length": 10,
+	    "width": 10,
+	    "x_offset": 0,
+	    "y_offset": -70
+	}
     }, {
 	"name" : "Area 74",
 	"shortname" : "A74",

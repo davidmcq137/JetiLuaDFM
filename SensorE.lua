@@ -712,23 +712,27 @@ end
 local function init()
 
    fieldIdx = 0
-   fg = io.readall("Apps/DFM-LSO/Fields.jsn")
+   fg = io.readall("Apps/SensorFields.jsn")
    if fg then
       geo = json.decode(fg)
-      for i = 1, #geo.fields do
-	 fieldnames[i] = geo.fields[i].name
-	 --print(fieldnames[i])
+      if geo then
+	 for i = 1, #geo.fields do
+	    fieldnames[i] = geo.fields[i].name
+	 end
       end
-   end
-
-   if not geo then
-      print("Fields.jsn not decoded")
    else
-      print("Fields.jsn decoded - creating DCRC")
+      print("Cannot open Apps/SensorFields.jsn")
+   end
+   
+
+   if #geo == 0 then
+      print("SensorFields.jsn not decoded - Creating default")
       geo.fields={}
       geo.fields[1] =  {lat=39.147398, long=-77.337639,runway={}}
       geo.fields[1].runway.trueDir=347.5
-      --print ("@", geo.fields[1].lat, geo.fields[1].long, geo.fields[1].runway.trueDir)
+      fieldnames[1] = "DCRC Walt Good Field"
+   else
+      print("SensorFields.jsn decoded")
    end
 
    system.registerTelemetry(1, appName.." Sensors", 4, telePrint)

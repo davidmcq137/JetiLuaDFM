@@ -150,7 +150,8 @@
 	"de": "battrylow-DE.wav",
 	"text": "Battery low",
 	"rep":3,
-	"rep_int":10
+	"rep_int":3,
+	"priority":"immediate"
     },
     "41": {
       "active": true,
