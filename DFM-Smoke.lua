@@ -39,6 +39,7 @@ local smokeThrMin
 local smokeVol
 local startUp = true
 local startUpMessage = false
+local safetyOff
 local thrCtl
 
 local sensorLalist = { "..." }
@@ -79,55 +80,6 @@ local loopIdx, loopChar
 local smokeControl
 local sensorLbl
 local smokeState
-
-------------------------------------------------------------
---[[
-local seen={}
-
-local function dump(t,i)
-	seen[t]=true
-	local s={}
-	local n=0
-	for k in pairs(t) do
-		n=n+1 s[n]=k
-	end
-	table.sort(s)
-	for k,v in ipairs(s) do
-		print(i,v)
-		v=t[v]
-		if type(v)=="table" and not seen[v] then
-			dump(v,i.."\t")
-		end
-	end
-end
---]]
-------------------------------------------------------------
-
---[[
-local function checkEmulator()
-   
-   -- If on emulator, see if we should emulate the telem sensors from a jsn file
-   -- only do the require() if on the emulator and the file exists...
-   
-   local dev, emflag
-   local efg
-
-   dev, emflag = system.getDeviceType()
-
-   emulator = nil
-   
-   if emflag == 1 then
-      local efg = io.open("Apps/sensorEmulator.lua", "r")
-      if efg then
-	 io.close(efg)
-	 print("Loading sensor emulation package: sensorEmulator.lua")
-	 emulator = require('sensorEmulator')
-      end
-   end
-end
-
---]]
-
 
 local function setLanguage() end
 
@@ -421,19 +373,25 @@ local function loop()
    
    -- but allow toggle on/off to override on/off switch
    if persistOn then smEn = 1 end
+
+   safetyOff = false
    
    -- see if throttle is below cutoff point for smoke on
    thr = system.getInputs(thrCtl)
    stm = smokeThrMin * 2 - 100
    if thr*100 < stm then
       smEn = -1
+      safetyOff = true
    end
 
    -- if EGT sensor defined, is it hot enough for smoke?
    if EGTSe ~= 0 then
       sensor = system.getSensorByID(EGTId, EGTPa)
       if sensor and sensor.valid then currentEGT = sensor.value end
-      if currentEGT < smokeEGTOff then smEn = -1 end
+      if currentEGT < smokeEGTOff then
+	 smEn = -1
+	 safetyOff = true
+      end
    end
 
    -- see if it's time to take another time step
@@ -525,12 +483,16 @@ local function loop()
 
    -- the '-' char represents pump off for seqence, morse and telem .. ignore for manual
    -- and for continuous
-   if smokeModeIdx ~= smokeModeIndex.Manual and smCn == -1 then
+   --print("smokeModeIdx, smCn: ", smokeModeIdx, smCn)
+   
+   if smokeModeIdx ~= smokeModeIndex.Manual or smCn == -1 then
       if loopChar == '-' then smV = -1 * smokeOnVal end
    end
 
    -- check if smoke pump requires 0-100 vs -100 to 100 and adjust if needed
+   
    smOut = smV
+   
    if smokeOffVal == 0 then 
       smOut = (smV + 100) / 2
    end
@@ -538,6 +500,7 @@ local function loop()
    -- make sure if we are starting we get to pump off before allowing it to run
    -- if enable switch is defined, then it must be off (not smEnSw or smEnSw == -1)
    -- if contin switch is defined, then it must be off (not smCnSw or smCnSw == -1)
+
    if startUp then
       notEn = (smEn == -1) and (not smEnSw or smEnSw == -1)
       notCn = not smCnSw or smCnSw == -1
@@ -554,6 +517,11 @@ local function loop()
 	 end
       end
    else
+      if safetyOff then -- last check on throttle pos and EGT
+	 smV = smokeOffVal
+	 smOut = smokeOffVal
+      end
+      
       system.setControl(smokeControl, smOut/100, 10, 0)
    end
    if not startUp then
@@ -681,9 +649,9 @@ local function init()
    local pcallOK, pcallRet
    local emulator
    
-   pcallOK, emulator = pcall(require, "sensorEmulator")
-   --print("pcallOK, emulator", pcallOK, emulator)
-   if pcallOK and emulator then emulator.init("DFM-Smoke") end
+--   pcallOK, emulator = pcall(require, "sensorEmulator")
+--   print("pcallOK, emulator", pcallOK, emulator)
+--   if pcallOK and emulator then emulator.init("DFM-Smoke") end
    
    system.registerForm(1,MENU_APPS, "Smoke Controller", initForm, nil, printForm)
    system.registerTelemetry(1, "Smoke Controller Sequence", 1, smokeCBseq)
@@ -694,7 +662,7 @@ local function init()
    smokeEnableSw =  system.pLoad("smokeEnableSw")
    smokeContSw =    system.pLoad("smokeContSw")   
    smokeOffVal =    system.pLoad("smokeOffVal", -100)
-   smokeThrMin =    system.pLoad("smokeThrMin", -100)
+   smokeThrMin =    system.pLoad("smokeThrMin", 20)
    smokeVol =       system.pLoad("smokeVol")
    smokeModeIdx =   system.pLoad("smokeModeIdx", 1)
    smokeInterval =  system.pLoad("smokeInterval", 400)

@@ -271,12 +271,18 @@ local function readSensors()
 	    table.insert(GPSsensorLalist, sensor.label)
 	    table.insert(GPSsensorIdlist, sensor.id)
 	    table.insert(GPSsensorPalist, sensor.param)
-	    if (sensor.label == 'Longitude' and sensor.param == 3) then
+	    -- print("s9: sensor.label, sensor.param", sensor.label, sensor.param)
+	    -- first or clause MGPS, second Tero GPS, third PowerBox
+	    if (sensor.label == 'Longitude' and sensor.param == 3) or
+	       (sensor.label == 'Longitude' and sensor.param == 2) or
+	       (sensor.label == 'LONGITUDE' and sensor.param == 5) then
 	       telem.Longitude.Se = #GPSsensorLalist
 	       telem.Longitude.SeId = sensor.id
 	       telem.Longitude.SePa = sensor.param
 	    end
-	    if (sensor.label == 'Latitude' and sensor.param == 2) then
+	    if (sensor.label == 'Latitude' and sensor.param == 2) or
+	       (sensor.label == 'Latitude' and sensor.param == 1) or
+	       (sensor.label == 'LATITUDE' and sensor.param == 6) then
 	       telem.Latitude.Se = #GPSsensorLalist
 	       telem.Latitude.SeId = sensor.id
 	       telem.Latitude.SePa = sensor.param
@@ -302,7 +308,10 @@ local function readSensors()
 	       telem.BaroAlt.SeId = sensor.id
 	       telem.BaroAlt.SePa = sensor.param
 	    end	    
-	    if sensor.label == 'Altitude' and sensor.param == 6 then
+	    -- first or clause MGPS, second Tero GPS, third Powerbox GPS
+	    if (sensor.label == 'Altitude' and sensor.param == 6) or
+	       (sensor.label == 'Altitude' and sensor.param == 5) or
+	       (sensor.label == 'ALTITUDE' and sensor.param == 2) then
 	       telem.Altitude.Se = #sensorLalist
 	       telem.Altitude.SeId = sensor.id
 	       telem.Altitude.SePa = sensor.param
@@ -312,7 +321,10 @@ local function readSensors()
 	       telem.DistanceGPS.SeId = sensor.id
 	       telem.DistanceGPS.SePa = sensor.param
 	    end
-	    if sensor.label == 'Speed' and sensor.param == 8 then
+	    -- first or clause MGPS, second Tero GPS, third Powerbox GPS
+	    if (sensor.label == 'Speed' and sensor.param == 8) or
+	       (sensor.label == 'Speed' and sensor.param == 3) or
+	       (sensor.label == 'SPEED' and sensor.param == 1) then
 	       telem.SpeedGPS.Se = #sensorLalist
 	       telem.SpeedGPS.SeId = sensor.id
 	       telem.SpeedGPS.SePa = sensor.param

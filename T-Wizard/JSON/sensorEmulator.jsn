@@ -31,7 +31,7 @@
      "type":1,
      "sensorName":"MGPS",
      "label":"Speed",
-     "unit":"m",
+     "unit":"km/h",
      "luaExp":"P8(0,200/3.6)"
     },
     {"id":1,"param":0,"sensorName":"MVario", "label":"MVario"},

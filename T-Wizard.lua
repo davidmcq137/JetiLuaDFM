@@ -927,7 +927,7 @@ local function drawTriRace(windowWidth, windowHeight)
       if startSwitch then lcd.drawImage(25, 100, redDotImage) end
    end
    
-   lcd.drawText(5, 120, "Spd: "..math.floor(speed * 3.6), FONT_MINI)
+   lcd.drawText(5, 120, "Spd: "..math.floor(speed), FONT_MINI)
    lcd.drawText(5, 130, "Alt: ".. math.floor(altitude), FONT_MINI)
    lcd.drawText(5, 140, string.format("Map: %d", map.Xrange), FONT_MINI)
 
@@ -1048,7 +1048,7 @@ local function calcTriRace()
    
    -- see if we have taken off
 
-   if speed * 3.6 > variables.flightStartSpd and
+   if speed  > variables.flightStartSpd and
    altitude > variables.flightStartAlt and flightStarted == 0 then
       flightStarted = system.getTimeCounter()
       playFile(appInfo.Dir.."Audio/flight_started.wav", AUDIO_IMMEDIATE)      
@@ -1141,20 +1141,23 @@ local function calcTriRace()
 	    rawScore = rawScore + 200.0
 	    lastLapTime = system.getTimeCounter() - lapStartTime
 	    lapAltitude = altitude
-	    local mult = 1000 * 3.6 * (Field.triangle * 2 * (1 + math.sqrt(2)))
-	    lastLapSpeed = mult / lastLapTime
-	    --print(Field.triangle, lastLapTime, lastLapSpeed)
-	    avgSpeed = mult * lapsComplete / (system.getTimeCounter() - racingStartTime)
+	    -- lap speed in km/h is 3.6 * speed in m/s
+	    local perim = (Field.triangle * 2 * (1 + math.sqrt(2))) 
+	    lastLapSpeed = 3.6 * perim / (lastLapTime / 1000)
+	    avgSpeed = 3.6*perim*lapsComplete / ((system.getTimeCounter()-racingStartTime) / 1000)
+	    --print("Field.triangle, perim, lastLapTime, lastLapSpeed, avgSpeed",
+		  --Field.triangle, perim, lastLapTime, lastLapSpeed, avgSpeed)
 	    lapStartTime = system.getTimeCounter()
 	    nextPylon = 1
 	 end
       end
       
       if not racing and startArmed then
-	 if speed * 3.6 > Field.startMaxSpeed or altitude > Field.startMaxAltitude then
+	 if speed  > Field.startMaxSpeed or altitude > Field.startMaxAltitude then
 	    playFile(appInfo.Dir.."Audio/start_with_penalty.wav", AUDIO_QUEUE)	    
-	    if speed * 3.6 > Field.startMaxSpeed then
+	    if speed  > Field.startMaxSpeed then
 	       playFile(appInfo.Dir.."Audio/over_max_speed.wav", AUDIO_QUEUE)
+	       print("speed, Field.startMaxSpeed", speed, Field.startMaxSpeed)
 	    end
 	    if altitude > Field.startMaxAltitude then
 	       playFile(appInfo.Dir.."Audio/over_max_altitude.wav", AUDIO_QUEUE)
@@ -1664,7 +1667,7 @@ local function dirPrint(windowWidth, windowHeight)
    drawHeading()
    lcd.setColor(0,0,0)
    drawGauge("Alt", 0, 50, 100, altitude, "m", 250, 30)
-   drawGauge("Spd", 0, 50, 100, 3.6 * speed, "km/hr", 250,100)
+   drawGauge("Spd", 0, 50, 100, speed, "km/hr", 250,100)
 
    if lapAltitude then
       vertHistogram(25, ya, altitude - lapAltitude, 100, 60, 20, lapAltitude)
@@ -1799,7 +1802,7 @@ local function mapPrint(windowWidth, windowHeight)
       
       if i == #xtable then
 
-	 if (not Field) or (not Field.NoFly) or Field.NoFly < 3 then
+	 if (not Field) or (not Field.NoFly) or #Field.NoFly < 3 then
 	    noFlyP = false
 	 else
 	    noFlyP = isInside (poi, #poi, {x=xtable[i], y=ytable[i]})
@@ -1821,11 +1824,11 @@ local function mapPrint(windowWidth, windowHeight)
 	 if noFly ~= noFlyLast then
 	    if noFly then
 	       print("Enter no fly")
-	       playFile(appInfo.Dir.."Audio/Warning_No_Fly_Audio/Zone.wav", AUDIO_IMMEDIATE)
+	       playFile(appInfo.Dir.."Audio/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
 	       system.vibration(false, 3) -- left stick, 2x short pulse
 	    else
 	       print("Exit no fly")
-	       playFile(appInfo.Dir.."Audio/Leaving_no_fly_Audio/zone.wav", AUDIO_QUEUE)
+	       playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
 	    end
 	    noFlyLast = noFly
 	 end
@@ -1849,10 +1852,10 @@ local function pngLoad(j)
    --print("pngLoad - j:", j)
    pfn = "Apps/T-Wizard/Fields/".. Field.shortname .. "/" .. Field.shortname ..
       "_Tri_" ..tostring(math.floor(Field.images[j])) .."_m.png"
-   --print("pngLoad - pfn:", pfn)
+   --print("pngLoad - j, pfn:", j, pfn)
    fieldPNG[j] = lcd.loadImage(pfn)
    if not fieldPNG[j] then
-      print("Failed to load image", pfn)
+      print("Failed to load image", j, pfn)
    end
 end
 
@@ -1953,6 +1956,7 @@ local function initField(iF)
 	 table.insert(fieldDirs, fname)
       end
    end
+   --print("initfield: lat0, long0:", lat0, long0)
    
    if long0 and lat0 then -- if location was detected by the GPS system
       --for fname, ftype, fsize in dir(basedir) do
@@ -1976,7 +1980,7 @@ local function initField(iF)
 
 	 Field.images = {500, 1000, 1500, 2000, 2500, 3000}
 
-	 --print("coming into initField:", lat0, long0)
+	 --print("before atfield in initField:", lat0, long0)
 	 
 	 local atField = (math.abs(lat0 - Field.lat) < 1/60) and
 	 (math.abs(long0 - Field.long) < 1/60) 
@@ -1985,10 +1989,11 @@ local function initField(iF)
 	 
 	 --if (not iF and atField) then -- then or (iF and iF == i)then
 	 if (atField) then -- then or (iF and iF == i)then
-	    --print("at field", fname)
 	    Field.name = fname
 	    long0 = Field.long -- reset to origin to coords in jsn file
 	    lat0  = Field.lat
+	    --print("atField: Field.lat, Field.long", Field.lat, Field.long)
+	    
 	    coslat0 = math.cos(math.rad(lat0))
 	    variables.rotationAngle = Field.startHeading-270 -- draw rwy along x axis
 	    if Field.raceTime then
@@ -2068,6 +2073,8 @@ local function initField(iF)
       end
    else
       system.messageBox("Current location: not a known field", 2)
+      --print("not a known field: lat0, long0", lat0, long0)
+      gotInitPos = false -- reset and try again with next gps lat long
    end
 end
 
@@ -2214,7 +2221,15 @@ local function loop()
    sensor = system.getSensorByID(telem.SpeedGPS.SeId, telem.SpeedGPS.SePa)
    
    if(sensor and sensor.valid) then
-      SpeedGPS = sensor.value
+      --print("unit:", sensor.unit)
+      if sensor.unit == "m/s" then -- speed will be km/hr
+	 SpeedGPS = sensor.value * 3.6
+      elseif sensor.unit == "km/h" then
+	 SpeedGPS = sensor.value
+      else -- what on earth units are these .. set to 0
+	 SpeedGPS = 0
+      end
+      
    end
 
 --[[   
@@ -2244,11 +2259,11 @@ local function loop()
    -- only recompute when lat and long have changed
    
    if not latitude or not longitude then
---      print('returning: lat or long is nil')
+      --print('returning: lat or long is nil')
       return
    end
    if not goodlat or not goodlong then
-      -- print('returning: goodlat, goodlong: ', goodlat, goodlong)
+      --print('returning: goodlat, goodlong: ', goodlat, goodlong)
       return
    end
 
@@ -2304,15 +2319,13 @@ if GPSAlt then
    end
  
    if newpos and not gotInitPos then
-
+      --print("newpos and not gotInitPos: lat0, long0", lat0, long0)
       long0 = longitude     -- set long0, lat0, coslat0 in case not near a field
       lat0 = latitude       -- initField will reset if we are
+      --print("after set: lat0, long0", lat0, long0)
       coslat0 = math.cos(math.rad(lat0)) 
-      
-      initField()
-
       gotInitPos = true
-
+      initField()
    end
 
    -- defend against random bad points ... 1/6th degree is about 10 mi

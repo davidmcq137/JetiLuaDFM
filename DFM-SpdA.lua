@@ -296,7 +296,7 @@ local function loop()
 
       if (spd <= VrefSpd and aboveVref) then
 	 aboveVref = false
-	 system.playFile('/Apps/DFM-SpdA/V_ref_speed.wav', AUDIO_IMMEDIATE)
+	 --system.playFile('/Apps/DFM-SpdA/V_ref_speed.wav', AUDIO_IMMEDIATE)
 	 if DEBUG then print("At Vref") end
       end
 
@@ -404,14 +404,23 @@ local function init()
    system.registerForm(1, MENU_APPS, "Speed Announcer", initForm)
 
    system.registerTelemetry(1, "Calibrated Airspeed", 1, calAirspeed)
+
+   DEBUG = (select(2,system.getDeviceType()) == 1)-- true if on emulator
+
+   --after adding stall speed announcement don't really need this one anymore...
+   --system.playFile('/Apps/DFM-SpdA/Spd_ann_act.wav', AUDIO_QUEUE)
    
-   system.playFile('/Apps/DFM-SpdA/Spd_ann_act.wav', AUDIO_QUEUE)
    if airspeedCal ~= 100 then
       system.playFile('/Apps/DFM-SpdA/airspeed_cal_factor.wav', AUDIO_QUEUE)
       system.playNumber(airspeedCal, 0, "%")
    end
    
-   DEBUG = (select(2,system.getDeviceType()) == 1)-- true if on emulator
+   system.playFile('/Apps/DFM-SpdA/stall_speed_warning_at.wav', AUDIO_QUEUE)
+   if DEBUG then
+      print("DFM-SpdA playing stall_speed_warning_at.wav")
+      print("Vs0Spd, units", Vs0Spd, unitsList[unitsIdx])
+   end
+   system.playNumber(Vs0Spd, 0, unitsList[unitsIdx])
    
    readSensors()
 
@@ -419,7 +428,7 @@ end
 
 --------------------------------------------------------------------------------
 
-SpdAnnVersion = "2.0"
+SpdAnnVersion = "2.1"
 setLanguage()
 
 collectgarbage()

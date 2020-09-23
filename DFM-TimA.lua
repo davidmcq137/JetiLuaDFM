@@ -417,18 +417,19 @@ local function loop()
 
    if(sensor and sensor.valid) then
       fuel_qty = sensor.value
-      fuel_max = sensor.max
+      -- odd behavior .. sensor.max tracking with sensor.value??
+      -- for now, just set fuel_max once at first reading till we figure it out
+      if not fuel_max then fuel_max = sensor.max end
       if fuel_max and fuel_qty then -- double check!
-	 fuel_pct = 100 * fuel_qty / fuel_max
+	 fuel_pct = math.floor(100 * (fuel_qty / fuel_max) + 0.5)
       else
 	 fuel_pct = 0
       end
       iii = iii + 1
-      if iii > 100 then
-	 print("sensor.value:", sensor.value)
-	 print("sensor.max:", sensor.max)
-	 print("sensor lab, un, min:", sensor.label, sensor.unit, sensor.min)
-	 print("fuel_pct:", fuel_pct)
+      if iii > 10 then
+	 --print("fuel_pct:", fuel_pct)
+	 --print("sensor.value, min, max:", sensor.value, sensor.min, sensor.max)
+	 --print("sensor lab, unit:", sensor.label, sensor.unit)
 	 iii = 0
       end
    end
@@ -587,9 +588,9 @@ local function init()
 
    local pcallOK, emulator
 
-   pcallOK, emulator = pcall(require, "sensorEmulator")
-   print("pcallOK, emulator", pcallOK, emulator)
-   if pcallOK and emulator then emulator.init("DFM-TimA") end
+--   pcallOK, emulator = pcall(require, "sensorEmulator")
+--   print("pcallOK, emulator", pcallOK, emulator)
+--   if pcallOK and emulator then emulator.init("DFM-TimA") end
 
     gearSwitch = system.pLoad("gearSwitch")
     thrControl = system.pLoad("thrControl")

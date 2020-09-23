@@ -713,8 +713,10 @@ local function init()
 
    fieldIdx = 0
    fg = io.readall("Apps/SensorFields.jsn")
+   --print("fg:", fg)
    if fg then
       geo = json.decode(fg)
+      --print("geo:", geo, #geo.fields)
       if geo then
 	 for i = 1, #geo.fields do
 	    fieldnames[i] = geo.fields[i].name
@@ -725,8 +727,8 @@ local function init()
    end
    
 
-   if #geo == 0 then
-      print("SensorFields.jsn not decoded - Creating default")
+   if #geo.fields == 0 then
+      --print("SensorFields.jsn not decoded - Creating default")
       geo.fields={}
       geo.fields[1] =  {lat=39.147398, long=-77.337639,runway={}}
       geo.fields[1].runway.trueDir=347.5
