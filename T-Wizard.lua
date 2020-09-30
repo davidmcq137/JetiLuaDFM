@@ -335,36 +335,48 @@ end
 --end
 
 local function triLengthChanged(value)
-   if Field then
-      Field.triangle = value
-      pylon = {}
-   end
+   variables.triLength = value
+   system.pSave("variables.triLength", variables.triLength)
+   pylon = {}
+   --if Field then
+   --   Field.triangle = value
+   --   pylon = {}
+   --end
 end
 
 local function raceTimeChanged(value)
    variables.raceTime = value
+   system.pSave("variables.raceTime", variables.raceTime)
    print("racetime:", variables.raceTime)
 end
 
 local function maxSpeedChanged(value)
-   if Field then Field.startMaxSpeed = value end
+   variables.maxSpeed = value
+   system.pSave("variables.maxSpeed", variables.maxSpeed)
+   --if Field then Field.startMaxSpeed = value end
 end
 
 local function maxAltChanged(value)
-   if Field then Field.startMaxAltitude = value end
+   variables.maxAlt = value
+   system.pSave("variables.maxAlt", variables.maxAlt)
+   --if Field then Field.startMaxAltitude = value end
 end
 
 local function aimoffChanged(value)
-   if Field then Field.aimoff = value end
+   variables.aimoff = value
+   system.pSave("variables.aimoff", variables.aimoff)
+   --if Field then Field.aimoff = value end
    pylon={}
 end
 
 local function flightStartAltChanged(value)
    variables.flightStartAlt = value
+   system.pSave("variables.flightStartAlt", variables.flightStartAlt)
 end
 
 local function flightStartSpdChanged(value)
    variables.flightStartSpd = value
+   system.pSave("variables.flightStartSpd", variables.flightStartSpd)
 end
 
 local function elevChanged(value)
@@ -379,6 +391,12 @@ end
 local function preTextChanged(value)
    preText = value
    system.pSave("preText", preText)
+end
+
+local function triEnabledClicked(value)
+   triEnabled = not value
+   form.setValue(triEnabledIndex, triEnabled)
+   system.pSave("triEnabled", tostring(triEnabled))
 end
 
 --------------------------------------------------------------------------------
@@ -484,6 +502,11 @@ local function initForm(subform)
       
    elseif subform ==3 then
       savedRow = subform-1
+
+      form.addRow(2)
+      form.addLabel({label="Enable Triangle Racecourse", width=270})
+      triEnabledIndex = form.addCheckbox(triEnabled, triEnabledClicked)
+
       form.addRow(2)
       form.addLabel({label="Triangle racing ann switch", width=220})
       form.addInputbox(triASwitch, false, triASwitchChanged)
@@ -494,7 +517,7 @@ local function initForm(subform)
       
       form.addRow(2)
       form.addLabel({label="Triangle leg", width=220})
-      if Field and Field.triangle then variables.triLength = Field.triangle end 
+      --if Field and Field.triangle then variables.triLength = Field.triangle end 
       form.addIntbox(variables.triLength, 10, 1000, 500, 0, 10, triLengthChanged)
       
       form.addRow(2)
@@ -503,17 +526,17 @@ local function initForm(subform)
       
       form.addRow(2)
       form.addLabel({label="Max Start Speed (km/h)", width=220})
-      if Field and Field.startMaxSpeed then variables.maxSpeed = Field.startMaxSpeed end
+      --if Field and Field.startMaxSpeed then variables.maxSpeed = Field.startMaxSpeed end
       form.addIntbox(variables.maxSpeed, 10, 500, 100, 0, 10, maxSpeedChanged)
       
       form.addRow(2)
       form.addLabel({label="Max Start Alt (m)", width=220})
-      if Field and Field.startMaxAltitude then variables.maxAlt = Field.startMaxAltitude end
+      --if Field and Field.startMaxAltitude then variables.maxAlt = Field.startMaxAltitude end
       form.addIntbox(variables.maxAlt, 10, 500, 100, 0, 10, maxAltChanged)
       
       form.addRow(2)
       form.addLabel({label="Turn point aiming offset (m)", width=220})
-      if Field and Field.aimoff then variables.aimoff = Field.aimoff end
+      --if Field and Field.aimoff then variables.aimoff = Field.aimoff end
       form.addIntbox(variables.aimoff, 0, 500, 50, 0, 1, aimoffChanged)
 
       form.addRow(2)
@@ -831,8 +854,9 @@ local inZoneLast = {}
 
 local function drawTriRace(windowWidth, windowHeight)
 
+   if not triEnabled then return end
    if not pylon[1] then return end
-	 
+   
    setColorMap()
 
    for j=1, #pylon do
@@ -869,7 +893,7 @@ local function drawTriRace(windowWidth, windowHeight)
    lcd.drawLine(toXPixel(pylon[2].x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[2].y, map.Ymin, map.Yrange, windowHeight),
 		   toXPixel(pylon[2].x, map.Xmin, map.Xrange, windowWidth),
-		   toYPixel(pylon[2].y - 1.5*Field.triangle,map.Ymin,map.Yrange,windowHeight))
+		   toYPixel(pylon[2].y - 1.5*variables.triLength,map.Ymin,map.Yrange,windowHeight))
 
 
    setColorMain()
@@ -948,23 +972,30 @@ local function calcTriRace()
    local ao
 
    if not Field or not Field.name then return end
+   if not triEnabled then return end
    
-   if Field and Field.aimoff then
-      ao = Field.aimoff
+   if Field then
+      ao = variables.aimoff
    else
       ao = 0
    end
    
+   --if Field and Field.aimoff then
+   --   ao = Field.aimoff
+   --else
+   --   ao = 0
+   --end
+   
    -- if no course computed yet, start by defining the pylons
    
    if #pylon < 1 and Field.name then
-      pylon[1] = {x=Field.triangle,y=0,aimoff=ao}
+      pylon[1] = {x=variables.triLength,y=0,aimoff=ao}
       if Field.extend then
-	 pylon[2] = {x=0,y=Field.extend + Field.triangle,aimoff=ao}
+	 pylon[2] = {x=0,y=Field.extend + variables.triLength,aimoff=ao}
       else
-	 pylon[2] = {x=0,y=Field.triangle,aimoff=ao}
+	 pylon[2] = {x=0,y=variables.triLength,aimoff=ao}
       end
-      pylon[3] = {x=-Field.triangle,y=0,aimoff=ao}
+      pylon[3] = {x=-variables.triLength,y=0,aimoff=ao}
    end
    
    local region={2,3,3,1,2,1,0}
@@ -987,10 +1018,10 @@ local function calcTriRace()
 	    math.sqrt( (pylon[j].x - pylon[j].xm)^2 + (pylon[j].y - pylon[j].ym)^2 )
 	 pylon[j].xt = (1+pylon[j].alpha) * pylon[j].x - pylon[j].alpha*pylon[j].xm
 	 pylon[j].yt = (1+pylon[j].alpha) * pylon[j].y - pylon[j].alpha*pylon[j].ym
-	 zx, zy = rotateXY(-0.4 * Field.triangle, 0.4 * Field.triangle, rot[j])
+	 zx, zy = rotateXY(-0.4 * variables.triLength, 0.4 * variables.triLength, rot[j])
 	 pylon[j].zxl = zx + pylon[j].x
 	 pylon[j].zyl = zy + pylon[j].y
-	 zx, zy = rotateXY(0.4 * Field.triangle, 0.4 * Field.triangle, rot[j])
+	 zx, zy = rotateXY(0.4 * variables.triLength, 0.4 * variables.triLength, rot[j])
 	 pylon[j].zxr = zx + pylon[j].x
 	 pylon[j].zyr = zy + pylon[j].y
 	 inZoneLast[j] = false
@@ -1012,6 +1043,7 @@ local function calcTriRace()
 	 if inZone[j] == true then
 	    --playFile(appInfo.Dir.."Audio/inside_sector.wav", AUDIO_IMMEDIATE)
 	    --playNumber(j, 0)
+	    system.vibration(false, 1)
 	    system.playBeep(m3(j)-1, 800, 400)
 	    playFile(appInfo.Dir.."Audio/next_pylon.wav", AUDIO_IMMEDIATE)
 	    playNumber(m3(j+1), 0)
@@ -1142,28 +1174,28 @@ local function calcTriRace()
 	    lastLapTime = system.getTimeCounter() - lapStartTime
 	    lapAltitude = altitude
 	    -- lap speed in km/h is 3.6 * speed in m/s
-	    local perim = (Field.triangle * 2 * (1 + math.sqrt(2))) 
+	    local perim = (variables.triLength * 2 * (1 + math.sqrt(2))) 
 	    lastLapSpeed = 3.6 * perim / (lastLapTime / 1000)
 	    avgSpeed = 3.6*perim*lapsComplete / ((system.getTimeCounter()-racingStartTime) / 1000)
-	    --print("Field.triangle, perim, lastLapTime, lastLapSpeed, avgSpeed",
-		  --Field.triangle, perim, lastLapTime, lastLapSpeed, avgSpeed)
+	    --print("variables.triLength, perim, lastLapTime, lastLapSpeed, avgSpeed",
+		  --variables.triLength, perim, lastLapTime, lastLapSpeed, avgSpeed)
 	    lapStartTime = system.getTimeCounter()
 	    nextPylon = 1
 	 end
       end
       
       if not racing and startArmed then
-	 if speed  > Field.startMaxSpeed or altitude > Field.startMaxAltitude then
+	 if speed  > variables.maxSpeed or altitude > variables.maxAlt then
 	    playFile(appInfo.Dir.."Audio/start_with_penalty.wav", AUDIO_QUEUE)	    
-	    if speed  > Field.startMaxSpeed then
+	    if speed  > variables.maxSpeed then
 	       playFile(appInfo.Dir.."Audio/over_max_speed.wav", AUDIO_QUEUE)
-	       print("speed, Field.startMaxSpeed", speed, Field.startMaxSpeed)
+	       print("speed, variables.maxSpeed", speed, variables.maxSpeed)
 	    end
-	    if altitude > Field.startMaxAltitude then
+	    if altitude > variables.maxAlt then
 	       playFile(appInfo.Dir.."Audio/over_max_altitude.wav", AUDIO_QUEUE)
 	    end
-	    penaltyPoints = 50 + 2 * math.max(speed - Field.startMaxSpeed, 0) + 2 *
-	       math.max(altitude - Field.startMaxAltitude, 0)
+	    penaltyPoints = 50 + 2 * math.max(speed - variables.maxSpeed, 0) + 2 *
+	       math.max(altitude - variables.maxAlt, 0)
 	    playFile(appInfo.Dir.."Audio/penalty_points.wav", AUDIO_QUEUE)
 	    playNumber(math.floor(penaltyPoints+0.5), 0)
 	 else
@@ -1651,7 +1683,7 @@ local function dirPrint(windowWidth, windowHeight)
 
    lcd.setColor(0,0,255)
    if distance and racing then
-      xp, yp = rotateXY(0, 50 * distance / Field.triangle, theta)
+      xp, yp = rotateXY(0, 50 * distance / variables.triLength, theta)
       if m3(nextPylon) == 1 then dotpng = redDotImage
       elseif m3(nextPylon) == 2 then dotpng = greenDotImage
       elseif m3(nextPylon) == 3 then dotpng = blueDotImage
@@ -1675,6 +1707,9 @@ local function dirPrint(windowWidth, windowHeight)
       vertHistogram(25, ya, 0, 100, 60, 20)
    end
 
+   local text=string.format("#xHist %d", #xHist)
+   lcd.drawText(80-lcd.getTextWidth(FONT_MINI, text) / 2, 100, text, FONT_MINI)
+   
    local text=string.format("NNP %d", countNoNewPos)
    lcd.drawText(80-lcd.getTextWidth(FONT_MINI, text) / 2, 110, text, FONT_MINI)
 
@@ -1684,13 +1719,56 @@ local function dirPrint(windowWidth, windowHeight)
 end
 
 local noFlyLast = false
+
+local function checkNoFly(xt,yt)
+   
+   local noFly, noFlyP, noFlyC
+   
+   if (not Field) or (not Field.NoFly) or #Field.NoFly < 3 then
+      noFlyP = false
+   else
+      noFlyP = isInside (poi, #poi, {x=xt, y=yt})
+   end
+   
+   if (not Field) or (not Field.NoFlyCircle) then
+      noFlyC = false
+   else
+      noFlyC = isInsideC(nfc, {x=xt, y=yt})
+   end
+   
+   noFly = noFlyP or noFlyC
+   
+   if Field.noFlyZone and Field.noFlyZone == "Outside" then
+      noFly = not noFly
+   end
+   
+   -- if noFly then setColorNoFly() end -- moved to mainline caller code
+   
+   if noFly ~= noFlyLast then
+      if noFly then
+	 print("Enter no fly")
+	 playFile(appInfo.Dir.."Audio/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
+	 system.vibration(false, 3) -- left stick, 2x short pulse
+      else
+	 print("Exit no fly")
+	 playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
+      end
+      noFlyLast = noFly
+   end
+
+   return noFly
+   
+end
+
 local swzTime = 0
+local panic = false
 
 local function mapPrint(windowWidth, windowHeight)
 
    local swp
    local swz
-
+   local offset
+   
    setColorMap()
    
    setColorMain()
@@ -1750,20 +1828,42 @@ local function mapPrint(windowWidth, windowHeight)
    end
    
    if not pointSwitch or (swp and swp == 1) then
-      for i=2, #xHist do
-	 --lcd.drawCircle(toXPixel(xHist[i], map.Xmin, map.Xrange, windowWidth),
-	 --	     toYPixel(yHist[i], map.Ymin, map.Yrange, windowHeight),
-	 --	     2)
-	 
-	 --lcd.drawPoint(toXPixel(xHist[i], map.Xmin, map.Xrange, windowWidth),
-	 --    toYPixel(yHist[i], map.Ymin, map.Yrange, windowHeight))
 
-	 lcd.drawLine(toXPixel(xHist[i-1], map.Xmin, map.Xrange, windowWidth ),
-		      toYPixel(yHist[i-1], map.Ymin, map.Yrange, windowHeight) + 0,
-		      toXPixel(xHist[i], map.Xmin, map.Xrange,    windowWidth),
-		      toYPixel(yHist[i], map.Ymin, map.Yrange,   windowHeight) + 0
-	 )
+      --check if we need to panic .. xHist got too big while we were off screen
+      --and we are about to get killed
+      
+      if panic then
+	 offset = #xHist - 200 -- only draw last 200 points .. should be safe
+	 if offset < 0 then -- should not happen .. if so dump and start over
+	    print("dumped history")
+	    xHist={}
+	    yHist={}
+	 end
+      else
+	 offset = 0
+      end
+
+      for i=2 + offset, #xHist do
+
+	 if system.getCPU() < variables.maxCPU then
+	    
 	 
+	    --lcd.drawCircle(toXPixel(xHist[i], map.Xmin, map.Xrange, windowWidth),
+	    --	     toYPixel(yHist[i], map.Ymin, map.Yrange, windowHeight),
+	    --	     2)
+	    
+	    --lcd.drawPoint(toXPixel(xHist[i], map.Xmin, map.Xrange, windowWidth),
+	    --    toYPixel(yHist[i], map.Ymin, map.Yrange, windowHeight))
+	    
+	    lcd.drawLine(toXPixel(xHist[i-1], map.Xmin, map.Xrange, windowWidth ),
+			 toYPixel(yHist[i-1], map.Ymin, map.Yrange, windowHeight) + 0,
+			 toXPixel(xHist[i], map.Xmin, map.Xrange,    windowWidth),
+			 toYPixel(yHist[i], map.Ymin, map.Yrange,   windowHeight) + 0)
+	 else
+	    print("CPU panic", #xHist, system.getCPU(), variables.maxCPU)
+	    panic = true
+	    break
+	 end
 	 
       end
       if variables.histMax > 0 and #xHist > 0 and #xtable > 0 then
@@ -1773,19 +1873,15 @@ local function mapPrint(windowWidth, windowHeight)
 		      toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight) + 0
 	 )   
       end
+      
    end
 
    drawTriRace(windowWidth, windowHeight)
-
 
    --lcd.drawText(250, 20, "sT: "..tostring(startToggled), FONT_MINI)
    --lcd.drawText(250, 30, "sA: "..tostring(startArmed), FONT_MINI)
    --lcd.drawText(250, 40, "rF: "..tostring(raceFinished), FONT_MINI)
 
-   --
-   -- NEED TO MOVE NOFLY STUFF TO loop() SO IT WILL HAPPEN IF SCREEN NOT DISPLAYED!!!
-   --
-   
    for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
       
       setColorMain()
@@ -1794,13 +1890,14 @@ local function mapPrint(windowWidth, windowHeight)
 
       setColorMain()
       
-      local noFly, noFlyP, noFlyC
-
       -- defensive moves for squashing the indexing nil variable that Harry saw
       -- had to do with getting here (points in xtable) but no field selected
       -- checks in Field being nil should take care of that
       
       if i == #xtable then
+
+	 --[[
+	 local noFly, noFlyP, noFlyC
 
 	 if (not Field) or (not Field.NoFly) or #Field.NoFly < 3 then
 	    noFlyP = false
@@ -1832,7 +1929,12 @@ local function mapPrint(windowWidth, windowHeight)
 	    end
 	    noFlyLast = noFly
 	 end
-	 
+	 --]]
+
+	 if checkNoFly(xtable[#xtable], ytable[#ytable]) then
+	    setColorNoFly()
+	 end	
+ 
 	 drawShape(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight) + 0,
 		   shapes.T38, math.rad(heading))
@@ -2387,6 +2489,8 @@ if GPSAlt then
 
       graphScale(x, y)
       
+      checkNoFly(x, y) -- call also from here in loop() so it checks even if not displayed
+      
       --print("x,y:", x, y)
       
       if #xtable == 1 then
@@ -2463,13 +2567,13 @@ local function init()
       if j == "histSample"     then idef = 1000 end
       if j == "histMax"        then idef =    0 end
       if j == "maxCPU"         then idef =   80 end
-      if j == "triLength"      then idef =  500 end
+      if j == "triLength"      then idef =  250 end
       if j == "maxSpeed"       then idef =  100 end
       if j == "maxAlt"         then idef =  200 end
       if j == "elev"           then idef =    0 end
       if j == "histDistance"   then idef =    3 end
       if j == "raceTime"       then idef =   30 end
-      if j == "aimoff"         then idef =   50 end
+      if j == "aimoff"         then idef =   20 end
       if j == "flightStartSpd" then idef =   20 end
       if j == "flightStartAlt" then idef =   20 end
       
@@ -2482,6 +2586,9 @@ local function init()
    startSwitch = system.pLoad("startSwitch")
    annText     = system.pLoad("annText", "c-d----")
    preText     = system.pLoad("preText", "s-a----")   
+   triEnabled = system.pLoad("triEnabled", "true") -- default to enabling racing
+
+   triEnabled  = (triEnabled  == "true") -- convert back to boolean
 
    system.registerForm(1, MENU_APPS, "GPS Triangle Racing", initForm, nil, nil)
    system.registerTelemetry(1, appInfo.Name.." Racecourse Map", 4, mapPrint)

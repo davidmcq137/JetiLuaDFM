@@ -167,13 +167,13 @@ for fld in jd["trifields"]:
 		iw = 0
 		for width in sorted(crop_to_zoom):
 			zz=crop_to_zoom[width]
-			print("zz, width, field_image_width_m", zz,width, field_image_width_m)
+			#print("zz, width, field_image_width_m", zz,width, field_image_width_m)
 			if field_image_width_m <= width:
 				zoom = crop_to_zoom[width]
 				iw = width
-				print("zoom=", zoom)
-				print("imagewidth=", width)
-				print("field_image_width_m=", field_image_width_m)
+				#print("zoom=", zoom)
+				#print("imagewidth=", width)
+				#print("field_image_width_m=", field_image_width_m)
 				break
 
 		if zoom == 0:
@@ -257,12 +257,12 @@ for fld in jd["trifields"]:
 		runway_y_offset_px = runway_y_offset_px * hhj/hhGrc		
 
 		# draw the yellow rectangle for the runway to confirm registration
-		# print("runway_length_px, runway_x_offset_px: ", runway_length_px, runway_x_offset_px)
-		dd.rectangle( ((int(wwj/2 - runway_length_px/2 + runway_x_offset_px),
-						int(hhj * topMult - runway_width_px/2 + runway_y_offset_px) ),
-					   (int(wwj/2 + runway_length_px/2 + runway_x_offset_px),
-						int(hhj * topMult + runway_width_px/2 + runway_y_offset_px) )),
-					  outline='yellow')
+		# print("runway_length_px, runway_x_offset_px: ", runway_length_px, runway_x_offset_px)      # remove runway drawing on map for now
+		#dd.rectangle( ((int(wwj/2 - runway_length_px/2 + runway_x_offset_px),
+		#				int(hhj * topMult - runway_width_px/2 + runway_y_offset_px) ),
+		#			   (int(wwj/2 + runway_length_px/2 + runway_x_offset_px),
+		#				int(hhj * topMult + runway_width_px/2 + runway_y_offset_px) )),
+		#			  outline='yellow')
 
 		NoFly = fld.get("NoFly")
 		if NoFly:

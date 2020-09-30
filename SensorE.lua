@@ -347,7 +347,11 @@ function emulator_getSensorByID(ID, Param)
    local lonDeg, lonFrac, lonMin
    local GPSdt
    
-
+   -- print("getSensorByID")
+   -- for some reason json decode returns two chars for the degree symbol (code 176)
+   -- detect that and correct it
+   degSym1 = string.char(176)   
+   degSym2 = string.char(194, 176)
    if not sensorTbl then return nil end
    if not ID or not Param then return nil end
    if ID == 0 or Param == 0 then return nil end
@@ -361,10 +365,9 @@ function emulator_getSensorByID(ID, Param)
 	 returnTbl.decimals = v.decimals -- might change later...
 	 returnTbl.type = v.type
 	 returnTbl.label = v.label
-	 returnTbl.unit = v.unit
+	 returnTbl.unit = string.gsub(v.unit, degSym2, degSym1)
 	 returnTbl.valid = true
 	 returnTbl.sensorName = v.sensorName
-	 
 	 uid = tostring(math.floor(ID)).."-"..tostring(math.floor(Param))
 	 env.t = ((system.getTimeCounter() - time0)/1000)
 	 if lastT[uid] then
