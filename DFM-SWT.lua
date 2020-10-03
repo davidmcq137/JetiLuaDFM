@@ -26,13 +26,14 @@
    
    Version 0.1 - Sept 2020
    Version 0.2 - Sept 2020
+   Version 0.3 - Oct  2020
 
    Created and tested on DC/DS-24 emulator, tested on DS-24 TX
 
 --]]
 
 local appName = "Short/Long Switch"
-local SWTVersion= 0.2
+local SWTVersion= 0.3
 local currSwitchState
 local lastSwitchState
 local switch
@@ -49,10 +50,6 @@ local teleSeLs
 local teleSeLa
 local teleSeDp
 
-local imperialUnits
-local imperialUnitsClicked
-local imperialUnitsIndex
-
 -- unit tables in same order as Jeti UnitIDX parameter in model file
 
 local lengthUnit = {"m", "km", "ft.", "yd.", "mi."}
@@ -63,7 +60,6 @@ local speedMult  = {1.0, 3.6, 3.2800, 2.2369, 1.9438}
 local UnIDX = {}
 
 local maxPressCount = 3
-local pressFunc = {}
 local locale
 
 local sensorLalist = { "...", "<Function>" }
@@ -73,6 +69,31 @@ local sensorPalist = { "...", 0  }
 local sensorUnlist = { "...", "" }
 local sensorDplist = { "...", 0}
 
+local txTelem = {"txVoltage", "txBattPercent", "txCurrent", "txCapacity",
+		 "rx1Percent", "rx1Voltage", "rx2Percent", "rx2Voltage",
+		 "rxBVoltage", "rxBPercent", "photoValue"}
+
+local txTelemUn = {"V", "%", "mA", "mAh",
+		   "%", "V", "%", "V",
+		   "V", "%", ""}
+
+local txTelemDp = {2, 0, 0, 0,
+		   0, 2, 0, 2,
+		   2, 0, 0}
+
+local txTRSSI = {"rx1A1", "rx1A2", "rx2A1",
+		 "rx2A2", "rxBA1", "rxBA2"}
+
+local txTRSSIUn = {"", "", "",
+		   "", "", ""}
+
+local txTRSSIDp = {0,0,0,
+		   0,0,0}
+
+		      
+local maxTele
+local maxTxTele
+
 local startUp = true
 local upTime = 0
 local pressCount = 0
@@ -81,16 +102,6 @@ local lastUpTime = 0
 local function switchChanged(value)
    switch = value
    system.pSave("switch", switch)
-end
-
-local function t1Changed(value)
-   t1 = value
-   system.pSave("t1", t1)
-end
-
-local function t2Changed(value)
-   t2 = math.max(value, 2*t1)
-   system.pSave("t2", t2)
 end
 
 local function unitChanged(value, idx)
@@ -104,7 +115,6 @@ local function dpChanged(value, idx)
 end
 
 local function unassignTele(idx)
-   --print("unassignTele", idx)
    teleSe[idx] = 0
    teleSeId[idx] = 0
    teleSePa[idx] = 0
@@ -131,7 +141,8 @@ local function teleChanged(value, idx)
 	 vCtrl[idx] = 0
       end
 
-      --print("teleSeLa[idx], UnIDX[teleSeLa[idx]", teleSeLa[idx], UnIDX[teleSeLa[idx]])
+      --print("teleSeLa[idx], teleSeUn[idx], UnIDX[teleSeLa[idx]",
+	--    teleSeLa[idx], teleSeUn[idx], UnIDX[teleSeLa[idx]])
 
       -- Jeti uses the parameter UnitIDX in the model file to record non-native units.
       -- A value of 0 indicates native units, which is the first entry in our unit
@@ -168,6 +179,8 @@ local function teleChanged(value, idx)
    system.pSave("teleSeId", teleSeId)
    system.pSave("teleSePa", teleSePa)
    system.pSave("teleSeUn", teleSeUn)
+   system.pSave("teleSeUd", teleSeUd)
+   system.pSave("teleSeDp", teleSeDp)
    system.pSave("teleSeLa", teleSeLa)
    system.pSave("teleSeLs", teleSeLs)
    system.pSave("vCtrl", vCtrl)
@@ -176,33 +189,24 @@ local function teleChanged(value, idx)
    
 end
 
-local function imperialUnitsClicked(value)
-   imperialUnits = not value
-   form.setValue(imperialUnitsIndex, imperialUnits)
-   system.pSave("imperialUnits", tostring(imperialUnits))
-end
-
 local function initForm(subform)
 
    local lab
 
-   --print("subform:", subform)
-
    if subform == 1 then
 
+      form.setTitle(appName..": Main")
       form.addRow(2)
       form.addLabel({label="Switch", width=220})
       form.addInputbox(switch, true, switchChanged)
 
       for i = 1, maxPressCount, 1 do
-	 --print(i, teleSe[i])
 	 if teleSe[i] == 2  then
 	    lab = i.." Press - Func SL"..i
 	 else
 	    lab = i .. " Press - Sensor"
 	 end
 	 form.addRow(2)
-	 --form.addLabel({label=tostring(i) .." Press Sensor/Fcn", width=155})
 	 form.addLabel({label=lab, width=155})	 
 	 form.addSelectbox(sensorLalist, teleSe[i], true,
 			   (function(x) return teleChanged(x, i) end) )
@@ -225,79 +229,59 @@ local function initForm(subform)
       form.addLink((function() form.reinit(3) end), {label = "Decimals >>", width=140})
       form.addRow(2)
 
-      --form.addRow(2)
-      --form.addLabel({label="t1 (ms)"})
-      --form.addIntbox(t1, 100, 1000, 500, 0, 50, t1Changed)
-      
-      --form.addRow(2)
-      --form.addLabel({label="t2 (ms)"})
-      --form.addIntbox(t2, 200, 2000, 1000, 0, 50, t2Changed)   
-      
       form.addRow(1)
       form.addLabel({label="DFM-SWT.lua Version "..SWTVersion.." ",
 		     font=FONT_MINI, alignRight=true})
    elseif subform == 2 then
 
-      --for i=1,maxPressCount + 1, 1 do
-	-- print("i, teleSe[i], teleSeUn[i]", i, teleSe[i], teleSeUn[i])
-      --end
-
-      
-      for i = 1, maxPressCount, 1 do
+      form.setTitle(appName..": Units")
+      for i = 1, maxPressCount + 1, 1 do
 	 form.addRow(2)
 	 if teleSe[i] == 2  then
 	    lab = "Function SL"..i
 	 elseif teleSe[i] > 2 then
 	    lab = teleSeLa[i]
 	 else
-	    lab = tostring(i) .." Press Units"
+	    if i == maxPressCount + 1 then
+	       lab = "L Press Units"
+	    else
+	       lab = tostring(i) .." Press Units"
+	    end
 	 end
 	 
 	 form.addLabel({label=lab, width=155})
-	 if teleSeUn[i] == "m" then
+	 if teleSeUn[i] == "m" and teleSe[i] <= maxTele then
 	    form.addSelectbox(lengthUnit, teleSeUd[i], true,
 			      (function(x) return unitChanged(x, i) end) )
-	 elseif teleSeUn[i] == "m/s" then
+	 elseif teleSeUn[i] == "m/s" and teleSe[i] <= maxTele then
 	    form.addSelectbox(speedUnit, teleSeUd[i], true,
 			      (function(x) return unitChanged(x, i) end) )
+	 elseif teleSe[i] > maxTele then -- display but cannot change SYS telem units
+	    form.addSelectbox({teleSeUn[i]}, 1, true)
 	 end
-      end
-      
-      form.addRow(2)
-      
-      if teleSe[maxPressCount + 1] == 2 then
-	 lab = "Function SL"..(maxPressCount+1)
-      elseif teleSe[maxPressCount + 1] > 2 then
-	 lab = teleSeLa[maxPressCount + 1]
-      else
-	 lab = "L Press Units"
-      end
-      form.addLabel({label=lab, width=155})
-      if teleSeUn[maxPressCount + 1] == "m" then
-	 form.addSelectbox(lengthUnit, teleSeUd[maxPressCount + 1], true,
-			   (function(x) return unitChanged(x, maxPressCount + 1) end) )
-      elseif teleSeUn[maxPressCount + 1] == "m/s" then
-	 form.addSelectbox(speedUnit, teleSeUd[maxPressCount + 1], true,
-			   (function(x) return unitChanged(x, maxPressCount + 1) end) )
-      end
 	 
-      --form.addRow(2)
-      --form.addLabel({label="Imperial or metric (x) units", width=270})
-      --imperialUnitsIndex = form.addCheckbox(imperialUnits, imperialUnitsClicked)
-
+      end
+      
       form.addRow(2)
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
 
    elseif subform == 3 then
-      for i = 1, maxPressCount, 1 do
+
+      form.setTitle(appName..": Decimals")
+
+      for i = 1, maxPressCount + 1, 1 do
 	 form.addRow(2)
 	 if teleSe[i] == 2 then
 	    lab = "Function SL"..i
 	 elseif teleSe[i] > 2 then
 	    lab = teleSeLa[i]
 	 else
-	    lab = tostring(i) .." Press Units"
+	    if i == maxPressCount + 1 then
+	       lab = "L Press Decimals"
+	    else
+	       lab = tostring(i) .." Press Decimals"
+	    end
 	 end
 	 form.addLabel({label=lab, width=155})
 	 if teleSeDp and teleSeDp[i] and teleSe[i] > 2 then
@@ -305,19 +289,7 @@ local function initForm(subform)
 			   (function(x) return dpChanged(x, i) end) )
 	 end
       end
-      form.addRow(2)
-      if teleSe[maxPressCount + 1] == 2 then
-	 lab = "Function SL"..(maxPressCount+1)
-      elseif teleSe[maxPressCount + 1] > 2 then
-	 lab = teleSeLa[maxPressCount + 1]
-      else
-	 lab = "L Press Units"
-      end
-      form.addLabel({label=lab, width=155})
-      if teleSeDp and teleSeDp[maxPressCount + 1] and teleSe[maxPressCount + 1] > 2 then
-	 form.addIntbox(teleSeDp[maxPressCount + 1], 0, 2, 0, 0, 1,
-			(function(x) return dpChanged(x, maxPressCount + 1) end) )
-      end
+      
       form.addRow(2)
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
@@ -343,81 +315,80 @@ local function readSensors()
 	 end
       end
    end
-   --for i, sensor in ipairs(sensorLalist) do
-   --   print(i, sensor, "#", sensorLslist[i])
-   --end
-   
 end
 
 local function convertUnits(pC, sv, su)
 
    local rv, ru
    
-   --print("pC, teleSeUd[pC]", pC, teleSeUd[pC])
-   
    if teleSeUn[pC] == "m" then
-      --print("lengthMult:", lengthMult[teleSeUd[pC]])
       rv = sv * lengthMult[teleSeUd[pC]]
       ru = lengthUnit[teleSeUd[pC]]
    elseif teleSeUn[pC] == "m/s" then
-      --print("speedMult:", speedMult[teleSeUd[pC]])
       rv = sv * speedMult[teleSeUd[pC]]
       ru = speedUnit[teleSeUd[pC]]
    else
       rv = sv
       ru = su
    end
-   --print("convertUnits input", sv, su)
-   --print("convertUnits returning", rv, ru)
+
    return rv, ru
 end
 
--- °C
 local function pressAction(pC)
 
    local now
-   local value, unit
+   local value, unit, dp
    local fn
+   local sensor
+   local txTele, txRSSI
    
    --print("pA: pC, teleSe, vCtrl", pC, teleSe[pC], vCtrl[pC])
 
    now = system.getTimeCounter()
-   if teleSe[pC] > 2 then -- telemetry channel selected
-      sensor = system.getSensorByID(teleSeId[pC], teleSePa[pC])
+   fn = "/Apps/DFM-SWT/"..locale .."/"..string.gsub(teleSeLs[pC], " ", "_")..".wav"
 
-      if sensor and sensor.valid then
-	 local degC =  "°C"
-	 
-	 --print("sensor.unit", sensor.unit)
-	 --print("#sensor.unit", #sensor.unit)
-	 --print("s.b 1", string.byte(sensor.unit, 1))
-	 --print("s.b 2", string.byte(sensor.unit, 2))
-	 --print("s.b 3", string.byte(sensor.unit, 3))
-	 
-	 value, unit = convertUnits(pC, sensor.value, sensor.unit)
-	 --if unit == degC then print("deg c", pC) end
-	 fn = "/Apps/DFM-SWT/"..locale .."/"..string.gsub(teleSeLs[pC], " ", "_")..".wav"
-	 --print("teleSeLs[pC], fn:", teleSeLs[pC], fn, value, unit)
-	 if emFlag then
-	    print("playFile:", fn)
-	    print("playNumber:", value, teleSeDp[pC], unit)
-	 end
-	 system.playFile(fn, AUDIO_QUEUE)
-	 system.playNumber(value, teleSeDp[pC], unit)
-      end
-   elseif teleSe[pC] == 2 then -- channel selected
+   if teleSe[pC] == 2 then -- channel selected
       system.setControl(vCtrl[pC], 1, 0)
       ctrlOffTime[pC] = now + 100
-   else
+      fn = nil
+   elseif teleSe[pC] > 2 and teleSe[pC] <= maxTele then -- telemetry channel selected
+      sensor = system.getSensorByID(teleSeId[pC], teleSePa[pC])
+      if sensor and sensor.valid then
+	 value, unit = convertUnits(pC, sensor.value, sensor.unit)
+	 dp = teleSeDp[pC]
+      end
+   elseif teleSe[pC] > maxTele and teleSe[pC] <= maxTxTele then -- Tx tele selected
+      txTele = system.getTxTelemetry()
+      --print("SYS Tele - teleSe[pC] - maxTele:", teleSe[pC] - maxTele, teleSeLs[pC])
+      value = txTele[teleSeLs[pC]]
+      unit = teleSeUn[pC]
+      dp   = teleSeDp[pC]
+   elseif teleSe[pC] > maxTxTele and teleSe[pC] <= maxRSSITele then -- Tx RSSI tele selected
+      txTele = system.getTxTelemetry()
+      txRSSI = txTele["RSSI"]
+      --print("RSSI Tele - teleSe[pC] - maxTxTele:", teleSe[pC] - maxTxTele, teleSeLs[pC])
+      value = txRSSI[teleSe[pC] - maxTxTele]
+      unit = teleSeUn[pC]
+      dp   = teleSeDp[pC]
+   else   
       print("DFM-SWT: Nothing set on pressAction - pC = ", pC)
    end
 
+   if fn then
+      if emFlag then
+	 print("DFM-SWT: playFile:", fn)
+	 print("DFM-SWT: playNumber:", value, dp, unit)
+      end
+      system.playFile(fn, AUDIO_QUEUE)
+      system.playNumber(value, dp, unit)
+   end
+   
 end
 
 local function loop()
 
    local now
-   local sensor
    
    currSwitchState= system.getInputsVal(switch)
    now = system.getTimeCounter()
@@ -433,7 +404,7 @@ local function loop()
    
    if now - lastUpTime > t2 then -- N presses done
       if pressCount > 0 then
-	 if emFlag then print("pressCount:", pressCount) end
+	 if emFlag then print("DFM-SWT: pressCount:", pressCount) end
 	 if pressCount <= maxPressCount then
 	    pressAction(pressCount)
 	 end
@@ -457,7 +428,7 @@ local function loop()
 	    lastUpTime = now
 	 else
 	    if not startUp then
-	       if emFlag then print("Long press") end
+	       if emFlag then print("DFM-SWT: Long press") end
 	       pressAction(maxPressCount + 1)
 	    end
 	    upTime = 0
@@ -475,10 +446,12 @@ local function init()
    local ss
    local sname
    local fullname
-   local sen = {}
    local mf 
    local ff
    local mdl
+   local sen
+   local addSensor
+   
    
    emFlag = (select(2,system.getDeviceType()) == 1)
 
@@ -495,10 +468,6 @@ local function init()
    teleSeDp = system.pLoad("teleSeDp", {})         
    vCtrl    = system.pLoad("vCtrl",    {})
 
-   imperialUnits = system.pLoad("imperialUnits", "true")
-   
-   imperialUnits = (imperialUnits == "true") -- convert back to boolean here
-			   
    --make sure no nil entries in tables .. will cause problems on save/restore
    
    for i=1, maxPressCount + 1, 1 do
@@ -535,7 +504,7 @@ local function init()
       if vCtrl[i] ~= 0 then
 	 if i <= maxPressCount then ss = tostring(i) else ss = "L" end
 	 ic = system.registerControl(vCtrl[i], "Press "..ss, "SL"..ss)
-	 if ic ~= i then print("ic ~= i??", ic, i) end
+	 --if ic ~= i then print("ic ~= i??", ic, i) end
 	 if ic then
 	    system.setControl(vCtrl[i], -1, 0)
 	    ctrlOffTime[i] = 0
@@ -545,28 +514,19 @@ local function init()
       end
    end
          
-   readSensors()
+
+   --print("maxTele, maxTxTele, maxRSSITele", maxTele, maxTxTele, maxRSSITele)
    
    system.registerForm(1, MENU_APPS, appName, initForm)
    locale = system.getLocale()
-
    
-   --system.playNumber(360, 2, "kt.")
-   system.playNumber(137.1, 1, "F")--"°C")
-   --system.playNumber(57.1, 2, "gpm")
-   --system.playNumber(57.1, 2, "ml/m")   
-
-
    if emFlag then
       mf =  "Model/" .. system.getProperty("ModelFile")
    else
       mf = "/Model/" .. system.getProperty("ModelFile")
    end
    
-   print("Reading ModelFile:", mf)
-
-   -- for debugging:
-   -- mf = "Apps/0019X-61.jsn"
+   print("DFM-SWT: Reading ModelFile:", mf)
 
    -- read the model file and decode into table form
    
@@ -576,25 +536,13 @@ local function init()
       mdl = json.decode(ff)
    end
   
-   --for k,v in pairs(mdl) do
-   --   print("mdl:", k,v)
-   --end
-
-   --for k,v in pairs(mdl["Telem-Detect"]) do
-   --   print("mdl[td]:", k,v)
-   --end
-
-   --print(type(mdl["Telem-Detect"].Data))
-
    -- extract all the telem sensors in the file and check on their units displayed
    -- stored in UnitIDX value ... integer index into table of units
 
    if mdl then
-      for k,v in pairs(mdl["Telem-Detect"].Data) do
-	 --print("mdl[td].d:", k,v)
+      for k,_ in pairs(mdl["Telem-Detect"].Data) do
 	 sen = {}
 	 for kk,vv in pairs(mdl["Telem-Detect"].Data[k]) do
-	    --print("mdl[td].d[i]:", k, kk,vv)
 	    sen[kk] = vv
 	 end
 	 if sen.Param == 0 then
@@ -604,10 +552,62 @@ local function init()
 	    UnIDX[fullname] = math.floor(sen.UnitIDX)
 	 end
       end
-      --for k,v in pairs(UnIDX) do
-	-- print(k,v)
-      --end
    end
+   
+   print("***")
+   for k,v in pairs(mdl.Global) do
+      print(k,v)
+   end
+   
+   readSensors()
+
+   maxTele = #sensorLalist
+
+   -- TEST
+   mdl.Global["Receiver-ID1"] = 137
+   
+   for k,v in ipairs(txTelem) do
+      addSensor = false
+      if     string.find(v, "rx1") and mdl.Global["Receiver-ID1"] ~= 0 then
+	 addSensor = true
+      elseif string.find(v, "rx2") and mdl.Global["Receiver-ID2"] ~= 0 then
+	 addSensor = true
+      elseif string.find(v, "rxB") and mdl.Global["Rx-ID900"]     ~= 0 then
+	 addSensor = true
+      elseif not string.find(v, "rx") then
+	 addSensor = true
+      end
+      if addSensor then
+	 table.insert(sensorLalist, "SYS."..v)
+	 table.insert(sensorLslist, v)
+	 table.insert(sensorUnlist, txTelemUn[k])
+	 table.insert(sensorDplist, txTelemDp[k])
+      end
+   end
+
+   maxTxTele = #sensorLalist
+
+   for k,v in ipairs(txTRSSI) do
+      addSensor = false
+      if     string.find(v, "rx1") and mdl.Global["Receiver-ID1"] ~= 0 then
+	 addSensor = true
+      elseif string.find(v, "rx2") and mdl.Global["Receiver-ID2"] ~= 0 then
+	 addSensor = true
+      elseif string.find(v, "rxB") and mdl.Global["Rx-ID900"]     ~= 0 then
+	 addSensor = true
+      elseif not string.find(v, "rx") then
+	 addSensor = true
+      end
+      if addSensor then
+	 table.insert(sensorLalist, "RSSI."..v)
+	 table.insert(sensorLslist, v)
+	 table.insert(sensorUnlist, txTRSSIUn[k])
+	 table.insert(sensorDplist, txTRSSIDp[k])
+      end
+   end
+
+   maxRSSITele = #sensorLalist
+
 end
 
 return {init=init, loop=loop, author="DFM", version=tostring(SWTVersion),
