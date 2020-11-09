@@ -136,7 +136,7 @@ local function teleChanged(value, idx)
       teleSeLa[idx] = sensorLalist[value]      
       teleSeDp[idx] = sensorDplist[value]
 
-      if vCtrl[idx] ~= 0 then
+      if vCtrl[idx] and vCtrl[idx] ~= 0 then
 	 system.unregisterControl(vCtrl[idx])
 	 vCtrl[idx] = 0
       end
@@ -157,10 +157,13 @@ local function teleChanged(value, idx)
       vCtrl[idx] = 0
       if idx <= maxPressCount then ss = tostring(idx) else ss = "L" end      
       vCtrl[idx] = system.registerControl(idx, "Press "..ss, "SL"..ss)
+      --vCtrl[idx] = nil -- TEST
+      print("DFM-SWT: chg registered", ss, idx, vCtrl[idx])
       if not vCtrl[idx] then
+	 system.messageBox("DFM-SWT cannot register control "..ss)
 	 print("DFM-SWT: cannot register control", idx, "Press "..idx, "SW"..idx)
       end
-      if vCtrl[idx] ~= 0 then
+      if vCtrl[idx] and vCtrl[idx] ~= 0 then
 	 system.setControl(vCtrl[idx], -1, 0)
 	 ctrlOffTime[idx] = 0
       else
@@ -169,8 +172,9 @@ local function teleChanged(value, idx)
 
    elseif value == 1 then -- "..." unassign
       unassignTele(idx)
-      if vCtrl[idx] ~= 0 then
+      if vCtrl[idx] and vCtrl[idx] ~= 0 then
 	 system.unregisterControl(vCtrl[idx])
+	 print("DFM-SWT: unregister", idx, vCtrl[idx])
 	 vCtrl[idx] = 0
       end
    end
@@ -349,9 +353,12 @@ local function pressAction(pC)
    fn = "/Apps/DFM-SWT/"..locale .."/"..string.gsub(teleSeLs[pC], " ", "_")..".wav"
 
    if teleSe[pC] == 2 then -- channel selected
-      system.setControl(vCtrl[pC], 1, 0)
-      ctrlOffTime[pC] = now + 100
-      fn = nil
+      if emFlag then print("DFM-SWT: pC, teleSe[pC]:", pC, teleSe[pC]) end
+      if vCtrl[pC] and vCtrl[pC] > 0 then
+	 system.setControl(vCtrl[pC], 1, 0)
+	 ctrlOffTime[pC] = now + 100
+	 fn = nil
+      end
    elseif teleSe[pC] > 2 and teleSe[pC] <= maxTele then -- telemetry channel selected
       sensor = system.getSensorByID(teleSeId[pC], teleSePa[pC])
       if sensor and sensor.valid then
@@ -375,13 +382,18 @@ local function pressAction(pC)
       print("DFM-SWT: Nothing set on pressAction - pC = ", pC)
    end
 
-   if fn then
+   if fn and teleSe[pC] > 1 then
       if emFlag then
 	 print("DFM-SWT: playFile:", fn)
 	 print("DFM-SWT: playNumber:", value, dp, unit)
       end
-      system.playFile(fn, AUDIO_QUEUE)
-      system.playNumber(value, dp, unit)
+      if fn and value and dp and unit then
+	 system.playFile(fn, AUDIO_QUEUE)
+	 system.playNumber(value, dp, unit)
+      else
+	 print("DFM-SWT: Some play vals nil:")
+	 print(fn, value, dp, unit)
+      end
    end
    
 end
@@ -501,14 +513,16 @@ local function init()
    end
 
    for i=1, maxPressCount+1, 1 do
-      if vCtrl[i] ~= 0 then
+      if vCtrl[i] and vCtrl[i] ~= 0 then
 	 if i <= maxPressCount then ss = tostring(i) else ss = "L" end
 	 ic = system.registerControl(vCtrl[i], "Press "..ss, "SL"..ss)
+	 print("DFM-SWT: init register", ss, i, vCtrl[i])
 	 --if ic ~= i then print("ic ~= i??", ic, i) end
 	 if ic then
 	    system.setControl(vCtrl[i], -1, 0)
 	    ctrlOffTime[i] = 0
 	 else
+	    system.messageBox("DFM-SWT: control not registered ".. i)
 	    print("DFM-SWT: Control not registered", vCtrl[i])
 	 end
       end
@@ -554,17 +568,17 @@ local function init()
       end
    end
    
-   print("***")
-   for k,v in pairs(mdl.Global) do
-      print(k,v)
-   end
+   --print("***")
+   --for k,v in pairs(mdl.Global) do
+   --   print(k,v)
+   --end
    
    readSensors()
 
    maxTele = #sensorLalist
 
    -- TEST
-   mdl.Global["Receiver-ID1"] = 137
+   --mdl.Global["Receiver-ID1"] = 137
    
    for k,v in ipairs(txTelem) do
       addSensor = false
