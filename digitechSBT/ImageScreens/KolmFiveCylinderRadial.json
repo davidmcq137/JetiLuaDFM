@@ -1,15 +1,20 @@
 {
     "Image": "KolmFiveCylinderRadial.png",
-    "XPFont":"FONT_MINI",
+    "XPFont":"FONT_NORMAL",
+    "XTFont":"FONT_MINI",
+    "Gauges": [
+	{"Name":"Fuel","Sensor":"FuelPct","Min":0,"Max":100,"XG": 20,"YG": 100},
+	{"Name":"RPM", "Sensor":"RPM2","Min":0,"Max":11,"XG": 90,"YG":100}
+    ],
     "Probes": [
-	{"Name":"H1",  "XT": 10,"YT":   0,"XP": 95,"YP":  7, "Green": 0, "Yellow":50, "Red":100},
-	{"Name":"H2",  "XT": 10,"YT":  20,"XP":135,"YP": 66, "Green": 0, "Yellow":50, "Red":100},
-	{"Name":"H3",  "XT": 10,"YT":  40,"XP": 97,"YP":140, "Green": 0, "Yellow":50, "Red":100},
-	{"Name":"H4",  "XT": 10,"YT":  60,"XP": 28,"YP":120, "Green": 0, "Yellow":50, "Red":100},
-	{"Name":"H5",  "XT": 10,"YT":  80,"XP": 16,"YP": 25, "Green": 0, "Yellow":50, "Red":100},
-	{"Name":"E1",  "XT": 10,"YT": 100,"XP":126,"YP": 40, "Green": 0, "Yellow":50, "Red":100},
-	{"Name":"E2",  "XT": 10,"YT": 120,"XP":126,"YP":101, "Green": 0, "Yellow":50, "Red":100},
-	{"Name":"E3",  "XT": 10,"YT": 140,"XP": 68,"YP":125, "Green": 0, "Yellow":50, "Red":100}
+	{"Name":"H1",  "XT":  5,"YT":  10,"XP": 95,"YP":  7, "Green": 10, "Yellow":50, "Red":100},
+	{"Name":"H2",  "XT":  5,"YT":  30,"XP":135,"YP": 66, "Green": 10, "Yellow":50, "Red":100},
+	{"Name":"H3",  "XT":  5,"YT":  50,"XP": 97,"YP":140, "Green": 10, "Yellow":50, "Red":100},
+	{"Name":"H4",  "XT":  5,"YT":  70,"XP": 28,"YP":120, "Green": 10, "Yellow":50, "Red":100},
+	{"Name":"H5",  "XT": 85,"YT":  10,"XP": 30,"YP": 22, "Green": 10, "Yellow":50, "Red":100},
+	{"Name":"E1",  "XT": 85,"YT":  30,"XP":126,"YP": 40, "Green": 10, "Yellow":50, "Red":100},
+	{"Name":"E2",  "XT": 85,"YT":  50,"XP":126,"YP":101, "Green": 10, "Yellow":50, "Red":100},
+	{"Name":"E3",  "XT": 85,"YT":  70,"XP": 68,"YP":125, "Green": 10, "Yellow":50, "Red":100}
     ]
 }
 

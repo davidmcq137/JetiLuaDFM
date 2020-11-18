@@ -17,7 +17,7 @@
 
    Copyright (c) 2019 DFM
 
-   Permission is hereby granted, free of charge, to any person
+   Permission is hereby granted, free of charge, to any person 
    obtaining a copy of this software and associated documentation
    files (the "Software"), to deal in the Software without
    restriction, including without limitation the rights to use, copy,
@@ -65,6 +65,12 @@ local maxBuiltIn
 local backGndImage
 local jsnFileName
 local dx1, dx2 = 0, 0
+local idNonTemp = {}
+local paramNonTemp = {}
+
+local allGreenEn, allGreenEnIndex, allGreenEver
+local hotWarnEn, hotWarnEnIndex
+local hotWarnAnnounced={}
 
 local SBT_Telem = {
    T1={SeId=0,SePa=0,value=0,unit=" "},
@@ -89,13 +95,20 @@ local function readSensors()
    local sensors
    local sensorCode
    local sensorNumber
+   local saveLabel
    local ii = 0
    
    sensors = system.getSensors()
    --print("sensors:", sensors)
    
    for _, sensor in ipairs(sensors) do
-      if (sensor.label ~= "") then
+      if sensor.label == "" then
+	 saveLabel = sensor.sensorName
+	 print("sensor.sensorName", saveLabel)
+      end
+      
+      -- first check if a SBTemp sensor .. keep track of all those
+      if (sensor.label ~= "" and sensor.id & 0xFFFF == 0xA446) then
 	 sensorNumber = ((sensor.id >> 16) & 0xF0) >> 4
 	 if not sensorCode then print("SB-Temp device: ", sensorNumber) end
 	 sensorCode = sensor.id & 0xFFFF
@@ -108,6 +121,13 @@ local function readSensors()
 	    SBT_Telem[sensor.label].SePa = sensor.param
 	    SBT_Telem[sensor.label].unit = sensor.unit
 	 end
+      end
+      -- next save the list of all non-SBTemp sensors for possible use with gauges
+      if sensor.label ~= "" and (sensor.id & 0xFFFF) ~= 0xA446 then
+	 print("not SBT:", sensor.label)
+	 idNonTemp[sensor.label] = math.floor(sensor.id)
+	 paramNonTemp[sensor.label] = math.floor(sensor.param)
+	 --print("saving id and param", sensor.label, idNonTemp[sensor.label], paramNonTemp[sensor.label])
       end
    end
    SBTChannelsActive = ii -- remember how many sensors we found
@@ -180,10 +200,13 @@ local function drawHistogram(label, min, mid, max, temp, unit, ox, oy)
    
 end
 
-local function drawGauge(label, min, mid, max, temp, unit, ox, oy)
+local function drawGauge(label, min, mid, max, tmp, unit, ox, oy)
    
    local color={}
    local theta
+   local temp
+
+   temp = tmp or min
    
    if temp <= mid then
       color.r=255*(temp-min)/(mid-min)
@@ -194,19 +217,30 @@ local function drawGauge(label, min, mid, max, temp, unit, ox, oy)
       color.g=255*(1-(temp-mid)/(max-mid))
       color.b=0
    end
+
+   if not unit then
+      color.r=0
+      color.g=0
+      color.b=255
+   end
    
    drawTextCenter(FONT_MINI, label, ox+25, oy+38)
    lcd.setColor(0,0,255)
-   drawTextCenter(FONT_BOLD, string.format("%d", temp), ox+25, oy+16)
+   if tmp then
+      drawTextCenter(FONT_BOLD, string.format("%d", temp), ox+25, oy+16)
+   end
    lcd.setColor(120,120,120)
-   if min ~= 0 then
-      drawTextCenter(FONT_MINI,
-		     string.format("%d", min) .. " - " .. string.format("%d", max) .. unit,
-		     ox + 25, oy+52)
-   else
-      drawTextCenter(FONT_MINI,
-		     string.format("%d", max) .. unit,
-		     ox + 25, oy+52)
+   
+   if unit and tmp then
+      if min ~= 0 then
+	 drawTextCenter(FONT_MINI,
+			string.format("%d", min) .. " - " .. string.format("%d", max) .. unit,
+			ox + 25, oy+52)
+      else
+	 drawTextCenter(FONT_MINI,
+			string.format("%d", max) .. unit,
+			ox + 25, oy+52)
+      end
    end
    
    lcd.setColor(0,0,0)
@@ -216,6 +250,9 @@ local function drawGauge(label, min, mid, max, temp, unit, ox, oy)
    
    if arcFile ~= nil then
       lcd.drawImage(ox, oy, arcFile)
+   end
+
+   if tmp then -- don't draw needle if value passed in is nil
       drawShape(ox+25, oy+26, needle_poly_small, theta, color)
    end
 end
@@ -301,6 +338,18 @@ local function jsnChanged(value, k, elem)
    jsnWrite()
 end
 
+local function allGreenClicked(value)
+   allGreenEn = not value
+   form.setValue(allGreenEnIndex, allGreenEn)
+   system.pSave("allGreenEn", tostring(allGreenEn))
+end
+
+local function hotWarnClicked(value)
+   hotWarnEn = not value
+   form.setValue(hotWarnEnIndex, hotWarnEn)
+   system.pSave("hotWarnEn", tostring(hotWarnEn))
+end
+
 local function keyPressed(key)
    local ans
    --print("key pressed:", key)
@@ -330,6 +379,14 @@ local function initForm(subForm)
       form.addRow(2)
       form.addLabel({label="Select Display Screen", width=200})
       form.addSelectbox(screens, screenIdx, true, screenIdxChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Enable All Green Announcement", width=270})
+      allGreenEnIndex = form.addCheckbox(allGreenEn, allGreenClicked)
+
+      form.addRow(2)
+      form.addLabel({label="Enable Overheat Announcements", width=270})
+      hotWarnEnIndex = form.addCheckbox(hotWarnEn, hotWarnClicked)
 
       for j=1, math.min(SBTChannelsActive, #screenConfig.Probes),1 do
 	 form.addRow(2)
@@ -370,6 +427,12 @@ end
 
 local function loop()
    local sensor
+   local kk
+   local green
+   local greenMsg = "All temperatures in the green"
+   local redMsg   = "Over temperature sensor number"
+   local fn
+   
    for k,v in pairs(SBT_Telem) do
       if v.SeId and v.SeId ~= 0 then
 	 sensor = system.getSensorByID(v.SeId, v.SePa)
@@ -378,6 +441,39 @@ local function loop()
 	 v.value = sensor.value
       end
    end
+
+   green = 0
+   for k = 1, #screenConfig.Probes do
+      kk = "T"..k
+      if SBT_Telem[kk].value >= screenConfig.Probes[k].Green then
+	 green = green + 1
+      end
+      if SBT_Telem[kk].value >= screenConfig.Probes[k].Red then
+	 if hotWarnAnnounced[k] ~= true then
+	    system.messageBox(redMsg .. " " .. k)
+	    if hotWarnEn then
+	       fn = string.gsub("/" .. appDir .. redMsg .. ".wav", " ", "_")
+	       print("SB-Temp playing ".. fn  .. " " .. k)
+	       system.playFile(fn)
+	       system.playNumber(k, 0)
+	    end
+	    hotWarnAnnounced[k] = true
+	 end
+      else
+	 hotWarnAnnounced[k] = false
+      end
+   end
+
+   if green == #screenConfig.Probes and allGreenEver == false then
+      system.messageBox(greenMsg)
+      if allGreenEn then
+	 fn = string.gsub("/" .. appDir .. greenMsg .. ".wav", " ", "_")
+	 print("SB-Temp playing "..fn)
+	 system.playFile(fn)
+      end
+      allGreenEver = true
+   end
+   
 end
 
 
@@ -434,10 +530,17 @@ local function teleImage()
    local xt, yt
    local r,g,b
    local text
-   local fontSize
+   local fontSize, textSize
+   local sensor, val
    
    lcd.drawImage( (310-backGndImage.width)/2+2+60, 10, backGndImage)
 
+   if screenConfig.XTFont == "FONT_MINI" then
+      textSize = FONT_MINI
+   else
+      textSize = FONT_NORMAL
+   end
+   
    if screenConfig.XPFont == "FONT_MINI" then
       fontSize = FONT_MINI
    else
@@ -485,20 +588,50 @@ local function teleImage()
       lcd.drawText(xp,yp, screenConfig.Probes[k].Name, fontSize)
 
       lcd.setColor(0,0,0)
-      
+
+      local ffx = FONT_MINI
       xt=screenConfig.Probes[k].XT
       yt=screenConfig.Probes[k].YT
       text = screenConfig.Probes[k].Name.."("..kk.."): "
-      dx1 = math.max(dx1,lcd.getTextWidth(FONT_NORMAL, text))
-      lcd.drawText(xt, yt, text)
+      dx1 = math.max(dx1,lcd.getTextWidth(textSize, text))
+      lcd.drawText(xt, yt, text, textSize)
       lcd.setColor(r,g,b)
       text = string.format("%.1f", SBT_Telem[kk].value)
-      lcd.drawText(xt+dx1, yt, text)
+      lcd.drawText(xt+dx1, yt, text, textSize)
       lcd.setColor(0,0,0)
-      dx2 = math.max(dx2, lcd.getTextWidth(FONT_NORMAL, text))
-      lcd.drawText(xt+dx1+dx2+3, yt, SBT_Telem[kk].unit)
-      
+      dx2 = math.max(dx2, lcd.getTextWidth(textSize, text))
+      lcd.drawText(xt+dx1+dx2+3, yt, SBT_Telem[kk].unit, textSize)
+
    end
+
+   -- Loop over all Gauges in the jsn file
+   -- First check if sensor is defined for this gauge in jsn file
+   -- If so, check for value id and parameter from readSensors()
+   -- Then get value and see if valid
+
+   for ig = 1, #screenConfig.Gauges do
+      val = nil
+      if screenConfig.Gauges[ig].Sensor then
+	 if idNonTemp[screenConfig.Gauges[ig].Sensor] and
+	 paramNonTemp[screenConfig.Gauges[ig].Sensor] then
+	    sensor = system.getSensorByID(idNonTemp[screenConfig.Gauges[ig].Sensor],
+					  paramNonTemp[screenConfig.Gauges[ig].Sensor])
+	    if sensor and sensor.valid then
+	       val = sensor.value
+	    end
+	 end
+      end
+      
+      drawGauge(screenConfig.Gauges[ig].Name,
+		screenConfig.Gauges[ig].Min,
+		screenConfig.Gauges[ig].Max, -- no mid, just put max
+		screenConfig.Gauges[ig].Max,
+		val,  -- sensor value or nil
+		nil,  -- signal no units to be shown
+		screenConfig.Gauges[ig].XG,
+		screenConfig.Gauges[ig].YG)		
+   end
+   
 end
 
 local function tele()
@@ -553,6 +686,15 @@ local function init()
    end
 
    screenInit()
+
+   allGreenEn = system.pLoad("allGreenEn", "true") -- default is to enable all green ann
+   allGreenEn  = (allGreenEn == "true")            -- convert back to boolean
+   allGreenEver = false
+   
+   hotWarnEn = system.pLoad("hotWarnEn", "true") -- default is to enable hot warnings
+   hotWarnEn  = (hotWarnEn == "true")            -- convert back to boolean   
+
+
 end
 
 --------------------------------------------------------------------------------
