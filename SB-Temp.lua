@@ -638,6 +638,30 @@ local function tele()
    if builtIn then teleBuiltIn() else teleImage() end
 end
 
+local function teleSmall()
+
+   local r,g,b
+   local kk
+   
+   for k = 1, #screenConfig.Probes do
+      kk = "T"..k
+      if SBT_Telem[kk].value < screenConfig.Probes[k].Green then
+	 r,g,b = 0,0,255
+      elseif SBT_Telem[kk].value >= screenConfig.Probes[k].Green and
+      SBT_Telem[kk].value < screenConfig.Probes[k].Yellow then
+	 r,g,b = 25,255,45
+      elseif SBT_Telem[kk].value >= screenConfig.Probes[k].Yellow and
+      SBT_Telem[kk].value < screenConfig.Probes[k].Red then
+	 r,g,b = 245,210,50
+      elseif SBT_Telem[kk].value >= screenConfig.Probes[k].Red then
+	 r,g,b = 255,0,0
+      end
+      lcd.setColor(r,g,b)
+      lcd.drawFilledRectangle(6+18*(k-1), 6, 10, 10)
+   end
+   
+end
+
 
 local function init()
 
@@ -665,6 +689,7 @@ local function init()
 
    system.registerForm(1, MENU_APPS, appName, initForm, keyPressed)
    system.registerTelemetry(1,appShort, 4, tele)
+   system.registerTelemetry(2,appShort.." Summary", 1, teleSmall)   
 
    if emFlag == 1 then prefix = "" else prefix="/" end
 

@@ -177,6 +177,11 @@ end
 local function keyPressed(key)
    local depSw
 
+   -- Really should test here if we are on the main screen or the submenu
+   -- code here assumes we are on the submenu but has same effect on main!!
+   -- oops!
+
+   
    --print("key pressed: ", key)
    if key == KEY_1 then
       if loadOverRide then

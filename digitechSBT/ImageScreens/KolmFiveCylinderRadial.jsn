@@ -1,6 +1,6 @@
 {
     "Image": "KolmFiveCylinderRadial.png",
-    "XPFont":"FONT_NORMAL",
+    "XPFont":"FONT_MINI",
     "XTFont":"FONT_MINI",
     "Gauges": [
 	{"Name":"Fuel","Sensor":"FuelPct","Min":0,"Max":100,"XG": 20,"YG": 100},

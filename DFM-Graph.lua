@@ -314,7 +314,7 @@ local function timePrint()
    -- draw vertical dashed lines in light gray
    lcd.setColor(200,200,200)
    local iv = 2
-   local ivd = 4
+   local ivd = 8
    local ivdt
    while iv <= ybox do
       if iv + 2*ivd > ybox then
@@ -420,7 +420,7 @@ local function timePrint()
 
       for ix = 1, #histogram2, 1 do
 	 if graphStyle[graphStyleIdx] == "Hazel" then
-	    yh = histogram2[ix] % graphScale
+	    yh = histogram2[ix] % graphScale2
 	 else
 	    yh = histogram2[ix]
 	 end
