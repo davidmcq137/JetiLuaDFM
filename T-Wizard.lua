@@ -25,7 +25,8 @@
 
 local appInfo={}
 appInfo.Name = "T-Wizard"
-appInfo.Dir  = "Apps/T-Wizard/"
+appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
+appInfo.Fields = appInfo.Dir .. "Fields/"
 
 local latitude
 local longitude 
@@ -646,7 +647,7 @@ local function playFile(fn, as)
 	 print("Cannot open file "..fn)
       else
 	 io.close(fp)
-	 print("Playing file "..fn.." status: "..as)
+	 --print("Playing file "..fn.." status: "..as)
       end
    end
    if as == AUDIO_IMMEDIATE then
@@ -657,7 +658,7 @@ end
 
 local function playNumber(n, dp)
    if emFlag then
-      print("Playing number "..n.." dec places: "..dp)
+      --print("Playing number "..n.." dec places: "..dp)
    end
    system.playNumber(n, dp)
 end
@@ -1952,7 +1953,7 @@ end
 local function pngLoad(j)
    local pfn
    --print("pngLoad - j:", j)
-   pfn = "Apps/T-Wizard/Fields/".. Field.shortname .. "/" .. Field.shortname ..
+   pfn = appInfo.Fields .. Field.shortname .. "/" .. Field.shortname ..
       "_Tri_" ..tostring(math.floor(Field.images[j])) .."_m.png"
    --print("pngLoad - j, pfn:", j, pfn)
    fieldPNG[j] = lcd.loadImage(pfn)
@@ -2053,7 +2054,7 @@ local function initField(iF)
    poi = {}
    fieldDirs={}
 
-   for fname, ftype, fsize in dir("Apps/T-Wizard/Fields") do
+   for fname, ftype, fsize in dir(appInfo.Fields) do
       if ftype == "folder" and fname ~= "." and fname ~= ".."  then
 	 table.insert(fieldDirs, fname)
       end
@@ -2064,7 +2065,7 @@ local function initField(iF)
       --for fname, ftype, fsize in dir(basedir) do
       for _,fname in ipairs(fieldDirs) do
 	 --print("fname:", fname)
-	 fn = "Apps/T-Wizard/Fields/"..fname.."/"..fname..".jsn"
+	 fn = appInfo.Fields..fname.."/"..fname..".jsn"
 	 --print("fn", fn)
 	 fp = io.readall(fn)
 	 if fp then
@@ -2162,7 +2163,7 @@ local function initField(iF)
 	    --pngLoad(j)
 	    --[[
 	    local pfn
-	    pfn = "Apps/T-Wizard/Fields/".. Field.shortname .. "/" .. Field.shortname ..
+	    pfn = appInfo.Fields .. Field.shortname .. "/" .. Field.shortname ..
 	       "_Tri_" ..tostring(math.floor(Field.images[j])) .."_m.png"
 	    fieldPNG[j] = lcd.loadImage(pfn)
 	    if not fieldPNG[j] then

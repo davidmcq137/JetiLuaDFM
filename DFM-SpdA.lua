@@ -416,10 +416,6 @@ local function init()
    end
    
    system.playFile('/Apps/DFM-SpdA/stall_speed_warning_at.wav', AUDIO_QUEUE)
-   if DEBUG then
-      print("DFM-SpdA playing stall_speed_warning_at.wav")
-      print("Vs0Spd, units", Vs0Spd, unitsList[unitsIdx])
-   end
    system.playNumber(Vs0Spd, 0, unitsList[unitsIdx])
    
    readSensors()

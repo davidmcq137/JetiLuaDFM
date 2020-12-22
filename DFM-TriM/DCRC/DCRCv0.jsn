@@ -1,0 +1,23 @@
+{
+    "name" : "DCRC Walt Good Field",
+    "shortname" : "DCRC",
+    "lat" : 39.147398,
+    "long" : -77.337639,
+    "elevation":80,
+    "View": "Standard",
+    "triangle": 350,
+    "aimoff": 100,
+    "startHeading": 347.5,
+    "startMaxAltitude": 400,
+    "startMaxSpeed": 120,
+    "maxAltitude": 400,
+    "raceTime":30,
+    "runway": {
+	"length": 183,
+	"width": 12,
+	"x_offset": 0,
+	"y_offset": -20
+    }
+}
+
+

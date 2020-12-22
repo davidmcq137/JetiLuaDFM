@@ -23,9 +23,10 @@
    json file that describes a set of sensors, and the values they
    should return.
 
-   The format of the json file (sensorEmulator.jsn) has the same structure
-   as the json representation of the table that system.getSensors()
-   returns in normal use, so it should be familiar.
+   The format of the json file (sensorEmulator.jsn) has the same
+   structure as the json representation of the table that
+   system.getSensors() returns in normal use, so it should be
+   familiar.
    
    On its initialization this app replaces the system routines such as
    system.getSensors and system.getSensorByID with its own
@@ -34,6 +35,11 @@
    max for each analog slider and also allows you to specify a lua
    expression that transforms this simple linear range to whatever you
    like.
+
+   Since the DC/DS-24 emulator does not play audio files, the emulator
+   also traps system.playFile() and system.playNumber() and prints out
+   on the console what numbers and files would have been played via
+   audio.
 
    The tool can also simulate GPS sensors by giving a lat,long origin
    and specifying the x and y values for a parametric equation that
@@ -104,9 +110,9 @@
    math.cos ...)  have a period of 2*pi as expected.
 
    A time sequencing function is availble, tseq(t, table) where t is
-   the time argument and the second parameter is a table. seq()
+   the time argument and the second parameter is a table. tseq()
    divides is period up into n equal time segments and steps through
-   the entries in the table in order. The amplitude of the seq
+   the entries in the table in order. The amplitude of the tseq
    function is equal to the table entry. For example seq(t/20,
    {1,2,3,4}) creates a 20 second period repeating "staircase"
    function. from t=0 to t=5 it has a value of 1, from t=5 to t=10 a
@@ -132,10 +138,10 @@
    second period sine wave whose amplitude varies from 10 to 100 as the
    P2 slider is moved from left to right.
 
-   "luaExp":"P2(10,100) * math.sin(2*pi*t/10) + P6(1) * math.random() gives the same sine wave
-   with a variable anount of noise added from the math.random
-   function, with the noise amplitude going from 0 to 1 controlled by
-   slider P6.
+   "luaExp":"P2(10,100) * math.sin(2*pi*t/10) + P6(1) * math.random()
+   gives the same sine wave with a variable anount of noise added from
+   the math.random function, with the noise amplitude going from 0 to
+   1 controlled by slider P6.
 
    In addition to specifying a luaExp for each individual sensor (each
    ID/param pair) you may also specify a luaFunc sting. The luaFunc
@@ -230,9 +236,6 @@
    lua-program-specific so it resides in the lua program's own
    directory, e.g. Apps/DFM-Smoke/sensorEmulator.jsn for use with the
    lua program /Apps/DFM-Smoke.lua
-
-   The app makes one telemetry window where it displays the current
-   sensors and values being emulated.
 
    Usage: 
 

@@ -56,8 +56,21 @@ local showPump = true
 local graphStyle = {"Line","Hazel","Point","Histogram"}
 local graphStyleIdx = 2
 
-local graphScale = 10
-local graphScale2 = 1
+local graphScaleIdx = 1
+local graphScaleRange =    {5,  10,  20,  50}
+local graphScaleFormat = {"%d","%d","%d","%d"}
+local graphScale = graphScaleRange[4]
+local graphFmt = graphScaleFormat[4]
+
+local graphScale2Idx = 1
+local graphScale2Range =    {0.2, 0.5,   1,   2,   5,  10}
+local graphScale2Format = {"%.1f","%.1f","%d","%d","%d","%d"}
+local graphScale2 = graphScale2Range[4]
+local graphFmt2 = graphScale2Format[4]
+
+local p1High, p1Low
+local p2High, p2Low
+
 local graphValue = 0
 local graphValue2 = 0
 local graphName = "gn1"
@@ -125,7 +138,7 @@ local function drawShape(col, row, shape, rotation, clr)
    lcd.setColor(0, 0, 0)
 end
 
-local function drawGauge(label, min, mid, max, tmp, unit, ox, oy, marker)
+local function drawGauge(label, lcol, min, mid, max, tmp, unit, ox, oy, marker)
    
    local color={}
    local theta
@@ -149,8 +162,16 @@ local function drawGauge(label, min, mid, max, tmp, unit, ox, oy, marker)
       color.b=255
    end
    
+   if lcol == "red" then
+      lcd.setColor(255,0,0)
+   elseif lcol == "blue" then
+      lcd.setColor(0,0,255)
+   else
+      lcd.setColor(0,0,0)
+   end
+
    drawTextCenter(FONT_MINI, label, ox+25, oy+44) -- was 38
-   lcd.setColor(0,0,255)
+   
    local tt
    if tmp then
       if temp < 0 then
@@ -192,6 +213,19 @@ local function drawGauge(label, min, mid, max, tmp, unit, ox, oy, marker)
    --marker = 5 * (1 + system.getInputs("P5"))
    
    if marker then
+      if lcol == "red" then
+	 color.r = 255
+	 color.g = 0
+	 color.b = 0
+      elseif lcol == "blue" then
+	 color.r = 0
+	 color.g = 0
+	 color.b = 255
+      else
+	 color.r = 0
+	 color.g = 0
+	 color.b = 0
+      end
       theta = math.pi - math.rad(135 - 2 * 135 * (marker - min) / (max - min) )
       drawShape(ox+25, oy+26, marker_poly_small, theta, color)
    end
@@ -277,6 +311,7 @@ local function graphPrint()
    local ren = lcd.renderer()
    local xp, yp, lastDown
    local xup, yup, xdown, ydown
+   local fmt
 
    --print("graphPrint", #histogram)
    
@@ -357,6 +392,7 @@ local function graphPrint()
    local ih = 2
    local ihd = 4
    local ihdt
+   local ll, ff
    while ih <= xbox do
       if ih + 2*ihd > xbox then
 	 ihdt = xbox - 2
@@ -369,14 +405,22 @@ local function graphPrint()
 
    if yLow and yHigh then
       lcd.setColor(0,0,255)
-      lcd.drawText(10, yoff + ybox - 16, string.format("%d", yLow),  FONT_MINI)
-      lcd.drawText(10, yoff       , string.format("%d", yHigh), FONT_MINI)      
+      ff = string.format(graphFmt, yLow)
+      ll = lcd.getTextWidth(FONT_MINI,ff)
+      lcd.drawText(10, yoff + ybox - 16, ff,  FONT_MINI)
+      ff = string.format(graphFmt, yHigh)
+      ll = lcd.getTextWidth(FONT_MINI,ff)
+      lcd.drawText(10, yoff, ff, FONT_MINI)      
    end
    
    if yLow2 and yHigh2 then
       lcd.setColor(255,0,0)
-      lcd.drawText(0 + xbox - 5, yoff + ybox - 16, string.format("%d", yLow2),  FONT_MINI)
-      lcd.drawText(0 + xbox - 5, yoff       , string.format("%d", yHigh2), FONT_MINI)      
+      ff = string.format(graphFmt2, yLow2)
+      ll = lcd.getTextWidth(FONT_MINI,ff)
+      lcd.drawText(0 + xbox - ll, yoff + ybox - 16, ff,  FONT_MINI)
+      ff = string.format(graphFmt2, yHigh2)
+      ll = lcd.getTextWidth(FONT_MINI,ff)
+      lcd.drawText(0 + xbox - ll, yoff, ff, FONT_MINI)      
    end
 
    -- now draw graph
@@ -521,6 +565,12 @@ end
 
 local function loop()
 
+
+   local sgTC
+   local tim
+   local modSec, remSec
+   local p1, p2
+   
    sgTC = system.getTimeCounter()
    tim = sgTC / 1000
    runningTime = tim - startTime
@@ -533,6 +583,63 @@ local function loop()
    
    --print(runningTime, modSec, remSec, oldModSec)
 
+   p1 = system.getInputs("P1")
+
+   if p1 > 0.25 then
+      if p1High == false then
+	 --print("+1")
+	 p1High = true
+	 graphScaleIdx = graphScaleIdx - 1
+	 graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange), 1)
+	 graphScale = graphScaleRange[graphScaleIdx]
+	 graphFmt = graphScaleFormat[graphScaleIdx]
+      end
+   else
+      p1High = false
+   end
+   
+
+   if p1 < -0.25 then
+      if p1Low == false then
+	 --print("-1")
+	 p1Low = true
+	 graphScaleIdx = graphScaleIdx + 1
+	 graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange), 1)
+	 graphScale = graphScaleRange[graphScaleIdx]
+	 graphFmt = graphScaleFormat[graphScaleIdx]
+      end
+   else
+      p1Low = false
+   end
+
+   p2 = system.getInputs("P2")
+
+   if p2 > 0.25 then
+      if p2High == false then
+	 --print("+1")
+	 p2High = true
+	 graphScale2Idx = graphScale2Idx - 1
+	 graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range), 1)
+	 graphScale2 = graphScale2Range[graphScale2Idx]
+	 graphFmt2 = graphScale2Format[graphScale2Idx]
+      end
+   else
+      p2High = false
+   end
+
+   if p2 < -0.25 then
+      if p2Low == false then
+	 --print("-1")
+	 p2Low = true
+	 graphScale2Idx = graphScale2Idx + 1
+	 graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range), 1)
+	 graphScale2 = graphScale2Range[graphScale2Idx]
+	 graphFmt2 = graphScale2Format[graphScale2Idx]
+      end
+   else
+      p2Low = false
+   end
+   
    if sgTC > nextsgTC  and pumpState ~= "Off" then
       nextsgTC = nextsgTC + deltasg
       oldModSec = modSec
@@ -638,7 +745,7 @@ local function onRead(data)
    --io.write(sfp, data, "*\n")
    
    if #data > longData then
-      print("longData:", data, #data)
+      --print("longData:", data, #data)
       longData = #data
    end
    
@@ -668,16 +775,17 @@ local function onRead(data)
 	 break
       end
       if ii > 1 then
-	 print("ii:", ii)
-	 print("data:", data)
+	 --print("ii:", ii)
+	 --print("data:", data)
       end
       
    until dataStream == ""
    
 
    --if #dataStream > 10 then print("dataStream > 10", #dataStream) end
-   
-   k,v = string.match(ss, "(%a+)%s*%p*%s*(%d*%.?%d+)")
+   k,v = string.match(ss, "(%a+)%p(.+)%p")
+
+   --k,v = string.match(ss, "(%a+)%s*%p*%s*(%d*%.?%d+)")
    if k and v then execCmd(k,v) end
    
 end
@@ -745,13 +853,13 @@ local function prtPump()
       else
 	 temp = nil
       end
-      drawGauge("Pump Speed", -100, 0, 100, temp, nil, 10,  0)
+      drawGauge("Pump Speed", "black", -100, 0, 100, temp, nil, 10,  0)
    end
    if true then 
-      drawGauge("Flow", -40, 0,  40, fRAT, nil, 70,  0)
+      drawGauge("Flow", "blue", -40, 0,  40, fRAT, nil, 70,  0)
    end
    if true then 
-      drawGauge("Pressure", 0, 5,  10, pPSI , nil, 130, 0, pressSetpoint)
+      drawGauge("Pressure", "red", 0, 5,  10, pPSI , nil, 130, 0, pressSetpoint)
    end
    
    --lcd.drawRectangle(5, 60, 300, 80)
@@ -802,9 +910,9 @@ local function initPump(subForm)
       --print("setting buttons")
       infoMsg = "Hold Stop to reset  -  Exit for main menu"
       form.setTitle(appName)
-      form.setButton(1, ":backward",0)
-      form.setButton(2, ":stop", 1)
-      form.setButton(3, ":forward", 0)
+      form.setButton(1, ":backward",1)
+      form.setButton(2, ":stop", 2)
+      form.setButton(3, ":forward", 1)
       form.setButton(4, "Menu", 1)
       form.setButton(5, "Exit", 1)
    elseif subForm == 2 then
@@ -867,8 +975,8 @@ local function keyPump(key)
 
       if key == KEY_1 then
 	 --print("Key 1 pressed")
-	 form.setButton(1, ":backward", 1)	 
-	 form.setButton(2, ":stop", 0)
+	 form.setButton(1, ":backward", 2)	 
+	 form.setButton(2, ":stop", 1)
 	 countedWrite(string.format("(CalE: %d)\n", CalE))
 	 countedWrite("(pMAX: 1024)\n")
 	 countedWrite("(Prs: 50)\n")
@@ -879,21 +987,22 @@ local function keyPump(key)
 	 infoMsg = "Empty"
       elseif key == KEY_2 then
 	 --print("Key 2 pressed")
-	 form.setButton(1, ":backward", 0)	 
-	 form.setButton(2, ":stop", 1)
-	 form.setButton(3, ":forward", 0)
+	 form.setButton(1, ":backward", 1)	 
+	 form.setButton(2, ":stop", 2)
+	 form.setButton(3, ":forward", 1)
 	 if lastKey == key then
 	    --system.messageBox("OFF held .. Clear sent and graph reset ")
 	    graphReset()
 	    countedWrite("(Clear)\n")
+	    print("Clear!")
 	 end
 	 countedWrite("(Off)\n")
 	 pumpState = "Off"
 	 infoMsg = "Pump stopped"
       elseif key == KEY_3 then
 	 --print("Key 3 pressed")
-	 form.setButton(2, ":stop", 0)
-	 form.setButton(3, ":forward", 1)
+	 form.setButton(2, ":stop", 1)
+	 form.setButton(3, ":forward", 2)
 	 countedWrite(string.format("(CalF: %d)\n", CalF))
 	 countedWrite("(pMAX: 1024)\n")
 	 countedWrite("(Prs: 50)\n")
@@ -931,7 +1040,10 @@ local function keyPump(key)
    end
    if key ~= KEY_RELEASED then
       lastKey = key
+   else
+      lastKey = -1
    end
+   
 end
 
 local function init()

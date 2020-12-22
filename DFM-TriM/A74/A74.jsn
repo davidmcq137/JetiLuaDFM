@@ -1,0 +1,20 @@
+{
+    "name" : "Area 74",
+    "shortname" : "A74",
+    "lat" : 41.245597,
+    "long" : -73.759068,
+    "elevation":152,
+    "View": "Standard",
+    "triangle": 20,
+    "extend":60,
+    "aimoff":10,
+    "startHeading": 28,
+    "startMaxAltitude": 200,
+    "startMaxSpeed": 100,
+    "maxAltitude": 350,
+    "raceTime":5,    
+    "runway": {
+	"length": 63,
+	"width": 4
+    }
+}

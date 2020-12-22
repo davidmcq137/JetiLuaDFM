@@ -1,0 +1,21 @@
+{
+    "name" : "Cheltenham",
+    "shortname" : "CHEL",
+    "lat" : 51.951890,
+    "long" : -2.087456,
+    "elevation": 35,
+    "View":"Standard",
+    "triangle":250,
+    "aimoff": 20,
+    "startHeading": 300,
+    "startMaxAltitude":200,
+    "startMaxSpeed": 100,
+    "maxAltitude":350,
+    "raceTime":10,
+    "runway" : {
+	"length" : 40,
+	"width" : 40,
+	"x_offset":0,
+	"y_offset":-20
+    }
+}

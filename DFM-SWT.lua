@@ -260,6 +260,8 @@ local function initForm(subform)
 	 elseif teleSeUn[i] == "m/s" and teleSe[i] <= maxTele then
 	    form.addSelectbox(speedUnit, teleSeUd[i], true,
 			      (function(x) return unitChanged(x, i) end) )
+	 elseif teleSe[i] <= maxTele then
+	    form.addSelectbox({teleSeUn[i]}, 1, true)			     
 	 elseif teleSe[i] > maxTele then -- display but cannot change SYS telem units
 	    form.addSelectbox({teleSeUn[i]}, 1, true)
 	 end
@@ -384,8 +386,8 @@ local function pressAction(pC)
 
    if fn and teleSe[pC] > 1 then
       if emFlag then
-	 print("DFM-SWT: playFile:", fn)
-	 print("DFM-SWT: playNumber:", value, dp, unit)
+	 --print("DFM-SWT: playFile:", fn)
+	 --print("DFM-SWT: playNumber:", value, dp, unit)
       end
       if fn and value and dp and unit then
 	 system.playFile(fn, AUDIO_QUEUE)

@@ -247,10 +247,43 @@ function emulator_init()
       system.getSensors = emulator_getSensors
       system.getSensorByID = emulator_getSensorByID
       system.getSensorValueByID = emulator_getSensorValueByID
+      system.playFile = emulator_playFile
+      system.playNumber = emulator_playNumber
       system.messageBox("SensorE: Using emulated sensors", 3)
    else
       system.messageBox("SensorE: Using native sensors", 3)
    end
+end
+
+function emulator_playFile(fn, typ)
+   local ss
+   if typ == AUDIO_BACKGROUND then
+      ss = "AUDIO_BACKGROUND"
+   elseif typ == AUDIO_IMMEDIATE then
+      ss = "AUDIO_IMMEDIATE"
+   elseif typ == AUDIO_QUEUE then
+      ss = "AUDIO_QUEUE"
+   else
+      ss = "Type Unknown: " .. typ
+   end
+   print(string.format("SensorE - playFile: <%s> type: %s", fn, ss))
+end
+
+function emulator_playNumber(val, dec, unit, lab)
+   local fs, rr
+   if dec == 0 then
+      fs = "%d"
+   elseif dec == 1 then
+      fs = "%.1f"
+   elseif dec == 2 then
+      fs = "%.2f"
+   else -- not valid
+      fs = "%f"
+      rr = false
+   end
+   print(string.format
+	 ("SensorE - playNumber: %s unit: %s label: %s", string.format(fs, val), unit, lab))
+   return rr
 end
 
 function emulator_getSensors()

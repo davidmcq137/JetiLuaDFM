@@ -13,9 +13,9 @@
     {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
     {"id":2,
      "param":1,
-     "decimals":0,
+     "decimals":0, 
      "type":1,
-     "sensorName":"PS2(P6)",
+     "sensorName":"PS2(P6)", 
      "label":"Airspeed",
      "unit":"m/s",
      "control":"P6",
@@ -50,7 +50,7 @@
      "sensorName":"PS5(Seq)",
      "label":"Sequence",
      "unit":"",
-     "luaExp":"seq(t/20, {2,3,4,1})"
+     "luaExp":"P5(0,25)*tseq(t/40, {0,1,2,3,4})"
     },
 
     {"id":6,"param":0,"sensorName":"", "label":"PS6(Seq2)"},
@@ -61,7 +61,7 @@
      "sensorName":"PS6(Seq2)",
      "label":"Sequence2",
      "unit":"",
-     "luaExp":"5+5*seq(t/20, {0,1,0,1})"
+     "luaExp":"P5(0,100)*tseq(t/40, {0,1,0,1})"
     },
     
     {"id":7,"param":0,"sensorName":"", "label":"PS7(Dischg)"},
@@ -72,7 +72,7 @@
      "sensorName":"PS7(Dischg)",
      "label":"Dischg",
      "unit":"",
-     "luaExp":"max(0, 1/(1+exp(t%60-30)) + .1*((60-t%60)/60-1) )"
+     "luaExp":"P7(0,100)*math.max(0, 1/(1+math.exp(t%60-30)) + .5*((60-t%60)/60-1) )"
     }
     
 ]
