@@ -47,8 +47,8 @@ local function keyForm(key)
 	 table.sort(imageSelectEntries,
 		    function(a,b)
 		       local aa, bb
-		       aa=string.gsub(string.match(a, "(_%d+_)"), "_", "")
-		       bb=string.gsub(string.match(b, "(_%d+_)"), "_", "")
+		       aa=string.match(a, "(%d+)")
+		       bb=string.match(b, "(%d+)")
 		       return tonumber(aa) < tonumber(bb)
 	 end)
 	 imageIdx = 1
@@ -72,7 +72,7 @@ local function selectCallback(idx)
    local fc, path
    fieldSelectEntries.selectedField = fieldSelectEntries[idx]
    path = appInfo.Dir.."/"..fieldSelectEntries.selectedField..
-      "/"..fieldSelectEntries.selectedField..".jsn"
+      "/field.jsn"
    fc = io.readall(path)
    Field = json.decode(fc)
    fieldSelectEntries.selectedField = fieldSelectEntries[idx]
@@ -116,9 +116,9 @@ local function printForm()
       lcd.setColor(255,255,0)
       if Field then
 	 lcd.drawText(10,10,Field.name, FONT_MINI)
-	 lcd.drawText(10,20,"Lat: " .. Field.lat .. "°", FONT_MINI)
-	 lcd.drawText(10,30,"Lon: " .. Field.long .. "°", FONT_MINI)
-	 lcd.drawText(10,40,"Elev: " .. Field.elevation.." m", FONT_MINI)
+	 lcd.drawText(10,20,"Lat: " ..  Field.lat .. "°", FONT_MINI)
+	 lcd.drawText(10,30,"Lon: " ..  Field.lng .. "°", FONT_MINI)
+	 lcd.drawText(10,40,"Elev: " .. (Field.elevation or "---") .." m", FONT_MINI)
       end
    end
 end

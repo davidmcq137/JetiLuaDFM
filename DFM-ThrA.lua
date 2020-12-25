@@ -34,8 +34,6 @@ local TrefCall = 2
 local lastThr = 0
 local sameThr = 0
 
-local DEBUG = false
-
 -- Actions when settings changed
 
 local function thrSwitchChanged(value)
@@ -50,8 +48,6 @@ end
 
 local function thrInterChanged(value)
    thrInter = value
-   if thrInter == 99 then DEBUG = true end
-   if thrInter == 98 then DEBUG = false end
    system.pSave("thrInter", thrInter)
 end
 
@@ -166,16 +162,8 @@ local function loop()
 	 
 	 if (shortAnn or (swc and swc == 1) ) then
 	    system.playNumber(roundThr, 0)
-	    if DEBUG then
-	       print("(s)throttle: ", sss)
-	       print("time: ", (sgTC-sgTC0)/1000)
-	    end
 	 else
 	    system.playNumber(roundThr, 0, uuu)
-	    if DEBUG then
-	       print("throttle: ", sss, uuu)
-	       print("time: ", (sgTC-sgTC0)/1000)		  
-	    end
 	 end
       end -- if (not system...)
    end

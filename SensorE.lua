@@ -249,10 +249,23 @@ function emulator_init()
       system.getSensorValueByID = emulator_getSensorValueByID
       system.playFile = emulator_playFile
       system.playNumber = emulator_playNumber
+      system.vibration = emulator_vibration
       system.messageBox("SensorE: Using emulated sensors", 3)
    else
       system.messageBox("SensorE: Using native sensors", 3)
    end
+end
+
+function emulator_vibration(lr, prof)
+   local lrText
+   local profText = {"Long Pulse", "Short Pulse", "2x Short Pulse", "3x Short Pulse", "Other"}
+   if lr then lrText = "Right" else lrText = "Left" end
+   if prof < 1 or prof > 5 then
+      i = 5
+   else
+      i = prof
+   end
+   print(string.format("SensorE - vibration: %s" .. " stick - Profile: %s", lrText, profText[i]))
 end
 
 function emulator_playFile(fn, typ)
