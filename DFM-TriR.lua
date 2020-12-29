@@ -526,10 +526,10 @@ local function initForm(subform)
       form.addLabel({label="Triangle racing START switch", width=220})
       form.addInputbox(startSwitch, false, startSwitchChanged)
       
-      form.addRow(2)
-      form.addLabel({label="Triangle leg", width=220})
+      --form.addRow(2)
+      --form.addLabel({label="Triangle leg", width=220})
       --if Field and Field.triangle then variables.triLength = Field.triangle end 
-      form.addIntbox(variables.triLength, 10, 1000, 500, 0, 10, triLengthChanged)
+      --form.addIntbox(variables.triLength, 10, 1000, 500, 0, 10, triLengthChanged)
       
       form.addRow(2)
       form.addLabel({label="Triangle race time (m)", width=220})
@@ -763,8 +763,9 @@ end
 
 local function computeBezier(numT)
 
-   -- compute Bezier curve points using control points in xtable[], ytable[]
-   -- with numT points over the [0,1] interval
+
+      -- compute Bezier curve points using control points in xtable[], ytable[]
+      -- with numT points over the [0,1] interval
    
    local px, py
    local t, bn
@@ -795,6 +796,7 @@ end
 
 local function drawBezier(windowWidth, windowHeight, yoff)
 
+      
    local ren=lcd.renderer()   
    -- draw Bezier curve points computed in computeBezier()
 
@@ -1009,6 +1011,8 @@ local function calcTriRace()
    else
       ao = 0
    end
+
+   --print("ao=", ao)
    
    --if Field and Field.aimoff then
    --   ao = Field.aimoff
@@ -1027,8 +1031,11 @@ local function calcTriRace()
       end
       pylon[3] = {x=tri[3].x,y=tri[3].y,aimoff=ao}
    end
-   pylon.start = {x=tri.center.x, y=tri.center.y}
-   
+
+   -- extend startline below hypotenuse of triangle  by 0.8x inside length
+   pylon.start = {x=tri.center.x + 0.8 * (tri.center.x - pylon[2].x) ,
+		  y=tri.center.y + 0.8 * (tri.center.y - pylon[2].y)}
+
    --local region={2,3,3,1,2,1,0}
 
    -- first time thru, compute all the ancillary data that goes with each pylon
@@ -1870,13 +1877,18 @@ local function mapPrint(windowWidth, windowHeight)
 	 offset = 0
       end
 
+      ren:reset()
       for i=2 + offset, #xHist do
 
 	 if system.getCPU() < variables.maxCPU then
+	    ren:addPoint(toXPixel(xHist[i-1], map.Xmin, map.Xrange, windowWidth ),
+			 toYPixel(yHist[i-1], map.Ymin, map.Yrange, windowHeight) + 0)
+	    --[[
 	    lcd.drawLine(toXPixel(xHist[i-1], map.Xmin, map.Xrange, windowWidth ),
 			 toYPixel(yHist[i-1], map.Ymin, map.Yrange, windowHeight) + 0,
 			 toXPixel(xHist[i], map.Xmin, map.Xrange,    windowWidth),
 			 toYPixel(yHist[i], map.Ymin, map.Yrange,   windowHeight) + 0)
+	    --]]
 	 else
 	    print("CPU panic", #xHist, system.getCPU(), variables.maxCPU)
 	    panic = true
@@ -1884,14 +1896,20 @@ local function mapPrint(windowWidth, windowHeight)
 	 end
 	 
       end
+
       if variables.histMax > 0 and #xHist > 0 and #xtable > 0 then
-	 lcd.drawLine(toXPixel(xHist[#xHist], map.Xmin, map.Xrange,    windowWidth),
-		      toYPixel(yHist[#yHist], map.Ymin, map.Yrange,   windowHeight) + 0,
-		      toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
-		      toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight) + 0
-	 )   
+	 ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
+		       toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight) + 0)
+	 --[[
+	    lcd.drawLine(toXPixel(xHist[#xHist], map.Xmin, map.Xrange,    windowWidth),
+	    toYPixel(yHist[#yHist], map.Ymin, map.Yrange,   windowHeight) + 0,
+	    toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
+	    toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight) + 0)
+	 --]]
+
       end
       
+      ren:renderPolyline(2,0.6)
    end
 
    -- draw the runway if defined
