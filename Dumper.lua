@@ -70,16 +70,20 @@ end
   
 
 local function exportFile()
-  local func
-  local chunk
-  local fn, fnlc
-
+   local func
+   local err
+   local chunk
+   local fn, fnlc
+   
   fn = path .. "/" .. luaFiles[luaFileIdx]
-  --print ("Exporting " .. fn)
   fnlc = string.gsub(fn, ".lua", ".lc")
-  --print("lc file", fnlc)
   
-  func = loadfile(fn)
+  func, err = loadfile(fn)
+  if not func then
+     print("Dumper: loadfile error - " .. err)
+     system.messageBox("loadfile error, see console")
+     return
+  end
   chunk = string.dump(func,true)
   
   file = io.open(fnlc,"wb")
@@ -93,14 +97,14 @@ end
  
 --------------------------------------------------------------------
 local function luaFilesChanged(value)
-   print("lfc, value:", value)
+   --print("lfc, value:", value)
    luaFileIdx = value
 end
 
 
 local function initForm(formID)
    form.addRow(2)
-   form.addLabel({label="App to compile & dump", width=220})
+   form.addLabel({label="Select lua app", width=220})
    form.addSelectbox(luaFiles, luaFileIdx, true, luaFilesChanged)
 
    form.addRow(2)
