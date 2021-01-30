@@ -1,0 +1,25 @@
+[
+
+    {"id":1,"param":0,"sensorName":"", "label":"PS1(P5)"},
+    {"id":1,"param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS1(P5)",
+     "label":"Voltage",
+     "unit":"V",
+     "luaExp":"P5(0,100)"
+    },
+    
+    {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
+    {"id":2,
+     "param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS2(P6)",
+     "label":"Current",
+     "unit":"A",
+     "luaExp":"P6(0,500)"
+    }
+     
+    
+]

@@ -101,6 +101,8 @@ local histogram2 = {} -- table of values for "chart recorder" graph
 local penDown2 = {}
 local x0, y0
 
+local demoMode = false
+
 
 local needle_poly_small = {
    {-2,12},
@@ -575,12 +577,27 @@ local function loop()
    tim = sgTC / 1000
    runningTime = tim - startTime
    modSec, remSec = math.modf(runningTime / 2) --2 secs per step
-
-
+   
    if sgTC - lastPumpRead > 500 then
       pumpOnline = false
    end
    
+   if demoMode then
+      fRAT = 40 * math.sin(runningTime / 30)
+      pPSI = 5 * (1 + math.cos(runningTime / 30)) -- + 0.1 * math.random(-1,1)
+      rPWM = 100 * math.cos(runningTime / 30)
+      pumpOnline = true
+      if fRAT > 0 then
+	 pumpState = "Fill"
+      else
+	 pumpState = "Empty"
+      end
+      rTIM = runningTime
+      rTIMmins = math.floor(rTIM) // 60
+      rTIMsecs = rTIM - rTIMmins*60
+      Batt = 10.12
+   end
+
    --print(runningTime, modSec, remSec, oldModSec)
 
    p1 = system.getInputs("P1")

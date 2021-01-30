@@ -3,6 +3,7 @@
 --
 -- Visualize vector thrust tube mixed from pitch and yaw for Harry
 --
+-- Released under MIT license
 --
 
 local emflag
@@ -74,11 +75,15 @@ local function yp(y)
    return 80-y*sf
 end
 
-local function vecThr()
+local function vecThr(w,h)
 
+   --print(w,h)
    pitch, yaw, vpitch, vyaw =
       system.getInputs("O"..chanPitch, "O"..chanYaw, "O"..chanVPitch, "O"..chanVYaw)
 
+   --lcd.drawCircle(0,0,10)
+   --lcd.drawCircle(0,170,10)
+   
    lcd.setColor(0,0,0)
    lcd.drawLine(160-(sf+1),80, 160+sf-1, 80)
    lcd.drawLine(160, 80+sf-1, 160, 80-sf)
@@ -88,12 +93,12 @@ local function vecThr()
    lcd.drawCircle(xp(yaw), yp(pitch), 4)
    lcd.drawText(10, 10, "P: "..math.floor(pitch*100))
    lcd.drawText(10, 30, "Y: "..math.floor(yaw*100))
-   lcd.drawText(10, 50, "R: "..math.floor(math.sqrt( (pitch*100)^2 + (yaw*100)^2 ) ) )
+   lcd.drawText(10, 50, "R: "..math.floor(math.sqrt( (pitch*100)^2 + (yaw*100)^2 ) + 0.5 ) )
    lcd.setColor(0,0,255)
    lcd.drawCircle(xp(vyaw), yp(vpitch), 8)
    lcd.drawText(10,  90, "VP: "..math.floor(vpitch*100))
    lcd.drawText(10, 110, "VY: "..math.floor(vyaw*100))
-   lcd.drawText(10, 130, "VR: "..math.floor(math.sqrt( (vpitch*100)^2 + (vyaw*100)^2 ) ) )   
+   lcd.drawText(10, 130, "VR: "..math.floor(math.sqrt( (vpitch*100)^2 + (vyaw*100)^2 ) + 0.5 ) )   
 
    if system.getTimeCounter() -  lastSample  > 20 then
       if #XX + 1 > maxXY then
@@ -121,12 +126,21 @@ local function vecThr()
    
 end
 
+local function keyPressV(key)
+   print(key)
+end
+
+local function initFormV()
+   form.setTitle("")
+end
+
 local function init()
    
    system.registerForm(1, MENU_APPS, "Vector Thrust Visualizer", initForm)
 
    system.registerTelemetry(1, "Vector Thrust Visualizer", 4, vecThr)
-
+   --system.registerForm(2, MENU_MAIN, "Vector Thrust Visualizer X", initFormV, keyPressV, vecThr)
+   
    emflag = (select(2,system.getDeviceType()) == 1)
 
    chanPitch  = system.pLoad("chanPitch",  2)

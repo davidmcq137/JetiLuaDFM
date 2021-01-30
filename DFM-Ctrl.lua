@@ -31,7 +31,7 @@
 local appShort   = "DFM-Ctrl"
 local appName    = "Controls AutoTest"
 local appAuthor  = "DFM"
-local appVersion = "1.0"
+local appVersion = "1.1"
 
 local lastStep
 local step
@@ -78,14 +78,27 @@ local exactX={}
 
 local ctrlName={}
 local ctrlMaxa={}
+local ctrlValue={}
+local ctrlStart={}
+local ctrlDeltaT={}
+local ctrlLastValue={}
 
 local histogramWidth
 local histogramX
 local sumHisto
-local ctrlFile
 
--- read in self-describing data per Lua book, 4th Ed chapter 15
--- these are the callback functions for the code in the .lcs file
+local checkIndex={}
+local checkShow={}
+
+-- We will use self-describing data per Lua book, 4th Ed chapter 15
+-- These are the callback functions for the code in the .lcs file
+-- (really just a lua file but with a unique name "lua control sequence"  - lcs)
+-- the lcs is read in and executed with loadfile() in the init() function below
+
+local CTRL_checkList = {}
+function CTRL_cl(e)
+   for k,v in ipairs(e) do CTRL_checkList[k] = v end
+end
 
 local CTRL_list = {}
 function CTRL_l(e)
@@ -107,18 +120,6 @@ local CTRL_steps = {}
 function CTRL_st(e)
    for k,v in ipairs(e) do CTRL_lines[k] = v end
 end
-
--- get model name, form the appropriate lcs filename
--- could do with some better error checking here... e.g if files don't exist
-
-ctrlFile = "Apps/DFM-"..string.gsub(system.getProperty("Model")..".lcs", " ", "_")
-system.messageBox("Reading " .. ctrlFile)
-print("Reading " .. ctrlFile)
-
--- read/execute the lcs file -- should change to pcall with errorcode?
--- maybe easier to just let system handle...
-
-dofile(ctrlFile)
 
 -- Read available sensors for user to select - done once at startup
 -- Capture battery sensor IDs as specified in batt_info
@@ -183,6 +184,32 @@ local function initForm()
 
 end
 
+local function checkClicked(val, i)
+   print("focused row:", form.getFocusedRow())
+   checkShow[i] = not val
+   form.setValue(checkIndex[i], checkShow[i])
+   form.setFocusedRow(math.min(i+1, #CTRL_checkList))
+   if i >= #CTRL_checkList then
+      print("i>")
+      form.close()
+      system.unregisterForm(1)
+      system.registerForm(1,MENU_APPS, appName, initForm, nil, nil)      
+   end
+   
+end
+
+local function initCheckListForm()
+   for i = 1, #CTRL_checkList, 1 do
+      checkShow[i] = false
+      form.addRow(2)
+      form.addLabel({label=i..".  "..CTRL_checkList[i].lbl .. " " .. CTRL_checkList[i].msg, width=270})
+      checkIndex[i] = form.addCheckbox(checkShow[i], (function(x) return checkClicked(x,i) end))
+   end
+   form.addRow(1)
+   form.addLabel({label="Version " .. appVersion .." ",font=FONT_MINI, alignRight=true})
+end
+
+
 -- convenience functions
 
 local function pixFromAmps(a)
@@ -193,19 +220,48 @@ local function round1(x)
    return math.floor(x*10 + 0.5) / 10.0
 end
 
+local function vertHistogram(x0, y0, val, scale, hgt, wid, vald)
+
+   lcd.setColor(0,0,0)
+   
+   lcd.drawRectangle(x0 - wid/2, y0 - hgt, wid, 2*hgt - 1)
+   lcd.drawLine(x0 - wid/2, y0, x0 + wid/2 - 1, y0)
+   
+   local a = math.min(math.abs(val) / scale, 1)
+
+   if val > 0 then
+      lcd.setColor(0,255,0)
+      lcd.drawFilledRectangle(x0 - wid/2, y0 - hgt * a+1, wid, hgt * a)
+   else
+      lcd.setColor(255,0,0)
+      lcd.drawFilledRectangle(x0 - wid/2, y0, wid, hgt * a)
+   end
+   lcd.setColor(0,0,0)
+
+   if vald then
+      lcd.drawText(x0+wid, y0 -lcd.getTextHeight(FONT_BOLD)/2, string.format("%4.1f", vald), FONT_BOLD)
+   end
+   
+   lcd.drawText(x0 + wid - 5, y0 - hgt, string.format("+%d", scale), FONT_MINI)
+   lcd.drawText(x0 + wid - 5, y0 + hgt - lcd.getTextHeight(FONT_MINI), string.format("-%d", scale), FONT_MINI)   
+   
+end
+
 -- Telemetry window draw functions
 
 local ww1max, ww2max = 0, 0
 local aa1max, aa2max = 0, 0
 
-local function timePrint()
+local function timePrint(wid, hgt, isel)
 
    local mm, rr
    local pts
    local fstr
    local ww, ss
 
+   
    lcd.setColor(0,0,0)
+   --lcd.drawText(10,10,isel)
 
    lcd.drawRectangle(2, 133, 150, 10)
    lcd.drawRectangle(3+150, 133, 149, 10)
@@ -299,90 +355,117 @@ local function timePrint()
    ww = lcd.getTextWidth(FONT_MINI, "Current (A)")
    lcd.drawText(200+5+(100-ww)/2,2,"Current (A)", FONT_MINI)
    
-   -- now draw the large box for the bar graph
-   lcd.drawRectangle(2, 70, 300, 60)
-   
-   local iv = 70
-   local ivd = 4
-   local ivdt
-   
-   -- draw vertical dashed lines
-   while iv <= 130 do
-      if iv + ivd > 130 then ivdt = 130 - 1 else ivdt = iv + ivd - 1 end
-      lcd.drawLine(75+2, iv, 75+2, ivdt)
-      lcd.drawLine(150+2, iv, 150+2, ivdt)
-      lcd.drawLine(225+2, iv, 225+2, ivdt)
-      iv = iv + 2*ivd
-   end
-   
-   -- draw horizontal dashed lines
-   local ih = 2
-   local ihd = 4
-   local ihdt
-   
-   while ih <= 300 do
-      if ih + ihd > 300 then ihdt = 300 else ihdt = ih + ihd end
-      lcd.drawLine(ih, 70+60/2, ihdt, 70+60/2)
-      ih = ih + 2*ihd
-   end
-   
-   ss = string.format("Graph Scale (A): %.1f", graphScale)
-   ww = lcd.getTextWidth(FONT_MINI, ss)
-   lcd.drawText(75 - ww/2,70-15, ss, FONT_MINI)
-
-   if maxAmps then
-      ss = string.format("Hi Current Limit (A): %.1f", maxAmps)
+   if isel == 1 then
+      -- now draw the large box for the bar graph
+      lcd.drawRectangle(2, 70, 300, 60)
+      
+      local iv = 70
+      local ivd = 4
+      local ivdt
+      
+      -- draw vertical dashed lines
+      while iv <= 130 do
+	 if iv + ivd > 130 then ivdt = 130 - 1 else ivdt = iv + ivd - 1 end
+	 lcd.drawLine(75+2, iv, 75+2, ivdt)
+	 lcd.drawLine(150+2, iv, 150+2, ivdt)
+	 lcd.drawLine(225+2, iv, 225+2, ivdt)
+	 iv = iv + 2*ivd
+      end
+      
+      -- draw horizontal dashed lines
+      local ih = 2
+      local ihd = 4
+      local ihdt
+      
+      while ih <= 300 do
+	 if ih + ihd > 300 then ihdt = 300 else ihdt = ih + ihd end
+	 lcd.drawLine(ih, 70+60/2, ihdt, 70+60/2)
+	 ih = ih + 2*ihd
+      end
+      
+      ss = string.format("Graph Scale (A): %.1f", graphScale)
       ww = lcd.getTextWidth(FONT_MINI, ss)
-      lcd.drawText(225 - ww/2,70-15, ss, FONT_MINI)
-   end
-   
-   lcd.setColor(0,0,200)
-
-   local iy, xc
-   --draw the current histogram
-   for ix = 1, #ytable, 1 do
-      iy = pixFromAmps(ytable[ix])
-      -- make sure last histo lines up w/edge of window
-      if ix  == totalSteps then
-	 xc = (xtable[ix] + wtable[ix]) - 300
-      else
-	 xc = 0
+      lcd.drawText(75 - ww/2,70-15, ss, FONT_MINI)
+      
+      if maxAmps then
+	 ss = string.format("Hi Current Limit (A): %.1f", maxAmps)
+	 ww = lcd.getTextWidth(FONT_MINI, ss)
+	 lcd.drawText(225 - ww/2,70-15, ss, FONT_MINI)
       end
-      if overamps[ix] == true then
-	 lcd.setColor(255,0,0)
-      else
-	 lcd.setColor(0,0,200)
+      
+      lcd.setColor(0,0,200)
+      
+      local iy, xc
+      --draw the current histogram
+      for ix = 1, #ytable, 1 do
+	 iy = pixFromAmps(ytable[ix])
+	 -- make sure last histo lines up w/edge of window
+	 if ix  == totalSteps then
+	    xc = (xtable[ix] + wtable[ix]) - 300
+	 else
+	    xc = 0
+	 end
+	 if overamps[ix] == true then
+	    lcd.setColor(255,0,0)
+	 else
+	    lcd.setColor(0,0,200)
+	 end
+	 lcd.drawFilledRectangle(2+xtable[ix], 130-iy, wtable[ix]-xc, iy, 200)
       end
-      lcd.drawFilledRectangle(2+xtable[ix], 130-iy, wtable[ix]-xc, iy, 200)
-   end
-   
-   -- draw label for each step section if defined
-   lcd.setColor(0,0,200)
-   if #labels > 0 then
-      for i=1, #labels, 1 do
-	 if labels[i].text ~= "---" then
-	    lcd.drawText(labels[i].x, labels[i].y, labels[i].text, FONT_MINI)
+      
+      -- draw label for each step section if defined
+      lcd.setColor(0,0,200)
+      if #labels > 0 then
+	 for i=1, #labels, 1 do
+	    if labels[i].text ~= "---" then
+	       lcd.drawText(labels[i].x + 0, labels[i].y, labels[i].text, FONT_MINI)
+	    end
+	 end
+      end
+      
+      -- draw red line for max amps if defined for this step section
+      lcd.setColor(200, 0, 0)
+      if #amps > 0 and maxAmps < graphScale then
+	 for i=1, #amps, 1 do
+	    lcd.drawLine(2 + amps[i].x0, 130 - pixFromAmps(amps[i].y0),
+			 math.min(2 + amps[i].x1, 300), 130 - pixFromAmps(amps[i].y1))
+	 end
+      end
+      
+      -- draw green line for average value
+      lcd.setColor(0,200,0)
+      if totalN and totalN ~= 0 then
+	 iy = (totalSumI / totalN) / (graphScale) * 60
+	 iy = math.max(math.min(iy, 60), 1)
+	 lcd.drawLine(2, 130-iy, 300, 130-iy)
+      end
+   else
+      local sp, l, v, dt, ss
+      sp = math.floor(300 / (#CTRL_list+1))
+      if true then
+	 if (step < 1) or (not running) then ss = "(---)" else ss = "("..stepName..")" end
+	 lcd.setColor(0,0,255)
+	 lcd.drawText(150 - lcd.getTextWidth(FONT_MINI, ss)/2,145, ss, FONT_MINI)
+	 lcd.setColor(0,0,0)
+	 for i = 1, #CTRL_list, 1 do
+	    if ctrlValue and ctrlValue[i] then
+	       --v = ctrlValue[i]
+	       dt = system.getTimeCounter() - ctrlStart[i]
+	       if dt > ctrlDeltaT[i] then
+		  v = ctrlValue[i]
+	       else
+		  v = ctrlLastValue[i] +
+		     dt * (ctrlValue[i] - ctrlLastValue[i]) / ctrlDeltaT[i]
+	       end
+	    else
+	       v = 0
+	    end
+	    vertHistogram(2  + sp*i, 90, v, 1, 30, 10)
+	    l = lcd.getTextWidth(FONT_MINI, CTRL_shortName[i], 3)
+	    lcd.drawText(2 + sp*i - l/2, 120, CTRL_shortName[i], FONT_MINI)
 	 end
       end
    end
-   
-   -- draw red line for max amps if defined for this step section
-   lcd.setColor(200, 0, 0)
-   if #amps > 0 and maxAmps < graphScale then
-      for i=1, #amps, 1 do
-	 lcd.drawLine(2 + amps[i].x0, 130 - pixFromAmps(amps[i].y0),
-		      math.min(2 + amps[i].x1, 300), 130 - pixFromAmps(amps[i].y1))
-      end
-   end
-   
-   -- draw green line for average value
-   lcd.setColor(0,200,0)
-   if totalN and totalN ~= 0 then
-      iy = (totalSumI / totalN) / (graphScale) * 60
-      iy = math.max(math.min(iy, 60), 1)
-      lcd.drawLine(2, 130-iy, 300, 130-iy)
-   end
-   
 end
 
 --------------------------------------------------------------------------------
@@ -521,9 +604,20 @@ local function loop()
 	 
 	 for i = 1, #CTRL_list, 1 do
 	    if CTRL_steps[step][CTRL_shortName[i]] then
+	       if not ctrlValue[i] then
+		  ctrlLastValue[i] = 0
+	       else
+		  ctrlLastValue[i] = ctrlValue[i]
+	       end
+	       ctrlValue[i] = CTRL_steps[step][CTRL_shortName[i]]
+	       ctrlStart[i] = system.getTimeCounter()
+	       ctrlDeltaT[i] = deltaTStep
+	       --print(step, i, CTRL_shortName[i], ctrlLastValue[i], ctrlValue[i], deltaTStep)
 	       system.setControl(CTRL_list[i],
 				 CTRL_steps[step][CTRL_shortName[i]],
 				 deltaTStep, 0)
+	    else
+	       --print("else:step", step, i, deltaTStep)
 	    end
 	 end
       end
@@ -558,13 +652,36 @@ end
 
 local function init()
 
-   local pcallOK, ctl
+   local ctl
+   local ctrlFn
+   local ctrlFile
+   local ctrlFunc
+   local ctrlError
    
-   pcallOK, emulator = pcall(require, "sensorEmulator")
-   if pcallOK and emulator then emulator.init(appShort) end
+   ctrlFn = string.gsub(system.getProperty("Model")..".lcs", " ", "_")
+   ctrlFile = "Apps/"..appShort.."/"..ctrlFn
+   system.messageBox("DFM-Ctrl: " .. ctrlFile)
+   print("DFM-Ctrl: attempting to open " .. ctrlFile)
+
+   local ctrlFunc, ctrlError = loadfile(ctrlFile) 
+
+   if not ctrlFunc then
+      local ll = string.match(ctrlError, ":(.-):")
+      system.messageBox("Error in " .. ctrlFn .. " line " .. (ll or "??") .. " - See console")
+      print("DFM-Ctrl: " .. ctrlError)
+      return
+   else
+      print("DFM-Ctrl: calling lcs file")
+      ctrlFunc()
+   end
 
    readSensors()
-   system.registerForm(1,MENU_APPS, appName, initForm, nil, nil)
+
+   if #CTRL_checkList > 0 then
+      system.registerForm(1,0, appName, initCheckListForm, nil, nil)
+   else
+      system.registerForm(1,MENU_APPS, appName, initForm, nil, nil)
+   end
    
    testStartSw = system.pLoad("testStartSw")
    graphScale = system.pLoad("graphScale", 100) / 10
@@ -607,13 +724,29 @@ local function init()
    step = 0
    deltaTStep = CTRL_steps[step+1].dt
 
-   for i = 1, #CTRL_list, 1 do
-      ctl = CTRL_list[i]
-      system.setControl(ctl, CTRL_steps[step+1][CTRL_shortName[i]], 0, 0)
+   for i=1, #CTRL_checkList, 1 do
+      print(i, CTRL_checkList[i].lbl, CTRL_checkList[i].msg, CTRL_checkList[i].audio)
    end
-
-   system.registerTelemetry(1, appName.." - Model: "..system.getProperty("Model"), 4, timePrint)
    
+
+   --for i = 1, #CTRL_list, 1 do
+   --   ctl = CTRL_list[i]
+   --   if not CTRL_steps[step+1][CTRL_shortName[i]] then
+   --	 system.setControl(ctl, 0, 0, 0)
+   --   else
+   --	 system.setControl(ctl, CTRL_steps[step+1][CTRL_shortName[i]], 0, 0)
+   --    end
+   --end
+
+   --for i = 0, #CTRL_list, 1 do -- start at 0 so we have a prev val for step 1
+   --	 ctrlLastValue[i] = 0
+   --end
+      
+   --system.registerTelemetry(1, appName.." - Histogram for Model: "..system.getProperty("Model"), 4,
+   system.registerTelemetry(1, appName.." - Histogram: ".. ctrlFn, 4,
+			    (function(x,y) return timePrint(x, y, 1) end))
+   system.registerTelemetry(2, appName.." - Controls: " .. ctrlFn, 4,
+			    (function(x,y) return timePrint(x, y, 2) end))   
 end
 
 --------------------------------------------------------------------------------

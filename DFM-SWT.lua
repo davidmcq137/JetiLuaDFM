@@ -30,6 +30,16 @@
 
    Created and tested on DC/DS-24 emulator, tested on DS-24 TX
 
+   TO DO: some telem names (e.g. "Rel. Alt" "Abs. Alt" from MVARIO)
+   have embedded spaces and dots. I am replacing the spaces with "_"
+   but not doing anything with the dots and this is likely an issue
+   with some systems e.g. it makes filenames like Rel._Alt.wav .. so
+   need to deal with the dots somehow. Probably can just remove them?
+
+   See line 357:
+
+   fn = "/Apps/DFM-SWT/"..locale .."/"..string.gsub(teleSeLs[pC], " ", "_")..".wav"
+
 --]]
 
 local appName = "Short/Long Switch"
@@ -561,9 +571,14 @@ local function init()
 	 for kk,vv in pairs(mdl["Telem-Detect"].Data[k]) do
 	    sen[kk] = vv
 	 end
+	 --print("sen.Param, sen.Label:", sen.Param, sen.Label)
 	 if sen.Param == 0 then
 	    sname = sen.Label
 	 else
+	    if not sname then
+	       print("DFM-SWT - sname nil", sen.Param, sen.Label)
+	       sname = "---"
+	    end
 	    fullname = sname .. "." .. sen.Label
 	    UnIDX[fullname] = math.floor(sen.UnitIDX)
 	 end

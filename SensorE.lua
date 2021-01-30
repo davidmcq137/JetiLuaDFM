@@ -283,7 +283,9 @@ function emulator_playFile(fn, typ)
 end
 
 function emulator_playNumber(val, dec, unit, lab)
-   local fs, rr
+   local fs, rr, vf
+
+   
    if dec == 0 then
       fs = "%d"
    elseif dec == 1 then
@@ -294,8 +296,13 @@ function emulator_playNumber(val, dec, unit, lab)
       fs = "%f"
       rr = false
    end
+   if val then
+      vf = string.format(fs, val)
+   else
+      vf = "(nil)"
+   end
    print(string.format
-	 ("SensorE - playNumber: %s unit: %s label: %s", string.format(fs, val), unit, lab))
+	 ("SensorE - playNumber: %s unit: %s label: %s", vf, unit, lab))
    return rr
 end
 
