@@ -36,7 +36,9 @@ local lastKey = -1
 local infoMsg = ""
 
 local rTIM, pPSI, rPWM, fCNT, fRAT, Batt, pSTP, fDEL, fDET, Curr, pPWM
+local eCNT
 local fCLK
+local cBAD
 
 local deltaCLK=0
 
@@ -54,22 +56,22 @@ local pressSetpoint = 5.0
 local showPump = true
 
 local graphStyle = {"Line","Hazel","Point","Histogram"}
-local graphStyleIdx = 2
+local graphStyleIdx = 3
 
-local graphScaleIdx = 1
-local graphScaleRange =    {5,  10,  20,  50}
-local graphScaleFormat = {"%d","%d","%d","%d"}
-local graphScale = graphScaleRange[4]
-local graphFmt = graphScaleFormat[4]
+local graphScaleIdx = 4
+local graphScaleRange =  {0.05,    0.1,    0.2,    0.5,     1,   2,   5,  10}
+local graphScaleFormat = {"%.2f", "%.1f", "%.1f", "%.1f", "%d","%d","%d","%d"}
+local graphScale = graphScaleRange[graphScaleIdx]
+local graphFmt = graphScaleFormat[graphScaleIdx]
 
-local graphScale2Idx = 1
-local graphScale2Range =    {0.2, 0.5,   1,   2,   5,  10}
-local graphScale2Format = {"%.1f","%.1f","%d","%d","%d","%d"}
-local graphScale2 = graphScale2Range[4]
-local graphFmt2 = graphScale2Format[4]
+local graphScale2Idx = 4
+local graphScale2Range =  {0.05,    0.1,    0.2,    0.5,     1,   2,   5,  10}
+local graphScale2Format = {"%.2f", "%.1f", "%.1f", "%.1f", "%d","%d","%d","%d"}
+local graphScale2 = graphScale2Range[graphScale2Idx]
+local graphFmt2 = graphScale2Format[graphScale2Idx]
 
-local p1High, p1Low
-local p2High, p2Low
+--local p1High, p1Low
+--local p2High, p2Low
 
 local graphValue = 0
 local graphValue2 = 0
@@ -83,17 +85,19 @@ local highY2, lowY2
 local oldModSec 
 local runningTime 
 local startTime
-local timeline = 120
-local nextsgTC 
-local deltasg = 200
 
 -- xboxWidth, maxPoints, xbox, ybox must be integers
 -- must have xbox = maxPoints * xboxWidth
 
 local xbox = 300 -- main box width
 local ybox = 80 -- main box height
-local maxPoints = 60
-local xboxWidth = 5 -- pixel width of histograms
+local maxPoints = 150
+local xboxWidth = 2 -- pixel width of histograms
+
+local timeline = 120
+local nextsgTC 
+--local deltasg = 200
+local deltasg = timeline * 1000 / maxPoints
 
 local histogram = {} -- table of values for "chart recorder" graph
 local penDown = {}
@@ -102,7 +106,26 @@ local penDown2 = {}
 local x0, y0
 
 local demoMode = false
+local thr = 100
+local thrLast = 100
+local thrNonZero = false
 
+local pumpActive = true
+local dev, emflag
+local tankCapacity
+local tankOverfill = 10
+local Boxcar={}
+local boxAvgShort = 0
+local boxAvgLong = 0
+local boxAvgNShort = 12
+local boxAvgNLong = 60
+local Boxlen = boxAvgNLong
+local boxAvg = 2
+local boxAvg2 = 3
+local boxRMS = 0
+
+local ssid
+local pwd
 
 local needle_poly_small = {
    {-2,12},
@@ -168,6 +191,8 @@ local function drawGauge(label, lcol, min, mid, max, tmp, unit, ox, oy, marker)
       lcd.setColor(255,0,0)
    elseif lcol == "blue" then
       lcd.setColor(0,0,255)
+   elseif lcol == "green" then
+      lcd.setColor(0,255,0)
    else
       lcd.setColor(0,0,0)
    end
@@ -249,6 +274,9 @@ end
 local function countedWrite(str)
 
    local time
+
+   --print("cw:", str)
+   
    strCount = strCount + #str
 
    time = system.getTime()
@@ -278,7 +306,7 @@ local function dashLine(xp0, yp0, xp1, yp1)
    dx = (xp1-xp0) / ratio
    dy = (yp1-yp0) / ratio
 
-   count = count + 1
+   --count = count + 1
 
    if d < dlen*.7 then -- 0.7 arbitrary chose to look best
       return
@@ -428,6 +456,7 @@ local function graphPrint()
    -- now draw graph
    
    if true then --graphSeId ~= 0 then
+
       lcd.setColor(0,0,200)
 
       if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then
@@ -438,7 +467,7 @@ local function graphPrint()
       x0, y0 = nil, nil
       
       for ix = 1, #histogram, 1 do
-	 if graphStyle[graphStyleIdx] == "Hazel" then
+	 if graphStyle[graphStyleIdx] == "Hazel" or  graphStyle[graphStyleIdx] == "Point" then
 	    yh = (histogram[ix] % graphScale)
 	    yLow = (histogram[ix] // graphScale) * graphScale
 	    yHigh = yLow + graphScale
@@ -458,7 +487,7 @@ local function graphPrint()
 				    yp, xboxWidth, iy, 160)
 	 elseif graphStyle[graphStyleIdx] == "Point" then
 	    lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
-				    yp, xboxWidth, xboxWidth, 160)
+				    yp, 3, 3, 160)
 	 else -- Line or Hazel
 	    if penDown[ix] then
 	       if lastDown == false then
@@ -493,7 +522,7 @@ local function graphPrint()
    end
    
 
-   if true then --graphSeId2 ~= 0 then
+   if pumpState == "Autofill" then
       lcd.setColor(200,0,0)
       
       if graphStyle[graphStyleIdx] == "Line" or graphStyle[graphStyleIdx] == "Hazel" then
@@ -504,7 +533,7 @@ local function graphPrint()
       x0, y0 = nil, nil
 
       for ix = 1, #histogram2, 1 do
-	 if graphStyle[graphStyleIdx] == "Hazel" then
+	 if graphStyle[graphStyleIdx] == "Hazel" or  graphStyle[graphStyleIdx] == "Point" then
 	    yh = histogram2[ix] % graphScale2
 	    yLow2 = (histogram2[ix] // graphScale2) * graphScale2
 	    yHigh2 = yLow2 + graphScale2	    
@@ -524,7 +553,7 @@ local function graphPrint()
 				    yp, xboxWidth, iy, 160)
 	 elseif graphStyle[graphStyleIdx] == "Point" then
 	    lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
-				    yp, xboxWidth, xboxWidth, 160)
+				    yp, 3, 3, 160)
 	 else -- Line or Hazel
 	    if penDown2[ix] then
 	       if lastDown == false then
@@ -561,161 +590,83 @@ local function graphPrint()
    lcd.setColor(0,0,0)
 end
 
-
-----------------------------------------------------------------------
--- presistent and global variables for loop()
-
-local function loop()
-
-
-   local sgTC
-   local tim
-   local modSec, remSec
-   local p1, p2
-   
-   sgTC = system.getTimeCounter()
-   tim = sgTC / 1000
-   runningTime = tim - startTime
-   modSec, remSec = math.modf(runningTime / 2) --2 secs per step
-   
-   if sgTC - lastPumpRead > 500 then
-      pumpOnline = false
-   end
-   
-   if demoMode then
-      fRAT = 40 * math.sin(runningTime / 30)
-      pPSI = 5 * (1 + math.cos(runningTime / 30)) -- + 0.1 * math.random(-1,1)
-      rPWM = 100 * math.cos(runningTime / 30)
-      pumpOnline = true
-      if fRAT > 0 then
-	 pumpState = "Fill"
-      else
-	 pumpState = "Empty"
-      end
-      rTIM = runningTime
-      rTIMmins = math.floor(rTIM) // 60
-      rTIMsecs = rTIM - rTIMmins*60
-      Batt = 10.12
-   end
-
-   --print(runningTime, modSec, remSec, oldModSec)
-
-   p1 = system.getInputs("P1")
-
-   if p1 > 0.25 then
-      if p1High == false then
-	 --print("+1")
-	 p1High = true
-	 graphScaleIdx = graphScaleIdx - 1
-	 graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange), 1)
-	 graphScale = graphScaleRange[graphScaleIdx]
-	 graphFmt = graphScaleFormat[graphScaleIdx]
-      end
-   else
-      p1High = false
-   end
-   
-
-   if p1 < -0.25 then
-      if p1Low == false then
-	 --print("-1")
-	 p1Low = true
-	 graphScaleIdx = graphScaleIdx + 1
-	 graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange), 1)
-	 graphScale = graphScaleRange[graphScaleIdx]
-	 graphFmt = graphScaleFormat[graphScaleIdx]
-      end
-   else
-      p1Low = false
-   end
-
-   p2 = system.getInputs("P2")
-
-   if p2 > 0.25 then
-      if p2High == false then
-	 --print("+1")
-	 p2High = true
-	 graphScale2Idx = graphScale2Idx - 1
-	 graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range), 1)
-	 graphScale2 = graphScale2Range[graphScale2Idx]
-	 graphFmt2 = graphScale2Format[graphScale2Idx]
-      end
-   else
-      p2High = false
-   end
-
-   if p2 < -0.25 then
-      if p2Low == false then
-	 --print("-1")
-	 p2Low = true
-	 graphScale2Idx = graphScale2Idx + 1
-	 graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range), 1)
-	 graphScale2 = graphScale2Range[graphScale2Idx]
-	 graphFmt2 = graphScale2Format[graphScale2Idx]
-      end
-   else
-      p2Low = false
-   end
-   
-   if sgTC > nextsgTC  and pumpState ~= "Off" then
-      nextsgTC = nextsgTC + deltasg
-      oldModSec = modSec
-
-      --print("#", #histogram)
-      
-      if #histogram + 1 > maxPoints then
-	 table.remove(histogram, 1)
-	 table.remove(penDown, 1)
-      end
-      
-      table.insert(histogram, #histogram+1, fRAT or 0)
-      graphValue = fRAT
-      
-      if graphValue then
-	 table.insert(penDown, #penDown+1, true)
-      else
-	 table.insert(penDown, #penDown+1, false)
-      end
-      
-      if #histogram2 + 1 > maxPoints then
-	 table.remove(histogram2, 1)
-	 table.remove(penDown2, 1)
-      end
-
-      table.insert(histogram2, #histogram2+1, pPSI or 0)
-      graphValue2 = pPSI
-      if graphValue2 then
-	 table.insert(penDown2, #penDown2+1, true)
-      else
-	 table.insert(penDown2, #penDown2+1, false)
-      end
-   end
-
-   
-end
-
 local function execCmd(k,v)
-    
+   local tVOL
+   
    if k == "rTIM" then
-      rTIM = tonumber(v)
+      rTIM = tonumber(v) or 0
       rTIMmins = math.floor(rTIM) // 60
       rTIMsecs = rTIM - rTIMmins*60
    elseif k == "pPSI" then
       pPSI = tonumber(v) 
+      if (pumpState ~= "Fill") and (pumpState ~= "Autofill") then return end
+      
+      if #Boxcar + 1 > Boxlen then
+	 table.remove(Boxcar, 1)
+      end
+      table.insert(Boxcar, #Boxcar+1, pPSI)
+      --print("pPSI, #, BL", pPSI, #Boxcar, Boxlen)
+      local sum, formax
+      if pumpState ~= "Off" then --#Boxcar >= boxAvgNShort then
+	 sum = 0
+	 formax = math.min(#Boxcar, boxAvgNShort)
+	 --print(#Boxcar - (formax-1), #Boxcar)
+	 for i = #Boxcar - (formax -1), #Boxcar do
+	    sum = sum + Boxcar[i]
+	 end
+	 boxAvgShort = sum / formax
+      else
+	 boxAvgShort = pPSI
+      end
+      if pumpState ~= "Off" then --#Boxcar >= boxAvgNLong then
+	 sum = 0
+	 formax = math.min(#Boxcar, boxAvgNLong)	 
+	 --print(#Boxcar - (formax-1), #Boxcar)
+	 for i = #Boxcar - (formax -1), #Boxcar do
+	    sum = sum + Boxcar[i]
+	 end
+	 boxAvgLong = sum / formax
+	 sum = 0
+	 formax = math.min(#Boxcar, boxAvgNLong)
+	 for i = #Boxcar - (formax -1), #Boxcar do
+	    sum = sum + (Boxcar[i] - boxAvgLong) * (Boxcar[i] - boxAvgLong)
+	 end
+	 boxRMS = math.sqrt(sum) / math.sqrt(formax)
+      else
+	 boxAvgLong = pPSI
+	 boxRMS = 0
+      end
+      --print(boxAvgLong, boxAvgShort, math.abs(boxAvgLong-boxAvgShort), boxRMS)
    elseif k == "rPWM" then
       rPWM = tonumber(v)
    elseif k == "fCNT" then
       fCNT = tonumber(v)
+      tVOL = ( (fCNT or 0) / (CalF / 10) ) - ( (eCNT or 0) / (CalE / 10))      
+      if ( (pumpState == "Fill") or (pumpState == "Autofill") )
+	 and (tVOL > (tankCapacity + tankOverfill)) then
+	 countedWrite("(Off)\n")
+	 countedWrite("(Off)\n") -- experiementing with race condition on pump controller (?)	 
+	 pumpState = "Off"
+	 infoMsg = "Pump stopped - Overfill"
+	 --local appDir = "Apps/"..appShort.."/"
+	 system.playFile("/"..appDir.."pump_off_at.wav", AUDIO_QUEUE)
+	 system.playNumber(tVOL, 0, "floz")
+      end
+   elseif k == "eCNT" then
+      eCNT = tonumber(v)
    elseif k == "fRAT" then
       fRAT = tonumber(v)
    elseif k == "fDEL" then
    elseif k == "fDET" then
    elseif k == "Batt" then
-      Batt = 7.504 * tonumber(v)
+      if not tonumber(v) then print("bad Batt?") end
+      Batt = 7.504 * (tonumber(v) or 0)
       if Batt < lowBattLimit and not lowBattAnn then
 	 system.messageBox("Auto pump power off. Low battery")
 	 print("Low Batt power off", Batt, lowBattLimit)
-	 countedWrite("(PwrOff)")
+	 system.playFile("/"..appDir.."pump_off_at.wav", AUDIO_QUEUE)
+	 system.playNumber(Batt, 2, "V")
+	 countedWrite("(PwrOff)\n")
 	 lowBattAnn = true
       end
    elseif k == "pSTP" then
@@ -730,10 +681,23 @@ local function execCmd(k,v)
       system.messageBox("Pump timeout - auto power down")
       print("PowerDown signal")
    elseif k == "OTA" then
+      if tonumber(v) == 1 then
+	 system.messageBox("Pump received update cmd",2)
+      elseif tonumber(v) == -1 then
+	 system.messageBox("No WiFi connection for update",2)
+      elseif tonumber(v) == 2 then
+	 system.messageBox("WiFi connected for update", 2)
+      elseif tonumber(v) == -30 then
+	 system.messageBox("No Cloud connection for update",2)
+      elseif tonumber(v) == 30 then
+	 system.messageBox("Cloud connected. Ready to update",2)
+      else
+	 print("DFM-Pump: unknown OTA response", v)
+      end
+      
    elseif k == "fCLK" then
       if not fCLK then
 	 fCLK = tonumber(v)
-	 --print("xxx", fCLK, system.getTimeCounter())
 	 deltaCLK = fCLK - system.getTimeCounter()
 	 deltaAVG = 0
       else
@@ -741,7 +705,9 @@ local function execCmd(k,v)
       end
       
       deltaAVG = deltaAVG + ((fCLK - system.getTimeCounter() - deltaCLK) - deltaAVG)/10
-      --print("delta Clock: ", fCLK - system.getTimeCounter() - deltaCLK, deltaAVG)
+   elseif k == "cBAD" then
+      cBAD = v
+      print("cBAD", cBAD)
    else
       print("bad command:", k,v)
    end
@@ -807,26 +773,220 @@ local function onRead(data)
    
 end
 
-local function pumpTele()
+----------------------------------------------------------------------
+-- presistent and global variables for loop()
 
+local lastLoop=0
+
+local function loop()
+
+
+   local sgTC
+   local tim
+   local modSec, remSec
+   local p1, p2
+   local thrpct
+   
+   if not pumpActive then return end
+
+   local txTel = system.getTxTelemetry() -- if we see an RX kill the pump
+   if not emflag and txTel.rx1Percent > 0 then
+      pumpActive = false
+      system.setProperty("CpuLimit", 1)      
+      system.messageBox("Pump App Exiting")
+      return
+   end
+
+   sgTC = system.getTimeCounter()
+   tim = sgTC / 1000
+   runningTime = tim - startTime
+   modSec, remSec = math.modf(runningTime / 2) --2 secs per step
+   --print(runningTime, modSec, remSec, oldModSec)
+   
+   if sgTC - lastPumpRead > 500 then
+      pumpOnline = false
+   end
+
+   if demoMode and ( (pumpState == "Fill") or (pumpState == "Autofill") ) then
+      fRAT = 42.5 + 0.1 * math.random(-1,1) -- (1 + math.sin(runningTime / 4))
+      --if fRAT > 40 then fRAT = 80 end
+      --if fRAT <= 40 then fRAT = 0 end
+      --pPSI = 2.5 * (1 + math.cos(runningTime / 4)) -- + 0.1 * math.random(-1,1)
+      
+      pPSI = 5*(1+system.getInputs("P7"))/2 + 0.1 * math.random(-1,1) 
+      rPWM = 60 * math.cos(runningTime / 4)
+      pumpOnline = true
+      if fRAT < 0 then
+	 pumpState = "Empty"
+      elseif pumpState ~= "Autofill" then
+	 pumpState = "Fill"
+      end
+      rTIM = runningTime
+      rTIMmins = math.floor(rTIM) // 60
+      rTIMsecs = rTIM - rTIMmins*60
+      Batt = 10.12
+      fCNT = 0
+      eCNT = 0
+   end
+
+   if demoMode and sgTC - lastLoop > 200 and ( (pumpState == "Fill") or (pumpState == "Autofill") ) then -- Argon sends pPSI once per 200 msec
+      lastLoop = sgTC
+      --print("bar", fCNT, pPSI)
+      onRead(string.format("(pPSI:%4.2f)", pPSI))
+      onRead(string.format("(fCNT:%4.2f)", fCNT or 0))      
+   end
+
+   thrpct = 50 * (system.getInputs("P4") + 1)
+
+   if thrpct > 10 then thrNonZero = true end
+      
+   if not thrNonZero then
+      thr = 100
+   else
+      thr = thrpct
+   end
+   
+   if thr ~= thrLast then
+      countedWrite(string.format("(Spd: %.1f)\n", thr))	    
+      thrLast = thr
+   end
+
+   --[[
+   p1 = system.getInputs("P1")
+
+   if p1 > 0.25 then
+      if p1High == false then
+	 --print("+1")
+	 p1High = true
+	 graphScaleIdx = graphScaleIdx - 1
+	 graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange), 1)
+	 graphScale = graphScaleRange[graphScaleIdx]
+	 graphFmt = graphScaleFormat[graphScaleIdx]
+      end
+   else
+      p1High = false
+   end
+   
+
+   if p1 < -0.25 then
+      if p1Low == false then
+	 --print("-1")
+	 p1Low = true
+	 graphScaleIdx = graphScaleIdx + 1
+	 graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange), 1)
+	 graphScale = graphScaleRange[graphScaleIdx]
+	 graphFmt = graphScaleFormat[graphScaleIdx]
+      end
+   else
+      p1Low = false
+   end
+
+   p2 = system.getInputs("P2")
+
+   if p2 > 0.25 then
+      if p2High == false then
+	 --print("+1")
+	 p2High = true
+	 graphScale2Idx = graphScale2Idx - 1
+	 graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range), 1)
+	 graphScale2 = graphScale2Range[graphScale2Idx]
+	 graphFmt2 = graphScale2Format[graphScale2Idx]
+      end
+   else
+      p2High = false
+   end
+
+   if p2 < -0.25 then
+      if p2Low == false then
+	 --print("-1")
+	 p2Low = true
+	 graphScale2Idx = graphScale2Idx + 1
+	 graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range), 1)
+	 graphScale2 = graphScale2Range[graphScale2Idx]
+	 graphFmt2 = graphScale2Format[graphScale2Idx]
+      end
+   else
+      p2Low = false
+   end
+
+   --]]
+   
+   if (sgTC > nextsgTC)  and ( (pumpState == "Fill") or (pumpState == "Autofill") ) then
+
+      nextsgTC = nextsgTC + deltasg
+      oldModSec = modSec
+
+      if #histogram + 1 > maxPoints then
+	 table.remove(histogram, 1)
+	 table.remove(penDown, 1)
+      end
+
+      local tt
+      if boxAvg == 1 then
+	 tt = pPSI
+      elseif boxAvg == 2 then
+	 tt = boxAvgShort
+      elseif boxAvg == 3 then
+	 tt = boxAvgLong
+      end
+      
+      table.insert(histogram, #histogram+1, math.abs(tt) or 0)
+      graphValue = math.abs(tt)
+      
+      if graphValue then
+	 table.insert(penDown, #penDown+1, true)
+      else
+	 table.insert(penDown, #penDown+1, false)
+      end
+      
+      if boxAvg2 == 1 then
+	 tt = pPSI
+      elseif boxAvg2 == 2 then
+	 tt = boxAvgShort
+      elseif boxAvg2 == 3 then
+	 tt = boxAvgLong
+      end
+
+      if #histogram2 + 1 > maxPoints then
+	 table.remove(histogram2, 1)
+	 table.remove(penDown2, 1)
+      end
+
+      table.insert(histogram2, #histogram2+1, math.abs(tt) or 0)
+      graphValue2 = math.abs(tt)
+      if graphValue2 then
+	 table.insert(penDown2, #penDown2+1, true)
+      else
+	 table.insert(penDown2, #penDown2+1, false)
+      end
+   end
+end
+
+local function pumpTele()
 end
 
 local function prtPump()
    local temp
-
+   local tVOL
+   
    local text, state = form.getButton(1) -- which screen are we on?
 
    --print(text)
    if text == "Back" then return end
    
+   tVOL = ( (fCNT or 0) / (CalF / 10) ) - ( (eCNT or 0) / (CalE / 10))
+   --tVOL = fCNT
+
+   --print("tVOL, fCNT, eCNT, pPSI", tVOL, fCNT, eCNT, pPSI)
+   
    if fCNT then
-      form.setTitle(string.format("Flow: %.1f oz      Tank: 2000 oz ", fCNT))
+      form.setTitle(string.format("Pumped : %.1f oz    Tank: %d oz ", tVOL, tankCapacity))
    end
 
    if fCLK then
       --lcd.drawText(200,60,string.format("deltaT %.1f", fCLK - system.getTimeCounter() - deltaCLK), FONT_MINI)
 
-      lcd.drawText(200,60,string.format("deltaT %.1f ld: %d", deltaAVG, longData), FONT_MINI)
+      --lcd.drawText(200,60,string.format("deltaT %.1f ld: %d", deltaAVG, longData), FONT_MINI)
    end
    
    if pumpOnline then
@@ -839,50 +999,62 @@ local function prtPump()
    lcd.setColor(0,0,0)
 
    --lcd.drawText(100,0,"Total Flow (oz) 120.2", FONT_BIG)
-   if rPWM then
-      lcd.drawText(200,0,string.format("Pump Speed: %d%%", 100 * rPWM / maxPWM), FONT_MINI)
-   else
-      lcd.drawText(200,0, "Pump Speed: ---", FONT_MINI)
-   end
+   --if rPWM then
+   --   lcd.drawText(200,0,string.format("Pump Speed: %d%%", 100 * rPWM / maxPWM), FONT_BOLD)
+   --else
+   --   lcd.drawText(200,0, "Pump Speed: ---", FONT_BOLD)
+   --end
 
    if rTIM then
       if rTIMmins < 1 then
-	 lcd.drawText(200,20,string.format("Run Time: %.1f s", rTIMsecs), FONT_MINI)
+	 lcd.drawText(200,-5,string.format("Time: %.1f s", rTIMsecs), FONT_BIG)
       else
-	 lcd.drawText(200,20,string.format("Run Time: %d:%02d", rTIMmins, rTIMsecs), FONT_MINI)
+	 lcd.drawText(200,-5,string.format("Time: %d:%02d", rTIMmins, rTIMsecs), FONT_BIG)
       end
       
    else
-      lcd.drawText(200,20,"Run Time: ---", FONT_MINI)      
+      lcd.drawText(200, -5,"Time: ---", FONT_BIG)      
    end
+   lcd.drawText(200,15,string.format("LT,ST: %.2f %.2f", boxAvgLong, boxAvgShort), FONT_MINI)
+   lcd.drawText(200,25,string.format("RMS,#: %.2f %d", boxRMS, #Boxcar), FONT_MINI)
+   lcd.drawText(200,35,string.format("Delta: %.2f", math.abs(boxAvgShort - boxAvgLong)), FONT_MINI)   
+   --lcd.drawText(200,65,string.format("pPSI: %.2f", pPSI or 0), FONT_MINI)
+		
    if Batt then
-      lcd.drawText(200,40,string.format("Batt: %.2f V", Batt), FONT_MINI)
+      lcd.drawText(200,44,string.format("Batt: %.2f V", Batt), FONT_MINI)
    else
-      lcd.drawText(200,40,"Batt: ---", FONT_MINI)
+      lcd.drawText(200,44,"Batt: ---", FONT_MINI)
    end
 
+   lcd.drawText(270,44,string.format("RA %d/%d", boxAvg, boxAvg2), FONT_MINI)
+   
    if true then --rPWM then
       if rPWM then
 	 temp = 100 * rPWM / maxPWM
 	 if pumpState == "Empty" then
 	    temp = -temp
+	 elseif pumpState == "Off" then
+	    temp = 0
 	 end
       else
 	 temp = nil
       end
-      drawGauge("Pump Speed", "black", -100, 0, 100, temp, nil, 10,  0)
+      drawGauge("Speed", "black", -100, 0, 100, temp, nil, 10,  0, thr)
    end
-   if true then 
-      drawGauge("Flow", "blue", -40, 0,  40, fRAT, nil, 70,  0)
+   if true then
+      if (pumpState == "Fill") or (pumpState == "Autofill") then
+	 temp = (fRAT or 0) 
+      else
+	 temp = (fRAT or 0) 
+      end
+      drawGauge("Flow", "blue", -80, 0,  80, temp, nil, 70,  0)
    end
+
    if true then 
-      drawGauge("Pressure", "red", 0, 5,  10, pPSI , nil, 130, 0, pressSetpoint)
+      drawGauge(string.format("P ["..string.format("%.1f", pressSetpoint)).."]",
+			      "blue", 0, 5,  10, pPSI , nil, 130, 0, pressSetpoint)
    end
    
-   --lcd.drawRectangle(5, 60, 300, 80)
-
-   --lcd.drawText(10,70,"XXX")   
-
    graphPrint()
    
 end
@@ -918,6 +1090,27 @@ local function pressureChanged(value)
    system.pSave("pressSetpoint", pressSetpoint)
 end
 
+local function ssidChanged(value)
+   ssid = value
+   system.pSave("ssid", ssid)
+end
+
+local function pwdChanged(value)
+   pwd = value
+   system.pSave("pwd", pwd)
+   form.reinit(2)
+end
+
+local function updateOTA(value)
+   print("updateOTA", value)
+   countedWrite("ssid:"..ssid.."\n")
+   print("sent ssid: "..ssid)
+   countedWrite("pwd:"..pwd.."\n")
+   print("sent pwd: "..pwd)
+   countedWrite("update:0\n")
+   print("sent update:0")
+end
+
 local function initPump(subForm)
 
    --showPump = false
@@ -925,7 +1118,7 @@ local function initPump(subForm)
    
    if subForm == 1 then
       --print("setting buttons")
-      infoMsg = "Hold Stop to reset  -  Exit for main menu"
+      infoMsg = "Press 3D button to reset  -  Exit for main menu"
       form.setTitle(appName)
       form.setButton(1, ":backward",1)
       form.setButton(2, ":stop", 2)
@@ -935,7 +1128,7 @@ local function initPump(subForm)
    elseif subForm == 2 then
       form.setTitle(appMenu)
       form.setButton(1, "Back",1)
-      form.setButton(2, " ", 1)
+      form.setButton(2, "RstPW", 1)
       form.setButton(3, " ", 1)
       form.setButton(4, " ", 1)
       form.setButton(5, "Exit", 1)
@@ -954,11 +1147,11 @@ local function initPump(subForm)
 
       form.addRow(2)
       form.addLabel({label="Fill Cal Factor", width=220})
-      form.addIntbox(CalF,500,1000,774,0,1,CalFChanged)
+      form.addIntbox(CalF,1,2000,900,0,1,CalFChanged)
 
       form.addRow(2)
       form.addLabel({label="Empty Cal Factor", width=220})
-      form.addIntbox(CalE,500,1000,774,0,1,CalEChanged)
+      form.addIntbox(CalE,1,2000,900,0,1,CalEChanged)
 
       form.addRow(2)
       form.addLabel({label="Maximum PWM", width=220})
@@ -967,6 +1160,19 @@ local function initPump(subForm)
       --form.addRow(2)
       --form.addLink((function() form.reinit(3) end),
 	-- {label="Foo >>"})
+      form.addRow(2)
+      form.addLabel({label="WiFi SSID", width=220})
+      form.addTextbox(ssid, 63, ssidChanged)
+
+      form.addRow(2)
+      form.addLabel({label="WiFi PW", width=220})
+      local pwv = (pwd == "")
+      print("pwv:", pwv)
+      form.addTextbox(pwv and pwd or "***", 63, pwdChanged, {visible=true})
+      
+      form.addRow(2)
+      form.addLabel({label="OTA Update", width=220})
+      form.addLink((function() updateOTA() end), {label="Go >>"})
       
       form.addRow(1)
       form.setFocusedRow(1)
@@ -985,8 +1191,18 @@ end
 
 local function keyPump(key)
 	 
+   local KEY_RTR = 2048
+   local KEY_RTU = 8192
+   local KEY_RTD = 16384
+   local KEY_LTR = 32768
+   local KEY_LTL = 65536
+   local KEY_LTU = 131072
+   local KEY_LTD = 262144
+   
    local text, state = form.getButton(1)
-   --print("keyPump, text, state", key, text, state)
+
+   --print("key, text, state", key, text, state)
+   --print(KEY_1, KEY_2, KEY_MENU, KEY_ESC, KEY_ENTER, KEY_UP)
    
    if text ~= "Back" then -- is this the main pump screen?
 
@@ -995,9 +1211,17 @@ local function keyPump(key)
 	 form.setButton(1, ":backward", 2)	 
 	 form.setButton(2, ":stop", 1)
 	 countedWrite(string.format("(CalE: %d)\n", CalE))
-	 countedWrite("(pMAX: 1024)\n")
-	 countedWrite("(Prs: 50)\n")
-	 countedWrite("(Spd: 100.0)\n")
+	 countedWrite(string.format("(CalF: %d)\n", CalF))	 
+	 countedWrite(string.format("(pMAX: %d)\n", maxPWM)) 
+	 countedWrite(string.format("(Prs: %d)\n", math.floor(pressSetpoint * 10 + 0.5)))
+	 if thr > 10 then
+	    countedWrite(string.format("(Spd: %.1f)\n", thr))	    
+	 else
+	    countedWrite("(Spd: 100.0)\n")
+	 end
+	 Boxcar = {}
+	 histogram = {}
+	 histogram2 = {}
 	 countedWrite("(Empty)\n")
 	 nextsgTC = system.getTimeCounter()
 	 pumpState = "Empty"
@@ -1007,43 +1231,103 @@ local function keyPump(key)
 	 form.setButton(1, ":backward", 1)	 
 	 form.setButton(2, ":stop", 2)
 	 form.setButton(3, ":forward", 1)
-	 if lastKey == key then
-	    --system.messageBox("OFF held .. Clear sent and graph reset ")
-	    graphReset()
-	    countedWrite("(Clear)\n")
-	    print("Clear!")
-	 end
 	 countedWrite("(Off)\n")
 	 pumpState = "Off"
 	 infoMsg = "Pump stopped"
       elseif key == KEY_3 then
 	 --print("Key 3 pressed")
-	 form.setButton(2, ":stop", 1)
-	 form.setButton(3, ":forward", 2)
-	 countedWrite(string.format("(CalF: %d)\n", CalF))
-	 countedWrite("(pMAX: 1024)\n")
-	 countedWrite("(Prs: 50)\n")
-	 countedWrite("(Spd: 100.0)\n")
-	 countedWrite("(Fill)\n")
-	 nextsgTC = system.getTimeCounter()
-	 infoMsg = "Fill - Press >> again for AutoFill"
-	 pumpState = "Fill"
+	 if pumpState == "Fill" then
+	    system.messageBox("Autofill enabled", 2)
+	    system.playFile("/"..appDir.."autofill_enabled.wav", AUDIO_QUEUE)
+	    infoMsg = "Autofill enabled"
+	    pumpState = "Autofill"
+	    Boxcar = {}
+	 elseif pumpState ~= "Autofill" then
+	    form.setButton(2, ":stop", 1)
+	    form.setButton(3, ":forward", 2)
+	    countedWrite(string.format("(CalF: %d)\n", CalF))
+	    countedWrite(string.format("(CalE: %d)\n", CalE))	    
+	    countedWrite("(pMAX: 1023)\n")
+	    countedWrite(string.format("(pMAX: %d)\n", maxPWM))
+	    countedWrite(string.format("(Prs: %d)\n", math.floor(pressSetpoint * 10 + 0.5)))
+	    if thr > 10 then
+	       countedWrite(string.format("(Spd: %.1f)\n", thr))	    
+	    else
+	       countedWrite("(Spd: 100.0)\n")
+	    end
+	    --Boxcar = {}
+	    --histogram = {}
+	    --histogram2 = {}
+	    countedWrite("(Fill)\n")
+	    nextsgTC = system.getTimeCounter()
+	    infoMsg = "Fill - Press >> again for AutoFill"
+	    pumpState = "Fill"
+	 else -- must be already autofill -- ignore
+	    system.messageBox("Already in Autofill", 2)
+	    --pumpState = "Fill"
+	    --system.playFile("/"..appDir.."autofill_disabled.wav", AUDIO_QUEUE)
+	    --infoMsg = "Autofill disabled"
+	    --system.messageBox("Autofill disabled", 2)
+	 end
+	 
       elseif key == KEY_4 then
 	 --print("Key 4 pressed")
 	 initPump(2)
       elseif key == KEY_5 then -- default (OK/Exit) is ok for key 5
-	 --print("Key 5 pressed")
+	 print("Key 5 pressed")
+	 pumpActive = false
+	 system.setProperty("CpuLimit", 1)	 
 	 form.close()
       elseif key == KEY_DOWN then
 	 pressSetpoint = math.max(0, pressSetpoint - 0.1)
 	 system.pSave("pressSetpoint", pressSetpoint)	 
+	 countedWrite(string.format("(Prs: %d)\n", math.floor(pressSetpoint * 10 + 0.5)))
 	 --print("Key down")
       elseif key == KEY_UP then
 	 pressSetpoint = math.min(10, pressSetpoint + 0.1)
 	 system.pSave("pressSetpoint", pressSetpoint)
+	 countedWrite(string.format("(Prs: %d)\n", math.floor(pressSetpoint * 10 + 0.5)))
 	 --print("Key up")
-      elseif key == KEY_MENU then
-	 --print("Menu")
+      elseif key == KEY_ENTER then
+	 system.messageBox("Clear - values reset ", 2)
+	 graphReset()
+	 if fCNT then fCNT = 0 end
+	 fRAT = 0
+	 eCNT = 0
+	 rTIMmins = 0
+	 rTIMsecs = 0	 
+	 Boxcar={}
+	 countedWrite("(Clear)\n")
+      elseif key == KEY_RTU then -- right trim up
+	 --print("RTU")
+	 graphScale2Idx = graphScale2Idx - 1
+	 graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range), 1)
+	 graphScale2 = graphScale2Range[graphScale2Idx]
+	 graphFmt2 = graphScale2Format[graphScale2Idx]
+      elseif key == KEY_RTD then -- right trim down
+	 --print("RTD")
+	 graphScale2Idx = graphScale2Idx + 1
+	 graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range), 1)
+	 graphScale2 = graphScale2Range[graphScale2Idx]
+	 graphFmt2 = graphScale2Format[graphScale2Idx]
+      elseif key == KEY_LTU then -- left trim up
+	 --print("LTU")
+	 graphScaleIdx = graphScaleIdx - 1
+	 graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange), 1)
+	 graphScale = graphScaleRange[graphScaleIdx]
+	 graphFmt = graphScaleFormat[graphScaleIdx]
+      elseif key == KEY_LTD then -- left trim down
+	 --print("LTD")
+	 graphScaleIdx = graphScaleIdx + 1
+	 graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange), 1)
+	 graphScale = graphScaleRange[graphScaleIdx]
+	 graphFmt = graphScaleFormat[graphScaleIdx]
+      elseif key == KEY_LTR then -- hack for now select avg rates
+	 boxAvg = boxAvg + 1
+	 if boxAvg > 3 then boxAvg = 1 end
+      elseif key == KEY_RTR then
+	 boxAvg2 = boxAvg2 + 1
+	 if boxAvg2 > 3 then boxAvg2 = 1 end
       end
    else
       --print("exit button not detected")
@@ -1051,45 +1335,67 @@ local function keyPump(key)
       if key == KEY_1 then
 	 --print("key1")
 	 form.reinit(1)
+      elseif key == KEY_2 then
+	 pwd = ""
+	 form.reinit(2)
       end
       
       --foo
    end
    if key ~= KEY_RELEASED then
       lastKey = key
-   else
-      lastKey = -1
+   --else
+   --  lastKey = -1
    end
    
 end
 
 local function init()
 
-   local dt = system.getDateTime()
-   local dev, emflag, port
+   local dt
+   local port
+   local portList
+   local portStr
    
+   system.setProperty("CpuLimit", 0)
+   dt = system.getDateTime()   
    fn = string.format("Tele_%02d%02d_%d%02d%02d.dat", dt.mon, dt.day, dt.hour, dt.min, dt.sec)
    --print("fn:", fn)
 
    dev, emflag = system.getDeviceType()
-   emflag = (emflag ~= 1)
+   emflag = (emflag == 1)
 
-   if emflag then port = "COM1" else port = "ttyUSB0" end
+   if emflag then demoMode = true else demoMode = false end
    
-   --print("About to serial init. port: "..port)
-   sidSerial = serial.init(port ,9600) 
-   
-   if sidSerial then   
-      --print("sid succeeded: ", sidSerial)
+   if emflag then
+      portList = serial.getPorts()
+      if #portList > 0 then
+	 portStr = portList[1]
+	 for i=2, #portList, 1 do
+	    portStr = portStr .. ", " .. portList[i]
+	 end
+	 print("DFM-Pump: Ports available - " .. portStr)
+	 port = portList[1] -- edit if required
+      else
+	 print("DFM-Pump: No ports available")
+      end
    else
-      print("sid failed", sidSerial)
-   end 
-      
-   local success, descr = serial.onRead(sidSerial,onRead)   
-   if success then
-      --print("Callback registered")
-   else
-      print("Error setting callback:", descr)
+      port = "COM1"
+   end
+
+   if port then
+      sidSerial, descr = serial.init(port ,9600)
+      if sidSerial then   
+	 print("DFM-Pump: Initialized " .. port)
+	 local success, descr = serial.onRead(sidSerial,onRead)   
+	 if success then
+	    --print("Callback registered")
+	 else
+	    print("DFM-Pump: Error setting callback:", descr)
+	 end
+      else
+	 print("DFM-Pump: Serial init failed <"..descr..">")
+      end
    end
 
    system.registerForm(1, 0, "Fuel Station Control", initPump, keyPump, prtPump)
@@ -1102,27 +1408,16 @@ local function init()
 
    tankCapacity  = system.pLoad("tankCapacity", 1000)
    pressSetpoint = system.pLoad("pressSetpoint", 5)   
-   CalE = system.pLoad("CalE", 774)
-   CalF = system.pLoad("CalF", 774)
+   CalE = system.pLoad("CalE", 900)
+   CalF = system.pLoad("CalF", 900)
    lowBattLimit = system.pLoad("lowBattLimit", 8.5)
    maxPWM = system.pLoad("maxPWM", 1023)
    maxPWM = math.max(math.min(maxPWM, 1023), 100)
+   ssid = system.pLoad("ssid", "")
+   pwd = system.pLoad("pwd", "")
    
    graphReset()
 
-   --print("KEY_MENU, KEY_ESC, KEY_ENTER, KEY_UP, KEY_DOWN, KEY_RELEASED", KEY_MENU, KEY_ESC, KEY_ENTER, KEY_UP, KEY_DOWN, KEY_RELEASED)
-   --print(string.format("KEY_RELEASED: %0X", KEY_RELEASED))
-
-   --initForm(1)
-   --sfp = io.open("stream.txt", "w")
-   --print("sfp:", sfp)
-
-   local txTel = system.getTxTelemetry()
-
-   --print("txTel.txVoltage:", txTel.txVoltage)
-   --print("txTel.rx1Percent:", txTel.rx1Percent)
-   --print("txTel.rx1Voltage:", txTel.rx1Voltage)       
-   
 end
 
 
