@@ -192,18 +192,18 @@ end
 
 local function vertHistogram(x0, y0, val, scale, hgt, wid, vald)
 
+   local a
+   
    lcd.setColor(0,0,0)
    
    lcd.drawRectangle(x0 - wid/2, y0 - hgt, wid, 2*hgt - 1)
    --lcd.drawLine(x0 - wid/2, y0, x0 + wid/2 - 1, y0)
    
-   local a = math.min(math.abs(val) / scale, 1)
+   a =  math.max(0, math.min(val / scale, 1))
 
-   if val > 0 then
-      lcd.setColor(255,0,0)
-      lcd.drawFilledRectangle(x0 - wid/2, y0 - hgt + 2 * hgt * (1-a), wid, 2*hgt*a-1)
-      lcd.drawText(x0 + wid - 2, y0 - 6, string.format("%.1f", val), FONT_MINI)
-   end
+   lcd.setColor(255,0,0)
+   lcd.drawFilledRectangle(x0 - wid/2, y0 - hgt + 2 * hgt * (1-a), wid, 2*hgt*a-1)
+   lcd.drawText(x0 + wid - 2, y0 - 6, string.format("%.1f", math.max(val,0)), FONT_MINI)
    
    lcd.setColor(0,0,0)
 
@@ -368,9 +368,20 @@ local function drawGauge(gsize, label, lcol, min, mid, max, tmp, unit, fmt, ox, 
    end
    
    if marker then
-      color.r=255
-      color.g=120
-      color.b=120
+      if lcol == "red" then
+	 color.r=255
+	 color.g=120
+	 color.b=120
+      elseif lcol == "blue" then
+	 color.r=120
+	 color.g=120
+	 color.b=255
+      elseif lcol == "green" then
+	 color.r=120
+	 color.g=255
+	 color.b=120
+      end
+      
       theta = math.pi - math.rad(135 - 2 * 135 * (marker - min) / (max - min) )
       dx.C = 25
       dy.C = 26
@@ -609,7 +620,7 @@ local function graphPrint(xbox, ybox, xoff, yoff)
    --local function vertHistogram(x0, y0, val, scale, hgt, wid, vald)
 
    if isubSub == 2 then
-      vertHistogram(10, 62, pPSI or 0, 10, 48, 10, 0)     
+      vertHistogram(11, 62, pPSI or 0, 10, 48, 10, 0)     
    end
    
    -- now draw graph
@@ -1114,11 +1125,11 @@ local function loop()
    if thrpct > 10 then thrNonZero = true end
       
 ---------------------------------------------
-   if thrpct >= 50 then
-      gpio.write(8,1)
-   else
-      gpio.write(8,0)
-   end
+   --if thrpct >= 50 then
+      --gpio.write(8,1)
+   --else
+      --gpio.write(8,0)
+   --end
 ---------------------------------------------
    
    if not thrNonZero then -- if stick left at 0, leave at 100%
@@ -1191,7 +1202,8 @@ end
 local function prtPump()
    local temp
    local tVOL
-
+   local afTgt
+   
    if not pumpActive then return end
    
    if subForm ~= 1 then return end
@@ -1226,10 +1238,21 @@ local function prtPump()
       drawRectGaugeAbs(155, 136, 280, 14, 0, pumpConfig.tankCapacity, tVOL, "")
       drawCenterBox()
       drawSpd()
-      drawGauge("L", "Flow", "blue", -80 * flowMult[pumpConfigGbl.flowIdx], 0,
-		80 * flowMult[pumpConfigGbl.flowIdx], temp * flowMult[pumpConfigGbl.flowIdx],
-		flowUnitRate[pumpConfigGbl.flowIdx], flowFmt[pumpConfigGbl.flowIdx], 0,  0)
+      -- if appropriate, display autofill target
 
+      if pumpState == "Autofill" and  deltaStable >= armStable then  
+	 afTgt = math.max(boxAvgShort - 10 * pumpConfig.autoParm * boxRMS) -- 10 is arbitrary theatrics
+      else
+	 afTgt = nil
+      end
+
+      --print("p, tgt:", temp, afTgt)
+      
+      drawGauge("L", "Flow", "blue", -60 * flowMult[pumpConfigGbl.flowIdx], 0,
+		60 * flowMult[pumpConfigGbl.flowIdx], temp * flowMult[pumpConfigGbl.flowIdx],
+		flowUnitRate[pumpConfigGbl.flowIdx], flowFmt[pumpConfigGbl.flowIdx], 0,  0, afTgt)
+
+      
       drawGauge("L", "Press","red", 0, 5, 10, math.max((pPSI or 0), 0),
 		"psi", "%.1f", 180, 0, pumpConfig.pressSetpoint)
 
@@ -1332,7 +1355,7 @@ local function prtPump()
       lcd.drawText(0,90, string.format("dsLen, dsLenmax,longData, iimax: %d %d %d %d",
 				       dataStreamLen, dataStreamMax, longData, iimax))
       lcd.drawText(0,105,string.format("t %d, ratio %.2f",
-				       (rTIM or 0), (rPWM or 0) / math.abs(fRAT or 0)))   end
+				       (rTIM or 0), math.abs(rPWM or 0) / math.abs(fRAT or 0)))   end
    
 end
 
@@ -1499,7 +1522,7 @@ local function initPump(sF)
 
       form.addRow(2)
       form.addLabel({label="Autofill Parameter", width=220})
-      form.addIntbox(pumpConfig.autoParm*10,10,50,20,1,1,autoParmChanged)
+      form.addIntbox(pumpConfig.autoParm*10,10,100,20,1,1,autoParmChanged)
 
       form.addRow(2)
       form.addLabel({label="Max Reverse Speed (%)", width=220})
@@ -1618,6 +1641,7 @@ local function keyPump(key)
 	    infoMsg = "Autofill ready to arm"
 	    pumpState = "Autofill"
 	    deltaStable = 0
+	    ratioHigh = 0
 	    Boxcar = {}
 	 elseif pumpState ~= "Autofill" then
 	    form.setButton(2, ":stop", 1)
@@ -1636,7 +1660,6 @@ local function keyPump(key)
 	    infoMsg = "Fill - Press >> again for AutoFill"
 	    pumpState = "Fill"
 	    fillStop = pumpConfig.tankCapacity + pumpConfig.tankOverfill
-	    ratioHigh = 0
 	 else -- must be already autofill -- ignore
 	    system.messageBox("Already in Autofill", 2)
 	    --pumpState = "Fill"
