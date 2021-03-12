@@ -20,6 +20,7 @@ local appName = "Fuel Station Display"
 local appMenu = "Fuel Station Settings"
 local appShort = "DFM-Pump"
 local appDir = "Apps/"..appShort.."/"
+local modelFile
 local ren = lcd.renderer()
 
 local sidSerial
@@ -49,25 +50,32 @@ local showPump = true
 local graphStyle = {"Line","Hazel","Point","Histogram"}
 local graphStyleIdx = 3
 
-local graphScaleIdx = 8
-local graphScaleRange =  {0.05,    0.1,    0.2,    0.5,     1,   2,   5,  10,  20,  50}
-local graphScaleFormat = {"%.2f", "%.1f", "%.1f", "%.1f", "%d","%d","%d","%d","%d","%d"}
-local graphScale = graphScaleRange[graphScaleIdx]
-local graphFmt = graphScaleFormat[graphScaleIdx]
-
-local graphScale2Idx = 8
-local graphScale2Range =  {0.05,    0.1,    0.2,    0.5,     1,   2,   5,  10,  20,  50}
-local graphScale2Format = {"%.2f", "%.1f", "%.1f", "%.1f", "%d","%d","%d","%d","%d","%d"}
-local graphScale2 = graphScale2Range[graphScale2Idx]
-local graphFmt2 = graphScale2Format[graphScale2Idx]
+-- note: some code below assumes metric and imperial tables (range and fmt) have same length
+local graphScaleRange =  { {  0.5, 1,    2,   5,  10,  20,  50},
+   {0.02, 0.05, 0.1, 0.2, 0.5, 1, 2} }
+local graphScaleFormat = { {"%.1f", "%d", "%d","%d","%d","%d","%d"},
+   {"%.2f", "%.2f", "%.1f", "%.1f", "%.1f", "%.1f", "%.1f"} }
+local graphScale2Range =  graphScaleRange
+local graphScale2Format = graphScaleFormat
+local graphScaleIdx = #graphScaleRange[1]
+local graphScale2Idx = #graphScale2Range[1]
+local graphScale
+local graphFmt
+local graphScale2
+local graphFmt2
 
 local graphValue = 0
 local graphValue2 = 0
 
-local flowUnitRate = {"oz/m", "ml/m"}
-local flowUnit = {"floz", "ml"}
-local flowMult = {1, 29.57}
-local flowFmt  = {"%.1f", "%.0f"}
+local flowUnitRate = {"oz/m", "L/m"}
+local flowUnit = {"floz", "L"}
+local flowMult = {1,0.02957}
+local flowFmt  = {"%.0f", "%.2f"}
+local flowFmtF = {"%.1f", "%.2f"}
+local flowFmtC = {"%.2f", "%.4f"}
+local flowDecPl = {0,2}
+local lastFlowAnn = 0
+
 local highY, lowY
 local highY2, lowY2
 
@@ -86,10 +94,13 @@ local nextsgTC
 local deltasg = timeline * 1000 / maxPoints
 
 local histogram = {} -- table of values for "chart recorder" graph
+local visible = {}
 local penDown = {}
 local histogram2 = {} -- table of values for "chart recorder" graph
+local visible2 = {}
 local penDown2 = {}
 local x0, y0
+local yLow, yLow2, yHigh, yHigh2
 
 local demoMode = false
 local thr = 100
@@ -108,6 +119,9 @@ local Boxlen = boxAvgNLong
 local boxAvg = 2
 local boxAvg2 = 3
 local boxRMS = 0
+--local flowVals={}
+--local flowValsMax = 8
+
 local pumpConfig = {}
 local pumpConfigGbl = {}
 local unsavedConfig
@@ -124,15 +138,17 @@ local armStable = 6
 local ratioHigh
 local fillStop = 0
 
+local nextAnn = 0
+
 local arcFile={}
 
 local needle_poly={}
 
 needle_poly.S = {
-   {-2,10},
-   {-1,20},
-   {1,20},
-   {2,10}
+   {-2,13},
+   {-1,25},
+   {1,25},
+   {2,13}
 }
 
 needle_poly.C = {
@@ -165,7 +181,7 @@ local marker_poly_small = {
 
 
 local function drawTextCenter(font, txt, ox, oy)
-   if not font or not txt then print("f,t", font, txt) end
+   --if not font or not txt then print("f,t", font, txt) end
    lcd.drawText(ox - lcd.getTextWidth(font, txt) / 2, oy, txt, font)
 end
 
@@ -224,6 +240,7 @@ local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str)
    lcd.setColor(0, 0, 255)
    lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
 
+   
    d = math.max(math.min((val/(max-min))*w, w), 0)
    lcd.drawFilledRectangle(oxc-w//2, oyc-h/2, d, h)
    lcd.setColor(0,0,0)
@@ -249,7 +266,7 @@ local function drawSpd()
    if arcFile.S then lcd.drawImage(ox-arcFile.S["width"]//2, oy-arcFile.S["width"]//2, arcFile.S) end
    drawShape(ox, oy, needle_poly.S, theta)
    --lcd.drawFilledRectangle(ox-1, oy-32, 2, 8)
-   drawTextCenter(FONT_MINI, string.format("%d", math.abs(spd)), ox+0, oy-5) 
+   drawTextCenter(FONT_MINI, string.format("%.1f", math.abs(spd)), ox+0, oy-5) 
    lcd.drawText(ox - lcd.getTextWidth(FONT_MINI, "Pump") // 2, oy + 14, "Pump", FONT_MINI)
    
 end
@@ -308,7 +325,7 @@ local function drawGauge(gsize, label, lcol, min, mid, max, tmp, unit, fmt, ox, 
 
    local font={}
    font.C = FONT_MINI
-   font.L = FONT_BIG
+   font.L = FONT_BOLD
    local numfont={}
    numfont.C = FONT_MINI
    numfont.L = FONT_MAXI
@@ -336,7 +353,7 @@ local function drawGauge(gsize, label, lcol, min, mid, max, tmp, unit, fmt, ox, 
    dy.C=44
    dx.L=25+40
    dy.L=44+60
-   if not font[gsize] then print(gsize, font[gsize], label) end
+   --if not font[gsize] then print(gsize, font[gsize], label) end
    
    drawTextCenter(font[gsize], label, ox + dx[gsize], oy + dy[gsize]) 
    
@@ -427,7 +444,7 @@ local function graphReset()
    penDown = {}
    histogram2 = {}
    penDown2 = {}
-   
+   visible2 = {}
    oldModSec = 0
    nextsgTC = system.getTimeCounter()
    startTime = nextsgTC / 1000
@@ -490,6 +507,35 @@ local function dashLine(xp0, yp0, xp1, yp1)
       ren:renderPolyline(2,0.4)
       ren:reset()
    end
+end
+
+local function slope(pts)
+
+    local xbar, ybar, sxy, sx2 = 0,0,0,0
+
+    if #pts < 2 then return 0 end
+    
+    for i = 1, #pts do
+       --print(i, pts[i].x, pts[i].y)
+       xbar = xbar + pts[i].x
+       ybar = ybar + pts[i].y
+    end
+
+    xbar = xbar/#pts
+    ybar = ybar/#pts
+
+    for i = 1, #pts do
+        sxy = sxy + (pts[i].x-xbar)*(pts[i].y-ybar)
+        sx2 = sx2 + (pts[i].x - xbar)^2
+    end
+    
+    if sx2 < 1.0E-6 then -- would it be more proper to set slope to inf and let atan do its thing?
+       sx2 = 1.0E-6      -- or just let it div0 and set to inf itself?
+    end                  -- for now this is only a .00001-ish degree error
+    
+    
+    return sxy/sx2
+    
 end
 
 local function graphPrint(xbox, ybox, xoff, yoff)
@@ -567,11 +613,11 @@ local function graphPrint(xbox, ybox, xoff, yoff)
       lcd.setColor(0,0,255)
       ff = string.format(graphFmt, yLow)
       ll = lcd.getTextWidth(FONT_MINI,ff)
-      lcd.drawText(xoff - 20, yoff + ybox - 10, ff,  FONT_MINI)
+      lcd.drawText(xoff - ll - 2, yoff + ybox - 10, ff,  FONT_MINI)
       --lcd.drawText(10, yoff + ybox - 32, ff,  FONT_MINI)      
       ff = string.format(graphFmt, yHigh)
       ll = lcd.getTextWidth(FONT_MINI,ff)
-      lcd.drawText(xoff - 20, yoff-4, ff, FONT_MINI)      
+      lcd.drawText(xoff - ll - 2, yoff-4, ff, FONT_MINI)      
    end
    
    --local limit = boxAvgLong * (1 - (pumpConfig.autoParm / 1000.0))
@@ -656,8 +702,10 @@ local function graphPrint(xbox, ybox, xoff, yoff)
 	    lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
 				    yp, xboxWidth, iy, 160)
 	 elseif graphStyle[graphStyleIdx] == "Point" then
-	    lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
-				    yp, 3, 3, 160)
+	    if visible[ix] then
+	       lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
+				       yp, 3, 3, 160)
+	    end
 	 else -- Line or Hazel
 	    if penDown[ix] then
 	       if lastDown == false then
@@ -720,6 +768,25 @@ local function graphPrint(xbox, ybox, xoff, yoff)
 	 xp = math.min(xbox + xoff, math.max(xoff, xp))
 
 	 if ix == #histogram2 then
+	    -- autofill target
+	    --[[
+	    if pumpState == "Autofill" then
+	       lcd.setColor(0,0,0)
+	       lcd.drawText(xoff + xbox - 80, yoff +  5,
+			    string.format("dA %.4f",math.abs(boxAvgShort-boxAvgLong)),
+			    FONT_MINI)
+	       lcd.drawText(xoff + xbox - 80, yoff + 15,
+			    string.format("pA %.4f",pumpConfig.autoParm * boxRMS),
+			    FONT_MINI)	       
+	       lcd.drawText(xoff + xbox - 80, yoff + 25,
+			    string.format("rm %.4f", boxRMS), FONT_MINI)
+	       lcd.drawText(xoff + xbox - 80, yoff + 35,
+			    string.format("pW %d/%d", deltaStable, armStable ), FONT_MINI)
+	       lcd.drawText(xoff + xbox - 80, yoff + 45, string.format("%d", (rPWM or 0)), FONT_MINI)
+	       lcd.setColor(200,0,0)
+	    end
+	    --]]
+	    
 	    if pumpState == "Autofill" and  deltaStable >= armStable then
 	       --print(boxAvgShort, limit, limith, limiti, limitp)
 	       lcd.setColor(0,0,200)
@@ -741,8 +808,10 @@ local function graphPrint(xbox, ybox, xoff, yoff)
 	    lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
 				    yp, xboxWidth, iy, 160)
 	 elseif graphStyle[graphStyleIdx] == "Point" then
-	    lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
-				    yp, 3, 3, 160)
+	    if visible2[ix] then
+	       lcd.drawFilledRectangle(xoff + (xp-xoff)*xbox/(xbox+xboxWidth),
+				       yp, 3, 3, 160)
+	    end
 	 else -- Line or Hazel
 	    if penDown2[ix] then
 	       if lastDown == false then
@@ -780,7 +849,7 @@ local function graphPrint(xbox, ybox, xoff, yoff)
 end
 
 local function execCmd(k,v)
-   local tVOL
+   local tVOL, uVOL
    local sum
    local formax
    local pastBox
@@ -798,15 +867,28 @@ local function execCmd(k,v)
    elseif k == "fCNT" then
       fCNT = tonumber(v)
       
-      tVOL = ( (fCNT or 0) / (pumpConfigGbl.CalF / 10) ) - ( (eCNT or 0) / (pumpConfigGbl.CalE / 10))
-      
+      tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
+      uVOL = tVOL * flowMult[pumpConfigGbl.flowIdx]
+      if (pumpConfig.announceInt > 0) and (pumpState == "Fill" or pumpState == "Autofill") and
+      ((uVOL // pumpConfig.announceInt) >= nextAnn) then
+	 --print("fCNT: uVOL, uVOL//, nextAnn:", uVOL, uVOL // pumpConfig.announceInt, nextAnn)
+	 --system.playFile("/"..appDir.."volume.wav", AUDIO_QUEUE)
+	 if system.getTimeCounter() - lastFlowAnn > 10000 then
+	    system.playNumber(pumpConfig.announceInt * nextAnn, flowDecPl[pumpConfigGbl.flowIdx],
+			      flowUnit[pumpConfigGbl.flowIdx], "Flow")
+	    lastFlowAnn = system.getTimeCounter()
+	 end
+	 nextAnn = nextAnn + 1
+      end
+   
       if ( (pumpState == "Fill") or (pumpState == "Autofill") )
-	 and (tVOL > fillStop) then
+      and (uVOL > fillStop) then
 	 countedWrite("(Off)\n")
 	 pumpState = "Off"
 	 infoMsg = "Pump stopped - Overfill"
 	 system.playFile("/"..appDir.."pump_off_at.wav", AUDIO_QUEUE)
-	 system.playNumber(tVOL * flowMult[pumpConfigGbl.flowIdx], 0, flowUnit[pumpConfigGbl.flowIdx])
+	 system.playNumber(tVOL * flowMult[pumpConfigGbl.flowIdx], flowDecPl[pumpConfigGbl.flowIdx],
+			   flowUnit[pumpConfigGbl.flowIdx])
       end
 
       if (pumpState == "Autofill") then
@@ -825,13 +907,13 @@ local function execCmd(k,v)
 	 
 	 if #Boxcar == boxAvgNLong and deltaStable >= armStable then
 	    --if (math.abs(boxAvgShort - boxAvgLong) / math.abs(boxAvgLong) ) >
-	    --(pumpConfig.autoParm / 1000) then XXXXXXXXXXXXX
+	    --(pumpConfig.autoParm / 1000) then 
 	    if (math.abs(boxAvgShort - boxAvgLong) / boxAvgLong) > (pumpConfig.autoParm * boxRMS / boxAvgLong) then 
-	    system.playFile("/"..appDir.."autofill_detected_at.wav", AUDIO_QUEUE)
-	       system.playNumber(tVOL * flowMult[pumpConfigGbl.flowIdx], 0, flowUnit[pumpConfigGbl.flowIdx])
+	       system.playFile("/"..appDir.."autofill_detected_at.wav", AUDIO_QUEUE)
+	       system.playNumber(uVOL, flowDecPl[pumpConfigGbl.flowIdx], flowUnit[pumpConfigGbl.flowIdx])
 	       if pumpConfig.tankOverfill > 0 then
 		  pumpState = "Fill"
-		  fillStop = tVOL + pumpConfig.tankOverfill
+		  fillStop = uVOL + pumpConfig.tankOverfill
 		  infoMsg = "Autofill detected - Overfilling"
 	       else
 		  countedWrite("(Off)\n")
@@ -844,17 +926,30 @@ local function execCmd(k,v)
       
    elseif k == "eCNT" then
       eCNT = tonumber(v)
+      tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
+      uVOL = tVOL * flowMult[pumpConfigGbl.flowIdx]
+      --print("tVOL, uVOL, nextAnn, uV/..:", tVOL, uVOL, nextAnn, uVOL // pumpConfig.announceInt)
+      if (pumpConfig.announceInt > 0) and (pumpState == "Empty") and
+      ((uVOL // pumpConfig.announceInt) <= nextAnn) then
+	 --print("eCNT: uVOL, uVOL//, nextAnn:", uVOL, uVOL // pumpConfig.announceInt, nextAnn)
+	 --system.playFile("/"..appDir.."volume.wav", AUDIO_QUEUE)
+	 system.playNumber(pumpConfig.announceInt * (nextAnn+1), flowDecPl[pumpConfigGbl.flowIdx],
+			   flowUnit[pumpConfigGbl.flowIdx], "Flow")
+	 nextAnn = nextAnn - 1
+      end
+      
    elseif k == "fRAT" then
       fRAT = tonumber(v)
       if not fRAT then fRAT = 0 end
       
       -----------------------------------------------
       if (pumpState ~= "Fill") and (pumpState ~= "Autofill") then return end
-      
+
       if #Boxcar + 1 > Boxlen then
 	 table.remove(Boxcar, 1)
       end
-      table.insert(Boxcar, #Boxcar+1, fRAT)
+
+      table.insert(Boxcar, #Boxcar+1, fRAT * flowMult[pumpConfigGbl.flowIdx]) -- YYYYYY
 
       if pumpState ~= "Off" then --#Boxcar >= boxAvgNLong then
 
@@ -900,11 +995,6 @@ local function execCmd(k,v)
 	 boxAvgShort = fRAT
 	 boxAvgLong  = fRAT
       end
-      -----------------------------------------------------------
-
-
-
-
    elseif k == "fDEL" then
    elseif k == "fDET" then
    elseif k == "Batt" then
@@ -930,6 +1020,7 @@ local function execCmd(k,v)
       system.messageBox("Pump timeout - auto power down")
       print("PowerDown signal")
    elseif k == "OTA" then
+      print("k=OTA, v:", v)
       if tonumber(v) == 1 then
 	 system.messageBox("Pump received update cmd",2)
       elseif tonumber(v) == -1 then
@@ -963,16 +1054,21 @@ local function execCmd(k,v)
 
    if k == "fCNT" or k == "eCNT" then
       if (rPWM and (rPWM ~= 0)) and (pumpState ~= "Off") and (math.abs((fRAT or 0)) > 0) then --running
-	 if  math.abs(rPWM) / math.abs((fRAT or 0)) > 200 then	 
+	 if math.abs(fRAT or 0) == 0 then
+	    if math.abs(rPWM) ~= 0 and rTIM > 10 then
+	       ratioHigh = ratioHigh + 1
+	    end
+	 elseif (math.abs(rPWM) / math.abs((fRAT or 0)) > 200) and (rTIM > 10) then	 
 	    ratioHigh = ratioHigh + 1
 	 end
 	 if ratioHigh == 5 then -- >= safer but don't want mult ann
-	    tVOL = ( (fCNT or 0) / (pumpConfigGbl.CalF / 10) ) - ( (eCNT or 0) / (pumpConfigGbl.CalE / 10))
+	    tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
 	    countedWrite("(Off)\n")
 	    pumpState = "Off"
 	    infoMsg = "Pump stopped - Low flow"
 	    system.playFile("/"..appDir.."pump_off_at.wav", AUDIO_QUEUE)
-	    system.playNumber(tVOL * flowMult[pumpConfigGbl.flowIdx], 0, flowUnit[pumpConfigGbl.flowIdx])
+	    system.playNumber(tVOL * flowMult[pumpConfigGbl.flowIdx],
+			      flowDecPl[pumpConfigGbl.flowIdx], flowUnit[pumpConfigGbl.flowIdx])
 	 end
       end
    end
@@ -1029,6 +1125,7 @@ local function onRead(data)
       k,v = string.match(ss, "(%a+)%p(.+)%p")
       
       if k and v then
+	 --print("k,v:", k,v)
 	 execCmd(k,v)
       else
 	 if ss == nil then ss = "-nil-" end
@@ -1054,12 +1151,24 @@ local function onRead(data)
 end
 
 ----------------------------------------------------------------------
+
+local function stopSerial()
+   pumpActive = false
+   gpio.write(8,1) -- power BLE off
+   print("BLE powered off")
+   serial.onRead(sidSerial, nil) -- just in case deinit does not do this
+   serial.deinit(sidSerial)
+   system.setProperty("CpuLimit", 1)	 
+   form.close()
+end
+
+
+
 -- presistent and global variables for loop()
 
 local lastLoop=0
 
 local function loop()
-
 
    local sgTC
    local tim
@@ -1071,11 +1180,9 @@ local function loop()
 
    local txTel = system.getTxTelemetry() -- if we see an RX kill the pump
    if not emflag and txTel.rx1Percent > 0 then
-      pumpActive = false
-      system.setProperty("CpuLimit", 1)      
+      stopSerial()
       system.messageBox("Airplane On - Pump App Exiting")
       system.playFile("/"..appDir.."airplane_powered_on_pump_exiting.wav", AUDIO_QUEUE)
-      form.close()
       return
    end
 
@@ -1089,8 +1196,22 @@ local function loop()
       pumpOnline = false
    end
 
-   if demoMode and ( (pumpState == "Fill") or (pumpState == "Autofill") ) then
-      fRAT = 42.5 + 0.1 * math.random(-1,1) -- (1 + math.sin(runningTime / 4))
+   if demoMode and pumpState ~= "Off" then
+      if ( (pumpState == "Fill") or (pumpState == "Autofill") ) then
+	 fRAT = 42.5 + 0.1 * math.random(-1,1) -- (1 + math.sin(runningTime / 4))
+      else
+	 fRAT = -42.5 + 0.1 * math.random(-1,1) -- (1 + math.sin(runningTime / 4))
+      end
+      
+      if not fCNT then fCNT = 0 end
+      if not eCNT then eCNT = 0 end
+      
+      if pumpState ~= "Empty" then
+	 fCNT = fCNT + 1
+      else
+	 eCNT = eCNT + 1
+      end
+      
       --if fRAT > 40 then fRAT = 80 end
       --if fRAT <= 40 then fRAT = 0 end
       --pPSI = 2.5 * (1 + math.cos(runningTime / 4)) -- + 0.1 * math.random(-1,1)
@@ -1107,30 +1228,36 @@ local function loop()
       rTIMmins = math.floor(rTIM) // 60
       rTIMsecs = rTIM - rTIMmins*60
       Batt = 10.12
-      fCNT = 0
-      eCNT = 0
+      --fCNT = 0
+      --eCNT = 0
    end
 
-   if demoMode and sgTC - lastLoop > 200 and ( (pumpState == "Fill") or (pumpState == "Autofill") ) then -- Argon sends pPSI once per 200 msec
+   if (demoMode and sgTC - lastLoop > 200) and (pumpState ~= "Off")  then -- Argon sends pPSI once per 200 msec
       lastLoop = sgTC
       --print("bar", fCNT, pPSI)
       onRead(string.format("(pPSI:%4.2f)", pPSI))
       onRead(string.format("(fRAT:%4.2f)", fRAT))
-      onRead(string.format("(fCNT:%4.2f)", fCNT or 0))
-      onRead(string.format("(eCNT:%4.2f)", eCNT or 0))
+      if pumpState == "Fill" or pumpState == "Autofill" then
+	 onRead(string.format("(fCNT:%4.2f)", fCNT or 0))
+      end
+      
+      if pumpState == "Empty" then
+	 onRead(string.format("(eCNT:%4.2f)", eCNT or 0))
+      end
    end
 
    thrpct = 50 * (system.getInputs("P4") + 1)
 
    if thrpct > 10 then thrNonZero = true end
       
----------------------------------------------
+   ------------------- TEST ---------------------
    --if thrpct >= 50 then
       --gpio.write(8,1)
    --else
       --gpio.write(8,0)
    --end
----------------------------------------------
+   -------------------END TEST ------------------
+   
    
    if not thrNonZero then -- if stick left at 0, leave at 100%
       thr = 100
@@ -1153,6 +1280,7 @@ local function loop()
       if #histogram + 1 > maxPoints then
 	 table.remove(histogram, 1)
 	 table.remove(penDown, 1)
+	 table.remove(visible2, 1)
       end
 
       local tt
@@ -1166,6 +1294,11 @@ local function loop()
       
       table.insert(histogram, #histogram+1, math.abs(tt) or 0)
       graphValue = math.abs(tt)
+      if true then
+	 table.insert(visible, #visible+1, true)
+      else
+	 table.insert(visible, #visible+1, false)
+      end
       
       if graphValue then
 	 table.insert(penDown, #penDown+1, true)
@@ -1184,10 +1317,17 @@ local function loop()
       if #histogram2 + 1 > maxPoints then
 	 table.remove(histogram2, 1)
 	 table.remove(penDown2, 1)
+	 table.remove(visible2, 1)
       end
 
       table.insert(histogram2, #histogram2+1, math.abs(tt) or 0)
       graphValue2 = math.abs(tt)
+      if (deltaStable or 0) > armStable then
+	 table.insert(visible2, #visible2+1, true)
+      else
+	 table.insert(visible2, #visible2+1, false)
+      end
+      
       if graphValue2 then
 	 table.insert(penDown2, #penDown2+1, true)
       else
@@ -1218,10 +1358,12 @@ local function prtPump()
       lcd.setColor(0,0,0)
    end
 
-   tVOL = ( (fCNT or 0) / (pumpConfigGbl.CalF / 10) ) - ( (eCNT or 0) / (pumpConfigGbl.CalE / 10))
-
+   tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
+   --print("tVOL", tVOL, tVOL * flowMult[pumpConfigGbl.flowIdx])
    if fCNT then
-      form.setTitle(string.format("Pumped: %.1f %s    Tank: %d %s ",
+      form.setTitle(string.format("Flow: " ..
+				     flowFmtF[pumpConfigGbl.flowIdx] .. " %s " ..
+				     "    Tank: " .. flowFmt[pumpConfigGbl.flowIdx] .. " %s ",
 				  tVOL * flowMult[pumpConfigGbl.flowIdx],
 				  flowUnit[pumpConfigGbl.flowIdx],
 				  pumpConfig.tankCapacity,
@@ -1235,7 +1377,8 @@ local function prtPump()
       --end
       temp = fRAT or 0
       
-      drawRectGaugeAbs(155, 136, 280, 14, 0, pumpConfig.tankCapacity, tVOL, "")
+      drawRectGaugeAbs(155, 136, 280, 14, 0, pumpConfig.tankCapacity,
+		       (tVOL or 0) * flowMult[pumpConfigGbl.flowIdx], "")
       drawCenterBox()
       drawSpd()
       -- if appropriate, display autofill target
@@ -1246,14 +1389,14 @@ local function prtPump()
 	 afTgt = nil
       end
 
-      --print("p, tgt:", temp, afTgt)
-      
-      drawGauge("L", "Flow", "blue", -60 * flowMult[pumpConfigGbl.flowIdx], 0,
+      --print("p, tgt:", temp, afTgt) 
+     
+      drawGauge("L", "Flowrate", "blue", -60 * flowMult[pumpConfigGbl.flowIdx], 0,
 		60 * flowMult[pumpConfigGbl.flowIdx], temp * flowMult[pumpConfigGbl.flowIdx],
-		flowUnitRate[pumpConfigGbl.flowIdx], flowFmt[pumpConfigGbl.flowIdx], 0,  0, afTgt)
+		flowUnitRate[pumpConfigGbl.flowIdx], flowFmtF[pumpConfigGbl.flowIdx], 0,  0, afTgt)
 
       
-      drawGauge("L", "Press","red", 0, 5, 10, math.max((pPSI or 0), 0),
+      drawGauge("L", "Pressure","red", 0, 5, 10, math.max((pPSI or 0), 0),
 		"psi", "%.1f", 180, 0, pumpConfig.pressSetpoint)
 
       if infoMsg ~= "" then
@@ -1347,7 +1490,6 @@ local function prtPump()
       lcd.drawText(0,00, string.format("fCNT: %d eCNT: %d", fCNT or 0, eCNT or 0)) 
       lcd.drawText(0,15, string.format("RA %d/%d", boxAvg, boxAvg2))
       lcd.drawText(0,30, string.format("LT,ST: %.4f %.4f %.4f, %.4f %.4f", boxAvgLong, boxAvgShort,math.abs(boxAvgShort - boxAvgLong) / math.abs(boxAvgLong), pumpConfig.autoParm / 1000, boxRMS))
-	 
 
       lcd.drawText(0,45, string.format("#Boxcar %d", #Boxcar))
       lcd.drawText(0,60, string.format("Delta: %.2f", math.abs(boxAvgShort - boxAvgLong)))
@@ -1382,17 +1524,29 @@ local function lowBattLimitChanged(value)
 end
 
 local function CalEChanged(value)
-   jSave(pumpConfigGbl, "CalE", value)
-   form.setTitle("Empty: " .. string.format("%.2f fl oz, %.2f g", (eCNT or 0) / (pumpConfigGbl.CalE / 10), 23.659 * (eCNT or 0) / (pumpConfigGbl.CalE / 10)))
+   jSave(pumpConfigGbl, "CalE", value / 100.0)
+   form.setTitle("Empty: " ..
+		    string.format(flowFmtC[pumpConfigGbl.flowIdx] .. " " ..
+				     flowUnit[pumpConfigGbl.flowIdx]..", %.2f g",
+				  flowMult[pumpConfigGbl.flowIdx] * (eCNT or 0) / pumpConfigGbl.CalE,
+				  23.659 * (eCNT or 0) / pumpConfigGbl.CalE))
 end
 
 local function CalFChanged(value)
-   jSave(pumpConfigGbl, "CalF", value)
-   form.setTitle("Fill: " .. string.format("%.2f fl oz, %.2f g", (fCNT or 0) / (pumpConfigGbl.CalF / 10), 23.659 * (fCNT or 0) / (pumpConfigGbl.CalF / 10)))
+   jSave(pumpConfigGbl, "CalF", value / 100.0)
+   form.setTitle("Fill: " ..
+		    string.format(flowFmtC[pumpConfigGbl.flowIdx] .. " " ..
+				     flowUnit[pumpConfigGbl.flowIdx]..", %.2f g",
+				  flowMult[pumpConfigGbl.flowIdx] * (fCNT or 0) / pumpConfigGbl.CalF,
+				  23.659 * (fCNT or 0) / pumpConfigGbl.CalF))
 end
 
 local function tankCapacityChanged(value)
-   jSave(pumpConfig, "tankCapacity", value)
+   if pumpConfigGbl.flowIdx == 1 then -- Imperial
+      jSave(pumpConfig, "tankCapacity", value)
+   else
+      jSave(pumpConfig, "tankCapacity", value / 100.0)
+   end
 end
 
 local function pressureChanged(value)
@@ -1411,28 +1565,59 @@ local function autoParmChanged(value)
    jSave(pumpConfig, "autoParm",value / 10.0)
 end
 
-
 local function maxRevSpdChanged(value)
    jSave(pumpConfig, "maxRevSpd", value)
 end
 
 local function tankOverfillChanged(value)
-   jSave(pumpConfig, "tankOverfill", value)
+   if pumpConfigGbl.flowIdx == 1 then -- Imperial
+      jSave(pumpConfig, "tankOverfill", value)
+   else
+      jSave(pumpConfig, "tankOverfill", value / 100.0)
+   end
 end
 
 local function flowUnitChanged(value)
    jSave(pumpConfigGbl, "flowIdx", value)
+   system.messageBox("Converting tank volumes", 2)
+   if value == 2 then -- oz to L
+      pumpConfig.tankCapacity = math.floor(pumpConfig.tankCapacity * 29.5735 + 0.5) / 1000.0 
+      pumpConfig.tankOverfill = math.floor(pumpConfig.tankOverfill * 29.5735 + 0.5) / 1000.0 
+      pumpConfig.autoHoldoff  = math.floor(pumpConfig.autoHoldoff  * 29.5735 + 0.5) / 1000.0 
+      pumpConfig.announceInt  = math.floor(pumpConfig.announceInt  * 29.5735 + 0.5) / 1000.0
+      countedWrite("(Met)\n")  
+   else -- L to oz
+      pumpConfig.tankCapacity = math.floor(pumpConfig.tankCapacity * 33.8140 + 0.5)
+      pumpConfig.tankOverfill = math.floor(pumpConfig.tankOverfill * 33.8140 + 0.5)
+      pumpConfig.autoHoldoff  = math.floor(pumpConfig.autoHoldoff  * 33.8140 + 0.5)
+      pumpConfig.announceInt  = math.floor(pumpConfig.announceInt  * 33.8140 + 0.5)
+      countedWrite("(Imp)\n")      
+   end
+   form.reinit(2)
 end
 
 local function autoHoldoffChanged(value)
-   jSave(pumpConfig, "autoHoldoff", value)
+   if pumpConfigGbl.flowIdx == 1 then -- Imperial
+      jSave(pumpConfig, "autoHoldoff", value)
+   else
+      jSave(pumpConfig, "autoHoldoff", value / 100.0)      
+   end
+   
+end
+
+local function announceIntChanged(value)
+   if pumpConfigGbl.flowIdx == 1 then -- Imperial
+      jSave(pumpConfig, "announceInt", value)
+   else
+      jSave(pumpConfig, "announceInt", value / 100.0)
+   end
+   
 end
 
 local function updateOTA(value)
    print("updateOTA", value)
    if pumpConfigGbl.ssid == "" or pumpConfigGbl.pwd == "" then
-      system.messageBox("Wifi SSID or Pwd blank",3)
-      return
+      system.messageBox("Warning: Wifi SSID or Pwd blank",3)
    end
    countedWrite("ssid:"..pumpConfigGbl.ssid.."\n")
    print("sent ssid: "..pumpConfigGbl.ssid)
@@ -1442,10 +1627,15 @@ local function updateOTA(value)
    print("sent update:0")
 end
 
+local function unpairBLE(value)
+   print("about to send unpair command")
+   countedWrite("unpair:0" .. "\n")
+end
+
 local function saveParms()
    local ff
-   
-   ff = io.open(appDir .. "P-"..system.getProperty("ModelFile"), "w") 
+
+   ff = io.open(modelFile, "w") 
    if not ff then
       system.messageBox("Cannot open local parameter file")
       return
@@ -1472,12 +1662,12 @@ local function saveParms()
    unsavedConfig = false
 end
 
+local savedRow = 1
+
 local function initPump(sF)
 
-   --showPump = false
-   --print("initPump - subForm:", subForm)
    subForm = sF
-   
+
    if subForm == 1 then
       --print("setting buttons")
       if unsavedConfig then
@@ -1491,33 +1681,111 @@ local function initPump(sF)
       form.setButton(2, ":stop", 2)
       form.setButton(3, ":forward", 1)
       form.setButton(4, "Menu", 1)
-      form.setButton(5, "Exit", 1)
+      if isubSub == 1 then
+	 form.setButton(5, ":graphBig", 1)
+      else
+	 form.setButton(5, ":left", 1)
+      end
    elseif subForm == 2 then
+
+      if unsavedConfig then
+	 system.messageBox("You have unsaved parameters")
+      end
+
       form.setTitle(appMenu)
       form.setButton(1, "Back",1)
-      form.setButton(2, "RstPW", 1)
       form.setButton(3, "Save", 1)
-      form.setButton(4, " ", 1)
       form.setButton(5, "Exit", 1)
+
+      form.addRow(2)
+      form.addLink((function() form.reinit(3) end),
+	 {label="Fuel System>>"})
+
+      form.addRow(2)
+      form.addLink((function() form.reinit(4) end),
+	 {label="Pump properties>>"})
+
+      form.addRow(2)
+      form.addLink((function() form.reinit(5) end),
+	 {label="Communications>>"})
+
+      form.addRow(2)
+      --form.addLabel({label="Save pump paramaters", width=220})
+      form.addLink((function() saveParms() end), {label="Save parameters"})
+
+      form.addRow(1)
+      form.addLabel({label=appShort,font=FONT_MINI, alignRight=true})      
+
+      form.setFocusedRow(savedRow)
       
-      form.addRow(2)
-      form.addLabel({label="Delivery Pressure", width=220})
-      form.addIntbox(pumpConfig.pressSetpoint*10,0,100,50,1,1,pressureChanged)
+   elseif subForm == 3 then -- Fuel-related parameters
+      savedRow = subForm-2   
+      
+      form.setButton(1, "Back",1)
+      form.setButton(5, "Exit", 1)
 
       form.addRow(2)
-      form.addLabel({label="Fuel Tank Capacity", width=220})
-      form.addIntbox(pumpConfig.tankCapacity,0,30000,1000,0,1,tankCapacityChanged)
+      form.addLink((function() form.reinit(2) end),
+      {label="<< Back"})
 
       form.addRow(2)
-      form.addLabel({label="Fuel Tank Overfill", width=220})
-      form.addIntbox(pumpConfig.tankOverfill,0,100,10,0,1,tankOverfillChanged)      
+      form.addLabel({label="Delivery Pressure (psi)", width=220})
+      form.addIntbox(pumpConfig.pressSetpoint*10,0,150,50,1,1,pressureChanged)
 
       form.addRow(2)
-      form.addLabel({label="Autofill holdoff", width=220})
-      form.addIntbox(pumpConfig.autoHoldoff,0,1000,30,0,1,autoHoldoffChanged)      
+      form.addLabel({label="Fuel Tank Capacity"
+			.. " (" ..flowUnit[pumpConfigGbl.flowIdx]..")", width=220})
+      if pumpConfigGbl.flowIdx == 1 then -- Imperial
+	 form.addIntbox(pumpConfig.tankCapacity,0,1000,100,0,1,tankCapacityChanged)
+      else --Metric
+	 form.addIntbox(pumpConfig.tankCapacity*100,0,3000,300,2,1,tankCapacityChanged)
+      end
 
       form.addRow(2)
-      form.addLabel({label="Low Battery Cutoff", width=220})
+      form.addLabel({label="Fuel Tank Overfill"
+			.. " (" ..flowUnit[pumpConfigGbl.flowIdx]..")", width=220})
+      if pumpConfigGbl.flowIdx == 1 then -- Imperial
+	 form.addIntbox(pumpConfig.tankOverfill,0,100,10,0,1,tankOverfillChanged)
+      else
+	 form.addIntbox(pumpConfig.tankOverfill*100,0,300,30,2,1,tankOverfillChanged)	 
+      end
+
+      form.addRow(2)
+      form.addLabel({label="Autofill holdoff"
+			.. " (" ..flowUnit[pumpConfigGbl.flowIdx]..")", width=220})
+      
+      if pumpConfigGbl.flowIdx == 1 then -- Imperial
+	 form.addIntbox(pumpConfig.autoHoldoff,0,200,35,0,1,autoHoldoffChanged)
+      else
+	 form.addIntbox(pumpConfig.autoHoldoff*100,0,1000,30,2,1,autoHoldoffChanged)
+      end
+
+      form.addRow(2)
+      form.addLabel({label="Announce Interval"
+			.. " (" ..flowUnit[pumpConfigGbl.flowIdx]..")", width=220})
+      
+      if pumpConfigGbl.flowIdx == 1 then -- Imperial
+	 form.addIntbox(pumpConfig.announceInt,0,1000,10,0,1,announceIntChanged)
+      else
+	 form.addIntbox(pumpConfig.announceInt*100,0,3000,50,2,1,announceIntChanged)
+      end
+      
+
+      form.setFocusedRow(1)
+
+   elseif subForm == 4 then -- config
+
+      savedRow = subForm-2
+      form.setButton(1, "Back",1)
+      form.setButton(3, "Save", 1)
+      form.setButton(5, "Exit", 1)
+
+      form.addRow(2)
+      form.addLink((function() form.reinit(2) end),
+      {label="<< Back"})
+
+      form.addRow(2)
+      form.addLabel({label="Low Battery Shutdown (V)", width=220})
       form.addIntbox(pumpConfigGbl.lowBattLimit*10,0,100,85,1,1,lowBattLimitChanged)
 
       form.addRow(2)
@@ -1525,28 +1793,38 @@ local function initPump(sF)
       form.addIntbox(pumpConfig.autoParm*10,10,100,20,1,1,autoParmChanged)
 
       form.addRow(2)
+      form.addLabel({label="Flow unit", width=220})
+      form.addSelectbox(flowUnit, pumpConfigGbl.flowIdx, true, flowUnitChanged)
+
+      form.addRow(2)
       form.addLabel({label="Max Reverse Speed (%)", width=220})
       form.addIntbox(pumpConfig.maxRevSpd,10,100,100,0,1,maxRevSpdChanged)      
       
       form.addRow(2)
       form.addLabel({label="Fill Cal Factor", width=220})
-      form.addIntbox(pumpConfigGbl.CalF,1,2000,900,0,1,CalFChanged)
+      form.addIntbox(pumpConfigGbl.CalF*100,5000,20000,8000,2,1,CalFChanged)
 
       form.addRow(2)
       form.addLabel({label="Empty Cal Factor", width=220})
-      form.addIntbox(pumpConfigGbl.CalE,1,2000,900,0,1,CalEChanged)
+      form.addIntbox(pumpConfigGbl.CalE*100,5000,20000,8000,2,1,CalEChanged)
 
       form.addRow(2)
       form.addLabel({label="Maximum PWM", width=220})
       form.addIntbox(pumpConfig.maxPWM,100,1023,1023,0,1,maxPWMChanged)
 
-      form.addRow(2)
-      form.addLabel({label="Flow unit", width=220})
-      form.addSelectbox(flowUnit, pumpConfigGbl.flowIdx, false, flowUnitChanged)
+      form.setFocusedRow(1)
+
+   elseif subForm == 5 then -- communications
       
-      --form.addRow(2)
-      --form.addLink((function() form.reinit(3) end),
-      -- {label="Foo >>"})
+      savedRow = subForm-2
+
+      form.setButton(1, "Back",1)
+      form.setButton(2, "RstPW", 1)
+      form.setButton(5, "Exit", 1)
+
+      form.addRow(2)
+      form.addLink((function() form.reinit(2) end),
+      {label="<< Back"})
       
       form.addRow(2)
       form.addLabel({label="WiFi SSID", width=220})
@@ -1559,18 +1837,15 @@ local function initPump(sF)
       form.addTextbox(pwv and pumpConfigGbl.pwd or "***", 63, pwdChanged, {visible=true})
       
       form.addRow(2)
-      form.addLabel({label="Save pump paramaters", width=220})
-      form.addLink((function() saveParms() end), {label="Save >>"})
-
-      form.addRow(2)
       form.addLabel({label="OTA Update", width=220})
       form.addLink((function() updateOTA() end), {label="Update >>"})
 
-      form.addRow(1)
-      form.setFocusedRow(1)
-      form.addLabel({label=appShort,font=FONT_MINI, alignRight=true})      
+      form.addRow(2)
+      form.addLabel({label="Unpair Bluetooth", width=220})
+      form.addLink((function() unpairBLE() end), {label="Unpair >>"})
 
-   elseif subForm == 3 then
+      form.setFocusedRow(1)
+
    else
    end
    
@@ -1586,6 +1861,7 @@ local function keyPump(key)
    local KEY_LTL = 65536
    local KEY_LTU = 131072
    local KEY_LTD = 262144
+   local tVOL
    
    local text, state = form.getButton(1)
 
@@ -1595,27 +1871,30 @@ local function keyPump(key)
    if not pumpActive then return end
    
    if text ~= "Back" then -- is this the main pump screen?
-
+     
       if key == KEY_ESC then
 	 form.preventDefault()
 	 print("ESC Key pressed")
 	 if form.question("Really exit?", "Pump control will be shut down",
 			  "", 4000, false, 500) == 1  then
-	    pumpActive = false
-	    system.setProperty("CpuLimit", 1)	 
-	    form.close()
+	    stopSerial()
 	 end
 	 
       elseif key == KEY_1 then
 	 --print("Key 1 pressed")
 	 form.setButton(1, ":backward", 2)	 
 	 form.setButton(2, ":stop", 1)
-	 countedWrite(string.format("(CalE: %d)\n", pumpConfigGbl.CalE))
-	 countedWrite(string.format("(CalF: %d)\n", pumpConfigGbl.CalF))	 
+	 countedWrite(string.format("(CalE: %.2f)\n", pumpConfigGbl.CalE))
+	 countedWrite(string.format("(CalF: %.2f)\n", pumpConfigGbl.CalF))	 
 	 countedWrite(string.format("(pMAX: %d)\n", pumpConfig.maxPWM)) 
 	 countedWrite(string.format("(Prs: %d)\n", math.floor(pumpConfig.pressSetpoint * 10 + 0.5)))
 	 --countedWrite("(Spd: 100.0)\n")
 	 countedWrite(string.format("(Spd: %d)\n", pumpConfig.maxRevSpd))
+	 if pumpConfigGbl.flowIdx == 1 then
+	    countedWrite("(Imp)\n")
+	 else
+	    countedWrite("(Met)\n")	    
+	 end
 	 Boxcar = {}
 	 histogram = {}
 	 histogram2 = {}
@@ -1624,6 +1903,9 @@ local function keyPump(key)
 	 pumpState = "Empty"
 	 infoMsg = "Empty"
 	 ratioHigh = 0
+	 tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
+	 nextAnn = -1 + ((tVOL * flowMult[pumpConfigGbl.flowIdx]) // pumpConfig.announceInt)
+	 --print("key1, tVOL. nextAnn:", tVOL, nextAnn)
       elseif key == KEY_2 then
 	 --print("Key 2 pressed")
 	 form.setButton(1, ":backward", 1)	 
@@ -1641,13 +1923,16 @@ local function keyPump(key)
 	    infoMsg = "Autofill ready to arm"
 	    pumpState = "Autofill"
 	    deltaStable = 0
-	    ratioHigh = 0
 	    Boxcar = {}
+	    visible2 = {} 
 	 elseif pumpState ~= "Autofill" then
+	    tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
+	    nextAnn = 1 + (tVOL * flowMult[pumpConfigGbl.flowIdx]) // pumpConfig.announceInt
+	    --print("key3, tVOL,nextAnn:", tVOL, nextAnn)
 	    form.setButton(2, ":stop", 1)
 	    form.setButton(3, ":forward", 2)
-	    countedWrite(string.format("(CalF: %d)\n", pumpConfigGbl.CalF))
-	    countedWrite(string.format("(CalE: %d)\n", pumpConfigGbl.CalE))	    
+	    countedWrite(string.format("(CalF: %.2f)\n", pumpConfigGbl.CalF))
+	    countedWrite(string.format("(CalE: %.2f)\n", pumpConfigGbl.CalE))	    
 	    countedWrite("(pMAX: 1023)\n")
 	    countedWrite(string.format("(pMAX: %d)\n", pumpConfig.maxPWM))
 	    countedWrite(string.format("(Prs: %d)\n", math.floor(pumpConfig.pressSetpoint * 10 + 0.5)))
@@ -1659,6 +1944,7 @@ local function keyPump(key)
 	    nextsgTC = system.getTimeCounter()
 	    infoMsg = "Fill - Press >> again for AutoFill"
 	    pumpState = "Fill"
+	    ratioHigh = 0
 	    fillStop = pumpConfig.tankCapacity + pumpConfig.tankOverfill
 	 else -- must be already autofill -- ignore
 	    system.messageBox("Already in Autofill", 2)
@@ -1671,23 +1957,64 @@ local function keyPump(key)
       elseif key == KEY_4 then
 	 --print("Key 4 pressed")
 	 initPump(2)
-      elseif key == KEY_5 then -- default (OK/Exit) is ok for key 5
+      elseif key == KEY_5 then 
 	 form.preventDefault()
-	 print("Key 5 pressed")
-	 if form.question("Really exit?", "Pump control will be shut down", "", 4000, false, 500) == 1  then
-	    pumpActive = false
-	    system.setProperty("CpuLimit", 1)	 
-	    form.close()
+	 --print("Key 5 pressed")
+	 if isubSub == 1 then
+	    isubSub = isubSub + 1
+	    if isubSub > #subSub then
+	       isubSub = 1
+	    end
+	    form.setButton(5, ":left", 1)
+	 elseif isubSub == 2 then
+	    isubSub = isubSub - 1
+	    if isubSub < 1 then
+	       isubSub = 1
+	    end
+	    form.setButton(5, ":graphBig", 1)
 	 end
+	    
+	 --if form.question("Really exit?", "Pump control will be shut down", "", 4000, false, 500) == 1  then
+	    --pumpActive = false
+	    --system.setProperty("CpuLimit", 1)	 
+	    --form.close()
+	 --end
 	 
       elseif key == KEY_DOWN then
-	 pumpConfig.pressSetpoint = math.max(0, pumpConfig.pressSetpoint - 0.1)
+	 print("key down", isubSub)
+	 if isubSub == 1 then
+	    pumpConfig.pressSetpoint = math.max(0, pumpConfig.pressSetpoint - 0.1)
+	 elseif isubSub == 2 then
+	    graphScaleIdx = graphScaleIdx + 1
+	    graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange[1]), 1)
+	    graphScale = graphScaleRange[pumpConfigGbl.flowIdx][graphScaleIdx]
+	    graphFmt = graphScaleFormat[pumpConfigGbl.flowIdx][graphScaleIdx]
+	    graphScale2Idx = graphScale2Idx + 1
+	    graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range[1]), 1)
+	    graphScale2 = graphScale2Range[pumpConfigGbl.flowIdx][graphScale2Idx]
+	    graphFmt2 = graphScale2Format[pumpConfigGbl.flowIdx][graphScale2Idx]
+	    --print("D", pumpConfigGbl.flowIdx, graphScale, graphFmt)
+	    
+	 end
 	 --unsavedConfig = true -- maybe only save if changed from menu?
 	 --system.pSave("pressSetpoint", pressSetpoint)	 
 	 countedWrite(string.format("(Prs: %d)\n", math.floor(pumpConfig.pressSetpoint * 10 + 0.5)))
 	 --print("Key down")
       elseif key == KEY_UP then
-	 pumpConfig.pressSetpoint = math.min(10, pumpConfig.pressSetpoint + 0.1)
+	 print("key up", isubSub)
+	 if isubSub == 1 then
+	    pumpConfig.pressSetpoint = math.min(10, pumpConfig.pressSetpoint + 0.1)
+	 elseif isubSub == 2 then
+	    graphScaleIdx = graphScaleIdx - 1
+	    graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange[1]), 1)
+	    graphScale = graphScaleRange[pumpConfigGbl.flowIdx][graphScaleIdx]
+	    graphFmt = graphScaleFormat[pumpConfigGbl.flowIdx][graphScaleIdx]
+	    graphScale2Idx = graphScale2Idx - 1
+	    graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range[1]), 1)
+	    graphScale2 = graphScale2Range[pumpConfigGbl.flowIdx][graphScale2Idx]
+	    graphFmt2 = graphScale2Format[pumpConfigGbl.flowIdx][graphScale2Idx]
+	    --print("U", pumpConfigGbl.flowIdx, graphScale, graphFmt)
+	 end
 	 --unsavedConfig = true
 	 --system.pSave("pressSetpoint", pressSetpoint)
 	 countedWrite(string.format("(Prs: %d)\n", math.floor(pumpConfig.pressSetpoint * 10 + 0.5)))
@@ -1707,49 +2034,8 @@ local function keyPump(key)
 	    iimax=0
 	    countedWrite("(Clear)\n")
 	 end
-      elseif key == KEY_RTU then -- right trim up
-	 --print("RTU")
-	 graphScale2Idx = graphScale2Idx - 1
-	 graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range), 1)
-	 graphScale2 = graphScale2Range[graphScale2Idx]
-	 graphFmt2 = graphScale2Format[graphScale2Idx]
-      elseif key == KEY_RTD then -- right trim down
-	 --print("RTD")
-	 graphScale2Idx = graphScale2Idx + 1
-	 graphScale2Idx = math.max(math.min(graphScale2Idx, #graphScale2Range), 1)
-	 graphScale2 = graphScale2Range[graphScale2Idx]
-	 graphFmt2 = graphScale2Format[graphScale2Idx]
-      elseif key == KEY_LTU then -- left trim up
-	 --print("LTU")
-	 graphScaleIdx = graphScaleIdx - 1
-	 graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange), 1)
-	 graphScale = graphScaleRange[graphScaleIdx]
-	 graphFmt = graphScaleFormat[graphScaleIdx]
-      elseif key == KEY_LTD then -- left trim down
-	 --print("LTD")
-	 graphScaleIdx = graphScaleIdx + 1
-	 graphScaleIdx = math.max(math.min(graphScaleIdx, #graphScaleRange), 1)
-	 graphScale = graphScaleRange[graphScaleIdx]
-	 graphFmt = graphScaleFormat[graphScaleIdx]
-      elseif key == KEY_LTR then -- hack for now select avg rates
-	 boxAvg = boxAvg + 1
-	 if boxAvg > 3 then boxAvg = 1 end
-      elseif key == KEY_RTR then
-	 isubSub = isubSub + 1
-	 if isubSub > #subSub then
-	    isubSub = 1
-	 end
-	 --boxAvg2 = boxAvg2 + 1
-	 --if boxAvg2 > 3 then boxAvg2 = 1 end
-      elseif key == KEY_RTL then
-	 isubSub = isubSub - 1
-	 if isubSub < 1 then
-	    isubSub = #subSub
-	 end
       end
    else
-      --print("exit button not detected")
-      --print("text:", text, key)
       if key == KEY_1 then
 	 --print("key1")
 	 form.reinit(1)
@@ -1760,16 +2046,12 @@ local function keyPump(key)
 	 saveParms()
       elseif key == KEY_5 or key == KEY_ESC then
 	 form.preventDefault()
-	 print("Key 5 pressed")
+	 --print("Key 5 pressed")
 	 if form.question("Really exit?", "Pump control will be shut down", "",
 			  4000, false, 500) == 1  then
-	    pumpActive = false
-	    system.setProperty("CpuLimit", 1)	 
-	    form.close()
+	    stopSerial()
 	 end
       end
-      
-      --foo
    end
    if key ~= KEY_RELEASED then
       lastKey = key
@@ -1796,6 +2078,14 @@ local function destroy()
    io.close(ff)
    system.messageBox("S file saved", 2)
    --]]
+end
+
+local function logCB()
+   local tVOL, uVOL
+   tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
+   uVOL = tVOL * flowMult[pumpConfigGbl.flowIdx]
+   print("logCB", tVOL, uVOL)
+   return math.floor(uVOL*100 + 0.5), 2
 end
 
 local function init()
@@ -1844,12 +2134,14 @@ local function init()
 	    print("DFM-Pump: Error setting callback:", descr)
 	 end
       else
-	 print("DFM-Pump: Serial init failed <"..descr..">")
+	 print("DFM-Pump: Serial init to " ..port .." failed <"..descr..">")
       end
    end
 
-   local foo=gpio.mode(8,"out-pp")
+   local foo=gpio.mode(8,"out-od", "up")
    print("gpio.mode:", foo)
+   gpio.write(8,0)   
+   print("BLE powered on")
    
    system.registerForm(1, 0, "Fuel Station Control", initPump, keyPump, prtPump)
    
@@ -1860,9 +2152,12 @@ local function init()
    arcFile.L = lcd.loadImage(appDir .. "l-000.png")
 
 
-   -- First, get model-specific pump config info
 
-   fj = io.readall(appDir .. "P-" .. system.getProperty("ModelFile"))
+   -- First, get model-specific pump config info
+   modelFile = appDir .. "P-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_")
+   --print("modelFile: " .. modelFile)
+   fj = io.readall(modelFile)
+   --print("fj: ", fj)
    if fj then pumpConfig = json.decode(fj) end
    if not pumpConfig then pumpConfig = {} end
 
@@ -1884,15 +2179,16 @@ local function init()
    pumpConfig.pressSetpoint = jLoad(pumpConfig, "pressSetpoint", 5)   
    pumpConfig.maxPWM        = jLoad(pumpConfig, "maxPWM", 1023)
    pumpConfig.maxPWM        = math.max(math.min(pumpConfig.maxPWM, 1023), 100)
-   pumpConfig.autoParm      = jLoad(pumpConfig, "autoParm", 2)
+   pumpConfig.autoParm      = jLoad(pumpConfig, "autoParm", 2.5)
    pumpConfig.maxRevSpd     = jLoad(pumpConfig, "maxRevSpd", 100)
    pumpConfig.tankOverfill  = jLoad(pumpConfig, "tankOverfill", 10)
    pumpConfig.autoHoldoff   = jLoad(pumpConfig, "autoHoldoff", 0)
+   pumpConfig.announceInt   = jLoad(pumpConfig, "announceInt", 0)   
 
    -- Global parameters
    
-   pumpConfigGbl.CalE         = jLoad(pumpConfigGbl, "CalE",  810)
-   pumpConfigGbl.CalF         = jLoad(pumpConfigGbl, "CalF", 810)
+   pumpConfigGbl.CalE         = jLoad(pumpConfigGbl, "CalE",  80)
+   pumpConfigGbl.CalF         = jLoad(pumpConfigGbl, "CalF", 80)
    pumpConfigGbl.flowIdx      = jLoad(pumpConfigGbl, "flowIdx", 1)
    pumpConfigGbl.lowBattLimit = jLoad(pumpConfigGbl, "lowBattLimit", 9.0)
    pumpConfigGbl.ssid         = jLoad(pumpConfigGbl, "ssid", "")
@@ -1900,9 +2196,18 @@ local function init()
 
    unsavedConfig = false
 
+   graphScale = graphScaleRange[pumpConfigGbl.flowIdx][graphScaleIdx]
+   graphFmt   = graphScaleFormat[pumpConfigGbl.flowIdx][graphScaleIdx]
+
+   graphScale2 = graphScale2Range[pumpConfigGbl.flowIdx][graphScale2Idx]
+   graphFmt2   = graphScale2Format[pumpConfigGbl.flowIdx][graphScale2Idx]
+   
    graphReset()
+
+   system.registerLogVariable("Flow", flowUnit[pumpConfigGbl.flowIdx], logCB)
    
 end
+
 
 
 return {init=init, loop=loop, author="DFM", version=1, name="PumpControl", destroy=destroy}

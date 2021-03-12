@@ -47,7 +47,7 @@
 local appShort   = "CRU"
 local appName    = "CRU Display"
 local appAuthor  = "DFM"
-local appVersion = "1.01"
+local appVersion = "1.02"
 local appDir = "Apps/digitechCRU/"
 local transFile  = appDir .. "Trans.jsn"
 local pcallOK, emulator
@@ -526,9 +526,9 @@ local function loop()
    if (gs == 1 and lastgs ~= 1)  or (gs == 3 and lastgs ~= 3) then 
       gearMoving = true
       if gs == 1 then
-	 playFile("gear_extending.wav", AUDIO_QUEUE)
+	 if extendAudio then playFile("gear_extending.wav", AUDIO_QUEUE) end
       else
-	 playFile("gear_retracting.wav", AUDIO_QUEUE)
+	 if retractAudio then playFile("gear_retracting.wav", AUDIO_QUEUE) end
       end
       for _,v in pairs(mtable) do -- reset max and avg, clear moved flag
 	 CRU_Telem[v].max = 0
@@ -627,10 +627,6 @@ local function init()
    extendAudio  = (extendAudio  == "true")
    retractAudio = (retractAudio == "true")
    
-   pcallOK, emulator = pcall(require, "sensorEmulator")
-   --if not pcallOK then print("pcall error: ", emulator) end
-   if pcallOK and emulator then emulator.init("digitechCRU") end
-
    system.registerForm(1, MENU_APPS, appName, initForm)
    system.registerTelemetry(1, appName.." (Full Screen)", 4, CRUTele)
    system.registerTelemetry(2, appName.." (2-Box)", 2, CRUTele)

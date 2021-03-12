@@ -393,7 +393,7 @@ local function init()
 
    -- set default for pitotCal in case no "DFM-model.jsn" file
 
-   modelProps.pitotCal = airspeedCal -- start with the pLoad default
+   modelProps.pitotCal = airspeedCal or 100 -- start with the pLoad default, or 100 if nil
    
    fg = io.readall("Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
    if fg then

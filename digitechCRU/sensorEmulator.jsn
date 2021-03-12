@@ -6,110 +6,100 @@
      "param":1,
      "decimals":0,
      "type":1,
-     "auxcontrol":["P5","P6"],
      "sensorName":"CRU",
      "label":"Batt",
      "unit":"V",
-     "funcString":"9.4"
+     "luaExp":"9.4"
     },
     
     {"id":16819268,
      "param":2,
      "decimals":0,
      "type":1,
-     "auxcontrol":["P5","P6"],
      "sensorName":"CRU",
      "label":"Gear L",
      "unit":"ma",
-     "funcString":"(200*rand()+1000)*S5*seq(t/20, {0,1,0,1})"
+     "luaExp":"(200*math.random()+1000)*P5(1)*tseq(t/20, {0,1,0,1})"
     },
     
     {"id":16819268,
      "param":3,
      "decimals":0,
      "type":1,
-     "auxcontrol":["P5","P6"],
      "sensorName":"CRU",
      "label":"Gear F",
      "unit":"ma",
-     "funcString":"(200*rand()+1000)*S5*seq(t/20, {0,1,0,1})"
+     "luaExp":"(200*math.random()+1000)*P5(1)*tseq(t/20, {0,1,0,1})"
     },
     
     {"id":16819268,
      "param":4,
      "decimals":0,
      "type":1,
-     "auxcontrol":["P5","P6"],
      "sensorName":"CRU",
      "label":"Gear R",
      "unit":"ma",
-     "funcString":"(200*rand()+1000)*S5*seq(t/20, {0,1,0,1})"
+     "luaExp":"(200*math.random()+1000)*P5(1)*tseq(t/20, {0,1,0,1})"
     },
     
     {"id":16819268,
      "param":5,
      "decimals":0,
      "type":1,
-     "auxcontrol":["P5","P6"],
      "sensorName":"CRU",
      "label":"Brake L",
      "unit":"ma",
-     "funcString":"1000*S6*seq(t/20, {1,0,0,0})"
+     "luaExp":"1000*P6(1)*tseq(t/20, {1,0,0,0})"
     },
     
     {"id":16819268,
      "param":6,
      "decimals":0,
      "type":1,
-     "auxcontrol":["P5","P6"],
      "sensorName":"CRU",
      "label":"Brake F",
      "unit":"ma",
-     "funcString":"1000*S6*seq(t/20, {1,0,0,0})"
+     "luaExp":"1000*P6(1)*tseq(t/20, {1,0,0,0})"
     },
     
     {"id":16819268,
      "param":7,
      "decimals":0,
      "type":1,
-     "auxcontrol":["P5","P6"],
      "sensorName":"CRU",
      "label":"Brake R",
      "unit":"ma",
-     "funcString":"1000*S6*seq(t/20, {1,0,0,0})"
+     "luaExp":"1000*P6(1)*tseq(t/20, {1,0,0,0})"
     },
     
     {"id":16819268,
      "param":8,
      "decimals":0,
      "type":1,
-     "auxcontrol":["P5","P6","P7"],
      "sensorName":"CRU",
      "label":"Doors",
      "unit":"ma",
-     "funcString":"1000*S7"
+     "luaExp":"1000*P7(1)"
     },
     
     {"id":16819268,
      "param":9,
      "decimals":0,
      "type":1,
-     "auxcontrol":["P5","P6"],
      "sensorName":"CRU",
      "label":"Gear State",
      "unit":"",
-     "funcString":"seq(t/20, {2,3,4,1})"
+     "luaExp":"tseq(t/20, {2,3,4,1})"
     },
 
     {"id":16819268,
      "param":10,
      "decimals":0,
      "type":1,
-     "auxcontrol":["P5","P6","P8"],
      "sensorName":"CRU",
      "label":"Door State",
      "unit":"",
-     "funcString":"floor(S8)*seq(t/20,{0,1,0,1})"
+     "luaExp":"math.floor(P8(1))*tseq(t/20,{0,1,0,1})"
     }
     
     
