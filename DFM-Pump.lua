@@ -8,7 +8,7 @@
    Developed on DS-24, only tested on DS-24
 
    -----------------------------------------------------------------------------------------
-   DFM-Pump.lua released under MIT license by DFM 2019
+   DFM-Pump.lua released under MIT license by DFM 2021
    -----------------------------------------------------------------------------------------
 
 --]]
@@ -53,7 +53,7 @@ local graphStyleIdx = 3
 -- note: some code below assumes metric and imperial tables (range and fmt) have same length
 local graphScaleRange =  { {  0.5, 1,    2,   5,  10,  20,  50},
    {0.02, 0.05, 0.1, 0.2, 0.5, 1, 2} }
-local graphScaleFormat = { {"%.1f", "%d", "%d","%d","%d","%d","%d"},
+local graphScaleFormat = { {"%.1f", "%.0f", "%.0f","%.0f","%.0f","%.0f","%.0f"},
    {"%.2f", "%.2f", "%.1f", "%.1f", "%.1f", "%.1f", "%.1f"} }
 local graphScale2Range =  graphScaleRange
 local graphScale2Format = graphScaleFormat
@@ -139,6 +139,8 @@ local ratioHigh
 local fillStop = 0
 
 local nextAnn = 0
+local readNest = 0
+--local histFile
 
 local arcFile={}
 
@@ -254,7 +256,8 @@ end
 local function drawSpd()
 
    local ox, oy = 155, 100
-   local spd = math.floor(100 * ( (rPWM or 0) / pumpConfig.maxPWM) + 0.5)
+   local spd = 0.1 * math.floor( ((rPWM or 0) / pumpConfig.maxPWM)*1000 + 0.5)
+
    if pumpState == "Empty" then
       spd = -spd
    elseif pumpState == "Off" then
@@ -444,6 +447,7 @@ local function graphReset()
    penDown = {}
    histogram2 = {}
    penDown2 = {}
+   visible = {}
    visible2 = {}
    oldModSec = 0
    nextsgTC = system.getTimeCounter()
@@ -635,7 +639,7 @@ local function graphPrint(xbox, ybox, xoff, yoff)
    rTIMmins = (rTIM or 0) // 60
    rTIMsecs = (rTIM or 0) - rTIMmins*60
 
-   if rTIMmins and (pumpState == "Fill" or  pumpState == "Autofill") then
+   if rTIMmins and (pumpState == "Fill" or  pumpState == "Autofill" or pumpState == "Empty") then
       drawTextCenter(FONT_MINI,string.format("%d:%02d", rTIMmins, rTIMsecs),
 		     xoff + math.min((#histogram - 1), maxPoints) * xboxWidth, yoff+ybox)
 
@@ -860,8 +864,6 @@ local function execCmd(k,v)
       rTIMsecs = rTIM - rTIMmins*60
    elseif k == "pPSI" then
       pPSI = tonumber(v) 
-
-      
    elseif k == "rPWM" then
       rPWM = tonumber(v)
    elseif k == "fCNT" then
@@ -908,7 +910,7 @@ local function execCmd(k,v)
 	 if #Boxcar == boxAvgNLong and deltaStable >= armStable then
 	    --if (math.abs(boxAvgShort - boxAvgLong) / math.abs(boxAvgLong) ) >
 	    --(pumpConfig.autoParm / 1000) then 
-	    if (math.abs(boxAvgShort - boxAvgLong) / boxAvgLong) > (pumpConfig.autoParm * boxRMS / boxAvgLong) then 
+	    if ( (boxAvgLong - boxAvgShort) / boxAvgLong ) > (pumpConfig.autoParm * boxRMS / boxAvgLong) then 
 	       system.playFile("/"..appDir.."autofill_detected_at.wav", AUDIO_QUEUE)
 	       system.playNumber(uVOL, flowDecPl[pumpConfigGbl.flowIdx], flowUnit[pumpConfigGbl.flowIdx])
 	       if pumpConfig.tankOverfill > 0 then
@@ -943,7 +945,7 @@ local function execCmd(k,v)
       if not fRAT then fRAT = 0 end
       
       -----------------------------------------------
-      if (pumpState ~= "Fill") and (pumpState ~= "Autofill") then return end
+      if (pumpState ~= "Fill") and (pumpState ~= "Autofill") and (pumpState ~= "Empty") then return end
 
       if #Boxcar + 1 > Boxlen then
 	 table.remove(Boxcar, 1)
@@ -1053,14 +1055,22 @@ local function execCmd(k,v)
    end
 
    if k == "fCNT" or k == "eCNT" then
-      if (rPWM and (rPWM ~= 0)) and (pumpState ~= "Off") and (math.abs((fRAT or 0)) > 0) then --running
+
+      --print("rP,pS,fR, rH", rPWM, pumpState, fRAT, ratioHigh)
+      
+      if (rPWM and (rPWM ~= 0)) and (pumpState ~= "Off") and (math.abs(fRAT or 0) >= 0) then --running
+	 --print("running. rTIM", rTIM)
+	 if not rTIM then rTIM = 0 end
 	 if math.abs(fRAT or 0) == 0 then
-	    if math.abs(rPWM) ~= 0 and rTIM > 10 then
+	    if (math.abs(rPWM) ~= 0) and (rTIM > 10) then
 	       ratioHigh = ratioHigh + 1
+	       --print("1: ratioHigh:", ratioHigh)
 	    end
-	 elseif (math.abs(rPWM) / math.abs((fRAT or 0)) > 200) and (rTIM > 10) then	 
+	 elseif ( (math.abs(rPWM) / math.abs(fRAT or 0) ) > 120) and (rTIM > 10) then	 
 	    ratioHigh = ratioHigh + 1
+	    --print("2: ratioHigh:", ratioHigh)
 	 end
+	 --if ratioHigh > 5 then print("ratioHigh > 5", ratioHigh) end
 	 if ratioHigh == 5 then -- >= safer but don't want mult ann
 	    tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
 	    countedWrite("(Off)\n")
@@ -1086,7 +1096,10 @@ local function onRead(data)
    local k,v
    local oI, cI
    local ss
-
+   local ii
+   
+   readNest = readNest + 1
+   
    --print("data: #" .. data.."#")
    
    if #data > longData then
@@ -1094,7 +1107,7 @@ local function onRead(data)
    end
    
    lastPumpRead = system.getTimeCounter()
-   if pumpOnline == false then
+   if pumpOnline == false then -- really should move this out to the loop .. this is an isr (sortof)
       system.playFile("/"..appDir.."pump_bluetooth_connected.wav", AUDIO_QUEUE)
    end
    
@@ -1105,7 +1118,8 @@ local function onRead(data)
    dataStreamLen = #dataStream
    if dataStreamLen > dataStreamMax then dataStreamMax = dataStreamLen end
    
-   local ii = 0
+   ii = 0
+
    repeat
       ii = ii + 1
       oI = string.find(dataStream, "%(") 
@@ -1114,9 +1128,9 @@ local function onRead(data)
       if not oI or not cI then -- keep accumulating data if we got a partial
 	 --print("no oI or cI")
 	 --print("dataStream: "..dataStream)
+	 readNest = readNest - 1
 	 return
       end
-
       
       ss = string.sub(dataStream, oI, cI)
       
@@ -1148,13 +1162,17 @@ local function onRead(data)
       
    until dataStream == ""
 
+   readNest = readNest - 1
+
+   if readNest > 1 then print("readNest:", readNest) end
+   
 end
 
 ----------------------------------------------------------------------
 
 local function stopSerial()
    pumpActive = false
-   gpio.write(8,1) -- power BLE off
+   gpio.write(8,0) -- power BLE off
    print("BLE powered off")
    serial.onRead(sidSerial, nil) -- just in case deinit does not do this
    serial.deinit(sidSerial)
@@ -1272,7 +1290,7 @@ local function loop()
    --   thrLast = thr
    --end
    
-   if (sgTC > nextsgTC)  and ( (pumpState == "Fill") or (pumpState == "Autofill") ) then
+   if (sgTC > nextsgTC)  and ( (pumpState == "Fill") or (pumpState == "Autofill") or (pumpState == "Empty")) then
 
       nextsgTC = nextsgTC + deltasg
       oldModSec = modSec
@@ -1280,7 +1298,7 @@ local function loop()
       if #histogram + 1 > maxPoints then
 	 table.remove(histogram, 1)
 	 table.remove(penDown, 1)
-	 table.remove(visible2, 1)
+	 table.remove(visible, 1)
       end
 
       local tt
@@ -1293,7 +1311,10 @@ local function loop()
       end
       
       table.insert(histogram, #histogram+1, math.abs(tt) or 0)
+      --io.write(histFile, sgTC, ",", (rTIM or 0), ",", (fRAT or 0), ",", boxAvgShort, ",", (fCNT or 0), ",", (eCNT or 0), "\n")
+
       graphValue = math.abs(tt)
+      --print(fRAT, boxAvg, tt, #histogram)
       if true then
 	 table.insert(visible, #visible+1, true)
       else
@@ -1323,9 +1344,11 @@ local function loop()
       table.insert(histogram2, #histogram2+1, math.abs(tt) or 0)
       graphValue2 = math.abs(tt)
       if (deltaStable or 0) > armStable then
+	 --print(#histogram2, "v2 = true", deltaStable, armStable)
 	 table.insert(visible2, #visible2+1, true)
       else
-	 table.insert(visible2, #visible2+1, false)
+	 --print(#histogram2, "v2 = false", deltaStable, armStable)
+	 table.insert(visible2, #visible2+1, false) 
       end
       
       if graphValue2 then
@@ -1333,6 +1356,9 @@ local function loop()
       else
 	 table.insert(penDown2, #penDown2+1, false)
       end
+
+      --if #histogram ~= #histogram2 then print("#h not equal") end
+      
    end
 end
 
@@ -1657,6 +1683,19 @@ local function saveParms()
    end
 
    io.close(ff)
+
+   countedWrite(string.format("(CalE: %.2f)\n", pumpConfigGbl.CalE))
+   countedWrite(string.format("(CalF: %.2f)\n", pumpConfigGbl.CalF))	 
+   countedWrite(string.format("(pMAX: %d)\n", pumpConfig.maxPWM)) 
+   countedWrite(string.format("(Prs: %.2f)\n", pumpConfig.pressSetpoint))
+   countedWrite(string.format("(Spd: %d)\n", pumpConfig.maxRevSpd))
+   if pumpConfigGbl.flowIdx == 1 then
+      countedWrite("(Imp)\n")
+   else
+      countedWrite("(Met)\n")	    
+   end
+
+   countedWrite("(Sav: 0)\n")
    
    system.messageBox("Pump parameters saved", 2)
    unsavedConfig = false
@@ -1680,7 +1719,7 @@ local function initPump(sF)
       form.setButton(1, ":backward",1)
       form.setButton(2, ":stop", 2)
       form.setButton(3, ":forward", 1)
-      form.setButton(4, "Menu", 1)
+      form.setButton(4, ":tools", 1)
       if isubSub == 1 then
 	 form.setButton(5, ":graphBig", 1)
       else
@@ -1722,6 +1761,7 @@ local function initPump(sF)
       savedRow = subForm-2   
       
       form.setButton(1, "Back",1)
+      form.setButton(3, "Save", 1)
       form.setButton(5, "Exit", 1)
 
       form.addRow(2)
@@ -1820,6 +1860,7 @@ local function initPump(sF)
 
       form.setButton(1, "Back",1)
       form.setButton(2, "RstPW", 1)
+      form.setButton(3, "Save", 1)
       form.setButton(5, "Exit", 1)
 
       form.addRow(2)
@@ -1887,7 +1928,7 @@ local function keyPump(key)
 	 countedWrite(string.format("(CalE: %.2f)\n", pumpConfigGbl.CalE))
 	 countedWrite(string.format("(CalF: %.2f)\n", pumpConfigGbl.CalF))	 
 	 countedWrite(string.format("(pMAX: %d)\n", pumpConfig.maxPWM)) 
-	 countedWrite(string.format("(Prs: %d)\n", math.floor(pumpConfig.pressSetpoint * 10 + 0.5)))
+	 countedWrite(string.format("(Prs: %.2f)\n", pumpConfig.pressSetpoint))
 	 --countedWrite("(Spd: 100.0)\n")
 	 countedWrite(string.format("(Spd: %d)\n", pumpConfig.maxRevSpd))
 	 if pumpConfigGbl.flowIdx == 1 then
@@ -1898,6 +1939,9 @@ local function keyPump(key)
 	 Boxcar = {}
 	 histogram = {}
 	 histogram2 = {}
+	 visible = {}
+	 visible2 = {}
+	 --histFile = io.open("Apps/DFM-Pump/Empty.dat", "w")
 	 countedWrite("(Empty)\n")
 	 nextsgTC = system.getTimeCounter()
 	 pumpState = "Empty"
@@ -1915,6 +1959,7 @@ local function keyPump(key)
 	 pumpState = "Off"
 	 tVOL = 0
 	 infoMsg = "Pump stopped"
+	 --io.close(histFile)
       elseif key == KEY_3 then
 	 --print("Key 3 pressed")
 	 if pumpState == "Fill" then
@@ -1924,7 +1969,6 @@ local function keyPump(key)
 	    pumpState = "Autofill"
 	    deltaStable = 0
 	    Boxcar = {}
-	    visible2 = {} 
 	 elseif pumpState ~= "Autofill" then
 	    tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
 	    nextAnn = 1 + (tVOL * flowMult[pumpConfigGbl.flowIdx]) // pumpConfig.announceInt
@@ -1933,10 +1977,15 @@ local function keyPump(key)
 	    form.setButton(3, ":forward", 2)
 	    countedWrite(string.format("(CalF: %.2f)\n", pumpConfigGbl.CalF))
 	    countedWrite(string.format("(CalE: %.2f)\n", pumpConfigGbl.CalE))	    
-	    countedWrite("(pMAX: 1023)\n")
+	    --countedWrite("(pMAX: 1023)\n")
 	    countedWrite(string.format("(pMAX: %d)\n", pumpConfig.maxPWM))
-	    countedWrite(string.format("(Prs: %d)\n", math.floor(pumpConfig.pressSetpoint * 10 + 0.5)))
+	    countedWrite(string.format("(Prs: %.2f)\n", pumpConfig.pressSetpoint))
 	    countedWrite("(Spd: 100)\n")
+	    Boxcar = {}
+	    histogram = {}
+	    histogram2 = {}
+	    visible = {}
+	    visible2 = {}
 	    --Boxcar = {}
 	    --histogram = {}
 	    --histogram2 = {}
@@ -1946,6 +1995,7 @@ local function keyPump(key)
 	    pumpState = "Fill"
 	    ratioHigh = 0
 	    fillStop = pumpConfig.tankCapacity + pumpConfig.tankOverfill
+	    --histFile = io.open("Apps/DFM-Pump/Fill.dat", "w")
 	 else -- must be already autofill -- ignore
 	    system.messageBox("Already in Autofill", 2)
 	    --pumpState = "Fill"
@@ -1981,7 +2031,7 @@ local function keyPump(key)
 	 --end
 	 
       elseif key == KEY_DOWN then
-	 print("key down", isubSub)
+	 --print("key down", isubSub)
 	 if isubSub == 1 then
 	    pumpConfig.pressSetpoint = math.max(0, pumpConfig.pressSetpoint - 0.1)
 	 elseif isubSub == 2 then
@@ -1998,10 +2048,10 @@ local function keyPump(key)
 	 end
 	 --unsavedConfig = true -- maybe only save if changed from menu?
 	 --system.pSave("pressSetpoint", pressSetpoint)	 
-	 countedWrite(string.format("(Prs: %d)\n", math.floor(pumpConfig.pressSetpoint * 10 + 0.5)))
+	 countedWrite(string.format("(Prs: %.2f)\n", pumpConfig.pressSetpoint))
 	 --print("Key down")
       elseif key == KEY_UP then
-	 print("key up", isubSub)
+	 --print("key up", isubSub)
 	 if isubSub == 1 then
 	    pumpConfig.pressSetpoint = math.min(10, pumpConfig.pressSetpoint + 0.1)
 	 elseif isubSub == 2 then
@@ -2017,7 +2067,7 @@ local function keyPump(key)
 	 end
 	 --unsavedConfig = true
 	 --system.pSave("pressSetpoint", pressSetpoint)
-	 countedWrite(string.format("(Prs: %d)\n", math.floor(pumpConfig.pressSetpoint * 10 + 0.5)))
+	 countedWrite(string.format("(Prs: %.2f)\n", pumpConfig.pressSetpoint))
 	 --print("Key up")
       elseif key == KEY_ENTER then
 	 if subForm == 1 then
@@ -2095,6 +2145,9 @@ local function init()
    local portList
    local portStr
    local fj
+   local file
+   local ctu
+   local time, ltime
    
    system.setProperty("CpuLimit", 0)
    dt = system.getDateTime()
@@ -2115,7 +2168,7 @@ local function init()
 	    portStr = portStr .. ", " .. portList[i]
 	 end
 	 print("DFM-Pump: Ports available - " .. portStr)
-	 port = portList[1] -- edit if required
+	 port = portList[2] -- edit if required
       else
 	 print("DFM-Pump: No ports available")
       end
@@ -2138,9 +2191,9 @@ local function init()
       end
    end
 
-   local foo=gpio.mode(8,"out-od", "up")
+   local foo=gpio.mode(8,"out-pp")
    print("gpio.mode:", foo)
-   gpio.write(8,0)   
+   gpio.write(8,1)   
    print("BLE powered on")
    
    system.registerForm(1, 0, "Fuel Station Control", initPump, keyPump, prtPump)
@@ -2205,6 +2258,19 @@ local function init()
    graphReset()
 
    system.registerLogVariable("Flow", flowUnit[pumpConfigGbl.flowIdx], logCB)
+
+    file = io.readall("Apps/digitech/lastfuel.jsn") 
+    if (file) then
+        ctu = json.decode(file)
+	print("ctu.lastFuel: " .. ctu.lastFuel)
+	print("ctu.lastTime: " .. ctu.lastTime)
+	time = system.getTime()
+	print("current time: " .. time)
+	ltime = tonumber(ctu.lastTime)
+	print("decoded lastTime: " .. ltime)
+	print("delta T: " .. (time - ltime))
+    end
+   
    
 end
 

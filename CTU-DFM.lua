@@ -891,6 +891,22 @@ local function init(code)
     
 end
 
+local function closeCTU()
+   local fp
+   local ft={}
+   
+   ft.lastFuel = lFuel
+   print(system.getTime())
+   ft.lastTime = string.format("0X%X", system.getTime())
+   print(ft.lastTime, tonumber(ft.lastTime))
+   
+   local fp = io.open(string.format("Apps/%s/%s", wBrand, "lastfuel.jsn"),"w")
+   if fp then io.write(fp, json.encode(ft)) end
+   io.close(fp)
+   print("close CTU .. Fuel is " .. lFuel .. "%")
+   print("JSON: " .. json.encode(ft))
+end
+
 ------------------------------------------------------------------------
 -- Main Loop function is called in regular intervals
 local function loop()
@@ -956,4 +972,4 @@ end
 
 WBDashVersion = wVersion
 -- Application interface
-return {init = init, loop = loop, author = "DM", version = wVersion, name = wAppname}
+return {init = init, loop = loop, author = "DM", version = wVersion, name = wAppname, destroy=closeCTU}
