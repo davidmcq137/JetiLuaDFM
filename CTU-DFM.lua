@@ -894,13 +894,21 @@ end
 local function closeCTU()
    local fp
    local ft={}
+   local mn
    
    ft.lastFuel = lFuel
    print(system.getTime())
+
+   -- write time as hex so json converter does not make it a float
+   
    ft.lastTime = string.format("0X%X", system.getTime())
    print(ft.lastTime, tonumber(ft.lastTime))
    
-   local fp = io.open(string.format("Apps/%s/%s", wBrand, "lastfuel.jsn"),"w")
+   mn = string.gsub(system.getProperty("Model"), " ", "_")
+
+   print("filename: " .. string.format("Apps/%s/%s", wBrand, "LF_" .. mn .. ".jsn"))
+   
+   fp = io.open(string.format("Apps/%s/%s", wBrand, "LF_" .. mn .. ".jsn"),"w")
    if fp then io.write(fp, json.encode(ft)) end
    io.close(fp)
    print("close CTU .. Fuel is " .. lFuel .. "%")

@@ -142,6 +142,8 @@ local nextAnn = 0
 local readNest = 0
 --local histFile
 
+local ctu = {}
+
 local arcFile={}
 
 local needle_poly={}
@@ -1369,6 +1371,7 @@ local function prtPump()
    local temp
    local tVOL
    local afTgt
+   local text
    
    if not pumpActive then return end
    
@@ -1387,9 +1390,16 @@ local function prtPump()
    tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
    --print("tVOL", tVOL, tVOL * flowMult[pumpConfigGbl.flowIdx])
    if fCNT then
+      if ctu and ctu.lastFuel and (ctu.lastFuel ~= 0) then
+	 text = string.format("/" .. flowFmt[pumpConfigGbl.flowIdx],
+			      ctu.lastFuel * pumpConfig.tankCapacity / 100.0)
+      else
+	 text = ""
+      end
+      
       form.setTitle(string.format("Flow: " ..
 				     flowFmtF[pumpConfigGbl.flowIdx] .. " %s " ..
-				     "    Tank: " .. flowFmt[pumpConfigGbl.flowIdx] .. " %s ",
+				     "    Tank: " .. flowFmt[pumpConfigGbl.flowIdx] .. text .." %s ",
 				  tVOL * flowMult[pumpConfigGbl.flowIdx],
 				  flowUnit[pumpConfigGbl.flowIdx],
 				  pumpConfig.tankCapacity,
@@ -2098,7 +2108,7 @@ local function keyPump(key)
 	 form.preventDefault()
 	 --print("Key 5 pressed")
 	 if form.question("Really exit?", "Pump control will be shut down", "",
-			  4000, false, 500) == 1  then
+			  4000, false, 0) == 1  then
 	    stopSerial()
 	 end
       end
@@ -2146,8 +2156,10 @@ local function init()
    local portStr
    local fj
    local file
-   local ctu
    local time, ltime
+   local text
+   local qq
+   local mn
    
    system.setProperty("CpuLimit", 0)
    dt = system.getDateTime()
@@ -2258,18 +2270,35 @@ local function init()
    graphReset()
 
    system.registerLogVariable("Flow", flowUnit[pumpConfigGbl.flowIdx], logCB)
+      
+   mn = string.gsub(system.getProperty("Model"), " ", "_")
+   print("LF file", "Apps/digitech/LF_" .. mn .. ".jsn")
+   
+   file = io.readall("Apps/digitech/LF_" .. mn .. ".jsn")
+   print("file:", file)
 
-    file = io.readall("Apps/digitech/lastfuel.jsn") 
-    if (file) then
-        ctu = json.decode(file)
-	print("ctu.lastFuel: " .. ctu.lastFuel)
-	print("ctu.lastTime: " .. ctu.lastTime)
-	time = system.getTime()
-	print("current time: " .. time)
-	ltime = tonumber(ctu.lastTime)
-	print("decoded lastTime: " .. ltime)
-	print("delta T: " .. (time - ltime))
-    end
+   if (file) then
+      ctu = json.decode(file)
+      print("init - ctu.lastFuel: " .. ctu.lastFuel)
+      print("init - ctu.lastTime: " .. ctu.lastTime)
+      time = system.getTime()
+      print("current time: " .. time)
+      ltime = tonumber(ctu.lastTime)
+      print("decoded lastTime: " .. ltime)
+      print("delta T: " .. (time - ltime))
+   else
+      ctu.lastFuel = 0
+   end
+
+   if ctu.lastFuel ~= 0 and (time - ltime) > 60*60*12 then -- if more than 12 hrs old, ask
+      text = string.format(flowFmt[pumpConfigGbl.flowIdx] .. " %s",
+			   ctu.lastFuel * pumpConfig.tankCapacity / 100.0, flowUnit[pumpConfigGbl.flowIdx])
+
+      qq = form.question("Display last fuel?", "Last fuel amount: " .. text,
+		    string.format("%.1f hours ago", (time - ltime) / 3600),
+		    0, false, 0)
+      if qq == 0 then ctu.lastFuel = 0 end
+   end
    
    
 end
