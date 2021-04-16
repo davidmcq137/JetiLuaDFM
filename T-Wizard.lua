@@ -26,7 +26,7 @@
 local appInfo={}
 appInfo.Name = "T-Wizard"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
-appInfo.Fields = appInfo.Dir .. "Fields/"
+appInfo.Fields = appInfo.Dir .. "Fields"
 
 local latitude
 local longitude 
@@ -49,7 +49,13 @@ local arcFile
 local lapAltitude
 local distance
 local x, y
-   
+
+local Coord={}
+Coord.Lat={}
+Coord.Lon={}
+Coord.Lat0 = {}
+Coord.Lon0 = {}
+
 local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
 	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"}
 
@@ -421,7 +427,7 @@ local function initForm(subform)
 	 {label = "Settings >>"})            
 
       form.addRow(1)
-      form.addLabel({label="DFM - v 0.4", font=FONT_MINI, alignRight=true})
+      form.addLabel({label="DFM - v 0.5", font=FONT_MINI, alignRight=true})
 
       form.setFocusedRow(savedRow)
 
@@ -700,13 +706,16 @@ local function fslope(x, y)
     
     slope = sxy/sx2
     
+    
     theta = math.atan(slope)
+
 
     if x[1] < x[#x] then
        tt = math.pi/2 - theta
     else
        tt = math.pi*3/2 - theta
     end
+    --print("slope, tt:", slope, tt, math.deg(tt))
  
     return slope, tt
 end
@@ -1953,7 +1962,7 @@ end
 local function pngLoad(j)
    local pfn
    --print("pngLoad - j:", j)
-   pfn = appInfo.Fields .. Field.shortname .. "/" .. Field.shortname ..
+   pfn = appInfo.Fields .. "/" .. Field.shortname .. "/" .. Field.shortname ..
       "_Tri_" ..tostring(math.floor(Field.images[j])) .."_m.png"
    --print("pngLoad - j, pfn:", j, pfn)
    fieldPNG[j] = lcd.loadImage(pfn)
@@ -2054,7 +2063,20 @@ local function initField(iF)
    poi = {}
    fieldDirs={}
 
+   print("appInfo.Fields: " .. appInfo.Fields)
+
+   --appInfo.Fields = "Apps/T-Wizard/Foo"
+
+   fp = io.open(appInfo.Fields)
+   if fp then
+      print("Success opening " .. appInfo.Fields)
+      io.close(fp)
+   else
+      print("Directory does not exist: " .. appInfo.Fields)
+   end
+
    for fname, ftype, fsize in dir(appInfo.Fields) do
+      --print("fname, ftype, fsize: "..fname.." "..ftype.. " " .. fsize)
       if ftype == "folder" and fname ~= "." and fname ~= ".."  then
 	 table.insert(fieldDirs, fname)
       end
@@ -2065,7 +2087,7 @@ local function initField(iF)
       --for fname, ftype, fsize in dir(basedir) do
       for _,fname in ipairs(fieldDirs) do
 	 --print("fname:", fname)
-	 fn = appInfo.Fields..fname.."/"..fname..".jsn"
+	 fn = appInfo.Fields .."/" ..fname.."/"..fname..".jsn"
 	 --print("fn", fn)
 	 fp = io.readall(fn)
 	 if fp then
@@ -2095,6 +2117,13 @@ local function initField(iF)
 	    Field.name = fname
 	    long0 = Field.long -- reset to origin to coords in jsn file
 	    lat0  = Field.lat
+
+	    Coord.Lat0.deg, Coord.Lat0.minutes = math.modf(lat0)
+	    Coord.Lat0.minutes = Coord.Lat0.minutes * 60.0
+
+	    Coord.Lon0.deg, Coord.Lon0.minutes = math.modf(long0)
+	    Coord.Lon0.minutes = Coord.Lon0.minutes * 60.0
+	    
 	    --print("atField: Field.lat, Field.long", Field.lat, Field.long)
 	    
 	    coslat0 = math.cos(math.rad(lat0))
@@ -2163,7 +2192,7 @@ local function initField(iF)
 	    --pngLoad(j)
 	    --[[
 	    local pfn
-	    pfn = appInfo.Fields .. Field.shortname .. "/" .. Field.shortname ..
+	    pfn = appInfo.Fields .. "/" ..Field.shortname .. "/" .. Field.shortname ..
 	       "_Tri_" ..tostring(math.floor(Field.images[j])) .."_m.png"
 	    fieldPNG[j] = lcd.loadImage(pfn)
 	    if not fieldPNG[j] then
@@ -2225,7 +2254,8 @@ local function loop()
    local goodlat, goodlong 
    local newpos
    local deltaPosTime = 100 -- min sample interval in ms
-
+   local deltaDeg
+   
    --if select(2, system.getDeviceType()) == 1 then
    --   if not emulatorSensorsReady or not emulatorSensorsReady(readSensors) then return end
    --end
@@ -2263,7 +2293,14 @@ local function loop()
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       degs = (sensor.valGPS >> 16) & 0xFF
       longitude = degs + minutes/60
+
+      Coord.Lon.degs = degs
+      Coord.Lon.minutes = minutes
+      
       if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
+	 Coord.Lon.degs = Coord.Lon.degs * -1
+	 Coord.Lon.minutes = Coord.Lon.minutes * -1
+	 
 	 longitude = longitude * -1
       end
       goodlong = true
@@ -2275,7 +2312,15 @@ local function loop()
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       degs = (sensor.valGPS >> 16) & 0xFF
       latitude = degs + minutes/60
+
+      Coord.Lat.degs = degs
+      Coord.Lat.minutes = minutes
+      
       if sensor.decimals == 2 then -- "South" .. make it negative
+	 print("south")
+	 Coord.Lat.degs = Coord.Lat.degs * -1
+	 Coord.Lat.minutes = Coord.Lat.minutes * -1
+	 
 	 latitude = latitude * -1
       end
       goodlat = true
@@ -2303,7 +2348,11 @@ local function loop()
    sensor = system.getSensorByID(telem.Altitude.SeId, telem.Altitude.SePa)
 
    if(sensor and sensor.valid) then
-      GPSAlt = sensor.value
+      if sensor.unit == "m" then
+	 GPSAlt = sensor.value
+      elseif sensor.unit == "ft" then
+	 GPSAlt = sensor.value / 3.28084
+      end
    end
  
    sensor = system.getSensorByID(telem.SpeedNonGPS.SeId, telem.SpeedNonGPS.SePa)
@@ -2330,7 +2379,7 @@ local function loop()
       elseif sensor.unit == "km/h" then
 	 SpeedGPS = sensor.value
       elseif sensor.unit == "mph" then
-	 SpeedGPS = sensor.value * 1.609344
+	 SpeedGPS = sensor.value * 1.609344 * 3.6
       else -- what on earth units are these .. set to 0
 	 SpeedGPS = 0
       end
@@ -2404,15 +2453,14 @@ if GPSAlt then
 
    -- replacement code for Tri race
    if not GPSAlt then GPSAlt = 0 end
-   
+
    if Field and Field.elevation then
       altitude = GPSAlt  - Field.elevation
    else
       altitude = GPSAlt
    end
    
-   if (latitude == lastlat and longitude == lastlong) or
-   (math.abs(system.getTimeCounter()) < newPosTime) then
+   if (latitude == lastlat and longitude == lastlong) or (math.abs(system.getTimeCounter()) < newPosTime) then
 	 countNoNewPos = countNoNewPos + 1
 	 newpos = false
    else
@@ -2426,7 +2474,15 @@ if GPSAlt then
    if newpos and not gotInitPos then
       --print("newpos and not gotInitPos: lat0, long0", lat0, long0)
       long0 = longitude     -- set long0, lat0, coslat0 in case not near a field
+
+      Coord.Lon0.degs = Coord.Lon.degs
+      Coord.Lon0.minutes = Coord.Lon.minutes
+      
       lat0 = latitude       -- initField will reset if we are
+
+      Coord.Lat0.degs = Coord.Lat.degs
+      Coord.Lat0.minutes = Coord.Lat.minutes
+      
       --print("after set: lat0, long0", lat0, long0)
       coslat0 = math.cos(math.rad(lat0)) 
       gotInitPos = true
@@ -2452,14 +2508,26 @@ if GPSAlt then
       end
       return
    end
+
+
+   -- work in progress .. keep mins and degs separate in an attempt to get higher resolution
+   -- in gps coords .. main idea is to assume degrees is the same for 0 point and active points with
+   -- corner case of +/-1 if on a deg boundary .. in that case should add or subtract 60 mins
    
-   x = rE * (longitude - long0) * coslat0 / rad
-   y = rE * (latitude - lat0) / rad
+   --print("CLond", Coord.Lon.degs - Coord.Lon0.degs, "CLonm", Coord.Lon.minutes - Coord.Lon0.minutes)
+
+   --print("CLatd", Coord.Lat.degs - Coord.Lat0.degs,"CLatm", Coord.Lat.minutes - Coord.Lat0.minutes)
+   
+   deltaDeg = Coord.Lon.degs - Coord.Lon0.degs
+   x = rE * ((deltaDeg * 60 + Coord.Lon.minutes - Coord.Lon0.minutes)/60.0 ) * coslat0 / rad
+   --x = rE * (longitude - long0) * coslat0 / rad
+   deltaDeg = Coord.Lat.degs - Coord.Lat0.degs
+   y = rE * ((deltaDeg * 60 + Coord.Lat.minutes - Coord.Lat0.minutes)/60.0) / rad
+   --y = rE * (latitude - lat0) / rad   
    
    -- update overall min and max for drawing the GPS
    -- maintain same pixel size in X and Y (telem screen is 320x160)
    -- map?
-   
 
    x, y = rotateXY(x, y, math.rad(variables.rotationAngle))
    
@@ -2482,6 +2550,7 @@ if GPSAlt then
 	 lastHistTime = system.getTimeCounter()
       end
 
+      
       if #xtable+1 > MAXTABLE then
 	 table.remove(xtable, 1)
 	 table.remove(ytable, 1)
@@ -2504,19 +2573,39 @@ if GPSAlt then
       end
       -- maybe this should be a bezier curve calc .. which we're already doing ..
       -- just differentiate the polynomial at the endpoint????
+      --lineAvgPts = 4
       if #xtable > lineAvgPts then -- we have at least 4 points...
-	 -- make sure we have a least 15' of manhat dist over which to compute compcrs
+	 -- make sure we have a least x' of manhat dist over which to compute compcrs
 	 if (math.abs(xtable[#xtable]-xtable[#xtable-lineAvgPts+1]) +
-	     math.abs(ytable[#ytable]-ytable[#ytable-lineAvgPts+1])) > 15 then
-	 
+	     math.abs(ytable[#ytable]-ytable[#ytable-lineAvgPts+1])) > 0 then	
+ 
 	       _, compcrs = fslope(table.move(xtable, #xtable-lineAvgPts+1, #xtable, 1, {}),
 				   table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {}))
+	    --_, compcrs = fslope(xtable, ytable)
+			     
+	 else
+	    --print(math.abs(xtable[#xtable]-xtable[#xtable-lineAvgPts+1]),
+	    --math.abs(ytable[#ytable]-ytable[#ytable-lineAvgPts+1])) 
 	 end
       else
+	 --print("#xtable, lineAvgPts", #xtable, lineAvgPts)
 	 compcrs = 0
       end
-   
-      compcrsDeg = compcrs*180/math.pi
+
+      -- smooth the course a little .. roundoff error can make it jitter a bit
+      -- ugg this fails near 0/360 .. hmm .. how to remedy that?
+      
+      --compcrsDeg = compcrs*180/math.pi
+
+      if math.abs( (compcrs * 180 / math.pi) - compcrsDeg) > 180 then
+	 print("**")
+	 compcrsDeg = compcrs*180/math.pi
+      else
+	 compcrsDeg = compcrsDeg + (compcrs*180/math.pi - compcrsDeg) / 3
+      end
+      
+      
+      --print("cc, ccD", compcrs, compcrsDeg)
    end
 
    computeBezier(MAXTABLE+3)
@@ -2608,4 +2697,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="0.3", name=appInfo.Name}
+return {init=init, loop=loop, author="DFM", version="0.5", name=appInfo.Name}

@@ -25,9 +25,12 @@
 
    System routines replaced are:
 
-      system.getSensors()
+      system.getSensors() 
       system.getSensorByID()
-      system.getSensorValueByID()
+      system.getSensorValueByID() 
+      system.playFile()
+      system.playNumber() 
+      system.vibration()
 
    The capability to use lua code in the virtual sensors is inspired
    by Jeti's V-sensor.lua app
@@ -83,6 +86,7 @@ local saveSwitch={}
 local switchSeq
 local geo = {}
 local fieldnames = {}
+local fieldIdx
 
 local function rotateXY(x, y, rotation)
    local sinShape, cosShape
@@ -765,8 +769,11 @@ local function telePrint()
    end
 end
 
+
 local function init()
 
+   local fg
+   
    fieldIdx = 0
    fg = io.readall("Apps/SensorFields.jsn")
    if fg then

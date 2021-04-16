@@ -27,7 +27,6 @@
    Version 0.1 - Sept 2020
    Version 0.2 - Sept 2020
    Version 0.3 - Oct  2020
-
    Created and tested on DC/DS-24 emulator, tested on DS-24 TX
 
    TO DO: some telem names (e.g. "Rel. Alt" "Abs. Alt" from MVARIO)

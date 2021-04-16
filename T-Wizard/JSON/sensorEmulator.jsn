@@ -51,6 +51,14 @@
      "unit":"°C",
      "luaExp":"98.6"
     },
+    {"id":1,"param":3,
+     "decimals":1,
+     "type":4,
+     "sensorName":"MVario",
+     "label":"Rel. Alt",
+     "unit":"m",
+     "luaExp":"137"
+    },
     {"id":2,"param":0,"sensorName":"MSpeed", "label":"MSpeed"},
     {"id":2,
      "param":1,
