@@ -208,7 +208,7 @@ local function initForm()
 
    form.addRow(2)
    form.addLabel({label="AutoCrow Rate", width=260})
-   form.addIntbox(autoCrowRate, 10, 500, 10, 0, 1, autoCrowRateChanged)
+   form.addIntbox(autoCrowRate, 10, 1000, 10, 0, 1, autoCrowRateChanged)
 
    form.addRow(2)
    form.addLabel({label="Elevator Control for AutoCrow", width=220})
@@ -329,11 +329,11 @@ local function loop()
 
 	 if math.abs(swe) < deadBand then swe = 0 end
 
-	 if swe >= 0 then -- put quadratic "expo" into autocrow
-	    swe = swe * swe
-	 else
-	    swe = swe * swe * -1
-	 end
+	 --if swe >= 0 then -- put quadratic "expo" into autocrow
+	 --   swe = swe * swe
+	 --else
+	 --   swe = swe * swe * -1
+	 --end
 	 
 	 incT = (autoCrowRate / 10) * (swe / 10)
 	 --print("swe, incT, trimPoint, tCY[]", swe, incT, trimPoint,trimCurveY[trimPoint])

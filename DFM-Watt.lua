@@ -8,12 +8,21 @@
    
    Version 0.1 - Jan 29, 2021
    Version 0.2 - Jan 30, 2021
+   Version 0.3 - Apr 18, 2021
 
 --]]
 
+if not sharedVar then sharedVar = {} end
+
+sharedVar["DFM-Watt"]       = {}
+sharedVar["DFM-Watt"].label = {}
+sharedVar["DFM-Watt"].value = {}
+sharedVar["DFM-Watt"].unit  = {}
+sharedVar["DFM-Watt"].dp    = {}
+
 -- Locals for application
 
-local wattVersion= 0.1
+local wattVersion= 0.3
 
 local sensorLalist = { "..." }
 local sensorIdlist = { "..." }
@@ -174,6 +183,39 @@ local function loop()
       if battWatts > battWattsMax then
 	 battWattsMax = battWatts
       end
+
+      -- do we want to switch to kW like we do in the tele window? let's try it .. it's cute
+
+      if battWatts < 1000 then
+	 sharedVar["DFM-Watt"].value[1] = battWatts
+	 sharedVar["DFM-Watt"].unit[1] = "W"
+	 sharedVar["DFM-Watt"].dp[1] = 0
+      else
+	 sharedVar["DFM-Watt"].value[1] = battWatts / 1000.0
+	 sharedVar["DFM-Watt"].unit[1] = "kW"
+	 if battWatts < 10000 then
+	    sharedVar["DFM-Watt"].dp[1] = 2
+	 else
+	    sharedVar["DFM-Watt"].dp[1] = 1
+	 end
+      end
+
+      
+      if battWattsMax < 1000 then
+	 sharedVar["DFM-Watt"].value[2] = battWattsMax
+	 sharedVar["DFM-Watt"].unit[2] = "W"
+	 sharedVar["DFM-Watt"].dp[2] = 0
+      else
+	 sharedVar["DFM-Watt"].value[2] = battWattsMax / 1000.0
+	 sharedVar["DFM-Watt"].unit[2] = "kW"
+	 if battWattsMax < 10000 then
+	    sharedVar["DFM-Watt"].dp[2] = 2
+	 else
+	    sharedVar["DFM-Watt"].dp[2] = 1
+	 end
+      end
+      
+      
    end
    
    if battWatts and ann then
@@ -199,28 +241,23 @@ local function teleWindow(w,h)
    if battWatts then
       if battWatts < 1000 then
 	 wtext = string.format("%d W", rndInt(battWatts))
+      elseif battWatts < 10000 then
+	 wtext = string.format("%.2f kW", battWatts / 1000.0)
       else
-	 if battWatts < 10000 then
-	    wtext = string.format("%.2f kW", battWatts / 1000.0)
-	 else
-	    wtext = string.format("%.1f kW", battWatts / 1000.0)
-	 end
+	 wtext = string.format("%.1f kW", battWatts / 1000.0)
       end
    else
       wtext = "---"
    end
-
+   
    if battWattsMax < 1000 then
       mtext = string.format("Max %d W", rndInt(battWattsMax))
+   elseif battWattsMax < 10000 then
+      mtext = string.format("Max %.2f kW", battWattsMax / 1000.0)
    else
-      if battWattsMax < 10000 then
-	 mtext = string.format("Max %.2f kW", battWattsMax / 1000.0)
-      else
-	 mtext = string.format("Max %.1f kW", battWattsMax / 1000.0)
-      end
-      
-   end
-   
+      mtext = string.format("Max %.1f kW", battWattsMax / 1000.0)
+   end -- battWattsMax is never nil
+
    if h > 24 then
       lcd.drawText(5,3, wtext,FONT_MAXI)
       lcd.drawText(5,43,mtext,FONT_BOLD)
@@ -251,7 +288,31 @@ local function init()
    system.registerLogVariable("DFM-Watt", "W", wattLog)
    system.registerForm(1, MENU_APPS, "Watts Announcer", initForm)
    system.registerTelemetry(1, "Battery Power", 0, teleWindow)
+   
+   table.insert(sharedVar["DFM-Watt"].label, "BattWatts")
+   table.insert(sharedVar["DFM-Watt"].label, "BattWattsMax")
+   
+   table.insert(sharedVar["DFM-Watt"].value, 1.23)
+   table.insert(sharedVar["DFM-Watt"].value, 2.34)
 
+   table.insert(sharedVar["DFM-Watt"].unit, "W")
+   table.insert(sharedVar["DFM-Watt"].unit, "W")
+
+   table.insert(sharedVar["DFM-Watt"].dp, 0)
+   table.insert(sharedVar["DFM-Watt"].dp, 0)
+      
+   --[[
+   print("Watt")
+   for k,v in pairs(sharedVar) do
+      print(">", k,v)
+      for kk,vv in pairs(sharedVar[k]) do
+	 print(">>",kk,vv)
+	 for kkk, vvv in pairs(sharedVar[k][kk]) do
+	    print(">>>",kkk,vvv)
+	 end
+      end
+   end
+   --]]
 end
 
 return {init=init, loop=loop, author="DFM", version=tostring(wattVersion),

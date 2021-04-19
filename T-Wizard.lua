@@ -229,8 +229,8 @@ local function readSensors()
 
 	    -- ADD any other baro alt sensors other than CTU here .. 
 
-	    if (sensor.label == "Altitude" and sensor.param == 6) or
-	       (sensor.label == "Altitude" and sensor.param == 5) then
+	    if (sensor.label == "Altitude" and sensor.param == 6) or 
+	       (sensor.label == "Altitude" and sensor.param == 5) then -- Altitude and 5 is tero
 	       telem.Altitude.Se = #sensorLalist
 	       telem.Altitude.SeId = sensor.id
 	       telem.Altitude.SePa = sensor.param
@@ -964,7 +964,12 @@ local function drawTriRace(windowWidth, windowHeight)
    lcd.drawText(5, 120, "Spd: "..math.floor(speed), FONT_MINI)
    lcd.drawText(5, 130, "Alt: ".. math.floor(altitude), FONT_MINI)
    lcd.drawText(5, 140, string.format("Map: %d", map.Xrange), FONT_MINI)
-
+   if racing then
+      lcd.drawText(260, 130, "Dis: " .. string.format("%.0f", distance), FONT_MINI)
+      lcd.drawText(260, 140, "Tim: " .. string.format("%.1f", ( distance / (speed/3.6) )), FONT_MINI)
+   end
+   
+   
    --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
    --lcd.drawText(265, 45, string.format("Dist %.0f", distance), FONT_MINI)
    --lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
@@ -1328,7 +1333,9 @@ local function calcTriRace()
    local sChar
    local now = system.getTime()
 
-   if now ~= lastgetTime and swa and swa == 1 then -- once a sec
+   -- do announce loop if more than 5 seconds from pylon
+
+   if now ~= lastgetTime and swa and swa == 1 then 
       --print(m3(nextPylon+2), inZone[m3(nextPylon+2)] )
       if racing then
 	 annTextSeq = annTextSeq + 1
@@ -1343,7 +1350,12 @@ local function calcTriRace()
 	 end
 	 sChar = preText:sub(preTextSeq,preTextSeq)
       end
-      if (sChar == "C" or sChar == "c") and racing then
+
+      -- can make announcements if greater than 3 seconds from turn
+      
+      local annZone = (distance / (speed/3.6)) > 3
+
+      if (sChar == "C" or sChar == "c") and racing and annZone then
 	 if relBearing < -6 then
 	    if sChar == "C" then
 	       playFile(appInfo.Dir.."Audio/turn_right.wav", AUDIO_QUEUE)
@@ -1363,15 +1375,15 @@ local function calcTriRace()
 	 else
 	    system.playBeep(0, 1200, 200)		  
 	 end
-      elseif sChar == "D" or sChar == "d" and racing then
-	 if sChar == "D" then
+      elseif sChar == "D" or sChar == "d" and racing and annZone then
+	 if sChar == "D" then -- predict distance 1 sec ahead
 	    playFile(appInfo.Dir.."Audio/distance.wav", AUDIO_QUEUE)
-	    playNumber(distance, 0)
+	    playNumber(distance - (speed/3.6)*2, 0)
 	 else
 	    playFile(appInfo.Dir.."Audio/dis.wav", AUDIO_QUEUE)
-	    playNumber(distance, 0)
+	    playNumber(distance - (speed/3.6)*1, 0)
 	 end
-      elseif (sChar == "P" or sChar == "p") and racing and not inZone[m3(nextPylon+2)] then
+      elseif (sChar == "P" or sChar == "p") and racing and annZone and not inZone[m3(nextPylon+2)] then
 	 if perpD < 0 then
 	    if sChar == "P" then
 	       playFile(appInfo.Dir.."Audio/inside.wav", AUDIO_QUEUE)
@@ -1389,10 +1401,10 @@ local function calcTriRace()
 	       playNumber(perpD, 0)
 	    end
 	 end
-      elseif sChar == "T" or sChar == "t" and racing then
+      elseif sChar == "T" or sChar == "t" and racing and annZone then
 	 if speed ~= 0 then
 	    playFile(appInfo.Dir.."Audio/time.wav", AUDIO_QUEUE)
-	    playNumber(distance/speed, 1)	  
+	    playNumber(distance/(speed/3.6), 1)	  
 	 end
       elseif sChar == "S" or sChar == "s" then
 	 playFile(appInfo.Dir.."Audio/speed.wav", AUDIO_QUEUE)
@@ -2369,7 +2381,6 @@ local function loop()
       baroAlt = sensor.value
    end
    
-   
    sensor = system.getSensorByID(telem.SpeedGPS.SeId, telem.SpeedGPS.SePa)
    
    if(sensor and sensor.valid) then
@@ -2379,11 +2390,10 @@ local function loop()
       elseif sensor.unit == "km/h" then
 	 SpeedGPS = sensor.value
       elseif sensor.unit == "mph" then
-	 SpeedGPS = sensor.value * 1.609344 * 3.6
+	 SpeedGPS = sensor.value * 1.609344
       else -- what on earth units are these .. set to 0
 	 SpeedGPS = 0
       end
-      
    end
 
 --[[   
@@ -2598,10 +2608,10 @@ if GPSAlt then
       --compcrsDeg = compcrs*180/math.pi
 
       if math.abs( (compcrs * 180 / math.pi) - compcrsDeg) > 180 then
-	 print("**")
+	 --print("**")
 	 compcrsDeg = compcrs*180/math.pi
       else
-	 compcrsDeg = compcrsDeg + (compcrs*180/math.pi - compcrsDeg) / 3
+	 compcrsDeg = compcrsDeg + (compcrs*180/math.pi - compcrsDeg) / 2
       end
       
       

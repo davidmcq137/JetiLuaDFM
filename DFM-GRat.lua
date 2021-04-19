@@ -10,6 +10,16 @@
    
 --]]
 
+-- Globals to share
+
+if not sharedVar then sharedVar = {} end
+
+sharedVar["DFM-GRat"]       = {}
+sharedVar["DFM-GRat"].label = {}
+sharedVar["DFM-GRat"].value = {}
+sharedVar["DFM-GRat"].unit  = {}
+sharedVar["DFM-GRat"].dp    = {}
+
 -- Locals for application
 
 local GRatVersion= 0.1
@@ -156,11 +166,14 @@ local function loop()
 	 else
 	    glideRatio = spdSensor.value / varSensor.value
 	 end
+	 sharedVar["DFM-GRat"].value[1] = glideRatio
       else
 	 glideRatio = maxRatio -- not sure best thing to do here - set to large #,don't announce
+	 sharedVar["DFM-GRat"].value[1] = maxRatio
 	 return
       end
    else
+      sharedVar["DFM-GRat"].value[1] = 0.0
       return
    end
    
@@ -168,10 +181,10 @@ local function loop()
       lastAnnTime = now
       roundRat = rndInt(glideRatio)
       if (shortAnn) then
-	 print("Short ann: ", roundRat)
+	 --print("Short ann: ", roundRat)
 	 system.playNumber(roundRat, 0)
       else
-	 print("Long ann: ", roundRat)
+	 --print("Long ann: ", roundRat)
 	 system.playFile('/Apps/DFM-GRat/Ratio.wav', AUDIO_IMMEDIATE)	       
 	 system.playNumber(roundRat, 0)
       end
@@ -224,6 +237,11 @@ local function init()
    system.registerLogVariable("GlideRatio", "", glideLog)
    system.registerForm(1, MENU_APPS, "Glide Ratio Announcer", initForm)
    system.registerTelemetry(1, "Glide Ratio", 0, teleWindow)
+
+   table.insert(sharedVar["DFM-GRat"].label, "GlideRatio")
+   table.insert(sharedVar["DFM-GRat"].value, 0.0)
+   table.insert(sharedVar["DFM-GRat"].unit, "")
+   table.insert(sharedVar["DFM-GRat"].dp, 0)
 
 end
 

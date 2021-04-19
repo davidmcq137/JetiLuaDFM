@@ -41,6 +41,8 @@
 
 --]]
 
+if not sharedVar then sharedVar = {} end
+
 local appName = "Short/Long Switch"
 local SWTVersion= 0.3
 local currSwitchState
@@ -71,11 +73,11 @@ local UnIDX = {}
 local maxPressCount = 3
 local locale
 
-local sensorLalist = { "...", "<Function>" }
-local sensorLslist = { "...", "<F>" }
-local sensorIdlist = { "...", 0  }
-local sensorPalist = { "...", 0  }
-local sensorUnlist = { "...", "" }
+local sensorLalist = { "...", "<Function>"}
+local sensorLslist = { "...", "<F>"}
+local sensorIdlist = { "...", 0}
+local sensorPalist = { "...", 0}
+local sensorUnlist = { "...", ""}
 local sensorDplist = { "...", 0}
 
 local txTelem = {"txVoltage", "txBattPercent", "txCurrent", "txCapacity",
@@ -102,6 +104,8 @@ local txTRSSIDp = {0,0,0,
 		      
 local maxTele
 local maxTxTele
+local maxRSSITele
+local maxAPPTele
 
 local startUp = true
 local upTime = 0
@@ -159,7 +163,7 @@ local function teleChanged(value, idx)
       -- if UnIDX is nil (should not be) be defensive and use native units ( .. or 0)
       
       teleSeUd[idx] = 1 + (UnIDX[teleSeLa[idx]] or 0)
-      
+
    elseif value == 2 then -- <function>
       unassignTele(idx)
       teleSe[idx] = value
@@ -232,7 +236,7 @@ local function initForm(subform)
 	 lab = "L Press - Sensor"
       end
 
-      form.addLabel({label=lab, width=155})
+      form.addLabel({label=lab, width=220}) -- was 155
       form.addSelectbox(sensorLalist, teleSe[maxPressCount + 1], true,
 			(function(x) return teleChanged(x, maxPressCount + 1) end) )
       
@@ -254,6 +258,7 @@ local function initForm(subform)
 	    lab = "Function SL"..i
 	 elseif teleSe[i] > 2 then
 	    lab = teleSeLa[i]
+	    print("sf2 .. lab: " .. lab)
 	 else
 	    if i == maxPressCount + 1 then
 	       lab = "L Press Units"
@@ -262,7 +267,7 @@ local function initForm(subform)
 	    end
 	 end
 	 
-	 form.addLabel({label=lab, width=155})
+	 form.addLabel({label=lab, width=220}) -- was 155
 	 if teleSeUn[i] == "m" and teleSe[i] <= maxTele then
 	    form.addSelectbox(lengthUnit, teleSeUd[i], true,
 			      (function(x) return unitChanged(x, i) end) )
@@ -298,7 +303,7 @@ local function initForm(subform)
 	       lab = tostring(i) .." Press Decimals"
 	    end
 	 end
-	 form.addLabel({label=lab, width=155})
+	 form.addLabel({label=lab, width=220}) -- was 155
 	 if teleSeDp and teleSeDp[i] and teleSe[i] > 2 then
 	    form.addIntbox(teleSeDp[i], 0, 2, 0, 0, 1,
 			   (function(x) return dpChanged(x, i) end) )
@@ -389,6 +394,41 @@ local function pressAction(pC)
       value = txRSSI[teleSe[pC] - maxTxTele]
       unit = teleSeUn[pC]
       dp   = teleSeDp[pC]
+   elseif teleSe[pC] > maxRSSITele and teleSe[pC] <= maxAPPTele then
+	 --print(teleSe[pC], sensorLslist[teleSe[pC]])
+	 local appname = string.match(sensorLslist[teleSe[pC]], "(.-)%.")
+	 local senname = string.match(sensorLslist[teleSe[pC]], "%.(.*)")
+	 --print("app", appname)
+	 --print("sensor", senname)
+
+	 --for k,v in pairs(sharedVar) do
+	 --   print("$", k,v)
+	 --   for kk,vv in pairs(v) do
+	 --      print(kk,vv)
+	 --   end
+	 --end
+	 --print("1", sharedVar[appname])
+	 --print("2", sharedVar[appname].value)
+	 --print("3", sharedVar[appname].value[1])	 
+
+	 local imatch = 0
+	 
+	 for k,v in pairs(sharedVar[appname].label) do
+	    print("v, senname:", v, senname)
+	    if v == senname then
+	       imatch = k
+	       break
+	    end
+	 end
+	 print("imatch:", imatch)
+	 print("val:",  sharedVar[appname].value[imatch])
+	 print("unit:", sharedVar[appname].unit[imatch])
+	 print("dp:",   sharedVar[appname].dp[imatch])	 
+
+	 value = sharedVar[appname].value[imatch]
+	 unit  = sharedVar[appname].unit[imatch]	 
+	 dp    = sharedVar[appname].dp[imatch]
+	 
    else   
       print("DFM-SWT: Nothing set on pressAction - pC = ", pC)
    end
@@ -398,9 +438,9 @@ local function pressAction(pC)
 	 --print("DFM-SWT: playFile:", fn)
 	 --print("DFM-SWT: playNumber:", value, dp, unit)
       end
-      if fn and value and dp and unit then
+      if fn and value then -- and dp and unit then
 	 system.playFile(fn, AUDIO_QUEUE)
-	 system.playNumber(value, dp, unit)
+	 system.playNumber(value, (dp or 0), unit) -- not ok for dp to be nil, ok for unit to be nil
       else
 	 print("DFM-SWT: Some play vals nil:")
 	 print(fn, value, dp, unit)
@@ -612,6 +652,8 @@ local function init()
 	 table.insert(sensorLslist, v)
 	 table.insert(sensorUnlist, txTelemUn[k])
 	 table.insert(sensorDplist, txTelemDp[k])
+	 table.insert(sensorIdlist, 0)
+	 table.insert(sensorPalist, 0)
       end
    end
 
@@ -633,11 +675,38 @@ local function init()
 	 table.insert(sensorLslist, v)
 	 table.insert(sensorUnlist, txTRSSIUn[k])
 	 table.insert(sensorDplist, txTRSSIDp[k])
+	 table.insert(sensorIdlist, 0)
+	 table.insert(sensorPalist, 0)
       end
    end
 
    maxRSSITele = #sensorLalist
 
+   print("SWT")
+   for k,v in pairs(sharedVar) do
+      print(">", k,v)
+      for kk,vv in pairs(sharedVar[k]) do
+	 print(">>",kk,vv)
+	 for kkk, vvv in pairs(sharedVar[k][kk]) do
+	    print(">>>",kkk,vvv)
+	    if kk == "label" then
+	       print("SWT " .. k .. "-" .. vvv)
+	       table.insert(sensorLalist, "App."..k.."."..vvv)
+	       table.insert(sensorLslist, k.."."..vvv)
+	       table.insert(sensorIdlist, 0) -- maybe store indexes of app + sensor in Id and Pa?
+	       table.insert(sensorPalist, 0) -- so we don't have to string search them each time?
+	    elseif kk == "unit" then
+	       table.insert(sensorUnlist, vvv)
+	    elseif kk == "dp" then
+	       table.insert(sensorDplist, vvv)
+	    end
+	 end
+      end
+   end
+
+   maxAPPTele = #sensorLalist
+
+   
 end
 
 return {init=init, loop=loop, author="DFM", version=tostring(SWTVersion),
