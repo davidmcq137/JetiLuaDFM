@@ -290,7 +290,7 @@ local function init()
    system.registerTelemetry(1, "Battery Power", 0, teleWindow)
    
    table.insert(sharedVar["DFM-Watt"].label, "BattWatts")
-   table.insert(sharedVar["DFM-Watt"].label, "BattWattsMax")
+   table.insert(sharedVar["DFM-Watt"].label, "MaxBattWatts")
    
    table.insert(sharedVar["DFM-Watt"].value, 1.23)
    table.insert(sharedVar["DFM-Watt"].value, 2.34)

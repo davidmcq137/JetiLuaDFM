@@ -10,30 +10,50 @@
    ---------------------------------------------------------
    
    Version 0.1 - Apr  3, 2021 using digital trim
-   Version 0.2 - Apr  9, 2021 no use of digital trim
-   Version 0.3 -         Digital trim is back!
-   Version 0.4 - Apr 14, Autocrow (like autotrim) added
+   Version 0.2 - Apr  9, 2021 no use of native digital trim buttons
+   Version 0.3 -         2021 digital trim is back!
+   Version 0.4 - Apr 14, 2021 autocrow (like autotrim) added
+   Version 0.5 - Apr 26, 2021 final tuning of defaults from HC testing
+   Version 0.6 - Apr 26, 2021 looks for free lua controls, starting at 5
+   Version 0.7 - Apr 27, 2021 limited support for mono display TXs
+   Version 0.8 - May 07, 2021 supports mono/limited lua and other TXs
+   Version 0.9 - May 08, 2021 unset points track highest point set, not current point
+   Version 1.0 - May 09, 2021 persist crow curve by model name, remove crow controls, purely autocrow
 
+   Limitations: 
+   
+   1) Does not account for variability of loops/second which can
+   impact the autocrow rate
+
+   2) Fixes lua controls at #1 and #2 for monochrome TXs which can only have two controls
+   
 --]]
 
-local crowVersion= 0.4
+local crowVersion= 1.0
+local appShort="DFM-Crow"
+local appDir = "Apps/"..appShort.."/"
+
+local monoChrome
 
 local crowCtrl
 local acvCtrl
-local luaTrimCtrl=1
 local fmCtrl
-local luaModeCtrl=2
 local elevCtrl
 local autoCtrl
 local autoAnnounce = 0
 local autoCrowRate
-   
-local tPoints
-local trimCurveX
-local trimCurveY
-local trimCurveU
-local trimPoint
-local lastTrimPoint = 0
+local luaControlMax = 0.50
+
+local crowConfig={}
+crowConfig.jsnVersion = 1
+--local tPoints
+--local trimCurveX
+--local trimCurveY
+--local trimCurveU
+--local trimPoint
+--local lastTrimPoint = 0
+
+local modelFile
 
 local trimCtrl
 local swc
@@ -58,38 +78,51 @@ local mixVal
 local pressHold = 200
 local pressTime
 
+local autoCrowSens 
+local autoCrowSpacing
+
 local function initCrow()
 
    local savedY
    local savedU
-
-   if trimCurveY and #trimCurveY ~= 0 then
+   local ioff
+   local x0
+   local xP
+   
+   if crowConfig.trimCurveY and #crowConfig.trimCurveY ~= 0 then
       savedY = true
    else
       savedY = false
-      trimCurveY = {}
+      crowConfig.trimCurveY = {}
    end
    
-   if trimCurveU and #trimCurveU ~= 0 then
+   if crowConfig.trimCurveU and #crowConfig.trimCurveU ~= 0 then
       savedU = true
    else
       savedU = false
-      trimCurveU = {}
+      crowConfig.trimCurveU = {}
    end   
 
-   local ioff = 2
-   local x0 = 100*(1+ioff)*(1+ioff)/( (tPoints+ioff) * (tPoints+ioff) )
-   local xP = 100 - x0
-
-   trimCurveX = {}
-   for i=1,tPoints,1 do
-      trimCurveX[i] = (100*(i+ioff)*(i+ioff)/((tPoints+ioff) * (tPoints+ioff)) - x0) * 100 / xP
-      if not savedY then trimCurveY[i] = 0 end
-      if not savedU then trimCurveU[i] = 0 end
-      --print(i, trimCurveX[i])
+   crowConfig.trimCurveX = {}
+   if autoCrowSpacing == 1 then -- linear
+      for i = 1, crowConfig.tPoints, 1 do
+	 crowConfig.trimCurveX[i] = (i-1) * 100 / (crowConfig.tPoints-1)
+	 if not savedY then crowConfig.trimCurveY[i] = 0 end
+	 if not savedU then crowConfig.trimCurveU[i] = 0 end
+      end
+   else -- "logarithmic"
+      ioff = 2
+      x0 = 100*(1+ioff)*(1+ioff)/( (crowConfig.tPoints+ioff) * (crowConfig.tPoints+ioff) )
+      xP = 100 - x0
+         for i=1,crowConfig.tPoints,1 do
+	    crowConfig.trimCurveX[i] = (100*(i+ioff)*(i+ioff)/((crowConfig.tPoints+ioff) *
+					      (crowConfig.tPoints+ioff)) - x0) * 100 / xP
+	 if not savedY then crowConfig.trimCurveY[i] = 0 end
+	 if not savedU then crowConfig.trimCurveU[i] = 0 end
+      end
    end
-
-   trimCurveU[1] = 1
+      
+   crowConfig.trimCurveU[1] = 1
 
 end
 
@@ -152,14 +185,25 @@ local function autoCrowRateChanged(value)
    system.pSave("autoCrowRate", autoCrowRate)
 end
 
-local function tPointsChanged(value)
-   tPoints = value
-   trimCurveY = nil
-   trimCurveU = nil
+local function autoCrowSensChanged(value)
+   autoCrowSens = value
+   system.pSave("autoCrowSens", autoCrowSens)
+end
+
+local function autoCrowSpacingChanged(value)
+   autoCrowSpacing = value
+   system.pSave("autoCrowSpacing", autoCrowSpacing)
    initCrow()
-   system.pSave("tPoints", tPoints)
-   system.pSave("trimCurveY", trimCurveY)
-   system.pSave("trimCurveU", trimCurveU)	 
+end
+
+local function tPointsChanged(value)
+   crowConfig.tPoints = value
+   crowConfig.trimCurveY = nil
+   crowConfig.trimCurveU = nil
+   initCrow()
+   --system.pSave("tPoints", tPoints)
+   --system.pSave("trimCurveY", trimCurveY)
+   --system.pSave("trimCurveU", trimCurveU)	 
 end
 
 local function announcePointsChanged(value)
@@ -169,62 +213,93 @@ local function announcePointsChanged(value)
 end
 
 local function rstCurve()
-   for i=1, #trimCurveX do
-      trimCurveY[i]=0
-      trimCurveU[i]=0
+   for i=1, #crowConfig.trimCurveX do
+      crowConfig.trimCurveY[i]=0
+      crowConfig.trimCurveU[i]=0
    end
-   trimCurveU[1]=1
+   crowConfig.trimCurveU[1]=1
 end
 
-local function initForm()
+local function initForm(sF)
 
-   form.addRow(2)
-   form.addLabel({label="Crow Control", width=220})
-   form.addInputbox(crowCtrl, true, crowCtrlChanged)
+   if sF == 1 then
 
-   form.addRow(2)
-   form.addLabel({label="Reverse Crow Control", width=270})
-   reverseCrowIndex = form.addCheckbox(reverseCrow, reverseCrowChanged)
+      form.addRow(2)
+      form.addLabel({label="Crow Control", width=220})
+      form.addInputbox(crowCtrl, true, crowCtrlChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Reverse Crow Control", width=270})
+      reverseCrowIndex = form.addCheckbox(reverseCrow, reverseCrowChanged)
+      
+      --form.addRow(2)
+      --form.addLabel({label="Trim Control", width=220})
+      --form.addInputbox(trimCtrl, true, trimCtrlChanged)
+      
+      --form.addRow(2)
+      --form.addLabel({label="Reverse Trim Control", width=270})
+      --reverseTrimIndex = form.addCheckbox(reverseTrim, reverseTrimChanged)
 
-   form.addRow(2)
-   form.addLabel({label="Trim Control", width=220})
-   form.addInputbox(trimCtrl, true, trimCtrlChanged)
+      form.addRow(2)
+      form.addLabel({label="AutoCrow on/off control", width=220})
+      form.addInputbox(autoCtrl, true, autoCtrlChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="AutoCrow Elevator Control", width=220})
+      form.addInputbox(elevCtrl, true, elevCtrlChanged)
 
-   form.addRow(2)
-   form.addLabel({label="Reverse Trim Control", width=270})
-   reverseTrimIndex = form.addCheckbox(reverseTrim, reverseTrimChanged)
+      --form.addRow(2)
+      --form.addLink((function() form.reinit(3) end), {label = "AutoCrow Menu >>"})
 
-   form.addRow(2)
-   form.addLabel({label="Trim step", width=260})
-   form.addIntbox(trimStep, 1, 10, 2, 0, 1, trimStepChanged)
-
-   form.addRow(2)
-   form.addLabel({label="Number of Crow curve points", width=270})
-   form.addIntbox(tPoints, 5, 9, 7, 0, 1, tPointsChanged)
+      form.addRow(2)
+      form.addLink((function() form.reinit(2) end), {label = "Crow Settings >>"})
+	 
+      form.addRow(1)
+      form.addLabel({label= appShort..".lua Version "..crowVersion.." ",
+		     font=FONT_MINI, alignRight=true})
+      
+   elseif sF == 2 then
    
-   form.addRow(2)
-   form.addLabel({label="AutoCrow on/off control", width=220})
-   form.addInputbox(autoCtrl, true, autoCtrlChanged)
+      form.addLink((function() form.reinit(1) end),
+	 {label = "Back to main menu",font=FONT_BOLD})
+      
+      --form.addRow(2)
+      --form.addLabel({label="Trim step", width=260})
+      --form.addIntbox(trimStep, 1, 10, 2, 0, 1, trimStepChanged)
 
-   form.addRow(2)
-   form.addLabel({label="AutoCrow Rate", width=260})
-   form.addIntbox(autoCrowRate, 10, 1000, 10, 0, 1, autoCrowRateChanged)
+      form.addRow(2)
+      form.addLabel({label="Number of Crow curve points", width=270})
+      form.addIntbox(crowConfig.tPoints, 5, 9, 7, 0, 1, tPointsChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Crow curve point spacing", width=220})
+      form.addSelectbox({"Linear", "Logarithmic"}, autoCrowSpacing, false, autoCrowSpacingChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="AutoCrow Rate", width=220})
+      form.addIntbox(autoCrowRate, 10, 1000, 300, 0, 1, autoCrowRateChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="AutoCrow Expo", width=220})
+      form.addSelectbox({"Linear", "-Expo", "+Expo"}, autoCrowSens, false, autoCrowSensChanged)   
+      
+      form.addRow(2)
+      form.addLabel({label="Announce Unset Trim Points", width=270})
+      announcePointsIndex = form.addCheckbox(announcePoints, announcePointsChanged)
 
-   form.addRow(2)
-   form.addLabel({label="Elevator Control for AutoCrow", width=220})
-   form.addInputbox(elevCtrl, true, elevCtrlChanged)
+      form.addRow(2)
+      form.addLink(rstCurve, {label="Reset mix curve>>"})
+      
+      form.setFocusedRow(1)
+      
+   else
+      form.addLink((function() form.reinit(1) end),
+	 {label = "Back to main menu",font=FONT_BOLD})
 
-   form.addRow(2)
-   form.addLabel({label="Announce Unset Trim Points", width=270})
-   announcePointsIndex = form.addCheckbox(announcePoints, announcePointsChanged)
-
-   form.addRow(2)
-   form.addLink(rstCurve, {label="Reset mix curve"})
-   
-   form.addRow(1)
-   form.addLabel({label="DFM-Crow.lua Version "..crowVersion.." ",
-		  font=FONT_MINI, alignRight=true})
+      
+   end
 end
+
 
 local function loop()
 
@@ -236,6 +311,7 @@ local function loop()
    local incT
    local swe
    local deadBand = 0.02
+   local highestSet
    
    info = system.getSwitchInfo(crowCtrl)
    if info then
@@ -244,46 +320,40 @@ local function loop()
 
    info = system.getSwitchInfo(trimCtrl)
    if info then
-      swt = info.value -- system.getInputs(string.upper(info.label))
-      --print("swt: " .. swt)
-      --print("info.label: " .. info.label .. " info.value: " .. info.value ..
-	       --" info.proportional: "..tostring(info.proportional) .." info.mode: " .. info.mode)
+      swt = info.value
    end
 
    info = system.getSwitchInfo(autoCtrl)
    if info then
-      swa = info.value -- system.getInputsVal(autoCtrl)
+      swa = info.value
    end
    
    info = system.getSwitchInfo(elevCtrl)
    if info then
-      --print("info.label: " .. info.label .. " info.value: " .. info.value ..
-      --" info.proportional: "..tostring(info.proportional) .." info.mode: " .. info.mode)
       swe = info.value
-      --print(system.getInputsVal(elevCtrl))
    end
    
    if swc then
       if reverseCrow then swc = -swc end
       swcVal = (swc+1)*50
       
-      trimPoint = 1
-      for i = 2, #trimCurveX-1, 1 do
-	 mpl = (trimCurveX[i-1] + trimCurveX[i]) / 2
-	 mph = (trimCurveX[i] + trimCurveX[i+1]) / 2
+      crowConfig.trimPoint = 1
+      for i = 2, #crowConfig.trimCurveX-1, 1 do
+	 mpl = (crowConfig.trimCurveX[i-1] + crowConfig.trimCurveX[i]) / 2
+	 mph = (crowConfig.trimCurveX[i] + crowConfig.trimCurveX[i+1]) / 2
 	 if swcVal > mpl and swcVal <= mph then
-	    trimPoint = i
+	    crowConfig.trimPoint = i
 	    break
 	 end
       end
-      if trimPoint == 1 and swcVal > mph then trimPoint = #trimCurveX end
+      if crowConfig.trimPoint == 1 and swcVal > mph then crowConfig.trimPoint = #crowConfig.trimCurveX end
 
-      if trimPoint ~= lastTrimPoint then
-	 if trimCurveU[trimPoint] == 0 then
-	    if announcePoints then system.playNumber(trimPoint, 0) end
+      if crowConfig.trimPoint ~= crowConfig.lastTrimPoint then
+	 if crowConfig.trimCurveU[crowConfig.trimPoint] == 0 then
+	    if announcePoints then system.playNumber((crowConfig.trimPoint-1), 0) end
 	 end
       end
-      lastTrimPoint = trimPoint
+      crowConfig.lastTrimPoint = crowConfig.trimPoint
       
       if swt then
 	 if reverseTrim then swt = -swt end
@@ -296,83 +366,110 @@ local function loop()
 
       dt = system.getTimeCounter() - (pressTime or 0)
       
-      if swt and swt ~= 0 and (lastswt == 0 or dt > pressHold) and (swcVal >= trimCurveX[2]/2) then
+      if swt and swt ~= 0 and (lastswt == 0 or dt > pressHold) and (swcVal >= crowConfig.trimCurveX[2]/2) then
 	 pressTime = system.getTimeCounter()
-	 if swt == 1 and (lastswt ~= 1 or dt > pressHold) and trimPoint > 1 then
-	    trimCurveY[trimPoint] = math.min(trimCurveY[trimPoint] + incT, 100)
-	    trimCurveU[trimPoint] = 1
-	 elseif swt == -1 and (lastswt ~= -1 or dt > pressHold) and trimPoint > 1 then
-	    trimCurveY[trimPoint] = math.max(trimCurveY[trimPoint] - incT, -100)
-	    trimCurveU[trimPoint] = 1
+	 if swt == 1 and (lastswt ~= 1 or dt > pressHold) and crowConfig.trimPoint > 1 then
+	    crowConfig.trimCurveY[crowConfig.trimPoint] = math.min(crowConfig.trimCurveY[crowConfig.trimPoint] + incT, 100)
+	    crowConfig.trimCurveU[crowConfig.trimPoint] = 1
+	 elseif swt == -1 and (lastswt ~= -1 or dt > pressHold) and crowConfig.trimPoint > 1 then
+	    crowConfig.trimCurveY[crowConfig.trimPoint] = math.max(crowConfig.trimCurveY[crowConfig.trimPoint] - incT, -100)
+	    crowConfig.trimCurveU[crowConfig.trimPoint] = 1
 	 end
-	 for i = trimPoint+1, #trimCurveX, 1 do
-	    if trimCurveU[i] == 0 then
-	       trimCurveY[i] = trimCurveY[trimPoint]
+	 
+	 highestSet = 1
+	 for i = 1, #crowConfig.trimCurveX, 1 do
+	    if crowConfig.trimCurveU[i] ~= 0 then highestSet = i end
+	 end
+
+	 for i = crowConfig.trimPoint+1, #crowConfig.trimCurveX, 1 do
+	    if crowConfig.trimCurveU[i] == 0 then
+	       --crowConfig.trimCurveY[i] = crowConfig.trimCurveY[crowConfig.trimPoint]
+	       crowConfig.trimCurveY[i] = crowConfig.trimCurveY[highestSet]
 	    end
 	 end
 
-	 if trimCurveY[trimPoint] == 0 then
+	 if crowConfig.trimCurveY[crowConfig.trimPoint] == 0 then
 	    system.playBeep(1, 1500, 100)
 	 else
 	    system.playBeep(0, 1500, 100)
 	 end
 	 
-	 system.pSave("trimCurveY", trimCurveY)
-	 system.pSave("trimCurveU", trimCurveU)	 
+	 --system.pSave("trimCurveY", trimCurveY)
+	 --system.pSave("trimCurveU", trimCurveU)	 
 	 
       end
       lastswt = swt
 
-      if autoCtrl and elevCtrl and swa == 1 and trimPoint ~= 1 then -- autotrim is on!
-	 -- 10 chosen by experimentation	 
-	 -- to traverse at same speed as real autotrim
+      if autoCtrl and elevCtrl and swa == 1 and crowConfig.trimPoint ~= 1 then -- autotrim is on!
 
 	 if math.abs(swe) < deadBand then swe = 0 end
 
-	 --if swe >= 0 then -- put quadratic "expo" into autocrow
-	 --   swe = swe * swe
-	 --else
-	 --   swe = swe * swe * -1
-	 --end
-	 
-	 incT = (autoCrowRate / 10) * (swe / 10)
-	 --print("swe, incT, trimPoint, tCY[]", swe, incT, trimPoint,trimCurveY[trimPoint])
-	 trimCurveY[trimPoint] = trimCurveY[trimPoint] + incT
-	 trimCurveY[trimPoint] = math.max(math.min(trimCurveY[trimPoint], 100), -100)
-	 trimCurveU[trimPoint] = 1	 
-	 for i = trimPoint+1, #trimCurveX, 1 do
-	    if trimCurveU[i] == 0 then
-	       trimCurveY[i] = trimCurveY[trimPoint]
+	 if swe >= 0 then
+	    if autoCrowSens == 2 then
+	       swe = math.sqrt(swe)
+	    elseif autoCrowSens == 3 then
+	       swe = swe * swe
+	    end
+	 else
+	    if autoCrowSens == 2 then
+	       swe = -math.sqrt(-swe)
+	    elseif autoCrowSens == 3 then
+	       swe = swe * swe * -1
 	    end
 	 end
-	 if system.getTimeCounter() - autoAnnounce > 1500 then
-	    system.playFile("/Apps/DFM-Crow/auto_crow.wav", AUDIO_QUEUE)
-	    autoAnnounce = system.getTimeCounter() + 1500
-	    system.pSave("trimCurveY", trimCurveY)
-	    system.pSave("trimCurveU", trimCurveU)
+	 
+	 incT = (autoCrowRate / 10) * (swe / 10)
+	 crowConfig.trimCurveY[crowConfig.trimPoint] = crowConfig.trimCurveY[crowConfig.trimPoint] + incT
+	 crowConfig.trimCurveY[crowConfig.trimPoint] =
+	    math.max(math.min(crowConfig.trimCurveY[crowConfig.trimPoint], 100), -100)
+	 crowConfig.trimCurveU[crowConfig.trimPoint] = 1	 
+
+	 highestSet = 1
+	 for i = 1, #crowConfig.trimCurveX, 1 do
+	    if crowConfig.trimCurveU[i] ~= 0 then highestSet = i end
+	 end
+	 --print("highestSet: " .. highestSet)
+
+	 for i = crowConfig.trimPoint+1, #crowConfig.trimCurveX, 1 do
+	    if crowConfig.trimCurveU[i] == 0 then
+	       crowConfig.trimCurveY[i] = crowConfig.trimCurveY[highestSet]
+	    end
 	 end
       end
 
-      if swcVal < trimCurveX[trimPoint] then
-	 mixVal = trimCurveY[trimPoint-1] +
-	    (trimCurveY[trimPoint] - trimCurveY[trimPoint-1]) *
-	    (swcVal - trimCurveX[trimPoint-1]) / (trimCurveX[trimPoint] - trimCurveX[trimPoint-1])
+      if autoCtrl and elevCtrl and swa == 1 then
+	 if system.getTimeCounter() - autoAnnounce > 1500 then
+	    system.playFile("/"..appDir.."auto_crow.wav", AUDIO_QUEUE)
+	    autoAnnounce = system.getTimeCounter() + 1500
+	    --system.pSave("trimCurveY", trimCurveY)
+	    --system.pSave("trimCurveU", trimCurveU)
+	 end
+      end
+      
+      if swcVal < crowConfig.trimCurveX[crowConfig.trimPoint] then
+	 mixVal = crowConfig.trimCurveY[crowConfig.trimPoint-1] +
+	    (crowConfig.trimCurveY[crowConfig.trimPoint] -
+		crowConfig.trimCurveY[crowConfig.trimPoint-1]) *
+	    (swcVal - crowConfig.trimCurveX[crowConfig.trimPoint-1]) /
+	    (crowConfig.trimCurveX[crowConfig.trimPoint] -
+		crowConfig.trimCurveX[crowConfig.trimPoint-1])
       else
-	 tp1 = math.min(trimPoint+1, #trimCurveX)
+	 tp1 = math.min(crowConfig.trimPoint+1, #crowConfig.trimCurveX)
 	 tp0 = tp1 - 1
-	 mixVal = trimCurveY[tp0] +
-	    (trimCurveY[tp1] - trimCurveY[tp0]) *
-	    (swcVal - trimCurveX[tp0]) / (trimCurveX[tp1] - trimCurveX[tp0])
+	 mixVal = crowConfig.trimCurveY[tp0] +
+	    (crowConfig.trimCurveY[tp1] - crowConfig.trimCurveY[tp0]) *
+	    (swcVal - crowConfig.trimCurveX[tp0]) /
+	    (crowConfig.trimCurveX[tp1] - crowConfig.trimCurveX[tp0])
       end
       if fmCtrl then -- set the flight mode control to 1 if on the crow curve, -1 if not
-	 if swcVal >= trimCurveX[2]/2 then
+	 if swcVal >= crowConfig.trimCurveX[2]/2 then
 	    system.setControl(fmCtrl, 1, 0)	    
 	 else
 	    system.setControl(fmCtrl,-1, 0)
 	 end
       end
       if acvCtrl then
-	 system.setControl(acvCtrl, mixVal / 100.0, 50)
+	 system.setControl(acvCtrl, luaControlMax * mixVal / 100.0, 50)
       end
    end
 end
@@ -389,24 +486,27 @@ local function teleWindow()
 
    local sR = 6
    local lR = 10
-   local ren = lcd.renderer()
+   local ren
    local dx
    
+   if not monoChrome then
+      ren = lcd.renderer()
+   end
+   
    if swc then
-      if trimPoint > 0 then
-	 lcd.drawRectangle(xpix(trimCurveX[trimPoint]) - lR/2 + 1,
-				ypix(trimCurveY[trimPoint]) - lR/2,
+      if crowConfig.trimPoint > 0 then
+	 lcd.drawRectangle(xpix(crowConfig.trimCurveX[crowConfig.trimPoint]) - lR/2 + 1,
+				ypix(crowConfig.trimCurveY[crowConfig.trimPoint]) - lR/2,
 				lR, lR)
-	 if trimPoint > 1 then
-	    if trimPoint < #trimCurveX then dx = 6 else dx = 9 end
-	    lcd.drawText(xpix(trimCurveX[trimPoint])-dx,55,
-			 string.format("%d", trimCurveY[trimPoint]), FONT_MINI)
+	 if crowConfig.trimPoint > 1 then
+	    if crowConfig.trimPoint < #crowConfig.trimCurveX then dx = 6 else dx = 9 end
+	    lcd.drawText(xpix(crowConfig.trimCurveX[crowConfig.trimPoint])-dx,55,
+			 string.format("%d", crowConfig.trimCurveY[crowConfig.trimPoint]), FONT_MINI)
 	    if autoCtrl and elevCtrl and swa == 1 then -- autotrim is on!
 	       lcd.setColor(255,0,0)
 	       lcd.drawText(40,5, "Auto", FONT_MINI)
 	       lcd.setColor(0,0,0)
 	    end
-	    
 	 end
       end
       if mixVal then
@@ -415,40 +515,97 @@ local function teleWindow()
       end
    end
    lcd.drawLine(4,35,144,35)
-   ren:reset()
-   for i=1, #trimCurveX, 1 do
-      if trimCurveU[i] == 1 then lcd.setColor(0,0,255) else lcd.setColor(255,0,0) end
-      lcd.drawCircle(xpix(trimCurveX[i]), ypix(trimCurveY[i]), 4)
-      lcd.setColor(0,0,0)
-      ren:addPoint(xpix(trimCurveX[i]), ypix(trimCurveY[i]))
-      --[[
-      if i < #trimCurveX then
-	 lcd.drawLine(xpix(trimCurveX[i]), ypix(trimCurveY[i]),
-		      xpix(trimCurveX[i+1]), ypix(trimCurveY[i+1]))
+   if monoChrome then
+      for i=1, #crowConfig.trimCurveX, 1 do
+	 if crowConfig.trimCurveU[i] == 1 then
+	    lcd.setColor(0,0,255)
+	    iSize = 4
+	 else
+	    lcd.setColor(255,0,0)
+	    iSize = 3
+	 end
+	 lcd.drawCircle(xpix(crowConfig.trimCurveX[i]), ypix(crowConfig.trimCurveY[i]), iSize)
+	 lcd.setColor(0,0,0)
+	 if i < #crowConfig.trimCurveX then
+	    lcd.drawLine(xpix(crowConfig.trimCurveX[i]), ypix(crowConfig.trimCurveY[i]),
+			 xpix(crowConfig.trimCurveX[i+1]), ypix(crowConfig.trimCurveY[i+1]))
+	 end
       end
-      --]]
+   else
+      ren:reset()
+      for i=1, #crowConfig.trimCurveX, 1 do
+	 if crowConfig.trimCurveU[i] == 1 then
+	    lcd.setColor(0,0,255)
+	    iSize = 4
+	 else
+	    lcd.setColor(255,0,0)
+	    iSize = 4
+	 end
+	 lcd.drawCircle(xpix(crowConfig.trimCurveX[i]), ypix(crowConfig.trimCurveY[i]), iSize)
+	 lcd.setColor(0,0,0)
+	 ren:addPoint(xpix(crowConfig.trimCurveX[i]), ypix(crowConfig.trimCurveY[i]))
+      end
+      ren:renderPolyline(1)
    end
-   ren:renderPolyline(1)
 end
 
 local function destroy()
-   system.pSave("timCurveY", trimCurveY)
-   system.pSave("timCurveU", trimCurveU)
+
+   local ff
+
    if acvCtrl then system.unregisterControl(acvCtrl) end
    if  fmCtrl then system.unregisterControl(fmCtrl)  end   
+
+   -- probably should check if never changed crow config and then not write
+   
+   ff = io.open(modelFile, "w") 
+   if not ff then
+      system.messageBox(appShort .. ": Cannot open config file")
+      return
+   end
+   if not io.write(ff,json.encode(crowConfig)) then
+      system.messageBox(appShort .. ": Cannot write config file")
+      return
+   end
+   io.close(ff)
+
+   --system.pSave("timCurveY", trimCurveY)
+   --system.pSave("timCurveU", trimCurveU)
+
 end
 
 local function init()
 
-   crowCtrl     = system.pLoad("crowCtrl")
-   trimCurveY   = system.pLoad("trimCurveY")
-   trimCurveU   = system.pLoad("trimCurveU")   
-   trimCtrl     = system.pLoad("trimCtrl")
-   trimStep     = system.pLoad("trimStep", 2)
-   tPoints      = system.pLoad("tPoints", 7)   
-   elevCtrl     = system.pLoad("elevCtrl")
-   autoCtrl     = system.pLoad("autoCtrl")   
-   autoCrowRate = system.pLoad("autoCrowRate", 10)
+   local devType, emFlag
+   local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI-DS-14"}
+   local ff
+
+   -- Form autoCrow param file name from model name
+   modelFile = appDir .. "C-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_")
+   --print("modelFile: " .. modelFile)
+   ff = io.readall(modelFile)
+   --print("ff: ", ff)
+
+   if ff then crowConfig = json.decode(ff) end
+
+   if not crowConfig.trimCurveX then
+      crowConfig.tPoints = 7
+      system.messageBox(appShort .. " - no saved config")
+   else
+      -- here if populated crowConfig table
+   end
+
+   crowCtrl        = system.pLoad("crowCtrl")
+   --trimCurveY      = system.pLoad("trimCurveY")
+   --trimCurveU      = system.pLoad("trimCurveU")   
+   trimCtrl        = system.pLoad("trimCtrl")
+   trimStep        = system.pLoad("trimStep", 2)
+   --tPoints         = system.pLoad("tPoints", 7)   
+   elevCtrl        = system.pLoad("elevCtrl")
+   autoCtrl        = system.pLoad("autoCtrl")   
+   autoCrowRate    = system.pLoad("autoCrowRate", 300)
+   autoCrowSens    = system.pLoad("autoCrowSens", 1)
+   autoCrowSpacing = system.pLoad("autoCrowSpacing", 1)   
    
    reverseCrow = system.pLoad("reverseCrow", "false")
    reverseCrow = (reverseCrow == "true")
@@ -459,21 +616,69 @@ local function init()
    announcePoints = system.pLoad("announcePoints", "true")
    announcePoints = (announcePoints == "true")      
 
+   devType, emFlag = system.getDeviceType()
+
+   --devType = "JETI DS-16"
+   
+   monoChrome = false
+   
+   for _,v in ipairs(monoDev) do
+      if devType == v then
+	 monoChrome = true
+	 break
+      end
+   end
+
+   if monoChrome then
+      print(appShort .. ": Monochrome device " .. devType .. " detected")
+   end
+
    initCrow()
 
    system.registerForm(1, MENU_APPS, "Adaptive Crow Mixer", initForm)
    system.registerTelemetry(1, "Crow Mix Curve", 2, teleWindow)
 
-   acvCtrl = system.registerControl(luaTrimCtrl, "Adaptive Crow Value", "ACV")
-   if not acvCtrl then print("DFM-Crow: Could not register ACV control") else
-      system.setControl(acvCtrl,0,0)
+   -- start searching for free lua controls
+   -- fixed for DS-16 to controls 1 and 2
+   
+   if monoChrome then
+      acvCtrl = system.registerControl(1, "Adaptive Crow Value", "ACV")      
+      fmCtrl  = system.registerControl(2, "Crow Flight Mode", "CFM")
+   else
+      for i=1,10,1 do
+	 acvCtrl = system.registerControl(1+(i+3)%10, "Adaptive Crow Value", "ACV")
+	 if acvCtrl then break end
+      end
+      for i=1,10,1 do
+	 if (1+(i+3)%10) ~= acvCtrl then
+	    fmCtrl = system.registerControl(1+(i+3)%10, "Crow Flight Mode", "CFM")
+	 end
+	 if fmCtrl then break end
+      end
+   end
+   
+   if acvCtrl then
+      print(appShort .. ": ACV registered to control " .. acvCtrl)
+      system.setControl(acvCtrl,0,0)      
+   else
+      print(appShort .. ": Could not register ACV control")      
    end
 
-   fmCtrl = system.registerControl(luaModeCtrl, "Crow Flight Mode", "CFM")
-   if not fmCtrl then print("DFM-Crow: Could not register CFM control") else
-      system.setControl(fmCtrl,0,0)
+   if fmCtrl then
+      print(appShort .. ": CFM registered to control " .. fmCtrl)
+      system.setControl(fmCtrl,-1,0)
+   else
+      print(appShort .. ": Could not register CFM control")
+   end
+   
+   if not acvCtrl or not fmCtrl then
+      system.messageBox(appShort .. ": Could not register lua controls")
    end
 
+
+   print(appShort .. ": gc count " .. collectgarbage("count"))
+
+   
 end
 
 return {init=init, loop=loop, author="DFM", version=tostring(crowVersion),

@@ -131,6 +131,8 @@ local function unassignTele(idx)
    teleSe[idx] = 0
    teleSeId[idx] = 0
    teleSePa[idx] = 0
+   teleSeLa[idx] = ""
+   teleSeLs[idx] = ""
    teleSeUn[idx] = ""
    teleSeDp[idx] = 0
 end
@@ -138,8 +140,13 @@ end
 local function teleChanged(value, idx)
 
    local ss
-   
+
+   if type(value) ~= "number" then
+      print("DFM-SWT - teleChanged - value not number type", type(value))
+   end
+      
    if value > 2 then -- a telem sensor
+      print("teleChanged value, idx", value, idx)
       teleSe[idx] = value
       teleSeId[idx] = sensorIdlist[value]
       teleSePa[idx] = sensorPalist[value]
@@ -161,8 +168,12 @@ local function teleChanged(value, idx)
       -- A value of 0 indicates native units, which is the first entry in our unit
       -- tables (lengtUnit and speedUnit) hence the 1 + ...
       -- if UnIDX is nil (should not be) be defensive and use native units ( .. or 0)
-      
-      teleSeUd[idx] = 1 + (UnIDX[teleSeLa[idx]] or 0)
+
+      if value <= maxRSSITele then -- if from another app, set to native units
+	 teleSeUd[idx] = 1 + (UnIDX[teleSeLa[idx]] or 0)
+      else
+	 teleSeUd[idx] = 1
+      end
 
    elseif value == 2 then -- <function>
       unassignTele(idx)
@@ -192,6 +203,11 @@ local function teleChanged(value, idx)
       end
    end
 
+   --print("pSave - teleSe")
+   --for k,v in ipairs(teleSe) do
+   --   print(k,v, teleSeLa[k])
+   --end
+   
    system.pSave("teleSe", teleSe)
    system.pSave("teleSeId", teleSeId)
    system.pSave("teleSePa", teleSePa)
@@ -209,7 +225,8 @@ end
 local function initForm(subform)
 
    local lab
-
+   local idef
+   
    if subform == 1 then
 
       form.setTitle(appName..": Main")
@@ -224,21 +241,55 @@ local function initForm(subform)
 	    lab = i .. " Press - Sensor"
 	 end
 	 form.addRow(2)
+	 --print("* i, teleSe[i]", i, teleSe[i], maxRSSITele)
+	 if teleSe[i] > maxRSSITele then
+	    --print(">maxRSSITele", maxRSSITele+1, maxAPPTele)
+	    idef = 1
+	    for j=maxRSSITele+1, maxAPPTele, 1 do
+	       --print(i,j,teleSeLa[i], sensorLalist[j])
+	       if teleSeLa[i] == sensorLalist[j] then
+		  --print("match at", j)
+		  idef = j
+		  break
+	       end
+	    end
+	    if idef == 1 then print("no match") end
+	 else
+	    idef = teleSe[i]
+	 end
+
+	    
 	 form.addLabel({label=lab, width=155})	 
-	 form.addSelectbox(sensorLalist, teleSe[i], true,
-			   (function(x) return teleChanged(x, i) end) )
+	 form.addSelectbox(sensorLalist, idef, true,
+			   (function(x) return teleChanged(x, i) end) , {alignRight=true})
       end
-      
       form.addRow(2)
+      
       if teleSe[maxPressCount+1] == 2  then
 	 lab = "L Press - Func SLL"
       else
 	 lab = "L Press - Sensor"
       end
 
-      form.addLabel({label=lab, width=220}) -- was 155
-      form.addSelectbox(sensorLalist, teleSe[maxPressCount + 1], true,
-			(function(x) return teleChanged(x, maxPressCount + 1) end) )
+      if teleSe[maxPressCount+1] > maxRSSITele then
+	 idef = 1
+	 for j=maxRSSITele+1, maxAPPTele, 1 do
+	    --print("L", j, teleSeLa[maxPressCount+1], sensorLalist[j])
+	    if teleSeLa[maxPressCount+1] == sensorLalist[j] then
+	       --print("match at", j)
+	       idef = j
+	       break
+	    end
+	 end
+	 if idef == 1 then print("no match") end	 
+      else
+	 idef = teleSe[maxPressCount + 1]
+      end
+      
+      
+      form.addLabel({label=lab, width=155})
+      form.addSelectbox(sensorLalist, idef, true,
+			(function(x) return teleChanged(x, maxPressCount + 1) end) , {alighRight=true})
       
       form.addLink((function() form.reinit(2) end), {label = "Units >>", width=140})
       form.addRow(2)
@@ -258,7 +309,7 @@ local function initForm(subform)
 	    lab = "Function SL"..i
 	 elseif teleSe[i] > 2 then
 	    lab = teleSeLa[i]
-	    print("sf2 .. lab: " .. lab)
+	    --print("sf2 .. lab: " .. lab)
 	 else
 	    if i == maxPressCount + 1 then
 	       lab = "L Press Units"
@@ -414,16 +465,16 @@ local function pressAction(pC)
 	 local imatch = 0
 	 
 	 for k,v in pairs(sharedVar[appname].label) do
-	    print("v, senname:", v, senname)
+	    --print("v, senname:", v, senname)
 	    if v == senname then
 	       imatch = k
 	       break
 	    end
 	 end
-	 print("imatch:", imatch)
-	 print("val:",  sharedVar[appname].value[imatch])
-	 print("unit:", sharedVar[appname].unit[imatch])
-	 print("dp:",   sharedVar[appname].dp[imatch])	 
+	 --print("imatch:", imatch)
+	 --print("val:",  sharedVar[appname].value[imatch])
+	 --print("unit:", sharedVar[appname].unit[imatch])
+	 --print("dp:",   sharedVar[appname].dp[imatch])	 
 
 	 value = sharedVar[appname].value[imatch]
 	 unit  = sharedVar[appname].unit[imatch]	 
@@ -438,9 +489,9 @@ local function pressAction(pC)
 	 --print("DFM-SWT: playFile:", fn)
 	 --print("DFM-SWT: playNumber:", value, dp, unit)
       end
-      if fn and value then -- and dp and unit then
+      if fn then -- and value then -- and dp and unit then
 	 system.playFile(fn, AUDIO_QUEUE)
-	 system.playNumber(value, (dp or 0), unit) -- not ok for dp to be nil, ok for unit to be nil
+	 system.playNumber((value or 0), (dp or 0), unit) -- not ok for dp to be nil, ok for unit to be nil
       else
 	 print("DFM-SWT: Some play vals nil:")
 	 print(fn, value, dp, unit)
@@ -531,35 +582,61 @@ local function init()
    teleSeDp = system.pLoad("teleSeDp", {})         
    vCtrl    = system.pLoad("vCtrl",    {})
 
-   --make sure no nil entries in tables .. will cause problems on save/restore
+   --print("pLoad: - teleSe")
+   --for k,v in ipairs(teleSe) do
+   --   print(k,v, teleSeLa[k])
+   --end
    
+   --[[
+   system.pSave("teleSe", teleSe)
+   system.pSave("teleSeId", teleSeId)
+   system.pSave("teleSePa", teleSePa)
+   system.pSave("teleSeUn", teleSeUn)
+   system.pSave("teleSeUd", teleSeUd)
+   system.pSave("teleSeDp", teleSeDp)
+   system.pSave("teleSeLa", teleSeLa)
+   system.pSave("teleSeLs", teleSeLs)
+   system.pSave("vCtrl", vCtrl)
+   --]]
+   
+   --make sure no nil entries in tables .. will cause problems on save/restore
+
    for i=1, maxPressCount + 1, 1 do
       if not teleSe[i] then
+	 print("Se nil", i)
 	 teleSe[i] = 0
       end
       if not teleSeId[i] then
+	 print("Id nil", i)
 	 teleSeId[i] = 0
       end
       if not teleSePa[i] then
+	 print("Pa nil", i)
 	 teleSePa[i] = 0
       end
       if not teleSeUn[i] then
+	 print("Un nil", i)
 	 teleSeUn[i] = ""
       end
       if not teleSeUd[i] then
+	 print("Ud nil", i)
 	 teleSeUd[i] = 1
       end      
       if not teleSeLs[i] then
+	 print("Ls nil", i)
 	 teleSeLs[i] = ""
       end
       if not teleSeLa[i] then
 	 teleSeLa[i] = ""
+	 print("La nil", i)
       end
       if not teleSeDp[i] then
 	 teleSeDp[i] = 0
+	 print("Dp nil", i)
       end      
       if not vCtrl[i] then
 	 vCtrl[i] = 0
+	 print("vCtrl nil", i)
       end
    end
 
@@ -567,7 +644,7 @@ local function init()
       if vCtrl[i] and vCtrl[i] ~= 0 then
 	 if i <= maxPressCount then ss = tostring(i) else ss = "L" end
 	 ic = system.registerControl(vCtrl[i], "Press "..ss, "SL"..ss)
-	 print("DFM-SWT: init register", ss, i, vCtrl[i])
+	 --print("DFM-SWT: init register", ss, i, vCtrl[i])
 	 --if ic ~= i then print("ic ~= i??", ic, i) end
 	 if ic then
 	    system.setControl(vCtrl[i], -1, 0)
@@ -583,6 +660,7 @@ local function init()
    --print("maxTele, maxTxTele, maxRSSITele", maxTele, maxTxTele, maxRSSITele)
    
    system.registerForm(1, MENU_APPS, appName, initForm)
+
    locale = system.getLocale()
    
    if emFlag then
@@ -682,15 +760,18 @@ local function init()
 
    maxRSSITele = #sensorLalist
 
-   print("SWT")
+   --print("SWT")
    for k,v in pairs(sharedVar) do
-      print(">", k,v)
+      --print(">", k,v)
       for kk,vv in pairs(sharedVar[k]) do
-	 print(">>",kk,vv)
+	 --print(">>",kk,vv)
 	 for kkk, vvv in pairs(sharedVar[k][kk]) do
-	    print(">>>",kkk,vvv)
+	    --print(">>>",kkk,vvv)
 	    if kk == "label" then
-	       print("SWT " .. k .. "-" .. vvv)
+	       --print("SWT " .. k .. "-" .. vvv .. " kkk: ".. kkk)
+	       --for k1,v1 in ipairs(teleSeLa) do
+		 -- print("tSL:, k,v:", k1, v1)
+	       --end
 	       table.insert(sensorLalist, "App."..k.."."..vvv)
 	       table.insert(sensorLslist, k.."."..vvv)
 	       table.insert(sensorIdlist, 0) -- maybe store indexes of app + sensor in Id and Pa?
