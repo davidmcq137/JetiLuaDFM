@@ -27,6 +27,7 @@ local appInfo={}
 appInfo.Name = "T-Wizard"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
 appInfo.Fields = appInfo.Dir .. "Fields"
+--appInfo.transFile = appInfo.Dir .. "Trans.jsn"
 
 local latitude
 local longitude 
@@ -1324,6 +1325,15 @@ local function calcTriRace()
    if relBearing < -180 then relBearing = 360 + relBearing end
    if relBearing >  180 then relBearing = relBearing - 360 end
 
+   local parallelD
+   
+   if distance > perpD then
+      parallelD = math.sqrt(distance^2 - perpD^2)
+      --print("parallelD:", parallelD)
+   else
+      parallelD = 0
+   end
+      
    local swa
    
    if triASwitch then
@@ -1399,6 +1409,16 @@ local function calcTriRace()
 	    else
 	       playFile(appInfo.Dir.."Audio/out.wav", AUDIO_QUEUE)
 	       playNumber(perpD, 0)
+	    end
+	 end
+      elseif (sChar == "L" or sChar == "l") and racing and annZone and not inZone[m3(nextPylon+2)] then
+	 if parallelD > 0 then
+	    if sChar == "L" then
+	       playFile(appInfo.Dir.."Audio/parallel.wav", AUDIO_QUEUE)
+	       playNumber(parallelD, 0)
+	    else
+	       playFile(appInfo.Dir.."Audio/par.wav", AUDIO_QUEUE)
+	       playNumber(parallelD, 0)
 	    end
 	 end
       elseif sChar == "T" or sChar == "t" and racing and annZone then
@@ -1689,8 +1709,13 @@ local function dirPrint(windowWidth, windowHeight)
       elseif m3(nextPylon) == 2 then lcd.setColor(0,150,0)
       elseif m3(nextPylon) == 3 then lcd.setColor(0,0,200)
       end
+
+      if speed > 0.1 then -- defend against speed = 0 even when racing .. bad reading?
+	 txt = string.format("Pylon %d: %dm, %ds", m3(nextPylon), distance, distance/speed)
+      else
+	 txt = string.format("Pylon %d: %dm", m3(nextPylon), distance)
+      end
       
-      txt = string.format("Pylon %d: %dm, %ds", m3(nextPylon), distance, distance/speed)
       lcd.drawText(xa - lcd.getTextWidth(FONT_BOLD, txt)/2, ya+52, txt, FONT_BOLD)
    end
       
@@ -1729,14 +1754,14 @@ local function dirPrint(windowWidth, windowHeight)
       vertHistogram(25, ya, 0, 100, 60, 20)
    end
 
-   local text=string.format("#xHist %d", #xHist)
-   lcd.drawText(80-lcd.getTextWidth(FONT_MINI, text) / 2, 100, text, FONT_MINI)
+   --local text=string.format("#xHist %d", #xHist)
+   --lcd.drawText(80-lcd.getTextWidth(FONT_MINI, text) / 2, 100, text, FONT_MINI)
    
-   local text=string.format("NNP %d", countNoNewPos)
-   lcd.drawText(80-lcd.getTextWidth(FONT_MINI, text) / 2, 110, text, FONT_MINI)
+   --local text=string.format("NNP %d", countNoNewPos)
+   --lcd.drawText(80-lcd.getTextWidth(FONT_MINI, text) / 2, 110, text, FONT_MINI)
 
-   text=string.format("(%d,%d)", x or 0, y or 0)
-   lcd.drawText(80-lcd.getTextWidth(FONT_MINI, text) / 2, 120, text, FONT_MINI)
+   --text=string.format("(%d,%d)", x or 0, y or 0)
+   --lcd.drawText(80-lcd.getTextWidth(FONT_MINI, text) / 2, 120, text, FONT_MINI)
 
 end
 

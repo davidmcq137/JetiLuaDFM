@@ -19,6 +19,8 @@
    Version 0.8 - May 07, 2021 supports mono/limited lua and other TXs
    Version 0.9 - May 08, 2021 unset points track highest point set, not current point
    Version 1.0 - May 09, 2021 persist crow curve by model name, remove crow controls, purely autocrow
+   Version 1.1 - May 12, 2021 add language support
+   Version 1.2 - May 18, 2021 improve language support to only read one lang file, add deadCrow
 
    Limitations: 
    
@@ -29,7 +31,7 @@
    
 --]]
 
-local crowVersion= 1.0
+local crowVersion= 1.2
 local appShort="DFM-Crow"
 local appDir = "Apps/"..appShort.."/"
 
@@ -45,13 +47,7 @@ local autoCrowRate
 local luaControlMax = 0.50
 
 local crowConfig={}
-crowConfig.jsnVersion = 1
---local tPoints
---local trimCurveX
---local trimCurveY
---local trimCurveU
---local trimPoint
---local lastTrimPoint = 0
+crowConfig.jsnVersion = 1.1 -- version of saved data file
 
 local modelFile
 
@@ -80,6 +76,40 @@ local pressTime
 
 local autoCrowSens 
 local autoCrowSpacing
+
+local lang
+local locale
+
+local function setLanguage()
+
+   local obj
+   local fp
+   local transFile
+
+   locale = system.getLocale()
+   --locale = "de"
+
+   --print("locale: " .. locale)
+
+   transFile = appDir .. locale .. ".jsn"
+
+   --print("transFile: " .. transFile)
+   
+   fp = io.readall(transFile)
+
+   if not fp then
+      system.messageBox("DFM-Crow: Missing " .. transFile)
+      -- try for English if no locale support
+      transFile = appDir .. "en.jsn"
+      fp = io.readall(transFile)
+      if not fp then
+	 error("No English language file")
+      end
+   end
+
+   lang = json.decode(fp)
+
+end
 
 local function initCrow()
 
@@ -225,11 +255,11 @@ local function initForm(sF)
    if sF == 1 then
 
       form.addRow(2)
-      form.addLabel({label="Crow Control", width=220})
+      form.addLabel({label=lang.crowControl, width=220})
       form.addInputbox(crowCtrl, true, crowCtrlChanged)
       
       form.addRow(2)
-      form.addLabel({label="Reverse Crow Control", width=270})
+      form.addLabel({label=lang.revCrowControl, width=270})
       reverseCrowIndex = form.addCheckbox(reverseCrow, reverseCrowChanged)
       
       --form.addRow(2)
@@ -241,60 +271,60 @@ local function initForm(sF)
       --reverseTrimIndex = form.addCheckbox(reverseTrim, reverseTrimChanged)
 
       form.addRow(2)
-      form.addLabel({label="AutoCrow on/off control", width=220})
+      form.addLabel({label=lang.autoCrowOnOff, width=220})
       form.addInputbox(autoCtrl, true, autoCtrlChanged)
       
       form.addRow(2)
-      form.addLabel({label="AutoCrow Elevator Control", width=220})
+      form.addLabel({label=lang.autoCrowElev, width=220})
       form.addInputbox(elevCtrl, true, elevCtrlChanged)
 
       --form.addRow(2)
       --form.addLink((function() form.reinit(3) end), {label = "AutoCrow Menu >>"})
 
       form.addRow(2)
-      form.addLink((function() form.reinit(2) end), {label = "Crow Settings >>"})
+      form.addLink((function() form.reinit(2) end), {label = lang.crowSettings .. ">>", width=220})
 	 
       form.addRow(1)
-      form.addLabel({label= appShort..".lua Version "..crowVersion.." ",
+      form.addLabel({label= appShort..".lua " .. lang.version .. " " .. crowVersion .." ",
 		     font=FONT_MINI, alignRight=true})
       
    elseif sF == 2 then
    
       form.addLink((function() form.reinit(1) end),
-	 {label = "Back to main menu",font=FONT_BOLD})
+	 {label = lang.backMain,font=FONT_BOLD})
       
       --form.addRow(2)
       --form.addLabel({label="Trim step", width=260})
       --form.addIntbox(trimStep, 1, 10, 2, 0, 1, trimStepChanged)
 
       form.addRow(2)
-      form.addLabel({label="Number of Crow curve points", width=270})
+      form.addLabel({label=lang.numCrow, width=270})
       form.addIntbox(crowConfig.tPoints, 5, 9, 7, 0, 1, tPointsChanged)
       
       form.addRow(2)
-      form.addLabel({label="Crow curve point spacing", width=220})
-      form.addSelectbox({"Linear", "Logarithmic"}, autoCrowSpacing, false, autoCrowSpacingChanged)
+      form.addLabel({label=lang.crowCurvePoint, width=220})
+      form.addSelectbox({lang.linear, lang.log}, autoCrowSpacing, false, autoCrowSpacingChanged)
       
       form.addRow(2)
-      form.addLabel({label="AutoCrow Rate", width=220})
+      form.addLabel({label=lang.crowCurveRate, width=220})
       form.addIntbox(autoCrowRate, 10, 1000, 300, 0, 1, autoCrowRateChanged)
       
       form.addRow(2)
-      form.addLabel({label="AutoCrow Expo", width=220})
-      form.addSelectbox({"Linear", "-Expo", "+Expo"}, autoCrowSens, false, autoCrowSensChanged)   
+      form.addLabel({label=lang.crowExpo, width=220})
+      form.addSelectbox({lang.linear, lang.mExpo, lang.pExpo}, autoCrowSens, false, autoCrowSensChanged)   
       
       form.addRow(2)
-      form.addLabel({label="Announce Unset Trim Points", width=270})
+      form.addLabel({label=lang.unset, width=270})
       announcePointsIndex = form.addCheckbox(announcePoints, announcePointsChanged)
 
       form.addRow(2)
-      form.addLink(rstCurve, {label="Reset mix curve>>"})
+      form.addLink(rstCurve, {label=lang.reset ..">>", width=220})
       
       form.setFocusedRow(1)
       
    else
       form.addLink((function() form.reinit(1) end),
-	 {label = "Back to main menu",font=FONT_BOLD})
+	 {label = lang.backMain,font=FONT_BOLD})
 
       
    end
@@ -311,6 +341,7 @@ local function loop()
    local incT
    local swe
    local deadBand = 0.02
+   local deadCrow = 0.02
    local highestSet
    
    info = system.getSwitchInfo(crowCtrl)
@@ -336,6 +367,10 @@ local function loop()
    if swc then
       if reverseCrow then swc = -swc end
       swcVal = (swc+1)*50
+      --print(swcVal, deadCrow)
+      if swcVal < deadCrow*100 then
+	 swcVal = 0
+      end
       
       crowConfig.trimPoint = 1
       for i = 2, #crowConfig.trimCurveX-1, 1 do
@@ -402,7 +437,12 @@ local function loop()
 
       if autoCtrl and elevCtrl and swa == 1 and crowConfig.trimPoint ~= 1 then -- autotrim is on!
 
-	 if math.abs(swe) < deadBand then swe = 0 end
+	 if math.abs(swe) < deadBand then
+	    --print("db", swe, deadBand)
+	    swe = 0
+	 else
+	    --print("no db", swe, deadBand)
+	 end
 
 	 if swe >= 0 then
 	    if autoCrowSens == 2 then
@@ -439,7 +479,7 @@ local function loop()
 
       if autoCtrl and elevCtrl and swa == 1 then
 	 if system.getTimeCounter() - autoAnnounce > 1500 then
-	    system.playFile("/"..appDir.."auto_crow.wav", AUDIO_QUEUE)
+	    system.playFile("/" .. appDir .. locale .. "-auto_crow.wav", AUDIO_QUEUE)
 	    autoAnnounce = system.getTimeCounter() + 1500
 	    --system.pSave("trimCurveY", trimCurveY)
 	    --system.pSave("trimCurveU", trimCurveU)
@@ -504,7 +544,7 @@ local function teleWindow()
 			 string.format("%d", crowConfig.trimCurveY[crowConfig.trimPoint]), FONT_MINI)
 	    if autoCtrl and elevCtrl and swa == 1 then -- autotrim is on!
 	       lcd.setColor(255,0,0)
-	       lcd.drawText(40,5, "Auto", FONT_MINI)
+	       lcd.drawText(40,5, lang.auto, FONT_MINI)
 	       lcd.setColor(0,0,0)
 	    end
 	 end
@@ -560,11 +600,11 @@ local function destroy()
    
    ff = io.open(modelFile, "w") 
    if not ff then
-      system.messageBox(appShort .. ": Cannot open config file")
+      system.messageBox(appShort .. ": " .. lang.cannotOpen)
       return
    end
    if not io.write(ff,json.encode(crowConfig)) then
-      system.messageBox(appShort .. ": Cannot write config file")
+      system.messageBox(appShort .. ": " .. lang.cannotWrite)
       return
    end
    io.close(ff)
@@ -580,6 +620,8 @@ local function init()
    local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI-DS-14"}
    local ff
 
+   setLanguage()
+   
    -- Form autoCrow param file name from model name
    modelFile = appDir .. "C-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_")
    --print("modelFile: " .. modelFile)
@@ -635,8 +677,8 @@ local function init()
 
    initCrow()
 
-   system.registerForm(1, MENU_APPS, "Adaptive Crow Mixer", initForm)
-   system.registerTelemetry(1, "Crow Mix Curve", 2, teleWindow)
+   system.registerForm(1, MENU_APPS, lang.formTitle, initForm)
+   system.registerTelemetry(1,  lang.teleTitle, 2, teleWindow)
 
    -- start searching for free lua controls
    -- fixed for DS-16 to controls 1 and 2
@@ -672,7 +714,7 @@ local function init()
    end
    
    if not acvCtrl or not fmCtrl then
-      system.messageBox(appShort .. ": Could not register lua controls")
+      system.messageBox(appShort .. ": " .. lang.cannotReg)
    end
 
 
@@ -681,5 +723,5 @@ local function init()
    
 end
 
-return {init=init, loop=loop, author="DFM", version=tostring(crowVersion),
+return {init=init, loop=loop, author="DFM/HC", version=tostring(crowVersion),
 	name="Adaptive Crow Mixer", destroy=destroy}

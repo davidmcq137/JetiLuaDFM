@@ -9,6 +9,7 @@
    Version 0.1 - Jan 29, 2021
    Version 0.2 - Jan 30, 2021
    Version 0.3 - Apr 18, 2021
+   Version 0.4 - May 13, 2021 Fix log value reporting 10x less than it should have
 
 --]]
 
@@ -22,7 +23,7 @@ sharedVar["DFM-Watt"].dp    = {}
 
 -- Locals for application
 
-local wattVersion= 0.3
+local wattVersion= 0.4
 
 local sensorLalist = { "..." }
 local sensorIdlist = { "..." }
@@ -231,7 +232,9 @@ end
 
 local function wattLog()
    local logval
-   if not battWatts then logval = 0 else logval = battWatts end
+   -- note: using 1 decimal point (second return value) means we have to return 10* to
+   -- get the log value correct
+   if not battWatts then logval = 0 else logval = battWatts*10 end
    return logval, 1
 end
 
