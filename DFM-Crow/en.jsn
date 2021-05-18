@@ -1,0 +1,26 @@
+{
+    "crowControl": "Crow Control",
+    "revCrowControl":"Reverse Crow Control",
+    "autoCrowOnOff":"AutoCrow on/off control",
+    "autoCrowElev":"AutoCrow Elevator Control",
+    "crowSettings":"Crow Settings",
+    "version":"Version",
+    "numCrow":"Number of Crow curve points",
+    "crowCurvePoint":"Crow curve point spacing",
+    "crowCurveRate":"AutoCrow Rate",
+    "crowExpo":"AutoCrow Expo",
+    "unset":"Announce Unset Trim Points",
+    "reset":"Reset mix curve",
+    "backMain":"Back to main menu",
+    "linear":"Linear",
+    "log":"Log",
+    "mExpo":"-Expo",
+    "pExpo":"+Expo",
+    "auto":"Auto",
+    "cannotOpen":"Cannot open config file",
+    "cannotWrite":"Cannot write config file",
+    "formTitle":"Adaptive Crow Mixer",
+    "teleTitle":"Crow Mix Curve",
+    "cannotReg":"Could not register lua controls"
+}
+
