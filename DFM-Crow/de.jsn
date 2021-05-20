@@ -21,5 +21,7 @@
     "cannotWrite":"Konfigurationsdatei kann nicht geschrieben werden",
     "formTitle":"Adaptiver Krähenmischer",
     "teleTitle":"Krähenmischungskurve",
-    "cannotReg":"Lua-Steuerelemente konnten nicht registriert werden"
+    "cannotReg":"Lua-Steuerelemente konnten nicht registriert werden",
+    "pleaseProp":"Please set control to Proportional",
+    "noSave": " - no saved config"
 }

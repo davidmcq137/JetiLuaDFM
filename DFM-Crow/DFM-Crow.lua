@@ -21,6 +21,7 @@
    Version 1.0 - May 09, 2021 persist crow curve by model name, remove crow controls, purely autocrow
    Version 1.1 - May 12, 2021 add language support
    Version 1.2 - May 18, 2021 improve language support to only read one lang file, add deadCrow
+   Version 1.3 - May 19, 2021 add some translated strings that were missed, remove flight mode ctrl
 
    Limitations: 
    
@@ -28,10 +29,10 @@
    impact the autocrow rate
 
    2) Fixes lua controls at #1 and #2 for monochrome TXs which can only have two controls
-   
+
 --]]
 
-local crowVersion= 1.2
+local crowVersion= 1.3
 local appShort="DFM-Crow"
 local appDir = "Apps/"..appShort.."/"
 
@@ -48,12 +49,6 @@ local luaControlMax = 0.50
 
 local crowConfig={}
 crowConfig.jsnVersion = 1.1 -- version of saved data file
---local tPoints
---local trimCurveX
---local trimCurveY
---local trimCurveU
---local trimPoint
---local lastTrimPoint = 0
 
 local modelFile
 
@@ -162,13 +157,12 @@ local function initCrow()
 
 end
 
-
 local function crowCtrlChanged(value)
    local info
    crowCtrl = value
    info = system.getSwitchInfo(crowCtrl)
    if not info.proportional then
-      system.messageBox("Please set Crow control to Proportional")
+      system.messageBox(lang.pleaseProp)
    else
       system.pSave("crowCtrl", crowCtrl)
    end
@@ -179,7 +173,7 @@ local function trimCtrlChanged(value)
    trimCtrl = value
    info = system.getSwitchInfo(trimCtrl)
    if not info.proportional then
-      system.messageBox("Please set Trim control to Proportional")
+      system.messageBox(lang.pleaseProp)
    end
    system.pSave("trimCtrl", trimCtrl)
 end
@@ -189,7 +183,7 @@ local function elevCtrlChanged(value)
    elevCtrl = value
    info = system.getSwitchInfo(elevCtrl)
    if not info.proportional then
-      system.messageBox("Please set Elev control to Proportional")
+      system.messageBox(lang.pleaseProp)
    end
    system.pSave("elevCtrl", elevCtrl)
 end
@@ -507,6 +501,7 @@ local function loop()
 	    (swcVal - crowConfig.trimCurveX[tp0]) /
 	    (crowConfig.trimCurveX[tp1] - crowConfig.trimCurveX[tp0])
       end
+      --[[
       if fmCtrl then -- set the flight mode control to 1 if on the crow curve, -1 if not
 	 if swcVal >= crowConfig.trimCurveX[2]/2 then
 	    system.setControl(fmCtrl, 1, 0)	    
@@ -514,6 +509,7 @@ local function loop()
 	    system.setControl(fmCtrl,-1, 0)
 	 end
       end
+      --]]
       if acvCtrl then
 	 system.setControl(acvCtrl, luaControlMax * mixVal / 100.0, 50)
       end
@@ -600,7 +596,7 @@ local function destroy()
    local ff
 
    if acvCtrl then system.unregisterControl(acvCtrl) end
-   if  fmCtrl then system.unregisterControl(fmCtrl)  end   
+   --if  fmCtrl then system.unregisterControl(fmCtrl)  end   
 
    -- probably should check if never changed crow config and then not write
    
@@ -638,7 +634,7 @@ local function init()
 
    if not crowConfig.trimCurveX then
       crowConfig.tPoints = 7
-      system.messageBox(appShort .. " - no saved config")
+      system.messageBox(appShort .. lang.noSave)
    else
       -- here if populated crowConfig table
    end
@@ -691,18 +687,20 @@ local function init()
    
    if monoChrome then
       acvCtrl = system.registerControl(1, "Adaptive Crow Value", "ACV")      
-      fmCtrl  = system.registerControl(2, "Crow Flight Mode", "CFM")
+      --fmCtrl  = system.registerControl(2, "Crow Flight Mode", "CFM")
    else
       for i=1,10,1 do
 	 acvCtrl = system.registerControl(1+(i+3)%10, "Adaptive Crow Value", "ACV")
 	 if acvCtrl then break end
       end
+      --[[
       for i=1,10,1 do
 	 if (1+(i+3)%10) ~= acvCtrl then
 	    fmCtrl = system.registerControl(1+(i+3)%10, "Crow Flight Mode", "CFM")
 	 end
 	 if fmCtrl then break end
       end
+      --]]
    end
    
    if acvCtrl then
@@ -711,15 +709,15 @@ local function init()
    else
       print(appShort .. ": Could not register ACV control")      
    end
-
+   --[[
    if fmCtrl then
       print(appShort .. ": CFM registered to control " .. fmCtrl)
       system.setControl(fmCtrl,-1,0)
    else
       print(appShort .. ": Could not register CFM control")
    end
-   
-   if not acvCtrl or not fmCtrl then
+   --]]
+   if not acvCtrl then -- or not fmCtrl then
       system.messageBox(appShort .. ": " .. lang.cannotReg)
    end
 

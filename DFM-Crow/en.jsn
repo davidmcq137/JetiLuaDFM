@@ -21,6 +21,8 @@
     "cannotWrite":"Cannot write config file",
     "formTitle":"Adaptive Crow Mixer",
     "teleTitle":"Crow Mix Curve",
-    "cannotReg":"Could not register lua controls"
+    "cannotReg":"Could not register lua controls",
+    "pleasePropo":"Please set control to Proportional",
+    "noSave": " - no saved config"    
 }
 
