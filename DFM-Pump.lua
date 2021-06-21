@@ -1175,11 +1175,13 @@ end
 local function stopSerial()
    pumpActive = false
    gpio.write(8,0) -- power BLE off
-   print("BLE powered off")
    serial.onRead(sidSerial, nil) -- just in case deinit does not do this
    serial.deinit(sidSerial)
-   system.setProperty("CpuLimit", 1)	 
+   system.setProperty("CpuLimit", 1)
+   prtPump = nil
+   keyPump = nil
    form.close()
+   print("DFM-Pump: Serial deinit, BLE powered off, form closed")
 end
 
 
@@ -1200,9 +1202,9 @@ local function loop()
 
    local txTel = system.getTxTelemetry() -- if we see an RX kill the pump
    if not emflag and txTel.rx1Percent > 0 then
-      stopSerial()
       system.messageBox("Airplane On - Pump App Exiting")
       system.playFile("/"..appDir.."airplane_powered_on_pump_exiting.wav", AUDIO_QUEUE)
+      stopSerial()
       return
    end
 
@@ -1390,9 +1392,9 @@ local function prtPump()
    tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
    --print("tVOL", tVOL, tVOL * flowMult[pumpConfigGbl.flowIdx])
    if fCNT then
-      if ctu and ctu.lastFuel and (ctu.lastFuel ~= 0) then
+      if ctu and ctu.lastFuel and (ctu.lastFuel ~= -1) then
 	 text = string.format("/" .. flowFmt[pumpConfigGbl.flowIdx],
-			      ctu.lastFuel * pumpConfig.tankCapacity / 100.0)
+			      (100.0 - ctu.lastFuel) * pumpConfig.tankCapacity / 100.0)
       else
 	 text = ""
       end
@@ -2144,7 +2146,7 @@ local function logCB()
    local tVOL, uVOL
    tVOL = ( ( (fCNT or 0) / pumpConfigGbl.CalF) - ( (eCNT or 0) / pumpConfigGbl.CalE) )
    uVOL = tVOL * flowMult[pumpConfigGbl.flowIdx]
-   print("logCB", tVOL, uVOL)
+   --print("logCB", tVOL, uVOL)
    return math.floor(uVOL*100 + 0.5), 2
 end
 
@@ -2190,11 +2192,11 @@ local function init()
 
    if port then
       sidSerial, descr = serial.init(port ,9600)
-      if sidSerial then   
+      if sidSerial or (descr == "Already configured") then   
 	 print("DFM-Pump: Initialized " .. port)
 	 local success, descr = serial.onRead(sidSerial,onRead)   
 	 if success then
-	    --print("Callback registered")
+	    print("DFM-Pump: Callback registered")
 	 else
 	    print("DFM-Pump: Error setting callback:", descr)
 	 end
@@ -2271,11 +2273,15 @@ local function init()
 
    system.registerLogVariable("Flow", flowUnit[pumpConfigGbl.flowIdx], logCB)
       
+   local pf
+   if emflag then pf = "" else pf = "/" end
+
    mn = string.gsub(system.getProperty("Model"), " ", "_")
-   print("LF file", "Apps/digitech/LF_" .. mn .. ".jsn")
+   print("LF file", pf .. "Apps/digitech/LF_" .. mn .. ".jsn")
+
    
-   file = io.readall("Apps/digitech/LF_" .. mn .. ".jsn")
-   print("file:", file)
+   file = io.readall(pf .. "Apps/digitech/LF_" .. mn .. ".jsn")
+   print("LF_ file:", file)
 
    if (file) then
       ctu = json.decode(file)
@@ -2287,17 +2293,17 @@ local function init()
       print("decoded lastTime: " .. ltime)
       print("delta T: " .. (time - ltime))
    else
-      ctu.lastFuel = 0
+      ctu.lastFuel = -1
    end
 
-   if ctu.lastFuel ~= 0 and (time - ltime) > 60*60*12 then -- if more than 12 hrs old, ask
+   if ctu.lastFuel ~= -1 and (time - ltime) > 60*60*12 then -- if more than 12 hrs old, ask
       text = string.format(flowFmt[pumpConfigGbl.flowIdx] .. " %s",
 			   ctu.lastFuel * pumpConfig.tankCapacity / 100.0, flowUnit[pumpConfigGbl.flowIdx])
 
       qq = form.question("Display last fuel?", "Last fuel amount: " .. text,
 		    string.format("%.1f hours ago", (time - ltime) / 3600),
 		    0, false, 0)
-      if qq == 0 then ctu.lastFuel = 0 end
+      if qq == 0 then ctu.lastFuel = -1 end
    end
    
    

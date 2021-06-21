@@ -895,6 +895,9 @@ local function closeCTU()
    local fp
    local ft={}
    local mn
+   local pf
+   
+   if emFlag == 1 then pf = "" else pf = "/" end
    
    ft.lastFuel = lFuel
    print(system.getTime())
@@ -906,9 +909,9 @@ local function closeCTU()
    
    mn = string.gsub(system.getProperty("Model"), " ", "_")
 
-   print("filename: " .. string.format("Apps/%s/%s", wBrand, "LF_" .. mn .. ".jsn"))
-   
-   fp = io.open(string.format("Apps/%s/%s", wBrand, "LF_" .. mn .. ".jsn"),"w")
+   print("filename: " .. string.format(pf .. "Apps/%s/%s", wBrand, "LF_" .. mn .. ".jsn"))
+
+   fp = io.open(string.format(pf .. "Apps/%s/%s", wBrand, "LF_" .. mn .. ".jsn"),"w")
    if fp then io.write(fp, json.encode(ft)) end
    io.close(fp)
    print("close CTU .. Fuel is " .. lFuel .. "%")

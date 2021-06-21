@@ -22,6 +22,7 @@
    Version 1.1 - May 12, 2021 add language support
    Version 1.2 - May 18, 2021 improve language support to only read one lang file, add deadCrow
    Version 1.3 - May 19, 2021 add some translated strings that were missed, remove flight mode ctrl
+   Version 1.4 - May 31, 2021 edits to the language jsn files, add de-auto_crow.wav file
 
    Limitations: 
    
@@ -30,9 +31,13 @@
 
    2) Fixes lua controls at #1 and #2 for monochrome TXs which can only have two controls
 
+   Acknowledgements:
+
+   de.jsn file contributed by Alois Hahn
+
 --]]
 
-local crowVersion= 1.3
+local crowVersion= 1.5
 local appShort="DFM-Crow"
 local appDir = "Apps/"..appShort.."/"
 
@@ -330,6 +335,14 @@ local function initForm(sF)
    end
 end
 
+local function playNumber(num)
+   local fn
+   if num >= 1 and num <= 9 then
+      fn = locale .. "-" .. tostring(num) .. ".wav"
+      --print("fn:", fn)
+      system.playFile("/" .. appDir .. fn, AUDIO_IMMEDIATE)
+   end
+end
 
 local function loop()
 
@@ -385,7 +398,11 @@ local function loop()
 
       if crowConfig.trimPoint ~= crowConfig.lastTrimPoint then
 	 if crowConfig.trimCurveU[crowConfig.trimPoint] == 0 then
-	    if announcePoints then system.playNumber((crowConfig.trimPoint-1), 0) end
+	    if announcePoints then
+	       --print("playNumber:", crowConfig.trimPoint-1, 0)
+	       --system.playNumber((crowConfig.trimPoint-1), 0)
+	       playNumber(crowConfig.trimPoint-1) -- avoid DS-12 upgrade .. don't use system.playNumber
+	    end
 	 end
       end
       crowConfig.lastTrimPoint = crowConfig.trimPoint
@@ -663,6 +680,8 @@ local function init()
    devType, emFlag = system.getDeviceType()
 
    --devType = "JETI DS-16"
+
+   print("devType: " .. devType)
    
    monoChrome = false
    

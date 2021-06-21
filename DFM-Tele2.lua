@@ -22,6 +22,7 @@ local sidSerial
 local serialbb = 0
 local serialii = 0
 local sidTime0 = 0
+local firstTelem
 
 local latitude
 local longitude
@@ -63,7 +64,7 @@ local telem_list= {
    ["Longitude"]      = {id=0,name="MGPS",  param=3},
    ["GPS_Speed"]      = {id=0,name="MGPS",  param=8},
    ["GPS_AltRelat"]   = {id=0,name="MGPS",  param=9},
-   ["Pitot_Speed"]    = {id=0,name="MSPEED",param=1},
+   ["Pitot_Speed"]    = {id=0,name="Autothrottle",param=3},
 }
 
 local telem= {
@@ -120,7 +121,9 @@ local function tele4()
 		   " Curr CPU: "..(usedCPU or 0) )
    ss = string.format("(Tim:%.2f)", (system.getTimeCounter() - sysTimeStart)/1000)
    lcd.drawText(5,25, ss)
-   if not timeBack then print ("bad timeback in tele4") end
+   if not timeBack then
+      --print("bad timeback in tele4")
+   end
    ss = string.format("deltaT:%.2f",
 		      (timeBack or 0) - (system.getTimeCounter() - sysTimeStart)/1000)
    lcd.drawText(135, 25, ss)
@@ -128,17 +131,21 @@ local function tele4()
    lcd.drawText(240, 25, ss)
    ss = string.format("(Lat:%4.6f)", latitude or 0)
    lcd.drawText(5,45, ss)
-   ss = string.format("(Frm:%2.2f)", fuelRem or 0)
+   ss = string.format("(Frm:%2.2f)", fuelRem or -99)
    lcd.drawText(135,45, ss)
    ss = string.format("(Lon:%4.6f)", longitude or 0)
    lcd.drawText(5,65, ss)
-   ss = string.format("(Alt:%4.2f)", altitude)
+   ss = string.format("(EGT:%2.2f)", EGT or -99)
+   lcd.drawText(135,65, ss)
+   ss = string.format("(RPM:%2.2f)", RPM or -99)
+   lcd.drawText(240,65, ss)      
+   ss = string.format("(Alt:%4.2f)", altitude or -99)
    lcd.drawText(5,85, ss)
    ss = string.format("baroAlt: %2.2f", baroAlt or -99)
    lcd.drawText(85,85, ss)
    ss = string.format("GPSAlt: %2.2f", GPSAlt or -99)
    lcd.drawText(205,85, ss)      
-   ss = string.format("(Spd:%4.2f)", speed)
+   ss = string.format("(Spd:%4.2f)", speed or -99)
    lcd.drawText(5,105, ss)
    ss = string.format("SpeedGPS: %2.2f", SpeedGPS or -99)
    lcd.drawText(135,105, ss)
@@ -155,8 +162,8 @@ local function readSensorsX()
    sensors = system.getSensors()
    --print("#sensors:", #sensors)
    for i, sensor in ipairs(sensors) do
-      print(i, type(sensor.id), type(sensor.param), type(sensor.label))
-      print(i, sensor.id, sensor.param, sensor.label)
+      --print(i, type(sensor.id), type(sensor.param), type(sensor.label))
+      --print(i, sensor.id, sensor.param, sensor.label)
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then sensorLbl = sensor.label else
 	    table.insert(sensorLalist, sensorLbl .. "-> " .. sensor.label)
@@ -174,25 +181,26 @@ local function readSensors(is)
 
    local sensor, kfound
 
-   print("IN readSensors", is)
+   --print("IN readSensors", is)
    
    if not is or is == 0 then
       sensors = system.getSensors()
-      print("Number of sensors returned from system.getSensors: "..#sensors)
+      --print("Number of sensors returned from system.getSensors: "..#sensors)
       for k,v in pairs(sensors) do
 	 --print("k: "..k.."  v.param "..v.param.."  v.id "..v.id.."  v.label "..
 		--v.label.."  v.sensorName "..v.sensorName)
       end
       
       isens = 0
+
    end
 
    if isens + 1 > #sensors then
-      print("telem")
+      --print("telem")
       for k,v in pairs(telem) do
-	 print("***",k,v.id, v.param, v.val, v.lastval)
+	 --print("***",k,v.id, v.param, v.val, v.lastval)
       end
-      print("readsensors returning nil")
+      --print("readsensors returning nil")
       return nil
    end
 
@@ -206,7 +214,7 @@ local function readSensors(is)
    if (sensor.label ~= "") then
       kfound=nil
       for k,v in pairs(telem_list) do
-	 print("loop: isens, k,v, sensor.param, sensor.label",isens, k,v, sensor.param, sensor.label) 
+	 --print("loop: isens, k,v, sensor.param, sensor.label",isens, k,v, sensor.param, sensor.label) 
 	 if sensor.param == 0 and sensor.label == v.name then
 	    v.id = sensor.id
 	 elseif v.id == sensor.id and v.param == sensor.param then
@@ -219,7 +227,7 @@ local function readSensors(is)
 	 telem_list[kfound]=nil
       end
    end
-   print("readsensors returning", isens)
+   --print("readsensors returning", isens)
    return isens
 end
 
@@ -236,6 +244,11 @@ local function countedWrite(ff, str)
 
    local time
 
+   -- if we've never written, and we're being asked to, then set up the serial port
+   -- hopefully the Pump program has let it go if it had it.
+   
+   
+   
    strCount = strCount + #str
 
    time = system.getTime()
@@ -246,7 +259,42 @@ local function countedWrite(ff, str)
       lastTime = time
       maxCPU = 0
    end
-   if ff then io.write(ff, str) end
+
+   --if ff then io.write(ff, str) end
+
+   if (not sidSerial) and firstTelem and ( (system.getTimeCounter() - firstTelem) > 1000) then
+      
+      print("DFM-Tele2: About to serial init")
+      local descr
+      if emflag ~= 0 then
+	 sidSerial, descr = serial.init("ttyUSB0",9600)
+      else
+	 sidSerial, descr = serial.init("COM1",9600)
+      end
+      
+      
+      if sidSerial then   
+	 print("DFM-Tele2: sid succeeded: ", sidSerial)
+	 sidTime0 = system.getTimeCounter()
+	 gpio.mode(8,"out-pp")      
+	 gpio.write(8,1) -- if serial succeeded, turn on BLE device .. see also in loop()
+      else
+	 print("DFM-Tele2: sid failed", sidSerial, descr)
+      end 
+      
+      --for testing, don't interrupt on read
+      
+      local success, descr = serial.onRead(sidSerial,onRead)   
+      if success then
+	 print("DFM-Tele2: Callback registered")
+	 everWrote =  true
+      else
+	 print("DFM-Tele2: Error setting callback", descr)
+      end
+      
+   end
+
+
    if sidSerial then
       cnt = serial.write(sidSerial, str)
       --print("str, cnt=", str,cnt)
@@ -268,6 +316,8 @@ local newPosTime = 0
 local hasCourseGPS
 local rsdone=false
 local iii=0
+local rsStatus=true
+
 local function loop()
 
    local sensor
@@ -279,23 +329,33 @@ local function loop()
    local Tchg, Pchg
    local deltaPosTime = 100 -- min sample interval in ms
 
-   if pcallOK and emulator then
-      if emulator.startUp(readSensors) then -- returns true when it has to keep going
-	 iii = iii + 1
-	 print("iii:", iii)
-	 if iii > 40 then
-	    foo.bar()
-	 end
-	 
-	 return
-      end
+   if rsStatus then
+      rsStatus = readSensors(isens)
    end
+   
+   --if pcallOK and emulator then
+   --   if emulator.startUp(readSensors) then -- returns true when it has to keep going
+	-- iii = iii + 1
+	-- print("iii:", iii)
+	-- if iii > 40 then
+	--    foo.bar()
+	-- end
+	 
+	-- return
+      --end
+   --end
 
    goodlat = false
    goodlong = false
-
-   --shouldn't we compare param instead of name? equiv func but faster?
    
+   if system.getInputs("SM") == 1 then
+      gpio.write(8,1)
+   else
+      gpio.write(8,0)
+   end
+   
+   --shouldn't we compare param instead of name? equiv func but faster?
+
    for name, sens in pairs(telem) do
       --print("name, sens, sens.id, sens.param:", name, sens, sens.id, sens.param)
       if sens.id ~= 0 and sens.param ~= 0 then
@@ -317,6 +377,13 @@ local function loop()
 	 
 	 
 	 if sensor and sensor.valid then
+
+	    -- record time of first telemetry signal in case
+	    -- we have to wait for pump pgm to clear out
+	    -- see countedWrite()
+	    
+	    if not firstTelem then firstTelem = system.getTimeCounter() end
+	    
 	    if sens.id == sensor.id and  name == "Longitude" then
 	       sens.val = sensor.valGPS
 	       minutes = (sensor.valGPS & 0xFFFF) * 0.001
@@ -545,15 +612,15 @@ end
 local lastTB = 0
 
 local function onRead(data)
-   print("onRead:", data)
+   --print("onRead:", data)
    local i
    i = tonumber(data)
    if not i then
-      print("bad time:", data)
+      --print("bad time:", data)
       return
    end
    if i < lastTB then
-      print("backwards time?")
+      --print("backwards time?")
       return
    end
    timeBack = i
@@ -565,13 +632,13 @@ local function init()
    local fg, fn
 
    print("tele2 init")
-   pcallOK, emulator = pcall(require, "sensorLogEm")
-   print("pcallOK, emulator:", pcallOK, emulator)
-   if not pcallOK then print("pcall error: ", emulator) end
-   if pcallOK and emulator then emulator.init("sensorLogEm.jsn") end
+   --pcallOK, emulator = pcall(require, "sensorLogEm")
+   --print("pcallOK, emulator:", pcallOK, emulator)
+   --if not pcallOK then print("pcall error: ", emulator) end
+   --if pcallOK and emulator then emulator.init("sensorLogEm.jsn") end
 
    --system.registerForm(1, MENU_APPS, "Telemetry to Serial", initForm, nil, nil)
-   system.registerTelemetry(1, "Sequence", 4, tele4)
+   system.registerTelemetry(1, "Tele2 Sequence", 4, tele4)
    
    --print("Model: ", system.getProperty("Model"))
    --print("Model File: ", system.getProperty("ModelFile"))
@@ -593,8 +660,8 @@ local function init()
    --print("mP.throttleChannel", modelProps.throttleChannel, "mP.throttleFull", modelProps.throttleFull)
 
    local dt = system.getDateTime()
-   fn = string.format("Tele_%02d%02d_%d%02d%02d.dat", dt.mon, dt.day, dt.hour, dt.min, dt.sec)
-   print("fn:", fn)
+   --fn = string.format("Tele_%02d%02d_%d%02d%02d.dat", dt.mon, dt.day, dt.hour, dt.min, dt.sec)
+   --print("fn:", fn)
 
    --serialFile = io.open(fn, "w")
    --print("serialFile: ", serialFile)
@@ -602,27 +669,6 @@ local function init()
    serialFile = nil
    
    device, emflag = system.getDeviceType()
-
-   if true then -- emflag ~= 1 then
-      print("about to serial init")
-      sidSerial = serial.init("ttyUSB0",9600) 
-      
-      if sidSerial then   
-	 print("sid succeeded: ", sidSerial)
-	 sidTime0 = system.getTimeCounter()
-      else
-	 print("sid failed", sidSerial)
-      end 
-      
-      
-      local success, descr = serial.onRead(sidSerial,onRead)   
-      if success then
-	 print("Callback registered")
-      else
-	 print("Error setting callback", descr)
-      end
-   end
-   
    
    
    --system.playFile('/Apps/DFM-LSO/L_S_O_active.wav', AUDIO_QUEUE)
@@ -639,7 +685,7 @@ local function init()
 
    --print("Device: "..device)
    
-   --readSensors(0)
+   --readSensors()
 end
 
 

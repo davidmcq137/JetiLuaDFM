@@ -22,6 +22,6 @@
     "formTitle":"Adaptiver Krähenmischer",
     "teleTitle":"Krähenmischungskurve",
     "cannotReg":"Lua-Steuerelemente konnten nicht registriert werden",
-    "pleaseProp":"Please set control to Proportional",
-    "noSave": " - no saved config"
+    "pleaseProp":"Bitte Geber auf Proportional setzen",
+    "noSave": " - keine gespeicherte config"
 }

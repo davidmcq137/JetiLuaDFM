@@ -281,7 +281,7 @@ function emulator_playFile(fn, typ)
    elseif typ == AUDIO_QUEUE then
       ss = "AUDIO_QUEUE"
    else
-      ss = "Type Unknown: " .. typ
+      ss = "Type Unknown: " .. (typ or "-nil-")
    end
    print(string.format("SensorE - playFile: <%s> type: %s", fn, ss))
 end
