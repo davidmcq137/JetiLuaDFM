@@ -114,6 +114,34 @@
 	    "lat": 51.104613,
 	    "long": -2.892830
 	} ]
+    },{
+	"name" : "Stanford",
+	"shortname" : "STG",
+	"lat" : 51.630682,
+	"long" : -1.496548,
+	"elevation" : 69.55,
+	"View":"Standard",
+	"startHeading" : 266,
+	"runway" : {
+	    "length" : 150,
+	    "width" : 10,
+	    "x_offset": 0,
+	    "y_offset": 0
+	},
+	"noFlyZone": "Outside",
+	"NoFly" : [ {
+	    "lat" : 51.634263,
+	    "long" : -1.502733
+	}, {
+	    "lat" : 51.634882,
+	    "long" : -1.490164
+	}, {
+	    "lat": 51.629956,
+	    "long": -1.489705
+	}, {
+	    "lat": 51.629329,
+	    "long": -1.502179
+	} ]
     }, {
 	"name" : "Area 74",
 	"shortname" : "A74",

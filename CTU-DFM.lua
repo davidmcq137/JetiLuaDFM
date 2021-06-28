@@ -13,7 +13,7 @@ local wbBattParam = 5
 local wbPumpParam = 6
 local wbStatusParam = 9
 local modelProps={}
-local dev, emflag
+local dev, emFlag
 local ann={}
 local start
 local ren = lcd.renderer()
@@ -156,7 +156,7 @@ local function fuelAlarm(percentage)
                 if(fuelVoiceEnabled) then
                     local fuelLowFile=string.format("Apps/%s/audio/%s-low_fuel.wav",wBrand, cfgLang)
                     system.playFile(fuelLowFile, AUDIO_IMMEDIATE)
-		    if emflag == 1 then print("Fuel Low Warning") end
+		    if emFlag == 1 then print("Fuel Low Warning") end
                 end
                 if(fuelVibration~=4) then
                     if(fuelVibration==2 or fuelVibration==3) then
@@ -516,7 +516,7 @@ local function getStatusText(statusSensorID)
 		       --print(string.format("Status  %s", tostring(lSpeech)))
 		       local ss = string.format("Apps/%s/audio/%s", wBrand, lSpeech)
 		       --system.playFile(ss, AUDIO_IMMEDIATE)
-		       --if emflag == 1 then print("PlayFile:", ss) end
+		       --if emFlag == 1 then print("PlayFile:", ss) end
 
 		       local rep = config.message[tostring(ecuStatus)].rep
 		       local int = config.message[tostring(ecuStatus)].rep_int
@@ -843,8 +843,8 @@ local function init(code)
     local fg
     local jsonFile
 
-    dev, emflag = system.getDeviceType()
-    --print("dev, emflag", dev, emflag)
+    dev, emFlag = system.getDeviceType()
+    --print("dev, emFlag", dev, emFlag)
 
     start = system.getTimeCounter()
     
@@ -871,8 +871,10 @@ local function init(code)
     loadLang()
 
     system.registerForm(1, MENU_APPS, wAppname .. " config", initForm)
-    
-    jsonFile = "Apps/CTU-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_")
+
+    local pf
+    if emFlag == 1 then pf = "" else pf = "/" end    
+    jsonFile = pf .. "Apps/CTU-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_")
     fg = io.readall(jsonFile)
 
     if fg then modelProps = json.decode(fg) end
@@ -945,7 +947,7 @@ local function loop()
       end
       if play then
 	 system.playFile(ann[1].file, AUDIO_IMMEDIATE)
-	 if emflag == 1 then print("Playing:", ann[1].file) end
+	 if emFlag == 1 then print("Playing:", ann[1].file) end
 	 table.remove(ann, 1)
 	 --print("#ann", #ann)
       end

@@ -23,6 +23,7 @@ local serialbb = 0
 local serialii = 0
 local sidTime0 = 0
 local firstTelem
+local failedInit = false
 
 local latitude
 local longitude
@@ -52,7 +53,7 @@ local device, emflag
 local CTU_ID = 16819262    -- Digitech CTU, params: 5=fuel rem, 12=G, 13=baro alt
                            -- 1=RPM, 3=EGT
 local GPS_ID = 0           -- Jeti MGPS, params: 2=lat,3=long,8=speed,9=AltRelat
-local MSP_ID = 0           -- Jeti MSpeed, params: 1=velocity
+local MSP_ID = 0           -- Jeti MSPEED, params: 1=velocity
 
 local telem_list= {
    ["RPM"]            = {id=0,name="CTU",   param=1},
@@ -64,7 +65,8 @@ local telem_list= {
    ["Longitude"]      = {id=0,name="MGPS",  param=3},
    ["GPS_Speed"]      = {id=0,name="MGPS",  param=8},
    ["GPS_AltRelat"]   = {id=0,name="MGPS",  param=9},
-   ["Pitot_Speed"]    = {id=0,name="Autothrottle",param=3},
+   ["CTU_Pitot_Speed"]= {id=0,name="Autothrottle",param=3},
+   ["Pitot_Speed"]    = {id=0,name="MSPEED",param=1},   
 }
 
 local telem= {
@@ -77,7 +79,8 @@ local telem= {
    ["Longitude"]      = {id=0,param=0,val=0,lastval=0},
    ["GPS_Speed"]      = {id=0,param=0,val=0,lastval=0},
    ["GPS_AltRelat"]   = {id=0,param=0,val=0,lastval=0},
-   ["Pitot_Speed"]    = {id=0,param=0,val=0,lastval=0},
+   ["CTU_Pitot_Speed"]= {id=0,param=0,val=0,lastval=0},
+   ["Pitot_Speed"]    = {id=0,param=0,val=0,lastval=0},   
 }
 
 local modelProps={}
@@ -247,8 +250,6 @@ local function countedWrite(ff, str)
    -- if we've never written, and we're being asked to, then set up the serial port
    -- hopefully the Pump program has let it go if it had it.
    
-   
-   
    strCount = strCount + #str
 
    time = system.getTime()
@@ -262,7 +263,7 @@ local function countedWrite(ff, str)
 
    --if ff then io.write(ff, str) end
 
-   if (not sidSerial) and firstTelem and ( (system.getTimeCounter() - firstTelem) > 1000) then
+   if (not sidSerial) and (not failedInit) and firstTelem and ( (system.getTimeCounter() - firstTelem) > 1000) then
       
       print("DFM-Tele2: About to serial init")
       local descr
@@ -280,6 +281,7 @@ local function countedWrite(ff, str)
 	 gpio.write(8,1) -- if serial succeeded, turn on BLE device .. see also in loop()
       else
 	 print("DFM-Tele2: sid failed", sidSerial, descr)
+	 failedInit = true -- don't keep trying once it fails
       end 
       
       --for testing, don't interrupt on read
@@ -287,7 +289,6 @@ local function countedWrite(ff, str)
       local success, descr = serial.onRead(sidSerial,onRead)   
       if success then
 	 print("DFM-Tele2: Callback registered")
-	 everWrote =  true
       else
 	 print("DFM-Tele2: Error setting callback", descr)
       end
@@ -406,7 +407,8 @@ local function loop()
 	    elseif sens.id == sensor.id and name == "GPS_AltRelat" then
 	       sens.val = sensor.value
 	       GPSAlt = sensor.value*3.28084 -- to ft - telem apis only report native values
-	    elseif sens.id == sensor.id and name == "Pitot_Speed"  then
+	    elseif sens.id == sensor.id and
+	    (name == "Pitot_Speed" or name == "CTU_Pitot_Speed")  then
 	       sens.val = sensor.value
 	       SpeedNonGPS = sensor.value * 2.23694 * modelProps.pitotCal / 100.
 	       hasPitot = true

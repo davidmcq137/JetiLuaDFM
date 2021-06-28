@@ -71,7 +71,7 @@ telem.BaroAlt={}
 
 local variables = {"rotationAngle", "histSample", "histMax", "maxCPU",
 		   "triLength", "maxSpeed", "maxAlt", "elev", "histDistance",
-		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd"}
+		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd", "futureMillis"}
 
 local xtable = {}
 local ytable = {}
@@ -505,6 +505,7 @@ local function initForm(subform)
       form.addLabel({label="Flight path points on/off sw", width=220})
       form.addInputbox(pointSwitch, false, pointSwitchChanged)
       
+
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
       
@@ -568,6 +569,12 @@ local function initForm(subform)
 
    elseif subform == 5 then
       savedRow = subform-1
+
+      form.addRow(2)
+      form.addLabel({label="Future position (msec)", width=220})
+      form.addIntbox(variables.futureMillis, 0, 10000, 2000, 0, 1,
+		     (function(x) return variableChanged(x, "futureMillis") end) )
+
       form.addRow(2)
       form.addLabel({label="Field elev (m)", width=220})
       form.addIntbox(variables.elev, 0, 1000, 100, 0, 1, elevChanged)
@@ -1766,10 +1773,11 @@ local function dirPrint(windowWidth, windowHeight)
 end
 
 local noFlyLast = false
+local noFlyLastF = false
 
-local function checkNoFly(xt,yt)
+local function checkNoFly(xt,yt,future)
    
-   local noFly, noFlyP, noFlyC
+   local noFly, noFlyF, noFlyP, noFlyC
    
    if (not Field) or (not Field.NoFly) or #Field.NoFly < 3 then
       noFlyP = false
@@ -1782,19 +1790,27 @@ local function checkNoFly(xt,yt)
    else
       noFlyC = isInsideC(nfc, {x=xt, y=yt})
    end
-   
-   noFly = noFlyP or noFlyC
+
+   if not future then
+      noFly = noFlyP or noFlyC
+   else
+      noFlyF = noFlyP or noFlyC
+   end
    
    if Field.noFlyZone and Field.noFlyZone == "Outside" then
-      noFly = not noFly
+      if not future then
+	 noFly = not noFly
+      else
+	 noFlyF = not noFlyF
+      end
    end
    
    -- if noFly then setColorNoFly() end -- moved to mainline caller code
    
-   if noFly ~= noFlyLast then
+   if noFly ~= noFlyLast and not future then
       if noFly then
 	 print("Enter no fly")
-	 playFile(appInfo.Dir.."Audio/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
+	 playFile(appInfo.Dir.."Audio/no_fly_breached.wav", AUDIO_IMMEDIATE)
 	 system.vibration(false, 3) -- left stick, 2x short pulse
       else
 	 print("Exit no fly")
@@ -1803,7 +1819,23 @@ local function checkNoFly(xt,yt)
       noFlyLast = noFly
    end
 
-   return noFly
+   if noFlyF ~= noFlyLastF and future then
+      if noFlyF then
+	 print("Enter Future no fly")
+	 playFile(appInfo.Dir.."Audio/no_fly_ahead.wav", AUDIO_IMMEDIATE)
+	 --system.vibration(false, 3) -- left stick, 2x short pulse
+      else
+	 print("Exit Future no fly")
+	 --playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
+      end
+      noFlyLastF = noFlyF
+   end
+
+   if not future then
+      return noFly
+   else
+      return noFlyF
+   end
    
 end
 
@@ -1815,6 +1847,7 @@ local function mapPrint(windowWidth, windowHeight)
    local swp
    local swz
    local offset
+   local x0, y0, xf, yf
    
    setColorMap()
    
@@ -1978,13 +2011,33 @@ local function mapPrint(windowWidth, windowHeight)
 	 end
 	 --]]
 
-	 if checkNoFly(xtable[#xtable], ytable[#ytable]) then
+
+	 if checkNoFly(xtable[#xtable], ytable[#ytable], false) then
 	    setColorNoFly()
 	 end	
- 
+
 	 drawShape(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight) + 0,
 		   shapes.T38, math.rad(heading))
+
+	 xf = xtable[i] - speed * (variables.futureMillis / 1000.0) * math.cos(math.rad(270-heading))
+	 yf = ytable[i] - speed * (variables.futureMillis / 1000.0)  * math.sin(math.rad(270-heading))
+	 
+	 if checkNoFly(xtable[#xtable] - speed * (variables.futureMillis / 1000.0) * math.cos(math.rad(270-heading)),
+		       ytable[#ytable] - speed * (variables.futureMillis / 1000.0) * math.sin(math.rad(270-heading)),
+	 true) then
+	    setColorNoFly()
+	    
+	 end
+
+	 -- only draw future if projected position more than 10m ahead (~10 mph for 2s)
+	 if speed * variables.futureMillis > 10000 then
+	    drawShape(toXPixel(xf, map.Xmin, map.Xrange, windowWidth),
+		      toYPixel(yf, map.Ymin, map.Yrange, windowHeight) + 0,
+		      shapes.delta, math.rad(heading))
+	 end
+	 
+	 --print(heading, speed, xf, yf)
       end
    end
 
@@ -2596,7 +2649,7 @@ if GPSAlt then
 
       graphScale(x, y)
       
-      checkNoFly(x, y) -- call also from here in loop() so it checks even if not displayed
+      checkNoFly(x, y, false) -- call also from here in loop() so it checks even if not displayed
       
       --print("x,y:", x, y)
       
@@ -2703,6 +2756,7 @@ local function init()
       if j == "aimoff"         then idef =   20 end
       if j == "flightStartSpd" then idef =   20 end
       if j == "flightStartAlt" then idef =   20 end
+      if j == "futureMillis"   then idef = 2000 end
       
       variables[j] = system.pLoad("variables."..variables[i], idef)
    end

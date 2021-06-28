@@ -2382,6 +2382,8 @@ local function loop()
 	 SpeedGPS = sensor.value * 3.6
       elseif sensor.unit == "km/h" then
 	 SpeedGPS = sensor.value
+      elseif sensor.unit == "mph" then
+	 SpeedGPS = sensor.value * 1.609344
       else -- what on earth units are these .. set to 0
 	 SpeedGPS = 0
       end
