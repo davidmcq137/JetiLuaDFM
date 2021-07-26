@@ -41,7 +41,7 @@
 -- # either expressed or implied, of the FreeBSD Project.                    
 -- #                       
 -- # V1.0 - Initial release
--- # 12/29/20 - Modified to make list of lua files and select one for compile/dump
+-- # 12/29/20 - DFM - Modified to make list of lua files and select one for compile/dump
 -- #
 -- #############################################################################
 

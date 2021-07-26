@@ -359,7 +359,8 @@ local function loop()
    
    info = system.getSwitchInfo(crowCtrl)
    if info then
-      swc = system.getInputs(info.label)
+      --swc = system.getInputs(info.label) -- fails when switch is logical
+      swc = info.value
    end
 
    info = system.getSwitchInfo(trimCtrl)

@@ -165,102 +165,101 @@ local satQuality
 
 local function readSensors()
 
+   -- perhaps code this into json and read it from a file...
+   --[[
+   local paramGPS = {
+      ["MGPS"]    = {
+	 ["Latitude"]    = {label="Latitude" ,  param=2},
+	 ["Longitude"]   = {label="Longitude",  param=3},
+	 ["Speed"]       = {label="SpeedGPS",   param=8},
+	 ["Altitude"]    = {label="Altitude",   param=6},
+	 ["Course"]      = {label="CourseGPS",  param=10},
+	 ["SatCount"]    = {label="SatCount",   param=5},
+	 ["Quality"]     = {label="SatQuality", param=4}
+      },
+      ["RCT-GPS"]    = {
+	 ["Latitude"]    = {label="Latitude" ,  param=1},
+	 ["Longitude"]   = {label="Longitude",  param=2},
+	 ["Speed"]       = {label="SpeedGPS",   param=3},
+	 ["Altitude"]    = {label="Altitude",   param=5},
+	 ["Satellites"]  = {label="SatCount",   param=10},
+	 ["HDOP"]        = {label="SatQuality", param=11}
+      },
+      ["PBS GPS"]    = {
+	 ["LATITUDE"]    = {label="Latitude" ,  param=6},
+	 ["LONGITUDE"]   = {label="Longitude",  param=5},
+	 ["SPEED"]       = {label="SpeedGPS",   param=1},
+	 ["ALTITUDE"]    = {label="Altitude",   param=2},
+      },
+      ["PIONEER"]    = {
+	 ["Latitude"]    = {label="Latitude" ,  param=10},
+	 ["Longitude"]   = {label="Longitude",  param=9},
+	 ["Speed"]       = {label="SpeedGPS",   param=1},
+	 ["Altitude"]    = {label="Altitude",   param=2},
+	 ["Sat.Count"]   = {label="SatCount",   param=6},
+	 ["Accuracy"]    = {label="SatQuality", param=4}
+      }
+   }
+   --]]
+   
+   local jt, paramGPS
    local sensorName = "..."
    local sensors = system.getSensors()
-
+   local seSeq, param, label
+   
+   jt = io.readall(appInfo.Dir.."JSON/paramGPS.jsn")
+   paramGPS = json.decode(jt)
+   
    for _, sensor in ipairs(sensors) do
+      --print("for loop:", sensor.sensorName, sensor.label, sensor.param, sensor.id)
       if (sensor.label ~= "") then
-	 --[[
-	    Note:
-	    Digitech CTU Altitude is type 1, param 13 (vs. MGPS Altitude type 1, param 6)
-	    MSpeed Velocity (airspeed) is type 1, param 1
-	 
-	    Code below will put sensor names in the choose list and auto-assign the relevant
-	    selections for the Jeti MGPS, Digitech CTU and Jeti MSpeed
-	 --]]
-	 --print(sensor.id, sensor.param, sensor.type, sensor.sensorName)
 	 if sensor.param == 0 then -- it's a label
 	    table.insert(sensorLalist, '--> '..sensor.label)
 	    table.insert(sensorIdlist, 0)
 	    table.insert(sensorPalist, 0)
 	 elseif sensor.type == 9 then  -- lat/long
 	    table.insert(GPSsensorLalist, sensor.label)
+	    seSeq = #GPSsensorLalist
 	    table.insert(GPSsensorIdlist, sensor.id)
 	    table.insert(GPSsensorPalist, sensor.param)
-	    -- first two ifs are for MGPS, next two for RCT-GPS
-	    if (sensor.label == 'Longitude' and sensor.param == 3) then
-	       telem.Longitude.Se = #GPSsensorLalist
-	       telem.Longitude.SeId = sensor.id
-	       telem.Longitude.SePa = sensor.param
-	    end
-	    if (sensor.label == 'Latitude' and sensor.param == 2) then
-	       telem.Latitude.Se = #GPSsensorLalist
-	       telem.Latitude.SeId = sensor.id
-	       telem.Latitude.SePa = sensor.param
-	    end
-	    if (sensor.label == 'Longitude' and sensor.param == 2) then
-	       telem.Longitude.Se = #GPSsensorLalist
-	       telem.Longitude.SeId = sensor.id
-	       telem.Longitude.SePa = sensor.param
-	    end
-	    if (sensor.label == 'Latitude' and sensor.param == 1) then
-	       telem.Latitude.Se = #GPSsensorLalist
-	       telem.Latitude.SeId = sensor.id
-	       telem.Latitude.SePa = sensor.param
-	    end
-	 elseif sensor.type == 5 then
-	    -- date - ignore
-	 else  -- "regular" numeric sensor
-
+	 elseif sensor.type == 5 then -- date - ignore
+	 else -- regular numeric sensor
 	    table.insert(sensorLalist, sensor.label)
+	    seSeq = #sensorLalist
 	    table.insert(sensorIdlist, sensor.id)
 	    table.insert(sensorPalist, sensor.param)
 	    table.insert(sensorUnlist, sensor.unit)
+	 end
 
-	    if sensor.sensorName == "MSpeed" and sensor.param == 1 then
-	       telem.SpeedNonGPS.Se = #sensorLalist
-	       telem.SpeedNonGPS.SeId = sensor.id
-	       telem.SpeedNonGPS.SePa = sensor.param
-	    end
-	    if sensor.sensorName == "CTU" and sensor.param == 13 then
-	      telem.BaroAlt.Se = #sensorLalist
-	      telem.BaroAlt.SeId = sensor.id
-	      telem.BaroAlt.SePa = sensor.param
-	    end
+	 -- if it's not a label, and it's a sensor we have in the auto-assign table...
+	 
+	 if sensor.param ~= 0 and
+	    paramGPS and
+	    paramGPS[sensor.sensorName] and
+	    paramGPS[sensor.sensorName][sensor.label]
+	 then
 
-	    -- ADD any other baro alt sensors other than CTU here .. 
-
-	    if (sensor.label == "Altitude" and sensor.param == 6) or 
-	       (sensor.label == "Altitude" and sensor.param == 5) then -- Altitude and 5 is tero
-	       telem.Altitude.Se = #sensorLalist
-	       telem.Altitude.SeId = sensor.id
-	       telem.Altitude.SePa = sensor.param
+	    --print("sensor.sensorName", sensor.sensorName)
+	    --print("sensor.label", sensor.label)
+	    --print("paramGPS[sensor.sensorName]", paramGPS[sensor.sensorName])
+	    
+	    param = paramGPS[sensor.sensorName][sensor.label].param
+	    label  = paramGPS[sensor.sensorName][sensor.label].telem
+	    --print("param, label:", param, telem)
+	    
+	    if param and label then
+	       if label == "SatCount" then
+		  satCountID = sensor.id
+		  satCountPa = param
+	       elseif label == "SatQuality" then
+		  satQualityID = sensor.id
+		  satQualityPa = param
+	       else
+		  telem[label].Se = seSeq
+		  telem[label].SeId = sensor.id
+		  telem[label].SePa = param
+	       end
 	    end
-	    if (sensor.label == "Distance" and sensor.param == 7) then
-	       telem.DistanceGPS.Se = #sensorLalist
-	       telem.DistanceGPS.SeId = sensor.id
-	       telem.DistanceGPS.SePa = sensor.param
-	    end
-	    if (sensor.label == "Speed" and sensor.param == 8) or
-	       (sensor.label == "Speed" and sensor.param == 3) then
-	       telem.SpeedGPS.Se = #sensorLalist
-	       telem.SpeedGPS.SeId = sensor.id
-	       telem.SpeedGPS.SePa = sensor.param
-	    end
-	    if (sensor.label == "Course" and sensor.param == 10) then
-	       telem.CourseGPS.SeId = sensor.id
-	       telem.CourseGPS.SePa = sensor.param
-	    end
-	    if (sensor.label == "SatCount" and sensor.param == 5) or
-	       (sensor.label == "Satellites" and sensor.param == 10) then
-	       satCountID = sensor.id
-	       satCountPa = sensor.param
-	    end
-	    if (sensor.label == "Quality" and sensor.param == 4) or
-	       (sensor.label == "HDOP" and sensor.param == 11) then
-	       satQualityID = sensor.id
-	       satQualityPa = sensor.param
-	    end	    
 	 end
       end
    end
@@ -637,6 +636,7 @@ local function setColorMap()
       textColor.main.red, textColor.main.green, textColor.main.blue = 255, 255,   0
       textColor.comp.red, textColor.comp.green, textColor.comp.blue =   0,   0, 255
    end
+   lcd.setColor(textColor.main.red, textColor.main.green, textColor.main.blue)
 end
 
 local function setColorNoFly()
@@ -1783,26 +1783,24 @@ local function checkNoFly(xt,yt,future)
       noFlyP = false
    else
       noFlyP = isInside (poi, #poi, {x=xt, y=yt})
+      if Field.noFlyZone and Field.noFlyZone == "Outside" then
+	 noFlyP = not noFlyP
+      end
    end
-   
+
    if (not Field) or (not Field.NoFlyCircle) then
       noFlyC = false
    else
       noFlyC = isInsideC(nfc, {x=xt, y=yt})
+      if Field.NoFlyCircle.noFlyZone and Field.NoFlyCircle.noFlyZone == "Outside" then
+	 noFlyC = not noFlyC
+      end
    end
 
    if not future then
       noFly = noFlyP or noFlyC
    else
       noFlyF = noFlyP or noFlyC
-   end
-   
-   if Field.noFlyZone and Field.noFlyZone == "Outside" then
-      if not future then
-	 noFly = not noFly
-      else
-	 noFlyF = not noFlyF
-      end
    end
    
    -- if noFly then setColorNoFly() end -- moved to mainline caller code
@@ -2014,27 +2012,38 @@ local function mapPrint(windowWidth, windowHeight)
 
 	 if checkNoFly(xtable[#xtable], ytable[#ytable], false) then
 	    setColorNoFly()
+	 else
+	    setColorMap()
 	 end	
 
 	 drawShape(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight) + 0,
 		   shapes.T38, math.rad(heading))
-
-	 xf = xtable[i] - speed * (variables.futureMillis / 1000.0) * math.cos(math.rad(270-heading))
-	 yf = ytable[i] - speed * (variables.futureMillis / 1000.0)  * math.sin(math.rad(270-heading))
 	 
-	 if checkNoFly(xtable[#xtable] - speed * (variables.futureMillis / 1000.0) * math.cos(math.rad(270-heading)),
-		       ytable[#ytable] - speed * (variables.futureMillis / 1000.0) * math.sin(math.rad(270-heading)),
-	 true) then
-	    setColorNoFly()
-	    
-	 end
+	 if variables.futureMillis > 0 then
+	    xf = xtable[i] - speed * (variables.futureMillis / 1000.0) *
+	       math.cos(math.rad(270-heading))
+	    yf = ytable[i] - speed * (variables.futureMillis / 1000.0) *
+	       math.sin(math.rad(270-heading))
 
-	 -- only draw future if projected position more than 10m ahead (~10 mph for 2s)
-	 if speed * variables.futureMillis > 10000 then
-	    drawShape(toXPixel(xf, map.Xmin, map.Xrange, windowWidth),
-		      toYPixel(yf, map.Ymin, map.Yrange, windowHeight) + 0,
-		      shapes.delta, math.rad(heading))
+	    setColorMap()
+	    
+	    if checkNoFly(xtable[#xtable] - speed * (variables.futureMillis / 1000.0) *
+			     math.cos(math.rad(270-heading)),
+			  ytable[#ytable] - speed * (variables.futureMillis / 1000.0) *
+			     math.sin(math.rad(270-heading)),
+			  true) then
+	       setColorNoFly()
+	    else
+	       setColorMap()
+	    end
+	    
+	    -- only draw future if projected position more than 10m ahead (~10 mph for 2s)
+	    if speed * variables.futureMillis > 10000 then
+	       drawShape(toXPixel(xf, map.Xmin, map.Xrange, windowWidth),
+			 toYPixel(yf, map.Ymin, map.Yrange, windowHeight) + 0,
+			 shapes.delta, math.rad(heading))
+	    end
 	 end
 	 
 	 --print(heading, speed, xf, yf)

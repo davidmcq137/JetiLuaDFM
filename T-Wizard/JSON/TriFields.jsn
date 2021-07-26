@@ -22,13 +22,92 @@
     }, {
 	"name" : "Cheltenham",
 	"shortname" : "CHEL",
-   	"lat" : 51.951890,
-	"long" : -2.087456,
+   	"lat" : 51.984532,
+	"long" : -2.080538,
 	"elevation": 35,
 	"View":"Standard",
 	"triangle":250,
 	"aimoff": 20,
-	"startHeading": 300,
+	"startHeading": 80,
+	"startMaxAltitude":200,
+	"startMaxSpeed": 100,
+	"maxAltitude":350,
+	"raceTime":10,
+	"runway" : {
+	    "length" : 150,
+	    "width" : 15,
+	    "x_offset":0,
+	    "y_offset":-20
+	},
+	"noFlyZone": "Outside",
+	"NoFly" : [ {
+	    "lat" : 51.984664,
+	    "long" : -2.085811
+	}, {
+	    "lat" : 51.985748,
+	    "long" : -2.081208
+	}, {
+	    "lat": 51.986844,
+	    "long": -2.081809
+	}, {
+	    "lat": 51.987234,
+	    "long": -2.079856
+	}, {
+	    "lat": 51.986758,
+	    "long": -2.079566
+	}, {
+	    "lat": 51.986891,
+	    "long": -2.078869
+	}, {
+	    "lat": 51.986712,
+	    "long": -2.075714
+	}, {
+	    "lat": 51.982219,
+	    "long": -2.072367
+	}, {
+	    "lat": 51.980250,
+	    "long": -2.083397
+	} ]
+    }, {
+	"name" : "Abingdon",
+	"shortname" : "ABI",
+	"lat" : 51.69066,
+	"long" : -1.316325,
+	"startHeading" : 255,
+	"runway" : {
+	    "length" : 3000,
+	    "width" : 145
+	},
+	"NoFlyCircle": [ {
+	    "noFlyZone": "Outside",
+	    "lat": 51.692984,
+	    "long": -1.325343,
+	    "radius":1000
+	} ],
+	"noFlyZone": "Inside",
+	"NoFly" : [ {
+	    "lat" : 51.694879,
+	    "long" : -1.317719
+	}, {
+	    "lat" : 51.699601,
+	    "long" : -1.317505
+	}, {
+	    "lat": 51.700997,
+	    "long": -1.302892
+	}, {
+	    "lat": 51.696848,
+	    "long": -1.297657
+	} ]
+    },{
+	"name" : "Sutton Benger",
+	"shortname" : "SUTT",
+   	"lat" : 51.502699,
+	"long" : -2.067872,
+	"elevation": 54,
+	"View":"Standard",
+	"triangle":250,
+	"aimoff": 20,
+	"startHeading": 7,
 	"startMaxAltitude":200,
 	"startMaxSpeed": 100,
 	"maxAltitude":350,
@@ -40,7 +119,6 @@
 	    "y_offset":-20
 	}
     },{
-	
 	"name" : "DCRC Walt Good Field",
 	"shortname" : "DCRC",
 	"lat" : 39.147398,
