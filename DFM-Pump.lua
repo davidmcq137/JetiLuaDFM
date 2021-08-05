@@ -15,7 +15,7 @@
 
 -- Persistent and global variables for entire progrem
 
-local PumpVersion = "0.0"
+local pumpVersion = "0.2"
 local appName = "Fuel Station Display"
 local appMenu = "Fuel Station Settings"
 local appShort = "DFM-Pump"
@@ -1178,9 +1178,12 @@ local function stopSerial()
    serial.onRead(sidSerial, nil) -- just in case deinit does not do this
    serial.deinit(sidSerial)
    system.setProperty("CpuLimit", 1)
-   prtPump = nil
-   keyPump = nil
+   -- maybe setting these to nil is a bad idea?
+   --prtPump = nil
+   --keyPump = nil
    form.close()
+   system.unregisterForm(1)
+   
    print("DFM-Pump: Serial deinit, BLE powered off, form closed")
 end
 
@@ -2311,4 +2314,4 @@ end
 
 
 
-return {init=init, loop=loop, author="DFM", version=1, name="PumpControl", destroy=destroy}
+return {init=init, loop=loop, author="DFM", version=pumpVersion, name="PumpControl", destroy=destroy}

@@ -142,8 +142,8 @@
 	
 	"name" : "Black Dirt Squadron",
 	"shortname" : "BDS",
-	"lat" : 41.339816,
-	"long" : -74.430756,
+	"lat" : 41.339945,
+	"long" : -74.431056,
 	"elevation":118,
 	"View": "Standard",
 	"triangle": 250,
@@ -158,7 +158,21 @@
 	    "width": 10,
 	    "x_offset": 0,
 	    "y_offset": -70
-	}
+	},
+	"noFlyZone": "Inside",
+	"NoFly" : [ {
+	    "lat" : 41.341008,
+	    "long" : -74.431796
+	}, {
+	    "lat" : 41.342531,
+	    "long" : -74.434854
+	}, {
+	    "lat": 41.340871,
+	    "long": -74.436399
+	}, {
+	    "lat": 41.339333,
+	    "long": -74.433234
+	} ]
     }, {
 	"name" : "NSA Westonzoyland",
 	"shortname" : "NSAW",

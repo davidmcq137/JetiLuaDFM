@@ -1,8 +1,8 @@
 {
-    "lat0": 51.690696,
-    "lon0":-1.316325,
+    "lat0": 41.339945,
+    "lon0":-74.431056,
     "rE":6731000,
-    "trueDir": 255,
+    "trueDir": 350,
     "startTime":0,
     "yString":"P7(100,900)*math.cos(math.pi/(2*3))*math.cos(0.5*((-t/10.001) + (math.pi/3)*(2*math.floor((-3*t/10.001)/(2*math.pi))+1))) - P7(50,450)*math.cos((math.pi/3)*(2*math.floor((-3*t/10.001)/(2*math.pi))+1)) + P7(100/6, 900/6)",
     

@@ -1,23 +1,28 @@
 -- CTU-Dashboard.lua
 
-local wVersion="2.0"
+local wVersion="3"
 local wAppname="CTU"
 
 -- Locals for the application
 
-local wBrand="digitech"
+local wBrand = "CTU-DFM"
+
+local xicoyTelemECUType = 2
 local wbRPMParam = 2
 local wbEGTParam = 3
 local wbFuelParam = 1
 local wbBattParam = 5
 local wbPumpParam = 6
 local wbStatusParam = 9
-local modelProps={}
+local turbineProps={}
 local dev, emFlag
 local ann={}
 local start
 local ren = lcd.renderer()
 
+local turbineNames={"..."}
+local turbineName = "..."
+local turbineNameIdx = 1
 local wbSensorID = nil
 local wbECUType = nil
 local wbECUTypePrev = nil
@@ -46,6 +51,7 @@ local fuelWarnTrigger = system.getTime()
 local fuelWarnFormItem
 local fuelVoiceFormItem
 local fuelLowFile
+local neverConnected = true
 
 local lastValidFuel
 local lastValidFuelTime = 0
@@ -71,7 +77,8 @@ local vibrationOptions = {"Left","Right","Both","None"}
 local function loadImages()
     local sizeOpt = {"Compact","Large"}
     local idx = 0
-    local wBrand="digitech"
+    print("load images: wBrand", wBrand)
+    --local wBrand="digitech"
     imgName = string.format("Apps/%s/images/"..sizeOpt[cfgSize].."/"..
 			       schemeOptions[cfgScheme].."/c-%.3d.png", wBrand, idx * 5)
     gauge_c[idx] = lcd.loadImage(imgName)
@@ -128,19 +135,23 @@ local function getWBSensorID()
             hexSensorIndex = string.format("%x", math.floor(sensor.id/2^16))
             --print(string.format("Sensor ID: %s, Index: %s",hexSensorID,hexSensorIndex))
             if (catalog.device[sensor.label] ~= nil) then
-                tmpSensorID = sensor.id
+	       --print("-->catalog.device[sensor.label].model", catalog.device[sensor.label].model)
+	       tmpSensorID = sensor.id
+	       --print("sensor.id: ", sensor.id)
                 wbRPMParam = tonumber(catalog.device[sensor.label].RPM)
                 wbEGTParam = tonumber(catalog.device[sensor.label].EGT)
                 wbFuelParam = tonumber(catalog.device[sensor.label].Fuel)
                 wbBattParam = tonumber(catalog.device[sensor.label].Batt)
                 wbPumpParam = tonumber(catalog.device[sensor.label].Pump)
                 wbStatusParam = tonumber(catalog.device[sensor.label].Status)
+		--print("wbRPMParam: ", wbRPMParam)
+		--print("wbEGTParam: ", wbEGTParam)		
 		--print("wbStatusParam: ", wbStatusParam)
                 return tmpSensorID
             end
         end
     end
-    collectgarbage()
+
     return tmpSensorID
 end
 
@@ -274,10 +285,12 @@ end
 -- RPM Gauge
 local function DrawRpmGauge(iRPM, size)
 
-    local textRPM, ox, oy, theta
+    local textRPM, ox, oy, theta, kRPM
 
     ox=1
     oy=2
+
+    --print("iRPM, maxRPM, gauge_c[0]", iRPM, maxRPM, gauge_c[0])
 
     textRPM = string.format("%d", iRPM / 1000)
 
@@ -289,8 +302,11 @@ local function DrawRpmGauge(iRPM, size)
         lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MAXI, textRPM) / 2, oy + 40, textRPM, FONT_MAXI)
     end
 
-    theta = math.pi - math.rad(135 - 2*135*iRPM / (maxRPM * 1000))
+    kRPM = math.min(iRPM, maxRPM * 1000 * 1.05)
+    theta = math.pi - math.rad(135 - 2*135*kRPM / (maxRPM * 1000.0))
 
+    --print("theta:", theta)
+    
     if gauge_c[0] ~= nil then
        if size == 1 then
 	  lcd.drawImage(ox, oy, gauge_c[0])
@@ -411,18 +427,20 @@ local function DrawVoltages(u_pump, u_ecu, u_rpm, size)
        lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textEcu)) / 2, oy + 53, textEcu, FONT_BOLD)
     end
     
-    u_thr = 0
+    u_thr = 0.0
     if u_rpm then u_rpmK = u_rpm / 1000 end
-    if u_rpmK and modelProps.turbineName ~= "Unknown" and modelProps.turbineIdleKRPM ~= 0 then
-       if modelProps.turbineThrustTable and u_rpmK >= modelProps.turbineIdleKRPM then
-	  u_thr = modelProps.turbineThrustTable[4] * u_rpmK^3
-	     + modelProps.turbineThrustTable[3] * u_rpmK^2
-	     + modelProps.turbineThrustTable[2] * u_rpmK
-	     + modelProps.turbineThrustTable[1]
+    if u_rpmK and turbineProps.turbineName ~= "Unknown" and turbineProps.turbineIdleKRPM ~= 0 then
+       if turbineProps.turbineThrustTable and u_rpmK >= turbineProps.turbineIdleKRPM then
+	  u_thr = turbineProps.turbineThrustTable[4] * u_rpmK^3
+	     + turbineProps.turbineThrustTable[3] * u_rpmK^2
+	     + turbineProps.turbineThrustTable[2] * u_rpmK
+	     + turbineProps.turbineThrustTable[1]
        end
     end
 
-    if u_thr ~= 0 then
+    --print (u_thr, u_rpm)
+
+    if u_thr ~= 0.0 then
        textThr = string.format("%.1f", u_thr)
        lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, textThr)) / 2, oy + 30, textThr, FONT_BOLD)
     else
@@ -444,11 +462,11 @@ end
 -- Register Telemetry form
 local function registerTelemetryForm(size)
     if(size==1) then
-       system.registerTelemetry(1, wAppname .. " - Turbine: " .. modelProps.turbineName,
+       system.registerTelemetry(1, "Turbine: " .. turbineName,
 				2, wbTele)
     end
     if(size==2) then
-       system.registerTelemetry(1, wAppname .. " - Turbine: " .. modelProps.turbineName,
+       system.registerTelemetry(1, "Turbine: " .. turbineName,
 				4, wbTele)    
     end
 end
@@ -472,7 +490,7 @@ local function readConfig(wECUType)
    local file = io.readall(ss)
    if (file) then
       config = json.decode(file)
-      --print("config:", config)
+      --print("&& config:", config)
    end
    collectgarbage()
 end
@@ -485,6 +503,17 @@ local function getStatusText(statusSensorID)
     local ecuStatus = 0
     local switch
     local lSpeech
+
+    --print("in getStatusText")
+    
+    if wbStatusParam == 99 then
+       wbStatusText = "----"
+       wbStatusPrev = wbStatusText
+       wbECUTypePrev = xicoyTelemECUType
+       return wbStatusText
+    end
+    
+    
     local sensor = system.getSensorByID(statusSensorID, tonumber(wbStatusParam))
 
     if (sensor and sensor.valid) then
@@ -566,7 +595,24 @@ local function getWBECUType(statusSensorID)
     local validECU
     local value = 0 -- sensor value
     local ecuType = nil
-    local sensor = system.getSensorByID(statusSensorID, tonumber(wbStatusParam))
+    local sensor
+
+    --print("getWBECUType - statusSensorID, wbStatusParam: ", statusSensorID, wbStatusParam)
+    if wbStatusParam == 99 then
+       ecuType = xicoyTelemECUType
+       validECU = (catalog.ecu[tostring(ecuType)] ~= nil)
+       --print("validECU:",validECU)
+       if (validECU) then
+	  --print("readConfig")
+	  readConfig(ecuType)
+       else
+	  ecuType = nil
+       end
+       --print("99, returning ecuType for Xicoy Telemetry")
+       return ecuType
+    end
+    
+    sensor = system.getSensorByID(statusSensorID, tonumber(wbStatusParam))
 
     if (sensor and sensor.valid) then
         value = sensor.value
@@ -603,7 +649,7 @@ end
 ------------------------------------------------------------------------
 -- Get RPM From telemtry data
 local function getRPM(statusSensorID)
-    local value = 0 -- sensor value
+   local value = 0 -- sensor value
     local sensor = system.getSensorByID(statusSensorID, tonumber(wbRPMParam))
 
     if (sensor and sensor.valid) then
@@ -622,6 +668,7 @@ local function getFuel(statusSensorID)
 
     if (sensor and sensor.valid) then
        value = sensor.value
+       neverConnected = false
        lastValidFuel = value
        lastValidFuelTime = system.getTimeCounter()
        fuelValid = true
@@ -667,7 +714,42 @@ local function getBatt(statusSensorID)
     return value
 end
 
-----------------------------------------------------------------------
+local function setTurbineProps(tName)
+   
+   local pf
+   local jsonFile
+   local fg
+
+   print("in set, tName:", tName)
+   
+   if tName == "..." then
+      maxEGT = 800
+      maxRPM = 120
+      turbineName = "Unknown"
+      turbineNameIdx = 1
+      return
+   end
+   
+   if emFlag == 1 then pf = "" else pf = "/" end    
+   jsonFile = pf .. "Apps/"..wBrand .. "/turbines/" ..tName .. ".jsn"
+   print("jsonFile:", jsonFile)
+   fg = io.readall(jsonFile)
+   if fg then turbineProps = json.decode(fg) end
+   if turbineProps then
+      maxEGT = turbineProps.turbineMaxEGT
+      maxRPM = turbineProps.turbineMaxKRPM
+      print("maxRPM set to", maxRPM)
+      print("maxEGT set to", maxEGT)      
+   end
+
+   for i,name in ipairs(turbineNames) do
+      if name == tName then
+	 turbineNameIdx = i
+      end
+   end
+
+end
+
 -- Actions when settings changed
 local function maxRPMChanged(value)
     local pSave = system.pSave
@@ -727,6 +809,14 @@ local function langChanged(value)
     form.reinit(1)
 end
 
+local function turbineNameChanged(value)
+   turbineName = turbineNames[value]
+
+   
+   system.pSave("turbineName", turbineName)
+   setTurbineProps(turbineName)
+end
+
 ------------------------------------------------------------------------
 -- Save message config and exit
 local function saveMsgConfig()
@@ -758,14 +848,18 @@ local function initForm(subForm)
             addLabel({label = textMessage.message.menuLabelColour,width =220})
             addSelectbox(schemeOptions,cfgScheme,true,schemeChanged)
 
-            addRow(2)
-            addLabel({label = textMessage.message.menuLabelMaxRPM, width = 220})
-            addIntbox(maxRPM, 1, 300, 1, 0, 1, maxRPMChanged)
+            --addRow(2)
+            --addLabel({label = textMessage.message.menuLabelMaxRPM, width = 220})
+            --addIntbox(maxRPM, 1, 300, 1, 0, 1, maxRPMChanged)
 
-            addRow(2)
-            addLabel({label = textMessage.message.menuLabelMaxEGT, width = 220})
-            addIntbox(maxEGT, 10, 1000, 0, 0, 10, maxEGTChanged)
+            --addRow(2)
+            --addLabel({label = textMessage.message.menuLabelMaxEGT, width = 220})
+            --addIntbox(maxEGT, 10, 1000, 0, 0, 10, maxEGTChanged)
 
+	    addRow(2)
+            addLabel({label = textMessage.message.menuLabelTurbineName,width = 160})	    
+	    form.addSelectbox(turbineNames, turbineNameIdx, true, turbineNameChanged)
+	    
             form.addLink((function() form.reinit(2) end), {label = textMessage.message.menuLabelConfMess})
             form.addLink((function() form.reinit(3) end), {label = textMessage.message.menuLabelFuelWarns})
 
@@ -850,13 +944,13 @@ local function init(code)
     
     readCatalog()
 
+    print("wBrand: ", wBrand)
     wBrand = catalog.config.brand
-    -- print("wBrand: ", wBrand)
     
     wbSensorID = getWBSensorID()
     -- print("wbSensorID: ", wbSensorID)
     
-    maxRPM = system.pLoad("maxRPM", 114)
+    maxRPM = system.pLoad("maxRPM", 225)
     maxEGT = system.pLoad("maxEGT", 800)
     cfgSize = system.pLoad("cfgSize",2)
     cfgScheme = system.pLoad("cfgScheme",2)
@@ -866,52 +960,71 @@ local function init(code)
     fuelVibration = system.pLoad("cfgFuelVibration",4)
     fuelRepeat = system.pLoad("cfgFuelRepeat",15)
     cfgLang = system.pLoad("cfgLang","en")
+    turbineName = system.pLoad("turbineName", "...")
     
     loadImages()
     loadLang()
 
-    system.registerForm(1, MENU_APPS, wAppname .. " config", initForm)
 
     local pf
     if emFlag == 1 then pf = "" else pf = "/" end    
-    jsonFile = pf .. "Apps/CTU-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_")
-    fg = io.readall(jsonFile)
 
-    if fg then modelProps = json.decode(fg) end
+    -- look at the turbines/ directory, get a list of the jsn files
+    
+    for name, filetype, size in  dir(string.format(pf .. "Apps/%s/turbines", wBrand)) do
+       if filetype == "file" then
+	  --print("name, filetype, size", name, filetype, size)
+	  --print("turbine name:", string.match(name, "[^.]+"))
+	  table.insert(turbineNames, string.match(name, "[^.]+"))
+       end
+    end
 
-    if not modelProps.turbineName then modelProps.turbineName = "Unknown" end
-    if not modelProps.turbineIdleKRPM then modelProps.turbineIdleKRPM = 0 end    
-    --print("modelProps:", modelProps)
-    --print("modelProps.turbineName:", modelProps.turbineName)
-    --print("modelProps.turbineIdleKRPM:", modelProps.turbineIdleKRPM)
-    --print("modelProps.turbineThrustTable[1]:", modelProps.turbineThrustTable[1])
+    --turbineName = "XicoyX45"
+    
+    setTurbineProps(turbineName)
 
-    if modelProps.turbineName then print("Turbine: " .. modelProps.turbineName) end
+    print("turbineName, turbineNameIdx", turbineName, turbineNameIdx)
 
+    --[[
+    print("turbineProps:", turbineProps)
+    print("turbineProps.turbineName:", turbineProps.turbineName)
+    print("turbineProps.turbineIdleKRPM:", turbineProps.turbineIdleKRPM)
+    print("turbineProps.turbineMaxKRPM:", turbineProps.turbineMaxKRPM)    
+    print("turbineProps.turbineThrustTable[1]:", turbineProps.turbineThrustTable[1])
+    print("turbineProps.turbineThrustTable[2]:", turbineProps.turbineThrustTable[2])
+    print("turbineProps.turbineThrustTable[3]:", turbineProps.turbineThrustTable[3])
+    print("turbineProps.turbineThrustTable[4]:", turbineProps.turbineThrustTable[4])            
+    --]]
+
+    if turbineProps.turbineName then print("Turbine: " .. turbineProps.turbineName) end
+    
+    system.registerForm(1, MENU_APPS, wAppname .. " config", initForm)
     registerTelemetryForm(cfgSize)
-
     
 end
+
 
 local function closeCTU()
    local fp
    local ft={}
    local mn
    local pf
+
+   if neverConnected or (lastValidFuel == 100) then return end
    
    if emFlag == 1 then pf = "" else pf = "/" end
    
    ft.lastFuel = lFuel
-   print(system.getTime())
+   --print(system.getTime())
 
    -- write time as hex so json converter does not make it a float
    
    ft.lastTime = string.format("0X%X", system.getTime())
-   print(ft.lastTime, tonumber(ft.lastTime))
+   --print(ft.lastTime, tonumber(ft.lastTime))
    
    mn = string.gsub(system.getProperty("Model"), " ", "_")
 
-   print("filename: " .. string.format(pf .. "Apps/%s/%s", wBrand, "LF_" .. mn .. ".jsn"))
+   --print("filename: " .. string.format(pf .. "Apps/%s/%s", wBrand, "LF_" .. mn .. ".jsn"))
 
    fp = io.open(string.format(pf .. "Apps/%s/%s", wBrand, "LF_" .. mn .. ".jsn"),"w")
    if fp then io.write(fp, json.encode(ft)) end
@@ -926,7 +1039,9 @@ local function loop()
 
    local now 
    local play
-
+   local tmp
+   local validData
+   
    now = system.getTimeCounter()
    play = false
    
@@ -952,16 +1067,27 @@ local function loop()
 	 --print("#ann", #ann)
       end
    end
-   
+
+   --print("loop:", wbSensorID, wbECUType)
    if (wbSensorID ~= nil and wbSensorID ~= 0 and wbECUType ~= nil) then
       
       -- check if status parameter is present (avoid crash when rescaning sensor)
-      if(system.getSensorByID(wbSensorID,tonumber(wbStatusParam))~=nil) then
+      if wbStatusParam ~= 99 then
+	 tmp = system.getSensorByID(wbSensorID,tonumber(wbStatusParam))
+      else
+	 tmp = 0
+      end
+      
+      if(tmp ~= nil) then
 	 if (wbECUType ~= wbECUTypePrev) then
 	    wbECUType = getWBECUType(wbSensorID)
 	 end
-	 
-	 local validData=system.getSensorByID(wbSensorID,tonumber(wbStatusParam)).valid
+
+	 if wbStatusParam ~= 99 then
+	    validData=system.getSensorByID(wbSensorID,tonumber(wbStatusParam)).valid
+	 else
+	    validData = true
+	 end
 	 
 	 if(validData) then
 	    lStatus = getStatusText(wbSensorID)

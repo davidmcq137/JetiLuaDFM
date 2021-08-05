@@ -24,7 +24,7 @@ local appInfo={}
 appInfo.Name = "DFM-TriR"
 appInfo.Maps = "DFM-TriM"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
-appInfo.Fields = "Apps/" .. appInfo.Maps .."/"
+appInfo.Fields = "Apps/" .. appInfo.Maps -- .."/"
 
 --appInfo.Fields = appInfo.Dir .. "Fields/"
 
@@ -164,18 +164,97 @@ local satQuality
 
 local function readSensors()
 
+   
+   local jt, paramGPS
+   local sensorName = "..."
+   local sensors = system.getSensors()
+   local seSeq, param, label
+   
+   jt = io.readall(appInfo.Dir.."JSON/paramGPS.jsn")
+   paramGPS = json.decode(jt)
+   
+   for _, sensor in ipairs(sensors) do
+      --print("for loop:", sensor.sensorName, sensor.label, sensor.param, sensor.id)
+      if (sensor.label ~= "") then
+	 if sensor.param == 0 then -- it's a label
+	    table.insert(sensorLalist, '--> '..sensor.label)
+	    table.insert(sensorIdlist, 0)
+	    table.insert(sensorPalist, 0)
+	 elseif sensor.type == 9 then  -- lat/long
+	    table.insert(GPSsensorLalist, sensor.label)
+	    seSeq = #GPSsensorLalist
+	    table.insert(GPSsensorIdlist, sensor.id)
+	    table.insert(GPSsensorPalist, sensor.param)
+	 elseif sensor.type == 5 then -- date - ignore
+	 else -- regular numeric sensor
+	    table.insert(sensorLalist, sensor.label)
+	    seSeq = #sensorLalist
+	    table.insert(sensorIdlist, sensor.id)
+	    table.insert(sensorPalist, sensor.param)
+	    table.insert(sensorUnlist, sensor.unit)
+	 end
+
+	 -- if it's not a label, and it's a sensor we have in the auto-assign table...
+	 
+	 if sensor.param ~= 0 and
+	    paramGPS and
+	    paramGPS[sensor.sensorName] and
+	    paramGPS[sensor.sensorName][sensor.label]
+	 then
+
+	    --print("n,l,pG", sensor.sensorName, sensor.label, paramGPS[sensor.sensorName][sensor.label].telem, paramGPS[sensor.sensorName][sensor.label].param)
+	    
+	    param = paramGPS[sensor.sensorName][sensor.label].param
+	    label  = paramGPS[sensor.sensorName][sensor.label].telem
+	    --print("param, label:", param, label)
+	    
+	    if param and label then
+	       if label == "SatCount" then
+		  satCountID = sensor.id
+		  satCountPa = param
+	       elseif label == "SatQuality" then
+		  satQualityID = sensor.id
+		  satQualityPa = param
+	       elseif label == "Altitude" then
+		  --print("Altitude", paramGPS[sensor.sensorName][sensor.label].telem)
+		  --print("AltType", paramGPS[sensor.sensorName][sensor.label].AltType)
+		  if paramGPS and paramGPS[sensor.sensorName][sensor.label].AltType == "Rel" then
+		     print("Rel!")
+		     absAltGPS = false
+		  else
+		     print("Abs!")
+		     absAltGPS = true
+		  end
+		  telem[label].Se = seSeq
+		  telem[label].SeId = sensor.id
+		  telem[label].SePa = param
+	       else
+		  telem[label].Se = seSeq
+		  telem[label].SeId = sensor.id
+		  telem[label].SePa = param
+	       end
+	    end
+	 end
+      end
+   end
+end
+
+
+--[[
+local function readSensors()
+
    local sensors = system.getSensors()
 
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
-	 --[[
-	    Note:
-	    Digitech CTU Altitude is type 1, param 13 (vs. MGPS Altitude type 1, param 6)
-	    MSpeed Velocity (airspeed) is type 1, param 1
+
+   --Note:
+   --Digitech CTU Altitude is type 1, param 13 (vs. MGPS Altitude type 1, param 6)
+   --MSpeed Velocity (airspeed) is type 1, param 1
 	 
-	    Code below will put sensor names in the choose list and auto-assign the relevant
-	    selections for the Jeti MGPS, Digitech CTU and Jeti MSpeed
-	 --]]
+   --Code below will put sensor names in the choose list and auto-assign the relevant
+   --selections for the Jeti MGPS, Digitech CTU and Jeti MSpeed
+
 	 if sensor.param == 0 then -- it's a label
 	    table.insert(sensorLalist, '--> '..sensor.label)
 	    table.insert(sensorIdlist, 0)
@@ -263,6 +342,7 @@ local function readSensors()
    end
 end
 
+--]]
 ----------------------------------------------------------------------
 
 -- Actions when settings changed
@@ -638,6 +718,7 @@ local function setColorMap()
       textColor.main.red, textColor.main.green, textColor.main.blue = 255, 255,   0
       textColor.comp.red, textColor.comp.green, textColor.comp.blue =   0,   0, 255
    end
+   lcd.setColor(textColor.main.red, textColor.main.green, textColor.main.blue)   
 end
 
 local function setColorNoFlyInside()
@@ -1754,10 +1835,11 @@ local function dirPrint()
 end
 
 local noFlyLast = false
+local noFlyLastF = false
 
-local function checkNoFly(xt,yt)
+local function checkNoFly(xt, yt, future)
    
-   local noFly, noFlyP, noFlyC, txy
+   local noFly, noFlyF, noFlyP, noFlyC, txy
 
    txy = {x=xt, y=yt}
 
@@ -1774,22 +1856,42 @@ local function checkNoFly(xt,yt)
    end
 
    --print("noFlyC:", noFlyC)
+
+   if not future then
+      noFly = noFlyP or noFlyC
+   else
+      noFlyF = noFlyP or noFlyC
+   end
    
-   noFly = noFlyP or noFlyC
-   
-   if noFly ~= noFlyLast then
+   if noFly ~= noFlyLast and not future then
       if noFly then
-	 --print("Enter no fly")
+	 print("Enter no fly")
 	 playFile(appInfo.Dir.."Audio/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
 	 system.vibration(false, 3) -- left stick, 2x short pulse
       else
-	 --print("Exit no fly")
+	 print("Exit no fly")
 	 playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
       end
       noFlyLast = noFly
    end
 
-   return noFly
+   if noFlyF ~= noFlyLastF and future then
+      if noFlyF then
+	 print("Enter Future no fly")
+	 playFile(appInfo.Dir.."Audio/no_fly_ahead.wav", AUDIO_IMMEDIATE)
+	 --system.vibration(false, 3) -- left stick, 2x short pulse
+      else
+	 print("Exit Future no fly")
+	 --playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
+      end
+      noFlyLastF = noFlyF
+   end
+
+   if not future then
+      return noFly
+   else
+      return noFlyF
+   end
    
 end
 
@@ -1981,13 +2083,42 @@ local function mapPrint(windowWidth, windowHeight)
       
       if i == #xtable then
 
-	 if checkNoFly(xtable[#xtable], ytable[#ytable]) then
+	 if checkNoFly(xtable[#xtable], ytable[#ytable], false) then
 	    setColorNoFlyInside()
-	 end	
+	 else
+	    setColorMap()
+	 end
  
 	 drawShape(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight) + 0,
 		   shapes.T38, math.rad(heading))
+
+	 variables.futureMillis = 2000 -- XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx
+	 
+	 if variables.futureMillis > 0 then
+	    xf = xtable[i] - speed * (variables.futureMillis / 1000.0) *
+	       math.cos(math.rad(270-heading))
+	    yf = ytable[i] - speed * (variables.futureMillis / 1000.0) *
+	       math.sin(math.rad(270-heading))
+
+	    setColorMap()
+	    
+	    if checkNoFly(xtable[#xtable] - speed * (variables.futureMillis / 1000.0) *
+			     math.cos(math.rad(270-heading)),
+			  ytable[#ytable] - speed * (variables.futureMillis / 1000.0) *
+			  math.sin(math.rad(270-heading)), true) then
+	       setColorNoFlyInside()
+	    else
+	       setColorMap()
+	    end
+
+	    -- only draw future if projected position more than 10m ahead (~10 mph for 2s)
+	    if speed * variables.futureMillis > 10000 then
+	       drawShape(toXPixel(xf, map.Xmin, map.Xrange, windowWidth),
+			 toYPixel(yf, map.Ymin, map.Yrange, windowHeight) + 0,
+			 shapes.delta, math.rad(heading))
+	    end
+	 end
       end
    end
 
@@ -2002,7 +2133,7 @@ end
 local function pngLoad(j)
    local pfn
    --print("pngLoad - j:", j)
-   pfn = appInfo.Fields .. Field.shortname .. "/" ..
+   pfn = appInfo.Fields .. '/' .. Field.shortname .. "/" ..
       tostring(math.floor(Field.images[j])) ..".png"
    --print("pngLoad - j, pfn:", j, pfn)
    fieldPNG[j] = lcd.loadImage(pfn)
@@ -2106,11 +2237,15 @@ end
 
 local function initField()
 
-   local fp, fn
+   local fp, fn, af
 
    fieldDirs={}
 
-   for fname, ftype, _ in dir(appInfo.Fields) do
+   if not emFlag then af = "/" .. appInfo.Fields else af = appInfo.Fields end
+
+   print("appInfo.Fields:", af)
+   
+   for fname, ftype, _ in dir(af) do
       if ftype == "folder" and fname ~= "." and fname ~= ".."  then
 	 table.insert(fieldDirs, fname)
       end
@@ -2121,7 +2256,7 @@ local function initField()
       --for fname, ftype, fsize in dir(basedir) do
       for _,fname in ipairs(fieldDirs) do
 	 print("fname:", fname)
-	 fn = appInfo.Fields..fname.."/field.jsn"
+	 fn = appInfo.Fields..'/'..fname.."/field.jsn"
 	 print("fn", fn)
 	 fp = io.readall(fn)
 	 if fp then

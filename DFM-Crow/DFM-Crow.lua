@@ -24,6 +24,8 @@
    Version 1.3 - May 19, 2021 add some translated strings that were missed, remove flight mode ctrl
    Version 1.4 - May 31, 2021 edits to the language jsn files, add de-auto_crow.wav file
 
+   Version 1.5 - Jul 25, 2021 fix bug that prevented use of logical sw/ctrl for crow
+                              change speaking of crow points to indiv wav files
    Limitations: 
    
    1) Does not account for variability of loops/second which can

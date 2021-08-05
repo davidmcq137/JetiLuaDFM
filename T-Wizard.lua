@@ -31,6 +31,7 @@ appInfo.Fields = appInfo.Dir .. "Fields"
 
 local latitude
 local longitude 
+local absAltGPS = true
 local courseGPS = 0
 local baroAlt = 0
 local baroAltZero = 0
@@ -239,13 +240,11 @@ local function readSensors()
 	    paramGPS[sensor.sensorName][sensor.label]
 	 then
 
-	    --print("sensor.sensorName", sensor.sensorName)
-	    --print("sensor.label", sensor.label)
-	    --print("paramGPS[sensor.sensorName]", paramGPS[sensor.sensorName])
+	    --print("n,l,pG", sensor.sensorName, sensor.label, paramGPS[sensor.sensorName][sensor.label].telem, paramGPS[sensor.sensorName][sensor.label].param)
 	    
 	    param = paramGPS[sensor.sensorName][sensor.label].param
 	    label  = paramGPS[sensor.sensorName][sensor.label].telem
-	    --print("param, label:", param, telem)
+	    --print("param, label:", param, label)
 	    
 	    if param and label then
 	       if label == "SatCount" then
@@ -254,6 +253,19 @@ local function readSensors()
 	       elseif label == "SatQuality" then
 		  satQualityID = sensor.id
 		  satQualityPa = param
+	       elseif label == "Altitude" then
+		  --print("Altitude", paramGPS[sensor.sensorName][sensor.label].telem)
+		  --print("AltType", paramGPS[sensor.sensorName][sensor.label].AltType)
+		  if paramGPS and paramGPS[sensor.sensorName][sensor.label].AltType == "Rel" then
+		     --print("Rel!")
+		     absAltGPS = false
+		  else
+		     --print("Abs!")
+		     absAltGPS = true
+		  end
+		  telem[label].Se = seSeq
+		  telem[label].SeId = sensor.id
+		  telem[label].SePa = param
 	       else
 		  telem[label].Se = seSeq
 		  telem[label].SeId = sensor.id
@@ -387,7 +399,10 @@ local function flightStartSpdChanged(value)
 end
 
 local function elevChanged(value)
-   if Field then Field.elevation = value end
+   if Field then
+      Field.elevation = value
+      variables.elev = value
+   end
 end
 
 local function annTextChanged(value)
@@ -1895,10 +1910,10 @@ local function mapPrint(windowWidth, windowHeight)
    --text=string.format("NNP %d", countNoNewPos)
    --lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 76, text, FONT_MINI)
    
-   -- if satQuality then
-   --    text=string.format("%.1f", satQuality)
-   --    lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)   
-   -- end
+   if satCount and satCount > 0 and satQuality then
+      text=string.format("Q %d", satQuality)
+      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 76, text, FONT_MINI)   
+   end
    
 
    if pointSwitch then
@@ -2162,7 +2177,7 @@ local function initField(iF)
    poi = {}
    fieldDirs={}
 
-   print("appInfo.Fields: " .. appInfo.Fields)
+   --print("appInfo.Fields: " .. appInfo.Fields)
 
    --appInfo.Fields = "Apps/T-Wizard/Foo"
 
@@ -2491,7 +2506,7 @@ local function loop()
 --]]
    
    hasCourseGPS = false
-   sensor = system.getSensorByID(telem.CourseGPS.SeId, telem.CourseGPS.SeId)
+   sensor = system.getSensorByID(telem.CourseGPS.SeId, telem.CourseGPS.SePa)
    if sensor and sensor.valid then
       courseGPS = sensor.value
       hasCourseGPS = true
@@ -2551,7 +2566,7 @@ if GPSAlt then
    -- replacement code for Tri race
    if not GPSAlt then GPSAlt = 0 end
 
-   if Field and Field.elevation then
+   if Field and Field.elevation and absAltGPS then
       altitude = GPSAlt  - Field.elevation
    else
       altitude = GPSAlt
@@ -2795,4 +2810,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="0.5", name=appInfo.Name}
+return {init=init, loop=loop, author="DFM", version="0.7", name=appInfo.Name}

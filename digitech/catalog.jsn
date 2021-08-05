@@ -1,48 +1,60 @@
 {
-	"config": {
-		"brand" : "digitech"
+    "config": {
+	"brand" : "digitech"
+    },
+    "ecu": {
+	"0": {
+	    "brand": "ProJET",
+	    "file": "projet.jsn"
 	},
-	"ecu": {
-		"0": {
-			"brand": "ProJET",
-			"file": "projet.jsn"
-		},
-		"1": {
-			"brand": "JetCat",
-			"file": "jetcat.jsn"
-		},
-		"2": {
-			"brand": "Xicoy-v10",
-			"file": "xicoy.jsn"
-		},
-		"3": {
-			"brand": "Xicoy-v6",
-			"file": "xicoy.jsn"
-		},
-		"4": {
-			"brand": "Digitech",
-			"file": "xicoy.jsn"
-		},
-		"5": {
-			"brand": "EvoJET",
-			"file": "orbit.jsn"
-		},
-		"6": {
-			"brand": "Kingtech G2",
-			"file": "kingtech.jsn"
-		}
+	"1": {
+	    "brand": "JetCat",
+	    "file": "jetcat.jsn"
 	},
-	"device":{
-		"CTU" : {
-			"brand": "Digitech",
-			"model": "CTU",
-			"version": "0.17",
-			"RPM": "1",
-			"EGT": "3",
-			"Fuel": "5",
-			"Batt": "7",
-			"Pump": "8",
-			"Status": "9"
-		}
+	"2": {
+	    "brand": "Xicoy-v10",
+	    "file": "xicoy.jsn"
+	},
+	"3": {
+	    "brand": "Xicoy-v6",
+	    "file": "xicoy.jsn"
+	},
+	"4": {
+	    "brand": "Digitech",
+	    "file": "xicoy.jsn"
+	},
+	"5": {
+	    "brand": "EvoJET",
+	    "file": "orbit.jsn"
+	},
+	"6": {
+	    "brand": "Kingtech G2",
+	    "file": "kingtech.jsn"
 	}
+    },
+    "device":{
+	"CTU" : {
+	    "brand": "Digitech",
+	    "model": "CTU",
+	    "version": "0.17",
+	    "RPM": "1",
+	    "EGT": "3",
+	    "Fuel": "5",
+	    "Batt": "7",
+	    "Pump": "8",
+	    "Status": "9"
+	},
+	"Turbine" : {
+	    "brand": "Xicoy",
+	    "model": "Turbine",
+	    "version": "0.00",
+	    "RPM": "2",
+	    "EGT": "1",
+	    "Fuel": "6",
+	    "Batt": "3",
+	    "Pump": "4",
+	    "Throttle": "5",
+	    "Status": "99"
+	}
+    }
 }

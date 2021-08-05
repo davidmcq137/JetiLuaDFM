@@ -32,6 +32,7 @@ local rad = 180 / math.pi
 local fieldIdx = 1
 local imageIdx = 1
 local map={}
+local savedSubForm
 
 local first = true
 
@@ -105,6 +106,8 @@ end
 
 local function selectCallback(idx)
    local fc, path
+   print("selectCallback: idx, savedSubForm:", idx, savedSubForm)
+   
    fieldSelectEntries.selectedField = fieldSelectEntries[idx]
    path = appInfo.Dir.."/"..fieldSelectEntries.selectedField..
       "/field.jsn"
@@ -160,19 +163,25 @@ local function selectCallback(idx)
    fieldSelectEntries.selectedField = fieldSelectEntries[idx]
    selImage(1)
 
+   print("fieldIdx", idx)
+   
    fieldIdx = idx
    imageIdx = 1
+   
    --keyForm(KEY_2)
 end
 
 local function keyForm(key)
    local inc, i, si, ll
+   --print("keyForm, savedSubForm:", key, savedSubForm)
    if key == KEY_2 or key == KEY_3 or key == KEY_4 then
       if key == KEY_3 or key == KEY_4 then
 	 if key == KEY_3 then inc = -1 else inc = 1 end
 	 imageIdx = math.max(math.min(imageIdx + inc, #imageSelectEntries), 1)
+	 --print("@imageIdx:", imageIdx)
 	 selImage(imageIdx)
       else
+	 --print("%selectedField", fieldSelectEntries.selectedField)
 	 i = 0
 	 for fname, ftype, fsize in dir(appInfo.Dir.."/"..fieldSelectEntries.selectedField) do
 	    if ftype == 'file' then
@@ -191,7 +200,7 @@ local function keyForm(key)
 	 end)
 	 imageIdx = 1
 	 selImage(imageIdx)
-	 selectCallback(imageIdx)
+	 --selectCallback(imageIdx)
       end
       if imageSelectEntries.selectedImage then
 
@@ -210,12 +219,16 @@ local function keyForm(key)
    end
    if key == KEY_1 or key == KEY_5 then
       form.preventDefault()
+      --print("Key1 .. image", img)
       img = nil
       form.reinit(1)
    end
 end
 
 local function initForm(subform)
+   savedSubForm = subform
+   --print("savedSubForm", savedSubForm)
+   
    local i
    if subform == 1 then
       --form.setTitle("GPS Triangle Racing Fields")
@@ -225,6 +238,7 @@ local function initForm(subform)
       for fname, ftype, fsize in dir(appInfo.Dir) do
 	 if ftype == 'folder' and string.len(fname) > 2 then -- elim "." and ".."
 	    i = i + 1
+	    print("i, fname", i, fname)
 	    fieldSelectEntries[i] = string.format("%s", fname)
 	 end
       end
@@ -359,6 +373,10 @@ end
 
    
 local function init()
+
+   initForm(1)
+   selectCallback(1)
+   
    system.registerForm(1, MENU_APPS, "GPS Triangle Racing Maps", initForm, keyForm, printForm)
 
    emFlag = (select(2,system.getDeviceType()) == 1)
