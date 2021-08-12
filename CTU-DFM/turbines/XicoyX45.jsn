@@ -1,0 +1,12 @@
+{
+    "turbineName": "Xicoy X45",
+    "turbineIdleKRPM":60,
+    "turbineMaxKRPM":225,
+    "turbineMaxEGT":800,
+    "turbineThrustTable": [
+	-1.0044896,
+	0.034749,
+	-0.0002758,
+	0.000001507
+    ]
+}

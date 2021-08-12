@@ -1,0 +1,12 @@
+{
+    "turbineName": "JetcatP300",
+    "turbineIdleKRPM":30,
+    "turbineMaxKRPM":106,
+    "turbineMaxEGT":800,
+    "turbineThrustTable": [
+	-0.1923,
+	0.0184,
+	-0.0003,
+	0.00005
+    ]
+}

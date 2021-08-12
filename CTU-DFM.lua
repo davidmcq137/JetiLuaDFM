@@ -811,8 +811,6 @@ end
 
 local function turbineNameChanged(value)
    turbineName = turbineNames[value]
-
-   
    system.pSave("turbineName", turbineName)
    setTurbineProps(turbineName)
 end

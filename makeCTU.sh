@@ -1,5 +1,6 @@
 set -e
 set -x
-zip -ru CTX.zip CTX.lua CTX-Test.jsn digitechCTX
+rm -f CTU-DFM.zip
+zip -ru CTU-DFM.zip CTU-DFM.lua CTU-DFM
 
 

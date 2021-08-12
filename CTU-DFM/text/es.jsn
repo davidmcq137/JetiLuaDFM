@@ -1,0 +1,35 @@
+{
+    "lang": "Español",
+    "code": "es",
+    "message": {
+        "sizeOptions":{
+            "1":"Compacto",
+            "2":"Grande"
+        },
+        "vibrationOptions":{
+            "1":"Izquierda",
+            "2":"Derecha",
+            "3":"Ambos",
+            "4":"Ninguna"
+        },
+        "menuLabelDisplaySize":"Tamaño del display",
+        "menuLabelColour":"Esquema de colores",
+        "menuLabelMaxRPM":"Max RPM (x1000)",
+        "menuLabelMaxEGT":"Max EGT",
+	"menuLabelTurbineName":"Turbine Name",
+        "menuLabelConfMess":"Configuracion de mensajes >>",
+        "menuLabelFuelWarns":"Alertas de combustible >>",
+        "buttonCancel":"Annul",
+        "menuInfoForm2":"Seleccionar los mensajes activos",
+        "menuInfoNoECU":"ECU no detectado",
+        "menuLabelBack":"<< Volver",
+        "menuLabelBackSave":"<< Guardar y volver",
+        "menuInfoForm3":"Configurar las alertas de combustible",
+        "menuLabelEnableFuelWarn":"Activar alertas",
+        "menuLabelLowFuel":"Limite de alerta (%)",
+        "menuLabelFuelVoice":"Mensaje de audio",
+        "menuLabelFuelVibration":"Vibraciones",
+        "menuLabelFuelInterval":"Intervalo de repeticion (seg)",
+        "menuLabelLang":"Idioma"
+    }
+}

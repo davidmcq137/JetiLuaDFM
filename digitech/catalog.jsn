@@ -48,12 +48,12 @@
 	    "brand": "Xicoy",
 	    "model": "Turbine",
 	    "version": "0.00",
-	    "RPM": "2",
 	    "EGT": "1",
-	    "Fuel": "6",
-	    "Batt": "3",
+	    "Speed": "2",
+	    "Bat.": "3",
 	    "Pump": "4",
 	    "Throttle": "5",
+	    "Fuel": "6",
 	    "Status": "99"
 	}
     }

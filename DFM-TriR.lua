@@ -18,6 +18,18 @@
    Released under MIT license by DFM 2020
    ---------------------------------------------------------------------------------------
 
+   Bug/Work list:
+
+   --reset gps origin makes a mess .. no images
+
+   --"no sats" displayed for gps's that have no satcount (e.g. pb gps II)
+
+   --pylon zone line length proportional to tri length? (looks funny on A74)
+
+   --alt (field elev) somehow persistent? was reading 160ish when telem was 0
+
+   --allow baro/pitot sensors as optional?
+
 --]]
 
 local appInfo={}

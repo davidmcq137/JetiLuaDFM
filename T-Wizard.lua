@@ -166,42 +166,6 @@ local satQuality
 
 local function readSensors()
 
-   -- perhaps code this into json and read it from a file...
-   --[[
-   local paramGPS = {
-      ["MGPS"]    = {
-	 ["Latitude"]    = {label="Latitude" ,  param=2},
-	 ["Longitude"]   = {label="Longitude",  param=3},
-	 ["Speed"]       = {label="SpeedGPS",   param=8},
-	 ["Altitude"]    = {label="Altitude",   param=6},
-	 ["Course"]      = {label="CourseGPS",  param=10},
-	 ["SatCount"]    = {label="SatCount",   param=5},
-	 ["Quality"]     = {label="SatQuality", param=4}
-      },
-      ["RCT-GPS"]    = {
-	 ["Latitude"]    = {label="Latitude" ,  param=1},
-	 ["Longitude"]   = {label="Longitude",  param=2},
-	 ["Speed"]       = {label="SpeedGPS",   param=3},
-	 ["Altitude"]    = {label="Altitude",   param=5},
-	 ["Satellites"]  = {label="SatCount",   param=10},
-	 ["HDOP"]        = {label="SatQuality", param=11}
-      },
-      ["PBS GPS"]    = {
-	 ["LATITUDE"]    = {label="Latitude" ,  param=6},
-	 ["LONGITUDE"]   = {label="Longitude",  param=5},
-	 ["SPEED"]       = {label="SpeedGPS",   param=1},
-	 ["ALTITUDE"]    = {label="Altitude",   param=2},
-      },
-      ["PIONEER"]    = {
-	 ["Latitude"]    = {label="Latitude" ,  param=10},
-	 ["Longitude"]   = {label="Longitude",  param=9},
-	 ["Speed"]       = {label="SpeedGPS",   param=1},
-	 ["Altitude"]    = {label="Altitude",   param=2},
-	 ["Sat.Count"]   = {label="SatCount",   param=6},
-	 ["Accuracy"]    = {label="SatQuality", param=4}
-      }
-   }
-   --]]
    
    local jt, paramGPS
    local sensorName = "..."
@@ -1988,41 +1952,6 @@ local function mapPrint(windowWidth, windowHeight)
       -- checks in Field being nil should take care of that
       
       if i == #xtable then
-
-	 --[[
-	 local noFly, noFlyP, noFlyC
-
-	 if (not Field) or (not Field.NoFly) or #Field.NoFly < 3 then
-	    noFlyP = false
-	 else
-	    noFlyP = isInside (poi, #poi, {x=xtable[i], y=ytable[i]})
-	 end
-	 
-	 if (not Field) or (not Field.NoFlyCircle) then
-	    noFlyC = false
-	 else
-	    noFlyC = isInsideC(nfc, {x=xtable[i], y=ytable[i]})
-	 end
-	 
-	 noFly = noFlyP or noFlyC
-
-	 if Field.noFlyZone and Field.noFlyZone == "Outside" then
-	    noFly = not noFly
-	 end
-	 
-	 if noFly then setColorNoFly() end
-	 if noFly ~= noFlyLast then
-	    if noFly then
-	       print("Enter no fly")
-	       playFile(appInfo.Dir.."Audio/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
-	       system.vibration(false, 3) -- left stick, 2x short pulse
-	    else
-	       print("Exit no fly")
-	       playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
-	    end
-	    noFlyLast = noFly
-	 end
-	 --]]
 
 
 	 if checkNoFly(xtable[#xtable], ytable[#ytable], false) then

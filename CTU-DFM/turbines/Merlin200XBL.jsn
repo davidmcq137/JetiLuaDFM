@@ -1,0 +1,12 @@
+{
+    "turbineName": "Merlin 200XBL",
+    "turbineIdleKRPM":30,
+    "turbineMaxKRPM":115,
+    "turbineMaxEGT":800,
+    "turbineThrustTable": [
+	-8.1673,
+	0.5036,
+	-0.0083,
+	7.E-05
+    ]
+}

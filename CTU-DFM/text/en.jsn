@@ -1,0 +1,35 @@
+{
+    "lang": "English",
+    "code":"en",
+    "message": {
+        "sizeOptions":{
+            "1":"Compact",
+            "2":"Large"
+        },
+        "vibrationOptions":{
+            "1":"Left",
+            "2":"Right",
+            "3":"Both",
+            "4":"None"
+        },
+        "menuLabelDisplaySize":"Display Size",
+        "menuLabelColour":"Colour scheme",
+        "menuLabelMaxRPM":"Max RPM (x1000)",
+        "menuLabelMaxEGT":"Max EGT",
+	"menuLabelTurbineName":"Turbine Name",
+        "menuLabelConfMess":"Configure messages >>",
+        "menuLabelFuelWarns":"Fuel warnings >>",
+        "buttonCancel":"Cancel",
+        "menuInfoForm2":"Select which messages must be announced",
+        "menuInfoNoECU":"No ECU detected",
+        "menuLabelBack":"<< Back",
+        "menuLabelBackSave":"<< Save & Back",
+        "menuInfoForm3":"Configure Fuel warnings",
+        "menuLabelEnableFuelWarn":"Enable fuel warnings",
+        "menuLabelLowFuel":"Low fuel threshold (%)",
+        "menuLabelFuelVoice":"Voice message",
+        "menuLabelFuelVibration":"Vibration alarm",
+        "menuLabelFuelInterval":"Repeating interval (sec)",
+        "menuLabelLang":"Language"
+    }
+}
