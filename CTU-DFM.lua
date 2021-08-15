@@ -1,13 +1,13 @@
 -- CTU-Dashboard.lua
 
-local wVersion="3"
+local wVersion="4"
 local wAppname="CTU"
 
 -- Locals for the application
 
 local wBrand = "CTU-DFM"
 
-local xicoyTelemECUType = 2
+local xicoyTelemECUType = 7
 local wbRPMParam = 2
 local wbEGTParam = 3
 local wbFuelParam = 1
@@ -506,22 +506,27 @@ local function getStatusText(statusSensorID)
 
     --print("in getStatusText")
     
-    if wbStatusParam == 99 then
-       wbStatusText = "----"
-       wbStatusPrev = wbStatusText
-       wbECUTypePrev = xicoyTelemECUType
-       return wbStatusText
-    end
+    --if wbStatusParam == 99 then
+      -- wbStatusText = "----"
+      -- wbStatusPrev = wbStatusText
+      -- wbECUTypePrev = xicoyTelemECUType
+      -- return wbStatusText
+    --end
     
     
     local sensor = system.getSensorByID(statusSensorID, tonumber(wbStatusParam))
 
     if (sensor and sensor.valid) then
         value = string.format("%s", math.floor(sensor.value))
-        wbECUTypePrev = value >> 8
-	--print("value", value)
-	--print("set wbECUTypePrev", wbECUTypePrev)
-        ecuStatus = value & 0xFF
+	if wbStatusParam ~= 7 then -- CTU  .. status param is 9
+	   wbECUTypePrev = value >> 8
+	   --print("value", value)
+	   --print("set wbECUTypePrev", wbECUTypePrev)
+	   ecuStatus = value & 0xFF
+	else --Xicoy Telemetry module
+	   wbECUTypePrev = xicoyTelemECUType
+	   ecuStatus = value
+	end
 
         if (ecuStatus ~= wbStatusPrev) then
             --print(string.format("ECU Status %d",ecuStatus))
@@ -598,7 +603,7 @@ local function getWBECUType(statusSensorID)
     local sensor
 
     --print("getWBECUType - statusSensorID, wbStatusParam: ", statusSensorID, wbStatusParam)
-    if wbStatusParam == 99 then
+    if wbStatusParam == 7 then -- Xicoy tele adapter
        ecuType = xicoyTelemECUType
        validECU = (catalog.ecu[tostring(ecuType)] ~= nil)
        --print("validECU:",validECU)
@@ -608,9 +613,11 @@ local function getWBECUType(statusSensorID)
        else
 	  ecuType = nil
        end
-       --print("99, returning ecuType for Xicoy Telemetry")
+       --print("Returning ecuType for Xicoy Telemetry")
        return ecuType
     end
+
+    -- here if we are talking to the CTU (wbStatusParm is 9)
     
     sensor = system.getSensorByID(statusSensorID, tonumber(wbStatusParam))
 
@@ -946,7 +953,7 @@ local function init(code)
     wBrand = catalog.config.brand
     
     wbSensorID = getWBSensorID()
-    -- print("wbSensorID: ", wbSensorID)
+    print("wbSensorID: ", wbSensorID)
     
     maxRPM = system.pLoad("maxRPM", 225)
     maxEGT = system.pLoad("maxEGT", 800)
@@ -977,8 +984,6 @@ local function init(code)
        end
     end
 
-    --turbineName = "XicoyX45"
-    
     setTurbineProps(turbineName)
 
     print("turbineName, turbineNameIdx", turbineName, turbineNameIdx)
@@ -1070,22 +1075,15 @@ local function loop()
    if (wbSensorID ~= nil and wbSensorID ~= 0 and wbECUType ~= nil) then
       
       -- check if status parameter is present (avoid crash when rescaning sensor)
-      if wbStatusParam ~= 99 then
-	 tmp = system.getSensorByID(wbSensorID,tonumber(wbStatusParam))
-      else
-	 tmp = 0
-      end
+      tmp = system.getSensorByID(wbSensorID,tonumber(wbStatusParam))
+
       
       if(tmp ~= nil) then
 	 if (wbECUType ~= wbECUTypePrev) then
 	    wbECUType = getWBECUType(wbSensorID)
 	 end
 
-	 if wbStatusParam ~= 99 then
-	    validData=system.getSensorByID(wbSensorID,tonumber(wbStatusParam)).valid
-	 else
-	    validData = true
-	 end
+	 validData=system.getSensorByID(wbSensorID,tonumber(wbStatusParam)).valid
 	 
 	 if(validData) then
 	    lStatus = getStatusText(wbSensorID)
