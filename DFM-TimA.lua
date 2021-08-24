@@ -419,7 +419,10 @@ local function loop()
       fuel_qty = sensor.value
       -- odd behavior .. sensor.max tracking with sensor.value??
       -- for now, just set fuel_max once at first reading till we figure it out
-      if not fuel_max then fuel_max = sensor.max end
+      if not fuel_max then
+	 print("DFM-TimA: fuel_max", sensor.max, fuel_qty)
+	 fuel_max = sensor.max
+      end
       if fuel_max and fuel_qty  and (fuel_max ~= 0) then -- double check!
 	 fuel_pct = math.floor(100 * (fuel_qty / fuel_max) + 0.5)
       else

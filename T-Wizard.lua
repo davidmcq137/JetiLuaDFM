@@ -27,6 +27,8 @@ local appInfo={}
 appInfo.Name = "T-Wizard"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
 appInfo.Fields = appInfo.Dir .. "Fields"
+appVersion = "1"
+
 --appInfo.transFile = appInfo.Dir .. "Trans.jsn"
 
 local latitude
@@ -2739,4 +2741,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="0.7", name=appInfo.Name}
+return {init=init, loop=loop, author="DFM", version=appVersion, name=appInfo.Name}

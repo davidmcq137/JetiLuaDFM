@@ -206,7 +206,35 @@
 	    "lat": 51.104613,
 	    "long": -2.892830
 	} ]
-    },{
+    }, {
+	"name" : "Usk Wales",
+	"shortname" : "USK",
+	"lat" : 51.714179,
+	"long" : -2.857446,
+	"elevation" : 20.0,
+	"View":"Standard",
+	"startHeading" : 225,
+	"runway" : {
+	    "length" : 150,
+	    "width" : 10,
+	    "x_offset": 0,
+	    "y_offset": 0
+	},
+	"noFlyZone": "Outside",
+	"NoFly" : [ {
+	    "lat" : 51.713831,
+	    "long" : -2.860661
+	}, {
+	    "lat" : 51.716108,
+	    "long" : -2.857207
+	}, {
+	    "lat": 51.715168,
+	    "long": -2.855056
+	}, {
+	    "lat": 51.712568,
+	    "long": -2.857872
+	} ]
+    }, {
 	"name" : "Stanford",
 	"shortname" : "STG",
 	"lat" : 51.630682,

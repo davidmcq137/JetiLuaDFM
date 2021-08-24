@@ -1013,7 +1013,12 @@ local function closeCTU()
    local mn
    local pf
 
-   if neverConnected or (lastValidFuel == 100) then return end
+   print("CTU-DFM closeCTU", neverConnected, lastValidFuel, lFuel)
+   
+   if neverConnected or (lastValidFuel == 100) then
+      print("CTU-DFM closeCTU returning")
+      return
+   end
    
    if emFlag == 1 then pf = "" else pf = "/" end
    
