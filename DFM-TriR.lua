@@ -109,6 +109,8 @@ local titleText
 local subtitleText
 local lastgetTime = 0
 local inZone = {}
+local currentGPSread = 0
+local lastGPSread = 0
 
 -- these lists are the non-GPS sensors
 
@@ -1962,6 +1964,11 @@ local function mapPrint(windowWidth, windowHeight)
    text=string.format("%d/%d %d%%", #xHist, variables.histMax, currMaxCPU)
    lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 62, text, FONT_MINI)
 
+   if currentGPSread and lastGPSread then
+      text = string.format("GPS dt %d", currentGPSread - lastGPSread)
+      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 76, text, FONT_MINI)
+   end
+   
    --text=string.format("NNP %d", countNoNewPos)
    --lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 76, text, FONT_MINI)
    
@@ -2255,7 +2262,7 @@ local function initField()
 
    if not emFlag then af = "/" .. appInfo.Fields else af = appInfo.Fields end
 
-   print("appInfo.Fields:", af)
+   --print("appInfo.Fields:", af)
    
    for fname, ftype, _ in dir(af) do
       if ftype == "folder" and fname ~= "." and fname ~= ".."  then
@@ -2267,9 +2274,9 @@ local function initField()
    if lng0 and lat0 then -- if location was detected by the GPS system
       --for fname, ftype, fsize in dir(basedir) do
       for _,fname in ipairs(fieldDirs) do
-	 print("fname:", fname)
+	 --print("fname:", fname)
 	 fn = appInfo.Fields..'/'..fname.."/field.jsn"
-	 print("fn", fn)
+	 --print("fn", fn)
 	 fp = io.readall(fn)
 	 if fp then
 	    Field = json.decode(fp)
@@ -2330,7 +2337,7 @@ local function initField()
 	       --print("j, rwy.x, rwy.y:", j, rwy[j].x, rwy[j].y)
 	    end
 	    rwy.heading = Field.runway.heading
-	    print("heading:", rwy.heading)
+	    print("rwy heading:", rwy.heading)
 	       
 	    nfc = {}
 	    nfp = {}
@@ -2429,6 +2436,7 @@ local function loop()
    --   if not emulatorSensorsReady or not emulatorSensorsReady(readSensors) then return end
    --end
    
+
    goodlat = false
    goodlng = false
 
@@ -2457,6 +2465,16 @@ local function loop()
 
    -- start reading all the relevant sensors
    
+   sensor = system.getSensorByID(satCountID, satCountPa)
+   if sensor and sensor.valid then
+      satCount = sensor.value
+   end
+
+   sensor = system.getSensorByID(satQualityID, satQualityPa)
+   if sensor and sensor.valid then
+      satQuality = sensor.value
+   end   
+
    sensor = system.getSensorByID(telem.Longitude.SeId, telem.Longitude.SePa)
 
    if(sensor and sensor.valid) then
@@ -2551,15 +2569,6 @@ local function loop()
       hasCourseGPS = true
    end
 
-   sensor = system.getSensorByID(satCountID, satCountPa)
-   if sensor and sensor.valid then
-      satCount = sensor.value
-   end
-
-   sensor = system.getSensorByID(satQualityID, satQualityPa)
-   if sensor and sensor.valid then
-      satQuality = sensor.value
-   end   
    
    -- only recompute when lat and long have changed
    
@@ -2621,6 +2630,9 @@ if GPSAlt then
       lastlng = longitude
       newPosTime = system.getTimeCounter() + deltaPosTime
       countNoNewPos = 0
+      lastGPSread = currentGPSread
+      currentGPSread = system.getTimeCounter()
+      --print(lastGPSread)
    end
  
    if newpos and not gotInitPos then
