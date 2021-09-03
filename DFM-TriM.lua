@@ -18,8 +18,9 @@ appInfo.Dir  = "Apps/" .. appInfo.Name
 local emFlag
 local fieldSelectEntries={}
 local imageSelectEntries={}
+local imageSelectWidth={}
 local img
-local Field
+local Field={}
 local rwy={}
 local tri={}
 local nfc = {}
@@ -36,36 +37,35 @@ local savedSubForm
 
 local first = true
 
-local function imageScale()
-   --print("imageScale: imageIdx", imageIdx)
-   --print("imageScale ret:", tonumber(string.match(imageSelectEntries[imageIdx], "(%d+)")))
-   return tonumber(string.match(imageSelectEntries[imageIdx], "(%d+)"))
-end
-
 local function xminImg()
-   return -0.50 * imageScale()
+   return -0.50 * imageSelectWidth[imageIdx]
 end
 
 local function xmaxImg()
-   return 0.50 * imageScale()
+   return 0.50 * imageSelectWidth[imageIdx]
 end
 
 local function yminImg()
-   local yrange = imageScale() / 2
-   if not Field or Field.View ~= "Center" then
-      return -0.25 * yrange
-   else
-      return -0.50 * yrange
-   end
+   return -0.50 * imageSelectWidth[imageIdx] / 2
 end
 
 local function ymaxImg()
-   local yrange = imageScale() / 2 
-   if not Field or Field.View ~= "Center" then
-      return 0.75 * yrange
-   else
-      return 0.50 * yrange
-   end
+   return 0.50 * imageSelectWidth[imageIdx] / 2 
+end
+
+local function rotateXY(xx, yy, rotation)
+   local sinShape, cosShape
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
+end
+
+local function ll2xy(lat, lng)
+   local tx, ty
+   tx, ty = rotateXY(rE*(lng-lng0)*coslat0/rad,
+		     rE*(lat-lat0)/rad,
+		     math.rad(Field.images[1].heading))
+   return {x=tx, y=ty}
 end
 
 local function graphScaleRst()
@@ -80,65 +80,28 @@ end
 local function selImage(i)
    --print("selImage", i)
    --print("imageSelectEntries[i]", imageSelectEntries[i])
+
    if not imageSelectEntries[i] then return end
-   
-   imageSelectEntries.selectedImage = imageSelectEntries[i]
-	 graphScaleRst()
-end
 
-
-
-
-local function rotateXY(xx, yy, rotation)
-   local sinShape, cosShape
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
-   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
-end
-
-local function ll2xy(lat, lng)
-   local tx, ty
-   tx, ty = rotateXY(rE*(lng-lng0)*coslat0/rad,
-		     rE*(lat-lat0)/rad,
-		     math.rad(Field.runway.heading - 270))
-   return {x=tx, y=ty}
-end
-
-local function selectCallback(idx)
-   local fc, path
-   print("selectCallback: idx, savedSubForm:", idx, savedSubForm)
-   
-   fieldSelectEntries.selectedField = fieldSelectEntries[idx]
-   path = appInfo.Dir.."/"..fieldSelectEntries.selectedField..
-      "/field.jsn"
-   fc = io.readall(path)
-   if not fc then print("DFM-TriM - Could not read JSON: "..path) end
-   Field = json.decode(fc)
-   if not Field then print("DFM-TriM - Could not decode JSON") end
-   lat0 = Field.lat
-   lng0 = Field.lng
+   lat0 = Field.images[imageIdx].center.lat
+   lng0 = Field.images[imageIdx].center.lng
    coslat0 = math.cos(math.rad(lat0))
    
    rwy = {}
-   for j=1, #Field.runway.path, 1 do
-      rwy[j] = ll2xy(Field.runway.path[j].lat, Field.runway.path[j].lng)
-      --print("j, rwy.x, rwy.y:", j, rwy[j].x, rwy[j].y)
+   if Field.runway then
+      for j=1, #Field.runway.path, 1 do
+	 rwy[j] = ll2xy(Field.runway.path[j].lat, Field.runway.path[j].lng)
+      end
    end
-   rwy.heading = Field.runway.heading
-   --print("runway heading:", rwy.heading)
-   --print("imageSelectEntries.selectedImage:", imageSelectEntries.selectedImage)
-
-
+   
    tri = {}
-   for j=1, #Field.triangle.path, 1 do
-      tri[j] = ll2xy(Field.triangle.path[j].lat, Field.triangle.path[j].lng)
-      --print("j, tri.x, tri.y:", j, tri[j].x, tri[j].y)
+   if Field.triangle then
+      for j=1, #Field.triangle.path, 1 do
+	 tri[j] = ll2xy(Field.triangle.path[j].lat, Field.triangle.path[j].lng)
+      end
+      tri.center = ll2xy(Field.triangle.center.lat, Field.triangle.center.lng)
    end
-   tri.center = ll2xy(Field.triangle.center.lat, Field.triangle.center.lng)
-   --print("tri.center.x, tri.center.y:", tri.center.x, tri.center.y)
-   --print("#Field.runway.path", #Field.triangle.path)	    
-   --print("#tri", #tri)
-
+   
    nfc = {}
    nfp = {}
    
@@ -148,8 +111,6 @@ local function selectCallback(idx)
 	 tt.r = Field.nofly[j].diameter / 2
 	 tt.inside = Field.nofly[j].inside_or_outside == "inside"
 	 table.insert(nfc, tt)
-	 --print("tt.x, tt.y", tt.x, tt.y)
-	 --print("#nfc, x,y,r", #nfc, nfc[#nfc].x, nfc[#nfc].y, nfc[#nfc].r, nfc[#nfc].inside)
       elseif Field.nofly[j].type == "polygon" then
 	 local pp = {}
 	 for k =1, #Field.nofly[j].path, 1 do
@@ -159,11 +120,34 @@ local function selectCallback(idx)
 			    path = pp})
       end
    end
+
+   imageSelectEntries.selectedImage = imageSelectEntries[i]
+   --print("selImage: imageSelectEntries.selectedImage", imageSelectEntries.selectedImage)
+   
+   graphScaleRst()
+
+end
+
+
+local function selectCallback(idx)
+   local fc, path
+   --print("selectCallback: idx, savedSubForm:", idx, savedSubForm)
+   
+   fieldSelectEntries.selectedField = fieldSelectEntries[idx]
+   path = appInfo.Dir.."/"..fieldSelectEntries.selectedField..
+      "/field.jsn"
+   fc = io.readall(path)
+   if not fc then print("DFM-TriM - Could not read JSON: "..path) end
+   Field = json.decode(fc)
+   if not Field then print("DFM-TriM - Could not decode JSON") end
+   lat0 = Field.images[1].center.lat
+   lng0 = Field.images[2].center.lng
+   coslat0 = math.cos(math.rad(lat0))
    
    fieldSelectEntries.selectedField = fieldSelectEntries[idx]
    selImage(1)
 
-   print("fieldIdx", idx)
+   --print("fieldIdx", idx)
    
    fieldIdx = idx
    imageIdx = 1
@@ -171,8 +155,11 @@ local function selectCallback(idx)
    --keyForm(KEY_2)
 end
 
+   
 local function keyForm(key)
    local inc, i, si, ll
+   local fp
+   
    --print("keyForm, savedSubForm:", key, savedSubForm)
    if key == KEY_2 or key == KEY_3 or key == KEY_4 then
       if key == KEY_3 or key == KEY_4 then
@@ -183,35 +170,37 @@ local function keyForm(key)
       else
 	 --print("%selectedField", fieldSelectEntries.selectedField)
 	 i = 0
-	 for fname, ftype, fsize in dir(appInfo.Dir.."/"..fieldSelectEntries.selectedField) do
-	    if ftype == 'file' then
-	       if not string.match(fname, ".jsn") then
-	       i = i + 1
-	       imageSelectEntries[i] = fname
-	       end
-	    end
+	 fp = io.readall(appInfo.Dir .. "/" .. fieldSelectEntries.selectedField .. "/field.jsn")
+	 --print("fp:", fp)
+	 
+	 if fp then
+	    Field = json.decode(fp)
+	 else
+	    print("DFM-TriM: did not read file", fp)
 	 end
-	 table.sort(imageSelectEntries,
-		    function(a,b)
-		       local aa, bb
-		       aa=string.match(a, "(%d+)")
-		       bb=string.match(b, "(%d+)")
-		       return tonumber(aa) < tonumber(bb)
-	 end)
+	 if Field then
+	    --print("#Field.images", #Field.images)
+	 else
+	    print("DFM-TriM: Did not decode jsn in " .. fp)
+	 end
+	 table.sort(Field.images, function(a,b) return a.meters_per_pixel > b.meters_per_pixel end)
+	 
+	 for k,v in ipairs(Field.images) do
+	    imageSelectEntries[k] = Field.images[k].file
+	    imageSelectWidth[k] = v.meters_per_pixel * 320 * math.cos(math.rad(Field.images[k].center.lat))	 
+	    --print("k,iSE,iSW", k, imageSelectEntries[k], imageSelectWidth[k])
+	 end
+	 
 	 imageIdx = 1
 	 selImage(imageIdx)
-	 --selectCallback(imageIdx)
+	 
       end
-      if imageSelectEntries.selectedImage then
 
-	 --print("appInfo.Dir:", appInfo.Dir)
-	 --print("fieldSelectEntries.selectedField:", fieldSelectEntries.selectedField)
-	 --print("fieldSelectEntries.selectedImage:", fieldSelectEntries.selectedImage)
-	 --print("json:", appInfo.Dir .. "/" ..fieldSelectEntries.selectedField.."/"..
-		  --fieldSelectEntries.selectedField..".jsn")
-	 --print("imageSelectEntries.selectedImage:", imageSelectEntries.selectedImage)
-	 img = lcd.loadImage(appInfo.Dir.."/"..fieldSelectEntries.selectedField..
-				"/"..imageSelectEntries.selectedImage)
+      
+      --print("imageSelectEntries.selectedImage:", imageSelectEntries.selectedImage)
+      
+      if imageSelectEntries.selectedImage then
+	 img = lcd.loadImage(imageSelectEntries.selectedImage)
 	 --form.setTitle(imageSelectEntries.selectedImage)
 	 form.setTitle("")
 	 form.reinit(2)
@@ -233,13 +222,14 @@ local function initForm(subform)
    if subform == 1 then
       --form.setTitle("GPS Triangle Racing Fields")
       form.setTitle("")
-      form.setButton(2, ":browser", 1)
+      form.setButton(2, "View", 1)
       i=0
+      --print("dir of:", appInfo.Dir)
       for fname, ftype, fsize in dir(appInfo.Dir) do
 	 if ftype == 'folder' and string.len(fname) > 2 then -- elim "." and ".."
 	    i = i + 1
-	    print("i, fname", i, fname)
-	    fieldSelectEntries[i] = string.format("%s", fname)
+	    --print("i, fname", i, fname)
+	    fieldSelectEntries[i] = fname --string.format("%s", fname)
 	 end
       end
       table.sort(fieldSelectEntries, function(a,b) return a>b end)
@@ -307,9 +297,10 @@ local function printForm(windowWidth, windowHeight)
 	 setColorLabels()
 	 lcd.drawText(10,15,"File: " .. imageSelectEntries.selectedImage, FONT_MINI)	 
 	 lcd.drawText(10,25,Field.shortname .." - " ..Field.name, FONT_MINI)
-	 lcd.drawText(10,35,"Lat: " ..  string.format("%.6f", Field.lat) .. "°", FONT_MINI)
-	 lcd.drawText(10,45,"Lon: " ..  string.format("%.6f", Field.lng) .. "°", FONT_MINI)
-	 lcd.drawText(10,55,"Elev: " .. (Field.elevation or "---") .." m", FONT_MINI)
+	 lcd.drawText(10,35,"Scale: " .. (imageSelectWidth[imageIdx] or "---") .." m/pix", FONT_MINI)
+	 lcd.drawText(10,45,"Lat: " ..  string.format("%.6f", lat0) .. "°", FONT_MINI)
+	 lcd.drawText(10,55,"Lon: " ..  string.format("%.6f", lng0) .. "°", FONT_MINI)
+	 lcd.drawText(10,65,"Elev: " .. (Field.elevation or "---") .." m", FONT_MINI)
 
 	 --lcd.setClipping(0,15,310,160)
 
@@ -317,6 +308,10 @@ local function printForm(windowWidth, windowHeight)
 	 if #rwy == 4 then
 	    ren:reset()
 	    for j = 1, 5, 1 do
+	       if j == 1 then
+		  --print(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
+		  --	    toYPixel(rwy[j%4+1].y, map.Ymin, map.Yrange, windowHeight))	       
+	       end
 	       ren:addPoint(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
 			    toYPixel(rwy[j%4+1].y, map.Ymin, map.Yrange, windowHeight))
 	    end

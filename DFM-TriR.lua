@@ -75,7 +75,7 @@ telem.BaroAlt={}
 
 local variables = {"rotationAngle", "histSample", "histMax", "maxCPU",
 		   "triLength", "maxSpeed", "maxAlt", "elev", "histDistance",
-		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd"}
+		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd", "futureMillis"}
 
 local xtable = {}
 local ytable = {}
@@ -94,6 +94,7 @@ local tri = {}
 local rwy = {}
 local maxpolyX = 0.0
 local Field = {}
+local Fields = {}
 local xHist={}
 local yHist={}
 local xHistLast=0
@@ -233,10 +234,10 @@ local function readSensors()
 		  --print("Altitude", paramGPS[sensor.sensorName][sensor.label].telem)
 		  --print("AltType", paramGPS[sensor.sensorName][sensor.label].AltType)
 		  if paramGPS and paramGPS[sensor.sensorName][sensor.label].AltType == "Rel" then
-		     print("Rel!")
+		     --print("Rel Alt")
 		     absAltGPS = false
 		  else
-		     print("Abs!")
+		     --print("Abs Alt")
 		     absAltGPS = true
 		  end
 		  telem[label].Se = seSeq
@@ -665,6 +666,12 @@ local function initForm(subform)
 
    elseif subform == 5 then
       savedRow = subform-1
+
+      form.addRow(2)
+      form.addLabel({label="Future position (msec)", width=220})
+      form.addIntbox(variables.futureMillis, 0, 10000, 2000, 0, 1,
+		     (function(x) return variableChanged(x, "futureMillis") end) )
+      
       form.addRow(2)
       form.addLabel({label="Show NoFly Zones", width=270})
       noflyEnabledIndex = form.addCheckbox(noflyEnabled, noflyEnabledClicked)
@@ -758,7 +765,7 @@ local function playFile(fn, as)
    if emFlag then
       local fp = io.open(fn)
       if not fp then
-	 print("Cannot open file "..fn)
+	 print("DFM-TriR: Cannot open file "..fn)
       else
 	 io.close(fp)
 	 --print("Playing file "..fn.." status: "..as)
@@ -1098,8 +1105,9 @@ local function calcTriRace()
    local detS1
    local ao
 
-   if not Field or not Field.name then return end
+   if not Field or not Field.name or not Field.triangle then return end
    if not triEnabled then return end
+   if #xtable == 0 or #ytable == 0 then return end
    
    if Field then
       ao = variables.aimoff
@@ -1203,7 +1211,7 @@ local function calcTriRace()
    end
 
    if code < 1 or code > 6 then
-      print("code out of range")
+      print("DFM-TriR: code out of range")
       return
    end
 
@@ -1321,7 +1329,7 @@ local function calcTriRace()
 	    playFile(appInfo.Dir.."Audio/start_with_penalty.wav", AUDIO_QUEUE)	    
 	    if speed  > variables.maxSpeed then
 	       playFile(appInfo.Dir.."Audio/over_max_speed.wav", AUDIO_QUEUE)
-	       print("speed, variables.maxSpeed", speed, variables.maxSpeed)
+	       --print("speed, variables.maxSpeed", speed, variables.maxSpeed)
 	    end
 	    if altitude > variables.maxAlt then
 	       playFile(appInfo.Dir.."Audio/over_max_altitude.wav", AUDIO_QUEUE)
@@ -1649,29 +1657,21 @@ local function isNoFlyP(pp, io, p)
 end
 
 local function xminImg(iM)
-   return -0.50 * Field.images[iM]
+   return -0.50 * Field.imageWidth[iM]
 end
 
 local function xmaxImg(iM)
-   return 0.50 * Field.images[iM]
+   return 0.50 * Field.imageWidth[iM]
 end
 
 local function yminImg(iM)
-   local yrange = Field.images[iM] / 2
-   if not Field.View or Field.View == "Standard" then
-      return -0.25 * yrange
-   else
-      return -0.50 * yrange
-   end
+   return -0.50 * Field.imageWidth[iM] / 2
+   --return 0
 end
 
 local function ymaxImg(iM)
-   local yrange = Field.images[iM] / 2 
-   if not Field.View or Field.View == "Standard" then
-      return 0.75 * yrange
-   else
-      return 0.50 * yrange
-   end
+   return 0.50 * Field.imageWidth[iM] / 2
+--return Field.imageWidth[iM] / 2
 end
 
 local function graphScaleRst(i)
@@ -1681,6 +1681,7 @@ local function graphScaleRst(i)
    map.Xmax = xmaxImg(currentImage)
    map.Ymin = yminImg(currentImage)
    map.Ymax = ymaxImg(currentImage)
+   --print("gSR", i, map.Xmin, map.Xmax, map.Ymin, map.Ymax)
    map.Xrange = map.Xmax - map.Xmin
    map.Yrange = map.Ymax - map.Ymin
    path.xmin = map.Xmin
@@ -1879,11 +1880,11 @@ local function checkNoFly(xt, yt, future)
    
    if noFly ~= noFlyLast and not future then
       if noFly then
-	 print("Enter no fly")
+	 --print("Enter no fly")
 	 playFile(appInfo.Dir.."Audio/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
 	 system.vibration(false, 3) -- left stick, 2x short pulse
       else
-	 print("Exit no fly")
+	 --print("Exit no fly")
 	 playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
       end
       noFlyLast = noFly
@@ -1891,11 +1892,11 @@ local function checkNoFly(xt, yt, future)
 
    if noFlyF ~= noFlyLastF and future then
       if noFlyF then
-	 print("Enter Future no fly")
+	 --print("Enter Future no fly")
 	 playFile(appInfo.Dir.."Audio/no_fly_ahead.wav", AUDIO_IMMEDIATE)
 	 --system.vibration(false, 3) -- left stick, 2x short pulse
       else
-	 print("Exit Future no fly")
+	 --print("Exit Future no fly")
 	 --playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
       end
       noFlyLastF = noFlyF
@@ -1911,6 +1912,130 @@ end
 
 local swzTime = 0
 local panic = false
+
+local function ll2xy(lat, lng)
+   local tx, ty
+   tx, ty = rotateXY(rE*(lng-lng0)*coslat0/rad,
+		     rE*(lat-lat0)/rad,
+		     math.rad(variables.rotationAngle))
+   return {x=tx, y=ty}
+end
+
+local function rwy2XY()
+	    
+   rwy = {}
+   if Field.runway then
+      for j=1, #Field.runway.path, 1 do
+	 rwy[j] = ll2xy(Field.runway.path[j].lat, Field.runway.path[j].lng)
+	 --print("j, rwy.x, rwy.y:", j, rwy[j].x, rwy[j].y)
+      end
+      rwy.heading = Field.runway.heading
+      --print("rwy heading:", rwy.heading)
+   end
+	    
+end
+
+local function tri2XY()
+   tri = {}
+   pylon = {}
+   if Field.triangle then
+      for j=1, #Field.triangle.path, 1 do
+	 tri[j] = ll2xy(Field.triangle.path[j].lat, Field.triangle.path[j].lng)
+	 --print("j, tri.x, tri.y:", j, tri[j].x, tri[j].y)
+      end
+      tri.center = ll2xy(Field.triangle.center.lat, Field.triangle.center.lng)
+      --print("tri.center.x, tri.center.y:", tri.center.x, tri.center.y)
+      --print("lat,lng:", Field.triangle.center.lat, Field.triangle.center.lng)
+   end
+end
+
+local function nfz2XY()
+	    
+   nfc = {}
+   nfp = {}
+   
+   if Field.nofly then
+      for j = 1, #Field.nofly, 1 do
+	 if Field.nofly[j].type == "circle" then
+	    local tt = ll2xy(Field.nofly[j].lat, Field.nofly[j].lng)
+	    tt.r = Field.nofly[j].diameter / 2
+	    tt.inside = Field.nofly[j].inside_or_outside == "inside"
+	    table.insert(nfc, tt)
+	    --print("tt.x, tt.y", tt.x, tt.y)
+	    --print("#nfc, x,y,r", #nfc, nfc[#nfc].x, nfc[#nfc].y, nfc[#nfc].r, nfc[#nfc].inside)
+	 elseif Field.nofly[j].type == "polygon" then
+	    local pp = {}
+	    for k =1, #Field.nofly[j].path, 1 do
+	       table.insert(pp,ll2xy(Field.nofly[j].path[k].lat,Field.nofly[j].path[k].lng))
+	       -- we know 0,0 is at center of runway ... need an "infinity x" point for the
+	       -- no fly region computation ... keep track of largest positive x ..
+	       -- later we will double it to make sure it is well past the no fly polygon
+	       if pp[#pp].x > maxpolyX then maxpolyX = pp[#pp].x end		     
+	    end
+	    table.insert(nfp, {inside=(Field.nofly[j].inside_or_outside == "inside"),
+			       path = pp})
+	 end
+      end
+   end
+end
+
+local function pngLoad(j)
+   local pfn
+   --print("pngLoad - j:", j)
+   pfn = Field.images[j].file
+--   pfn = appInfo.Fields .. '/' .. Field.shortname .. "/" ..
+--      tostring(math.floor(Field.images[j])) ..".png"
+   --print("pngLoad - j, pfn:", j, pfn)
+   fieldPNG[j] = lcd.loadImage(pfn)
+
+   --for kk = 1, #Field.images do
+   --   print("fieldPNG:", kk, fieldPNG[kk])
+   --end
+   
+
+   Field.lat = Field.images[j].center.lat
+   Field.lng = Field.images[j].center.lng
+   lat0 = Field.lat
+   lng0 = Field.lng
+   coslat0 = math.cos(math.rad(lat0))
+   rwy2XY()
+   tri2XY()
+   nfz2XY()
+   xtable={}
+   ytable={}
+   xHist={}
+   yHist={}
+   xHistLast=0
+   yHistLast = 0
+   --print("j, lat0, lng0", j, lat0, lng0)
+   
+   if not fieldPNG[j] then
+      print("DFM-TriR: Failed to load image", j, pfn)
+   end
+end
+
+local function graphInit(im)
+
+   -- im or 1 construct allows im to be nil and if so selects images[1]
+   -- print("graphInit: iField, im", iField, im)
+   
+   if Field.imageWidth and Field.imageWidth[im or 1] then
+      map.Xmin = xminImg(im or 1)
+      map.Xmax = xmaxImg(im or 1)
+      map.Ymin = yminImg(im or 1)
+      map.Ymax = ymaxImg(im or 1)
+   else
+      print("**** graphInit hand setting 20/40")
+      map.Xmin, map.Xmax = -40, 40
+      map.Ymin, map.Ymax = -20, 20
+   end
+
+   map.Xrange = map.Xmax - map.Xmin
+   map.Yrange = map.Ymax - map.Ymin
+   
+   path.xmin, path.xmax, path.ymin, path.ymax = map.Xmin, map.Xmax, map.Ymin, map.Ymax
+
+end
 
 local function mapPrint(windowWidth, windowHeight)
 
@@ -1941,13 +2066,17 @@ local function mapPrint(windowWidth, windowHeight)
 
    if zoomSwitch and (swz and swz == 1) then
       if system.getTimeCounter() - swzTime > 2000 then
-	 graphScaleRst(1)
-	 swzTime = system.getTimeCounter()
+	 --currentImage = 1
+	 --graphInit(currentImage)
+	 --graphScaleRst(1)
+	 --swzTime = system.getTimeCounter()
       end
    end
       
    -- in case the draw functions left color set to their specific values
    setColorMain()
+
+   lcd.drawCircle(160, 80, 5)
    
    lcd.drawText(30-lcd.getTextWidth(FONT_MINI, "N") / 2, 34, "N", FONT_MINI)
    drawShape(30, 40, shapes.arrow, math.rad(-1*variables.rotationAngle))
@@ -1955,27 +2084,37 @@ local function mapPrint(windowWidth, windowHeight)
 
    if satCount then
       text=string.format("%2d Sats", satCount)
-      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 48, text, FONT_MINI)
+      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 50, text, FONT_MINI)
    else
       text = "No Sats"
-      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 48, text, FONT_MINI)
+      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 50, text, FONT_MINI)
    end
-   
+   satQuality=50
+   if satQuality then
+      text=string.format("SatQ %.0f", satQuality)
+      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 62, text, FONT_MINI)
+   end
+      
    text=string.format("%d/%d %d%%", #xHist, variables.histMax, currMaxCPU)
-   lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 62, text, FONT_MINI)
+   lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 74, text, FONT_MINI)
 
    if currentGPSread and lastGPSread then
       text = string.format("GPS dt %d", currentGPSread - lastGPSread)
-      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 76, text, FONT_MINI)
+      lcd.drawText(280-lcd.getTextWidth(FONT_MINI, text) / 2, 140, text, FONT_MINI)
    end
+
+   --text = string.format("%.6f %.6f", lat0 or 0, lng0 or 0)
+   --lcd.drawText(60-lcd.getTextWidth(FONT_MINI, text) / 2, 90, text, FONT_MINI)
+
+   --text = string.format("%d %d", xtable[#xtable] or 0, ytable[#ytable] or 0)
+   --lcd.drawText(200, 10, text, FONT_MINI)
+
+   --text = string.format("%d %d %d %d", map.Xmin, map.Xmax, map.Ymin, map.Ymax)
+   --lcd.drawText(200, 25, text, FONT_MINI)
    
    --text=string.format("NNP %d", countNoNewPos)
    --lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 76, text, FONT_MINI)
    
-   -- if satQuality then
-   --    text=string.format("%.1f", satQuality)
-   --    lcd.drawText(70-lcd.getTextWidth(FONT_MINI, text) / 2, 42, text, FONT_MINI)   
-   -- end
    
 
    if pointSwitch then
@@ -1990,7 +2129,7 @@ local function mapPrint(windowWidth, windowHeight)
       if panic then
 	 offset = #xHist - 200 -- only draw last 200 points .. should be safe
 	 if offset < 0 then -- should not happen .. if so dump and start over
-	    print("dumped history")
+	    print("DFM-TriR: dumped history")
 	    xHist={}
 	    yHist={}
 	 end
@@ -2011,7 +2150,7 @@ local function mapPrint(windowWidth, windowHeight)
 			 toYPixel(yHist[i], map.Ymin, map.Yrange,   windowHeight) + 0)
 	    --]]
 	 else
-	    print("CPU panic", #xHist, system.getCPU(), variables.maxCPU)
+	    print("DFM-TriR: CPU panic", #xHist, system.getCPU(), variables.maxCPU)
 	    panic = true
 	    break
 	 end
@@ -2112,8 +2251,6 @@ local function mapPrint(windowWidth, windowHeight)
 		   toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight) + 0,
 		   shapes.T38, math.rad(heading))
 
-	 variables.futureMillis = 2000 -- XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx
-	 
 	 if variables.futureMillis > 0 then
 	    xf = xtable[i] - speed * (variables.futureMillis / 1000.0) *
 	       math.cos(math.rad(270-heading))
@@ -2148,40 +2285,51 @@ local function mapPrint(windowWidth, windowHeight)
    
 end
 
-
-local function pngLoad(j)
-   local pfn
-   --print("pngLoad - j:", j)
-   pfn = appInfo.Fields .. '/' .. Field.shortname .. "/" ..
-      tostring(math.floor(Field.images[j])) ..".png"
-   --print("pngLoad - j, pfn:", j, pfn)
-   fieldPNG[j] = lcd.loadImage(pfn)
-   if not fieldPNG[j] then
-      print("Failed to load image", j, pfn)
-   end
-end
-
 local function graphScale(xx, yy)
-
+   
    if not map.Xmax then
       print("BAD! -- setting max and min in graphScale")
-      map.Xmax=   400
-      map.Xmin = -400
-      map.Ymax =  200
-      map.Ymin = -200
+      map.Xmax=   40
+      map.Xmin = -40
+      map.Ymax =  20
+      map.Ymin = -20
    end
    
-   if xx > path.xmax then path.xmax = xx end
-   if xx < path.xmin then path.xmin = xx end
-   if yy > path.ymax then path.ymax = yy end
-   if yy < path.ymin then path.ymin = yy end
+   if xx > path.xmax then
+      --print("path.xmax:", map.Xmax, xx, yy, Field.name)
+      path.xmax = xx
+   end
+   if xx < path.xmin then
+      --print("path.xmin:", map.Xmin, xx, yy, Field.name)
+      path.xmin = xx
+   end
+   if yy > path.ymax then
+      --print("path.ymax:", map.Ymax, xx, yy, Field.name)
+      path.ymax = yy
+   end
+   if yy < path.ymin then
+      --print("path.ymin:", map.Ymin, xx, yy, Field.name)
+      path.ymin = yy
+   end
 
    -- if we have an image then scale factor comes from the image
    -- check each image scale .. maxs and mins are precomputed
    -- starting from most zoomed in image (the first one), stop
    -- when the path fits within the window or at max image size
 
-   if currentImage then 
+   --print("path.xmin xmax ymin ymax:", path.xmin, path.xmax, path.ymin, path.ymax)
+   
+   if currentImage then
+      if path.xmin > xminImg(currentImage) or
+	 path.xmax > xmaxImg(currentImage) or
+	 path.ymin < yminImg(currentImage) or
+	 path.ymax > ymaxImg(currentImage)
+      then
+	 currentImage = math.min(currentImage+1, maxImage)
+      end
+      
+	 
+      --[[
       for j = 1, maxImage, 1 do
 	 currentImage = j
 	 if path.xmax <= xmaxImg(j) and
@@ -2190,17 +2338,24 @@ local function graphScale(xx, yy)
 	    path.ymin >= yminImg(j)
 	 then
 	    break
+	 else
+	    --if path.xmax > xmaxImg(j) then print("exceeded xmax", xx, yy) end
+	    --if path.xmin < xminImg(j) then print("exceeded xmin", xx, yy) end
+	    --if path.ymax > ymaxImg(j) then print("exceeded ymax", xx, yy) end
+	    --if path.ymin < yminImg(j) then print("exceeded ymin", xx, yy) end
 	 end
       end
+      --]]
 
       if not fieldPNG[currentImage] then
+	 --print("calling pngLoad", currentImage)
 	 pngLoad(currentImage)
+	 --print("graphScale: currentImage", currentImage)
+	 graphScaleRst(currentImage)
       end
       
-      --print("graphScale: currentImage", currentImage)
-            
-      graphScaleRst(currentImage)
    else
+      print("graphScale else clause********************")
       -- if no image then just scale to keep the path on the map
       -- round Xrange to nearest 200', Yrange to nearest 100' maintain 2:1 aspect ratio
       map.Xrange = math.floor((path.xmax-path.xmin)/200 + .5) * 200
@@ -2223,90 +2378,74 @@ local function graphScale(xx, yy)
 --   print("Xmin,Xmax,Ymin,Ymax", map.Xmin, map.Xmax, map.Ymin, map.Ymax)
 end
 
-local function graphInit(im)
-
-   -- im or 1 construct allows im to be nil and if so selects images[1]
-   -- print("graphInit: iField, im", iField, im)
-   
-   if Field.images and Field.images[im or 1] then
-      map.Xmin = xminImg(im or 1)
-      map.Xmax = xmaxImg(im or 1)
-      map.Ymin = yminImg(im or 1)
-      map.Ymax = ymaxImg(im or 1)
-   else
-      map.Xmin, map.Xmax = -400, 400
-      map.Ymin, map.Ymax = -200, 200
-   end
-
-   map.Xrange = map.Xmax - map.Xmin
-   map.Yrange = map.Ymax - map.Ymin
-   
-   path.xmin, path.xmax, path.ymin, path.ymax = map.Xmin, map.Xmax, map.Ymin, map.Ymax
-
-end
-
-local function ll2xy(lat, lng)
-   local tx, ty
-   tx, ty = rotateXY(rE*(lng-lng0)*coslat0/rad,
-		     rE*(lat-lat0)/rad,
-		     math.rad(variables.rotationAngle))
-   return {x=tx, y=ty}
-end
 
 
 local function initField()
 
    local fp, fn, af
-
+   local atField = false
+   
    fieldDirs={}
 
    if not emFlag then af = "/" .. appInfo.Fields else af = appInfo.Fields end
 
-   --print("appInfo.Fields:", af)
-   
    for fname, ftype, _ in dir(af) do
       if ftype == "folder" and fname ~= "." and fname ~= ".."  then
 	 table.insert(fieldDirs, fname)
       end
    end
+
    --print("initfield: lat0, lng0:", lat0, lng0)
    
    if lng0 and lat0 then -- if location was detected by the GPS system
-      --for fname, ftype, fsize in dir(basedir) do
+      
       for _,fname in ipairs(fieldDirs) do
-	 --print("fname:", fname)
+
+	 if atField then break end
+	 
 	 fn = appInfo.Fields..'/'..fname.."/field.jsn"
-	 --print("fn", fn)
 	 fp = io.readall(fn)
 	 if fp then
 	    Field = json.decode(fp)
 	    if not Field then
-	       print("Failed to decode field" .. fn)
+	       print("DFM-TriR: Failed to decode field " .. fn)
 	       return
 	    end
 	 else
-	    print("Cannot open ", fn)
+	    print("DFM-TriR: Cannot open ", fn)
 	    return
 	 end
-
-	 Field.images = {250, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000}
-
-	 --print("before atfield in initField:", lat0, lng0)
 	 
-	 local atField = (math.abs(lat0 - Field.lat) < 1/60) and
-	 (math.abs(lng0 - Field.lng) < 1/60) 
+	 --Field.name = nil
 
-	 Field.name = nil
+	 -- Use the highest mag image to determine if we are at this field
+	 -- sort the table of images by the zoom level, from highest to lowest zoom
+	 -- using the meters_per_pixel value
+	 table.sort(Field.images, function(a,b) return a.meters_per_pixel < b.meters_per_pixel end)
+
+	 atField = (math.abs(lat0 - Field.images[1].center.lat) < 1/60) and
+	    (math.abs(lng0 - Field.images[1].center.lng) < 1/60) 
+
+	 table.insert(Fields, {})
+	 Fields[#Fields].shortname = Field.shortname
+	 Fields[#Fields].lat0 = Field.images[1].center.lat
+	 Fields[#Fields].lng0 = Field.images[1].center.lng	 
+	 Fields[#Fields].atField = atField
 	 
-	 --if (not iF and atField) then -- then or (iF and iF == i)then
 	 if (atField) then -- then or (iF and iF == i)then
 	    Field.name = fname
+	    Field.imageWidth = {}
+	    Field.lat = Field.images[1].center.lat
+	    Field.lng = Field.images[1].center.lng
+	    for k,v in pairs(Field.images) do
+	       Field.imageWidth[k] = v.meters_per_pixel * 320 * math.cos(math.rad(Field.lat))
+	       --print("* ", k, v.file, Field.imageWidth[k], v.heading, v.file)
+	    end
 	    lng0 = Field.lng -- reset to origin to coords in jsn file
 	    lat0  = Field.lat
-	    --print("atField: Field.lat, Field.lng", Field.lat, Field.lng)
-	    
 	    coslat0 = math.cos(math.rad(lat0))
-	    variables.rotationAngle = Field.runway.heading-270 -- draw rwy along x axis
+	    variables.rotationAngle  = Field.images[1].heading
+
 	    if Field.raceTime then
 	       variables.raceTime = Field.raceTime
 	    else
@@ -2322,61 +2461,28 @@ local function initField()
 
 	    --print("#Field.triangle.path", #Field.triangle.path)
 
-	    tri = {}
-	    for j=1, #Field.triangle.path, 1 do
-	       tri[j] = ll2xy(Field.triangle.path[j].lat, Field.triangle.path[j].lng)
-	       --print("j, tri.x, tri.y:", j, tri[j].x, tri[j].y)
-	    end
-	    tri.center = ll2xy(Field.triangle.center.lat, Field.triangle.center.lng)
-	    --print("tri.center.x, tri.center.y:", tri.center.x, tri.center.y)
-	    --print("#Field.runway.path", #Field.triangle.path)	    
-
-	    rwy = {}
-	    for j=1, #Field.runway.path, 1 do
-	       rwy[j] = ll2xy(Field.runway.path[j].lat, Field.runway.path[j].lng)
-	       --print("j, rwy.x, rwy.y:", j, rwy[j].x, rwy[j].y)
-	    end
-	    rwy.heading = Field.runway.heading
-	    print("rwy heading:", rwy.heading)
-	       
-	    nfc = {}
-	    nfp = {}
-
-	    for j = 1, #Field.nofly, 1 do
-	       if Field.nofly[j].type == "circle" then
-		  local tt = ll2xy(Field.nofly[j].lat, Field.nofly[j].lng)
-		  tt.r = Field.nofly[j].diameter / 2
-		  tt.inside = Field.nofly[j].inside_or_outside == "inside"
-		  table.insert(nfc, tt)
-		  --print("tt.x, tt.y", tt.x, tt.y)
-		  --print("#nfc, x,y,r", #nfc, nfc[#nfc].x, nfc[#nfc].y, nfc[#nfc].r, nfc[#nfc].inside)
-	       elseif Field.nofly[j].type == "polygon" then
-		  local pp = {}
-		  for k =1, #Field.nofly[j].path, 1 do
-		     table.insert(pp,ll2xy(Field.nofly[j].path[k].lat,Field.nofly[j].path[k].lng))
-		  -- we know 0,0 is at center of runway ... need an "infinity x" point for the
-		  -- no fly region computation ... keep track of largest positive x ..
-		  -- later we will double it to make sure it is well past the no fly polygon
-		     if pp[#pp].x > maxpolyX then maxpolyX = pp[#pp].x end		     
-		  end
-		  table.insert(nfp, {inside=(Field.nofly[j].inside_or_outside == "inside"),
-				     path = pp})
-	       end
-	    end
+	    tri2XY()
+	    rwy2XY()
+	    nfz2XY()
+	    
 	    if (Field) then -- if we read the jsn file then extract the info from it
 	       setColorMap()
 	       setColorMain()
 	    end   
-	    break
+	    --break
 	 end
       end
+   end
+
+   for k,v in ipairs(Fields) do
+      print("Fields", k, v.shortname, v.lat0, v.lng0, v.atField)
    end
    
    if Field and Field.name then
       system.messageBox("Current location: " .. Field.name, 2)
       maxImage = #Field.images
+      --print("maxImage:", maxImage)
       if maxImage ~= 0 then
-	 pngLoad(1)
 	 currentImage = 1
 	 graphInit(currentImage) -- re-init graph scales with images loaded
       end
@@ -2652,15 +2758,16 @@ if GPSAlt then
       -- perhaps sensor emulator changed fields .. reinit...
       -- do reset only if running on emulator
       if select(2, system.getDeviceType()) == 1  then
-	 print("emulator - new field")
+	 print("DFM-TriR: Emulator - new field")
 	 lat0 = latitude
 	 lng0 = longitude
+	 coslat0 = math.cos(math.rad(lat0))
 	 fieldPNG={}
 	 initField()
 	 xHist = {}
 	 yHist = {}
       else
-	 print('Bad lat/long: ', latitude, longitude, satCount, satQuality)
+	 print('DFM-TriR: Bad lat/long: ', latitude, longitude, satCount, satQuality)
       end
       return
    end
@@ -2702,18 +2809,21 @@ if GPSAlt then
       table.insert(xtable, x)
       table.insert(ytable, y)
 
+      if #xtable == 1 then
+	 --print("resetting path", path.xmin, path.xmax, path.ymin, path.ymax)
+	 path.xmin = map.Xmin
+	 path.xmax = map.Xmax
+	 path.ymin = map.Ymin
+	 path.ymax = map.Ymax
+	 --print("reset path", path.xmin, path.xmax, path.ymin, path.ymax)
+      end
+
       graphScale(x, y)
       
       checkNoFly(x, y) -- call also from here in loop() so it checks even if not displayed
       
       --print("x,y:", x, y)
       
-      if #xtable == 1 then
-	 path.xmin = map.Xmin
-	 path.xmax = map.Xmax
-	 path.ymin = map.Ymin
-	 path.ymax = map.Ymax
-      end
       -- maybe this should be a bezier curve calc .. which we're already doing ..
       -- just differentiate the polynomial at the endpoint????
       if #xtable > lineAvgPts then -- we have at least 4 points...
@@ -2756,7 +2866,7 @@ local function init()
    if fg then
       shapes = json.decode(fg)
    else
-      print("Could not open "..appInfo.Dir.."JSON/Shapes.jsn")
+      print("DFM-TriR: Could not open "..appInfo.Dir.."JSON/Shapes.jsn")
    end
 
    blueDotImage = lcd.loadImage(appInfo.Dir.."/JSON/small_blue_circle.png")
@@ -2791,6 +2901,7 @@ local function init()
       if j == "aimoff"         then idef =   20 end
       if j == "flightStartSpd" then idef =   20 end
       if j == "flightStartAlt" then idef =   20 end
+      if j == "futureMillis"   then idef = 2000 end
       
       variables[j] = system.pLoad("variables."..variables[i], idef)
    end
