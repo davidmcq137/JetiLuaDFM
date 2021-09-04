@@ -105,21 +105,24 @@ local function selImage(i)
    nfc = {}
    nfp = {}
    
-   for j = 1, #Field.nofly, 1 do
-      if Field.nofly[j].type == "circle" then
-	 local tt = ll2xy(Field.nofly[j].lat, Field.nofly[j].lng)
-	 tt.r = Field.nofly[j].diameter / 2
-	 tt.inside = Field.nofly[j].inside_or_outside == "inside"
-	 table.insert(nfc, tt)
-      elseif Field.nofly[j].type == "polygon" then
-	 local pp = {}
-	 for k =1, #Field.nofly[j].path, 1 do
-	    table.insert(pp,ll2xy(Field.nofly[j].path[k].lat,Field.nofly[j].path[k].lng))
+   if Field.nofly then
+      for j = 1, #Field.nofly, 1 do
+	 if Field.nofly[j].type == "circle" then
+	    local tt = ll2xy(Field.nofly[j].lat, Field.nofly[j].lng)
+	    tt.r = Field.nofly[j].diameter / 2
+	    tt.inside = Field.nofly[j].inside_or_outside == "inside"
+	    table.insert(nfc, tt)
+	 elseif Field.nofly[j].type == "polygon" then
+	    local pp = {}
+	    for k =1, #Field.nofly[j].path, 1 do
+	       table.insert(pp,ll2xy(Field.nofly[j].path[k].lat,Field.nofly[j].path[k].lng))
+	    end
+	    table.insert(nfp, {inside=(Field.nofly[j].inside_or_outside == "inside"),
+			       path = pp})
 	 end
-	 table.insert(nfp, {inside=(Field.nofly[j].inside_or_outside == "inside"),
-			    path = pp})
       end
    end
+   
 
    imageSelectEntries.selectedImage = imageSelectEntries[i]
    --print("selImage: imageSelectEntries.selectedImage", imageSelectEntries.selectedImage)
