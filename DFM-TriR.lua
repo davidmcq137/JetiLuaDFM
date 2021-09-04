@@ -2089,7 +2089,7 @@ local function mapPrint(windowWidth, windowHeight)
       text = "No Sats"
       lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 50, text, FONT_MINI)
    end
-   satQuality=50
+
    if satQuality then
       text=string.format("SatQ %.0f", satQuality)
       lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 62, text, FONT_MINI)
@@ -2431,6 +2431,7 @@ local function initField()
 	 Fields[#Fields].lat0 = Field.images[1].center.lat
 	 Fields[#Fields].lng0 = Field.images[1].center.lng	 
 	 Fields[#Fields].atField = atField
+	 Fields[#Fields].heading = Field.images[1].heading
 	 
 	 if (atField) then -- then or (iF and iF == i)then
 	    Field.name = fname
@@ -2475,7 +2476,7 @@ local function initField()
    end
 
    for k,v in ipairs(Fields) do
-      print("Fields", k, v.shortname, v.lat0, v.lng0, v.atField)
+      print("Fields", k, v.shortname, v.lat0, v.lng0, v.atField, v.heading)
    end
    
    if Field and Field.name then
