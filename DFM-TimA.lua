@@ -420,8 +420,8 @@ local function loop()
       -- odd behavior .. sensor.max tracking with sensor.value??
       -- for now, just set fuel_max once at first reading till we figure it out
       if not fuel_max then
-	 print("DFM-TimA: fuel_max", sensor.max, fuel_qty)
-	 fuel_max = sensor.max
+	 print("DFM-TimA: fuel_qty, sensor.max", fuel_qty, sensor.max)
+	 fuel_max = fuel_qty
       end
       if fuel_max and fuel_qty  and (fuel_max ~= 0) then -- double check!
 	 fuel_pct = math.floor(100 * (fuel_qty / fuel_max) + 0.5)
@@ -550,7 +550,7 @@ local function loop()
 	 if DEBUG then print(fuel_pct, '%') end
       end
 
---      if running_time > 270 then -- this const is 4:30 in secs, so start this ann at 5:00
+      --if running_time > 270 then -- this const is 4:30 in secs, so start this ann at 5:00
       if fuel_pct < 50 then -- do after half emptied - better than a time
 	 burnRate = (100-fuel_pct) / running_time -- long term average since gear up
 	 if burnRate ~= 0.0 then -- odd that this has to be 0.0 ... 0 gives wrong answer

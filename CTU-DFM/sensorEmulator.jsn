@@ -55,7 +55,7 @@
      "luaExp":"1.37"
     },
     {"id":3,
-     "param":999,
+     "param":7,
      "decimals":0,
      "type":1,
      "sensorName":"Turbine",

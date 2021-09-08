@@ -1,7 +1,7 @@
 -- CTU-Dashboard.lua
 
 local wVersion="4"
-local wAppname="CTU"
+local wAppname="CTU-DFM"
 
 -- Locals for the application
 
@@ -129,29 +129,30 @@ local function getWBSensorID()
     local tmpSensorID = nil
 
     for index, sensor in ipairs(system.getSensors()) do
+       --print("index, sensor", index, sensor, sensor.label)
         if (sensor.param == 0) then
             --print("Sensor Name: ", sensor.label)
             hexSensorID = string.format("%x", sensor.id & 0xFFFF)
             hexSensorIndex = string.format("%x", math.floor(sensor.id/2^16))
             --print(string.format("Sensor ID: %s, Index: %s",hexSensorID,hexSensorIndex))
             if (catalog.device[sensor.label] ~= nil) then
-	       --print("-->catalog.device[sensor.label].model", catalog.device[sensor.label].model)
+	       print("-->catalog.device[sensor.label].model", catalog.device[sensor.label].model)
 	       tmpSensorID = sensor.id
 	       --print("sensor.id: ", sensor.id)
-                wbRPMParam = tonumber(catalog.device[sensor.label].RPM)
-                wbEGTParam = tonumber(catalog.device[sensor.label].EGT)
-                wbFuelParam = tonumber(catalog.device[sensor.label].Fuel)
-                wbBattParam = tonumber(catalog.device[sensor.label].Batt)
-                wbPumpParam = tonumber(catalog.device[sensor.label].Pump)
-                wbStatusParam = tonumber(catalog.device[sensor.label].Status)
-		--print("wbRPMParam: ", wbRPMParam)
-		--print("wbEGTParam: ", wbEGTParam)		
-		--print("wbStatusParam: ", wbStatusParam)
-                return tmpSensorID
+	       wbRPMParam = tonumber(catalog.device[sensor.label].RPM)
+	       wbEGTParam = tonumber(catalog.device[sensor.label].EGT)
+	       wbFuelParam = tonumber(catalog.device[sensor.label].Fuel)
+	       wbBattParam = tonumber(catalog.device[sensor.label].Batt)
+	       wbPumpParam = tonumber(catalog.device[sensor.label].Pump)
+	       wbStatusParam = tonumber(catalog.device[sensor.label].Status)
+	       --print("wbRPMParam: ", wbRPMParam)
+	       --print("wbEGTParam: ", wbEGTParam)		
+	       --print("wbStatusParam: ", wbStatusParam)
+	       return tmpSensorID
             end
         end
     end
-
+    
     return tmpSensorID
 end
 
@@ -523,9 +524,12 @@ local function getStatusText(statusSensorID)
 	   --print("value", value)
 	   --print("set wbECUTypePrev", wbECUTypePrev)
 	   ecuStatus = value & 0xFF
+	   --print("ECU status:", ecuStatus)
 	else --Xicoy Telemetry module
 	   wbECUTypePrev = xicoyTelemECUType
 	   ecuStatus = value
+	   ecuStatus = value & 0xFF
+	   --print("ecuStatus:", ecuStatus)
 	end
 
         if (ecuStatus ~= wbStatusPrev) then
@@ -1013,10 +1017,10 @@ local function closeCTU()
    local mn
    local pf
 
-   print("CTU-DFM closeCTU", neverConnected, lastValidFuel, lFuel)
+   print("CTU-DFM-closeCTU:", neverConnected, lastValidFuel, lFuel)
    
    if neverConnected or (lastValidFuel == 100) then
-      print("CTU-DFM closeCTU returning")
+      print("CTU-DFM closeCTU returning - no json written")
       return
    end
    

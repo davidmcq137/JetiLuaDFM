@@ -1,9 +1,32 @@
 [
-{"id":1,"param":0,"sensorName":"", "label":"PS1(P5)"},
-{"id":1,"param":1,"decimals":0,"type":1,"sensorName":"PS1(P5)","label":"EGT","unit":" ","control":"P5", "controlmin":0, "controlmax":10,"value":0, "funcString":"s*sin(2*pi*t/30)+s"},
-{"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
-{"id":2,"param":1,"decimals":0,"type":1,"sensorName":"PS2(P6)", "label":"Airspeed","unit":"m/s", "control":"P6", "controlmin":0, "controlmax":200,"value":0},
-{"id":3,"param":0,"sensorName":"", "label":"PS3(P7)"},
-{"id":3,"param":1,"decimals":0,"type":1,"sensorName":"PS3(P7)","label":"G","unit":"g", "control":"P7", "controlmin":0, "controlmax":10,"value":0}
+{"id":1,"param":0,"sensorName":"", "label":"PS1"},
+    {"id":1,
+     "param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS1",
+     "label":"FuelQty",
+     "unit":"%",
+     "luaExp":"P5(0,2300)*math.exp(-t/300)"},
+    {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
+    {"id":2,
+     "param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS2(P6)",
+     "label":"Airspeed",
+     "unit":"m/s",
+     "luaExp":"P6(0,200)"
+    },
+    {"id":3,"param":0,"sensorName":"", "label":"PS3(P7)"},
+    {"id":3,
+     "param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS3(P7)",
+     "label":"G",
+     "unit":"g",
+     "luaExp":"P7(0,10)"
+     }
 ]
    

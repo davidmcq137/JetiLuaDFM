@@ -75,7 +75,8 @@ telem.BaroAlt={}
 
 local variables = {"rotationAngle", "histSample", "histMax", "maxCPU",
 		   "triLength", "maxSpeed", "maxAlt", "elev", "histDistance",
-		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd", "futureMillis"}
+		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd",
+		   "futureMillis", "triRotation", "triOffsetX", "triOffsetY"}
 
 local xtable = {}
 local ytable = {}
@@ -362,6 +363,10 @@ end
 
 -- Actions when settings changed
 
+local function triReset(value)
+   pylon = {}
+end
+
 local function sensorChanged(value, str, isGPS)
 
    telem[str].Se = value
@@ -384,7 +389,8 @@ local function sensorChanged(value, str, isGPS)
    system.pSave("telem."..str..".SePa", telem[str].SePa)
 end
 
-local function variableChanged(value, var)
+local function variableChanged(value, var, fcn)
+   if fcn then fcn() end
    variables[var] = value
    system.pSave("variables."..var, value)
 end
@@ -505,6 +511,7 @@ local function noflyEnabledClicked(value)
    system.pSave("noflyEnabled", tostring(noflyEnabled))
 end
 
+
 --------------------------------------------------------------------------------
 -- Draw the main form (Application inteface)
 
@@ -519,14 +526,17 @@ local function initForm(subform)
       form.addLink((function() form.reinit(3) end),
 	 {label = "Race Parameters >>"})
 
+      form.addLink((function() form.reinit(6) end),
+	 {label = "Triangle Parameters >>"})
+
       form.addLink((function() form.reinit(4) end),
 	 {label = "Track History >>"})
 
       form.addLink((function() form.reinit(5) end),
 	 {label = "Settings >>"})            
 
-      form.addRow(1)
-      form.addLabel({label="DFM - v 0.4", font=FONT_MINI, alignRight=true})
+      --form.addRow(1)
+      --form.addLabel({label="DFM", font=FONT_MINI, alignRight=true})
 
       form.setFocusedRow(savedRow)
 
@@ -621,10 +631,9 @@ local function initForm(subform)
       form.addLabel({label="Triangle racing START switch", width=220})
       form.addInputbox(startSwitch, false, startSwitchChanged)
       
-      --form.addRow(2)
-      --form.addLabel({label="Triangle leg", width=220})
-      --if Field and Field.triangle then variables.triLength = Field.triangle end 
-      --form.addIntbox(variables.triLength, 10, 1000, 500, 0, 10, triLengthChanged)
+      form.addRow(2)
+      form.addLabel({label="Triangle leg", width=220})
+      form.addIntbox(variables.triLength, 10, 1000, 250, 0, 10, triLengthChanged)
       
       form.addRow(2)
       form.addLabel({label="Triangle race time (m)", width=220})
@@ -680,16 +689,37 @@ local function initForm(subform)
       form.addLabel({label="Field elev (m)", width=220})
       form.addIntbox(variables.elev, 0, 1000, 100, 0, 1, elevChanged)
       
-      form.addRow(2)
-      form.addLabel({label="Zoom reset sw", width=220})
-      form.addInputbox(zoomSwitch, false, zoomSwitchChanged)
-      
-      form.addRow(2)
-      form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
-      resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
+      --form.addRow(2)
+      --form.addLabel({label="Zoom reset sw", width=220})
+      --form.addInputbox(zoomSwitch, false, zoomSwitchChanged)
+
+      --form.addRow(2)
+      --form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
+      --resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
       
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
+   elseif subform == 6 then
+      savedRow = subform-1
+      
+      form.addRow(2)
+      form.addLabel({label="Triangle Rotation (deg CCW)", width=220})
+      form.addIntbox(variables.triRotation, -180, 180, 0, 0, 1,
+		     (function(x) return variableChanged(x, "triRotation", triReset) end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Triangle Left (-) / Right(+) (m)", width=220})
+      form.addIntbox(variables.triOffsetX, -1000, 1000, 0, 0, 1,
+		     (function(x) return variableChanged(x, "triOffsetX", triReset) end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Triangle Up(+) / Down(-) (m)", width=220})
+      form.addIntbox(variables.triOffsetY, -1000, 1000, 0, 0, 1,
+		     (function(x) return variableChanged(x, "triOffsetY", triReset) end) )
+      
+      form.addLink((function() form.reinit(1) end),
+	 {label = "Back to main menu",font=FONT_BOLD})
+      
    end
 end
 
@@ -1126,18 +1156,44 @@ local function calcTriRace()
    -- if no course computed yet, start by defining the pylons
 
    if #pylon < 1 and Field.name then -- need to confirm with RFM order of vertices
-      pylon[1] = {x=tri[2].x ,y=tri[2].y,aimoff=ao}
-      if Field.extend then
-	 pylon[2] = {x=tri[1].x,y=tri[1].y + Field.extend,aimoff=ao}
-      else
-	 pylon[2] = {x=tri[1].x,y=tri[1].y,aimoff=ao}
+
+      --print("variables.triRotation:", variables.triRotation)
+      --print("variables.triOffsetX:", variables.triOffsetX)
+      --print("variables.triOffsetY:", variables.triOffsetY)      
+       
+      --print("base angle", math.deg(math.atan(tri[3].x - tri[2].x, tri[3].y - tri[2].y)))
+      -- base angle should be given by Field.triangle.heading and Field.images[1].heading
+      
+      --local ttri={}
+      
+      for i=1,3,1 do
+	 tri[i].dx = tri[i].x - tri.center.x
+	 tri[i].dy = tri[i].y - tri.center.y 
+	 tri[i].dx, tri[i].dy = rotateXY(tri[i].dx, tri[i].dy, math.rad(variables.triRotation))
+	 --ttri[i] = {
+	 --   x=tri[i].dx + tri.center.x + variables.triOffsetX,
+	 --   y=tri[i].dy + tri.center.y + variables.triOffsetY
+	 --}
       end
-      pylon[3] = {x=tri[3].x,y=tri[3].y,aimoff=ao}
+
+      --pylon[1] = {x=ttri[2].x + tri[2].dx, y=ttri[2].y + tri[2].dy,aimoff=ao}
+      pylon[1] = {x = tri[2].dx + tri.center.x + variables.triOffsetX,
+		  y = tri[2].dy + tri.center.y + variables.triOffsetY, aimoff=ao}
+      --pylon[2] = {x=ttri[1].x + tri[1].dx, y=ttri[1].y + tri[1].dy,aimoff=ao}
+
+      pylon[2] = {x=tri[1].dx + tri.center.x + variables.triOffsetX,
+		  y=tri[1].dy + tri.center.y + variables.triOffsetY, aimoff=ao}
+      
+      --pylon[3] = {x=ttri[3].x + tri[3].dx, y=ttri[3].y + tri[3].dy,aimoff=ao}
+      pylon[3] = {x=tri[3].dx + tri.center.x + variables.triOffsetX,
+		  y=tri[3].dy + tri.center.y + variables.triOffsetY,aimoff=ao}      
    end
 
+   --local hypo = math.sqrt( (tri[2].x - tri[3].x)^2 + (tri[2].y - tri[3].y)^2 )
+   
    -- extend startline below hypotenuse of triangle  by 0.8x inside length
-   pylon.start = {x=tri.center.x + 0.8 * (tri.center.x - pylon[2].x) ,
-		  y=tri.center.y + 0.8 * (tri.center.y - pylon[2].y)}
+   pylon.start = {x=tri.center.x + variables.triOffsetX + 0.8 * (tri.center.x + variables.triOffsetX- pylon[2].x) ,
+		  y=tri.center.y + variables.triOffsetY + 0.8 * (tri.center.y + variables.triOffsetY - pylon[2].y)}
 
    --local region={2,3,3,1,2,1,0}
 
@@ -1150,7 +1206,11 @@ local function calcTriRace()
    if (#pylon > 0) and (not pylon[1].xm) then
       for j=1, #pylon do
 	 local zx, zy
-	 local rot = {math.rad(-112.5), 0, math.rad(112.5)}
+	 local rot = {
+	    math.rad(-112.5) + math.rad(variables.triRotation) - math.rad(Field.triangle.heading - Field.images[1].heading),
+	    math.rad(variables.triRotation) - math.rad(Field.triangle.heading - Field.images[1].heading),
+	    math.rad(112.5) + math.rad(variables.triRotation) - math.rad(Field.triangle.heading - Field.images[1].heading)
+	 }
 	 pylon[j].xm = (pylon[m3(j+1)].x + pylon[m3(j+2)].x ) / 2.0
 	 pylon[j].ym = (pylon[m3(j+1)].y + pylon[m3(j+2)].y ) / 2.0
 	 pylon[j].xe = 2 * pylon[j].x - pylon[j].xm
@@ -1196,6 +1256,8 @@ local function calcTriRace()
    -- now compute determinants off the midpoint to vertext lines to find
    -- out which of the six zones around the triangle the plane is in
    -- use a binary code to number the zones
+   -- https://math.stackexchange.com/questions/274712/
+   -- calculate-on-which-side-of-a-straight-line-is-a-given-point-located   
    
    local det = {}
    for j=1, #pylon do
@@ -1246,11 +1308,14 @@ local function calcTriRace()
       raceParam.flightLandTime = 0
    end
 
--- start zone is left half plane divided by start line
-   detS1 = xtable[#xtable]
+   -- start zone is left half plane divided by start line
+
+   detS1 = (xtable[#xtable] - tri.center.x) * (pylon.start.y - tri.center.y) -
+      (ytable[#ytable] - tri.center.y) * (pylon.start.x - tri.center.x)
+   --detS1 = xtable[#xtable]
 
    local inStartZone
-   if detS1 <= 0 then inStartZone = true else inStartZone = false end
+   if detS1 >= 0 then inStartZone = true else inStartZone = false end
    
    -- read the start switch
    
@@ -1305,7 +1370,7 @@ local function calcTriRace()
    -- this if determines we just crossed the start/finish line
    -- now just left of origin ... does not have to be below hypot.
    
-   if lastdetS1 <= 0 and detS1 >= 0 then
+   if lastdetS1 >= 0 and detS1 <= 0 then
       if raceParam.racing then
 	 if nextPylon > 3 then -- lap complete
 	    system.playBeep(0, 800, 400)
@@ -1981,18 +2046,22 @@ end
 
 local function pngLoad(j)
    local pfn
-   --print("pngLoad - j:", j)
    pfn = Field.images[j].file
---   pfn = appInfo.Fields .. '/' .. Field.shortname .. "/" ..
---      tostring(math.floor(Field.images[j])) ..".png"
-   --print("pngLoad - j, pfn:", j, pfn)
    fieldPNG[j] = lcd.loadImage(pfn)
 
+   print("pngLoad:", pfn)
+   
    --for kk = 1, #Field.images do
    --   print("fieldPNG:", kk, fieldPNG[kk])
    --end
    
+   if not fieldPNG[j] then
+      print("DFM-TriR: Failed to load image", j, pfn)
+      return
+   end
 
+   -- get here if image file opened successfully
+   
    Field.lat = Field.images[j].center.lat
    Field.lng = Field.images[j].center.lng
    lat0 = Field.lat
@@ -2009,9 +2078,6 @@ local function pngLoad(j)
    yHistLast = 0
    --print("j, lat0, lng0", j, lat0, lng0)
    
-   if not fieldPNG[j] then
-      print("DFM-TriR: Failed to load image", j, pfn)
-   end
 end
 
 local function graphInit(im)
@@ -2076,7 +2142,7 @@ local function mapPrint(windowWidth, windowHeight)
    -- in case the draw functions left color set to their specific values
    setColorMain()
 
-   lcd.drawCircle(160, 80, 5)
+   --lcd.drawCircle(160, 80, 5) -- circle in center of screen
    
    lcd.drawText(30-lcd.getTextWidth(FONT_MINI, "N") / 2, 34, "N", FONT_MINI)
    drawShape(30, 40, shapes.arrow, math.rad(-1*variables.rotationAngle))
@@ -2383,7 +2449,11 @@ end
 local function initField()
 
    local fp, fn, af
-   local atField = false
+   local atField
+   local atFields
+   
+   atFields = 0
+   atField = false
    
    fieldDirs={}
 
@@ -2395,13 +2465,13 @@ local function initField()
       end
    end
 
-   --print("initfield: lat0, lng0:", lat0, lng0)
+   print("initfield: lat0, lng0:", lat0, lng0)
    
    if lng0 and lat0 then -- if location was detected by the GPS system
       
       for _,fname in ipairs(fieldDirs) do
 
-	 if atField then break end
+	 --if atField then break end
 	 
 	 fn = appInfo.Fields..'/'..fname.."/field.jsn"
 	 fp = io.readall(fn)
@@ -2438,9 +2508,13 @@ local function initField()
 	    Field.imageWidth = {}
 	    Field.lat = Field.images[1].center.lat
 	    Field.lng = Field.images[1].center.lng
-	    for k,v in pairs(Field.images) do
-	       Field.imageWidth[k] = v.meters_per_pixel * 320 * math.cos(math.rad(Field.lat))
-	       --print("* ", k, v.file, Field.imageWidth[k], v.heading, v.file)
+
+	    atFields = atFields + 1
+	    print("atField", fname, atFields, Field.lat, Field.lng)
+	    
+	    for k,v in ipairs(Field.images) do
+	       Field.imageWidth[k] = v.meters_per_pixel * 320 -- Russell doing this cos now* math.cos(math.rad(Field.lat))
+	       print("* ", k, v.file, Field.imageWidth[k], v.heading, v.file)
 	    end
 	    lng0 = Field.lng -- reset to origin to coords in jsn file
 	    lat0  = Field.lat
@@ -2888,6 +2962,12 @@ local function init()
 
    --local vdef
    
+   --variables.histSample.default
+      
+   -- this is an idiotic way to do this .. maybe put the names and defaults in the declaration
+   -- e.g. variables = { {"histSample", 1000}, {"histMax", 0} ... }
+   -- then can do in O(n) with one loop
+   
    for i, j in ipairs(variables) do
       idef = 0
       if j == "histSample"     then idef = 1000 end
@@ -2903,7 +2983,10 @@ local function init()
       if j == "flightStartSpd" then idef =   20 end
       if j == "flightStartAlt" then idef =   20 end
       if j == "futureMillis"   then idef = 2000 end
-      
+      if j == "triRotation"    then idef =    0 end
+      if j == "triOffsetX"     then idef =    0 end
+      if j == "triOffsetY"     then idef =    0 end      
+
       variables[j] = system.pLoad("variables."..variables[i], idef)
    end
 
@@ -2927,10 +3010,10 @@ local function init()
 
    arcFile = lcd.loadImage(appInfo.Dir .. "JSON/c-000.png")
 
-   playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
+   --playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
    
    readSensors()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="0.3", name=appInfo.Name}
+return {init=init, loop=loop, author="DFM", version="3", name=appInfo.Name}
