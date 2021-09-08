@@ -36,7 +36,7 @@ local appInfo={}
 appInfo.Name = "DFM-TriR"
 appInfo.Maps = "DFM-TriM"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
-appInfo.Fields = "Apps/" .. appInfo.Maps -- .."/"
+appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Fields.jsn" -- .."/"
 
 --appInfo.Fields = appInfo.Dir .. "Fields/"
 
@@ -2448,61 +2448,52 @@ end
 
 local function initField()
 
-   local fp, fn, af
+   local fp, fn
    local atField
    local atFields
+   local fname
    
    atFields = 0
    atField = false
+
+   if not emFlag then fn = "/" .. appInfo.Fields else fn = appInfo.Fields end
+
+   print("fn:", fn)
    
-   fieldDirs={}
+   fp = io.readall(fn)
 
-   if not emFlag then af = "/" .. appInfo.Fields else af = appInfo.Fields end
-
-   for fname, ftype, _ in dir(af) do
-      if ftype == "folder" and fname ~= "." and fname ~= ".."  then
-	 table.insert(fieldDirs, fname)
+   if fp then
+      Fields = json.decode(fp)
+      if not Fields then
+	 print("DFM-TriR: Failed to decode " .. fn)
+	 return
       end
+   else
+      print("DFM-TriR: Cannot open ", fn)
+      return
    end
 
-   print("initfield: lat0, lng0:", lat0, lng0)
    
+   print("initfield: lat0, lng0:", lat0, lng0)
+
    if lng0 and lat0 then -- if location was detected by the GPS system
       
-      for _,fname in ipairs(fieldDirs) do
+      for fname,Field in pairs(Fields) do
 
-	 --if atField then break end
-	 
-	 fn = appInfo.Fields..'/'..fname.."/field.jsn"
-	 fp = io.readall(fn)
-	 if fp then
-	    Field = json.decode(fp)
-	    if not Field then
-	       print("DFM-TriR: Failed to decode field " .. fn)
-	       return
-	    end
-	 else
-	    print("DFM-TriR: Cannot open ", fn)
-	    return
-	 end
-	 
-	 --Field.name = nil
+	 print("for loop: fname, Field, Field.name", fname, Field, Field.name)
+
+	 print("ppm", Field.images[1].meters_per_pixel)
+
+	 foo()
 
 	 -- Use the highest mag image to determine if we are at this field
 	 -- sort the table of images by the zoom level, from highest to lowest zoom
 	 -- using the meters_per_pixel value
-	 table.sort(Field.images, function(a,b) return a.meters_per_pixel < b.meters_per_pixel end)
+	 --table.sort(Field.images, function(a,b) return a.meters_per_pixel < b.meters_per_pixel end)
 
 	 atField = (math.abs(lat0 - Field.images[1].center.lat) < 1/60) and
 	    (math.abs(lng0 - Field.images[1].center.lng) < 1/60) 
 
-	 table.insert(Fields, {})
-	 Fields[#Fields].shortname = Field.shortname
-	 Fields[#Fields].lat0 = Field.images[1].center.lat
-	 Fields[#Fields].lng0 = Field.images[1].center.lng	 
-	 Fields[#Fields].atField = atField
-	 Fields[#Fields].heading = Field.images[1].heading
-	 
 	 if (atField) then -- then or (iF and iF == i)then
 	    Field.name = fname
 	    Field.imageWidth = {}
