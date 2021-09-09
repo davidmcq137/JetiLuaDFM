@@ -1,7 +1,7 @@
 --[[
 
    ---------------------------------------------------------------------------------------
-   DFM-TriR.lua -- GPS triangle racing in a Jeti app
+   DFM-Maps.lua -- GPS map display and triangle racing app
 
    Derived from DFM-LSO.lua -- "Landing Signal Officer" -- GPS Map and
    "ILS"/GPS RNAV system derived from DFM's Speed and Time Announcers,
@@ -33,13 +33,10 @@
 --]]
 
 local appInfo={}
-appInfo.Name = "DFM-TriR"
-appInfo.Maps = "DFM-TriM"
+appInfo.Name = "DFM-Maps"
+appInfo.Maps = "DFM-Maps"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
-appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Fields.jsn" -- .."/"
-
---appInfo.Fields = appInfo.Dir .. "Fields/"
-
+appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
 
 local latitude
 local longitude 
@@ -866,7 +863,7 @@ local function playFile(fn, as)
    if emFlag then
       local fp = io.open(fn)
       if not fp then
-	 print("DFM-TriR: Cannot open file "..fn)
+	 print(appInfo.Name .. ": Cannot open file "..fn)
       else
 	 io.close(fp)
 	 --print("Playing file "..fn.." status: "..as)
@@ -1344,7 +1341,7 @@ local function calcTriRace()
    end
 
    if code < 1 or code > 6 then
-      print("DFM-TriR: code out of range")
+      print(appInfo.Name .. ": code out of range")
       return
    end
 
@@ -2133,7 +2130,7 @@ local function pngLoad(j)
    --end
    
    if not fieldPNG[j] then
-      print("DFM-TriR: Failed to load image", j, pfn)
+      print(appInfo.Name .. ": Failed to load image", j, pfn)
       return
    end
 
@@ -2275,7 +2272,7 @@ local function mapPrint(windowWidth, windowHeight)
       if panic then
 	 offset = #xHist - 200 -- only draw last 200 points .. should be safe
 	 if offset < 0 then -- should not happen .. if so dump and start over
-	    print("DFM-TriR: dumped history")
+	    print(appInfo.Name .. ": dumped history")
 	    xHist={}
 	    yHist={}
 	    latHist={}
@@ -2298,7 +2295,7 @@ local function mapPrint(windowWidth, windowHeight)
 			 toYPixel(yHist[i], map.Ymin, map.Yrange,   windowHeight) + 0)
 	    --]]
 	 else
-	    print("DFM-TriR: CPU panic", #xHist, system.getCPU(), variables.maxCPU)
+	    print(AppInfo.Name .. ": CPU panic", #xHist, system.getCPU(), variables.maxCPU)
 	    panic = true
 	    break
 	 end
@@ -2559,11 +2556,11 @@ local function initField()
    if fp then
       Fields = json.decode(fp)
       if not Fields then
-	 print("DFM-TriR: Failed to decode " .. fn)
+	 print(appInfo.Name .. ": Failed to decode " .. fn)
 	 return
       end
    else
-      print("DFM-TriR: Cannot open ", fn)
+      print(appInfo.Name .. ": Cannot open ", fn)
       return
    end
 
@@ -2899,7 +2896,7 @@ if GPSAlt then
       -- perhaps sensor emulator changed fields .. reinit...
       -- do reset only if running on emulator
       if select(2, system.getDeviceType()) == 1  then
-	 print("DFM-TriR: Emulator - new field")
+	 print(appInfo.Name .. ": Emulator - new field")
 	 lat0 = latitude
 	 lng0 = longitude
 	 coslat0 = math.cos(math.rad(lat0))
@@ -2910,7 +2907,7 @@ if GPSAlt then
 	 latHist = {}
 	 lngHist = {}
       else
-	 print('DFM-TriR: Bad lat/long: ', latitude, longitude, satCount, satQuality)
+	 print(appInfo.Name .. ': Bad lat/long: ', latitude, longitude, satCount, satQuality)
       end
       return
    end
@@ -3015,7 +3012,7 @@ local function init()
    if fg then
       shapes = json.decode(fg)
    else
-      print("DFM-TriR: Could not open "..appInfo.Dir.."JSON/Shapes.jsn")
+      print(appInfo.Name .. ": Could not open "..appInfo.Dir.."JSON/Shapes.jsn")
    end
 
    blueDotImage = lcd.loadImage(appInfo.Dir.."/JSON/small_blue_circle.png")
