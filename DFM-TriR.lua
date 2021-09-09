@@ -417,9 +417,8 @@ local function resetOriginChanged(value)
    end
 end
 
-local function validAnn(str)
-   local annStr = "[^cCdDpPtTaAsS/-]"
-   if string.find(str, annStr) then
+local function validAnn(val, str)
+   if string.find(str, val) then
       system.messageBox("Invalid Character(s)")
       return false
    else
@@ -504,7 +503,7 @@ local function elevChanged(value)
 end
 
 local function annTextChanged(value)
-   if validAnn(value) then
+   if validAnn("[^cCdDpPtTaAsS%-]", value) then
       annText = value
       system.pSave("annText", annText)
    end
@@ -512,7 +511,7 @@ local function annTextChanged(value)
 end
 
 local function preTextChanged(value)
-   if validAnn(value) then
+   if validAnn("[^aAsS%-]", value) then
       preText = value
       system.pSave("preText", preText)
    end
@@ -752,14 +751,16 @@ local function initForm(subform)
    elseif subform == 7 or subform == 8 then
       savedRow = subform-1
       
-      form.addRow(1)
-      form.addLabel({label="c/C: Course correction (° Left/Right)", width=220, font=FONT_MINI})
-      form.addRow(1)
-      form.addLabel({label="d/D: Distance to next pylon (m)", width=220, font=FONT_MINI})
-      form.addRow(1)
-      form.addLabel({label="p/P: Perpindicular distance to triangle leg (m)", width=220, font=FONT_MINI})
-      form.addRow(1)
-      form.addLabel({label="t/T: Time to pylon (s)", width=220, font=FONT_MINI})
+      if subform == 7 then
+	 form.addRow(1)
+	 form.addLabel({label="c/C: Course correction (° Left/Right)", width=220, font=FONT_MINI})
+	 form.addRow(1)
+	 form.addLabel({label="d/D: Distance to next pylon (m)", width=220, font=FONT_MINI})
+	 form.addRow(1)
+	 form.addLabel({label="p/P: Perpindicular distance to triangle leg (m)", width=220, font=FONT_MINI})
+	 form.addRow(1)
+	 form.addLabel({label="t/T: Time to pylon (s)", width=220, font=FONT_MINI})
+      end
       form.addRow(1)
       form.addLabel({label="a/A: Altitude (m)", width=220, font=FONT_MINI})
       form.addRow(1)
