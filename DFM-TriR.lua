@@ -504,9 +504,7 @@ local function elevChanged(value)
 end
 
 local function annTextChanged(value)
-   print("preTextChanged:", value, annText)
    if validAnn(value) then
-      print("pSave")
       annText = value
       system.pSave("annText", annText)
    end
@@ -514,9 +512,7 @@ local function annTextChanged(value)
 end
 
 local function preTextChanged(value)
-   print("preTextChanged:", value, preText)
    if validAnn(value) then
-      print("pSave")
       preText = value
       system.pSave("preText", preText)
    end
