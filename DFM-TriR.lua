@@ -127,10 +127,14 @@ local GPSsensorLalist = { "..." }
 local GPSsensorIdlist = { "..." }
 local GPSsensorPalist = { "..." }
 
+local checkBox={}
+
 local triEnabled
 local triEnabledIndex
 local noflyEnabled
 local noflyEnabledIndex
+--local noFlyWarnEnabled
+--local noFlyWarnIndex
 
 local pointSwitch
 local zoomSwitch
@@ -413,6 +417,16 @@ local function resetOriginChanged(value)
    end
 end
 
+local function validAnn(str)
+   local annStr = "[^cCdDpPtTaAsS/-]"
+   if string.find(str, annStr) then
+      system.messageBox("Invalid Character(s)")
+      return false
+   else
+      return true
+   end
+end
+
 local function pointSwitchChanged(value)
    pointSwitch = value
    system.pSave("pointSwitch", pointSwitch)
@@ -490,13 +504,29 @@ local function elevChanged(value)
 end
 
 local function annTextChanged(value)
-   annText = value
-   system.pSave("annText", annText)
+   print("preTextChanged:", value, annText)
+   if validAnn(value) then
+      print("pSave")
+      annText = value
+      system.pSave("annText", annText)
+   end
+   form.reinit(7)
 end
 
 local function preTextChanged(value)
-   preText = value
-   system.pSave("preText", preText)
+   print("preTextChanged:", value, preText)
+   if validAnn(value) then
+      print("pSave")
+      preText = value
+      system.pSave("preText", preText)
+   end
+   form.reinit(8)
+end
+
+local function noFlyWarningEnabledClicked(value)
+   checkBox.noFlyWarningEnabled = not checkBox.noFlyWarningEnabled
+   form.setValue(checkBox.noFlyWarningIndex, checkBox.noFlyWarningEnabled)
+   system.pSave("noFlyWarningEnabled", tostring(checkBox.noFlyWarningEnabled))
 end
 
 local function triEnabledClicked(value)
@@ -662,13 +692,11 @@ local function initForm(subform)
       form.addLabel({label="Flight Start Altitude (m)", width=220})
       form.addIntbox(variables.flightStartAlt, 0, 100, 20, 0, 1, flightStartAltChanged)
 
-      form.addRow(2)
-      form.addLabel({label="Racing announce sequence", width=220})
-      form.addTextbox(annText, 30, annTextChanged)
-      
-      form.addRow(2)
-      form.addLabel({label="Pre-race announce sequence", width=220})
-      form.addTextbox(preText, 30, preTextChanged)
+      form.addLink((function() form.reinit(7) end),
+	 {label = "Racing announce sequence >>"})            
+
+      form.addLink((function() form.reinit(8) end),
+	 {label = "Racing pre-announce sequence >>"})            
 
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
@@ -678,13 +706,18 @@ local function initForm(subform)
 
       form.addRow(2)
       form.addLabel({label="Future position (msec)", width=220})
-      form.addIntbox(variables.futureMillis, 0, 10000, 2000, 0, 1,
+      form.addIntbox(variables.futureMillis, 0, 10000, 2000, 0, 10,
 		     (function(x) return variableChanged(x, "futureMillis") end) )
       
       form.addRow(2)
       form.addLabel({label="Show NoFly Zones", width=270})
       noflyEnabledIndex = form.addCheckbox(noflyEnabled, noflyEnabledClicked)
 
+      form.addRow(2)
+      form.addLabel({label="Announce NoFly Entry/Exit", width=270})
+      checkBox.noFlyWarningIndex =
+	 form.addCheckbox(checkBox.noFlyWarningEnabled, noFlyWarningEnabledClicked)
+      
       form.addRow(2)
       form.addLabel({label="Field elev (m)", width=220})
       form.addIntbox(variables.elev, 0, 1000, 100, 0, 1, elevChanged)
@@ -717,6 +750,34 @@ local function initForm(subform)
       form.addIntbox(variables.triOffsetY, -1000, 1000, 0, 0, 1,
 		     (function(x) return variableChanged(x, "triOffsetY", triReset) end) )
       
+      form.addLink((function() form.reinit(1) end),
+	 {label = "Back to main menu",font=FONT_BOLD})
+      
+   elseif subform == 7 or subform == 8 then
+      savedRow = subform-1
+      
+      form.addRow(1)
+      form.addLabel({label="c/C: Course correction (° Left/Right)", width=220, font=FONT_MINI})
+      form.addRow(1)
+      form.addLabel({label="d/D: Distance to next pylon (m)", width=220, font=FONT_MINI})
+      form.addRow(1)
+      form.addLabel({label="p/P: Perpindicular distance to triangle leg (m)", width=220, font=FONT_MINI})
+      form.addRow(1)
+      form.addLabel({label="t/T: Time to pylon (s)", width=220, font=FONT_MINI})
+      form.addRow(1)
+      form.addLabel({label="a/A: Altitude (m)", width=220, font=FONT_MINI})
+      form.addRow(1)
+      form.addLabel({label="s/S: Speed (km/h)", width=220, font=FONT_MINI})
+      form.addRow(2)
+      local temp
+      if subform == 7 then
+	 form.addLabel({label="Racing announce sequence", width=220})
+	 temp = annText
+	 form.addTextbox(temp, 30, annTextChanged)
+      else
+	 form.addLabel({label="Pre-race announce sequence", width=220})
+	 form.addTextbox(preText, 30, preTextChanged)
+      end
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
       
@@ -1117,7 +1178,7 @@ local function drawTriRace(windowWidth, windowHeight)
    
    lcd.drawText(5, 120, "Spd: "..math.floor(speed), FONT_MINI)
    lcd.drawText(5, 130, "Alt: ".. math.floor(altitude), FONT_MINI)
-   lcd.drawText(5, 140, string.format("Map: %d", map.Xrange), FONT_MINI)
+   lcd.drawText(5, 140, string.format("Map Width %d m", map.Xrange), FONT_MINI)
 
    --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
    --lcd.drawText(265, 45, string.format("Dist %.0f", distance), FONT_MINI)
@@ -1945,12 +2006,14 @@ local function checkNoFly(xt, yt, future)
    
    if noFly ~= noFlyLast and not future then
       if noFly then
-	 --print("Enter no fly")
-	 playFile(appInfo.Dir.."Audio/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
+	 if checkBox.noFlyWarningEnabled then
+	    playFile(appInfo.Dir.."Audio/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
+	 end
 	 system.vibration(false, 3) -- left stick, 2x short pulse
       else
-	 --print("Exit no fly")
-	 playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
+	 if checkBox.noFlyWarningEnabled then
+	    playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
+	 end
       end
       noFlyLast = noFly
    end
@@ -1958,8 +2021,10 @@ local function checkNoFly(xt, yt, future)
    if noFlyF ~= noFlyLastF and future then
       if noFlyF then
 	 --print("Enter Future no fly")
-	 playFile(appInfo.Dir.."Audio/no_fly_ahead.wav", AUDIO_IMMEDIATE)
-	 --system.vibration(false, 3) -- left stick, 2x short pulse
+	 if not noFly then -- only warn of future nfz if not already in nfz
+	    playFile(appInfo.Dir.."Audio/no_fly_ahead.wav", AUDIO_IMMEDIATE)
+	    --system.vibration(false, 3) -- left stick, 2x short pulse
+	 end
       else
 	 --print("Exit Future no fly")
 	 --playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
@@ -2049,7 +2114,7 @@ local function pngLoad(j)
    pfn = Field.images[j].file
    fieldPNG[j] = lcd.loadImage(pfn)
 
-   print("pngLoad:", pfn)
+   --print("pngLoad:", pfn)
    
    --for kk = 1, #Field.images do
    --   print("fieldPNG:", kk, fieldPNG[kk])
@@ -2450,18 +2515,13 @@ local function initField()
 
    local fp, fn
    local atField
-   local atFields
    local fname
    
-   atFields = 0
    atField = false
 
    if not emFlag then fn = "/" .. appInfo.Fields else fn = appInfo.Fields end
 
-   print("fn:", fn)
-   
    fp = io.readall(fn)
-
    if fp then
       Fields = json.decode(fp)
       if not Fields then
@@ -2473,77 +2533,58 @@ local function initField()
       return
    end
 
+   Field = {}
    
-   print("initfield: lat0, lng0:", lat0, lng0)
-
    if lng0 and lat0 then -- if location was detected by the GPS system
       
-      for fname,Field in pairs(Fields) do
-
-	 print("for loop: fname, Field, Field.name", fname, Field, Field.name)
-
-	 print("ppm", Field.images[1].meters_per_pixel)
-
-	 foo()
+      for sname,ff in pairs(Fields) do
 
 	 -- Use the highest mag image to determine if we are at this field
-	 -- sort the table of images by the zoom level, from highest to lowest zoom
-	 -- using the meters_per_pixel value
+	 -- Russell is sorting the images from highest to lowest zoom
+	 -- using the meters_per_pixel value so I can remove my sort
+	 
 	 --table.sort(Field.images, function(a,b) return a.meters_per_pixel < b.meters_per_pixel end)
 
-	 atField = (math.abs(lat0 - Field.images[1].center.lat) < 1/60) and
-	    (math.abs(lng0 - Field.images[1].center.lng) < 1/60) 
+	 atField = (math.abs(lat0 - Fields[sname].images[1].center.lat) < 1/60) and
+	    (math.abs(lng0 - Fields[sname].images[1].center.lng) < 1/60) 
 
-	 if (atField) then -- then or (iF and iF == i)then
-	    Field.name = fname
+	 if (atField) then 
+
+	    Field = Fields[sname]
 	    Field.imageWidth = {}
 	    Field.lat = Field.images[1].center.lat
 	    Field.lng = Field.images[1].center.lng
 
-	    atFields = atFields + 1
-	    print("atField", fname, atFields, Field.lat, Field.lng)
-	    
 	    for k,v in ipairs(Field.images) do
-	       Field.imageWidth[k] = v.meters_per_pixel * 320 -- Russell doing this cos now* math.cos(math.rad(Field.lat))
-	       print("* ", k, v.file, Field.imageWidth[k], v.heading, v.file)
+	       Field.imageWidth[k] = v.meters_per_pixel * 320 
+	       --print("* ", k, v.file, Field.imageWidth[k], v.heading, v.file)
 	    end
 	    lng0 = Field.lng -- reset to origin to coords in jsn file
 	    lat0  = Field.lat
 	    coslat0 = math.cos(math.rad(lat0))
 	    variables.rotationAngle  = Field.images[1].heading
 
-	    if Field.raceTime then
-	       variables.raceTime = Field.raceTime
-	    else
-	       variables.raceTime = 30
-	    end
 	    -- see if file <model name>_icon.jsn exists
 	    -- if so try to read airplane icon
+
 	    print("Looking for Apps/"..system.getProperty("Model").."_icon.jsn")
 	    local fg = io.readall("Apps/"..system.getProperty("Model").."_icon.jsn")
 	    if fg then
 	       shapes.T38 = json.decode(fg).icon
 	    end
 
-	    --print("#Field.triangle.path", #Field.triangle.path)
-
 	    tri2XY()
 	    rwy2XY()
 	    nfz2XY()
 	    
-	    if (Field) then -- if we read the jsn file then extract the info from it
-	       setColorMap()
-	       setColorMain()
-	    end   
-	    --break
+	    setColorMap()
+	    setColorMain()
+
+	    break
 	 end
       end
    end
 
-   for k,v in ipairs(Fields) do
-      print("Fields", k, v.shortname, v.lat0, v.lng0, v.atField, v.heading)
-   end
-   
    if Field and Field.name then
       system.messageBox("Current location: " .. Field.name, 2)
       maxImage = #Field.images
@@ -2554,7 +2595,7 @@ local function initField()
       end
    else
       system.messageBox("Current location: not a known field", 2)
-      --print("not a known field: lat0, lng0", lat0, lng0)
+      print("not a known field: lat0, lng0", lat0, lng0)
       gotInitPos = false -- reset and try again with next gps lat long
    end
 end
@@ -2987,11 +3028,16 @@ local function init()
    startSwitch = system.pLoad("startSwitch")
    annText     = system.pLoad("annText", "c-d----")
    preText     = system.pLoad("preText", "s-a----")   
+
    triEnabled = system.pLoad("triEnabled", "true") -- default to enabling racing
    triEnabled  = (triEnabled  == "true") -- convert back to boolean
+
    noflyEnabled = system.pLoad("noflyEnabled", "true") -- default to enabling racing
    noflyEnabled  = (noflyEnabled  == "true") -- convert back to boolean
 
+   checkBox.noFlyWarningEnabled = system.pLoad("noFlyWarningEnabled", "true")
+   checkBox.noFlyWarningEnabled = (checkBox.noFlyWarningEnabled == "true")
+   
    system.registerForm(1, MENU_APPS, "GPS Triangle Racing", initForm, nil, nil)
    system.registerTelemetry(1, appInfo.Name.." Racecourse Map", 4, mapPrint)
    system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
@@ -3007,4 +3053,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="3", name=appInfo.Name}
+return {init=init, loop=loop, author="DFM", version="4", name=appInfo.Name}
