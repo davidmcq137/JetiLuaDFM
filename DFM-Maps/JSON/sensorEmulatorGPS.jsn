@@ -4,9 +4,9 @@
     "rE":6378137,
     "trueDir": -10,
     "startTime": 18,
-    "yString":"P7(100,900)*math.cos(math.pi/(2*3))*math.cos(0.5*((-t/6) + (math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1))) - P7(50,450)*math.cos((math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1)) + P5(0,1)*P7(100/6, 900/6)",
+    "yString":"P7(100,900)*math.cos(math.pi/(2*3))*math.cos(0.5*((-t/6) + (math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1))) - P7(50,450)*math.cos((math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1)) + P5(0,1)*P7(100/6, 900/6) + t",
     
-    "xString":"P6(100,1400)*math.cos(math.pi/(2*3))*math.sin(0.5*((-t/6) + (math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1))) - P6(50,700)*math.sin((math.pi/3) *(2*math.floor((-3*t/6)/(2*math.pi))+1))"
+    "xString":"P6(100,1400)*math.cos(math.pi/(2*3))*math.sin(0.5*((-t/6) + (math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1))) - P6(50,700)*math.sin((math.pi/3) *(2*math.floor((-3*t/6)/(2*math.pi))+1)) + t"
 
 
 }

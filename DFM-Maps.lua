@@ -1862,6 +1862,7 @@ local function checkNoFly(xt, yt, future)
 	    playFile(appInfo.Dir.."Audio/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
 	 end
 	 if checkBox.noFlyShakeEnabled then
+
 	    system.vibration(false, 3) -- left stick, 2x short pulse
 	 end
       else
@@ -2131,6 +2132,8 @@ local function mapPrint(windowWidth, windowHeight)
       for i=2 + offset, #xHist do
 
 	 if system.getCPU() < variables.maxCPU then
+	    --print(toXPixel(xHist[i-1], map.Xmin, map.Xrange, windowWidth),
+	    --	  toYPixel(yHist[i-1], map.Ymin, map.Yrange, windowHeight))	    
 	    ren:addPoint(toXPixel(xHist[i-1], map.Xmin, map.Xrange, windowWidth ),
 			 toYPixel(yHist[i-1], map.Ymin, map.Yrange, windowHeight) + 0)
 	    --[[
@@ -2147,8 +2150,8 @@ local function mapPrint(windowWidth, windowHeight)
 	 
       end
 
-      if variables.histMax > 0 and #xHist > 0 and #xtable > 0 then
-	 ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
+     if variables.histMax > 0 and #xHist > 0 and #xtable > 0 then
+	ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
 		       toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight) + 0)
 	 --[[
 	    lcd.drawLine(toXPixel(xHist[#xHist], map.Xmin, map.Xrange,    windowWidth),
@@ -2157,7 +2160,7 @@ local function mapPrint(windowWidth, windowHeight)
 	    toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight) + 0)
 	 --]]
 
-      end
+     end
       
       ren:renderPolyline(2,0.6)
    end
