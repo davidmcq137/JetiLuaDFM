@@ -221,8 +221,6 @@ local function readSensors()
 	    paramGPS[sensor.sensorName][sensor.label]
 	 then
 
-	    --print("n,l,pG", sensor.sensorName, sensor.label, paramGPS[sensor.sensorName][sensor.label].telem, paramGPS[sensor.sensorName][sensor.label].param)
-	    
 	    param = paramGPS[sensor.sensorName][sensor.label].param
 	    label  = paramGPS[sensor.sensorName][sensor.label].telem
 	    --print("param, label:", param, label)
@@ -235,13 +233,9 @@ local function readSensors()
 		  satQualityID = sensor.id
 		  satQualityPa = param
 	       elseif label == "Altitude" then
-		  --print("Altitude", paramGPS[sensor.sensorName][sensor.label].telem)
-		  --print("AltType", paramGPS[sensor.sensorName][sensor.label].AltType)
 		  if paramGPS and paramGPS[sensor.sensorName][sensor.label].AltType == "Rel" then
-		     --print("Rel Alt")
 		     absAltGPS = false
 		  else
-		     --print("Abs Alt")
 		     absAltGPS = true
 		  end
 		  telem[label].Se = seSeq
@@ -257,114 +251,6 @@ local function readSensors()
       end
    end
 end
-
-
---[[
-local function readSensors()
-
-   local sensors = system.getSensors()
-
-   for _, sensor in ipairs(sensors) do
-      if (sensor.label ~= "") then
-
-   --Note:
-   --Digitech CTU Altitude is type 1, param 13 (vs. MGPS Altitude type 1, param 6)
-   --MSpeed Velocity (airspeed) is type 1, param 1
-	 
-   --Code below will put sensor names in the choose list and auto-assign the relevant
-   --selections for the Jeti MGPS, Digitech CTU and Jeti MSpeed
-
-	 if sensor.param == 0 then -- it's a label
-	    table.insert(sensorLalist, '--> '..sensor.label)
-	    table.insert(sensorIdlist, 0)
-	    table.insert(sensorPalist, 0)
-	 elseif sensor.type == 9 then  -- lat/long
-	    table.insert(GPSsensorLalist, sensor.label)
-	    table.insert(GPSsensorIdlist, sensor.id)
-	    table.insert(GPSsensorPalist, sensor.param)
-	    -- first two ifs are for MGPS, next two for RCT-GPS
-	    if (sensor.label == 'Longitude' and sensor.param == 3) then
-	       telem.Longitude.Se = #GPSsensorLalist
-	       telem.Longitude.SeId = sensor.id
-	       telem.Longitude.SePa = sensor.param
-	    end
-	    if (sensor.label == 'Latitude' and sensor.param == 2) then
-	       telem.Latitude.Se = #GPSsensorLalist
-	       telem.Latitude.SeId = sensor.id
-	       telem.Latitude.SePa = sensor.param
-	    end
-	    if (sensor.label == 'Longitude' and sensor.param == 2) then
-	       telem.Longitude.Se = #GPSsensorLalist
-	       telem.Longitude.SeId = sensor.id
-	       telem.Longitude.SePa = sensor.param
-	    end
-	    if (sensor.label == 'Latitude' and sensor.param == 1) then
-	       telem.Latitude.Se = #GPSsensorLalist
-	       telem.Latitude.SeId = sensor.id
-	       telem.Latitude.SePa = sensor.param
-	    end
-	 --elseif sensor.type == 5 then
-	    -- date - ignore
-	 else  -- "regular" numeric sensor
-
-	    table.insert(sensorLalist, sensor.label)
-	    table.insert(sensorIdlist, sensor.id)
-	    table.insert(sensorPalist, sensor.param)
-	    table.insert(sensorUnlist, sensor.unit)
-
-	    if sensor.sensorName == "MSpeed" and sensor.param == 1 then
-	       telem.SpeedNonGPS.Se = #sensorLalist
-	       telem.SpeedNonGPS.SeId = sensor.id
-	       telem.SpeedNonGPS.SePa = sensor.param
-	    end
-	    if sensor.sensorName == "CTU" and sensor.param == 13 then
-	      telem.BaroAlt.Se = #sensorLalist
-	      telem.BaroAlt.SeId = sensor.id
-	      telem.BaroAlt.SePa = sensor.param
-	    end
-
-	    -- ADD any other baro alt sensors other than CTU here .. 
-
-	    if (sensor.label == "Altitude" and sensor.param == 6) or
-	       (sensor.label == "Altitude" and sensor.param == 5) then
-	       telem.Altitude.Se = #sensorLalist
-	       telem.Altitude.SeId = sensor.id
-	       telem.Altitude.SePa = sensor.param
-	    end
-	    if (sensor.label == "Distance" and sensor.param == 7) then
-	       telem.DistanceGPS.Se = #sensorLalist
-	       telem.DistanceGPS.SeId = sensor.id
-	       telem.DistanceGPS.SePa = sensor.param
-	    end
-	    if (sensor.label == "Speed" and sensor.param == 8) or
-	       (sensor.label == "Speed" and sensor.param == 3) then
-	       telem.SpeedGPS.Se = #sensorLalist
-	       telem.SpeedGPS.SeId = sensor.id
-	       telem.SpeedGPS.SePa = sensor.param
-	    end
-	    if (sensor.label == "Course" and sensor.param == 10) then
-	       telem.CourseGPS.SeId = sensor.id
-	       telem.CourseGPS.SePa = sensor.param
-	    end
-	    if (sensor.label == "SatCount" and sensor.param == 5) or
-	       (sensor.label == "Satellites" and sensor.param == 10) then
-	       satCountID = sensor.id
-	       satCountPa = sensor.param
-	    end
-	    if (sensor.label == "Quality" and sensor.param == 4) or
-	       (sensor.label == "HDOP" and sensor.param == 11) then
-	       satQualityID = sensor.id
-	       satQualityPa = sensor.param
-	    end	    
-	 end
-      end
-   end
-end
-
---]]
-----------------------------------------------------------------------
-
--- Actions when settings changed
 
 local function triReset(value)
    pylon = {}
@@ -671,17 +557,14 @@ local function initForm(subform)
       
       form.addRow(2)
       form.addLabel({label="Max Start Speed (km/h)", width=220})
-      --if Field and Field.startMaxSpeed then variables.maxSpeed = Field.startMaxSpeed end
       form.addIntbox(variables.maxSpeed, 10, 500, 100, 0, 10, maxSpeedChanged)
       
       form.addRow(2)
       form.addLabel({label="Max Start Alt (m)", width=220})
-      --if Field and Field.startMaxAltitude then variables.maxAlt = Field.startMaxAltitude end
       form.addIntbox(variables.maxAlt, 10, 500, 100, 0, 10, maxAltChanged)
       
       form.addRow(2)
       form.addLabel({label="Turn point aiming offset (m)", width=220})
-      --if Field and Field.aimoff then variables.aimoff = Field.aimoff end
       form.addIntbox(variables.aimoff, 0, 500, 50, 0, 1, aimoffChanged)
 
       form.addRow(2)
@@ -852,11 +735,6 @@ local function setColorMain()
    lcd.setColor(textColor.main.red, textColor.main.green, textColor.main.blue)
 end
 
---local function setColorComp()
---   lcd.setColor(textColor.comp.red, textColor.comp.green, textColor.comp.blue)
---end
-
-
 local text
 
 local function playFile(fn, as)
@@ -884,7 +762,6 @@ local function toXPixel(coord, min, range, width)
    pix = (coord - min)/range * width
    return pix
 end
-
 
 local function toYPixel(coord, min, range, height)
    local pix
@@ -1038,10 +915,8 @@ local function perpDist(x0, y0, np)
 	  pylon[nextP].y*pylon[lastP].x) /
           math.sqrt( (pylon[nextP].y-pylon[lastP].y)^2 +
 	  (pylon[nextP].x-pylon[lastP].x)^2)
-   --print("pd:", pd)
    det = (x0-pylon[lastP].x)*(pylon[nextP].y-pylon[lastP].y) -
       (y0-pylon[lastP].y)*(pylon[nextP].x-pylon[lastP].x)
-   --print("det:", det)
    
    if det >= 0 then return pd else return -pd end
 end
@@ -1213,27 +1088,10 @@ local function calcTriRace()
       ao = 0
    end
 
-   --print("ao=", ao)
-   
-   --if Field and Field.aimoff then
-   --   ao = Field.aimoff
-   --else
-   --   ao = 0
-   --end
-   
    -- if no course computed yet, start by defining the pylons
 
    if #pylon < 1 and Field.name then -- need to confirm with RFM order of vertices
 
-      --print("variables.triRotation:", variables.triRotation)
-      --print("variables.triOffsetX:", variables.triOffsetX)
-      --print("variables.triOffsetY:", variables.triOffsetY)      
-       
-      --print("base angle", math.deg(math.atan(tri[3].x - tri[2].x, tri[3].y - tri[2].y)))
-      -- base angle should be given by Field.triangle.heading and Field.images[1].heading
-      
-      --local ttri={}
-      
       for i=1,3,1 do
 	 tri[i].dx = tri[i].x - tri.center.x
 	 tri[i].dy = tri[i].y - tri.center.y 
@@ -1244,21 +1102,16 @@ local function calcTriRace()
 	 --}
       end
 
-      --pylon[1] = {x=ttri[2].x + tri[2].dx, y=ttri[2].y + tri[2].dy,aimoff=ao}
       pylon[1] = {x = tri[2].dx + tri.center.x + variables.triOffsetX,
 		  y = tri[2].dy + tri.center.y + variables.triOffsetY, aimoff=ao}
-      --pylon[2] = {x=ttri[1].x + tri[1].dx, y=ttri[1].y + tri[1].dy,aimoff=ao}
 
       pylon[2] = {x=tri[1].dx + tri.center.x + variables.triOffsetX,
 		  y=tri[1].dy + tri.center.y + variables.triOffsetY, aimoff=ao}
       
-      --pylon[3] = {x=ttri[3].x + tri[3].dx, y=ttri[3].y + tri[3].dy,aimoff=ao}
       pylon[3] = {x=tri[3].dx + tri.center.x + variables.triOffsetX,
 		  y=tri[3].dy + tri.center.y + variables.triOffsetY,aimoff=ao}      
    end
 
-   --local hypo = math.sqrt( (tri[2].x - tri[3].x)^2 + (tri[2].y - tri[3].y)^2 )
-   
    -- extend startline below hypotenuse of triangle  by 0.8x inside length
    pylon.start = {x=tri.center.x + variables.triOffsetX + 0.8 * (tri.center.x + variables.triOffsetX- pylon[2].x) ,
 		  y=tri.center.y + variables.triOffsetY + 0.8 * (tri.center.y + variables.triOffsetY - pylon[2].y)}
@@ -1380,7 +1233,6 @@ local function calcTriRace()
 
    detS1 = (xtable[#xtable] - tri.center.x) * (pylon.start.y - tri.center.y) -
       (ytable[#ytable] - tri.center.y) * (pylon.start.x - tri.center.x)
-   --detS1 = xtable[#xtable]
 
    local inStartZone
    if detS1 >= 0 then inStartZone = true else inStartZone = false end
@@ -1517,6 +1369,7 @@ local function calcTriRace()
       local tsec = (sgTC - raceParam.racingStartTime) / 1000.0
       
       local tmin = tsec // 60
+
       --if tmin ~= lastMin and tmin > 0 then
 	 -- no mins announcement for now .. maybe on a switch/on demand, speech? tilt?
 	 --playNumber(tmin, 0)
@@ -1556,14 +1409,6 @@ local function calcTriRace()
 			   math.floor(raceParam.penaltyPoints + 0.5))
       --lcd.drawText((310 - lcd.getTextWidth(FONT_MINI, tstr))/2, 17, tstr, FONT_MINI)
    end
-
-   -- compute dist and relative bearing to aim point
-   
---   local distance = math.sqrt( (xtable[#xtable] - pylon[region[code]].xt)^2 +
---	 (ytable[#ytable] - pylon[region[code]].yt)^2 )
-
---   local xt = {xtable[#xtable], pylon[region[code]].xt}
---   local yt = {ytable[#ytable], pylon[region[code]].yt}
 
    distance = math.sqrt( (xtable[#xtable] - pylon[m3(nextPylon)].xt)^2 +
 	 (ytable[#ytable] - pylon[m3(nextPylon)].yt)^2 )
@@ -2474,41 +2319,17 @@ local function graphScale(xx, yy)
       end
       
 
-      --[[
-      for j = 1, maxImage, 1 do
-	 currentImage = j
-	 if path.xmax <= xmaxImg(j) and
-	    path.ymax <= ymaxImg(j) and
-	    path.xmin >= xminImg(j) and
-	    path.ymin >= yminImg(j)
-	 then
-	    break
-	 else
-	    --if path.xmax > xmaxImg(j) then print("exceeded xmax", xx, yy) end
-	    --if path.xmin < xminImg(j) then print("exceeded xmin", xx, yy) end
-	    --if path.ymax > ymaxImg(j) then print("exceeded ymax", xx, yy) end
-	    --if path.ymin < yminImg(j) then print("exceeded ymin", xx, yy) end
-	 end
-      end
-      --]]
-
       if not fieldPNG[currentImage] then
-	 --print("calling pngLoad", currentImage)
 	 pngLoad(currentImage)
-	 --print("graphScale: currentImage", currentImage)
 	 graphScaleRst(currentImage)
 
-	 -- recalc x,y from lat, lng for this image
+	 -- recalc previous x,y from lat, lng but scaled for this image
 
-	 --print("recompute: #xHist:", #xHist)
-	 --print("lat0, lng0:", lat0, lng0)
 	 for i=1,#xHist,1 do
-	    --print("pre i, xHist[i], yHist[i]", i, xHist[i], yHist[i], latHist[i], lngHist[i])
 
 	    xHist[i], yHist[i] = rotateXY(rE*(lngHist[i]-lng0)*coslat0/rad,
 					  rE*(latHist[i]-lat0)/rad,
 					  math.rad(variables.rotationAngle))
-	    --print("post i, xHist[i], yHist[i]", i, xHist[i], yHist[i])
 	 end
 
 	 if #xHist > 0 then
@@ -2537,7 +2358,6 @@ local function graphScale(xx, yy)
       map.Ymax = path.ymax + (map.Yrange - (path.ymax-path.ymin))/2
    end
    
---   print("Xmin,Xmax,Ymin,Ymax", map.Xmin, map.Xmax, map.Ymin, map.Ymax)
 end
 
 
@@ -2630,27 +2450,6 @@ local function initField()
       gotInitPos = false -- reset and try again with next gps lat long
    end
 end
-
---local function split(str, ch)
---   local index, acc = 0, {}
---   while index do
---      local nindex = string.find(str, ch, 1+index)
---      if not nindex then
---	 table.insert(acc, str:sub(index))
---	 break
---      end
---      table.insert(acc, str:sub(index, nindex-1))
---      index = 1+nindex
---  end
---   return acc
---end
-
-
---local function manhat_xy_from_latlng(latitude1, longitude1, latitude2, longitude2)
---   if not coslat0 then return 0 end
---   return math.abs(rE * math.rad(longitude1 - longitude2) * coslat0) +
---          math.abs(rE * math.rad(latitude1 - latitude2))
---end
 
 ------------------------------------------------------------
 
@@ -2768,21 +2567,6 @@ local function loop()
       GPSAlt = sensor.value
    end
  
-   --sensor = system.getSensorByID(telem.SpeedNonGPS.SeId, telem.SpeedNonGPS.SePa)
-   
-   --hasPitot = false
-   --if(sensor and sensor.valid) then
-      --SpeedNonGPS = sensor.value 
-      --hasPitot = true
-   --end
-   
-   --sensor = system.getSensorByID(telem.BaroAlt.SeId, telem.BaroAlt.SePa)
-   
-   --if(sensor and sensor.valid) then
-      --baroAlt = sensor.value
-   --end
-   
-   
    sensor = system.getSensorByID(telem.SpeedGPS.SeId, telem.SpeedGPS.SePa)
    
    if(sensor and sensor.valid) then
@@ -2824,36 +2608,9 @@ local function loop()
       --print('returning: goodlat, goodlng: ', goodlat, goodlng)
       return
    end
-
-   -- if no GPS or pitot then code further below will compute speed from delta dist
-
-   --[[
-      -- this is the original LSO code that "prefers" the pitot speed .. here for
-      -- tri racing we want only to use the GPS speed for the speed variable
-   if hasPitot and (SpeedNonGPS ~= nil) then
-      speed = SpeedNonGPS
-   elseif SpeedGPS ~= nil then
-      speed = SpeedGPS
-   end
-   --]]
    
    -- relpacement code for Tri racing:
    if SpeedGPS ~= nil then speed = SpeedGPS end
-
-
-   --[[
-      -- ditto for altitude (see speed code above)
-if GPSAlt then
-      if Field and Field.elevation then
-	 altitude = GPSAlt - Field.elevation
-      else
-	 altitude = GPSAlt
-      end
-   end
-   if baroAlt then -- let baroAlt "win" if both defined
-      altitude = baroAlt
-   end
-   --]]
 
    -- replacement code for Tri race
    if not GPSAlt then GPSAlt = 0 end
