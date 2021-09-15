@@ -35,6 +35,7 @@
 local appInfo={}
 appInfo.Name = "DFM-Maps"
 appInfo.Maps = "DFM-Maps"
+appInfo.menuTitle = "GPS Maps"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
 appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
 
@@ -70,10 +71,11 @@ telem.DistanceGPS={}
 telem.CourseGPS={}
 telem.BaroAlt={}
 
-local variables = {"rotationAngle", "histSample", "histMax", "maxCPU",
-		   "triLength", "maxSpeed", "maxAlt", "elev", "histDistance",
-		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd",
-		   "futureMillis", "triRotation", "triOffsetX", "triOffsetY"}
+local variables = {}
+-- local variables = {"rotationAngle", "histSample", "histMax", "maxCPU",
+-- 		   "triLength", "maxSpeed", "maxAlt", "elev", "histDistance",
+-- 		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd",
+-- 		   "futureMillis", "triRotation", "triOffsetX", "triOffsetY"}
 
 local xtable = {}
 local ytable = {}
@@ -125,6 +127,7 @@ local sensorUnlist = { "..." }  -- sensor Units
 local GPSsensorLalist = { "..." }
 local GPSsensorIdlist = { "..." }
 local GPSsensorPalist = { "..." }
+local absAltGPS
 
 local checkBox={}
 
@@ -139,6 +142,23 @@ local pointSwitch
 local zoomSwitch
 local triASwitch
 local startSwitch
+
+local browse = {}
+browse.Idx = 1
+browse.List = {}
+browse.OrignalFieldName = nil
+browse.FieldName = nil
+browse.MapDisplayed = false
+browse.opTable = {"X","Y","R","L"}
+browse.opTableIdx = 1
+
+--local browseIdx = 1
+--local browseList = {}
+--local browseFieldName
+--local browseMapDisplayed = false
+
+local savedRow = 1
+local savedSubform
 
 local raceParam = {}
 raceParam.startToggled = false
@@ -164,7 +184,8 @@ local textColor = {}
 textColor.main = {red=0, green=0, blue=0}
 textColor.comp = {red=255, green=255, blue=255}
 
-local blueDotImage, greenDotImage, redDotImage
+local dotImage = {}
+
 local emFlag
 
 -- Read available sensors for user to select - done once at startup
@@ -181,11 +202,52 @@ local satQualityID = 0
 local satQualityPa = 0
 local satQuality
 
+local function jLoadInit(fn)
+   local fj
+   local config
+   fj = io.readall(fn)
+   if fj then
+      config = json.decode(fj)
+   end
+   if not config then config = {} end
+   return config
+end
+
+local function jLoadFinal(fn, config)
+   local ff
+   ff = io.open(fn, "w")
+   if not ff then
+      return false
+   end
+   if not io.write(ff, json.encode(config)) then
+      return false
+   end
+   io.close(ff)
+   return true
+end
+
+local function jLoad(config, var, def)
+   if not config then return nil end
+   if not config[var] then
+      config[var] = def
+   end
+   return config[var]
+end
+
+local function jSave(config, var, val)
+   config[var] = val
+end
+
+local function destroy()
+   jLoadFinal(appInfo.Dir .. "M-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_"),
+	      variables)
+end
+
 local function readSensors()
 
    
    local jt, paramGPS
-   local sensorName = "..."
+   --local sensorName = "..."
    local sensors = system.getSensors()
    local seSeq, param, label
    
@@ -252,7 +314,199 @@ local function readSensors()
    end
 end
 
-local function triReset(value)
+local function xminImg(iM)
+   return -0.50 * Field.imageWidth[iM]
+end
+
+local function xmaxImg(iM)
+   return 0.50 * Field.imageWidth[iM]
+end
+
+local function yminImg(iM)
+   if form.getActiveForm() then
+      return -0.50 * Field.imageWidth[iM] / 1.8 -- 1.8 empirically determined  
+   else
+      return -0.50 * Field.imageWidth[iM] / 2.0
+   end
+end
+
+local function ymaxImg(iM)
+   if form.getActiveForm() then
+      return 0.50 * Field.imageWidth[iM] / 1.8
+   else
+      return 0.50 * Field.imageWidth[iM] / 2.0
+   end
+end
+
+local function graphInit(im)
+
+   -- im or 1 construct allows im to be nil and if so selects images[1]
+   -- print("graphInit: iField, im", iField, im)
+   
+   if Field.imageWidth and Field.imageWidth[im or 1] then
+      map.Xmin = xminImg(im or 1)
+      map.Xmax = xmaxImg(im or 1)
+      map.Ymin = yminImg(im or 1)
+      map.Ymax = ymaxImg(im or 1)
+   else
+      print("**** graphInit hand setting 20/40")
+      map.Xmin, map.Xmax = -40, 40
+      map.Ymin, map.Ymax = -20, 20
+   end
+
+   map.Xrange = map.Xmax - map.Xmin
+   map.Yrange = map.Ymax - map.Ymin
+   
+   path.xmin, path.xmax, path.ymin, path.ymax = map.Xmin, map.Xmax, map.Ymin, map.Ymax
+
+end
+
+local function rotateXY(xx, yy, rotation)
+   local sinShape, cosShape
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
+end
+
+local function ll2xy(lat, lng)
+   local tx, ty
+   tx, ty = rotateXY(rE*(lng-lng0)*coslat0/rad,
+		     rE*(lat-lat0)/rad,
+		     math.rad(variables.rotationAngle))
+   return {x=tx, y=ty}
+end
+
+local function rwy2XY()
+	    
+   rwy = {}
+   if Field.runway then
+      for j=1, #Field.runway.path, 1 do
+	 rwy[j] = ll2xy(Field.runway.path[j].lat, Field.runway.path[j].lng)
+	 --print("j, rwy.x, rwy.y:", j, rwy[j].x, rwy[j].y)
+      end
+      rwy.heading = Field.runway.heading
+      --print("rwy heading:", rwy.heading)
+   end
+	    
+end
+
+local function tri2XY()
+   tri = {}
+   pylon = {}
+   if Field.triangle then
+      for j=1, #Field.triangle.path, 1 do
+	 tri[j] = ll2xy(Field.triangle.path[j].lat, Field.triangle.path[j].lng)
+	 --print("j, tri.x, tri.y:", j, tri[j].x, tri[j].y)
+      end
+      tri.center = ll2xy(Field.triangle.center.lat, Field.triangle.center.lng)
+      --print("tri.center.x, tri.center.y:", tri.center.x, tri.center.y)
+      --print("lat,lng:", Field.triangle.center.lat, Field.triangle.center.lng)
+   end
+end
+
+local function nfz2XY()
+	    
+   nfc = {}
+   nfp = {}
+   
+   if Field.nofly then
+      for j = 1, #Field.nofly, 1 do
+	 if Field.nofly[j].type == "circle" then
+	    local tt = ll2xy(Field.nofly[j].lat, Field.nofly[j].lng)
+	    tt.r = Field.nofly[j].diameter / 2
+	    tt.inside = Field.nofly[j].inside_or_outside == "inside"
+	    table.insert(nfc, tt)
+	    --print("tt.x, tt.y", tt.x, tt.y)
+	    --print("#nfc, x,y,r", #nfc, nfc[#nfc].x, nfc[#nfc].y, nfc[#nfc].r, nfc[#nfc].inside)
+	 elseif Field.nofly[j].type == "polygon" then
+	    local pp = {}
+	    for k =1, #Field.nofly[j].path, 1 do
+	       table.insert(pp,ll2xy(Field.nofly[j].path[k].lat,Field.nofly[j].path[k].lng))
+	       -- we know 0,0 is at center of runway ... need an "infinity x" point for the
+	       -- no fly region computation ... keep track of largest positive x ..
+	       -- later we will double it to make sure it is well past the no fly polygon
+	       if pp[#pp].x > maxpolyX then maxpolyX = pp[#pp].x end		     
+	    end
+	    table.insert(nfp, {inside=(Field.nofly[j].inside_or_outside == "inside"),
+			       path = pp})
+	 end
+      end
+   end
+end
+
+local function setColorMap()
+   -- when text and graphics overlayed on a map, best to use yellow
+   -- set comp color to 255-fg
+   if fieldPNG[currentImage] then   
+      textColor.main.red, textColor.main.green, textColor.main.blue = 255, 255,   0
+      textColor.comp.red, textColor.comp.green, textColor.comp.blue =   0,   0, 255
+   end
+   lcd.setColor(textColor.main.red, textColor.main.green, textColor.main.blue)   
+end
+
+local function setColorNoFlyInside()
+   lcd.setColor(255,0,0)
+end
+
+local function setColorNoFlyOutside()
+   lcd.setColor(0,255,0)
+end
+
+local function setColorMain()
+   lcd.setColor(textColor.main.red, textColor.main.green, textColor.main.blue)
+end
+
+local function setColorLabels()
+   lcd.setColor(255,255,0)
+end
+
+local function setColorRunway()
+   lcd.setColor(255,255,0)
+end
+
+local function setColorTriangle()
+   lcd.setColor(100,255,255)
+end
+
+local function setColorTriRot()
+   lcd.setColor(100,100,255)
+end
+
+local function setField(sname)
+
+   Field = Fields[sname]
+   --print("Fields.DCRC.name, sname, Field:", Fields.DCRC.name, sname, Field)
+   Field.imageWidth = {}
+   Field.lat = Field.images[1].center.lat
+   Field.lng = Field.images[1].center.lng
+   fieldPNG={}
+
+   -- if Field.triangle then
+   --    print("triangle size", Field.triangle.size)
+   -- end
+   -- if Field.elevation then
+   --    print("elev", Field.elevation.elevation)
+   -- end
+   
+   for k,v in ipairs(Field.images) do
+      Field.imageWidth[k] = math.floor(v.meters_per_pixel * 320 + 0.5)
+      --print("* ", k, v.file, Field.imageWidth[k], v.heading, v.file)
+   end
+
+   lng0 = Field.lng -- reset to origin to coords in jsn file
+   lat0  = Field.lat
+   coslat0 = math.cos(math.rad(lat0))
+   variables.rotationAngle  = Field.images[1].heading
+   
+   tri2XY()
+   rwy2XY()
+   nfz2XY()
+   
+   setColorMap()
+   setColorMain()
+end
+
+local function triReset()
    pylon = {}
 end
 
@@ -281,14 +535,17 @@ end
 local function variableChanged(value, var, fcn)
    if fcn then fcn() end
    variables[var] = value
-   system.pSave("variables."..var, value)
+   jSave(variables, var, value)
+   --system.pSave("variables."..var, value)
 end
 
+--[[
 local resetOrigin=false
 local resetClick=false
 local resetCompIndex
 local timeRO = 0
-
+--]]
+--[[
 local function resetOriginChanged(value)
    resetClick = value
    if not resetClick then
@@ -301,6 +558,7 @@ local function resetOriginChanged(value)
       print("GC Memory after: ", collectgarbage("count"))
    end
 end
+--]]
 
 local function validAnn(val, str)
    if string.find(str, val) then
@@ -316,10 +574,10 @@ local function pointSwitchChanged(value)
    system.pSave("pointSwitch", pointSwitch)
 end
 
-local function zoomSwitchChanged(value)
-   zoomSwitch = value
-   system.pSave("zoomSwitch", zoomSwitch)
-end
+--local function zoomSwitchChanged(value)
+--   zoomSwitch = value
+--   system.pSave("zoomSwitch", zoomSwitch)
+--end
 
 local function triASwitchChanged(value)
    triASwitch = value
@@ -340,57 +598,62 @@ end
 
 local function triLengthChanged(value)
    variables.triLength = value
-   system.pSave("variables.triLength", variables.triLength)
+   jSave(variables, "triLength", value)
+   --system.pSave("variables.triLength", variables.triLength)
    pylon = {}
-   --if Field then
-   --   Field.triangle = value
-   --   pylon = {}
-   --end
 end
 
 local function raceTimeChanged(value)
    variables.raceTime = value
-   system.pSave("variables.raceTime", variables.raceTime)
-   print("racetime:", variables.raceTime)
+   jSave(variables, "raceTime", value)
+   --system.pSave("variables.raceTime", variables.raceTime)
 end
 
 local function maxSpeedChanged(value)
    variables.maxSpeed = value
-   system.pSave("variables.maxSpeed", variables.maxSpeed)
+   jSave(variables, "maxSpeed", value)
+   --system.pSave("variables.maxSpeed", variables.maxSpeed)
    --if Field then Field.startMaxSpeed = value end
 end
 
 local function maxAltChanged(value)
    variables.maxAlt = value
-   system.pSave("variables.maxAlt", variables.maxAlt)
+   jSave(variables, "maxAlt", value)
+   --system.pSave("variables.maxAlt", variables.maxAlt)
    --if Field then Field.startMaxAltitude = value end
 end
 
 local function aimoffChanged(value)
    variables.aimoff = value
-   system.pSave("variables.aimoff", variables.aimoff)
+   jSave(variables, "aimoff", value)
+   --system.pSave("variables.aimoff", variables.aimoff)
    --if Field then Field.aimoff = value end
    pylon={}
 end
 
 local function flightStartAltChanged(value)
    variables.flightStartAlt = value
-   system.pSave("variables.flightStartAlt", variables.flightStartAlt)
+   jSave(variables, "flightStartAlt", value)
+   --system.pSave("variables.flightStartAlt", variables.flightStartAlt)
 end
 
 local function flightStartSpdChanged(value)
    variables.flightStartSpd = value
-   system.pSave("variables.flightStartSpd", variables.flightStartSpd)
+   jSave(variables, "flightStartSpd", value)
+   --system.pSave("variables.flightStartSpd", variables.flightStartSpd)
 end
 
 local function elevChanged(value)
-   if Field then Field.elevation = value end
+   variables.elev = value
+   jSave(variables, "elev", value)
+   --system.pSave("variables.elev", variables.elev)
 end
 
 local function annTextChanged(value)
    if validAnn("[^cCdDpPtTaAsS%-]", value) then
       annText = value
-      system.pSave("annText", annText)
+      jSave(variables, "annText", value)
+      --system.pSave("annText", annText)
    end
    form.reinit(7)
 end
@@ -398,42 +661,230 @@ end
 local function preTextChanged(value)
    if validAnn("[^aAsS%-]", value) then
       preText = value
-      system.pSave("preText", preText)
+      jSave(variables, "preText", value)
+      --system.pSave("preText", preText)
    end
    form.reinit(8)
 end
 
-local function noFlyShakeEnabledClicked(value)
+local function noFlyShakeEnabledClicked()
    checkBox.noFlyShakeEnabled = not checkBox.noFlyShakeEnabled
    form.setValue(checkBox.noFlyShakeIndex, checkBox.noFlyShakeEnabled)
-   system.pSave("noFlyShakeEnabled", tostring(checkBox.noFlyShakeEnabled))
+   jSave(variables, "noFlyShakeEnabled", tostring(checkBox.noFlyShakeEnabled))
+   --system.pSave("noFlyShakeEnabled", tostring(checkBox.noFlyShakeEnabled))
 end
 
-local function noFlyWarningEnabledClicked(value)
+local function noFlyWarningEnabledClicked()
    checkBox.noFlyWarningEnabled = not checkBox.noFlyWarningEnabled
    form.setValue(checkBox.noFlyWarningIndex, checkBox.noFlyWarningEnabled)
-   system.pSave("noFlyWarningEnabled", tostring(checkBox.noFlyWarningEnabled))
+   jSave(variables, "noFlyWarningEnabled", tostring(checkBox.noFlyWarningEnabled))
+   --system.pSave("noFlyWarningEnabled", tostring(checkBox.noFlyWarningEnabled))
 end
 
 local function triEnabledClicked(value)
    triEnabled = not value
    form.setValue(triEnabledIndex, triEnabled)
-   system.pSave("triEnabled", tostring(triEnabled))
+   jSave(variables, "triEnabled", tostring(triEnabled))
+   --system.pSave("triEnabled", tostring(triEnabled))
 end
 
 local function noflyEnabledClicked(value)
    noflyEnabled = not value
    form.setValue(noflyEnabledIndex, noflyEnabled)
-   system.pSave("noflyEnabled", tostring(noflyEnabled))
+   jSave(variables, "noflyEnabled", tostring(noflyEnabled))
+   --system.pSave("noflyEnabled", tostring(noflyEnabled))
 end
 
 
 --------------------------------------------------------------------------------
+
+local function pngLoad(j)
+   local pfn
+   pfn = Field.images[j].file
+   fieldPNG[j] = lcd.loadImage(pfn)
+
+   --print("pngLoad:", fieldPNG[j].width, fieldPNG[j].height)
+   
+   --for kk = 1, #Field.images do
+   --   print("fieldPNG:", kk, fieldPNG[kk])
+   --end
+   
+   if not fieldPNG[j] then
+      print(appInfo.Name .. ": Failed to load image", j, pfn)
+      return
+   end
+
+   -- get here if image file opened successfully
+   
+   Field.lat = Field.images[j].center.lat
+   Field.lng = Field.images[j].center.lng
+   lat0 = Field.lat
+   lng0 = Field.lng
+   coslat0 = math.cos(math.rad(lat0))
+   rwy2XY()
+   tri2XY()
+   nfz2XY()
+   xtable={}
+   ytable={}
+   --print("pngload: j, #xHist", j, #xHist)
+   --xHist={}
+   --yHist={}
+   --latHist={}
+   --lngHist={}
+   xHistLast=0
+   yHistLast = 0
+   --print("pngload: lat0, lng0", lat0, lng0)
+   
+end
+
+local function graphScaleRst(i)
+   if not currentImage then return end
+   currentImage = i
+   map.Xmin = xminImg(currentImage)
+   map.Xmax = xmaxImg(currentImage)
+   map.Ymin = yminImg(currentImage)
+   map.Ymax = ymaxImg(currentImage)
+   --print("gSR", i, map.Xmin, map.Xmax, map.Ymin, map.Ymax)
+   map.Xrange = map.Xmax - map.Xmin
+   map.Yrange = map.Ymax - map.Ymin
+   path.xmin = map.Xmin
+   path.xmax = map.Xmax
+   path.ymin = map.Ymin
+   path.ymax = map.Ymax
+end
+
+local function triRot(ao)
+
+   if #tri ~= 3 then return end
+
+   -- adjust size from Fields file (Field.triangle.size) to menu (variables.triLength)
+   -- and scale and rotate the triangle according to menu options
+
+   --print("scale ratio:", (variables.triLength / Field.triangle.size))
+   
+   for i=1,3,1 do
+      tri[i].dx = (variables.triLength / Field.triangle.size)*(tri[i].x - tri.center.x)
+      tri[i].dy = (variables.triLength / Field.triangle.size)*(tri[i].y - tri.center.y )
+      tri[i].dx, tri[i].dy = rotateXY(tri[i].dx, tri[i].dy, math.rad(variables.triRotation))
+   end
+   
+   pylon[1] = {x = tri[2].dx + tri.center.x + variables.triOffsetX,
+	       y = tri[2].dy + tri.center.y + variables.triOffsetY, aimoff=(ao or 0)}
+   
+   pylon[2] = {x=tri[1].dx + tri.center.x + variables.triOffsetX,
+	       y=tri[1].dy + tri.center.y + variables.triOffsetY, aimoff=(ao or 0)}
+   
+   pylon[3] = {x=tri[3].dx + tri.center.x + variables.triOffsetX,
+	       y=tri[3].dy + tri.center.y + variables.triOffsetY,aimoff=(ao or 0)}      
+end
+
+local function keyForm(key)
+   local inc
+   --print("key:", key, KEY_UP, KEY_DOWN)
+   if (key == KEY_UP or key == KEY_DOWN) and savedSubform == 10 and
+   browse.FieldName == browse.OriginalFieldName then
+      if key == KEY_UP then inc = -1 else inc = 1 end
+      if browse.opTable[browse.opTableIdx] == "X" then
+	 variables.triOffsetX = variables.triOffsetX + -2*inc
+	 browse.dispText = string.format("X %4d", variables.triOffsetX)
+	 jSave(variables, "triOffsetX", variables.triOffsetX)	 	 
+	 --system.pSave("variables.triOffsetX", variables.triOffsetX)	 
+      elseif browse.opTable[browse.opTableIdx] == "Y" then
+	 variables.triOffsetY = variables.triOffsetY + -2*inc
+	 browse.dispText = string.format("Y %4d", variables.triOffsetY)
+	 jSave(variables, "triOffsetY", variables.triOffsetY)	 
+	 --system.pSave("variables.triOffsetY", variables.triOffsetY)
+      elseif browse.opTable[browse.opTableIdx] == "R" then
+	 variables.triRotation = variables.triRotation + inc
+	 browse.dispText = string.format("R %4d", variables.triRotation)
+	 jSave(variables, "triRotation", variables.triRotation)	 
+	 --system.pSave("variables.triRotation", variables.triRotation)
+      else -- L (length)
+	 variables.triLength = variables.triLength + -5*inc
+	 browse.dispText = string.format("L %4d", variables.triLength)
+	 --print("triLength:", variables.triLength)
+	 jSave(variables, "triLength", variables.triLength)	 
+	 --system.pSave("variables.triLength", variables.triLength)
+      end
+      triRot(0)
+   end
+   
+   if key == KEY_2 or key == KEY_3 or key == KEY_4 then
+
+      if key == KEY_3 or key == KEY_4 then
+	 if key == KEY_3 then inc = -1 else inc = 1 end
+	 browse.Idx = browse.Idx + inc
+	 browse.Idx = math.max(math.min(browse.Idx, #Fields[browse.FieldName].images), 1)
+	 currentImage = browse.Idx
+	 pngLoad(currentImage)
+	 graphScaleRst(currentImage)
+	 triRot(0) -- rotate and translate triangle to pylons
+      else -- KEY_2
+	 if savedSubform == 9 then
+	    if not browse.OriginalFieldName then browse.OriginalFieldName = Field.shortname end
+	    if browse.FieldName then
+	       print("setField to", browse.FieldName)
+	       setField(browse.FieldName)
+	       currentImage = 1
+	       browse.Idx = 1
+	       pngLoad(currentImage)
+	       graphInit(currentImage)
+	       graphScaleRst(currentImage)
+	       triRot(0)
+	    end
+	    browse.MapDisplayed = true
+	    form.reinit(10)
+	 elseif savedSubform == 10 then
+	    browse.opTableIdx = browse.opTableIdx + 1
+	    if browse.opTableIdx > #browse.opTable then
+	       browse.opTableIdx = 1
+	    end
+	    --print(browse.opTable[browse.opTableIdx])
+	    form.reinit(10)
+	 end
+	 
+      end
+   end
+   if key == KEY_1 or key == KEY_5 or key == KEY_ESC then
+      --print("1/5/E", key, savedSubform)
+      if savedSubform == 9 or savedSubform == 10 then
+	 form.preventDefault()
+	 if savedSubform == 10 then
+	    browse.MapDisplayed = false
+	 end
+	 if key == KEY_1 then
+	    --print("reinit 9")
+	    form.reinit(9)
+	 else
+	    --print("resetting Field")
+	    Field = {}
+	    browse.OriginalFieldName = nil
+	    gotInitPos = false
+	    xHist = {}
+	    yHist = {}
+	    latHist = {}
+	    lngHist = {}
+	    form.reinit(1)
+	    savedRow = 6
+	    browse.Idx = 1
+	    form.setTitle(appInfo.menuTitle)
+	 end
+      end
+   end
+end
+
+local function browseFieldClicked(i)
+   browse.Idx = i
+   browse.FieldName = browse.List[i]
+end
+
 -- Draw the main form (Application inteface)
 
-local savedRow = 1
 
 local function initForm(subform)
+
+   savedSubform = subform
+   
    if subform == 1 then
 
       form.addLink((function() form.reinit(2) end),
@@ -450,6 +901,9 @@ local function initForm(subform)
 
       form.addLink((function() form.reinit(5) end),
 	 {label = "Settings >>"})            
+
+      form.addLink((function() form.reinit(9) end),
+	 {label = "Map Browser >>"})            
 
       --form.addRow(1)
       --form.addLabel({label="DFM", font=FONT_MINI, alignRight=true})
@@ -549,7 +1003,7 @@ local function initForm(subform)
       
       form.addRow(2)
       form.addLabel({label="Triangle leg", width=220})
-      form.addIntbox(variables.triLength, 10, 1000, 250, 0, 10, triLengthChanged)
+      form.addIntbox(variables.triLength, 10, 1000, 250, 0, 1, triLengthChanged)
       
       form.addRow(2)
       form.addLabel({label="Triangle race time (m)", width=220})
@@ -590,7 +1044,7 @@ local function initForm(subform)
       form.addRow(2)
       form.addLabel({label="Future position (msec)", width=220})
       form.addIntbox(variables.futureMillis, 0, 10000, 2000, 0, 10,
-		     (function(x) return variableChanged(x, "futureMillis") end) )
+		     (function(xx) return variableChanged(xx, "futureMillis") end) )
       
       form.addRow(2)
       form.addLabel({label="Show NoFly Zones", width=270})
@@ -607,7 +1061,7 @@ local function initForm(subform)
 	 form.addCheckbox(checkBox.noFlyShakeEnabled, noFlyShakeEnabledClicked)
 
       form.addRow(2)
-      form.addLabel({label="Field elev (m)", width=220})
+      form.addLabel({label="Field elevation adjustment (m)", width=220})
       form.addIntbox(variables.elev, 0, 1000, 100, 0, 1, elevChanged)
       
       --form.addRow(2)
@@ -626,17 +1080,17 @@ local function initForm(subform)
       form.addRow(2)
       form.addLabel({label="Triangle Rotation (deg CCW)", width=220})
       form.addIntbox(variables.triRotation, -180, 180, 0, 0, 1,
-		     (function(x) return variableChanged(x, "triRotation", triReset) end) )
+		     (function(xx) return variableChanged(xx, "triRotation", triReset) end) )
       
       form.addRow(2)
       form.addLabel({label="Triangle Left (-) / Right(+) (m)", width=220})
       form.addIntbox(variables.triOffsetX, -1000, 1000, 0, 0, 1,
-		     (function(x) return variableChanged(x, "triOffsetX", triReset) end) )
+		     (function(xx) return variableChanged(xx, "triOffsetX", triReset) end) )
       
       form.addRow(2)
       form.addLabel({label="Triangle Up(+) / Down(-) (m)", width=220})
       form.addIntbox(variables.triOffsetY, -1000, 1000, 0, 0, 1,
-		     (function(x) return variableChanged(x, "triOffsetY", triReset) end) )
+		     (function(xx) return variableChanged(xx, "triOffsetY", triReset) end) )
       
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
@@ -670,7 +1124,53 @@ local function initForm(subform)
       end
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
+
+   elseif subform == 9 then
+      savedRow = subform -1
+      ----------
+      form.setTitle("")
+      form.setButton(2, "Show", 1)
       
+      browse.List = {}
+      for k,_ in pairs(Fields) do
+	 table.insert(browse.List, k)
+      end
+      table.sort(browse.List, function(a,b) return a<b end)
+      print("browse.FieldName", browse.FieldName)
+      if not browse.FieldName then
+	 print("not browse.FieldName")
+	 print("browse.List[1]:", browse.List[1])
+	 browse.FieldName = Fields[browse.List[1]].shortname
+	 print("browse.FieldName set to:", browse.FieldName)
+      end
+      --print("browse.Idx:", browse.Idx)
+      form.addRow(2)
+      form.addLabel({label="Select Field to Browse"})
+      form.addSelectbox(browse.List, browse.Idx, true, browseFieldClicked)
+      form.addRow(1)
+      form.addLabel({label=""})      
+      form.addRow(1)
+      form.addLabel({label="Press Show to browse maps for this field", font=FONT_NORMAL})
+      form.addRow(1)
+      form.addLabel({label=""})      
+      form.addRow(1)
+      form.addLabel({label="On the map image screen, edit the optional triangle", font=FONT_MINI})
+      form.addRow(1)
+      form.addLabel({label="racing course using transmitter's 3D control dial", font=FONT_MINI})
+      form.addRow(1)
+      form.addLabel({label="Press button 2 to cycle through the settable parameters", font=FONT_MINI})
+      form.addRow(1)      
+      form.addLabel({label="X: left/right Y: Up/Down R: Rotation CW/CCW L: Length", font=FONT_MINI})
+      form.setFocusedRow(1)
+   elseif subform == 10 then
+      --print("savedRow to", subform-1)
+      form.setButton(2, browse.opTable[browse.opTableIdx], 1)
+      browse.MapDisplayed = true
+      savedRow = subform -1
+      form.setTitle("")
+      form.setButton(1, ":backward", 1)
+      form.setButton(3, ":down" , 1)            
+      form.setButton(4, ":up", 1)
    end
 end
 
@@ -706,34 +1206,7 @@ end
 --   ren:renderPolyline(width, alpha)
 --end
 
-local function rotateXY(xx, yy, rotation)
-   local sinShape, cosShape
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
-   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
-end
 
-local function setColorMap()
-   -- when text and graphics overlayed on a map, best to use yellow
-   -- set comp color to 255-fg
-   if fieldPNG[currentImage] then   
-      textColor.main.red, textColor.main.green, textColor.main.blue = 255, 255,   0
-      textColor.comp.red, textColor.comp.green, textColor.comp.blue =   0,   0, 255
-   end
-   lcd.setColor(textColor.main.red, textColor.main.green, textColor.main.blue)   
-end
-
-local function setColorNoFlyInside()
-   lcd.setColor(255,0,0)
-end
-
-local function setColorNoFlyOutside()
-   lcd.setColor(0,255,0)
-end
-
-local function setColorMain()
-   lcd.setColor(textColor.main.red, textColor.main.green, textColor.main.blue)
-end
 
 local text
 
@@ -1040,22 +1513,21 @@ local function drawTriRace(windowWidth, windowHeight)
       lcd.drawText((310 - lcd.getTextWidth(FONT_MINI, subtitleText))/2, 17,
 	 subtitleText, FONT_MINI)
    end
-   
 
    if raceParam.flightStarted ~= 0 then
-      lcd.drawImage(5, 100, greenDotImage)
+      lcd.drawImage(5, 100, dotImage.green)
    else
-      lcd.drawImage(5,100, redDotImage)
+      lcd.drawImage(5,100, dotImage.red)
    end
 
    if raceParam.startArmed then
       if raceParam.racing then
-	 lcd.drawImage(25, 100, blueDotImage)
+	 lcd.drawImage(25, 100, dotImage.blue)
       else
-	 lcd.drawImage(25, 100, greenDotImage)
+	 lcd.drawImage(25, 100, dotImage.green)
       end
    else
-      if startSwitch then lcd.drawImage(25, 100, redDotImage) end
+      if startSwitch then lcd.drawImage(25, 100, dotImage.red) end
    end
    
    lcd.drawText(5, 120, "Spd: "..math.floor(speed), FONT_MINI)
@@ -1072,6 +1544,7 @@ local function drawTriRace(windowWidth, windowHeight)
    --end
 
 end
+
 
 local function calcTriRace()
 
@@ -1091,25 +1564,7 @@ local function calcTriRace()
    -- if no course computed yet, start by defining the pylons
 
    if #pylon < 1 and Field.name then -- need to confirm with RFM order of vertices
-
-      for i=1,3,1 do
-	 tri[i].dx = tri[i].x - tri.center.x
-	 tri[i].dy = tri[i].y - tri.center.y 
-	 tri[i].dx, tri[i].dy = rotateXY(tri[i].dx, tri[i].dy, math.rad(variables.triRotation))
-	 --ttri[i] = {
-	 --   x=tri[i].dx + tri.center.x + variables.triOffsetX,
-	 --   y=tri[i].dy + tri.center.y + variables.triOffsetY
-	 --}
-      end
-
-      pylon[1] = {x = tri[2].dx + tri.center.x + variables.triOffsetX,
-		  y = tri[2].dy + tri.center.y + variables.triOffsetY, aimoff=ao}
-
-      pylon[2] = {x=tri[1].dx + tri.center.x + variables.triOffsetX,
-		  y=tri[1].dy + tri.center.y + variables.triOffsetY, aimoff=ao}
-      
-      pylon[3] = {x=tri[3].dx + tri.center.x + variables.triOffsetX,
-		  y=tri[3].dy + tri.center.y + variables.triOffsetY,aimoff=ao}      
+      triRot(ao) -- handle rotation and tranlation of triangle course 
    end
 
    -- extend startline below hypotenuse of triangle  by 0.8x inside length
@@ -1634,39 +2089,7 @@ local function isNoFlyP(pp, io, p)
    
 end
 
-local function xminImg(iM)
-   return -0.50 * Field.imageWidth[iM]
-end
 
-local function xmaxImg(iM)
-   return 0.50 * Field.imageWidth[iM]
-end
-
-local function yminImg(iM)
-   return -0.50 * Field.imageWidth[iM] / 2
-   --return 0
-end
-
-local function ymaxImg(iM)
-   return 0.50 * Field.imageWidth[iM] / 2
---return Field.imageWidth[iM] / 2
-end
-
-local function graphScaleRst(i)
-   if not currentImage then return end
-   currentImage = i
-   map.Xmin = xminImg(currentImage)
-   map.Xmax = xmaxImg(currentImage)
-   map.Ymin = yminImg(currentImage)
-   map.Ymax = ymaxImg(currentImage)
-   --print("gSR", i, map.Xmin, map.Xmax, map.Ymin, map.Ymax)
-   map.Xrange = map.Xmax - map.Xmin
-   map.Yrange = map.Ymax - map.Ymin
-   path.xmin = map.Xmin
-   path.xmax = map.Xmax
-   path.ymin = map.Ymin
-   path.ymax = map.Ymax
-end
 
 --------------------------
 
@@ -1744,6 +2167,120 @@ end
 
 
 --------------------------
+local function prtForm(windowWidth, windowHeight)
+
+   local ren=lcd.renderer()
+
+   --print(form.getActiveForm() or "---", savedRow)
+   
+   --if not form.getActiveForm() then return end
+   if not browse.MapDisplayed then return end
+   
+   setColorMap()
+   
+   setColorMain()
+   
+   if fieldPNG[currentImage] then
+      lcd.drawImage(0,0,fieldPNG[currentImage], 255)
+   else
+      local txt = "No browse image"
+      lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, txt))/2, 90, txt, FONT_BIG)
+   end
+
+   if true then
+      --lcd.setColor(0,41,15)
+      --lcd.drawFilledRectangle(0,0,windowWidth, windowHeight)
+
+      -- tele window images are 0-319 x 0-159 (2:1)
+      -- forms window images are 0-310 x 0-143 (2.159:1)
+      
+      lcd.drawImage(-5,15,fieldPNG[currentImage],255)-- -5 and 15 (175-160??) determined empirically (ugg)
+      if Field then
+	 --lcd.drawCircle(0,0,10)
+	 setColorLabels()
+	 lcd.drawText(10,15,"File: " .. Field.images[currentImage].file, FONT_MINI)	 
+	 lcd.drawText(10,25,Field.shortname .." - " ..Field.name, FONT_MINI)
+	 lcd.drawText(10,35,"Width: " ..  Field.imageWidth[currentImage] .." m", FONT_MINI)
+	 lcd.drawText(10,45,"Lat: " ..  string.format("%.6f", lat0) .. "°", FONT_MINI)
+	 lcd.drawText(10,55,"Lon: " ..  string.format("%.6f", lng0) .. "°", FONT_MINI)
+	 lcd.drawText(10,65,"Elev: " .. (Field.elevation.elevation or "---") .." m", FONT_MINI)
+
+	 lcd.drawText(82,160,(browse.dispText or ""), FONT_MINI)	 
+	 --lcd.setClipping(0,15,310,160)
+
+	 setColorRunway()
+	 if #rwy == 4 then
+	    ren:reset()
+	    for j = 1, 5, 1 do
+	       if j == 1 then
+		  --print(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
+		  --	    toYPixel(rwy[j%4+1].y, map.Ymin, map.Yrange, windowHeight))	       
+	       end
+	       ren:addPoint(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
+			    toYPixel(rwy[j%4+1].y, map.Ymin, map.Yrange, windowHeight))
+	    end
+	    ren:renderPolyline(2,0.7)
+	 end
+
+	 if #tri == 3 then
+	    ren:reset()
+	    for j= 1, 4, 1 do
+	       ren:addPoint(toXPixel(tri[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
+			    toYPixel(tri[j%3+1].y, map.Ymin, map.Yrange, windowHeight))
+	    end
+	    setColorTriangle()
+	    ren:renderPolyline(2,0.7)
+	 else
+	    --print("#tri:", #tri)
+	 end
+
+	 if #pylon == 3 then
+	    ren:reset()
+	    for j= 1, 4, 1 do
+	       ren:addPoint(toXPixel(pylon[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
+			    toYPixel(pylon[j%3+1].y, map.Ymin, map.Yrange, windowHeight))
+	    end
+	    setColorTriRot()
+	    ren:renderPolyline(2,0.7)
+	 end
+
+	 for i = 1, #nfp, 1 do
+	    ren:reset()
+	    if nfp[i].inside then
+	       setColorNoFlyInside()
+	    else
+	       setColorNoFlyOutside()
+	    end
+	    for j = 1, #nfp[i].path+1, 1 do
+	       ren:addPoint(toXPixel(nfp[i].path[j % (#nfp[i].path) + 1].x,
+				     map.Xmin, map.Xrange, windowWidth),
+			    toYPixel(nfp[i].path[j % (#nfp[i].path) + 1].y,
+				     map.Ymin, map.Yrange, windowHeight))
+	       
+	    end
+	    ren:renderPolyline(2,0.5)
+	 end
+	 
+	 for i = 1, #nfc, 1 do
+	    if i == i then
+	       if nfc[i].inside then
+		  setColorNoFlyInside()
+	       else
+		  setColorNoFlyOutside()
+	       end
+	       
+	       lcd.drawCircle(toXPixel(nfc[i].x, map.Xmin, map.Xrange, windowWidth),
+			      toYPixel(nfc[i].y, map.Ymin, map.Yrange, windowHeight),
+			      nfc[i].r * windowWidth/map.Xrange)
+	    end
+	 end
+      end
+      lcd.setColor(255,255,255)
+      lcd.drawFilledRectangle(0,0,windowWidth, 15)
+   end
+
+end
+
 
 local function dirPrint()
    local xa, ya
@@ -1792,14 +2329,14 @@ local function dirPrint()
    lcd.setColor(0,0,255)
    if distance and raceParam.racing then
       xp, yp = rotateXY(0, 50 * distance / variables.triLength, theta)
-      if m3(nextPylon) == 1 then dotpng = redDotImage
-      elseif m3(nextPylon) == 2 then dotpng = greenDotImage
-      elseif m3(nextPylon) == 3 then dotpng = blueDotImage
+      if m3(nextPylon) == 1 then dotpng = dotImage.red
+      elseif m3(nextPylon) == 2 then dotpng = dotImage.green
+      elseif m3(nextPylon) == 3 then dotpng = dotImage.blue
       end
       lcd.drawImage((xp+xa-7), (yp+ya-7), dotpng)
       --lcd.drawCircle(xp+xa, yp+ya,5)
    else
-      lcd.drawImage(xa-7, ya-7, redDotImage)
+      lcd.drawImage(xa-7, ya-7, dotImage.red)
       --lcd.drawCircle(xa, ya,5)
    end
    
@@ -1898,135 +2435,13 @@ end
 local swzTime = 0
 local panic = false
 
-local function ll2xy(lat, lng)
-   local tx, ty
-   tx, ty = rotateXY(rE*(lng-lng0)*coslat0/rad,
-		     rE*(lat-lat0)/rad,
-		     math.rad(variables.rotationAngle))
-   return {x=tx, y=ty}
-end
 
-local function rwy2XY()
-	    
-   rwy = {}
-   if Field.runway then
-      for j=1, #Field.runway.path, 1 do
-	 rwy[j] = ll2xy(Field.runway.path[j].lat, Field.runway.path[j].lng)
-	 --print("j, rwy.x, rwy.y:", j, rwy[j].x, rwy[j].y)
-      end
-      rwy.heading = Field.runway.heading
-      --print("rwy heading:", rwy.heading)
-   end
-	    
-end
 
-local function tri2XY()
-   tri = {}
-   pylon = {}
-   if Field.triangle then
-      for j=1, #Field.triangle.path, 1 do
-	 tri[j] = ll2xy(Field.triangle.path[j].lat, Field.triangle.path[j].lng)
-	 --print("j, tri.x, tri.y:", j, tri[j].x, tri[j].y)
-      end
-      tri.center = ll2xy(Field.triangle.center.lat, Field.triangle.center.lng)
-      --print("tri.center.x, tri.center.y:", tri.center.x, tri.center.y)
-      --print("lat,lng:", Field.triangle.center.lat, Field.triangle.center.lng)
-   end
-end
 
-local function nfz2XY()
-	    
-   nfc = {}
-   nfp = {}
-   
-   if Field.nofly then
-      for j = 1, #Field.nofly, 1 do
-	 if Field.nofly[j].type == "circle" then
-	    local tt = ll2xy(Field.nofly[j].lat, Field.nofly[j].lng)
-	    tt.r = Field.nofly[j].diameter / 2
-	    tt.inside = Field.nofly[j].inside_or_outside == "inside"
-	    table.insert(nfc, tt)
-	    --print("tt.x, tt.y", tt.x, tt.y)
-	    --print("#nfc, x,y,r", #nfc, nfc[#nfc].x, nfc[#nfc].y, nfc[#nfc].r, nfc[#nfc].inside)
-	 elseif Field.nofly[j].type == "polygon" then
-	    local pp = {}
-	    for k =1, #Field.nofly[j].path, 1 do
-	       table.insert(pp,ll2xy(Field.nofly[j].path[k].lat,Field.nofly[j].path[k].lng))
-	       -- we know 0,0 is at center of runway ... need an "infinity x" point for the
-	       -- no fly region computation ... keep track of largest positive x ..
-	       -- later we will double it to make sure it is well past the no fly polygon
-	       if pp[#pp].x > maxpolyX then maxpolyX = pp[#pp].x end		     
-	    end
-	    table.insert(nfp, {inside=(Field.nofly[j].inside_or_outside == "inside"),
-			       path = pp})
-	 end
-      end
-   end
-end
-
-local function pngLoad(j)
-   local pfn
-   pfn = Field.images[j].file
-   fieldPNG[j] = lcd.loadImage(pfn)
-
-   --print("pngLoad:", pfn)
-   
-   --for kk = 1, #Field.images do
-   --   print("fieldPNG:", kk, fieldPNG[kk])
-   --end
-   
-   if not fieldPNG[j] then
-      print(appInfo.Name .. ": Failed to load image", j, pfn)
-      return
-   end
-
-   -- get here if image file opened successfully
-   
-   Field.lat = Field.images[j].center.lat
-   Field.lng = Field.images[j].center.lng
-   lat0 = Field.lat
-   lng0 = Field.lng
-   coslat0 = math.cos(math.rad(lat0))
-   rwy2XY()
-   tri2XY()
-   nfz2XY()
-   xtable={}
-   ytable={}
-   --print("pngload: j, #xHist", j, #xHist)
-   --xHist={}
-   --yHist={}
-   --latHist={}
-   --lngHist={}
-   xHistLast=0
-   yHistLast = 0
-   --print("pngload: lat0, lng0", lat0, lng0)
-   
-end
-
-local function graphInit(im)
-
-   -- im or 1 construct allows im to be nil and if so selects images[1]
-   -- print("graphInit: iField, im", iField, im)
-   
-   if Field.imageWidth and Field.imageWidth[im or 1] then
-      map.Xmin = xminImg(im or 1)
-      map.Xmax = xmaxImg(im or 1)
-      map.Ymin = yminImg(im or 1)
-      map.Ymax = ymaxImg(im or 1)
-   else
-      print("**** graphInit hand setting 20/40")
-      map.Xmin, map.Xmax = -40, 40
-      map.Ymin, map.Ymax = -20, 20
-   end
-
-   map.Xrange = map.Xmax - map.Xmin
-   map.Yrange = map.Ymax - map.Ymin
-   
-   path.xmin, path.xmax, path.ymin, path.ymax = map.Xmin, map.Xmax, map.Ymin, map.Ymax
-
-end
 
 local function mapPrint(windowWidth, windowHeight)
+
+   --print(windowWidth, windowHeight)
 
    local swp
    local swz
@@ -2044,11 +2459,6 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, txt))/2, 90, txt, FONT_BIG)
    end
    
-
-   -- check tape switch (for display of speed, alt tapes)
-   -- if not defined, then show them
-   -- if defined, then use switch to decide
-
    if zoomSwitch then
       swz = system.getInputsVal(zoomSwitch)
    end
@@ -2128,32 +2538,37 @@ local function mapPrint(windowWidth, windowHeight)
 	 offset = 0
       end
 
-      ren:reset()
+      --ren:reset()
       for i=2 + offset, #xHist do
 
 	 if system.getCPU() < variables.maxCPU then
 	    --print(toXPixel(xHist[i-1], map.Xmin, map.Xrange, windowWidth),
 	    --	  toYPixel(yHist[i-1], map.Ymin, map.Yrange, windowHeight))	    
-	    ren:addPoint(toXPixel(xHist[i-1], map.Xmin, map.Xrange, windowWidth ),
-			 toYPixel(yHist[i-1], map.Ymin, map.Yrange, windowHeight) + 0)
 	    --[[
+	       ren:addPoint(toXPixel(xHist[i-1], map.Xmin, map.Xrange, windowWidth ),
+	       toYPixel(yHist[i-1], map.Ymin, map.Yrange, windowHeight) + 0)
+	    --]]
+	    
+	    ---[[
 	    lcd.drawLine(toXPixel(xHist[i-1], map.Xmin, map.Xrange, windowWidth ),
 			 toYPixel(yHist[i-1], map.Ymin, map.Yrange, windowHeight) + 0,
 			 toXPixel(xHist[i], map.Xmin, map.Xrange,    windowWidth),
 			 toYPixel(yHist[i], map.Ymin, map.Yrange,   windowHeight) + 0)
 	    --]]
 	 else
-	    print(AppInfo.Name .. ": CPU panic", #xHist, system.getCPU(), variables.maxCPU)
+	    print(appInfo.Name .. ": CPU panic", #xHist, system.getCPU(), variables.maxCPU)
 	    panic = true
 	    break
 	 end
 	 
       end
 
-     if variables.histMax > 0 and #xHist > 0 and #xtable > 0 then
-	ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
-		       toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight) + 0)
+      if variables.histMax > 0 and #xHist > 0 and #xtable > 0 then
 	 --[[
+	ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
+		      toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight) + 0)
+	--]]
+	 ---[[
 	    lcd.drawLine(toXPixel(xHist[#xHist], map.Xmin, map.Xrange,    windowWidth),
 	    toYPixel(yHist[#yHist], map.Ymin, map.Yrange,   windowHeight) + 0,
 	    toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
@@ -2162,7 +2577,7 @@ local function mapPrint(windowWidth, windowHeight)
 
      end
       
-      ren:renderPolyline(2,0.6)
+      --ren:renderPolyline(2,0.6)
    end
 
    -- draw the runway if defined
@@ -2313,7 +2728,7 @@ local function graphScale(xx, yy)
    --print("path.xmin xmax ymin ymax:", path.xmin, path.xmax, path.ymin, path.ymax)
    
    if currentImage then
-      if path.xmin > xminImg(currentImage) or
+      if path.xmin < xminImg(currentImage) or
 	 path.xmax > xmaxImg(currentImage) or
 	 path.ymin < yminImg(currentImage) or
 	 path.ymax > ymaxImg(currentImage)
@@ -2342,6 +2757,7 @@ local function graphScale(xx, yy)
       end
    else
       print("graphScale else clause********************")
+      -- THIS NEEDS TO BE UPDATED FOR METERS IF WE WANT TO KEEP IT!
       -- if no image then just scale to keep the path on the map
       -- round Xrange to nearest 200', Yrange to nearest 100' maintain 2:1 aspect ratio
       map.Xrange = math.floor((path.xmax-path.xmin)/200 + .5) * 200
@@ -2369,9 +2785,8 @@ local function initField()
 
    local fp, fn
    local atField
-   local fname
    
-   atField = false
+   --atField = false
 
    if not emFlag then fn = "/" .. appInfo.Fields else fn = appInfo.Fields end
 
@@ -2391,7 +2806,7 @@ local function initField()
    
    if lng0 and lat0 then -- if location was detected by the GPS system
       
-      for sname,ff in pairs(Fields) do
+      for sname, _ in pairs(Fields) do
 
 	 -- Use the highest mag image to determine if we are at this field
 	 -- Russell is sorting the images from highest to lowest zoom
@@ -2404,35 +2819,20 @@ local function initField()
 
 	 if (atField) then 
 
-	    Field = Fields[sname]
-	    Field.imageWidth = {}
-	    Field.lat = Field.images[1].center.lat
-	    Field.lng = Field.images[1].center.lng
-
-	    for k,v in ipairs(Field.images) do
-	       Field.imageWidth[k] = v.meters_per_pixel * 320 
-	       --print("* ", k, v.file, Field.imageWidth[k], v.heading, v.file)
-	    end
-	    lng0 = Field.lng -- reset to origin to coords in jsn file
-	    lat0  = Field.lat
-	    coslat0 = math.cos(math.rad(lat0))
-	    variables.rotationAngle  = Field.images[1].heading
-
+	    setField(sname)
 	    -- see if file <model name>_icon.jsn exists
 	    -- if so try to read airplane icon
 
-	    print("Looking for Apps/"..system.getProperty("Model").."_icon.jsn")
-	    local fg = io.readall("Apps/"..system.getProperty("Model").."_icon.jsn")
+	    --for name, ft, size in dir("Apps/DFM-Maps/JSON") do
+	    --   print(name, ft, size)
+	    --end
+	    
+	    --print("Looking for Apps/"..appInfo.Maps .."/JSON/"..string.gsub(system.getProperty("Model").."_icon.jsn", " ", "_"))
+	    local fg = io.readall("Apps/"..appInfo.Maps .."/JSON/"..string.gsub(system.getProperty("Model").."_icon.jsn", " ", "_"))
+	    
 	    if fg then
 	       shapes.T38 = json.decode(fg).icon
 	    end
-
-	    tri2XY()
-	    rwy2XY()
-	    nfz2XY()
-	    
-	    setColorMap()
-	    setColorMain()
 
 	    break
 	 end
@@ -2486,6 +2886,7 @@ local function loop()
    goodlat = false
    goodlng = false
 
+   --[[
    -- keep the checkmark on the menu for 300 msec when user does reset
    
    if resetOrigin and (system.getTimeCounter() > (timeRO+300)) then
@@ -2508,7 +2909,7 @@ local function loop()
       --print("Reset origin and barometric altitude. New baroAltZero is ", baroAltZe)
       print("Reset origin")      
    end
-
+--]]
    -- start reading all the relevant sensors
    
    sensor = system.getSensorByID(satCountID, satCountPa)
@@ -2618,10 +3019,10 @@ local function loop()
    -- replacement code for Tri race
    if not GPSAlt then GPSAlt = 0 end
    
-   if Field and Field.elevation then
-      altitude = GPSAlt  - Field.elevation
+   if Field and Field.elevation and absAltGPS  then
+      altitude = GPSAlt  - Field.elevation.elevation - variables.elev
    else
-      altitude = GPSAlt
+      altitude = GPSAlt - variables.elev
    end
    
    if (latitude == lastlat and longitude == lastlng) or
@@ -2649,8 +3050,12 @@ local function loop()
       initField()
    end
 
+   -- don't update position if we are browsing fields (dangerous??)
+   
+   if form.getActiveForm() then return end
+   
+   --[[
    -- defend against random bad points ... 1/6th degree is about 10 mi
-
    if ( (math.abs(longitude-lng0) > 1/6) or (math.abs(latitude-lat0) > 1/6) ) and Field.name then
       --print("bad latlong")
       -- perhaps sensor emulator changed fields .. reinit...
@@ -2671,6 +3076,7 @@ local function loop()
       end
       return
    end
+   --]]
    
    x = rE * (longitude - lng0) * coslat0 / rad
    y = rE * (latitude - lat0) / rad
@@ -2775,11 +3181,11 @@ local function init()
       print(appInfo.Name .. ": Could not open "..appInfo.Dir.."JSON/Shapes.jsn")
    end
 
-   blueDotImage = lcd.loadImage(appInfo.Dir.."/JSON/small_blue_circle.png")
-   greenDotImage = lcd.loadImage(appInfo.Dir.."/JSON/small_green_circle.png")   
-   redDotImage = lcd.loadImage(appInfo.Dir.."/JSON/small_red_circle.png")
+   dotImage.blue = lcd.loadImage(appInfo.Dir.."/JSON/small_blue_circle.png")
+   dotImage.green = lcd.loadImage(appInfo.Dir.."/JSON/small_green_circle.png")   
+   dotImage.red = lcd.loadImage(appInfo.Dir.."/JSON/small_red_circle.png")
 
-   --print(blueDotImage, greenDotImage, redDotImage)
+   --print(dotImage.blue, dotImage.green, dotImage.red)
    
    setColorMain()  -- if a map is present it will change color scheme later
    
@@ -2790,15 +3196,8 @@ local function init()
       telem[j].SeId = system.pLoad("telem."..telem[i]..".SeId", 0)
       telem[j].SePa = system.pLoad("telem."..telem[i]..".SePa", 0)
    end
-
-   --local vdef
    
-   --variables.histSample.default
-      
-   -- this is an idiotic way to do this .. maybe put the names and defaults in the declaration
-   -- e.g. variables = { {"histSample", 1000}, {"histMax", 0} ... }
-   -- then can do in O(n) with one loop
-   
+--[[
    for i, j in ipairs(variables) do
       idef = 0
       if j == "histSample"     then idef = 1000 end
@@ -2820,30 +3219,66 @@ local function init()
 
       variables[j] = system.pLoad("variables."..variables[i], idef)
    end
+--]]
+   
+-- local variables = {"rotationAngle", "histSample", "histMax", "maxCPU",
+-- 		   "triLength", "maxSpeed", "maxAlt", "elev", "histDistance",
+-- 		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd",
+-- 		   "futureMillis", "triRotation", "triOffsetX", "triOffsetY"}
+--local function jLoadInit(fn, config)
+ 
+   
+   variables = jLoadInit(appInfo.Dir .. "M-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
+   
+   variables.rotationAngle  = jLoad(variables, "rotationAngle",   0)
+   variables.histSample     = jLoad(variables, "histSample",   1000)
+   variables.histMax        = jLoad(variables, "histMax",         0)
+   variables.maxCPU         = jLoad(variables, "maxCPU",         80)
+   variables.triLength      = jLoad(variables, "triLength",     250)
+   variables.maxSpeed       = jLoad(variables, "maxSpeed",      100)
+   variables.maxAlt         = jLoad(variables, "maxAlt",        200)
+   variables.elev           = jLoad(variables, "elev",            0)
+   variables.histDistance   = jLoad(variables, "histDistance",    3)
+   variables.raceTime       = jLoad(variables, "raceTime",       30)
+   variables.aimoff         = jLoad(variables, "aimoff",         20)
+   variables.flightStartSpd = jLoad(variables, "flightStartSpd", 20)
+   variables.flightStartAlt = jLoad(variables, "flightStartAlt", 20)
+   variables.futureMillis   = jLoad(variables, "futureMillis", 2000)
+   variables.triRotation    = jLoad(variables, "triRotation",     0)
+   variables.triOffsetX     = jLoad(variables, "triOffsetX",      0)
+   variables.triOffsetY     = jLoad(variables, "triOffsetY",      0)
+   
+   --annText     = system.pLoad("annText", "c-d----")
+   annText     = jLoad(variables, "annText", "c-d----")   
+   --preText     = system.pLoad("preText", "s-a----")
+   preText     = jLoad(variables, "preText", "s-a----")      
 
+
+   -- to do: move triEnabled and noflyEnabled to new checkBox. format
+   
+   --triEnabled = system.pLoad("triEnabled", "true") -- default to enabling racing
+   triEnabled = jLoad(variables, "triEnabled", "false") -- default to enabling racing   
+   triEnabled  = (triEnabled  == "true") -- convert back to boolean
+
+   --noflyEnabled = system.pLoad("noflyEnabled", "true") 
+   noflyEnabled = jLoad(variables, "noflyEnabled", "true")
+   noflyEnabled  = (noflyEnabled  == "true") -- convert back to boolean
+
+   --checkBox.noFlyWarningEnabled = system.pLoad("noFlyWarningEnabled", "true")
+   checkBox.noFlyWarningEnabled = jLoad(variables, "noFlyWarningEnabled", "true")   
+   checkBox.noFlyWarningEnabled = (checkBox.noFlyWarningEnabled == "true")
+   
+   --checkBox.noFlyShakeEnabled = system.pLoad("noFlyShakeEnabled", "true")
+   checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", "true")   
+   checkBox.noFlyShakeEnabled = (checkBox.noFlyShakeEnabled == "true")
+   
    pointSwitch = system.pLoad("pointSwitch")
    zoomSwitch  = system.pLoad("zoomSwitch")
    triASwitch  = system.pLoad("triASwitch")      
    startSwitch = system.pLoad("startSwitch")
-   annText     = system.pLoad("annText", "c-d----")
-   preText     = system.pLoad("preText", "s-a----")   
 
-   -- to do: move triEnabled and noflyEnabled to new checkBox. format
-   
-   triEnabled = system.pLoad("triEnabled", "true") -- default to enabling racing
-   triEnabled  = (triEnabled  == "true") -- convert back to boolean
-
-   noflyEnabled = system.pLoad("noflyEnabled", "true") -- default to enabling racing
-   noflyEnabled  = (noflyEnabled  == "true") -- convert back to boolean
-
-   checkBox.noFlyWarningEnabled = system.pLoad("noFlyWarningEnabled", "true")
-   checkBox.noFlyWarningEnabled = (checkBox.noFlyWarningEnabled == "true")
-   
-   checkBox.noFlyShakeEnabled = system.pLoad("noFlyShakeEnabled", "true")
-   checkBox.noFlyShakeEnabled = (checkBox.noFlyShakeEnabled == "true")
-   
-   system.registerForm(1, MENU_APPS, "GPS Maps", initForm, nil, nil)
-   system.registerTelemetry(1, appInfo.Name.." Racecourse Map", 4, mapPrint)
+   system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
+   system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
    system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
    
    
@@ -2857,4 +3292,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="5", name=appInfo.Name}
+return {init=init, loop=loop, author="DFM", version="5", name=appInfo.Name, destroy=destroy}
