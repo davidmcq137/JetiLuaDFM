@@ -3299,7 +3299,7 @@ local function init()
       return
    end
    
-   playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
+   --playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
    
    readSensors()
 
