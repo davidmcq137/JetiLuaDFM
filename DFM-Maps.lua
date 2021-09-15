@@ -1132,18 +1132,15 @@ local function initForm(subform)
       form.setButton(2, "Show", 1)
       
       browse.List = {}
+
       for k,_ in pairs(Fields) do
 	 table.insert(browse.List, k)
       end
       table.sort(browse.List, function(a,b) return a<b end)
-      print("browse.FieldName", browse.FieldName)
-      if not browse.FieldName then
-	 print("not browse.FieldName")
-	 print("browse.List[1]:", browse.List[1])
+      if #browse.List > 0 and (not browse.FieldName) then
 	 browse.FieldName = Fields[browse.List[1]].shortname
-	 print("browse.FieldName set to:", browse.FieldName)
       end
-      --print("browse.Idx:", browse.Idx)
+
       form.addRow(2)
       form.addLabel({label="Select Field to Browse"})
       form.addSelectbox(browse.List, browse.Idx, true, browseFieldClicked)
@@ -2169,6 +2166,8 @@ end
 --------------------------
 local function prtForm(windowWidth, windowHeight)
 
+   if #browse.List < 1 then return end
+   
    local ren=lcd.renderer()
 
    --print(form.getActiveForm() or "---", savedRow)
@@ -2783,24 +2782,22 @@ end
 
 local function initField()
 
-   local fp, fn
    local atField
    
-   --atField = false
+   -- local fp, fn
+   -- if not emFlag then fn = "/" .. appInfo.Fields else fn = appInfo.Fields end
 
-   if not emFlag then fn = "/" .. appInfo.Fields else fn = appInfo.Fields end
-
-   fp = io.readall(fn)
-   if fp then
-      Fields = json.decode(fp)
-      if not Fields then
-	 print(appInfo.Name .. ": Failed to decode " .. fn)
-	 return
-      end
-   else
-      print(appInfo.Name .. ": Cannot open ", fn)
-      return
-   end
+   -- fp = io.readall(fn)
+   -- if fp then
+   --    Fields = json.decode(fp)
+   --    if not Fields then
+   -- 	 print(appInfo.Name .. ": Failed to decode " .. fn)
+   -- 	 return
+   --    end
+   -- else
+   --    print(appInfo.Name .. ": Cannot open ", fn)
+   --    return
+   -- end
 
    Field = {}
    
@@ -3281,12 +3278,28 @@ local function init()
    system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
    system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
    
-   
    emFlag = (select(2,system.getDeviceType()) == 1)
 
    arcFile = lcd.loadImage(appInfo.Dir .. "JSON/c-000.png")
 
-   --playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
+   local fp, fn
+
+   if not emFlag then fn = "/" .. appInfo.Fields else fn = appInfo.Fields end
+
+   fp = io.readall(fn)
+
+   if fp then
+      Fields = json.decode(fp)
+      if not Fields then
+   	 print(appInfo.Name .. ": Failed to decode " .. fn)
+   	 return
+      end
+   else
+      print(appInfo.Name .. ": Cannot open ", fn)
+      return
+   end
+   
+   playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
    
    readSensors()
 
