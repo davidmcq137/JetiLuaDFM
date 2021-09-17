@@ -453,7 +453,11 @@ local function setColorNoFlyOutside()
 end
 
 local function setColorMain()
-   lcd.setColor(255,255,0)
+   if fieldPNG[currentImage] then
+      lcd.setColor(255,255,0)
+   else
+      lcd.setColor(0,0,0)
+   end
 end
 
 local function setColorLabels()
@@ -1519,7 +1523,7 @@ local function calcTriRace()
 
    -- if no course computed yet, start by defining the pylons
 
-   if #pylon < 1 and Field.name then -- need to confirm with RFM order of vertices
+   if #pylon < 3 and Field.name then -- need to confirm with RFM order of vertices
       --print("calcTriRace triRot")
       triRot(ao) -- handle rotation and tranlation of triangle course 
       -- extend startline below hypotenuse of triangle  by 0.8x inside length
@@ -1537,7 +1541,7 @@ local function calcTriRace()
    -- xt, yt is the "target" or aiming point
    -- z*, y* are the left and right sides of the turning zones
    
-   if (#pylon > 0) and (not pylon[1].xm) then
+   if (#pylon ==3) and (not pylon[1].xm) then
       --print("calcTriRace .xm")
       for j=1, #pylon do
 	 local zx, zy
@@ -1648,8 +1652,11 @@ local function calcTriRace()
 
    -- start zone is left half plane divided by start line
 
-   detS1 = (xtable[#xtable] - tri.center.x) * (pylon.start.y - tri.center.y) -
-      (ytable[#ytable] - tri.center.y) * (pylon.start.x - tri.center.x)
+   if #pylon == 3 then
+      detS1 = (xtable[#xtable] - tri.center.x) * (pylon.start.y - tri.center.y) -
+	 (ytable[#ytable] - tri.center.y) * (pylon.start.x - tri.center.x)
+   end
+   
 
    local inStartZone
    if detS1 >= 0 then inStartZone = true else inStartZone = false end
