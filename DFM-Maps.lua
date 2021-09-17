@@ -1426,7 +1426,7 @@ local function drawTriRace(windowWidth, windowHeight)
    ren:renderPolyline(2, 0.7)
    
    -- draw the startline
-   if #pylon == 3 then
+   if #pylon == 3 and pylon.start then
       ren:reset()
       ren:addPoint(toXPixel(pylon[2].x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[2].y, map.Ymin, map.Yrange, windowHeight))
@@ -1522,9 +1522,9 @@ local function calcTriRace()
    end
 
    -- if no course computed yet, start by defining the pylons
-
-   if #pylon < 3 and Field.name then -- need to confirm with RFM order of vertices
-      --print("calcTriRace triRot")
+   --print("#pylon, Field.name", #pylon, Field.name)
+   if (#pylon < 3) and Field.name then -- need to confirm with RFM order of vertices
+      print("calcTriRace triRot")
       triRot(ao) -- handle rotation and tranlation of triangle course 
       -- extend startline below hypotenuse of triangle  by 0.8x inside length
       pylon.start = {x=tri.center.x + variables.triOffsetX +
@@ -1652,7 +1652,7 @@ local function calcTriRace()
 
    -- start zone is left half plane divided by start line
 
-   if #pylon == 3 then
+   if #pylon == 3 and pylon.start then
       detS1 = (xtable[#xtable] - tri.center.x) * (pylon.start.y - tri.center.y) -
 	 (ytable[#ytable] - tri.center.y) * (pylon.start.x - tri.center.x)
    end
@@ -2447,8 +2447,6 @@ local panic = false
 
 local function mapPrint(windowWidth, windowHeight)
 
-   --print(windowWidth, windowHeight)
-
    local swp
    local swz
    local offset
@@ -2461,9 +2459,8 @@ local function mapPrint(windowWidth, windowHeight)
    if fieldPNG[currentImage] then
       lcd.drawImage(0,0,fieldPNG[currentImage], 255)
    else
-      lcd.setColor(0,0,0)
-      local txt = "No GPS signal or no Image"
-      lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, txt))/2, 90, txt, FONT_BIG)
+      lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, "No GPS fix or no Image"))/2, 90,
+	 "No GPS fix or no Image", FONT_BIG)
    end
    
    -- in case the draw functions left color set to their specific values
@@ -2753,7 +2750,6 @@ local function graphScale(xx, yy)
       if not fieldPNG[currentImage] then
 	 pngLoad(currentImage)
 	 graphScaleRst(currentImage)
-
 	 -- recalc previous x,y from lat, lng but scaled for this image
 
 	 for i=1,#latHist,1 do
@@ -3217,4 +3213,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="7", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.1", name=appInfo.Name, destroy=destroy}
