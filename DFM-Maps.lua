@@ -1422,12 +1422,15 @@ local function drawTriRace(windowWidth, windowHeight)
    ren:renderPolyline(2, 0.7)
    
    -- draw the startline
-   ren:reset()
-   ren:addPoint(toXPixel(pylon[2].x, map.Xmin, map.Xrange, windowWidth),
-		toYPixel(pylon[2].y, map.Ymin, map.Yrange, windowHeight))
-   ren:addPoint(toXPixel(pylon.start.x, map.Xmin, map.Xrange, windowWidth),
-		toYPixel(pylon.start.y,map.Ymin,map.Yrange,windowHeight))
-   ren:renderPolyline(2,0.7)
+   if #pylon == 3 then
+      ren:reset()
+      ren:addPoint(toXPixel(pylon[2].x, map.Xmin, map.Xrange, windowWidth),
+		   toYPixel(pylon[2].y, map.Ymin, map.Yrange, windowHeight))
+      ren:addPoint(toXPixel(pylon.start.x, map.Xmin, map.Xrange, windowWidth),
+		   toYPixel(pylon.start.y,map.Ymin,map.Yrange,windowHeight))
+      ren:renderPolyline(2,0.7)
+   end
+
 
    setColorMain()
 
@@ -2451,6 +2454,7 @@ local function mapPrint(windowWidth, windowHeight)
    if fieldPNG[currentImage] then
       lcd.drawImage(0,0,fieldPNG[currentImage], 255)
    else
+      lcd.setColor(0,0,0)
       local txt = "No GPS signal or no Image"
       lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, txt))/2, 90, txt, FONT_BIG)
    end
