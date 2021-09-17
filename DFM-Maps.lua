@@ -35,6 +35,7 @@ appInfo.Maps = "DFM-Maps"
 appInfo.menuTitle = "GPS Maps"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
 appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
+appInfo.SaveData = true
 
 local latitude
 local longitude 
@@ -192,6 +193,10 @@ local satQualityID = 0
 local satQualityPa = 0
 local satQuality
 
+local function jFilename()
+   return appInfo.Dir .. "M-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_")
+end
+
 local function jLoadInit(fn)
    local fj
    local config
@@ -221,16 +226,29 @@ local function jLoad(config, var, def)
    if not config[var] then
       config[var] = def
    end
+   
+   if type(config[var]) == "userdata" then print("var: userdata", var) end
+	   
+   if type(config[var]) == "table" and #config[var] == 0 then -- getSwitchInfo table
+      return system.createSwitch(string.upper(config[var].label), config[var].mode, 1)
+   end
    return config[var]
 end
 
 local function jSave(config, var, val)
-   config[var] = val
+   if type(val) == "userdata" then -- switchItem
+      print("jSave", config[var].label)
+      config[var]= system.getSwitchInfo(val)
+      print("jSave", config[var].label)
+   else
+      config[var] = val
+   end
 end
 
 local function destroy()
-   jLoadFinal(appInfo.Dir .. "M-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_"),
-	      variables)
+   if appInfo.SaveData then
+      jLoadFinal(jFilename(), variables)
+   end
 end
 
 local function readSensors()
@@ -545,22 +563,26 @@ end
 
 local function pointSwitchChanged(value)
    pointSwitch = value
-   system.pSave("pointSwitch", pointSwitch)
+   jSave(variables, "pointSwitch", pointSwitch)
+   --system.pSave("pointSwitch", pointSwitch)
 end
 
 --local function zoomSwitchChanged(value)
 --   zoomSwitch = value
---   system.pSave("zoomSwitch", zoomSwitch)
+--   jSave(variables, "zoomSwitch", zoomSwitch)
+--   --system.pSave("zoomSwitch", zoomSwitch)
 --end
 
 local function triASwitchChanged(value)
    triASwitch = value
-   system.pSave("triASwitch", triASwitch)
+   jSave(variables, "triASwitch", triASwitch)
+   --system.pSave("triASwitch", triASwitch)
 end
 
 local function startSwitchChanged(value)
    startSwitch = value
-   system.pSave("startSwitch", startSwitch)
+   jSave(variables, "startSwitch", startSwitch)
+   --system.pSave("startSwitch", startSwitch)
 end
 
 --local function fieldIdxChanged(value)
@@ -958,11 +980,7 @@ local function initForm(subform)
       form.addRow(2)
       form.addLabel({label="Triangle racing START switch", width=220})
       form.addInputbox(startSwitch, false, startSwitchChanged)
-      
-      form.addRow(2)
-      form.addLabel({label="Triangle leg", width=220})
-      form.addIntbox(variables.triLength, 10, 1000, 250, 0, 1, triLengthChanged)
-      
+     
       form.addRow(2)
       form.addLabel({label="Triangle race time (m)", width=220})
       form.addIntbox(variables.raceTime, 1, 60, 30, 0, 1, raceTimeChanged)
@@ -975,10 +993,6 @@ local function initForm(subform)
       form.addLabel({label="Max Start Alt (m)", width=220})
       form.addIntbox(variables.maxAlt, 10, 500, 100, 0, 10, maxAltChanged)
       
-      form.addRow(2)
-      form.addLabel({label="Turn point aiming offset (m)", width=220})
-      form.addIntbox(variables.aimoff, 0, 500, 50, 0, 1, aimoffChanged)
-
       form.addRow(2)
       form.addLabel({label="Flight Start Speed (km/h)", width=220})
       form.addIntbox(variables.flightStartSpd, 0, 100, 20, 0, 1, flightStartSpdChanged)
@@ -1020,7 +1034,8 @@ local function initForm(subform)
 
       form.addRow(2)
       form.addLabel({label="Field elevation adjustment (m)", width=220})
-      form.addIntbox(variables.elev, 0, 1000, 100, 0, 1, elevChanged)
+      form.addIntbox(variables.elev, -1000, 1000, 0, 0, 1, elevChanged)
+      
       
       --form.addRow(2)
       --form.addLabel({label="Zoom reset sw", width=220})
@@ -1029,11 +1044,22 @@ local function initForm(subform)
       --form.addRow(2)
       --form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
       --resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
+
+      form.addLink((function() io.remove(jFilename()) appInfo.SaveData = false  end),
+	    {label = "Clear all data"})
       
       form.addLink((function() form.reinit(1) end),
-	 {label = "Back to main menu",font=FONT_BOLD})
+	 {label = "<<< Back to main menu",font=FONT_BOLD})
    elseif subform == 6 then
       savedRow = subform-1
+      
+      form.addRow(2)
+      form.addLabel({label="Triangle leg", width=220})
+      form.addIntbox(variables.triLength, 10, 1000, 250, 0, 1, triLengthChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Turn point aiming offset (m)", width=220})
+      form.addIntbox(variables.aimoff, 0, 500, 50, 0, 1, aimoffChanged)
       
       form.addRow(2)
       form.addLabel({label="Triangle Rotation (deg CCW)", width=220})
@@ -1049,7 +1075,7 @@ local function initForm(subform)
       form.addLabel({label="Triangle Up(+) / Down(-) (m)", width=220})
       form.addIntbox(variables.triOffsetY, -1000, 1000, 0, 0, 1,
 		     (function(xx) return variableChanged(xx, "triOffsetY", triReset) end) )
-      
+
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
       
@@ -1524,7 +1550,6 @@ local function calcTriRace()
    -- if no course computed yet, start by defining the pylons
    --print("#pylon, Field.name", #pylon, Field.name)
    if (#pylon < 3) and Field.name then -- need to confirm with RFM order of vertices
-      print("calcTriRace triRot")
       triRot(ao) -- handle rotation and tranlation of triangle course 
       -- extend startline below hypotenuse of triangle  by 0.8x inside length
       pylon.start = {x=tri.center.x + variables.triOffsetX +
@@ -1659,7 +1684,8 @@ local function calcTriRace()
    
 
    local inStartZone
-   if detS1 >= 0 then inStartZone = true else inStartZone = false end
+   if not detS1 then print("not detS1") end
+   if detS1 and detS1 >= 0 then inStartZone = true else inStartZone = false end
    
    -- read the start switch
    
@@ -2751,7 +2777,7 @@ local function graphScale(xx, yy)
 	 pngLoad(currentImage)
 	 graphScaleRst(currentImage)
 	 -- recalc previous x,y from lat, lng but scaled for this image
-
+	 system.setProperty("CpuLimit", 0)
 	 for i=1,#latHist,1 do
 	    xPHist[i], yPHist[i] = rotateXY(rE*(lngHist[i]-lng0)*coslat0/rad,
 					  rE*(latHist[i]-lat0)/rad,
@@ -2759,6 +2785,7 @@ local function graphScale(xx, yy)
 	    xPHist[i] = toXPixel(xPHist[i], map.Xmin, map.Xrange, 319)
 	    yPHist[i] = toYPixel(yPHist[i], map.Ymin, map.Yrange, 159)	    
 	 end
+	 system.setProperty("CpuLimit", 1)
       end
    else
       --print("** graphScale else clause **")
@@ -2987,14 +3014,14 @@ local function loop()
       countNoNewPos = 0
       lastGPSread = currentGPSread
       currentGPSread = system.getTimeCounter()
-      --print(lastGPSread)
    end
- 
+   
+   -- set lng0, lat0, coslat0 in case not near a field
+   -- initField will reset if we are
+
    if newpos and not gotInitPos then
-      --print("newpos and not gotInitPos: lat0, lng0", lat0, lng0)
-      lng0 = longitude     -- set lng0, lat0, coslat0 in case not near a field
-      lat0 = latitude       -- initField will reset if we are
-      --print("after set: lat0, lng0", lat0, lng0)
+      lng0 = longitude     
+      lat0 = latitude      
       coslat0 = math.cos(math.rad(lat0)) 
       gotInitPos = true
       initField()
@@ -3003,10 +3030,6 @@ local function loop()
    x = rE * (longitude - lng0) * coslat0 / rad
    y = rE * (latitude - lat0) / rad
 
-   -- update overall min and max for drawing the GPS
-   -- maintain same pixel size in X and Y (telem screen is 320x160)
-   -- map?
-   
    x, y = rotateXY(x, y, math.rad(variables.rotationAngle))
    
 
@@ -3111,7 +3134,9 @@ end
 
 local function init()
 
+   --local emptySw = system.getSwitchInfo(system.createSwitch("??", ""))
    local fg = io.readall(appInfo.Dir.."JSON/Shapes.jsn")
+
    if fg then
       shapes = json.decode(fg)
    else
@@ -3132,8 +3157,7 @@ local function init()
       telem[j].SePa = system.pLoad("telem."..telem[i]..".SePa", 0)
    end
    
-   variables = jLoadInit(appInfo.Dir .. "M-" ..
-			    string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
+   variables = jLoadInit(jFilename())
    
    variables.rotationAngle  = jLoad(variables, "rotationAngle",   0)
    variables.histSample     = jLoad(variables, "histSample",   1000)
@@ -3152,12 +3176,13 @@ local function init()
    variables.triRotation    = jLoad(variables, "triRotation",     0)
    variables.triOffsetX     = jLoad(variables, "triOffsetX",      0)
    variables.triOffsetY     = jLoad(variables, "triOffsetY",      0)
+   pointSwitch    = jLoad(variables, "pointSwitch") --, emptySw)
+   triASwitch     = jLoad(variables, "triASwitch")  --, emptySw)
+   startSwitch    = jLoad(variables, "startSwitch") --, emptySw)
+   --zoomSwitch   = jLoad(variables, "zoomSwitch")  --, emptySw)
    
-   --annText     = system.pLoad("annText", "c-d----")
    annText     = jLoad(variables, "annText", "c-d----")   
-   --preText     = system.pLoad("preText", "s-a----")
    preText     = jLoad(variables, "preText", "s-a----")      
-
 
    -- to do: move triEnabled and noflyEnabled to new checkBox. format
    
@@ -3176,11 +3201,6 @@ local function init()
    --checkBox.noFlyShakeEnabled = system.pLoad("noFlyShakeEnabled", "true")
    checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", "true")   
    checkBox.noFlyShakeEnabled = (checkBox.noFlyShakeEnabled == "true")
-   
-   pointSwitch = system.pLoad("pointSwitch")
-   zoomSwitch  = system.pLoad("zoomSwitch")
-   triASwitch  = system.pLoad("triASwitch")      
-   startSwitch = system.pLoad("startSwitch")
 
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
    system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
@@ -3207,10 +3227,8 @@ local function init()
       return
    end
    
-   --playFile(appInfo.Dir.."Audio/triangle_racing_active.wav", AUDIO_QUEUE)
-   
    readSensors()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="7.1", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.3", name=appInfo.Name, destroy=destroy}
