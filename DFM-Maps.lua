@@ -21,14 +21,11 @@
    Bug/Work list:
 
    --reset gps origin makes a mess .. no images
-
    --"no sats" displayed for gps's that have no satcount (e.g. pb gps II)
-
    --pylon zone line length proportional to tri length? (looks funny on A74)
-
-   --alt (field elev) somehow persistent? was reading 160ish when telem was 0
-
    --allow baro/pitot sensors as optional?
+   --imperial units?
+   --make it work with no maps as it did before? how zoom out?
 
 --]]
 
@@ -72,10 +69,6 @@ telem.CourseGPS={}
 telem.BaroAlt={}
 
 local variables = {}
--- local variables = {"rotationAngle", "histSample", "histMax", "maxCPU",
--- 		   "triLength", "maxSpeed", "maxAlt", "elev", "histDistance",
--- 		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd",
--- 		   "futureMillis", "triRotation", "triOffsetX", "triOffsetY"}
 
 local xtable = {}
 local ytable = {}
@@ -86,7 +79,6 @@ local path={}
 local bezierPath = {}
 
 local shapes = {}
---local poi = {}
 local pylon = {}
 local nfc = {}
 local nfp = {}
@@ -107,6 +99,8 @@ local metrics={}
 metrics.currMaxCPU = 0
 metrics.loopCPU = 0
 metrics.loopCPUMax = 0
+metrics.loopCPUAvg = 0
+
 local gotInitPos = false
 local annText
 local annTextSeq = 1
@@ -156,11 +150,6 @@ browse.MapDisplayed = false
 browse.opTable = {"X","Y","R","L"}
 browse.opTableIdx = 1
 
---local browseIdx = 1
---local browseList = {}
---local browseFieldName
---local browseMapDisplayed = false
-
 local savedRow = 1
 local savedSubform
 
@@ -184,9 +173,6 @@ raceParam.flightLandTime=0
 local fieldPNG={}
 local maxImage
 local currentImage
-local textColor = {}
-textColor.main = {red=0, green=0, blue=0}
-textColor.comp = {red=255, green=255, blue=255}
 
 local dotImage = {}
 
@@ -248,10 +234,8 @@ local function destroy()
 end
 
 local function readSensors()
-
    
    local jt, paramGPS
-   --local sensorName = "..."
    local sensors = system.getSensors()
    local seSeq, param, label
    
@@ -400,11 +384,8 @@ local function tri2XY()
    if Field.triangle then
       for j=1, #Field.triangle.path, 1 do
 	 tri[j] = ll2xy(Field.triangle.path[j].lat, Field.triangle.path[j].lng)
-	 --print("j, tri.x, tri.y:", j, tri[j].x, tri[j].y)
       end
       tri.center = ll2xy(Field.triangle.center.lat, Field.triangle.center.lng)
-      --print("tri.center.x, tri.center.y:", tri.center.x, tri.center.y)
-      --print("lat,lng:", Field.triangle.center.lat, Field.triangle.center.lng)
    end
 end
 
@@ -420,8 +401,6 @@ local function nfz2XY()
 	    tt.r = Field.nofly[j].diameter / 2
 	    tt.inside = Field.nofly[j].inside_or_outside == "inside"
 	    table.insert(nfc, tt)
-	    --print("tt.x, tt.y", tt.x, tt.y)
-	    --print("#nfc, x,y,r", #nfc, nfc[#nfc].x, nfc[#nfc].y, nfc[#nfc].r, nfc[#nfc].inside)
 	 elseif Field.nofly[j].type == "polygon" then
 	    local pp = {}
 	    for k = 1, #Field.nofly[j].path, 1 do
@@ -443,7 +422,6 @@ local function nfz2XY()
 	       -- later we will double it to make sure it is well past the no fly polygon
 	       if pp[#pp].x > maxpolyX then maxpolyX = pp[#pp].x end
 	    end
-	    --print("j, xmin, xmax, ymin, ymax", j, pp.xmin, pp.xmax, pp.ymin, pp.ymax)
 	    -- compute bounding circle around the bounding rectangle
 	    pp.xc = (pp.xmin + pp.xmax) / 2.0
 	    pp.yc = (pp.ymin + pp.ymax) / 2.0
@@ -459,13 +437,11 @@ local function nfz2XY()
 end
 
 local function setColorMap()
-   -- when text and graphics overlayed on a map, best to use yellow
-   -- set comp color to 255-fg
-   if fieldPNG[currentImage] then   
-      textColor.main.red, textColor.main.green, textColor.main.blue = 255, 255,   0
-      textColor.comp.red, textColor.comp.green, textColor.comp.blue =   0,   0, 255
+   if fieldPNG[currentImage] then
+      lcd.setColor(255,255,0)
+   else
+      lcd.setColor(0,0,0)
    end
-   lcd.setColor(textColor.main.red, textColor.main.green, textColor.main.blue)   
 end
 
 local function setColorNoFlyInside()
@@ -477,7 +453,7 @@ local function setColorNoFlyOutside()
 end
 
 local function setColorMain()
-   lcd.setColor(textColor.main.red, textColor.main.green, textColor.main.blue)
+   lcd.setColor(255,255,0)
 end
 
 local function setColorLabels()
@@ -499,22 +475,13 @@ end
 local function setField(sname)
 
    Field = Fields[sname]
-   --print("Fields.DCRC.name, sname, Field:", Fields.DCRC.name, sname, Field)
    Field.imageWidth = {}
    Field.lat = Field.images[1].center.lat
    Field.lng = Field.images[1].center.lng
    fieldPNG={}
-
-   -- if Field.triangle then
-   --    print("triangle size", Field.triangle.size)
-   -- end
-   -- if Field.elevation then
-   --    print("elev", Field.elevation.elevation)
-   -- end
    
    for k,v in ipairs(Field.images) do
       Field.imageWidth[k] = math.floor(v.meters_per_pixel * 320 + 0.5)
-      --print("* ", k, v.file, Field.imageWidth[k], v.heading, v.file)
    end
 
    lng0 = Field.lng -- reset to origin to coords in jsn file
@@ -562,27 +529,6 @@ local function variableChanged(value, var, fcn)
    jSave(variables, var, value)
    --system.pSave("variables."..var, value)
 end
-
---[[
-local resetOrigin=false
-local resetClick=false
-local resetCompIndex
-local timeRO = 0
---]]
---[[
-local function resetOriginChanged(value)
-   resetClick = value
-   if not resetClick then
-      resetClick = true
-      form.setValue(resetCompIndex, resetClick)
-      resetOrigin=true
-      timeRO = system.getTimeCounter()
-      print("GC Memory before: ", collectgarbage("count"))
-      collectgarbage()
-      print("GC Memory after: ", collectgarbage("count"))
-   end
-end
---]]
 
 local function validAnn(val, str)
    if string.find(str, val) then
@@ -637,21 +583,18 @@ local function maxSpeedChanged(value)
    variables.maxSpeed = value
    jSave(variables, "maxSpeed", value)
    --system.pSave("variables.maxSpeed", variables.maxSpeed)
-   --if Field then Field.startMaxSpeed = value end
 end
 
 local function maxAltChanged(value)
    variables.maxAlt = value
    jSave(variables, "maxAlt", value)
    --system.pSave("variables.maxAlt", variables.maxAlt)
-   --if Field then Field.startMaxAltitude = value end
 end
 
 local function aimoffChanged(value)
    variables.aimoff = value
    jSave(variables, "aimoff", value)
    --system.pSave("variables.aimoff", variables.aimoff)
-   --if Field then Field.aimoff = value end
    pylon={}
 end
 
@@ -726,12 +669,6 @@ local function pngLoad(j)
    local pfn
    pfn = Field.images[j].file
    fieldPNG[j] = lcd.loadImage(pfn)
-
-   --print("pngLoad:", fieldPNG[j].width, fieldPNG[j].height)
-   
-   --for kk = 1, #Field.images do
-   --   print("fieldPNG:", kk, fieldPNG[kk])
-   --end
    
    if not fieldPNG[j] then
       print(appInfo.Name .. ": Failed to load image", j, pfn)
@@ -762,7 +699,6 @@ local function graphScaleRst(i)
    map.Xmax = xmaxImg(currentImage)
    map.Ymin = yminImg(currentImage)
    map.Ymax = ymaxImg(currentImage)
-   --print("gSR", i, map.Xmin, map.Xmax, map.Ymin, map.Ymax)
    map.Xrange = map.Xmax - map.Xmin
    map.Yrange = map.Ymax - map.Ymin
    path.xmin = map.Xmin
@@ -984,7 +920,7 @@ local function initForm(subform)
       
       form.addRow(2)
       form.addLabel({label="Number of History Samples", width=220})
-      form.addIntbox(variables.histMax, 0, 1000, 240, 0, 10,
+      form.addIntbox(variables.histMax, 0, 2000, 240, 0, 10,
 		     (function(z) return variableChanged(z, "histMax") end) )
       
       form.addRow(2)
@@ -1398,7 +1334,6 @@ local function perpDist(x0, y0, np)
    local det
    local nextP = m3(np)
    local lastP = m3(nextP + 2)
-   --print("nextP, lastP:", nextP, lastP)
    
    pd = math.abs(
          (pylon[nextP].y-pylon[lastP].y) * x0 -
@@ -1444,7 +1379,6 @@ end
 
 local lastsws
 local lastdetS1 = -1
---local lastMin=0
 local inZoneLast = {}
 
 local function drawTriRace(windowWidth, windowHeight)
@@ -2128,10 +2062,6 @@ local function isNoFlyP(nn,p)
    
 end
 
-
-
---------------------------
-
 -- Draw heading indicator
 
 local parmHeading = {
@@ -2258,8 +2188,6 @@ local function prtForm(windowWidth, windowHeight)
 	    ren:reset()
 	    for j = 1, 5, 1 do
 	       if j == 1 then
-		  --print(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
-		  --	    toYPixel(rwy[j%4+1].y, map.Ymin, map.Yrange, windowHeight))	       
 	       end
 	       ren:addPoint(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
 			    toYPixel(rwy[j%4+1].y, map.Ymin, map.Yrange, windowHeight))
@@ -2410,31 +2338,53 @@ local function dirPrint()
 
 end
 
-local noFlyLast = false
-local noFlyLastF = false
+local noFlyHist = {}
+noFlyHist.Last = false
+noFlyHist.LastF = false
+noFlyHist.LastTime = 0
+noFlyHist.LastFTime = 0
+noFlyHist.LastX = 0.0
+noFlyHist.LastY = 0.0
+noFlyHist.LastFX = 0.0
+noFlyHist.LastFY = 0.0
 
-local function checkNoFly(xt, yt, future)
+local function checkNoFly(xt, yt, future, warn)
    
    local noFly, noFlyF, noFlyP, noFlyC, txy
 
-   --if true then return false end
-      
-   txy = {x=xt, y=yt}
+   -- if we have a result within 1 sec and 1 meter, returne the prior cached value
+
+   if not future then
+      if (system.getTimeCounter() - noFlyHist.LastTime) < 1000
+      and math.abs(xt - noFlyHist.LastX) < 1 and math.abs(yt - noFlyHist.LastY) < 1 then
+	 return noFlyHist.Last
+      end
+   else
+      if (system.getTimeCounter() - noFlyHist.LastFTime) < 1000
+      and math.abs(xt - noFlyHist.LastFX) < 1 and math.abs(yt - noFlyHist.LastFY) < 1 then
+	 return noFlyHist.LastF
+      end
+   end
+
+   if not future then
+      txy = {x=xt, y=yt}
+   else
+      if xtable.xf and ytable.yf then
+	 txy = {x=xtable.xf, y=ytable.yf}
+      else -- maybe not set yet .. ignore
+	 return false
+      end
+   end
 
    noFlyP = false
    for i=1, #nfp, 1 do
-      --noFlyP = noFlyP or isNoFlyP(nfp[i].path, nfp[i].inside, txy)
       noFlyP = noFlyP or isNoFlyP(nfp[i], txy)      
    end
-
-   --print("noFlyP:", noFlyP)
    
    noFlyC = false
    for i=1, #nfc, 1 do
       noFlyC = noFlyC or isNoFlyC(nfc[i], txy)
    end
-
-   --print("noFlyC:", noFlyC)
 
    if not future then
       noFly = noFlyP or noFlyC
@@ -2442,40 +2392,41 @@ local function checkNoFly(xt, yt, future)
       noFlyF = noFlyP or noFlyC
    end
    
-   if noFly ~= noFlyLast and not future then
+   if noFly ~= noFlyHist.Last and not future then
       if noFly then
-	 if checkBox.noFlyWarningEnabled then
+	 if checkBox.noFlyWarningEnabled and warn then
 	    playFile(appInfo.Dir.."Audio/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
 	 end
-	 if checkBox.noFlyShakeEnabled then
-
+	 if checkBox.noFlyShakeEnabled and warn then
 	    system.vibration(false, 3) -- left stick, 2x short pulse
 	 end
       else
-	 if checkBox.noFlyWarningEnabled then
+	 if checkBox.noFlyWarningEnabled and warn then
 	    playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
 	 end
       end
-      noFlyLast = noFly
    end
-
-   if noFlyF ~= noFlyLastF and future then
+   
+   if noFlyF ~= noFlyHist.LastF and future then
       if noFlyF then
-	 --print("Enter Future no fly")
-	 if not noFly then -- only warn of future nfz if not already in nfz
+	 if not noFly and warn then -- only warn of future nfz if not already in nfz
 	    playFile(appInfo.Dir.."Audio/no_fly_ahead.wav", AUDIO_IMMEDIATE)
 	    --system.vibration(false, 3) -- left stick, 2x short pulse
 	 end
-      else
-	 --print("Exit Future no fly")
-	 --playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
       end
-      noFlyLastF = noFlyF
    end
 
    if not future then
+      noFlyHist.Last = noFly
+      noFlyHist.LastTime = system.getTimeCounter()
+      noFlyHist.LastX = xt
+      noFlyHist.LastY = yt
       return noFly
    else
+      noFlyHist.LastF = noFlyF
+      noFlyHist.LastFTime = system.getTimeCounter()
+      noFlyHist.LastFX = xtable.xf
+      noFlyHist.LastFY = ytable.yf
       return noFlyF
    end
    
@@ -2503,21 +2454,6 @@ local function mapPrint(windowWidth, windowHeight)
       local txt = "No GPS signal or no Image"
       lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, txt))/2, 90, txt, FONT_BIG)
    end
-
-   --[[
-   if zoomSwitch then
-      swz = system.getInputsVal(zoomSwitch)
-   end
-
-   if zoomSwitch and (swz and swz == 1) then
-      if system.getTimeCounter() - swzTime > 2000 then
-	 --currentImage = 1
-	 --graphInit(currentImage)
-	 --graphScaleRst(1)
-	 --swzTime = system.getTimeCounter()
-      end
-   end
-   --]]
    
    -- in case the draw functions left color set to their specific values
    setColorMain()
@@ -2543,15 +2479,20 @@ local function mapPrint(windowWidth, windowHeight)
       --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 62, text, FONT_MINI)
       lcd.drawText(5, 62, text, FONT_MINI)      
    end
-      
-   text=string.format("%d/%d %d%%", #xPHist, variables.histMax, metrics.currMaxCPU)
-   --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 74, text, FONT_MINI)
+
+   if emFlag then
+      text=string.format("%d/%d %d%%", #xPHist, variables.histMax, metrics.currMaxCPU)
+   else
+      text=string.format("%d/%d", #xPHist, variables.histMax)      
+   end
+   
    lcd.drawText(5, 74, text, FONT_MINI)   
 
-   text=string.format("L %d%% LM %d%%", metrics.loopCPU, metrics.loopCPUMax)
-   --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 86, text, FONT_MINI)
-   lcd.drawText(5, 86, text, FONT_MINI)      
-   
+   if emFlag then
+      text=string.format("LA %d%% LM %d%% L %d%%",
+			 metrics.loopCPUAvg, metrics.loopCPUMax, metrics.loopCPU)
+      lcd.drawText(5, 86, text, FONT_MINI)      
+   end
 
    if currentGPSread and lastGPSread then
       text = string.format("GPS dt %d", currentGPSread - lastGPSread)
@@ -2593,38 +2534,31 @@ local function mapPrint(windowWidth, windowHeight)
       else
 	 offset = 0
       end
-      
-      --ren:reset()
-      for i=2 + offset, #xPHist do
-	 lcd.drawLine(xPHist[i-1], yPHist[i-1], xPHist[i], yPHist[i])
-	 if i % 50 == 0 then
+      ------------------------------
+      ren:reset()
+      for i=1 + offset, #xPHist do
+	 ren:addPoint(xPHist[i], yPHist[i])
+	 if i & 0X7F == 0 then -- fast mod 128
 	    if system.getCPU() >= variables.maxCPU then
 	       print(appInfo.Name .. ": CPU panic", #xPHist, system.getCPU(), variables.maxCPU)
 	       panic = true
 	       break
 	    end
+	    ren:renderPolyline(3,0.8) -- polyline has issue with #points > 130ish
+	    if i ~= #xPHist then
+	       ren:reset()
+	    end
 	 end
       end
       
       if variables.histMax > 0 and #xPHist > 0 and #xtable > 0 then
-	 --[[
-	    ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
-	    toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight) + 0)
-	 --]]
-	 ---[[
-	 -- lcd.drawLine(toXPixel(xHist[#xHist], map.Xmin, map.Xrange,    windowWidth),
-	 -- toYPixel(yHist[#yHist], map.Ymin, map.Yrange,   windowHeight) + 0,
-	 -- toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
-	 -- toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight) + 0)
-	 lcd.drawLine(xPHist[#xPHist], yPHist[#yPHist],
-		      toXPixel(xtable[#xtable], map.Xmin, map.Xrange,    windowWidth),
-		      toYPixel(ytable[#ytable], map.Ymin, map.Yrange,    windowHeight) + 0)
-	 
-	 --]]
+	 ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
+		       toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))
       end
+      ren:renderPolyline(3,0.8)
+      ------------------------------
    end
-   
-   --ren:renderPolyline(2,0.6)
+
    if #rwy == 4 then
       ren:reset()
       for j = 1, 5, 1 do
@@ -2653,9 +2587,9 @@ local function mapPrint(windowWidth, windowHeight)
 	 end
 	 ren:renderPolyline(2,0.5)
       end
-      --------------------
 
-
+      -- this section for debugging enclosing box and circle for polygons
+      --[[
 	 for i = 1, #nfp, 1 do
 	    --print(i, nfp[i].xmin, nfp[i].xmax, nfp[i].ymin, nfp[i].ymax)
 	    ren:reset()
@@ -2685,12 +2619,10 @@ local function mapPrint(windowWidth, windowHeight)
 	    ren:renderPolyline(2,0.3)
 
 	    lcd.drawCircle(toXPixel(nfp[i].xc, map.Xmin, map.Xrange, windowWidth),
-			   toYPixel(nfp[i].yc, map.Ymin, map.Yrange, windowHeight), nfp[i].r * windowWidth/map.Xrange)
+			   toYPixel(nfp[i].yc, map.Ymin, map.Yrange, windowHeight), 
+			   nfp[i].r * windowWidth/map.Xrange)
 	 end
-
-
-      --------------------
-
+	 --]]
 
       for i = 1, #nfc, 1 do
 	 if i == i then
@@ -2718,11 +2650,13 @@ local function mapPrint(windowWidth, windowHeight)
 
    --for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
    if #xtable > 0 then
-      local i = #xtable
 
       setColorMain()
 
-      drawBezier(windowWidth, windowHeight, 0)
+      if variables.histMax == 0 then
+	 drawBezier(windowWidth, windowHeight, 0)
+      end
+      
 
       setColorMain()
       
@@ -2730,45 +2664,30 @@ local function mapPrint(windowWidth, windowHeight)
       -- had to do with getting here (points in xtable) but no field selected
       -- checks in Field being nil should take care of that
       
-      --if i == #xtable then
-      if true then --noflyEnabled then
-	 
-	 if checkNoFly(xtable[#xtable], ytable[#ytable], false) then
+      if checkNoFly(xtable[#xtable], ytable[#ytable], false, false) then
+	 setColorNoFlyInside()
+      else
+	 setColorMap()
+      end
+      
+      drawShape(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
+		toYPixel(ytable[#xtable], map.Ymin, map.Yrange, windowHeight) + 0,
+		shapes.T38, math.rad(heading))
+      
+      if variables.futureMillis > 0 then
+	 setColorMap()
+	 if checkNoFly(xtable[#xtable], ytable[#xtable], true, false) then
 	    setColorNoFlyInside()
 	 else
 	    setColorMap()
 	 end
-
-	 drawShape(toXPixel(xtable[i], map.Xmin, map.Xrange, windowWidth),
-		   toYPixel(ytable[i], map.Ymin, map.Yrange, windowHeight) + 0,
-		   shapes.T38, math.rad(heading))
-
-	 
-	 if variables.futureMillis > 0 then
-	    xf = xtable[i] - speed * (variables.futureMillis / 1000.0) *
-	       math.cos(math.rad(270-heading))
-	    yf = ytable[i] - speed * (variables.futureMillis / 1000.0) *
-	       math.sin(math.rad(270-heading))
-
-	    setColorMap()
-	    
-	    if checkNoFly(xtable[#xtable] - speed * (variables.futureMillis / 1000.0) *
-			     math.cos(math.rad(270-heading)),
-			  ytable[#ytable] - speed * (variables.futureMillis / 1000.0) *
-			  math.sin(math.rad(270-heading)), true) then
-	       setColorNoFlyInside()
-	    else
-	       setColorMap()
-	    end
-
-	    -- only draw future if projected position more than 10m ahead (~10 mph for 2s)
-	    if speed * variables.futureMillis > 10000 then
-	       drawShape(toXPixel(xf, map.Xmin, map.Xrange, windowWidth),
-			 toYPixel(yf, map.Ymin, map.Yrange, windowHeight) + 0,
-			 shapes.delta, math.rad(heading))
-	    end
+	 -- only draw future if projected position more than 10m ahead (~10 mph for 2s)
+	 if speed * variables.futureMillis > 10000 and xtable.xf and ytable.yf then
+	    drawShape(toXPixel(xtable.xf, map.Xmin, map.Xrange, windowWidth),
+		      toYPixel(ytable.yf, map.Ymin, map.Yrange, windowHeight) + 0,
+		      shapes.delta, math.rad(heading))
 	 end
-      end
+      end      
    end
 
    metrics.currMaxCPU = system.getCPU()
@@ -2809,8 +2728,6 @@ local function graphScale(xx, yy)
    -- check each image scale .. maxs and mins are precomputed
    -- starting from most zoomed in image (the first one), stop
    -- when the path fits within the window or at max image size
-
-   --print("path.xmin xmax ymin ymax:", path.xmin, path.xmax, path.ymin, path.ymax)
    
    if currentImage then
       if path.xmin < xminImg(currentImage) or
@@ -2827,30 +2744,21 @@ local function graphScale(xx, yy)
 	 graphScaleRst(currentImage)
 
 	 -- recalc previous x,y from lat, lng but scaled for this image
-	 --print("RECALC")
-	 for i=1,#xPHist,1 do
-	    
+
+	 for i=1,#latHist,1 do
 	    xPHist[i], yPHist[i] = rotateXY(rE*(lngHist[i]-lng0)*coslat0/rad,
 					  rE*(latHist[i]-lat0)/rad,
 					  math.rad(variables.rotationAngle))
 	    xPHist[i] = toXPixel(xPHist[i], map.Xmin, map.Xrange, 319)
 	    yPHist[i] = toYPixel(yPHist[i], map.Ymin, map.Yrange, 159)	    
-	    
 	 end
-
-	 -- if #xHist > 0 then
-	 --    xHistLast = xHist[#xHist]
-	 --    yHistLast = yHist[#xHist]
-	 -- end
-
       end
    else
-      print("graphScale else clause********************")
-      -- THIS NEEDS TO BE UPDATED FOR METERS IF WE WANT TO KEEP IT!
+      --print("** graphScale else clause **")
       -- if no image then just scale to keep the path on the map
-      -- round Xrange to nearest 200', Yrange to nearest 100' maintain 2:1 aspect ratio
-      map.Xrange = math.floor((path.xmax-path.xmin)/200 + .5) * 200
-      map.Yrange = math.floor((path.ymax-path.ymin)/100 + .5) * 100
+      -- round Xrange to nearest 60 m, Yrange to nearest 30 m maintain 2:1 aspect ratio
+      map.Xrange = math.floor((path.xmax-path.xmin)/60 + .5) * 60
+      map.Yrange = math.floor((path.ymax-path.ymin)/30 + .5) * 30
       
       if map.Yrange > map.Xrange/2 then
 	 map.Xrange = map.Yrange*2
@@ -2868,27 +2776,10 @@ local function graphScale(xx, yy)
    
 end
 
-
-
 local function initField()
 
    local atField
    
-   -- local fp, fn
-   -- if not emFlag then fn = "/" .. appInfo.Fields else fn = appInfo.Fields end
-
-   -- fp = io.readall(fn)
-   -- if fp then
-   --    Fields = json.decode(fp)
-   --    if not Fields then
-   -- 	 print(appInfo.Name .. ": Failed to decode " .. fn)
-   -- 	 return
-   --    end
-   -- else
-   --    print(appInfo.Name .. ": Cannot open ", fn)
-   --    return
-   -- end
-
    Field = {}
    
    if lng0 and lat0 then -- if location was detected by the GPS system
@@ -2910,17 +2801,12 @@ local function initField()
 	    -- see if file <model name>_icon.jsn exists
 	    -- if so try to read airplane icon
 
-	    --for name, ft, size in dir("Apps/DFM-Maps/JSON") do
-	    --   print(name, ft, size)
-	    --end
-	    
-	    --print("Looking for Apps/"..appInfo.Maps .."/JSON/"..string.gsub(system.getProperty("Model").."_icon.jsn", " ", "_"))
-	    local fg = io.readall("Apps/"..appInfo.Maps .."/JSON/"..string.gsub(system.getProperty("Model").."_icon.jsn", " ", "_"))
-	    
+	    local fg = io.readall("Apps/"..appInfo.Maps .."/JSON/"..
+				     string.gsub(system.getProperty("Model")..
+						    "_icon.jsn", " ", "_"))
 	    if fg then
 	       shapes.T38 = json.decode(fg).icon
 	    end
-
 	    break
 	 end
       end
@@ -2959,44 +2845,14 @@ local lastHistTime=0
 local function loop()
 
    local minutes, degs
-   --local hasPitot
    local sensor
    local goodlat, goodlng 
    local newpos
    local deltaPosTime = 100 -- min sample interval in ms
 
-   --if select(2, system.getDeviceType()) == 1 then
-   --   if not emulatorSensorsReady or not emulatorSensorsReady(readSensors) then return end
-   --end
-   
-
    goodlat = false
    goodlng = false
 
-   --[[
-   -- keep the checkmark on the menu for 300 msec when user does reset
-   
-   if resetOrigin and (system.getTimeCounter() > (timeRO+300)) then
-      --gotInitPos = false
-
-      resetOrigin=false
-      resetClick = false
-
-      form.setValue(resetCompIndex, resetClick) -- prob should double check same form still displayed...
-      
-      if currentImage then -- if we have an image, allow user to cycle thru image mags one by one
-	 currentImage = currentImage + 1
-	 if currentImage > maxImage then currentImage = 1 end
-      end -- must graphinit() after this!
-
-      graphInit(currentImage)      -- reset map window too
-      
-      --baroAltZero = altitude      -- reset baro alt zero 
-
-      --print("Reset origin and barometric altitude. New baroAltZero is ", baroAltZe)
-      print("Reset origin")      
-   end
---]]
    -- start reading all the relevant sensors
    
    sensor = system.getSensorByID(satCountID, satCountPa)
@@ -3137,19 +2993,16 @@ local function loop()
       initField()
    end
 
-   -- don't update position if we are browsing fields (dangerous??)
-   
-   if form.getActiveForm() then return end
-   
    x = rE * (longitude - lng0) * coslat0 / rad
    y = rE * (latitude - lat0) / rad
-   
+
    -- update overall min and max for drawing the GPS
    -- maintain same pixel size in X and Y (telem screen is 320x160)
    -- map?
    
    x, y = rotateXY(x, y, math.rad(variables.rotationAngle))
    
+
    if newpos then -- only enter a new xy in the "comet tail" if lat/lon changed
 
       -- keep a max of variables.histMax points
@@ -3184,6 +3037,11 @@ local function loop()
       table.insert(xtable, x)
       table.insert(ytable, y)
 
+      xtable.xf = xtable[#xtable] - speed * (variables.futureMillis / 1000.0) *
+	 math.cos(math.rad(270-heading))
+      ytable.yf = ytable[#xtable] - speed * (variables.futureMillis / 1000.0) *
+	 math.sin(math.rad(270-heading))
+      
       if #xtable == 1 then
 	 --print("resetting path", path.xmin, path.xmax, path.ymin, path.ymax)
 	 path.xmin = map.Xmin
@@ -3193,12 +3051,21 @@ local function loop()
 	 --print("reset path", path.xmin, path.xmax, path.ymin, path.ymax)
       end
 
+      -- don't scale screen or print nofly messages if menu is up on screen
+      if form.getActiveForm() then return end
+   
+
       graphScale(x, y)
       
-      checkNoFly(x, y, false) 
+      checkNoFly(x, y, false, true)
+      if variables.futureMillis > 0 then
+	 checkNoFly(x, y, true,  true)
+      end
       
+
       -- maybe this should be a bezier curve calc .. which we're already doing ..
       -- just differentiate the polynomial at the endpoint????
+
       if #xtable > lineAvgPts then -- we have at least 4 points...
 	 -- make sure we have a least 15' of manhat dist over which to compute compcrs
 	 if (math.abs(xtable[#xtable]-xtable[#xtable-lineAvgPts+1]) +
@@ -3214,10 +3081,9 @@ local function loop()
       compcrsDeg = compcrs*180/math.pi
    end
 
-   computeBezier(MAXTABLE+3)
-   
---   print("compcrsDEG, bezierPath.slope", compcrsDeg, bezierPath.slope)
---   compcrsDeg = bezierPath.slope
+   if variables.histMax == 0 then
+      computeBezier(MAXTABLE+3)
+   end
    
    if hasCourseGPS and courseGPS then
       heading = courseGPS
@@ -3233,7 +3099,7 @@ local function loop()
 
    metrics.loopCPU = system.getCPU()
    if metrics.loopCPU > metrics.loopCPUMax then metrics.loopCPUMax = metrics.loopCPU end
-   
+   metrics.loopCPUAvg = metrics.loopCPUAvg + (metrics.loopCPU - metrics.loopCPUAvg) / 10.0
 end
 
 local function init()
@@ -3249,8 +3115,6 @@ local function init()
    dotImage.green = lcd.loadImage(appInfo.Dir.."/JSON/small_green_circle.png")   
    dotImage.red = lcd.loadImage(appInfo.Dir.."/JSON/small_red_circle.png")
 
-   --print(dotImage.blue, dotImage.green, dotImage.red)
-   
    setColorMain()  -- if a map is present it will change color scheme later
    
    graphInit(currentImage)  -- ok that currentImage is not yet defined
@@ -3261,38 +3125,8 @@ local function init()
       telem[j].SePa = system.pLoad("telem."..telem[i]..".SePa", 0)
    end
    
---[[
-   for i, j in ipairs(variables) do
-      idef = 0
-      if j == "histSample"     then idef = 1000 end
-      if j == "histMax"        then idef =    0 end
-      if j == "maxCPU"         then idef =   80 end
-      if j == "triLength"      then idef =  250 end
-      if j == "maxSpeed"       then idef =  100 end
-      if j == "maxAlt"         then idef =  200 end
-      if j == "elev"           then idef =    0 end
-      if j == "histDistance"   then idef =    3 end
-      if j == "raceTime"       then idef =   30 end
-      if j == "aimoff"         then idef =   20 end
-      if j == "flightStartSpd" then idef =   20 end
-      if j == "flightStartAlt" then idef =   20 end
-      if j == "futureMillis"   then idef = 2000 end
-      if j == "triRotation"    then idef =    0 end
-      if j == "triOffsetX"     then idef =    0 end
-      if j == "triOffsetY"     then idef =    0 end      
-
-      variables[j] = system.pLoad("variables."..variables[i], idef)
-   end
---]]
-   
--- local variables = {"rotationAngle", "histSample", "histMax", "maxCPU",
--- 		   "triLength", "maxSpeed", "maxAlt", "elev", "histDistance",
--- 		   "raceTime", "aimoff", "flightStartAlt", "flightStartSpd",
--- 		   "futureMillis", "triRotation", "triOffsetX", "triOffsetY"}
---local function jLoadInit(fn, config)
- 
-   
-   variables = jLoadInit(appInfo.Dir .. "M-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
+   variables = jLoadInit(appInfo.Dir .. "M-" ..
+			    string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
    
    variables.rotationAngle  = jLoad(variables, "rotationAngle",   0)
    variables.histSample     = jLoad(variables, "histSample",   1000)
@@ -3372,4 +3206,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="6", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7", name=appInfo.Name, destroy=destroy}
