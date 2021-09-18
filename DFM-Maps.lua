@@ -236,11 +236,10 @@ local function jLoad(config, var, def)
 end
 
 local function jSave(config, var, val)
+   print("jSave var:", var, val,type(val))
    if type(val) == "userdata" then -- switchItem
-      print("jSave", config[var].label)
       config[var]= system.getSwitchInfo(val)
-      print("jSave", config[var].label)
-   else
+      print("jSave", config[var].label, config[var].value, config[var].proportional, config[var].assigned, config[var].mode)
       config[var] = val
    end
 end
@@ -510,7 +509,6 @@ local function setField(sname)
    lat0  = Field.lat
    coslat0 = math.cos(math.rad(lat0))
    variables.rotationAngle  = Field.images[1].heading
-   
    tri2XY()
    rwy2XY()
    nfz2XY()
@@ -563,8 +561,8 @@ end
 
 local function pointSwitchChanged(value)
    pointSwitch = value
-   jSave(variables, "pointSwitch", pointSwitch)
-   --system.pSave("pointSwitch", pointSwitch)
+   --jSave(variables, "pointSwitch", pointSwitch)
+   system.pSave("pointSwitch", pointSwitch)
 end
 
 --local function zoomSwitchChanged(value)
@@ -575,14 +573,14 @@ end
 
 local function triASwitchChanged(value)
    triASwitch = value
-   jSave(variables, "triASwitch", triASwitch)
-   --system.pSave("triASwitch", triASwitch)
+   --jSave(variables, "triASwitch", triASwitch)
+   system.pSave("triASwitch", triASwitch)
 end
 
 local function startSwitchChanged(value)
    startSwitch = value
-   jSave(variables, "startSwitch", startSwitch)
-   --system.pSave("startSwitch", startSwitch)
+   --jSave(variables, "startSwitch", startSwitch)
+   system.pSave("startSwitch", startSwitch)
 end
 
 --local function fieldIdxChanged(value)
@@ -675,9 +673,9 @@ local function noFlyWarningEnabledClicked()
 end
 
 local function triEnabledClicked(value)
-   triEnabled = not value
-   form.setValue(triEnabledIndex, triEnabled)
-   jSave(variables, "triEnabled", tostring(triEnabled))
+   variables.triEnabled = not value
+   form.setValue(triEnabledIndex, variables.triEnabled)
+   jSave(variables, "triEnabled", variables.triEnabled)
    --system.pSave("triEnabled", tostring(triEnabled))
 end
 
@@ -838,6 +836,11 @@ local function keyForm(key)
 	 else
 	    --print("resetting Field")
 	    Field = {}
+	    rwy = {}
+	    nfc = {}
+	    nfp = {}
+	    tri = {}
+	    fieldPNG={}
 	    browse.OriginalFieldName = nil
 	    gotInitPos = false
 	    xPHist = {}
@@ -856,6 +859,16 @@ end
 local function browseFieldClicked(i)
    browse.Idx = i
    browse.FieldName = browse.List[i]
+end
+
+local function clearData()
+   if form.question("Clear all data?",
+		    "All menus will revert to defaults",
+		    "Press Yes to clear, timeout is No",
+		    6000, false, 0) == 1 then
+      io.remove(jFilename())
+      appInfo.SaveData = false
+   end
 end
 
 -- Draw the main form (Application inteface)
@@ -946,7 +959,7 @@ local function initForm(subform)
       
       form.addRow(2)
       form.addLabel({label="Number of History Samples", width=220})
-      form.addIntbox(variables.histMax, 0, 2000, 240, 0, 10,
+      form.addIntbox(variables.histMax, 0, 600, 300, 0, 10,
 		     (function(z) return variableChanged(z, "histMax") end) )
       
       form.addRow(2)
@@ -963,6 +976,16 @@ local function initForm(subform)
       form.addLabel({label="Flight path points on/off sw", width=220})
       form.addInputbox(pointSwitch, false, pointSwitchChanged)
       
+      form.addRow(2)
+      form.addLabel({label="History ribbon width", width=220})
+      form.addIntbox(variables.ribbonWidth, 1, 4, 2, 0, 1,
+		     (function(z) return variableChanged(z, "ribbonWidth") end) )
+
+      form.addRow(2)
+      form.addLabel({label="History ribbon alpha", width=220})
+      form.addIntbox(variables.ribbonAlpha, 1, 10, 4, 0, 1,
+		     (function(z) return variableChanged(z, "ribbonAlpha") end) )
+
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
       
@@ -971,7 +994,7 @@ local function initForm(subform)
 
       form.addRow(2)
       form.addLabel({label="Enable Triangle Racecourse", width=270})
-      triEnabledIndex = form.addCheckbox(triEnabled, triEnabledClicked)
+      triEnabledIndex = form.addCheckbox(variables.triEnabled, triEnabledClicked)
 
       form.addRow(2)
       form.addLabel({label="Triangle racing ann switch", width=220})
@@ -1044,12 +1067,12 @@ local function initForm(subform)
       --form.addRow(2)
       --form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
       --resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
-
-      form.addLink((function() io.remove(jFilename()) appInfo.SaveData = false  end),
-	    {label = "Clear all data"})
+      
+      form.addLink(clearData, {label = "Clear all data and settings"})
       
       form.addLink((function() form.reinit(1) end),
 	 {label = "<<< Back to main menu",font=FONT_BOLD})
+
    elseif subform == 6 then
       savedRow = subform-1
       
@@ -1415,8 +1438,13 @@ local function drawTriRace(windowWidth, windowHeight)
 
    local ren=lcd.renderer()
 
-   if not triEnabled then return end
+   --print("variables.triEnabled", variables.triEnabled)
+
+   --print("pylon[1], pylon.finished", pylon[1], pylon.finished)
+   
+   if not variables.triEnabled then return end
    if not pylon[1] then return end
+   if not pylon.finished then return end
    
    setColorMap()
 
@@ -1450,7 +1478,6 @@ local function drawTriRace(windowWidth, windowHeight)
 		   toYPixel(pylon[m3(j)].y, map.Ymin, map.Yrange, windowHeight) )
    end
    ren:renderPolyline(2, 0.7)
-   
    -- draw the startline
    if #pylon == 3 and pylon.start then
       ren:reset()
@@ -1466,9 +1493,9 @@ local function drawTriRace(windowWidth, windowHeight)
 
    -- draw the turning zones and the aiming points. The zones turn red when the airplane
    -- is in them .. the aiming point you are flying to is red.
-   
    for j = 1, #pylon do
       if raceParam.racing and inZone[j] then lcd.setColor(255,0,0) end
+      --print(j, pylon[j].x, pylon[j].y, pylon[j].zyl, pylon[j].zyr, pylon.finished)
       lcd.drawLine(toXPixel(pylon[j].x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[j].y, map.Ymin, map.Yrange, windowHeight),
 		   toXPixel(pylon[j].zxl,map.Xmin, map.Xrange, windowWidth),
@@ -1479,7 +1506,7 @@ local function drawTriRace(windowWidth, windowHeight)
 		   toYPixel(pylon[j].zyr, map.Ymin, map.Yrange, windowHeight) )
       if raceParam.racing and inZone[j] then setColorMain() end
       if raceParam.racing and j > 0 and j == m3(nextPylon) then lcd.setColor(255,0,0) end
-      --if region[code] == j 
+      --if region[code] == j
       lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
 		     4)
@@ -1489,7 +1516,6 @@ local function drawTriRace(windowWidth, windowHeight)
       if raceParam.racing and j > 0 and j == m3(nextPylon) then setColorMain() end
       --if region[code] == j 
    end
-
    if titleText then
       lcd.drawText((310 - lcd.getTextWidth(FONT_BOLD, titleText))/2, 0,
 	 titleText, FONT_BOLD)
@@ -1528,7 +1554,7 @@ local function drawTriRace(windowWidth, windowHeight)
    --if speed ~= 0 then
    --   lcd.drawText(265, 85, string.format("Time %.1f", distance / speed), FONT_MINI)
    --end
-
+   
 end
 
 
@@ -1538,7 +1564,7 @@ local function calcTriRace()
    local ao
 
    if not Field or not Field.name or not Field.triangle then return end
-   if not triEnabled then return end
+   if not variables.triEnabled then return end
    if #xtable == 0 or #ytable == 0 then return end
    
    if Field then
@@ -1592,6 +1618,7 @@ local function calcTriRace()
 	 zx, zy = rotateXY(0.4 * variables.triLength, 0.4 * variables.triLength, rot[j])
 	 pylon[j].zxr = zx + pylon[j].x
 	 pylon[j].zyr = zy + pylon[j].y
+	 pylon.finished = true
 	 inZoneLast[j] = false
       end
    end
@@ -1788,7 +1815,7 @@ local function calcTriRace()
       end
    end
 
-   lastdetS1 = detS1
+   if detS1 then lastdetS1 = detS1 end
    
    local sgTC = system.getTimeCounter()
 
@@ -2298,6 +2325,8 @@ local function dirPrint()
    local theta
    local dotpng
 
+   if form.getActiveForm() then return end
+
    xa = 160
    ya = 90
    --lcd.drawLine(160,160,160, 0)
@@ -2478,14 +2507,16 @@ local function mapPrint(windowWidth, windowHeight)
    local offset
    local ren=lcd.renderer()
    
+   if form.getActiveForm() then return end
+   
    setColorMap()
    
    setColorMain()
-   
+
    if fieldPNG[currentImage] then
       lcd.drawImage(0,0,fieldPNG[currentImage], 255)
    else
-      lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, "No GPS fix or no Image"))/2, 90,
+      lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, "No GPS fix or no Image"))/2, 40,
 	 "No GPS fix or no Image", FONT_BIG)
    end
    
@@ -2572,15 +2603,16 @@ local function mapPrint(windowWidth, windowHeight)
       ren:reset()
       for i=1 + offset, #xPHist do
 	 ren:addPoint(xPHist[i], yPHist[i])
-	 if i & 0X7F == 0 then -- fast mod 128
+	 if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
 	    if system.getCPU() >= variables.maxCPU then
 	       print(appInfo.Name .. ": CPU panic", #xPHist, system.getCPU(), variables.maxCPU)
 	       panic = true
 	       break
 	    end
-	    ren:renderPolyline(3,0.8) -- polyline has issue with #points > 130ish
+	    ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0) 
 	    if i ~= #xPHist then
 	       ren:reset()
+	       ren:addPoint(xPHist[i], yPHist[i])
 	    end
 	 end
       end
@@ -2589,7 +2621,7 @@ local function mapPrint(windowWidth, windowHeight)
 	 ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 		       toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))
       end
-      ren:renderPolyline(3,0.8)
+      ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0)
       ------------------------------
    end
 
@@ -2603,7 +2635,6 @@ local function mapPrint(windowWidth, windowHeight)
    end
    
    -- draw the polygon no fly zones if defined
-   
    if noflyEnabled then
       for i = 1, #nfp, 1 do
 	 ren:reset()
@@ -2675,14 +2706,15 @@ local function mapPrint(windowWidth, windowHeight)
 
    setColorMap()
    setColorMain()
-   
+
    drawTriRace(windowWidth, windowHeight)
 
    --lcd.drawText(250, 20, "sT: "..tostring(raceParam.startToggled), FONT_MINI)
    --lcd.drawText(250, 30, "sA: "..tostring(raceParam.startArmed), FONT_MINI)
    --lcd.drawText(250, 40, "rF: "..tostring(raceParam.raceFinished), FONT_MINI)
 
-   --for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute 
+   --for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute
+
    if #xtable > 0 then
 
       setColorMain()
@@ -2884,6 +2916,10 @@ local function loop()
    local newpos
    local deltaPosTime = 100 -- min sample interval in ms
 
+   -- don't loop menu is up on screen
+   if form.getActiveForm() then return end
+   
+
    goodlat = false
    goodlng = false
 
@@ -2945,7 +2981,17 @@ local function loop()
    sensor = system.getSensorByID(telem.Altitude.SeId, telem.Altitude.SePa)
 
    if(sensor and sensor.valid) then
-      GPSAlt = sensor.value
+      if sensor.unit == "ft" then
+	 GPSAlt = sensor.value * 0.3048
+      elseif sensor.unit == "km" then
+	 GPSAlt = sensor.value * 1000.0	 
+      elseif sensor.unit == "mi." then
+	 GPSAlt = sensor.value * 1609.344
+      elseif sensor.unit == "yd." then
+	 GPSAlt = sensor.value * 0.9144
+      else -- meters
+	 GPSAlt = sensor.value
+      end
    end
  
    sensor = system.getSensorByID(telem.SpeedGPS.SeId, telem.SpeedGPS.SePa)
@@ -2961,7 +3007,6 @@ local function loop()
       else -- what on earth units are these .. set to 0
 	 SpeedGPS = 0
       end
-      
    end
 
 --[[   
@@ -3081,9 +3126,6 @@ local function loop()
 	 --print("reset path", path.xmin, path.xmax, path.ymin, path.ymax)
       end
 
-      -- don't scale screen or print nofly messages if menu is up on screen
-      if form.getActiveForm() then return end
-   
 
       graphScale(x, y)
       
@@ -3176,9 +3218,11 @@ local function init()
    variables.triRotation    = jLoad(variables, "triRotation",     0)
    variables.triOffsetX     = jLoad(variables, "triOffsetX",      0)
    variables.triOffsetY     = jLoad(variables, "triOffsetY",      0)
-   pointSwitch    = jLoad(variables, "pointSwitch") --, emptySw)
-   triASwitch     = jLoad(variables, "triASwitch")  --, emptySw)
-   startSwitch    = jLoad(variables, "startSwitch") --, emptySw)
+   variables.ribbonWidth    = jLoad(variables, "ribbonWidth",     2)
+   variables.ribbonAlpha    = jLoad(variables, "ribbonAlpha",     4)
+   --pointSwitch    = jLoad(variables, "pointSwitch") --, emptySw)
+   --triASwitch     = jLoad(variables, "triASwitch")  --, emptySw)
+   --startSwitch    = jLoad(variables, "startSwitch") --, emptySw)
    --zoomSwitch   = jLoad(variables, "zoomSwitch")  --, emptySw)
    
    annText     = jLoad(variables, "annText", "c-d----")   
@@ -3187,9 +3231,11 @@ local function init()
    -- to do: move triEnabled and noflyEnabled to new checkBox. format
    
    --triEnabled = system.pLoad("triEnabled", "true") -- default to enabling racing
-   triEnabled = jLoad(variables, "triEnabled", "false") -- default to enabling racing   
-   triEnabled  = (triEnabled  == "true") -- convert back to boolean
-
+   variables.triEnabled = jLoad(variables, "triEnabled", false) -- default to disabling racing   
+   print("triEnabled:", variables.triEnabled, type(variables.triEnabled))
+   --variables.triEnabled  = (variables.triEnabled  == "true") -- convert back to boolean
+   print("triEnabled:", variables.triEnabled, type(variables.triEnabled))
+   
    --noflyEnabled = system.pLoad("noflyEnabled", "true") 
    noflyEnabled = jLoad(variables, "noflyEnabled", "true")
    noflyEnabled  = (noflyEnabled  == "true") -- convert back to boolean
@@ -3201,6 +3247,10 @@ local function init()
    --checkBox.noFlyShakeEnabled = system.pLoad("noFlyShakeEnabled", "true")
    checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", "true")   
    checkBox.noFlyShakeEnabled = (checkBox.noFlyShakeEnabled == "true")
+
+   pointSwitch = system.pLoad("pointSwitch")
+   triASwitch  = system.pLoad("triASwitch")
+   startSwitch = system.pLoad("startSwitch")
 
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
    system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
@@ -3231,4 +3281,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="7.3", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.4", name=appInfo.Name, destroy=destroy}
