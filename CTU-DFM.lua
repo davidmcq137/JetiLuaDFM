@@ -1019,7 +1019,7 @@ local function closeCTU()
 
    print("CTU-DFM-closeCTU:", neverConnected, lastValidFuel, lFuel)
    
-   if neverConnected or (lastValidFuel == 100) then
+   if neverConnected or (lFuel == 100) then
       print("CTU-DFM closeCTU returning - no json written")
       return
    end

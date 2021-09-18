@@ -1821,10 +1821,12 @@ local function calcTriRace()
 
    --print( (sgTC - raceParam.racingStartTime) / 1000, variables.raceTime*60)
    if raceParam.racing and (sgTC - raceParam.racingStartTime) / 1000 >= variables.raceTime*60 then
+      print("FINISHED")
       playFile(appInfo.Dir.."Audio/race_finished.wav", AUDIO_IMMEDIATE)	    	 
       raceParam.racing = false
       raceParam.raceFinished = true
       raceParam.startArmed = false
+      raceParam.startToggled = false
       raceParam.raceEndTime = sgTC
    end
 
@@ -2581,7 +2583,7 @@ local function mapPrint(windowWidth, windowHeight)
    if pointSwitch then
       swp = system.getInputsVal(pointSwitch)
    end
-   
+
    if not pointSwitch or (swp and swp == 1) then
 
       --check if we need to panic .. xPHist got too big while we were off screen
@@ -3249,9 +3251,14 @@ local function init()
    checkBox.noFlyShakeEnabled = (checkBox.noFlyShakeEnabled == "true")
 
    pointSwitch = system.pLoad("pointSwitch")
+   print("pLoad .. pointSwitch", pointSwitch)
+   
    triASwitch  = system.pLoad("triASwitch")
+   print("pLoad .. triASwitch", triASwitch)
+   
    startSwitch = system.pLoad("startSwitch")
-
+   print("pLoad .. startSwitch", startSwitch)
+   
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
    system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
    system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
@@ -3281,4 +3288,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="7.4", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.5", name=appInfo.Name, destroy=destroy}
