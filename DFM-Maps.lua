@@ -2673,16 +2673,16 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText(5, 50, text, FONT_MINI)      
    end
 
-   if satQuality then
-      text=string.format("SatQ %.0f", satQuality)
-      --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 62, text, FONT_MINI)
-      lcd.drawText(5, 62, text, FONT_MINI)      
-   end
+   -- if satQuality then
+   --    text=string.format("SatQ %.0f", satQuality)
+   --    --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 62, text, FONT_MINI)
+   --    lcd.drawText(5, 62, text, FONT_MINI)      
+   -- end
 
    if emFlag then
       text=string.format("%d/%d %d%%", #xPHist, variables.histMax, metrics.currMaxCPU)
    else
-      text=string.format("%d/%d", #xPHist, variables.histMax)      
+      --text=string.format("%d/%d", #xPHist, variables.histMax)      
    end
    
    lcd.drawText(5, 74, text, FONT_MINI)   
@@ -2693,10 +2693,10 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText(5, 86, text, FONT_MINI)      
    end
 
-   if currentGPSread and lastGPSread then
-      text = string.format("GPS dt %d", currentGPSread - lastGPSread)
-      lcd.drawText(280-lcd.getTextWidth(FONT_MINI, text) / 2, 140, text, FONT_MINI)
-   end
+   -- if currentGPSread and lastGPSread then
+   --    text = string.format("GPS dt %d", currentGPSread - lastGPSread)
+   --    lcd.drawText(280-lcd.getTextWidth(FONT_MINI, text) / 2, 140, text, FONT_MINI)
+   -- end
 
    --text = string.format("%.6f %.6f", lat0 or 0, lng0 or 0)
    --lcd.drawText(60-lcd.getTextWidth(FONT_MINI, text) / 2, 90, text, FONT_MINI)
@@ -3274,8 +3274,8 @@ local function init()
    variables.triRotation    = jLoad(variables, "triRotation",     0)
    variables.triOffsetX     = jLoad(variables, "triOffsetX",      0)
    variables.triOffsetY     = jLoad(variables, "triOffsetY",      0)
-   variables.ribbonWidth    = jLoad(variables, "ribbonWidth",     2)
-   variables.ribbonAlpha    = jLoad(variables, "ribbonAlpha",     4)
+   variables.ribbonWidth    = jLoad(variables, "ribbonWidth",     1)
+   variables.ribbonAlpha    = jLoad(variables, "ribbonAlpha",     5)
    variables.switchesSet    = jLoad(variables, "switchesSet")
    variables.annText        = jLoad(variables, "annText", "c-d----")   
    variables.preText        = jLoad(variables, "preText", "s-a----")      
@@ -3330,4 +3330,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="7.7", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.8", name=appInfo.Name, destroy=destroy}
