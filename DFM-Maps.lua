@@ -2499,6 +2499,109 @@ local function checkNoFly(xt, yt, future, warn)
    
 end
 
+local recalcPixels = false
+local recalcCount = 0
+
+local function recalcDone()
+   local i
+
+   if recalcPixels == false then return true end
+   
+   for j = 1, 50, 1 do
+      i = j+recalcCount
+      if i > #latHist then
+	 recalcPixels = false
+	 recalcCount = 0
+	 return true
+      end
+      xPHist[i], yPHist[i] = rotateXY(rE*(lngHist[i]-lng0)*coslat0/rad,
+				      rE*(latHist[i]-lat0)/rad,
+				      math.rad(variables.rotationAngle))
+      xPHist[i] = toXPixel(xPHist[i], map.Xmin, map.Xrange, 319)
+      yPHist[i] = toYPixel(yPHist[i], map.Ymin, map.Yrange, 159)
+   end
+   recalcCount = i
+   if recalcCount >= #latHist then
+      recalcPixels = false
+      recalcCount = 0
+      return true
+   else
+      return false
+   end
+end
+
+local function graphScale(xx, yy)
+
+   if not xx or not yy then return end
+   
+   if not map.Xmax then
+      print("BAD! -- setting max and min in graphScale")
+      map.Xmax=   40
+      map.Xmin = -40
+      map.Ymax =  20
+      map.Ymin = -20
+   end
+   
+   if xx > path.xmax then
+      --print("path.xmax:", map.Xmax, xx, yy, Field.name)
+      path.xmax = xx
+   end
+   if xx < path.xmin then
+      --print("path.xmin:", map.Xmin, xx, yy, Field.name)
+      path.xmin = xx
+   end
+   if yy > path.ymax then
+      --print("path.ymax:", map.Ymax, xx, yy, Field.name)
+      path.ymax = yy
+   end
+   if yy < path.ymin then
+      --print("path.ymin:", map.Ymin, xx, yy, Field.name)
+      path.ymin = yy
+   end
+
+   -- if we have an image then scale factor comes from the image
+   -- check each image scale .. maxs and mins are precomputed
+   -- starting from most zoomed in image (the first one), stop
+   -- when the path fits within the window or at max image size
+   
+   if currentImage then
+      if path.xmin < xminImg(currentImage) or
+	 path.xmax > xmaxImg(currentImage) or
+	 path.ymin < yminImg(currentImage) or
+	 path.ymax > ymaxImg(currentImage)
+      then
+	 currentImage = math.min(currentImage+1, maxImage)
+      end
+
+      if not fieldPNG[currentImage] then
+	 pngLoad(currentImage)
+	 graphScaleRst(currentImage)
+	 recalcPixels =  true
+	 recalcCount = 0
+      end
+   else
+      --print("** graphScale else clause **")
+      -- if no image then just scale to keep the path on the map
+      -- round Xrange to nearest 60 m, Yrange to nearest 30 m maintain 2:1 aspect ratio
+      map.Xrange = math.floor((path.xmax-path.xmin)/60 + .5) * 60
+      map.Yrange = math.floor((path.ymax-path.ymin)/30 + .5) * 30
+      
+      if map.Yrange > map.Xrange/2 then
+	 map.Xrange = map.Yrange*2
+      end
+      if map.Xrange > map.Yrange*2 then
+	 map.Yrange = map.Xrange/2
+      end
+      
+      map.Xmin = path.xmin - (map.Xrange - (path.xmax-path.xmin))/2
+      map.Xmax = path.xmax + (map.Xrange - (path.xmax-path.xmin))/2
+      
+      map.Ymin = path.ymin - (map.Yrange - (path.ymax-path.ymin))/2
+      map.Ymax = path.ymax + (map.Yrange - (path.ymax-path.ymin))/2
+   end
+   
+end
+
 local swzTime = 0
 local panic = false
 
@@ -2511,6 +2614,10 @@ local function mapPrint(windowWidth, windowHeight)
    
    if form.getActiveForm() then return end
    
+   if recalcDone() then
+      graphScale(xtable[#xtable], ytable[#ytable])
+   end
+   
    setColorMap()
    
    setColorMain()
@@ -2518,7 +2625,7 @@ local function mapPrint(windowWidth, windowHeight)
    if fieldPNG[currentImage] then
       lcd.drawImage(0,0,fieldPNG[currentImage], 255)
    else
-      lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, "No GPS fix or no Image"))/2, 40,
+      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, "No GPS fix or no Image"))/2, 40,
 	 "No GPS fix or no Image", FONT_BIG)
    end
    
@@ -2577,8 +2684,6 @@ local function mapPrint(windowWidth, windowHeight)
    
    --text=string.format("NNP %d", countNoNewPos)
    --lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 76, text, FONT_MINI)
-   
-   
 
    if pointSwitch then
       swp = system.getInputsVal(pointSwitch)
@@ -2601,9 +2706,11 @@ local function mapPrint(windowWidth, windowHeight)
       else
 	 offset = 0
       end
-      ------------------------------
+
+      -- only paint as many points as have been re-calculated if we are redoing the pixels
+      
       ren:reset()
-      for i=1 + offset, #xPHist do
+      for i=1 + offset, (recalcPixels and recalcCount or #xPHist) do
 	 ren:addPoint(xPHist[i], yPHist[i])
 	 if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
 	    if system.getCPU() >= variables.maxCPU then
@@ -2765,84 +2872,6 @@ local function mapPrint(windowWidth, windowHeight)
    
 end
 
-local function graphScale(xx, yy)
-   
-   if not map.Xmax then
-      print("BAD! -- setting max and min in graphScale")
-      map.Xmax=   40
-      map.Xmin = -40
-      map.Ymax =  20
-      map.Ymin = -20
-   end
-   
-   if xx > path.xmax then
-      --print("path.xmax:", map.Xmax, xx, yy, Field.name)
-      path.xmax = xx
-   end
-   if xx < path.xmin then
-      --print("path.xmin:", map.Xmin, xx, yy, Field.name)
-      path.xmin = xx
-   end
-   if yy > path.ymax then
-      --print("path.ymax:", map.Ymax, xx, yy, Field.name)
-      path.ymax = yy
-   end
-   if yy < path.ymin then
-      --print("path.ymin:", map.Ymin, xx, yy, Field.name)
-      path.ymin = yy
-   end
-
-   -- if we have an image then scale factor comes from the image
-   -- check each image scale .. maxs and mins are precomputed
-   -- starting from most zoomed in image (the first one), stop
-   -- when the path fits within the window or at max image size
-   
-   if currentImage then
-      if path.xmin < xminImg(currentImage) or
-	 path.xmax > xmaxImg(currentImage) or
-	 path.ymin < yminImg(currentImage) or
-	 path.ymax > ymaxImg(currentImage)
-      then
-	 currentImage = math.min(currentImage+1, maxImage)
-      end
-      
-
-      if not fieldPNG[currentImage] then
-	 pngLoad(currentImage)
-	 graphScaleRst(currentImage)
-	 -- recalc previous x,y from lat, lng but scaled for this image
-	 system.setProperty("CpuLimit", 0)
-	 for i=1,#latHist,1 do
-	    xPHist[i], yPHist[i] = rotateXY(rE*(lngHist[i]-lng0)*coslat0/rad,
-					  rE*(latHist[i]-lat0)/rad,
-					  math.rad(variables.rotationAngle))
-	    xPHist[i] = toXPixel(xPHist[i], map.Xmin, map.Xrange, 319)
-	    yPHist[i] = toYPixel(yPHist[i], map.Ymin, map.Yrange, 159)	    
-	 end
-	 system.setProperty("CpuLimit", 1)
-      end
-   else
-      --print("** graphScale else clause **")
-      -- if no image then just scale to keep the path on the map
-      -- round Xrange to nearest 60 m, Yrange to nearest 30 m maintain 2:1 aspect ratio
-      map.Xrange = math.floor((path.xmax-path.xmin)/60 + .5) * 60
-      map.Yrange = math.floor((path.ymax-path.ymin)/30 + .5) * 30
-      
-      if map.Yrange > map.Xrange/2 then
-	 map.Xrange = map.Yrange*2
-      end
-      if map.Xrange > map.Yrange*2 then
-	 map.Yrange = map.Xrange/2
-      end
-      
-      map.Xmin = path.xmin - (map.Xrange - (path.xmax-path.xmin))/2
-      map.Xmax = path.xmax + (map.Xrange - (path.xmax-path.xmin))/2
-      
-      map.Ymin = path.ymin - (map.Yrange - (path.ymax-path.ymin))/2
-      map.Ymax = path.ymax + (map.Yrange - (path.ymax-path.ymin))/2
-   end
-   
-end
 
 local function initField()
 
@@ -3128,8 +3157,8 @@ local function loop()
 	 --print("reset path", path.xmin, path.xmax, path.ymin, path.ymax)
       end
 
-
-      graphScale(x, y)
+      --move this to mapPrint
+      --graphScale(x, y)
       
       checkNoFly(x, y, false, true)
       if variables.futureMillis > 0 then
@@ -3258,7 +3287,7 @@ local function init()
    
    startSwitch = system.pLoad("startSwitch")
    print("pLoad .. startSwitch", startSwitch)
-   
+
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
    system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
    system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
