@@ -1000,15 +1000,15 @@ local function initForm(subform)
       form.addLabel({label="Flight path points on/off sw", width=220})
       form.addInputbox(pointSwitch, false, pointSwitchChanged)
       
-      form.addRow(2)
-      form.addLabel({label="History ribbon width", width=220})
-      form.addIntbox(variables.ribbonWidth, 1, 4, 2, 0, 1,
-		     (function(z) return variableChanged(z, "ribbonWidth") end) )
+      -- form.addRow(2)
+      -- form.addLabel({label="History ribbon width", width=220})
+      -- form.addIntbox(variables.ribbonWidth, 1, 4, 2, 0, 1,
+      -- 		     (function(z) return variableChanged(z, "ribbonWidth") end) )
 
-      form.addRow(2)
-      form.addLabel({label="History ribbon density", width=220})
-      form.addIntbox(variables.ribbonAlpha, 1, 10, 4, 0, 1,
-		     (function(z) return variableChanged(z, "ribbonAlpha") end) )
+      -- form.addRow(2)
+      -- form.addLabel({label="History ribbon density", width=220})
+      -- form.addIntbox(variables.ribbonAlpha, 1, 10, 4, 0, 1,
+      -- 		     (function(z) return variableChanged(z, "ribbonAlpha") end) )
 
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
@@ -3228,7 +3228,9 @@ local function loop()
    metrics.loopCPU = system.getCPU()
    if metrics.loopCPU > metrics.loopCPUMax then metrics.loopCPUMax = metrics.loopCPU end
    metrics.loopCPUAvg = metrics.loopCPUAvg + (metrics.loopCPU - metrics.loopCPUAvg) / 10.0
-end
+   if metrics.loopCPU > metrics.loopCPUAvg * 1.5 then print("1.2X Avg CPU", metrics.loopCPU) end
+   
+   end
 
 local function init()
 
