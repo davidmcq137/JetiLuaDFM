@@ -103,9 +103,7 @@ metrics.loopCPUMax = 0
 metrics.loopCPUAvg = 0
 
 local gotInitPos = false
-local annText
 local annTextSeq = 1
-local preText
 local preTextSeq = 1
 local titleText
 local subtitleText
@@ -128,12 +126,13 @@ local GPSsensorIdlist = { "..." }
 local GPSsensorPalist = { "..." }
 local absAltGPS
 
-local checkBox={}
+local checkBox = {}
+local checkBoxIndex = {}
 
-local triEnabled
-local triEnabledIndex
-local noflyEnabled
-local noflyEnabledIndex
+--local triEnabled
+--local triEnabledIndex
+--local noflyEnabled
+--local noflyEnabledIndex
 --local noFlyWarnEnabled
 --local noFlyWarnIndex
 
@@ -204,7 +203,13 @@ local function jLoadInit(fn)
    if fj then
       config = json.decode(fj)
    end
-   if not config then config = {} end
+   if not config then
+      print("Did not read jLoad file "..fn)
+      config = {}
+   else
+      --print("Success reading jLoad file "..fn)
+   end
+   
    return config
 end
 
@@ -223,7 +228,7 @@ end
 
 local function jLoad(config, var, def)
    if not config then return nil end
-   if not config[var] then
+   if config[var] == nil then
       config[var] = def
    end
    
@@ -236,17 +241,22 @@ local function jLoad(config, var, def)
 end
 
 local function jSave(config, var, val)
-   print("jSave var:", var, val,type(val))
    if type(val) == "userdata" then -- switchItem
       config[var]= system.getSwitchInfo(val)
-      print("jSave", config[var].label, config[var].value, config[var].proportional, config[var].assigned, config[var].mode)
+      --print("jSave", config[var].label, config[var].value,
+      --  config[var].proportional, config[var].assigned, config[var].mode)
+   else
       config[var] = val
    end
 end
 
 local function destroy()
    if appInfo.SaveData then
-      jLoadFinal(jFilename(), variables)
+      if jLoadFinal(jFilename(), variables) then
+	 --print("jLoad successful write")
+      else
+	 --print("jLoad failed write")
+      end
    end
 end
 
@@ -561,25 +571,25 @@ end
 
 local function pointSwitchChanged(value)
    pointSwitch = value
-   --jSave(variables, "pointSwitch", pointSwitch)
+   jSave(variables, "switchesSet", "true")
    system.pSave("pointSwitch", pointSwitch)
 end
 
 --local function zoomSwitchChanged(value)
 --   zoomSwitch = value
---   jSave(variables, "zoomSwitch", zoomSwitch)
+--   jSave(variables, "switchesSet", "true")
 --   --system.pSave("zoomSwitch", zoomSwitch)
 --end
 
 local function triASwitchChanged(value)
    triASwitch = value
-   --jSave(variables, "triASwitch", triASwitch)
+   jSave(variables, "switchesSet", "true")
    system.pSave("triASwitch", triASwitch)
 end
 
 local function startSwitchChanged(value)
    startSwitch = value
-   --jSave(variables, "startSwitch", startSwitch)
+   jSave(variables, "switchesSet", "true")
    system.pSave("startSwitch", startSwitch)
 end
 
@@ -642,50 +652,55 @@ end
 
 local function annTextChanged(value)
    if validAnn("[^cCdDpPtTaAsS%-]", value) then
-      annText = value
+      variables.annText = value
       jSave(variables, "annText", value)
-      --system.pSave("annText", annText)
    end
    form.reinit(7)
 end
 
 local function preTextChanged(value)
    if validAnn("[^aAsS%-]", value) then
-      preText = value
+      variables.preText = value
       jSave(variables, "preText", value)
-      --system.pSave("preText", preText)
    end
    form.reinit(8)
 end
 
-local function noFlyShakeEnabledClicked()
-   checkBox.noFlyShakeEnabled = not checkBox.noFlyShakeEnabled
+local function noFlyShakeEnabledClicked(value)
+   print("nFSEC", value)
+   checkBox.noFlyShakeEnabled = not value
+   jSave(variables, "noFlyShakeEnabled", not value)
    form.setValue(checkBox.noFlyShakeIndex, checkBox.noFlyShakeEnabled)
-   jSave(variables, "noFlyShakeEnabled", tostring(checkBox.noFlyShakeEnabled))
-   --system.pSave("noFlyShakeEnabled", tostring(checkBox.noFlyShakeEnabled))
 end
 
-local function noFlyWarningEnabledClicked()
-   checkBox.noFlyWarningEnabled = not checkBox.noFlyWarningEnabled
+local function noFlyWarningEnabledClicked(value)
+   print("nFWEC", value)
+   checkBox.noFlyWarningEnabled = not value
+   jSave(variables, "noFlyWarningEnabled", not value)
    form.setValue(checkBox.noFlyWarningIndex, checkBox.noFlyWarningEnabled)
-   jSave(variables, "noFlyWarningEnabled", tostring(checkBox.noFlyWarningEnabled))
-   --system.pSave("noFlyWarningEnabled", tostring(checkBox.noFlyWarningEnabled))
 end
 
 local function triEnabledClicked(value)
-   variables.triEnabled = not value
-   form.setValue(triEnabledIndex, variables.triEnabled)
-   jSave(variables, "triEnabled", variables.triEnabled)
-   --system.pSave("triEnabled", tostring(triEnabled))
+   print("triEnabledClicked: value:", value)
+   checkBox.triEnabled = not value
+   jSave(variables, "triEnabled", not value)
+   form.setValue(checkBox.triEnabledIndex, checkBox.triEnabled)
 end
 
 local function noflyEnabledClicked(value)
-   noflyEnabled = not value
-   form.setValue(noflyEnabledIndex, noflyEnabled)
-   jSave(variables, "noflyEnabled", tostring(noflyEnabled))
-   --system.pSave("noflyEnabled", tostring(noflyEnabled))
+   print("nfEC", value)
+   checkBox.noflyEnabled = not value
+   jSave(variables, "noflyEnabled", not value)
+   form.setValue(checkBox.noflyEnabledIndex, checkBox.noflyEnabled)
+
 end
 
+local function checkBoxClicked(value, box)
+   print("checkBoxClicked: value:", value, box)
+   checkBox[box] = not value
+   jSave(variables, box, not value)
+   form.setValue(checkBoxIndex[box], checkBox[box])
+end
 
 --------------------------------------------------------------------------------
 
@@ -863,12 +878,21 @@ end
 
 local function clearData()
    if form.question("Clear all data?",
-		    "All menus will revert to defaults",
 		    "Press Yes to clear, timeout is No",
+		    "Restart App after pressing Yes",
 		    6000, false, 0) == 1 then
       io.remove(jFilename())
       appInfo.SaveData = false
    end
+end
+
+local function checkBoxAdd(lab, box)
+   
+   form.addRow(2)
+   form.addLabel({label=lab, width=270})
+   checkBoxIndex[box] =
+      form.addCheckbox(checkBox[box],
+		       	  (function(z) return checkBoxClicked(z, box) end) )
 end
 
 -- Draw the main form (Application inteface)
@@ -982,7 +1006,7 @@ local function initForm(subform)
 		     (function(z) return variableChanged(z, "ribbonWidth") end) )
 
       form.addRow(2)
-      form.addLabel({label="History ribbon alpha", width=220})
+      form.addLabel({label="History ribbon density", width=220})
       form.addIntbox(variables.ribbonAlpha, 1, 10, 4, 0, 1,
 		     (function(z) return variableChanged(z, "ribbonAlpha") end) )
 
@@ -992,9 +1016,7 @@ local function initForm(subform)
    elseif subform ==3 then
       savedRow = subform-1
 
-      form.addRow(2)
-      form.addLabel({label="Enable Triangle Racecourse", width=270})
-      triEnabledIndex = form.addCheckbox(variables.triEnabled, triEnabledClicked)
+      checkBoxAdd("Enable Triangle Racecourse", "triEnabled")
 
       form.addRow(2)
       form.addLabel({label="Triangle racing ann switch", width=220})
@@ -1040,20 +1062,23 @@ local function initForm(subform)
       form.addLabel({label="Future position (msec)", width=220})
       form.addIntbox(variables.futureMillis, 0, 10000, 2000, 0, 10,
 		     (function(xx) return variableChanged(xx, "futureMillis") end) )
-      
-      form.addRow(2)
-      form.addLabel({label="Show NoFly Zones", width=270})
-      noflyEnabledIndex = form.addCheckbox(noflyEnabled, noflyEnabledClicked)
 
-      form.addRow(2)
-      form.addLabel({label="Announce NoFly Entry/Exit", width=270})
-      checkBox.noFlyWarningIndex =
-	 form.addCheckbox(checkBox.noFlyWarningEnabled, noFlyWarningEnabledClicked)
+      checkBoxAdd("Show No Fly Zones", "noflyEnabled")
+      -- form.addRow(2)
+      -- form.addLabel({label="Show NoFly Zones", width=270})
+      -- checkBox.noflyEnabledIndex = form.addCheckbox(checkBox.noflyEnabled, noflyEnabledClicked)
+
+      checkBoxAdd("Announce No Fly Entry/Exit", "noFlyWarningEnabled")
+      -- form.addRow(2)
+      -- form.addLabel({label="Announce NoFly Entry/Exit", width=270})
+      -- checkBox.noFlyWarningIndex =
+      -- 	 form.addCheckbox(checkBox.noFlyWarningEnabled, noFlyWarningEnabledClicked)
       
-      form.addRow(2)
-      form.addLabel({label="Stick Shake on NoFly Entry", width=270})
-      checkBox.noFlyShakeIndex =
-	 form.addCheckbox(checkBox.noFlyShakeEnabled, noFlyShakeEnabledClicked)
+      checkBoxAdd("Stick Shake on No Fly Entry", "noFlyShakeEnabled")
+      -- form.addRow(2)
+      -- form.addLabel({label="Stick Shake on NoFly Entry", width=270})
+      -- checkBox.noFlyShakeIndex =
+      -- 	 form.addCheckbox(checkBox.noFlyShakeEnabled, noFlyShakeEnabledClicked)
 
       form.addRow(2)
       form.addLabel({label="Field elevation adjustment (m)", width=220})
@@ -1123,11 +1148,11 @@ local function initForm(subform)
       local temp
       if subform == 7 then
 	 form.addLabel({label="Racing announce sequence", width=220})
-	 temp = annText
+	 temp = variables.annText
 	 form.addTextbox(temp, 30, annTextChanged)
       else
 	 form.addLabel({label="Pre-race announce sequence", width=220})
-	 form.addTextbox(preText, 30, preTextChanged)
+	 form.addTextbox(variables.preText, 30, preTextChanged)
       end
       form.addLink((function() form.reinit(1) end),
 	 {label = "Back to main menu",font=FONT_BOLD})
@@ -1921,16 +1946,16 @@ local function calcTriRace()
       --print(m3(nextPylon+2), inZone[m3(nextPylon+2)] )
       if raceParam.racing then
 	 annTextSeq = annTextSeq + 1
-	 if annTextSeq > #annText then
+	 if annTextSeq > #variables.annText then
 	    annTextSeq = 1
 	 end
-	 sChar = annText:sub(annTextSeq,annTextSeq)
+	 sChar = variables.annText:sub(annTextSeq,annTextSeq)
       else
 	 preTextSeq = preTextSeq + 1
 	 if preTextSeq > #preText then
 	    preTextSeq = 1
 	 end
-	 sChar = preText:sub(preTextSeq,preTextSeq)
+	 sChar = variables.preText:sub(preTextSeq,preTextSeq)
       end
       if (sChar == "C" or sChar == "c") and raceParam.racing then
 	 if relBearing < -6 then
@@ -2663,7 +2688,7 @@ local function mapPrint(windowWidth, windowHeight)
    lcd.drawText(5, 74, text, FONT_MINI)   
 
    if emFlag then
-      text=string.format("LA %d%% LM %d%% L %d%%",
+      text=string.format("LA %02d%% LM %02d%% L %d%%",
 			 metrics.loopCPUAvg, metrics.loopCPUMax, metrics.loopCPU)
       lcd.drawText(5, 86, text, FONT_MINI)      
    end
@@ -3251,33 +3276,15 @@ local function init()
    variables.triOffsetY     = jLoad(variables, "triOffsetY",      0)
    variables.ribbonWidth    = jLoad(variables, "ribbonWidth",     2)
    variables.ribbonAlpha    = jLoad(variables, "ribbonAlpha",     4)
-   --pointSwitch    = jLoad(variables, "pointSwitch") --, emptySw)
-   --triASwitch     = jLoad(variables, "triASwitch")  --, emptySw)
-   --startSwitch    = jLoad(variables, "startSwitch") --, emptySw)
-   --zoomSwitch   = jLoad(variables, "zoomSwitch")  --, emptySw)
-   
-   annText     = jLoad(variables, "annText", "c-d----")   
-   preText     = jLoad(variables, "preText", "s-a----")      
+   variables.switchesSet    = jLoad(variables, "switchesSet")
+   variables.annText        = jLoad(variables, "annText", "c-d----")   
+   variables.preText        = jLoad(variables, "preText", "s-a----")      
 
-   -- to do: move triEnabled and noflyEnabled to new checkBox. format
-   
-   --triEnabled = system.pLoad("triEnabled", "true") -- default to enabling racing
-   variables.triEnabled = jLoad(variables, "triEnabled", false) -- default to disabling racing   
-   print("triEnabled:", variables.triEnabled, type(variables.triEnabled))
-   --variables.triEnabled  = (variables.triEnabled  == "true") -- convert back to boolean
-   print("triEnabled:", variables.triEnabled, type(variables.triEnabled))
-   
-   --noflyEnabled = system.pLoad("noflyEnabled", "true") 
-   noflyEnabled = jLoad(variables, "noflyEnabled", "true")
-   noflyEnabled  = (noflyEnabled  == "true") -- convert back to boolean
-
-   --checkBox.noFlyWarningEnabled = system.pLoad("noFlyWarningEnabled", "true")
-   checkBox.noFlyWarningEnabled = jLoad(variables, "noFlyWarningEnabled", "true")   
-   checkBox.noFlyWarningEnabled = (checkBox.noFlyWarningEnabled == "true")
-   
-   --checkBox.noFlyShakeEnabled = system.pLoad("noFlyShakeEnabled", "true")
-   checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", "true")   
-   checkBox.noFlyShakeEnabled = (checkBox.noFlyShakeEnabled == "true")
+   checkBox.triEnabled = jLoad(variables, "triEnabled", false)
+   checkBox.noflyEnabled = jLoad(variables, "noflyEnabled", true)
+   variables.noflyEnabled = checkBox.noflyEnabled
+   checkBox.noFlyWarningEnabled = jLoad(variables, "noFlyWarningEnabled", true)   
+   checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", true)   
 
    pointSwitch = system.pLoad("pointSwitch")
    print("pLoad .. pointSwitch", pointSwitch)
@@ -3288,6 +3295,12 @@ local function init()
    startSwitch = system.pLoad("startSwitch")
    print("pLoad .. startSwitch", startSwitch)
 
+   if variables.switchesSet and not pointSwitch and not triASwitch and not startSwitch then
+      system.messageBox("Please reset switches in menu")
+      print("please reset switches")
+      variables.switchesSet = nil
+   end
+   
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
    system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
    system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
@@ -3317,4 +3330,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="7.5", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.7", name=appInfo.Name, destroy=destroy}
