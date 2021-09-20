@@ -502,7 +502,7 @@ local function setColorTriangle()
 end
 
 local function setColorTriRot()
-   lcd.setColor(100,100,255)
+   lcd.setColor(255,100,0)
 end
 
 local function setField(sname)
@@ -817,7 +817,7 @@ local function keyForm(key)
 	 if savedSubform == 9 then
 	    if not browse.OriginalFieldName then browse.OriginalFieldName = Field.shortname end
 	    if browse.FieldName then
-	       print("setField to", browse.FieldName)
+	       --print("setField to", browse.FieldName)
 	       setField(browse.FieldName)
 	       currentImage = 1
 	       browse.Idx = 1
@@ -1001,6 +1001,13 @@ local function initForm(subform)
       form.addRow(2)
       form.addLabel({label="Flight path points on/off sw", width=220})
       form.addInputbox(pointSwitch, false, pointSwitchChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Ribbon Color Source", width=200})
+      form.addSelectbox(
+	 {"None", "Altitude", "Speed", "Laps", "Rx1 Q", "Rx1 A1", "Rx1 A2", "Rx1 Volts"},
+	 variables.ribbonColorSource, false,
+	 (function(z) return variableChanged(z, "ribbonColorSource") end) )
       
       -- form.addRow(2)
       -- form.addLabel({label="History ribbon width", width=220})
@@ -2266,18 +2273,19 @@ local function prtForm(windowWidth, windowHeight)
       if Field then
 	 --lcd.drawCircle(0,0,10)
 	 setColorLabels()
-	 lcd.drawText(10,15,"File: " .. Field.images[currentImage].file, FONT_MINI)	 
+	 lcd.drawText(10,10,"File: " .. Field.images[currentImage].file, FONT_NORMAL)	 
+	 --[[
 	 lcd.drawText(10,25,Field.shortname .." - " ..Field.name, FONT_MINI)
 	 lcd.drawText(10,35,"Width: " ..  Field.imageWidth[currentImage] .." m", FONT_MINI)
 	 lcd.drawText(10,45,"Lat: " ..  string.format("%.6f", lat0) .. "°", FONT_MINI)
 	 lcd.drawText(10,55,"Lon: " ..  string.format("%.6f", lng0) .. "°", FONT_MINI)
 	 if Field.elevation then
-	    lcd.drawText(10,65,"Elev: " .. math.floor(Field.elevation.elevation+0.5) .." m",
-			 FONT_MINI)
+	   lcd.drawText(10,65,"Elev: " .. math.floor(Field.elevation.elevation+0.5) .." m",
+	 		 FONT_MINI)
 	 end
+	 --]]
 	 
-
-	 lcd.drawText(82,160,(browse.dispText or ""), FONT_MINI)	 
+	 lcd.drawText(80,145,(browse.dispText or ""), FONT_NORMAL)	 
 	 --lcd.setClipping(0,15,310,160)
 
 	 setColorRunway()
@@ -2694,12 +2702,10 @@ local function mapPrint(windowWidth, windowHeight)
 
    if emFlag then
       text=string.format("%d/%d %d%%", #xPHist, variables.histMax, metrics.currMaxCPU)
-   else
-      --text=string.format("%d/%d", #xPHist, variables.histMax)      
+      lcd.drawText(5, 74, text, FONT_MINI)   
    end
    
-   lcd.drawText(5, 74, text, FONT_MINI)   
-
+   
    if emFlag then
       text=string.format("LA %02d%% LM %02d%% L %d%%",
 			 metrics.loopCPUAvg, metrics.loopCPUMax, metrics.loopCPU)
@@ -2764,7 +2770,7 @@ local function mapPrint(windowWidth, windowHeight)
 	 kk = i
 	 --AA--ren:addPoint(xPHist[i], yPHist[i])
 	 ----[[
-	 if true then
+	 if variables.ribbonColorSource ~= 1 then
 	    if (rgb.last ~= rgbHist[i].rgb) then
 	       lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
 	       rgb.last = rgbHist[i].rgb
@@ -2989,6 +2995,12 @@ local function initField()
 end
 
 ------------------------------------------------------------
+local function gradientIndex(val, min, max, bins)
+   -- for a value val, maps to the gradient rgb index for val from min to max
+   --print(val, math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5))
+   return math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5)
+end
+
 
 -- presistent and global variables for loop()
 
@@ -3199,14 +3211,34 @@ local function loop()
 	 table.insert(lngHist, longitude)
 	 --
 	 -- compute map from color params to rgb here
+	 --local function gradientIndex(val, min, max, bins)
 
-	 --special hardwired test case: alt from 20-200m
-	 
-	 jj = (#shapes.gradient - 1) * math.max(math.min ((altitude - 20) / (200-20),1),0) + 1
-	 jj = math.floor(jj+0.5)
+	 if variables.ribbonColorSource == 1 then -- none
+	    jj = #shapes.gradient // 2 -- mid of gradient - right now this is sort of a yellow color
+	 elseif variables.ribbonColorSource == 2 then -- altitude 0-500m
+	    jj = gradientIndex(altitude, 0, 500, #shapes.gradient)
+	 elseif variables.ribbonColorSource == 3 then -- speed 0-300 km/hr
+	    jj = gradientIndex(speed, 0, 300, #shapes.gradient)
+	 elseif variables.ribbonColorSource == 4 then -- triRace Laps
+	    jj = gradientIndex(raceParam.lapsComplete % #shapes.gradient,
+	       0, #shapes.gradient-1, #shapes.gradient)
+	 elseif variables.ribbonColorSource == 5 then -- Rx1 Q
+	    jj = gradientIndex(system.getTxTelemetry().rx1Percent, 0, 100,  #shapes.gradient)
+	 elseif variables.ribbonColorSource == 6 then -- Rx1 A1
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[1],    0,   9,  #shapes.gradient)
+	 elseif variables.ribbonColorSource == 7 then -- Rx1 A2
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0,   9,  #shapes.gradient)
+	 elseif variables.ribbonColorSource == 8 then -- Rx1 V
+	    jj = gradientIndex(system.getTxTelemetry().rx1Voltage, 0,   8,  #shapes.gradient)	    
+	 else
+	 end
+
+	 --jj = (#shapes.gradient - 1) * math.max(math.min ((altitude - 20) / (200-20),1),0) + 1
+	 --jj = math.floor(jj+0.5)
 	 --print(altitude, #latHist, jj)
 	 --print("#", math.floor((#latHist/1)-1)%9 + 1)
 	 --local jj = math.floor((#latHist/5)-1) % #shapes.gradient + 1
+
 	 table.insert(rgbHist, {r=rgb[jj].r,
 				g=rgb[jj].g,
 				b=rgb[jj].b,
@@ -3331,28 +3363,29 @@ local function init()
    
    variables = jLoadInit(jFilename())
    
-   variables.rotationAngle  = jLoad(variables, "rotationAngle",   0)
-   variables.histSample     = jLoad(variables, "histSample",   1000)
-   variables.histMax        = jLoad(variables, "histMax",         0)
-   variables.maxCPU         = jLoad(variables, "maxCPU",         80)
-   variables.triLength      = jLoad(variables, "triLength",     250)
-   variables.maxSpeed       = jLoad(variables, "maxSpeed",      100)
-   variables.maxAlt         = jLoad(variables, "maxAlt",        200)
-   variables.elev           = jLoad(variables, "elev",            0)
-   variables.histDistance   = jLoad(variables, "histDistance",    3)
-   variables.raceTime       = jLoad(variables, "raceTime",       30)
-   variables.aimoff         = jLoad(variables, "aimoff",         20)
-   variables.flightStartSpd = jLoad(variables, "flightStartSpd", 20)
-   variables.flightStartAlt = jLoad(variables, "flightStartAlt", 20)
-   variables.futureMillis   = jLoad(variables, "futureMillis", 2000)
-   variables.triRotation    = jLoad(variables, "triRotation",     0)
-   variables.triOffsetX     = jLoad(variables, "triOffsetX",      0)
-   variables.triOffsetY     = jLoad(variables, "triOffsetY",      0)
-   variables.ribbonWidth    = jLoad(variables, "ribbonWidth",     1)
-   variables.ribbonAlpha    = jLoad(variables, "ribbonAlpha",     5)
-   variables.switchesSet    = jLoad(variables, "switchesSet")
-   variables.annText        = jLoad(variables, "annText", "c-d----")   
-   variables.preText        = jLoad(variables, "preText", "s-a----")      
+   variables.rotationAngle     = jLoad(variables, "rotationAngle",   0)
+   variables.histSample        = jLoad(variables, "histSample",   1000)
+   variables.histMax           = jLoad(variables, "histMax",         0)
+   variables.maxCPU            = jLoad(variables, "maxCPU",         80)
+   variables.triLength         = jLoad(variables, "triLength",     250)
+   variables.maxSpeed          = jLoad(variables, "maxSpeed",      100)
+   variables.maxAlt            = jLoad(variables, "maxAlt",        200)
+   variables.elev              = jLoad(variables, "elev",            0)
+   variables.histDistance      = jLoad(variables, "histDistance",    3)
+   variables.raceTime          = jLoad(variables, "raceTime",       30)
+   variables.aimoff            = jLoad(variables, "aimoff",         20)
+   variables.flightStartSpd    = jLoad(variables, "flightStartSpd", 20)
+   variables.flightStartAlt    = jLoad(variables, "flightStartAlt", 20)
+   variables.futureMillis      = jLoad(variables, "futureMillis", 2000)
+   variables.triRotation       = jLoad(variables, "triRotation",     0)
+   variables.triOffsetX        = jLoad(variables, "triOffsetX",      0)
+   variables.triOffsetY        = jLoad(variables, "triOffsetY",      0)
+   variables.ribbonWidth       = jLoad(variables, "ribbonWidth",     1)
+   variables.ribbonAlpha       = jLoad(variables, "ribbonAlpha",     5)
+   variables.switchesSet       = jLoad(variables, "switchesSet")
+   variables.annText           = jLoad(variables, "annText", "c-d----")   
+   variables.preText           = jLoad(variables, "preText", "s-a----")      
+   variables.ribbonColorSource = jLoad(variables, "ribbonColorSource", 1)
 
    checkBox.triEnabled = jLoad(variables, "triEnabled", false)
    checkBox.noflyEnabled = jLoad(variables, "noflyEnabled", true)
@@ -3399,9 +3432,13 @@ local function init()
       print(appInfo.Name .. ": Cannot open ", fn)
       return
    end
-   
+
+   -- for k,v in pairs(system.getTxTelemetry()) do
+   --    print(k,v)
+   -- end
+
    readSensors()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="7.9", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.10", name=appInfo.Name, destroy=destroy}
