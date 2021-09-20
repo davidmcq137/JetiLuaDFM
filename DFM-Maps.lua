@@ -3000,7 +3000,7 @@ local lineAvgPts = 4  -- number of points to linear fit to compute course
 local numGPSreads = 0
 local newPosTime = 0
 local hasCourseGPS
-
+local jj
 local lastHistTime=0
 
 local function loop()
@@ -3202,11 +3202,11 @@ local function loop()
 
 	 --special hardwired test case: alt from 20-200m
 	 
-	 --local jj = (#shapes.gradient - 1) * math.max(math.min ((altitude - 20) / (200-20),1),0) + 1
-	 --jj = math.floor(jj+0.5)
+	 jj = (#shapes.gradient - 1) * math.max(math.min ((altitude - 20) / (200-20),1),0) + 1
+	 jj = math.floor(jj+0.5)
 	 --print(altitude, #latHist, jj)
 	 --print("#", math.floor((#latHist/1)-1)%9 + 1)
-	 local jj = math.floor((#latHist/5)-1) % #shapes.gradient + 1
+	 --local jj = math.floor((#latHist/5)-1) % #shapes.gradient + 1
 	 table.insert(rgbHist, {r=rgb[jj].r,
 				g=rgb[jj].g,
 				b=rgb[jj].b,
