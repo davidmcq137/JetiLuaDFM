@@ -3404,4 +3404,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="7.8", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.9", name=appInfo.Name, destroy=destroy}
