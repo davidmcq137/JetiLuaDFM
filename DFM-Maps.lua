@@ -94,7 +94,9 @@ local xHistLast=0
 local yHistLast = 0
 local latHist={}
 local lngHist={}
+local rgbHist={}
 local countNoNewPos = 0
+local rgb = {}
 
 local metrics={}
 metrics.currMaxCPU = 0
@@ -666,37 +668,36 @@ local function preTextChanged(value)
    form.reinit(8)
 end
 
-local function noFlyShakeEnabledClicked(value)
-   print("nFSEC", value)
-   checkBox.noFlyShakeEnabled = not value
-   jSave(variables, "noFlyShakeEnabled", not value)
-   form.setValue(checkBox.noFlyShakeIndex, checkBox.noFlyShakeEnabled)
-end
+-- local function noFlyShakeEnabledClicked(value)
+--    print("nFSEC", value)
+--    checkBox.noFlyShakeEnabled = not value
+--    jSave(variables, "noFlyShakeEnabled", not value)
+--    form.setValue(checkBox.noFlyShakeIndex, checkBox.noFlyShakeEnabled)
+-- end
 
-local function noFlyWarningEnabledClicked(value)
-   print("nFWEC", value)
-   checkBox.noFlyWarningEnabled = not value
-   jSave(variables, "noFlyWarningEnabled", not value)
-   form.setValue(checkBox.noFlyWarningIndex, checkBox.noFlyWarningEnabled)
-end
+-- local function noFlyWarningEnabledClicked(value)
+--    print("nFWEC", value)
+--    checkBox.noFlyWarningEnabled = not value
+--    jSave(variables, "noFlyWarningEnabled", not value)
+--    form.setValue(checkBox.noFlyWarningIndex, checkBox.noFlyWarningEnabled)
+-- end
 
-local function triEnabledClicked(value)
-   print("triEnabledClicked: value:", value)
-   checkBox.triEnabled = not value
-   jSave(variables, "triEnabled", not value)
-   form.setValue(checkBox.triEnabledIndex, checkBox.triEnabled)
-end
+-- local function triEnabledClicked(value)
+--    print("triEnabledClicked: value:", value)
+--    checkBox.triEnabled = not value
+--    jSave(variables, "triEnabled", not value)
+--    form.setValue(checkBox.triEnabledIndex, checkBox.triEnabled)
+-- end
 
-local function noflyEnabledClicked(value)
-   print("nfEC", value)
-   checkBox.noflyEnabled = not value
-   jSave(variables, "noflyEnabled", not value)
-   form.setValue(checkBox.noflyEnabledIndex, checkBox.noflyEnabled)
+-- local function noflyEnabledClicked(value)
+--    print("nfEC", value)
+--    checkBox.noflyEnabled = not value
+--    jSave(variables, "noflyEnabled", not value)
+--    form.setValue(checkBox.noflyEnabledIndex, checkBox.noflyEnabled)
 
-end
+-- end
 
 local function checkBoxClicked(value, box)
-   print("checkBoxClicked: value:", value, box)
    checkBox[box] = not value
    jSave(variables, box, not value)
    form.setValue(checkBoxIndex[box], checkBox[box])
@@ -862,6 +863,7 @@ local function keyForm(key)
 	    yPHist = {}
 	    latHist = {}
 	    lngHist = {}
+	    rgbHist = {}
 	    form.reinit(1)
 	    savedRow = 6
 	    browse.Idx = 1
@@ -1164,13 +1166,17 @@ local function initForm(subform)
       form.setButton(2, "Show", 1)
       
       browse.List = {}
-
       for k,_ in pairs(Fields) do
 	 table.insert(browse.List, k)
       end
       table.sort(browse.List, function(a,b) return a<b end)
+      browse.Idx = 1
+      for k,v in ipairs(browse.List) do
+	 if Field.shortname == v then browse.Idx = k end
+      end
+      
       if #browse.List > 0 and (not browse.FieldName) then
-	 browse.FieldName = Fields[browse.List[1]].shortname
+	 browse.FieldName = Fields[browse.List[browse.Idx]].shortname
       end
 
       form.addRow(2)
@@ -1952,7 +1958,7 @@ local function calcTriRace()
 	 sChar = variables.annText:sub(annTextSeq,annTextSeq)
       else
 	 preTextSeq = preTextSeq + 1
-	 if preTextSeq > #preText then
+	 if preTextSeq > #variables.preText then
 	    preTextSeq = 1
 	 end
 	 sChar = variables.preText:sub(preTextSeq,preTextSeq)
@@ -2241,13 +2247,14 @@ local function prtForm(windowWidth, windowHeight)
    
    setColorMain()
    
-   if fieldPNG[currentImage] then
-      lcd.drawImage(0,0,fieldPNG[currentImage], 255)
-   else
-      local txt = "No browse image"
-      lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, txt))/2, 90, txt, FONT_BIG)
-   end
+   -- if fieldPNG[currentImage] then
+   --    lcd.drawImage(0,0,fieldPNG[currentImage], 255)
+   -- else
+   --    local txt = "No browse image"
+   --    lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, txt))/2, 90, txt, FONT_BIG)
+   -- end
 
+   
    if true then
       --lcd.setColor(0,41,15)
       --lcd.drawFilledRectangle(0,0,windowWidth, windowHeight)
@@ -2339,8 +2346,14 @@ local function prtForm(windowWidth, windowHeight)
 	    end
 	 end
       end
+     
       lcd.setColor(255,255,255)
-      lcd.drawFilledRectangle(0,0,windowWidth, 15)
+      lcd.drawFilledRectangle(0, 166, 320,20)
+      lcd.drawFilledRectangle(0, 0, 320,8)      
+      setColorMain()
+      
+
+
    end
 
 end
@@ -2659,9 +2672,9 @@ local function mapPrint(windowWidth, windowHeight)
 
    --lcd.drawCircle(160, 80, 5) -- circle in center of screen
    
-   lcd.drawText(30-lcd.getTextWidth(FONT_MINI, "N") / 2, 34, "N", FONT_MINI)
-   drawShape(30, 40, shapes.arrow, math.rad(-1*variables.rotationAngle))
-   lcd.drawCircle(30, 40, 7)
+   lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 34, "N", FONT_MINI)
+   drawShape(20, 40, shapes.arrow, math.rad(-1*variables.rotationAngle))
+   lcd.drawCircle(20, 40, 7)
 
    if satCount then
       text=string.format("%2d Sats", satCount)
@@ -2727,35 +2740,61 @@ local function mapPrint(windowWidth, windowHeight)
 	    yPHist={}
 	    latHist={}
 	    lngHist={}
+	    rgbHist={}
 	 end
       else
 	 offset = 0
       end
 
-      -- only paint as many points as have been re-calculated if we are redoing the pixels
+      if #rgbHist == 0 then
+	 --print("#0")
+	 return
+      end
       
-      ren:reset()
-      for i=1 + offset, (recalcPixels and recalcCount or #xPHist) do
-	 ren:addPoint(xPHist[i], yPHist[i])
+      rgb.last = -1 --rgbHist[1+(offset or 0)].rgb
+
+      local kk
+
+      -- only paint as many points as have been re-calculated if we are redoing the pixels
+
+      --AA--ren:reset()
+      --AA--for i=1 + offset, (recalcPixels and recalcCount or #xPHist) do
+      
+      for i=2 + offset, (recalcPixels and recalcCount or #xPHist) do
+	 kk = i
+	 --AA--ren:addPoint(xPHist[i], yPHist[i])
+	 ----[[
+	 if true then
+	    if (rgb.last ~= rgbHist[i].rgb) then
+	       lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
+	       rgb.last = rgbHist[i].rgb
+	    end
+	 end
+	 --]]
+	 lcd.drawLine(xPHist[i-1], yPHist[i-1], xPHist[i], yPHist[i])
 	 if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
 	    if system.getCPU() >= variables.maxCPU then
 	       print(appInfo.Name .. ": CPU panic", #xPHist, system.getCPU(), variables.maxCPU)
 	       panic = true
 	       break
 	    end
-	    ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0) 
-	    if i ~= #xPHist then
-	       ren:reset()
-	       ren:addPoint(xPHist[i], yPHist[i])
+	    --AA--ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0) 
+	    if i ~= (recalcPixels and recalcCount or #xPHist) then
+	       --AA--ren:reset()
+	       --AA--ren:addPoint(xPHist[i], yPHist[i])
 	    end
 	 end
       end
       
-      if variables.histMax > 0 and #xPHist > 0 and #xtable > 0 then
-	 ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
-		       toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))
+      if variables.histMax > 0 and #xPHist > 0 and #xtable > 0 and kk then
+	 --AA--ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
+		 --AA--      toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))
+	 lcd.drawLine(xPHist[kk], yPHist[kk],
+		      toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
+		      toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))		      
       end
-      ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0)
+      setColorMain()
+      --AA--ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0)
       ------------------------------
    end
 
@@ -3150,6 +3189,7 @@ local function loop()
 	    table.remove(yPHist, 1)
 	    table.remove(latHist, 1)
 	    table.remove(lngHist, 1)
+	    table.remove(rgbHist, 1)
 	 end
 	 table.insert(xPHist, toXPixel(x, map.Xmin, map.Xrange, 319))
 	 table.insert(yPHist, toYPixel(y, map.Ymin, map.Yrange, 159))
@@ -3157,6 +3197,23 @@ local function loop()
 	 yHistLast = y
 	 table.insert(latHist, latitude)
 	 table.insert(lngHist, longitude)
+	 --
+	 -- compute map from color params to rgb here
+
+	 --special hardwired test case: alt from 20-200m
+	 
+	 --local jj = (#shapes.gradient - 1) * math.max(math.min ((altitude - 20) / (200-20),1),0) + 1
+	 --jj = math.floor(jj+0.5)
+	 --print(altitude, #latHist, jj)
+	 --print("#", math.floor((#latHist/1)-1)%9 + 1)
+	 local jj = math.floor((#latHist/5)-1) % #shapes.gradient + 1
+	 table.insert(rgbHist, {r=rgb[jj].r,
+				g=rgb[jj].g,
+				b=rgb[jj].b,
+				rgb = rgb[jj].r*256*256 + rgb[jj].g*256 + rgb[jj].b})
+	 --print("#latHist, r,g,b:", #latHist, rgbHist[#latHist].r,
+	   --    rgbHist[#latHist].g,rgbHist[#latHist].b)
+		      
 	 lastHistTime = system.getTimeCounter()
       end
 
@@ -3228,7 +3285,7 @@ local function loop()
    metrics.loopCPU = system.getCPU()
    if metrics.loopCPU > metrics.loopCPUMax then metrics.loopCPUMax = metrics.loopCPU end
    metrics.loopCPUAvg = metrics.loopCPUAvg + (metrics.loopCPU - metrics.loopCPUAvg) / 10.0
-   if metrics.loopCPU > metrics.loopCPUAvg * 1.5 then print("1.2X Avg CPU", metrics.loopCPU) end
+   --if metrics.loopCPU > metrics.loopCPUAvg * 1.5 then print("1.2X Avg CPU", metrics.loopCPU) end
    
    end
 
@@ -3243,6 +3300,21 @@ local function init()
       print(appInfo.Name .. ": Could not open "..appInfo.Dir.."JSON/Shapes.jsn")
    end
 
+   --A nice 9-point and 10-point RGB gradient that looks good on top of the map
+   --From: https://learnui.design/tools/gradient-generator.html
+   
+   --#ff4d00, #ff6b00, #ffb900, #d7ff01, #5aff01, #02ff27, #03ff95, #03ffe2, #03ffff);
+   --#ff4d00, #ff6500, #ffa400, #ffff01, #93ff01, #21ff02, #02ff4e, #03ffa9, #03ffe8, #03ffff);
+      
+   for k,v in ipairs(shapes.gradient) do
+      rgb[k] = {}
+      rgb[k].r, rgb[k].g, rgb[k].b =  string.match(v, ("(%w%w)(%w%w)(%w%w)"))
+      rgb[k].r = (tonumber(rgb[k].r, 16) or 0)
+      rgb[k].g = (tonumber(rgb[k].g, 16) or 0)
+      rgb[k].b = (tonumber(rgb[k].b, 16) or 0)       
+      --print(k, rgb[k].r, rgb[k].g, rgb[k].b)
+   end
+      
    dotImage.blue = lcd.loadImage(appInfo.Dir.."/JSON/small_blue_circle.png")
    dotImage.green = lcd.loadImage(appInfo.Dir.."/JSON/small_green_circle.png")   
    dotImage.red = lcd.loadImage(appInfo.Dir.."/JSON/small_red_circle.png")
