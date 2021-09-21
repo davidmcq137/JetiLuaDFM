@@ -2744,9 +2744,9 @@ local function mapPrint(windowWidth, windowHeight)
       --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 50, text, FONT_MINI)
       lcd.drawText(5, 50, text, FONT_MINI)
    else
-      text = "No Sats"
+      --text = "No Sats"
       --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 50, text, FONT_MINI)
-      lcd.drawText(5, 50, text, FONT_MINI)      
+      --lcd.drawText(5, 50, text, FONT_MINI)      
    end
 
    -- if satQuality then
@@ -3287,14 +3287,16 @@ local function loop()
       return
    end
    
-   if newpos then -- only enter a new xy in the "comet tail" if lat/lon changed
+   --special case .. seed the xtable with one point even if not moving to allow tri drawing
+   
+   if newpos or (#xtable == 0) then -- only include in history if new point
 
       -- keep a max of variables.histMax points
       -- only record if moved variables.histDistance meters (Manhattan dist)
-
+      
       -- keep hist of lat/lng too since images don't have same lat0 and lng0 we need to recompute
       -- x and y when the image changes. that is done in graphScale()
-
+      
       if variables.histMax > 0 and
 	 (system.getTimeCounter() - lastHistTime > variables.histSample) and
          (math.abs(x-xHistLast) + math.abs(y - yHistLast) > variables.histDistance) then 
@@ -3368,53 +3370,48 @@ local function loop()
 	 lastHistTime = system.getTimeCounter()
       end
 
-      if #xtable+1 > MAXTABLE then
-	 table.remove(xtable, 1)
-	 table.remove(ytable, 1)
+---===
+   ------------------------------------------------------------
+   if #xtable+1 > MAXTABLE then
+      table.remove(xtable, 1)
+      table.remove(ytable, 1)
+   end
+   
+   table.insert(xtable, x)
+   table.insert(ytable, y)
+   
+   if #xtable == 1 then
+      path.xmin = map.Xmin
+      path.xmax = map.Xmax
+      path.ymin = map.Ymin
+      path.ymax = map.Ymax
+   end
+   
+   if #xtable > lineAvgPts then -- we have at least 4 points...
+      -- make sure we have a least 15' of manhat dist over which to compute compcrs
+      if (math.abs(xtable[#xtable]-xtable[#xtable-lineAvgPts+1]) +
+	  math.abs(ytable[#ytable]-ytable[#ytable-lineAvgPts+1])) > 15 then
+	 
+	 compcrs = select(2,fslope(table.move(xtable, #xtable-lineAvgPts+1, #xtable, 1, {}),
+				   table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {})))
       end
-      
-      table.insert(xtable, x)
-      table.insert(ytable, y)
+   else
+      compcrs = 0
+   end
+   compcrsDeg = compcrs*180/math.pi
+   ------------------------------------------------------------
+   ---===
 
-      xtable.xf = xtable[#xtable] - speed * (variables.futureMillis / 1000.0) *
+   xtable.xf = xtable[#xtable] - speed * (variables.futureMillis / 1000.0) *
 	 math.cos(math.rad(270-heading))
       ytable.yf = ytable[#xtable] - speed * (variables.futureMillis / 1000.0) *
 	 math.sin(math.rad(270-heading))
-      
-      if #xtable == 1 then
-	 --print("resetting path", path.xmin, path.xmax, path.ymin, path.ymax)
-	 path.xmin = map.Xmin
-	 path.xmax = map.Xmax
-	 path.ymin = map.Ymin
-	 path.ymax = map.Ymax
-	 --print("reset path", path.xmin, path.xmax, path.ymin, path.ymax)
-      end
 
-      --move this to mapPrint
-      --graphScale(x, y)
-      
       checkNoFly(x, y, false, true)
       if variables.futureMillis > 0 then
 	 checkNoFly(x, y, true,  true)
       end
       
-
-      -- maybe this should be a bezier curve calc .. which we're already doing ..
-      -- just differentiate the polynomial at the endpoint????
-
-      if #xtable > lineAvgPts then -- we have at least 4 points...
-	 -- make sure we have a least 15' of manhat dist over which to compute compcrs
-	 if (math.abs(xtable[#xtable]-xtable[#xtable-lineAvgPts+1]) +
-	     math.abs(ytable[#ytable]-ytable[#ytable-lineAvgPts+1])) > 15 then
-	 
-	      compcrs = select(2,fslope(table.move(xtable, #xtable-lineAvgPts+1, #xtable, 1, {}),
-					table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {})))
-	 end
-      else
-	 compcrs = 0
-      end
-   
-      compcrsDeg = compcrs*180/math.pi
    end
 
    if variables.histMax == 0 then
