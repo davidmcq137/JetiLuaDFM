@@ -112,7 +112,7 @@ local titleText
 local subtitleText
 local lastgetTime = 0
 local inZone = {}
-local currentGPSread = 0
+local currentRibbonValue
 
 
 -- these lists are the non-GPS sensors
@@ -1630,8 +1630,9 @@ local function drawTriRace(windowWidth, windowHeight)
    lcd.drawText(5, 130, "Spd: "..math.floor(speed), FONT_MINI)
    --lcd.drawText(5, 140, string.format("Map Width %d m", map.Xrange), FONT_MINI)
    if variables.ribbonColorSource ~= 1 then
-      lcd.drawText(5, 140, string.format("R: %s ",
-					 colorSelect[variables.ribbonColorSource]), FONT_MINI)
+      lcd.drawText(5, 140, string.format("%s: %.0f",
+					 colorSelect[variables.ribbonColorSource],
+					 currentRibbonValue or 0), FONT_MINI)
    end
    
    --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
@@ -2772,11 +2773,6 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText(290, 145, text, FONT_MINI)      
    end
 
-   -- if currentGPSread and lastGPSread then
-   --    text = string.format("GPS dt %d", currentGPSread - lastGPSread)
-   --    lcd.drawText(280-lcd.getTextWidth(FONT_MINI, text) / 2, 140, text, FONT_MINI)
-   -- end
-
    --text = string.format("%.6f %.6f", lat0 or 0, lng0 or 0)
    --lcd.drawText(60-lcd.getTextWidth(FONT_MINI, text) / 2, 90, text, FONT_MINI)
 
@@ -2880,7 +2876,7 @@ local function mapPrint(windowWidth, windowHeight)
    end
    
    -- draw the polygon no fly zones if defined
-   if noflyEnabled then
+   if checkBox.noflyEnabled then
       for i = 1, #nfp, 1 do
 	 ren:reset()
 	 if nfp[i].inside then
@@ -3066,8 +3062,10 @@ end
 ------------------------------------------------------------
 local function gradientIndex(val, min, max, bins)
    -- for a value val, maps to the gradient rgb index for val from min to max
-   --print(val, math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5))
-   return math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5)
+   local bin
+   currentRibbonValue  = val
+   bin = math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5)   
+   return bin
 end
 
 -- presistent and global variables for loop()
@@ -3259,8 +3257,6 @@ local function loop()
       lastlng = longitude
       newPosTime = system.getTimeCounter() + deltaPosTime
       countNoNewPos = 0
-      --lastGPSread = currentGPSread
-      currentGPSread = system.getTimeCounter()
    end
    
    -- set lng0, lat0, coslat0 in case not near a field
@@ -3442,7 +3438,6 @@ local function init()
 
    --A nice 9-point and 10-point RGB gradient that looks good on top of the map
    --From: https://learnui.design/tools/gradient-generator.html
-   
    --#ff4d00, #ff6b00, #ffb900, #d7ff01, #5aff01, #02ff27, #03ff95, #03ffe2, #03ffff);
    --#ff4d00, #ff6500, #ffa400, #ffff01, #93ff01, #21ff02, #02ff4e, #03ffa9, #03ffe8, #03ffff);
       
@@ -3497,7 +3492,7 @@ local function init()
 
    checkBox.triEnabled = jLoad(variables, "triEnabled", false)
    checkBox.noflyEnabled = jLoad(variables, "noflyEnabled", true)
-   variables.noflyEnabled = checkBox.noflyEnabled
+   --variables.noflyEnabled = checkBox.noflyEnabled
    checkBox.noFlyWarningEnabled = jLoad(variables, "noFlyWarningEnabled", true)   
    checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", true)   
 
