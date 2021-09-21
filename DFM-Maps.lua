@@ -2765,9 +2765,10 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText(5, 86, text, FONT_MINI)      
    end
 
-   if emFlag then
-      text=string.format("Loop: %.2f Mem: %.1f", metrics.loopTimeAvg or 0, metrics.memory or 0)
-      lcd.drawText(190, 0, text, FONT_MINI)      
+   if true then --emFlag then
+      text=string.format("%.1f", metrics.loopTimeAvg or 0)
+      --text=string.format("Loop: %.2f Mem: %.1f", metrics.loopTimeAvg or 0, metrics.memory or 0)
+      lcd.drawText(290, 145, text, FONT_MINI)      
    end
 
    -- if currentGPSread and lastGPSread then
