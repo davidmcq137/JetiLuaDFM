@@ -3553,4 +3553,4 @@ local function init()
    metrics.loopTimeAvg = 0
 end
 
-return {init=init, loop=loop, author="DFM", version="7.13", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.14", name=appInfo.Name, destroy=destroy}
