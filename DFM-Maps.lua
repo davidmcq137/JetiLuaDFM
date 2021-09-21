@@ -829,7 +829,8 @@ local function keyForm(key)
 	 graphScaleRst(currentImage)
 	 triRot(0) -- rotate and translate triangle to pylons
       else -- KEY_2
-	 if savedSubform == 9 then
+	 --print("key2, savedSubform", savedSubform)
+	 if savedSubform == 7 then
 	    if not browse.OriginalFieldName then
 	       --print("setting orig:", browse.OriginalFieldName, Field.shortname, activeField)
 	       browse.OriginalFieldName = activeField
@@ -2341,8 +2342,8 @@ local function prtForm(windowWidth, windowHeight)
 	 		 FONT_MINI)
 	 end
 	 --]]
-	 
-	 lcd.drawText(80,145,(browse.dispText or ""), FONT_NORMAL)	 
+	 --maybe should center this instead of fixed X position
+	 lcd.drawText(70,145,(browse.dispText or ""), FONT_NORMAL)	 
 	 --lcd.setClipping(0,15,310,160)
 
 	 setColorRunway()
@@ -3551,4 +3552,4 @@ local function init()
    metrics.loopTimeAvg = 0
 end
 
-return {init=init, loop=loop, author="DFM", version="7.11", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.12", name=appInfo.Name, destroy=destroy}
