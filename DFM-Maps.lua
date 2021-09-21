@@ -113,7 +113,7 @@ local subtitleText
 local lastgetTime = 0
 local inZone = {}
 local currentRibbonValue
-
+local currentRibbonBin
 
 -- these lists are the non-GPS sensors
 
@@ -201,6 +201,15 @@ local satCount
 local satQualityID = 0
 local satQualityPa = 0
 local satQuality
+
+local function gradientIndex(val, min, max, bins)
+   -- for a value val, maps to the gradient rgb index for val from min to max
+   local bin
+   currentRibbonValue  = val
+   bin = math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5)   
+   currentRibbonBin = bin
+   return bin
+end
 
 local function jFilename()
    return appInfo.Dir .. "M-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_")
@@ -1629,10 +1638,12 @@ local function drawTriRace(windowWidth, windowHeight)
    lcd.drawText(5, 120, "Alt: ".. math.floor(altitude), FONT_MINI)
    lcd.drawText(5, 130, "Spd: "..math.floor(speed), FONT_MINI)
    --lcd.drawText(5, 140, string.format("Map Width %d m", map.Xrange), FONT_MINI)
-   if variables.ribbonColorSource ~= 1 then
-      lcd.drawText(5, 140, string.format("%s: %.0f",
+   if variables.ribbonColorSource ~= 1 and currentRibbonValue then
+      lcd.drawText(18, 140, string.format("%s: %.0f",
 					 colorSelect[variables.ribbonColorSource],
-					 currentRibbonValue or 0), FONT_MINI)
+					 currentRibbonValue), FONT_MINI)
+      lcd.setColor(rgb[currentRibbonBin].r, rgb[currentRibbonBin].g, rgb[currentRibbonBin].b)
+      lcd.drawFilledRectangle(6,143,8,8)
    end
    
    --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
@@ -2704,7 +2715,6 @@ local function graphScale(xx, yy)
    
 end
 
-local swzTime = 0
 local panic = false
 
 local function mapPrint(windowWidth, windowHeight)
@@ -3060,13 +3070,6 @@ local function initField()
 end
 
 ------------------------------------------------------------
-local function gradientIndex(val, min, max, bins)
-   -- for a value val, maps to the gradient rgb index for val from min to max
-   local bin
-   currentRibbonValue  = val
-   bin = math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5)   
-   return bin
-end
 
 -- presistent and global variables for loop()
 
