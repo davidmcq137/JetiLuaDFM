@@ -3070,7 +3070,6 @@ local function gradientIndex(val, min, max, bins)
    return math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5)
 end
 
-
 -- presistent and global variables for loop()
 
 local lastlat = 0
@@ -3280,7 +3279,9 @@ local function loop()
 
    x, y = rotateXY(x, y, math.rad(variables.rotationAngle))
    
-
+   --defend against silly points .. sometimes they come from the RCT GPS
+   --hopefully this is larger than any field (mag 14 is about 2500m wide)
+   
    if (math.abs(x) > 10000.) or (math.abs(y) > 10000.) then
       print("bad point:", x,y,latitude, longitude)
       return
@@ -3314,10 +3315,13 @@ local function loop()
 	 -- compute map from color params to rgb here
 	 --local function gradientIndex(val, min, max, bins)
 
+	 --local sgTT = system.getTxTelemetry()
+	 --print(sgTT.rx1Percent, sgTT.RSSI[1], sgTT.RSSI[2], sgTT.rx1Voltage)
+	 
 	 if variables.ribbonColorSource == 1 then -- none
 	    jj = #shapes.gradient // 2 -- mid of gradient - right now this is sort of a yellow color
 	 elseif variables.ribbonColorSource == 2 then -- altitude 0-500m
-	    jj = gradientIndex(altitude, 0, 500, #shapes.gradient)
+	    jj = gradientIndex(altitude, 0, 600, #shapes.gradient)
 	 elseif variables.ribbonColorSource == 3 then -- speed 0-300 km/hr
 	    jj = gradientIndex(speed, 0, 300, #shapes.gradient)
 	 elseif variables.ribbonColorSource == 4 then -- triRace Laps
@@ -3329,19 +3333,19 @@ local function loop()
 	 elseif variables.ribbonColorSource == 6 then -- Rx1 Q
 	    jj = gradientIndex(system.getTxTelemetry().rx1Percent, 0, 100,  #shapes.gradient)
 	 elseif variables.ribbonColorSource == 7 then -- Rx1 A1
-	    jj = gradientIndex(system.getTxTelemetry().RSSI[1],    0,   9,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[1],    0, 100,  #shapes.gradient)
 	 elseif variables.ribbonColorSource == 8 then -- Rx1 A2
-	    jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0,   9,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0, 100,  #shapes.gradient)
 	 elseif variables.ribbonColorSource == 9 then -- Rx1 V
-	    jj = gradientIndex(system.getTxTelemetry().rx1Voltage, 0,   8,  #shapes.gradient)	    
+	    jj = gradientIndex(system.getTxTelemetry().rx1Voltage, 0,   8,  #shapes.gradient)
 	 elseif variables.ribbonColorSource == 10 then -- Rx2 Q
 	    jj = gradientIndex(system.getTxTelemetry().rx2Percent, 0, 100,  #shapes.gradient)
 	 elseif variables.ribbonColorSource == 11 then -- Rx2 A1
-	    jj = gradientIndex(system.getTxTelemetry().RSSI[3],    0,   9,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[3],    0, 100,  #shapes.gradient)
 	 elseif variables.ribbonColorSource == 12 then -- Rx2 A2
-	    jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0,   9,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0, 100,  #shapes.gradient)
 	 elseif variables.ribbonColorSource == 13 then -- Rx2 V
-	    jj = gradientIndex(system.getTxTelemetry().rx2Voltage, 0,   8,  #shapes.gradient)	    
+	    jj = gradientIndex(system.getTxTelemetry().rx2Voltage, 0,   8,  #shapes.gradient)
 	 else
 	    print("ribbon color bad idx")
 	 end
@@ -3352,6 +3356,8 @@ local function loop()
 	 --print("#", math.floor((#latHist/1)-1)%9 + 1)
 	 --local jj = math.floor((#latHist/5)-1) % #shapes.gradient + 1
 
+	 --print("jj", jj)
+	 
 	 table.insert(rgbHist, {r=rgb[jj].r,
 				g=rgb[jj].g,
 				b=rgb[jj].b,
@@ -3552,4 +3558,4 @@ local function init()
    metrics.loopTimeAvg = 0
 end
 
-return {init=init, loop=loop, author="DFM", version="7.12", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.13", name=appInfo.Name, destroy=destroy}
