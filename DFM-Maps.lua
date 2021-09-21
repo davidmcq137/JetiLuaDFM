@@ -88,6 +88,7 @@ local rwy = {}
 local maxpolyX = 0.0
 local Field = {}
 local Fields = {}
+local activeField
 local xPHist={}
 local yPHist={}
 local xHistLast=0
@@ -112,7 +113,7 @@ local subtitleText
 local lastgetTime = 0
 local inZone = {}
 local currentGPSread = 0
-local lastGPSread = 0
+
 
 -- these lists are the non-GPS sensors
 
@@ -142,6 +143,9 @@ local pointSwitch
 local zoomSwitch
 local triASwitch
 local startSwitch
+local colorSwitch
+local lastswc = -2
+local swcCount = 0
 
 local browse = {}
 browse.Idx = 1
@@ -151,6 +155,10 @@ browse.FieldName = nil
 browse.MapDisplayed = false
 browse.opTable = {"X","Y","R","L"}
 browse.opTableIdx = 1
+
+local colorSelect = {"None", "Altitude", "Speed", "Laps", "Switch",
+	  "Rx1 Q", "Rx1 A1", "Rx1 A2", "Rx1 Volts",
+	  "Rx2 Q", "Rx2 A1", "Rx2 A2", "Rx2 Volts"}	 
 
 local savedRow = 1
 local savedSubform
@@ -302,7 +310,7 @@ local function readSensors()
 
 	    param = paramGPS[sensor.sensorName][sensor.label].param
 	    label  = paramGPS[sensor.sensorName][sensor.label].telem
-	    --print("param, label:", param, label)
+	    print("sensorName, param, label:", sensor.sensorName, param, label)
 	    
 	    if param and label then
 	       if label == "SatCount" then
@@ -366,7 +374,7 @@ local function graphInit(im)
       map.Ymin = yminImg(im or 1)
       map.Ymax = ymaxImg(im or 1)
    else
-      print("**** graphInit hand setting 20/40")
+      --print("**** graphInit hand setting 20/40")
       map.Xmin, map.Xmax = -40, 40
       map.Ymin, map.Ymax = -20, 20
    end
@@ -553,6 +561,7 @@ local function sensorChanged(value, str, isGPS)
    system.pSave("telem."..str..".Se", value)
    system.pSave("telem."..str..".SeId", telem[str].SeId)
    system.pSave("telem."..str..".SePa", telem[str].SePa)
+   
 end
 
 local function variableChanged(value, var, fcn)
@@ -575,6 +584,12 @@ local function pointSwitchChanged(value)
    pointSwitch = value
    jSave(variables, "switchesSet", "true")
    system.pSave("pointSwitch", pointSwitch)
+end
+
+local function colorSwitchChanged(value)
+   colorSwitch = value
+   jSave(variables, "switchesSet", "true")
+   system.pSave("colorSwitch", colorSwitch)
 end
 
 --local function zoomSwitchChanged(value)
@@ -815,7 +830,10 @@ local function keyForm(key)
 	 triRot(0) -- rotate and translate triangle to pylons
       else -- KEY_2
 	 if savedSubform == 9 then
-	    if not browse.OriginalFieldName then browse.OriginalFieldName = Field.shortname end
+	    if not browse.OriginalFieldName then
+	       --print("setting orig:", browse.OriginalFieldName, Field.shortname, activeField)
+	       browse.OriginalFieldName = activeField
+	    end
 	    if browse.FieldName then
 	       --print("setField to", browse.FieldName)
 	       setField(browse.FieldName)
@@ -857,7 +875,7 @@ local function keyForm(key)
 	    nfp = {}
 	    tri = {}
 	    fieldPNG={}
-	    browse.OriginalFieldName = nil
+	    --browse.OriginalFieldName = nil
 	    gotInitPos = false
 	    xPHist = {}
 	    yPHist = {}
@@ -905,23 +923,24 @@ local function initForm(subform)
    savedSubform = subform
    
    if subform == 1 then
-
+      form.setTitle("GPS Maps")
+      
       form.addLink((function() form.reinit(2) end),
 	 {label = "Telemetry Sensors >>"})
 
       form.addLink((function() form.reinit(3) end),
 	 {label = "Race Parameters >>"})
 
-      form.addLink((function() form.reinit(6) end),
+      form.addLink((function() form.reinit(4) end),
 	 {label = "Triangle Parameters >>"})
 
-      form.addLink((function() form.reinit(4) end),
+      form.addLink((function() form.reinit(5) end),
 	 {label = "Track History >>"})
 
-      form.addLink((function() form.reinit(5) end),
+      form.addLink((function() form.reinit(6) end),
 	 {label = "Settings >>"})            
 
-      form.addLink((function() form.reinit(9) end),
+      form.addLink((function() form.reinit(7) end),
 	 {label = "Map Browser >>"})            
 
       --form.addRow(1)
@@ -946,6 +965,7 @@ local function initForm(subform)
 	 SpeedGPS="Select GPS Speed Sensor",
 	 DistanceGPS="Select GPS Distance Sensor",
 	 CourseGPS="Select GPS Course Sensor",
+	 
       }     
       
       for var, txt in pairs(menuSelectGPS) do
@@ -971,58 +991,10 @@ local function initForm(subform)
       end
       
       form.addLink((function() form.reinit(1) end),
-	 {label = "Back to main menu",font=FONT_BOLD})
+	 {label = "<<< Back to main menu",font=FONT_BOLD})
       
-   elseif subform == 4 then
-      savedRow = subform-1
-      -- not worth it do to a loop with a menu item table for Intbox due to the
-      -- variation in defaults etc nor for addCheckbox due to specialized nature
-      
-      form.addRow(2)
-      form.addLabel({label="History Sample Time (ms)", width=220})
-      form.addIntbox(variables.histSample, 1000, 10000, 1000, 0, 100,
-		     (function(z) return variableChanged(z, "histSample") end) )
-      
-      form.addRow(2)
-      form.addLabel({label="Number of History Samples", width=220})
-      form.addIntbox(variables.histMax, 0, 600, 300, 0, 10,
-		     (function(z) return variableChanged(z, "histMax") end) )
-      
-      form.addRow(2)
-      form.addLabel({label="Min Hist dist to new pt", width=220})
-      form.addIntbox(variables.histDistance, 1, 10, 3, 0, 1,
-		     (function(z) return variableChanged(z, "histDistance") end) )
-      
-      --form.addRow(2)
-      --form.addLabel({label="Max CPU usage permitted (%)", width=220})
-      --form.addIntbox(variables.maxCPU, 0, 100, 80, 0, 1,
-      --	     (function(z) return variableChanged(z, "maxCPU") end) )
-      
-      form.addRow(2)
-      form.addLabel({label="Flight path points on/off sw", width=220})
-      form.addInputbox(pointSwitch, false, pointSwitchChanged)
-      
-      form.addRow(2)
-      form.addLabel({label="Ribbon Color Source", width=200})
-      form.addSelectbox(
-	 {"None", "Altitude", "Speed", "Laps", "Rx1 Q", "Rx1 A1", "Rx1 A2", "Rx1 Volts"},
-	 variables.ribbonColorSource, false,
-	 (function(z) return variableChanged(z, "ribbonColorSource") end) )
-      
-      -- form.addRow(2)
-      -- form.addLabel({label="History ribbon width", width=220})
-      -- form.addIntbox(variables.ribbonWidth, 1, 4, 2, 0, 1,
-      -- 		     (function(z) return variableChanged(z, "ribbonWidth") end) )
-
-      -- form.addRow(2)
-      -- form.addLabel({label="History ribbon density", width=220})
-      -- form.addIntbox(variables.ribbonAlpha, 1, 10, 4, 0, 1,
-      -- 		     (function(z) return variableChanged(z, "ribbonAlpha") end) )
-
-      form.addLink((function() form.reinit(1) end),
-	 {label = "Back to main menu",font=FONT_BOLD})
-      
-   elseif subform ==3 then
+      form.setFocusedRow(1)      
+   elseif subform == 3 then
       savedRow = subform-1
 
       checkBoxAdd("Enable Triangle Racecourse", "triEnabled")
@@ -1055,16 +1027,107 @@ local function initForm(subform)
       form.addLabel({label="Flight Start Altitude (m)", width=220})
       form.addIntbox(variables.flightStartAlt, 0, 100, 20, 0, 1, flightStartAltChanged)
 
-      form.addLink((function() form.reinit(7) end),
+      form.addLink((function() form.reinit(8) end),
 	 {label = "Racing announce sequence >>"})            
 
-      form.addLink((function() form.reinit(8) end),
+      form.addLink((function() form.reinit(9) end),
 	 {label = "Racing pre-announce sequence >>"})            
 
       form.addLink((function() form.reinit(1) end),
-	 {label = "Back to main menu",font=FONT_BOLD})
+	 {label = "<<< Back to main menu",font=FONT_BOLD})
+
+      form.setFocusedRow(1)
+
+   elseif subform == 4 then
+      savedRow = subform-1
+      
+      form.addRow(2)
+      form.addLabel({label="Triangle leg", width=220})
+      form.addIntbox(variables.triLength, 10, 1000, 250, 0, 1, triLengthChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Turn point aiming offset (m)", width=220})
+      form.addIntbox(variables.aimoff, 0, 500, 50, 0, 1, aimoffChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Triangle Rotation (deg CCW)", width=220})
+      form.addIntbox(variables.triRotation, -180, 180, 0, 0, 1,
+		     (function(xx) return variableChanged(xx, "triRotation", triReset) end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Triangle Left (-) / Right(+) (m)", width=220})
+      form.addIntbox(variables.triOffsetX, -1000, 1000, 0, 0, 1,
+		     (function(xx) return variableChanged(xx, "triOffsetX", triReset) end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Triangle Up(+) / Down(-) (m)", width=220})
+      form.addIntbox(variables.triOffsetY, -1000, 1000, 0, 0, 1,
+		     (function(xx) return variableChanged(xx, "triOffsetY", triReset) end) )
+
+      form.addLink((function() form.reinit(1) end),
+	 {label = "<<< Back to main menu",font=FONT_BOLD})
+
+      form.setFocusedRow(1)
+
 
    elseif subform == 5 then
+      savedRow = subform-1
+      -- not worth it do to a loop with a menu item table for Intbox due to the
+      -- variation in defaults etc nor for addCheckbox due to specialized nature
+      
+      form.addRow(2)
+      form.addLabel({label="History Sample Time (ms)", width=220})
+      form.addIntbox(variables.histSample, 1000, 10000, 1000, 0, 100,
+		     (function(z) return variableChanged(z, "histSample") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Number of History Samples", width=220})
+      form.addIntbox(variables.histMax, 0, 600, 300, 0, 10,
+		     (function(z) return variableChanged(z, "histMax") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Min Hist dist to new pt", width=220})
+      form.addIntbox(variables.histDistance, 1, 10, 3, 0, 1,
+		     (function(z) return variableChanged(z, "histDistance") end) )
+      
+      --form.addRow(2)
+      --form.addLabel({label="Max CPU usage permitted (%)", width=220})
+      --form.addIntbox(variables.maxCPU, 0, 100, 80, 0, 1,
+      --	     (function(z) return variableChanged(z, "maxCPU") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Flight path points on/off sw", width=220})
+      form.addInputbox(pointSwitch, false, pointSwitchChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Ribbon Color Source", width=200})
+      form.addSelectbox(
+	 colorSelect,
+	 variables.ribbonColorSource, true,
+	 (function(z) return variableChanged(z, "ribbonColorSource") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Ribbon Color Increment sw", width=220})
+      form.addInputbox(colorSwitch, false, colorSwitchChanged)
+
+      form.addLink((function() form.reinit(11) end), {label = "View Color Gradient>>"})
+	 
+      -- form.addRow(2)
+      -- form.addLabel({label="History ribbon width", width=220})
+      -- form.addIntbox(variables.ribbonWidth, 1, 4, 2, 0, 1,
+      -- 		     (function(z) return variableChanged(z, "ribbonWidth") end) )
+
+      -- form.addRow(2)
+      -- form.addLabel({label="History ribbon density", width=220})
+      -- form.addIntbox(variables.ribbonAlpha, 1, 10, 4, 0, 1,
+      -- 		     (function(z) return variableChanged(z, "ribbonAlpha") end) )
+
+      form.addLink((function() form.reinit(1) end),
+	 {label = "<<< Back to main menu",font=FONT_BOLD})
+      
+      form.setFocusedRow(1)
+      
+   elseif subform == 6 then
       savedRow = subform-1
 
       form.addRow(2)
@@ -1107,39 +1170,58 @@ local function initForm(subform)
       form.addLink((function() form.reinit(1) end),
 	 {label = "<<< Back to main menu",font=FONT_BOLD})
 
-   elseif subform == 6 then
-      savedRow = subform-1
-      
-      form.addRow(2)
-      form.addLabel({label="Triangle leg", width=220})
-      form.addIntbox(variables.triLength, 10, 1000, 250, 0, 1, triLengthChanged)
-      
-      form.addRow(2)
-      form.addLabel({label="Turn point aiming offset (m)", width=220})
-      form.addIntbox(variables.aimoff, 0, 500, 50, 0, 1, aimoffChanged)
-      
-      form.addRow(2)
-      form.addLabel({label="Triangle Rotation (deg CCW)", width=220})
-      form.addIntbox(variables.triRotation, -180, 180, 0, 0, 1,
-		     (function(xx) return variableChanged(xx, "triRotation", triReset) end) )
-      
-      form.addRow(2)
-      form.addLabel({label="Triangle Left (-) / Right(+) (m)", width=220})
-      form.addIntbox(variables.triOffsetX, -1000, 1000, 0, 0, 1,
-		     (function(xx) return variableChanged(xx, "triOffsetX", triReset) end) )
-      
-      form.addRow(2)
-      form.addLabel({label="Triangle Up(+) / Down(-) (m)", width=220})
-      form.addIntbox(variables.triOffsetY, -1000, 1000, 0, 0, 1,
-		     (function(xx) return variableChanged(xx, "triOffsetY", triReset) end) )
+      form.setFocusedRow(1)
 
-      form.addLink((function() form.reinit(1) end),
-	 {label = "Back to main menu",font=FONT_BOLD})
       
-   elseif subform == 7 or subform == 8 then
+   elseif subform == 7 then
       savedRow = subform-1
+      ----------
+      form.setTitle("")
+      form.setButton(2, "Show", 1)
       
-      if subform == 7 then
+      browse.List = {}
+      for k,_ in pairs(Fields) do
+	 table.insert(browse.List, k)
+      end
+      table.sort(browse.List, function(a,b) return a<b end)
+      browse.Idx = 1
+
+      for k,v in ipairs(browse.List) do
+	 if activeField == v then
+	    browse.Idx = k
+	 end 
+      end
+
+      if #browse.List > 0 then      
+	 browse.FieldName = Fields[browse.List[browse.Idx]].shortname
+      end
+
+      form.addRow(2)
+      form.addLabel({label="Select Field to Browse"})
+      form.addSelectbox(browse.List, browse.Idx, true, browseFieldClicked)
+      form.addRow(1)
+      form.addLabel({label=""})      
+      form.addRow(1)
+      form.addLabel({label="<Show> to browse maps of selected field", font=FONT_NORMAL})
+      --form.addRow(1)
+      --form.addLabel({label=""})      
+      form.addRow(1)
+      form.addLabel({label="If you browse the currently active field:", font=FONT_MINI})
+      form.addRow(1)
+      form.addLabel({label="On the map image screen, edit the optional triangle", font=FONT_MINI})
+      form.addRow(1)
+      form.addLabel({label="racing course using transmitter's 3D control dial", font=FONT_MINI})
+      form.addRow(1)
+      form.addLabel({label="Press button 2 to cycle through the settable parameters", font=FONT_MINI})
+      form.addRow(1)      
+      form.addLabel({label="X: left/right Y: Up/Down R: Rotation CW/CCW L: Length", font=FONT_MINI})
+      form.addLink((function() form.reinit(1) end),
+	 {label = "<<< Back to main menu",font=FONT_BOLD})
+      
+      form.setFocusedRow(1)
+
+   elseif subform == 8 or subform == 9 then
+      if subform == 8 then
 	 form.addRow(1)
 	 form.addLabel({label="c/C: Course correction (° Left/Right)", width=220, font=FONT_MINI})
 	 form.addRow(1)
@@ -1155,7 +1237,7 @@ local function initForm(subform)
       form.addLabel({label="s/S: Speed (km/h)", width=220, font=FONT_MINI})
       form.addRow(2)
       local temp
-      if subform == 7 then
+      if subform == 8 then
 	 form.addLabel({label="Racing announce sequence", width=220})
 	 temp = variables.annText
 	 form.addTextbox(temp, 30, annTextChanged)
@@ -1164,59 +1246,22 @@ local function initForm(subform)
 	 form.addTextbox(variables.preText, 30, preTextChanged)
       end
       form.addLink((function() form.reinit(1) end),
-	 {label = "Back to main menu",font=FONT_BOLD})
+	 {label = "<<< Back to main menu",font=FONT_BOLD})
 
-   elseif subform == 9 then
-      savedRow = subform -1
-      ----------
-      form.setTitle("")
-      form.setButton(2, "Show", 1)
-      
-      browse.List = {}
-      for k,_ in pairs(Fields) do
-	 table.insert(browse.List, k)
-      end
-      table.sort(browse.List, function(a,b) return a<b end)
-      browse.Idx = 1
-      for k,v in ipairs(browse.List) do
-	 if Field.shortname == v then browse.Idx = k end
-      end
-      
-      if #browse.List > 0 and (not browse.FieldName) then
-	 browse.FieldName = Fields[browse.List[browse.Idx]].shortname
-      end
-
-      form.addRow(2)
-      form.addLabel({label="Select Field to Browse"})
-      form.addSelectbox(browse.List, browse.Idx, true, browseFieldClicked)
-      form.addRow(1)
-      form.addLabel({label=""})      
-      form.addRow(1)
-      form.addLabel({label="<Show> to browse maps of selected field", font=FONT_NORMAL})
-      form.addRow(1)
-      form.addLabel({label=""})      
-      form.addRow(1)
-      form.addLabel({label="If you browse the currently active field:", font=FONT_MINI})
-      form.addRow(1)
-      form.addLabel({label="On the map image screen, edit the optional triangle", font=FONT_MINI})
-      form.addRow(1)
-      form.addLabel({label="racing course using transmitter's 3D control dial", font=FONT_MINI})
-      form.addRow(1)
-      form.addLabel({label="Press button 2 to cycle through the settable parameters", font=FONT_MINI})
-      form.addRow(1)      
-      form.addLabel({label="X: left/right Y: Up/Down R: Rotation CW/CCW L: Length", font=FONT_MINI})
-      form.setFocusedRow(1)
    elseif subform == 10 then
       --print("savedRow to", subform-1)
+      browse.MapDisplayed = true
       if browse.FieldName == browse.OriginalFieldName then
 	 form.setButton(2, browse.opTable[browse.opTableIdx], 1)
       end
-      browse.MapDisplayed = true
-      savedRow = subform -1
       form.setTitle("")
       form.setButton(1, ":backward", 1)
       form.setButton(3, ":down" , 1)            
       form.setButton(4, ":up", 1)
+   elseif subform == 11 then
+      savedRow = 4
+      form.addLink((function() form.reinit(1) end),
+	 {label = "<<< Back to main menu", font=FONT_BOLD})
    end
 end
 
@@ -1279,13 +1324,13 @@ end
 local function toXPixel(coord, min, range, width)
    local pix
    pix = (coord - min)/range * width
-   return pix
+   return pix --math.min(math.max(pix, 0), width)
 end
 
 local function toYPixel(coord, min, range, height)
    local pix
    pix = height-(coord - min)/range * height
-   return pix
+   return pix --math.min(math.max(pix, 0), height)
 end
 
 local function fslope(xx, yy)
@@ -1580,10 +1625,14 @@ local function drawTriRace(windowWidth, windowHeight)
       if startSwitch then lcd.drawImage(25, 100, dotImage.red) end
    end
    
-   lcd.drawText(5, 120, "Spd: "..math.floor(speed), FONT_MINI)
-   lcd.drawText(5, 130, "Alt: ".. math.floor(altitude), FONT_MINI)
-   lcd.drawText(5, 140, string.format("Map Width %d m", map.Xrange), FONT_MINI)
-
+   lcd.drawText(5, 120, "Alt: ".. math.floor(altitude), FONT_MINI)
+   lcd.drawText(5, 130, "Spd: "..math.floor(speed), FONT_MINI)
+   --lcd.drawText(5, 140, string.format("Map Width %d m", map.Xrange), FONT_MINI)
+   if variables.ribbonColorSource ~= 1 then
+      lcd.drawText(5, 140, string.format("R: %s ",
+					 colorSelect[variables.ribbonColorSource]), FONT_MINI)
+   end
+   
    --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
    --lcd.drawText(265, 45, string.format("Dist %.0f", distance), FONT_MINI)
    --lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
@@ -2241,14 +2290,11 @@ end
 --------------------------
 local function prtForm(windowWidth, windowHeight)
 
-   if #browse.List < 1 then return end
    
-   local ren=lcd.renderer()
-
    --print(form.getActiveForm() or "---", savedRow)
    
    --if not form.getActiveForm() then return end
-   if not browse.MapDisplayed then return end
+   --if not browse.MapDisplayed then return end
    
    setColorMap()
    
@@ -2261,8 +2307,19 @@ local function prtForm(windowWidth, windowHeight)
    --    lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, txt))/2, 90, txt, FONT_BIG)
    -- end
 
-   
-   if true then
+   if savedSubform == 11 then 
+      for i = 1, #shapes.gradient, 1 do
+	 lcd.setColor(rgb[i].r, rgb[i].g, rgb[i].b)
+	 lcd.drawFilledRectangle(-5 + 30*i, 40, 25, 25)
+	 lcd.setColor(0,0,0)
+	 lcd.drawText(2+30*i, 70, tostring(i))
+      end
+      
+   elseif savedSubform == 10 then
+      if not browse.MapDisplayed then return end
+      if #browse.List < 1 then return end
+      local ren=lcd.renderer()
+
       --lcd.setColor(0,41,15)
       --lcd.drawFilledRectangle(0,0,windowWidth, windowHeight)
 
@@ -2273,7 +2330,7 @@ local function prtForm(windowWidth, windowHeight)
       if Field then
 	 --lcd.drawCircle(0,0,10)
 	 setColorLabels()
-	 lcd.drawText(10,10,"File: " .. Field.images[currentImage].file, FONT_NORMAL)	 
+	 lcd.drawText(10,10, Field.images[currentImage].file, FONT_NORMAL)	 
 	 --[[
 	 lcd.drawText(10,25,Field.shortname .." - " ..Field.name, FONT_MINI)
 	 lcd.drawText(10,35,"Width: " ..  Field.imageWidth[currentImage] .." m", FONT_MINI)
@@ -2312,16 +2369,18 @@ local function prtForm(windowWidth, windowHeight)
 	    --print("#tri:", #tri)
 	 end
 
-	 if #pylon == 3 then
-	    ren:reset()
-	    for j= 1, 4, 1 do
-	       ren:addPoint(toXPixel(pylon[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
-			    toYPixel(pylon[j%3+1].y, map.Ymin, map.Yrange, windowHeight))
+	 if browse.FieldName == browse.OriginalFieldName then
+	    if #pylon == 3 then
+	       ren:reset()
+	       for j= 1, 4, 1 do
+		  ren:addPoint(toXPixel(pylon[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
+			       toYPixel(pylon[j%3+1].y, map.Ymin, map.Yrange, windowHeight))
+	       end
+	       setColorTriRot()
+	       ren:renderPolyline(2,0.7)
 	    end
-	    setColorTriRot()
-	    ren:renderPolyline(2,0.7)
 	 end
-
+	 
 	 for i = 1, #nfp, 1 do
 	    ren:reset()
 	    if nfp[i].inside then
@@ -2354,16 +2413,11 @@ local function prtForm(windowWidth, windowHeight)
 	    end
 	 end
       end
-     
       lcd.setColor(255,255,255)
       lcd.drawFilledRectangle(0, 166, 320,20)
       lcd.drawFilledRectangle(0, 0, 320,8)      
       setColorMain()
-      
-
-
    end
-
 end
 
 
@@ -2465,7 +2519,7 @@ local function checkNoFly(xt, yt, future, warn)
    
    local noFly, noFlyF, noFlyP, noFlyC, txy
 
-   -- if we have a result within 1 sec and 1 meter, returne the prior cached value
+   -- if we have a result within 1 sec and 1 meter, return the prior cached value
 
    if not future then
       if (system.getTimeCounter() - noFlyHist.LastTime) < 1000
@@ -2705,11 +2759,15 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText(5, 74, text, FONT_MINI)   
    end
    
-   
    if emFlag then
       text=string.format("LA %02d%% LM %02d%% L %d%%",
 			 metrics.loopCPUAvg, metrics.loopCPUMax, metrics.loopCPU)
       lcd.drawText(5, 86, text, FONT_MINI)      
+   end
+
+   if emFlag then
+      text=string.format("Loop: %.2f Mem: %.1f", metrics.loopTimeAvg or 0, metrics.memory or 0)
+      lcd.drawText(190, 0, text, FONT_MINI)      
    end
 
    -- if currentGPSread and lastGPSread then
@@ -2762,20 +2820,26 @@ local function mapPrint(windowWidth, windowHeight)
       local kk
 
       -- only paint as many points as have been re-calculated if we are redoing the pixels
-
+      -- because of a recent zoom change
+      
       --AA--ren:reset()
       --AA--for i=1 + offset, (recalcPixels and recalcCount or #xPHist) do
+
+      local ii = variables.ribbonColorSource
       
       for i=2 + offset, (recalcPixels and recalcCount or #xPHist) do
 	 kk = i
 	 --AA--ren:addPoint(xPHist[i], yPHist[i])
 	 ----[[
-	 if variables.ribbonColorSource ~= 1 then
+	 if ii ~= 1 then
 	    if (rgb.last ~= rgbHist[i].rgb) then
 	       lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
 	       rgb.last = rgbHist[i].rgb
 	    end
+	 else -- solid/monochrome ribbon
+	    lcd.setColor(140,140,80)
 	 end
+	 
 	 --]]
 	 lcd.drawLine(xPHist[i-1], yPHist[i-1], xPHist[i], yPHist[i])
 	 if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
@@ -2981,6 +3045,9 @@ local function initField()
 
    if Field and Field.name then
       system.messageBox("Current location: " .. Field.name, 2)
+      activeField = Field.shortname
+      --print("activeField:", activeField)
+
       maxImage = #Field.images
       --print("maxImage:", maxImage)
       if maxImage ~= 0 then
@@ -3012,7 +3079,6 @@ local lineAvgPts = 4  -- number of points to linear fit to compute course
 local numGPSreads = 0
 local newPosTime = 0
 local hasCourseGPS
-local jj
 local lastHistTime=0
 
 local function loop()
@@ -3022,10 +3088,39 @@ local function loop()
    local goodlat, goodlng 
    local newpos
    local deltaPosTime = 100 -- min sample interval in ms
-
+   local jj
+   local swc = -2
+   
    -- don't loop menu is up on screen
    if form.getActiveForm() then return end
    
+   metrics.loopCount = metrics.loopCount + 1
+
+   if metrics.loopCount & 31 == 1 then -- about every 750 msec
+      calcTriRace()
+   end
+
+   if metrics.loopCount & 63 == 1 then -- about every 1.5 secs
+      metrics.memory = collectgarbage("count")
+      collectgarbage()
+   end
+   
+   metrics.loopTime = system.getTimeCounter() - metrics.lastLoopTime
+   metrics.lastLoopTime = system.getTimeCounter()
+   metrics.loopTimeAvg = metrics.loopTimeAvg + (metrics.loopTime - metrics.loopTimeAvg)/100.0
+
+   metrics.loopCPU = system.getCPU()
+   if metrics.loopCPU > metrics.loopCPUMax then metrics.loopCPUMax = metrics.loopCPU end
+   metrics.loopCPUAvg = metrics.loopCPUAvg + (metrics.loopCPU - metrics.loopCPUAvg) / 100.0
+
+   if colorSwitch then
+      swc = system.getInputsVal(colorSwitch)
+   end
+
+   if colorSwitch and (swc ~= lastswc) and swc == 1 then
+      swcCount = swcCount + 1
+   end
+   lastswc = swc
 
    goodlat = false
    goodlng = false
@@ -3130,7 +3225,6 @@ local function loop()
       hasCourseGPS = true
    end
 
-   
    -- only recompute when lat and long have changed
    
    if not latitude or not longitude then
@@ -3164,7 +3258,7 @@ local function loop()
       lastlng = longitude
       newPosTime = system.getTimeCounter() + deltaPosTime
       countNoNewPos = 0
-      lastGPSread = currentGPSread
+      --lastGPSread = currentGPSread
       currentGPSread = system.getTimeCounter()
    end
    
@@ -3185,6 +3279,11 @@ local function loop()
    x, y = rotateXY(x, y, math.rad(variables.rotationAngle))
    
 
+   if (math.abs(x) > 10000.) or (math.abs(y) > 10000.) then
+      print("bad point:", x,y,latitude, longitude)
+      return
+   end
+   
    if newpos then -- only enter a new xy in the "comet tail" if lat/lon changed
 
       -- keep a max of variables.histMax points
@@ -3221,16 +3320,28 @@ local function loop()
 	    jj = gradientIndex(speed, 0, 300, #shapes.gradient)
 	 elseif variables.ribbonColorSource == 4 then -- triRace Laps
 	    jj = gradientIndex(raceParam.lapsComplete % #shapes.gradient,
-	       0, #shapes.gradient-1, #shapes.gradient)
-	 elseif variables.ribbonColorSource == 5 then -- Rx1 Q
+			       0, #shapes.gradient-1, #shapes.gradient)
+	 elseif variables.ribbonColorSource == 5 then -- switch
+	    jj = gradientIndex(swcCount % #shapes.gradient,
+			       0, #shapes.gradient-1, #shapes.gradient)	    
+	 elseif variables.ribbonColorSource == 6 then -- Rx1 Q
 	    jj = gradientIndex(system.getTxTelemetry().rx1Percent, 0, 100,  #shapes.gradient)
-	 elseif variables.ribbonColorSource == 6 then -- Rx1 A1
+	 elseif variables.ribbonColorSource == 7 then -- Rx1 A1
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[1],    0,   9,  #shapes.gradient)
-	 elseif variables.ribbonColorSource == 7 then -- Rx1 A2
+	 elseif variables.ribbonColorSource == 8 then -- Rx1 A2
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0,   9,  #shapes.gradient)
-	 elseif variables.ribbonColorSource == 8 then -- Rx1 V
+	 elseif variables.ribbonColorSource == 9 then -- Rx1 V
 	    jj = gradientIndex(system.getTxTelemetry().rx1Voltage, 0,   8,  #shapes.gradient)	    
+	 elseif variables.ribbonColorSource == 10 then -- Rx2 Q
+	    jj = gradientIndex(system.getTxTelemetry().rx2Percent, 0, 100,  #shapes.gradient)
+	 elseif variables.ribbonColorSource == 11 then -- Rx2 A1
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[3],    0,   9,  #shapes.gradient)
+	 elseif variables.ribbonColorSource == 12 then -- Rx2 A2
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0,   9,  #shapes.gradient)
+	 elseif variables.ribbonColorSource == 13 then -- Rx2 V
+	    jj = gradientIndex(system.getTxTelemetry().rx2Voltage, 0,   8,  #shapes.gradient)	    
 	 else
+	    print("ribbon color bad idx")
 	 end
 
 	 --jj = (#shapes.gradient - 1) * math.max(math.min ((altitude - 20) / (200-20),1),0) + 1
@@ -3311,15 +3422,7 @@ local function loop()
 	 heading = 0
       end
    end
-
-   calcTriRace()
-
-   metrics.loopCPU = system.getCPU()
-   if metrics.loopCPU > metrics.loopCPUMax then metrics.loopCPUMax = metrics.loopCPU end
-   metrics.loopCPUAvg = metrics.loopCPUAvg + (metrics.loopCPU - metrics.loopCPUAvg) / 10.0
-   --if metrics.loopCPU > metrics.loopCPUAvg * 1.5 then print("1.2X Avg CPU", metrics.loopCPU) end
-   
-   end
+end
 
 local function init()
 
@@ -3346,7 +3449,7 @@ local function init()
       rgb[k].b = (tonumber(rgb[k].b, 16) or 0)       
       --print(k, rgb[k].r, rgb[k].g, rgb[k].b)
    end
-      
+   
    dotImage.blue = lcd.loadImage(appInfo.Dir.."/JSON/small_blue_circle.png")
    dotImage.green = lcd.loadImage(appInfo.Dir.."/JSON/small_green_circle.png")   
    dotImage.red = lcd.loadImage(appInfo.Dir.."/JSON/small_red_circle.png")
@@ -3402,6 +3505,9 @@ local function init()
    startSwitch = system.pLoad("startSwitch")
    print("pLoad .. startSwitch", startSwitch)
 
+   colorSwitch = system.pLoad("colorSwitch")
+   print("pLoad .. colorSwitch", colorSwitch)
+   
    if variables.switchesSet and not pointSwitch and not triASwitch and not startSwitch then
       system.messageBox("Please reset switches in menu")
       print("please reset switches")
@@ -3439,6 +3545,9 @@ local function init()
 
    readSensors()
 
+   metrics.loopCount = 0
+   metrics.lastLoopTime = system.getTimeCounter()
+   metrics.loopTimeAvg = 0
 end
 
-return {init=init, loop=loop, author="DFM", version="7.10", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.11", name=appInfo.Name, destroy=destroy}
