@@ -350,26 +350,51 @@ local function readSensors()
 end
 
 local function xminImg(iM)
-   return -0.50 * Field.imageWidth[iM]
+   if Field and Field.imageWidth then
+      return -0.50 * Field.imageWidth[iM]
+   else
+      return -150 -- 17 mag image is about 300m wide
+   end
+   
 end
 
 local function xmaxImg(iM)
-   return 0.50 * Field.imageWidth[iM]
+   if Field and Field.imageWidth then
+      return 0.50 * Field.imageWidth[iM]
+   else
+      return 150
+   end
 end
 
 local function yminImg(iM)
    if form.getActiveForm() then
-      return -0.50 * Field.imageWidth[iM] / 1.8 -- 1.8 empirically determined  
+      if Field and Field.imageWidth then
+	 return -0.50 * Field.imageWidth[iM] / 1.8 -- 1.8 empirically determined
+      else
+	 return -75
+      end
    else
-      return -0.50 * Field.imageWidth[iM] / 2.0
+      if Field.imageWidth then
+	 return -0.50 * Field.imageWidth[iM] / 2.0
+      else
+	 return -75
+      end
    end
 end
 
 local function ymaxImg(iM)
    if form.getActiveForm() then
-      return 0.50 * Field.imageWidth[iM] / 1.8
+      if Field and Field.imageWidth then
+	 return 0.50 * Field.imageWidth[iM] / 1.8
+      else
+	 return 75
+      end
    else
-      return 0.50 * Field.imageWidth[iM] / 2.0
+      if Field and Field.imageWidth then
+	 return 0.50 * Field.imageWidth[iM] / 2.0
+      else
+	 return 75
+      end
    end
 end
 
@@ -530,9 +555,12 @@ local function setField(sname)
    Field.lat = Field.images[1].center.lat
    Field.lng = Field.images[1].center.lng
    fieldPNG={}
+
+   print("before Field.images loop")
    
    for k,v in ipairs(Field.images) do
       Field.imageWidth[k] = math.floor(v.meters_per_pixel * 320 + 0.5)
+      print("k,v:", k,v, v.meters_per_pixel, Field.imageWidth[k])
    end
 
    lng0 = Field.lng -- reset to origin to coords in jsn file
