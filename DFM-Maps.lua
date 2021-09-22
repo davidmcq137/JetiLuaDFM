@@ -20,12 +20,9 @@
 
    Bug/Work list:
 
-   --reset gps origin makes a mess .. no images
-   --"no sats" displayed for gps's that have no satcount (e.g. pb gps II)
-   --pylon zone line length proportional to tri length? (looks funny on A74)
-   --allow baro/pitot sensors as optional?
-   --imperial units?
-   --make it work with no maps as it did before? how zoom out?
+   -- vary # steps on color gradient
+   -- telemetry values on ribbon color
+   -- imperial units?
 
 --]]
 
@@ -140,7 +137,7 @@ local checkBoxIndex = {}
 --local noFlyWarnIndex
 
 local pointSwitch
-local zoomSwitch
+--local zoomSwitch
 local triASwitch
 local startSwitch
 local colorSwitch
@@ -188,12 +185,6 @@ local dotImage = {}
 
 local emFlag
 
--- Read available sensors for user to select - done once at startup
--- Make separate lists for GPS lat and long sensors since they require different processing
--- Other GPS sensors (also if type 9, but diff params) are treated like non GPS sensors
--- The labels and values for sensor.param work for the Jeti MGPS .. 
--- Other GPSs have to be selected manually via the screen
-
 local satCountID = 0
 local satCountPa = 0
 local satCount
@@ -206,7 +197,7 @@ local function gradientIndex(inval, min, max, bins, mod)
    -- for a value val, maps to the gradient rgb index for val from min to max
    local bin, val
    currentRibbonValue  = inval
-   if mod then val = inval % mod else val = inval end
+   if mod then val = (inval-1) % mod + 1 else val = inval end
    bin = math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5)   
    currentRibbonBin = bin
    return bin
@@ -822,6 +813,63 @@ local function triRot(ao)
 	       y=tri[3].dy + tri.center.y + variables.triOffsetY,aimoff=(ao or 0)}      
 end
 
+local function initField(fn)
+
+   local atField
+   
+   Field = {}
+
+   matchFields = {}
+   
+   -- Use the highest mag image to determine if we are at this field
+   -- Russell is sorting the images from highest to lowest zoom
+   -- using the meters_per_pixel value    
+
+   if lng0 and lat0 then -- if location was detected by the GPS system
+      if fn then
+	 setField(fn)
+      else
+	 for sname, _ in pairs(Fields) do
+	    atField = (math.abs(lat0 - Fields[sname].images[1].center.lat) < 1/60) and
+	       (math.abs(lng0 - Fields[sname].images[1].center.lng) < 1/60) 
+	    if (atField) then 
+	       table.insert(matchFields, sname)
+	    end
+	 end
+      end
+   end
+
+   table.sort(matchFields, function(a,b) return a<b end)  
+   
+   setField(matchFields[1])
+   -- see if file <model_name>_icon.jsn exists
+   -- if so try to read airplane icon
+   
+   local fg = io.readall("Apps/"..appInfo.Maps .."/JSON/"..
+			    string.gsub(system.getProperty("Model")..
+					   "_icon.jsn", " ", "_"))
+   if fg then
+      shapes.T38 = json.decode(fg).icon
+   end
+   
+   if Field and Field.name then
+      system.messageBox("Current location: " .. Field.name, 2)
+      activeField = Field.shortname
+      --print("activeField:", activeField)
+
+      maxImage = #Field.images
+      --print("maxImage:", maxImage)
+      if maxImage ~= 0 then
+	 currentImage = 1
+	 graphInit(currentImage) -- re-init graph scales with images loaded
+      end
+   else
+      system.messageBox("Current location: not a known field", 2)
+      print("not a known field: lat0, lng0", lat0, lng0)
+      gotInitPos = false -- reset and try again with next gps lat long
+   end
+end
+
 local function keyForm(key)
    local inc
    --print("key:", key, KEY_UP, KEY_DOWN)
@@ -951,8 +999,18 @@ local function checkBoxAdd(lab, box)
 		       	  (function(z) return checkBoxClicked(z, box) end) )
 end
 
--- Draw the main form (Application inteface)
+local function selectFieldClicked(value)
+   print("sFC", value, browse.List[value])
+   print(Fields[browse.List[value]].shortname)
+   lat0 = Fields[browse.List[value]].images[1].center.lat
+   lng0 = Fields[browse.List[value]].images[1].center.lng
+   coslat0 = math.cos(math.rad(lat0))
+   gotInitPos = true
+   initField(Fields[browse.List[value]].shortname)
+end
 
+
+-- Draw the main form (Application inteface)
 
 local function initForm(subform)
 
@@ -971,13 +1029,18 @@ local function initForm(subform)
 	 {label = "Triangle Parameters >>"})
 
       form.addLink((function() form.reinit(5) end),
-	 {label = "Track History >>"})
+	 {label = "Flight History  >>"})
 
       form.addLink((function() form.reinit(6) end),
 	 {label = "Settings >>"})            
 
       form.addLink((function() form.reinit(7) end),
-	 {label = "Map Browser >>"})            
+	 {label = "Map Browser >>"})
+
+      form.addLink((function() form.reinit(12) end),
+	 {label = "Manual Field Selection >>"})      
+
+      
 
       --form.addRow(1)
       --form.addLabel({label="DFM", font=FONT_MINI, alignRight=true})
@@ -1310,7 +1373,29 @@ local function initForm(subform)
       savedRow = 4
       form.addLink((function() form.reinit(1) end),
 	 {label = "<<< Back to main menu", font=FONT_BOLD})
+   elseif subform == 12 then
+
+      browse.List = {}
+      for k,_ in pairs(Fields) do
+	 table.insert(browse.List, k)
+      end
+      table.sort(browse.List, function(a,b) return a<b end)
+      browse.Idx = 1
+
+      for k,v in ipairs(browse.List) do
+	 if activeField == v then
+	    browse.Idx = k
+	 end 
+      end
+
+      form.addRow(2)
+      form.addLabel({label="Select Field"})
+      form.addSelectbox(browse.List, browse.Idx, true, selectFieldClicked)
+      
+      form.addLink((function() form.reinit(1) end),
+	 {label = "<<< Back to main menu",font=FONT_BOLD})
    end
+   
 end
 
 -- Various shape and polyline functions using the anti-aliasing renderer
@@ -1648,12 +1733,12 @@ local function drawTriRace(windowWidth, windowHeight)
       --if region[code] == j 
    end
    if titleText then
-      lcd.drawText((310 - lcd.getTextWidth(FONT_BOLD, titleText))/2, 0,
+      lcd.drawText((320 - lcd.getTextWidth(FONT_BOLD, titleText))/2, 0,
 	 titleText, FONT_BOLD)
    end
    
    if subtitleText then
-      lcd.drawText((310 - lcd.getTextWidth(FONT_MINI, subtitleText))/2, 17,
+      lcd.drawText((320 - lcd.getTextWidth(FONT_MINI, subtitleText))/2, 17,
 	 subtitleText, FONT_MINI)
    end
 
@@ -1676,13 +1761,6 @@ local function drawTriRace(windowWidth, windowHeight)
    lcd.drawText(5, 120, "Alt: ".. math.floor(altitude), FONT_MINI)
    lcd.drawText(5, 130, "Spd: "..math.floor(speed), FONT_MINI)
    --lcd.drawText(5, 140, string.format("Map Width %d m", map.Xrange), FONT_MINI)
-   if variables.ribbonColorSource ~= 1 and currentRibbonValue then
-      lcd.drawText(18, 140, string.format("%s: %.0f",
-					 colorSelect[variables.ribbonColorSource],
-					 currentRibbonValue), FONT_MINI)
-      lcd.setColor(rgb[currentRibbonBin].r, rgb[currentRibbonBin].g, rgb[currentRibbonBin].b)
-      lcd.drawFilledRectangle(6,143,8,8)
-   end
    
    --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
    --lcd.drawText(265, 45, string.format("Dist %.0f", distance), FONT_MINI)
@@ -2359,11 +2437,13 @@ local function prtForm(windowWidth, windowHeight)
    -- end
 
    if savedSubform == 11 then 
-      for i = 1, #shapes.gradient, 1 do
+      for i = 1, #rgb, 1 do
 	 lcd.setColor(rgb[i].r, rgb[i].g, rgb[i].b)
-	 lcd.drawFilledRectangle(-5 + 30*i, 40, 25, 25)
+	 lcd.drawFilledRectangle(-25 + 30*i, 40, 25, 25)
 	 lcd.setColor(0,0,0)
-	 lcd.drawText(2+30*i, 70, tostring(i))
+	 local text = tostring(i)
+	 lcd.getTextWidth(FONT_NORMAL, text)
+	 lcd.drawText(-12-0.5*lcd.getTextWidth(FONT_NORMAL, text)+30*i, 70, text)
       end
       
    elseif savedSubform == 10 then
@@ -2784,10 +2864,11 @@ local function mapPrint(windowWidth, windowHeight)
 
    --lcd.drawCircle(160, 80, 5) -- circle in center of screen
    
-   lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 34, "N", FONT_MINI)
-   drawShape(20, 40, shapes.arrow, math.rad(-1*variables.rotationAngle))
-   lcd.drawCircle(20, 40, 7)
-
+   lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6, "N", FONT_MINI)
+   drawShape(20, 12, shapes.arrow, math.rad(-1*variables.rotationAngle))
+   lcd.drawCircle(20, 12, 7)
+   
+   --[[
    if satCount then
       text=string.format("%2d Sats", satCount)
       --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 50, text, FONT_MINI)
@@ -2797,17 +2878,17 @@ local function mapPrint(windowWidth, windowHeight)
       --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 50, text, FONT_MINI)
       --lcd.drawText(5, 50, text, FONT_MINI)      
    end
-
+   --]]
    -- if satQuality then
    --    text=string.format("SatQ %.0f", satQuality)
    --    --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 62, text, FONT_MINI)
    --    lcd.drawText(5, 62, text, FONT_MINI)      
    -- end
 
-   if emFlag then
-      text=string.format("%d/%d %d%%", #xPHist, variables.histMax, metrics.currMaxCPU)
-      lcd.drawText(5, 74, text, FONT_MINI)   
-   end
+   --if emFlag then
+   --   text=string.format("%d/%d %d%%", #xPHist, variables.histMax, metrics.currMaxCPU)
+   --   lcd.drawText(5, 74, text, FONT_MINI)   
+   --end
    
    -- if emFlag then
    --    text=string.format("LA %02d%% LM %02d%% L %d%%",
@@ -2815,10 +2896,18 @@ local function mapPrint(windowWidth, windowHeight)
    --    lcd.drawText(5, 86, text, FONT_MINI)      
    -- end
 
-   if true then --emFlag then
-      text=string.format("%.1f", metrics.loopTimeAvg or 0)
+   --if true then --emFlag then
+   --   text=string.format("%.1f", metrics.loopTimeAvg or 0)
       --text=string.format("Loop: %.2f Mem: %.1f", metrics.loopTimeAvg or 0, metrics.memory or 0)
-      lcd.drawText(290, 145, text, FONT_MINI)      
+   --   lcd.drawText(290, 145, text, FONT_MINI)      
+   --end
+
+   if variables.ribbonColorSource ~= 1 and currentRibbonValue then
+      lcd.drawText(18, 140, string.format("%s: %.0f",
+					 colorSelect[variables.ribbonColorSource],
+					 currentRibbonValue), FONT_MINI)
+      lcd.setColor(rgb[currentRibbonBin].r, rgb[currentRibbonBin].g, rgb[currentRibbonBin].b)
+      lcd.drawFilledRectangle(6,143,8,8)
    end
 
    --text = string.format("%.6f %.6f", lat0 or 0, lng0 or 0)
@@ -3053,59 +3142,6 @@ local function mapPrint(windowWidth, windowHeight)
 end
 
 
-local function initField()
-
-   local atField
-   
-   Field = {}
-   
-   if lng0 and lat0 then -- if location was detected by the GPS system
-      
-      for sname, _ in pairs(Fields) do
-
-	 -- Use the highest mag image to determine if we are at this field
-	 -- Russell is sorting the images from highest to lowest zoom
-	 -- using the meters_per_pixel value so I can remove my sort
-	 
-	 --table.sort(Field.images, function(a,b) return a.meters_per_pixel < b.meters_per_pixel end)
-
-	 atField = (math.abs(lat0 - Fields[sname].images[1].center.lat) < 1/60) and
-	    (math.abs(lng0 - Fields[sname].images[1].center.lng) < 1/60) 
-
-	 if (atField) then 
-
-	    setField(sname)
-	    -- see if file <model name>_icon.jsn exists
-	    -- if so try to read airplane icon
-
-	    local fg = io.readall("Apps/"..appInfo.Maps .."/JSON/"..
-				     string.gsub(system.getProperty("Model")..
-						    "_icon.jsn", " ", "_"))
-	    if fg then
-	       shapes.T38 = json.decode(fg).icon
-	    end
-	    break
-	 end
-      end
-   end
-
-   if Field and Field.name then
-      system.messageBox("Current location: " .. Field.name, 2)
-      activeField = Field.shortname
-      --print("activeField:", activeField)
-
-      maxImage = #Field.images
-      --print("maxImage:", maxImage)
-      if maxImage ~= 0 then
-	 currentImage = 1
-	 graphInit(currentImage) -- re-init graph scales with images loaded
-      end
-   else
-      system.messageBox("Current location: not a known field", 2)
-      print("not a known field: lat0, lng0", lat0, lng0)
-      gotInitPos = false -- reset and try again with next gps lat long
-   end
-end
 
 ------------------------------------------------------------
 
@@ -3320,7 +3356,7 @@ local function loop()
    --hopefully this is larger than any field (mag 14 is about 2500m wide)
    
    if (math.abs(x) > 10000.) or (math.abs(y) > 10000.) or (math.abs(altitude) > 10000.) then
-      print("Bad point - discarded:", x,y,latitude,longitude,altitude)
+      --print("Bad point - discarded:", x,y,latitude,longitude,altitude)
       return
    end
    
@@ -3357,42 +3393,42 @@ local function loop()
 	 --print(sgTT.rx1Percent, sgTT.RSSI[1], sgTT.RSSI[2], sgTT.rx1Voltage)
 	 
 	 if variables.ribbonColorSource == 1 then -- none
-	    jj = #shapes.gradient // 2 -- mid of gradient - right now this is sort of a yellow color
+	    jj = #rgb // 2 -- mid of gradient - right now this is sort of a yellow color
 	 elseif variables.ribbonColorSource == 2 then -- altitude 0-500m
-	    jj = gradientIndex(altitude, 0, 600, #shapes.gradient)
+	    jj = gradientIndex(altitude, 0, 600, #rgb)
 	 elseif variables.ribbonColorSource == 3 then -- speed 0-300 km/hr
-	    jj = gradientIndex(speed, 0, 300, #shapes.gradient)
+	    jj = gradientIndex(speed, 0, 300, #rgb)
 	 elseif variables.ribbonColorSource == 4 then -- triRace Laps
 	    jj = gradientIndex(raceParam.lapsComplete,
-			       0, #shapes.gradient-1, #shapes.gradient, #shapes.gradient)
+			       0, #rgb-1, #rgb, #rgb)
 	 elseif variables.ribbonColorSource == 5 then -- switch
 	    jj = gradientIndex(swcCount,
-			       0, #shapes.gradient-1, #shapes.gradient, #shapes.gradient)
+			       0, #rgb-1, #rgb, #rgb)
 	 elseif variables.ribbonColorSource == 6 then -- Rx1 Q
-	    jj = gradientIndex(system.getTxTelemetry().rx1Percent, 0, 100,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().rx1Percent, 0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 7 then -- Rx1 A1
-	    jj = gradientIndex(system.getTxTelemetry().RSSI[1],    0, 100,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[1],    0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 8 then -- Rx1 A2
-	    jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0, 100,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 9 then -- Rx1 V
-	    jj = gradientIndex(system.getTxTelemetry().rx1Voltage, 0,   8,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().rx1Voltage, 0,   8,  #rgb)
 	 elseif variables.ribbonColorSource == 10 then -- Rx2 Q
-	    jj = gradientIndex(system.getTxTelemetry().rx2Percent, 0, 100,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().rx2Percent, 0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 11 then -- Rx2 A1
-	    jj = gradientIndex(system.getTxTelemetry().RSSI[3],    0, 100,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[3],    0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 12 then -- Rx2 A2
-	    jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0, 100,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 13 then -- Rx2 V
-	    jj = gradientIndex(system.getTxTelemetry().rx2Voltage, 0,   8,  #shapes.gradient)
+	    jj = gradientIndex(system.getTxTelemetry().rx2Voltage, 0,   8,  #rgb)
 	 else
 	    print("ribbon color bad idx")
 	 end
 
-	 --jj = (#shapes.gradient - 1) * math.max(math.min ((altitude - 20) / (200-20),1),0) + 1
+	 --jj = (#rgb - 1) * math.max(math.min ((altitude - 20) / (200-20),1),0) + 1
 	 --jj = math.floor(jj+0.5)
 	 --print(altitude, #latHist, jj)
 	 --print("#", math.floor((#latHist/1)-1)%9 + 1)
-	 --local jj = math.floor((#latHist/5)-1) % #shapes.gradient + 1
+	 --local jj = math.floor((#latHist/5)-1) % #rgb + 1
 
 	 --print("jj", jj)
 	 
@@ -3480,7 +3516,8 @@ local function init()
    --From: https://learnui.design/tools/gradient-generator.html
    --#ff4d00, #ff6b00, #ffb900, #d7ff01, #5aff01, #02ff27, #03ff95, #03ffe2, #03ffff);
    --#ff4d00, #ff6500, #ffa400, #ffff01, #93ff01, #21ff02, #02ff4e, #03ffa9, #03ffe8, #03ffff);
-      
+
+   --[[
    for k,v in ipairs(shapes.gradient) do
       rgb[k] = {}
       rgb[k].r, rgb[k].g, rgb[k].b =  string.match(v, ("(%w%w)(%w%w)(%w%w)"))
@@ -3489,13 +3526,14 @@ local function init()
       rgb[k].b = (tonumber(rgb[k].b, 16) or 0)       
       --print(k, rgb[k].r, rgb[k].g, rgb[k].b)
    end
+   --]]
 
-   --[[
+   ---[[
    -- overwrite rgb .. experiment
    -- trig functions approximate shapes of rgb ranbow color components ... cute 
    -- https://en.wikibooks.org/wiki/Color_Theory/Color_gradient  
    -- the 0.7 is so we don't wrap all the way back to the original color
-   -- note rest of this app looks at #shapes.gradient, not #rgb .. would have to change it
+
    local rp = 10
    for k = 1, rp, 1 do
       rgb[k] = {}
@@ -3504,7 +3542,6 @@ local function init()
       rgb[k].b = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 4*math.pi/3)) / 2)
       print(k, rgb[k].r, rgb[k].g, rgb[k].b)
    end
-   print("#rgb:", #rgb)
    --]]
 
    
@@ -3608,4 +3645,4 @@ local function init()
    metrics.loopTimeAvg = 0
 end
 
-return {init=init, loop=loop, author="DFM", version="7.14", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.15", name=appInfo.Name, destroy=destroy}
