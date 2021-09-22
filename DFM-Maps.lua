@@ -217,8 +217,6 @@ local function jLoadInit(fn)
    if not config then
       print("Did not read jLoad file "..fn)
       config = {}
-   else
-      --print("Success reading jLoad file "..fn)
    end
    
    return config
@@ -311,7 +309,7 @@ local function readSensors()
 
 	    param = paramGPS[sensor.sensorName][sensor.label].param
 	    label  = paramGPS[sensor.sensorName][sensor.label].telem
-	    print("sensorName, param, label:", sensor.sensorName, param, label)
+	    --print("sensorName, param, label:", sensor.sensorName, param, label)
 	    
 	    if param and label then
 	       if label == "SatCount" then
@@ -470,15 +468,15 @@ local function nfz2XY()
 	       table.insert(pp,ll2xy(Field.nofly[j].path[k].lat,Field.nofly[j].path[k].lng))
 	       -- keep track of min bounding rectangle
 	       if k == 1 then
-	       	  pp.xmin = pp[1].x
-	       	  pp.xmax = pp[1].x	       
-	       	  pp.ymin = pp[1].y	       
-	       	  pp.ymax = pp[1].y
+		  pp.xmin = pp[1].x
+		  pp.xmax = pp[1].x	       
+		  pp.ymin = pp[1].y	       
+		  pp.ymax = pp[1].y
 	       else
-	       	  if pp[k].x < pp.xmin then pp.xmin = pp[k].x end
-	       	  if pp[k].x > pp.xmax then pp.xmax = pp[k].x end
-	       	  if pp[k].y < pp.ymin then pp.ymin = pp[k].y end
-	       	  if pp[k].y > pp.ymax then pp.ymax = pp[k].y end	       	       
+		  if pp[k].x < pp.xmin then pp.xmin = pp[k].x end
+		  if pp[k].x > pp.xmax then pp.xmax = pp[k].x end
+		  if pp[k].y < pp.ymin then pp.ymin = pp[k].y end
+		  if pp[k].y > pp.ymax then pp.ymax = pp[k].y end	       	       
 	       end
 	       -- we know 0,0 is at center of the image ... need an "infinity x" point for the
 	       -- no fly region computation ... keep track of largest positive x ..
@@ -996,7 +994,7 @@ local function checkBoxAdd(lab, box)
    form.addLabel({label=lab, width=270})
    checkBoxIndex[box] =
       form.addCheckbox(checkBox[box],
-		       	  (function(z) return checkBoxClicked(z, box) end) )
+		       (function(z) return checkBoxClicked(z, box) end) )
 end
 
 local function selectFieldClicked(value)
@@ -1431,9 +1429,6 @@ end
 --end
 
 
-
-local text
-
 local function playFile(fn, as)
    if emFlag then
       local fp = io.open(fn)
@@ -1773,7 +1768,6 @@ local function drawTriRace(windowWidth, windowHeight)
    
 end
 
-
 local function calcTriRace()
 
    local detS1
@@ -1794,10 +1788,12 @@ local function calcTriRace()
    if (#pylon < 3) and Field.name then -- need to confirm with RFM order of vertices
       triRot(ao) -- handle rotation and tranlation of triangle course 
       -- extend startline below hypotenuse of triangle  by 0.8x inside length
-      pylon.start = {x=tri.center.x + variables.triOffsetX +
-			0.8 * (tri.center.x + variables.triOffsetX- pylon[2].x),
-		     y=tri.center.y + variables.triOffsetY +
-			0.8 * (tri.center.y + variables.triOffsetY - pylon[2].y)}
+      tri.center.x = tri.center.x + variables.triOffsetX
+      tri.center.y = tri.center.y + variables.triOffsetY
+      pylon.start = {x=tri.center.x +
+			0.8 * (tri.center.x - pylon[2].x),
+		     y=tri.center.y + 
+			0.8 * (tri.center.y  - pylon[2].y)}
    end
 
    --local region={2,3,3,1,2,1,0}
@@ -2354,16 +2350,14 @@ local parmHeading = {
 
 local wrkHeading = 0
 local w
-local ii=0
 local colHeading = 160
 local rowHeading = 30
 
 local function drawHeading()
 
    local dispHeading
+   local text
    
-   ii = ii + 1
-
    lcd.drawFilledRectangle(colHeading-70, rowHeading, 140, 2)
    lcd.drawFilledRectangle(colHeading+65, rowHeading-20, 6,22)
    lcd.drawFilledRectangle(colHeading-65-6, rowHeading-20, 6,22)
@@ -2468,8 +2462,8 @@ local function prtForm(windowWidth, windowHeight)
 	 lcd.drawText(10,45,"Lat: " ..  string.format("%.6f", lat0) .. "°", FONT_MINI)
 	 lcd.drawText(10,55,"Lon: " ..  string.format("%.6f", lng0) .. "°", FONT_MINI)
 	 if Field.elevation then
-	   lcd.drawText(10,65,"Elev: " .. math.floor(Field.elevation.elevation+0.5) .." m",
-	 		 FONT_MINI)
+	    lcd.drawText(10,65,"Elev: " .. math.floor(Field.elevation.elevation+0.5) .." m",
+	    FONT_MINI)
 	 end
 	 --]]
 	 --maybe should center this instead of fixed X position
@@ -2480,8 +2474,8 @@ local function prtForm(windowWidth, windowHeight)
 	 if #rwy == 4 then
 	    ren:reset()
 	    for j = 1, 5, 1 do
-	       if j == 1 then
-	       end
+	       --if j == 1 then
+	       --end
 	       ren:addPoint(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
 			    toYPixel(rwy[j%4+1].y, map.Ymin, map.Yrange, windowHeight))
 	    end
@@ -2496,8 +2490,6 @@ local function prtForm(windowWidth, windowHeight)
 	    end
 	    setColorTriangle()
 	    ren:renderPolyline(2,0.7)
-	 else
-	    --print("#tri:", #tri)
 	 end
 
 	 if browse.FieldName == browse.OriginalFieldName then
@@ -2624,15 +2616,17 @@ local function dirPrint()
       vertHistogram(25, ya, 0, 100, 60, 20)
    end
 
-
-   lcd.drawText(80-lcd.getTextWidth(FONT_MINI, string.format("#xPHist %d", #xPHist)) / 2,
-		100, text, FONT_MINI)
+   local txt = string.format("#xP %d", #xPHist)
+   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, txt ) / 2,
+		100, txt, FONT_MINI)
    
-   lcd.drawText(80-lcd.getTextWidth(FONT_MINI, string.format("NNP %d", countNoNewPos)) / 2,
-		110, text, FONT_MINI)
+   txt = string.format("NNP %d", countNoNewPos)
+   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, txt) / 2,
+		110, txt, FONT_MINI)
 
-   lcd.drawText(80-lcd.getTextWidth(FONT_MINI, string.format("(%d,%d)", x or 0, y or 0)) / 2,
-		120, text, FONT_MINI)
+   txt = string.format("(%d,%d)", x or 0, y or 0)
+   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, txt ) / 2,
+		120, txt, FONT_MINI)
 
 end
 
@@ -2838,7 +2832,6 @@ local panic = false
 local function mapPrint(windowWidth, windowHeight)
 
    local swp
-   local swz
    local offset
    local ren=lcd.renderer()
    
@@ -3540,7 +3533,7 @@ local function init()
       rgb[k].r = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp)) / 2)
       rgb[k].g = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 2*math.pi/3)) / 2)
       rgb[k].b = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 4*math.pi/3)) / 2)
-      print(k, rgb[k].r, rgb[k].g, rgb[k].b)
+      --print(k, rgb[k].r, rgb[k].g, rgb[k].b)
    end
    --]]
 
@@ -3592,16 +3585,16 @@ local function init()
    checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", true)   
 
    pointSwitch = system.pLoad("pointSwitch")
-   print("pLoad .. pointSwitch", pointSwitch)
+   --print("pLoad .. pointSwitch", pointSwitch)
    
    triASwitch  = system.pLoad("triASwitch")
-   print("pLoad .. triASwitch", triASwitch)
+   --print("pLoad .. triASwitch", triASwitch)
    
    startSwitch = system.pLoad("startSwitch")
-   print("pLoad .. startSwitch", startSwitch)
+   --print("pLoad .. startSwitch", startSwitch)
 
    colorSwitch = system.pLoad("colorSwitch")
-   print("pLoad .. colorSwitch", colorSwitch)
+   --print("pLoad .. colorSwitch", colorSwitch)
    
    if variables.switchesSet and not pointSwitch and not triASwitch and not startSwitch then
       system.messageBox("Please reset switches in menu")
@@ -3622,12 +3615,12 @@ local function init()
    if not emFlag then fn = "/" .. appInfo.Fields else fn = appInfo.Fields end
 
    fp = io.readall(fn)
-
+   
    if fp then
       Fields = json.decode(fp)
       if not Fields then
-   	 print(appInfo.Name .. ": Failed to decode " .. fn)
-   	 return
+	 print(appInfo.Name .. ": Failed to decode " .. fn)
+	 return
       end
    else
       print(appInfo.Name .. ": Cannot open ", fn)
@@ -3645,4 +3638,4 @@ local function init()
    metrics.loopTimeAvg = 0
 end
 
-return {init=init, loop=loop, author="DFM", version="7.15", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.16", name=appInfo.Name, destroy=destroy}
