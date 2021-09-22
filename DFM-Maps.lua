@@ -202,10 +202,11 @@ local satQualityID = 0
 local satQualityPa = 0
 local satQuality
 
-local function gradientIndex(val, min, max, bins)
+local function gradientIndex(inval, min, max, bins, mod)
    -- for a value val, maps to the gradient rgb index for val from min to max
-   local bin
-   currentRibbonValue  = val
+   local bin, val
+   currentRibbonValue  = inval
+   if mod then val = inval % mod else val = inval end
    bin = math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5)   
    currentRibbonBin = bin
    return bin
@@ -876,7 +877,7 @@ local function keyForm(key)
 	 end
 	 if key == KEY_1 then
 	    --print("reinit 9")
-	    form.reinit(9)
+	    form.reinit(7)
 	 else
 	    --print("resetting Field")
 	    Field = {}
@@ -1108,14 +1109,26 @@ local function initForm(subform)
       form.addRow(2)
       form.addLabel({label="Flight path points on/off sw", width=220})
       form.addInputbox(pointSwitch, false, pointSwitchChanged)
-      
+
+      ---[[
       form.addRow(2)
-      form.addLabel({label="Ribbon Color Source", width=200})
+      form.addLabel({label="Ribbon Color Source", width=220})
       form.addSelectbox(
 	 colorSelect,
 	 variables.ribbonColorSource, true,
 	 (function(z) return variableChanged(z, "ribbonColorSource") end) )
-      
+      --]]
+      --[[
+      local imax=300
+      form.addRow(4)
+      form.addLabel({label="Ribbon Color", width=100})
+      form.addSelectbox(
+	 colorSelect,
+	 variables.ribbonColorSource, true,
+	 (function(z) return variableChanged(z, "ribbonColorSource") end), {width=80} )
+      form.addLabel({label="Max", width=70})
+      form.addIntbox(imax, 0, 600, 300, 0, 1, nil, {width=60})
+      --]]
       form.addRow(2)
       form.addLabel({label="Ribbon Color Increment sw", width=220})
       form.addInputbox(colorSwitch, false, colorSwitchChanged)
@@ -2771,11 +2784,11 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.drawText(5, 74, text, FONT_MINI)   
    end
    
-   if emFlag then
-      text=string.format("LA %02d%% LM %02d%% L %d%%",
-			 metrics.loopCPUAvg, metrics.loopCPUMax, metrics.loopCPU)
-      lcd.drawText(5, 86, text, FONT_MINI)      
-   end
+   -- if emFlag then
+   --    text=string.format("LA %02d%% LM %02d%% L %d%%",
+   -- 			 metrics.loopCPUAvg, metrics.loopCPUMax, metrics.loopCPU)
+   --    lcd.drawText(5, 86, text, FONT_MINI)      
+   -- end
 
    if true then --emFlag then
       text=string.format("%.1f", metrics.loopTimeAvg or 0)
@@ -3281,13 +3294,12 @@ local function loop()
    --defend against silly points .. sometimes they come from the RCT GPS
    --hopefully this is larger than any field (mag 14 is about 2500m wide)
    
-   if (math.abs(x) > 10000.) or (math.abs(y) > 10000.) then
-      print("bad point:", x,y,latitude, longitude)
+   if (math.abs(x) > 10000.) or (math.abs(y) > 10000.) or (math.abs(altitude) > 10000.) then
+      print("Bad point - discarded:", x,y,latitude,longitude,altitude)
       return
    end
    
    --special case .. seed the xtable with one point even if not moving to allow tri drawing
-   
    if newpos or (#xtable == 0) then -- only include in history if new point
 
       -- keep a max of variables.histMax points
@@ -3326,11 +3338,11 @@ local function loop()
 	 elseif variables.ribbonColorSource == 3 then -- speed 0-300 km/hr
 	    jj = gradientIndex(speed, 0, 300, #shapes.gradient)
 	 elseif variables.ribbonColorSource == 4 then -- triRace Laps
-	    jj = gradientIndex(raceParam.lapsComplete % #shapes.gradient,
-			       0, #shapes.gradient-1, #shapes.gradient)
+	    jj = gradientIndex(raceParam.lapsComplete,
+			       0, #shapes.gradient-1, #shapes.gradient, #shapes.gradient)
 	 elseif variables.ribbonColorSource == 5 then -- switch
-	    jj = gradientIndex(swcCount % #shapes.gradient,
-			       0, #shapes.gradient-1, #shapes.gradient)	    
+	    jj = gradientIndex(swcCount,
+			       0, #shapes.gradient-1, #shapes.gradient, #shapes.gradient)
 	 elseif variables.ribbonColorSource == 6 then -- Rx1 Q
 	    jj = gradientIndex(system.getTxTelemetry().rx1Percent, 0, 100,  #shapes.gradient)
 	 elseif variables.ribbonColorSource == 7 then -- Rx1 A1
@@ -3452,6 +3464,24 @@ local function init()
       rgb[k].b = (tonumber(rgb[k].b, 16) or 0)       
       --print(k, rgb[k].r, rgb[k].g, rgb[k].b)
    end
+
+   --[[
+   -- overwrite rgb .. experiment
+   -- trig functions approximate shapes of rgb ranbow color components ... cute 
+   -- https://en.wikibooks.org/wiki/Color_Theory/Color_gradient  
+   -- the 0.7 is so we don't wrap all the way back to the original color
+   -- note rest of this app looks at #shapes.gradient, not #rgb .. would have to change it
+   local rp = 10
+   for k = 1, rp, 1 do
+      rgb[k] = {}
+      rgb[k].r = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp)) / 2)
+      rgb[k].g = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 2*math.pi/3)) / 2)
+      rgb[k].b = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 4*math.pi/3)) / 2)
+      print(k, rgb[k].r, rgb[k].g, rgb[k].b)
+   end
+   print("#rgb:", #rgb)
+   --]]
+
    
    dotImage.blue = lcd.loadImage(appInfo.Dir.."/JSON/small_blue_circle.png")
    dotImage.green = lcd.loadImage(appInfo.Dir.."/JSON/small_green_circle.png")   
