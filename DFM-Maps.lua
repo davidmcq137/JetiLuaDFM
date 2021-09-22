@@ -556,11 +556,8 @@ local function setField(sname)
    Field.lng = Field.images[1].center.lng
    fieldPNG={}
 
-   print("before Field.images loop")
-   
    for k,v in ipairs(Field.images) do
       Field.imageWidth[k] = math.floor(v.meters_per_pixel * 320 + 0.5)
-      print("k,v:", k,v, v.meters_per_pixel, Field.imageWidth[k])
    end
 
    lng0 = Field.lng -- reset to origin to coords in jsn file
