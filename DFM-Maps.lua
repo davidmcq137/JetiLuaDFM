@@ -155,7 +155,8 @@ browse.opTableIdx = 1
 
 local colorSelect = {"None", "Altitude", "Speed", "Laps", "Switch",
 	  "Rx1 Q", "Rx1 A1", "Rx1 A2", "Rx1 Volts",
-	  "Rx2 Q", "Rx2 A1", "Rx2 A2", "Rx2 Volts"}	 
+	  "Rx2 Q", "Rx2 A1", "Rx2 A2", "Rx2 Volts",
+	  "P4"}	 
 
 local savedRow = 1
 local savedSubform
@@ -514,10 +515,12 @@ local function setColorNoFlyOutside()
 end
 
 local function setColorMain()
+   local rb,gb,bb = lcd.getBgColor()
+   
    if fieldPNG[currentImage] then
       lcd.setColor(255,255,0)
    else
-      lcd.setColor(0,0,0)
+      lcd.setColor(255-rb,255-gb, 255-bb)
    end
 end
 
@@ -837,17 +840,19 @@ local function initField(fn)
       end
    end
 
-   table.sort(matchFields, function(a,b) return a<b end)  
+   if #matchFields > 0 then
+      table.sort(matchFields, function(a,b) return a<b end)  
    
-   setField(matchFields[1])
-   -- see if file <model_name>_icon.jsn exists
-   -- if so try to read airplane icon
-   
-   local fg = io.readall("Apps/"..appInfo.Maps .."/JSON/"..
-			    string.gsub(system.getProperty("Model")..
-					   "_icon.jsn", " ", "_"))
-   if fg then
-      shapes.T38 = json.decode(fg).icon
+      setField(matchFields[1])
+      -- see if file <model_name>_icon.jsn exists
+      -- if so try to read airplane icon
+      
+      local fg = io.readall("Apps/"..appInfo.Maps .."/JSON/"..
+			       string.gsub(system.getProperty("Model")..
+					      "_icon.jsn", " ", "_"))
+      if fg then
+	 shapes.T38 = json.decode(fg).icon
+      end
    end
    
    if Field and Field.name then
@@ -862,8 +867,8 @@ local function initField(fn)
 	 graphInit(currentImage) -- re-init graph scales with images loaded
       end
    else
-      system.messageBox("Current location: not a known field", 2)
-      print("not a known field: lat0, lng0", lat0, lng0)
+      --system.messageBox("Current location: not a known field", 2)
+      --print("not a known field: lat0, lng0", lat0, lng0)
       gotInitPos = false -- reset and try again with next gps lat long
    end
 end
@@ -998,8 +1003,8 @@ local function checkBoxAdd(lab, box)
 end
 
 local function selectFieldClicked(value)
-   print("sFC", value, browse.List[value])
-   print(Fields[browse.List[value]].shortname)
+   --print("sFC", value, browse.List[value])
+   --print(Fields[browse.List[value]].shortname)
    lat0 = Fields[browse.List[value]].images[1].center.lat
    lng0 = Fields[browse.List[value]].images[1].center.lng
    coslat0 = math.cos(math.rad(lat0))
@@ -1012,6 +1017,12 @@ end
 
 local function initForm(subform)
 
+   if tonumber(system.getVersion()) < 5.0 then
+      form.addRow(1)
+      form.addLabel({label="Minimum TX Version is 5.0", width=220, font=FONT_NORMAL})
+      return
+   end
+   
    savedSubform = subform
    
    if subform == 1 then
@@ -3413,6 +3424,8 @@ local function loop()
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 13 then -- Rx2 V
 	    jj = gradientIndex(system.getTxTelemetry().rx2Voltage, 0,   8,  #rgb)
+	 elseif variables.ribbonColorSource == 14 then -- P4
+	    jj = gradientIndex(system.getInputs("P4") + 1, 0,   2,  #rgb)	    
 	 else
 	    print("ribbon color bad idx")
 	 end
@@ -3597,7 +3610,7 @@ local function init()
    --print("pLoad .. colorSwitch", colorSwitch)
    
    if variables.switchesSet and not pointSwitch and not triASwitch and not startSwitch then
-      system.messageBox("Please reset switches in menu")
+      system.messageBox(appInfo.Name .. ": please reassign switches")
       print("please reset switches")
       variables.switchesSet = nil
    end
@@ -3636,6 +3649,7 @@ local function init()
    metrics.loopCount = 0
    metrics.lastLoopTime = system.getTimeCounter()
    metrics.loopTimeAvg = 0
+
 end
 
-return {init=init, loop=loop, author="DFM", version="7.16", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.18", name=appInfo.Name, destroy=destroy}

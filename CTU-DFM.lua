@@ -1,6 +1,6 @@
 -- CTU-Dashboard.lua
 
-local wVersion="4"
+local wVersion="4.1"
 local wAppname="CTU-DFM"
 
 -- Locals for the application
