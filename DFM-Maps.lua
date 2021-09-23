@@ -3425,7 +3425,7 @@ local function loop()
 	 elseif variables.ribbonColorSource == 13 then -- Rx2 V
 	    jj = gradientIndex(system.getTxTelemetry().rx2Voltage, 0,   8,  #rgb)
 	 elseif variables.ribbonColorSource == 14 then -- P4
-	    jj = gradientIndex(system.getInputs("P4") + 1, 0,   2,  #rgb)	    
+	    jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	    
 	 else
 	    print("ribbon color bad idx")
 	 end
