@@ -650,10 +650,8 @@ end
 
 local function startSwitchNameChanged(value, name)
    if name then
-      print("name - value:", value)
       jSave(variables, "startSwitchName", value)
    else
-      print("dir - value:", value)
       jSave(variables, "startSwitchDir", value)
    end
    startSwitch = createSw(shapes.switchNames[variables.startSwitchName],
