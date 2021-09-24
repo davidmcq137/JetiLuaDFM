@@ -106,8 +106,8 @@ metrics.loopCPUAvg = 0
 local gotInitPos = false
 local annTextSeq = 1
 local preTextSeq = 1
-local titleText
-local subtitleText
+--local titleText
+--local subtitleText
 local lastgetTime = 0
 local inZone = {}
 local currentRibbonValue
@@ -157,7 +157,7 @@ browse.opTableIdx = 1
 local colorSelect = {"None", "Altitude", "Speed", "Laps", "Switch",
 	  "Rx1 Q", "Rx1 A1", "Rx1 A2", "Rx1 Volts",
 	  "Rx2 Q", "Rx2 A1", "Rx2 A2", "Rx2 Volts",
-	  "P4"}	 
+	  "P4", "Distance"}	 
 
 local savedRow = 1
 local savedSubform
@@ -429,10 +429,15 @@ local function rotateXY(xx, yy, rotation)
    return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
 end
 
-local function ll2xy(lat, lng)
+local function ll2xy(lat, lng, lat00, lng00, csl00)
    local tx, ty
-   tx, ty = rotateXY(rE*(lng-lng0)*coslat0/rad,
-		     rE*(lat-lat0)/rad,
+   local ln0, lt0, cl0
+   if not lat00 then lt0 = lat0 else lt0 = lat00 end
+   if not lng00 then ln0 = lng0 else ln0 = lng00 end
+   if not csl00 then cl0 = coslat0 else cl0 = csl00 end
+   
+   tx, ty = rotateXY(rE*(lng-ln0)*cl0/rad,
+		     rE*(lat-lt0)/rad,
 		     math.rad(variables.rotationAngle))
    return {x=tx, y=ty}
 end
@@ -1773,14 +1778,14 @@ local function drawTriRace(windowWidth, windowHeight)
       if raceParam.racing and j > 0 and j == m3(nextPylon) then setColorMain() end
       --if region[code] == j 
    end
-   if titleText then
-      lcd.drawText((320 - lcd.getTextWidth(FONT_BOLD, titleText))/2, 0,
-	 titleText, FONT_BOLD)
+   if raceParam.titleText then
+      lcd.drawText((320 - lcd.getTextWidth(FONT_BOLD, raceParam.titleText))/2, 0,
+	 raceParam.titleText, FONT_BOLD)
    end
    
-   if subtitleText then
-      lcd.drawText((320 - lcd.getTextWidth(FONT_MINI, subtitleText))/2, 17,
-	 subtitleText, FONT_MINI)
+   if raceParam.subtitleText then
+      lcd.drawText((320 - lcd.getTextWidth(FONT_MINI, raceParam.subtitleText))/2, 17,
+	 raceParam.subtitleText, FONT_MINI)
    end
 
    if raceParam.flightStarted ~= 0 then
@@ -2145,29 +2150,29 @@ local function calcTriRace()
       --lastMin = tmin
       
       tsec = tsec - tmin*60
-      titleText = string.format("%02d:%04.1f / ", tmin, tsec)
+      raceParam.titleText = string.format("%02d:%04.1f / ", tmin, tsec)
       
       
       tsec = (sgTC - raceParam.lapStartTime) / 1000.0
       tmin = tsec // 60
       tsec = tsec - tmin*60      
-      titleText = titleText ..string.format("%02d:%04.1f / ",
+      raceParam.titleText = raceParam.titleText ..string.format("%02d:%04.1f / ",
 				  tmin, tsec)
 
       tsec = raceParam.lastLapTime / 1000.0
       tmin = tsec // 60
       tsec = tsec - tmin*60
-      titleText = titleText .. string.format("%02d:%04.1f / ", tmin, tsec)
+      raceParam.titleText = raceParam.titleText .. string.format("%02d:%04.1f / ", tmin, tsec)
 
-      titleText = titleText .. string.format("%.1f / ", raceParam.avgSpeed)
+      raceParam.titleText = raceParam.titleText .. string.format("%.1f / ", raceParam.avgSpeed)
 
-      titleText = titleText .. string.format("%.1f", raceParam.lastLapSpeed)
+      raceParam.titleText = raceParam.titleText .. string.format("%.1f", raceParam.lastLapSpeed)
 
       
       --lcd.drawText((310 - lcd.getTextWidth(FONT_BOLD, tstr))/2, 0,
       --tstr, FONT_BOLD)
 
-      subtitleText = string.format("Laps: %d, Net Score: %d, Penalty: %d",
+      raceParam.subtitleText = string.format("Laps: %d, Net Score: %d, Penalty: %d",
 				   raceParam.lapsComplete,
 				   math.floor(raceParam.rawScore - raceParam.penaltyPoints + 0.5),
 			   math.floor(raceParam.penaltyPoints + 0.5))
@@ -3211,7 +3216,41 @@ local function mapPrint(windowWidth, windowHeight)
    
 end
 
+local function distDiag()
+   local hw,hh
+   if Field and Field.images and currentImage then
+      hw = Field.images[#Field.images].meters_per_pixel * 160
+      hh = hw / 2.0
+      --print("distDiag:" ,math.sqrt(hw*hw + hh*hh))
+      return math.sqrt(hw*hw + hh*hh)
+   else
+      return 2300.0
+   end
+end
 
+local function distHome()
+   local xy0, xy1
+   local lat00, lng00, coslat00
+
+   -- compute x,y coords from the center of the most zoomed in image (Fields.images[1])
+   -- the compute distance from that point in the frame of the least zoomed in (largest) image
+   
+   if Field and Field.images and currentImage then
+      lat00 = Field.images[1].center.lat
+      lng00 = Field.images[1].center.lng
+      latM =  Field.images[#Field.images].center.lat
+      lngM =  Field.images[#Field.images].center.lng
+      costlatM = math.cos(math.rad(latM))
+      xy0 = ll2xy(lat00, lng00, latM, lngM, coslatM)
+      xy1 = ll2xy(latitude, longitude, latM, lngM, coslatM)
+      --print(latitude, longitude, xy0.x,xy0.y, xy1.x, xy1.y)
+      --print("distHome:", math.sqrt( (xy1.x-xy0.x)*(xy1.x-xy0.x) + (xy1.y-xy0.y)*(xy1.y-xy0.y) ))
+      return math.sqrt( (xy1.x-xy0.x)*(xy1.x-xy0.x) + (xy1.y-xy0.y)*(xy1.y-xy0.y) )
+   else
+      return 0
+   end
+   
+end
 
 ------------------------------------------------------------
 
@@ -3496,6 +3535,8 @@ local function loop()
 	    jj = gradientIndex(system.getTxTelemetry().rx2Voltage, 0,   8,  #rgb)
 	 elseif variables.ribbonColorSource == 14 then -- P4
 	    jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	    
+	 elseif variables.ribbonColorSource == 15 then -- Distance
+	    jj = gradientIndex(distHome(), 0, distDiag(),  #rgb)	    
 	 else
 	    print("ribbon color bad idx")
 	 end
@@ -3686,6 +3727,10 @@ local function init()
       variables.switchesSet = nil
    end
    
+   metrics.loopCount = 0
+   metrics.lastLoopTime = system.getTimeCounter()
+   metrics.loopTimeAvg = 0
+
    system.registerForm(1, MENU_MAIN, appInfo.menuTitle, initForm, keyForm, prtForm)
    system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
    system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
@@ -3717,13 +3762,10 @@ local function init()
 
    readSensors()
 
-   metrics.loopCount = 0
-   metrics.lastLoopTime = system.getTimeCounter()
-   metrics.loopTimeAvg = 0
 
    startSwitch = createSw(shapes.switchNames[variables.startSwitchName], variables.startSwitchDir)
 
    
 end
 
-return {init=init, loop=loop, author="DFM", version="7.20", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.21", name=appInfo.Name, destroy=destroy}
