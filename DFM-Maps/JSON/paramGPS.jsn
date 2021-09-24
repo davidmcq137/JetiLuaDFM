@@ -16,10 +16,6 @@
 	    "param": 6,
 	    "telem": "Altitude"
 	},
-	"Course": {
-	    "param": 10,
-	    "telem": "CourseGPS"
-	},
 	"SatCount": {
 	    "param": 5,
 	    "telem": "SatCount"

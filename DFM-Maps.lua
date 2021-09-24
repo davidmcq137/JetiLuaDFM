@@ -311,7 +311,7 @@ local function readSensors()
 	    table.insert(sensorUnlist, sensor.unit)
 	 end
 
-	 -- if it's not a label, and it's a sensor we have in the auto-assign table...
+	 -- if it's not a label, and it's a sensor see we have in the auto-assign table...
 	 
 	 if sensor.param ~= 0 and
 	    paramGPS and
@@ -339,7 +339,7 @@ local function readSensors()
 		  telem[label].Se = seSeq
 		  telem[label].SeId = sensor.id
 		  telem[label].SePa = param
-	       else
+	       elseif telem[label] then -- check if this is one we want
 		  telem[label].Se = seSeq
 		  telem[label].SeId = sensor.id
 		  telem[label].SePa = param
@@ -1142,11 +1142,11 @@ local function initForm(subform)
       
       form.addRow(4)
       form.addLabel({label="START switch", width=100})
-      form.addSelectbox(shapes.switchNames, variables.startSwitchName, false,
+      form.addSelectbox(shapes.switchNames, variables.startSwitchName, true,
 			(function(z) return startSwitchNameChanged(z, true) end),
 			{width=60})
       form.addLabel({label="Up/Mid/Down", width=105})
-      form.addSelectbox({"U","M","D"}, variables.startSwitchDir, false,
+      form.addSelectbox({"U","M","D"}, variables.startSwitchDir, true,
 	 (function(z) return startSwitchNameChanged(z,false) end), {width=80})
 
       
@@ -3726,4 +3726,4 @@ local function init()
    
 end
 
-return {init=init, loop=loop, author="DFM", version="7.19", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.20", name=appInfo.Name, destroy=destroy}

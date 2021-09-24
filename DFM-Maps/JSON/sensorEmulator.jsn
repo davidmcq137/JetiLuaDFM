@@ -52,6 +52,15 @@
      "unit":"",
      "luaExp":"1.1"
     },
+    {"id":3,
+     "param":10,
+     "decimals":0,
+     "type":1,
+     "sensorName":"MGPS",
+     "label":"Course",
+     "unit":"",
+     "luaExp":"180"
+    },    
     {"id":1,"param":0,"sensorName":"MVario", "label":"MVario"},
     {"id":1,"param":1,
      "decimals":0,
