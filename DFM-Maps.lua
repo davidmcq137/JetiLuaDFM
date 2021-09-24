@@ -53,18 +53,19 @@ local arcFile
 local lapAltitude
 local distance
 local x, y
-   
+--[[
 local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
 	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"}
-
+--]]
+local telem={"Latitude", "Longitude",   "Altitude", "SpeedGPS"}
 telem.Latitude={}
 telem.Longitude={}
 telem.Altitude={}
-telem.SpeedNonGPS={}
 telem.SpeedGPS={}
-telem.DistanceGPS={}
-telem.CourseGPS={}
-telem.BaroAlt={}
+--telem.SpeedNonGPS={}
+--telem.DistanceGPS={}
+--telem.CourseGPS={}
+--telem.BaroAlt={}
 
 local variables = {}
 
@@ -193,6 +194,16 @@ local satCount
 local satQualityID = 0
 local satQualityPa = 0
 local satQuality
+
+
+local function createSw(name, dir)
+   local activeOn = {1, 0, -1}
+   if not name or not activeOn[dir] then
+      return nil
+   else
+      return system.createSwitch(name, "S", (shapes.switchDirs[name] or 1) * activeOn[dir])
+   end
+end
 
 local function gradientIndex(inval, min, max, bins, mod)
    -- for a value val, maps to the gradient rgb index for val from min to max
@@ -631,10 +642,22 @@ local function triASwitchChanged(value)
    system.pSave("triASwitch", triASwitch)
 end
 
-local function startSwitchChanged(value)
-   startSwitch = value
-   jSave(variables, "switchesSet", "true")
-   system.pSave("startSwitch", startSwitch)
+--local function startSwitchChanged(value)
+--   startSwitch = value
+--   jSave(variables, "switchesSet", "true")
+--   system.pSave("startSwitch", startSwitch)
+--end
+
+local function startSwitchNameChanged(value, name)
+   if name then
+      print("name - value:", value)
+      jSave(variables, "startSwitchName", value)
+   else
+      print("dir - value:", value)
+      jSave(variables, "startSwitchDir", value)
+   end
+   startSwitch = createSw(shapes.switchNames[variables.startSwitchName],
+			  variables.startSwitchDir)
 end
 
 --local function fieldIdxChanged(value)
@@ -1071,8 +1094,8 @@ local function initForm(subform)
       local menuSelect2 = { -- non lat/long but still from GPS sensor
 	 Altitude ="Select GPS Altitude Sensor",
 	 SpeedGPS="Select GPS Speed Sensor",
-	 DistanceGPS="Select GPS Distance Sensor",
-	 CourseGPS="Select GPS Course Sensor",
+	 --DistanceGPS="Select GPS Distance Sensor",
+	 --CourseGPS="Select GPS Course Sensor",
 	 
       }     
       
@@ -1111,10 +1134,24 @@ local function initForm(subform)
       form.addLabel({label="Triangle racing ann switch", width=220})
       form.addInputbox(triASwitch, false, triASwitchChanged)
       
+      --[[
       form.addRow(2)
       form.addLabel({label="Triangle racing START switch", width=220})
       form.addInputbox(startSwitch, false, startSwitchChanged)
-     
+      --]]
+
+      print("variables.startSwitchName", variables.startSwitchName)
+      
+      form.addRow(4)
+      form.addLabel({label="START switch", width=100})
+      form.addSelectbox(shapes.switchNames, variables.startSwitchName, false,
+			(function(z) return startSwitchNameChanged(z, true) end),
+			{width=60})
+      form.addLabel({label="Up/Mid/Down", width=105})
+      form.addSelectbox({"U","M","D"}, variables.startSwitchDir, false,
+	 (function(z) return startSwitchNameChanged(z,false) end), {width=80})
+
+      
       form.addRow(2)
       form.addLabel({label="Triangle race time (m)", width=220})
       form.addIntbox(variables.raceTime, 1, 60, 30, 0, 1, raceTimeChanged)
@@ -1776,7 +1813,31 @@ local function drawTriRace(windowWidth, windowHeight)
    --if speed ~= 0 then
    --   lcd.drawText(265, 85, string.format("Time %.1f", distance / speed), FONT_MINI)
    --end
-   
+   local ll
+   --sChar = variables.annText:sub(annTextSeq,annTextSeq)
+   if raceParam.racing then
+      ll=lcd.getTextWidth(FONT_NORMAL, variables.annText)
+      lcd.drawText(310-ll, 130, variables.annText, FONT_NORMAL)
+      lcd.drawText(
+	 310-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
+	    lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(1,annTextSeq)) -
+	    lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(annTextSeq, annTextSeq))/2, 
+				       144, "^", FONT_MINI)      
+   else
+      local swa
+      if triASwitch then
+	 swa = system.getInputsVal(triASwitch)
+      end
+      if swa and swa == 1 then
+	 ll=lcd.getTextWidth(FONT_NORMAL, variables.preText)
+	 lcd.drawText(310-ll, 130, variables.preText, FONT_NORMAL)
+	 lcd.drawText(
+	    310-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
+	       lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(1,preTextSeq)) -
+	       lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(preTextSeq, preTextSeq))/2, 
+	    144, "^", FONT_MINI)      
+      end
+   end
 end
 
 local function calcTriRace()
@@ -1788,6 +1849,8 @@ local function calcTriRace()
    if not variables.triEnabled then return end
    if #xtable == 0 or #ytable == 0 then return end
    
+   --print(system.getTimeCounter() -lastgetTime)
+
    if Field then
       ao = variables.aimoff
    else
@@ -2138,9 +2201,15 @@ local function calcTriRace()
    end
    
    local sChar
-   local now = system.getTime()
 
-   if now ~= lastgetTime and swa and swa == 1 then -- once a sec
+   local now = system.getTimeCounter()
+
+   -- instead of lastgetTime + 1000 we will empirically determine a number that allows for the
+   -- inherent delays in the callback model to make a 1/sec step time
+   
+   if (now >= (lastgetTime + 850)) and swa and swa == 1 then -- once a sec
+      --print(now-lastgetTime)
+      lastgetTime = now
       --print(m3(nextPylon+2), inZone[m3(nextPylon+2)] )
       if raceParam.racing then
 	 annTextSeq = annTextSeq + 1
@@ -2219,7 +2288,6 @@ local function calcTriRace()
 	 end
       end
    end
-   lastgetTime = now
 
    --lastregion = region[code]
 
@@ -2930,7 +2998,7 @@ local function mapPrint(windowWidth, windowHeight)
       swp = system.getInputsVal(pointSwitch)
    end
 
-   if not pointSwitch or (swp and swp == 1) then
+   if ( (not pointSwitch) or (swp and swp == 1) ) and (#xPHist > 0) then
 
       --check if we need to panic .. xPHist got too big while we were off screen
       --and we are about to get killed
@@ -2950,7 +3018,7 @@ local function mapPrint(windowWidth, windowHeight)
       end
 
       if #rgbHist == 0 then
-	 --print("#0")
+	 print("#0")
 	 return
       end
       
@@ -3173,10 +3241,10 @@ local function loop()
    
    -- don't loop menu is up on screen
    if form.getActiveForm() then return end
-   
+
    metrics.loopCount = metrics.loopCount + 1
 
-   if metrics.loopCount & 31 == 1 then -- about every 750 msec
+   if metrics.loopCount & 3 == 1 then -- about every 4*30 msec
       calcTriRace()
    end
 
@@ -3299,12 +3367,14 @@ local function loop()
 --]]
    
    hasCourseGPS = false
+   --[[
    sensor = system.getSensorByID(telem.CourseGPS.SeId, telem.CourseGPS.SeId)
    if sensor and sensor.valid then
       courseGPS = sensor.value
       hasCourseGPS = true
    end
-
+   --]]
+   
    -- only recompute when lat and long have changed
    
    if not latitude or not longitude then
@@ -3363,7 +3433,7 @@ local function loop()
       --print("Bad point - discarded:", x,y,latitude,longitude,altitude)
       return
    end
-   
+
    --special case .. seed the xtable with one point even if not moving to allow tri drawing
    if newpos or (#xtable == 0) then -- only include in history if new point
 
@@ -3372,6 +3442,8 @@ local function loop()
       
       -- keep hist of lat/lng too since images don't have same lat0 and lng0 we need to recompute
       -- x and y when the image changes. that is done in graphScale()
+
+      --print("x,y", x, y, variables.histMax)
       
       if variables.histMax > 0 and
 	 (system.getTimeCounter() - lastHistTime > variables.histSample) and
@@ -3550,7 +3622,6 @@ local function init()
    end
    --]]
 
-   
    dotImage.blue = lcd.loadImage(appInfo.Dir.."/JSON/small_blue_circle.png")
    dotImage.green = lcd.loadImage(appInfo.Dir.."/JSON/small_green_circle.png")   
    dotImage.red = lcd.loadImage(appInfo.Dir.."/JSON/small_red_circle.png")
@@ -3590,7 +3661,9 @@ local function init()
    variables.annText           = jLoad(variables, "annText", "c-d----")   
    variables.preText           = jLoad(variables, "preText", "s-a----")      
    variables.ribbonColorSource = jLoad(variables, "ribbonColorSource", 1)
-
+   variables.startSwitchName   = jLoad(variables, "startSwitchName", 0)
+   variables.startSwitchDir    = jLoad(variables, "startSwitchDir", 0)   
+   
    checkBox.triEnabled = jLoad(variables, "triEnabled", false)
    checkBox.noflyEnabled = jLoad(variables, "noflyEnabled", true)
    --variables.noflyEnabled = checkBox.noflyEnabled
@@ -3603,7 +3676,7 @@ local function init()
    triASwitch  = system.pLoad("triASwitch")
    --print("pLoad .. triASwitch", triASwitch)
    
-   startSwitch = system.pLoad("startSwitch")
+   --startSwitch = system.pLoad("startSwitch")
    --print("pLoad .. startSwitch", startSwitch)
 
    colorSwitch = system.pLoad("colorSwitch")
@@ -3615,7 +3688,7 @@ local function init()
       variables.switchesSet = nil
    end
    
-   system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
+   system.registerForm(1, MENU_MAIN, appInfo.menuTitle, initForm, keyForm, prtForm)
    system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
    system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
    
@@ -3650,6 +3723,9 @@ local function init()
    metrics.lastLoopTime = system.getTimeCounter()
    metrics.loopTimeAvg = 0
 
+   startSwitch = createSw(shapes.switchNames[variables.startSwitchName], variables.startSwitchDir)
+
+   
 end
 
-return {init=init, loop=loop, author="DFM", version="7.18", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.19", name=appInfo.Name, destroy=destroy}
