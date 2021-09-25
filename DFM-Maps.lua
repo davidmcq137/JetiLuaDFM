@@ -129,6 +129,7 @@ local absAltGPS
 
 local checkBox = {}
 local checkBoxIndex = {}
+local checkBoxSubform = {}
 
 --local triEnabled
 --local triEnabledIndex
@@ -137,11 +138,12 @@ local checkBoxIndex = {}
 --local noFlyWarnEnabled
 --local noFlyWarnIndex
 
-local pointSwitch
+local switchItems = {}
+--local pointSwitch
 --local zoomSwitch
-local triASwitch
-local startSwitch
-local colorSwitch
+--local triASwitch
+--local startSwitch
+--local colorSwitch
 local lastswc = -2
 local swcCount = 0
 
@@ -157,7 +159,7 @@ browse.opTableIdx = 1
 local colorSelect = {"None", "Altitude", "Speed", "Laps", "Switch",
 	  "Rx1 Q", "Rx1 A1", "Rx1 A2", "Rx1 Volts",
 	  "Rx2 Q", "Rx2 A1", "Rx2 A2", "Rx2 Volts",
-	  "P4", "Distance"}	 
+	  "P4", "Distance", "Radial"}	 
 
 local savedRow = 1
 local savedSubform
@@ -623,17 +625,17 @@ local function validAnn(val, str)
    end
 end
 
-local function pointSwitchChanged(value)
-   pointSwitch = value
-   jSave(variables, "switchesSet", "true")
-   system.pSave("pointSwitch", pointSwitch)
-end
+-- local function pointSwitchChanged(value)
+--    pointSwitch = value
+--    jSave(variables, "switchesSet", "true")
+--    system.pSave("pointSwitch", pointSwitch)
+-- end
 
-local function colorSwitchChanged(value)
-   colorSwitch = value
-   jSave(variables, "switchesSet", "true")
-   system.pSave("colorSwitch", colorSwitch)
-end
+-- local function colorSwitchChanged(value)
+--    colorSwitch = value
+--    jSave(variables, "switchesSet", "true")
+--    system.pSave("colorSwitch", colorSwitch)
+-- end
 
 --local function zoomSwitchChanged(value)
 --   zoomSwitch = value
@@ -641,11 +643,12 @@ end
 --   --system.pSave("zoomSwitch", zoomSwitch)
 --end
 
-local function triASwitchChanged(value)
-   triASwitch = value
-   jSave(variables, "switchesSet", "true")
-   system.pSave("triASwitch", triASwitch)
-end
+
+-- local function triASwitchChanged(value)
+--    triASwitch = value
+--    jSave(variables, "switchesSet", "true")
+--    system.pSave("triASwitch", triASwitch)
+-- end
 
 --local function startSwitchChanged(value)
 --   startSwitch = value
@@ -653,15 +656,56 @@ end
 --   system.pSave("startSwitch", startSwitch)
 --end
 
-local function startSwitchNameChanged(value, name)
-   if name then
-      jSave(variables, "startSwitchName", value)
-   else
-      jSave(variables, "startSwitchDir", value)
-   end
-   startSwitch = createSw(shapes.switchNames[variables.startSwitchName],
-			  variables.startSwitchDir)
+local function checkBoxClicked(value, box)
+   checkBox[box] = not value
+   jSave(variables, box, not value)
+   form.setValue(checkBoxIndex[box], checkBox[box])
 end
+
+local function switchNameChanged(value, name, swname)
+
+   if name and shapes.switchNames[value] == "..." then
+      jSave(variables, swname.."SwitchName", value)
+      jSave(variables, swname.."SwitchDir", value)
+      switchItems[swname] = nil
+      checkBox[swname.."Switch"] = false
+      return
+   end
+
+   if name then
+      jSave(variables, swname .. "SwitchName", value)
+   else
+      jSave(variables, swname .. "SwitchDir", value)
+   end
+   --print("sNC: value, name, swname", value, name, swname)
+	 
+   switchItems[swname] = createSw(shapes.switchNames[variables[swname .. "SwitchName"]],
+		     variables[swname .."SwitchDir"])
+   checkBox[swname .."Switch"] = system.getInputsVal(switchItems[swname]) == 1
+end
+
+-- local function triASwitchNameChanged(value, name)
+--    if name then
+--       jSave(variables, "triASwitchName", value)
+--    else
+--       jSave(variables, "triASwitchDir", value)
+--    end
+--    print("triAchg", value, name)
+--    triASwitch = createSw(shapes.switchNames[variables.triASwitchName],
+-- 			  variables.triASwitchDir)
+--    checkBox.triASwitch = system.getInputsVal(triASwitch) == 1
+-- end
+
+-- local function startSwitchNameChanged(value, name)
+--    if name then
+--       jSave(variables, "startSwitchName", value)
+--    else
+--       jSave(variables, "startSwitchDir", value)
+--    end
+--    startSwitch = createSw(shapes.switchNames[variables.startSwitchName],
+-- 			  variables.startSwitchDir)
+--    checkBox.startSwitch = system.getInputsVal(startSwitch) == 1
+-- end
 
 --local function fieldIdxChanged(value)
 --   print("please make fieldIdxChanged work again")
@@ -765,11 +809,6 @@ end
 
 -- end
 
-local function checkBoxClicked(value, box)
-   checkBox[box] = not value
-   jSave(variables, box, not value)
-   form.setValue(checkBoxIndex[box], checkBox[box])
-end
 
 --------------------------------------------------------------------------------
 
@@ -1038,6 +1077,19 @@ local function selectFieldClicked(value)
    initField(Fields[browse.List[value]].shortname)
 end
 
+local function switchAdd(lbl, swname, sf)
+   form.addRow(5)
+   form.addLabel({label=lbl, width=80})
+   form.addSelectbox(shapes.switchNames, variables[swname .. "SwitchName"], true,
+		     (function(z) return switchNameChanged(z, true, swname) end),
+		     {width=60})
+   form.addLabel({label="Up/Mid/Dn", width=94})
+   form.addSelectbox({"U","M","D"}, variables[swname .. "SwitchDir"], true,
+      (function(z) return switchNameChanged(z, false, swname) end), {width=50})
+   checkBoxIndex[swname .."Switch"] = form.addCheckbox(checkBox[swname.."Switch"],
+						       nil, {width=15})
+   checkBoxSubform[swname] = sf
+end
 
 -- Draw the main form (Application inteface)
 
@@ -1133,30 +1185,20 @@ local function initForm(subform)
 
       checkBoxAdd("Enable Triangle Racecourse", "triEnabled")
 
-      form.addRow(2)
-      form.addLabel({label="Triangle racing ann switch", width=220})
-      form.addInputbox(triASwitch, false, triASwitchChanged)
+      switchAdd("Start", "start", subform)
       
-      --[[
-      form.addRow(2)
-      form.addLabel({label="Triangle racing START switch", width=220})
-      form.addInputbox(startSwitch, false, startSwitchChanged)
-      --]]
-
-      print("variables.startSwitchName", variables.startSwitchName)
-      
-      form.addRow(4)
-      form.addLabel({label="START switch", width=100})
-      form.addSelectbox(shapes.switchNames, variables.startSwitchName, true,
-			(function(z) return startSwitchNameChanged(z, true) end),
-			{width=60})
-      form.addLabel({label="Up/Mid/Down", width=105})
-      form.addSelectbox({"U","M","D"}, variables.startSwitchDir, true,
-	 (function(z) return startSwitchNameChanged(z,false) end), {width=80})
-
+      -- form.addRow(5)
+      -- form.addLabel({label="Start", width=80})
+      -- form.addSelectbox(shapes.switchNames, variables.startSwitchName, true,
+      -- 			(function(z) return startSwitchNameChanged(z, true) end),
+      -- 			{width=60})
+      -- form.addLabel({label="Up/Mid/Dn", width=94})
+      -- form.addSelectbox({"U","M","D"}, variables.startSwitchDir, true,
+      -- 	 (function(z) return startSwitchNameChanged(z,false) end), {width=50})
+      -- checkBoxIndex.startSwitch = form.addCheckbox(checkBox.startSwitch, nil, {width=15})
       
       form.addRow(2)
-      form.addLabel({label="Triangle race time (m)", width=220})
+      form.addLabel({label="Race time (mins)", width=220})
       form.addIntbox(variables.raceTime, 1, 60, 30, 0, 1, raceTimeChanged)
       
       form.addRow(2)
@@ -1180,6 +1222,19 @@ local function initForm(subform)
 
       form.addLink((function() form.reinit(9) end),
 	 {label = "Racing pre-announce sequence >>"})            
+
+
+      switchAdd("Announce", "triA", subform)
+      
+      -- form.addRow(5)
+      -- form.addLabel({label="Announce", width=80})
+      -- form.addSelectbox(shapes.switchNames, variables.triASwitchName, true,
+      -- 			(function(z) return triASwitchNameChanged(z, true) end),
+      -- 			{width=60})
+      -- form.addLabel({label="Up/Mid/Dn", width=94})
+      -- form.addSelectbox({"U","M","D"}, variables.triASwitchDir, true,
+      -- 	 (function(z) return triASwitchNameChanged(z,false) end), {width=50})
+      -- checkBoxIndex.triASwitch = form.addCheckbox(checkBox.triASwitch, nil, {width=15})
 
       form.addLink((function() form.reinit(1) end),
 	 {label = "<<< Back to main menu",font=FONT_BOLD})
@@ -1243,9 +1298,11 @@ local function initForm(subform)
       --form.addIntbox(variables.maxCPU, 0, 100, 80, 0, 1,
       --	     (function(z) return variableChanged(z, "maxCPU") end) )
       
-      form.addRow(2)
-      form.addLabel({label="Flight path points on/off sw", width=220})
-      form.addInputbox(pointSwitch, false, pointSwitchChanged)
+      switchAdd("Points", "point", subform)
+
+      -- form.addRow(2)
+      -- form.addLabel({label="Flight path points on/off sw", width=220})
+      -- form.addInputbox(pointSwitch, false, pointSwitchChanged)
 
       ---[[
       form.addRow(2)
@@ -1266,9 +1323,11 @@ local function initForm(subform)
       form.addLabel({label="Max", width=70})
       form.addIntbox(imax, 0, 600, 300, 0, 1, nil, {width=60})
       --]]
-      form.addRow(2)
-      form.addLabel({label="Ribbon Color Increment sw", width=220})
-      form.addInputbox(colorSwitch, false, colorSwitchChanged)
+
+      switchAdd("Color", "color", subform)
+      -- form.addRow(2)
+      -- form.addLabel({label="Ribbon Color Increment sw", width=220})
+      -- form.addInputbox(colorSwitch, false, colorSwitchChanged)
 
       form.addLink((function() form.reinit(11) end), {label = "View Color Gradient>>"})
 	 
@@ -1801,7 +1860,7 @@ local function drawTriRace(windowWidth, windowHeight)
 	 lcd.drawImage(25, 100, dotImage.green)
       end
    else
-      if startSwitch then lcd.drawImage(25, 100, dotImage.red) end
+      if switchItems.start  then lcd.drawImage(25, 100, dotImage.red) end
    end
    
    lcd.drawText(5, 120, "Alt: ".. math.floor(altitude), FONT_MINI)
@@ -1818,27 +1877,28 @@ local function drawTriRace(windowWidth, windowHeight)
    --end
    local ll
    --sChar = variables.annText:sub(annTextSeq,annTextSeq)
-   if raceParam.racing then
-      ll=lcd.getTextWidth(FONT_NORMAL, variables.annText)
-      lcd.drawText(310-ll, 130, variables.annText, FONT_NORMAL)
-      lcd.drawText(
-	 310-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
-	    lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(1,annTextSeq)) -
-	    lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(annTextSeq, annTextSeq))/2, 
-				       144, "^", FONT_MINI)      
-   else
-      local swa
-      if triASwitch then
-	 swa = system.getInputsVal(triASwitch)
-      end
-      if swa and swa == 1 then
-	 ll=lcd.getTextWidth(FONT_NORMAL, variables.preText)
-	 lcd.drawText(310-ll, 130, variables.preText, FONT_NORMAL)
+   local swa
+   if switchItems.triA then
+      swa = system.getInputsVal(switchItems.triA)
+   end
+   if swa and swa == 1 then
+      if raceParam.racing then
+	 ll=lcd.getTextWidth(FONT_NORMAL, variables.annText)
+	 lcd.drawText(310-ll, 130, variables.annText, FONT_NORMAL)
 	 lcd.drawText(
 	    310-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
-	       lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(1,preTextSeq)) -
-	       lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(preTextSeq, preTextSeq))/2, 
+	       lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(1,annTextSeq)) -
+	       lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(annTextSeq, annTextSeq))/2, 
 	    144, "^", FONT_MINI)      
+      else
+	 
+	 ll=lcd.getTextWidth(FONT_NORMAL, variables.preText)
+	 lcd.drawText(310-ll, 130, variables.preText, FONT_NORMAL)
+	    lcd.drawText(
+	       310-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
+		  lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(1,preTextSeq)) -
+		  lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(preTextSeq, preTextSeq))/2, 
+	       144, "^", FONT_MINI)      
       end
    end
 end
@@ -2007,11 +2067,11 @@ local function calcTriRace()
    
    local sws
    
-   if startSwitch then
-      sws = system.getInputsVal(startSwitch)
+   if switchItems.start then
+      sws = system.getInputsVal(switchItems.start)
    end
 
-   if startSwitch and sws then
+   if switchItems.start and sws then
       if sws ~= lastsws then
 	 if sws == 1 then
 	    raceParam.startToggled = true
@@ -2199,8 +2259,8 @@ local function calcTriRace()
 
    local swa
    
-   if triASwitch then
-      swa = system.getInputsVal(triASwitch)
+   if switchItems.triA then
+      swa = system.getInputsVal(switchItems.triA)
    end
    
    local sChar
@@ -2511,6 +2571,14 @@ local function prtForm(windowWidth, windowHeight)
    --    local txt = "No browse image"
    --    lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, txt))/2, 90, txt, FONT_BIG)
    -- end
+
+   for k,v in pairs(switchItems) do
+      if checkBoxSubform[k] == savedSubform then
+	 checkBox[k.."Switch"] = system.getInputsVal(switchItems[k]) == 1
+	 --print(k, checkBoxIndex[k.."Switch"], checkBox[k.."Switch"])
+	 form.setValue(checkBoxIndex[k.."Switch"], checkBox[k.."Switch"])
+      end
+   end
 
    if savedSubform == 11 then 
       for i = 1, #rgb, 1 do
@@ -2997,11 +3065,11 @@ local function mapPrint(windowWidth, windowHeight)
    --text=string.format("NNP %d", countNoNewPos)
    --lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 76, text, FONT_MINI)
 
-   if pointSwitch then
-      swp = system.getInputsVal(pointSwitch)
+   if switchItems.point then
+      swp = system.getInputsVal(switchItems.point)
    end
-
-   if ( (not pointSwitch) or (swp and swp == 1) ) and (#xPHist > 0) then
+   
+   if ( (not switchItems.point) or (swp and swp == 1) ) and (#xPHist > 0) then
 
       --check if we need to panic .. xPHist got too big while we were off screen
       --and we are about to get killed
@@ -3078,6 +3146,8 @@ local function mapPrint(windowWidth, windowHeight)
       ------------------------------
    end
 
+   setColorMap()
+   
    if #rwy == 4 then
       ren:reset()
       for j = 1, 5, 1 do
@@ -3298,11 +3368,11 @@ local function loop()
    if metrics.loopCPU > metrics.loopCPUMax then metrics.loopCPUMax = metrics.loopCPU end
    metrics.loopCPUAvg = metrics.loopCPUAvg + (metrics.loopCPU - metrics.loopCPUAvg) / 100.0
 
-   if colorSwitch then
-      swc = system.getInputsVal(colorSwitch)
+   if switchItems.color then
+      swc = system.getInputsVal(switchItems.color)
    end
 
-   if colorSwitch and (swc ~= lastswc) and swc == 1 then
+   if (switchItems.color) and (swc ~= lastswc) and swc == 1 then
       swcCount = swcCount + 1
    end
    lastswc = swc
@@ -3534,9 +3604,11 @@ local function loop()
 	 elseif variables.ribbonColorSource == 13 then -- Rx2 V
 	    jj = gradientIndex(system.getTxTelemetry().rx2Voltage, 0,   8,  #rgb)
 	 elseif variables.ribbonColorSource == 14 then -- P4
-	    jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	    
-	 elseif variables.ribbonColorSource == 15 then -- Distance
-	    jj = gradientIndex(distHome(), 0, distDiag(),  #rgb)	    
+	    jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	   
+ 	 elseif variables.ribbonColorSource == 15 then -- Distance
+	    jj = gradientIndex(distHome(), 0, distDiag(),  #rgb)
+	 elseif variables.ribbonColorSource == 16 then -- Radial
+	    jj = gradientIndex((360+math.deg(math.atan(x,y)))%360,0, 360, #rgb)	    	    
 	 else
 	    print("ribbon color bad idx")
 	 end
@@ -3701,31 +3773,36 @@ local function init()
    variables.preText           = jLoad(variables, "preText", "s-a----")      
    variables.ribbonColorSource = jLoad(variables, "ribbonColorSource", 1)
    variables.startSwitchName   = jLoad(variables, "startSwitchName", 0)
-   variables.startSwitchDir    = jLoad(variables, "startSwitchDir", 0)   
+   variables.startSwitchDir    = jLoad(variables, "startSwitchDir", 0)
+   variables.triASwitchName    = jLoad(variables, "triASwitchName", 0)
+   variables.triASwitchDir     = jLoad(variables, "triASwitchDir", 0)
+   variables.pointSwitchName   = jLoad(variables, "pointSwitchName", 0)
+   variables.pointSwitchDir    = jLoad(variables, "pointSwitchDir", 0)
+   variables.colorSwitchName   = jLoad(variables, "colorSwitchName", 0)
+   variables.colorSwitchDir    = jLoad(variables, "colorSwitchDir", 0)            
    
    checkBox.triEnabled = jLoad(variables, "triEnabled", false)
    checkBox.noflyEnabled = jLoad(variables, "noflyEnabled", true)
-   --variables.noflyEnabled = checkBox.noflyEnabled
    checkBox.noFlyWarningEnabled = jLoad(variables, "noFlyWarningEnabled", true)   
    checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", true)   
 
-   pointSwitch = system.pLoad("pointSwitch")
+   --pointSwitch = system.pLoad("pointSwitch")
    --print("pLoad .. pointSwitch", pointSwitch)
    
-   triASwitch  = system.pLoad("triASwitch")
+   --triASwitch  = system.pLoad("triASwitch")
    --print("pLoad .. triASwitch", triASwitch)
    
    --startSwitch = system.pLoad("startSwitch")
    --print("pLoad .. startSwitch", startSwitch)
 
-   colorSwitch = system.pLoad("colorSwitch")
+   --colorSwitch = system.pLoad("colorSwitch")
    --print("pLoad .. colorSwitch", colorSwitch)
    
-   if variables.switchesSet and not pointSwitch and not triASwitch and not startSwitch then
-      system.messageBox(appInfo.Name .. ": please reassign switches")
-      print("please reset switches")
-      variables.switchesSet = nil
-   end
+   -- if variables.switchesSet and not pointSwitch and not colorSwitch then
+   --    system.messageBox(appInfo.Name .. ": please reassign switches")
+   --    print("please reassign switches")
+   --    variables.switchesSet = nil
+   -- end
    
    metrics.loopCount = 0
    metrics.lastLoopTime = system.getTimeCounter()
@@ -3762,10 +3839,14 @@ local function init()
 
    readSensors()
 
-
-   startSwitch = createSw(shapes.switchNames[variables.startSwitchName], variables.startSwitchDir)
-
+   switchItems = {point = 0, start = 0, triA = 0, color = 0}
+   
+   for k,v in pairs(switchItems) do
+      switchItems[k] = createSw(shapes.switchNames[variables[k.."SwitchName"]],
+				variables[k.."SwitchDir"])
+      checkBox[k.."Switch"] = system.getInputsVal(switchItems[k]) == 1
+   end
    
 end
 
-return {init=init, loop=loop, author="DFM", version="7.21", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.22", name=appInfo.Name, destroy=destroy}
