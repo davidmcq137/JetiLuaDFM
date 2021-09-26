@@ -814,6 +814,12 @@ end
 
 local function pngLoad(j)
    local pfn
+
+   if not Field or not Field.images then
+      print(appInfo.Name .. " pngLoad - Field or Field.images not defined")
+      return
+   end
+   
    pfn = Field.images[j].file
    fieldPNG[j] = lcd.loadImage(pfn)
    
@@ -1026,6 +1032,7 @@ local function keyForm(key)
 	    nfc = {}
 	    nfp = {}
 	    tri = {}
+	    currentImage = nil
 	    fieldPNG={}
 	    --browse.OriginalFieldName = nil
 	    gotInitPos = false
@@ -1186,6 +1193,8 @@ local function initForm(subform)
       checkBoxAdd("Enable Triangle Racecourse", "triEnabled")
 
       switchAdd("Start", "start", subform)
+
+      switchAdd("Announce", "triA", subform)
       
       -- form.addRow(5)
       -- form.addLabel({label="Start", width=80})
@@ -1224,7 +1233,6 @@ local function initForm(subform)
 	 {label = "Racing pre-announce sequence >>"})            
 
 
-      switchAdd("Announce", "triA", subform)
       
       -- form.addRow(5)
       -- form.addLabel({label="Announce", width=80})
@@ -1919,18 +1927,18 @@ local function calcTriRace()
    else
       ao = 0
    end
-
+   -- XXX
    -- if no course computed yet, start by defining the pylons
    --print("#pylon, Field.name", #pylon, Field.name)
    if (#pylon < 3) and Field.name then -- need to confirm with RFM order of vertices
       triRot(ao) -- handle rotation and tranlation of triangle course 
       -- extend startline below hypotenuse of triangle  by 0.8x inside length
-      tri.center.x = tri.center.x + variables.triOffsetX
-      tri.center.y = tri.center.y + variables.triOffsetY
-      pylon.start = {x=tri.center.x +
-			0.8 * (tri.center.x - pylon[2].x),
-		     y=tri.center.y + 
-			0.8 * (tri.center.y  - pylon[2].y)}
+      --tri.center.x = tri.center.x + variables.triOffsetX
+      --tri.center.y = tri.center.y + variables.triOffsetY
+      pylon.start = {x=tri.center.x + variables.triOffsetX +
+			0.8 * (tri.center.x + variables.triOffsetX- pylon[2].x),
+		     y=tri.center.y + variables.triOffsetY +
+			0.8 * (tri.center.y  + variables.triOffsetY - pylon[2].y)}
    end
 
    --local region={2,3,3,1,2,1,0}
@@ -2054,8 +2062,11 @@ local function calcTriRace()
    -- start zone is left half plane divided by start line
 
    if #pylon == 3 and pylon.start then
-      detS1 = (xtable[#xtable] - tri.center.x) * (pylon.start.y - tri.center.y) -
-	 (ytable[#ytable] - tri.center.y) * (pylon.start.x - tri.center.x)
+      detS1 =
+	 (xtable[#xtable] - (tri.center.x + variables.triOffsetX)) *
+	 (pylon.start.y   - (tri.center.y + variables.triOffsetY)) -
+	 (ytable[#ytable] - (tri.center.y + variables.triOffsetY)) *
+	 (pylon.start.x   - (tri.center.x + variables.triOffsetX))
    end
    
 
@@ -3232,6 +3243,12 @@ local function mapPrint(windowWidth, windowHeight)
 
    drawTriRace(windowWidth, windowHeight)
 
+   -- diagnostic only
+   -- if pylon.start then
+   --    lcd.drawCircle(toXPixel(pylon.start.x, map.Xmin, map.Xrange, 320),
+   -- 		     toYPixel(pylon.start.y, map.Ymin, map.Yrange, 160), 10)
+   --end
+   
    --lcd.drawText(250, 20, "sT: "..tostring(raceParam.startToggled), FONT_MINI)
    --lcd.drawText(250, 30, "sA: "..tostring(raceParam.startArmed), FONT_MINI)
    --lcd.drawText(250, 40, "rF: "..tostring(raceParam.raceFinished), FONT_MINI)
@@ -3808,7 +3825,7 @@ local function init()
    metrics.lastLoopTime = system.getTimeCounter()
    metrics.loopTimeAvg = 0
 
-   system.registerForm(1, MENU_MAIN, appInfo.menuTitle, initForm, keyForm, prtForm)
+   system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
    system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
    system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
    
@@ -3849,4 +3866,4 @@ local function init()
    
 end
 
-return {init=init, loop=loop, author="DFM", version="7.22", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.23", name=appInfo.Name, destroy=destroy}
