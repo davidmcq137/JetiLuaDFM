@@ -1026,8 +1026,15 @@ local function keyForm(key)
 	    --print("reinit 9")
 	    form.reinit(7)
 	 else
-	    --print("resetting Field")
-	    Field = {}
+	    print("resetting Field: ", browse.OriginalFieldName)
+	    if not browse.OriginalFieldName then
+	       Field = {}
+	    else
+	       Field = browse.OriginalFieldName
+	       setField(Field)
+	       activeField = Field.shortname
+	       maxImage = #Field.images	       
+	    end
 	    rwy = {}
 	    nfc = {}
 	    nfp = {}
@@ -2704,7 +2711,7 @@ local function prtForm(windowWidth, windowHeight)
    end
 end
 
-
+--[[
 local function dirPrint()
    local xa, ya
    local xp, yp
@@ -2790,6 +2797,7 @@ local function dirPrint()
 		120, txt, FONT_MINI)
 
 end
+--]]
 
 local noFlyHist = {}
 noFlyHist.Last = false
@@ -3009,7 +3017,7 @@ local function mapPrint(windowWidth, windowHeight)
    if fieldPNG[currentImage] then
       lcd.drawImage(0,0,fieldPNG[currentImage], 255)
    else
-      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, "No GPS fix or no Image"))/2, 40,
+      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, "No GPS fix or no Image"))/2, 20,
 	 "No GPS fix or no Image", FONT_BIG)
    end
    
@@ -3827,7 +3835,7 @@ local function init()
 
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
    system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
-   system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
+   --system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
    
    emFlag = (select(2,system.getDeviceType()) == 1)
 
@@ -3864,6 +3872,19 @@ local function init()
       checkBox[k.."Switch"] = system.getInputsVal(switchItems[k]) == 1
    end
    
+   -- ff = io.open("Apps/gbl.txt", "w")
+   -- print("type:", type(_G))
+   -- if ff then
+   --    for k,v in pairs(_G) do
+   -- 	 io.write(ff, tostring(k), tostring(v), "\n")
+   --    end
+   -- end
+   -- io.close(ff)
+
 end
 
-return {init=init, loop=loop, author="DFM", version="7.23", name=appInfo.Name, destroy=destroy}
+
+
+
+
+return {init=init, loop=loop, author="DFM", version="7.24", name=appInfo.Name, destroy=destroy}
