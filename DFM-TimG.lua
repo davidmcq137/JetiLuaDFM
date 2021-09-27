@@ -11,18 +11,18 @@
    
    Works in DS-24
    
-	----------------------------------------------------------------------
-	Localisation-file has to be as /Apps/Lang/DFM-TimA.jsn if used
-	----------------------------------------------------------------------
-	Derived from AltAnnouncer - a part of RC-Thoughts Jeti Tools.
-	----------------------------------------------------------------------
-	AltAnnouncer released under MIT-license by Tero @ RC-Thoughts.com 2017
-	----------------------------------------------------------------------
-	DFM-TimA.lua released under MIT license by DFM 2018
-	----------------------------------------------------------------------
-    
+   ----------------------------------------------------------------------
+   Localisation-file has to be as /Apps/Lang/DFM-TimA.jsn if used
+   ----------------------------------------------------------------------
+   Derived from AltAnnouncer - a part of RC-Thoughts Jeti Tools.
+   ----------------------------------------------------------------------
+   AltAnnouncer released under MIT-license by Tero @ RC-Thoughts.com 2017
+   ----------------------------------------------------------------------
+   DFM-TimA.lua released under MIT license by DFM 2018
+   ----------------------------------------------------------------------
+   
    Note: original version was 30 secs hardcoded interval, now set to 60 seconds
-
+   
 --]]
 
 --local trans11
@@ -35,18 +35,20 @@ local FuelSe, FuelSeId, FuelSePa
 local shortAnn, shortAnnIndex, shortAnnSt = false
 
 local oldswi = 0
-local old_mod_sec = 0
-local running_time = 0
-local running_time_50 
-local next_ann_time = 0
-local start_time = 0
-local fuel_pct = 0
-local fuel_max
-local fuel_qty
-local fuel_pct_50
-local fuel_pct_gearup
+local runningTime = 0
+local runningTime50 
+local nextAnnTime = 0
+local startTime = 0
+local fuelPct = 0
+local fuelMax
+local fuelQty
+local fuelPct50
+local fuelPctGearUp
 local remainingTime
 local burnRate
+local bingoTime
+local bingoAnnounced = false
+local emptyAnnounced = false
 
 local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
@@ -59,8 +61,10 @@ local digitMap = {
    [6]="six", [7]="seven", [8]="eight", [9]="nine",  [":"]="colon"
 }
 
-local charMap = {["0"]=0, ["1"]=1, ["2"]=2, ["3"]=3, ["4"]=4, ["5"]=5,
-   ["6"]=6, ["7"]=7, ["8"]=8, ["9"]=9, [":"]=":"}
+local charMap = {
+   ["0"]=0, ["1"]=1, ["2"]=2, ["3"]=3, ["4"]=4, ["5"]=5,
+   ["6"]=6, ["7"]=7, ["8"]=8, ["9"]=9, [":"]=":"
+}
 
    
 local digitImageTimer = {}
@@ -82,8 +86,6 @@ end
 --------------------------------------------------------------------------------
 
 -- Read available sensors for user to select - done once at startup
--- Capture battery sensor IDs as specified in batt_info
--- Additionally look for the telemetry labels in <batt_info>, note id & param
 
 local sensorLbl = "***"
 
@@ -130,14 +132,15 @@ local function fuelsensorChanged(value)
   system.pSave("FuelSePa", FuelSePa)
 end
 
+local function bingoTimeChanged(value)
+   bingoTime = value
+   system.pSave("bingoTime", bingoTime)
+end
+
 local function shortAnnClicked(value)
   shortAnn = not value
   form.setValue(shortAnnIndex, shortAnn)
-  if(shortAnn) then
-    system.pSave("shortAnnSt", 1)
-  else
-    system.pSave("shortAnnSt", 0)
-  end
+  system.pSave("shortAnn", tostring(shortAnn))
 end
 
 --------------------------------------------------------------------------------
@@ -158,6 +161,10 @@ local function initForm()
    form.addRow(2)
    form.addLabel({label="Select Throttle Cutoff (off)", width=220})
    form.addInputbox(thrControl, true, thrControlChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Bingo fuel (secs before empty)", width=220})
+   form.addIntbox(bingoTime, 0, 600, 60, 0, 1, bingoTimeChanged)
    
    form.addRow(2)
    form.addLabel({label="Short Announcement", width=270})
@@ -169,35 +176,89 @@ local function initForm()
 end
 --------------------------------------------------------------------------------
 
-local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str)
+local function writeFuelState()
+   local fp
+   local ft={}
+   local fn
+   local mn
+   local pf
+   local emFlag
+
+   if fuelPct == 100 then
+      print("DFM-TimG: write fuel state 100% - no JSON written")
+      return
+   end
+
+   emFlag = select(2, system.getDeviceType())
+   if emFlag == 1 then pf = "" else pf = "/" end
+   
+   ft.lastFuel = fuelPct
+
+   -- write time as hex so json converter does not make it a float
+   
+   ft.lastTime = string.format("0X%X", system.getTime())
+   mn = string.gsub(system.getProperty("Model"), " ", "_")
+   fn = pf .. "Apps/DFM-TimG/LF_" .. mn .. ".jsn"
+
+   fp = io.open(fn, "w")
+   if fp then io.write(fp, json.encode(ft), "\n") end
+   io.close(fp)
+end
+
+local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, rgb)
 
    local d
-   
-   lcd.setColor(0, 0, 255)
-   lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
+   local txt
+   local font = FONT_MAXI
+   local r, g, b
 
+   if val < 10 and system.getTime() % 2 == 0 then return end
    
-   d = math.max(math.min((val/(max-min))*w, w), 0)
-   lcd.drawFilledRectangle(oxc-w//2, oyc-h//2, d, h)
-   lcd.setColor(0,0,0)
-
-   if str then
-      lcd.drawText(oxc - lcd.getTextWidth(FONT_MINI, str)//2, oyc+7, str, FONT_MINI)
+   if rgb then
+      r=rgb.r
+      g=rgb.g
+      b=rgb.b
+   else
+      r=0
+      g=0
+      b=255
    end
    
+   lcd.setColor(r,g,b)
+   lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
+
+   d = math.max(math.min((val/(max-min))*w, w), 0)
+   lcd.drawFilledRectangle(oxc-w//2, oyc-h//2, d, h)
+
+   if str then
+      txt = str .. string.format("%.0f%%", val)
+      lcd.setColor(255,255,255)
+      -- note that for some reason, setClipping moves things to the right by the x coord
+      -- of the clip region .. correct for that
+      lcd.setClipping(oxc-w/2, 0, d, 160)
+      lcd.drawText(oxc - lcd.getTextWidth(font, txt) / 2 - (oxc - w//2),
+		   oyc - lcd.getTextHeight(font) / 2,
+		   txt, font)
+      lcd.setClipping(oxc -w/2 + d, 0, w-d, 160) 
+      lcd.setColor(r,g,b)
+      lcd.drawText(oxc - lcd.getTextWidth(font, txt) / 2 - (oxc - w//2 + d),
+		   oyc - lcd.getTextHeight(font)//2,
+		   txt, font)      
+      lcd.resetClipping()
+   end
 end
 
 -- Telemetry window draw functions
 
-
 local function timePrint(width, height)
 
-   local fstr
    local mm, rr
    local pts
    local rts
+
+   -- compute running time and time to empty, create strings
    
-   mm,rr = math.modf(running_time/60)
+   mm,rr = math.modf(runningTime/60)
    pts = string.format("%02d:%02d", math.floor(mm), math.floor(rr*60))
 
   if remainingTime then
@@ -206,30 +267,32 @@ local function timePrint(width, height)
   else
      rts = ""
   end
-  
-  if (fuel_pct and FuelSeId ~= 0) then
-    fstr = string.format("%d", math.floor(fuel_pct)) -- make sure it's an int if applying %d
-  else
-    fstr = ":::"
-  end
 
+  -- translate the strings to sequences of images of the digits
+  
   local len
   local char
 
+  -- get lenth of images for timer
+  
   len = 0
   for i = 1, #pts do
      char = pts:sub(i,i)
      len = len + digitImageTimer[charMap[char]].width
   end
 
-  local vPix = 10
+  local vPix = 5
   local hPix = width/2 - len/2
+
+  -- draw digits for timer
 
   for i = 1, #pts do
      char = pts:sub(i,i)
      lcd.drawImage(hPix, vPix, digitImageTimer[charMap[char]])
      hPix = hPix + digitImageTimer[charMap[char]].width
   end
+
+  -- get lenth of time to empty
 
   len = 0
   for i = 1, #rts do
@@ -238,7 +301,9 @@ local function timePrint(width, height)
   end
 
   hPix = width/2 - len/2
-  vPix = 65
+  vPix = 62
+
+  -- draw digits of time to empty
 
   for i = 1, #rts do
      char = rts:sub(i,i)
@@ -246,10 +311,14 @@ local function timePrint(width, height)
      hPix = hPix + digitImageEmpty[charMap[char]].width
   end
 
-  drawRectGaugeAbs(width/2, height-14, 300, 24, 0, 100, fuel_pct)
+  -- bar graph for fuel state
 
-  lcd.drawText(10,10, remainingTime or "---")
+  local rgb
   
+  if bingoAnnounced then rgb = {r=255,g=0,b=0} else rgb = {r=0,g=0,b=255} end
+     
+  drawRectGaugeAbs(width/2, height-20, 300, 40, 0, 100, fuelPct, "", rgb)
+
 end
 
 --------------------------------------------------------------------------------
@@ -257,120 +326,120 @@ end
 local function loop()
 
    local sensor = system.getSensorByID(FuelSeId, FuelSePa)
-   
-   local sgTC = system.getTimeCounter()
-   local tim = sgTC / 1000
-   if start_time > 0 then
-      running_time = tim-start_time
+   local tim = system.getTimeCounter() / 1000
+
+   if startTime > 0 then
+      runningTime = tim-startTime
    end
-   local mod_sec, rem_sec = math.modf(running_time)
 
    if(sensor and sensor.valid) then
-      fuel_qty = sensor.value
+      fuelQty = sensor.value
       -- odd behavior .. sensor.max tracking with sensor.value??
-      -- for now, just set fuel_max once at first reading till we figure it out
-      if not fuel_max then
-	 print("DFM-TimG: fuel_qty, sensor.max", fuel_qty, sensor.max)
-	 fuel_max = fuel_qty
+      -- for now, just set fuelMax once at first reading till we figure it out
+      if not fuelMax then
+	 fuelMax = fuelQty
       end
-      if fuel_max and fuel_qty  and (fuel_max ~= 0) then -- double check!
-	 fuel_pct = 100 * fuel_qty / fuel_max
+      if fuelMax and fuelQty  and (fuelMax > 0) then -- double check!
+	 fuelPct = 100 * fuelQty / fuelMax
       else
-	 fuel_pct = 0
+	 fuelPct = 0
       end
    end
 
-   -- think about: what if fuel reset to 100% on CTU when piss tank removed
-   -- how do we reset fuel max?
-   
-   if fuel_pct < 50 and start_time > 0 and fuel_pct_gearup then
-      if not fuel_pct_50 then
-	 fuel_pct_50 = fuel_pct
-	 running_time_50 = running_time
-	 print("fuel_pct_50:", fuel_pct_50)
-	 print("running_time_50", running_time_50)
-	 print("fuel pct gearup", fuel_pct_gearup)
+   if fuelPct < 50 and startTime > 0 and fuelPctGearUp then
+      if not fuelPct50 then
+	 fuelPct50 = fuelPct
+	 runningTime50 = runningTime
 	 -- long term average from gear up to now (just at 50% fuel)
-	 -- should be defensive aboute gear up with < 50% fuel, touch+goes, etc
-	 burnRate = (fuel_pct_gearup  - fuel_pct_50) / running_time_50
-	 print("at 50%: burn rate:", burnRate)
+	 burnRate = (fuelPctGearUp  - fuelPct50) / runningTime50
       end
       if burnRate > 0 then
-	 remainingTime = fuel_pct / burnRate      -- estimated time on fuel that is left
+	 remainingTime = fuelPct / burnRate      -- estimated time on fuel that is left
       else
 	 remainingTime = 0
       end
    end
-   
+
+   if remainingTime and remainingTime < bingoTime and not bingoAnnounced then
+      system.playFile('Apps/DFM-TimG/warning_bingo_fuel', AUDIO_IMMEDIATE)
+      bingoAnnounced = true
+   end
+
+   if system.getTimeCounter() - (emptyAnnouncedTime or 0) > 10000 then emptyAnnounced = false end
+
+   if remainingTime and remainingTime <= 0 and not emptyAnnounced then
+      system.playFile('Apps/DFM-TimG/warning_fuel_empty', AUDIO_IMMEDIATE)
+      emptyAnnounced = true
+      emptyAnnouncedTime = system.getTimeCounter()
+   end
+
    -- now read the retract/gear switch ... when put "up" for first time, start timer
+   -- will ignore subsequent gear ups, e.g. touch and goes
     
    local swi  = system.getInputsVal(gearSwitch) 
 
    if (swi and swi ~= oldswi) then
       oldswi = swi
-      if (swi == 1 and start_time == 0) then -- when the gear retracted first time, startup
-	 start_time = system.getTimeCounter()/1000       -- convert from ms to seconds
-	 fuel_pct_gearup = fuel_pct
-	 print("fuel_pct_gearup:", fuel_pct_gearup)
-	 next_ann_time = start_time + 60                 -- next announce in 60 seconds
+      -- when the gear retracted first time, startup
+      if (swi == 1 and startTime == 0) then 
+	 startTime = system.getTimeCounter() / 1000.0 
+	 fuelPctGearUp = fuelPct
+	 nextAnnTime = startTime + 60
 	 system.playFile('/Apps/DFM-TimG/Sup_Tim_Start.wav', AUDIO_QUEUE)
       end
-      if ( swi and swi == -1) then
-	 system.playFile('/Apps/DFM-TimG/Landing_Gear_Extended.wav')
-      end
    end
-
    
-   if (start_time > 0) then
-      running_time = tim - start_time
-      local turbine_state = system.getInputsVal(thrControl)
-      if (turbine_state and turbine_state > 0) then -- turbine is off .. stop timer
-	 start_time = 0
+   if (startTime > 0) then
+      runningTime = tim - startTime
+      local turbineState = system.getInputsVal(thrControl)
+      if (turbineState and turbineState > 0) then -- turbine is off .. stop timer
+	 startTime = 0
 	 system.messageBox("Turbine shut down, timer stopped")
+	 writeFuelState()
       end
    end
 
    -- now see if the next interval is passed
-   -- start_time is also used for state info ... it's zero if timer has never started or has
+   -- startTime is also used for state info ... it's zero if timer has never started or has
    -- been stopped by shutting down turbine
     
-   if (start_time > 0 and tim > next_ann_time) then    -- we are running and it's time to announce
+   if (startTime > 0 and tim >= nextAnnTime) then    -- we are running and it's time to announce
 
-      next_ann_time = next_ann_time + 60                -- schedule next ann 60 seconds in future
-      local min_time = running_time / 60
-      local mod_min, rem_min = math.modf(min_time)
+      
+      local minTime = runningTime / 60
+      local modMin, remMin = math.modf(minTime)
+      nextAnnTime = nextAnnTime + 60                -- schedule next ann 60 seconds in future
+
       system.playFile('/Apps/DFM-TimG/Sup_Tim_Tim.wav', AUDIO_QUEUE)   -- "Time Elapsed"
 
-      if mod_min > 0 then
-	 system.playNumber(mod_min, 0, 'min')
+      if modMin > 0 then
+	 system.playNumber(modMin, 0, 'min')
       end
 
-      if rem_min > 0.1 then
+      if remMin > 0.1 then
 	 system.playNumber(30, 0, 's')
       end
       
       if not shortAnn and FuelSeId ~= 0 then
 	 system.playFile('/Apps/DFM-TimG/Sup_Tim_Fuel.wav', AUDIO_QUEUE)  -- "Fuel Remaining"
       end
-      if (fuel_pct and FuelSeId ~= 0) then
-	 system.playNumber(fuel_pct, 0, '%')
+      if (fuelPct and FuelSeId ~= 0) then
+	 system.playNumber(fuelPct, 0, '%')
       end
 
-      if fuel_pct < 50 and start_time > 0 and fuel_pct_gearup then
-	 min_time = remainingTime / 60
-	 mod_min, rem_min = math.modf(min_time)
-	 rem_min = rem_min * 60
+      if fuelPct < 50 and startTime > 0 and fuelPctGearUp then
+	 minTime = remainingTime / 60
+	 modMin, remMin = math.modf(minTime)
+	 remMin = remMin * 60
 	 system.playFile('/Apps/DFM-TimG/Fuel_flight_time_remaining.wav', AUDIO_QUEUE)
-	 system.playNumber(math.floor(mod_min), 0, 'min')
-	 system.playNumber(math.floor(rem_min), 0, 's')
+	 system.playNumber(math.floor(modMin), 0, 'min')
+	 system.playNumber(math.floor(remMin), 0, 's')
       end
    end
 end
 --------------------------------------------------------------------------------
 local function init()
 
-   --local digitMap = {[0]="zero,[1]="one",[2]="two", [3]="three, [4]="four", [5]="five",
-   -- [6]="six", [7]="seven", [8]="eight", [9]="nine", [":"]="colon}
 
    local imagePix = 64
    local imageColorTimer = "blue"
@@ -379,16 +448,12 @@ local function init()
    
    for k,v in pairs(digitMap) do
       fn = "Apps/DFM-TimG/" .. v .. "-" .. tostring(imagePix) .. "-" .. imageColorTimer .. ".png"
-      print("k,v,fn:", k, v, fn)
       digitImageTimer[k] = lcd.loadImage(fn)
-      print(k, digitImageTimer[k].width, digitImageTimer[k].height)
    end
    
    for k,v in pairs(digitMap) do
       fn = "Apps/DFM-TimG/" .. v .. "-" .. tostring(imagePix) .. "-" .. imageColorEmpty .. ".png"
-      print("k,v,fn:", k, v, fn)
       digitImageEmpty[k] = lcd.loadImage(fn)
-      print(k, digitImageEmpty[k].width, digitImageEmpty[k].height)
    end
 
    gearSwitch = system.pLoad("gearSwitch")
@@ -398,21 +463,17 @@ local function init()
    FuelSeId    = system.pLoad("FuelSeId", 0)
    FuelSePa    = system.pLoad("FuelSePa", 0)
    
-   shortAnnSt = system.pLoad("shortAnnSt", 0)
+   -- can't pSave/load boolean .. translate back from string
+   shortAnn = system.pLoad("shortAnn", 0) == "true"
+   bingoTime = system.pLoad("bingoTime", 60)
    
-   if(shortAnnSt == 1) then
-      shortAnn = true
-   else
-      shortAnn = false
-   end
-   
-   system.registerForm(1, MENU_APPS, "Geriatric Time Announcer", initForm, keypress, printform)
+   system.registerForm(1, MENU_APPS, "Geriatric Time Announcer", initForm)
    system.registerTelemetry(1, "Geriatric Timer", 4, timePrint)
-   system.playFile('/Apps/DFM-TimG/Tim_Ann_Act.wav', AUDIO_IMMEDIATE)
-   
+
    readSensors()
+   setLanguage()
+
 end
 --------------------------------------------------------------------------------
-setLanguage()
 
-return {init=init, loop=loop, author="DFM", version=TimAnnVersion, name="Super Time Announcer"}
+return {init=init, loop=loop, author="DFM", version=TimAnnVersion, name="Time Announcer"}
