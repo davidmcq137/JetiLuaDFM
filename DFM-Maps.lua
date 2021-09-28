@@ -518,11 +518,7 @@ end
 
 local function setColorMap()
    if fieldPNG[currentImage] then
-      if variables.mapAlpha > 128 then
-	 lcd.setColor(255,255,0)
-      else
-	 lcd.setColor(0,0,255)
-      end
+      lcd.setColor(255,255,0)
    else
       lcd.setColor(0,0,0)
    end
@@ -555,11 +551,7 @@ local function setColorRunway()
 end
 
 local function setColorTriangle()
-   if variables.mapAlpha > 128 then
-      lcd.setColor(100,255,255)
-   else
-      lcd.setColor(255,0,0)
-   end
+   lcd.setColor(100,255,255)
 end
 
 local function setColorTriRot()
@@ -3027,7 +3019,12 @@ local function mapPrint(windowWidth, windowHeight)
    setColorMain()
 
    if fieldPNG[currentImage] then
-      lcd.drawImage(0,0,fieldPNG[currentImage], variables.mapAlpha)
+      if variables.mapAlpha < 255 then
+	 lcd.setColor(75,75,75)
+	 lcd.drawFilledRectangle(0,0,320,160)
+      else
+	 lcd.drawImage(0,0,fieldPNG[currentImage])
+      end
    else
       lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, "No GPS fix or no Image"))/2, 20,
 	 "No GPS fix or no Image", FONT_BIG)
@@ -3895,9 +3892,5 @@ local function init()
    -- io.close(ff)
 
 end
-
-
-
-
 
 return {init=init, loop=loop, author="DFM", version="7.25", name=appInfo.Name, destroy=destroy}
