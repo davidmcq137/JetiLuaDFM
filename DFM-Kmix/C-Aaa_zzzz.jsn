@@ -1,1 +1,1 @@
-{"jsnVersion":1.1,"lastTrimPoint":2,"tPoints":9,"trimCurveY":[0,0,0,0,0,0,0,0,0],"trimCurveU":[1,1,0,0,1,1,1,0,0],"trimCurveZ":[0,0,0,0,0,0,0,0,0],"trimCurveX":[-100,-75,-50,-25,0,25,50,75,100],"trimPoint":2}
+{"tPoints":9,"trimPoint":8,"trimCurveX":[-100,-75,-50,-25,0,25,50,75,100],"trimCurveU":[1,1,1,1,1,1,1,1,1],"trimCurveY":[-100,-61.30047,-53.72451,-11.94524,0,37.05004,59.74844,83.72725,100],"lastTrimPoint":8,"jsnVersion":1.1,"trimCurveZ":[0,0,-48.39158,-31.73933,0,-11.68126,78.72446,78.72446,78.72446]}

@@ -518,7 +518,11 @@ end
 
 local function setColorMap()
    if fieldPNG[currentImage] then
-      lcd.setColor(255,255,0)
+      if variables.mapAlpha > 128 then
+	 lcd.setColor(255,255,0)
+      else
+	 lcd.setColor(0,0,255)
+      end
    else
       lcd.setColor(0,0,0)
    end
@@ -551,7 +555,11 @@ local function setColorRunway()
 end
 
 local function setColorTriangle()
-   lcd.setColor(100,255,255)
+   if variables.mapAlpha > 128 then
+      lcd.setColor(100,255,255)
+   else
+      lcd.setColor(255,0,0)
+   end
 end
 
 local function setColorTriRot()
@@ -1390,6 +1398,10 @@ local function initForm(subform)
       form.addLabel({label="Field elevation adjustment (m)", width=220})
       form.addIntbox(variables.elev, -1000, 1000, 0, 0, 1, elevChanged)
       
+      form.addRow(2)
+      form.addLabel({label="Map Alpha", width=220})
+      form.addIntbox(variables.mapAlpha, 0, 255, 255, 0, 1, 
+		     (function(xx) return variableChanged(xx, "mapAlpha") end) )
       
       --form.addRow(2)
       --form.addLabel({label="Zoom reset sw", width=220})
@@ -3015,7 +3027,7 @@ local function mapPrint(windowWidth, windowHeight)
    setColorMain()
 
    if fieldPNG[currentImage] then
-      lcd.drawImage(0,0,fieldPNG[currentImage], 255)
+      lcd.drawImage(0,0,fieldPNG[currentImage], variables.mapAlpha)
    else
       lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, "No GPS fix or no Image"))/2, 20,
 	 "No GPS fix or no Image", FONT_BIG)
@@ -3805,6 +3817,7 @@ local function init()
    variables.pointSwitchDir    = jLoad(variables, "pointSwitchDir", 0)
    variables.colorSwitchName   = jLoad(variables, "colorSwitchName", 0)
    variables.colorSwitchDir    = jLoad(variables, "colorSwitchDir", 0)            
+   variables.mapAlpha          = jLoad(variables, "mapAlpha", 255)
    
    checkBox.triEnabled = jLoad(variables, "triEnabled", false)
    checkBox.noflyEnabled = jLoad(variables, "noflyEnabled", true)
@@ -3887,4 +3900,4 @@ end
 
 
 
-return {init=init, loop=loop, author="DFM", version="7.24", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="7.25", name=appInfo.Name, destroy=destroy}

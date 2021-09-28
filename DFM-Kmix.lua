@@ -303,15 +303,15 @@ local function initForm(sF)
    if sF == 1 then
 
       form.addRow(2)
-      form.addLabel({label="Crow or Rudder Control", width=220})
+      form.addLabel({label="Main control (Crow or Rudder)", width=220})
       form.addInputbox(crowCtrl, true, crowCtrlChanged)
       
       form.addRow(2)
-      form.addLabel({label="Crow (0-100%) mode", width=270})
+      form.addLabel({label="Main control 0-100% mode", width=280})
       oneSidedInputIndex = form.addCheckbox(oneSidedInput, oneSidedInputChanged)
 
       form.addRow(2)
-      form.addLabel({label=lang.revCrowControl, width=275})
+      form.addLabel({label="Main control reverse", width=280})
       reverseCrowIndex = form.addCheckbox(reverseCrow, reverseCrowChanged, {alignRight=true})
       
       --form.addRow(2)
@@ -323,22 +323,22 @@ local function initForm(sF)
       --reverseTrimIndex = form.addCheckbox(reverseTrim, reverseTrimChanged)
 
       form.addRow(2)
-      form.addLabel({label=lang.autoCrowOnOff, width=220})
-      form.addInputbox(autoCtrl, true, autoCtrlChanged, {alignRight=true})
+      form.addLabel({label="Automix on/off control", width=230})
+      form.addInputbox(autoCtrl, true, autoCtrlChanged, {width=90,alignRight=true})
       
       form.addRow(2)
-      form.addLabel({label=lang.autoCrowElev, width=220})
-      form.addInputbox(elevCtrl, true, elevCtrlChanged)
+      form.addLabel({label="Automix Elevator control", width=220})
+      form.addInputbox(elevCtrl, true, elevCtrlChanged, {width=100, alignRight=true})
 
       form.addRow(2)
-      form.addLabel({label="AutoCrow Aileron Control", width=220})
-      form.addInputbox(ailCtrl, true, ailCtrlChanged)      
+      form.addLabel({label="Automix Aileron Control", width=220})
+      form.addInputbox(ailCtrl, true, ailCtrlChanged, {width=100, alignRight=true})      
 
       --form.addRow(2)
       --form.addLink((function() form.reinit(3) end), {label = "AutoCrow Menu >>"})
 
       form.addRow(2)
-      form.addLink((function() form.reinit(2) end), {label = lang.crowSettings .. ">>", width=220})
+      form.addLink((function() form.reinit(2) end), {label = "App settings" .. ">>", width=220})
 	 
       form.addRow(1)
       form.addLabel({label= appShort..".lua " .. lang.version .. " " .. crowVersion .." ",
@@ -466,7 +466,7 @@ local function loop()
 	 crowConfig.trimPoint = #crowConfig.trimCurveX
       end
 
-      print("trimPoint1:", crowConfig.trimPoint, swcVal, centerPoint)
+      --print("trimPoint1:", crowConfig.trimPoint, swcVal, centerPoint)
 
       if swcVal < 0.0 then
 	 crowConfig.trimPoint = centerPoint
@@ -482,7 +482,7 @@ local function loop()
 	    crowConfig.trimPoint = 1
 	 end
       end
-      print("trimPoint2:", crowConfig.trimPoint)
+      --print("trimPoint2:", crowConfig.trimPoint)
       
       --print("trimPoint2", crowConfig.trimPoint)      
 
@@ -541,19 +541,23 @@ local function loop()
 	       end
 	    end
 	 end
+
+	 if elevCtrl then
+	    incT = (autoCrowRate / 10) * ((swe or 0) / 10)
+	    crowConfig.trimCurveY[crowConfig.trimPoint] =
+	       crowConfig.trimCurveY[crowConfig.trimPoint] + incT
+	    crowConfig.trimCurveY[crowConfig.trimPoint] =
+	       math.max(math.min(crowConfig.trimCurveY[crowConfig.trimPoint], 100), -100)
+	 end
+
+	 if ailCtrl then
+	    incT = (autoCrowRate / 10) * ((swl or 0) / 10)
+	    crowConfig.trimCurveZ[crowConfig.trimPoint] =
+	       crowConfig.trimCurveZ[crowConfig.trimPoint] + incT
+	    crowConfig.trimCurveZ[crowConfig.trimPoint] =
+	       math.max(math.min(crowConfig.trimCurveZ[crowConfig.trimPoint], 100), -100)
+	 end
 	 
-	 incT = (autoCrowRate / 10) * ((swe or 0) / 10)
-	 crowConfig.trimCurveY[crowConfig.trimPoint] =
-	    crowConfig.trimCurveY[crowConfig.trimPoint] + incT
-	 crowConfig.trimCurveY[crowConfig.trimPoint] =
-	    math.max(math.min(crowConfig.trimCurveY[crowConfig.trimPoint], 100), -100)
-
-	 incT = (autoCrowRate / 10) * ((swl or 0) / 10)
-	 crowConfig.trimCurveZ[crowConfig.trimPoint] =
-	    crowConfig.trimCurveZ[crowConfig.trimPoint] + incT
-	 crowConfig.trimCurveZ[crowConfig.trimPoint] =
-	    math.max(math.min(crowConfig.trimCurveZ[crowConfig.trimPoint], 100), -100)
-
 	 crowConfig.trimCurveU[crowConfig.trimPoint] = 1	 
 
 	 highestSet = centerPoint
@@ -675,8 +679,9 @@ local function teleWindowE()
 	 lcd.drawRectangle(xpix(crowConfig.trimCurveX[crowConfig.trimPoint]) - lR/2 + 1,
 				ypix(crowConfig.trimCurveY[crowConfig.trimPoint]) - lR/2,
 				lR, lR)
-	 if crowConfig.trimPoint > 1 then
+	 if crowConfig.trimPoint ~= centerPoint then
 	    if crowConfig.trimPoint < #crowConfig.trimCurveX then dx = 6 else dx = 9 end
+	    if crowConfig.trimPoint == 1 then dx = 3 end 
 	    lcd.drawText(xpix(crowConfig.trimCurveX[crowConfig.trimPoint])-dx,55,
 			 string.format("%d", crowConfig.trimCurveY[crowConfig.trimPoint]), FONT_MINI)
 	    if autoCtrl and elevCtrl and swa == 1 then -- autotrim is on!
@@ -748,8 +753,9 @@ local function teleWindowA()
 	 lcd.drawRectangle(xpix(crowConfig.trimCurveX[crowConfig.trimPoint]) - lR/2 + 1,
 				ypix(crowConfig.trimCurveZ[crowConfig.trimPoint]) - lR/2,
 				lR, lR)
-	 if crowConfig.trimPoint > 1 then
+	 if crowConfig.trimPoint ~= centerPoint then
 	    if crowConfig.trimPoint < #crowConfig.trimCurveX then dx = 6 else dx = 9 end
+	    if crowConfig.trimPoint == 1 then dx = 3 end 
 	    lcd.drawText(xpix(crowConfig.trimCurveX[crowConfig.trimPoint])-dx,55,
 			 string.format("%d", crowConfig.trimCurveZ[crowConfig.trimPoint]), FONT_MINI)
 	    if autoCtrl and ailCtrl and swa == 1 then -- autotrim is on!
@@ -774,10 +780,10 @@ local function teleWindowA()
    if monoChrome then
       for i=1, #crowConfig.trimCurveX, 1 do
 	 if crowConfig.trimCurveU[i] == 1 then
-	    lcd.setColor(0,0,255)
+	    lcd.setColor(0,255,0)
 	    iSize = 4
 	 else
-	    lcd.setColor(255,0,0)
+	    lcd.setColor(0,255,0)
 	    iSize = 3
 	 end
 	 lcd.drawCircle(xpix(crowConfig.trimCurveX[i]), ypix(crowConfig.trimCurveZ[i]), iSize)
@@ -791,7 +797,7 @@ local function teleWindowA()
       ren:reset()
       for i=1, #crowConfig.trimCurveX, 1 do
 	 if crowConfig.trimCurveU[i] == 1 then
-	    lcd.setColor(0,0,255)
+	    lcd.setColor(0,255,0)
 	    iSize = 4
 	 else
 	    lcd.setColor(255,0,0)
@@ -854,6 +860,7 @@ local function init()
    trimStep        = system.pLoad("trimStep", 2)
    --tPoints         = system.pLoad("tPoints", 7)   
    elevCtrl        = system.pLoad("elevCtrl")
+   ailCtrl         = system.pLoad("ailCtrl")
    autoCtrl        = system.pLoad("autoCtrl")   
    autoCrowRate    = system.pLoad("autoCrowRate", 300)
    autoCrowSens    = system.pLoad("autoCrowSens", 1)
@@ -893,7 +900,7 @@ local function init()
 
    initCrow()
 
-   system.registerForm(1, MENU_APPS, lang.formTitle, initForm)
+   system.registerForm(1, MENU_APPS, "Adaptive Mixer", initForm)
    system.registerTelemetry(1, "Elevator Mix Curve", 2, teleWindowE) 
    system.registerTelemetry(2, "Aileron Mix Curve", 2, teleWindowA)   
 
@@ -902,28 +909,28 @@ local function init()
    -- for DS-24 start at 5
    
    if monoChrome then
-      acvEleCtrl = system.registerControl(1, "Adaptive Crow Value Elevator", "ACE")      
-      acvAilCtrl = system.registerControl(1, "Adaptive Crow Value Aileron" , "ACA")      
+      acvEleCtrl = system.registerControl(1, "Adaptive Mix Value Elevator", "AME")      
+      acvAilCtrl = system.registerControl(1, "Adaptive Mix Value Aileron" , "AMA")      
    else
       for i=1,10,1 do
-	 acvEleCtrl = system.registerControl(1+(i+3)%10, "Adaptive Crow Value Elevator", "ACE")
-	 acvAilCtrl = system.registerControl(1+(i+4)%10, "Adaptive Crow Value Elevator", "ACA")	 
+	 acvEleCtrl = system.registerControl(1+(i+3)%10, "Adaptive Mix Value Elevator", "AME")
+	 acvAilCtrl = system.registerControl(1+(i+4)%10, "Adaptive Mix Value Elevator", "AMA")	 
 	 if acvAilCtrl then break end
       end
    end
    
    if acvEleCtrl then
-      print(appShort .. ": ACE registered to control " .. acvEleCtrl)
+      print(appShort .. ": AME registered to control " .. acvEleCtrl)
       system.setControl(acvEleCtrl,0,0)      
    else
-      print(appShort .. ": Could not register ACE control")      
+      print(appShort .. ": Could not register AME control")      
    end
 
    if acvAilCtrl then
-      print(appShort .. ": ACA registered to control " .. acvAilCtrl)
+      print(appShort .. ": AMA registered to control " .. acvAilCtrl)
       system.setControl(acvAilCtrl,0,0)      
    else
-      print(appShort .. ": Could not register ACA control")      
+      print(appShort .. ": Could not register AMA control")      
    end
 
    if not acvEleCtrl or not acvAilCtrl then
