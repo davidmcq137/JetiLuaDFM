@@ -96,6 +96,8 @@ local lngHist={}
 local rgbHist={}
 local countNoNewPos = 0
 local rgb = {}
+local recalcPixels = false
+local recalcCount = 0
 
 local metrics={}
 metrics.currMaxCPU = 0
@@ -1800,7 +1802,7 @@ local function drawTriRace(windowWidth, windowHeight)
    setColorMain()
    -- draw line from airplane to the aiming point
    if raceParam.racing then
-      lcd.setColor(255,20,147) -- magenta ... like a flight director..
+      lcd.setColor(255,20,147)
       lcd.drawLine(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight),
 	   toXPixel(pylon[m3(nextPylon)].xt, map.Xmin, map.Xrange, windowWidth),
@@ -2169,6 +2171,7 @@ local function calcTriRace()
 	    end
 	    raceParam.penaltyPoints = 50 + 2 * math.max(speed - variables.maxSpeed, 0) + 2 *
 	       math.max(altitude - variables.maxAlt, 0)
+	    lapAltitude = altitude
 	    playFile(appInfo.Dir.."Audio/penalty_points.wav", AUDIO_QUEUE)
 	    playNumber(math.floor(raceParam.penaltyPoints+0.5), 0)
 	 else
@@ -2238,8 +2241,8 @@ local function calcTriRace()
       tsec = (sgTC - raceParam.lapStartTime) / 1000.0
       tmin = tsec // 60
       tsec = tsec - tmin*60      
-      raceParam.titleText = raceParam.titleText ..string.format("%02d:%04.1f / ",
-				  tmin, tsec)
+      raceParam.lapTimeText = string.format("%02d:%04.1f",  tmin, tsec)
+      raceParam.titleText = raceParam.titleText ..raceParam.lapTimeText .. " / "
 
       tsec = raceParam.lastLapTime / 1000.0
       tmin = tsec // 60
@@ -2521,10 +2524,11 @@ local function drawHeading()
 
    local dispHeading
    local text
+   local dx=80
    
-   lcd.drawFilledRectangle(colHeading-70, rowHeading, 140, 2)
-   lcd.drawFilledRectangle(colHeading+65, rowHeading-20, 6,22)
-   lcd.drawFilledRectangle(colHeading-65-6, rowHeading-20, 6,22)
+   lcd.drawFilledRectangle(colHeading-70+dx, rowHeading, 140, 2)
+   lcd.drawFilledRectangle(colHeading+65+dx, rowHeading-20, 6,22)
+   lcd.drawFilledRectangle(colHeading-65-6+dx, rowHeading-20, 6,22)
 
    --dispHeading = (heading + variables.rotationAngle) % 360
    dispHeading = (heading) % 360
@@ -2537,20 +2541,20 @@ local function drawHeading()
       
       if deltaX >= -64 and deltaX <= 62 then -- was 31
 	 if point[3] then
-	    lcd.drawText(colHeading + deltaX - 4, rowHeading - 16, point[3], FONT_MINI)
+	    lcd.drawText(colHeading + deltaX - 4+dx, rowHeading - 16, point[3], FONT_MINI)
 	 end
 	 if point[2] > 0 then
-	    lcd.drawLine(colHeading + deltaX, rowHeading - point[2],
-			 colHeading + deltaX, rowHeading)
+	    lcd.drawLine(colHeading + deltaX+dx, rowHeading - point[2],
+			 colHeading + deltaX+dx, rowHeading)
 	 end
       end
    end 
 
    text = string.format(" %03d",dispHeading)
    w = lcd.getTextWidth(FONT_NORMAL,text) 
-   lcd.drawFilledRectangle(colHeading - w/2, rowHeading-30, w, lcd.getTextHeight(FONT_MINI))
+   lcd.drawFilledRectangle(colHeading - w/2+dx, rowHeading-30, w, lcd.getTextHeight(FONT_MINI))
    lcd.setColor(255,255,255)
-   lcd.drawText(colHeading - w/2,rowHeading-30,text,  FONT_MINI)
+   lcd.drawText(colHeading - w/2+dx, rowHeading-30,text,  FONT_MINI)
    
    lcd.resetClipping()
 end
@@ -2713,6 +2717,199 @@ local function prtForm(windowWidth, windowHeight)
       lcd.drawFilledRectangle(0, 0, 320,8)      
       setColorMain()
    end
+end
+
+local function dirPrint()
+   local dx, dy, rx, ry
+   local sC = variables.triLength * 2.5
+   local xf = 0.35
+   local yf = 0.65
+   local xmin, xmax=(-1+xf)*sC, xf*sC
+   local xt = 320*(1-xf/2)
+   local ymin, ymax=(-1+yf)*sC/2, yf*sC/2
+   local xrange = xmax - xmin
+   local yrange = ymax - ymin
+   local ww = 320
+   local wh = 160
+   local ren=lcd.renderer()
+   local hh
+
+   if not xtable or not ytable then return end
+
+   lcd.setColor(0,0,255)
+   
+   --drawHeading()
+   
+   hh = heading - 180
+   local xx, yy = xtable[#xtable], ytable[#ytable]
+   
+   local function rapP(ix, iy)
+      local rx, ry
+      rx, ry = rotateXY(ix, iy, math.rad(hh))
+      ren:addPoint(rx, ry)
+   end
+   
+   local function rap(x,y,d)
+      local dx = xx - x
+      local dy = yy - y
+      local rx, ry = rotateXY(dx, dy, math.rad(hh))
+      rx, ry = toXPixel(rx, xmin, xrange, ww), toYPixel(ry, ymin, yrange, wh)
+      ren:addPoint(rx, ry)
+      if d then
+	 lcd.drawCircle(rx, ry, d)
+      end
+   end
+
+   lcd.setColor(0,0,0)
+
+   lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6+4, "N", FONT_MINI)
+   drawShape(20, 12+4, shapes.arrow, math.rad(-heading+variables.rotationAngle - 90))
+   lcd.drawCircle(20, 12+4, 7)
+
+   
+   ren:reset()
+
+   if not pylon or not pylon[3] then return end
+   
+   ren:reset()
+
+   -- draw the triangle
+   
+   for j = 1, #pylon + 1 do
+      rap(pylon[m3(j)].x, pylon[m3(j)].y)
+   end
+
+
+   lcd.setColor(0,255,0)
+   ren:renderPolyline(2, 0.7)
+
+   --draw the startline
+   
+   if #pylon == 3 and pylon.start then
+      ren:reset()
+      rap(pylon[2].x, pylon[2].y)
+      rap(pylon.start.x, pylon.start.y)
+      lcd.setColor(0,0,255)
+      ren:renderPolyline(2,0.7)
+   end
+
+   -- draw the line to the next aim point
+
+   if raceParam.racing then
+      lcd.setColor(250,177,216)
+      ren:reset()
+      rap(xx,yy)
+      rap(pylon[m3(nextPylon)].xt, pylon[m3(nextPylon)].yt)
+      ren:renderPolyline(2, 0.7)
+   end
+
+   -- draw the turning zones
+   
+   for j = 1, #pylon do
+      ren:reset()
+      rap(pylon[j].x, pylon[j].y)
+      rap(pylon[j].zxl, pylon[j].zyl)
+      rap(pylon[j].zxr, pylon[j].zyr)
+      rap(pylon[j].x, pylon[j].y)
+      lcd.setColor(255,0,0)
+      local alpha
+      if raceParam.racing and m3(nextPylon) == j then
+	 alpha = 0.8
+      else
+	 alpha = 0.2
+      end
+      ren:renderPolygon(alpha)
+   end
+
+   ------------------------------------------------------------
+
+   -- now draw the history/ribbon
+   
+   local swp
+   
+   if switchItems.point then
+      swp = system.getInputsVal(switchItems.point)
+   end
+   
+   if ( (not switchItems.point) or (swp and swp == 1) ) and (#xPHist > 0) then
+      rgb.last = -1 
+      local kk
+      local ii = variables.ribbonColorSource
+      local xrr, yrr
+      local iend = #xPHist
+      local istart = math.max(iend-60-1, 1)
+      ren:reset()
+      for i=istart, iend do
+	 kk = i
+	 --XXX
+	 if ii ~= 1 then
+	    if (rgb.last ~= rgbHist[i].rgb) then
+	       ren:renderPolyline(variables.ribbonWidth*2, variables.ribbonAlpha * 0.7)
+	       ren:reset()
+	       if xrr and yrr then rap(xrr, yrr, 2) end
+	       lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
+	       rgb.last = rgbHist[i].rgb
+	    end
+	 else -- solid/monochrome ribbon
+	    lcd.setColor(140,140,80)
+	 end
+	 xrr, yrr = rE*(lngHist[i]-lng0)*coslat0/rad, rE*(latHist[i]-lat0)/rad
+	 xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
+	 rap(xrr, yrr, 2)
+      end
+      rap(xx, yy, 2)
+      ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
+   end
+   
+   ------------------------------------------------------------
+   
+   -- draw the airplane icon
+   
+   lcd.setColor(0,0,255)
+   drawShape(toXPixel(0, xmin, xrange, ww),
+	     toYPixel(0, ymin, yrange, wh),
+	     shapes.T38, 0)
+
+   -- draw the projected flight path
+   
+   ren:reset()
+   ren:addPoint(toXPixel(0, xmin, xrange, ww), toYPixel(sC/12, ymin, yrange, wh))
+   ren:addPoint(toXPixel(0, xmin, xrange, ww), toYPixel(sC/3.5, ymin, yrange, wh))
+   ren:renderPolyline(3,0.7)
+
+   lcd.setColor(0,0,255)
+
+   -- draw the telemetry values
+   
+   local text
+   text = string.format("%d", math.floor(raceParam.lapsComplete))
+   lcd.drawText(xt - lcd.getTextWidth(FONT_BIG, text)/2, 5, text, FONT_BIG)
+   text = "Laps"
+   lcd.drawText(xt - lcd.getTextWidth(FONT_MINI, text)/2, 5+20, text, FONT_MINI)
+
+   text = raceParam.lapTimeText or "00:00.0"
+   lcd.drawText(xt - lcd.getTextWidth(FONT_BIG, text)/2, 42, text, FONT_BIG)
+   text = "Lap Time"
+   lcd.drawText(xt - lcd.getTextWidth(FONT_MINI, text)/2, 42+20, text, FONT_MINI)
+
+   text = string.format("%d", math.floor(altitude + 0.5))
+   if lapAltitude then
+      text = text .. string.format(" / %d", math.floor(lapAltitude + 0.5))
+   end
+   lcd.drawText(xt - lcd.getTextWidth(FONT_BIG, text)/2, 79, text, FONT_BIG)
+   text = "Altitude"
+   lcd.drawText(xt - lcd.getTextWidth(FONT_MINI, text)/2, 79+20, text, FONT_MINI)
+   
+   text = string.format("%d", math.floor(speed + 0.5))
+   --if raceParam.lastLapSpeed and raceParam.lastLapSpeed ~= 0 then
+   --   text = text ..string.format(" / %d", math.floor(raceParam.lastLapSpeed + 0.5))
+   --end
+   lcd.drawText(xt - lcd.getTextWidth(FONT_BIG, text)/2, 116, text, FONT_BIG)
+   text = "Speed"
+   lcd.drawText(xt - lcd.getTextWidth(FONT_MINI, text)/2, 116+20, text, FONT_MINI)   
+
+   lcd.drawText(5,140, string.format("CPU: %d%%", system.getCPU()), FONT_MINI)
+
 end
 
 --[[
@@ -2896,9 +3093,6 @@ local function checkNoFly(xt, yt, future, warn)
    end
    
 end
-
-local recalcPixels = false
-local recalcCount = 0
 
 local function recalcDone()
    local i
@@ -3123,14 +3317,13 @@ local function mapPrint(windowWidth, windowHeight)
       
       rgb.last = -1 --rgbHist[1+(offset or 0)].rgb
 
-      local kk
-
       -- only paint as many points as have been re-calculated if we are redoing the pixels
       -- because of a recent zoom change
       
       --AA--ren:reset()
       --AA--for i=1 + offset, (recalcPixels and recalcCount or #xPHist) do
 
+      local kk
       local ii = variables.ribbonColorSource
       
       for i=2 + offset, (recalcPixels and recalcCount or #xPHist) do
@@ -3147,6 +3340,7 @@ local function mapPrint(windowWidth, windowHeight)
 	 end
 	 
 	 --]]
+	 lcd.drawCircle(xPHist[i], yPHist[i], 2)
 	 lcd.drawLine(xPHist[i-1], yPHist[i-1], xPHist[i], yPHist[i])
 	 if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
 	    if system.getCPU() >= variables.maxCPU then
@@ -3174,6 +3368,7 @@ local function mapPrint(windowWidth, windowHeight)
       ------------------------------
    end
 
+   
    setColorMap()
    
    if #rwy == 4 then
@@ -3683,9 +3878,9 @@ local function loop()
    end
    
    if #xtable > lineAvgPts then -- we have at least 4 points...
-      -- make sure we have a least 15' of manhat dist over which to compute compcrs
+      -- make sure we have a least 3m of manhat dist over which to compute compcrs
       if (math.abs(xtable[#xtable]-xtable[#xtable-lineAvgPts+1]) +
-	  math.abs(ytable[#ytable]-ytable[#ytable-lineAvgPts+1])) > 15 then
+	  math.abs(ytable[#ytable]-ytable[#ytable-lineAvgPts+1])) > 3 then
 	 
 	 compcrs = select(2,fslope(table.move(xtable, #xtable-lineAvgPts+1, #xtable, 1, {}),
 				   table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {})))
@@ -3801,7 +3996,7 @@ local function init()
    variables.triOffsetX        = jLoad(variables, "triOffsetX",      0)
    variables.triOffsetY        = jLoad(variables, "triOffsetY",      0)
    variables.ribbonWidth       = jLoad(variables, "ribbonWidth",     1)
-   variables.ribbonAlpha       = jLoad(variables, "ribbonAlpha",     5)
+   variables.ribbonAlpha       = jLoad(variables, "ribbonAlpha",   1.0)
    variables.switchesSet       = jLoad(variables, "switchesSet")
    variables.annText           = jLoad(variables, "annText", "c-d----")   
    variables.preText           = jLoad(variables, "preText", "s-a----")      
@@ -3844,8 +4039,8 @@ local function init()
    metrics.loopTimeAvg = 0
 
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
-   system.registerTelemetry(1, appInfo.Name.." Overhead View", 4, mapPrint)
-   --system.registerTelemetry(2, appInfo.Name.." Flight Director", 4, dirPrint)   
+   system.registerTelemetry(1, appInfo.Name.." Map View", 4, mapPrint)
+   system.registerTelemetry(2, appInfo.Name.." Triangle View", 4, dirPrint)   
    
    emFlag = (select(2,system.getDeviceType()) == 1)
 

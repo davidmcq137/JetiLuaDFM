@@ -511,7 +511,7 @@ function emulator_getSensorByID(ID, Param)
 
 	    if GPSparms.trueDir then
 	       --print("GPSparms.trueDir:", GPSparms.trueDir)
-	       xCart, yCart = rotateXY(xCart, yCart, math.rad(270-GPSparms.trueDir))
+	       xCart, yCart = rotateXY(xCart, yCart, math.rad(360-GPSparms.trueDir))
 	    end
 	    
 	    -- these will be lat and lon in radians

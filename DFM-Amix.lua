@@ -1,12 +1,18 @@
 --[[
 
-   DFM-Kmix.lua
+   DFM-Amix.lua
 
-   Adaptive crow trim offset, JETI adaptation of the orgininal open TX
-   app done by Mike Shellim at the suggestion of Harry Curzon
+   Adaptive mixer. Can be used as "autocrow" with one-sided (0-100%)
+   input for crow controlled by P4 or a slider, mixing to
+   elevator. Can also be used as "autoknife" for knife edge trim with
+   two-sided (-100-100%) input for knife edge mix controlled by
+   rudder, mixing to elevator and ailerons.
 
    Copied/forked from DFM-Crow after V 1.5
 
+   DFM-Crow: Adaptive crow trim offset, JETI adaptation of the
+   orgininal open TX app done by Mike Shellim at the suggestion of
+   Harry Curzon
 
    ---------------------------------------------------------
    Released under MIT-license by DFM 2021
@@ -21,19 +27,21 @@
    Version 0.7 - Apr 27, 2021 limited support for mono display TXs
    Version 0.8 - May 07, 2021 supports mono/limited lua and other TXs
    Version 0.9 - May 08, 2021 unset points track highest point set, not current point
-   Version 1.0 - May 09, 2021 persist crow curve by model name, remove crow controls, purely autocrow
+   Version 1.0 - May 09, 2021 persist crow curve by model name, 
+                              remove crow controls, purely autocrow
    Version 1.1 - May 12, 2021 add language support
    Version 1.2 - May 18, 2021 improve language support to only read one lang file, add deadCrow
-   Version 1.3 - May 19, 2021 add some translated strings that were missed, remove flight mode ctrl
+   Version 1.3 - May 19, 2021 add some translated strings that were missed, 
+                              remove flight mode ctrl
    Version 1.4 - May 31, 2021 edits to the language jsn files, add de-auto_crow.wav file
 
    Version 1.5 - Jul 25, 2021 fix bug that prevented use of logical sw/ctrl for crow
                               change speaking of crow points to indiv wav files
 
-   Fork to DFM-Kmix
+   Fork to DFM-Amix
 
-   Version 1.0 - Sep 28,2021  first version .. incorporates one-sided (0-100%) or (-100% to 100%)
-                              inputs. Adds second output control.
+   Version 0.0 - Sep 28,2021  first version .. incorporates one-sided (0-100%) or (-100% to 100%)
+                              inputs. Adds second output control and tele screen.
 
    Limitations: 
    
@@ -48,16 +56,16 @@
 
 --]]
 
-local crowVersion= 1.5
-local appShort="DFM-Kmix"
+local crowVersion = 0.0
+local appShort="DFM-Amix"
 local appDir = "Apps/"..appShort.."/"
 
 local monoChrome
 
 local crowCtrl
+
 local acvEleCtrl
 local acvAilCtrl
-local fmCtrl
 local elevCtrl
 local ailCtrl
 local autoCtrl
@@ -70,7 +78,6 @@ crowConfig.jsnVersion = 1.1 -- version of saved data file
 
 local modelFile
 
-local trimCtrl
 local swc
 local swa
 
@@ -78,7 +85,6 @@ local reverseCrow
 local reverseCrowIndex
 
 local reverseTrim
-local reverseTrimIndex
 
 local announcePoints
 local announcePointsIndex
@@ -86,15 +92,8 @@ local announcePointsIndex
 local oneSidedInputIndex
 local oneSidedInput
 
-local trimStep
-
-local lastswt=0
-
 local swcVal
 local mixValE, mixValA
-
-local pressHold = 200
-local pressTime
 
 local autoCrowSens 
 local autoCrowSpacing
@@ -104,7 +103,6 @@ local locale
 
 local function setLanguage()
 
-   local obj
    local fp
    local transFile
 
@@ -138,9 +136,6 @@ local function initCrow()
    local savedY
    local savedZ
    local savedU
-   local ioff
-   local x0
-   local xP
    
    if crowConfig.trimCurveY and #crowConfig.trimCurveY ~= 0 then
       savedY = true
@@ -177,7 +172,7 @@ local function initCrow()
       end
    end
 
-   crowConfig.trimCurveU[centerPoint] = 1
+   crowConfig.trimCurveU[crowConfig.centerPoint] = 1
 
 end
 
@@ -190,16 +185,6 @@ local function crowCtrlChanged(value)
    else
       system.pSave("crowCtrl", crowCtrl)
    end
-end
-
-local function trimCtrlChanged(value)
-   local info
-   trimCtrl = value
-   info = system.getSwitchInfo(trimCtrl)
-   if not info.proportional then
-      system.messageBox(lang.pleaseProp)
-   end
-   system.pSave("trimCtrl", trimCtrl)
 end
 
 local function elevCtrlChanged(value)
@@ -233,39 +218,9 @@ local function reverseCrowChanged(value)
    system.pSave("reverseCrow", tostring(reverseCrow))
 end
 
-local function reverseTrimChanged(value)
-   reverseTrim = not value
-   form.setValue(reverseTrimIndex, reverseTrim)
-   system.pSave("reverseTrim", tostring(reverseTrim))
-end
-
-local function trimStepChanged(value)
-   trimStep = value
-   system.pSave("trimStep", trimStep)
-end
-
 local function autoCrowRateChanged(value)
    autoCrowRate = value
    system.pSave("autoCrowRate", autoCrowRate)
-end
-
-local function autoCrowSensChanged(value)
-   autoCrowSens = value
-   system.pSave("autoCrowSens", autoCrowSens)
-end
-
-local function autoCrowSpacingChanged(value)
-   autoCrowSpacing = value
-   system.pSave("autoCrowSpacing", autoCrowSpacing)
-   initCrow()
-end
-
-local function tPointsChanged(value)
-   crowConfig.tPoints = value
-   crowConfig.trimCurveY = nil
-   crowConfig.trimCurveZ = nil
-   crowConfig.trimCurveU = nil
-   initCrow()
 end
 
 local function announcePointsChanged(value)
@@ -276,16 +231,14 @@ end
 
 local function oneSidedInputChanged(value)
    oneSidedInput = not value
-   --print("oneSidedInput", oneSidedInput)
    form.setValue(oneSidedInputIndex, oneSidedInput)
-   system.pSave("oneSidedInput", tostring(oneSidedInput))
    -- reset the curve if changing input types
    for i=1, #crowConfig.trimCurveX do
       crowConfig.trimCurveY[i]=0
       crowConfig.trimCurveZ[i]=0      
       crowConfig.trimCurveU[i]=0
    end
-   if oneSidedInput == true then centerPoint = 5 else centerPoint = 1 end
+   if oneSidedInput == true then crowConfig.centerPoint = 5 else crowConfig.centerPoint = 1 end
    initCrow()
 end
 
@@ -295,7 +248,7 @@ local function rstCurve()
       crowConfig.trimCurveZ[i]=0
       crowConfig.trimCurveU[i]=0
    end
-   crowConfig.trimCurveU[centerPoint] = 1
+   crowConfig.trimCurveU[crowConfig.centerPoint] = 1
 end
 
 local function initForm(sF)
@@ -314,14 +267,6 @@ local function initForm(sF)
       form.addLabel({label="Main control reverse", width=280})
       reverseCrowIndex = form.addCheckbox(reverseCrow, reverseCrowChanged, {alignRight=true})
       
-      --form.addRow(2)
-      --form.addLabel({label="Trim Control", width=220})
-      --form.addInputbox(trimCtrl, true, trimCtrlChanged)
-      
-      --form.addRow(2)
-      --form.addLabel({label="Reverse Trim Control", width=270})
-      --reverseTrimIndex = form.addCheckbox(reverseTrim, reverseTrimChanged)
-
       form.addRow(2)
       form.addLabel({label="Automix on/off control", width=230})
       form.addInputbox(autoCtrl, true, autoCtrlChanged, {width=90,alignRight=true})
@@ -333,9 +278,6 @@ local function initForm(sF)
       form.addRow(2)
       form.addLabel({label="Automix Aileron Control", width=220})
       form.addInputbox(ailCtrl, true, ailCtrlChanged, {width=100, alignRight=true})      
-
-      --form.addRow(2)
-      --form.addLink((function() form.reinit(3) end), {label = "AutoCrow Menu >>"})
 
       form.addRow(2)
       form.addLink((function() form.reinit(2) end), {label = "App settings" .. ">>", width=220})
@@ -349,29 +291,9 @@ local function initForm(sF)
       form.addLink((function() form.reinit(1) end),
 	 {label = lang.backMain,font=FONT_BOLD})
       
-      --form.addRow(2)
-      --form.addLabel({label="Trim step", width=260})
-      --form.addIntbox(trimStep, 1, 10, 2, 0, 1, trimStepChanged)
-
-      --form.addRow(2)
-      --form.addLabel({label=lang.numCrow, width=270})
-      --form.addIntbox(crowConfig.tPoints, 5, 9, 7, 0, 1, tPointsChanged)
-      
-      --form.addRow(2)
-      --form.addLabel({label=lang.crowCurvePoint, width=220})
-      --form.addSelectbox({lang.linear, lang.log}, autoCrowSpacing, false, autoCrowSpacingChanged)
-      
       form.addRow(2)
       form.addLabel({label=lang.crowCurveRate, width=220})
       form.addIntbox(autoCrowRate, 10, 1000, 300, 0, 1, autoCrowRateChanged)
-      
-      -- form.addRow(2)
-      -- form.addLabel({label=lang.crowExpo, width=220})
-      -- form.addSelectbox({lang.linear, lang.mExpo, lang.pExpo},
-      -- 	 autoCrowSens, false, autoCrowSensChanged)   
-      
-
-      --print("oneSidedInput, oneSidedInputIndex:", oneSidedInput, oneSidedInputIndex)
       
       form.addRow(2)
       form.addLabel({label=lang.unset, width=270})
@@ -392,18 +314,26 @@ end
 
 local function playNumber(num)
    local fn
-   if num >= 1 and num <= 9 then
-      fn = locale .. "-" .. tostring(num) .. ".wav"
-      --print("fn:", fn)
-      system.playFile("/" .. appDir .. fn, AUDIO_IMMEDIATE)
+   local snum
+
+   system.playNumber(math.abs(num),0)
+   --[[
+   if num >= 0 then snum = num else snum = -num end
+   if snum >= 1 and snum <= 9 then
+      fn = locale .. "-" .. tostring(math.floor(snum)) .. ".wav"
+      print("fn:", fn)
+      if num < 0 then
+	 print("playing minus")
+	 system.playFile("/" .. appDir .. locale .. "-minus.wav", AUDIO_QUEUE)
+      end
+      system.playFile("/" .. appDir .. fn, AUDIO_QUEUE)
    end
+   --]]
 end
 
 local function loop()
 
    local info
-   local swt
-   local dt
    local mpl, mph
    local tp1
    local incT
@@ -415,13 +345,7 @@ local function loop()
    
    info = system.getSwitchInfo(crowCtrl)
    if info then
-      --swc = system.getInputs(info.label) -- fails when switch is logical
       swc = info.value
-   end
-
-   info = system.getSwitchInfo(trimCtrl)
-   if info then
-      swt = info.value
    end
 
    info = system.getSwitchInfo(autoCtrl)
@@ -447,14 +371,12 @@ local function loop()
 	 swcVal = 100 * swc
       end
       
-      --print("swcVal:", swcVal)
-      
       if math.abs(swcVal) < deadCrow*100 then
 	 swcVal = 0
       end
       
-      crowConfig.trimPoint = centerPoint
-      for i = 1 + centerPoint, #crowConfig.trimCurveX-1, 1 do
+      crowConfig.trimPoint = crowConfig.centerPoint
+      for i = 1 + crowConfig.centerPoint, #crowConfig.trimCurveX-1, 1 do
 	 mpl = (crowConfig.trimCurveX[i-1] + crowConfig.trimCurveX[i]) / 2
 	 mph = (crowConfig.trimCurveX[i] + crowConfig.trimCurveX[i+1]) / 2
 	 if swcVal > mpl and swcVal <= mph then
@@ -462,15 +384,13 @@ local function loop()
 	    break
 	 end
       end
-      if crowConfig.trimPoint == centerPoint and swcVal > mph then
+      if crowConfig.trimPoint == crowConfig.centerPoint and swcVal > mph then
 	 crowConfig.trimPoint = #crowConfig.trimCurveX
       end
 
-      --print("trimPoint1:", crowConfig.trimPoint, swcVal, centerPoint)
-
       if swcVal < 0.0 then
-	 crowConfig.trimPoint = centerPoint
-	 for i = centerPoint-1, 2, -1 do
+	 crowConfig.trimPoint = crowConfig.centerPoint
+	 for i = crowConfig.centerPoint-1, 2, -1 do
 	    mpl = (crowConfig.trimCurveX[i-1] + crowConfig.trimCurveX[i]) / 2
 	    mph = (crowConfig.trimCurveX[i] + crowConfig.trimCurveX[i+1]) / 2
 	    if swcVal > mpl and swcVal <= mph then
@@ -478,33 +398,24 @@ local function loop()
 	       break
 	    end
 	 end
-	 if crowConfig.trimPoint == centerPoint and swcVal <= mpl then
+	 if crowConfig.trimPoint == crowConfig.centerPoint and swcVal <= mpl then
 	    crowConfig.trimPoint = 1
 	 end
       end
-      --print("trimPoint2:", crowConfig.trimPoint)
-      
-      --print("trimPoint2", crowConfig.trimPoint)      
 
       if crowConfig.trimPoint ~= crowConfig.lastTrimPoint then
 	 if crowConfig.trimCurveU[crowConfig.trimPoint] == 0 then
-	    if announcePoints then
-	       --print("playNumber:", crowConfig.trimPoint-1, 0)
-	       --system.playNumber((crowConfig.trimPoint-1), 0)
-	       playNumber(crowConfig.trimPoint-1) -- avoid DS-12 upgrade .. no system.playNumber
+	    if announcePoints and (crowConfig.trimPoint - crowConfig.centerPoint ~= 0) then
+	       playNumber(crowConfig.trimPoint-crowConfig.centerPoint)
 	    end
 	 end
       end
       crowConfig.lastTrimPoint = crowConfig.trimPoint
 
-      --print("crowConfig.trimPoint3", crowConfig.trimPoint)
-      
-      dt = system.getTimeCounter() - (pressTime or 0)
-
       -- is auto mode on?
       
       if autoCtrl and (elevCtrl or ailCtrl) and swa == 1 and
-      crowConfig.trimPoint ~= centerPoint then
+      crowConfig.trimPoint ~= crowConfig.centerPoint then
 
 	 if math.abs(swe) < deadBand then
 	    swe = 0
@@ -560,20 +471,15 @@ local function loop()
 	 
 	 crowConfig.trimCurveU[crowConfig.trimPoint] = 1	 
 
-	 highestSet = centerPoint
-	 for i = centerPoint+1, #crowConfig.trimCurveX, 1 do
+	 highestSet = crowConfig.centerPoint
+	 for i = crowConfig.centerPoint+1, #crowConfig.trimCurveX, 1 do
 	    if crowConfig.trimCurveU[i] ~= 0 then highestSet = i end
 	 end
 
-	 --print("highestSet: " .. highestSet)
-
-	 lowestSet = centerPoint
-	 for i = centerPoint-1, 1, -1 do
+	 lowestSet = crowConfig.centerPoint
+	 for i = crowConfig.centerPoint-1, 1, -1 do
 	    if crowConfig.trimCurveU[i] ~= 0 then lowestSet = i end
 	 end
-
-	 --print("lowestSet", lowestSet)
-	 --print("crowConfig.trimPoint", crowConfig.trimPoint)
 	 
 	 if swcVal >= 0.0 then
 	    for i = crowConfig.trimPoint+1, #crowConfig.trimCurveX, 1 do
@@ -594,19 +500,11 @@ local function loop()
 
       if autoCtrl and elevCtrl and swa == 1 then
 	 if system.getTimeCounter() - autoAnnounce > 1500 then
-	    system.playFile("/" .. appDir .. locale .. "-auto_crow.wav", AUDIO_QUEUE)
+	    system.playFile("/" .. appDir .. locale .. "-auto_mix.wav", AUDIO_QUEUE)
 	    autoAnnounce = system.getTimeCounter() + 1500
-	    --system.pSave("trimCurveY", trimCurveY)
-	    --system.pSave("trimCurveU", trimCurveU)
 	 end
       end
 
-      --print("crowConfig.trimPoint", crowConfig.trimPoint)
-
-      --for k,v in pairs(crowConfig.trimCurveX) do
-      --print(k,v)
-      --end
-      
       if swcVal < crowConfig.trimCurveX[crowConfig.trimPoint] then
 	 mixValE = crowConfig.trimCurveY[crowConfig.trimPoint-1] +
 	    (crowConfig.trimCurveY[crowConfig.trimPoint] -
@@ -648,7 +546,7 @@ local function loop()
 end
 
 local function xpix(x)
-   if not x then print("############################################") return end
+   if not x then return end
    if oneSidedInput then
       return 4 + (x/100) * 140
    else
@@ -658,7 +556,7 @@ local function xpix(x)
 end
 
 local function ypix(y)
-   if not y then print("***********************************************") return end
+   if not y then return end
    return 35 - (y/4)
 end
 
@@ -674,16 +572,16 @@ local function teleWindowE()
    end
    
    if swc then
-      --print("crowConfig.trimPoint TeleE", crowConfig.trimPoint)
       if crowConfig.trimPoint > 0 then
 	 lcd.drawRectangle(xpix(crowConfig.trimCurveX[crowConfig.trimPoint]) - lR/2 + 1,
 				ypix(crowConfig.trimCurveY[crowConfig.trimPoint]) - lR/2,
 				lR, lR)
-	 if crowConfig.trimPoint ~= centerPoint then
+	 if crowConfig.trimPoint ~= crowConfig.centerPoint then
 	    if crowConfig.trimPoint < #crowConfig.trimCurveX then dx = 6 else dx = 9 end
 	    if crowConfig.trimPoint == 1 then dx = 3 end 
 	    lcd.drawText(xpix(crowConfig.trimCurveX[crowConfig.trimPoint])-dx,55,
-			 string.format("%d", crowConfig.trimCurveY[crowConfig.trimPoint]), FONT_MINI)
+			 string.format("%d", crowConfig.trimCurveY[crowConfig.trimPoint]),
+			 FONT_MINI)
 	    if autoCtrl and elevCtrl and swa == 1 then -- autotrim is on!
 	       lcd.setColor(255,0,0)
 	       lcd.drawText(40,5, lang.auto, FONT_MINI)
@@ -753,11 +651,12 @@ local function teleWindowA()
 	 lcd.drawRectangle(xpix(crowConfig.trimCurveX[crowConfig.trimPoint]) - lR/2 + 1,
 				ypix(crowConfig.trimCurveZ[crowConfig.trimPoint]) - lR/2,
 				lR, lR)
-	 if crowConfig.trimPoint ~= centerPoint then
+	 if crowConfig.trimPoint ~= crowConfig.centerPoint then
 	    if crowConfig.trimPoint < #crowConfig.trimCurveX then dx = 6 else dx = 9 end
 	    if crowConfig.trimPoint == 1 then dx = 3 end 
 	    lcd.drawText(xpix(crowConfig.trimCurveX[crowConfig.trimPoint])-dx,55,
-			 string.format("%d", crowConfig.trimCurveZ[crowConfig.trimPoint]), FONT_MINI)
+			 string.format("%d", crowConfig.trimCurveZ[crowConfig.trimPoint]),
+			 FONT_MINI)
 	    if autoCtrl and ailCtrl and swa == 1 then -- autotrim is on!
 	       lcd.setColor(255,0,0)
 	       lcd.drawText(40,5, lang.auto, FONT_MINI)
@@ -815,7 +714,8 @@ local function destroy()
 
    local ff
 
-   if acvCtrl then system.unregisterControl(acvCtrl) end
+   if acvEleCtrl then system.unregisterControl(acvEleCtrl) end
+   if acvAilCtrl then system.unregisterControl(acvAilCtrl) end   
 
    ff = io.open(modelFile, "w") 
    if not ff then
@@ -840,25 +740,19 @@ local function init()
    
    -- Form autoCrow param file name from model name
    modelFile = appDir .. "C-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_")
-   print("modelFile: " .. modelFile)
    ff = io.readall(modelFile)
-   print("ff: ", ff)
 
    if ff then crowConfig = json.decode(ff) end
 
    if not crowConfig.trimCurveX then
-      crowConfig.tPoints = 9
       system.messageBox(appShort .. lang.noSave)
-   else
-      -- here if populated crowConfig table
+      crowConfig.tPoints = 9
+      crowConfig.centerPoint = 5
    end
 
+   oneSidedInput = (crowConfig.centerPoint == 1)
+   
    crowCtrl        = system.pLoad("crowCtrl")
-   --trimCurveY      = system.pLoad("trimCurveY")
-   --trimCurveU      = system.pLoad("trimCurveU")   
-   trimCtrl        = system.pLoad("trimCtrl")
-   trimStep        = system.pLoad("trimStep", 2)
-   --tPoints         = system.pLoad("tPoints", 7)   
    elevCtrl        = system.pLoad("elevCtrl")
    ailCtrl         = system.pLoad("ailCtrl")
    autoCtrl        = system.pLoad("autoCtrl")   
@@ -875,16 +769,10 @@ local function init()
    announcePoints = system.pLoad("announcePoints", "true")
    announcePoints = (announcePoints == "true")      
 
-   oneSidedInput = system.pLoad("oneSidedInput", "false")
-   oneSidedInput = (oneSidedInput == "true")
-   if oneSidedInput == true then centerPoint = 1 else centerPoint = 5 end
-
    devType, emFlag = system.getDeviceType()
 
    --devType = "JETI DS-16"
 
-   print("devType: " .. devType)
-   
    monoChrome = false
    
    for _,v in ipairs(monoDev) do
@@ -942,4 +830,4 @@ local function init()
 end
 
 return {init=init, loop=loop, author="DFM/HC", version=tostring(crowVersion),
-	name="Adaptive Crow Mixer", destroy=destroy}
+	name="Adaptive Mixer", destroy=destroy}
