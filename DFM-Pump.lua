@@ -1175,16 +1175,15 @@ end
 local function stopSerial()
    pumpActive = false
    gpio.write(8,0) -- power BLE off
-   serial.onRead(sidSerial, nil) -- just in case deinit does not do this
+   --serial.onRead(sidSerial, nil) -- just in case deinit does not do this
    serial.deinit(sidSerial)
    system.setProperty("CpuLimit", 1)
    -- maybe setting these to nil is a bad idea?
    --prtPump = nil
    --keyPump = nil
-   form.close()
-   system.unregisterForm(1)
-   
-   print("DFM-Pump: Serial deinit, BLE powered off, form closed")
+   --system.unregisterForm(1)
+   --system.messageBox("DFM-Pump: BLE Powered off")
+   print("DFM-Pump: Serial deinit, BLE powered off")
 end
 
 
@@ -1205,7 +1204,7 @@ local function loop()
 
    local txTel = system.getTxTelemetry() -- if we see an RX kill the pump
    if not emflag and txTel.rx1Percent > 0 then
-      system.messageBox("Airplane On - Pump App Exiting")
+      system.messageBox("Airplane On - BLE powered off")
       system.playFile("/"..appDir.."airplane_powered_on_pump_exiting.wav", AUDIO_QUEUE)
       stopSerial()
       return
@@ -2213,9 +2212,9 @@ local function init()
    gpio.write(8,1)   
    print("BLE powered on")
    
-   system.registerForm(1, 0, "Fuel Station Control", initPump, keyPump, prtPump)
+   system.registerForm(1, MENU_APPS, "Fuel Station Control", initPump, keyPump, prtPump)
    
-   system.registerTelemetry(1,"Pump", 4, pumpTele)
+   --system.registerTelemetry(1,"Pump", 4, pumpTele)
 
    arcFile.C = lcd.loadImage(appDir .. "c-000.png")
    arcFile.S = lcd.loadImage(appDir .. "s-000.png")   
@@ -2280,10 +2279,10 @@ local function init()
    if emflag then pf = "" else pf = "/" end
 
    mn = string.gsub(system.getProperty("Model"), " ", "_")
-   print("LF file", pf .. "Apps/digitech/LF_" .. mn .. ".jsn")
+   print("LF file", pf .. "Apps/DFM-TimG/LF_" .. mn .. ".jsn")
 
    
-   file = io.readall(pf .. "Apps/digitech/LF_" .. mn .. ".jsn")
+   file = io.readall(pf .. "Apps/DFM-TimG/LF_" .. mn .. ".jsn")
    print("LF_ file:", file)
 
    if (file) then
@@ -2299,17 +2298,21 @@ local function init()
       ctu.lastFuel = -1
    end
 
-   if ctu.lastFuel ~= -1 and (time - ltime) > 60*60*12 then -- if more than 12 hrs old, ask
+   if ctu.lastFuel ~= -1 then
       text = string.format(flowFmt[pumpConfigGbl.flowIdx] .. " %s",
-			   ctu.lastFuel * pumpConfig.tankCapacity / 100.0, flowUnit[pumpConfigGbl.flowIdx])
-
-      qq = form.question("Display last fuel?", "Last fuel amount: " .. text,
-		    string.format("%.1f hours ago", (time - ltime) / 3600),
-		    0, false, 0)
-      if qq == 0 then ctu.lastFuel = -1 end
+			   ctu.lastFuel * pumpConfig.tankCapacity / 100.0,
+			   flowUnit[pumpConfigGbl.flowIdx])
+      if (time - ltime) > 60*60*12 then -- if more than 12 hrs old, ask
+	 
+	 
+	 qq = form.question("Display last fuel?", "Last fuel amount: " .. text,
+			    string.format("%.1f hours ago", (time - ltime) / 3600),
+			    0, false, 0)
+	 if qq == 0 then ctu.lastFuel = -1 end
+      else
+	 system.messageBox("Last Fuel: " .. text)
+      end
    end
-   
-   
 end
 
 

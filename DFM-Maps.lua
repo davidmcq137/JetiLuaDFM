@@ -39,6 +39,7 @@ local longitude
 local courseGPS = 0
 local GPSAlt = 0
 local heading = 0
+local lastHeading = 0
 local altitude = 0
 local speed = 0
 local SpeedGPS = 0
@@ -53,6 +54,19 @@ local arcFile
 local lapAltitude
 local distance
 local x, y
+
+-- presistent and global variables for loop()
+
+local lastlat = 0
+local lastlng = 0
+local compcrs
+local compcrsDeg = 0
+local lineAvgPts = 4  -- number of points to linear fit to compute course
+local numGPSreads = 0
+local newPosTime = 0
+local hasCourseGPS
+local lastHistTime=0
+
 --[[
 local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
 	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"}
@@ -1616,14 +1630,17 @@ local function fslope(xx, yy)
     
     slope = sxy/sx2
     
-    theta = math.atan(slope)
 
+    --tt = math.deg(math.atan(sxy,sx2))
+
+    --theta = math.atan(slope)
+    theta = math.atan(sxy,sx2)
     if xx[1] < xx[#xx] then
        tt = math.pi/2 - theta
     else
        tt = math.pi*3/2 - theta
     end
- 
+    --print(math.deg(tt), math.deg(math.atan(slope)), math.deg(math.atan(sxy,sx2)))
     return slope, tt
 end
 
@@ -1743,6 +1760,7 @@ local function perpDist(x0, y0, np)
    if det >= 0 then return pd else return -pd end
 end
 
+--[[
 local function vertHistogram(x0, y0, val, scale, hgt, wid, vald)
 
    lcd.setColor(0,0,0)
@@ -1767,10 +1785,9 @@ local function vertHistogram(x0, y0, val, scale, hgt, wid, vald)
    
    lcd.drawText(x0 + wid - 5, y0 - hgt, string.format("+%dm", scale), FONT_MINI)
    lcd.drawText(x0 + wid - 5, y0 + hgt - lcd.getTextHeight(FONT_MINI), string.format("-%dm", scale), FONT_MINI)   
-   
-		
-   
 end
+--]]
+
 
 local lastsws
 local lastdetS1 = -1
@@ -1982,10 +1999,11 @@ local function calcTriRace()
 	    math.sqrt( (pylon[j].x - pylon[j].xm)^2 + (pylon[j].y - pylon[j].ym)^2 )
 	 pylon[j].xt = (1+pylon[j].alpha) * pylon[j].x - pylon[j].alpha*pylon[j].xm
 	 pylon[j].yt = (1+pylon[j].alpha) * pylon[j].y - pylon[j].alpha*pylon[j].ym
-	 zx, zy = rotateXY(-0.4 * variables.triLength, 0.4 * variables.triLength, rot[j])
+	 -- magic factor was 0.4 before modding for tele screen 2
+	 zx, zy = rotateXY(-4.4 * variables.triLength, 4.4 * variables.triLength, rot[j])
 	 pylon[j].zxl = zx + pylon[j].x
 	 pylon[j].zyl = zy + pylon[j].y
-	 zx, zy = rotateXY(0.4 * variables.triLength, 0.4 * variables.triLength, rot[j])
+	 zx, zy = rotateXY(4.4 * variables.triLength, 4.4 * variables.triLength, rot[j])
 	 pylon[j].zxr = zx + pylon[j].x
 	 pylon[j].zyr = zy + pylon[j].y
 	 pylon.finished = true
@@ -2506,25 +2524,25 @@ local function isNoFlyP(nn,p)
    
 end
 
--- Draw heading indicator
-
-local parmHeading = {
-  {0, 2, "N"}, {30, 5}, {60, 5},
-  {90, 2, "E"}, {120, 5}, {150, 5},
-  {180, 2, "S"}, {210, 5}, {240, 5},
-  {270, 2, "W"}, {300, 5}, {330, 5}
-}
-
-local wrkHeading = 0
-local w
-local colHeading = 160
-local rowHeading = 30
-
+--[[
 local function drawHeading()
+
+   -- could speed optimize by putting this table in the jsn params table (shapes.jsn)
+   
+   local parmHeading = {
+      {0, 2, "N"}, {30, 5}, {60, 5},
+      {90, 2, "E"}, {120, 5}, {150, 5},
+      {180, 2, "S"}, {210, 5}, {240, 5},
+      {270, 2, "W"}, {300, 5}, {330, 5}
+   }
 
    local dispHeading
    local text
    local dx=80
+   local wrkHeading = 0
+   local w
+   local colHeading = 160
+   local rowHeading = 30
    
    lcd.drawFilledRectangle(colHeading-70+dx, rowHeading, 140, 2)
    lcd.drawFilledRectangle(colHeading+65+dx, rowHeading-20, 6,22)
@@ -2558,13 +2576,15 @@ local function drawHeading()
    
    lcd.resetClipping()
 end
-
+--]]
 --------------------------
 
+--[[
 local function drawTextCenter(font, txt, ox, oy)
     lcd.drawText(ox - lcd.getTextWidth(font, txt) / 2, oy, txt, font)
 end
-
+--]]
+--[[
 local function drawGauge(label, min, _, max, temp, _, ox, oy)
    local theta
    drawTextCenter(FONT_MINI, label, ox+25, oy+38)
@@ -2576,7 +2596,7 @@ local function drawGauge(label, min, _, max, temp, _, ox, oy)
       drawShape(ox+25, oy+26, shapes.needle_poly_small, theta)
    end
 end
-
+--]]
 
 --------------------------
 local function prtForm(windowWidth, windowHeight)
@@ -2719,13 +2739,44 @@ local function prtForm(windowWidth, windowHeight)
    end
 end
 
+------------------------------------------------------------
+
+
+--[[
+enum Result {
+    case circle(center: CGPoint, radius: CGFloat)
+    case invalid
+}
+
+func circleTouching3Points(a: CGPoint, b: CGPoint, c: CGPoint) -> Result {
+    let d1 = CGPoint(x: b.y - a.y, y: a.x - b.x)
+    let d2 = CGPoint(x: c.y - a.y, y: a.x - c.x)
+    let k: CGFloat = d2.x * d1.y - d2.y * d1.x
+    guard k < -0.00001 || k > 0.00001 else {
+        return Result.invalid
+    }
+    let s1 = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+    let s2 = CGPoint(x: (a.x + c.x) / 2, y: (a.y + c.y) / 2)
+    let l: CGFloat = d1.x * (s2.y - s1.y) - d1.y * (s2.x - s1.x)
+    let m: CGFloat = l / k
+    let center = CGPoint(x: s2.x + m * d2.x, y: s2.y + m * d2.y)
+    let dx = center.x - a.x
+    let dy = center.y - a.y
+    let radius = sqrt(dx * dx + dy * dy)
+    return Result.circle(center: center, radius: radius)
+    }
+--]]
+
+
+
+------------------------------------------------------------
 local function dirPrint()
-   local dx, dy, rx, ry
-   local sC = variables.triLength * 2.5
-   local xf = 0.35
-   local yf = 0.65
+   --local dx, dy, rx, ry
+   local sC = variables.triLength * 3 -- scale factor for this tele window
+   local xf = 0.40 -- center X is at 1-xf of width
+   local yf = 0.65 -- center Y is at 1-yf of height
    local xmin, xmax=(-1+xf)*sC, xf*sC
-   local xt = 320*(1-xf/2)
+   local xt = 320*(1-xf/2) -- X center of text location on rhs of screen
    local ymin, ymax=(-1+yf)*sC/2, yf*sC/2
    local xrange = xmax - xmin
    local yrange = ymax - ymin
@@ -2736,18 +2787,154 @@ local function dirPrint()
 
    if not xtable or not ytable then return end
 
+   if not compcrs then
+      lcd.drawText(40, 80, "Triangle View: No heading", FONT_BIG)
+      return
+   end
+   
    lcd.setColor(0,0,255)
    
    --drawHeading()
    
    hh = heading - 180
+   
    local xx, yy = xtable[#xtable], ytable[#ytable]
    
-   local function rapP(ix, iy)
-      local rx, ry
-      rx, ry = rotateXY(ix, iy, math.rad(hh))
-      ren:addPoint(rx, ry)
+   
+   local function ll2RX(ih)
+      local xrr, yrr
+      xrr, yrr = rE*(lngHist[ih]-lng0)*coslat0/rad, rE*(latHist[ih]-lat0)/rad
+      xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
+      return xrr
    end
+
+   local function ll2RY(ih)
+      local xrr, yrr
+      xrr, yrr = rE*(lngHist[ih]-lng0)*coslat0/rad, rE*(latHist[ih]-lat0)/rad
+      xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
+      return yrr
+   end   
+
+   local function ll2RXr(lat, lng)
+      local xrr, yrr
+      xrr, yrr = rE*(lng-lng0)*coslat0/rad, rE*(lat-lat0)/rad
+      xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
+      return xrr
+   end
+
+   local function ll2RYr(lat,lng)
+      local xrr, yrr
+      xrr, yrr = rE*(lng-lng0)*coslat0/rad, rE*(lat-lat0)/rad
+      xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
+      return yrr
+   end   
+
+   --[[
+   -- prior attempt .. code below works better
+   local function circFit(j)
+      local d1x = ll2RY(j-1) - ll2RY(j-2)
+      local d1y = ll2RX(j-2) - ll2RX(j-1)
+      local d2x = ll2RY(j) - ll2RY(j-2)
+      local d2y = ll2RX(j-2) - ll2RX(j)
+      local k = d2x * d1y - d2y*d1x
+      -- if k < -0.00001 or k > 0.00001 then
+      -- 	 return nil
+      -- end
+      local s1x = (ll2RX(j-2) + ll2RX(j-1)) / 2.0
+      local s1y = (ll2RY(j-2) + ll2RY(j-1)) / 2.0
+      local s2x = (ll2RX(j-2) + ll2RX(j)) / 2.0
+      local s2y = (ll2RY(j-2) + ll2RY(j)) / 2.0
+      local l = d1x * (s2y - s1y) - d1y * (s2x - s1x)
+      local m = l/k
+      local cx = s2x + m*d2x
+      local cy = s2y + m*d2y
+      local dx = cx - ll2RX(j-2)
+      local dy = cy - ll2RY(j-2)
+      local r  = math.sqrt(dx*dx + dy*dy)
+      return cx, cy, r, k
+   end
+   --]]
+   
+   -- circFit2() tranlated from the swift file on:
+   -- https://stackoverflow.com/questions/10407700/
+   -- calculate-center-and-radius-of-circle-from-3-points-on-it
+   --[[
+   -- experiment to remove local vars and compute directly .. turns out this is much slower!
+   -- 85% CPU vs. 70%
+   local function circFit2(j)
+      --local x1 = ll2RX(j-2)
+      --local y1 = ll2RY(j-2)
+      --local x2 = ll2RX(j-1)
+      --local y2 = ll2RY(j-1)
+      --local x3 = ll2RX(j)
+      --local y3 = ll2RY(j)
+      --local x3 = ll2RXr(latitude, longitude)
+      --local y3 = ll2RYr(latitude, longitude)
+      
+      local A = ll2RX(j-2)*(ll2RY(j-1)-ll2RYr(latitude, longitude)) - ll2RY(j-2)*(ll2RX(j-1)-ll2RXr(latitude, longitude)) + ll2RX(j-1)*ll2RYr(latitude, longitude) - ll2RXr(latitude, longitude)*ll2RY(j-1)
+      if math.abs(A) <= 1.0E-6 then
+	 return nil
+      end
+      
+      local B = (ll2RX(j-2)*ll2RX(j-2) + ll2RY(j-2)*ll2RY(j-2))*(ll2RYr(latitude, longitude)-ll2RY(j-1)) + (ll2RX(j-1)*ll2RX(j-1) + ll2RY(j-1)*ll2RY(j-1))*(ll2RY(j-2)-ll2RYr(latitude, longitude)) + (ll2RXr(latitude, longitude)*ll2RXr(latitude, longitude) + ll2RYr(latitude, longitude)*ll2RYr(latitude, longitude))*(ll2RY(j-1)-ll2RY(j-2))
+      local C = (ll2RX(j-2)*ll2RX(j-2) + ll2RY(j-2)*ll2RY(j-2))*(ll2RX(j-1)-ll2RXr(latitude, longitude)) + (ll2RX(j-1)*ll2RX(j-1) + ll2RY(j-1)*ll2RY(j-1))*(ll2RXr(latitude, longitude)-ll2RX(j-2)) + (ll2RXr(latitude, longitude)*ll2RXr(latitude, longitude) + ll2RYr(latitude, longitude)*ll2RYr(latitude, longitude))*(ll2RX(j-2)-ll2RX(j-1))
+      local D = (ll2RX(j-2)*ll2RX(j-2) + ll2RY(j-2)*ll2RY(j-2))*(ll2RXr(latitude, longitude)*ll2RY(j-1) - ll2RX(j-1)*ll2RYr(latitude, longitude)) + (ll2RX(j-1)*ll2RX(j-1) + ll2RY(j-1)*ll2RY(j-1))*(ll2RX(j-2)*ll2RYr(latitude, longitude) - ll2RXr(latitude, longitude)*ll2RY(j-2)) +
+	 (ll2RXr(latitude, longitude)*ll2RXr(latitude, longitude) + ll2RYr(latitude, longitude)*ll2RYr(latitude, longitude))*(ll2RX(j-1)*ll2RY(j-2) -ll2RX(j-2)*ll2RY(j-1))
+
+      local cx = -B / (2*A)
+      local cy = -C / (2*A)
+      local r = math.sqrt( (B*B + C*C - 4*A*D)/ (4*A*A) )
+      return cx, cy, r, A
+   end
+   --]]
+   
+   ---[[
+   local function circFit2(k)
+      -- tradeoff to use jth point .. closer to real time but noisier when still
+      -- very close to current point
+      if true then --latHist[k] == latitude and lngHist[k] == lngHist[k] then
+	 j=k-1
+      else
+	 j=k
+      end
+      local x1 = ll2RX(j-1)
+      local x12 = x1*x1
+      local y1 = ll2RY(j-1)
+      local y12 = y1*y1
+      local x2 = ll2RX(j)
+      local x22 = x2*x2
+      local y2 = ll2RY(j)
+      local y22 = y2*y2
+      --local x3 = ll2RX(j)
+      --local y3 = ll2RY(j)
+      local x3 = ll2RXr(latitude, longitude)
+      local y3 = ll2RYr(latitude, longitude)
+      local x32 = x3*x3
+      local y32 = y3*y3
+      
+      local A = x1*(y2-y3) - y1*(x2-x3) + x2*y3 - x3*y2
+      if math.abs(A) <= 1.0E-6 then
+	 return nil
+      end
+      
+      local B = (x12 + y12)*(y3-y2) + (x22 + y22)*(y1-y3) + (x32 + y32)*(y2-y1)
+      local C = (x12 + y12)*(x2-x3) + (x22 + y22)*(x3-x1) + (x32 + y32)*(x1-x2)
+      local D = (x12 + y12)*(x3*y2 - x2*y3) + (x22 + y22)*(x1*y3 - x3*y1) +
+	 (x32 + y32)*(x2*y1 -x1*y2)
+
+      local cx = -B / (2*A)
+      local cy = -C / (2*A)
+      local r = math.sqrt( (B*B + C*C - 4*A*D)/ (4*A*A) )
+      return cx, cy, r, A
+   end
+   --]]
+   
+   -- local function rapN(x, y)
+   --    local rx, ry
+   --    rx, ry = rotateXY(x, y, math.rad(hh))
+   --    rx, ry = toXPixel(rx, xmin, xrange, ww), toYPixel(ry, ymin, yrange, wh)
+   --    ren:addPoint(rx, ry)
+   -- end
    
    local function rap(x,y,d)
       local dx = xx - x
@@ -2780,7 +2967,7 @@ local function dirPrint()
    end
 
 
-   lcd.setColor(0,255,0)
+   lcd.setColor(240,115,0)
    ren:renderPolyline(2, 0.7)
 
    --draw the startline
@@ -2811,7 +2998,7 @@ local function dirPrint()
       rap(pylon[j].zxl, pylon[j].zyl)
       rap(pylon[j].zxr, pylon[j].zyr)
       rap(pylon[j].x, pylon[j].y)
-      lcd.setColor(255,0,0)
+      lcd.setColor(240,115,0)
       local alpha
       if raceParam.racing and m3(nextPylon) == j then
 	 alpha = 0.8
@@ -2830,6 +3017,16 @@ local function dirPrint()
    if switchItems.point then
       swp = system.getInputsVal(switchItems.point)
    end
+
+   if not metrics.headingCount then metrics.headingCount = 0 end
+
+   if hh ~= lastHeading then
+      --print("rep:", metrics.headingCount)
+      metrics.headingCount = 0
+      lastHeading = hh
+   else
+      metrics.headingCount = metrics.headingCount + 1
+   end
    
    if ( (not switchItems.point) or (swp and swp == 1) ) and (#xPHist > 0) then
       rgb.last = -1 
@@ -2837,11 +3034,10 @@ local function dirPrint()
       local ii = variables.ribbonColorSource
       local xrr, yrr
       local iend = #xPHist
-      local istart = math.max(iend-60-1, 1)
+      local istart = math.max(iend-50+1, 1)
       ren:reset()
       for i=istart, iend do
 	 kk = i
-	 --XXX
 	 if ii ~= 1 then
 	    if (rgb.last ~= rgbHist[i].rgb) then
 	       ren:renderPolyline(variables.ribbonWidth*2, variables.ribbonAlpha * 0.7)
@@ -2853,8 +3049,7 @@ local function dirPrint()
 	 else -- solid/monochrome ribbon
 	    lcd.setColor(140,140,80)
 	 end
-	 xrr, yrr = rE*(lngHist[i]-lng0)*coslat0/rad, rE*(latHist[i]-lat0)/rad
-	 xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
+	 xrr, yrr = ll2RX(i), ll2RY(i)
 	 rap(xrr, yrr, 2)
       end
       rap(xx, yy, 2)
@@ -2866,22 +3061,57 @@ local function dirPrint()
    -- draw the airplane icon
    
    lcd.setColor(0,0,255)
+   
    drawShape(toXPixel(0, xmin, xrange, ww),
-	     toYPixel(0, ymin, yrange, wh),
-	     shapes.T38, 0)
+   	     toYPixel(0, ymin, yrange, wh),
+   	     shapes.T38, 0)
 
    -- draw the projected flight path
    
-   ren:reset()
-   ren:addPoint(toXPixel(0, xmin, xrange, ww), toYPixel(sC/12, ymin, yrange, wh))
-   ren:addPoint(toXPixel(0, xmin, xrange, ww), toYPixel(sC/3.5, ymin, yrange, wh))
-   ren:renderPolyline(3,0.7)
+   -- ren:reset()
+   -- ren:addPoint(toXPixel(0, xmin, xrange, ww), toYPixel(sC/12, ymin, yrange, wh))
+   -- ren:addPoint(toXPixel(0, xmin, xrange, ww), toYPixel(sC/3.5, ymin, yrange, wh))
+   -- ren:renderPolyline(3,0.7)
 
-   lcd.setColor(0,0,255)
+   -- major optimization needed: only call circFit when new hist point available
+   
+   if #latHist >= 5 then
+      local cx, cy, r, A = circFit2(#latHist)
+      if cx then
+	 local t1 = math.atan( (ll2RX(#latHist-1) - cx), (ll2RY(#latHist-1) - cy))
+	 local t0 = math.atan( (ll2RX(#latHist) - cx), (ll2RY(#latHist) - cy))
+	 local tn
+	 if latitude and longitude then
+	    tn = math.atan( (ll2RXr(latitude, longitude) - cx), (ll2RYr(latitude, longitude) - cy))
+	 else
+	    print("NO LAT/LONG")
+	    tn = 0
+	 end
+	 
+	 local dt = t0 - t1
+	 if math.deg(dt) > 180 then dt = dt - 2*math.pi end
 
+	 dt = math.max(math.min(dt, math.pi/12), -math.pi/12)
+
+	 if r > (sC / 20) then
+	    ren:reset()
+	    for i=1,10,1 do
+	       rap(cx + r * math.sin(tn + 2.5*(i-1)*(dt)/9),
+		   cy + r * math.cos(tn + 2.5*(i-1)*(dt)/9))
+	    end
+	    ren:renderPolyline(3,0.7)
+	 else
+	    --print(r, k)
+	 end
+      else
+	 print("circFit2 failed")
+      end
+   end
+   
    -- draw the telemetry values
    
    local text
+   lcd.setColor(0,0,255)
    text = string.format("%d", math.floor(raceParam.lapsComplete))
    lcd.drawText(xt - lcd.getTextWidth(FONT_BIG, text)/2, 5, text, FONT_BIG)
    text = "Laps"
@@ -2908,7 +3138,14 @@ local function dirPrint()
    text = "Speed"
    lcd.drawText(xt - lcd.getTextWidth(FONT_MINI, text)/2, 116+20, text, FONT_MINI)   
 
-   lcd.drawText(5,140, string.format("CPU: %d%%", system.getCPU()), FONT_MINI)
+   lcd.drawText(6,125, string.format("CPU: %d%%", system.getCPU()), FONT_MINI)
+   if variables.ribbonColorSource ~= 1 and currentRibbonValue then
+      lcd.drawText(18, 140, string.format("%s: %.0f",
+					 colorSelect[variables.ribbonColorSource],
+					 currentRibbonValue), FONT_MINI)
+      lcd.setColor(rgb[currentRibbonBin].r, rgb[currentRibbonBin].g, rgb[currentRibbonBin].b)
+      lcd.drawFilledRectangle(6,143,8,8)
+   end
 
 end
 
@@ -3340,7 +3577,7 @@ local function mapPrint(windowWidth, windowHeight)
 	 end
 	 
 	 --]]
-	 lcd.drawCircle(xPHist[i], yPHist[i], 2)
+	 --lcd.drawCircle(xPHist[i], yPHist[i], 2)
 	 lcd.drawLine(xPHist[i-1], yPHist[i-1], xPHist[i], yPHist[i])
 	 if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
 	    if system.getCPU() >= variables.maxCPU then
@@ -3529,7 +3766,7 @@ end
 
 local function distHome()
    local xy0, xy1
-   local lat00, lng00, coslat00
+   local lat00, lng00, coslatM
 
    -- compute x,y coords from the center of the most zoomed in image (Fields.images[1])
    -- the compute distance from that point in the frame of the least zoomed in (largest) image
@@ -3539,7 +3776,7 @@ local function distHome()
       lng00 = Field.images[1].center.lng
       latM =  Field.images[#Field.images].center.lat
       lngM =  Field.images[#Field.images].center.lng
-      costlatM = math.cos(math.rad(latM))
+      coslatM = math.cos(math.rad(latM))
       xy0 = ll2xy(lat00, lng00, latM, lngM, coslatM)
       xy1 = ll2xy(latitude, longitude, latM, lngM, coslatM)
       --print(latitude, longitude, xy0.x,xy0.y, xy1.x, xy1.y)
@@ -3552,18 +3789,6 @@ local function distHome()
 end
 
 ------------------------------------------------------------
-
--- presistent and global variables for loop()
-
-local lastlat = 0
-local lastlng = 0
-local compcrs
-local compcrsDeg = 0
-local lineAvgPts = 4  -- number of points to linear fit to compute course
-local numGPSreads = 0
-local newPosTime = 0
-local hasCourseGPS
-local lastHistTime=0
 
 local function loop()
 
@@ -3865,6 +4090,7 @@ local function loop()
    if #xtable+1 > MAXTABLE then
       table.remove(xtable, 1)
       table.remove(ytable, 1)
+      --print("deltax,y:", xtable[#xtable] - x, ytable[#ytable] - y)
    end
    
    table.insert(xtable, x)
@@ -3886,9 +4112,9 @@ local function loop()
 				   table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {})))
       end
    else
-      compcrs = 0
+      compcrs = nil
    end
-   compcrsDeg = compcrs*180/math.pi
+   compcrsDeg = (compcrs or 0)*180/math.pi
    ------------------------------------------------------------
    ---===
 
@@ -4044,7 +4270,7 @@ local function init()
    
    emFlag = (select(2,system.getDeviceType()) == 1)
 
-   arcFile = lcd.loadImage(appInfo.Dir .. "JSON/c-000.png")
+   --arcFile = lcd.loadImage(appInfo.Dir .. "JSON/c-000.png")
 
    local fp, fn
 

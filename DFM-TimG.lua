@@ -278,6 +278,10 @@ local function timePrint(width, height)
   len = 0
   for i = 1, #pts do
      char = pts:sub(i,i)
+     if string.find(char, "[^%d^:]") then
+	print("illegal character", char)
+	char = ":"
+     end
      len = len + digitImageTimer[charMap[char]].width
   end
 
@@ -288,6 +292,10 @@ local function timePrint(width, height)
 
   for i = 1, #pts do
      char = pts:sub(i,i)
+     if string.find(char, "[^%d^:]") then
+	print("illegal character", char)
+	char = ":"
+     end
      lcd.drawImage(hPix, vPix, digitImageTimer[charMap[char]])
      hPix = hPix + digitImageTimer[charMap[char]].width
   end
@@ -297,6 +305,10 @@ local function timePrint(width, height)
   len = 0
   for i = 1, #rts do
      char = rts:sub(i,i)
+     if string.find(char, "[^%d^:]") then
+	print("illegal character", char)
+	char = ":"
+     end
      len = len + digitImageEmpty[charMap[char]].width
   end
 
@@ -307,6 +319,10 @@ local function timePrint(width, height)
 
   for i = 1, #rts do
      char = rts:sub(i,i)
+     if string.find(char, "[^%d^:]") then
+	print("illegal character", char)
+	char = ":"
+     end
      lcd.drawImage(hPix, vPix, digitImageEmpty[charMap[char]])
      hPix = hPix + digitImageEmpty[charMap[char]].width
   end
@@ -449,11 +465,17 @@ local function init()
    for k,v in pairs(digitMap) do
       fn = "Apps/DFM-TimG/" .. v .. "-" .. tostring(imagePix) .. "-" .. imageColorTimer .. ".png"
       digitImageTimer[k] = lcd.loadImage(fn)
+      if not  digitImageTimer[k] then
+	 print("Cannot load timer image", k)
+      end
    end
    
    for k,v in pairs(digitMap) do
       fn = "Apps/DFM-TimG/" .. v .. "-" .. tostring(imagePix) .. "-" .. imageColorEmpty .. ".png"
       digitImageEmpty[k] = lcd.loadImage(fn)
+      if not  digitImageEmpty[k] then
+	 print("Cannot load empty image", k)
+      end
    end
 
    gearSwitch = system.pLoad("gearSwitch")
