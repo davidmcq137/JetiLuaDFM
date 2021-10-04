@@ -20,8 +20,7 @@
 
    Bug/Work list:
 
-   -- vary # steps on color gradient
-   -- telemetry values on ribbon color
+   -- language support
    -- imperial units?
 
 --]]
@@ -2770,6 +2769,11 @@ func circleTouching3Points(a: CGPoint, b: CGPoint, c: CGPoint) -> Result {
 
 
 ------------------------------------------------------------
+
+local savedRx={}
+local savedRy={}
+
+
 local function dirPrint()
    --local dx, dy, rx, ry
    local sC = variables.triLength * 3 -- scale factor for this tele window
@@ -2945,8 +2949,24 @@ local function dirPrint()
       if d then
 	 lcd.drawCircle(rx, ry, d)
       end
+      return rx, ry
    end
 
+   local function rapN(x,y,d)
+      local dx = xx - x
+      local dy = yy - y
+      local rx, ry = rotateXY(dx, dy, math.rad(hh))
+      rx, ry = toXPixel(rx, xmin, xrange, ww), toYPixel(ry, ymin, yrange, wh)
+      return rx, ry
+   end
+
+   local function rapC(rx,ry,d)
+      ren:addPoint(rx, ry)
+      if d then
+	 lcd.drawCircle(rx, ry, d)
+      end      
+   end
+   
    lcd.setColor(0,0,0)
 
    lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6+4, "N", FONT_MINI)
@@ -3018,43 +3038,108 @@ local function dirPrint()
       swp = system.getInputsVal(switchItems.point)
    end
 
-   if not metrics.headingCount then metrics.headingCount = 0 end
-
-   if hh ~= lastHeading then
-      --print("rep:", metrics.headingCount)
-      metrics.headingCount = 0
-      lastHeading = hh
-   else
-      metrics.headingCount = metrics.headingCount + 1
-   end
-   
    if ( (not switchItems.point) or (swp and swp == 1) ) and (#xPHist > 0) then
-      rgb.last = -1 
       local kk
+      local jj
       local ii = variables.ribbonColorSource
       local xrr, yrr
+      local maxPts = 40
       local iend = #xPHist
-      local istart = math.max(iend-50+1, 1)
+      local istart = math.max(iend-maxPts+1, 1)
+      local newH = (hh ~= lastHeading)
+      if newH then
+	 for i=istart, iend do
+	    xrr,yrr = ll2RX(i), ll2RY(i)
+	    savedRx[i], savedRy[i] = rapN(xrr, yrr, 2)
+	 end
+      end
+
       ren:reset()
+      rgb.last = -1
       for i=istart, iend do
-	 kk = i
-	 if ii ~= 1 then
-	    if (rgb.last ~= rgbHist[i].rgb) then
-	       ren:renderPolyline(variables.ribbonWidth*2, variables.ribbonAlpha * 0.7)
+	 if variables.ribbonColorSource ~= 1 then
+	    -- in case we get unlucky on heading changes we might need to compute
+	    -- some additional points. for speed just check savedRx
+	    if not savedRx[i] then
+	       print("recompute", i)
+	       xrr,yrr = ll2RX(i), ll2RY(i)
+	       savedRx[i], savedRy[i] = rapN(xrr, yrr, 2)
+	    end
+	    if rgbHist[i] ~= rgb.last then
+	       rgb.last = rgbHist[i]
+	       rapC(savedRx[i], savedRy[i], 2)
+	       ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
 	       ren:reset()
-	       if xrr and yrr then rap(xrr, yrr, 2) end
 	       lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
+	    end
+	    rapC(savedRx[i], savedRy[i], 2)
+	 else
+	    lcd.setColor(140,140,80)
+	 end
+      end
+      rap(xx,yy,2)
+      ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
+      
+      ------------------------------------------------------------
+      --[[
+      ren:reset()
+      jj=0
+      rgb.last = -1
+      for i=istart, iend do
+	 jj = jj + 1
+	 if ii ~= 1 then
+	    if (rgbHist[i].rgb ~= rgb.last) then
 	       rgb.last = rgbHist[i].rgb
+	       if newH then
+		  xrr, yrr = ll2RX(i), ll2RY(i)
+		  savedRx[jj], savedRy[jj] = rap(xrr, yrr, 2)
+	       else
+		  if not savedRx[jj] or not savedRy[jj] then
+		     print("1) jj, savedRx[jj], savedRy[jj]", jj, savedRx[jj], savedRy[jj])
+		  else
+		     rapC(savedRx[jj], savedRy[jj], 2)
+		  end
+	       end
+	       ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
+	       ren:reset()
+	       if true then --newH then
+		  xrr, yrr = ll2RX(i), ll2RY(i)
+		  savedRx[jj], savedRy[jj] = rap(xrr, yrr, 2)
+	       else
+		  if not savedRx[jj] or not savedRy[jj] then
+		     print("2) jj, savedRx[jj], savedRy[jj]", jj, savedRx[jj], savedRy[jj])
+		  else
+		     rapC(savedRx[jj], savedRy[jj], 2)
+		  end
+	       end
+	       lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
 	    end
 	 else -- solid/monochrome ribbon
 	    lcd.setColor(140,140,80)
 	 end
-	 xrr, yrr = ll2RX(i), ll2RY(i)
-	 rap(xrr, yrr, 2)
+	 if newH then
+	    xrr, yrr = ll2RX(i), ll2RY(i)
+	    savedRx[jj], savedRy[jj] = rap(xrr, yrr, 2)
+	 else
+	    if not savedRx[jj] or not savedRy[jj] then
+	       print("3) jj, savedRx[jj], savedRy[jj]", jj, savedRx[jj], savedRy[jj])
+	    else
+	       rapC(savedRx[jj], savedRy[jj], 2)
+	    end
+	 end
       end
-      rap(xx, yy, 2)
+      rap(xx,yy,2)
       ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
+      --]]
+      ------------------------------------------------------------      
+
+
+
+      
    end
+
+   lastHeading = hh
+   
    
    ------------------------------------------------------------
    
@@ -3138,7 +3223,16 @@ local function dirPrint()
    text = "Speed"
    lcd.drawText(xt - lcd.getTextWidth(FONT_MINI, text)/2, 116+20, text, FONT_MINI)   
 
-   lcd.drawText(6,125, string.format("CPU: %d%%", system.getCPU()), FONT_MINI)
+   if not metrics.maxCPU then metrics.maxCPU = 0 end
+   if not metrics.avgCPU then metrics.avgCPU = 0 end
+
+   metrics.avgCPU = metrics.avgCPU + (system.getCPU() - metrics.avgCPU) / 50
+   
+   if system.getCPU() > metrics.maxCPU then
+      metrics.maxCPU = system.getCPU()
+   end
+   
+   lcd.drawText(6,125, string.format("CPU: %d%% %d%% %d%%", system.getCPU(), metrics.avgCPU, metrics.maxCPU), FONT_MINI)
    if variables.ribbonColorSource ~= 1 and currentRibbonValue then
       lcd.drawText(18, 140, string.format("%s: %.0f",
 					 colorSelect[variables.ribbonColorSource],
