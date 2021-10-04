@@ -1759,35 +1759,6 @@ local function perpDist(x0, y0, np)
    if det >= 0 then return pd else return -pd end
 end
 
---[[
-local function vertHistogram(x0, y0, val, scale, hgt, wid, vald)
-
-   lcd.setColor(0,0,0)
-   
-   lcd.drawRectangle(x0 - wid/2, y0 - hgt, wid, 2*hgt - 1)
-   lcd.drawLine(x0 - wid/2, y0, x0 + wid/2 - 1, y0)
-   
-   local a = math.min(math.abs(val) / scale, 1)
-
-   if val > 0 then
-      lcd.setColor(0,255,0)
-      lcd.drawFilledRectangle(x0 - wid/2, y0 - hgt * a+1, wid, hgt * a)
-   else
-      lcd.setColor(255,0,0)
-      lcd.drawFilledRectangle(x0 - wid/2, y0, wid, hgt * a)
-   end
-   lcd.setColor(0,0,0)
-
-   if vald then
-      lcd.drawText(x0+wid, y0 -lcd.getTextHeight(FONT_BOLD)/2, string.format("%4.1f m", vald), FONT_BOLD)
-   end
-   
-   lcd.drawText(x0 + wid - 5, y0 - hgt, string.format("+%dm", scale), FONT_MINI)
-   lcd.drawText(x0 + wid - 5, y0 + hgt - lcd.getTextHeight(FONT_MINI), string.format("-%dm", scale), FONT_MINI)   
-end
---]]
-
-
 local lastsws
 local lastdetS1 = -1
 local inZoneLast = {}
@@ -1797,7 +1768,6 @@ local function drawTriRace(windowWidth, windowHeight)
    local ren=lcd.renderer()
 
    --print("variables.triEnabled", variables.triEnabled)
-
    --print("pylon[1], pylon.finished", pylon[1], pylon.finished)
    
    if not variables.triEnabled then return end
@@ -2523,86 +2493,10 @@ local function isNoFlyP(nn,p)
    
 end
 
---[[
-local function drawHeading()
-
-   -- could speed optimize by putting this table in the jsn params table (shapes.jsn)
-   
-   local parmHeading = {
-      {0, 2, "N"}, {30, 5}, {60, 5},
-      {90, 2, "E"}, {120, 5}, {150, 5},
-      {180, 2, "S"}, {210, 5}, {240, 5},
-      {270, 2, "W"}, {300, 5}, {330, 5}
-   }
-
-   local dispHeading
-   local text
-   local dx=80
-   local wrkHeading = 0
-   local w
-   local colHeading = 160
-   local rowHeading = 30
-   
-   lcd.drawFilledRectangle(colHeading-70+dx, rowHeading, 140, 2)
-   lcd.drawFilledRectangle(colHeading+65+dx, rowHeading-20, 6,22)
-   lcd.drawFilledRectangle(colHeading-65-6+dx, rowHeading-20, 6,22)
-
-   --dispHeading = (heading + variables.rotationAngle) % 360
-   dispHeading = (heading) % 360
-
-   for _, point in pairs(parmHeading) do
-      wrkHeading = point[1] - dispHeading
-      if wrkHeading > 180 then wrkHeading = wrkHeading - 360 end
-      if wrkHeading < -180 then wrkHeading = wrkHeading + 360 end
-      deltaX = math.floor(wrkHeading / 1.6 + 0.5) - 1 -- was 2.2
-      
-      if deltaX >= -64 and deltaX <= 62 then -- was 31
-	 if point[3] then
-	    lcd.drawText(colHeading + deltaX - 4+dx, rowHeading - 16, point[3], FONT_MINI)
-	 end
-	 if point[2] > 0 then
-	    lcd.drawLine(colHeading + deltaX+dx, rowHeading - point[2],
-			 colHeading + deltaX+dx, rowHeading)
-	 end
-      end
-   end 
-
-   text = string.format(" %03d",dispHeading)
-   w = lcd.getTextWidth(FONT_NORMAL,text) 
-   lcd.drawFilledRectangle(colHeading - w/2+dx, rowHeading-30, w, lcd.getTextHeight(FONT_MINI))
-   lcd.setColor(255,255,255)
-   lcd.drawText(colHeading - w/2+dx, rowHeading-30,text,  FONT_MINI)
-   
-   lcd.resetClipping()
-end
---]]
---------------------------
-
---[[
-local function drawTextCenter(font, txt, ox, oy)
-    lcd.drawText(ox - lcd.getTextWidth(font, txt) / 2, oy, txt, font)
-end
---]]
---[[
-local function drawGauge(label, min, _, max, temp, _, ox, oy)
-   local theta
-   drawTextCenter(FONT_MINI, label, ox+25, oy+38)
-   drawTextCenter(FONT_BOLD, string.format("%d", temp), ox+25, oy+16)
-    temp = math.min(max, math.max(temp, min))
-   theta = math.pi - math.rad(135 - 2 * 135 * (temp - min) / (max - min) )
-    if arcFile ~= nil then
-      lcd.drawImage(ox, oy, arcFile)
-      drawShape(ox+25, oy+26, shapes.needle_poly_small, theta)
-   end
-end
---]]
-
---------------------------
 local function prtForm(windowWidth, windowHeight)
 
    
    --print(form.getActiveForm() or "---", savedRow)
-   
    --if not form.getActiveForm() then return end
    --if not browse.MapDisplayed then return end
    
@@ -2738,45 +2632,13 @@ local function prtForm(windowWidth, windowHeight)
    end
 end
 
-------------------------------------------------------------
-
-
---[[
-enum Result {
-    case circle(center: CGPoint, radius: CGFloat)
-    case invalid
-}
-
-func circleTouching3Points(a: CGPoint, b: CGPoint, c: CGPoint) -> Result {
-    let d1 = CGPoint(x: b.y - a.y, y: a.x - b.x)
-    let d2 = CGPoint(x: c.y - a.y, y: a.x - c.x)
-    let k: CGFloat = d2.x * d1.y - d2.y * d1.x
-    guard k < -0.00001 || k > 0.00001 else {
-        return Result.invalid
-    }
-    let s1 = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
-    let s2 = CGPoint(x: (a.x + c.x) / 2, y: (a.y + c.y) / 2)
-    let l: CGFloat = d1.x * (s2.y - s1.y) - d1.y * (s2.x - s1.x)
-    let m: CGFloat = l / k
-    let center = CGPoint(x: s2.x + m * d2.x, y: s2.y + m * d2.y)
-    let dx = center.x - a.x
-    let dy = center.y - a.y
-    let radius = sqrt(dx * dx + dy * dy)
-    return Result.circle(center: center, radius: radius)
-    }
---]]
-
-
-
-------------------------------------------------------------
 
 local savedRx={}
 local savedRy={}
-
+local circFitCache={}
 
 local function dirPrint()
-   --local dx, dy, rx, ry
-   local sC = variables.triLength * 3 -- scale factor for this tele window
+   local sC = variables.triLength * 2 -- scale factor for this tele window
    local xf = 0.40 -- center X is at 1-xf of width
    local yf = 0.65 -- center Y is at 1-yf of height
    local xmin, xmax=(-1+xf)*sC, xf*sC
@@ -2791,6 +2653,8 @@ local function dirPrint()
 
    if not xtable or not ytable then return end
 
+   lcd.setColor(0,0,0)
+   
    if not compcrs then
       lcd.drawText(40, 80, "Triangle View: No heading", FONT_BIG)
       return
@@ -2798,12 +2662,9 @@ local function dirPrint()
    
    lcd.setColor(0,0,255)
    
-   --drawHeading()
-   
    hh = heading - 180
    
    local xx, yy = xtable[#xtable], ytable[#ytable]
-   
    
    local function ll2RX(ih)
       local xrr, yrr
@@ -2833,67 +2694,7 @@ local function dirPrint()
       return yrr
    end   
 
-   --[[
-   -- prior attempt .. code below works better
-   local function circFit(j)
-      local d1x = ll2RY(j-1) - ll2RY(j-2)
-      local d1y = ll2RX(j-2) - ll2RX(j-1)
-      local d2x = ll2RY(j) - ll2RY(j-2)
-      local d2y = ll2RX(j-2) - ll2RX(j)
-      local k = d2x * d1y - d2y*d1x
-      -- if k < -0.00001 or k > 0.00001 then
-      -- 	 return nil
-      -- end
-      local s1x = (ll2RX(j-2) + ll2RX(j-1)) / 2.0
-      local s1y = (ll2RY(j-2) + ll2RY(j-1)) / 2.0
-      local s2x = (ll2RX(j-2) + ll2RX(j)) / 2.0
-      local s2y = (ll2RY(j-2) + ll2RY(j)) / 2.0
-      local l = d1x * (s2y - s1y) - d1y * (s2x - s1x)
-      local m = l/k
-      local cx = s2x + m*d2x
-      local cy = s2y + m*d2y
-      local dx = cx - ll2RX(j-2)
-      local dy = cy - ll2RY(j-2)
-      local r  = math.sqrt(dx*dx + dy*dy)
-      return cx, cy, r, k
-   end
-   --]]
-   
-   -- circFit2() tranlated from the swift file on:
-   -- https://stackoverflow.com/questions/10407700/
-   -- calculate-center-and-radius-of-circle-from-3-points-on-it
-   --[[
-   -- experiment to remove local vars and compute directly .. turns out this is much slower!
-   -- 85% CPU vs. 70%
-   local function circFit2(j)
-      --local x1 = ll2RX(j-2)
-      --local y1 = ll2RY(j-2)
-      --local x2 = ll2RX(j-1)
-      --local y2 = ll2RY(j-1)
-      --local x3 = ll2RX(j)
-      --local y3 = ll2RY(j)
-      --local x3 = ll2RXr(latitude, longitude)
-      --local y3 = ll2RYr(latitude, longitude)
-      
-      local A = ll2RX(j-2)*(ll2RY(j-1)-ll2RYr(latitude, longitude)) - ll2RY(j-2)*(ll2RX(j-1)-ll2RXr(latitude, longitude)) + ll2RX(j-1)*ll2RYr(latitude, longitude) - ll2RXr(latitude, longitude)*ll2RY(j-1)
-      if math.abs(A) <= 1.0E-6 then
-	 return nil
-      end
-      
-      local B = (ll2RX(j-2)*ll2RX(j-2) + ll2RY(j-2)*ll2RY(j-2))*(ll2RYr(latitude, longitude)-ll2RY(j-1)) + (ll2RX(j-1)*ll2RX(j-1) + ll2RY(j-1)*ll2RY(j-1))*(ll2RY(j-2)-ll2RYr(latitude, longitude)) + (ll2RXr(latitude, longitude)*ll2RXr(latitude, longitude) + ll2RYr(latitude, longitude)*ll2RYr(latitude, longitude))*(ll2RY(j-1)-ll2RY(j-2))
-      local C = (ll2RX(j-2)*ll2RX(j-2) + ll2RY(j-2)*ll2RY(j-2))*(ll2RX(j-1)-ll2RXr(latitude, longitude)) + (ll2RX(j-1)*ll2RX(j-1) + ll2RY(j-1)*ll2RY(j-1))*(ll2RXr(latitude, longitude)-ll2RX(j-2)) + (ll2RXr(latitude, longitude)*ll2RXr(latitude, longitude) + ll2RYr(latitude, longitude)*ll2RYr(latitude, longitude))*(ll2RX(j-2)-ll2RX(j-1))
-      local D = (ll2RX(j-2)*ll2RX(j-2) + ll2RY(j-2)*ll2RY(j-2))*(ll2RXr(latitude, longitude)*ll2RY(j-1) - ll2RX(j-1)*ll2RYr(latitude, longitude)) + (ll2RX(j-1)*ll2RX(j-1) + ll2RY(j-1)*ll2RY(j-1))*(ll2RX(j-2)*ll2RYr(latitude, longitude) - ll2RXr(latitude, longitude)*ll2RY(j-2)) +
-	 (ll2RXr(latitude, longitude)*ll2RXr(latitude, longitude) + ll2RYr(latitude, longitude)*ll2RYr(latitude, longitude))*(ll2RX(j-1)*ll2RY(j-2) -ll2RX(j-2)*ll2RY(j-1))
-
-      local cx = -B / (2*A)
-      local cy = -C / (2*A)
-      local r = math.sqrt( (B*B + C*C - 4*A*D)/ (4*A*A) )
-      return cx, cy, r, A
-   end
-   --]]
-   
-   ---[[
-   local function circFit2(k)
+   local function circFit(k)
       -- tradeoff to use jth point .. closer to real time but noisier when still
       -- very close to current point
       if true then --latHist[k] == latitude and lngHist[k] == lngHist[k] then
@@ -2931,16 +2732,8 @@ local function dirPrint()
       local r = math.sqrt( (B*B + C*C - 4*A*D)/ (4*A*A) )
       return cx, cy, r, A
    end
-   --]]
-   
-   -- local function rapN(x, y)
-   --    local rx, ry
-   --    rx, ry = rotateXY(x, y, math.rad(hh))
-   --    rx, ry = toXPixel(rx, xmin, xrange, ww), toYPixel(ry, ymin, yrange, wh)
-   --    ren:addPoint(rx, ry)
-   -- end
-   
-   local function rap(x,y,d)
+
+   local function rap(x,y,d) -- rap for "ren:addPoint"
       local dx = xx - x
       local dy = yy - y
       local rx, ry = rotateXY(dx, dy, math.rad(hh))
@@ -2952,7 +2745,7 @@ local function dirPrint()
       return rx, ry
    end
 
-   local function rapN(x,y,d)
+   local function rapN(x,y,d) -- N for NoDraw
       local dx = xx - x
       local dy = yy - y
       local rx, ry = rotateXY(dx, dy, math.rad(hh))
@@ -2960,7 +2753,7 @@ local function dirPrint()
       return rx, ry
    end
 
-   local function rapC(rx,ry,d)
+   local function rapC(rx,ry,d) -- C for cached
       ren:addPoint(rx, ry)
       if d then
 	 lcd.drawCircle(rx, ry, d)
@@ -2972,10 +2765,7 @@ local function dirPrint()
    lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6+4, "N", FONT_MINI)
    drawShape(20, 12+4, shapes.arrow, math.rad(-heading+variables.rotationAngle - 90))
    lcd.drawCircle(20, 12+4, 7)
-
    
-   ren:reset()
-
    if not pylon or not pylon[3] then return end
    
    ren:reset()
@@ -2985,7 +2775,6 @@ local function dirPrint()
    for j = 1, #pylon + 1 do
       rap(pylon[m3(j)].x, pylon[m3(j)].y)
    end
-
 
    lcd.setColor(240,115,0)
    ren:renderPolyline(2, 0.7)
@@ -3047,21 +2836,21 @@ local function dirPrint()
       local iend = #xPHist
       local istart = math.max(iend-maxPts+1, 1)
       local newH = (hh ~= lastHeading)
+      -- for each heading, pre-compute pixels for history ribbon
       if newH then
 	 for i=istart, iend do
 	    xrr,yrr = ll2RX(i), ll2RY(i)
 	    savedRx[i], savedRy[i] = rapN(xrr, yrr, 2)
 	 end
       end
-
       ren:reset()
       rgb.last = -1
+      -- display the hsitory ribbon from the cached points, handle color changes
       for i=istart, iend do
 	 if variables.ribbonColorSource ~= 1 then
-	    -- in case we get unlucky on heading changes we might need to compute
-	    -- some additional points. for speed just check savedRx
+	    -- in case we get unlucky on heading change timing, we might need to compute
+	    -- some additional points from time to time. for speed just check savedRx
 	    if not savedRx[i] then
-	       print("recompute", i)
 	       xrr,yrr = ll2RX(i), ll2RY(i)
 	       savedRx[i], savedRy[i] = rapN(xrr, yrr, 2)
 	    end
@@ -3080,68 +2869,8 @@ local function dirPrint()
       rap(xx,yy,2)
       ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
       
-      ------------------------------------------------------------
-      --[[
-      ren:reset()
-      jj=0
-      rgb.last = -1
-      for i=istart, iend do
-	 jj = jj + 1
-	 if ii ~= 1 then
-	    if (rgbHist[i].rgb ~= rgb.last) then
-	       rgb.last = rgbHist[i].rgb
-	       if newH then
-		  xrr, yrr = ll2RX(i), ll2RY(i)
-		  savedRx[jj], savedRy[jj] = rap(xrr, yrr, 2)
-	       else
-		  if not savedRx[jj] or not savedRy[jj] then
-		     print("1) jj, savedRx[jj], savedRy[jj]", jj, savedRx[jj], savedRy[jj])
-		  else
-		     rapC(savedRx[jj], savedRy[jj], 2)
-		  end
-	       end
-	       ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
-	       ren:reset()
-	       if true then --newH then
-		  xrr, yrr = ll2RX(i), ll2RY(i)
-		  savedRx[jj], savedRy[jj] = rap(xrr, yrr, 2)
-	       else
-		  if not savedRx[jj] or not savedRy[jj] then
-		     print("2) jj, savedRx[jj], savedRy[jj]", jj, savedRx[jj], savedRy[jj])
-		  else
-		     rapC(savedRx[jj], savedRy[jj], 2)
-		  end
-	       end
-	       lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
-	    end
-	 else -- solid/monochrome ribbon
-	    lcd.setColor(140,140,80)
-	 end
-	 if newH then
-	    xrr, yrr = ll2RX(i), ll2RY(i)
-	    savedRx[jj], savedRy[jj] = rap(xrr, yrr, 2)
-	 else
-	    if not savedRx[jj] or not savedRy[jj] then
-	       print("3) jj, savedRx[jj], savedRy[jj]", jj, savedRx[jj], savedRy[jj])
-	    else
-	       rapC(savedRx[jj], savedRy[jj], 2)
-	    end
-	 end
-      end
-      rap(xx,yy,2)
-      ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
-      --]]
-      ------------------------------------------------------------      
-
-
-
-      
    end
-
    lastHeading = hh
-   
-   
-   ------------------------------------------------------------
    
    -- draw the airplane icon
    
@@ -3152,32 +2881,43 @@ local function dirPrint()
    	     shapes.T38, 0)
 
    -- draw the projected flight path
-   
-   -- ren:reset()
-   -- ren:addPoint(toXPixel(0, xmin, xrange, ww), toYPixel(sC/12, ymin, yrange, wh))
-   -- ren:addPoint(toXPixel(0, xmin, xrange, ww), toYPixel(sC/3.5, ymin, yrange, wh))
-   -- ren:renderPolyline(3,0.7)
+   -- optimization needed: only call circFit when new hist point available otherwise cache
 
-   -- major optimization needed: only call circFit when new hist point available
+   local xx, cy, r, A
+   local recomp
+   local t0, t1, tn
+   local dt
    
    if #latHist >= 5 then
-      local cx, cy, r, A = circFit2(#latHist)
+      recomp = circFitCache.lastLat ~= latHist[#latHist] or circFitCache.lastLng ~= lngHist[#latHist]
+      if recomp then
+	 cx, cy, r, A = circFit(#latHist)
+	 circFitCache.cx, circFitCache.cy, circFitCache.r, circFitCache.A = cx, cy, r, A
+	 circFitCache.lastLat = latHist[#latHist]
+	 circFitCache.lastLng = lngHist[#lngHist]
+      else
+	 cx,cy, r, A = circFitCache.cx, circFitCache.cy, circFitCache.r, circFitCache.A
+      end
       if cx then
-	 local t1 = math.atan( (ll2RX(#latHist-1) - cx), (ll2RY(#latHist-1) - cy))
-	 local t0 = math.atan( (ll2RX(#latHist) - cx), (ll2RY(#latHist) - cy))
-	 local tn
-	 if latitude and longitude then
-	    tn = math.atan( (ll2RXr(latitude, longitude) - cx), (ll2RYr(latitude, longitude) - cy))
+	 if recomp then
+	    t1 = math.atan( (ll2RX(#latHist-1) - cx), (ll2RY(#latHist-1) - cy))
+	    t0 = math.atan( (ll2RX(#latHist) - cx), (ll2RY(#latHist) - cy))
+	    circFitCache.t1 = t1
+	    circFitCache.t0 = t0
 	 else
-	    print("NO LAT/LONG")
+	    t0 = circFitCache.t0
+	    t1 = circFitCache.t1	    
+	 end
+	 --can't cache tn since it varies with lat/long
+	 if latitude and longitude then
+	    tn = math.atan( (ll2RXr(latitude, longitude) - cx),
+	       (ll2RYr(latitude, longitude) - cy))
+	 else
 	    tn = 0
 	 end
-	 
-	 local dt = t0 - t1
+	 dt = t0 - t1
 	 if math.deg(dt) > 180 then dt = dt - 2*math.pi end
-
 	 dt = math.max(math.min(dt, math.pi/12), -math.pi/12)
-
 	 if r > (sC / 20) then
 	    ren:reset()
 	    for i=1,10,1 do
@@ -3232,7 +2972,7 @@ local function dirPrint()
       metrics.maxCPU = system.getCPU()
    end
    
-   lcd.drawText(6,125, string.format("CPU: %d%% %d%% %d%%", system.getCPU(), metrics.avgCPU, metrics.maxCPU), FONT_MINI)
+   lcd.drawText(6,125, string.format("CPU: %d%% %d%%", metrics.avgCPU, metrics.maxCPU), FONT_MINI)
    if variables.ribbonColorSource ~= 1 and currentRibbonValue then
       lcd.drawText(18, 140, string.format("%s: %.0f",
 					 colorSelect[variables.ribbonColorSource],
@@ -3241,95 +2981,9 @@ local function dirPrint()
       lcd.drawFilledRectangle(6,143,8,8)
    end
 
+   collectgarbage()
+   
 end
-
---[[
-local function dirPrint()
-   local xa, ya
-   local xp, yp
-   local theta
-   local dotpng
-
-   if form.getActiveForm() then return end
-
-   xa = 160
-   ya = 90
-   --lcd.drawLine(160,160,160, 0)
-   lcd.setColor(160,160,160)
-   lcd.drawFilledRectangle(xa-2, ya-50, 4, 100)
-   lcd.drawFilledRectangle(xa-50, ya-2, 100, 4)
-   lcd.drawCircle(xa, ya, 50)
-   lcd.drawCircle(xa, ya, 51)      
-
-   if raceParam.racing then
-      theta = math.rad(180 - (relBearing or 0))
-   else
-      theta = math.rad(180)
-   end
-   
-   lcd.setColor(255,200,0)
-   drawShape(xa, ya, shapes.bigArrow, theta )
-
-   if raceParam.racing then
-      
-      if m3(nextPylon) == 1 then lcd.setColor(200,0,0)
-      elseif m3(nextPylon) == 2 then lcd.setColor(0,150,0)
-      elseif m3(nextPylon) == 3 then lcd.setColor(0,0,200)
-      end
-      
-      txt = string.format("Pylon %d: %dm, %ds", m3(nextPylon), distance, distance/speed)
-      lcd.drawText(xa - lcd.getTextWidth(FONT_BOLD, txt)/2, ya+52, txt, FONT_BOLD)
-   end
-      
-   --lcd.drawText(265, 35, string.format("NxtP %d", m3(nextPylon)), FONT_MINI)
-   --lcd.drawText(265, 45, string.format("Dist %.0f", distance), FONT_MINI)
-   --lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
-   --lcd.drawText(265, 65, string.format("TCrs %.1f", vd), FONT_MINI)
-   --lcd.drawText(265, 75, string.format("RelB %.1f", relBearing or 0), FONT_MINI)
-   --if speed ~= 0 then
-     -- lcd.drawText(265, 85, string.format("Time %.1f", distance / speed), FONT_MINI)
-   --end
-
-   lcd.setColor(0,0,255)
-   if distance and raceParam.racing then
-      xp, yp = rotateXY(0, 50 * distance / variables.triLength, theta)
-      if m3(nextPylon) == 1 then dotpng = dotImage.red
-      elseif m3(nextPylon) == 2 then dotpng = dotImage.green
-      elseif m3(nextPylon) == 3 then dotpng = dotImage.blue
-      end
-      lcd.drawImage((xp+xa-7), (yp+ya-7), dotpng)
-      --lcd.drawCircle(xp+xa, yp+ya,5)
-   else
-      lcd.drawImage(xa-7, ya-7, dotImage.red)
-      --lcd.drawCircle(xa, ya,5)
-   end
-   
-      
-   drawHeading()
-   lcd.setColor(0,0,0)
-   drawGauge("Alt", 0, 50, 100, altitude, "m", 250, 30)
-   drawGauge("Spd", 0, 50, 100, speed, "km/hr", 250,100)
-
-   if lapAltitude then
-      vertHistogram(25, ya, altitude - lapAltitude, 100, 60, 20, lapAltitude)
-   else
-      vertHistogram(25, ya, 0, 100, 60, 20)
-   end
-
-   local txt = string.format("#xP %d", #xPHist)
-   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, txt ) / 2,
-		100, txt, FONT_MINI)
-   
-   txt = string.format("NNP %d", countNoNewPos)
-   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, txt) / 2,
-		110, txt, FONT_MINI)
-
-   txt = string.format("(%d,%d)", x or 0, y or 0)
-   lcd.drawText(70-lcd.getTextWidth(FONT_MINI, txt ) / 2,
-		120, txt, FONT_MINI)
-
-end
---]]
 
 local noFlyHist = {}
 noFlyHist.Last = false
@@ -4408,4 +4062,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="7.25", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="8.0", name=appInfo.Name, destroy=destroy}
