@@ -91,6 +91,7 @@ local path={}
 local bezierPath = {}
 
 local shapes = {}
+local colors = {}
 local pylon = {}
 local nfc = {}
 local nfp = {}
@@ -168,7 +169,7 @@ browse.List = {}
 browse.OrignalFieldName = nil
 browse.FieldName = nil
 browse.MapDisplayed = false
-browse.opTable = {"X","Y","R","L"}
+browse.opTable = {"X","Y","R","L","O"}
 browse.opTableIdx = 1
 
 local colorSelect = {"None", "Altitude", "Speed", "Laps", "Switch",
@@ -269,12 +270,10 @@ local function jLoad(config, var, def)
    if config[var] == nil then
       config[var] = def
    end
-   
-   if type(config[var]) == "userdata" then print("var: userdata", var) end
-	   
-   if type(config[var]) == "table" and #config[var] == 0 then -- getSwitchInfo table
-      return system.createSwitch(string.upper(config[var].label), config[var].mode, 1)
-   end
+   -- if type(config[var]) == "userdata" then print("var: userdata", var) end
+   -- if type(config[var]) == "table" and #config[var] == 0 then -- getSwitchInfo table
+   --    return system.createSwitch(string.upper(config[var].label), config[var].mode, 1)
+   -- end
    return config[var]
 end
 
@@ -531,46 +530,14 @@ local function nfz2XY()
    end
 end
 
-local function setColorMap()
-   if fieldPNG[currentImage] then
-      lcd.setColor(255,255,0)
+local function setColor(type, mode)
+   local cc
+   if type == "Map" and mode == "Image" and not fieldPNG[currentImage] then
+      cc = colors["Light"]["Map"]
    else
-      lcd.setColor(0,0,0)
+      cc = colors[mode][type]
    end
-end
-
-local function setColorNoFlyInside()
-   lcd.setColor(255,0,0)
-end
-
-local function setColorNoFlyOutside()
-   lcd.setColor(0,255,0)
-end
-
-local function setColorMain()
-   local rb,gb,bb = lcd.getBgColor()
-   
-   if fieldPNG[currentImage] then
-      lcd.setColor(255,255,0)
-   else
-      lcd.setColor(255-rb,255-gb, 255-bb)
-   end
-end
-
-local function setColorLabels()
-   lcd.setColor(255,255,0)
-end
-
-local function setColorRunway()
-   lcd.setColor(255,255,0)
-end
-
-local function setColorTriangle()
-   lcd.setColor(100,255,255)
-end
-
-local function setColorTriRot()
-   lcd.setColor(255,100,0)
+   lcd.setColor(cc.r, cc.g, cc.b)
 end
 
 local function setField(sname)
@@ -585,6 +552,37 @@ local function setField(sname)
       Field.imageWidth[k] = math.floor(v.meters_per_pixel * 320 + 0.5)
    end
 
+   ------------------------------------------------------------
+   local triT
+
+   local tfn = appInfo.Dir .. "MF-" ..
+      string.gsub(system.getProperty("Model")..".jsn", " ", "_") ..
+      "-" .. Field.shortname .. ".jsn"
+
+   local jsn = io.readall(tfn)
+   
+   if jsn then triT = json.decode(jsn) end
+
+   if triT then
+      variables.triOffsetX  = triT.dx or 0
+      variables.triOffsetY  = triT.dy or 0
+      variables.triLength   = triT.L  or Field.triangle.size
+      variables.triRotation = triT.r  or 0
+      variables.aimoff      = triT.O  or Field.triangle.size / 20
+   else
+      variables.triOffsetX  = 0
+      variables.triOffsetY  = 0
+      variables.triLength   = Field.triangle.size
+      variables.triRotation = 0
+      variables.aimoff      = Field.triangle.size / 20
+   end
+
+   -- print(
+   --    "read variables.triOffsetX, variables.triOffsetY, variables.triRotation, variables.triLength",
+   --    variables.triOffsetX, variables.triOffsetY, variables.triRotation, variables.triLength)
+
+   ------------------------------------------------------------
+
    lng0 = Field.lng -- reset to origin to coords in jsn file
    lat0  = Field.lat
    coslat0 = math.cos(math.rad(lat0))
@@ -593,8 +591,13 @@ local function setField(sname)
    rwy2XY()
    nfz2XY()
    
-   setColorMap()
-   setColorMain()
+   --setColorMap()
+   --setColorMain()
+   if variables.triEnabled then
+      setColor("Map", variables.triColorMode)
+   else
+      setColor("Map", "Image")
+   end
 end
 
 local function triReset()
@@ -795,6 +798,13 @@ local function preTextChanged(value)
    form.reinit(8)
 end
 
+local function triColorModeChanged(value)
+   local t = {"Light", "Dark", "Image"}
+   variables.triColorMode = t[value]
+   jSave(variables, "triColorMode", t[value])
+end
+
+				  
 -- local function noFlyShakeEnabledClicked(value)
 --    print("nFSEC", value)
 --    checkBox.noFlyShakeEnabled = not value
@@ -980,6 +990,11 @@ local function keyForm(key)
 	 browse.dispText = string.format("R %4d", variables.triRotation)
 	 jSave(variables, "triRotation", variables.triRotation)	 
 	 --system.pSave("variables.triRotation", variables.triRotation)
+      elseif browse.opTable[browse.opTableIdx] == "O" then 
+	 print("variables.aimoff", variables.aimoff)
+	 variables.aimoff = variables.aimoff - inc
+	 browse.dispText = string.format("O %4d", variables.aimoff)
+	 jSave(variables, "aimoff", variables.aimoff)	 
       else -- L (length)
 	 variables.triLength = variables.triLength + -5*inc
 	 browse.dispText = string.format("L %4d", variables.triLength)
@@ -1041,7 +1056,36 @@ local function keyForm(key)
 	    --print("reinit 9")
 	    form.reinit(7)
 	 else
-	    print("resetting Field: ", browse.OriginalFieldName)
+	    print("resetting Field: ", browse.OriginalFieldName, Field.shortname)
+
+	    ------------------------------------------------------------
+
+	    print("exiting browser", string.gsub(system.getProperty("Model")..".jsn", " ", "_"),
+		  Field.shortname)
+	    print("x,y,r,L, O", variables.triOffsetX, variables.triOffsetY, variables.triRotation,
+		  variables.triLength, variables.aimoff)
+	    
+	    -- Save the potential changes to the triangle in a file named by both the field
+	    -- AND the model so the re-reading only happens with the same combination of
+	    -- model and field
+	    -- finally, only save if the field just browsed is the active field
+
+	    if Field.shortname == browse.OriginalFieldName then
+	       local triT = {dx=variables.triOffsetX, dy=variables.triOffsetY,
+			     r=variables.triRotation, L = variables.triLength,
+			     O = variables.aimoff}
+	       local tfn = appInfo.Dir .. "MF-" ..
+		  string.gsub(system.getProperty("Model")..".jsn", " ", "_") ..
+		  "-" .. Field.shortname .. ".jsn"
+	       print("Saving", tfn)
+	       local tft = io.open(tfn, "w")
+	       if tft then io.write(tft, json.encode(triT), "\n") end
+	       io.close(tft)
+	    end
+	    
+	    ------------------------------------------------------------
+
+
 	    if not browse.OriginalFieldName then
 	       Field = {}
 	    else
@@ -1141,8 +1185,8 @@ local function initForm(subform)
       form.addLink((function() form.reinit(3) end),
 	 {label = "Race Parameters >>"})
 
-      form.addLink((function() form.reinit(4) end),
-	 {label = "Triangle Parameters >>"})
+      -- form.addLink((function() form.reinit(4) end),
+      -- 	 {label = "Triangle Parameters >>"})
 
       form.addLink((function() form.reinit(5) end),
 	 {label = "Flight History  >>"})
@@ -1248,6 +1292,12 @@ local function initForm(subform)
       form.addLabel({label="Flight Start Altitude (m)", width=220})
       form.addIntbox(variables.flightStartAlt, 0, 100, 20, 0, 1, flightStartAltChanged)
 
+      local rev = {Light=1, Dark=2, Image=3}
+      form.addRow(2)
+      form.addLabel({label="Screen Mode", width=220})
+      form.addSelectbox({"Light", "Dark", "Image"},
+	 rev[variables.triColorMode], true, triColorModeChanged)
+      
       form.addLink((function() form.reinit(8) end),
 	 {label = "Racing announce sequence >>"})            
 
@@ -1405,10 +1455,10 @@ local function initForm(subform)
       form.addLabel({label="Field elevation adjustment (m)", width=220})
       form.addIntbox(variables.elev, -1000, 1000, 0, 0, 1, elevChanged)
       
-      form.addRow(2)
-      form.addLabel({label="Map Alpha", width=220})
-      form.addIntbox(variables.mapAlpha, 0, 255, 255, 0, 1, 
-		     (function(xx) return variableChanged(xx, "mapAlpha") end) )
+      -- form.addRow(2)
+      -- form.addLabel({label="Map Alpha", width=220})
+      -- form.addIntbox(variables.mapAlpha, 0, 255, 255, 0, 1, 
+      -- 		     (function(xx) return variableChanged(xx, "mapAlpha") end) )
       
       --form.addRow(2)
       --form.addLabel({label="Zoom reset sw", width=220})
@@ -1506,6 +1556,7 @@ local function initForm(subform)
       browse.MapDisplayed = true
       if browse.FieldName == browse.OriginalFieldName then
 	 form.setButton(2, browse.opTable[browse.opTableIdx], 1)
+	 form.setButton(5, "Save", 1) -- otherwise it will be "Ok"
       end
       form.setTitle("")
       form.setButton(1, ":backward", 1)
@@ -1774,7 +1825,8 @@ local function drawTriRace(windowWidth, windowHeight)
    if not pylon[1] then return end
    if not pylon.finished then return end
    
-   setColorMap()
+   --setColorMap()
+   setColor("Map", variables.triColorMode)
 
    for j=1, #pylon do
       local txt = string.format("%d", j)
@@ -1785,10 +1837,12 @@ local function drawTriRace(windowWidth, windowHeight)
 	 lcd.getTextHeight(FONT_MINI)/2 + 15,txt, FONT_MINI)
    end
 
-   setColorMain()
+   --setColorMain()
+   
    -- draw line from airplane to the aiming point
    if raceParam.racing then
-      lcd.setColor(255,20,147)
+      setColor("AimPt", variables.triColorMode)
+      --lcd.setColor(255,20,147)
       lcd.drawLine(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight),
 	   toXPixel(pylon[m3(nextPylon)].xt, map.Xmin, map.Xrange, windowWidth),
@@ -1796,9 +1850,10 @@ local function drawTriRace(windowWidth, windowHeight)
    end
    
 
-   lcd.setColor(153,153,255)
-   
    -- draw the triangle race course
+
+   setColor("Triangle", variables.triColorMode)
+   --lcd.setColor(153,153,255)
    ren:reset()
    for j = 1, #pylon + 1 do
 
@@ -1817,7 +1872,8 @@ local function drawTriRace(windowWidth, windowHeight)
    end
 
 
-   setColorMain()
+   --setColorMain()
+   setColor("Map", variables.triColorMode)
 
    -- draw the turning zones and the aiming points. The zones turn red when the airplane
    -- is in them .. the aiming point you are flying to is red.
@@ -1832,8 +1888,14 @@ local function drawTriRace(windowWidth, windowHeight)
 		   toYPixel(pylon[j].y, map.Ymin, map.Yrange, windowHeight),
 		   toXPixel(pylon[j].zxr, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[j].zyr, map.Ymin, map.Yrange, windowHeight) )
-      if raceParam.racing and inZone[j] then setColorMain() end
-      if raceParam.racing and j > 0 and j == m3(nextPylon) then lcd.setColor(255,0,0) end
+      if raceParam.racing and inZone[j] then
+	 --setColorMain()
+	 setColor("Map", variables.triColorMode)
+      end
+      if raceParam.racing and j > 0 and j == m3(nextPylon) then
+	 --lcd.setColor(255,0,0)
+	 setColor("AimPt", variables.triColorMode)
+      end
       --if region[code] == j
       lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
@@ -1841,9 +1903,15 @@ local function drawTriRace(windowWidth, windowHeight)
       lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
 		     2)
-      if raceParam.racing and j > 0 and j == m3(nextPylon) then setColorMain() end
+      if raceParam.racing and j > 0 and j == m3(nextPylon) then
+	 --setColorMain()
+	 setColor("Map", variables.triColorMode)
+      end
       --if region[code] == j 
    end
+
+   setColor("Label", variables.triColorMode)
+   
    if raceParam.titleText then
       lcd.drawText((320 - lcd.getTextWidth(FONT_BOLD, raceParam.titleText))/2, 0,
 	 raceParam.titleText, FONT_BOLD)
@@ -1926,7 +1994,6 @@ local function calcTriRace()
    else
       ao = 0
    end
-   -- XXX
    -- if no course computed yet, start by defining the pylons
    --print("#pylon, Field.name", #pylon, Field.name)
    if (#pylon < 3) and Field.name then -- need to confirm with RFM order of vertices
@@ -2254,6 +2321,9 @@ local function calcTriRace()
    distance = math.sqrt( (xtable[#xtable] - pylon[m3(nextPylon)].xt)^2 +
 	 (ytable[#ytable] - pylon[m3(nextPylon)].yt)^2 )
 
+   local lastDist = math.sqrt( (xtable[#xtable] - pylon[m3(nextPylon+2)].xt)^2 +
+	 (ytable[#ytable] - pylon[m3(nextPylon+2)].yt)^2 )
+
    local xt = {xtable[#xtable], pylon[m3(nextPylon)].xt}
    local yt = {ytable[#ytable], pylon[m3(nextPylon)].yt}
 
@@ -2287,8 +2357,7 @@ local function calcTriRace()
       lastgetTime = now
       --print(m3(nextPylon+2), inZone[m3(nextPylon+2)] )
       if raceParam.racing then
-	 annTextSeq = annTextSeq + 1
-	 if annTextSeq > #variables.annText then
+	 annTextSeq = annTextSeq + 1	 if annTextSeq > #variables.annText then
 	    annTextSeq = 1
 	 end
 	 sChar = variables.annText:sub(annTextSeq,annTextSeq)
@@ -2299,7 +2368,17 @@ local function calcTriRace()
 	 end
 	 sChar = variables.preText:sub(preTextSeq,preTextSeq)
       end
-      if (sChar == "C" or sChar == "c") and raceParam.racing then
+
+      -- no announcements within 3 secs of turn (convert to m/s)
+      -- distance is dist to next pylon
+      -- lastDist is dist to prev pylon
+      -- former controls approach to pylon, latter departure from pylon
+      -- + 0.1 to guard against divide by zero
+
+      local annZone = (distance / ( ( (speed or 0) + 0.1) / 3.6)) > 2.5
+      annZone = annZone and (lastDist / ( ( (speed or 0) + 0.1) / 3.6)) > 2.5
+      
+      if (sChar == "C" or sChar == "c") and raceParam.racing and annZone then
 	 if relBearing < -6 then
 	    if sChar == "C" then
 	       playFile(appInfo.Dir.."Audio/turn_right.wav", AUDIO_QUEUE)
@@ -2500,9 +2579,9 @@ local function prtForm(windowWidth, windowHeight)
    --if not form.getActiveForm() then return end
    --if not browse.MapDisplayed then return end
    
-   setColorMap()
-   
-   setColorMain()
+   --setColorMap()
+   --setColorMain()
+   setColor("Map", "Image")
    
    -- if fieldPNG[currentImage] then
    --    lcd.drawImage(0,0,fieldPNG[currentImage], 255)
@@ -2543,23 +2622,15 @@ local function prtForm(windowWidth, windowHeight)
       --lcd.drawImage(-5,15,fieldPNG[currentImage],255)-- -5 and 15 (175-160??) determined empirically (ugg)
       if Field then
 	 --lcd.drawCircle(0,0,10)
-	 setColorLabels()
+	 setColor("Label", "Image")
+	 --setColorLabels()
 	 lcd.drawText(10,10, Field.images[currentImage].file, FONT_NORMAL)	 
-	 --[[
-	 lcd.drawText(10,25,Field.shortname .." - " ..Field.name, FONT_MINI)
-	 lcd.drawText(10,35,"Width: " ..  Field.imageWidth[currentImage] .." m", FONT_MINI)
-	 lcd.drawText(10,45,"Lat: " ..  string.format("%.6f", lat0) .. "°", FONT_MINI)
-	 lcd.drawText(10,55,"Lon: " ..  string.format("%.6f", lng0) .. "°", FONT_MINI)
-	 if Field.elevation then
-	    lcd.drawText(10,65,"Elev: " .. math.floor(Field.elevation.elevation+0.5) .." m",
-	    FONT_MINI)
-	 end
-	 --]]
 	 --maybe should center this instead of fixed X position
 	 lcd.drawText(70,145,(browse.dispText or ""), FONT_NORMAL)	 
 	 --lcd.setClipping(0,15,310,160)
 
-	 setColorRunway()
+	 --setColorRunway()
+	 setColor("Runway", "Image")
 	 if #rwy == 4 then
 	    ren:reset()
 	    for j = 1, 5, 1 do
@@ -2577,7 +2648,8 @@ local function prtForm(windowWidth, windowHeight)
 	       ren:addPoint(toXPixel(tri[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
 			    toYPixel(tri[j%3+1].y, map.Ymin, map.Yrange, windowHeight))
 	    end
-	    setColorTriangle()
+	    --setColorTriangle()
+	    setColor("Triangle", "Image")
 	    ren:renderPolyline(2,0.7)
 	 end
 
@@ -2588,7 +2660,8 @@ local function prtForm(windowWidth, windowHeight)
 		  ren:addPoint(toXPixel(pylon[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
 			       toYPixel(pylon[j%3+1].y, map.Ymin, map.Yrange, windowHeight))
 	       end
-	       setColorTriRot()
+	       --setColorTriRot()
+	       setColor("TriRot", "Image")
 	       ren:renderPolyline(2,0.7)
 	    end
 	 end
@@ -2596,9 +2669,11 @@ local function prtForm(windowWidth, windowHeight)
 	 for i = 1, #nfp, 1 do
 	    ren:reset()
 	    if nfp[i].inside then
-	       setColorNoFlyInside()
+	       setColor("NoFlyInside", "Image")
+	       --setColorNoFlyInside()
 	    else
-	       setColorNoFlyOutside()
+	       setColor("NoFlyOutside", "Image")
+	       --setColorNoFlyOutside()
 	    end
 	    for j = 1, #nfp[i].path+1, 1 do
 	       ren:addPoint(toXPixel(nfp[i].path[j % (#nfp[i].path) + 1].x,
@@ -2614,11 +2689,12 @@ local function prtForm(windowWidth, windowHeight)
 	 for i = 1, #nfc, 1 do
 	    if i == i then
 	       if nfc[i].inside then
-		  setColorNoFlyInside()
+		  --setColorNoFlyInside()
+		  setColor("NoFlyInside", "Image")
 	       else
-		  setColorNoFlyOutside()
+		  --setColorNoFlyOutside()
+		  setColor("NoFlyOutside", "Image")
 	       end
-	       
 	       lcd.drawCircle(toXPixel(nfc[i].x, map.Xmin, map.Xrange, windowWidth),
 			      toYPixel(nfc[i].y, map.Ymin, map.Yrange, windowHeight),
 			      nfc[i].r * windowWidth/map.Xrange)
@@ -2628,7 +2704,8 @@ local function prtForm(windowWidth, windowHeight)
       lcd.setColor(255,255,255)
       lcd.drawFilledRectangle(0, 166, 320,20)
       lcd.drawFilledRectangle(0, 0, 320,8)      
-      setColorMain()
+      --setColorMain()
+      setColor("Map", "Image")
    end
 end
 
@@ -2650,17 +2727,31 @@ local function dirPrint()
    local wh = 160
    local ren=lcd.renderer()
    local hh
-
+   local triColorMode
+   
    if not xtable or not ytable then return end
 
-   lcd.setColor(0,0,0)
+   if variables.triColorMode == "Dark" then
+      setColor("Background", "Image")
+      lcd.drawFilledRectangle(0,0,320,160)      
+   end
+
+   if variables.triColorMode == "Image" then
+      triColorMode = "Light"
+   else
+      triColorMode = variables.triColorMode
+   end
+
+   setColor("Label", triColorMode)
+
+   if not variables.triEnabled then
+      lcd.drawText(35, 80, "Triangle Racing not enabled", FONT_BIG)      
+   end
    
    if not compcrs then
       lcd.drawText(40, 80, "Triangle View: No heading", FONT_BIG)
       return
    end
-   
-   lcd.setColor(0,0,255)
    
    hh = heading - 180
    
@@ -2760,10 +2851,8 @@ local function dirPrint()
       end      
    end
    
-   lcd.setColor(0,0,0)
-
    lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6+4, "N", FONT_MINI)
-   drawShape(20, 12+4, shapes.arrow, math.rad(-heading+variables.rotationAngle - 90))
+   drawShape(20, 12+4, shapes.arrow, math.rad(-heading-variables.rotationAngle))
    lcd.drawCircle(20, 12+4, 7)
    
    if not pylon or not pylon[3] then return end
@@ -2772,27 +2861,27 @@ local function dirPrint()
 
    -- draw the triangle
    
+   setColor("Triangle", triColorMode)
    for j = 1, #pylon + 1 do
       rap(pylon[m3(j)].x, pylon[m3(j)].y)
    end
-
-   lcd.setColor(240,115,0)
    ren:renderPolyline(2, 0.7)
 
    --draw the startline
-   
+
+   setColor("StartLine", triColorMode)
    if #pylon == 3 and pylon.start then
       ren:reset()
       rap(pylon[2].x, pylon[2].y)
       rap(pylon.start.x, pylon.start.y)
-      lcd.setColor(0,0,255)
+      --lcd.setColor(0,0,255)
       ren:renderPolyline(2,0.7)
    end
 
    -- draw the line to the next aim point
-
+   setColor("AimPt", triColorMode)
    if raceParam.racing then
-      lcd.setColor(250,177,216)
+      --lcd.setColor(250,177,216)
       ren:reset()
       rap(xx,yy)
       rap(pylon[m3(nextPylon)].xt, pylon[m3(nextPylon)].yt)
@@ -2800,14 +2889,14 @@ local function dirPrint()
    end
 
    -- draw the turning zones
-   
+   setColor("TurnZone", triColorMode)
    for j = 1, #pylon do
       ren:reset()
       rap(pylon[j].x, pylon[j].y)
       rap(pylon[j].zxl, pylon[j].zyl)
       rap(pylon[j].zxr, pylon[j].zyr)
       rap(pylon[j].x, pylon[j].y)
-      lcd.setColor(240,115,0)
+      --lcd.setColor(240,115,0)
       local alpha
       if raceParam.racing and m3(nextPylon) == j then
 	 alpha = 0.8
@@ -2863,7 +2952,8 @@ local function dirPrint()
 	    end
 	    rapC(savedRx[i], savedRy[i], 2)
 	 else
-	    lcd.setColor(140,140,80)
+	    setColor("Map", triColorMode)
+	    --lcd.setColor(140,140,80)
 	 end
       end
       rap(xx,yy,2)
@@ -2873,8 +2963,8 @@ local function dirPrint()
    lastHeading = hh
    
    -- draw the airplane icon
-   
-   lcd.setColor(0,0,255)
+   setColor("Label", triColorMode)
+   --lcd.setColor(0,0,255)
    
    drawShape(toXPixel(0, xmin, xrange, ww),
    	     toYPixel(0, ymin, yrange, wh),
@@ -2929,14 +3019,15 @@ local function dirPrint()
 	    --print(r, k)
 	 end
       else
-	 print("circFit2 failed")
+	 --print("circFit2 failed")
       end
    end
    
    -- draw the telemetry values
    
    local text
-   lcd.setColor(0,0,255)
+   setColor("Label", triColorMode)
+   --lcd.setColor(0,0,255)
    text = string.format("%d", math.floor(raceParam.lapsComplete))
    lcd.drawText(xt - lcd.getTextWidth(FONT_BIG, text)/2, 5, text, FONT_BIG)
    text = "Laps"
@@ -3193,26 +3284,31 @@ local function mapPrint(windowWidth, windowHeight)
       graphScale(xtable[#xtable], ytable[#ytable])
    end
    
-   setColorMap()
-   
-   setColorMain()
-
    if fieldPNG[currentImage] then
-      if variables.mapAlpha < 255 then
-	 lcd.setColor(75,75,75)
-	 lcd.drawFilledRectangle(0,0,320,160)
+      --print("variables.triEnabled, variables.triColorMode",
+      --  variables.triEnabled, variables.triColorMode)
+      if variables.triEnabled and (variables.triColorMode ~= "Image") then
+	 --print(variables.triColorMode)
+      	 --lcd.setColor(75,75,75)
+	 setColor("Background", variables.triColorMode)
+      	 lcd.drawFilledRectangle(0,0,320,160)
       else
-	 lcd.drawImage(0,0,fieldPNG[currentImage])
+      	 lcd.drawImage(0,0,fieldPNG[currentImage])
       end
    else
+      setColor("Label", "Light")
       lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, "No GPS fix or no Image"))/2, 20,
 	 "No GPS fix or no Image", FONT_BIG)
    end
    
    -- in case the draw functions left color set to their specific values
-   setColorMain()
 
-   --lcd.drawCircle(160, 80, 5) -- circle in center of screen
+   --setColorMain()
+   if variables.triEnabled then
+      setColor("Map", variables.triColorMode)
+   else
+      setColor("Map", "Image")
+   end
    
    lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6, "N", FONT_MINI)
    drawShape(20, 12, shapes.arrow, math.rad(-1*variables.rotationAngle))
@@ -3321,7 +3417,12 @@ local function mapPrint(windowWidth, windowHeight)
 	       rgb.last = rgbHist[i].rgb
 	    end
 	 else -- solid/monochrome ribbon
-	    lcd.setColor(140,140,80)
+	    if variables.triEnabled then
+	       setColor("Map", variables.triColorMode)
+	    else
+	       setColor("Map", "Image")
+	    end
+	    --lcd.setColor(140,140,80)
 	 end
 	 
 	 --]]
@@ -3348,14 +3449,24 @@ local function mapPrint(windowWidth, windowHeight)
 		      toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 		      toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))		      
       end
-      setColorMain()
+      --setColorMain()
+      if variables.triEnabled then
+	 setColor("Map", variables.triColorMode)
+      else
+	 setColor("Map", "Image")
+      end
       --AA--ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0)
       ------------------------------
    end
 
    
-   setColorMap()
-   
+   --setColorMap()
+   if variables.triEnabled then
+      setColor("Runway", variables.triColorMode)
+   else
+      setColor("Runway", "Image")
+   end
+      
    if #rwy == 4 then
       ren:reset()
       for j = 1, 5, 1 do
@@ -3370,9 +3481,19 @@ local function mapPrint(windowWidth, windowHeight)
       for i = 1, #nfp, 1 do
 	 ren:reset()
 	 if nfp[i].inside then
-	    setColorNoFlyInside()
+	    --setColorNoFlyInside()
+	    if variables.triEnabled then
+	       setColor("NoFlyInside", variables.triColorMode)
+	    else
+	       setColor("NoFlyInside", "Image")
+	    end
 	 else
-	    setColorNoFlyOutside()
+	    --setColorNoFlyOutside()
+	    if variables.triEnabled then
+	       setColor("NoFlyOutside", variables.triColorMode)
+	    else
+	       setColor("NoFlyOutside", "Image")
+	    end
 	 end
 	 for j = 1, #nfp[i].path+1, 1 do
 	    ren:addPoint(toXPixel(nfp[i].path[j % (#nfp[i].path) + 1].x,
@@ -3423,9 +3544,19 @@ local function mapPrint(windowWidth, windowHeight)
       for i = 1, #nfc, 1 do
 	 if i == i then
 	    if nfc[i].inside then
-	       setColorNoFlyInside()
+	       --setColorNoFlyInside()
+	       if variables.triEnabled then
+		  setColor("NoFlyInside", variables.triColorMode)
+	       else
+		  setColor("NoFlyInside", "Image")
+	       end
 	    else
-	       setColorNoFlyOutside()
+	       --setColorNoFlyOutside()
+	       if variables.triEnabled then
+		  setColor("NoFlyOutside", variables.triColorMode)
+	       else
+		  setColor("NoFlyOutside", "Image")
+	       end
 	    end
 	    
 	    lcd.drawCircle(toXPixel(nfc[i].x, map.Xmin, map.Xrange, windowWidth),
@@ -3435,9 +3566,14 @@ local function mapPrint(windowWidth, windowHeight)
       end
    end
 
-   setColorMap()
-   setColorMain()
-
+   --setColorMap()
+   --setColorMain()
+   if variables.triEnabled then
+      setColor("Map", variables.triColorMode)
+   else
+      setColor("Map", "Image")
+   end
+   
    drawTriRace(windowWidth, windowHeight)
 
    -- diagnostic only
@@ -3454,23 +3590,42 @@ local function mapPrint(windowWidth, windowHeight)
 
    if #xtable > 0 then
 
-      setColorMain()
+      --setColorMain()
+      if variables.triEnabled then
+	 setColor("Map", variables.triColorMode)
+      else
+	 setColor("Map", "Image")
+      end
 
       if variables.histMax == 0 then
 	 drawBezier(windowWidth, windowHeight, 0)
       end
       
-
-      setColorMain()
+      --setColorMain()
+      if variables.triEnabled then
+	 setColor("Map", variables.triColorMode)
+      else
+	 setColor("Map", "Image")
+      end
       
       -- defensive moves for squashing the indexing nil variable that Harry saw
       -- had to do with getting here (points in xtable) but no field selected
       -- checks in Field being nil should take care of that
       
       if checkNoFly(xtable[#xtable], ytable[#ytable], false, false) then
-	 setColorNoFlyInside()
+	 --setColorNoFlyInside()
+	 if variables.triEnabled then
+	    setColor("NoFlyInside", variables.triColorMode)
+	 else
+	    setColor("NoFlyInside", "Image")
+	 end
       else
-	 setColorMap()
+	 --setColorMap()
+	 if variables.triEnabled then
+	    setColor("Map", variables.triColorMode)
+	 else
+	    setColor("Map", "Image")
+	 end
       end
       
       drawShape(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
@@ -3478,11 +3633,26 @@ local function mapPrint(windowWidth, windowHeight)
 		shapes.T38, math.rad(heading))
       
       if variables.futureMillis > 0 then
-	 setColorMap()
-	 if checkNoFly(xtable[#xtable], ytable[#xtable], true, false) then
-	    setColorNoFlyInside()
+	 --setColorMap()
+	 if variables.triEnabled then
+	    setColor("Map", variables.triColorMode)
 	 else
-	    setColorMap()
+	    setColor("Map", "Image")
+	 end
+	 if checkNoFly(xtable[#xtable], ytable[#xtable], true, false) then
+	    --setColorNoFlyInside()
+	    if variables.triEnabled then
+	       setColor("NoFlyInside", variables.triColorMode)
+	    else
+	       setColor("NoFlyInside", "Image")
+	    end
+	 else
+	    --setColorMap()
+	    if variables.triEnabled then
+	       setColor("Map", variables.triColorMode)
+	    else
+	       setColor("Map", "Image")
+	    end
 	 end
 	 -- only draw future if projected position more than 10m ahead (~10 mph for 2s)
 	 if speed * variables.futureMillis > 10000 and xtable.xf and ytable.yf then
@@ -3904,6 +4074,14 @@ local function init()
       print(appInfo.Name .. ": Could not open "..appInfo.Dir.."JSON/Shapes.jsn")
    end
 
+   fg = io.readall(appInfo.Dir .."JSON/Colors.jsn")
+
+   if fg then
+      colors = json.decode(fg)
+   else
+      print(appInfo.Name .. ": Could not open" .. appInfo.Dir .. "JSON/Colors.jsn")
+   end
+
    --A nice 9-point and 10-point RGB gradient that looks good on top of the map
    --From: https://learnui.design/tools/gradient-generator.html
    --#ff4d00, #ff6b00, #ffb900, #d7ff01, #5aff01, #02ff27, #03ff95, #03ffe2, #03ffff);
@@ -3940,7 +4118,12 @@ local function init()
    dotImage.green = lcd.loadImage(appInfo.Dir.."/JSON/small_green_circle.png")   
    dotImage.red = lcd.loadImage(appInfo.Dir.."/JSON/small_red_circle.png")
 
-   setColorMain()  -- if a map is present it will change color scheme later
+   --setColorMain()  -- if a map is present it will change color scheme later
+   if variables.triEnabled then
+      setColor("Map", variables.triColorMode)
+   else
+      setColor("Map", "Image")
+   end
    
    graphInit(currentImage)  -- ok that currentImage is not yet defined
 
@@ -3956,19 +4139,20 @@ local function init()
    variables.histSample        = jLoad(variables, "histSample",   1000)
    variables.histMax           = jLoad(variables, "histMax",         0)
    variables.maxCPU            = jLoad(variables, "maxCPU",         80)
-   variables.triLength         = jLoad(variables, "triLength",     250)
    variables.maxSpeed          = jLoad(variables, "maxSpeed",      100)
    variables.maxAlt            = jLoad(variables, "maxAlt",        200)
    variables.elev              = jLoad(variables, "elev",            0)
    variables.histDistance      = jLoad(variables, "histDistance",    3)
    variables.raceTime          = jLoad(variables, "raceTime",       30)
    variables.aimoff            = jLoad(variables, "aimoff",         20)
+   print("variables.aimoff:", variables.aimoff)
    variables.flightStartSpd    = jLoad(variables, "flightStartSpd", 20)
    variables.flightStartAlt    = jLoad(variables, "flightStartAlt", 20)
    variables.futureMillis      = jLoad(variables, "futureMillis", 2000)
    variables.triRotation       = jLoad(variables, "triRotation",     0)
    variables.triOffsetX        = jLoad(variables, "triOffsetX",      0)
    variables.triOffsetY        = jLoad(variables, "triOffsetY",      0)
+   variables.triLength         = jLoad(variables, "triLength",     250)
    variables.ribbonWidth       = jLoad(variables, "ribbonWidth",     1)
    variables.ribbonAlpha       = jLoad(variables, "ribbonAlpha",   1.0)
    variables.switchesSet       = jLoad(variables, "switchesSet")
@@ -3983,7 +4167,10 @@ local function init()
    variables.pointSwitchDir    = jLoad(variables, "pointSwitchDir", 0)
    variables.colorSwitchName   = jLoad(variables, "colorSwitchName", 0)
    variables.colorSwitchDir    = jLoad(variables, "colorSwitchDir", 0)            
-   variables.mapAlpha          = jLoad(variables, "mapAlpha", 255)
+   --variables.mapAlpha        = jLoad(variables, "mapAlpha", 255)
+   variables.triColorMode      = jLoad(variables, "triColorMode", "Image")
+
+   --------------------------------------------------------------------------------
    
    checkBox.triEnabled = jLoad(variables, "triEnabled", false)
    checkBox.noflyEnabled = jLoad(variables, "noflyEnabled", true)
@@ -4062,4 +4249,4 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="8.0", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="8.2", name=appInfo.Name, destroy=destroy}
