@@ -233,6 +233,12 @@ local function gradientIndex(inval, min, max, bins, mod)
    return bin
 end
 
+local function kFilename()
+   return appInfo.Dir .. "MF-" ..
+      string.gsub(system.getProperty("Model")..".jsn", " ", "_") ..
+      "-" .. Field.shortname .. ".jsn"
+end
+
 local function jFilename()
    return appInfo.Dir .. "M-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_")
 end
@@ -555,9 +561,7 @@ local function setField(sname)
    ------------------------------------------------------------
    local triT
 
-   local tfn = appInfo.Dir .. "MF-" ..
-      string.gsub(system.getProperty("Model")..".jsn", " ", "_") ..
-      "-" .. Field.shortname .. ".jsn"
+   local tfn = kFilename()
 
    local jsn = io.readall(tfn)
    
@@ -991,7 +995,7 @@ local function keyForm(key)
 	 jSave(variables, "triRotation", variables.triRotation)	 
 	 --system.pSave("variables.triRotation", variables.triRotation)
       elseif browse.opTable[browse.opTableIdx] == "O" then 
-	 print("variables.aimoff", variables.aimoff)
+	 --print("variables.aimoff", variables.aimoff)
 	 variables.aimoff = variables.aimoff - inc
 	 browse.dispText = string.format("O %4d", variables.aimoff)
 	 jSave(variables, "aimoff", variables.aimoff)	 
@@ -1056,14 +1060,14 @@ local function keyForm(key)
 	    --print("reinit 9")
 	    form.reinit(7)
 	 else
-	    print("resetting Field: ", browse.OriginalFieldName, Field.shortname)
+	    --print("resetting Field: ", browse.OriginalFieldName, Field.shortname)
 
 	    ------------------------------------------------------------
 
-	    print("exiting browser", string.gsub(system.getProperty("Model")..".jsn", " ", "_"),
-		  Field.shortname)
-	    print("x,y,r,L, O", variables.triOffsetX, variables.triOffsetY, variables.triRotation,
-		  variables.triLength, variables.aimoff)
+	    -- print("exiting browser", string.gsub(system.getProperty("Model")..".jsn", " ", "_"),
+	    -- 	  Field.shortname)
+	    -- print("x,y,r,L, O", variables.triOffsetX, variables.triOffsetY, variables.triRotation,
+	    -- 	  variables.triLength, variables.aimoff)
 	    
 	    -- Save the potential changes to the triangle in a file named by both the field
 	    -- AND the model so the re-reading only happens with the same combination of
@@ -1074,10 +1078,8 @@ local function keyForm(key)
 	       local triT = {dx=variables.triOffsetX, dy=variables.triOffsetY,
 			     r=variables.triRotation, L = variables.triLength,
 			     O = variables.aimoff}
-	       local tfn = appInfo.Dir .. "MF-" ..
-		  string.gsub(system.getProperty("Model")..".jsn", " ", "_") ..
-		  "-" .. Field.shortname .. ".jsn"
-	       print("Saving", tfn)
+	       local tfn = kFilename()
+	       --print("Saving", tfn)
 	       local tft = io.open(tfn, "w")
 	       if tft then io.write(tft, json.encode(triT), "\n") end
 	       io.close(tft)
@@ -1127,6 +1129,7 @@ local function clearData()
 		    "Restart App after pressing Yes",
 		    6000, false, 0) == 1 then
       io.remove(jFilename())
+      io.remove(kFilename())
       appInfo.SaveData = false
    end
 end
@@ -1996,7 +1999,7 @@ local function calcTriRace()
    end
    -- if no course computed yet, start by defining the pylons
    --print("#pylon, Field.name", #pylon, Field.name)
-   if (#pylon < 3) and Field.name then -- need to confirm with RFM order of vertices
+   if tri and (#pylon < 3) and Field.name then -- need to confirm with RFM order of vertices
       triRot(ao) -- handle rotation and tranlation of triangle course 
       -- extend startline below hypotenuse of triangle  by 0.8x inside length
       --tri.center.x = tri.center.x + variables.triOffsetX
@@ -2035,11 +2038,11 @@ local function calcTriRace()
 	    math.sqrt( (pylon[j].x - pylon[j].xm)^2 + (pylon[j].y - pylon[j].ym)^2 )
 	 pylon[j].xt = (1+pylon[j].alpha) * pylon[j].x - pylon[j].alpha*pylon[j].xm
 	 pylon[j].yt = (1+pylon[j].alpha) * pylon[j].y - pylon[j].alpha*pylon[j].ym
-	 -- magic factor was 0.4 before modding for tele screen 2
-	 zx, zy = rotateXY(-4.4 * variables.triLength, 4.4 * variables.triLength, rot[j])
+	 local zoneLen = 0.6 -- used to be 0.4
+	 zx, zy = rotateXY(-zoneLen * variables.triLength, zoneLen * variables.triLength, rot[j])
 	 pylon[j].zxl = zx + pylon[j].x
 	 pylon[j].zyl = zy + pylon[j].y
-	 zx, zy = rotateXY(4.4 * variables.triLength, 4.4 * variables.triLength, rot[j])
+	 zx, zy = rotateXY(zoneLen * variables.triLength, zoneLen * variables.triLength, rot[j])
 	 pylon[j].zxr = zx + pylon[j].x
 	 pylon[j].zyr = zy + pylon[j].y
 	 pylon.finished = true
@@ -2663,6 +2666,8 @@ local function prtForm(windowWidth, windowHeight)
 	       --setColorTriRot()
 	       setColor("TriRot", "Image")
 	       ren:renderPolyline(2,0.7)
+	       -- we don't have the aim points computed yet (pylon[].xt and .yt) so the code
+	       -- to show them would go here
 	    end
 	 end
 	 
@@ -2715,7 +2720,7 @@ local savedRy={}
 local circFitCache={}
 
 local function dirPrint()
-   local sC = variables.triLength * 2 -- scale factor for this tele window
+   local sC = variables.triLength * 3 -- scale factor for this tele window
    local xf = 0.40 -- center X is at 1-xf of width
    local yf = 0.65 -- center Y is at 1-yf of height
    local xmin, xmax=(-1+xf)*sC, xf*sC
@@ -2745,11 +2750,11 @@ local function dirPrint()
    setColor("Label", triColorMode)
 
    if not variables.triEnabled then
-      lcd.drawText(35, 80, "Triangle Racing not enabled", FONT_BIG)      
+      lcd.drawText(35, 20, "Triangle Racing not enabled", FONT_BIG)      
    end
    
    if not compcrs then
-      lcd.drawText(40, 80, "Triangle View: No heading", FONT_BIG)
+      lcd.drawText(40, 20, "Triangle View: No heading", FONT_BIG)
       return
    end
    
@@ -2899,9 +2904,9 @@ local function dirPrint()
       --lcd.setColor(240,115,0)
       local alpha
       if raceParam.racing and m3(nextPylon) == j then
-	 alpha = 0.8
+	 alpha = 0.9
       else
-	 alpha = 0.2
+	 alpha = 0.4
       end
       ren:renderPolygon(alpha)
    end
@@ -4145,7 +4150,6 @@ local function init()
    variables.histDistance      = jLoad(variables, "histDistance",    3)
    variables.raceTime          = jLoad(variables, "raceTime",       30)
    variables.aimoff            = jLoad(variables, "aimoff",         20)
-   print("variables.aimoff:", variables.aimoff)
    variables.flightStartSpd    = jLoad(variables, "flightStartSpd", 20)
    variables.flightStartAlt    = jLoad(variables, "flightStartAlt", 20)
    variables.futureMillis      = jLoad(variables, "futureMillis", 2000)
@@ -4228,8 +4232,23 @@ local function init()
    --    print(k,v)
    -- end
 
-   readSensors()
-
+   if emFlag then
+      system.setProperty("CpuLimit", 1)
+      local flg = false
+      repeat
+	 if emulatorSensorsReady then
+	    flg = emulatorSensorsReady(readSensors)
+	    print("looping")
+	 else
+	    print("no emulatorSensorsReady")
+	 end
+      until flg
+      system.setProperty("CpuLimit", 0)      
+   else
+      readSensors()
+   end
+   print("readSensors done")
+   
    switchItems = {point = 0, start = 0, triA = 0, color = 0}
    
    for k,v in pairs(switchItems) do
