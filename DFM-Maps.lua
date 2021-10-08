@@ -570,15 +570,19 @@ local function setField(sname)
    if triT then
       variables.triOffsetX  = triT.dx or 0
       variables.triOffsetY  = triT.dy or 0
-      variables.triLength   = triT.L  or Field.triangle.size
+      if Field.triangle then
+	 variables.triLength   = triT.L  or Field.triangle.size
+	 variables.aimoff      = triT.O  or Field.triangle.size / 20
+      end
       variables.triRotation = triT.r  or 0
-      variables.aimoff      = triT.O  or Field.triangle.size / 20
    else
       variables.triOffsetX  = 0
       variables.triOffsetY  = 0
-      variables.triLength   = Field.triangle.size
+      if Field.triangle then
+	 variables.triLength   = Field.triangle.size
+	 variables.aimoff      = Field.triangle.size / 20
+      end
       variables.triRotation = 0
-      variables.aimoff      = Field.triangle.size / 20
    end
 
    -- print(
@@ -4232,22 +4236,7 @@ local function init()
    --    print(k,v)
    -- end
 
-   if emFlag then
-      system.setProperty("CpuLimit", 1)
-      local flg = false
-      repeat
-	 if emulatorSensorsReady then
-	    flg = emulatorSensorsReady(readSensors)
-	    print("looping")
-	 else
-	    print("no emulatorSensorsReady")
-	 end
-      until flg
-      system.setProperty("CpuLimit", 0)      
-   else
-      readSensors()
-   end
-   print("readSensors done")
+   readSensors()
    
    switchItems = {point = 0, start = 0, triA = 0, color = 0}
    

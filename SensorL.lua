@@ -120,6 +120,8 @@ local logTime0
 local sysTime0
 local config = {}
 local lastTimeBlock = 0
+local uniqueSensorNames={}
+
 --local logHeaderPos
 --local lastLogHeaderPos
 
@@ -202,14 +204,19 @@ local function readLogHeader()
 
    -- read a large enough number of bytes so that we are sure we have the whole header
    -- it is typically < 3K even in complex models...
+
+
+   -- NOTE: Jeti seems to have added a second # file at the top of the log file
+   -- that contains the time/date info .. I hacked it below but best to fix it properly.
    
    logData = io.read(fd, 8192)
 
    local icnt=0
-
+   
    for ll in string.gmatch(logData, "[^\r\n]+") do
       icnt = icnt + 1
-      print("icnt, CPU:", icnt, system.getCPU())
+      --print("icnt, ll", icnt, ll)
+      --print("icnt, CPU:", icnt, system.getCPU())
       logItems.line = ll
       lastHeaderPos = logHeaderPos
       logHeaderPos = logHeaderPos + #ll + 1
@@ -218,19 +225,26 @@ local function readLogHeader()
 	 rlhDone=true
 	 return rlhDone
       end
-      if needHead and string.find(ll, "#") == 1 then
+      --if needHead and string.find(ll, "#") == 1 then
+      if string.find(ll, "#") == 1 then	 
 	 print("SensorL: Header line: "..ll)
-	 needHead = false
+	 --needHead = false
 	 goto continue
       end
 
       logItems.cols={}
       for w in string.gmatch(logItems.line, "[^;]+") do
+	 --print(">", w)
 	 table.insert(logItems.cols, w)
       end
       
       logItems.timestamp = tonumber(logItems.cols[1])
-      if logItems.timestamp ~= 0 then -- this must be the first real data line... 
+      --print("logItems.timestamp", logItems.timestamp)
+      -- if not logItems.timestamp then -- this is the hack .. the second # line triggers this
+      -- 	 print("tonumber of timestamp is nil", logItems.cols[1])
+      -- 	 goto continue
+      -- end
+      if logItems.timestamp ~= 0 then -- this must be the first real data line...
 	 rlhDone = true
 	 logTime0 = logItems.timestamp
 	 sysTime0 = system.getTimeCounter()
@@ -240,9 +254,24 @@ local function readLogHeader()
       
       if logItems.cols[3] == "0" then
 	 logItems.sensorName=logItems.cols[4]
+	 local stem
+	 for i=1,10,1 do -- defensive .. prob won't have 10 dupes .. but don't iterate forever
+	    if uniqueSensorNames[logItems.sensorName] then
+	       if i == 1 then stem = logItems.sensorName end
+	       print("SensorL: Duplicate sensor name ", stem)
+	       logItems.sensorName = stem .. "(" .. i .. ")"
+	    else
+	       if i ~= 1 then
+		  print("SensorL: Using " .. logItems.sensorName .." for " .. logItems.cols[2])
+	       end
+	       uniqueSensorNames[logItems.sensorName] = true
+	       break
+	    end
+	 end
       else
 	 logItems.cols[4] = string.gsub(logItems.cols[4], " ", "_")
 	 uid = sensorFullName(logItems.sensorName, logItems.cols[4])
+	 --print("$$$", logItems.sensorName, logItems.cols[4])
 	 table.insert(allSensors, uid)
 	 if config.selectedSensors[uid] then
 	    --logSensorByName[uid] = {}
@@ -334,7 +363,7 @@ local function emulator_init()
 
    
    jfile = appDir .. appShort .. ".jsn"
-   print("in emulator_init with jfile=", jfile)
+   --print("in emulator_init with jfile=", jfile)
    fg = io.readall(jfile)
 
    if not fg then print("SensorL: Cannot read " .. jfile) else
@@ -345,19 +374,27 @@ local function emulator_init()
    fd = io.open(text, "r")
    if not fd then print("SensorL: Cannot read logfile: " .. text) return end
 
-   print("SensorL: Reading log header")
-   readLogHeader()
+   --print("SensorL: Reading log header")
 
-   dev, emflag = system.getDeviceType()
+   system.setProperty("CpuLimit", 1)
+   local rlb = false
+   rlb = readLogHeader()
+   repeat
+      --print("tick")
+   until rlb == true
    
-   if emflag == 1 then
-      print("SensorL: Using Sensor Emulator, logFile: "..config.logFile)
-      system.getSensors = emulator_getSensors
-      system.getSensorByID = emulator_getSensorByID
-      system.getSensorValueByID = emulator_getSensorValueByID
-   else
-      print("SensorL: Using Native Sensors")
-   end
+   system.setProperty("CpuLimit", 0)
+
+   --print("SensorL: Done reading log header")
+   
+   --dev, emflag = system.getDeviceType()
+   
+   print("SensorL: Using Log file: "..config.logFile)
+   
+   system.getSensors = emulator_getSensors
+   system.getSensorByID = emulator_getSensorByID
+   system.getSensorValueByID = emulator_getSensorValueByID
+   
 end
 
 alreadyCalled=false
@@ -388,14 +425,14 @@ function emulator_getSensors()
    -- experimenting with MGPS hardware. Undefined keys get 1 as observed.
    local sensorType={MGPS=0, MGPS_Quality=0, MGPS_SatCount=0, MGPS_Latitude=9,MGPS_Longitude=9,
 		     MGPS_Date=5, MGPS_TimeStamp=5, MGPS_Trip=4, MGPS_Distance=4}
-   
+
    if not rlhDone then
       print("SensorL: Called getSensors before log header completely read")
       sensorTbl = {}
       return sensorTbl
    end
 
-   -- this function is tasked with builting the sensor table that would
+   -- this function is tasked with building the sensor table that would
    -- have been created for the subset of sensors we have chosen in the
    -- sensorLogEm.jsn file
    
@@ -450,15 +487,18 @@ function emulator_getSensorValueByID(ID, Param)
    return emulator_getSensorByID(ID, Param)
 end
 
+local nwait = 0
+local lastwait = 0
+
 function emulator_getSensorByID(ID, Param)
       
    local returnTbl
    local sf
    local etS, etL
    local ic
-   --local timSd60
-   --local min, sec
-   --local timstr
+   local timSd60
+   local min, sec
+   local timstr
 
    -- defend against bad inputs or invalid sensor
    if (not ID) or (not Param) then
@@ -477,23 +517,34 @@ function emulator_getSensorByID(ID, Param)
       -- only read the time block if it is time to do so...
       etS = system.getTimeCounter() - sysTime0
       etL = lastTimeBlock - logTime0
-      --timSd60 = tonumber(etL)/(60000) -- to mins from ms
-      --min, sec = math.modf(timSd60)
-      --sec = sec * 60
-      --timstr = string.format("%02d:%02.2f", min, sec)
-      if etS > etL then -- read new time block, otherwise use stored data
+
+      --print("etS - etL", etS / 1000 - etL/1000)
+      
+      timSd60 = tonumber(etL)/(60000) -- to mins from ms
+      min, sec = math.modf(timSd60)
+      sec = sec * 60
+      timstr = string.format("%02d:%02.2f", min, sec)
+      if etS + 100 >= etL then -- read new time block, otherwise use stored data
+	 --print("waited "..nwait .. " delay " .. (system.getTimeCounter() - lastwait))
+	 lastwait = system.getTimeCounter()
+	 nwait = 0
 	 ic = 0
 	 repeat
 	    ic =ic + 1
-	    if ic > 1 then print("ic > 1:", ic) end
+	    if ic > 1 then
+	       --print("ic > 1:", ic)
+	    end
 	    lastTimeBlock = readLogTimeBlock()
 	    if not lastTimeBlock then
+	       print("SensorL: done at time " .. timstr)
 	       io.close(fd)
 	       print('SensorL: Closing log replay file')
 	       fd = nil
 	       return nil
 	    end
 	 until tonumber(lastTimeBlock) > etS
+      else
+	 nwait = nwait + 1
       end
    end
    
@@ -521,9 +572,12 @@ function emulator_getSensorByID(ID, Param)
 	       returnTbl.valid   = true
 	    end
 	 else
-	    print("SensorL: Sensor not valid - Name: "..logSensorByID[sf].label..
-		     "  ID: "..ID.."  Param: "..Param.."  Log File Time:  "
-		     ..lastTimeBlock)
+	    -- we have not seen this sensor yet .. note that we looked at it
+	    -- but return valid = false
+	    -- print("SensorL: Sensor not valid - Name: "..logSensorByID[sf].label..
+	    -- 	     "  ID: "..ID.."  Param: "..Param.."  Log File Time:  "
+	    -- 	     ..lastTimeBlock)
+	    logSensorByID[sf].lastUpdate = system.getTimeCounter()
 	    returnTbl.valid   = false
 	 end
 	 -- be defensive ..even if valid=false, set  values that won't cause error
@@ -637,20 +691,27 @@ local function telePrint()
 	 sec = sec + 1
       end
    end
-   lcd.drawText(260,125, string.format("T: %02d", system.getCPU()), FONT_MINI)
-   lcd.drawText(260,135, string.format("egs: %02d", egsCPU or 0), FONT_MINI)
-   lcd.drawText(260,145, string.format("egsId: %02d", egsIdCPU or 0), FONT_MINI)
+   local etL = lastTimeBlock - logTime0
+   local timSd60 = tonumber(etL)/(60000) -- to mins from ms
+   local min, sec = math.modf(timSd60)
+   sec = sec * 60
+   local timstr = string.format("%02d:%02.2f", min, sec)
+
+   lcd.drawText(170,140, string.format("Logfile time: " .. timstr))
+   -- lcd.drawText(260,125, string.format("T: %02d", system.getCPU()), FONT_MINI)
+   -- lcd.drawText(260,135, string.format("egs: %02d", egsCPU or 0), FONT_MINI)
+   -- lcd.drawText(260,145, string.format("egsId: %02d", egsIdCPU or 0), FONT_MINI)
 end
 
 
 local function init()
-   print("in init()")
+   --print("in init()")
    system.registerTelemetry(1, appName, 4, telePrint)
    dev, emFlag = system.getDeviceType()
    --startUpTime = system.getTimeCounter()
-   print("before emulator_init")
+   --print("before emulator_init")
    emulator_init()
-   print("after emulator_init")
+   --print("after emulator_init")
    
 end
 
