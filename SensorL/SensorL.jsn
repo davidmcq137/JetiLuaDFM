@@ -1,5 +1,6 @@
 {
     "logFile":"Log/20210528/07-43-21.log",
+    "fastForward":260,
     "selectedSensors":
     {
 	"MGPS_Latitude":     true,

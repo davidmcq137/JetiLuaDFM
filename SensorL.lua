@@ -17,48 +17,15 @@ System routines replaced are:
       system.getSensorByID()
       system.getSensorValueByID()
 
-One caveat .. until I figure out a better way..
 
-Processing the log file header takes a long time for an aircraft with
-a complex setup, and that process has to complete before other apps
-ask for the sensor list via system.getSensors(). 
-
-The simplest solution (sorry!) to this problem is to make a change to
-the lua script(s) that wish to use the emulated sensors. First, you
-must remove the call to system.getSensors() (or any user-defined local
-function that calls it) from your init() function. Then you must add
-this line to the top of your loop() callback function:
-
-if not emulatorSensorsReady or not emulatorSensorsReady(readSensors) then return end
-
-This assumes that the user-defined local function called readSensors()
-is the function that contains the call to system.getSensors(). The
-emulatorSensorsReady() function will monitor the state of the emulated
-sensors, returning false until they are ready. Then it will run
-your initialization routine (readSensors()) once and return. Subsequent
-calls will return true.
-
-When you want to run without the emulator, you will have to comment
-this line out in loop() and add this line back to init():
-
-readSensors()
-
-If you want to have code that can run on the TX or emulator without
-changes, then you can put this in init() - where the call to
-getsensors is typically done (getDeviceType returns 1 as its second
-arg when you are running on the emulator):
-
-if select(2, system.getDeviceType()) ~= 1 then
-   readSensors()
-end
-
-and put this at the top of loop():
-
-if select(2, system.getDeviceType()) == 1 then
-   if not emulatorSensorsReady or not emulatorSensorsReady(readSensors) then return end
-end
-
-Hopefully we can find a better way at some point in the future.
+Note as of 10/8/2021 .. no need for prior gymnastics on spreading out
+the init over the first calls to the app's loop() .. just the call to
+getSensors() is fine .. all processing for the log header reading is
+all handled inside the emulator's init code. This is possible because
+Jeti gave us a new API to turn off the "kill" for too much CPU that
+was happening sometimes on large log headers. Since this is only
+intended for the emulator, no issue turning that feature off during
+log file header reading.
 
 Since this sensor emulator is meant to be used only on the DC/DS-24
 emulator, all the config information is in the configuration json file
@@ -67,6 +34,36 @@ the file. A sample SensorL.jsn is included below. Place in SensorL.jsn
 the file the name of the log file to process and the names of the
 telemetry log variables you want to make available (formatted as shown
 with sensor name and label and spaces replaced by underscores).
+
+Note that in some setups there can be duplicate names on telem sensor
+texts (IDs are still unique of course) and in these cases we will
+disambiguate the names with (1) (2) etc and if we want to use those
+telem signals, they would have to be referred to by those names in the
+jsn file.
+
+Todo/ideas:
+
+1) Consider a "speed up" option to playback at faster than real
+time. Quick experiment shows that if we run as fast as we can we go
+about 3x speed .. so that's the limit. So maybe it's just realtime or
+max speed .. 1x or 3x. In the experiment, we missed all the telem
+signals since we did not speed up the 200 ms sampling time of the main
+app's telemetry read .. so maybe this is not so useful...
+
+2) perhaps if we want to also playback switch actuation (or maybe even
+control actuation?) we can create in the app to be tested a log entry
+for each desired control, then identify those switches/controls in the
+SensorL.jsn file as controls so we can watch them, and actuate them
+during playback.
+
+3) we should check for the signal loss (device code all 0s) and
+perhaps print warning
+
+4) maybe there is a way to do a user menu vs. a json file for setup to
+make it easier for non-experts to use
+
+5) Most log files have a long period of inactivity with engine startup
+etc .. would be good to "zoom ahead" to the actual flight portion
 
 ----------------------------------------------------------------------------
 
@@ -338,6 +335,7 @@ local function readLogTimeBlock()
 
       logItems.line = io.readline(fd, true)
       --if first then print(logItems.line);first=false end
+      --print("logItems.line", logItems.line)
       
       if not logItems.line then
 	 return nil
@@ -369,6 +367,8 @@ local function emulator_init()
    if not fg then print("SensorL: Cannot read " .. jfile) else
       config=json.decode(fg)
    end
+
+   --print("config.fastForward:", config.fastForward)
    
    text = config.logFile
    fd = io.open(text, "r")
@@ -489,9 +489,10 @@ end
 
 local nwait = 0
 local lastwait = 0
+local ffOffset = 0
 
 function emulator_getSensorByID(ID, Param)
-      
+   
    local returnTbl
    local sf
    local etS, etL
@@ -499,7 +500,7 @@ function emulator_getSensorByID(ID, Param)
    local timSd60
    local min, sec
    local timstr
-
+   
    -- defend against bad inputs or invalid sensor
    if (not ID) or (not Param) then
       --print("not ID or not Param")
@@ -517,14 +518,32 @@ function emulator_getSensorByID(ID, Param)
       -- only read the time block if it is time to do so...
       etS = system.getTimeCounter() - sysTime0
       etL = lastTimeBlock - logTime0
-
+      
       --print("etS - etL", etS / 1000 - etL/1000)
       
       timSd60 = tonumber(etL)/(60000) -- to mins from ms
       min, sec = math.modf(timSd60)
       sec = sec * 60
       timstr = string.format("%02d:%02.2f", min, sec)
-      if etS + 100 >= etL then -- read new time block, otherwise use stored data
+      
+      -- if the fastForward option is set in the jsn file then zoom ahead at max speed
+      -- the 100 is just plugged as an experiment to get smoother playback
+      
+      if ffOffset == 0 and config.fastForward and etL/1000 > config.fastForward then
+	 ffOffset = etL - etS
+	 --print("trigger: ffOffset=", ffOffset/1000, etS/1000, etL/1000)
+      end
+      
+      --print(etS/1000, etL/1000, config.fastForward, (etS + ffOffset) / 1000)
+      
+      -- read new time block, otherwise use stored data
+      if ffOffset ~= 0 and math.abs( (etS + ffOffset) - etL) > 1000 then
+	 print("time mismatch", etL/1000, etS/1000, ffOffset)
+      end
+      
+      local limit
+      
+      if etS + ffOffset >= etL or (config.fastForward and (etL/1000 <= config.fastForward)) then 
 	 --print("waited "..nwait .. " delay " .. (system.getTimeCounter() - lastwait))
 	 lastwait = system.getTimeCounter()
 	 nwait = 0
@@ -532,7 +551,7 @@ function emulator_getSensorByID(ID, Param)
 	 repeat
 	    ic =ic + 1
 	    if ic > 1 then
-	       --print("ic > 1:", ic)
+	       --was warning
 	    end
 	    lastTimeBlock = readLogTimeBlock()
 	    if not lastTimeBlock then
@@ -542,13 +561,28 @@ function emulator_getSensorByID(ID, Param)
 	       fd = nil
 	       return nil
 	    end
-	 until tonumber(lastTimeBlock) > etS
+	    if config.fastForward then
+	       limit = math.floor(config.fastForward*1000)
+	    else
+	       limit = etS
+	    end
+	 until etL > limit or ic > 100
+	 --print(system.getCPU())
       else
 	 nwait = nwait + 1
       end
+   else
+      return nil
+   end
+   
+   -- if zooming ahead, don't bother to return a value
+   
+   if config.fastForward and etL then
+      if config.fastForward and etL/1000 <= config.fastForward then return nil end
    end
    
    -- create the return table
+   
    for k,v in ipairs(sensorTbl) do
       if v.id == ID and v.param == Param then
 	 sf = sensorFullID(ID, Param)
@@ -563,10 +597,10 @@ function emulator_getSensorByID(ID, Param)
 	 if logSensorByID[sf].lastUpdate then -- ever updated?
 	    local dtt = system.getTimeCounter() - logSensorByID[sf].lastUpdate 
 	    if dtt > 2000 then
-	       --print("sensor age over xxxx ms Name: "..
-		--	logSensorByID[sf].sensorName.."-->"..logSensorByID[sf].label..
-		--	"  "..dtt.." ms"
-	        --)
+	       --    print("sensor age over 2000 ms Name: "..
+	       -- 		logSensorByID[sf].sensorName.."-->"..logSensorByID[sf].label..
+	       -- 		"  "..dtt.." ms"
+	       --     )
 	       returnTbl.valid = false
 	    else
 	       returnTbl.valid   = true
@@ -605,7 +639,7 @@ function emulator_getSensorByID(ID, Param)
 	 end
 	 returnTbl.max        = logSensorByID[sf].max or 0
 	 returnTbl.min        = logSensorByID[sf].min or 0
-
+	 
 	 for kk,vv in pairs(returnTbl) do
 	    if not sensorCache[k] then
 	       table.insert(activeSensors, k)
@@ -617,7 +651,6 @@ function emulator_getSensorByID(ID, Param)
 	 return returnTbl
       end
    end
-   
    return nil
 end
 
