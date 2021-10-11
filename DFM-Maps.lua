@@ -1947,6 +1947,7 @@ local function drawTriRace(windowWidth, windowHeight)
    
    lcd.drawText(5, 120, "Alt: ".. math.floor(altitude), FONT_MINI)
    lcd.drawText(5, 130, "Spd: "..math.floor(speed), FONT_MINI)
+   --lcd.drawText(195, 145, "Map data (c)2021 Google", FONT_MINI)
    --lcd.drawText(5, 140, string.format("Map Width %d m", map.Xrange), FONT_MINI)
    
    --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
@@ -3318,7 +3319,12 @@ local function mapPrint(windowWidth, windowHeight)
    else
       setColor("Map", "Image")
    end
-   
+
+   -- draw circle at 0,0 (for debugging)
+   -- lcd.drawCircle(toXPixel(0, map.Xmin, map.Xrange, windowWidth),
+   -- 		  toYPixel(0, map.Ymin, map.Yrange, windowHeight),
+   -- 		  4)
+
    lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6, "N", FONT_MINI)
    drawShape(20, 12, shapes.arrow, math.rad(-1*variables.rotationAngle))
    lcd.drawCircle(20, 12, 7)
@@ -3774,7 +3780,10 @@ local function loop()
    end   
 
    sensor = system.getSensorByID(telem.Longitude.SeId, telem.Longitude.SePa)
-
+   ---[[
+   local sign, minstr, latstr, lngstr
+   --]]
+   
    if(sensor and sensor.valid) then
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       degs = (sensor.valGPS >> 16) & 0xFF
@@ -3782,6 +3791,11 @@ local function loop()
       if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
 	 longitude = longitude * -1
       end
+      --[[
+      if sensor.decimals == 3 then sign = "-" else sign = "" end             
+      minstr = string.format("%d", math.floor(0.5 + minutes * 1666666.67)) -- 1E8/60
+      lngstr = sign..string.format("%d", degs).."." .. minstr
+      --]]      
       goodlng = true
    end
    
@@ -3794,10 +3808,44 @@ local function loop()
       if sensor.decimals == 2 then -- "South" .. make it negative
 	 latitude = latitude * -1
       end
+      --[[
+      if sensor.decimals == 2 then sign = "-" else sign = "" end             
+      minstr = string.format("%d", math.floor(0.5 + minutes * 1666666.67)) -- 1E8/60
+      latstr = sign..string.format("%d", degs).."." .. minstr
+      --]]      
       goodlat = true
       numGPSreads = numGPSreads + 1
    end
 
+   --[[ test gps libraray
+   local zeroPos
+   local curPos
+   local curDist
+   local curBear
+   local curX
+   local curY
+   
+   if Field.lat and Field.lng then
+      zeroPos = gps.newPoint(Field.lat, Field.lng)
+      --curPos = gps.getPosition(telem.Latitude.SeId, telem.Latitude.SePa, telem.Longitude.SePa)
+      if latstr and lngstr then
+	 --print("latstr, lngstr", latstr, lngstr)
+	 curPos = gps.newPoint(latstr, lngstr)
+      else
+	 curPos = gps.newPoint(latitude, longitude)
+      end
+      --print("zeroPos, curPos:", gps.getStrig(zeroPos), gps.getStrig(curPos))
+      curDist = gps.getDistance(zeroPos, curPos)
+      curBear = gps.getBearing(zeroPos, curPos)
+      --curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
+      curX = curDist * math.cos(math.rad(curBear+270)) -- why not same angle X and Y??
+      curY = curDist * math.sin(math.rad(curBear+90))
+      --print("curDist, curBear", curDist, curBear)
+      --print("curX, curY", curX, curY)
+   end
+   --]]
+   
+   
    -- throw away first 10 GPS readings to let unit settle
    if numGPSreads <= 10 then 
       -- print("Discarding reading: ", numGPSreads, latitude, longitude, goodlat, goodlng)
@@ -3912,6 +3960,15 @@ local function loop()
    x = rE * (longitude - lng0) * coslat0 / rad
    y = rE * (latitude - lat0) / rad
 
+   --[[
+   --print("x,y:", x,y)
+
+   if curX and curY then
+      print("curX, curY", curX, curY)
+      x,y = curX, curY
+   end
+   --]]
+   
    x, y = rotateXY(x, y, math.rad(variables.rotationAngle))
    
    --defend against silly points .. sometimes they come from the RCT GPS
@@ -3932,6 +3989,23 @@ local function loop()
       -- x and y when the image changes. that is done in graphScale()
 
       --print("x,y", x, y, variables.histMax)
+
+      if not metrics.distTrav then metrics.distTrav = 0 end
+
+      -- play with: compute distance travelled.
+      -- to do properly synched with start/finish line will be more challenging
+      -- depending on how precise we need to be (e.g. interpolate start/end line from
+      -- actual GPS points straddling it, and if we are to detect and remove thermalling?
+      
+      --[[
+      if #xtable > 2 then
+	 local lp = #xtable
+	 local np = lp -1
+	 metrics.distTrav = metrics.distTrav +
+	    math.sqrt( (xtable[lp] - xtable[np])^2 + (ytable[lp] - ytable[np])^2)
+	 print("dist:", metrics.distTrav)
+      end
+      --]]
       
       if variables.histMax > 0 and
 	 (system.getTimeCounter() - lastHistTime > variables.histSample) and
