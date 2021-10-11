@@ -422,9 +422,11 @@ function emulator_getSensors()
    local ll
 
    -- put in by hand sensor types for MGPS. Should do for others if required. These are based
-   -- experimenting with MGPS hardware. Undefined keys get 1 as observed.
+   -- experimenting with MGPS hardware. Undefined keys get 1 if null (see use of sensorType)
    local sensorType={MGPS=0, MGPS_Quality=0, MGPS_SatCount=0, MGPS_Latitude=9,MGPS_Longitude=9,
-		     MGPS_Date=5, MGPS_TimeStamp=5, MGPS_Trip=4, MGPS_Distance=4}
+		     MGPS_Date=5, MGPS_TimeStamp=5, MGPS_Trip=4, MGPS_Distance=4,
+		     ["RCT-GPS_Distance"]=4,
+		     ["RCT-GPS_Latitude"]=9, ["RCT-GPS_Longitude"]=9}
 
    if not rlhDone then
       print("SensorL: Called getSensors before log header completely read")
@@ -458,6 +460,7 @@ function emulator_getSensors()
       -- how does jeti return type from getSensors? It's not in the log header..
       -- must be a data table per sensor that I can't see ..fake it for now... see
       -- sensorType table above
+      --print("v, sensorType[v]", v, sensorType[v])
       styp = sensorType[v] or 1 -- type 9 for gps, 5 for date/time, 1 for general
       if type(vv) ~= "table"  then
 	 print("SensorL: sensor not found in log header: "..v)
@@ -724,16 +727,19 @@ local function telePrint()
 	 sec = sec + 1
       end
    end
-   local etL = lastTimeBlock - logTime0
-   local timSd60 = tonumber(etL)/(60000) -- to mins from ms
-   local min, sec = math.modf(timSd60)
-   sec = sec * 60
-   local timstr = string.format("%02d:%02.2f", min, sec)
 
-   lcd.drawText(170,140, string.format("Logfile time: " .. timstr))
-   -- lcd.drawText(260,125, string.format("T: %02d", system.getCPU()), FONT_MINI)
-   -- lcd.drawText(260,135, string.format("egs: %02d", egsCPU or 0), FONT_MINI)
-   -- lcd.drawText(260,145, string.format("egsId: %02d", egsIdCPU or 0), FONT_MINI)
+   if lastTimeBlock then -- will be nil when done
+      local etL = lastTimeBlock - logTime0
+      local timSd60 = tonumber(etL)/(60000) -- to mins from ms
+      local min, sec = math.modf(timSd60)
+      sec = sec * 60
+      local timstr = string.format("%02d:%02.2f", min, sec)
+      
+      lcd.drawText(170,140, string.format("Logfile time: " .. timstr))
+      -- lcd.drawText(260,125, string.format("T: %02d", system.getCPU()), FONT_MINI)
+      -- lcd.drawText(260,135, string.format("egs: %02d", egsCPU or 0), FONT_MINI)
+      -- lcd.drawText(260,145, string.format("egsId: %02d", egsIdCPU or 0), FONT_MINI)
+   end
 end
 
 

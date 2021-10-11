@@ -141,7 +141,6 @@ local sensorUnlist = { "..." }  -- sensor Units
 local GPSsensorLalist = { "..." }
 local GPSsensorIdlist = { "..." }
 local GPSsensorPalist = { "..." }
-local absAltGPS
 
 local checkBox = {}
 local checkBoxIndex = {}
@@ -353,10 +352,11 @@ local function readSensors()
 		  satQualityID = sensor.id
 		  satQualityPa = param
 	       elseif label == "Altitude" then
+
 		  if paramGPS and paramGPS[sensor.sensorName][sensor.label].AltType == "Rel" then
-		     absAltGPS = false
+		     variables.absAltGPS = false
 		  else
-		     absAltGPS = true
+		     variables.absAltGPS = true
 		  end
 		  telem[label].Se = seSeq
 		  telem[label].SeId = sensor.id
@@ -1142,6 +1142,7 @@ local function checkBoxAdd(lab, box)
    
    form.addRow(2)
    form.addLabel({label=lab, width=270})
+   if not checkBox[box] then checkBox[box] = variables[box] end
    checkBoxIndex[box] =
       form.addCheckbox(checkBox[box],
 		       (function(z) return checkBoxClicked(z, box) end) )
@@ -1255,6 +1256,8 @@ local function initForm(subform)
 	 form.addSelectbox(sensorLalist, telem[var].Se, true,
 			   (function(z) return sensorChanged(z, var, false) end) )
       end
+      
+      checkBoxAdd("Select GPS mode: Absolute Altitude", "absAltGPS")
       
       form.addLink((function() form.reinit(1) end),
 	 {label = "<<< Back to main menu",font=FONT_BOLD})
@@ -3928,7 +3931,7 @@ local function loop()
    -- replacement code for Tri race
    if not GPSAlt then GPSAlt = 0 end
    
-   if Field and Field.elevation and absAltGPS  then
+   if Field and Field.elevation and variables.absAltGPS  then
       altitude = GPSAlt  - Field.elevation.elevation - variables.elev
    else
       altitude = GPSAlt - variables.elev
@@ -4258,7 +4261,8 @@ local function init()
    checkBox.noflyEnabled = jLoad(variables, "noflyEnabled", true)
    checkBox.noFlyWarningEnabled = jLoad(variables, "noFlyWarningEnabled", true)   
    checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", true)   
-
+   checkBox.absModeGPS = jLoad(variables, "absAltGPS", false)
+   
    --pointSwitch = system.pLoad("pointSwitch")
    --print("pLoad .. pointSwitch", pointSwitch)
    
