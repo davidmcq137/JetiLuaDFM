@@ -812,6 +812,13 @@ local function triColorModeChanged(value)
    jSave(variables, "triColorMode", t[value])
 end
 
+local function airplaneIconChanged(value)
+   variables.airplaneIcon = value
+   print("value, airplaneIcons[value]:", value, shapes.airplaneIcons[value])
+   shapes.airplaneIcon = shapes[shapes.airplaneIcons[value]]
+   jSave(variables, "airplaneIcon", value)
+end
+
 				  
 -- local function noFlyShakeEnabledClicked(value)
 --    print("nFSEC", value)
@@ -955,7 +962,7 @@ local function initField(fn)
 			       string.gsub(system.getProperty("Model")..
 					      "_icon.jsn", " ", "_"))
       if fg then
-	 shapes.T38 = json.decode(fg).icon
+	 shapes.airplaneIcon = json.decode(fg).icon
       end
    end
    
@@ -1449,6 +1456,10 @@ local function initForm(subform)
       -- form.addLabel({label="Show NoFly Zones", width=270})
       -- checkBox.noflyEnabledIndex = form.addCheckbox(checkBox.noflyEnabled, noflyEnabledClicked)
 
+      form.addRow(2)
+      form.addLabel({label="Airplane Icon", width=220})
+      form.addSelectbox(shapes.airplaneIcons, variables.airplaneIcon, true, airplaneIconChanged)
+      
       checkBoxAdd("Announce No Fly Entry/Exit", "noFlyWarningEnabled")
       -- form.addRow(2)
       -- form.addLabel({label="Announce NoFly Entry/Exit", width=270})
@@ -2981,7 +2992,7 @@ local function dirPrint()
    
    drawShape(toXPixel(0, xmin, xrange, ww),
    	     toYPixel(0, ymin, yrange, wh),
-   	     shapes.T38, 0)
+   	     shapes.airplaneIcon, 0)
 
    -- draw the projected flight path
    -- optimization needed: only call circFit when new hist point available otherwise cache
@@ -3648,7 +3659,7 @@ local function mapPrint(windowWidth, windowHeight)
       
       drawShape(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 		toYPixel(ytable[#xtable], map.Ymin, map.Yrange, windowHeight) + 0,
-		shapes.T38, math.rad(heading))
+		shapes.airplaneIcon, math.rad(heading))
       
       if variables.futureMillis > 0 then
 	 --setColorMap()
@@ -4254,7 +4265,8 @@ local function init()
    variables.colorSwitchDir    = jLoad(variables, "colorSwitchDir", 0)            
    --variables.mapAlpha        = jLoad(variables, "mapAlpha", 255)
    variables.triColorMode      = jLoad(variables, "triColorMode", "Image")
-
+   variables.airplaneIcon      = jLoad(variables, "airplaneIcon", 1)
+   
    --------------------------------------------------------------------------------
    
    checkBox.triEnabled = jLoad(variables, "triEnabled", false)
@@ -4263,24 +4275,8 @@ local function init()
    checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", true)   
    checkBox.absModeGPS = jLoad(variables, "absAltGPS", false)
    
-   --pointSwitch = system.pLoad("pointSwitch")
-   --print("pLoad .. pointSwitch", pointSwitch)
-   
-   --triASwitch  = system.pLoad("triASwitch")
-   --print("pLoad .. triASwitch", triASwitch)
-   
-   --startSwitch = system.pLoad("startSwitch")
-   --print("pLoad .. startSwitch", startSwitch)
+   shapes.airplaneIcon = shapes[shapes.airplaneIcons[variables.airplaneIcon]]
 
-   --colorSwitch = system.pLoad("colorSwitch")
-   --print("pLoad .. colorSwitch", colorSwitch)
-   
-   -- if variables.switchesSet and not pointSwitch and not colorSwitch then
-   --    system.messageBox(appInfo.Name .. ": please reassign switches")
-   --    print("please reassign switches")
-   --    variables.switchesSet = nil
-   -- end
-   
    metrics.loopCount = 0
    metrics.lastLoopTime = system.getTimeCounter()
    metrics.loopTimeAvg = 0
@@ -4324,15 +4320,6 @@ local function init()
       checkBox[k.."Switch"] = system.getInputsVal(switchItems[k]) == 1
    end
    
-   -- ff = io.open("Apps/gbl.txt", "w")
-   -- print("type:", type(_G))
-   -- if ff then
-   --    for k,v in pairs(_G) do
-   -- 	 io.write(ff, tostring(k), tostring(v), "\n")
-   --    end
-   -- end
-   -- io.close(ff)
-
 end
 
-return {init=init, loop=loop, author="DFM", version="8.2", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="8.3", name=appInfo.Name, destroy=destroy}
