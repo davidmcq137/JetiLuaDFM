@@ -1,6 +1,6 @@
 {
     "logFile":"Log/20211006/Cutie18-13-23.log",
-    "fastForward":0,
+    "fastForward":40,
     "selectedSensors":
     {
 	"RCT-GPS_Latitude":     true,

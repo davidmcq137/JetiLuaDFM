@@ -2018,7 +2018,7 @@ local function calcTriRace()
    end
    -- if no course computed yet, start by defining the pylons
    --print("#pylon, Field.name", #pylon, Field.name)
-   if tri and (#pylon < 3) and Field.name then -- need to confirm with RFM order of vertices
+   if tri and tri.center and (#pylon < 3) and Field.name then -- need to confirm with RFM order of vertices
       triRot(ao) -- handle rotation and tranlation of triangle course 
       -- extend startline below hypotenuse of triangle  by 0.8x inside length
       --tri.center.x = tri.center.x + variables.triOffsetX
