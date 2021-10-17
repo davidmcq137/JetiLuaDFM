@@ -4118,15 +4118,26 @@ local function loop()
       path.ymax = map.Ymax
    end
 
-   if #xtable > lineAvgPts then -- we have at least 4 points...
+   if #xtable > 3 then --lineAvgPts then -- we have at least 4 points...
       -- make sure we have a least 0.5m of manhat dist over which to compute compcrs
       
       local mhD =  (math.abs(xtable[#xtable]-xtable[#xtable-lineAvgPts+1]) +
 		    math.abs(ytable[#ytable]-ytable[#ytable-lineAvgPts+1]))
       if mhD > 0.5 then
-	 
-	 compcrs = select(2,fslope(table.move(xtable, #xtable-lineAvgPts+1, #xtable, 1, {}),
-				   table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {})))
+	 --[[ TEST TEST
+	 print("#bp", #bezierPath)
+	 local xbp = {}
+	 local ybp = {}
+	 local bpl = #bezierPath
+	 xbp[1] = bezierPath[bpl-3].x
+	 ybp[1] = bezierPath[bpl-3].y	 
+	 xbp[2] = bezierPath[bpl].x
+	 ybp[2] = bezierPath[bpl].y
+
+	 compcrs = select(2, fslope(xbp, ybp))
+	 --]]
+	   compcrs = select(2,fslope(table.move(xtable, #xtable-lineAvgPts+1, #xtable, 1, {}),
+				     table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {})))
       else
 	 --if emFlag then print("<=0.5 manhat", mhD) end
       end
