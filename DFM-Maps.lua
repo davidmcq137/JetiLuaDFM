@@ -1316,7 +1316,7 @@ local function initForm(subform)
 
       form.addRow(2)
       form.addLabel({label="Triangle Height Scale", width=220})
-      form.addIntbox(variables.triHeightScale, 0, 400, 100, 0, 10,
+      form.addIntbox(variables.triHeightScale, 10, 400, 100, 0, 10,
 		     (function(z) return
 			      variableChanged(z, "triHeightScale",
 					      (function() tri2XY() end)) end) )
