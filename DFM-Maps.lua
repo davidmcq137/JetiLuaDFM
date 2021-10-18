@@ -479,6 +479,7 @@ local function rwy2XY()
 end
 
 local function tri2XY()
+   local lx, ly
    tri = {}
    pylon = {}
    if Field.triangle then
@@ -486,6 +487,10 @@ local function tri2XY()
 	 tri[j] = ll2xy(Field.triangle.path[j].lat, Field.triangle.path[j].lng)
       end
       tri.center = ll2xy(Field.triangle.center.lat, Field.triangle.center.lng)
+      lx = tri[1].x - tri.center.x
+      ly = tri[1].y - tri.center.y
+      tri[1].x = tri.center.x + (variables.triHeightScale / 100.0) * lx
+      tri[1].y = tri.center.y + (variables.triHeightScale / 100.0) * ly
    end
 end
 
@@ -636,10 +641,10 @@ local function sensorChanged(value, str, isGPS)
 end
 
 local function variableChanged(value, var, fcn)
-   if fcn then fcn() end
    variables[var] = value
    jSave(variables, var, value)
    --system.pSave("variables."..var, value)
+   if fcn then fcn() end
 end
 
 local function validAnn(val, str)
@@ -1309,6 +1314,13 @@ local function initForm(subform)
       form.addLabel({label="Flight Start Altitude (m)", width=220})
       form.addIntbox(variables.flightStartAlt, 0, 100, 20, 0, 1, flightStartAltChanged)
 
+      form.addRow(2)
+      form.addLabel({label="Triangle Height Scale", width=220})
+      form.addIntbox(variables.triHeightScale, 0, 400, 100, 0, 10,
+		     (function(z) return
+			      variableChanged(z, "triHeightScale",
+					      (function() tri2XY() end)) end) )
+
       local rev = {Light=1, Dark=2, Image=3}
       form.addRow(2)
       form.addLabel({label="Screen Mode", width=220})
@@ -1710,7 +1722,6 @@ local function fslope(xx, yy)
     end                  -- for now this is only a .00001-ish degree error
     
     slope = sxy/sx2
-    
 
     --tt = math.deg(math.atan(sxy,sx2))
 
@@ -4293,6 +4304,7 @@ local function init()
    variables.airplaneIcon      = jLoad(variables, "airplaneIcon", 1)
    variables.triHistMax        = jLoad(variables, "triHistMax", 20)
    variables.triViewScale      = jLoad(variables, "triViewScale", 300)
+   variables.triHeightFactor   = jLoad(variables, "triHeightScale", 100)
    
    --------------------------------------------------------------------------------
    
