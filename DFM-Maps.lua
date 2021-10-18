@@ -1381,7 +1381,7 @@ local function initForm(subform)
 		     (function(z) return variableChanged(z, "histSample") end) )
       
       form.addRow(2)
-      form.addLabel({label="Number of History Samples", width=220})
+      form.addLabel({label="Overhead view history points", width=220})
       form.addIntbox(variables.histMax, 0, 600, 300, 0, 10,
 		     (function(z) return variableChanged(z, "histMax") end) )
       
@@ -1390,6 +1390,16 @@ local function initForm(subform)
       form.addIntbox(variables.histDistance, 1, 10, 3, 0, 1,
 		     (function(z) return variableChanged(z, "histDistance") end) )
       
+      form.addRow(2)
+      form.addLabel({label="Triangle view history points", width=220})
+      form.addIntbox(variables.triHistMax, 0, 40, 20, 0, 1,
+		     (function(z) return variableChanged(z, "triHistMax") end) )
+
+      form.addRow(2)
+      form.addLabel({label="Triangle view scale", width=220})
+      form.addIntbox(variables.triViewScale, 100, 1000, 300, 0, 10,
+		     (function(z) return variableChanged(z, "triViewScale") end) )
+
       --form.addRow(2)
       --form.addLabel({label="Max CPU usage permitted (%)", width=220})
       --form.addIntbox(variables.maxCPU, 0, 100, 80, 0, 1,
@@ -2739,7 +2749,7 @@ local savedRy={}
 local circFitCache={}
 
 local function dirPrint()
-   local sC = variables.triLength * 3 -- scale factor for this tele window
+   local sC = variables.triLength * variables.triViewScale / 100 -- scale factor for this tele window
    local xf = 0.40 -- center X is at 1-xf of width
    local yf = 0.65 -- center Y is at 1-yf of height
    local xmin, xmax=(-1+xf)*sC, xf*sC
@@ -2945,7 +2955,7 @@ local function dirPrint()
       local jj
       local ii = variables.ribbonColorSource
       local xrr, yrr
-      local maxPts = 40
+      local maxPts = variables.triHistMax
       local iend = #xPHist
       local istart = math.max(iend-maxPts+1, 1)
       local newH = (hh ~= lastHeading)
@@ -3087,7 +3097,7 @@ local function dirPrint()
       metrics.maxCPU = system.getCPU()
    end
    
-   lcd.drawText(6,125, string.format("CPU: %d%% %d%%", metrics.avgCPU, metrics.maxCPU), FONT_MINI)
+--   lcd.drawText(6,125, string.format("CPU: %d%% %d%%", metrics.avgCPU, metrics.maxCPU), FONT_MINI)
    if variables.ribbonColorSource ~= 1 and currentRibbonValue then
       lcd.drawText(18, 140, string.format("%s: %.0f",
 					 colorSelect[variables.ribbonColorSource],
@@ -4281,6 +4291,8 @@ local function init()
    --variables.mapAlpha        = jLoad(variables, "mapAlpha", 255)
    variables.triColorMode      = jLoad(variables, "triColorMode", "Image")
    variables.airplaneIcon      = jLoad(variables, "airplaneIcon", 1)
+   variables.triHistMax        = jLoad(variables, "triHistMax", 20)
+   variables.triViewScale      = jLoad(variables, "triViewScale", 300)
    
    --------------------------------------------------------------------------------
    
