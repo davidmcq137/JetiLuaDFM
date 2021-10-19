@@ -1,0 +1,77 @@
+{
+    "fields" : [
+	{
+	"name" : "DCRC Walt Good Field",
+	"shortname" : "DCRC",
+	"lat" : 39.147398,
+	"long" : -77.337639,
+	"trueDir" : 347.5
+    },{
+	"name" : "NSA Westonzoyland",
+	"shortname" : "NSAW",
+	"lat" : 51.104800,
+	"long" : -2.892431,
+	"trueDir" : 274
+    }, {
+	"name" : "Black Dirt Squadron",
+	"shortname" : "BDS",
+	"lat" : 41.339733,
+	"long" : -74.431618,
+	"trueDir" : 214
+    }, {
+	"name" : "Floyd Bennett Field",
+	"shortname" : "FBF",
+	"lat" : 40.602454,
+	"long" : -73.889873,
+	"trueDir" : 2.46
+    }, {
+	"name" : "Area 74",
+	"shortname" : "A74",
+	"lat" : 41.24569,
+	"long" : -73.759293,
+	"trueDir" : 28
+    }, {
+	"name" : "Wilson IAC",
+	"shortname" : "W03",
+	"lat" : 35.769235,
+	"long" : -77.967381,
+	"trueDir" : 210.7
+    }, {
+	"name" : "Paradise TG",
+	"shortname" : "LAL",
+	"lat" : 27.977672,
+	"long" : -82.024717,
+	"trueDir" : 268.23
+    }, {
+	"name" : "Georgia Jets",
+	"shortname" : "GAJets",
+	"lat" : 33.1372,
+	"long" : -84.611143,
+	"trueDir" : 276
+    }, {
+	"name" : "Plum Island",
+	"shortname" : "2B2",
+	"lat" : 42.795379,
+	"long" : -70.838702,
+	"trueDir" : 87
+    },{
+	"name" : "Abingdon",
+	"shortname" : "ABI",
+	"lat" : 51.690696,
+	"long" : -1.316325,
+	"trueDir" : 255
+    }, {
+	"name" : "Cheltenham",
+	"shortname" : "CHEL",
+	"lat" : 51.951939,
+	"long" : -2.087407,
+	"trueDir" : 263
+    }, {
+	"name" : "Frankford Highland",
+	"shortname" : "6B4",
+	"lat" : 43.016095,
+	"long" : -75.169516,
+	"trueDir" : 303
+    }
+]
+}

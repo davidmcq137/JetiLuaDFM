@@ -1,0 +1,18 @@
+{
+"logFile":"Log/20181104/12-36-00.log",
+"selectedSensors":
+   {
+   "MGPS_Latitude":     true,
+   "MGPS_Longitude":    true,
+   "MGPS_AltRelat.":    true,
+   "CTU_Altitude":      true,
+   "CTU_G_Force":       true,
+   "CTU_Fuel_remaining":true,
+   "CTU_EGT":           true,
+   "CTU_RPM":           true,
+   "MSPEED_Velocity":   true,
+   "MGPS_Speed":        true,
+   "MGPS_TimeStamp":    true,   
+   "MGPS_Date":         true
+   }
+}

@@ -1,0 +1,15 @@
+{
+    "TriFieldsVerson":1.0
+    "name" : "DCRC Walt Good Field",
+    "shortname" : "DCRC",
+    "lat" : 39.147398,
+    "long" : -77.337639,
+    "triangle": 500,
+    "startHeading": 347.5
+    "startMaxHeight": 200,
+    "startMaxSpeed": 100,
+    "maxAltitude": 350,
+    "noFly":"Russell to Define",
+    "noLand":"Russell to Define"
+    "takeoffZone" : "now just an array of 4 lat/long pairs"
+}

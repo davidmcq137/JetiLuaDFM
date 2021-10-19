@@ -1,0 +1,54 @@
+{
+    "name" : "DCRC Walt Good Field",
+    "shortname" : "DCRC",
+    "elevation":80,
+    "View": "Standard",
+    "runway": {
+	"lat" : 39.147398,
+	"long" : -77.337639,
+	"direction": 347.5,
+	"length": 183,
+	"width": 12,
+    },
+    "NoFlyCircleInside": [
+	{"lat": xx.xx, "long": yy.yy, "diameter": z},
+	{"lat": xx.xx, "long": yy.yy, "diameter": z}
+    ],
+    "NoFlyCircleOutside": [
+	{"lat": xx.xx, "long": yy.yy, "diameter": z},
+	{"lat": xx.xx, "long": yy.yy, "diameter": z}
+    ],
+    "NoFlyRectInside": [
+	{"lat": xx.xx, "long":yy.yy, "legth": ll, "width": ww, "direction": dd},
+	{"lat": xx.xx, "long":yy.yy, "legth": ll, "width": ww, "direction": dd}
+    ],
+    "NoFlyRectOutside": [
+	{"lat": xx.xx, "long":yy.yy, "legth": ll, "width": ww, "direction": dd},
+	{"lat": xx.xx, "long":yy.yy, "legth": ll, "width": ww, "direction": dd}
+    ],
+    "NoFlyPolyInside": [
+	{"lat": xx.xx, "long": yy.yy},
+	{"lat": xx.xx, "long": yy.yy},
+	{"lat": xx.xx, "long": yy.yy},
+	{"lat": xx.xx, "long": yy.yy},
+	{"lat": xx.xx, "long": yy.yy}	
+    ],
+    "NoFlyPolyOutside": [
+	{"lat": xx.xx, "long": yy.yy},
+	{"lat": xx.xx, "long": yy.yy},
+	{"lat": xx.xx, "long": yy.yy},
+	{"lat": xx.xx, "long": yy.yy},
+	{"lat": xx.xx, "long": yy.yy}
+    ],    
+    "triangle": {
+	"lat": xx.xx,
+	"long": yy.yy,
+	"direction", zz.zz,
+	"size": ll.ll,
+	"aimoff": aa,
+	"startMaxAltitude": ss,
+	"startMaxSpeed": zz,
+	"maxAltitude": mm,
+	"raceTime": rr
+    }
+}
