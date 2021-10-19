@@ -1,0 +1,97 @@
+MENU_MAIN1
+SYSTEM1
+xpcallfunction: 0x563e273de750
+SOUND_BKUP9
+FONT_MINI3
+tostringfunction: 0x563e273de840
+typefunction: 0x563e27833a60
+dirfunction: 0x563e27416c40
+KEY_11
+printfunction: 0x563e273ded60
+MENU_NONE0
+loadfilefunction: 0x563e273df330
+lcdtable: 0x563e2783aa10
+MENU_ADVANCED3
+AUDIO_QUEUE3
+rawsetfunction: 0x563e273dec30
+errorfunction: 0x563e273defe0
+KEY_MENU128
+SOUND_INACT7
+rawequalfunction: 0x563e273ded20
+_VERSIONLua 5.3
+emulator_getSensorByIDfunction: 0x563e27850710
+gpiotable: 0x563e2783c850
+emulator_getSensorValueByIDfunction: 0x563e27850630
+FONT_REVERSED8
+KEY_ENTER64
+MENU_TELEMETRY4
+coroutinetable: 0x563e27836110
+KEY_DOWN512
+FONT_NORMAL0
+serialtable: 0x563e2783c990
+ipairsfunction: 0x563e273debc0
+systemtable: 0x563e27836dc0
+SOUND_START0
+tabletable: 0x563e278343f0
+packagetable: 0x563e27833cc0
+KEY_RELEASED-2147483648
+KEY_34
+FONT_GRAYED16
+MODEL2
+rawgetfunction: 0x563e273dec80
+SOUND_RXRESET10
+SOUND_LOWTXVOLT2
+FONT_XOR32
+KEY_UP256
+ffuserdata: 0x563e278bc5c8
+emulator_getSensorsfunction: 0x563e278504f0
+emulator_playNumberfunction: 0x563e278504b0
+FONT_MAXI4
+pairsfunction: 0x563e273df510
+iotable: 0x563e27834830
+SOUND_LOWSIGNAL3
+MENU_GAMES7
+stringtable: 0x563e27834c20
+getmetatablefunction: 0x563e273df3c0
+loadfunction: 0x563e273df240
+emulator_playFilefunction: 0x563e27850470
+emulator_vibrationfunction: 0x563e27850430
+emulator_initfunction: 0x563e278503f0
+gpstable: 0x563e278377d0
+jsontable: 0x563e2783bfd0
+HIGHLIGHTED2
+MENU_APPS5
+MENU_FINE2
+formtable: 0x563e2783b580
+KEY_22
+setmetatablefunction: 0x563e273df120
+AUDIO_BACKGROUND1
+ENABLED1
+FONT_BOLD1
+DISABLED0
+FONT_BIG2
+rawlenfunction: 0x563e273decd0
+ostable: 0x563e27836400
+SOUND_BOUND1
+KEY_516
+KEY_48
+utf8table: 0x563e278346a0
+SOUND_RANGETEST5
+FONT_AND128
+SOUND_AUTOTRIM6
+tonumberfunction: 0x563e273de970
+SOUND_TELEMLOSS11
+mathtable: 0x563e27832220
+debugtable: 0x563e27835b60
+FONT_OR64
+MENU_SYSTEM6
+collectgarbagefunction: 0x563e273df050
+assertfunction: 0x563e273df490
+AUDIO_IMMEDIATE2
+dofilefunction: 0x563e273df410
+requirefunction: 0x563e27833c70
+nextfunction: 0x563e273dee60
+KEY_ESC32
+selectfunction: 0x563e273de870
+pcallfunction: 0x563e273de7e0
+_Gtable: 0x563e278320e0

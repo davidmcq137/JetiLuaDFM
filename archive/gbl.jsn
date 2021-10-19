@@ -1,0 +1,96 @@
+emulator_vibrationENU_APPS5
+KEY_DOWN512
+systemtable: 0x563e27836dc0
+ostable: 0x563e27836400
+iotable: 0x563e27834830
+HIGHLIGHTED2
+SOUND_RXRESET10
+tabletable: 0x563e278343f0
+serialtable: 0x563e2783c990
+SOUND_BKUP9
+nextfunction: 0x563e273dee60
+emulator_playFilefunction: 0x563e27850470
+SOUND_RANGETEST5
+rawgetfunction: 0x563e273dec80
+gpiotable: 0x563e2783c850
+dirfunction: 0x563e27416c40
+emulator_getSensorsfunction: 0x563e278504f0
+collectgarbagefunction: 0x563e273df050
+KEY_22
+typefunction: 0x563e27833a60
+debugtable: 0x563e27835b60
+ipairsfunction: 0x563e273debc0
+stringtable: 0x563e27834c20
+assertfunction: 0x563e273df490
+utf8table: 0x563e278346a0
+SOUND_TELEMLOSS11
+FONT_MAXI4
+xpcallfunction: 0x563e273de750
+_Gtable: 0x563e278320e0
+KEY_ESC32
+MODEL2
+AUDIO_QUEUE3
+emulator_getSensorByIDfunction: 0x563e27850710
+KEY_48
+coroutinetable: 0x563e27836110
+setmetatablefunction: 0x563e273df120
+MENU_TELEMETRY4
+MENU_FINE2
+emulator_playNumberfunction: 0x563e278504b0
+gpstable: 0x563e278377d0
+emulator_vibrationfunction: 0x563e27850430
+FONT_MINI3
+FONT_NORMAL0
+emulator_initfunction: 0x563e278503f0
+SOUND_INACT7
+formtable: 0x563e2783b580
+tonumberfunction: 0x563e273de970
+SYSTEM1
+SOUND_START0
+AUDIO_IMMEDIATE2
+MENU_GAMES7
+KEY_UP256
+tostringfunction: 0x563e273de840
+packagetable: 0x563e27833cc0
+pairsfunction: 0x563e273df510
+MENU_ADVANCED3
+DISABLED0
+KEY_RELEASED-2147483648
+KEY_ENTER64
+SOUND_AUTOTRIM6
+ffuserdata: 0x563e2786f118
+KEY_MENU128
+printfunction: 0x563e273ded60
+KEY_516
+KEY_34
+pcallfunction: 0x563e273de7e0
+MENU_NONE0
+KEY_11
+jsontable: 0x563e2783bfd0
+FONT_GRAYED16
+FONT_BIG2
+FONT_REVERSED8
+MENU_SYSTEM6
+selectfunction: 0x563e273de870
+rawlenfunction: 0x563e273decd0
+rawequalfunction: 0x563e273ded20
+emulator_getSensorValueByIDfunction: 0x563e27850630
+rawsetfunction: 0x563e273dec30
+SOUND_LOWSIGNAL3
+SOUND_BOUND1
+loadfunction: 0x563e273df240
+getmetatablefunction: 0x563e273df3c0
+lcdtable: 0x563e2783aa10
+_VERSIONLua 5.3
+errorfunction: 0x563e273defe0
+dofilefunction: 0x563e273df410
+AUDIO_BACKGROUND1
+FONT_OR64
+FONT_XOR32
+ENABLED1
+MENU_MAIN1
+FONT_AND128
+requirefunction: 0x563e27833c70
+loadfilefunction: 0x563e273df330
+FONT_BOLD1
+mathtable: 0x563e27832220
