@@ -1,0 +1,150 @@
+{
+    "MGPS": {
+	"Latitude": {
+	    "param": 2,
+	    "telem": "Latitude"
+	},
+	"Longitude": {
+	    "param": 3,
+	    "telem": "Longitude"
+	},
+	"Speed": {
+	    "param": 8,
+	    "telem": "SpeedGPS"
+	},
+	"Altitude": {
+	    "param": 6,
+	    "telem": "Altitude"
+	},
+	"Course": {
+	    "param": 10,
+	    "telem": "CourseGPS"
+	},
+	"SatCount": {
+	    "param": 5,
+	    "telem": "SatCount"
+	},
+	"Quality": {
+	    "param": 4,
+	    "telem": "SatQuality"
+	}
+    },
+    "PBS GPS": {
+	"LATITUDE": {
+	    "param": 6,
+	    "telem": "Latitude"
+	},
+	"LONGITUDE": {
+	    "param": 5,
+	    "telem": "Longitude"
+	},
+	"SPEED": {
+	    "param": 1,
+	    "telem": "SpeedGPS"
+	},
+	"ALTITUDE": {
+	    "param": 2,
+	    "telem": "Altitude"
+	}
+    },
+    "GPS III": {
+	"Latitude": {
+	    "param": 10,
+	    "telem": "Latitude"
+	},
+	"Longitude": {
+	    "param": 9,
+	    "telem": "Longitude"
+	},
+	"Speed": {
+	    "param": 1,
+	    "telem": "SpeedGPS"
+	},
+	"Altitude": {
+	    "param": 2,
+	    "AltType": "Rel",
+	    "telem": "Altitude"
+	},
+	"Sat. Count": {
+	    "param": 7,
+	    "telem": "SatCount"
+	},
+	"Accuracy": {
+	    "param": 8,
+	    "telem": "SatQuality"
+	}
+    },
+    "PIONEER": {
+	"Latitude": {
+	    "param": 10,
+	    "telem": "Latitude"
+	},
+	"Longitude": {
+	    "param": 9,
+	    "telem": "Longitude"
+	},
+	"Speed": {
+	    "param": 1,
+	    "telem": "SpeedGPS"
+	},
+	"Altitude": {
+	    "param": 2,
+	    "telem": "Altitude"
+	},
+	"Sat. Count": {
+	    "param": 6,
+	    "telem": "SatCount"
+	},
+	"Accuracy": {
+	    "param": 4,
+	    "telem": "SatQuality"
+	}
+    },
+    "RCT-GPS": {
+	"Latitude": {
+	    "param": 1,
+	    "telem": "Latitude"
+	},
+	"Longitude": {
+	    "param": 2,
+	    "telem": "Longitude"
+	},
+	"Speed": {
+	    "param": 3,
+	    "telem": "SpeedGPS"
+	},
+	"Altitude": {
+	    "param": 5,
+	    "telem": "Altitude"
+	},
+	"Satellites": {
+	    "param": 10,
+	    "telem": "SatCount"
+	},
+	"HDOP": {
+	    "param": 11,
+	    "telem": "SatQuality"
+	}
+    },"GPS LOGGER": {
+	"Latitude": {
+	    "param": 2,
+	    "telem": "Latitude"
+	},
+	"Longitude": {
+	    "param": 3,
+	    "telem": "Longitude"
+	},
+	"Speed": {
+	    "param": 8,
+	    "telem": "SpeedGPS"
+	},
+	"Abs. altit": {
+	    "param": 6,
+	    "telem": "Altitude"
+	},
+	"SatCount": {
+	    "param": 5,
+	    "telem": "SatCount"
+	}
+    }    
+}

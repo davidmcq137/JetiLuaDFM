@@ -1355,7 +1355,8 @@ local function initForm(subform)
       
       form.addRow(2)
       form.addLabel({label="Triangle leg", width=220})
-      form.addIntbox(variables.triLength, 10, 1000, 250, 0, 1, triLengthChanged)
+      form.addIntbox(variables.triLength, 10, 1000, 250, 0, 1,
+		     triLengthChanged)
       
       form.addRow(2)
       form.addLabel({label="Turn point aiming offset (m)", width=220})

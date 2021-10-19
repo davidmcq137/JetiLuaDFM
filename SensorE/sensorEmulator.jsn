@@ -1,0 +1,78 @@
+[
+
+    {"id":1,"param":0,"sensorName":"", "label":"PS1(P5)"},
+    {"id":1,"param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS1(P5)",
+     "label":"EGT",
+     "unit":"°C",
+     "luaExp":"P5(0,100) / 2 * sin(t /30) + P5(0,100) / 2"
+    },
+    
+    {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
+    {"id":2,
+     "param":1,
+     "decimals":0, 
+     "type":1,
+     "sensorName":"PS2(P6)", 
+     "label":"Airspeed",
+     "unit":"m/s",
+     "control":"P6",
+     "luaExp":"P6(0,50)/2 * sq(t / 30) + P6(0,50)/2 + P6(0,50) / 5 * math.random() + P6(0,50) / 5"
+    },
+    
+    {"id":3,"param":0,"sensorName":"", "label":"MGPS"},
+    {"id":3,
+     "param":2,
+     "decimals":0,
+     "type":9,
+     "sensorName":"MGPS",
+     "label":"Latitude",
+     "unit":""
+    },
+    
+    {"id":3,"param":0,"sensorName":"", "label":"MGPS"},
+    {"id":3,
+     "param":3,
+     "decimals":0,
+     "type":9,
+     "sensorName":"MGPS",
+     "label":"Longitude",
+     "unit":""
+    },
+    
+    {"id":5,"param":0,"sensorName":"", "label":"PS5(Seq)"},
+    {"id":5,
+     "param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS5(Seq)",
+     "label":"Sequence",
+     "unit":"",
+     "luaExp":"P5(0,25)*tseq(t/40, {0,1,2,3,4})"
+    },
+
+    {"id":6,"param":0,"sensorName":"", "label":"PS6(Seq2)"},
+    {"id":6,
+     "param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS6(Seq2)",
+     "label":"Sequence2",
+     "unit":"",
+     "luaExp":"P5(0,100)*tseq(t/40, {0,1,0,1})"
+    },
+    
+    {"id":7,"param":0,"sensorName":"", "label":"PS7(Dischg)"},
+    {"id":7,
+     "param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS7(Dischg)",
+     "label":"Dischg",
+     "unit":"",
+     "luaExp":"P7(0,100)*math.max(0, 1/(1+math.exp(t%60-30)) + .5*((60-t%60)/60-1) )"
+    }
+    
+]

@@ -1,0 +1,93 @@
+--
+-- DFM.Test.lcs
+-- self-describing lua data for Jeti Lua App DFM-CTRL.lua
+--
+
+-- CTRL_l is the list of lua controls to use. controls must be between 1-10
+-- but can start at other than 1, skip etc. For example {2,3,4,5,6} or {3,7,8,9,10}
+-- to account for other lua programs having pre-defined controls
+-- all CTRL_x list will be traversed in the same order as this list
+
+CTRL_l {
+   5,6,7,8,9,10
+}
+
+-- long names of controls .. whatever you like, 31 char limit
+
+CTRL_n {
+       "Aileron", "Flap", "Rudder1", "Rudder2", "Elevator1", "Elevator2"
+}
+
+-- short names of controls, 3 chars max, names must match up with CTRL_st names
+
+CTRL_sn {
+   "Ail", "Flp", "Ru1", "Ru2", "El1", "El2"
+}
+
+-- control states for each time step, dt in ms, states must be -1..1
+-- dt is time to next step
+-- only have to specify changes after first step
+-- rows can be in any order, and all controls can move in each row
+-- controls in a row can be in any order
+-- make dt 2x as long for -1 to 1 as for 0 to 1
+
+CTRL_st {
+   {dt=500, Ail=0, Flp=1, Ru1=0, Ru2=0, El1=0, El2=0},
+
+   {sn="Ail"},
+   {dt=200,Ail=1 },
+   {dt=600},
+   {dt=200,Ail=0 },
+   {dt=600},
+   {dt=200,Ail=-1},
+   {dt=600},
+   {dt=200,Ail=0 },
+   {dt=1000},
+
+   {sn="Flp"},
+   {dt=1500, Flp=-1},
+   {dt=500},
+   {dt=1500,Flp=1 },
+   {dt=1000},
+
+   {sn="Rud"},
+   {dt=200, Ru1=-1,Ru2=-1},
+   {dt=200},
+   {dt=400,Ru1=1, Ru2=1 },
+   {dt=200},
+   {dt=200, Ru1=0, Ru2=0 },
+   {dt=400},
+   
+   {dt=200, Ru1=-1,Ru2=1},
+   {dt=200},
+   {dt=400,Ru1=1, Ru2=-1},
+   {dt=200},
+   {dt=200, Ru1=0, Ru2=0 },
+   {dt=400},
+
+   {sn="Ele"},
+   {dt=200, El1=1, El2=-1 },
+   {dt=600},
+   {dt=200, El1=0, El2=0},
+   {dt=600},
+   {dt=200,El1=-1, El2=1},
+   {dt=600},
+   {dt=200, El1=0, El2=0 },
+   {dt=1000},
+   
+   {dt=200, El1=1, El2=1 },
+   {dt=600},
+   {dt=200,El1=0, El2=0},
+   {dt=600},
+   {dt=200,El1=-1, El2=-1},   
+   {dt=600},
+   {dt=200, El1=0, El2=0 },
+   {dt=1000},
+
+   {sn="All"},
+   {dt=300, Ail=1,  Flp=0,  Ru1=-1, Ru2=-1, El1=-1, El2=1},
+   {dt=300, Ail=0,  Flp=-1, Ru1=0,  Ru2=0,  El1=0,  El2=0},
+   {dt=300, Ail=-1, Flp=0,  Ru1=1,  Ru2=1,  El1=1,  El2=-1},
+   {dt=300, Ail=0,  Flp=1,  Ru1=0,  Ru2=0,  El1=0,  El2=0},
+   {dt=1000},
+}

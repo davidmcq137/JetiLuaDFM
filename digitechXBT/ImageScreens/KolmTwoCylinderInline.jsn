@@ -1,0 +1,8 @@
+{"Image":"KolmTwoCylinderInline.png","Probes":
+[
+{"Green":20,"Name":"H1","XP":45,"YP":60,"Red":100,"YT":0,"Yellow":50,"XT":10},
+{"Green":0,"Name":"H2","XP":125,"YP":21,"Red":100,"YT":20,"Yellow":50,"XT":10},
+{"Green":0,"Name":"E1","XP":40,"YP":22,"Red":100,"YT":40,"Yellow":50,"XT":10},
+{"Green":0,"Name":"E2","XP":85,"YP":0,"Red":100,"YT":60,"Yellow":50,"XT":10}
+]
+}

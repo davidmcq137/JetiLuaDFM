@@ -1,0 +1,9 @@
+{
+    "Image": "Airplane.png",
+    "Probes": [
+	{"Name":"T1",  "XT": 10,"YT":   0,"XP": 45,"YP": 97, "Green": 0, "Yellow":50, "Red":100},
+	{"Name":"T2",  "XT": 10,"YT":  20,"XP": 90,"YP": 97, "Green": 0, "Yellow":50, "Red":100},
+	{"Name":"B1",  "XT": 10,"YT":  40,"XP": 50,"YP": 35, "Green": 0, "Yellow":50, "Red":100},
+	{"Name":"B2",  "XT": 10,"YT":  60,"XP": 90,"YP": 35, "Green": 0, "Yellow":50, "Red":100}
+    ]
+}
