@@ -35,10 +35,11 @@ localization from the original American to Great Britain style.
 
 Notes:
 
-If the App wakes up and gets from the TX a locale that is not
-recognized, it will attempt to run in English (locale "en") and will
-print an error message on the lua console and display a pop-up message
-on the TX screen to inform the pilot of the missing translation.
+If the App wakes up and gets from the TX a locale for which no
+translation file exists it will attempt to run in English (locale
+"en") and will print an error message on the lua console and display a
+pop-up message on the TX screen to inform the pilot of the missing
+translation.
 
 If you contribute a translation, I would be happy to credit you for
 that work here in this file if you want me to.
