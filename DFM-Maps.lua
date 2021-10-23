@@ -18,11 +18,6 @@
    Released under MIT license by DFM 2020
    ---------------------------------------------------------------------------------------
 
-   Bug/Work list:
-
-   -- language support
-   -- imperial units?
-
 --]]
 
 local appInfo={}
@@ -66,19 +61,11 @@ local newPosTime = 0
 local hasCourseGPS
 local lastHistTime=0
 
---[[
-local telem={"Latitude", "Longitude",   "Altitude",  "SpeedNonGPS",
-	     "SpeedGPS", "DistanceGPS", "CourseGPS", "BaroAlt"}
---]]
 local telem={"Latitude", "Longitude",   "Altitude", "SpeedGPS"}
 telem.Latitude={}
 telem.Longitude={}
 telem.Altitude={}
 telem.SpeedGPS={}
---telem.SpeedNonGPS={}
---telem.DistanceGPS={}
---telem.CourseGPS={}
---telem.BaroAlt={}
 
 local variables = {}
 
@@ -122,8 +109,6 @@ metrics.loopCPUAvg = 0
 local gotInitPos = false
 local annTextSeq = 1
 local preTextSeq = 1
---local titleText
---local subtitleText
 local lastgetTime = 0
 local inZone = {}
 local currentRibbonValue
@@ -146,19 +131,7 @@ local checkBox = {}
 local checkBoxIndex = {}
 local checkBoxSubform = {}
 
---local triEnabled
---local triEnabledIndex
---local noflyEnabled
---local noflyEnabledIndex
---local noFlyWarnEnabled
---local noFlyWarnIndex
-
 local switchItems = {}
---local pointSwitch
---local zoomSwitch
---local triASwitch
---local startSwitch
---local colorSwitch
 local lastswc = -2
 local swcCount = 0
 
@@ -212,6 +185,40 @@ local satQualityID = 0
 local satQualityPa = 0
 local satQuality
 
+local lang
+local locale
+
+local function setLanguage()
+
+   local obj
+   local fp
+   local transFile
+
+   locale = system.getLocale()
+   transFile = appInfo.Dir .. "Lang/" .. locale .. "/Text/Text.jsn"
+   fp = io.readall(transFile)
+
+   if not fp then
+      system.messageBox("DFM-Maps: No Tranlation for locale " .. locale)
+      print("DFM-Maps: No Tranlation for locale " .. locale)      
+      -- try for English if no locale support
+      locale = "en"
+      transFile = appInfo.Dir .."Lang/" .. locale .. "/Text/Text.jsn"
+      fp = io.readall(transFile)
+      if not fp then
+	 error("DFM-Maps: FATAL - Could not open language file")
+      else
+	 print("DFM-Maps: Using locale en")
+      end
+   end
+
+   lang = json.decode(fp)
+
+   if not lang then
+      error("DFM-Maps: FATAL - Could not decode language file")
+   end
+
+end
 
 local function createSw(name, dir)
    local activeOn = {1, 0, -1}
@@ -590,12 +597,6 @@ local function setField(sname)
       variables.triRotation = 0
    end
 
-   -- print(
-   --    "read variables.triOffsetX, variables.triOffsetY, variables.triRotation, variables.triLength",
-   --    variables.triOffsetX, variables.triOffsetY, variables.triRotation, variables.triLength)
-
-   ------------------------------------------------------------
-
    lng0 = Field.lng -- reset to origin to coords in jsn file
    lat0  = Field.lat
    coslat0 = math.cos(math.rad(lat0))
@@ -604,8 +605,6 @@ local function setField(sname)
    rwy2XY()
    nfz2XY()
    
-   --setColorMap()
-   --setColorMain()
    if variables.triEnabled then
       setColor("Map", variables.triColorMode)
    else
@@ -643,7 +642,6 @@ end
 local function variableChanged(value, var, fcn)
    variables[var] = value
    jSave(variables, var, value)
-   --system.pSave("variables."..var, value)
    if fcn then fcn() end
 end
 
@@ -655,37 +653,6 @@ local function validAnn(val, str)
       return true
    end
 end
-
--- local function pointSwitchChanged(value)
---    pointSwitch = value
---    jSave(variables, "switchesSet", "true")
---    system.pSave("pointSwitch", pointSwitch)
--- end
-
--- local function colorSwitchChanged(value)
---    colorSwitch = value
---    jSave(variables, "switchesSet", "true")
---    system.pSave("colorSwitch", colorSwitch)
--- end
-
---local function zoomSwitchChanged(value)
---   zoomSwitch = value
---   jSave(variables, "switchesSet", "true")
---   --system.pSave("zoomSwitch", zoomSwitch)
---end
-
-
--- local function triASwitchChanged(value)
---    triASwitch = value
---    jSave(variables, "switchesSet", "true")
---    system.pSave("triASwitch", triASwitch)
--- end
-
---local function startSwitchChanged(value)
---   startSwitch = value
---   jSave(variables, "switchesSet", "true")
---   system.pSave("startSwitch", startSwitch)
---end
 
 local function checkBoxClicked(value, box)
    checkBox[box] = not value
@@ -708,91 +675,52 @@ local function switchNameChanged(value, name, swname)
    else
       jSave(variables, swname .. "SwitchDir", value)
    end
-   --print("sNC: value, name, swname", value, name, swname)
 	 
    switchItems[swname] = createSw(shapes.switchNames[variables[swname .. "SwitchName"]],
 		     variables[swname .."SwitchDir"])
    checkBox[swname .."Switch"] = system.getInputsVal(switchItems[swname]) == 1
 end
 
--- local function triASwitchNameChanged(value, name)
---    if name then
---       jSave(variables, "triASwitchName", value)
---    else
---       jSave(variables, "triASwitchDir", value)
---    end
---    print("triAchg", value, name)
---    triASwitch = createSw(shapes.switchNames[variables.triASwitchName],
--- 			  variables.triASwitchDir)
---    checkBox.triASwitch = system.getInputsVal(triASwitch) == 1
--- end
-
--- local function startSwitchNameChanged(value, name)
---    if name then
---       jSave(variables, "startSwitchName", value)
---    else
---       jSave(variables, "startSwitchDir", value)
---    end
---    startSwitch = createSw(shapes.switchNames[variables.startSwitchName],
--- 			  variables.startSwitchDir)
---    checkBox.startSwitch = system.getInputsVal(startSwitch) == 1
--- end
-
---local function fieldIdxChanged(value)
---   print("please make fieldIdxChanged work again")
---   --fieldIdx = value
---   --iField = nil
---   gotInitPos = false
---end
-
 local function triLengthChanged(value)
    variables.triLength = value
    jSave(variables, "triLength", value)
-   --system.pSave("variables.triLength", variables.triLength)
    pylon = {}
 end
 
 local function raceTimeChanged(value)
    variables.raceTime = value
    jSave(variables, "raceTime", value)
-   --system.pSave("variables.raceTime", variables.raceTime)
 end
 
 local function maxSpeedChanged(value)
    variables.maxSpeed = value
    jSave(variables, "maxSpeed", value)
-   --system.pSave("variables.maxSpeed", variables.maxSpeed)
 end
 
 local function maxAltChanged(value)
    variables.maxAlt = value
    jSave(variables, "maxAlt", value)
-   --system.pSave("variables.maxAlt", variables.maxAlt)
 end
 
 local function aimoffChanged(value)
    variables.aimoff = value
    jSave(variables, "aimoff", value)
-   --system.pSave("variables.aimoff", variables.aimoff)
    pylon={}
 end
 
 local function flightStartAltChanged(value)
    variables.flightStartAlt = value
    jSave(variables, "flightStartAlt", value)
-   --system.pSave("variables.flightStartAlt", variables.flightStartAlt)
 end
 
 local function flightStartSpdChanged(value)
    variables.flightStartSpd = value
    jSave(variables, "flightStartSpd", value)
-   --system.pSave("variables.flightStartSpd", variables.flightStartSpd)
 end
 
 local function elevChanged(value)
    variables.elev = value
    jSave(variables, "elev", value)
-   --system.pSave("variables.elev", variables.elev)
 end
 
 local function annTextChanged(value)
@@ -819,43 +747,10 @@ end
 
 local function airplaneIconChanged(value)
    variables.airplaneIcon = value
-   print("value, airplaneIcons[value]:", value, shapes.airplaneIcons[value])
+   --print("value, airplaneIcons[value]:", value, shapes.airplaneIcons[value])
    shapes.airplaneIcon = shapes[shapes.airplaneIcons[value]]
    jSave(variables, "airplaneIcon", value)
 end
-
-				  
--- local function noFlyShakeEnabledClicked(value)
---    print("nFSEC", value)
---    checkBox.noFlyShakeEnabled = not value
---    jSave(variables, "noFlyShakeEnabled", not value)
---    form.setValue(checkBox.noFlyShakeIndex, checkBox.noFlyShakeEnabled)
--- end
-
--- local function noFlyWarningEnabledClicked(value)
---    print("nFWEC", value)
---    checkBox.noFlyWarningEnabled = not value
---    jSave(variables, "noFlyWarningEnabled", not value)
---    form.setValue(checkBox.noFlyWarningIndex, checkBox.noFlyWarningEnabled)
--- end
-
--- local function triEnabledClicked(value)
---    print("triEnabledClicked: value:", value)
---    checkBox.triEnabled = not value
---    jSave(variables, "triEnabled", not value)
---    form.setValue(checkBox.triEnabledIndex, checkBox.triEnabled)
--- end
-
--- local function noflyEnabledClicked(value)
---    print("nfEC", value)
---    checkBox.noflyEnabled = not value
---    jSave(variables, "noflyEnabled", not value)
---    form.setValue(checkBox.noflyEnabledIndex, checkBox.noflyEnabled)
-
--- end
-
-
---------------------------------------------------------------------------------
 
 local function pngLoad(j)
    local pfn
@@ -911,8 +806,6 @@ local function triRot(ao)
 
    -- adjust size from Fields file (Field.triangle.size) to menu (variables.triLength)
    -- and scale and rotate the triangle according to menu options
-
-   --print("scale ratio:", (variables.triLength / Field.triangle.size))
    
    for i=1,3,1 do
       tri[i].dx = (variables.triLength / Field.triangle.size)*(tri[i].x - tri.center.x)
@@ -974,10 +867,8 @@ local function initField(fn)
    if Field and Field.name then
       system.messageBox("Current location: " .. Field.name, 2)
       activeField = Field.shortname
-      --print("activeField:", activeField)
 
       maxImage = #Field.images
-      --print("maxImage:", maxImage)
       if maxImage ~= 0 then
 	 currentImage = 1
 	 graphInit(currentImage) -- re-init graph scales with images loaded
@@ -999,17 +890,14 @@ local function keyForm(key)
 	 variables.triOffsetX = variables.triOffsetX + -2*inc
 	 browse.dispText = string.format("X %4d", variables.triOffsetX)
 	 jSave(variables, "triOffsetX", variables.triOffsetX)	 	 
-	 --system.pSave("variables.triOffsetX", variables.triOffsetX)	 
       elseif browse.opTable[browse.opTableIdx] == "Y" then
 	 variables.triOffsetY = variables.triOffsetY + -2*inc
 	 browse.dispText = string.format("Y %4d", variables.triOffsetY)
 	 jSave(variables, "triOffsetY", variables.triOffsetY)	 
-	 --system.pSave("variables.triOffsetY", variables.triOffsetY)
       elseif browse.opTable[browse.opTableIdx] == "R" then
 	 variables.triRotation = variables.triRotation + inc
 	 browse.dispText = string.format("R %4d", variables.triRotation)
 	 jSave(variables, "triRotation", variables.triRotation)	 
-	 --system.pSave("variables.triRotation", variables.triRotation)
       elseif browse.opTable[browse.opTableIdx] == "O" then 
 	 --print("variables.aimoff", variables.aimoff)
 	 variables.aimoff = variables.aimoff - inc
@@ -1020,7 +908,6 @@ local function keyForm(key)
 	 browse.dispText = string.format("L %4d", variables.triLength)
 	 --print("triLength:", variables.triLength)
 	 jSave(variables, "triLength", variables.triLength)	 
-	 --system.pSave("variables.triLength", variables.triLength)
       end
       triRot(0)
    end
@@ -1076,14 +963,6 @@ local function keyForm(key)
 	    --print("reinit 9")
 	    form.reinit(7)
 	 else
-	    --print("resetting Field: ", browse.OriginalFieldName, Field.shortname)
-
-	    ------------------------------------------------------------
-
-	    -- print("exiting browser", string.gsub(system.getProperty("Model")..".jsn", " ", "_"),
-	    -- 	  Field.shortname)
-	    -- print("x,y,r,L, O", variables.triOffsetX, variables.triOffsetY, variables.triRotation,
-	    -- 	  variables.triLength, variables.aimoff)
 	    
 	    -- Save the potential changes to the triangle in a file named by both the field
 	    -- AND the model so the re-reading only happens with the same combination of
@@ -1101,9 +980,6 @@ local function keyForm(key)
 	       io.close(tft)
 	    end
 	    
-	    ------------------------------------------------------------
-
-
 	    if not browse.OriginalFieldName then
 	       Field = {}
 	    else
@@ -1161,8 +1037,6 @@ local function checkBoxAdd(lab, box)
 end
 
 local function selectFieldClicked(value)
-   --print("sFC", value, browse.List[value])
-   --print(Fields[browse.List[value]].shortname)
    lat0 = Fields[browse.List[value]].images[1].center.lat
    lng0 = Fields[browse.List[value]].images[1].center.lng
    coslat0 = math.cos(math.rad(lat0))
@@ -1176,8 +1050,8 @@ local function switchAdd(lbl, swname, sf)
    form.addSelectbox(shapes.switchNames, variables[swname .. "SwitchName"], true,
 		     (function(z) return switchNameChanged(z, true, swname) end),
 		     {width=60})
-   form.addLabel({label="Up/Mid/Dn", width=94})
-   form.addSelectbox({"U","M","D"}, variables[swname .. "SwitchDir"], true,
+   form.addLabel({label=lang.UpMidDown, width=94})
+   form.addSelectbox({lang.UpL,lang.MidL,lang.DnL}, variables[swname .. "SwitchDir"], true,
       (function(z) return switchNameChanged(z, false, swname) end), {width=50})
    checkBoxIndex[swname .."Switch"] = form.addCheckbox(checkBox[swname.."Switch"],
 						       nil, {width=15})
@@ -1197,41 +1071,33 @@ local function initForm(subform)
    savedSubform = subform
    
    if subform == 1 then
-      form.setTitle("GPS Maps")
+      form.setTitle(lang.formTitle)
       
       form.addLink((function() form.reinit(2) end),
-	 {label = "Telemetry Sensors >>"})
+	 {label = lang.teleMenu})
 
       form.addLink((function() form.reinit(3) end),
-	 {label = "Race Parameters >>"})
-
-      -- form.addLink((function() form.reinit(4) end),
-      -- 	 {label = "Triangle Parameters >>"})
+	 {label = lang.raceMenu})
 
       form.addLink((function() form.reinit(5) end),
-	 {label = "Flight History  >>"})
+	 {label = lang.histMenu})
 
       form.addLink((function() form.reinit(6) end),
-	 {label = "Settings >>"})            
+	 {label = lang.settingsMenu})            
 
       form.addLink((function() form.reinit(7) end),
-	 {label = "Map Browser >>"})
+	 {label = lang.browserMenu})
 
       form.addLink((function() form.reinit(12) end),
-	 {label = "Manual Field Selection >>"})      
-
-      
-
-      --form.addRow(1)
-      --form.addLabel({label="DFM", font=FONT_MINI, alignRight=true})
+	 {label = lang.fieldMenu})      
 
       form.setFocusedRow(savedRow)
 
    elseif subform == 2 then
       savedRow = subform-1
       local menuSelectGPS = { -- for lat/long only
-	 Longitude="Select GPS Longitude Sensor",
-	 Latitude ="Select GPS Latitude Sensor",
+	 Longitude= lang.selectLong,
+	 Latitude = lang.selectLat,
       }
       
       local menuSelect1 = { -- not from the GPS sensor
@@ -1240,8 +1106,8 @@ local function initForm(subform)
       }
       
       local menuSelect2 = { -- non lat/long but still from GPS sensor
-	 Altitude ="Select GPS Altitude Sensor",
-	 SpeedGPS="Select GPS Speed Sensor",
+	 Altitude = lang.selectAlt,
+	 SpeedGPS= lang.selectSpeed,
 	 --DistanceGPS="Select GPS Distance Sensor",
 	 --CourseGPS="Select GPS Course Sensor",
 	 
@@ -1269,53 +1135,43 @@ local function initForm(subform)
 			   (function(z) return sensorChanged(z, var, false) end) )
       end
       
-      checkBoxAdd("Select GPS mode: Absolute Altitude", "absAltGPS")
+      checkBoxAdd(lang.selectGPSMode, "absAltGPS")
       
       form.addLink((function() form.reinit(1) end),
-	 {label = "<<< Back to main menu",font=FONT_BOLD})
+	 {label = lang.backMain, font=FONT_BOLD})
       
       form.setFocusedRow(1)      
    elseif subform == 3 then
       savedRow = subform-1
 
-      checkBoxAdd("Enable Triangle Racecourse", "triEnabled")
+      checkBoxAdd(lang.enableTri, "triEnabled")
 
-      switchAdd("Start", "start", subform)
+      switchAdd(lang.swStart, "start", subform)
 
-      switchAdd("Announce", "triA", subform)
-      
-      -- form.addRow(5)
-      -- form.addLabel({label="Start", width=80})
-      -- form.addSelectbox(shapes.switchNames, variables.startSwitchName, true,
-      -- 			(function(z) return startSwitchNameChanged(z, true) end),
-      -- 			{width=60})
-      -- form.addLabel({label="Up/Mid/Dn", width=94})
-      -- form.addSelectbox({"U","M","D"}, variables.startSwitchDir, true,
-      -- 	 (function(z) return startSwitchNameChanged(z,false) end), {width=50})
-      -- checkBoxIndex.startSwitch = form.addCheckbox(checkBox.startSwitch, nil, {width=15})
+      switchAdd(lang.swAnnounce, "triA", subform)
       
       form.addRow(2)
-      form.addLabel({label="Race time (mins)", width=220})
+      form.addLabel({label=lang.raceTime, width=220})
       form.addIntbox(variables.raceTime, 1, 60, 30, 0, 1, raceTimeChanged)
       
       form.addRow(2)
-      form.addLabel({label="Max Start Speed (km/h)", width=220})
+      form.addLabel({label=lang.maxStartSpd, width=220})
       form.addIntbox(variables.maxSpeed, 10, 500, 100, 0, 10, maxSpeedChanged)
       
       form.addRow(2)
-      form.addLabel({label="Max Start Alt (m)", width=220})
+      form.addLabel({label=lang.maxStartAlt, width=220})
       form.addIntbox(variables.maxAlt, 10, 500, 100, 0, 10, maxAltChanged)
       
       form.addRow(2)
-      form.addLabel({label="Flight Start Speed (km/h)", width=220})
+      form.addLabel({label=lang.flightStartSpd, width=220})
       form.addIntbox(variables.flightStartSpd, 0, 100, 20, 0, 1, flightStartSpdChanged)
 
       form.addRow(2)
-      form.addLabel({label="Flight Start Altitude (m)", width=220})
+      form.addLabel({label=lang.flightStartAlt, width=220})
       form.addIntbox(variables.flightStartAlt, 0, 100, 20, 0, 1, flightStartAltChanged)
 
       form.addRow(2)
-      form.addLabel({label="Triangle Height Scale", width=220})
+      form.addLabel({label=lang.triHeightScl, width=220})
       form.addIntbox(variables.triHeightScale, 10, 400, 100, 0, 10,
 		     (function(z) return
 			      variableChanged(z, "triHeightScale",
@@ -1323,34 +1179,23 @@ local function initForm(subform)
 
       local rev = {Light=1, Dark=2, Image=3}
       form.addRow(2)
-      form.addLabel({label="Screen Mode", width=220})
-      form.addSelectbox({"Light", "Dark", "Image"},
+      form.addLabel({label=lang.screenMode, width=220})
+      form.addSelectbox({lang.modeLight, lang.modeDark, lang.modeImage},
 	 rev[variables.triColorMode], true, triColorModeChanged)
       
       form.addLink((function() form.reinit(8) end),
-	 {label = "Racing announce sequence >>"})            
+	 {label = lang.raceAnn})            
 
       form.addLink((function() form.reinit(9) end),
-	 {label = "Racing pre-announce sequence >>"})            
-
-
-      
-      -- form.addRow(5)
-      -- form.addLabel({label="Announce", width=80})
-      -- form.addSelectbox(shapes.switchNames, variables.triASwitchName, true,
-      -- 			(function(z) return triASwitchNameChanged(z, true) end),
-      -- 			{width=60})
-      -- form.addLabel({label="Up/Mid/Dn", width=94})
-      -- form.addSelectbox({"U","M","D"}, variables.triASwitchDir, true,
-      -- 	 (function(z) return triASwitchNameChanged(z,false) end), {width=50})
-      -- checkBoxIndex.triASwitch = form.addCheckbox(checkBox.triASwitch, nil, {width=15})
+	 {label = lang.racepreAnn})            
 
       form.addLink((function() form.reinit(1) end),
-	 {label = "<<< Back to main menu",font=FONT_BOLD})
+	 {label = lang.backMain,font=FONT_BOLD})
 
       form.setFocusedRow(1)
 
    elseif subform == 4 then
+      --[[  now is done with the browser menu
       savedRow = subform-1
       
       form.addRow(2)
@@ -1381,7 +1226,7 @@ local function initForm(subform)
 	 {label = "<<< Back to main menu",font=FONT_BOLD})
 
       form.setFocusedRow(1)
-
+      --]]
 
    elseif subform == 5 then
       savedRow = subform-1
@@ -1389,78 +1234,43 @@ local function initForm(subform)
       -- variation in defaults etc nor for addCheckbox due to specialized nature
       
       form.addRow(2)
-      form.addLabel({label="History Sample Time (ms)", width=220})
+      form.addLabel({label=lang.histSample, width=220})
       form.addIntbox(variables.histSample, 1000, 10000, 1000, 0, 100,
 		     (function(z) return variableChanged(z, "histSample") end) )
       
       form.addRow(2)
-      form.addLabel({label="Overhead view history points", width=220})
+      form.addLabel({label=lang.histPoints, width=220})
       form.addIntbox(variables.histMax, 0, 600, 300, 0, 10,
 		     (function(z) return variableChanged(z, "histMax") end) )
       
       form.addRow(2)
-      form.addLabel({label="Min Hist dist to new pt", width=220})
+      form.addLabel({label=lang.histDist, width=220})
       form.addIntbox(variables.histDistance, 1, 10, 3, 0, 1,
 		     (function(z) return variableChanged(z, "histDistance") end) )
       
       form.addRow(2)
-      form.addLabel({label="Triangle view history points", width=220})
+      form.addLabel({label=lang.triHistPoints, width=220})
       form.addIntbox(variables.triHistMax, 0, 40, 20, 0, 1,
 		     (function(z) return variableChanged(z, "triHistMax") end) )
 
       form.addRow(2)
-      form.addLabel({label="Triangle view scale", width=220})
+      form.addLabel({label=lang.triViewScl, width=220})
       form.addIntbox(variables.triViewScale, 100, 1000, 300, 0, 10,
 		     (function(z) return variableChanged(z, "triViewScale") end) )
 
-      --form.addRow(2)
-      --form.addLabel({label="Max CPU usage permitted (%)", width=220})
-      --form.addIntbox(variables.maxCPU, 0, 100, 80, 0, 1,
-      --	     (function(z) return variableChanged(z, "maxCPU") end) )
-      
-      switchAdd("Points", "point", subform)
+      switchAdd(lang.swPoints, "point", subform)
 
-      -- form.addRow(2)
-      -- form.addLabel({label="Flight path points on/off sw", width=220})
-      -- form.addInputbox(pointSwitch, false, pointSwitchChanged)
-
-      ---[[
       form.addRow(2)
-      form.addLabel({label="Ribbon Color Source", width=220})
+      form.addLabel({label=lang.ribbonColor, width=220})
       form.addSelectbox(
 	 colorSelect,
 	 variables.ribbonColorSource, true,
 	 (function(z) return variableChanged(z, "ribbonColorSource") end) )
-      --]]
-      --[[
-      local imax=300
-      form.addRow(4)
-      form.addLabel({label="Ribbon Color", width=100})
-      form.addSelectbox(
-	 colorSelect,
-	 variables.ribbonColorSource, true,
-	 (function(z) return variableChanged(z, "ribbonColorSource") end), {width=80} )
-      form.addLabel({label="Max", width=70})
-      form.addIntbox(imax, 0, 600, 300, 0, 1, nil, {width=60})
-      --]]
 
-      switchAdd("Color", "color", subform)
-      -- form.addRow(2)
-      -- form.addLabel({label="Ribbon Color Increment sw", width=220})
-      -- form.addInputbox(colorSwitch, false, colorSwitchChanged)
+      switchAdd(lang.swColor, "color", subform)
 
-      form.addLink((function() form.reinit(11) end), {label = "View Color Gradient>>"})
+      form.addLink((function() form.reinit(11) end), {label = lang.viewGrad})
 	 
-      -- form.addRow(2)
-      -- form.addLabel({label="History ribbon width", width=220})
-      -- form.addIntbox(variables.ribbonWidth, 1, 4, 2, 0, 1,
-      -- 		     (function(z) return variableChanged(z, "ribbonWidth") end) )
-
-      -- form.addRow(2)
-      -- form.addLabel({label="History ribbon density", width=220})
-      -- form.addIntbox(variables.ribbonAlpha, 1, 10, 4, 0, 1,
-      -- 		     (function(z) return variableChanged(z, "ribbonAlpha") end) )
-
       form.addLink((function() form.reinit(1) end),
 	 {label = "<<< Back to main menu",font=FONT_BOLD})
       
@@ -1470,52 +1280,28 @@ local function initForm(subform)
       savedRow = subform-1
 
       form.addRow(2)
-      form.addLabel({label="Future position (msec)", width=220})
+      form.addLabel({label=lang.futurePos, width=220})
       form.addIntbox(variables.futureMillis, 0, 10000, 2000, 0, 10,
 		     (function(xx) return variableChanged(xx, "futureMillis") end) )
 
-      checkBoxAdd("Show No Fly Zones", "noflyEnabled")
-      -- form.addRow(2)
-      -- form.addLabel({label="Show NoFly Zones", width=270})
-      -- checkBox.noflyEnabledIndex = form.addCheckbox(checkBox.noflyEnabled, noflyEnabledClicked)
+      checkBoxAdd(lang.showNoFly, "noflyEnabled")
 
       form.addRow(2)
       form.addLabel({label="Airplane Icon", width=220})
       form.addSelectbox(shapes.airplaneIcons, variables.airplaneIcon, true, airplaneIconChanged)
       
-      checkBoxAdd("Announce No Fly Entry/Exit", "noFlyWarningEnabled")
-      -- form.addRow(2)
-      -- form.addLabel({label="Announce NoFly Entry/Exit", width=270})
-      -- checkBox.noFlyWarningIndex =
-      -- 	 form.addCheckbox(checkBox.noFlyWarningEnabled, noFlyWarningEnabledClicked)
+      checkBoxAdd(lang.annNoFly, "noFlyWarningEnabled")
       
-      checkBoxAdd("Stick Shake on No Fly Entry", "noFlyShakeEnabled")
-      -- form.addRow(2)
-      -- form.addLabel({label="Stick Shake on NoFly Entry", width=270})
-      -- checkBox.noFlyShakeIndex =
-      -- 	 form.addCheckbox(checkBox.noFlyShakeEnabled, noFlyShakeEnabledClicked)
+      checkBoxAdd(lang.shakeNoFly, "noFlyShakeEnabled")
 
       form.addRow(2)
-      form.addLabel({label="Field elevation adjustment (m)", width=220})
+      form.addLabel({label=lang.fieldElev, width=220})
       form.addIntbox(variables.elev, -1000, 1000, 0, 0, 1, elevChanged)
       
-      -- form.addRow(2)
-      -- form.addLabel({label="Map Alpha", width=220})
-      -- form.addIntbox(variables.mapAlpha, 0, 255, 255, 0, 1, 
-      -- 		     (function(xx) return variableChanged(xx, "mapAlpha") end) )
-      
-      --form.addRow(2)
-      --form.addLabel({label="Zoom reset sw", width=220})
-      --form.addInputbox(zoomSwitch, false, zoomSwitchChanged)
-
-      --form.addRow(2)
-      --form.addLabel({label="Reset GPS origin and Baro Alt", width=274})
-      --resetCompIndex=form.addCheckbox(resetClick, resetOriginChanged)
-      
-      form.addLink(clearData, {label = "Clear all data and settings"})
+      form.addLink(clearData, {label = lang.clearAll})
       
       form.addLink((function() form.reinit(1) end),
-	 {label = "<<< Back to main menu",font=FONT_BOLD})
+	 {label = lang.backMain, font=FONT_BOLD})
 
       form.setFocusedRow(1)
 
@@ -1524,7 +1310,7 @@ local function initForm(subform)
       savedRow = subform-1
       ----------
       form.setTitle("")
-      form.setButton(2, "Show", 1)
+      form.setButton(2, lang.buttonShow, 1)
       
       browse.List = {}
       for k,_ in pairs(Fields) do
@@ -1544,63 +1330,61 @@ local function initForm(subform)
       end
 
       form.addRow(2)
-      form.addLabel({label="Select Field to Browse"})
+      form.addLabel({label=lang.selField})
       form.addSelectbox(browse.List, browse.Idx, true, browseFieldClicked)
       form.addRow(1)
       form.addLabel({label=""})      
       form.addRow(1)
-      form.addLabel({label="<Show> to browse maps of selected field", font=FONT_NORMAL})
-      --form.addRow(1)
-      --form.addLabel({label=""})      
+      form.addLabel({label=lang.showtoBrowse, font=FONT_NORMAL})
       form.addRow(1)
-      form.addLabel({label="If you browse the currently active field:", font=FONT_MINI})
+      form.addLabel({label=lang.ifyouBrowse, font=FONT_MINI})
       form.addRow(1)
-      form.addLabel({label="On the map image screen, edit the optional triangle", font=FONT_MINI})
+      form.addLabel({label=lang.ontheMap, font=FONT_MINI})
       form.addRow(1)
-      form.addLabel({label="racing course using transmitter's 3D control dial", font=FONT_MINI})
+      form.addLabel({label=lang.racingCourse, font=FONT_MINI})
       form.addRow(1)
-      form.addLabel({label="Press button 2 to cycle through the settable parameters", font=FONT_MINI})
+      form.addLabel({label=lang.pressButton2, font=FONT_MINI})
       form.addRow(1)      
-      form.addLabel({label="X: left/right Y: Up/Down R: Rotation CW/CCW L: Length", font=FONT_MINI})
+      form.addLabel({label=lang.XYRL, font=FONT_MINI})
       form.addLink((function() form.reinit(1) end),
-	 {label = "<<< Back to main menu",font=FONT_BOLD})
+	 {label = lang.backMain,font=FONT_BOLD})
       
       form.setFocusedRow(1)
 
    elseif subform == 8 or subform == 9 then
       if subform == 8 then
 	 form.addRow(1)
-	 form.addLabel({label="c/C: Course correction (° Left/Right)", width=220, font=FONT_MINI})
+	 form.addLabel({label=lang.courseCorr, width=220, font=FONT_MINI})
 	 form.addRow(1)
-	 form.addLabel({label="d/D: Distance to next pylon (m)", width=220, font=FONT_MINI})
+	 form.addLabel({label=lang.distNext, width=220, font=FONT_MINI})
 	 form.addRow(1)
-	 form.addLabel({label="p/P: Perpendicular distance to triangle leg (m)", width=220, font=FONT_MINI})
+	 form.addLabel({label=lang.perpDist, width=220, font=FONT_MINI})
 	 form.addRow(1)
-	 form.addLabel({label="t/T: Time to pylon (s)", width=220, font=FONT_MINI})
+	 form.addLabel({label=lang.timePylon, width=220, font=FONT_MINI})
       end
       form.addRow(1)
-      form.addLabel({label="a/A: Altitude (m)", width=220, font=FONT_MINI})
+      form.addLabel({label=lang.aAltitude, width=220, font=FONT_MINI})
       form.addRow(1)
-      form.addLabel({label="s/S: Speed (km/h)", width=220, font=FONT_MINI})
+      form.addLabel({label=lang.sSpeed, width=220, font=FONT_MINI})
       form.addRow(2)
       local temp
       if subform == 8 then
-	 form.addLabel({label="Racing announce sequence", width=220})
+	 form.addLabel({label=lang.raceAnnSeq, width=220})
 	 temp = variables.annText
 	 form.addTextbox(temp, 30, annTextChanged)
       else
-	 form.addLabel({label="Pre-race announce sequence", width=220})
+	 form.addLabel({label=lang.racePreSeq, width=220})
 	 form.addTextbox(variables.preText, 30, preTextChanged)
       end
       form.addLink((function() form.reinit(1) end),
-	 {label = "<<< Back to main menu",font=FONT_BOLD})
+	 {label = lang.backMain,font=FONT_BOLD})
 
    elseif subform == 10 then
       --print("savedRow to", subform-1)
       browse.MapDisplayed = true
       if browse.FieldName == browse.OriginalFieldName then
 	 form.setButton(2, browse.opTable[browse.opTableIdx], 1)
-	 form.setButton(5, "Save", 1) -- otherwise it will be "Ok"
+	 form.setButton(5, lang.buttonSave, 1) -- otherwise it will be "Ok"
       end
       form.setTitle("")
       form.setButton(1, ":backward", 1)
@@ -1609,7 +1393,7 @@ local function initForm(subform)
    elseif subform == 11 then
       savedRow = 4
       form.addLink((function() form.reinit(1) end),
-	 {label = "<<< Back to main menu", font=FONT_BOLD})
+	 {label = lang.backMain, font=FONT_BOLD})
    elseif subform == 12 then
 
       browse.List = {}
@@ -1626,17 +1410,16 @@ local function initForm(subform)
       end
 
       form.addRow(2)
-      form.addLabel({label="Select Field"})
+      form.addLabel({label=lang.selFld})
       form.addSelectbox(browse.List, browse.Idx, true, selectFieldClicked)
       
       form.addLink((function() form.reinit(1) end),
-	 {label = "<<< Back to main menu",font=FONT_BOLD})
+	 {label = lang.backMain,font=FONT_BOLD})
    end
    
 end
 
 -- Various shape and polyline functions using the anti-aliasing renderer
-
 
 local function drawShape(col, row, shape, rotation)
    local sinShape, cosShape
@@ -1653,22 +1436,9 @@ local function drawShape(col, row, shape, rotation)
    ren:renderPolygon()
 end
 
---local function drawShapePL(col, row, shape, rotation, scale, width, alpha)
---   local sinShape, cosShape
---   local ren=lcd.renderer()
---   sinShape = math.sin(rotation)
---   cosShape = math.cos(rotation)
---   ren:reset()
---   for _, point in pairs(shape) do
---      ren:addPoint(
---	 col + (scale*point[1] * cosShape - scale*point[2] * sinShape),
---	 row + (scale*point[1] * sinShape + scale*point[2] * cosShape))
---   end
---   ren:renderPolyline(width, alpha)
---end
-
-
-local function playFile(fn, as)
+local function playFile(ffn, as)
+   local fn = appInfo.Dir .. "Lang/" .. locale .. "/Audio/" .. ffn
+   --print("playFile: fn = ", fn)
    if emFlag then
       local fp = io.open(fn)
       if not fp then
@@ -1681,7 +1451,7 @@ local function playFile(fn, as)
    if as == AUDIO_IMMEDIATE then
       system.stopPlayback()
    end
-   system.playFile("/"..fn, as)
+   system.playFile("/".. fn, as)
 end
 
 local function playNumber(n, dp)
@@ -1723,23 +1493,15 @@ local function fslope(xx, yy)
     end                  -- for now this is only a .00001-ish degree error
     
     slope = sxy/sx2
-
-    --tt = math.deg(math.atan(sxy,sx2))
-
-    --theta = math.atan(slope)
     theta = math.atan(sxy,sx2)
     if xx[1] < xx[#xx] then
        tt = math.pi/2 - theta
     else
        tt = math.pi*3/2 - theta
     end
-    --print(math.deg(tt), math.deg(math.atan(slope)), math.deg(math.atan(sxy,sx2)))
+
     return slope, tt
 end
-
---local function slope_to_deg(yy, xx)
---   return math.deg(math.atan(yy, xx))
---end
 
 local function binom(n, k)
    
@@ -1751,8 +1513,6 @@ local function binom(n, k)
    if k > n then return nil end  -- error .. let caller die
    if k > n/2 then k = n - k end -- because (n k) = (n n-k) by symmetry
 
-   --print("binom: n,k=", n, k)
-   
    if (n == MAXTABLE-1) and binomC[k] then return binomC[k] end
 
    local numer, denom = 1, 1
@@ -1774,8 +1534,8 @@ end
 local function computeBezier(numT)
 
 
-      -- compute Bezier curve points using control points in xtable[], ytable[]
-      -- with numT points over the [0,1] interval
+   -- compute Bezier curve points using control points in xtable[], ytable[]
+   -- with numT points over the [0,1] interval
    
    local px, py
    local t, bn
@@ -1826,14 +1586,6 @@ local function m3(i)
    return (i-1)%3 + 1
 end
 
---local function m4(i)
---   return (i-1)%4 + 1
---end
-
---local function mN(i, N)
---   return (i-1)%N + 1
---end
-
 local function perpDist(x0, y0, np)
    local pd
    local det
@@ -1860,15 +1612,11 @@ local inZoneLast = {}
 local function drawTriRace(windowWidth, windowHeight)
 
    local ren=lcd.renderer()
-
-   --print("variables.triEnabled", variables.triEnabled)
-   --print("pylon[1], pylon.finished", pylon[1], pylon.finished)
    
    if not variables.triEnabled then return end
    if not pylon[1] then return end
    if not pylon.finished then return end
    
-   --setColorMap()
    setColor("Map", variables.triColorMode)
 
    for j=1, #pylon do
@@ -1880,23 +1628,19 @@ local function drawTriRace(windowWidth, windowHeight)
 	 lcd.getTextHeight(FONT_MINI)/2 + 15,txt, FONT_MINI)
    end
 
-   --setColorMain()
    
    -- draw line from airplane to the aiming point
    if raceParam.racing then
       setColor("AimPt", variables.triColorMode)
-      --lcd.setColor(255,20,147)
       lcd.drawLine(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight),
 	   toXPixel(pylon[m3(nextPylon)].xt, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[m3(nextPylon)].yt, map.Ymin, map.Yrange, windowHeight) )
    end
    
-
    -- draw the triangle race course
 
    setColor("Triangle", variables.triColorMode)
-   --lcd.setColor(153,153,255)
    ren:reset()
    for j = 1, #pylon + 1 do
 
@@ -1914,8 +1658,6 @@ local function drawTriRace(windowWidth, windowHeight)
       ren:renderPolyline(2,0.7)
    end
 
-
-   --setColorMain()
    setColor("Map", variables.triColorMode)
 
    -- draw the turning zones and the aiming points. The zones turn red when the airplane
@@ -1932,14 +1674,11 @@ local function drawTriRace(windowWidth, windowHeight)
 		   toXPixel(pylon[j].zxr, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[j].zyr, map.Ymin, map.Yrange, windowHeight) )
       if raceParam.racing and inZone[j] then
-	 --setColorMain()
 	 setColor("Map", variables.triColorMode)
       end
       if raceParam.racing and j > 0 and j == m3(nextPylon) then
-	 --lcd.setColor(255,0,0)
 	 setColor("AimPt", variables.triColorMode)
       end
-      --if region[code] == j
       lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
 		     4)
@@ -1947,10 +1686,8 @@ local function drawTriRace(windowWidth, windowHeight)
 		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
 		     2)
       if raceParam.racing and j > 0 and j == m3(nextPylon) then
-	 --setColorMain()
 	 setColor("Map", variables.triColorMode)
       end
-      --if region[code] == j 
    end
 
    setColor("Label", variables.triColorMode)
@@ -1981,22 +1718,12 @@ local function drawTriRace(windowWidth, windowHeight)
       if switchItems.start  then lcd.drawImage(25, 100, dotImage.red) end
    end
    
-   lcd.drawText(5, 120, "Alt: ".. math.floor(altitude), FONT_MINI)
-   lcd.drawText(5, 130, "Spd: "..math.floor(speed), FONT_MINI)
-   --lcd.drawText(195, 145, "Map data (c)2021 Google", FONT_MINI)
-   --lcd.drawText(5, 140, string.format("Map Width %d m", map.Xrange), FONT_MINI)
-   
-   --lcd.drawText(265, 35, string.format("NxtP %d (%d)", region[code], code), FONT_MINI)
-   --lcd.drawText(265, 45, string.format("Dist %.0f", distance), FONT_MINI)
-   --lcd.drawText(265, 55, string.format("Hdg  %.1f", heading), FONT_MINI)
-   --lcd.drawText(265, 65, string.format("TCrs %.1f", vd), FONT_MINI)
-   --lcd.drawText(265, 75, string.format("RelB %.1f", relBearing), FONT_MINI)
-   --if speed ~= 0 then
-   --   lcd.drawText(265, 85, string.format("Time %.1f", distance / speed), FONT_MINI)
-   --end
+   lcd.drawText(5, 120, lang.Alt ..": ".. math.floor(altitude), FONT_MINI)
+   lcd.drawText(5, 130, lang.Spd..": "..math.floor(speed), FONT_MINI)
+
    local ll
-   --sChar = variables.annText:sub(annTextSeq,annTextSeq)
    local swa
+
    if switchItems.triA then
       swa = system.getInputsVal(switchItems.triA)
    end
@@ -2043,8 +1770,6 @@ local function calcTriRace()
    if tri and tri.center and (#pylon < 3) and Field.name then -- need to confirm with RFM order of vertices
       triRot(ao) -- handle rotation and tranlation of triangle course 
       -- extend startline below hypotenuse of triangle  by 0.8x inside length
-      --tri.center.x = tri.center.x + variables.triOffsetX
-      --tri.center.y = tri.center.y + variables.triOffsetY
       pylon.start = {x=tri.center.x + variables.triOffsetX +
 			0.8 * (tri.center.x + variables.triOffsetX- pylon[2].x),
 		     y=tri.center.y + variables.triOffsetY +
@@ -2104,11 +1829,9 @@ local function calcTriRace()
       inZone[j] = detL[j] >= 0 and detR[j] <= 0
       if inZone[j] ~= inZoneLast[j] and j == nextPylon and raceParam.racing then
 	 if inZone[j] == true then
-	    --playFile(appInfo.Dir.."Audio/inside_sector.wav", AUDIO_IMMEDIATE)
-	    --playNumber(j, 0)
 	    system.vibration(false, 1)
 	    system.playBeep(m3(j)-1, 800, 400)
-	    playFile(appInfo.Dir.."Audio/next_pylon.wav", AUDIO_IMMEDIATE)
+	    playFile("next_pylon.wav", AUDIO_IMMEDIATE)
 	    playNumber(m3(j+1), 0)
 	 end
 	 inZoneLast[j] = inZone[j]
@@ -2148,7 +1871,7 @@ local function calcTriRace()
    if speed  > variables.flightStartSpd and
    altitude > variables.flightStartAlt and raceParam.flightStarted == 0 then
       raceParam.flightStarted = system.getTimeCounter()
-      playFile(appInfo.Dir.."Audio/flight_started.wav", AUDIO_IMMEDIATE)      
+      playFile("flight_started.wav", AUDIO_IMMEDIATE)      
    end
 
    -- see if we have landed
@@ -2160,7 +1883,7 @@ local function calcTriRace()
       end
       --print(system.getTimeCounter() - raceParam.flightLandTime)
       if system.getTimeCounter() - raceParam.flightLandTime  > 5000 then
-	 playFile(appInfo.Dir.."Audio/flight_ended.wav", AUDIO_QUEUE)
+	 playFile("flight_ended.wav", AUDIO_QUEUE)
 	 raceParam.racing = false
 	 raceParam.raceFinished = true
 	 raceParam.raceEndTime = system.getTimeCounter()
@@ -2217,17 +1940,17 @@ local function calcTriRace()
    -- see if we are ready to start
    if raceParam.startToggled and not raceParam.startArmed then --and not raceParam.raceFinished then
       if inStartZone and raceParam.flightStarted ~= 0 then
-	 playFile(appInfo.Dir.."Audio/ready_to_start.wav", AUDIO_IMMEDIATE)
+	 playFile("ready_to_start.wav", AUDIO_IMMEDIATE)
 	 raceParam.startArmed = true
 	 nextPylon = 0
 	 raceParam.lapsComplete = 0
       else
-	 --playFile(appInfo.Dir.."Audio/bad_start.wav", AUDIO_IMMEDIATE)
+	 --playFile("bad_start.wav", AUDIO_IMMEDIATE)
 	 if not inStartZone and not raceParam.raceFinished then
-	    playFile(appInfo.Dir.."Audio/outside_zone.wav", AUDIO_QUEUE)
+	    playFile("outside_zone.wav", AUDIO_QUEUE)
 	 end
 	 if raceParam.flightStarted == 0 then
-	    playFile(appInfo.Dir.."Audio/flight_not_started.wav", AUDIO_QUEUE)
+	    playFile("flight_not_started.wav", AUDIO_QUEUE)
 	 end
 	 -- could there be other reasons (altitude/nofly zones?) .. they go here
 	 raceParam.startArmed = false
@@ -2242,7 +1965,7 @@ local function calcTriRace()
       if raceParam.racing then
 	 if nextPylon > 3 then -- lap complete
 	    system.playBeep(0, 800, 400)
-	    playFile(appInfo.Dir.."Audio/lap_complete.wav", AUDIO_IMMEDIATE)
+	    playFile("lap_complete.wav", AUDIO_IMMEDIATE)
 	    raceParam.lapsComplete = raceParam.lapsComplete + 1
 	    raceParam.rawScore = raceParam.rawScore + 200.0
 	    raceParam.lastLapTime = system.getTimeCounter() - raceParam.lapStartTime
@@ -2259,21 +1982,21 @@ local function calcTriRace()
       
       if not raceParam.racing and raceParam.startArmed then
 	 if speed  > variables.maxSpeed or altitude > variables.maxAlt then
-	    playFile(appInfo.Dir.."Audio/start_with_penalty.wav", AUDIO_QUEUE)	    
+	    playFile("start_with_penalty.wav", AUDIO_QUEUE)	    
 	    if speed  > variables.maxSpeed then
-	       playFile(appInfo.Dir.."Audio/over_max_speed.wav", AUDIO_QUEUE)
+	       playFile("over_max_speed.wav", AUDIO_QUEUE)
 	       --print("speed, variables.maxSpeed", speed, variables.maxSpeed)
 	    end
 	    if altitude > variables.maxAlt then
-	       playFile(appInfo.Dir.."Audio/over_max_altitude.wav", AUDIO_QUEUE)
+	       playFile("over_max_altitude.wav", AUDIO_QUEUE)
 	    end
 	    raceParam.penaltyPoints = 50 + 2 * math.max(speed - variables.maxSpeed, 0) + 2 *
 	       math.max(altitude - variables.maxAlt, 0)
 	    lapAltitude = altitude
-	    playFile(appInfo.Dir.."Audio/penalty_points.wav", AUDIO_QUEUE)
+	    playFile("penalty_points.wav", AUDIO_QUEUE)
 	    playNumber(math.floor(raceParam.penaltyPoints+0.5), 0)
 	 else
-	    playFile(appInfo.Dir.."Audio/task_starting.wav", AUDIO_QUEUE)
+	    playFile("task_starting.wav", AUDIO_QUEUE)
 	    raceParam.penaltyPoints = 0
 	    lapAltitude = altitude
 	 end
@@ -2294,7 +2017,7 @@ local function calcTriRace()
    --print( (sgTC - raceParam.racingStartTime) / 1000, variables.raceTime*60)
    if raceParam.racing and (sgTC - raceParam.racingStartTime) / 1000 >= variables.raceTime*60 then
       print("FINISHED")
-      playFile(appInfo.Dir.."Audio/race_finished.wav", AUDIO_IMMEDIATE)	    	 
+      playFile("race_finished.wav", AUDIO_IMMEDIATE)	    	 
       raceParam.racing = false
       raceParam.raceFinished = true
       raceParam.startArmed = false
@@ -2321,17 +2044,6 @@ local function calcTriRace()
       
       local tmin = tsec // 60
 
-      --if tmin ~= lastMin and tmin > 0 then
-	 -- no mins announcement for now .. maybe on a switch/on demand, speech? tilt?
-	 --playNumber(tmin, 0)
-	 --if tmin == 1 then
-	 --   playFile(appInfo.Dir.."Audio/minutes.wav", AUDIO_QUEUE)
-	 --else
-	 --   playFile(appInfo.Dir.."Audio/minutes.wav", AUDIO_QUEUE)
-	 --end
-      --end
-      --lastMin = tmin
-      
       tsec = tsec - tmin*60
       raceParam.titleText = string.format("%02d:%04.1f / ", tmin, tsec)
       
@@ -2346,20 +2058,12 @@ local function calcTriRace()
       tmin = tsec // 60
       tsec = tsec - tmin*60
       raceParam.titleText = raceParam.titleText .. string.format("%02d:%04.1f / ", tmin, tsec)
-
       raceParam.titleText = raceParam.titleText .. string.format("%.1f / ", raceParam.avgSpeed)
-
       raceParam.titleText = raceParam.titleText .. string.format("%.1f", raceParam.lastLapSpeed)
-
-      
-      --lcd.drawText((310 - lcd.getTextWidth(FONT_BOLD, tstr))/2, 0,
-      --tstr, FONT_BOLD)
-
-      raceParam.subtitleText = string.format("Laps: %d, Net Score: %d, Penalty: %d",
+      raceParam.subtitleText = string.format(lang.LapTitle,
 				   raceParam.lapsComplete,
 				   math.floor(raceParam.rawScore - raceParam.penaltyPoints + 0.5),
 			   math.floor(raceParam.penaltyPoints + 0.5))
-      --lcd.drawText((310 - lcd.getTextWidth(FONT_MINI, tstr))/2, 17, tstr, FONT_MINI)
    end
 
    distance = math.sqrt( (xtable[#xtable] - pylon[m3(nextPylon)].xt)^2 +
@@ -2425,18 +2129,18 @@ local function calcTriRace()
       if (sChar == "C" or sChar == "c") and raceParam.racing and annZone then
 	 if relBearing < -6 then
 	    if sChar == "C" then
-	       playFile(appInfo.Dir.."Audio/turn_right.wav", AUDIO_QUEUE)
+	       playFile("turn_right.wav", AUDIO_QUEUE)
 	       playNumber(-relBearing, 0)
 	    else
-	       playFile(appInfo.Dir.."Audio/right.wav", AUDIO_QUEUE)
+	       playFile("right.wav", AUDIO_QUEUE)
 	       playNumber(-relBearing, 0)
 	    end
 	 elseif relBearing > 6 then
 	    if sChar == "C" then
-	       playFile(appInfo.Dir.."Audio/turn_left.wav", AUDIO_QUEUE)
+	       playFile("turn_left.wav", AUDIO_QUEUE)
 	       playNumber(relBearing, 0)
 	    else
-	       playFile(appInfo.Dir.."Audio/left.wav", AUDIO_QUEUE)
+	       playFile("left.wav", AUDIO_QUEUE)
 	       playNumber(relBearing, 0)
 	    end
 	 else
@@ -2444,44 +2148,44 @@ local function calcTriRace()
 	 end
       elseif sChar == "D" or sChar == "d" and raceParam.racing then
 	 if sChar == "D" then
-	    playFile(appInfo.Dir.."Audio/distance.wav", AUDIO_QUEUE)
+	    playFile("distance.wav", AUDIO_QUEUE)
 	    playNumber(distance, 0)
 	 else
-	    playFile(appInfo.Dir.."Audio/dis.wav", AUDIO_QUEUE)
+	    playFile("dis.wav", AUDIO_QUEUE)
 	    playNumber(distance, 0)
 	 end
       elseif (sChar == "P" or sChar == "p") and raceParam.racing and not inZone[m3(nextPylon+2)] then
 	 if perpD < 0 then
 	    if sChar == "P" then
-	       playFile(appInfo.Dir.."Audio/inside.wav", AUDIO_QUEUE)
+	       playFile("inside.wav", AUDIO_QUEUE)
 	       playNumber(-perpD, 0)
 	    else
-	       playFile(appInfo.Dir.."Audio/in.wav", AUDIO_QUEUE)
+	       playFile("in.wav", AUDIO_QUEUE)
 	       playNumber(-perpD, 0)
 	    end
 	 else
 	    if sChar == "P" then
-	       playFile(appInfo.Dir.."Audio/outside.wav", AUDIO_QUEUE)
+	       playFile("outside.wav", AUDIO_QUEUE)
 	       playNumber(perpD, 0)
 	    else
-	       playFile(appInfo.Dir.."Audio/out.wav", AUDIO_QUEUE)
+	       playFile("out.wav", AUDIO_QUEUE)
 	       playNumber(perpD, 0)
 	    end
 	 end
       elseif sChar == "T" or sChar == "t" and raceParam.racing then
 	 if speed ~= 0 then
-	    playFile(appInfo.Dir.."Audio/time.wav", AUDIO_QUEUE)
+	    playFile("time.wav", AUDIO_QUEUE)
 	    playNumber(distance/speed, 1)	  
 	 end
       elseif sChar == "S" or sChar == "s" then
-	 playFile(appInfo.Dir.."Audio/speed.wav", AUDIO_QUEUE)
+	 playFile("speed.wav", AUDIO_QUEUE)
 	 playNumber(math.floor(speed+0.5), 0)
       elseif sChar == "A" or sChar == "a" then
 	 if sChar == "A" then
-	    playFile(appInfo.Dir.."Audio/altitude.wav", AUDIO_QUEUE)
+	    playFile("altitude.wav", AUDIO_QUEUE)
 	    playNumber(math.floor(altitude+0.5), 0)
 	 else
-	    playFile(appInfo.Dir.."Audio/alt.wav", AUDIO_QUEUE)
+	    playFile("alt.wav", AUDIO_QUEUE)
 	    playNumber(math.floor(altitude+0.5), 0)
 	 end
       end
@@ -2618,21 +2322,7 @@ end
 
 local function prtForm(windowWidth, windowHeight)
 
-   
-   --print(form.getActiveForm() or "---", savedRow)
-   --if not form.getActiveForm() then return end
-   --if not browse.MapDisplayed then return end
-   
-   --setColorMap()
-   --setColorMain()
    setColor("Map", "Image")
-   
-   -- if fieldPNG[currentImage] then
-   --    lcd.drawImage(0,0,fieldPNG[currentImage], 255)
-   -- else
-   --    local txt = "No browse image"
-   --    lcd.drawText((310 - lcd.getTextWidth(FONT_BIG, txt))/2, 90, txt, FONT_BIG)
-   -- end
 
    for k,v in pairs(switchItems) do
       if checkBoxSubform[k] == savedSubform then
@@ -2657,29 +2347,18 @@ local function prtForm(windowWidth, windowHeight)
       if #browse.List < 1 then return end
       local ren=lcd.renderer()
 
-      --lcd.setColor(0,41,15)
-      --lcd.drawFilledRectangle(0,0,windowWidth, windowHeight)
-
-      -- tele window images are 0-319 x 0-159 (2:1)
-      -- forms window images are 0-310 x 0-143 (2.159:1)
-      lcd.drawImage(-5,8,fieldPNG[currentImage],255)-- -5 and 15 (175-160??) determined empirically (ugg)      
-      --lcd.drawImage(-5,15,fieldPNG[currentImage],255)-- -5 and 15 (175-160??) determined empirically (ugg)
+      lcd.drawImage(-5,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)      
       if Field then
-	 --lcd.drawCircle(0,0,10)
 	 setColor("Label", "Image")
-	 --setColorLabels()
 	 lcd.drawText(10,10, Field.images[currentImage].file, FONT_NORMAL)	 
 	 --maybe should center this instead of fixed X position
 	 lcd.drawText(70,145,(browse.dispText or ""), FONT_NORMAL)	 
 	 --lcd.setClipping(0,15,310,160)
 
-	 --setColorRunway()
 	 setColor("Runway", "Image")
 	 if #rwy == 4 then
 	    ren:reset()
 	    for j = 1, 5, 1 do
-	       --if j == 1 then
-	       --end
 	       ren:addPoint(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
 			    toYPixel(rwy[j%4+1].y, map.Ymin, map.Yrange, windowHeight))
 	    end
@@ -2692,7 +2371,6 @@ local function prtForm(windowWidth, windowHeight)
 	       ren:addPoint(toXPixel(tri[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
 			    toYPixel(tri[j%3+1].y, map.Ymin, map.Yrange, windowHeight))
 	    end
-	    --setColorTriangle()
 	    setColor("Triangle", "Image")
 	    ren:renderPolyline(2,0.7)
 	 end
@@ -2704,7 +2382,6 @@ local function prtForm(windowWidth, windowHeight)
 		  ren:addPoint(toXPixel(pylon[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
 			       toYPixel(pylon[j%3+1].y, map.Ymin, map.Yrange, windowHeight))
 	       end
-	       --setColorTriRot()
 	       setColor("TriRot", "Image")
 	       ren:renderPolyline(2,0.7)
 	       -- we don't have the aim points computed yet (pylon[].xt and .yt) so the code
@@ -2716,10 +2393,8 @@ local function prtForm(windowWidth, windowHeight)
 	    ren:reset()
 	    if nfp[i].inside then
 	       setColor("NoFlyInside", "Image")
-	       --setColorNoFlyInside()
 	    else
 	       setColor("NoFlyOutside", "Image")
-	       --setColorNoFlyOutside()
 	    end
 	    for j = 1, #nfp[i].path+1, 1 do
 	       ren:addPoint(toXPixel(nfp[i].path[j % (#nfp[i].path) + 1].x,
@@ -2735,10 +2410,8 @@ local function prtForm(windowWidth, windowHeight)
 	 for i = 1, #nfc, 1 do
 	    if i == i then
 	       if nfc[i].inside then
-		  --setColorNoFlyInside()
 		  setColor("NoFlyInside", "Image")
 	       else
-		  --setColorNoFlyOutside()
 		  setColor("NoFlyOutside", "Image")
 	       end
 	       lcd.drawCircle(toXPixel(nfc[i].x, map.Xmin, map.Xrange, windowWidth),
@@ -2750,7 +2423,6 @@ local function prtForm(windowWidth, windowHeight)
       lcd.setColor(255,255,255)
       lcd.drawFilledRectangle(0, 166, 320,20)
       lcd.drawFilledRectangle(0, 0, 320,8)      
-      --setColorMain()
       setColor("Map", "Image")
    end
 end
@@ -2791,11 +2463,11 @@ local function dirPrint()
    setColor("Label", triColorMode)
 
    if not variables.triEnabled then
-      lcd.drawText(35, 20, "Triangle Racing not enabled", FONT_BIG)      
+      lcd.drawText(35, 20, lang.triNotEn, FONT_BIG)      
    end
    
    if not compcrs then
-      lcd.drawText(40, 20, "Triangle View: No heading", FONT_BIG)
+      lcd.drawText(40, 20, lang.triNoHdg, FONT_BIG)
       return
    end
    
@@ -3076,12 +2748,12 @@ local function dirPrint()
    --lcd.setColor(0,0,255)
    text = string.format("%d", math.floor(raceParam.lapsComplete))
    lcd.drawText(xt - lcd.getTextWidth(FONT_BIG, text)/2, 5, text, FONT_BIG)
-   text = "Laps"
+   text = lang.Laps
    lcd.drawText(xt - lcd.getTextWidth(FONT_MINI, text)/2, 5+20, text, FONT_MINI)
 
    text = raceParam.lapTimeText or "00:00.0"
    lcd.drawText(xt - lcd.getTextWidth(FONT_BIG, text)/2, 42, text, FONT_BIG)
-   text = "Lap Time"
+   text = lang.LapTime
    lcd.drawText(xt - lcd.getTextWidth(FONT_MINI, text)/2, 42+20, text, FONT_MINI)
 
    text = string.format("%d", math.floor(altitude + 0.5))
@@ -3089,7 +2761,7 @@ local function dirPrint()
       text = text .. string.format(" / %d", math.floor(lapAltitude + 0.5))
    end
    lcd.drawText(xt - lcd.getTextWidth(FONT_BIG, text)/2, 79, text, FONT_BIG)
-   text = "Altitude"
+   text = lang.LapAlt
    lcd.drawText(xt - lcd.getTextWidth(FONT_MINI, text)/2, 79+20, text, FONT_MINI)
    
    text = string.format("%d", math.floor(speed + 0.5))
@@ -3097,7 +2769,7 @@ local function dirPrint()
    --   text = text ..string.format(" / %d", math.floor(raceParam.lastLapSpeed + 0.5))
    --end
    lcd.drawText(xt - lcd.getTextWidth(FONT_BIG, text)/2, 116, text, FONT_BIG)
-   text = "Speed"
+   text = lang.LapSpeed
    lcd.drawText(xt - lcd.getTextWidth(FONT_MINI, text)/2, 116+20, text, FONT_MINI)   
 
    if not metrics.maxCPU then metrics.maxCPU = 0 end
@@ -3109,7 +2781,6 @@ local function dirPrint()
       metrics.maxCPU = system.getCPU()
    end
    
---   lcd.drawText(6,125, string.format("CPU: %d%% %d%%", metrics.avgCPU, metrics.maxCPU), FONT_MINI)
    if variables.ribbonColorSource ~= 1 and currentRibbonValue then
       lcd.drawText(18, 140, string.format("%s: %.0f",
 					 colorSelect[variables.ribbonColorSource],
@@ -3179,14 +2850,14 @@ local function checkNoFly(xt, yt, future, warn)
    if noFly ~= noFlyHist.Last and not future then
       if noFly then
 	 if checkBox.noFlyWarningEnabled and warn then
-	    playFile(appInfo.Dir.."Audio/Warning_No_Fly_Zone.wav", AUDIO_IMMEDIATE)
+	    playFile("warning_no_fly_zone.wav", AUDIO_IMMEDIATE)
 	 end
 	 if checkBox.noFlyShakeEnabled and warn then
 	    system.vibration(false, 3) -- left stick, 2x short pulse
 	 end
       else
 	 if checkBox.noFlyWarningEnabled and warn then
-	    playFile(appInfo.Dir.."Audio/Leaving_no_fly_zone.wav", AUDIO_QUEUE)
+	    playFile("leaving_no_fly_zone.wav", AUDIO_QUEUE)
 	 end
       end
    end
@@ -3194,7 +2865,7 @@ local function checkNoFly(xt, yt, future, warn)
    if noFlyF ~= noFlyHist.LastF and future then
       if noFlyF then
 	 if not noFly and warn then -- only warn of future nfz if not already in nfz
-	    playFile(appInfo.Dir.."Audio/no_fly_ahead.wav", AUDIO_IMMEDIATE)
+	    playFile("no_fly_ahead.wav", AUDIO_IMMEDIATE)
 	    --system.vibration(false, 3) -- left stick, 2x short pulse
 	 end
       end
@@ -3331,11 +3002,7 @@ local function mapPrint(windowWidth, windowHeight)
    end
    
    if fieldPNG[currentImage] then
-      --print("variables.triEnabled, variables.triColorMode",
-      --  variables.triEnabled, variables.triColorMode)
       if variables.triEnabled and (variables.triColorMode ~= "Image") then
-	 --print(variables.triColorMode)
-      	 --lcd.setColor(75,75,75)
 	 setColor("Background", variables.triColorMode)
       	 lcd.drawFilledRectangle(0,0,320,160)
       else
@@ -3343,13 +3010,12 @@ local function mapPrint(windowWidth, windowHeight)
       end
    else
       setColor("Label", "Light")
-      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, "No GPS fix or no Image"))/2, 20,
-	 "No GPS fix or no Image", FONT_BIG)
+      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, lang.noGPSfix))/2, 20,
+	 lang.noGPSfix, FONT_BIG)
    end
    
    -- in case the draw functions left color set to their specific values
 
-   --setColorMain()
    if variables.triEnabled then
       setColor("Map", variables.triColorMode)
    else
@@ -3364,40 +3030,6 @@ local function mapPrint(windowWidth, windowHeight)
    lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6, "N", FONT_MINI)
    drawShape(20, 12, shapes.arrow, math.rad(-1*variables.rotationAngle))
    lcd.drawCircle(20, 12, 7)
-   
-   --[[
-   if satCount then
-      text=string.format("%2d Sats", satCount)
-      --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 50, text, FONT_MINI)
-      lcd.drawText(5, 50, text, FONT_MINI)
-   else
-      --text = "No Sats"
-      --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 50, text, FONT_MINI)
-      --lcd.drawText(5, 50, text, FONT_MINI)      
-   end
-   --]]
-   -- if satQuality then
-   --    text=string.format("SatQ %.0f", satQuality)
-   --    --lcd.drawText(35-lcd.getTextWidth(FONT_MINI, text) / 2, 62, text, FONT_MINI)
-   --    lcd.drawText(5, 62, text, FONT_MINI)      
-   -- end
-
-   --if emFlag then
-   --   text=string.format("%d/%d %d%%", #xPHist, variables.histMax, metrics.currMaxCPU)
-   --   lcd.drawText(5, 74, text, FONT_MINI)   
-   --end
-   
-   -- if emFlag then
-   --    text=string.format("LA %02d%% LM %02d%% L %d%%",
-   -- 			 metrics.loopCPUAvg, metrics.loopCPUMax, metrics.loopCPU)
-   --    lcd.drawText(5, 86, text, FONT_MINI)      
-   -- end
-
-   --if true then --emFlag then
-   --   text=string.format("%.1f", metrics.loopTimeAvg or 0)
-      --text=string.format("Loop: %.2f Mem: %.1f", metrics.loopTimeAvg or 0, metrics.memory or 0)
-   --   lcd.drawText(290, 145, text, FONT_MINI)      
-   --end
 
    if variables.ribbonColorSource ~= 1 and currentRibbonValue then
       lcd.drawText(18, 140, string.format("%s: %.0f",
@@ -3406,18 +3038,6 @@ local function mapPrint(windowWidth, windowHeight)
       lcd.setColor(rgb[currentRibbonBin].r, rgb[currentRibbonBin].g, rgb[currentRibbonBin].b)
       lcd.drawFilledRectangle(6,143,8,8)
    end
-
-   --text = string.format("%.6f %.6f", lat0 or 0, lng0 or 0)
-   --lcd.drawText(60-lcd.getTextWidth(FONT_MINI, text) / 2, 90, text, FONT_MINI)
-
-   --text = string.format("%d %d", xtable[#xtable] or 0, ytable[#ytable] or 0)
-   --lcd.drawText(200, 10, text, FONT_MINI)
-
-   --text = string.format("%d %d %d %d", map.Xmin, map.Xmax, map.Ymin, map.Ymax)
-   --lcd.drawText(200, 25, text, FONT_MINI)
-   
-   --text=string.format("NNP %d", countNoNewPos)
-   --lcd.drawText(30-lcd.getTextWidth(FONT_MINI, text) / 2, 76, text, FONT_MINI)
 
    if switchItems.point then
       swp = system.getInputsVal(switchItems.point)
@@ -3511,7 +3131,6 @@ local function mapPrint(windowWidth, windowHeight)
    end
 
    
-   --setColorMap()
    if variables.triEnabled then
       setColor("Runway", variables.triColorMode)
    else
@@ -3532,14 +3151,12 @@ local function mapPrint(windowWidth, windowHeight)
       for i = 1, #nfp, 1 do
 	 ren:reset()
 	 if nfp[i].inside then
-	    --setColorNoFlyInside()
 	    if variables.triEnabled then
 	       setColor("NoFlyInside", variables.triColorMode)
 	    else
 	       setColor("NoFlyInside", "Image")
 	    end
 	 else
-	    --setColorNoFlyOutside()
 	    if variables.triEnabled then
 	       setColor("NoFlyOutside", variables.triColorMode)
 	    else
@@ -3595,14 +3212,12 @@ local function mapPrint(windowWidth, windowHeight)
       for i = 1, #nfc, 1 do
 	 if i == i then
 	    if nfc[i].inside then
-	       --setColorNoFlyInside()
 	       if variables.triEnabled then
 		  setColor("NoFlyInside", variables.triColorMode)
 	       else
 		  setColor("NoFlyInside", "Image")
 	       end
 	    else
-	       --setColorNoFlyOutside()
 	       if variables.triEnabled then
 		  setColor("NoFlyOutside", variables.triColorMode)
 	       else
@@ -3617,8 +3232,6 @@ local function mapPrint(windowWidth, windowHeight)
       end
    end
 
-   --setColorMap()
-   --setColorMain()
    if variables.triEnabled then
       setColor("Map", variables.triColorMode)
    else
@@ -3627,21 +3240,8 @@ local function mapPrint(windowWidth, windowHeight)
    
    drawTriRace(windowWidth, windowHeight)
 
-   -- diagnostic only
-   -- if pylon.start then
-   --    lcd.drawCircle(toXPixel(pylon.start.x, map.Xmin, map.Xrange, 320),
-   -- 		     toYPixel(pylon.start.y, map.Ymin, map.Yrange, 160), 10)
-   --end
-   
-   --lcd.drawText(250, 20, "sT: "..tostring(raceParam.startToggled), FONT_MINI)
-   --lcd.drawText(250, 30, "sA: "..tostring(raceParam.startArmed), FONT_MINI)
-   --lcd.drawText(250, 40, "rF: "..tostring(raceParam.raceFinished), FONT_MINI)
-
-   --for i=1, #xtable do -- if no xy data #table is 0 so loop won't execute
-
    if #xtable > 0 then
 
-      --setColorMain()
       if variables.triEnabled then
 	 setColor("Map", variables.triColorMode)
       else
@@ -3652,7 +3252,6 @@ local function mapPrint(windowWidth, windowHeight)
 	 drawBezier(windowWidth, windowHeight, 0)
       end
       
-      --setColorMain()
       if variables.triEnabled then
 	 setColor("Map", variables.triColorMode)
       else
@@ -3827,7 +3426,7 @@ local function loop()
       if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
 	 longitude = longitude * -1
       end
-      --[[
+      --[[ for test GPS lib
       if sensor.decimals == 3 then sign = "-" else sign = "" end             
       minstr = string.format("%d", math.floor(0.5 + minutes * 1666666.67)) -- 1E8/60
       lngstr = sign..string.format("%d", degs).."." .. minstr
@@ -3844,7 +3443,7 @@ local function loop()
       if sensor.decimals == 2 then -- "South" .. make it negative
 	 latitude = latitude * -1
       end
-      --[[
+      --[[ for test GPS lib
       if sensor.decimals == 2 then sign = "-" else sign = "" end             
       minstr = string.format("%d", math.floor(0.5 + minutes * 1666666.67)) -- 1E8/60
       latstr = sign..string.format("%d", degs).."." .. minstr
@@ -4068,7 +3667,7 @@ local function loop()
 	 
 	 if variables.ribbonColorSource == 1 then -- none
 	    jj = #rgb // 2 -- mid of gradient - right now this is sort of a yellow color
-	 elseif variables.ribbonColorSource == 2 then -- altitude 0-500m
+	 elseif variables.ribbonColorSource == 2 then -- altitude 0-600m
 	    jj = gradientIndex(altitude, 0, 600, #rgb)
 	 elseif variables.ribbonColorSource == 3 then -- speed 0-300 km/hr
 	    jj = gradientIndex(speed, 0, 300, #rgb)
@@ -4122,8 +3721,6 @@ local function loop()
 	 lastHistTime = system.getTimeCounter()
       end
 
----===
-   ------------------------------------------------------------
    if #xtable+1 > MAXTABLE then
       table.remove(xtable, 1)
       table.remove(ytable, 1)
@@ -4167,8 +3764,6 @@ local function loop()
       compcrs = nil
    end
    compcrsDeg = (compcrs or 0)*180/math.pi
-   ------------------------------------------------------------
-   ---===
 
    xtable.xf = xtable[#xtable] - speed * (variables.futureMillis / 1000.0) *
 	 math.cos(math.rad(270-heading))
@@ -4262,6 +3857,7 @@ local function init()
    graphInit(currentImage)  -- ok that currentImage is not yet defined
 
    for i, j in ipairs(telem) do
+      --print("telem i,j, telem[i]", i, j, telem[i])
       telem[j].Se   = system.pLoad("telem."..telem[i]..".Se", 0)
       telem[j].SeId = system.pLoad("telem."..telem[i]..".SeId", 0)
       telem[j].SePa = system.pLoad("telem."..telem[i]..".SePa", 0)
@@ -4321,9 +3917,11 @@ local function init()
    metrics.lastLoopTime = system.getTimeCounter()
    metrics.loopTimeAvg = 0
 
+   setLanguage()
+   
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
-   system.registerTelemetry(1, appInfo.Name.." Map View", 4, mapPrint)
-   system.registerTelemetry(2, appInfo.Name.." Triangle View", 4, dirPrint)   
+   system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, mapPrint)
+   system.registerTelemetry(2, appInfo.Name.." "..lang.triView, 4, dirPrint)   
    
    emFlag = (select(2,system.getDeviceType()) == 1)
 
@@ -4362,4 +3960,4 @@ local function init()
    
 end
 
-return {init=init, loop=loop, author="DFM", version="8.3", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="9.0", name=appInfo.Name, destroy=destroy}

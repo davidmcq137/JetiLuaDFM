@@ -121,7 +121,35 @@
 	    "param": 11,
 	    "telem": "SatQuality"
 	}
-    },"GPS LOGGER": {
+    },
+    "GPS": {
+	"Latitude": {
+	    "param": 1,
+	    "telem": "Latitude"
+	},
+	"Longitude": {
+	    "param": 2,
+	    "telem": "Longitude"
+	},
+	"Speed": {
+	    "param": 3,
+	    "telem": "SpeedGPS"
+	},
+	"Altitude": {
+	    "param": 5,
+	    "telem": "Altitude"
+	},
+	"Satellites": {
+	    "param": 10,
+	    "telem": "SatCount"
+	},
+	"HDOP": {
+	    "param": 11,
+	    "telem": "SatQuality"
+	}
+    },
+    
+    "GPS LOGGER": {
 	"Latitude": {
 	    "param": 2,
 	    "telem": "Latitude"

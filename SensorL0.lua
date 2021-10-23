@@ -135,9 +135,6 @@ local egsIdCPU
 logItems.cols={}
 logItems.vals={}
 
-local Rx1ID, Rx1QParam, Rx1A1Param, Rx1A2Param
-local Rx2ID, Rx2QParam, Rx2A1Param, Rx2A2Param
-
 -- Utility functions --------------------------------------
 
 local function split(str, ch)
@@ -249,11 +246,13 @@ local function readLogHeader()
 	 logTime0 = logItems.timestamp
 	 sysTime0 = system.getTimeCounter()
 	 io.seek(fd, lastHeaderPos)
+	 --print("header read and done")
 	 return rlhDone
       end
       
       if logItems.cols[3] == "0" then
-	 logItems.sensorName=logItems.cols[4]
+	 --logItems.sensorName=logItems.cols[4]
+	 logItems.sensorName = string.gsub(logItems.cols[4], " ", "_")
 	 local stem
 	 for i=1,10,1 do -- defensive .. prob won't have 10 dupes .. but don't iterate forever
 	    if uniqueSensorNames[logItems.sensorName] then
@@ -269,15 +268,12 @@ local function readLogHeader()
 	    end
 	 end
       else
-	 --print("prior:", logItems.cols[4])
 	 logItems.cols[4] = string.gsub(logItems.cols[4], " ", "_")
-	 --print("Post:", logItems.cols[4])
-	 logItems.sensorName = string.gsub(logItems.sensorName, " ", "_")
-	 --print("logItems.sensorName before uid call", logItems.sensorName)
 	 uid = sensorFullName(logItems.sensorName, logItems.cols[4])
 	 --print("$$$", logItems.sensorName, logItems.cols[4])
 	 table.insert(allSensors, uid)
-	 --print("uid, c.sS", uid, config.selectedSensors[uid])
+	 --print("inserting", uid)
+	 --print("c.s[uid]", config.selectedSensors[uid])
 	 if config.selectedSensors[uid] then
 	    --logSensorByName[uid] = {}
 	    iid = sensorFullID(toID(logItems.cols[2]), tonumber(logItems.cols[3]) )
@@ -306,8 +302,10 @@ local first = true
 local function readLogTimeBlock()
 
    local sn, sl, sf
-   
+
    logItems.timestamp = logItems.cols[1]
+
+   --print("readLogTimeBlock", logItems.timestamp)
 
    -- read the time block (consecutive group of lines with same time stamp)
    -- load the data into the results table logSensorByID
@@ -402,7 +400,6 @@ local function emulator_init()
    system.getSensors = emulator_getSensors
    system.getSensorByID = emulator_getSensorByID
    system.getSensorValueByID = emulator_getSensorValueByID
-   system.getTxTelemetry = emulator_getTxTelemetry
    
 end
 
@@ -435,7 +432,8 @@ function emulator_getSensors()
    local sensorType={MGPS=0, MGPS_Quality=0, MGPS_SatCount=0, MGPS_Latitude=9,MGPS_Longitude=9,
 		     MGPS_Date=5, MGPS_TimeStamp=5, MGPS_Trip=4, MGPS_Distance=4,
 		     ["RCT-GPS_Distance"]=4,
-		     ["RCT-GPS_Latitude"]=9, ["RCT-GPS_Longitude"]=9}
+		     ["RCT-GPS_Latitude"]=9, ["RCT-GPS_Longitude"]=9,
+		     GPS_Latitude=9, GPS_Longitude=9}
 
    if not rlhDone then
       print("SensorL: Called getSensors before log header completely read")
@@ -460,7 +458,7 @@ function emulator_getSensors()
 
    --print("st table")
    --for k,v in pairs(st) do
-   --   print(k,v)
+   --   print("k,v:", k,v)
    --end
    
 
@@ -471,7 +469,7 @@ function emulator_getSensors()
    ll=nil
    for _,v in ipairs(st) do
       vv = logSensorByName[v]
-      --print("k,v,vv", k,v,vv)
+      --print("v,vv", v,vv)
       -- how does jeti return type from getSensors? It's not in the log header..
       -- must be a data table per sensor that I can't see ..fake it for now... see
       -- sensorType table above
@@ -495,32 +493,6 @@ function emulator_getSensors()
       --print("Label,Unit, type:", vv.label, vv.unit, styp)
    end
    --print("ret: sensorTbl, #, type:", sensorTbl, #sensorTbl, type(sensorTbl))
-   -- find RX tele sensors to set up for getTxTelemetry()
-   for k,v in pairs(sensorTbl) do
-      if config.getTxTelRx1 and v.sensorName == config.getTxTelRx1 then
-	 Rx1ID = v.id
-	 if v.label == "Q" then
-	    Rx1QParam = v.param
-	 elseif v.label == "A1" then
-	    Rx1A1Param = v.param
-	 elseif v.label == "A2" then
-	    Rx1A2Param = v.param
-	 end
-      end
-      if config.getTxTelRx2 and v.sensorName == config.getTxTelRx2 then
-	 Rx2ID = v.id
-	 if v.label == "Q" then
-	    Rx2QParam = v.param
-	 elseif v.label == "A1" then
-	    Rx2A1Param = v.param
-	 elseif v.label == "A2" then
-	    Rx2A2Param = v.param
-	 end
-      end      
-   end
-   --print("Rx1 ID, params:", Rx1ID, Rx1QParam, Rx1A1Param, Rx1A2Param)
-   --print("Rx2 ID, params:", Rx2ID, Rx2QParam, Rx2A1Param, Rx2A2Param)   
-   
    egsCPU = system.getCPU()
    return sensorTbl
 end
@@ -544,6 +516,8 @@ function emulator_getSensorByID(ID, Param)
    local timSd60
    local min, sec
    local timstr
+
+   --print("emulator_getSensorById", ID, Param, fd, rlhDone)
    
    -- defend against bad inputs or invalid sensor
    if (not ID) or (not Param) then
@@ -697,79 +671,6 @@ function emulator_getSensorByID(ID, Param)
    end
    return nil
 end
-
-function emulator_getTxTelemetry()
-
-   local txTel = {}
-   txTel.RSSI = {}
-   local RxSens = {}
-   
-   if config.getTxTelRx1 and Rx1ID then
-      if Rx1QParam then
-	 RxSens = emulator_getSensorByID(Rx1ID, Rx1QParam)
-	 if RxSens and RxSens.valid then
-	    txTel.rx1Percent = RxSens.value or 0
-	 end
-      end
-
-      if Rx1A1Param then
-	 RxSens = emulator_getSensorByID(Rx1ID, Rx1A1Param)
-	 if RxSens and RxSens.valid then
-	    txTel.RSSI[1] = (RxSens.value or 0) * 10
-	 end
-      end
-
-      if Rx1A2Param then
-	 RxSens = emulator_getSensorByID(Rx1ID, Rx1A2Param)
-	 if RxSens and RxSens.valid then
-	    txTel.RSSI[2] = (RxSens.value or 0) * 10
-	 end
-      end            
-   end
-   
-   if config.getTxTelRx2 and Rx2ID then
-      if Rx2QParam then
-	 RxSens = emulator_getSensorByID(Rx2ID, Rx2QParam)
-	 if RxSens and RxSens.valid then
-	    txTel.rx2Percent = RxSens.value or 0
-	 end
-      end
-
-      if Rx2A1Param then
-	 RxSens = emulator_getSensorByID(Rx2ID, Rx2A1Param)
-	 if RxSens and RxSens.valid then
-	    txTel.RSSI[3] = (RxSens.value or 0) * 10
-	 end
-      end
-
-      if Rx2A2Param then
-	 RxSens = emulator_getSensorByID(Rx2ID, Rx2A2Param)
-	 if RxSens and RxSens.valid then
-	    txTel.RSSI[4] = (RxSens.value or 0) * 10
-	 end
-      end            
-   end
-
-   -- make sure we don't return any nil values since we don't populate all fields
-   txTel.txVoltage = 0
-   txTel.txBattPercent = 0
-   txTel.txCurrent = 0
-   txTel.txCapacit = 0
-   if not txTel.rx1Percent then txTel.rx1Percent = 0 end
-   txTel.rx1Voltage = 0
-   if not txTel.rx2Percent then txTel.rx2Percent = 0 end
-   txTel.rx2Voltage = 0
-   txTel.rxBVoltage = 0
-   txTel.rxBPercent = 0
-   txTel.photoValue = 0
-   for k = 1,6,1 do
-      if not txTel.RSSI[k] then txTel.RSSI[k] = 0 end
-   end
-   
-   return txTel
-
-end
-
 
 local function telePrint()
 

@@ -1,11 +1,11 @@
 {
-    "logFile":"Log/20211006/Cutie18-13-23.log",
-    "fastForward":40,
+    "logFile":"Apps/HarryLogFiles/20210921/12-07-41.log",
+    "fastForward":0,
     "selectedSensors":
     {
 	"RCT-GPS_Latitude":     true,
 	"RCT-GPS_Longitude":    true,
-	"RCT-GPS_Altitude":     true,
-	"RCT-GPS_Speed":        true
+	"RCT-GPS_Speed":        true,
+	"MVAR2_Rel._altit": true
     }
 }
