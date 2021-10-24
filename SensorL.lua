@@ -16,7 +16,7 @@ System routines replaced are:
       system.getSensors()
       system.getSensorByID()
       system.getSensorValueByID()
-
+      system.getTxTelemetry()
 
 Note as of 10/8/2021 .. no need for prior gymnastics on spreading out
 the init over the first calls to the app's loop() .. just the call to
@@ -445,7 +445,7 @@ function emulator_getSensors()
 
    -- this function is tasked with building the sensor table that would
    -- have been created for the subset of sensors we have chosen in the
-   -- sensorLogEm.jsn file
+   -- SensorL.jsn file
    
    -- we have to be careful to traverse the sensors so that each name and its
    -- labels are grouped together and we have to make a kind of a header for
@@ -462,7 +462,6 @@ function emulator_getSensors()
    --for k,v in pairs(st) do
    --   print(k,v)
    --end
-   
 
    -- now traverse the table in the order of the sorted keys and produce
    -- one param=0 record for each sensor name, each of which can contain
@@ -497,6 +496,10 @@ function emulator_getSensors()
    --print("ret: sensorTbl, #, type:", sensorTbl, #sensorTbl, type(sensorTbl))
    -- find RX tele sensors to set up for getTxTelemetry()
    for k,v in pairs(sensorTbl) do
+      local bot = v.id & 0XFFFF
+      local top = v.id >> 16
+      local text = string.format("0X%X", v.id)
+      print(v.label, v.param, v.id, text, bot, top)
       if config.getTxTelRx1 and v.sensorName == config.getTxTelRx1 then
 	 Rx1ID = v.id
 	 if v.label == "Q" then

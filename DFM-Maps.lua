@@ -851,8 +851,14 @@ local function initField(fn)
 
    if #matchFields > 0 then
       table.sort(matchFields, function(a,b) return a<b end)  
-   
-      setField(matchFields[1])
+
+      local ii = 1
+      for k,v in ipairs(matchFields) do
+	 if variables.lastMatchField == v then ii = k end
+      end
+      
+      setField(matchFields[ii])
+
       -- see if file <model_name>_icon.jsn exists
       -- if so try to read airplane icon
       
@@ -1041,6 +1047,7 @@ local function selectFieldClicked(value)
    lng0 = Fields[browse.List[value]].images[1].center.lng
    coslat0 = math.cos(math.rad(lat0))
    gotInitPos = true
+   variables.lastMatchField = Fields[browse.List[value]].shortname
    initField(Fields[browse.List[value]].shortname)
 end
 
@@ -1172,7 +1179,7 @@ local function initForm(subform)
 
       form.addRow(2)
       form.addLabel({label=lang.triHeightScl, width=220})
-      form.addIntbox(variables.triHeightScale, 10, 400, 100, 0, 10,
+      form.addIntbox(variables.triHeightScale, 1, 400, 100, 0, 10,
 		     (function(z) return
 			      variableChanged(z, "triHeightScale",
 					      (function() tri2XY() end)) end) )
@@ -1293,6 +1300,8 @@ local function initForm(subform)
       checkBoxAdd(lang.annNoFly, "noFlyWarningEnabled")
       
       checkBoxAdd(lang.shakeNoFly, "noFlyShakeEnabled")
+
+      switchAdd(lang.swNoFly, "noFly", subform)
 
       form.addRow(2)
       form.addLabel({label=lang.fieldElev, width=220})
@@ -1905,7 +1914,12 @@ local function calcTriRace()
    
 
    local inStartZone
-   if not detS1 then print("not detS1") end
+
+   if not detS1 then
+      print("DFM-Maps: Not detS1")
+      return
+   end
+
    if detS1 and detS1 >= 0 then inStartZone = true else inStartZone = false end
    
    -- read the start switch
@@ -2803,10 +2817,24 @@ noFlyHist.LastY = 0.0
 noFlyHist.LastFX = 0.0
 noFlyHist.LastFY = 0.0
 
-local function checkNoFly(xt, yt, future, warn)
+local function checkNoFly(xt, yt, future, warnIn)
    
    local noFly, noFlyF, noFlyP, noFlyC, txy
-
+   local warn
+   local swn
+   
+   if switchItems.noFly then
+      swn = system.getInputsVal(switchItems.noFly)
+   end
+   
+   -- see if switch set to override warn settings
+   
+   if swn and swn < 0 then
+      warn = false
+   else
+      warn = warnIn
+   end
+   
    -- if we have a result within 1 sec and 1 meter, return the prior cached value
 
    if not future then
@@ -3896,12 +3924,15 @@ local function init()
    variables.pointSwitchDir    = jLoad(variables, "pointSwitchDir", 0)
    variables.colorSwitchName   = jLoad(variables, "colorSwitchName", 0)
    variables.colorSwitchDir    = jLoad(variables, "colorSwitchDir", 0)            
+   variables.noFlySwitchName   = jLoad(variables, "noFlySwitchName", 0)
+   variables.noFlySwitchDir    = jLoad(variables, "noFlySwitchDir", 0)   
    --variables.mapAlpha        = jLoad(variables, "mapAlpha", 255)
    variables.triColorMode      = jLoad(variables, "triColorMode", "Image")
    variables.airplaneIcon      = jLoad(variables, "airplaneIcon", 1)
    variables.triHistMax        = jLoad(variables, "triHistMax", 20)
    variables.triViewScale      = jLoad(variables, "triViewScale", 300)
    variables.triHeightFactor   = jLoad(variables, "triHeightScale", 100)
+   variables.lastMatchField    = jLoad(variables, "lastMatchField", "")
    
    --------------------------------------------------------------------------------
    
@@ -3910,7 +3941,7 @@ local function init()
    checkBox.noFlyWarningEnabled = jLoad(variables, "noFlyWarningEnabled", true)   
    checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", true)   
    checkBox.absModeGPS = jLoad(variables, "absAltGPS", false)
-   
+      
    shapes.airplaneIcon = shapes[shapes.airplaneIcons[variables.airplaneIcon]]
 
    metrics.loopCount = 0
@@ -3950,7 +3981,7 @@ local function init()
 
    readSensors()
    
-   switchItems = {point = 0, start = 0, triA = 0, color = 0}
+   switchItems = {point = 0, start = 0, triA = 0, color = 0, noFly = 0}
    
    for k,v in pairs(switchItems) do
       switchItems[k] = createSw(shapes.switchNames[variables[k.."SwitchName"]],
