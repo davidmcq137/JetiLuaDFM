@@ -111,8 +111,8 @@ local annTextSeq = 1
 local preTextSeq = 1
 local lastgetTime = 0
 local inZone = {}
-local currentRibbonValue
-local currentRibbonBin
+local ribbon = {}
+ribbon.currentFormat = "%.f"
 
 -- these lists are the non-GPS sensors
 
@@ -232,10 +232,10 @@ end
 local function gradientIndex(inval, min, max, bins, mod)
    -- for a value val, maps to the gradient rgb index for val from min to max
    local bin, val
-   currentRibbonValue  = inval
+   ribbon.currentValue  = inval
    if mod then val = (inval-1) % mod + 1 else val = inval end
    bin = math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5)   
-   currentRibbonBin = bin
+   ribbon.currentBin = bin
    return bin
 end
 
@@ -2795,11 +2795,11 @@ local function dirPrint()
       metrics.maxCPU = system.getCPU()
    end
    
-   if variables.ribbonColorSource ~= 1 and currentRibbonValue then
-      lcd.drawText(18, 140, string.format("%s: %.0f",
+   if variables.ribbonColorSource ~= 1 and ribbon.currentValue then
+      lcd.drawText(18, 140, string.format("%s: " .. ribbon.currentFormat,
 					 colorSelect[variables.ribbonColorSource],
-					 currentRibbonValue), FONT_MINI)
-      lcd.setColor(rgb[currentRibbonBin].r, rgb[currentRibbonBin].g, rgb[currentRibbonBin].b)
+					 ribbon.currentValue), FONT_MINI)
+      lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
       lcd.drawFilledRectangle(6,143,8,8)
    end
 
@@ -3059,11 +3059,11 @@ local function mapPrint(windowWidth, windowHeight)
    drawShape(20, 12, shapes.arrow, math.rad(-1*variables.rotationAngle))
    lcd.drawCircle(20, 12, 7)
 
-   if variables.ribbonColorSource ~= 1 and currentRibbonValue then
-      lcd.drawText(18, 140, string.format("%s: %.0f",
+   if variables.ribbonColorSource ~= 1 and ribbon.currentValue then
+      lcd.drawText(18, 140, string.format("%s: " .. ribbon.currentFormat,
 					 colorSelect[variables.ribbonColorSource],
-					 currentRibbonValue), FONT_MINI)
-      lcd.setColor(rgb[currentRibbonBin].r, rgb[currentRibbonBin].g, rgb[currentRibbonBin].b)
+					 ribbon.currentValue), FONT_MINI)
+      lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
       lcd.drawFilledRectangle(6,143,8,8)
    end
 
@@ -3692,6 +3692,8 @@ local function loop()
 
 	 --local sgTT = system.getTxTelemetry()
 	 --print(sgTT.rx1Percent, sgTT.RSSI[1], sgTT.RSSI[2], sgTT.rx1Voltage)
+
+	 ribbon.currentFormat = "%.f"
 	 
 	 if variables.ribbonColorSource == 1 then -- none
 	    jj = #rgb // 2 -- mid of gradient - right now this is sort of a yellow color
@@ -3713,6 +3715,7 @@ local function loop()
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 9 then -- Rx1 V
 	    jj = gradientIndex(system.getTxTelemetry().rx1Voltage, 0,   8,  #rgb)
+	    ribbon.currentFormat = "%.2f"	    
 	 elseif variables.ribbonColorSource == 10 then -- Rx2 Q
 	    jj = gradientIndex(system.getTxTelemetry().rx2Percent, 0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 11 then -- Rx2 A1
@@ -3721,10 +3724,12 @@ local function loop()
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 13 then -- Rx2 V
 	    jj = gradientIndex(system.getTxTelemetry().rx2Voltage, 0,   8,  #rgb)
+	    ribbon.currentFormat = "%.2f"	    
 	 elseif variables.ribbonColorSource == 14 then -- P4
 	    jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	   
  	 elseif variables.ribbonColorSource == 15 then -- Distance
 	    jj = gradientIndex(distHome(), 0, distDiag(),  #rgb)
+	    ribbon.currentFormat = "%.1f"
 	 elseif variables.ribbonColorSource == 16 then -- Radial
 	    jj = gradientIndex((360+math.deg(math.atan(x,y)))%360,0, 360, #rgb)	    	    
 	 else

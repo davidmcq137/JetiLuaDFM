@@ -23,7 +23,8 @@
 	"Quality": {
 	    "param": 4,
 	    "telem": "SatQuality"
-	}
+	},
+	"ID": 43045
     },
     "PBS GPS": {
 	"LATITUDE": {
@@ -41,7 +42,8 @@
 	"ALTITUDE": {
 	    "param": 2,
 	    "telem": "Altitude"
-	}
+	},
+	"ID":42001
     },
     "GPS III": {
 	"Latitude": {
@@ -68,7 +70,8 @@
 	"Accuracy": {
 	    "param": 8,
 	    "telem": "SatQuality"
-	}
+	},
+	"ID":42001
     },
     "PIONEER": {
 	"Latitude": {
@@ -120,7 +123,8 @@
 	"HDOP": {
 	    "param": 11,
 	    "telem": "SatQuality"
-	}
+	},
+	"ID":41993
     },
     "GPS": {
 	"Latitude": {
@@ -146,7 +150,8 @@
 	"HDOP": {
 	    "param": 11,
 	    "telem": "SatQuality"
-	}
+	},
+	"ID":41993
     },
     
     "GPS LOGGER": {
@@ -169,6 +174,7 @@
 	"SatCount": {
 	    "param": 5,
 	    "telem": "SatCount"
-	}
+	},
+	"ID":42061
     }    
 }

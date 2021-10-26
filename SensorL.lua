@@ -135,8 +135,10 @@ local egsIdCPU
 logItems.cols={}
 logItems.vals={}
 
-local Rx1ID, Rx1QParam, Rx1A1Param, Rx1A2Param
-local Rx2ID, Rx2QParam, Rx2A1Param, Rx2A2Param
+local Rx1ID, Rx1QParam, Rx1A1Param, Rx1A2Param, Rx1UParam
+local Rx2ID, Rx2QParam, Rx2A1Param, Rx2A2Param, Rx2UParam
+-- note no "Q" for RxB
+local RxBID, RxBA1Param, RxBA2Param, RxBUParam
 
 -- Utility functions --------------------------------------
 
@@ -278,7 +280,10 @@ local function readLogHeader()
 	 --print("$$$", logItems.sensorName, logItems.cols[4])
 	 table.insert(allSensors, uid)
 	 --print("uid, c.sS", uid, config.selectedSensors[uid])
-	 if config.selectedSensors[uid] then
+	 --if selectedSensors is not present as a key in the json file then
+	 --read all sensors. if selectedSensors is present, only read the telemetry
+	 --values specified
+	 if not config.selectedSensors or config.selectedSensors[uid] then
 	    --logSensorByName[uid] = {}
 	    iid = sensorFullID(toID(logItems.cols[2]), tonumber(logItems.cols[3]) )
 	    logSensorByID[iid] = {}
@@ -320,7 +325,7 @@ local function readLogTimeBlock()
 	    if logSensorByID[sf] then
 	       sn = logSensorByID[sf].sensorName
 	       sl = logSensorByID[sf].label
-	       if config.selectedSensors[sn.."_"..sl] then
+	       if not config.selectedSensors or config.selectedSensors[sn.."_"..sl] then
 		  logSensorByID[sf].value = tonumber(logItems.cols[i+3])
 		  logSensorByID[sf].valGPS = tonumber(logItems.cols[i+3])		  
 		  logSensorByID[sf].decimals = tonumber(logItems.cols[i+2])
@@ -408,6 +413,7 @@ end
 
 alreadyCalled=false
 annDone=false
+
 function emulatorSensorsReady(fcn)
    if emFlag ~= 1 then return true end
    if alreadyCalled then return true end
@@ -432,10 +438,10 @@ function emulator_getSensors()
 
    -- put in by hand sensor types for MGPS. Should do for others if required. These are based
    -- experimenting with MGPS hardware. Undefined keys get 1 if null (see use of sensorType)
-   local sensorType={MGPS=0, MGPS_Quality=0, MGPS_SatCount=0, MGPS_Latitude=9,MGPS_Longitude=9,
-		     MGPS_Date=5, MGPS_TimeStamp=5, MGPS_Trip=4, MGPS_Distance=4,
-		     ["RCT-GPS_Distance"]=4,
-		     ["RCT-GPS_Latitude"]=9, ["RCT-GPS_Longitude"]=9}
+   -- local sensorType={MGPS=0, MGPS_Quality=0, MGPS_SatCount=0, MGPS_Latitude=9,MGPS_Longitude=9,
+   -- 		     MGPS_Date=5, MGPS_TimeStamp=5, MGPS_Trip=4, MGPS_Distance=4,
+   -- 		     ["RCT-GPS_Distance"]=4,
+   -- 		     ["RCT-GPS_Latitude"]=9, ["RCT-GPS_Longitude"]=9}
 
    if not rlhDone then
       print("SensorL: Called getSensors before log header completely read")
@@ -458,10 +464,10 @@ function emulator_getSensors()
    end
    table.sort(st)
 
-   --print("st table")
-   --for k,v in pairs(st) do
-   --   print(k,v)
-   --end
+   -- print("st table")
+   -- for k,v in pairs(st) do
+   --    print(k,v)
+   -- end
 
    -- now traverse the table in the order of the sorted keys and produce
    -- one param=0 record for each sensor name, each of which can contain
@@ -475,7 +481,10 @@ function emulator_getSensors()
       -- must be a data table per sensor that I can't see ..fake it for now... see
       -- sensorType table above
       --print("v, sensorType[v]", v, sensorType[v])
-      styp = sensorType[v] or 1 -- type 9 for gps, 5 for date/time, 1 for general
+
+      -- changed .. for now set type to 1, correct later when we know it
+      
+      styp = 1 --sensorType[v] or 1 -- type 9 for gps, 5 for date/time, 1 for general
       if type(vv) ~= "table"  then
 	 print("SensorL: sensor not found in log header: "..v)
 	 ll=nil
@@ -495,12 +504,14 @@ function emulator_getSensors()
    end
    --print("ret: sensorTbl, #, type:", sensorTbl, #sensorTbl, type(sensorTbl))
    -- find RX tele sensors to set up for getTxTelemetry()
+   local sensN
    for k,v in pairs(sensorTbl) do
       local bot = v.id & 0XFFFF
       local top = v.id >> 16
       local text = string.format("0X%X", v.id)
-      print(v.label, v.param, v.id, text, bot, top)
-      if config.getTxTelRx1 and v.sensorName == config.getTxTelRx1 then
+      --print('#', v.label, v.param, v.id, text, bot, top)
+      if v.param == 0 then sensN = string.match(v.label, "^(%P+)") end
+      if sensN == "Rx" or sensN == "Rx1" then
 	 Rx1ID = v.id
 	 if v.label == "Q" then
 	    Rx1QParam = v.param
@@ -508,9 +519,11 @@ function emulator_getSensors()
 	    Rx1A1Param = v.param
 	 elseif v.label == "A2" then
 	    Rx1A2Param = v.param
+	 elseif v.label == "U Rx" or v.label == "U Rx1" then
+	    Rx1UParam = v.param
 	 end
       end
-      if config.getTxTelRx2 and v.sensorName == config.getTxTelRx2 then
+      if sensN == "Rx2" then
 	 Rx2ID = v.id
 	 if v.label == "Q" then
 	    Rx2QParam = v.param
@@ -518,8 +531,20 @@ function emulator_getSensors()
 	    Rx2A1Param = v.param
 	 elseif v.label == "A2" then
 	    Rx2A2Param = v.param
+	 elseif v.label == "U Rx2" then
+	    Rx2UParam = v.param
 	 end
-      end      
+      end
+      if sensN == "RxB" then
+	 RxBID = v.id
+	 if v.label == "A1" then
+	    RxBA1Param = v.param
+	 elseif v.label == "A2" then
+	    RxBA2Param = v.param
+	 elseif v.label == "U RxB" then
+	    RxBUParam = v.param
+	 end
+      end
    end
    --print("Rx1 ID, params:", Rx1ID, Rx1QParam, Rx1A1Param, Rx1A2Param)
    --print("Rx2 ID, params:", Rx2ID, Rx2QParam, Rx2A1Param, Rx2A2Param)   
@@ -707,7 +732,7 @@ function emulator_getTxTelemetry()
    txTel.RSSI = {}
    local RxSens = {}
    
-   if config.getTxTelRx1 and Rx1ID then
+   if Rx1ID then -- config.getTxTelRx1 and Rx1ID then
       if Rx1QParam then
 	 RxSens = emulator_getSensorByID(Rx1ID, Rx1QParam)
 	 if RxSens and RxSens.valid then
@@ -728,9 +753,16 @@ function emulator_getTxTelemetry()
 	    txTel.RSSI[2] = (RxSens.value or 0) * 10
 	 end
       end            
+
+      if Rx1UParam then
+	 RxSens = emulator_getSensorByID(Rx1ID, Rx1UParam)
+	 if RxSens and RxSens.valid then
+	    txTel.rx1Voltage = (RxSens.value or 0)
+	 end
+      end            
    end
    
-   if config.getTxTelRx2 and Rx2ID then
+   if Rx2ID then -- config.getTxTelRx2 and Rx2ID then
       if Rx2QParam then
 	 RxSens = emulator_getSensorByID(Rx2ID, Rx2QParam)
 	 if RxSens and RxSens.valid then
@@ -751,20 +783,46 @@ function emulator_getTxTelemetry()
 	    txTel.RSSI[4] = (RxSens.value or 0) * 10
 	 end
       end            
+
+      if Rx2UParam then
+	 RxSens = emulator_getSensorByID(Rx2ID, Rx2UParam)
+	 if RxSens and RxSens.valid then
+	    txTel.rx2Voltage = (RxSens.value or 0)
+	 end
+      end            
    end
 
+   if RxBID then -- config.getTxTelRx2 and Rx2ID then
+
+      if RxBA1Param then
+	 RxSens = emulator_getSensorByID(RxBID, RxBA1Param)
+	 if RxSens and RxSens.valid then
+	    txTel.RSSI[5] = (RxSens.value or 0) * 10
+	 end
+      end
+
+      if RxBA2Param then
+	 RxSens = emulator_getSensorByID(RxBID, RxBA2Param)
+	 if RxSens and RxSens.valid then
+	    txTel.RSSI[6] = (RxSens.value or 0) * 10
+	 end
+      end            
+
+      if RxBUParam then
+	 RxSens = emulator_getSensorByID(RxBID, RxBUParam)
+	 if RxSens and RxSens.valid then
+	    txTel.rxBVoltage = (RxSens.value or 0)
+	 end
+      end            
+   end
+   
+   
    -- make sure we don't return any nil values since we don't populate all fields
-   txTel.txVoltage = 0
-   txTel.txBattPercent = 0
-   txTel.txCurrent = 0
-   txTel.txCapacit = 0
-   if not txTel.rx1Percent then txTel.rx1Percent = 0 end
-   txTel.rx1Voltage = 0
-   if not txTel.rx2Percent then txTel.rx2Percent = 0 end
-   txTel.rx2Voltage = 0
-   txTel.rxBVoltage = 0
-   txTel.rxBPercent = 0
-   txTel.photoValue = 0
+
+   for k,v in pairs(txTel) do
+      if not v then txTel[k] = 0 end
+   end
+
    for k = 1,6,1 do
       if not txTel.RSSI[k] then txTel.RSSI[k] = 0 end
    end
@@ -835,8 +893,6 @@ local function telePrint()
 	 else
 	    lcd.drawText(cs + cs*col, ls+ss*sec, string.format("%d°", deg), font)
 	 end
-	 
-	 
       end
       col=col+1
       if col > 3 then
@@ -852,7 +908,7 @@ local function telePrint()
       sec = sec * 60
       local timstr = string.format("%02d:%02.2f", min, sec)
       
-      lcd.drawText(170,140, string.format("Logfile time: " .. timstr))
+      lcd.drawText(180,148, string.format("Logfile time: " .. timstr), FONT_MINI)
       -- lcd.drawText(260,125, string.format("T: %02d", system.getCPU()), FONT_MINI)
       -- lcd.drawText(260,135, string.format("egs: %02d", egsCPU or 0), FONT_MINI)
       -- lcd.drawText(260,145, string.format("egsId: %02d", egsIdCPU or 0), FONT_MINI)
@@ -875,23 +931,40 @@ return {init=init, loop=nil, author=appAuthor, version=appVersion, name=appName}
 
 --[[
 
-Sample SensorE.jsn file
+The configuration file SensorE.jsn
+----------------------------------
 
+Note: if the key "selectedSensors" and its associated table of values
+is not present, then SensorL will read/use ALL telemetry channels. If there
+is a very large number of sensors and you only want to use some, the
+subset to be used can be described as shown below.
+
+Note: If you choose to use selectedSensors, separate sensor name
+(e.g. MGPS) and label (e.g. Latitude) with underscore. Also replace
+any spaces in labels with underscores.
+
+Note: if you want the log file to zoom ahead to when the interesting
+part of the flight happens, specify a time in seconds to "fastForward"
+and it will fast forward thru that many seconds before it starts
+normal playback.
+
+---- Sample file Apps/SensorL/SensorL.jsn  ------
 {
 "logFile":"Log/20190926/16-56-45.log",
+"fastForward": 0
 "selectedSensors":
    {
-   "MGPS_Latitude":     true,
-   "MGPS_Longitude":    true,
-   "MGPS_AltRelat.":    true,
-   "CTU_Altitude":      true,
-   "CTU_G_Force":       true,
-   "CTU_Fuel_remaining":true,
-   "MSPEED_Velocity":   true,
-   "MGPS_Speed":        true,
-   "MGPS_TimeStamp":    true,   
-   "MGPS_Date":         true
+   "MGPS_Latitude":      true,
+   "MGPS_Longitude":     true,
+   "MGPS_AltRelat.":     true,
+   "CTU_Altitude":       true,
+   "CTU_G_Force":        true,
+   "CTU_Fuel_remaining": true,
+   "MSPEED_Velocity":    true,
+   "MGPS_Speed":         true,
+   "MGPS_TimeStamp":     true,   
+   "MGPS_Date":          true
    }
 }
-
+-------------------------------------------------
 --]]
