@@ -37,7 +37,7 @@ local lastHeading = 0
 local altitude = 0
 local speed = 0
 local SpeedGPS = 0
-local binomC = {} -- array of binomial coefficients for n=MAXTABLE-1, indexed by k
+local binomC = {} -- array of binomial coefficients for Bezier
 local lng0, lat0, coslat0
 -- 6378137 radius of earth in m
 local rE = 6378137
