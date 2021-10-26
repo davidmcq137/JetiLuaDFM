@@ -5,7 +5,7 @@ I've built for the Jeti RC systems. Some of them have been prepared
 for distribution via a custom website, or via the Jeti Studio
 Transmitter wizard.
 
-For our GPS maps App, please go to www.jetiluadfm.app and it will have
+For our GPS Maps App, please go to www.jetiluadfm.app and it will have
 instructions for how to set up maps for your field(s), and configure
 Jeti Studio to download all required content to your TX. You will also
 find links to Youtube training videos done by Harry Curzon.

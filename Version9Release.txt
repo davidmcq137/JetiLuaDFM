@@ -100,13 +100,13 @@ flight (Settings/NoFly Ann). If this switch is not assigned, then the
 menu checkboxes control No Fly warning announcements as they have
 previously. If the switch is assigned, it must be in the active (check)
 position to allow warnings .. it is "and-ed" with the menu checkbox
-announcement setting.
+announcement setting. Thanks to Jochen for suggesting this.
 
 10) We have added a checkbox to the Telemetry sensors menu to treat a
 GPS altitude reading as absolute or relative. This is primarily meant
 for GPS units we don't support for auto-configuration (see file
-Apps/DFM-Maps/paramGPS.jsn) and they are assigned manually by the
-pilot in the Telemetry Sensors menu. It determines whether or not the
+Apps/DFM-Maps/paramGPS.jsn) and are assigned manually by the pilot in
+the Telemetry Sensors menu. The checkbox determines whether or not the
 field elevation we get from google maps is subtracted from the GPS
 altitude reading or not. In absolute mode, it does the subtraction,
 otherwise not. Auto-configured GPSs (currently Jeti MGPS, Tero's GPS,
