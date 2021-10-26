@@ -2,15 +2,17 @@
 
 ----------------------------------------------------------------------------
 
-   AutoThrottle and Speed Announcer. Implements user interface for
+   AutoThrottle UI and Speed Announcer. Implements user interface for
    Digitech's CTU device's auththrottle. Also Makes voice announcement
    of speed with variable intevals when model goes faster or slower or
-   on final approach
+   on final approach when speed < Vref. Stall warning (stick shaker)
+   triggers below Vref/1.3
    
    Borrowed some display code from Daniel M's excellent CTU app
    
 ----------------------------------------------------------------------------
-   Released under MIT-license by DFM 2019
+
+   Released under MIT-license
 
    Copyright (c) 2019 DFM
 
@@ -33,6 +35,7 @@
    ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE.
+
 ----------------------------------------------------------------------------
 
 --]]
@@ -49,12 +52,15 @@ local spdSwitch
 local contSwitch
 local maxSpd, VrefSpd, VrefCall
 local spdInter
-local selFt
-local selFtIndex
 local MAXSPEEDMPH = 200
 local MAXSPEEDKPH = 320
+local MAXSPEEDKT  = 180 
 local gaugeMaxSpeed
 local shortAnn, shortAnnIndex
+
+local speedUnitsIdx
+local speedUnits = {"mph", "kmh", "knots"}
+local gaugeMaxSpeedArr = {MAXSPEEDMPH, MAXSPEEDKPH, MAXSPEEDKT}
 
 local ATStateSeId
 local ATStateSePa
@@ -119,20 +125,31 @@ local DEBUG = false
 --------------------------------------------------------------------------------
 
 -- Read and set translations
+
 local lang
-local lng
+local locale
+
 local function setLanguage()
+
    local obj
-   lng=system.getLocale()
-   local file = io.readall(transFile)
-   if file then
-      obj = json.decode(file)
+   local fp
+   local langFile
+
+   locale = system.getLocale()
+   fp = io.readall(transFile)
+   if not fp then -- translation does not exist yet .. literal string
+      error(appShort..": Missing "..transFile)
+   else
+      obj = json.decode(fp)
    end
    if obj then
-      lang = obj[lng] or obj.default
+      langFile = obj[locale] or obj.en
    end
-   if not lang then
-      system.messageBox(appShort..lang.labelMissing..transFile)
+   fp = io.readall(appDir..langFile)
+   if not fp then
+      error(appShort..": Missing "..appDir..langFile)      
+   else
+      lang = json.decode(fp)
    end
 end
 
@@ -141,10 +158,9 @@ end
 local function playFile(filename, parm)
    local slash
    if DEBUG then slash="" else slash="/" end
-   if lng == 'en' then prefix = slash..appDir else
-      prefix = slash..appDir..lng.."-"
+   if locale == 'en' then prefix = slash..appDir else
+      prefix = slash..appDir..locale.."-"
    end
-   --print("calling playfile:", prefix..filename, parm)
    system.playFile(prefix..filename, parm)
 end
 
@@ -181,22 +197,18 @@ local function readSensors()
 	 ATStateSeId = sensor.id
 	 ATStateSePa = sensor.param
       end
-
       if currentLabel == "Autothrottle" and sensor.label == 'Preset speed' and sensor.param == 2 then
 	 ATPresetSeId = sensor.id
 	 ATPresetSePa = sensor.param
       end
-      
       if currentLabel == "Autothrottle" and sensor.label == 'Airspeed' and sensor.param == 3 then
 	 ATAirspeedSeId = sensor.id
 	 ATAirspeedSePa = sensor.param
       end      
-
       if currentLabel == "Autothrottle" and sensor.label == 'ATeng' and sensor.param == 4 then
 	 ATengSeId = sensor.id
 	 ATengSePa = sensor.param
       end
-      
       if currentLabel == "CTU" and sensor.label == 'Throttle' and sensor.param == 11 then
 	 CTUThrSeId = sensor.id
 	 CTUThrSePa = sensor.param
@@ -243,18 +255,18 @@ local function airCalChanged(value)
    system.pSave("airspeedCal", value)
 end
 
-local function selFtClicked(value)
-   selFt = not value
-   form.setValue(selFtIndex, selFt)
-   if selFt then gaugeMaxSpeed = MAXSPEEDMPH else gaugeMaxSpeed = MAXSPEEDKPH end
-   system.pSave("selFt", tostring(selFt))
-end
-
 local function shortAnnClicked(value)
    shortAnn = not value
    form.setValue(shortAnnIndex, shortAnn)
    system.pSave("shortAnn", tostring(shortAnn))
 end
+
+local function speedUnitsIdxChanged(value)
+   speedUnitsIdx = value
+   system.pSave("speedUnitsIdx", value)
+   gaugeMaxSpeed = gaugeMaxSpeedArr[value]
+end
+
 
 --------------------------------------------------------------------------------
 
@@ -289,10 +301,10 @@ local function initForm()
    form.addRow(2)
    form.addLabel({label=lang.menuAirSpCal, width=220})
    form.addIntbox(airspeedCal, 1, 200, 100, 0, 1, airCalChanged)
-   
+
    form.addRow(2)
-   form.addLabel({label=lang.menuMPHorKPH, width=270})
-   selFtIndex = form.addCheckbox(selFt, selFtClicked)
+   form.addLabel({label=lang.menuSpeedUnits, width=220})
+   form.addSelectbox(speedUnits, speedUnitsIdx, false, speedUnitsIdxChanged)
    
    form.addRow(2)
    form.addLabel({label=lang.menuShortAnn, width=270})
@@ -311,14 +323,12 @@ local needle_poly_large = {
    {2,65},
    {4,28}
 }
-
 local needle_poly_xlarge = {
    {-4,28},
    {-2,70},
    {2,70},
    {4,28}
 }
-
 local needle_poly_small_small = {
    {-2,2},
    {-1,20},
@@ -354,9 +364,6 @@ local function DrawRectGaugeCenter(oxc, oyc, w, h, min, max, val, str)
    lcd.setColor(0, 0, 255)
    lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
    lcd.drawLine(oxc, oyc-h//2, oxc, oyc+h//2-1 )
-   -- for debugging:
-   --lcd.drawText((oxc-w//2) - 10, (oyc-h//2) - 15, string.format("%d", math.floor(val)), FONT_MINI)
-   
    if val > 0 then
       d = math.max(math.min((val/max)*(w/2), w/2), 0)
          lcd.drawFilledRectangle(oxc, oyc-h/2, d, h)
@@ -365,12 +372,9 @@ local function DrawRectGaugeCenter(oxc, oyc, w, h, min, max, val, str)
       
       lcd.drawFilledRectangle(oxc-d+1, oyc-h/2, d, h)
    end
-
    lcd.setColor(0,0,0)
-
    if str then
       lcd.drawText(oxc - lcd.getTextWidth(FONT_MINI, str)//2, oyc+7, str, FONT_MINI)
-
    end
 end
 
@@ -382,17 +386,12 @@ local function DrawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str)
    
    lcd.setColor(0, 0, 255)
    lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
-   -- for debugging:
-   --lcd.drawText((oxc-w//2) - 10, (oyc-h//2) - 15, string.format("%d", math.floor(val)), FONT_MINI)
-   
    d = math.max(math.min((val/(max-min))*w, w), 0)
    lcd.drawFilledRectangle(oxc-w//2, oyc-h/2, d, h)
    lcd.setColor(0,0,0)
-
    if str then
       lcd.drawText(oxc - lcd.getTextWidth(FONT_MINI, str)//2, oyc+7, str, FONT_MINI)
    end
-   
 end
 
 --------------------------------------------------------
@@ -452,23 +451,28 @@ end
 local function DrawSpeed()
 
     local ox, oy = 186, 8
+    local txt
+    local textSpeed
 
-    local textSpeed = string.format("%d", math.floor(speed + 0.5))
+    textSpeed = string.format("%d", math.floor(speed + 0.5))
 
-    if selFt then
-       lcd.drawText(ox + 66 - lcd.getTextWidth(FONT_NORMAL, lang.labelMPH)/2,
-		    oy + 100, lang.labelMPH, FONT_NORMAL)
+    if speedUnitsIdx == 1 then
+       txt = lang.labelMPH
+    elseif speedUnitsIdx == 2 then
+       txt = lang.labelKPH
     else
-       lcd.drawText(ox + 66 - lcd.getTextWidth(FONT_NORMAL, lang.labelKPH)/2,
-		    oy + 100, lang.labelKPH, FONT_NORMAL)
+       txt = lang.labelKT
     end
+    
+    lcd.drawText(ox + 66 - lcd.getTextWidth(FONT_NORMAL, txt)/2,
+		    oy + 100, txt, FONT_NORMAL)
     
     if autoOn then lcd.setColor(255,0,0) end
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MAXI, textSpeed) / 2, oy + 40,
 		 textSpeed, FONT_MAXI)
 
     local thetaThr = math.pi - math.rad(135 - 2 * 135 * speed / gaugeMaxSpeed)
-    local thetaSet = math.pi - math.rad(135 - 2 * 135 * set_speed / gaugeMaxSpeed)
+    local thetaSet = math.pi - math.rad(135 - 2 * 135 * set_speed * (airspeedCal / 100) / gaugeMaxSpeed)
 
     if gauge_c then lcd.drawImage(ox, oy, gauge_c) end
     lcd.setColor(0,255,0)
@@ -500,7 +504,7 @@ local function DrawCenterBox()
     lcd.drawLine(ox, oy + 23, ox + W - 1, oy + 23)
     lcd.drawLine(ox, oy + 46, ox + W - 1, oy + 46)
     
-    text = string.format("%d", math.floor(set_speed+0.5))
+    text = string.format("%d", math.floor((set_speed+0.5) * airspeedCal / 100))
     lcd.drawText(ox + (W - lcd.getTextWidth(FONT_BOLD, text)) / 2, oy + 7, text, FONT_BOLD)
 
     text = string.format("%d", math.floor(speed + 0.5))
@@ -537,10 +541,12 @@ end
 
 local function convertSpeed(s)
    -- telemetry comes in with native units (m/s)
-   if selFt then
+   if speedUnitsIdx == 1 then
       return s * 2.23694 -- m/s to mph
-   else
+   elseif speedUnitsIdx == 2 then
       return s * 3.6 -- m/s to km/hr
+   else
+      return s * 1.94384 -- m/s to kt
    end
 end
 
@@ -596,20 +602,17 @@ local function loop()
       ATState = sensor.value
       if autoOn == true and ATState < 2 then   -- it's just turning off
 	 autoOffTime = system.getTimeCounter() -- note when it went off
-	 --offThrottle = throttle                -- note it's last value (last time thru loop)
-	 offThrottle = thrRingBuf[(thrSeq + 1) % MAXRING + 1] or 0 -- oldest value or 0 if buf not full
+	 offThrottle = thrRingBuf[(thrSeq + 1) % MAXRING + 1] or 0 -- oldest val or 0 if ~full
 	 playedBeep = false                    -- make sure we only beep once
 	 playFile('ATCancelled.wav', AUDIO_QUEUE)
 	 if DEBUG then print("AutoThrottle Cancelled") end
 	 system.messageBox(lang.labelATCancelled) -- also put in log file
       end
-
       if autoOn == false and ATState == 2 then  -- it's just turning on
 	 playFile('ATEnabled.wav', AUDIO_QUEUE)
 	 if DEBUG then print("AutoThrottle Enabled") end
 	 system.messageBox(lang.labelATEnabled) -- also puts in log file
       end
-
       autoOn = ATState > 1
    end
 
@@ -620,7 +623,6 @@ local function loop()
    if ATPresetSeId and ATPresetSeId ~= 0 then
       sensor = system.getSensorByID(ATPresetSeId, ATPresetSePa)
    end
-
    if (sensor and sensor.valid) then
       set_speed = convertSpeed(sensor.value)
    else
@@ -629,6 +631,19 @@ local function loop()
       end
    end
       
+   -- read pitot airspeed from CTU
+   
+   if ATAirspeedSeId and ATAirspeedSeId ~= 0 then
+      sensor = system.getSensorByID(ATAirspeedSeId, ATAirspeedSePa)
+   end
+   if (sensor and sensor.valid) then
+      speed = convertSpeed(sensor.value) * airspeedCal / 100.0
+   else
+      if DEBUG then
+	 speed = gaugeMaxSpeed/2 * (1 + system.getInputs("P6"))
+      end
+   end
+
    -- check to see if set speed has stopped changing. if so announce verbally one time only
    -- 40 loops is arbitrary .. picked because it created an appropriate delay time
 
@@ -642,26 +657,21 @@ local function loop()
       end
       if set_stable == sSC then
 	 set_stable = sSC+1 -- only play the number once when stabilized
-	 --if set_speed > VrefSpd / 1.3 then -- don't announce if setpoint below stall
 	 if DEBUG then print("Set speed stable at", set_speed) end
-	 playFile('ATSetPointStable.wav', AUDIO_QUEUE)      	    
-	 if selFt then uuu = "mph" else uuu = "km/h" end
-	 system.playNumber(math.floor(set_speed+0.5), 0, uuu)
-	 system.messageBox(lang.labelSetPtSpd..math.floor(set_speed+0.5)) -- goes in log 
+	 playFile('ATSetPointStable.wav', AUDIO_QUEUE)
+	 if speedUnitsIdx == 1 then
+	    uuu = "mph"
+	 elseif speedUnitsIdx == 2 then
+	    uuu = "km/h"
+	 else
+	    uuu = "kt."
+	 end
+	 system.playNumber(math.floor( (set_speed+0.5) * airspeedCal / 100), 0, uuu)
+	 system.messageBox(lang.labelSetPtSpd..math.floor((set_speed+0.5) * airspeedCal / 100)) -- goes in log 
       end
    end
 
    last_set = set_speed
-
-   -- read pitot airspeed from CTU
-   
-   if ATAirspeedSeId and ATAirspeedSeId ~= 0 then
-      sensor = system.getSensorByID(ATAirspeedSeId, ATAirspeedSePa)
-   end
-
-   if (sensor and sensor.valid) then
-      speed = convertSpeed(sensor.value) * airspeedCal / 100.0
-   end
 
    -- get engineering parameters from the CTU (live PID loop term values)
    -- unpack the bytes. deriv in byte 0, Integ in byte 1, propo in byte 2
@@ -691,7 +701,12 @@ local function loop()
       sensor = system.getSensorByID(CTUThrSeId, CTUThrSePa)
    end
 
-   if sensor and sensor.valid and ATState and ATState > 0 then
+   -- Puzzle: would be good to make sure turbine is on (that is, not in "user off" state with
+   -- the trim low) and flag an error if the AT is turned on and the engine is not enabled
+   -- but we don't know what switch the CTU uses to turn AT on an off...
+   -- should we be checking RPM perhaps?
+   
+   if sensor and sensor.valid and ATState and ATState > 1 then
       throttle = sensor.value
       lastGoodThr = system.getTimeCounter()
    else -- TEST .. in case not valid don't set to value of thrStick (0)!
@@ -757,8 +772,8 @@ local function loop()
       
       nextAnnTC = lastAnnTC + (VrefCall * 1000 * 10 / deltaSA) 
 
-      if (speed <= VrefSpd) or (swc and swc == 1) then -- override if below Vref or cont ann is on
-	 nextAnnTC = lastAnnTC + VrefCall * 1000 -- at and below Vref .. ann every VrefCall secs
+      if (speed <= VrefSpd) or (swc and swc == 1) then -- override if < Vref or cont ann is on
+	 nextAnnTC = lastAnnTC + VrefCall * 1000 -- at and < Vref .. ann every VrefCall secs
       end
 
       sgTC = system.getTimeCounter()
@@ -778,8 +793,14 @@ local function loop()
 	 lastAnnTC = sgTC -- note the time of this announcement
 	 
 	 sss = string.format("%.0f", round_spd)
-	 if (selFt) then uuu = "mph" else uuu = "km/h" end
-	 
+	 if speedUnitsIdx == 1 then
+	    uuu = "mph"
+	 elseif speedUnitsIdx == 2 then
+	    uuu = "km/h"
+	 else
+	    uuu = "kt."
+	 end
+
 	 if (shortAnn or not aboveVref or (swc and swc == 1) ) then
 	    system.playNumber(round_spd, 0)
 	    if DEBUG then
@@ -793,7 +814,7 @@ local function loop()
 	       print("time: ", (sgTC-sgTC0)/1000)		  
 	    end
 	 end
-      end -- if (not system...)
+      end
    end
 end
 
@@ -809,7 +830,13 @@ end
 
 local function calAirspeed()
    local u
-   if (selFt) then u = lang.labelMPH else u = lang.labelKPH end 
+   if speedUnitsIdx == 1 then
+      u = lang.labelMPH
+   elseif speedUnitsIdx == 2 then
+      u = lang.labelKPH
+   else
+      u = lang.labelKT
+   end
    lcd.drawText(5, 5, math.floor(calSpd+0.5) .. " " .. u)
 end
 
@@ -824,11 +851,10 @@ local function init()
    VrefCall = system.pLoad("VrefCall", 2)
    maxSpd = system.pLoad("maxSpd", 200)
    airspeedCal = system.pLoad("airspeedCal", 100)
-   selFt = system.pLoad("selFt", "true")
+   speedUnitsIdx = system.pLoad("speedUnitsIdx", 1)
    shortAnn = system.pLoad("shortAnn", "false")
 
-   selFt = (selFt == "true") -- can't pSave and pLoad booleans...store as text 
-   if selFt then gaugeMaxSpeed = MAXSPEEDMPH else gaugeMaxSpeed = MAXSPEEDKPH end
+   gaugeMaxSpeed = gaugeMaxSpeedArr[speedUnitsIdx]
    shortAnn = (shortAnn == "true") -- convert back to boolean here
    
    system.registerForm(1, MENU_APPS, lang.appName, initForm)
