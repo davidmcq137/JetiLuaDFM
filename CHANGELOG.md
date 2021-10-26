@@ -13,8 +13,8 @@ Only one change may require you to re-enter data. See #3 and 4 regarding
 triangle edits.
 
 1. Language translation is now enabled, and this new version has the
-orginal English (locale "en") and translations for XX, YY, and ZZ
-contributed by AA, BB and CC. If you want to contribute a translation that is not already done, see
+orginal English (locale "en") and translations for German, Czech and French are
+being created. If you want to contribute a translation that is not already done, see
 the file DFM-Maps/Lang/readme.1st for instructions and contact us.
 
 2. We've added a second full-screen telemetry window. Previously we
@@ -28,8 +28,7 @@ with the direction of travel, and the map and triangle course rotate
 around the aircraft perspective.There are menu items to set the size
 of the window (Flight History/Triangle View Scale) and the length of the history "ribbon"
 (Flight History/Triangle View History Points). The number of
-history
-points in this new view is restricted to a lower number than the Map
+history points in this new view is restricted to a lower number than the Map
 view because of the additional computational load of rotating the
 images insted of just the aircraft.
 
