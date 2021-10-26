@@ -12,14 +12,14 @@ degrees longitude. Thanks to Dave in NZ for his help in resolving this.
 Only one change may require you to re-enter data. See #3 and 4 regarding
 triangle edits.
 
-1) Language translation is now enabled, and this new version has the
+1. Language translation is now enabled, and this new version has the
 orginal English (locale "en") and translations for XX, YY, and ZZ
 contributed by AA, BB and CC.
 
 If you want to contribute a translation that is not already done, see
 the file DFM-Maps/Lang/readme.1st for instructions and contact us.
 
-2) We've added a second full-screen telemetry window. Previously we
+2. We've added a second full-screen telemetry window. Previously we
 only had the Map view (which you enable with the Timers/Sensors
 Displayed Telemetry screen on the TX). You will see that there is now
 a second choice called the Triangle view.
@@ -37,7 +37,7 @@ points in this new view is restricted to a lower number than the Map
 view because of the additional computational load of rotating the
 images insted of just the aircraft.
 
-3) We have removed the Triangle Settings menu. All edits of the
+3. We have removed the Triangle Settings menu. All edits of the
 triangle race course are now done with the Map Browser. Doing it this
 way allows you to see the changes on the screen as you make them. If
 you want to change the values vs. just browse, you have to set the
@@ -55,7 +55,7 @@ R (rotation), L (Length) and O (aim Offset) of the triangle. Press the
 not changed, but the app remembers these adjustments when the same
 combination of model and field is used (see next item).
 
-4) In previous versions of the app, if you edited the triangle race
+4. In previous versions of the app, if you edited the triangle race
 course with the Map Browser, those edits were saved with the model. This
 was not ideal since the edits would be applied to any field where you
 used that model. We have changed this so that triangle edits are saved
@@ -64,7 +64,7 @@ the combination of model and field. We believe this is what pilots
 actually intended. Note! You will have to re-enter triangle edits done
 previously.
 
-5) If you have multiple fields at one GPS location, typically due to
+5. If you have multiple fields at one GPS location, typically due to
 wind-related orientations, or multiple runways, the app will now
 remember the last selection (done with the manual field selection menu)
 and go directly to that field when restarted or when coming back from
@@ -74,7 +74,7 @@ Previously the app would always select the first of the fields at that
 location by alphabetical order and it would have to be manually
 changed each time. Thanks to Simon in Australia for suggesting this.
 
-6) There is a new menu item (Settings/Airplane Icon) for selecting the
+6. There is a new menu item (Settings/Airplane Icon) for selecting the
 icon used for your aircraft on the map. We currently have Jet, Prop and
 Glider. The method previously used to set a custom icon can still be
 used if you want to create your own icon. For a model called "Dave T38"
@@ -88,14 +88,14 @@ plot out one of the examples to see how it works (very simple). We are
 happy to take contributed icon files and add them to the menu in
 future releases if you wish.
 
-7) We have added a setting to do light or dark backgrounds on the Map
+7. We have added a setting to do light or dark backgrounds on the Map
 and Triangle views. This is in addition to the original image (google
 map) background. Image view is not available on the new Triangle view.
 For the more technical users, all colors in the app are now taken from a
 color configuration file DFM-Maps/JSON/Colors.jsn so if you want to make
 changes to the r,g,b values of any feature colors, you can.
 
-8) Some pilots have been experimenting with a version of GPS triangle
+8. Some pilots have been experimenting with a version of GPS triangle
 racing while slope soaring. Ideally this would be a straight-line course
 with only two pylons. We have done something to facilitate this
 experimentation which is to add a setting (Race Paramaters/Triangle
@@ -105,14 +105,14 @@ tri racing rules is the default: 100%. We have also had some queries
 about generalizing the triangle to a polygon which is amusing. Maybe GPS
 polygon racing could become a thing...
 
-9) You can now set up a switch to turn No Fly warnings on and off in
+9. You can now set up a switch to turn No Fly warnings on and off in
 flight (Settings/NoFly Ann). If this switch is not assigned, then the
 menu checkboxes control No Fly warning announcements as they have
 previously. If the switch is assigned, it must be in the active (check)
 position to allow warnings .. it is "and-ed" with the menu checkbox
 announcement setting. Thanks to Jochen for suggesting this.
 
-10) We have added a checkbox to the Telemetry sensors menu to treat a
+10. We have added a checkbox to the Telemetry sensors menu to treat a
 GPS altitude reading as absolute or relative. This is primarily meant
 for GPS units we don't support for auto-configuration (see file
 Apps/DFM-Maps/paramGPS.jsn) and are assigned manually by the pilot in
