@@ -1,13 +1,13 @@
 # Release Notes for Version 9.0 of DFM-Maps
 
-Bug fixes:
+## Bug fixes:
 
-1) The app could sometimes crash when coming out of the map browser.
+1. The app could sometimes crash when coming out of the map browser.
 
-2) There were occasional issues creating map repos when close to 180
+2. There were occasional issues creating map repos when close to 180
 degrees longitude. Thanks to Dave in NZ for his help in resolving this.
 
-New features/changes:
+## New features/changes:
 
 Only one change may require you to re-enter data. See #3 and 4 regarding
 triangle edits.
