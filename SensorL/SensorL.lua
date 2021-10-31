@@ -48,7 +48,17 @@ time. Quick experiment shows that if we run as fast as we can we go
 about 3x speed .. so that's the limit. So maybe it's just realtime or
 max speed .. 1x or 3x. In the experiment, we missed all the telem
 signals since we did not speed up the 200 ms sampling time of the main
-app's telemetry read .. so maybe this is not so useful...
+app's telemetry read .. so maybe this is not so useful... Update: we
+can zoom ahead a lot faster than that .. I figured that out when
+implementing fast forward, so it should be possible to put a fast
+forward feature in. Perhaps since this is meant only for the emulator,
+we can use the controls (e.g. P1 or P3) or the <<left and >> right
+buttons .. e.g.  <<left is a fast rewind (would require marking file
+position and re-positioning file like we are already doing on log
+header reading .. perhaps every second save the file pointer and jump
+back n seconds?) >>right is fast foward, and enter is pause? hmm
+.. that sounds like fun. Could even do multiple >> or << pushes to
+speed up 3x 10x 30x etc.
 
 2) perhaps if we want to also playback switch actuation (or maybe even
 control actuation?) we can create in the app to be tested a log entry
@@ -60,10 +70,14 @@ during playback.
 perhaps print warning
 
 4) maybe there is a way to do a user menu vs. a json file for setup to
-make it easier for non-experts to use
+make it easier for non-experts to use .. put in a menu, select a log
+file, write out a new json file, prompt user to "reload lua" should be
+good...
 
 5) Most log files have a long period of inactivity with engine startup
 etc .. would be good to "zoom ahead" to the actual flight portion
+DONE: see fastForward
+
 
 ----------------------------------------------------------------------------
 
@@ -915,10 +929,23 @@ local function telePrint()
    end
 end
 
+local function initForm(sf)
+   print("initForm - sf:", sf)
+end
+
+local function keyForm(k)
+   print("keyForm - k:", k)
+end
+
+local function prtForm()
+end
+
 
 local function init()
    --print("in init()")
    system.registerTelemetry(1, appName, 4, telePrint)
+   system.registerForm(1, MENU_APPS, "Log File Player", initForm, keyForm, prtForm)
+   
    dev, emFlag = system.getDeviceType()
    --startUpTime = system.getTimeCounter()
    --print("before emulator_init")
@@ -931,7 +958,7 @@ return {init=init, loop=nil, author=appAuthor, version=appVersion, name=appName}
 
 --[[
 
-The configuration file SensorE.jsn
+The configuration file SensorL.jsn
 ----------------------------------
 
 Note: if the key "selectedSensors" and its associated table of values
@@ -966,5 +993,12 @@ normal playback.
    "MGPS_Date":          true
    }
 }
+
+---- Minimal file ------------------------------
+
+{
+"logFile":"Log/20190926/16-56-45.log",
+}
+
 -------------------------------------------------
 --]]

@@ -3,19 +3,34 @@
    ---------------------------------------------------------------------------------------
    DFM-Maps.lua -- GPS map display and triangle racing app
 
-   Derived from Twizard.lua and DFM-TriR.lua and DFM-LSO.lua --
-   "Landing Signal Officer" -- GPS Map and "ILS"/GPS RNAV system
-   derived from DFM's Speed and Time Announcers, which were turn was
-   derived from Tero's RCT's Alt Announcer Borrowed and modified code
-   from Jeti's AH example for tapes and heading indicator.  New code
-   to project Lat/Long via simple equirectangular projection to XY
-   plane, and to compute heading from the projected XY plane track for
-   GPS sensors that don't have this feature
-    
+   This app displays the track of an aircraft on the TX display,
+   reading a GPS telemetry device. The flight path is optionally
+   overlaid on a google maps image set of the flying site. Map sets
+   are created with the website www.jetiluadfm.app.  This website can
+   create a dynamic repository of the app as well as all required map
+   files, and download it to the TX using Jeti Studio's Lua App
+   manager.
+
+   The app can also run a GPS traingle race following a simplified set
+   of the official triangle racing rules.
+
+   DFM-Maps was orginally developed as DFM-LSO, which had a gps and
+   map display capability as well as an RNAV-like landing guidance
+   system. This then evolved to a triangle racing program as suggested
+   by Harry Curzon which was called T-Wizard, then split into DFM-TriR
+   (the racing app) and DFM-TriM (the map browser). Finally, TriR and
+   TriM were combined into DFM-Maps.
+
+   This app owes a debt to some very early ideas in Tero's RCT Alt
+   announcer, the Jeti Artificial Horizon app, and the Jeti Virtual
+   sensor app.
+
+   We use a simple equirectangular projection of the map to the screen.
+
    Developed on DS-24, only tested on DS-24
 
    ---------------------------------------------------------------------------------------
-   Released under MIT license by DFM 2020
+   Released under MIT license by DFM 2021
    ---------------------------------------------------------------------------------------
 
 --]]
