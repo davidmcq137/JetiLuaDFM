@@ -20,8 +20,44 @@
    ----------------------------------------------------------------------
    DFM-TimA.lua released under MIT license by DFM 2018
    ----------------------------------------------------------------------
+   DFM-TimG.lua released under MIT license by DFM 2021
+   ----------------------------------------------------------------------
    
    Note: original version was 30 secs hardcoded interval, now set to 60 seconds
+
+   Idea to expand functionality and consolidate an app:
+
+   Log various paramaters at begin and end of flight, be able to reset maH counter on CBox 
+   by detecting voltage jumping up if batt charging has happened.
+
+   if voltage of (either? both?) Rx batts bumps up from last end
+   value, detect that charging has happened and pulse a selected
+   channel to reset cumulative mah reading on CBox
+
+   After a few flights when there is a good average fuel consumption rate logged
+   then can estimate time to empty before 50% of flight complete?
+   
+   Variables to log:
+
+   flight count (increment)
+   flight time from gear up to turbine shutdown
+   fuel used %
+   fuel consumption rate at 50% elapsed time (to be logged for use in future flights)
+   begin mah cumulative Rx1 batt
+   begin mah cumulative Rx2 batt
+   end mah cumulative Rx1 batt
+   end mah cumulative Rx2 batt
+   begin volt Rx1 batt
+   begin volt Rx2 batt
+   end volt Rx1 batt
+   end volt Rx2 batt
+   begin volt ECU batt
+   end volt ECU batt
+   
+   Also maybe integrate speed announcer into this app so it becomes a
+   general flight status announcer -- it already does fuel state and
+   estimated time to empty
+
    
 --]]
 

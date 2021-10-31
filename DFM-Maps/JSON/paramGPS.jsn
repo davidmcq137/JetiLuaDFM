@@ -45,6 +45,25 @@
 	},
 	"ID":42001
     },
+    "FLYMATE PRO": {
+	"GPSLat": {
+	    "param": 2,
+	    "telem": "Latitude"
+	},
+	"GPSLon": {
+	    "param": 3,
+	    "telem": "Longitude"
+	},
+	"GPSSPD": {
+	    "param": 5,
+	    "telem": "SpeedGPS"
+	},
+	"GPSALT": {
+	    "param": 4,
+	    "telem": "Altitude"
+	},
+	"ID": 42012
+    },
     "GPS III": {
 	"Latitude": {
 	    "param": 10,
