@@ -209,8 +209,7 @@ local function setLanguage()
    local fp
    local transFile
 
-   --locale = system.getLocale()
-   locale = "cz"
+   locale = system.getLocale()
    transFile = appInfo.Dir .. "Lang/" .. locale .. "/Text/Text.jsn"
    fp = io.readall(transFile)
 
@@ -1310,8 +1309,8 @@ local function initForm(subform)
       checkBoxAdd(lang.showNoFly, "noflyEnabled")
 
       form.addRow(2)
-      form.addLabel({label="Airplane Icon", width=220})
-      form.addSelectbox(shapes.airplaneIcons, variables.airplaneIcon, true, airplaneIconChanged)
+      form.addLabel({label=lang.airplaneIcon, width=220})
+      form.addSelectbox(lang.airplaneIcons, variables.airplaneIcon, true, airplaneIconChanged)
       
       checkBoxAdd(lang.annNoFly, "noFlyWarningEnabled")
       
