@@ -210,6 +210,9 @@ local function setLanguage()
    local transFile
 
    locale = system.getLocale()
+
+   locale = "de" ------------------------------- TEST ------------------------
+   
    transFile = appInfo.Dir .. "Lang/" .. locale .. "/Text/Text.jsn"
    fp = io.readall(transFile)
 
@@ -1294,7 +1297,7 @@ local function initForm(subform)
       form.addLink((function() form.reinit(11) end), {label = lang.viewGrad})
 	 
       form.addLink((function() form.reinit(1) end),
-	 {label = "<<< Back to main menu",font=FONT_BOLD})
+	 {label = lang.backMain, font=FONT_BOLD})
       
       form.setFocusedRow(1)
       
