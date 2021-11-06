@@ -211,7 +211,7 @@ local function setLanguage()
 
    locale = system.getLocale()
 
-   locale = "de" ------------------------------- TEST ------------------------
+   --locale = "de" ------------------------------- TEST ------------------------
    
    transFile = appInfo.Dir .. "Lang/" .. locale .. "/Text/Text.jsn"
    fp = io.readall(transFile)
@@ -2478,6 +2478,15 @@ local function dirPrint()
    local ren=lcd.renderer()
    local hh
    local triColorMode
+
+   --[[
+   if system.getInputs("SH") == 1 then
+      lcd.drawText(0,10,
+		   "100 200 300 400 500 600 700 800 900 000 100 200 300 400 500",
+		   FONT_MINI)
+      return
+   end
+   --]]
    
    if not xtable or not ytable then return end
 
@@ -2497,12 +2506,20 @@ local function dirPrint()
    if not variables.triEnabled then
       lcd.drawText(35, 20, lang.triNotEn, FONT_BIG)      
    end
+
+   --[[
+   if not compcrs then
+      heading = 0
+   end
+   --]]
    
+   ---[[
    if not compcrs then
       lcd.drawText(40, 20, lang.triNoHdg, FONT_BIG)
       return
    end
-   
+   --]]
+
    hh = heading - 180
    
    local xx, yy = xtable[#xtable], ytable[#ytable]
