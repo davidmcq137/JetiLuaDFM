@@ -139,7 +139,7 @@ select Up/Mid/Low to Up .. confirm that the checkmark is present when the thrott
 detection is armed and ready,
 	we have added a red/green circle just above the existing circles showing race status.
 	
-Once the switch is assigned, but before the race starts, the circle will be red for
+	Once the switch is assigned, but before the race starts, the circle will be red for
 throttle on, and green for throttle off. Once the race starts, and use of throttle is detected, we
 will set the circle to red and keep it red, and the subtitle line with the score will turn red
 and remain red.
