@@ -78,5 +78,6 @@
     "DnL": "L",
     "swNoFly":"NoFly Ann",
     "airplaneIcon":"Airplane Icon",
-    "airplaneIcons":["Jet", "Glider", "Prop"]
+    "airplaneIcons":["Jet", "Glider", "Prop"],
+    "swThrottle":"Throttle"
 }

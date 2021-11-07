@@ -183,6 +183,7 @@ raceParam.rawScore = 0
 raceParam.penaltyPoints=0
 raceParam.flightStarted=0
 raceParam.flightLandTime=0
+raceParam.usedThrottle = false
 
 local fieldPNG={}
 local maxImage
@@ -1174,6 +1175,8 @@ local function initForm(subform)
       switchAdd(lang.swStart, "start", subform)
 
       switchAdd(lang.swAnnounce, "triA", subform)
+
+      switchAdd(lang.swThrottle, "throttle", subform)
       
       form.addRow(2)
       form.addLabel({label=lang.raceTime, width=220})
@@ -1723,12 +1726,39 @@ local function drawTriRace(windowWidth, windowHeight)
       lcd.drawText((320 - lcd.getTextWidth(FONT_BOLD, raceParam.titleText))/2, 0,
 	 raceParam.titleText, FONT_BOLD)
    end
+
+   if raceParam.usedThrottle then
+      setColor("Error", variables.triColorMode)
+   end
    
    if raceParam.subtitleText then
       lcd.drawText((320 - lcd.getTextWidth(FONT_MINI, raceParam.subtitleText))/2, 17,
 	 raceParam.subtitleText, FONT_MINI)
    end
 
+   if not raceParam.racing then
+      if switchItems.throttle then
+	 local swt
+	 swt = system.getInputsVal(switchItems.throttle)
+	 if swt then
+	    if swt == 1 then
+	       lcd.drawImage(5,80, dotImage.red)
+	    else
+	       lcd.drawImage(5,80, dotImage.green)
+	    end
+	 end
+      end
+   else
+      if raceParam.usedThrottle == true then
+	 lcd.drawImage(5,80, dotImage.red)
+      else
+	 if switchItems.throttle then
+	    lcd.drawImage(5,80, dotImage.green)
+	 end
+      end
+   end
+   
+   
    if raceParam.flightStarted ~= 0 then
       lcd.drawImage(5, 100, dotImage.green)
    else
@@ -1784,6 +1814,13 @@ local function calcTriRace()
    if not Field or not Field.name or not Field.triangle then return end
    if not variables.triEnabled then return end
    if #xtable == 0 or #ytable == 0 then return end
+
+   if switchItems.throttle then
+      local swt = system.getInputsVal(switchItems.throttle)
+      if swt and swt == 1 and raceParam.racing then
+	 raceParam.usedThrottle = true
+      end
+   end
    
    --print(system.getTimeCounter() -lastgetTime)
 
@@ -2039,6 +2076,7 @@ local function calcTriRace()
 	 raceParam.lapStartTime = system.getTimeCounter()
 	 raceParam.lapsComplete = 0
 	 raceParam.rawScore = 0
+	 raceParam.throttleUsed = false
       end
    end
 
@@ -3063,7 +3101,23 @@ local function mapPrint(windowWidth, windowHeight)
    if recalcDone() then
       graphScale(xtable[#xtable], ytable[#ytable])
    end
+
+   --[[
+      -- started to separate no GPS from no map .. user sugggestion to show icon in motion or timer
+      -- animation while waiting for GPS signal .. next logical step would be to let the app work with
+      -- no map data ..about all we could do is put a marker at the init gps position, and orient to the 
+      -- north since we'd have no direction data .. and then fabricate table entries for the screens 
+      -- centered at 0,0 with the usual magnification factors. which is probably better than just 
+      -- sitting there and not working as it does now!
+
+   if not gotInitPos then
+      setColor("Label", "Light")
+      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, "No GPS fix"))/2, 20,
+	 "No GPS fix", FONT_BIG)
+   end
    
+      -- some sort of animation or timer goes here between the two announcement lines
+
    if fieldPNG[currentImage] then
       if variables.triEnabled and (variables.triColorMode ~= "Image") then
 	 setColor("Background", variables.triColorMode)
@@ -3073,7 +3127,21 @@ local function mapPrint(windowWidth, windowHeight)
       end
    else
       setColor("Label", "Light")
-      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, lang.noGPSfix))/2, 20,
+      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, "No map for this position"))/2, 60,
+	 "No Map for this position", FONT_BIG)
+   end
+   --]]
+
+   if fieldPNG[currentImage] then
+      if variables.triEnabled and (variables.triColorMode ~= "Image") then
+	 setColor("Background", variables.triColorMode)
+      	 lcd.drawFilledRectangle(0,0,320,160)
+      else
+      	 lcd.drawImage(0,0,fieldPNG[currentImage])
+      end
+   else
+      setColor("Label", "Light")
+      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, lang.noGPSfix))/2, 60,
 	 lang.noGPSfix, FONT_BIG)
    end
    
@@ -3960,6 +4028,8 @@ local function init()
    variables.startSwitchDir    = jLoad(variables, "startSwitchDir", 0)
    variables.triASwitchName    = jLoad(variables, "triASwitchName", 0)
    variables.triASwitchDir     = jLoad(variables, "triASwitchDir", 0)
+   variables.throttleSwitchName= jLoad(variables, "throttleSwitchName", 0)
+   variables.throttleSwitchDir = jLoad(variables, "throttleSwitchDir", 0)
    variables.pointSwitchName   = jLoad(variables, "pointSwitchName", 0)
    variables.pointSwitchDir    = jLoad(variables, "pointSwitchDir", 0)
    variables.colorSwitchName   = jLoad(variables, "colorSwitchName", 0)
@@ -4021,7 +4091,7 @@ local function init()
 
    readSensors()
    
-   switchItems = {point = 0, start = 0, triA = 0, color = 0, noFly = 0}
+   switchItems = {point = 0, start = 0, triA = 0, throttle = 0, color = 0, noFly = 0}
    
    for k,v in pairs(switchItems) do
       switchItems[k] = createSw(shapes.switchNames[variables[k.."SwitchName"]],

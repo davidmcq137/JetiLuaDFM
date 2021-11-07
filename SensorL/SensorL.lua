@@ -422,6 +422,7 @@ local function emulator_init()
    system.getSensorByID = emulator_getSensorByID
    system.getSensorValueByID = emulator_getSensorValueByID
    system.getTxTelemetry = emulator_getTxTelemetry
+   gps.getPosition = emulator_getPosition
    
 end
 
@@ -845,6 +846,38 @@ function emulator_getTxTelemetry()
 
 end
 
+function emulator_getPosition(sensID, parmLat, parmLng)
+
+   local sensor
+   local minutes, degs, latitude, longitude
+   
+   sensor = emulator_getSensorByID(sensID, parmLng)
+   if sensor and sensor.valid then
+      minutes = (sensor.valGPS & 0xFFFF) * 0.001
+      degs = (sensor.valGPS >> 16) & 0xFF
+      longitude = degs + minutes/60
+      if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
+	 longitude = longitude * -1
+      end      
+   else
+      return nil
+   end
+   
+   sensor = emulator_getSensorByID(sensID, parmLat)
+   if sensor and sensor.valid then
+      minutes = (sensor.valGPS & 0xFFFF) * 0.001
+      degs = (sensor.valGPS >> 16) & 0xFF
+      latitude = degs + minutes/60
+      if sensor.decimals == 2 then -- "South" .. make it negative (NESW coded in decimal places as 0,1,2,3)
+	 latitude = latitude * -1
+      end      
+   else
+      return nil
+   end
+
+   return gps.newPoint(latitude, longitude)
+   
+end
 
 local function telePrint()
 

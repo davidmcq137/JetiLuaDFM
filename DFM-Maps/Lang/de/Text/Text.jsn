@@ -76,5 +76,8 @@
     "UpL": "O",
     "MidL": "M",
     "DnL": "U",
-    "swNoFly":"NoFly Ann"
+    "swNoFly":"NoFly Ann",
+    "airplaneIcon":"Flugzeug Icon",
+    "airplaneIcons":["Jet", "Segler", "Motor"],
+    "swThrottle":"Throttle"
 }
