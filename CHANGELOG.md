@@ -132,10 +132,11 @@ pilots.
 during a triangle race. First, you should set up a logical switch which is on
 when the throttle is in the "run" position and off when the throttle is off.
 Then assign this switch to the Throttle switch in the  Race Parameters menu and
-select Up/Mid/Low to Up .. confirm tha the checkmark is present when the throttle
+select Up/Mid/Low to Up .. confirm that the checkmark is present when the throttle
 is on and the X is present when the throttle is off. For pre-flight confirmation,
 we have added a red/green cicle just above the existing circles showing race status.
 Once the switch is assigned, but before the race starts, the circle will be red for
 throttle on, and green for throttle off. Once the race starts, and use of throttle
-will set the circle to red and keep it red, and the subtitle line with the score will turn red.
+will set the circle to red and keep it red, and the subtitle line with the score will turn red
+and remain red.
 
