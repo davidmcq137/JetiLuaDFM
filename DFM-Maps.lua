@@ -3,19 +3,34 @@
    ---------------------------------------------------------------------------------------
    DFM-Maps.lua -- GPS map display and triangle racing app
 
-   Derived from Twizard.lua and DFM-TriR.lua and DFM-LSO.lua --
-   "Landing Signal Officer" -- GPS Map and "ILS"/GPS RNAV system
-   derived from DFM's Speed and Time Announcers, which were turn was
-   derived from Tero's RCT's Alt Announcer Borrowed and modified code
-   from Jeti's AH example for tapes and heading indicator.  New code
-   to project Lat/Long via simple equirectangular projection to XY
-   plane, and to compute heading from the projected XY plane track for
-   GPS sensors that don't have this feature
-    
+   This app displays the track of an aircraft on the TX display,
+   reading a GPS telemetry device. The flight path is optionally
+   overlaid on a google maps image set of the flying site. Map sets
+   are created with the website www.jetiluadfm.app.  This website can
+   create a dynamic repository of the app as well as all required map
+   files, and download it to the TX using Jeti Studio's Lua App
+   manager.
+
+   The app can also run a GPS traingle race following a simplified set
+   of the official triangle racing rules.
+
+   DFM-Maps was orginally developed as DFM-LSO, which had a gps and
+   map display capability as well as an RNAV-like landing guidance
+   system. This then evolved to a triangle racing program as suggested
+   by Harry Curzon which was called T-Wizard, then split into DFM-TriR
+   (the racing app) and DFM-TriM (the map browser). Finally, TriR and
+   TriM were combined into DFM-Maps.
+
+   This app owes a debt to some very early ideas in Tero's RCT Alt
+   announcer, the Jeti Artificial Horizon app, and the Jeti Virtual
+   sensor app.
+
+   We use a simple equirectangular projection of the map to the screen.
+
    Developed on DS-24, only tested on DS-24
 
    ---------------------------------------------------------------------------------------
-   Released under MIT license by DFM 2020
+   Released under MIT license by DFM 2021
    ---------------------------------------------------------------------------------------
 
 --]]
@@ -37,7 +52,7 @@ local lastHeading = 0
 local altitude = 0
 local speed = 0
 local SpeedGPS = 0
-local binomC = {} -- array of binomial coefficients for n=MAXTABLE-1, indexed by k
+local binomC = {} -- array of binomial coefficients for Bezier
 local lng0, lat0, coslat0
 -- 6378137 radius of earth in m
 local rE = 6378137
@@ -111,8 +126,8 @@ local annTextSeq = 1
 local preTextSeq = 1
 local lastgetTime = 0
 local inZone = {}
-local currentRibbonValue
-local currentRibbonBin
+local ribbon = {}
+ribbon.currentFormat = "%.f"
 
 -- these lists are the non-GPS sensors
 
@@ -195,6 +210,9 @@ local function setLanguage()
    local transFile
 
    locale = system.getLocale()
+
+   --locale = "de" ------------------------------- TEST ------------------------
+   
    transFile = appInfo.Dir .. "Lang/" .. locale .. "/Text/Text.jsn"
    fp = io.readall(transFile)
 
@@ -232,10 +250,10 @@ end
 local function gradientIndex(inval, min, max, bins, mod)
    -- for a value val, maps to the gradient rgb index for val from min to max
    local bin, val
-   currentRibbonValue  = inval
+   ribbon.currentValue  = inval
    if mod then val = (inval-1) % mod + 1 else val = inval end
    bin = math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5)   
-   currentRibbonBin = bin
+   ribbon.currentBin = bin
    return bin
 end
 
@@ -1279,7 +1297,7 @@ local function initForm(subform)
       form.addLink((function() form.reinit(11) end), {label = lang.viewGrad})
 	 
       form.addLink((function() form.reinit(1) end),
-	 {label = "<<< Back to main menu",font=FONT_BOLD})
+	 {label = lang.backMain, font=FONT_BOLD})
       
       form.setFocusedRow(1)
       
@@ -1294,8 +1312,8 @@ local function initForm(subform)
       checkBoxAdd(lang.showNoFly, "noflyEnabled")
 
       form.addRow(2)
-      form.addLabel({label="Airplane Icon", width=220})
-      form.addSelectbox(shapes.airplaneIcons, variables.airplaneIcon, true, airplaneIconChanged)
+      form.addLabel({label=lang.airplaneIcon, width=220})
+      form.addSelectbox(lang.airplaneIcons, variables.airplaneIcon, true, airplaneIconChanged)
       
       checkBoxAdd(lang.annNoFly, "noFlyWarningEnabled")
       
@@ -2460,6 +2478,15 @@ local function dirPrint()
    local ren=lcd.renderer()
    local hh
    local triColorMode
+
+   --[[
+   if system.getInputs("SH") == 1 then
+      lcd.drawText(0,10,
+		   "100 200 300 400 500 600 700 800 900 000 100 200 300 400 500",
+		   FONT_MINI)
+      return
+   end
+   --]]
    
    if not xtable or not ytable then return end
 
@@ -2479,12 +2506,20 @@ local function dirPrint()
    if not variables.triEnabled then
       lcd.drawText(35, 20, lang.triNotEn, FONT_BIG)      
    end
+
+   --[[
+   if not compcrs then
+      heading = 0
+   end
+   --]]
    
+   ---[[
    if not compcrs then
       lcd.drawText(40, 20, lang.triNoHdg, FONT_BIG)
       return
    end
-   
+   --]]
+
    hh = heading - 180
    
    local xx, yy = xtable[#xtable], ytable[#ytable]
@@ -2795,11 +2830,11 @@ local function dirPrint()
       metrics.maxCPU = system.getCPU()
    end
    
-   if variables.ribbonColorSource ~= 1 and currentRibbonValue then
-      lcd.drawText(18, 140, string.format("%s: %.0f",
+   if variables.ribbonColorSource ~= 1 and ribbon.currentValue then
+      lcd.drawText(18, 140, string.format("%s: " .. ribbon.currentFormat,
 					 colorSelect[variables.ribbonColorSource],
-					 currentRibbonValue), FONT_MINI)
-      lcd.setColor(rgb[currentRibbonBin].r, rgb[currentRibbonBin].g, rgb[currentRibbonBin].b)
+					 ribbon.currentValue), FONT_MINI)
+      lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
       lcd.drawFilledRectangle(6,143,8,8)
    end
 
@@ -3059,11 +3094,11 @@ local function mapPrint(windowWidth, windowHeight)
    drawShape(20, 12, shapes.arrow, math.rad(-1*variables.rotationAngle))
    lcd.drawCircle(20, 12, 7)
 
-   if variables.ribbonColorSource ~= 1 and currentRibbonValue then
-      lcd.drawText(18, 140, string.format("%s: %.0f",
+   if variables.ribbonColorSource ~= 1 and ribbon.currentValue then
+      lcd.drawText(18, 140, string.format("%s: " .. ribbon.currentFormat,
 					 colorSelect[variables.ribbonColorSource],
-					 currentRibbonValue), FONT_MINI)
-      lcd.setColor(rgb[currentRibbonBin].r, rgb[currentRibbonBin].g, rgb[currentRibbonBin].b)
+					 ribbon.currentValue), FONT_MINI)
+      lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
       lcd.drawFilledRectangle(6,143,8,8)
    end
 
@@ -3692,6 +3727,8 @@ local function loop()
 
 	 --local sgTT = system.getTxTelemetry()
 	 --print(sgTT.rx1Percent, sgTT.RSSI[1], sgTT.RSSI[2], sgTT.rx1Voltage)
+
+	 ribbon.currentFormat = "%.f"
 	 
 	 if variables.ribbonColorSource == 1 then -- none
 	    jj = #rgb // 2 -- mid of gradient - right now this is sort of a yellow color
@@ -3713,6 +3750,7 @@ local function loop()
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 9 then -- Rx1 V
 	    jj = gradientIndex(system.getTxTelemetry().rx1Voltage, 0,   8,  #rgb)
+	    ribbon.currentFormat = "%.2f"	    
 	 elseif variables.ribbonColorSource == 10 then -- Rx2 Q
 	    jj = gradientIndex(system.getTxTelemetry().rx2Percent, 0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 11 then -- Rx2 A1
@@ -3721,10 +3759,12 @@ local function loop()
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0, 100,  #rgb)
 	 elseif variables.ribbonColorSource == 13 then -- Rx2 V
 	    jj = gradientIndex(system.getTxTelemetry().rx2Voltage, 0,   8,  #rgb)
+	    ribbon.currentFormat = "%.2f"	    
 	 elseif variables.ribbonColorSource == 14 then -- P4
 	    jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	   
  	 elseif variables.ribbonColorSource == 15 then -- Distance
 	    jj = gradientIndex(distHome(), 0, distDiag(),  #rgb)
+	    ribbon.currentFormat = "%.1f"
 	 elseif variables.ribbonColorSource == 16 then -- Radial
 	    jj = gradientIndex((360+math.deg(math.atan(x,y)))%360,0, 360, #rgb)	    	    
 	 else

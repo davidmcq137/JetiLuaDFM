@@ -1,11 +1,4 @@
 {
     "logFile":"HarryLogFiles/20210921/12-07-41.log",
-    "fastForward":0,
-    "selectedSensors":
-    {
-	"RCT-GPS_Latitude":     true,
-	"RCT-GPS_Longitude":    true,
-	"RCT-GPS_Speed":        true,
-	"MVAR2_Rel._altit": true
-    }
+    "fastForward":0
 }

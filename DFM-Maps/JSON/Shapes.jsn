@@ -1,5 +1,5 @@
 {
-    "airplaneIcons":["Jet", "Glider", "Prop"],
+    "airplaneIcons": ["Jet", "Glider", "Prop"],
     "Jet":[
         [0,-20],
         [-3,-6],
