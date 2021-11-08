@@ -120,7 +120,7 @@ google maps is subtracted from the GPS altitude reading or not. In
 absolute mode, it does the subtraction, otherwise not.
 
 	Auto-configured
-GPSs (currently Jeti MGPS, Tero's GPS, Powerbox GPS II and III, and
+GPSs (currently Jeti MGPS, Tero's GPS, Powerbox GPS II and III, FLYMATE PRO, and
 the Elite GPS Datalogger) have this taken care of automatically. Note that as a last resort you can override field elevation in the
 Settings/Field elevation adjustment menu.
 
