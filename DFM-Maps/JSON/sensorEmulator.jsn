@@ -32,7 +32,7 @@
      "sensorName":"MGPS",
      "label":"Speed",
      "unit":"m/s",
-     "luaExp":"P8(0,200/3.6)"
+     "luaExp":"P2(0,200/3.6)"
     },
     {"id":3,
      "param":5,
@@ -71,6 +71,22 @@
      "luaExp":"P5(-10,10)"
     },
     {"id":1,"param":2,
+     "decimals":1,
+     "type":4,
+     "sensorName":"MVario",
+     "label":"Abs. Altit",
+     "unit":"m",
+     "luaExp": "P5(0,200)"
+    },
+    {"id":1,"param":3,
+     "decimals":1,
+     "type":4,
+     "sensorName":"MVario",
+     "label":"Rel. Altit",
+     "unit":"m",
+     "luaExp": "P5(0,200)"
+    },
+    {"id":1,"param":5,
      "decimals":1,
      "type":4,
      "sensorName":"MVario",

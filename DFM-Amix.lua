@@ -78,7 +78,7 @@ local autoCrowRate
 local luaControlMax = 0.50
 
 local crowConfig={}
-crowConfig.jsnVersion = 1.1 -- version of saved data file
+local jsnVersion = 1.2 -- version of saved data file
 
 local modelFile
 
@@ -421,8 +421,13 @@ local function loop()
       end
 
       if crowConfig.trimPoint ~= crowConfig.lastTrimPoint then
-	 if crowConfig.trimCurveUE[crowConfig.trimPoint] == 0 or
-	    crowConfig.trimCurveUA[crowConfig.trimPoint] == 0
+	 if ((autoEleCtrl and elevCtrl and (swaE == 1))
+	       and
+	       (crowConfig.trimCurveUE[crowConfig.trimPoint] == 0))
+	    or
+	    ((autoAilCtrl and ailCtrl and (swaA == 1))
+	       and
+	       (crowConfig.trimCurveUA[crowConfig.trimPoint] == 0))
 	 then
 	    if announcePoints and (crowConfig.trimPoint - crowConfig.centerPoint ~= 0) then
 	       playNumber(crowConfig.trimPoint-crowConfig.centerPoint)
@@ -440,7 +445,8 @@ local function loop()
 	    swe = 0
 	 end
 
-	 if elevCtrl then
+	 --[[
+	 if elevCtrl then -- this is not active .. autoCrowSens is not set by menu
 	    if swe >= 0 then
 	       if autoCrowSens == 2 then
 		  swe = math.sqrt(swe)
@@ -455,12 +461,14 @@ local function loop()
 	       end
 	    end
 	 end
+	 --]]
 	 
 	 if math.abs(swl) < deadBand then
 	    swl = 0
 	 end
-
-	 if ailCtrl then
+	 
+	 --[[
+	 if ailCtrl then -- this is not active .. autoCrowSens is not set by menu
 	    if swl >= 0 then
 	       if autoCrowSens == 2 then
 		  swl = math.sqrt(swl)
@@ -475,7 +483,8 @@ local function loop()
 	       end
 	    end
 	 end
-
+	 --]]
+	 
 	 if elevCtrl and (swaE == 1) then
 	    incT = (autoCrowRate / 10) * ((swe or 0) / 10)
 	    crowConfig.trimCurveE[crowConfig.trimPoint] =
@@ -483,8 +492,14 @@ local function loop()
 	    crowConfig.trimCurveE[crowConfig.trimPoint] =
 	       math.max(math.min(crowConfig.trimCurveE[crowConfig.trimPoint], 100), -100)
 	    local nonZero = false
-	    for i=1, #crowConfig.trimCurveE do
-	       if crowConfig.trimCurveE[i] ~= 0 then nonZero = true end
+	    if crowConfig.trimPoint > crowConfig.centerPoint then
+	       for i=crowConfig.centerPoint+1, #crowConfig.trimCurveE, 1 do
+		  if crowConfig.trimCurveE[i] ~= 0 then nonZero = true end
+	       end
+	    else
+	       for i = crowConfig.centerPoint-1, 1, -1 do
+		  if crowConfig.trimCurveE[i] ~= 0 then nonZero = true end
+	       end
 	    end
 	    if nonZero then crowConfig.trimCurveUE[crowConfig.trimPoint] = 1 end
 	 end
@@ -496,33 +511,30 @@ local function loop()
 	    crowConfig.trimCurveA[crowConfig.trimPoint] =
 	       math.max(math.min(crowConfig.trimCurveA[crowConfig.trimPoint], 100), -100)
 	    local nonZero = false
-	    for i=1, #crowConfig.trimCurveA do
-	       if crowConfig.trimCurveA[i] ~= 0 then nonZero = true end
+ 	    if crowConfig.trimPoint > crowConfig.centerPoint then
+	       for i=crowConfig.centerPoint+1, #crowConfig.trimCurveA, 1 do
+		  if crowConfig.trimCurveA[i] ~= 0 then nonZero = true end
+	       end
+	    else
+	       for i = crowConfig.centerPoint-1, 1, -1 do
+		  if crowConfig.trimCurveA[i] ~= 0 then nonZero = true end
+	       end
 	    end
 	    if nonZero then crowConfig.trimCurveUA[crowConfig.trimPoint] = 1 end
 	 end
-	 
-	 highestSetE = crowConfig.centerPoint
-	 for i = crowConfig.centerPoint+1, #crowConfig.trimCurveX, 1 do
-	    if crowConfig.trimCurveUE[i] ~= 0 then highestSetE = i end
-	 end
 
-	 highestSetA = crowConfig.centerPoint
-	 for i = crowConfig.centerPoint+1, #crowConfig.trimCurveX, 1 do
-	    if crowConfig.trimCurveUA[i] ~= 0 then highestSetA = i end
-	 end
-	 
-	 lowestSetE = crowConfig.centerPoint
-	 for i = crowConfig.centerPoint-1, 1, -1 do
-	    if crowConfig.trimCurveUE[i] ~= 0 then lowestSetE = i end
-	 end
-	 
-	 lowestSetA = crowConfig.centerPoint
-	 for i = crowConfig.centerPoint-1, 1, -1 do
-	    if crowConfig.trimCurveUA[i] ~= 0 then lowestSetA = i end
-	 end
-	 
-	 if swcVal >= 0.0 then
+	 if crowConfig.trimPoint > crowConfig.centerPoint then
+
+	    highestSetE = crowConfig.centerPoint
+	    for i = crowConfig.centerPoint+1, #crowConfig.trimCurveX, 1 do
+	       if crowConfig.trimCurveUE[i] ~= 0 then highestSetE = i end
+	    end
+	    
+	    highestSetA = crowConfig.centerPoint
+	    for i = crowConfig.centerPoint+1, #crowConfig.trimCurveX, 1 do
+	       if crowConfig.trimCurveUA[i] ~= 0 then highestSetA = i end
+	    end
+
 	    for i = crowConfig.trimPoint+1, #crowConfig.trimCurveX, 1 do
 	       if crowConfig.trimCurveUE[i] == 0 then
 		  crowConfig.trimCurveE[i] = crowConfig.trimCurveE[highestSetE]
@@ -531,7 +543,19 @@ local function loop()
 		  crowConfig.trimCurveA[i] = crowConfig.trimCurveA[highestSetA]		  
 	       end	       
 	    end
-	 else
+	    
+	 else -- in one sided mode none of these loops should iterate at all
+
+	    lowestSetE = crowConfig.centerPoint
+	    for i = crowConfig.centerPoint-1, 1, -1 do
+	       if crowConfig.trimCurveUE[i] ~= 0 then lowestSetE = i end
+	    end
+	    
+	    lowestSetA = crowConfig.centerPoint
+	    for i = crowConfig.centerPoint-1, 1, -1 do
+	       if crowConfig.trimCurveUA[i] ~= 0 then lowestSetA = i end
+	    end
+
 	    for i = crowConfig.trimPoint-1, 1, -1 do
 	       if crowConfig.trimCurveUE[i] == 0 then
 		  crowConfig.trimCurveE[i] = crowConfig.trimCurveE[lowestSetE]
@@ -787,11 +811,11 @@ local function init()
    -- Form autoCrow param file name from model name
    modelFile = appDir .. "C-" .. string.gsub(system.getProperty("Model")..".jsn", " ", "_")
    ff = io.readall(modelFile)
-
    if ff then crowConfig = json.decode(ff) end
-
-   if not crowConfig.trimCurveX then
+   if (not crowConfig.trimCurveX) or (crowConfig.jsnVersion ~= jsnVersion) then
       system.messageBox(appShort .. lang.noSave)
+      crowConfig = {}
+      crowConfig.jsnVersion = jsnVersion
       crowConfig.tPoints = 9
       crowConfig.centerPoint = 5
    end
@@ -801,7 +825,8 @@ local function init()
    crowCtrl        = system.pLoad("crowCtrl")
    elevCtrl        = system.pLoad("elevCtrl")
    ailCtrl         = system.pLoad("ailCtrl")
-   autoCtrl        = system.pLoad("autoCtrl")   
+   autoEleCtrl     = system.pLoad("autoEleCtrl")
+   autoAilCtrl     = system.pLoad("autoAilCtrl")   
    autoCrowRate    = system.pLoad("autoCrowRate", 300)
    autoCrowSens    = system.pLoad("autoCrowSens", 1)
    autoCrowSpacing = system.pLoad("autoCrowSpacing", 1)   

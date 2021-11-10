@@ -20,7 +20,7 @@
     "maxStartAlt": "Max. Einflughöhe (m)",
     "flightStartSpd": "Flug Startgeschw. (km/h)",
     "flightStartAlt": "Flug Starthöhe (m)",
-    "triHeightScl": "Triangle Height Scale",
+    "triHeightScl": "Höhenskalierung Dreieck",
     "screenMode": "Bildschirmmodus",
     "modeLight": "Hell",
     "modeDark": "Dunkel",
