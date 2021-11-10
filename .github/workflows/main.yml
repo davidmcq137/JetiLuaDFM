@@ -3,21 +3,6 @@ on:
   push:
     branches: [master]
 jobs:
-  # create_release:
-  #   runs-on: ubuntu-18.04
-  #   outputs:
-  #     upload_url: ${{ steps.create_release.outputs.upload_url }}
-  #   steps:
-  #     - name: Create Release
-  #       id: create_release
-  #       uses: actions/create-release@v1
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #       with:
-  #         tag_name: release-${{ github.run_id }}
-  #         release_name: Release ${{ github.run_id }}
-  #         draft: false
-  #         prerelease: false
   build_and_upload:
     runs-on: ubuntu-18.04
     steps:
@@ -38,14 +23,19 @@ jobs:
         shell: bash
         run: |
           set -ex
-          lua_jeti/src/luac -o DFM-Maps.lc DFM-Maps.lua 
-          zip -r DFM-Maps.zip  DFM-Maps.lc DFM-Maps
+          PATH="$PATH:$PWD/lua_jeti/src"
+          mkdir release-output
+          DFM_MAPS_VERSION=$(lua -e "print((require 'DFM-Maps').version)")
+          luac -o DFM-Maps.lc DFM-Maps.lua 
+          zip -r "release-output/DFM-Maps-v${DFM_MAPS_VERSION}.zip"  DFM-Maps.lc DFM-Maps
       - name: Upload release asset
         id: upload-release-asset 
         uses: softprops/action-gh-release@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: release-${{ github.run_id }}
+          body: |
+            Release body see https://github.com/fazzone/JetiLuaDFM/actions/runs/${{ github.run_id }}
           files: |
             DFM-Maps.zip
 
