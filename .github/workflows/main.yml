@@ -3,28 +3,28 @@ on:
   push:
     branches: [master]
 jobs:
-  create_release:
-    runs-on: ubuntu-18.04
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: release-${{ github.run_id }}
-          release_name: Release ${{ github.run_id }}
-          draft: false
-          prerelease: false
+  # create_release:
+  #   runs-on: ubuntu-18.04
+  #   outputs:
+  #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+  #   steps:
+  #     - name: Create Release
+  #       id: create_release
+  #       uses: actions/create-release@v1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         tag_name: release-${{ github.run_id }}
+  #         release_name: Release ${{ github.run_id }}
+  #         draft: false
+  #         prerelease: false
   build_and_upload:
     runs-on: ubuntu-18.04
     needs: create_release
     steps:
-      - name: checkout this repo
+      - name: Checkout this repo
         uses: actions/checkout@v2
-      - name: checkout lua repo
+      - name: Checkout lua_jeti repo
         uses: actions/checkout@v2
         with:
           repository: fazzone/lua_jeti
@@ -41,7 +41,14 @@ jobs:
           set -ex
           lua_jeti/src/luac -o DFM-Maps.lc DFM-Maps.lua 
           zip -r DFM-Maps.zip  DFM-Maps.lc DFM-Maps
-      - name: Upload Release asset
+      - name: Upload release asset
+        id: upload-release-asset 
+        uses: softprops/action-gh-release@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            DFM-Maps.zip
+      - name: Upload release asset
         id: upload-release-asset 
         uses: actions/upload-release-asset@v1
         env:
