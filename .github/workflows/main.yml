@@ -20,7 +20,6 @@ jobs:
   #         prerelease: false
   build_and_upload:
     runs-on: ubuntu-18.04
-    needs: create_release
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v2
