@@ -28,10 +28,17 @@ jobs:
           set -ex
           PATH="$PATH:$PWD/lua_jeti/src"
           mkdir release-output
+
           DFM_MAPS_VERSION=$(lua -e "print((require 'DFM-Maps').version)")
-          luac -o DFM-Maps.lc DFM-Maps.lua 
-          zip -r "release-output/DFM-Maps-v${DFM_MAPS_VERSION}.zip"  DFM-Maps.lc DFM-Maps
           echo "::set-output name=dfm_maps_version::${DFM_MAPS_VERSION}"
+          OUTPUT_ZIP="release-output/DFM-Maps-v${DFM_MAPS_VERSION}.zip"
+
+          luac -o DFM-Maps.lc DFM-Maps.lua 
+          zip -r $OUTPUT_ZIP DFM-Maps.lc DFM-Maps
+
+          for f in $(unzip -Z1 $OUTPUT_ZIP); do
+            [[ -f $f ]] && echo $(sha1sum $f) $(du -sb $f | cut -f 1) >>release-output/manifest
+          done
       - name: Upload release asset
         id: upload-release-asset 
         uses: softprops/action-gh-release@v1
