@@ -39,8 +39,9 @@ jobs:
         shell: bash
         run: |
           set -ex
-          lua_jeti/src/luac DFM-Maps.lua
-          tar -czf my_release.tar.gz README.md luac.out
+          lua_jeti/src/luac DFM-Maps.lua -o DFM-Maps.lc
+          tar -czf my_release.tar.gz DFM-Maps.lc DFM-Maps
+          which zip
       - name: Upload Release asset
         id: upload-release-asset 
         uses: actions/upload-release-asset@v1
