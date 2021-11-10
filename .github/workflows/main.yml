@@ -50,7 +50,7 @@ jobs:
           # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
           upload_url: ${{ needs.create_release.outputs.upload_url }}
           asset_path: ./my_release.tar.gz
-          asset_name: output.tar.gz
+          asset_name: output2.tar.gz
           asset_content_type: application/gzip
 
 
