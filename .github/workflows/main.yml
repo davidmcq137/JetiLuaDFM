@@ -20,6 +20,7 @@ jobs:
           cd lua_jeti
           make -j4 linux
       - name: Build LC
+        id: lc_build
         shell: bash
         run: |
           set -ex
@@ -28,16 +29,18 @@ jobs:
           DFM_MAPS_VERSION=$(lua -e "print((require 'DFM-Maps').version)")
           luac -o DFM-Maps.lc DFM-Maps.lua 
           zip -r "release-output/DFM-Maps-v${DFM_MAPS_VERSION}.zip"  DFM-Maps.lc DFM-Maps
+          echo "::set-output name=dfm_maps_version::${DFM_MAPS_VERSION}"
       - name: Upload release asset
         id: upload-release-asset 
         uses: softprops/action-gh-release@v1
+        needs: lc_build
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: release-${{ github.run_id }}
-          body: |
-            Release body see https://github.com/fazzone/JetiLuaDFM/actions/runs/${{ github.run_id }}
+          name: |
+            Release ${{ needs.lc_build.outputs.dfm_maps_version }}
           files: |
-            DFM-Maps.zip
+            release-output/*
 
 
 
