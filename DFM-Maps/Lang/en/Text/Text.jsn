@@ -78,5 +78,12 @@
     "DnL": "L",
     "swNoFly":"NoFly Ann",
     "airplaneIcon":"Airplane Icon",
-    "airplaneIcons":["Jet", "Glider", "Prop"]
+    "airplaneIcons":["Jet", "Glider", "Prop"],
+    "swThrottle":"Throttle",
+    "recordIGC":"Record IGC Logfile",
+    "selectVario":"Select Vario Sensor",
+    "selectAltimeter":"Select Baro Altimeter Sensor",
+    "maxTriAlt":"Maximum Race Altitude",
+    "TEKVario":"Select TEK Vario Sensor",
+    "Thr":"Thr"
 }
