@@ -4,8 +4,6 @@ on:
     branches: [master]
 jobs:
   build:
-    # outputs:
-    #   dfm_maps_version: ${{ steps.lc_build.outputs.dfm_maps_version }}
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout this repo
@@ -35,10 +33,6 @@ jobs:
 
           luac -o DFM-Maps.lc DFM-Maps.lua 
           zip -r $OUTPUT_ZIP DFM-Maps.lc DFM-Maps
-
-          for f in $(unzip -Z1 $OUTPUT_ZIP); do
-            [[ -f $f ]] && echo $(sha1sum $f) $(du -sb $f | cut -f 1) >>release-output/manifest
-          done
       - name: Upload release asset
         id: upload-release-asset 
         uses: softprops/action-gh-release@v1
