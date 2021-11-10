@@ -2428,10 +2428,10 @@ local function calcTriRace()
 				   math.floor(raceParam.rawScore - raceParam.penaltyPoints + 0.5),
 				   math.floor(raceParam.penaltyPoints + 0.5))
       if raceParam.usedThrottle then
-	 raceParam.subtitleText = raceParam.subtitleText .. " Thr"
+	 raceParam.subtitleText = raceParam.subtitleText .. " " .. lang.Thr
       end
       if raceParam.exceedMaxAlt then
-	 raceParam.subtitleText = raceParam.subtitleText .. " Alt"
+	 raceParam.subtitleText = raceParam.subtitleText .. " " .. lang.Alt
       end
    end
 
@@ -3935,11 +3935,8 @@ local function loop()
    end 
 
 
-   --print(math.floor(telem.Altitude.SeId), telem.Altitude.SePa)
-   
    sensor = system.getSensorByID(telem.Altitude.SeId, telem.Altitude.SePa)
 
-   --print(telem.Altitude.SeId, telem.Altitude.SePa, sensor.valid, sensor.value)
    if(sensor and sensor.valid) then
       if sensor.unit == "ft" then
 	 GPSAlt = sensor.value * 0.3048
@@ -3970,7 +3967,7 @@ local function loop()
    end
 
    sensor = system.getSensorByID(telem.Vario.SeId, telem.Vario.SePa)
-
+   
    if(sensor and sensor.valid) then -- assume units are m/s
       vario = sensor.value
    end

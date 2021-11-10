@@ -84,5 +84,6 @@
     "selectVario":"Select Vario Sensor",
     "selectAltimeter":"Select Baro Altimeter Sensor",
     "maxTriAlt":"Maximum Race Altitude",
-    "TEKVario":"Select TEK Vario Sensor"
+    "TEKVario":"Select TEK Vario Sensor",
+    "Thr":"Thr"
 }
