@@ -1,26 +1,26 @@
-	# Release Notes for Version 9.0 of DFM-Maps
+# Release Notes for Version 9.0 of DFM-Maps
 
-	## Bug fixes:
+## Bug fixes:
 
-	1. The app could sometimes crash when coming out of the map
+1. The app could sometimes crash when coming out of the map
 	browser.
 
-	2. There were occasional issues creating map repos when close to
+2. There were occasional issues creating map repos when close to
 	180 degrees longitude. Thanks to Dave in NZ for his help in
 	resolving this.
 
-	## New features/changes:
+## New features/changes:
 
-	Only one change may require you to re-enter data. See #3 and 4
+Only one change may require you to re-enter data. See #3 and 4
 	regarding triangle edits.
 
-	1. Language translation is now enabled, and this new version has
+1. Language translation is now enabled, and this new version has
 	the orginal English (locale "en") and translations for German,
 	Czech and French are being created. If you want to contribute a
 	translation that is not already done, see the file
 	DFM-Maps/Lang/readme.1st for instructions and contact us.
 
-	2. We've added a second full-screen telemetry window. Previously
+2. We've added a second full-screen telemetry window. Previously
 	we only had the Map view (which you enable with the Timers/Sensors
 	Displayed Telemetry screen on the TX). You will see that there is
 	now a second choice called the Triangle view.
@@ -40,7 +40,7 @@
 	than the Map view because of the additional computational load of
 	rotating the images insted of just the aircraft.
 
-	3. We have removed the Triangle Settings menu. All edits of the
+3. We have removed the Triangle Settings menu. All edits of the
 	triangle race course are now done with the Map Browser. Doing it
 	this way allows you to see the changes on the screen as you make
 	them. If you want to change the values vs. just browse, you have
@@ -60,7 +60,7 @@
 	adjustments when the same combination of model and field is used
 	(see next item).
 
-	4. In previous versions of the app, if you edited the triangle
+4. In previous versions of the app, if you edited the triangle
 	race course with the Map Browser, those edits were saved with the
 	model. This was not ideal since the edits would be applied to any
 	field where you used that model. We have changed this so that
@@ -69,7 +69,7 @@
 	field. We believe this is what pilots actually intended. Note! You
 	will have to re-enter triangle edits done previously.
 
-	5. If you have multiple fields at one GPS location, typically due
+5. If you have multiple fields at one GPS location, typically due
 	to wind-related orientations, or multiple runways, the app will
 	now remember the last selection (done with the manual field
 	selection menu) and go directly to that field when restarted or
@@ -80,7 +80,7 @@
 	manually changed each time. Thanks to Simon in Australia for
 	suggesting this.
 
-	6. There is a new menu item (Settings/Airplane Icon) for selecting
+6. There is a new menu item (Settings/Airplane Icon) for selecting
 	the icon used for your aircraft on the map. We currently have Jet,
 	Prop and Glider. The method previously used to set a custom icon
 	can still be used if you want to create your own icon. For a model
@@ -94,7 +94,7 @@
 	(very simple). We are happy to take contributed icon files and add
 	them to the menu in future releases if you wish.
 
-	7. We have added a setting to do light or dark backgrounds on the
+7. We have added a setting to do light or dark backgrounds on the
 	Map and Triangle views. This is in addition to the original image
 	(google map) background. Image view is not available on the new
 	Triangle view.  For the more technical users, all colors in the
@@ -102,7 +102,7 @@
 	DFM-Maps/JSON/Colors.jsn so if you want to make changes to the
 	r,g,b values of any feature colors, you can.
 
-	8. Some pilots have been experimenting with a version of GPS
+8. Some pilots have been experimenting with a version of GPS
 	triangle racing while slope soaring. Ideally this would be a
 	straight-line course with only two pylons. We have done something
 	to facilitate this experimentation which is to add a setting (Race
@@ -113,14 +113,14 @@
 	the triangle to a polygon which is amusing. Maybe GPS polygon
 	racing could become a thing...
 
-	9. You can now set up a switch to turn No Fly warnings on and off in
+9. You can now set up a switch to turn No Fly warnings on and off in
 	flight (Settings/NoFly Ann). If this switch is not assigned, then the
 	menu checkboxes control No Fly warning announcements as they have
 	previously. If the switch is assigned, it must be in the active (check)
 	position to allow warnings .. it is "and-ed" with the menu checkbox
 	announcement setting. Thanks to Jochen for suggesting this.
 
-	10. We have added a checkbox to the Telemetry sensors menu to
+10. We have added a checkbox to the Telemetry sensors menu to
 	treat a GPS altitude reading as absolute or relative. This is
 	primarily meant for GPS units we don't support for
 	auto-configuration (see file Apps/DFM-Maps/paramGPS.jsn) and are
@@ -138,7 +138,7 @@
 	We are happy to add additional GPSs to the autoconfiguration file
 	if we get the info from pilots.
 
-	11. We have added a switch to the Race Parameters menu for
+11. We have added a switch to the Race Parameters menu for
 	detecting use of throttle during a triangle race. First, you
 	should set up a logical switch which is on when the throttle is in
 	the "run" position and off when the throttle is off.  Then assign
@@ -157,14 +157,14 @@
 	and remain red and "Thr" will be appended to the subbtitle scoring
 	line.
 
-	12. We have added a maximum altitude setting to the Race
+12. We have added a maximum altitude setting to the Race
 	Parameters menu. Triangle racing rules require a maximum altitude
 	for a race. If this altitude is exceeded, an error will be
 	recorded and the subtitle line of the score will turn to red. The
 	letters "Alt" will be appended to the line to indicate exceeding
 	the max altitude.
 
-	13. It is now possible to create IGC-compliant log files, which
+13. It is now possible to create IGC-compliant log files, which
 	record the flight paramaters in a standardized format (see
 	https://xp-soaring.github.io/igc_file_format/igc_format_2008.html).
 
@@ -189,7 +189,7 @@
 	re-arm the start and this will create the next log file in the
 	naming sequence.
 
-	14. To support logging of pressure altitude and vario values in
+14. To support logging of pressure altitude and vario values in
 	the IGC logfiles, and make these values available for offline
 	analysis, we have added entires on the Telemetry Sensors screen
 	for an Altimeter (a barometric altitude, e.g. Rel. Altit or
