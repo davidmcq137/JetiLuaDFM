@@ -45,6 +45,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: release-${{ github.run_id }}
           files: |
             DFM-Maps.zip
 
