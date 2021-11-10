@@ -37,9 +37,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: release-${{ github.run_id }}
+          tag_name: release-v${{ steps.lc_build.outputs.dfm_maps_version }}-${{ github.sha }}
           name: |
-            Release ${{ steps.lc_build.outputs.dfm_maps_version }}
+            DFM-Maps version ${{ steps.lc_build.outputs.dfm_maps_version }} 
           files: |
             release-output/*
 
