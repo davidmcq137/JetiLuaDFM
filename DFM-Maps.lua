@@ -1373,18 +1373,18 @@ local function initForm(subform)
       savedRow = subform-1
       local menuSelectGPS = { -- for lat/long only
 	 Longitude= lang.selectLong,
-	 Latitude = lang.selectLat,
+	 Latitude = lang.selectLat
       }
       
       local menuSelect1 = { -- not from the GPS sensor
 	 Vario = lang.selectVario,
 	 Altimeter = lang.selectAltimeter,
-	 TEKVario = lang.selectTEKVario
+	 TEKVario = lang.TEKVario
       }
       
       local menuSelect2 = { -- non lat/long but still from GPS sensor
 	 Altitude = lang.selectAlt,
-	 SpeedGPS= lang.selectSpeed,
+	 SpeedGPS= lang.selectSpeed
       }     
       
       for var, txt in pairs(menuSelectGPS) do
