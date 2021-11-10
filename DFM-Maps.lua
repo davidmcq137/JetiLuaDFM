@@ -528,7 +528,7 @@ local function jLoadInit(fn)
       print("Did not read jLoad file "..fn)
       config = {}
    end
-   
+
    return config
 end
 
@@ -546,25 +546,18 @@ local function jLoadFinal(fn, config)
 end
 
 local function jLoad(config, var, def)
+                                   
    if not config then return nil end
+
    if config[var] == nil then
       config[var] = def
    end
-   -- if type(config[var]) == "userdata" then print("var: userdata", var) end
-   -- if type(config[var]) == "table" and #config[var] == 0 then -- getSwitchInfo table
-   --    return system.createSwitch(string.upper(config[var].label), config[var].mode, 1)
-   -- end
+
    return config[var]
 end
 
 local function jSave(config, var, val)
-   if type(val) == "userdata" then -- switchItem
-      config[var]= system.getSwitchInfo(val)
-      --print("jSave", config[var].label, config[var].value,
-      --  config[var].proportional, config[var].assigned, config[var].mode)
-   else
-      config[var] = val
-   end
+   config[var] = val
 end
 
 local function destroy()
@@ -590,8 +583,8 @@ local function readSensors()
    jt = io.readall(appInfo.Dir.."JSON/paramGPS.jsn")
    paramGPS = json.decode(jt)
    
-   for _, sensor in ipairs(sensors) do
-      --print("for loop:", sensor.sensorName, sensor.label, sensor.param, sensor.id)
+   for i, sensor in ipairs(sensors) do
+      print("for loop:", i, sensor.sensorName, sensor.label, sensor.param, sensor.id)
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then -- it's a label
 	    sensName = sensor.label
@@ -906,9 +899,9 @@ local function sensorChanged(value, str, isGPS)
       telem[str].SePa = 0 
    end
 
-   jSave("telem."..str..".Se", value)
-   jSave("telem."..str..".SeId", telem[str].SeId)
-   jSave("telem."..str..".SePa", telem[str].SePa)
+   jSave(variables, "telem_"..str.."_Se", value)
+   jSave(variables, "telem_"..str.."_SeId", string.format("%0X", telem[str].SeId))
+   jSave(variables, "telem_"..str.."_SePa", telem[str].SePa)
    
 end
 
@@ -3939,8 +3932,12 @@ local function loop()
       return
    end 
 
+
+   --print(math.floor(telem.Altitude.SeId), telem.Altitude.SePa)
+   
    sensor = system.getSensorByID(telem.Altitude.SeId, telem.Altitude.SePa)
 
+   --print(telem.Altitude.SeId, telem.Altitude.SePa, sensor.valid, sensor.value)
    if(sensor and sensor.valid) then
       if sensor.unit == "ft" then
 	 GPSAlt = sensor.value * 0.3048
@@ -4313,12 +4310,6 @@ local function init()
    
    graphInit(currentImage)  -- ok that currentImage is not yet defined
 
-   for i, j in ipairs(telem) do
-      --print("telem i,j, telem[i]", i, j, telem[i])
-      telem[j].Se   = system.jLoad("telem."..telem[i]..".Se", 0)
-      telem[j].SeId = system.jLoad("telem."..telem[i]..".SeId", 0)
-      telem[j].SePa = system.jLoad("telem."..telem[i]..".SePa", 0)
-   end
    
    variables = jLoadInit(jFilename())
    
@@ -4357,7 +4348,6 @@ local function init()
    variables.colorSwitchDir    = jLoad(variables, "colorSwitchDir", 0)            
    variables.noFlySwitchName   = jLoad(variables, "noFlySwitchName", 0)
    variables.noFlySwitchDir    = jLoad(variables, "noFlySwitchDir", 0)   
-   --variables.mapAlpha        = jLoad(variables, "mapAlpha", 255)
    variables.triColorMode      = jLoad(variables, "triColorMode", "Image")
    variables.airplaneIcon      = jLoad(variables, "airplaneIcon", 1)
    variables.triHistMax        = jLoad(variables, "triHistMax", 20)
@@ -4367,6 +4357,12 @@ local function init()
    variables.maxTriAlt         = jLoad(variables, "maxTriAlt", 500)
    
    --------------------------------------------------------------------------------
+
+   for i, j in ipairs(telem) do
+      telem[j].Se   = jLoad(variables, "telem_"..j.."_Se", 0)
+      telem[j].SeId = tonumber("0X" .. jLoad(variables, "telem_"..j.."_SeId", 0))
+      telem[j].SePa = jLoad(variables, "telem_"..j.."_SePa", 0)
+   end
    
    checkBox.triEnabled = jLoad(variables, "triEnabled", false)
    checkBox.noflyEnabled = jLoad(variables, "noflyEnabled", true)
