@@ -3,7 +3,9 @@ on:
   push:
     branches: [master]
 jobs:
-  build_and_upload:
+  build:
+    # outputs:
+    #   dfm_maps_version: ${{ steps.lc_build.outputs.dfm_maps_version }}
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout this repo
@@ -13,7 +15,7 @@ jobs:
         with:
           repository: fazzone/lua_jeti
           path: lua_jeti
-      - name: Build lua
+      - name: Build lua itself
         shell: bash
         run: |
           set -ex
@@ -33,12 +35,11 @@ jobs:
       - name: Upload release asset
         id: upload-release-asset 
         uses: softprops/action-gh-release@v1
-        needs: lc_build
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: release-${{ github.run_id }}
           name: |
-            Release ${{ needs.lc_build.outputs.dfm_maps_version }}
+            Release ${{ steps.lc_build.outputs.dfm_maps_version }}
           files: |
             release-output/*
 
