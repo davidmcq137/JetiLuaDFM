@@ -221,6 +221,8 @@ auxSensors.satCountID = 0
 auxSensors.satCountPa = 0
 auxSensors.satQualityID = 0
 auxSensors.satQualityPa = 0
+auxSensors.satCount = 0
+auxSensors.satQuality = 0
 
 local lang
 local locale
@@ -586,7 +588,7 @@ local function readSensors()
    paramGPS = json.decode(jt)
    
    for i, sensor in ipairs(sensors) do
-      print("for loop:", i, sensor.sensorName, sensor.label, sensor.param, sensor.id)
+      --print("for loop:", i, sensor.sensorName, sensor.label, sensor.param, sensor.id)
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then -- it's a label
 	    sensName = sensor.label
@@ -3836,8 +3838,9 @@ local function loop()
    goodlng = false
 
    -- start reading all the relevant sensors
-   
+
    sensor = system.getSensorByID(auxSensors.satCountID, auxSensors.satCountPa)
+   
    if sensor and sensor.valid then
       auxSensors.satCount = sensor.value
    end
@@ -3846,7 +3849,6 @@ local function loop()
    if sensor and sensor.valid then
       auxSensors.satQuality = sensor.value
    end   
-
 
    sensor = system.getSensorByID(telem.Longitude.SeId, telem.Longitude.SePa)
 
