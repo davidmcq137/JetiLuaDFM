@@ -83,5 +83,6 @@
     "recordIGC":"Record IGC Logfile",
     "selectVario":"Select Vario Sensor",
     "selectAltimeter":"Select Baro Altimeter Sensor",
-    "maxTriAlt":"Maximum Race Altitude"
+    "maxTriAlt":"Maximum Race Altitude",
+    "TEKVario":"Select TEK Vario Sensor"
 }

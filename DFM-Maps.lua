@@ -66,9 +66,11 @@ local speed = 0
 local SpeedGPS = 0
 local vario=0
 local altimeter=0
+local tekvario=0
+
 local binomC = {} -- array of binomial coefficients for Bezier
 local lng0, lat0, coslat0
--- 6378137 radius of earth in m
+-- rE is radius of earth in m (WGS84)
 local rE = 6378137
 local rad = 180/math.pi
 local relBearing
@@ -90,13 +92,14 @@ local newPosTime = 0
 local hasCourseGPS
 local lastHistTime=0
 
-local telem={"Latitude", "Longitude",   "Altitude", "SpeedGPS", "Vario", "Altimeter"}
+local telem={"Latitude", "Longitude",   "Altitude", "SpeedGPS", "Vario", "Altimeter", "TEKVario"}
 telem.Latitude={}
 telem.Longitude={}
 telem.Altitude={}
 telem.SpeedGPS={}
 telem.Vario={}
 telem.Altimeter={}
+telem.TEKVario={}
 
 local variables = {}
 
@@ -219,14 +222,6 @@ auxSensors.satCountPa = 0
 auxSensors.satQualityID = 0
 auxSensors.satQualityPa = 0
 
---local satCountID = 0
---local satCountPa = 0
---local satCount
-
---local satQualityID = 0
---local satQualityPa = 0
---local satQuality
-
 local lang
 local locale
 
@@ -283,30 +278,30 @@ local function IGC(cmd, str)
       end
    end
 
-   local function hms()
-      local tt = system.getTimeCounter() - raceParam.runningStartTime
-      local ss = tt / 1000.0
-      local mm = ss // 60.0
-      local ss = math.floor(ss - mm * 60 + 0.5)
-      local hh = math.floor(mm // 60.0)
-      local mm = math.floor(mm - hh * 60 + 0.5)
-      --print("hh,mm,ss:", hh, mm, ss)
+   local function hms(dti)
+      local dt
+      local tt, ss, mm, ss, hh, mm
+      -- emulator getDateTime() does not work correctly, fake it using system timer
+      if emFlag then
+	 tt = system.getTimeCounter() - raceParam.runningStartTime
+	 ss = tt / 1000.0
+	 mm = ss // 60.0
+	 ss = math.floor(ss - mm * 60 + 0.5)
+	 hh = math.floor(mm // 60.0)
+	 mm = math.floor(mm - hh * 60 + 0.5)
+      else
+	 if dti then
+	    dt = dti
+	 else
+	    dt = system.getDateTime()
+	 end
+	 hh = dt.hour
+	 mm = dt.min
+	 ss = dt.sec
+      end
       return string.format("%02d%02d%02d", hh, mm, ss)
    end
    
-   local function xxhms(dti)
-      local dt, str
-      if not dti then
-	 dt = system.getDateTime()
-	 print(dt.hour, dt.min, dt.sec)
-	 str = string.format("%02d%02d%02d", dt.hour, dt.min, dt.sec)
-      else
-	 str = string.format("%02d%02d%02d", dti.hour, dti.min, dti.sec)
-      end
-      print("hms - str:", str)
-      return str
-   end
-
    local function dmy(dti)
       local dt, str
       if not dti then
@@ -347,21 +342,21 @@ local function IGC(cmd, str)
       end
    end
 
-   -- I05 3637SIU 3840GSP 4143ENL 4446SUS 4751VAR
+   -- I05 3637SIU 3840GSP 4143ENL 4446SUS 4751VAR 5256VAT
    
    local function IGCb()
       --print("IGCb altitude", altitude)
       IGCw("B".. hms() .. IGClat(latitude) .. IGClng(longitude) ..
 	      "A"   .. string.format("%05d", altimeter) .. string.format("%05d", altitude) ..
 	      "00"  .. string.format("%03d", SpeedGPS) .. "000" ..
-	      "000" .. string.format("%05d", vario)
+	      "000" .. string.format("%05d", vario) .. string.format("%05d", tekvario)
       )
    end
    
    if cmd == "Open" then
       -- work from TX system date for now, should be UTC later
       -- filename format is YMDCXXXF.IGC
-      -- (https://xp-soaring.github.io/igc_file_format/igc_format_2008.html#link_4.5
+      -- https://xp-soaring.github.io/igc_file_format/igc_format_2008.html#link_4.5
       local dt = system.getDateTime()
       --print("dt", dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)
       local yy = string.format("%04d", dt.year)
@@ -410,28 +405,36 @@ local function IGC(cmd, str)
       else
 	 txt = "NA"
       end
-      IGCw( "HFPRSPRESSALTSENSOR:" .. txt)
-      IGCw( "HFRDEVICESN:".. ssn)
-      IGCw( "HFRFWFIRMWAREVERSION:0")
-      IGCw( "HFRHWHARDWAREVERSION:0")
-      IGCw( "HFFTYFRTYPE:DFM-Maps")
-      IGCw( "HFRLOGGERVERSION:1")
+      IGCw("HFPRSPRESSALTSENSOR:" .. txt)
+      IGCw("HFRDEVICESN:".. ssn)
+      IGCw("HFRFWFIRMWAREVERSION:0")
+      IGCw("HFRHWHARDWAREVERSION:0")
+      IGCw("HFFTYFRTYPE:DFM-Maps")
+      IGCw("HFRLOGGERVERSION:1")
      
-      IGCw( "I053637SIU3840GSP4143ENL4446SUS4751VAR")
+      IGCw("I053637SIU3840GSP4143ENL4446SUS4751VAR5256VAT")
 
       IGCw("LPilotID:" .. system.getUserName())
       IGCw("LProotocolVersion02.0")
       IGCw("LTSK:V:02.0")
-      
-      IGCw("C" .. dmy(dt) .. hms(dt) .. "10000000000003Gps Triangle")
-      IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. Field.shortname)
-      IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. "Start")      
-      IGCw("C" .. IGClat(xy2lat(1)) .. IGClng(xy2lng(1)) .. "Pylon 1")
-      IGCw("C" .. IGClat(xy2lat(2)) .. IGClng(xy2lng(2)) .. "Pylon 2")
-      IGCw("C" .. IGClat(xy2lat(3)) .. IGClng(xy2lng(3)) .. "Pylon 3")      
-      IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. "Finish")
-      IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. Field.shortname)      
 
+      if pylon and #pylon == 3 and tri and #tri == 3 and tri.center and tri.center.x then
+	 IGCw("C" .. dmy(dt) .. hms(dt) .. "10000000000003Gps Triangle")
+	 IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. Field.shortname)
+	 IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. "Start")      
+	 IGCw("C" .. IGClat(xy2lat(1)) .. IGClng(xy2lng(1)) .. "Pylon 1")
+	 IGCw("C" .. IGClat(xy2lat(2)) .. IGClng(xy2lng(2)) .. "Pylon 2")
+	 IGCw("C" .. IGClat(xy2lat(3)) .. IGClng(xy2lng(3)) .. "Pylon 3")      
+	 IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. "Finish")
+	 IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. Field.shortname)      
+      else
+	 IGCw("C" .. dmy(dt) .. hms(dt) .. "10000000000000")
+	 IGCw("C" .. IGClat(lat0 or 0) .. IGClng(lng0 or 0) .. Field.shortname)	 
+	 IGCw("C" .. IGClat(lat0 or 0) .. IGClng(lng0 or 0) .. "Start")
+	 IGCw("C" .. IGClat(lat0 or 0) .. IGClng(lng0 or 0) .. "Finish")
+	 IGCw("C" .. IGClat(lat0 or 0) .. IGClng(lng0 or 0) .. Field.shortname)
+      end
+      
    elseif cmd == "Close"   then
       print("Close - raceParam.IGCFile:", raceParam.IGCFile)
       if raceParam.IGCFile then
@@ -448,7 +451,6 @@ local function IGC(cmd, str)
       IGCw("L"..hms()..str)
       IGCb()
    else
-      print("bad call to IGC")
    end
    
 end
@@ -1376,7 +1378,8 @@ local function initForm(subform)
       
       local menuSelect1 = { -- not from the GPS sensor
 	 Vario = lang.selectVario,
-	 Altimeter = lang.selectAltimeter
+	 Altimeter = lang.selectAltimeter,
+	 TEKVario = lang.selectTEKVario
       }
       
       local menuSelect2 = { -- non lat/long but still from GPS sensor
@@ -2224,7 +2227,6 @@ local function calcTriRace()
 	 raceParam.raceFinished = true
 	 raceParam.raceEndTime = system.getTimeCounter()
 	 raceParam.startArmed = false
-	 print("Landed")
 	 IGC("Erecord", "STP")
 	 IGC("Lrecord", "Landed")
 	 IGC("Close")
@@ -3971,6 +3973,12 @@ local function loop()
 
    if(sensor and sensor.valid) then -- assume units are m/s
       vario = sensor.value
+   end
+
+   sensor = system.getSensorByID(telem.TEKVario.SeId, telem.TEKVario.SePa)
+
+   if(sensor and sensor.valid) then -- assume units are m/s
+      tekvario = sensor.value
    end
    
    sensor = system.getSensorByID(telem.Altimeter.SeId, telem.Altimeter.SePa)
