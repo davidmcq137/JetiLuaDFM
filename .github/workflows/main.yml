@@ -1,0 +1,49 @@
+name: CI
+on:
+  push:
+    branches: [master]
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v2
+      - name: Checkout lua_jeti repo
+        uses: actions/checkout@v2
+        with:
+          repository: fazzone/lua_jeti
+          path: lua_jeti
+      - name: Build lua itself
+        shell: bash
+        run: |
+          set -ex
+          cd lua_jeti
+          make -j4 linux
+      - name: Build LC
+        id: lc_build
+        shell: bash
+        run: |
+          set -ex
+          PATH="$PATH:$PWD/lua_jeti/src"
+          mkdir release-output
+
+          DFM_MAPS_VERSION=$(lua -e "print((require 'DFM-Maps').version)")
+          echo "::set-output name=dfm_maps_version::${DFM_MAPS_VERSION}"
+          OUTPUT_ZIP="release-output/DFM-Maps-v${DFM_MAPS_VERSION}.zip"
+
+          luac -o DFM-Maps.lc DFM-Maps.lua 
+          zip -r $OUTPUT_ZIP DFM-Maps.lc DFM-Maps
+      - name: Upload release asset
+        id: upload-release-asset 
+        uses: softprops/action-gh-release@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: release-v${{ steps.lc_build.outputs.dfm_maps_version }}-${{ github.sha }}
+          name: |
+            DFM-Maps version ${{ steps.lc_build.outputs.dfm_maps_version }} 
+          files: |
+            release-output/*
+
+
+
+
