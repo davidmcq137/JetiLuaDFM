@@ -15,4 +15,7 @@ MapsSimon/
 M-*.jsn
 MF-*.jsn
 *.igc
+DFM-Maps/IGC/*.igc
+DFM-Maps/JSON/sensorEmulator*
+DFM-Maps/Maps/*
 
