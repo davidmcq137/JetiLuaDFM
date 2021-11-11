@@ -438,7 +438,7 @@ local function IGC(cmd, str)
       end
       
    elseif cmd == "Close"   then
-      print("Close - raceParam.IGCFile:", raceParam.IGCFile)
+      --print("Close - raceParam.IGCFile:", raceParam.IGCFile)
       if raceParam.IGCFile then
 	 IGCw("G" .. "0000")
 	 io.close(raceParam.IGCFile)
@@ -2283,6 +2283,10 @@ local function calcTriRace()
       --raceParam.raceFinished = true
       raceParam.startArmed = false
       --raceParam.raceEndTime = system.getTimeCounter()
+      --issue stop command to logger and close the file .. when pilot re-arms it will
+      --open next file
+      IGC("Erecord", "STP")
+      IGC("Close")
    end
    
    
@@ -2378,14 +2382,12 @@ local function calcTriRace()
 
    --print( (sgTC - raceParam.racingStartTime) / 1000, variables.raceTime*60)
    if raceParam.racing and (sgTC - raceParam.racingStartTime) / 1000 >= variables.raceTime*60 then
-      print("FINISHED")
       playFile("race_finished.wav", AUDIO_IMMEDIATE)	    	 
       raceParam.racing = false
       raceParam.raceFinished = true
       raceParam.startArmed = false
       raceParam.startToggled = false
       raceParam.raceEndTime = sgTC
-      print("Race finished")
       IGC("Erecord", "STP")
       IGC("Close")
    end
@@ -2821,6 +2823,8 @@ local function dirPrint()
    local hh
    local triColorMode
 
+   --metrics.dirPCount = metrics.dirPCount + 1
+
    --[[
    if system.getInputs("SH") == 1 then
       lcd.drawText(0,10,
@@ -2829,7 +2833,7 @@ local function dirPrint()
       return
    end
    --]]
-   
+
    if not xtable or not ytable then return end
 
    if variables.triColorMode == "Dark" then
@@ -3399,6 +3403,15 @@ local function mapPrint(windowWidth, windowHeight)
    local swp
    local offset
    local ren=lcd.renderer()
+   local deltaC
+   
+   --metrics.mapPCount = metrics.mapPCount + 1
+
+   deltaC = metrics.xPCount - metrics.lastxPCount 
+   if  deltaC > 0 then
+      print("metrics.xPCount, metrics.lastxPCount", metrics.xPCount, metrics.lastxPCount)
+      metrics.lastxPCount = metrics.xPCount
+   end
    
    if form.getActiveForm() then return end
    
@@ -3533,7 +3546,9 @@ local function mapPrint(windowWidth, windowHeight)
 	 
 	 --]]
 	 --lcd.drawCircle(xPHist[i], yPHist[i], 2)
+	 
 	 lcd.drawLine(xPHist[i-1], yPHist[i-1], xPHist[i], yPHist[i])
+	 
 	 if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
 	    if system.getCPU() >= variables.maxCPU then
 	       print(appInfo.Name .. ": CPU panic", #xPHist, system.getCPU(), variables.maxCPU)
@@ -3802,11 +3817,16 @@ local function loop()
    local deltaPosTime = 100 -- min sample interval in ms
    local jj
    local swc = -2
-   
-   -- don't loop menu is up on screen
-   if form.getActiveForm() then return end
 
    metrics.loopCount = metrics.loopCount + 1
+
+   --metrics.dirPDelta = metrics.loopCount - metrics.dirPCount
+   --metrics.mapPDelta = metrics.loopCount - metrics.mapPCount
+
+   --print("lC, mapP, dirP, dPD, mPD", metrics.loopCount, metrics.dirPCount, metrics.mapPCount, metrics.dirPDelta, metrics.mapPDelta)
+      
+   -- don't loop menu is up on screen
+   if form.getActiveForm() then return end
 
    if metrics.loopCount & 3 == 1 then -- about every 4*30 msec
       calcTriRace()
@@ -4108,6 +4128,7 @@ local function loop()
 	    table.remove(lngHist, 1)
 	    table.remove(rgbHist, 1)
 	 end
+	 metrics.xPCount = metrics.xPCount + 1
 	 table.insert(xPHist, toXPixel(x, map.Xmin, map.Xrange, 319))
 	 table.insert(yPHist, toYPixel(y, map.Ymin, map.Yrange, 159))
 	 xHistLast = x
@@ -4383,7 +4404,11 @@ local function init()
    metrics.loopCount = 0
    metrics.lastLoopTime = system.getTimeCounter()
    metrics.loopTimeAvg = 0
-
+   metrics.xPCount = 0
+   metrics.dirPCount = 0
+   metrics.mapPCount = 0
+   metrics.lastxPCount = 0
+   
    setLanguage()
    
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
