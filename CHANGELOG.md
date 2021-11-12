@@ -198,3 +198,10 @@ Only one change may require you to re-enter data. See #3 and 4
 	our pilots use TEK compensated varios, we would be happy to work
 	with them to test this device .. I don't have access to one but
 	the code to put it in the the log file is in place.
+
+15. We have added the display of Index to the overhead map screen
+	and to the triangle screen. The value is only displayed when
+	triangle racing, and the value is updated with each lap. The Index
+	is the total distance flown in a lap, divided by the perimeter of
+	the triangle, multiplied by 100. If the IGC log file is open an
+	"L" or comment record is stored with the index value for the lap.

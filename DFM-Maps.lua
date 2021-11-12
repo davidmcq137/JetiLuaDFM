@@ -2038,6 +2038,11 @@ local function drawTriRace(windowWidth, windowHeight)
    lcd.drawText(5, 120, lang.Alt ..": ".. math.floor(altitude), FONT_MINI)
    lcd.drawText(5, 130, lang.Spd..": "..math.floor(speed), FONT_MINI)
 
+   if raceParam.racing and metrics.index then
+      local tlen = (variables.triLength * 2 * (1 + math.sqrt(2)))
+      lcd.drawText(260, 140, string.format("Index: %03d", metrics.index), FONT_MINI)
+   end
+		
    local ll
    local swa
 
@@ -2047,21 +2052,21 @@ local function drawTriRace(windowWidth, windowHeight)
    if swa and swa == 1 then
       if raceParam.racing then
 	 ll=lcd.getTextWidth(FONT_NORMAL, variables.annText)
-	 lcd.drawText(310-ll, 130, variables.annText, FONT_NORMAL)
+	 lcd.drawText(310-ll, 115, variables.annText, FONT_NORMAL)
 	 lcd.drawText(
 	    310-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
 	       lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(1,annTextSeq)) -
 	       lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(annTextSeq, annTextSeq))/2, 
-	    144, "^", FONT_MINI)      
+	    129, "^", FONT_MINI)      
       else
 	 
 	 ll=lcd.getTextWidth(FONT_NORMAL, variables.preText)
-	 lcd.drawText(310-ll, 130, variables.preText, FONT_NORMAL)
+	 lcd.drawText(310-ll, 115, variables.preText, FONT_NORMAL)
 	    lcd.drawText(
 	       310-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
 		  lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(1,preTextSeq)) -
 		  lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(preTextSeq, preTextSeq))/2, 
-	       144, "^", FONT_MINI)      
+	       129, "^", FONT_MINI)      
       end
    end
 end
@@ -2337,10 +2342,14 @@ local function calcTriRace()
 	       ((system.getTimeCounter()-raceParam.racingStartTime) / 1000)
 	    raceParam.lapStartTime = system.getTimeCounter()
 	    nextPylon = 1
+
+	    
 	    metrics.lapDist = metrics.distTrav
 	    metrics.distTrav = 0
+	    metrics.index = 100 * metrics.lapDist / perim
 	    IGC("Erecord", "TPC")
 	    IGC("Lrecord", "LSTARTSTARTTPC")
+	    IGC("Lrecord", string.format("Index: %d", metrics.index))
 	 end
       end
       
@@ -2373,6 +2382,9 @@ local function calcTriRace()
 	 raceParam.rawScore = 0
 	 raceParam.usedythrottle = false
 	 raceParam.maxTriAlt = false
+	 metrics.distTrav = 0
+	 metrics.lapDist = nil
+	 metrics.index = nil
 	 IGC("Erecord", "TPC")
 	 IGC("Lrecord", "LSTARTSTARTTPC")
       end
@@ -3179,11 +3191,16 @@ local function dirPrint()
    end
    
    if variables.ribbonColorSource ~= 1 and ribbon.currentValue then
-      lcd.drawText(18, 140, string.format("%s: " .. ribbon.currentFormat,
+      lcd.drawText(18, 130, string.format("%s: " .. ribbon.currentFormat,
 					 colorSelect[variables.ribbonColorSource],
 					 ribbon.currentValue), FONT_MINI)
       lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
-      lcd.drawFilledRectangle(6,143,8,8)
+      lcd.drawFilledRectangle(6,133,8,8)
+      if metrics.index then
+	 setColor("Label", triColorMode)
+	 lcd.drawText(5, 145, string.format("Index: %03d", metrics.index), FONT_MINI)	 
+      end
+      
    end
 
    collectgarbage()
