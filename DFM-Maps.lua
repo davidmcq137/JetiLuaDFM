@@ -2337,6 +2337,8 @@ local function calcTriRace()
 	       ((system.getTimeCounter()-raceParam.racingStartTime) / 1000)
 	    raceParam.lapStartTime = system.getTimeCounter()
 	    nextPylon = 1
+	    metrics.lapDist = metrics.distTrav
+	    metrics.distTrav = 0
 	    IGC("Erecord", "TPC")
 	    IGC("Lrecord", "LSTARTSTARTTPC")
 	 end
@@ -3403,16 +3405,16 @@ local function mapPrint(windowWidth, windowHeight)
    local swp
    local offset
    local ren=lcd.renderer()
-   local deltaC
    
    --metrics.mapPCount = metrics.mapPCount + 1
-
+   --[[
+   local deltaC
    deltaC = metrics.xPCount - metrics.lastxPCount 
    if  deltaC > 0 then
-      print("metrics.xPCount, metrics.lastxPCount", metrics.xPCount, metrics.lastxPCount)
+      --print("metrics.xPCount, metrics.lastxPCount", metrics.xPCount, metrics.lastxPCount)
       metrics.lastxPCount = metrics.xPCount
    end
-   
+   --]]
    if form.getActiveForm() then return end
    
    if recalcDone() then
@@ -4108,13 +4110,12 @@ local function loop()
       -- depending on how precise we need to be (e.g. interpolate start/end line from
       -- actual GPS points straddling it, and if we are to detect and remove thermalling?
       
-      --[[
+      ---[[
       if #xtable > 2 then
 	 local lp = #xtable
 	 local np = lp -1
 	 metrics.distTrav = metrics.distTrav +
 	    math.sqrt( (xtable[lp] - xtable[np])^2 + (ytable[lp] - ytable[np])^2)
-	 print("dist:", metrics.distTrav)
       end
       --]]
       
