@@ -42,9 +42,6 @@
    operate without a map (zero point on startup, screen centered on zero since we don't have a 
    direction, use standard mag levels, and light or dark background)
 
-   3) support IGC format output files for upload to analyzer sites. Deal with UTC time? Get time from 
-   GPS vs. TX?
-
 --]]
 
 local appInfo={}
@@ -465,7 +462,7 @@ local function setLanguage()
 
    locale = system.getLocale()
 
-   --locale = "de" ------------------------------- TEST ------------------------
+   --locale = "fr" ------------------------------- TEST ------------------------
    
    transFile = appInfo.Dir .. "Lang/" .. locale .. "/Text/Text.jsn"
    fp = io.readall(transFile)
@@ -2038,7 +2035,7 @@ local function drawTriRace(windowWidth, windowHeight)
    lcd.drawText(5, 120, lang.Alt ..": ".. math.floor(altitude), FONT_MINI)
    lcd.drawText(5, 130, lang.Spd..": "..math.floor(speed), FONT_MINI)
 
-   if raceParam.racing and metrics.index then
+   if metrics.index then
       local tlen = (variables.triLength * 2 * (1 + math.sqrt(2)))
       lcd.drawText(260, 140, string.format("Index: %03d", metrics.index), FONT_MINI)
    end

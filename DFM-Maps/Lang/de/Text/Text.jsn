@@ -79,5 +79,11 @@
     "swNoFly":"NoFly Ann",
     "airplaneIcon":"Flugzeug Icon",
     "airplaneIcons":["Jet", "Segler", "Motor"],
-    "swThrottle":"Throttle"
+    "swThrottle":"Motor",
+    "recordIGC":"Aufnahme IGC Logfile",
+    "selectVario":"Wähle Vario Sensor",
+    "selectAltimeter":"Wähle baro. Höhensensor",
+    "maxTriAlt":"max. Wettbewerbshöhe",
+    "TEKVario":"Wähle TEK Vario Sensor",
+    "Thr":"Mot."
 }
