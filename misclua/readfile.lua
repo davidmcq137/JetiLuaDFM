@@ -47,6 +47,8 @@ local function crc16add(str)
    return
 end
 
+print(arg[-2], arg[-1], arg[0], arg[1], arg[2], arg[3])
+
 local file = io.open("/home/davidmcq/JS/DFM-Maps/IGC/2012-01-03-XDM-7FA-10.igc")
 if not file then print("cannot open file") barf()  end
 io.input(file)
