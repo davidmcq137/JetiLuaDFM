@@ -537,6 +537,9 @@ local function setLanguage()
    transFile = appInfo.Dir .. "Lang/" .. locale .. "/Text/Text.jsn"
    fp = io.readall(transFile)
 
+   
+   print("DFM-Maps: locale " .. locale)
+
    if not fp then
       system.messageBox("DFM-Maps: No Tranlation for locale " .. locale)
       print("DFM-Maps: No Tranlation for locale " .. locale)      
