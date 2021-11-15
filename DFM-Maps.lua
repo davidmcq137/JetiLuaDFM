@@ -538,7 +538,7 @@ local function setLanguage()
    fp = io.readall(transFile)
 
    
-   print("DFM-Maps: locale " .. locale)
+   --print("DFM-Maps: locale " .. locale)
 
    if not fp then
       system.messageBox("DFM-Maps: No Tranlation for locale " .. locale)
