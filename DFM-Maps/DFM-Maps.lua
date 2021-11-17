@@ -3,20 +3,44 @@
    ---------------------------------------------------------------------------------------
    DFM-Maps.lua -- GPS map display and triangle racing app
 
-   Derived from Twizard.lua and DFM-TriR.lua and DFM-LSO.lua --
-   "Landing Signal Officer" -- GPS Map and "ILS"/GPS RNAV system
-   derived from DFM's Speed and Time Announcers, which were turn was
-   derived from Tero's RCT's Alt Announcer Borrowed and modified code
-   from Jeti's AH example for tapes and heading indicator.  New code
-   to project Lat/Long via simple equirectangular projection to XY
-   plane, and to compute heading from the projected XY plane track for
-   GPS sensors that don't have this feature
-    
+   This app displays the track of an aircraft on the TX display,
+   reading a GPS telemetry device. The flight path is optionally
+   overlaid on a google maps image set of the flying site. Map sets
+   are created with the website www.jetiluadfm.app.  This website can
+   create a dynamic repository of the app as well as all required map
+   files, and download it to the TX using Jeti Studio's Lua App
+   manager.
+
+   The app can also run a GPS traingle race following a simplified set
+   of the official triangle racing rules.
+
+   DFM-Maps was orginally developed as DFM-LSO, which had a gps and
+   map display capability as well as an RNAV-like landing guidance
+   system. This then evolved to a triangle racing program as suggested
+   by Harry Curzon which was called T-Wizard, then split into DFM-TriR
+   (the racing app) and DFM-TriM (the map browser). Finally, TriR and
+   TriM were combined into DFM-Maps.
+
+   This app owes a debt to some very early ideas in Tero's RCT Alt
+   announcer, the Jeti Artificial Horizon app, and the Jeti Virtual
+   sensor app.
+
+   We use a simple equirectangular projection of the map to the screen.
+
    Developed on DS-24, only tested on DS-24
 
    ---------------------------------------------------------------------------------------
-   Released under MIT license by DFM 2020
+   Released under MIT license by DFM 2021
    ---------------------------------------------------------------------------------------
+   
+   Thoughts for future releases:
+
+   1) handle the Z dimension in tri racing. thermalling screen? Leon's thermal assist? integrate vario
+   in some way?
+
+   2) separate "no GPS fix" from "no Maps" on startup. Supply animation waiting for GPS. let the app
+   operate without a map (zero point on startup, screen centered on zero since we don't have a 
+   direction, use standard mag levels, and light or dark background)
 
 --]]
 
@@ -37,9 +61,13 @@ local lastHeading = 0
 local altitude = 0
 local speed = 0
 local SpeedGPS = 0
+local vario=0
+local altimeter=0
+local tekvario=0
+
 local binomC = {} -- array of binomial coefficients for Bezier
 local lng0, lat0, coslat0
--- 6378137 radius of earth in m
+-- rE is radius of earth in m (WGS84)
 local rE = 6378137
 local rad = 180/math.pi
 local relBearing
@@ -61,11 +89,14 @@ local newPosTime = 0
 local hasCourseGPS
 local lastHistTime=0
 
-local telem={"Latitude", "Longitude",   "Altitude", "SpeedGPS"}
+local telem={"Latitude", "Longitude",   "Altitude", "SpeedGPS", "Vario", "Altimeter", "TEKVario"}
 telem.Latitude={}
 telem.Longitude={}
 telem.Altitude={}
 telem.SpeedGPS={}
+telem.Vario={}
+telem.Altimeter={}
+telem.TEKVario={}
 
 local variables = {}
 
@@ -120,12 +151,14 @@ local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
 local sensorPalist = { "..." }  -- sensor parameters
 local sensorUnlist = { "..." }  -- sensor Units
+local sensorNalist = { "..." }  -- sensor Names
 
 -- these lists are the GPS sensors that have to be processed differently
 
 local GPSsensorLalist = { "..." }
 local GPSsensorIdlist = { "..." }
 local GPSsensorPalist = { "..." }
+local GPSsensorNalist = { "..." }
 
 local checkBox = {}
 local checkBoxIndex = {}
@@ -156,6 +189,7 @@ local raceParam = {}
 raceParam.startToggled = false
 raceParam.startArmed = false
 raceParam.racing = false
+raceParam.runningStartTime = system.getTimeCounter()
 raceParam.racingStartTime = 0
 raceParam.lapStartTime = 0
 raceParam.lapsComplete = 0
@@ -168,6 +202,8 @@ raceParam.rawScore = 0
 raceParam.penaltyPoints=0
 raceParam.flightStarted=0
 raceParam.flightLandTime=0
+raceParam.usedThrottle = false
+raceParam.exceedMaxAlt = false
 
 local fieldPNG={}
 local maxImage
@@ -177,16 +213,316 @@ local dotImage = {}
 
 local emFlag
 
-local satCountID = 0
-local satCountPa = 0
-local satCount
-
-local satQualityID = 0
-local satQualityPa = 0
-local satQuality
+local auxSensors = {}
+auxSensors.satCountID = 0
+auxSensors.satCountPa = 0
+auxSensors.satQualityID = 0
+auxSensors.satQualityPa = 0
+auxSensors.satCount = 0
+auxSensors.satQuality = 0
 
 local lang
 local locale
+
+local function rotateXY(xx, yy, rotation)
+   local sinShape, cosShape
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
+end
+
+local function IGC(cmd, str)
+
+   if not checkBox.recordIGC then return end
+   
+   if not variables.triEnabled then return end
+   
+   if cmd ~= "Open" and not raceParam.IGCFile then return end
+   
+   local function xy2lat(n)
+      local xx, yy
+      local tx, ty
+      local lt
+      if n > 0 then
+	 xx, yy = pylon[n].x, pylon[n].y
+      else
+	 xx, yy = tri.center.x + variables.triOffsetX, tri.center.y + variables.triOffsetY
+      end
+      tx, ty = rotateXY(xx, yy, -math.rad(variables.rotationAngle))
+      lt = lat0 + (ty * rad) / (rE)
+      return lt
+   end
+   
+   local function xy2lng(n)
+      local xx, yy
+      local tx, ty
+      local lg
+      if n > 0 then
+	 xx, yy = pylon[n].x, pylon[n].y
+      else
+	 xx, yy = tri.center.x + variables.triOffsetX, tri.center.y + variables.triOffsetY
+      end
+      tx, ty = rotateXY(xx, yy, -math.rad(variables.rotationAngle))
+      lg = lng0 + (tx * rad) / (rE * coslat0)
+      return lg
+   end
+
+   local function to1char(num)
+      if num < 10 then
+	 return tostring(num)
+      elseif num < 36 then
+	 return string.char(string.byte("A") + num - 9)
+      else
+	 return nil
+      end
+   end
+
+   local function hms(dti)
+      local dt
+      local tt, ss, mm, ss, hh, mm
+      -- emulator getDateTime() does not work correctly, fake it using system timer
+      if emFlag then
+	 tt = system.getTimeCounter() - raceParam.runningStartTime
+	 ss = tt / 1000.0
+	 mm = ss // 60.0
+	 ss = math.floor(ss - mm * 60 + 0.5)
+	 hh = math.floor(mm // 60.0)
+	 mm = math.floor(mm - hh * 60 + 0.5)
+      else
+	 if dti then
+	    dt = dti
+	 else
+	    dt = system.getDateTime()
+	 end
+	 hh = dt.hour
+	 mm = dt.min
+	 ss = dt.sec
+      end
+      return string.format("%02d%02d%02d", hh, mm, ss)
+   end
+   
+   local function dmy(dti)
+      local dt, str
+      if not dti then
+	 dt = system.getDateTime()
+	 str = string.format("%02d%02d%02d", dt.day, dt.mon, dt.year % 100)      	 
+      else
+	 str = string.format("%02d%02d%02d", dti.day, dti.mon, dti.year % 100)      	 	 
+      end
+      return str
+   end
+
+   local function ll2dms(ll)
+      local deg, min = math.modf(ll)
+      min = min * 60
+      return deg, math.floor(min*1000)
+   end
+   
+   local function IGClat(lat)
+      local dir
+      local deg, min
+      if lat < 0 then dir = "S" else dir = "N" end
+      deg, min = ll2dms(math.abs(lat))
+      return string.format("%02d%05d%s", deg, min, dir)
+   end
+
+   local function IGClng(lng)
+      local dir
+      local deg, min
+      if lng < 0 then dir = "W" else dir = "E" end
+      deg, min = ll2dms(math.abs(lng))
+      return string.format("%03d%05d%s", deg, min, dir)
+   end
+
+
+   --following code adapted from
+   --https://github.com/cloudwu/skynet/blob/master/lualib/skynet/db/redis/crc16.lua
+
+   local XMODEMCRC16Lookup = {
+      0x0000,0x1021,0x2042,0x3063,0x4084,0x50a5,0x60c6,0x70e7,
+      0x8108,0x9129,0xa14a,0xb16b,0xc18c,0xd1ad,0xe1ce,0xf1ef,
+      0x1231,0x0210,0x3273,0x2252,0x52b5,0x4294,0x72f7,0x62d6,
+      0x9339,0x8318,0xb37b,0xa35a,0xd3bd,0xc39c,0xf3ff,0xe3de,
+      0x2462,0x3443,0x0420,0x1401,0x64e6,0x74c7,0x44a4,0x5485,
+      0xa56a,0xb54b,0x8528,0x9509,0xe5ee,0xf5cf,0xc5ac,0xd58d,
+      0x3653,0x2672,0x1611,0x0630,0x76d7,0x66f6,0x5695,0x46b4,
+      0xb75b,0xa77a,0x9719,0x8738,0xf7df,0xe7fe,0xd79d,0xc7bc,
+      0x48c4,0x58e5,0x6886,0x78a7,0x0840,0x1861,0x2802,0x3823,
+      0xc9cc,0xd9ed,0xe98e,0xf9af,0x8948,0x9969,0xa90a,0xb92b,
+      0x5af5,0x4ad4,0x7ab7,0x6a96,0x1a71,0x0a50,0x3a33,0x2a12,
+      0xdbfd,0xcbdc,0xfbbf,0xeb9e,0x9b79,0x8b58,0xbb3b,0xab1a,
+      0x6ca6,0x7c87,0x4ce4,0x5cc5,0x2c22,0x3c03,0x0c60,0x1c41,
+      0xedae,0xfd8f,0xcdec,0xddcd,0xad2a,0xbd0b,0x8d68,0x9d49,
+      0x7e97,0x6eb6,0x5ed5,0x4ef4,0x3e13,0x2e32,0x1e51,0x0e70,
+      0xff9f,0xefbe,0xdfdd,0xcffc,0xbf1b,0xaf3a,0x9f59,0x8f78,
+      0x9188,0x81a9,0xb1ca,0xa1eb,0xd10c,0xc12d,0xf14e,0xe16f,
+      0x1080,0x00a1,0x30c2,0x20e3,0x5004,0x4025,0x7046,0x6067,
+      0x83b9,0x9398,0xa3fb,0xb3da,0xc33d,0xd31c,0xe37f,0xf35e,
+      0x02b1,0x1290,0x22f3,0x32d2,0x4235,0x5214,0x6277,0x7256,
+      0xb5ea,0xa5cb,0x95a8,0x8589,0xf56e,0xe54f,0xd52c,0xc50d,
+      0x34e2,0x24c3,0x14a0,0x0481,0x7466,0x6447,0x5424,0x4405,
+      0xa7db,0xb7fa,0x8799,0x97b8,0xe75f,0xf77e,0xc71d,0xd73c,
+      0x26d3,0x36f2,0x0691,0x16b0,0x6657,0x7676,0x4615,0x5634,
+      0xd94c,0xc96d,0xf90e,0xe92f,0x99c8,0x89e9,0xb98a,0xa9ab,
+      0x5844,0x4865,0x7806,0x6827,0x18c0,0x08e1,0x3882,0x28a3,
+      0xcb7d,0xdb5c,0xeb3f,0xfb1e,0x8bf9,0x9bd8,0xabbb,0xbb9a,
+      0x4a75,0x5a54,0x6a37,0x7a16,0x0af1,0x1ad0,0x2ab3,0x3a92,
+      0xfd2e,0xed0f,0xdd6c,0xcd4d,0xbdaa,0xad8b,0x9de8,0x8dc9,
+      0x7c26,0x6c07,0x5c64,0x4c45,0x3ca2,0x2c83,0x1ce0,0x0cc1,
+      0xef1f,0xff3e,0xcf5d,0xdf7c,0xaf9b,0xbfba,0x8fd9,0x9ff8,
+      0x6e17,0x7e36,0x4e55,0x5e74,0x2e93,0x3eb2,0x0ed1,0x1ef0
+   }
+   
+   local function crc16init()
+      raceParam.crc16 = {0,0,0,0,0,0}
+   end
+   
+   local function crc16add(str)
+      -- compute a crc16 for columns 1-10, 11-20, 21-30, 31-40, 41-50, 51-60
+      local b
+      local crc = raceParam.crc16
+      for j=1, 6 do
+	 for i=(j-1)*10+1,j*10  do
+	    b = string.byte(str,i,i) or 0
+	    crc[j] = ((crc[j]<<8) & 0xffff) ~ XMODEMCRC16Lookup[(((crc[j]>>8)~b) & 0xff) + 1]
+	    --print(str)
+	    --print(string.format("%04X|%04X|%04X|%04X|%04X|%04X",
+				--crc[1], crc[2], crc[3], crc[4], crc[5], crc[6]))
+	 end
+      end
+      return
+   end
+
+   local function crc16final()
+      local crc = raceParam.crc16
+      local r = string.format("%04X", crc[1])
+      for i=2,6 do
+	 r = r .. string.format("%04X", crc[i])
+      end
+      return r
+   end
+
+   local function IGCw(str)
+      if raceParam.IGCFile then
+	 --print("IGCw <" .. str .. ">")
+	 crc16add(str)
+	 io.write(raceParam.IGCFile, str .."\r\n")
+      end
+   end
+   
+   -- I05 3637SIU 3840GSP 4143ENL 4446SUS 4751VAR 5256VAT
+   
+   local function IGCb()
+      --print("IGCb altitude", altitude)
+      IGCw("B".. hms() .. IGClat(latitude) .. IGClng(longitude) ..
+	      "A"   .. string.format("%05d", altimeter) .. string.format("%05d", altitude) ..
+	      "00"  .. string.format("%03d", SpeedGPS) .. "000" ..
+	      "000" .. string.format("%05d", vario) .. string.format("%05d", tekvario)
+      )
+   end
+   
+   if cmd == "Open" then
+      -- work from TX system date for now, should be UTC later
+      -- filename format is YMDCXXXF.IGC
+      -- https://xp-soaring.github.io/igc_file_format/igc_format_2008.html#link_4.5
+      local dt = system.getDateTime()
+      --print("dt", dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)
+      local yy = string.format("%04d", dt.year)
+      local mm = string.format("%02d", dt.mon)
+      local dd = string.format("%02d", dt.day)
+      local ssn = system.getSerialCode()
+      local sn = string.sub(ssn, -3)
+
+      local fname
+      for i=1, 35, 1 do
+	 fname = yy .. "-" .. dd .. "-" .. mm .. "-XDM-" .. sn .. "-" ..string.format("%02d", i) .. ".igc"
+	 --print("fname: " .. fname)
+	 local fr = io.open(appInfo.Dir .. "IGC/" .. fname, "r")
+	 if fr then
+	    io.close(fr)
+	 else
+	    raceParam.IGCFile = io.open(appInfo.Dir .. "IGC/" .. fname, "w")
+	    if raceParam.IGCFile then
+	       print(appInfo.Name .. ": Opening igc file " .. appInfo.Dir .. "IGC/" .. fname)
+	       crc16init()
+	       break
+	    else
+	       print(appInfo.Name .. ": Cannot open igc file")
+	       return
+	    end
+	 end
+      end
+
+      IGCw( "AXDM"..sn)
+
+      IGCw( "HFDTE" ..dmy(dt))
+      IGCw( "HFPLTPILOTINCHARGE:" .. system.getUserName())
+      IGCw( "HFCM2CREW2:" .. system.getDeviceType())
+      IGCw( "HFGTYGLIDERTYPE:" .. system.getProperty("Model"))
+      IGCw( "HFGIDGLIDERID:" .. system.getProperty("ModelFile"))
+      IGCw( "HSCIDCOMPETITIONID:NA")
+      IGCw( "HFDTMGPSDATUM:WG84")
+      local txt
+      if GPSsensorNalist[telem.Latitude.Se] and GPSsensorLalist[telem.Latitude.Se] then
+	 txt = GPSsensorNalist[telem.Latitude.Se] .. "." .. GPSsensorLalist[telem.Latitude.Se]
+      else
+	 txt = "NA"
+      end
+      IGCw( "HFGPSRECEIVER:".. txt)
+      if sensorNalist[telem.Altimeter.Se] and sensorLalist[telem.Altimeter.Se] then
+	 txt = sensorNalist[telem.Altimeter.Se] .. "." .. sensorLalist[telem.Altimeter.Se]
+      else
+	 txt = "NA"
+      end
+      IGCw("HFPRSPRESSALTSENSOR:" .. txt)
+      IGCw("HFRDEVICESN:".. ssn)
+      IGCw("HFRFWFIRMWAREVERSION:0")
+      IGCw("HFRHWHARDWAREVERSION:0")
+      IGCw("HFFTYFRTYPE:DFM-Maps")
+      IGCw("HFRLOGGERVERSION:1")
+     
+      IGCw("I053637SIU3840GSP4143ENL4446SUS4751VAR5256VAT")
+
+      IGCw("LPilotID:" .. system.getUserName())
+      IGCw("LProotocolVersion02.0")
+      IGCw("LTSK:V:02.0")
+
+      if pylon and #pylon == 3 and tri and #tri == 3 and tri.center and tri.center.x then
+	 IGCw("C" .. dmy(dt) .. hms(dt) .. "10000000000003Gps Triangle")
+	 IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. Field.shortname)
+	 IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. "Start")      
+	 IGCw("C" .. IGClat(xy2lat(1)) .. IGClng(xy2lng(1)) .. "Pylon 1")
+	 IGCw("C" .. IGClat(xy2lat(2)) .. IGClng(xy2lng(2)) .. "Pylon 2")
+	 IGCw("C" .. IGClat(xy2lat(3)) .. IGClng(xy2lng(3)) .. "Pylon 3")      
+	 IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. "Finish")
+	 IGCw("C" .. IGClat(xy2lat(0)) .. IGClng(xy2lng(0)) .. Field.shortname)      
+      else
+	 IGCw("C" .. dmy(dt) .. hms(dt) .. "10000000000000")
+	 IGCw("C" .. IGClat(lat0 or 0) .. IGClng(lng0 or 0) .. Field.shortname)	 
+	 IGCw("C" .. IGClat(lat0 or 0) .. IGClng(lng0 or 0) .. "Start")
+	 IGCw("C" .. IGClat(lat0 or 0) .. IGClng(lng0 or 0) .. "Finish")
+	 IGCw("C" .. IGClat(lat0 or 0) .. IGClng(lng0 or 0) .. Field.shortname)
+      end
+      
+   elseif cmd == "Close"   then
+      --print("Close - raceParam.IGCFile:", raceParam.IGCFile)
+      if raceParam.IGCFile then
+	 IGCw("G" .. crc16final() .. "\r\n")
+	 io.close(raceParam.IGCFile)
+      end
+      raceParam.IGCFile = nil
+   elseif cmd == "Brecord" then
+      IGCb()
+   elseif cmd == "Erecord" then
+      IGCw("E"..hms()..str)
+      IGCb()
+   elseif cmd == "Lrecord" then
+      IGCw("L"..hms()..str)
+      IGCb()
+   else
+   end
+   
+end
 
 local function setLanguage()
 
@@ -195,8 +531,14 @@ local function setLanguage()
    local transFile
 
    locale = system.getLocale()
+
+   --locale = "fr" ------------------------------- TEST ------------------------
+   
    transFile = appInfo.Dir .. "Lang/" .. locale .. "/Text/Text.jsn"
    fp = io.readall(transFile)
+
+   
+   --print("DFM-Maps: locale " .. locale)
 
    if not fp then
       system.messageBox("DFM-Maps: No Tranlation for locale " .. locale)
@@ -260,7 +602,7 @@ local function jLoadInit(fn)
       print("Did not read jLoad file "..fn)
       config = {}
    end
-   
+
    return config
 end
 
@@ -278,28 +620,24 @@ local function jLoadFinal(fn, config)
 end
 
 local function jLoad(config, var, def)
+                                   
    if not config then return nil end
+
    if config[var] == nil then
       config[var] = def
    end
-   -- if type(config[var]) == "userdata" then print("var: userdata", var) end
-   -- if type(config[var]) == "table" and #config[var] == 0 then -- getSwitchInfo table
-   --    return system.createSwitch(string.upper(config[var].label), config[var].mode, 1)
-   -- end
+
    return config[var]
 end
 
 local function jSave(config, var, val)
-   if type(val) == "userdata" then -- switchItem
-      config[var]= system.getSwitchInfo(val)
-      --print("jSave", config[var].label, config[var].value,
-      --  config[var].proportional, config[var].assigned, config[var].mode)
-   else
-      config[var] = val
-   end
+   config[var] = val
 end
 
 local function destroy()
+   if raceParam.IGCFile then
+      io.close(raceParam.IGCFile)
+   end
    if appInfo.SaveData then
       if jLoadFinal(jFilename(), variables) then
 	 --print("jLoad successful write")
@@ -314,22 +652,27 @@ local function readSensors()
    local jt, paramGPS
    local sensors = system.getSensors()
    local seSeq, param, label
+   local sensName = ""
    
    jt = io.readall(appInfo.Dir.."JSON/paramGPS.jsn")
    paramGPS = json.decode(jt)
    
-   for _, sensor in ipairs(sensors) do
-      --print("for loop:", sensor.sensorName, sensor.label, sensor.param, sensor.id)
+   for i, sensor in ipairs(sensors) do
+      --print("for loop:", i, sensor.sensorName, sensor.label, sensor.param, sensor.id)
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then -- it's a label
+	    sensName = sensor.label
 	    table.insert(sensorLalist, '--> '..sensor.label)
 	    table.insert(sensorIdlist, 0)
 	    table.insert(sensorPalist, 0)
+	    table.insert(sensorUnlist, 0)
+	    table.insert(sensorNalist, 0)
 	 elseif sensor.type == 9 then  -- lat/long
 	    table.insert(GPSsensorLalist, sensor.label)
 	    seSeq = #GPSsensorLalist
 	    table.insert(GPSsensorIdlist, sensor.id)
 	    table.insert(GPSsensorPalist, sensor.param)
+	    table.insert(GPSsensorNalist, sensName)
 	 elseif sensor.type == 5 then -- date - ignore
 	 else -- regular numeric sensor
 	    table.insert(sensorLalist, sensor.label)
@@ -337,6 +680,8 @@ local function readSensors()
 	    table.insert(sensorIdlist, sensor.id)
 	    table.insert(sensorPalist, sensor.param)
 	    table.insert(sensorUnlist, sensor.unit)
+	    table.insert(sensorNalist, sensName)
+	    --print("sensorNalist", #sensorNalist, sensName, sensor.label,sensor.param, sensor.unit)
 	 end
 
 	 -- if it's not a label, and it's a sensor see we have in the auto-assign table...
@@ -353,11 +698,11 @@ local function readSensors()
 	    
 	    if param and label then
 	       if label == "SatCount" then
-		  satCountID = sensor.id
-		  satCountPa = param
+		  auxSensors.satCountID = sensor.id
+		  auxSensors.satCountPa = param
 	       elseif label == "SatQuality" then
-		  satQualityID = sensor.id
-		  satQualityPa = param
+		  auxSensors.satQualityID = sensor.id
+		  auxSensors.satQualityPa = param
 	       elseif label == "Altitude" then
 
 		  if paramGPS and paramGPS[sensor.sensorName][sensor.label].AltType == "Rel" then
@@ -451,12 +796,7 @@ local function graphInit(im)
 
 end
 
-local function rotateXY(xx, yy, rotation)
-   local sinShape, cosShape
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
-   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
-end
+
 
 local function ll2xy(lat, lng, lat00, lng00, csl00)
    local tx, ty
@@ -619,7 +959,7 @@ end
 local function sensorChanged(value, str, isGPS)
 
    telem[str].Se = value
-   
+
    if isGPS then
       telem[str].SeId = GPSsensorIdlist[telem[str].Se]
       telem[str].SePa = GPSsensorPalist[telem[str].Se]
@@ -633,9 +973,9 @@ local function sensorChanged(value, str, isGPS)
       telem[str].SePa = 0 
    end
 
-   system.pSave("telem."..str..".Se", value)
-   system.pSave("telem."..str..".SeId", telem[str].SeId)
-   system.pSave("telem."..str..".SePa", telem[str].SePa)
+   jSave(variables, "telem_"..str.."_Se", value)
+   jSave(variables, "telem_"..str.."_SeId", string.format("%0X", telem[str].SeId))
+   jSave(variables, "telem_"..str.."_SePa", telem[str].SePa)
    
 end
 
@@ -812,7 +1152,7 @@ local function triRot(ao)
       tri[i].dy = (variables.triLength / Field.triangle.size)*(tri[i].y - tri.center.y )
       tri[i].dx, tri[i].dy = rotateXY(tri[i].dx, tri[i].dy, math.rad(variables.triRotation))
    end
-   
+
    pylon[1] = {x = tri[2].dx + tri.center.x + variables.triOffsetX,
 	       y = tri[2].dy + tri.center.y + variables.triOffsetY, aimoff=(ao or 0)}
    
@@ -821,6 +1161,7 @@ local function triRot(ao)
    
    pylon[3] = {x=tri[3].dx + tri.center.x + variables.triOffsetX,
 	       y=tri[3].dy + tri.center.y + variables.triOffsetY,aimoff=(ao or 0)}      
+
 end
 
 local function initField(fn)
@@ -1104,20 +1445,18 @@ local function initForm(subform)
       savedRow = subform-1
       local menuSelectGPS = { -- for lat/long only
 	 Longitude= lang.selectLong,
-	 Latitude = lang.selectLat,
+	 Latitude = lang.selectLat
       }
       
       local menuSelect1 = { -- not from the GPS sensor
-	 --SpeedNonGPS="Select Pitot Speed Sensor",
-	 --BaroAlt="Select Baro Altimeter Sensor",
+	 Vario = lang.selectVario,
+	 Altimeter = lang.selectAltimeter,
+	 TEKVario = lang.TEKVario
       }
       
       local menuSelect2 = { -- non lat/long but still from GPS sensor
 	 Altitude = lang.selectAlt,
-	 SpeedGPS= lang.selectSpeed,
-	 --DistanceGPS="Select GPS Distance Sensor",
-	 --CourseGPS="Select GPS Course Sensor",
-	 
+	 SpeedGPS= lang.selectSpeed
       }     
       
       for var, txt in pairs(menuSelectGPS) do
@@ -1126,7 +1465,7 @@ local function initForm(subform)
 	 form.addSelectbox(GPSsensorLalist, telem[var].Se, true,
 			   (function(z) return sensorChanged(z, var, true) end) )
       end
-      
+
       
       for var, txt in pairs(menuSelect2) do
 	 form.addRow(2)
@@ -1135,6 +1474,8 @@ local function initForm(subform)
 			   (function(z) return sensorChanged(z, var, false) end) )
       end
 
+      checkBoxAdd(lang.selectGPSMode, "absAltGPS")
+
       for var, txt in pairs(menuSelect1) do
 	 form.addRow(2)
 	 form.addLabel({label=txt, width=220})
@@ -1142,7 +1483,6 @@ local function initForm(subform)
 			   (function(z) return sensorChanged(z, var, false) end) )
       end
       
-      checkBoxAdd(lang.selectGPSMode, "absAltGPS")
       
       form.addLink((function() form.reinit(1) end),
 	 {label = lang.backMain, font=FONT_BOLD})
@@ -1156,6 +1496,8 @@ local function initForm(subform)
       switchAdd(lang.swStart, "start", subform)
 
       switchAdd(lang.swAnnounce, "triA", subform)
+
+      switchAdd(lang.swThrottle, "throttle", subform)
       
       form.addRow(2)
       form.addLabel({label=lang.raceTime, width=220})
@@ -1176,6 +1518,12 @@ local function initForm(subform)
       form.addRow(2)
       form.addLabel({label=lang.flightStartAlt, width=220})
       form.addIntbox(variables.flightStartAlt, 0, 100, 20, 0, 1, flightStartAltChanged)
+
+      form.addRow(2)
+      form.addLabel({label=lang.maxTriAlt, width=220})
+      form.addIntbox(variables.maxTriAlt, 100, 1000, 500, 0, 10,
+		     (function(z) return
+			   variableChanged(z, "maxTriAlt") end))
 
       form.addRow(2)
       form.addLabel({label=lang.triHeightScl, width=220})
@@ -1279,7 +1627,7 @@ local function initForm(subform)
       form.addLink((function() form.reinit(11) end), {label = lang.viewGrad})
 	 
       form.addLink((function() form.reinit(1) end),
-	 {label = "<<< Back to main menu",font=FONT_BOLD})
+	 {label = lang.backMain, font=FONT_BOLD})
       
       form.setFocusedRow(1)
       
@@ -1294,8 +1642,8 @@ local function initForm(subform)
       checkBoxAdd(lang.showNoFly, "noflyEnabled")
 
       form.addRow(2)
-      form.addLabel({label="Airplane Icon", width=220})
-      form.addSelectbox(shapes.airplaneIcons, variables.airplaneIcon, true, airplaneIconChanged)
+      form.addLabel({label=lang.airplaneIcon, width=220})
+      form.addSelectbox(lang.airplaneIcons, variables.airplaneIcon, true, airplaneIconChanged)
       
       checkBoxAdd(lang.annNoFly, "noFlyWarningEnabled")
       
@@ -1306,6 +1654,8 @@ local function initForm(subform)
       form.addRow(2)
       form.addLabel({label=lang.fieldElev, width=220})
       form.addIntbox(variables.elev, -1000, 1000, 0, 0, 1, elevChanged)
+      
+      checkBoxAdd(lang.recordIGC, "recordIGC")
       
       form.addLink(clearData, {label = lang.clearAll})
       
@@ -1705,12 +2055,40 @@ local function drawTriRace(windowWidth, windowHeight)
       lcd.drawText((320 - lcd.getTextWidth(FONT_BOLD, raceParam.titleText))/2, 0,
 	 raceParam.titleText, FONT_BOLD)
    end
+
+   if raceParam.usedThrottle or raceParam.exceedMaxAlt then
+      setColor("Error", variables.triColorMode)
+   end
    
    if raceParam.subtitleText then
       lcd.drawText((320 - lcd.getTextWidth(FONT_MINI, raceParam.subtitleText))/2, 17,
 	 raceParam.subtitleText, FONT_MINI)
    end
 
+   setColor("Label", variables.triColorMode)
+   
+   if not raceParam.racing then
+      if switchItems.throttle then
+	 local swt
+	 swt = system.getInputsVal(switchItems.throttle)
+	 if swt then
+	    if swt == 1 then
+	       lcd.drawImage(5,80, dotImage.red)
+	    else
+	       lcd.drawImage(5,80, dotImage.green)
+	    end
+	 end
+      end
+   else
+      if raceParam.usedThrottle == true then
+	 lcd.drawImage(5,80, dotImage.red)
+      else
+	 if switchItems.throttle then
+	    lcd.drawImage(5,80, dotImage.green)
+	 end
+      end
+   end
+   
    if raceParam.flightStarted ~= 0 then
       lcd.drawImage(5, 100, dotImage.green)
    else
@@ -1730,6 +2108,11 @@ local function drawTriRace(windowWidth, windowHeight)
    lcd.drawText(5, 120, lang.Alt ..": ".. math.floor(altitude), FONT_MINI)
    lcd.drawText(5, 130, lang.Spd..": "..math.floor(speed), FONT_MINI)
 
+   if metrics.index then
+      local tlen = (variables.triLength * 2 * (1 + math.sqrt(2)))
+      lcd.drawText(260, 140, string.format("Index: %03d", metrics.index), FONT_MINI)
+   end
+		
    local ll
    local swa
 
@@ -1739,21 +2122,21 @@ local function drawTriRace(windowWidth, windowHeight)
    if swa and swa == 1 then
       if raceParam.racing then
 	 ll=lcd.getTextWidth(FONT_NORMAL, variables.annText)
-	 lcd.drawText(310-ll, 130, variables.annText, FONT_NORMAL)
+	 lcd.drawText(310-ll, 115, variables.annText, FONT_NORMAL)
 	 lcd.drawText(
 	    310-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
 	       lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(1,annTextSeq)) -
 	       lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(annTextSeq, annTextSeq))/2, 
-	    144, "^", FONT_MINI)      
+	    129, "^", FONT_MINI)      
       else
 	 
 	 ll=lcd.getTextWidth(FONT_NORMAL, variables.preText)
-	 lcd.drawText(310-ll, 130, variables.preText, FONT_NORMAL)
+	 lcd.drawText(310-ll, 115, variables.preText, FONT_NORMAL)
 	    lcd.drawText(
 	       310-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
 		  lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(1,preTextSeq)) -
 		  lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(preTextSeq, preTextSeq))/2, 
-	       144, "^", FONT_MINI)      
+	       129, "^", FONT_MINI)      
       end
    end
 end
@@ -1766,6 +2149,17 @@ local function calcTriRace()
    if not Field or not Field.name or not Field.triangle then return end
    if not variables.triEnabled then return end
    if #xtable == 0 or #ytable == 0 then return end
+
+   if switchItems.throttle then
+      local swt = system.getInputsVal(switchItems.throttle)
+      if swt and swt == 1 and raceParam.racing then
+	 raceParam.usedThrottle = true
+      end
+   end
+
+   if altitude > variables.maxTriAlt then
+      raceParam.exceedMaxAlt = true
+   end
    
    --print(system.getTimeCounter() -lastgetTime)
 
@@ -1792,8 +2186,8 @@ local function calcTriRace()
    -- xe, ye is the extension of the midpoint to vertex line
    -- xt, yt is the "target" or aiming point
    -- z*, y* are the left and right sides of the turning zones
-   
-   if (#pylon ==3) and (not pylon[1].xm) then
+
+   if (#pylon == 3) and (not pylon[1].xm) then
       --print("calcTriRace .xm")
       for j=1, #pylon do
 	 local zx, zy
@@ -1823,6 +2217,11 @@ local function calcTriRace()
 	 pylon.finished = true
 	 inZoneLast[j] = false
       end
+      -- tri and pylon are recomputed each time we zoom .. make sure we only open once
+      if not raceParam.IGCFile then
+	 IGC("Open")
+      end
+      
    end
    
    -- compute determinants off the turning zone left and right lines
@@ -1842,6 +2241,12 @@ local function calcTriRace()
 	    system.playBeep(m3(j)-1, 800, 400)
 	    playFile("next_pylon.wav", AUDIO_IMMEDIATE)
 	    playNumber(m3(j+1), 0)
+	    IGC("Erecord", "TPC")
+	    IGC("Lrecord", "Pylon "..tostring(m3(j)))
+	    if m3(j) == 1 then IGC("Lrecord", "Pylon Zone 1") end
+	    if m3(j) == 2 then IGC("Lrecord", "Pylon Zone 2") end
+	    if m3(j) == 3 then IGC("Lrecord", "Pylon Zone 3") end	    
+	    
 	 end
 	 inZoneLast[j] = inZone[j]
       end
@@ -1880,7 +2285,9 @@ local function calcTriRace()
    if speed  > variables.flightStartSpd and
    altitude > variables.flightStartAlt and raceParam.flightStarted == 0 then
       raceParam.flightStarted = system.getTimeCounter()
-      playFile("flight_started.wav", AUDIO_IMMEDIATE)      
+      playFile("flight_started.wav", AUDIO_IMMEDIATE)
+      IGC("Erecord", "STA")
+      IGC("Lrecord", "Flight Started")
    end
 
    -- see if we have landed
@@ -1897,6 +2304,9 @@ local function calcTriRace()
 	 raceParam.raceFinished = true
 	 raceParam.raceEndTime = system.getTimeCounter()
 	 raceParam.startArmed = false
+	 IGC("Erecord", "STP")
+	 IGC("Lrecord", "Landed")
+	 IGC("Close")
       end
    else
       raceParam.flightLandTime = 0
@@ -1948,6 +2358,10 @@ local function calcTriRace()
       --raceParam.raceFinished = true
       raceParam.startArmed = false
       --raceParam.raceEndTime = system.getTimeCounter()
+      --issue stop command to logger and close the file .. when pilot re-arms it will
+      --open next file
+      IGC("Erecord", "STP")
+      IGC("Close")
    end
    
    
@@ -1958,6 +2372,13 @@ local function calcTriRace()
 	 raceParam.startArmed = true
 	 nextPylon = 0
 	 raceParam.lapsComplete = 0
+	 -- if this is a second race in a flight then the ICG file would have closed...
+	 -- in this case, repopen it
+	 --print("ready to start:", raceParam.IGCFile)
+	 if not raceParam.IGCFile then
+	    IGC("Open")
+	 end
+	 IGC("Erecord", "ARM")
       else
 	 --playFile("bad_start.wav", AUDIO_IMMEDIATE)
 	 if not inStartZone and not raceParam.raceFinished then
@@ -1991,6 +2412,14 @@ local function calcTriRace()
 	       ((system.getTimeCounter()-raceParam.racingStartTime) / 1000)
 	    raceParam.lapStartTime = system.getTimeCounter()
 	    nextPylon = 1
+
+	    
+	    metrics.lapDist = metrics.distTrav
+	    metrics.distTrav = 0
+	    metrics.index = 100 * metrics.lapDist / perim
+	    IGC("Erecord", "TPC")
+	    IGC("Lrecord", "LSTARTSTARTTPC")
+	    IGC("Lrecord", string.format("Index: %d", metrics.index))
 	 end
       end
       
@@ -2021,6 +2450,13 @@ local function calcTriRace()
 	 raceParam.lapStartTime = system.getTimeCounter()
 	 raceParam.lapsComplete = 0
 	 raceParam.rawScore = 0
+	 raceParam.usedythrottle = false
+	 raceParam.maxTriAlt = false
+	 metrics.distTrav = 0
+	 metrics.lapDist = nil
+	 metrics.index = nil
+	 IGC("Erecord", "TPC")
+	 IGC("Lrecord", "LSTARTSTARTTPC")
       end
    end
 
@@ -2030,13 +2466,14 @@ local function calcTriRace()
 
    --print( (sgTC - raceParam.racingStartTime) / 1000, variables.raceTime*60)
    if raceParam.racing and (sgTC - raceParam.racingStartTime) / 1000 >= variables.raceTime*60 then
-      print("FINISHED")
       playFile("race_finished.wav", AUDIO_IMMEDIATE)	    	 
       raceParam.racing = false
       raceParam.raceFinished = true
       raceParam.startArmed = false
       raceParam.startToggled = false
       raceParam.raceEndTime = sgTC
+      IGC("Erecord", "STP")
+      IGC("Close")
    end
 
    if raceParam.racing then
@@ -2077,7 +2514,13 @@ local function calcTriRace()
       raceParam.subtitleText = string.format(lang.LapTitle,
 				   raceParam.lapsComplete,
 				   math.floor(raceParam.rawScore - raceParam.penaltyPoints + 0.5),
-			   math.floor(raceParam.penaltyPoints + 0.5))
+				   math.floor(raceParam.penaltyPoints + 0.5))
+      if raceParam.usedThrottle then
+	 raceParam.subtitleText = raceParam.subtitleText .. " " .. lang.Thr
+      end
+      if raceParam.exceedMaxAlt then
+	 raceParam.subtitleText = raceParam.subtitleText .. " " .. lang.Alt
+      end
    end
 
    distance = math.sqrt( (xtable[#xtable] - pylon[m3(nextPylon)].xt)^2 +
@@ -2114,99 +2557,102 @@ local function calcTriRace()
    -- instead of lastgetTime + 1000 we will empirically determine a number that allows for the
    -- inherent delays in the callback model to make a 1/sec step time
    
-   if (now >= (lastgetTime + 850)) and swa and swa == 1 then -- once a sec
+   if (now >= (lastgetTime + 850)) then -- once a sec
       --print(now-lastgetTime)
       lastgetTime = now
-      --print(m3(nextPylon+2), inZone[m3(nextPylon+2)] )
-      if raceParam.racing then
-	 annTextSeq = annTextSeq + 1	 if annTextSeq > #variables.annText then
-	    annTextSeq = 1
-	 end
-	 sChar = variables.annText:sub(annTextSeq,annTextSeq)
-      else
-	 preTextSeq = preTextSeq + 1
-	 if preTextSeq > #variables.preText then
-	    preTextSeq = 1
-	 end
-	 sChar = variables.preText:sub(preTextSeq,preTextSeq)
-      end
+      IGC("Brecord")
 
-      -- no announcements within 3 secs of turn (convert to m/s)
-      -- distance is dist to next pylon
-      -- lastDist is dist to prev pylon
-      -- former controls approach to pylon, latter departure from pylon
-      -- + 0.1 to guard against divide by zero
-
-      local annZone = (distance / ( ( (speed or 0) + 0.1) / 3.6)) > 2.5
-      annZone = annZone and (lastDist / ( ( (speed or 0) + 0.1) / 3.6)) > 2.5
-      
-      if (sChar == "C" or sChar == "c") and raceParam.racing and annZone then
-	 if relBearing < -6 then
-	    if sChar == "C" then
-	       playFile("turn_right.wav", AUDIO_QUEUE)
-	       playNumber(-relBearing, 0)
-	    else
-	       playFile("right.wav", AUDIO_QUEUE)
-	       playNumber(-relBearing, 0)
-	    end
-	 elseif relBearing > 6 then
-	    if sChar == "C" then
-	       playFile("turn_left.wav", AUDIO_QUEUE)
-	       playNumber(relBearing, 0)
-	    else
-	       playFile("left.wav", AUDIO_QUEUE)
-	       playNumber(relBearing, 0)
-	    end
+      if swa and swa == 1 then
+	 --print(m3(nextPylon+2), inZone[m3(nextPylon+2)] )
+	 if raceParam.racing then
+	    annTextSeq = annTextSeq + 1	 if annTextSeq > #variables.annText then
+	       annTextSeq = 1
+					 end
+	    sChar = variables.annText:sub(annTextSeq,annTextSeq)
 	 else
-	    system.playBeep(0, 1200, 200)		  
-	 end
-      elseif sChar == "D" or sChar == "d" and raceParam.racing then
-	 if sChar == "D" then
-	    playFile("distance.wav", AUDIO_QUEUE)
-	    playNumber(distance, 0)
-	 else
-	    playFile("dis.wav", AUDIO_QUEUE)
-	    playNumber(distance, 0)
-	 end
-      elseif (sChar == "P" or sChar == "p") and raceParam.racing and not inZone[m3(nextPylon+2)] then
-	 if perpD < 0 then
-	    if sChar == "P" then
-	       playFile("inside.wav", AUDIO_QUEUE)
-	       playNumber(-perpD, 0)
-	    else
-	       playFile("in.wav", AUDIO_QUEUE)
-	       playNumber(-perpD, 0)
+	    preTextSeq = preTextSeq + 1
+	    if preTextSeq > #variables.preText then
+	       preTextSeq = 1
 	    end
-	 else
-	    if sChar == "P" then
-	       playFile("outside.wav", AUDIO_QUEUE)
-	       playNumber(perpD, 0)
+	    sChar = variables.preText:sub(preTextSeq,preTextSeq)
+	 end
+	 
+	 
+	 -- no announcements within 3 secs of turn (convert to m/s)
+	 -- distance is dist to next pylon
+	 -- lastDist is dist to prev pylon
+	 -- former controls approach to pylon, latter departure from pylon
+	 -- + 0.1 to guard against divide by zero
+	 
+	 local annZone = (distance / ( ( (speed or 0) + 0.1) / 3.6)) > 2.5
+	 annZone = annZone and (lastDist / ( ( (speed or 0) + 0.1) / 3.6)) > 2.5
+	 
+	 if (sChar == "C" or sChar == "c") and raceParam.racing and annZone then
+	    if relBearing < -6 then
+	       if sChar == "C" then
+		  playFile("turn_right.wav", AUDIO_QUEUE)
+		  playNumber(-relBearing, 0)
+	       else
+		  playFile("right.wav", AUDIO_QUEUE)
+		  playNumber(-relBearing, 0)
+	       end
+	    elseif relBearing > 6 then
+	       if sChar == "C" then
+		  playFile("turn_left.wav", AUDIO_QUEUE)
+		  playNumber(relBearing, 0)
+	       else
+		  playFile("left.wav", AUDIO_QUEUE)
+		  playNumber(relBearing, 0)
+	       end
 	    else
-	       playFile("out.wav", AUDIO_QUEUE)
-	       playNumber(perpD, 0)
+	       system.playBeep(0, 1200, 200)		  
 	    end
-	 end
-      elseif sChar == "T" or sChar == "t" and raceParam.racing then
-	 if speed ~= 0 then
-	    playFile("time.wav", AUDIO_QUEUE)
-	    playNumber(distance/speed, 1)	  
-	 end
-      elseif sChar == "S" or sChar == "s" then
-	 playFile("speed.wav", AUDIO_QUEUE)
-	 playNumber(math.floor(speed+0.5), 0)
-      elseif sChar == "A" or sChar == "a" then
-	 if sChar == "A" then
-	    playFile("altitude.wav", AUDIO_QUEUE)
-	    playNumber(math.floor(altitude+0.5), 0)
-	 else
-	    playFile("alt.wav", AUDIO_QUEUE)
-	    playNumber(math.floor(altitude+0.5), 0)
+	 elseif sChar == "D" or sChar == "d" and raceParam.racing then
+	    if sChar == "D" then
+	       playFile("distance.wav", AUDIO_QUEUE)
+	       playNumber(distance, 0)
+	    else
+	       playFile("dis.wav", AUDIO_QUEUE)
+	       playNumber(distance, 0)
+	    end
+	 elseif (sChar == "P" or sChar == "p") and raceParam.racing and not inZone[m3(nextPylon+2)] then
+	    if perpD < 0 then
+	       if sChar == "P" then
+		  playFile("inside.wav", AUDIO_QUEUE)
+		  playNumber(-perpD, 0)
+	       else
+		  playFile("in.wav", AUDIO_QUEUE)
+		  playNumber(-perpD, 0)
+	       end
+	    else
+	       if sChar == "P" then
+		  playFile("outside.wav", AUDIO_QUEUE)
+		  playNumber(perpD, 0)
+	       else
+		  playFile("out.wav", AUDIO_QUEUE)
+		  playNumber(perpD, 0)
+	       end
+	    end
+	 elseif sChar == "T" or sChar == "t" and raceParam.racing then
+	    if speed ~= 0 then
+	       playFile("time.wav", AUDIO_QUEUE)
+	       playNumber(distance/speed, 1)	  
+	    end
+	 elseif sChar == "S" or sChar == "s" then
+	    playFile("speed.wav", AUDIO_QUEUE)
+	    playNumber(math.floor(speed+0.5), 0)
+	 elseif sChar == "A" or sChar == "a" then
+	    if sChar == "A" then
+	       playFile("altitude.wav", AUDIO_QUEUE)
+	       playNumber(math.floor(altitude+0.5), 0)
+	    else
+	       playFile("alt.wav", AUDIO_QUEUE)
+	       playNumber(math.floor(altitude+0.5), 0)
+	    end
 	 end
       end
+         --lastregion = region[code]
    end
-
-   --lastregion = region[code]
-
 end
 
 -- next set of function acknowledge
@@ -2460,7 +2906,18 @@ local function dirPrint()
    local ren=lcd.renderer()
    local hh
    local triColorMode
-   
+
+   --metrics.dirPCount = metrics.dirPCount + 1
+
+   --[[
+   if system.getInputs("SH") == 1 then
+      lcd.drawText(0,10,
+		   "100 200 300 400 500 600 700 800 900 000 100 200 300 400 500",
+		   FONT_MINI)
+      return
+   end
+   --]]
+
    if not xtable or not ytable then return end
 
    if variables.triColorMode == "Dark" then
@@ -2479,12 +2936,20 @@ local function dirPrint()
    if not variables.triEnabled then
       lcd.drawText(35, 20, lang.triNotEn, FONT_BIG)      
    end
+
+   --[[
+   if not compcrs then
+      heading = 0
+   end
+   --]]
    
+   ---[[
    if not compcrs then
       lcd.drawText(40, 20, lang.triNoHdg, FONT_BIG)
       return
    end
-   
+   --]]
+
    hh = heading - 180
    
    local xx, yy = xtable[#xtable], ytable[#ytable]
@@ -2796,11 +3261,16 @@ local function dirPrint()
    end
    
    if variables.ribbonColorSource ~= 1 and ribbon.currentValue then
-      lcd.drawText(18, 140, string.format("%s: " .. ribbon.currentFormat,
+      lcd.drawText(18, 130, string.format("%s: " .. ribbon.currentFormat,
 					 colorSelect[variables.ribbonColorSource],
 					 ribbon.currentValue), FONT_MINI)
       lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
-      lcd.drawFilledRectangle(6,143,8,8)
+      lcd.drawFilledRectangle(6,133,8,8)
+      if metrics.index then
+	 setColor("Label", triColorMode)
+	 lcd.drawText(5, 145, string.format("Index: %03d", metrics.index), FONT_MINI)	 
+      end
+      
    end
 
    collectgarbage()
@@ -3023,12 +3493,37 @@ local function mapPrint(windowWidth, windowHeight)
    local offset
    local ren=lcd.renderer()
    
+   --metrics.mapPCount = metrics.mapPCount + 1
+   --[[
+   local deltaC
+   deltaC = metrics.xPCount - metrics.lastxPCount 
+   if  deltaC > 0 then
+      --print("metrics.xPCount, metrics.lastxPCount", metrics.xPCount, metrics.lastxPCount)
+      metrics.lastxPCount = metrics.xPCount
+   end
+   --]]
    if form.getActiveForm() then return end
    
    if recalcDone() then
       graphScale(xtable[#xtable], ytable[#ytable])
    end
+
+   --[[
+      -- started to separate no GPS from no map .. user sugggestion to show icon in motion or timer
+      -- animation while waiting for GPS signal .. next logical step would be to let the app work with
+      -- no map data ..about all we could do is put a marker at the init gps position, and orient to the 
+      -- north since we'd have no direction data .. and then fabricate table entries for the screens 
+      -- centered at 0,0 with the usual magnification factors. which is probably better than just 
+      -- sitting there and not working as it does now!
+
+   if not gotInitPos then
+      setColor("Label", "Light")
+      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, "No GPS fix"))/2, 20,
+	 "No GPS fix", FONT_BIG)
+   end
    
+      -- some sort of animation or timer goes here between the two announcement lines
+
    if fieldPNG[currentImage] then
       if variables.triEnabled and (variables.triColorMode ~= "Image") then
 	 setColor("Background", variables.triColorMode)
@@ -3038,7 +3533,21 @@ local function mapPrint(windowWidth, windowHeight)
       end
    else
       setColor("Label", "Light")
-      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, lang.noGPSfix))/2, 20,
+      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, "No map for this position"))/2, 60,
+	 "No Map for this position", FONT_BIG)
+   end
+   --]]
+
+   if fieldPNG[currentImage] then
+      if variables.triEnabled and (variables.triColorMode ~= "Image") then
+	 setColor("Background", variables.triColorMode)
+      	 lcd.drawFilledRectangle(0,0,320,160)
+      else
+      	 lcd.drawImage(0,0,fieldPNG[currentImage])
+      end
+   else
+      setColor("Label", "Light")
+      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, lang.noGPSfix))/2, 60,
 	 lang.noGPSfix, FONT_BIG)
    end
    
@@ -3126,7 +3635,9 @@ local function mapPrint(windowWidth, windowHeight)
 	 
 	 --]]
 	 --lcd.drawCircle(xPHist[i], yPHist[i], 2)
+	 
 	 lcd.drawLine(xPHist[i-1], yPHist[i-1], xPHist[i], yPHist[i])
+	 
 	 if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
 	    if system.getCPU() >= variables.maxCPU then
 	       print(appInfo.Name .. ": CPU panic", #xPHist, system.getCPU(), variables.maxCPU)
@@ -3395,11 +3906,16 @@ local function loop()
    local deltaPosTime = 100 -- min sample interval in ms
    local jj
    local swc = -2
-   
-   -- don't loop menu is up on screen
-   if form.getActiveForm() then return end
 
    metrics.loopCount = metrics.loopCount + 1
+
+   --metrics.dirPDelta = metrics.loopCount - metrics.dirPCount
+   --metrics.mapPDelta = metrics.loopCount - metrics.mapPCount
+
+   --print("lC, mapP, dirP, dPD, mPD", metrics.loopCount, metrics.dirPCount, metrics.mapPCount, metrics.dirPDelta, metrics.mapPDelta)
+      
+   -- don't loop menu is up on screen
+   if form.getActiveForm() then return end
 
    if metrics.loopCount & 3 == 1 then -- about every 4*30 msec
       calcTriRace()
@@ -3431,18 +3947,20 @@ local function loop()
    goodlng = false
 
    -- start reading all the relevant sensors
+
+   sensor = system.getSensorByID(auxSensors.satCountID, auxSensors.satCountPa)
    
-   sensor = system.getSensorByID(satCountID, satCountPa)
    if sensor and sensor.valid then
-      satCount = sensor.value
+      auxSensors.satCount = sensor.value
    end
 
-   sensor = system.getSensorByID(satQualityID, satQualityPa)
+   sensor = system.getSensorByID(auxSensors.satQualityID, auxSensors.satQualityPa)
    if sensor and sensor.valid then
-      satQuality = sensor.value
+      auxSensors.satQuality = sensor.value
    end   
 
    sensor = system.getSensorByID(telem.Longitude.SeId, telem.Longitude.SePa)
+
    ---[[
    local sign, minstr, latstr, lngstr
    --]]
@@ -3527,6 +4045,7 @@ local function loop()
       return
    end 
 
+
    sensor = system.getSensorByID(telem.Altitude.SeId, telem.Altitude.SePa)
 
    if(sensor and sensor.valid) then
@@ -3558,7 +4077,25 @@ local function loop()
       end
    end
 
---[[   
+   sensor = system.getSensorByID(telem.Vario.SeId, telem.Vario.SePa)
+   
+   if(sensor and sensor.valid) then -- assume units are m/s
+      vario = sensor.value
+   end
+
+   sensor = system.getSensorByID(telem.TEKVario.SeId, telem.TEKVario.SePa)
+
+   if(sensor and sensor.valid) then -- assume units are m/s
+      tekvario = sensor.value
+   end
+   
+   sensor = system.getSensorByID(telem.Altimeter.SeId, telem.Altimeter.SePa)
+
+   if(sensor and sensor.valid) then -- assume units are m
+      altimeter = sensor.value
+   end
+
+   --[[   
    sensor = system.getSensorByID(telem.DistanceGPS.SeId, telem.DistanceGPS.SePa)
    if(sensor and sensor.valid) then
       DistanceGPS = sensor.value
@@ -3660,13 +4197,12 @@ local function loop()
       -- depending on how precise we need to be (e.g. interpolate start/end line from
       -- actual GPS points straddling it, and if we are to detect and remove thermalling?
       
-      --[[
+      ---[[
       if #xtable > 2 then
 	 local lp = #xtable
 	 local np = lp -1
 	 metrics.distTrav = metrics.distTrav +
 	    math.sqrt( (xtable[lp] - xtable[np])^2 + (ytable[lp] - ytable[np])^2)
-	 print("dist:", metrics.distTrav)
       end
       --]]
       
@@ -3680,6 +4216,7 @@ local function loop()
 	    table.remove(lngHist, 1)
 	    table.remove(rgbHist, 1)
 	 end
+	 metrics.xPCount = metrics.xPCount + 1
 	 table.insert(xPHist, toXPixel(x, map.Xmin, map.Xrange, 319))
 	 table.insert(yPHist, toYPixel(y, map.Ymin, map.Yrange, 159))
 	 xHistLast = x
@@ -3889,12 +4426,6 @@ local function init()
    
    graphInit(currentImage)  -- ok that currentImage is not yet defined
 
-   for i, j in ipairs(telem) do
-      --print("telem i,j, telem[i]", i, j, telem[i])
-      telem[j].Se   = system.pLoad("telem."..telem[i]..".Se", 0)
-      telem[j].SeId = system.pLoad("telem."..telem[i]..".SeId", 0)
-      telem[j].SePa = system.pLoad("telem."..telem[i]..".SePa", 0)
-   end
    
    variables = jLoadInit(jFilename())
    
@@ -3925,34 +4456,47 @@ local function init()
    variables.startSwitchDir    = jLoad(variables, "startSwitchDir", 0)
    variables.triASwitchName    = jLoad(variables, "triASwitchName", 0)
    variables.triASwitchDir     = jLoad(variables, "triASwitchDir", 0)
+   variables.throttleSwitchName= jLoad(variables, "throttleSwitchName", 0)
+   variables.throttleSwitchDir = jLoad(variables, "throttleSwitchDir", 0)
    variables.pointSwitchName   = jLoad(variables, "pointSwitchName", 0)
    variables.pointSwitchDir    = jLoad(variables, "pointSwitchDir", 0)
    variables.colorSwitchName   = jLoad(variables, "colorSwitchName", 0)
    variables.colorSwitchDir    = jLoad(variables, "colorSwitchDir", 0)            
    variables.noFlySwitchName   = jLoad(variables, "noFlySwitchName", 0)
    variables.noFlySwitchDir    = jLoad(variables, "noFlySwitchDir", 0)   
-   --variables.mapAlpha        = jLoad(variables, "mapAlpha", 255)
    variables.triColorMode      = jLoad(variables, "triColorMode", "Image")
    variables.airplaneIcon      = jLoad(variables, "airplaneIcon", 1)
    variables.triHistMax        = jLoad(variables, "triHistMax", 20)
    variables.triViewScale      = jLoad(variables, "triViewScale", 300)
    variables.triHeightFactor   = jLoad(variables, "triHeightScale", 100)
    variables.lastMatchField    = jLoad(variables, "lastMatchField", "")
+   variables.maxTriAlt         = jLoad(variables, "maxTriAlt", 500)
    
    --------------------------------------------------------------------------------
+
+   for i, j in ipairs(telem) do
+      telem[j].Se   = jLoad(variables, "telem_"..j.."_Se", 0)
+      telem[j].SeId = tonumber("0X" .. jLoad(variables, "telem_"..j.."_SeId", 0))
+      telem[j].SePa = jLoad(variables, "telem_"..j.."_SePa", 0)
+   end
    
    checkBox.triEnabled = jLoad(variables, "triEnabled", false)
    checkBox.noflyEnabled = jLoad(variables, "noflyEnabled", true)
    checkBox.noFlyWarningEnabled = jLoad(variables, "noFlyWarningEnabled", true)   
    checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", true)   
    checkBox.absModeGPS = jLoad(variables, "absAltGPS", false)
-      
+   checkBox.recordIGC = jLoad(variables, "recordIGC", false)
+   
    shapes.airplaneIcon = shapes[shapes.airplaneIcons[variables.airplaneIcon]]
 
    metrics.loopCount = 0
    metrics.lastLoopTime = system.getTimeCounter()
    metrics.loopTimeAvg = 0
-
+   metrics.xPCount = 0
+   metrics.dirPCount = 0
+   metrics.mapPCount = 0
+   metrics.lastxPCount = 0
+   
    setLanguage()
    
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
@@ -3986,7 +4530,7 @@ local function init()
 
    readSensors()
    
-   switchItems = {point = 0, start = 0, triA = 0, color = 0, noFly = 0}
+   switchItems = {point = 0, start = 0, triA = 0, throttle = 0, color = 0, noFly = 0}
    
    for k,v in pairs(switchItems) do
       switchItems[k] = createSw(shapes.switchNames[variables[k.."SwitchName"]],
