@@ -20,4 +20,5 @@ DFM-Maps/MF-*.jsn
 DFM-Maps/IGC/*.igc
 DFM-Maps/JSON/sensorEmulator*
 DFM-Maps/Maps/*
+/*.lua
 
