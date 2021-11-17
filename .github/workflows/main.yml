@@ -25,6 +25,7 @@ jobs:
         run: |
           set -ex
           PATH="$PATH:$PWD/lua_jeti/src"
+          REPO_ROOT="$PWD"
           mkdir release-output
           if [[ $GITHUB_REF = refs/heads/master ]]; then
             OUTPUT_ZIP="release-output/DFM-Maps-v${DFM_MAPS_VERSION}.zip"
@@ -32,11 +33,20 @@ jobs:
             OUTPUT_ZIP="release-output/DFM-Maps-build${GITHUB_RUN_ID}.zip"
           fi
 
+          APP_NAME="DFM-Maps"
+
+          LUA_SOURCE_DIR=$PWD
+          if [[ ! -f "${LUA_SOURCE_DIR}/${APP_NAME}.lua" ]]; then
+            LUA_SOURCE_DIR="${LUA_SOURCE_DIR}/${APP_NAME}"
+          fi
+
+          cd $LUA_SOURCE_DIR
           DFM_MAPS_VERSION=$(lua -e "print((require 'DFM-Maps').version)")
           echo "::set-output name=dfm_maps_version::${DFM_MAPS_VERSION}"
+          luac -o "${REPO_ROOT}/${APP_NAME}.lc" "${APP_NAME}.lua"
+          cd $REPO_ROOT
+          zip -r $OUTPUT_ZIP "${APP_NAME}.lc" $APP_NAME
 
-          luac -o DFM-Maps.lc DFM-Maps.lua 
-          zip -r $OUTPUT_ZIP DFM-Maps.lc DFM-Maps
       - name: Upload release asset
         if: ${{ github.ref == 'refs/heads/master' }}
         id: upload-release-asset 
