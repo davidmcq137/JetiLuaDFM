@@ -532,7 +532,7 @@ local function setLanguage()
 
    locale = system.getLocale()
 
-   --locale = "fr" ------------------------------- TEST ------------------------
+   --locale = "cz" ------------------------------- TEST ------------------------
    
    transFile = appInfo.Dir .. "Lang/" .. locale .. "/Text/Text.jsn"
    fp = io.readall(transFile)
@@ -4540,4 +4540,4 @@ local function init()
    
 end
 
-return {init=init, loop=loop, author="DFM", version="9.0", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="8.0", name=appInfo.Name, destroy=destroy}

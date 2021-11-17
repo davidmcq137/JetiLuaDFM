@@ -1,4 +1,4 @@
-# Release Notes for Version 9.0 of DFM-Maps
+# Release Notes for Version 8.0 of DFM-Maps
 
 ## Bug fixes:
 
@@ -16,9 +16,11 @@ Only one change may require you to re-enter data. See #3 and 4
 
 1. Language translation is now enabled, and this new version has
 	the orginal English (locale "en") and translations for German,
-	Czech and French are being created. If you want to contribute a
+	Czech and French have been created. If you want to contribute a
 	translation that is not already done, see the file
-	DFM-Maps/Lang/readme.1st for instructions and contact us.
+	DFM-Maps/Lang/readme.1st for instructions and contact us.  Many
+	thanks to Claus for the German translation, to Pascal for the
+	French translation and to Pavel for the Czech translation.
 
 2. We've added a second full-screen telemetry window. Previously
 	we only had the Map view (which you enable with the Timers/Sensors
@@ -92,7 +94,8 @@ Only one change may require you to re-enter data. See #3 and 4
 	file. You can see examples in the directory. Get out a piece of
 	graph paper and plot out one of the examples to see how it works
 	(very simple). We are happy to take contributed icon files and add
-	them to the menu in future releases if you wish.
+	them to the menu in future releases if you wish. Thanks to Harry
+	Curzon for making the prop icon.
 
 7. We have added a setting to do light or dark backgrounds on the
 	Map and Triangle views. This is in addition to the original image
