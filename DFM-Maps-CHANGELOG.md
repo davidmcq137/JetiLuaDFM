@@ -20,10 +20,12 @@
 2. Prior versions such as the
 	original 7.24 release will still be available on the website,
 	though we do recommend updating to this version. To do that, go
-	back to our map generator website, create a Jeti repo with your
-	fields, confirm the repo URL is still properly stored in Jeti
-	Studio configuration, then use the TX Lua App manager to uninstall
-	and re-install DFM-Maps.
+	back to our map generator website. Please be sure to reload or
+	refresh the page to make sure you have the latest version of the
+	website code and create a new Jeti repo with your fields. Next
+	confirm that your repo URL is still properly stored in Jeti Studio
+	configuration, and then use Studio's TX Lua App manager to
+	uninstall and re-install DFM-Maps.
 
 3. In addition to supporting app installation with Jeti studio, we
 	now also offer a zipfile for manual installation of the app and
@@ -35,7 +37,7 @@ Only one change may require you to re-enter data. See #9 and 10
 	regarding triangle edits.
 
 1. Language translation is now enabled, and this new version has
-	the orginal English and translations for German, Czech and French
+	the original English and translations for German, Czech and French
 	have been created. If you want to contribute a translation that is
 	not already done, see the file DFM-Maps/Lang/readme.1st for
 	instructions and contact us.  Many thanks to Claus for the German
