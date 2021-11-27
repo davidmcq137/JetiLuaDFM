@@ -30,7 +30,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: release-v${{ steps.lc_build.outputs.dfm_maps_version }}
-          name: "DFM-Maps version ${{ steps.lc_build.outputs.dfm_maps_version }}"
+          name: "DFM-Maps Version ${{ steps.lc_build.outputs.dfm_maps_version }}"
           files: |
             release-output/*
       - name: Upload dev asset
@@ -41,7 +41,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: true
           tag_name: prerelease-v${{ steps.lc_build.outputs.dfm_maps_version }}
-          name: "DFM-Maps prerelease ${{ steps.lc_build.outputs.dfm_maps_version }}"
+          name: "DFM-Maps Pre-Release ${{ steps.lc_build.outputs.dfm_maps_version }}"
           files: |
             release-output/*
 
