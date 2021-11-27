@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>#Title</title>
+</head>
+<body>
+  <h1>DFM-Crow.lua</h1>
+  <p>
+      Create a mixing curve that corrects pitch trim over the range of crow. Inspired by the OpenTX implementation done by Mike Shellim. 
+<p>
+Version 1.5
+<p>
+Now allows logcial switch for crow control. 
+<p>
+
+
+  </p>
+  <p>
+      <img src="http://jetimodel.nl/DFMHC/DFM-Crow-Screen118.png"></img>
+      <br>
+      <img src="http://jetimodel.nl/DFMHC/DFM-Crow-Screen119.png"></img>
+      <br>
+      <img src="http://jetimodel.nl/DFMHC/DFM-Crow-Screen120.png"></img>
+      <br>
+      Example from Multiplex Cularis
+      <br>
+      <img src="http://jetimodel.nl/DFMHC/Cularis.png" width="320"></img>
+      <br>
+      <img src="http://www.jetiluadfm.app/blob/1993" width="320"></img>      
+</p>
+  <h2>Adaptive Crow Trim Mixing</h2>
+  <p>This app is used to create a pitch trim curve to be mixed with the elevator control so that pitch trim is compensated across the entire range of Crow.</p>
+<p>
+The crow mixing controls can be set to any proportional controls, or with a few additional steps and creating a flight mode, it is possible to use the original digital trim buttons</p>
+<p>
+The app creates a mix curve with pilot-specified spacing (linear or log) and a selctable number of points. The crow trim compensation can be set for each of these points and values in between points are interpolated. 
+</p>
+<p>
+There is also an autotrim-like capability, called autocrow, where the trim is adjusted by movement of the elevator stick.
+</p>
+  <h2>Usage</h2>
+  <ol>
+    <li>
+      <p>In the main menu, assign the controls for crow and crow trim</p>
+   <li>
+      <p>In the settings menu confirm the values of trim step (how far the trim value moves for each press of the crow control</p>
+<li>If you want to use autocrow, use that menu to select an on/off switch to enable autocrow, set the elevator control, and confirm rate and expo settings
+    </li>
+  </ol>
+</body>
+</html>

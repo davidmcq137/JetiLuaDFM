@@ -1,6 +1,7 @@
 set -e
 set -x
-zip -ru DFM-GRat.zip DFM-GRat.lua DFM-GRat
+rm -f DFM-GRat.zip
+zip -ru DFM-GRat.zip DFM-GRat/DFM-GRat.lua DFM-GRat
 
 
 
