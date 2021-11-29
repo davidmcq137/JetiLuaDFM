@@ -869,7 +869,7 @@ local function init()
    
    if monoChrome then
       acvEleCtrl = system.registerControl(1, "Adaptive Mix Value Elevator", "AME")      
-      acvAilCtrl = system.registerControl(1, "Adaptive Mix Value Aileron" , "AMA")      
+      acvAilCtrl = system.registerControl(2, "Adaptive Mix Value Aileron" , "AMA")      
    else
       for i=1,10,1 do
 	 acvEleCtrl = system.registerControl(1+(i+3)%10, "Adaptive Mix Value Elevator", "AME")
