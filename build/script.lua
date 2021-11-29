@@ -33,7 +33,7 @@ end
 
 local function main()
    -- Find and resample all the wav files 
-   xs = listing("DFM-Maps/Lang/*/Audio/*/wav") or listing("DFM-Maps/Audio/*.wav") 
+   xs = listing("DFM-Maps/Lang/*/Audio/*.wav") or listing("DFM-Maps/Audio/*.wav") 
    for k, v in ipairs(xs) do
       resample_wav(v)
    end
