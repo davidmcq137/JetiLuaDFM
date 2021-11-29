@@ -1,0 +1,16 @@
+{
+  "author":"DFM",
+  "description":{
+    "en":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM-Amix/DFM-Amix.html"
+  },
+  "hw":[
+    678,
+    679,
+    680
+  ],
+  "id":0,
+  "name":{
+    "en":"DFM-Amix"
+  },
+  "previewIcon":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png"
+}
