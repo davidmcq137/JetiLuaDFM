@@ -19,6 +19,9 @@ jobs:
           set -ex
           cd lua_jeti
           make -j4 linux
+      - name: Install dependencies
+        shell: bash
+        run: "sudo apt-get install -y jq sox"
       - name: Build LC
         id: lc_build
         shell: bash
@@ -44,7 +47,3 @@ jobs:
           name: "DFM-Maps Pre-Release ${{ steps.lc_build.outputs.dfm_maps_version }}"
           files: |
             release-output/*
-
-
-
-
