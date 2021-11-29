@@ -31,6 +31,52 @@ local function listing(path)
    end
 end
 
+local function build_app(app)
+   -- Find and load the lua source
+   chunk, err = loadfile(string.format('%s.lua', app)) or loadfile(string.format('%s/%s.lua', app, app))
+   if not chunk then
+      print(string.format("Cannot load: %s ", app))
+      return nil
+   end
+   
+   -- Produce lc file
+   lc_buffer = string.dump(chunk)
+   lc_filename = string.format('%s.lc', app)
+   lc_out = io.open(lc_filename, "wb")
+   lc_out:write(lc_buffer)
+   io.close(lc_out)
+   
+   -- Run the chunk to get the returned table
+   info = chunk()
+
+   -- Add the version and release date to App.json "in place"
+   json_filename = string.format('%s/App.json', app)
+   assert(
+      os.execute(
+         string.format(
+            ">%s.out jq '. + {version: %q, releaseDate: %q}' %s && mv %s.out %s",
+            json_filename,
+            info.version,
+            os.date("%a %e %b %Y %H:%M:%S %z"),
+            json_filename,
+            json_filename,
+            json_filename)))
+
+   -- Produce the zip
+   output_dir = "release-output"
+   os.execute("mkdir -p release-output")
+   zip_name = string.format('%s/%s-v%s.zip', output_dir, app, info.version)
+   assert(
+      os.execute(
+         string.format(
+            'zip -r %s %s %s %s',
+            zip_name,
+            lc_filename,
+            json_filename,
+            app)))
+   return info
+end
+
 local function main()
    -- Find and resample all the wav files 
    xs = listing("DFM-Maps/Lang/*/Audio/*.wav") or listing("DFM-Maps/Audio/*.wav") 
@@ -38,43 +84,11 @@ local function main()
       resample_wav(v)
    end
 
-   -- Find and load the lua source
-   dfm_maps_chunk, err = loadfile('DFM-Maps.lua') or loadfile('DFM-Maps/DFM-Maps.lua')
-   if not dfm_maps_chunk then
-      print("Cannot load lua file")
-      return
-   end
-   
-   -- Produce lc file 
-   lc_buffer = string.dump(dfm_maps_chunk)
-   lc_filename = 'DFM-Maps.lc'
-   lc_out = io.open(lc_filename, "wb")
-   lc_out:write(lc_buffer)
-   io.close(lc_out)
-   
-   -- Run the chunk to get the returned table
-   dfm_maps =  dfm_maps_chunk()
-
+   dfm_maps_info = assert(build_app('DFM-Maps'))
    -- Use github's hacky in-band signaling to pass the version string to the release upload step
-   print("::set-output name=dfm_maps_version::" .. dfm_maps.version)
-
-   -- Add the version and release date to App.json "in place"
-   json_filename = 'DFM-Maps/App.json'
-   assert(
-      os.execute(
-         string.format(
-            ">%s.out jq '. + {version: %q, releaseDate: %q}' %s && mv %s.out %s",
-            json_filename,
-            dfm_maps.version,
-            os.date("%a %e %b %Y %H:%M:%S %z"),
-            json_filename,
-            json_filename,
-            json_filename)))
-
-   -- Produce the zip
-   zip_name = "release-output/DFM-Maps-v" .. dfm_maps.version .. ".zip"
-   os.execute("mkdir -p release-output")
-   os.execute("zip -r " .. zip_name .. "  " .. lc_filename .. " " .. json_filename .. " DFM-Maps" )
+   print("::set-output name=dfm_maps_version::" .. dfm_maps_info.version)
+   
+   assert(build_app('DFM-Amix'))
 end
 
 main()
