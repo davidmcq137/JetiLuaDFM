@@ -46,6 +46,9 @@
    Version 0.1 - Nov 7, 2021 separated unset (trimCurveU) into Ail and Ele tables, separated
                              enable switches for Ail and Ele
 
+   Version 1.1 - Nov 29,2021 removed mono device detection
+   Version 1.2 - Dec 01,2021 started lua control search at control 1 to accommodate DS-16 II
+
    Limitations: 
    
    1) Does not account for variability of loops/second which can
@@ -59,7 +62,7 @@
 
 --]]
 
-local amixVersion = 1.0
+local amixVersion = 1.2
 local appShort="DFM-Amix"
 local appDir = "Apps/"..appShort.."/"
 
@@ -842,16 +845,22 @@ local function init()
 
    devType, emFlag = system.getDeviceType()
 
+   print(appShort .. ": device type: " .. devType)
+   
    --devType = "JETI DS-16"
 
    monoChrome = false
-   
+
+   --for now, disable mono devices
+
+   --[[
    for _,v in ipairs(monoDev) do
       if devType == v then
 	 monoChrome = true
 	 break
       end
    end
+   --]]
 
    if monoChrome then
       print(appShort .. ": Monochrome device " .. devType .. " detected")
@@ -865,15 +874,19 @@ local function init()
 
    -- start searching for free lua controls
    -- fixed for DS-16 to controls 1 and 2
-   -- for DS-24 start at 5
    
    if monoChrome then
       acvEleCtrl = system.registerControl(1, "Adaptive Mix Value Elevator", "AME")      
       acvAilCtrl = system.registerControl(2, "Adaptive Mix Value Aileron" , "AMA")      
    else
       for i=1,10,1 do
-	 acvEleCtrl = system.registerControl(1+(i+3)%10, "Adaptive Mix Value Elevator", "AME")
-	 acvAilCtrl = system.registerControl(1+(i+4)%10, "Adaptive Mix Value Aileron" , "AMA")	 
+	 acvEleCtrl = system.registerControl(i, "Adaptive Mix Value Elevator", "AME")
+	 if acvEleCtrl then break end
+      end
+      for i=1,10,1 do
+	 if i ~= acvEleCtrl then
+	    acvAilCtrl = system.registerControl(i, "Adaptive Mix Value Aileron" , "AMA")
+	 end
 	 if acvAilCtrl then break end
       end
    end

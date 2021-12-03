@@ -26,6 +26,8 @@
 
    Version 1.5 - Jul 25, 2021 fix bug that prevented use of logical sw/ctrl for crow
                               change speaking of crow points to indiv wav files
+   Version 1.6 - Dec 01, 2021 start lua control search at control 1 to accommodate DS-16 II
+
    Limitations: 
    
    1) Does not account for variability of loops/second which can
@@ -39,7 +41,7 @@
 
 --]]
 
-local crowVersion= 1.5
+local crowVersion= 1.6
 local appShort="DFM-Crow"
 local appDir = "Apps/"..appShort.."/"
 
@@ -268,14 +270,6 @@ local function initForm(sF)
       form.addRow(2)
       form.addLabel({label=lang.revCrowControl, width=270})
       reverseCrowIndex = form.addCheckbox(reverseCrow, reverseCrowChanged)
-      
-      --form.addRow(2)
-      --form.addLabel({label="Trim Control", width=220})
-      --form.addInputbox(trimCtrl, true, trimCtrlChanged)
-      
-      --form.addRow(2)
-      --form.addLabel({label="Reverse Trim Control", width=270})
-      --reverseTrimIndex = form.addCheckbox(reverseTrim, reverseTrimChanged)
 
       form.addRow(2)
       form.addLabel({label=lang.autoCrowOnOff, width=220})
@@ -284,9 +278,6 @@ local function initForm(sF)
       form.addRow(2)
       form.addLabel({label=lang.autoCrowElev, width=220})
       form.addInputbox(elevCtrl, true, elevCtrlChanged)
-
-      --form.addRow(2)
-      --form.addLink((function() form.reinit(3) end), {label = "AutoCrow Menu >>"})
 
       form.addRow(2)
       form.addLink((function() form.reinit(2) end), {label = lang.crowSettings .. ">>", width=220})
@@ -300,10 +291,6 @@ local function initForm(sF)
       form.addLink((function() form.reinit(1) end),
 	 {label = lang.backMain,font=FONT_BOLD})
       
-      --form.addRow(2)
-      --form.addLabel({label="Trim step", width=260})
-      --form.addIntbox(trimStep, 1, 10, 2, 0, 1, trimStepChanged)
-
       form.addRow(2)
       form.addLabel({label=lang.numCrow, width=270})
       form.addIntbox(crowConfig.tPoints, 5, 9, 7, 0, 1, tPointsChanged)
@@ -341,7 +328,6 @@ local function playNumber(num)
    local fn
    if num >= 1 and num <= 9 then
       fn = locale .. "-" .. tostring(num) .. ".wav"
-      --print("fn:", fn)
       system.playFile("/" .. appDir .. fn, AUDIO_IMMEDIATE)
    end
 end
@@ -640,8 +626,10 @@ local function init()
 
    local devType, emFlag
    local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI DS-14"}
+   local gen2Dev = {"JETI DC-16 II", "JETI DS-16 II", "JETI DC-14 II", "JETI DS-14 II"}
    local ff
-
+   local iStart
+   
    setLanguage()
    
    -- Form autoCrow param file name from model name
@@ -706,23 +694,22 @@ local function init()
 
    -- start searching for free lua controls
    -- fixed for DS-16 to controls 1 and 2
-   
+
    if monoChrome then
       acvCtrl = system.registerControl(1, "Adaptive Crow Value", "ACV")      
       --fmCtrl  = system.registerControl(2, "Crow Flight Mode", "CFM")
    else
+      iStart = 5
+      for k,v in ipairs(gen2Dev) do
+	 if devType == v then
+	    iStart = 1
+	    break
+	 end
+      end
       for i=1,10,1 do
-	 acvCtrl = system.registerControl(1+(i+3)%10, "Adaptive Crow Value", "ACV")
+	 acvCtrl = system.registerControl( 1+ (iStart+i-2)%10, "Adaptive Crow Value", "ACV")
 	 if acvCtrl then break end
       end
-      --[[
-      for i=1,10,1 do
-	 if (1+(i+3)%10) ~= acvCtrl then
-	    fmCtrl = system.registerControl(1+(i+3)%10, "Crow Flight Mode", "CFM")
-	 end
-	 if fmCtrl then break end
-      end
-      --]]
    end
    
    if acvCtrl then
@@ -731,14 +718,7 @@ local function init()
    else
       print(appShort .. ": Could not register ACV control")      
    end
-   --[[
-   if fmCtrl then
-      print(appShort .. ": CFM registered to control " .. fmCtrl)
-      system.setControl(fmCtrl,-1,0)
-   else
-      print(appShort .. ": Could not register CFM control")
-   end
-   --]]
+
    if not acvCtrl then -- or not fmCtrl then
       system.messageBox(appShort .. ": " .. lang.cannotReg)
    end
