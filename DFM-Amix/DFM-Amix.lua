@@ -808,7 +808,9 @@ local function init()
    local devType, emFlag
    local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI-DS-14"}
    local ff
-
+   local iStart
+   local gen2Dev = {"JETI DC-16 II", "JETI DS-16 II", "JETI DC-14 II", "JETI DS-14 II"}
+   
    setLanguage()
    
    -- Form autoCrow param file name from model name
@@ -874,18 +876,26 @@ local function init()
 
    -- start searching for free lua controls
    -- fixed for DS-16 to controls 1 and 2
-   
+
    if monoChrome then
       acvEleCtrl = system.registerControl(1, "Adaptive Mix Value Elevator", "AME")      
       acvAilCtrl = system.registerControl(2, "Adaptive Mix Value Aileron" , "AMA")      
    else
+      iStart = 5
+      for k,v in ipairs(gen2Dev) do
+	 if devType == v then
+	    iStart = 1
+	    break
+	 end
+      end
       for i=1,10,1 do
-	 acvEleCtrl = system.registerControl(i, "Adaptive Mix Value Elevator", "AME")
+	 acvEleCtrl = system.registerControl(1+(iStart+i-2)%10, "Adaptive Mix Value Elevator", "AME")
 	 if acvEleCtrl then break end
       end
       for i=1,10,1 do
-	 if i ~= acvEleCtrl then
-	    acvAilCtrl = system.registerControl(i, "Adaptive Mix Value Aileron" , "AMA")
+	 local ii = 1+(iStart+i-2)%10
+	 if  ii ~= acvEleCtrl then
+	    acvAilCtrl = system.registerControl(ii, "Adaptive Mix Value Aileron" , "AMA")
 	 end
 	 if acvAilCtrl then break end
       end

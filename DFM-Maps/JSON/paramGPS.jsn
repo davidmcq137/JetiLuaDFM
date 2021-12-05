@@ -64,6 +64,25 @@
 	},
 	"ID": 42012
     },
+    "GPSLog3": {
+	"Breite": {
+	    "param": 3,
+	    "telem": "Latitude"
+	},
+	"Laenge": {
+	    "param": 4,
+	    "telem": "Longitude"
+	},
+	"Geschwind.": {
+	    "param": 5,
+	    "telem": "SpeedGPS"
+	},
+	"Hoehe": {
+	    "param": 6,
+	    "telem": "Altitude"
+	},
+	"ID": 41729
+    },
     "GPS III": {
 	"Latitude": {
 	    "param": 10,

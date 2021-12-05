@@ -4068,7 +4068,7 @@ local function loop()
       --print("unit:", sensor.unit)
       if sensor.unit == "m/s" then -- speed will be km/hr
 	 SpeedGPS = sensor.value * 3.6
-      elseif sensor.unit == "km/h" then
+      elseif (sensor.unit == "km/h") or (sensor.unit == "kmh") then
 	 SpeedGPS = sensor.value
       elseif sensor.unit == "mph" then
 	 SpeedGPS = sensor.value * 1.609344
