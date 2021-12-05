@@ -11,7 +11,7 @@ end
 
 local function resample_wav(path)
    assert(
-      os.execute(string.format("sox %s -r 12000 -c 1 -e mu-law %s.out.wav", path, path)),
+      os.execute(string.format("sox %s -r 16000 -c 1 %s.out.wav", path, path)),
       "sox failure on " .. path)
    assert(os.execute(string.format("mv %s.out.wav %s", path, path)))
 end
