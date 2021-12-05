@@ -4537,7 +4537,6 @@ local function init()
 				variables[k.."SwitchDir"])
       checkBox[k.."Switch"] = system.getInputsVal(switchItems[k]) == 1
    end
-
    
 end
 
