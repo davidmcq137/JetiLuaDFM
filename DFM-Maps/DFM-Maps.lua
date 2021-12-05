@@ -532,7 +532,7 @@ local function setLanguage()
 
    locale = system.getLocale()
 
-   locale = "de" ------------------------------- TEST ------------------------
+   --locale = "de" ------------------------------- TEST ------------------------
    
    transFile = appInfo.Dir .. "Lang/" .. locale .. "/Text/Text.jsn"
    fp = io.readall(transFile)
