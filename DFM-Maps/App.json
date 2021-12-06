@@ -1,20 +1,21 @@
 {
-  "author":"DFM",
-  "description":{
-    "en":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM-Maps.html"
-  },
-  "hw":[
-      678,
-      679,
-      680,
-      652,
-      653,
-      3857,
-      3858
-  ],
-  "id":0,
-  "name":{
-    "en":"DFM-Maps - GPS Maps"
-  },
-  "previewIcon":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png"
+    "author":"DFM",
+    "description":{
+	"en":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM-Maps.html"
+    },
+    "hw":[
+	678,
+	679,
+	680,
+	652,
+	653,
+	3857,
+	3858
+    ],
+    "id":0,
+    "name":{
+	"en":"DFM-Maps - GPS Maps"
+    },
+    "luaRemover":"Old-DFM-Maps.lua",
+    "previewIcon":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png"
 }
