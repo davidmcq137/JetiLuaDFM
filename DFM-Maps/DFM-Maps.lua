@@ -4505,6 +4505,13 @@ local function init()
    
    emFlag = (select(2,system.getDeviceType()) == 1)
 
+   -- if we are running on the TX, remove any old copies of DFM-Maps.lua which are
+   -- left over .. they are confusing if we are now distributing as .lc
+   
+   if not emFlag then
+      io.remove("./Apps/DFM-Maps.lua")
+   end
+   
    --arcFile = lcd.loadImage(appInfo.Dir .. "JSON/c-000.png")
 
    local fp, fn
