@@ -52,7 +52,7 @@ local function build_app(app)
    local lua_artifact = nil
    if not (app_settings[app] and app_settings[app].no_lc) then
      lua_artifact = string.format('%s.lc', app)
-     local lc_out = io.open(lc_filename, "wb")
+     local lc_out = io.open(lua_artifact, "wb")
      lc_out:write(string.dump(chunk))
      io.close(lc_out)
    elseif lua_source ~= lua_dest then
