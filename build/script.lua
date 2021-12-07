@@ -31,26 +31,41 @@ local function listing(path)
    end
 end
 
+local app_settings = {
+  ['DFM-Maps'] = {no_lc = true},   
+}
+
 local function build_app(app)
    -- Find and load the lua source
-   chunk, err = loadfile(string.format('%s.lua', app)) or loadfile(string.format('%s/%s.lua', app, app))
+   local lua_source = string.format('%s.lua', app)
+   local chunk, err = loadfile(lua_source)
+   if not chunk then
+      lua_source = string.format('%s/%s.lua', app, app)
+      chunk, err = loadfile(lua_source)
+   end
    if not chunk then
       print(string.format("Cannot load: %s ", app))
       return nil
    end
    
-   -- Produce lc file
-   lc_buffer = string.dump(chunk)
-   lc_filename = string.format('%s.lc', app)
-   lc_out = io.open(lc_filename, "wb")
-   lc_out:write(lc_buffer)
-   io.close(lc_out)
+   local lua_artifact = nil
+   if not (app_settings[app] and app_settings[app].no_lc) then
+     lua_artifact = string.format('%s.lc', app)
+     local lc_out = io.open(lua_artifact, "wb")
+     lc_out:write(string.dump(chunk))
+     io.close(lc_out)
+   else
+     lua_artifact = string.format('%s.lua', app)
+     if lua_source ~= lua_artifact then
+       assert(os.execute(string.format('cp %s %s', lua_source, lua_artifact)))
+     end
+   end
    
-   -- Run the chunk to get the returned table
-   info = chunk()
+   -- Run the chunk to get the returned table 
+   local info = chunk()
 
    -- Add the version and release date to App.json "in place"
-   json_filename = string.format('%s/App.json', app)
+   local json_filename = string.format('%s/App.json', app)
    assert(
       os.execute(
          string.format(
@@ -71,7 +86,7 @@ local function build_app(app)
          string.format(
             'zip -r %s %s %s %s',
             zip_name,
-            lc_filename,
+            lua_artifact,
             json_filename,
             app)))
    return info
