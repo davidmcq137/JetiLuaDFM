@@ -11,11 +11,14 @@
 
 ## Notes:
 
-1. We are now distributing the executable file as DFM-Maps.lc
-	which should allow for faster loading and more efficient
-	running. This change has no impact to pilots in normal use of the
-	app, and requires no action. The app is still hosted on a public
-	github page as noted on the website.
+1. We had originally considered releasing this version as a .lc
+	file, but it would have created too many upgrade headaches for our
+	pilots, so the released version will remain as .lua. If you have
+	some older development versions with the .lc filetype on your TX
+	they will also show up in the User Applications menu as
+	DFM-Maps. If loaded, you will know they are out of date since they
+	won't have the current version number. You can remove the file
+	DFM-Maps.lc from your Apps/ folder if you want to clean this up.
 
 2. Prior versions such as the
 	original 7.24 release will still be available on the website,
