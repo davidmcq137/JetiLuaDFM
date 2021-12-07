@@ -16,6 +16,5 @@
     "name":{
 	"en":"DFM-Maps - GPS Maps"
     },
-    "luaRemover":"Old-DFM-Maps.lua",
     "previewIcon":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png"
 }
