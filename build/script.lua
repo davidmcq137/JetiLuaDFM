@@ -37,8 +37,7 @@ local app_settings = {
 
 local function build_app(app)
    -- Find and load the lua source
-   local lua_dest = string.format('%s.lua', app)
-   local lua_source = lua_dest
+   local lua_source = string.format('%s.lua', app)
    local chunk, err = loadfile(lua_source)
    if not chunk then
       lua_source = string.format('%s/%s.lua', app, app)
@@ -55,9 +54,11 @@ local function build_app(app)
      local lc_out = io.open(lua_artifact, "wb")
      lc_out:write(string.dump(chunk))
      io.close(lc_out)
-   elseif lua_source ~= lua_dest then
+   else
      lua_artifact = string.format('%s.lua', app)
-     assert(os.execute(string.format('cp %s %s', lua_source, lua_artifact)))   
+     if lua_source ~= lua_artifact then
+       assert(os.execute(string.format('cp %s %s', lua_source, lua_artifact)))
+     end
    end
    
    -- Run the chunk to get the returned table
