@@ -61,7 +61,7 @@ local function build_app(app)
      end
    end
    
-   -- Run the chunk to get the returned table
+   -- Run the chunk to get the returned table 
    local info = chunk()
 
    -- Add the version and release date to App.json "in place"
