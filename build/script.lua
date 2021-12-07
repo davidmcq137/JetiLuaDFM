@@ -48,15 +48,16 @@ local function build_app(app)
       print(string.format("Cannot load: %s ", app))
       return nil
    end
-  
+   
+   local lua_artifact = nil
    if not (app_settings[app] and app_settings[app].no_lc) then
-     lc_buffer = string.dump(chunk)
-     lc_filename = string.format('%s.lc', app)
-     lc_out = io.open(lc_filename, "wb")
-     lc_out:write(lc_buffer)
+     lua_artifact = string.format('%s.lc', app)
+     local lc_out = io.open(lc_filename, "wb")
+     lc_out:write(string.dump(chunk))
      io.close(lc_out)
    elseif lua_source ~= lua_dest then
-     assert(os.execute(string.format('cp %s %s', lua_source, lua_dest)))
+     lua_artifact = string.format('%s.lua', app)
+     assert(os.execute(string.format('cp %s %s', lua_source, lua_artifact)))   
    end
    
    -- Run the chunk to get the returned table
@@ -84,7 +85,7 @@ local function build_app(app)
          string.format(
             'zip -r %s %s %s %s',
             zip_name,
-            lc_filename,
+            lua_artifact,
             json_filename,
             app)))
    return info
