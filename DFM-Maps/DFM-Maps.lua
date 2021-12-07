@@ -4547,6 +4547,6 @@ local function init()
    
 end
 
-return {init=init, loop=loop, author="DFM", version="8.0", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="8.1", name=appInfo.Name, destroy=destroy}
 
 
