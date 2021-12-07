@@ -84,9 +84,9 @@ local function build_app(app)
    assert(
       os.execute(
          string.format(
-            'zip -r %s %s %s %s',
+            'zip -r %s %s %s',
             zip_name,
-            lua_artifact,
+            --lua_artifact,
             json_filename,
             app)))
    return info
