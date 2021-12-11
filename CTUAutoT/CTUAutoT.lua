@@ -416,7 +416,8 @@ end
 
 local function DrawThrottle()
 
-    local ox, oy = 1, 8
+   local ox, oy = 1, 8
+   
     local thetaThr, thetaOffThr
     
     local textThrottle = string.format("%d", math.floor(throttle + 0.5))
@@ -535,6 +536,8 @@ local function wbTele()
    DrawRectGaugeAbs(158, 140, 70, 16,    0, 100, iTerm, lang.labelInteg)
    DrawRectGaugeCenter(252, 140, 70, 16,  -20,  20, dTerm, lang.labelDeriv)
    DrawErrsig()
+   --lcd.setColor(255,0,0)
+   --lcd.drawRectangle(0,0,310,160)
 end
 
 --------------------------------------------------------------------------------

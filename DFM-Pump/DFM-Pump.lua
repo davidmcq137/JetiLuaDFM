@@ -1920,7 +1920,7 @@ local function keyPump(key)
    
    local text, state = form.getButton(1)
 
-   --print("key, text, state", key, text, state)
+   print("key, text, state", key, text, state)
    --print(KEY_1, KEY_2, KEY_MENU, KEY_ESC, KEY_ENTER, KEY_UP)
    
    if not pumpActive then return end

@@ -2892,7 +2892,7 @@ local savedRx={}
 local savedRy={}
 local circFitCache={}
 
-local function dirPrint()
+local function dirPrint(xw, xh, kk)
    local sC = variables.triLength * variables.triViewScale / 100 -- scale factor for this tele window
    local xf = 0.40 -- center X is at 1-xf of width
    local yf = 0.65 -- center Y is at 1-yf of height
@@ -2907,6 +2907,17 @@ local function dirPrint()
    local hh
    local triColorMode
 
+   --print("dp", xw, xh, kk, sC)
+
+   if kk then
+      --print("kk not nil!")
+      if kk == 256 and variables.triViewScale >=105 then
+	 variables.triViewScale = variables.triViewScale - 10
+      elseif kk == 512 and variables.triViewScale <= 995 then
+	 variables.triViewScale = variables.triViewScale + 10
+      end
+   end
+
    --metrics.dirPCount = metrics.dirPCount + 1
 
    --[[
@@ -2920,6 +2931,10 @@ local function dirPrint()
 
    if not xtable or not ytable then return end
 
+   --lcd.setClipping(0,0,320,160)
+   --lcd.setColor(255,0,0)
+   --lcd.drawRectangle(0,0,300,150)
+   
    if variables.triColorMode == "Dark" then
       setColor("Background", "Image")
       lcd.drawFilledRectangle(0,0,320,160)      
@@ -3122,6 +3137,7 @@ local function dirPrint()
       local iend = #xPHist
       local istart = math.max(iend-maxPts+1, 1)
       local newH = (hh ~= lastHeading)
+
       -- for each heading, pre-compute pixels for history ribbon
       if newH then
 	 for i=istart, iend do
@@ -3131,27 +3147,26 @@ local function dirPrint()
       end
       ren:reset()
       rgb.last = -1
-      -- display the hsitory ribbon from the cached points, handle color changes
+      -- display the history ribbon from the cached points, handle color changes
       for i=istart, iend do
-	 if variables.ribbonColorSource ~= 1 then
-	    -- in case we get unlucky on heading change timing, we might need to compute
-	    -- some additional points from time to time. for speed just check savedRx
-	    if not savedRx[i] then
-	       xrr,yrr = ll2RX(i), ll2RY(i)
-	       savedRx[i], savedRy[i] = rapN(xrr, yrr, 2)
-	    end
-	    if rgbHist[i] ~= rgb.last then
-	       rgb.last = rgbHist[i]
-	       rapC(savedRx[i], savedRy[i], 2)
-	       ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
-	       ren:reset()
+	 -- in case we get unlucky on heading change timing, we might need to compute
+	 -- some additional points from time to time. for speed just check savedRx
+	 if not savedRx[i] then
+	    xrr,yrr = ll2RX(i), ll2RY(i)
+	    savedRx[i], savedRy[i] = rapN(xrr, yrr, 2)
+	 end
+	 if rgbHist[i] ~= rgb.last then
+	    rgb.last = rgbHist[i]
+	    rapC(savedRx[i], savedRy[i], 2)
+	    ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
+	    ren:reset()
+	    if variables.ribbonColorSource == 1 then
+	       setColor("Map", triColorMode)
+	    else
 	       lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
 	    end
-	    rapC(savedRx[i], savedRy[i], 2)
-	 else
-	    setColor("Map", triColorMode)
-	    --lcd.setColor(140,140,80)
 	 end
+	 rapC(savedRx[i], savedRy[i], 2)
       end
       rap(xx,yy,2)
       ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
@@ -3492,7 +3507,7 @@ local function mapPrint(windowWidth, windowHeight)
    local swp
    local offset
    local ren=lcd.renderer()
-   
+
    --metrics.mapPCount = metrics.mapPCount + 1
    --[[
    local deltaC
@@ -3502,12 +3517,19 @@ local function mapPrint(windowWidth, windowHeight)
       metrics.lastxPCount = metrics.xPCount
    end
    --]]
-   if form.getActiveForm() then return end
+   
+   if not emFlag then
+      if form.getActiveForm() then
+	 return
+      end
+   end
    
    if recalcDone() then
       graphScale(xtable[#xtable], ytable[#ytable])
    end
 
+   --lcd.setClipping(0,0,320,160)
+   
    --[[
       -- started to separate no GPS from no map .. user sugggestion to show icon in motion or timer
       -- animation while waiting for GPS signal .. next logical step would be to let the app work with
@@ -3579,7 +3601,7 @@ local function mapPrint(windowWidth, windowHeight)
    if switchItems.point then
       swp = system.getInputsVal(switchItems.point)
    end
-   
+
    if ( (not switchItems.point) or (swp and swp == 1) ) and (#xPHist > 0) then
 
       --check if we need to panic .. xPHist got too big while we were off screen
@@ -3614,7 +3636,7 @@ local function mapPrint(windowWidth, windowHeight)
 
       local kk
       local ii = variables.ribbonColorSource
-      
+
       for i=2 + offset, (recalcPixels and recalcCount or #xPHist) do
 	 kk = i
 	 --AA--ren:addPoint(xPHist[i], yPHist[i])
@@ -3709,6 +3731,7 @@ local function mapPrint(windowWidth, windowHeight)
 				  map.Ymin, map.Yrange, windowHeight))
 	    
 	 end
+	 --lcd.setClipping(0,0,310,160)
 	 ren:renderPolyline(2,0.5)
       end
 
@@ -4205,7 +4228,7 @@ local function loop()
 	    math.sqrt( (xtable[lp] - xtable[np])^2 + (ytable[lp] - ytable[np])^2)
       end
       --]]
-      
+
       if variables.histMax > 0 and
 	 (system.getTimeCounter() - lastHistTime > variables.histSample) and
          (math.abs(x-xHistLast) + math.abs(y - yHistLast) > variables.histDistance) then 
@@ -4219,6 +4242,7 @@ local function loop()
 	 metrics.xPCount = metrics.xPCount + 1
 	 table.insert(xPHist, toXPixel(x, map.Xmin, map.Xrange, 319))
 	 table.insert(yPHist, toYPixel(y, map.Ymin, map.Yrange, 159))
+
 	 xHistLast = x
 	 yHistLast = y
 	 table.insert(latHist, latitude)
@@ -4365,6 +4389,9 @@ end
 local function init()
 
    --local emptySw = system.getSwitchInfo(system.createSwitch("??", ""))
+
+   --print("DFM-Maps init()")
+   
    local fg = io.readall(appInfo.Dir.."JSON/Shapes.jsn")
 
    if fg then
@@ -4544,7 +4571,7 @@ local function init()
 				variables[k.."SwitchDir"])
       checkBox[k.."Switch"] = system.getInputsVal(switchItems[k]) == 1
    end
-   
+
 end
 
 return {init=init, loop=loop, author="DFM", version="8.1", name=appInfo.Name, destroy=destroy}

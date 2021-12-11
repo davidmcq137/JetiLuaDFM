@@ -975,7 +975,7 @@ end
 
 
 local function init()
-   --print("in init()")
+   --print("SensorL init()")
    system.registerTelemetry(1, appName, 4, telePrint)
    system.registerForm(1, MENU_APPS, "Log File Player", initForm, keyForm, prtForm)
    
