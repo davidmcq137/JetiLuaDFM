@@ -423,8 +423,63 @@ local function emulator_init()
    system.getSensorValueByID = emulator_getSensorValueByID
    system.getTxTelemetry = emulator_getTxTelemetry
    gps.getPosition = emulator_getPosition
+   system.playFile = emulator_playFile
+   system.playNumber = emulator_playNumber
+   system.vibration = emulator_vibration
+   
    
 end
+
+
+function emulator_vibration(lr, prof)
+   local lrText
+   local profText = {"Long Pulse", "Short Pulse", "2x Short Pulse", "3x Short Pulse", "Other"}
+   if lr then lrText = "Right" else lrText = "Left" end
+   if prof < 1 or prof > 5 then
+      i = 5
+   else
+      i = prof
+   end
+   print(string.format("SensorL - vibration: %s" .. " stick - Profile: %s", lrText, profText[i]))
+end
+
+function emulator_playFile(fn, typ)
+   local ss
+   if typ == AUDIO_BACKGROUND then
+      ss = "AUDIO_BACKGROUND"
+   elseif typ == AUDIO_IMMEDIATE then
+      ss = "AUDIO_IMMEDIATE"
+   elseif typ == AUDIO_QUEUE then
+      ss = "AUDIO_QUEUE"
+   else
+      ss = "Type Unknown: " .. (typ or "-nil-")
+   end
+   print(string.format("SensorL - playFile: <%s> type: %s", fn, ss))
+end
+
+function emulator_playNumber(val, dec, unit, lab)
+   local fs, rr, vf
+   
+   if dec == 0 then
+      fs = "%d"
+   elseif dec == 1 then
+      fs = "%.1f"
+   elseif dec == 2 then
+      fs = "%.2f"
+   else -- not valid
+      fs = "%f"
+      rr = false
+   end
+   if val then
+      vf = string.format(fs, val)
+   else
+      vf = "(nil)"
+   end
+   print(string.format
+	 ("SensorL - playNumber: %s unit: %s label: %s", vf, unit, lab))
+   return rr
+end
+
 
 alreadyCalled=false
 annDone=false
@@ -976,7 +1031,7 @@ end
 
 local function init()
    --print("SensorL init()")
-   system.registerTelemetry(1, appName, 4, telePrint)
+   system.registerTelemetry(1, appName, 4, telePrint, {"SL1", "SL2", "SL3", "SL4"})
    system.registerForm(1, MENU_APPS, "Log File Player", initForm, keyForm, prtForm)
    
    dev, emFlag = system.getDeviceType()

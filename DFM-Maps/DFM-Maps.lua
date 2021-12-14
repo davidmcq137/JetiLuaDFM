@@ -658,7 +658,7 @@ local function readSensors()
    paramGPS = json.decode(jt)
    
    for i, sensor in ipairs(sensors) do
-      --print("for loop:", i, sensor.sensorName, sensor.label, sensor.param, sensor.id)
+      --print("for loop:", i, sensor.sensorName, sensor.label, sensor.param, sensor.type)
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then -- it's a label
 	    sensName = sensor.label
@@ -668,6 +668,7 @@ local function readSensors()
 	    table.insert(sensorUnlist, 0)
 	    table.insert(sensorNalist, 0)
 	 elseif sensor.type == 9 then  -- lat/long
+	    --print("inserting", sensor.param, sensor.label)
 	    table.insert(GPSsensorLalist, sensor.label)
 	    seSeq = #GPSsensorLalist
 	    table.insert(GPSsensorIdlist, sensor.id)
@@ -714,6 +715,12 @@ local function readSensors()
 		  telem[label].SeId = sensor.id
 		  telem[label].SePa = param
 	       elseif telem[label] then -- check if this is one we want
+		  telem.selectedGPS = sensor.sensorName
+		  --print("GPS: " .. telem.selectedGPS)
+		  --print("seSeq", seSeq)
+		  --print("sensor.id", sensor.id)
+		  --print("param", param)
+		  --print("label", label)
 		  telem[label].Se = seSeq
 		  telem[label].SeId = sensor.id
 		  telem[label].SePa = param
@@ -1443,6 +1450,12 @@ local function initForm(subform)
 
    elseif subform == 2 then
       savedRow = subform-1
+      if telem.selectedGPS then
+	 form.setTitle("GPS: " .. telem.selectedGPS)
+      else
+	 form.setTitle("Sensors")
+      end
+      
       local menuSelectGPS = { -- for lat/long only
 	 Longitude= lang.selectLong,
 	 Latitude = lang.selectLat
@@ -4527,8 +4540,8 @@ local function init()
    setLanguage()
    
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
-   system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, mapPrint)
-   system.registerTelemetry(2, appInfo.Name.." "..lang.triView, 4, dirPrint)   
+   system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, mapPrint, {"MV1", "MV2", "MV3", "MV4"})
+   system.registerTelemetry(2, appInfo.Name.." "..lang.triView, 4, dirPrint, {"TV1", "TV2", "TV3", "TV4"})   
    
    emFlag = (select(2,system.getDeviceType()) == 1)
 

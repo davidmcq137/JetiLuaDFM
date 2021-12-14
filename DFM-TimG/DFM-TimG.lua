@@ -74,6 +74,7 @@ local oldswi = 0
 local runningTime = 0
 local runningTime50 
 local nextAnnTime = 0
+local forceAnn = false
 local startTime = 0
 local fuelPct = 0
 local fuelMax
@@ -286,18 +287,24 @@ end
 
 -- Telemetry window draw functions
 
-local function timePrint(width, height)
+local function timePrint(width, height, key)
 
    local mm, rr
    local pts
    local rts
 
    -- compute running time and time to empty, create strings
+
+   -- if we got a key 1 press, force update now
+
+   if key == KEY_1 then -- "Ann" (see system.registerTelemetry call below)
+      forceAnn = true
+   end
    
    mm,rr = math.modf(runningTime/60)
    pts = string.format("%02d:%02d", math.floor(mm), math.floor(rr*60))
 
-  if remainingTime then
+  if remainingTime and remainingTime ~= 0 then
      mm, rr = math.modf(remainingTime/60)
      rts = string.format("%02d:%02d", math.floor(mm), math.floor(rr*60))
   else
@@ -315,7 +322,7 @@ local function timePrint(width, height)
   for i = 1, #pts do
      char = pts:sub(i,i)
      if string.find(char, "[^%d^:]") then
-	print("illegal character", char)
+	print("DFM-TimG: Illegal character", char)
 	char = ":"
      end
      len = len + digitImageTimer[charMap[char]].width
@@ -329,7 +336,7 @@ local function timePrint(width, height)
   for i = 1, #pts do
      char = pts:sub(i,i)
      if string.find(char, "[^%d^:]") then
-	print("illegal character", char)
+	print("DFM-TimG: Illegal character", char)
 	char = ":"
      end
      lcd.drawImage(hPix, vPix, digitImageTimer[charMap[char]])
@@ -342,7 +349,7 @@ local function timePrint(width, height)
   for i = 1, #rts do
      char = rts:sub(i,i)
      if string.find(char, "[^%d^:]") then
-	print("illegal character", char)
+	print("DFM-TimG: Illegal character", char)
 	char = ":"
      end
      len = len + digitImageEmpty[charMap[char]].width
@@ -356,7 +363,7 @@ local function timePrint(width, height)
   for i = 1, #rts do
      char = rts:sub(i,i)
      if string.find(char, "[^%d^:]") then
-	print("illegal character", char)
+	print("DFM-TimG: Illegal character", char)
 	char = ":"
      end
      lcd.drawImage(hPix, vPix, digitImageEmpty[charMap[char]])
@@ -455,23 +462,28 @@ local function loop()
    -- startTime is also used for state info ... it's zero if timer has never started or has
    -- been stopped by shutting down turbine
     
-   if (startTime > 0 and tim >= nextAnnTime) then    -- we are running and it's time to announce
+   if (startTime > 0 and tim >= nextAnnTime) or forceAnn then -- we are running and it's time to announce
 
+      if not forceAnn then
+	 nextAnnTime = nextAnnTime + 60                -- schedule next ann 60 seconds in future
+      end
       
       local minTime = runningTime / 60
       local modMin, remMin = math.modf(minTime)
-      nextAnnTime = nextAnnTime + 60                -- schedule next ann 60 seconds in future
-
+            
       system.playFile('/Apps/DFM-TimG/Sup_Tim_Tim.wav', AUDIO_QUEUE)   -- "Time Elapsed"
 
       if modMin > 0 then
-	 system.playNumber(modMin, 0, 'min')
+	 system.playNumber(math.floor(modMin), 0, 'min')
       end
 
-      if remMin > 0.1 then
-	 system.playNumber(30, 0, 's')
+      if forceAnn then
+	 remMin = remMin * 60
+	 system.playNumber(math.floor(remMin), 0, 's')
       end
-      
+
+      forceAnn = false
+	 
       if not shortAnn and FuelSeId ~= 0 then
 	 system.playFile('/Apps/DFM-TimG/Sup_Tim_Fuel.wav', AUDIO_QUEUE)  -- "Fuel Remaining"
       end
@@ -526,7 +538,7 @@ local function init()
    bingoTime = system.pLoad("bingoTime", 60)
    
    system.registerForm(1, MENU_APPS, "Geriatric Time Announcer", initForm)
-   system.registerTelemetry(1, "Geriatric Timer", 4, timePrint)
+   system.registerTelemetry(1, "Geriatric Timer", 4, timePrint, {"Ann", "G2", "G3", "G4"})
 
    readSensors()
    setLanguage()
