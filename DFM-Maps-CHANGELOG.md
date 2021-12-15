@@ -34,6 +34,11 @@
 	now also offer a zipfile for manual installation of the app and
 	your personalized map data.
 
+## Video
+
+Harry Curzon has made a Youtube video summarizing these changes:
+	https://youtu.be/TuDt0r6rF5I
+
 ## New features/changes - General:
 
 Only one change may require you to re-enter data. See #9 and 10

@@ -21,6 +21,6 @@ DFM-Maps/IGC/*.igc
 DFM-Maps/JSON/sensorEmulator*
 DFM-Maps/Maps/*
 /*.lua
-DFM-TCA/*.wav
+DFM-TCA/Audio/*.wav
 
 

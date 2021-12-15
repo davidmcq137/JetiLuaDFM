@@ -47,14 +47,20 @@ local function teleLoad()
    while i <= #teleWin do
       local pL = system.pLoad(teleWin[i].label) or string.format("%03d*.wav", i)
       local pseq, pwav = string.match(pL, "(%d%d%d)(.+)")
+      --print("teleLoad", pL, pseq, pwav)
       if pseq == 0 then
 	 table.remove(teleWin, i)
       else
-	 teleWin[i].seq = pseq
+	 teleWin[i].seq = tonumber(pseq) or i
 	 teleWin[i].wavFile = pwav
 	 i=i+1
       end
    end
+   ---print("teleLoad finished")
+   --for i in ipairs(teleWin) do
+      --print(i, teleWin[i].label, teleWin[i].seq, teleWin[i].wavFile)
+   --end
+   
 end
 
 local function teleSort()
@@ -144,6 +150,7 @@ local function stateLoad()
       stateSw[i].time   = time  [i] or 0
       stateSw[i].dir    = dir   [i] or 1
       stateSw[i].lastSw = 0
+      stateSw[i].timeout = 0
    end
 end
 
@@ -177,8 +184,9 @@ local function dirChanged(val, j)
    --form.reinit(4)
 end
 
-local function wavChanged(val, j)
-   teleWin[j].wavFile = val
+local function wavChanged(val, j, w)
+   --print("wav changed", val, j, w[val])
+   teleWin[j].wavFile = w[val]
    teleSave()
 end
 
@@ -214,28 +222,36 @@ local function initForm(fm)
       form.setButton(1, ":down", 1)
       form.setButton(2, ":up", 1)
       form.setButton(3, " ", 1)
-      form.setButton(4, ":delete", 1)
+      --form.setButton(4, ":delete", 1)
+      form.setButton(4, " ", 1)
       form.setButton(5, "OK", 1)
       form.setTitle("Telemetry Central")
       local wav={}
       local iwav=1
       table.insert(wav, "*.wav")
-      for fn, ft, sz in dir("Apps/DFM-TCA") do
+      for fn, ft, sz in dir("Apps/DFM-TCA/Audio") do
 	 if string.sub(fn, -4) == ".wav" and ft == "file" then
 	    table.insert(wav, fn)
 	 end
       end
+
+      table.sort(wav)
+      
       for i = 1, #teleWin, 1 do
 	 if teleWin[i].seq ~= 0 then
 	    form.addRow(2)
 	    local text = string.format("[%d]  ", i) .. teleWin[i].label
-	    form.addLabel({label=text, width=160})
+	    form.addLabel({label=text, width=210})
+	    for j in ipairs(wav) do
+	       if teleWin[i].wavFile == wav[j] then iwav = j end
+	    end
 	    form.addSelectbox(wav, iwav, true,
-			      (function(x) return wavChanged(x,j) end), {width=150} )
+			      (function(x) return wavChanged(x,i,wav) end), {width=100} )
 	 end
       end
    elseif activeForm == 4 then
       form.setButton(1, ":add", 1)
+      form.setButton(2, ":delete", 1)
       form.addRow(1)
       form.addLabel({label="SW        Trig        From            To           t(s)"})
       local teleLabel={}
@@ -264,7 +280,7 @@ local function initForm(fm)
       end
       
    end
-   form.setFocusedRow(focusedRow)
+   --form.setFocusedRow(focusedRow)
 end
 
 local function tele1()
@@ -293,6 +309,28 @@ local function prtForm()
       local hgt = teleWin[currentWindow].height
       -- if key is available, pass along to the app as an extra parameter
       teleWin[currentWindow].callback(wid, hgt, key)
+      local keymap = {[1]=1,[2]=2, [4]=3, [8]=4} -- KEY_n are 2^(n-1)
+      if key and key > 0 then
+	 local keystr
+	 if key <= KEY_4 then
+	    keystr = teleWin[currentWindow].button[keymap[key]]
+	 elseif key == KEY_5 then
+	    keystr = "KEY_5"
+	 elseif key == KEY_DOWN then
+	    keystr = "Down"
+	 elseif key == KEY_UP then
+	    keystr = "Up"
+	 elseif key == KEY_ESC then
+	    keystr = "Esc"
+	 elseif key == KEY_MENU then
+	    keystr = "Menu"
+	 elseif key == KEY_ENTER then
+	    keystr = "Enter"
+	 else
+	    keystr = tostring(key)
+	 end
+	 print("Sending [" .. teleWin[currentWindow].label .. "] Key <" .. keystr .. ">")
+      end
       key = 0
    end
    lcd.setColor(lcd.getFgColor())
@@ -316,6 +354,10 @@ local function keyForm(k)
       elseif k == KEY_5 then
 	 if currentWindow + 1 > #teleWin then currentWindow = 1 else currentWindow = currentWindow + 1 end
 	 lastKey = 0
+	 --swap over to this screen's buttons
+	 for i = 1, 4 do
+	    form.setButton(i, teleWin[currentWindow].button[i], 1)
+	 end
       elseif k == KEY_RELEASED then -- save last pressed key to send to tele window
 	 key = lastKey
       else
@@ -326,7 +368,6 @@ local function keyForm(k)
       if k == KEY_5 or k == KEY_ESC then
 	 form.reinit(1)
       end
-      
    elseif activeForm == 3 then
       local fr = form.getFocusedRow()
       local temp
@@ -336,33 +377,50 @@ local function keyForm(k)
 	    teleWin[fr].seq = fr + 1
 	    teleWin[fr+1].seq = fr
 	    teleSort()
-	    focusedRow = fr + 1
-	    form.reinit(2)
+	    form.setFocusedRow(fr+1)
+	    --focusedRow = fr + 1
+	    form.reinit(3)
 	 end
       elseif k == KEY_2 then -- up
 	 if (fr ~= 1) and (#teleWin ~= 1) then
 	    teleWin[fr].seq = fr - 1
 	    teleWin[fr-1].seq = fr
 	    teleSort()
-	    focusedRow = fr - 1
-	    form.reinit(2)
+	    form.setFocusedRow(fr-1)
+	    --focusedRow = fr - 1
+	    form.reinit(3)
 	 end
       elseif k == KEY_4 then -- delete
+	 --[[ remove delete for now
 	 system.pSave(teleWin[fr].label, 0)
 	 table.remove(teleWin, fr)
-	 focusedRow = 1
+	 form.setFocusedRow(1)
+	 --focusedRow = 1
 	 currentWindow = 1
-	 form.reinit(2)
+	 form.reinit(3)
+	 --]]
       elseif k == KEY_5 or k == KEY_ESC then
 	 teleSort()
-	 form.reinit(1)
+	 form.reinit(2)
       end
    elseif activeForm == 4 then
       if k == KEY_1 then
+	 print("gfr", form.getFocussedRow)
 	 table.insert(stateSw, {switch=nil, dir=1, from="*", to="*", time=0, lastSw=0})
+	 print("#stateSw+1", #stateSw+1)
+	 form.setFocusedRow(#stateSw + 1)
+	 --focusedRow = #stateSw + 1
+	 form.reinit(4)
+      elseif k == KEY_2 then
+	 print("delete")
+	 local fr = form.getFocusedRow()
+	 print("del: fr", fr)
+	 if fr - 1 > 0 then
+	    table.remove(stateSw, fr - 1)
+	 end
 	 form.reinit(4)
       elseif k == KEY_5 or k == KEY_ESC then
-	 form.reinit(1)
+	 form.reinit(2)
       end
    end
 end
@@ -379,38 +437,44 @@ local function winNumber(label)
 end
 
 local function loop()
+
+   if (form.getActiveForm() ~= 0) then return end
+   
    local time = system.getTimeCounter()
    if time - lastTime > 1000 then
       txT = system.getTxTelemetry()
       lastTime = time
    end
    
-   local swt
    for i in ipairs(stateSw) do
-      local timeout = stateSw[i].timeout or 0
+      local timeout = (stateSw[i].timeout or 0)
+      
       if timeout ~= 0 and system.getTimeCounter() > timeout then
-	 print("timeout over", teleWin[currentWindow].label, stateSw[i].retlabel)
+	 --print("timeout over", teleWin[currentWindow].label, stateSw[i].retlabel)
 	 stateSw[i].timeout = 0
 	 --before going back to orig state, see if we are still in the state we put it in
 	 if teleWin[currentWindow].label == stateSw[i].to then
 	    currentWindow = winNumber(stateSw[i].retlabel)
 	    system.messageBox("Telemetry: ".. stateSw[i].retlabel)
+	    system.playFile(teleWin[winNumber(stateSw[i].retlabel)].wavFile, AUDIO_QUEUE)
 	 end
       end
       
-      swt = system.getInputsVal(stateSw[i].switch)
-      if swt and stateSw[i] and stateSw[i].lastSw and swt ~= stateSw[i].lastSw then
-	 if swt == stateSw[i].dir then
+      local swt = system.getInputsVal(stateSw[i].switch)
+
+      if swt and stateSw[i] and stateSw[i].lastSw ~= 0 and (swt ~= stateSw[i].lastSw) then
+	 --print("swt, stateSw[i].dir", swt, stateSw[i].dir)
+	 -- "pos" is index 1 and "neg" is index 2
+	 if (swt == 1 and stateSw[i].dir == 1) or (swt == -1 and stateSw[i].dir == 2) then
 	    if stateSw[i].from == "*" or stateSw[i].from == teleWin[currentWindow].label then
 	       if stateSw[i].time ~= 0 then
-		  print("setting timeout", stateSw[i].time)
+		  --print("setting timeout", stateSw[i].time)
 		  stateSw[i].timeout = system.getTimeCounter() + 1000 * stateSw[i].time
 		  stateSw[i].retlabel = teleWin[currentWindow].label
 	       end
 	       currentWindow = winNumber(stateSw[i].to)
 	       system.messageBox("Telemetry: " .. stateSw[i].to)
-	    else
-	       print("hit but wrong window:", currentWindow, stateSw[i].from)
+	       system.playFile(teleWin[winNumber(stateSw[i].to)].wavFile, AUDIO_QUEUE)
 	    end
 	 end
       end
