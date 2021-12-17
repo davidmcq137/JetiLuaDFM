@@ -1,4 +1,9 @@
-# Release Notes for Version 8.0 of DFM-Maps
+# Release Notes for Version 8.1 of DFM-Maps
+
+## Video:
+
+Harry Curzon has made a Youtube video summarizing these changes:
+	https://youtu.be/TuDt0r6rF5I
 
 ## Bug fixes:
 
@@ -33,11 +38,6 @@
 3. In addition to supporting app installation with Jeti studio, we
 	now also offer a zipfile for manual installation of the app and
 	your personalized map data.
-
-## Video
-
-Harry Curzon has made a Youtube video summarizing these changes:
-	https://youtu.be/TuDt0r6rF5I
 
 ## New features/changes - General:
 

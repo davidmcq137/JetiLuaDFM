@@ -285,30 +285,29 @@ end
 
 local function tele1()
    if not txT then return end
-   local dy = 15
-   local y = 10
-   for k,v in pairs(txT) do
-      if k == "RSSI" then
-	 for k,v in pairs(v) do
-	    lcd.drawText(10, y, k)
-	    lcd.drawText(100, y, v)
-	    y = y + dy
-	 end
-      else
-	 lcd.drawText(10, y, k)
-	 lcd.drawText(100, y, v)
-	 y = y + dy
-      end
-   end
+
+   str = "Model: " .. system.getProperty("Model") or "---"
+   lcd.drawText(150 - 0.5 * lcd.getTextWidth(FONT_BIG, str), 5, str, FONT_BIG)
+
+
+   lcd.drawText(10, 40, "TX Voltage: " .. (txT.txVoltage or "---") .. " V" )
+   lcd.drawText(10, 60, "TX Batt: " .. (txT.txBattPercent or "---") .. "%")
+   lcd.drawText(10, 80, "RX1 Percent: " .. (txT.rx1Percent or "---") .. "%")
+   lcd.drawText(10,100, "RX1 Voltage: " .. (txT.rx1Voltage or "---") .. " V")  
+   
+		
+
 end
 
 local function prtForm()
+   local ret
    if activeForm ~= 1 then return end
    if currentWindow and teleWin[currentWindow].callback then
       local wid = teleWin[currentWindow].width
       local hgt = teleWin[currentWindow].height
       -- if key is available, pass along to the app as an extra parameter
-      teleWin[currentWindow].callback(wid, hgt, key)
+      -- receive possible return value as well
+      ret = teleWin[currentWindow].callback(wid, hgt, key)
       local keymap = {[1]=1,[2]=2, [4]=3, [8]=4} -- KEY_n are 2^(n-1)
       if key and key > 0 then
 	 local keystr
@@ -340,6 +339,10 @@ local function prtForm()
    lcd.drawText(5,162,string.format("[%d]  %s", (currentWindow or 0), lbl), FONT_MINI)
    lbl = "(esc to Exit)"
    lcd.drawText(305 - lcd.getTextWidth(FONT_MINI, lbl), 162, lbl, FONT_MINI)
+   if ret then
+      lcd.drawText(155 - 0.5*lcd.getTextWidth(FONT_MINI, ret), 162, ret, FONT_MINI)
+   end
+   
 end
 
 local function keyForm(k)
