@@ -5,15 +5,29 @@
    10-Dec-2021 D. McQueeney
    Released 12/2021 MIT license
 
-   Keep a copy of all the relevant info for all the telemetry windows running on
-   the TX. Display them with the forms interface so that one app can be left
-   running while in flight and shift between all tele windows and give each one
-   access to all the TX controls (e.g. screen softkeys, esc an menu, 3D
-   wheel). Only implemented for full screen windows initially. After copying
-   tele window information from system.registerTelemetry, passes the call along
-   to the real system routine so that the apps all work as normal from the
-   displayed telemetry interface. Passes input from TX controls to the app via
-   an extra call parameter to the draw routine.
+   App to allow all running apps to interact with TX controls (F1-F5, 3D wheel
+   and button etc) while their tele window is displayed. Also allows lua control
+   of which tele window is displayed.
+
+   How it works: We keep a copy of all the relevant info for all the telemetry
+   windows running on the TX. Display them with the forms interface of this app
+   so that this one app can be left running while in flight and shift between
+   all tele windows and give each one access to all the TX controls (e.g. screen
+   softkeys, esc an menu, 3D wheel). Only implemented for full screen windows
+   initially. After copying tele window information from
+   system.registerTelemetry(), passes the call along to the real system routine so
+   that the apps all work as normal from the displayed telemetry interface.
+
+   Passes input from TX controls (key presses) to another app via an extra call
+   parameter to the tele window draw routine. Apps pass key labels to this app
+   as extra params to system.registerTelemetry(). App can send back a string
+   from the tele draw callback to be displayed on the status bar.
+
+   Pilots can define switches/controls that change displayed tele window for
+   creating automatic context switching of tele windows to match phase of
+   flight.
+
+   Pilots can define wav file to play as a new tele window is displayed.
 
 --]]
 
@@ -47,7 +61,6 @@ local function teleLoad()
    while i <= #teleWin do
       local pL = system.pLoad(teleWin[i].label) or string.format("%03d*.wav", i)
       local pseq, pwav = string.match(pL, "(%d%d%d)(.+)")
-      --print("teleLoad", pL, pseq, pwav)
       if pseq == 0 then
 	 table.remove(teleWin, i)
       else
@@ -56,11 +69,6 @@ local function teleLoad()
 	 i=i+1
       end
    end
-   ---print("teleLoad finished")
-   --for i in ipairs(teleWin) do
-      --print(i, teleWin[i].label, teleWin[i].seq, teleWin[i].wavFile)
-   --end
-   
 end
 
 local function teleSort()
@@ -110,6 +118,8 @@ function registerTelemetry(nn, lbl, sz, cb, bt)
    local ret = originalregisterTelemetry(nn, lbl, sz, cb)
    return ret
 end
+
+-- these statements are outside a function and wil get executed before and init() (I hope!)
 
 originalregisterTelemetry = system.registerTelemetry
 system.registerTelemetry = registerTelemetry
@@ -286,17 +296,16 @@ end
 local function tele1()
    if not txT then return end
 
+   -- skeleton version of pre-flight screen .. will add bar graphs for current draw if a CBxxx
+   -- is installed, with max current indication to confirm controls are free before flight
+   
    str = "Model: " .. system.getProperty("Model") or "---"
    lcd.drawText(150 - 0.5 * lcd.getTextWidth(FONT_BIG, str), 5, str, FONT_BIG)
 
-
-   lcd.drawText(10, 40, "TX Voltage: " .. (txT.txVoltage or "---") .. " V" )
-   lcd.drawText(10, 60, "TX Batt: " .. (txT.txBattPercent or "---") .. "%")
+   lcd.drawText(10, 40, "TX Voltage: "  .. (txT.txVoltage or "---") .. " V" )
+   lcd.drawText(10, 60, "TX Batt: "     .. (txT.txBattPercent or "---") .. "%")
    lcd.drawText(10, 80, "RX1 Percent: " .. (txT.rx1Percent or "---") .. "%")
    lcd.drawText(10,100, "RX1 Voltage: " .. (txT.rx1Voltage or "---") .. " V")  
-   
-		
-
 end
 
 local function prtForm()
@@ -307,7 +316,7 @@ local function prtForm()
       local hgt = teleWin[currentWindow].height
       -- if key is available, pass along to the app as an extra parameter
       -- receive possible return value as well
-      ret = teleWin[currentWindow].callback(wid, hgt, key)
+      ret = teleWin[currentWindow].callback(wid, hgt, key) -- the magic happens here :-)
       local keymap = {[1]=1,[2]=2, [4]=3, [8]=4} -- KEY_n are 2^(n-1)
       if key and key > 0 then
 	 local keystr
@@ -394,7 +403,7 @@ local function keyForm(k)
 	    form.reinit(3)
 	 end
       elseif k == KEY_4 then -- delete
-	 --[[ remove delete for now
+	 --[[ --remove delete for now
 	 system.pSave(teleWin[fr].label, 0)
 	 table.remove(teleWin, fr)
 	 form.setFocusedRow(1)
@@ -415,9 +424,9 @@ local function keyForm(k)
 	 --focusedRow = #stateSw + 1
 	 form.reinit(4)
       elseif k == KEY_2 then
-	 print("delete")
+	 --print("delete")
 	 local fr = form.getFocusedRow()
-	 print("del: fr", fr)
+	 --print("del: fr", fr)
 	 if fr - 1 > 0 then
 	    table.remove(stateSw, fr - 1)
 	 end
@@ -453,7 +462,6 @@ local function loop()
       local timeout = (stateSw[i].timeout or 0)
       
       if timeout ~= 0 and system.getTimeCounter() > timeout then
-	 --print("timeout over", teleWin[currentWindow].label, stateSw[i].retlabel)
 	 stateSw[i].timeout = 0
 	 --before going back to orig state, see if we are still in the state we put it in
 	 if teleWin[currentWindow].label == stateSw[i].to then
@@ -466,12 +474,10 @@ local function loop()
       local swt = system.getInputsVal(stateSw[i].switch)
 
       if swt and stateSw[i] and stateSw[i].lastSw ~= 0 and (swt ~= stateSw[i].lastSw) then
-	 --print("swt, stateSw[i].dir", swt, stateSw[i].dir)
 	 -- "pos" is index 1 and "neg" is index 2
 	 if (swt == 1 and stateSw[i].dir == 1) or (swt == -1 and stateSw[i].dir == 2) then
 	    if stateSw[i].from == "*" or stateSw[i].from == teleWin[currentWindow].label then
 	       if stateSw[i].time ~= 0 then
-		  --print("setting timeout", stateSw[i].time)
 		  stateSw[i].timeout = system.getTimeCounter() + 1000 * stateSw[i].time
 		  stateSw[i].retlabel = teleWin[currentWindow].label
 	       end
@@ -487,7 +493,7 @@ end
 
 local function init()
    system.registerForm(1, 0, "Telemetry Central App", initForm, keyForm, prtForm)
-   system.registerTelemetry(1, "Test 1", 4, tele1)
+   system.registerTelemetry(1, "Preflight", 4, tele1)
    stateLoad()
 end
 
