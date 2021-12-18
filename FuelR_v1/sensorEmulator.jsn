@@ -1,0 +1,12 @@
+[
+    {"id":1,"param":0,"sensorName":"", "label":"Xicoy"},
+    {"id":1,"param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"Xicoy",
+     "label":"Fuel",
+     "unit":"%",
+     "luaExp":"P5(0,100) * math.exp(-t/60)"
+    }
+]    
+ 

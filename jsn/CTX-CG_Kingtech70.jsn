@@ -1,0 +1,11 @@
+{
+    "turbineName": "Kingtech K70G",
+    "turbineIdleKRPM":55,
+    "turbineThrustTable": [
+	-1.244,
+	1.529E-1,
+	-2.103E-3,
+	1.876E-5
+    ]
+}
+

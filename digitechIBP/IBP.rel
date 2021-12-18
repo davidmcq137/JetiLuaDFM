@@ -1,0 +1,27 @@
+IBP Release notes
+
+v0.14
+
+30-Dec-2019
+
+Added logging for battery packs. Uses Jeti API pSave() function during
+each flight to update pack run time since charge, pack mAh used
+.. every 10s. Flashes a little red "light" in the upper right hand
+corner of the Telem window to show logging. On next power on, checks
+to see if the pack was charged (looks for change in remaining capacity
+since last logged value). If so it writes out to a file the time, mAh
+charge put in (computed by subtracting last flight's last capacity
+from the new remaining capacity), and the run time that accumulated
+since the last charge.  These are put in CSV format into a file named
+with the pack's ID. For example "IBP_Pack_ID_0100A448.csv" in the
+directory Apps/digitechIBP/Log. Each flight (or each run of the app)
+creates a new line in the file for each pack that was charged.
+
+5-June-2020
+
+Adapted to some changes Carsten made ... he has a different string for
+the device name that is more descrptive (e.g. 3S LiFe), that is read
+and stored and used as the default name for the pack.
+
+
+

@@ -43,7 +43,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: true
-          tag_name: prerelease-v${{ steps.lc_build.outputs.dfm_maps_version }}
-          name: "DFM-Maps Pre-Release ${{ steps.lc_build.outputs.dfm_maps_version }}"
+          tag_name: prerelease-v${{ steps.lc_build.outputs.dfm_maps_version }}-${{ github.run_id }}
+          name: "DFM-Maps Pre-Release ${{ steps.lc_build.outputs.dfm_maps_version }} #${{ github.run_id }}"
           files: |
             release-output/*

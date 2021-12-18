@@ -1,0 +1,215 @@
+{
+    "trifields" : [ {
+	"name" : "Harry Curzon Field",
+	"shortname" : "HCF",
+	"lat" : 51.882709,
+	"long" : -2.098735,
+	"elevation":61,
+	"View": "Standard",
+	"triangle": 50,
+	"aimoff":10,
+	"startHeading": 274,
+	"startMaxAltitude": 200,
+	"startMaxSpeed": 100,
+	"maxAltitude": 350,
+	"raceTime":5,    
+	"runway": {
+	    "length": 10,
+	    "width": 10,
+	    "x_offset":0,
+	    "y_offset":-30
+	}
+    }, {
+	"name" : "Cheltenham",
+	"shortname" : "CHEL",
+   	"lat" : 51.984532,
+	"long" : -2.080538,
+	"elevation": 35,
+	"View":"Standard",
+	"triangle":250,
+	"aimoff": 20,
+	"startHeading": 80,
+	"startMaxAltitude":200,
+	"startMaxSpeed": 100,
+	"maxAltitude":350,
+	"raceTime":10,
+	"runway" : {
+	    "length" : 150,
+	    "width" : 15,
+	    "x_offset":0,
+	    "y_offset":-20
+	},
+	"noFlyZone": "Outside",
+	"NoFly" : [ {
+	    "lat" : 51.984664,
+	    "long" : -2.085811
+	}, {
+	    "lat" : 51.985748,
+	    "long" : -2.081208
+	}, {
+	    "lat": 51.986844,
+	    "long": -2.081809
+	}, {
+	    "lat": 51.987234,
+	    "long": -2.079856
+	}, {
+	    "lat": 51.986758,
+	    "long": -2.079566
+	}, {
+	    "lat": 51.986891,
+	    "long": -2.078869
+	}, {
+	    "lat": 51.986712,
+	    "long": -2.075714
+	}, {
+	    "lat": 51.982219,
+	    "long": -2.072367
+	}, {
+	    "lat": 51.980250,
+	    "long": -2.083397
+	} ]
+    }, {
+	"name" : "Sutton Benger",
+	"shortname" : "SUTT",
+   	"lat" : 51.503825,
+	"long" : -2.069100,
+	"elevation": 54,
+	"View":"Standard",
+	"triangle":250,
+	"aimoff": 20,
+	"startHeading": 300,
+	"startMaxAltitude":200,
+	"startMaxSpeed": 100,
+	"maxAltitude":350,
+	"raceTime":10,
+	"runway" : {
+	    "length" : 40,
+	    "width" : 40,
+	    "x_offset":0,
+	    "y_offset":-20
+	}
+    },{
+	
+	"name" : "DCRC Walt Good Field",
+	"shortname" : "DCRC",
+	"lat" : 39.147398,
+	"long" : -77.337639,
+	"elevation":80,
+	"View": "Standard",
+	"triangle": 500,
+	"aimoff": 50,
+	"startHeading": 347.5,
+	"startMaxAltitude": 200,
+	"startMaxSpeed": 100,
+	"maxAltitude": 350,
+	"raceTime":30,
+	"runway": {
+	    "length": 183,
+	    "width": 12,
+	    "x_offset": 0,
+	    "y_offset": -100
+	}
+    },{
+	
+	"name" : "Black Dirt Squadron",
+	"shortname" : "BDS",
+	"lat" : 41.339816,
+	"long" : -74.430756,
+	"elevation":118,
+	"View": "Standard",
+	"triangle": 250,
+	"aimoff": 25,
+	"startHeading": 350,
+	"startMaxAltitude": 200,
+	"startMaxSpeed": 100,
+	"maxAltitude": 350,
+	"raceTime":10,
+	"runway": {
+	    "length": 10,
+	    "width": 10,
+	    "x_offset": 0,
+	    "y_offset": -70
+	}
+    }, {
+	"name" : "NSA Westonzoyland",
+	"shortname" : "NSAW",
+	"lat" : 51.105585,
+	"long" : -2.893590,
+	"View":"Standard",
+	"startHeading" : 280,
+	"runway" : {
+	    "length" : 10,
+	    "width" : 10,
+	    "x_offset": 0,
+	    "y_offset": 0
+	},
+	"noFlyZone": "Outside",
+	"NoFly" : [ {
+	    "lat" : 51.105087,
+	    "long" : -2.902035
+	}, {
+	    "lat" : 51.106971,
+	    "long" : -2.901756
+	}, {
+	    "lat": 51.106876,
+	    "long": -2.899052
+	}, {
+	    "lat": 51.119471,
+	    "long": -2.862510
+	}, {
+	    "lat": 51.099075,
+	    "long": -2.859420
+	}, {
+	    "lat": 51.104613,
+	    "long": -2.892830
+	} ]
+    },{
+	"name" : "Stanford",
+	"shortname" : "STG",
+	"lat" : 51.630682,
+	"long" : -1.496548,
+	"elevation" : 69.55,
+	"View":"Standard",
+	"startHeading" : 266,
+	"runway" : {
+	    "length" : 150,
+	    "width" : 10,
+	    "x_offset": 0,
+	    "y_offset": 0
+	},
+	"noFlyZone": "Outside",
+	"NoFly" : [ {
+	    "lat" : 51.634263,
+	    "long" : -1.502733
+	}, {
+	    "lat" : 51.634882,
+	    "long" : -1.490164
+	}, {
+	    "lat": 51.629956,
+	    "long": -1.489705
+	}, {
+	    "lat": 51.629329,
+	    "long": -1.502179
+	} ]
+    }, {
+	"name" : "Area 74",
+	"shortname" : "A74",
+	"lat" : 41.245597,
+	"long" : -73.759068,
+	"elevation":152,
+	"View": "Standard",
+	"triangle": 20,
+	"aimoff": 50,
+	"startHeading": 28,
+	"startMaxAltitude": 200,
+	"startMaxSpeed": 100,
+	"maxAltitude": 350,
+	"raceTime":5,
+	"runway": {
+	    "length": 63,
+	    "width": 4
+	}
+    } ]
+}
+
+

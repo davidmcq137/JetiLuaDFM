@@ -1,0 +1,48 @@
+Instructions for adding a new language:
+
+Check the Lang/ directory on your TX using the File Browser app to see
+the list of locales currently supported by Jeti. Locales are a
+two-letter sequence e.g. en (English), es (Spanish), de (German).
+
+1) Prepare for translation:
+
+Go to the directory DFM-Maps/Lang/ then make a copy of the en
+directory and be sure to include all of its subdirectories. Use the
+two-letter locale for the new language as the name of the new
+directory, e.g. for German it would be DFM-Maps/Lang/de/
+
+2) Translate the text:
+
+Using German as an example, edit the file
+DFM-Maps/Lang/de/Text/Text.jsn and replace the strings after the colon
+on each line with proper German translations. Make sure the quotation
+marks are preserved. Since some of the menu lines are space
+constrained, please run the app and make sure everything looks as it
+should with the translations. Let us know if you see any strings we
+missed or have any other issues.
+
+3) Translate the audio/wav files:
+
+Go into the DFM-Maps/Lang/Audio/
+directory and replace all the wav files with files of the same names
+but with the appropriate language. The original wav files were made
+with the RC-Thoughts TTS service:
+https://www.rc-thoughts.com/tts. Tero supports all the relevant
+languages for Jeti. Thanks to Tero for hosting this service. Some
+languages have multiple accents or speakers available so for example
+if you are in the UK you may want to redo the wav files for the "en"
+localization from the original American to Great Britain style.
+
+Notes:
+
+If the App wakes up and gets from the TX a locale for which no
+translation file exists it will attempt to run in English (locale
+"en") and will print an error message on the lua console and display a
+pop-up message on the TX screen to inform the pilot of the missing
+translation.
+
+If you contribute a translation, I would be happy to credit you for
+that work here in this file if you want me to.
+
+23-Oct-2021 D. McQueeney
+Original "en" text, audio and multi language support. 

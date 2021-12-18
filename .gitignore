@@ -11,4 +11,16 @@ DFM-LSO/*.png
 DFM-LSO/temp*.png
 T-Wizard/Fields
 T-Wizard/JSON/*.png
+MapsSimon/
+M-*.jsn
+MF-*.jsn
+*.igc
+DFM-Maps/M-*.jsn
+DFM-Maps/MF-*.jsn
+DFM-Maps/IGC/*.igc
+DFM-Maps/JSON/sensorEmulator*
+DFM-Maps/Maps/*
+/*.lua
+DFM-TCA/Audio/*.wav
+
 

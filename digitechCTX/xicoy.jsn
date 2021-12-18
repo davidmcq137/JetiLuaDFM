@@ -1,0 +1,142 @@
+                           {
+
+	"brand": "Xicoy",
+	"message": {
+		"0": {
+			"text": "Trim Low",
+			"speech": "STANDBY.wav",
+			"es": "es-standby.wav",
+			"fr": "fr-standby.wav",
+			"de": "standby-DE.wav"
+		},
+		"1": {
+			"text": "Ready",
+			"speech": "ARMED.wav",
+			"de": "ARMED-DE.wav"
+		},
+		"2": {
+			"text": "Sticklo!",
+			"speech": "sticklo.wav",
+			"de": "sticklo-DE.wav"
+		},
+		"3": {
+			"text": "Glow Test",
+			"speech": "Glow_test.wav",
+			"de": "Glow_test-DE.wav"
+		},
+		"4": {
+			"text": "Start on",
+			"speech": "BURNER ON.wav",
+			"de": "BURNER ON-DE.wav"
+		},
+		"5": {
+			"text": "Ignition",
+			"speech": "FUELIGNIT.wav",
+			"de": "FULLIGNIT-DE.wav"
+		},
+		"6": {
+			"text": "Preheat",
+			"speech": "FUELHEAT.wav",
+			"de": "FUELHEAT-DE.wav"
+
+		},
+		"7": {
+			"text": "Fuelramp",
+			"speech": "RAMP-UP.wav",
+			"de": "RAMP-UP-DE.wav"
+		},
+		"8": {
+			"text": "Running",
+			"speech": "turbineidle.wav",
+			"de": "turbineidle-DE.wav"
+
+		},
+		"9": {
+			"text": "Stop",
+			"speech": "turbineoff.wav",
+			"de": "turbineoff-DE.wav"
+
+		},
+		"10": {
+			"text": "Cooling",
+			"speech": "cool_down.wav",
+			"de": "cool_down-DE.wav"
+		},
+		"11": {
+			"text": "Glow Bad",
+			"speech": "kerofail.wav",
+			"de": "kerofail-DE.wav"
+		},
+		"12": {
+			"text": "Startbad",
+			"speech": "bad_start.wav",
+			"de": "bad-start-DE.wav"
+		},
+		"13": {
+			"text": "Low RPM",
+			"speech": "low-rpm.wav",
+			"de": "low-rpm-DE.wav"
+		},
+		"14": {
+			"text": "High Temp",
+			"speech": "hightemp.wav",
+			"de": "hightemp-DE.wav"
+		},
+		"15": {
+			"text": "Flameout",
+			"speech": "flameout2.wav",
+			"de": "flameout-DE.wav"
+		},
+		"16": {
+			"text": "Set Idle!",
+			"speech": "setidle.wav",
+			"de": "setidle-DE.wav"
+		},
+		"17": {
+			"text": "Burner On",
+			"speech": "BURNER ON.wav",
+			"de": "BURNER ON-DE.wav"
+		},
+		"18": {
+			"text": "Start On",
+			"speech": "tbe.wav",
+			"de": "tbe-DE.wav"
+		},
+		"19": {
+			"text": "Ignition Fail",
+			"speech": "ignfailed.wav",
+			"de": "ignfailed-DE.wav"
+		},
+		"20": {
+			"text": "Ignitor Bad",
+			"speech": "ignitorfailed.wav",
+			"de": "ignitorfailed-DE.wav"
+		},
+		"21": {
+			"text": "Battery Low",
+			"speech": "ecubattlow.wav",
+			"es": "es-battlow.wav",
+			"fr": "fr-battlow.wav",
+			"de": "ecubattlow-DE.wav"
+		},
+		"22": {
+			"text": "Battery Low",
+			"speech": "ecubattlow.wav",
+			"es": "es-battlow.wav",
+			"fr": "fr-battlow.wav",
+			"de": "ecubattlow-DE.wav"
+		},
+		"23": {
+			"text": "Failsafe",
+			"speech": "failsafe.wav",
+			"de": "failsafe-DE.wav"
+		},
+		"255": {
+			"text": "ECU Offline",
+			"speech": "ecuoffline.wav",
+			"de": "ecuoffline-DE.wav"
+		}
+	}
+
+
+}

@@ -1,0 +1,74 @@
+             {
+
+
+	"brand": "Orbit",
+	"message": {
+		"0": {
+			"text": "Lock",
+			"speech": "eculocked.wav",
+			"de": "eculocked-DE.wav"
+		},
+		"1": {
+			"text": "Stop",
+			"speech": "Turbineoff.wav",
+			"de": "Turbineoff-DE.wav"
+		},
+		"2": {
+			"text": "Run",
+			"speech": "turidle.wav",
+			"de": "turidle-DE.wav"
+		},
+		"3": {
+			"text": "Rel",
+			"speech": "release.wav",
+			"de": "release-DE.wav"
+		},
+		"4": {
+			"text": "Glow",
+			"speech": "preheatkero.wav",
+			"de": "preheatkero-DE.wav"
+		},
+		"5": {
+			"text": "Spin",
+			"speech": "spin.wav",
+			"de": "spin-DE.wav"
+		},
+		"6": {
+			"text": "Heat",
+			"speech": "heat.wav",
+			"de": "heat-DE.wav"
+		},
+		"7": {
+			"text": "Accel",
+			"speech": "accel.wav",
+			"de": "accel-DE.wav"
+		},
+		"8": {
+			"text": "Calibration",
+			"speech": "cal.wav",
+			"de": "cal-DE.wav"
+		},
+		"9": {
+			"text": "Idle",
+			"speech": "idle.wav",
+			"de": "idle-DE.wav"
+		},
+		"10": {
+			"text": "Off",
+			"speech": "off.wav",
+			"de": "off-DE.wav"
+		},
+		"11": {
+			"text": "Cool",
+			"speech": "cool_down.wav",
+			"de": "cool_down-DE.wav"
+		},
+		"255": {
+			"text": "ECU Offline",
+			"speech": "ecuol.wav",
+			"de": "ecuol-DE.wav"
+		}
+	}
+
+
+}

@@ -1,0 +1,1 @@
+{"brakeOff":-0.9,"flapUp":0.9,"gearChannel":"SB","throttleCutoff":-1,"turbineName":"JetCatP300","gearUp":0.9,"throttleChannel":"P4","throttleIdle":-0.9,"pitotCal":100,"brakeChannel":"P5","turbineThrustTable":[-0.1923,0.0184,-0.0003,5e-05],"flapChannel":"SD","wheelDiameter":6,"throttleFull":0.9,"gearDown":-0.9,"flapFull":-0.9,"brakeOn":0.9,"flapTakeoff":0}

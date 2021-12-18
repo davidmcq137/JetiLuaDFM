@@ -1,0 +1,10 @@
+{
+    "turbineName": "JetCatP300",
+    "turbineThrustTable": [
+	-0.1923,
+	0.0184,
+	-0.0003,
+	0.00005
+    ],
+    "turbineIdleKRPM":30
+}

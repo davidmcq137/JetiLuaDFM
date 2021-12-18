@@ -1,0 +1,295 @@
+[
+  {"Type":0,"Minus-Mark":"Minus.wav","Decimal-Mark":"Point.wav","Silence":"Silence.wav", "T":"Thousand.wav", "H":"Hundred.wav","U":"And.wav","A":"","B":"","Groups":"M7654321D21"},
+
+  {"Type":1,"From":0,"To":0,"File": "Zero.wav", "Minus":0,"Group":1,"Gender":"111"},
+  {"Type":1,"From":1,"To":1,"File": "One.wav", "Minus":1,"Group":1,"Gender":"111"},
+  {"Type":1,"From":2,"To":2,"File": "Two.wav", "Minus":2,"Group":1,"Gender":"111"},
+  {"Type":1,"From":3,"To":3,"File": "Three.wav", "Minus":3,"Group":1,"Gender":"111"},
+  {"Type":1,"From":4,"To":4,"File": "Four.wav", "Minus":4,"Group":1,"Gender":"111"},
+  {"Type":1,"From":5,"To":5,"File": "Five.wav", "Minus":5,"Group":1,"Gender":"111"},
+  {"Type":1,"From":6,"To":6,"File": "Six.wav", "Minus":6,"Group":1,"Gender":"111"},
+  {"Type":1,"From":7,"To":7,"File": "Seven.wav", "Minus":7,"Group":1,"Gender":"111"},
+  {"Type":1,"From":8,"To":8,"File": "Eight.wav", "Minus":8,"Group":1,"Gender":"111"},
+  {"Type":1,"From":9,"To":9,"File": "Nine.wav", "Minus":9,"Group":1,"Gender":"111"},
+  {"Type":1,"From":10,"To":10,"File": "Ten.wav","Opt":"Y", "Minus":10,"Group":2,"Gender":"111"},
+  
+  {"Type":1,"From":11,"To":11,"File": "Eleven.wav","Opt":"Y", "Minus":11,"Group":2,"Gender":"111"},
+  {"Type":1,"From":12,"To":12,"File": "Twelve.wav","Opt":"Y", "Minus":12,"Group":2,"Gender":"111"},
+  {"Type":1,"From":13,"To":13,"File": "Thirteen.wav","Opt":"Y", "Minus":13,"Group":2,"Gender":"111"},
+  {"Type":1,"From":14,"To":14,"File": "Fourteen.wav","Opt":"Y", "Minus":14,"Group":2,"Gender":"111"},
+  {"Type":1,"From":15,"To":15,"File": "Fifteen.wav","Opt":"Y", "Minus":15,"Group":2,"Gender":"111"},
+  {"Type":1,"From":16,"To":16,"File": "Sixteen.wav","Opt":"Y", "Minus":16,"Group":2,"Gender":"111"},
+  {"Type":1,"From":17,"To":17,"File": "Seventee.wav","Opt":"Y", "Minus":17,"Group":2,"Gender":"111"},
+  {"Type":1,"From":18,"To":18,"File": "Eighteen.wav","Opt":"Y", "Minus":18,"Group":2,"Gender":"111"},
+  {"Type":1,"From":19,"To":19,"File": "Nineteen.wav","Opt":"Y", "Minus":19,"Group":2,"Gender":"111"}, 
+   
+  {"Type":1,"From":20,"To":29,"File": "Twenty.wav","Opt":"Y", "Minus":20,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":30,"To":39,"File": "Thirty.wav","Opt":"Y", "Minus":30,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":40,"To":49,"File": "Forty.wav","Opt":"Y", "Minus":40,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":50,"To":59,"File": "Fifty.wav","Opt":"Y", "Minus":50,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":60,"To":69,"File": "Sixty.wav","Opt":"Y", "Minus":60,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":70,"To":79,"File": "Seventy.wav","Opt":"Y", "Minus":70,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":80,"To":89,"File": "Eighty.wav","Opt":"Y", "Minus":80,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":90,"To":99,"File": "Ninety.wav","Opt":"Y", "Minus":90,"Group":2,"Gender":"111"},
+  
+  {"Type":1,"From":10,"To":19,"File": "One.wav","Opt":"Z", "Minus":10,"Group":1,"Gender":"111"},
+  {"Type":1,"From":20,"To":29,"File": "Two.wav","Opt":"Z", "Minus":20,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":30,"To":39,"File": "Three.wav","Opt":"Z", "Minus":30,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":40,"To":49,"File": "Four.wav","Opt":"Z", "Minus":40,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":50,"To":59,"File": "Five.wav","Opt":"Z", "Minus":50,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":60,"To":69,"File": "Six.wav","Opt":"Z", "Minus":60,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":70,"To":79,"File": "Seven.wav","Opt":"Z", "Minus":70,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":80,"To":89,"File": "Eight.wav","Opt":"Z", "Minus":80,"Group":2,"Gender":"111"}, 
+  {"Type":1,"From":90,"To":99,"File": "Nine.wav","Opt":"Z", "Minus":90,"Group":2,"Gender":"111"},
+                     
+  {"Type":1,"From":100,"To":199,"File": "One.wav","Opt":"H", "Minus":100,"Group":3,"Gender":"111"},
+  {"Type":1,"From":200,"To":299,"File": "Two.wav","Opt":"H", "Minus":200,"Group":3,"Gender":"111"},
+  {"Type":1,"From":300,"To":399,"File": "Three.wav","Opt":"H", "Minus":300,"Group":3,"Gender":"111"},
+  {"Type":1,"From":400,"To":499,"File": "Four.wav","Opt":"H", "Minus":400,"Group":3,"Gender":"111"},
+  {"Type":1,"From":500,"To":599,"File": "Five.wav","Opt":"H",  "Minus":500,"Group":3,"Gender":"111"},
+  {"Type":1,"From":600,"To":699,"File": "Six.wav","Opt":"H",  "Minus":600,"Group":3,"Gender":"111"},
+  {"Type":1,"From":700,"To":799,"File": "Seven.wav","Opt":"H",  "Minus":700,"Group":3,"Gender":"111"},
+  {"Type":1,"From":800,"To":899,"File": "Eight.wav", "Opt":"H", "Minus":800,"Group":3,"Gender":"111"},
+  {"Type":1,"From":900,"To":999,"File": "Nine.wav","Opt":"H", "Minus":900,"Group":3,"Gender":"111"},
+  
+   
+  {"Type":1,"From":1000,"To":1999,"File": "One.wav","Opt":"T", "Minus":1000,"Group":4,"Gender":"111"},
+  {"Type":1,"From":2000,"To":2999,"File": "Two.wav","Opt":"T", "Minus":2000,"Group":4,"Gender":"111"},
+  {"Type":1,"From":3000,"To":3999,"File": "Three.wav","Opt":"T", "Minus":3000,"Group":4,"Gender":"111"},
+  {"Type":1,"From":4000,"To":4999,"File": "Four.wav","Opt":"T", "Minus":4000,"Group":4,"Gender":"111"},
+  {"Type":1,"From":5000,"To":5999,"File": "Five.wav", "Opt":"T", "Minus":5000,"Group":4,"Gender":"111"},
+  {"Type":1,"From":6000,"To":6999,"File": "Six.wav", "Opt":"T", "Minus":6000,"Group":4,"Gender":"111"},
+  {"Type":1,"From":7000,"To":7999,"File": "Seven.wav", "Opt":"T", "Minus":7000,"Group":4,"Gender":"111"},
+  {"Type":1,"From":8000,"To":8999,"File": "Eight.wav", "Opt":"T", "Minus":8000,"Group":4,"Gender":"111"},
+  {"Type":1,"From":9000,"To":9999,"File": "Nine.wav", "Opt":"T", "Minus":9000,"Group":4,"Gender":"111"},
+  
+  {"Type":1,"From":10000,"To":10999,"File": "Ten.wav", "Opt":"T", "Minus":10000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":11000,"To":11999,"File": "Eleven.wav", "Opt":"T", "Minus":11000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":12000,"To":12999,"File": "Twelve.wav", "Opt":"T", "Minus":12000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":13000,"To":13999,"File": "Thirteen.wav", "Opt":"T", "Minus":13000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":14000,"To":14999,"File": "Fourteen.wav", "Opt":"T", "Minus":14000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":15000,"To":15999,"File": "Fifteen.wav", "Opt":"T", "Minus":15000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":16000,"To":16999,"File": "Sixteen.wav", "Opt":"T", "Minus":16000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":17000,"To":17999,"File": "Seventee.wav", "Opt":"T", "Minus":17000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":18000,"To":18999,"File": "Eighteen.wav", "Opt":"T", "Minus":18000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":19000,"To":19999,"File": "Nineteen.wav", "Opt":"T", "Minus":19000,"Group":5,"Gender":"111"},
+  
+  {"Type":1,"From":20000,"To":20999,"File": "Twenty.wav", "Opt":"T", "Minus":20000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":21000,"To":29999,"File": "Twenty.wav", "Minus":20000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":30000,"To":30999,"File": "Thirty.wav", "Opt":"T", "Minus":30000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":31000,"To":39999,"File": "Thirty.wav",  "Minus":30000,"Group":5,"Gender":"111"},  
+  {"Type":1,"From":40000,"To":40999,"File": "Forty.wav", "Opt":"T", "Minus":40000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":41000,"To":49999,"File": "Forty.wav", "Minus":40000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":50000,"To":50999,"File": "Fifty.wav", "Opt":"T", "Minus":50000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":51000,"To":59999,"File": "Fifty.wav","Minus":50000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":60000,"To":60999,"File": "Sixty.wav",  "Opt":"T", "Minus":60000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":61000,"To":69999,"File": "Sixty.wav", "Minus":60000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":70000,"To":70999,"File": "Seventy.wav", "Opt":"T", "Minus":70000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":71000,"To":79999,"File": "Seventy.wav",  "Minus":70000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":80000,"To":80999,"File": "Eighty.wav", "Opt":"T", "Minus":80000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":81000,"To":89999,"File": "Eighty.wav", "Minus":80000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":90000,"To":90999,"File": "Ninety.wav", "Opt":"T", "Minus":90000,"Group":5,"Gender":"111"},
+  {"Type":1,"From":91000,"To":99999,"File": "Ninety.wav",  "Minus":90000,"Group":5,"Gender":"111"},
+  
+  {"Type":1,"From":100000,"To":100999,"File": "One.wav", "Opt":"HT", "Minus":100000,"Group":6,"Gender":"111"},
+  {"Type":1,"From":101000,"To":199999,"File": "One.wav", "Opt":"H",  "Minus":100000,"Group":6,"Gender":"111"},
+  {"Type":1,"From":200000,"To":200999,"File": "Two.wav", "Opt":"HT", "Minus":200000,"Group":6,"Gender":"111"},
+  {"Type":1,"From":201000,"To":299999,"File": "Two.wav", "Opt":"H", "Minus":200000,"Group":6,"Gender":"111"},
+                                                                  
+  
+ 
+  {"Type":2,"Label":"Voltage","File":"Voltage.wav"},
+  {"Type":2,"Label":"Current","File":"Current.wav"}, 
+  {"Type":2,"Label":"Run time","File":"Runtime.wav"},
+  
+  {"Type":2,"Label":"U Rx","File":"RecvVolt.wav"},
+  {"Type":2,"Label":"A1","File":"Antenna1.wav"},
+  {"Type":2,"Label":"A2","File":"Antenna2.wav"},
+  {"Type":2,"Label":"T","File":"Timer.wav"},
+  {"Type":2,"Label":"Q","File":"Signal.wav"},
+   
+  {"Type":2,"Label":"Input A","File":"InputA.wav"},
+  {"Type":2,"Label":"Input B","File":"InputB.wav"},
+  {"Type":2,"Label":"Input C","File":"InputC.wav"},
+  {"Type":2,"Label":"Output","File": "Output.wav"},
+   
+  {"Type":2,"Label":"Power","File":"Power.wav"}, 
+  {"Type":2,"Label":"Velocity","File":"Speed.wav"},
+  {"Type":2,"Label":"Speed","File":"Speed.wav"}, 
+   
+  {"Type":2,"Label":"Temp. A","File":"TempA.wav"},
+  {"Type":2,"Label":"Temp. B","File":"TempB.wav"}, 
+   
+  
+  {"Type":2,"Label":"Cell 1","File":"Cell1.wav"},
+  {"Type":2,"Label":"Cell 2","File":"Cell2.wav"},
+  {"Type":2,"Label":"Cell 3","File":"Cell3.wav"},
+  {"Type":2,"Label":"Cell 4","File":"Cell4.wav"},
+  {"Type":2,"Label":"Cell 5","File":"Cell5.wav"},
+  {"Type":2,"Label":"Cell 6","File":"Cell6.wav"},
+  {"Type":2,"Label":"LowestVolt","File":"LowVolt.wav"},
+  {"Type":2,"Label":"LowestCell","File":"WeakCell.wav"},
+  {"Type":2,"Label":"Accu. volt","File":"Voltage.wav"},
+  
+  
+  
+  {"Type":2,"Label":"Vario","File":"Vario.wav"}, 
+  {"Type":2,"Label":"Abs. altit","File":"AbsAlt.wav"}, 
+  {"Type":2,"Label":"Rel. altit","File":"Altitude.wav"},
+  {"Type":2,"Label":"Air press.","File":"Pressure.wav"},
+  
+  {"Type":2,"Label":"U Battery","File":"Voltage.wav"},
+  {"Type":2,"Label":"I Battery","File":"Current.wav"},
+  {"Type":2,"Label":"U BEC","File":"VoltBEC.wav"},
+  {"Type":2,"Label":"I BEC","File":"I_BEC.wav"},
+  {"Type":2,"Label":"Capacity","File":"Capacity.wav"},
+  {"Type":2,"Label":"Revolution","File":"RPMs.wav"},
+  {"Type":2,"Label":"Temp.","File":"Temperat.wav"},
+  {"Type":2,"Label":"Run Time","File":"Runtime.wav"},
+  {"Type":2,"Label":"PWM","File":"PWM.wav"},
+  
+  {"Type":2,"Label":"Quality","File":"GPSQual.wav"}, 
+  {"Type":2,"Label":"SatCount","File":"NoSats.wav"}, 
+  {"Type":2,"Label":"Altitude","File":"AbsAlt.wav"}, 
+  {"Type":2,"Label":"AltRelat.","File":"Altitude.wav"}, 
+  {"Type":2,"Label":"Distance","File":"Distance.wav"}, 
+  {"Type":2,"Label":"Course","File":"Course.wav"}, 
+  {"Type":2,"Label":"Azimuth","File":"Azimuth.wav"}, 
+  {"Type":2,"Label":"Impulse","File":"Impuls.wav"}, 
+  {"Type":2,"Label":"Trip","File":"Trip.wav"}, 
+  
+  //V4.0  
+  {"Type":2,"Label":"R.volume","File":"R.Volume.wav"},
+  {"Type":2,"Label":"R.volumeP","File":"R.Volume.wav"},
+  {"Type":2,"Label":"Flow","File":"Flow.wav"},
+  {"Type":2,"Label":"Pressure","File":"Pressure.wav"}, 
+  //V4.26
+  {"Type":2,"Label":"Satellites","File":"NoSats.wav"}, 
+  {"Type":2,"Label":"Heading","File":"Heading.wav"}, 
+  {"Type":2,"Label":"G-Force","File":"Load.wav"},
+  {"Type":2,"Label":"Roll","File":"Roll.wav"},
+  {"Type":2,"Label":"Pitch","File":"Pitch.wav"},
+  {"Type":2,"Label":"Yaw","File":"Yaw.wav"},
+  {"Type":2,"Label":"Torque","File":"Torque.wav"},
+  {"Type":2,"Label":"Angle","File":"Angle.wav"},
+  {"Type":2,"Label":"Status","File":"Status.wav"}, 
+  
+ 
+  
+  {"Type":3,"From":1,"To":1,"File":"Wmin.wav","Opt":"C","Unit":"Wmi","Gender":"100"},
+  {"Type":3,"From":0,"To":2000000000,"File":"Wmins.wav","Opt":"VF","Unit":"Wmi","Gender":"100"},
+  
+  {"Type":3,"From":1,"To":1,"File":"hPa.wav","Opt":"C","Unit":"hPa","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"hPas.wav","Opt":"VF","Unit":"hPa","Gender":"100"},
+ 
+  {"Type":3,"From":0,"To":2000000000,"File":"Fahrenh.wav","Opt":"V","Unit":"F","Gender":"100"},
+    
+  {"Type":3,"From":1,"To":1,"File":"MeterPS.wav","Opt":"C","Unit":"m/s","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"MetersPS.wav","Opt":"VF","Unit":"m/s","Gender":"100"},
+    
+  {"Type":3,"From":1,"To":1,"File":"Degree.wav","Opt":"C","Unit":"°","Gender":"100"},
+  {"Type":3,"From":0,"To":2000000000,"File":"Degrees.wav","Opt":"VF","Unit":"°","Gender":"100"}, 
+    
+  {"Type":3,"From":1,"To":1,"File":"DegCels.wav","Opt":"C","Unit":"°C","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"DegsCels.wav","Opt":"VF","Unit":"°C","Gender":"100"},
+   
+  {"Type":3,"From":1,"To":1,"File":"Watt.wav","Opt":"C","Unit":"W","Gender":"100"},
+  {"Type":3,"From":0,"To":2000000000,"File":"Watts.wav","Opt":"VF","Unit":"W","Gender":"100"},
+   
+  {"Type":3,"From":1,"To":1,"File":"Second.wav","Opt":"C","Unit":"s","Gender":"010"}, 
+  {"Type":3,"From":0,"To":60,"File":"Seconds.wav","Opt":"VF","Unit":"s","Gender":"010"},
+   
+  {"Type":3,"From":1,"To":1,"File":"Minute.wav","Unit":"min","Gender":"010"},
+  {"Type":3,"From":0,"To":60,"File":"Minutes.wav","Opt":"VF","Unit":"min","Gender":"010"},
+   
+  {"Type":3,"From":1,"To":1,"File":"Hour.wav","Unit":"h","Gender":"010"},
+  {"Type":3,"From":0,"To":2000000000,"File":"Hours.wav","Opt":"VF","Unit":"h","Gender":"010"},
+
+  {"Type":3,"From":1,"To":1,"File":"mAh.wav","Unit":"mAh","Gender":"010"},
+  {"Type":3,"From":0,"To":2000000000,"File":"mAhs.wav","Opt":"VF","Unit":"mAh","Gender":"010"},  
+   
+  {"Type":3,"From":1,"To":1,"File":"Meter.wav","Unit":"m","Gender":"100"},
+  {"Type":3,"From":0,"To":2000000000,"File":"Meters.wav","Opt":"VF","Unit":"m","Gender":"100"},
+   
+  {"Type":3,"From":1,"To":1,"File":"Amp.wav","Opt":"C","Unit":"A","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"Amps.wav","Opt":"VF","Unit":"A","Gender":"100"},
+   
+   
+  {"Type":3,"From":1,"To":1,"File":"Volt.wav","Opt":"C","Unit":"V","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"Volts.wav","Opt":"VF","Unit":"V","Gender":"100"}, 
+   
+  {"Type":3,"From":1,"To":1,"File":"Ah.wav","Opt":"C","Unit":"Ah","Gender":"010"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"Ahs.wav","Opt":"VF","Unit":"Ah","Gender":"010"},
+   
+  {"Type":3,"From":0,"To":2000000000,"File":"_Ft2.wav","Opt":"VF","Unit":"ft.","Gender":"100"},
+  {"Type":3,"From":0,"To":2000000000,"File":"_Fts.wav","Opt":"VF","Unit":"ft/s","Gender":"100"}, 
+  
+  {"Type":3,"From":1,"To":1,"File":"_Km.wav","Opt":"C","Unit":"km","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_Km2.wav","Opt":"VF","Unit":"km","Gender":"100"},  
+  
+  {"Type":3,"From":1,"To":1,"File":"_Kmh.wav","Opt":"C","Unit":"kmh","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_Kmh2.wav","Opt":"VF","Unit":"kmh","Gender":"100"},
+  {"Type":3,"From":1,"To":1,"File":"_Kmh.wav","Opt":"C","Unit":"km/h","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_Kmh2.wav","Opt":"VF","Unit":"km/h","Gender":"100"}, 
+  {"Type":3,"From":1,"To":1,"File":"_Kt.wav","Opt":"C","Unit":"kt.","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_Kt2.wav","Opt":"VF","Unit":"kt.","Gender":"100"},
+  {"Type":3,"From":1,"To":1,"File":"_Mil.wav","Opt":"C","Unit":"mi.","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_Mil2.wav","Opt":"VF","Unit":"mi.","Gender":"100"},
+  {"Type":3,"From":1,"To":1,"File":"_Mph.wav","Opt":"C","Unit":"mph","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_Mph2.wav","Opt":"VF","Unit":"mph","Gender":"100"},
+  {"Type":3,"From":1,"To":1,"File":"_Yd.wav","Opt":"C","Unit":"yd.","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_Yd2.wav","Opt":"VF","Unit":"yd.","Gender":"100"},
+  
+  //V4.0 = nove jednotky  = MFLOW, MBar. ATD    
+  //{"kPa","psi","atm","b"} 
+  {"Type":3,"From":1,"To":1,"File":"_kPa.wav","Opt":"C","Unit":"kPa","Gender":"100"},
+  {"Type":3,"From":0,"To":2000000000,"File":"_kPa2.wav","Opt":"VF","Unit":"kPa","Gender":"100"},
+  
+  
+  {"Type":3,"From":0,"To":2000000000,"File":"_PSI.wav","Opt":"","Unit":"psi","Gender":"100"},
+  {"Type":3,"From":0,"To":2000000000,"File":"_atm.wav","Opt":"","Unit":"atm","Gender":"100"},
+  {"Type":3,"From":0,"To":2000000000,"File":"_b.wav","Opt":"","Unit":"b","Gender":"100"},
+  
+  //{"ml","l","hl","floz","gal"};
+  {"Type":3,"From":1,"To":1,"File":"_ml.wav","Opt":"C","Unit":"ml","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_ml2.wav","Opt":"VF","Unit":"ml","Gender":"100"},
+   
+  {"Type":3,"From":1,"To":1,"File":"_l.wav","Opt":"C","Unit":"l","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_l2.wav","Opt":"VF","Unit":"l","Gender":"100"},
+  
+   
+  {"Type":3,"From":1,"To":1,"File":"_hl.wav","Opt":"C","Unit":"hl","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_hl2.wav","Opt":"VF","Unit":"hl","Gender":"100"},
+   
+  {"Type":3,"From":1,"To":1,"File":"_oz.wav","Opt":"C","Unit":"floz","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_oz2.wav","Opt":"VF","Unit":"floz","Gender":"100"},
+   
+  {"Type":3,"From":1,"To":1,"File":"_gal.wav","Opt":"C","Unit":"gal","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_gal2.wav","Opt":"VF","Unit":"gal","Gender":"100"},
+   
+   //{"ml/m","l/m","oz/m","gpm"} 
+  {"Type":3,"From":1,"To":1,"File":"_mlM.wav","Opt":"C","Unit":"ml/m","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_mlM2.wav","Opt":"VF","Unit":"ml/m","Gender":"100"},
+   
+  {"Type":3,"From":1,"To":1,"File":"_lM.wav","Opt":"C","Unit":"l/m","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_lM2.wav","Opt":"VF","Unit":"l/m","Gender":"100"},
+   
+  {"Type":3,"From":1,"To":1,"File":"_ozM.wav","Opt":"C","Unit":"oz/m","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_ozM2.wav","Opt":"VF","Unit":"oz/m","Gender":"100"},
+   
+  {"Type":3,"From":1,"To":1,"File":"_galM.wav","Opt":"C","Unit":"gpm","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_galM2.wav","Opt":"VF","Unit":"gpm","Gender":"100"},
+    
+  {"Type":3,"From":0,"To":2000000000,"File":"_%.wav","Opt":"V","Unit":"%","Gender":"100"},
+  //V4.26 - G, us, °/s
+  {"Type":3,"From":1,"To":1,"File":"_dps.wav","Opt":"C","Unit":"°/s","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_dps2.wav","Opt":"VF","Unit":"°/s","Gender":"100"},
+   
+  {"Type":3,"From":0,"To":2000000000,"File":"_G.wav","Opt":"VF","Unit":"G","Gender":"100"},
+  
+  {"Type":3,"From":1,"To":1,"File":"_us.wav","Opt":"C","Unit":"us","Gender":"100"}, 
+  {"Type":3,"From":0,"To":2000000000,"File":"_us2.wav","Opt":"VF","Unit":"us","Gender":"100"},
+  
+      
+  
+]

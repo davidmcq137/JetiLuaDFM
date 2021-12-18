@@ -1,0 +1,15 @@
+{ 
+    "Type"  : "Histogram",
+    "Probes": [
+	{"Name":"T1", "Green":   0, "Yellow": 50, "Red": 100},
+	{"Name":"T2", "Green":   0, "Yellow": 50, "Red": 100},
+	{"Name":"T3", "Green":   0, "Yellow": 50, "Red": 100},
+	{"Name":"T4", "Green":   0, "Yellow": 50, "Red": 100},
+	{"Name":"T5", "Green":   0, "Yellow": 50, "Red": 100},
+	{"Name":"T6", "Green":   0, "Yellow": 50, "Red": 100},
+	{"Name":"T7", "Green":   0, "Yellow": 50, "Red": 100},
+	{"Name":"T8", "Green":   0, "Yellow": 50, "Red": 100}
+    ]
+}
+
+
