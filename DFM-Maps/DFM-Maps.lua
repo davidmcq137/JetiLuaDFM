@@ -4085,7 +4085,7 @@ local function loop()
    sensor = system.getSensorByID(telem.Altitude.SeId, telem.Altitude.SePa)
 
    if(sensor and sensor.valid) then
-      if sensor.unit == "ft" then
+      if sensor.unit == "ft" or sensor.unit == "ft." then
 	 GPSAlt = sensor.value * 0.3048
       elseif sensor.unit == "km" then
 	 GPSAlt = sensor.value * 1000.0	 
