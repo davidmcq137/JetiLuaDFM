@@ -7,6 +7,16 @@
 
 --]]
 
+local sn
+
+if not sharedNum then
+   sharedNum = 1
+else
+   sharedNum = sharedNum + 1
+end
+
+sn = sharedNum
+
 local r=60
 local vx=6
 local theta = 0
@@ -37,7 +47,7 @@ local function telePrint(wx, wy, key)
       if icol > 10 then icol = 1 end
    elseif key == KEY_ENTER then
       show = not show
-   elseif key ~= 0 then
+   elseif key and key ~= 0 then
       print("key:", key)
    end
 
@@ -67,7 +77,7 @@ local function loop()
 end
 
 local function init()
-   system.registerTelemetry(1, "Tele Test", 4, telePrint, {"RST", "E+", "E-", "RGB"})
+   system.registerTelemetry(1, "Tele Test"..sn, 4, telePrint, {"RST", "E+", "E-", "RGB"})
 
    --create a nice color gradient with <rp> levels
    
@@ -79,6 +89,10 @@ local function init()
       rgb[k].b = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 4*math.pi/3)) / 2)
    end
 
+   print("sharedNum:", sharedNum, sn)
 end
 
-return {init=init, loop=loop, author="DFM", version="1", name="Test"}
+icol = 1 + sn % 10
+vx = sn + 2
+
+return {init=init, loop=loop, author="DFM", version="1", name="Test " .. sn}

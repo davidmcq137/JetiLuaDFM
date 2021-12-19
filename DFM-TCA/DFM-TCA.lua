@@ -82,6 +82,8 @@ function registerTelemetry(nn, lbl, sz, cb, bt)
    local hgt = 0
    -- only do full screen tele windows for now
    local btn = {}
+
+   --print("nn, lbl, sz, cb, bt", nn, lbl, sz, cb, bt)
    
    if sz == 4 then
       wid = 319

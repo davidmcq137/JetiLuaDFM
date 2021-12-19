@@ -77,8 +77,8 @@
 	    "param": 5,
 	    "telem": "SpeedGPS"
 	},
-	"Hoehe": {
-	    "param": 6,
+	"Hoehe NN": {
+	    "param": 7,
 	    "telem": "Altitude"
 	},
 	"ID": 41729
