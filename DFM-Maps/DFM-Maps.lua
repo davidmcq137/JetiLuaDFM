@@ -716,11 +716,13 @@ local function readSensors()
 		  telem[label].SePa = param
 	       elseif telem[label] then -- check if this is one we want
 		  telem.selectedGPS = sensor.sensorName
-		  --print("GPS: " .. telem.selectedGPS)
-		  --print("seSeq", seSeq)
-		  --print("sensor.id", sensor.id)
-		  --print("param", param)
-		  --print("label", label)
+		  --[[
+		  print("GPS: " .. telem.selectedGPS)
+		  print("seSeq", seSeq)
+		  print("sensor.id", string.format("%X", sensor.id & 0XFFFF))
+		  print("param", param)
+		  print("label", label)
+		  --]]
 		  telem[label].Se = seSeq
 		  telem[label].SeId = sensor.id
 		  telem[label].SePa = param
