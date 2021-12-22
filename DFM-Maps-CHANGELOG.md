@@ -1,3 +1,13 @@
+# Release Notes for Version 8.11 of DFM-Maps
+
+## Bug fixes:
+
+1. The absolute/relative altitude sensor numbers for the SM Modellbau
+	GPS Logger 3 were inadvertently swapped.
+
+2. Two warning messages on the triangle view were overlapping when there was
+	no GPS signal and triangle racing was not enabled.
+
 # Release Notes for Version 8.1 of DFM-Maps
 
 ## Video:

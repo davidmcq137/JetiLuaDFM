@@ -2975,7 +2975,7 @@ local function dirPrint(xw, xh, kk)
    
    ---[[
    if not compcrs then
-      lcd.drawText(40, 20, lang.triNoHdg, FONT_BIG)
+      lcd.drawText(40, 60, lang.triNoHdg, FONT_BIG)
       return
    end
    --]]
@@ -4589,6 +4589,6 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="8.1", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="8.11", name=appInfo.Name, destroy=destroy}
 
 
