@@ -2,10 +2,13 @@
 
 ## Bug fixes:
 
-1. The absolute/relative altitude sensor numbers for the SM Modellbau
+1. The IGC logfile feature had an issue that sometimes prevented the app from running.
+	This is now fixed.
+
+2. The absolute/relative altitude sensor numbers for the SM Modellbau
 	GPS Logger 3 were inadvertently swapped.
 
-2. Two warning messages on the triangle view were overlapping when there was
+3. Two warning messages on the triangle view were overlapping when there was
 	no GPS signal and triangle racing was not enabled.
 
 # Release Notes for Version 8.1 of DFM-Maps

@@ -1,0 +1,23 @@
+[
+{"id":2,"param":0,"sensorName":"MRPM", "label":"MRPM"},
+    {"id":2,
+     "param":1,
+     "decimals":0,
+     "type":4,
+     "sensorName":"MRPM",
+     "label":"RPM",
+     "unit":"",
+     "luaExp":"P4(0,6000)"
+    },
+{"id":3,"param":0,"sensorName":"MRPM2", "label":"MRPM22"},
+    {"id":3,
+     "param":1,
+     "decimals":0,
+     "type":4,
+     "sensorName":"MRPM222",
+     "label":"RPM",
+     "unit":"",
+     "luaExp":"P2(0,6000)"
+    }
+]
+

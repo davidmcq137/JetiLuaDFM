@@ -37,6 +37,12 @@ local engT = {
 local eng = {}
 local engineParams={}
 local syncDelta = 0
+local rpm1, rpm2 = 0,0
+local rpm1Last, rpm2Last = 0,0
+local temp1, temp2 = 0,0
+local syncSwitch
+local syncMix
+
 local ovrSpd = false
 local aboveVref = false
 local aboveVref_ever = false
@@ -64,11 +70,15 @@ local set_speed = 0
 local iTerm = 0
 local pTerm = 0
 local dTerm = 0
-local spdTable={}
+
+--local spdTable={}
+local syncTable={}
 local timTable={}
 local MAXTABLE=20
 local errsig = 0
-local autoOn = false
+local syncOn = false
+--local autoOn = false
+local syncIdx
 local lastAuto = false
 local autoForceOff = false
 local throttleDownTime = 0
@@ -125,7 +135,8 @@ end
 
 local function readSensors()
    local sensors = system.getSensors()
-   for _, sensor in ipairs(sensors) do
+   for k, sensor in ipairs(sensors) do
+      print(k,sensor.label, sensor.id, sensor.param)
       if (sensor.label ~= "") then
 	 table.insert(sensorLalist, sensor.label)
 	 table.insert(sensorIdlist, sensor.id)
@@ -151,6 +162,11 @@ end
 local function autoSwitchChanged(value)
    autoSwitch = value
    system.pSave("autoSwitch", autoSwitch)
+end
+
+local function syncSwitchChanged(value)
+   syncSwitch = value
+   system.pSave("syncSwitch", syncSwitch)
 end
 
 local function setPtControlChanged(value)
@@ -262,11 +278,11 @@ local function initForm()
       
       form.addRow(2)
       form.addLabel({label="Left Engine Throttle Control", width=220})
-      form.addInputbox(eng[1].Control, false, (function(x) return engControlChanged(x, 1) end) )
+      form.addInputbox(eng[1].Control, true, (function(x) return engControlChanged(x, 1) end) )
 
       form.addRow(2)
       form.addLabel({label="Right Engine Throttle Control", width=220})
-      form.addInputbox(eng[2].Control, false, (function(x) return engControlChanged(x, 2) end) )      
+      form.addInputbox(eng[2].Control, true, (function(x) return engControlChanged(x, 2) end) )      
 
       form.addRow(2)
       form.addLabel({label="Left Engine RPM Sensor", width=220})
@@ -288,6 +304,10 @@ local function initForm()
       form.addSelectbox(sensorLalist, eng[2].Temp.Se, true,
 			(function(x) return engSensorChanged(x,2,"Temp") end))
       
+      form.addRow(2)
+      form.addLabel({label="Sync Enable Switch", width=220})
+      form.addInputbox(syncSwitch, false, syncSwitchChanged)
+
       form.addRow(2)
       form.addLabel({label="Select Speed Sensor", width=220})
       form.addSelectbox(sensorLalist, spdSe, true, sensorChanged)
@@ -338,11 +358,11 @@ local function initForm()
       form.addLabel({label="PID Integral gain", width=220})
       form.addIntbox(iGainInput, 0, 100, 1, 0, 1, iGainChanged)
 
+      --[[
       form.addRow(2)
       form.addLabel({label="PID Derivative gain", width=220})
       form.addIntbox(dGainInput, 0, 100, 1, 0, 1, dGainChanged)
       
-      --[[
       form.addRow(2)
       form.addLabel({label="Use mph or km/hr (x)", width=270})
       selFtIndex = form.addCheckbox(selFt, selFtClicked)
@@ -428,10 +448,9 @@ local function DrawRectGaugeCenter(oxc, oyc, w, h, min, max, val, str)
 
    if val > 0 then
       d = math.max(math.min((val/max)*(w/2), w/2), 0)
-         lcd.drawFilledRectangle(oxc, oyc-h/2, d, h)
+      lcd.drawFilledRectangle(oxc, oyc-h/2, d, h)
    else
       d = math.max(math.min((val/min)*(w/2), w/2), 0)
-      
       lcd.drawFilledRectangle(oxc-d+1, oyc-h/2, d, h)
    end
 
@@ -442,6 +461,7 @@ local function DrawRectGaugeCenter(oxc, oyc, w, h, min, max, val, str)
 
    end
 end
+
 
 --------------------------------------------------------
 
@@ -507,14 +527,12 @@ local function DrawRPM()
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MINI,rt) / 2 , oy + 105,
 		 rt, FONT_MINI)
 
-    local rpm1 = 6000 * (1 + system.getInputs("P7"))/2
-    local rpm2 = 6000 * (1 + system.getInputs("P8"))/2
+    --rpm1 = 6000 * (1 + system.getInputs("P7"))/2
+    --print("O24", system.getInputs("O24"))
+    rpm2 = 5500 * system.getInputs("O24")
 
-    syncDelta = rpm1 - rpm2
-    
     local text1 = string.format("%.1f", 0.1*math.floor(rpm1/100 + 0.5))
     local text2 = string.format("%.1f", 0.1*math.floor(rpm2/100 + 0.5))
-
     
     if gauge_c then lcd.drawImage(ox, oy, gauge_c) end
     lcd.setColor(255,255,255)
@@ -537,6 +555,8 @@ local function DrawRPM()
 
     lcd.setColor(0,0,0)
 
+    if math.abs(rpm1-rpm2) <=1 then rpm2 = rpm1 end -- stop flickering
+    
     text1 = string.format("%d", math.floor(rpm1 + 0.5))
     text2 = string.format("%d", math.floor(rpm2 + 0.5))
 
@@ -660,137 +680,54 @@ local function wbTele()
     DrawRPM(0,0)
     DrawTemp(0,0)
     --DrawCenterBox(0,0,0,0)
-    --DrawRectGaugeCenter( 66, 140, 70, 16, -100, 100, 5*pTerm, "Proportional")
-    --DrawRectGaugeAbs(158, 140, 70, 16, 0, 100, iTerm, "Integral")
-    --DrawRectGaugeCenter(252, 140, 70, 16, -100, 100, 5*dTerm, "Derivative")
+    DrawRectGaugeCenter(158, 145, 40, 10, -0.5, 0.5, syncMix)
     DrawErrsig(0,0)
 end
 
---------------------------------------------------------------------------------
+local function getTemps()
+   local sensor
 
--- CARSTEN
--- this is the simplified slope calculator .. called once per inner loop
-
-local function jslope(y)
-   local sxy, jterm
-
-   sxy=0
-   for i=1,#y,1 do -- #y is always going to be MAXTABLE
-      sxy = sxy + wt[i]*(y[i] - yrun)
+   if (eng[1].Temp.SeId ~= 0) then
+      sensor = system.getSensorByID(eng[1].Temp.SeId, eng[1].Temp.SePa)
+   end
+   if (sensor and sensor.valid) then
+      temp1 = sensor.value
    end
 
-   jTerm = sxy/linfitden
-
-   return jTerm
+   if (eng[2].Temp.SeId ~= 0) then
+      sensor = system.getSensorByID(eng[2].Temp.SeId, eng[2].Temp.SePa)
+   end
+   if (sensor and sensor.valid) then
+      temp2 = sensor.value
+   end
    
 end
--- CARSTEN
--- what follows is the brute force computation
 
-local function fslope(x, y)
+local function getRPMs()
 
-    local xbar, ybar, sxy, sx2 = 0,0,0,0
-    local theta, tt, slp
-    
-    for i = 1, #x do
-       xbar = xbar + x[i]
-       ybar = ybar + y[i]
-    end
+   local sensor, slp
 
-    xbar = xbar/#x
-    ybar = ybar/#y
-
-    for i = 1, #x do
-        sxy = sxy + (x[i]-xbar)*(y[i]-ybar)
-        sx2 = sx2 + (x[i] - xbar)^2
-    end
-    
-    if sx2 < 1.0E-6 then -- would it be more proper to set slope to inf and let atan do its thing?
-       sx2 = 1.0E-6      -- or just let it div0 and set to inf itself?
-    end                  -- for now this is only a .00001-ish degree error
-    
-    slp = sxy/sx2
-    
-    theta = math.atan(slp)
-
-    if x[1] < x[#x] then
-       tt = math.pi/2 - theta
-    else
-       tt = math.pi*3/2 - theta
-    end
-    kTerm = slp
-    return slp, tt
-end
-
---------------------------------------------------------
-
-local function get_speed_from_sensor()
-
-   local sensor, slp, sensorSpeed, spd, _
-
-   if (spdSeId ~= 0) then
-      sensor = system.getSensorByID(spdSeId, spdSePa)
-   else
-      if not DEBUG then return end
+   if (eng[1].RPM.SeId ~= 0) then
+      sensor = system.getSensorByID(eng[1].RPM.SeId, eng[1].RPM.SePa)
+      if (sensor and sensor.valid) then
+	 rpm1 = sensor.value
+      end
    end
 
-   if (sensor and sensor.valid) then
-      sensorSpeed = sensor.value * airspeedCal/100.0
+   if (eng[2].RPM.SeId ~= 0) then
+      sensor = system.getSensorByID(eng[2].RPM.SeId, eng[2].RPM.SePa)
+      if (sensor and sensor.valid) then
+	 rpm2 = sensor.value
+      end
+   end
+   
+   if rpm1 ~= 0 and rpm2 ~= 0 then
+      syncDelta = rpm1 - rpm2
       lastValid = system.getTimeCounter()
    else
-      if DEBUG then
-	 tgt_speed = (throttle/100)^2 * 200 -- simulate plane's response
-	 -- give the plane and engine response a time lag
-	 speed = speed + (baseLineLPS / loopsPerSecond) * (tgt_speed - speed) / 125  
-	 lastValid = system.getTimeCounter() -- pretend we read a sensor and it was valid
-	 autoWarn = false -- reset warning for no data
-	 spd = speed -- return the correct variable
-      else
-	 return  nil, nil
-      end
+      syncDelta = 0
    end
-
-   if not DEBUG then
-      if selFt then
-	 if sensor.unit == "m/s" then
-	    spd = sensorSpeed * 2.23694 -- m/s to mph
-	 end
-	 if sensor.unit == "kmh" or sensor.unit == "km/h" then
-	    spd = sensorSpeed * 0.621371 -- km/hr to mph
-	 end
-      else
-	 if sensor.unit == "m/s" then
-	    spd = sensorSpeed * 3.6 -- km/hr
-	 end
-      end
-   end
-
-   calSpd = spd
-
-   -- CARSTEN
-   -- computes the running  average, with avg window matching stored value array
-   yrun = yrun + (spd - yrun)/MAXTABLE
-
-   if #spdTable+1 > MAXTABLE then
-      table.remove(spdTable, 1)
-      table.remove(timTable, 1)
-   end
-   table.insert(spdTable, speed - set_speed)
-   table.insert(timTable, system.getTimeCounter()/1000.)
-
-   --slp, _ = fslope(timTable, spdTable)
-
-   -- now overwrite slp with the new calc
    
-   if #spdTable ~= MAXTABLE then
-      slp = 0
-   else
-      slp = jslope(spdTable)
-   end
-   -- CARSTEN
-   
-   return spd, slp
-
 end
 
 local function logCB(idx)
@@ -798,7 +735,8 @@ local function logCB(idx)
    --print("logCB", idx)
 
    --print(throttle, set_speed, errLogIdx)
-	 
+
+   ---[[
    if idx == thrLogIdx then
       return 100 * math.floor(throttle), 2
    elseif idx == setLogIdx then
@@ -809,7 +747,8 @@ local function logCB(idx)
       print("bad idx in logCB",  idx)
       return 0, 0
    end
-
+   --]]
+   return 0
 end
 
 --------------------------------------------------------
@@ -824,201 +763,50 @@ local function loop()
    local noDataOff = 5000
    local retSpd, retSlp
    local round_spd
-   local swi, swc, swa
+   local swi, swc, swa, sws
    local throttle_stick
    
    -- gather some stats on loop times so we can normalize integrator performance
    
    if not appStartTime then appStartTime = system.getTimeCounter() end
       
-   nLoop = nLoop + 1
-   if nLoop >= 100 then
-      loopsPerSecond = 1000 * nLoop / (system.getTimeCounter() - appStartTime)
-      appStartTime = system.getTimeCounter()
-      nLoop = 0
-      --print("Loops per second:", loopsPerSecond)
-   end
-   
    -- first read the configuration from the switches that have been assigned
 
    swi = system.getInputsVal(spdSwitch)  -- enable normal speed announce vary by delta speed
    swc = system.getInputsVal(contSwitch) -- enable continuous annonucements
-   swa = system.getInputsVal(autoSwitch) -- enable/arm autothrottle
+   sws = system.getInputsVal(syncSwitch) -- enable RPM sync
+
+   syncOn = false
+   if sws and sws == 1 then syncOn = true end
    
-   -----------------------------------------------------------------------------------
-   -- this first section is the PID AutoThrottle
-   -----------------------------------------------------------------------------------
-
-   if swa and swa == -1 then -- if turned off, ok to re-enable if it was prohibited prev.
-      autoForceOff = false
-   end
+   getTemps()
    
-   if lastValid == 0 and swa and swa == 1 then -- has to be called before get_speed_from_sensor()
-      autoOn = false
-      autoForceOff = true
-      print("Cannot startup with AutoThrottle enabled .. turn off and back on")
-      system.playFile('/Apps/DFM-Auto/ATCannotStartEnabled.wav', AUDIO_QUEUE)
-      lastValid = -1 -- so it won't give this message again
-   end
+   getRPMs()
 
-   retSpd, retSlp = get_speed_from_sensor()
-
-   if retSpd then speed = retSpd end -- if no new data, nil is returned
-   if retSlp then slope = retSlp end -- in this case hold last data in speed and slope
-
-   -- warn if no valid data for noDataWarn/1000 seconds .. leave Autothrottle on .. hold values (below)
+   errsig = errsig / 1000.
+   --print("minSyncRPM", engineParams.minSyncRPM)
    
-   if autoOn and (system.getTimeCounter() > lastValid + noDataWarn) and not autoWarn then 
-      print("AutoThrottle warning: invalid speed data exceeds warning period")
-      system.playFile('/Apps/DFM-Auto/ATNoDataWarning.wav', AUDIO_QUEUE)
-      autoWarn = true -- remember we did the warning -- don't do again in this data gap
-   end
-   
-   -- cancel if no valid data for noDataOff/1000 seconds
-   
-   if autoOn and (system.getTimeCounter() > lastValid + noDataOff) then 
-      print("AutoThrottle off because of invalid speed data")
-      system.playFile('/Apps/DFM-Auto/ATNoValidData.wav', AUDIO_QUEUE)
-      autoOn = false
-      autoForceOff = true -- force user to turn switch off then on again
-   end
-   
-   if swa and swa == 1 and not autoForceOff then   
-      if autoOn == false then
-	 print("AutoThrottle turned on by switch SWA")
-	 system.playFile('/Apps/DFM-Auto/ATEnabled.wav', AUDIO_QUEUE)
-      end
-      autoOn = true
-   else
-      if autoOn == true then
-	 print("AutoThrottle turned off by switch SWA")
-	 system.playFile('/Apps/DFM-Auto/ATCancelled.wav', AUDIO_QUEUE)
-      end
-      autoOn = false
-   end
-
-   -- note that endpoints are not precisely 0% and 100%, e.g. 0.137 and 99.8 on real TX sticks
-   -- so need a small fudge factor especially on detecting zero .. set to 4% (see below)
-   
-   throttle_stick = 50 * (system.getInputs("P4") + 1)
-
-   if not lastAuto and autoOn then -- auto throttle just turned on
-      throttle = throttle_stick
-      throttlePosAtOn = throttle_stick
-      iTerm = throttle_stick -- precharge integrator to this thr setting
-      throttleDownTime = system.getTimeCounter() + lowDelay -- # seconds to reduce thr to 0
-   end
-
-   -- during the "put throttle stick low" interval after arming, can cancel by moving stick up
-   -- from position at time of arming. not sure there is a better way to do this...
-   
-   if autoOn and system.getTimeCounter() - throttleDownTime < lowDelay then
-      if throttle_stick > throttlePosAtOn + 4 then -- moved the stick up during the # secs...
-	 print("AutoThrottle off .. moved stick up in the arming interval")
-	 system.playFile('/Apps/DFM-Auto/ATCancelledThrUp.wav', AUDIO_QUEUE)
-	 autoOn = false
-	 autoForceOff = true
-      end
-   end
-
-   -- cancel Autothrottle if stick moved off idle. use 4% as resolution level
-   
-   if autoOn and system.getTimeCounter() > throttleDownTime and throttle_stick > 4 then
-      print("AutoThrottle off -- throttle not at idle")
-      system.playFile('/Apps/DFM-Auto/ATCancelledThrNotIdle.wav', AUDIO_QUEUE)
-      autoOn = false
-      autoForceOff = true -- can't re-enable till turn switch swa off then on again
-   end
-
-   -- check if a speed setpoint is set
-   
-   if setPtControl then
-      set_speed =  100 * (1 + system.getInputsVal(setPtControl)) -- this is 0-200
-      if math.abs(set_speed - last_set) < 4 then
-	 if set_stable < 50 then set_stable = set_stable + 1 end
-      else
-	 set_stable = 1
-      end
-      if set_stable == 50 then
-	 set_stable = 51 -- only play the number once when stabilized
-	 --if set_speed > VrefSpd / 1.3 then -- don't announce if setpoint below stall
-	 --print("Set speed stable at", set_speed)
-	 system.playFile('/Apps/DFM-Auto/ATSetPointStable.wav', AUDIO_QUEUE)      	    
-	 system.playNumber(math.floor(set_speed+0.5), 0, "mph")
-	 --end
-      end
-      last_set = set_speed
-   elseif autoOn then -- no setpoint but trying to arm
-      autoOn = false
-      autoForceOff = true
-      print("Attempt to arm AutoThrottle with no setpoint speed")
-      system.playFile('/Apps/DFM-Auto/ATCannotArmNoSet.wav', AUDIO_QUEUE)      
-   end
-
-   --if setPtControl and set_speed < VrefSpd / 1.3 and autoOn then
-      --autoOn = false
-      --autoForceOff = true
-      --print("Attempt to arm AutoThrottle with speed below stall: ", VrefSpd/1.3)
-      --system.playFile('/Apps/DFM-Auto/ATSetBelowStall.wav', AUDIO_QUEUE)      
-   --end
-   
-   -- interesting to consider: loop time on the emulator is about 47 loops per second
-   -- if this app runs by itself, it's about 41 lps on the TX. With the LSO program also
-   -- running, the emulator drops to 42 and the TX drops to 28. Derivatve is calculated as
-   -- slope vs timestamps, so it won't change, propo not time dependent .. but integrator
-   -- effective gain will decrease as loop time decreases ..
-   -- scale iGain with lps to keep integrator response flat with sys load
-
-   -- if all good, then apply PID algorithm
-
-   errsig = set_speed - speed
-   
-   if autoOn then
-      pGain = pGainInput / 50.0
-      dGain = dGainInput / 20.0
-      iGain = iGainInput / 5000.0 * baseLineLPS / loopsPerSecond
-
-      --errsig = set_speed - speed
-
-      -- average the derivate .. slopes are noisy probably due to time jitter
-      
+   if syncOn and rpm1 > engineParams.minSyncRPM and rpm2 > engineParams.minSyncRPM then
+      pGain = pGainInput / 5000.0
+      iGain = iGainInput / 500.0 -- * baseLineLPS / loopsPerSecond
       if not slAvg then
 	 slAvg = slope
       end
-
-      slAvg = slAvg + (baseLineLPS / loopsPerSecond) * (slope - slAvg) / 200
-
-	 
       pTerm  = errsig * pGain
-      dTerm  = slAvg * dGain * -1
-      iTerm  = math.max(0, math.min(iTerm + errsig * iGain, 100))
-      
-      throttle = pTerm + iTerm + dTerm
-      throttle = math.max(0, math.min(throttle, 100))
-
-      system.setControl(autoIdx, (throttle-50)/50, 0)
-      lastSetThr = throttle
+      iTerm  = math.max(-1, math.min(iTerm + errsig * iGain, 1))
+      syncMix = pTerm + iTerm
+      syncMix = math.max(-1, math.min(syncMix, 1))
+      --need to check here that syncMix won't drive throttle below 0
+      --local thr = system.getInputs("P4")
+      --print(thr, syncMix*0.20)
+      system.setControl(syncIdx, syncMix * 0.20, 0)
    else
       iTerm = 0
       pTerm = 0
-      dTerm = 0
-      throttle = throttle_stick
-      if not autoForceOff then
-	 system.setControl(autoIdx, -1, 0) -- when off mix to 0% throttle (-1 on -1,1 scale)
-      else -- if we forced it off (e.g. throttle stick not taken to zero) then return control to stick
-	 system.setControl(autoIdx, (throttle-50)/50, 0)
-      end
+      syncMix = 0
+      system.setControl(syncIdx, 0, 0)
    end
 
-   if autoOn == false and lastAuto == true then -- was just turned off
-      autoOffTime = system.getTimeCounter()
-      offThrottle = lastSetThr -- remember last steady-state throttle
-      playedBeep = false
-   end
-   
-      
-   lastAuto = autoOn
-   
    ----------------------------------------------------------------------------------
    -- this is the speed announcer section, return if announce not on or on continuous
    ----------------------------------------------------------------------------------
@@ -1127,14 +915,15 @@ local function init()
    spdSwitch = system.pLoad("spdSwitch")
    contSwitch = system.pLoad("contSwitch")
    autoSwitch = system.pLoad("autoSwitch")
+   syncSwitch = system.pLoad("syncSwitch")
    setPtControl = system.pLoad("setPtControl")
    spdInter = system.pLoad("spdInter", 10)
    VrefSpd = system.pLoad("VrefSpd", 60)
    VrefCall = system.pLoad("VrefCall", 2)
    maxSpd = system.pLoad("maxSpd", 200)
-   pGainInput = system.pLoad("pGainInput", 40)
-   iGainInput = system.pLoad("iGainInput", 40)
-   dGainInput = system.pLoad("dGainInput", 40)   
+   pGainInput = system.pLoad("pGainInput", 20)
+   iGainInput = system.pLoad("iGainInput", 100)
+   dGainInput = system.pLoad("dGainInput", 0)   
    airspeedCal = system.pLoad("airspeedCal", 100)
    spdSe = system.pLoad("spdSe", 0)
    spdSeId = system.pLoad("spdSeId", 0)
@@ -1175,7 +964,7 @@ local function init()
    system.registerForm(1, MENU_APPS, "Flight Engineer", initForm)
 
    system.registerTelemetry(1, "Flight Engineer"..eName, 4, wbTele)
-   system.registerTelemetry(2, "Calibrated Airspeed", 1, calAirspeed)
+   --system.registerTelemetry(2, "Calibrated Airspeed", 1, calAirspeed)
 
    thrLogIdx = system.registerLogVariable("Throttle",  "%", logCB)
    setLogIdx = system.registerLogVariable("Set Speed", "%", logCB)
@@ -1192,7 +981,6 @@ local function init()
       modelProps=json.decode(fg)
       airspeedCal = modelProps.pitotCal
    end
-
 
    for k,v in pairs(engineParams.Temps) do
       print(k,v)
@@ -1213,9 +1001,9 @@ local function init()
       print("DEBUG OFF")
    end
    
+   print("calling readSensors()")
    readSensors()
    loadImages()
-
 
    -- CARSTEN
 
@@ -1243,7 +1031,7 @@ local function init()
 
    --CARSTEN   
    
-   autoIdx = system.registerControl(1, "TwinThrMix", "T01")
+   syncIdx = system.registerControl(1, "TwinThrMix", "T01")
 
    --system.playFile('/Apps/DFM-Auto/AT_Active.wav', AUDIO_QUEUE)
    
