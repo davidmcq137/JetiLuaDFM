@@ -35,12 +35,18 @@
    
    Thoughts for future releases:
 
-   1) handle the Z dimension in tri racing. thermalling screen? Leon's thermal assist? integrate vario
-   in some way?
+   0) IGC file CRC computation is disable for now. The initial lump of header
+   messages were taking CPU usage past 100% and killing the app. We need to have
+   a FIFO that drains on a periodic basis or some other way to level out the
+   load since other writes to the IGC file are 1/sec
 
-   2) separate "no GPS fix" from "no Maps" on startup. Supply animation waiting for GPS. let the app
-   operate without a map (zero point on startup, screen centered on zero since we don't have a 
-   direction, use standard mag levels, and light or dark background)
+   1) handle the Z dimension in tri racing. thermalling screen? Leon's thermal
+   assist? integrate vario in some way?
+
+   2) separate "no GPS fix" from "no Maps" on startup. Supply animation waiting
+   for GPS. let the app operate without a map (zero point on startup, screen
+   centered on zero since we don't have a direction, use standard mag levels,
+   and light or dark background)
 
 --]]
 
@@ -233,6 +239,8 @@ end
 
 local function IGC(cmd, str)
 
+   --print(checkBox.recordIGC, raceParam.IGCFile)
+   
    if not checkBox.recordIGC then return end
    
    if not variables.triEnabled then return end
@@ -379,18 +387,23 @@ local function IGC(cmd, str)
    
    local function crc16add(str)
       -- compute a crc16 for columns 1-10, 11-20, 21-30, 31-40, 41-50, 51-60
+      --print("in crc16add", str)
+      --if true then return end
       local b
       local crc = raceParam.crc16
+      --print("in crc16add", crc, #crc)
       for j=1, 6 do
+	 --print("i loop", (j-1)*10+1, j*10)
 	 for i=(j-1)*10+1,j*10  do
 	    b = string.byte(str,i,i) or 0
+	    --print("#XM, i, j, arg", #XMODEMCRC16Lookup, i, j, (((crc[j]>>8)~b) & 0xff) + 1)
 	    crc[j] = ((crc[j]<<8) & 0xffff) ~ XMODEMCRC16Lookup[(((crc[j]>>8)~b) & 0xff) + 1]
 	    --print(str)
 	    --print(string.format("%04X|%04X|%04X|%04X|%04X|%04X",
 				--crc[1], crc[2], crc[3], crc[4], crc[5], crc[6]))
 	 end
       end
-      return
+      --print("crc16add return, CPU:", system.getCPU())
    end
 
    local function crc16final()
@@ -405,8 +418,9 @@ local function IGC(cmd, str)
    local function IGCw(str)
       if raceParam.IGCFile then
 	 --print("IGCw <" .. str .. ">")
-	 crc16add(str)
-	 io.write(raceParam.IGCFile, str .."\r\n")
+	 --print(system.getCPU())
+	 --crc16add(str)
+	 local iow = io.write(raceParam.IGCFile, str .."\r\n")
       end
    end
    
@@ -422,6 +436,9 @@ local function IGC(cmd, str)
    end
    
    if cmd == "Open" then
+
+      updatingCRC = false
+      
       -- work from TX system date for now, should be UTC later
       -- filename format is YMDCXXXF.IGC
       -- https://xp-soaring.github.io/igc_file_format/igc_format_2008.html#link_4.5
@@ -433,11 +450,14 @@ local function IGC(cmd, str)
       local ssn = system.getSerialCode()
       local sn = string.sub(ssn, -3)
 
+      --print("IGC open")
+      
       local fname
       for i=1, 35, 1 do
 	 fname = yy .. "-" .. dd .. "-" .. mm .. "-XDM-" .. sn .. "-" ..string.format("%02d", i) .. ".igc"
 	 --print("fname: " .. fname)
 	 local fr = io.open(appInfo.Dir .. "IGC/" .. fname, "r")
+	 --print("fname, fr", fname, fr)
 	 if fr then
 	    io.close(fr)
 	 else
@@ -453,6 +473,8 @@ local function IGC(cmd, str)
 	 end
       end
 
+      --print("after open raceParam.IGCFile", raceParam.IGCFile)
+      
       IGCw( "AXDM"..sn)
 
       IGCw( "HFDTE" ..dmy(dt))
@@ -464,7 +486,7 @@ local function IGC(cmd, str)
       IGCw( "HFDTMGPSDATUM:WG84")
       local txt
       if GPSsensorNalist[telem.Latitude.Se] and GPSsensorLalist[telem.Latitude.Se] then
-	 txt = GPSsensorNalist[telem.Latitude.Se] .. "." .. GPSsensorLalist[telem.Latitude.Se]
+	 txt = GPSsensorNalist[telem.Latitude.Se]
       else
 	 txt = "NA"
       end
@@ -503,7 +525,9 @@ local function IGC(cmd, str)
 	 IGCw("C" .. IGClat(lat0 or 0) .. IGClng(lng0 or 0) .. "Finish")
 	 IGCw("C" .. IGClat(lat0 or 0) .. IGClng(lng0 or 0) .. Field.shortname)
       end
-      
+
+      IGCw("L---End Header---")
+
    elseif cmd == "Close"   then
       --print("Close - raceParam.IGCFile:", raceParam.IGCFile)
       if raceParam.IGCFile then
@@ -635,8 +659,10 @@ local function jSave(config, var, val)
 end
 
 local function destroy()
+   --print("destroy", raceParam.IGCFile)
    if raceParam.IGCFile then
-      io.close(raceParam.IGCFile)
+      --print("Closing IGC")
+      IGC("Close")
    end
    if appInfo.SaveData then
       if jLoadFinal(jFilename(), variables) then
@@ -645,6 +671,7 @@ local function destroy()
 	 --print("jLoad failed write")
       end
    end
+   --print("destroy done")
 end
 
 local function readSensors()
