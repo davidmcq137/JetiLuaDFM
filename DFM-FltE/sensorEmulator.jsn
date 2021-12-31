@@ -1,23 +1,55 @@
 [
-{"id":2,"param":0,"sensorName":"MRPM", "label":"MRPM"},
+{"id":2,"param":0,"sensorName":"MRPM", "label":"MRPMR"},
     {"id":2,
      "param":1,
      "decimals":0,
      "type":4,
-     "sensorName":"MRPM",
+     "sensorName":"MRPMR",
      "label":"RPM",
      "unit":"",
      "luaExp":"P4(0,6000)"
     },
-{"id":3,"param":0,"sensorName":"MRPM2", "label":"MRPM22"},
+{"id":3,"param":0,"sensorName":"MRPM", "label":"MRPML"},
     {"id":3,
      "param":1,
      "decimals":0,
      "type":4,
-     "sensorName":"MRPM222",
+     "sensorName":"MRPML",
      "label":"RPM",
      "unit":"",
-     "luaExp":"P2(0,6000)"
+     "luaExp":"P4(0,6000)-O18(-600,600)+P1(-100,100)"
+    },
+{"id":4,"param":0,"sensorName":"MSpeed", "label":"MSpeed"},
+    {"id":4,
+     "param":1,
+     "decimals":1,
+     "type":4,
+     "sensorName":"MSpeed",
+     "label":"Velocity",
+     "unit":"m/s",
+     "luaExp":"P5(0,90)"
+    },
+{"id":5,"param":0,"sensorName":"MTemp", "label":"MTempR"},
+    {"id":5,
+     "param":1,
+     "decimals":1,
+     "type":4,
+     "sensorName":"MTempR",
+     "label":"Temperature",
+     "unit":"°C",
+     "luaExp":"P8(0,300)"
+    },
+{"id":6,"param":0,"sensorName":"MTemp", "label":"MTempL"},
+    {"id":6,
+     "param":1,
+     "decimals":1,
+     "type":4,
+     "sensorName":"MTempL",
+     "label":"Temperature",
+     "unit":"°C",
+     "luaExp":"P7(0,300)"
     }
+    
+    
 ]
 

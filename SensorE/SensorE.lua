@@ -163,13 +163,30 @@ end
 local function propCtlP(t, min, max)
    -- if min and max defined, then range is min to max
    -- if min only defined, then range is 0 to min
+   
    -- if no min and no max then -1 to 1
+   -- print("propCtlP", t, min, max)
    if min and max then
       return min + (max - min) * (1 + system.getInputs("P"..t)) / 2
    elseif min then
       return min*(system.getInputs("P"..t) + 1)/2
    else
       return system.getInputs("P"..t)
+   end
+end
+
+local function propCtlO(t, min, max)
+   -- if min and max defined, then range is min to max
+   -- if min only defined, then range is 0 to min
+   -- if no min and no max then -1 to 1
+   --print(t,min,max)
+   if min and max then
+      --print(min + (max - min) * (1 + system.getInputs("O"..t)) / 2)
+      return min + (max - min) * (1 + system.getInputs("O"..t)) / 2
+   elseif min then
+      return min*(system.getInputs("O"..t) + 1)/2
+   else
+      return system.getInputs("O"..t)
    end
 end
 
@@ -213,6 +230,30 @@ local env = {
    P6  = (function(a1,a2) return propCtlP(6,a1,a2)  end),
    P7  = (function(a1,a2) return propCtlP(7,a1,a2)  end),
    P8  = (function(a1,a2) return propCtlP(8,a1,a2)  end),
+   O1  = (function(a1,a2) return propCtlO(1,a1,a2)  end),
+   O2  = (function(a1,a2) return propCtlO(2,a1,a2)  end),
+   O3  = (function(a1,a2) return propCtlO(3,a1,a2)  end),
+   O4  = (function(a1,a2) return propCtlO(4,a1,a2)  end),
+   O5  = (function(a1,a2) return propCtlO(5,a1,a2)  end),
+   O6  = (function(a1,a2) return propCtlO(6,a1,a2)  end),
+   O7  = (function(a1,a2) return propCtlO(7,a1,a2)  end),
+   O8  = (function(a1,a2) return propCtlO(8,a1,a2)  end),
+   O9  = (function(a1,a2) return propCtlO(9,a1,a2)  end),
+   O10 = (function(a1,a2) return propCtlO(10,a1,a2)  end),
+   O11 = (function(a1,a2) return propCtlO(11,a1,a2)  end),
+   O12 = (function(a1,a2) return propCtlO(12,a1,a2)  end),
+   O13 = (function(a1,a2) return propCtlO(13,a1,a2)  end),
+   O14 = (function(a1,a2) return propCtlO(14,a1,a2)  end),
+   O15 = (function(a1,a2) return propCtlO(15,a1,a2)  end),
+   O16 = (function(a1,a2) return propCtlO(16,a1,a2)  end),
+   O17 = (function(a1,a2) return propCtlO(17,a1,a2)  end),
+   O18 = (function(a1,a2) return propCtlO(18,a1,a2)  end),
+   O19 = (function(a1,a2) return propCtlO(19,a1,a2)  end),
+   O20 = (function(a1,a2) return propCtlO(20,a1,a2)  end),
+   O21 = (function(a1,a2) return propCtlO(21,a1,a2)  end),
+   O22 = (function(a1,a2) return propCtlO(22,a1,a2)  end),
+   O23 = (function(a1,a2) return propCtlO(23,a1,a2)  end),
+   O24 = (function(a1,a2) return propCtlO(24,a1,a2)  end),
    SA  = (function() return switch("A") end),
    SB  = (function() return switch("B") end),
    SC  = (function() return switch("C") end),
