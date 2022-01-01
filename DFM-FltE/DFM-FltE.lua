@@ -46,6 +46,12 @@ CHT[2]=0
 local lastCHT={}
 lastCHT[1]="Cold"
 lastCHT[2]="Cold"
+local GaugeTempRange
+local GaugeMaxRPM
+local RPMRunning
+local engineName
+local minSyncRPM
+local hyst
 
 local syncSwitch
 local syncMix=0
@@ -154,6 +160,16 @@ end
 local function iGainChanged(value)
    iGainInput = value
    system.pSave("iGainInput", iGainInput)
+end
+
+local function maxRPMChanged(value)
+   GaugeMaxRPM = value
+   system.pSave("GaugeMaxRPM", GaugeMaxRPM)
+end
+
+local function engineNameChanged(value)
+   engineName = value
+   system.pSave("engineName", value)
 end
 
 local function sensorChanged(value)
@@ -268,6 +284,12 @@ local function controlsSelectedChanged(value, ii)
    system.pSave("ctlIdx"..ii, value)
 end
 
+local function TempRangeChanged(value, key)
+   print("TRC:", value, key)
+   GaugeTempRange[key] = value
+   system.pSave("TempRange"..key, value)
+end
+
 local function initForm(subForm)
    
    local stickVibIdx
@@ -289,9 +311,10 @@ local function initForm(subForm)
       form.addLink((function() form.reinit(2) end), {label = "V speeds >>"})        -- 2
       form.addLink((function() form.reinit(3) end), {label = "Sensors >>"})         -- 3
       form.addLink((function() form.reinit(4) end), {label = "Controls >>"})        -- 4 
-      form.addLink((function() form.reinit(5) end), {label = "Sync Tuning >>"})     -- 5
+      form.addLink((function() form.reinit(5) end), {label = "Settings >>"})        -- 5
       form.addLink((function() form.reinit(6) end), {label = "Speed Announcer >>"}) -- 6
       form.addLink((function() form.reinit(7) end), {label = "Snapshot >>"})        -- 7
+      form.addLink((function() form.reinit(8) end), {label = "Temps >>"})           -- 8
       form.addRow(1)
       form.addLabel({label="DFM-FltE.lua Version "..FltEVersion.." ", font=FONT_MINI, alignRight=true})
       
@@ -384,17 +407,25 @@ local function initForm(subForm)
       form.addLabel({label="Sync Enable Switch", width=220})
       form.addInputbox(syncSwitch, false, syncSwitchChanged)
 
-   elseif subForm == 5 then -- Sync Tuning
+   elseif subForm == 5 then -- Settings
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})
       
       form.addRow(2)
-      form.addLabel({label="PID Proportional gain", width=220})
+      form.addLabel({label="Sync PID Prop gain", width=220})
       form.addIntbox(pGainInput, 0, 100, 1, 0, 1, pGainChanged)
       
       form.addRow(2)
-      form.addLabel({label="PID Integral gain", width=220})
+      form.addLabel({label="Sync PID Int gain", width=220})
       form.addIntbox(iGainInput, 0, 100, 1, 0, 1, iGainChanged)
 
+      form.addRow(2)
+      form.addLabel({label="Max Gauge RPM", width=220})
+      form.addIntbox(GaugeMaxRPM, 1000, 10000, 6000, 0, 100, maxRPMChanged)
+      
+      form.addRow(2)
+      form.addLabel({label="Engine Name", width=220})
+      form.addTextbox(engineName, 20, engineNameChanged)
+      
    elseif subForm == 6 then -- Speed Announcer
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})   
 
@@ -432,7 +463,7 @@ local function initForm(subForm)
 
       form.addRow(1)
       form.addLink(
-	 (function() system.messageBox("Snapshots Reset") controlSnapshots={} form.reinit(7) end),
+	 (function() system.messageBox("Snapshots Reset") controlSnapshots={} form.reinit(71) end),
 	 {label = "Reset Snapshots ("..#controlSnapshots..") >>", width=180}
       )         
 
@@ -448,7 +479,7 @@ local function initForm(subForm)
 			   (function(x) return controlsSelectedChanged(x,j) end), {width=65})
       end
 
-   elseif subForm == 8 then
+   elseif subForm == 71 then
       form.addLink((function() form.reinit(7) end), {label = "<< Return"})
 
       local snapC = #controlSnapshots
@@ -470,8 +501,25 @@ local function initForm(subForm)
 	 end
 	 form.addLabel({label=lbl, width=320})
       end
+
+   elseif subForm == 8 then
+      form.addLink((function() form.reinit(1) end), {label = "<< Return"})
+      local gaugeTbl={}
+      for k in pairs(GaugeTempRange) do
+	 table.insert(gaugeTbl, k)
+      end
+      table.sort(gaugeTbl, function(a,b) return GaugeTempRange[a] > GaugeTempRange[b] end)
       
-      
+      for k,v in pairs(gaugeTbl) do
+	 form.addRow(2)
+	 form.addLabel({label=v, width=240})
+	 --form.addIntbox(VSpeedsDn[k][kk].S, 10, 200, 60, 0, 1,
+	 --(function(x) return VSpeedChanged(x, k, kk, "S", "dn") end),
+	 --{width=60})
+	 form.addIntbox(GaugeTempRange[v], 10, 500, 100, 0, 1, 
+			(function(x) return TempRangeChanged(x, v) end),
+			   {width=60})
+      end
    elseif subForm == 99 then -- these are parked for the moment
       form.addRow(2)
       form.addLabel({label="Use mph or km/hr (x)", width=270})
@@ -570,8 +618,8 @@ local function DrawRPM()
     local ox, oy = 1, 8
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_BIG,"RPM") / 2 , oy + 54,
 		 "RPM", FONT_BIG)
-    local minRPM = def.RPMs[1]
-    local maxRPM = def.RPMs[#def.RPMs]
+    local minRPM = 0
+    local maxRPM = GaugeMaxRPM
     local rt = string.format("%d-%d/min", minRPM, maxRPM)
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MINI,rt) / 2 , oy + 105,
 		 rt, FONT_MINI)
@@ -579,7 +627,9 @@ local function DrawRPM()
     lcd.setColor(255,255,255)
     lcd.drawFilledRectangle(ox+65-5, oy, 10, 20)
     lcd.setColor(160,160,160)
-    for _,v in ipairs(def.RPMs) do
+    local v
+    for i=0,GaugeMaxRPM,4 do
+       v = GaugeMaxRPM*i/4
        drawShape(ox+65, oy+65, tick_mark, angle1(v, minRPM, maxRPM))
        drawShape(ox+65, oy+65, tick_mark, angle2(v, minRPM, maxRPM))       
     end
@@ -615,8 +665,8 @@ local function DrawTemp()
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_BIG,"CHT") / 2 , oy + 54,
 		 "CHT", FONT_BIG)
 
-    local minTemp = def.Temps[1]
-    local maxTemp = def.Temps[#def.Temps]
+    local minTemp = GaugeTempRange.Min -- def.Temps[1]
+    local maxTemp = GaugeTempRange.Max -- def.Temps[#def.Temps]
 
     local rt = string.format("%d-%d°C", minTemp, maxTemp)
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MINI,rt) / 2 , oy + 105,
@@ -627,7 +677,6 @@ local function DrawTemp()
     local text1 = string.format("%d", math.floor(CHT[1] + 0.5))
     local text2 = string.format("%d", math.floor(CHT[2] + 0.5))
 
-    
     local theta1 = angle1(CHT[1], minTemp, maxTemp)
     local theta2 = angle2(CHT[2], minTemp, maxTemp)
 
@@ -636,9 +685,15 @@ local function DrawTemp()
     lcd.drawFilledRectangle(ox+65-5, oy, 10, 20)
 
     lcd.setColor(160,160,160)
-    for _,v in ipairs(def.Temps) do
+    
+    --for _,v in ipairs(def.Temps) do
+    --drawShape(ox+65, oy+65, tick_mark, angle1(v, minTemp, maxTemp))
+    --drawShape(ox+65, oy+65, tick_mark, angle2(v, minTemp, maxTemp))       
+    --end
+    
+    for k,v in pairs(GaugeTempRange) do
        drawShape(ox+65, oy+65, tick_mark, angle1(v, minTemp, maxTemp))
-       drawShape(ox+65, oy+65, tick_mark, angle2(v, minTemp, maxTemp))       
+       drawShape(ox+65, oy+65, tick_mark, angle2(v, minTemp, maxTemp))              
     end
     
     for i=1,2,1 do
@@ -705,7 +760,7 @@ local function DrawCenterBox()
     end
 
     for i=1,2,1 do
-       if RPM[i] > def.RPMRunning then
+       if RPM[i] > RPMRunning then
 	  lcd.setColor(0,255,0)
        else
 	  lcd.setColor(255,0,0)
@@ -754,7 +809,10 @@ local function getSpeed()
       sensor = system.getSensorByID(spdSeId, spdSePa)
       if (sensor and sensor.valid) then
 	 spd = sensor.value
+      else
+	 return spd
       end
+      
       --print("raw sensor:", spd)
       if selFt then
 	 if sensor.unit == "m/s" then
@@ -834,7 +892,7 @@ local function loop()
    -- check if engines running, and with performance tolerance
    
    for i=1,2,1 do
-      if RPM[i] < def.RPMRunning then
+      if RPM[i] < RPMRunning then
 	 eng[i].Running = false
 	 eng[i].Fail = true
       else
@@ -1152,6 +1210,19 @@ local function init()
       error("Fatal error")
    end
 
+   GaugeTempRange = {}
+   for k,_ in pairs(def.TempRange) do
+      GaugeTempRange[k] = system.pLoad("TempRange"..k, def.TempRange[k])
+   end
+
+   GaugeMaxRPM = system.pLoad("GaugeMaxRPM", def.MaxRPM)
+   print("GaugeMaxRPM", GaugeMaxRPM, def.MaxRPM)
+   
+   RPMRunning = system.pLoad("RPMRunning", def.RPMRunning)
+   engineName = system.pLoad("engineName", def.Engine)
+   minSyncRPM = system.pLoad("minSyncRPM", def.minSyncRPM)
+   hyst = system.pLoad("hyst", def.hyst)
+   
    VSpeedsUp = {}
    for k,v in ipairs(def.VSpeedsUp) do
       VSpeedsUp[k] = {}

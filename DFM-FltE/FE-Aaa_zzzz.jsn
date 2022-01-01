@@ -1,7 +1,6 @@
 {
-    "Temps":[100,150,225,250,300],
-    "TempRange":{"Normal":150, "Warning":225, "Overheat":250} ,
-    "RPMs":[0,2000,4000,6000],
+    "TempRange":{"Min": 100, "Normal":150, "Warning":225, "Overheat":250, "Max":300} ,
+    "MaxRPM":6000,
     "RPMRunning": 200,
     "Engine":"DA-200",
     "minSyncRPM":1000,
