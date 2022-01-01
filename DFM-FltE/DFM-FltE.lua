@@ -6,14 +6,18 @@
    Flight Engineer to assist with twin-engine aircraft
    
    Requires transmitter firmware 5.0 or higher
-   
+
+   0.0 12/30/2021 Initial Version
+   0.1 12/31/2021 Menus to edit V speeds
+   0.2 01/01/2022 Menus to edit RPMs and Temps 
+
    ----------------------------------------------------------------------------
                Released under MIT-license by DFM Dec 2021
    ----------------------------------------------------------------------------
 
 --]]
 
-local FltEVersion = "0.1"
+local FltEVersion = "0.2"
 local appDir = "Apps/DFM-FltE/"
 
 local spdSwitch
@@ -44,8 +48,8 @@ local CHT={}
 CHT[1]=0
 CHT[2]=0
 local lastCHT={}
-lastCHT[1]="Cold"
-lastCHT[2]="Cold"
+lastCHT[1]=""
+lastCHT[2]=""
 local GaugeTempRange
 local GaugeMaxRPM
 local RPMRunning
@@ -285,7 +289,6 @@ local function controlsSelectedChanged(value, ii)
 end
 
 local function TempRangeChanged(value, key)
-   print("TRC:", value, key)
    GaugeTempRange[key] = value
    system.pSave("TempRange"..key, value)
 end
@@ -423,8 +426,8 @@ local function initForm(subForm)
       form.addIntbox(GaugeMaxRPM, 1000, 10000, 6000, 0, 100, maxRPMChanged)
       
       form.addRow(2)
-      form.addLabel({label="Engine Name", width=220})
-      form.addTextbox(engineName, 20, engineNameChanged)
+      form.addLabel({label="Engine Name", width=60})
+      form.addTextbox(engineName, 20, engineNameChanged, {width=260})
       
    elseif subForm == 6 then -- Speed Announcer
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})   
@@ -627,14 +630,15 @@ local function DrawRPM()
     lcd.setColor(255,255,255)
     lcd.drawFilledRectangle(ox+65-5, oy, 10, 20)
     lcd.setColor(160,160,160)
-    local v
-    for i=0,GaugeMaxRPM,4 do
-       v = GaugeMaxRPM*i/4
+    local RPMstep = GaugeMaxRPM / 4
+    for v=0,GaugeMaxRPM, RPMstep do
        drawShape(ox+65, oy+65, tick_mark, angle1(v, minRPM, maxRPM))
        drawShape(ox+65, oy+65, tick_mark, angle2(v, minRPM, maxRPM))       
     end
-    local theta1 = angle1(RPM[1], minRPM, maxRPM) 
-    local theta2 = angle2(RPM[2], minRPM, maxRPM) 
+    local r1,r2 = math.max(math.min(RPM[1], maxRPM), minRPM), math.max(math.min(RPM[2], maxRPM), minRPM)
+    local theta1 = angle1(r1, minRPM, maxRPM) 
+    local theta2 = angle2(r2, minRPM, maxRPM) 
+
     lcd.setColor(255,0,0)
     drawShape(ox+65, oy+65, needle_poly_large, theta1)       
     lcd.setColor(255,0,0)
@@ -697,11 +701,11 @@ local function DrawTemp()
     end
     
     for i=1,2,1 do
-       if CHT[i] < def.TempRange.Normal then
+       if CHT[i] < GaugeTempRange.Normal then
 	  lcd.setColor(0,0,255)
-       elseif CHT[i] >= def.TempRange.Normal and CHT[i] < def.TempRange.Warning then
+       elseif CHT[i] >= GaugeTempRange.Normal and CHT[i] < GaugeTempRange.Warning then
 	  lcd.setColor(0,255,0)
-       elseif CHT[i] >= def.TempRange.Warning and CHT[i] < def.TempRange.Overheat then
+       elseif CHT[i] >= GaugeTempRange.Warning and CHT[i] < GaugeTempRange.Overheat then
 	  lcd.setColor(255,255,0)
        else
 	  lcd.setColor(255,0,0)
@@ -906,11 +910,11 @@ local function loop()
 
    local currentCHT
    for i=1,2,1 do
-      if CHT[i] < def.TempRange.Normal then
+      if CHT[i] < GaugeTempRange.Normal then
 	 currentCHT = "Cold"
-      elseif CHT[i] >= def.TempRange.Normal and CHT[i] < def.TempRange.Warning then
+      elseif CHT[i] >= GaugeTempRange.Normal and CHT[i] < GaugeTempRange.Warning then
 	 currentCHT = "Normal"
-      elseif CHT[i] >= def.TempRange.Warning and CHT[i] < def.TempRange.Overheat then
+      elseif CHT[i] >= GaugeTempRange.Warning and CHT[i] < GaugeTempRange.Overheat then
 	 currentCHT = "Warning"
       else
 	 currentCHT = "Overheat"
@@ -1216,7 +1220,7 @@ local function init()
    end
 
    GaugeMaxRPM = system.pLoad("GaugeMaxRPM", def.MaxRPM)
-   print("GaugeMaxRPM", GaugeMaxRPM, def.MaxRPM)
+   --print("GaugeMaxRPM", GaugeMaxRPM, def.MaxRPM)
    
    RPMRunning = system.pLoad("RPMRunning", def.RPMRunning)
    engineName = system.pLoad("engineName", def.Engine)
@@ -1249,7 +1253,7 @@ local function init()
       end
    end
 
-   local eName = (": " .. def.Engine) or ""
+   local eName = ": " .. (engineName or "")
    system.registerTelemetry(1, "Flight Engineer"..eName, 4, wbTele)
    system.registerForm(1, MENU_APPS, "Flight Engineer", initForm)
 

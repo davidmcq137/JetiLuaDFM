@@ -1,21 +1,20 @@
 {
-    "Temps":[100,150,225,250,300],
-    "TempRange":{"Normal":150, "Warning":225, "Overheat":250} ,
-    "RPMs":[0,2000,4000,6000],
+    "TempRange":{"Min": 100, "Normal":150, "Warning":225, "Overheat":250, "Max":300} ,
+    "MaxRPM":6000,
     "RPMRunning": 200,
-    "Engine":"NoName",
+    "Engine":"Engine Name",
     "minSyncRPM":1000,
     "hyst":0.98,
     "pumpOn":  [{"onSignal": 50, "servo":"O23"}, {"onSignal": 50, "servo":"O24"}],
     "startOn": [{"onSignal": 50, "servo":"O21"}, {"onSignal": 50, "servo":"O22"}],
     "VSpeedsUp":[
-	{"Vaa": {"S": 25, "shake": 0, "wav":1} },
-	{"Vne": {"S":200, "shake":-3, "wav":1} }
+	{"Vaa": {"S": 25, "shake":0, "wav":1} },
+	{"Vne": {"S":200, "shake":0, "wav":1} }
     ],
     "VSpeedsDn":[
-	{"Vso" : {"S": 50, "shake":-2, "wav":1} },
-	{"Vref": {"S": 60, "shake": 0, "wav":1} },
-	{"Vmca": {"S": 70, "shake": 3, "wav":0} },
-	{"Vmcw": {"S": 75, "shake": 0, "wav":0} }
+	{"Vso" : {"S": 50, "shake":2, "wav":1} },
+	{"Vref": {"S": 60, "shake":0, "wav":1} },
+	{"Vmca": {"S": 70, "shake":3, "wav":0} },
+	{"Vmcw": {"S": 75, "shake":0, "wav":1} }
     ]
 }
