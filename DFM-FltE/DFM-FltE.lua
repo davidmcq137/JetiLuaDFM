@@ -72,6 +72,9 @@ local controls = {
    "O15", "O16", "O17", "O18", "O19", "O20", "O21", "O22", "O23", "O24"
 }
 
+local pumpOn = {}
+local startOn = {}
+
 local ctlIdx = {}
 local controlSnapshots = {}
 local ctlSe
@@ -293,6 +296,17 @@ local function TempRangeChanged(value, key)
    system.pSave("TempRange"..key, value)
 end
 
+local function onChanged(value, ps, lr)
+   print("onChanged", value, ps, lr)
+   if ps == "start" then
+      startOn[lr] = value
+      system.pSave("startOn"..lr, value)
+   else
+      pumpOn[lr] = value
+      system.pSave("pumpOn"..lr, value)
+   end
+end
+
 local function initForm(subForm)
    
    local stickVibIdx
@@ -428,6 +442,31 @@ local function initForm(subForm)
       form.addRow(2)
       form.addLabel({label="Engine Name", width=60})
       form.addTextbox(engineName, 20, engineNameChanged, {width=260})
+
+      form.addLink((function() form.reinit(51) end), {label = "Indicators >>"})
+      
+   elseif subForm == 51 then
+      form.addLink((function() form.reinit(5) end), {label = "<< Return"})
+
+      form.addRow(4)
+      form.addLabel({label="Left Pump", width=90})
+      form.addInputbox(pumpOn[1], true,
+			      (function(x) return onChanged(x,  "pump", 1) end),
+			      {width=70})
+      form.addLabel({label="Left Start", width=90})
+      form.addInputbox(startOn[1], true,
+			      (function(x) return onChanged(x, "start", 1) end),
+			      {width=70})      
+
+      form.addRow(4)
+      form.addLabel({label="Right Pump", width=90})
+      form.addInputbox(pumpOn[2], true,
+			      (function(x) return onChanged(x,  "pump", 2) end),
+			      {width=70})
+      form.addLabel({label="Right Start", width=90})
+      form.addInputbox(startOn[2], true,
+			      (function(x) return onChanged(x, "start", 2) end),
+			      {width=70})      
       
    elseif subForm == 6 then -- Speed Announcer
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})   
@@ -746,7 +785,7 @@ local function DrawCenterBox()
     local oxx = {ox+8, ox + W - 16}
 
     for i=1,2,1 do
-       if math.abs(system.getInputs(def.startOn[i].servo)) > math.abs(def.startOn[i].onSignal/100) then
+       if system.getInputsVal(startOn[i]) == 1 then
 	  lcd.setColor(0,0,255)
        else
 	  lcd.setColor(255,255,255) -- white/blank
@@ -755,7 +794,7 @@ local function DrawCenterBox()
     end
     
     for i=1,2,1 do
-       if math.abs(system.getInputs(def.pumpOn[i].servo)) > math.abs(def.pumpOn[i].onSignal/100) then
+       if system.getInputsVal(pumpOn[i]) == 1 then
 	  lcd.setColor(0,255,0)
        else
 	  lcd.setColor(255,0,0)
@@ -1226,6 +1265,11 @@ local function init()
    engineName = system.pLoad("engineName", def.Engine)
    minSyncRPM = system.pLoad("minSyncRPM", def.minSyncRPM)
    hyst = system.pLoad("hyst", def.hyst)
+
+   for i=1,2,1 do
+      pumpOn[i] = system.pLoad("pumpOn"..i)
+      startOn[i] = system.pLoad("startOn"..i)
+   end
    
    VSpeedsUp = {}
    for k,v in ipairs(def.VSpeedsUp) do
