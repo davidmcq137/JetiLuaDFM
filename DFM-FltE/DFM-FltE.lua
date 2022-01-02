@@ -10,6 +10,8 @@
    0.0 12/30/2021 Initial Version
    0.1 12/31/2021 Menus to edit V speeds
    0.2 01/01/2022 Menus to edit RPMs and Temps 
+   0.3 01/02/2022 Misc cleanups
+   0.4 01/02/2022 Changed snaposhot controls to use addInputbox
 
    ----------------------------------------------------------------------------
                Released under MIT-license by DFM Dec 2021
@@ -17,7 +19,7 @@
 
 --]]
 
-local FltEVersion = "0.3"
+local FltEVersion = "0.4"
 local appDir = "Apps/DFM-FltE/"
 
 local spdSwitch
@@ -41,15 +43,19 @@ local engT = {
 local eng = {}
 local def = {}
 local syncDelta = 0
+
 local RPM={}
 RPM[1]=0
 RPM[2]=0
+
 local CHT={}
 CHT[1]=0
 CHT[2]=0
+
 local lastCHT={}
 lastCHT[1]=""
 lastCHT[2]=""
+
 local GaugeTempRange
 local GaugeMaxRPM
 local RPMRunning
@@ -63,6 +69,7 @@ local thrOKMessage = false
 local VSpeedsUp
 local VSpeedsDn
 
+--[[
 local controls = {
    "...",
    "P1",   "P2",  "P3",  "P4",  "P5",  "P6",  "P7",  "P8",  "P9", "P10",
@@ -71,11 +78,12 @@ local controls = {
    "O5",   "O6",  "O7",  "O8",  "O9", "O10", "O11", "O12", "O13", "O14",
    "O15", "O16", "O17", "O18", "O19", "O20", "O21", "O22", "O23", "O24"
 }
+--]]
 
 local pumpOn = {}
 local startOn = {}
 
-local ctlIdx = {}
+local ctlSwi = {}
 local controlSnapshots = {}
 local ctlSe
 local ctlSeId
@@ -287,8 +295,8 @@ end
 
 local function controlsSelectedChanged(value, ii)
    --print("%", value, ii)
-   ctlIdx[ii] = value
-   system.pSave("ctlIdx"..ii, value)
+   ctlSwi[ii] = value
+   system.pSave("ctlSwi"..ii, value)
 end
 
 local function TempRangeChanged(value, key)
@@ -308,6 +316,8 @@ local function onChanged(value, ps, lr)
 end
 
 local function initForm(subForm)
+
+   --local sF={Main=1,VSpeeds=2,Sensors=3,Controls=4,Settings=5,SpeedAnn=6,Snapshot=7,Temps=8}
    
    local stickVibIdx
    stickVib = {"No Shake", "L 1 Long" , "L 1 Short" , "L 2 Short" , "L 3 Short",
@@ -497,17 +507,11 @@ local function initForm(subForm)
 
    elseif subForm == 7 then
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})
-      form.addLink((function() form.reinit(8) end), {label = "Display Snapshots >>", width=170})
+      form.addLink((function() form.reinit(71) end), {label = "Display Snapshots >>", width=170})
       
       form.addRow(2)
       form.addLabel({label="Snapshot Switch", width=220})
       form.addInputbox(snapSwitch, false, snapSwitchChanged)
-
-      form.addRow(1)
-      form.addLink(
-	 (function() system.messageBox("Snapshots Reset") controlSnapshots={} form.reinit(71) end),
-	 {label = "Reset Snapshots ("..#controlSnapshots..") >>", width=180}
-      )         
 
       form.addRow(2)
       form.addLabel({label="Sensor", width=100})
@@ -516,32 +520,58 @@ local function initForm(subForm)
       form.addRow(5)
       form.addLabel({label="Ctrl", width=60})
       for j=1,4,1 do
-	 --print(j, ctlIdx[j])
-	 form.addSelectbox(controls, ctlIdx[j], true,
+	 --print(j, ctlSwi[j])
+	 form.addInputbox(ctlSwi[j], true,
 			   (function(x) return controlsSelectedChanged(x,j) end), {width=65})
       end
+
+      form.addRow(1)
+      form.addLink(
+	 (function() system.messageBox("Snapshots Reset") controlSnapshots={} form.reinit(7) end),
+	 {label = "Reset Snapshots ("..#controlSnapshots..") >>", width=180}
+      )         
 
    elseif subForm == 71 then
       form.addLink((function() form.reinit(7) end), {label = "<< Return"})
 
       local snapC = #controlSnapshots
       local line, lbl
+      local getSw
 
+      --[[
       lbl = "Time   Sensor          "
       for i=1,4,1 do
-	 lbl = lbl .. controls[ctlIdx[i]] .."       "
+	 if ctlSwi[i] then
+	    getSw = system.getSwitchInfo(ctlSwi[i]).label
+	 else
+	    getSw = "---"
+	 end
+	 lbl = lbl .. (getSw or "...") .."       "
       end
-      form.addRow(1)
-      form.addLabel({label=lbl})
+      --]]
+
+      form.addRow(7)
+      form.addLabel({label="Time", width=48})
+      form.addLabel({label="Sensor", width=70})
+      form.addLabel({label="", width=10})	 
+      for i=1,4,1 do
+	 if ctlSwi[i] then
+	    getSw = system.getSwitchInfo(ctlSwi[i]).label
+	 else
+	    getSw = "---"
+	 end
+	 form.addLabel({label=(getSw or "..."), width=48})
+      end
+
       for i=1,snapC,1 do
-	 form.addRow(1)
+	 form.addRow(6)
 	 --local snap = {time=ctstr, sensor=sval, controls=cval}
 	 line = controlSnapshots[i]
-	 lbl = line.time.."  " .. line.sensor.."   "
+	 form.addLabel({label=line.time, width=48})
+	 form.addLabel({label=line.sensor, width=70})
 	 for j=1,4,1 do
-	    lbl = lbl .. "   " .. line.controls[j]
+	    form.addLabel({label=line.controls[j], width=48})
 	 end
-	 form.addLabel({label=lbl, width=320})
       end
 
    elseif subForm == 8 then
@@ -990,10 +1020,9 @@ local function loop()
       local cval={}
 
       cval[1],cval[2],cval[3],cval[4] =
-	 system.getInputs(controls[ctlIdx[1]], controls[ctlIdx[2]],
-			     controls[ctlIdx[3]], controls[ctlIdx[4]])
+	 system.getInputsVal(ctlSwi[1], ctlSwi[2], ctlSwi[3], ctlSwi[4])
       for i=1,4,1 do
-	 if not cval[i] or ctlIdx[i] == 1 then
+	 if not cval[i] or not ctlSwi[i] then
 	    cval[i] = "     "
 	 else 
 	    cval[i] = string.format("%+.2f", cval[i])
@@ -1196,7 +1225,7 @@ local function init()
    shortAnn    = system.pLoad("shortAnn", "false")
    snapSwitch  = system.pLoad("snapSwitch")
    for i=1,4,1 do
-      ctlIdx[i] = system.pLoad("ctlIdx"..i, 1)
+      ctlSwi[i] = system.pLoad("ctlSwi"..i)
    end
 
    emFlag = select(2, system.getDeviceType()) == 1
