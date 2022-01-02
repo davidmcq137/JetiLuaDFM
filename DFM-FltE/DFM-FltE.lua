@@ -17,7 +17,7 @@
 
 --]]
 
-local FltEVersion = "0.2"
+local FltEVersion = "0.3"
 local appDir = "Apps/DFM-FltE/"
 
 local spdSwitch
