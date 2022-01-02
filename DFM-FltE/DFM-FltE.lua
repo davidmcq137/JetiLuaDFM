@@ -1048,8 +1048,8 @@ local function loop()
    local thrOK = false
    local tt = system.getSwitchInfo(eng[1].Control)
    if tt and tt.proportional and tt.assigned and tt.mode == "PC" then thrOK = true else
-      if not thrOKMessage then
-	 system.messageBox("Sync not enabled - Bad Throttle Control")
+      if not thrOKMessage and syncOn then
+	 system.messageBox("Sync not enabled - Pls Set Throttle Ctrl")
 	 thrOKMessage = true
       end
    end
@@ -1333,7 +1333,17 @@ local function init()
    readSensors()
    loadImages()
 
-   syncIdx = system.registerControl(1, "TwinThrMix", "T01")
+   syncIdx = nil
+   for i=1,10,1 do
+      syncIdx = system.registerControl(i, "TwinThrMix", "T01")
+      if syncIdx then
+	 print("DFM-FltE: Control T01 set to control " .. syncIdx)
+	 break
+      end
+   end
+   if not syncIdx then
+      print("DFM-FltE: Could not set engine sync control")
+   end
 
 end
 
