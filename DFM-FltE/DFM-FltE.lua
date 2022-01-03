@@ -69,6 +69,11 @@ local thrOKMessage = false
 local VSpeedsUp
 local VSpeedsDn
 
+local lastThr = 0
+local thrStable = 0
+local lastPt = 0
+local thrRPM = {}
+
 --[[
 local controls = {
    "...",
@@ -315,6 +320,14 @@ local function onChanged(value, ps, lr)
    end
 end
 
+
+local function keyPressed(key)
+   if false then -- key == 1 then
+      print("FocusedRow: "..form.getFocusedRow())
+	    system.openExternal("TEST.HTML") -- opens in home dir (above /Apps) and upper cases?
+   end
+end
+
 local function initForm(subForm)
 
    --local sF={Main=1,VSpeeds=2,Sensors=3,Controls=4,Settings=5,SpeedAnn=6,Snapshot=7,Temps=8}
@@ -334,6 +347,8 @@ local function initForm(subForm)
    end
 
    if subForm == 1 then
+
+      --form.setButton(1, "Help", ENABLED)
       
       form.addLink((function() form.reinit(2) end), {label = "V speeds >>"})        -- 2
       form.addLink((function() form.reinit(3) end), {label = "Sensors >>"})         -- 3
@@ -958,8 +973,6 @@ local function loop()
    local round_spd
    local swi, swc, sws, swn
    
-   -- gather some stats on loop times so we can normalize integrator performance
-   
    if not appStartTime then appStartTime = system.getTimeCounter() end
 
    -- check if engines running, and with performance tolerance
@@ -1186,6 +1199,51 @@ local function loop()
    end
 end
 
+local function calTele()
+
+   local xw, yw = 320,160
+   local xo, yo = 40, 20
+   local x0, y0 = xo, yw-yo
+   local xl, yl = xw-2*xo,yw-2*yo  
+
+   local function xp(x)
+      return x0 + xl * x / 100.0
+   end
+   local function yp(y)
+      return y0 - yl * y / GaugeMaxRPM
+   end
+   
+   lcd.drawRectangle(xo,yo,xl,yl)
+   
+   for i=1,9,1 do
+      --draw vert grid
+   end
+   
+   local thr = 100 * (system.getInputsVal(eng[1].Control) or 0)
+   if math.abs(thr - lastThr) <= 0.02 * thr then
+      if thrStable < 50 then thrStable = thrStable + 1 end
+   else
+      thrStable = 1
+   end
+
+   if thrStable == 50 then
+      thrStable = 51 -- only come here once
+   end
+
+   if thrStable > 50 and math.abs(thr - lastPt) >= 0.05 * lastPt then
+      table.insert(thrRPM, {rpm=RPM[1],thr=thr})
+      lastPt = thr
+   end
+   
+   lastThr = thr
+   lcd.drawCircle(xp(thr), yp(RPM[1]), 3)
+   
+   for i=1,#thrRPM do
+      lcd.drawCircle(xp(thrRPM[i].thr), yp(thrRPM[i].rpm), 5)
+   end
+   
+end
+
 local function loadImages()
     gauge_c = lcd.loadImage(appDir.."cl-000.png")
     gauge_s = lcd.loadImage(appDir.."cc-000.png")
@@ -1328,7 +1386,8 @@ local function init()
 
    local eName = ": " .. (engineName or "")
    system.registerTelemetry(1, "Flight Engineer"..eName, 4, wbTele)
-   system.registerForm(1, MENU_APPS, "Flight Engineer", initForm)
+   system.registerTelemetry(2, "Flight Engineer: Calibration", 4, calTele)   
+   system.registerForm(1, MENU_APPS, "Flight Engineer", initForm, keyPressed)
 
    readSensors()
    loadImages()
