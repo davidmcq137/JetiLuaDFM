@@ -12,6 +12,7 @@
    0.2 01/01/2022 Menus to edit RPMs and Temps 
    0.3 01/02/2022 Misc cleanups
    0.4 01/02/2022 Changed snaposhot controls to use addInputbox
+   0.5 01/04/2022 Added second tele screen for thr-RPM cal
 
    ----------------------------------------------------------------------------
                Released under MIT-license by DFM Dec 2021
@@ -19,7 +20,7 @@
 
 --]]
 
-local FltEVersion = "0.4"
+local FltEVersion = "0.5"
 local appDir = "Apps/DFM-FltE/"
 
 local spdSwitch
@@ -70,8 +71,10 @@ local VSpeedsUp
 local VSpeedsDn
 
 local lastThr = 0
+local lastTim = 0
+local lastStable = false
 local thrStable = 0
-local lastPt = 0
+local lastPt
 local thrRPM = {}
 
 --[[
@@ -331,7 +334,7 @@ end
 local function initForm(subForm)
 
    --local sF={Main=1,VSpeeds=2,Sensors=3,Controls=4,Settings=5,SpeedAnn=6,Snapshot=7,Temps=8}
-   
+
    local stickVibIdx
    stickVib = {"No Shake", "L 1 Long" , "L 1 Short" , "L 2 Short" , "L 3 Short",
 	       "R 1 Long", "R 1 Short", "R 2 Short", "R 3 Short"}
@@ -339,7 +342,6 @@ local function initForm(subForm)
    local wavIdx
    local wavPlay = {"No Audio", "Audio"}
 
-      
    if tonumber(system.getVersion()) < 5.0 then
       form.addRow(1)
       form.addLabel({label="Minimum TX Version is 5.0", width=220, font=FONT_NORMAL})
@@ -347,7 +349,7 @@ local function initForm(subForm)
    end
 
    if subForm == 1 then
-
+      
       --form.setButton(1, "Help", ENABLED)
       
       form.addLink((function() form.reinit(2) end), {label = "V speeds >>"})        -- 2
@@ -1199,48 +1201,112 @@ local function loop()
    end
 end
 
+
+local lozenge = { {0,4},{-4,0},{0,-4},{4,0},{0,4} }
+local cross   = {
+   {6,2},{2,2},{2,6},{-2,6},{-2,2},{-6,2},{-6,-2},
+   {-2,-2},{-2,-6},{2,-6},{2,-2},{6,-2}, {6,2}
+}
+
 local function calTele()
 
    local xw, yw = 320,160
    local xo, yo = 40, 20
    local x0, y0 = xo, yw-yo
    local xl, yl = xw-2*xo,yw-2*yo  
-
+   
    local function xp(x)
       return x0 + xl * x / 100.0
    end
+
    local function yp(y)
       return y0 - yl * y / GaugeMaxRPM
    end
-   
-   lcd.drawRectangle(xo,yo,xl,yl)
+
+   local function drawShape(shape,xp,yp)
+      local ren = lcd.renderer()
+      for _, p in ipairs(shape) do
+	 ren:addPoint(xp+p[1], yp+p[2])
+      end
+      ren:renderPolygon()
+   end
+
+   lcd.setColor(200,200,200)
    
    for i=1,9,1 do
-      --draw vert grid
+      lcd.drawLine(xo + i*xl/10, y0-1, xo + i*xl/10, y0-yl)
    end
+
+   for i=1,4,1 do
+      lcd.drawLine(xo, y0-i*yl/5, xo+xl, y0-i*yl/5)
+   end
+
+   lcd.setColor(0,0,0)
    
+   lcd.drawRectangle(xo,yo,xl,yl)
+
+   local now = system.getTimeCounter()
    local thr = 100 * (system.getInputsVal(eng[1].Control) or 0)
-   if math.abs(thr - lastThr) <= 0.02 * thr then
-      if thrStable < 50 then thrStable = thrStable + 1 end
+   local stable = false
+   
+   if math.abs(thr - lastThr) <= 2 then
+      if now - lastTim > 5000 then
+	 stable = true
+      end
+   else
+      lastTim = now
+      stable = false
+   end
+
+   if stable and not lastStable and (not lastPt or math.abs(thr - lastPt) >= 5) then
+      if #thrRPM < 20 then
+	 table.insert(thrRPM, {rpm1=RPM[1],rpm2=RPM[2],thr=thr})
+	 lastPt = thr
+      end
+   end
+
+   lastStable = stable
+   lastThr = thr
+   
+   --[[
+   if math.abs(thr - lastThr) <= 2 then
+      if thrStable < numStable then thrStable = thrStable + 1 end
    else
       thrStable = 1
    end
 
-   if thrStable == 50 then
-      thrStable = 51 -- only come here once
+   if thrStable == numStable then
+      print("Stable")
+      thrStable = numStable+1 -- only come here once
    end
 
-   if thrStable > 50 and math.abs(thr - lastPt) >= 0.05 * lastPt then
-      table.insert(thrRPM, {rpm=RPM[1],thr=thr})
+   if thrStable > numStable and math.abs(thr - lastPt) >= 5 then
+      if #thrRPM < 20 then
+	 table.insert(thrRPM, {rpm1=RPM[1],rpm2=RPM[2],thr=thr})
+      end
       lastPt = thr
    end
-   
+   --]]
    lastThr = thr
-   lcd.drawCircle(xp(thr), yp(RPM[1]), 3)
-   
+   lcd.setColor(255,0,0)
+   drawShape(cross, xp(thr), yp(RPM[1]))
+   lcd.setColor(0,0,255)
+   drawShape(cross, xp(thr), yp(RPM[2]))   
+
    for i=1,#thrRPM do
-      lcd.drawCircle(xp(thrRPM[i].thr), yp(thrRPM[i].rpm), 5)
+      lcd.setColor(255,0,0)
+      drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm1))
+      lcd.setColor(0,0,255)
+      drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm2))            
    end
+
+   lcd.setColor(0,0,0)
+   local txt = "Calibration Points: " .. #thrRPM .."/20"
+   lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,0, txt)
+   local txt = "Left: "..string.format("%4d", RPM[1]) ..
+      " Right: " .. string.format("%4d", RPM[2]) ..
+      " Throttle: " .. string.format("%2d", thr)
+   lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,140, txt)
    
 end
 
