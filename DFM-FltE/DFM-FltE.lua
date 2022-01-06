@@ -13,6 +13,8 @@
    0.3 01/02/2022 Misc cleanups
    0.4 01/02/2022 Changed snaposhot controls to use addInputbox
    0.5 01/04/2022 Added second tele screen for thr-RPM cal
+   0.6 01/04/2022 v0.6 Added linear fit and cal point selection
+   0.7 01/05/2022 v0.7 Added expo to fitting
 
    ----------------------------------------------------------------------------
                Released under MIT-license by DFM Dec 2021
@@ -20,7 +22,7 @@
 
 --]]
 
-local FltEVersion = "0.5"
+local FltEVersion = "0.7"
 local appDir = "Apps/DFM-FltE/"
 
 local spdSwitch
@@ -70,12 +72,19 @@ local thrOKMessage = false
 local VSpeedsUp
 local VSpeedsDn
 
-local lastThr = 0
-local lastTim = 0
-local lastStable = false
+local lastThr
+local lastTim
+local lastStable
 local thrStable = 0
 local lastPt
 local thrRPM = {}
+local selectRPM
+local selectThr
+local movingThr = true
+local savedForm
+local engineMdl = {}
+engineMdl[1]={}
+engineMdl[2]={}
 
 --[[
 local controls = {
@@ -124,6 +133,38 @@ local iGain
 local pGainInput
 local iGainInput
 local appStartTime
+
+local function linfit(xyt)
+   local sx = 0
+   local sy = 0
+   local sdxy = 0
+   local sdxx = 0
+   local xbar
+   local ybar
+   local m, b
+   
+   if #xyt < 2 then return nil end
+   
+   for i in ipairs(xyt) do
+      sx = sx + xyt[i].x
+      sy = sy + xyt[i].y
+   end
+
+   xbar = sx / #xyt
+   ybar = sy / #xyt
+
+   for i in ipairs(xyt) do
+      sdxy = sdxy + (xyt[i].x-xbar)*(xyt[i].y-ybar)
+      sdxx = sdxx + (xyt[i].x-xbar)*(xyt[i].x-xbar)
+   end
+
+   if sdxx == 0 then return nil end
+   
+   m = sdxy / sdxx
+   b = ybar - m * xbar
+
+   return m, b
+end
 
 local function readSensors()
    local prefix
@@ -325,9 +366,88 @@ end
 
 
 local function keyPressed(key)
-   if false then -- key == 1 then
-      print("FocusedRow: "..form.getFocusedRow())
-	    system.openExternal("TEST.HTML") -- opens in home dir (above /Apps) and upper cases?
+   if savedForm == 9 then
+      if key == KEY_1 then
+	 local fname
+	 local ff
+	 local dt = system.getDateTime()
+	 local yy = string.format("%04d", dt.year)
+	 local mm = string.format("%02d", dt.mon)
+	 local dd = string.format("%02d", dt.day)
+	 local mdl = string.gsub(system.getProperty("Model"), " ", "_")
+
+	 for i=1, 35, 1 do
+	    fname = "FD-" .. mdl .."-" .. yy .. "-" .. dd .. "-" .. mm ..
+	       "-" ..string.format("%02d", i) .. ".jsn"
+	    print("fname: " .. fname)
+	    ff = io.open(appDir .. fname, "r")
+	    --print("fname, fr", fname, fr)
+	    if ff then
+	       io.close(ff)
+	    else
+	       ff = io.open(appDir .. fname, "w")
+	       if ff then
+		  print("DFM-FltE: Opening file " .. appDir .. fname)
+		  break
+	       else
+		  print("DFM-FltE: Cannot open file")
+		  return
+	       end
+	    end
+	 end
+	 local jsonstr = json.encode(thrRPM)
+	 io.write(ff, jsonstr)
+	 io.close(ff)
+	 print("DFM-FltE: File closed")
+	 
+	 --print("FocusedRow: "..form.getFocusedRow())
+	 --system.openExternal("TEST.HTML") -- opens in home dir (above /Apps) and upper cases?
+      elseif key == KEY_2 then -- Thr
+	 print("thr")
+	 movingThr = true
+      elseif key == KEY_3 then -- RPM
+	 print("rpm")
+	 movingThr = false
+      elseif key == KEY_4 then -- Fit
+	 local rpm1 = {}
+	 local rpm2 = {}
+	 for k,v in ipairs(thrRPM) do
+	    if v.thr <= selectThr and v.rpm1 <= selectRPM then 
+	       print(k, v.thr, v.rpm1)
+	       table.insert(rpm1, {x=v.thr, y=v.rpm1})
+	    end
+	 end
+	 engineMdl[1].m, engineMdl[1].b = linfit(rpm1)
+	 for k,v in ipairs(thrRPM) do
+	    if v.thr <= selectThr and v.rpm2 <= selectRPM then 	    
+	       print(k, v.thr, v.rpm2)
+	       table.insert(rpm2, {x=v.thr, y=v.rpm2})
+	    end
+	 end
+	 engineMdl[2].m, engineMdl[2].b = linfit(rpm2)
+      elseif key == KEY_UP then
+	 if movingThr then
+	    selectThr = selectThr + 2
+	    selectThr = math.min(selectThr, 100)
+	    --print("selectThr", selectThr)
+	 else
+	    selectRPM = selectRPM + GaugeMaxRPM / 50.0
+	    selectRPM = math.min(selectRPM, GaugeMaxRPM)	    
+	    --print("selectRPM", selectRPM)
+	 end
+      elseif key == KEY_DOWN then
+	 if movingThr then
+	    selectThr = selectThr - 2
+	    selectThr = math.max(selectThr, 0)	 
+	    --print("selectThr", selectThr)
+	 else
+	    selectRPM = selectRPM - GaugeMaxRPM / 50.0
+	    selectRPM = math.max(selectRPM, 0)	 
+	    --print("selectRPM", selectRPM)
+	 end
+      else
+	 if key ~= KEY_RELEASED then print("Key "..key) end
+      end
    end
 end
 
@@ -342,6 +462,8 @@ local function initForm(subForm)
    local wavIdx
    local wavPlay = {"No Audio", "Audio"}
 
+   savedForm = subForm
+   
    if tonumber(system.getVersion()) < 5.0 then
       form.addRow(1)
       form.addLabel({label="Minimum TX Version is 5.0", width=220, font=FONT_NORMAL})
@@ -359,6 +481,7 @@ local function initForm(subForm)
       form.addLink((function() form.reinit(6) end), {label = "Speed Announcer >>"}) -- 6
       form.addLink((function() form.reinit(7) end), {label = "Snapshot >>"})        -- 7
       form.addLink((function() form.reinit(8) end), {label = "Temps >>"})           -- 8
+      form.addLink((function() form.reinit(9) end), {label = "Analysis >>"})        -- 9      
       form.addRow(1)
       form.addLabel({label="DFM-FltE.lua Version "..FltEVersion.." ", font=FONT_MINI, alignRight=true})
       
@@ -609,6 +732,11 @@ local function initForm(subForm)
 			(function(x) return TempRangeChanged(x, v) end),
 			   {width=60})
       end
+   elseif subForm == 9 then
+      form.setButton(1, "Save", ENABLED)
+      form.setButton(2, "Thr",  ENABLED)
+      form.setButton(3, "RPM",  ENABLED)      
+      form.setButton(4, "Fit",  ENABLED)
    elseif subForm == 99 then -- these are parked for the moment
       form.addRow(2)
       form.addLabel({label="Use mph or km/hr (x)", width=270})
@@ -860,7 +988,6 @@ local function DrawCenterBox()
     
 end
 
---------------------------------------------------------------------------------
 
 local function wbTele()
    lcd.setColor(255,255,255)
@@ -1208,13 +1335,15 @@ local cross   = {
    {-2,-2},{-2,-6},{2,-6},{2,-2},{6,-2}, {6,2}
 }
 
-local function calTele()
+
+local function calibrate(w,h,isForm)
 
    local xw, yw = 320,160
    local xo, yo = 40, 20
    local x0, y0 = xo, yw-yo
    local xl, yl = xw-2*xo,yw-2*yo  
-   
+   local stableLim = 4
+
    local function xp(x)
       return x0 + xl * x / 100.0
    end
@@ -1245,69 +1374,179 @@ local function calTele()
    
    lcd.drawRectangle(xo,yo,xl,yl)
 
-   local now = system.getTimeCounter()
-   local thr = 100 * (system.getInputsVal(eng[1].Control) or 0)
-   local stable = false
+   local function calTele()
+      
+      local now = system.getTimeCounter()
+      local thr = 100 * (system.getInputsVal(eng[1].Control) or 0)
+      if not lastThr then lastThr = thr end
+      --if lastStable == nil then lastStable = true end
+      if not lastTim then lastTim = now end
+      local stable = false
+      
+      if emFlag and false then
+	 lcd.drawText(0,40,string.format("%.1f", math.abs(thr-lastThr)))
+	 lcd.drawText(0,60,string.format("%.1f", math.abs(lastThr)))
+      end
+      
+      if math.abs(thr - lastThr) <= stableLim then
+	 if now - lastTim > 1500 then
+	    stable = true
+	    if not lastStable then
+	       --system.playFile("/"..appDir .. "throttle_stable_at.wav", AUDIO_QUEUE)
+	       --system.playNumber(math.floor(thr+0.5), 0)
+	       if emFlag then
+		  print("throttle stable at", thr)
+	       end
+	    end
+	 else
+	    stable = false
+	 end
+      else
+	 lastTim = now
+	 lastThr = thr
+	 stable = false
+      end
+      
+      if stable then
+	 lcd.setColor(0,255,0)
+      else
+	 lcd.setColor(255,0,0)
+      end
+      
+      lcd.drawFilledRectangle(10,130,10,10)
    
-   if math.abs(thr - lastThr) <= 2 then
-      if now - lastTim > 5000 then
-	 stable = true
+      lcd.setColor(0,0,0)
+      
+      if emFlag and false then
+	 if lastPt then lcd.drawText(0,80,string.format("%.2f", math.abs(thr-lastPt))) end
       end
-   else
-      lastTim = now
-      stable = false
-   end
-
-   if stable and not lastStable and (not lastPt or math.abs(thr - lastPt) >= 5) then
-      if #thrRPM < 20 then
-	 table.insert(thrRPM, {rpm1=RPM[1],rpm2=RPM[2],thr=thr})
-	 lastPt = thr
+      
+      if stable and not lastStable and (not lastPt or math.abs(thr - lastPt) >= stableLim) then
+	 if emFlag then print("calbiration point", #thrRPM+1) end
+	 if #thrRPM < 20 then
+	    table.insert(thrRPM, {rpm1=RPM[1],rpm2=RPM[2],thr=thr})
+	    system.playFile("/"..appDir .. "cal.wav", AUDIO_QUEUE)
+	    system.playNumber(#thrRPM, 0)
+	    system.playFile("/"..appDir .. "throttle.wav", AUDIO_QUEUE)
+	    system.playNumber(math.floor(thr+0.5), 0)
+	    system.messageBox("Calibration Point " .. #thrRPM)
+	    lastPt = thr
+	 end
       end
-   end
-
-   lastStable = stable
-   lastThr = thr
-   
-   --[[
-   if math.abs(thr - lastThr) <= 2 then
-      if thrStable < numStable then thrStable = thrStable + 1 end
-   else
-      thrStable = 1
-   end
-
-   if thrStable == numStable then
-      print("Stable")
-      thrStable = numStable+1 -- only come here once
-   end
-
-   if thrStable > numStable and math.abs(thr - lastPt) >= 5 then
-      if #thrRPM < 20 then
-	 table.insert(thrRPM, {rpm1=RPM[1],rpm2=RPM[2],thr=thr})
-      end
-      lastPt = thr
-   end
-   --]]
-   lastThr = thr
-   lcd.setColor(255,0,0)
-   drawShape(cross, xp(thr), yp(RPM[1]))
-   lcd.setColor(0,0,255)
-   drawShape(cross, xp(thr), yp(RPM[2]))   
-
-   for i=1,#thrRPM do
+      
+      lastStable = stable
+      
       lcd.setColor(255,0,0)
-      drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm1))
+      drawShape(cross, xp(thr), yp(RPM[1]))
       lcd.setColor(0,0,255)
-      drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm2))            
+      drawShape(cross, xp(thr), yp(RPM[2]))   
+
+      for i=1,#thrRPM do
+	 lcd.setColor(255,0,0)
+	 drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm1))
+	 lcd.setColor(0,0,255)
+	 drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm2))            
+      end
+
+      lcd.setColor(0,0,0)
+      local txt = "Calibration Points: " .. #thrRPM .."/20"
+      lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,0, txt)
+      local txt = "Left: "..string.format("%4d", RPM[1]) ..
+	 " Right: " .. string.format("%4d", RPM[2]) ..
+	 " Throttle: " .. string.format("%2d", math.floor(thr+0.5))
+      lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,140, txt)
    end
 
-   lcd.setColor(0,0,0)
-   local txt = "Calibration Points: " .. #thrRPM .."/20"
-   lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,0, txt)
-   local txt = "Left: "..string.format("%4d", RPM[1]) ..
-      " Right: " .. string.format("%4d", RPM[2]) ..
-      " Throttle: " .. string.format("%2d", thr)
-   lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,140, txt)
-   
+   local function calForm()
+      local txt = "Calibration Points: " .. #thrRPM
+      lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,0, txt)
+      for i=1,#thrRPM do
+	 selectThr = selectThr or 90
+	 selectRPM = selectRPM or 0.90 * GaugeMaxRPM 
+	 if (thrRPM[i].thr <= selectThr) and (thrRPM[i].rpm1 <= selectRPM) and
+	 (thrRPM[i].rpm2 <= selectRPM) then
+	    lcd.setColor(255,0,0)
+	 else
+	    lcd.setColor(255,180,180)
+	 end
+	 drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm1))
+	 if thrRPM[i].thr <= selectThr and thrRPM[i].rpm1 <= selectRPM and
+	 thrRPM[i].rpm2 <= selectRPM then
+	    lcd.setColor(0,0,255)
+	 else
+	    lcd.setColor(180,180,255)
+	 end
+	 drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm2))            
+      end
+
+      --if not selectThr then selectThr = 90 end
+      --if not selectRPM then selectRPM = 0.9 * GaugeMaxRPM  end
+      
+      if selectThr and selectRPM then
+	 lcd.setColor(0,0,255)
+	 lcd.drawLine(xp(selectThr), yo, xp(selectThr), yo + yl)
+	 lcd.drawLine(xo, yp(selectRPM), xo + xl, yp(selectRPM))
+	 local txt = "Throttle: " .. string.format("%2d", math.floor(selectThr+0.5)) ..
+	    "   RPM: " .. string.format("%4d", selectRPM)
+	 lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,140, txt)
+      end
+      
+      if #engineMdl > 0 and selectThr and selectRPM then
+	 local m,b,x1,y1,ys1,x2,y2,ys2
+	 local exp = 100*system.getInputs("P5")
+	 --local exp2 = 5*(system.getInputs("P6") + 1)
+	 exp2 = 3
+	 --print("exp,exp2:", exp, exp2)
+	 for i=1,2,1 do
+	    m = engineMdl[i].m
+	    b = engineMdl[i].b
+	    if m and b then
+	       if i == 1 then
+		  lcd.setColor(255,0,0)
+	       else
+		  lcd.setColor(0,0,255)
+	       end
+	       local np = 20
+	       for k=0,np - 1,1 do
+		  x1 = (k / np) * selectThr
+		  x2 = (k + 1) / np * selectThr
+		  y1 = m * x1 --+ b
+		  y2 = m * x2 --+ b
+		  ys1 = y1 / (m*selectThr)
+		  ys2 = y2 / (m*selectThr)	  
+		  if ys1 > 0 then
+		     y1 = (ys1^(exp2^(exp/100))) * m*selectThr + b
+		  else
+		     y1 = b --ys1 * m * selectThr + b
+		  end
+		  if ys2 > 0 then
+		     y2 = (ys2^(exp2^(exp/100))) * m*selectThr + b
+		  else
+		     y2 = b --ys2 * m * selectThr + b
+		  end		  
+		  --print(k,x,y)
+		  --lcd.drawCircle(xp(x), yp(y), 2)
+		  lcd.drawLine(xp(x1), yp(y1), xp(x2), yp(y2))		  
+		  --lcd.drawLine(xp(0), yp(b), xp(selectThr), yp(m*selectThr + b))
+	       end
+	    end
+	 end
+      end
+   end
+
+   if isForm then
+      calForm()
+   else
+      calTele()
+   end
+   lcd.drawText(280,150,system.getCPU(), FONT_MINI)
+end
+
+local function prtForm(w,h)
+   if form.getActiveForm() and savedForm == 9 then
+      form.setTitle("")
+      calibrate(w,h,1)
+   end
 end
 
 local function loadImages()
@@ -1452,8 +1691,8 @@ local function init()
 
    local eName = ": " .. (engineName or "")
    system.registerTelemetry(1, "Flight Engineer"..eName, 4, wbTele)
-   system.registerTelemetry(2, "Flight Engineer: Calibration", 4, calTele)   
-   system.registerForm(1, MENU_APPS, "Flight Engineer", initForm, keyPressed)
+   system.registerTelemetry(2, "Flight Engineer: Calibration", 4, calibrate)   
+   system.registerForm(1, MENU_APPS, "Flight Engineer", initForm, keyPressed, prtForm)
 
    readSensors()
    loadImages()

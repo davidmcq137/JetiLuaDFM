@@ -7,7 +7,7 @@
      "sensorName":"MRPMR",
      "label":"RPM",
      "unit":"",
-     "luaExp":"P4(0,6000)"
+     "luaExp":"math.min(P4(400,6000), 4000)"
     },
 {"id":3,"param":0,"sensorName":"MRPM", "label":"MRPML"},
     {"id":3,
@@ -17,7 +17,7 @@
      "sensorName":"MRPML",
      "label":"RPM",
      "unit":"",
-     "luaExp":"P4(0,6000)-O18(-600,600)+P1(-100,100)"
+     "luaExp":"math.min(P4(400,6000)-O18(-600,600)+P1(-100,100), 4000)"
     },
 {"id":4,"param":0,"sensorName":"MSpeed", "label":"MSpeed"},
     {"id":4,

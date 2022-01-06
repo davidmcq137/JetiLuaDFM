@@ -22,5 +22,6 @@ DFM-Maps/JSON/sensorEmulator*
 DFM-Maps/Maps/*
 /*.lua
 DFM-TCA/Audio/*.wav
+DFM-FltE/FD-*
 
 
