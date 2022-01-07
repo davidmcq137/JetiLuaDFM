@@ -1,5 +1,5 @@
 [
-{"id":2,"param":0,"sensorName":"MRPM", "label":"MRPMR"},
+{"id":3,"param":0,"sensorName":"MRPM", "label":"MRPMR"},
     {"id":2,
      "param":1,
      "decimals":0,
@@ -9,7 +9,7 @@
      "unit":"",
      "luaExp":"math.min(P4(400,6000), 4000)"
     },
-{"id":3,"param":0,"sensorName":"MRPM", "label":"MRPML"},
+{"id":2,"param":0,"sensorName":"MRPM", "label":"MRPML"},
     {"id":3,
      "param":1,
      "decimals":0,
@@ -29,7 +29,7 @@
      "unit":"m/s",
      "luaExp":"P5(0,90)"
     },
-{"id":5,"param":0,"sensorName":"MTemp", "label":"MTempR"},
+{"id":6,"param":0,"sensorName":"MTemp", "label":"MTempR"},
     {"id":5,
      "param":1,
      "decimals":1,
@@ -39,7 +39,7 @@
      "unit":"°C",
      "luaExp":"P8(0,300)"
     },
-{"id":6,"param":0,"sensorName":"MTemp", "label":"MTempL"},
+{"id":5,"param":0,"sensorName":"MTemp", "label":"MTempL"},
     {"id":6,
      "param":1,
      "decimals":1,

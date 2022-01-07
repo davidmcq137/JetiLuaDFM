@@ -75,13 +75,14 @@ local VSpeedsDn
 local lastThr
 local lastTim
 local lastStable
-local thrStable = 0
 local lastPt
 local thrRPM = {}
-local selectRPM
 local selectThr
+local selectExp
 local movingThr = true
 local savedForm
+local savedRow = 1
+
 local engineMdl = {}
 engineMdl[1]={}
 engineMdl[2]={}
@@ -395,7 +396,8 @@ local function keyPressed(key)
 	       end
 	    end
 	 end
-	 local jsonstr = json.encode(thrRPM)
+	 local ioTbl = {eng=engineMdl, array=thrRPM}
+	 local jsonstr = json.encode(ioTbl)
 	 io.write(ff, jsonstr)
 	 io.close(ff)
 	 print("DFM-FltE: File closed")
@@ -403,50 +405,56 @@ local function keyPressed(key)
 	 --print("FocusedRow: "..form.getFocusedRow())
 	 --system.openExternal("TEST.HTML") -- opens in home dir (above /Apps) and upper cases?
       elseif key == KEY_2 then -- Thr
-	 print("thr")
+	 form.setButton(2, "Thr", HIGHLIGHTED)
+	 form.setButton(3, "Exp", ENABLED)
 	 movingThr = true
-      elseif key == KEY_3 then -- RPM
-	 print("rpm")
+      elseif key == KEY_3 then -- Exp
+	 form.setButton(2, "Thr", ENABLED)
+	 form.setButton(3, "Exp", HIGHLIGHTED)
 	 movingThr = false
       elseif key == KEY_4 then -- Fit
-	 local rpm1 = {}
-	 local rpm2 = {}
-	 for k,v in ipairs(thrRPM) do
-	    if v.thr <= selectThr and v.rpm1 <= selectRPM then 
-	       print(k, v.thr, v.rpm1)
-	       table.insert(rpm1, {x=v.thr, y=v.rpm1})
+	 if selectThr and selectExp then
+	    local rpm1 = {}
+	    local rpm2 = {}
+	    for k,v in ipairs(thrRPM) do
+	       if v.thr <= selectThr then 
+		  print(k, v.thr, v.rpm1)
+		  table.insert(rpm1, {x=v.thr, y=v.rpm1})
+	       end
 	    end
-	 end
-	 engineMdl[1].m, engineMdl[1].b = linfit(rpm1)
-	 for k,v in ipairs(thrRPM) do
-	    if v.thr <= selectThr and v.rpm2 <= selectRPM then 	    
-	       print(k, v.thr, v.rpm2)
-	       table.insert(rpm2, {x=v.thr, y=v.rpm2})
+	    engineMdl[1].m, engineMdl[1].b = linfit(rpm1)
+	    for k,v in ipairs(thrRPM) do
+	       if v.thr <= selectThr then 	    
+		  print(k, v.thr, v.rpm2)
+		  table.insert(rpm2, {x=v.thr, y=v.rpm2})
+	       end
 	    end
+	    engineMdl[2].m, engineMdl[2].b = linfit(rpm2)
 	 end
-	 engineMdl[2].m, engineMdl[2].b = linfit(rpm2)
       elseif key == KEY_UP then
-	 if movingThr then
-	    selectThr = selectThr + 2
-	    selectThr = math.min(selectThr, 100)
-	    --print("selectThr", selectThr)
-	 else
-	    selectRPM = selectRPM + GaugeMaxRPM / 50.0
-	    selectRPM = math.min(selectRPM, GaugeMaxRPM)	    
-	    --print("selectRPM", selectRPM)
+	 if selectThr and selectExp then
+	    if movingThr then
+	       selectThr = selectThr + 2
+	       selectThr = math.min(selectThr, 100)
+	       --print("selectThr", selectThr)
+	    else
+	       selectExp = selectExp + 2
+	       selectExp = math.max(math.min(selectExp, 100), -100)
+	    end
 	 end
       elseif key == KEY_DOWN then
-	 if movingThr then
-	    selectThr = selectThr - 2
-	    selectThr = math.max(selectThr, 0)	 
-	    --print("selectThr", selectThr)
+	 if selectThr and selectExp then
+	    if movingThr then
+	       selectThr = selectThr - 2
+	       selectThr = math.max(selectThr, 0)	 
+	       --print("selectThr", selectThr)
+	    else
+	       selectExp = selectExp - 2
+	       selectExp = math.max(math.min(selectExp, 100), -100)
+	    end
 	 else
-	    selectRPM = selectRPM - GaugeMaxRPM / 50.0
-	    selectRPM = math.max(selectRPM, 0)	 
-	    --print("selectRPM", selectRPM)
+	    if key ~= KEY_RELEASED then print("Key "..key) end
 	 end
-      else
-	 if key ~= KEY_RELEASED then print("Key "..key) end
       end
    end
 end
@@ -484,8 +492,12 @@ local function initForm(subForm)
       form.addLink((function() form.reinit(9) end), {label = "Analysis >>"})        -- 9      
       form.addRow(1)
       form.addLabel({label="DFM-FltE.lua Version "..FltEVersion.." ", font=FONT_MINI, alignRight=true})
+
+      form.setFocusedRow(savedRow)
       
    elseif subForm == 2 then -- V Speeds
+      savedRow = subForm - 1
+      
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})      
       form.addRow(1)
       form.addLabel({label="Overspeed Warnings", font=FONT_BOLD})
@@ -535,8 +547,10 @@ local function initForm(subForm)
 			      {width=105})
 	 end
       end
+      form.setFocusedRow(2)
    elseif subForm == 3 then -- Sensors
-
+      savedRow = subForm - 1
+      
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})
 
       form.addRow(2)
@@ -559,7 +573,10 @@ local function initForm(subForm)
       form.addSelectbox(sensorLalist, eng[2].Temp.Se, true,
 			(function(x) return engSensorChanged(x,2,"Temp") end), {width=190})
 
+      form.setFocusedRow(2)
    elseif subForm == 4 then -- Controls
+      savedRow = subForm - 1
+      
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})      
 
       form.addRow(2)
@@ -573,8 +590,11 @@ local function initForm(subForm)
       form.addRow(2)
       form.addLabel({label="Sync Enable Switch", width=220})
       form.addInputbox(syncSwitch, false, syncSwitchChanged)
+      form.setFocusedRow(2)
 
    elseif subForm == 5 then -- Settings
+      savedRow = subForm - 1
+      
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})
       
       form.addRow(2)
@@ -594,6 +614,7 @@ local function initForm(subForm)
       form.addTextbox(engineName, 20, engineNameChanged, {width=260})
 
       form.addLink((function() form.reinit(51) end), {label = "Indicators >>"})
+      form.setFocusedRow(2)
       
    elseif subForm == 51 then
       form.addLink((function() form.reinit(5) end), {label = "<< Return"})
@@ -617,8 +638,11 @@ local function initForm(subForm)
       form.addInputbox(startOn[2], true,
 			      (function(x) return onChanged(x, "start", 2) end),
 			      {width=70})      
+      form.setFocusedRow(2)
       
    elseif subForm == 6 then -- Speed Announcer
+      savedRow = subForm - 1
+
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})   
 
       form.addRow(2)
@@ -644,8 +668,11 @@ local function initForm(subForm)
       form.addRow(2)
       form.addLabel({label="Longest announce time", width=220})
       form.addIntbox(longestAnn, 10, 40, 20, 0, 1, longestAnnChanged)
+      form.setFocusedRow(2)
 
    elseif subForm == 7 then
+      savedRow = subForm - 1
+
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})
       form.addLink((function() form.reinit(71) end), {label = "Display Snapshots >>", width=170})
       
@@ -670,25 +697,14 @@ local function initForm(subForm)
 	 (function() system.messageBox("Snapshots Reset") controlSnapshots={} form.reinit(7) end),
 	 {label = "Reset Snapshots ("..#controlSnapshots..") >>", width=180}
       )         
+      form.setFocusedRow(2)
 
    elseif subForm == 71 then
       form.addLink((function() form.reinit(7) end), {label = "<< Return"})
 
       local snapC = #controlSnapshots
-      local line, lbl
+      local line
       local getSw
-
-      --[[
-      lbl = "Time   Sensor          "
-      for i=1,4,1 do
-	 if ctlSwi[i] then
-	    getSw = system.getSwitchInfo(ctlSwi[i]).label
-	 else
-	    getSw = "---"
-	 end
-	 lbl = lbl .. (getSw or "...") .."       "
-      end
-      --]]
 
       form.addRow(7)
       form.addLabel({label="Time", width=48})
@@ -713,8 +729,10 @@ local function initForm(subForm)
 	    form.addLabel({label=line.controls[j], width=48})
 	 end
       end
+      form.setFocusedRow(2)
 
    elseif subForm == 8 then
+      savedRow = subForm - 1
       form.addLink((function() form.reinit(1) end), {label = "<< Return"})
       local gaugeTbl={}
       for k in pairs(GaugeTempRange) do
@@ -732,11 +750,16 @@ local function initForm(subForm)
 			(function(x) return TempRangeChanged(x, v) end),
 			   {width=60})
       end
+      form.setFocusedRow(2)
+
    elseif subForm == 9 then
+      savedRow = subForm - 1
+
       form.setButton(1, "Save", ENABLED)
-      form.setButton(2, "Thr",  ENABLED)
-      form.setButton(3, "RPM",  ENABLED)      
+      form.setButton(2, "Thr",  HIGHLIGHTED)
+      form.setButton(3, "Exp",  ENABLED)      
       form.setButton(4, "Fit",  ENABLED)
+
    elseif subForm == 99 then -- these are parked for the moment
       form.addRow(2)
       form.addLabel({label="Use mph or km/hr (x)", width=270})
@@ -1352,7 +1375,7 @@ local function calibrate(w,h,isForm)
       return y0 - yl * y / GaugeMaxRPM
    end
 
-   local function drawShape(shape,xp,yp)
+   local function drawPShape(shape,xp,yp)
       local ren = lcd.renderer()
       for _, p in ipairs(shape) do
 	 ren:addPoint(xp+p[1], yp+p[2])
@@ -1437,15 +1460,15 @@ local function calibrate(w,h,isForm)
       lastStable = stable
       
       lcd.setColor(255,0,0)
-      drawShape(cross, xp(thr), yp(RPM[1]))
+      drawPShape(cross, xp(thr), yp(RPM[1]))
       lcd.setColor(0,0,255)
-      drawShape(cross, xp(thr), yp(RPM[2]))   
+      drawPShape(cross, xp(thr), yp(RPM[2]))   
 
       for i=1,#thrRPM do
 	 lcd.setColor(255,0,0)
-	 drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm1))
+	 drawPShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm1))
 	 lcd.setColor(0,0,255)
-	 drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm2))            
+	 drawPShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm2))            
       end
 
       lcd.setColor(0,0,0)
@@ -1462,38 +1485,32 @@ local function calibrate(w,h,isForm)
       lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,0, txt)
       for i=1,#thrRPM do
 	 selectThr = selectThr or 90
-	 selectRPM = selectRPM or 0.90 * GaugeMaxRPM 
-	 if (thrRPM[i].thr <= selectThr) and (thrRPM[i].rpm1 <= selectRPM) and
-	 (thrRPM[i].rpm2 <= selectRPM) then
+	 selectExp = selectExp or 0
+	 if thrRPM[i].thr <= selectThr then
 	    lcd.setColor(255,0,0)
 	 else
 	    lcd.setColor(255,180,180)
 	 end
-	 drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm1))
-	 if thrRPM[i].thr <= selectThr and thrRPM[i].rpm1 <= selectRPM and
-	 thrRPM[i].rpm2 <= selectRPM then
+	 drawPShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm1))
+	 if thrRPM[i].thr <= selectThr then
 	    lcd.setColor(0,0,255)
 	 else
 	    lcd.setColor(180,180,255)
 	 end
-	 drawShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm2))            
+	 drawPShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm2))            
       end
 
-      --if not selectThr then selectThr = 90 end
-      --if not selectRPM then selectRPM = 0.9 * GaugeMaxRPM  end
-      
-      if selectThr and selectRPM then
+      if selectThr and selectExp then
 	 lcd.setColor(0,0,255)
 	 lcd.drawLine(xp(selectThr), yo, xp(selectThr), yo + yl)
-	 lcd.drawLine(xo, yp(selectRPM), xo + xl, yp(selectRPM))
 	 local txt = "Throttle: " .. string.format("%2d", math.floor(selectThr+0.5)) ..
-	    "   RPM: " .. string.format("%4d", selectRPM)
+	    "  Expo: " .. string.format("%+02d", math.floor(selectExp))
 	 lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,140, txt)
       end
       
-      if #engineMdl > 0 and selectThr and selectRPM then
+      if #engineMdl > 0 and selectThr and selectExp then
 	 local m,b,x1,y1,ys1,x2,y2,ys2
-	 local exp = 100*system.getInputs("P5")
+	 local exp = selectExp
 	 --local exp2 = 5*(system.getInputs("P6") + 1)
 	 exp2 = 3
 	 --print("exp,exp2:", exp, exp2)
