@@ -355,7 +355,7 @@ local function TempRangeChanged(value, key)
 end
 
 local function onChanged(value, ps, lr)
-   print("onChanged", value, ps, lr)
+   --print("onChanged", value, ps, lr)
    if ps == "start" then
       startOn[lr] = value
       system.pSave("startOn"..lr, value)
@@ -380,7 +380,7 @@ local function keyPressed(key)
 	 for i=1, 35, 1 do
 	    fname = "FD-" .. mdl .."-" .. yy .. "-" .. dd .. "-" .. mm ..
 	       "-" ..string.format("%02d", i) .. ".jsn"
-	    print("fname: " .. fname)
+	    --print("fname: " .. fname)
 	    ff = io.open(appDir .. fname, "r")
 	    --print("fname, fr", fname, fr)
 	    if ff then
@@ -401,7 +401,8 @@ local function keyPressed(key)
 	 io.write(ff, jsonstr)
 	 io.close(ff)
 	 print("DFM-FltE: File closed")
-	 
+	 thrRPM = {} -- reset in case we want to take another data set
+	 system.messageBox("File saved - reset cal pts")
 	 --print("FocusedRow: "..form.getFocusedRow())
 	 --system.openExternal("TEST.HTML") -- opens in home dir (above /Apps) and upper cases?
       elseif key == KEY_2 then -- Thr
@@ -418,14 +419,14 @@ local function keyPressed(key)
 	    local rpm2 = {}
 	    for k,v in ipairs(thrRPM) do
 	       if v.thr <= selectThr then 
-		  print(k, v.thr, v.rpm1)
+		  --print(k, v.thr, v.rpm1)
 		  table.insert(rpm1, {x=v.thr, y=v.rpm1})
 	       end
 	    end
 	    engineMdl[1].m, engineMdl[1].b = linfit(rpm1)
 	    for k,v in ipairs(thrRPM) do
 	       if v.thr <= selectThr then 	    
-		  print(k, v.thr, v.rpm2)
+		  --print(k, v.thr, v.rpm2)
 		  table.insert(rpm2, {x=v.thr, y=v.rpm2})
 	       end
 	    end
@@ -453,7 +454,7 @@ local function keyPressed(key)
 	       selectExp = math.max(math.min(selectExp, 100), -100)
 	    end
 	 else
-	    if key ~= KEY_RELEASED then print("Key "..key) end
+	    if key ~= KEY_RELEASED then  end
 	 end
       end
    end
@@ -769,7 +770,7 @@ local function initForm(subForm)
       form.addLabel({label="Short Announcement", width=270})
       shortAnnIndex = form.addCheckbox(shortAnn, shortAnnClicked)
    else
-      print("Bad subForm "..subForm)
+      --print("Bad subForm "..subForm)
    end
 end
 
@@ -1410,9 +1411,12 @@ local function calibrate(w,h,isForm)
 	 lcd.drawText(0,40,string.format("%.1f", math.abs(thr-lastThr)))
 	 lcd.drawText(0,60,string.format("%.1f", math.abs(lastThr)))
       end
+
+      local stabMilli = 4000
+      if emFlag then stabMilli = 1000 end
       
       if math.abs(thr - lastThr) <= stableLim then
-	 if now - lastTim > 1500 then
+	 if now - lastTim > stabMilli then
 	    stable = true
 	    if not lastStable then
 	       --system.playFile("/"..appDir .. "throttle_stable_at.wav", AUDIO_QUEUE)
@@ -1556,7 +1560,7 @@ local function calibrate(w,h,isForm)
    else
       calTele()
    end
-   lcd.drawText(280,150,system.getCPU(), FONT_MINI)
+   --lcd.drawText(280,150,system.getCPU(), FONT_MINI)
 end
 
 local function prtForm(w,h)
