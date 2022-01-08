@@ -1,6 +1,7 @@
 --[[
 
    ----------------------------------------------------------------------------
+
    DFM-FltE.lua
    
    Flight Engineer to assist with twin-engine aircraft
@@ -11,13 +12,33 @@
    0.1 12/31/2021 Menus to edit V speeds
    0.2 01/01/2022 Menus to edit RPMs and Temps 
    0.3 01/02/2022 Misc cleanups
-   0.4 01/02/2022 Changed snaposhot controls to use addInputbox
+   0.4 01/02/2022 Changed snapshot controls to use addInputbox
    0.5 01/04/2022 Added second tele screen for thr-RPM cal
    0.6 01/04/2022 v0.6 Added linear fit and cal point selection
    0.7 01/05/2022 v0.7 Added expo to fitting
 
-   ----------------------------------------------------------------------------
-               Released under MIT-license by DFM Dec 2021
+   Released under MIT-license
+
+   Copyright (c) 2021 DFM
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+   
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+   
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
    ----------------------------------------------------------------------------
 
 --]]
@@ -465,8 +486,8 @@ local function initForm(subForm)
    --local sF={Main=1,VSpeeds=2,Sensors=3,Controls=4,Settings=5,SpeedAnn=6,Snapshot=7,Temps=8}
 
    local stickVibIdx
-   stickVib = {"No Shake", "L 1 Long" , "L 1 Short" , "L 2 Short" , "L 3 Short",
-	       "R 1 Long", "R 1 Short", "R 2 Short", "R 3 Short"}
+   local stickVib = {"No Shake", "L 1 Long" , "L 1 Short" , "L 2 Short" , "L 3 Short",
+		     "R 1 Long", "R 1 Short", "R 2 Short", "R 3 Short"}
 
    local wavIdx
    local wavPlay = {"No Audio", "Audio"}
@@ -851,6 +872,7 @@ local function angle1(t, min, max)
 end
 
 local function angle2(t, min, max)
+   local tt
    if t < min then tt = min else tt=t end
    return math.pi - math.rad(128 * (tt-min) / (max-min) - 135)
 end
@@ -1045,7 +1067,7 @@ end
 
 local function getSpeed()
    local sensor
-   spd = 0
+   local spd = 0
    if spdSeId ~= 0 then
       sensor = system.getSensorByID(spdSeId, spdSePa)
       if (sensor and sensor.valid) then
@@ -1251,11 +1273,10 @@ local function loop()
    ----------------------------------------------------------------------------------
    -- this is the speed announcer section, return if announce not on or on continuous
    ----------------------------------------------------------------------------------
-
    if (swi and swi == 1) or (swc and swc == 1) then
       
       speed = getSpeed()
-      -- print("speed "..speed)
+      --print("speed "..speed)
       -- first check all the overspeed conditions
       local vsu
       for k,v in ipairs(def.VSpeedsUp) do
@@ -1516,7 +1537,7 @@ local function calibrate(w,h,isForm)
 	 local m,b,x1,y1,ys1,x2,y2,ys2
 	 local exp = selectExp
 	 --local exp2 = 5*(system.getInputs("P6") + 1)
-	 exp2 = 3
+	 local exp2 = 3
 	 --print("exp,exp2:", exp, exp2)
 	 for i=1,2,1 do
 	    m = engineMdl[i].m
@@ -1591,6 +1612,8 @@ local function init()
 
    local fg
    
+
+  
    spdSwitch   = system.pLoad("spdSwitch")
    contSwitch  = system.pLoad("contSwitch")
    syncSwitch  = system.pLoad("syncSwitch")
@@ -1730,6 +1753,8 @@ local function init()
       print("DFM-FltE: Could not set engine sync control")
    end
 
+   --for n in pairs(_G) do print(n) end
+   
 end
 
 --------------------------------------------------------------------------------

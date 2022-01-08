@@ -110,6 +110,31 @@ DONE: see fastForward
 
 --]]
 
+-- code to detect writing or reading of globals
+
+local sensorE_Global = {emulator_init=true, emulator_vibration=true, emulator_playFile=true,
+		  emulator_playNumber=true, emulator_getSensors=true,
+		  emulator_getSensorValueByID=true,emulator_getSensorByID=true,
+		  emulator_getPosition=true, emulator_getTxTelemetry=true,
+		  emulator_init=true}
+
+setmetatable(_G, {
+		__newindex = function (t, n, v)
+		   if not sensorE_Global[n] then
+		      error("SensorE: Write to undeclared variable "..n, 2)
+		   else
+		      rawset(t, n, v)
+		   end
+		   
+		end,
+		__index = function (_, n)
+		   if not sensorE_Global[n] then
+		      error("SensorE: Read from undeclared variable "..n, 2)
+		   end
+		end,
+})
+
+
 local appShort="SensorL"
 local appName="Sensor LogFile Emulator"
 local appDir="Apps/" .. appShort .. "/"

@@ -65,6 +65,28 @@
 
 --]]
 
+-- detect read or write to global .. will have to handle intentional globals at some point...
+
+local sensorE_Global = {emulator_init=true, emulator_vibration=true, emulator_playFile=true,
+		  emulator_playNumber=true, emulator_getSensors=true,
+		  emulator_getSensorValueByID=true,emulator_getSensorByID=true,
+		  emulator_init=true}
+setmetatable(_G, {
+		__newindex = function (t, n, v)
+		   if not sensorE_Global[n] then
+		      error("SensorE: Write to undeclared variable "..n, 2)
+		   else
+		      rawset(t, n, v)
+		   end
+		   
+		end,
+		__index = function (_, n)
+		   if not sensorE_Global[n] then
+		      error("SensorE: Read from undeclared variable "..n, 2)
+		   end
+		end,
+})
+
 local appName="Sensor Emulator"
 --local appShort="SensorE"
 --local appDir=appShort.."/"
@@ -114,7 +136,7 @@ local function squareWave(T)
 end
 
 local function timeSequencer(T, seq)
-   local t, tn
+   local t, tn, ti
    t = T % 1
    if seq and #seq ~= 0 then
       tn = 1 / #seq
@@ -302,7 +324,7 @@ function emulator_init()
 end
 
 function emulator_vibration(lr, prof)
-   local lrText
+   local lrText, i
    local profText = {"Long Pulse", "Short Pulse", "2x Short Pulse", "3x Short Pulse", "Other"}
    if lr then lrText = "Right" else lrText = "Left" end
    if prof < 1 or prof > 5 then
@@ -444,12 +466,13 @@ function emulator_getSensorByID(ID, Param)
    local latDeg, latFrac, latMin
    local lonDeg, lonFrac, lonMin
    local GPSdt
+   local uid
    
    -- print("getSensorByID")
    -- for some reason json decode returns two chars for the degree symbol (code 176)
    -- detect that and correct it
-   degSym1 = string.char(176)   
-   degSym2 = string.char(194, 176)
+   local degSym1 = string.char(176)   
+   local degSym2 = string.char(194, 176)
    if not sensorTbl then return nil end
    if not ID or not Param then return nil end
    if ID == 0 or Param == 0 then return nil end
