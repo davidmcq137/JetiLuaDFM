@@ -387,9 +387,19 @@ local function onChanged(value, ps, lr)
    end
 end
 
+local Forms = {}
+
+Forms.name2seq = {} 
+Forms.seq2name = {} 
+Forms.formStack={}
 
 local function keyPressed(key)
-   if dispatchedForm == 9 then
+
+   if dispatchedForm ~= Forms.name2seq["analysis"].seq then
+      if key == KEY_1 then
+	 system.openExternal("Docs/test.html")
+      end
+   else
       if key == KEY_1 then
 	 local fname
 	 local ff
@@ -482,17 +492,8 @@ local function keyPressed(key)
    end
 end
 
---local items = require "DFM-FltE/DFM-FltE-Menu"
-
-local Forms = {}
-
-Forms.name2seq = {} 
-Forms.seq2name = {} 
-Forms.formStack={}
-
 Forms.AddLink = function(sf, dest)
    if sf == 1 and dest == "mainmenu" then
-      print("***")
       Forms.formStack = {sf}
    end
    local numdest = #Forms.seq2name+1
@@ -515,7 +516,7 @@ Forms.Link = function (sf, dest, lbl)
       Forms.AddLink(sf, dest)
    end
    form.addLink(
-      (function() form.reinit(Forms.name2seq[dest].seq)
+      (function() form.reinit(Forms.name2seq[dest].seq) savedRow = form.getFocusedRow()
 	    table.insert(Forms.formStack, Forms.name2seq[dest].seq) end),
       {label=lbl} )
    end
@@ -529,49 +530,30 @@ Forms.ReturnLink = function(ret)
 end
 
 local function initForm(subForm)
-
    if tonumber(system.getVersion()) < 5.0 then
-      form.addRow(1)
-      form.addLabel({label="Minimum TX Version is 5.0", width=220, font=FONT_NORMAL})
-      return
+      error("DFM-FltE: Minimum TX Software Version is 5.0")
    end
-
-   dispatchedForm = subForm
+   -- reset stack in case pilot got here with esc or other route ...
+   -- subForm 1 is always mainmenuu
    if subForm == 1 then Forms.formStack = {1} end
-
+   dispatchedForm = subForm
+   form.setButton(1, "Help", ENABLED)
    Forms.Dispatch(subForm)
-
 end
 
 Forms.mainmenu = function(seq,ret) 
-   
-   --form.setButton(1, "Help", ENABLED)
-
-   Forms.Link(seq, "vspeeds", "V Speeds >>")
-   Forms.Link(seq, "sensors", "Sensors >>")
-   Forms.Link(seq, "controls","Controls >>")
-   Forms.Link(seq, "settings","Settings >>")
-   Forms.Link(seq, "spdann"  ,"Speed Announcer >>")
+   Forms.Link(seq, "vspeeds",  "V Speeds >>")
+   Forms.Link(seq, "sensors",  "Sensors >>")
+   Forms.Link(seq, "controls", "Controls >>")
+   Forms.Link(seq, "settings", "Settings >>")
+   Forms.Link(seq, "spdann"  , "Speed Announcer >>")
    Forms.Link(seq, "snapshot", "Snapshot >>")
-   Forms.Link(seq, "temps",   "Temps >>")
-   Forms.Link(seq, "analysis","Analysis >>")
-   
-   
-   --form.addLink((function() form.reinit(2) end), {label = "V speeds >>"})        -- 2
-   --form.addLink((function() form.reinit(3) end), {label = "Sensors >>"})         -- 3
-   --form.addLink((function() form.reinit(4) end), {label = "Controls >>"})        -- 4 
-   --form.addLink((function() form.reinit(5) end), {label = "Settings >>"})        -- 5
-   --form.addLink((function() form.reinit(6) end), {label = "Speed Announcer >>"}) -- 6
-   --form.addLink((function() form.reinit(7) end), {label = "Snapshot >>"})        -- 7
-   --form.addLink((function() form.reinit(8) end), {label = "Temps >>"})           -- 8
-   --form.addLink((function() form.reinit(9) end), {label = "Analysis >>"})        -- 9
-
+   Forms.Link(seq, "temps",    "Temps >>")
+   Forms.Link(seq, "analysis", "Analysis >>")
    form.addRow(1)
    form.addLabel({label="DFM-FltE.lua Version "..FltEVersion.." ",
 		  font=FONT_MINI, alignRight=true})
-
    form.setFocusedRow(savedRow)
-   
 end
 
 Forms.vspeeds = function(seq, ret)
