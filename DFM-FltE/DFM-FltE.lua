@@ -16,6 +16,7 @@
    0.5 01/04/2022 Added second tele screen for thr-RPM cal
    0.6 01/04/2022 v0.6 Added linear fit and cal point selection
    0.7 01/05/2022 v0.7 Added expo to fitting
+   0.8 01/10/2022 v0.8 New menu handling installed for testing
 
    Released under MIT-license
 
@@ -101,7 +102,7 @@ local thrRPM = {}
 local selectThr
 local selectExp
 local movingThr = true
-local savedForm
+local dispatchedForm
 local savedRow = 1
 
 local engineMdl = {}
@@ -341,7 +342,7 @@ local function VSpeedChanged(value, num, name, field, dir)
 end
 
 local function ShakeChanged(value, num, name, field, dir)
-   stickMap = {0, -1, -2, -3, -4, 1, 2, 3, 4}
+   local stickMap = {0, -1, -2, -3, -4, 1, 2, 3, 4}
    if dir == "up" then
       VSpeedsUp[num][name][field] = stickMap[value]
       --print("saving as " .. "UP" ..num .. name .. field, value)
@@ -388,7 +389,7 @@ end
 
 
 local function keyPressed(key)
-   if savedForm == 9 then
+   if dispatchedForm == 9 then
       if key == KEY_1 then
 	 local fname
 	 local ff
@@ -481,319 +482,412 @@ local function keyPressed(key)
    end
 end
 
+--local items = require "DFM-FltE/DFM-FltE-Menu"
+
+local Forms = {}
+
+Forms.name2seq = {} 
+Forms.seq2name = {} 
+Forms.formStack={}
+
+Forms.AddLink = function(sf, dest)
+   if sf == 1 and dest == "mainmenu" then
+      print("***")
+      Forms.formStack = {sf}
+   end
+   local numdest = #Forms.seq2name+1
+   Forms.name2seq[dest] = {ret=sf, seq=numdest, fcn=dest}
+   table.insert(Forms.seq2name, {fcn=dest, ret=sf,seq=numdest})
+end
+
+Forms.Dispatch = function(sf)
+   if #Forms.seq2name == 0 and sf == 1 then Forms.AddLink(1, "mainmenu") end
+   local str=""
+   for k,v in ipairs(Forms.formStack) do
+      str = str .. "/" ..Forms.seq2name[v].fcn
+   end
+   form.setTitle(str)
+   Forms[Forms.seq2name[sf].fcn](Forms.seq2name[sf].seq, Forms.seq2name[sf].ret)
+end
+
+Forms.Link = function (sf, dest, lbl)
+   if not Forms.name2seq[dest] then
+      Forms.AddLink(sf, dest)
+   end
+   form.addLink(
+      (function() form.reinit(Forms.name2seq[dest].seq)
+	    table.insert(Forms.formStack, Forms.name2seq[dest].seq) end),
+      {label=lbl} )
+   end
+
+Forms.ReturnLink = function(ret)
+   form.addLink(
+      (function() form.reinit(ret)
+	    table.remove(Forms.formStack, #Forms.formStack)
+      end),
+      {label = "<< Return"})
+end
+
 local function initForm(subForm)
 
-   --local sF={Main=1,VSpeeds=2,Sensors=3,Controls=4,Settings=5,SpeedAnn=6,Snapshot=7,Temps=8}
-
-   local stickVibIdx
-   local stickVib = {"No Shake", "L 1 Long" , "L 1 Short" , "L 2 Short" , "L 3 Short",
-		     "R 1 Long", "R 1 Short", "R 2 Short", "R 3 Short"}
-
-   local wavIdx
-   local wavPlay = {"No Audio", "Audio"}
-
-   savedForm = subForm
-   
    if tonumber(system.getVersion()) < 5.0 then
       form.addRow(1)
       form.addLabel({label="Minimum TX Version is 5.0", width=220, font=FONT_NORMAL})
       return
    end
 
-   if subForm == 1 then
-      
-      --form.setButton(1, "Help", ENABLED)
-      
-      form.addLink((function() form.reinit(2) end), {label = "V speeds >>"})        -- 2
-      form.addLink((function() form.reinit(3) end), {label = "Sensors >>"})         -- 3
-      form.addLink((function() form.reinit(4) end), {label = "Controls >>"})        -- 4 
-      form.addLink((function() form.reinit(5) end), {label = "Settings >>"})        -- 5
-      form.addLink((function() form.reinit(6) end), {label = "Speed Announcer >>"}) -- 6
-      form.addLink((function() form.reinit(7) end), {label = "Snapshot >>"})        -- 7
-      form.addLink((function() form.reinit(8) end), {label = "Temps >>"})           -- 8
-      form.addLink((function() form.reinit(9) end), {label = "Analysis >>"})        -- 9      
-      form.addRow(1)
-      form.addLabel({label="DFM-FltE.lua Version "..FltEVersion.." ", font=FONT_MINI, alignRight=true})
+   dispatchedForm = subForm
+   if subForm == 1 then Forms.formStack = {1} end
 
-      form.setFocusedRow(savedRow)
-      
-   elseif subForm == 2 then -- V Speeds
-      savedRow = subForm - 1
-      
-      form.addLink((function() form.reinit(1) end), {label = "<< Return"})      
-      form.addRow(1)
-      form.addLabel({label="Overspeed Warnings", font=FONT_BOLD})
-      for k,v in ipairs(def.VSpeedsUp) do
-	 for kk,_ in pairs(v) do
-	    form.addRow(4)
-	    form.addLabel({label=kk, width=55})
-	    form.addIntbox(VSpeedsUp[k][kk].S, 10, 200, 60, 0, 1,
-			   (function(x) return VSpeedChanged(x, k, kk, "S", "up") end),
-			   {width=60})
-	    if VSpeedsUp[k][kk].shake > 0 then -- right stick
-	       stickVibIdx = VSpeedsUp[k][kk].shake + 5
-	    else
-	       stickVibIdx = -VSpeedsUp[k][kk].shake + 1
-	    end
-	    form.addSelectbox(stickVib, stickVibIdx, true,
-			      (function(x) return ShakeChanged(x, k, kk, "shake", "up") end),
-			      {width=100})
-	    wavIdx = 1 + VSpeedsUp[k][kk].wav
-	    form.addSelectbox(wavPlay, wavIdx, true,
-			      (function(x) return WavChanged(x, k, kk, "wav", "up") end),
-			      {width=105})
-	 end
-      end
+   Forms.Dispatch(subForm)
 
-      form.addRow(1)
-      form.addLabel({label="Underspeed Warnings", font=FONT_BOLD})
-      for k,v in ipairs(def.VSpeedsDn) do
-	 for kk,_ in pairs(v) do
-	    form.addRow(4)
-	    form.addLabel({label=kk, width=55})
-	    form.addIntbox(VSpeedsDn[k][kk].S, 10, 200, 60, 0, 1,
-			   (function(x) return VSpeedChanged(x, k, kk, "S", "dn") end),
-			   {width=60})
-	    if VSpeedsDn[k][kk].shake > 0 then -- right stick
-	       stickVibIdx = VSpeedsDn[k][kk].shake + 5
-	    else
-	       stickVibIdx = -VSpeedsDn[k][kk].shake + 1
-	    end
-	    form.addSelectbox(stickVib, stickVibIdx, true,
-			      (function(x) return ShakeChanged(x, k, kk, "shake", "dn") end),
-			      {width=100})
-
-	    wavIdx = 1 + VSpeedsDn[k][kk].wav
-	    form.addSelectbox(wavPlay, wavIdx, true,
-			      (function(x) return WavChanged(x, k, kk, "wav", "dn") end),
-			      {width=105})
-	 end
-      end
-      form.setFocusedRow(2)
-   elseif subForm == 3 then -- Sensors
-      savedRow = subForm - 1
-      
-      form.addLink((function() form.reinit(1) end), {label = "<< Return"})
-
-      form.addRow(2)
-      form.addLabel({label="Left RPM", width=120})
-      form.addSelectbox(sensorLalist, eng[1].RPM.Se, true,
-			(function(x) return engSensorChanged(x,1,"RPM") end), {width=190})
-      
-      form.addRow(2)
-      form.addLabel({label="Right RPM", width=120})
-      form.addSelectbox(sensorLalist, eng[2].RPM.Se, true,
-			(function(x) return engSensorChanged(x,2,"RPM") end), {width=190})
-      
-      form.addRow(2)
-      form.addLabel({label="Left Temp", width=120})
-      form.addSelectbox(sensorLalist, eng[1].Temp.Se, true,
-			(function(x) return engSensorChanged(x,1,"Temp") end), {width=190})	
-      
-      form.addRow(2)
-      form.addLabel({label="Right Temp", width=120})
-      form.addSelectbox(sensorLalist, eng[2].Temp.Se, true,
-			(function(x) return engSensorChanged(x,2,"Temp") end), {width=190})
-
-      form.setFocusedRow(2)
-   elseif subForm == 4 then -- Controls
-      savedRow = subForm - 1
-      
-      form.addLink((function() form.reinit(1) end), {label = "<< Return"})      
-
-      form.addRow(2)
-      form.addLabel({label="Throttle Control", width=220})
-      form.addInputbox(eng[1].Control, true, (function(x) return engControlChanged(x, 1) end) )
-      
-      --form.addRow(2)
-      --form.addLabel({label="Right Engine Throttle Control", width=220})
-      --form.addInputbox(eng[2].Control, true, (function(x) return engControlChanged(x, 2) end) )      
-      
-      form.addRow(2)
-      form.addLabel({label="Sync Enable Switch", width=220})
-      form.addInputbox(syncSwitch, false, syncSwitchChanged)
-      form.setFocusedRow(2)
-
-   elseif subForm == 5 then -- Settings
-      savedRow = subForm - 1
-      
-      form.addLink((function() form.reinit(1) end), {label = "<< Return"})
-      
-      form.addRow(2)
-      form.addLabel({label="Sync PID Prop gain", width=220})
-      form.addIntbox(pGainInput, 0, 100, 1, 0, 1, pGainChanged)
-      
-      form.addRow(2)
-      form.addLabel({label="Sync PID Int gain", width=220})
-      form.addIntbox(iGainInput, 0, 100, 1, 0, 1, iGainChanged)
-
-      form.addRow(2)
-      form.addLabel({label="Max Gauge RPM", width=220})
-      form.addIntbox(GaugeMaxRPM, 1000, 10000, 6000, 0, 100, maxRPMChanged)
-      
-      form.addRow(2)
-      form.addLabel({label="Engine Name", width=60})
-      form.addTextbox(engineName, 20, engineNameChanged, {width=260})
-
-      form.addLink((function() form.reinit(51) end), {label = "Indicators >>"})
-      form.setFocusedRow(2)
-      
-   elseif subForm == 51 then
-      form.addLink((function() form.reinit(5) end), {label = "<< Return"})
-
-      form.addRow(4)
-      form.addLabel({label="Left Pump", width=90})
-      form.addInputbox(pumpOn[1], true,
-			      (function(x) return onChanged(x,  "pump", 1) end),
-			      {width=70})
-      form.addLabel({label="Left Start", width=90})
-      form.addInputbox(startOn[1], true,
-			      (function(x) return onChanged(x, "start", 1) end),
-			      {width=70})      
-
-      form.addRow(4)
-      form.addLabel({label="Right Pump", width=90})
-      form.addInputbox(pumpOn[2], true,
-			      (function(x) return onChanged(x,  "pump", 2) end),
-			      {width=70})
-      form.addLabel({label="Right Start", width=90})
-      form.addInputbox(startOn[2], true,
-			      (function(x) return onChanged(x, "start", 2) end),
-			      {width=70})      
-      form.setFocusedRow(2)
-      
-   elseif subForm == 6 then -- Speed Announcer
-      savedRow = subForm - 1
-
-      form.addLink((function() form.reinit(1) end), {label = "<< Return"})   
-
-      form.addRow(2)
-      form.addLabel({label="Speed Ann Enable Switch", width=220})
-      form.addInputbox(spdSwitch, false, spdSwitchChanged)
-      
-      form.addRow(2)
-      form.addLabel({label="Cont. Speed Ann Switch", width=220})
-      form.addInputbox(contSwitch, false, contSwitchChanged)
-      
-      form.addRow(2)
-      form.addLabel({label="Airspeed Sensor", width=120})
-      form.addSelectbox(sensorLalist, spdSe, true, sensorChanged, {width=190})
-
-      form.addRow(2)
-      form.addLabel({label="Speed change scale factor", width=220})
-      form.addIntbox(spdInter, 1, 100, 10, 0, 1, spdInterChanged)
-
-      form.addRow(2)
-      form.addLabel({label="Shortest announce time", width=220})
-      form.addIntbox(shortestAnn, 1, 10, 2, 0, 1, shortestAnnChanged)
-
-      form.addRow(2)
-      form.addLabel({label="Longest announce time", width=220})
-      form.addIntbox(longestAnn, 10, 40, 20, 0, 1, longestAnnChanged)
-      form.setFocusedRow(2)
-
-   elseif subForm == 7 then
-      savedRow = subForm - 1
-
-      form.addLink((function() form.reinit(1) end), {label = "<< Return"})
-      form.addLink((function() form.reinit(71) end), {label = "Display Snapshots >>", width=170})
-      
-      form.addRow(2)
-      form.addLabel({label="Snapshot Switch", width=220})
-      form.addInputbox(snapSwitch, false, snapSwitchChanged)
-
-      form.addRow(2)
-      form.addLabel({label="Sensor", width=100})
-      form.addSelectbox(sensorLalist, ctlSe, true, ctlSensorChanged, {width=220})
-
-      form.addRow(5)
-      form.addLabel({label="Ctrl", width=60})
-      for j=1,4,1 do
-	 --print(j, ctlSwi[j])
-	 form.addInputbox(ctlSwi[j], true,
-			   (function(x) return controlsSelectedChanged(x,j) end), {width=65})
-      end
-
-      form.addRow(1)
-      form.addLink(
-	 (function() system.messageBox("Snapshots Reset") controlSnapshots={} form.reinit(7) end),
-	 {label = "Reset Snapshots ("..#controlSnapshots..") >>", width=180}
-      )         
-      form.setFocusedRow(2)
-
-   elseif subForm == 71 then
-      form.addLink((function() form.reinit(7) end), {label = "<< Return"})
-
-      local snapC = #controlSnapshots
-      local line
-      local getSw
-
-      form.addRow(7)
-      form.addLabel({label="Time", width=48})
-      form.addLabel({label="Sensor", width=70})
-      form.addLabel({label="", width=10})	 
-      for i=1,4,1 do
-	 if ctlSwi[i] then
-	    getSw = system.getSwitchInfo(ctlSwi[i]).label
-	 else
-	    getSw = "---"
-	 end
-	 form.addLabel({label=(getSw or "..."), width=48})
-      end
-
-      for i=1,snapC,1 do
-	 form.addRow(6)
-	 --local snap = {time=ctstr, sensor=sval, controls=cval}
-	 line = controlSnapshots[i]
-	 form.addLabel({label=line.time, width=48})
-	 form.addLabel({label=line.sensor, width=70})
-	 for j=1,4,1 do
-	    form.addLabel({label=line.controls[j], width=48})
-	 end
-      end
-      form.setFocusedRow(2)
-
-   elseif subForm == 8 then
-      savedRow = subForm - 1
-      form.addLink((function() form.reinit(1) end), {label = "<< Return"})
-      local gaugeTbl={}
-      for k in pairs(GaugeTempRange) do
-	 table.insert(gaugeTbl, k)
-      end
-      table.sort(gaugeTbl, function(a,b) return GaugeTempRange[a] > GaugeTempRange[b] end)
-      
-      for k,v in pairs(gaugeTbl) do
-	 form.addRow(2)
-	 form.addLabel({label=v, width=240})
-	 --form.addIntbox(VSpeedsDn[k][kk].S, 10, 200, 60, 0, 1,
-	 --(function(x) return VSpeedChanged(x, k, kk, "S", "dn") end),
-	 --{width=60})
-	 form.addIntbox(GaugeTempRange[v], 10, 500, 100, 0, 1, 
-			(function(x) return TempRangeChanged(x, v) end),
-			   {width=60})
-      end
-      form.setFocusedRow(2)
-
-   elseif subForm == 9 then
-      savedRow = subForm - 1
-
-      form.setButton(1, "Save", ENABLED)
-      form.setButton(2, "Thr",  HIGHLIGHTED)
-      form.setButton(3, "Exp",  ENABLED)      
-      form.setButton(4, "Fit",  ENABLED)
-
-   elseif subForm == 99 then -- these are parked for the moment
-      form.addRow(2)
-      form.addLabel({label="Use mph or km/hr (x)", width=270})
-      selFtIndex = form.addCheckbox(selFt, selFtClicked)
-      
-      form.addRow(2)
-      form.addLabel({label="Short Announcement", width=270})
-      shortAnnIndex = form.addCheckbox(shortAnn, shortAnnClicked)
-   else
-      --print("Bad subForm "..subForm)
-   end
 end
+
+Forms.mainmenu = function(seq,ret) 
+   
+   --form.setButton(1, "Help", ENABLED)
+
+   Forms.Link(seq, "vspeeds", "V Speeds >>")
+   Forms.Link(seq, "sensors", "Sensors >>")
+   Forms.Link(seq, "controls","Controls >>")
+   Forms.Link(seq, "settings","Settings >>")
+   Forms.Link(seq, "spdann"  ,"Speed Announcer >>")
+   Forms.Link(seq, "snapshot", "Snapshot >>")
+   Forms.Link(seq, "temps",   "Temps >>")
+   Forms.Link(seq, "analysis","Analysis >>")
+   
+   
+   --form.addLink((function() form.reinit(2) end), {label = "V speeds >>"})        -- 2
+   --form.addLink((function() form.reinit(3) end), {label = "Sensors >>"})         -- 3
+   --form.addLink((function() form.reinit(4) end), {label = "Controls >>"})        -- 4 
+   --form.addLink((function() form.reinit(5) end), {label = "Settings >>"})        -- 5
+   --form.addLink((function() form.reinit(6) end), {label = "Speed Announcer >>"}) -- 6
+   --form.addLink((function() form.reinit(7) end), {label = "Snapshot >>"})        -- 7
+   --form.addLink((function() form.reinit(8) end), {label = "Temps >>"})           -- 8
+   --form.addLink((function() form.reinit(9) end), {label = "Analysis >>"})        -- 9
+
+   form.addRow(1)
+   form.addLabel({label="DFM-FltE.lua Version "..FltEVersion.." ",
+		  font=FONT_MINI, alignRight=true})
+
+   form.setFocusedRow(savedRow)
+   
+end
+
+Forms.vspeeds = function(seq, ret)
+   
+   local stickVibIdx
+   local stickVib = {"No Shake", "L 1 Long" , "L 1 Short" , "L 2 Short" , "L 3 Short",
+		     "R 1 Long", "R 1 Short", "R 2 Short", "R 3 Short"}
+   local wavIdx
+   local wavPlay = {"No Audio", "Audio"}
+
+   Forms.ReturnLink(ret)
+   
+   --form.addLink((function() form.reinit(1) end), {label = "<< Return"})      
+   form.addRow(1)
+   form.addLabel({label="Overspeed Warnings", font=FONT_BOLD})
+   for k,v in ipairs(def.VSpeedsUp) do
+      for kk,_ in pairs(v) do
+	 form.addRow(4)
+	 form.addLabel({label=kk, width=55})
+	 form.addIntbox(VSpeedsUp[k][kk].S, 10, 200, 60, 0, 1,
+			(function(x) return VSpeedChanged(x, k, kk, "S", "up") end),
+			{width=60})
+	 if VSpeedsUp[k][kk].shake > 0 then -- right stick
+	    stickVibIdx = VSpeedsUp[k][kk].shake + 5
+	 else
+	    stickVibIdx = -VSpeedsUp[k][kk].shake + 1
+	 end
+	 form.addSelectbox(stickVib, stickVibIdx, true,
+			   (function(x) return ShakeChanged(x, k, kk, "shake", "up") end),
+			   {width=100})
+	 wavIdx = 1 + VSpeedsUp[k][kk].wav
+	 form.addSelectbox(wavPlay, wavIdx, true,
+			   (function(x) return WavChanged(x, k, kk, "wav", "up") end),
+			   {width=105})
+      end
+   end
+
+   form.addRow(1)
+   form.addLabel({label="Underspeed Warnings", font=FONT_BOLD})
+   for k,v in ipairs(def.VSpeedsDn) do
+      for kk,_ in pairs(v) do
+	 form.addRow(4)
+	 form.addLabel({label=kk, width=55})
+	 form.addIntbox(VSpeedsDn[k][kk].S, 10, 200, 60, 0, 1,
+			(function(x) return VSpeedChanged(x, k, kk, "S", "dn") end),
+			{width=60})
+	 if VSpeedsDn[k][kk].shake > 0 then -- right stick
+	    stickVibIdx = VSpeedsDn[k][kk].shake + 5
+	 else
+	    stickVibIdx = -VSpeedsDn[k][kk].shake + 1
+	 end
+	 form.addSelectbox(stickVib, stickVibIdx, true,
+			   (function(x) return ShakeChanged(x, k, kk, "shake", "dn") end),
+			   {width=100})
+
+	 wavIdx = 1 + VSpeedsDn[k][kk].wav
+	 form.addSelectbox(wavPlay, wavIdx, true,
+			   (function(x) return WavChanged(x, k, kk, "wav", "dn") end),
+			   {width=105})
+      end
+   end
+   form.setFocusedRow(2)
+end
+
+Forms.sensors = function(seq, ret)
+   
+   Forms.ReturnLink(ret)
+   --form.addLink((function() form.reinit(1) end), {label = "<< Return"})
+
+   form.addRow(2)
+   form.addLabel({label="Left RPM", width=120})
+   form.addSelectbox(sensorLalist, eng[1].RPM.Se, true,
+		     (function(x) return engSensorChanged(x,1,"RPM") end), {width=190})
+   
+   form.addRow(2)
+   form.addLabel({label="Right RPM", width=120})
+   form.addSelectbox(sensorLalist, eng[2].RPM.Se, true,
+		     (function(x) return engSensorChanged(x,2,"RPM") end), {width=190})
+   
+   form.addRow(2)
+   form.addLabel({label="Left Temp", width=120})
+   form.addSelectbox(sensorLalist, eng[1].Temp.Se, true,
+		     (function(x) return engSensorChanged(x,1,"Temp") end), {width=190})	
+   
+   form.addRow(2)
+   form.addLabel({label="Right Temp", width=120})
+   form.addSelectbox(sensorLalist, eng[2].Temp.Se, true,
+		     (function(x) return engSensorChanged(x,2,"Temp") end), {width=190})
+
+   form.setFocusedRow(2)
+end
+
+Forms.controls = function(seq, ret)
+   
+   Forms.ReturnLink(ret)
+   --form.addLink((function() form.reinit(1) end), {label = "<< Return"})      
+
+   form.addRow(2)
+   form.addLabel({label="Throttle Control", width=220})
+   form.addInputbox(eng[1].Control, true, (function(x) return engControlChanged(x, 1) end) )
+   
+   --form.addRow(2)
+   --form.addLabel({label="Right Engine Throttle Control", width=220})
+   --form.addInputbox(eng[2].Control, true, (function(x) return engControlChanged(x, 2) end) )      
+   
+   form.addRow(2)
+   form.addLabel({label="Sync Enable Switch", width=220})
+   form.addInputbox(syncSwitch, false, syncSwitchChanged)
+
+   form.setFocusedRow(2)
+end
+
+Forms.settings = function(seq, ret) 
+
+   Forms.ReturnLink(ret)
+   
+   --form.addLink((function() form.reinit(1) end), {label = "<< Return"})
+   
+   form.addRow(2)
+   form.addLabel({label="Sync PID Prop gain", width=220})
+   form.addIntbox(pGainInput, 0, 100, 1, 0, 1, pGainChanged)
+   
+   form.addRow(2)
+   form.addLabel({label="Sync PID Int gain", width=220})
+   form.addIntbox(iGainInput, 0, 100, 1, 0, 1, iGainChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Max Gauge RPM", width=220})
+   form.addIntbox(GaugeMaxRPM, 1000, 10000, 6000, 0, 100, maxRPMChanged)
+   
+   form.addRow(2)
+   form.addLabel({label="Engine Name", width=60})
+   form.addTextbox(engineName, 20, engineNameChanged, {width=260})
+
+   Forms.Link(seq, "indicators", "Indicators >>")
+   --form.addLink((function() form.reinit(51) end), {label = "Indicators >>"})
+   form.setFocusedRow(2)
+
+end
+
+Forms.indicators = function(seq, ret)
+
+   Forms.ReturnLink(ret)
+   
+   --form.addLink((function() form.reinit(5) end), {label = "<< Return"})
+
+   form.addRow(4)
+   form.addLabel({label="Left Pump", width=90})
+   form.addInputbox(pumpOn[1], true,
+		    (function(x) return onChanged(x,  "pump", 1) end),
+		    {width=70})
+   form.addLabel({label="Left Start", width=90})
+   form.addInputbox(startOn[1], true,
+		    (function(x) return onChanged(x, "start", 1) end),
+		    {width=70})      
+
+   form.addRow(4)
+   form.addLabel({label="Right Pump", width=90})
+   form.addInputbox(pumpOn[2], true,
+		    (function(x) return onChanged(x,  "pump", 2) end),
+		    {width=70})
+   form.addLabel({label="Right Start", width=90})
+   form.addInputbox(startOn[2], true,
+		    (function(x) return onChanged(x, "start", 2) end),
+		    {width=70})      
+   form.setFocusedRow(2)
+end
+
+Forms.spdann = function(seq, ret)
+   
+   Forms.ReturnLink(ret)
+   
+   --form.addLink((function() form.reinit(1) end), {label = "<< Return"})   
+
+   form.addRow(2)
+   form.addLabel({label="Speed Ann Enable Switch", width=220})
+   form.addInputbox(spdSwitch, false, spdSwitchChanged)
+   
+   form.addRow(2)
+   form.addLabel({label="Cont. Speed Ann Switch", width=220})
+   form.addInputbox(contSwitch, false, contSwitchChanged)
+   
+   form.addRow(2)
+   form.addLabel({label="Airspeed Sensor", width=120})
+   form.addSelectbox(sensorLalist, spdSe, true, sensorChanged, {width=190})
+
+   form.addRow(2)
+   form.addLabel({label="Speed change scale factor", width=220})
+   form.addIntbox(spdInter, 1, 100, 10, 0, 1, spdInterChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Shortest announce time", width=220})
+   form.addIntbox(shortestAnn, 1, 10, 2, 0, 1, shortestAnnChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Longest announce time", width=220})
+   form.addIntbox(longestAnn, 10, 40, 20, 0, 1, longestAnnChanged)
+   form.setFocusedRow(2)
+end
+
+Forms.snapshot = function(seq, ret) 
+
+   Forms.ReturnLink(ret)
+   --form.addLink((function() form.reinit(1) end), {label = "<< Return"})
+   Forms.Link(seq, "dispsnapshot", "Display Snapshots >>")
+   
+   --form.addLink((function() form.reinit(71) end), {label = "Display Snapshots >>", width=170})
+   
+   form.addRow(2)
+   form.addLabel({label="Snapshot Switch", width=220})
+   form.addInputbox(snapSwitch, false, snapSwitchChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Sensor", width=100})
+   form.addSelectbox(sensorLalist, ctlSe, true, ctlSensorChanged, {width=220})
+
+   form.addRow(5)
+   form.addLabel({label="Ctrl", width=60})
+   for j=1,4,1 do
+      --print(j, ctlSwi[j])
+      form.addInputbox(ctlSwi[j], true,
+		       (function(x) return controlsSelectedChanged(x,j) end), {width=65})
+   end
+
+   form.addRow(1)
+   form.addLink(
+      (function()
+	    system.messageBox("Snapshots Reset") controlSnapshots={} form.reinit(seq)
+      end),
+      {label = "Reset Snapshots ("..#controlSnapshots..") >>", width=180}
+   )         
+   form.setFocusedRow(2)
+end
+
+Forms.dispsnapshot = function(seq, ret) 
+
+   Forms.ReturnLink(ret)
+   --form.addLink((function() form.reinit(7) end), {label = "<< Return"})
+
+   local snapC = #controlSnapshots
+   local line
+   local getSw
+
+   form.addRow(7)
+   form.addLabel({label="Time", width=48})
+   form.addLabel({label="Sensor", width=70})
+   form.addLabel({label="", width=10})	 
+   for i=1,4,1 do
+      if ctlSwi[i] then
+	 getSw = system.getSwitchInfo(ctlSwi[i]).label
+      else
+	 getSw = "---"
+      end
+      form.addLabel({label=(getSw or "..."), width=48})
+   end
+
+   for i=1,snapC,1 do
+      form.addRow(6)
+      --local snap = {time=ctstr, sensor=sval, controls=cval}
+      line = controlSnapshots[i]
+      form.addLabel({label=line.time, width=48})
+      form.addLabel({label=line.sensor, width=70})
+      for j=1,4,1 do
+	 form.addLabel({label=line.controls[j], width=48})
+      end
+   end
+   form.setFocusedRow(2)
+end
+
+Forms.temps = function(seq, ret) 
+
+   Forms.ReturnLink(ret)
+   
+   --form.addLink((function() form.reinit(1) end), {label = "<< Return"})
+   local gaugeTbl={}
+   for k in pairs(GaugeTempRange) do
+      table.insert(gaugeTbl, k)
+   end
+   table.sort(gaugeTbl, function(a,b) return GaugeTempRange[a] > GaugeTempRange[b] end)
+   
+   for k,v in pairs(gaugeTbl) do
+      form.addRow(2)
+      form.addLabel({label=v, width=240})
+      --form.addIntbox(VSpeedsDn[k][kk].S, 10, 200, 60, 0, 1,
+      --(function(x) return VSpeedChanged(x, k, kk, "S", "dn") end),
+      --{width=60})
+      form.addIntbox(GaugeTempRange[v], 10, 500, 100, 0, 1, 
+		     (function(x) return TempRangeChanged(x, v) end),
+		     {width=60})
+   end
+   form.setFocusedRow(2)
+end
+
+Forms.analysis = function(seq, ret) 
+
+   form.setButton(1, "Save", ENABLED)
+   form.setButton(2, "Thr",  HIGHLIGHTED)
+   form.setButton(3, "Exp",  ENABLED)      
+   form.setButton(4, "Fit",  ENABLED)
+
+end
+
+--[[
+   elseif subForm == 99 then -- these are parked for the moment
+   form.addRow(2)
+   form.addLabel({label="Use mph or km/hr (x)", width=270})
+   selFtIndex = form.addCheckbox(selFt, selFtClicked)
+   
+   form.addRow(2)
+   form.addLabel({label="Short Announcement", width=270})
+   shortAnnIndex = form.addCheckbox(shortAnn, shortAnnClicked)
+   else
+   --print("Bad subForm "..subForm)
+   end
+--]]
+   
 
 local needle_poly_large = {
    {-4,28},
@@ -1585,7 +1679,7 @@ local function calibrate(w,h,isForm)
 end
 
 local function prtForm(w,h)
-   if form.getActiveForm() and savedForm == 9 then
+   if form.getActiveForm() and dispatchedForm == Forms.name2seq["analysis"].seq then
       form.setTitle("")
       calibrate(w,h,1)
    end
