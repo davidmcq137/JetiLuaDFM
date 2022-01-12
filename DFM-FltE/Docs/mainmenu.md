@@ -1,9 +1,27 @@
 The Flight Engineer App is designed to display single or twin-engine operating
 values on a telemetry screen, as well as to provide a set of alerts indicating
-potential issues with engine operation. The app also has the ability to assist
+potential issues with engine operation.
+
+The app also has the ability to assist
 the pilot with collecting flight test data (Snapshot) and collecting data to
 establish the RPM as a function of throttle curve that establishes the first
 step in engine monitoring.
+
+There are two telemetry screens. The first is named **Flight Engineer
+EngineName** where EngineName can be set by the pilot in the settings menu. The
+second is named **Flight Engineer: Calibration** and which, when displayed on
+the transmitter screen, will record the RPM of both engines after the throttle
+stick (set in the controls menu) stops moving for approx 5 seconds.
+
+Our recommendation is to take off with the first screen displayed, and then when
+ready to collext throttle vs RPM data to switch to the second screen (or have
+the spotter do it for you). Values will be called out with an audio announcement
+as they are recorded.
+
+Following flight, there is an analysis menu option for selecting a subset of the
+points collected during flight, to edit them, manipulate and fit them for
+subsequent use in engine performance monitoring. The data points and fit
+parameters can also be saved in the analysis menu.
 
 Summary of commands:
 
