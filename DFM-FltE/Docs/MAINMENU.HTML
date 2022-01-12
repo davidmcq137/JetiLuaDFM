@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Main Menu</title>
+  <style>
+   div.info{padding:5pt;color:black;backgro
+       und-color:#f2c0b8;margin-bottom:0.5em}p.h{font-size:1.08em;font-weight:700;margin-top:1em;margin-bottom:0.2em}img{border:1px solid;di
+	   splay:block;margin-left:auto;margin-right:auto;max-width:100%}#jetired{color:#d42e12;}.navbar{margin:1em 0}img.optional,img{display:n
+	       one}img.lq{display:block;}@media(min-width:600px){img.optional{display:block}}@media(min-width:320px),print{img{display:block}img.lq{
+		   display:none}}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Main Menu</h1>
+</header>
+<p>The Flight Engineer App is designed to display single or twin-engine operating values on a telemetry screen, as well as to provide a set of alerts indicating potential issues with engine operation. The app also has the ability to assist the pilot with collecting flight test data (Snapshot) and collecting data to establish the RPM as a function of throttle curve that establishes the first step in engine monitoring.</p>
+<p>Summary of commands:</p>
+<ul>
+<li>V Speeds</li>
+<li>Controls</li>
+<li>Settings</li>
+<li>Speed Announcer</li>
+<li>Snapshot</li>
+<li>Temps</li>
+<li>Analysis</li>
+</ul>
+<h2 id="v-speeds">V Speeds</h2>
+<p>This command opens a menu where the various V speeds can be set. Examples include the stall speed Vs0 and the minimum twin-engine controllable speed Vmca. Speeds can provide alerts when they are exceeded (for example Vne .. never exceed speed) and Vs0 (stall warning). Alerts can be of the form of stick shakes (left or right, various patters) or audio warnings.</p>
+<h2 id="controls">Controls</h2>
+<p>This command sets up the assignment of controls that the app needs to know about, for example the throttle stick.</p>
+<h2 id="settings">Settings</h2>
+<p>This command contains several settings to fine-tune the app operation, as well as defining the controls that run the indicators in the middle of the first telemetry screen.</p>
+<h2 id="speed-announcer">Speed Announcer</h2>
+<p>The Flight Engineer app contains the full function of the Speed Announcer app which periodically announces the speed of the aircraft with a time interval that depends on how much the speed has changed since the last announcement and how long since the last announcement.</p>
+<h2 id="snapshot">Snapshot</h2>
+<p>This command opens a menu where you can define a set of up to four values that are recorded when a switch changes state, or when a button is pressed.</p>
+<h2 id="temps">Temps</h2>
+<p>This commmand opens a menu where you can define the temperature boundaries of the engine temperature operating gauge. The regions are Cold, Normal, Warning and Overheat.</p>
+<h2 id="analysis">Analysis</h2>
+<p>This command opens a live graphical window that allows the editing and curve fitting of the throttle vs RPM data collected in flight.</p>
+</body>
+</html>

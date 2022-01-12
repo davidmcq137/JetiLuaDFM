@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Speed Announcer</title>
+  <style>
+   div.info{padding:5pt;color:black;backgro
+       und-color:#f2c0b8;margin-bottom:0.5em}p.h{font-size:1.08em;font-weight:700;margin-top:1em;margin-bottom:0.2em}img{border:1px solid;di
+	   splay:block;margin-left:auto;margin-right:auto;max-width:100%}#jetired{color:#d42e12;}.navbar{margin:1em 0}img.optional,img{display:n
+	       one}img.lq{display:block;}@media(min-width:600px){img.optional{display:block}}@media(min-width:320px),print{img{display:block}img.lq{
+		   display:none}}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Speed Announcer</h1>
+</header>
+<p>Summary of commands:</p>
+<ul>
+<li>Speed Ann Enable Switch</li>
+<li>Cont. Speed Ann Switch</li>
+<li>Airspeed Sensor</li>
+<li>Speed change scale factor</li>
+<li>Shortest announce time</li>
+<li>Longest announce time</li>
+</ul>
+<h2 id="speed-add-enable-switch">Speed Add Enable Switch</h2>
+<p>Assign the switch to turn speed announcements on and off.</p>
+<h2 id="cont.-speed-ann-switch">Cont. Speed Ann Switch</h2>
+<p>Assign the switch to turn on continuous speed annonuncements. A convenient approach is to use a 3 positon switch, where one end is all announcements off, middle is the basic (Speed Ann Enable Switch) announce mode, and the other end is the continuous announce.</p>
+<h2 id="airspeed-sensor">Airspeed Sensor</h2>
+<p>This command sets the airspeed telemetry sensor from which the speed announcements are derived. It uses the usual Jeti telemetry sensor menu.</p>
+<h2 id="speed-change-scale-factor">Speed change scale factor</h2>
+<p>The speed announcer is designed to make periodic announcements of the airspeed. Announcements are made at varying intervals depending on how long it has been since the last announcement and how far the speed has moved from the last annoncement. This scale factor varies the shape of the curve between the minimum time interval and the maximum interval. A larger value here will move to more frequent announcements. You can vary this factor to make it as talkative as you like.</p>
+<h2 id="shortest-announce-time">Shortest announce time</h2>
+<p>The announcer will not make another announcement until this time has passed since the last annonucement.</p>
+<h2 id="longest-announce-time">Longest announce time</h2>
+<p>Even if the speed is unchanged, there will be another announcement after this time has passed.</p>
+</body>
+</html>

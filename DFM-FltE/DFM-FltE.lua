@@ -17,6 +17,7 @@
    0.6 01/04/2022 v0.6 Added linear fit and cal point selection
    0.7 01/05/2022 v0.7 Added expo to fitting
    0.8 01/10/2022 v0.8 New menu handling installed for testing
+   0.9 01/11/2022 v0.9 Added help menus to all screens
 
    Released under MIT-license
 
@@ -44,7 +45,7 @@
 
 --]]
 
-local FltEVersion = "0.7"
+local FltEVersion = "0.9"
 local appDir = "Apps/DFM-FltE/"
 
 local spdSwitch
@@ -397,7 +398,8 @@ local function keyPressed(key)
 
    if dispatchedForm ~= Forms.name2seq["analysis"].seq then
       if key == KEY_1 then
-	 system.openExternal("Docs/test.html")
+	 local fn = string.upper(Forms.seq2name[dispatchedForm].fcn)..".HTML"
+	 system.openExternal("DOCS/DFM-FLTE/"..fn)
       end
    else
       if key == KEY_1 then
@@ -464,6 +466,9 @@ local function keyPressed(key)
 	    end
 	    engineMdl[2].m, engineMdl[2].b = linfit(rpm2)
 	 end
+      elseif key == KEY_5 then
+	 form.preventDefault()
+	 form.reinit(1) -- this will reset the Forms stack
       elseif key == KEY_UP then
 	 if selectThr and selectExp then
 	    if movingThr then
@@ -485,9 +490,8 @@ local function keyPressed(key)
 	       selectExp = selectExp - 2
 	       selectExp = math.max(math.min(selectExp, 100), -100)
 	    end
-	 else
-	    if key ~= KEY_RELEASED then  end
 	 end
+      elseif key ~= KEY_RELEASED then
       end
    end
 end
@@ -507,7 +511,8 @@ Forms.Dispatch = function(sf)
    for k,v in ipairs(Forms.formStack) do
       str = str .. "/" ..Forms.seq2name[v].fcn
    end
-   form.setTitle(str)
+   form.setTitle("Flight Engineer")
+   --form.setTitle(str)
    Forms[Forms.seq2name[sf].fcn](Forms.seq2name[sf].seq, Forms.seq2name[sf].ret)
 end
 

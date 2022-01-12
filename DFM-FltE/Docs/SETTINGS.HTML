@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Settings</title>
+  <style>
+   div.info{padding:5pt;color:black;backgro
+       und-color:#f2c0b8;margin-bottom:0.5em}p.h{font-size:1.08em;font-weight:700;margin-top:1em;margin-bottom:0.2em}img{border:1px solid;di
+	   splay:block;margin-left:auto;margin-right:auto;max-width:100%}#jetired{color:#d42e12;}.navbar{margin:1em 0}img.optional,img{display:n
+	       one}img.lq{display:block;}@media(min-width:600px){img.optional{display:block}}@media(min-width:320px),print{img{display:block}img.lq{
+		   display:none}}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Settings</h1>
+</header>
+<p>Summary of commands:</p>
+<ul>
+<li>Sync PID Prop gain</li>
+<li>Sync PID Int gain</li>
+<li>Max Gauge RPM</li>
+<li>Engine</li>
+<li>Indicators</li>
+</ul>
+<h2 id="sync-pid-prop-gain">Sync PID Prop gain</h2>
+<p>This is the PID feedback loop proportional gain. Set to 0 to remove the proportional term from the feedback loop. You can lower it to make the feedback loop less tight which might be necessary if the loop is oscillating.</p>
+<h2 id="sync-pid-int-gain">Sync PID Int gain</h2>
+<p>This is the PID feedback loop integral gain. Set to 0 to remove the integral term from the feedback loop. You can lower it to slow down the feedback loop and increase it to speed up the feedback loop. Setting it too hight might make the loop unstable.</p>
+<h2 id="max-gauge-rpm">Max Gauge RPM</h2>
+<p>This is the full-range value for the RPM gauge.</p>
+<h2 id="engine">Engine</h2>
+<p>This allows setting the engine name to whatever you like which will show up in the title of the telemetry window. The app must be restarted after changing it before you will see it in the title of the window.</p>
+<h2 id="indicators">Indicators</h2>
+<p>This submenu will let you associate controls or switches with the indicators in the center of the telemetry window.</p>
+</body>
+</html>
