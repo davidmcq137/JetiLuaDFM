@@ -394,15 +394,60 @@ Forms.name2seq = {}
 Forms.seq2name = {} 
 Forms.formStack={}
 
+Forms.AddLink = function(sf, dest)
+   if sf == 1 and dest == "mainmenu" then
+      Forms.formStack = {sf}
+   end
+   local numdest = #Forms.seq2name+1
+   Forms.name2seq[dest] = {ret=sf, seq=numdest, fcn=dest}
+   table.insert(Forms.seq2name, {fcn=dest, ret=sf,seq=numdest})
+end
+
+Forms.Dispatch = function(sf)
+   if #Forms.seq2name == 0 and sf == 1 then Forms.AddLink(1, "mainmenu") end
+   local str=""
+   for k,v in ipairs(Forms.formStack) do
+      str = str .. "/" ..Forms.seq2name[v].fcn
+   end
+   --form.setTitle("Flight Engineer") -- ("Flight Engineer")
+   --print("addSpacer")
+   --form.addSpacer(0,30)
+   --form.setTitle(str)
+   Forms[Forms.seq2name[sf].fcn](Forms.seq2name[sf].seq, Forms.seq2name[sf].ret)
+end
+
+Forms.Link = function (sf, dest, lbl)
+   if not Forms.name2seq[dest] then
+      Forms.AddLink(sf, dest)
+   end
+   form.addLink(
+      (function() form.reinit(Forms.name2seq[dest].seq) savedRow = form.getFocusedRow()
+	    table.insert(Forms.formStack, Forms.name2seq[dest].seq) end),
+      {label=lbl} )
+   end
+
+Forms.ReturnLink = function(ret)
+   form.addLink(
+      (function() form.reinit(ret)
+	    table.remove(Forms.formStack, #Forms.formStack)
+      end),
+      {label = "<< Return"})
+end
+
 local function keyPressed(key)
 
    if dispatchedForm ~= Forms.name2seq["analysis"].seq then
-      if key == KEY_1 then
+      if key == KEY_1 or key == KEY_MENU then
+	 form.preventDefault()
 	 local fn = string.upper(Forms.seq2name[dispatchedForm].fcn)..".HTML"
 	 system.openExternal("DOCS/DFM-FLTE/"..fn)
       end
    else
-      if key == KEY_1 then
+      if key == KEY_MENU then
+	 form.preventDefault()
+	 local fn = string.upper(Forms.seq2name[dispatchedForm].fcn)..".HTML"
+	 system.openExternal("DOCS/DFM-FLTE/"..fn)	 
+      elseif key == KEY_1 then
 	 local fname
 	 local ff
 	 local dt = system.getDateTime()
@@ -468,6 +513,8 @@ local function keyPressed(key)
 	 end
       elseif key == KEY_5 then
 	 form.preventDefault()
+	 --Forms.Dispatch(1)
+	 dispatchedForm = 1
 	 form.reinit(1) -- this will reset the Forms stack
       elseif key == KEY_UP then
 	 if selectThr and selectExp then
@@ -496,44 +543,6 @@ local function keyPressed(key)
    end
 end
 
-Forms.AddLink = function(sf, dest)
-   if sf == 1 and dest == "mainmenu" then
-      Forms.formStack = {sf}
-   end
-   local numdest = #Forms.seq2name+1
-   Forms.name2seq[dest] = {ret=sf, seq=numdest, fcn=dest}
-   table.insert(Forms.seq2name, {fcn=dest, ret=sf,seq=numdest})
-end
-
-Forms.Dispatch = function(sf)
-   if #Forms.seq2name == 0 and sf == 1 then Forms.AddLink(1, "mainmenu") end
-   local str=""
-   for k,v in ipairs(Forms.formStack) do
-      str = str .. "/" ..Forms.seq2name[v].fcn
-   end
-   form.setTitle("Flight Engineer")
-   --form.setTitle(str)
-   Forms[Forms.seq2name[sf].fcn](Forms.seq2name[sf].seq, Forms.seq2name[sf].ret)
-end
-
-Forms.Link = function (sf, dest, lbl)
-   if not Forms.name2seq[dest] then
-      Forms.AddLink(sf, dest)
-   end
-   form.addLink(
-      (function() form.reinit(Forms.name2seq[dest].seq) savedRow = form.getFocusedRow()
-	    table.insert(Forms.formStack, Forms.name2seq[dest].seq) end),
-      {label=lbl} )
-   end
-
-Forms.ReturnLink = function(ret)
-   form.addLink(
-      (function() form.reinit(ret)
-	    table.remove(Forms.formStack, #Forms.formStack)
-      end),
-      {label = "<< Return"})
-end
-
 local function initForm(subForm)
    if tonumber(system.getVersion()) < 5.0 then
       error("DFM-FltE: Minimum TX Software Version is 5.0")
@@ -542,7 +551,7 @@ local function initForm(subForm)
    -- subForm 1 is always mainmenuu
    if subForm == 1 then Forms.formStack = {1} end
    dispatchedForm = subForm
-   form.setButton(1, "Help", ENABLED)
+   form.setButton(1, ":help", ENABLED)
    Forms.Dispatch(subForm)
 end
 
@@ -555,9 +564,9 @@ Forms.mainmenu = function(seq,ret)
    Forms.Link(seq, "snapshot", "Snapshot >>")
    Forms.Link(seq, "temps",    "Temps >>")
    Forms.Link(seq, "analysis", "Analysis >>")
-   form.addRow(1)
-   form.addLabel({label="DFM-FltE.lua Version "..FltEVersion.." ",
-		  font=FONT_MINI, alignRight=true})
+   --form.addRow(1)
+   --form.addLabel({label="DFM-FltE.lua Version "..FltEVersion.." ",
+   --font=FONT_MINI, alignRight=true})
    form.setFocusedRow(savedRow)
 end
 
@@ -1668,7 +1677,11 @@ end
 local function prtForm(w,h)
    if form.getActiveForm() and dispatchedForm == Forms.name2seq["analysis"].seq then
       form.setTitle("")
+      lcd.setColor(lcd.getFgColor())
+      lcd.drawImage(285,0,":help")
       calibrate(w,h,1)
+   else
+      form.setTitle("Flight Engineer")
    end
 end
 

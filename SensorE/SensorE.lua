@@ -67,6 +67,7 @@
 
 -- detect read or write to global .. will have to handle intentional globals at some point...
 
+--[[
 local sensorE_Global = {emulator_init=true, emulator_vibration=true, emulator_playFile=true,
 		  emulator_playNumber=true, emulator_getSensors=true,
 		  emulator_getSensorValueByID=true,emulator_getSensorByID=true,
@@ -86,7 +87,7 @@ setmetatable(_G, {
 		   end
 		end,
 })
-
+--]]
 local appName="Sensor Emulator"
 --local appShort="SensorE"
 --local appDir=appShort.."/"
@@ -871,6 +872,7 @@ end
 
 
 local function loop()
+   if appVersion ~= "1.00" then print("ERROR!!!!!") end
 end
 
 return {init=init, loop=loop, author=appAuthor, version=appVersion, name=appName}
