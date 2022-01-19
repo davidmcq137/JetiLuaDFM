@@ -67,7 +67,7 @@
 
 -- detect read or write to global .. will have to handle intentional globals at some point...
 
---[[
+---[[
 local sensorE_Global = {emulator_init=true, emulator_vibration=true, emulator_playFile=true,
 		  emulator_playNumber=true, emulator_getSensors=true,
 		  emulator_getSensorValueByID=true,emulator_getSensorByID=true,

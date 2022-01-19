@@ -35,7 +35,7 @@
    
    Thoughts for future releases:
 
-   0) IGC file CRC computation is disable for now. The initial lump of header
+   0) IGC file CRC computation is disabled for now. The initial lump of header
    messages were taking CPU usage past 100% and killing the app. We need to have
    a FIFO that drains on a periodic basis or some other way to level out the
    load since other writes to the IGC file are 1/sec
@@ -48,10 +48,19 @@
    centered on zero since we don't have a direction, use standard mag levels,
    and light or dark background)
 
+   Currently working on 8.12:
+
+   0) changed version number to variable
+
+   1) adding switch to announce remaining race time every minute. need to handle
+   language translation for menu and wav file .. just literal English for
+   now. Will get tester input and when ok will handle translations.
+
 --]]
 
 local appInfo={}
 appInfo.Name = "DFM-Maps"
+appInfo.Version = "8.12"
 appInfo.Maps = "DFM-Maps"
 appInfo.menuTitle = "GPS Maps"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
@@ -1206,7 +1215,7 @@ local function initField(fn)
    
    Field = {}
 
-   matchFields = {}
+   local matchFields = {}
    
    -- Use the highest mag image to determine if we are at this field
    -- Russell is sorting the images from highest to lowest zoom
@@ -1541,10 +1550,13 @@ local function initForm(subform)
 
       switchAdd(lang.swThrottle, "throttle", subform)
       
+      
       form.addRow(2)
       form.addLabel({label=lang.raceTime, width=220})
       form.addIntbox(variables.raceTime, 1, 60, 30, 0, 1, raceTimeChanged)
       
+      switchAdd("Time Ann", "rtAnn", subform)
+
       form.addRow(2)
       form.addLabel({label=lang.maxStartSpd, width=220})
       form.addIntbox(variables.maxSpeed, 10, 500, 100, 0, 10, maxSpeedChanged)
@@ -1855,8 +1867,8 @@ local function playFile(ffn, as)
    system.playFile("/".. fn, as)
 end
 
-local function playNumber(n, dp)
-   system.playNumber(n, dp)
+local function playNumber(n, dp, un, la)
+   system.playNumber(n, dp, un, la)
 end
 
 local function toXPixel(coord, min, range, width)
@@ -2490,6 +2502,7 @@ local function calcTriRace()
 	 raceParam.racingStartTime = system.getTimeCounter()
 	 nextPylon = 1
 	 raceParam.lapStartTime = system.getTimeCounter()
+	 raceParam.nextTimeAnn = variables.raceTime - 1 --ann every minute if enabled
 	 raceParam.lapsComplete = 0
 	 raceParam.rawScore = 0
 	 raceParam.usedythrottle = false
@@ -2506,7 +2519,21 @@ local function calcTriRace()
    
    local sgTC = system.getTimeCounter()
 
-   --print( (sgTC - raceParam.racingStartTime) / 1000, variables.raceTime*60)
+   local swt=0
+   if switchItems.rtAnn then
+      swt = system.getInputsVal(switchItems.rtAnn)
+   end
+
+   local remainMins = variables.raceTime - (sgTC - raceParam.racingStartTime) / 60000
+
+   if raceParam.racing and swt and raceParam.nextTimeAnn
+   and remainMins < raceParam.nextTimeAnn and remainMins > 0.5 then
+      --print("remain mins:", raceParam.nextTimeAnn)
+      playFile("race_time_remaining.wav", AUDIO_QUEUE)
+      playNumber(raceParam.nextTimeAnn, 0, "min")
+      raceParam.nextTimeAnn = raceParam.nextTimeAnn - 1
+   end
+   
    if raceParam.racing and (sgTC - raceParam.racingStartTime) / 1000 >= variables.raceTime*60 then
       playFile("race_finished.wav", AUDIO_IMMEDIATE)	    	 
       raceParam.racing = false
@@ -3042,6 +3069,7 @@ local function dirPrint(xw, xh, kk)
    local function circFit(k)
       -- tradeoff to use jth point .. closer to real time but noisier when still
       -- very close to current point
+      local j
       if true then --latHist[k] == latitude and lngHist[k] == lngHist[k] then
 	 j=k-1
       else
@@ -3227,7 +3255,7 @@ local function dirPrint(xw, xh, kk)
    -- draw the projected flight path
    -- optimization needed: only call circFit when new hist point available otherwise cache
 
-   local xx, cy, r, A
+   local cx, cy, r, A
    local recomp
    local t0, t1, tn
    local dt
@@ -4533,6 +4561,8 @@ local function init()
    variables.colorSwitchDir    = jLoad(variables, "colorSwitchDir", 0)            
    variables.noFlySwitchName   = jLoad(variables, "noFlySwitchName", 0)
    variables.noFlySwitchDir    = jLoad(variables, "noFlySwitchDir", 0)   
+   variables.rtAnnSwitchName   = jLoad(variables, "rtAnnSwitchName", 0)
+   variables.rtAnnSwitchDir    = jLoad(variables, "rtAnnSwitchDir", 0)
    variables.triColorMode      = jLoad(variables, "triColorMode", "Image")
    variables.airplaneIcon      = jLoad(variables, "airplaneIcon", 1)
    variables.triHistMax        = jLoad(variables, "triHistMax", 20)
@@ -4606,7 +4636,7 @@ local function init()
 
    readSensors()
    
-   switchItems = {point = 0, start = 0, triA = 0, throttle = 0, color = 0, noFly = 0}
+   switchItems = {point = 0, start = 0, triA = 0, throttle = 0, color = 0, noFly = 0, rtAnn = 0}
    
    for k,v in pairs(switchItems) do
       switchItems[k] = createSw(shapes.switchNames[variables[k.."SwitchName"]],
@@ -4616,6 +4646,6 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="8.11", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version=appInfo.Version, name=appInfo.Name, destroy=destroy}
 
 
