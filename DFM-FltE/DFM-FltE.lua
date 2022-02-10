@@ -436,17 +436,27 @@ end
 
 local function keyPressed(key)
 
+   local docString
+   
+   if emFlag then
+      docString = "DOCS/DFM-FLTE/"
+   else
+      docString = appDir .. "Docs/"
+   end
+   
    if dispatchedForm ~= Forms.name2seq["analysis"].seq then
       if key == KEY_1 or key == KEY_MENU then
 	 form.preventDefault()
 	 local fn = string.upper(Forms.seq2name[dispatchedForm].fcn)..".HTML"
-	 system.openExternal("DOCS/DFM-FLTE/"..fn)
+	 --system.openExternal("DOCS/DFM-FLTE/"..fn)
+	 system.openExternal(docString..fn)	 
       end
    else
       if key == KEY_MENU then
 	 form.preventDefault()
 	 local fn = string.upper(Forms.seq2name[dispatchedForm].fcn)..".HTML"
-	 system.openExternal("DOCS/DFM-FLTE/"..fn)	 
+	 --system.openExternal("DOCS/DFM-FLTE/"..fn)	 
+	 system.openExternal(docString..fn)	 
       elseif key == KEY_1 then
 	 local fname
 	 local ff
@@ -483,7 +493,6 @@ local function keyPressed(key)
 	 thrRPM = {} -- reset in case we want to take another data set
 	 system.messageBox("File saved - reset cal pts")
 	 --print("FocusedRow: "..form.getFocusedRow())
-	 --system.openExternal("TEST.HTML") -- opens in home dir (above /Apps) and upper cases?
       elseif key == KEY_2 then -- Thr
 	 form.setButton(2, "Thr", HIGHLIGHTED)
 	 form.setButton(3, "Exp", ENABLED)
