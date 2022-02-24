@@ -689,9 +689,22 @@ local function readSensors()
    local sensors = system.getSensors()
    local seSeq, param, label
    local sensName = ""
+   local idToName = {}
    
    jt = io.readall(appInfo.Dir.."JSON/paramGPS.jsn")
    paramGPS = json.decode(jt)
+
+   --[[
+      -- issue: PBS GPS and GPS III both have ID 42001 .. Pioneer may also .. need to get its ID
+   for k,v in pairs(paramGPS) do
+      print(k,v,v.ID, type(k), type(v.ID))
+      if v.ID then
+	 idToName[tostring(math.floor(v.ID))] = k
+      end
+   end
+
+   print("idToName['42001']", idToName['42001'])
+   --]]
    
    for i, sensor in ipairs(sensors) do
       --print("for loop:", i, sensor.sensorName, sensor.label, sensor.param, sensor.type)

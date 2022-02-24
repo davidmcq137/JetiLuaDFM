@@ -343,14 +343,18 @@ local function initForm(sF)
 end
 
 local function playNumber(num)
-   system.playNumber(math.abs(num),0)
+   if num then
+      system.playNumber(math.abs(num),0)
+   else
+      print("DFM-Amix: playNumber arg nil")
+   end
 end
 
 local function loop()
 
    local info
    local mpl, mph
-   local tp1
+   local tp0, tp1
    local incT
    local swe, swl
    local deadBand = 0.02
@@ -442,9 +446,9 @@ local function loop()
       -- is auto mode on?
       
       if (autoAilCtrl or autoEleCtrl) and (elevCtrl or ailCtrl) and (swaA == 1 or swaE == 1) and
-      crowConfig.trimPoint ~= crowConfig.centerPoint then
+      (crowConfig.trimPoint ~= crowConfig.centerPoint) then
 
-	 if math.abs(swe) < deadBand then
+	 if math.abs(swe or 0) < deadBand then
 	    swe = 0
 	 end
 
@@ -466,7 +470,7 @@ local function loop()
 	 end
 	 --]]
 	 
-	 if math.abs(swl) < deadBand then
+	 if math.abs(swl or 0) < deadBand then
 	    swl = 0
 	 end
 	 
@@ -638,7 +642,8 @@ local function teleWindowE()
    local lR = 10
    local ren
    local dx
-   
+   local iSize
+
    if not monoChrome then
       ren = lcd.renderer()
    end
@@ -714,7 +719,8 @@ local function teleWindowA()
    local lR = 10
    local ren
    local dx
-
+   local iSize
+   
    if not monoChrome then
       ren = lcd.renderer()
    end
