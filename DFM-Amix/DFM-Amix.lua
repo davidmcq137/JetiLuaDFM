@@ -48,6 +48,7 @@
 
    Version 1.1 - Nov 29,2021 removed mono device detection
    Version 1.2 - Dec 01,2021 started lua control search at control 1 to accommodate DS-16 II
+   Version 1.3 - Feb 25,2022 fixed bug .. crash on nil call to math.abs()
 
    Limitations: 
    
@@ -62,7 +63,7 @@
 
 --]]
 
-local amixVersion = 1.2
+local amixVersion = 1.3
 local appShort="DFM-Amix"
 local appDir = "Apps/"..appShort.."/"
 
@@ -198,6 +199,7 @@ local function crowCtrlChanged(value)
    local info
    crowCtrl = value
    info = system.getSwitchInfo(crowCtrl)
+   --print("DFM-Amix: info.mode " .. info.mode)
    if not info.proportional then
       system.messageBox(lang.pleaseProp)
    else
@@ -273,7 +275,7 @@ local function rstCurve()
       crowConfig.trimCurveUE[i]=0
       crowConfig.trimCurveUA[i]=0      
    end
-   print("rstCurve: centerPoint=", crowConfig.centerPoint)
+   --print("rstCurve: centerPoint=", crowConfig.centerPoint)
    crowConfig.trimCurveUE[crowConfig.centerPoint] = 1
    crowConfig.trimCurveUA[crowConfig.centerPoint] = 1   
 end
