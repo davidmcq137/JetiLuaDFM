@@ -17,6 +17,7 @@ MF-*.jsn
 *.igc
 DFM-Maps/M-*.jsn
 DFM-Maps/MF-*.jsn
+DFM-Maps/*.rct
 DFM-Maps/IGC/*.igc
 DFM-Maps/JSON/sensorEmulator*
 DFM-Maps/Maps/*
