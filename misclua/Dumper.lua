@@ -86,7 +86,7 @@ local function exportFile()
   end
   chunk = string.dump(func,true)
   
-  file = io.open(fnlc,"wb")
+  local file = io.open(fnlc,"wb")
   if(file) then
     io.write(file, chunk)
     io.close(file)
