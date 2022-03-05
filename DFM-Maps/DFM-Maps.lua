@@ -1304,7 +1304,7 @@ local function initField(fn)
 	 Field.images[i].center = {}
 	 Field.images[i].center.lat = lat0
 	 Field.images[i].center.lng = lng0
-	 Field.images[i].heading = system.getIMU(1).y
+	 Field.images[i].heading = system.getIMU(1).y or 0
       end
       maxImage = #Field.images
       currentImage = 1
@@ -3866,12 +3866,8 @@ local function mapPrint(windowWidth, windowHeight)
    lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6, "N", FONT_MINI)
    if Field.shortname == "-Noname-" then
       lcd.drawText(30-lcd.getTextWidth(FONT_MINI, tt) / 2, 26, tt, FONT_MINI)
-      --tt = system.getIMU().r
-      --lcd.drawText(30-lcd.getTextWidth(FONT_MINI, tt) / 2, 46, tt, FONT_MINI)
-      --tt = system.getIMU().p
-      --lcd.drawText(30-lcd.getTextWidth(FONT_MINI, tt) / 2, 66, tt, FONT_MINI)
-      tt = system.getIMU(1).y
-      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, tt) / 2, 46, tt, FONT_MINI)            
+      --tt = system.getIMU(1).y or 0
+      --lcd.drawText(30-lcd.getTextWidth(FONT_MINI, tt) / 2, 46, tt, FONT_MINI)            
    end
    drawShape(20, 12, shapes.arrow, math.rad(-1*variables.rotationAngle))
    lcd.drawCircle(20, 12, 7)
