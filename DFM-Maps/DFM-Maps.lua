@@ -64,6 +64,7 @@ appInfo.Version = "8.12"
 appInfo.Maps = "DFM-Maps"
 appInfo.menuTitle = "GPS Maps"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
+appInfo.Path  = "Apps/" .. appInfo.Name
 appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
 appInfo.SaveData = true
 
@@ -1930,8 +1931,9 @@ local function initForm(subform)
       local function rctFileClicked(idx)
 	 local ff, ll
 	 --print("rctFileClicked", idx, appInfo.Dir .. rctFiles[idx])
-	 if not Field.images[1].heading then
-	    system.messageBox("No Field defined")
+	 if not Field or not Field.images or not Field.images[1].heading then
+	    system.messageBox("No Field defined - rct not read")
+	    form.reinit(subform)
 	    return
 	 end
 	 ff = io.open(appInfo.Dir .. rctFiles[idx], "r")
@@ -2006,21 +2008,33 @@ local function initForm(subform)
 	 tri2XY()
 	 
       end
+
+      local path
+      if not emFlag then path = "/" .. appInfo.Path else path = appInfo.Path end      
+
+      print("path: " .. path)
       
-      for name, filetype, size in dir(appInfo.Dir) do
+      for name, filetype, size in dir(path) do
 	 dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
 	 if fn and ext then
 	    if string.lower(ext) == "rct" then
+	       print("inserting " .. fn .. "." .. ext)
 	       table.insert(rctFiles, fn .. "." .. ext)
 	    end
 	 end
       end
-      
-      table.sort(rctFiles, function(a,b) return a<b end)
-      form.addRow(2)
-      form.addLabel({label="Select rct file to read"})
-      form.addSelectbox(rctFiles, rctIdx, true, rctFileClicked) 
 
+      print("#rctFiles:", #rctFiles)
+      
+      if #rctFiles < 1 then
+	 system.messageBox("No rct files found")
+      else
+	 table.sort(rctFiles, function(a,b) return a<b end)
+	 form.addRow(2)
+	 form.addLabel({label="Select rct file to read"})
+	 form.addSelectbox(rctFiles, rctIdx, true, rctFileClicked) 
+      end
+      
       form.addLink((function() form.reinit(1) end),
 	 {label = lang.backMain,font=FONT_BOLD})
       
