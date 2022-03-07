@@ -62,8 +62,8 @@ local shortAnn, shortAnnIndex
 local emFlag
 
 local engT = {
-   {Name="Left",  RPM={"Se", "SeId", "SePa"}, Temp={"Se", "SeId", "SePa"}},
-   {Name="Right", RPM={"Se", "SeId", "SePa"}, Temp={"Se", "SeId", "SePa"}}
+   {Name="Left", RPM={"Se", "SeId", "SePa"},TempA={"Se", "SeId", "SePa"},TempB={"Se", "SeId", "SePa"}},
+   {Name="Right",RPM={"Se", "SeId", "SePa"},TempA={"Se", "SeId", "SePa"},TempB={"Se", "SeId", "SePa"}}
 }
 
 local eng = {}
@@ -301,6 +301,8 @@ local function shortAnnClicked(value)
 end
 
 local function engSensorChanged(value, num, name)
+   --print("engSensorChanged", value, num, name)
+   
    eng[num][name].Se = value
    eng[num][name].SeId = sensorIdlist[value]
    eng[num][name].SePa = sensorPalist[value]
@@ -648,14 +650,23 @@ Forms.sensors = function(seq, ret)
 		     (function(x) return engSensorChanged(x,2,"RPM") end), {width=190})
    
    form.addRow(2)
-   form.addLabel({label="Left Temp", width=120})
-   form.addSelectbox(sensorLalist, eng[1].Temp.Se, true,
-		     (function(x) return engSensorChanged(x,1,"Temp") end), {width=190})	
+   form.addLabel({label="Left Temp A", width=120})
+   form.addSelectbox(sensorLalist, eng[1].TempA.Se, true,
+		     (function(x) return engSensorChanged(x,1,"TempA") end), {width=190})	
    
    form.addRow(2)
-   form.addLabel({label="Right Temp", width=120})
-   form.addSelectbox(sensorLalist, eng[2].Temp.Se, true,
-		     (function(x) return engSensorChanged(x,2,"Temp") end), {width=190})
+   form.addLabel({label="Left Temp B", width=120})
+   form.addSelectbox(sensorLalist, eng[1].TempB.Se, true,
+		     (function(x) return engSensorChanged(x,1,"TempB") end), {width=190})	
+   form.addRow(2)
+   form.addLabel({label="Right Temp A", width=120})
+   form.addSelectbox(sensorLalist, eng[2].TempA.Se, true,
+		     (function(x) return engSensorChanged(x,2,"TempA") end), {width=190})
+
+   form.addRow(2)
+   form.addLabel({label="Right Temp B", width=120})
+   form.addSelectbox(sensorLalist, eng[2].TempB.Se, true,
+		     (function(x) return engSensorChanged(x,2,"TempB") end), {width=190})
 
    form.setFocusedRow(2)
 end
@@ -892,6 +903,19 @@ local needle_poly_large = {
    {4,28}
 }
 
+local needle_poly_wide = {
+   {-4,28},
+   {-3,42},
+   {-6,46},
+   {-3,50},
+   {-2,64},
+   {2,64},
+   {3,50},
+   {6,46},
+   {3,42},
+   {4,28}
+}
+
 local tick_mark = {
    {-2,56},
    {-2,65},
@@ -1009,7 +1033,9 @@ end
 local function DrawTemp()
 
     local ox, oy = 186, 8
-
+    local text={}
+    local theta={}
+    
     if emFlag then
        local spdText = "Airspeed "..string.format("%d", math.floor(speed + 0.5))
        lcd.drawText(160 - lcd.getTextWidth(FONT_MINI, spdText)/2,148,spdText, FONT_MINI)
@@ -1028,12 +1054,29 @@ local function DrawTemp()
 
     --local CHT[1] = 300 * (1 + system.getInputs("P5"))/2
     --local CHT[2] = 300 * (1 + system.getInputs("P6"))/2
-    local text1 = string.format("%d", math.floor(CHT[1] + 0.5))
-    local text2 = string.format("%d", math.floor(CHT[2] + 0.5))
 
-    local theta1 = angle1(CHT[1], minTemp, maxTemp)
-    local theta2 = angle2(CHT[2], minTemp, maxTemp)
+    --local text1 = string.format("%d", math.floor(CHT[1] + 0.5))
+    --local text2 = string.format("%d", math.floor(CHT[2] + 0.5))
 
+    for i=1,4,1 do
+       if CHT[i] then
+	  text[i] = string.format("%d", math.floor(CHT[i] + 0.5))
+       end
+    end
+
+    --local theta1 = angle1(CHT[1], minTemp, maxTemp)
+    --local theta2 = angle2(CHT[2], minTemp, maxTemp)
+
+    for i=1,4,1 do
+       if CHT[i] then
+	  if i % 2 == 0 then
+	     theta[i] = angle1(CHT[i], minTemp, maxTemp)
+	  else
+	     theta[i] = angle2(CHT[i], minTemp, maxTemp)
+	  end
+       end
+    end
+    
     if gauge_c then lcd.drawImage(ox, oy, gauge_c) end
     lcd.setColor(255,255,255)
     lcd.drawFilledRectangle(ox+65-5, oy, 10, 20)
@@ -1050,28 +1093,49 @@ local function DrawTemp()
        drawShape(ox+65, oy+65, tick_mark, angle2(v, minTemp, maxTemp))              
     end
     
-    for i=1,2,1 do
-       if CHT[i] < GaugeTempRange.Normal then
-	  lcd.setColor(0,0,255)
-       elseif CHT[i] >= GaugeTempRange.Normal and CHT[i] < GaugeTempRange.Warning then
-	  lcd.setColor(0,255,0)
-       elseif CHT[i] >= GaugeTempRange.Warning and CHT[i] < GaugeTempRange.Overheat then
-	  lcd.setColor(255,255,0)
-       else
-	  lcd.setColor(255,0,0)
-       end
-       if i == 1 then
-	  drawShape(ox+65, oy+65, needle_poly_large, theta1)       
-       else
-	  drawShape(ox+65, oy+65, needle_poly_large, theta2)
+    for i=1,4,1 do
+       if CHT[i] then
+	  if CHT[i] < GaugeTempRange.Normal then
+	     lcd.setColor(0,0,255)
+	  elseif CHT[i] >= GaugeTempRange.Normal and CHT[i] < GaugeTempRange.Warning then
+	     lcd.setColor(0,255,0)
+	  elseif CHT[i] >= GaugeTempRange.Warning and CHT[i] < GaugeTempRange.Overheat then
+	     lcd.setColor(255,255,0)
+	  else
+	     lcd.setColor(255,0,0)
+	  end
+	  if i <= 2 then
+	     drawShape(ox+65, oy+65, needle_poly_large, theta[i])
+	  else
+	     drawShape(ox+65, oy+65, needle_poly_wide, theta[i])
+	  end
        end
     end
 
     lcd.setColor(0,0,0)
-    lcd.drawText(ox + 30 - lcd.getTextWidth(FONT_BIG, text1) / 2, oy + 120,
-		 text1, FONT_BIG)
-    lcd.drawText(ox + 100 - lcd.getTextWidth(FONT_BIG, text2) / 2, oy + 120,
-		 text2, FONT_BIG)    
+    local yOff = {oy + 120, oy + 120, oy + 140, oy + 140}
+    local xOff = {ox + 100, ox + 30, ox + 100, ox + 30}
+
+    local fnt
+    if #CHT > 2 then
+       fnt = FONT_BOLD
+       yOff = {oy + 120, oy + 120, oy + 135, oy + 135}
+    else
+       fnt = FONT_BIG
+    end
+    for i=1,4,1 do
+       if CHT[i] then
+	  if fnt == FONT_BOLD then
+	     if i <= 2 then
+		text[i] = "A:" .. text[i]
+	     else
+		text[i] = "B:" .. text[i]
+	     end
+	  end
+	  lcd.drawText(xOff[i] - lcd.getTextWidth(fnt, text[i]) / 2, yOff[i],
+			  text[i], fnt)
+       end
+    end
     lcd.setColor(0, 0, 0)
     
 end
@@ -1139,20 +1203,36 @@ end
 local function getTemps()
    local sensor
 
-   if (eng[1].Temp.SeId ~= 0) then
-      sensor = system.getSensorByID(eng[1].Temp.SeId, eng[1].Temp.SePa)
-   end
-   if (sensor and sensor.valid) then
-      CHT[1] = sensor.value
+   CHT = {}
+   
+   if (eng[1].TempA.SeId ~= 0) then
+      sensor = system.getSensorByID(eng[1].TempA.SeId, eng[1].TempA.SePa)
+      if (sensor and sensor.valid) then
+	 CHT[1] = sensor.value
+      end
    end
 
-   if (eng[2].Temp.SeId ~= 0) then
-      sensor = system.getSensorByID(eng[2].Temp.SeId, eng[2].Temp.SePa)
+   if (eng[1].TempB.SeId ~= 0) then
+      sensor = system.getSensorByID(eng[1].TempB.SeId, eng[1].TempB.SePa)
+      if (sensor and sensor.valid) then
+	 CHT[3] = sensor.value
+      end
    end
-   if (sensor and sensor.valid) then
-      CHT[2] = sensor.value
+
+   if (eng[2].TempA.SeId ~= 0) then
+      sensor = system.getSensorByID(eng[2].TempA.SeId, eng[2].TempA.SePa)
+      if (sensor and sensor.valid) then
+	 CHT[2] = sensor.value
+      end
    end
-   
+
+   if (eng[2].TempB.SeId ~= 0) then
+      sensor = system.getSensorByID(eng[2].TempB.SeId, eng[2].TempB.SePa)
+      if (sensor and sensor.valid) then
+	 CHT[4] = sensor.value
+      end
+   end
+
 end
 
 local function getSpeed()
@@ -1256,20 +1336,22 @@ local function loop()
    -- check temperature ranges and warnings
 
    local currentCHT
-   for i=1,2,1 do
-      if CHT[i] < GaugeTempRange.Normal then
-	 currentCHT = "Cold"
-      elseif CHT[i] >= GaugeTempRange.Normal and CHT[i] < GaugeTempRange.Warning then
-	 currentCHT = "Normal"
-      elseif CHT[i] >= GaugeTempRange.Warning and CHT[i] < GaugeTempRange.Overheat then
-	 currentCHT = "Warning"
-      else
-	 currentCHT = "Overheat"
+   for i=1,4,1 do
+      if CHT[i] then
+	 if CHT[i] < GaugeTempRange.Normal then
+	    currentCHT = "Cold"
+	 elseif CHT[i] >= GaugeTempRange.Normal and CHT[i] < GaugeTempRange.Warning then
+	    currentCHT = "Normal"
+	 elseif CHT[i] >= GaugeTempRange.Warning and CHT[i] < GaugeTempRange.Overheat then
+	    currentCHT = "Warning"
+	 else
+	    currentCHT = "Overheat"
+	 end
+	 if lastCHT[i] and (currentCHT ~= lastCHT[i]) then
+	    playTemp((i+1)%2 + 1, currentCHT) -- 1,2,1,2 
+	 end
+	 lastCHT[i] = currentCHT
       end
-      if currentCHT ~= lastCHT[i] then
-	 playTemp(i, currentCHT)
-      end
-      lastCHT[i] = currentCHT
    end
    
    -- first read the configuration from the switches that have been assigned
@@ -1705,8 +1787,6 @@ end
 local function init()
 
    local fg
-   
-
   
    spdSwitch   = system.pLoad("spdSwitch")
    contSwitch  = system.pLoad("contSwitch")

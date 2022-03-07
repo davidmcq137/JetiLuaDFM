@@ -1,6 +1,6 @@
 [
-{"id":3,"param":0,"sensorName":"MRPM", "label":"MRPMR"},
-    {"id":2,
+{"id":1,"param":0,"sensorName":"MRPM", "label":"MRPMR"},
+    {"id":1,
      "param":1,
      "decimals":0,
      "type":4,
@@ -10,7 +10,7 @@
      "luaExp":"math.min(P4(400,6000), 4000)"
     },
 {"id":2,"param":0,"sensorName":"MRPM", "label":"MRPML"},
-    {"id":3,
+    {"id":2,
      "param":1,
      "decimals":0,
      "type":4,
@@ -19,8 +19,8 @@
      "unit":"",
      "luaExp":"math.min(P4(400,6000)-O18(-600,600)+P1(-100,100), 4000)"
     },
-{"id":4,"param":0,"sensorName":"MSpeed", "label":"MSpeed"},
-    {"id":4,
+{"id":3,"param":0,"sensorName":"MSpeed", "label":"MSpeed"},
+    {"id":3,
      "param":1,
      "decimals":1,
      "type":4,
@@ -29,27 +29,45 @@
      "unit":"m/s",
      "luaExp":"P5(0,90)"
     },
-{"id":6,"param":0,"sensorName":"MTemp", "label":"MTempR"},
-    {"id":5,
+{"id":4,"param":0,"sensorName":"MTemp", "label":"MTempRA"},
+    {"id":4,
      "param":1,
      "decimals":1,
      "type":4,
-     "sensorName":"MTempR",
+     "sensorName":"MTempRA",
      "label":"Temperature",
      "unit":"°C",
      "luaExp":"P8(0,300)"
     },
-{"id":5,"param":0,"sensorName":"MTemp", "label":"MTempL"},
+{"id":5,"param":0,"sensorName":"MTemp", "label":"MTempLA"},
+    {"id":5,
+     "param":1,
+     "decimals":1,
+     "type":4,
+     "sensorName":"MTempLA",
+     "label":"Temperature",
+     "unit":"°C",
+     "luaExp":"P7(0,300)"
+    },
+{"id":6,"param":0,"sensorName":"MTemp", "label":"MTempRB"},
     {"id":6,
      "param":1,
      "decimals":1,
      "type":4,
-     "sensorName":"MTempL",
+     "sensorName":"MTempRB",
      "label":"Temperature",
      "unit":"°C",
-     "luaExp":"P7(0,300)"
+     "luaExp":"P4(0,300)"
+    },
+{"id":7,"param":0,"sensorName":"MTemp", "label":"MTempLB"},
+    {"id":7,
+     "param":1,
+     "decimals":1,
+     "type":4,
+     "sensorName":"MTempLB",
+     "label":"Temperature",
+     "unit":"°C",
+     "luaExp":"P2(0,300)"
     }
-    
-    
 ]
 
