@@ -8,16 +8,18 @@
    
    Requires transmitter firmware 5.0 or higher
 
-   0.0 12/30/2021 Initial Version
-   0.1 12/31/2021 Menus to edit V speeds
-   0.2 01/01/2022 Menus to edit RPMs and Temps 
-   0.3 01/02/2022 Misc cleanups
-   0.4 01/02/2022 Changed snapshot controls to use addInputbox
-   0.5 01/04/2022 Added second tele screen for thr-RPM cal
-   0.6 01/04/2022 v0.6 Added linear fit and cal point selection
-   0.7 01/05/2022 v0.7 Added expo to fitting
-   0.8 01/10/2022 v0.8 New menu handling installed for testing
-   0.9 01/11/2022 v0.9 Added help menus to all screens
+   0.0  12/30/2021 Initial Version
+   0.1  12/31/2021 Menus to edit V speeds
+   0.2  01/01/2022 Menus to edit RPMs and Temps 
+   0.3  01/02/2022 Misc cleanups
+   0.4  01/02/2022 Changed snapshot controls to use addInputbox
+   0.5  01/04/2022 Added second tele screen for thr-RPM cal
+   0.6  01/04/2022 v0.6 Added linear fit and cal point selection
+   0.7  01/05/2022 v0.7 Added expo to fitting
+   0.8  01/10/2022 v0.8 New menu handling installed for testing
+   0.9  01/11/2022 v0.9 Added help menus to all screens
+   0.92 03/07/2022 v0.92 Added A and B temps for both engines
+   0.93 03/08/2022 v0.93 Remove default files, all defaults inline in the app
 
    Released under MIT-license
 
@@ -45,7 +47,7 @@
 
 --]]
 
-local FltEVersion = "0.9"
+local FltEVersion = "0.93"
 local appDir = "Apps/DFM-FltE/"
 
 local spdSwitch
@@ -68,6 +70,23 @@ local engT = {
 
 local eng = {}
 local def = {}
+def.TempRange = {Min=100, Normal=200, Warning=500, Overheat=650, Max=700}
+def.VSpeedsUp = {
+   {Vaa = {S = 25,  shake = 0, wav = 1}},
+   {Vne = {S = 200, shake = 0, wav = 1}}
+}
+def.VSpeedsDn = {
+   {Vso  = {S = 50, shake = 2, wav = 1}},
+   {Vref = {S = 60, shake = 0, wav = 1}},
+   {Vmca = {S = 70, shake = 3, wav = 0}},
+   {Vmcw = {S = 75, shake = 0, wav = 1}}
+}
+def.MaxRPM = 6000
+def.RPMRunning = 200
+def.Engine = "Engine Name"
+def.minSyncRPM = 1000
+def.hyst = 0.98
+
 local syncDelta = 0
 
 local RPM={}
@@ -105,6 +124,9 @@ local selectExp
 local movingThr = true
 local dispatchedForm
 local savedRow = 1
+
+local tempUnits = {"°C", "°F"}
+local tempIndex 
 
 local engineMdl = {}
 engineMdl[1]={}
@@ -253,6 +275,16 @@ end
 local function maxRPMChanged(value)
    GaugeMaxRPM = value
    system.pSave("GaugeMaxRPM", GaugeMaxRPM)
+end
+
+local function runRPMChanged(value)
+   RPMrunning = value
+   system.pSave("RPMRunning", RPMRunning)
+end
+
+local function syncRPMChanged(value)
+   minSyncRPM = value
+   system.pSave("minSyncRPM", minSyncRPM)
 end
 
 local function engineNameChanged(value)
@@ -710,9 +742,26 @@ Forms.settings = function(seq, ret)
    form.addIntbox(GaugeMaxRPM, 1000, 10000, 6000, 0, 100, maxRPMChanged)
    
    form.addRow(2)
+   form.addLabel({label="Lowest running RPM", width=220})
+   form.addIntbox(RPMRunning, 100, 10000, 200, 0, 10, runRPMChanged)
+
+   form.addRow(2)
+   form.addLabel({label="Min Sync RPM", width=220})
+   form.addIntbox(minSyncRPM, 100, 10000, 1000, 0, 10, syncRPMChanged)
+
+   form.addRow(2)
    form.addLabel({label="Engine Name", width=60})
    form.addTextbox(engineName, 20, engineNameChanged, {width=260})
 
+   local function tempChanged(value)
+      tempIndex = value
+      system.pSave("tempIndex", tempIndex)
+   end
+   
+   form.addRow(2)
+   form.addLabel({label="Temperature units", width=220})
+   form.addSelectbox(tempUnits, tempIndex, true, tempChanged) 
+   
    Forms.Link(seq, "indicators", "Indicators >>")
    --form.addLink((function() form.reinit(51) end), {label = "Indicators >>"})
    form.setFocusedRow(2)
@@ -865,7 +914,7 @@ Forms.temps = function(seq, ret)
       --form.addIntbox(VSpeedsDn[k][kk].S, 10, 200, 60, 0, 1,
       --(function(x) return VSpeedChanged(x, k, kk, "S", "dn") end),
       --{width=60})
-      form.addIntbox(GaugeTempRange[v], 10, 500, 100, 0, 1, 
+      form.addIntbox(GaugeTempRange[v], 10, 1000, 100, 0, 1, 
 		     (function(x) return TempRangeChanged(x, v) end),
 		     {width=60})
    end
@@ -1045,10 +1094,13 @@ local function DrawTemp()
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_BIG,"CHT") / 2 , oy + 54,
 		 "CHT", FONT_BIG)
 
+    lcd.drawText(ox + 64 - lcd.getTextWidth(FONT_BOLD, tempUnits[tempIndex]) / 2 , oy + 72,
+		 tempUnits[tempIndex], FONT_BOLD)
+
     local minTemp = GaugeTempRange.Min -- def.Temps[1]
     local maxTemp = GaugeTempRange.Max -- def.Temps[#def.Temps]
 
-    local rt = string.format("%d-%d°C", minTemp, maxTemp)
+    local rt = string.format("%d-%d", minTemp, maxTemp)
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MINI,rt) / 2 , oy + 105,
 		 rt, FONT_MINI)
 
@@ -1200,36 +1252,59 @@ local function wbTele()
    DrawErrsig(0,0)
 end
 
+local function convert(temp)
+   if tempIndex == 1 then
+      return temp
+   else
+      return 1.8 * temp + 32.0
+   end
+end
+
 local function getTemps()
    local sensor
 
    CHT = {}
+
+   -- set CHT[1] and CHT[2] to zero if not assigned, or if not valid
+   -- set CHT[3] and CHT[4] to non-null only if assigned and valid
    
    if (eng[1].TempA.SeId ~= 0) then
       sensor = system.getSensorByID(eng[1].TempA.SeId, eng[1].TempA.SePa)
       if (sensor and sensor.valid) then
-	 CHT[1] = sensor.value
+	 CHT[1] = convert(sensor.value)
+      else
+	 CHT[1] = 0
       end
+   else
+      CHT[1] = 0
    end
 
    if (eng[1].TempB.SeId ~= 0) then
       sensor = system.getSensorByID(eng[1].TempB.SeId, eng[1].TempB.SePa)
       if (sensor and sensor.valid) then
-	 CHT[3] = sensor.value
+	 CHT[3] = convert(sensor.value)
+      else
+	 CHT[3] = 0
       end
    end
 
    if (eng[2].TempA.SeId ~= 0) then
       sensor = system.getSensorByID(eng[2].TempA.SeId, eng[2].TempA.SePa)
       if (sensor and sensor.valid) then
-	 CHT[2] = sensor.value
+	 CHT[2] = convert(sensor.value)
+      else
+	 CHT[2] = 0
       end
+   else
+      CHT[2] = 0
    end
 
    if (eng[2].TempB.SeId ~= 0) then
       sensor = system.getSensorByID(eng[2].TempB.SeId, eng[2].TempB.SePa)
       if (sensor and sensor.valid) then
-	 CHT[4] = sensor.value
+	 CHT[4] = convert(sensor.value)
+      else
+	 CHT[4] = 0
       end
    end
 
@@ -1422,7 +1497,7 @@ local function loop()
 
    errsig = syncDelta / 1000.0
    
-   if thrOK and syncOn and RPM[1] > def.minSyncRPM and RPM[2] > def.minSyncRPM then
+   if thrOK and syncOn and RPM[1] > minSyncRPM and RPM[2] > minSyncRPM then
       pGain = pGainInput / 50.0
       iGain = iGainInput / 50.0 
       pTerm  = errsig * pGain
@@ -1465,7 +1540,7 @@ local function loop()
 		  vsu.active = true
 	       end
 	    else
-	       if speed < vsu.S * def.hyst then
+	       if speed < vsu.S * hyst then
 		  vsu.active = false
 	       end
 	    end
@@ -1498,7 +1573,7 @@ local function loop()
 		  vsd.active = true
 	       end
 	    else
-	       if speed > vsd.S / def.hyst then
+	       if speed > vsd.S / hyst then
 		  vsd.active = false
 		  vsd.armed = true
 	       end
@@ -1527,7 +1602,7 @@ local function loop()
       -- Wait till speaking is done, catch it at the next call to loop()
 
       if (not system.isPlayback()) and
-      ((sgTC > nextAnnTC) and ( (speed > def.VSpeedsUp[1].Vaa.S) or (swc and swc == 1))) then
+      ((sgTC > nextAnnTC) and ( (speed > VSpeedsUp[1].Vaa.S) or (swc and swc == 1))) then
 
 	 lastAnnSpd = speed
 	 round_spd = math.floor(speed+0.5)
@@ -1805,6 +1880,8 @@ local function init()
    selFt       = system.pLoad("selFt", "true")
    shortAnn    = system.pLoad("shortAnn", "false")
    snapSwitch  = system.pLoad("snapSwitch")
+   tempIndex   = system.pLoad("tempIndex", 2) -- default to °F
+   
    for i=1,4,1 do
       ctlSwi[i] = system.pLoad("ctlSwi"..i)
    end
@@ -1838,6 +1915,7 @@ local function init()
    selFt = (selFt == "true") -- can't pSave and pLoad booleans...store as text 
    shortAnn = (shortAnn == "true") -- convert back to boolean here
 
+   --[[ -- eliminate defaults file 
    -- load defaults from the FE-<model>.jsn file
    
    local FEname = appDir .. "FE-" ..
@@ -1862,14 +1940,14 @@ local function init()
       print("DFM-FltE: Could not open defaults file "..FEname)
       error("Fatal error")
    end
-
+   --]]
+   
    GaugeTempRange = {}
    for k,_ in pairs(def.TempRange) do
       GaugeTempRange[k] = system.pLoad("TempRange"..k, def.TempRange[k])
    end
 
    GaugeMaxRPM = system.pLoad("GaugeMaxRPM", def.MaxRPM)
-   --print("GaugeMaxRPM", GaugeMaxRPM, def.MaxRPM)
    
    RPMRunning = system.pLoad("RPMRunning", def.RPMRunning)
    engineName = system.pLoad("engineName", def.Engine)
@@ -1886,7 +1964,6 @@ local function init()
       VSpeedsUp[k] = {}
       for kk,_ in pairs(v) do
 	 VSpeedsUp[k][kk] = {}
-	 --print("UP"..k..kk.."wav", def.VSpeedsUp[k][kk].wav)
 	 VSpeedsUp[k][kk].S      = system.pLoad("UP"..k..kk.."S",     def.VSpeedsUp[k][kk].S or 999)
 	 VSpeedsUp[k][kk].shake  = system.pLoad("UP"..k..kk.."shake", def.VSpeedsUp[k][kk].shake or 0)
 	 VSpeedsUp[k][kk].wav    = system.pLoad("UP"..k..kk.."wav",   def.VSpeedsUp[k][kk].wav or 0)
