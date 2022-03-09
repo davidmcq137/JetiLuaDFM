@@ -14,12 +14,12 @@
    0.3  01/02/2022 Misc cleanups
    0.4  01/02/2022 Changed snapshot controls to use addInputbox
    0.5  01/04/2022 Added second tele screen for thr-RPM cal
-   0.6  01/04/2022 v0.6 Added linear fit and cal point selection
-   0.7  01/05/2022 v0.7 Added expo to fitting
-   0.8  01/10/2022 v0.8 New menu handling installed for testing
-   0.9  01/11/2022 v0.9 Added help menus to all screens
-   0.92 03/07/2022 v0.92 Added A and B temps for both engines
-   0.93 03/08/2022 v0.93 Remove default files, all defaults inline in the app
+   0.6  01/04/2022 Added linear fit and cal point selection
+   0.7  01/05/2022 Added expo to fitting
+   0.8  01/10/2022 New menu handling installed for testing
+   0.9  01/11/2022 Added help menus to all screens
+   0.92 03/07/2022 Added A and B temps for both engines
+   0.93 03/08/2022 Remove default files, all defaults inline in the app
 
    Released under MIT-license
 
@@ -1097,18 +1097,12 @@ local function DrawTemp()
     lcd.drawText(ox + 64 - lcd.getTextWidth(FONT_BOLD, tempUnits[tempIndex]) / 2 , oy + 72,
 		 tempUnits[tempIndex], FONT_BOLD)
 
-    local minTemp = GaugeTempRange.Min -- def.Temps[1]
-    local maxTemp = GaugeTempRange.Max -- def.Temps[#def.Temps]
+    local minTemp = GaugeTempRange.Min
+    local maxTemp = GaugeTempRange.Max
 
     local rt = string.format("%d-%d", minTemp, maxTemp)
     lcd.drawText(ox + 65 - lcd.getTextWidth(FONT_MINI,rt) / 2 , oy + 105,
 		 rt, FONT_MINI)
-
-    --local CHT[1] = 300 * (1 + system.getInputs("P5"))/2
-    --local CHT[2] = 300 * (1 + system.getInputs("P6"))/2
-
-    --local text1 = string.format("%d", math.floor(CHT[1] + 0.5))
-    --local text2 = string.format("%d", math.floor(CHT[2] + 0.5))
 
     for i=1,4,1 do
        if CHT[i] then
@@ -1116,15 +1110,12 @@ local function DrawTemp()
        end
     end
 
-    --local theta1 = angle1(CHT[1], minTemp, maxTemp)
-    --local theta2 = angle2(CHT[2], minTemp, maxTemp)
-
     for i=1,4,1 do
        if CHT[i] then
 	  if i % 2 == 0 then
-	     theta[i] = angle1(CHT[i], minTemp, maxTemp)
+	     theta[i] = angle1(math.min(maxTemp, math.max(minTemp, CHT[i])), minTemp, maxTemp)
 	  else
-	     theta[i] = angle2(CHT[i], minTemp, maxTemp)
+	     theta[i] = angle2(math.min(maxTemp, math.max(minTemp, CHT[i])), minTemp, maxTemp)
 	  end
        end
     end
@@ -1134,11 +1125,6 @@ local function DrawTemp()
     lcd.drawFilledRectangle(ox+65-5, oy, 10, 20)
 
     lcd.setColor(160,160,160)
-    
-    --for _,v in ipairs(def.Temps) do
-    --drawShape(ox+65, oy+65, tick_mark, angle1(v, minTemp, maxTemp))
-    --drawShape(ox+65, oy+65, tick_mark, angle2(v, minTemp, maxTemp))       
-    --end
     
     for k,v in pairs(GaugeTempRange) do
        drawShape(ox+65, oy+65, tick_mark, angle1(v, minTemp, maxTemp))

@@ -37,7 +37,7 @@
      "sensorName":"MTempRA",
      "label":"Temperature",
      "unit":"°C",
-     "luaExp":"P8(0,300)"
+     "luaExp":"P8(0,400)"
     },
 {"id":5,"param":0,"sensorName":"MTemp", "label":"MTempLA"},
     {"id":5,
@@ -47,7 +47,7 @@
      "sensorName":"MTempLA",
      "label":"Temperature",
      "unit":"°C",
-     "luaExp":"P7(0,300)"
+     "luaExp":"P7(0,400)"
     },
 {"id":6,"param":0,"sensorName":"MTemp", "label":"MTempRB"},
     {"id":6,
@@ -57,7 +57,7 @@
      "sensorName":"MTempRB",
      "label":"Temperature",
      "unit":"°C",
-     "luaExp":"P4(0,300)"
+     "luaExp":"P4(0,400)"
     },
 {"id":7,"param":0,"sensorName":"MTemp", "label":"MTempLB"},
     {"id":7,
@@ -67,7 +67,7 @@
      "sensorName":"MTempLB",
      "label":"Temperature",
      "unit":"°C",
-     "luaExp":"P2(0,300)"
+     "luaExp":"P2(0,400)"
     }
 ]
 
