@@ -1,6 +1,6 @@
 {"Probes":
 [
-{"Green":0,"Yellow":50,"Name":"T1","Red":100},
+{"Green":40,"Yellow":50,"Name":"T1","Red":100},
 {"Green":0,"Yellow":50,"Name":"T2","Red":100},
 {"Green":0,"Yellow":50,"Name":"T3","Red":100},
 {"Green":0,"Yellow":50,"Name":"T4","Red":100},

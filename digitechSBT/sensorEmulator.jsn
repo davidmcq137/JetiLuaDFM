@@ -42,7 +42,7 @@
      "sensorName": "SB-TEMP",
      "luaExp":"P1(100)",
      "label": "T1",
-     "unit": "°C"
+     "unit": "°F"
     },
     {"id":16819270,
      "param": 2,

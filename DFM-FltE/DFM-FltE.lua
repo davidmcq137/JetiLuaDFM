@@ -1378,6 +1378,7 @@ local function loop()
    local uuu
    local round_spd
    local swi, swc, sws, swn
+   local sensor
    
    if not appStartTime then appStartTime = system.getTimeCounter() end
 

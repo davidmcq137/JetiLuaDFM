@@ -44,7 +44,7 @@
 local appShort   = "SB-Temp"
 local appName    = "SB-Temp Display"
 local appAuthor  = "DFM"
-local appVersion = "1.01"
+local appVersion = "1.02"
 local appDir = "Apps/digitechSBT/"
 local transFile  = appDir .. "Trans.jsn"
 local pcallOK, emulator
@@ -97,6 +97,7 @@ local function readSensors()
    local sensorNumber
    local saveLabel
    local ii = 0
+
    
    sensors = system.getSensors()
    --print("sensors:", sensors)
@@ -159,14 +160,24 @@ local function drawHistogram(label, min, mid, max, temp, unit, ox, oy)
    local color={}
    local hgt
    
-   if temp <= mid then
-      color.r=255*(temp-min)/(mid-min)
-      color.g=255
-      color.b=0
+   if temp < min then
+      color.r = 0
+      color.g = 0
+      color.b = 255
    else
-      color.r=255
-      color.g=255*(1-(temp-mid)/(max-mid))
-      color.b=0
+      if temp <= mid then
+	 color.r=255*(temp-min)/(mid-min)
+	 color.g=255
+	 color.b=0
+      elseif temp < max then
+	 color.r=255
+	 color.g=255*(1-(temp-mid)/(max-mid))
+	 color.b=0
+      else
+	 color.r = 255
+	 color.g = 0
+	 color.b = 0
+      end
    end
    
    drawTextCenter(FONT_MINI, label, ox+15, oy+0)
@@ -207,15 +218,25 @@ local function drawGauge(label, min, mid, max, tmp, unit, ox, oy)
    local temp
 
    temp = tmp or min
-   
-   if temp <= mid then
-      color.r=255*(temp-min)/(mid-min)
-      color.g=255
-      color.b=0
+
+   if temp < min then
+      color.r = 0
+      color.g = 0
+      color.b = 255
    else
-      color.r=255
-      color.g=255*(1-(temp-mid)/(max-mid))
-      color.b=0
+      if temp <= mid then
+	 color.r=255*(temp-min)/(mid-min)
+	 color.g=255
+	 color.b=0
+      elseif temp <= max then
+	 color.r=255
+	 color.g=255*(1-(temp-mid)/(max-mid))
+	 color.b=0
+      else
+	 color.r = 255
+	 color.g = 0
+	 color.b = 0
+      end
    end
 
    if not unit then
@@ -363,7 +384,7 @@ local function keyPressed(key)
 end
 
 local function initForm(subForm)
-   SForm = subForm
+   local SForm = subForm
    if subForm == 1 then
       form.setTitle(appName)
       form.setButton(1, "Reset", ENABLED)
@@ -432,20 +453,26 @@ local function loop()
    local greenMsg = "All temperatures in the green"
    local redMsg   = "Over temperature sensor number"
    local fn
-   
+   local degF = string.sub("°F", 2, 3) -- convert unicode to utf-8
+
    for k,v in pairs(SBT_Telem) do
       if v.SeId and v.SeId ~= 0 then
 	 sensor = system.getSensorByID(v.SeId, v.SePa)
       end
       if sensor and sensor.valid then
-	 v.value = sensor.value
+	 if sensor.unit == degF then
+	    v.value = 32 + (9.0/5.0) * sensor.value
+	 else -- assume degC if not deg F
+	    v.value = sensor.value
+	 end
       end
    end
 
    green = 0
    for k = 1, #screenConfig.Probes do
       kk = "T"..k
-      if SBT_Telem[kk].value >= screenConfig.Probes[k].Green then
+      if (SBT_Telem[kk].value >= screenConfig.Probes[k].Green) and
+      (SBT_Telem[kk].value < screenConfig.Probes[k].Yellow) then
 	 green = green + 1
       end
       if SBT_Telem[kk].value >= screenConfig.Probes[k].Red then
@@ -532,6 +559,7 @@ local function teleImage()
    local text
    local fontSize, textSize
    local sensor, val
+   local kk
    
    lcd.drawImage( (310-backGndImage.width)/2+2+60, 10, backGndImage)
 
@@ -578,8 +606,8 @@ local function teleImage()
       -- coord system for xp, yp is native screen coords,
       -- relative to top left corner of screen
 
-      fh = lcd.getTextHeight(fontSize)
-      fw = lcd.getTextWidth(fontSize, screenConfig.Probes[k].Name)
+      local fh = lcd.getTextHeight(fontSize)
+      local fw = lcd.getTextWidth(fontSize, screenConfig.Probes[k].Name)
       xp = x - fw/2
       yp = y - fh/2
       lcd.setColor(255,255,255)
@@ -609,28 +637,31 @@ local function teleImage()
    -- If so, check for value id and parameter from readSensors()
    -- Then get value and see if valid
 
-   for ig = 1, #screenConfig.Gauges do
-      val = nil
-      if screenConfig.Gauges[ig].Sensor then
-	 if idNonTemp[screenConfig.Gauges[ig].Sensor] and
-	 paramNonTemp[screenConfig.Gauges[ig].Sensor] then
-	    sensor = system.getSensorByID(idNonTemp[screenConfig.Gauges[ig].Sensor],
-					  paramNonTemp[screenConfig.Gauges[ig].Sensor])
-	    if sensor and sensor.valid then
-	       val = sensor.value
+   if screenConfig.Gauges then
+      for ig = 1, #screenConfig.Gauges do
+	 val = nil
+	 if screenConfig.Gauges[ig].Sensor then
+	    if idNonTemp[screenConfig.Gauges[ig].Sensor] and
+	    paramNonTemp[screenConfig.Gauges[ig].Sensor] then
+	       sensor = system.getSensorByID(idNonTemp[screenConfig.Gauges[ig].Sensor],
+					     paramNonTemp[screenConfig.Gauges[ig].Sensor])
+	       if sensor and sensor.valid then
+		  val = sensor.value
+	       end
 	    end
 	 end
+	 
+	 drawGauge(screenConfig.Gauges[ig].Name,
+		   screenConfig.Gauges[ig].Min,
+		   screenConfig.Gauges[ig].Max, -- no mid, just put max
+		   screenConfig.Gauges[ig].Max,
+		   val,  -- sensor value or nil
+		   nil,  -- signal no units to be shown
+		   screenConfig.Gauges[ig].XG,
+		   screenConfig.Gauges[ig].YG)		
       end
-      
-      drawGauge(screenConfig.Gauges[ig].Name,
-		screenConfig.Gauges[ig].Min,
-		screenConfig.Gauges[ig].Max, -- no mid, just put max
-		screenConfig.Gauges[ig].Max,
-		val,  -- sensor value or nil
-		nil,  -- signal no units to be shown
-		screenConfig.Gauges[ig].XG,
-		screenConfig.Gauges[ig].YG)		
    end
+   
    
 end
 
