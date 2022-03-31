@@ -292,7 +292,7 @@ local function loop()
     status,result = pcall(chunk)
     result = result or ""
     if status and resultIdx and result ~= "" then
-       --print("v1, v2, result: "..value1 .. "," .. value2 .. ", " .. result)
+       print("v1, v2, result: "..value1 .. "," .. value2 .. ", " .. result)
        if result >= -1.0 and result <= 1.0 then
 	  system.setControl(resultIdx, result, 0)
        end

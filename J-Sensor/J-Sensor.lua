@@ -42,45 +42,36 @@ local sensorsAvailable = {}
 local value1, value2
 local condition  = ""
 local conditionChanged=false
-local fAvailable = {"p1","p2","*","/","+","-","(",")",".","0","1","2","3","4","5","6","7","8","9","sin(","cos(","rad("}
+local fAvailable = {
+   "t1", "t2",
+   "*","/","+","-","(",")",
+   ">", "<", ">=", "<=", "==",
+   ".","0","1","2","3","4","5","6","7","8","9",
+   "abs(", "sin(","cos(","rad(", "step(", "box(", "sp(", ","
+}
 local fIndex = 1
 local result = ""
 local currentForm=1
 local linkIdx=0
 local resultIdx
-
-local lang
-
---------------------------------------------------------------------
--- Configure language settings
---------------------------------------------------------------------
-local function setLanguage()
-  -- Set language
-  local lng=system.getLocale();
-  local file = io.readall("Apps/V-Sensor/locale.jsn")
-  local obj = json.decode(file)  
-  if(obj) then
-    lang = obj[lng] or obj[obj.default]
-  end
-end
+local controlValue
 
 local function updateValues()
-  local sensorData
-  if(sensor1Id and param1Id) then
-    sensorData = system.getSensorByID(sensor1Id,param1Id)
-    if(sensorData and sensorData.valid) then
-      value1 =  sensorData.value
-    end   
-  end  
-  if(sensor2Id and param2Id) then
-    sensorData = system.getSensorByID(sensor2Id,param2Id)  
-    if(sensorData and sensorData.valid) then
-      value2 =  sensorData.value
-    end 
-  end 
+   local sensorData
+   if(sensor1Id and param1Id) then
+      sensorData = system.getSensorByID(sensor1Id,param1Id)
+      if(sensorData and sensorData.valid) then
+	 value1 =  sensorData.value
+      end   
+   end  
+   if(sensor2Id and param2Id) then
+      sensorData = system.getSensorByID(sensor2Id,param2Id)  
+      if(sensorData and sensorData.valid) then
+	 value2 =  sensorData.value
+      end 
+   end
 end
 
---------------------------------------------------------------------
 local function sensor1Changed(value)
   if value>0 then
     sensor1Id=sensorsAvailable[value].id
@@ -107,16 +98,12 @@ local function unitChanged(value)
    system.pSave("unit",value)      
 end
 
-
- 
---------------------------------------------------------------------
-
 local function initForm(formID)
   currentForm=formID
   fIndex = 1
   sensorsAvailable = {}
   if(currentForm == 1) then
-    local available = system.getSensors();
+    local available = system.getSensors()
     local list={}
     local cur1Index,cur2Index = -1, -1 
     for index,sensor in ipairs(available) do 
@@ -136,20 +123,20 @@ local function initForm(formID)
       end 
     end 
     form.addRow(2)
-    form.addLabel({label=lang.selectSensor.." 1",width=130})
+    form.addLabel({label="Select sensor".." 1",width=130})
     form.addSelectbox (list, cur1Index,true,sensor1Changed,{width=180})
     form.addRow(2)
-    form.addLabel({label=lang.selectSensor.." 2",width=130})
+    form.addLabel({label="Select sensor".." 2",width=130})
     form.addSelectbox (list, cur2Index,true,sensor2Changed,{width=180})
     form.addRow(2)
-    form.addLabel({label=lang.sName,width=130})
+    form.addLabel({label="Sensor name",width=130})
     form.addTextbox (paramName, 14,textChanged,{width=180})
     form.addRow(2)
-    form.addLabel({label=lang.sUnit,width=130})
+    form.addLabel({label="Sensor unit",width=130})
     form.addTextbox (paramUnit, 4,unitChanged,{width=180})
     
     form.addSpacer(300,8)
-    form.addLink((function() form.reinit(2);form.waitForRelease() end),{label=string.format("%s = %s >>",lang.res,condition),font=FONT_BOLD})
+    form.addLink((function() form.reinit(2);form.waitForRelease() end),{label=string.format("%s = %s >>","Result",condition),font=FONT_BOLD})
     form.setButton(4,":tools",ENABLED)
   else -- Form 2
     form.setButton(4,":backspace",ENABLED)  
@@ -157,7 +144,8 @@ local function initForm(formID)
 end  
 
 local function keyPressed(key)
-  if currentForm == 1 then
+
+   if currentForm == 1 then
     if(key == KEY_4) then 
       form.reinit(2)
     elseif(key == KEY_ESC or key == KEY_5) then
@@ -187,12 +175,13 @@ local function keyPressed(key)
       form.reinit(1)
       form.preventDefault()                         
     end
-  end
+   end
+
 end  
 
 local function formattedResult()
   if  type(result)=="number" then
-    return string.format("%.1f %s",result,paramUnit)
+    return string.format("%.2f %s",result,paramUnit)
   else
     return result or ""
   end    
@@ -217,22 +206,91 @@ local function printForm()
   
 end  
 
-
---------------------------------------------------------------------
 local function printTelemetry(width, height)
-  -- Print current telemetry
-  --lcd.setColor(lcd.getFgColor())
-  local font = height > 40 and FONT_MAXI or FONT_BIG
-  local r = formattedResult()
-  lcd.drawText(width-10-lcd.getTextWidth(font,r),(height-lcd.getTextHeight(font))/2,r,font) 
-  
-  
- 
-  
-end 
- 
+   -- Print current telemetry
+   --lcd.setColor(lcd.getFgColor())
+   local r = paramName or ""
+   r = r .. ": " .. formattedResult()
+   local font = height > 40 and FONT_MAXI or FONT_BIG
+   if lcd.getTextWidth(font,r) > width then
+      font = FONT_BIG
+   end
+   lcd.drawText(width/2-lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.15,r,font) 
 
---------------------------------------------------------------------
+   r = "J01: "
+   if controlValue then
+      r = r .. string.format("%.2f", controlValue)
+   else
+      r = r .. "---"
+   end
+   font = FONT_BOLD
+   lcd.drawText(width/2-lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.8,r,font)
+   
+end 
+
+local function propCtlP(t, min, max)
+   -- if min and max defined, then range is min to max
+   -- if min only defined, then range is 0 to min
+   -- if no min and no max then -1 to 1
+   local st = tostring(math.floor(t))
+   if min and max then
+      return min + (max - min) * (1 + system.getInputs("P"..st)) / 2
+   elseif min then
+      return min*(system.getInputs("P"..st) + 1)/2
+   else
+      return system.getInputs("P"..st)
+   end
+end
+
+local env = {
+  p1 = 0,
+  p2 = 0,
+  abs =  math.abs,
+  sin =  math.sin, 
+  cos =  math.cos, 
+  rad =  math.rad,
+  step = (function(a1,a2,a3) if math.abs(a1-a2) <= math.abs(a3) then return 0 else return (a1-a2) / math.abs(a1-a2) end end),
+  box = (function(a1,a2,a3) if math.abs(a1-a2) <= math.abs(a3) then return 0 else return 1 end end),
+  sp = (function(a1,a2,a3) return propCtlP(a1, a2, a3) end)
+} 
+
+local chunk,err, status
+
+local function loop() 
+  updateValues()  
+  env.t1 = value1 or 0 
+  env.t2 = value2 or 0 
+
+  if conditionChanged == true then
+    chunk, err = load("return "..condition,"","t",env)
+    conditionChanged = false
+  end
+  if (chunk) then
+     status,result = pcall(chunk)
+     if type(result) == "number" or type(result) == "boolean" then
+	if result == false then result = 0 end
+	if result == true then result = 1 end
+	result = result or ""
+	--print("status, result" .. "s:"..tostring(status).." , r:".. result, env.t1, env.t2)
+	if status and resultIdx and result ~= "" then
+	   if result >= -1.0 and result <= 1.0 then
+	      if system.setControl(resultIdx, result, 0) then
+		 controlValue = result
+	      end
+	   end
+	end
+     else
+	result = "N/A"
+     end
+     
+     --if not status then print(result) end
+  else
+     result = "N/A"
+  end
+end
+
+
+
 -- Init function
 local function init()
   sensor1Id = system.pLoad("sensor1")
@@ -243,68 +301,36 @@ local function init()
   conditionChanged = true
   paramName = system.pLoad("name","")
   paramUnit = system.pLoad("unit","")
-  system.registerForm(1,MENU_TELEMETRY,lang.appName,initForm,keyPressed,printForm);
-  system.registerTelemetry(1,lang.appName..": "..paramName,0,printTelemetry); 
+
+  --setLanguage()
+
+  system.registerForm(1,MENU_APPS,"J-Sensor",initForm,keyPressed,printForm);
+  system.registerTelemetry(1,"J-Sensor"..": "..paramName,0,printTelemetry); 
   if(system.getVersion() < "4.26") then return end
   system.registerLogVariable(paramName,paramUnit,(function(index) 
-    return type(result)=="number" and  result*10  or nil, 1   
+				   return type(result)=="number" and  result*10  or nil, 1   
   end))
 
   resultIdx = nil
   for i=1,10,1 do
-     resultIdx = system.registerControl(i, "V-Sensor Ctrl", "V01")
+     resultIdx = system.registerControl(i, "J-Sensor Ctrl", "J01")
      if resultIdx then
-	print("Control V01 set to control " .. resultIdx)
+	print("J01 " .. resultIdx)
 	break
      end
   end
 
   if not resultIdx then
-     print("Could not set result control V01")
+     print("J01 error")
   end
+  
+  system.getSensors()
+
+  print("memory:", collectgarbage("count"))
   
 end
 
 
-  
-
 --------------------------------------------------------------------
--- Variables for the Loop function
-local env = {
-  p1 = 0,
-  p2 = 0,
-  sin = math.sin, 
-  cos = math.cos, 
-  rad = math.rad
-} 
-local chunk,err, status
--- Loop function
-local function loop() 
-  updateValues() 
-  env.p1 = value1 or 0 
-  env.p2 = value2 or 0 
-  
-  if conditionChanged == true then
-    chunk, err = load("return "..condition,"","t",env)
-    conditionChanged = false
-  end
-  if(chunk) then
-    status,result = pcall(chunk)
-    result = result or ""
-    if status and resultIdx and result ~= "" then
-       --print("v1, v2, result: "..value1 .. "," .. value2 .. ", " .. result)
-       if result >= -1.0 and result <= 1.0 then
-	  system.setControl(resultIdx, result, 0)
-       end
-    end
-    
-    --if not status then print(result) end
-  else
-    result = "N/A"
-  end
-end
- 
 
---------------------------------------------------------------------
-setLanguage()
-return { init=init, loop=loop, author="JETI model", version="1.00",name=lang.appName}
+return { init=init, loop=loop, author="JETI model", version="1.01",name="J-Sensor"}

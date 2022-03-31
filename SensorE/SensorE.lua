@@ -866,13 +866,17 @@ local function init()
    system.registerTelemetry(2, appName.." Variables", 4, varPrint)
    system.registerForm(1, MENU_APPS, "Sensor Emulator", initForm, nil, nil)
    
-   emulator_init()
+   --emulator_init()
    
 end
 
 
 local function loop()
-   if appVersion ~= "1.00" then print("ERROR!!!!!") end
+   if appVersion ~= "1.00" then
+      --print("ERROR!!!!!") -- WTF??
+   end
 end
+
+emulator_init()
 
 return {init=init, loop=loop, author=appAuthor, version=appVersion, name=appName}
