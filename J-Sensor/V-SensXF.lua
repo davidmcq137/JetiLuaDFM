@@ -31,6 +31,7 @@
 -- # V1.0 - Initial release from Jeti
 -- # V1.1 - DFM 03/28/22 modified to add a lua control that tracks result and added some
 -- #                     additional utility functions
+-- # V1.2 - DFM 03/31/22 changing name to V-SensXF
 -- #
 -- #############################################################################
 
@@ -48,7 +49,7 @@ local fAvailable = {
    "*","/","+","-","(",")",
    ">", "<", ">=", "<=", "==","~=",
    ".","0","1","2","3","4","5","6","7","8","9",
-   "abs(", "sin(","cos(","rad(", "step(", "box(", "pc(", ","
+   "abs(", "sin(","cos(","atan(", "rad(", "step(", "box(", "pc(", ","
 }
 local fIndex = 1
 local result = ""
@@ -267,6 +268,7 @@ local env = {
   sin =  math.sin, 
   cos =  math.cos, 
   rad =  math.rad,
+  atan = math.atan,
   step = (function(a1,a2,a3) if math.abs(a1-a2) <= math.abs(a3) then return 0 else return (a1-a2) / math.abs(a1-a2) end end),
   box = (function(a1,a2,a3) if math.abs(a1-a2) <= math.abs(a3) then return 0 else return 1 end end),
   pc = (function(a1,a2,a3) return propCtlP(a1, a2, a3) end)
@@ -351,4 +353,4 @@ end
 
 --------------------------------------------------------------------
 
-return { init=init, loop=loop, author="JETI model", version="1.01",name="J-Sensor"}
+return { init=init, loop=loop, author="JETI model", version="1.2",name="V-SensXF"}

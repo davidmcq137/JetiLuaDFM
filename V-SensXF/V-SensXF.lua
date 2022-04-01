@@ -31,11 +31,12 @@
 -- # V1.0 - Initial release from Jeti
 -- # V1.1 - DFM 03/28/22 modified to add a lua control that tracks result and added some
 -- #                     additional utility functions
+-- # V1.2 - DFM 03/31/22 changing name to V-SensXF
 -- #
 -- #############################################################################
 
 
---------------------------------------------------------------------  
+--------------------------------------------------------------------
 local sensor1Id, param1Id
 local sensor2Id, param2Id
 local paramName, paramUnit
@@ -45,10 +46,10 @@ local condition  = ""
 local conditionChanged=false
 local fAvailable = {
    "t1", "t2",
-   "*","/","+","-","(",")",
+   "*","/","+","-","(",
    ">", "<", ">=", "<=", "==","~=",
-   ".","0","1","2","3","4","5","6","7","8","9",
-   "abs(", "sin(","cos(","rad(", "step(", "box(", "pc(", ","
+   "0","1","2","3","4","5","6","7","8","9",
+   "abs(","sin(","cos(","atan(","rad(","deg(","step(","box(","pc("
 }
 local fIndex = 1
 local result = ""
@@ -124,10 +125,10 @@ local function initForm(formID)
       end 
     end 
     form.addRow(2)
-    form.addLabel({label="Telemetry sensor 1 (t1)",width=130})
+    form.addLabel({label="Tele sensor 1 (t1)",width=130})
     form.addSelectbox (list, cur1Index,true,sensor1Changed,{width=180})
     form.addRow(2)
-    form.addLabel({label="Telemetry sensor 2 (t2)",width=130})
+    form.addLabel({label="Tele sensor 2 (t2)",width=130})
     form.addSelectbox (list, cur2Index,true,sensor2Changed,{width=180})
     form.addRow(2)
     form.addLabel({label="Result name",width=130})
@@ -235,7 +236,7 @@ local function printTelemetry(width, height)
    lcd.drawText(width/2-lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.15,r,font) 
 
    if height > 40 then
-      r = "J01: "
+      r = "X01: "
       if controlValue then
 	 r = r .. string.format("%.2f", controlValue)
       else
@@ -267,6 +268,8 @@ local env = {
   sin =  math.sin, 
   cos =  math.cos, 
   rad =  math.rad,
+  deg =  math.deg,
+  atan = math.atan,
   step = (function(a1,a2,a3) if math.abs(a1-a2) <= math.abs(a3) then return 0 else return (a1-a2) / math.abs(a1-a2) end end),
   box = (function(a1,a2,a3) if math.abs(a1-a2) <= math.abs(a3) then return 0 else return 1 end end),
   pc = (function(a1,a2,a3) return propCtlP(a1, a2, a3) end)
@@ -280,8 +283,13 @@ local function loop()
   env.t2 = value2 or 0 
 
   if conditionChanged == true then
-    chunk, err = load("return "..condition,"","t",env)
-    conditionChanged = false
+     chunk, err = load("return "..condition,"","t",env)
+     if err then
+	print("Result expression error: " .. string.sub(err, 15))
+     else
+	print("Result expression valid")
+     end
+     conditionChanged = false
   end
   if (chunk) then
      status,result = pcall(chunk)
@@ -351,4 +359,4 @@ end
 
 --------------------------------------------------------------------
 
-return { init=init, loop=loop, author="JETI model", version="1.01",name="J-Sensor"}
+return { init=init, loop=loop, author="JETI model", version="1.2",name="V-SensXF"}
