@@ -1,0 +1,32 @@
+[
+    {
+	"name": "GRatio",
+	"exp": "(Speed^2 - Vario^2) > 0 and math.sqrt(Speed^2 - Vario^2) / Vario or Speed / Vario",
+	"unit": ""
+    },
+    {
+	"name": "Power",
+	"exp": "Volts * Current",
+	"unit": "W"
+    },
+    {
+	"name": "Power",
+	"exp": "Volts * Current / 1000",
+	"unit": "kW"
+    },
+    {
+	"name": "NoFlyOut",
+	"exp": "gpsd(1) > RadiusO and abs(Bearing-gpsb(1)) > 90",
+	"unit": ""
+    },
+    {
+	"name": "NoFlyIn2",
+	"exp": "abs(gpsd(2) <= RadiusI2",
+	"unit":""
+    },
+    {
+	"name": "NoFlyIn3",
+	"exp": "abs(gpsd(3) <= RadiusI3",
+	"unit":""
+    }
+]

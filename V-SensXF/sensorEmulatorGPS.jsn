@@ -1,0 +1,11 @@
+{
+    "lat0": 41.339975,
+    "lon0": -74.430895,
+    "rE":6378137,
+    "trueDir": 73,
+    "startTime": 30,
+    "yString":"P7(50,450)*math.cos(math.pi/(2*3))*math.cos(0.5*((-t/6) + (math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1))) - P7(25,225)*math.cos((math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1)) + 1*P7(50/6, 450/6) + 0*t",
+    
+    "xString":"P6(50,700)*math.cos(math.pi/(2*3))*math.sin(0.5*((-t/6) + (math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1))) - P6(25,350)*math.sin((math.pi/3) *(2*math.floor((-3*t/6)/(2*math.pi))+1)) + 0*t"
+
+}
