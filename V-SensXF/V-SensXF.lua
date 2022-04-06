@@ -46,6 +46,8 @@ local resultUnit = {}
 local resultUnitDisp = {}
 local sensorsAvailable = {}
 local sensorsAvailableGPS = {}
+local highTele = {}
+local lowTele = {}
 local latIndex
 local lngIndex
 local latID, latParam
@@ -133,21 +135,42 @@ local function updateValues()
    end
 end
    
-local function formattedResult(idx)
+local function formattedResult(idx, u)
    if  type(result[idx])=="number" then
-      return string.format("%.2f %s",result[idx],(resultUnitDisp[idx] or ""))
+      if u then
+	 return string.format("%.2f",result[idx])
+      else
+	 return string.format("%.2f %s",result[idx],(resultUnitDisp[idx] or ""))
+      end
+      
   else
-     return result[idx] or ""
+     return ""
   end    
 end
 
 local function printTelemetry(width, height, idx)
-   local r = formattedResult(idx)
+   local r  = result[idx]
+   local rf = formattedResult(idx, 0)
    local font = height > 40 and FONT_MAXI or FONT_BIG
-   if lcd.getTextWidth(font,r) > width then
-      font = FONT_BIG
+
+   
+   if r then
+      if lowTele[idx] then
+	 if r < lowTele[idx] then lowTele[idx] = r end
+      else
+	 lowTele[idx] = r
+      end
    end
-   lcd.drawText(width/2-lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.15,r,font) 
+   if r then
+      if highTele[idx] then
+	 if r > highTele[idx] then highTele[idx] = r end
+      else
+	 highTele[idx] = r
+      end
+   end
+   
+   lcd.drawText(width/2-lcd.getTextWidth(font,rf)/2,(height-lcd.getTextHeight(font))*0.02,rf,font)
+   
    if height > 40 then
       r = "V"..string.format("%02d", idx)..": "
       if controlValue[idx] then
@@ -156,7 +179,18 @@ local function printTelemetry(width, height, idx)
 	 r = r .. "---"
       end
       font = FONT_BOLD
-      lcd.drawText(width/2-lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.8,r,font)
+      lcd.drawText(width/2-lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.68,r,font)
+
+      font = FONT_MINI
+      if lowTele[idx] and highTele[idx] then
+	 r = string.format("%.2f .. %.2f%s", lowTele[idx], highTele[idx],(resultUnitDisp[idx] or "%"))
+      else
+	 r = "---"
+      end
+
+      lcd.drawText(width/2 - lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.95,r,font)
+      lcd.drawImage(5, height*0.75, ":graph")
+      
    end
 end 
 
@@ -342,7 +376,7 @@ local function initForm(formID)
 	  sensorVarName[k] = "t"..k
 	  print("$$$", #sensorId, k, sensorId[k])
        end
-       form.addTextbox(sensorVarName[k], 6, (function(x) return sensorVarNameChanged(x,k) end))
+       form.addTextbox(sensorVarName[k], 8, (function(x) return sensorVarNameChanged(x,k) end))
        form.addSelectbox(list,curIndex[k],true,(function(x) return sensorChanged(x,k) end),{width=180})
     end
     form.setButton(2, ":add", ENABLED)
@@ -475,6 +509,11 @@ local function initForm(formID)
 		  "sign(", "step(","box(","gpsd(", "gpsb(", "pc("
      }
 
+     -- rebuilt the expression element string from the
+     -- latest info
+     
+     fAvailable = {}
+     
      for k in ipairs(sensorId) do
 	fAvailable[k] = sensorVarName[k]
      end
@@ -487,6 +526,10 @@ local function initForm(formID)
 	if variableValue[k] then
 	   table.insert(fAvailable, variableName[k])
 	end
+     end
+     
+     for k in ipairs(condition) do
+	table.insert(fAvailable, resultName[k])
      end
      
      form.setButton(4,":backspace",ENABLED)  
@@ -510,13 +553,13 @@ local function keyPressed(key)
 	 recomputeCond() --recompute everyting to be safe 
 	 form.reinit(2)
       elseif key == KEY_3 then -- reset .. remove all variables
+	 env = nil -- will recompute
 	 sensorId = {}
 	 paramId = {}
 	 sensorVarName = {}
 	 system.pSave("sensorId", sensorId)
 	 system.pSave("paramId", paramId)
 	 system.pSave("sensorVarName", sensorVarName)
-	 env = nil
 	 recomputeCond()
 	 form.reinit(2)
       elseif key == KEY_ESC or key == KEY_5 then
@@ -547,6 +590,7 @@ local function keyPressed(key)
 	 recomputeCond()
 	 form.reinit(3)
       elseif key == KEY_3 then -- reset
+	 env = nil -- will recompute
 	 unregCTL()
 	 resultName = {}
 	 resultUnit = {}
@@ -573,6 +617,7 @@ local function keyPressed(key)
 	 system.pSave("selectedGPS", selectedGPS)
 	 form.reinit(5)
       elseif key == KEY_3 then
+	 env = nil -- will recompute
 	 selectedGPS = {}
 	 system.pSave("selectedGPS", selectedGPS)
 	 gpsReads = 0
@@ -649,7 +694,7 @@ local function printForm()
 	 if i == fIndex[condIdx] then font = FONT_BIG else font = FONT_NORMAL end
 	 wid = lcd.getTextWidth(font, fAvailable[i])
 	 lcd.drawText(x-wid/2,70 - lcd.getTextHeight(font)/2,fAvailable[i],font)
-	 x = x + 42 + wid/3 -- empirical, especially the /3
+	 x = x + 36 + wid*.65 -- empirical
       end
    end
 end  
@@ -669,6 +714,8 @@ local function propCtlP(t, min, max)
 end
 
 local err, status
+
+local lastT
 
 local function loop() 
    
@@ -736,6 +783,12 @@ local function loop()
    end
 
    for k in ipairs(condition) do
+      if type(result[k]) == "number" then
+	 env[resultName[k]] = result[k]
+      end
+   end
+   
+   for k in ipairs(condition) do
       if (chunk[k]) then
 	 status,result[k] = pcall(chunk[k])
 	 if type(result[k]) == "number" or type(result[k]) == "boolean" then
@@ -756,6 +809,12 @@ local function loop()
 	 result[k] = "N/C"
       end
    end
+   --[[
+   if system.getTime() ~= lastT then
+      print(system.getCPU())
+      lastT = system.getTime()
+   end
+   --]]
 end
 
 local function init()

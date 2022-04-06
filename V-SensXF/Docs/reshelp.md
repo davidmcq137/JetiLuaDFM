@@ -52,3 +52,7 @@ You can edit the file Exp.jsn to add up to six pre-defined equations along with
     	    used in the pre-defined equations. You will be changing the default
     	    names for example t1, t2 to the variable names used in the Exp.jsn
     	    file (for example Volts, Current for the Watts expression).
+
+**Please note that variable names are case sensitive .. so be sure to match the
+    	    telemetry variable names exactly as you see them in the
+    	    expression.**
