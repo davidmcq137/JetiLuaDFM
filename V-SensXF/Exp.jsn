@@ -21,12 +21,12 @@
     },
     {
 	"name": "noflyin2",
-	"exp": "abs(gpsd(2) <= radiusi2",
+	"exp": "abs(gpsd(2)) <= radiusi2",
 	"unit":""
     },
     {
 	"name": "noflyin3",
-	"exp": "abs(gpsd(3) <= radiusi3",
+	"exp": "abs(gpsd(3)) <= radiusi3",
 	"unit":""
-    }
+    }    
 ]

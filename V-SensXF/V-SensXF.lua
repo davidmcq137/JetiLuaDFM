@@ -73,14 +73,18 @@ local unitChars = {[".p"]="%%", [".o"]="°"}
 local expTbl = {}
 local variableName = {}
 local variableValue = {}
+local luaCtlMax
+local logFileMax
+local fw5 = "Firmware >= 5.0 required for GPS"
 
--- for testing on the old (4.26) version of the DS-16
+-- for testing on the old (4.28) version of the DS-16
 ---[[
 if not gps then
    gps = {}
    function gps.newPoint() return 0 end
    function gps.getDistance() return 0 end
    function gps.getBearing() return 0 end
+   function gps.getValue() return 0 end
 end
 --]]
    
@@ -144,7 +148,7 @@ local function formattedResult(idx, u)
       end
       
   else
-     return ""
+     return "N/A"
   end    
 end
 
@@ -153,15 +157,16 @@ local function printTelemetry(width, height, idx)
    local rf = formattedResult(idx, 0)
    local font = height > 40 and FONT_MAXI or FONT_BIG
 
+   --if type(r) ~= "number" then print("r not number", r) end
    
-   if r then
+   if r and type(r) == "number" then
       if lowTele[idx] then
 	 if r < lowTele[idx] then lowTele[idx] = r end
       else
 	 lowTele[idx] = r
       end
    end
-   if r then
+   if r and type(r) == "number" then
       if highTele[idx] then
 	 if r > highTele[idx] then highTele[idx] = r end
       else
@@ -189,15 +194,17 @@ local function printTelemetry(width, height, idx)
       end
 
       lcd.drawText(width/2 - lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.95,r,font)
-      lcd.drawImage(5, height*0.75, ":graph")
-      
+      if luaCtlMax > 4 then -- looks awful on mono devices
+	 lcd.drawImage(5, height*0.75, ":graph")
+      end
    end
 end 
 
 local function regControl(num, name)
    local idx = 0
    local ctl = "V"..string.format("%02d", num)
-   for i=1,10,1 do
+   local imax
+   for i=1,luaCtlMax,1 do
       idx = system.registerControl(num, "V-SensXF " .. name, ctl)
       if idx then
 	 print(ctl .. " "..idx .." "..name)
@@ -208,35 +215,40 @@ local function regControl(num, name)
 end
 
 local function regCTL(k)
-   if k <= 10 then
+   if k <= luaCtlMax then
       resultIdx[k] = regControl(k, resultName[k])
    end
    if k <= 2 then
       local rN
+      system.unregisterTelemetry(k)
       if resultName[k] == "" then rN = tostring(k) else rN = resultName[k] end
       system.registerTelemetry(k,"V-SensXF "..rN, 0,
 			       (function(x,y) return printTelemetry(x,y,k) end))
    end
-   logVariableID[k] = system.registerLogVariable(
-      resultName[k], resultUnit[k],
-      (function(index) return type(result[index]) == "number" and result[index] *100 or nil end),
-      2
-   )
-   if not logVariableID[k] then logVariableID[k] = 0 end
+   if k <= logFileMax then
+      logVariableID[k] = system.registerLogVariable(
+	 resultName[k], resultUnit[k],
+	 (function(index) return type(result[index]) == "number" and result[index] *100 or nil end),
+	 2
+      )
+      if not logVariableID[k] then logVariableID[k] = 0 end
+   end
 end
 
 local function unregCTL()
    for k in ipairs(condition) do
-      print(k, resultIdx[k], logVariableID[k])
-      if k <= 10 and resultIdx ~= 0 then
+      --print(k, resultIdx[k], logVariableID[k])
+      if k <= luaCtlMax and resultIdx ~= 0 then
 	 system.unregisterControl(resultIdx[k])
       end
       if k <= 2 then
 	 system.unregisterTelemetry(k)
       end
-      if logVariableID[k] and logVariableID[k] ~= 0 then
-	 system.unregisterLogVariable(logVariableID[k])
-	 logVariableID[k] = 0
+      if k <= logFileMax then
+	 if logVariableID[k] and logVariableID[k] ~= 0 then
+	    system.unregisterLogVariable(logVariableID[k])
+	    logVariableID[k] = 0
+	 end
       end
    end
 end
@@ -251,8 +263,9 @@ local function sensorChanged(val, idx)
 end
 
 local function variableValChanged(val, idx)
-   variableValue[idx] = tonumber(val)
+   variableValue[idx] = tonumber(val) or "N/A"
    system.pSave("variableValue", variableValue)
+   form.reinit(6)
 end
 
 local function variableNameChanged(val, idx)
@@ -270,13 +283,11 @@ local function sensorChangedGPS(val, idx)
       if idx == 1 then
 	 latID=sensorsAvailableGPS[val].id
 	 latParam=sensorsAvailableGPS[val].param
-	 print("saving lat", latID, latParam)
 	 system.pSave("latID",latID)
 	 system.pSave("latParam", latParam)
       else
 	 lngID=sensorsAvailableGPS[val].id
 	 lngParam=sensorsAvailableGPS[val].param
-	 print("saving lng", lngID, lngParam)
 	 system.pSave("lngID",lngID)
 	 system.pSave("lngParam", lngParam)
       end
@@ -316,6 +327,13 @@ local function unitChanged(val, idx)
 end
 
 local function initForm(formID)
+
+   if(tonumber(system.getVersion()) < 4.28) then
+      form.addRow(1)
+      form.addLabel({label="Requires TX firmware >= 4.28"})
+      return
+   end
+
    print("Memory used:", collectgarbage("count"))
    
    currentForm=formID
@@ -374,7 +392,7 @@ local function initForm(formID)
        form.addLabel({label=tostring(k), width=20})
        if not sensorVarName[k] then
 	  sensorVarName[k] = "t"..k
-	  print("$$$", #sensorId, k, sensorId[k])
+	  --print("$$$", #sensorId, k, sensorId[k])
        end
        form.addTextbox(sensorVarName[k], 8, (function(x) return sensorVarNameChanged(x,k) end))
        form.addSelectbox(list,curIndex[k],true,(function(x) return sensorChanged(x,k) end),{width=180})
@@ -411,40 +429,59 @@ local function initForm(formID)
      form.setButton(2, ":add", ENABLED)
      form.setButton(3, "Reset", ENABLED)
   elseif currentForm == 4 then -- gps sensors
-    local available = system.getSensors()
-    local list = {}
-    for index,sensor in ipairs(available) do 
-       if(sensor.param ~= 0) then
-	  if sensor.type and sensor.type == 9 then
-	     if sensor.sensorName and string.len(sensor.sensorName) > 0  then
-		list[#list+1]=string.format("%s - %s [%s]",sensor.sensorName,sensor.label,sensor.unit)
-	     else
-		list[#list+1]=string.format("%s [%s]",sensor.label,sensor.unit)
-	     end
-	     sensorsAvailableGPS[#sensorsAvailableGPS+1] = sensor
-	  end
-	  if(sensor.id == latID and sensor.param == latParam) then
-	     latIndex=#sensorsAvailableGPS
-	  end
-	  if(sensor.id == lngID and sensor.param == lngParam) then
-	     lngIndex=#sensorsAvailableGPS
-	  end	  
-       end 
-    end
-    
-    if not latIndex then latIndex = -1 end
-    form.addRow(2)
-    form.addLabel({label="GPS Latitude",width=160})
-    form.addSelectbox(list, latIndex,true,(function(x) return sensorChangedGPS(x,1) end),{width=180})
-    
-    if not lngIndex then lngIndex = -1 end
-    form.addRow(2)
-    form.addLabel({label="GPS Longitude",width=160})
-    form.addSelectbox(list,lngIndex,true,(function(x) return sensorChangedGPS(x,2) end),{width=180})
-    
-  elseif currentForm == 5 then
+     if(tonumber(system.getVersion()) < 5.0) then
+	form.addRow(1)
+	form.addLabel({label=fw5})
+	return
+     end
+     local available = system.getSensors()
+     local list = {}
+     for index,sensor in ipairs(available) do 
+	if(sensor.param ~= 0) then
+	   if sensor.type and sensor.type == 9 then
+	      if sensor.sensorName and string.len(sensor.sensorName) > 0  then
+		 list[#list+1]=string.format("%s - %s [%s]",sensor.sensorName,sensor.label,sensor.unit)
+	      else
+		 list[#list+1]=string.format("%s [%s]",sensor.label,sensor.unit)
+	      end
+	      sensorsAvailableGPS[#sensorsAvailableGPS+1] = sensor
+	   end
+	   if(sensor.id == latID and sensor.param == latParam) then
+	      latIndex=#sensorsAvailableGPS
+	   end
+	   if(sensor.id == lngID and sensor.param == lngParam) then
+	      lngIndex=#sensorsAvailableGPS
+	   end	  
+	end 
+     end
+     
+     if not latIndex then latIndex = -1 end
+     form.addRow(2)
+     form.addLabel({label="GPS Latitude",width=160})
+     form.addSelectbox(list, latIndex,true,(function(x) return sensorChangedGPS(x,1) end),{width=180})
+     
+     if not lngIndex then lngIndex = -1 end
+     form.addRow(2)
+     form.addLabel({label="GPS Longitude",width=160})
+     form.addSelectbox(list,lngIndex,true,(function(x) return sensorChangedGPS(x,2) end),{width=180})
+     
+  elseif currentForm == 5 then -- gps points
 
      local latN, lngN, latS, lngS
+
+     if(tonumber(system.getVersion()) < 5.0) then
+	form.addRow(1)
+	form.addLabel({label=fw5})
+	return
+     end
+
+     if #selectedGPS == 0 then
+	form.addRow(1)
+	form.addLabel({label="No GPS points defined"})
+	form.addRow(1)
+	form.addLabel({label="Press + to add points"})
+     end
+
      for k,v in ipairs(selectedGPS) do
 	if selectedGPS[k] then
 	   latN, lngN = gps.getValue(selectedGPS[k])
@@ -465,39 +502,53 @@ local function initForm(formID)
 
   elseif currentForm == 6 then
 
-  for k,v in ipairs(variableName) do
-     form.addRow(3)
-     form.addLabel({label=tostring(k),width=20})
-     form.addTextbox(variableName[k], 8,
-		     (function(x) return variableNameChanged(x,k) end),
-		     {width=120})
-     local ss = tostring(variableValue[k])
-     if ss == 'nil' then ss = "N/A" end
-     form.addTextbox(ss,8,
-		     (function(x) return variableValChanged(x, k) end),
-		     {width = 120})
-  end
-  
+     if #variableName == 0 then
+	form.addRow(1)
+	form.addLabel({label="No static variables defined"})
+	form.addRow(1)
+	form.addLabel({label="Press + to add variables"})
+     end
+
+     for k,v in ipairs(variableName) do
+	form.addRow(3)
+	form.addLabel({label=tostring(k),width=20})
+	form.addTextbox(variableName[k], 8,
+			(function(x) return variableNameChanged(x,k) end),
+			{width=120})
+	local ss = tostring(variableValue[k])
+	if ss == 'nil' then ss = "N/A" end
+	form.addTextbox(ss,8,
+			(function(x) return variableValChanged(x, k) end),
+			{width = 120})
+     end
+     form.setButton(2, ":add", ENABLED)
+     form.setButton(3, "Reset", ENABLED)
+
   elseif currentForm == 10 then
+     local jsonOK
      local ff = io.readall("Apps/V-SensXF/Exp.jsn")
      expTbl = {}
      if ff then
-	expTbl = json.decode(ff)
-	if expTbl then
-	   --for k,v in ipairs(expTbl) do
-	   --   print(k, v.name, v.exp, v.unit)
-	   --end
+	jsonOK, expTbl = pcall(json.decode, ff)
+
+	if not jsonOK then
+	   print(expTbl)
+	   form.addRow(1)
+	   form.addLabel({label="Syntax error in Exp.jsn"})
+	   form.addRow(1)
+	   form.addLabel({label="See lua console for message"})	   
+	   expTbl = {}
+	   return
 	end
      end
+     
      for k,v in ipairs(expTbl) do
 	form.addRow(4)
-	form.addLabel({label=tostring(k),width=20})
+	form.addLabel({label=tostring(k),width=25})
 	form.addLabel({label=v.name, width=80})
 	form.addLabel({label=v.exp, width=160})
 	form.addLabel({label="["..v.unit.."]", width=50})
-	if k >= 6 then break end
      end
-  
      
   elseif currentForm == 9 then -- edit expression
      local fA = { "*","/","+","-","^","(",
@@ -627,12 +678,23 @@ local function keyPressed(key)
 	 form.preventDefault()
       end
    elseif currentForm == 6 then
-      if key == KEY_5 or key == KEY_ESC then
+      if key == KEY_2 then
+	 table.insert(variableName, "v"..#variableName)
+	 table.insert(variableValue, 0)
+	 system.pSave("variableName", variableName)
+	 system.pSave("variableValue", variableValue)
+	 form.reinit(6)
+      elseif key == KEY_3 then
+	 variableName = {}
+	 variableValue = {}
+	 system.pSave("variableName", variableName)
+	 system.pSave("variableValue", variableValue)
+	 form.reinit(6)
+      elseif key == KEY_5 or key == KEY_ESC then
 	 form.reinit(1)
 	 form.preventDefault()
       end
    elseif currentForm == 9 then -- edit expression
-      if not condIdx then print("condIdx nil") end
       if(key == KEY_DOWN) then
 	 fIndex[condIdx] = fIndex[condIdx]-1
 	 if fIndex[condIdx] == 0 then fIndex[condIdx] = #fAvailable end
@@ -667,6 +729,10 @@ local function keyPressed(key)
       end
       if key == KEY_ENTER then
 	 local row = form.getFocusedRow()
+	 if #expTbl == 0 then
+	    form.reinit(9)
+	    return
+	 end
 	 condition[condIdx] = expTbl[row].exp
 	 resultName[condIdx] = expTbl[row].name
 	 resultUnit[condIdx] = expTbl[row].unit
@@ -681,6 +747,10 @@ local function printForm()
       lcd.drawText(lcd.width - 10 - lcd.getTextWidth(FONT_BIG,r),120,r, FONT_BIG)
       local len = #condition[condIdx]
       local ss = string.sub(condition[condIdx], math.max(len-30, 1), len)
+      if len > 31 then
+	 ss = "..." .. ss
+      end
+      
       lcd.drawText(10,20,ss or "",FONT_BIG) 
       local x=25
       local font, wid
@@ -819,16 +889,22 @@ end
 
 local function init()
 
-   if(tonumber(system.getVersion()) < 4.26) then
-      print("Update TX firmware > 4.26")
-      error()
-      return
-   end
+   local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI DS-14"}
 
+   luaCtlMax = 10 -- assume not mono
+   logFileMax = 24 -- ditto
+   
+   local dev = system.getDeviceType()
+
+   for k,v in ipairs(monoDev) do
+      print(k,dev,v)
+      if dev == v then luaCtlMax = 4; logFileMax = 8 break end
+   end
+   
    sensorId = system.pLoad("sensorId", {})
    paramId = system.pLoad("paramId", {})
    sensorVarName = system.pLoad("sensorVarName", {})
-   variableName = system.pLoad("variableName", {"v1", "v2", "v3", "v4", "v5", "v6"})
+   variableName = system.pLoad("variableName", {})
    variableValue = system.pLoad("variableValue", {})
 			       
    condition = system.pLoad("condition",{})
@@ -845,8 +921,6 @@ local function init()
    for k,v in ipairs(resultUnit) do
       resultUnitDisp[k] = unitGsub(v)
    end
-
-
 
    --setLanguage()
    
@@ -865,4 +939,4 @@ end
 
 --------------------------------------------------------------------
 
-return { init=init, loop=loop, author="JETI model and DFM", version="2.0",name="V-SensXF"}
+return { init=init, loop=loop, author="JETI model and DFM", version="2.3",name="V-SensXF"}
