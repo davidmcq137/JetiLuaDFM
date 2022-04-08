@@ -32,7 +32,7 @@
      "sensorName":"MGPS",
      "label":"Speed",
      "unit":"m/s",
-     "luaExp":"P8(0,200/3.6)"
+     "luaExp":"P7(0,200)"
     },
     {"id":3,
      "param":5,
@@ -86,7 +86,7 @@
      "sensorName":"MSpeed",
      "label":"Velocity",
      "unit":"m/s",
-     "luaExp":"P8(0,100)"
+     "luaExp":"P8(0,200)"
     }
     
 ]

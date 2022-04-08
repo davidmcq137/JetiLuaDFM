@@ -2,31 +2,31 @@
     {
 	"name": "gratio",
 	"exp": "(speed^2 - vario^2) > 0 and math.sqrt(speed^2 - vario^2) / vario or speed / vario",
-	"unit": ""
+	"unit": "",
+	"help":"gratio"
     },
     {
 	"name": "power",
 	"exp": "volts * amps",
-	"unit": "W"
+	"unit": "W",
+	"help":"power"
     },
     {
 	"name": "power",
 	"exp": "volts * amps / 1000",
-	"unit": "kW"
+	"unit": "kW",
+	"help": "power"
     },
     {
 	"name": "noflyout",
 	"exp": "gpsd(1) > radiuso and abs(bearing-gpsb(1)) > 90",
-	"unit": ""
+	"unit": "",
+	"help":"noflyout"
     },
     {
-	"name": "noflyin2",
+	"name": "noflyin",
 	"exp": "abs(gpsd(2)) <= radiusi2",
-	"unit":""
-    },
-    {
-	"name": "noflyin3",
-	"exp": "abs(gpsd(3)) <= radiusi3",
-	"unit":""
-    }    
+	"unit":"",
+	"help":"noflyin"
+    }
 ]
