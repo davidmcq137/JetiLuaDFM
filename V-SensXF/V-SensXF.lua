@@ -127,14 +127,14 @@ local function updateValues()
    end
    if latID and lngID and latParam and lngParam then
       ss = system.getSensorByID(latID, latParam)
-      if ss and ss.valid then
+      if ss and ss.valid and ss.valGPS then
 	 minutes = (ss.valGPS & 0xFFFF) *0.001
 	 degs = (ss.valGPS >> 16) & 0xFF
 	 lat = degs + minutes / 60.0
 	 if ss.decimals == 2 then lat = lat * -1 end
       end
       ss = system.getSensorByID(lngID, lngParam)
-      if ss and ss.valid then
+      if ss and ss.valid and ss.valGPS then
 	 minutes = (ss.valGPS & 0xFFFF) *0.001
 	 degs = (ss.valGPS >> 16) & 0xFF
 	 lng = degs + minutes / 60.0
@@ -167,17 +167,16 @@ local function formattedResult(idx, u)
       else
 	 return string.format("%.2f %s",result[idx],(resultUnitDisp[idx] or ""))
       end
-      
   else
      return lang.na
   end    
 end
 
 local function printTelemetry(width, height, idx)
-   local r  = result[idx]
 
    local font
    local rf
+   local r
    
    if height > 40 then
       font = FONT_MAXI
@@ -186,39 +185,31 @@ local function printTelemetry(width, height, idx)
       font = FONT_BIG
       rf = formattedResult(idx)
    end
-   
-   --if type(r) ~= "number" then print("r not number", r) end
-   
-   if r and type(r) == "number" then
-      if lowTele[idx] then
-	 if r < lowTele[idx] then lowTele[idx] = r end
-      else
-	 lowTele[idx] = r
-      end
-   end
-   if r and type(r) == "number" then
-      if highTele[idx] then
-	 if r > highTele[idx] then highTele[idx] = r end
-      else
-	 highTele[idx] = r
-      end
-   end
-   
+      
    lcd.drawText(width/2-lcd.getTextWidth(font,rf)/2,(height-lcd.getTextHeight(font))*0.02,rf,font)
-   
+
+   local jdx = resultControl[idx]
    if height > 40 then
-      r = "V"..string.format("%02d", idx)..": "
-      if controlValue[idx] then
-	 r = r .. string.format("%.2f", controlValue[idx])
-      else
-	 r = r .. "---"
+      if jdx and jdx > 0 then
+	 r = "V"..string.format("%02d", jdx)..": "
+	 if controlValue[idx] then
+	    r = r .. string.format("%.2f", controlValue[idx])
+	 else
+	    r = r .. "---"
+	 end
+	 font = FONT_BOLD
+	 lcd.drawText(width/2-lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.68,r,font)
       end
       font = FONT_BOLD
-      lcd.drawText(width/2-lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.68,r,font)
-
-      font = FONT_MINI
       if lowTele[idx] and highTele[idx] then
-	 r = string.format("%.2f .. %.2f %s", lowTele[idx], highTele[idx],(resultUnitDisp[idx] or "%"))
+	 local mult = 1
+	 local pre = ""
+	 if math.abs(lowTele[idx]) > 1000 or math.abs(highTele[idx]) > 1000 then
+	    mult = 0.001
+	    pre="k"
+	 end
+	 r = string.format("%.2f .. %.2f %s", lowTele[idx] * mult,
+			   highTele[idx] * mult, pre..(resultUnitDisp[idx] or ""))
       else
 	 r = "---"
       end
@@ -231,20 +222,14 @@ local function printTelemetry(width, height, idx)
 end 
 
 local function regControl(num, name)
-   local idx = 0
    local ctl = "V"..string.format("%02d", num)
-   for i=1,luaCtlMax,1 do
-      idx = system.registerControl(num, "V-SensXF " .. name, ctl)
-      if idx then
-	 print(ctl .. " "..idx .." "..name)
-	 break
-      end
-   end
+   local idx = system.registerControl(num, "V-SensXF " .. name, ctl)
+   if idx then print(ctl .. " "..idx .." "..name) end
    return idx
 end
 
 local function regC(k)
-   if k <= luaCtlMax and controlResult[k] > 0 then
+   if k <= luaCtlMax and controlResult[k] and controlResult[k] > 0 then
       resultIdx[k] = regControl(k, resultName[controlResult[k]])
    end
 end
@@ -268,8 +253,8 @@ local function regTL(k)
 end
 
 local function unregC()
-   for k in ipairs(resultIdx[k]) do
-      if k <= luaCtlMax and resultIdx ~= 0 then
+   for k in ipairs(resultIdx) do
+      if k <= luaCtlMax and resultIdx[k] ~= 0 then
 	 system.unregisterControl(resultIdx[k])
       end
    end
@@ -277,7 +262,6 @@ end
 
 local function unregTL()
    for k in ipairs(condition) do
-      --print(k, resultIdx[k], logVariableID[k])
       if k <= 2 then
 	 system.unregisterTelemetry(k)
       end
@@ -300,7 +284,7 @@ local function sensorChanged(val, idx)
 end
 
 local function variableValChanged(val, idx)
-   variableValue[idx] = tonumber(val) or "N/A"
+   variableValue[idx] = tonumber(val) or lang.na
    system.pSave("variableValue", variableValue)
    form.reinit(6)
 end
@@ -349,7 +333,6 @@ end
 local function ctlResChanged(val, idx)
    controlResult[idx] = val
    local row = form.getFocusedRow()
-   print("row:", row)
    regC(row)
    resultControl[val] = row
    system.pSave("controlResult", controlResult)
@@ -396,6 +379,7 @@ local function initForm(formID)
    end
 
    print("Memory used:", collectgarbage("count"))
+   collectgarbage()
    
    currentForm=formID
    sensorsAvailable = {}
@@ -415,7 +399,7 @@ local function initForm(formID)
 
      form.addRow(1)
      form.addLink((function() form.reinit(7); form.waitForRelease() end),
-	{label="Lua functions >>"})
+	{label=lang.luaFcn})
 
      form.addRow(1)
      form.addLink((function() form.reinit(4); form.waitForRelease() end),
@@ -430,7 +414,7 @@ local function initForm(formID)
   elseif currentForm == 2 then -- tele values
     local available = system.getSensors()
     local list = {}
-    for index,sensor in ipairs(available) do 
+    for _,sensor in ipairs(available) do 
        if(sensor.param ~= 0) then
 	  if sensor.type ~= 9 then
 	     if sensor.sensorName and string.len(sensor.sensorName) > 0 then
@@ -459,7 +443,6 @@ local function initForm(formID)
        form.addLabel({label=tostring(k), width=20})
        if not sensorVarName[k] then
 	  sensorVarName[k] = "t"..k
-	  --print("$$$", #sensorId, k, sensorId[k])
        end
        form.addTextbox(sensorVarName[k], 8, (function(x) return sensorVarNameChanged(x,k) end))
        form.addSelectbox(list,curIndex[k],true,(function(x) return sensorChanged(x,k) end),{width=180})
@@ -475,7 +458,6 @@ local function initForm(formID)
      end
      for k,v in ipairs(resultName) do
 	form.addRow(4)
-	--form.addLabel({label=lang.Result..k..lang.Name,width=120})
 	form.addLabel({label=k,width=30})	
 	form.addTextbox (resultName[k], 14,(function(x) return textChanged(x,k) end),{width=140})
 	form.addLabel({label=lang.Unit,width=50})
@@ -498,12 +480,12 @@ local function initForm(formID)
   elseif currentForm == 4 then -- gps sensors
      if(tonumber(system.getVersion()) < 5.0) then
 	form.addRow(1)
-	form.addLabel({label=fw5})
+	form.addLabel({label=lang.fw5})
 	return
      end
      local available = system.getSensors()
      local list = {}
-     for index,sensor in ipairs(available) do 
+     for _,sensor in ipairs(available) do 
 	if(sensor.param ~= 0) then
 	   if sensor.type and sensor.type == 9 then
 	      if sensor.sensorName and string.len(sensor.sensorName) > 0  then
@@ -538,7 +520,7 @@ local function initForm(formID)
 
      if(tonumber(system.getVersion()) < 5.0) then
 	form.addRow(1)
-	form.addLabel({label=fw5})
+	form.addLabel({label=lang.fw5})
 	return
      end
 
@@ -549,7 +531,7 @@ local function initForm(formID)
 	form.addLabel({label=lang.PressC})
      end
 
-     for k,v in ipairs(selectedGPS) do
+     for k in ipairs(selectedGPS) do
 	if selectedGPS[k] then
 	   latN, lngN = gps.getValue(selectedGPS[k])
 	else
@@ -576,7 +558,7 @@ local function initForm(formID)
 	form.addLabel({label=lang.PressC})
      end
 
-     for k,v in ipairs(variableName) do
+     for k in ipairs(variableName) do
 	form.addRow(3)
 	form.addLabel({label=tostring(k),width=20})
 	form.addTextbox(variableName[k], 8,
@@ -595,16 +577,16 @@ local function initForm(formID)
 
      if #controlResult == 0 then
 	form.addRow(1)
-	form.addLabel({label="No lua functions set"})
+	form.addLabel({label=lang.nolua})
 	form.addRow(1)
 	form.addLabel({label=lang.PressC})
      end
      
-     for k,v in ipairs(controlResult) do
+     for k in ipairs(controlResult) do
 	if not k then controlResult[k] = -1 end
 
 	form.addRow(3)
-	form.addLabel({label="Lua control"})
+	form.addLabel({label=lang.luaCtl})
 	form.addLabel({label="V"..string.format("%02d",k)})
 	form.addSelectbox(resultName, controlResult[k], true,
 			  (function(x) return ctlResChanged(x,k) end))	   
@@ -620,7 +602,6 @@ local function initForm(formID)
 	jsonOK, expTbl = pcall(json.decode, ff)
 
 	if not jsonOK then
-	   print(expTbl)
 	   form.addRow(1)
 	   form.addLabel({label=lang.jsnSyn})
 	   form.addRow(1)
@@ -717,7 +698,7 @@ local function keyPressed(key)
 	 showExternal("reshelp")
 	 
       elseif key == KEY_2 then -- plus .. add a result
-	 table.insert(resultName, "Result " .. (#resultName+1))
+	 table.insert(resultName, lang.Result .. (#resultName+1))
 	 table.insert(resultUnit, "")
 	 system.pSave("resultName", resultName)
 	 system.pSave("resultUnit", resultUnit)
@@ -734,6 +715,8 @@ local function keyPressed(key)
 	 resultName = {}
 	 resultUnit = {}
 	 condition = {}
+	 controlResult = {}
+	 resultControl = {}
 	 chunk = {}
 	 fIndex = {}
 	 system.pSave("condition", condition)
@@ -789,9 +772,10 @@ local function keyPressed(key)
 	 system.pSave("controlResult", controlResult)
 	 form.reinit(7)
       elseif key == KEY_3 then
-	 unregC()
 	 controlResult = {}
+	 resultControl = {}
 	 resultIdx = {}
+	 unregC()
 	 system.pSave("controlResult", controlResult)
 	 system.pSave("resultIdx", resultIdx)
 	 form.reinit(7)
@@ -812,7 +796,6 @@ local function keyPressed(key)
       elseif (key == KEY_MENU) then
 	 form.preventDefault()
 	 form.reinit(10)
-	 --condition = ""
       elseif (key == KEY_1) then
 	 condition[condIdx] = condition[condIdx] .. "." 
       elseif (key == KEY_2) then
@@ -836,7 +819,6 @@ local function keyPressed(key)
 	 form.preventDefault()                         
       end
       if key == KEY_ENTER then
-	 --local row = form.getFocusedRow()
 	 if #expTbl == 0 then
 	    form.reinit(9)
 	    return
@@ -892,8 +874,6 @@ local function propCtlP(t, min, max)
 end
 
 local err, status
-
-local lastT
 
 local function loop() 
    
@@ -952,9 +932,9 @@ local function loop()
       if conditionChanged[k] == true then
 	 chunk[k], err = load("return "..condition[k],"","t",env)
 	 if err then
-	    print(lang.Result..k..lang.expErr .. string.sub(err, 15))
+	    print(lang.Result..k.." Error" .. string.sub(err, 15))
 	 else
-	    print(lang.Result..k..lang.expVal)
+	    print(lang.Result..k.." Valid")
 	 end
 	 conditionChanged[k] = false
       end
@@ -969,10 +949,22 @@ local function loop()
    for k in ipairs(condition) do
       if (chunk[k]) then
 	 status,result[k] = pcall(chunk[k])
-	 if type(result[k]) == "number" or type(result[k]) == "boolean" then
-	    if result[k] == false then result[k] = 0 end
-	    if result[k] == true then result[k] = 1 end
-	    result[k] = result[k] or ""
+	 local r  = result[k]
+	 if type(r) == "number" or type(r) == "boolean" then
+	    if r == false then result[k] = 0 end
+	    if r == true then result[k] = 1 end
+	    if k <= 2 then
+	       if lowTele[k] then
+		  if r < lowTele[k] then lowTele[k] = r end
+	       else
+		  lowTele[k] = r
+	       end
+	       if highTele[k] then
+		  if r > highTele[k] then highTele[k] = r end
+	       else
+		  highTele[k] = r
+	       end
+	    end
 	 else
 	    result[k] = lang.na
 	 end
@@ -982,23 +974,13 @@ local function loop()
    end
 
    for k,v in ipairs(controlResult) do
-      print("k,v,r[v]", k,v, result[v])
-      if resultIdx[k] and type(result[v]) == "number" and result[v] ~= -1 then
-	 if result[v] >= -1.0 and result[v] <= 1.0 then
-	    print("sC", resultIdx[k], result[v])
-	    if system.setControl(resultIdx[k], result[v], 0) then
-	       controlValue[k] = result[k]
-	    end
+      if resultIdx[k] and type(result[v]) == "number" then
+	 local rr = math.max(math.min(result[v],1), -1)
+	 if system.setControl(resultIdx[k], rr, 0) then
+	    controlValue[k] = rr
 	 end
       end
    end
-
-   --[[
-   if system.getTime() ~= lastT then
-      print(system.getCPU())
-      lastT = system.getTime()
-   end
-   --]]
 end
 
 local function init()
@@ -1010,7 +992,7 @@ local function init()
    
    local dev = system.getDeviceType()
 
-   for k,v in ipairs(monoDev) do
+   for _,v in ipairs(monoDev) do
       if dev == v then luaCtlMax = 4; logFileMax = 8; print("Mono") break end
    end
    
@@ -1035,12 +1017,16 @@ local function init()
       resultUnitDisp[k] = unitGsub(v)
    end
    
-   system.registerForm(1,MENU_APPS,"V-SensXF",initForm,keyPressed,printForm);
+   system.registerForm(1,MENU_APPS,lang.appname,initForm,keyPressed,printForm);
 
    for k in ipairs(condition) do
       regTL(k)
    end
 
+   for k=1,luaCtlMax do
+      system.unregisterControl(k)
+   end
+   
    local mc = #controlResult
    for k=1,mc,1 do
       regC(k)
@@ -1048,18 +1034,10 @@ local function init()
    local mr = #resultIdx
    for k =1,mr,1 do
       for j = 1,mc,1 do
-	 if controlResult[j] == k then print(j,k); resultControl[k] = j end
+	 if controlResult[j] == k then resultControl[k] = j end
       end
    end
 
-   for k,v in ipairs(controlResult) do
-      print("cr",k,v)
-   end
-   for k,v in ipairs(resultControl) do
-      print("rc",k,v)
-   end
-   
-   
    system.getSensors()
 
    collectgarbage()
@@ -1072,4 +1050,4 @@ setLanguage()
 
 --------------------------------------------------------------------
 
-return { init=init, loop=loop, author="JETI model and DFM", version="2.3",name="V-SensXF"}
+return { init=init, loop=loop, author="JETI model and DFM", version="2.4",name="V-SensXF"}

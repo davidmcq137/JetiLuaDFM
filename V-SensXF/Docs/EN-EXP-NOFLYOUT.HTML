@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>V-SensXF Help</title>
+  <style>
+   div.info{padding:5pt;color:black;backgro
+       und-color:#f2c0b8;margin-bottom:0.5em}p.h{font-size:1.08em;font-weight:700;margin-top:1em;margin-bottom:0.2em}img{border:1px solid;di
+	   splay:block;margin-left:auto;margin-right:auto;max-width:100%}#jetired{color:#d42e12;}.navbar{margin:1em 0}img.optional,img{display:n
+	       one}img.lq{display:block;}@media(min-width:600px){img.optional{display:block}}@media(min-width:320px),print{img{display:block}img.lq{
+		   display:none}}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">V-SensXF Help</h1>
+</header>
+<h1 id="noflyout---determine-if-aircraft-is-inside-or-outside-of-circular-no-fly-zone">noflyout - determine if aircraft is inside or outside of circular no fly zone</h1>
+<pre><code> noflyout = gpsd(1) &gt; radiuso and
+ abs(bearing-gpsb(1)) &gt; 90</code></pre>
+<p>Result generated: <strong>noflyout</strong> is a boolean value (1 for true, 0 for false) if aircraft is in the no-fly zone outside a circle of radius <strong>radiuso</strong> (meters) and in front of the flightline defined by the pilot direction of <strong>bearing</strong> degrees.</p>
+<p>Result description: The radius of no fly zone is <strong>radiuso</strong> in meters and it defines a circular region. Outside this region is a no fly zone. Set the value of <strong>bearing</strong> to the direction in degrees (true, not magnetic) the pilot is facing. 0 degrees is north, 90 degrees west, 180 degrees south, 270 degrees is west.</p>
+<p>Result units: none. <strong>result</strong> is a boolean value of 1 (true) if outside the circle and thus in the no fly zone, 0 (false) otherwise</p>
+<p>Telemetry variables required: None. The gpsd() function is built in to the expression builder, and GPS point 1 (see the <strong>GPS Points</strong> menu) is the home position where the TX was started.</p>
+<p>Static variables required: radiuso, bearing. Name and set these with the <strong>Variables</strong> menu. <strong>bearing</strong> is in degrees.</p>
+</body>
+</html>

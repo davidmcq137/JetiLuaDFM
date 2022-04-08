@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>V-SensXF Help</title>
+  <style>
+   div.info{padding:5pt;color:black;backgro
+       und-color:#f2c0b8;margin-bottom:0.5em}p.h{font-size:1.08em;font-weight:700;margin-top:1em;margin-bottom:0.2em}img{border:1px solid;di
+	   splay:block;margin-left:auto;margin-right:auto;max-width:100%}#jetired{color:#d42e12;}.navbar{margin:1em 0}img.optional,img{display:n
+	       one}img.lq{display:block;}@media(min-width:600px){img.optional{display:block}}@media(min-width:320px),print{img{display:block}img.lq{
+		   display:none}}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">V-SensXF Help</h1>
+</header>
+<p>V-SensXF is based on excellent Jeti V-Sensor app, the <strong>XF</strong> refers to <strong>extended function</strong>.</p>
+<p>The main extensions are:</p>
+<ul>
+<li><p>An arbitrary number of telemetry variables can be defined using the <strong>Telemetry Sensors</strong> menu</p></li>
+<li><p>GPS sensors may be defined, along with GPS points on the <strong>GPS Sensors</strong> and <strong>GPS Points</strong> menus</p></li>
+<li><p>We have added a number of special functions to the environment of the lua interpreter that is used to evaluate the lua expressions. See the help screen on the <strong>Results Expressions</strong> menu for more information. For example we have GPS distance and bearing functions, and a <strong>knob and slider</strong> reading function to adjust parameters during flight.</p></li>
+<li><p>An arbitrary number of result expressions can be set and named with the <strong>Result Expressions</strong> menu</p></li>
+<li><p>You can define static variables (not linked to telemetry sensors) to facilitate more complex result expressions. Use the <strong>Variables</strong> menu to create and set them.</p></li>
+<li><p>Results 1 and 2 have telemetey windows associated with them and can be set to single or double size Results are logged to the logfile up to the max number your transmitter permits (10 for Gen 1 monochome devices, 24 for others)</p></li>
+<li><p>Results have lua controls associated with them. Result 1 is lua control V01, Result 2 is V02, etc. The limit for lua controls is 4 on Gen 1 devices, and 10 for others. This allow interaction with the TX programming by using a lua control to drive a logic switch or any other function that allows lua controls.</p></li>
+<li><p>You can have an arbitrary number of result expressions, but the telemetry windows, log entries and lua controls are limited to the numbers available on the TX depending on its capacity as noted above.</p></li>
+<li><p>You can access a file of pre-made result expressions and pilots can exchange these files to share useful examples of expressions</p></li>
+</ul>
+<p>This is another paragraph.</p>
+</body>
+</html>

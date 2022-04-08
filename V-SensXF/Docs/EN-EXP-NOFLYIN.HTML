@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>V-SensXF Help</title>
+  <style>
+   div.info{padding:5pt;color:black;backgro
+       und-color:#f2c0b8;margin-bottom:0.5em}p.h{font-size:1.08em;font-weight:700;margin-top:1em;margin-bottom:0.2em}img{border:1px solid;di
+	   splay:block;margin-left:auto;margin-right:auto;max-width:100%}#jetired{color:#d42e12;}.navbar{margin:1em 0}img.optional,img{display:n
+	       one}img.lq{display:block;}@media(min-width:600px){img.optional{display:block}}@media(min-width:320px),print{img{display:block}img.lq{
+		   display:none}}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">V-SensXF Help</h1>
+</header>
+<h1 id="noflyin---determine-if-aircraft-is-inside-or-outside-of-circular-no-fly-zone-defined-by-a-gps-point">noflyin - determine if aircraft is inside or outside of circular no fly zone defined by a GPS point</h1>
+<pre><code> noflyin2 = abs(gpsd(2)) &lt;= radiusi</code></pre>
+<p>gpsd(a1) is a special built-in function which measures distance from the aircraft current position to GPS Point a1. GPS Point 1 is the home position where the TX was turned on. In this case we assume GPS Point 2 has been set to the lat,long coordinates of the center of the no fly zone desired.</p>
+<p>Result generated: Boolean value (1 for true, 0 for false) if aircraft is in the no-fly zone outside a circle of radius <strong>radiusi</strong> (meters) from GPS point 2 which is set on the <strong>GPS Points</strong> menu.</p>
+<p>Result description: The radius of no fly zone is <strong>radiusi</strong> in meters and it defines a circular region. Inside this region is a no fly zone.</p>
+<p>Result units: none. <strong>result</strong> is a boolean value of 1 (true) if inside the circle and thus in the no fly zone, 0 (false) otherwise</p>
+<p>Telemetry variables required: None. The gpsd() function is built in to the expression builder. The example refers to GPS Point 2. You can define as many GPS points as you like and create multiple versions of this for example</p>
+<p>noflyin3 = abs(gpsd(3)) &lt;= radiusi3</p>
+<p>This would establish a second no fly inside zone at GPS point 3 with radius <strong>radiusi3</strong>.</p>
+<p>Static variables required: radiusi. Name and set this with the <strong>Variables</strong> menu.</p>
+<p>GPS Point required: You must define a GPS point for the center lat,long of the desired no fly zone. Do this in the <strong>GPS Points</strong> program.</p>
+</body>
+</html>

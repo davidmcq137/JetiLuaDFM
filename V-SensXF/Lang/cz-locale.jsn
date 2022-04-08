@@ -1,0 +1,32 @@
+{
+    "cz":{
+	"appname":"Virtual Sensor XF",
+	"fw5":"Firmware >= 5.0 required for GPS",
+	"na":"N/A",
+	"fw4":"Requires TX firmware >= 4.28",
+	"TeleSen":"Telemetry Variables >>",
+	"GPSSen": "GPS Sensors >>",
+	"GPSPt": "GPS Points >>",
+	"ResExp": "Result Expressions >>",
+	"Var": "Static Variables >>",
+	"NoTele": "No telemetry variables defined",
+	"PressC": "Press + to create",
+	"NoRes": "No results defined",
+	"Result": "Result ",
+	"Unit": "Unit:",
+	"GPSLat": "GPS Latitude",
+	"GPSLng": "GPS Longitude",
+	"NoGPS": "No GPS points defined",
+	"Lat": "Lat",
+	"Lng": "Lng",
+	"NoStat": "No static variables defined",
+	"jsnSyn": "Syntax error in Exp.jsn",
+	"seeCon": "See lua console for message",
+	"nc": "N/C",
+	"reset": "Reset",
+	"luaFcn": "Lua functions >>",
+	"nolua": "No lua functions set",
+	"luaCtl": "Lua control"
+    }
+}
+
