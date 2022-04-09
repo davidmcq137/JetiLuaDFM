@@ -24,8 +24,8 @@
 	"seeCon": "See lua console for message",
 	"nc": "N/C",
 	"reset": "Reset",
-	"luaFcn": "Lua functions >>",
-	"nolua": "No lua functions set",
+	"luaFcn": "Lua controls >>",
+	"nolua": "No lua controls set",
 	"luaCtl": "Lua control"
 	
     }
