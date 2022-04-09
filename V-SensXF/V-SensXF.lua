@@ -357,6 +357,7 @@ local function unitChanged(val, idx)
    resultUnitDisp[idx] = unitGsub(resultUnit[idx])
    system.pSave("resultUnit",resultUnit)
 end
+
 local function showExternal(fn)
    if tonumber(system.getVersion()) > 5.01 then
       if select(2, system.getDeviceType()) == 1 then
@@ -396,11 +397,11 @@ local function initForm(formID)
      form.addRow(1)
      form.addLink((function() form.reinit(2); form.waitForRelease() end),
 	{label=lang.TeleSen})
-
+     ----[[
      form.addRow(1)
      form.addLink((function() form.reinit(6); form.waitForRelease() end),
 	{label=lang.Var})
-
+     --]]
      form.addRow(1)
      form.addLink((function() form.reinit(3); form.waitForRelease() end),
 	{label=lang.ResExp})	
@@ -479,7 +480,7 @@ local function initForm(formID)
 	form.addLink((function() form.reinit(9);condIdx=k;form.waitForRelease() end),
 	   {label=string.format("%s = %s >>",v,ss),font=FONT_BOLD})
 	form.addRow(1)
-	form.addLabel({label="-------"})
+	form.addLabel({label=""})
      end
 
      helpbutton()
@@ -561,7 +562,7 @@ local function initForm(formID)
      form.setButton(4, ":download", ENABLED)
 
   elseif currentForm == 6 then -- static variables
-
+     ----[[
      if #variableName == 0 then
 	form.addRow(1)
 	form.addLabel({label=lang.NoStat})
@@ -583,7 +584,7 @@ local function initForm(formID)
      end
      form.setButton(2, ":add", ENABLED)
      form.setButton(3, lang.reset, ENABLED)
-
+     --]]
   elseif currentForm == 7 then -- lua functions
 
      if #controlResult == 0 then
@@ -606,6 +607,7 @@ local function initForm(formID)
      form.setButton(3, lang.reset, ENABLED)     
 
   elseif currentForm == 10 then
+     ----[[
      local jsonOK
      local ff = io.readall("Apps/V-SensXF/Exp.jsn")
      expTbl = {}
@@ -631,7 +633,7 @@ local function initForm(formID)
      end
 
      helpbutton()
-     
+     --]]     
   elseif currentForm == 9 then -- edit expression
      local fA = { "*","/","+","-","^","(",
 		  ">", "<", ">=", "<=", "==","~=",
@@ -770,6 +772,7 @@ local function keyPressed(key)
 	 form.preventDefault()
       end
    elseif currentForm == 6 then
+      ----[[
       if key == KEY_2 then
 	 table.insert(variableName, "v"..(#variableName+1))
 	 table.insert(variableValue, 0)
@@ -786,6 +789,7 @@ local function keyPressed(key)
 	 form.reinit(1)
 	 form.preventDefault()
       end
+      --]]
    elseif currentForm == 7 then
       if key == KEY_2 then
 	 if #controlResult >= luaCtlMax then return end
@@ -815,8 +819,10 @@ local function keyPressed(key)
 	 condition[condIdx] = condition[condIdx] .. fAvailable[fIndex[condIdx]]
 	 form.waitForRelease()
       elseif (key == KEY_MENU) then
+	 ----[[
 	 form.preventDefault()
 	 form.reinit(10)
+	 --]]
       elseif (key == KEY_1) then
 	 condition[condIdx] = condition[condIdx] .. "." 
       elseif (key == KEY_2) then
@@ -832,6 +838,7 @@ local function keyPressed(key)
       system.pSave("condition",condition)      
       recomputeCond()
    elseif currentForm == 10 then
+      ----[[
       local row = form.getFocusedRow()
       if key == KEY_1 and expTbl[row].help then
 	 showExternal("exp-" .. expTbl[row].help)
@@ -849,6 +856,7 @@ local function keyPressed(key)
 	 resultUnit[condIdx] = expTbl[row].unit
 	 form.reinit(9)
       end
+      --]]
    end
 end  
 
@@ -1098,7 +1106,5 @@ local function init()
 end
 
 setLanguage()
-
---------------------------------------------------------------------
 
 return { init=init, loop=loop, author="JETI model and DFM", version="2.6",name="V-SensXF"}
