@@ -19,6 +19,12 @@
     },
     {
 	"name": "noflyout",
+	"exp": "gpsd(1) > radiuso",
+	"unit": "",
+	"help":"noflyout"
+    },
+    {
+	"name": "noflyout",
 	"exp": "gpsd(1) > radiuso and abs(bearing-gpsb(1)) > 90",
 	"unit": "",
 	"help":"noflyout"

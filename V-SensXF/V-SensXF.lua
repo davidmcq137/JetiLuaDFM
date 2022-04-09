@@ -36,8 +36,6 @@
 -- #
 -- #############################################################################
 
-
---------------------------------------------------------------------
 local sensorId = {}
 local paramId = {}
 local sensorVarName = {}
@@ -78,6 +76,8 @@ local variableValue = {}
 local luaCtlMax
 local logFileMax
 local lang, locale
+local lat, lng
+local lat1f, lng1f
 
 -- for testing on the old (4.28) version of the DS-16
 ---[[
@@ -116,7 +116,6 @@ end
 local function updateValues()
    local ss
    local degs, minutes
-   local lat, lng
    for k in ipairs(sensorId) do
       if(sensorId[k] and paramId[k]) then
 	 ss = system.getSensorByID(sensorId[k],paramId[k])
@@ -142,6 +141,9 @@ local function updateValues()
       end
 
       if lat and lng then
+	 -- deal with bad lat/lngs from Xicoy and MGPS
+	 if math.abs(lat) < 1 and math.abs(lng) < 1 then return end
+	 if lat > 239 then return end
 	 gpsReads = gpsReads + 1
 	 currentGPS = gps.newPoint(lat, lng)
       end
@@ -200,7 +202,6 @@ local function printTelemetry(width, height, idx)
 	 font = FONT_BOLD
 	 lcd.drawText(width/2-lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.68,r,font)
       end
-      font = FONT_BOLD
       if lowTele[idx] and highTele[idx] then
 	 local mult = 1
 	 local pre = ""
@@ -213,11 +214,15 @@ local function printTelemetry(width, height, idx)
       else
 	 r = "---"
       end
-
-      lcd.drawText(width/2 - lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.95,r,font)
-      if luaCtlMax > 4 then -- looks awful on mono devices
-	 lcd.drawImage(5, height*0.75, ":graph")
+      font = FONT_BOLD
+      if lcd.getTextWidth(font,r) >= 110 then font = FONT_MINI end
+      if lcd.getTextWidth(font,r) < 110 then
+	 if luaCtlMax > 4 then -- looks awful on mono devices
+	    lcd.drawImage(5, height*0.75, ":graph")
+	 end
       end
+      lcd.drawText(width/2 - lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.95,r,font)
+      
    end
 end 
 
@@ -383,7 +388,10 @@ local function initForm(formID)
    
    currentForm=formID
    sensorsAvailable = {}
-  
+
+   lat1f = nil
+   lng1f = nil
+   
   if currentForm == 1 then --  main menu
      form.addRow(1)
      form.addLink((function() form.reinit(2); form.waitForRelease() end),
@@ -530,7 +538,7 @@ local function initForm(formID)
 	form.addRow(1)
 	form.addLabel({label=lang.PressC})
      end
-
+     local lt, lg
      for k in ipairs(selectedGPS) do
 	if selectedGPS[k] then
 	   latN, lngN = gps.getValue(selectedGPS[k])
@@ -542,12 +550,15 @@ local function initForm(formID)
 	form.addRow(5)
 	form.addLabel({label=k, width=20})
 	form.addLabel({label=lang.Lat, width = 40})
-	form.addTextbox(latS, 9, (function(x) return gpsStrChanged(x,k,1) end), {width=110})
+	lt = form.addTextbox(latS, 9, (function(x) return gpsStrChanged(x,k,1) end), {width=110})
 	form.addLabel({label=lang.Lng, width = 40})
-	form.addTextbox(lngS, 9, (function(x) return gpsStrChanged(x,k,2) end), {width=110})
+	lg = form.addTextbox(lngS, 9, (function(x) return gpsStrChanged(x,k,2) end), {width=110})
+	if k == 1 then lat1f = lt; lng1f = lg end
      end
+     form.setButton(1, "Rst1", ENABLED)
      form.setButton(2, ":add", ENABLED)
      form.setButton(3, lang.reset, ENABLED)
+     form.setButton(4, ":download", ENABLED)
 
   elseif currentForm == 6 then -- static variables
 
@@ -628,7 +639,8 @@ local function initForm(formID)
 		  "0","1","2","3","4","5","6","7","8","9",
 		  "abs(","sin(","cos(","atan(","rad(","deg(","sqrt(",
 		  "max(", "min(", "floor(",
-		  "sign(", "step(","box(","gpsd(", "gpsb(", "pc("
+		  "sign(", "step(","box(","gpsd(", "gpsb(", "pc(",
+		  "nfo(", "nfi("
      }
 
      -- rebuilt the expression element string from the
@@ -734,15 +746,24 @@ local function keyPressed(key)
 	 form.preventDefault()
       end
    elseif currentForm == 5 then
-      if key == KEY_2 then
+      if key == KEY_1 then
+	 selectedGPS[1] = gps.newPoint(0,0)
+	 gpsReads = 0
+	 system.pSave("selectedGPS", selectedGPS)
+	 form.reinit(5)
+      elseif key == KEY_2 then
 	 table.insert(selectedGPS, gps.newPoint(0,0))
 	 system.pSave("selectedGPS", selectedGPS)
 	 form.reinit(5)
       elseif key == KEY_3 then
 	 env = nil -- will recompute
-	 selectedGPS = {}
+	 selectedGPS = {gps.newPoint(0,0)}
 	 system.pSave("selectedGPS", selectedGPS)
 	 gpsReads = 0
+	 form.reinit(5)
+      elseif key == KEY_4 then
+	 table.insert(selectedGPS, gps.newPoint(lat or 0,lng or 0))
+	 system.pSave("selectedGPS", selectedGPS)
 	 form.reinit(5)
       elseif key == KEY_5 or key == KEY_ESC then
 	 form.reinit(1)
@@ -832,7 +853,18 @@ local function keyPressed(key)
 end  
 
 local function printForm()
-   if currentForm == 9 then                     
+   if currentForm == 5 then
+      local latN, lngN
+      if lat1f and lng1f then
+	if selectedGPS[1] then
+	   latN, lngN = gps.getValue(selectedGPS[1])
+	else
+	   latN, lngN = 0, 0
+	end
+	form.setValue(lat1f,string.format("%2.6f", latN))
+	form.setValue(lng1f,string.format("%2.6f", lngN))
+      end
+   elseif currentForm == 9 then                     
       local r = string.format("%s: %s",resultName[condIdx],formattedResult(condIdx))
       lcd.drawText(lcd.width - 10 - lcd.getTextWidth(FONT_BIG,r),120,r, FONT_BIG)
       local len = #condition[condIdx]
@@ -905,10 +937,24 @@ local function loop()
 		end end),
 	 gpsb = (function(a1)
 	       if currentGPS and selectedGPS[a1] then
-		  return gps.getBearing(currentGPS, selectedGPS[a1]) or 0
+		  return gps.getBearing(selectedGPS[a1], currentGPS) or 0
 	       else
 		  return 0
 		end end),
+	 nfi = (function(a1,a2)
+	       if a1 and selectedGPS[a2] then
+		  return gps.getDistance(selectedGPS[a2], currentGPS) <= a1 and 1 or 0
+	       else
+		  return 0
+	       end end),
+	 nfo = (function(a1,a2)
+	       if not a1 and not a2 then return 0 end
+	       if a1 and not a2 then
+		  return gps.getDistance(selectedGPS[1],currentGPS) > a1 and 1 or 0
+	       end
+	       if a1 and a2 then
+		  return gps.getDistance(selectedGPS[a2],currentGPS) > a1 and 1 or 0
+	       end end),
 	 sign = (function(a1)
 	       if a1 > 0 then return 1 elseif a1 < 0 then return -1 else return 0 end end)
       }
@@ -953,7 +999,9 @@ local function loop()
 	 if type(r) == "number" or type(r) == "boolean" then
 	    if r == false then result[k] = 0 end
 	    if r == true then result[k] = 1 end
-	    if k <= 2 then
+	    if not lowTele[k] then lowTele[k] = r end
+	    if not highTele[k] then highTele[k] = r end
+	    if k <= 2 and type(lowTele[k]) == "number" and type(highTele[k]) == "number" then
 	       if lowTele[k] then
 		  if r < lowTele[k] then lowTele[k] = r end
 	       else
@@ -964,6 +1012,8 @@ local function loop()
 	       else
 		  highTele[k] = r
 	       end
+	    else
+	       --if k <= 2 then print(lowTele[k], highTele[k]) end
 	    end
 	 else
 	    result[k] = lang.na
@@ -1003,7 +1053,8 @@ local function init()
    variableValue = system.pLoad("variableValue", {})
    controlResult = system.pLoad("controlResult", {})
    condition = system.pLoad("condition",{})
-
+   selectedGPS = system.pLoad("selectedGPS", {})
+   
    latID = system.pLoad("latID")
    lngID = system.pLoad("lngID")
    latParam = system.pLoad("latParam")
@@ -1050,4 +1101,4 @@ setLanguage()
 
 --------------------------------------------------------------------
 
-return { init=init, loop=loop, author="JETI model and DFM", version="2.4",name="V-SensXF"}
+return { init=init, loop=loop, author="JETI model and DFM", version="2.6",name="V-SensXF"}

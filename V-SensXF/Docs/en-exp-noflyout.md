@@ -1,11 +1,18 @@
 # noflyout - determine if aircraft is inside or outside of circular no fly  zone
 
+     noflyout = gpsd(1) > radiuso
+
+or
+
      noflyout = gpsd(1) > radiuso and
      abs(bearing-gpsb(1)) > 90
 
+     
 Result generated: __noflyout__ is a boolean value (1 for true, 0 for false) if aircraft is in the no-fly zone outside a circle of radius __radiuso__ (meters) and in front of the flightline defined by the pilot direction of __bearing__ degrees. 
 
-Result description: The radius of no fly zone is __radiuso__ in meters and it defines a circular region. Outside this region is a no fly zone. Set the value of __bearing__ to the direction in degrees (true, not magnetic) the pilot is facing. 0 degrees is north, 90 degrees west, 180 degrees south, 270 degrees is west.
+Result description: The radius of no fly zone is __radiuso__ in meters and it defines a circular region. Outside this region is a no fly zone.
+
+If you want to make the area behind the pilot a no fly zone, use the longer expression and set the value of __bearing__ to the direction in degrees (true, not magnetic) the pilot is facing. 0 degrees is north, 90 degrees west, 180 degrees south, 270 degrees is west.
 
 Result units: none. __result__ is a boolean value of 1 (true) if outside the circle and thus in the no fly zone, 0 (false) otherwise
 
