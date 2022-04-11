@@ -72,22 +72,66 @@ If you need to use units that are not in the Jeti text entry menu we have
 For example entering a unit string of .oC will display °C as the unit string in
        	    the telemetry window and expression editing screen.
 
-If you press them Menu key with the Result Expressions screen displayed (note
-    	    the help symbol on softkey 1), the app will read the file
-    	    V-SensXF/Exp.jsn which contains pre-defined expressions for some
-    	    common use cases (e.g. watts for electic motors, glide ratio for
-    	    sailplanes).  Select the line you want to copy into the expression
-    	    to create this result and the app will copy in the expression, the
-    	    name and the units for you. It will overwrite anything that was on
-    	    the expression line before.
+Here are some examples of expressions that illustrate what is possible. We can
+     start with something simple and work up to a more complex case.
 
-You can edit the file Exp.jsn to add up to six pre-defined equations along with
-    	    names and units. Note that you will have to go to the Telemetry
-    	    Sensors menu to select and name sensors to match the variable names
-    	    used in the pre-defined equations. You will be changing the default
-    	    names for example t1, t2 to the variable names used in the Exp.jsn
-    	    file (for example Volts, Current for the Watts expression).
+First, suppose you have an electric model with a battery voltage telemetry
+       sensor you have assigned to a telemetry variable and named it Volts and a current sensor
+       you assigned and named Amps (note that these names are case-sensitive).
 
-**Please note that variable names are case sensitive .. so be sure to match the
-    	    telemetry variable names exactly as you see them in the
-    	    expression.**
+Then you can create an expression with the Result Expression menu which is Volts
+     * Amps and you can then rename the result from the default name to Power, and
+     set units to Watts. You could also have Volts * Amps / 1000 and change the units
+     to kW.
+
+Second, suppose you want to have a nofly outside zone centered on the home
+	point, GPS Point 1, of radius 1000 m. This is easy to do with the nfo function in
+	an expression:
+
+     nfo(1000)
+
+This expression will return true (numerical value of 1) when the aircraft is
+     outside the 1000m circle, and false (numerical value 0) when inside. You can
+     then assign a lua control to this result, and use that to make an announcement
+     in the transmitter when you fly outside the zone.
+
+Now suppose you want to also have the region behind the pilot be a no-fly
+    zone. We do have a function gpsb(a1) that returns the bearing from the GPS point numbered a1
+    to the model. So if we know that at our flying field the the direction the
+    pilot is facing while flying is 45 degrees (bearings are true direction, not magnetic
+    .. and 45 degrees is Northeast), then we know that for bearings from 315
+    degrees to 135 degrees the model is in front of the pilot and for bearings
+    outside that range the model is behind the pilot. So we could create the
+    following result expression:
+
+     nfo(1000) or abs(45 - gpsb(1)) > 90
+
+This will be true if we are more than 1000 m from the home point, or the
+     difference in bearing is more than 90 degrees from 45. 
+
+Third, something a little more complex. We can assume you have a pitot-static
+	sensor with airspeed assgined to telemetry variable you have named Speed, and a vario sensor
+	assigned to variable Vario. Then you can compute glide ratio as
+
+     (Speed^2 - Vario^2) > 0 and
+     sqrt(Speed^2 - Vario^2) /
+     Vario or Speed / Vario
+
+(the expression is split across multiple lines to make the entire expression
+visible on the TX screen)
+
+Jeti specifies that sensors should report telemetry units in metric units, so
+     Speed should be in m/s as should Vario. We have seen cases with third party
+     sensors where if you change the reported units shown on the screen it also
+     changes the reported telemetry units and in those cases you will need to check
+     that Speed and Vario are in the same units.
+
+You could then name the result expression GRatio for glide ratio. This
+    expression uses a lua idiom where you use an expression of the form
+
+     if condition then exp1 or exp1
+
+Lua evaluates the condition and if true it will return the expression exp1 and if
+    false the expression exp2. So you can see how this is being used to detect a case
+    where the expression for glide ratio is different depending on whether the Vario
+    value squared is larger than the Speed value squared.

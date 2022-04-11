@@ -4,6 +4,9 @@
 -- # Copyright (c) 2017, JETI model s.r.o.
 -- # All rights reserved.
 -- #
+-- # Copyright (c) 2022, DFM
+-- # All rights reserved
+-- #
 -- # Redistribution and use in source and binary forms, with or without
 -- # modification, are permitted provided that the following conditions are met:
 -- # 
@@ -33,11 +36,13 @@
 -- #                     additional utility functions
 -- # V1.2 - DFM 03/31/22 changing name to V-SensXF
 -- # V2.0 - DFM 04/02/22 arb # tele, arb # results, help file on results screen
+-- # V2.7 - DFM 04/09/22 gps functions
 -- #
 -- #############################################################################
 
 local sensorId = {}
 local paramId = {}
+--local unitId = {}
 local sensorVarName = {}
 local resultName = {}
 local resultUnit = {}
@@ -71,13 +76,14 @@ local controlValue = {}
 local logVariableID = {}
 local unitChars = {["%.p"]="%%", ["%.o"]="°"}
 local expTbl = {}
-local variableName = {}
-local variableValue = {}
+--local variableName = {}
+--local variableValue = {}
 local luaCtlMax
 local logFileMax
 local lang, locale
 local lat, lng
 local lat1f, lng1f
+local teleResult
 
 -- for testing on the old (4.28) version of the DS-16
 ---[[
@@ -174,11 +180,13 @@ local function formattedResult(idx, u)
   end    
 end
 
-local function printTelemetry(width, height, idx)
+local function printTelemetry(width, height, kdx)
 
    local font
    local rf
    local r
+
+   local idx = teleResult[kdx]
    
    if height > 40 then
       font = FONT_MAXI
@@ -239,14 +247,24 @@ local function regC(k)
    end
 end
 
-local function regTL(k)
-   if k <= 2 then
+local function regT(k)
+   if k ==1 or k == 2 then
+      highTele[k] = nil
+      lowTele[k] = nil
       local rN
       system.unregisterTelemetry(k)
-      if resultName[k] == "" then rN = tostring(k) else rN = resultName[k] end
-      system.registerTelemetry(k, "V-SensXF "..rN, 0,
-			       (function(x,y) return printTelemetry(x,y,k) end))
+      if (not resultName[teleResult[k]]) or (resultName[teleResult[k]] == "") then
+	 rN = tostring(k)
+      else
+	 rN = resultName[teleResult[k]]
+      end
+      local ret = system.registerTelemetry(k, "V-SensXF "..rN, 0,
+					   (function(x,y) return printTelemetry(x,y,k) end))
    end
+end
+
+local function regL(k)
+      
    if k <= logFileMax then
       logVariableID[k] = system.registerLogVariable(
 	 resultName[k], resultUnit[k],
@@ -265,11 +283,16 @@ local function unregC()
    end
 end
 
-local function unregTL()
+local function unregT()
+   lowTele = {}
+   highTele = {}
+   for k=1,2,1 do
+      system.unregisterTelemetry(k)
+   end
+end
+
+local function unregL()
    for k in ipairs(condition) do
-      if k <= 2 then
-	 system.unregisterTelemetry(k)
-      end
       if k <= logFileMax then
 	 if logVariableID[k] and logVariableID[k] ~= 0 then
 	    system.unregisterLogVariable(logVariableID[k])
@@ -283,11 +306,14 @@ local function sensorChanged(val, idx)
    if val>0 then
       sensorId[idx]=sensorsAvailable[val].id
       paramId[idx]=sensorsAvailable[val].param
+      --unitId[idx]=sensorsAvailable[val].unit
       system.pSave("sensorId",sensorId)
       system.pSave("paramId",paramId)
+      --system.pSave("unitId", unitId)
    end      
 end
 
+--[[
 local function variableValChanged(val, idx)
    variableValue[idx] = tonumber(val) or lang.na
    system.pSave("variableValue", variableValue)
@@ -297,6 +323,16 @@ end
 local function variableNameChanged(val, idx)
    variableName[idx] = val
    system.pSave("variableName", variableName)
+end
+--]]
+
+local function teleResultChanged(val, idx)
+   teleResult[idx] = val
+   system.pSave("teleResult", teleResult)
+   unregT()
+   for k=1,2,1 do
+      regT(k)
+   end
 end
 
 local function sensorVarNameChanged(val, idx)
@@ -332,6 +368,10 @@ end
 local function textChanged(val, idx)
    resultName[idx] = val
    system.pSave("resultName",resultName)      
+   unregT()
+   for k=1,2,1 do
+      regT(k)
+   end
    form.reinit(3)
 end
 
@@ -371,7 +411,7 @@ local function showExternal(fn)
 end
 
 local function helpbutton()
-   if(tonumber(system.getVersion()) >= 5.01) then
+   if( (tonumber(system.getVersion()) >= 5.01) and luaCtlMax > 4) then
       form.setButton(1, ":help", ENABLED)
    end
 end
@@ -397,11 +437,15 @@ local function initForm(formID)
      form.addRow(1)
      form.addLink((function() form.reinit(2); form.waitForRelease() end),
 	{label=lang.TeleSen})
-     ----[[
+     --[[
      form.addRow(1)
      form.addLink((function() form.reinit(6); form.waitForRelease() end),
 	{label=lang.Var})
      --]]
+     form.addRow(1)
+     form.addLink((function() form.reinit(8); form.waitForRelease() end),
+	{label="Telemetry windows >>"})
+     
      form.addRow(1)
      form.addLink((function() form.reinit(3); form.waitForRelease() end),
 	{label=lang.ResExp})	
@@ -458,6 +502,7 @@ local function initForm(formID)
     end
     form.setButton(2, ":add", ENABLED)
     form.setButton(3, lang.reset, ENABLED)
+
   elseif currentForm == 3 then -- results
      if #resultName == 0 then
 	form.addRow(1)
@@ -480,7 +525,7 @@ local function initForm(formID)
 	form.addLink((function() form.reinit(9);condIdx=k;form.waitForRelease() end),
 	   {label=string.format("%s = %s >>",v,ss),font=FONT_BOLD})
 	form.addRow(1)
-	form.addLabel({label=""})
+	if k < #resultName then form.addLabel({label="--------"}) end
      end
 
      helpbutton()
@@ -562,7 +607,7 @@ local function initForm(formID)
      form.setButton(4, ":download", ENABLED)
 
   elseif currentForm == 6 then -- static variables
-     ----[[
+     --[[
      if #variableName == 0 then
 	form.addRow(1)
 	form.addLabel({label=lang.NoStat})
@@ -595,7 +640,7 @@ local function initForm(formID)
      end
      
      for k in ipairs(controlResult) do
-	if not k then controlResult[k] = -1 end
+	if not controlResult[k] then controlResult[k] = -1 end
 
 	form.addRow(3)
 	form.addLabel({label=lang.luaCtl})
@@ -606,8 +651,17 @@ local function initForm(formID)
      form.setButton(2, ":add", ENABLED)
      form.setButton(3, lang.reset, ENABLED)     
 
+  elseif currentForm == 8 then -- tele windows
+
+     for k in ipairs(teleResult) do
+	form.addRow(2)
+	form.addLabel({label="Telemetry Window "..k})
+	form.addSelectbox(resultName, teleResult[k], true,
+			  (function(x) return teleResultChanged(x,k) end))
+     end
+     
   elseif currentForm == 10 then
-     ----[[
+     --[[
      local jsonOK
      local ff = io.readall("Apps/V-SensXF/Exp.jsn")
      expTbl = {}
@@ -657,13 +711,13 @@ local function initForm(formID)
      for k in ipairs(fA) do
 	table.insert(fAvailable, fA[k])
      end
-
+     --[[
      for k in ipairs(variableName) do
 	if variableValue[k] then
 	   table.insert(fAvailable, variableName[k])
 	end
      end
-     
+     --]]
      for k in ipairs(condition) do
 	table.insert(fAvailable, resultName[k])
      end
@@ -720,17 +774,20 @@ local function keyPressed(key)
 	 table.insert(conditionChanged, true)
 	 system.pSave("condition", condition)
 	 fIndex[#condition] = 1
-	 regTL(#condition)
+	 regT(teleResult[#condition])
+	 regL(#condition)
 	 recomputeCond()
 	 form.reinit(3)
       elseif key == KEY_3 then -- reset
 	 env = nil -- will recompute
-	 unregTL()
+	 unregT()
+	 unregL()
 	 resultName = {}
 	 resultUnit = {}
 	 condition = {}
 	 controlResult = {}
 	 resultControl = {}
+	 teleResult = {1,2}
 	 chunk = {}
 	 fIndex = {}
 	 system.pSave("condition", condition)
@@ -772,7 +829,7 @@ local function keyPressed(key)
 	 form.preventDefault()
       end
    elseif currentForm == 6 then
-      ----[[
+      --[[
       if key == KEY_2 then
 	 table.insert(variableName, "v"..(#variableName+1))
 	 table.insert(variableValue, 0)
@@ -819,7 +876,7 @@ local function keyPressed(key)
 	 condition[condIdx] = condition[condIdx] .. fAvailable[fIndex[condIdx]]
 	 form.waitForRelease()
       elseif (key == KEY_MENU) then
-	 ----[[
+	 --[[
 	 form.preventDefault()
 	 form.reinit(10)
 	 --]]
@@ -838,7 +895,7 @@ local function keyPressed(key)
       system.pSave("condition",condition)      
       recomputeCond()
    elseif currentForm == 10 then
-      ----[[
+      --[[
       local row = form.getFocusedRow()
       if key == KEY_1 and expTbl[row].help then
 	 showExternal("exp-" .. expTbl[row].help)
@@ -975,12 +1032,11 @@ local function loop()
 	 env[sensorVarName[k]] = value[k] or 0
       end
    end
-   
-   for k in ipairs(variableName) do
-      if variableValue[k] then
-	 env[variableName[k]] = variableValue[k]
-      end
-   end
+
+   --for k in ipairs(variableName) do
+   --if variableValue[k] then
+   --env[variableName[k]] = variableValue[k]
+   --end
 
    for k in ipairs(condition) do
       if conditionChanged[k] == true then
@@ -1056,12 +1112,14 @@ local function init()
    
    sensorId = system.pLoad("sensorId", {})
    paramId = system.pLoad("paramId", {})
+   --unitId = system.pLoad("unitId", {})
    sensorVarName = system.pLoad("sensorVarName", {})
-   variableName = system.pLoad("variableName", {})
-   variableValue = system.pLoad("variableValue", {})
+   --variableName = system.pLoad("variableName", {})
+   --variableValue = system.pLoad("variableValue", {})
    controlResult = system.pLoad("controlResult", {})
    condition = system.pLoad("condition",{})
    selectedGPS = system.pLoad("selectedGPS", {})
+   teleResult = system.pLoad("teleResult", {1, 2})
    
    latID = system.pLoad("latID")
    lngID = system.pLoad("lngID")
@@ -1079,9 +1137,13 @@ local function init()
    system.registerForm(1,MENU_APPS,lang.appname,initForm,keyPressed,printForm);
 
    for k in ipairs(condition) do
-      regTL(k)
+      regL(k)
    end
 
+   for k=1,2,1 do
+      regT(k)
+   end
+   
    for k=1,luaCtlMax do
       system.unregisterControl(k)
    end
@@ -1107,4 +1169,4 @@ end
 
 setLanguage()
 
-return { init=init, loop=loop, author="JETI model and DFM", version="2.6",name="V-SensXF"}
+return { init=init, loop=loop, author="JETI model and DFM", version="2.8",name="V-SensXF"}

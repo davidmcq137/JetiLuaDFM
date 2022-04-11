@@ -6,6 +6,8 @@ cp EN-RESHELP.HTML ~/JSE/DOCS/V-SENSXF/
 pandoc en-mainhelp.md -f markdown -t html  -o EN-MAINHELP.HTML --metadata title="V-SensXF Help" --template="jeti.html"
 cp EN-MAINHELP.HTML ~/JSE/DOCS/V-SENSXF/
 
+pandoc en-mainhelp.md -f markdown -t html  -o EN-MAINNOHEAD.HTML --metadata title="V-SensXF"
+
 pandoc en-exp-gratio.md -f markdown -t html  -o EN-EXP-GRATIO.HTML --metadata title="V-SensXF Help" --template="jeti.html"
 cp EN-EXP-GRATIO.HTML ~/JSE/DOCS/V-SENSXF/
 
