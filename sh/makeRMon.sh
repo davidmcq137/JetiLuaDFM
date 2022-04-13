@@ -1,6 +1,7 @@
-#!/bin/bash
 set -e
 set -x
-rm -f DFM-Rmon.zip
+set -v
+rm -f DFM-RMon.zip
 zip -ru DFM-RMon.zip DFM-RMon.lua DFM-RMon
+zip -ru DFM.zip DFM-RMon.lua DFM-RMon
 

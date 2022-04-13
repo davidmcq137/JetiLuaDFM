@@ -84,6 +84,7 @@ local lang, locale
 local lat, lng
 local lat1f, lng1f
 local teleResult
+local resultTele
 
 -- for testing on the old (4.28) version of the DS-16
 ---[[
@@ -175,9 +176,9 @@ local function formattedResult(idx, u)
       else
 	 return string.format("%.2f %s",result[idx],(resultUnitDisp[idx] or ""))
       end
-  else
-     return lang.na
-  end    
+   else
+      return lang.na
+   end    
 end
 
 local function printTelemetry(width, height, kdx)
@@ -198,27 +199,30 @@ local function printTelemetry(width, height, kdx)
       
    lcd.drawText(width/2-lcd.getTextWidth(font,rf)/2,(height-lcd.getTextHeight(font))*0.02,rf,font)
 
-   local jdx = resultControl[idx]
+   local jdx = resultControl[idx] 
+   
+   --print("#", kdx, idx, resultControl[1], resultControl[2], resultControl[3])
+   
    if height > 40 then
       if jdx and jdx > 0 then
 	 r = "V"..string.format("%02d", jdx)..": "
-	 if controlValue[idx] then
-	    r = r .. string.format("%.2f", controlValue[idx])
+	 if controlValue[jdx] then
+	    r = r .. string.format("%.2f", controlValue[jdx])
 	 else
 	    r = r .. "---"
 	 end
 	 font = FONT_BOLD
 	 lcd.drawText(width/2-lcd.getTextWidth(font,r)/2,(height-lcd.getTextHeight(font))*0.68,r,font)
       end
-      if lowTele[idx] and highTele[idx] then
+      if lowTele[kdx] and highTele[kdx] then
 	 local mult = 1
 	 local pre = ""
-	 if math.abs(lowTele[idx]) > 1000 or math.abs(highTele[idx]) > 1000 then
+	 if math.abs(lowTele[kdx]) > 1000 or math.abs(highTele[kdx]) > 1000 then
 	    mult = 0.001
 	    pre="k"
 	 end
-	 r = string.format("%.2f .. %.2f %s", lowTele[idx] * mult,
-			   highTele[idx] * mult, pre..(resultUnitDisp[idx] or ""))
+	 r = string.format("%.2f .. %.2f %s", lowTele[kdx] * mult,
+			   highTele[kdx] * mult, pre..(resultUnitDisp[idx] or ""))
       else
 	 r = "---"
       end
@@ -237,13 +241,16 @@ end
 local function regControl(num, name)
    local ctl = "V"..string.format("%02d", num)
    local idx = system.registerControl(num, "V-SensXF " .. name, ctl)
-   if idx then print(ctl .. " "..idx .." "..name) end
+   if idx then print("V-SensXF: "..ctl .. " "..name) end
    return idx
 end
 
 local function regC(k)
+   --print("regC", k, controlResult[1], controlResult[2], controlResult[3], resultName[3])
+   --print("rn", resultName[1], resultName[2], resultName[3])
    if k <= luaCtlMax and controlResult[k] and controlResult[k] > 0 then
       resultIdx[k] = regControl(k, resultName[controlResult[k]])
+      --print("regC, k, resultIdx[k]", k, resultIdx[k])
    end
 end
 
@@ -328,11 +335,21 @@ end
 
 local function teleResultChanged(val, idx)
    teleResult[idx] = val
+   resultTele = {} -- required to clean up any old values that are being changed
+   for k in ipairs(resultName) do -- so create reverse table from scratch
+      for j=1,2,1 do
+	 if teleResult[j] == k then resultTele[k] = j end
+      end
+   end
+   
+   --print("*", resultTele[1], resultTele[2], resultTele[3], resultTele[4])
    system.pSave("teleResult", teleResult)
    unregT()
    for k=1,2,1 do
       regT(k)
    end
+   lowTele[idx] = nil
+   highTele[idx] = nil
 end
 
 local function sensorVarNameChanged(val, idx)
@@ -377,9 +394,20 @@ end
 
 local function ctlResChanged(val, idx)
    controlResult[idx] = val
-   local row = form.getFocusedRow()
-   regC(row)
-   resultControl[val] = row
+   regC(idx)
+   
+   local mc = #controlResult
+   local mr = #resultName
+
+   --print("mc", mc)
+   --print("mr", mr)
+
+   for k =1,mr,1 do
+      for j = 1,mc,1 do
+	 if controlResult[j] == k then resultControl[k] = j end
+      end
+   end
+
    system.pSave("controlResult", controlResult)
 end
 
@@ -424,7 +452,7 @@ local function initForm(formID)
       return
    end
 
-   print("Memory used:", collectgarbage("count"))
+   --print("Memory used:", collectgarbage("count"))
    collectgarbage()
    
    currentForm=formID
@@ -444,7 +472,7 @@ local function initForm(formID)
      --]]
      form.addRow(1)
      form.addLink((function() form.reinit(8); form.waitForRelease() end),
-	{label="Telemetry windows >>"})
+	{label=lang.telWin})
      
      form.addRow(1)
      form.addLink((function() form.reinit(3); form.waitForRelease() end),
@@ -462,6 +490,12 @@ local function initForm(formID)
      form.addLink((function() form.reinit(5); form.waitForRelease() end),
 	{label=lang.GPSPt})
 
+     if V_Ann then
+	form.addRow(1)
+	form.addLink((function() form.reinit(100); form.waitForRelease() end),
+	   {label="Announcements >>"})
+     end
+     
      helpbutton()
 
   elseif currentForm == 2 then -- tele values
@@ -655,7 +689,7 @@ local function initForm(formID)
 
      for k in ipairs(teleResult) do
 	form.addRow(2)
-	form.addLabel({label="Telemetry Window "..k})
+	form.addLabel({label=lang.teleWin..k})
 	form.addSelectbox(resultName, teleResult[k], true,
 			  (function(x) return teleResultChanged(x,k) end))
      end
@@ -726,6 +760,11 @@ local function initForm(formID)
      form.setButton(1, ".", ENABLED)
      form.setButton(2, ",", ENABLED)
      form.setButton(3, ")", ENABLED)
+     
+  elseif currentForm >= 100 then
+     if V_Ann then
+	V_Ann.cmd(currentForm)
+     end
   end
 end  
 
@@ -788,6 +827,7 @@ local function keyPressed(key)
 	 controlResult = {}
 	 resultControl = {}
 	 teleResult = {1,2}
+	 resultTele = {1,2}
 	 chunk = {}
 	 fIndex = {}
 	 system.pSave("condition", condition)
@@ -865,6 +905,11 @@ local function keyPressed(key)
 	 form.reinit(1)
 	 form.preventDefault()
       end
+   elseif currentForm == 8 then
+      if key == KEY_5 or key == KEY_ESC then
+	 form.reinit(1)
+	 form.preventDefault()
+      end
    elseif currentForm == 9 then -- edit expression
       if(key == KEY_DOWN) then
 	 fIndex[condIdx] = fIndex[condIdx]-1
@@ -914,6 +959,10 @@ local function keyPressed(key)
 	 form.reinit(9)
       end
       --]]
+   elseif currentForm >= 100 then
+      if V_Ann then
+	 V_Ann.key(key, currentForm)
+      end
    end
 end  
 
@@ -1041,11 +1090,13 @@ local function loop()
    for k in ipairs(condition) do
       if conditionChanged[k] == true then
 	 chunk[k], err = load("return "..condition[k],"","t",env)
+	 --[[
 	 if err then
 	    print(lang.Result..k.." Error" .. string.sub(err, 15))
 	 else
 	    print(lang.Result..k.." Valid")
 	 end
+	 --]]
 	 conditionChanged[k] = false
       end
    end
@@ -1060,24 +1111,28 @@ local function loop()
       if (chunk[k]) then
 	 status,result[k] = pcall(chunk[k])
 	 local r  = result[k]
-	 if type(r) == "number" or type(r) == "boolean" then
+	 local r2k = resultTele[k]
+	 --print("%", k, r, r2k, lowTele[r2k], highTele[r2k])
+	 if (type(r) == "number") or (type(r) == "boolean") then
 	    if r == false then result[k] = 0 end
 	    if r == true then result[k] = 1 end
-	    if not lowTele[k] then lowTele[k] = r end
-	    if not highTele[k] then highTele[k] = r end
-	    if k <= 2 and type(lowTele[k]) == "number" and type(highTele[k]) == "number" then
-	       if lowTele[k] then
-		  if r < lowTele[k] then lowTele[k] = r end
+	    if r2k then
+	       if not lowTele[r2k] then lowTele[r2k] = r end
+	       if not highTele[r2k] then highTele[r2k] = r end
+	       if type(lowTele[r2k]) == "number" and type(highTele[r2k]) == "number" then
+		  if lowTele[r2k] then
+		     if r < lowTele[r2k] then lowTele[r2k] = r end
+		  else
+		     lowTele[r2k] = r
+		  end
+		  if highTele[r2k] then
+		     if r > highTele[r2k] then highTele[r2k] = r end
+		  else
+		     highTele[r2k] = r
+		  end
 	       else
-		  lowTele[k] = r
+		  --if k <= 2 then print(lowTele[r2k], highTele[r2k]) end
 	       end
-	       if highTele[k] then
-		  if r > highTele[k] then highTele[k] = r end
-	       else
-		  highTele[k] = r
-	       end
-	    else
-	       --if k <= 2 then print(lowTele[k], highTele[k]) end
 	    end
 	 else
 	    result[k] = lang.na
@@ -1094,6 +1149,9 @@ local function loop()
 	    controlValue[k] = rr
 	 end
       end
+   end
+   if V_Ann then
+      V_Ann.loop()
    end
 end
 
@@ -1120,7 +1178,7 @@ local function init()
    condition = system.pLoad("condition",{})
    selectedGPS = system.pLoad("selectedGPS", {})
    teleResult = system.pLoad("teleResult", {1, 2})
-   
+
    latID = system.pLoad("latID")
    lngID = system.pLoad("lngID")
    latParam = system.pLoad("latParam")
@@ -1133,6 +1191,48 @@ local function init()
    for k,v in ipairs(resultUnit) do
       resultUnitDisp[k] = unitGsub(v)
    end
+   
+   --[[
+   ----------------------- TESTING -------------------------
+
+   print("Inserting test code")
+   condition={}
+   resultName={}
+   resultUnit={}
+   resultUnitDisp={}
+   
+   condition[1] = "pc(1) * 2"
+   condition[2] = "pc(2) * 2"
+   condition[3] = "pc(3) * 2"
+   resultName[1] = "R1"
+   resultName[2] = "R2"
+   resultName[3] = "R3"
+   resultUnit[1] = "A"
+   resultUnit[2] = "B"
+   resultUnit[3] = "C"
+   resultUnitDisp[1] = "A1"
+   resultUnitDisp[2] = "B1"
+   resultUnitDisp[3] = "C1"      
+   
+   conditionChanged[1] = true
+   conditionChanged[2] = true
+   conditionChanged[3] = true      
+
+   ----------------------- TESTING -------------------------
+   --]]
+
+   if #resultName == 0 then
+      resultTele = {1,2} -- in case nothing defined (no resultName), default to this config
+   else
+      resultTele = {}
+      for k in ipairs(resultName) do -- create reverse table from teleResult
+	 for j=1,2,1 do
+	    if teleResult[j] == k then resultTele[k] = j end
+	 end
+      end
+   end
+   
+   --print("@", resultTele[1], resultTele[2], resultTele[3], resultTele[4])
    
    system.registerForm(1,MENU_APPS,lang.appname,initForm,keyPressed,printForm);
 
@@ -1149,10 +1249,13 @@ local function init()
    end
    
    local mc = #controlResult
+   --print("#controlResult:", #controlResult)
    for k=1,mc,1 do
+      --print("@", k)
       regC(k)
    end
-   local mr = #resultIdx
+
+   local mr = #resultName
    for k =1,mr,1 do
       for j = 1,mc,1 do
 	 if controlResult[j] == k then resultControl[k] = j end
@@ -1161,12 +1264,18 @@ local function init()
 
    system.getSensors()
 
+   if luaCtlMax > 4 then
+      V_Ann = require "V-Ann"
+      V_Ann.init(result, resultName)
+   end
+      
    collectgarbage()
    
-   print("Memory used:", collectgarbage("count"))
+   print("V-SensXF: gcc " .. collectgarbage("count"))
    
 end
 
 setLanguage()
+collectgarbage()
 
-return { init=init, loop=loop, author="JETI model and DFM", version="2.8",name="V-SensXF"}
+return { init=init, loop=loop, author="JETI model and DFM", version="3.0",name="V-SensXF"}
