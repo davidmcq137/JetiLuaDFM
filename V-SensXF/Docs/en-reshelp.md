@@ -129,7 +129,7 @@ Jeti specifies that sensors should report telemetry units in metric units, so
 You could then name the result expression GRatio for glide ratio. This
     expression uses a lua idiom where you use an expression of the form
 
-     if condition then exp1 or exp1
+     condition and exp1 or exp2
 
 Lua evaluates the condition and if true it will return the expression exp1 and if
     false the expression exp2. So you can see how this is being used to detect a case

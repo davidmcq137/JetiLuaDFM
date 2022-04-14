@@ -46,7 +46,7 @@
 <p>(the expression is split across multiple lines to make the entire expression visible on the TX screen)</p>
 <p>Jeti specifies that sensors should report telemetry units in metric units, so Speed should be in m/s as should Vario. We have seen cases with third party sensors where if you change the reported units shown on the screen it also changes the reported telemetry units and in those cases you will need to check that Speed and Vario are in the same units.</p>
 <p>You could then name the result expression GRatio for glide ratio. This expression uses a lua idiom where you use an expression of the form</p>
-<pre><code> if condition then exp1 or exp1</code></pre>
+<pre><code> condition and exp1 or exp2</code></pre>
 <p>Lua evaluates the condition and if true it will return the expression exp1 and if false the expression exp2. So you can see how this is being used to detect a case where the expression for glide ratio is different depending on whether the Vario value squared is larger than the Speed value squared.</p>
 </body>
 </html>

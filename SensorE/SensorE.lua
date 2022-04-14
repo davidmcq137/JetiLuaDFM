@@ -364,7 +364,8 @@ function emulator_playNumber(val, dec, unit, lab)
       fs = "%f"
       rr = false
    end
-   if val then
+   if type(val) ~= "number" then print("SensorE - not a number: " .. val) end
+   if val and type(val) == "number" then
       vf = string.format(fs, val)
    else
       vf = "(nil)"

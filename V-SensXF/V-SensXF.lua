@@ -86,6 +86,8 @@ local lat1f, lng1f
 local teleResult
 local resultTele
 
+local V_Ann
+
 -- for testing on the old (4.28) version of the DS-16
 ---[[
 if not gps then
@@ -752,8 +754,10 @@ local function initForm(formID)
 	end
      end
      --]]
+     local tmp
      for k in ipairs(condition) do
-	table.insert(fAvailable, resultName[k])
+	tmp = string.gsub(resultName[k], " ", "_")
+	table.insert(fAvailable, tmp)
      end
      
      form.setButton(4,":backspace",ENABLED)  
@@ -1100,10 +1104,11 @@ local function loop()
 	 conditionChanged[k] = false
       end
    end
-
+   local tmp
    for k in ipairs(condition) do
       if type(result[k]) == "number" then
-	 env[resultName[k]] = result[k]
+	 tmp = string.gsub(resultName[k], " ", "_")
+	 env[tmp] = result[k]
       end
    end
    
@@ -1250,7 +1255,7 @@ local function init()
    
    local mc = #controlResult
    --print("#controlResult:", #controlResult)
-   for k=1,mc,1 do
+   for k=1,mc,1 do 
       --print("@", k)
       regC(k)
    end
@@ -1278,4 +1283,4 @@ end
 setLanguage()
 collectgarbage()
 
-return { init=init, loop=loop, author="JETI model and DFM", version="3.0",name="V-SensXF"}
+return { init=init, loop=loop, author="JETI model and DFM", version="3.1",name="V-SensXF"}

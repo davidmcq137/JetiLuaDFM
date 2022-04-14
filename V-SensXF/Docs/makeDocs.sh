@@ -19,3 +19,6 @@ cp EN-EXP-NOFLYOUT.HTML ~/JSE/DOCS/V-SENSXF/
 
 pandoc en-exp-noflyin.md -f markdown -t html  -o EN-EXP-NOFLYIN.HTML --metadata title="V-SensXF Help" --template="jeti.html"
 cp EN-EXP-NOFLYIN.HTML ~/JSE/DOCS/V-SENSXF/
+
+pandoc en-annhelp.md -f markdown -t html  -o EN-ANNHELP.HTML --metadata title="V-SensXF Help" --template="jeti.html"
+cp EN-ANNHELP.HTML ~/JSE/DOCS/V-SENSXF/

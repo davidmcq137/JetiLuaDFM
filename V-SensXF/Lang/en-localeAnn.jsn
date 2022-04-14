@@ -1,0 +1,31 @@
+{
+    "en":{
+	"prc":  "Periodic",
+	"aut":  "Auto",
+	"edg":  "Edge",
+	"ris":  "Rising",
+	"fal":  "Falling",
+	"non":  "None",
+	"lp":   "Long Pulse",
+	"sp":   "Short Pulse",
+	"sp2":  "2x Short Pulse",
+	"sp3":  "3x Short Pulse",
+	"lef":  "Left",
+	"rig":  "Right",
+	"nores":"No Results to Announce",
+	"plus": "Press + to create",
+	"rst":  "Reset",
+	"edi":  "Edit",
+	"ens":  "Enable Switch",
+	"rna":  "Result name audio",
+	"una":  "Units audio",
+	"dp":   "Decimal places",
+	"per":  "Period (sec)",
+	"min":  "Min interval (sec)",
+	"max":  "Max interval (sec)",
+	"csf":  "Change scale factor",
+	"etd":  "Edge trigger direction",
+	"stk":  "Stick shaker"
+    }
+}
+
