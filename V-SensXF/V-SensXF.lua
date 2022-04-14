@@ -1283,4 +1283,4 @@ end
 setLanguage()
 collectgarbage()
 
-return { init=init, loop=loop, author="JETI model and DFM", version="3.1",name="V-SensXF"}
+return { init=init, loop=loop, author="JETI model and DFM", version="3.4",name="V-SensXF"}

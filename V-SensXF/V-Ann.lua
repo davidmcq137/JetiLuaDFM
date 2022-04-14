@@ -1,3 +1,38 @@
+-- ############################################################################# 
+-- #
+-- # Companion announcement system for the V-Sensor app.
+-- #
+-- # Copyright (c) 2022, DFM
+-- # All rights reserved
+-- #
+-- # Redistribution and use in source and binary forms, with or without
+-- # modification, are permitted provided that the following conditions are met:
+-- # 
+-- # 1. Redistributions of source code must retain the above copyright notice, this
+-- #    list of conditions and the following disclaimer.
+-- # 2. Redistributions in binary form must reproduce the above copyright notice,
+-- #    this list of conditions and the following disclaimer in the documentation
+-- #    and/or other materials provided with the distribution.
+-- # 
+-- # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+-- # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+-- # WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+-- # DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+-- # ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+-- # (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+-- # LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+-- # ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+-- # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+-- # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-- # 
+-- # The views and conclusions contained in the software and documentation are those
+-- # of the authors and should not be interpreted as representing official policies,
+-- # either expressed or implied, of the FreeBSD Project.                    
+-- #                       
+-- # Initially created 04/13/22 DFM
+-- #
+-- #############################################################################
+
 local Ann = {}
 
 local lang, locale
@@ -62,9 +97,16 @@ local function showExternal(fn)
    end
 end
 
+local function playNumber(num, dec)
+   local sign, playNum
+   if num >= 0 then sign = 1 else sign = -1 end
+   playNum = sign * math.floor(math.abs(num) * (10^dec) + 0.5) / (10^dec)
+   system.playNumber(playNum, dec)
+end
+
 local function playResult(k, ff)
    local fn = "/Apps/V-SensXF/Audio/" .. system.getLocale().."/"
-   if not annResultWav[k] or annResultWav[k] == 1 then
+   if (not annResultWav[k]) or (annResultWav[k] == 1) then
       system.playFile(fn.."Result.wav", AUDIO_QUEUE)
       system.playNumber(k, 0)
       if ff then
@@ -76,6 +118,7 @@ local function playResult(k, ff)
 end
 
 local function resultChanged(val, k)
+   print("selResult, k, val", k, val)
    selResult[k] = val
    system.pSave("selResult", selResult)
 end
@@ -325,7 +368,6 @@ function Ann.key(key, formIdx)
 	    table.insert(annBuzzSide, 1)
 	    table.insert(annBuzzPulse, 1)
 	 elseif key == KEY_3 then
-	    print("resetting")
 	    annType      = {}
 	    selResult    = {}
 	    annPeriod    = {}
@@ -360,6 +402,7 @@ function Ann.key(key, formIdx)
 	 form.reinit(100)
       elseif key == KEY_4 then
 	 irow = form.getFocusedRow()
+	 --print("irow", irow)
 	 if annType[irow] == 1 then
 	    form.reinit(101)
 	 elseif annType[irow] == 2 then
@@ -393,24 +436,23 @@ function Ann.loop()
    local fn
    local ratio, delta
    
-   for k in ipairs(selResult) do
+   for k,j in ipairs(selResult) do
       swe = system.getInputsVal(annEnableSw[k])
-      if swe and swe == 1 and type(result[k]) == "number" then
-	 if not annLastResult[k] then annLastResult[k] = result[k] end
+      if swe and swe == 1 and type(result[j]) == "number" then
+	 if not annLastResult[k] then annLastResult[k] = result[j] end
 	 if not annLastTime[k] then annLastTime[k] = 0 end
 	 if not annNextTime[k] then annNextTime[k] = 0 end
 	 if annType[k] == 1 or annType[k] == 2 then -- Periodic or Auto
 	    if annType[k] == 2 then -- Auto
-	       ratio = math.min(math.max(math.abs((result[k]-annLastResult[k])/annAutoSF[k]),
+	       ratio = math.min(math.max(math.abs((result[j]-annLastResult[k])/annAutoSF[k]),
 					 0.5), 10)
 	       delta = math.min(annAutoMin[k]*10/ratio, annAutoMax[k])
-	       --print("r, ratio,delta,t", result[k], ratio, delta, (now-time0)/1000)
 	       annNextTime[k] = annLastTime[k] + delta * 1000
 	    end
 	    if (now > annNextTime[k]) and (not system.isPlayback()) then
 	       fn = "/Apps/V-SensXF/Audio/" .. system.getLocale().."/"
 	       playResult(k)
-	       system.playNumber(result[k], annDecimal[k])
+	       system.playNumber(result[j], annDecimal[k])
 	       if annUnitWav[k] and annUnitWav[k] > 1 then
 		  --print("units", annFiles[annUnitWav[k]])
 		  system.playFile(fn ..annFiles[annUnitWav[k]], AUDIO_QUEUE)
@@ -418,30 +460,29 @@ function Ann.loop()
 	       if annType[k] == 1 then -- Periodic
 		  annNextTime[k] = now + annPeriod[k] * 1000
 	       end
-	       annLastResult[k] = result[k]
+	       annLastResult[k] = result[j]
 	       annLastTime[k] = now
 	    end
 	 elseif annType[k] == 3 then --Edge
-	    --print(annLastResult[k], result[k])
 	    local rightStick
 	    if annBuzzSide[k] == 1 then rightStick = false else rightStick = true end
 	    if not annBuzzPulse[k] then annBuzzPulse[k] = 1 end
 	    if annEdgeDir[k] == 1 then -- rising edge
-	       if result[k] > 0.5 and annLastResult[k] < 0.5 then
+	       if result[j] > 0.5 and annLastResult[k] < 0.5 then
 		  annLastTime[k] = now
 		  fn = "/Apps/V-SensXF/Audio/" .. system.getLocale().."/rising_edge.wav"
-		  playResult(k, fn)
+		  playResult(j, fn)
 		  system.vibration(rightStick, annBuzzPulse[k]-1)
 	       end
 	    else -- falling edge
-	       if result[k] < 0.5 and annLastResult[k] > 0.5 then
+	       if result[j] < 0.5 and annLastResult[k] > 0.5 then
 		  annLastTime[k] = now
 		  fn = "/Apps/V-SensXF/Audio/" .. system.getLocale().."/falling_edge.wav"
-		  playResult(k, fn)
+		  playResult(j, fn)
 		  system.vibration(rightStick, annBuzzPulse[k]-1)		  
 	       end
 	    end
-	    annLastResult[k] = result[k]
+	    annLastResult[k] = result[j]
 	 end
       end
    end

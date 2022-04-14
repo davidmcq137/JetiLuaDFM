@@ -48,5 +48,7 @@ __Edge__ annoumcments are triggered when the value of the Result goes from 0 to
      are logical values of 0 or 1, but can be used for any value of Result. The
      actual threshold is 0.5 as you might expect. This type of announcement is
      particularly useful on conjunction with the nfi, nfo, box or step
-     functions.
+     functions. You can also set up stick shakers on the edge transitions for
+     the left or right stick and with several shake patters. The stick shaker is
+     not supported on all transmitters.
 
