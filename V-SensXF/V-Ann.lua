@@ -104,21 +104,26 @@ local function playNumber(num, dec)
    system.playNumber(playNum, dec)
 end
 
-local function playResult(k, ff)
+local function playEdge(k, ff)
    local fn = "/Apps/V-SensXF/Audio/" .. system.getLocale().."/"
-   if (not annResultWav[k]) or (annResultWav[k] == 1) then
+   if (annResultWav[k]) and (annResultWav[k] > 1) then
+      system.playFile(fn..annFiles[annResultWav[k]], AUDIO_QUEUE)
+   else
       system.playFile(fn.."Result.wav", AUDIO_QUEUE)
       system.playNumber(k, 0)
-      if ff then
-	 system.playFile(ff, AUDIO_QUEUE)
-      end
-   else
+      system.playFile(ff, AUDIO_QUEUE)
+   end
+end
+
+local function playResult(k)
+   local fn = "/Apps/V-SensXF/Audio/" .. system.getLocale().."/"
+   if (annResultWav[k]) and (annResultWav[k] > 1) then
       system.playFile(fn..annFiles[annResultWav[k]], AUDIO_QUEUE)
    end
 end
 
 local function resultChanged(val, k)
-   print("selResult, k, val", k, val)
+   --print("selResult, k, val", k, val)
    selResult[k] = val
    system.pSave("selResult", selResult)
 end
@@ -190,7 +195,7 @@ function Ann.init(r,rN)
    resultName = rN
 
    annTypes  = {lang.prc, lang.aut, lang.edg}
-   edgeTypes = {lang.ris, lang.fal}
+   edgeTypes = {lang.ris, lang.fal, lang.risx, lang.falx}
    buzzTypes = {lang.non, lang.lp, lang.sp, lang.sp2, lang.sp3}
    buzzSides = {lang.lef, lang.rig}
 
@@ -442,6 +447,7 @@ function Ann.loop()
 	 if not annLastResult[k] then annLastResult[k] = result[j] end
 	 if not annLastTime[k] then annLastTime[k] = 0 end
 	 if not annNextTime[k] then annNextTime[k] = 0 end
+	 local rj = result[j]
 	 if annType[k] == 1 or annType[k] == 2 then -- Periodic or Auto
 	    if annType[k] == 2 then -- Auto
 	       ratio = math.min(math.max(math.abs((result[j]-annLastResult[k])/annAutoSF[k]),
@@ -452,7 +458,7 @@ function Ann.loop()
 	    if (now > annNextTime[k]) and (not system.isPlayback()) then
 	       fn = "/Apps/V-SensXF/Audio/" .. system.getLocale().."/"
 	       playResult(k)
-	       system.playNumber(result[j], annDecimal[k])
+	       system.playNumber(rj, annDecimal[k])
 	       if annUnitWav[k] and annUnitWav[k] > 1 then
 		  --print("units", annFiles[annUnitWav[k]])
 		  system.playFile(fn ..annFiles[annUnitWav[k]], AUDIO_QUEUE)
@@ -464,25 +470,28 @@ function Ann.loop()
 	       annLastTime[k] = now
 	    end
 	 elseif annType[k] == 3 then --Edge
-	    local rightStick
+	    local rightStick, thresh
 	    if annBuzzSide[k] == 1 then rightStick = false else rightStick = true end
 	    if not annBuzzPulse[k] then annBuzzPulse[k] = 1 end
-	    if annEdgeDir[k] == 1 then -- rising edge
-	       if result[j] > 0.5 and annLastResult[k] < 0.5 then
+	    --print("#", k,j,annEdgeDir[k])
+	    if annEdgeDir[k] == 1 or annEdgeDir[k] == 3 then -- rising edges
+	       if annEdgeDir[k] == 1 then thresh = 0.5 else thresh = -0.5 end
+	       if rj > thresh and annLastResult[k] < thresh then
 		  annLastTime[k] = now
 		  fn = "/Apps/V-SensXF/Audio/" .. system.getLocale().."/rising_edge.wav"
-		  playResult(j, fn)
+		  playEdge(k, fn)
 		  system.vibration(rightStick, annBuzzPulse[k]-1)
 	       end
-	    else -- falling edge
-	       if result[j] < 0.5 and annLastResult[k] > 0.5 then
+	    else -- falling edges
+	       if annEdgeDir[k] == 2 then thresh = 0.5 else thresh = -0.5 end
+	       if rj < thresh and annLastResult[k] > thresh then
 		  annLastTime[k] = now
 		  fn = "/Apps/V-SensXF/Audio/" .. system.getLocale().."/falling_edge.wav"
-		  playResult(j, fn)
+		  playEdge(k, fn)
 		  system.vibration(rightStick, annBuzzPulse[k]-1)		  
 	       end
 	    end
-	    annLastResult[k] = result[j]
+	    annLastResult[k] = rj
 	 end
       end
    end

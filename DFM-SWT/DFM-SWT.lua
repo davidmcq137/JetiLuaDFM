@@ -27,6 +27,8 @@
    Version 0.1 - Sept 2020
    Version 0.2 - Sept 2020
    Version 0.3 - Oct  2020
+   Version 0.4 - Apr  2022
+
    Created and tested on DC/DS-24 emulator, tested on DS-24 TX
 
    TO DO: some telem names (e.g. "Rel. Alt" "Abs. Alt" from MVARIO)
@@ -44,7 +46,7 @@
 if not sharedVar then sharedVar = {} end
 
 local appName = "Short/Long Switch"
-local SWTVersion= 0.3
+local SWTVersion= 0.
 local currSwitchState
 local lastSwitchState
 local switch
@@ -146,7 +148,7 @@ local function teleChanged(value, idx)
    end
       
    if value > 2 then -- a telem sensor
-      print("teleChanged value, idx", value, idx)
+      --print("teleChanged value, idx", value, idx)
       teleSe[idx] = value
       teleSeId[idx] = sensorIdlist[value]
       teleSePa[idx] = sensorPalist[value]
@@ -174,31 +176,38 @@ local function teleChanged(value, idx)
       else
 	 teleSeUd[idx] = 1
       end
-
+      
    elseif value == 2 then -- <function>
       unassignTele(idx)
       teleSe[idx] = value
       vCtrl[idx] = 0
-      if idx <= maxPressCount then ss = tostring(idx) else ss = "L" end      
-      vCtrl[idx] = system.registerControl(idx, "Press "..ss, "SL"..ss)
-      --vCtrl[idx] = nil -- TEST
-      print("DFM-SWT: chg registered", ss, idx, vCtrl[idx])
+      if idx <= maxPressCount then ss = tostring(idx) else ss = "L" end
+      for k=1,10,1 do
+	 local used = false
+	 for j in ipairs(vCtrl) do
+	    if vCtrl[j] == k then used = true end
+	 end
+	 if not used then
+	    vCtrl[idx] = system.registerControl(k, "Press "..ss, "SL"..ss)	 
+	    if vCtrl[idx] then break end
+	 end
+      end
       if not vCtrl[idx] then
-	 system.messageBox("DFM-SWT cannot register control "..ss)
+	 system.messageBox("DFM-SWT cannot register control SW" .. ss)
 	 print("DFM-SWT: cannot register control", idx, "Press "..idx, "SW"..idx)
+      else
+	 print("DFM-SWT: Control SW".. ss .." reg to " .. vCtrl[idx])
       end
       if vCtrl[idx] and vCtrl[idx] ~= 0 then
 	 system.setControl(vCtrl[idx], -1, 0)
 	 ctrlOffTime[idx] = 0
-      else
-	 print("DFM-SWT: Control not registered", idx)
       end
 
    elseif value == 1 then -- "..." unassign
       unassignTele(idx)
       if vCtrl[idx] and vCtrl[idx] ~= 0 then
 	 system.unregisterControl(vCtrl[idx])
-	 print("DFM-SWT: unregister", idx, vCtrl[idx])
+	 --print("DFM-SWT: unregister", idx, vCtrl[idx])
 	 vCtrl[idx] = 0
       end
    end
@@ -420,7 +429,7 @@ local function pressAction(pC)
    fn = "/Apps/DFM-SWT/"..locale .."/"..string.gsub(teleSeLs[pC], " ", "_")..".wav"
 
    if teleSe[pC] == 2 then -- channel selected
-      if emFlag then print("DFM-SWT: pC, teleSe[pC]:", pC, teleSe[pC]) end
+      if emFlag then print("DFM-SWT <em>: pC, teleSe[pC]:", pC, teleSe[pC]) end
       if vCtrl[pC] and vCtrl[pC] > 0 then
 	 system.setControl(vCtrl[pC], 1, 0)
 	 ctrlOffTime[pC] = now + 100
@@ -518,7 +527,7 @@ local function loop()
    
    if now - lastUpTime > t2 then -- N presses done
       if pressCount > 0 then
-	 if emFlag then print("DFM-SWT: pressCount:", pressCount) end
+	 if emFlag then print("DFM-SWT <en>: pressCount:", pressCount) end
 	 if pressCount <= maxPressCount then
 	    pressAction(pressCount)
 	 end
@@ -542,7 +551,7 @@ local function loop()
 	    lastUpTime = now
 	 else
 	    if not startUp then
-	       if emFlag then print("DFM-SWT: Long press") end
+	       if emFlag then print("DFM-SWT <en>: Long press") end
 	       pressAction(maxPressCount + 1)
 	    end
 	    upTime = 0
@@ -603,55 +612,78 @@ local function init()
 
    for i=1, maxPressCount + 1, 1 do
       if not teleSe[i] then
-	 print("Se nil", i)
 	 teleSe[i] = 0
       end
       if not teleSeId[i] then
-	 print("Id nil", i)
 	 teleSeId[i] = 0
       end
       if not teleSePa[i] then
-	 print("Pa nil", i)
 	 teleSePa[i] = 0
       end
       if not teleSeUn[i] then
-	 print("Un nil", i)
 	 teleSeUn[i] = ""
       end
       if not teleSeUd[i] then
-	 print("Ud nil", i)
 	 teleSeUd[i] = 1
       end      
       if not teleSeLs[i] then
-	 print("Ls nil", i)
 	 teleSeLs[i] = ""
       end
       if not teleSeLa[i] then
 	 teleSeLa[i] = ""
-	 print("La nil", i)
       end
       if not teleSeDp[i] then
 	 teleSeDp[i] = 0
-	 print("Dp nil", i)
       end      
       if not vCtrl[i] then
 	 vCtrl[i] = 0
-	 print("vCtrl nil", i)
       end
    end
+   --[[
+      for k=1,10,1 do
+	 local used = false
+	 for j in ipairs(vCtrl) do
+	    if vCtrl[j] == k then used = true end
+	 end
+	 if not used then
+	    vCtrl[idx] = system.registerControl(k, "Press "..ss, "SL"..ss)	 
+	    if vCtrl[idx] then break end
+	 end
+      end
 
+   --]]
+
+   -- make a copy of the lua control assignments. assume they mapping to internal controls
+   -- may be changed since last stored with pSave. Just need to remember which entries in vCtrl
+   -- were non-zero, then we repopulate vCtrl
+   
+   kCtrl = {}
+   for k in ipairs(vCtrl) do
+      kCtrl[k] = vCtrl[k]
+      vCtrl[k] = 0
+   end
+   
    for i=1, maxPressCount+1, 1 do
-      if vCtrl[i] and vCtrl[i] ~= 0 then
+      if kCtrl[i] and kCtrl[i] ~= 0 then
 	 if i <= maxPressCount then ss = tostring(i) else ss = "L" end
-	 ic = system.registerControl(vCtrl[i], "Press "..ss, "SL"..ss)
-	 --print("DFM-SWT: init register", ss, i, vCtrl[i])
-	 --if ic ~= i then print("ic ~= i??", ic, i) end
+	 for k=1,10,1 do
+	    local used = false
+	    for j in ipairs(vCtrl) do
+	       if vCtrl[j] == k then used = true end
+	    end
+	    if not used then
+	       ic = system.registerControl(k, "Press "..ss, "SL"..ss)
+	       if ic then break end
+	    end
+	 end
 	 if ic then
+	    vCtrl[i] = ic
+	    print("DFM-SWT: Control SW"..i.." Registered to "..ic)
 	    system.setControl(vCtrl[i], -1, 0)
 	    ctrlOffTime[i] = 0
 	 else
-	    system.messageBox("DFM-SWT: control not registered ".. i)
-	    print("DFM-SWT: Control not registered", vCtrl[i])
+	    system.messageBox("DFM-SWT: control not registered ".. i, ic)
+	    print("DFM-SWT: Control not registered", i, vCtrl[i])
 	 end
       end
    end

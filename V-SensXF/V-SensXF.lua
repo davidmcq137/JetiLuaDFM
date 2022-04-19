@@ -65,6 +65,8 @@ local condIdx
 local curIndex = {}
 local env
 local result = {}
+local resultIntTick = {}
+local lastLoop
 local chunk = {}
 local fAvailable = {}
 local fIndex = {} 
@@ -243,7 +245,7 @@ end
 local function regControl(num, name)
    local ctl = "V"..string.format("%02d", num)
    local idx = system.registerControl(num, "V-SensXF " .. name, ctl)
-   if idx then print("V-SensXF: "..ctl .. " "..name) end
+   if idx then print("V-SensXF: Control "..ctl .. " Registered to " .. idx) end
    return idx
 end
 
@@ -257,6 +259,7 @@ local function regC(k)
 end
 
 local function regT(k)
+   --print("regT " ..k) 
    if k ==1 or k == 2 then
       highTele[k] = nil
       lowTele[k] = nil
@@ -727,7 +730,7 @@ local function initForm(formID)
   elseif currentForm == 9 then -- edit expression
      local fA = { "*","/","+","-","^","(",
 		  ">", "<", ">=", "<=", "==","~=",
-		  "and", "or",
+		  " and ", " or ",
 		  "0","1","2","3","4","5","6","7","8","9",
 		  "abs(","sin(","cos(","atan(","rad(","deg(","sqrt(",
 		  "max(", "min(", "floor(",
@@ -757,6 +760,8 @@ local function initForm(formID)
      local tmp
      for k in ipairs(condition) do
 	tmp = string.gsub(resultName[k], " ", "_")
+	table.insert(fAvailable, tmp)
+	tmp = "IntS_"..k
 	table.insert(fAvailable, tmp)
      end
      
@@ -971,6 +976,7 @@ local function keyPressed(key)
 end  
 
 local function printForm()
+
    if currentForm == 5 then
       local latN, lngN
       if lat1f and lng1f then
@@ -1061,17 +1067,17 @@ local function loop()
 		end end),
 	 nfi = (function(a1,a2)
 	       if a1 and selectedGPS[a2] then
-		  return gps.getDistance(selectedGPS[a2], currentGPS) <= a1 and 1 or 0
+		  return gps.getDistance(selectedGPS[a2], currentGPS) <= a1
 	       else
-		  return 0
+		  return false
 	       end end),
 	 nfo = (function(a1,a2)
-	       if not a1 and not a2 then return 0 end
+	       if not a1 and not a2 then return false end
 	       if a1 and not a2 then
-		  return gps.getDistance(selectedGPS[1],currentGPS) > a1 and 1 or 0
+		  return gps.getDistance(selectedGPS[1],currentGPS) > a1
 	       end
 	       if a1 and a2 then
-		  return gps.getDistance(selectedGPS[a2],currentGPS) > a1 and 1 or 0
+		  return gps.getDistance(selectedGPS[a2],currentGPS) > a1
 	       end end),
 	 sign = (function(a1)
 	       if a1 > 0 then return 1 elseif a1 < 0 then return -1 else return 0 end end)
@@ -1110,11 +1116,23 @@ local function loop()
 	 tmp = string.gsub(resultName[k], " ", "_")
 	 env[tmp] = result[k]
       end
+      tmp = "IntS_"..k
+      env[tmp] = (resultIntTick[k] or 0) / 1000.0
    end
-   
+   local dt, now
    for k in ipairs(condition) do
       if (chunk[k]) then
 	 status,result[k] = pcall(chunk[k])
+	 now = system.getTimeCounter()
+	 if not resultIntTick[k] then resultIntTick[k] = 0 end
+	 if lastLoop then
+	    dt = (now - lastLoop) 
+	    resultIntTick[k] = resultIntTick[k] + (tonumber(result[k]) or 0) * dt
+	    --print("dt, result[k], int", dt, tonumber(result[k] or 0), resultIntTick[k])
+	 else
+	    resultIntTick[k] = 0
+	 end
+	 lastLoop = now
 	 local r  = result[k]
 	 local r2k = resultTele[k]
 	 --print("%", k, r, r2k, lowTele[r2k], highTele[r2k])
@@ -1227,7 +1245,7 @@ local function init()
    --]]
 
    if #resultName == 0 then
-      resultTele = {1,2} -- in case nothing defined (no resultName), default to this config
+      resultTele = {1} -- in case nothing defined (no resultName), default to this config
    else
       resultTele = {}
       for k in ipairs(resultName) do -- create reverse table from teleResult
@@ -1245,7 +1263,7 @@ local function init()
       regL(k)
    end
 
-   for k=1,2,1 do
+   for k in ipairs(resultTele) do
       regT(k)
    end
    
@@ -1283,4 +1301,4 @@ end
 setLanguage()
 collectgarbage()
 
-return { init=init, loop=loop, author="JETI model and DFM", version="3.4",name="V-SensXF"}
+return { init=init, loop=loop, author="JETI model and DFM", version="3.9",name="V-SensXF"}

@@ -63,7 +63,7 @@
 
 --]]
 
-local amixVersion = 1.3
+local amixVersion = 1.4
 local appShort="DFM-Amix"
 local appDir = "Apps/"..appShort.."/"
 
@@ -861,16 +861,12 @@ local function init()
 
    monoChrome = false
 
-   --for now, disable mono devices
-
-   --[[
    for _,v in ipairs(monoDev) do
       if devType == v then
 	 monoChrome = true
 	 break
       end
    end
-   --]]
 
    if monoChrome then
       print(appShort .. ": Monochrome device " .. devType .. " detected")
@@ -896,11 +892,12 @@ local function init()
 	    break
 	 end
       end
-      for i=1,10,1 do
+      local imax = 10
+      for i=1,imax,1 do
 	 acvEleCtrl = system.registerControl(1+(iStart+i-2)%10, "Adaptive Mix Value Elevator", "AME")
 	 if acvEleCtrl then break end
       end
-      for i=1,10,1 do
+      for i=1,imax,1 do
 	 local ii = 1+(iStart+i-2)%10
 	 if  ii ~= acvEleCtrl then
 	    acvAilCtrl = system.registerControl(ii, "Adaptive Mix Value Aileron" , "AMA")

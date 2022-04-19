@@ -50,11 +50,11 @@ For creating no-fly-zones, there are two additional special functions to
     	    be done with lua expressions using gpsd and gpsb.
 
 The function for creating no-fly-inside zones is nfi(a1,a2). The function
-    	    returns 1 (true) if the aircraft is within a1 meters of the GPS
+    	    returns true if the aircraft is within a1 meters of the GPS
     	    Point number a2. You can create a set of GPS points for different no
     	    fly zones and then create a result expression of, for example
     	    nfi(100, 2) which will return true when the aircraft is within 100m
-    	    of GPS Point 2, and 0 otherwise, and similarly for GPS Point 3 and
+    	    of GPS Point 2, and false otherwise, and similarly for GPS Point 3 and
     	    so on.
 
 There is also a function nfo(a1,a2) for creating no-fly-outside zones. nfo
@@ -62,8 +62,13 @@ There is also a function nfo(a1,a2) for creating no-fly-outside zones. nfo
     	    GPS Point a2. If a2 is omitted and nfo is called as nfo(200) for
     	    example, then GPS Point 1 is used and the function returns true if
     	    the aircraft is more than 200 meters from the origin point GPS Point
-    	    1 and 0 otherwise. Typically nfo only makes sense for GPS Point 1 so
+    	    1 and false otherwise. Typically nfo only makes sense for GPS Point 1 so
     	    the single parameter call is expected to be used most of the time.
+
+Note that nfi and nfo return true or false as lua values so that they may be
+     used as part of more complex expressions. If used standalone, for example the
+     result is just nfo(400) then the app will convert the lua value of true to 1 and
+     false to 0 before it places the value into the result.
 	    
 If you need to use units that are not in the Jeti text entry menu we have
        	    defined special escape sequences for these units. They are .p for
@@ -90,8 +95,8 @@ Second, suppose you want to have a nofly outside zone centered on the home
 
      nfo(1000)
 
-This expression will return true (numerical value of 1) when the aircraft is
-     outside the 1000m circle, and false (numerical value 0) when inside. You can
+This expression will return true when the aircraft is
+     outside the 1000m circle, and false when inside. You can
      then assign a lua control to this result, and use that to make an announcement
      in the transmitter when you fly outside the zone.
 
