@@ -1,0 +1,6 @@
+NAME;AUTHOR;VERSION;HARDWARE;DATE;DESCRIPTION;FILES_FOLDERS;ICON;MIN_TXVER
+{"en":"DFM-Chute"};Dave McQueeney;0.4;678,679,680,652,653,3857,3858;Tue Dec 12 15:05:00 2000 GMT;{"en":"DFM-Chute.html"};DFM-Chute.lua,DFM-Chute;DFM.png;5.0
+{"en":"DFM-SpdA"};Dave McQueeney;2.1;678,679,680,652,653,3857,3858;Tue Dec 12 15:05:00 2000;{"en":"DFM-SpdA.html"};DFM-SpdA.lua,DFM-SpdA;DFM.png;5.0
+{"en":"DFM-Smoke"};Dave McQueeney;1.0;678,679,680,652,653,3857,3858;Tue Dec 12 15:25:00 2000 GMT;{"en":"DFM-Smoke.html"};DFM-Smoke.lua,DFM-Smoke;DFM.png;5.0
+{"en":"T-Wizard"};Dave McQueeney;1;678,679,680,652,653,3857,3858;Sun Aug 22 14:49:00 2021 GMT;{"en":"T-Wizard.html"};T-Wizard.lua,T-Wizard;DFM.png;5.0
+{"en":"CTU-DFM"};D. McQueeney;4.1;678,679,680,652,653,3857,3858;Wed Sep 22 22:30:00 2021 GMT;{"en":"CTU-DFM.html"};CTU-DFM.lua,CTU-DFM;DFM.png;5.0

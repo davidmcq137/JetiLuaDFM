@@ -1,0 +1,7 @@
+NAME;AUTHOR;VERSION;HARDWARE;DATE;DESCRIPTION;FILES_FOLDERS;ICON;MIN_TXVER
+{"en":"DFM-Crow"};D. McQueeney and H. Curzon;1.6;674,675,676,677,678,679,680,652,653,3857,3858;Wed Dec 1 21:35:00 2021;{"en":"DFM-Crow/DFM-Crow.html"};DFM-Crow,DFM-Crow.lc;DFM.png;5.0
+{"en":"DFM-SWT.lua"};D. McQueeney and H. Curzon;0.5;678,679,680,652,653,3857,3858;Thu Apr 14 22:30:00 2022 GMT;{"en":"DFM-SWT.html"};DFM-SWT.lua,DFM-SWT;DFM.png;5.0
+{"en":"DFM-GRat.lua"};D. McQueeney and H. Curzon;0.1;678,679,680,652,653,3857,3858;Mon Apr 26 10:06:00 2027 GMT;{"en":"DFM-GRat.html"};DFM-GRat.lua,DFM-GRat;DFM.png;5.0
+{"en":"DFM-Watt.lua"};D. McQueeney and H. Curzon;0.4;678,679,680,652,653,3857,3858;Thu May 13 16:27:00 2021 GMT;{"en":"DFM-Watt.html"};DFM-Watt.lua,DFM-Watt;DFM.png;5.0
+{"en":"DFM-Amix"};D. McQueeney and H. Curzon;1.4;674,675,676,677,678,679,680,652,653,3857,3858;Tue Apr 19 10:17:00 2022 GMT;{"en":"DFM-Amix/DFM-Amix.html"};DFM-Amix,DFM-Amix.lc;DFM.png;5
+{"en":"V-SensXF"};Jeti Model and D. McQueeney and H. Curzon;4.0;674,675,676,677,678,679,680,652,653,3857,3858;Wed Apr 20 08:10:00 2022;{"en":"V-SensXF.html"};V-SensXF.lc,V-SensXF,V-Ann.lc;DFM.png;4.28
