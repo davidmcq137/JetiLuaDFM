@@ -46,7 +46,7 @@
 if not sharedVar then sharedVar = {} end
 
 local appName = "Short/Long Switch"
-local SWTVersion= 0.
+local SWTVersion= 0.5
 local currSwitchState
 local lastSwitchState
 local switch

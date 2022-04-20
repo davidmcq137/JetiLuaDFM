@@ -37,6 +37,7 @@
 -- # V1.2 - DFM 03/31/22 changing name to V-SensXF
 -- # V2.0 - DFM 04/02/22 arb # tele, arb # results, help file on results screen
 -- # V2.7 - DFM 04/09/22 gps functions
+-- # V4.0 - DFM 04/20/22 announce subsystem added
 -- #
 -- #############################################################################
 
@@ -56,7 +57,7 @@ local lngIndex
 local latID, latParam
 local lngID, lngParam
 local currentGPS
-local selectedGPS = {}
+local selectedGPS
 local gpsReads = 0
 local value = {}
 local condition  = {}
@@ -65,8 +66,8 @@ local condIdx
 local curIndex = {}
 local env
 local result = {}
-local resultIntTick = {}
-local lastLoop
+--local resultIntTick = {}
+--local lastLoop
 local chunk = {}
 local fAvailable = {}
 local fIndex = {} 
@@ -122,6 +123,31 @@ local function recomputeCond()
    for k in ipairs(condition) do
       conditionChanged[k] = true
    end
+end
+
+local function pSaveGPS(name, tbl)
+   local lat, lng
+   for k in ipairs(selectedGPS) do
+      lat, lng = gps.getValue(selectedGPS[k])
+      system.pSave(name..k.."Lat", tostring(lat))
+      system.pSave(name..k.."Lng", tostring(lng))
+   end
+end
+
+local function pLoadGPS(name, tbl)
+   local i=1
+   local lat, lng
+   local rTbl = {}
+   repeat
+      lat = system.pLoad(name..i.."Lat")
+      lng = system.pLoad(name..i.."Lng")
+      if lat and lng then
+	 rTbl[i] = gps.newPoint(lat, lng)
+	 i=i+1
+      end
+   until (not lat) and (not lng)
+   if not rTbl then rTbl = tbl end
+   return rTbl
 end
 
 local function updateValues()
@@ -385,6 +411,7 @@ local function gpsStrChanged(val, kk, idx)
    else -- lng
       selectedGPS[kk] = gps.newPoint(lt, val)
    end
+   pSaveGPS("selectedGPS", selectedGPS)
 end
 
 local function textChanged(val, idx)
@@ -490,11 +517,11 @@ local function initForm(formID)
      form.addRow(1)
      form.addLink((function() form.reinit(4); form.waitForRelease() end),
 	{label=lang.GPSSen})	
-
+     
      form.addRow(1)
      form.addLink((function() form.reinit(5); form.waitForRelease() end),
 	{label=lang.GPSPt})
-
+     
      if V_Ann then
 	form.addRow(1)
 	form.addLink((function() form.reinit(100); form.waitForRelease() end),
@@ -571,6 +598,7 @@ local function initForm(formID)
      form.setButton(2, ":add", ENABLED)
      form.setButton(3, lang.reset, ENABLED)
   elseif currentForm == 4 then -- gps sensors
+     
      if(tonumber(system.getVersion()) < 5.0) then
 	form.addRow(1)
 	form.addLabel({label=lang.fw5})
@@ -606,9 +634,9 @@ local function initForm(formID)
      form.addRow(2)
      form.addLabel({label=lang.GPSLng,width=160})
      form.addSelectbox(list,lngIndex,true,(function(x) return sensorChangedGPS(x,2) end),{width=180})
-     
-  elseif currentForm == 5 then -- gps points
 
+  elseif currentForm == 5 then -- gps points
+     
      local latN, lngN, latS, lngS
 
      if(tonumber(system.getVersion()) < 5.0) then
@@ -644,7 +672,7 @@ local function initForm(formID)
      form.setButton(2, ":add", ENABLED)
      form.setButton(3, lang.reset, ENABLED)
      form.setButton(4, ":download", ENABLED)
-
+     
   elseif currentForm == 6 then -- static variables
      --[[
      if #variableName == 0 then
@@ -761,8 +789,8 @@ local function initForm(formID)
      for k in ipairs(condition) do
 	tmp = string.gsub(resultName[k], " ", "_")
 	table.insert(fAvailable, tmp)
-	tmp = "IntS_"..k
-	table.insert(fAvailable, tmp)
+	--tmp = "IntS_"..k
+	--table.insert(fAvailable, tmp)
      end
      
      form.setButton(4,":backspace",ENABLED)  
@@ -857,21 +885,21 @@ local function keyPressed(key)
       if key == KEY_1 then
 	 selectedGPS[1] = gps.newPoint(0,0)
 	 gpsReads = 0
-	 system.pSave("selectedGPS", selectedGPS)
+	 pSaveGPS("selectedGPS", selectedGPS)
 	 form.reinit(5)
       elseif key == KEY_2 then
 	 table.insert(selectedGPS, gps.newPoint(0,0))
-	 system.pSave("selectedGPS", selectedGPS)
+	 pSaveGPS("selectedGPS", selectedGPS)
 	 form.reinit(5)
       elseif key == KEY_3 then
 	 env = nil -- will recompute
 	 selectedGPS = {gps.newPoint(0,0)}
-	 system.pSave("selectedGPS", selectedGPS)
+	 pSaveGPS("selectedGPS", selectedGPS)
 	 gpsReads = 0
 	 form.reinit(5)
       elseif key == KEY_4 then
 	 table.insert(selectedGPS, gps.newPoint(lat or 0,lng or 0))
-	 system.pSave("selectedGPS", selectedGPS)
+	 pSaveGPS("selectedGPS", selectedGPS)
 	 form.reinit(5)
       elseif key == KEY_5 or key == KEY_ESC then
 	 form.reinit(1)
@@ -1116,23 +1144,23 @@ local function loop()
 	 tmp = string.gsub(resultName[k], " ", "_")
 	 env[tmp] = result[k]
       end
-      tmp = "IntS_"..k
-      env[tmp] = (resultIntTick[k] or 0) / 1000.0
+      --tmp = "IntS_"..k
+      --env[tmp] = (resultIntTick[k] or 0) / 1000.0
    end
    local dt, now
    for k in ipairs(condition) do
       if (chunk[k]) then
 	 status,result[k] = pcall(chunk[k])
-	 now = system.getTimeCounter()
-	 if not resultIntTick[k] then resultIntTick[k] = 0 end
-	 if lastLoop then
-	    dt = (now - lastLoop) 
-	    resultIntTick[k] = resultIntTick[k] + (tonumber(result[k]) or 0) * dt
+	 --now = system.getTimeCounter()
+	 --if not resultIntTick[k] then resultIntTick[k] = 0 end
+	 --if lastLoop then
+	 --   dt = (now - lastLoop) 
+	 --   resultIntTick[k] = resultIntTick[k] + (tonumber(result[k]) or 0) * dt
 	    --print("dt, result[k], int", dt, tonumber(result[k] or 0), resultIntTick[k])
-	 else
-	    resultIntTick[k] = 0
-	 end
-	 lastLoop = now
+	 --else
+	 --   resultIntTick[k] = 0
+	 --end
+	 --lastLoop = now
 	 local r  = result[k]
 	 local r2k = resultTele[k]
 	 --print("%", k, r, r2k, lowTele[r2k], highTele[r2k])
@@ -1199,9 +1227,8 @@ local function init()
    --variableValue = system.pLoad("variableValue", {})
    controlResult = system.pLoad("controlResult", {})
    condition = system.pLoad("condition",{})
-   selectedGPS = system.pLoad("selectedGPS", {})
+   selectedGPS = pLoadGPS("selectedGPS", {})
    teleResult = system.pLoad("teleResult", {1, 2})
-
    latID = system.pLoad("latID")
    lngID = system.pLoad("lngID")
    latParam = system.pLoad("latParam")
@@ -1301,4 +1328,4 @@ end
 setLanguage()
 collectgarbage()
 
-return { init=init, loop=loop, author="JETI model and DFM", version="3.9",name="V-SensXF"}
+return { init=init, loop=loop, author="JETI model and DFM", version="4.0",name="V-SensXF"}
