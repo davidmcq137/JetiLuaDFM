@@ -176,7 +176,7 @@ local function updateValues()
 	 lng = degs + minutes / 60.0
 	 if ss.decimals == 3 then lng = lng * -1 end
       end
-
+      --
       if lat and lng then
 	 -- deal with bad lat/lngs from Xicoy and MGPS
 	 if math.abs(lat) < 1 and math.abs(lng) < 1 then return end
@@ -1165,8 +1165,8 @@ local function loop()
 	 local r2k = resultTele[k]
 	 --print("%", k, r, r2k, lowTele[r2k], highTele[r2k])
 	 if (type(r) == "number") or (type(r) == "boolean") then
-	    if r == false then result[k] = 0 end
-	    if r == true then result[k] = 1 end
+	    if r == false then result[k] = 0; r = 0 end
+	    if r == true then result[k] = 1; r = 1 end
 	    if r2k then
 	       if not lowTele[r2k] then lowTele[r2k] = r end
 	       if not highTele[r2k] then highTele[r2k] = r end
