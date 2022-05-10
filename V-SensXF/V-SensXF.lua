@@ -38,6 +38,7 @@
 -- # V2.0 - DFM 04/02/22 arb # tele, arb # results, help file on results screen
 -- # V2.7 - DFM 04/09/22 gps functions
 -- # V4.0 - DFM 04/20/22 announce subsystem added
+-- # V4.1 - DFM 05/09/22 fixed bug re: telewindow on start, dec pt on logging
 -- #
 -- #############################################################################
 
@@ -231,7 +232,7 @@ local function printTelemetry(width, height, kdx)
 
    local jdx = resultControl[idx] 
    
-   --print("#", kdx, idx, resultControl[1], resultControl[2], resultControl[3])
+   --print("#", kdx, idx, jdx, resultControl[1], resultControl[2], resultControl[3])
    
    if height > 40 then
       if jdx and jdx > 0 then
@@ -302,12 +303,12 @@ local function regT(k)
 end
 
 local function regL(k)
-      
    if k <= logFileMax then
       logVariableID[k] = system.registerLogVariable(
 	 resultName[k], resultUnit[k],
-	 (function(index) return type(result[index]) == "number" and result[index] *100 or nil end),
-	 2
+	 (function(index)
+	       return
+	       (type(result[index]) == "number" and result[index]*100 or nil), 2 end)
       )
       if not logVariableID[k] then logVariableID[k] = 0 end
    end
@@ -756,7 +757,7 @@ local function initForm(formID)
      helpbutton()
      --]]     
   elseif currentForm == 9 then -- edit expression
-     local fA = { "*","/","+","-","^","(",
+     local fA = { "*","/","+","-","^","(","%",
 		  ">", "<", ">=", "<=", "==","~=",
 		  " and ", " or ",
 		  "0","1","2","3","4","5","6","7","8","9",
@@ -1165,8 +1166,8 @@ local function loop()
 	 local r2k = resultTele[k]
 	 --print("%", k, r, r2k, lowTele[r2k], highTele[r2k])
 	 if (type(r) == "number") or (type(r) == "boolean") then
-	    if r == false then result[k] = 0; r = 0 end
-	    if r == true then result[k] = 1; r = 1 end
+	    if r == false then result[k] = 0 ; r = 0 end
+	    if r == true then result[k] = 1 ; r = 1 end
 	    if r2k then
 	       if not lowTele[r2k] then lowTele[r2k] = r end
 	       if not highTele[r2k] then highTele[r2k] = r end
@@ -1282,6 +1283,7 @@ local function init()
       end
    end
    
+   --print("#", resultName[1], resultName[2], resultName[3], resultName[4])   
    --print("@", resultTele[1], resultTele[2], resultTele[3], resultTele[4])
    
    system.registerForm(1,MENU_APPS,lang.appname,initForm,keyPressed,printForm);
@@ -1290,8 +1292,12 @@ local function init()
       regL(k)
    end
 
-   for k in ipairs(resultTele) do
-      regT(k)
+   -- loop over resultName, not resultTele since resultTele has nil entries
+   
+   for k = 1, #resultName do 
+      if resultTele[k] then
+	 regT(resultTele[k])
+      end
    end
    
    for k=1,luaCtlMax do
@@ -1328,4 +1334,4 @@ end
 setLanguage()
 collectgarbage()
 
-return { init=init, loop=loop, author="JETI model and DFM", version="4.0",name="V-SensXF"}
+return { init=init, loop=loop, author="JETI model and DFM", version="4.1",name="V-SensXF"}
