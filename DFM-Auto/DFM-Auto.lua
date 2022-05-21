@@ -238,7 +238,7 @@ local function initForm()
       form.addSelectbox(sensorLalist, spdSe, true, sensorChanged)
       
       form.addRow(2)
-      form.addLabel({label="Select Enable Switch", width=220})
+      form.addLabel({label="Select Ann Enable Switch", width=220})
       form.addInputbox(spdSwitch, false, spdSwitchChanged)
 
       form.addRow(2)
@@ -1012,6 +1012,8 @@ local function init()
    -- set default for pitotCal in case no "DFM-model.jsn" file
 
    modelProps.pitotCal = airspeedCal -- start with the pLoad default
+
+   local fg
    
    fg = io.readall("Apps/DFM-"..string.gsub(system.getProperty("Model")..".jsn", " ", "_"))
    if fg then

@@ -156,7 +156,7 @@ end
 --------------------------------------------------------------------------------
 
 local function playFile(filename, parm)
-   local slash
+   local slash, prefix
    if DEBUG then slash="" else slash="/" end
    if locale == 'en' then prefix = slash..appDir else
       prefix = slash..appDir..locale.."-"
@@ -588,6 +588,7 @@ local function loop()
    local swi, swc
    local isen
    local thrStick, thrIdx
+   local sensor
    
    -- gather some stats on loop times so we can normalize integrator performance
    
