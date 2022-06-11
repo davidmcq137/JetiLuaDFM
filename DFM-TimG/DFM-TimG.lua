@@ -378,9 +378,12 @@ local function timePrint(width, height, key)
      
   drawRectGaugeAbs(width/2, height-20, 300, 40, 0, 100, fuelPct, "", rgb)
 
+  --lcd.drawText(10,100,string.format("F: %d M: %d", (fuelQty or -1), (fuelMax or -1) ))
+
 end
 
 --------------------------------------------------------------------------------
+local fpAnn = false
 
 local function loop()
 
@@ -393,15 +396,21 @@ local function loop()
 
    if(sensor and sensor.valid) then
       fuelQty = sensor.value
+      fuelMax = sensor.max
       -- odd behavior .. sensor.max tracking with sensor.value??
       -- for now, just set fuelMax once at first reading till we figure it out
-      if not fuelMax then
-	 fuelMax = fuelQty
-      end
-      if fuelMax and fuelQty  and (fuelMax > 0) then -- double check!
-	 fuelPct = 100 * fuelQty / fuelMax
+      --if not fuelMax then
+	-- fuelMax = fuelQty
+	-- print("set fuelMax to", fuelMax, sensor.max)
+      --end
+      if fuelQty and sensor.max and (sensor.max > 0) then -- double check!
+	 fuelPct = 100 * fuelQty / sensor.max -- fuelMax
       else
 	 fuelPct = 0
+      end
+      if fuelPct > 100 and (not fpAnn) then
+	 print("pct>100", fuelQty, sensor.max)
+	 fpAnn = true
       end
    end
 
