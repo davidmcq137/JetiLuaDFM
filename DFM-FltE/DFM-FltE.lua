@@ -119,8 +119,8 @@ local lastTim
 local lastStable
 local lastPt
 local thrRPM = {}
-local selectThr
-local selectExp
+local selectThr = 100
+local selectExp = 4
 local movingThr = true
 local dispatchedForm
 local savedRow = 1
@@ -180,7 +180,7 @@ local pGainInput
 local iGainInput
 local appStartTime
 
-local function linfit(xyt)
+local function linfit(xyt, ee)
    local sx = 0
    local sy = 0
    local sdxy = 0
@@ -193,14 +193,14 @@ local function linfit(xyt)
    
    for i in ipairs(xyt) do
       sx = sx + xyt[i].x
-      sy = sy + xyt[i].y
+      sy = sy + xyt[i].y^ee
    end
 
    xbar = sx / #xyt
    ybar = sy / #xyt
 
    for i in ipairs(xyt) do
-      sdxy = sdxy + (xyt[i].x-xbar)*(xyt[i].y-ybar)
+      sdxy = sdxy + (xyt[i].x-xbar)*(xyt[i].y^ee-ybar)
       sdxx = sdxx + (xyt[i].x-xbar)*(xyt[i].x-xbar)
    end
 
@@ -536,14 +536,14 @@ local function keyPressed(key)
 		  table.insert(rpm1, {x=v.thr, y=v.rpm1})
 	       end
 	    end
-	    engineMdl[1].m, engineMdl[1].b = linfit(rpm1)
+	    engineMdl[1].m, engineMdl[1].b = linfit(rpm1, selectExp)
 	    for k,v in ipairs(thrRPM) do
 	       if v.thr <= selectThr then 	    
 		  --print(k, v.thr, v.rpm2)
 		  table.insert(rpm2, {x=v.thr, y=v.rpm2})
 	       end
 	    end
-	    engineMdl[2].m, engineMdl[2].b = linfit(rpm2)
+	    engineMdl[2].m, engineMdl[2].b = linfit(rpm2, selectExp)
 	 end
       elseif key == KEY_5 then
 	 form.preventDefault()
@@ -557,8 +557,8 @@ local function keyPressed(key)
 	       selectThr = math.min(selectThr, 100)
 	       --print("selectThr", selectThr)
 	    else
-	       selectExp = selectExp + 2
-	       selectExp = math.max(math.min(selectExp, 100), -100)
+	       selectExp = selectExp + 0.2
+	       selectExp = math.max(math.min(selectExp, 6), 1)
 	    end
 	 end
       elseif key == KEY_DOWN then
@@ -568,8 +568,8 @@ local function keyPressed(key)
 	       selectThr = math.max(selectThr, 0)	 
 	       --print("selectThr", selectThr)
 	    else
-	       selectExp = selectExp - 2
-	       selectExp = math.max(math.min(selectExp, 100), -100)
+	       selectExp = selectExp - 0.2
+	       selectExp = math.max(math.min(selectExp, 6), 1)
 	    end
 	 end
       elseif key ~= KEY_RELEASED then
@@ -1742,15 +1742,26 @@ local function calibrate(w,h,isForm)
    local function calForm()
       local txt = "Calibration Points: " .. #thrRPM
       lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,0, txt)
+      --[[
+      local max1, max2 = 0,0
       for i=1,#thrRPM do
-	 selectThr = selectThr or 90
-	 selectExp = selectExp or 0
+	 if thrRPM[i].rpm1 > max1 then max1 = thrRPM[i].rpm1 end
+	 if thrRPM[i].rpm2 > max2 then max2 = thrRPM[i].rpm2 end	 
+      end
+      print("max1, max2", max1, max2)
+      --]]
+      for i=1,#thrRPM do
+	 selectThr = selectThr or 100
+	 selectExp = selectExp or 1
+
+	 --local yt = ((thrRPM[i].rpm1 / max1) ^ selectExp) * max1
 	 if thrRPM[i].thr <= selectThr then
 	    lcd.setColor(255,0,0)
 	 else
 	    lcd.setColor(255,180,180)
 	 end
 	 drawPShape(lozenge, xp(thrRPM[i].thr), yp(thrRPM[i].rpm1))
+	 --yt = thrRPM[i].rpm2 -- ^ selectExp / (GaugeMaxRPM ^ (selectExp-1))
 	 if thrRPM[i].thr <= selectThr then
 	    lcd.setColor(0,0,255)
 	 else
@@ -1763,7 +1774,7 @@ local function calibrate(w,h,isForm)
 	 lcd.setColor(0,0,255)
 	 lcd.drawLine(xp(selectThr), yo, xp(selectThr), yo + yl)
 	 local txt = "Throttle: " .. string.format("%2d", math.floor(selectThr+0.5)) ..
-	    "  Expo: " .. string.format("%+02d", math.floor(selectExp))
+	    "  Expo: " .. string.format("%2.1f", selectExp)
 	 lcd.drawText((320-lcd.getTextWidth(FONT_NORMAL, txt))/2,140, txt)
       end
       
@@ -1782,10 +1793,23 @@ local function calibrate(w,h,isForm)
 	       else
 		  lcd.setColor(0,0,255)
 	       end
-	       local np = 20
-	       for k=0,np - 1,1 do
+	       local np = 40
+	       for k=4,np - 1,1 do
 		  x1 = (k / np) * selectThr
 		  x2 = (k + 1) / np * selectThr
+		  ys1 = (m*x1 + b)
+		  ys2 = (m*x2 + b)
+		  if ys1 > 0 then
+		     y1 = ys2^(1/exp)
+		  else
+		     y1 = 0
+		  end
+		  if ys2 > 0 then
+		     y2 = ys2^(1/exp)
+		  else
+		     y2 = 0
+		  end
+		  --[[
 		  y1 = m * x1 --+ b
 		  y2 = m * x2 --+ b
 		  ys1 = y1 / (m*selectThr)
@@ -1799,7 +1823,8 @@ local function calibrate(w,h,isForm)
 		     y2 = (ys2^(exp2^(exp/100))) * m*selectThr + b
 		  else
 		     y2 = b --ys2 * m * selectThr + b
-		  end		  
+		  end
+		  --]]
 		  --print(k,x,y)
 		  --lcd.drawCircle(xp(x), yp(y), 2)
 		  lcd.drawLine(xp(x1), yp(y1), xp(x2), yp(y2))		  
@@ -1902,6 +1927,19 @@ local function init()
    selFt = (selFt == "true") -- can't pSave and pLoad booleans...store as text 
    shortAnn = (shortAnn == "true") -- convert back to boolean here
 
+   --------------------------
+   local temp
+   fg = io.readall("Apps/DFM-FltE/FD-Stearman-2022-14-06-01.jsn")
+   if fg then
+      temp = json.decode(fg)
+   else
+      print("cannot read FD-Stearman")
+   end
+   thrRPM = temp.array
+   print("#thrRPM", #thrRPM)
+   ---------------------------
+
+   
    --[[ -- eliminate defaults file 
    -- load defaults from the FE-<model>.jsn file
    

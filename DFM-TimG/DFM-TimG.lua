@@ -395,21 +395,19 @@ local function loop()
    end
 
    if(sensor and sensor.valid) then
-      fuelQty = sensor.value
-      fuelMax = sensor.max
-      -- odd behavior .. sensor.max tracking with sensor.value??
-      -- for now, just set fuelMax once at first reading till we figure it out
-      --if not fuelMax then
-	-- fuelMax = fuelQty
-	-- print("set fuelMax to", fuelMax, sensor.max)
-      --end
-      if fuelQty and sensor.max and (sensor.max > 0) then -- double check!
-	 fuelPct = 100 * fuelQty / sensor.max -- fuelMax
+      -- seems that with the CTU, sensor.max not working correctly, but it is ok for Jetcat
+      -- so let's just keep our own fuelMax and ignore sensor.max
+      fuelQty = sensor.value or 0
+      if not fuelMax then fuelMax = fuelQty end
+      if fuelQty > fuelMax then fuelMax = fuelQty end
+
+      if fuelMax > 0 then -- double check!
+	 fuelPct = 100 * fuelQty / fuelMax 
       else
 	 fuelPct = 0
       end
       if fuelPct > 100 and (not fpAnn) then
-	 print("pct>100", fuelQty, sensor.max)
+	 print("pct>100", fuelQty, fuelMax, sensor.max)
 	 fpAnn = true
       end
    end
