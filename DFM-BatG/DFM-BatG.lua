@@ -135,10 +135,17 @@ local function initForm0()
    form.setFocusedRow(focusRow)
 end
 
-local function battChanged(value, i)
+local function battChanged(value, i, icap, icyc)
+   local str
    Battery[i] = value
-   print(value, i)
-   --form.reinit(2)
+   print(value, i, icap, icyc)
+   if Battery[i] < 1 then print("Battery[i]<1") return end
+   str = string.format("%4d  ", gblBattery[Battery[i]].cyc)
+   print("cyc", str)
+   form.setValue(icyc, str)
+   str = string.format("%4d  ", gblBattery[Battery[i]].cap)
+   print("cap", str)
+   form.setValue(icap, str)
 end
 
 local function gblBattChanged(value, i, sub)
@@ -164,6 +171,7 @@ local function warn2Changed(value)
 end
 
 local function keyForm(key)
+   print("subForm, key", subForm, key, KEY_ENTER)
    local row = form.getFocusedRow() - 1
    if subForm == 2 and key == KEY_1 and row >= 1 and row <= NUMSLOT then
       Battery[row] = 0
@@ -180,6 +188,12 @@ local function keyForm(key)
       form.reinit(1)
    end
 
+   if subForm == 2 and key == KEY_ENTER then
+      print("bingo")
+      form.preventDefault()
+      form.reinit(2)
+   end
+   
    if subForm == 3 and key == KEY_5 then
       form.preventDefault()
       form.reinit(1)
@@ -207,6 +221,7 @@ local function keyForm(key)
       form.preventDefault()
       form.reinit(1)
    end
+
    
 end
 
@@ -233,24 +248,29 @@ local function initForm(sf)
       form.addLabel({label="Cap (mAh)", width=80, alignRight=true, font=FONT_NORMAL})
       form.addLabel({label="Cycles", width=80, alignRight=true, font=FONT_NORMAL})
 
+      local icap={}
+      local icyc={}
+      
       for i=1,NUMSLOT,1 do
 	 form.addRow(4)
 	 form.addLabel({label=i.."  ", width=60, alignRight=true, font=FONT_NORMAL})
+	 -- how to update cap and cyc as we go thru numbers on batt #?
 	 form.addIntbox(Battery[i], 0, #gblBattery, 1, 0, 1,
-			(function(x) return battChanged(x, i) end),
+			(function(x) return battChanged(x, i, icap[i], icyc[i]) end),
 			{width=60, alignRight=true,font=FONT_NORMAL})
 	 if Battery[i] >= 1 and Battery[i] <= #gblBattery then
 	    str = string.format("%4d  ", gblBattery[Battery[i]].cap)
 	 else
 	    str = "---  "
 	 end
-	 form.addLabel({label=str, width=80, alignRight=true})
+	 icap[i] = form.addLabel({label=str, width=80, alignRight=true})
 	 if Battery[i] >= 1 and Battery[i] <= #gblBattery then
 	    str = string.format("%4d  ", gblBattery[Battery[i]].cyc)
 	 else
 	    str = "---  "
 	 end
-	 form.addLabel({label=str,  width=80,  alignRight=true})	 
+	 icyc[i] = form.addLabel({label=str,  width=80,  alignRight=true})
+	 print(i, icap[i], icyc[i])
       end
    elseif sf == 3 then
       form.addRow(2)
