@@ -27,6 +27,8 @@ local lastSlot
 local seenRX = false
 local warnAnn = false
 local warn2Ann = false
+local stickToShake
+local shakePattern
 local battmAh
 local battmAhSe, battmAhSeId, battmAhSePa
 local row2batt={}
@@ -170,6 +172,17 @@ local function warn2Changed(value)
    warn2Sound = value
 end
 
+local function stickChanged(value)
+   print("stickToShake", value)
+   stickToShake = value
+end
+
+local function shakeChanged(value)
+   print("shakePattern", value)
+   shakePattern = value
+end
+
+
 local function keyForm(key)
    print("subForm, key", subForm, key, KEY_ENTER)
    local row = form.getFocusedRow() - 1
@@ -286,6 +299,14 @@ local function initForm(sf)
       form.addAudioFilebox(warn2Sound or "...", warn2Changed)
 
       form.addRow(2)
+      form.addLabel({label="Stick to vibrate"})      
+      form.addSelectbox({"Left", "Right"}, stickToShake, true, stickChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Vibration pattern"})      
+      form.addSelectbox({"Long", "Short", "2xShort", "3xShort"}, shakePattern, true, shakeChanged)      
+      
+      form.addRow(2)
       form.addLink((function()
 	       system.messageBox("Battery selection cleared")
 	       selectedSlot = 0
@@ -362,6 +383,8 @@ local function writeBattery()
    saveBatt.battmAhSePa = battmAhSePa
    saveBatt.warnSound = warnSound
    saveBatt.warn2Sound = warn2Sound   
+   savedBatt.stickToShake = stickToShake
+   savedBatt.shakePattern = shakePattern
    
    if writeBD then
       fp = io.open(fileBD, "w")
@@ -552,6 +575,8 @@ local function init()
       battmAhSePa = decoded.battmAhSePa or 0
       warnSound = decoded.warnSound
       warn2Sound = decoded.warn2Sound or "..."
+      stickToShake = decoded.stickToShake or 1 -- 1 is left, 2 is right
+      shakePattern = decoded.shakePattern or 3 -- 2x short pulse
       for i=1,NUMSLOT,1 do
 	 if not Battery[i] then
 	    Battery[i] = 0
@@ -567,7 +592,9 @@ local function init()
       battmAhSePa = 0
       lastSlot = 0
       warnSound = "..."
-      warn2Sound = "..."      
+      warn2Sound = "..."
+      stickToShake = 1
+      shakePattern = 3
    end
 
    fileBDG = pf .. "Apps/DFM-BatG/BD_Global.jsn"

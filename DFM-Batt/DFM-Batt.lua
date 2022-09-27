@@ -26,6 +26,10 @@ local lastBatt
 local seenRX = false
 local warnAnn = false
 local warn2Ann = false
+local stickToShake
+local stickToShake2
+local shakePattern
+local shakePattern2
 local battmAh
 local battmAhSe, battmAhSeId, battmAhSePa
 local row2batt={}
@@ -152,6 +156,22 @@ local function warn2Changed(value)
    warn2Sound = value
 end
 
+local function stickChanged(value)
+   stickToShake = value
+end
+
+local function shakeChanged(value)
+   shakePattern = value
+end
+
+local function stick2Changed(value)
+   stickToShake2 = value
+end
+
+local function shake2Changed(value)
+   shakePattern2 = value
+end
+
 local function keyForm(key)
    local row = form.getFocusedRow() - 1
    if subForm == 2 and key == KEY_1 and row >= 1 and row <= NUMBAT then
@@ -186,8 +206,11 @@ local function initForm(sf)
       form.addLink((function() form.reinit(2) end), {label="Battery Setup>>"})
 
       form.addRow(2)
-      form.addLink((function() form.reinit(3) end), {label="Settings>>"})      
+      form.addLink((function() form.reinit(5) end), {label="Warnings>>"})      
 
+      form.addRow(2)
+      form.addLink((function() form.reinit(3) end), {label="Settings>>"})
+      
       form.addRow(1)
       form.addLabel({label="DFM - v."..BattVersion.." ", font=FONT_MINI, alignRight=true})
    elseif sf == 2 then
@@ -240,15 +263,6 @@ local function initForm(sf)
       form.addRow(2)
       form.addLabel({label="Battery mAh sensor", width=220})
       form.addSelectbox(sensorLalist, battmAhSe, true, battmAhSensorChanged)
-
-      form.addRow(2)
-      form.addLabel({label="Warn 1 sound"})
-      form.addAudioFilebox(warnSound or "...", warnChanged)
-
-      form.addRow(2)
-      form.addLabel({label="Warn 2 sound"})
-      form.addAudioFilebox(warn2Sound or "...", warn2Changed)
-
       form.addRow(2)
       form.addLink((function()
 	       system.messageBox("Battery selection cleared")
@@ -257,19 +271,43 @@ local function initForm(sf)
 	       form.reinit(3)
 		   end),
 	 {label="Re-select battery"})
-
       form.addRow(2)
       form.addLink((function()
 	       io.remove(fileBD)
 	       writeBD = false
 	       selectedBatt = 0
 	       seenRX = false
-	       system.messageBox("Saved data cleared")
+	       system.messageBox("Data cleared - please restart App")
 	       form.reinit(3)
 		   end),
 	 {label="Clear saved data"})
-      
+   elseif sf == 5 then
+      form.addRow(2)
+      form.addLabel({label="Warn 1 sound"})
+      form.addAudioFilebox(warnSound or "...", warnChanged)
 
+      form.addRow(2)
+      form.addLabel({label="Warn 1 vibrate"})      
+      form.addSelectbox({"Left", "Right"}, stickToShake, true, stickChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Warn 1 pattern"})      
+      form.addSelectbox({"None", "Long", "Short", "2x Short", "3x Short"},
+	 shakePattern, true, shakeChanged)    
+
+      form.addRow(2)
+      form.addLabel({label="Warn 2 sound"})
+      form.addAudioFilebox(warn2Sound or "...", warn2Changed)
+
+      form.addRow(2)
+      form.addLabel({label="Warn 2 vibrate"})      
+      form.addSelectbox({"Left", "Right"}, stickToShake2, true, stick2Changed)
+
+      form.addRow(2)
+      form.addLabel({label="Warn 2 pattern"})      
+      form.addSelectbox({"None", "Long", "Short", "2x Short", "3x Short"},
+	 shakePattern2, true, shake2Changed)    
+      
    end
 end
 --------------------------------------------------------------------------------
@@ -285,7 +323,10 @@ local function writeBattery()
    saveBatt.battmAhSePa = battmAhSePa
    saveBatt.warnSound = warnSound
    saveBatt.warn2Sound = warn2Sound   
-   
+   saveBatt.stickToShake = stickToShake
+   saveBatt.shakePattern = shakePattern
+   saveBatt.stickToShake2 = stickToShake2
+   saveBatt.shakePattern2 = shakePattern2
    if writeBD then
       fp = io.open(fileBD, "w")
       if fp then io.write(fp, json.encode(saveBatt), "\n") end
@@ -407,6 +448,7 @@ local function loop()
       local battPct = 100 * (Battery[selectedBatt].cap - battmAh) / Battery[selectedBatt].cap
       if selectedBatt >=1 and selectedBatt <= NUMBAT 
 	 and battPct <= Battery[selectedBatt].warn
+	 and Battery[selectedBatt].warn > 0
          and not warnAnn then
 	    warnAnn = true
 	    
@@ -415,16 +457,23 @@ local function loop()
 	    else
 	       system.playFile(warnSound, AUDIO_IMMEDIATE)
 	    end
+	    if shakePattern > 1 then
+ 	       system.vibration( (stickToShake == 2), shakePattern - 1)
+	    end
       end
 
       if selectedBatt >=1 and selectedBatt <= NUMBAT 
 	 and battPct <= Battery[selectedBatt].warn2
+	 and Battery[selectedBatt].warn2 > 0      
          and not warn2Ann then
 	    warn2Ann = true
 	    if warn2Sound == "..." then
 	       system.playFile('/Apps/DFM-Batt/low_battery_land_now.wav', AUDIO_IMMEDIATE)
 	    else
 	       system.playFile(warn2Sound, AUDIO_IMMEDIATE)
+	    end
+	    if shakePattern2 > 1 then
+	       system.vibration( (stickToShake2 == 2), shakePattern2 - 1)
 	    end
       end
 
@@ -464,6 +513,10 @@ local function init()
       battmAhSePa = decoded.battmAhSePa or 0
       warnSound = decoded.warnSound
       warn2Sound = decoded.warn2Sound or "..."
+      stickToShake = decoded.stickToShake or 1
+      shakePattern = decoded.shakePattern or 1
+      stickToShake2 = decoded.stickToShake2 or 1
+      shakePattern2 = decoded.shakePattern2 or 1
       for i=1,NUMBAT,1 do
 	 if not Battery[i] then
 	    Battery[i] = {} 
@@ -487,9 +540,13 @@ local function init()
       battmAhSePa = 0
       lastBatt = 0
       warnSound = "..."
-      warn2Sound = "..."      
+      warn2Sound = "..."
+      stickToShake = 1
+      shakePattern = 1
+      stickToShake2 = 1
+      shakePattern2 = 1
    end
-
+   
    if not warnSound then warnSound = "..." end
    if not warn2Sound then warn2Sound = "..." end   
    
