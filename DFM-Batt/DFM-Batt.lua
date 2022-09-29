@@ -80,7 +80,7 @@ local function key0(key)
       if row >= 1 and row <= NUMBAT then
 	 selectedBatt = row2batt[row]
 	 Battery[selectedBatt].cyc = Battery[selectedBatt].cyc + 1
-	 system.playFile('/Apps/DFM-Batt/selected_battery.wav', AUDIO_IMMEDIATE)
+	 system.playFile('/Apps/DFM-Batt/selected_battery.wav', AUDIO_QUEUE)
 	 system.playNumber(selectedBatt, 0)
 	 form.close(2)
       end
@@ -91,7 +91,7 @@ local function key0(key)
       ans = form.question("Exit without selecting a battery?", nil, nil, 0, false, 5)
       if ans == 1 then
 	 form.close(2)
-	 system.playFile('/Apps/DFM-Batt/no_battery_selected.wav', AUDIO_IMMEDIATE)
+	 system.playFile('/Apps/DFM-Batt/no_battery_selected.wav', AUDIO_QUEUE)
 	 --seenRX = false
 	 --selectedBatt = 0
       else
@@ -187,12 +187,7 @@ local function keyForm(key)
       form.reinit(2)
    end
 
-   if subForm == 2 and key == KEY_5 then
-      form.preventDefault()
-      form.reinit(1)
-   end
-
-   if subForm == 3 and key == KEY_5 then
+   if subForm > 1 and (key == KEY_5 or key == KEY_ENTER) then
       form.preventDefault()
       form.reinit(1)
    end
