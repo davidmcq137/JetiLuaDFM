@@ -1,1 +1,1 @@
-[{"warn":0,"text":"aaaa","fullVolt":0,"cap":10,"warn2":0,"cyc":1},{"warn":0,"text":"..","fullVolt":0,"cap":20,"warn2":0,"cyc":2},{"warn":0,"text":"..","fullVolt":0,"cap":30,"warn2":0,"cyc":3}]
+[{"text":"aaaa","fullVolt":0,"warn2":0,"warn":0,"cap":500,"cyc":14},{"text":"..","fullVolt":0,"warn2":10,"warn":20,"cap":500,"cyc":5},{"text":"..","fullVolt":0,"warn2":15,"warn":25,"cap":500,"cyc":2},{"text":"..","fullVolt":0,"warn2":0,"warn":0,"cap":0,"cyc":0}]

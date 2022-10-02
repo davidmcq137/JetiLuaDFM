@@ -6,7 +6,7 @@
 --]]
 
 --local trans11
-local BattVersion = "0.1"
+local BattVersion = "0.2"
 
 local runningTime = 0
 local startTime = 0
@@ -32,7 +32,6 @@ local shakePattern
 local shakePattern2
 local battmAh
 local battmAhSe, battmAhSeId, battmAhSePa
-local row2batt={}
 local warnSound
 local warn2Sound
 local fileBD
@@ -81,16 +80,16 @@ local function key0(key)
    local row = form.getFocusedRow()
    if key == KEY_5 or key == KEY_ENTER then
       form.preventDefault()
-      print("key0 row:", row, #Battery)
       if row >= 1 and row <= #Battery then
-	 selectedSlot = row --row2batt[row]
-	 print("selectedSlot", selectedSlot, Battery[selectedSlot])
-	 --Battery[selectedSlot].cyc = Battery[selectedSlot].cyc + 1
-	 gblBattery[Battery[selectedSlot]].cyc =
-	    gblBattery[Battery[selectedSlot]].cyc + 1
-	 system.playFile('/Apps/DFM-BatG/selected_battery.wav', AUDIO_IMMEDIATE)
-	 system.playNumber(Battery[selectedSlot], 0)
-	 print("selected battery", Battery[selectedSlot])
+	 selectedSlot = row
+	 if selectedSlot > 0 and Battery[selectedSlot] > 0 then
+	    gblBattery[Battery[selectedSlot]].cyc =
+	       gblBattery[Battery[selectedSlot]].cyc + 1
+	    system.playFile('/Apps/DFM-BatG/selected_battery.wav', AUDIO_IMMEDIATE)
+	    system.playNumber(Battery[selectedSlot], 0)
+	 else
+	    system.playFile('/Apps/DFM-BatG/no_battery_selected.wav', AUDIO_IMMEDIATE)	    
+	 end
 	 form.close(2)
       end
    end
@@ -101,8 +100,6 @@ local function key0(key)
       if ans == 1 then
 	 form.close(2)
 	 system.playFile('/Apps/DFM-BatG/no_battery_selected.wav', AUDIO_IMMEDIATE)
-	 --seenRX = false
-	 --selectedSlot = 0
       else
 	 form.reinit(2)
       end
@@ -115,10 +112,6 @@ end
 
 local function initForm0()
    local str
-   --form.addRow(2)
-   --form.addLabel({label="Batt", width=40, alignRight=true, font=FONT_MINI})
-   --form.addLabel({label="Cap (mAh)", width=80, alignRight=true, font=FONT_MINI})
-   --form.addLabel({label="Cycles", width=80, alignRight=true, font=FONT_MINI})
    local row = 0
    local focusRow = 1
    for i=1,#Battery,1 do
@@ -126,44 +119,30 @@ local function initForm0()
 	 (gblBattery[Battery[i]].cap > 0 or gblBattery[Battery[i]].warn > 0
 	  or gblBattery[Battery[i]].warn2 > 0) then
 	 row = row + 1
-	 row2batt[row] = Battery[i]
 	 if i == lastSlot then
-	    focusRow = 1 + row
+	    focusRow = row
 	 end
 	 form.addRow(1)
 	 local str
 	 local gB = gblBattery[Battery[i]]
-	 --print(i,Battery[i], gB.cap, gB.warn, gB.warn2, gB.cyc)
 	 str = string.format("Battery %d  [", Battery[i]) ..
 	    string.format("Cap %d ", gB.cap) ..
 	    string.format("W1 %d%% ", gB.warn) ..
 	    string.format("W2 %d%% ", gB.warn2) .. 
 	    string.format("Cyc %d]", gB.cyc)
-	 
 	 form.addLabel({label=str, width=320, alignRight=false})
-	 
-      -- 	 form.addRow(4)
-      -- 	 --form.addLabel({label=i, width=40, alignRight=true})
-      -- 	 str = string.format("%4d  ", gblBattery[Battery[i]].cap)
-      -- 	 form.addLabel({label=str,  width=80,  alignRight=true})
-      -- 	 str = string.format("%3d   ", gblBattery[Battery[i]].warn)
-      -- 	 form.addLabel({label=str, width=60, alignRight=true})
-      -- 	 str = string.format("%3d   ", gblBattery[Battery[i]].warn2)
-      -- 	 form.addLabel({label=str, width=60, alignRight=true})
-      -- 	 str = string.format("%4d  ", gblBattery[Battery[i]].cyc)
-      -- 	 form.addLabel({label=str,  width=80,  alignRight=true})
       end
    end
+   if row == 0 then
+      form.addRow(1)
+      form.addLabel({label="No batteries defined"})
+   end
+   
    form.setFocusedRow(focusRow)
 end
 
 local function textBattChanged(value, i)
-   --print("i, value", i, value)
    Battery[i] = value - 1
-   --for k=1,#Battery do
-   --   print(k, Battery[k])
-   --end
-   
 end
 
 local function gblBattChanged(value, i, sub)
@@ -205,20 +184,20 @@ local function shake2Changed(value)
 end
 
 
-local function voltChanged(value)
-   print("voltChanged", value, savedRow)
-   gblBattery[savedRow].fullVolt = value / 10.0
-   print("voltChanged", gblBattery[savedRow].fullVolt)
+local function textChanged(value, i)
+   gblBattery[savedRow].text = value
 end
 
-local function textChanged(value, i)
-   print("textChanged", value, savedRow, i)
-   gblBattery[savedRow].text = value
+local function keyExit(k)
+   if k == KEY_5 or k == KEY_ENTER or k == KEY_ESC then
+      return true
+   else
+      return false
+   end
 end
 
 local function keyForm(key)
    local row = form.getFocusedRow()
-   print("kf row", row)
    if subForm == 2 and key == KEY_1 and row >= 1 and row <= #Battery then
       Battery[row] = 0
       if row == selectedSlot then
@@ -234,12 +213,12 @@ local function keyForm(key)
       form.reinit(2)
    end
    
-   if subForm == 2 and key == KEY_5 then
+   if subForm == 2 and keyExit(key)  then
       form.preventDefault()
       form.reinit(1)
    end
 
-   if subForm == 3 and key == KEY_5 then
+   if subForm == 3 and keyExit(key) then
       form.preventDefault()
       form.reinit(1)
    end
@@ -249,6 +228,7 @@ local function keyForm(key)
       gblBattery[row].warn = 0
       gblBattery[row].warn2 = 0      
       gblBattery[row].cyc = 0
+      gblBattery[i].text = ".."
       form.reinit(4)
    end
 
@@ -259,6 +239,7 @@ local function keyForm(key)
       gblBattery[i].warn = 0
       gblBattery[i].warn2 = 0      
       gblBattery[i].cyc = 0
+      gblBattery[i].text = ".."
       form.reinit(4)
    end
 
@@ -267,17 +248,17 @@ local function keyForm(key)
       form.reinit(5)
    end
    
-   if subForm == 4 and (key == KEY_5 or key == KEY_ENTER) then
+   if subForm == 4 and keyExit(key) then
       form.preventDefault()
       form.reinit(1)
    end
 
-   if subForm == 6 and (key == KEY_5 or key == KEY_ENTER) then
+   if subForm == 6 and keyExit(key) then
       form.preventDefault()
       form.reinit(1)
    end
 
-   if subForm == 5 and (key == KEY_5 or key == KEY_ENTER) then
+   if subForm == 5 and keyExit(key) then
       form.preventDefault()
       form.reinit(4)
    end
@@ -287,7 +268,6 @@ end
 local function initForm(sf)
    local str
    subForm = sf
-   print("subform", sf)
    if sf == 1 then
       form.setTitle("Battery Tracker")
       form.addRow(2)
@@ -316,14 +296,9 @@ local function initForm(sf)
 	    string.format("[Capacity %4d  ", gblBattery[j].cap) .. 
 	    string.format("Cycles %3d]", gblBattery[j].cyc)
       end
-      --form.addRow(1)
-      --form.addLabel({label="Slot", width=60, alignRight=true, font=FONT_NORMAL})
-      --form.addLabel({label="                Selected Batteries", width=260,
-      --	     alignRight=false, font=FONT_NORMAL})
       for i=1,#Battery,1 do
 	 
 	 form.addRow(1)		
-	 --form.addLabel({label=i.."  ", width=60, alignRight=true, font=FONT_NORMAL})
 	 form.addSelectbox(intTbl, Battery[i] + 1, true, function(x) textBattChanged(x, i) end,
 			   {width=320, alignRight=false,font=FONT_NORMAL})
 	 
@@ -350,10 +325,10 @@ local function initForm(sf)
 	       writeBD = false
 	       selectedSlot = 0
 	       seenRX = false
-	       system.messageBox("Saved model data cleared")
+	       system.messageBox("Battery data cleared - restart App")
 	       form.reinit(3)
 		   end),
-	 {label="Clear model data"})
+	 {label="Clear Global battery data", width=220})
 
             form.addRow(2)
       form.addLink((function()
@@ -368,7 +343,7 @@ local function initForm(sf)
 	       system.messageBox("Saved battery data cleared")
 	       form.reinit(3)
 		   end),
-	 {label="Clear battery data"})
+	 {label="Clear Model battery data", width=220})
 
    elseif sf == 4 then
       form.setTitle("Battery Setup")
@@ -400,12 +375,7 @@ local function initForm(sf)
       end
    elseif sf == 5 then
 
-      print("savedRow", savedRow)
       form.setTitle(string.format("Battery %d", savedRow))
-      --form.addRow(2)
-      --form.addLabel({label="Full charge warning (V)", width=180})
-      --form.addIntbox(gblBattery[savedRow].fullVolt * 10.0, 0,9999, 120, 1, 1,
-		     --voltChanged, {width=140})
       form.addRow(2)
       form.addLabel({label="Label Text", width = 80})
       form.addTextbox(gblBattery[savedRow].text, 63,
@@ -456,10 +426,6 @@ end
 local function writeBattery()
    local fp
    local saveBatt = {}
-   --print("wb")
-   --for i=1,#Battery do
-   --   print(i, Battery[i])
-   --end
    
    saveBatt.lastSlot = selectedSlot
    saveBatt.array = Battery
@@ -605,8 +571,10 @@ local function loop()
       lastmAh = battmAh
       local battPct = 100 * (gblBattery[Battery[selectedSlot]].cap - battmAh) /
 	 gblBattery[Battery[selectedSlot]].cap
+      
       if selectedSlot >=1 and selectedSlot <= #Battery 
 	 and battPct <= gblBattery[Battery[selectedSlot]].warn
+	 and gblBattery[Battery[selectedSlot]].warn ~= 0
          and not warnAnn then
 	    warnAnn = true
 	    if warnSound == "..." then
@@ -621,6 +589,7 @@ local function loop()
 
       if selectedSlot >=1 and selectedSlot <= #Battery 
 	 and battPct <= gblBattery[Battery[selectedSlot]].warn2
+	 and gblBattery[Battery[selectedSlot]].warn2 ~= 0
          and not warn2Ann then
 	    warn2Ann = true
 	    if warn2Sound == "..." then
@@ -632,7 +601,6 @@ local function loop()
 	       system.vibration( (stickToShake2 == 2), shakePattern2 - 1)
 	    end
       end
-
    end
    
    local txTel = system.getTxTelemetry()
@@ -677,19 +645,10 @@ local function init()
       shakePattern = decoded.shakePattern or 1
       stickToShake2 = decoded.stickToShake2 or 1
       shakePattern2 = decoded.shakePattern2 or 1
-      
-      -- for i=1,#Battery,1 do
-      -- 	 if not Battery[i] then
-      -- 	    Battery[i] = 0
-      -- 	 end
-      --end
    else
       system.messageBox("No Battery data read: initializing")
       Battery={}
       Battery[1] = 0
-      --for i=1,#Battery,1 do
-	-- Battery[i] = 0
-      --end
       battmAhSe = 0
       battmAhSeId = 0
       battmAhSePa = 0
@@ -715,10 +674,8 @@ local function init()
 	    gblBattery[i].warn = 0
 	    gblBattery[i].warn2 = 0
 	    gblBattery[i].text = ".."
-	    gblBattery[i].fullVolt = 0
 	 end
 	 if not gblBattery[i].text then gblBattery[i].text = ".." end
-	 if not gblBattery[i].fullVolt then gblBattery[i].fullVolt = 0 end
       end
    else
       system.messageBox("Initializing global battery table")
@@ -728,7 +685,6 @@ local function init()
       gblBattery[1].warn = 0
       gblBattery[1].warn2 = 0
       gblBattery[1].text = ".."
-      gblBattery[1].fullVolt = 0
    end
 
    if not warnSound then warnSound = "..." end
