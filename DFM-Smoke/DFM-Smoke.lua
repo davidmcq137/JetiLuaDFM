@@ -293,7 +293,8 @@ local function initForm()
    form.addRow(2)
    form.addLabel({label="Low throttle cutoff (0-100%)",font=FONT_NORMAL, width=220})
    form.addIntbox(smokeThrMin, 0, 100, 0, 0, 1, smokeThrMinChanged)
-   
+
+   --[[
    form.addRow(2)
    form.addLabel({label="ON Voice Control (V01...V15)",font=FONT_NORMAL, width=220})
    form.addInputbox(smokeOnSw, false, smokeOnSwChanged) 
@@ -301,7 +302,8 @@ local function initForm()
    form.addRow(2)
    form.addLabel({label="OFF Voice Control (V01...V15)",font=FONT_NORMAL, width=220})
    form.addInputbox(smokeOffSw, false, smokeOffSwChanged)
-
+   --]]
+   
    form.addRow(2)
    form.addLabel({label="Pump OFF Value (-100% or 0%)",font=FONT_NORMAL, width=220})
    form.addIntbox(smokeOffVal, -100, 0, -100, 0, 100, smokeOffValChanged)
@@ -372,7 +374,7 @@ local function loop()
    end
    
    -- but allow toggle on/off to override on/off switch
-   if persistOn then smEn = 1 end
+   --if persistOn then smEn = 1 end
 
    safetyOff = false
    
@@ -415,19 +417,18 @@ local function loop()
       runCond = runTime > lastTime + smokeInterval
    end
          
-   if runCond and not startUp and smEn == 1 then
+   if runCond and not startUp and (smEn == 1 or smCn == 1) then
 
-      if smEn == -1 and smCn == 1 then loopChar = "+" end -- continuous smoke mode
-      
-      if smokeModeIdx == smokeModeIndex.Symbol then
+      --if smEn == -1 and smCn == 1 then loopChar = "+" end -- continuous smoke mode
+      if smCn == 1 then -- continuous smoke mode
+	 loopChar = "+"
+      elseif smokeModeIdx == smokeModeIndex.Symbol then
 	 loopIdx = runStep % #smokeSymbol.List[smokeSymbolIdx] + 1
 	 loopChar = string.sub(smokeSymbol.List[smokeSymbolIdx], loopIdx, loopIdx)
-      end
-      if smokeModeIdx == smokeModeIndex.Morse then
+      elseif smokeModeIdx == smokeModeIndex.Morse then
 	 loopIdx = runStep % #smokeMorseOut[smokeMorseIdx] + 1
 	 loopChar = string.sub(smokeMorseOut[smokeMorseIdx], loopIdx, loopIdx)
-      end
-      if smokeModeIdx == smokeModeIndex.Telem then
+      elseif smokeModeIdx == smokeModeIndex.Telem then
 	 if smokeTelemSe ~= 0 then
 	    sensor = system.getSensorByID(smokeTelemId, smokeTelemPa)
 	    --print("sensor, sensor.valid, sensor.value", sensor, sensor.valid, sensor.value)
@@ -504,7 +505,7 @@ local function loop()
    if startUp then
       notEn = (smEn == -1) and (not smEnSw or smEnSw == -1)
       notCn = not smCnSw or smCnSw == -1
-      if (notEn and notCn) and (not persistOn) then      
+      if (notEn and notCn) then --and (not persistOn) then      
 	 --if smEn == -1 and (not smEnSw or smEnSw == -1) and not persistOn then
 	 --print("startUP false")
 	 startUp = false
@@ -525,7 +526,7 @@ local function loop()
       system.setControl(smokeControl, smOut/100, 10, 0)
    end
    if not startUp then
-      if smEn == 1 then
+      if smEn == 1 and smCn == -1 then
 	 smokeState = 1
       elseif smCn == 1 then
 	 smokeState = 2
@@ -540,12 +541,13 @@ local function smokeCBout()
    local y0 = 0
    local x0 = 10
    local xr0 = -6
+   local y00 = 0
 
    lcd.setColor(lcd.getFgColor())
    lcd.drawRectangle(x0+xr0, y0+4, 96, 14)
    lcd.drawLine(x0+xr0+48, y0+4, x0+48+xr0, y0+17)
 
-   ss = smOut/100
+   local ss = smOut/100
    if ss >= 0 then
       lcd.drawFilledRectangle(x0+xr0+48, y0+4, ss*48, 14)
    else
@@ -553,17 +555,25 @@ local function smokeCBout()
    end
 
    if smokeState == 0 then
-      lcd.drawText(103,4, "Off", FONT_MINI)
+      lcd.drawText(103,y00, "Off", FONT_MINI)
       lcd.setColor(255,0,0) -- red
    elseif smokeState == 1 then
-      lcd.drawText(103,4, smokeModeString[smokeModeIdx], FONT_MINI)
+      lcd.drawText(103,y00, smokeModeString[smokeModeIdx], FONT_MINI)
       lcd.setColor(0,255,0) --green
    elseif smokeState == 2 then
-      lcd.drawText(103,4, "Cont", FONT_MINI)
+      lcd.drawText(103,y00, "Cont", FONT_MINI)
       lcd.setColor(0,0,255) --blue
    end
 
-   lcd.drawFilledRectangle(143, y0+8, 5,5)
+   lcd.drawFilledRectangle(143, y0+y00+5, 5,5)
+   
+   if safetyOff then
+      lcd.setColor(255,0,0)
+      lcd.drawText(103, y00+9, "Safety", FONT_MINI)
+   else
+      lcd.setColor(lcd.getFgColor())
+      lcd.drawText(103, y00+9, "Enabled", FONT_MINI)      
+   end
    lcd.setColor(0,0,0)
 end
 
@@ -717,7 +727,6 @@ local function init()
 	 smokeSymbol.List[i] = string.gsub(smokeSymbol.List[i], '[^%+%-]', '')
       end
    end
-   
    
    -- now read the Morse Code translation table
    fg = io.readall("Apps/DFM-Smoke/MorseCode.jsn")
