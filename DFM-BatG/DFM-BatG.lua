@@ -76,11 +76,46 @@ local function readSensors()
    end
 end
 
+local function resetGbl(i)
+   gblBattery[i].cap = 0
+   gblBattery[i].cyc = 0
+   gblBattery[i].warn = 0
+   gblBattery[i].warn2 = 0
+   gblBattery[i].text = ".."
+end
+
+local function wcDelete(pathIn, pre, typ)
+
+   local dd, fn, ext
+   local path
+
+   if select(2, system.getDeviceType()) ~= 1 then
+      path = "/" .. pathIn
+   else
+      path = pathIn
+   end      
+
+   for name, filetype, size in dir(path) do
+      dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
+      if fn and ext then
+	 if string.lower(ext) == string.lower(typ) and string.find(fn, pre) == 1 then
+	    local ff = path .. "/" .. fn .. "." .. ext
+	    if not io.remove(ff) then
+	       print("failed to delete " .. ff)
+	    end
+	 end
+      end
+   end
+end
+
 local function key0(key)
+
    local row = form.getFocusedRow()
+
    if key == KEY_5 or key == KEY_ENTER then
       form.preventDefault()
-      if row >= 1 and row <= #Battery then
+      selectedSlot = 0
+      if row >= 1 and row <= #Battery  then
 	 selectedSlot = row
 	 if selectedSlot > 0 and Battery[selectedSlot] > 0 then
 	    gblBattery[Battery[selectedSlot]].cyc =
@@ -93,6 +128,7 @@ local function key0(key)
 	 form.close(2)
       end
    end
+
    if key == KEY_ESC or (key == KEY_5 and row < 1) then
       form.preventDefault()
       local ans
@@ -114,6 +150,7 @@ local function initForm0()
    local str
    local row = 0
    local focusRow = 1
+   print("initForm0, #Battery", #Battery)
    for i=1,#Battery,1 do
       if (Battery[i] >= 1 and Battery[i] <= #gblBattery) and
 	 (gblBattery[Battery[i]].cap > 0 or gblBattery[Battery[i]].warn > 0
@@ -224,22 +261,14 @@ local function keyForm(key)
    end
    if subForm == 4 then row = row - 1 end -- sf 4 has labels at top
    if subForm == 4 and key == KEY_1 and row >= 1 and row  <= #gblBattery then
-      gblBattery[row].cap = 0
-      gblBattery[row].warn = 0
-      gblBattery[row].warn2 = 0      
-      gblBattery[row].cyc = 0
-      gblBattery[i].text = ".."
+      resetGbl(row)
       form.reinit(4)
    end
 
    if subForm == 4 and key == KEY_2 then
       local i = #gblBattery + 1
       gblBattery[i] = {}
-      gblBattery[i].cap = 0
-      gblBattery[i].warn = 0
-      gblBattery[i].warn2 = 0      
-      gblBattery[i].cyc = 0
-      gblBattery[i].text = ".."
+      resetGbl(i)
       form.reinit(4)
    end
 
@@ -324,27 +353,32 @@ local function initForm(sf)
 	       io.remove(fileBD)
 	       writeBD = false
 	       selectedSlot = 0
-	       seenRX = false
-	       system.messageBox("Battery data cleared - restart App")
+	       --seenRX = false
+	       system.messageBox("Model data cleared - restart App")
 	       form.reinit(3)
 		   end),
-	 {label="Clear Global battery data", width=220})
-
-            form.addRow(2)
+	 {label="Clear model battery data", width=220})
+      
+      form.addRow(2)
       form.addLink((function()
-	       --io.remove(fileBDG)
-	       --writeBDG = false
-	       gblBattery = {}
-	       gblBattery[1] = {}
-	       gblBattery[1].cap = 0
-	       gblBattery[1].cyc = 0
-	       gblBattery[1].warn = 0
-	       gblBattery[1].warn2 = 0
-	       system.messageBox("Saved battery data cleared")
-	       form.reinit(3)
+	       local ans
+	       ans = form.question("Are you sure?", "Delete global battery entries?", "(also deletes all model battery data)", 0, false, 5)
+	       if ans ~= 1 then
+		  form.reinit(3)
+	       else
+		  writeBDG = false
+		  gblBattery = {}
+		  gblBattery[1] = {}
+		  resetGbl(1)
+		  writeBD = false
+		  selectedSlot = 0
+		  wcDelete("Apps/DFM-BatG", "BD_", "jsn")
+		  system.messageBox("Battery info cleared - restart App")
+		  form.reinit(3)
+	       end
 		   end),
-	 {label="Clear Model battery data", width=220})
-
+	 {label="Clear global battery data", width=220})
+      
    elseif sf == 4 then
       form.setTitle("Battery Setup")
       form.setButton(1, "Clr", 1)
@@ -506,6 +540,111 @@ end
 
 -- Telemetry window draw functions
 
+local hmin, hmax
+
+local function fooPrint(w,h)
+
+   local max = 1000
+   local theta
+   local x0, y0 = 40, 34
+   local ri = 22
+   local ro = 30
+   local val
+   local a0d = -35
+   local a0 = math.rad(a0d)
+   local aRd = -a0d*2 + 180
+   local aR = math.rad(aRd)
+   local ren = lcd.renderer()
+   
+
+   val = max / 2.0 * (1 + system.getInputs("P1"))
+
+   if not hmin then
+      hmin = val
+   else
+      if val < hmin then hmin = val end
+   end
+   
+   if not hmax then
+      hmax = val
+   else
+      if val > hmax then hmax = val end
+   end
+
+   theta = aR * val/max 
+	 
+   ren:reset()
+
+   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   ren:addPoint(x0 - ro * math.cos(a0), y0 - ro * math.sin(a0))   
+
+   local im = 20
+   for i=1,im-1,1 do
+      ren:addPoint(x0 - ro * math.cos(a0 + i*aR/im), y0 - ro * math.sin(a0 + i*aR/im))
+   end
+
+   ren:addPoint(x0 - ro * math.cos(a0+aR), y0 - ro * math.sin(a0+aR))
+   ren:addPoint(x0 - ri * math.cos(a0+aR), y0 - ri * math.sin(a0+aR))
+   
+   for i=im-1,1,-1 do
+      ren:addPoint(x0 - ri * math.cos(a0+i*aR/im), y0 - ri * math.sin(a0+i*aR/im))
+   end
+
+   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   
+   ren:renderPolyline(1, 0.3)
+
+   ren:reset()
+   
+   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   ren:addPoint(x0 - ro * math.cos(a0), y0 - ro * math.sin(a0))   
+
+   local im = 15
+   for i=1,im-1,1 do
+      ren:addPoint(x0 - ro * math.cos(a0 + i*theta/im), y0 - ro * math.sin(a0 + i*theta/im))
+   end
+
+   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
+   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
+   
+   for i=im-1,1,-1 do
+      ren:addPoint(x0 - ri * math.cos(a0+i*theta/im), y0 - ri * math.sin(a0+i*theta/im))
+   end
+   lcd.setColor(lcd.getFgColor())
+   ren:renderPolygon()
+
+
+   ren:reset()
+   theta = aR * hmax/max 
+   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
+   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
+   ren:renderPolyline(3)
+   
+   lcd.setColor(255,255,0)
+
+   ren:reset()
+   theta = aR * hmin/max 
+   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
+   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
+   ren:renderPolyline(3)
+
+   lcd.setColor(0,0,0)
+   
+   local text
+   text = string.format("%4.2f", val)
+   lcd.drawText(x0 - lcd.getTextWidth(FONT_BOLD, text) / 2, y0+14, text, FONT_BOLD)
+
+   text = string.format("%4.2f", hmax)
+   lcd.drawText(x0 + 42, y0 - 25, text, FONT_BIG)
+   --lcd.drawImage(x0 + 32, y0-25, ":up")
+   
+   text = string.format("%4.2f", hmin)
+   --lcd.drawImage(x0 + 32, y0, ":down")   
+   lcd.drawText(x0 + 42, y0, text, FONT_BIG)   
+   
+end
+
+
 local function timePrint(width, height)
    local str, strCap
    local rgb={}
@@ -646,7 +785,8 @@ local function init()
       stickToShake2 = decoded.stickToShake2 or 1
       shakePattern2 = decoded.shakePattern2 or 1
    else
-      system.messageBox("No Battery data read: initializing")
+      system.messageBox("No Model data read: initializing")
+      print("No Model data read: initializing")      
       Battery={}
       Battery[1] = 0
       battmAhSe = 0
@@ -666,27 +806,27 @@ local function init()
    
    if file then
       gblBattery = json.decode(file)
-      for i=1, #gblBattery, 1 do
+      for i=1,#gblBattery, 1 do
 	 if not gblBattery[i] then
 	    gblBattery[i] = {} 
-	    gblBattery[i].cap = 0
-	    gblBattery[i].cyc = 0
-	    gblBattery[i].warn = 0
-	    gblBattery[i].warn2 = 0
-	    gblBattery[i].text = ".."
+	    resetGbl(i)
 	 end
 	 if not gblBattery[i].text then gblBattery[i].text = ".." end
       end
    else
       system.messageBox("Initializing global battery table")
+      print("Initializing global battery table")
       gblBattery[1] = {}
-      gblBattery[1].cap = 0
-      gblBattery[1].cyc = 0
-      gblBattery[1].warn = 0
-      gblBattery[1].warn2 = 0
-      gblBattery[1].text = ".."
+      resetGbl(1)
    end
 
+   -- do we need this ... ? should not happen if we delete all model files
+   if #Battery > #gblBattery then
+      print("#B > #G .. clearing model Battery list")
+      Battery = {}
+      Battery[1] = 0
+   end
+   
    if not warnSound then warnSound = "..." end
    if not warn2Sound then warn2Sound = "..." end   
    
@@ -694,7 +834,8 @@ local function init()
    
    system.registerForm(1, MENU_APPS, "Battery Tracker", initForm, keyForm)
    system.registerTelemetry(1, "Battery Tracker", 2, timePrint)
-
+   system.registerTelemetry(2, "Foo", 2, fooPrint)
+   
    readSensors()
    setLanguage()
 

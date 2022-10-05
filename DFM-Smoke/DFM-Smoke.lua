@@ -428,6 +428,31 @@ local function loop()
       elseif smokeModeIdx == smokeModeIndex.Morse then
 	 loopIdx = runStep % #smokeMorseOut[smokeMorseIdx] + 1
 	 loopChar = string.sub(smokeMorseOut[smokeMorseIdx], loopIdx, loopIdx)
+	 --print("loopIdx, loopChar", loopIdx, loopChar)
+	 local inaRow = 0
+	 if loopIdx + 2 < #smokeMorseOut[smokeMorseIdx] then
+	    for k = 0,2,1 do
+	       if string.sub(smokeMorseOut[smokeMorseIdx], loopIdx+k, loopIdx+k) == "+" then
+		  inaRow = inaRow + 1
+	       end
+	    end
+	 end
+	 if inaRow == 3 then
+	    --print("3P")
+	    system.playBeep(0, 800, smokeInterval*3)
+	 end
+	 -- note if loopIdx == 1 then string.sub with loopIdx -1 will return ""
+	 -- so the loopIdx check will work correctly, it won't be "+"
+	 -- if loopIdx == #smokeMorseOut[smokeMorseIdx] then string.sub with loopIdx + 1
+	 -- will return "" and also work correctly. nice.
+	 if loopChar == "+" and
+	    string.sub(smokeMorseOut[smokeMorseIdx], loopIdx-1, loopIdx-1)~= "+" and
+	    string.sub(smokeMorseOut[smokeMorseIdx], loopIdx+1, loopIdx+1)~= "+" then	    
+	    --print("1P")
+	    system.playBeep(0, 800, smokeInterval)
+	 end
+	 
+
       elseif smokeModeIdx == smokeModeIndex.Telem then
 	 if smokeTelemSe ~= 0 then
 	    sensor = system.getSensorByID(smokeTelemId, smokeTelemPa)
