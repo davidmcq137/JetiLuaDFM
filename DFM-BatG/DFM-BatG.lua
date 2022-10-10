@@ -23,8 +23,7 @@ local Battery={}
 local BatteryGroupName={}
 local selectedGroup
 local selectedBattery
-local gblBattery={}
-local lastSlot
+local lastGroup, lastBattery
 local seenRX = false
 local warnAnn = false
 local warn2Ann = false
@@ -83,7 +82,6 @@ local function resetGroup(i)
 end
 
 local function resetBattery(sr, i)
-   print("resetBattery", sr, i, #Battery[sr])
    Battery[sr][i].cap = 0
    Battery[sr][i].cyc = 0
    Battery[sr][i].warn = 0
@@ -121,7 +119,7 @@ local function key0(key)
    if key == KEY_5 or key == KEY_ENTER then
       form.preventDefault()
       selectedBattery = 0
-      if row >= 1 and row <= #Battery[selectedGroup]  then
+      if selectedGroup > 0 and row >= 1 and row <= #Battery[selectedGroup]  then
 	 selectedBattery = row
       end
       
@@ -158,46 +156,51 @@ local function initForm0()
    local str
    local row = 0
    local focusRow = 1
-   print("initForm0, #Battery, selectedGroup", #Battery, selectedGroup, #Battery[selectedGroup])
-   if selectedGroup == 0 or #Battery < 1 then
+   print("lastGroup, lastBattery:", lastGroup, lastBattery)
+   if #Battery > 0 and selectedGroup < 1 then
       form.addRow(1)
-      form.addLabel({"No battery group selected"})
+      form.addLabel({label="No battery group selected"})
+   elseif #Battery < 1 then
+      form.addRow(1)
+      form.addLabel({label="No battery groups"})
    else
       form.setTitle(BatteryGroupName[selectedGroup] .. ": Select Battery")
-      print("for #", #Battery[selectedGroup])
       for i=1,#Battery[selectedGroup],1 do
-	 row = row + 1
-	 if i == lastSlot then
-	    focusRow = row
+	 if Battery[selectedGroup][i].cap ~= 0 then
+	    row = row + 1
+	    if i == lastBattery then
+	       focusRow = row
+	    end
+	    form.addRow(1)
+	    local str
+	    local bb = Battery[selectedGroup][i]
+	    str = string.format("Battery %d  [", i) ..
+	       string.format("Cap %d ", bb.cap) ..
+	       string.format("W1 %d%% ", bb.warn) ..
+	       string.format("W2 %d%% ", bb.warn2) .. 
+	       string.format("Cyc %d]", bb.cyc)
+	    form.addLabel({label=str, width=320, alignRight=false})
 	 end
+      end
+      if row == 0 then
 	 form.addRow(1)
-	 local str
-	 print("i, selectedGroup", i, selectedGroup)
-	 print("B[s][i]", Battery[selectedGroup][i])
-	 local bb = Battery[selectedGroup][i]
-	 str = string.format("Battery %d  [", i) ..
-	    string.format("Cap %d ", bb.cap) ..
-	    string.format("W1 %d%% ", bb.warn) ..
-	    string.format("W2 %d%% ", bb.warn2) .. 
-	    string.format("Cyc %d]", bb.cyc)
-	 form.addLabel({label=str, width=320, alignRight=false})
+	 form.addLabel({label="No batteries to select in group"})
       end
    end
+   --[[
    if row == 0 then
       form.addRow(1)
-      form.addLabel({"No battery in group"})
+      form.addLabel({label="No battery in group"})
    end
-   print("exiting")
+   --]]
    form.setFocusedRow(focusRow)
 end
 
 local function battGroupChanged(value)
-   print("selectedGroup", value)
    selectedGroup = value
 end
 
 local function BattChanged(value, i, j, sub)
-   print("BattChanged", value, i, j, sub)
    Battery[i][j][sub] = value
 end
 
@@ -307,9 +310,13 @@ local function keyForm(key)
       form.reinit(4)
    end
 
+   if subForm == 7 and keyExit(key) then
+      form.preventDefault()
+      form.reinit(4)
+   end
+
    if subForm == 7 and key == KEY_2 then
       local i = #Battery[savedRow] + 1
-      print("sf 7", savedRow, i)
       Battery[savedRow][i] = {}
       resetBattery(savedRow, i)
       form.reinit(7)
@@ -323,16 +330,16 @@ local function initForm(sf)
    if sf == 1 then
       form.setTitle("Battery Tracker")
       form.addRow(2)
-      form.addLink((function() form.reinit(2) end), {label="Model Setup>>"})
+      form.addLink((function() form.reinit(2) end), {label="Model Group Selection>>", width=320})
 
       form.addRow(2) 
-      form.addLink((function() form.reinit(4) end), {label="Battery Setup>>"})
+      form.addLink((function() form.reinit(4) end), {label="Battery Group Setup>>", width=320})
       
       form.addRow(2) 
-      form.addLink((function() form.reinit(6) end), {label="Warnings>>"})
+      form.addLink((function() form.reinit(6) end), {label="Warnings>>", width=320})
 
       form.addRow(2)
-      form.addLink((function() form.reinit(3) end), {label="Settings>>"})      
+      form.addLink((function() form.reinit(3) end), {label="Settings>>", width=320})      
 
       form.addRow(1)
       form.addLabel({label="DFM - v."..BattVersion.." ", font=FONT_MINI, alignRight=true})
@@ -370,22 +377,19 @@ local function initForm(sf)
 	       writeBD = false
 	       selectedGroup = 0
 	       --seenRX = false
-	       system.messageBox("Model data cleared - restart App")
+	       system.messageBox("Model group cleared - restart App")
 	       form.reinit(3)
 		   end),
-	 {label="Clear model battery data", width=220})
+	 {label="Clear model battery group", width=220})
       
       form.addRow(2)
       form.addLink((function()
 	       local ans
-	       ans = form.question("Are you sure?", "Delete global battery entries?", "(also deletes all model battery data)", 0, false, 5)
+	       ans = form.question("Are you sure?", "Delete battery group entries?", "(also deletes selected group for this model)", 0, false, 5)
 	       if ans ~= 1 then
 		  form.reinit(3)
 	       else
 		  writeBDG = false
-		  gblBattery = {}
-		  gblBattery[1] = {}
-		  resetGbl(1)
 		  writeBD = false
 		  selectedGroup = 0
 		  wcDelete("Apps/DFM-BatG", "BD_", "jsn")
@@ -393,7 +397,7 @@ local function initForm(sf)
 		  form.reinit(3)
 	       end
 		   end),
-	 {label="Clear global battery data", width=220})
+	 {label="Clear battery groups", width=220})
       
    elseif sf == 4 then
       form.setTitle("Battery Group Setup")
@@ -407,7 +411,6 @@ local function initForm(sf)
       else
 	 for i=1,#Battery,1 do
 	    form.addRow(1)
-	    print("text:" .. BatteryGroupName[i])
 	    form.addTextbox(BatteryGroupName[i], 63,
 		      (function(x) return textChanged(x, i) end),
 		      {alignRight=true})
@@ -525,7 +528,8 @@ local function writeBattery()
    local fp
    local saveBatt = {}
    
-   saveBatt.lastSlot = selectedGroup
+   saveBatt.lastGroup = selectedGroup
+   saveBatt.lastBattery = selectedBattery   
    saveBatt.battmAhSe = battmAhSe
    saveBatt.battmAhSeId = string.format("0X%x", battmAhSeId)
    saveBatt.battmAhSePa = battmAhSePa
@@ -718,29 +722,27 @@ local function timePrint(width, height)
    local rs,gs,bs
 
    if selectedGroup < 1 or selectedGroup > #Battery then
-      str = "No Battery"
+      str = "No Battery Group"
+   elseif selectedBattery < 1 or selectedBattery > #Battery[selectedGroup] then
+      str = "No Battery Selected"
+   elseif not battmAh then
+      str = "No mAh sensor"
    else
-      if battmAh and (Battery[selectedGroup] >= 1 and Battery[selectedGroup] <= #gblBattery) then
-	 str = string.format("Battery %d   %d mAh", Battery[selectedGroup],
-			     gblBattery[Battery[selectedGroup]].cap - battmAh)
-	 local battPct = 100 * (gblBattery[Battery[selectedGroup]].cap - battmAh) /
-	    gblBattery[Battery[selectedGroup]].cap
-	 if  battPct <= gblBattery[Battery[selectedGroup]].warn then
-	    rgb = {r=255,g=0,b=0}
-	 else
-	    rgb = {r=0,g=0,b=255}
-	 end
-	 drawRectGaugeAbs(75, 33, 140, 25, 0, 100, battPct,"", rgb)
-	 strCap = string.format("Cap %4d  Warn %4d %4d",
-				gblBattery[Battery[selectedGroup]].cap,
-				gblBattery[Battery[selectedGroup]].cap *
-				   gblBattery[Battery[selectedGroup]].warn / 100,
-				gblBattery[Battery[selectedGroup]].cap *
-				   gblBattery[Battery[selectedGroup]].warn2 / 100)	 
-
+      local sGsB = Battery[selectedGroup][selectedBattery]
+      str = string.format("G/B %d/%d   %d mAh", selectedGroup, selectedBattery,
+			  sGsB.cap - battmAh)
+      local battPct = 100 * (sGsB.cap - battmAh) / sGsB.cap
+      if  battPct <= sGsB.warn then
+	 rgb = {r=255,g=0,b=0}
       else
-	 str = "No mAh sensor"
+	 rgb = {r=0,g=0,b=255}
       end
+      drawRectGaugeAbs(75, 33, 140, 25, 0, 100, battPct,"", rgb)
+      
+      strCap = string.format("Cap %4d  Warn %4d %4d",
+			     sGsB.cap,
+			     sGsB.cap * sGsB.warn  / 100,
+			     sGsB.cap * sGsB.warn2 / 100)	 
    end
 
    rs,gs,bs = lcd.getBgColor()
@@ -811,7 +813,6 @@ local function loop()
 
    if ( (emFlag ~= 1 and txTel.rx1Percent > 0) or (emFlag == 1 and system.getInputs("SA") == 1))
    and not seenRX then -- we see an RX
-      print("registering selection menu")
       system.registerForm(2, 0, "Select Flight Battery", initForm0, key0, nil, close0)
       startTime = system.getTimeCounter() / 1000.0
       seenRX = true
@@ -835,10 +836,12 @@ local function init()
 
    if file then
       decoded = json.decode(file)
-      selectedGroup = decoded.lastSlot
+      selectedGroup = decoded.lastGroup
       battmAhSe = decoded.battmAhSe or 0
       battmAhSeId = tonumber(decoded.battmAhSeId) or 0
       battmAhSePa = decoded.battmAhSePa or 0
+      lastGroup = decoded.lastGroup
+      lastBattery = decoded.lastBattery
       warnSound = decoded.warnSound
       warn2Sound = decoded.warn2Sound or "..."
       stickToShake = decoded.stickToShake or 1
@@ -851,7 +854,8 @@ local function init()
       battmAhSe = 0
       battmAhSeId = 0
       battmAhSePa = 0
-      lastSlot = 0
+      lastGroup = 0
+      lastBattery = 0
       warnSound = "..."
       warn2Sound = "..."
       stickToShake = 1
@@ -863,20 +867,20 @@ local function init()
    fileBDG = pf .. "Apps/DFM-BatG/BD_Global.jsn"
    file = io.readall(fileBDG)
 
-   print("file:", file)
-
    local temp
    
    if file then
       temp = json.decode(file)
       Battery = temp.Array
       BatteryGroupName = temp.Name
+      --[[
       print("Battery", Battery, #Battery)
       for i = 1, #Battery, 1 do
 	 for j = 1, #Battery[i] do
 	    print(i,j,Battery[i][j])
 	 end
       end
+      --]]
    else
       system.messageBox("Initializing global battery table")
       print("Initializing global battery table")

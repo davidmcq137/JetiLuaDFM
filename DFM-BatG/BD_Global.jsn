@@ -1,1 +1,1 @@
-{"Name":["Group 1","Group 2","Group 3","Group 4"],"Array":[[{"warn":0,"warn2":0,"cyc":0,"cap":0},{"warn":0,"warn2":0,"cyc":0,"cap":0},{"warn":0,"warn2":0,"cyc":0,"cap":0},{"warn":0,"warn2":0,"cyc":0,"cap":0}],{},{},{}]}
+{"Array":[[{"warn2":20,"cap":500,"warn":40,"cyc":10},{"warn2":0,"cap":600,"warn":20,"cyc":3}]],"Name":["Group 1"]}
