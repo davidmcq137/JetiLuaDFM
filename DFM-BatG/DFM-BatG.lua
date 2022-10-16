@@ -6,7 +6,7 @@
 --]]
 
 --local trans11
-local BattVersion = "0.3"
+local BattVersion = "0.5"
 
 local runningTime = 0
 local startTime = 0
@@ -112,6 +112,91 @@ local function wcDelete(pathIn, pre, typ)
    end
 end
 
+local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, rgb)
+
+   local d
+   local txt
+   local font = FONT_NORMAL
+   local r, g, b
+
+   if not val then return end
+   --if val < 10 and system.getTime() % 2 == 0 then return end
+   
+   if rgb then
+      r=rgb.r
+      g=rgb.g
+      b=rgb.b
+   else
+      r=0
+      g=0
+      b=255
+   end
+   
+   lcd.setColor(r,g,b)
+   lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
+
+   d = math.max(math.min((val/(max-min))*w, w), 0)
+   lcd.drawFilledRectangle(oxc-w//2, oyc-h//2, d, h)
+
+   if str then
+      txt = str .. string.format("%.0f%%", val)
+      lcd.setColor(255,255,255)
+      -- note that for some reason, setClipping moves things to the right by the x coord
+      -- of the clip region .. correct for that
+      lcd.setClipping(oxc-w/2, 0, d, 160)
+      lcd.drawText(oxc - lcd.getTextWidth(font, txt) / 2 - (oxc - w//2),
+		   oyc - lcd.getTextHeight(font) / 2,
+		   txt, font)
+      lcd.setClipping(oxc -w/2 + d, 0, w-d, 160) 
+      lcd.setColor(r,g,b)
+      lcd.drawText(oxc - lcd.getTextWidth(font, txt) / 2 - (oxc - w//2 + d),
+		   oyc - lcd.getTextHeight(font)//2,
+		   txt, font)      
+      lcd.resetClipping()
+   end
+end
+
+local function timePrint(width, height)
+   local str, strCap
+   local rgb={}
+   local rs,gs,bs
+
+   if selectedGroup < 1 or selectedGroup > #Battery then
+      str = "No Battery Group"
+   elseif selectedBattery < 1 or selectedBattery > #Battery[selectedGroup] then
+      str = "No Battery Selected"
+   elseif not battmAh then
+      str = "No mAh sensor"
+   else
+      local sGsB = Battery[selectedGroup][selectedBattery]
+      str = string.format("Battery %d   %d mAh", selectedBattery,
+			  sGsB.cap - battmAh)
+      local battPct = 100 * (sGsB.cap - battmAh) / sGsB.cap
+      if  battPct <= sGsB.warn then
+	 rgb = {r=255,g=0,b=0}
+      else
+	 rgb = {r=0,g=0,b=255}
+      end
+      drawRectGaugeAbs(75, 33, 140, 25, 0, 100, battPct,"", rgb)
+      
+      strCap = string.format("Cap %4d  Warn %4d %4d",
+			     sGsB.cap,
+			     sGsB.cap * sGsB.warn  / 100,
+			     sGsB.cap * sGsB.warn2 / 100)	 
+   end
+
+   rs,gs,bs = lcd.getBgColor()
+   if rs == 0 and gs == 0 and bs == 0 then
+      lcd.setColor(255,255,255)
+   else
+      lcd.setColor(0,0,0)
+   end
+
+   if strCap then lcd.drawText(8,50, strCap, FONT_MINI) end
+   lcd.drawText(4,0,str)
+
+end
+
 local function key0(key)
 
    local row = form.getFocusedRow()
@@ -122,12 +207,16 @@ local function key0(key)
       if selectedGroup > 0 and row >= 1 and row <= #Battery[selectedGroup]  then
 	 selectedBattery = row
       end
+
+      print("5 or Enter", row, selectedBattery)
       
       if selectedBattery > 0 then
 	 Battery[selectedGroup][selectedBattery].cyc =
 	    Battery[selectedGroup][selectedBattery].cyc + 1
 	 system.playFile('/Apps/DFM-BatG/selected_battery.wav', AUDIO_IMMEDIATE)
 	 system.playNumber(selectedBattery, 0)
+	 system.unregisterTelemetry(1)
+	 system.registerTelemetry(1, BatteryGroupName[selectedGroup], 2, timePrint)
       else
 	 system.playFile('/Apps/DFM-BatG/no_battery_selected.wav', AUDIO_IMMEDIATE)	    
       end
@@ -156,15 +245,15 @@ local function initForm0()
    local str
    local row = 0
    local focusRow = 1
-   print("lastGroup, lastBattery:", lastGroup, lastBattery)
+   --print("lastGroup, lastBattery:", lastGroup, lastBattery)
    if #Battery > 0 and selectedGroup < 1 then
       form.addRow(1)
-      form.addLabel({label="No battery group selected"})
+      form.addLabel({label="No battery group selected for model"})
    elseif #Battery < 1 then
       form.addRow(1)
       form.addLabel({label="No battery groups"})
    else
-      form.setTitle(BatteryGroupName[selectedGroup] .. ": Select Battery")
+      form.setTitle(BatteryGroupName[selectedGroup])
       for i=1,#Battery[selectedGroup],1 do
 	 if Battery[selectedGroup][i].cap ~= 0 then
 	    row = row + 1
@@ -184,7 +273,8 @@ local function initForm0()
       end
       if row == 0 then
 	 form.addRow(1)
-	 form.addLabel({label="No batteries to select in group"})
+	 form.addLabel({label=string.format("No configured batteries in Group %d", selectedGroup)})
+	 selectedBattery = 0
       end
    end
    --[[
@@ -327,10 +417,11 @@ end
 local function initForm(sf)
    local str
    subForm = sf
+
    if sf == 1 then
       form.setTitle("Battery Tracker")
       form.addRow(2)
-      form.addLink((function() form.reinit(2) end), {label="Model Group Selection>>", width=320})
+      form.addLink((function() form.reinit(2) end), {label="Model Battery Group>>", width=320})
 
       form.addRow(2) 
       form.addLink((function() form.reinit(4) end), {label="Battery Group Setup>>", width=320})
@@ -346,15 +437,21 @@ local function initForm(sf)
    elseif sf == 2 then
       form.setTitle("Model Group Selection")
 
-      local temp = {}
-      for j=1,#Battery,1 do
-	 temp[j] = BatteryGroupName[j]
+      if #Battery < 1 then
+	 form.addRow(1)
+	 form.addLabel({label="No Battery Groups defined"})
+      else
+	 
+	 local temp = {}
+	 for j=1,#Battery,1 do
+	    temp[j] = BatteryGroupName[j]
+	 end
+	 
+	 form.addRow(1)
+	 form.addSelectbox(temp, selectedGroup, true, battGroupChanged,
+			   {width=320, alignRight=false,font=FONT_NORMAL})
       end
       
-      form.addRow(1)		
-      form.addSelectbox(temp, selectedGroup, true, battGroupChanged,
-			   {width=320, alignRight=false,font=FONT_NORMAL})
-	 
    elseif sf == 3 then
       form.setTitle("Settings")
       form.addRow(2)
@@ -377,15 +474,17 @@ local function initForm(sf)
 	       writeBD = false
 	       selectedGroup = 0
 	       --seenRX = false
-	       system.messageBox("Model group cleared - restart App")
+	       system.messageBox("Model settings cleared - restart App")
 	       form.reinit(3)
 		   end),
-	 {label="Clear model battery group", width=220})
+	 {label="Clear all model settings", width=220})
       
       form.addRow(2)
       form.addLink((function()
 	       local ans
-	       ans = form.question("Are you sure?", "Delete battery group entries?", "(also deletes selected group for this model)", 0, false, 5)
+	       ans = form.question("Are you sure?", "Delete battery group entries?",
+				   "(also deletes selected group for this model)",
+				   0, false, 5)
 	       if ans ~= 1 then
 		  form.reinit(3)
 	       else
@@ -393,7 +492,7 @@ local function initForm(sf)
 		  writeBD = false
 		  selectedGroup = 0
 		  wcDelete("Apps/DFM-BatG", "BD_", "jsn")
-		  system.messageBox("Battery info cleared - restart App")
+		  system.messageBox("Battery groups cleared - restart App")
 		  form.reinit(3)
 	       end
 		   end),
@@ -405,44 +504,23 @@ local function initForm(sf)
       form.setButton(2, ":add", 1)
       form.setButton(3, ":edit", 1)
 
+      
       if #Battery == 0 then
 	 form.addRow(1)
 	 form.addLabel({label="No Battery Groups", width=320, alignRight=false, font=FONT_NORMAL})
       else
 	 for i=1,#Battery,1 do
-	    form.addRow(1)
-	    form.addTextbox(BatteryGroupName[i], 63,
+	    form.addRow(2)
+	    form.addLabel({label=string.format("%d", i), alignRight=false})
+	    form.addTextbox(BatteryGroupName[i], 24,
 		      (function(x) return textChanged(x, i) end),
 		      {alignRight=true})
 
 	 end
       end
-      
-      --[[
-      form.addRow(4)
-      form.addLabel({label="Batt", width=40, alignRight=true, font=FONT_MINI})
-      form.addLabel({label="Cap (mAh)", width=80, alignRight=true, font=FONT_MINI})
-      form.addLabel({label="Warn 1 Warn 2 % Left  ", width=140, alignRight=true, font=FONT_MINI})
-      form.addLabel({label="Cycles", width=80, alignRight=true, font=FONT_MINI})
 
-      for i=1,#gblBattery,1 do
-	 form.addRow(5)
-	 form.addLabel({label=i.."  ", width=40, alignRight=true, font=FONT_NORMAL})
-	 form.addIntbox(gblBattery[i].cap, 0, 9999, 5000, 0, 10,
-			(function(x) return gblBattChanged(x, i, "cap") end),
-			{width=80, font=FONT_NORMAL})
-	 form.addIntbox(gblBattery[i].warn, 0, 100, 50, 0, 1,
-			(function(x) return gblBattChanged(x, i, "warn") end),
-			{width=60, font=FONT_NORMAL})
-	 if not gblBattery[i].warn2 then gblBattery[i].warn2 = 0 end
-	 form.addIntbox(gblBattery[i].warn2, 0, 100, 50, 0, 1,
-			(function(x) return gblBattChanged(x, i, "warn2") end),
-			{width=60, font=FONT_NORMAL})      	 
-	 form.addIntbox(gblBattery[i].cyc, 0, 999, 1, 0, 1,
-			(function(x) return gblBattChanged(x, i, "cyc") end),			
-			{width=80, font=FONT_NORMAL})
-      end
-      --]]
+      form.setFocusedRow(savedRow or 1)
+
    elseif sf == 5 then
       --[[
       form.addRow(2)
@@ -564,49 +642,6 @@ local function destroy()
    writeBattery()
 end
 
-local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, rgb)
-
-   local d
-   local txt
-   local font = FONT_NORMAL
-   local r, g, b
-
-   if not val then return end
-   --if val < 10 and system.getTime() % 2 == 0 then return end
-   
-   if rgb then
-      r=rgb.r
-      g=rgb.g
-      b=rgb.b
-   else
-      r=0
-      g=0
-      b=255
-   end
-   
-   lcd.setColor(r,g,b)
-   lcd.drawRectangle(oxc-w//2, oyc-h//2, w, h)
-
-   d = math.max(math.min((val/(max-min))*w, w), 0)
-   lcd.drawFilledRectangle(oxc-w//2, oyc-h//2, d, h)
-
-   if str then
-      txt = str .. string.format("%.0f%%", val)
-      lcd.setColor(255,255,255)
-      -- note that for some reason, setClipping moves things to the right by the x coord
-      -- of the clip region .. correct for that
-      lcd.setClipping(oxc-w/2, 0, d, 160)
-      lcd.drawText(oxc - lcd.getTextWidth(font, txt) / 2 - (oxc - w//2),
-		   oyc - lcd.getTextHeight(font) / 2,
-		   txt, font)
-      lcd.setClipping(oxc -w/2 + d, 0, w-d, 160) 
-      lcd.setColor(r,g,b)
-      lcd.drawText(oxc - lcd.getTextWidth(font, txt) / 2 - (oxc - w//2 + d),
-		   oyc - lcd.getTextHeight(font)//2,
-		   txt, font)      
-      lcd.resetClipping()
-   end
-end
 
 
 -- Telemetry window draw functions
@@ -716,46 +751,6 @@ local function fooPrint(w,h)
 end
 
 
-local function timePrint(width, height)
-   local str, strCap
-   local rgb={}
-   local rs,gs,bs
-
-   if selectedGroup < 1 or selectedGroup > #Battery then
-      str = "No Battery Group"
-   elseif selectedBattery < 1 or selectedBattery > #Battery[selectedGroup] then
-      str = "No Battery Selected"
-   elseif not battmAh then
-      str = "No mAh sensor"
-   else
-      local sGsB = Battery[selectedGroup][selectedBattery]
-      str = string.format("G/B %d/%d   %d mAh", selectedGroup, selectedBattery,
-			  sGsB.cap - battmAh)
-      local battPct = 100 * (sGsB.cap - battmAh) / sGsB.cap
-      if  battPct <= sGsB.warn then
-	 rgb = {r=255,g=0,b=0}
-      else
-	 rgb = {r=0,g=0,b=255}
-      end
-      drawRectGaugeAbs(75, 33, 140, 25, 0, 100, battPct,"", rgb)
-      
-      strCap = string.format("Cap %4d  Warn %4d %4d",
-			     sGsB.cap,
-			     sGsB.cap * sGsB.warn  / 100,
-			     sGsB.cap * sGsB.warn2 / 100)	 
-   end
-
-   rs,gs,bs = lcd.getBgColor()
-   if rs == 0 and gs == 0 and bs == 0 then
-      lcd.setColor(255,255,255)
-   else
-      lcd.setColor(0,0,0)
-   end
-
-   if strCap then lcd.drawText(8,50, strCap, FONT_MINI) end
-   lcd.drawText(4,0,str)
-
-end
 
 local function loop()
 
@@ -840,7 +835,7 @@ local function init()
       battmAhSe = decoded.battmAhSe or 0
       battmAhSeId = tonumber(decoded.battmAhSeId) or 0
       battmAhSePa = decoded.battmAhSePa or 0
-      lastGroup = decoded.lastGroup
+      --lastGroup = decoded.lastGroup
       lastBattery = decoded.lastBattery
       warnSound = decoded.warnSound
       warn2Sound = decoded.warn2Sound or "..."
@@ -895,10 +890,13 @@ local function init()
    
    system.registerForm(1, MENU_APPS, "Battery Tracker", initForm, keyForm)
    system.registerTelemetry(1, "Battery Tracker", 2, timePrint)
-   system.registerTelemetry(2, "Foo", 2, fooPrint)
+   --system.registerTelemetry(2, "Foo", 2, fooPrint)
    
    readSensors()
    setLanguage()
+
+   collectgarbage()
+   print("V-SensXF: gcc " .. collectgarbage("count"))
 
 end
 --------------------------------------------------------------------------------
