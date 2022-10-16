@@ -28,6 +28,8 @@ local MAXDIAL = 8
 local dial = {}
 local tele = {}
 
+local nSens = {1,2,3,3,4}
+
 local dial1
 local dial1Se, dial1SeId, dial1SePa
 local dial1min, dial1max
@@ -47,6 +49,7 @@ local needle_poly_small = {
 
 
 local savedRow
+local savedRow2
 
 -- Read and set translations (out for now till we have translations, simplifies install)
 
@@ -177,6 +180,11 @@ local function keyForm(key)
       savedRow = row
       form.reinit(13)
    end
+
+   if subForm == 13 and key == KEY_3 then
+      savedRow2 = row
+      form.reinit(103)
+   end
    
    
    --print("keyForm", key, row)
@@ -252,6 +260,17 @@ local function teleSensorChanged(val,i,j,num)
    tele[i].sensor[j] = num[val]
 end
 
+local function sensorMinChanged(val, i, j)
+   tele[i].sensorMin[j] = val
+end
+
+local function sensorMaxChanged(val, i, j)
+   tele[i].sensorMax[j] = val
+end
+
+local function sensorStyleChanged(val, i, j)
+   tele[i].sensorStyle[j] = val
+end
 
 local function initForm(sf)
    local str
@@ -302,7 +321,7 @@ local function initForm(sf)
       form.addSelectbox({"Arc", "Needle"}, dial[savedRow].style, true, 
 		     (function(x) return dialstyleChanged(x, savedRow) end))
    elseif sf == 13 then
-      local nSens = {1,2,3,3,4}
+      form.setButton(3, ":edit", 1)
       local dials = {}
       local dialsNum = {}
       dials[1] = "..."
@@ -326,6 +345,23 @@ local function initForm(sf)
 			   (function(x) return teleSensorChanged(x,savedRow,i,dialsNum) end),
 			   {width=240, alignRight=false})
       end
+   elseif sf == 103 then
+      form.setTitle("Edit sensor dial" .. savedRow .." "..savedRow2)
+      print("savedRow, savedRow2", savedRow, savedRow2, #tele[savedRow].sensor)
+
+      form.addRow(2)
+      form.addLabel({label="Minimum value"})
+      form.addIntbox(tele[savedRow].sensorMin[savedRow2], -10000, 10000, 0, 0, 1,
+		     (function(x) return sensorMinChanged(x, savedRow, savedRow2) end))
+      form.addRow(2)
+      form.addLabel({label="Maximum value"})
+      form.addIntbox(tele[savedRow].sensorMax[savedRow2], -10000, 10000, 0, 0, 1,
+		     (function(x) return sensorMaxChanged(x, savedRow, savedRow2) end))
+      
+      form.addRow(2)
+      form.addLabel({label="Style"})      
+      form.addSelectbox({"Arc", "Needle"}, tele[savedRow].sensorStyle[savedRow2], true, 
+	 (function(x) return sensorStyleChanged(x, savedRow, savedRow2) end))
    end
 end
 
@@ -463,7 +499,7 @@ local function dialPrint(n,w,h)
    for t=1,2,1 do
 
       for d in ipairs(tele[t].sensor) do
-	 local ratio = 
+	 local ratio
       end
       
    end
@@ -559,7 +595,31 @@ local function dialPrint2(w,h)
 end
 
 local function loop()
-   local sensor, value
+   local idx, sensor, value
+   for i=1,2,1 do
+      print(tele[i].screen, nSens[tele[i].screen])
+      for j=1,nSens[tele[i].screen],1 do
+	 idx = tele[i].sensor[j]
+	 if idx > 1 then
+	    sensor = system.getSensorByID(sensorIdlist[idx], sensorPalist[idx])
+	    if sensor and sensor.valid then
+	       value = sensor.value
+	       tele[i].sensorValue[j] = value
+	       if not tele[i].sensorMin[j] then
+		  tele[i].sensorMin[j] = value
+	       else
+		  if value < tele[i].sensorMin[j] then tele[i].sensorMin[j] = value end
+	       end
+	       if not tele[i].sensorMax[j] then
+		  tele[i].sensorMax[j] = value
+	       else
+		  if value > tele[i].sensorMax[j] then tele[i].sensorMax[j] = value end
+	       end
+	    end
+	 end
+      end
+   end
+   
    for i=1,MAXDIAL,1 do
       if dial[i].Se > 1 then
 	 sensor = system.getSensorByID(dial[i].SeId, dial[i].SePa)
@@ -616,14 +676,32 @@ local function init()
       
       for i=1,2,1 do
 	 tele[i] = {}
-	 tele[i].screen = 1
+	 tele[i].screen = 1 -- default to double tele window (one value)
 	 tele[i].sensor = {}
-	 for j=1,4,1 do -- full screen window has max of 4 sensors
-	    tele[i].sensor[j] = 1
+	 tele[i].sensorMin = {}
+	 tele[i].sensorMax = {}
+	 tele[i].sensorStyle = {}
+	 tele[i].sensorValue = {}
+	 tele[i].sensorVmin = {}
+	 tele[i].sensorVmax = {}
+	 for j=1,4,1 do
+	    tele[i].sensor[j] = 1 -- default to "..."
+	    tele[i].sensorMin[j] = 0
+	    tele[i].sensorMax[j] = 10
+	    tele[i].sensorStyle[j] = 1 -- default to Arc
 	 end
       end
    end
 
+   -- don't remember value min and max from run to run
+
+   for i=1,2,1 do
+      for j=1,4,1 do
+	 tele[i].sensorVmin[j] = nil
+	 tele[i].sensorVmax[j] = nil
+      end
+   end
+   
    -- don't remember value min and max from run to run
    
    for i=1,MAXDIAL,1 do
