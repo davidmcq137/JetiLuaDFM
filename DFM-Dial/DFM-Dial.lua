@@ -337,11 +337,12 @@ local function dialPrint(w,h,win)
       end
 
       lcd.setColor(0,0,0)
+
       
       lcd.drawText(rx[tele[win].screen][i],
 		   ry[tele[win].screen][i]-12,
 		   sensorLslist[tele[win].sensor[i]] ..
-		      " (" .. sensorUnlist[tele[i].sensor[1]] .. ") " ..
+		      " (" .. sensorUnlist[tele[win].sensor[i]] .. ") " ..
 		      string.format("  [%.1f-%.1f]",
 				    tele[win].sensorMin[i] * tele[win].sensorMinMult[i],
 				    tele[win].sensorMax[i] * tele[win].sensorMaxMult[i]),
