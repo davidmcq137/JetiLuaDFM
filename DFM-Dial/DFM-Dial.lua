@@ -111,9 +111,9 @@ local function wcDelete(pathIn, pre, typ)
    end
 end
 
-local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, rgb)
+local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, hmin, hmax, val, str, rgb)
 
-   local d
+   local d, d1, d2
    local txt
    local font = FONT_NORMAL
    local r, g, b
@@ -137,6 +137,15 @@ local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, rgb)
    d = math.max(math.min((val/(max-min))*w, w), 0)
    lcd.drawFilledRectangle(oxc-w//2, oyc-h//2, d, h)
 
+   d1 = math.max(math.min((hmin/(max-min))*w, w), 0)
+
+   d2 = math.max(math.min((hmax/(max-min))*w, w), 0)   
+   
+   lcd.setColor(255,255,0)
+   lcd.drawFilledRectangle(oxc-w//2+ d1-1, oyc-h//2, 2, h)
+   lcd.setColor(lcd.getFgColor())
+   lcd.drawFilledRectangle(oxc-w//2+ d2-1, oyc-h//2, 2, h)
+   
    if str then
       txt = str .. string.format("%.0f%%", val)
       lcd.setColor(255,255,255)
@@ -186,6 +195,7 @@ local function drawBackArc(x0, y0, a0, aR, ri, ro, im, alp)
       ren:addPoint(x0 - ri * math.cos(a0+i*aR/im), y0 - ri * math.sin(a0+i*aR/im))
    end
    ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   lcd.setColor(0,0,0)
    ren:renderPolygon(alp)
 end
 
@@ -236,7 +246,7 @@ local function drawMaxMin(hmax, hmin, max, min, x0, y0, a0, aR, ri, ro)
 end
 
 local function formatD(val)
-   if math.abs(val) > 10000 then
+   if math.abs(val) > 1000 then
       return string.format("%4.0f", val)
    elseif math.abs(val) > 100 then
       return string.format("%4.1f", val)
@@ -255,17 +265,15 @@ local function dialPrint(w,h,win)
    local aR = math.rad(aRd)
 
    local x0 = { {40}, {80,237}, {50,50,236}, {80,201,201}, {50,201,50,201} }
-   --local y0 = { {34}, {96,96},  {44,123,96}, {96,44,123}, {44,44,123,123} }
    local y0 = { {34}, {96,96},  {44,123,96}, {96,123,44}, {44,44,123,123} }   
    local ro = { {30}, {62,62},  {30,30,62},  {62,30,30},   {30,30,30,30} }
    local ri = { {22}, {44,44},  {22,22,44},  {44,22,22},   {22,22,22,22} }
 
    local rx = { {0}, {5,161}, {5,5,161}, {5,161,161}, {5,161,5,161} }   
-   --local ry = { {0}, {10,10}, {10,89,10}, {10,89,10}, {10,10,89,89} }
    local ry = { {0}, {10,10}, {10,89,10}, {10,10,89}, {10,10,89,89} }   
 
    local rxs = { {0}, {151,151}, {151,151,151}, {151,151,151}, {151,151,151,151}}
-   local rys = { {0}, {140,140}, {69,69,148}, {148,69,69}, {69,69,69,69} }
+   local rys = { {0}, {148,148}, {69,69,148}, {148,69,69}, {69,69,69,69} }
       
    local ratio, theta, val, max, min, xz, yz, rI, rO, ovld, sg, np
    for i=1, nSens[tele[win].screen],1 do
@@ -293,42 +301,86 @@ local function dialPrint(w,h,win)
 	 sg = 20
 	 np = needle_poly_large
       end
-      drawBackArc(xz, yz, a0, aR, rI, rO, sg, 0.3)
-      if tele[win].sensorStyle[i] == 1 then
-	 drawArc(theta, xz, yz, a0, aR, rI, rO, sg, 1.0)
+
+      local text, f1, f2, y1, y2, y3, y4, x0, x1, x2, x3, bh, bw
+
+      if tele[win].sensorStyle[i] < 3 then
+	 if rI < 30 then
+	    f1 = FONT_BOLD
+	    f2 = FONT_BIG
+	    y1 = 14
+	    y2 = 25
+	    y3 = 0
+	    x0 = 0
+	    x1 = 70
+	    x2 = 70
+	    x3 = 0
+	 else
+	    f1 = FONT_MAXI
+	    f2 = FONT_BIG
+	    y1 = 24
+	    y2 = 85
+	    y3 = 85
+	    x0 = 0
+	    x1 = 40
+	    x2 = -40
+	    x3 = 0
+	 end
       else
-	 drawShape(xz,yz, np, theta - math.pi - aR/2)
+	 if rys[tele[win].screen][i] < 70 then
+	    f1 = FONT_BOLD
+	    f2 = FONT_BOLD
+	    y1 = 16
+	    y2 = 36
+	    y3 = 36
+	    y4 = 0
+	    x0 = 25
+	    x1 = 80
+	    x2 = -20
+	    x3 = 30
+	    bw = 140
+	    bh = 34
+	 else
+	    f1 = FONT_MAXI
+	    f2 = FONT_BIG
+	    y1 = 14
+	    y2 = 56
+	    y3 = 56
+	    y4 = -10
+	    x0 = 3
+	    x1 = 45
+	    x2 = -45
+	    x3 = 0
+	    bw = 140
+	    bh = 42
+	 end
       end
 
-      drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i], max, min, xz, yz, a0, aR, rI, rO)
-      
-      local text, f1, y1, y2, y3, x1, x2
-      
-      if rI < 30 then
-	 f1 = FONT_BOLD
-	 y1 = 14
-	 y2 = 25
-	 y3 = 0
-	 x1 = 70
-	 x2 = 70
+      if tele[win].sensorStyle[i] == 1 then
+	 drawBackArc(xz, yz, a0, aR, rI, rO, sg, 0.2)
+	 drawArc(theta, xz, yz, a0, aR, rI, rO, sg, 1.0)
+	 drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i], max, min, xz, yz, a0, aR, rI, rO)
+      elseif tele[win].sensorStyle[i] == 2 then
+	 drawBackArc(xz, yz, a0, aR, rI, rO, sg, 0.2)
+	 drawShape(xz,yz, np, theta - math.pi - aR/2)
+	 drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i], max, min, xz, yz, a0, aR, rI, rO)
       else
-	 f1 = FONT_BIG
-	 y1 = 32
-	 y2 = 85
-	 y3 = 85
-	 x1 = 40
-	 x2 = -40
+	 local v1, v2
+	 v1 = ( (tele[win].sensorVmin[i] or 0) - min)/(max-min)*100
+	 v2 = ( (tele[win].sensorVmax[i] or 0)- min)/(max-min)*100	 
+	 drawRectGaugeAbs(xz+x3, yz+y4, bw, bh, 0, 100, v1, v2, (val-min)/(max-min)*100, "")	 
       end
       
+
       lcd.setColor(0,0,0)
       text = formatD(val)
       if ovld then lcd.setColor(255,0,0) end 
-      lcd.drawText(xz - lcd.getTextWidth(f1, text) / 2, yz+y1, text, f1)
+      lcd.drawText(xz + x0 - lcd.getTextWidth(f1, text) / 2, yz+y1, text, f1)
       lcd.setColor(0,0,0)      
       text = formatD(tele[win].sensorVmax[i] or 0)
-      lcd.drawText(xz + x1 - lcd.getTextWidth(FONT_BIG, text)/2, yz - y2, text, FONT_BIG)
+      lcd.drawText(xz + x1 - lcd.getTextWidth(f2, text)/2, yz - y2, text, f2)
       text = formatD(tele[win].sensorVmin[i] or 0)
-      lcd.drawText(xz + x2 - lcd.getTextWidth(FONT_BIG, text)/2, yz - y3, text, FONT_BIG)
+      lcd.drawText(xz + x2 - lcd.getTextWidth(f2, text)/2, yz - y3, text, f2)
       
       if tele[win].screen > 1 then
 	 lcd.setColor(160,160,160)
@@ -414,8 +466,7 @@ local function teleWinChanged(val, i)
 		       tele[i].sensorMax[1] * tele[i].sensorMaxMult[1])
    else
       ii = 4
-      str = string.format("Dial Display %d - %s", i, teleSelect[tele[i].screen])
-      --str = string.format("Dial Display %d", i)
+      str = string.format("Dial Window %d - %s", i, teleSelect[tele[i].screen])
    end
    
    system.unregisterTelemetry(i)
@@ -428,7 +479,7 @@ local function teleSensorChanged(val,i,j)
 end
 
 local function sensorMinChanged(val, i, j)
-   tele[i].sensorMin[j] = val / 10.0
+   tele[i].sensorMin[j] = val / 100.0
 end
 
 local function sensorMinMultChanged(val, i, j)
@@ -436,7 +487,7 @@ local function sensorMinMultChanged(val, i, j)
 end
 
 local function sensorMaxChanged(val, i, j)
-   tele[i].sensorMax[j] = val / 10.0
+   tele[i].sensorMax[j] = val / 100.0
 end
 
 local function sensorMaxMultChanged(val, i, j)
@@ -461,6 +512,8 @@ local function initForm(sf)
 	 form.addSelectbox(teleSelect, tele[i].screen, true,
 			   (function(x) return teleWinChanged(x,i) end), {width=260, alignRight=false})	 
       end
+      if savedRow then form.setFocusedRow(savedRow) end
+      savedRow = 1
    elseif sf == 13 then
       form.setButton(3, ":edit", 1)
       form.setTitle(string.format("Edit Telemetry Window %d", savedRow))
@@ -471,24 +524,26 @@ local function initForm(sf)
 			   (function(x) return teleSensorChanged(x,savedRow,i) end),
 			   {width=240, alignRight=false})
       end
+      if savedRow2 then form.setFocusedRow(savedRow2) end
+      savedRow2= 1
    elseif sf == 103 then
       form.setTitle("Edit sensor dial " .. sensorLslist[tele[savedRow].sensor[savedRow2]])
 
       form.addRow(2)
       form.addLabel({label="Minimum value"})
       local mm
-      form.addIntbox(tele[savedRow].sensorMin[savedRow2]*10, -990, 990, 0, 1, 1,
+      form.addIntbox(tele[savedRow].sensorMin[savedRow2]*100, -9999, 9999, 0, 2, 1,
 		     (function(x) return sensorMinChanged(x, savedRow, savedRow2) end))
 
       form.addRow(2)
       form.addLabel({label="Minimum multiplier"})
-      if tele[savedRow].sensorMaxMult[savedRow2] == 1 then mm = 1 else mm = 2 end
+      if tele[savedRow].sensorMinMult[savedRow2] == 1 then mm = 1 else mm = 2 end
       form.addSelectbox({"1x", "1000x"}, mm, true,
 		     (function(x) return sensorMinMultChanged(x, savedRow, savedRow2) end))
 
       form.addRow(2)
       form.addLabel({label="Maximum value"})
-      form.addIntbox(tele[savedRow].sensorMax[savedRow2]*10, -990, 990, 100, 1, 1,
+      form.addIntbox(tele[savedRow].sensorMax[savedRow2]*100, -9999, 9999, 1000, 2, 1,
 		     (function(x) return sensorMaxChanged(x, savedRow, savedRow2) end))
       
       form.addRow(2)
@@ -499,8 +554,10 @@ local function initForm(sf)
 
       form.addRow(2)
       form.addLabel({label="Style"})      
-      form.addSelectbox({"Arc", "Needle"}, tele[savedRow].sensorStyle[savedRow2], true, 
+      form.addSelectbox({"Arc", "Needle", "HBar"}, tele[savedRow].sensorStyle[savedRow2], true, 
 	 (function(x) return sensorStyleChanged(x, savedRow, savedRow2) end))
+      
+      form.setFocusedRow(1)
    end
 end
 
@@ -559,7 +616,8 @@ local function init()
    local mn
    local file
    local decoded
-
+   local jsnVersion = 1
+   
    emFlag = select(2, system.getDeviceType()) == 1
    if emFlag then pf = "" else pf = "/" end
    
@@ -571,12 +629,24 @@ local function init()
    if file then
       decoded = json.decode(file)
       tele = decoded.tele
-   else
-      system.messageBox("No Model data read: initializing")
-      print("No Model data read: initializing")      
-
+   end
+   
+   if not file or tele[1].jsnVersion ~= jsnVersion then
+      if not file then
+	 system.messageBox("No Model data read: initializing")
+	 print("No Model data read: initializing")
+      else
+	 system.messageBox("Old data format: re-initializing")
+	 print("Old data format: re-initializing")
+      end
+      
+      --
+      -- DON'T FORGET to update jsnVersion when changing the format of tele{} data!
+      --
+      
       for i=1,2,1 do
 	 tele[i] = {}
+	 tele[i].jsnVersion = jsnVersion
 	 tele[i].screen = 1 -- default to double tele window (one value)
 	 tele[i].sensor = {}
 	 tele[i].sensorMin = {}
@@ -620,11 +690,11 @@ local function init()
 	       " (" .. sensorUnlist[tele[i].sensor[1]] .. ") " ..
 	       string.format("  [%.1f-%.1f]", tele[i].sensorMin[1], tele[i].sensorMax[1])
 	 else
-	    str = string.format("Dial Display %d - %s", i, teleSelect[tele[i].screen])
+	    str = string.format("Dial Window %d - %s", i, teleSelect[tele[i].screen])
 	 end
       else
 	 ii = 4
-	 str = string.format("Dial Display %d - %s", i, teleSelect[tele[i].screen])
+	 str = string.format("Dial Window %d - %s", i, teleSelect[tele[i].screen])
       end
       system.registerTelemetry(i, str, ii,
 			       (function(x,y) return dialPrint(x,y,i) end))
