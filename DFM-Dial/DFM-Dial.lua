@@ -19,7 +19,8 @@ local fileBDG
 local writeBD = true
 local writeBDG = false
 
-local sensorLalist = { "..." }  -- sensor labels
+local sensorLalist = { "..." }  -- sensor labels (long)
+local sensorLslist = { "..." }  -- sensor labels (short)
 local sensorIdlist = { "..." }  -- sensor IDs
 local sensorPalist = { "..." }  -- sensor parameters
 local sensorUnlist = { "..." }  -- sensor units
@@ -77,6 +78,7 @@ local function readSensors()
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then sensorLbl = sensor.label else
 	    local ii = #sensorLalist+1
+	    table.insert(sensorLslist, sensor.label)
 	    table.insert(sensorLalist, sensorLbl .. "-> " .. sensor.label .. "["..ii.."]")
 	    --print(sensorLalist[#sensorLalist])
 	    table.insert(sensorIdlist, sensor.id)
@@ -159,6 +161,183 @@ local function timePrint(width, height)
 
 end
 
+-- Telemetry window draw functions
+
+local function drawShape(col, row, shape, rotation)
+
+   local sinShape, cosShape
+   local ren = lcd.renderer()
+
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   ren:reset()
+   for _, point in pairs(shape) do
+      ren:addPoint(
+	 col + (point[1] * cosShape - point[2] * sinShape + 0.5),
+	 row + (point[1] * sinShape + point[2] * cosShape + 0.5)
+      ) 
+   end
+   ren:renderPolygon()
+end
+
+local function drawBackArc(x0, y0, a0, aR, ri, ro, im, alp)
+   local ren = lcd.renderer()
+   ren:reset()
+   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   ren:addPoint(x0 - ro * math.cos(a0), y0 - ro * math.sin(a0))   
+   for i=1,im-1,1 do
+      ren:addPoint(x0 - ro * math.cos(a0 + i*aR/im), y0 - ro * math.sin(a0 + i*aR/im))
+   end
+   ren:addPoint(x0 - ro * math.cos(a0+aR), y0 - ro * math.sin(a0+aR))
+   ren:addPoint(x0 - ri * math.cos(a0+aR), y0 - ri * math.sin(a0+aR))
+   for i=im-1,1,-1 do
+      ren:addPoint(x0 - ri * math.cos(a0+i*aR/im), y0 - ri * math.sin(a0+i*aR/im))
+   end
+   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   ren:renderPolygon(alp)
+end
+
+local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp)
+   local ren = lcd.renderer()
+   ren:reset()
+   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   ren:addPoint(x0 - ro * math.cos(a0), y0 - ro * math.sin(a0))   
+   
+   for i=1,im-1,1 do
+      ren:addPoint(x0 - ro * math.cos(a0 + i*theta/im), y0 - ro * math.sin(a0 + i*theta/im))
+   end
+   
+   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
+   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
+   
+   for i=im-1,1,-1 do
+      ren:addPoint(x0 - ri * math.cos(a0+i*theta/im), y0 - ri * math.sin(a0+i*theta/im))
+   end
+   lcd.setColor(lcd.getFgColor())
+   ren:renderPolygon(alp)
+end
+
+local function drawMaxMin(hmax, hmin, max, min, x0, y0, a0, aR, ri, ro)
+   local ratio
+   local theta
+   local ren = lcd.renderer()
+
+   if not hmax or not hmin then return end
+   
+   ren:reset()
+   ratio = (hmax-min)/(max-min)
+   ratio = math.max(math.min(ratio, 1), 0)
+   theta = aR * ratio
+   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
+   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
+   lcd.setColor(lcd.getFgColor())
+   ren:renderPolyline(3)
+   
+   ren:reset()
+   ratio = (hmin-min)/(max-min)
+   ratio = math.max(math.min(ratio, 1), 0)
+   theta = aR * ratio
+   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
+   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
+   lcd.setColor(255,255,0)
+   ren:renderPolyline(3)
+end
+
+local function dialPrint(w,h,win)
+
+   local theta
+   local x0, y0 = 40, 34
+   local ri = 22
+   local ro = 30
+   local a0d = -35
+   local a0 = math.rad(a0d)
+   local aRd = -a0d*2 + 180
+   local aR = math.rad(aRd)
+
+   local x0 = { {40}, {80,231}, {50,50,234}, {234,50,50}, {50,201,50,201} }
+   local y0 = { {34}, {93,93},  {44,123,98}, {98,123,44}, {44,44,123,123} }
+   local ro = { {30}, {60,60},  {30,30,65}, {65,30,30},   {30,30,30,30} }
+   local ri = { {22}, {44,44},  {22,22,44}, {44,22,22},   {22,22,22,22} }
+
+   local rx = { {0}, {5,161}, {5,5,161}, {161,5,5}, {5,161,5,161} }
+   local ry = { {0}, {10,10}, {10,89,10}, {10,89,10}, {10,10,89,89} }
+
+   local rxs = { {0}, {151,151}, {151,151,151}, {151,151,151}, {151,151,151,151}}
+   local rys = { {0}, {140,140}, {69,69,148}, {148,69,69}, {69,69,69,69} }
+      
+   local ratio, theta, val, max, min, xz, yz, rI, rO, ovld, sg
+   for i=1, nSens[tele[win].screen],1 do
+      val = tele[win].sensorValue[i]
+      if tele[win].sensor[i] < 2 then return end
+      if not val then print("val nil", win, i) return end
+      min = tele[win].sensorMin[i]
+      max = tele[win].sensorMax[i]
+      if val > max or val < min then ovld = true else ovld = false end
+      ratio = (val-min)/(max-min) 
+      ratio = math.max(math.min(ratio, 1), 0)
+      if math.abs(max-min) < 1.E-6 then
+	 theta = 0
+      else
+	 theta = aR * ratio
+      end
+      xz = x0[tele[win].screen][i]
+      yz = y0[tele[win].screen][i]
+      rI = ri[tele[win].screen][i]
+      rO = ro[tele[win].screen][i]
+      if rI < 30 then sg = 15 else sg = 20 end
+      drawBackArc(xz, yz, a0, aR, rI, rO, sg, 0.3)
+      if tele[win].sensorStyle[i] == 1 then
+	 drawArc(theta, xz, yz, a0, aR, rI, rO, sg, 1.0)
+      else
+	 drawShape(xz,yz, needle_poly_small, theta - math.pi - aR/2)
+      end
+
+      drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i], max, min, xz, yz, a0, aR, rI, rO)
+      
+      local text, f1, y1, y2, y3, x1, x2
+      
+      if rI < 30 then
+	 f1 = FONT_BOLD
+	 y1 = 14
+	 y2 = 25
+	 y3 = 0
+	 x1 = 42
+	 x2 = 42
+      else
+	 f1 = FONT_BIG
+	 y1 = 24
+	 y2 = 85
+	 y3 = 85
+	 x1 = 22
+	 x2 = -60
+      end
+      
+      lcd.setColor(0,0,0)
+      text = string.format("%4.2f", val)
+      if ovld then lcd.setColor(255,0,0) end 
+      lcd.drawText(xz - lcd.getTextWidth(f1, text) / 2, yz+y1, text, f1)
+      lcd.setColor(0,0,0)      
+      text = string.format("%4.2f", tele[win].sensorVmax[i] or 0)
+      lcd.drawText(xz + x1, yz - y2, text, FONT_BIG)
+      text = string.format("%4.2f", tele[win].sensorVmin[i] or 0)
+      lcd.drawText(xz + x2, yz - y3, text, FONT_BIG)
+      
+      if tele[win].screen > 1 then
+	 lcd.drawRectangle(rx[tele[win].screen][i], ry[tele[win].screen][i],
+			   rxs[tele[win].screen][i],rys[tele[win].screen][i])
+      end
+
+      lcd.drawText(rx[tele[win].screen][i],
+		   ry[tele[win].screen][i]-12,
+		   sensorLslist[tele[win].sensor[i]] ..
+		      string.format("  [%.1f-%.1f]", tele[win].sensorMin[i], tele[win].sensorMax[i]),
+		   FONT_MINI)
+
+   end
+
+   lcd.drawText(295, 145, system.getCPU(), FONT_MINI)
+
+end
 
 local function keyExit(k)
    if k == KEY_5 or k == KEY_ENTER or k == KEY_ESC then
@@ -171,12 +350,20 @@ end
 local function keyForm(key)
    local row = form.getFocusedRow()
 
-   if subForm == 2 and key == KEY_3 and dial[row].Se ~= 0 then
-      savedRow = row
-      form.reinit(12)
+   --print(key, subForm)
+   
+   if keyExit(key) then
+      if subForm == 13 then
+	 form.preventDefault()
+	 form.reinit(1)
+      elseif subForm == 103 then
+	 form.preventDefault()
+	 form.reinit(13)
+      end
+      return
    end
 
-   if subForm == 3 and key == KEY_3 then
+   if subForm == 1 and key == KEY_3 then
       savedRow = row
       form.reinit(13)
    end
@@ -185,9 +372,7 @@ local function keyForm(key)
       savedRow2 = row
       form.reinit(103)
    end
-   
-   
-   --print("keyForm", key, row)
+
 end
 
 local function dial1SensorChanged(val)
@@ -235,12 +420,27 @@ local function dial2styleChanged(val)
 end
 
 local function dialSensorChanged(val, i)
-   print("val, i", val, i, sensorLalist[val])
+   --print("val, i", val, i, sensorLalist[val])
    dial[i].Se = val
 end
 
 local function teleWinChanged(val, i)
+   print("tws", val, i)
    tele[i].screen = val
+   local ii, str
+   if val == 1 then
+      ii = 2
+      str = string.format("%d) ", i) .. sensorLslist[tele[i].sensor[i]] ..
+	 string.format("  [%.1f-%.1f]", tele[i].sensorMin[1], tele[i].sensorMax[1])
+      print("str:", str)
+   else
+      ii = 4
+      str = string.format("Dial display %d", i)
+   end
+   
+   system.unregisterTelemetry(i)
+   system.registerTelemetry(i, str, ii,
+			    (function(x,y) return dialPrint(x,y,i) end))
 end
 
 local function dialminChanged(val, i)
@@ -255,9 +455,8 @@ local function dialstyleChanged(val, i)
    dial[i].style = val
 end
 
-local function teleSensorChanged(val,i,j,num)
-   print("teleSensorChanged", val, i, j, num[val])
-   tele[i].sensor[j] = num[val]
+local function teleSensorChanged(val,i,j)
+   tele[i].sensor[j] = val
 end
 
 local function sensorMinChanged(val, i, j)
@@ -275,26 +474,9 @@ end
 local function initForm(sf)
    local str
    subForm = sf
-   print("savedRow", savedRow)
+   --print("initForm: savedRow", savedRow)
    
    if sf == 1 then
-      form.setTitle("Dial Display")
-      form.addRow(2)
-      form.addLink((function() form.reinit(2) end), {label="Dial Setup>>", width=320})
-      form.addRow(3)
-      form.addLink((function() form.reinit(3) end), {label="Telemetry Window Setup>>", width=320})      
-      form.addRow(1)
-      form.addLabel({label="DFM - v."..DialVersion.." ", font=FONT_MINI, alignRight=true})
-   elseif sf == 2 then
-      form.setButton(3, ":edit", 1)
-      form.setTitle("Dial Setup")
-      for i = 1, #dial, 1 do
-	 form.addRow(2)
-	 form.addLabel({label=string.format("%d", i), width=60})
-	 form.addSelectbox(sensorLalist, dial[i].Se, true,
-			   (function(x) return dialSensorChanged(x,i) end), {width=260, alignRight=false})
-      end
-   elseif sf == 3 then
       form.setButton(3, ":edit", 1)
       form.setTitle("Telemetry Window Setup")
       local teleSelect = {"Double (1)", "Full Screen (2)", "Full Screen (3R)",
@@ -305,21 +487,6 @@ local function initForm(sf)
 	 form.addSelectbox(teleSelect, tele[i].screen, true,
 			   (function(x) return teleWinChanged(x,i) end), {width=260, alignRight=false})	 
       end
-   elseif sf == 12 then
-      form.setTitle(string.format("Edit Dial %d: %s", savedRow, sensorLalist[dial[savedRow].Se]))
-      form.addRow(2)
-      form.addLabel({label="Minimum value"})
-      form.addIntbox(dial[savedRow].min, -10000, 10000, 0, 0, 1,
-		     (function(x) return dialminChanged(x, savedRow) end))
-      form.addRow(2)
-      form.addLabel({label="Maximum value"})
-      form.addIntbox(dial[savedRow].max, -10000, 10000, 0, 0, 1,
-		     (function(x) return dialmaxChanged(x, savedRow) end))
-
-      form.addRow(2)
-      form.addLabel({label="Style"})      
-      form.addSelectbox({"Arc", "Needle"}, dial[savedRow].style, true, 
-		     (function(x) return dialstyleChanged(x, savedRow) end))
    elseif sf == 13 then
       form.setButton(3, ":edit", 1)
       local dials = {}
@@ -337,25 +504,21 @@ local function initForm(sf)
       for i=1, nSens[tele[savedRow].screen],1 do
 	 form.addRow(2)
 	 form.addLabel({label=string.format("Sensor %d:", i), width=80})
-	 local isel
-	 for k,v in ipairs(dialsNum) do
-	    if v == tele[savedRow].sensor[i] then isel = k break else isel = 0 end
-	 end
-	 form.addSelectbox(dials, isel, true,
-			   (function(x) return teleSensorChanged(x,savedRow,i,dialsNum) end),
+	 form.addSelectbox(sensorLalist, tele[savedRow].sensor[i], true,
+			   (function(x) return teleSensorChanged(x,savedRow,i) end),
 			   {width=240, alignRight=false})
       end
    elseif sf == 103 then
-      form.setTitle("Edit sensor dial" .. savedRow .." "..savedRow2)
-      print("savedRow, savedRow2", savedRow, savedRow2, #tele[savedRow].sensor)
+      form.setTitle("Edit sensor dial " .. savedRow .." "..savedRow2)
+      --print("savedRow, savedRow2", savedRow, savedRow2, #tele[savedRow].sensor)
 
       form.addRow(2)
       form.addLabel({label="Minimum value"})
-      form.addIntbox(tele[savedRow].sensorMin[savedRow2], -10000, 10000, 0, 0, 1,
+      form.addIntbox(tele[savedRow].sensorMin[savedRow2], -32768, 32767, 0, 0, 1,
 		     (function(x) return sensorMinChanged(x, savedRow, savedRow2) end))
       form.addRow(2)
       form.addLabel({label="Maximum value"})
-      form.addIntbox(tele[savedRow].sensorMax[savedRow2], -10000, 10000, 0, 0, 1,
+      form.addIntbox(tele[savedRow].sensorMax[savedRow2], -32768, 32767, 0, 0, 1,
 		     (function(x) return sensorMaxChanged(x, savedRow, savedRow2) end))
       
       form.addRow(2)
@@ -395,225 +558,28 @@ local function destroy()
    writeBattery()
 end
 
--- Telemetry window draw functions
-
-local function drawShape(col, row, shape, rotation)
-
-   local sinShape, cosShape
-   local ren = lcd.renderer()
-
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
-   ren:reset()
-   for _, point in pairs(shape) do
-      ren:addPoint(
-	 col + (point[1] * cosShape - point[2] * sinShape + 0.5),
-	 row + (point[1] * sinShape + point[2] * cosShape + 0.5)
-      ) 
-   end
-   ren:renderPolygon()
-end
-
-local function drawPolyArc(x0, y0, a0, aR, ri, ro, im, alp)
-   ren:reset()
-   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
-   ren:addPoint(x0 - ro * math.cos(a0), y0 - ro * math.sin(a0))   
-   for i=1,im-1,1 do
-      ren:addPoint(x0 - ro * math.cos(a0 + i*aR/im), y0 - ro * math.sin(a0 + i*aR/im))
-   end
-   ren:addPoint(x0 - ro * math.cos(a0+aR), y0 - ro * math.sin(a0+aR))
-   ren:addPoint(x0 - ri * math.cos(a0+aR), y0 - ri * math.sin(a0+aR))
-   for i=im-1,1,-1 do
-      ren:addPoint(x0 - ri * math.cos(a0+i*aR/im), y0 - ri * math.sin(a0+i*aR/im))
-   end
-   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
-   ren:renderPolygon(alp)
-end
-
-local hmin1, hmax1
-local hmin2, hmax2
-
-local function dialPrint(n,w,h)
-
-   local theta
-   local x0, y0 = 40, 34
-   local ri = 22
-   local ro = 30
-   local a0d = -35
-   local a0 = math.rad(a0d)
-   local aRd = -a0d*2 + 180
-   local aR = math.rad(aRd)
-   local ren = lcd.renderer()
-
-   --[[
-   if n == 1 then
-      lcd.drawRectangle(0+5,0+10,151,69)
-      lcd.drawRectangle(151+10,0+10,151,69)
-      lcd.drawRectangle(0+5,69+20,151,69)            
-      lcd.drawRectangle(151+10,69+20,151,69)
-      
-      x0 = x0 + 151 + 10
-      y0 = y0 + 69 + 20
-      lcd.drawText(151+10, 69+20-12, "Main Battery (V)  [0.0-15.0]", FONT_MINI)
-      lcd.drawText(151+10, -2, "Main Battery (V)", FONT_MINI)      
-      
-      min = dial1min
-      max = dial1max
-      --dial1 = 5 * (1 + system.getInputs("P1"))
-      if not hmin1 then
-	 hmin1 = dial1
-      else
-	 if dial1 < hmin1 then hmin1 = dial1 end
-      end
-      if not hmax1 then
-	 hmax1 = dial1
-      else
-	 if dial1 > hmax1 then hmax1 = dial1 end
-      end
-      hmin = hmin1
-      hmax = hmax1
-      val = dial1
-      style = dial1style
-   elseif n == 2 then
-      min = dial2min
-      max = dial2max
-      --dial2 = 5 * (1 + system.getInputs("P2"))   
-      if not hmin2 then
-	 hmin2 = dial2
-      else
-	 if dial2 < hmin2 then hmin2 = dial2 end
-      end
-      if not hmax2 then
-	 hmax2 = dial2
-      else
-	 if dial2 > hmax2 then hmax2 = dial2 end
-      end
-      hmin = hmin2
-      hmax = hmax2
-      val = dial2
-      style = dial2style
-   end
-   --]]
-
-
-   for t=1,2,1 do
-
-      for d in ipairs(tele[t].sensor) do
-	 local ratio
-      end
-      
-   end
-
-   
-   if not val then return end
-
-   --if n == 1 then print((val-min)/(max-min), min, max) end
-
-   local ratio = (val-min)/(max-min)
-   ratio = math.max(math.min(ratio, 1), 0)
-   
-   if math.abs(max-min) < 1.E-6 then
-      theta = 0
-   else
-      theta = aR * ratio -- (val-min)/(max-min)
-   end
-
-   drawPolyArc(x0, y0, a0, aR, ri, ro, 20, 0.3)
-   
-   
-   if style == 1 then
-      ren:reset()
-      --theta = aR * (val - min) /(max-min) 
-
-      ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
-      ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
-      ren:renderPolyline(3)
-
-      lcd.setColor(255,255,0)
-      ren:reset()
-      ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
-      ren:addPoint(x0 - ro * math.cos(a0), y0 - ro * math.sin(a0))   
-      
-      local im = 15
-      for i=1,im-1,1 do
-	 ren:addPoint(x0 - ro * math.cos(a0 + i*theta/im), y0 - ro * math.sin(a0 + i*theta/im))
-      end
-      
-      ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
-      ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
-      
-      for i=im-1,1,-1 do
-	 ren:addPoint(x0 - ri * math.cos(a0+i*theta/im), y0 - ri * math.sin(a0+i*theta/im))
-      end
-      lcd.setColor(lcd.getFgColor())
-      ren:renderPolygon()
-   else
-      drawShape(x0,y0, needle_poly_small, theta - math.pi - aR/2)
-   end
-   
-   lcd.setColor(lcd.getFgColor())
-   ren:reset()
-   ratio = (hmax-min)/(max-min)
-   ratio = math.max(math.min(ratio, 1), 0)
-   theta = aR * ratio -- (hmax-min) / (max-min) 
-   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
-   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
-   ren:renderPolyline(3)
-   
-   lcd.setColor(255,255,0)
-   
-   ren:reset()
-   ratio = (hmin-min)/(max-min)
-   ratio = math.max(math.min(ratio, 1), 0)
-   theta = aR * ratio -- (hmin-min) / (max-min) 
-   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
-   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
-   ren:renderPolyline(3)
-   
-   lcd.setColor(0,0,0)
-   
-   local text
-   text = string.format("%4.2f", val)
-   lcd.drawText(x0 - lcd.getTextWidth(FONT_BOLD, text) / 2, y0+14, text, FONT_BOLD)
-
-   text = string.format("%4.2f", hmax)
-   lcd.drawText(x0 + 42, y0 - 25, text, FONT_BIG)
-   --lcd.drawImage(x0 + 32, y0-25, ":up")
-   
-   text = string.format("%4.2f", hmin)
-   --lcd.drawImage(x0 + 32, y0, ":down")   
-   lcd.drawText(x0 + 42, y0, text, FONT_BIG)   
-   
-end
-
-local function dialPrint1(w,h)
-   dialPrint(1, w, h)
-end
-
-local function dialPrint2(w,h)
-   dialPrint(2, w, h)
-end
 
 local function loop()
    local idx, sensor, value
    for i=1,2,1 do
-      print(tele[i].screen, nSens[tele[i].screen])
       for j=1,nSens[tele[i].screen],1 do
 	 idx = tele[i].sensor[j]
 	 if idx > 1 then
+	    --print(idx, sensorIdlist[idx], sensorPalist[idx])
 	    sensor = system.getSensorByID(sensorIdlist[idx], sensorPalist[idx])
 	    if sensor and sensor.valid then
 	       value = sensor.value
+	       --print("value", value)
 	       tele[i].sensorValue[j] = value
-	       if not tele[i].sensorMin[j] then
-		  tele[i].sensorMin[j] = value
+	       if not tele[i].sensorVmin[j] then
+		  tele[i].sensorVmin[j] = value
 	       else
-		  if value < tele[i].sensorMin[j] then tele[i].sensorMin[j] = value end
+		  if value < tele[i].sensorVmin[j] then tele[i].sensorVmin[j] = value end
 	       end
-	       if not tele[i].sensorMax[j] then
-		  tele[i].sensorMax[j] = value
+	       if not tele[i].sensorVmax[j] then
+		  tele[i].sensorVmax[j] = value
 	       else
-		  if value > tele[i].sensorMax[j] then tele[i].sensorMax[j] = value end
+		  if value > tele[i].sensorVmax[j] then tele[i].sensorVmax[j] = value end
 	       end
 	    end
 	 end
@@ -708,30 +674,32 @@ local function init()
       dial[i].vmin = nil
       dial[i].vmax = nil
    end
-   
-   fileBDG = pf .. "Apps/DFM-Dial/DD_Global.jsn"
-   file = io.readall(fileBDG)
 
-   local temp
-   
-   if file then
-      temp = json.decode(file)
-      --Battery = temp.Array
-      --BatteryGroupName = temp.Name
-   else
-      system.messageBox("Initializing global table")
-      print("Initializing global table")
-      --Battery = {}
-   end
-
-   system.registerForm(1, MENU_APPS, "Dial Display", initForm, keyForm)
-   system.registerTelemetry(1, "Dial Display 1", 4, dialPrint1)
-   system.registerTelemetry(2, "Dial Display 2", 2, dialPrint2)   
-   
    readSensors()
+   
+   system.registerForm(1, MENU_APPS, "Dial Display", initForm, keyForm)
+
+   for i=1,2,1 do
+      local ii, str
+      if tele[i].screen == 1 then
+	 ii = 2
+	 if tele[i].sensor[1] > 1 then
+	    str = string.format("%d) ", i) .. sensorLslist[tele[i].sensor[1]] ..
+	       string.format("  [%.1f-%.1f]", tele[i].sensorMin[1], tele[i].sensorMax[1])
+	 else
+	    str = string.format("Dial Display %d", i)
+	 end
+      else
+	 ii = 4
+	 str = string.format("Dial Display %d", i)	 
+      end
+      system.registerTelemetry(i, str, ii,
+			       (function(x,y) return dialPrint(x,y,i) end))
+   end
+   
+   
    setLanguage()
 
-   collectgarbage()
    print("DFM-Dial: gcc " .. collectgarbage("count"))
 
 end
