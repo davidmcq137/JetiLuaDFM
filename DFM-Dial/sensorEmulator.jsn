@@ -15,7 +15,7 @@
      "sensorName": "IBP",
      "label": "SOC P5",
      "unit": "%",
-     "luaExp":"P5(0,10)"
+     "luaExp":"P5(0,10)*(1+sin(t/40))/2"
     },
     {"id":168,
      "param": 2,

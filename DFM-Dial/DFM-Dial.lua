@@ -16,6 +16,7 @@ local emFlag
    
 local fileBD
 local writeBD = true
+local loopCPU = 0
 
 local sensorLalist = { "..." }  -- sensor labels (long)
 local sensorLslist = { "..." }  -- sensor labels (short)
@@ -29,6 +30,8 @@ local nSens = {1,2,3,3,4}
 
 local teleSelect = {"Double (1)", "Full Screen (2)", "Full Screen (3R)",
 		    "Full Screen (3L)", "Full Screen (4)"}
+
+local MAXSAMPLE = 150
 
 local needle_poly_small = {
    {-3,0},
@@ -219,6 +222,17 @@ local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp)
    ren:renderPolygon(alp)
 end
 
+local function drawChart(x0, xl, y0, yl, min, max, val)
+   local ren = lcd.renderer()
+   ren:reset()
+   for i=1,#val,1 do
+      --print(x0+i, y0 - yl*(val[i]-min)/(max-min))
+      ren:addPoint(x0+i, y0 + yl*(val[i]-min)/(max-min))
+   end
+   lcd.setColor(0,0,0)
+   ren:renderPolyline(2, 0.4)
+end
+
 local function drawMaxMin(hmax, hmin, max, min, x0, y0, a0, aR, ri, ro)
    local ratio
    local theta
@@ -272,8 +286,8 @@ local function dialPrint(w,h,win)
    local rx = { {0}, {5,161}, {5,5,161}, {5,161,161}, {5,161,5,161} }   
    local ry = { {0}, {10,10}, {10,89,10}, {10,10,89}, {10,10,89,89} }   
 
-   local rxs = { {0}, {151,151}, {151,151,151}, {151,151,151}, {151,151,151,151}}
-   local rys = { {0}, {148,148}, {69,69,148}, {148,69,69}, {69,69,69,69} }
+   local rxs = { {151}, {151,151}, {151,151,151}, {151,151,151}, {151,151,151,151}}
+   local rys = { {69}, {148,148}, {69,69,148}, {148,69,69}, {69,69,69,69} }
       
    local ratio, theta, val, max, min, xz, yz, rI, rO, ovld, sg, np
    for i=1, nSens[tele[win].screen],1 do
@@ -356,19 +370,26 @@ local function dialPrint(w,h,win)
 	 end
       end
 
-      if tele[win].sensorStyle[i] == 1 then
-	 drawBackArc(xz, yz, a0, aR, rI, rO, sg, 0.2)
+      if tele[win].sensorStyle[i] == 1 then --Arc
+	 drawBackArc(xz, yz, a0, aR, rI, rO, sg, 0.12)
 	 drawArc(theta, xz, yz, a0, aR, rI, rO, sg, 1.0)
 	 drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i], max, min, xz, yz, a0, aR, rI, rO)
-      elseif tele[win].sensorStyle[i] == 2 then
+      elseif tele[win].sensorStyle[i] == 2 then --Dial
 	 drawBackArc(xz, yz, a0, aR, rI, rO, sg, 0.2)
 	 drawShape(xz,yz, np, theta - math.pi - aR/2)
 	 drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i], max, min, xz, yz, a0, aR, rI, rO)
-      else
+      elseif tele[win].sensorStyle[i] == 3 then --HBar
 	 local v1, v2
 	 v1 = ( (tele[win].sensorVmin[i] or 0) - min)/(max-min)*100
 	 v2 = ( (tele[win].sensorVmax[i] or 0)- min)/(max-min)*100	 
-	 drawRectGaugeAbs(xz+x3, yz+y4, bw, bh, 0, 100, v1, v2, (val-min)/(max-min)*100, "")	 
+	 drawRectGaugeAbs(xz+x3, yz+y4, bw, bh, 0, 100, v1, v2, (val-min)/(max-min)*100, "")
+      elseif tele[win].sensorStyle[i] == 4 then --Chart
+	 --print("type", type(tele[win].sensorSample[i]))
+	 --print(rx[tele[win].screen][i], rxs[tele[win].screen][i],
+	 --      ry[tele[win].screen][i], rys[tele[win].screen][i])
+	 drawChart(rx[tele[win].screen][i], rxs[tele[win].screen][i],
+		   ry[tele[win].screen][i], rys[tele[win].screen][i],
+		   min, max, tele[win].sensorSample[i])
       end
       
 
@@ -402,7 +423,10 @@ local function dialPrint(w,h,win)
 
    end
 
-   if emFlag then lcd.drawText(295, 145, system.getCPU(), FONT_MINI) end
+   if emFlag then
+      lcd.drawText(295, 145, system.getCPU(), FONT_MINI)
+      lcd.drawText(265, 145, loopCPU, FONT_MINI)      
+   end
 
 end
 
@@ -498,6 +522,10 @@ local function sensorStyleChanged(val, i, j)
    tele[i].sensorStyle[j] = val
 end
 
+local function sensorChartTimeChanged(val, i, j)
+   tele[i].sensorChartTime[j] = 2^(val-1)*200 -- 200msec x 150 pts = 0:30 timespan
+end
+
 local function initForm(sf)
    local str
    subForm = sf
@@ -554,8 +582,15 @@ local function initForm(sf)
 
       form.addRow(2)
       form.addLabel({label="Style"})      
-      form.addSelectbox({"Arc", "Needle", "HBar"}, tele[savedRow].sensorStyle[savedRow2], true, 
+      form.addSelectbox({"Arc", "Needle", "HBar", "Chart"}, tele[savedRow].sensorStyle[savedRow2], true, 
 	 (function(x) return sensorStyleChanged(x, savedRow, savedRow2) end))
+
+      form.addRow(2)
+      form.addLabel({label="Time span for Chart"})
+      local dt = math.log(tele[savedRow].sensorChartTime[savedRow2]/200) / math.log(2) + 1
+      form.addSelectbox({"0:30", "1:00", "2:00", "4:00", "8:00"},
+	 dt, true, 
+	 (function(x) return sensorChartTimeChanged(x, savedRow, savedRow2) end))
       
       form.setFocusedRow(1)
    end
@@ -563,10 +598,17 @@ end
 
 --------------------------------------------------------------------------------
 
-local function writeBattery()
+local function writeTele()
    local fp
    local save = {}
 
+   -- don't save chart samples
+   for i=1,2,1 do
+      for j=1,4,1 do
+	 tele[i].sensorSample[j] = {}
+      end
+   end
+   
    save.tele = tele
    
    if writeBD then
@@ -579,21 +621,33 @@ local function writeBattery()
    end
 end
 
-local function destroy()
-   writeBattery()
-end
-
 
 local function loop()
-   local idx, sensor, value
+   local idx, sensor, value, sample
+   local timeNow
+   
+   
    for i=1,2,1 do
       for j=1,nSens[tele[i].screen],1 do
+	 timeNow = system.getTimeCounter()
 	 idx = tele[i].sensor[j]
 	 if idx > 1 then
 	    sensor = system.getSensorByID(sensorIdlist[idx], sensorPalist[idx])
 	    if sensor and sensor.valid then
 	       value = sensor.value
 	       tele[i].sensorValue[j] = value
+	       if timeNow >= tele[i].sensorChartLast[j] + tele[i].sensorChartTime[j] then
+		  sample = true
+		  tele[i].sensorChartLast[j] = timeNow
+	       end 
+	       if sample and tele[i].sensorStyle[j] == 4 then
+		  if #tele[i].sensorSample[j] + 1 > MAXSAMPLE then
+		     table.remove(tele[i].sensorSample[j], 1)
+		  end
+		  table.insert(tele[i].sensorSample[j], value)
+		  sample = false
+		  --print("insert", #tele[i].sensorSample[j], value)
+	       end
 	       if not tele[i].sensorVmin[j] then
 		  tele[i].sensorVmin[j] = value
 	       else
@@ -608,6 +662,8 @@ local function loop()
 	 end
       end
    end
+   loopCPU = system.getCPU()
+   sample = false
 end
 
 local function init()
@@ -616,7 +672,7 @@ local function init()
    local mn
    local file
    local decoded
-   local jsnVersion = 1
+   local jsnVersion = 4
    
    emFlag = select(2, system.getDeviceType()) == 1
    if emFlag then pf = "" else pf = "/" end
@@ -657,6 +713,9 @@ local function init()
 	 tele[i].sensorValue = {}
 	 tele[i].sensorVmin = {}
 	 tele[i].sensorVmax = {}
+	 tele[i].sensorSample = {}
+	 tele[i].sensorChartTime = {}
+	 tele[i].sensorChartLast = {}
 	 for j=1,4,1 do
 	    tele[i].sensor[j] = 1 -- default to "..."
 	    tele[i].sensorMin[j] = 0
@@ -664,6 +723,9 @@ local function init()
 	    tele[i].sensorMax[j] = 10
 	    tele[i].sensorMaxMult[j] = 1    
 	    tele[i].sensorStyle[j] = 1 -- default to Arc
+	    tele[i].sensorSample[j] = {}
+	    tele[i].sensorChartTime[j] = 800
+	    tele[i].sensorChartLast[j] = 0
 	 end
       end
    end
@@ -708,4 +770,4 @@ local function init()
 end
 --------------------------------------------------------------------------------
 
-return {init=init, loop=loop, author="DFM", version=DialVersion, name="Dial Display", destroy=destroy}
+return {init=init, loop=loop, author="DFM", version=DialVersion, name="Dial Display", destroy=writeTele}
