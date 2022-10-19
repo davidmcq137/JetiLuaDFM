@@ -224,7 +224,7 @@ local function key0(key)
    end
 
 
-   if key == KEY_ESC or (key == KEY_5 and row < 1) then
+   if key == KEY_ESC or (key == KEY_5 and row < 1) or key == KEY_1 then
       form.preventDefault()
       local ans
       ans = form.question("Exit without selecting a battery?", nil, nil, 0, false, 5)
@@ -254,6 +254,7 @@ local function initForm0()
       form.addLabel({label="No battery groups"})
    else
       form.setTitle(BatteryGroupName[selectedGroup])
+      form.setButton(1, "Esc", 1)
       for i=1,#Battery[selectedGroup],1 do
 	 if Battery[selectedGroup][i].cap ~= 0 then
 	    row = row + 1
