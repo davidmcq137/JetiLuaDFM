@@ -6,7 +6,7 @@
 --]]
 
 --local trans11
-local DialVersion = "0.9"
+local DialVersion = "0.94"
 
 local runningTime = 0
 local startTime = 0
@@ -26,12 +26,18 @@ local sensorIdlist = { "..." }  -- sensor IDs
 local sensorPalist = { "..." }  -- sensor parameters
 local sensorUnlist = { "..." }  -- sensor units
 
+local txSel =  {"rx1Percent", "rx1Voltage", "rx2Percent", "rx2Voltage", "rxBVoltage", "rxBPercent"}
+local txRSSI = {"rx1-A1", "rx1-A2", "rx2-A1", "rx2-A2", "rxB-A1", "rxB-A2"}
+local txUnit = {"%",          "V",          "%",          "V",          "V",          "%"}
+
 local tele = {}
 
-local nSens = {1,2,3,3,4,1}
+local nSens = {1,2,3,3,4,4}
 
 local teleSelect = {"Double (1)", "Full Screen (2)", "Full Screen (3R)",
-		    "Full Screen (3L)", "Full Screen (4)", "Full Screen(1)"}
+		    "Full Screen (3L)", "Full Screen (4)", "Full Screen Chart (4)"}
+
+local chartTime = {"0:30", "1:00", "2:00", "4:00", "8:00"}
 
 local MAXSAMPLE = 150
 
@@ -77,10 +83,11 @@ end
 
 -- Read available sensors for user to select - done once at startup
 
-local sensorLbl = "***"
 
 local function readSensors()
 
+   local sensorLbl = "***"
+   
    local sensors = system.getSensors()
    for i, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
@@ -94,6 +101,27 @@ local function readSensors()
 	 end
       end
    end
+
+   sensorLbl = "txTel"
+
+   for i, sensor in ipairs(txSel) do
+      table.insert(sensorLslist, sensor) -- .. "[" .. ii .. "]")
+      table.insert(sensorLalist, sensorLbl .. "-> " .. sensor) -- .. "["..ii.."]")
+      table.insert(sensorIdlist, 0)
+      table.insert(sensorPalist, 0)
+      table.insert(sensorUnlist, txUnit[i])
+   end
+
+   sensorLbl = "RSSI"
+   
+   for i, sensor in ipairs(txRSSI) do
+      table.insert(sensorLslist, sensor) -- .. "[" .. ii .. "]")
+      table.insert(sensorLalist, sensorLbl .. "-> " .. sensor) -- .. "["..ii.."]")
+      table.insert(sensorIdlist, 0)
+      table.insert(sensorPalist, i)
+      table.insert(sensorUnlist, "")
+   end
+   
 end
 
 local function wcDelete(pathIn, pre, typ)
@@ -211,14 +239,16 @@ local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp)
    ren:renderPolygon(alp)
 end
 
-local function drawChart(x0, xl, y0, yl, min, max, val)
+local function drawChart(x0, xl, y0, yl, min, max, val, rgb)
    local ren = lcd.renderer()
    local px, py, vv
    local px1, py1
    local xm
-   if not val or #val < 1 then print("crap", val) return end
+   if not val or #val < 1 then return end
    if xl >= 200 then xm = 2 else xm = 1 end
+   lcd.setColor(table.unpack(rgb))
    ren:reset()
+   local np = 0
    for i=#val,1,-1 do
       px = x0+xm*i
       vv = val[i]
@@ -227,13 +257,20 @@ local function drawChart(x0, xl, y0, yl, min, max, val)
       py = y0 + yl * (1 - (vv-min)/(max-min))
       if not px1 then px1 = px end
       if not py1 then py1 = py end
-      ren:addPoint(px, py)
+      if np < 127 then
+	 ren:addPoint(px, py)
+	 np = np + 1
+      else
+	 ren:addPoint(px, py)
+	 ren:renderPolyline(2)
+	 ren:reset()
+	 ren:addPoint(px, py)
+	 np = 1
+      end
    end
-   if px1 and py1 then
-      lcd.drawText(8,140, string.format("%3d %3d", px1, py1), FONT_MINI)
-   end
-   
-   lcd.setColor(lcd.getFgColor())
+   --if px1 and py1 then
+   --   lcd.drawText(8,140, string.format("%3d %3d", px1, py1), FONT_MINI)
+   --end
    ren:renderPolyline(2)
 end
 
@@ -327,16 +364,19 @@ local function dialPrint(w,h,win)
 
    local wmin, wmax
 
-   local x0 = { {40}, {80,237}, {50,50,236}, {80,201,201}, {50,201,50,201},  {150}} -- 50
-   local y0 = { {34}, {96,96},  {44,123,96}, {96,44,123},  {44,44,123,123},  {96}}  -- 44 
-   local ro = { {32}, {62,62},  {32,32,62},  {62,32,32},   {32,32,32,32},    {62}}
-   local ri = { {20}, {44,44},  {20,20,44},  {44,20,20},   {20,20,20,20},    {44}}
+   local x0 = { {40}, {80,237}, {50,50,236}, {80,201,201}, {50,201,50,201},  {150,150,150,150}} -- 50
+   local y0 = { {34}, {96,96},  {44,123,96}, {96,44,123},  {44,44,123,123},  {96,96,96,96}}  -- 44 
+   local ro = { {32}, {62,62},  {32,32,62},  {62,32,32},   {32,32,32,32},    {62,62,62,62}}
+   local ri = { {20}, {44,44},  {20,20,44},  {44,20,20},   {20,20,20,20},    {44,44,44,44}}
 
-   local rx = { {0}, {5,161}, {5,5,161}, {5,161,161}, {5,161,5,161}, {8}}   
-   local ry = { {0}, {10,10}, {10,89,10}, {10,10,89}, {10,10,89,89}, {10}}   
+   local rx = { {0}, {5,161}, {5,5,161}, {5,161,161}, {5,161,5,161}, {8,8,8,8}}   
+   local ry = { {0}, {10,10}, {10,89,10}, {10,10,89}, {10,10,89,89}, {20,20,20,20}}   
 
-   local rxs = { {151}, {151,151}, {151,151,151}, {151,151,151}, {151,151,151,151}, {302}}
-   local rys = { {69},  {148,148}, {69,69,148},   {148,69,69},   {69,69,69,69},     {148}}
+   local rxs = { {151}, {151,151}, {151,151,151}, {151,151,151}, {151,151,151,151}, {302,302,302,302}}
+   local rys = { {69},  {148,148}, {69,69,148},   {148,69,69},   {69,69,69,69},     {138,138,138,138}}
+
+   local rgbC
+   rgbC = { {0,20,255}, {150,20,0}, {255,155,0}, {0,150,0} }	 
 
    -- put this here instead of init in case pilot changes colors while app running
    
@@ -348,200 +388,230 @@ local function dialPrint(w,h,win)
    end
       
    local ratio, theta, val, max, min, xz, yz, rI, rO, ovld, sg, np
+   
    for i=1, nSens[tele[win].screen],1 do
       val = tele[win].sensorValue[i]
-      if tele[win].sensor[i] < 2 then return end
-      if not val then print("val nil", win, i) return end
-      min = tele[win].sensorMin[i] * tele[win].sensorMinMult[i]
-      max = tele[win].sensorMax[i] * tele[win].sensorMaxMult[i]
-      if val > max or val < min then ovld = true else ovld = false end
-      if tele[win].sensorMinWarn[i] then
-	 wmin = tele[win].sensorMinWarn[i] * tele[win].sensorMinMult[i]
-	 if val < wmin then ovld = true end
-      end
-      if tele[win].sensorMaxWarn[i] then
-	 wmax = tele[win].sensorMaxWarn[i] * tele[win].sensorMaxMult[i]
-	 if val > wmax then ovld = true end
-      end
-      ratio = (val-min)/(max-min) 
-      ratio = math.max(math.min(ratio, 1), 0)
-      if math.abs(max-min) < 1.E-6 then
-	 theta = 0
-      else
-	 theta = aR * ratio
-      end
-      xz = x0[tele[win].screen][i]
-      yz = y0[tele[win].screen][i]
-      rI = ri[tele[win].screen][i]
-      rO = ro[tele[win].screen][i]
-      if rI < 30 then
-	 sg = 15
-	 np = needle_poly_small
-      else
-	 sg = 20
-	 np = needle_poly_large
-      end
-
-      local text, f1, f2, y1, y2, y3, y4, x0, x1, x2, x3, bh, bw, ss
-
-      ss = tele[win].sensorStyle[i]
-      
-      if ss < 3 then --Arc, Needle
+      if tele[win].sensor[i] > 1 then
+	 if not val then print("val nil", win, i) return end
+	 min = tele[win].sensorMin[i] * tele[win].sensorMinMult[i]
+	 max = tele[win].sensorMax[i] * tele[win].sensorMaxMult[i]
+	 if val > max or val < min then ovld = true else ovld = false end
+	 if tele[win].sensorMinWarn[i] then
+	    wmin = tele[win].sensorMinWarn[i] * tele[win].sensorMinMult[i]
+	    if val < wmin then ovld = true end
+	 end
+	 if tele[win].sensorMaxWarn[i] then
+	    wmax = tele[win].sensorMaxWarn[i] * tele[win].sensorMaxMult[i]
+	    if val > wmax then ovld = true end
+	 end
+	 ratio = (val-min)/(max-min) 
+	 ratio = math.max(math.min(ratio, 1), 0)
+	 if math.abs(max-min) < 1.E-6 then
+	    theta = 0
+	 else
+	    theta = aR * ratio
+	 end
+	 xz = x0[tele[win].screen][i]
+	 yz = y0[tele[win].screen][i]
+	 rI = ri[tele[win].screen][i]
+	 rO = ro[tele[win].screen][i]
 	 if rI < 30 then
-	    f1 = FONT_BOLD
-	    f2 = FONT_BIG
-	    y1 = 14
-	    y2 = 25
-	    y3 = 0
-	    x0 = 0
-	    x1 = 70
-	    x2 = 70
-	    x3 = 0
+	    sg = 15
+	    np = needle_poly_small
 	 else
-	    if rxs[tele[win].screen][i] < 152 then
-	       f1 = FONT_MAXI
+	    sg = 20
+	    np = needle_poly_large
+	 end
+	 
+	 local text, f1, f2, y1, y2, y3, y4, x0, x1, x2, x3, bh, bw, ss
+	 
+	 ss = tele[win].sensorStyle[i]
+	 
+	 if ss < 3 then --Arc, Needle
+	    if rI < 30 then
+	       f1 = FONT_BOLD
 	       f2 = FONT_BIG
-	       y1 = 24
-	       y2 = 85
-	       y3 = 85
+	       y1 = 14
+	       y2 = 25
+	       y3 = 0
 	       x0 = 0
-	       x1 = 40
-	       x2 = -40
+	       x1 = 70
+	       x2 = 70
 	       x3 = 0
 	    else
-	       f1 = FONT_MAXI
-	       f2 = FONT_BIG
-	       y1 = 24
-	       y2 = 85
-	       y3 = 85
-	       x0 = 0
-	       x1 = 40
-	       x2 = -40
-	       x3 = 0
+	       if rxs[tele[win].screen][i] < 152 then
+		  f1 = FONT_MAXI
+		  f2 = FONT_BIG
+		  y1 = 24
+		  y2 = 85
+		  y3 = 85
+		  x0 = 0
+		  x1 = 40
+		  x2 = -40
+		  x3 = 0
+	       else
+		  f1 = FONT_MAXI
+		  f2 = FONT_BIG
+		  y1 = 24
+		  y2 = 85
+		  y3 = 85
+		  x0 = 0
+		  x1 = 40
+		  x2 = -40
+		  x3 = 0
+	       end
 	    end
-	 end
-      else -- Bargraph, Chart
-	 if rys[tele[win].screen][i] < 70 then
-	    f1 = FONT_BOLD
-	    f2 = FONT_BOLD
-	    y1 = 16
-	    y2 = 36
-	    y3 = 36
-	    y4 = 0
-	    x0 = 25
-	    x1 = 80
-	    x2 = -20
-	    x3 = 35
-	    bw = 140
-	    bh = 34
-	 else
-	    if rxs[tele[win].screen][i] < 152 then
-	       f1 = FONT_MAXI
-	       f2 = FONT_BIG
-	       y1 = 24
-	       y2 = 85
-	       y3 = 85
-	       y4 = -10
-	       x0 = 3
-	       x1 = 45
-	       x2 = -45
-	       x3 = 0
+	 else -- Bargraph, Chart
+	    if rys[tele[win].screen][i] < 70 then
+	       f1 = FONT_BOLD
+	       f2 = FONT_BOLD
+	       y1 = 16
+	       y2 = 36
+	       y3 = 36
+	       y4 = 0
+	       x0 = 25
+	       x1 = 80
+	       x2 = -20
+	       x3 = 35
 	       bw = 140
-	       bh = 42
+	       bh = 34
 	    else
-	       f1 = FONT_MAXI
-	       f2 = FONT_BIG
-	       y1 = 24
-	       y2 = 85
-	       y3 = 85
-	       y4 = -10
-	       x0 = 5
-	       x1 = 50
-	       x2 = -40
-	       x3 = 10
-	       bw = 280
-	       bh = 52
+	       if rxs[tele[win].screen][i] < 152 then
+		  f1 = FONT_MAXI
+		  f2 = FONT_BIG
+		  y1 = 24
+		  y2 = 85
+		  y3 = 85
+		  y4 = -10
+		  x0 = 3
+		  x1 = 45
+		  x2 = -45
+		  x3 = 0
+		  bw = 140
+		  bh = 42
+	       else
+		  f1 = FONT_MAXI
+		  f2 = FONT_BIG
+		  y1 = 24
+		  y2 = 85
+		  y3 = 85
+		  y4 = -10
+		  x0 = 5
+		  x1 = 50
+		  x2 = -40
+		  x3 = 10
+		  bw = 280
+		  bh = 52
+	       end
 	    end
 	 end
-      end
-
-      if tele[win].sensorStyle[i] == 1 then --Arc
-	 drawBackArc(xz, yz, a0, aR, rI, rO, sg, 1)
-	 drawArc(theta, xz, yz, a0, aR, rI, rO, sg, 1)
-	 drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i],
-		    tele[win].sensorMaxWarn[i], tele[win].sensorMinWarn[i],
-		    max, min, xz, yz, a0, aR, rI, rO)
-      elseif tele[win].sensorStyle[i] == 2 then --Dial
-	 drawBackArc(xz, yz, a0, aR, rI, rO, sg, 1)
-	 lcd.setColor(lcd.getFgColor())
-	 drawShape(xz,yz, np, theta - math.pi - aR/2)
-	 drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i],
-		    tele[win].sensorMaxWarn[i], tele[win].sensorMinWarn[i],
-		    max, min, xz, yz, a0, aR, rI, rO)
-      elseif tele[win].sensorStyle[i] == 3 then --HBar
-	 local v1, v2
-	 v1 = ( (tele[win].sensorVmin[i] or 0) - min)/(max-min)*100
-	 v2 = ( (tele[win].sensorVmax[i] or 0)- min)/(max-min)*100	 
-	 drawRectGaugeAbs(xz+x3, yz+y4, bw, bh, 0, 100, v1, v2, (val-min)/(max-min)*100, "")
-      elseif tele[win].sensorStyle[i] == 4 then --Chart
-	 drawChart(rx[tele[win].screen][i], rxs[tele[win].screen][i],
-		   ry[tele[win].screen][i], rys[tele[win].screen][i],
-		   min, max, tele[win].sensorSample[i])
-      end
-
-      if lcdBG == "D" then
-	 lcd.setColor(255,255,255)
-      else
-	 lcd.setColor(0,0,0)
+	 
+	 if tele[win].screen > 1 then
+	    if tele[win].screen ~= 6 then
+	       lcd.setColor(160,160,160)
+	       lcd.drawRectangle(rx[tele[win].screen][i], ry[tele[win].screen][i],
+				 rxs[tele[win].screen][i],rys[tele[win].screen][i])
+	    else
+	       if i == 1 then
+		  lcd.setColor(230,230,230)
+		  lcd.drawFilledRectangle(rx[tele[win].screen][i], ry[tele[win].screen][i],
+					  rxs[tele[win].screen][i],rys[tele[win].screen][i])
+	       end
+	    end
+	 end
+	 
+	 if tele[win].sensorStyle[i] == 1 then --Arc
+	    drawBackArc(xz, yz, a0, aR, rI, rO, sg, 1)
+	    drawArc(theta, xz, yz, a0, aR, rI, rO, sg, 1)
+	    drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i],
+		       tele[win].sensorMaxWarn[i], tele[win].sensorMinWarn[i],
+		       max, min, xz, yz, a0, aR, rI, rO)
+	 elseif tele[win].sensorStyle[i] == 2 then --Dial
+	    drawBackArc(xz, yz, a0, aR, rI, rO, sg, 1)
+	    lcd.setColor(lcd.getFgColor())
+	    drawShape(xz,yz, np, theta - math.pi - aR/2)
+	    drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i],
+		       tele[win].sensorMaxWarn[i], tele[win].sensorMinWarn[i],
+		       max, min, xz, yz, a0, aR, rI, rO)
+	 elseif tele[win].sensorStyle[i] == 3 then --HBar
+	    local v1, v2
+	    v1 = ( (tele[win].sensorVmin[i] or 0) - min)/(max-min)*100
+	    v2 = ( (tele[win].sensorVmax[i] or 0)- min)/(max-min)*100	 
+	    drawRectGaugeAbs(xz+x3, yz+y4, bw, bh, 0, 100, v1, v2, (val-min)/(max-min)*100, "")
+	 elseif tele[win].sensorStyle[i] == 4 then --Chart
+	    drawChart(rx[tele[win].screen][i], rxs[tele[win].screen][i],
+		      ry[tele[win].screen][i], rys[tele[win].screen][i],
+		      min, max, tele[win].sensorSample[i], rgbC[i])
+	 end
+	 
+	 
+	 if tele[win].screen ~= 6 then
+	    if lcdBG == "D" then
+	       lcd.setColor(255,255,255)
+	    else
+	       lcd.setColor(0,0,0)
+	    end
+	    
+	    text = formatD(val)
+	    if ovld then lcd.setColor(255,0,0) end 
+	    lcd.drawText(xz + x0 - lcd.getTextWidth(f1, text) / 2, yz+y1, text, f1)
+	    
+	    if lcdBG == "D" then
+	       lcd.setColor(255,255,255)
+	    else
+	       lcd.setColor(0,0,0)
+	    end
+	    
+	    text = formatD(tele[win].sensorVmax[i] or 0)
+	    lcd.drawText(xz + x1 - lcd.getTextWidth(f2, text)/2, yz - y2, text, f2)
+	    text = formatD(tele[win].sensorVmin[i] or 0)
+	    lcd.drawText(xz + x2 - lcd.getTextWidth(f2, text)/2, yz - y3, text, f2)
+	    
+	 end
+	 
+	 local xc0, yc0
+	 local xc00 = {10, 160, 10, 160}
+	 local yc00 = {-10, -10, 0, 0}
+	 
+	 if tele[win].screen == 6 then
+	    xc0 = xc00[i]
+	    yc0 = yc00[i]
+	    lcd.setColor(table.unpack(rgbC[i]))
+	    lcd.drawFilledRectangle(rx[tele[win].screen][i]+xc0-10, ry[tele[win].screen][i]-12+yc0+3, 8, 8)
+	 else
+	    xc0, yc0 = 0, 0
+	 end
+	 
+	 
+	 if lcdBG == "D" then
+	    lcd.setColor(255,255,255)
+	 else
+	    lcd.setColor(0,0,0)
+	 end
+	 
+	 local m1 = formatE(tele[win].sensorMin[i] * tele[win].sensorMinMult[i])
+	 local m2 = formatE(tele[win].sensorMax[i] * tele[win].sensorMaxMult[i])
+	 
+	 lcd.drawText(rx[tele[win].screen][i] + xc0,
+		      ry[tele[win].screen][i]-12 + yc0,
+		      sensorLslist[tele[win].sensor[i]] ..
+			 " (" .. sensorUnlist[tele[win].sensor[i]] .. ") " ..
+			 "[" ..m1 .. "-" .. m2 .."]", FONT_MINI)
+	 --string.format("  [%.1f-%.1f]",
+	 --tele[win].sensorMin[i] * tele[win].sensorMinMult[i],
+	 --tele[win].sensorMax[i] * tele[win].sensorMaxMult[i]),
+	 --FONT_MINI)
+	 
       end
       
-      text = formatD(val)
-      if ovld then lcd.setColor(255,0,0) end 
-      lcd.drawText(xz + x0 - lcd.getTextWidth(f1, text) / 2, yz+y1, text, f1)
-
-      if lcdBG == "D" then
-	 lcd.setColor(255,255,255)
-      else
-	 lcd.setColor(0,0,0)
-      end
-
-      text = formatD(tele[win].sensorVmax[i] or 0)
-      lcd.drawText(xz + x1 - lcd.getTextWidth(f2, text)/2, yz - y2, text, f2)
-      text = formatD(tele[win].sensorVmin[i] or 0)
-      lcd.drawText(xz + x2 - lcd.getTextWidth(f2, text)/2, yz - y3, text, f2)
-      
-      if tele[win].screen > 1 then
-	 lcd.setColor(160,160,160)
-	 lcd.drawRectangle(rx[tele[win].screen][i], ry[tele[win].screen][i],
-			   rxs[tele[win].screen][i],rys[tele[win].screen][i])
-      end
-
-      if lcdBG == "D" then
-	 lcd.setColor(255,255,255)
-      else
-	 lcd.setColor(0,0,0)
-      end
-
-      local m1 = formatE(tele[win].sensorMin[i] * tele[win].sensorMinMult[i])
-      local m2 = formatE(tele[win].sensorMax[i] * tele[win].sensorMaxMult[i])
-
-      lcd.drawText(rx[tele[win].screen][i],
-		   ry[tele[win].screen][i]-12,
-		   sensorLslist[tele[win].sensor[i]] ..
-		      " (" .. sensorUnlist[tele[win].sensor[i]] .. ") " ..
-		      "[" ..m1 .. "-" .. m2 .."]", FONT_MINI)
-		      --string.format("  [%.1f-%.1f]",
-				    --tele[win].sensorMin[i] * tele[win].sensorMinMult[i],
-				    --tele[win].sensorMax[i] * tele[win].sensorMaxMult[i]),
-                                    --FONT_MINI)
-
    end
-
+   
    if emFlag then
+      lcd.setColor(0,0,0)
       lcd.drawText(295, 145, system.getCPU(), FONT_MINI)
       lcd.drawText(265, 145, loopCPU, FONT_MINI)      
    end
-
+   
 end
 
 local function keyExit(k)
@@ -554,7 +624,7 @@ end
 
 local function keyForm(key)
    local row = form.getFocusedRow()
-
+   
    --print(key, subForm)
    
    if keyExit(key) then
@@ -572,12 +642,12 @@ local function keyForm(key)
       end
       return
    end
-
+   
    if subForm == 1 and key == KEY_3 then
       savedRow = row
       form.reinit(13)
    end
-
+   
    if subForm == 1 and key == KEY_1 then
       local ans
       ans = form.question("Are you sure?", "Delete all tele window data?",
@@ -589,12 +659,12 @@ local function keyForm(key)
 	 system.messageBox("Saved data cleared - restart App")
       end
    end
-
+   
    if subForm == 13 and key == KEY_3 then
       savedRow2 = row
       form.reinit(103)
    end
-
+   
 end
 
 local function teleWinChanged(val, i)
@@ -610,6 +680,11 @@ local function teleWinChanged(val, i)
    else
       ii = 4
       str = string.format("Dial Window %d - %s", i, teleSelect[tele[i].screen])
+   end
+
+   -- set all styles to chart for this window if chart selected
+   for j = 1, nSens[6],1 do
+      tele[i].sensorStyle[j] = 4 -- Chart
    end
    
    system.unregisterTelemetry(i)
@@ -656,15 +731,16 @@ local function sensorStyleChanged(val, i, j)
 end
 
 local function sensorChartTimeChanged(val, i, j)
-   tele[i].sensorChartTime[j] = 2^(val-1)*200
+   if j == 1 then
+      for k=1, nSens[tele[i].screen],1 do
+	 tele[i].sensorChartTime[k] = 2^(val-1)*200
+      end
+   end
 end
 
 local function sensorSmoothChanged(val, i, j)
    tele[i].sensorChartSmooth[j] = val
 end
-
-
-
 
 local function initForm(sf)
    local str
@@ -698,31 +774,36 @@ local function initForm(sf)
       local mm
       mmAdd = false
       form.setTitle("Edit sensor dial " .. sensorLslist[tele[savedRow].sensor[savedRow2]])
-
+      
       form.addRow(2)
-      form.addLabel({label="Style"})      
-      form.addSelectbox({"Arc", "Needle", "Bar", "Chart"}, tele[savedRow].sensorStyle[savedRow2], true, 
-	 (function(x) return sensorStyleChanged(x, savedRow, savedRow2) end))
-
+      form.addLabel({label="Style"})
+      if tele[savedRow].screen ~= 6 then
+	 form.addSelectbox({"Arc", "Needle", "Bar", "Chart"}, tele[savedRow].sensorStyle[savedRow2], true, 
+	    (function(x) return sensorStyleChanged(x, savedRow, savedRow2) end))
+      else
+	 tele[savedRow].sensorStyle[savedRow2] = 4
+	 form.addLabel({label="Chart", alignRight=true})
+      end
+      
       form.addRow(2)
       form.addLabel({label="Minimum displayed value", width=220})
       form.addIntbox(tele[savedRow].sensorMin[savedRow2]*10, -9999, 9999, 0, 1, 1,
 		     (function(x) return sensorMinChanged(x, savedRow, savedRow2) end))
-
+      
       form.addRow(2)
       form.addLabel({label="Minimum warning value", width=220})
       mm = tele[savedRow].sensorMinWarn[savedRow2]
       if not mm then mm = tele[savedRow].sensorMin[savedRow2] end 
       minWarn = form.addIntbox(mm*10, -9999, 9999, 0, 1, 1,
-		     (function(x) return sensorMinWarnChanged(x, savedRow, savedRow2) end))
-
+			       (function(x) return sensorMinWarnChanged(x, savedRow, savedRow2) end))
+      
       form.addRow(2)
       form.addLabel({label="Minimum multiplier", width=220})
-
+      
       mm = math.log(tele[savedRow].sensorMinMult[savedRow2])/math.log(10) + 1
       form.addSelectbox({"1x", "10x", "100x", "1000x"}, mm, true,
-		     (function(x) return sensorMinMultChanged(x, savedRow, savedRow2) end))
-
+	 (function(x) return sensorMinMultChanged(x, savedRow, savedRow2) end))
+      
       form.addRow(2)
       form.addLabel({label="Maximum displayed value", width=220})
       form.addIntbox(tele[savedRow].sensorMax[savedRow2]*10, -9999, 9999, 1000, 1, 1,
@@ -733,26 +814,35 @@ local function initForm(sf)
       form.addRow(2)
       form.addLabel({label="Maximum warning value", width=220})
       maxWarn = form.addIntbox(mm*10, -9999, 9999, 0, 1, 1,
-		     (function(x) return sensorMaxWarnChanged(x, savedRow, savedRow2) end))
-
+			       (function(x) return sensorMaxWarnChanged(x, savedRow, savedRow2) end))
+      
       form.addRow(2)
       form.addLabel({label="Maximum multiplier", width=220})
       mm = math.log(tele[savedRow].sensorMaxMult[savedRow2])/math.log(10) + 1
       form.addSelectbox({"1x", "10x", "100x", "1000x"}, mm, true,
-		     (function(x) return sensorMaxMultChanged(x, savedRow, savedRow2) end))
-
-      form.addRow(2)
-      form.addLabel({label="Time span for Chart"})
-      local dt = math.log(tele[savedRow].sensorChartTime[savedRow2]/200) / math.log(2) + 1
-      form.addSelectbox({"0:30", "1:00", "2:00", "4:00", "8:00"},
-	 dt, true, 
-	 (function(x) return sensorChartTimeChanged(x, savedRow, savedRow2) end))
+	 (function(x) return sensorMaxMultChanged(x, savedRow, savedRow2) end))
+      
+      if tele[savedRow].screen == 6 then
+	 form.addRow(2)
+	 form.addLabel({label="Time span for Chart"})
+	 local dt = math.log(tele[savedRow].sensorChartTime[savedRow2]/200) / math.log(2) + 1
+	 if savedRow2 == 1 then
+	    form.addSelectbox(chartTime,
+			      dt, true, 
+			      (function(x) return sensorChartTimeChanged(x, savedRow, savedRow2) end))
+	 else
+	    form.addLabel({label = chartTime[dt], alignRight = true})
+	 end
+      end
+      
+      
+      
       
       form.addRow(2)
       form.addLabel({label="Smoothing value for Chart", width=220})
       form.addIntbox(tele[savedRow].sensorChartSmooth[savedRow2], 1, 1000, 1, 0, 1,
 		     (function(x) return sensorSmoothChanged(x, savedRow, savedRow2) end))
-
+      
       form.addRow(2)
       form.addLink((function()
 	       tele[savedRow].sensorMinWarn[savedRow2] = nil
@@ -775,7 +865,7 @@ end
 local function writeTele()
    local fp
    local save = {}
-
+   
    -- don't save chart samples
    for i=1,2,1 do
       for j=1,4,1 do
@@ -798,7 +888,8 @@ end
 local function loop()
    local idx, sensor, value, sample
    local timeNow
-
+   local txTel
+   
    if #sensorIdlist < 2 then return end
    
    for i=1,2,1 do
@@ -806,7 +897,19 @@ local function loop()
 	 timeNow = system.getTimeCounter()
 	 idx = tele[i].sensor[j]
 	 if idx > 1 then
-	    sensor = system.getSensorByID(sensorIdlist[idx], sensorPalist[idx])
+	    if sensorIdlist[idx] == 0 then
+	       sensor = {}
+	       txTel = system.getTxTelemetry()
+	       if sensorPalist[idx] == 0 then
+		  sensor.value = txTel[sensorLslist[idx]]
+	       else
+		  sensor.value = txTel.RSSI[sensorPalist[idx]]
+	       end
+	       sensor.unit = sensorUnlist[idx]
+	       sensor.valid = true
+	    else
+	       sensor = system.getSensorByID(sensorIdlist[idx], sensorPalist[idx])
+	    end
 	    if sensor and sensor.valid then
 	       value = sensor.value
 	       tele[i].sensorValue[j] = value
@@ -846,21 +949,21 @@ local function loop()
 end
 
 local function init()
-
+   
    local pf
    local mn
    local file
    local decoded
-   local jsnVersion = 5
+   local jsnVersion = 6
    
    emFlag = select(2, system.getDeviceType()) == 1
    if emFlag then pf = "" else pf = "/" end
    
    mn = string.gsub(system.getProperty("Model"), " ", "_")
    fileBD = pf .. "Apps/DFM-Dial/DD_" .. mn .. ".jsn"
-
+   
    file = io.readall(fileBD)
-
+   
    if file then
       decoded = json.decode(file)
       tele = decoded.tele
@@ -916,9 +1019,9 @@ local function init()
 	 end
       end
    end
-
+   
    -- clear out the items we don't want to remember from last run
-
+   
    for i=1,2,1 do
       for j=1,4,1 do
 	 tele[i].sensorVmin[j] = nil
@@ -934,7 +1037,7 @@ local function init()
    readSensors()
    
    system.registerForm(1, MENU_APPS, "Dial Display", initForm, keyForm)
-
+   
    for i=1,2,1 do
       local ii, str
       if tele[i].screen == 1 then
@@ -954,11 +1057,11 @@ local function init()
 			       (function(x,y) return dialPrint(x,y,i) end))
    end
    
-
+   
    setLanguage()
-
+   
    print("DFM-Dial: gcc " .. collectgarbage("count"))
-
+   
 end
 --------------------------------------------------------------------------------
 
