@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DFM-Dial - Jeti lua app to draw dial, bargraphs and charts</title>
+</head>
+<body>
+  <h1>DFM-Dial</h1>
+  <p></p>
+  <p>
+      <img src="http://jetimodel.nl/DFMHC/DFM-Dial-Screen111.png"></img>
+  </p>
+  <p>
+      <img src="http://jetimodel.nl/DFMHC/DFM-Dial-Screen113.png"></img>
+  </p>
+  <p>
+      <img src="http://jetimodel.nl/DFMHC/DFM-Dial-Screen112.png"></img>
+  </p>
+  <p>
+      <img src="http://jetimodel.nl/DFMHC/DFM-Dial-Screen116.png"></img>
+  </p>
+  <h2>Description</h2>
+  <p>
+      DFM-Dial was suggested by Harry Curzon as a simple app that could format
+      graphical representations of telemetry data in the Jeti transmitter's
+      telemetry windows. It can do arc and needle dials, horizontal bargraphs
+      and chart-recorder style time recordings.
+  </p>
+  <h2>Usage</h2>
+  <p>Like all Jeti lua apps, DFM-Graph can have two
+      telemetry windows defined. After the app is added to the Applications menu
+      for a model, the pilot has to define one or two telemetry windows by going
+      first to the Timer/Sensors menu, then to the Displayed Telemetry menu. On
+      this menu press the "+" key and then "Lua" and pick one of the two menus
+      from the app .. you can then press "+" again and select a second one.
+  </p>
+  <p>
+      Once the two windows are defined, you can use the App's menu structure to
+      set up each of the two telemetry windows. Each window can have several
+      different screens from the standard single-telemetry channel double size
+      window all the way up to a few 4-telemetry channel windows. Once you have
+      selected the window, press F3 (the edit button) to pick the sensor(s) for
+      that set of window panes. Then press F3 again to set up each of the sensor
+      windows.
+  </p>
+  <p>
+      In order to more easily set up max and min values there is a value and
+      multiplier. As usual, when editing the values, the menu key allows x1, x10
+      and x100 from the base increment on the 3D wheel. The multiplier applies
+      to both the gauge range (Max/Min displayed value) and the Warning value,
+      typically less in absolute value than the max or min. When the telemetry
+      value is outside the warning or gauge range, the main displayed numerical
+      value turns red.
+  </p>
+  <p>
+      You can also apply an n-point running average with an exponentially
+      decaying weighting by specifying the smoothing value. 1 is no smoothing, 2
+      is a 2-point running average, etc.
+  </p>
+</body>
+</html>

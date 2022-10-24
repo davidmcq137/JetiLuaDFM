@@ -15,11 +15,23 @@ for f in DFM-BatG/BD_*.jsn; do
     mv -- "$f" "${f%.jsn}.jxx"
 done
 sh sh/makeBatG.sh
+#
+for f in DFM-Dial/DD_*.jsn; do
+    mv -- "$f" "${f%.jsn}.jxx"
+done
+sh sh/makeDial.sh
+#
 set +x
 read -p "New lua/lc files generated. Press enter after saving Apps.json file from App Builder" n1
 set -x
 cd ~
+#
 zip -ru ~/JS/DFMHC.zip Apps.json
+#
 for f in DFM-BatG/BD_*.jxx; do
+    mv -- "$f" "${f%.jxx}.jsn"
+done
+#
+for f in DFM-Dial/DD_*.jxx; do
     mv -- "$f" "${f%.jxx}.jsn"
 done

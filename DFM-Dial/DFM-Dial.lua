@@ -26,7 +26,7 @@ local sensorIdlist = { "..." }  -- sensor IDs
 local sensorPalist = { "..." }  -- sensor parameters
 local sensorUnlist = { "..." }  -- sensor units
 
-local txSel =  {"rx1Percent", "rx1Voltage", "rx2Percent", "rx2Voltage", "rxBVoltage", "rxBPercent"}
+local txSel =  {"rx1Percent", "rx1Voltage", "rx2Percent", "rx2Voltage", "rxBPercent", "rxBVoltage"}
 local txRSSI = {"rx1-A1", "rx1-A2", "rx2-A1", "rx2-A2", "rxB-A1", "rxB-A2"}
 local txUnit = {"%",          "V",          "%",          "V",          "V",          "%"}
 
