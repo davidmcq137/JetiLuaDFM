@@ -15,7 +15,7 @@
      "sensorName": "IBP", 
      "label": "SOC P5",
      "unit": "%",
-     "luaExp":"6-3*(tri(t/10) + 0.0 * (math.random() - 0.5))"
+     "luaExp":"8*(sq(t/10) + 0.5 * (math.random() - 0.5))"
     },
     {"id":168,
      "param": 2,
@@ -24,7 +24,7 @@
      "sensorName": "IBP",
      "label": "Cell 1 P6",
      "unit": "mV",
-     "luaExp":"3+3*(sq(t/10+5) + 0.0 * (math.random() - 0.5))"
+     "luaExp":"-8*(sq(t/10+5) + 0.5 * (math.random() - 0.5))"
     },
     {"id":168,
      "param": 3,

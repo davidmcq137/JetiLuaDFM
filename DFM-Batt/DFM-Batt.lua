@@ -1,13 +1,15 @@
 --[[
-
    ----------------------------------------------------------------------
    DFM-Batt.lua released under MIT license by DFM 2022
+   
+   There was an original model-specific app called DFM-Batt. This one was created to
+   handle global groups, and for a time was called DFM-BatG .. now this one is DFM-Batt
    ----------------------------------------------------------------------
    
 --]]
 
 --local trans11
-local BattVersion = "1.1"
+local BattVersion = "2.0"
 
 local runningTime = 0
 local startTime = 0
@@ -19,10 +21,12 @@ local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
 local sensorPalist = { "..." }  -- sensor parameters
 
-local NUMBAT=12
+local NUMSLOT=12
 local Battery={}
-local selectedBatt
-local lastBatt
+local BatteryGroupName={}
+local selectedGroup
+local selectedBattery
+local lastGroup, lastBattery
 local seenRX = false
 local warnAnn = false
 local warn2Ann = false
@@ -32,12 +36,16 @@ local shakePattern
 local shakePattern2
 local battmAh
 local battmAhSe, battmAhSeId, battmAhSePa
-local row2batt={}
 local warnSound
 local warn2Sound
 local fileBD
 local writeBD = true
+local fileBDG
+local writeBDG = true
+
 local lastmAh = 0
+
+local savedRow
 
 -- Read and set translations (out for now till we have translations, simplifies install)
 
@@ -72,266 +80,39 @@ local function readSensors()
    end
 end
 
-local function key0(key)
-   local row = form.getFocusedRow() - 1
-   if key == KEY_5 or key == KEY_ENTER then
-      form.preventDefault()
-      
-      if row >= 1 and row <= NUMBAT then
-	 selectedBatt = row2batt[row]
-	 Battery[selectedBatt].cyc = Battery[selectedBatt].cyc + 1
-	 system.playFile('/Apps/DFM-Batt/selected_battery.wav', AUDIO_QUEUE)
-	 system.playNumber(selectedBatt, 0)
-	 form.close(2)
-      end
-   end
-   if key == KEY_ESC or (key == KEY_5 and row < 1) then
-      form.preventDefault()
-      local ans
-      ans = form.question("Exit without selecting a battery?", nil, nil, 0, false, 5)
-      if ans == 1 then
-	 form.close(2)
-	 system.playFile('/Apps/DFM-Batt/no_battery_selected.wav', AUDIO_QUEUE)
-	 --seenRX = false
-	 --selectedBatt = 0
-      else
-	 form.reinit(2)
-      end
-   end
+local function resetGroup(i)
+   BatteryGroupName[i] = string.format("Group %d", i)
 end
 
-local function close0()
+local function resetBattery(sr, i)
+   Battery[sr][i].cap = 0
+   Battery[sr][i].cyc = 0
+   Battery[sr][i].warn = 0
+   Battery[sr][i].warn2 = 0
 end
 
-local function initForm0()
-   local str
-   form.addRow(4)
-   form.addLabel({label="Batt", width=40, alignRight=true, font=FONT_MINI})
-   form.addLabel({label="Cap (mAh)", width=80, alignRight=true, font=FONT_MINI})
-   form.addLabel({label="Warn 1 Warn 2 % Left", width=140, alignRight=true, font=FONT_MINI})
-   form.addLabel({label="Cycles", width=80, alignRight=true, font=FONT_MINI})
-   local row = 0
-   local focusRow = 1
-   for i=1,NUMBAT,1 do
-      if Battery[i].cap > 0 or Battery[i].warn > 0 or Battery[i].warn2 > 0 then
-	 row = row + 1
-	 row2batt[row] = i
-	 if i == lastBatt then
-	    focusRow = 1 + row
+local function wcDelete(pathIn, pre, typ)
+
+   local dd, fn, ext
+   local path
+
+   if select(2, system.getDeviceType()) ~= 1 then
+      path = "/" .. pathIn
+   else
+      path = pathIn
+   end      
+
+   for name, filetype, size in dir(path) do
+      dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
+      if fn and ext then
+	 if string.lower(ext) == string.lower(typ) and string.find(fn, pre) == 1 then
+	    local ff = path .. "/" .. fn .. "." .. ext
+	    if not io.remove(ff) then
+	       print("failed to delete " .. ff)
+	    end
 	 end
-	 form.addRow(5)
-	 form.addLabel({label=i, width=40, alignRight=true})
-	 str = string.format("%4d  ", Battery[i].cap)
-	 form.addLabel({label=str,  width=80,  alignRight=true})
-	 str = string.format("%3d   ", Battery[i].warn)
-	 form.addLabel({label=str, width=60, alignRight=true})
-	 str = string.format("%3d   ", Battery[i].warn2)
-	 form.addLabel({label=str, width=60, alignRight=true})
-	 str = string.format("%4d  ", Battery[i].cyc)
-	 form.addLabel({label=str,  width=80,  alignRight=true})
       end
    end
-   form.setFocusedRow(focusRow)
-end
-
-local function battChanged(value, i, sub)
-   Battery[i][sub] = value
-end
-
-local function battmAhSensorChanged(value)
-   battmAhSe = value
-   battmAhSeId = sensorIdlist[battmAhSe]
-   battmAhSePa = sensorPalist[battmAhSe]
-   if battmAhSeId == "..." then
-      battmAhSeId = 0
-      battmAhSePa = 0
-   end
-end
-
-local function warnChanged(value, num)
-   warnSound = value
-end
-
-local function warn2Changed(value)
-   warn2Sound = value
-end
-
-local function stickChanged(value)
-   stickToShake = value
-end
-
-local function shakeChanged(value)
-   shakePattern = value
-end
-
-local function stick2Changed(value)
-   stickToShake2 = value
-end
-
-local function shake2Changed(value)
-   shakePattern2 = value
-end
-
-local function keyForm(key)
-   local row = form.getFocusedRow() - 1
-   if subForm == 2 and key == KEY_1 and row >= 1 and row <= NUMBAT then
-      Battery[row].cap = 0
-      Battery[row].warn = 0
-      Battery[row].warn2 = 0      
-      Battery[row].cyc = 0
-      if row == selectedBatt then
-	 selectedBatt = 0
-	 seenRX = false
-	 system.messageBox("Warning: Cleared selected battery")
-      end
-      form.reinit(2)
-   end
-
-   if subForm > 1 and (key == KEY_5 or key == KEY_ENTER) then
-      form.preventDefault()
-      form.reinit(1)
-   end
-   
-end
-
-local function initForm(sf)
-   subForm = sf
-   if sf == 1 then
-      form.addRow(2)
-      form.addLink((function() form.reinit(2) end), {label="Battery Setup>>"})
-
-      form.addRow(2)
-      form.addLink((function() form.reinit(5) end), {label="Warnings>>"})      
-
-      form.addRow(2)
-      form.addLink((function() form.reinit(3) end), {label="Settings>>"})
-      
-      form.addRow(1)
-      form.addLabel({label="DFM - v."..BattVersion.." ", font=FONT_MINI, alignRight=true})
-   elseif sf == 2 then
-      form.setButton(1, "Clr", 1)
-      --[[
-      form.addRow(4)
-      form.addLabel({label="Battery", width=60, alignRight=true})
-      form.addLabel({label="Cap (mAh)", width=80, alignRight=true})
-      form.addLabel({label="Warn % Left", width=110, alignRight=true})
-      form.addLabel({label="Cycles", width=60, alignRight=true})
-      --]]
-      form.addRow(4)
-      form.addLabel({label="Batt", width=40, alignRight=true, font=FONT_MINI})
-      form.addLabel({label="Cap (mAh)", width=80, alignRight=true, font=FONT_MINI})
-      form.addLabel({label="Warn 1 Warn 2 % Left  ", width=140, alignRight=true, font=FONT_MINI})
-      form.addLabel({label="Cycles", width=80, alignRight=true, font=FONT_MINI})
-
-      for i=1,NUMBAT,1 do
-	 --[[
-	 form.addRow(4)
-	 form.addLabel({label=i.."     ", width=60, alignRight=true})
-	 form.addIntbox(Battery[i].cap, 0, 9999, 5000, 0, 10,
-			(function(x) return battChanged(x, i, "cap") end),
-			{width=80})
-	 form.addIntbox(Battery[i].warn, 0, 100, 50, 0, 1,
-			(function(x) return battChanged(x, i, "warn") end),
-			{width=80})      
-	 form.addIntbox(Battery[i].cyc, 0, 999, 1, 0, 1,
-			(function(x) return battChanged(x, i, "cyc") end),			
-			{width=80})
-	 --]]
-	 form.addRow(5)
-	 form.addLabel({label=i.."  ", width=40, alignRight=true, font=FONT_NORMAL})
-	 form.addIntbox(Battery[i].cap, 0, 9999, 5000, 0, 10,
-			(function(x) return battChanged(x, i, "cap") end),
-			{width=80, font=FONT_NORMAL})
-	 form.addIntbox(Battery[i].warn, 0, 100, 50, 0, 1,
-			(function(x) return battChanged(x, i, "warn") end),
-			{width=60, font=FONT_NORMAL})
-	 if not Battery[i].warn2 then Battery[i].warn2 = 0 end
-	 form.addIntbox(Battery[i].warn2, 0, 100, 50, 0, 1,
-			(function(x) return battChanged(x, i, "warn2") end),
-			{width=60, font=FONT_NORMAL})      	 
-	 form.addIntbox(Battery[i].cyc, 0, 999, 1, 0, 1,
-			(function(x) return battChanged(x, i, "cyc") end),			
-			{width=80, font=FONT_NORMAL})
-	 
-      end
-   elseif sf == 3 then
-      form.addRow(2)
-      form.addLabel({label="Battery mAh sensor", width=220})
-      form.addSelectbox(sensorLalist, battmAhSe, true, battmAhSensorChanged)
-      form.addRow(2)
-      form.addLink((function()
-	       system.messageBox("Battery selection cleared")
-	       selectedBatt = 0
-	       seenRX = false
-	       form.reinit(3)
-		   end),
-	 {label="Re-select battery"})
-      form.addRow(2)
-      form.addLink((function()
-	       io.remove(fileBD)
-	       writeBD = false
-	       selectedBatt = 0
-	       seenRX = false
-	       system.messageBox("Data cleared - please restart App")
-	       form.reinit(3)
-		   end),
-	 {label="Clear saved data"})
-   elseif sf == 5 then
-      form.addRow(2)
-      form.addLabel({label="Warn 1 sound"})
-      form.addAudioFilebox(warnSound or "...", warnChanged)
-
-      form.addRow(2)
-      form.addLabel({label="Warn 1 vibrate"})      
-      form.addSelectbox({"Left", "Right"}, stickToShake, true, stickChanged)
-
-      form.addRow(2)
-      form.addLabel({label="Warn 1 pattern"})      
-      form.addSelectbox({"None", "Long", "Short", "2x Short", "3x Short"},
-	 shakePattern, true, shakeChanged)    
-
-      form.addRow(2)
-      form.addLabel({label="Warn 2 sound"})
-      form.addAudioFilebox(warn2Sound or "...", warn2Changed)
-
-      form.addRow(2)
-      form.addLabel({label="Warn 2 vibrate"})      
-      form.addSelectbox({"Left", "Right"}, stickToShake2, true, stick2Changed)
-
-      form.addRow(2)
-      form.addLabel({label="Warn 2 pattern"})      
-      form.addSelectbox({"None", "Long", "Short", "2x Short", "3x Short"},
-	 shakePattern2, true, shake2Changed)    
-      
-   end
-end
---------------------------------------------------------------------------------
-
-local function writeBattery()
-   local fp
-   local saveBatt = {}
-
-   saveBatt.lastBatt = selectedBatt
-   saveBatt.array = Battery
-   saveBatt.battmAhSe = battmAhSe
-   saveBatt.battmAhSeId = string.format("0X%x", battmAhSeId)
-   saveBatt.battmAhSePa = battmAhSePa
-   saveBatt.warnSound = warnSound
-   saveBatt.warn2Sound = warn2Sound   
-   saveBatt.stickToShake = stickToShake
-   saveBatt.shakePattern = shakePattern
-   saveBatt.stickToShake2 = stickToShake2
-   saveBatt.shakePattern2 = shakePattern2
-   if writeBD then
-      fp = io.open(fileBD, "w")
-      if fp then io.write(fp, json.encode(saveBatt), "\n") end
-      io.close(fp)
-   end
-
-end
-
-local function destroy()
-   writeBattery()
 end
 
 local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, rgb)
@@ -378,36 +159,33 @@ local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, rgb)
    end
 end
 
-
--- Telemetry window draw functions
-
 local function timePrint(width, height)
    local str, strCap
    local rgb={}
    local rs,gs,bs
 
-   if selectedBatt < 1 or selectedBatt > NUMBAT then
-      str = "No Battery"
+   if selectedGroup < 1 or selectedGroup > #Battery then
+      str = "No Battery Group"
+   elseif selectedBattery < 1 or selectedBattery > #Battery[selectedGroup] then
+      str = "No Battery Selected"
+   elseif not battmAh then
+      str = "No mAh sensor"
    else
-      if battmAh then
-	 str = string.format("Battery %d   %d mAh", selectedBatt, Battery[selectedBatt].cap - battmAh)
-	 local battPct = 100 * (Battery[selectedBatt].cap - battmAh) / Battery[selectedBatt].cap
-	 if  battPct <= Battery[selectedBatt].warn then
-	    rgb = {r=255,g=0,b=0}
-	 else
-	    rgb = {r=0,g=0,b=255}
-	 end
-	 drawRectGaugeAbs(75, 33, 140, 25, 0, 100, battPct,"", rgb)
-	 strCap = string.format("Cap %4d  Warn %4d %4d",
-				Battery[selectedBatt].cap,
-				Battery[selectedBatt].cap * Battery[selectedBatt].warn / 100,
-				Battery[selectedBatt].cap * Battery[selectedBatt].warn2 / 100)	 
-
+      local sGsB = Battery[selectedGroup][selectedBattery]
+      str = string.format("Battery %d   %d mAh", selectedBattery,
+			  sGsB.cap - battmAh)
+      local battPct = 100 * (sGsB.cap - battmAh) / sGsB.cap
+      if  battPct <= sGsB.warn then
+	 rgb = {r=255,g=0,b=0}
       else
-	 str = "No mAh sensor"
-	 --lcd.drawText(5,20,tostring(battmAhSeId) .." "..tostring(battmAhSePa).." "..
-	 --tostring(battmAh))
+	 rgb = {r=0,g=0,b=255}
       end
+      drawRectGaugeAbs(75, 33, 140, 25, 0, 100, battPct,"", rgb)
+      
+      strCap = string.format("Cap %4d  Warn %4d %4d",
+			     sGsB.cap,
+			     sGsB.cap * sGsB.warn  / 100,
+			     sGsB.cap * sGsB.warn2 / 100)	 
    end
 
    rs,gs,bs = lcd.getBgColor()
@@ -422,6 +200,562 @@ local function timePrint(width, height)
 
 end
 
+local function key0(key)
+
+   local row = form.getFocusedRow()
+
+   if key == KEY_5 or key == KEY_ENTER then
+      form.preventDefault()
+      selectedBattery = 0
+      if selectedGroup > 0 and row >= 1 and row <= #Battery[selectedGroup]  then
+	 selectedBattery = row
+      end
+
+      print("5 or Enter", row, selectedBattery)
+      
+      if selectedBattery > 0 then
+	 Battery[selectedGroup][selectedBattery].cyc =
+	    Battery[selectedGroup][selectedBattery].cyc + 1
+	 system.playFile('/Apps/DFM-Batt/selected_battery.wav', AUDIO_IMMEDIATE)
+	 system.playNumber(selectedBattery, 0)
+	 system.unregisterTelemetry(1)
+	 system.registerTelemetry(1, BatteryGroupName[selectedGroup], 2, timePrint)
+      else
+	 system.playFile('/Apps/DFM-Batt/no_battery_selected.wav', AUDIO_IMMEDIATE)	    
+      end
+      form.close(2)
+   end
+
+
+   if key == KEY_ESC or (key == KEY_5 and row < 1) or key == KEY_1 then
+      form.preventDefault()
+      local ans
+      ans = form.question("Exit without selecting a battery?", nil, nil, 0, false, 5)
+      if ans == 1 then
+	 form.close(2)
+	 system.playFile('/Apps/DFM-Batt/no_battery_selected.wav', AUDIO_IMMEDIATE)
+      else
+	 form.reinit(2)
+      end
+   end
+end
+
+local function close0()
+end
+
+
+local function initForm0()
+   local str
+   local row = 0
+   local focusRow = 1
+   --print("lastGroup, lastBattery:", lastGroup, lastBattery)
+   if #Battery > 0 and selectedGroup < 1 then
+      form.addRow(1)
+      form.addLabel({label="No battery group selected for model"})
+   elseif #Battery < 1 then
+      form.addRow(1)
+      form.addLabel({label="No battery groups"})
+   else
+      form.setTitle(BatteryGroupName[selectedGroup])
+      form.setButton(1, "Esc", 1)
+      for i=1,#Battery[selectedGroup],1 do
+	 if Battery[selectedGroup][i].cap ~= 0 then
+	    row = row + 1
+	    if i == lastBattery then
+	       focusRow = row
+	    end
+	    form.addRow(1)
+	    local str
+	    local bb = Battery[selectedGroup][i]
+	    str = string.format("Battery %d  [", i) ..
+	       string.format("Cap %d ", bb.cap) ..
+	       string.format("W1 %d%% ", bb.warn) ..
+	       string.format("W2 %d%% ", bb.warn2) .. 
+	       string.format("Cyc %d]", bb.cyc)
+	    form.addLabel({label=str, width=320, alignRight=false})
+	 end
+      end
+      if row == 0 then
+	 form.addRow(1)
+	 form.addLabel({label=string.format("No configured batteries in Group %d", selectedGroup)})
+	 selectedBattery = 0
+      end
+   end
+   --[[
+   if row == 0 then
+      form.addRow(1)
+      form.addLabel({label="No battery in group"})
+   end
+   --]]
+   form.setFocusedRow(focusRow)
+end
+
+local function battGroupChanged(value)
+   selectedGroup = value
+end
+
+local function BattChanged(value, i, j, sub)
+   Battery[i][j][sub] = value
+end
+
+local function battmAhSensorChanged(value)
+   battmAhSe = value
+   battmAhSeId = sensorIdlist[battmAhSe]
+   battmAhSePa = sensorPalist[battmAhSe]
+   if battmAhSeId == "..." then
+      battmAhSeId = 0
+      battmAhSePa = 0
+   end
+end
+
+local function warnChanged(value)
+   warnSound = value
+end
+
+local function warn2Changed(value)
+   warn2Sound = value
+end
+
+local function stickChanged(value)
+   stickToShake = value
+end
+
+local function shakeChanged(value)
+   shakePattern = value
+end
+
+local function stick2Changed(value)
+   stickToShake2 = value
+end
+
+local function shake2Changed(value)
+   shakePattern2 = value
+end
+
+
+local function textChanged(value, i)
+  BatteryGroupName[i] = value
+end
+
+local function keyExit(k)
+   if k == KEY_5 or k == KEY_ENTER or k == KEY_ESC then
+      return true
+   else
+      return false
+   end
+end
+
+local function keyForm(key)
+   local row = form.getFocusedRow()
+   if subForm == 2 and key == KEY_1 and row >= 1 and row <= #Battery then
+      Battery[row] = 0
+      if row == selectedGroup then
+	 selectedGroup = 0
+	 seenRX = false
+	 system.messageBox("Warning: Cleared selected battery")
+      end
+      form.reinit(2)
+   end
+
+   if subForm == 2 and key == KEY_2 then
+      Battery[#Battery + 1] = 0
+      form.reinit(2)
+   end
+   
+   if subForm == 2 and keyExit(key)  then
+      form.preventDefault()
+      form.reinit(1)
+   end
+
+   if subForm == 3 and keyExit(key) then
+      form.preventDefault()
+      form.reinit(1)
+   end
+
+   if subForm == 4 and key == KEY_1 and row >= 1 and row  <= #Battery then
+      resetGroup(row) 
+      form.reinit(4)
+   end
+
+   if subForm == 4 and key == KEY_2 then
+      local i = #Battery + 1
+      Battery[i] = {}
+      resetGroup(i)
+      form.reinit(4)
+   end
+
+   if subForm == 4 and key == KEY_3 and row > 0 then
+      savedRow = row
+      form.reinit(7)
+   end
+   
+   if subForm == 4 and keyExit(key) then
+      form.preventDefault()
+      form.reinit(1)
+   end
+
+   if subForm == 6 and keyExit(key) then
+      form.preventDefault()
+      form.reinit(1)
+   end
+
+   if subForm == 5 and keyExit(key) then
+      form.preventDefault()
+      form.reinit(4)
+   end
+
+   if subForm == 7 and keyExit(key) then
+      form.preventDefault()
+      form.reinit(4)
+   end
+
+   if subForm == 7 and key == KEY_2 then
+      local i = #Battery[savedRow] + 1
+      Battery[savedRow][i] = {}
+      resetBattery(savedRow, i)
+      form.reinit(7)
+   end
+      
+end
+
+local function initForm(sf)
+   local str
+   subForm = sf
+
+   if sf == 1 then
+      form.setTitle("Battery Tracker")
+      form.addRow(2)
+      form.addLink((function() form.reinit(2) end), {label="Model Battery Group>>", width=320})
+
+      form.addRow(2) 
+      form.addLink((function() form.reinit(4) end), {label="Battery Group Setup>>", width=320})
+      
+      form.addRow(2) 
+      form.addLink((function() form.reinit(6) end), {label="Warnings>>", width=320})
+
+      form.addRow(2)
+      form.addLink((function() form.reinit(3) end), {label="Settings>>", width=320})      
+
+      form.addRow(1)
+      form.addLabel({label="DFM - v."..BattVersion.." ", font=FONT_MINI, alignRight=true})
+   elseif sf == 2 then
+      form.setTitle("Model Group Selection")
+
+      if #Battery < 1 then
+	 form.addRow(1)
+	 form.addLabel({label="No Battery Groups defined"})
+      else
+	 
+	 local temp = {}
+	 for j=1,#Battery,1 do
+	    temp[j] = BatteryGroupName[j]
+	 end
+	 
+	 form.addRow(1)
+	 form.addSelectbox(temp, selectedGroup, true, battGroupChanged,
+			   {width=320, alignRight=false,font=FONT_NORMAL})
+      end
+      
+   elseif sf == 3 then
+      form.setTitle("Settings")
+      form.addRow(2)
+      form.addLabel({label="Battery mAh sensor", width=220})
+      form.addSelectbox(sensorLalist, battmAhSe, true, battmAhSensorChanged)
+
+
+      form.addRow(2)
+      form.addLink((function()
+	       system.messageBox("Battery selection cleared")
+	       selectedGroup = 0
+	       seenRX = false
+	       form.reinit(3)
+		   end),
+	 {label="Re-select battery"})
+
+      form.addRow(2)
+      form.addLink((function()
+	       io.remove(fileBD)
+	       writeBD = false
+	       selectedGroup = 0
+	       --seenRX = false
+	       system.messageBox("Model settings cleared - restart App")
+	       form.reinit(3)
+		   end),
+	 {label="Clear all model settings", width=220})
+      
+      form.addRow(2)
+      form.addLink((function()
+	       local ans
+	       ans = form.question("Are you sure?", "Delete battery group entries?",
+				   "(also deletes selected group for this model)",
+				   0, false, 5)
+	       if ans ~= 1 then
+		  form.reinit(3)
+	       else
+		  writeBDG = false
+		  writeBD = false
+		  selectedGroup = 0
+		  wcDelete("Apps/DFM-Batt", "BD_", "jsn")
+		  system.messageBox("Battery groups cleared - restart App")
+		  form.reinit(3)
+	       end
+		   end),
+	 {label="Clear battery groups", width=220})
+      
+   elseif sf == 4 then
+      form.setTitle("Battery Group Setup")
+      form.setButton(1, "Clr", 1)
+      form.setButton(2, ":add", 1)
+      form.setButton(3, ":edit", 1)
+
+      
+      if #Battery == 0 then
+	 form.addRow(1)
+	 form.addLabel({label="No Battery Groups", width=320, alignRight=false, font=FONT_NORMAL})
+      else
+	 for i=1,#Battery,1 do
+	    form.addRow(2)
+	    form.addLabel({label=string.format("%d", i), alignRight=false})
+	    form.addTextbox(BatteryGroupName[i], 24,
+		      (function(x) return textChanged(x, i) end),
+		      {alignRight=true})
+
+	 end
+      end
+
+      form.setFocusedRow(savedRow or 1)
+
+   elseif sf == 5 then
+      --[[
+      form.addRow(2)
+      form.addLabel({label="Label Text", width = 80})
+      form.addTextbox(gblBattery[savedRow].text, 63,
+		      (function(x) return textChanged(x, savedRow) end),
+		      {width=240, alignRight=false})
+      local fn = string.format("Img/Batt%02d.PNG", savedRow)
+      local ft = io.open(fn, "r")
+      if ft then io.close(ft) end
+      if ft then
+	 form.addIcon(fn, {height=100})
+      else
+	 form.addLabel({label="File " .. fn .. " not found"})
+      end
+      --]]
+   elseif sf == 6 then
+      form.setTitle("Warnings")
+      form.addRow(2)
+      form.addLabel({label="Warn 1 sound"})
+      form.addAudioFilebox(warnSound or "...", warnChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Warn 1 vibrate"})      
+      form.addSelectbox({"Left", "Right"}, stickToShake, true, stickChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Warn 1 pattern"})      
+      form.addSelectbox({"None", "Long", "Short", "2x Short", "3x Short"},
+	 shakePattern, true, shakeChanged)    
+
+      form.addRow(2)
+      form.addLabel({label="Warn 2 sound"})
+      form.addAudioFilebox(warn2Sound or "...", warn2Changed)
+
+      form.addRow(2)
+      form.addLabel({label="Warn 2 vibrate"})      
+      form.addSelectbox({"Left", "Right"}, stickToShake2, true, stick2Changed)
+
+      form.addRow(2)
+      form.addLabel({label="Warn 2 pattern"})      
+      form.addSelectbox({"None", "Long", "Short", "2x Short", "3x Short"},
+	 shakePattern2, true, shake2Changed)    
+
+   elseif sf == 7 then
+      form.setTitle(BatteryGroupName[savedRow])
+      form.setButton(1, "Clr", 1)
+      form.setButton(2, ":add", 1)
+
+      if #Battery[savedRow] < 1 then
+	 form.addRow(1)
+	 form.addLabel({label="No batteries in group"})
+      else
+	 form.addRow(4)
+	 form.addLabel({label="Batt", width=40, alignRight=true, font=FONT_MINI})
+	 form.addLabel({label="Cap (mAh)", width=80, alignRight=true, font=FONT_MINI})
+	 form.addLabel({label="Warn 1 Warn 2 % Left  ",width=140,alignRight=true,font=FONT_MINI})
+	 form.addLabel({label="Cycles", width=80, alignRight=true, font=FONT_MINI})
+	 
+	 for i=1,#Battery[savedRow],1 do
+	    form.addRow(5)
+	    form.addLabel({label=i.."  ", width=40, alignRight=true, font=FONT_NORMAL})
+	    form.addIntbox(Battery[savedRow][i].cap, 0, 9999, 5000, 0, 10,
+			   (function(x) return BattChanged(x, savedRow, i, "cap") end),
+			   {width=80, font=FONT_NORMAL})
+	    form.addIntbox(Battery[savedRow][i].warn, 0, 100, 50, 0, 1,
+			   (function(x) return BattChanged(x, savedRow, i, "warn") end),
+			   {width=60, font=FONT_NORMAL})
+	    if not Battery[savedRow][i].warn2 then Battery[savedRow][i].warn2 = 0 end
+	    form.addIntbox(Battery[savedRow][i].warn2, 0, 100, 50, 0, 1,
+			   (function(x) return BattChanged(x, savedRow, i, "warn2") end),
+			   {width=60, font=FONT_NORMAL})      	 
+	    form.addIntbox(Battery[savedRow][i].cyc, 0, 999, 1, 0, 1,
+			   (function(x) return BattChanged(x, savedRow, i, "cyc") end),						      {width=80, font=FONT_NORMAL})
+	 end
+      end
+   end
+end
+
+--------------------------------------------------------------------------------
+
+local function writeBattery()
+   local fp
+   local saveBatt = {}
+   
+   saveBatt.lastGroup = selectedGroup
+   saveBatt.lastBattery = selectedBattery   
+   saveBatt.battmAhSe = battmAhSe
+   saveBatt.battmAhSeId = string.format("0X%x", battmAhSeId)
+   saveBatt.battmAhSePa = battmAhSePa
+   saveBatt.warnSound = warnSound
+   saveBatt.warn2Sound = warn2Sound   
+   saveBatt.stickToShake = stickToShake
+   saveBatt.shakePattern = shakePattern
+   saveBatt.stickToShake2 = stickToShake2
+   saveBatt.shakePattern2 = shakePattern2
+   
+   if writeBD then
+      fp = io.open(fileBD, "w")
+      if fp then
+	 io.write(fp, json.encode(saveBatt), "\n") 
+	 io.close(fp)
+      end
+   end
+
+   saveBatt = {}
+   saveBatt.Array = Battery
+   saveBatt.Name = BatteryGroupName
+   
+   if writeBDG then
+      fp = io.open(fileBDG, "w")
+      if fp then io.write(fp, json.encode(saveBatt), "\n")
+	 io.close(fp)
+      end
+   end
+end
+
+local function destroy()
+   writeBattery()
+end
+
+
+
+-- Telemetry window draw functions
+
+local hmin, hmax
+
+local function fooPrint(w,h)
+
+   local max = 1000
+   local theta
+   local x0, y0 = 40, 34
+   local ri = 22
+   local ro = 30
+   local val
+   local a0d = -35
+   local a0 = math.rad(a0d)
+   local aRd = -a0d*2 + 180
+   local aR = math.rad(aRd)
+   local ren = lcd.renderer()
+   
+
+   val = max / 2.0 * (1 + system.getInputs("P1"))
+
+   if not hmin then
+      hmin = val
+   else
+      if val < hmin then hmin = val end
+   end
+   
+   if not hmax then
+      hmax = val
+   else
+      if val > hmax then hmax = val end
+   end
+
+   theta = aR * val/max 
+	 
+   ren:reset()
+
+   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   ren:addPoint(x0 - ro * math.cos(a0), y0 - ro * math.sin(a0))   
+
+   local im = 20
+   for i=1,im-1,1 do
+      ren:addPoint(x0 - ro * math.cos(a0 + i*aR/im), y0 - ro * math.sin(a0 + i*aR/im))
+   end
+
+   ren:addPoint(x0 - ro * math.cos(a0+aR), y0 - ro * math.sin(a0+aR))
+   ren:addPoint(x0 - ri * math.cos(a0+aR), y0 - ri * math.sin(a0+aR))
+   
+   for i=im-1,1,-1 do
+      ren:addPoint(x0 - ri * math.cos(a0+i*aR/im), y0 - ri * math.sin(a0+i*aR/im))
+   end
+
+   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   
+   ren:renderPolyline(1, 0.3)
+
+   ren:reset()
+   
+   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   ren:addPoint(x0 - ro * math.cos(a0), y0 - ro * math.sin(a0))   
+
+   local im = 15
+   for i=1,im-1,1 do
+      ren:addPoint(x0 - ro * math.cos(a0 + i*theta/im), y0 - ro * math.sin(a0 + i*theta/im))
+   end
+
+   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
+   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
+   
+   for i=im-1,1,-1 do
+      ren:addPoint(x0 - ri * math.cos(a0+i*theta/im), y0 - ri * math.sin(a0+i*theta/im))
+   end
+   lcd.setColor(lcd.getFgColor())
+   ren:renderPolygon()
+
+
+   ren:reset()
+   theta = aR * hmax/max 
+   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
+   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
+   ren:renderPolyline(3)
+   
+   lcd.setColor(255,255,0)
+
+   ren:reset()
+   theta = aR * hmin/max 
+   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
+   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
+   ren:renderPolyline(3)
+
+   lcd.setColor(0,0,0)
+   
+   local text
+   text = string.format("%4.2f", val)
+   lcd.drawText(x0 - lcd.getTextWidth(FONT_BOLD, text) / 2, y0+14, text, FONT_BOLD)
+
+   text = string.format("%4.2f", hmax)
+   lcd.drawText(x0 + 42, y0 - 25, text, FONT_BIG)
+   --lcd.drawImage(x0 + 32, y0-25, ":up")
+   
+   text = string.format("%4.2f", hmin)
+   --lcd.drawImage(x0 + 32, y0, ":down")   
+   lcd.drawText(x0 + 42, y0, text, FONT_BIG)   
+   
+end
+
+
+
 local function loop()
 
    local tim = system.getTimeCounter() / 1000
@@ -435,18 +769,20 @@ local function loop()
    
    local sensor = system.getSensorByID(battmAhSeId, battmAhSePa)
 
-   if (selectedBatt >= 1 and selectedBatt <= NUMBAT) and sensor and sensor.valid then
+   if (selectedGroup >= 1 and selectedGroup <= #Battery) and
+      (selectedBattery >= 1 and selectedBattery <= #Battery[selectedGroup])
+   and sensor and sensor.valid then
       battmAh = sensor.value
       if not battmAh then battmAh = 0 end
       if battmAh < lastmAh then warnAnn = false end -- mui can reset to 0 after current flows
       lastmAh = battmAh
-      local battPct = 100 * (Battery[selectedBatt].cap - battmAh) / Battery[selectedBatt].cap
-      if selectedBatt >=1 and selectedBatt <= NUMBAT 
-	 and battPct <= Battery[selectedBatt].warn
-	 and Battery[selectedBatt].warn > 0
+      local battPct = 100 * (Battery[selectedGroup][selectedBattery].cap - battmAh) /
+	 Battery[selectedGroup][selectedBattery].cap
+      
+      if battPct <= Battery[selectedGroup][selectedBattery].warn
+	 and Battery[selectedGroup][selectedBattery].warn ~= 0
          and not warnAnn then
 	    warnAnn = true
-	    
 	    if warnSound == "..." then
 	       system.playFile('/Apps/DFM-Batt/Low_Battery.wav', AUDIO_IMMEDIATE)
 	    else
@@ -457,9 +793,8 @@ local function loop()
 	    end
       end
 
-      if selectedBatt >=1 and selectedBatt <= NUMBAT 
-	 and battPct <= Battery[selectedBatt].warn2
-	 and Battery[selectedBatt].warn2 > 0      
+      if battPct <= Battery[selectedGroup][selectedBattery].warn2
+	 and Battery[selectedGroup][selectedBattery].warn2 ~= 0
          and not warn2Ann then
 	    warn2Ann = true
 	    if warn2Sound == "..." then
@@ -471,7 +806,6 @@ local function loop()
 	       system.vibration( (stickToShake2 == 2), shakePattern2 - 1)
 	    end
       end
-
    end
    
    local txTel = system.getTxTelemetry()
@@ -501,39 +835,26 @@ local function init()
 
    if file then
       decoded = json.decode(file)
-      Battery = decoded.array
-      lastBatt = decoded.lastBatt
+      selectedGroup = decoded.lastGroup
       battmAhSe = decoded.battmAhSe or 0
       battmAhSeId = tonumber(decoded.battmAhSeId) or 0
       battmAhSePa = decoded.battmAhSePa or 0
+      --lastGroup = decoded.lastGroup
+      lastBattery = decoded.lastBattery
       warnSound = decoded.warnSound
       warn2Sound = decoded.warn2Sound or "..."
       stickToShake = decoded.stickToShake or 1
       shakePattern = decoded.shakePattern or 1
       stickToShake2 = decoded.stickToShake2 or 1
       shakePattern2 = decoded.shakePattern2 or 1
-      for i=1,NUMBAT,1 do
-	 if not Battery[i] then
-	    Battery[i] = {} 
-	    Battery[i].cap = 0
-	    Battery[i].cyc = 0
-	    Battery[i].warn = 0
-	    Battery[i].warn2 = 0
-	 end
-      end
    else
-      system.messageBox("No Battery data read: initializing")
-      for i=1,NUMBAT,1 do
-	 Battery[i] = {}
-	 Battery[i].cap = 0
-	 Battery[i].cyc = 0
-	 Battery[i].warn = 0
-	 Battery[i].warn2 = 0	 
-      end
+      system.messageBox("No Model data read: initializing")
+      print("No Model data read: initializing")      
       battmAhSe = 0
       battmAhSeId = 0
       battmAhSePa = 0
-      lastBatt = 0
+      lastGroup = 0
+      lastBattery = 0
       warnSound = "..."
       warn2Sound = "..."
       stickToShake = 1
@@ -541,17 +862,45 @@ local function init()
       stickToShake2 = 1
       shakePattern2 = 1
    end
+
+   fileBDG = pf .. "Apps/DFM-Batt/BD_Global.jsn"
+   file = io.readall(fileBDG)
+
+   local temp
    
+   if file then
+      temp = json.decode(file)
+      Battery = temp.Array
+      BatteryGroupName = temp.Name
+      --[[
+      print("Battery", Battery, #Battery)
+      for i = 1, #Battery, 1 do
+	 for j = 1, #Battery[i] do
+	    print(i,j,Battery[i][j])
+	 end
+      end
+      --]]
+   else
+      system.messageBox("Initializing global battery table")
+      print("Initializing global battery table")
+      Battery = {}
+   end
+
    if not warnSound then warnSound = "..." end
    if not warn2Sound then warn2Sound = "..." end   
    
-   selectedBatt = 0 -- won't be assigned till popup selects a batt
+   selectedBattery = 0
+   if not selectedGroup then selectedGroup = 0 end
    
    system.registerForm(1, MENU_APPS, "Battery Tracker", initForm, keyForm)
    system.registerTelemetry(1, "Battery Tracker", 2, timePrint)
-
+   --system.registerTelemetry(2, "Foo", 2, fooPrint)
+   
    readSensors()
    setLanguage()
+
+   collectgarbage()
+   print("DFM-Batt: gcc " .. collectgarbage("count"))
 
 end
 --------------------------------------------------------------------------------

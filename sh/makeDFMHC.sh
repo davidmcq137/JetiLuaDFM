@@ -9,12 +9,12 @@ sh sh/makeGRat.sh
 sh sh/makeWatt.sh
 sh sh/makeAmix.sh
 sh sh/makeVsens.sh
-sh sh/makeBatt.sh
 # we don't want the test versions of the .jsn files in the distro .. temp rename them then put back later
-for f in DFM-BatG/BD_*.jsn; do
+for f in DFM-Batt/BD_*.jsn; do
     mv -- "$f" "${f%.jsn}.jxx"
 done
-sh sh/makeBatG.sh
+sh sh/makeBatt.sh
+#
 #
 for f in DFM-Dial/DD_*.jsn; do
     mv -- "$f" "${f%.jsn}.jxx"
@@ -28,7 +28,7 @@ cd ~
 #
 zip -ru ~/JS/DFMHC.zip Apps.json
 #
-for f in DFM-BatG/BD_*.jxx; do
+for f in DFM-Batt/BD_*.jxx; do
     mv -- "$f" "${f%.jxx}.jsn"
 done
 #

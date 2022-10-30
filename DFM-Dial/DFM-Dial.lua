@@ -913,7 +913,6 @@ local function loop()
 	    if sensor and sensor.valid then
 	       value = sensor.value
 	       tele[i].sensorValue[j] = value
-	       --tele[i].sensorValue[j] = (value - tele[i].sensorValue[j])/1000 + tele[i].sensorValue[j]
 	       if timeNow >= tele[i].sensorChartLast[j] + tele[i].sensorChartTime[j] then
 		  sample = true
 		  tele[i].sensorChartLast[j] = timeNow

@@ -1,6 +1,9 @@
 set -e
 set -x
+/home/davidmcq/lua-5.3.1-Jeti/src/luac -s -o DFM-Batt/DFM-Batt.lc DFM-Batt/DFM-Batt.lua
 rm -f DFM-Batt.zip
-zip -ru DFM-Batt.zip DFM-Batt.lua DFM-Batt -x DFM-Batt/BD*
-zip -ru DFMHC.zip DFM-Batt.lua DFM-Batt
+zip -ru DFM-Batt.zip DFM-Batt.lc DFM-Batt
+zip -ru DFMHC.zip DFM-Batt.lc DFM-Batt
+
+
 
