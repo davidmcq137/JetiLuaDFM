@@ -6,7 +6,7 @@
 --]]
 
 --local trans11
-local DialVersion = "0.94"
+local DialVersion = "0.98"
 
 local runningTime = 0
 local startTime = 0
@@ -381,6 +381,7 @@ local function dialPrint(w,h,win)
    -- put this here instead of init in case pilot changes colors while app running
    
    local rb, gb, bb = lcd.getBgColor()
+
    if rb == 0 and gb == 0 and bb == 0 then
       lcdBG = "D"
    else
@@ -397,11 +398,22 @@ local function dialPrint(w,h,win)
 	 max = tele[win].sensorMax[i] * tele[win].sensorMaxMult[i]
 	 if val > max or val < min then ovld = true else ovld = false end
 	 if tele[win].sensorMinWarn[i] then
-	    wmin = tele[win].sensorMinWarn[i] * tele[win].sensorMinMult[i]
+	    if type(tele[win].sensorMinWarn[i]) == "number" then -- look for "arith with userdata" bug
+	       --print(win,i)
+	       wmin = tele[win].sensorMinWarn[i] * tele[win].sensorMinMult[i]
+	    else
+	       --print("not number type min", win, i)
+	       wmin = val
+	    end
 	    if val < wmin then ovld = true end
 	 end
 	 if tele[win].sensorMaxWarn[i] then
-	    wmax = tele[win].sensorMaxWarn[i] * tele[win].sensorMaxMult[i]
+	    if type(tele[win].sensorMaxWarn[i]) == "number" then
+	       wmax = tele[win].sensorMaxWarn[i] * tele[win].sensorMaxMult[i]
+	    else
+	       --print("not number type max", win, i)
+	       wmax = val
+	    end
 	    if val > wmax then ovld = true end
 	 end
 	 ratio = (val-min)/(max-min) 
@@ -822,7 +834,7 @@ local function initForm(sf)
       form.addSelectbox({"1x", "10x", "100x", "1000x"}, mm, true,
 	 (function(x) return sensorMaxMultChanged(x, savedRow, savedRow2) end))
       
-      if tele[savedRow].screen == 6 then
+      if tele[savedRow].screen ~= 6 or savedRow2 == 1 then
 	 form.addRow(2)
 	 form.addLabel({label="Time span for Chart"})
 	 local dt = math.log(tele[savedRow].sensorChartTime[savedRow2]/200) / math.log(2) + 1
@@ -834,9 +846,6 @@ local function initForm(sf)
 	    form.addLabel({label = chartTime[dt], alignRight = true})
 	 end
       end
-      
-      
-      
       
       form.addRow(2)
       form.addLabel({label="Smoothing value for Chart", width=220})

@@ -1,0 +1,9 @@
+{
+    "lat0": 41.339975,
+    "lon0": -74.430895,
+    "rE":6378137,
+    "trueDir": 0,
+    "startTime": 0,
+    "xString":"200*math.cos(t)",
+    "yString":"200*math.sin(t)"
+}

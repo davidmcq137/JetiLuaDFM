@@ -71,7 +71,7 @@
 local sensorE_Global = {emulator_init=true, emulator_vibration=true, emulator_playFile=true,
 		  emulator_playNumber=true, emulator_getSensors=true,
 		  emulator_getSensorValueByID=true,emulator_getSensorByID=true,
-		  emulator_init=true}
+		  emulator_init=true, emulator_getPosition=true}
 setmetatable(_G, {
 		__newindex = function (t, n, v)
 		   if not sensorE_Global[n] then
@@ -318,6 +318,7 @@ function emulator_init()
       system.playFile = emulator_playFile
       system.playNumber = emulator_playNumber
       system.vibration = emulator_vibration
+      gps.getPosition = emulator_getPosition
       --system.messageBox("SensorE: Using emulated sensors", 3)
    else
       --system.messageBox("SensorE: Using native sensors", 3)
@@ -457,6 +458,39 @@ end
 
 local lastT = {}
 local deltaT = {}
+
+function emulator_getPosition(sensID, parmLat, parmLng)
+
+   local sensor
+   local minutes, degs, latitude, longitude
+   
+   sensor = emulator_getSensorByID(sensID, parmLng)
+   if sensor and sensor.valid then
+      minutes = (sensor.valGPS & 0xFFFF) * 0.001
+      degs = (sensor.valGPS >> 16) & 0xFF
+      longitude = degs + minutes/60
+      if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
+	 longitude = longitude * -1
+      end      
+   else
+      return nil
+   end
+   
+   sensor = emulator_getSensorByID(sensID, parmLat)
+   if sensor and sensor.valid then
+      minutes = (sensor.valGPS & 0xFFFF) * 0.001
+      degs = (sensor.valGPS >> 16) & 0xFF
+      latitude = degs + minutes/60
+      if sensor.decimals == 2 then -- "South" .. make it negative (NESW coded in decimal places as 0,1,2,3)
+	 latitude = latitude * -1
+      end      
+   else
+      return nil
+   end
+
+   return gps.newPoint(latitude, longitude)
+   
+end
 
 function emulator_getSensorByID(ID, Param)
    local c

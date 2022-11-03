@@ -58,10 +58,9 @@
      "decimals": 0,
      "type": 1,
      "sensorName": "IBP",
-     "label": "Capacity",
-     "unit": "mAh",
-     "luaFunc":
-     "CapLeft[1] = math.max(0, CapLeft[1] + dt * Current[1]/36); return CapTotal[1] - CapLeft[1]"
+     "label": "FuelPct",
+     "unit": "%",
+     "luaExp":"3200 * math.exp(-t/60)"
     },
     {"id":168,
      "param": 7,

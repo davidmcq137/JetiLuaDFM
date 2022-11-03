@@ -21,7 +21,6 @@ local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
 local sensorPalist = { "..." }  -- sensor parameters
 
-local NUMSLOT=12
 local Battery={}
 local BatteryGroupName={}
 local selectedGroup

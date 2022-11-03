@@ -9,6 +9,7 @@ sh sh/makeGRat.sh
 sh sh/makeWatt.sh
 sh sh/makeAmix.sh
 sh sh/makeVsens.sh
+sh sh/makeTimG.sh
 # we don't want the test versions of the .jsn files in the distro .. temp rename them then put back later
 for f in DFM-Batt/BD_*.jsn; do
     mv -- "$f" "${f%.jsn}.jxx"

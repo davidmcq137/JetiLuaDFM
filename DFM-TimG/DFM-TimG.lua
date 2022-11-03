@@ -62,7 +62,7 @@
 --]]
 
 --local trans11
-local TimAnnVersion = "1.0"
+local TimAnnVersion = "1.1"
 local gearSwitch
 local thrControl
 
@@ -86,6 +86,7 @@ local burnRate
 local bingoTime
 local bingoAnnounced = false
 local emptyAnnounced = false
+local emptyAnnouncedTime
 
 local sensorLalist = { "..." }  -- sensor labels
 local sensorIdlist = { "..." }  -- sensor IDs
@@ -189,8 +190,7 @@ local function initForm()
    form.addRow(2)
    form.addLabel({label="Select Fuel Sensor", width=220})
    form.addSelectbox(sensorLalist, FuelSe, true, fuelsensorChanged)
-   
-   
+      
    form.addRow(2)
    form.addLabel({label="Select Retract Switch (gear up)", width=220})
    form.addInputbox(gearSwitch, true, gearSwitchChanged)
@@ -304,7 +304,7 @@ local function timePrint(width, height, key)
    mm,rr = math.modf(runningTime/60)
    pts = string.format("%02d:%02d", math.floor(mm), math.floor(rr*60))
 
-  if remainingTime and remainingTime ~= 0 then
+  if remainingTime and remainingTime >= 0 then
      mm, rr = math.modf(remainingTime/60)
      rts = string.format("%02d:%02d", math.floor(mm), math.floor(rr*60))
   else
@@ -323,7 +323,7 @@ local function timePrint(width, height, key)
      char = pts:sub(i,i)
      if string.find(char, "[^%d^:]") then
 	print("DFM-TimG: Illegal character", char)
-	char = ":"
+	char = "0"
      end
      len = len + digitImageTimer[charMap[char]].width
   end
@@ -337,7 +337,7 @@ local function timePrint(width, height, key)
      char = pts:sub(i,i)
      if string.find(char, "[^%d^:]") then
 	print("DFM-TimG: Illegal character", char)
-	char = ":"
+	char = "0"
      end
      lcd.drawImage(hPix, vPix, digitImageTimer[charMap[char]])
      hPix = hPix + digitImageTimer[charMap[char]].width
@@ -350,7 +350,7 @@ local function timePrint(width, height, key)
      char = rts:sub(i,i)
      if string.find(char, "[^%d^:]") then
 	print("DFM-TimG: Illegal character", char)
-	char = ":"
+	char = "0"
      end
      len = len + digitImageEmpty[charMap[char]].width
   end
@@ -359,13 +359,14 @@ local function timePrint(width, height, key)
   vPix = 62
 
   -- draw digits of time to empty
-
+  --print("rts: " .. rts, #rts)
   for i = 1, #rts do
      char = rts:sub(i,i)
      if string.find(char, "[^%d^:]") then
 	print("DFM-TimG: Illegal character", char)
-	char = ":"
+	char = "0"
      end
+     --print(char, hPix)
      lcd.drawImage(hPix, vPix, digitImageEmpty[charMap[char]])
      hPix = hPix + digitImageEmpty[charMap[char]].width
   end
@@ -407,7 +408,7 @@ local function loop()
 	 fuelPct = 0
       end
       if fuelPct > 100 and (not fpAnn) then
-	 print("pct>100", fuelQty, fuelMax, sensor.max)
+	 print("pct>100", fuelPct, fuelQty, fuelMax, sensor.max)
 	 fpAnn = true
       end
    end
