@@ -317,53 +317,49 @@ local function loop()
    local volt, amp
    local sensor
    
-   if latSe > 1 and lngSe > 1 then
-
-      curPos = gps.getPosition(latSeId, latSePa, lngSePa)
-
-      if not curPos then return end
-      
-      if not initPos then
-	 initPos = curPos
-	 if not zeroPos then zeroPos = curPos end
-      end
-
-      curDist = gps.getDistance(zeroPos, curPos)
-      curBear = gps.getBearing(zeroPos, curPos)
-
-      curX = curDist * math.cos(math.rad(curBear+270)) -- why not same angle X and Y??
-      curY = curDist * math.sin(math.rad(curBear+90))
-
-      if not lastX then lastX = curX end
-      if not lastY then lastY = curY end
-      
-      curX, curY = rotateXY(curX, curY, rotA)
-      --print("curDist, curBear", curDist, curBear)
-
-      if curX ~= lastX or curY ~= lastY then -- new point
-	 heading = math.atan(curX-lastX, curY - lastY)
-	 lastX = curX
-	 lastY = curY
-      end
-      
-      detA = det(0,-50,0,50,curX,curY)
-      detB = det(150,-50, 150, 50,curX,curY)
-      detC = det(-75,0,225,0,curX,curY)
-
-      if detA > 0 then dA = 1 else dA = 0 end
-      if detB > 0 then dB = 1 else dB = 0 end
-      if detC > 0 then dC = 1 else dC = 0 end
-
-      dd = dA + 2*dB
-
-      perpA = pDist(0,-50,0,50,curX, curY)
-      perpB = pDist(150,-50,150, 50, curX, curY)
+   curPos = gps.getPosition(latSeId, latSePa, lngSePa)
    
-      if detA < 0 then perpA = -perpA end
-      if detB > 0 then perpB = -perpB end
-
+   if not curPos then return end
+   
+   if not initPos then
+      initPos = curPos
+      if not zeroPos then zeroPos = curPos end
    end
-
+   
+   curDist = gps.getDistance(zeroPos, curPos)
+   curBear = gps.getBearing(zeroPos, curPos)
+   
+   curX = curDist * math.cos(math.rad(curBear+270)) -- why not same angle X and Y??
+   curY = curDist * math.sin(math.rad(curBear+90))
+   
+   if not lastX then lastX = curX end
+   if not lastY then lastY = curY end
+   
+   curX, curY = rotateXY(curX, curY, rotA)
+   --print("curDist, curBear", curDist, curBear)
+   
+   if curX ~= lastX or curY ~= lastY then -- new point
+      heading = math.atan(curX-lastX, curY - lastY)
+      lastX = curX
+      lastY = curY
+   end
+   
+   detA = det(0,-50,0,50,curX,curY)
+   detB = det(150,-50, 150, 50,curX,curY)
+   detC = det(-75,0,225,0,curX,curY)
+   
+   if detA > 0 then dA = 1 else dA = 0 end
+   if detB > 0 then dB = 1 else dB = 0 end
+   if detC > 0 then dC = 1 else dC = 0 end
+   
+   dd = dA + 2*dB
+   
+   perpA = pDist(0,-50,0,50,curX, curY)
+   perpB = pDist(150,-50,150, 50, curX, curY)
+   
+   if detA < 0 then perpA = -perpA end
+   if detB > 0 then perpB = -perpB end
+   
    if dd then
       flightZone = zone[dd]
       if not lastFlightZone then lastFlightZone = flightZone end
@@ -408,7 +404,7 @@ local function loop()
       if motorTime > 30*1000 then
 	 print("Motor > 30s")
 	 flightState = fs.MotorOff
-	 system.setContol(1, -1, 0)
+	 system.setControl(1, -1, 0)
 	 motorOffTime = now
 	 system.playFile("/Apps/DFM-F3G/motor_off_time.wav", AUDIO_QUEUE)
       elseif motorWattSec / 60 > 350 then
@@ -475,6 +471,8 @@ local function loop()
       
       if flightZone == 1 and lastFlightZone == 2 then
 	 taskLaps = taskLaps + 1
+	 system.playFile("/Apps/DFM-F3G/lap.wav", AUDIO_QUEUE)
+	 system.playNumber(taskLaps,0)
 	 flightState = fs.AtoB
 	 perpIdx = 1
       end
@@ -484,8 +482,8 @@ local function loop()
       flightState = fs.Done
       flightDone = flightTime
       taskDone = now - taskStartTime
+      system.playFile("/Apps/DFM-F3G/task_complete.wav", AUDIO_QUEUE)
    end
-   
    
    lastFlightZone = flightZone
    loopCPU = system.getCPU()
@@ -544,9 +542,9 @@ local function printTele()
       lcd.drawText(0,30,text)
    end
    
-   text = string.format("M: %.2f", motorTime/1000)
+   text = string.format("R: %.2f", motorTime/1000)
    lcd.drawText(245,0,text)
-   text = string.format("P: %.2f", motorWattSec/60)
+   text = string.format("E: %.2f", motorWattSec/60)
    lcd.drawText(245,15,text)
    
    if flightState == fs.AtoB or flightState == fs.BtoA then
@@ -559,7 +557,7 @@ local function printTele()
 
       lcd.setColor(0,255,0)
       
-      lcd.drawText(140,140, string.format("%d %d %d", flightZone, dA, dB))
+      --lcd.drawText(140,140, string.format("%d %d %d", flightZone, dA, dB))
       
       if  detB > 0 then
 	 lcd.setColor(255,0,0)
