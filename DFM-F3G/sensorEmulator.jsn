@@ -107,7 +107,18 @@
      "label":"Amp",
      "unit":"A",
      "luaExp":"P8(0,100)"
+    },
+    {"id":5,"param":0,"sensorName":"Alt", "label":"Altitude"},
+    {"id":5,
+     "param":1,
+     "decimals":0,
+     "type":4,
+     "sensorName":"Alt",
+     "label":"Altitude",
+     "unit":"m",
+     "luaExp":"250"
     }
+    
     
     
 ]

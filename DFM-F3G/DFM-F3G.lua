@@ -27,8 +27,8 @@ local altSe, altSeId, altSePa
 local thrCtl
 
 local flightState
-local fs = {Idle=1,MotorOn=2,MotorOff=3,Ready=4, AtoB=5,BtoA=6}
-local fsTxt = {"Idle", "Motor On", "Motor Off", "Ready", "A to B", "B to A"}
+local fs = {Idle=1,MotorOn=2,MotorOff=3,Altitude=4,Ready=5, AtoB=6,BtoA=7, Done=8}
+local fsTxt = {"Idle", "Motor On", "Motor Off", "Altitude", "Ready", "A to B", "B to A", "Done"}
 
 local appStartTime, appRunTime
 
@@ -36,9 +36,17 @@ local motorTime
 local motorStart
 local motorPower
 local motorWattSec
+local motorOffTime
 local lastPowerTime
 local flightTime
 local flightStart
+local flightDone
+local flightZone
+local taskStartTime
+local taskDone
+local taskLaps
+local lastFlightZone
+local zone = {[0]=1,[1]=2,[3]=3}
 
 local curDist
 local curBear
@@ -51,6 +59,13 @@ local curX, curY
 local lastX, lastY
 local heading
 local rotA
+local altitude
+local perpAnn = {40,30,20}
+local perpIdx
+
+local detA, detB, detC
+local dA, dB, dC, dd
+local perpA, perpB
 
 local savedRow
 local savedRow2
@@ -302,60 +317,6 @@ local function loop()
    local volt, amp
    local sensor
    
-   now = system.getTimeCounter()
-
-   if flightState == fs.Idle then
-      swt = system.getInputsVal(thrCtl)
-      if swt and swt == 1 then
-	 motorStart = now
-	 motorWattSec = 0
-	 flightState = fs.MotorOn
-	 lastPowerTime = now
-	 flightStart = now
-	 system.setControl(1, 1, 0)
-      end
-   else
-      flightTime = now - flightStart
-   end
-
-   if flightState == fs.MotorOn then
-      sensor = system.getSensorByID(ampSeId, ampSePa)
-      if sensor and sensor.valid then
-	 amp = sensor.value
-      end
-      sensor = system.getSensorByID(voltSeId, voltSePa)
-      if sensor and sensor.valid then
-	 volt = sensor.value
-      end
-      if volt and amp then
-	 motorPower = volt * amp
-	 motorWattSec = motorWattSec + volt * amp * (now-lastPowerTime) / 1000
-	 lastPowerTime = now
-      end
-      motorTime = now - motorStart
-
-      if motorTime > 30*1000 then
-	 print("Motor > 30s")
-	 flightState = fs.MotorOff
-	 system.setContol(1, -1, 0)
-	 system.playFile("/Apps/DFM-F3G/motor_off_time.wav", AUDIO_IMMEDIATE)
-      elseif motorWattSec / 60 > 350 then
-	 print("Watt-Min > 350")
-	 flightState = fs.MotorOff
-	 system.setControl(1, -1, 0)
-	 system.playFile("/Apps/DFM-F3G/motor_off_wattmin.wav", AUDIO_IMMEDIATE)
-      end
-
-   end
-   
-   if flightState == fs.MotorOff then
-      print(flightTime/1000)
-      if flightTime / 1000 > 40 then
-	 system.playFile("/Apps/DFM-F3G/40_seconds.wav", AUDIO_IMMEDIATE)
-	 flightState = fs.Ready
-      end
-   end
-   
    if latSe > 1 and lngSe > 1 then
 
       curPos = gps.getPosition(latSeId, latSePa, lngSePa)
@@ -385,8 +346,148 @@ local function loop()
 	 lastY = curY
       end
       
+      detA = det(0,-50,0,50,curX,curY)
+      detB = det(150,-50, 150, 50,curX,curY)
+      detC = det(-75,0,225,0,curX,curY)
+
+      if detA > 0 then dA = 1 else dA = 0 end
+      if detB > 0 then dB = 1 else dB = 0 end
+      if detC > 0 then dC = 1 else dC = 0 end
+
+      dd = dA + 2*dB
+
+      perpA = pDist(0,-50,0,50,curX, curY)
+      perpB = pDist(150,-50,150, 50, curX, curY)
+   
+      if detA < 0 then perpA = -perpA end
+      if detB > 0 then perpB = -perpB end
+
    end
 
+   if dd then
+      flightZone = zone[dd]
+      if not lastFlightZone then lastFlightZone = flightZone end
+   end
+      
+   sensor = system.getSensorByID(altSeId, altSePa)
+   if sensor and sensor.valid then
+      altitude = sensor.value
+   end
+   
+   now = system.getTimeCounter()
+
+   if flightState == fs.Idle then
+      swt = system.getInputsVal(thrCtl)
+      if swt and swt == 1 then
+	 motorStart = now
+	 motorWattSec = 0
+	 flightState = fs.MotorOn
+	 lastPowerTime = now
+	 flightStart = now
+      end
+   else
+      flightTime = now - flightStart
+   end
+
+   if flightState == fs.MotorOn then
+      sensor = system.getSensorByID(ampSeId, ampSePa)
+      if sensor and sensor.valid then
+	 amp = sensor.value
+      end
+      sensor = system.getSensorByID(voltSeId, voltSePa)
+      if sensor and sensor.valid then
+	 volt = sensor.value
+      end
+      if volt and amp then
+	 motorPower = volt * amp
+	 motorWattSec = motorWattSec + volt * amp * (now-lastPowerTime) / 1000
+	 lastPowerTime = now
+      end
+      motorTime = now - motorStart
+
+      if motorTime > 30*1000 then
+	 print("Motor > 30s")
+	 flightState = fs.MotorOff
+	 system.setContol(1, -1, 0)
+	 motorOffTime = now
+	 system.playFile("/Apps/DFM-F3G/motor_off_time.wav", AUDIO_QUEUE)
+      elseif motorWattSec / 60 > 350 then
+	 print("Watt-Min > 350")
+	 flightState = fs.MotorOff
+	 system.setControl(1, -1, 0)
+	 motorOffTime = now
+	 system.playFile("/Apps/DFM-F3G/motor_off_wattmin.wav", AUDIO_QUEUE)
+      end
+
+   end
+
+   if flightState == fs.MotorOff then
+      if now > motorOffTime + 10*1000 then
+	 system.playFile("/Apps/DFM-F3G/start_altitude.wav", AUDIO_QUEUE)
+	 system.playNumber(altitude, 0)
+	 flightState = fs.Altitude
+      end
+   end
+   
+      
+   if flightState == fs.Altitude then
+      if flightTime / 1000 > 40 then
+	 system.playFile("/Apps/DFM-F3G/40_seconds.wav", AUDIO_QUEUE)
+	 flightState = fs.Ready
+      end
+   end
+
+   if flightState == fs.Ready then
+      if flightZone == 2 and lastFlightZone == 1 then
+	 flightState = fs.AtoB
+	 perpIdx = 1
+	 taskStartTime = now
+	 taskLaps = 0
+      end
+   end
+
+   if flightState == fs.AtoB then
+      if perpIdx >= #perpAnn and perpB <= 0 then
+	 print("Beep")
+	 system.playBeep(0,440,500)
+      end
+      if perpIdx <= #perpAnn and perpB <= perpAnn[perpIdx]  then
+	 print("perpIdx", perpIdx)
+	 perpIdx = perpIdx + 1
+	 system.playNumber(perpB, 0)
+      end
+      
+      if flightZone == 3 and lastFlightZone == 2 then
+	 flightState = fs.BtoA
+	 perpIdx = 1
+      end
+   end
+
+   if flightState == fs.BtoA then
+      if perpIdx >= #perpAnn and perpA <= 0 then
+	 print("Beep")
+	 system.playBeep(0,440,500)
+      end
+      if perpIdx <= #perpAnn and perpA <= perpAnn[perpIdx] then
+	 perpIdx = perpIdx + 1
+	 system.playNumber(perpA, 0)
+      end
+      
+      if flightZone == 1 and lastFlightZone == 2 then
+	 taskLaps = taskLaps + 1
+	 flightState = fs.AtoB
+	 perpIdx = 1
+      end
+   end
+
+   if flightState ~= fs.Done and taskStartTime and (( now - taskStartTime) > 240*1000) then
+      flightState = fs.Done
+      flightDone = flightTime
+      taskDone = now - taskStartTime
+   end
+   
+   
+   lastFlightZone = flightZone
    loopCPU = system.getCPU()
 end
 
@@ -411,9 +512,6 @@ end
 
 local function printTele()
 
-   local detA, detB, detC
-   local perpA, perpB
-   local dA, dB, dC, dd
    local LEFT = 0
    local RIGHT = 3
    local MIDDLE = 1
@@ -424,29 +522,44 @@ local function printTele()
    form.setTitle("")
    form.setButton(1, "Pt A", ENABLED)
    form.setButton(2, "Dir B", ENABLED)
+
+   lcd.drawText(0,0,"["..fsTxt[flightState].."]")
+
+   if flightState ~= fs.Done then
+      text = string.format("F: %.2fs", flightTime/1000)
+      lcd.drawText(0,15,text)
+   else
+      text = string.format("F: %.2fs", flightDone/1000)
+      lcd.drawText(0,15,text)
+   end
    
-   lcd.drawText(0,0,fsTxt[flightState])
-   text = string.format("F: %.2fs", flightTime/1000)
-   lcd.drawText(0,15,text)
+
+   if flightState == fs.AtoB or flightState == fs.BtoA then
+      text = string.format("T: %.2fs", (system.getTimeCounter() - taskStartTime)/1000)
+      lcd.drawText(0,30,text)
+   end
+
+   if flightState == fs.Done then
+      text = string.format("T: %.2fs", taskDone/1000)
+      lcd.drawText(0,30,text)
+   end
+   
    text = string.format("M: %.2f", motorTime/1000)
    lcd.drawText(245,0,text)
    text = string.format("P: %.2f", motorWattSec/60)
    lcd.drawText(245,15,text)
    
+   if flightState == fs.AtoB or flightState == fs.BtoA then
+      text = string.format("Laps: %d", (taskLaps or 0) )
+      lcd.drawText(140,0,text)
+   end
+   
+
    if curX and curY then
 
       lcd.setColor(0,255,0)
-      detA = det(0,-50,0,50,curX,curY)
-      detB = det(150,-50, 150, 50,curX,curY)
-      detC = det(-75,0,225,0,curX,curY)
-
-      if detA > 0 then dA = 1 else dA = 0 end
-      if detB > 0 then dB = 1 else dB = 0 end
-      if detC > 0 then dC = 1 else dC = 0 end
-
-      dd = dA + 2*dB
       
-      lcd.drawText(140,140, string.format("%d %d", dA, dB))
+      lcd.drawText(140,140, string.format("%d %d %d", flightZone, dA, dB))
       
       if  detB > 0 then
 	 lcd.setColor(255,0,0)
@@ -458,11 +571,6 @@ local function printTele()
 
       lcd.setColor(0,0,0)
 
-      perpA = pDist(0,-50,0,50,curX, curY)
-      perpB = pDist(150,-50,150, 50, curX, curY)
-   
-      if detA < 0 then perpA = -perpA end
-      if detB > 0 then perpB = -perpB end
 
       local text = string.format("%.2f", perpA)
       lcd.drawText( xp(0) - lcd.getTextWidth(FONT_NORMAL, text)/2 , yp(-60), text)
@@ -528,7 +636,7 @@ local function init()
    if not cc then
       print("Could not register control")
    else
-      system.setControl(1, -1, 0)
+      system.setControl(1, 1, 0)
    end
    
    readSensors()
@@ -546,6 +654,8 @@ local function init()
    appStartTime = system.getTimeCounter()
    appRunTime = 0
    
+   print("gps", gps.getPosition(0,0,0))
+	 
    print("DFM-F3G: gcc " .. collectgarbage("count"))
    
 end
