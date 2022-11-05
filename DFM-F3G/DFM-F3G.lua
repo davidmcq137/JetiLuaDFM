@@ -18,12 +18,63 @@ local sensorIdlist = { "..." }  -- sensor IDs
 local sensorPalist = { "..." }  -- sensor parameters
 local sensorUnlist = { "..." }  -- sensor units
 
-local latSensor
-local lngSensor
+local latSe, latSeId, latSePa
+local lngSe, lngSeId, lngSePa
+local voltSe, voltSeId, voltSePa
+local ampSe, ampSeId, ampSePa
+local altSe, altSeId, altSePa
+
+local thrCtl
+
+local flightState
+local fs = {Idle=1,MotorOn=2,MotorOff=3,Ready=4, AtoB=5,BtoA=6}
+local fsTxt = {"Idle", "Motor On", "Motor Off", "Ready", "A to B", "B to A"}
+
+local appStartTime, appRunTime
+
+local motorTime
+local motorStart
+local motorPower
+local motorWattSec
+local lastPowerTime
+local flightTime
+local flightStart
+
+local curDist
+local curBear
+local curPos
+local zeroPos
+local zeroLatString
+local zeroLngString
+local initPos
+local curX, curY
+local lastX, lastY
+local heading
+local rotA
 
 local savedRow
 local savedRow2
 local savedRow3
+
+local Glider = { 
+   {0,-7},
+   {-1,-2},
+   {-14,0},
+   {-14,2},	
+   {-1,2},	
+   {-1,8},
+   {-4,8},
+   {-4,10},
+   {0,10},
+   {4,10},
+   {4,8},
+   {1,8},
+   {1,2},
+   {14,2},
+   {14,0},
+   {1,-2}
+}
+
 
 -- Read and set translations (out for now till we have translations, simplifies install)
 
@@ -36,6 +87,21 @@ local function setLanguage()
     trans11 = obj[lng] or obj[obj.default]
   end
 --]]
+end
+
+local function drawShape(col, row, shape, rotation)
+   local sinShape, cosShape
+   local ren=lcd.renderer()
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   ren:reset()
+   for _, point in pairs(shape) do
+      ren:addPoint(
+	 col + (point[1] * cosShape - point[2] * sinShape + 0.5),
+	 row + (point[1] * sinShape + point[2] * cosShape + 0.5)
+      ) 
+   end
+   ren:renderPolygon()
 end
 
 --------------------------------------------------------------------------------
@@ -92,20 +158,67 @@ local function keyForm(key)
    local row = form.getFocusedRow()
    if keyExit(key) then
    end
+   if key == KEY_1 then
+      zeroPos = curPos
+      zeroLatString, zeroLngString = gps.getStrig(zeroPos)
+      print("saving zeroLat/LngString")
+      system.pSave("zeroLatString", zeroLatString)
+      system.pSave("zeroLngString", zeroLngString)
+   elseif key == KEY_2 then
+      rotA = math.rad(curBear-90)
+      system.pSave("rotA", rotA*1000)
+   end
 end
 
 local function latSensorChanged(val)
-   print("latSensor", val)
-   latSensor = val
-   system.pSave("latSensor", latSensor)
+   latSe = val
+   latSeId = sensorIdlist[latSe]
+   latSePa = sensorPalist[latSe]
+   system.pSave("latSe", latSe)
+   system.pSave("latSeId", latSeId)
+   system.pSave("latSePa", latSePa)
 end
 
 local function lngSensorChanged(val)
-   print("lngSensor", val)
-   lngSensor = val
-   system.pSave("lngSensor", lngSensor)
+   lngSe = val
+   lngSeId = sensorIdlist[lngSe]
+   lngSePa = sensorPalist[lngSe]
+   system.pSave("lngSe", lngSe)
+   system.pSave("lngSeId", lngSeId)
+   system.pSave("lngSePa", lngSePa)
 end
 
+local function ampSensorChanged(val)
+   ampSe = val
+   ampSeId = sensorIdlist[ampSe]
+   ampSePa = sensorPalist[ampSe]
+   system.pSave("ampSe", ampSe)
+   system.pSave("ampSeId", ampSeId)
+   system.pSave("ampSePa", ampSePa)
+end
+
+local function voltSensorChanged(val)
+   voltSe = val
+   voltSeId = sensorIdlist[voltSe]
+   voltSePa = sensorPalist[voltSe]
+   system.pSave("voltSe", voltSe)
+   system.pSave("voltSeId", voltSeId)
+   system.pSave("voltSePa", voltSePa)
+end
+
+local function altSensorChanged(val)
+   altSe = val
+   altSeId = sensorIdlist[altSe]
+   altSePa = sensorPalist[altSe]
+   system.pSave("altSe", altSe)
+   system.pSave("altSeId", altSeId)
+   system.pSave("altSePa", altSePa)
+end
+
+local function thrCtlChanged(val)
+   thrCtl = val
+   system.pSave("thrCtl", thrCtl)
+end
 
 local function initForm(sf)
    local str
@@ -114,12 +227,35 @@ local function initForm(sf)
       form.setTitle("Level 1 menu")
 
       form.addRow(2)
+      form.addLabel({label="Course display >>"})
+      form.addLink((function()
+	       form.reinit(2)
+	       form.waitForRelease()
+      end))
+
+      form.addRow(2)
+      form.addLabel({label="Throttle Control"})
+      form.addInputbox(thrCtl, true, thrCtlChanged)
+
+      form.addRow(2)
       form.addLabel({label="Latitude Sensor"})
-      form.addSelectbox(sensorLalist, latSensor, true, latSensorChanged)
+      form.addSelectbox(sensorLalist, latSe, true, latSensorChanged)
 
       form.addRow(2)
       form.addLabel({label="Longitude Sensor"})
-      form.addSelectbox(sensorLalist, lngSensor, true, lngSensorChanged)
+      form.addSelectbox(sensorLalist, lngSe, true, lngSensorChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Motor Voltage Sensor"})
+      form.addSelectbox(sensorLalist, voltSe, true, voltSensorChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Motor Current Sensor"})
+      form.addSelectbox(sensorLalist, ampSe, true, ampSensorChanged)
+
+      form.addRow(2)
+      form.addLabel({label="Altitude Sensor"})
+      form.addSelectbox(sensorLalist, altSe, true, altSensorChanged)                  
       
       if savedRow then form.setFocusedRow(savedRow) end
       savedRow = 1
@@ -142,41 +278,119 @@ local function initForm(sf)
 end
 
 --------------------------------------------------------------------------------
+local function det(x1, y1, x2, y2, x, y)
+   return (x-x1)*(y2-y1) - (y-y1)*(x2-x1)
+end
 
-local zeroPos
-local curX, curY
+local function pDist(x1, y1, x2, y2, x, y)
+   return math.abs( (x2-x1)*(y1-y) - (x1-x)*(y2-y1) ) / math.sqrt( (x2-x1)^2 + (y2-y1)^2)
+end
+
+local function rotateXY(xx, yy, rotation)
+   local sinShape, cosShape
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
+end
 
 local function loop()
    local sensor
-   local curPos
    local lat, lng
    local minutes, degs
-   local curDist, curBear
+   local swt
+   local now
+   local volt, amp
+   local sensor
+   
+   now = system.getTimeCounter()
 
---local sensorLalist = { "..." }  -- sensor labels (long)
---local sensorLslist = { "..." }  -- sensor labels (short)
---local sensorIdlist = { "..." }  -- sensor IDs
---local sensorPalist = { "..." }  -- sensor parameters
---local sensorUnlist = { "..." }  -- sensor units
+   if flightState == fs.Idle then
+      swt = system.getInputsVal(thrCtl)
+      if swt and swt == 1 then
+	 motorStart = now
+	 motorWattSec = 0
+	 flightState = fs.MotorOn
+	 lastPowerTime = now
+	 flightStart = now
+	 system.setControl(1, 1, 0)
+      end
+   else
+      flightTime = now - flightStart
+   end
 
-   if latSensor > 1 and lngSensor > 1 then
+   if flightState == fs.MotorOn then
+      sensor = system.getSensorByID(ampSeId, ampSePa)
+      if sensor and sensor.valid then
+	 amp = sensor.value
+      end
+      sensor = system.getSensorByID(voltSeId, voltSePa)
+      if sensor and sensor.valid then
+	 volt = sensor.value
+      end
+      if volt and amp then
+	 motorPower = volt * amp
+	 motorWattSec = motorWattSec + volt * amp * (now-lastPowerTime) / 1000
+	 lastPowerTime = now
+      end
+      motorTime = now - motorStart
 
-      curPos = gps.getPosition(sensorIdlist[latSensor], sensorPalist[latSensor], sensorPalist[lngSensor])
-      if not zeroPos then zeroPos = curPos end
+      if motorTime > 30*1000 then
+	 print("Motor > 30s")
+	 flightState = fs.MotorOff
+	 system.setContol(1, -1, 0)
+	 system.playFile("/Apps/DFM-F3G/motor_off_time.wav", AUDIO_IMMEDIATE)
+      elseif motorWattSec / 60 > 350 then
+	 print("Watt-Min > 350")
+	 flightState = fs.MotorOff
+	 system.setControl(1, -1, 0)
+	 system.playFile("/Apps/DFM-F3G/motor_off_wattmin.wav", AUDIO_IMMEDIATE)
+      end
+
+   end
+   
+   if flightState == fs.MotorOff then
+      print(flightTime/1000)
+      if flightTime / 1000 > 40 then
+	 system.playFile("/Apps/DFM-F3G/40_seconds.wav", AUDIO_IMMEDIATE)
+	 flightState = fs.Ready
+      end
+   end
+   
+   if latSe > 1 and lngSe > 1 then
+
+      curPos = gps.getPosition(latSeId, latSePa, lngSePa)
+
+      if not curPos then return end
+      
+      if not initPos then
+	 initPos = curPos
+	 if not zeroPos then zeroPos = curPos end
+      end
 
       curDist = gps.getDistance(zeroPos, curPos)
       curBear = gps.getBearing(zeroPos, curPos)
+
       curX = curDist * math.cos(math.rad(curBear+270)) -- why not same angle X and Y??
       curY = curDist * math.sin(math.rad(curBear+90))
-      --curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
+
+      if not lastX then lastX = curX end
+      if not lastY then lastY = curY end
+      
+      curX, curY = rotateXY(curX, curY, rotA)
       --print("curDist, curBear", curDist, curBear)
+
+      if curX ~= lastX or curY ~= lastY then -- new point
+	 heading = math.atan(curX-lastX, curY - lastY)
+	 lastX = curX
+	 lastY = curY
+      end
       
    end
 
    loopCPU = system.getCPU()
 end
 
-local xmin, xmax, ymin, ymax = -800, 800, -400, 400
+local xmin, xmax, ymin, ymax = -75, 225, -75, 75
 
 local function xp(x)
    return 320 * (x - xmin) / (xmax - xmin)
@@ -186,15 +400,80 @@ local function yp(y)
    return 160 *(1 -  (y - ymin) / (ymax - ymin))
 end
 
+
+local function drawPylons()
+
+   lcd.drawLine(xp(-50), yp(0), xp(200), yp(0))
+   lcd.drawLine(xp(0), yp(-50), xp(0), yp(50))
+   lcd.drawLine(xp(150), yp(-50), xp(150), yp(50))
+   
+end
+
 local function printTele()
 
+   local detA, detB, detC
+   local perpA, perpB
+   local dA, dB, dC, dd
+   local LEFT = 0
+   local RIGHT = 3
+   local MIDDLE = 1
+   local text
+   
+   if subForm ~= 2 then return end
+
+   form.setTitle("")
+   form.setButton(1, "Pt A", ENABLED)
+   form.setButton(2, "Dir B", ENABLED)
+   
+   lcd.drawText(0,0,fsTxt[flightState])
+   text = string.format("F: %.2fs", flightTime/1000)
+   lcd.drawText(0,15,text)
+   text = string.format("M: %.2f", motorTime/1000)
+   lcd.drawText(245,0,text)
+   text = string.format("P: %.2f", motorWattSec/60)
+   lcd.drawText(245,15,text)
+   
    if curX and curY then
-      --print(curX, curY)
-      lcd.drawCircle(xp(curX), yp(curY), 4)
+
+      lcd.setColor(0,255,0)
+      detA = det(0,-50,0,50,curX,curY)
+      detB = det(150,-50, 150, 50,curX,curY)
+      detC = det(-75,0,225,0,curX,curY)
+
+      if detA > 0 then dA = 1 else dA = 0 end
+      if detB > 0 then dB = 1 else dB = 0 end
+      if detC > 0 then dC = 1 else dC = 0 end
+
+      dd = dA + 2*dB
+      
+      lcd.drawText(140,140, string.format("%d %d", dA, dB))
+      
+      if  detB > 0 then
+	 lcd.setColor(255,0,0)
+      elseif detA > 0 then
+	 lcd.setColor(0,0,255)
+      end
+      
+      drawShape(xp(curX), yp(curY), Glider, (heading or 0) )
+
+      lcd.setColor(0,0,0)
+
+      perpA = pDist(0,-50,0,50,curX, curY)
+      perpB = pDist(150,-50,150, 50, curX, curY)
+   
+      if detA < 0 then perpA = -perpA end
+      if detB > 0 then perpB = -perpB end
+
+      local text = string.format("%.2f", perpA)
+      lcd.drawText( xp(0) - lcd.getTextWidth(FONT_NORMAL, text)/2 , yp(-60), text)
+      text = string.format("%.2f", perpB)
+      lcd.drawText( xp(150) - lcd.getTextWidth(FONT_NORMAL, text)/2, yp(-60), text)
+
    end
 
-   lcd.drawLine(xp(xmin), yp(0), xp(xmax), yp(0))
-   lcd.drawLine(xp(0), yp(ymin), xp(0), yp(ymax))
+   lcd.setColor(0,0,0)
+   
+   drawPylons()
 
 end
 
@@ -205,15 +484,67 @@ local function init()
    emFlag = select(2, system.getDeviceType()) == 1
    if emFlag then pf = "" else pf = "/" end
 
-   latSensor = system.pLoad("latSensor", 1)
-   lngSensor = system.pLoad("lngSensor", 1)
+   zeroLatString = system.pLoad("zeroLatString")
+   zeroLngString = system.pLoad("zeroLngString")
+
+   latSe = system.pLoad("latSe", 0)
+   latSeId = system.pLoad("latSeId",0)
+   latSePa = system.pLoad("latSePa",0)
    
-   system.registerForm(1, MENU_APPS, "F3G", initForm, keyForm)
-   system.registerTelemetry(1, "F3G Display", 4, printTele)
+   lngSe = system.pLoad("lngSe", 0)
+   lngSeId = system.pLoad("lngSeId",0)
+   lngSePa = system.pLoad("lngSePa",0)
+
+   voltSe = system.pLoad("voltSe", 0)
+   voltSeId = system.pLoad("voltSeId",0)
+   voltSePa = system.pLoad("voltSePa",0)
+
+   ampSe = system.pLoad("ampSe", 0)
+   ampSeId = system.pLoad("ampSeId",0)
+   ampSePa = system.pLoad("ampSePa",0)
+
+   altSe = system.pLoad("altSe", 0)
+   altSeId = system.pLoad("altSeId",0)
+   altSePa = system.pLoad("altSePa",0)
+
+   thrCtl = system.pLoad("thrCtl")
+   
+   rotA = system.pLoad("rotA", 0)
+   rotA = rotA / 1000.0 -- rotA was saved as *1000 since it has to be an int
+   print("rotA", rotA, math.deg(rotA))
+   
+   if zeroLatString and zeroLngString then
+      print("zeroPos", zeroLatString, zeroLngString)
+      zeroPos = gps.newPoint(zeroLatString, zeroLngString)
+   end
+   
+   thrCtl =  system.pLoad("thrCtl")
+   
+   system.registerForm(1, MENU_APPS, "F3G", initForm, keyForm, printTele)
+   --system.registerTelemetry(1, "F3G Display", 4, printTele)
+
+   local cc = system.registerControl(1, "Motor Enable", "MOT")
+
+   if not cc then
+      print("Could not register control")
+   else
+      system.setControl(1, -1, 0)
+   end
    
    readSensors()
    
    setLanguage()
+   
+   flightState = fs.Idle
+
+   motorStart = 0
+   motorTime = 0
+   motorPower = 0
+   motorWattSec = 0
+   flightTime = 0
+   
+   appStartTime = system.getTimeCounter()
+   appRunTime = 0
    
    print("DFM-F3G: gcc " .. collectgarbage("count"))
    

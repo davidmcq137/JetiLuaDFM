@@ -9,7 +9,7 @@
 --]]
 
 --local trans11
-local BattVersion = "2.0"
+local BattVersion = "2.2"
 
 local runningTime = 0
 local startTime = 0
@@ -118,7 +118,7 @@ local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, rgb)
 
    local d
    local txt
-   local font = FONT_NORMAL
+   local font = FONT_BIG
    local r, g, b
 
    if not val then return end
@@ -163,6 +163,11 @@ local function timePrint(width, height)
    local rgb={}
    local rs,gs,bs
 
+   --lcd.setColor(255,255,255)
+   --lcd.drawFilledRectangle(0,0,width-1,height-1)
+
+   rs,gs,bs = lcd.getFgColor()
+   
    if selectedGroup < 1 or selectedGroup > #Battery then
       str = "No Battery Group"
    elseif selectedBattery < 1 or selectedBattery > #Battery[selectedGroup] then
@@ -175,9 +180,12 @@ local function timePrint(width, height)
 			  sGsB.cap - battmAh)
       local battPct = 100 * (sGsB.cap - battmAh) / sGsB.cap
       if  battPct <= sGsB.warn then
-	 rgb = {r=255,g=0,b=0}
+	 --rgb = {r=255,g=0,b=0}
+	 --rgb = {r=255-rs,g=255-gs,b=255-bs}
+	 rgb = {r=(rs+170)%255,g=(gs+170)%255,b=(bs+170)%255}	 
       else
-	 rgb = {r=0,g=0,b=255}
+	 --rgb = {r=0,g=0,b=255}
+	 rgb = {r=rs,g=gs,b=bs}	 
       end
       drawRectGaugeAbs(75, 33, 140, 25, 0, 100, battPct,"", rgb)
       
@@ -193,15 +201,36 @@ local function timePrint(width, height)
    else
       lcd.setColor(0,0,0)
    end
-
+   
    if strCap then lcd.drawText(8,50, strCap, FONT_MINI) end
    lcd.drawText(4,0,str)
 
 end
 
+local ikk
+
 local function key0(key)
 
    local row = form.getFocusedRow()
+   if key == KEY_3 then
+      if ikk == 0 then
+	 ikk = row + 1
+	 if ikk > #Battery[selectedGroup] then ikk = 1 end
+      else
+	 if ikk + 1 <= #Battery[selectedGroup] then
+	    ikk = ikk + 1
+	 else
+	    ikk = 1
+	 end
+      end
+      if ikk ~= row then
+	 form.setTitle(string.format("%s - Add Cyc Batt %d", BatteryGroupName[selectedGroup], ikk))
+      else
+	 form.setTitle(string.format("%s", BatteryGroupName[selectedGroup]))
+      end
+      
+   end
+   
 
    if key == KEY_5 or key == KEY_ENTER then
       form.preventDefault()
@@ -210,11 +239,16 @@ local function key0(key)
 	 selectedBattery = row
       end
 
-      print("5 or Enter", row, selectedBattery)
+      --print("5 or Enter", row, selectedBattery)
       
       if selectedBattery > 0 then
+	 print("ikk", ikk)
 	 Battery[selectedGroup][selectedBattery].cyc =
 	    Battery[selectedGroup][selectedBattery].cyc + 1
+	 if ikk > 0 and ikk ~= selectedBattery then
+	    Battery[selectedGroup][ikk].cyc =
+	       Battery[selectedGroup][ikk].cyc + 1
+	 end
 	 system.playFile('/Apps/DFM-Batt/selected_battery.wav', AUDIO_IMMEDIATE)
 	 system.playNumber(selectedBattery, 0)
 	 system.unregisterTelemetry(1)
@@ -247,6 +281,9 @@ local function initForm0()
    local str
    local row = 0
    local focusRow = 1
+
+   ikk = 0
+   
    --print("lastGroup, lastBattery:", lastGroup, lastBattery)
    if #Battery > 0 and selectedGroup < 1 then
       form.addRow(1)
@@ -257,6 +294,8 @@ local function initForm0()
    else
       form.setTitle(BatteryGroupName[selectedGroup])
       form.setButton(1, "Esc", 1)
+      form.setButton(3, "+Cyc", 1)
+      
       for i=1,#Battery[selectedGroup],1 do
 	 if Battery[selectedGroup][i].cap ~= 0 then
 	    row = row + 1

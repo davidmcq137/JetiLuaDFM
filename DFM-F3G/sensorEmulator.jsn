@@ -50,7 +50,7 @@
      "sensorName":"MGPS",
      "label":"Quality",
      "unit":"",
-     "luaExp":"1.1"
+     "luaExp":"P5(200)"
     },
     {"id":3,
      "param":10,
@@ -87,6 +87,27 @@
      "label":"Velocity",
      "unit":"m/s",
      "luaExp":"P8(0,100)"
+    },
+    {"id":3,"param":0,"sensorName":"Volt", "label":"Volt"},
+    {"id":3,
+     "param":1,
+     "decimals":0,
+     "type":4,
+     "sensorName":"Volt",
+     "label":"Volt",
+     "unit":"V",
+     "luaExp":"P7(0,30)"
+    },
+    {"id":4,"param":0,"sensorName":"Amp", "label":"Amp"},
+    {"id":4,
+     "param":1,
+     "decimals":0,
+     "type":4,
+     "sensorName":"Amp",
+     "label":"Amp",
+     "unit":"A",
+     "luaExp":"P8(0,100)"
     }
+    
     
 ]

@@ -2,8 +2,8 @@
     "lat0": 41.339975,
     "lon0": -74.430895,
     "rE":6378137,
-    "trueDir": 0,
+    "trueDir": 30,
     "startTime": 0,
-    "xString":"200*math.cos(t)",
-    "yString":"200*math.sin(t)"
+    "xString":"90*P5(-1,1) + 75 --90*math.cos(t/2) + 75",
+    "yString":"30*P6(-1,1) --30*math.sin(t/2)"
 }
