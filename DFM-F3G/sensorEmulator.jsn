@@ -96,7 +96,7 @@
      "sensorName":"Volt",
      "label":"Volt",
      "unit":"V",
-     "luaExp":"P7(0,30)"
+     "luaExp":"P7(0,30)*P4(0,1)"
     },
     {"id":4,"param":0,"sensorName":"Amp", "label":"Amp"},
     {"id":4,
@@ -106,7 +106,7 @@
      "sensorName":"Amp",
      "label":"Amp",
      "unit":"A",
-     "luaExp":"P8(0,100)"
+     "luaExp":"P8(0,100)*P4(0,1)"
     },
     {"id":5,"param":0,"sensorName":"Alt", "label":"Altitude"},
     {"id":5,
