@@ -5,6 +5,6 @@ NAME;AUTHOR;VERSION;HARDWARE;DATE;DESCRIPTION;FILES_FOLDERS;ICON;MIN_TXVER
 {"en":"DFM-Watt.lua"};D. McQueeney and H. Curzon;0.4;678,679,680,652,653,3857,3858;Thu May 13 16:27:00 2021 GMT;{"en":"DFM-Watt.html"};DFM-Watt.lua,DFM-Watt;DFM.png;5.0
 {"en":"DFM-Amix"};D. McQueeney and H. Curzon;1.4;674,675,676,677,678,679,680,652,653,3857,3858;Tue Apr 19 10:17:00 2022 GMT;{"en":"DFM-Amix/DFM-Amix.html"};DFM-Amix,DFM-Amix.lc;DFM.png;5
 {"en":"V-SensXF"};Jeti Model and D. McQueeney and H. Curzon;4.1;674,675,676,677,678,679,680,652,653,3857,3858;Mon May 9 21:25:00 2022;{"en":"V-SensXF.html"};V-SensXF.lc,V-SensXF,V-Ann.lc;DFM.png;4.28
-{"en":"DFM-Batt"};D. McQueeney and H. Curzon;2.1;674,675,676,677,678,679,680,652,653,3857,3858;Thu Nov 3 10:25:00 2022;{"en":"DFM-Batt.html"};DFM-Batt,DFM-Batt.lc;DFM.png;5.0
+{"en":"DFM-Batt"};D. McQueeney and H. Curzon;2.2;674,675,676,677,678,679,680,652,653,3857,3858;Tue Nov 8 10:25:00 2022;{"en":"DFM-Batt.html"};DFM-Batt.lc,DFM-Batt;DFM.png;5.0
 {"en":"DFM-Dial"};D. McQueeney and H. Curzon;0.98;678,679,680,652,653,3857,3858;Sun Oct 23 22:00:00 2022 GMT;{"en":"DFM-Dial.html"};DFM-Dial.lc,DFM-Dial;DFM.png;5.0
 {"en":"DFM-TimG"};;1.1;678,679,680,652,653,3857,3858;Wed Nov 2 11:00:00 2022;{"en":"DFM-TimG.html"};DFM-TimG.lua,DFM-TimG;DFM.png;

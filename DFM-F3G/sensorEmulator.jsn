@@ -117,7 +117,18 @@
      "label":"Altitude",
      "unit":"m",
      "luaExp":"250"
+    },
+    {"id":6,"param":0,"sensorName":"Pul", "label":"Pulse"},
+    {"id":6,
+     "param":1,
+     "decimals":0,
+     "type":4,
+     "sensorName":"Pul",
+     "label":"Pulse",
+     "unit":"",
+     "luaExp":"P1(0,3.3)"
     }
+    
     
     
     

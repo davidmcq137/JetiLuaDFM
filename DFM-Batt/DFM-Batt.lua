@@ -81,6 +81,7 @@ end
 
 local function resetGroup(i)
    BatteryGroupName[i] = string.format("Group %d", i)
+   Battery[i] = {}
 end
 
 local function resetBattery(sr, i)
@@ -207,50 +208,54 @@ local function timePrint(width, height)
 
 end
 
-local ikk
+--local ikk
+local selBatt = {}
 
 local function key0(key)
-
    local row = form.getFocusedRow()
    if key == KEY_3 then
-      if ikk == 0 then
-	 ikk = row + 1
-	 if ikk > #Battery[selectedGroup] then ikk = 1 end
-      else
-	 if ikk + 1 <= #Battery[selectedGroup] then
-	    ikk = ikk + 1
-	 else
-	    ikk = 1
+      for j=1,#selBatt do
+	 if selBatt[j] == row then
+	    system.messageBox("Battery already selected")
+	    form.reinit(2)
+	    return
 	 end
       end
-      if ikk ~= row then
-	 form.setTitle(string.format("%s - Add Cyc Batt %d", BatteryGroupName[selectedGroup], ikk))
-      else
-	 form.setTitle(string.format("%s", BatteryGroupName[selectedGroup]))
-      end
-      
+      table.insert(selBatt, row)
+      form.reinit(2)
    end
-   
 
    if key == KEY_5 or key == KEY_ENTER then
       form.preventDefault()
       selectedBattery = 0
       if selectedGroup > 0 and row >= 1 and row <= #Battery[selectedGroup]  then
-	 selectedBattery = row
+	 -- don't double-select an already-selected battery
+	 local skip
+	 for j=1,#selBatt do
+	    if selBatt[j] == row then skip = true else skip = false end
+	 end
+	 if not skip then
+	    table.insert(selBatt, row)
+	 end
+	 --selectedBattery = row
+	 selectedBattery = selBatt[1]
       end
 
       --print("5 or Enter", row, selectedBattery)
       
       if selectedBattery > 0 then
-	 print("ikk", ikk)
-	 Battery[selectedGroup][selectedBattery].cyc =
-	    Battery[selectedGroup][selectedBattery].cyc + 1
-	 if ikk > 0 and ikk ~= selectedBattery then
-	    Battery[selectedGroup][ikk].cyc =
-	       Battery[selectedGroup][ikk].cyc + 1
+	 for j=1, #selBatt do
+	    Battery[selectedGroup][selBatt[j]].cyc =
+	       Battery[selectedGroup][selBatt[j]].cyc + 1
+	    system.playFile('/Apps/DFM-Batt/selected_battery.wav', AUDIO_IMMEDIATE)
+	    system.playNumber(selBatt[j], 0)
 	 end
-	 system.playFile('/Apps/DFM-Batt/selected_battery.wav', AUDIO_IMMEDIATE)
-	 system.playNumber(selectedBattery, 0)
+
+	 --if ikk > 0 and ikk ~= selectedBattery then
+	 --   Battery[selectedGroup][ikk].cyc =
+	 --      Battery[selectedGroup][ikk].cyc + 1
+	 --end
+	 
 	 system.unregisterTelemetry(1)
 	 system.registerTelemetry(1, BatteryGroupName[selectedGroup], 2, timePrint)
       else
@@ -281,10 +286,10 @@ local function initForm0()
    local str
    local row = 0
    local focusRow = 1
-
-   ikk = 0
+   local prefix
+      
+   if not selBatt then selBatt = {} end
    
-   --print("lastGroup, lastBattery:", lastGroup, lastBattery)
    if #Battery > 0 and selectedGroup < 1 then
       form.addRow(1)
       form.addLabel({label="No battery group selected for model"})
@@ -294,8 +299,8 @@ local function initForm0()
    else
       form.setTitle(BatteryGroupName[selectedGroup])
       form.setButton(1, "Esc", 1)
-      form.setButton(3, "+Cyc", 1)
-      
+      form.setButton(3, "+Batt", 1)
+
       for i=1,#Battery[selectedGroup],1 do
 	 if Battery[selectedGroup][i].cap ~= 0 then
 	    row = row + 1
@@ -305,7 +310,17 @@ local function initForm0()
 	    form.addRow(1)
 	    local str
 	    local bb = Battery[selectedGroup][i]
-	    str = string.format("Battery %d  [", i) ..
+	    prefix=""
+	    for j=1, #selBatt do
+	       if i == selBatt[j] then
+		  if j == 1 then
+		     prefix = "[P] "
+		  else
+		     prefix = string.format("[%d] ", j)
+		  end
+	       end
+	    end
+	    str = string.format(prefix .. "Batt %d  [", i) ..
 	       string.format("Cap %d ", bb.cap) ..
 	       string.format("W1 %d%% ", bb.warn) ..
 	       string.format("W2 %d%% ", bb.warn2) .. 
@@ -325,6 +340,9 @@ local function initForm0()
       form.addLabel({label="No battery in group"})
    end
    --]]
+   if selBatt and #selBatt > 0 then
+      focusRow = selBatt[#selBatt] 
+   end
    form.setFocusedRow(focusRow)
 end
 
@@ -425,6 +443,16 @@ local function keyForm(key)
    if subForm == 4 and key == KEY_3 and row > 0 then
       savedRow = row
       form.reinit(7)
+   end
+
+   if subForm == 4 and key == KEY_4 and row > 0 then
+      table.remove(Battery, row)
+      table.remove(BatteryGroupName, row)
+      if row == selectedGroup then
+	 system.messageBox("Removed selected group")
+	 selectedGroup = 0
+      end
+      form.reinit(4)
    end
    
    if subForm == 4 and keyExit(key) then
@@ -545,7 +573,7 @@ local function initForm(sf)
       form.setButton(1, "Clr", 1)
       form.setButton(2, ":add", 1)
       form.setButton(3, ":edit", 1)
-
+      form.setButton(4, ":delete", 1)
       
       if #Battery == 0 then
 	 form.addRow(1)
