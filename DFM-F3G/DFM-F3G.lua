@@ -482,7 +482,7 @@ local function loop()
       pulse = sensor.value
    end
 
-   if pulse and pulse > 1.0 and rndOnTime and now > rndOnTime then
+   if pulse and pulse > 1500 and rndOnTime and now > rndOnTime then
       pulseDelay = now - rndOnTime
       system.setControl(3,-1,0)
       rndOnTime = now + 2000
