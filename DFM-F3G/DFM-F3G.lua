@@ -6,6 +6,8 @@
    This app was created at the suggestion of Tim Bischoff. It is intended to
    facilitate practice flights for the new F3G electric glider competition
 
+   It can also be used for F3B
+
    ----------------------------------------------------------------------------
    
 --]]
@@ -34,11 +36,16 @@ local thrCtl
 local armCtl
 local eleCtl
 local elePullTime
+local elePullLog
 local rstCtl
 local swrLast
 local swaLast
 local preAnnEnabled
 local preAnnIdx
+local preBeep
+local preBeepDone
+local preBeepStr = {"...", "P5", "P6", "P7", "P8", "P9", "P10"}
+local preBeepVal
 
 local flightState
 local fs = {Idle=1,MotorOn=2,MotorOff=3,Altitude=4,Ready=5, AtoB=6,BtoA=7, Done=8}
@@ -299,6 +306,11 @@ local function changedDist(val)
    system.pSave("distAB", distAB)
 end
 
+local function preBeepChanged(val)
+   preBeep = val
+   system.pSave("preBeep", preBeep)
+end
+
 local function initForm(sf)
    local str
    subForm = sf
@@ -359,6 +371,10 @@ local function initForm(sf)
       form.addRow(2)
       form.addLabel({label="Course Length", width=220})      
       form.addIntbox(distAB, 20, 200, 150, 0, 1, changedDist)
+      
+      form.addRow(2)
+      form.addLabel({label="Pre-beep control", width=220})
+      form.addSelectbox(preBeepStr, preBeep, true, preBeepChanged)
       
       if savedRow then form.setFocusedRow(savedRow) end
       savedRow = 1
@@ -467,6 +483,10 @@ local function loop()
       end
    end
 
+   if preBeep > 1 then
+      preBeepVal = 20 * (system.getInputs(preBeepStr[preBeep]) + 1)/2 -- 0 to 20
+   end
+   
    -- play the beep as soon as we know we're there
    
    if (flightZone == 3 and lastFlightZone == 2) or (flightZone == 1 and lastFlightZone == 2) then
@@ -594,6 +614,7 @@ local function loop()
 	 perpIdx = 1
 	 taskStartTime = now
 	 taskLaps = 0
+	 preBeepDone = false
 	 system.playFile("/Apps/DFM-F3G/task_started.wav", AUDIO_QUEUE)
       end
    end
@@ -609,6 +630,11 @@ local function loop()
 	    system.playNumber(perpB, 1)
 	 end
       end
+      if preBeepVal and perpB < preBeepVal and not preBeepDone then
+	 print("preBeep")
+	 system.playBeep(1,880,200)
+	 preBeepDone = true
+      end
    end
 
    if flightState == fs.BtoA then
@@ -617,11 +643,13 @@ local function loop()
 	 if elePullTime then
 	    system.playFile("/Apps/DFM-F3G/pull_latency.wav", AUDIO_QUEUE)
 	    system.playNumber( (now - elePullTime)/1000, 1)
+	    elePullLog = now - elePullTime
 	    elePullTime = nil
 	 end
 	 system.playFile("/Apps/DFM-F3G/lap.wav", AUDIO_QUEUE)
 	 system.playNumber(taskLaps,0)
 	 flightState = fs.AtoB
+	 preBeepDone = false
 	 perpIdx = 1
       end
       if perpIdx <= #perpAnn and perpA <= perpAnn[perpIdx] then
@@ -632,6 +660,7 @@ local function loop()
 	 end
       end
       if swe and swe == 1 and perpA < 20 and (not elePullTime) then
+	 print("elePullTime now")
 	 elePullTime = now
       end
    end
@@ -708,16 +737,21 @@ local function printTele()
       lcd.drawText(130,0,text)
    end
 
+   if preBeepVal then
+      text = string.format("PreBeep: %.1fm", preBeepVal or 0)
+      lcd.drawText(220,165, text, FONT_MINI)      
+   end
+   
    if pulse then
       text = string.format("Pulse: %.2f", pulse or 0)
-      lcd.drawText(220,150, text, FONT_MINI)
+      lcd.drawText(220,145, text, FONT_MINI)
       
       text = string.format("Pulse delay: %d", pulseDelay or 0)
-      lcd.drawText(220,160, text, FONT_MINI)
+      lcd.drawText(220,155, text, FONT_MINI)
    end
    
    text = string.format("Theta: %d", math.deg(rotA))
-   lcd.drawText(0,150, text, FONT_MINI)
+   lcd.drawText(0,155, text, FONT_MINI)
 
    if curPos then
       text, text2 = gps.getStrig(curPos)
@@ -725,7 +759,7 @@ local function printTele()
       text, text2 = "---", "---"
    end
 
-   lcd.drawText(0,160,"[" .. text .. "," .. text2 .. "]", FONT_MINI)
+   lcd.drawText(0,165,"[" .. text .. "," .. text2 .. "]", FONT_MINI)
    
 
    if curX and curY then
@@ -756,6 +790,14 @@ local function printTele()
    
    drawPylons()
 
+end
+
+local function elePullCB(idx)
+   if elePullLog then
+      return elePullLog, 0
+   else
+      return 0,0
+   end
 end
 
 local function init()
@@ -798,7 +840,7 @@ local function init()
    rstCtl = system.pLoad("rstCtl")   
 
    distAB = system.pLoad("distAB", 150)
-   
+   preBeep = system.pLoad("preBeep", 1)
    preAnnEnabled = system.pLoad("preAnnEnabled", true) == "true"
    
    rotA = system.pLoad("rotA", 0)
@@ -840,6 +882,10 @@ local function init()
       rndOnTime = system.getTimeCounter() + 2000
    end
 
+   cc = system.registerLogVariable("elePullTime", "ms", elePullCB)
+
+   print("registerLogVariable", cc)
+   
    readSensors()
    setLanguage()
    resetFlight()

@@ -1,0 +1,7 @@
+{
+    "audioStart":"F_Start.wav",
+    "audioSpeed":"/Voice/de/Geschwin.wav",
+    "audioCourse":"/Voice/en/Course.wav",
+    "audioTime":"/Voice/de/Zeit.wav",
+    "audioSeconds":"/Voice/de/Sekunden.wav"
+}

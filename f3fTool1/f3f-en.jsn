@@ -1,0 +1,7 @@
+{
+    "audioStart":"en/F_Launch.wav",
+    "audioSpeed":"/Voice/en/Speed.wav",
+    "audioCourse":"/Voice/en/Course.wav",
+    "audioTime":"/Voice/en/Time.wav",
+    "audioSeconds":"/Voice/en/Seconds.wav"
+}
