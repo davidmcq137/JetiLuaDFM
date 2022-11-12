@@ -75,7 +75,8 @@ local sensorE_Global = {emulator_init=true, emulator_vibration=true, emulator_pl
 setmetatable(_G, {
 		__newindex = function (t, n, v)
 		   if not sensorE_Global[n] then
-		      error("SensorE: Write to undeclared variable ".."<"..n..">", 2)
+		      print("SensorE: Write to undeclared variable ".."<"..n..">")
+		      rawset(t, n, v)
 		   else
 		      rawset(t, n, v)
 		   end
@@ -83,7 +84,7 @@ setmetatable(_G, {
 		end,
 		__index = function (_, n)
 		   if not sensorE_Global[n] then
-		      error("SensorE: Read from undeclared variable ".."<"..n..">", 2)
+		      print("SensorE: Read from undeclared variable ".."<"..n..">")
 		   end
 		end,
 })
