@@ -1,6 +1,6 @@
 -- CTU-Dashboard.lua
 
-local wVersion="4.1"
+local wVersion="4.2"
 local wAppname="CTU-DFM"
 
 -- Locals for the application
@@ -53,6 +53,10 @@ local fuelVoiceFormItem
 local fuelLowFile
 local neverConnected = true
 
+local hexSensorID
+local hexSensorIndex
+local WBDashVersion
+
 local lastValidFuel
 local lastValidFuelTime = 0
 local zeroFuelDelay = 4000
@@ -77,7 +81,9 @@ local vibrationOptions = {"Left","Right","Both","None"}
 local function loadImages()
     local sizeOpt = {"Compact","Large"}
     local idx = 0
-    print("load images: wBrand", wBrand)
+    local imgName
+    
+    --print("load images: wBrand", wBrand)
     --local wBrand="digitech"
     imgName = string.format("Apps/%s/images/"..sizeOpt[cfgSize].."/"..
 			       schemeOptions[cfgScheme].."/c-%.3d.png", wBrand, idx * 5)
@@ -129,28 +135,29 @@ local function getWBSensorID()
     local tmpSensorID = nil
 
     for index, sensor in ipairs(system.getSensors()) do
-       --print("index, sensor", index, sensor, sensor.label)
-        if (sensor.param == 0) then
-            --print("Sensor Name: ", sensor.label)
-            hexSensorID = string.format("%x", sensor.id & 0xFFFF)
-            hexSensorIndex = string.format("%x", math.floor(sensor.id/2^16))
-            --print(string.format("Sensor ID: %s, Index: %s",hexSensorID,hexSensorIndex))
-            if (catalog.device[sensor.label] ~= nil) then
-	       print("-->catalog.device[sensor.label].model", catalog.device[sensor.label].model)
-	       tmpSensorID = sensor.id
-	       --print("sensor.id: ", sensor.id)
-	       wbRPMParam = tonumber(catalog.device[sensor.label].RPM)
-	       wbEGTParam = tonumber(catalog.device[sensor.label].EGT)
-	       wbFuelParam = tonumber(catalog.device[sensor.label].Fuel)
-	       wbBattParam = tonumber(catalog.device[sensor.label].Batt)
-	       wbPumpParam = tonumber(catalog.device[sensor.label].Pump)
-	       wbStatusParam = tonumber(catalog.device[sensor.label].Status)
-	       --print("wbRPMParam: ", wbRPMParam)
-	       --print("wbEGTParam: ", wbEGTParam)		
-	       --print("wbStatusParam: ", wbStatusParam)
-	       return tmpSensorID
-            end
-        end
+       --print("index, sensor", index, sensor.param, sensor.id, sensor.label)
+       if (sensor.param == 0) then
+	  --print("Sensor Name: ", sensor.label)
+	  hexSensorID = string.format("%x", sensor.id & 0xFFFF)
+	  hexSensorIndex = string.format("%x", math.floor(sensor.id/2^16))
+	  --print(string.format("Sensor ID: %s, Index: %s",hexSensorID,hexSensorIndex))
+	  if (catalog.device[sensor.label] ~= nil) then
+	     --print("-->catalog.device[sensor.label].model", catalog.device[sensor.label].model)
+	     tmpSensorID = sensor.id
+	     --print("sensor.id: ", sensor.id)
+	     wbRPMParam = tonumber(catalog.device[sensor.label].RPM)
+	     wbEGTParam = tonumber(catalog.device[sensor.label].EGT)
+	     wbFuelParam = tonumber(catalog.device[sensor.label].Fuel)
+	     wbBattParam = tonumber(catalog.device[sensor.label].Batt)
+	     wbPumpParam = tonumber(catalog.device[sensor.label].Pump)
+	     wbStatusParam = tonumber(catalog.device[sensor.label].Status)
+	     --print("wbRPMParam: ", wbRPMParam)
+	     --print("wbEGTParam: ", wbEGTParam)		
+	     --print("wbStatusParam: ", wbStatusParam)
+	     --print("returning", tmpSensorID)
+	     return tmpSensorID
+	  end
+       end
     end
     
     return tmpSensorID
@@ -190,7 +197,8 @@ end
 local function DrawFuelGauge(percentage,size)
 
     local ox, oy, textPct
-
+    local value, upValue, downValue
+    
     value = percentage / 20
 
     upValue = math.ceil(value)
@@ -324,7 +332,8 @@ end
 -- EGT Gauge
 local function DrawEgtGauge(iEGT, size)
     local textEGT, ox, oy, jEGT
-
+    local theta
+    
     jEGT = iEGT
     
     textEGT = string.format("%d", jEGT)
@@ -413,7 +422,9 @@ local function DrawVoltages(u_pump, u_ecu, u_rpm, size)
        lcd.drawText(12 + ox, 46 + oy, "ECU", FONT_MINI)
        lcd.drawLine(ox, oy + 46, ox + W - 1, oy + 46)
     end
-    
+
+    local textPump
+    local textEcu
 
     if (lPumpUnit == "V") then
         textPump = string.format("%.2f", u_pump)
@@ -505,16 +516,18 @@ local function getStatusText(statusSensorID)
     local switch
     local lSpeech
 
-    --print("in getStatusText")
-    
-    --if wbStatusParam == 99 then
-      -- wbStatusText = "----"
-      -- wbStatusPrev = wbStatusText
-      -- wbECUTypePrev = xicoyTelemECUType
-      -- return wbStatusText
-    --end
-    
-    
+    --print("in getStatusText", statusSensorID)
+
+    -- if the generic Xicoy (no status param) then we return with basic info only
+    -- and no statu (since we can't read it!)
+
+    if wbStatusParam == 99 then
+       wbStatusText = "----"
+       wbStatusPrev = wbStatusText
+       wbECUTypePrev = xicoyTelemECUType
+       return wbStatusText
+    end
+        
     local sensor = system.getSensorByID(statusSensorID, tonumber(wbStatusParam))
 
     if (sensor and sensor.valid) then
@@ -607,17 +620,18 @@ local function getWBECUType(statusSensorID)
     local sensor
 
     --print("getWBECUType - statusSensorID, wbStatusParam: ", statusSensorID, wbStatusParam)
-    if wbStatusParam == 7 then -- Xicoy tele adapter
+    
+    if wbStatusParam == 7 or wbStatusParam == 99 then -- Xicoy tele adapter
        ecuType = xicoyTelemECUType
        validECU = (catalog.ecu[tostring(ecuType)] ~= nil)
        --print("validECU:",validECU)
        if (validECU) then
-	  --print("readConfig")
+	  --print("readConfig", ecuType)
 	  readConfig(ecuType)
        else
 	  ecuType = nil
        end
-       --print("Returning ecuType for Xicoy Telemetry")
+       --print("Returning ecuType for Xicoy Telemetry", ecuType)
        return ecuType
     end
 
@@ -661,14 +675,14 @@ end
 -- Get RPM From telemtry data
 local function getRPM(statusSensorID)
    local value = 0 -- sensor value
-    local sensor = system.getSensorByID(statusSensorID, tonumber(wbRPMParam))
-
-    if (sensor and sensor.valid) then
-        value = sensor.value
-    else
-        value = 0
-    end
-    return value
+   local sensor = system.getSensorByID(statusSensorID, tonumber(wbRPMParam))
+   
+   if (sensor and sensor.valid) then
+      value = sensor.value
+   else
+      value = 0
+   end
+   return value
 end
 ------------------------------------------------------------------------
 -- Get Fuel remaining From telemtry data
@@ -731,7 +745,7 @@ local function setTurbineProps(tName)
    local jsonFile
    local fg
 
-   print("in set, tName:", tName)
+   --print("in set, tName:", tName)
    
    if tName == "..." then
       maxEGT = 800
@@ -953,11 +967,16 @@ local function init(code)
     
     readCatalog()
 
-    print("wBrand: ", wBrand)
+    --print("wBrand: ", wBrand)
     wBrand = catalog.config.brand
     
     wbSensorID = getWBSensorID()
-    print("wbSensorID: ", wbSensorID)
+    --print("wbSensorID: ", wbSensorID)
+
+    if not wbSensorID then
+       system.messageBox("CTU-DFM: No ECU controller found")
+       print("wbSensorID is nil")
+    end
     
     maxRPM = system.pLoad("maxRPM", 225)
     maxEGT = system.pLoad("maxEGT", 800)
@@ -990,7 +1009,7 @@ local function init(code)
 
     setTurbineProps(turbineName)
 
-    print("turbineName, turbineNameIdx", turbineName, turbineNameIdx)
+    --print("turbineName, turbineNameIdx", turbineName, turbineNameIdx)
 
     --[[
     print("turbineProps:", turbineProps)
@@ -1084,15 +1103,24 @@ local function loop()
    if (wbSensorID ~= nil and wbSensorID ~= 0 and wbECUType ~= nil) then
       
       -- check if status parameter is present (avoid crash when rescaning sensor)
-      tmp = system.getSensorByID(wbSensorID,tonumber(wbStatusParam))
+      if wbStatusParam ~= 99 then
+	 tmp = system.getSensorByID(wbSensorID,tonumber(wbStatusParam))
+      else
+	 tmp = true
+      end
 
+      --print("tmp", tmp, wbSensorID, wbStatusParam)
       
       if(tmp ~= nil) then
 	 if (wbECUType ~= wbECUTypePrev) then
 	    wbECUType = getWBECUType(wbSensorID)
 	 end
 
-	 validData=system.getSensorByID(wbSensorID,tonumber(wbStatusParam)).valid
+	 if wbStatusParam ~= 99 then
+	    validData=system.getSensorByID(wbSensorID,tonumber(wbStatusParam)).valid
+	 else
+	    validData = true
+	 end
 	 
 	 if(validData) then
 	    lStatus = getStatusText(wbSensorID)
@@ -1106,7 +1134,8 @@ local function loop()
       end
    else
       if (wbSensorID == nil) then
-	 wbSensorID = getWBSensorID()
+	 --error("wbSensorID nil")
+	 --wbSensorID = getWBSensorID()
       end
       if (wbECUType == nil and wbSensorID ~= nil) then
 	 wbECUType = getWBECUType(wbSensorID)

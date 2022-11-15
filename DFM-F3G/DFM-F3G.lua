@@ -54,6 +54,10 @@ local flightState
 local fs = {Idle=1,MotorOn=2,MotorOff=3,Altitude=4,Ready=5, AtoB=6,BtoA=7, Done=8}
 local fsTxt = {"Idle", "Motor On", "Motor Off", "Altitude", "Ready", "A to B", "B to A", "Done"}
 local distAB
+local lvP
+local lvD
+local lvT, beepOn
+local lvX, lvY
 
 local motorTime
 local motorStart
@@ -164,6 +168,7 @@ local function resetFlight()
    motorWattSec = 0
    flightTime = 0
    taskStartTime = nil
+   system.setControl(1, 1, 0)
 end
 
 local function keyExit(k)
@@ -332,6 +337,7 @@ local function loop()
    
    if beepOffTime and now > beepOffTime then
       system.setControl(2,-1,0)
+      beepOn = -1
    end
 
    curPos = gps.getPosition(sens.lat.SeId, sens.lat.SePa, sens.lng.SePa)   
@@ -387,12 +393,17 @@ local function loop()
       preBeepVal = 20 * (system.getInputs(preBeepStr[preBeep]) + 1)/2 -- 0 to 20
    end
    
-   -- play the beep as soon as we know we're there
+   -- play the beep and count the lap as soon as we know we're there
    
    if (flightZone == 3 and lastFlightZone == 2) or (flightZone == 1 and lastFlightZone == 2) then
       system.playBeep(0,440,500)
       system.setControl(2,1,0)
-      beepOffTime = now + 500
+      beepOn = 1
+      beepOffTime = now + 1000
+      -- one transit AtoB or BtoA is a "lap"
+      taskLaps = taskLaps + 1
+      system.playFile("/Apps/DFM-F3G/lap.wav", AUDIO_QUEUE)
+      system.playNumber(taskLaps,0)
       print("Beep")
    end
    
@@ -536,15 +547,12 @@ local function loop()
 
    if flightState == fs.BtoA then
       if flightZone == 1 and lastFlightZone == 2 then
-	 taskLaps = taskLaps + 1
 	 if elePullTime then
 	    system.playFile("/Apps/DFM-F3G/pull_latency.wav", AUDIO_QUEUE)
 	    system.playNumber( (now - elePullTime)/1000, 1)
 	    elePullLog = now - elePullTime
 	    elePullTime = nil
 	 end
-	 system.playFile("/Apps/DFM-F3G/lap.wav", AUDIO_QUEUE)
-	 system.playNumber(taskLaps,0)
 	 flightState = fs.AtoB
 	 preBeepDone = false
 	 perpIdx = 1
@@ -661,8 +669,8 @@ local function printTele()
       elseif detA > 0 then
 	 lcd.setColor(0,0,255)
       end
-      lcd.drawImage(xp(curX)-6, yp(curY)-6, ":rec")
-      --lcd.drawFilledRectangle(xp(curX)-3, yp(curY)-3, 6, 6)
+      --lcd.drawImage(xp(curX)-6, yp(curY)-6, ":rec")
+      lcd.drawFilledRectangle(xp(curX)-3, yp(curY)-3, 6, 6)
       --drawShape(xp(curX), yp(curY), Glider, (heading or 0) )
       lcd.setColor(0,0,0)
       text = string.format("%.2f", perpA)
@@ -676,11 +684,39 @@ local function printTele()
 
 end
 
-local function elePullCB()
-   if elePullLog then
-      return elePullLog, 0
-   else
-      return 0,0
+local function elePullCB(idx)
+   if idx == lvP then
+      if elePullLog then
+	 --print("lvP", ePullLog)
+	 return elePullLog, 0
+      else
+	 return 0,0
+      end
+   elseif idx == lvD then
+      if perpA then
+	 --print("lvD", perpA*10)
+	 return perpA*10, 1
+      else
+	 return 0,0
+      end
+   elseif idx == lvT then
+      if beepOn then
+	 return beepOn, 0
+      else
+	 return 0,0
+      end
+   elseif idx == lvX then
+      if curX then
+	 return curX*10, 1
+      else
+	 return 0,0
+      end
+   elseif idx == lvY then
+      if curY then
+	 return curY*10, 1
+      else
+	 return 0,0
+      end      
    end
 end
 
@@ -744,10 +780,14 @@ local function init()
       system.setControl(3, -1, 0)
       rndOnTime = system.getTimeCounter() + 2000
    end
-
-   system.registerLogVariable("elePullTime", "ms", elePullCB)
-
    --]]
+
+   lvP = system.registerLogVariable("elePullTime", "ms", elePullCB)
+   lvX = system.registerLogVariable("courseX", "m", elePullCB)
+   lvY = system.registerLogVariable("courseY", "m", elePullCB)   
+   lvD = system.registerLogVariable("perpDistA", "m", elePullCB)
+   lvT = system.registerLogVariable("beep", "s", elePullCB)
+   
    readSensors(telem)
 
    resetFlight()
