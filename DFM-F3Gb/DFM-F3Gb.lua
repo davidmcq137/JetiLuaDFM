@@ -1,18 +1,19 @@
 --[[
 
    ----------------------------------------------------------------------------
-   DFM-F3G.lua released under MIT license by DFM 2022
+   DFM-F3Gb.lua released under MIT license by DFM 2022
 
    This app was created at the suggestion of Tim Bischoff. It is intended to
    facilitate practice flights for the new F3G electric glider competition
 
    It can also be used for F3B
 
+   This is the Basic (DFM-F3Gb) version with minimal function
    ----------------------------------------------------------------------------
    
 --]]
 
-local F3GVersion = "0.51"
+local F3GVersion = "0.3"
 
 local subForm = 0
 --local emFlag
@@ -47,21 +48,12 @@ local flightState
 local fs = {Idle=1,MotorOn=2,MotorOff=3,Altitude=4,Ready=5, AtoB=6,BtoA=7, Done=8}
 local fsTxt = {"Idle", "Motor On", "Motor Off", "Altitude", "Ready", "A to B", "B to A", "Done"}
 local distAB
-local lvP
-local lvD
-local lvT, beepOn
-local lvX, lvY
-local preBeep
-
-local luaCtl = {MOT=1, BPP=2, TSK=3}
-local luaTxt = {MOT="Motor", BPP="Beep", TSK="Task"}
 
 local motorTime
 local motorStart
 local motorPower
 local motorWattSec
 local motorOffTime
-local motorStatus
 local lastPowerTime
 local flightTime
 local flightStart
@@ -72,7 +64,6 @@ local taskDone
 local taskLaps
 local lastFlightZone
 local zone = {[0]=1,[1]=2,[3]=3}
-local beepOffTime
 
 local curDist
 local curBear
@@ -115,7 +106,6 @@ local function readSensors(tbl)
 end
 
 local function resetFlight()
-   local swt, thr
    flightState = fs.Idle
    motorStart = 0
    motorTime = 0
@@ -123,19 +113,7 @@ local function resetFlight()
    motorWattSec = 0
    flightTime = 0
    taskStartTime = nil
-   taskLaps = nil
-   preBeep = false
-   swt = system.getSwitchInfo(ctl.thr)
-   if swt then thr = system.getInputs(swt.label) end
-   if thr and thr <= -0.99 then
-      system.setControl(luaCtl.MOT,  1, 0)
-      motorStatus = true
-   else
-      system.setControl(luaCtl.MOT, -1, 0)
-      motorStatus = false
-   end
-   system.setControl(luaCtl.BPP, -1, 0)
-   system.setControl(luaCtl.TSK, -1, 0)
+   system.setControl(1,1,0)
 end
 
 local function keyExit(k)
@@ -154,7 +132,7 @@ local function keyForm(key)
 	 return
       end
    end
-   if subForm == 1 then
+   if subForm == 2 then
       if key == KEY_1 then
 	 zeroPos = curPos
 	 if zeroPos then
@@ -182,13 +160,11 @@ local function ctlChanged(val, ctbl, v)
    system.pSave(v.."Ctl", ctbl[v])
 end
 
---[[
 local function changedDist(val)
    distAB = val
    system.pSave("distAB", distAB)
    print("DFM-F3G: gcc " .. collectgarbage("count"))
 end
---]]
 
 local function telemChanged(val, stbl, v, ttbl)
    stbl[v].Se = val
@@ -203,10 +179,6 @@ local function initForm(sf)
    subForm = sf
    if sf == 1 then
       form.setTitle("F3G Practice")
-
-      form.setButton(1, "Pt A",  ENABLED)
-      form.setButton(2, "Dir B", ENABLED)
-      form.setButton(3, "Reset", ENABLED)   
 
       form.addRow(2)
       form.addLabel({label="Telemetry >>", width=220})
@@ -223,18 +195,21 @@ local function initForm(sf)
 	       form.reinit(4)
 	       form.waitForRelease()
       end))      
-      --[[
+
       form.addRow(2)
-      form.addLabel({label="Course Length", width=220})      
-      form.addIntbox(distAB, 20, 200, 150, 0, 1, changedDist)
-      --]]
+      form.addLabel({label="Course/GPS Setup >>", width=220})
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       form.reinit(2)
+	       form.waitForRelease()
+      end))
+
+      --form.addRow(2)
+      --form.addLabel({label="Course Length", width=220})      
+      --form.addIntbox(distAB, 20, 200, 150, 0, 1, changedDist)
+      
       if savedRow then form.setFocusedRow(savedRow) end
       savedRow = 1
-   elseif sf == 2 then
-      form.setTitle("")
-      form.setButton(1, "Pt A",  ENABLED)
-      form.setButton(2, "Dir B", ENABLED)
-      form.setButton(3, "Reset", ENABLED)   
    elseif sf == 3 then
       form.setTitle("Telemetry Sensors")
       for i in ipairs(sens) do
@@ -281,11 +256,6 @@ local function loop()
    
    now = system.getTimeCounter()
 
-   if beepOffTime and now > beepOffTime then
-      system.setControl(luaCtl.BPP,-1,0)
-      beepOn = -1
-   end
-   
    curPos = gps.getPosition(sens.lat.SeId, sens.lat.SePa, sens.lng.SePa)   
 
    if curPos then
@@ -335,20 +305,11 @@ local function loop()
       end
    end
 
-   -- play the beep and count the lap as soon as we know we're there
+   -- play the beep as soon as we know we're there
    
    if (flightZone == 3 and lastFlightZone == 2) or (flightZone == 1 and lastFlightZone == 2) then
       system.playBeep(0,440,500)
       print("Beep")
-      system.setControl(luaCtl.BPP,1,0)
-      beepOn = 1
-      beepOffTime = now + 1000
-      -- one transit AtoB or BtoA is a "lap"
-      if taskLaps and flightState == fs.AtoB or flightState == fs.BtoA then
-	 taskLaps = taskLaps + 1
-	 --system.playFile("/Apps/DFM-F3G/lap.wav", AUDIO_QUEUE)
-	 --system.playNumber(taskLaps,0)
-      end
    end
    
    sensor = system.getSensorByID(sens.alt.SeId, sens.alt.SePa)
@@ -385,18 +346,14 @@ local function loop()
 	 system.playFile("/Apps/DFM-F3G/start_armed.wav", AUDIO_QUEUE)
       end
       swaLast = swa
+   
       if (not swa or swa == 1) and (swt and swt == 1) then
-	 if motorStatus then
-	    motorStart = now
-	    motorWattSec = 0
-	    flightState = fs.MotorOn
-	    lastPowerTime = now
-	    flightStart = now
-	    system.playFile("/Apps/DFM-F3G/motor_run_started.wav", AUDIO_QUEUE)
-	 else
-	    -- this will keep getting called, leaving the message up till throttle is off
-	    system.messageBox("Throttle to 0, then Reset Flight", 1)
-	 end
+	 motorStart = now
+	 motorWattSec = 0
+	 flightState = fs.MotorOn
+	 lastPowerTime = now
+	 flightStart = now
+	 system.playFile("/Apps/DFM-F3G/motor_run_started.wav", AUDIO_QUEUE)
       end
    else
       flightTime = now - flightStart
@@ -411,21 +368,18 @@ local function loop()
 
       if swt and swt < 1 then
 	 flightState = fs.MotorOff
-	 system.setControl(luaCtl.MOT, -1, 0)
-	 motorStatus = false
+	 system.setControl(1, -1, 0)
 	 motorOffTime = now
 	 system.playFile("/Apps/DFM-F3G/motor_off_manual.wav", AUDIO_QUEUE)
       end
       if motorTime > 30*1000 then
 	 flightState = fs.MotorOff
-	 system.setControl(luaCtl.MOT, -1, 0)
-	 motorStatus = false
+	 system.setControl(1, -1, 0)
 	 motorOffTime = now
 	 system.playFile("/Apps/DFM-F3G/motor_off_time.wav", AUDIO_QUEUE)
       elseif motorWattSec / 60 > 350 then
 	 flightState = fs.MotorOff
-	 system.setControl(luaCtl.MOT, -1, 0)
-	 motorStatus = false
+	 system.setControl(1, -1, 0)
 	 motorOffTime = now
 	 system.playFile("/Apps/DFM-F3G/motor_off_wattmin.wav", AUDIO_QUEUE)
       end
@@ -455,41 +409,31 @@ local function loop()
 	 flightState = fs.AtoB
 	 taskStartTime = now
 	 taskLaps = 0
-	 system.playBeep(0,440,500)
-	 print("Beep")
 	 system.playFile("/Apps/DFM-F3G/task_started.wav", AUDIO_QUEUE)
-	 system.setControl(luaCtl.TSK, 1, 0)
       end
    end
 
    if flightState == fs.AtoB then
       if flightZone == 3 and lastFlightZone == 2 then
 	 flightState = fs.BtoA
-	 preBeep = false
       end
-      if perpB <= 20 and not preBeep and flightZone == 2 then
-	 system.playBeep(1,880,300)
-	 preBeep = true
-	 print("BeepBeepA", perpB, perpA)
-      end
-   elseif flightState == fs.BtoA then
+   end
+
+   if flightState == fs.BtoA then
       if flightZone == 1 and lastFlightZone == 2 then
+	 taskLaps = taskLaps + 1
 	 if elePullTime then
-	    --system.playFile("/Apps/DFM-F3G/pull_latency.wav", AUDIO_QUEUE)
-	    --system.playNumber( (now - elePullTime)/1000, 1)
+	    system.playFile("/Apps/DFM-F3G/pull_latency.wav", AUDIO_QUEUE)
+	    system.playNumber( (now - elePullTime)/1000, 1)
 	    elePullLog = now - elePullTime
 	    elePullTime = nil
 	 end
+	 --system.playFile("/Apps/DFM-F3G/lap.wav", AUDIO_QUEUE)
+	 --system.playNumber(taskLaps,0)
 	 flightState = fs.AtoB
-	 preBeep = false
-      end
-      if perpA <= 20 and not preBeep and flightZone == 2 then
-	 system.playBeep(1,880,300)
-	 preBeep = true
-	 print("BeepBeepB", perpA, perpB)
       end
       if swe and swe == 1 and perpA < 20 and (not elePullTime) then
-	 --print("elePullTime now")
+	 print("elePullTime now")
 	 elePullTime = now
       end
    end
@@ -499,104 +443,108 @@ local function loop()
       flightDone = flightTime
       taskDone = now - taskStartTime
       system.playFile("/Apps/DFM-F3G/task_complete.wav", AUDIO_QUEUE)
-      system.setControl(luaCtl.TSK, -1, 0)
    end
    
    lastFlightZone = flightZone
+end
+
+local xmin, xmax, ymin, ymax = -110, 290, -100, 100
+
+local function xp(x)
+   return 320 * (x - xmin) / (xmax - xmin)
+end
+
+local function yp(y)
+   return 160 *(1 -  (y - ymin) / (ymax - ymin))
+end
+
+local function drawPylons()
+   lcd.drawLine(xp(-50), yp(0), xp(200), yp(0))
+   lcd.drawLine(xp(0), yp(-50), xp(0), yp(50))
+   lcd.drawLine(xp(distAB), yp(-50), xp(distAB), yp(50))
 end
 
 local function printTele()
 
    local text, text2
    
-   if subForm ~= 1 then return end
-   text = string.format("Rotate: %d", math.deg(rotA))
-   lcd.drawText(230,120, text)
-   if curPos then
-      text, text2 = gps.getStrig(curPos)
-      lcd.drawText(0,120,"[" .. text .. "," .. text2 .. "]")
+   if subForm ~= 2 then return end
+
+   form.setTitle("")
+   form.setButton(1, "Pt A",  ENABLED)
+   form.setButton(2, "Dir B", ENABLED)
+   form.setButton(3, "Reset", ENABLED)   
+
+   lcd.drawText(0,0,"["..fsTxt[flightState].."]")
+
+   if flightState ~= fs.Done then
+      text = string.format("F: %.2fs", flightTime/1000)
+      lcd.drawText(0,15,text)
    else
-      lcd.drawText(10,120,"-No GPS-")   
+      text = string.format("F: %.2fs", flightDone/1000)
+      lcd.drawText(0,15,text)
    end
-end
 
-local function raceTele()
+   if flightState == fs.AtoB or flightState == fs.BtoA then
+      text = string.format("T: %.2fs", (system.getTimeCounter() - taskStartTime)/1000)
+      lcd.drawText(0,30,text)
+   end
 
-   local text
-   lcd.setColor(lcd.getFgColor())
-
-   lcd.drawText(0,0,"State: " .. fsTxt[flightState], FONT_BIG)
-
-   if flightState == fs.Idle or flightState == fs.MotorOn then
-      text = string.format("%.2f s", motorTime/1000)
-      lcd.drawText(0,20,text)
-      if curX and curY then
-	 text = string.format("X: %.1f", curX)
-	 lcd.drawText(90, 20, text)
-	 text = string.format("Y: %.1f", curY)
-	 lcd.drawText(90, 35, text)
-      end
-      
-      text = string.format("%.2f W", motorPower)
-      lcd.drawText(0,35,text)
-      text = string.format("%.2f W-m", motorWattSec/60)
-      lcd.drawText(0,50,text)
-   else
-      if taskStartTime then
-	 if flightState ~= fs.Done then
-	    text = string.format("T: %.2f s", (system.getTimeCounter() - taskStartTime)/1000)
-	 else
-	    text = string.format("T: %.2f s", taskDone/1000) .. string.format(" F: %.2f s", flightDone/1000)
-	 end
-      else
-	 text = string.format("T: %.2f s", flightTime/1000)	 
-      end
-      lcd.drawText(0,20,text)
-
-      if taskLaps then
-	 text = string.format("%d Laps", taskLaps)
-      else
-	 text = string.format("Alt: %.1f m", altitude or 0)	 
-      end
-      lcd.drawText(0,35,text)
-      
-      text = string.format("%.2f m from A", perpA)
-      lcd.drawText(0,50,text)
+   if flightState == fs.Done then
+      text = string.format("T: %.2fs", taskDone/1000)
+      lcd.drawText(0,30,text)
    end
    
+   text = string.format("R: %.2f", motorTime/1000)
+   lcd.drawText(245,0,text)
+   text = string.format("P: %.2f", motorPower)
+   lcd.drawText(245,15,text)
+   text = string.format("E: %.2f", motorWattSec/60)
+   lcd.drawText(245,30,text)
+   
+   if flightState == fs.AtoB or flightState == fs.BtoA or flightState == fs.Done then
+      text = string.format("Laps: %d", (taskLaps or 0) )
+      lcd.drawText(130,0,text)
+   end
+
+   text = string.format("Theta: %d", math.deg(rotA))
+   lcd.drawText(0,155, text, FONT_MINI)
+
+   if curPos then
+      text, text2 = gps.getStrig(curPos)
+   else
+      text, text2 = "---", "---"
+   end
+
+   lcd.drawText(0,165,"[" .. text .. "," .. text2 .. "]", FONT_MINI)
+
+   if curX and curY then
+      lcd.setColor(0,255,0)
+      if  detB > 0 then
+	 lcd.setColor(255,0,0)
+      elseif detA > 0 then
+	 lcd.setColor(0,0,255)
+      end
+      --lcd.drawImage(xp(curX)-6, yp(curY)-6, ":rec")
+      lcd.drawFilledRectangle(xp(curX)-3, yp(curY)-3, 6, 6)
+      --drawShape(xp(curX), yp(curY), Glider, (heading or 0) )
+      lcd.setColor(0,0,0)
+      text = string.format("%.2f", perpA)
+      lcd.drawText( xp(0) - lcd.getTextWidth(FONT_NORMAL, text)/2 , yp(-60), text)
+      text = string.format("%.2f", perpB)
+      lcd.drawText( xp(distAB) - lcd.getTextWidth(FONT_NORMAL, text)/2, yp(-60), text)
+   end
+
+   lcd.setColor(0,0,0)
+   drawPylons()
+
 end
 
-local function logWriteCB(idx)
-   if idx == lvP then
-      if elePullLog then
-	 return elePullLog, 0
-      else
-	 return 0,0
-      end
-   elseif idx == lvD then
-      if perpA then
-	 return perpA*10, 1
-      else
-	 return 0,0
-      end
-   elseif idx == lvT then
-      if beepOn then
-	 return beepOn, 0
-      else
-	 return 0,0
-      end
-   elseif idx == lvX then
-      if curX then
-	 return curX*10, 1
-      else
-	 return 0,0
-      end
-   elseif idx == lvY then
-      if curY then
-	 return curY*10, 1
-      else
-	 return 0,0
-      end      
+local function elePullCB()
+   if elePullLog then
+      return elePullLog, 0
+   else
+      return 0,0
    end
 end
 
@@ -633,20 +581,17 @@ local function init()
    end
 
    system.registerForm(1, MENU_APPS, "F3G", initForm, keyForm, printTele)
-   system.registerTelemetry(1, "F3G Status", 2, raceTele)
 
-   for cn, cv in pairs(luaCtl) do
-      luaCtl[cn] = system.registerControl(cv, luaTxt[cn], cn)
+   local cc = system.registerControl(1, "Motor Enable", "MOT")
+
+   if not cc then
+      system.messageBox("Could not register MOT control")
+   else
+      system.setControl(1, 1, 0)
    end
-   
-   lvP = system.registerLogVariable("elePullTime", "ms", logWriteCB)
-   lvX = system.registerLogVariable("courseX", "m", logWriteCB)
-   lvY = system.registerLogVariable("courseY", "m", logWriteCB)   
-   lvD = system.registerLogVariable("perpDistA", "m", logWriteCB)
-   lvT = system.registerLogVariable("beep", "s", logWriteCB)
 
+   system.registerLogVariable("elePullTime", "ms", elePullCB)
    readSensors(telem)
-
    resetFlight()
    
    print("DFM-F3G: gcc " .. collectgarbage("count"))
@@ -654,6 +599,4 @@ local function init()
 end
 --------------------------------------------------------------------------------
 
-collectgarbage()
-
-return {init=init, loop=loop, author="DFM", version=F3GVersion, name="F3G"}
+return {init=init, loop=loop, author="DFM", version=F3GVersion, name="F3Gb"}

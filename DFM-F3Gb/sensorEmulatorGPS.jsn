@@ -1,0 +1,9 @@
+{
+    "lat0": 41.339975,
+    "lon0": -74.430895,
+    "rE":6378137,
+    "trueDir": 30,
+    "startTime": 0,
+    "xString":"P5(0,1)*90*math.cos(t/2) + P6(-30,100)",
+    "yString":"P5(0,1)*30*math.sin(t/2)"
+}
