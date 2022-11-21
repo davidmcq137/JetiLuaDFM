@@ -178,7 +178,12 @@ local function keyForm(key)
 end
 
 local function ctlChanged(val, ctbl, v)
-   ctbl[v] = val
+   local tt = system.getSwitchInfo(val)
+   if tt.assigned == true then
+      ctbl[v] = val
+   else
+      ctb;[v] = nil
+   end
    system.pSave(v.."Ctl", ctbl[v])
 end
 
@@ -455,8 +460,6 @@ local function loop()
 	 flightState = fs.AtoB
 	 taskStartTime = now
 	 taskLaps = 0
-	 system.playBeep(0,440,500)
-	 print("Beep")
 	 system.playFile("/Apps/DFM-F3G/task_started.wav", AUDIO_QUEUE)
 	 system.setControl(luaCtl.TSK, 1, 0)
       end

@@ -4,6 +4,6 @@
     "rE":6378137,
     "trueDir": 30,
     "startTime": 0,
-    "xString":"170*P5(-1,1) + 75 --90*math.cos(t/2) + 75",
-    "yString":"30*P6(-1,1) --30*math.sin(t/2)"
+    "xString":"600*P6(1) + 600*P5(0,1)*math.cos(t/2)",
+    "yString":"300*P5(0,1)*(1.2+math.sin(t/2))"
 }

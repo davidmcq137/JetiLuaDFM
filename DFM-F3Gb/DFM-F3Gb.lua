@@ -48,6 +48,7 @@ local flightState
 local fs = {Idle=1,MotorOn=2,MotorOff=3,Altitude=4,Ready=5, AtoB=6,BtoA=7, Done=8}
 local fsTxt = {"Idle", "Motor On", "Motor Off", "Altitude", "Ready", "A to B", "B to A", "Done"}
 local distAB
+local gpsScale
 
 local motorTime
 local motorStart
@@ -85,14 +86,14 @@ local perpA, perpB
 local savedRow
 
 local function readSensors(tbl)
-   --local sensorLbl = "***"
+   local sensorLbl = "***"
    
    local sensors = system.getSensors()
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then
-	    --sensorLbl = sensor.label
-	    table.insert(tbl.Lalist, ">> "..sensor.label)
+	    sensorLbl = sensor.label
+	    table.insert(tbl.Lalist, sensorLbl)
 	    table.insert(tbl.Idlist, 0)
 	    table.insert(tbl.Palist, 0)
 	 else
@@ -146,17 +147,35 @@ local function keyForm(key)
 	 if curBear then
 	    rotA = math.rad(curBear-90)
 	    system.pSave("rotA", rotA*1000)
+	    gpsScale = 1.0
+	    system.pSave("gpsScale", gpsScale*1000)
+	    system.messageBox("GPS scale factor reset to 1.0")
 	 else
 	    system.messageBox("No Current Position")
 	 end
       elseif key == KEY_3 then
 	 resetFlight()
+      elseif key == KEY_4 then
+	 if gpsScale ~= 1.0 then
+	    system.messageBox("Do DirB first")
+	    return
+	 end
+	 if curX and curY then
+	    gpsScale = 150.0/math.sqrt(curX^2 + curY^2)
+	    print("curX, curY, gpsScale", curX, curY, gpsScale)
+	    system.pSave("gpsScale", gpsScale*1000)
+	 end
       end
    end
 end
 
 local function ctlChanged(val, ctbl, v)
-   ctbl[v] = val
+   local ss = system.getSwitchInfo(val)
+   if ss.assigned == false then
+      ctbl[v] = nil
+   else
+      ctbl[v] = val
+   end
    system.pSave(v.."Ctl", ctbl[v])
 end
 
@@ -269,12 +288,18 @@ local function loop()
       
       curX = curDist * math.cos(math.rad(curBear+270)) -- why not same angle X and Y??
       curY = curDist * math.sin(math.rad(curBear+90))
+
+      --print(math.sqrt(curX^2 + curY^2))
       
       if not lastX then lastX = curX end
       if not lastY then lastY = curY end
       
       curX, curY = rotateXY(curX, curY, rotA)
 
+      if gpsScale then
+	 curX = curX * gpsScale
+      end
+      
       local dist = math.sqrt( (curX - lastX)^2 + (curY - lastY)^2)
       
       if curX ~= lastX or curY ~= lastY and dist > 5 then -- new point
@@ -305,13 +330,6 @@ local function loop()
       end
    end
 
-   -- play the beep as soon as we know we're there
-   
-   if (flightZone == 3 and lastFlightZone == 2) or (flightZone == 1 and lastFlightZone == 2) then
-      system.playBeep(0,440,500)
-      print("Beep")
-   end
-   
    sensor = system.getSensorByID(sens.alt.SeId, sens.alt.SePa)
    if sensor and sensor.valid then
       altitude = sensor.value
@@ -335,6 +353,13 @@ local function loop()
    swe = system.getInputsVal(ctl.ele)   
    swr = system.getInputsVal(ctl.rst)
 
+   if (flightZone == 3 and lastFlightZone == 2) or (flightZone == 1 and lastFlightZone == 2) then
+      if not swa or swa == 1 then
+	 system.playBeep(0,440,500)
+	 print("Beep")
+      end
+   end
+   
    if not swrLast then swrLast = swr end
    if swr and swr == 1 and swrLast == -1 then
       resetFlight()
@@ -343,7 +368,7 @@ local function loop()
    
    if flightState == fs.Idle then
       if swa == 1 and swaLast == -1 then
-	 system.playFile("/Apps/DFM-F3G/start_armed.wav", AUDIO_QUEUE)
+	 --system.playFile("/Apps/DFM-F3G/start_armed.wav", AUDIO_QUEUE)
       end
       swaLast = swa
    
@@ -353,7 +378,7 @@ local function loop()
 	 flightState = fs.MotorOn
 	 lastPowerTime = now
 	 flightStart = now
-	 system.playFile("/Apps/DFM-F3G/motor_run_started.wav", AUDIO_QUEUE)
+	 --system.playFile("/Apps/DFM-F3G/motor_run_started.wav", AUDIO_QUEUE)
       end
    else
       flightTime = now - flightStart
@@ -474,7 +499,8 @@ local function printTele()
    form.setButton(1, "Pt A",  ENABLED)
    form.setButton(2, "Dir B", ENABLED)
    form.setButton(3, "Reset", ENABLED)   
-
+   form.setButton(4, "C 150", ENABLED)
+   
    lcd.drawText(0,0,"["..fsTxt[flightState].."]")
 
    if flightState ~= fs.Done then
@@ -507,7 +533,7 @@ local function printTele()
       lcd.drawText(130,0,text)
    end
 
-   text = string.format("Theta: %d", math.deg(rotA))
+   text = string.format("Theta: %d   GPS Scale: %.6f", math.deg(rotA), gpsScale)
    lcd.drawText(0,155, text, FONT_MINI)
 
    if curPos then
@@ -572,6 +598,9 @@ local function init()
    end
 
    distAB = system.pLoad("distAB", 150)
+
+   gpsScale = system.pLoad("gpsScale", 1000)
+   gpsScale = gpsScale / 1000.0
    
    rotA = system.pLoad("rotA", 0)
    rotA = rotA / 1000.0 -- rotA was saved as *1000 since it has to be an int
