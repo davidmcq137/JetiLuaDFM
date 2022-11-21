@@ -24,6 +24,13 @@ local sens = {
    {var="spd", label="Speed"}
 }
 
+local nfk = {type=1, shape=2, lat=1, lng=2,
+	     selType={"Inside", "Outside"},  inside=1, outside=2,
+	     selShape={"Circle", "Polygon"}, circle=1, polygon=2
+}
+
+local nfz
+
 --[[
 local ctl = {
    {var="thr", label="Throttle"},
@@ -118,7 +125,23 @@ local spdUnit
 
 local MAXSAVED=20
 
-local savedRow
+local savedRow, savedZone
+local fileBD, writeBD
+
+local function writeJSON()
+   local fp
+   local save={}
+   save.nfz = nfz
+   if writeBD then
+      fp = io.open(fileBD, "w")
+      if fp then
+	 print("writing "..fileBD, #nfz)
+	 print(json.encode(save))
+	 io.write(fp, json.encode(save), "\n") 
+	 io.close(fp)
+      end
+   end
+end
 
 local function readSensors(tbl)
    local sensorLbl = "***"
@@ -187,9 +210,25 @@ local function keyForm(key)
 	    system.messageBox("No Current Position")
 	 end
       end
+   elseif subForm == 5 then
+      if key == KEY_2 then -- add
+	 if not nfz then nfz = {} end
+	 table.insert(nfz, {shape=nfk.polygon, type=nfk.inside, path={}})
+	 form.reinit(5)
+      elseif key == KEY_3 then --edit
+	 if not nfz or #nfz < 1 then print("EMPTY") return end
+	 savedZone = form.getFocusedRow()
+	 form.reinit(51)
+      elseif key == KEY_4 then --delete
+      end
+   elseif subForm == 51 then
+      if key == KEY_2 then
+	 table.insert(nfz[savedZone].path, gps.newPoint(0,0))
+	 form.reinit(51)
+      end
    end
 end
-
+   
 --[[
 local function ctlChanged(val, ctbl, v)
    local tt = system.getSwitchInfo(val)
@@ -201,6 +240,14 @@ local function ctlChanged(val, ctbl, v)
    system.pSave(v.."Ctl", ctbl[v])
 end
 --]]
+
+local function zoneChanged(val, sel, i)
+   if sel == nfk.type then
+      nfz[i].type = val
+   else
+      nfz[i].shape = val
+   end
+end
 
 local function telemChanged(val, stbl, v, ttbl)
    stbl[v].Se = val
@@ -233,7 +280,17 @@ local function initForm(sf)
 	       savedRow = form.getFocusedRow()
 	       form.reinit(4)
 	       form.waitForRelease()
-      end))      
+      end))
+
+      form.addRow(2)
+      form.addLabel({label="No Fly Zones >>", width=220})
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       form.reinit(5)
+	       form.waitForRelease()
+      end))
+
+      
       if savedRow then form.setFocusedRow(savedRow) end
       savedRow = 1
    elseif sf == 2 then
@@ -267,6 +324,81 @@ local function initForm(sf)
 	 form.addInputbox(ctl[ctl[i].var], true, (function(x) return ctlChanged(x, ctl, ctl[i].var) end) )
       end
       --]]
+   elseif sf == 5 then
+      form.setTitle("No Fly Zones")
+      --form.setButton(1, "Clear", 1)
+      form.setButton(2, ":add", 1)
+      form.setButton(3, ":edit", 1)
+      --form.setButton(4, ":delete", 1)
+      if not nfz then
+	 form.addRow(1)
+	 form.addLabel({label="No No-Fly Zones defined"})
+	 return
+      end
+      for i,z in ipairs(nfz) do
+	 form.addRow(3)
+	 form.addLabel({label=string.format("%d", i), width=60})
+	 form.addSelectbox(nfk.selType,  nfz[i].type,  true,
+			   (function(x) return zoneChanged(x, nfk.type, i)  end) )
+	 form.addSelectbox(nfk.selShape, nfz[i].shape, true,
+			   (function(x) return zoneChanged(x, nfk.shape, i) end) )
+      end
+   elseif sf == 51 then
+      form.setTitle("Edit No Fly Zone " .. savedZone)
+      form.setFocusedRow(1)
+      --form.setButton(1, "Clear", 1)
+      form.setButton(2, ":add", 1)
+      --form.setButton(3, ":edit", 1)
+      --form.setButton(4, ":delete", 1)
+      if #nfz[savedZone].path == 0 then
+	 print("nfz empty")
+	 for i=1,3,1 do
+	    table.insert(nfz[savedZone].path, gps.newPoint(0,0))
+	 end
+      end
+
+      local function pointChanged(val, sel, gp, i)
+	 --[[
+	 local nn = tonumber(val)
+	 local validLL = true
+	 if not nn then
+	    validLL = false
+	 end
+	 if sel = nfk.lat then
+	    if nn < -90 or nn > 90 then validLL = false end
+	 else
+	    if nn < -180 or nn > 180 then validLL = false end
+	 end
+	 if not validLL then
+	    system.messageBox("Invalid lat/lng: " .. val)
+	    form.reinit(51)
+	    return
+	 end
+	 --]]
+	 local lat, lng = gps.getStrig(gp[i])
+	 if sel == nfk.lat then
+	    lat = val
+	 else
+	    lng = val
+	 end
+	 gp[i] = gps.newPoint(lat, lng)
+	 form.reinit(51)
+      end
+      
+
+      for i,gpsP in ipairs(nfz[savedZone].path) do
+	 form.addRow(5)
+	 form.addLabel({label=string.format("%d", i), width=20})
+	 local lat, lng = gps.getStrig(gpsP)
+	 lat = string.sub(lat, 1, 10)
+	 lng = string.sub(lng, 1, 10)
+	 form.addLabel({label="Lat", width=35})
+	 form.addTextbox(lat, 10,
+			 (function(x) return pointChanged(x, nfk.lat, nfz[savedZone].path, i) end), {width=110})
+	 form.addLabel({label="Lng", width=35})
+	 form.addTextbox(lng, 10,
+			 (function(x) return pointChanged(x, nfk.lng, nfz[savedZone].path, i) end), {width=110})
+      end
    end
 end
 
@@ -369,7 +501,136 @@ local function loop()
       
    end
 end
+------------------------------------------------------------
 
+
+-- next set of function acknowledge
+-- https://www.geeksforgeeks.org/how-to-check-if-a-given-point-lies-inside-a-polygon/
+-- ported to lua D McQ 7/2020
+
+local function onSegment(p, q, r)
+   if (q.x <= math.max(p.x, r.x) and q.x >= math.min(p.x, r.x) and 
+            q.y <= math.max(p.y, r.y) and q.y >= math.min(p.y, r.y)) then
+      return true
+   else
+      return false
+   end
+end
+
+-- To find orientation of ordered triplet (p, q, r). 
+-- The function returns following values 
+-- 0 --> p, q and r are colinear 
+-- 1 --> Clockwise 
+-- 2 --> Counterclockwise 
+local function orientation(p, q, r) 
+   local val
+   val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y)
+   if (val == 0) then return 0 end  -- colinear 
+   return val > 0 and 1 or 2
+end
+
+-- The function that returns true if line segment 'p1q1' 
+-- and 'p2q2' intersect. 
+local function doIntersect(p1, q1, p2, q2) 
+   -- Find the four orientations needed for general and 
+   -- special cases
+   local o1, o2, o3, o4
+   o1 = orientation(p1, q1, p2)
+   o2 = orientation(p1, q1, q2) 
+   o3 = orientation(p2, q2, p1) 
+   o4 = orientation(p2, q2, q1) 
+   
+   -- General case 
+   if (o1 ~= o2 and o3 ~= o4) then return true end
+   
+   -- Special Cases 
+   -- p1, q1 and p2 are colinear and p2 lies on segment p1q1 
+   if (o1 == 0 and onSegment(p1, p2, q1)) then return true end
+   
+   -- p1, q1 and p2 are colinear and q2 lies on segment p1q1 
+   if (o2 == 0 and onSegment(p1, q2, q1)) then return true end
+  
+   -- p2, q2 and p1 are colinear and p1 lies on segment p2q2 
+   if (o3 == 0 and onSegment(p2, p1, q2)) then return true end
+  
+   -- p2, q2 and q1 are colinear and q1 lies on segment p2q2 
+   if (o4 == 0 and onSegment(p2, q1, q2)) then return true end 
+  
+    return false -- Doesn't fall in any of the above cases 
+end
+
+local function isNoFlyC(nn, p)
+   local d
+   d = math.sqrt( (nn.x-p.x)^2 + (nn.y-p.y)^2)
+   --if d <= nn.r then
+      --print(nn.x, p.x, nn.y, p.y, nn.inside, d, nn.r)
+   --end
+   if nn.inside == true then
+      if d <= nn.r then return true end
+   else
+      if d >= nn.r then return true end
+   end
+   return false
+end
+
+-- Returns true if the point p lies inside the polygon[] with n vertices 
+
+--local function isNoFlyP(pp, io, p)
+--noFlyP = noFlyP or isNoFlyP(nfp[i].path, nfp[i].inside, txy)
+
+local function isNoFlyP(nn,p) 
+
+   local isInside
+   local next
+
+   -- There must be at least 3 vertices in polygon[]
+
+   if (#nn.path < 3)  then return false end
+
+   --first see if we are inside the bounding circle
+   --if so, isInside is false .. jump to end
+   --else run full algorithm
+
+   if ((p.x - nn.xc) * (p.x - nn.xc) + (p.y - nn.yc) * (p.y - nn.yc)) > nn.r2 then
+      isInside = false
+   else
+      --Create a point for line segment from p to infinite 
+      extreme = {x=2*maxpolyX, y=p.y}; 
+      
+      -- Count intersections of the above line with sides of polygon 
+      local count = 0
+      local i = 1
+      local n = #nn.path
+      
+      repeat
+	 next = i % n + 1
+	 if (doIntersect(nn.path[i], nn.path[next], p, extreme)) then 
+	    -- If the point 'p' is colinear with line segment 'i-next', 
+	    -- then check if it lies on segment. If it lies, return true, 
+	    -- otherwise false 
+	    if (orientation(nn.path[i], p, nn.path[next]) == 0) then 
+	       return onSegment(nn.path[i], p, nn.path[next])
+	    end
+	    count = count + 1 
+	 end
+	 
+	 i = next
+      until (i == 1)
+      
+      -- Point inside polygon: true if count is odd, false otherwise
+      isInside = (count % 2 == 1)
+   end
+   
+   if nn.inside == true then
+      return isInside
+   else
+      return not isInside
+   end
+   
+end
+
+
+------------------------------------------------------------
 local nLine = {
   {-72, 7, 30},  -- +30
   {-60, 3},      -- +25
@@ -480,11 +741,20 @@ end
 
 local function init()
    
-   --local pf
+   local pf, mn
    
    emFlag = select(2, system.getDeviceType()) == 1
-   --if emFlag then pf = "" else pf = "/" end
-
+   if emFlag then pf = "" else pf = "/" end
+   
+   mn = string.gsub(system.getProperty("Model"), " ", "_")
+   fileBD = pf .. "Apps/DFM-GPS/GG_" .. mn .. ".jsn"
+   file = io.readall(fileBD)
+   if file then
+      decoded = json.decode(file)
+      nfz = decoded.nfz
+   end
+   writeBD = true
+   
    zeroLatString = system.pLoad("zeroLatString")
    zeroLngString = system.pLoad("zeroLngString")
 
@@ -530,4 +800,4 @@ end
 
 collectgarbage()
 
-return {init=init, loop=loop, author="DFM", version=GPSVersion, name="GPS"}
+return {init=init, loop=loop, author="DFM", version=GPSVersion, name="GPS", destroy=writeJSON}

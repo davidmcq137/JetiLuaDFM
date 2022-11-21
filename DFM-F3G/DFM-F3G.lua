@@ -12,7 +12,7 @@
    
 --]]
 
-local F3GVersion = "0.51"
+local F3GVersion = "0.53"
 
 local subForm = 0
 --local emFlag
@@ -126,8 +126,11 @@ local function resetFlight()
    taskLaps = nil
    preBeep = false
    swt = system.getSwitchInfo(ctl.thr)
+   if swt then print(swt.label, swt.value, swt.proportional, swt.assigned, swt.mode) else print("swt nil") end
    if swt then thr = system.getInputs(swt.label) end
-   if thr and thr <= -0.99 then
+   print("thr, gIV", thr, system.getInputsVal(ctl.thr))
+   
+   if swt and swt.value and swt.value <= -0.99 then
       system.setControl(luaCtl.MOT,  1, 0)
       motorStatus = true
    else
@@ -182,7 +185,7 @@ local function ctlChanged(val, ctbl, v)
    if tt.assigned == true then
       ctbl[v] = val
    else
-      ctb;[v] = nil
+      ctbl[v] = nil
    end
    system.pSave(v.."Ctl", ctbl[v])
 end
@@ -391,6 +394,7 @@ local function loop()
       end
       swaLast = swa
       if (not swa or swa == 1) and (swt and swt == 1) then
+	 print("swa and swt ok, motorstatus:", motorstatus)
 	 if motorStatus then
 	    motorStart = now
 	    motorWattSec = 0
