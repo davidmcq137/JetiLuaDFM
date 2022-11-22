@@ -320,10 +320,14 @@ function emulator_init()
       system.playNumber = emulator_playNumber
       system.vibration = emulator_vibration
       gps.getPosition = emulator_getPosition
+      system.playBeep = emulator_playBeep
       --system.messageBox("SensorE: Using emulated sensors", 3)
    else
       --system.messageBox("SensorE: Using native sensors", 3)
    end
+end
+function emulator_playBeep(rep, hz, len)
+   print(string.format("SensorE - playBeep: Repeat %d, Freq %d, Duration %d", rep, hz, len))
 end
 
 function emulator_vibration(lr, prof)

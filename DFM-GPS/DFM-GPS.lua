@@ -10,32 +10,21 @@
    
 --]]
 
-local GPSVersion = "0.1"
+local GPSVersion = "0.2"
 
 local subForm = 0
 --local emFlag
 
 local telem
-
-local sens = {
-   {var="lat", label="Latitude"},
-   {var="lng", label="Longitude"},
-   {var="alt", label="Altitude"},
-   {var="spd", label="Speed"}
-}
+local sens
+local settings
+local nfz
 
 local nfk = {type=1, shape=2, lat=1, lng=2,
 	     selType={"Inside", "Outside"},  inside=1, outside=2,
 	     selShape={"Circle", "Polygon"}, circle=1, polygon=2
 }
 
-local nfz
-
---[[
-local ctl = {
-   {var="thr", label="Throttle"},
-}
---]]
 --[[
 local Prop = {
    {-1,-6},
@@ -101,14 +90,13 @@ local curDist
 local curBear
 local curPos
 local zeroPos
-local zeroLatString
-local zeroLngString
+--local zeroLatString
+--local zeroLngString
 local initPos
 local curX, curY
 local lastX, lastY
 local heading
-local rotA
-local distAB
+--local rotA
 local savedPos = {}
 local savedXP = {}
 local savedYP = {}
@@ -135,11 +123,13 @@ local function writeJSON()
    local fp
    local save={}
    save.nfz = nfz
+   save.settings = settings
+   save.sens = sens
    if writeBD then
       fp = io.open(fileBD, "w")
       if fp then
-	 print("writing "..fileBD, #nfz)
-	 print(json.encode(save))
+	 --print("writing "..fileBD, #nfz)
+	 --print(json.encode(save))
 	 io.write(fp, json.encode(save), "\n") 
 	 io.close(fp)
       end
@@ -164,10 +154,11 @@ local function noFlyCalc()
 	 cB = gps.getBearing(zeroPos, pt)
 	 x = cD * math.cos(math.rad(cB+270))
 	 y = cD * math.sin(math.rad(cB+90))
-	 x,y = rotateXY(x, y, rotA)
+	 x,y = rotateXY(x, y, settings.rotA)
 	 nfz[i].xy[j] = {x=x,y=y}
 	 if x > maxPolyX then maxPolyX = x end
-	 print(i,j,x,y)
+	 --print(i,j,x,y)
+	 --print(#nfz[i].xy)
       end
    end
    needCalcXY = false
@@ -213,37 +204,52 @@ local function keyForm(key)
       if key == KEY_1 then
 	 if initPos then
 	    zeroPos = curPos
-	    zeroLatString, zeroLngString = gps.getStrig(zeroPos)
-	    system.pSave("zeroLatString", zeroLatString)
-	    system.pSave("zeroLngString", zeroLngString)
+	    settings.zeroLatString, settings.zeroLngString = gps.getStrig(zeroPos)
+	    --system.pSave("zeroLatString", zeroLatString)
+	    --system.pSave("zeroLngString", zeroLngString)
 	    clearPos()
 	 else
 	    system.messageBox("No Current Position")
 	 end
       elseif key == KEY_2 then
 	 if curBear then
-	    rotA = math.rad(curBear-90)
-	    system.pSave("rotA", rotA*1000)
+	    settings.rotA = math.rad(curBear-90)
+	    --system.pSave("rotA", rotA*1000)
 	    clearPos()
 	 else
 	    system.messageBox("No Current Position")
 	 end
       end
-   elseif subForm == 5 then
+   elseif subForm == 3 or subForm == 4 then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
 	 return
       end
+   elseif subForm == 5 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 needCalcXY = true
+	 form.reinit(1)
+	 return
+      end
+      savedZone = form.getFocusedRow()
       if key == KEY_2 then -- add
 	 if not nfz then nfz = {} end
-	 table.insert(nfz, {shape=nfk.polygon, type=nfk.inside, path={}, xy={}})
+	 table.insert(nfz, {shape=nfk.polygon, type=nfk.inside, radius=0, path={}, xy={}})
+	 needCalcXY = true
 	 form.reinit(5)
       elseif key == KEY_3 then --edit
-	 if not nfz or #nfz < 1 then print("EMPTY") return end
-	 savedZone = form.getFocusedRow()
-	 form.reinit(51)
+	 if not nfz or #nfz < 1 then return end
+	 if nfz[savedZone].shape == nfk.polygon then
+	    form.reinit(51)
+	 else
+	    form.reinit(52)
+	 end
       elseif key == KEY_4 then --delete
+	 table.remove(nfz, savedZone)
+	 needCalcXY = true
+	 form.reinit(5)
       end
    elseif subForm == 51 then
       if keyExit(key) then
@@ -255,38 +261,41 @@ local function keyForm(key)
       if key == KEY_2 then
 	 table.insert(nfz[savedZone].path, {lat=0,lng=0})
 	 table.insert(nfz[savedZone].xy, {x=0,y=0})
+	 needCalcXY = true
 	 form.reinit(51)
       end
    end
 end
    
---[[
-local function ctlChanged(val, ctbl, v)
-   local tt = system.getSwitchInfo(val)
-   if tt.assigned == true then
-      ctbl[v] = val
-   else
-      ctbl[v] = nil
-   end
-   system.pSave(v.."Ctl", ctbl[v])
-end
---]]
-
 local function zoneChanged(val, sel, i)
    if sel == nfk.type then
       nfz[i].type = val
    else
       nfz[i].shape = val
    end
+   form.reinit(5)
+end
+
+local function radiusChanged(val, i)
+   nfz[i].radius = val
 end
 
 local function telemChanged(val, stbl, v, ttbl)
    stbl[v].Se = val
    stbl[v].SeId = ttbl.Idlist[val]
    stbl[v].SePa = ttbl.Palist[val]
-   system.pSave(v.."Se",   stbl[v].Se)
-   system.pSave(v.."SeId", stbl[v].SeId)
-   system.pSave(v.."SePa", stbl[v].SePa)
+   --system.pSave(v.."Se",   stbl[v].Se)
+   --system.pSave(v.."SeId", stbl[v].SeId)
+   --system.pSave(v.."SePa", stbl[v].SePa)
+end
+
+local function pointChanged(val, sel, gp, i, ff)
+   if sel == nfk.lat then
+      gp[i].lat = val
+   else
+      gp[i].lng = val
+   end
+   form.reinit(ff)
 end
 
 local function initForm(sf)
@@ -337,7 +346,6 @@ local function initForm(sf)
 	    Palist={"..."}
 	 }
 	 readSensors(telem)
-	 print("DFM-GPS rS: gcc " .. collectgarbage("count"))	
       end
       form.setTitle("Telemetry Sensors")
       for i in ipairs(sens) do
@@ -361,7 +369,7 @@ local function initForm(sf)
       --form.setButton(1, "Clear", 1)
       form.setButton(2, ":add", 1)
       form.setButton(3, ":edit", 1)
-      --form.setButton(4, ":delete", 1)
+      form.setButton(4, ":delete", 1)
       if not nfz then
 	 form.addRow(1)
 	 form.addLabel({label="No No-Fly Zones"})
@@ -381,30 +389,20 @@ local function initForm(sf)
 			   (function(x) return zoneChanged(x, nfk.shape, i) end), {width=85})
 	 if nfz[i].shape == nfk.circle then
 	    form.addLabel({label="Rad", width=50})
-	    form.addIntbox((nfz[i].radius or 0), 0, 10000, 100, 0, 1, radiusChanged, {width=60})
+	    form.addIntbox((nfz[i].radius or 0), 0, 10000, 100, 0, 1,
+	       (function(x) return radiusChanged(x, i) end), {width=60})
 	 end
 	 
       end
       if savedZone then form.setFocusedRow(savedZone) end
    elseif sf == 51 then
-      form.setTitle("Edit No Fly Zone " .. savedZone)
+      form.setTitle("Edit Polygon No Fly Zone " .. savedZone)
       form.setButton(2, ":add", 1)
       if #nfz[savedZone].path == 0 then
-	 print("nfz empty")
 	 for i=1,3,1 do
-	    print(#nfz[savedZone].path, #nfz[savedZone].xy)
 	    table.insert(nfz[savedZone].path, {lat=0,lng=0})
 	    table.insert(nfz[savedZone].xy, {x=0,y=0})
 	 end
-      end
-
-      local function pointChanged(val, sel, gp, i)
-	 if sel == nfk.lat then
-	    gp[i].lat = val
-	 else
-	    gp[i].lng = val
-	 end
-	 form.reinit(51)
       end
 
       for i,gpsP in ipairs(nfz[savedZone].path) do
@@ -414,12 +412,31 @@ local function initForm(sf)
 	 local lng = string.format("%.6f", gpsP.lng)
 	 form.addLabel({label="Lat", width=35})
 	 form.addTextbox(lat, 10,
-			 (function(x) return pointChanged(x, nfk.lat, nfz[savedZone].path, i) end), {width=110})
+			 (function(x) return pointChanged(x, nfk.lat, nfz[savedZone].path, i, 51) end),
+			 {width=110})
 	 form.addLabel({label="Lng", width=35})
 	 form.addTextbox(lng, 10,
-			 (function(x) return pointChanged(x, nfk.lng, nfz[savedZone].path, i) end), {width=110})
+			 (function(x) return pointChanged(x, nfk.lng, nfz[savedZone].path, i, 51) end),
+			 {width=110})
       end
       form.setFocusedRow(1)
+   elseif sf == 52 then
+      form.setTitle("Edit Circle No Fly Zone " .. savedZone)
+      if #nfz[savedZone].path == 0 then
+	 table.insert(nfz[savedZone].path, {lat=0,lng=0})
+	 table.insert(nfz[savedZone].xy, {x=0,y=0})
+      end
+      form.addRow(4)
+      local lat = string.format("%.6f", nfz[savedZone].path[1].lat)
+      local lng = string.format("%.6f", nfz[savedZone].path[1].lng)
+      form.addLabel({label="Lat", width=35})
+      form.addTextbox(lat, 10,
+		      (function(x) return pointChanged(x, nfk.lat, nfz[savedZone].path, 1, 52) end),
+		      {width=110})
+      form.addLabel({label="Lng", width=35})
+      form.addTextbox(lng, 10,
+		      (function(x) return pointChanged(x, nfk.lng, nfz[savedZone].path, 1, 52) end),
+		      {width=110})
    end
 end
 
@@ -461,21 +478,22 @@ end
 
 
 local function loop()
+
+   if not sens then return end
    
    local sensor
-
    sensor = system.getSensorByID(sens.alt.SeId, sens.alt.SePa)
    if sensor and sensor.valid then
       altitude = sensor.value
       altUnit = sensor.unit
    end
-
+   
    sensor = system.getSensorByID(sens.spd.SeId, sens.spd.SePa)
    if sensor and sensor.valid then
       speed = sensor.value
       spdUnit = sensor.unit
    end
-
+   
    curPos = gps.getPosition(sens.lat.SeId, sens.lat.SePa, sens.lng.SePa)   
 
    if curPos and not initPos then gpsReads = gpsReads + 1 end
@@ -495,7 +513,7 @@ local function loop()
       if not lastX then lastX = curX end
       if not lastY then lastY = curY end
       
-      curX, curY = rotateXY(curX, curY, rotA)
+      curX, curY = rotateXY(curX, curY, settings.rotA)
 
       local dist = math.sqrt( (curX - lastX)^2 + (curY - lastY)^2)
       
@@ -576,22 +594,16 @@ end
 
 local function isNoFlyC(nn, p)
    local d
-   d = math.sqrt( (nn.x-p.x)^2 + (nn.y-p.y)^2)
-   --if d <= nn.r then
-      --print(nn.x, p.x, nn.y, p.y, nn.inside, d, nn.r)
-   --end
-   if nn.inside == true then
-      if d <= nn.r then return true end
+   d = math.sqrt( (nn.xy[1].x-p.x)^2 + (nn.xy[1].y-p.y)^2)
+   if nn.type == nfk.inside then
+      if d <= nn.radius then return true end
    else
-      if d >= nn.r then return true end
+      if d >= nn.radius then return true end
    end
    return false
 end
 
 -- Returns true if the point p lies inside the polygon[] with n vertices 
-
---local function isNoFlyP(pp, io, p)
---noFlyP = noFlyP or isNoFlyP(nfp[i].path, nfp[i].inside, txy)
 
 local function isNoFlyP(nn,p) 
 
@@ -712,12 +724,18 @@ local function mapTele()
    if nfz and #nfz > 0 and zeroPos and nfz[1].xy then
       if needCalcXY then noFlyCalc() end
       for i in ipairs(nfz) do
-	 local n = #nfz[i].xy
-	 if n > 3 then
-	    for j=1,n-1 do
-	       lcd.drawLine(xp(nfz[i].xy[j].x), yp(nfz[i].xy[j].y), xp(nfz[i].xy[j+1].x), yp(nfz[i].xy[j+1].y))
+	 if nfz[i].shape == nfk.polygon then
+	    local n = #nfz[i].xy
+	    if n > 3 then
+	       for j=1,n-1 do
+		  lcd.drawLine(xp(nfz[i].xy[j].x),yp(nfz[i].xy[j].y),xp(nfz[i].xy[j+1].x),yp(nfz[i].xy[j+1].y))
+	       end
+	       lcd.drawLine(xp(nfz[i].xy[n].x),yp(nfz[i].xy[n].y),xp(nfz[i].xy[1].x),yp(nfz[i].xy[1].y))
 	    end
-	    lcd.drawLine(xp(nfz[i].xy[n].x), yp(nfz[i].xy[n].y), xp(nfz[i].xy[1].x), yp(nfz[i].xy[1].y))
+	 else
+	    if nfz[i].xy and #nfz[i].xy > 0 then
+	       lcd.drawCircle(xp(nfz[i].xy[1].x), yp(nfz[i].xy[1].y), 320*nfz[i].radius/(xmax-xmin))
+	    end
 	 end
       end
    end
@@ -733,17 +751,33 @@ local function mapTele()
       end
       
       local txy = {x=curX,y=curY}
-      local noFly = isNoFlyP(nfz[1], txy)
+      local noFly
+      local noFlyP = false
+      local noFlyC = false
       
+      for i in ipairs(nfz) do
+	 if nfz[i].shape == nfk.polygon then
+	    noFlyP = noFlyP or isNoFlyP(nfz[i], txy)
+	 else
+	    noFlyC = noFlyC or isNoFlyC(nfz[i], txy)
+	 end
+      end
+
+      noFly = noFlyP or noFlyC
+			      
       if noFly then
 	 lcd.drawCircle(xp(curX), yp(curY), 4)
       else
 	 drawShape(xp(curX), yp(curY), Glider, (heading or 0) )
       end
-
+      
       if lastNoFly == nil then lastNoFly = noFly end
-      if noFly and not lastNoFly then print("enter nofly") end
-      if not noFly and lastNoFly then print("exit nofly") end
+      if noFly and not lastNoFly then
+	 system.playBeep(0, 600, 800)
+      end
+      if not noFly and lastNoFly then
+	 system.playBeep(1, 1200, 400)
+      end
 
       lastNoFly = noFly
       
@@ -773,7 +807,7 @@ local function printTele()
    local text, text2
    
    if subForm ~= 1 then return end
-   text = string.format("Rot: %d  G: %d", math.deg(rotA), gpsReads)
+   text = string.format("Rot: %d  G: %d", math.deg(settings.rotA), gpsReads)
    lcd.drawText(210,120, text)
    if initPos then
       text, text2 = gps.getStrig(curPos)
@@ -797,29 +831,41 @@ local function init()
    if file then
       decoded = json.decode(file)
       nfz = decoded.nfz
+      settings = decoded.settings
+      sens = decoded.sens
    end
    writeBD = true
-   
-   zeroLatString = system.pLoad("zeroLatString")
-   zeroLngString = system.pLoad("zeroLngString")
 
-   for i in ipairs(sens) do
-      local v = sens[i].var
-      if not sens[v] then sens[v] = {} end
-      sens[v].Se   = system.pLoad(v.."Se", 0)
-      sens[v].SeId = system.pLoad(v.."SeId", 0)
-      --print(v.."SeId: ", sens[v].SeId)
-      sens[v].SePa = system.pLoad(v.."SePa", 0)
-      --print(v.."SePa: ", sens[v].SePa)
+   if not settings then
+      settings = {}
+      settings.rotA = 0
+   end
+
+   if not sens then
+      sens = {
+	 {var="lat", label="Latitude"},
+	 {var="lng", label="Longitude"},
+	 {var="alt", label="Altitude"},
+	 {var="spd", label="Speed"}
+      }
+      for i in ipairs(sens) do
+	 local v = sens[i].var
+	 if not sens[v] then sens[v] = {} end
+	 sens[v].Se   = 0
+	 sens[v].SeId = 0
+	 sens[v].SePa = 0
+      end
    end
    
-   distAB = system.pLoad("distAB", 150)
+   --zeroLatString = system.pLoad("zeroLatString")
+   --zeroLngString = system.pLoad("zeroLngString")
+   --[[
+   --]]
+   --rotA = system.pLoad("rotA", 0)
+   --rotA = rotA / 1000.0 -- rotA was saved as *1000 since it has to be an int
    
-   rotA = system.pLoad("rotA", 0)
-   rotA = rotA / 1000.0 -- rotA was saved as *1000 since it has to be an int
-   
-   if zeroLatString and zeroLngString then
-      zeroPos = gps.newPoint(zeroLatString, zeroLngString)
+   if settings and settings.zeroLatString and settings.zeroLngString then
+      zeroPos = gps.newPoint(settings.zeroLatString, settings.zeroLngString)
    end
 
    mapScaleIdx = 1
