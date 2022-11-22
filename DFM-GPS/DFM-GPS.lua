@@ -127,6 +127,9 @@ local MAXSAVED=20
 
 local savedRow, savedZone
 local fileBD, writeBD
+local needCalcXY = true
+local maxPolyX = 0
+local lastNoFly
 
 local function writeJSON()
    local fp
@@ -141,6 +144,33 @@ local function writeJSON()
 	 io.close(fp)
       end
    end
+end
+
+local function rotateXY(xx, yy, rotation)
+   local sinShape, cosShape
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
+end
+
+-- convert no fly polygon coords from lat,lng to x,y in current frame
+
+local function noFlyCalc()
+   local pt, cD, cB, x, y
+   for i in ipairs(nfz) do
+      for j in ipairs(nfz[i].path) do
+	 pt = gps.newPoint(nfz[i].path[j].lat,nfz[i].path[j].lng)
+	 cD = gps.getDistance(zeroPos, pt)
+	 cB = gps.getBearing(zeroPos, pt)
+	 x = cD * math.cos(math.rad(cB+270))
+	 y = cD * math.sin(math.rad(cB+90))
+	 x,y = rotateXY(x, y, rotA)
+	 nfz[i].xy[j] = {x=x,y=y}
+	 if x > maxPolyX then maxPolyX = x end
+	 print(i,j,x,y)
+      end
+   end
+   needCalcXY = false
 end
 
 local function readSensors(tbl)
@@ -179,17 +209,6 @@ local function keyExit(k)
 end
 
 local function keyForm(key)
-   if subForm ~= 1 then
-      if keyExit(key) then
-	 form.preventDefault()
-	 if subForm == 3 then
-	    --print("release telem")
-	    telem = nil
-	 end
-	 form.reinit(1)
-	 return
-      end
-   end
    if subForm == 1 then
       if key == KEY_1 then
 	 if initPos then
@@ -211,9 +230,14 @@ local function keyForm(key)
 	 end
       end
    elseif subForm == 5 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(1)
+	 return
+      end
       if key == KEY_2 then -- add
 	 if not nfz then nfz = {} end
-	 table.insert(nfz, {shape=nfk.polygon, type=nfk.inside, path={}})
+	 table.insert(nfz, {shape=nfk.polygon, type=nfk.inside, path={}, xy={}})
 	 form.reinit(5)
       elseif key == KEY_3 then --edit
 	 if not nfz or #nfz < 1 then print("EMPTY") return end
@@ -222,8 +246,15 @@ local function keyForm(key)
       elseif key == KEY_4 then --delete
       end
    elseif subForm == 51 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 needCalcXY = true
+	 form.reinit(5)
+	 return
+      end
       if key == KEY_2 then
-	 table.insert(nfz[savedZone].path, gps.newPoint(0,0))
+	 table.insert(nfz[savedZone].path, {lat=0,lng=0})
+	 table.insert(nfz[savedZone].xy, {x=0,y=0})
 	 form.reinit(51)
       end
    end
@@ -274,6 +305,7 @@ local function initForm(sf)
 	       form.waitForRelease()
       end))      
 
+      --[[
       form.addRow(2)
       form.addLabel({label="Controls >>", width=220})
       form.addLink((function()
@@ -281,6 +313,7 @@ local function initForm(sf)
 	       form.reinit(4)
 	       form.waitForRelease()
       end))
+      --]]
 
       form.addRow(2)
       form.addLabel({label="No Fly Zones >>", width=220})
@@ -289,7 +322,6 @@ local function initForm(sf)
 	       form.reinit(5)
 	       form.waitForRelease()
       end))
-
       
       if savedRow then form.setFocusedRow(savedRow) end
       savedRow = 1
@@ -332,66 +364,54 @@ local function initForm(sf)
       --form.setButton(4, ":delete", 1)
       if not nfz then
 	 form.addRow(1)
-	 form.addLabel({label="No No-Fly Zones defined"})
+	 form.addLabel({label="No No-Fly Zones"})
 	 return
       end
       for i,z in ipairs(nfz) do
-	 form.addRow(3)
-	 form.addLabel({label=string.format("%d", i), width=60})
+	 if nfz[i].shape == nfk.circle then
+	    form.addRow(5)
+	 else
+	    form.addRow(3)
+	 end
+	 
+	 form.addLabel({label=string.format("%d", i), width=20})
 	 form.addSelectbox(nfk.selType,  nfz[i].type,  true,
-			   (function(x) return zoneChanged(x, nfk.type, i)  end) )
+			   (function(x) return zoneChanged(x, nfk.type, i)  end), {width=85})
 	 form.addSelectbox(nfk.selShape, nfz[i].shape, true,
-			   (function(x) return zoneChanged(x, nfk.shape, i) end) )
+			   (function(x) return zoneChanged(x, nfk.shape, i) end), {width=85})
+	 if nfz[i].shape == nfk.circle then
+	    form.addLabel({label="Rad", width=50})
+	    form.addIntbox((nfz[i].radius or 0), 0, 10000, 100, 0, 1, radiusChanged, {width=60})
+	 end
+	 
       end
+      if savedZone then form.setFocusedRow(savedZone) end
    elseif sf == 51 then
       form.setTitle("Edit No Fly Zone " .. savedZone)
-      form.setFocusedRow(1)
-      --form.setButton(1, "Clear", 1)
       form.setButton(2, ":add", 1)
-      --form.setButton(3, ":edit", 1)
-      --form.setButton(4, ":delete", 1)
       if #nfz[savedZone].path == 0 then
 	 print("nfz empty")
 	 for i=1,3,1 do
-	    table.insert(nfz[savedZone].path, gps.newPoint(0,0))
+	    print(#nfz[savedZone].path, #nfz[savedZone].xy)
+	    table.insert(nfz[savedZone].path, {lat=0,lng=0})
+	    table.insert(nfz[savedZone].xy, {x=0,y=0})
 	 end
       end
 
       local function pointChanged(val, sel, gp, i)
-	 --[[
-	 local nn = tonumber(val)
-	 local validLL = true
-	 if not nn then
-	    validLL = false
-	 end
-	 if sel = nfk.lat then
-	    if nn < -90 or nn > 90 then validLL = false end
-	 else
-	    if nn < -180 or nn > 180 then validLL = false end
-	 end
-	 if not validLL then
-	    system.messageBox("Invalid lat/lng: " .. val)
-	    form.reinit(51)
-	    return
-	 end
-	 --]]
-	 local lat, lng = gps.getStrig(gp[i])
 	 if sel == nfk.lat then
-	    lat = val
+	    gp[i].lat = val
 	 else
-	    lng = val
+	    gp[i].lng = val
 	 end
-	 gp[i] = gps.newPoint(lat, lng)
 	 form.reinit(51)
       end
-      
 
       for i,gpsP in ipairs(nfz[savedZone].path) do
 	 form.addRow(5)
 	 form.addLabel({label=string.format("%d", i), width=20})
-	 local lat, lng = gps.getStrig(gpsP)
-	 lat = string.sub(lat, 1, 10)
-	 lng = string.sub(lng, 1, 10)
+	 local lat = string.format("%.6f", gpsP.lat)
+	 local lng = string.format("%.6f", gpsP.lng)
 	 form.addLabel({label="Lat", width=35})
 	 form.addTextbox(lat, 10,
 			 (function(x) return pointChanged(x, nfk.lat, nfz[savedZone].path, i) end), {width=110})
@@ -399,6 +419,7 @@ local function initForm(sf)
 	 form.addTextbox(lng, 10,
 			 (function(x) return pointChanged(x, nfk.lng, nfz[savedZone].path, i) end), {width=110})
       end
+      form.setFocusedRow(1)
    end
 end
 
@@ -438,12 +459,6 @@ local function yp(y)
    return 160 *(1 -  (y - ymin) / (ymax - ymin))
 end
 
-local function rotateXY(xx, yy, rotation)
-   local sinShape, cosShape
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
-   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
-end
 
 local function loop()
    
@@ -582,34 +597,35 @@ local function isNoFlyP(nn,p)
 
    local isInside
    local next
+   local extreme
 
    -- There must be at least 3 vertices in polygon[]
 
-   if (#nn.path < 3)  then return false end
+   if (#nn.xy < 3)  then return false end
 
    --first see if we are inside the bounding circle
    --if so, isInside is false .. jump to end
    --else run full algorithm
 
-   if ((p.x - nn.xc) * (p.x - nn.xc) + (p.y - nn.yc) * (p.y - nn.yc)) > nn.r2 then
+   if false then --((p.x - nn.xc) * (p.x - nn.xc) + (p.y - nn.yc) * (p.y - nn.yc)) > nn.r2 then
       isInside = false
    else
       --Create a point for line segment from p to infinite 
-      extreme = {x=2*maxpolyX, y=p.y}; 
+      extreme = {x=2*maxPolyX, y=p.y}; 
       
       -- Count intersections of the above line with sides of polygon 
       local count = 0
       local i = 1
-      local n = #nn.path
+      local n = #nn.xy
       
       repeat
 	 next = i % n + 1
-	 if (doIntersect(nn.path[i], nn.path[next], p, extreme)) then 
+	 if (doIntersect(nn.xy[i], nn.xy[next], p, extreme)) then 
 	    -- If the point 'p' is colinear with line segment 'i-next', 
 	    -- then check if it lies on segment. If it lies, return true, 
 	    -- otherwise false 
-	    if (orientation(nn.path[i], p, nn.path[next]) == 0) then 
-	       return onSegment(nn.path[i], p, nn.path[next])
+	    if (orientation(nn.xy[i], p, nn.xy[next]) == 0) then 
+	       return onSegment(nn.xy[i], p, nn.xy[next])
 	    end
 	    count = count + 1 
 	 end
@@ -621,7 +637,7 @@ local function isNoFlyP(nn,p)
       isInside = (count % 2 == 1)
    end
    
-   if nn.inside == true then
+   if nn.type == nfk.inside then
       return isInside
    else
       return not isInside
@@ -692,6 +708,20 @@ local function drawTape(x0, y0, xh, yh, tele, lbl, unit, onLeft)
 end
 
 local function mapTele()
+
+   if nfz and #nfz > 0 and zeroPos and nfz[1].xy then
+      if needCalcXY then noFlyCalc() end
+      for i in ipairs(nfz) do
+	 local n = #nfz[i].xy
+	 if n > 3 then
+	    for j=1,n-1 do
+	       lcd.drawLine(xp(nfz[i].xy[j].x), yp(nfz[i].xy[j].y), xp(nfz[i].xy[j+1].x), yp(nfz[i].xy[j+1].y))
+	    end
+	    lcd.drawLine(xp(nfz[i].xy[n].x), yp(nfz[i].xy[n].y), xp(nfz[i].xy[1].x), yp(nfz[i].xy[1].y))
+	 end
+      end
+   end
+   
    if curX and curY then
 
       if curX < xmin or curX > xmax or curY < ymin or curY > ymax then
@@ -702,7 +732,21 @@ local function mapTele()
 	 end
       end
       
-      drawShape(xp(curX), yp(curY), Glider, (heading or 0) )
+      local txy = {x=curX,y=curY}
+      local noFly = isNoFlyP(nfz[1], txy)
+      
+      if noFly then
+	 lcd.drawCircle(xp(curX), yp(curY), 4)
+      else
+	 drawShape(xp(curX), yp(curY), Glider, (heading or 0) )
+      end
+
+      if lastNoFly == nil then lastNoFly = noFly end
+      if noFly and not lastNoFly then print("enter nofly") end
+      if not noFly and lastNoFly then print("exit nofly") end
+
+      lastNoFly = noFly
+      
       if savedXP and #savedXP > 1 then
 	 for i=2,#savedXP do
 	    lcd.drawLine(savedXP[i-1], savedYP[i-1], savedXP[i], savedYP[i])
@@ -740,8 +784,9 @@ local function printTele()
 end
 
 local function init()
-   
+   local emFlag, file
    local pf, mn
+   local decoded
    
    emFlag = select(2, system.getDeviceType()) == 1
    if emFlag then pf = "" else pf = "/" end
