@@ -71,7 +71,7 @@
 local sensorE_Global = {emulator_init=true, emulator_vibration=true, emulator_playFile=true,
 		  emulator_playNumber=true, emulator_getSensors=true,
 		  emulator_getSensorValueByID=true,emulator_getSensorByID=true,
-		  emulator_init=true, emulator_getPosition=true}
+		  emulator_init=true, emulator_getPosition=true, emulator_playBeep=true}
 setmetatable(_G, {
 		__newindex = function (t, n, v)
 		   if not sensorE_Global[n] then

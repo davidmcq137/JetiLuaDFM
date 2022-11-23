@@ -227,10 +227,15 @@ function Ann.init(r,rN)
    
    if select(2, system.getDeviceType()) ~= 1 then
       path = "/" .. path
-   end      
+   end
+   local ff = io.open(path..system.getLocale())
+   if not ff then
+      print("V-Ann: missing Audio subdirectory for localization "..system.getLocale())
+      path = path .."en"
+   else
+      path = path .. system.getLocale()
+   end
 
-   path = path .. system.getLocale()
-   
    annFiles = {}
    
    for name, filetype, size in dir(path) do

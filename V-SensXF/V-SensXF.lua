@@ -104,9 +104,10 @@ end
 --]]
 
 local function setLanguage()
-   locale=system.getLocale()
+   locale = system.getLocale()
    local tf1 = "Apps/V-SensXF/Lang/"
    local tf2 = "-locale.jsn"
+   print(tf1..locale..tf2)
    local file = io.readall(tf1..locale..tf2)
    if not file then
       locale = "en"
@@ -118,6 +119,7 @@ local function setLanguage()
 	 lang = obj[locale]
       end
    end
+   print("lang.teleWin", lang.teleWin)
 end
    
 local function recomputeCond()
@@ -1286,7 +1288,7 @@ local function init()
    --print("#", resultName[1], resultName[2], resultName[3], resultName[4])   
    --print("@", resultTele[1], resultTele[2], resultTele[3], resultTele[4])
    
-   system.registerForm(1,MENU_APPS,lang.appname,initForm,keyPressed,printForm);
+   system.registerForm(1,MENU_APPS,"V-SensXF",initForm,keyPressed,printForm);
 
    for k in ipairs(condition) do
       regL(k)
@@ -1324,14 +1326,15 @@ local function init()
       V_Ann = require "V-Ann"
       V_Ann.init(result, resultName)
    end
-      
+
+   V_Ann = nil
+
    collectgarbage()
    
-   print("V-SensXF: gcc " .. collectgarbage("count"))
-   
+   setLanguage()
+
 end
 
-setLanguage()
 collectgarbage()
 
-return { init=init, loop=loop, author="JETI model and DFM", version="4.1",name="V-SensXF"}
+return { init=init, loop=loop, author="JETI model and DFM", version="4.2",name="V-SensXF"}

@@ -19,6 +19,7 @@ local telem
 local sens
 local settings
 local nfz
+local fields
 
 local nfk = {type=1, shape=2, lat=1, lng=2,
 	     selType={"Inside", "Outside"},  inside=1, outside=2,
@@ -90,13 +91,10 @@ local curDist
 local curBear
 local curPos
 local zeroPos
---local zeroLatString
---local zeroLngString
 local initPos
 local curX, curY
 local lastX, lastY
 local heading
---local rotA
 local savedPos = {}
 local savedXP = {}
 local savedYP = {}
@@ -128,8 +126,6 @@ local function writeJSON()
    if writeBD then
       fp = io.open(fileBD, "w")
       if fp then
-	 --print("writing "..fileBD, #nfz)
-	 --print(json.encode(save))
 	 io.write(fp, json.encode(save), "\n") 
 	 io.close(fp)
       end
@@ -157,8 +153,6 @@ local function noFlyCalc()
 	 x,y = rotateXY(x, y, settings.rotA)
 	 nfz[i].xy[j] = {x=x,y=y}
 	 if x > maxPolyX then maxPolyX = x end
-	 --print(i,j,x,y)
-	 --print(#nfz[i].xy)
       end
    end
    needCalcXY = false
@@ -166,7 +160,6 @@ end
 
 local function readSensors(tbl)
    local sensorLbl = "***"
-   --print("readSensors")
    local sensors = system.getSensors()
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
@@ -205,8 +198,6 @@ local function keyForm(key)
 	 if initPos then
 	    zeroPos = curPos
 	    settings.zeroLatString, settings.zeroLngString = gps.getStrig(zeroPos)
-	    --system.pSave("zeroLatString", zeroLatString)
-	    --system.pSave("zeroLngString", zeroLngString)
 	    clearPos()
 	 else
 	    system.messageBox("No Current Position")
@@ -214,17 +205,26 @@ local function keyForm(key)
       elseif key == KEY_2 then
 	 if curBear then
 	    settings.rotA = math.rad(curBear-90)
-	    --system.pSave("rotA", rotA*1000)
 	    clearPos()
 	 else
 	    system.messageBox("No Current Position")
 	 end
       end
-   elseif subForm == 3 or subForm == 4 then
+   elseif subForm == 3 then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
 	 return
+      end
+   elseif subForm == 4 then
+      savedZone = form.getFocusedRow()
+      if key == KEY_2 then
+	 if not fields then fields={} end
+	 table.insert(fields, {name="ABC", lat=0, lng=0, rotation=0})
+	 form.reinit(4)
+      elseif key == KEY_4 then
+	 table.remove(fields, savedZone)
+	 form.reinit(4)
       end
    elseif subForm == 5 then
       if keyExit(key) then
@@ -266,41 +266,17 @@ local function keyForm(key)
       end
    end
 end
-   
-local function zoneChanged(val, sel, i)
-   if sel == nfk.type then
-      nfz[i].type = val
-   else
-      nfz[i].shape = val
-   end
-   form.reinit(5)
-end
-
-local function radiusChanged(val, i)
-   nfz[i].radius = val
-end
-
-local function telemChanged(val, stbl, v, ttbl)
-   stbl[v].Se = val
-   stbl[v].SeId = ttbl.Idlist[val]
-   stbl[v].SePa = ttbl.Palist[val]
-   --system.pSave(v.."Se",   stbl[v].Se)
-   --system.pSave(v.."SeId", stbl[v].SeId)
-   --system.pSave(v.."SePa", stbl[v].SePa)
-end
-
-local function pointChanged(val, sel, gp, i, ff)
-   if sel == nfk.lat then
-      gp[i].lat = val
-   else
-      gp[i].lng = val
-   end
-   form.reinit(ff)
-end
 
 local function initForm(sf)
    subForm = sf
+   collectgarbage()
+   print("sF) DFM-GPS: gcc " .. collectgarbage("count"))
    if sf == 1 then
+      local M = require "mainMenuCmd"
+      savedRow = M.mainMenu(savedRow)
+      M = nil
+      collectgarbage()
+      --[[
       form.setTitle("GPS Display")
 
       form.setButton(1, "Pt A",  ENABLED)
@@ -314,15 +290,13 @@ local function initForm(sf)
 	       form.waitForRelease()
       end))      
 
-      --[[
       form.addRow(2)
-      form.addLabel({label="Controls >>", width=220})
+      form.addLabel({label="Fields >>", width=220})
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       form.reinit(4)
 	       form.waitForRelease()
       end))
-      --]]
 
       form.addRow(2)
       form.addLabel({label="No Fly Zones >>", width=220})
@@ -334,11 +308,25 @@ local function initForm(sf)
       
       if savedRow then form.setFocusedRow(savedRow) end
       savedRow = 1
+      --]]
    elseif sf == 2 then
       form.setTitle("")
       form.setButton(1, "Pt A",  ENABLED)
       form.setButton(2, "Dir B", ENABLED)
    elseif sf == 3 then
+      local M = require "selTeleCmd"
+      savedRow = M.selTele(telem, sens, readSensors, savedRow)
+      M = nil
+      collectgarbage()
+      --[[
+      local function telemChanged(val, stbl, v, ttbl)
+	 stbl[v].Se = val
+	 stbl[v].SeId = ttbl.Idlist[val]
+	 stbl[v].SePa = ttbl.Palist[val]
+	 if v == "alt" or v == "spd" then
+	    --the require and init for tape display would go here
+	 end
+      end
       if not telem then
 	 telem = {
 	    Lalist={"..."},
@@ -355,47 +343,101 @@ local function initForm(sf)
 			   (function(x) return telemChanged(x, sens, sens[i].var, telem) end),
 			   {width=180, alignRight=false})
       end
-      
+      --]]
    elseif sf == 4 then
-      form.setTitle("Controls")
-      for i in ipairs(ctl) do
+      local M  = require "selFieldCmd"
+      savedRow = M.selField(fields, savedRow)
+      M = nil
+      collectgarbage()
+      --[[
+      local function nameChanged(val, i)
+	 fields[i].name = val
+      end
+      
+      form.setButton(2, ":add", 1)
+      form.setButton(4, ":delete", 1)
+      if not fields or #fields == 0 then
+	 form.addRow(1)
+	 form.addLabel({label="No Fields"})
+	 return
+      end
+      
+      --table.insert(fields, {name="", lat=0, lng=0, rotation=0})
+
+      for i in ipairs(fields) do
 	 form.addRow(2)
-	 form.addLabel({label=ctl[i].label, width=220})
-	 form.addInputbox(ctl[ctl[i].var], true, (function(x) return ctlChanged(x, ctl, ctl[i].var) end) )
+	 form.addTextbox(fields[i].name, 3, (function(x) return nameChanged(x,i) end), {width=60})
+	 local lat = string.format("%.5f", fields[i].lat)
+	 local lng = string.format("%.5f", fields[i].lng)
+	 form.addLabel({label=string.format("Lat %.6f   Lng %.6f  %d°",
+					    fields[i].lat, fields[i].lng,
+					    fields[i].rotation), width=260})
       end
       --]]
    elseif sf == 5 then
-      form.setTitle("No Fly Zones")
-      --form.setButton(1, "Clear", 1)
-      form.setButton(2, ":add", 1)
-      form.setButton(3, ":edit", 1)
-      form.setButton(4, ":delete", 1)
-      if not nfz then
-	 form.addRow(1)
-	 form.addLabel({label="No No-Fly Zones"})
-	 return
-      end
-      for i,z in ipairs(nfz) do
-	 if nfz[i].shape == nfk.circle then
-	    form.addRow(5)
-	 else
-	    form.addRow(3)
-	 end
+      local M = require "noFlyCmd"
+      M.noFly(nfk, nfz, savedZone)
+      M = nil
+      collectgarbage()
+      --[[
+      local function noFlyCmd(nfk, nfz)
 	 
-	 form.addLabel({label=string.format("%d", i), width=20})
-	 form.addSelectbox(nfk.selType,  nfz[i].type,  true,
-			   (function(x) return zoneChanged(x, nfk.type, i)  end), {width=85})
-	 form.addSelectbox(nfk.selShape, nfz[i].shape, true,
-			   (function(x) return zoneChanged(x, nfk.shape, i) end), {width=85})
-	 if nfz[i].shape == nfk.circle then
-	    form.addLabel({label="Rad", width=50})
-	    form.addIntbox((nfz[i].radius or 0), 0, 10000, 100, 0, 1,
-	       (function(x) return radiusChanged(x, i) end), {width=60})
+	 local function zoneChanged(val, sel, i)
+	    if sel == nfk.type then
+	       nfz[i].type = val
+	    else
+	       nfz[i].shape = val
+	    end
+	    form.reinit(5)
 	 end
-	 
+	 local function radiusChanged(val, i)
+	    nfz[i].radius = val
+	 end
+	 form.setTitle("No Fly Zones")
+	 form.setButton(2, ":add", 1)
+	 form.setButton(3, ":edit", 1)
+	 form.setButton(4, ":delete", 1)
+	 if not nfz then
+	    form.addRow(1)
+	    form.addLabel({label="No No-Fly Zones"})
+	    return
+	 end
+	 for i,z in ipairs(nfz) do
+	    if nfz[i].shape == nfk.circle then
+	       form.addRow(5)
+	    else
+	       form.addRow(3)
+	    end
+	    
+	    form.addLabel({label=string.format("%d", i), width=20})
+	    form.addSelectbox(nfk.selType,  nfz[i].type,  true,
+			      (function(x) return zoneChanged(x, nfk.type, i)  end), {width=85})
+	    form.addSelectbox(nfk.selShape, nfz[i].shape, true,
+			      (function(x) return zoneChanged(x, nfk.shape, i) end), {width=85})
+	    if nfz[i].shape == nfk.circle then
+	       form.addLabel({label="Rad", width=50})
+	       form.addIntbox((nfz[i].radius or 0), 0, 10000, 100, 0, 1,
+		  (function(x) return radiusChanged(x, i) end), {width=60})
+	    end
+	    
+	 end
+	 if savedZone then form.setFocusedRow(savedZone) end
       end
-      if savedZone then form.setFocusedRow(savedZone) end
+      --]]
    elseif sf == 51 then
+      local M = require "polyPtCmd"
+      M.polyPt(nfk, nfz, savedZone)
+      M = nil
+      collectgarbage()
+      --[[
+      local function pointChanged(val, sel, gp, i, ff)
+	 if sel == nfk.lat then
+	    gp[i].lat = val
+	 else
+	    gp[i].lng = val
+	 end
+	 form.reinit(ff)
+      end
       form.setTitle("Edit Polygon No Fly Zone " .. savedZone)
       form.setButton(2, ":add", 1)
       if #nfz[savedZone].path == 0 then
@@ -420,7 +462,13 @@ local function initForm(sf)
 			 {width=110})
       end
       form.setFocusedRow(1)
+      --]]
    elseif sf == 52 then
+      local M = require "circPtCmd"
+      M.circPt(nfk, nfz, savedZone)
+      M = nil
+      collectgarbage()
+      --[[
       form.setTitle("Edit Circle No Fly Zone " .. savedZone)
       if #nfz[savedZone].path == 0 then
 	 table.insert(nfz[savedZone].path, {lat=0,lng=0})
@@ -437,6 +485,7 @@ local function initForm(sf)
       form.addTextbox(lng, 10,
 		      (function(x) return pointChanged(x, nfk.lng, nfz[savedZone].path, 1, 52) end),
 		      {width=110})
+      --]]
    end
 end
 
@@ -476,6 +525,24 @@ local function yp(y)
    return 160 *(1 -  (y - ymin) / (ymax - ymin))
 end
 
+local function keyGPS(key)
+   if key == KEY_ENTER then
+      print("Row: " .. form.getFocusedRow())
+      form.close(2)
+   end
+end
+
+local function initGPS()
+   form.addRow(1)
+   form.addLabel({label="ABC"})
+   form.addRow(1)
+   form.addLabel({label="DEF"})
+   form.addRow(1)
+   form.addLabel({label="GHI"})
+   form.addRow(1)
+   form.addLabel({label="JKL"})
+end
+
 
 local function loop()
 
@@ -502,7 +569,9 @@ local function loop()
       if not initPos then
 	 initPos = curPos
 	 if not zeroPos then zeroPos = curPos end
+	 system.registerForm(2, 0, "Field Selection", initGPS, keyGPS)
       end
+
       
       curDist = gps.getDistance(zeroPos, curPos)
       curBear = gps.getBearing(zeroPos, curPos)
@@ -675,6 +744,8 @@ local nLine = {
   {72, 7, -30}  -- -30
 }
 
+
+---[[
 local function drawTape(x0, y0, xh, yh, tele, lbl, unit, onLeft)
    local delta = (tele or 0) % 10
    local deltaY = 1 + math.floor(2.4 * delta)
@@ -718,7 +789,7 @@ local function drawTape(x0, y0, xh, yh, tele, lbl, unit, onLeft)
    lcd.drawText(xnum+xoff - lcd.getTextWidth(FONT_NORMAL,text)-2, yh/2+yoff-yfh, text, FONT_NORMAL|FONT_XOR)
    lcd.resetClipping() 
 end
-
+--]]
 local function mapTele()
 
    if nfz and #nfz > 0 and zeroPos and nfz[1].xy then
@@ -855,14 +926,13 @@ local function init()
 	 sens[v].SeId = 0
 	 sens[v].SePa = 0
       end
+   else -- fix "1" instead of 1 for keys (json converter)
+      for k,v in pairs(sens) do
+	 if type(k) == "string" and tonumber(k) then
+	    sens[tonumber(k)] = v
+	 end
+      end
    end
-   
-   --zeroLatString = system.pLoad("zeroLatString")
-   --zeroLngString = system.pLoad("zeroLngString")
-   --[[
-   --]]
-   --rotA = system.pLoad("rotA", 0)
-   --rotA = rotA / 1000.0 -- rotA was saved as *1000 since it has to be an int
    
    if settings and settings.zeroLatString and settings.zeroLngString then
       zeroPos = gps.newPoint(settings.zeroLatString, settings.zeroLngString)
