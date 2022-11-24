@@ -29,6 +29,15 @@ function M.mainMenu(savedRow)
 	    form.waitForRelease()
    end))
    
+   form.addRow(2)
+   form.addLabel({label="Reset App data >>", width=220})
+   form.addLink((function()
+	    savedRow = form.getFocusedRow()
+	    print("foo")
+	    form.reinit(6)
+	    form.waitForRelease()
+   end))      
+
    if savedRow then form.setFocusedRow(savedRow) end
    savedRow = 1
    return savedRow

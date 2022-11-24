@@ -6,11 +6,8 @@ function M.selTele(telem, sens, readSensors, savedRow)
       stbl[v].Se = val
       stbl[v].SeId = ttbl.Idlist[val]
       stbl[v].SePa = ttbl.Palist[val]
-      if v == "alt" or v == "spd" then
-	 --the require and init for tape display would go here
-      end
    end
-   if not telem then
+   if not telem or #telem == 0 then
       telem = {
 	 Lalist={"..."},
 	 Idlist={"..."},
