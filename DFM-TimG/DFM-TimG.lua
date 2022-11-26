@@ -428,14 +428,14 @@ local function loop()
    end
 
    if remainingTime and remainingTime < bingoTime and not bingoAnnounced then
-      system.playFile('/Apps/DFM-TimG/warning_bingo_fuel', AUDIO_IMMEDIATE)
+      system.playFile('/Apps/DFM-TimG/warning_bingo_fuel.wav', AUDIO_IMMEDIATE)
       bingoAnnounced = true
    end
 
    if system.getTimeCounter() - (emptyAnnouncedTime or 0) > 10000 then emptyAnnounced = false end
 
    if remainingTime and remainingTime <= 0 and not emptyAnnounced then
-      system.playFile('/Apps/DFM-TimG/warning_fuel_empty', AUDIO_IMMEDIATE)
+      system.playFile('/Apps/DFM-TimG/warning_fuel_empty.wav', AUDIO_IMMEDIATE)
       emptyAnnounced = true
       emptyAnnouncedTime = system.getTimeCounter()
    end
