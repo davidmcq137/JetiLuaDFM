@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [master, dev]
+    branches: [master, beta]
 jobs:
   build:
     runs-on: ubuntu-18.04
