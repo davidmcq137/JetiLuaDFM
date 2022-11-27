@@ -16,7 +16,7 @@ function M.selTele(telem, sens, readSensors, savedRow)
       readSensors(telem)
    end
    form.setTitle("Telemetry Sensors")
-   print("#sens", #sens)
+   --print("#sens", #sens)
    for i in ipairs(sens) do
       form.addRow(2)
       form.addLabel({label=sens[i].label,width=140})

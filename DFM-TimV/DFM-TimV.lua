@@ -9,7 +9,10 @@
    
 --]]
 
-local TimVVersion = "0.0"
+local TimVVersion = "0.2"
+local appStr = "Variable Countdown Timer"
+
+local savedForm, savedRow
 
 local fTimeT
 local lastfTimeT
@@ -36,35 +39,47 @@ local throttleExp
 local resetSw
 local swrLast
 
+local stickToShake
+local shakePattern
+
+local countDownSecs
+local countDownNext
+
+local thrLimit
+
 local function compExp(timExp)
    local thrExp
    local expFac = 40
    if timExp == 0 then thrExp = 1 end
-   if timExp > 0  then thrExp = 1+timExp/expFac end
-   if timExp < 0  then thrExp = expFac/(expFac-timExp) end
+   if timExp >  0 then thrExp = 1 + timExp/expFac end
+   if timExp <  0 then thrExp = expFac / (expFac - timExp) end
    return thrExp
 end
       
 local function tickToMinSec(tick)
    local ff = tick / 1000.0
    local fm = ff // 60.0
-   local fs = ff - fm * 60.0
+   local fs = math.floor(ff - fm * 60.0 + 0.5)
    local ss = string.format("%d:%02d", fm, fs)
+   --if ff > 0 then print(ss, ff, fm, fs) end
    return ss, fm, fs
 end
 
 local function changedVal(val, hm)
+   local tt
    if hm == "M" then
       startMins = val
       system.pSave("startMins", startMins)
+      fTimeT = (startMins*60 + startSecs) * 1000.0
    elseif hm == "S" then
       startSecs = val
       system.pSave("startSecs", startSecs)
+      fTimeT = (startMins*60 + startSecs) * 1000.0
    elseif hm == "W" then
       startStop = val
       system.pSave("startStop", startStop)
    elseif hm == "T" then
-      local tt = system.getSwitchInfo(val)
+      tt = system.getSwitchInfo(val)
       if not tt.proportional then
 	 system.messageBox("Throttle Control must be proportional")
 	 form.reinit(1)
@@ -86,62 +101,156 @@ local function changedVal(val, hm)
    elseif hm == "X" then
       timerExp = val
       throttleExp = compExp(timerExp)
-      print("throttleExp", throttleExp)
       system.pSave("timerExp", timerExp)
    elseif hm == "R" then
       resetSw = val
       system.pSave("resetSw", resetSw)
+   elseif hm == "Sts" then
+      stickToShake = val
+      system.pSave("stickToShake", stickToShake)
+   elseif hm == "Sp" then
+      shakePattern =  val
+      system.pSave("shakePattern", shakePattern)
+   elseif hm == "Cd" then
+      countDownSecs = val
+      system.pSave("countDownSecs", countDownSecs)
+   elseif hm == "Tl" then
+      tt = system.getSwitchInfo(val)
+      if not string.find(tt.mode, "S") then
+	 system.messageBox("Limit Control must be set as switch")
+	 form.reinit(1)
+      end
+      thrLimit = val
+      system.pSave("thrLimit", thrLimit)
+   end
+end
+
+local function keyExit(k)
+   if k == KEY_5 or k == KEY_ENTER or k == KEY_ESC then
+      return true
+   else
+      return false
+   end
+end
+
+local function keyPress(key)
+   if savedForm and savedForm > 1 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(1)
+      end
    end
 end
 
 local function initForm(sf)
 
-   form.addRow(4)
-   form.addLabel({label="Mins: "})
-   form.addIntbox(startMins, 0, 99, 10, 0, 1, (function(x) return changedVal(x, "M") end) )
-   form.addLabel({label="Seconds: "})
-   form.addIntbox(startSecs, 0, 59, 0, 0, 1, (function(x) return changedVal(x, "S") end) )
+   savedForm = sf
+   if not savedRow then savedRow = 1 end
    
-   form.addRow(2)
-   form.addLabel({label="Throttle control"})
-   form.addInputbox(thrControl, true, (function(x) return changedVal(x, "T") end) )
+   if sf == 1 then
+      form.setTitle(appStr)
+      
+      form.addRow(4)
+      form.addLabel({label="Start Mins: ", width=85})
+      form.addIntbox(startMins, 0, 99, 10, 0, 1, (function(x) return changedVal(x, "M") end), {width=75} )
+      form.addLabel({label="Start Secs: ", width=85})
+      form.addIntbox(startSecs, 0, 59, 0, 0, 1, (function(x) return changedVal(x, "S") end), {width=75} )
+      
+      form.addRow(2)
+      form.addLabel({label="Timer settings >>", width=240})
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       form.reinit(2)
+	       form.waitForRelease()
+      end))      
 
-   form.addRow(2)
-   form.addLabel({label="Throttle timer expo"})
-   form.addIntbox(timerExp, -100,100,0, 0, 1, (function(x) return changedVal(x, "X") end) )
+      form.addRow(2)
+      form.addLabel({label="Throttle settings >>", width=240})
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       form.reinit(3)
+	       form.waitForRelease()
+      end))      
 
-   form.addRow(2)
-   form.addLabel({label="Start/Stop switch"})
-   form.addInputbox(startStop, false, (function(x) return changedVal(x, "W") end) )
-   
-   form.addRow(2)
-   form.addLabel({label="Timer Reset switch"})
-   form.addInputbox(resetSw, false, (function(x) return changedVal(x, "R") end) )
+      form.addRow(2)
+      form.addLabel({label="Announcements and haptics >>", width=240})
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       form.reinit(4)
+	       form.waitForRelease()
+      end))
 
-   form.addRow(2)
-   form.addLabel({label="Full throttle announce switch", width=240})
-   form.addInputbox(annFull, false, (function(x) return changedVal(x, "F") end) )
-   
-   form.addRow(2)
-   form.addLabel({label="Variable throttle announce switch", width=240})
-   form.addInputbox(annVar, false, (function(x) return changedVal(x, "V") end) )      
+      if savedRow then form.setFocusedRow(savedRow) end
+	 
+      form.addRow(1)
+      form.addLabel({label="DFM-TimV - version "..TimVVersion.." ", font=FONT_MINI, alignRight=true})
 
+   elseif sf == 2 then
+      form.setTitle("Timer Settings")
+      form.setFocusedRow(1)
+      form.addRow(2)
+      form.addLabel({label="Countdown secs", width=240})
+      form.addIntbox(countDownSecs, 0,10, 0, 0, 1, (function(x) return changedVal(x, "Cd") end) )
+
+      form.addRow(2)
+      form.addLabel({label="Timer start/stop switch", width=240})
+      form.addInputbox(startStop, false, (function(x) return changedVal(x, "W") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Timer reset switch", width=240})
+      form.addInputbox(resetSw, false, (function(x) return changedVal(x, "R") end) )
+
+   elseif sf == 3 then
+      form.setTitle("Throttle Settings")
+      form.setFocusedRow(1)
+      form.addRow(2)
+      form.addLabel({label="Throttle control", width=240})
+      form.addInputbox(thrControl, true, (function(x) return changedVal(x, "T") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Throttle timer expo", width=240})
+      form.addIntbox(timerExp, -100,100,0, 0, 1, (function(x) return changedVal(x, "X") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Throttle idle limit", width=240})
+      form.addInputbox(thrLimit, true, (function(x) return changedVal(x, "Tl") end) )
+   elseif sf == 4 then
+      form.setTitle("Announcements and haptics")
+      form.setFocusedRow()
+      form.addRow(2)
+      form.addLabel({label="Full throttle announce switch", width=240})
+      form.addInputbox(annFull, false, (function(x) return changedVal(x, "F") end) )
+      
+      form.addRow(2)
+      form.addLabel({label="Variable throttle announce switch", width=260})
+      form.addInputbox(annVar, false, (function(x) return changedVal(x, "V") end) )      
+      
+      form.addRow(2)
+      form.addLabel({label="Stick to shake at t=0"})      
+      form.addSelectbox({"Left", "Right"}, stickToShake, (function(x) return changedVal(x,"Sts") end) )   
+      
+      form.addRow(2)
+      form.addLabel({label="Stick Shake Pattern"})      
+      form.addSelectbox({"None", "Long", "Short", "2xShort", "3xShort"},      
+	 shakePattern, true, (function(x) return changedVal(x, "Sp") end) )      
+   end
 end
 
 local function loop()
    local swv, swf, swr
-   local thrExp
    local thr
    local stopped
-
+   local tt
+   
    local now = system.getTimeCounter()
    
-   local swr = system.getInputsVal(resetSw)
+   swr = system.getInputsVal(resetSw)
    if swr and swr == 1 and swrLast ~= 1 then
       fTimeT = (startMins*60 + startSecs) * 1000.0
       iTimeT = nil
    end
-
+   swrLast = swr
+   
    local sws = system.getInputsVal(startStop)
    if sws and sws ~= 1 then
       lastfTimeT = now
@@ -149,12 +258,17 @@ local function loop()
    else
       stopped = false
    end
-   
-   local tt = system.getSwitchInfo(thrControl)
+      
+   tt = system.getSwitchInfo(thrControl)
    if not tt or not tt.assigned then
       thr = 1
    else
       thr = tt.value
+   end
+
+   tt = system.getSwitchInfo(thrLimit)
+   if tt and tt.assigned then
+      if tt.value == -1 then thr = -1 end
    end
    
    thrFrc = (thr + 1) / 2
@@ -165,17 +279,37 @@ local function loop()
       if fTimeT > 0 then
 	 fTimeT = fTimeT - thrFrc * (now - lastfTimeT)
       end
-      
-      if fTimeT < 0 then
+
+      if fTimeT <= 0 then
 	 fTimeT = 0
+	 if shakePattern > 1 then
+	    system.vibration( (stickToShake == 2), shakePattern - 1)
+	 end
 	 system.playFile("/Apps/DFM-TimV/stopped.wav")
       end
       
       lastfTimeT = now
    end
    
-   -- Division will get "inf" if thrFrc == 0, > 99*60 test still works   
-   iTimeT = fTimeT / thrFrc
+   -- Division will get "inf" if thrFrc == 0, > 99*60 test still works
+
+   if fTimeT == 0 and thrFrc == 0 then
+      iTimeT = 0
+   else
+      iTimeT = fTimeT / thrFrc
+   end
+
+   local tOffset = 0.5
+   
+   if iTimeT / 1000.0 > countDownSecs + tOffset then
+      countDownNext = countDownSecs + tOffset
+   end
+
+   if (iTimeT / 1000.0) < countDownNext and countDownNext > tOffset then
+      system.playNumber(countDownNext, 0)
+      countDownNext = countDownNext - 1
+   end
+
    if iTimeT / 1000.0  > 99*60 then
       iTimeT = 99*60*1000
       greater = ">"
@@ -206,8 +340,7 @@ end
 local function timTele()
    local thrExp
 
-   -- leave here in case pilot changes color while running
-   
+   -- leave here instead of init in case pilot changes color while running
    local bgr, bgg, bgb = lcd.getBgColor()
    if bgr + bgg +bgb > 384 then
       lcd.setColor(0,0,0)
@@ -220,14 +353,14 @@ local function timTele()
    end
    if thrFrc then lcd.drawNumber(120,42, 100 * thrFrc) end
    if thrExp then lcd.drawNumber(120,10, 100 * thrExp) end   
-   if fTimeT then lcd.drawText(25, 0, tickToMinSec(fTimeT), FONT_MAXI) end
-   if greater then lcd.drawText( 5,30, greater, FONT_MAXI) end
-   if iTimeT then lcd.drawText(25,30, tickToMinSec(iTimeT), FONT_MAXI) end
+   if fTimeT then lcd.drawText(25, -2, tickToMinSec(fTimeT), FONT_MAXI) end
+   if greater then lcd.drawText( 5,28, greater, FONT_MAXI) end
+   if iTimeT then lcd.drawText(25,28, tickToMinSec(iTimeT), FONT_MAXI) end
 end
 
 local function init()
 
-   system.registerForm(1, MENU_APPS, "Variable Countdown Timer", initForm)
+   system.registerForm(1, MENU_APPS, appStr, initForm, keyPress)
    system.registerTelemetry(1,"DFM-TimV",2, timTele)
 
    startMins = system.pLoad("startMins", 5)
@@ -239,13 +372,15 @@ local function init()
    timerExp = system.pLoad("timerExp", 0)
    throttleExp = compExp(timerExp)   
    resetSw = system.pLoad("resetSw")
-   
+   stickToShake = system.pLoad("stickToShake", 1)
+   shakePattern = system.pLoad("shakePattern", 1)
+   countDownSecs = system.pLoad("countDownSecs", 0)
+   thrLimit = system.pLoad("thrLimit")
+
    fTimeT = (startMins*60 + startSecs) * 1000.0
 
    print("DFM-TimV: gcc " .. collectgarbage("count"))
 
 end
-
-
 
 return {init=init, loop=loop, author="DFM", version=TimVVersion, name="DFM-TimV"}

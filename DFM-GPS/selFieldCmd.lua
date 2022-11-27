@@ -1,21 +1,12 @@
 local M = {}
 
-function M.selField(fields, savedRow, zeroPos, sel)
+function M.selField(fields, savedRow, zeroPos, nameChanged, sel)
    
-   local function nameChanged(val, i, j)
-      if j == 1 then
-	 val = val:gsub(" ", "_")
-	 val = val:gsub("[^w_-]+", "")
-	 fields[i].short = val
-      else
-	 fields[i].longname = val
-      end
-   end
 
-   --print("sel:", sel)
-   
    form.setButton(2, ":add", 1)
-   form.setButton(4, ":delete", 1)
+   if sel ~= "P" then
+      form.setButton(4, ":delete", 1)
+   end
    if not fields or #fields == 0 then
       form.addRow(1)
       form.addLabel({label="No Fields"})
