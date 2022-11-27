@@ -1,12 +1,8 @@
 local M = {}
 
-function M.selField(fields, savedRow, zeroPos, nameChanged, sel)
+function M.selField(fields, savedRow, zeroPos)
    
 
-   form.setButton(2, ":add", 1)
-   if sel ~= "P" then
-      form.setButton(4, ":delete", 1)
-   end
    if not fields or #fields == 0 then
       form.addRow(1)
       form.addLabel({label="No Fields"})
@@ -22,17 +18,9 @@ function M.selField(fields, savedRow, zeroPos, nameChanged, sel)
    table.sort(fields, (function(f1,f2) return f1.distance < f2.distance end) ) 
    
    for i in ipairs(fields) do
+      --print("##", i, fields[i].short)
       form.addRow(4)
-      if sel == "P" then
-	 form.addLabel({label=fields[i].short, width=70, font=FONT_MINI})
-      else
-	 form.addTextbox(fields[i].short, 8, (function(x) return nameChanged(x,i,1) end),
-			 {width=70, font=FONT_MINI})
-      end
-      
-      --form.addTextbox(fields[i].longname or "...", 20, (function(x) return nameChanged(x,i,2) end),
-      --	      {width=120, font=FONT_MINI})
-      --print(i, fields[i].lat, fields[i].lng)
+      form.addLabel({label=fields[i].short, width=65, font=FONT_MINI})
       local pp = gps.newPoint(fields[i].lat, fields[i].lng)
       local dd = gps.getDistance(zeroPos, pp) or 0
       form.addLabel({label=string.format("[%.6f,%.6f]", fields[i].lat, fields[i].lng),
@@ -48,11 +36,7 @@ function M.selField(fields, savedRow, zeroPos, nameChanged, sel)
       else
 	 ss = string.format("Dist %.1f m", dd)
       end
-      form.addLabel({label = ss, width=80, font=FONT_MINI})
-
-      --form.addLabel({label=string.format("[%.6f,%.6f]   %d°   ",
-	--				 fields[i].lat, fields[i].lng,
-	--				 math.deg(fields[i].rotation)) .. ss, width=220, font=FONT_MINI})
+      form.addLabel({label = ss, width=85, font=FONT_MINI})
    end
    return savedRow
 end

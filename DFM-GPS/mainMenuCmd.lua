@@ -12,7 +12,8 @@ function M.mainMenu(savedRow)
 	    form.reinit(3)
 	    form.waitForRelease()
    end))      
-   
+
+   --[[
    form.addRow(2)
    form.addLabel({label="Fields >>", width=220})
    form.addLink((function()
@@ -28,6 +29,7 @@ function M.mainMenu(savedRow)
 	    form.reinit(5)
 	    form.waitForRelease()
    end))
+   --]]
    
    form.addRow(2)
    form.addLabel({label="Reset App data >>", width=220})

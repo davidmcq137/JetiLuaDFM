@@ -10,9 +10,10 @@
    
 --]]
 
-local GPSVersion = "0.3"
+local GPSVersion = "0.2"
 
 local subForm = 0
+--local emFlag
 
 local telem
 local sens
@@ -29,6 +30,27 @@ local nfk = {type=1, shape=2, lat=1, lng=2,
 }
 
 local DT
+
+--[[
+local Prop = {
+   {-1,-6},
+   {-2,-2},
+   {-11,-2},
+   {-11,1},	
+   {-2,2},	
+   {-1,8},
+   {-5,8}, 
+   {-5,11},
+   {5,11},
+   {5,8},
+   {1,8},
+   {2,2},
+   {11,1},
+   {11,-2},
+   {2,-2},
+   {1,-6}
+}
+--]]
 
 local Glider =  {
    {0,-7},
@@ -48,6 +70,27 @@ local Glider =  {
    {14,0},
    {1,-2}
 }
+
+--[[
+local Jet = {
+   {0,-20},
+   {-3,-6},
+   {-10,0},
+   {-10,2},
+   {-2,2},
+   {-2,4},
+   {-6,8},
+   {-6,10},
+   {0,10},
+   {6,10},
+   {6,8},
+   {2,4},
+   {2,2},
+   {10,2},
+   {10,0},
+   {3,-6}
+}
+--]]
 
 local curDist
 local curBear
@@ -75,6 +118,8 @@ local MAXSAVED=20
 
 local savedRow, savedZone
 local fileBD, writeBD
+local noFlyFn
+local writeNoFly
 
 local needCalcXY = true
 local maxPolyX = 0
@@ -87,6 +132,56 @@ local function prefix()
    if emFlag then pf = "" else pf = "/" end
    return pf
 end
+
+local function newFile(pp, px, sx, nf, nfn, ff)
+   local fp, save, fn, fw
+   for i=1,99,1 do
+      fn = prefix()..pp..px..string.format("%02d", i)..sx
+      --print("trying to save", fn)
+      fp = io.open(fn, "r")
+      if not fp then
+	 --print("saving", fn)
+	 fp = io.open(fn, "w")
+	 save = {}
+	 save[nfn] = nf
+	 if fp then
+	    io.write(fp, json.encode(save), "\n")
+	    io.close(fp)
+	 end
+	 ff[#ff].short = px..string.format("%02d", i)
+	 fw = true
+	 break
+      else
+	 io.close(fp)
+	 fw = false
+      end
+   end
+   return fn, fw
+end
+
+local function getValue(pos)
+   local lt, lg
+   if pos then
+      lt, lg = gps.getValue(pos)
+   else
+      lt, lg = 0, 0
+   end
+   return lt or 0, lg or 0
+end
+
+local function nfzNew(lt, lg, rt)
+   nfz = {}
+   nfz.lat = lt or 0
+   nfz.lng = lg or 0
+   nfz.rotation = rt or 0
+   table.insert(nfz, {shape=nfk.polygon, type=nfk.inside, radius=0, path={}, xy={}})
+end
+
+local function fieldAdd(lt, lg, rt)
+   table.insert(fields,
+		{short="New_Field", lat=(lt or 0), lng=(lg or 0), rotation=(rt or 0)})
+end
+
 
 local function fixKeys(tt)
    for k,v in pairs(tt) do
@@ -106,6 +201,23 @@ local function writeJSON()
       fp = io.open(fileBD, "w")
       if fp then
 	 io.write(fp, json.encode(save), "\n") 
+	 io.close(fp)
+      end
+   end
+
+   
+   if writeNoFly then
+      if zeroPos and gpsCalA then
+	 nfz.lat, nfz.lng = getValue(zeroPos)
+      end
+      if settings.rotA and gpsCalB then
+	 nfz.rotation = settings.rotA
+      end
+      save = {}
+      save.nfz = nfz
+      fp = io.open(noFlyFn, "w")
+      if fp then
+	 io.write(fp, json.encode(save), "\n")
 	 io.close(fp)
       end
    end
@@ -137,6 +249,25 @@ local function noFlyCalc()
    needCalcXY = false
 end
 
+local function readSensors(tbl)
+   --local sensorLbl = "***"
+   local sensors = system.getSensors()
+   for _, sensor in ipairs(sensors) do
+      if (sensor.label ~= "") then
+	 if sensor.param == 0 then
+	    --sensorLbl = sensor.label
+	    table.insert(tbl.Lalist, "-->"..sensor.label)
+	    table.insert(tbl.Idlist, 0)
+	    table.insert(tbl.Palist, 0)
+	 else
+	    table.insert(tbl.Lalist, sensor.label)
+	    --table.insert(tbl.Lalist, sensorLbl .. "-> " .. sensor.label)
+	    table.insert(tbl.Idlist, sensor.id)
+	    table.insert(tbl.Palist, sensor.param)
+	 end
+      end
+   end
+end
 
 local function clearPos()
    savedPos = {}
@@ -178,7 +309,96 @@ local function keyForm(key)
 	 form.reinit(1)
 	 return
       end
+   elseif subForm == 4 then
+      savedZone = form.getFocusedRow()
+      if key == KEY_2 then
+	 if not fields then fields={} end
+	 local lat, lng = getValue(curPos)
+	 --print("lat,lng", lat, lng)
+	 fieldAdd(lat, lng, (settings.rotA or 0))
+	 nfzNew(lat, lng, (settings.rotA or 0))	 
+	 noFlyFn, writeNoFly = newFile("Apps/DFM-GPS/FF_", "New_", ".jsn", nfz, "nfz", fields)
+	 if not settings.rotA then gpsCalB = false end
+	 form.reinit(4)
+      elseif key == KEY_4 then
+	 print("noFlyFn", noFlyFn)
+	 print("to be del", fields[savedZone].short)
+	 local ff = prefix().."Apps/DFM-GPS/FF_"..fields[savedZone].short..".jsn"
+	 print("ff", ff)
+	 if ff == noFlyFn then
+	    system.messageBox("Cannot delete the selected field")
+	 else
+	    io.remove(ff)
+	    table.remove(fields, savedZone)
+	 end
+	 
+	 form.reinit(4)
+      end
+   elseif subForm == 5 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 needCalcXY = true
+	 form.reinit(1)
+	 return
+      end
+      savedZone = form.getFocusedRow()
+      if key == KEY_2 then -- add
+	 local lat,lng = getValue(curPos)
+	 nfzNew(lat, lng, (settings.rotA or 0))
+	 needCalcXY = true
+	 form.reinit(5)
+      elseif key == KEY_3 then --edit
+	 if not nfz or #nfz < 1 then return end
+	 if nfz[savedZone].shape == nfk.polygon then
+	    form.reinit(51)
+	 else
+	    form.reinit(52)
+	 end
+      elseif key == KEY_4 then --delete
+	 table.remove(nfz, savedZone)
+	 needCalcXY = true
+	 form.reinit(5)
+      end
+   elseif subForm == 51 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 needCalcXY = true
+	 form.reinit(5)
+	 return
+      end
+      if key == KEY_2 then
+	 table.insert(nfz[savedZone].path, {lat=0,lng=0})
+	 table.insert(nfz[savedZone].xy, {x=0,y=0})
+	 needCalcXY = true
+	 form.reinit(51)
+      end
+   elseif subForm == 52 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 needCalcXY = true
+	 form.reinit(5)
+	 return
+      end
+      if key == KEY_2 then
+	 table.insert(nfz[savedZone].path, {lat=0,lng=0})
+	 table.insert(nfz[savedZone].xy, {x=0,y=0})
+	 needCalcXY = true
+	 form.reinit(52)
+      end
    end
+end
+
+local function nameChanged(val, i)
+   val = val:gsub(" ", "_")
+   val = val:gsub("[^%w_-]+", "")
+   print("changing name from/to", fields[i].short, val)
+   local fo = prefix().."Apps/DFM-GPS/FF_"..fields[i].short..".jsn"
+   local fn = prefix().."Apps/DFM-GPS/FF_"..val..".jsn"
+   print("renaming", fo, fn)
+   io.rename(fo, fn)
+   fields[i].short = val
+   noFlyFn = val
+   writeNoFly = true
 end
 
 local function initForm(sf)
@@ -196,10 +416,31 @@ local function initForm(sf)
       form.setButton(2, "Dir B", ENABLED)
    elseif sf == 3 then
       local M = require "DFM-GPS/selTeleCmd"
-      savedRow = M.selTele(telem, sens, savedRow)
+      savedRow = M.selTele(telem, sens, readSensors, savedRow)
+      M = nil
+      collectgarbage()
+   elseif sf == 4 then
+      local M  = require "DFM-GPS/selFieldCmd"
+      savedRow = M.selField(fields, savedRow, zeroPos, nameChanged, "M")
+      M = nil
+      collectgarbage()
+   elseif sf == 5 then
+      local M = require "DFM-GPS/noFlyCmd"
+      M.noFly(nfk, nfz, savedZone)
+      M = nil
+      collectgarbage()
+   elseif sf == 51 then
+      local M = require "DFM-GPS/polyPtCmd"
+      M.polyPt(nfk, nfz, savedZone)
+      M = nil
+      collectgarbage()
+   elseif sf == 52 then
+      local M = require "DFM-GPS/circPtCmd"
+      M.circPt(nfk, nfz, savedZone)
       M = nil
       collectgarbage()
    elseif sf == 6 then
+      --print("removing", fileBD)
       io.remove(fileBD)
       writeBD = false
       system.messageBox("App data deleted .. restart App")
@@ -250,13 +491,14 @@ local function keyGPS(key)
    if key == KEY_5 or key == KEY_ENTER then
       form.preventDefault()
       selField = fields[form.getFocusedRow()].short
-      local fn = prefix().."Apps/DFM-GPS/FF_"..selField..".jsn"
-      file = io.readall(fn)
+      noFlyFn = prefix().."Apps/DFM-GPS/FF_"..selField..".jsn"
+      file = io.readall(noFlyFn)
       if file then
 	 decoded = json.decode(file)
 	 nfz = decoded.nfz
       end
       fixKeys(nfz)
+      writeNoFly = true
       zeroPos = gps.newPoint(nfz.lat, nfz.lng)
       gpsCalA = true
       settings.rotA = nfz.rotation
@@ -266,13 +508,25 @@ local function keyGPS(key)
       form.preventDefault()
       selField = ""
       form.close(2)
+   elseif key == KEY_2 then
+      if not fields then fields={} end
+      local lt, lg = getValue(zeroPos)
+      fieldAdd(lt, lg, 0)
+      nfzNew(lt, lg, 0)
+      noFlyFn, writeNoFly = newFile("Apps/DFM-GPS/FF_", "New_", ".jsn", nfz, "nfz", fields)
+      form.reinit(1)
+   elseif key == KEY_4 then
+      print("noFlyFn", noFlyFn)
+      print("to be del", fields[form.getFocusedRow()].short)
+      table.remove(fields, form.getFocusedRow())
+      form.reinit(1)
    end
 end
 
 local function initGPS()
    form.setTitle("DFM-GPS Field Selection")
    local M = require "DFM-GPS/selFieldCmd"
-   M.selField(fields, nil, zeroPos)
+   M.selField(fields, nil, zeroPos, nameChanged, "P")
    M = nil
    collectgarbage()
 end
@@ -587,6 +841,7 @@ local function init()
    mn = string.gsub(system.getProperty("Model"), " ", "_")
    fileBD = prefix() .. "Apps/DFM-GPS/GG_" .. mn .. ".jsn"
    file = io.readall(fileBD)
+   --if file then print("GG_", file) end
    if file then
       decoded = json.decode(file)
       settings = decoded.settings
@@ -599,20 +854,22 @@ local function init()
    local path = prefix().."Apps/DFM-GPS"
    for name, _, _ in dir(path) do
       dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
+      --print(dd, fn, ext)
       if fn and ext then
 	 local i,j = string.find(fn, "FF_")
-	 if string.lower(ext) == "jsn" and i == 1 then
+	 if string.lower(ext) == string.lower("jsn") and i == 1 then
 	    local ff = path .. "/" .. fn .. "." .. ext
+	    --print(ff)
 	    file = io.readall(ff)
 	    if file then
 	       decoded = json.decode(file)
 	    end
 	    local nn = string.sub(fn, j+1)
-	    print("nn", nn)
 	    local tt = decoded.nfz
 	    table.insert(fields,
 			 {short=nn, lat=(tt.lat or 0), lng=(tt.lng or 0),
 			  rotation=(tt.rotation or 0)})
+	    --print("tt.lat, tt.lng, tt.rotation", tt.lat, tt.lng, tt.rotation)
 	 end
       end
    end
@@ -656,12 +913,24 @@ local function init()
    system.registerTelemetry(1,"GPS Flight Display",4, mapTele)
 
    if select(2, system.getDeviceType()) == 1 then -- needed to jumpstart emulator
-      system.getSensors()
+      telem = {
+	 Lalist={"..."},
+	 Idlist={"..."},
+	 Palist={"..."}
+      }
+      readSensors(telem)
       telem = nil
    end
 
    selField = nil
 
+   ---[[
+   local NFF={}
+   table.insert(NFF, {nfp={{lat=1,lng=2},{lat=2,lng=3}}})
+   table.insert(NFF, {xy={{x=1,y=2},{x=1,y=2}}})
+   table.insert(NFF, {lat=99,lng=88,rotation=2})
+   print(json.encode(NFF))
+   --]]
    print("DFM-GPS: gcc " .. collectgarbage("count"))
 
 end
