@@ -60,7 +60,7 @@ end
 function M.isNoFlyC(nn, p)
    local d
    d = math.sqrt( (nn.xy[1].x-p.x)^2 + (nn.xy[1].y-p.y)^2)
-   if nn.type == nfk.inside then
+   if nn.type == "inside" then
       if d <= nn.radius then return true end
    else
       if d >= nn.radius then return true end
@@ -116,7 +116,7 @@ function M.isNoFlyP(nn,p, maxPolyX)
       isInside = (count % 2 == 1)
    end
    
-   if nn.type == nfk.inside then
+   if nn.type == "inside" then
       return isInside
    else
       return not isInside

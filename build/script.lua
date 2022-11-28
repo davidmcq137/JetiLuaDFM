@@ -104,6 +104,8 @@ local function main()
    print("::set-output name=dfm_maps_version::" .. dfm_maps_info.version)
    
    assert(build_app('DFM-Amix'))
+   assert(build_app('DFM-GPS'))   
+   
 end
 
 main()

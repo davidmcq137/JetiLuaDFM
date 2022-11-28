@@ -25,6 +25,12 @@ function DT.drawTape(x0, y0, xh, yh, tele, lbl, unit, onLeft)
    local xbox
    local yfh = lcd.getTextHeight(FONT_NORMAL)/2
    local text
+   local r,g,b = lcd.getBgColor()
+   if r+b+g > 384 then 
+      lcd.setColor(0,0,0)
+   else
+      lcd.setColor(255,255,255)
+   end
    if onLeft then
       xoff = 27
       pMult = 1
@@ -51,9 +57,13 @@ function DT.drawTape(x0, y0, xh, yh, tele, lbl, unit, onLeft)
       end
    end
    text = string.format("%d", (tele or 0))
-   lcd.setColor(255,255,255)
+   lcd.setColor(lcd.getBgColor())
    lcd.drawFilledRectangle(xnum-xbox, yh/2 + yoff-yfh,28,lcd.getTextHeight(FONT_NORMAL))
-   lcd.setColor(0,0,0)
+   if r+b+g > 384 then 
+      lcd.setColor(0,0,0)
+   else
+      lcd.setColor(255,255,255)
+   end
    lcd.drawRectangle(xnum-xbox, yh/2 + yoff-yfh,28,lcd.getTextHeight(FONT_NORMAL))
    lcd.drawText(xnum+xoff - lcd.getTextWidth(FONT_NORMAL,text)-2, yh/2+yoff-yfh, text, FONT_NORMAL|FONT_XOR)
    lcd.resetClipping() 

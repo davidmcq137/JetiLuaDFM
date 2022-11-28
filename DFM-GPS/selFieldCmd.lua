@@ -1,10 +1,10 @@
 local M = {}
 
-function M.keyField(key, mapV, settings)
+function M.keyField(key, mapV, settings, fields, prefix)
 
    local file
-   local decoded
-   local nfz = {}
+   local nfz
+   local decode
    
    if key == KEY_5 or key == KEY_ENTER then
       form.preventDefault()
@@ -14,12 +14,12 @@ function M.keyField(key, mapV, settings)
       local fn = prefix().."Apps/DFM-GPS/FF_"..mapV.selField..".jsn"
       file = io.readall(fn)
       if file then
-	 decoded = json.decode(file)
-	 nfz = decoded.nfz
+	 decode = json.decode(file)
+	 nfz = decode.nfz
       end
-      mapV.zeroPos = gps.newPoint(nfz.lat, nfz.lng)
+      mapV.zeroPos = gps.newPoint(decode.lat, decode.lng)
       mapV.gpsCalA = true
-      settings.rotA = nfz.rotation
+      settings.rotA = decode.rotation
       mapV.gpsCalB = true
       form.close(2)
    elseif key == KEY_ESC or key == KEY_1 then

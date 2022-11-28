@@ -1,9 +1,9 @@
 --[[
 
    ----------------------------------------------------------------------------
-   DFM-GPS.lua released under MIT license by DFM 2022
+   DFM-GPS.lua released under MIT license by DFM 11/2022
 
-   Simple GPS display app .. no maps!
+   Simple GPS display app .. no maps! Nofly zones made by www,jetiluadfm.app
 
    drawTape() inspired by Jeti's Artificial Horizon app
    ----------------------------------------------------------------------------
@@ -19,12 +19,15 @@ local sensIdPa
 local settings
 local nfz
 local fields
-   
+
+local monoTx
+
+--[[
 local nfk = {type=1, shape=2, lat=1, lng=2,
 	     selType={"Inside", "Outside"},  inside=1, outside=2,
 	     selShape={"Circle", "Polygon"}, circle=1, polygon=2
 }
-
+--]]
 local sens = {
    {var="lat", label="Latitude"},
    {var="lng", label="Longitude"},
@@ -34,6 +37,7 @@ local sens = {
 
 local DT
 local NF
+local DR
 
 local Glider =  {
    {0,-7},
@@ -115,6 +119,7 @@ end
 
 
 local function loadNF()
+   print("loading NF")
    NF = require "DFM-GPS/compGeo"
 end
 
@@ -159,6 +164,7 @@ local function keyForm(key)
 	    settings.zeroLatString, settings.zeroLngString = gps.getStrig(mapV.zeroPos)
 	    clearPos()
 	    mapV.gpsCalA = true
+	    needCalcXY = true
 	 else
 	    system.messageBox("No Current Position")
 	 end
@@ -167,6 +173,7 @@ local function keyForm(key)
 	    settings.rotA = math.rad(mapV.curBear-90)
 	    clearPos()
 	    mapV.gpsCalB = true
+	    needCalcXY = true	    
 	 else
 	    system.messageBox("No Current Position")
 	 end
@@ -217,29 +224,6 @@ local function setMapScale(s)
    return -mm, mm, -0.5*mm/2, 1.5*mm/2
 end
 
-local function drawShape(col, row, shape, rotation)
-   local sinShape, cosShape
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
-   for i, _ in pairs(shape) do
-      if i < #shape then
-	 lcd.drawLine(
-	    col + (shape[i][1]*cosShape - shape[i][2]*sinShape + 0.5),
-	    row + (shape[i][1] * sinShape + shape[i][2] * cosShape + 0.5),
-	    col + (shape[i+1][1]*cosShape - shape[i+1][2]*sinShape + 0.5),
-	    row + (shape[i+1][1] * sinShape + shape[i+1][2] * cosShape + 0.5)	    
-	 )
-      end
-   end
-   lcd.drawLine(
-      col + (shape[#shape][1]*cosShape - shape[#shape][2]*sinShape + 0.5),
-      row + (shape[#shape][1] * sinShape + shape[#shape][2] * cosShape + 0.5),
-      col + (shape[1][1]*cosShape - shape[1][2]*sinShape + 0.5),
-      row + (shape[1][1] * sinShape + shape[1][2] * cosShape + 0.5)
-   )
-
-end
-
 local function xp(x)
    return 320 * (x - mapV.xmin) / (mapV.xmax - mapV.xmin)
 end
@@ -250,7 +234,8 @@ end
 
 local function keyGPS(key)
    local M = require "DFM-GPS/selFieldCmd"
-   nfz = M.keyField(key, mapV, settings)
+   nfz = M.keyField(key, mapV, settings, fields, prefix)
+   if nfz and #nfz > 0 then noFlyCalc() end
    unrequire("DFM-GPS/selFieldCmd")
    M = nil
    collectgarbage()
@@ -349,21 +334,7 @@ local function mapTele()
    
    if nfz and #nfz > 0 and mapV.zeroPos and nfz[1].xy and NF then
       if needCalcXY then noFlyCalc() end
-      for i in ipairs(nfz) do
-	 if nfz[i].shape == nfk.polygon then
-	    local n = #nfz[i].xy
-	    if n > 3 then
-	       for j=1,n-1 do
-		  lcd.drawLine(xp(nfz[i].xy[j].x),yp(nfz[i].xy[j].y),xp(nfz[i].xy[j+1].x),yp(nfz[i].xy[j+1].y))
-	       end
-	       lcd.drawLine(xp(nfz[i].xy[n].x),yp(nfz[i].xy[n].y),xp(nfz[i].xy[1].x),yp(nfz[i].xy[1].y))
-	    end
-	 else
-	    if nfz[i].xy and #nfz[i].xy > 0 then
-	       lcd.drawCircle(xp(nfz[i].xy[1].x), yp(nfz[i].xy[1].y), 320*nfz[i].radius/(mapV.xmax-mapV.xmin))
-	    end
-	 end
-      end
+      DR.drawNFZ(nfz, mapV, xp, yp)
    end
    
    if curX and curY then
@@ -381,11 +352,11 @@ local function mapTele()
 	 local txy = {x=curX,y=curY}
 	 local noFlyP = false
 	 local noFlyC = false
-	 for i in ipairs(nfz) do
-	    if nfz[i].shape == nfk.polygon then
-	       noFlyP = noFlyP or isNoFlyP(nfz[i], txy, maxPolyX)
+	 for i in ipairs(nfz) do 
+	    if nfz[i].shape == "polygon" then
+	       noFlyP = noFlyP or NF.isNoFlyP(nfz[i], txy, maxPolyX)
 	    else
-	       noFlyC = noFlyC or isNoFlyC(nfz[i], txy)
+	       noFlyC = noFlyC or NF.isNoFlyC(nfz[i], txy)
 	    end
 	 end
 	 noFly = noFlyP or noFlyC
@@ -402,16 +373,17 @@ local function mapTele()
       end
 
       if noFly then
-	 lcd.drawCircle(xp(curX), yp(curY), 4)
+	 if monoTx then
+	    lcd.drawCircle(xp(curX), yp(curY), 4)
+	 else
+	    DR.drawShape(xp(curX), yp(curY), Glider, (heading or 0), 255, 0, 0, (system.getInputs("P4") + 1) / 2)
+	 end
       else
-	 drawShape(xp(curX), yp(curY), Glider, (heading or 0) )
+	 DR.drawShape(xp(curX), yp(curY), Glider, (heading or 0), 0, 255, 0, (system.getInputs("P4") + 1) / 2)
       end
       
       if savedXP and #savedXP > 1 then
-	 for i=2,#savedXP do
-	    lcd.drawLine(savedXP[i-1], savedYP[i-1], savedXP[i], savedYP[i])
-	 end
-	 lcd.drawLine(savedXP[#savedXP], savedYP[#savedXP], xp(curX), yp(curY))
+	 DR.drawRibbon(savedXP, savedYP, xp, yp, curX, curY)
       end
    end
 
@@ -446,6 +418,25 @@ end
 
 local function init()
 
+   local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI DS-14"}
+   local dev = system.getDeviceType()
+
+   monoTx = false
+   for _,v in ipairs(monoDev) do
+      if dev == v then monoTx = true print("Mono") break end
+   end
+   if not monoTx then print("Color") end
+   
+   ----- TEST -----
+   --monoTx = true
+   ----------------
+   
+   if monoTx then
+      DR = require "DFM-GPS/drawMono"
+   else
+      DR = require "DFM-GPS/drawColor"
+   end
+   
    local M = require "DFM-GPS/initCmd"
 
    settings, sensIdPa, fields, writeBD, fileBD = M.initCmd(sens, mapV, prefix, setMapScale)
@@ -460,6 +451,9 @@ local function init()
    if select(2, system.getDeviceType()) == 1 then -- needed to jumpstart emulator
       system.getSensors()
    end
+
+   print("fg", lcd.getFgColor())
+   print("bg", lcd.getBgColor())   
 
    print("DFM-GPS: gcc " .. collectgarbage("count"))
 

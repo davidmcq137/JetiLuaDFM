@@ -33,7 +33,7 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
       end
    end
 
-   local dd, fn, ext
+   local dd, fn, ext, tt
    local path = prefix().."Apps/DFM-GPS"
    for name, _, _ in dir(path) do
       dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
@@ -43,10 +43,10 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
 	    local ff = path .. "/" .. fn .. "." .. ext
 	    file = io.readall(ff)
 	    if file then
-	       decoded = json.decode(file)
+	       print("decoding", ff)
+	       tt = json.decode(file)
 	    end
 	    local nn = string.sub(fn, j+1)
-	    local tt = decoded.nfz
 	    table.insert(fields,
 			 {short=nn, lat=(tt.lat or 0), lng=(tt.lng or 0),
 			  rotation=(tt.rotation or 0)})
