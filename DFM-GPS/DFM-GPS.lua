@@ -15,20 +15,25 @@ local GPSVersion = "0.3"
 local subForm = 0
 
 local telem
-local sens
+local sensIdPa
 local settings
 local nfz
 local fields
-local selField
-local gpsCalA
-local gpsCalB
    
 local nfk = {type=1, shape=2, lat=1, lng=2,
 	     selType={"Inside", "Outside"},  inside=1, outside=2,
 	     selShape={"Circle", "Polygon"}, circle=1, polygon=2
 }
 
+local sens = {
+   {var="lat", label="Latitude"},
+   {var="lng", label="Longitude"},
+   {var="alt", label="Altitude"},
+   {var="spd", label="Speed"}
+}
+
 local DT
+local NF
 
 local Glider =  {
    {0,-7},
@@ -49,11 +54,10 @@ local Glider =  {
    {1,-2}
 }
 
-local curDist
-local curBear
-local curPos
-local zeroPos
-local initPos
+local mapV = {}
+
+local mapScale = {100, 250, 500, 750, 1000, 1500, 2000}
+
 local curX, curY
 local lastX, lastY
 local heading
@@ -61,10 +65,6 @@ local savedPos = {}
 local savedXP = {}
 local savedYP = {}
 local gpsReads = 0
-
-local mapScale = {100, 250, 500, 750, 1000, 1500, 2000}
-local mapScaleIdx
-local xmin, xmax, ymin, ymax
 
 local altitude
 local altUnit
@@ -80,6 +80,10 @@ local needCalcXY = true
 local maxPolyX = 0
 local lastNoFly
 
+local function unrequire(m)
+   package.loaded[m] = nil
+end
+
 local function prefix()
    local emFlag
    local pf
@@ -88,21 +92,12 @@ local function prefix()
    return pf
 end
 
-local function fixKeys(tt)
-   for k,v in pairs(tt) do
-      if type(k) == "string" and tonumber(k) then
-	 tt[tonumber(k)] = v
-	 tt[k] = nil
-      end
-   end
-end
-
 local function writeJSON()
    local fp
    local save={}
    if writeBD then
       save.settings = settings
-      save.sens = sens
+      save.sensIdPa = sensIdPa
       fp = io.open(fileBD, "w")
       if fp then
 	 io.write(fp, json.encode(save), "\n") 
@@ -111,22 +106,27 @@ local function writeJSON()
    end
 end
 
-local function rotateXY(xx, yy, rotation)
+local function rotateXY(x, y, rotation)
    local sinShape, cosShape
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
-   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
+   return (x * cosShape - y * sinShape), (x * sinShape + y * cosShape)
+end
+
+
+local function loadNF()
+   NF = require "DFM-GPS/compGeo"
 end
 
 -- convert no fly polygon coords from lat,lng to x,y in current frame
-
 local function noFlyCalc()
    local pt, cD, cB, x, y
+   if not NF then loadNF() end
    for i in ipairs(nfz) do
       for j in ipairs(nfz[i].path) do
 	 pt = gps.newPoint(nfz[i].path[j].lat,nfz[i].path[j].lng)
-	 cD = gps.getDistance(zeroPos, pt)
-	 cB = gps.getBearing(zeroPos, pt)
+	 cD = gps.getDistance(mapV.zeroPos, pt)
+	 cB = gps.getBearing(mapV.zeroPos, pt)
 	 x = cD * math.cos(math.rad(cB+270))
 	 y = cD * math.sin(math.rad(cB+90))
 	 x,y = rotateXY(x, y, (settings.rotA or 0))
@@ -136,7 +136,6 @@ local function noFlyCalc()
    end
    needCalcXY = false
 end
-
 
 local function clearPos()
    savedPos = {}
@@ -155,19 +154,19 @@ end
 local function keyForm(key)
    if subForm == 1 then
       if key == KEY_1 then
-	 if initPos then
-	    zeroPos = curPos
-	    settings.zeroLatString, settings.zeroLngString = gps.getStrig(zeroPos)
+	 if mapV.initPos then
+	    mapV.zeroPos = mapV.curPos
+	    settings.zeroLatString, settings.zeroLngString = gps.getStrig(mapV.zeroPos)
 	    clearPos()
-	    gpsCalA = true
+	    mapV.gpsCalA = true
 	 else
 	    system.messageBox("No Current Position")
 	 end
       elseif key == KEY_2 then
-	 if curBear then
-	    settings.rotA = math.rad(curBear-90)
+	 if mapV.curBear then
+	    settings.rotA = math.rad(mapV.curBear-90)
 	    clearPos()
-	    gpsCalB = true
+	    mapV.gpsCalB = true
 	 else
 	    system.messageBox("No Current Position")
 	 end
@@ -184,10 +183,15 @@ end
 local function initForm(sf)
    subForm = sf
    collectgarbage()
-   print("sF) DFM-GPS: gcc " .. collectgarbage("count"))
+   print("sF) gcc: " .. collectgarbage("count"))
+   for k,v in pairs(package.loaded) do
+      if string.find(k, "DFM") then print("sF) module loaded: " ..k) end
+   end
+
    if sf == 1 then
       local M = require "DFM-GPS/mainMenuCmd"
       savedRow = M.mainMenu(savedRow)
+      unrequire("DFM-GPS/mainMenuCmd")
       M = nil
       collectgarbage()
    elseif sf == 2 then
@@ -196,13 +200,14 @@ local function initForm(sf)
       form.setButton(2, "Dir B", ENABLED)
    elseif sf == 3 then
       local M = require "DFM-GPS/selTeleCmd"
-      savedRow = M.selTele(telem, sens, savedRow)
+      telem, savedRow = M.selTele(telem, sens, sensIdPa, savedRow)
+      unrequire("DFM-GPS/selTeleCmd")
       M = nil
       collectgarbage()
    elseif sf == 6 then
       io.remove(fileBD)
       writeBD = false
-      system.messageBox("App data deleted .. restart App")
+      system.messageBox("Data deleted .. restart App")
       form.reinit(1)
    end
 end
@@ -236,43 +241,26 @@ local function drawShape(col, row, shape, rotation)
 end
 
 local function xp(x)
-   return 320 * (x - xmin) / (xmax - xmin)
+   return 320 * (x - mapV.xmin) / (mapV.xmax - mapV.xmin)
 end
 
 local function yp(y)
-   return 160 *(1 -  (y - ymin) / (ymax - ymin))
+   return 160 *(1 -  (y - mapV.ymin) / (mapV.ymax - mapV.ymin))
 end
 
 local function keyGPS(key)
-   local file
-   local decoded
-   
-   if key == KEY_5 or key == KEY_ENTER then
-      form.preventDefault()
-      selField = fields[form.getFocusedRow()].short
-      local fn = prefix().."Apps/DFM-GPS/FF_"..selField..".jsn"
-      file = io.readall(fn)
-      if file then
-	 decoded = json.decode(file)
-	 nfz = decoded.nfz
-      end
-      fixKeys(nfz)
-      zeroPos = gps.newPoint(nfz.lat, nfz.lng)
-      gpsCalA = true
-      settings.rotA = nfz.rotation
-      gpsCalB = true
-      form.close(2)
-   elseif key == KEY_ESC then
-      form.preventDefault()
-      selField = ""
-      form.close(2)
-   end
+   local M = require "DFM-GPS/selFieldCmd"
+   nfz = M.keyField(key, mapV, settings)
+   unrequire("DFM-GPS/selFieldCmd")
+   M = nil
+   collectgarbage()
 end
 
 local function initGPS()
-   form.setTitle("DFM-GPS Field Selection")
+   form.setTitle("Press Esc to exit with no field")
    local M = require "DFM-GPS/selFieldCmd"
-   M.selField(fields, nil, zeroPos)
+   M.selField(fields, nil, mapV.zeroPos)
+   unrequire("DFM-GPS/selFieldCmd")
    M = nil
    collectgarbage()
 end
@@ -286,36 +274,36 @@ local function loop()
    if not sens then return end
    
    local sensor
-   sensor = system.getSensorByID(sens.alt.SeId, sens.alt.SePa)
+   sensor = system.getSensorByID(sensIdPa.alt.SeId, sensIdPa.alt.SePa)
    if sensor and sensor.valid then
       altitude = sensor.value
       altUnit = sensor.unit
       if not DT then loadDT() end
    end
    
-   sensor = system.getSensorByID(sens.spd.SeId, sens.spd.SePa)
+   sensor = system.getSensorByID(sensIdPa.spd.SeId, sensIdPa.spd.SePa)
    if sensor and sensor.valid then
       speed = sensor.value
       spdUnit = sensor.unit
       if not DT then loadDT() end
    end
    
-   curPos = gps.getPosition(sens.lat.SeId, sens.lat.SePa, sens.lng.SePa)   
+   mapV.curPos = gps.getPosition(sensIdPa.lat.SeId, sensIdPa.lat.SePa, sensIdPa.lng.SePa)   
 
-   if curPos and not initPos then gpsReads = gpsReads + 1 end
+   if mapV.curPos and not mapV.initPos then gpsReads = gpsReads + 1 end
    
    if gpsReads > 9 then
-      if not initPos then
-	 initPos = curPos
-	 if not zeroPos then zeroPos = curPos end
+      if not mapV.initPos then
+	 mapV.initPos = mapV.curPos
+	 if not mapV.zeroPos then mapV.zeroPos = mapV.curPos end
 	 system.registerForm(2, 0, "DFM-GPS Field Selection", initGPS, keyGPS)
       end
 
-      curDist = gps.getDistance(zeroPos, curPos)
-      curBear = gps.getBearing(zeroPos, curPos)
+      mapV.curDist = gps.getDistance(mapV.zeroPos, mapV.curPos)
+      mapV.curBear = gps.getBearing(mapV.zeroPos, mapV.curPos)
       
-      curX = curDist * math.cos(math.rad(curBear+270)) -- why not same angle X and Y??
-      curY = curDist * math.sin(math.rad(curBear+90))
+      curX = mapV.curDist * math.cos(math.rad(mapV.curBear+270)) -- why not same angle X and Y??
+      curY = mapV.curDist * math.sin(math.rad(mapV.curBear+90))
 
       if not lastX then lastX = curX end
       if not lastY then lastY = curY end
@@ -331,7 +319,7 @@ local function loop()
 	    table.remove(savedXP, 1)
 	    table.remove(savedYP, 1)
 	 else
-	    table.insert(savedPos, curPos)
+	    table.insert(savedPos, mapV.curPos)
 	    table.insert(savedXP, xp(curX))
 	    table.insert(savedYP, yp(curY))
 	 end
@@ -341,148 +329,25 @@ local function loop()
       
    end
 end
-------------------------------------------------------------
-
-
--- next set of function acknowledge
--- https://www.geeksforgeeks.org/how-to-check-if-a-given-point-lies-inside-a-polygon/
--- ported to lua D McQ 7/2020
-
-local function onSegment(p, q, r)
-   if (q.x <= math.max(p.x, r.x) and q.x >= math.min(p.x, r.x) and 
-            q.y <= math.max(p.y, r.y) and q.y >= math.min(p.y, r.y)) then
-      return true
-   else
-      return false
-   end
-end
-
--- To find orientation of ordered triplet (p, q, r). 
--- The function returns following values 
--- 0 --> p, q and r are colinear 
--- 1 --> Clockwise 
--- 2 --> Counterclockwise 
-local function orientation(p, q, r) 
-   local val
-   val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y)
-   if (val == 0) then return 0 end  -- colinear 
-   return val > 0 and 1 or 2
-end
-
--- The function that returns true if line segment 'p1q1' 
--- and 'p2q2' intersect. 
-local function doIntersect(p1, q1, p2, q2) 
-   -- Find the four orientations needed for general and 
-   -- special cases
-   local o1, o2, o3, o4
-   o1 = orientation(p1, q1, p2)
-   o2 = orientation(p1, q1, q2) 
-   o3 = orientation(p2, q2, p1) 
-   o4 = orientation(p2, q2, q1) 
-   
-   -- General case 
-   if (o1 ~= o2 and o3 ~= o4) then return true end
-   
-   -- Special Cases 
-   -- p1, q1 and p2 are colinear and p2 lies on segment p1q1 
-   if (o1 == 0 and onSegment(p1, p2, q1)) then return true end
-   
-   -- p1, q1 and p2 are colinear and q2 lies on segment p1q1 
-   if (o2 == 0 and onSegment(p1, q2, q1)) then return true end
-  
-   -- p2, q2 and p1 are colinear and p1 lies on segment p2q2 
-   if (o3 == 0 and onSegment(p2, p1, q2)) then return true end
-  
-   -- p2, q2 and q1 are colinear and q1 lies on segment p2q2 
-   if (o4 == 0 and onSegment(p2, q1, q2)) then return true end 
-  
-    return false -- Doesn't fall in any of the above cases 
-end
-
-local function isNoFlyC(nn, p)
-   local d
-   d = math.sqrt( (nn.xy[1].x-p.x)^2 + (nn.xy[1].y-p.y)^2)
-   if nn.type == nfk.inside then
-      if d <= nn.radius then return true end
-   else
-      if d >= nn.radius then return true end
-   end
-   return false
-end
-
--- Returns true if the point p lies inside the polygon[] with n vertices 
-
-local function isNoFlyP(nn,p) 
-
-   local isInside
-   local next
-   local extreme
-
-   -- There must be at least 3 vertices in polygon[]
-
-   if (#nn.xy < 3)  then return false end
-
-   --first see if we are inside the bounding circle
-   --if so, isInside is false .. jump to end
-   --else run full algorithm
-
-   --disable "enclosing circle" optimization for now .. maybe put back later
-   if false then --((p.x - nn.xc) * (p.x - nn.xc) + (p.y - nn.yc) * (p.y - nn.yc)) > nn.r2 then
-      isInside = false
-   else
-   
-      --Create a point for line segment from p to infinite 
-      extreme = {x=2*maxPolyX, y=p.y}; 
-      
-      -- Count intersections of the above line with sides of polygon 
-      local count = 0
-      local i = 1
-      local n = #nn.xy
-      
-      repeat
-	 next = i % n + 1
-	 if (doIntersect(nn.xy[i], nn.xy[next], p, extreme)) then 
-	    -- If the point 'p' is colinear with line segment 'i-next', 
-	    -- then check if it lies on segment. If it lies, return true, 
-	    -- otherwise false 
-	    if (orientation(nn.xy[i], p, nn.xy[next]) == 0) then 
-	       return onSegment(nn.xy[i], p, nn.xy[next])
-	    end
-	    count = count + 1 
-	 end
-	 
-	 i = next
-      until (i == 1)
-      
-      -- Point inside polygon: true if count is odd, false otherwise
-      isInside = (count % 2 == 1)
-   end
-   
-   if nn.type == nfk.inside then
-      return isInside
-   else
-      return not isInside
-   end
-end
 
 local function mapTele()
 
-   if not selField then
+   if not mapV.selField then
       lcd.drawText(0,10,"No Field Selected", FONT_BIG)
       return
    end
    
-   if not gpsCalA then
+   if not mapV.gpsCalA then
       lcd.drawText(0,10,"GPS Point A not set", FONT_BIG)
       return
    end
 
-   if not gpsCalB then
+   if not mapV.gpsCalB then
       lcd.drawText(0,10,"GPS Point B not set", FONT_BIG)
       return
    end
    
-   if nfz and #nfz > 0 and zeroPos and nfz[1].xy then
+   if nfz and #nfz > 0 and mapV.zeroPos and nfz[1].xy and NF then
       if needCalcXY then noFlyCalc() end
       for i in ipairs(nfz) do
 	 if nfz[i].shape == nfk.polygon then
@@ -495,7 +360,7 @@ local function mapTele()
 	    end
 	 else
 	    if nfz[i].xy and #nfz[i].xy > 0 then
-	       lcd.drawCircle(xp(nfz[i].xy[1].x), yp(nfz[i].xy[1].y), 320*nfz[i].radius/(xmax-xmin))
+	       lcd.drawCircle(xp(nfz[i].xy[1].x), yp(nfz[i].xy[1].y), 320*nfz[i].radius/(mapV.xmax-mapV.xmin))
 	    end
 	 end
       end
@@ -503,22 +368,22 @@ local function mapTele()
    
    if curX and curY then
 
-      if curX < xmin or curX > xmax or curY < ymin or curY > ymax then
-	 if mapScaleIdx + 1 <= #mapScale then
-	    mapScaleIdx = mapScaleIdx + 1
-	    xmin, xmax, ymin, ymax = setMapScale(mapScaleIdx)
+      if curX < mapV.xmin or curX > mapV.xmax or curY < mapV.ymin or curY > mapV.ymax then
+	 if mapV.mapScaleIdx + 1 <= #mapScale then
+	    mapV.mapScaleIdx = mapV.mapScaleIdx + 1
+	    mapV.xmin, mapV.xmax, mapV.ymin, mapV.ymax = setMapScale(mapV.mapScaleIdx)
 	    clearPos()
 	 end
       end
 
       local noFly
-      if nfz and #nfz > 0 then
+      if nfz and #nfz > 0 and NF then
 	 local txy = {x=curX,y=curY}
 	 local noFlyP = false
 	 local noFlyC = false
 	 for i in ipairs(nfz) do
 	    if nfz[i].shape == nfk.polygon then
-	       noFlyP = noFlyP or isNoFlyP(nfz[i], txy)
+	       noFlyP = noFlyP or isNoFlyP(nfz[i], txy, maxPolyX)
 	    else
 	       noFlyC = noFlyC or isNoFlyC(nfz[i], txy)
 	    end
@@ -550,7 +415,7 @@ local function mapTele()
       end
    end
 
-   lcd.drawText(125, 145, string.format("[%dx%d]", xmax-xmin, ymax-ymin), FONT_MINI)
+   lcd.drawText(125, 145, string.format("[%dx%d]", mapV.xmax-mapV.xmin, mapV.ymax-mapV.ymin), FONT_MINI)
    
    lcd.drawLine(50,yp(0), 260, yp(0))
 
@@ -571,8 +436,8 @@ local function printTele()
    if settings.rotA then text = string.format("%d", math.deg(settings.rotA)) else text = "---" end
    text = string.format("Rot: %s  G: %d", text, gpsReads)
    lcd.drawText(210,120, text)
-   if initPos then
-      text, text2 = gps.getStrig(curPos)
+   if mapV.initPos then
+      text, text2 = gps.getStrig(mapV.curPos)
       lcd.drawText(0,120,"[" .. text .. "," .. text2 .. "]")
    else
       lcd.drawText(10,120,"-No GPS-")   
@@ -580,89 +445,24 @@ local function printTele()
 end
 
 local function init()
-   local file
-   local mn
-   local decoded
+
+   local M = require "DFM-GPS/initCmd"
+
+   settings, sensIdPa, fields, writeBD, fileBD = M.initCmd(sens, mapV, prefix, setMapScale)
+
+   unrequire("DFM-GPS/initCmd")
+   M = nil
+   collectgarbage()
    
-   mn = string.gsub(system.getProperty("Model"), " ", "_")
-   fileBD = prefix() .. "Apps/DFM-GPS/GG_" .. mn .. ".jsn"
-   file = io.readall(fileBD)
-   if file then
-      decoded = json.decode(file)
-      settings = decoded.settings
-      sens = decoded.sens
-   end
-   writeBD = true
-
-   fields = {}
-   local dd, fn, ext
-   local path = prefix().."Apps/DFM-GPS"
-   for name, _, _ in dir(path) do
-      dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
-      if fn and ext then
-	 local i,j = string.find(fn, "FF_")
-	 if string.lower(ext) == "jsn" and i == 1 then
-	    local ff = path .. "/" .. fn .. "." .. ext
-	    file = io.readall(ff)
-	    if file then
-	       decoded = json.decode(file)
-	    end
-	    local nn = string.sub(fn, j+1)
-	    print("nn", nn)
-	    local tt = decoded.nfz
-	    table.insert(fields,
-			 {short=nn, lat=(tt.lat or 0), lng=(tt.lng or 0),
-			  rotation=(tt.rotation or 0)})
-	 end
-      end
-   end
-
-   if not sens then
-      sens = {
-	 {var="lat", label="Latitude"},
-	 {var="lng", label="Longitude"},
-	 {var="alt", label="Altitude"},
-	 {var="spd", label="Speed"}
-      }
-      for i in ipairs(sens) do
-	 local v = sens[i].var
-	 if not sens[v] then sens[v] = {} end
-	 sens[v].Se   = 0
-	 sens[v].SeId = 0
-	 sens[v].SePa = 0
-      end
-   else -- fix "1" instead of 1 for keys (json converter)
-      fixKeys(sens)
-   end
-   
-   gpsCalA = false
-   gpsCalB = false
-
-   if not settings then
-      settings = {}
-   end
-
-   if settings and settings.zeroLatString and settings.zeroLngString then
-      zeroPos = gps.newPoint(settings.zeroLatString, settings.zeroLngString)
-      gpsCalA = true
-   end
-
-   if settings.rotA and gpsCalA then gpsCalB = true end
-
-   mapScaleIdx = 1
-   xmin, xmax, ymin, ymax = setMapScale(mapScaleIdx)
-
    system.registerForm(1, MENU_APPS, "GPS", initForm, keyForm, printTele)
    system.registerTelemetry(1,"GPS Flight Display",4, mapTele)
 
    if select(2, system.getDeviceType()) == 1 then -- needed to jumpstart emulator
       system.getSensors()
-      telem = nil
    end
 
-   selField = nil
-
    print("DFM-GPS: gcc " .. collectgarbage("count"))
+
 
 end
 --------------------------------------------------------------------------------

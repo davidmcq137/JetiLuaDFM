@@ -115,11 +115,6 @@ local function changedVal(val, hm)
       countDownSecs = val
       system.pSave("countDownSecs", countDownSecs)
    elseif hm == "Tl" then
-      tt = system.getSwitchInfo(val)
-      if not string.find(tt.mode, "S") then
-	 system.messageBox("Limit Control must be set as switch")
-	 form.reinit(1)
-      end
       thrLimit = val
       system.pSave("thrLimit", thrLimit)
    end
@@ -187,7 +182,6 @@ local function initForm(sf)
 
    elseif sf == 2 then
       form.setTitle("Timer Settings")
-      form.setFocusedRow(1)
       form.addRow(2)
       form.addLabel({label="Countdown secs", width=240})
       form.addIntbox(countDownSecs, 0,10, 0, 0, 1, (function(x) return changedVal(x, "Cd") end) )
@@ -199,10 +193,10 @@ local function initForm(sf)
       form.addRow(2)
       form.addLabel({label="Timer reset switch", width=240})
       form.addInputbox(resetSw, false, (function(x) return changedVal(x, "R") end) )
+      form.setFocusedRow(1)
 
    elseif sf == 3 then
       form.setTitle("Throttle Settings")
-      form.setFocusedRow(1)
       form.addRow(2)
       form.addLabel({label="Throttle control", width=240})
       form.addInputbox(thrControl, true, (function(x) return changedVal(x, "T") end) )
@@ -212,11 +206,11 @@ local function initForm(sf)
       form.addIntbox(timerExp, -100,100,0, 0, 1, (function(x) return changedVal(x, "X") end) )
       
       form.addRow(2)
-      form.addLabel({label="Throttle idle limit", width=240})
-      form.addInputbox(thrLimit, true, (function(x) return changedVal(x, "Tl") end) )
+      form.addLabel({label="Throttle idle min %", width=240})
+      form.addIntbox(thrLimit, 0, 100, 0, 0, 1, (function(x) return changedVal(x, "Tl") end) )
+      form.setFocusedRow(1)
    elseif sf == 4 then
       form.setTitle("Announcements and haptics")
-      form.setFocusedRow()
       form.addRow(2)
       form.addLabel({label="Full throttle announce switch", width=240})
       form.addInputbox(annFull, false, (function(x) return changedVal(x, "F") end) )
@@ -233,6 +227,7 @@ local function initForm(sf)
       form.addLabel({label="Stick Shake Pattern"})      
       form.addSelectbox({"None", "Long", "Short", "2xShort", "3xShort"},      
 	 shakePattern, true, (function(x) return changedVal(x, "Sp") end) )      
+      form.setFocusedRow(1)
    end
 end
 
@@ -266,12 +261,9 @@ local function loop()
       thr = tt.value
    end
 
-   tt = system.getSwitchInfo(thrLimit)
-   if tt and tt.assigned then
-      if tt.value == -1 then thr = -1 end
-   end
-   
    thrFrc = (thr + 1) / 2
+
+   if thrFrc * 100.0 < thrLimit then thrFrc = thrLimit / 100.0 end
 
    if not stopped then
       if not lastfTimeT then lastfTimeT = now end
@@ -280,7 +272,7 @@ local function loop()
 	 fTimeT = fTimeT - thrFrc * (now - lastfTimeT)
       end
 
-      if fTimeT <= 0 then
+      if fTimeT < 0 then
 	 fTimeT = 0
 	 if shakePattern > 1 then
 	    system.vibration( (stickToShake == 2), shakePattern - 1)
@@ -375,7 +367,7 @@ local function init()
    stickToShake = system.pLoad("stickToShake", 1)
    shakePattern = system.pLoad("shakePattern", 1)
    countDownSecs = system.pLoad("countDownSecs", 0)
-   thrLimit = system.pLoad("thrLimit")
+   thrLimit = system.pLoad("thrLimit", 0)
 
    fTimeT = (startMins*60 + startSecs) * 1000.0
 

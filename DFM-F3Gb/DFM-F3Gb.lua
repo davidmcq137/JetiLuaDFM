@@ -16,7 +16,6 @@
 local F3GVersion = "0.3"
 
 local subForm = 0
---local emFlag
 
 local telem = {
    Lalist={"..."},
@@ -86,14 +85,14 @@ local perpA, perpB
 local savedRow
 
 local function readSensors(tbl)
-   local sensorLbl = "***"
+   --local sensorLbl = "***"
    
    local sensors = system.getSensors()
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then
-	    sensorLbl = sensor.label
-	    table.insert(tbl.Lalist, sensorLbl)
+	    --sensorLbl = sensor.label
+	    table.insert(tbl.Lalist, ">> "..sensor.label)
 	    table.insert(tbl.Idlist, 0)
 	    table.insert(tbl.Palist, 0)
 	 else
@@ -162,7 +161,7 @@ local function keyForm(key)
 	 end
 	 if curX and curY then
 	    gpsScale = 150.0/math.sqrt(curX^2 + curY^2)
-	    print("curX, curY, gpsScale", curX, curY, gpsScale)
+	    print("curX, gpsScale", curX, curY, gpsScale)
 	    system.pSave("gpsScale", gpsScale*1000)
 	 end
       end

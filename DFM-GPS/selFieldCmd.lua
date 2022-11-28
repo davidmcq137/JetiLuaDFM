@@ -1,5 +1,45 @@
 local M = {}
 
+function M.keyField(key, mapV, settings)
+
+   local file
+   local decoded
+   local nfz = {}
+   
+   if key == KEY_5 or key == KEY_ENTER then
+      form.preventDefault()
+      mapV.gpsCalA = false
+      mapV.gpsCalB = false
+      mapV.selField = fields[form.getFocusedRow()].short
+      local fn = prefix().."Apps/DFM-GPS/FF_"..mapV.selField..".jsn"
+      file = io.readall(fn)
+      if file then
+	 decoded = json.decode(file)
+	 nfz = decoded.nfz
+      end
+      mapV.zeroPos = gps.newPoint(nfz.lat, nfz.lng)
+      mapV.gpsCalA = true
+      settings.rotA = nfz.rotation
+      mapV.gpsCalB = true
+      form.close(2)
+   elseif key == KEY_ESC or key == KEY_1 then
+      form.preventDefault()
+      mapV.selField = ""
+      mapV.gpsCalA = false
+      mapV.gpsCalB = false
+      if settings.zeroLatString and settings.zeroLngString then
+	 mapV.gpsCalA = true
+      end
+      if mapV.gpsCalA and settings.rotA then
+	 mapV.gpsCalB = true
+      end
+      if mapV.gpsCalA and mapV.gpsCalB then system.messageBox("Using saved lat/long") end
+      form.close(2)
+   end
+   return nfz
+end
+
+
 function M.selField(fields, savedRow, zeroPos)
    
 
@@ -16,7 +56,9 @@ function M.selField(fields, savedRow, zeroPos)
    end
 
    table.sort(fields, (function(f1,f2) return f1.distance < f2.distance end) ) 
-   
+
+   form.setButton(1, "Esc", ENABLED)
+
    for i in ipairs(fields) do
       --print("##", i, fields[i].short)
       form.addRow(4)
@@ -27,7 +69,7 @@ function M.selField(fields, savedRow, zeroPos)
 		     width=130, font=FONT_MINI})
       form.addLabel({label=string.format("%d°", math.deg(fields[i].rotation)), width=40, font=FONT_MINI})
       local ss
-      if dd < -10 then
+      if dd < -10 then -- disable for now
 	 ss = "Dist < 10 m"
       elseif dd > 10000 then
 	 ss = string.format("Dist %d km", dd/1000)
