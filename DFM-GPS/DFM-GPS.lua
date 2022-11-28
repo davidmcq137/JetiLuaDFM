@@ -178,7 +178,7 @@ local function keyForm(key)
 	    system.messageBox("No Current Position")
 	 end
       end
-   elseif subForm == 3 then
+   elseif subForm == 3 or subForm == 4 then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
@@ -197,7 +197,7 @@ local function initForm(sf)
 
    if sf == 1 then
       local M = require "DFM-GPS/mainMenuCmd"
-      savedRow = M.mainMenu(savedRow)
+      savedRow = M.mainMenu(savedRow, monoTx)
       unrequire("DFM-GPS/mainMenuCmd")
       M = nil
       collectgarbage()
@@ -209,6 +209,12 @@ local function initForm(sf)
       local M = require "DFM-GPS/selTeleCmd"
       telem, savedRow = M.selTele(telem, sens, sensIdPa, savedRow)
       unrequire("DFM-GPS/selTeleCmd")
+      M = nil
+      collectgarbage()
+   elseif sf == 4 then
+      local M = require "DFM-GPS/settingsCmd"
+      M.settings()
+      unrequire("DFM-GPS/settingsCmd")
       M = nil
       collectgarbage()
    elseif sf == 6 then
@@ -317,8 +323,8 @@ end
 
 local function mapTele()
 
-   if not mapV.selField then
-      lcd.drawText(0,10,"No Field Selected", FONT_BIG)
+   if not mapV.initPos then
+      lcd.drawText(0,10,"No GPS position", FONT_BIG)
       return
    end
    
@@ -376,10 +382,10 @@ local function mapTele()
 	 if monoTx then
 	    lcd.drawCircle(xp(curX), yp(curY), 4)
 	 else
-	    DR.drawShape(xp(curX), yp(curY), Glider, (heading or 0), 255, 0, 0, (system.getInputs("P4") + 1) / 2)
+	    DR.drawShape(xp(curX), yp(curY), Glider, (heading or 0), "In")
 	 end
       else
-	 DR.drawShape(xp(curX), yp(curY), Glider, (heading or 0), 0, 255, 0, (system.getInputs("P4") + 1) / 2)
+	 DR.drawShape(xp(curX), yp(curY), Glider, (heading or 0), "Out")
       end
       
       if savedXP and #savedXP > 1 then
@@ -454,7 +460,7 @@ local function init()
 
    print("fg", lcd.getFgColor())
    print("bg", lcd.getBgColor())   
-
+   print("color code", system.getProperty("Color"))
    print("DFM-GPS: gcc " .. collectgarbage("count"))
 
 
@@ -463,4 +469,4 @@ end
 
 collectgarbage()
 
-return {init=init, loop=loop, author="DFM", version=GPSVersion, name="GPS", destroy=writeJSON}
+return {init=init, loop=loop, author="DFM", version=GPSVersion, name="DFM-GPS", destroy=writeJSON}

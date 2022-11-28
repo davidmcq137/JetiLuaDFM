@@ -1,28 +1,33 @@
 local M = {}
 
-function M.keyField(key, mapV, settings, fields, prefix)
+function M.keyField(kkey, mapV, settings, fields, prefix)
 
    local file
    local nfz
    local decode
-   
+   local key = kkey
    if key == KEY_5 or key == KEY_ENTER then
       form.preventDefault()
       mapV.gpsCalA = false
       mapV.gpsCalB = false
-      mapV.selField = fields[form.getFocusedRow()].short
-      local fn = prefix().."Apps/DFM-GPS/FF_"..mapV.selField..".jsn"
-      file = io.readall(fn)
-      if file then
-	 decode = json.decode(file)
-	 nfz = decode.nfz
+      if not fields or #fields < 1 then
+	 key = KEY_ESC
+      else
+	 mapV.selField = fields[form.getFocusedRow()].short
+	 local fn = prefix().."Apps/DFM-GPS/FF_"..mapV.selField..".jsn"
+	 file = io.readall(fn)
+	 if file then
+	    decode = json.decode(file)
+	    nfz = decode.nfz
+	 end
+	 mapV.zeroPos = gps.newPoint(decode.lat, decode.lng)
+	 mapV.gpsCalA = true
+	 settings.rotA = decode.rotation
+	 mapV.gpsCalB = true
+	 form.close(2)
       end
-      mapV.zeroPos = gps.newPoint(decode.lat, decode.lng)
-      mapV.gpsCalA = true
-      settings.rotA = decode.rotation
-      mapV.gpsCalB = true
-      form.close(2)
-   elseif key == KEY_ESC or key == KEY_1 then
+   end
+   if key == KEY_ESC or key == KEY_1 then
       form.preventDefault()
       mapV.selField = ""
       mapV.gpsCalA = false
@@ -33,7 +38,11 @@ function M.keyField(key, mapV, settings, fields, prefix)
       if mapV.gpsCalA and settings.rotA then
 	 mapV.gpsCalB = true
       end
-      if mapV.gpsCalA and mapV.gpsCalB then system.messageBox("Using saved lat/long") end
+      local pp = gps.newPoint(settings.zeroLatString, settings.zeroLngString)
+      local dd = gps.getDistance(pp, mapV.curPos)
+      if mapV.gpsCalA and mapV.gpsCalB then
+	 system.messageBox(string.format("Using saved lat/lng. Dist = %.1f m", dd))
+      end
       form.close(2)
    end
    return nfz
@@ -42,6 +51,7 @@ end
 
 function M.selField(fields, savedRow, zeroPos)
    
+   form.setButton(1, "Esc", ENABLED)
 
    if not fields or #fields == 0 then
       form.addRow(1)
@@ -57,10 +67,7 @@ function M.selField(fields, savedRow, zeroPos)
 
    table.sort(fields, (function(f1,f2) return f1.distance < f2.distance end) ) 
 
-   form.setButton(1, "Esc", ENABLED)
-
    for i in ipairs(fields) do
-      --print("##", i, fields[i].short)
       form.addRow(4)
       form.addLabel({label=fields[i].short, width=65, font=FONT_MINI})
       local pp = gps.newPoint(fields[i].lat, fields[i].lng)

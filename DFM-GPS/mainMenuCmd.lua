@@ -1,5 +1,5 @@
 local M = {}
-function M.mainMenu(savedRow)
+function M.mainMenu(savedRow, monoTx)
    form.setTitle("GPS Display")
    
    form.setButton(1, "Pt A",  ENABLED)
@@ -13,23 +13,15 @@ function M.mainMenu(savedRow)
 	    form.waitForRelease()
    end))      
 
-   --[[
-   form.addRow(2)
-   form.addLabel({label="Fields >>", width=220})
-   form.addLink((function()
-	    savedRow = form.getFocusedRow()
-	    form.reinit(4)
-	    form.waitForRelease()
-   end))
-   
-   form.addRow(2)
-   form.addLabel({label="No Fly Zones >>", width=220})
-   form.addLink((function()
-	    savedRow = form.getFocusedRow()
-	    form.reinit(5)
-	    form.waitForRelease()
-   end))
-   --]]
+   if not monoTx then
+      form.addRow(2)
+      form.addLabel({label="Settings >>", width=220})
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       form.reinit(4)
+	       form.waitForRelease()
+      end))
+   end
    
    form.addRow(2)
    form.addLabel({label="Reset App data >>", width=220})
