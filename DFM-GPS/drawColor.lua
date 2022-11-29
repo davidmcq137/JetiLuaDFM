@@ -1,5 +1,44 @@
 local M = {}
 
+local savedXP = {}
+local savedYP = {}
+local savedPos = {}
+local MAXSAVED = 0
+local heading
+
+function M.setMAX(max)
+   MAXSAVED = math.max(0, math.min(max, 1000))
+   return MAXSAVED
+end
+
+function M.clearPos()
+   savedPos = {}
+   savedXP = {}
+   savedYP = {}
+end
+
+function M.savePoints(mapV, curX, curY, lastX, lastY, xp, yp)
+
+   --local dist = math.sqrt( (curX - lastX)^2 + (curY - lastY)^2)
+
+   if curX ~= lastX or curY ~= lastY then -- and dist > 5 then -- new point
+      heading = math.atan(curX-lastX, curY - lastY)
+      if #savedXP+1 > MAXSAVED then
+	 table.remove(savedPos, 1)
+	 table.remove(savedXP, 1)
+	 table.remove(savedYP, 1)
+      else
+	 table.insert(savedPos, mapV.curPos)
+	 table.insert(savedXP, xp(curX))
+	 table.insert(savedYP, yp(curY))
+      end
+      lastX = curX
+      lastY = curY
+   end
+   
+   return lastX, lastY, heading
+end
+
 local function setTextColor()
    local colorCode = system.getProperty("Color")
    if colorCode <= 6 or colorCode == 8 then
@@ -91,16 +130,28 @@ function M.drawNFZ(nfz, mapV, xp, yp)
    setTextColor()
 end
 
-function M.drawRibbon(savedXP, savedYP, xp, yp, curX, curY)
-   local ren = lcd.renderer()
+function M.drawRibbon(xp, yp, curX, curY)
    lcd.setColor(lcd.getFgColor())
-   ren:reset()
-   for i=2,#savedXP do
-      ren:addPoint(savedXP[i-1], savedYP[i-1], savedXP[i], savedYP[i])
+   if MAXSAVED < 128 then
+      local ren = lcd.renderer()
+      ren:reset()
+      for i=2,#savedXP do
+	 ren:addPoint(savedXP[i-1], savedYP[i-1], savedXP[i], savedYP[i])
+      end
+      ren:addPoint(xp(curX), yp(curY))
+      ren:renderPolyline(1,0.7)
+   else
+      if #savedXP > 1 then 
+	 for i=2,#savedXP do
+	    lcd.drawLine(savedXP[i-1], savedYP[i-1], savedXP[i], savedYP[i])
+	 end
+	 lcd.drawLine(savedXP[#savedXP], savedYP[#savedXP], xp(curX), yp(curY))
+      end
    end
-   ren:addPoint(xp(curX), yp(curY))
-   ren:renderPolyline(1,0.7)
    setTextColor()
+   if select(2, system.getDeviceType()) == 1 then
+      lcd.drawText(40, 145, "P: "..#savedXP.."   CPU: "..system.getCPU(), FONT_MINI)
+   end
 end
 
 return M

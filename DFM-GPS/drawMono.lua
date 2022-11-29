@@ -1,5 +1,43 @@
 local M = {}
 
+local savedXP = {}
+local savedYP = {}
+local MAXSAVED
+local heading
+
+function M.setMAX(max)
+   MAXSAVED = 15
+   return MAXSAVED
+end
+
+function M.clearPos()
+   --savedPos = {}
+   savedXP = {}
+   savedYP = {}
+end
+
+function M.savePoints(mapV, curX, curY, lastX, lastY, xp, yp)
+
+   --local dist = math.sqrt( (curX - lastX)^2 + (curY - lastY)^2)
+
+   if curX ~= lastX or curY ~= lastY then -- and dist > 5 then -- new point
+      heading = math.atan(curX-lastX, curY - lastY)
+      if #savedXP+1 > MAXSAVED then
+	 --table.remove(savedPos, 1)
+	 table.remove(savedXP, 1)
+	 table.remove(savedYP, 1)
+      else
+	 --table.insert(savedPos, mapV.curPos)
+	 table.insert(savedXP, xp(curX))
+	 table.insert(savedYP, yp(curY))
+      end
+      lastX = curX
+      lastY = curY
+   end
+   
+   return lastX, lastY, heading
+end
+
 function M.drawShape(col, row, shape, rotation, color)
    
    local sinShape, cosShape
@@ -42,7 +80,8 @@ function M.drawNFZ(nfz, mapV, xp, yp)
    end
 end
 
-function M.drawRibbon(savedXP, xp, yp, curX, curY)
+function M.drawRibbon(xp, yp, curX, curY)
+   if #savedXP < 3 then return end
    for i=2,#savedXP do
       lcd.drawLine(savedXP[i-1], savedYP[i-1], savedXP[i], savedYP[i])
    end

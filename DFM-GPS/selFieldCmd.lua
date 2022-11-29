@@ -38,10 +38,12 @@ function M.keyField(kkey, mapV, settings, fields, prefix)
       if mapV.gpsCalA and settings.rotA then
 	 mapV.gpsCalB = true
       end
-      local pp = gps.newPoint(settings.zeroLatString, settings.zeroLngString)
-      local dd = gps.getDistance(pp, mapV.curPos)
+      --local pp = gps.newPoint(settings.zeroLatString, settings.zeroLngString)
+      local dd = gps.getDistance(mapV.zeroPos, mapV.curPos)
+      local uu = "m"
+      if dd > 1000 then dd = dd / 1000.0; uu = "km" end
       if mapV.gpsCalA and mapV.gpsCalB then
-	 system.messageBox(string.format("Using saved lat/lng. Dist = %.1f m", dd))
+	 system.messageBox(string.format("Using saved lat/lng. Dist = %.1f %s", dd, uu))
       end
       form.close(2)
    end

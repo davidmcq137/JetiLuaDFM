@@ -3,7 +3,7 @@
    ----------------------------------------------------------------------------
    DFM-GPS.lua released under MIT license by DFM 11/2022
 
-   Simple GPS display app .. no maps! Nofly zones made by www,jetiluadfm.app
+   Simple GPS display app .. no maps! Nofly zone json files made by www,jetiluadfm.app
 
    drawTape() inspired by Jeti's Artificial Horizon app
    ----------------------------------------------------------------------------
@@ -19,15 +19,9 @@ local sensIdPa
 local settings
 local nfz
 local fields
-
 local monoTx
+local CPU
 
---[[
-local nfk = {type=1, shape=2, lat=1, lng=2,
-	     selType={"Inside", "Outside"},  inside=1, outside=2,
-	     selShape={"Circle", "Polygon"}, circle=1, polygon=2
-}
---]]
 local sens = {
    {var="lat", label="Latitude"},
    {var="lng", label="Longitude"},
@@ -35,9 +29,7 @@ local sens = {
    {var="spd", label="Speed"}
 }
 
-local DT
-local NF
-local DR
+local DT, NF, DR
 
 local Glider =  {
    {0,-7},
@@ -65,9 +57,6 @@ local mapScale = {100, 250, 500, 750, 1000, 1500, 2000}
 local curX, curY
 local lastX, lastY
 local heading
-local savedPos = {}
-local savedXP = {}
-local savedYP = {}
 local gpsReads = 0
 
 local altitude
@@ -75,9 +64,7 @@ local altUnit
 local speed
 local spdUnit
 
-local MAXSAVED=20
-
-local savedRow, savedZone
+local savedRow
 local fileBD, writeBD
 
 local needCalcXY = true
@@ -142,11 +129,7 @@ local function noFlyCalc()
    needCalcXY = false
 end
 
-local function clearPos()
-   savedPos = {}
-   savedXP = {}
-   savedYP = {}
-end
+
 
 local function keyExit(k)
    if k == KEY_5 or k == KEY_ENTER or k == KEY_ESC then
@@ -162,7 +145,7 @@ local function keyForm(key)
 	 if mapV.initPos then
 	    mapV.zeroPos = mapV.curPos
 	    settings.zeroLatString, settings.zeroLngString = gps.getStrig(mapV.zeroPos)
-	    clearPos()
+	    DR.clearPos()
 	    mapV.gpsCalA = true
 	    needCalcXY = true
 	 else
@@ -171,7 +154,7 @@ local function keyForm(key)
       elseif key == KEY_2 then
 	 if mapV.curBear then
 	    settings.rotA = math.rad(mapV.curBear-90)
-	    clearPos()
+	    DR.clearPos()
 	    mapV.gpsCalB = true
 	    needCalcXY = true	    
 	 else
@@ -213,7 +196,7 @@ local function initForm(sf)
       collectgarbage()
    elseif sf == 4 then
       local M = require "DFM-GPS/settingsCmd"
-      M.settings()
+      M.settings(savedRow, settings, DR.setMAX)
       unrequire("DFM-GPS/settingsCmd")
       M = nil
       collectgarbage()
@@ -300,25 +283,9 @@ local function loop()
       if not lastY then lastY = curY end
       
       curX, curY = rotateXY(curX, curY, settings.rotA or 0)
-
-      --local dist = math.sqrt( (curX - lastX)^2 + (curY - lastY)^2)
-      
-      if curX ~= lastX or curY ~= lastY then -- and dist > 5 then -- new point
-	 heading = math.atan(curX-lastX, curY - lastY)
-	 if #savedPos+1 > MAXSAVED then
-	    table.remove(savedPos, 1)
-	    table.remove(savedXP, 1)
-	    table.remove(savedYP, 1)
-	 else
-	    table.insert(savedPos, mapV.curPos)
-	    table.insert(savedXP, xp(curX))
-	    table.insert(savedYP, yp(curY))
-	 end
-	 lastX = curX
-	 lastY = curY
-      end
-      
+      lastX, lastY, heading = DR.savePoints(mapV, curX, curY, lastX, lastY, xp, yp)
    end
+
 end
 
 local function mapTele()
@@ -349,7 +316,7 @@ local function mapTele()
 	 if mapV.mapScaleIdx + 1 <= #mapScale then
 	    mapV.mapScaleIdx = mapV.mapScaleIdx + 1
 	    mapV.xmin, mapV.xmax, mapV.ymin, mapV.ymax = setMapScale(mapV.mapScaleIdx)
-	    clearPos()
+	    DR.clearPos()
 	 end
       end
 
@@ -388,9 +355,7 @@ local function mapTele()
 	 DR.drawShape(xp(curX), yp(curY), Glider, (heading or 0), "Out")
       end
       
-      if savedXP and #savedXP > 1 then
-	 DR.drawRibbon(savedXP, savedYP, xp, yp, curX, curY)
-      end
+      DR.drawRibbon(xp, yp, curX, curY)
    end
 
    lcd.drawText(125, 145, string.format("[%dx%d]", mapV.xmax-mapV.xmin, mapV.ymax-mapV.ymin), FONT_MINI)
@@ -403,7 +368,6 @@ local function mapTele()
    if speed and DT then
       DT.drawTape(265, 0, 50, 130, speed, "Speed", "["..(spdUnit or "---").."]", false)
    end
-   
 end
 
 local function printTele()
@@ -437,12 +401,6 @@ local function init()
    --monoTx = true
    ----------------
    
-   if monoTx then
-      DR = require "DFM-GPS/drawMono"
-   else
-      DR = require "DFM-GPS/drawColor"
-   end
-   
    local M = require "DFM-GPS/initCmd"
 
    settings, sensIdPa, fields, writeBD, fileBD = M.initCmd(sens, mapV, prefix, setMapScale)
@@ -450,17 +408,24 @@ local function init()
    unrequire("DFM-GPS/initCmd")
    M = nil
    collectgarbage()
+   if not settings.maxRibbon then settings.maxRibbon = 15 end
+
+   if monoTx then
+      DR = require "DFM-GPS/drawMono"
+   else
+      DR = require "DFM-GPS/drawColor"
+   end
+   DR.setMAX(settings.maxRibbon)
    
-   system.registerForm(1, MENU_APPS, "GPS", initForm, keyForm, printTele)
-   system.registerTelemetry(1,"GPS Flight Display",4, mapTele)
+   
+   system.registerForm(1, MENU_APPS, "DFM-GPS", initForm, keyForm, printTele)
+   system.registerTelemetry(1,"DFM-GPS Flight Display",4, mapTele)
 
    if select(2, system.getDeviceType()) == 1 then -- needed to jumpstart emulator
       system.getSensors()
    end
 
-   print("fg", lcd.getFgColor())
-   print("bg", lcd.getBgColor())   
-   print("color code", system.getProperty("Color"))
+   
    print("DFM-GPS: gcc " .. collectgarbage("count"))
 
 
