@@ -37,7 +37,7 @@ jobs:
           files: |
             release-output/*
       - name: Upload dev asset
-        if: ${{ github.ref == 'refs/heads/dev' }}
+        if: ${{ github.ref == 'refs/heads/beta' }}
         id: upload-dev-asset 
         uses: softprops/action-gh-release@v1
         with:
