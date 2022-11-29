@@ -16,6 +16,7 @@ function DT.drawTape(x0, y0, xh, yh, tele, lbl, unit, onLeft)
       {60, 3},      -- -25
       {72, 7, -30}  -- -30
    }
+   --print(tele)
    local delta = (tele or 0) % 10
    local deltaY = 1 + math.floor(2.4 * delta)
    local xoff

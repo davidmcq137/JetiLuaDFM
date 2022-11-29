@@ -10,7 +10,7 @@
    
 --]]
 
-local GPSVersion = "0.3"
+local GPSVersion = "0.4"
 
 local subForm = 0
 
@@ -19,8 +19,9 @@ local sensIdPa
 local settings
 local nfz
 local fields
+local mapV = {}
+
 local monoTx
-local CPU
 
 local sens = {
    {var="lat", label="Latitude"},
@@ -50,30 +51,16 @@ local Glider =  {
    {1,-2}
 }
 
-local mapV = {}
-
 local mapScale = {100, 250, 500, 750, 1000, 1500, 2000}
 
 local curX, curY
 local lastX, lastY
 local heading
-local gpsReads = 0
-
---local altitude
-local altUnit
---local speed
-local spdUnit
 
 local savedRow
 local fileBD, writeBD
 
-local needCalcXY = true
-local maxPolyX = 0
 local lastNoFly
-
-local function unrequire(m)
-   package.loaded[m] = nil
-end
 
 local function prefix()
    local emFlag
@@ -97,6 +84,19 @@ local function writeJSON()
    end
 end
 
+local function setMapScale(s)
+   local mm = mapScale[s]
+   return -mm, mm, -0.5*mm/2, 1.5*mm/2
+end
+
+local function xp(x)
+   return 320 * (x - mapV.xmin) / (mapV.xmax - mapV.xmin)
+end
+
+local function yp(y)
+   return 160 *(1 -  (y - mapV.ymin) / (mapV.ymax - mapV.ymin))
+end
+
 local function rotateXY(x, y, rotation)
    local sinShape, cosShape
    sinShape = math.sin(rotation)
@@ -104,10 +104,16 @@ local function rotateXY(x, y, rotation)
    return (x * cosShape - y * sinShape), (x * sinShape + y * cosShape)
 end
 
+local function unrequire(m)
+   package.loaded[m] = nil
+end
 
 local function loadNF()
-   print("loading NF")
    NF = require "DFM-GPS/compGeo"
+end
+
+local function loadDT()
+   DT = require "DFM-GPS/drawTape"
 end
 
 -- convert no fly polygon coords from lat,lng to x,y in current frame
@@ -123,20 +129,15 @@ local function noFlyCalc()
 	 y = cD * math.sin(math.rad(cB+90))
 	 x,y = rotateXY(x, y, (settings.rotA or 0))
 	 nfz[i].xy[j] = {x=x,y=y}
-	 if x > maxPolyX then maxPolyX = x end
+	 if x > mapV.maxPolyX then mapV.maxPolyX = x end
       end
    end
-   needCalcXY = false
+   mapV.needCalcXY = false
 end
-
-
 
 local function keyExit(k)
    if k == KEY_5 or k == KEY_ENTER or k == KEY_ESC then
-      return true
-   else
-      return false
-   end
+      return true else return false end
 end
 
 local function keyForm(key)
@@ -145,18 +146,18 @@ local function keyForm(key)
 	 if mapV.initPos then
 	    mapV.zeroPos = mapV.curPos
 	    settings.zeroLatString, settings.zeroLngString = gps.getStrig(mapV.zeroPos)
-	    DR.clearPos()
+	    DR.clearPos(xp, yp, mapV, settings, rotateXY)
 	    mapV.gpsCalA = true
-	    needCalcXY = true
+	    mapV.needCalcXY = true
 	 else
 	    system.messageBox("No Current Position")
 	 end
       elseif key == KEY_2 then
 	 if mapV.curBear then
 	    settings.rotA = math.rad(mapV.curBear-90)
-	    DR.clearPos()
+	    DR.clearPos(xp, yp, mapV, settings, rotateXY)
 	    mapV.gpsCalB = true
-	    needCalcXY = true	    
+	    mapV.needCalcXY = true	    
 	 else
 	    system.messageBox("No Current Position")
 	 end
@@ -173,11 +174,11 @@ end
 local function initForm(sf)
    subForm = sf
    collectgarbage()
-   print("sF) gcc: " .. collectgarbage("count"))
+   print("iF) gcc: " .. collectgarbage("count"))
    for k,v in pairs(package.loaded) do
-      if string.find(k, "DFM") then print("sF) module loaded: " ..k) end
+      if string.find(k, "DFM") then print("iF) module loaded: " ..k) end
    end
-
+   
    if sf == 1 then
       local M = require "DFM-GPS/mainMenuCmd"
       savedRow = M.mainMenu(savedRow, monoTx)
@@ -196,7 +197,7 @@ local function initForm(sf)
       collectgarbage()
    elseif sf == 4 then
       local M = require "DFM-GPS/settingsCmd"
-      M.settings(savedRow, settings, DR.setMAX)
+      M.settings(savedRow, settings, DR.setMAX, mapV, xp, yp, rotateXY)
       unrequire("DFM-GPS/settingsCmd")
       M = nil
       collectgarbage()
@@ -206,19 +207,6 @@ local function initForm(sf)
       system.messageBox("Data deleted .. restart App")
       form.reinit(1)
    end
-end
-
-local function setMapScale(s)
-   local mm = mapScale[s]
-   return -mm, mm, -0.5*mm/2, 1.5*mm/2
-end
-
-local function xp(x)
-   return 320 * (x - mapV.xmin) / (mapV.xmax - mapV.xmin)
-end
-
-local function yp(y)
-   return 160 *(1 -  (y - mapV.ymin) / (mapV.ymax - mapV.ymin))
 end
 
 local function keyGPS(key)
@@ -239,10 +227,6 @@ local function initGPS()
    collectgarbage()
 end
 
-local function loadDT()
-   DT = require "DFM-GPS/drawTape"
-end
-
 local function loop()
 
    if not sens then return end
@@ -251,22 +235,22 @@ local function loop()
    sensor = system.getSensorByID(sensIdPa.alt.SeId, sensIdPa.alt.SePa)
    if sensor and sensor.valid then
       mapV.altitude = sensor.value
-      altUnit = sensor.unit
+      mapV.altunit = sensor.unit
       if not DT then loadDT() end
    end
    
    sensor = system.getSensorByID(sensIdPa.spd.SeId, sensIdPa.spd.SePa)
    if sensor and sensor.valid then
       mapV.speed = sensor.value
-      spdUnit = sensor.unit
+      mapV.spdUnit = sensor.unit
       if not DT then loadDT() end
    end
    
    mapV.curPos = gps.getPosition(sensIdPa.lat.SeId, sensIdPa.lat.SePa, sensIdPa.lng.SePa)   
 
-   if mapV.curPos and not mapV.initPos then gpsReads = gpsReads + 1 end
+   if mapV.curPos and not mapV.initPos then mapV.gpsReads = mapV.gpsReads + 1 end
    
-   if gpsReads > 9 then
+   if mapV.gpsReads > 9 then
       if not mapV.initPos then
 	 mapV.initPos = mapV.curPos
 	 if not mapV.zeroPos then mapV.zeroPos = mapV.curPos end
@@ -306,7 +290,7 @@ local function mapTele()
    end
    
    if nfz and #nfz > 0 and mapV.zeroPos and nfz[1].xy and NF then
-      if needCalcXY then noFlyCalc() end
+      if mapV.needCalcXY then noFlyCalc() end
       DR.drawNFZ(nfz, mapV, xp, yp)
    end
    
@@ -316,7 +300,7 @@ local function mapTele()
 	 if mapV.mapScaleIdx + 1 <= #mapScale then
 	    mapV.mapScaleIdx = mapV.mapScaleIdx + 1
 	    mapV.xmin, mapV.xmax, mapV.ymin, mapV.ymax = setMapScale(mapV.mapScaleIdx)
-	    DR.clearPos()
+	    DR.clearPos(xp, yp, mapV, settings, rotateXY)
 	 end
       end
 
@@ -327,7 +311,7 @@ local function mapTele()
 	 local noFlyC = false
 	 for i in ipairs(nfz) do 
 	    if nfz[i].shape == "polygon" then
-	       noFlyP = noFlyP or NF.isNoFlyP(nfz[i], txy, maxPolyX)
+	       noFlyP = noFlyP or NF.isNoFlyP(nfz[i], txy, mapV.maxPolyX)
 	    else
 	       noFlyC = noFlyC or NF.isNoFlyC(nfz[i], txy)
 	    end
@@ -363,26 +347,29 @@ local function mapTele()
    lcd.drawLine(50,yp(0), 260, yp(0))
 
    if mapV.altitude and DT then
-      DT.drawTape(0, 0, 50, 130, mapV.altitude, "Alt", "["..(altUnit or "---").."]", true)
+      DT.drawTape(0, 0, 50, 130, mapV.altitude, "Alt", "["..(mapV.altunit or "---").."]", true)
    end
    if mapV.speed and DT then
-      DT.drawTape(265, 0, 50, 130, mapV.speed, "Speed", "["..(spdUnit or "---").."]", false)
+      DT.drawTape(265, 0, 50, 130, mapV.speed, "Speed", "["..(mapV.spdUnit or "---").."]", false)
    end
 end
 
 local function printTele()
 
    local text, text2
-   
-   if subForm ~= 1 then return end
-   if settings.rotA then text = string.format("%d", math.deg(settings.rotA)) else text = "---" end
-   text = string.format("Rot: %s  G: %d", text, gpsReads)
-   lcd.drawText(210,120, text)
-   if mapV.initPos then
-      text, text2 = gps.getStrig(mapV.curPos)
-      lcd.drawText(0,120,"[" .. text .. "," .. text2 .. "]")
-   else
-      lcd.drawText(10,120,"-No GPS-")   
+
+   if subForm == 1 then
+      if settings.rotA then text = string.format("%d", math.deg(settings.rotA)) else text = "---" end
+      text = string.format("Rot: %s  G: %d", text, mapV.gpsReads)
+      lcd.drawText(210,120, text)
+      if mapV.initPos then
+	 text, text2 = gps.getStrig(mapV.curPos)
+	 lcd.drawText(0,120,"[" .. text .. "," .. text2 .. "]")
+      else
+	 lcd.drawText(10,120,"-No GPS-")   
+      end
+   elseif subForm == 4 then
+      DR.drawColors()
    end
 end
 
@@ -398,7 +385,7 @@ local function init()
    if not monoTx then print("Color") end
    
    ----- TEST -----
-   --monoTx = true
+   monoTx = true
    ----------------
    
    local M = require "DFM-GPS/initCmd"
@@ -409,17 +396,14 @@ local function init()
    M = nil
    collectgarbage()
 
-   if not settings.maxRibbon then settings.maxRibbon = 15 end
-   if not settings.colorSelect then settings.colorSelect = 1 end
-   
    if monoTx then
       DR = require "DFM-GPS/drawMono"
    else
       DR = require "DFM-GPS/drawColor"
    end
-   DR.setMAX(settings.maxRibbon)
-   
-   
+
+   DR.setMAX(settings.maxRibbon, xp, yp, mapV,settings,rotateXY)
+
    system.registerForm(1, MENU_APPS, "DFM-GPS", initForm, keyForm, printTele)
    system.registerTelemetry(1,"DFM-GPS Flight Display",4, mapTele)
 
@@ -427,9 +411,6 @@ local function init()
       system.getSensors()
    end
    
-   print("DFM-GPS: gcc " .. collectgarbage("count"))
-
-
 end
 --------------------------------------------------------------------------------
 

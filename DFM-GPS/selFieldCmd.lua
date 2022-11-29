@@ -21,8 +21,8 @@ function M.keyField(kkey, mapV, settings, fields, prefix)
 	    nfz = decode.nfz
 	 end
 	 mapV.zeroPos = gps.newPoint(decode.lat, decode.lng)
-	 mapV.gpsCalA = true
 	 settings.rotA = decode.rotation
+	 mapV.gpsCalA = true
 	 mapV.gpsCalB = true
 	 form.close(2)
       end

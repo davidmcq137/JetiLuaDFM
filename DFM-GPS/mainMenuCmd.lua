@@ -1,4 +1,5 @@
 local M = {}
+
 function M.mainMenu(savedRow, monoTx)
    form.setTitle("GPS Display")
    
@@ -15,7 +16,7 @@ function M.mainMenu(savedRow, monoTx)
 
    if not monoTx then
       form.addRow(2)
-      form.addLabel({label="Settings >>", width=220})
+      form.addLabel({label="History ribbon settings >>", width=220})
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       form.reinit(4)
@@ -27,7 +28,6 @@ function M.mainMenu(savedRow, monoTx)
    form.addLabel({label="Reset App data >>", width=220})
    form.addLink((function()
 	    savedRow = form.getFocusedRow()
-	    print("foo")
 	    form.reinit(6)
 	    form.waitForRelease()
    end))      

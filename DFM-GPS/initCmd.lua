@@ -21,7 +21,6 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
    writeBD = true
 
    if not sensIdPa then
-      print("zeroing sensIdPa")
       sensIdPa = {}
       for i in ipairs(sens) do
 	 local v = sens[i].var
@@ -43,7 +42,6 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
 	    local ff = path .. "/" .. fn .. "." .. ext
 	    file = io.readall(ff)
 	    if file then
-	       print("decoding", ff)
 	       tt = json.decode(file)
 	    end
 	    local nn = string.sub(fn, j+1)
@@ -53,22 +51,27 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
 	 end
       end
    end
-
       
-   mapV.gpsCalA = false
-   mapV.gpsCalB = false
-
    if settings and settings.zeroLatString and settings.zeroLngString then
       mapV.zeroPos = gps.newPoint(settings.zeroLatString, settings.zeroLngString)
       mapV.gpsCalA = true
    end
 
    if settings.rotA and mapV.gpsCalA then mapV.gpsCalB = true end
-
+   if not settings.maxRibbon then settings.maxRibbon = 15 end
+   if not settings.colorSelect then settings.colorSelect = 1 end
+   if not settings.msMinSpacing then settings.msMinSpacing = 0 end
+   if not settings.mMinSpacing then settings.mMinSpacing = 3 end
+   if not settings.mMinSpacing2 then settings.mMinSpacing2 = settings.mMinSpacing^2 end
+      
+   mapV.gpsCalA = false
+   mapV.gpsCalB = false
    mapV.mapScaleIdx = 1
    mapV.xmin, mapV.xmax, mapV.ymin, mapV.ymax = setMapScale(mapV.mapScaleIdx)
-
    mapV.selField = nil
+   mapV.needCalcXY = true
+   mapV.maxPolyX = 0
+   mapV.gpsReads = 0
 
    return settings, sensIdPa, fields, writeBD, fileBD
 

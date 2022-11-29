@@ -9,31 +9,58 @@ local heading
 local rgb = {}
 local rgbLast
 local ribbon = {}
+local lastTime
 
+-- this table is replicated in settingsCmd.lua ... must change in both places
 local colorSel = {
    "None",  "Altitude", "Speed",  "Rx1 Q",  "Rx1 A1",
    "Rx1 A2","Rx2 Q",    "Rx2 A1", "Rx2 A2", "P4"
 }	 
 
-function M.clearPos()
-   rgbHist = {}
-   savedPos = {}
-   savedXP = {}
-   savedYP = {}
+function M.drawColors()
+   for i = 1, #rgb, 1 do
+      lcd.setColor(rgb[i].r, rgb[i].g, rgb[i].b)
+      lcd.drawFilledRectangle(-25 + 30*i, 110, 25, 25)
+      lcd.setColor(255,255,255)
+      local text = tostring(i)
+      lcd.getTextWidth(FONT_NORMAL, text)
+      lcd.drawText(-12-0.5*lcd.getTextWidth(FONT_MINI, text)+30*i, 115, text, FONT_MINI)
+   end
 end
 
-function M.setMAX(max)
+function M.clearPos(xp, yp, mapV, settings, rotateXY)
+   --rgbHist = {}
+   --savedPos = {}
+   print("clearPos")
+   local np = #savedXP
+   savedXP = {}
+   savedYP = {}
+   local cD, cB, cX, cY
+   for i = 1, np do
+      cD = gps.getDistance(mapV.zeroPos, savedPos[i])
+      cB = gps.getBearing(mapV.zeroPos, savedPos[i])
+      cX = cD * math.cos(math.rad(cB+270)) -- why not same angle X and Y??
+      cY = cD * math.sin(math.rad(cB+90))
+      cX, cY = rotateXY(cX, cY, settings.rotA or 0)
+      savedXP[i] = xp(cX)
+      savedYP[i] = yp(cY)
+   end
+end
 
+function M.setMAX(max, xp, yp, mapV, settings, rotateXY)
+
+   print("setMAX")
+   
    MAXSAVED = math.max(0, math.min(max, 1000))
-
    local rp = 10
    for k = 1, rp, 1 do
       rgb[k] = {}
       rgb[k].r = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp)) / 2)
-      rgb[k].g = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 2*math.pi/3)) / 2)
-      rgb[k].b = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 4*math.pi/3)) / 2)
+      rgb[k].g = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 2*math.pi/3)) / 2)      rgb[k].b = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 4*math.pi/3)) / 2)
    end
-   M.clearPos()
+   print("setMAX 1", M.clearPos)
+   M.clearPos(xp, yp, mapV, settings, rotateXY)
+   print("setMax 2")
    return MAXSAVED
 end
 
@@ -144,15 +171,20 @@ end
 function M.savePoints(mapV, curX, curY, lastX, lastY, xp, yp, settings)
 
    local jj
-   --local dist = math.sqrt( (curX - lastX)^2 + (curY - lastY)^2)
+   local dist2
+   local now
+   local dt
 
-   if curX ~= lastX or curY ~= lastY then -- and dist > 5 then -- new point
+   now = system.getTimeCounter()
+   dist2 = (curX - lastX)^2 + (curY - lastY)
+   if not lastTime then lastTime = now end
+   dt = now - lastTime
+
+   if mapV.gpsCalA and mapV.gpsCalB and settings.rotA and
+      dt > settings.msMinSpacing and dist2 > settings.mMinSpacing2 and
+      (curX ~= lastX or curY ~= lastY) then 
+      
       heading = math.atan(curX-lastX, curY - lastY)
-
-      ----------------------------------------
-
-
-
       ribbon.currentFormat = "%.f"
       if settings.colorSelect == 1 then -- none
 	 jj = #rgb // 2 -- mid of gradient - right now this is sort of a yellow color
@@ -174,12 +206,8 @@ function M.savePoints(mapV, curX, curY, lastX, lastY, xp, yp, settings)
 	 jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0, 100,  #rgb)
       elseif settings.colorSelect == 10 then -- P4
 	 jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	   
-      else
-	 print("ribbon color bad idx")
       end
-      
 
-      ----------------------------------------
       if #savedXP+1 > MAXSAVED then
 	 table.remove(savedPos, 1)
 	 table.remove(savedXP, 1)
@@ -192,13 +220,11 @@ function M.savePoints(mapV, curX, curY, lastX, lastY, xp, yp, settings)
 	 table.insert(rgbHist, {r=rgb[jj].r, g=rgb[jj].g, b=rgb[jj].b,
 				rgb = rgb[jj].r*256*256+ rgb[jj].g*256 + rgb[jj].b})
       end
-      --local rr = rgbHist[#rgbHist]
-      --print(settings.colorSelect, #savedXP, jj, rr.r, rr.g, rr.b, rr.rgb)
 
       lastX = curX
       lastY = curY
+      lastTime = system.getTimeCounter()
    end
-   
    return lastX, lastY, heading
 end
 
@@ -240,18 +266,18 @@ function M.drawRibbon(xp, yp, curX, curY, settings)
 	 lcd.drawLine(savedXP[#savedXP], savedYP[#savedXP], xp(curX), yp(curY))
       end
    --end
-
-   if settings.colorSelect > 1 then
+   if settings.colorSelect > 1 and rgb and ribbon.currentBin then
       lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
       lcd.drawFilledRectangle(210 , 148, 6,6)
       setTextColor()
       lcd.drawText(220, 145, colorSel[settings.colorSelect], FONT_MINI)
    end
-   
    setTextColor()
 
+   local nn
+   if savedXP then nn = #savedXP else nn = 0 end
    if select(2, system.getDeviceType()) == 1 then
-      lcd.drawText(40, 145, "P: "..#savedXP.."   CPU: "..system.getCPU(), FONT_MINI)
+      lcd.drawText(40, 145, "P: "..nn.."   CPU: "..system.getCPU(), FONT_MINI)
    end
 
 end
