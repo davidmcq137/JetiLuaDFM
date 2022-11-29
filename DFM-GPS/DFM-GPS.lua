@@ -59,9 +59,9 @@ local lastX, lastY
 local heading
 local gpsReads = 0
 
-local altitude
+--local altitude
 local altUnit
-local speed
+--local speed
 local spdUnit
 
 local savedRow
@@ -250,14 +250,14 @@ local function loop()
    local sensor
    sensor = system.getSensorByID(sensIdPa.alt.SeId, sensIdPa.alt.SePa)
    if sensor and sensor.valid then
-      altitude = sensor.value
+      mapV.altitude = sensor.value
       altUnit = sensor.unit
       if not DT then loadDT() end
    end
    
    sensor = system.getSensorByID(sensIdPa.spd.SeId, sensIdPa.spd.SePa)
    if sensor and sensor.valid then
-      speed = sensor.value
+      mapV.speed = sensor.value
       spdUnit = sensor.unit
       if not DT then loadDT() end
    end
@@ -283,7 +283,7 @@ local function loop()
       if not lastY then lastY = curY end
       
       curX, curY = rotateXY(curX, curY, settings.rotA or 0)
-      lastX, lastY, heading = DR.savePoints(mapV, curX, curY, lastX, lastY, xp, yp)
+      lastX, lastY, heading = DR.savePoints(mapV, curX, curY, lastX, lastY, xp, yp, settings)
    end
 
 end
@@ -355,18 +355,18 @@ local function mapTele()
 	 DR.drawShape(xp(curX), yp(curY), Glider, (heading or 0), "Out")
       end
       
-      DR.drawRibbon(xp, yp, curX, curY)
+      DR.drawRibbon(xp, yp, curX, curY, settings)
    end
 
    lcd.drawText(125, 145, string.format("[%dx%d]", mapV.xmax-mapV.xmin, mapV.ymax-mapV.ymin), FONT_MINI)
    
    lcd.drawLine(50,yp(0), 260, yp(0))
 
-   if altitude and DT then
-      DT.drawTape(0, 0, 50, 130, altitude, "Alt", "["..(altUnit or "---").."]", true)
+   if mapV.altitude and DT then
+      DT.drawTape(0, 0, 50, 130, mapV.altitude, "Alt", "["..(altUnit or "---").."]", true)
    end
-   if speed and DT then
-      DT.drawTape(265, 0, 50, 130, speed, "Speed", "["..(spdUnit or "---").."]", false)
+   if mapV.speed and DT then
+      DT.drawTape(265, 0, 50, 130, mapV.speed, "Speed", "["..(spdUnit or "---").."]", false)
    end
 end
 
@@ -408,8 +408,10 @@ local function init()
    unrequire("DFM-GPS/initCmd")
    M = nil
    collectgarbage()
-   if not settings.maxRibbon then settings.maxRibbon = 15 end
 
+   if not settings.maxRibbon then settings.maxRibbon = 15 end
+   if not settings.colorSelect then settings.colorSelect = 1 end
+   
    if monoTx then
       DR = require "DFM-GPS/drawMono"
    else
@@ -424,7 +426,6 @@ local function init()
    if select(2, system.getDeviceType()) == 1 then -- needed to jumpstart emulator
       system.getSensors()
    end
-
    
    print("DFM-GPS: gcc " .. collectgarbage("count"))
 
