@@ -17,7 +17,7 @@ local function resample_wav(path)
 end
 
 local function listing(path)
-   f = assert(io.popen("ls -1 " .. path))
+   f = assert(io.popen("set -x ; ls -1 " .. path))
    s = {}
    for line in f:lines() do
       s[1+#s] = line
@@ -38,21 +38,22 @@ local app_settings = {
 local function build_app(app)
    -- Find and load the lua source
    local lua_source = string.format('%s.lua', app)
-   local chunk, err = loadfile(lua_source)
-   if not chunk then
+   local app_chunk, err = loadfile(lua_source)
+   if not app_chunk then
       lua_source = string.format('%s/%s.lua', app, app)
-      chunk, err = loadfile(lua_source)
+      app_chunk, err = loadfile(lua_source)
    end
-   if not chunk then
+   if not app_chunk then
       print(string.format("Cannot load: %s ", app))
       return nil
    end
    
+   -- Compile main module if we are supposed to (it goes in the root)
    local lua_artifact = nil
    if not (app_settings[app] and app_settings[app].no_lc) then
      lua_artifact = string.format('%s.lc', app)
      local lc_out = io.open(lua_artifact, "wb")
-     lc_out:write(string.dump(chunk))
+     lc_out:write(string.dump(app_chunk))
      io.close(lc_out)
    else
      lua_artifact = string.format('%s.lua', app)
@@ -61,8 +62,26 @@ local function build_app(app)
      end
    end
    
+   -- Compile secondary modules if there are any (they remain in app dir)
+   local modules = listing(app)
+   for _, f in ipairs(modules) do
+      v = string.format('%s/%s', app, f)
+      if v:sub(-4) == ".lua" and v ~= lua_source then
+         local ch, err = loadfile(v)
+         if not ch then
+            print(string.format("Cannot load module %s: %s", v, err))
+            return nil
+         end
+         local lc_artif = string.format("%s.lc", v:sub(1, -5))
+         local lc_out = io.open(lc_artif, "wb")
+         lc_out:write(string.dump(ch))
+         io.close(lc_out)
+      end
+   end
+
+
    -- Run the chunk to get the returned table 
-   local info = chunk()
+   local info = app_chunk()
 
    -- Add the version and release date to App.json "in place"
    local json_filename = string.format('%s/App.json', app)
@@ -93,7 +112,7 @@ local function build_app(app)
 end
 
 local function main()
-   -- Find and resample all the wav files 
+   Find and resample all the wav files 
    xs = listing("DFM-Maps/Lang/*/Audio/*.wav") or listing("DFM-Maps/Audio/*.wav") 
    for k, v in ipairs(xs) do
       resample_wav(v)
