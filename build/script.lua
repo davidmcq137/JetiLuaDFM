@@ -17,7 +17,7 @@ local function resample_wav(path)
 end
 
 local function listing(path)
-   f = assert(io.popen("set -x ; ls -1 " .. path))
+   f = assert(io.popen("ls -1 " .. path))
    s = {}
    for line in f:lines() do
       s[1+#s] = line
@@ -112,7 +112,7 @@ local function build_app(app)
 end
 
 local function main()
-   Find and resample all the wav files 
+   -- Find and resample all the wav files 
    xs = listing("DFM-Maps/Lang/*/Audio/*.wav") or listing("DFM-Maps/Audio/*.wav") 
    for k, v in ipairs(xs) do
       resample_wav(v)
