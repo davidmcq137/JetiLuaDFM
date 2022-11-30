@@ -35,9 +35,9 @@ function M.settings(savedRow, settings, setmax, mapV, xp, yp, rotateXY)
 		  (function(x) return changedMax(x, settings, setmax, mapV, xp, yp, rotateXY) end))
 
    form.addRow(2)
-   form.addLabel({label="Min ribbon time spacing", width=240})
+   form.addLabel({label="Min ribbon time spacing", width=220})
    form.addIntbox(settings.msMinSpacing, 0,10000,0,0,10,
-		  (function(x) return changedVal(x, settings, "ms") end), {label=" ms"})
+		  (function(x) return changedVal(x, settings, "ms") end), {label=" ms", width=100})
 
    form.addRow(2)
    form.addLabel({label="Min ribbon distance spacing", width=240})

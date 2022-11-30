@@ -47,7 +47,7 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
 	    local nn = string.sub(fn, j+1)
 	    table.insert(fields,
 			 {short=nn, lat=(tt.lat or 0), lng=(tt.lng or 0),
-			  rotation=(tt.rotation or 0)})
+			  rotation=math.rad(tt.rotation or 0)})
 	 end
       end
    end

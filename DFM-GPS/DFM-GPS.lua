@@ -121,6 +121,7 @@ local function noFlyCalc()
    local pt, cD, cB, x, y
    if not NF then loadNF() end
    for i in ipairs(nfz) do
+      if not nfz[i].xy then nfz[i].xy = {} end
       for j in ipairs(nfz[i].path) do
 	 pt = gps.newPoint(nfz[i].path[j].lat,nfz[i].path[j].lng)
 	 cD = gps.getDistance(mapV.zeroPos, pt)
@@ -339,7 +340,7 @@ local function mapTele()
 	 DR.drawShape(xp(curX), yp(curY), Glider, (heading or 0), "Out")
       end
       
-      DR.drawRibbon(xp, yp, curX, curY, settings)
+      DR.drawRibbon(xp, yp, curX, curY, settings, mapV)
    end
 
    lcd.drawText(125, 145, string.format("[%dx%d]", mapV.xmax-mapV.xmin, mapV.ymax-mapV.ymin), FONT_MINI)
@@ -385,7 +386,7 @@ local function init()
    if not monoTx then print("Color") end
    
    ----- TEST -----
-   monoTx = true
+   --monoTx = true
    ----------------
    
    local M = require "DFM-GPS/initCmd"

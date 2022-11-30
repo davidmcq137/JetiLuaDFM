@@ -1,5 +1,6 @@
 local M = {}
 
+local savedTime = {}
 local savedXP =  {}
 local savedYP =  {}
 local savedPos = {}
@@ -10,6 +11,7 @@ local rgb = {}
 local rgbLast
 local ribbon = {}
 local lastTime
+local lastX0, lastY0
 
 -- this table is replicated in settingsCmd.lua ... must change in both places
 local colorSel = {
@@ -31,7 +33,6 @@ end
 function M.clearPos(xp, yp, mapV, settings, rotateXY)
    --rgbHist = {}
    --savedPos = {}
-   print("clearPos")
    local np = #savedXP
    savedXP = {}
    savedYP = {}
@@ -49,8 +50,6 @@ end
 
 function M.setMAX(max, xp, yp, mapV, settings, rotateXY)
 
-   print("setMAX")
-   
    MAXSAVED = math.max(0, math.min(max, 1000))
    local rp = 10
    for k = 1, rp, 1 do
@@ -58,9 +57,7 @@ function M.setMAX(max, xp, yp, mapV, settings, rotateXY)
       rgb[k].r = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp)) / 2)
       rgb[k].g = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 2*math.pi/3)) / 2)      rgb[k].b = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 4*math.pi/3)) / 2)
    end
-   print("setMAX 1", M.clearPos)
    M.clearPos(xp, yp, mapV, settings, rotateXY)
-   print("setMax 2")
    return MAXSAVED
 end
 
@@ -175,64 +172,75 @@ function M.savePoints(mapV, curX, curY, lastX, lastY, xp, yp, settings)
    local now
    local dt
 
-   now = system.getTimeCounter()
-   dist2 = (curX - lastX)^2 + (curY - lastY)
-   if not lastTime then lastTime = now end
-   dt = now - lastTime
+   if not lastX0 then lastX0 = lastX - 0.01 end
+   if not lastY0 then lastY0 = lastY - 0.01 end
 
-   if mapV.gpsCalA and mapV.gpsCalB and settings.rotA and
-      dt > settings.msMinSpacing and dist2 > settings.mMinSpacing2 and
-      (curX ~= lastX or curY ~= lastY) then 
+   if mapV.gpsCalA and mapV.gpsCalB and settings.rotA and (curX ~= lastX0 or curY ~= lastY0) then
       
-      heading = math.atan(curX-lastX, curY - lastY)
-      ribbon.currentFormat = "%.f"
-      if settings.colorSelect == 1 then -- none
-	 jj = #rgb // 2 -- mid of gradient - right now this is sort of a yellow color
-      elseif settings.colorSelect == 2 then -- altitude 0-600m
-	 jj = gradientIndex(mapV.altitude, 0, 600, #rgb)
-      elseif settings.colorSelect == 3 then -- speed 0-300 km/hr
-	 jj = gradientIndex(mapV.speed, 0, 300, #rgb)
-      elseif settings.colorSelect == 4 then -- Rx1 Q
-	 jj = gradientIndex(system.getTxTelemetry().rx1Percent, 0, 100,  #rgb)
-      elseif settings.colorSelect == 5 then -- Rx1 A1
-	 jj = gradientIndex(system.getTxTelemetry().RSSI[1],    0, 100,  #rgb)
-      elseif settings.colorSelect == 6 then -- Rx1 A2
-	 jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0, 100,  #rgb)
-      elseif settings.colorSelect == 7 then -- Rx2 Q
-	 jj = gradientIndex(system.getTxTelemetry().rx2Percent, 0, 100,  #rgb)
-      elseif settings.colorSelect == 8 then -- Rx2 A1
-	 jj = gradientIndex(system.getTxTelemetry().RSSI[3],    0, 100,  #rgb)
-      elseif settings.colorSelect == 9 then -- Rx2 A2
-	 jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0, 100,  #rgb)
-      elseif settings.colorSelect == 10 then -- P4
-	 jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	   
-      end
+      heading = math.atan(curX - lastX0, curY - lastY0)
+      now = system.getTimeCounter()
+      dist2 = (curX - lastX)^2 + (curY - lastY)^2
+      lastX0 = curX
+      lastY0 = curY
 
-      if #savedXP+1 > MAXSAVED then
-	 table.remove(savedPos, 1)
-	 table.remove(savedXP, 1)
-	 table.remove(savedYP, 1)
-	 table.remove(rgbHist, 1)
-      else
-	 table.insert(savedPos, mapV.curPos)
-	 table.insert(savedXP, xp(curX))
-	 table.insert(savedYP, yp(curY))
-	 table.insert(rgbHist, {r=rgb[jj].r, g=rgb[jj].g, b=rgb[jj].b,
-				rgb = rgb[jj].r*256*256+ rgb[jj].g*256 + rgb[jj].b})
-      end
+      if not lastTime then lastTime = now end
+      dt = now - lastTime
 
-      lastX = curX
-      lastY = curY
-      lastTime = system.getTimeCounter()
+      --print(math.sqrt(dist2), dt)
+      if dt > settings.msMinSpacing and dist2 > settings.mMinSpacing2 then
+	 
+	 ribbon.currentFormat = "%.f"
+	 if settings.colorSelect == 1 then -- none
+	    jj = #rgb // 2 -- mid of gradient - right now this is sort of a yellow color
+	 elseif settings.colorSelect == 2 then -- altitude 0-600m
+	    jj = gradientIndex(mapV.altitude, 0, 600, #rgb)
+	 elseif settings.colorSelect == 3 then -- speed 0-300 km/hr
+	    jj = gradientIndex(mapV.speed, 0, 300, #rgb)
+	 elseif settings.colorSelect == 4 then -- Rx1 Q
+	    jj = gradientIndex(system.getTxTelemetry().rx1Percent, 0, 100,  #rgb)
+	 elseif settings.colorSelect == 5 then -- Rx1 A1
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[1],    0, 100,  #rgb)
+	 elseif settings.colorSelect == 6 then -- Rx1 A2
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0, 100,  #rgb)
+	 elseif settings.colorSelect == 7 then -- Rx2 Q
+	    jj = gradientIndex(system.getTxTelemetry().rx2Percent, 0, 100,  #rgb)
+	 elseif settings.colorSelect == 8 then -- Rx2 A1
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[3],    0, 100,  #rgb)
+	 elseif settings.colorSelect == 9 then -- Rx2 A2
+	    jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0, 100,  #rgb)
+	 elseif settings.colorSelect == 10 then -- P4
+	    jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	   
+	 end
+	 
+	 if #savedXP+1 > MAXSAVED then
+	    table.remove(savedTime, 1)
+	    table.remove(savedPos, 1)
+	    table.remove(savedXP, 1)
+	    table.remove(savedYP, 1)
+	    table.remove(rgbHist, 1)
+	 else
+	    table.insert(savedTime, now)
+	    table.insert(savedPos, mapV.curPos)
+	    table.insert(savedXP, xp(curX))
+	    table.insert(savedYP, yp(curY))
+	    table.insert(rgbHist, {r=rgb[jj].r, g=rgb[jj].g, b=rgb[jj].b,
+				   rgb = rgb[jj].r*256*256+ rgb[jj].g*256 + rgb[jj].b})
+	 end
+	 lastTime = now
+	 lastX = curX
+	 lastY = curY
+      end
    end
    return lastX, lastY, heading
 end
 
 
-function M.drawRibbon(xp, yp, curX, curY, settings)
+
+function M.drawRibbon(xp, yp, curX, curY, settings, mapV)
    lcd.setColor(lcd.getFgColor())
    local rh
-    --[[
+
+   --[[
    if MAXSAVED < 128 then
       local ren = lcd.renderer()
       ren:reset()
@@ -257,11 +265,13 @@ function M.drawRibbon(xp, yp, curX, curY, settings)
 	 for i=2,#savedXP do
 	    rh = rgbHist[i-1]
 	    if rh.rgb ~= rgbLast and settings.colorSelect ~= 1 then
-	       --print(i, rh.r, rh.g, rh.b)
 	       lcd.setColor(rh.r, rh.g, rh.b)
 	       rgbLast = rh.rgb
 	    end
+	    
 	    lcd.drawLine(savedXP[i-1], savedYP[i-1], savedXP[i], savedYP[i])
+	    lcd.drawCircle(savedXP[i], savedYP[i], 4)
+
 	 end
 	 lcd.drawLine(savedXP[#savedXP], savedYP[#savedXP], xp(curX), yp(curY))
       end
@@ -274,6 +284,14 @@ function M.drawRibbon(xp, yp, curX, curY, settings)
    end
    setTextColor()
 
+   local pp = #savedXP
+   if pp > 1 then
+      local dd = gps.getDistance(savedPos[pp], savedPos[pp-1])
+      --local dd = gps.getDistance(savedPos[pp], mapV.curPos)
+      local tt = savedTime[pp] - savedTime[pp-1]
+      lcd.drawText(20, 10, string.format("Dist: %d Time: %.1f", dd, tt), FONT_MINI)
+   end
+      
    local nn
    if savedXP then nn = #savedXP else nn = 0 end
    if select(2, system.getDeviceType()) == 1 then
