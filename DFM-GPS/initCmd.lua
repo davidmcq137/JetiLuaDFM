@@ -72,9 +72,11 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
    }
 
    for k,v in pairs(setT) do
-      if not settings[k] then settings[k] = v end
+      if settings[k] == nil then
+	 settings[k] = v
+      end
    end
-   
+
    --[[
    if not settings.maxRibbon then settings.maxRibbon = 15 end
    if not settings.colorSelect then settings.colorSelect = 1 end

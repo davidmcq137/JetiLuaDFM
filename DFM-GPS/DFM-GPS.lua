@@ -144,7 +144,7 @@ local function keyForm(key)
 	    system.messageBox("No Current Position")
 	 end
       end
-   elseif subForm == 3 or subForm == 4 then
+   elseif subForm == 3 or subForm == 4 or subForm == 5 then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
@@ -376,6 +376,12 @@ end
 
 local function init()
 
+   local M = require "DFM-GPS/initCmd"
+   settings, sensIdPa, fields, writeBD, fileBD = M.initCmd(sens, mapV, prefix, setMapScale)
+   unrequire("DFM-GPS/initCmd")
+   M = nil
+   collectgarbage()
+
    local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI DS-14"}
    local dev = system.getDeviceType()
 
@@ -391,19 +397,13 @@ local function init()
 	 monoTx = true
       end
    end
-   if not monoTx then print("Color") else print("Mono") end
-      
-   local M = require "DFM-GPS/initCmd"
-
-   settings, sensIdPa, fields, writeBD, fileBD = M.initCmd(sens, mapV, prefix, setMapScale)
-
-   unrequire("DFM-GPS/initCmd")
-   M = nil
-   collectgarbage()
 
    if monoTx then
+      print("Mono")
+      settings.nfzBeeps = true
       DR = require "DFM-GPS/drawMono"
    else
+      print("Color")
       DR = require "DFM-GPS/drawColor"
    end
 

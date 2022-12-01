@@ -47,14 +47,19 @@ function M.keyField(kkey, mapV, settings, fields, prefix)
       end
       form.close(2)
    end
+   if key == KEY_2 then
+      fields.showAll = not fields.showAll
+      form.reinit(1)
+   end
+   
    return nfz
 end
-
 
 function M.selField(fields, savedRow, zeroPos)
    
    form.setButton(1, "Esc", ENABLED)
-
+   form.setButton(2, "Show", ENABLED)
+   
    if not fields or #fields == 0 then
       form.addRow(1)
       form.addLabel({label="No Fields"})
@@ -70,13 +75,18 @@ function M.selField(fields, savedRow, zeroPos)
    table.sort(fields, (function(f1,f2) return f1.distance < f2.distance end) ) 
 
    for i in ipairs(fields) do
-      form.addRow(4)
-      form.addLabel({label=fields[i].short, width=65, font=FONT_MINI})
+
       local pp = gps.newPoint(fields[i].lat, fields[i].lng)
       local dd = gps.getDistance(zeroPos, pp) or 0
+      local viz = true
+      if dd > 1000 and (not fields.showAll) then viz = false end
+
+      form.addRow(4)
+      form.addLabel({label=fields[i].short, width=65, font=FONT_MINI, visible=viz})
       form.addLabel({label=string.format("[%.6f,%.6f]", fields[i].lat, fields[i].lng),
-		     width=130, font=FONT_MINI})
-      form.addLabel({label=string.format("%d°", math.deg(fields[i].rotation)), width=40, font=FONT_MINI})
+		     width=130, font=FONT_MINI, visible=viz})
+      form.addLabel({label=string.format("%d°", math.deg(fields[i].rotation)), width=40,
+		     font=FONT_MINI, visible=viz})
       local ss
       if dd < -10 then -- disable for now
 	 ss = "Dist < 10 m"
@@ -87,7 +97,7 @@ function M.selField(fields, savedRow, zeroPos)
       else
 	 ss = string.format("Dist %.1f m", dd)
       end
-      form.addLabel({label = ss, width=85, font=FONT_MINI})
+      form.addLabel({label = ss, width=85, font=FONT_MINI, visible=viz})
    end
    return savedRow
 end

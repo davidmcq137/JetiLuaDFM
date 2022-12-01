@@ -207,9 +207,9 @@ local function setColor(type)
    local colorCode = system.getProperty("Color")
    if colorCode <= 6 then -- white bg
       if type == "In" then
-	 lcd.setColor(255,0,0)
+	 lcd.setColor(220,0,0)
       else
-	 lcd.setColor(0,255,0)
+	 lcd.setColor(0,180,20)
       end
    elseif colorCode == 7 then -- blue bg
       if type == "In" then
@@ -421,8 +421,11 @@ function M.drawRibbon(xp, yp, curX, curY, settings, mapV, rotateXY)
       end
       if not CPUPanic then ren:addPoint(xp(curX), yp(curY)) end
       ren:renderPolyline(polyW, polyA)
-   else
-         if #savedXP > 1 then
+   else 
+      -- this code uses regular lines not anti-alias. can set the 9999 to something smaller
+      -- so that it switches to regular lines at some point (perhaps 500-600?) and lets the max
+      -- ribbon be larger. for now leave it on AA all the time.
+      if #savedXP > 1 then
 	 rgbLast = -1
 	 for i=2,#savedXP do
 	    rh = rgbHist[i-1]

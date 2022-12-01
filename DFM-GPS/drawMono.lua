@@ -63,8 +63,9 @@ function M.drawShape(col, row, shapename, rotation, color)
    local sinShape, cosShape
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
-   shape = shapes[shapeName]
-   if not shape then print("DFM-GPS: bad shape"); return end
+   --local shape = shapes[shapename]
+   local shape = shapes.Glider -- monoTX fixed icon
+   if not shape then print("DFM-GPS: bad shape", shapename); return end
    for i, _ in pairs(shape) do
       if i < #shape then
 	 lcd.drawLine(

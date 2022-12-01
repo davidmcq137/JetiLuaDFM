@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>#Title</title>
+</head>
+<body>
+    <h1>DFM-TimV</h1>
+    <p>
+	The Variable Rate Timer App (DFM-TimV) creates two count-down
+	timers. Both are controlled by the value of a proportional stick (typically
+	throttle). One timer (the Variable Rate Timer) goes at normal speed with
+	the stick at 100% and slows down proportionally (or with optional expo)
+	as the stick is reduced. The other timer (the Variable Duration Timer)
+	always counts down at normal speed but computes the time to zero based
+	on the value of the stick. Both timers reach the final 0:00 time
+	simultaneously.
+    </p>
+    <p>
+	This app is intended as a substitute for actual capacity measurements of
+	battery mAh or fuel (gas or jet).
+    </p>
+    <p>
+	Version 0.3
+    </p>
+    <p>
+	<img src="http://jetimodel.nl/DFMHC/DFM-TimV-Screen147.png"></img>
+    </p>
+    
+    <p>
+	<img src="http://jetimodel.nl/DFMHC/DFM-TimV-Screen148.png"></img>	  
+    </p>
+    <h2>Documentation</h2>
+    <p>
+	There is an instructional video by Harry Curzon on how to set up and use
+	this app, check out Harry's Youtube channel
+    </p>
+    <h2>Usage</h2>
+    <ol>
+	<li>Assign the main control (e.g. Throttle) and make sure to set it to proportional</li>
+	<li>Assign switches to start/stop and reset the timer (optional)</li>
+	<li>Set the starting time for the countdown on the main app menu</li>
+	<li>Choose a countdown for the final seconds of the Variable Duration Timer. If set to n seconds, the app will announce each of the last n seconds as it counts to 0:00</li>
+	<li>You can optionally set up stick shakes at t=0</li>
+	<li>There is a setting for a min throttle value with the stick at idle to compensate for idle fuel flow on non-electric models</li>
+	<li>The app creates one double telemetry window, enable it with the Displayed Telemetry menu command on the TX. The Variable Rate timer is on top and the Variable Duration timer is on the bottom</li>
+	<li>In the telemetry window, the smaller numbers on the right are the throttle stick percentages (0 to 100). The top value is the actual stick position, the bottom number is after expo is applied.
+    </ol>
+</body>
+</html>

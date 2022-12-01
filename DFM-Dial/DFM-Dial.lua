@@ -6,7 +6,7 @@
 --]]
 
 --local trans11
-local DialVersion = "0.98"
+local DialVersion = "1.0"
 
 local runningTime = 0
 local startTime = 0
@@ -326,7 +326,9 @@ end
 
 local function formatD(vv)
    local suffix
-   local val = vv
+   local val
+   if not vv then return "---" end
+   val = vv
    if math.abs(val) > 1000 then
       val = val / 1000
       suffix = "k"
@@ -344,7 +346,9 @@ end
 
 local function formatE(vv)
    local suffix
-   local val = vv
+   local val
+   if not vv then return "---" end   
+   val = vv
    if math.abs(val) > 1000 then
       val = val / 1000
       suffix = "k"
@@ -393,11 +397,15 @@ local function dialPrint(w,h,win)
    for i=1, nSens[tele[win].screen],1 do
       val = tele[win].sensorValue[i]
       if tele[win].sensor[i] > 1 then
-	 if not val then print("val nil", win, i) return end
+	 --if not val then print("val nil", win, i) return end
 	 min = tele[win].sensorMin[i] * tele[win].sensorMinMult[i]
 	 max = tele[win].sensorMax[i] * tele[win].sensorMaxMult[i]
-	 if val > max or val < min then ovld = true else ovld = false end
-	 if tele[win].sensorMinWarn[i] then
+	 if val then
+	    if val > max or val < min then ovld = true else ovld = false end
+	 else
+	    ovld = false
+	 end
+	 if val and tele[win].sensorMinWarn[i] then
 	    if type(tele[win].sensorMinWarn[i]) == "number" then -- look for "arith with userdata" bug
 	       --print(win,i)
 	       wmin = tele[win].sensorMinWarn[i] * tele[win].sensorMinMult[i]
@@ -407,7 +415,7 @@ local function dialPrint(w,h,win)
 	    end
 	    if val < wmin then ovld = true end
 	 end
-	 if tele[win].sensorMaxWarn[i] then
+	 if val and tele[win].sensorMaxWarn[i] then
 	    if type(tele[win].sensorMaxWarn[i]) == "number" then
 	       wmax = tele[win].sensorMaxWarn[i] * tele[win].sensorMaxMult[i]
 	    else
@@ -416,7 +424,11 @@ local function dialPrint(w,h,win)
 	    end
 	    if val > wmax then ovld = true end
 	 end
-	 ratio = (val-min)/(max-min) 
+	 if val then
+	    ratio = (val-min)/(max-min)
+	 else
+	    ratio = 0
+	 end
 	 ratio = math.max(math.min(ratio, 1), 0)
 	 if math.abs(max-min) < 1.E-6 then
 	    theta = 0
@@ -546,10 +558,11 @@ local function dialPrint(w,h,win)
 		       tele[win].sensorMaxWarn[i], tele[win].sensorMinWarn[i],
 		       max, min, xz, yz, a0, aR, rI, rO)
 	 elseif tele[win].sensorStyle[i] == 3 then --HBar
-	    local v1, v2
+	    local v1, v2, v3
 	    v1 = ( (tele[win].sensorVmin[i] or 0) - min)/(max-min)*100
-	    v2 = ( (tele[win].sensorVmax[i] or 0)- min)/(max-min)*100	 
-	    drawRectGaugeAbs(xz+x3, yz+y4, bw, bh, 0, 100, v1, v2, (val-min)/(max-min)*100, "")
+	    v2 = ( (tele[win].sensorVmax[i] or 0)- min)/(max-min)*100
+	    if val then v3 = (val-min)/(max-min)*100 else v3 = 0 end
+	    drawRectGaugeAbs(xz+x3, yz+y4, bw, bh, 0, 100, v1, v2, v3, "")
 	 elseif tele[win].sensorStyle[i] == 4 then --Chart
 	    drawChart(rx[tele[win].screen][i], rxs[tele[win].screen][i],
 		      ry[tele[win].screen][i], rys[tele[win].screen][i],
@@ -574,9 +587,9 @@ local function dialPrint(w,h,win)
 	       lcd.setColor(0,0,0)
 	    end
 	    
-	    text = formatD(tele[win].sensorVmax[i] or 0)
+	    text = formatD(tele[win].sensorVmax[i])
 	    lcd.drawText(xz + x1 - lcd.getTextWidth(f2, text)/2, yz - y2, text, f2)
-	    text = formatD(tele[win].sensorVmin[i] or 0)
+	    text = formatD(tele[win].sensorVmin[i])
 	    lcd.drawText(xz + x2 - lcd.getTextWidth(f2, text)/2, yz - y3, text, f2)
 	    
 	 end
@@ -915,7 +928,12 @@ local function loop()
 		  sensor.value = txTel.RSSI[sensorPalist[idx]]
 	       end
 	       sensor.unit = sensorUnlist[idx]
-	       sensor.valid = true
+	       --the TX sends 0 for these params before the RX is on -- defend against that
+	       if sensor.unit == "V" and sensor.value > 1 then
+		  sensor.valid = true
+	       elseif sensor.value > 20 then -- % and "" for RSSI
+		  sensor.valid = true
+	       end
 	    else
 	       sensor = system.getSensorByID(sensorIdlist[idx], sensorPalist[idx])
 	    end
@@ -1035,7 +1053,8 @@ local function init()
 	 tele[i].sensorVmin[j] = nil
 	 tele[i].sensorVmax[j] = nil
 	 tele[i].sensorChartLast[j] = 0
-	 tele[i].sensorValue[j] = 0
+	 --tele[i].sensorValue[j] = 0
+	 tele[i].sensorValue[j] = nil
 	 tele[i].sensorMinWarnDone[j] = false
 	 tele[i].sensorMaxWarnDone[j] = false
 	 tele[i].sensorSample[j] = {}

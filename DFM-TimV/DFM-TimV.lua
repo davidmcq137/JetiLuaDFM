@@ -9,7 +9,7 @@
    
 --]]
 
-local TimVVersion = "0.2"
+local TimVVersion = "0.3"
 local appStr = "Variable Countdown Timer"
 
 local savedForm, savedRow
