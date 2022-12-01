@@ -10,17 +10,16 @@
    
 --]]
 
-local GPSVersion = "0.4"
+local GPSVersion = "0.5"
 
 local subForm = 0
 
-local telem
+--local telem
 local sensIdPa
 local settings
 local nfz
 local fields
 local mapV = {}
-
 local monoTx
 
 local sens = {
@@ -30,26 +29,8 @@ local sens = {
    {var="spd", label="Speed"}
 }
 
-local DT, NF, DR
-
-local Glider =  {
-   {0,-7},
-   {-1,-2},
-   {-14,0},
-   {-14,2},	
-   {-1,2},	
-   {-1,8},
-   {-4,8},
-   {-4,10},
-   {0,10},
-   {4,10},
-   {4,8},
-   {1,8},
-   {1,2},
-   {14,2},
-   {14,0},
-   {1,-2}
-}
+-- permanently loaded modules
+local DT, NF, DR, MM, GS
 
 local mapScale = {100, 250, 500, 750, 1000, 1500, 2000}
 
@@ -175,24 +156,29 @@ end
 local function initForm(sf)
    subForm = sf
    collectgarbage()
+   print("iF", sf)
    print("iF) gcc: " .. collectgarbage("count"))
    for k,v in pairs(package.loaded) do
       if string.find(k, "DFM") then print("iF) module loaded: " ..k) end
    end
-   
    if sf == 1 then
-      local M = require "DFM-GPS/mainMenuCmd"
-      savedRow = M.mainMenu(savedRow, monoTx)
-      unrequire("DFM-GPS/mainMenuCmd")
-      M = nil
-      collectgarbage()
+      if monoTx then
+	 local M = require "DFM-GPS/mainMenuCmd"
+	 savedRow = M.mainMenu(savedRow, monoTx)
+	 unrequire("DFM-GPS/mainMenuCmd")
+	 M = nil
+	 collectgarbage()
+      else
+	 MM = require "DFM-GPS/mainMenuCmd"
+	 savedRow = MM.mainMenu(savedRow, monoTx)
+      end
    elseif sf == 2 then
       form.setTitle("")
       form.setButton(1, "Pt A",  ENABLED)
       form.setButton(2, "Dir B", ENABLED)
    elseif sf == 3 then
       local M = require "DFM-GPS/selTeleCmd"
-      telem, savedRow = M.selTele(telem, sens, sensIdPa, savedRow)
+      savedRow = M.selTele(sens, sensIdPa, savedRow)
       unrequire("DFM-GPS/selTeleCmd")
       M = nil
       collectgarbage()
@@ -202,6 +188,9 @@ local function initForm(sf)
       unrequire("DFM-GPS/settingsCmd")
       M = nil
       collectgarbage()
+   elseif sf == 5 then
+      GS = require "DFM-GPS/genSettingsCmd"
+      savedRow = GS.genSettings(savedRow, settings, mapV)
    elseif sf == 6 then
       io.remove(fileBD)
       writeBD = false
@@ -320,30 +309,41 @@ local function mapTele()
 	 noFly = noFlyP or noFlyC
 	 if lastNoFly == nil then lastNoFly = noFly end
 	 if noFly and not lastNoFly then
-	    system.playBeep(1, 1200, 800)
+	    if settings.nfzBeeps then
+	       system.playBeep(1, 1200, 800)
+	    end
+	    if settings.nfzWav then
+	       system.playFile("/Apps/DFM-GPS/enter_no_fly.wav")
+	    end
 	 end
 	 if not noFly and lastNoFly then
-	    system.playBeep(0, 600, 400)
+	    if settings.nfzBeeps then
+	       system.playBeep(0, 600, 400)
+	    end
+	    if settings.nfzWav then
+	       system.playFile("/Apps/DFM-GPS/exit_no_fly.wav")
+	    end
 	 end
 	 lastNoFly = noFly
       else
 	 noFly = false
       end
 
+      DR.drawRibbon(xp, yp, curX, curY, settings, mapV, rotateXY)
+
       if noFly then
 	 if monoTx then
 	    lcd.drawCircle(xp(curX), yp(curY), 4)
 	 else
-	    DR.drawShape(xp(curX), yp(curY), Glider, (heading or 0), "In")
+	    DR.drawShape(xp(curX), yp(curY), settings.planeShape, (heading or 0), "In")
 	 end
       else
-	 DR.drawShape(xp(curX), yp(curY), Glider, (heading or 0), "Out")
+	 DR.drawShape(xp(curX), yp(curY), settings.planeShape, (heading or 0), "Out")
       end
       
-      DR.drawRibbon(xp, yp, curX, curY, settings, mapV)
    end
 
-   lcd.drawText(125, 145, string.format("[%dx%d]", mapV.xmax-mapV.xmin, mapV.ymax-mapV.ymin), FONT_MINI)
+   lcd.drawText(130, 145, string.format("[%dx%d]", mapV.xmax-mapV.xmin, mapV.ymax-mapV.ymin), FONT_MINI)
    
    lcd.drawLine(50,yp(0), 260, yp(0))
 
@@ -381,14 +381,18 @@ local function init()
 
    monoTx = false
    for _,v in ipairs(monoDev) do
-      if dev == v then monoTx = true print("Mono") break end
+      if dev == v then monoTx = true break end
    end
-   if not monoTx then print("Color") end
-   
-   ----- TEST -----
-   --monoTx = true
-   ----------------
-   
+
+   -- on emulator set to B+W color scheme to force Mono TX behavior
+   if select(2, system.getDeviceType()) == 1 then 
+      system.getSensors() -- needed to jumpstart emulator
+      if system.getProperty("Color") == 0 then
+	 monoTx = true
+      end
+   end
+   if not monoTx then print("Color") else print("Mono") end
+      
    local M = require "DFM-GPS/initCmd"
 
    settings, sensIdPa, fields, writeBD, fileBD = M.initCmd(sens, mapV, prefix, setMapScale)
@@ -408,9 +412,6 @@ local function init()
    system.registerForm(1, MENU_APPS, "DFM-GPS", initForm, keyForm, printTele)
    system.registerTelemetry(1,"DFM-GPS Flight Display",4, mapTele)
 
-   if select(2, system.getDeviceType()) == 1 then -- needed to jumpstart emulator
-      system.getSensors()
-   end
    
 end
 --------------------------------------------------------------------------------

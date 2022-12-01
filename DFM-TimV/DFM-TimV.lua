@@ -59,7 +59,7 @@ end
 local function tickToMinSec(tick)
    local ff = tick / 1000.0
    local fm = ff // 60.0
-   local fs = math.floor(ff - fm * 60.0 + 0.5)
+   local fs = math.floor(ff - fm * 60.0)
    local ss = string.format("%d:%02d", fm, fs)
    --if ff > 0 then print(ss, ff, fm, fs) end
    return ss, fm, fs
@@ -212,11 +212,11 @@ local function initForm(sf)
    elseif sf == 4 then
       form.setTitle("Announcements and haptics")
       form.addRow(2)
-      form.addLabel({label="Full throttle announce switch", width=240})
+      form.addLabel({label="Variable rate timer (top) ann", width=240})
       form.addInputbox(annFull, false, (function(x) return changedVal(x, "F") end) )
       
       form.addRow(2)
-      form.addLabel({label="Variable throttle announce switch", width=260})
+      form.addLabel({label="Variable duration timer (bot) ann", width=260})
       form.addInputbox(annVar, false, (function(x) return changedVal(x, "V") end) )      
       
       form.addRow(2)
@@ -311,7 +311,7 @@ local function loop()
 
    swf = system.getInputsVal(annFull)
    if swf and swf == 1 and swfLast ~= 1 and fTimeT > 0 then
-      system.playFile("/Apps/DFM-TimV/full.wav")
+      system.playFile("/Apps/DFM-TimV/top_time_remaining.wav")
       local st, mm, ss = tickToMinSec(fTimeT)
       system.playNumber(mm, 0, "min")
       system.playNumber(ss, 0, "s")
@@ -320,7 +320,7 @@ local function loop()
 
    swv = system.getInputsVal(annVar)
    if swv and swv == 1 and swvLast ~= 1 and fTimeT > 0 then
-      system.playFile("/Apps/DFM-TimV/variable.wav")
+      system.playFile("/Apps/DFM-TimV/bottom_time_remaining.wav")
       local st, mm, ss = tickToMinSec(iTimeT)
       system.playNumber(mm, 0, "min")
       system.playNumber(ss, 0, "s")

@@ -5,6 +5,26 @@ local savedYP = {}
 local MAXSAVED
 local heading
 
+local shapes = {}
+shapes.Glider =  {
+   {0,-7},
+   {-1,-2},
+   {-14,0},
+   {-14,2},	
+   {-1,2},	
+   {-1,8},
+   {-4,8},
+   {-4,10},
+   {0,10},
+   {4,10},
+   {4,8},
+   {1,8},
+   {1,2},
+   {14,2},
+   {14,0},
+   {1,-2}
+}
+
 function M.setMAX(max)
    MAXSAVED = 15
    return MAXSAVED
@@ -38,11 +58,13 @@ function M.savePoints(mapV, curX, curY, lastX, lastY, xp, yp)
    return lastX, lastY, heading
 end
 
-function M.drawShape(col, row, shape, rotation, color)
+function M.drawShape(col, row, shapename, rotation, color)
    
    local sinShape, cosShape
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
+   shape = shapes[shapeName]
+   if not shape then print("DFM-GPS: bad shape"); return end
    for i, _ in pairs(shape) do
       if i < #shape then
 	 lcd.drawLine(

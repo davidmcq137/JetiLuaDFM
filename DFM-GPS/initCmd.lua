@@ -28,7 +28,7 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
 	 sensIdPa[v].Se   = 0
 	 sensIdPa[v].SeId = 0
 	 sensIdPa[v].SePa = 0
-	 print(i,v, sensIdPa[v].SeId, sensIdPa[v].SePa)
+	 --print(i,v, sensIdPa[v].SeId, sensIdPa[v].SePa)
       end
    end
 
@@ -52,18 +52,40 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
       end
    end
       
-   if settings and settings.zeroLatString and settings.zeroLngString then
-      mapV.zeroPos = gps.newPoint(settings.zeroLatString, settings.zeroLngString)
-      mapV.gpsCalA = true
-   end
+   --if settings and settings.zeroLatString and settings.zeroLngString then
+   --   mapV.zeroPos = gps.newPoint(settings.zeroLatString, settings.zeroLngString)
+   --   mapV.gpsCalA = true
+   --end
+   --if settings.rotA and mapV.gpsCalA then mapV.gpsCalB = true end
 
-   if settings.rotA and mapV.gpsCalA then mapV.gpsCalB = true end
+   local setT = {
+      maxRibbon = 15,
+      colorSelect = 1,
+      msMinSpacing = 200,
+      mMinSpacing = 3,
+      mMinSpacing2 = 9,
+      ribbonScale = 100,
+      planeShape = "Glider",
+      showMarkers = false,
+      nfzBeeps = true,
+      nfzWav = false
+   }
+
+   for k,v in pairs(setT) do
+      if not settings[k] then settings[k] = v end
+   end
+   
+   --[[
    if not settings.maxRibbon then settings.maxRibbon = 15 end
    if not settings.colorSelect then settings.colorSelect = 1 end
    if not settings.msMinSpacing then settings.msMinSpacing = 0 end
    if not settings.mMinSpacing then settings.mMinSpacing = 3 end
    if not settings.mMinSpacing2 then settings.mMinSpacing2 = settings.mMinSpacing^2 end
-      
+   if not settings.ribbonScale then settings.ribbonScale = 100 end
+   if not settings.planeShape then settings.planeShape = "Glider" end
+   if not settings.showMarkers then settings.showMarkers = false end
+   --]]
+   
    mapV.gpsCalA = false
    mapV.gpsCalB = false
    mapV.mapScaleIdx = 1
@@ -72,7 +94,7 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
    mapV.needCalcXY = true
    mapV.maxPolyX = 0
    mapV.gpsReads = 0
-
+   
    return settings, sensIdPa, fields, writeBD, fileBD
 
 end

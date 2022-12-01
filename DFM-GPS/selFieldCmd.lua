@@ -15,18 +15,11 @@ function M.keyField(kkey, mapV, settings, fields, prefix)
       else
 	 mapV.selField = fields[form.getFocusedRow()].short
 	 local fn = prefix().."Apps/DFM-GPS/FF_"..mapV.selField..".jsn"
-	 print("reading file", fn)
 	 file = io.readall(fn)
 	 if file then
 	    decode = json.decode(file)
 	    nfz = decode.nfz
 	 end
-	 if nfz then
-	    print("#nfz", #nfz)
-	 else
-	    print("nfz nil")
-	 end
-	 
 	 mapV.zeroPos = gps.newPoint(decode.lat, decode.lng)
 	 settings.rotA = math.rad(decode.rotation)
 	 mapV.gpsCalA = true

@@ -5,39 +5,149 @@ local savedXP =  {}
 local savedYP =  {}
 local savedPos = {}
 local rgbHist =  {}
-local MAXSAVED = 0
+local maxSaved = 0
+local MAXSAVEDLIMIT = 1000
 local heading
 local rgb = {}
 local rgbLast
 local ribbon = {}
 local lastTime
 local lastX0, lastY0
+local CPUPanic = false
+local CPUAvg = 0
+local CPUHigh = 0
+local iStart, iEnd = 0, 0
+
+local shapes = {}
+shapes.Glider =  {
+   {0,-7},
+   {-1,-2},
+   {-14,0},
+   {-14,2},	
+   {-1,2},	
+   {-1,8},
+   {-4,8},
+   {-4,10},
+   {0,10},
+   {4,10},
+   {4,8},
+   {1,8},
+   {1,2},
+   {14,2},
+   {14,0},
+   {1,-2}
+}
+
+shapes.Prop = {
+   {-1,-6},
+   {-2,-2},
+   {-11,-2},
+   {-11,1},	
+   {-2,2},	
+   {-1,8},
+   {-5,8}, 
+   {-5,11},
+   {5,11},
+   {5,8},
+   {1,8},
+   {2,2},
+   {11,1},
+   {11,-2},
+   {2,-2},
+   {1,-6}
+}
+
+local Prop = {
+   {-1,-6},
+   {-2,-2},
+   {-11,-2},
+   {-11,1},	
+   {-2,2},	
+   {-1,8},
+   {-5,8}, 
+   {-5,11},
+   {5,11},
+   {5,8},
+   {1,8},
+   {2,2},
+   {11,1},
+   {11,-2},
+   {2,-2},
+   {1,-6}
+}
+
+local Glider =  {
+   {0,-7},
+   {-1,-2},
+   {-14,0},
+   {-14,2},	
+   {-1,2},	
+   {-1,8},
+   {-4,8},
+   {-4,10},
+   {0,10},
+   {4,10},
+   {4,8},
+   {1,8},
+   {1,2},
+   {14,2},
+   {14,0},
+   {1,-2}
+}
+
+shapes.Jet = {
+   {0,-20},
+   {-3,-6},
+   {-10,0},
+   {-10,2},
+   {-2,2},
+   {-2,4},
+   {-6,8},
+   {-6,10},
+   {0,10},
+   {6,10},
+   {6,8},
+   {2,4},
+   {2,2},
+   {10,2},
+   {10,0},
+   {3,-6}
+}
 
 -- this table is replicated in settingsCmd.lua ... must change in both places
-local colorSel = {
-   "None",  "Altitude", "Speed",  "Rx1 Q",  "Rx1 A1",
-   "Rx1 A2","Rx2 Q",    "Rx2 A1", "Rx2 A2", "P4"
-}	 
+local colorSelect = {"None", "Rx1 Q", "Rx1 A1","Rx1 A2","Rx2 Q", "Rx2 A1", "Rx2 A2", "P4"}
+local csFixed = #colorSelect
 
 function M.drawColors()
    for i = 1, #rgb, 1 do
       lcd.setColor(rgb[i].r, rgb[i].g, rgb[i].b)
-      lcd.drawFilledRectangle(-25 + 30*i, 110, 25, 25)
+      lcd.drawFilledRectangle(-22 + 30*i, 117, 20, 20)
       lcd.setColor(255,255,255)
       local text = tostring(i)
       lcd.getTextWidth(FONT_NORMAL, text)
-      lcd.drawText(-12-0.5*lcd.getTextWidth(FONT_MINI, text)+30*i, 115, text, FONT_MINI)
+      lcd.drawText(-12-0.5*lcd.getTextWidth(FONT_MINI, text)+30*i, 120, text, FONT_MINI)
    end
 end
 
 function M.clearPos(xp, yp, mapV, settings, rotateXY)
-   --rgbHist = {}
-   --savedPos = {}
-   local np = #savedXP
-   savedXP = {}
-   savedYP = {}
+
+   -- this function recalcs saved pixels if screen zooms
+   local np = #savedPos
+   
+   -- do this recalc in 50 pts chunks so don't blow up CPU usage
+   -- suspend drawing the ribbon while recomputing the pixel values
+   local chunk = 50
+
    local cD, cB, cX, cY
-   for i = 1, np do
+
+   if iStart + iEnd == 0 then
+      iStart = 1
+      iEnd = math.min(np, chunk)
+   end
+
+   --print("np, iStart, iEnd", np, iStart, iEnd)
+   
+   for i = iStart, iEnd, 1 do
       cD = gps.getDistance(mapV.zeroPos, savedPos[i])
       cB = gps.getBearing(mapV.zeroPos, savedPos[i])
       cX = cD * math.cos(math.rad(cB+270)) -- why not same angle X and Y??
@@ -46,22 +156,43 @@ function M.clearPos(xp, yp, mapV, settings, rotateXY)
       savedXP[i] = xp(cX)
       savedYP[i] = yp(cY)
    end
+
+   if iEnd < np then
+      iStart = iEnd + 1
+      iEnd = iStart + chunk
+      iEnd = math.min(iEnd, np)
+   else
+      iStart = 0
+      iEnd = 0
+   end
+end
+
+local function resetPos()
+   savedTime = {}
+   savedXP =  {}
+   savedYP =  {}
+   savedPos = {}
+   rgbHist =  {}
 end
 
 function M.setMAX(max, xp, yp, mapV, settings, rotateXY)
+   local ts = math.max(0, math.min(max, MAXSAVEDLIMIT))
+   if ts ~= maxSaved then
+      resetPos()
+      CPUPanic = false
+   end
+   maxSaved = ts
+   M.clearPos(xp, yp, mapV, settings, rotateXY)
 
-   MAXSAVED = math.max(0, math.min(max, 1000))
    local rp = 10
    for k = 1, rp, 1 do
       rgb[k] = {}
       rgb[k].r = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp)) / 2)
-      rgb[k].g = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 2*math.pi/3)) / 2)      rgb[k].b = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 4*math.pi/3)) / 2)
+      rgb[k].g = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 2*math.pi/3)) / 2)
+      rgb[k].b = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 4*math.pi/3)) / 2)
    end
-   M.clearPos(xp, yp, mapV, settings, rotateXY)
-   return MAXSAVED
+   return maxSaved
 end
-
-
 
 local function setTextColor()
    local colorCode = system.getProperty("Color")
@@ -101,12 +232,14 @@ local function setColor(type)
    end
 end
 
-function M.drawShape(col, row, shape, rotation, type)
+function M.drawShape(col, row, shapename, rotation, type)
    local sinShape, cosShape
    local ren = lcd.renderer()
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
    setColor(type)
+   local shape = shapes[shapename]
+   if not shape then print("DFM-GPS: bad shape"); return end
    ren:reset()
    for i, _ in pairs(shape) do
       ren:addPoint(
@@ -154,11 +287,13 @@ function M.drawNFZ(nfz, mapV, xp, yp)
    setTextColor()
 end
 
-local function gradientIndex(inval, min, max, bins, mod)
+local function gradientIndex(inval, inmin, inmax, bins, mod)
    -- for a value val, maps to the gradient rgb index for val from min to max
    local bin, val
+   local min, max
+   if mod then min, max = 0, mod else min, max = inmin, inmax end
    ribbon.currentValue  = inval
-   if mod then val = (inval-1) % mod + 1 else val = inval end
+   if mod then val = inval % mod else val = inval end
    bin = math.floor(((bins - 1) * math.max(math.min((val - min) / (max-min),1),0) + 1) + 0.5)   
    ribbon.currentBin = bin
    return bin
@@ -172,10 +307,10 @@ function M.savePoints(mapV, curX, curY, lastX, lastY, xp, yp, settings)
    local now
    local dt
 
-   if not lastX0 then lastX0 = lastX - 0.01 end
-   if not lastY0 then lastY0 = lastY - 0.01 end
+   if not lastX0 then lastX0 = -1 end --lastX - 0.01 end
+   if not lastY0 then lastY0 = -1 end --lastY - 0.01 end
 
-   if mapV.gpsCalA and mapV.gpsCalB and settings.rotA and (curX ~= lastX0 or curY ~= lastY0) then
+   if mapV.selField and (curX ~= lastX0 or curY ~= lastY0) then
       
       heading = math.atan(curX - lastX0, curY - lastY0)
       now = system.getTimeCounter()
@@ -186,33 +321,35 @@ function M.savePoints(mapV, curX, curY, lastX, lastY, xp, yp, settings)
       if not lastTime then lastTime = now end
       dt = now - lastTime
 
-      --print(math.sqrt(dist2), dt)
-      if dt > settings.msMinSpacing and dist2 > settings.mMinSpacing2 then
+      if (not CPUPanic) and dt > settings.msMinSpacing and dist2 > settings.mMinSpacing2 then
 	 
 	 ribbon.currentFormat = "%.f"
 	 if settings.colorSelect == 1 then -- none
 	    jj = #rgb // 2 -- mid of gradient - right now this is sort of a yellow color
-	 elseif settings.colorSelect == 2 then -- altitude 0-600m
-	    jj = gradientIndex(mapV.altitude, 0, 600, #rgb)
-	 elseif settings.colorSelect == 3 then -- speed 0-300 km/hr
-	    jj = gradientIndex(mapV.speed, 0, 300, #rgb)
-	 elseif settings.colorSelect == 4 then -- Rx1 Q
+	 elseif settings.colorSelect == 2 then -- Rx1 Q
 	    jj = gradientIndex(system.getTxTelemetry().rx1Percent, 0, 100,  #rgb)
-	 elseif settings.colorSelect == 5 then -- Rx1 A1
+	 elseif settings.colorSelect == 3 then -- Rx1 A1
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[1],    0, 100,  #rgb)
-	 elseif settings.colorSelect == 6 then -- Rx1 A2
+	 elseif settings.colorSelect == 4 then -- Rx1 A2
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0, 100,  #rgb)
-	 elseif settings.colorSelect == 7 then -- Rx2 Q
+	 elseif settings.colorSelect == 5 then -- Rx2 Q
 	    jj = gradientIndex(system.getTxTelemetry().rx2Percent, 0, 100,  #rgb)
-	 elseif settings.colorSelect == 8 then -- Rx2 A1
+	 elseif settings.colorSelect == 6 then -- Rx2 A1
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[3],    0, 100,  #rgb)
-	 elseif settings.colorSelect == 9 then -- Rx2 A2
+	 elseif settings.colorSelect == 7 then -- Rx2 A2
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0, 100,  #rgb)
-	 elseif settings.colorSelect == 10 then -- P4
+	 elseif settings.colorSelect == 8 then -- P4
 	    jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	   
+	 else
+	    local val = 0
+	    local sensor = system.getSensorByID(settings.csId, settings.csPa)
+	    if sensor and sensor.valid then
+	       val = sensor.value
+	    end
+	    jj = gradientIndex(val, 0, 100, #rgb, settings.ribbonScale)	   	    
 	 end
 	 
-	 if #savedXP+1 > MAXSAVED then
+	 if #savedXP+1 > maxSaved then
 	    table.remove(savedTime, 1)
 	    table.remove(savedPos, 1)
 	    table.remove(savedXP, 1)
@@ -236,31 +373,56 @@ end
 
 
 
-function M.drawRibbon(xp, yp, curX, curY, settings, mapV)
-   lcd.setColor(lcd.getFgColor())
-   local rh
+function M.drawRibbon(xp, yp, curX, curY, settings, mapV, rotateXY)
 
-   --[[
-   if MAXSAVED < 128 then
+   local rh
+   local polyW, polyA = 2, 1
+
+   if iStart + iEnd > 0 then M.clearPos(xp, yp, mapV, settings, rotateXY); return end
+   
+      if maxSaved <= 9999 then
       local ren = lcd.renderer()
       ren:reset()
       rgbLast = -1
-           for i=1,#savedXP do
+      local is = 0
+      for i=1,#savedXP do
+
 	 rh = rgbHist[i]
-	 if rh.rgb ~= rgbLast then
-	    ren:addPoint(savedXP[i], savedYP[i])
-	    ren:renderPolyline(1,0.7)
-	    ren:reset()
-	    lcd.setColor(rh.r, rh.g, rh.b)
-	    rgbLast = rh.rgb
+	 if i == 1 then lcd.setColor(rh.r, rh.g, rh.b); rgbLast = rh.rgb end
+	 if settings.showMarkers then
+	    lcd.drawCircle(savedXP[i], savedYP[i], 2)
 	 end
+
+	 -- max points in renderPolyline is 127,
+	 -- check if we have to render and reset new segment
+	 if is+1 > 127 then
+	    ren:addPoint(savedXP[i], savedYP[i])
+	    ren:renderPolyline(polyW, polyA)
+	    ren:reset()
+	    ren:addPoint(savedXP[i], savedYP[i])
+	    is = 1
+	 end
+
+	 if rh.rgb ~= rgbLast then
+	    if rh.rgb ~= rgbLast and settings.colorSelect ~= 1 then
+	       ren:addPoint(savedXP[i], savedYP[i])
+	       ren:renderPolyline(polyW, polyA)
+	       lcd.setColor(rh.r, rh.g, rh.b)
+	       rgbLast = rh.rgb
+	       ren:reset()
+	       ren:addPoint(savedXP[i], savedYP[i])	       
+	       is = 1
+	    end
+	 end
+
 	 ren:addPoint(savedXP[i], savedYP[i])
+	 is = is + 1
+	 
       end
-      ren:addPoint(xp(curX), yp(curY))
-      ren:renderPolyline(1,0.7)
-      else
-      --]]
-      if #savedXP > 1 then
+      if not CPUPanic then ren:addPoint(xp(curX), yp(curY)) end
+      ren:renderPolyline(polyW, polyA)
+   else
+         if #savedXP > 1 then
 	 rgbLast = -1
 	 for i=2,#savedXP do
 	    rh = rgbHist[i-1]
@@ -268,36 +430,60 @@ function M.drawRibbon(xp, yp, curX, curY, settings, mapV)
 	       lcd.setColor(rh.r, rh.g, rh.b)
 	       rgbLast = rh.rgb
 	    end
-	    
 	    lcd.drawLine(savedXP[i-1], savedYP[i-1], savedXP[i], savedYP[i])
-	    lcd.drawCircle(savedXP[i], savedYP[i], 4)
-
+	    if settings.showMarkers then
+	       lcd.drawCircle(savedXP[i-1], savedYP[i-1], 3)
+	    end
 	 end
-	 lcd.drawLine(savedXP[#savedXP], savedYP[#savedXP], xp(curX), yp(curY))
+	 if settings.showMarkers then
+	    lcd.drawCircle(savedXP[#savedXP], savedYP[#savedYP], 3)
+	 end
+	 if not CPUPanic then
+	    lcd.drawLine(savedXP[#savedXP], savedYP[#savedXP], xp(curX), yp(curY))
+	 end
       end
-   --end
+   end
    if settings.colorSelect > 1 and rgb and ribbon.currentBin then
       lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
-      lcd.drawFilledRectangle(210 , 148, 6,6)
+      lcd.drawFilledRectangle(195 , 148, 6,6)
       setTextColor()
-      lcd.drawText(220, 145, colorSel[settings.colorSelect], FONT_MINI)
+      local ss
+      if settings.colorSelect <= #colorSelect then
+	 ss = colorSelect[settings.colorSelect]
+      else
+	 ss = string.format("%s", settings.csLa)
+      end
+      
+      lcd.drawText(205, 145,
+		   string.format("%s %.2f", ss, ribbon.currentValue), FONT_MINI)
    end
    setTextColor()
 
-   local pp = #savedXP
-   if pp > 1 then
-      local dd = gps.getDistance(savedPos[pp], savedPos[pp-1])
-      --local dd = gps.getDistance(savedPos[pp], mapV.curPos)
-      local tt = savedTime[pp] - savedTime[pp-1]
-      lcd.drawText(20, 10, string.format("Dist: %d Time: %.1f", dd, tt), FONT_MINI)
+   if settings.msMinSpacing > 0 or settings.mMinSpacing > 0 then
+      local pp = #savedXP
+      if pp > 1 then
+	 local dd = gps.getDistance(savedPos[pp], savedPos[pp-1])
+	 local tt = savedTime[pp] - savedTime[pp-1]
+	 lcd.drawText(35, 145, string.format("D: %d m T: %.2f s", dd, tt/1000), FONT_MINI)
+      end
    end
       
+   local cc = system.getCPU()
+   CPUAvg = (cc - CPUAvg) / 3.0 + CPUAvg
+   if cc > CPUHigh then CPUHigh = cc end
+   if CPUAvg > 70 and not CPUPanic then
+      print("DFM-GPS: CPU panic", cc)
+      system.messageBox("CPU limit on history ribbon")
+      CPUPanic = true
+   end
+   
    local nn
    if savedXP then nn = #savedXP else nn = 0 end
    if select(2, system.getDeviceType()) == 1 then
-      lcd.drawText(40, 145, "P: "..nn.."   CPU: "..system.getCPU(), FONT_MINI)
+      lcd.drawText(35, 0, string.format("P: %d  CPU: %d",
+					nn, cc), FONT_MINI)      
+      --lcd.drawText(32, 0, "P: "..nn.."/"..maxSaved.."   CPU: "..system.getCPU(), FONT_MINI)
    end
-
 end
 
 return M

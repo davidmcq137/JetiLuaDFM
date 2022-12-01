@@ -1,6 +1,8 @@
 local M = {}
 
-function M.selTele(telem, sens, sensIdPa, savedRow)
+local telem = {}
+
+function M.selTele(sens, sensIdPa, savedRow)
 
    local function readSensors(tbl)
       --local sensorLbl = "***"
@@ -27,7 +29,7 @@ function M.selTele(telem, sens, sensIdPa, savedRow)
       stbl[v].SeId = ttbl.Idlist[val]
       stbl[v].SePa = ttbl.Palist[val]
    end
-   
+
    if not telem or #telem == 0 then
       telem = {}
       telem.Lalist={"..."}
@@ -45,7 +47,7 @@ function M.selTele(telem, sens, sensIdPa, savedRow)
 			(function(x) return telemChanged(x, sensIdPa, sens[i].var, telem) end),
 			{width=180, alignRight=false})
    end
-   return telem, savedRow
+   return savedRow
 end
 
 return M
