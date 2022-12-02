@@ -1,22 +1,37 @@
 local M = {}
 
-local telem = {}
+function M.selTele(sensIdPa)
 
-function M.selTele(sens, sensIdPa, savedRow)
+   local telem = {}
+
+   local sens = {
+      {var="lat", label="Latitude"},
+      {var="lng", label="Longitude"},
+      {var="alt", label="Altitude"},
+      {var="spd", label="Speed"}
+   }
+   
+   if not sensIdPa or next(sensIdPa) == nil then
+      sensIdPa = {}
+      for i in ipairs(sens) do
+	 local v = sens[i].var
+	 sensIdPa[v] = {}
+	 sensIdPa[v].Se   = 0
+	 sensIdPa[v].SeId = 0
+	 sensIdPa[v].SePa = 0
+      end
+   end
 
    local function readSensors(tbl)
-      --local sensorLbl = "***"
       local sensors = system.getSensors()
       for _, sensor in ipairs(sensors) do
 	 if (sensor.label ~= "") then
 	    if sensor.param == 0 then
-	       --sensorLbl = sensor.label
 	       table.insert(tbl.Lalist, "-->"..sensor.label)
 	       table.insert(tbl.Idlist, 0)
 	       table.insert(tbl.Palist, 0)
 	    else
 	       table.insert(tbl.Lalist, sensor.label)
-	       --table.insert(tbl.Lalist, sensorLbl .. "-> " .. sensor.label)
 	       table.insert(tbl.Idlist, sensor.id)
 	       table.insert(tbl.Palist, sensor.param)
 	    end
@@ -47,7 +62,8 @@ function M.selTele(sens, sensIdPa, savedRow)
 			(function(x) return telemChanged(x, sensIdPa, sens[i].var, telem) end),
 			{width=180, alignRight=false})
    end
-   return savedRow
+   return sensIdPa
+
 end
 
 return M

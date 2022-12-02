@@ -10,6 +10,8 @@ telem.Unlist = {}
 local colorSelect = {"None", "Rx1 Q", "Rx1 A1","Rx1 A2","Rx2 Q", "Rx2 A1", "Rx2 A2", "P4"}	 
 local csFixed = #colorSelect
 
+-- Have to re-read sensors since we swapped out selTeleCmd
+
 local function readSensors(tbl)
    local sensors = system.getSensors()
    for idx, sensor in ipairs(sensors) do
@@ -24,9 +26,9 @@ local function readSensors(tbl)
    end
 end
 
-local function changedMax(val, settings, setmax, mapV, xp, yp, rotateXY)
+local function changedMax(val, settings, mapV, setMAX)
    settings.maxRibbon = val
-   setmax(val, xp, yp, mapV, settings, rotateXY)
+   setMAX(val, settings, mapV)
 end
 
 local function changedVal(val, settings, cc)
@@ -54,7 +56,7 @@ local function changedVal(val, settings, cc)
    end
 end
 
-function M.settings(savedRow, settings, setmax, mapV, xp, yp, rotateXY)
+function M.settings(settings, mapV, setMAX)
 
    readSensors(telem)
 
@@ -67,7 +69,7 @@ function M.settings(savedRow, settings, setmax, mapV, xp, yp, rotateXY)
    form.addRow(2)
    form.addLabel({label="Max points in ribbon", width=220})
    form.addIntbox(settings.maxRibbon, 0,1000,15,0,1,
-		  (function(x) return changedMax(x, settings, setmax, mapV, xp, yp, rotateXY) end))
+		  (function(x) return changedMax(x, settings, mapV, setMAX) end))
 
    form.addRow(2)
    form.addLabel({label="Min ribbon time spacing", width=220})
@@ -90,8 +92,7 @@ function M.settings(savedRow, settings, setmax, mapV, xp, yp, rotateXY)
 		  (function(x) return changedVal(x, settings,  "RS") end))
 
 
-   savedRow = 1
-   return savedRow
+   return
 end
 
 return M

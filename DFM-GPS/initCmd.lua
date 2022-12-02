@@ -1,6 +1,6 @@
 local M = {}
 
-function M.initCmd(sens, mapV, prefix, setMapScale)
+function M.initCmd(mapV, prefix)
 
    local file
    local mn
@@ -19,18 +19,6 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
       sensIdPa = decoded.sensIdPa
    end
    writeBD = true
-
-   if not sensIdPa then
-      sensIdPa = {}
-      for i in ipairs(sens) do
-	 local v = sens[i].var
-	 sensIdPa[v] = {}
-	 sensIdPa[v].Se   = 0
-	 sensIdPa[v].SeId = 0
-	 sensIdPa[v].SePa = 0
-	 --print(i,v, sensIdPa[v].SeId, sensIdPa[v].SePa)
-      end
-   end
 
    local dd, fn, ext, tt
    local path = prefix().."Apps/DFM-GPS"
@@ -52,12 +40,6 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
       end
    end
       
-   --if settings and settings.zeroLatString and settings.zeroLngString then
-   --   mapV.zeroPos = gps.newPoint(settings.zeroLatString, settings.zeroLngString)
-   --   mapV.gpsCalA = true
-   --end
-   --if settings.rotA and mapV.gpsCalA then mapV.gpsCalB = true end
-
    local setT = {
       maxRibbon = 15,
       colorSelect = 1,
@@ -76,22 +58,9 @@ function M.initCmd(sens, mapV, prefix, setMapScale)
 	 settings[k] = v
       end
    end
-
-   --[[
-   if not settings.maxRibbon then settings.maxRibbon = 15 end
-   if not settings.colorSelect then settings.colorSelect = 1 end
-   if not settings.msMinSpacing then settings.msMinSpacing = 0 end
-   if not settings.mMinSpacing then settings.mMinSpacing = 3 end
-   if not settings.mMinSpacing2 then settings.mMinSpacing2 = settings.mMinSpacing^2 end
-   if not settings.ribbonScale then settings.ribbonScale = 100 end
-   if not settings.planeShape then settings.planeShape = "Glider" end
-   if not settings.showMarkers then settings.showMarkers = false end
-   --]]
    
    mapV.gpsCalA = false
    mapV.gpsCalB = false
-   mapV.mapScaleIdx = 1
-   mapV.xmin, mapV.xmax, mapV.ymin, mapV.ymax = setMapScale(mapV.mapScaleIdx)
    mapV.selField = nil
    mapV.needCalcXY = true
    mapV.maxPolyX = 0

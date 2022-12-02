@@ -11,7 +11,7 @@ local function shapeChanged(val, settings, icons)
    settings.planeShape = icons[val]
 end
 
-function M.genSettings(savedRow, settings, mapV)
+function M.genSettings(settings, mapV)
    
    local icons = {"Glider", "Jet", "Prop"}
    
@@ -42,8 +42,7 @@ function M.genSettings(savedRow, settings, mapV)
    form.addLabel({label="Aircraft Icon", width=220})
    form.addSelectbox(icons, idx, true, (function(x) return shapeChanged(x, settings, icons) end))
 
-   savedRow = 1
-   return savedRow
+   return
 end
 
 return M
