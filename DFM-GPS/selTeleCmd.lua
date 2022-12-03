@@ -2,7 +2,7 @@ local M = {}
 
 function M.selTele(sensIdPa)
 
-   local telem = {}
+   local telem
 
    local sens = {
       {var="lat", label="Latitude"},
@@ -11,23 +11,13 @@ function M.selTele(sensIdPa)
       {var="spd", label="Speed"}
    }
    
-   if not sensIdPa or next(sensIdPa) == nil then
-      sensIdPa = {}
-      for i in ipairs(sens) do
-	 local v = sens[i].var
-	 sensIdPa[v] = {}
-	 sensIdPa[v].Se   = 0
-	 sensIdPa[v].SeId = 0
-	 sensIdPa[v].SePa = 0
-      end
-   end
 
    local function readSensors(tbl)
       local sensors = system.getSensors()
       for _, sensor in ipairs(sensors) do
 	 if (sensor.label ~= "") then
 	    if sensor.param == 0 then
-	       table.insert(tbl.Lalist, "-->"..sensor.label)
+	       table.insert(tbl.Lalist, sensor.label)
 	       table.insert(tbl.Idlist, 0)
 	       table.insert(tbl.Palist, 0)
 	    else
@@ -41,16 +31,27 @@ function M.selTele(sensIdPa)
    
    local function telemChanged(val, stbl, v, ttbl)
       stbl[v].Se = val
-      stbl[v].SeId = ttbl.Idlist[val]
-      stbl[v].SePa = ttbl.Palist[val]
+      --print("val", val, ttbl.Idlist[val], ttbl.Palist[val], ttbl.Lalist[val])
+      if val == 1 then ttbl.Idlist[val] = 0; ttbl.Palist[val] = 0 else
+	 stbl[v].SeId = ttbl.Idlist[val]; stbl[v].SePa = ttbl.Palist[val]
+      end
    end
 
-   if not telem or #telem == 0 then
-      telem = {}
-      telem.Lalist={"..."}
-      telem.Idlist={"..."}
-      telem.Palist={"..."}
-      readSensors(telem)
+   telem = {}
+   telem.Lalist={"..."}
+   telem.Idlist={0}
+   telem.Palist={0}
+   readSensors(telem)
+
+   if not sensIdPa or next(sensIdPa) == nil then
+      sensIdPa = {}
+      for i in ipairs(sens) do
+	 local v = sens[i].var
+	 sensIdPa[v] = {}
+	 sensIdPa[v].Se   = 0
+	 sensIdPa[v].SeId = 0
+	 sensIdPa[v].SePa = 0
+      end
    end
 
    form.setTitle("Telemetry Sensors")

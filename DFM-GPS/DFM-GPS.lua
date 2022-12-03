@@ -21,7 +21,7 @@ local fields
 local mapV = {}
 local monoTx
 
--- permanently loaded modules (NF is in drawColor.lua)
+-- permanently loaded modules (NF is required in drawColor.lua)
 local DT, NF, DR, MM, GS
 
 local savedRow
@@ -51,9 +51,6 @@ local function unrequire(m)
    package.loaded[m] = nil
 end
 
-local function loadDT()
-   DT = require "DFM-GPS/drawTape"
-end
 
 local function keyExit(k)
    if k == KEY_5 or k == KEY_ENTER or k == KEY_ESC then
@@ -66,7 +63,7 @@ local function keyForm(key)
 	 if mapV.initPos then
 	    mapV.zeroPos = mapV.curPos
 	    settings.zeroLatString, settings.zeroLngString = gps.getStrig(mapV.zeroPos)
-	    DR.recalcXY(settings, mapV)
+	    if not monoTx then DR.recalcXY(settings, mapV) end
 	    mapV.gpsCalA = true
 	    mapV.needCalcXY = true
 	 else
@@ -75,12 +72,14 @@ local function keyForm(key)
       elseif key == KEY_2 then
 	 if mapV.curBear then
 	    settings.rotA = math.rad(mapV.curBear-90)
-	    DR.recalcXY(settings, mapV)
+	    if not monoTx then DR.recalcXY(settings, mapV) end
 	    mapV.gpsCalB = true
 	    mapV.needCalcXY = true	    
 	 else
 	    system.messageBox("No Current Position")
 	 end
+      elseif key == KEY_3 then
+	 system.messageBox("GC: " .. collectgarbage("count"))
       end
    elseif subForm == 3 or subForm == 4 or subForm == 5 then
       if keyExit(key) then
@@ -94,19 +93,22 @@ end
 local function initForm(sf)
    subForm = sf
    collectgarbage()
-   print("iF", sf)
+   --print("iF", sf)
    print("iF) gcc: " .. collectgarbage("count"))
    for k,_ in pairs(package.loaded) do
       if string.find(k, "DFM") then print("iF) module loaded: " ..k) end
    end
    if sf == 1 then
       if monoTx then
+	 local a1 = collectgarbage("count")
 	 local M = require "DFM-GPS/mainMenuCmd"
 	 savedRow = M.mainMenu(savedRow, monoTx)
+	 local a2 = collectgarbage("count")
+	 print("initCmd", a1, a2, a2-a1)
 	 unrequire("DFM-GPS/mainMenuCmd")
 	 M = nil
 	 collectgarbage()
-      else
+      else -- must leave loaded for nested menus on color TX
 	 MM = require "DFM-GPS/mainMenuCmd"
 	 savedRow = MM.mainMenu(savedRow, monoTx)
       end
@@ -115,8 +117,15 @@ local function initForm(sf)
       form.setButton(1, "Pt A",  ENABLED)
       form.setButton(2, "Dir B", ENABLED)
    elseif sf == 3 then
+      if mapV.initPos and monoTx then
+	 system.messageBox("Not available with GPS connected")
+	 return
+      end
+      local a1 = collectgarbage("count")
       local M = require "DFM-GPS/selTeleCmd"
       sensIdPa = M.selTele(sensIdPa)
+      local a2 = collectgarbage("count")
+      print("selTeleCmd", a1, a2, a2-a1)
       unrequire("DFM-GPS/selTeleCmd")
       M = nil
       collectgarbage()
@@ -140,12 +149,13 @@ end
 local function keyGPS(key)
    local M = require "DFM-GPS/selFieldCmd"
    nfz = M.keyField(key, mapV, settings, fields, prefix)
-   if nfz and #nfz > 0 then
-      DR.noFlyCalc(settings, mapV, nfz)
-   end
    unrequire("DFM-GPS/selFieldCmd")
    M = nil
    collectgarbage()
+
+   if nfz and #nfz > 0 then
+      DR.noFlyCalc(settings, mapV, nfz)
+   end
 end
 
 local function initGPS()
@@ -162,14 +172,29 @@ local function loop()
    local needDT
    if not sensIdPa then return end
 
+   if not DR then
+      print("gc 1", collectgarbage("count"))
+      DR = require "DFM-GPS/drawMono"
+      print("gc 2", collectgarbage("count"))
+      DR.drawInit()
+      DR.setMAX(settings.maxRibbon, settings, mapV)
+   end
+   
    needDT = DR.readTele(sensIdPa, mapV)
-   if needDT and (not DT) then loadDT() end
+   if needDT and (not DT) then
+      local a1 = collectgarbage("count")
+      DT = require "DFM-GPS/drawTape"
+         local a2 = collectgarbage("count")
+	 print("dT", a1, a2, a2-a1)
+   end
 
    DR.readGPS(sensIdPa, settings, mapV, initGPS, keyGPS)
 end
 
 local function mapTele()
 
+   --print("mapTele")
+   
    if not mapV.initPos then
       lcd.drawText(0,10,"No GPS position", FONT_BIG)
       return
@@ -186,7 +211,7 @@ local function mapTele()
    end
 
    NF = DR.checkNoFly(settings, mapV, nfz, NF, monoTx)
-   
+
    lcd.drawText(130, 145, DR.fieldStr(), FONT_MINI)
    
    lcd.drawLine(50, DR.getYP(0), 260, DR.getYP(0))
@@ -219,7 +244,9 @@ local function printTele()
 end
 
 local function init()
-
+   collectgarbage()
+   local aa1 = collectgarbage("count")
+   
    local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI DS-14"}
    local dev = system.getDeviceType()
 
@@ -242,21 +269,29 @@ local function init()
    M = nil
    collectgarbage()
 
+   local aa2 = collectgarbage("count")
+   
    if monoTx then
       print("Mono")
       settings.nfzBeeps = true
-      DR = require "DFM-GPS/drawMono"
+      --DR = require "DFM-GPS/drawMono"
    else
       print("Color")
       DR = require "DFM-GPS/drawColor"
+      DR.drawInit()
+      DR.setMAX(settings.maxRibbon, settings, mapV)
    end
 
-   DR.drawInit()
-   DR.setMAX(settings.maxRibbon, settings, mapV)
+   --DR = require "DFM-GPS/drawMono"
+   --DR.drawInit()
+   --DR.setMAX(settings.maxRibbon, settings, mapV)
 
    system.registerForm(1, MENU_APPS, "DFM-GPS", initForm, keyForm, printTele)
    system.registerTelemetry(1,"DFM-GPS Flight Display",4, mapTele)
-   
+
+   collectgarbage()
+   local aa3 = collectgarbage("count")
+   print("gc", aa1, aa2, aa3)
 end
 --------------------------------------------------------------------------------
 

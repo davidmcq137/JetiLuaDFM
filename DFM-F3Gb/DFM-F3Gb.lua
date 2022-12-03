@@ -13,7 +13,7 @@
    
 --]]
 
-local F3GVersion = "0.3"
+local F3GVersion = "0.5"
 
 local subForm = 0
 
@@ -35,7 +35,8 @@ local ctl = {
    {var="thr", label="Throttle"},
    {var="arm", label="Arming"},
    {var="ele", label="Elevator"},
-   {var="rst", label="Reset Flight"}
+   {var="rst", label="Reset Flight"},
+   {var="pre", label="150 m offset (0-10m)"}
 }
 
 local elePullTime
@@ -83,6 +84,7 @@ local dA, dB, dd
 local perpA, perpB
 
 local savedRow
+local early = 0
 
 local function readSensors(tbl)
    --local sensorLbl = "***"
@@ -269,10 +271,12 @@ local function loop()
    local swa
    local swe
    local swr
+   local swy
    local now
    local volt, amp
    
    now = system.getTimeCounter()
+   early = 5 * ((system.getInputsVal(ctl.pre) or -1) + 1)
 
    curPos = gps.getPosition(sens.lat.SeId, sens.lat.SePa, sens.lng.SePa)   
 
@@ -299,16 +303,16 @@ local function loop()
 	 curX = curX * gpsScale
       end
       
-      local dist = math.sqrt( (curX - lastX)^2 + (curY - lastY)^2)
+      --local dist = math.sqrt( (curX - lastX)^2 + (curY - lastY)^2)
       
-      if curX ~= lastX or curY ~= lastY and dist > 5 then -- new point
+      if curX ~= lastX or curY ~= lastY then --and dist > 5 then -- new point
 	 --heading = math.atan(curX-lastX, curY - lastY)
 	 lastX = curX
 	 lastY = curY
       end
       
       detA = det(0,-50,0,50,curX,curY)
-      detB = det(distAB,-50, distAB, 50,curX,curY)
+      detB = det(distAB-early,-50, distAB-early, 50,curX,curY)
       --detC = det(-75,0,225,0,curX,curY)
       
       if detA > 0 then dA = 1 else dA = 0 end
@@ -318,7 +322,7 @@ local function loop()
       dd = dA + 2*dB
       
       perpA = pDist(0,-50,0,50,curX, curY)
-      perpB = pDist(distAB,-50,distAB, 50, curX, curY)
+      perpB = pDist(distAB-early,-50,distAB-early, 50, curX, curY)
       
       if detA < 0 then perpA = -perpA end
       if detB > 0 then perpB = -perpB end
@@ -343,6 +347,7 @@ local function loop()
    if sensor and sensor.valid then
       volt = sensor.value
    end
+
    if volt and amp then
       motorPower = volt * amp
    end
@@ -351,7 +356,7 @@ local function loop()
    swa = system.getInputsVal(ctl.arm)
    swe = system.getInputsVal(ctl.ele)   
    swr = system.getInputsVal(ctl.rst)
-
+   
    if (flightZone == 3 and lastFlightZone == 2) or (flightZone == 1 and lastFlightZone == 2) then
       if not swa or swa == 1 then
 	 system.playBeep(0,440,500)
@@ -374,7 +379,7 @@ local function loop()
       if (not swa or swa == 1) and (swt and swt == 1) then
 	 motorStart = now
 	 motorWattSec = 0
-	 flightState = fs.MotorOn
+	 flightState = fs.Ready -- fs.MotorOn
 	 lastPowerTime = now
 	 flightStart = now
 	 --system.playFile("/Apps/DFM-F3G/motor_run_started.wav", AUDIO_QUEUE)
@@ -394,13 +399,13 @@ local function loop()
 	 flightState = fs.MotorOff
 	 system.setControl(1, -1, 0)
 	 motorOffTime = now
-	 system.playFile("/Apps/DFM-F3G/motor_off_manual.wav", AUDIO_QUEUE)
+	 --system.playFile("/Apps/DFM-F3G/motor_off_manual.wav", AUDIO_QUEUE)
       end
       if motorTime > 30*1000 then
 	 flightState = fs.MotorOff
 	 system.setControl(1, -1, 0)
 	 motorOffTime = now
-	 system.playFile("/Apps/DFM-F3G/motor_off_time.wav", AUDIO_QUEUE)
+	 --system.playFile("/Apps/DFM-F3G/motor_off_time.wav", AUDIO_QUEUE)
       elseif motorWattSec / 60 > 350 then
 	 flightState = fs.MotorOff
 	 system.setControl(1, -1, 0)
@@ -411,11 +416,11 @@ local function loop()
 
    if flightState == fs.MotorOff then
       if now > motorOffTime + 10*1000 then
-	 system.playFile("/Apps/DFM-F3G/start_altitude.wav", AUDIO_QUEUE)
+	 --system.playFile("/Apps/DFM-F3G/start_altitude.wav", AUDIO_QUEUE)
 	 if altitude then
 	    system.playNumber(altitude, 0)
 	 else
-	    system.playFile("/Apps/DFM-F3G/unavailable.wav", AUDIO_QUEUE)
+	    --system.playFile("/Apps/DFM-F3G/unavailable.wav", AUDIO_QUEUE)
 	 end
 	 flightState = fs.Altitude
       end
@@ -423,7 +428,7 @@ local function loop()
       
    if flightState == fs.Altitude then
       if flightTime / 1000 > 40 then
-	 system.playFile("/Apps/DFM-F3G/40_seconds.wav", AUDIO_QUEUE)
+	 --system.playFile("/Apps/DFM-F3G/40_seconds.wav", AUDIO_QUEUE)
 	 flightState = fs.Ready
       end
    end
@@ -433,7 +438,7 @@ local function loop()
 	 flightState = fs.AtoB
 	 taskStartTime = now
 	 taskLaps = 0
-	 system.playFile("/Apps/DFM-F3G/task_started.wav", AUDIO_QUEUE)
+	 system.playFile("/Apps/DFM-F3Gb/task_started.wav", AUDIO_QUEUE)
       end
    end
 
@@ -447,7 +452,7 @@ local function loop()
       if flightZone == 1 and lastFlightZone == 2 then
 	 taskLaps = taskLaps + 1
 	 if elePullTime then
-	    system.playFile("/Apps/DFM-F3G/pull_latency.wav", AUDIO_QUEUE)
+	    system.playFile("/Apps/DFM-F3Gb/pull_latency.wav", AUDIO_QUEUE)
 	    system.playNumber( (now - elePullTime)/1000, 1)
 	    elePullLog = now - elePullTime
 	    elePullTime = nil
@@ -466,7 +471,7 @@ local function loop()
       flightState = fs.Done
       flightDone = flightTime
       taskDone = now - taskStartTime
-      system.playFile("/Apps/DFM-F3G/task_complete.wav", AUDIO_QUEUE)
+      --system.playFile("/Apps/DFM-F3G/task_complete.wav", AUDIO_QUEUE)
    end
    
    lastFlightZone = flightZone
@@ -486,6 +491,11 @@ local function drawPylons()
    lcd.drawLine(xp(-50), yp(0), xp(200), yp(0))
    lcd.drawLine(xp(0), yp(-50), xp(0), yp(50))
    lcd.drawLine(xp(distAB), yp(-50), xp(distAB), yp(50))
+   if early > 0.1 then
+      lcd.setColor(200,200,200)
+      lcd.drawLine(xp(distAB-early), yp(-50), xp(distAB-early), yp(50))
+      lcd.setColor(0,0,0)
+   end
 end
 
 local function printTele()
@@ -526,6 +536,8 @@ local function printTele()
    lcd.drawText(245,15,text)
    text = string.format("E: %.2f", motorWattSec/60)
    lcd.drawText(245,30,text)
+   text = string.format("B: %.2f", early)
+   lcd.drawText(245,45,text)
    
    if flightState == fs.AtoB or flightState == fs.BtoA or flightState == fs.Done then
       text = string.format("Laps: %d", (taskLaps or 0) )

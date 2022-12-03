@@ -65,10 +65,14 @@ function M.selField(fields, savedRow, zeroPos)
       form.addLabel({label="No Fields"})
       return
    end
+   
+   --print("dist zero", gps.getStrig(zeroPos))
 
+   local pp, dd
+   
    for i in ipairs(fields) do
-      local pp = gps.newPoint(fields[i].lat, fields[i].lng)
-      local dd = gps.getDistance(zeroPos, pp) or 0
+      pp = gps.newPoint(fields[i].lat, fields[i].lng)
+      dd = gps.getDistance(zeroPos, pp) or 0
       fields[i].distance = dd
    end
 
@@ -76,8 +80,9 @@ function M.selField(fields, savedRow, zeroPos)
 
    for i in ipairs(fields) do
 
-      local pp = gps.newPoint(fields[i].lat, fields[i].lng)
-      local dd = gps.getDistance(zeroPos, pp) or 0
+      pp = gps.newPoint(fields[i].lat, fields[i].lng)
+      dd = gps.getDistance(zeroPos, pp) or 0
+      --print("@",i,dd)
       local viz = true
       if dd > 1000 and (not fields.showAll) then viz = false end
 

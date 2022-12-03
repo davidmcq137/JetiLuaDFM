@@ -89,28 +89,6 @@ function M.recalcXY()
    savedYP = {}
 end
 
-function M.readTele(sensIdPa, mapV)
-   local sensor
-   local loadReq
-
-   loadReq = false
-   
-   sensor = system.getSensorByID(sensIdPa.alt.SeId, sensIdPa.alt.SePa)
-   if sensor and sensor.valid then
-      mapV.altitude = sensor.value
-      mapV.altunit = sensor.unit
-      loadReq = true
-   end
-
-   sensor = system.getSensorByID(sensIdPa.spd.SeId, sensIdPa.spd.SePa)
-   if sensor and sensor.valid then
-      mapV.speed = sensor.value
-      mapV.spdUnit = sensor.unit
-      loadReq = true
-   end
-   return loadReq
-end
-
 -- convert no fly polygon coords from lat,lng to x,y in current frame
 function M.noFlyCalc(settings, mapV, nfz)
    local pt, cD, cB, x, y
@@ -165,7 +143,7 @@ local function drawShape(col, row, shapename, rotation)
    cosShape = math.cos(rotation)
    --local shape = shapes[shapename]
    local shape = shapes.Glider -- monoTX fixed icon
-   if not shape then print("DFM-GPS: bad shape", shapename); return end
+   if not shape then return end
    for i, _ in pairs(shape) do
       if i < #shape then
 	 lcd.drawLine(
@@ -216,18 +194,19 @@ function M.readGPS(sensIdPa, settings, mapV, initGPS, keyGPS)
 	 system.registerForm(2, 0, "DFM-GPS Field Selection", initGPS, keyGPS)
       end
       
-      mapV.curDist = gps.getDistance(mapV.zeroPos, mapV.curPos)
-      mapV.curBear = gps.getBearing(mapV.zeroPos, mapV.curPos)
-      
-      curX = mapV.curDist * math.cos(math.rad(mapV.curBear+270)) -- why not same angle X and Y??
-      curY = mapV.curDist * math.sin(math.rad(mapV.curBear+90))
-      
-      if not lastX then lastX = curX end
-      if not lastY then lastY = curY end
-      
-      curX, curY = rotateXY(curX, curY, settings.rotA or 0)
-      savePoints(settings, mapV)
-      return 
+      if mapV.curPos then
+	 mapV.curDist = gps.getDistance(mapV.zeroPos, mapV.curPos)
+	 mapV.curBear = gps.getBearing(mapV.zeroPos, mapV.curPos)
+	 
+	 curX = mapV.curDist * math.cos(math.rad(mapV.curBear+270)) -- why not same angle X and Y??
+	 curY = mapV.curDist * math.sin(math.rad(mapV.curBear+90))
+	 
+	 if not lastX then lastX = curX end
+	 if not lastY then lastY = curY end
+	 
+	 curX, curY = rotateXY(curX, curY, settings.rotA or 0)
+	 savePoints(settings, mapV)
+      end
    end
 end
 
@@ -242,7 +221,9 @@ end
 function M.checkNoFly(settings, mapV, nfz, NF, monoTx)
 
    if not NF then
+      print("gc NF1", collectgarbage("count"))
       NF = require "DFM-GPS/compGeo"
+      print("gc NF2", collectgarbage("count"))
    end
    
    if nfz and #nfz > 0 and mapV.zeroPos and nfz[1].xy then

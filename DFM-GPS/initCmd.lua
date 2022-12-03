@@ -14,6 +14,7 @@ function M.initCmd(mapV, prefix)
    fileBD = prefix() .. "Apps/DFM-GPS/GG_" .. mn .. ".jsn"
    file = io.readall(fileBD)
    if file then
+      print("Read file", fileBD)
       decoded = json.decode(file)
       settings = decoded.settings
       sensIdPa = decoded.sensIdPa

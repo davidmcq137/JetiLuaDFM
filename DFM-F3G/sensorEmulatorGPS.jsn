@@ -5,5 +5,5 @@
     "trueDir": 30,
     "startTime": 0,
     "xString":"170*P5(-1,1) + 75 --90*math.cos(t/2) + 75",
-    "yString":"30*P6(-1,1) --30*math.sin(t/2)"
+    "yString":"1000*P2(-1,1) --30*math.sin(t/2)"
 }
