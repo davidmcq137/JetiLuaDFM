@@ -44,6 +44,12 @@ local elePullLog
 local swrLast
 local swaLast
 
+local lvP
+local lvX
+local lvY
+local lvD
+local lvT
+
 local flightState
 local fs = {Idle=1,MotorOn=2,MotorOff=3,Altitude=4,Ready=5, AtoB=6,BtoA=7, Done=8}
 local fsTxt = {"Idle", "Motor On", "Motor Off", "Altitude", "Ready", "A to B", "B to A", "Done"}
@@ -585,6 +591,40 @@ local function elePullCB()
    end
 end
 
+local function logWriteCB(idx)
+   if idx == lvP then
+      if elePullLog then
+	 return elePullLog, 0
+      else
+	 return 0,0
+      end
+   elseif idx == lvD then
+      if perpA then
+	 return perpA*10, 1
+      else
+	 return 0,0
+      end
+   elseif idx == lvT then
+      if beepOn then
+	 return beepOn, 0
+      else
+	 return 0,0
+      end
+   elseif idx == lvX then
+      if curX then
+	 return curX*100, 2
+      else
+	 return 0,0
+      end
+   elseif idx == lvY then
+      if curY then
+	 return curY*100, 2
+      else
+	 return 0,0
+      end      
+   end
+end
+
 local function init()
    
    --local pf
@@ -632,6 +672,13 @@ local function init()
 
    system.registerLogVariable("elePullTime", "ms", elePullCB)
    readSensors(telem)
+
+   lvP = system.registerLogVariable("elePullTime", "ms", logWriteCB)
+   lvX = system.registerLogVariable("courseX", "m", logWriteCB)
+   lvY = system.registerLogVariable("courseY", "m", logWriteCB)   
+   lvD = system.registerLogVariable("perpDistA", "m", logWriteCB)
+   lvT = system.registerLogVariable("beep", "s", logWriteCB)
+
    resetFlight()
    
    print("DFM-F3G: gcc " .. collectgarbage("count"))

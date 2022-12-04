@@ -7,7 +7,13 @@
 
    drawTape() inspired by Jeti's Artificial Horizon app
    ----------------------------------------------------------------------------
+
+   Things to do:
    
+   1. Finish or turn off the "future" feature for no fly ahead warnings. 
+   2. Add enclosing circle optimization to nfz's on read .. compute the circle and uncomment the check
+   3. Write a function for the gps position to xy .. used already in a few places!
+
 --]]
 
 local GPSVersion = "0.5"
@@ -292,6 +298,7 @@ local function init()
    collectgarbage()
    local aa3 = collectgarbage("count")
    print("gc", aa1, aa2, aa3)
+
 end
 --------------------------------------------------------------------------------
 
