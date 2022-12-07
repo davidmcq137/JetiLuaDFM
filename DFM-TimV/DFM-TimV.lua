@@ -9,7 +9,7 @@
    
 --]]
 
-local TimVVersion = "0.3"
+local TimVVersion = "0.4"
 local appStr = "Variable Countdown Timer"
 
 local savedForm, savedRow
@@ -101,6 +101,7 @@ local function changedVal(val, hm)
    elseif hm == "X" then
       timerExp = val
       throttleExp = compExp(timerExp)
+      print("timerExp, throttleExp set to", timerExp, throttleExp)
       system.pSave("timerExp", timerExp)
    elseif hm == "R" then
       resetSw = val
@@ -236,6 +237,7 @@ local function loop()
    local thr
    local stopped
    local tt
+   local thrFrcE
    
    local now = system.getTimeCounter()
    
@@ -265,11 +267,15 @@ local function loop()
 
    if thrFrc * 100.0 < thrLimit then thrFrc = thrLimit / 100.0 end
 
+   thrFrcE = thrFrc^throttleExp
+   
+   --print("loop", thrLimit, tt.value, throttleExp, thrFrc, thrFrcE)
+   
    if not stopped then
       if not lastfTimeT then lastfTimeT = now end
       
       if fTimeT > 0 then
-	 fTimeT = fTimeT - thrFrc * (now - lastfTimeT)
+	 fTimeT = fTimeT - thrFrcE * (now - lastfTimeT)
       end
 
       if fTimeT < 0 then
@@ -282,13 +288,13 @@ local function loop()
       
       lastfTimeT = now
    end
-   
+
    -- Division will get "inf" if thrFrc == 0, > 99*60 test still works
 
-   if fTimeT == 0 and thrFrc == 0 then
+   if fTimeT == 0 and thrFrcE == 0 then
       iTimeT = 0
    else
-      iTimeT = fTimeT / thrFrc
+      iTimeT = fTimeT / thrFrcE
    end
 
    local tOffset = 0.5
@@ -341,7 +347,7 @@ local function timTele()
    end
    
    if thrFrc then
-	 thrExp = thrFrc^(throttleExp)
+      thrExp = thrFrc^(throttleExp)
    end
    if thrFrc then lcd.drawNumber(120,42, 100 * thrFrc) end
    if thrExp then lcd.drawNumber(120,10, 100 * thrExp) end   

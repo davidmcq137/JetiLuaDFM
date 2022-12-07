@@ -427,7 +427,7 @@ local function pressAction(pC)
 
    now = system.getTimeCounter()
    fn = "/Apps/DFM-SWT/"..locale .."/"..string.gsub(teleSeLs[pC], " ", "_")..".wav"
-
+   if emFlag then print("Filename: "..fn) end
    if teleSe[pC] == 2 then -- channel selected
       if emFlag then print("DFM-SWT <em>: pC, teleSe[pC]:", pC, teleSe[pC]) end
       if vCtrl[pC] and vCtrl[pC] > 0 then

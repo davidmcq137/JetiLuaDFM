@@ -2,7 +2,7 @@ local M = {}
 
 local subForm = 0
 local savedRow
-
+--[[
 local function readSensors(tbl)
    --local sensorLbl = "***"
    
@@ -23,7 +23,7 @@ local function readSensors(tbl)
       end
    end
 end
-
+--]]
 local function keyExit(k)
    if k == KEY_5 or k == KEY_ENTER or k == KEY_ESC then
       print("keyExit", k, subForm)
@@ -51,8 +51,9 @@ local function changedDist(val)
 end
 --]]
 
+--[[
 local function telemChanged(val, stbl, v, ttbl)
-   stbl[v].Se = val
+   stbl[v].Se = math.floor(val)
    stbl[v].SeId = math.floor(ttbl.Idlist[val])
    stbl[v].SePa = math.floor(ttbl.Palist[val])
    
@@ -61,8 +62,14 @@ local function telemChanged(val, stbl, v, ttbl)
    print("pSave", v.."SePa", (stbl[v].SePa))   
    
    system.pSave(v.."Se",   stbl[v].Se)
-   system.pSave(v.."SeId", (stbl[v].SeId))
-   system.pSave(v.."SePa", (stbl[v].SePa))
+   system.pSave(v.."SeId", (stbl[v].SeId))   system.pSave(v.."SePa", (stbl[v].SePa))
+end
+--]]
+
+local function modeChanged(val, F3G, resetFlight)
+   F3G.flightMode = val
+   system.pSave("flightMode", F3G.flightMode)
+   resetFlight()
 end
 
 function M.printTele(w,h,F3G)
@@ -102,16 +109,16 @@ function M.keyForm(key, F3G, resetFlight)
       if key == KEY_1 then
 	 F3G.gpsP.zeroPos = F3G.gpsP.curPos
 	 if F3G.gpsP.zeroPos then
-	    F3G.gpsP.zeroLatstr, F3G.gpsP.zeroLngStr = gps.getStrig(F3G.gpsP.zeroPos)
-	    system.pSave("F3G.gpsP.zeroLatstr", F3G.gpsP.zeroLatstr)
-	    system.pSave("F3G.gpsP.zeroLngStr", F3G.gpsP.zeroLngStr)
+	    F3G.gpsP.zeroLatStr, F3G.gpsP.zeroLngStr = gps.getStrig(F3G.gpsP.zeroPos)
+	    system.pSave("zeroLatString", F3G.gpsP.zeroLatStr)
+	    system.pSave("zeroLngString", F3G.gpsP.zeroLngStr)
 	 else
 	    system.messageBox("No Current Position")
 	 end
       elseif key == KEY_2 then
 	 if F3G.gpsP.curBear then
 	    F3G.gpsP.rotA = math.rad(F3G.gpsP.curBear-90)
-	    system.pSave("F3G.gpsP.rotA", F3G.gpsP.rotA*1000)
+	    system.pSave("rotA", F3G.gpsP.rotA*1000)
 	 else
 	    system.messageBox("No Current Position")
 	 end
@@ -122,7 +129,7 @@ function M.keyForm(key, F3G, resetFlight)
    return false
 end
 
-function M.menuCmd(sf, F3G)
+function M.menuCmd(sf, F3G, resetFlight)
 
    subForm = sf
    
@@ -133,6 +140,7 @@ function M.menuCmd(sf, F3G)
       form.setButton(2, "Dir B", ENABLED)
       form.setButton(3, "Reset", ENABLED)   
 
+      --[[
       form.addRow(2)
       form.addLabel({label="Telemetry >>", width=220})
       form.addLink((function()
@@ -140,14 +148,20 @@ function M.menuCmd(sf, F3G)
 	       form.reinit(3)
 	       form.waitForRelease()
       end))      
-
+      --]]
       form.addRow(2)
       form.addLabel({label="Controls >>", width=220})
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       form.reinit(4)
 	       form.waitForRelease()
-      end))      
+      end))
+
+      form.addRow(2)
+      form.addLabel({label="Flight Mode", width=220})
+      form.addSelectbox({"F3G", "F3B", "Basic"}, F3G.flightMode, true,
+	 (function(x) return modeChanged(x, F3G, resetFlight) end))
+      
       --[[
       form.addRow(2)
       form.addLabel({label="Course Length", width=220})      
@@ -159,7 +173,8 @@ function M.menuCmd(sf, F3G)
       form.setTitle("")
       form.setButton(1, "Pt A",  ENABLED)
       form.setButton(2, "Dir B", ENABLED)
-      form.setButton(3, "Reset", ENABLED)   
+      form.setButton(3, "Reset", ENABLED)
+      --[[
    elseif sf == 3 then
       form.setTitle("Telemetry Sensors")
       readSensors(F3G.telem)
@@ -170,6 +185,7 @@ function M.menuCmd(sf, F3G)
 			   (function(x) return telemChanged(x, F3G.sens, F3G.sens[i].var, F3G.telem) end),
 			   {width=180, alignRight=false})
       end
+      --]]
    elseif sf == 4 then
       form.setTitle("Controls")
       for i in ipairs(F3G.ctl) do
