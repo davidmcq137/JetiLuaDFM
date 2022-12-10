@@ -11,7 +11,7 @@
    
 --]]
 
-local F3XVersion = "0.61"
+local F3XVersion = "0.70"
 local MM
 local F3X = {}
 local cross = {}
@@ -64,40 +64,7 @@ local loopV = {}
 loopV.fs = {Idle=1,MotorOn=2,MotorOff=3,Altitude=4,Ready=5, AtoB=6,BtoA=7, Done=8}
 loopV.fsTxt = {"Idle", "Motor On", "Motor Off", "Altitude", "Ready", "A to B", "B to A", "Done"}
 
---local flightState
---local motorTime
---local motorStart
---local motorPower
---local motorWattSec
---local motorOffTime
---local motorStatus
---local lastPowerTime
---local flightTime
---local flightStart
---local flightDone
---local flightZone
---local taskStartTime
---local taskDone
---local taskLaps
---local lastFlightZone
 local zone = {[0]=1,[1]=2,[3]=3}
---local beepOffTime
-
---local curDist
---local detA
---local detB
---local dA
---local dB
---local dd
---local perpA
---local perpB
-
---local initPos
---local curX
---local curY
---local lastX
---local lastY
---local altitude
 
 local function playFile(...)
    if F3X.flightMode ~= fm.Basic then
@@ -126,11 +93,10 @@ local function resetFlight()
    cross = {}
    savedXP = {}
    savedYP = {}
+
    swt = system.getSwitchInfo(F3X.ctl.thr)
-   --if swt then print(swt.label, swt.value, swt.proportional, swt.assigned, swt.mode) else print("swt nil") end
    if swt then thr = system.getInputs(swt.label) end
-   --print("thr, gIV", thr, system.getInputsVal(F3X.ctl.thr))
-   
+
    if swt and swt.value and swt.value <= -0.99 then
       system.setControl(F3X.lv.luaCtl.MOT,  1, 0)
       loopV.motorStatus = true
@@ -138,21 +104,18 @@ local function resetFlight()
       system.setControl(F3X.lv.luaCtl.MOT, -1, 0)
       loopV.motorStatus = false
    end
+
    system.setControl(F3X.lv.luaCtl.BPP, -1, 0)
    system.setControl(F3X.lv.luaCtl.TSK, -1, 0)
 end
 
 local function keyForm(key)
-   --print("keyForm", key, MM)
-   --print("kf1", collectgarbage("count"))
    -- return value lets us know if menu is exiting and we can release memory
    local rel = MM.keyForm(key, F3X, resetFlight)
    if rel then MM = nil; collectgarbage() end
-   --print("kf2", collectgarbage("count"))
 end
 
 local function printTele(w,h)
-   --print("printTele", w, h, MM)
    MM.printTele(w,h,F3X)
 end
 
@@ -170,13 +133,9 @@ local function initForm(sf)
 
    -- must leave MM loaded until menu exits
    -- (see keyForm in menuCmd.lua) and keyForm in this file
-
-   --print("DFM-F3X: A " .. collectgarbage("count"))      
    MM = require "DFM-F3X/menuCmd"
-   --print("DFM-F3X: B " .. collectgarbage("count"))
    MM.menuCmd(sf, F3X, resetFlight)
    collectgarbage()
-   --print("DFM-F3X: C " .. collectgarbage("count"))         
 end
 
 local function det(x1, y1, x2, y2, x, y)
@@ -210,25 +169,17 @@ local function loop()
 
    if lastCall[2] then
       if TT[2] and (now - lastCall[2] > 200) then
-	 --print("unloading double", now - lastCall[2], TT)
-	 collectgarbage()
-	 --print(collectgarbage("count"))
 	 package.loaded[TT[2]] = nil
 	 TT[2] = nil
 	 collectgarbage()
-	 --print(collectgarbage("count"))
       end
    end
 
    if lastCall[4] then
       if TT[4] and (now -lastCall[4] > 200) then
-	 --print("unloading full", now - lastCall[4], TT)
-	 collectgarbage()
-	 --print(collectgarbage("count"))
 	 package.loaded[TT[4]] = nil
 	 TT[4] = nil
 	 collectgarbage()
-	 --print(collectgarbage("count"))
       end
    end
    
@@ -266,11 +217,9 @@ local function loop()
       loopV.curX, loopV.curY = rotateXY(loopV.curX, loopV.curY, F3X.gpsP.rotA)
 
       local dist = math.sqrt( (loopV.curX - loopV.lastX)^2 + (loopV.curY - loopV.lastY)^2)
-      --print(dist)
+
       if dist > 3 and cross[1] and loopV.flightState ~= loopV.fs.Done and
       (loopV.perpA > F3X.gpsP.distAB - F3X.short150 or loopV.perpA < 0) then -- new pt for ribbon
-	 --heading = math.atan(loopV.curX-loopV.lastX, loopV.curY - loopV.lastY)
-	 --print("adding point", loopV.flightState, loopV.fs.Done)
 	 if #savedXP+1 > MAXSAVED then
 	    table.remove(savedXP, 1)
 	    table.remove(savedYP, 1)
@@ -285,11 +234,9 @@ local function loop()
       loopV.detA = det(0,-50,0,50,loopV.curX,loopV.curY)
       loopV.detB = det(F3X.gpsP.distAB - F3X.short150,-50, F3X.gpsP.distAB - F3X.short150,
 		       50,loopV.curX,loopV.curY)
-      --detC = det(-75,0,225,0,loopV.curX,loopV.curY)
       
       if loopV.detA > 0 then loopV.dA = 1 else loopV.dA = 0 end
       if loopV.detB > 0 then loopV.dB = 1 else loopV.dB = 0 end
-      --if detC > 0 then dC = 1 else dC = 0 end
       
       loopV.dd = loopV.dA + 2*loopV.dB
       
@@ -363,7 +310,6 @@ local function loop()
       swaLast = swa
       if F3X.flightMode == fm.F3X then
 	 if (not swa or swa == 1) and (swt and swt == 1) then
-	    --print("swa and swt ok, loopV.motorStatus:", loopV.motorStatus)
 	    if loopV.motorStatus then
 	       loopV.morotStart = now
 	       loopV.motorWattSec = 0
@@ -457,24 +403,20 @@ local function loop()
 	 savedYP = {}
 	 if loopV.flightState ~= loopV.fs.Done then
 	    cross[1] = {x=loopV.curX, y=loopV.curY}
-	    --print("cross[1]", cross[1].x, cross[1].y, loopV.flightState)
 	 end
       else
 	 if loopV.flightState ~= loopV.fs.Done and cross[1] and not cross[2] then
 	    cross[2] = {x=loopV.curX, y=loopV.curY}
-	    --print("2a", cross[2].x, cross[2].y)	    
 	 end
 	 if loopV.flightState ~= loopV.fs.Done and cross[2] and loopV.curX < cross[2].x then
 	    cross[2].x = loopV.curX
 	    cross[2].y = loopV.curY
-	    --print("2b", cross[2].x, cross[2].y)
 	 end
 	 if loopV.flightState ~= loopV.fs.Done and loopV.perpA >= 0 and
 	 cross[1] and cross[2] and not cross[3] then
 	    cross[3] = {x=loopV.curX, y=loopV.curY}
 	    F3X.depth = math.abs(cross[1].x - cross[2].x)
 	    F3X.width = math.abs(cross[3].y - cross[1].y)
-	    --print("3", cross[3].x, cross[3].y, loopV.flightState, #savedXP)
 	 end
       end
       if F3X.flightMode ~= fm.Basic and loopV.perpB <= 20 and not preBeep and loopV.flightZone == 2 then
@@ -498,25 +440,20 @@ local function loop()
 	 savedXP = {}
 	 savedYP = {}
 	 cross[1] = {x=loopV.curX, y=loopV.curY}
-	 --print("cross[1]", cross[1].x, cross[1].y, loopV.flightState)
-	 --turnCircle = {}
 	 preBeep = false
       else
 	 if loopV.flightState ~= loopV.fs.Done and cross[1] and not cross[2] then
 	    cross[2] = {x=loopV.curX, y=loopV.curY}
-	    --print("2a", cross[2].x, cross[2].y)
 	 end
 	 if loopV.flightState ~= loopV.fs.Done and cross[2] and loopV.curX > cross[2].x then
 	    cross[2].x = loopV.curX
 	    cross[2].y = loopV.curY
-	    --print("2b", cross[2].x, cross[2].y)
 	 end
 	 if loopV.flightState ~= loopV.fs.Done and loopV.perpA <= F3X.gpsP.distAB - F3X.short150 and
 	 cross[2] and cross[1] and not cross[3] then
 	    cross[3] = {x=loopV.curX, y=loopV.curY}
 	    F3X.depth = math.abs(cross[1].x - cross[2].x)
 	    F3X.width = math.abs(cross[3].y - cross[1].y)
-	    --print("3", cross[3].x, cross[3].y, loopV.flightState, #savedXP)
 	 end
       end
       if F3X.flightMode ~= fm.Basic and loopV.perpA <= 20 and not preBeep and loopV.flightZone == 2 then
@@ -547,24 +484,19 @@ local function loop()
    loopV.lastFlightZone = loopV.flightZone
 end
 
-
 local function virtualTele(tt, iTele)
    local now = system.getTimeCounter()
    if iTele == 4 then
       if not tt[4] then
 	 if tt[2] and now - lastCall[2] < 300 then return end 
-	 --print("loading full", collectgarbage("count"))
 	 tt[4] = require "DFM-F3X/fullTele"
-	 --print("loading full", collectgarbage("count"))	 
       end
       lastCall[4] = system.getTimeCounter()
       tt[4].fullTele(F3X, loopV, cross, savedXP, savedYP, xp, yp)
    elseif iTele == 2 then
       if not tt[2]  then
 	 if tt[4] and now - lastCall[4] < 300 then return end
-	 --print("loading double", collectgarbage("count"))
 	 tt[2] = require "DFM-F3X/doubleTele"
-	 --print("loading double", collectgarbage("count"))
       end
       lastCall[2] = system.getTimeCounter()
       tt[2].doubleTele(loopV)
@@ -618,24 +550,18 @@ local function logWriteCB(idx)
 end
 
 local function init()
-   --print("DFM-F3X: 1 " .. collectgarbage("count"))   
+
    local M = require "DFM-F3X/initCmd"
    F3X = M.initCmd(F3X, TT, initForm, keyForm, printTele, virtualTele, resetFlight, logWriteCB)
-   --print("DFM-F3X: 2 " .. collectgarbage("count"))
    M = nil
    collectgarbage()
-   --print("DFM-F3X: 3 " .. collectgarbage("count"))
 
-
-   --(F3X.sens.lat.SeId, F3X.sens.lat.SePa, F3X.sens.lng.SePa)
    local s1,s2 = system.getInputs("P1", "P2")
-   --print(s1,s2, F3X.sens.lat.SeId)
    
    if (s1 < -0.8 and s2 < -0.8) or not
    (F3X.sens.lat.SeId > 0 and F3X.sens.lat.SePa > 0 and F3X.sens.lng.SePa > 0) then
       local M = require "DFM-F3X/teleCmd"
       M.teleCmd(F3X)
-      --print("DFM-F3X: 4 " .. collectgarbage("count"))
       M = nil
       collectgarbage()
    end
@@ -645,8 +571,6 @@ local function init()
    if select(2, system.getDeviceType()) == 1 then
       system.getSensors()
    end
-   
-   
    
 end
 --------------------------------------------------------------------------------

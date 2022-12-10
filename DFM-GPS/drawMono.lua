@@ -35,7 +35,8 @@ function M.fieldStr()
 end
 
 local function xp(x)
-   return 320 * (x - xmin) / (xmax - xmin)
+   --return 320 * (x - xmin) / (xmax - xmin)
+   return math.max(0, math.min(320 * (x - xmin) / (xmax - xmin), 320))
 end
 
 function M.getXP(x)
@@ -43,7 +44,8 @@ function M.getXP(x)
 end
 
 local function yp(y)
-   return 160 *(1 -  (y - ymin) / (ymax - ymin))
+   --return 160 *(1 -  (y - ymin) / (ymax - ymin))
+   return math.max(0, math.min(160 *(1 -  (y - ymin) / (ymax - ymin)), 160))
 end
 
 function M.getYP(y)
@@ -57,20 +59,20 @@ local function rotateXY(x, y, rotation)
    return (x * cosShape - y * sinShape), (x * sinShape + y * cosShape)
 end
 
-function M.readTele(sensIdPa, mapV)
+function M.readTele(mapV)
    local sensor
    local loadReq
 
    loadReq = false
    
-   sensor = system.getSensorByID(sensIdPa.alt.SeId, sensIdPa.alt.SePa)
+   sensor = system.getSensorByID(mapV.sensIdPa.alt.SeId, mapV.sensIdPa.alt.SePa)
    if sensor and sensor.valid then
       mapV.altitude = sensor.value
       mapV.altunit = sensor.unit
       loadReq = true
    end
 
-   sensor = system.getSensorByID(sensIdPa.spd.SeId, sensIdPa.spd.SePa)
+   sensor = system.getSensorByID(mapV.sensIdPa.spd.SeId, mapV.sensIdPa.spd.SePa)
    if sensor and sensor.valid then
       mapV.speed = sensor.value
       mapV.spdUnit = sensor.unit
@@ -79,7 +81,7 @@ function M.readTele(sensIdPa, mapV)
    return loadReq
 end
 
-function M.setMAX() --max, settings, mapV)
+function M.setMAX()
    MAXSAVED = 15
    return MAXSAVED
 end
@@ -90,7 +92,7 @@ function M.recalcXY()
 end
 
 -- convert no fly polygon coords from lat,lng to x,y in current frame
-function M.noFlyCalc(settings, mapV, nfz)
+local function noFlyCalc(mapV, nfz)
    local pt, cD, cB, x, y
    for i in ipairs(nfz) do
       if not nfz[i].xy then nfz[i].xy = {} end
@@ -100,7 +102,7 @@ function M.noFlyCalc(settings, mapV, nfz)
 	 cB = gps.getBearing(mapV.zeroPos, pt)
 	 x = cD * math.cos(math.rad(cB+270))
 	 y = cD * math.sin(math.rad(cB+90))
-	 x,y = rotateXY(x, y, (settings.rotA or 0))
+	 x,y = rotateXY(x, y, (mapV.settings.rotA or 0))
 	 nfz[i].xy[j] = {x=x,y=y}
 	 if x > mapV.maxPolyX then mapV.maxPolyX = x end
       end
@@ -113,12 +115,13 @@ local function setMapScale(s)
    return -mm, mm, -0.5*mm/2, 1.5*mm/2
 end
 
-function M.drawInit()
+function M.drawInit(mapV, nfz)
    mapScaleIdx = 1
    xmin, xmax, ymin, ymax = setMapScale(mapScaleIdx)
+   if nfz and #nfz > 0 then noFlyCalc(mapV, nfz) end 
 end
 
-local function savePoints() --settings, mapV)
+local function savePoints()
 
    if curX ~= lastX or curY ~= lastY then -- and dist > 5 then -- new point
       heading = math.atan(curX-lastX, curY - lastY)
@@ -134,6 +137,28 @@ local function savePoints() --settings, mapV)
    end
    
    return lastX, lastY, heading
+end
+
+function M.readGPS(mapV)
+
+   --print("readGPS", mapV.sensIdPa.lat.SeId, mapV.sensIdPa.lat.SePa, mapV.sensIdPa.lng.SePa)   
+   mapV.curPos = gps.getPosition(mapV.sensIdPa.lat.SeId, mapV.sensIdPa.lat.SePa, mapV.sensIdPa.lng.SePa)   
+
+   --print (mapV.curPos, mapV.zeroPos)
+   if mapV.curPos and mapV.zeroPos then
+      mapV.curDist = gps.getDistance(mapV.zeroPos, mapV.curPos)
+      mapV.curBear = gps.getBearing(mapV.zeroPos, mapV.curPos)
+      
+      curX = mapV.curDist * math.cos(math.rad(mapV.curBear+270)) -- why not same angle X and Y??
+      curY = mapV.curDist * math.sin(math.rad(mapV.curBear+90))
+      
+      if not lastX then lastX = curX end
+      if not lastY then lastY = curY end
+      
+      curX, curY = rotateXY(curX, curY, mapV.settings.rotA or 0)
+      --print(curX, curY)
+      savePoints()
+   end
 end
 
 local function drawShape(col, row, shapename, rotation)
@@ -181,36 +206,8 @@ local function drawNFZ(nfz)
    end
 end
 
-function M.readGPS(sensIdPa, settings, mapV, initGPS, keyGPS)
 
-   mapV.curPos = gps.getPosition(sensIdPa.lat.SeId, sensIdPa.lat.SePa, sensIdPa.lng.SePa)   
-   
-   if mapV.curPos and not mapV.initPos then mapV.gpsReads = mapV.gpsReads + 1 end
-   
-   if mapV.gpsReads > 9 then
-      if not mapV.initPos then
-	 mapV.initPos = mapV.curPos
-	 if not mapV.zeroPos then mapV.zeroPos = mapV.curPos end
-	 system.registerForm(2, 0, "DFM-GPS Field Selection", initGPS, keyGPS)
-      end
-      
-      if mapV.curPos then
-	 mapV.curDist = gps.getDistance(mapV.zeroPos, mapV.curPos)
-	 mapV.curBear = gps.getBearing(mapV.zeroPos, mapV.curPos)
-	 
-	 curX = mapV.curDist * math.cos(math.rad(mapV.curBear+270)) -- why not same angle X and Y??
-	 curY = mapV.curDist * math.sin(math.rad(mapV.curBear+90))
-	 
-	 if not lastX then lastX = curX end
-	 if not lastY then lastY = curY end
-	 
-	 curX, curY = rotateXY(curX, curY, settings.rotA or 0)
-	 savePoints(settings, mapV)
-      end
-   end
-end
-
-local function drawRibbon() --settings, mapV)
+local function drawRibbon()
    if #savedXP < 3 then return end
    for i=2,#savedXP do
       lcd.drawLine(savedXP[i-1], savedYP[i-1], savedXP[i], savedYP[i])
@@ -218,7 +215,7 @@ local function drawRibbon() --settings, mapV)
    lcd.drawLine(savedXP[#savedXP], savedYP[#savedXP], xp(curX), yp(curY))
 end
 
-function M.checkNoFly(settings, mapV, nfz, NF, monoTx)
+function M.checkNoFly(mapV, nfz, NF)
 
    if not NF then
       print("gc NF1", collectgarbage("count"))
@@ -228,7 +225,7 @@ function M.checkNoFly(settings, mapV, nfz, NF, monoTx)
    
    if nfz and #nfz > 0 and mapV.zeroPos and nfz[1].xy then
       if mapV.needCalcXY then
-	 M.noFlyCalc(settings, mapV, nfz)
+	 noFlyCalc(mapV, nfz)
       end
       drawNFZ(nfz)
    end
@@ -239,7 +236,7 @@ function M.checkNoFly(settings, mapV, nfz, NF, monoTx)
 	 if mapScaleIdx + 1 <= #mapScale then
 	    mapScaleIdx = mapScaleIdx + 1
 	    xmin, xmax, ymin, ymax = setMapScale(mapScaleIdx)
-	    M.recalcXY(settings, mapV)
+	    M.recalcXY()
 	 end
       end
       
@@ -258,18 +255,18 @@ function M.checkNoFly(settings, mapV, nfz, NF, monoTx)
 	 noFly = noFlyP or noFlyC
 	 if lastNoFly == nil then lastNoFly = noFly end
 	 if noFly and not lastNoFly then
-	    if settings.nfzBeeps then
+	    if mapV.settings.nfzBeeps then
 	       system.playBeep(1, 1200, 800)
 	    end
-	    --if settings.nfzWav then
+	    --if mapV.settings.nfzWav then
 	    --   system.playFile("/Apps/DFM-GPS/enter_no_fly.wav")
 	    --end
 	 end
 	 if not noFly and lastNoFly then
-	    if settings.nfzBeeps then
+	    if mapV.settings.nfzBeeps then
 	       system.playBeep(0, 600, 400)
 	    end
-	    --if settings.nfzWav then
+	    --if mapV.settings.nfzWav then
 	    --   system.playFile("/Apps/DFM-GPS/exit_no_fly.wav")
 	    --end
 	 end
@@ -278,16 +275,16 @@ function M.checkNoFly(settings, mapV, nfz, NF, monoTx)
 	 noFly = false
       end
       
-      drawRibbon(settings, mapV)
+      drawRibbon(mapV)
       
       if noFly then
-	 if monoTx then
+	 --if monoTx then
 	    lcd.drawCircle(xp(curX), yp(curY), 4)
-	 else
-	    drawShape(xp(curX), yp(curY), settings.planeShape, (heading or 0), "In")
-	 end
+	 --else
+	    --drawShape(xp(curX), yp(curY), mapV.settings.planeShape, (heading or 0), "In")
+	 --end
       else
-	 drawShape(xp(curX), yp(curY), settings.planeShape, (heading or 0), "Out")
+	 drawShape(xp(curX), yp(curY), mapV.settings.planeShape, (heading or 0), "Out")
       end
    end
    return NF

@@ -16,15 +16,17 @@ set +e
 for f in DFM-Batt/BD_*.jsn; do
     mv -- "$f" "${f%.jsn}.jxx"
 done
+set -e
 sh sh/makeBatt.sh
 #
 #
+set +e
 for f in DFM-Dial/DD_*.jsn; do
     mv -- "$f" "${f%.jsn}.jxx"
 done
+set -e
 sh sh/makeDial.sh
 #
-set -e
 set +x
 read -p "New lua/lc files generated. Press enter after saving Apps.json file from App Builder" n1
 set -x

@@ -4,5 +4,3 @@ set -x
 rm -f DFM-TimV.zip
 zip -ru DFM-TimV.zip DFM-TimV.lc DFM-TimV
 zip -ru DFMHC.zip DFM-TimV.lc DFM-TimV
-
-

@@ -14,7 +14,7 @@ local csFixed = #colorSelect
 
 local function readSensors(tbl)
    local sensors = system.getSensors()
-   for idx, sensor in ipairs(sensors) do
+   for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 	 if sensor.param ~= 0 and sensor.type ~=9 and sensor.type ~=5 then
 	    table.insert(tbl.Lalist, sensor.label)
@@ -26,41 +26,41 @@ local function readSensors(tbl)
    end
 end
 
-local function changedMax(val, settings, mapV, setMAX)
-   settings.maxRibbon = val
-   setMAX(val, settings, mapV)
+local function changedMax(val, mapV, setMAX)
+   mapV.settings.maxRibbon = val
+   setMAX(val, mapV.settings, mapV)
 end
 
-local function changedVal(val, settings, cc)
+local function changedVal(val, mapV, cc)
    if cc == "CS" then
-      settings.colorSelect = val
+      mapV.settings.colorSelect = val
       if val > csFixed then
-	 settings.csId = telem.Idlist[val-csFixed]
-	 settings.csPa = telem.Palist[val-csFixed]
-	 settings.csLa = telem.Lalist[val-csFixed]
-	 settings.csUn = telem.Unlist[val-csFixed]
+	 mapV.settings.csId = telem.Idlist[val-csFixed]
+	 mapV.settings.csPa = telem.Palist[val-csFixed]
+	 mapV.settings.csLa = telem.Lalist[val-csFixed]
+	 mapV.settings.csUn = telem.Unlist[val-csFixed]
       else
-	 settings.csId = 0
-	 settings.csPa = 0
-	 settings.csLa = ""
-	 settings.csUn = ""
+	 mapV.settings.csId = 0
+	 mapV.settings.csPa = 0
+	 mapV.settings.csLa = ""
+	 mapV.settings.csUn = ""
       end
-      print("cs", settings.csId, settings.csPa, settings.csLa, settings.csUn)
+      print("cs", mapV.settings.csId, mapV.settings.csPa, mapV.settings.csLa, mapV.settings.csUn)
    elseif cc == "ms" then
-      settings.msMinSpacing = val
+      mapV.settings.msMinSpacing = val
    elseif cc == "m" then
-      settings.mMinSpacing = val
-      settings.mMinSpacing2 = val^2
+      mapV.settings.mMinSpacing = val
+      mapV.settings.mMinSpacing2 = val^2
    elseif cc == "RS" then
-      settings.ribbonScale = val
+      mapV.settings.ribbonScale = val
    end
 end
 
-function M.settings(settings, mapV, setMAX)
+function M.settings(mapV, setMAX)
 
    readSensors(telem)
 
-   for idx, label in ipairs(telem.Lalist) do
+   for _, label in ipairs(telem.Lalist) do
       table.insert(colorSelect, label)
    end
    
@@ -68,28 +68,28 @@ function M.settings(settings, mapV, setMAX)
 
    form.addRow(2)
    form.addLabel({label="Max points in ribbon", width=220})
-   form.addIntbox(settings.maxRibbon, 0,1000,15,0,1,
-		  (function(x) return changedMax(x, settings, mapV, setMAX) end))
+   form.addIntbox(mapV.settings.maxRibbon, 0,1000,15,0,1,
+		  (function(x) return changedMax(x, mapV, setMAX) end))
 
    form.addRow(2)
    form.addLabel({label="Min ribbon time spacing", width=220})
-   form.addIntbox(settings.msMinSpacing, 0,10000,0,0,10,
-		  (function(x) return changedVal(x, settings, "ms") end), {label=" ms", width=100})
+   form.addIntbox(mapV.settings.msMinSpacing, 0,10000,0,0,10,
+		  (function(x) return changedVal(x, mapV, "ms") end), {label=" ms", width=100})
 
    form.addRow(2)
    form.addLabel({label="Min ribbon distance spacing", width=240})
-   form.addIntbox(settings.mMinSpacing, 0,1000,3,0,1,
-		  (function(x) return changedVal(x, settings,  "m") end), {label=" m"})
+   form.addIntbox(mapV.settings.mMinSpacing, 0,1000,3,0,1,
+		  (function(x) return changedVal(x, mapV,  "m") end), {label=" m"})
 
    form.addRow(2)
    form.addLabel({label="Ribbon color source", width=220})
-   form.addSelectbox(colorSelect, settings.colorSelect, true,
-		     (function(x) return changedVal(x, settings, "CS") end))
+   form.addSelectbox(colorSelect, mapV.settings.colorSelect, true,
+		     (function(x) return changedVal(x, mapV, "CS") end))
 
    form.addRow(2)
    form.addLabel({label="Ribbon color source scale", width=220})
-   form.addIntbox(settings.ribbonScale, 1,10000,100,0,1,
-		  (function(x) return changedVal(x, settings,  "RS") end))
+   form.addIntbox(mapV.settings.ribbonScale, 1,10000,100,0,1,
+		  (function(x) return changedVal(x, mapV,  "RS") end))
 
 
    return

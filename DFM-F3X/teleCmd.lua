@@ -43,6 +43,7 @@ end
 
 local function initForm(sf, F3X)
 
+   print("iFT", collectgarbage("count"))
    if sf == 1 then
       form.setTitle("F3X Telemetry Sensors")
       readSensors(F3X.telem)

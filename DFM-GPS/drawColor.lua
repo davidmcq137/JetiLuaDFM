@@ -4,7 +4,7 @@ local savedTime = {}
 local savedXP =  {}
 local savedYP =  {}
 local savedPos = {}
-local futurePos = {}
+--local futurePos = {}
 local rgbHist =  {}
 local maxSaved = 0
 local MAXSAVEDLIMIT = 1000
@@ -114,20 +114,20 @@ local function rotateXY(x, y, rotation)
    return (x * cosShape - y * sinShape), (x * sinShape + y * cosShape)
 end
 
-function M.readTele(sensIdPa, mapV)
+function M.readTele(mapV)
    local sensor
    local loadReq
 
    loadReq = false
    
-   sensor = system.getSensorByID(sensIdPa.alt.SeId, sensIdPa.alt.SePa)
+   sensor = system.getSensorByID(mapV.sensIdPa.alt.SeId, mapV.sensIdPa.alt.SePa)
    if sensor and sensor.valid then
       mapV.altitude = sensor.value
       mapV.altunit = sensor.unit
       loadReq = true
    end
 
-   sensor = system.getSensorByID(sensIdPa.spd.SeId, sensIdPa.spd.SePa)
+   sensor = system.getSensorByID(mapV.sensIdPa.spd.SeId, mapV.sensIdPa.spd.SePa)
    if sensor and sensor.valid then
       mapV.speed = sensor.value
       mapV.spdUnit = sensor.unit
@@ -138,7 +138,8 @@ end
 
 
 -- convert no fly polygon coords from lat,lng to x,y in current frame
-function M.noFlyCalc(settings, mapV, nfz)
+local function noFlyCalc(mapV, nfz)
+   print("noFlyCalc", #nfz)
    local pt, cD, cB, x, y
    for i in ipairs(nfz) do
       if not nfz[i].xy then nfz[i].xy = {} end
@@ -148,7 +149,7 @@ function M.noFlyCalc(settings, mapV, nfz)
 	 cB = gps.getBearing(mapV.zeroPos, pt)
 	 x = cD * math.cos(math.rad(cB+270))
 	 y = cD * math.sin(math.rad(cB+90))
-	 x,y = rotateXY(x, y, (settings.rotA or 0))
+	 x,y = rotateXY(x, y, (mapV.settings.rotA or 0))
 	 nfz[i].xy[j] = {x=x,y=y}
 	 if x > mapV.maxPolyX then mapV.maxPolyX = x end
       end
@@ -161,7 +162,7 @@ local function setMapScale(s)
    return -mm, mm, -0.5*mm/2, 1.5*mm/2
 end
 
-function M.drawInit()
+function M.drawInit(mapV, nfz)
    mapScaleIdx = 1
    xmin, xmax, ymin, ymax = setMapScale(mapScaleIdx)
 
@@ -172,6 +173,7 @@ function M.drawInit()
       rgb[k].g = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 2*math.pi/3)) / 2)
       rgb[k].b = math.floor(255 * (1 + math.cos(2*math.pi*0.7*(k-1)/rp - 4*math.pi/3)) / 2)
    end
+   if nfz and #nfz > 0 then noFlyCalc(mapV, nfz) end
 end
 
 -- this table is replicated in settingsCmd.lua ... must change in both places
@@ -188,7 +190,7 @@ function M.drawColors()
    end
 end
 
-function M.recalcXY(settings, mapV)
+function M.recalcXY(mapV)
 
    --print("recalcXY")
    
@@ -213,7 +215,7 @@ function M.recalcXY(settings, mapV)
       cB = gps.getBearing(mapV.zeroPos, savedPos[i])
       cX = cD * math.cos(math.rad(cB+270)) -- why not same angle X and Y??
       cY = cD * math.sin(math.rad(cB+90))
-      cX, cY = rotateXY(cX, cY, settings.rotA or 0)
+      cX, cY = rotateXY(cX, cY, mapV.settings.rotA or 0)
       savedXP[i] = xp(cX)
       savedYP[i] = yp(cY)
    end
@@ -236,14 +238,16 @@ local function resetPos()
    rgbHist =  {}
 end
 
-function M.setMAX(max, settings, mapV)
+function M.setMAX(max, mapV)
+   print("setMAX", max)
    local ts = math.max(0, math.min(max, MAXSAVEDLIMIT))
    if ts ~= maxSaved then
       resetPos()
       CPUPanic = false
    end
    maxSaved = ts
-   M.recalcXY(settings, mapV)
+   print("calling recalcXY")
+   M.recalcXY(mapV)
 
    return maxSaved
 end
@@ -305,11 +309,14 @@ local function drawShape(col, row, shapename, rotation, type)
    setTextColor()
 end
 
-local function drawNFZ(nfz)
+local function drawNFZ(mapV, nfz)
    local ren = lcd.renderer()
    local n
    local x0,y0,r
    local npc=30
+
+   if mapV.needCalcXY then noFlyCalc(mapV, nfz) end
+   
    for i in ipairs(nfz) do
       if nfz[i].type == "inside" then
 	 setColor("In")
@@ -353,7 +360,7 @@ local function gradientIndex(inval, inmin, inmax, bins, mod)
    return bin
 end
 
-local function savePoints(settings, mapV)
+local function savePoints(mapV)
 
    local jj
    local dist2
@@ -374,32 +381,32 @@ local function savePoints(settings, mapV)
       if not lastTime then lastTime = now end
       dt = now - lastTime
 
-      if (not CPUPanic) and dt > settings.msMinSpacing and dist2 > settings.mMinSpacing2 then
+      if (not CPUPanic) and dt > mapV.settings.msMinSpacing and dist2 > mapV.settings.mMinSpacing2 then
 	 
 	 ribbon.currentFormat = "%.f"
-	 if settings.colorSelect == 1 then -- none
+	 if mapV.settings.colorSelect == 1 then -- none
 	    jj = #rgb // 2 -- mid of gradient - right now this is sort of a yellow color
-	 elseif settings.colorSelect == 2 then -- Rx1 Q
+	 elseif mapV.settings.colorSelect == 2 then -- Rx1 Q
 	    jj = gradientIndex(system.getTxTelemetry().rx1Percent, 0, 100,  #rgb)
-	 elseif settings.colorSelect == 3 then -- Rx1 A1
+	 elseif mapV.settings.colorSelect == 3 then -- Rx1 A1
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[1],    0, 100,  #rgb)
-	 elseif settings.colorSelect == 4 then -- Rx1 A2
+	 elseif mapV.settings.colorSelect == 4 then -- Rx1 A2
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[2],    0, 100,  #rgb)
-	 elseif settings.colorSelect == 5 then -- Rx2 Q
+	 elseif mapV.settings.colorSelect == 5 then -- Rx2 Q
 	    jj = gradientIndex(system.getTxTelemetry().rx2Percent, 0, 100,  #rgb)
-	 elseif settings.colorSelect == 6 then -- Rx2 A1
+	 elseif mapV.settings.colorSelect == 6 then -- Rx2 A1
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[3],    0, 100,  #rgb)
-	 elseif settings.colorSelect == 7 then -- Rx2 A2
+	 elseif mapV.settings.colorSelect == 7 then -- Rx2 A2
 	    jj = gradientIndex(system.getTxTelemetry().RSSI[4],    0, 100,  #rgb)
-	 elseif settings.colorSelect == 8 then -- P4
+	 elseif mapV.settings.colorSelect == 8 then -- P4
 	    jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	   
 	 else
 	    local val = 0
-	    local sensor = system.getSensorByID(settings.csId, settings.csPa)
+	    local sensor = system.getSensorByID(mapV.settings.csId, mapV.settings.csPa)
 	    if sensor and sensor.valid then
 	       val = sensor.value
 	    end
-	    jj = gradientIndex(val, 0, 100, #rgb, settings.ribbonScale)	   	    
+	    jj = gradientIndex(val, 0, 100, #rgb, mapV.settings.ribbonScale)	   	    
 	 end
 
 	 if #savedXP+1 > maxSaved then
@@ -423,19 +430,11 @@ local function savePoints(settings, mapV)
    end
 end
 
-function M.readGPS(sensIdPa, settings, mapV, initGPS, keyGPS)
+function M.readGPS(mapV)
 
-   mapV.curPos = gps.getPosition(sensIdPa.lat.SeId, sensIdPa.lat.SePa, sensIdPa.lng.SePa)   
-   
-   if mapV.curPos and not mapV.initPos then mapV.gpsReads = mapV.gpsReads + 1 end
-   
-   if mapV.gpsReads > 9 then
-      if not mapV.initPos then
-	 mapV.initPos = mapV.curPos
-	 if not mapV.zeroPos then mapV.zeroPos = mapV.curPos end
-	 system.registerForm(2, 0, "DFM-GPS Field Selection", initGPS, keyGPS)
-      end
+   mapV.curPos = gps.getPosition(mapV.sensIdPa.lat.SeId, mapV.sensIdPa.lat.SePa, mapV.sensIdPa.lng.SePa)   
 
+   if mapV.curPos and mapV.zeroPos then
       
       mapV.curDist = gps.getDistance(mapV.zeroPos, mapV.curPos)
       mapV.curBear = gps.getBearing(mapV.zeroPos, mapV.curPos)
@@ -446,20 +445,18 @@ function M.readGPS(sensIdPa, settings, mapV, initGPS, keyGPS)
       if not lastX then lastX = curX end
       if not lastY then lastY = curY end
       
-      curX, curY = rotateXY(curX, curY, settings.rotA or 0)
-      savePoints(settings, mapV)
+      curX, curY = rotateXY(curX, curY, mapV.settings.rotA or 0)
+      savePoints(mapV)
       return 
    end
 end
 
-
-
-local function drawRibbon(settings, mapV)
+local function drawRibbon(mapV)
 
    local rh
    local polyW, polyA = 2, 1
 
-   if iStart + iEnd > 0 then M.recalcXY(settings, mapV); return end
+   if iStart + iEnd > 0 then M.recalcXY(mapV); return end
    
       if maxSaved <= 9999 then
       local ren = lcd.renderer()
@@ -472,7 +469,7 @@ local function drawRibbon(settings, mapV)
 				       
 	 rh = rgbHist[i]
 	 if i == 1 then lcd.setColor(rh.r, rh.g, rh.b); rgbLast = rh.rgb end
-	 if settings.showMarkers then
+	 if mapV.settings.showMarkers then
 	    lcd.drawCircle(savedXP[i], savedYP[i], 2)
 	 end
 
@@ -487,7 +484,7 @@ local function drawRibbon(settings, mapV)
 	 end
 
 	 if rh.rgb ~= rgbLast then
-	    if rh.rgb ~= rgbLast and settings.colorSelect ~= 1 then
+	    if rh.rgb ~= rgbLast and mapV.settings.colorSelect ~= 1 then
 	       ren:addPoint(savedXP[i], savedYP[i])
 	       ren:renderPolyline(polyW, polyA)
 	       lcd.setColor(rh.r, rh.g, rh.b)
@@ -513,16 +510,16 @@ local function drawRibbon(settings, mapV)
 	 rgbLast = -1
 	 for i=2,#savedXP do
 	    rh = rgbHist[i-1]
-	    if rh.rgb ~= rgbLast and settings.colorSelect ~= 1 then
+	    if rh.rgb ~= rgbLast and mapV.settings.colorSelect ~= 1 then
 	       lcd.setColor(rh.r, rh.g, rh.b)
 	       rgbLast = rh.rgb
 	    end
 	    lcd.drawLine(savedXP[i-1], savedYP[i-1], savedXP[i], savedYP[i])
-	    if settings.showMarkers then
+	    if mapV.settings.showMarkers then
 	       lcd.drawCircle(savedXP[i-1], savedYP[i-1], 3)
 	    end
 	 end
-	 if settings.showMarkers then
+	 if mapV.settings.showMarkers then
 	    lcd.drawCircle(savedXP[#savedXP], savedYP[#savedYP], 3)
 	 end
 	 if not CPUPanic then
@@ -530,15 +527,15 @@ local function drawRibbon(settings, mapV)
 	 end
       end
    end
-   if settings.colorSelect > 1 and rgb and ribbon.currentBin then
+   if mapV.settings.colorSelect > 1 and rgb and ribbon.currentBin then
       lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
       lcd.drawFilledRectangle(195 , 148, 6,6)
       setTextColor()
       local ss
-      if settings.colorSelect <= #colorSelect then
-	 ss = colorSelect[settings.colorSelect]
+      if mapV.settings.colorSelect <= #colorSelect then
+	 ss = colorSelect[mapV.settings.colorSelect]
       else
-	 ss = string.format("%s", settings.csLa)
+	 ss = string.format("%s", mapV.settings.csLa)
       end
       
       lcd.drawText(205, 145,
@@ -546,7 +543,7 @@ local function drawRibbon(settings, mapV)
    end
    setTextColor()
 
-   if settings.msMinSpacing > 0 or settings.mMinSpacing > 0 then
+   if mapV.settings.msMinSpacing > 0 or mapV.settings.mMinSpacing > 0 then
       local pp = #savedXP
       if pp > 1 then
 	 local dd = gps.getDistance(savedPos[pp], savedPos[pp-1])
@@ -573,18 +570,14 @@ local function drawRibbon(settings, mapV)
    end
 end
 
-function M.checkNoFly(settings, mapV, nfz, NF, monoTx)
+function M.checkNoFly(mapV, nfz, NF)
 
-   if not NF then
-      NF = require "DFM-GPS/compGeo"
-   end
-   
    if nfz and #nfz > 0 and mapV.zeroPos and nfz[1].xy then
       if mapV.needCalcXY then
 	 --print("before drawNFZ")
-	 M.noFlyCalc(settings, mapV, nfz)
+	 noFlyCalc(mapV, nfz)
       end
-      drawNFZ(nfz)
+      drawNFZ(mapV, nfz)
    end
    
    if curX and curY then
@@ -593,7 +586,7 @@ function M.checkNoFly(settings, mapV, nfz, NF, monoTx)
 	 if mapScaleIdx + 1 <= #mapScale then
 	    mapScaleIdx = mapScaleIdx + 1
 	    xmin, xmax, ymin, ymax = setMapScale(mapScaleIdx)
-	    M.recalcXY(settings, mapV)
+	    M.recalcXY(mapV)
 	 end
       end
       
@@ -612,18 +605,18 @@ function M.checkNoFly(settings, mapV, nfz, NF, monoTx)
 	 noFly = noFlyP or noFlyC
 	 if lastNoFly == nil then lastNoFly = noFly end
 	 if noFly and not lastNoFly then
-	    if settings.nfzBeeps then
+	    if mapV.settings.nfzBeeps then
 	       system.playBeep(1, 1200, 800)
 	    end
-	    if settings.nfzWav then
+	    if mapV.settings.nfzWav then
 	       system.playFile("/Apps/DFM-GPS/enter_no_fly.wav")
 	    end
 	 end
 	 if not noFly and lastNoFly then
-	    if settings.nfzBeeps then
+	    if mapV.settings.nfzBeeps then
 	       system.playBeep(0, 600, 400)
 	    end
-	    if settings.nfzWav then
+	    if mapV.settings.nfzWav then
 	       system.playFile("/Apps/DFM-GPS/exit_no_fly.wav")
 	    end
 	 end
@@ -632,9 +625,9 @@ function M.checkNoFly(settings, mapV, nfz, NF, monoTx)
 	 noFly = false
       end
       
-      drawRibbon(settings, mapV)
+      drawRibbon(mapV)
 
-      --print(heading, settings.rotA)
+      --print(heading, mapV.settings.rotA)
       local hdg = heading or 0
       local df
       if mapV.speed then
@@ -643,23 +636,23 @@ function M.checkNoFly(settings, mapV, nfz, NF, monoTx)
 	 df = 100
       end
       --print(mapV.speed, df)
-      local fP = gps.getDestination(mapV.curPos, df, math.deg(hdg+settings.rotA))
+      local fP = gps.getDestination(mapV.curPos, df, math.deg(hdg+mapV.settings.rotA))
       local cD = gps.getDistance(mapV.zeroPos, fP)
       local cB = gps.getBearing(mapV.zeroPos, fP)
       local cx = cD * math.cos(math.rad(cB+270))
       local cy = cD * math.sin(math.rad(cB+90))
-      cx, cy = rotateXY(cx, cy, (settings.rotA or 0))
+      cx, cy = rotateXY(cx, cy, (mapV.settings.rotA or 0))
       drawShape(xp(cx), yp(cy),
-		"delta", hdg+settings.rotA-math.pi/2+math.rad(10), "In")--10 degrees? wtf!      
+		"delta", hdg+mapV.settings.rotA-math.pi/2+math.rad(10), "In")--10 degrees? wtf!      
 
       if noFly then
-	 if monoTx then
-	    lcd.drawCircle(xp(curX), yp(curY), 4)
-	 else
-	    drawShape(xp(curX), yp(curY), settings.planeShape, (heading or 0), "In")
-	 end
+	 --if monoTx then
+	    --lcd.drawCircle(xp(curX), yp(curY), 4)
+	 --else
+	    drawShape(xp(curX), yp(curY), mapV.settings.planeShape, (heading or 0), "In")
+	 --end
       else
-	 drawShape(xp(curX), yp(curY), settings.planeShape, (heading or 0), "Out")
+	 drawShape(xp(curX), yp(curY), mapV.settings.planeShape, (heading or 0), "Out")
       end
    end
 

@@ -1,25 +1,43 @@
 local M = {}
 
-function M.initCmd(mapV, prefix)
+function M.initCmd(mapV, fields, prefix)
 
    local file
    local mn
    local decoded
-   local fileBD, writeBD
-   local settings = {}
-   local fields={}
-   local sensIdPa
-   
-   mn = string.gsub(system.getProperty("Model"), " ", "_")
-   fileBD = prefix() .. "Apps/DFM-GPS/GG_" .. mn .. ".jsn"
-   file = io.readall(fileBD)
-   if file then
-      print("Read file", fileBD)
-      decoded = json.decode(file)
-      settings = decoded.settings
-      sensIdPa = decoded.sensIdPa
+   local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI DS-14"}
+
+   local dev = system.getDeviceType()
+
+   mapV.monoTx = false
+   for _,v in ipairs(monoDev) do
+      if dev == v then mapV.monoTx = true break end
    end
-   writeBD = true
+
+   -- on emulator set to B+W color scheme to force Mono TX behavior
+   if select(2, system.getDeviceType()) == 1 then 
+      system.getSensors() -- needed to jumpstart emulator
+      if system.getProperty("Color") == 0 then
+	 mapV.monoTx = true
+      end
+   end
+
+   mapV.settings = {}
+   mn = string.gsub(system.getProperty("Model"), " ", "_")
+   mapV.fileBD = prefix() .. "Apps/DFM-GPS/GG_" .. mn .. ".jsn"
+   file = io.readall(mapV.fileBD)
+   if file then
+      print("Read file", mapV.fileBD)
+      decoded = json.decode(file)
+      mapV.settings = decoded.settings
+      mapV.sensIdPa = decoded.sensIdPa
+      for k,v in pairs(mapV.sensIdPa) do
+	 for kk,vv in pairs(v) do
+	    if kk == "SeId" then v[kk] = tonumber(vv);print(kk,vv, tonumber(vv)) end
+	 end
+      end
+   end
+   mapV.writeBD = true
 
    local dd, fn, ext, tt
    local path = prefix().."Apps/DFM-GPS"
@@ -55,8 +73,8 @@ function M.initCmd(mapV, prefix)
    }
 
    for k,v in pairs(setT) do
-      if settings[k] == nil then
-	 settings[k] = v
+      if mapV.settings[k] == nil then
+	 mapV.settings[k] = v
       end
    end
    
@@ -66,8 +84,10 @@ function M.initCmd(mapV, prefix)
    mapV.needCalcXY = true
    mapV.maxPolyX = 0
    mapV.gpsReads = 0
+   mapV.SFdone = false
+   mapV.STdone = false
    
-   return settings, sensIdPa, fields, writeBD, fileBD
+   return 
 
 end
 

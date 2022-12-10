@@ -105,6 +105,16 @@ function M.menuCmd(sf, F3X, resetFlight)
       form.addLabel({label="Flight Mode", width=220})
       form.addSelectbox({"F3G", "F3B", "Basic"}, F3X.flightMode, true,
 	 (function(x) return modeChanged(x, F3X, resetFlight) end))
+
+      --[[
+      form.addRow(2)
+      form.addLabel({label="Memory >>", width=220})
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       form.reinit(3)
+	       form.waitForRelease()
+      end))
+      --]]
       
       --[[
       form.addRow(2)
@@ -121,6 +131,10 @@ function M.menuCmd(sf, F3X, resetFlight)
       form.setButton(2, "Dir B", ENABLED)
       form.setButton(3, "Reset", ENABLED)
 
+   elseif sf == 3 then
+      print("gcc: ", collectgarbage("count"))
+      form.reinit(1)
+      
    elseif sf == 4 then
       form.setTitle("Controls")
       for i in ipairs(F3X.ctl) do

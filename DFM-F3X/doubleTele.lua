@@ -48,6 +48,8 @@ function M.doubleTele(loopV)
       end
    end
    
+   lcd.drawText(120, 55, string.format("%.1f", collectgarbage("count")), FONT_MINI)
+   
 end
 
 return M

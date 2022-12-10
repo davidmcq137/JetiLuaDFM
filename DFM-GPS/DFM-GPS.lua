@@ -16,22 +16,18 @@
 
 --]]
 
-local GPSVersion = "0.5"
-
+local GPSVersion = "0.60"
 local subForm = 0
 
-local sensIdPa
-local settings
-local nfz
-local fields
 local mapV = {}
-local monoTx
+local fields = {}
+local nfz = {}
 
--- permanently loaded modules (NF is required in drawColor.lua)
-local DT, NF, DR, MM, GS
+-- permanently loaded modules
+local DT, NF, DR, MM, GS, SE
 
-local savedRow
-local fileBD, writeBD
+-- transient loaded modules
+local ST, SF
 
 local function prefix()
    local pf
@@ -42,21 +38,21 @@ end
 local function writeJSON()
    local fp
    local save={}
-   if writeBD then
-      save.settings = settings
-      save.sensIdPa = sensIdPa
-      fp = io.open(fileBD, "w")
+   if mapV.writeBD then
+      save.settings = mapV.settings
+      save.sensIdPa = mapV.sensIdPa
+      for k,v in pairs(save.sensIdPa) do
+	 for kk,vv in pairs(v) do
+	    if kk == "SeId" then v[kk] = string.format("0X%X", vv) end
+	 end
+      end
+      fp = io.open(mapV.fileBD, "w")
       if fp then
 	 io.write(fp, json.encode(save), "\n") 
 	 io.close(fp)
       end
    end
 end
-
-local function unrequire(m)
-   package.loaded[m] = nil
-end
-
 
 local function keyExit(k)
    if k == KEY_5 or k == KEY_ENTER or k == KEY_ESC then
@@ -68,8 +64,8 @@ local function keyForm(key)
       if key == KEY_1 then
 	 if mapV.initPos then
 	    mapV.zeroPos = mapV.curPos
-	    settings.zeroLatString, settings.zeroLngString = gps.getStrig(mapV.zeroPos)
-	    if not monoTx then DR.recalcXY(settings, mapV) end
+	    mapV.settings.zeroLatString, mapV.settings.zeroLngString = gps.getStrig(mapV.zeroPos)
+	    if not mapV.monoTx then DR.recalcXY(mapV) end
 	    mapV.gpsCalA = true
 	    mapV.needCalcXY = true
 	 else
@@ -77,21 +73,26 @@ local function keyForm(key)
 	 end
       elseif key == KEY_2 then
 	 if mapV.curBear then
-	    settings.rotA = math.rad(mapV.curBear-90)
-	    if not monoTx then DR.recalcXY(settings, mapV) end
+	    mapV.settings.rotA = math.rad(mapV.curBear-90)
+	    if not mapV.monoTx then DR.recalcXY(mapV) end
 	    mapV.gpsCalB = true
 	    mapV.needCalcXY = true	    
 	 else
 	    system.messageBox("No Current Position")
 	 end
       elseif key == KEY_3 then
-	 system.messageBox("GC: " .. collectgarbage("count"))
-      end
-   elseif subForm == 3 or subForm == 4 or subForm == 5 then
-      if keyExit(key) then
-	 form.preventDefault()
-	 form.reinit(1)
-	 return
+	 print("gcc: " .. collectgarbage("count"))
+	 for k,_ in pairs(package.loaded) do
+	    if string.find(k, "DFM") then print("module loaded: " ..k) end
+	 end
+      elseif key == KEY_4 then
+
+      elseif subForm == 3 or subForm == 4 or subForm == 5 then
+	 if keyExit(key) then
+	    form.preventDefault()
+	    form.reinit(1)
+	    return
+	 end
       end
    end
 end
@@ -99,108 +100,124 @@ end
 local function initForm(sf)
    subForm = sf
    collectgarbage()
-   --print("iF", sf)
-   print("iF) gcc: " .. collectgarbage("count"))
-   for k,_ in pairs(package.loaded) do
-      if string.find(k, "DFM") then print("iF) module loaded: " ..k) end
-   end
    if sf == 1 then
-      if monoTx then
-	 local a1 = collectgarbage("count")
-	 local M = require "DFM-GPS/mainMenuCmd"
-	 savedRow = M.mainMenu(savedRow, monoTx)
-	 local a2 = collectgarbage("count")
-	 print("initCmd", a1, a2, a2-a1)
-	 unrequire("DFM-GPS/mainMenuCmd")
-	 M = nil
-	 collectgarbage()
-      else -- must leave loaded for nested menus on color TX
-	 MM = require "DFM-GPS/mainMenuCmd"
-	 savedRow = MM.mainMenu(savedRow, monoTx)
-      end
-   elseif sf == 2 then
-      form.setTitle("")
+      form.setTitle("GPS Display")
+   
       form.setButton(1, "Pt A",  ENABLED)
       form.setButton(2, "Dir B", ENABLED)
-   elseif sf == 3 then
-      if mapV.initPos and monoTx then
-	 system.messageBox("Not available with GPS connected")
-	 return
+      form.setButton(3, "Mem",   ENABLED)
+      
+      if not mapV.monoTx then
+	 form.addRow(2)
+	 form.addLabel({label="Settings >>", width=220})
+	 form.addLink((function()
+		  form.reinit(5)
+		  form.waitForRelease()
+	 end))
       end
-      local a1 = collectgarbage("count")
-      local M = require "DFM-GPS/selTeleCmd"
-      sensIdPa = M.selTele(sensIdPa)
-      local a2 = collectgarbage("count")
-      print("selTeleCmd", a1, a2, a2-a1)
-      unrequire("DFM-GPS/selTeleCmd")
-      M = nil
-      collectgarbage()
-   elseif sf == 4 then
-      local M = require "DFM-GPS/settingsCmd"
-      M.settings(settings, mapV, DR.setMAX)
-      unrequire("DFM-GPS/settingsCmd")
-      M = nil
-      collectgarbage()
+      
+      if not mapV.monoTx then
+	 form.addRow(2)
+	 form.addLabel({label="History ribbon >>", width=220})
+	 form.addLink((function()
+		  form.reinit(4)
+		  form.waitForRelease()
+	 end))
+      end
+      
+      form.addRow(2)
+      form.addLabel({label="Reset App data >>", width=220})
+      form.addLink((function()
+	       form.reinit(6)
+	       form.waitForRelease()
+      end))      
+   elseif sf == 2 then
+   elseif sf == 4 then -- only possible to get here if on color TX
+      SE = require "DFM-GPS/settingsCmd"
+      SE.settings(mapV, DR.setMAX)
    elseif sf == 5 then
       GS = require "DFM-GPS/genSettingsCmd"
-      GS.genSettings(settings, mapV)
+      GS.genSettings(mapV)
    elseif sf == 6 then
-      io.remove(fileBD)
-      writeBD = false
+      io.remove(mapV.fileBD)
+      mapV.writeBD = false
       system.messageBox("Data deleted .. restart App")
       form.reinit(1)
    end
 end
 
-local function keyGPS(key)
-   local M = require "DFM-GPS/selFieldCmd"
-   nfz = M.keyField(key, mapV, settings, fields, prefix)
-   unrequire("DFM-GPS/selFieldCmd")
-   M = nil
-   collectgarbage()
+local function checkGPS()
 
-   if nfz and #nfz > 0 then
-      DR.noFlyCalc(settings, mapV, nfz)
+   mapV.curPos = gps.getPosition(mapV.sensIdPa.lat.SeId, mapV.sensIdPa.lat.SePa, mapV.sensIdPa.lng.SePa)   
+   local lt, lg = 0,0
+   if mapV.curPos then lt, lg = gps.getValue(mapV.curPos) end
+   if mapV.curPos and lt ~= 0 and lg ~= 0 and not mapV.initPos then mapV.gpsReads = mapV.gpsReads + 1 end
+   if mapV.gpsReads > 9 then
+      if not mapV.initPos then
+	 mapV.initPos = mapV.curPos
+	 if not mapV.zeroPos then mapV.zeroPos = mapV.curPos end
+	 return true
+      end
    end
-end
-
-local function initGPS()
-   form.setTitle("Press Esc to exit with no field")
-   local M = require "DFM-GPS/selFieldCmd"
-   M.selField(fields, nil, mapV.zeroPos)
-   unrequire("DFM-GPS/selFieldCmd")
-   M = nil
-   collectgarbage()
+   return false
 end
 
 local function loop()
 
-   local needDT
-   if not sensIdPa then return end
-
-   if not DR then
-      print("gc 1", collectgarbage("count"))
-      DR = require "DFM-GPS/drawMono"
-      print("gc 2", collectgarbage("count"))
-      DR.drawInit()
-      DR.setMAX(settings.maxRibbon, settings, mapV)
+   -- first see if telemetry selection popup is finished
+   if mapV.STdone then
+      ST = nil
+      package.loaded["DFM-GPS/selTeleCmd"] = nil
+      mapV.STdone = false
    end
    
-   needDT = DR.readTele(sensIdPa, mapV)
-   if needDT and (not DT) then
-      local a1 = collectgarbage("count")
-      DT = require "DFM-GPS/drawTape"
-         local a2 = collectgarbage("count")
-	 print("dT", a1, a2, a2-a1)
+   if ST then return end 
+    
+   -- then check if there are sensors defined
+   if not mapV.sensIdPa then return end
+   
+   -- then see if we need to do popup for field selection (first time only)
+   if not mapV.initPos and checkGPS() then
+      SF = require "DFM-GPS/selFieldCmd"
+      SF.selField(mapV, fields, nfz, prefix)
    end
 
-   DR.readGPS(sensIdPa, settings, mapV, initGPS, keyGPS)
+   -- don't proceed till field selection is done and unloaded
+   if  mapV.SFdone then
+      SF = nil
+      package.loaded["DFM-GPS/selFieldCmd"] = nil
+      mapV.SFdone = false
+      mapV.needCalcXY = true
+   end
+   
+   if SF then return end
+
+   -- now ready to draw .. load the draw routines if needed
+   if not DR then
+      if mapV.monoTx then
+	 DR = require "DFM-GPS/drawMono"
+      else
+	 DR = require "DFM-GPS/drawColor"
+      end
+      DR.drawInit(mapV, nfz)
+      DR.setMAX(mapV)
+   end
+
+   if DR then
+      DR.readGPS(mapV)
+   end
+   
+   -- see if tele channels for tapes are defined .. don't load unless they are
+   -- drawTape routines called from tele closures
+   local needDT
+   needDT = DR.readTele(mapV)
+   if needDT and (not DT) then
+      DT = require "DFM-GPS/drawTape"
+   end
 end
 
 local function mapTele()
 
-   --print("mapTele")
-   
    if not mapV.initPos then
       lcd.drawText(0,10,"No GPS position", FONT_BIG)
       return
@@ -216,7 +233,11 @@ local function mapTele()
       return
    end
 
-   NF = DR.checkNoFly(settings, mapV, nfz, NF, monoTx)
+   if not NF then
+      NF = require "DFM-GPS/compGeo"
+   end
+   
+   DR.checkNoFly(mapV, nfz, NF)
 
    lcd.drawText(130, 145, DR.fieldStr(), FONT_MINI)
    
@@ -228,6 +249,9 @@ local function mapTele()
    if mapV.speed and DT then
       DT.drawTape(265, 0, 50, 130, mapV.speed, "Speed", "["..(mapV.spdUnit or "---").."]", false)
    end
+
+   lcd.drawText(250, 0, string.format("%.1f", collectgarbage("count")), FONT_MINI)   
+   
 end
 
 local function printTele()
@@ -235,11 +259,16 @@ local function printTele()
    local text, text2
 
    if subForm == 1 then
-      if settings.rotA then text = string.format("%d", math.deg(settings.rotA)) else text = "---" end
+      if mapV.settings.rotA then text = string.format("%d", math.deg(mapV.settings.rotA)) else
+	 text = "---" end
       text = string.format("Rot: %s  G: %d", text, mapV.gpsReads)
       lcd.drawText(210,120, text)
       if mapV.initPos then
-	 text, text2 = gps.getStrig(mapV.curPos)
+	 if mapV.curPos then
+	    text, text2 = gps.getStrig(mapV.curPos)
+	 else
+	    text, text2 = "---", "---"
+	 end
 	 lcd.drawText(0,120,"[" .. text .. "," .. text2 .. "]")
       else
 	 lcd.drawText(10,120,"-No GPS-")   
@@ -250,54 +279,47 @@ local function printTele()
 end
 
 local function init()
-   collectgarbage()
-   local aa1 = collectgarbage("count")
-   
-   local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI DS-14"}
-   local dev = system.getDeviceType()
-
-   monoTx = false
-   for _,v in ipairs(monoDev) do
-      if dev == v then monoTx = true break end
-   end
-
-   -- on emulator set to B+W color scheme to force Mono TX behavior
-   if select(2, system.getDeviceType()) == 1 then 
-      system.getSensors() -- needed to jumpstart emulator
-      if system.getProperty("Color") == 0 then
-	 monoTx = true
-      end
-   end
    
    local M = require "DFM-GPS/initCmd"
-   settings, sensIdPa, fields, writeBD, fileBD = M.initCmd(mapV, prefix)
-   unrequire("DFM-GPS/initCmd")
+   M.initCmd(mapV, fields, prefix)
    M = nil
+   package.loaded["DFM-GPS/initCmd"] = nil
    collectgarbage()
 
-   local aa2 = collectgarbage("count")
+   local s1,s2 = system.getInputs("P1", "P2")
    
-   if monoTx then
+   if (s1 < -0.8 and s2 < -0.8) or not mapV.sensIdPa or not
+   (mapV.sensIdPa.lat.SeId > 0 and mapV.sensIdPa.lat.SePa > 0 and mapV.sensIdPa.lng.SePa > 0) then
+
+      ST = require "DFM-GPS/selTeleCmd"
+      system.registerForm(2, 0, "DFM-GPS Telemetery Sensors",
+			  (function(x) return ST.selTele(mapV) end), nil, nil,
+			  (function(x)
+				print("tel form killed")
+				mapV.STdone = true
+				collectgarbage()
+      end) )
+   end
+
+   if mapV.monoTx then
       print("Mono")
-      settings.nfzBeeps = true
+      mapV.settings.nfzBeeps = true
+      --for the mono TX wait till last min to load drawing
+      --to give more mem space for telemetry command
       --DR = require "DFM-GPS/drawMono"
    else
       print("Color")
       DR = require "DFM-GPS/drawColor"
       DR.drawInit()
-      DR.setMAX(settings.maxRibbon, settings, mapV)
+      DR.setMAX(15, mapV)
    end
-
-   --DR = require "DFM-GPS/drawMono"
-   --DR.drawInit()
-   --DR.setMAX(settings.maxRibbon, settings, mapV)
 
    system.registerForm(1, MENU_APPS, "DFM-GPS", initForm, keyForm, printTele)
    system.registerTelemetry(1,"DFM-GPS Flight Display",4, mapTele)
 
    collectgarbage()
-   local aa3 = collectgarbage("count")
-   print("gc", aa1, aa2, aa3)
+
+   print("gc", collectgarbage("count"))
 
 end
 --------------------------------------------------------------------------------

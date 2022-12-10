@@ -1,6 +1,6 @@
 local M = {}
 
-function M.selTele(sensIdPa)
+function M.selTele(mapV)
 
    local telem
 
@@ -43,27 +43,27 @@ function M.selTele(sensIdPa)
    telem.Palist={0}
    readSensors(telem)
 
-   if not sensIdPa or next(sensIdPa) == nil then
-      sensIdPa = {}
+   if not mapV.sensIdPa or next(mapV.sensIdPa) == nil then
+      mapV.sensIdPa = {}
       for i in ipairs(sens) do
 	 local v = sens[i].var
-	 sensIdPa[v] = {}
-	 sensIdPa[v].Se   = 0
-	 sensIdPa[v].SeId = 0
-	 sensIdPa[v].SePa = 0
+	 mapV.sensIdPa[v] = {}
+	 mapV.sensIdPa[v].Se   = 0
+	 mapV.sensIdPa[v].SeId = 0
+	 mapV.sensIdPa[v].SePa = 0
       end
    end
 
-   form.setTitle("Telemetry Sensors")
+   --form.setTitle("Telemetry Sensors")
 
    for i in ipairs(sens) do
       form.addRow(2)
       form.addLabel({label=sens[i].label,width=140})
-      form.addSelectbox(telem.Lalist, sensIdPa[sens[i].var].Se, true,
-			(function(x) return telemChanged(x, sensIdPa, sens[i].var, telem) end),
+      form.addSelectbox(telem.Lalist, mapV.sensIdPa[sens[i].var].Se, true,
+			(function(x) return telemChanged(x, mapV.sensIdPa, sens[i].var, telem) end),
 			{width=180, alignRight=false})
    end
-   return sensIdPa
+   return
 
 end
 
