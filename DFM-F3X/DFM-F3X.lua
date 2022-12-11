@@ -419,7 +419,7 @@ local function loop()
 	    F3X.width = math.abs(cross[3].y - cross[1].y)
 	 end
       end
-      if F3X.flightMode ~= fm.Basic and loopV.perpB <= 20 and not preBeep and loopV.flightZone == 2 then
+      if F3X.flightMode ~= fm.Basic and loopV.perpB <= 30 and not preBeep and loopV.flightZone == 2 then
 	 if not swb or swb == 1 then
 	    system.playBeep(1,880,300)
 	    print("BeepBeepA", loopV.perpB, loopV.perpA)
@@ -456,7 +456,7 @@ local function loop()
 	    F3X.width = math.abs(cross[3].y - cross[1].y)
 	 end
       end
-      if F3X.flightMode ~= fm.Basic and loopV.perpA <= 20 and not preBeep and loopV.flightZone == 2 then
+      if F3X.flightMode ~= fm.Basic and loopV.perpA <= 30 and not preBeep and loopV.flightZone == 2 then
 	 if not swb or swb == 1 then
 	    system.playBeep(1,880,300)
 	    print("BeepBeepB", loopV.perpA, loopV.perpB)

@@ -1,0 +1,18 @@
+{
+  "author": "DFM",
+  "description": {
+    "en": "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM-Amix/DFM-Amix.html"
+  },
+  "hw": [
+    678,
+    679,
+    680
+  ],
+  "id": 0,
+  "name": {
+    "en": "DFM-GPS"
+  },
+  "previewIcon": "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png",
+  "version": "0.4",
+  "releaseDate": "Tue 29 Nov 2022 22:44:27 +0000"
+}

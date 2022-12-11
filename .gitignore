@@ -5,6 +5,7 @@
 *.csv
 *.out
 *.zip
+*.lux
 DS/
 ~DS/
 DFM-LSO/*.png
