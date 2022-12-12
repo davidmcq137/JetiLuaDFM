@@ -62,9 +62,6 @@ local function build_app(app)
    if not (app_settings[app] and app_settings[app].no_lc) then
      lua_artifact = string.format('%s.lc', app)
      make_lc(lua_source, lua_artifact)
-     -- local lc_out = io.open(lua_artifact, "wb")
-     -- lc_out:write(string.dump(app_chunk))
-     -- io.close(lc_out)
    else
      lua_artifact = string.format('%s.lua', app)
      if lua_source ~= lua_artifact then
@@ -77,15 +74,7 @@ local function build_app(app)
    for _, f in ipairs(modules) do
       v = string.format('%s/%s', app, f)
       if v:sub(-4) == ".lua" and v ~= lua_source then
-         -- local ch, err = loadfile(v)
-         -- if not ch then
-         --    print(string.format("Cannot load module %s: %s", v, err))
-         --    return nil
-         -- end
          make_lc(v, string.format("%s.lc", v:sub(1, -5)))
-         -- local lc_out = io.open(lc_artif, "wb")
-         -- lc_out:write(string.dump(ch))
-         -- io.close(lc_out)
       end
    end
 
