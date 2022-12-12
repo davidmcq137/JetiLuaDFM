@@ -35,6 +35,15 @@ local app_settings = {
   ['DFM-Maps'] = {no_lc = true},   
 }
 
+local function make_lc(lua_source, lc_out)
+   assert(
+      os.execute(
+         string.format('%sc -s -o %s %s',
+                       arg[-1],
+                       lc_out,
+                       lua_source)))
+end
+
 local function build_app(app)
    -- Find and load the lua source
    local lua_source = string.format('%s.lua', app)
@@ -52,9 +61,7 @@ local function build_app(app)
    local lua_artifact = nil
    if not (app_settings[app] and app_settings[app].no_lc) then
      lua_artifact = string.format('%s.lc', app)
-     local lc_out = io.open(lua_artifact, "wb")
-     lc_out:write(string.dump(app_chunk))
-     io.close(lc_out)
+     make_lc(lua_source, lua_artifact)
    else
      lua_artifact = string.format('%s.lua', app)
      if lua_source ~= lua_artifact then
@@ -67,15 +74,7 @@ local function build_app(app)
    for _, f in ipairs(modules) do
       v = string.format('%s/%s', app, f)
       if v:sub(-4) == ".lua" and v ~= lua_source then
-         local ch, err = loadfile(v)
-         if not ch then
-            print(string.format("Cannot load module %s: %s", v, err))
-            return nil
-         end
-         local lc_artif = string.format("%s.lc", v:sub(1, -5))
-         local lc_out = io.open(lc_artif, "wb")
-         lc_out:write(string.dump(ch))
-         io.close(lc_out)
+         make_lc(v, string.format("%s.lc", v:sub(1, -5)))
       end
    end
 
