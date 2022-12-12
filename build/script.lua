@@ -39,7 +39,7 @@ local function make_lc(lua_source, lc_out)
    assert(
       os.execute(
          string.format('%sc -s -o %s %s',
-                       arg[0],
+                       arg[-1],
                        lc_out,
                        lua_source)))
 end
