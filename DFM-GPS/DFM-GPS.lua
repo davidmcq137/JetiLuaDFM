@@ -16,7 +16,7 @@
 
 --]]
 
-local GPSVersion = "0.60"
+local GPSVersion = "0.7"
 local subForm = 0
 
 local mapV = {}
@@ -295,7 +295,7 @@ local function init()
       system.registerForm(2, 0, "DFM-GPS Telemetery Sensors",
 			  (function(x) return ST.selTele(mapV) end), nil, nil,
 			  (function(x)
-				print("tel form killed")
+				--print("tel form killed")
 				mapV.STdone = true
 				collectgarbage()
       end) )
