@@ -1,0 +1,32 @@
+#root {
+    /* display: grid; */
+    /* grid-template-columns: 1fr 1fr; */
+    /* grid-gap: 1em; */
+    display: flex;
+    
+}
+
+.input-pane {
+    display: flex;
+    flex-direction: column;
+}
+
+.output-pane {
+    display: flex;
+    flex-direction: column;
+}
+
+
+textarea.input {
+    box-sizing: border-box;
+    height: 100%;
+}
+
+canvas.output {
+    outline: 1px solid black;
+}
+
+#pngbutton {
+    width: fit-content;
+}
+

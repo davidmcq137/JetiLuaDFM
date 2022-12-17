@@ -9,7 +9,7 @@
    
 --]]
 
-local TimVVersion = "0.4"
+local TimVVersion = "0.5"
 local appStr = "Variable Countdown Timer"
 
 local savedForm, savedRow
@@ -85,7 +85,9 @@ local function changedVal(val, hm)
 	 form.reinit(1)
 	 return
       end
-      if string.find(tt.mode, "C") then
+      print("tt", tt)
+      print("tt.mode", tt.mode)
+      if tt.mode and string.find(tt.mode, "C") then
 	 system.messageBox("Throttle Control must be set -100 to 100")
 	 form.reinit(1)
 	 return

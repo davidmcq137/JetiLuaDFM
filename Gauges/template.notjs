@@ -1,0 +1,113 @@
+
+function go() {
+    let t = document.getElementById("input-json").value;
+    var obj = null, err = null;
+    
+    try {
+        obj = JSON.parse(t);
+    } catch (e) {
+        err = e;
+    }
+    if (obj) {
+        document.getElementById("json-parse-status").innerText = "JSON OK";
+        draw(obj);
+    } else if (err) {
+        document.getElementById("json-parse-status").innerText = ""+err;
+    } else {
+        document.getElementById("json-parse-status").innerText = "????";
+    }
+}
+
+function jsonchanged() {
+    go();
+}
+
+function savepng() {
+    let cvs = document.getElementById("output-canvas");
+    let imgurl = cvs.toDataURL("image/png");
+    var a = document.createElement("a");
+    a.href = imgurl;
+    a.download = "canvas.png";
+    a.click();
+}
+
+function arcsegment(ctx, x0, y0, ri, ro, a1, a2) {
+    ctx.beginPath();
+    ctx.arc(x0, y0, ro, a1, a2);
+    ctx.lineTo(x0 + ri * Math.cos(a2),
+	       y0 + ri * Math.sin(a2));
+    ctx.arc(x0, y0, ri, a2, a1, true);
+    ctx.lineTo(x0 + ro * Math.cos(a1),
+	       y0 + ro * Math.sin(a1));
+    
+    ctx.fill();
+}
+
+function roundlarge(ctx, x0, y0, ro, start, end, nseg) {
+    const ri = ro * 0.85;
+
+    ctx.font="" + 0.17 * ro + "px sans-serif"
+    
+    //ctx.font="12px sans-serif";
+    const fontoffset = 2;
+    
+    ctx.fillStyle = "black"
+    ctx.beginPath();
+    ctx.ellipse(x0, y0, ro, ro, 0, 0, 2*Math.PI)
+    ctx.fill();
+
+    for (var i = 0; i <= nseg; i++) {
+	if (i < 6) {
+	    ctx.fillStyle = "green";
+	} else if (i < 8) {
+	    ctx.fillStyle = "yellow";
+	} else {
+	    ctx.fillStyle = "red";
+	}
+	var delta = (end - start) / nseg;
+	
+	if (i < nseg) {
+	    var a1 = start + i * delta - 0*delta
+	    var a2 = start + i * delta + 1*delta;
+	    arcsegment(ctx, x0, y0, ri, ro, a1, a2 )
+	}
+
+	var a = start + i * delta
+
+	console.log(a);
+	
+	ctx.lineWidth=ro/23;
+	ctx.strokeStyle="white";
+	ctx.beginPath();
+	var rr = ri - (ro - ri) / 2;
+	ctx.moveTo(x0 + ro * Math.cos(a), y0 + ro * Math.sin(a))
+	ctx.lineTo(x0 + rr * Math.cos(a), y0 + rr * Math.sin(a))
+	ctx.stroke();
+
+	if (i % 2 == 0) {
+	    ctx.fillStyle = "white";
+	    ctx.textAlign = "center";
+	    var rt = ri - 1.5 * (ro - ri)
+	    ctx.fillText((i * 10).toString(),
+			 x0 + rt * Math.cos(a),
+			 y0 + rt * Math.sin(a) + fontoffset)
+	}
+    }
+}
+
+
+
+function draw(input) {
+    let cvs = document.getElementById("output-canvas");
+    let ctx = cvs.getContext("2d");
+
+    ctx.lineWidth = 3;
+    
+    roundlarge(ctx, input.x, input.y, 1.0 * input.radius, -1.25 * Math.PI, 0.25 * Math.PI, 10);
+    
+    roundlarge(ctx, input.x+160, input.y-10, input.radius, -1.0* Math.PI, 0.0 * Math.PI, 10);
+
+    roundlarge(ctx, input.x+160, input.y + 70, input.radius, -0.5* Math.PI, 0 * Math.PI, 6);        
+
+}
+

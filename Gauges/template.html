@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Canvas template</title>
+    <link rel="stylesheet" type="text/css" href="template.css"></link>
+  </head>
+  <body onload="go()">
+    <script src="template.notjs"></script>
+    <div id="root">
+      <div class="input-pane">
+        <textarea class="input" id="input-json" onchange="jsonchanged()">
+{"x": 80,
+ "y": 80,
+ "radius": 70}
+
+        </textarea>
+        
+        <button id="gobutton" onclick="go()">
+          Go
+        </button>
+
+        <span id="json-parse-status"> </span>
+
+      </div>
+      <div class="output-pane">
+        <canvas class="output" id="output-canvas" width="320" height="160" style="width: 320px; height: 160px"></canvas>
+
+        <button id="pngbutton" onclick="savepng()">
+          Save PNG
+        </button>
+
+      </div>
+    </div>
+  </body>
+</html>
