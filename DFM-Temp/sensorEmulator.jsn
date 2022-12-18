@@ -1,0 +1,112 @@
+[
+    {"id":10, "param": 0,"sensorName": "MFlow", "label": "Fuel"},
+    
+    {"id":10,
+     "param": 1,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "Fuel",
+     "luaExp":"P1(100)",
+     "label": "FuelPct",
+     "unit": "%"
+    },
+    
+    {"id":11, "param": 0,"sensorName": "Tach", "label": "Tach"},
+    
+    {"id":11,
+     "param": 1,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "Tach",
+     "luaExp":"P1(10)",
+     "label": "RPM",
+     "unit": ""
+    },
+    
+    {"id":11,
+     "param": 2,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "Tach",
+     "luaExp":"P2(10)",
+     "label": "RPM2",
+     "unit": ""
+    },
+
+    {"id":137, "param": 0,"sensorName": "SB-TEMP", "label": "TempSens"},
+
+    {"id":137,
+     "param": 1,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "SB-TEMP",
+     "luaExp":"P1(100)",
+     "label": "T1",
+     "unit": "°C"
+    },
+    {"id":137,
+     "param": 2,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "SB-TEMP",
+     "luaExp":"P2(100)",
+     "label": "T2",
+     "unit": "°C"
+    },
+    {"id":137,
+     "param": 3,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "SB-TEMP",
+     "luaExp":"P3(100)",
+     "label": "T3",
+     "unit": "°C"
+    },
+    {"id":137,
+     "param": 4,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "SB-TEMP",
+     "luaExp":"P4(100)",
+     "label": "T4",
+     "unit": "°C"
+    },
+    {"id":137,
+     "param": 5,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "SB-TEMP",
+     "luaExp":"P5(100)",
+     "label": "T5",
+     "unit": "°C"
+    },
+    {"id":137,
+     "param": 6,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "SB-TEMP",
+     "luaExp":"P6(100)",
+     "label": "T6",
+     "unit": "°C"
+    },
+    {"id":137,
+     "param": 7,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "SB-TEMP",
+     "luaExp":"P7(100)",
+     "label": "T7",
+     "unit": "°C"
+    },
+    {"id":137,
+     "param": 8,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "SB-TEMP",
+     "luaExp":"P8(100)",
+     "label": "T8",
+     "unit": "°C"
+    }
+    
+
+]

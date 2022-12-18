@@ -1,0 +1,12 @@
+{"Probes":
+[
+{"Name":"T1","Green":10,"Red":100,"Yellow":50},
+{"Name":"T2","Green":10,"Red":100,"Yellow":50},
+{"Name":"T3","Green":10,"Red":100,"Yellow":50},
+{"Name":"T4","Green":10,"Red":100,"Yellow":50},
+{"Name":"T5","Green":0,"Red":100,"Yellow":50},
+{"Name":"T6","Green":0,"Red":100,"Yellow":50},
+{"Name":"T7","Green":0,"Red":100,"Yellow":50},
+{"Name":"T8","Green":0,"Red":100,"Yellow":50}
+],
+"Type":"Histogram"}
