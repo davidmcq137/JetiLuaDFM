@@ -350,16 +350,16 @@ function arcsegment(ctx, x0, y0, ri, ro, a1, a2) {
 
 function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec) {
     const ri = ro * 0.85;
-    const fontScale = 0.17;
+    const fontScale = 0.2;
     
-    ctx.font="" + fontScale * ro + "px sans-serif"
+    ctx.font="bold " + fontScale * ro + "px sans-serif"
     
     const fontoffset = fontScale * ro / 4;
 
     var rainbow = new Rainbow();
 
     rainbow.setSpectrumByArray(spec); 
-    rainbow.setNumberRange(-1,nseg-1)
+    rainbow.setNumberRange(0,nseg-1)
 
     for (var i = 0; i <= nseg; i++) {
 
@@ -450,20 +450,136 @@ function quarterRoundGauge(ctx, x0, y0, ro, min, max, nseg, minmaj, spec) {
     roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec)
 }
 
+function roundedRect(ctx, x, y, w, h, r) {
+    console.log(r);
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y,   x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x,   y+h, r);
+    ctx.arcTo(x,   y+h, x,   y,   r);
+    ctx.arcTo(x,   y,   x+w, y,   r);
+    ctx.closePath();
+    ctx.fill()
+    
+}
+
+function textBox(ctx, x0, y0, w, hh, txt) {
+
+    var h
+    if (hh) {
+	h = hh;
+    } else {
+	h = w/4;
+    }
+
+    const fontScale = 0.22
+    ctx.font="bold " + fontScale * h + "px sans-serif"
+    ctx.fillStyle = "yellowgreen";
+    roundedRect(ctx, x0 - w/2, y0 - h/2, w, h, h/10);
+    if (!txt) {
+	ctx.fillStyle = "black";
+	ctx.textAlign = "center";
+	ctx.fillText("Hello World", x0, y0+2);
+    }
+}
+
+function horizontalBar(ctx, x0, y0, w, hh, min, max, nseg, minmaj, spec) {
+
+    var h
+    if (hh) {
+	h = hh;
+    } else {
+	h = w/4;
+    }
+
+    const start = x0 - w/2;
+    const end = x0 + w/2;
+    const hPad = h/5;
+
+    console.log(w,h, hh);
+    
+    ctx.fillStyle = "black";
+    ctx.fillRect(x0 - w/2 - hPad, y0 - h / 2, w+2*hPad, h)
+
+    const fontScale = 0.22;
+    ctx.font="bold " + fontScale * h + "px sans-serif"
+    const fontOffset = h/18;
+    
+    var rainbow = new Rainbow();
+    rainbow.setSpectrumByArray(spec); 
+    rainbow.setNumberRange(0,nseg-1)
+
+    const cellMult = 0.4;
+    const cellOff  = (1-cellMult)/2 * h;
+    console.log(cellOff);
+    
+    for (var i = 0; i <= nseg; i++) {
+	ctx.fillStyle = "#"+rainbow.colourAt(i);
+	var delta = w / nseg;
+	const a = start + i * delta;
+	
+	if (i < nseg) {
+	    var a1 = start + i * delta - 0*delta
+	    var a2 = start + i * delta + 1*delta;
+	    ctx.fillRect(a1, y0-h/2+cellOff, delta, cellMult*h)
+	    ctx.lineWidth = h / 60;	
+	    ctx.strokeStyle="white";
+	    ctx.beginPath();
+	    ctx.moveTo(a, y0 - h/2 + cellOff)
+	    ctx.lineTo(a, y0 + h/2 - cellOff)
+	    ctx.stroke();
+	}
+
+	if (i % minmaj == 0) {
+	    ctx.fillStyle = "white";	
+	    ctx.textAlign = "center";
+	    var val = Math.floor(min + i * (max - min) / nseg)
+	    ctx.fillText(val.toString(),
+			 a,
+			 y0 + h/2 - fontOffset)
+	    ctx.lineWidth = h / 23;	
+	    ctx.strokeStyle="white";
+	    ctx.beginPath();
+	    ctx.moveTo(a, y0 - h/2 + cellOff)
+	    ctx.lineTo(a, y0 + h/2 - cellOff)
+	    ctx.stroke();
+	}
+    }
+}
+
 function draw(input) {
     let cvs = document.getElementById("output-canvas");
     let ctx = cvs.getContext("2d");
 
-    ctx.fillStyle = "darkgray";
-    ctx.fillRect(0,0,320,160);
+    //ctx.fillStyle = "darkgray";
+    //ctx.fillRect(0,0,320,160);
+
+    var scale = 1;
     
-    roundGauge(ctx, input.x, input.y, 1.0 * input.radius, -100, 100, 32, 4,
+    textBox(ctx, 160, 135, 180, 35, "foo");
+
+    horizontalBar(ctx, 160, 100, 100, null, 0, 100, 16, 4, ["green", "yellow", "red"])
+
+    
+    roundGauge(ctx, 60, 60, 50, 0, 100, 20, 4,
+	       ['blue', 'blue']);
+    
+    roundGauge(ctx, 160, 45, 40, -100, 100, 32, 4,
 	       ['blue', 'springgreen', 'yellow', 'red']);
-    
-    halfRoundGauge(ctx, input.x+160, input.y-20, 0.8 * input.radius, 0, 100, 16, 4,
+
+    halfRoundGauge(ctx, 265, 50, 45, 0, 100, 16, 4,
 		   ['red', 'yellow', 'springgreen']);
+
+    halfRoundGauge(ctx, 265, 105, 45, 0, 100, 16, 4,
+		   ['red', 'yellow', 'springgreen']);    
+    /*
+
     
     quarterRoundGauge(ctx, input.x+160, input.y + 60, 0.8 * input.radius, 100, 0, 8, 4,
 		      ['springgreen','yellow', 'red']);
+    */
+    
 }
 

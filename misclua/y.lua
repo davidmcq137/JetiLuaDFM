@@ -1,4 +1,4 @@
-local img, gimg
+local img, gimg, cfimg
 
 local needle_poly_large = {
    {-1,0},
@@ -11,7 +11,7 @@ local needle_poly_large = {
    {1,0}
 }
 
-local function drawShape(col, row, shape, rotation)
+local function drawShape(col, row, shape, f, rotation)
 
    local sinShape, cosShape
    local ren = lcd.renderer()
@@ -21,8 +21,8 @@ local function drawShape(col, row, shape, rotation)
    ren:reset()
    for _, point in pairs(shape) do
       ren:addPoint(
-	 col + (point[1] * cosShape - point[2] * sinShape + 0.5),
-	 row + (point[1] * sinShape + point[2] * cosShape + 0.5)
+	 col + (f*point[1] * cosShape - f*point[2] * sinShape + 0.5),
+	 row + (f*point[1] * sinShape + f*point[2] * cosShape + 0.5)
       ) 
    end
    ren:renderPolygon()
@@ -34,8 +34,8 @@ end
 
 local function printForm()
 
-   if cfimg then lcd.drawImage( (320-cfimg.width) / 2, 0, cfimg) end
-   if gimg then lcd.drawImage( (320-gimg.width) / 2, 0, gimg) end
+   if cfimg then lcd.drawImage( (318-cfimg.width) / 2, 0, cfimg) end
+   if gimg then lcd.drawImage( (318-gimg.width) / 2, 0, gimg) end
 
    local ctl = system.getInputs("P5")
 
@@ -43,15 +43,32 @@ local function printForm()
 
    local rot = -0.75*math.pi * (1-ctl) + 0.75*math.pi*(ctl)
 
-   print("ctl, rot", ctl, math.deg(rot))
+   --print("ctl, rot", ctl, math.deg(rot))
+
+   --if true then return end
+      
+   lcd.setColor(255,255,255)
+
+   local factor = 0.7
+   drawShape(60,60, needle_poly_large, factor, rot + math.pi)
+
+   factor = 0.6
+   drawShape(160,45, needle_poly_large, factor, rot + math.pi)
+
+   factor = 0.65
+   drawShape(265,50, needle_poly_large, factor, rot + math.pi)
+   drawShape(265,105, needle_poly_large, factor, rot + math.pi)      
+
+   lcd.setColor(0,0,0)
+   local str = "Turbine status: Cooling"
+   lcd.drawText(160 - lcd.getTextWidth(FONT_BOLD, str)/2, 135 - lcd.getTextHeight(FONT_BOLD)/2, str, FONT_BOLD)
 
    lcd.setColor(255,255,255)
-   drawShape(80,80, needle_poly_large, rot + math.pi)
-   print("rot", math.deg(rot+math.pi))
-   local str = string.format("%.1f", ctl*100)
-   lcd.drawText(80 - lcd.getTextWidth(FONT_NORMAL, str)/2, 120, str)
+   --print("rot", math.deg(rot+math.pi))
+   str = string.format("%.1f", ctl*100)
+   lcd.drawText(60 - lcd.getTextWidth(FONT_MINI, str)/2, 90, str, FONT_MINI)
    str = "Power"
-   lcd.drawText(80 - lcd.getTextWidth(FONT_BOLD, str)/2, 137, str, FONT_BOLD)
+   lcd.drawText(60 - lcd.getTextWidth(FONT_NORMAL, str)/2, 100, str, FONT_NORMAL)
    --lcd.drawLine(80, 160, 80, 0)
    --lcd.drawLine(0, 80, 320,80)
    
@@ -61,10 +78,10 @@ local function init()
 
    print(system.registerTelemetry(1, "test window", 4, printForm))
 
-   cfimg = lcd.loadImage("Apps/misclua/cfimage.png")
+   cfimg = lcd.loadImage("Apps/Gauges/cfimage.png")
    print("cfimg=", cfimg)
    --gimg = lcd.loadImage("Apps/misclua/roundG.png")
-   gimg = lcd.loadImage("Apps/misclua/tripG.png")   
+   gimg = lcd.loadImage("Apps/Gauges/panel320.png")   
    print("gimg=", gimg)
    
 end
