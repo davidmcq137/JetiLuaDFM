@@ -1,5 +1,15 @@
 local img, gimg, cfimg
 
+local messages = { "Turbine status: Ready",
+		   "Turbine status: Starting",
+		   "Turbine status: Running",
+		   "Turbine status: Idle",
+		   "Turbine status: Cooling",
+		   "Turbine status: Off"}
+
+msgidx = 1
+nextTime =0
+
 local needle_poly_large = {
    {-1,0},
    {-2,1},
@@ -11,6 +21,12 @@ local needle_poly_large = {
    {1,0}
 }
 
+local hSlider = {
+   {0,0},
+   {6,6},
+   {-6,6}
+}
+
 local function drawShape(col, row, shape, f, rotation)
 
    local sinShape, cosShape
@@ -20,6 +36,7 @@ local function drawShape(col, row, shape, f, rotation)
    cosShape = math.cos(rotation)
    ren:reset()
    for _, point in pairs(shape) do
+      --print(col, row, f, point[1], point[2])
       ren:addPoint(
 	 col + (f*point[1] * cosShape - f*point[2] * sinShape + 0.5),
 	 row + (f*point[1] * sinShape + f*point[2] * cosShape + 0.5)
@@ -34,8 +51,10 @@ end
 
 local function printForm()
 
-   if cfimg then lcd.drawImage( (318-cfimg.width) / 2, 0, cfimg) end
-   if gimg then lcd.drawImage( (318-gimg.width) / 2, 0, gimg) end
+   if cfimg then lcd.drawImage(0, 0, cfimg) end
+   if gimg then lcd.drawImage(0, 0, gimg) end
+
+   --print("gimg width", gimg.width)
 
    local ctl = system.getInputs("P5")
 
@@ -57,11 +76,23 @@ local function printForm()
 
    factor = 0.65
    drawShape(265,50, needle_poly_large, factor, rot + math.pi)
-   drawShape(265,105, needle_poly_large, factor, rot + math.pi)      
+   drawShape(265,105, needle_poly_large, factor, rot + math.pi)   
 
+   local sld = system.getInputs("P6")
+   
+   factor=1.3
+   rot = 0.0
+   drawShape(160 +sld*50, 90, hSlider, factor, rot + math.pi)      
+   
    lcd.setColor(0,0,0)
-   local str = "Turbine status: Cooling"
-   lcd.drawText(160 - lcd.getTextWidth(FONT_BOLD, str)/2, 135 - lcd.getTextHeight(FONT_BOLD)/2, str, FONT_BOLD)
+   if system.getTimeCounter() > nextTime then
+      msgidx = msgidx + 1
+      if msgidx > #messages then msgidx = 1 end
+      nextTime = system.getTimeCounter() + 1000*2
+   end
+   
+   local str = messages[msgidx]
+   lcd.drawText(160 - lcd.getTextWidth(FONT_BOLD, str)/2, 140 - lcd.getTextHeight(FONT_BOLD)/2, str, FONT_BOLD)
 
    lcd.setColor(255,255,255)
    --print("rot", math.deg(rot+math.pi))

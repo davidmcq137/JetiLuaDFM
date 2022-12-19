@@ -350,7 +350,7 @@ function arcsegment(ctx, x0, y0, ri, ro, a1, a2) {
 
 function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec) {
     const ri = ro * 0.85;
-    const fontScale = 0.2;
+    const fontScale = 0.24;
     
     ctx.font="bold " + fontScale * ro + "px sans-serif"
     
@@ -465,7 +465,7 @@ function roundedRect(ctx, x, y, w, h, r) {
     
 }
 
-function textBox(ctx, x0, y0, w, hh, txt) {
+function textBox(ctx, x0, y0, w, hh) {
 
     var h
     if (hh) {
@@ -478,11 +478,6 @@ function textBox(ctx, x0, y0, w, hh, txt) {
     ctx.font="bold " + fontScale * h + "px sans-serif"
     ctx.fillStyle = "yellowgreen";
     roundedRect(ctx, x0 - w/2, y0 - h/2, w, h, h/10);
-    if (!txt) {
-	ctx.fillStyle = "black";
-	ctx.textAlign = "center";
-	ctx.fillText("Hello World", x0, y0+2);
-    }
 }
 
 function horizontalBar(ctx, x0, y0, w, hh, min, max, nseg, minmaj, spec) {
@@ -498,8 +493,6 @@ function horizontalBar(ctx, x0, y0, w, hh, min, max, nseg, minmaj, spec) {
     const end = x0 + w/2;
     const hPad = h/5;
 
-    console.log(w,h, hh);
-    
     ctx.fillStyle = "black";
     ctx.fillRect(x0 - w/2 - hPad, y0 - h / 2, w+2*hPad, h)
 
@@ -513,7 +506,6 @@ function horizontalBar(ctx, x0, y0, w, hh, min, max, nseg, minmaj, spec) {
 
     const cellMult = 0.4;
     const cellOff  = (1-cellMult)/2 * h;
-    console.log(cellOff);
     
     for (var i = 0; i <= nseg; i++) {
 	ctx.fillStyle = "#"+rainbow.colourAt(i);
@@ -549,37 +541,67 @@ function horizontalBar(ctx, x0, y0, w, hh, min, max, nseg, minmaj, spec) {
     }
 }
 
+//panelLight(ctx, 20, 140, 4, 'springgreen')
+
+function panelLight(ctx, x0, y0, radius, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.ellipse(x0, y0, radius, radius, 0, 0, Math.PI*2);
+    ctx.fill();
+}
+
 function draw(input) {
     let cvs = document.getElementById("output-canvas");
     let ctx = cvs.getContext("2d");
 
-    //ctx.fillStyle = "darkgray";
-    //ctx.fillRect(0,0,320,160);
-
     var scale = 1;
+    const ins = [];
+    var i
     
-    textBox(ctx, 160, 135, 180, 35, "foo");
+    ins[0] = {type:"textbox", x0:160, y0:140, width:180, height:30}
+    i = ins[0]    
+    textBox(ctx, i.x0, i.y0, i.width, i.height);
 
-    horizontalBar(ctx, 160, 100, 100, null, 0, 100, 16, 4, ["green", "yellow", "red"])
+    ins[1] = {type:"horizontalBar", x0:160, y0:100, height:100,
+		     width:40, min:0, max:100, divs:16, subdivs:4,
+		     spectrum:["red", "yellow", "green"]}
 
-    
-    roundGauge(ctx, 60, 60, 50, 0, 100, 20, 4,
-	       ['blue', 'blue']);
-    
-    roundGauge(ctx, 160, 45, 40, -100, 100, 32, 4,
-	       ['blue', 'springgreen', 'yellow', 'red']);
+    i = ins[1]
+    horizontalBar(ctx, i.x0, i.y0, i.height, i.width, i.min, i.max, i.divs, i.subdivs, i.spectrum)
 
-    halfRoundGauge(ctx, 265, 50, 45, 0, 100, 16, 4,
-		   ['red', 'yellow', 'springgreen']);
+    ins[2] = {type:"roundGauge", x0:60, y0:60, radius:50,
+		     min:0, max:100, divs:20, subdivs:4,
+		     spectrum:['blue', 'blue']}
+    i = ins[2]
+    roundGauge(ctx, i.x0, i.y0, i.radius, i.min, i.max, i.divs, i.subdivs, i.spectrum)
 
-    halfRoundGauge(ctx, 265, 105, 45, 0, 100, 16, 4,
-		   ['red', 'yellow', 'springgreen']);    
-    /*
+    ins[3] = {type:"roundGauge", x0:160, y0:45, radius:40,
+		     min:-100, max:100, divs:32, subdivs:4,
+		     spectrum:['blue', 'springgreen', 'yellow', 'red']}
+    i = ins[3]
+    roundGauge(ctx, i.x0, i.y0, i.radius, i.min, i.max, i.divs, i.subdivs, i.spectrum)
 
-    
-    quarterRoundGauge(ctx, input.x+160, input.y + 60, 0.8 * input.radius, 100, 0, 8, 4,
-		      ['springgreen','yellow', 'red']);
-    */
-    
+    ins[4] = {type:"roundGauge", x0:265, y0:50, radius:45,
+		     min:0, max:100, divs:16, subdivs:4,
+		     spectrum:['red', 'yellow', 'springgreen']}
+
+    i = ins[4]
+    halfRoundGauge(ctx, i.x0, i.y0, i.radius, i.min, i.max, i.divs, i.subdivs, i.spectrum)
+
+    ins[5] = {type:"roundGauge", x0:265, y0:105, radius:45,
+		     min:0, max:100, divs:16, subdivs:4,
+		     spectrum:['red', 'yellow', 'springgreen']}
+    i = ins[5]
+    halfRoundGauge(ctx, i.x0, i.y0, i.radius, i.min, i.max, i.divs, i.subdivs, i.spectrum)
+
+    //play around with "lights" on the panel .. using 3-green as an example
+
+    panelLight(ctx, 20, 145, 4, 'springgreen')
+    panelLight(ctx, 40, 145, 4, 'springgreen')
+    panelLight(ctx, 30, 130, 4, 'springgreen')
+
+    panelJSON = JSON.stringify(ins)
+    console.log(panelJSON)    
+
 }
 
