@@ -517,9 +517,9 @@ function draw(input) {
 
     const widgetFuncs = {textBox:textBox, horizontalBar:horizontalBar, roundGauge:roundGauge}
     
-    for (const i of input) {
-	if (widgetFuncs[i.type]) {
-	    widgetFuncs[i.type](ctx, i)
+    for (const inp of input) {
+	if (widgetFuncs[inp.type]) {
+	    widgetFuncs[inp.type](ctx, inp)
 	}
     }
 }
