@@ -114,7 +114,7 @@ local function init()
    --gimg = lcd.loadImage("Apps/misclua/roundG.png")
    gimg = lcd.loadImage("Apps/Gauges/panel320.png")   
    print("gimg=", gimg)
-   
+
 end
 
 return {init=init, loop=loop, author="DFM", version="1", name="y.lua"}

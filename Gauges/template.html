@@ -9,11 +9,92 @@
     <script src="template.notjs"></script>
     <div id="root">
       <div class="input-pane">
-        <textarea class="input" id="input-json" onchange="jsonchanged()">
-{"x": 80,
- "y": 80,
- "radius": 70}
-
+          <textarea class="input" id="input-json" onchange="jsonchanged()">
+[
+  {
+    "type": "textBox",
+    "x0": 160,
+    "y0": 140,
+    "width": 180,
+    "height": 30
+  },
+  {
+    "type": "horizontalBar",
+    "x0": 160,
+    "y0": 105,
+    "width": 110,
+    "height": 35,
+    "min": 0,
+    "max": 100,
+    "divs": 16,
+    "subdivs": 4,
+    "spectrum": [
+      "red",
+      "yellow",
+      "green"
+    ]
+  },
+  {
+    "type": "roundGauge",
+    "x0": 60,
+    "y0": 55,
+    "radius": 50,
+    "min": 0,
+    "max": 100,
+    "divs": 16,
+    "subdivs": 4,
+    "spectrum": [
+      "blue",
+      "blue"
+    ]
+  },
+  {
+    "type": "roundGauge",
+    "x0": 160,
+    "y0": 45,
+    "radius": 40,
+    "min": -100,
+    "max": 100,
+    "divs": 32,
+    "subdivs": 4,
+    "spectrum": [
+      "blue",
+      "springgreen",
+      "yellow",
+      "red"
+    ]
+  },
+  {
+    "type": "roundGauge",
+    "x0": 280,
+    "y0": 35,
+    "radius": 35,
+    "min": 0,
+    "max": 100,
+    "divs": 16,
+    "subdivs": 4,
+    "spectrum": [
+      "red",
+      "yellow",
+      "springgreen"
+    ]
+  },
+  {
+    "type": "roundGauge",
+    "x0": 280,
+    "y0": 105,
+    "radius": 35,
+    "min": 0,
+    "max": 100,
+    "divs": 16,
+    "subdivs": 4,
+    "spectrum": [
+      "red",
+      "yellow",
+      "springgreen"
+    ]
+  }
+]
         </textarea>
         
         <button id="gobutton" onclick="go()">

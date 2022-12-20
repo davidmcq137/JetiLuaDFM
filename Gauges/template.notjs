@@ -351,7 +351,7 @@ function arcsegment(ctx, x0, y0, ri, ro, a1, a2) {
 function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec) {
     const ri = ro * 0.85;
     const fontScale = 0.24;
-    
+
     ctx.font="bold " + fontScale * ro + "px sans-serif"
     
     const fontoffset = fontScale * ro / 4;
@@ -375,7 +375,7 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec) {
 
 	var a = start + i * delta
 
-	ctx.lineWidth=ro/46;	
+	ctx.lineWidth = ro / 46;	
 	ctx.strokeStyle="white";
 
 	ctx.beginPath();
@@ -385,7 +385,7 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec) {
 
 	const label2C = 1.6
 	
-	if (i % minmaj == 0) {
+	if (minmaj > 0 && i % minmaj == 0) {
 	    ctx.fillStyle = "white";
 	    ctx.textAlign = "center";
 	    var rt = ri - label2C * (ro - ri)
@@ -404,54 +404,22 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec) {
     }
 }
 
-function roundGauge(ctx, x0, y0, ro, min, max, nseg, minmaj, spec) {
+function roundGauge(ctx, arr) {
+
     const start = -1.25 * Math.PI;
     const end = 0.25 * Math.PI;
     const eTrim = 0.99;
     
     ctx.fillStyle = "black";
     ctx.beginPath();
-    ctx.ellipse(x0, y0, ro * eTrim, ro * eTrim, 0, 0, 2*Math.PI);
+    ctx.ellipse(arr.x0, arr.y0, arr.radius * eTrim, arr.radius * eTrim, 0, 0, 2*Math.PI);
     ctx.fill();
 
-    roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec);
-}
-
-function halfRoundGauge(ctx, x0, y0, ro, min, max, nseg, minmaj, spec) {
-    const start = -Math.PI
-    const end = 0
-    const ff = 5
-    const eTrim = 0.99
-    ctx.fillStyle = "black"
-    ctx.fillRect(x0-ro, y0, 2*ro, ro/ff)
-
-    ctx.beginPath();
-    ctx.ellipse(x0, y0, ro * eTrim, ro * eTrim, 0, start, end)
-    ctx.fill();
-
-    roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec)
-}
-
-function quarterRoundGauge(ctx, x0, y0, ro, min, max, nseg, minmaj, spec) {
-    const start = -Math.PI / 2
-    const end = 0
-    const ff = 5
-    const eTrim = 0.99
-    
-    ctx.fillStyle = "black"
-    ctx.fillRect(x0 - ro / ff, y0 - ro, ro / ff, ro)
-    ctx.fillRect(x0- ro / ff, y0 + ro / ff, ro + ro / ff, -ro / ff)
-
-    ctx.beginPath();
-    ctx.ellipse(x0, y0, ro * eTrim, ro * eTrim, 0, start, end)
-    ctx.lineTo(x0, y0)
-    ctx.fill();
-
-    roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec)
+    roundG(ctx, arr.x0, arr.y0, arr.radius, start, end, arr.min, arr.max,
+	   arr.divs, arr.subdivs, arr.spectrum);
 }
 
 function roundedRect(ctx, x, y, w, h, r) {
-    console.log(r);
     if (w < 2 * r) r = w / 2;
     if (h < 2 * r) r = h / 2;
     ctx.beginPath();
@@ -465,83 +433,76 @@ function roundedRect(ctx, x, y, w, h, r) {
     
 }
 
-function textBox(ctx, x0, y0, w, hh) {
-
+function textBox(ctx, arr) { 
     var h
-    if (hh) {
-	h = hh;
+    if (arr.height) {
+	h = arr.height;
     } else {
 	h = w/4;
     }
-
     const fontScale = 0.22
     ctx.font="bold " + fontScale * h + "px sans-serif"
     ctx.fillStyle = "yellowgreen";
-    roundedRect(ctx, x0 - w/2, y0 - h/2, w, h, h/10);
+    roundedRect(ctx, arr.x0 - arr.width/2, arr.y0 - h/2, arr.width, h, h/10);
 }
 
-function horizontalBar(ctx, x0, y0, w, hh, min, max, nseg, minmaj, spec) {
+function horizontalBar(ctx, arr) {
 
-    var h
-    if (hh) {
-	h = hh;
-    } else {
-	h = w/4;
-    }
+    const hPad = arr.height / 4;
+    const vPad = arr.height / 8;
+    const start = arr.x0 - arr.width / 2 + hPad;
+    const end = arr.x0 + arr.width / 2 - hPad;
 
-    const start = x0 - w/2;
-    const end = x0 + w/2;
-    const hPad = h/5;
+    const h = arr.height - 2 * vPad;
+    const w = arr.width - 2 * hPad;
 
     ctx.fillStyle = "black";
-    ctx.fillRect(x0 - w/2 - hPad, y0 - h / 2, w+2*hPad, h)
+    ctx.fillRect(arr.x0 - arr.width / 2, arr.y0 - arr.height / 2, arr.width, arr.height)
 
-    const fontScale = 0.22;
-    ctx.font="bold " + fontScale * h + "px sans-serif"
-    const fontOffset = h/18;
+    const fontScale = 0.25;
+    ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
+    const fontOffset = 0.16 * arr.height
     
     var rainbow = new Rainbow();
-    rainbow.setSpectrumByArray(spec); 
-    rainbow.setNumberRange(0,nseg-1)
+    rainbow.setSpectrumByArray(arr.spectrum); 
+    rainbow.setNumberRange(0,arr.divs-1)
 
     const cellMult = 0.4;
-    const cellOff  = (1-cellMult)/2 * h;
+    const cellOff  = (1 - cellMult) / 2 * h;
     
-    for (var i = 0; i <= nseg; i++) {
-	ctx.fillStyle = "#"+rainbow.colourAt(i);
-	var delta = w / nseg;
+    for (var i = 0; i <= arr.divs; i++) {
+	ctx.fillStyle = "#" + rainbow.colourAt(i);
+	var delta = (arr.width - 2*hPad) / arr.divs;
 	const a = start + i * delta;
 	
-	if (i < nseg) {
-	    var a1 = start + i * delta - 0*delta
-	    var a2 = start + i * delta + 1*delta;
-	    ctx.fillRect(a1, y0-h/2+cellOff, delta, cellMult*h)
+	if (i < arr.divs) {
+	    var a1 = start + i * delta - 0 * delta
+	    var a2 = start + i * delta + 1 * delta;
+	    ctx.fillRect(a1, arr.y0 - h / 2 + cellOff, delta, cellMult * h)
 	    ctx.lineWidth = h / 60;	
 	    ctx.strokeStyle="white";
 	    ctx.beginPath();
-	    ctx.moveTo(a, y0 - h/2 + cellOff)
-	    ctx.lineTo(a, y0 + h/2 - cellOff)
+	    ctx.moveTo(a, arr.y0 - h / 2 + cellOff)
+	    ctx.lineTo(a, arr.y0 + h / 2 - cellOff)
 	    ctx.stroke();
 	}
 
-	if (i % minmaj == 0) {
+	if (arr.subdivs > 0 && i % arr.subdivs == 0) {
 	    ctx.fillStyle = "white";	
 	    ctx.textAlign = "center";
-	    var val = Math.floor(min + i * (max - min) / nseg)
+	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / arr.divs)
 	    ctx.fillText(val.toString(),
 			 a,
-			 y0 + h/2 - fontOffset)
+			 arr.y0 - h/2 + fontOffset)
 	    ctx.lineWidth = h / 23;	
 	    ctx.strokeStyle="white";
 	    ctx.beginPath();
-	    ctx.moveTo(a, y0 - h/2 + cellOff)
-	    ctx.lineTo(a, y0 + h/2 - cellOff)
+	    ctx.moveTo(a, arr.y0 - h / 2 + cellOff)
+	    ctx.lineTo(a, arr.y0 + h / 2  - cellOff)
 	    ctx.stroke();
 	}
     }
 }
-
-//panelLight(ctx, 20, 140, 4, 'springgreen')
 
 function panelLight(ctx, x0, y0, radius, color) {
     ctx.fillStyle = color;
@@ -554,54 +515,12 @@ function draw(input) {
     let cvs = document.getElementById("output-canvas");
     let ctx = cvs.getContext("2d");
 
-    var scale = 1;
-    const ins = [];
-    var i
+    const widgetFuncs = {textBox:textBox, horizontalBar:horizontalBar, roundGauge:roundGauge}
     
-    ins[0] = {type:"textbox", x0:160, y0:140, width:180, height:30}
-    i = ins[0]    
-    textBox(ctx, i.x0, i.y0, i.width, i.height);
-
-    ins[1] = {type:"horizontalBar", x0:160, y0:100, height:100,
-		     width:40, min:0, max:100, divs:16, subdivs:4,
-		     spectrum:["red", "yellow", "green"]}
-
-    i = ins[1]
-    horizontalBar(ctx, i.x0, i.y0, i.height, i.width, i.min, i.max, i.divs, i.subdivs, i.spectrum)
-
-    ins[2] = {type:"roundGauge", x0:60, y0:60, radius:50,
-		     min:0, max:100, divs:20, subdivs:4,
-		     spectrum:['blue', 'blue']}
-    i = ins[2]
-    roundGauge(ctx, i.x0, i.y0, i.radius, i.min, i.max, i.divs, i.subdivs, i.spectrum)
-
-    ins[3] = {type:"roundGauge", x0:160, y0:45, radius:40,
-		     min:-100, max:100, divs:32, subdivs:4,
-		     spectrum:['blue', 'springgreen', 'yellow', 'red']}
-    i = ins[3]
-    roundGauge(ctx, i.x0, i.y0, i.radius, i.min, i.max, i.divs, i.subdivs, i.spectrum)
-
-    ins[4] = {type:"roundGauge", x0:265, y0:50, radius:45,
-		     min:0, max:100, divs:16, subdivs:4,
-		     spectrum:['red', 'yellow', 'springgreen']}
-
-    i = ins[4]
-    halfRoundGauge(ctx, i.x0, i.y0, i.radius, i.min, i.max, i.divs, i.subdivs, i.spectrum)
-
-    ins[5] = {type:"roundGauge", x0:265, y0:105, radius:45,
-		     min:0, max:100, divs:16, subdivs:4,
-		     spectrum:['red', 'yellow', 'springgreen']}
-    i = ins[5]
-    halfRoundGauge(ctx, i.x0, i.y0, i.radius, i.min, i.max, i.divs, i.subdivs, i.spectrum)
-
-    //play around with "lights" on the panel .. using 3-green as an example
-
-    panelLight(ctx, 20, 145, 4, 'springgreen')
-    panelLight(ctx, 40, 145, 4, 'springgreen')
-    panelLight(ctx, 30, 130, 4, 'springgreen')
-
-    panelJSON = JSON.stringify(ins)
-    console.log(panelJSON)    
-
+    for (const i of input) {
+	if (widgetFuncs[i.type]) {
+	    widgetFuncs[i.type](ctx, i)
+	}
+    }
 }
 
