@@ -1,0 +1,40 @@
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #000;
+    color: #fff;
+    font-family: sans-serif;
+}
+
+
+.container {
+    display: grid;
+    grid-template-columns: repeat(3, min-content);
+    gap: 5ex;
+}
+
+.onegauge {
+    display: grid;
+    grid-template-columns: minmax(40ex, min-content) 1fr;
+    align-items: center;
+    justify-items: center;
+    /* outline: 1px solid peachpuff; */
+    /* margin-bottom: 1ex; */
+    padding: 1ex;
+    /* border: 2px solid peachpuff; */
+    /* resize: both; */
+    /* overflow: auto; */
+}
+
+.onegauge:nth-of-type(odd) {
+    background-color: #111;
+}
+
+.sliders {
+    display: grid;
+    grid-template-columns: min-content min-content;
+    gap: 1ex;
+    align-items: center;
+}
+
