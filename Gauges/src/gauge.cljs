@@ -4,58 +4,7 @@
    [clojure.string :as string]
    [rum.core :as rum]))
 
-(def static-input-data
-  [{"type" "textBox"
-    "x0" 160
-    "y0" 140
-    "width" 180
-    "height" 30}
-   {"type" "horizontalBar"
-    "x0" 160
-    "y0" 105
-    "width" 110
-    "height" 35
-    "min" 0
-    "max" 100
-    "divs" 16
-    "subdivs" 4
-    "spectrum" ["red" "yellow" "green"]}
-   {"type" "roundGauge"
-    "x0" 60
-    "y0" 55
-    "radius" 50
-    "min" 0
-    "max" 100
-    "divs" 16
-    "subdivs" 4
-    "spectrum" ["blue" "blue"]}
-   {"type" "roundGauge"
-    "x0" 160
-    "y0" 45
-    "radius" 40
-    "min" -100
-    "max" 100
-    "divs" 32
-    "subdivs" 4
-    "spectrum" ["blue" "springgreen" "yellow" "red"]}
-   {"type" "roundGauge"
-    "x0" 280
-    "y0" 35
-    "radius" 35
-    "min" 0
-    "max" 100
-    "divs" 16
-    "subdivs" 4
-    "spectrum" ["red" "yellow" "springgreen"]}
-   {"type" "roundGauge"
-    "x0" 280
-    "y0" 105
-    "radius" 35
-    "min" 0
-    "max" 100
-    "divs" 16
-    "subdivs" 4
-    "spectrum" ["red" "yellow" "springgreen"]}])
+(def static-input-data [])
 
 (def db (atom {}))
 
@@ -286,5 +235,11 @@
 
 (defn  ^:dev/after-load init []
   (let [el (.getElementById js/document "root")]
-    (render-gauges!)
+    (-> (js/fetch "/gauges.json")
+        (.then (fn [fr] (.json fr)))
+        (.then (fn [jd]
+                 (reset! db
+                         {:gauges (zipmap (range)
+                                          (map render-gauge* (js->clj jd)))}))))
+
     (rum/mount (root) el)))

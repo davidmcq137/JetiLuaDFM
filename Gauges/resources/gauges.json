@@ -1,0 +1,85 @@
+[
+  {
+    "type": "textBox",
+    "x0": 160,
+    "y0": 140,
+    "width": 180,
+    "height": 30
+  },
+  {
+    "min": 0,
+    "width": 110,
+    "spectrum": [
+      "red",
+      "yellow",
+      "green"
+    ],
+    "height": 35,
+    "y0": 105,
+    "max": 100,
+    "x0": 160,
+    "divs": 16,
+    "subdivs": 4,
+    "type": "horizontalBar"
+  },
+  {
+    "min": 0,
+    "spectrum": [
+      "blue",
+      "blue"
+    ],
+    "y0": 55,
+    "max": 100,
+    "radius": 50,
+    "x0": 60,
+    "divs": 16,
+    "subdivs": 4,
+    "type": "roundGauge"
+  },
+  {
+    "min": -100,
+    "spectrum": [
+      "blue",
+      "springgreen",
+      "yellow",
+      "red"
+    ],
+    "y0": 45,
+    "max": 100,
+    "radius": 40,
+    "x0": 160,
+    "divs": 32,
+    "subdivs": 4,
+    "type": "roundGauge"
+  },
+  {
+    "min": 0,
+    "spectrum": [
+      "red",
+      "yellow",
+      "springgreen"
+    ],
+    "y0": 35,
+    "max": 100,
+    "radius": 35,
+    "x0": 280,
+    "divs": 16,
+    "subdivs": 4,
+    "type": "roundGauge"
+  },
+  {
+    "min": 0,
+    "spectrum": [
+      "red",
+      "yellow",
+      "springgreen"
+    ],
+    "y0": 105,
+    "max": 100,
+    "radius": 35,
+    "x0": 280,
+    "divs": 16,
+    "subdivs": 4,
+    "type": "roundGauge"
+  }
+]
