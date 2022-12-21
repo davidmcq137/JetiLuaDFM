@@ -414,8 +414,11 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, value
     if (value) {
 	ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
 	ctx.fillText(parseFloat(value).toFixed(1), x0, y0 + 0.3 * ro);
-	
-	var angle = Math.PI / 2.0;
+
+	var frac = Math.max(Math.min( (value - min) / (max - min), 1), 0);
+	//frac = 0.5;
+	console.log(value, min, max, frac, start, end, start+frac*(end-start));
+	var angle = start + frac * (end - start) - Math.PI/2;
 	
 	ctx.fillStyle = "white";
 	ctx.beginPath();
