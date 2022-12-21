@@ -59,7 +59,7 @@ local function drawShape(col, row, shape, f, rotation)
 
    local sinShape, cosShape
    local ren = lcd.renderer()
-   local fw = f^0.7
+   local fw = f^0.55
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
    ren:reset()
@@ -72,11 +72,12 @@ local function drawShape(col, row, shape, f, rotation)
    ren:renderPolygon()
 end
 
+
 local function loop()
 
 end
 
-local function printForm()
+local function printForm(wi, he)
 
    if InsP.backImg  then lcd.drawImage(0, 0, InsP.backImg) end
    if InsP.panelImg then lcd.drawImage(0, 0, InsP.panelImg) end
@@ -94,7 +95,18 @@ local function printForm()
       if widget.type == "roundGauge" then
 	 lcd.setColor(255,255,255)
 	 factor = widget.radius / 65.0
-	 	 drawShape(widget.x0, widget.y0, needle_poly_large, factor, rot + math.pi)
+	 drawShape(widget.x0, widget.y0, needle_poly_large, factor, rot + math.pi)
+	 local val = widget.min + (widget.max-widget.min) * ctl
+	 if widget.radius > 30 then
+	    drawTextCenter(widget.x0, widget.y0 + 1.0 * widget.radius - 15, "Testing", FONT_NORMAL)
+	    --rawTextCenter(widget.x0, widget.y0 + 1.0 * widget.radius, "(mA)", FONT_MINI)
+	    drawTextCenter(widget.x0, widget.y0 + 0.17 * widget.radius,
+			   string.format("%.1f", val), FONT_MINI)
+	 elseif widget.radius >= 20 then
+	    drawTextCenter(widget.x0, widget.y0 + 0.25 * widget.radius,
+			   string.format("%.1f", val), FONT_MINI)	    
+	    drawTextCenter(widget.x0, widget.y0 + 1.0 * widget.radius - 8, "Test", FONT_MINI)
+	 end
 
       elseif widget.type == "horizontalBar" then
 
@@ -129,6 +141,12 @@ local function printForm()
    end
 end
 
+local function prtForm(w,h)
+   print(w,h)
+   printForm(w,h)
+   form.setTitle("")
+end
+
 local function init()
 
    -- first populate the table with all the panel json files
@@ -144,7 +162,7 @@ local function init()
 	    local ff = path .. "/" .. fn .. "." .. ext
 	    local file = io.open(ff)
 	    if file then
-	       print("inserting panel", fn)
+	       --print("inserting panel", fn)
 	       table.insert(InsP.panels, fn)
 	       io.close(file)
 	    end
@@ -159,12 +177,13 @@ local function init()
    fn = pDir .. "/panel320.jsn"
    local file = io.readall(fn)
    InsP.panels[1] = json.decode(file)
+   
    InsP.panelImg = lcd.loadImage(pDir .. "/panel320.png")
    InsP.backImg = lcd.loadImage(pDir .. "/cfimage.png")
 
    readSensors(InsP)
 
-   system.registerForm(1, MENU_APPS, "Instrument Panel", initForm, keyForm)
+   system.registerForm(1, MENU_APPS, "Instrument Panel", initForm, keyForm, prtForm)
    system.registerTelemetry(1, "Instrument Panel", 4, printForm)
 
 end

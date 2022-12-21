@@ -456,6 +456,9 @@ function horizontalBar(ctx, arr) {
     const h = arr.height - 2 * vPad;
     const w = arr.width - 2 * hPad;
 
+    arr.barwidth = start;
+    arr.barheight = end;
+    
     ctx.fillStyle = "black";
     ctx.fillRect(arr.x0 - arr.width / 2, arr.y0 - arr.height / 2, arr.width, arr.height)
 
