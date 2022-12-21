@@ -1,0 +1,12 @@
+{:source-paths ["src"]
+ :jvm-opts ["-Xmx1184M"]
+ :dependencies [[rum/rum "0.12.6"]]
+ :dev-http {9907 "resources/"}
+ :nrepl false
+ ;; :js-options {:js-package-dirs ["external/npm/node_modules"]}
+ :js-options {:js-package-dirs ["node_modules"]}
+ :http {:port 9899}
+ :builds {:br {:target :browser
+               :output-dir "resources/js"
+               :modules {:main {:init-fn gauge/init}}
+               :release {:compiler-options {:optimizations :advanced}}}}}
