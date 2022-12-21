@@ -515,6 +515,10 @@ function draw(input) {
     let cvs = document.getElementById("output-canvas");
     let ctx = cvs.getContext("2d");
 
+    renderGauges(ctx, input);
+}
+
+function renderGauges(ctx, input) {
     const widgetFuncs = {textBox:textBox, horizontalBar:horizontalBar, roundGauge:roundGauge}
     
     for (const inp of input) {
@@ -523,4 +527,3 @@ function draw(input) {
 	}
     }
 }
-
