@@ -344,36 +344,62 @@ function arcsegment(ctx, x0, y0, ri, ro, a1, a2) {
     ctx.arc(x0, y0, ri, a2, a1, true);
     ctx.lineTo(x0 + ro * Math.cos(a1),
 	       y0 + ro * Math.sin(a1));
-    
     ctx.fill();
 }
 
-function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, value, label) {
+function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, colors, value, label) {
     const ri = ro * 0.85;
     const fontScale = 0.24;
+    var arrR = {};
+    
     needle = [ {x:-1,y:0}, {x:-2,y:1}, {x:-4,y:4}, {x:-1,y:58},
 	       {x:1,y:58}, {x:4, y:4}, {x:2, y:1}, {x:1,y:0} ]
     
     ctx.font="bold " + fontScale * ro + "px sans-serif"
     const fontoffset = fontScale * ro / 4;
-    
-    var rainbow = new Rainbow();
-    rainbow.setSpectrumByArray(spec); 
-    rainbow.setNumberRange(0,nseg-1)
+
+    if (spec) {
+	var rainbow = new Rainbow();
+	rainbow.setSpectrumByArray(spec); 
+	rainbow.setNumberRange(0,nseg-1)
+    }
+
+    if (colors) {
+	// setup for colorvals if needed
+    }
 
     for (let i = 0; i <= nseg; i++) {
-
-	ctx.fillStyle = "#"+rainbow.colourAt(i);
 	
 	var delta = (end - start) / nseg;
-	
+	var a = start + i * delta
+
+	if (spec) {
+	    ctx.fillStyle = "#"+rainbow.colourAt(i);
+	} else if (colors) {
+	    const cl = colors.length - 1;
+	    var aFrac = (a - start) / (end - start)
+	    var val = min + aFrac * (max - min)
+	    if (val < colors[0].val) {
+		ctx.fillStyle = colors[0].color
+	    } else if (val >= colors[cl].color) {
+		ctx.fillStyle = colors[cl].color
+	    } else {
+		for (let i = 1; i <= cl; i++) {
+		    if (val >= colors[i-1].val && val < colors[i].val) {
+			ctx.fillStyle = colors[i].color;
+			break;
+		    }
+		}
+	    }
+	} else {
+	    ctx.fillStyle = "white";
+	}
+
 	if (i < nseg) {
 	    var a1 = start + i * delta - 0*delta
 	    var a2 = start + i * delta + 1*delta;
 	    arcsegment(ctx, x0, y0, ri, ro, a1, a2 )
 	}
-
-	var a = start + i * delta
 
 	ctx.lineWidth = ro / 46;	
 	ctx.strokeStyle="white";
@@ -405,31 +431,30 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, value
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
 
-    ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
-
     if (label) {
-	ctx.fillText(label, x0, y0 + 0.90 * ro);
+	ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+	arrR.xL = x0;
+	arrR.yL = y0 + 0.90 * ro;
+	ctx.fillText(label, arrR.xL, arrR.yL);
     }
 
     if (value) {
 	ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
-	ctx.fillText(parseFloat(value).toFixed(1), x0, y0 + 0.3 * ro);
-
+	arrR.xV = x0;
+	arrR.yV = y0 + 0.3 * ro;
+	ctx.fillText(parseFloat(value).toFixed(1), arrR.xV, arrR.yV);
 	var frac = Math.max(Math.min( (value - min) / (max - min), 1), 0);
-	//frac = 0.5;
-	console.log(value, min, max, frac, start, end, start+frac*(end-start));
 	var angle = start + frac * (end - start) - Math.PI/2;
-	
 	ctx.fillStyle = "white";
 	ctx.beginPath();
 	let f = 0.90 * ro / 58;
 	for (let k = 0, len = needle.length; k < len; k++ ) {
 	    ctx.lineTo(x0 + f * needle[k].x * Math.cos(angle) - f * needle[k].y * Math.sin(angle),
 		       y0 + f * needle[k].x * Math.sin(angle) + f * needle[k].y * Math.cos(angle))
-	    
 	}
 	ctx.fill();
     }
+    return JSON.stringify(arrR);
 }
 
 function roundGauge(ctx, arr) {
@@ -443,8 +468,10 @@ function roundGauge(ctx, arr) {
     ctx.ellipse(arr.x0, arr.y0, arr.radius * eTrim, arr.radius * eTrim, 0, 0, 2*Math.PI);
     ctx.fill();
 
-    roundG(ctx, arr.x0, arr.y0, arr.radius, start, end, arr.min, arr.max,
-	   arr.divs, arr.subdivs, arr.spectrum, arr.value, arr.label);
+    return JSON.stringify(roundG(ctx, arr.x0, arr.y0, arr.radius, start, end, arr.min, arr.max,
+				 arr.divs, arr.subdivs, arr.spectrum, arr.colorvals,
+				 arr.value, arr.label));
+
 }
 
 function roundedRect(ctx, x, y, w, h, r) {
@@ -462,37 +489,49 @@ function roundedRect(ctx, x, y, w, h, r) {
 }
 
 function textBox(ctx, arr) { 
+    var arrR = {}
     var h
     if (arr.height) {
 	h = arr.height;
     } else {
 	h = w/4;
     }
-    const fontScale = 0.22
+    const fontScale = 0.4
+    const fontoffset = fontScale * arr.height / 4;
     ctx.font="bold " + fontScale * h + "px sans-serif"
     ctx.fillStyle = "yellowgreen";
     roundedRect(ctx, arr.x0 - arr.width/2, arr.y0 - h/2, arr.width, h, h/10);
+    ctx.fillStyle = "black";
+    ctx.textAlign = "center";
+    if (arr.label) {
+	ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
+	arrR.xL = arr.x0;
+	arrR.yL = arr.y0 + fontoffset;
+	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+    }
+    return JSON.stringify(arrR);
 }
 
 function horizontalBar(ctx, arr) {
 
     const hPad = arr.height / 4;
     const vPad = arr.height / 8;
-    const start = arr.x0 - arr.width / 2 + hPad;
-    const end = arr.x0 + arr.width / 2 - hPad;
-
     const h = arr.height - 2 * vPad;
     const w = arr.width - 2 * hPad;
+    const start = arr.x0 - w / 2 //arr.width / 2 + hPad;
+    const end = arr.x0 + w / 2 //arr.width / 2 - hPad;
 
-    arr.barwidth = start;
-    arr.barheight = end;
+    var arrR = {};
+    
+    arrR.barW = w;
+    arrR.barH = h;
     
     ctx.fillStyle = "black";
     ctx.fillRect(arr.x0 - arr.width / 2, arr.y0 - arr.height / 2, arr.width, arr.height)
 
     const fontScale = 0.25;
     ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
-    const fontOffset = 0.16 * arr.height
+    const fontoffset = 0.16 * arr.height
     
     var rainbow = new Rainbow();
     rainbow.setSpectrumByArray(arr.spectrum); 
@@ -524,7 +563,7 @@ function horizontalBar(ctx, arr) {
 	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / arr.divs)
 	    ctx.fillText(val.toString(),
 			 a,
-			 arr.y0 - h/2 + fontOffset)
+			 arr.y0 - h/2 + fontoffset)
 	    ctx.lineWidth = h / 23;	
 	    ctx.strokeStyle="white";
 	    ctx.beginPath();
@@ -533,6 +572,15 @@ function horizontalBar(ctx, arr) {
 	    ctx.stroke();
 	}
     }
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+    if (arr.label) {
+	ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
+	arrR.xL = arr.x0;
+	arrR.yL = arr.y0 + h / 2;
+	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+    }
+    return JSON.stringify(arrR);
 }
 
 function panelLight(ctx, x0, y0, radius, color) {
@@ -551,10 +599,15 @@ function draw(input) {
 
 function renderGauges(ctx, input) {
     const widgetFuncs = {textBox:textBox, horizontalBar:horizontalBar, roundGauge:roundGauge}
-    
+    const inp = input[0]
+    if (widgetFuncs[inp.type]) {
+	return widgetFuncs[inp.type](ctx, inp);
+    }
+    /*
     for (const inp of input) {
 	if (widgetFuncs[inp.type]) {
 	    widgetFuncs[inp.type](ctx, inp)
 	}
     }
+    */
 }

@@ -3,6 +3,7 @@
 	"type": "textBox",
 	"x0": 160,
 	"y0": 140,
+	"label": "Hello World",
 	"width": 180,
 	"height": 30
     },
@@ -20,32 +21,27 @@
 	"x0": 160,
 	"divs": 16,
 	"subdivs": 4,
+	"label":"Horizontal Bar",
 	"type": "horizontalBar"
     },
     {
 	"min": 0,
-	"spectrum": [
-	    "blue",
-	    "blue"
-	],
+	"colorvals": [ {"color":"blue", "val":20}, {"color":"yellow", "val":60},
+		       {"color":"orange", "val":80}, {"color":"red", "val":100} ],
 	"y0": 55,
 	"max": 100,
 	"radius": 50,
 	"x0": 60,
-	"divs": 16,
-	"subdivs": 4,
+	"divs": 25,
+	"subdivs": 5,
 	"type": "roundGauge",
 	"value": 83.5,
 	"label": "TestingA"
     },
     {
 	"min": -100,
-	"spectrum": [
-	    "blue",
-	    "springgreen",
-	    "yellow",
-	    "red"
-	],
+	"colorvals": [ {"color":"blue", "val":-75}, {"color":"yellow", "val":0},
+		       {"color":"orange", "val":75}, {"color":"red", "val":100} ],
 	"y0": 45,
 	"max": 100,
 	"radius": 40,
