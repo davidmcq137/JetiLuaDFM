@@ -348,20 +348,20 @@ function arcsegment(ctx, x0, y0, ri, ro, a1, a2) {
     ctx.fill();
 }
 
-function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec) {
+function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, value, label) {
     const ri = ro * 0.85;
     const fontScale = 0.24;
-
-    ctx.font="bold " + fontScale * ro + "px sans-serif"
+    needle = [ {x:-1,y:0}, {x:-2,y:1}, {x:-4,y:4}, {x:-1,y:58},
+	       {x:1,y:58}, {x:4, y:4}, {x:2, y:1}, {x:1,y:0} ]
     
+    ctx.font="bold " + fontScale * ro + "px sans-serif"
     const fontoffset = fontScale * ro / 4;
-
+    
     var rainbow = new Rainbow();
-
     rainbow.setSpectrumByArray(spec); 
     rainbow.setNumberRange(0,nseg-1)
 
-    for (var i = 0; i <= nseg; i++) {
+    for (let i = 0; i <= nseg; i++) {
 
 	ctx.fillStyle = "#"+rainbow.colourAt(i);
 	
@@ -402,6 +402,31 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec) {
 	    ctx.stroke();
 	}
     }
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+
+    ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+
+    if (label) {
+	ctx.fillText(label, x0, y0 + 0.90 * ro);
+    }
+
+    if (value) {
+	ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
+	ctx.fillText(parseFloat(value).toFixed(1), x0, y0 + 0.3 * ro);
+	
+	var angle = Math.PI / 2.0;
+	
+	ctx.fillStyle = "white";
+	ctx.beginPath();
+	let f = 0.90 * ro / 58;
+	for (let k = 0, len = needle.length; k < len; k++ ) {
+	    ctx.lineTo(x0 + f * needle[k].x * Math.cos(angle) - f * needle[k].y * Math.sin(angle),
+		       y0 + f * needle[k].x * Math.sin(angle) + f * needle[k].y * Math.cos(angle))
+	    
+	}
+	ctx.fill();
+    }
 }
 
 function roundGauge(ctx, arr) {
@@ -416,7 +441,7 @@ function roundGauge(ctx, arr) {
     ctx.fill();
 
     roundG(ctx, arr.x0, arr.y0, arr.radius, start, end, arr.min, arr.max,
-	   arr.divs, arr.subdivs, arr.spectrum);
+	   arr.divs, arr.subdivs, arr.spectrum, arr.value, arr.label);
 }
 
 function roundedRect(ctx, x, y, w, h, r) {

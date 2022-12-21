@@ -186,6 +186,8 @@ local function init()
    system.registerForm(1, MENU_APPS, "Instrument Panel", initForm, keyForm, prtForm)
    system.registerTelemetry(1, "Instrument Panel", 4, printForm)
 
+   --if foo > 37 then print("foo") else print("bar") end
+   
 end
 
 return {init=init, loop=loop, author="DFM", version="0", name="DFM-InsP", destroy=destroy}
