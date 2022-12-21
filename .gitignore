@@ -32,6 +32,9 @@ DFM-GPS/FF_*
 DFM-GPS/GG_*
 DFM-Amix/C-*
 CTU-DFM/LF_*
+Gauges/.shadow-cljs/
+Gauges/node_modules/
+Gauges/resources/js/
 
 
 

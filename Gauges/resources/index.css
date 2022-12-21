@@ -38,3 +38,7 @@ body {
     align-items: center;
 }
 
+.composite {
+    margin-top: 2ex;
+    border: 1px solid white;
+}
