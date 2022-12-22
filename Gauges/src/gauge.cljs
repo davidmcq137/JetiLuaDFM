@@ -91,7 +91,7 @@
         ctx (doto (.getContext c "2d")
               (.translate (- x) (- y)))]
 
-    (js/renderGauges ctx (clj->js [i]))
+    (js/renderGauge ctx (clj->js i))
     
     { ;; :bbox bbox
      :bitmap (.transferToImageBitmap c)
@@ -227,7 +227,7 @@
                                 ctx (.getContext c "2d")]
                             
                             (doseq [[i d] gauges]
-                              (js/renderGauges ctx (clj->js [(:params d)])))
+                              (js/renderGauge ctx (clj->js (:params d))))
                             
                             (.then (.convertToBlob c)
                                    (fn [v] (ask-download-file "gauges.png" v)))))

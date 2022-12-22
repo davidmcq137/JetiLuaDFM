@@ -597,17 +597,9 @@ function draw(input) {
     renderGauges(ctx, input);
 }
 
-function renderGauges(ctx, input) {
+function renderGauge(ctx, input) {
     const widgetFuncs = {textBox:textBox, horizontalBar:horizontalBar, roundGauge:roundGauge}
-    const inp = input[0]
     if (widgetFuncs[inp.type]) {
 	return widgetFuncs[inp.type](ctx, inp);
     }
-    /*
-    for (const inp of input) {
-	if (widgetFuncs[inp.type]) {
-	    widgetFuncs[inp.type](ctx, inp)
-	}
-    }
-    */
 }
