@@ -7,6 +7,14 @@ InsP.sensorIdlist = {0}
 InsP.sensorPalist = {0}
 InsP.settings = {}
 
+local edit = {}
+edit.ops = {"Center", "Value", "Label"}
+edit.dir = {"X", "Y", "Font", "Min", "Max"}
+edit.fonts = {"Mini",    "Normal",    "Bold",    "Big"}
+edit.fcode = {Mini=FONT_MINI, Normal=FONT_NORMAL, Bold=FONT_BOLD, Big=FONT_BIG}
+edit.icode = {Mini=1, Normal=2, Bold=3, Big=4}
+
+
 local subForm = 0
 local pDir = "Apps/DFM-InsP/Panels"
 local bDir = "Apps/DFM-InsP/Backgrounds"
@@ -122,6 +130,13 @@ local function initForm(sf)
       end))      
       
       form.addRow(2)
+      form.addLabel({label="Edit Panel >>", width=220})
+      form.addLink((function()
+	       form.reinit(103)
+	       form.waitForRelease()
+      end))      
+
+      form.addRow(2)
       form.addLabel({label="Reset App data >>", width=220})
       form.addLink((function()
 	       form.reinit(101)
@@ -195,9 +210,79 @@ local function initForm(sf)
 	 end
       end
       form.addSelectbox(InsP.settings.backgrounds, isel, true, backGndChanged)      
+   elseif sf == 103 then
+      form.setTitle("")
+      edit.gauge = 1
+      edit.opsIdx = 1
+      edit.dirIdx = 2 -- default to "Y"
+      form.setButton(1, ":right", ENABLED)
+      form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), ENABLED)
+      form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)
+      --form.setButton(4, string.format("%s", edit.fonts[edit.fontIdx), ENABLED)      
    end
-   
-   
+end
+
+local function keyForm(key)
+
+   if subForm == 103 then
+      local ip = InsP.panels[1]
+      if key == KEY_1 then
+	 edit.gauge = edit.gauge + 1
+	 if edit.gauge > #ip then edit.gauge = 1 end
+      elseif key == KEY_2 then
+	 edit.opsIdx = edit.opsIdx + 1
+	 if edit.opsIdx > #edit.ops then edit.opsIdx = 1 end
+	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), ENABLED)
+      elseif key == KEY_3 then
+	 edit.dirIdx = edit.dirIdx + 1
+	 if edit.dirIdx > #edit.dir then edit.dirIdx = 1 end
+	 form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)	 
+      elseif key == KEY_UP or key == KEY_DOWN then
+	 local inc
+	 if key == KEY_UP then inc = 1 else inc = -1 end
+	 local ipeg = ip[edit.gauge] 
+	 local eo = edit.ops[edit.opsIdx]
+	 local ed = edit.dir[edit.dirIdx]
+	 if ed == "X" then
+	    if eo == "Value" and ipeg.xV and ipeg.xL then
+	       ipeg.xV = ipeg.xV + inc
+	    end
+	    
+	    if eo == "Label" then
+	       ipeg.xL = ipeg.xL + inc
+	    end
+	 elseif ed == "Y" then
+	    if eo == "Value" and ipeg.yV and ipeg.yL then
+	       ipeg.yV = ipeg.yV + inc
+	    end
+	    
+	    if eo == "Label" then
+	       ipeg.yL = ipeg.yL + inc	       
+	    end
+	 elseif ed == "Font" then
+	    if eo == "Value" and ipeg.fV then
+	       local i = edit.icode[ipeg.fV]
+	       i = i + inc
+	       i = math.min(math.max(i, 1), #edit.fonts)
+	       ipeg.fV = edit.fonts[i]
+	    end
+	    if eo == "Label" and ipeg.fL then
+	       local i = edit.icode[ipeg.fL]
+	       i = i + inc
+	       i = math.min(math.max(i, 1), #edit.fonts)
+	       ipeg.fL = edit.fonts[i]
+	    end
+	 elseif ed == "Min" then
+	    if ipeg.subdivs == 0 and ipeg.min then
+	       ipeg.min = ipeg.min + inc
+	    end
+	 elseif ed == "Max" then
+	    if ipeg.subdivs == 0 and ipeg.max then
+	       ipeg.max = ipeg.max + inc
+	    end
+	 end
+      end
+   end
 end
 
 
@@ -213,7 +298,12 @@ local function printForm(wi, he)
       lcd.drawFilledRectangle(0,0,319,158)
    end
 
-   if InsP.panelImg then lcd.drawImage(0, 0, InsP.panelImg) end
+   if InsP.panelImg then
+      lcd.drawImage(0, 0, InsP.panelImg)
+   else
+      lcd.setColor(255,255,255)
+      lcd.drawText(100, 70, "No Panel Image", FONT_BOLD)
+   end
 
    local ctl 
    local rot 
@@ -236,20 +326,43 @@ local function printForm(wi, he)
 	 if ctl then
 	    factor = widget.radius / 65.0
 	    drawShape(widget.x0, widget.y0, needle_poly_large, factor, rot + math.pi)
-	    val = string.format("%.1f", widget.min + (widget.max-widget.min) * ctl)
+	    val = string.format("%.1f", sensor.value)
 	 else
 	    val = "---"
 	 end
 	 local str
 	 if widget.label then str = widget.label else str = "G#"..i end
+	 if not widget.fL then
+	    widget.fL = "Mini"
+	    print("set .fL to Mini")
+	 end
+	 if not widget.fV then
+	    widget.fV = "Mini"
+	    print("set .fV to Mini")
+	 end
 	 if widget.radius > 30 then
-	    drawTextCenter(widget.x0, widget.y0 + 1.0 * widget.radius - 15, str, FONT_MINI)
-	    drawTextCenter(widget.x0, widget.y0 + 0.17 * widget.radius,
-			   string.format("%s", val), FONT_MINI)
+	    if not widget.xL then
+	       widget.xL = widget.x0
+	       widget.yL = widget.y0 + 1.0 * widget.radius - 15
+	    end
+	    drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
+	    if not widget.xV then
+	       widget.xV = widget.x0
+	       widget.yV = widget.y0 + 0.17 * widget.radius
+	    end
+	    drawTextCenter(widget.xV, widget.yV, string.format("%s", val), edit.fcode[widget.fV])
 	 elseif widget.radius >= 20 then
-	    drawTextCenter(widget.x0, widget.y0 + 0.25 * widget.radius,
-			   string.format("%s", val), FONT_MINI)	    
-	    drawTextCenter(widget.x0, widget.y0 + 1.0 * widget.radius - 8, str, FONT_MINI)
+	    if not widget.xV then
+	       widget.xV = widget.x0
+	       widget.yV = widget.y0 + 0.25 * widget.radius
+	    end
+	    drawTextCenter(widget.xV, widget.yV,
+			   string.format("%s", val), edit.fcode[widget.fV])	    
+	    if not widget.xL then
+	       widget.xL = widget.x0
+	       widget.yL = widget.y0 + 1.0 * widget.radius - 8
+	    end
+	    drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
 	 end
 
       elseif widget.type == "horizontalBar" and ctl then
@@ -270,7 +383,16 @@ local function printForm(wi, he)
 	 lcd.setColor(255,255,255)
 	 local str
 	 if widget.label then str = widget.label else str = "G#"..i end
-	 drawTextCenter(widget.x0, widget.y0+h/2-hPad/5, str, FONT_MINI)
+	 if not widget.fL then
+	    widget.fL = "Mini"
+	 end
+	 if not widget.xL then
+	    widget.xL = widget.x0
+	    widget.yL = widget.y0 + h / 2 - hPad / 5
+	 end
+	 
+	 drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
+	 
       elseif widget.type == "textBox" then
 
 	 lcd.setColor(0,0,0)
@@ -279,27 +401,61 @@ local function printForm(wi, he)
 	    if msgidx > #messages then msgidx = 1 end
 	    nextTime = system.getTimeCounter() + 1000*2
 	 end
+	 if not widget.fL then
+	    widget.fL = "Bold"
+	 end
 	 
 	 local str = messages[msgidx]
-	 lcd.drawText(widget.x0 - lcd.getTextWidth(FONT_BOLD, str)/2,
-		      widget.y0 - lcd.getTextHeight(FONT_BOLD)/2, str, FONT_BOLD)
+	 lcd.drawText(widget.x0 - lcd.getTextWidth(edit.fcode[widget.fL], str)/2,
+		      widget.y0 - lcd.getTextHeight(edit.fcode[widget.fL])/2, str, edit.fcode[widget.fL])
 	 
       else
       end
    end
 end
 
-local function keyForm(key)
-end
-
+local foo
 local function prtForm(w,h)
-
+   if not foo then print("w,h", w,h) foo=1 end
+   if subForm == 103 and InsP.panels[1] then
+      local ip = InsP.panels[1]
+      printForm(w,h)
+      lcd.setColor(180,180,180)
+      lcd.drawFilledRectangle(0, 158, 318, 20)
+      lcd.setColor(0,0,0)
+      --print("edit.gauge", edit.gauge)
+      local ipeg = ip[edit.gauge]
+      if not ipeg then return end
+      local xx, yy = ipeg.x0, ipeg.y0 -- default for Center
+      local ii = edit.ops[edit.opsIdx]
+      if (ii == "Value") and ipeg.xV then
+	 xx = ipeg.xV
+	 yy = ipeg.yV
+      elseif (ii == "Label") and ipeg.xL then
+	 xx = ipeg.xL
+	 yy = ipeg.yL
+      end
+      local strN, strX
+      if ipeg.min then strN = string.format("%d", ipeg.min) else strN = "---" end
+      if ipeg.max then strX = string.format("%d", ipeg.max) else strX = "---" end      
+      
+      lcd.drawText(10, 157,
+		   string.format("Gauge %d   [%d,%d]   Min: %s Max: %s",
+				 edit.gauge, xx, yy, strN, strX))
+      local ip = InsP.panels[1]
+      --local xl = ip[edit.gauge].x0
+      --local yl = ip[edit.gauge].y0
+      lcd.setColor(180,180,180)
+      --lcd.drawLine(0, yl, w, yl)
+      lcd.drawLine(0, yy, w, yy)
+      --lcd.drawLine(xl, 0, xl, h)
+      lcd.drawLine(xx, 0, xx, h)      
+   end
 end
 
 local function destroy()
    local fp
    local save = {}
-
    if InsP.writeBD then
       save.panel1 = InsP.panels[1]
       save.settings = InsP.settings
@@ -337,8 +493,9 @@ local function init()
 	    if kk == "SeId" then v[kk] = tonumber(vv) end
 	 end
       end
-      InsP.panelImg = lcd.loadImage(pDir .. "/"..InsP.settings.selPanel..".png")
-      if not InsP.panelImg then
+      if InsP.panelImg then
+	 InsP.PanelImg = lcd.loadImage(pDir .. "/"..InsP.settings.selPanel..".png")
+      else
 	 print("DFM-InsP: Could not read panel png file")
       end
    else
@@ -399,6 +556,12 @@ local function init()
       InsP.backImg = nil
    end
 
+   if InsP.settings.selPanel then
+      InsP.panelImg = lcd.loadImage(pDir .. "/"..InsP.settings.selPanel..".png")
+   else
+      InsP.panelImg = nil
+   end
+   
    readSensors(InsP)
 
    system.registerForm(1, MENU_APPS, "Instrument Panel", initForm, keyForm, prtForm)
