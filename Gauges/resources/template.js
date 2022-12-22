@@ -592,7 +592,7 @@ function panelLight(ctx, x0, y0, radius, color) {
 
 function renderGauge(ctx, input) {
     const widgetFuncs = {textBox:textBox, horizontalBar:horizontalBar, roundGauge:roundGauge}
-    if (widgetFuncs[inp.type]) {
-	return widgetFuncs[inp.type](ctx, inp);
+    if (widgetFuncs[input.type]) {
+	return widgetFuncs[input.type](ctx, input);
     }
 }
