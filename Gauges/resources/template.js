@@ -454,7 +454,7 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	}
 	ctx.fill();
     }
-    return JSON.stringify(arrR);
+    return arrR;
 }
 
 function roundGauge(ctx, arr) {
@@ -468,9 +468,9 @@ function roundGauge(ctx, arr) {
     ctx.ellipse(arr.x0, arr.y0, arr.radius * eTrim, arr.radius * eTrim, 0, 0, 2*Math.PI);
     ctx.fill();
 
-    return JSON.stringify(roundG(ctx, arr.x0, arr.y0, arr.radius, start, end, arr.min, arr.max,
-				 arr.divs, arr.subdivs, arr.spectrum, arr.colorvals,
-				 arr.value, arr.label));
+    return roundG(ctx, arr.x0, arr.y0, arr.radius, start, end, arr.min, arr.max,
+		  arr.divs, arr.subdivs, arr.spectrum, arr.colorvals,
+		  arr.value, arr.label);
 
 }
 
@@ -509,7 +509,7 @@ function textBox(ctx, arr) {
 	arrR.yL = arr.y0 + fontoffset;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
-    return JSON.stringify(arrR);
+    return arrR;
 }
 
 function horizontalBar(ctx, arr) {
@@ -580,7 +580,7 @@ function horizontalBar(ctx, arr) {
 	arrR.yL = arr.y0 + h / 2;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
-    return JSON.stringify(arrR);
+    return arrR;
 }
 
 function panelLight(ctx, x0, y0, radius, color) {
@@ -588,13 +588,6 @@ function panelLight(ctx, x0, y0, radius, color) {
     ctx.beginPath();
     ctx.ellipse(x0, y0, radius, radius, 0, 0, Math.PI*2);
     ctx.fill();
-}
-
-function draw(input) {
-    let cvs = document.getElementById("output-canvas");
-    let ctx = cvs.getContext("2d");
-
-    renderGauges(ctx, input);
 }
 
 function renderGauge(ctx, input) {
