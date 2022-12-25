@@ -205,6 +205,9 @@ end
 local function initForm(fm)
    -- first time through, get saved sequence numbers from pSave
    -- seq of 0 means it's deleted
+
+   print("initForm", fm)
+   
    if neverSorted then
       teleLoad()
       teleSort()

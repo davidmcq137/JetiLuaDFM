@@ -4,7 +4,8 @@
     "x0": 220,
     "y0": 140,
     "width": 180,
-    "height": 30
+      "height": 30,
+      "label":"Turbine Status"
   },
   {
     "type": "horizontalBar",
@@ -15,7 +16,8 @@
     "min": 0,
     "max": 100,
     "divs": 16,
-    "subdivs": 4,
+      "subdivs": 4,
+      "label":"Fuel Remaining",
     "spectrum": [
       "red",
       "yellow",
@@ -30,7 +32,8 @@
     "min": 0,
     "max": 120,
     "divs": 24,
-    "subdivs": 4,
+      "subdivs": 4,
+      "label":"RPM/1000",
     "spectrum": [
       "blue",
       "blue"
@@ -42,7 +45,8 @@
     "y0": 60,
     "radius": 55,
     "min": 0,
-    "max": 1000,
+      "max": 1000,
+      "label":"EGT °C",
     "divs": 20,
     "subdivs": 4,
     "spectrum": [
@@ -58,9 +62,10 @@
     "y0": 30,
     "radius": 25,
     "min": 0,
-    "max": 100,
+    "max": 10,
     "divs": 16,
-    "subdivs": 0,
+      "subdivs": 0,
+      "label":"Batt",
     "spectrum": [
       "red",
       "yellow",
@@ -73,8 +78,9 @@
     "y0": 85,
     "radius": 25,
     "min": 0,
-    "max": 100,
-    "divs": 16,
+    "max": 10,
+      "divs": 16,
+      "label":"Pump",
     "subdivs": 0,
     "spectrum": [
       "red",

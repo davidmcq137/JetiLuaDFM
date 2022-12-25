@@ -1,0 +1,63 @@
+[
+    {"id":10, "param": 0,"sensorName": "MFlow", "label": "Fuel"},
+    
+    {"id":10,
+     "param": 1,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "Fuel",
+     "luaExp":"P1(100)",
+     "label": "FuelPct",
+     "unit": "%"
+    },
+    
+    {"id":11, "param": 0,"sensorName": "Tach", "label": "Tach"},
+    
+    {"id":11,
+     "param": 1,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "Tach",
+     "luaExp":"P2(120)",
+     "label": "RPM",
+     "unit": ""
+    },
+    {"id":137, "param": 0,"sensorName": "SB-TEMP", "label": "General"},
+
+    {"id":137,
+     "param": 1,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "EGT",
+     "luaExp":"P3(1000)",
+     "label": "EGT",
+     "unit": "°C"
+    },
+    {"id":137,
+     "param": 2,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "PumpV",
+     "luaExp":"P4(10)",
+     "label": "PumpV",
+     "unit": "°C"
+    },
+    {"id":137,
+     "param": 3,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "BattV",
+     "luaExp":"P5(10)",
+     "label": "BattV",
+     "unit": "°C"
+    },
+    {"id":137,
+     "param":7,
+     "decimals":0,
+     "type":1,
+     "sensorName":"SB-Temp",
+     "label": "Seq",
+     "luaExp": "swseq('SA', {1,2,3,4,5,6})",
+     "unit": " "
+    }
+]
