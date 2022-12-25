@@ -19,12 +19,22 @@
           halfh (* 0.5 height)]
       [(- x0 halfw) (- y0 halfh) width height])
     
-    nil))
+    (println "Do not understand shape of" (pr-str type))))
 
 (rum/defc bitmap-canvas-drag
   [bmap ix iy k scl]
   (let [cref (rum/create-ref)
-        [^js drag-state set-drag-state!] (rum/use-state {})]
+        [{:keys [x y mousedown] :as drag-state} set-drag-state!] (rum/use-state {})
+        pos-top (str (or y iy) "px")
+        pos-left (str (or x ix) "px")
+        scaled-x (js/Math.round
+                  (+ (/ (or x ix) scl)
+                     (* 0.5 (.-width bmap))))
+        
+        scaled-y (js/Math.round
+                  (+ (/ (or y iy) scl)
+                     (* 0.5 (.-height bmap))))]
+    
     (rum/use-effect!
      (fn []
        (let [cvs (rum/deref cref)
@@ -32,15 +42,15 @@
          (.drawImage ctx bmap 0 0)))
      [bmap])
     
-    
     (rum/fragment
-     [:div
-      {:style {:position :absolute
-               :top (str (or (:y drag-state) iy) "px")
-               :left (str (or (:x drag-state) ix) "px")}}
-      (str (or (:y drag-state) iy)
-           ","
-           (or (:x drag-state) ix))]
+     
+     (when true
+       [:div
+        {:style {:position :absolute
+                 :top pos-top
+                 :left pos-left}}
+        (str scaled-x "," scaled-y)])
+     
      [:canvas {:ref cref
                :width (.-width bmap)
                :height (.-height bmap)
@@ -49,11 +59,11 @@
                        :width (* scl (.-width bmap))
                        :height (* scl (.-height bmap))
                        ;; :outline "1px solid blue"
-                       :border (if-not (:mousedown drag-state) "none" "1px solid #fff")
-                       :top (str (or (:y drag-state) iy) "px")
-                       :left (str (or (:x drag-state) ix) "px")
-                       :z-index (if (:mousedown drag-state) 999 0)
-                       :user-select (if (:mousedown drag-state) "none" "auto")}
+                       :border (if-not mousedown "none" "1px solid #fff")
+                       :top pos-top
+                       :left pos-left
+                       :z-index (if mousedown 999 0)
+                       :user-select (if mousedown "none" "auto")}
                :onMouseDown (fn [^js ev]
                               #_(.preventDefault ev)
                               #_(.stopPropagation ev)
@@ -67,7 +77,7 @@
                                                         :xinit cx
                                                         :yinit cy))))
                :onMouseMove (fn [^js ev]
-                              (when (:mousedown drag-state)
+                              (when mousedown
                                 (let [dx (- (:xinit drag-state)
                                             (.-clientX ev))
                                       dy (- (:yinit drag-state)
@@ -82,15 +92,11 @@
                :onMouseUp (fn [^js ev]
                             #_(.preventDefault ev)
                             #_(.stopPropagation ev)
-                           
                             (set-drag-state! (assoc drag-state :mousedown nil :x nil :y nil))
-                            (swap! db update-in k update :params assoc
-                                   "x0" (js/Math.round
-                                         (+ (/ (:x drag-state) scl)
-                                            (* 0.5 (.-width bmap))))
-                                   "y0" (js/Math.round
-                                         (+ (/ (:y drag-state) scl)
-                                            (* 0.5 (.-height bmap))))))}])))
+                            (when (and x y)
+                              (swap! db update-in k update :params assoc
+                                     "x0" scaled-x
+                                     "y0" scaled-y)))}])))
 
 
 
@@ -214,8 +220,7 @@
 
       (for [[i d] gauges
             :when (:bitmap d)
-            :let [[x y w h] #_(:bbox d)
-                  (shape->bbox (:params d))]]
+            :let [[x y w h] (shape->bbox (:params d))]]
         (->> i
              (rum/with-key (bitmap-canvas-drag
                             (:bitmap d) (* x scl) (* y scl)
