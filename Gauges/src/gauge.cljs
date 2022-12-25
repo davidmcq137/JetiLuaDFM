@@ -33,54 +33,64 @@
      [bmap])
     
     
-    [:canvas {:ref cref
-              :width (.-width bmap)
-              :height (.-height bmap)
-              :style {:position :absolute
-                      ;; :background-color (if (:mousedown drag-state) "tomato" "peachpuff")
-                      :width (* scl (.-width bmap))
-                      :height (* scl (.-height bmap))
-                      ;; :outline "1px solid blue"
-                      :border (if-not (:mousedown drag-state) "none" "1px solid #fff")
-                      :top (str (or (:y drag-state) iy) "px")
-                      :left (str (or (:x drag-state) ix) "px")
-                      :z-index (if (:mousedown drag-state) 999 0)
-                      :user-select (if (:mousedown drag-state) "none" "auto")}
-              :onMouseDown (fn [^js ev]
-                             #_(.preventDefault ev)
-                             #_(.stopPropagation ev)
-                             (let [ox (.-offsetX (.-nativeEvent ev))
-                                   oy (.-offsetY (.-nativeEvent ev))
+    (rum/fragment
+     [:div
+      {:style {:position :absolute
+               :top (str (or (:y drag-state) iy) "px")
+               :left (str (or (:x drag-state) ix) "px")}}
+      (str (or (:y drag-state) iy)
+           ","
+           (or (:x drag-state) ix))]
+     [:canvas {:ref cref
+               :width (.-width bmap)
+               :height (.-height bmap)
+               :style {:position :absolute
+                       ;; :background-color (if (:mousedown drag-state) "tomato" "peachpuff")
+                       :width (* scl (.-width bmap))
+                       :height (* scl (.-height bmap))
+                       ;; :outline "1px solid blue"
+                       :border (if-not (:mousedown drag-state) "none" "1px solid #fff")
+                       :top (str (or (:y drag-state) iy) "px")
+                       :left (str (or (:x drag-state) ix) "px")
+                       :z-index (if (:mousedown drag-state) 999 0)
+                       :user-select (if (:mousedown drag-state) "none" "auto")}
+               :onMouseDown (fn [^js ev]
+                              #_(.preventDefault ev)
+                              #_(.stopPropagation ev)
+                              (let [ox (.-offsetX (.-nativeEvent ev))
+                                    oy (.-offsetY (.-nativeEvent ev))
                                    
-                                   cx (.-clientX ev)
-                                   cy (.-clientY ev)]
-                               (set-drag-state! (assoc drag-state
-                                                       :mousedown true
-                                                       :xinit cx
-                                                       :yinit cy))))
-              :onMouseMove (fn [^js ev]
-                             (when (:mousedown drag-state)
-                               (let [dx (- (:xinit drag-state)
-                                           (.-clientX ev))
-                                     dy (- (:yinit drag-state)
-                                           (.-clientY ev))]
-                                 (set-drag-state! (assoc drag-state
-                                                         :x (- (.-offsetLeft (.-target ev))
-                                                               dx)
-                                                         :y (- (.-offsetTop (.-target ev))
-                                                               dy)
-                                                         :xinit (.-clientX ev)
-                                                         :yinit (.-clientY ev))))))
-              :onMouseUp (fn [^js ev]
-                           #_(.preventDefault ev)
-                           #_(.stopPropagation ev)
+                                    cx (.-clientX ev)
+                                    cy (.-clientY ev)]
+                                (set-drag-state! (assoc drag-state
+                                                        :mousedown true
+                                                        :xinit cx
+                                                        :yinit cy))))
+               :onMouseMove (fn [^js ev]
+                              (when (:mousedown drag-state)
+                                (let [dx (- (:xinit drag-state)
+                                            (.-clientX ev))
+                                      dy (- (:yinit drag-state)
+                                            (.-clientY ev))]
+                                  (set-drag-state! (assoc drag-state
+                                                          :x (- (.-offsetLeft (.-target ev))
+                                                                dx)
+                                                          :y (- (.-offsetTop (.-target ev))
+                                                                dy)
+                                                          :xinit (.-clientX ev)
+                                                          :yinit (.-clientY ev))))))
+               :onMouseUp (fn [^js ev]
+                            #_(.preventDefault ev)
+                            #_(.stopPropagation ev)
                            
-                           (set-drag-state! (assoc drag-state :mousedown nil :x nil :y nil))
-                           (swap! db update-in k update :params assoc
-                                  "x0" (+ (/ (:x drag-state) scl)
-                                          (* 0.5 (.-width bmap)))
-                                  "y0" (+ (/ (:y drag-state) scl)
-                                          (* 0.5 (.-height bmap)))))}]))
+                            (set-drag-state! (assoc drag-state :mousedown nil :x nil :y nil))
+                            (swap! db update-in k update :params assoc
+                                   "x0" (js/Math.round
+                                         (+ (/ (:x drag-state) scl)
+                                            (* 0.5 (.-width bmap))))
+                                   "y0" (js/Math.round
+                                         (+ (/ (:y drag-state) scl)
+                                            (* 0.5 (.-height bmap))))))}])))
 
 
 
@@ -144,20 +154,22 @@
 
 (rum/defc onegauge-editor < rum/reactive
   [da]
-  (let [d (rum/react da)]
+  (let [d (rum/react da)
+        x0 (get (:params d) "x0")
+        y0 (get (:params d) "y0")]
     [:div.onegauge
      (static-bitmap-canvas (:bitmap d))
     
      [:div.sliders
-      [:span.slider-label "X"]
+      [:span.slider-label (str "X=" x0)]
       [:input {:type "range" :min 0 :max 320
-               :value (get (:params d) "x0")
+               :value x0
                :onChange (fn [^js ev]
                            (swap! da assoc-in [:params "x0"]
                                   (.-value (.-target ev))))}]
-      [:span.slider-label "Y"]
+      [:span.slider-label (str "Y=" y0)]
       [:input {:type "range" :min 0 :max 320
-               :value (get (:params d) "y0")
+               :value y0
                :onChange (fn [^js ev]
                            (swap! da assoc-in [:params "y0"]
                                   (.-value (.-target ev))))}]
@@ -214,11 +226,14 @@
       [:input {:type "button"
                :value "Download JSON"
                :onClick (fn []
-                          (ask-download-file
-                             "gauges.json"
-                             (-> (map :params (vals gauges))
-                                 (clj->js)
-                                 (js/JSON.stringify nil 2))))}]
+                          (let [c (js/OffscreenCanvas. w h)
+                                ctx (.getContext c "2d")
+                                +calc (for [[i d] gauges]
+                                        (assoc d "calc"
+                                               (js/renderGauge ctx (clj->js (:params d)))))]
+                            
+                            (->> (js/JSON.stringify (clj->js +calc) nil 2)
+                                 (ask-download-file "gauges.json"))))}]
 
       [:input {:type "button"
                :value "Download PNG"
@@ -227,7 +242,11 @@
                                 ctx (.getContext c "2d")]
                             
                             (doseq [[i d] gauges]
-                              (js/renderGauge ctx (clj->js (:params d))))
+                              (js/renderGauge ctx
+                                              (clj->js
+                                               (dissoc (:params d)
+                                                       "value"
+                                                       "label"))))
                             
                             (.then (.convertToBlob c)
                                    (fn [v] (ask-download-file "gauges.png" v)))))
