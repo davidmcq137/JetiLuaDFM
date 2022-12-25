@@ -44,7 +44,7 @@
     
     (rum/fragment
      
-     (when true
+     (when mousedown
        [:div
         {:style {:position :absolute
                  :top pos-top
