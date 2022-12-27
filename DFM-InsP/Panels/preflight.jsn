@@ -14,7 +14,7 @@
     "label": "Rx1 Voltage",
     "x0": 80,
     "value": "Rx1 Voltage 'v''u'",
-    "lua": "string.format('CB200: %.1f mA %.1f V', 5*7.12, 6.34*4)",
+    "lua": "string.format('CB200: %.1f mA %.1f V', General_PumpV, General_BattV)",
     "type": "textBox"
   },
   {

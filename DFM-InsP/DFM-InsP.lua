@@ -32,6 +32,15 @@ edit.fcode = {Mini=FONT_MINI, Normal=FONT_NORMAL, Bold=FONT_BOLD, Big=FONT_BIG, 
 edit.icode = {Mini=1, Normal=2, Bold=3, Big=4, None=5}
 edit.gaugeName = {roundGauge="RndG", horizontalBar="HBar", textBox="Text"}
 
+local lua = {}
+lua.chunk = {}
+lua.env = {string=string, math=math, table=table, print=print,
+	   tonumber=tonumber, tostring=tostring,pairs=pairs, ipairs=ipairs}
+lua.index = 0
+lua.txTelLastUpdate = 0
+lua.txTel = {}
+lua.completePass = false
+
 local subForm = 0
 local pDir = "Apps/DFM-InsP/Panels"
 local bDir = "Apps/DFM-InsP/Backgrounds"
@@ -42,6 +51,8 @@ local savedRow2 = 1
 local savedRow3 = 1
 local mmCI
 local swtCI ={}
+
+local appStartTime
 
 local needle = {
    {-1,0},
@@ -68,6 +79,36 @@ local triangle = {
    {7,1}
 }
 
+local function getSensorByID(SeId, SePa)
+   if SeId ~= 0 then
+      return system.getSensorByID(SeId, SePa)
+   elseif SePa > 0 then -- txTel named
+      local sensor={}
+      sensor.value = lua.txTel[txSensorNames[SePa]] 
+      sensor.unit  = InsP.sensorUnlist[teleSensors + SePa]
+      sensor.decimals = InsP.sensorDplist[teleSensors + SePa]
+      -- TX reports 0 until it has good data for txTel .. ruins max/min
+      if system.getTimeCounter() - appStartTime > 200 then
+	 sensor.valid = true
+      else
+	 sensor.valid = false
+      end
+      return sensor
+   elseif SePa < 0 then -- txTel RSSI
+      local NePa = -SePa
+      local sensor = {}
+      sensor.value = lua.txTel.RSSI[NePa]
+      sensor.unit  = InsP.sensorUnlist[txTeleSensors + NePa]
+      sensor.decimals = InsP.sensorDplist[txTeleSensors + NePa]
+      -- TX reports 0 until it has good data for txTel .. ruins max/min
+      if system.getTimeCounter() - appStartTime > 200 then
+	 sensor.valid = true
+      else
+	 sensor.valid = false
+      end
+      return sensor
+   end
+end
 
 local function readSensors(tt)
    local sensorLbl = "***"
@@ -93,7 +134,7 @@ local function readSensors(tt)
    for i, label in ipairs(txSensorNames) do
       table.insert(tt.sensorLalist, l1 .. "_" .. label)
       table.insert(tt.sensorLslist, label)	    
-      table.insert(tt.sensorIdlist, 1)
+      table.insert(tt.sensorIdlist, 0)
       table.insert(tt.sensorPalist, i)
       table.insert(tt.sensorUnlist, txSensorUnits[i])
       table.insert(tt.sensorDplist, txSensorDP[i])
@@ -104,8 +145,8 @@ local function readSensors(tt)
    for i, label in ipairs(txRSSINames) do
    table.insert(tt.sensorLalist, l1 .. "_" .. label)
       table.insert(tt.sensorLslist, label)	    
-      table.insert(tt.sensorIdlist, 2)
-      table.insert(tt.sensorPalist, i)
+      table.insert(tt.sensorIdlist, 0)
+      table.insert(tt.sensorPalist, -i)
       table.insert(tt.sensorUnlist, " ")
       table.insert(tt.sensorDplist, 0)
    end
@@ -163,7 +204,7 @@ local function drawShape(col, row, shape, f, rotation, x0, y0, r, g, b)
 end
 
 local function setToPanel(iisp)
-   print("setToPanel", iisp)
+   --print("setToPanel", iisp)
    local isp = iisp
    if isp < 1 then isp = 1 end
    if isp > #InsP.panels then isp = #InsP.panels end
@@ -194,10 +235,10 @@ local function setToPanelName(pn)
       end
    end
    if isel > 0 then
-      print("calling setToPanel", pn, isel)
+      --print("calling setToPanel", pn, isel)
       setToPanel(isel)
    else
-      print("nothing done", pn)
+      --print("nothing done", pn)
    end
 end
 
@@ -211,11 +252,11 @@ local function keyForm(key)
    if subForm == 1 then
       if key == KEY_1 then
 	 if not sp then return end
-	 print("is.selectedPanel, #ip", sp, #ip)
+	 --print("is.selectedPanel, #ip", sp, #ip)
 	 local temp = sp
 	 temp = temp + 1
 	 if temp > #ip  then is.selectedPanel = 1 else is.selectedPanel = temp end
-	 print("Select: keyForm selectedPanel", is.selectedPanel)
+	 --print("Select: keyForm selectedPanel", is.selectedPanel)
 	 setToPanel(is.selectedPanel)
 	 form.reinit(1)
       end
@@ -244,7 +285,7 @@ local function keyForm(key)
 	 else
 	    is.homePanel = row
 	 end
-	 print("home panel set to", is.homePanel)
+	 --print("home panel set to", is.homePanel)
 	 form.reinit(106)
       end
       
@@ -259,11 +300,9 @@ local function keyForm(key)
 	 form.reinit(106)
       end
       if key == KEY_4 then
-	 print("key 4")
 	 local row = form.getFocusedRow() - 1
 	 table.remove(InsP.panels, row)
 	 table.remove(InsP.panelImages, row)
-	 print("after remove", #InsP.panels)
 	 if row == is.homePanel then
 	    system.messageBox("Home Panel deleted")
 	    is.homePanel = 1
@@ -398,7 +437,6 @@ local function keyForm(key)
       end
       if key == KEY_1 then
 	 table.insert(stateSw, {switch=nil, dir=1, from="*", to="*", lastSw=0})
-	 print("#stateSw+1", #stateSw+1)
 	 form.setFocusedRow(#stateSw + 1)
 	 --focusedRow = #stateSw + 1
 	 form.reinit(105)
@@ -417,7 +455,7 @@ local function keyForm(key)
 end
 
 local function changedSensor(val, i, ip)
-   print("changedSensor", val, i, InsP.sensorIdlist[val], InsP.sensorPalist[val])
+   print("changedSensor", val, i, InsP.sensorLalist[val], InsP.sensorIdlist[val], InsP.sensorPalist[val])
    ip[i].SeId = InsP.sensorIdlist[val]
    ip[i].SePa = InsP.sensorPalist[val]
    ip[i].SeUn = InsP.sensorUnlist[val]
@@ -497,7 +535,7 @@ end
 
 local function changedMinMax(val, sel, ipig)
    ipig[sel] = val
-   print("@", sel, ipig[sel])
+   --print("@", sel, ipig[sel])
    
 end
 
@@ -526,10 +564,9 @@ local function initForm(sf)
       else
 	 val = " (none selected)"
       end
-      sp = InsP.panelImages[InsP.settings.selectedPanel].instImage
       form.setButton(1, "Select", ENABLED)
       
-      --form.setTitle(string.format("Instrument Panel%s of %d", val, #InsP.panels))
+      local sp = InsP.panelImages[InsP.settings.selectedPanel].instImage
       form.setTitle(string.format("Selected Panel: %s", sp))
       
       form.addRow(2)
@@ -578,7 +615,7 @@ local function initForm(sf)
       end))      
 
       form.addRow(2)
-      form.addLabel({label="Reset App data >>", width=220})
+      form.addLabel({label="Reset data >>", width=220})
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       form.reinit(101)
@@ -625,7 +662,7 @@ local function initForm(sf)
    elseif sf == 101 then
       io.remove(InsP.settings.fileBD)
       InsP.settings.writeBD = false
-      system.messageBox("Data deleted .. restart App")
+      system.messageBox("All data deleted .. Restart App")
       form.reinit(1)
    elseif sf == 102 then
       
@@ -723,7 +760,8 @@ local function initForm(sf)
 			(function(x) return changedMinMax(x, "minWarn", ip[ig]) end))
       end
       
-	 form.setFocusedRow(savedRow2)
+      --form.setFocusedRow(savedRow2)
+      form.setFocusedRow(1)
    elseif sf == 105 then
 
       --[[
@@ -739,13 +777,13 @@ local function initForm(sf)
       end
 
       local function fromChanged(val, j)
-	 print("from:", val, j, InsP.panelImages[val-1].instImage)
+	 --print("from:", val, j, InsP.panelImages[val-1].instImage)
 	 stateSw[j].from = InsP.panelImages[val-1].instImage
 	 form.reinit(105)
       end
       
       local function toChanged(val, j)
-	 print("to:", val, j, stateSw[j].to, InsP.panelImages[val-1].instImage)
+	 --print("to:", val, j, stateSw[j].to, InsP.panelImages[val-1].instImage)
 	 stateSw[j].to = InsP.panelImages[val-1].instImage
 	 form.reinit(105)
       end
@@ -853,6 +891,8 @@ end
 
 local swrLast
 local swpLast
+local lastindex = 0
+
 local function loop()
 
    local sensor
@@ -874,7 +914,7 @@ local function loop()
 	 -- "pos" is index 1 and "neg" is index 2
 	 if (swt == 1 and stateSw[i].dir == 1) or (swt == -1 and stateSw[i].dir == 2) then
 	    if stateSw[i].from == "*" or stateSw[i].from == ipi[sp].instImage then
-	       print("would switch to", stateSw[i].to)
+	       --print("would switch to", stateSw[i].to)
 	       --currentWindow = winNumber(stateSw[i].to)
 	       system.messageBox("Panel switching to: " .. stateSw[i].to)
 	       setToPanelName(stateSw[i].to)
@@ -916,7 +956,7 @@ local function loop()
    -- update min and max values
    
    for _, widget in ipairs(ip) do
-      sensor = system.getSensorByID(widget.SeId, widget.SePa)	 
+      sensor = getSensorByID(widget.SeId, widget.SePa)	 
       if sensor and sensor.valid then
 	 -- text box does not have min or max
 	 if not widget.min then widget.min = 0 end
@@ -933,9 +973,38 @@ local function loop()
 	 if sensor.value > widget.maxval then widget.maxval = sensor.value end
       end
    end
+
+   -- throttle the update rate of tele sensors by moving the upper loop index up and
+   -- down to determine how many updates are done per Hollywood call
+
+   if system.getTimeCounter() - lua.txTelLastUpdate > 200 then
+      lua.txTel = system.getTxTelemetry()
+      lua.txTelLastUpdate = system.getTimeCounter()
+   end
+   
+   for k = 1, 10 do
+      --[[
+      if lua.index == 1 then
+	 print("time", system.getTimeCounter() - lastindex)
+	 lastindex = system.getTimeCounter()
+      end
+      --]]
+      lua.index = lua.index + 1
+      if lua.index <= #InsP.sensorLalist then
+	 local SeId = InsP.sensorIdlist[lua.index]
+	 local SePa = InsP.sensorPalist[lua.index]
+	 local sensor = getSensorByID(SeId, SePa)
+	 if sensor and sensor.valid then
+	    --print(lua.index, InsP.sensorLalist[lua.index], sensor.value)
+	    lua.env[InsP.sensorLalist[lua.index]] = sensor.value
+	 end
+      else
+	 lua.index = 1
+	 lua.completePass = true
+      end
+   end
 end
 
-local chunk
 
 local function printForm()
 
@@ -943,7 +1012,8 @@ local function printForm()
    local rot, rotmin, rotmax
    local factor
    local sensor
-   local ip = InsP.panels[InsP.settings.selectedPanel]
+   local sp = InsP.settings.selectedPanel
+   local ip = InsP.panels[sp]
 
    if backImg  then
       lcd.drawImage(0, 0, backImg)
@@ -964,7 +1034,9 @@ local function printForm()
    end
 
    for i, widget in ipairs(ip) do
-      sensor = system.getSensorByID(widget.SeId, widget.SePa)
+
+      sensor = getSensorByID(widget.SeId, widget.SePa)
+      
       ctl = nil
       if sensor and sensor.valid then
 	 if widget.min and widget.max then
@@ -980,21 +1052,31 @@ local function printForm()
 	 end
       end
 
-      if widget.lua then
-
-	 local env = {string=string, math=math}
-	 for i, sens in ipairs(InsP.sensorLalist) do
-	    env[sens] = i -- testing
+      local luaStr = ""
+      local err, status, result
+      if widget.lua and lua.completePass then
+	 if not lua.chunk[sp] then
+	    lua.chunk[sp] = {}
 	 end
-	 
-	 local err
-	 if not chunk then
-	    chunk, err = load("return "..widget.lua,"","t",env)
-	    print("chunk, err", chunk, err)
+	 if not lua.chunk[sp][i] then
+	    --print("chunk", sp, i)
+	    lua.chunk[sp][i], err = load("return "..widget.lua,"","t",lua.env)
+	    --lua.chunk[sp][i], err = load("return <"..widget.lua,"","t",lua.env)	    
+	    if err then
+	       print("DFM-InsP - lua load error: " .. err)
+	       luaStr = "Check lua console"
+	    end
 	 end
-	 local status, result
-	 status, result = pcall(chunk)
-	 --print("res", result)
+	 if not err then
+	    --print("pcall", sp, i)
+	    status, result = pcall(lua.chunk[sp][i])
+	    if not status then
+	       print("DFM-InsP - lua pcall error .. " .. result)
+	       luaStr = "Check lua console"
+	    else
+	       luaStr = result
+	    end
+	 end
       end
 
       if widget.type == "roundGauge" then
@@ -1162,45 +1244,51 @@ local function printForm()
 	    widget.fL = "Bold"
 	 end
 
-	 local str = widget.value or "---" 
 	 local stro
-	 if type(str) ~= "table" then
-	    stro = str
-	    for w in string.gmatch(str, "(%b'')") do
-	       local q1, q2 = string.find(stro, w)
-	       if q1 and q2 then
-		  local v
-		  local cc = string.sub(w,2,2)
-		  if cc == 'v' then
-		     if val then
-			local fmt = string.format("%%.%df", widget.SeDp or 1)
-			v = string.format(fmt, val)
-		     else
-			v = "---"
-		     end
-		  elseif cc == 'u' then
-		     if widget.SeUn then
-			v = widget.SeUn
-		     else
-			v = "--"
-		     end
-		  else
-		     v = w
-		  end
-		  local b = string.sub(stro, 1, q1 - 1)
-		  local a = string.sub(stro, q2 + 1, -1)
-		  stro = b .. v .. a
-	       end
-	    end
+
+	 if not widget.lua then
+	    local str = widget.value or "---" 
+	 	 if type(str) ~= "table" then
+		    stro = str
+		    for w in string.gmatch(str, "(%b'')") do
+		       local q1, q2 = string.find(stro, w)
+		       if q1 and q2 then
+			  local v
+			  local cc = string.sub(w,2,2)
+			  if cc == 'v' then
+			     if val then
+				local fmt = string.format("%%.%df", widget.SeDp or 1)
+				v = string.format(fmt, val)
+			     else
+				v = "---"
+			     end
+			  elseif cc == 'u' then
+			     if widget.SeUn then
+				v = widget.SeUn
+			     else
+				v = "--"
+			     end
+			  else
+			     v = w
+			  end
+			  local b = string.sub(stro, 1, q1 - 1)
+			  local a = string.sub(stro, q2 + 1, -1)
+			  stro = b .. v .. a
+		       end
+		    end
+		 else
+		    local idx
+		    if val then
+		       idx = 1 + (val - 1) % #str -- 1,2,3,...#str....1,2,3,...#str
+		    else
+		       idx = 1
+		    end
+		    stro = str[idx]
+		 end
 	 else
-	    local idx
-	    if val then
-	       idx = 1 + (val - 1) % #str -- 1,2,3,...#str....1,2,3,...#str
-	    else
-	       idx = 1
-	    end
-	    stro = str[idx]
+	    stro = luaStr
 	 end
+	 
 
 	 lcd.drawText(widget.xL - lcd.getTextWidth(edit.fcode[widget.fL], stro)/2,
 		      widget.yL - lcd.getTextHeight(edit.fcode[widget.fL])/2,
@@ -1430,6 +1518,8 @@ local function init()
 
    system.registerForm(1, MENU_APPS, "Instrument Panel", initForm, keyForm, prtForm)
    system.registerTelemetry(1, "DFM-InsP - Instrument Panel", 4, printForm)
+
+   appStartTime = system.getTimeCounter()
 
 end
 
