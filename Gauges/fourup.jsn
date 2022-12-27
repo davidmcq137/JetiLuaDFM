@@ -1,0 +1,88 @@
+[
+  {
+    "min": 0,
+    "colorvals": [
+      {
+        "color": "blue",
+        "val": 20
+      },
+      {
+        "color": "yellow",
+        "val": 60
+      },
+      {
+        "color": "orange",
+        "val": 80
+      },
+      {
+        "color": "red",
+        "val": 100
+      }
+    ],
+    "y0": 81.25,
+    "max": 100,
+    "radius": 70,
+    "x0": 74,
+    "divs": 25,
+    "subdivs": 5,
+    "type": "roundGauge"
+  },
+  {
+    "min": -100,
+    "colorvals": [
+      {
+        "color": "blue",
+        "val": -75
+      },
+      {
+        "color": "yellow",
+        "val": 0
+      },
+      {
+        "color": "orange",
+        "val": 75
+      },
+      {
+        "color": "red",
+        "val": 100
+      }
+    ],
+    "y0": 79.75,
+    "max": 100,
+    "radius": 70,
+    "x0": 247.75,
+    "divs": 32,
+    "subdivs": 4,
+    "type": "roundGauge"
+  },
+  {
+    "min": 0,
+    "spectrum": [
+      "red",
+      "yellow",
+      "springgreen"
+    ],
+    "y0": 128,
+    "max": 100,
+    "radius": 25,
+    "x0": 162.25,
+    "divs": 16,
+    "subdivs": 4,
+    "type": "roundGauge"
+  },
+  {
+    "min": 0,
+    "spectrum": [
+      "red",
+      "yellow",
+      "springgreen"
+    ],
+    "y0": 30,
+    "max": 100,
+    "radius": 25,
+    "x0": 160.5,
+    "divs": 16,
+    "subdivs": 4,
+    "type": "roundGauge"
+  }
+]

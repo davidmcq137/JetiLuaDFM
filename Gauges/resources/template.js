@@ -351,6 +351,8 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
     const ri = ro * 0.85;
     const fontScale = 0.24;
     var arrR = {};
+
+    arrR.ri = ri;
     
     needle = [ {x:-1,y:0}, {x:-2,y:1}, {x:-4,y:4}, {x:-1,y:58},
 	       {x:1,y:58}, {x:4, y:4}, {x:2, y:1}, {x:1,y:0} ]
@@ -372,16 +374,17 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	
 	var delta = (end - start) / nseg;
 	var a = start + i * delta
-
+	ctx.fillStyle = "gray";
 	if (spec) {
 	    ctx.fillStyle = "#"+rainbow.colourAt(i);
 	} else if (colors) {
 	    const cl = colors.length - 1;
 	    var aFrac = (a - start) / (end - start)
 	    var val = min + aFrac * (max - min)
+	    //console.log(val, cl, colors[cl].color);
 	    if (val < colors[0].val) {
 		ctx.fillStyle = colors[0].color
-	    } else if (val >= colors[cl].color) {
+	    } else if (val >= colors[cl].val) {
 		ctx.fillStyle = colors[cl].color
 	    } else {
 		for (let i = 1; i <= cl; i++) {
@@ -489,25 +492,70 @@ function roundedRect(ctx, x, y, w, h, r) {
 }
 
 function textBox(ctx, arr) { 
+
     var arrR = {}
     var h
+    const hFrac = 0.6
     if (arr.height) {
 	h = arr.height;
     } else {
 	h = w/4;
     }
-    const fontScale = 0.4
-    const fontoffset = fontScale * arr.height / 4;
+
+    const x0 = arr.x0;
+    const y0 = arr.y0;
+    
+    const fontScale = 0.35
+    const fontoffset = fontScale * h / 4;
+    h = h * hFrac;
+
+    arrR.height = h;
+    arrR.width = arr.width;
+
     ctx.font="bold " + fontScale * h + "px sans-serif"
-    ctx.fillStyle = "yellowgreen";
-    roundedRect(ctx, arr.x0 - arr.width/2, arr.y0 - h/2, arr.width, h, h/10);
-    ctx.fillStyle = "black";
+
+    if (arr.color) {
+	ctx.fillStyle = arr.color;
+    } else {
+	ctx.fillStyle = "yellowgreen";
+    }
+
+    roundedRect(ctx, x0 - arr.width/2, y0 - h/2, arr.width, h, h/10);
+        
     ctx.textAlign = "center";
+
     if (arr.label) {
-	ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
-	arrR.xL = arr.x0;
-	arrR.yL = arr.y0 + fontoffset;
+	if (arr.labelcolor) {
+	    ctx.fillStyle = arr.labelcolor;
+	} else {
+	    ctx.fillStyle = "white";
+	}
+	ctx.font = "" + 0.9 * fontScale * h + "px sans-serif"
+	arrR.xL = x0
+	
+	console.log(y0, h/2, 0.85 * fontScale * h);
+
+	arrR.yL = y0 + h/2 + 0.85 * fontScale * h;
+
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+    }
+    if (arr.textcolor) {
+	ctx.fillStyle = arr.textcolor;
+    } else {
+	ctx.fillStyle = "black";	
+    }
+    if (arr.value) {
+	ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
+	arrR.xV = x0;
+	arrR.yV = y0 + fontoffset;
+	console.log(typeof arr.value)
+	var str;
+	if (typeof arr.value == 'string') {
+	    str = arr.value;
+	} else {
+	    str = arr.value[0];
+	}
+	ctx.fillText(str, arrR.xV, arrR.yV);
     }
     return arrR;
 }
