@@ -42,3 +42,7 @@ body {
     margin-top: 2ex;
     border: 1px solid white;
 }
+
+input[type="range"]:focus {
+    outline: 1px solid white;
+}

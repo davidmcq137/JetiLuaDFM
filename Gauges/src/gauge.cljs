@@ -234,9 +234,8 @@
                           (let [c (js/OffscreenCanvas. w h)
                                 ctx (.getContext c "2d")
                                 +calc (for [[i d] gauges]
-                                        (assoc (:params d)
-                                               "calc"
-                                               (js/renderGauge ctx (clj->js (:params d)))))]
+                                        (merge (:params d)
+                                               (js->clj (js/renderGauge ctx (clj->js (:params d))))))]
                             
                             (->> (js/JSON.stringify (clj->js +calc) nil 2)
                                  (ask-download-file "gauges.json"))))}]
