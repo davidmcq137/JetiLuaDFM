@@ -1,0 +1,91 @@
+[
+  {
+    "type": "textBox",
+    "x0": 220,
+    "y0": 140,
+    "width": 180,
+      "height": 30,
+      "label":"Turbine Status"
+  },
+  {
+    "type": "horizontalBar",
+    "x0": 65,
+    "y0": 140,
+    "width": 110,
+    "height": 35,
+    "min": 0,
+    "max": 100,
+    "divs": 16,
+      "subdivs": 4,
+      "label":"Fuel Remaining",
+    "spectrum": [
+      "red",
+      "yellow",
+      "green"
+    ]
+  },
+  {
+    "type": "roundGauge",
+    "x0": 65,
+    "y0": 60,
+    "radius": 55,
+    "min": 0,
+    "max": 120,
+    "divs": 24,
+      "subdivs": 4,
+      "label":"RPM/1000",
+    "spectrum": [
+      "blue",
+      "blue"
+    ]
+  },
+  {
+    "type": "roundGauge",
+    "x0": 255,
+    "y0": 60,
+    "radius": 55,
+    "min": 0,
+      "max": 1000,
+      "label":"EGT °C",
+    "divs": 20,
+    "subdivs": 4,
+    "spectrum": [
+      "blue",
+      "springgreen",
+      "yellow",
+      "red"
+    ]
+  },
+  {
+    "type": "roundGauge",
+    "x0": 160,
+    "y0": 30,
+    "radius": 25,
+    "min": 0,
+    "max": 10,
+    "divs": 16,
+      "subdivs": 0,
+      "label":"Batt",
+    "spectrum": [
+      "red",
+      "yellow",
+      "springgreen"
+    ]
+  },
+  {
+    "type": "roundGauge",
+    "x0": 160,
+    "y0": 85,
+    "radius": 25,
+    "min": 0,
+    "max": 10,
+      "divs": 16,
+      "label":"Pump",
+    "subdivs": 0,
+    "spectrum": [
+      "red",
+      "yellow",
+      "springgreen"
+    ]
+  }
+]

@@ -1,0 +1,114 @@
+[
+  {
+    "width": 140,
+    "height": 40,
+    "y0": 18,
+    "calc": {
+      "height": 24,
+      "width": 140,
+      "xL": 80,
+      "yL": 37.14,
+      "xV": 80,
+      "yV": 21.5
+    },
+    "label": "Rx1 Voltage",
+    "x0": 80,
+    "value": "Rx1 Voltage 'v''u'",
+    "lua": "string.format('CB200: %.1f mA %.1f V', 5*7.12, 6.34*4)",
+    "type": "textBox"
+  },
+  {
+    "type": "textBox",
+    "x0": 80,
+    "y0": 58,
+    "width": 140,
+    "height": 40,
+    "value": [
+      "Ready to Start",
+      "Starting",
+      "Running",
+      "Cooling",
+      "User Off",
+      "Standby"
+    ],
+    "label": "Status 2",
+    "calc": {
+      "height": 24,
+      "width": 140,
+      "xL": 80,
+      "yL": 77.14,
+      "xV": 80,
+      "yV": 61.5
+    }
+  },
+  {
+    "type": "textBox",
+    "x0": 80,
+    "y0": 98,
+    "width": 140,
+    "height": 40,
+    "value": "Variable 3",
+    "label": "Status 3",
+    "calc": {
+      "height": 24,
+      "width": 140,
+      "xL": 80,
+      "yL": 117.14,
+      "xV": 80,
+      "yV": 101.5
+    }
+  },
+  {
+    "type": "textBox",
+    "x0": 80,
+    "y0": 138,
+    "width": 140,
+    "height": 40,
+    "value": "Variable 4",
+    "label": "Status 4",
+    "calc": {
+      "height": 24,
+      "width": 140,
+      "xL": 80,
+      "yL": 157.14,
+      "xV": 80,
+      "yV": 141.5
+    }
+  },
+  {
+    "min": 0,
+    "colorvals": [
+      {
+        "color": "blue",
+        "val": 60
+      },
+      {
+        "color": "yellow",
+        "val": 80
+      },
+      {
+        "color": "orange",
+        "val": 90
+      },
+      {
+        "color": "red",
+        "val": 100
+      }
+    ],
+    "y0": 80,
+    "calc": {
+      "xL": 240,
+      "yL": 138.5,
+      "xV": 240,
+      "yV": 99.5
+    },
+    "label": "Current",
+    "max": 120,
+    "radius": 65,
+    "x0": 240,
+    "divs": 24,
+    "subdivs": 4,
+    "value": 85,
+    "type": "roundGauge"
+  }
+]

@@ -20,7 +20,7 @@
      "sensorName": "Tach",
      "luaExp":"P2(120)",
      "label": "RPM",
-     "unit": ""
+     "unit": "rpm"
     },
     {"id":137, "param": 0,"sensorName": "SB-TEMP", "label": "General"},
 
@@ -35,12 +35,12 @@
     },
     {"id":137,
      "param": 2,
-     "decimals": 0,
+     "decimals": 1,
      "type": 1,
      "sensorName": "PumpV",
      "luaExp":"P4(10)",
      "label": "PumpV",
-     "unit": "°C"
+     "unit": "V"
     },
     {"id":137,
      "param": 3,
@@ -49,7 +49,7 @@
      "sensorName": "BattV",
      "luaExp":"P5(10)",
      "label": "BattV",
-     "unit": "°C"
+     "unit": "V"
     },
     {"id":137,
      "param":7,
