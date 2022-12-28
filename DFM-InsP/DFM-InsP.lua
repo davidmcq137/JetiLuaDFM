@@ -455,7 +455,7 @@ local function keyForm(key)
 end
 
 local function changedSensor(val, i, ip)
-   print("changedSensor", val, i, InsP.sensorLalist[val], InsP.sensorIdlist[val], InsP.sensorPalist[val])
+   --print("changedSensor", val, i, InsP.sensorLalist[val], InsP.sensorIdlist[val], InsP.sensorPalist[val])
    ip[i].SeId = InsP.sensorIdlist[val]
    ip[i].SePa = InsP.sensorPalist[val]
    ip[i].SeUn = InsP.sensorUnlist[val]
@@ -467,7 +467,7 @@ local function panelChanged(val, sp)
    local pv = InsP.settings.panels[val]
 
    if val ~= 1 then
-      fn = pDir .. "/"..pv..".jsn"
+      fn = pDir .. "/"..pv..".json"
       local file = io.readall(fn)
       local bi = InsP.panelImages[sp].backImage
       InsP.panels[sp] = json.decode(file)
@@ -1452,7 +1452,7 @@ local function init()
    for name, _, _ in dir(path) do
       dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
       if fn and ext then
-	 if string.lower(ext) == "jsn" then
+	 if string.lower(ext) == "json" then
 	    ff = path .. "/" .. fn .. "." .. ext
 	    file = io.open(ff)
 	    if file then

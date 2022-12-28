@@ -1,10 +1,11 @@
 [
   {
-    "type": "textBox",
-    "x0": 220,
-    "y0": 140,
-    "width": 180,
+      "type": "textBox",
+      "x0": 220,
+      "y0": 140,
+      "width": 180,
       "height": 30,
+      "value": ["Ready to Start", "Starting", "Running", "Cooling", "User Off", "Standby"],
       "label":"Turbine Status"
   },
   {
