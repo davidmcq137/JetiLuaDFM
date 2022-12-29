@@ -1,15 +1,39 @@
-local InsP = {}
+--[[
+   ----------------------------------------------------------------------
+   DFM-InsP.lua released under MIT license by DFM 2022
+   
+   This app is intended to render instrument panels where a json and image file
+   are produced on Russell's dynamic content app creation/distribution website
+   ----------------------------------------------------------------------
+--]]
 
+
+local InsPVersion = 0.1
+local InsP = {}
 InsP.panels = {}
 InsP.panelImages = {}
 InsP.sensorLalist = {"..."}
 InsP.sensorLslist = {"..."}
 InsP.sensorIdlist = {0}
 InsP.sensorPalist = {0}
+InsP.sensorUnlist = {"-"}
+InsP.sensorDplist = {0}
+
+local teleSensors, txTeleSensors
+local txSensorNames = {"txVoltage", "txBattPercent", "txCurrent", "txCapacity",
+		       "rx1Percent", "rx1Voltage", "rx2Percent", "rx2Voltage",
+		       "rxBVoltage", "rxBPercent", "photoValue"}
+local txSensorUnits = {"V", "%", "mA", "mAh", "%", "V", "%", "V", "V", "%", " "}
+local txSensorDP    = { 1,   0,    0,     0,   0,   1,   0,   1,   1,   0,   0}
+local txSensorsMax
+local txRSSINames = {"rx1Ant1", "rx1Ant2", "rx2Ant1", "rx2Ant2",
+		     "rxBAnt1", "rxBAnt2"}
+
 InsP.settings = {}
 InsP.settings.switchInfo = {}
 
 local switches = {}
+local stateSw = {}
 
 local edit = {}
 edit.ops = {"Center", "Value", "Label", "Range"}
@@ -18,6 +42,15 @@ edit.fonts = {"Mini", "Normal", "Bold", "Big", "None"}
 edit.fcode = {Mini=FONT_MINI, Normal=FONT_NORMAL, Bold=FONT_BOLD, Big=FONT_BIG, None=-1}
 edit.icode = {Mini=1, Normal=2, Bold=3, Big=4, None=5}
 edit.gaugeName = {roundGauge="RndG", horizontalBar="HBar", textBox="Text"}
+
+local lua = {}
+lua.chunk = {}
+lua.env = {string=string, math=math, table=table, print=print,
+	   tonumber=tonumber, tostring=tostring,pairs=pairs, ipairs=ipairs}
+lua.index = 0
+lua.txTelLastUpdate = 0
+lua.txTel = {}
+lua.completePass = false
 
 local subForm = 0
 local pDir = "Apps/DFM-InsP/Panels"
@@ -30,6 +63,8 @@ local savedRow3 = 1
 local mmCI
 local swtCI ={}
 
+local appStartTime
+
 local needle = {
    {-1,0},
    {-2,1},
@@ -41,11 +76,13 @@ local needle = {
    {1,0}
 }
 
+--[[
 local hSlider = {
    {0,0},
    {6,6},
    {-6,6}
 }
+--]]
 
 local triangle = {
    {-7,1},
@@ -53,29 +90,87 @@ local triangle = {
    {7,1}
 }
 
-local messages = { "Turbine status: Ready",
-		   "Turbine status: Starting",
-		   "Turbine status: Running",
-		   "Turbine status: Idle",
-		   "Turbine status: Cooling",
-		   "Turbine status: Off"}
-
-local msgidx = 1
-local nextTime =0
+local function getSensorByID(SeId, SePa)
+   if SeId ~= 0 then
+      return system.getSensorByID(SeId, SePa)
+   elseif SePa > 0 then -- txTel named
+      local sensor={}
+      sensor.value = lua.txTel[txSensorNames[SePa]] 
+      sensor.unit  = InsP.sensorUnlist[teleSensors + SePa]
+      sensor.decimals = InsP.sensorDplist[teleSensors + SePa]
+      -- TX reports 0 until it has good data for txTel .. ruins max/min
+      if system.getTimeCounter() - appStartTime > 200 then
+	 sensor.valid = true
+      else
+	 sensor.valid = false
+      end
+      return sensor
+   elseif SePa < 0 then -- txTel RSSI
+      local NePa = -SePa
+      local sensor = {}
+      sensor.value = lua.txTel.RSSI[NePa]
+      sensor.unit  = InsP.sensorUnlist[txTeleSensors + NePa]
+      sensor.decimals = InsP.sensorDplist[txTeleSensors + NePa]
+      -- TX reports 0 until it has good data for txTel .. ruins max/min
+      if system.getTimeCounter() - appStartTime > 200 then
+	 sensor.valid = true
+      else
+	 sensor.valid = false
+      end
+      return sensor
+   end
+end
 
 local function readSensors(tt)
    local sensorLbl = "***"
+   local l1, l2
    local sensors = system.getSensors()
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then sensorLbl = sensor.label else
-	    table.insert(tt.sensorLalist, sensorLbl .. "-> " .. sensor.label)
+	    l1 = string.gsub(sensorLbl, "%W", "")
+	    l2 = string.gsub(sensor.label, "%W", "")
+	    table.insert(tt.sensorLalist, l1 .. "_" .. l2)
 	    table.insert(tt.sensorLslist, sensor.label)	    
 	    table.insert(tt.sensorIdlist, sensor.id)
 	    table.insert(tt.sensorPalist, sensor.param)
+	    table.insert(tt.sensorUnlist, sensor.unit)
+	    table.insert(tt.sensorDplist, sensor.decimals)
 	 end
       end
    end
+   teleSensors = #tt.sensorLalist
+
+   l1 = "txTel"
+   for i, label in ipairs(txSensorNames) do
+      table.insert(tt.sensorLalist, l1 .. "_" .. label)
+      table.insert(tt.sensorLslist, label)	    
+      table.insert(tt.sensorIdlist, 0)
+      table.insert(tt.sensorPalist, i)
+      table.insert(tt.sensorUnlist, txSensorUnits[i])
+      table.insert(tt.sensorDplist, txSensorDP[i])
+   end
+   txTeleSensors = #tt.sensorLalist
+
+   l1 = "txRSSI"
+   for i, label in ipairs(txRSSINames) do
+   table.insert(tt.sensorLalist, l1 .. "_" .. label)
+      table.insert(tt.sensorLslist, label)	    
+      table.insert(tt.sensorIdlist, 0)
+      table.insert(tt.sensorPalist, -i)
+      table.insert(tt.sensorUnlist, " ")
+      table.insert(tt.sensorDplist, 0)
+   end
+
+end
+
+local function initPanels(tbl)
+   tbl.panels = {}
+   tbl.panels[1] = {}
+   tbl.panelImages = {}
+   tbl.panelImages[1] = {}
+   tbl.panelImages[1].instImage = "---"
+   tbl.panelImages[1].backImage = "---"
 end
 
 local function prefix()
@@ -119,51 +214,118 @@ local function drawShape(col, row, shape, f, rotation, x0, y0, r, g, b)
    end
 end
 
-local function keyForm(key)
-   local ip
+local function setToPanel(iisp)
+   --print("setToPanel", iisp)
+   local isp = iisp
+   if isp < 1 then isp = 1 end
+   if isp > #InsP.panels then isp = #InsP.panels end
+   InsP.settings.selectedPanel = isp
    
+   local pv = InsP.panelImages[isp].instImage
+   
+   if pv then
+      panelImg = lcd.loadImage(pDir .. "/"..pv..".png")
+   else
+      panelImg = nil
+   end
+   
+   local bv = InsP.panelImages[InsP.settings.selectedPanel].backImage
+   if bv then
+      backImg =  lcd.loadImage(bDir .. "/"..bv..".png")
+   else
+      backImg = nil
+   end
+end
+
+local function setToPanelName(pn)
+   local isel = 0
+   for i, p in ipairs(InsP.panelImages) do
+      if p.instImage == pn then
+	 isel = i
+	 break
+      end
+   end
+   if isel > 0 then
+      --print("calling setToPanel", pn, isel)
+      setToPanel(isel)
+   else
+      --print("nothing done", pn)
+   end
+end
+
+
+local function keyForm(key)
+   
+   local is = InsP.settings
+   local ip = InsP.panels
+   local sp = is.selectedPanel
+
    if subForm == 1 then
-      local is = InsP.settings
-      local ip = InsP.panels
-      local sp = is.selectedPanel
       if key == KEY_1 then
 	 if not sp then return end
-	 print("is.selectedPanel, #ip", sp, #ip)
 	 local temp = sp
 	 temp = temp + 1
 	 if temp > #ip  then is.selectedPanel = 1 else is.selectedPanel = temp end
-	 print("keyForm selectedPanel", is.selectedPanel)
-
-	 local pv = InsP.panelImages[is.selectedPanel].instImage
-	 print("selectedPanelName set to", pv)
-	 InsP.settings.selectedPanelName = pv
-	 
-	 if pv then
-	    panelImg = lcd.loadImage(pDir .. "/"..pv..".png")
-	 else
-	    panelImg = nil
-	 end
-	 
-	 local bv = InsP.panelImages[is.selectedPanel].backImage
-	 if bv then
-	    backImg =  lcd.loadImage(bDir .. "/"..bv..".png")
-	 else
-	    backImg = nil
-	 end
-
+	 setToPanel(is.selectedPanel)
 	 form.reinit(1)
       end
+   end
+
+   if subForm == 106 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(1)
+	 return
+      end
+      if key == KEY_1 then
+	 if not sp then return end
+	 local temp = sp
+	 temp = temp + 1
+	 if temp > #ip  then is.selectedPanel = 1 else is.selectedPanel = temp end
+	 setToPanel(is.selectedPanel)
+	 form.reinit(106)
+      end
       if key == KEY_2 then
-	 print("key 2", #InsP.panels)
+	 if not sp then return end
+	 local row = is.homePanel
+	 row = row + 1
+	 if row > #ip  then
+	    is.homePanel = 1
+	 else
+	    is.homePanel = row
+	 end
+	 --print("home panel set to", is.homePanel)
+	 form.reinit(106)
+      end
+      
+      if key == KEY_3 then
 	 local ii = #InsP.panels+1
 	 InsP.panels[ii] = {}
 	 InsP.panelImages[ii] = {}
-	 --table.insert(InsP.panels, {})
-	 --should we select the one just created?
 	 is.selectedPanel = #InsP.panels
-	 is.selectedPanelName = "" -- don't know name till it's set in settings
-	 --ip.selPanel = nil
-	 form.reinit(1)
+	 InsP.panelImages[is.selectedPanel].instImage = "---"
+	 InsP.panelImages[is.selectedPanel].backImage = "---"
+	 setToPanel(#InsP.panels)
+	 form.reinit(106)
+      end
+      if key == KEY_4 then
+	 local row = form.getFocusedRow() - 1
+	 table.remove(InsP.panels, row)
+	 table.remove(InsP.panelImages, row)
+	 if row == is.homePanel then
+	    system.messageBox("Home Panel deleted")
+	    is.homePanel = 1
+	 end
+	 if row == is.selectedPanel then
+	    system.messageBox("Selected Panel deleted")
+	    is.selectedPanel = 1
+	 end
+	 
+	 if #InsP.panels < 1 then
+	    initPanels(InsP)
+	 end
+	 setToPanel(is.selectedPanel)
+      	 form.reinit(106)
       end
    end
    
@@ -252,7 +414,6 @@ local function keyForm(key)
 	    if eo == "Value" and ipeg.fV then
 	       local i = edit.icode[ipeg.fV]
 	       i = i + inc
-	       --i = math.min(math.max(i, 1), #edit.fonts)
 	       if i > #edit.fonts then i = 1 end
 	       if i < 1 then i = #edit.fonts end
 	       ipeg.fV = edit.fonts[i]
@@ -260,7 +421,6 @@ local function keyForm(key)
 	    if eo == "Label" and ipeg.fL then
 	       local i = edit.icode[ipeg.fL]
 	       i = i + inc
-	       --i = math.min(math.max(i, 1), #edit.fonts)
 	       if i > #edit.fonts then i = 1 end
 	       if i < 1 then i = #edit.fonts end
 	       ipeg.fL = edit.fonts[i]
@@ -268,7 +428,6 @@ local function keyForm(key)
 	    if eo == "Range" and ipeg.fLRV then
 	       local i = edit.icode[ipeg.fLRV]
 	       i = i + inc
-	       --i = math.min(math.max(i, 1), #edit.fonts)
 	       if i > #edit.fonts then i = 1 end	       
 	       if i < 1 then i = #edit.fonts end
 	       ipeg.fLRV = edit.fonts[i]
@@ -276,20 +435,41 @@ local function keyForm(key)
 	 end
       end
    end
+   if subForm == 105 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(1)
+	 return
+      end
+      if key == KEY_1 then
+	 table.insert(stateSw, {switch=nil, dir=1, from="*", to="*", lastSw=0})
+	 form.setFocusedRow(#stateSw + 1)
+	 form.reinit(105)
+      elseif key == KEY_2 then
+	 local fr = form.getFocusedRow()
+	 if fr - 1 > 0 then
+	    stateSw[fr-1].switch = nil
+	    switches["stateSwitch"..(fr-1)] = nil
+	    table.remove(stateSw, fr - 1)
+	 end
+	 form.reinit(105)
+      end
+   end
 end
 
 local function changedSensor(val, i, ip)
    ip[i].SeId = InsP.sensorIdlist[val]
    ip[i].SePa = InsP.sensorPalist[val]
+   ip[i].SeUn = InsP.sensorUnlist[val]
+   ip[i].SeDp = InsP.sensorDplist[val]
 end
 
-local function panelChanged(val)
+local function panelChanged(val, sp)
    local fn
    local pv = InsP.settings.panels[val]
-   local sp = InsP.settings.selectedPanel
 
    if val ~= 1 then
-      fn = pDir .. "/"..pv..".jsn"
+      fn = pDir .. "/"..pv..".json"
       local file = io.readall(fn)
       local bi = InsP.panelImages[sp].backImage
       InsP.panels[sp] = json.decode(file)
@@ -302,9 +482,8 @@ local function panelChanged(val)
    end
 end
 
-local function backGndChanged(val)
+local function backGndChanged(val,sp)
    local bv = InsP.settings.backgrounds[val]
-   local sp = InsP.settings.selectedPanel
    if val ~= 1 then
       backImg = lcd.loadImage(bDir .. "/"..bv..".png")
       InsP.panelImages[sp].backImage = bv
@@ -314,7 +493,7 @@ local function backGndChanged(val)
    end
 end
 
-local function changedSwitch(val, switchName)
+local function changedSwitch(val, switchName, j)
    local Invert = 1.0
 
    local swInfo = system.getSwitchInfo(val)
@@ -325,6 +504,10 @@ local function changedSwitch(val, switchName)
       if swInfo.value == Invert or swTyp == "L" or swTyp =="M" then
 	 switches[switchName] = val
 	 InsP.settings.switchInfo[switchName] = {} 
+	 if j then -- special adder for sequencer screen (sorry)
+	    InsP.settings.switchInfo[switchName].seqIdx = j
+	    stateSw[j].switch = val
+	 end
 	 InsP.settings.switchInfo[switchName].name = swInfo.label
 	 if swTyp == "L" or swTyp =="M" then
 	    InsP.settings.switchInfo[switchName].activeOn = 0
@@ -350,14 +533,8 @@ local function changedSwitch(val, switchName)
    end
 end
 
---(function(x) return changedMinMax(x, "min", ip[ig]) end), {width=80})
-
 local function changedMinMax(val, sel, ipig)
-   if sel == "min" then
-      ipig.min = val
-   else
-      ipig.max = val
-   end
+   ipig[sel] = val
 end
 
 local function changedLabel(val, ipig, f)
@@ -366,8 +543,6 @@ local function changedLabel(val, ipig, f)
    ipig.label = val
    form.reinit(f)
 end
-
---      mmCI = form.addCheckbox(isel, (function(x) return changedShowMM(x, ip[ig]) end) )
 
 local function changedShowMM(val, ipig)
    ipig.showMM = tostring(not val)
@@ -381,17 +556,24 @@ local function initForm(sf)
    if sf == 1 then
       local val
       if InsP.settings.selectedPanel > 0 then
-      	 val = string.format(" %d", InsP.settings.selectedPanel)
+	 val = string.format(" %d", InsP.settings.selectedPanel)
       else
 	 val = " (none selected)"
       end
-
       form.setButton(1, "Select", ENABLED)
-      form.setButton(2, ":add", ENABLED)
-      form.setButton(3, ":delete", ENABLED)
       
-      form.setTitle(string.format("Instrument Panel%s of %d", val, #InsP.panels))
+      local sp = InsP.panelImages[InsP.settings.selectedPanel].instImage
+      form.setTitle(string.format("Selected Panel: %s", sp))
       
+      form.addRow(2)
+      form.addLabel({label="Panels >>", width=220})
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       savedRow2 = 1
+	       form.reinit(106)
+	       form.waitForRelease()
+      end))      
+
       form.addRow(2)
       form.addLabel({label="Settings >>", width=220})
       form.addLink((function()
@@ -420,7 +602,16 @@ local function initForm(sf)
       end))      
 
       form.addRow(2)
-      form.addLabel({label="Reset App data >>", width=220})
+      form.addLabel({label="Edit Links >>", width=220})
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       savedRow2 = 1
+	       form.reinit(105)
+	       form.waitForRelease()
+      end))      
+
+      form.addRow(2)
+      form.addLabel({label="Reset data >>", width=220})
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       form.reinit(101)
@@ -431,7 +622,8 @@ local function initForm(sf)
    elseif sf == 100 then
 
       local ip = InsP.panels[InsP.settings.selectedPanel]
-      form.setTitle("Assign sensors to gauges")
+      form.setTitle("Sensors for Panel " ..
+		       InsP.panelImages[InsP.settings.selectedPanel].instImage)
 
       form.setButton(1, ":edit", ENABLED)
       
@@ -453,52 +645,24 @@ local function initForm(sf)
 	 form.addLabel({label = string.format("%s", str), width=160})      
 	 local id = widget.SeId
 	 local pa = widget.SePa
-	 local isel = 0
+	 local isel = 1
 	 for k, _ in ipairs(InsP.sensorLalist) do
 	    if id == InsP.sensorIdlist[k] and pa == InsP.sensorPalist[k] then
 	       isel = k
 	       break
 	    end
 	 end
-	 form.addSelectbox(InsP.sensorLslist, isel, true,
-			   (function(x) return changedSensor(x, i, ip) end),{width=100})
+	 form.addLabel({label=InsP.sensorLslist[isel], width=100})
       end
       form.setFocusedRow(savedRow2)
    elseif sf == 101 then
       io.remove(InsP.settings.fileBD)
       InsP.settings.writeBD = false
-      system.messageBox("Data deleted .. restart App")
+      system.messageBox("All data deleted .. Restart App")
       form.reinit(1)
    elseif sf == 102 then
       
-      form.setTitle("Settings")
-
-      form.addRow(2)
-      local sp = InsP.settings.selectedPanel
-      local pnl = InsP.panelImages[sp].instImage
-      form.addLabel({label="Instrument Panel " .. sp })
-      local isel = 0
-      if InsP.settings.panels then
-	 for i, p in ipairs(InsP.settings.panels) do
-	    if p == pnl then
-	       isel = i
-	       break
-	    end
-	 end
-      end
-      form.addSelectbox(InsP.settings.panels, isel, true, panelChanged)
-
-      form.addRow(2)
-      form.addLabel({label="Background Image " .. sp})
-      local bak = InsP.panelImages[sp].backImage
-      local isel = 0
-      for i, p in ipairs(InsP.settings.backgrounds) do
-	 if p == bak then
-	    isel = i
-	    break
-	 end
-      end
-      form.addSelectbox(InsP.settings.backgrounds, isel, true, backGndChanged)      
+      form.setTitle("Settings for all Panels ")
 
       form.addRow(2)
       form.addLabel({label="Switch to reset min/max markers", width=240})
@@ -519,28 +683,51 @@ local function initForm(sf)
       form.setButton(1, "Select", ENABLED)
       form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), ENABLED)
       form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)
-      --form.setButton(4, string.format("%s", edit.fonts[edit.fontIdx), ENABLED)      
    elseif sf == 104 then -- edit item on sensor menu
       local ig = savedRow3
       local ip = InsP.panels[InsP.settings.selectedPanel]
       form.setTitle("Edit Gauge "..ig.."  ("..ip[ig].label..")", savedRow3)
 
-      form.addRow(4)
-      form.addLabel({label="Min"})
-      if ip[ig].subdivs == 0 then
-	 form.addIntbox(ip[ig].min, -32768, 32767, 0, 0, 1,
-			(function(x) return changedMinMax(x, "min", ip[ig]) end),
-			{width=80})
-      else
-	 form.addLabel({label=string.format("%d", ip[ig].min), width=80, alignRight=true})
+      local widget = ip[ig]
+      local id = widget.SeId
+      local pa = widget.SePa
+      local isel = 1
+      for k, _ in ipairs(InsP.sensorLalist) do
+	 if id == InsP.sensorIdlist[k] and pa == InsP.sensorPalist[k] then
+	    isel = k
+	    break
+	 end
       end
-      form.addLabel({label="Max"})
-      if ip[ig].subdivs == 0 then
-	 form.addIntbox(ip[ig].max, -32768, 32767, 0, 0, 1,
-			(function(x) return changedMinMax(x, "max", ip[ig]) end),
-			{width=80})
+      form.addRow(2)
+      form.addLabel({label="Sensor", width=80})
+      form.addSelectbox(InsP.sensorLalist, isel, true,
+			(function(x) return changedSensor(x, ig, ip) end),
+			{width=240, alignRight=true})
+
+      form.addRow(4)
+      form.addLabel({label="Gauge Min", width=90})
+      if ip[ig].min then
+	 if ip[ig].subdivs ~= 0 then
+	    form.addIntbox(ip[ig].min, -32768, 32767, 0, 0, 1,
+			   (function(x) return changedMinMax(x, "min", ip[ig]) end),
+			   {width=70})
+	 else
+	    form.addLabel({label=string.format("%d", ip[ig].min), width=70, alignRight=true})
+	 end
       else
-	 form.addLabel({label=string.format("%d", ip[ig].max), width=80, alignRight=true})
+	    form.addLabel({label="---", width=70, alignRight=true})
+      end
+      form.addLabel({label="Gauge Max", width=90})
+      if ip[ig].max then
+	 if ip[ig].subdivs ~= 0 then
+	    form.addIntbox(ip[ig].max, -32768, 32767, 0, 0, 1,
+			   (function(x) return changedMinMax(x, "max", ip[ig]) end),
+			   {width=70})
+	 else
+	    form.addLabel({label=string.format("%d", ip[ig].max), width=70, alignRight=true})
+	 end
+      else
+	 form.addLabel({label="---", width=70, alignRight=true})
       end
 
       form.addRow(2)
@@ -550,24 +737,170 @@ local function initForm(sf)
 		      {width=245})
 
       form.addRow(2)
-      form.addLabel({label="Enable min/max markers", width=270})
+      form.addLabel({label="Enable min/max value markers", width=270})
       local isel = ip[ig].showMM == "true"
       mmCI = form.addCheckbox(isel, (function(x) return changedShowMM(x, ip[ig]) end), {width=60} )
-      form.setFocusedRow(savedRow2)
+
+      if ip[ig].max and ip[ig].min then
+	 form.addRow(2)
+	 form.addLabel({label="Max warning value"})
+	 if not ip[ig].maxWarn then ip[ig].maxWarn = ip[ig].max end
+	 form.addIntbox(ip[ig].maxWarn, ip[ig].min, ip[ig].max, ip[ig].max, 0, 1,
+			(function(x) return changedMinMax(x, "maxWarn", ip[ig]) end))
+	 
+	 form.addRow(2)
+	 form.addLabel({label="Min warning value"})
+	 if not ip[ig].minWarn then ip[ig].minWarn = ip[ig].min end
+	 form.addIntbox(ip[ig].minWarn, ip[ig].min, ip[ig].max, ip[ig].min, 0, 1,
+			(function(x) return changedMinMax(x, "minWarn", ip[ig]) end))
+      end
+      
+      form.setFocusedRow(1)
+   elseif sf == 105 then
+      local function dirChanged(val, j)
+	 stateSw[j].dir = val
+	 form.reinit(105)
+      end
+
+      local function fromChanged(val, j)
+	 stateSw[j].from = InsP.panelImages[val-1].instImage
+	 form.reinit(105)
+      end
+      
+      local function toChanged(val, j)
+	 stateSw[j].to = InsP.panelImages[val-1].instImage
+	 form.reinit(105)
+      end
+
+      form.setTitle("Sequence switch setup")
+      
+      form.setButton(1, ":add", 1)
+      form.setButton(2, ":delete", 1)
+      form.addRow(1)
+      form.addLabel({label="  Sw         Trig           From               To"})
+      local ipi = InsP.panelImages
+      local teleLabel={}
+      teleLabel[1] = "*"
+      for i in ipairs(ipi) do
+	 teleLabel[i+1] = ipi[i].instImage
+      end
+      for j in ipairs(stateSw) do
+	 local to = 1
+	 local from = 1
+	 for i in ipairs(ipi) do
+	    if ipi[i].instImage == stateSw[j].to then to = i+1 end
+	    if ipi[i].instImage == stateSw[j].from then from = i+1 end
+	 end
+	 form.addRow(5)
+	 local stateSwitchN = "stateSwitch"..j
+	 swtCI[stateSwitchN] = form.addInputbox(switches[stateSwitchN], false,
+					      (function(x)
+						    return
+						    changedSwitch(x, stateSwitchN, j)
+					      end),
+					      {width=50})
+	 form.addSelectbox({"+", "-"}, stateSw[j].dir, false,
+	    (function(x) return dirChanged(x,j)  end), {width=70})
+	 form.addSelectbox(teleLabel, from, true,
+			   (function(x) return fromChanged(x,j) end), {width=100})
+	 form.addSelectbox(teleLabel, to  , true,
+			   (function(x) return toChanged(x,j)   end), {width=100})
+      end
+   elseif sf == 106 then
+      form.setTitle("Edit Panels")
+
+      form.setButton(1, "Select", ENABLED)
+      form.setButton(2, "Home", ENABLED)
+      form.setButton(3, ":add", ENABLED)
+      form.setButton(4, ":delete", ENABLED)
+
+      form.addRow(4)
+      form.addLabel({label=" ", width=40})
+      form.addLabel({label="#", width=20})
+      form.addLabel({label="Panel     ", width=110, alignRight = true})
+      form.addLabel({label="Background", width=110, alighRight = true})
+      
+      for i, img in ipairs(InsP.panelImages) do
+	 form.addRow(4)
+	 local lbl=""
+	 if i == InsP.settings.selectedPanel then
+	    lbl = lbl .. "S"
+	 end
+	 if i == InsP.settings.homePanel then
+	    lbl = lbl .. "H"
+	 end
+	 form.addLabel({label=lbl, width=40})
+
+	 form.addLabel({label=i, width=20})
+
+	 local sp = InsP.settings.selectedPanel
+	 local pnl = InsP.panelImages[i].instImage
+	 local isel = 0
+	 if InsP.settings.panels then
+	    for i, p in ipairs(InsP.settings.panels) do
+	       if p == pnl then
+		  isel = i
+		  break
+	       end
+	    end
+	 end
+	 form.addSelectbox(InsP.settings.panels, isel, true,
+			   (function(x) return panelChanged(x, i) end),
+			   {width=110})
+	 
+	 local bak = InsP.panelImages[i].backImage
+	 isel = 0
+	 for i, p in ipairs(InsP.settings.backgrounds) do
+	    if p == bak then
+	       isel = i
+	       break
+	    end
+	 end
+	 form.addSelectbox(InsP.settings.backgrounds, isel, true,
+			   (function(x) return backGndChanged(x, i) end),
+			   {width=110})      
+      end
+      local isp = InsP.settings.selectedPanel
+      if  isp >= 1 and isp <= #InsP.panelImages then
+	 form.setFocusedRow(isp+1)
+      end
    end
 end
 
 local swrLast
 local swpLast
+local lastindex = 0
+
 local function loop()
 
    local sensor
-   local swr, swp
+   local swr, swp, swt
 
    local isp = InsP.panels[InsP.settings.selectedPanel]
    if not isp then return end
 
-   -- see if we need to rotate panels
+   -- see if sequencer has triggered a change
+   
+   local ipi = InsP.panelImages
+   local sp  = InsP.settings.selectedPanel
+   
+   for i in ipairs(stateSw) do
+      if not stateSw[i].lastSw then stateSw[i].lastSw = swt end
+      local swt = system.getInputsVal(stateSw[i].switch)
+      if swt and stateSw[i] and stateSw[i].lastSw ~= 0 and (swt ~= stateSw[i].lastSw) then
+	 -- "pos" is index 1 and "neg" is index 2
+	 if (swt == 1 and stateSw[i].dir == 1) or (swt == -1 and stateSw[i].dir == 2) then
+	    if stateSw[i].from == "*" or stateSw[i].from == ipi[sp].instImage then
+	       system.messageBox("Panel switching to: " .. stateSw[i].to)
+	       setToPanelName(stateSw[i].to)
+	    end
+	 end
+      end
+      stateSw[i].lastSw = swt
+   end
+   
+   -- see if we need to rotate panels from the manual switch
+
    swp = system.getInputsVal(switches.rotatePanels)
    if not swpLast then swpLast = swp end
    local is = InsP.settings
@@ -576,22 +909,8 @@ local function loop()
       local temp = is.selectedPanel
       temp = temp + 1
       if temp > #ip  then is.selectedPanel = 1 else is.selectedPanel = temp end
-      print("rotate to", is.selectedPanel)
-      local pv = InsP.panelImages[is.selectedPanel].instImage
-      print("selectedPanelName set to", pv)
-      InsP.settings.selectedPanelName = pv
-      if pv then
-	 panelImg = lcd.loadImage(pDir .. "/"..pv..".png")
-      else
-	 panelImg = nil
-      end
-      
-      local bv = InsP.panelImages[is.selectedPanel].backImage
-      if bv then
-	 backImg =  lcd.loadImage(bDir .. "/"..bv..".png")
-      else
-	 backImg = nil
-      end
+
+      setToPanel(is.selectedPanel)
    end
    swpLast = swp
    
@@ -600,8 +919,8 @@ local function loop()
    swr = system.getInputsVal(switches.resetMinMax)
    if not swrLast then swrLast = swr end
    if swr and swr == 1 and swrLast ~= 1 then
-      for i,widget in ipairs(ip) do
-	 for k,v in pairs(widget) do
+      for _, widget in ipairs(ip) do
+	 for k, _ in pairs(widget) do
 	    if k == "minval" or k == "maxval" then widget[k] = nil end
 	 end
       end
@@ -610,8 +929,8 @@ local function loop()
 
    -- update min and max values
    
-   for i, widget in ipairs(ip) do
-      sensor = system.getSensorByID(widget.SeId, widget.SePa)	 
+   for _, widget in ipairs(ip) do
+      sensor = getSensorByID(widget.SeId, widget.SePa)	 
       if sensor and sensor.valid then
 	 -- text box does not have min or max
 	 if not widget.min then widget.min = 0 end
@@ -628,15 +947,46 @@ local function loop()
 	 if sensor.value > widget.maxval then widget.maxval = sensor.value end
       end
    end
+
+   -- throttle the update rate of tele sensors by moving the upper loop index up and
+   -- down to determine how many updates are done per Hollywood call
+
+   if system.getTimeCounter() - lua.txTelLastUpdate > 200 then
+      lua.txTel = system.getTxTelemetry()
+      lua.txTelLastUpdate = system.getTimeCounter()
+   end
+   
+   for k = 1, 10 do
+      --[[
+      if lua.index == 1 then
+	 print("time", system.getTimeCounter() - lastindex)
+	 lastindex = system.getTimeCounter()
+      end
+      --]]
+      lua.index = lua.index + 1
+      if lua.index <= #InsP.sensorLalist then
+	 local SeId = InsP.sensorIdlist[lua.index]
+	 local SePa = InsP.sensorPalist[lua.index]
+	 local sensor = getSensorByID(SeId, SePa)
+	 if sensor and sensor.valid then
+	    lua.env[InsP.sensorLalist[lua.index]] = sensor.value
+	 end
+      else
+	 lua.index = 1
+	 lua.completePass = true
+      end
+   end
 end
 
-local function printForm(wi, he)
+
+local function printForm()
 
    local ctl, ctlmin, ctlmax
    local rot, rotmin, rotmax
-   local factor = 1.0
+   local factor
    local sensor
-   local ip = InsP.panels[InsP.settings.selectedPanel]
+   local sp = InsP.settings.selectedPanel
+   local ip = InsP.panels[sp]
 
    if backImg  then
       lcd.drawImage(0, 0, backImg)
@@ -657,7 +1007,9 @@ local function printForm(wi, he)
    end
 
    for i, widget in ipairs(ip) do
-      sensor = system.getSensorByID(widget.SeId, widget.SePa)
+
+      sensor = getSensorByID(widget.SeId, widget.SePa)
+      
       ctl = nil
       if sensor and sensor.valid then
 	 if widget.min and widget.max then
@@ -672,8 +1024,60 @@ local function printForm(wi, he)
 	    rotmax = -0.75*math.pi * (1-ctlmax) + 0.75*math.pi*(ctlmax)
 	 end
       end
+
+      local luaStr = ""
+      local err, status, result
+      if widget.lua and lua.completePass then
+	 if not lua.chunk[sp] then
+	    lua.chunk[sp] = {}
+	 end
+	 if not lua.chunk[sp][i] then
+	    lua.chunk[sp][i], err = load("return "..widget.lua,"","t",lua.env)
+	    if err then
+	       print("DFM-InsP - lua load error: " .. err)
+	       luaStr = "Check lua console"
+	    end
+	 end
+	 if not err then
+	    --print("pcall", sp, i)
+	    status, result = pcall(lua.chunk[sp][i])
+	    if not status then
+	       print("DFM-InsP - lua pcall error .. " .. result)
+	       luaStr = "Check lua console"
+	    else
+	       luaStr = result
+	    end
+	 end
+      end
+
       if widget.type == "roundGauge" then
+
 	 local val
+
+	 if sensor and sensor.valid then val = sensor.value end
+
+
+	 if val and
+	    ( (widget.maxWarn and val > widget.maxWarn) or
+	    (widget.minWarn and val < widget.minWarn) ) then
+	    if (system.getTimeCounter() // 500) % 2 == 0 then
+	       local ren = lcd.renderer()
+	       ren:reset()
+	       for th = 0, 2 * math.pi, 2 * math.pi / 20 do
+		  ren:addPoint(
+		     widget.x0 + 0.85 * widget.radius * math.sin(th),
+		     widget.y0 + 0.85 * widget.radius * math.cos(th)
+		  ) 
+	       end
+	       if val > widget.maxWarn then
+		  lcd.setColor(255,0,0)
+	       else
+		  lcd.setColor(0,0,255)
+	       end
+	       ren:renderPolygon(0.6)
+	    end
+	 end
+	 
 	 lcd.setColor(255,255,255)
 	 
 	 if ctl then
@@ -757,7 +1161,6 @@ local function printForm(wi, he)
 		  widget.yLV = widget.y0 + 1.0 * widget.radius
 		  widget.yRV = widget.y0 + 1.0 * widget.radius
 	       end
-	       --print(widget.radius, widget.x0, widget.y0, widget.xLV, widget.yLV)
 	       val = string.format("%d", widget.min)
 	       drawTextCenter(widget.xLV, widget.yLV, string.format("%s", val), edit.fcode[widget.fLRV])
 	       val = string.format("%d", widget.max)
@@ -796,29 +1199,73 @@ local function printForm(wi, he)
       elseif widget.type == "textBox" then
 
 	 lcd.setColor(0,0,0)
-	 if sensor and sensor.valid then
-	    msgidx = math.max(math.min(sensor.value, #messages), 1)
-	 else
-	    msgidx = 1
-	 end
-	 if not widget.fL then
-	    widget.fL = "Bold"
-	 end
 
-	 local str = messages[msgidx]
+	 local val
+	 if sensor and sensor.valid then
+	    val = sensor.value
+	 end
 
 	 if not widget.xL then
 	    widget.xL = widget.x0 
 	    widget.yL = widget.y0
 	 end
 	 
-	 lcd.drawText(widget.xL - lcd.getTextWidth(edit.fcode[widget.fL], str)/2,
-		      widget.yL - lcd.getTextHeight(edit.fcode[widget.fL])/2,
-		      str, edit.fcode[widget.fL])
+	 if not widget.fL then
+	    widget.fL = "Bold"
+	 end
+
+	 local stro
+
+	 if not widget.lua then
+	    local str = widget.value or "---" 
+	 	 if type(str) ~= "table" then
+		    stro = str
+		    for w in string.gmatch(str, "(%b'')") do
+		       local q1, q2 = string.find(stro, w)
+		       if q1 and q2 then
+			  local v
+			  local cc = string.sub(w,2,2)
+			  if cc == 'v' then
+			     if val then
+				local fmt = string.format("%%.%df", widget.SeDp or 1)
+				v = string.format(fmt, val)
+			     else
+				v = "---"
+			     end
+			  elseif cc == 'u' then
+			     if widget.SeUn then
+				v = widget.SeUn
+			     else
+				v = "--"
+			     end
+			  else
+			     v = w
+			  end
+			  local b = string.sub(stro, 1, q1 - 1)
+			  local a = string.sub(stro, q2 + 1, -1)
+			  stro = b .. v .. a
+		       end
+		    end
+		 else
+		    local idx
+		    if val then
+		       idx = 1 + (val - 1) % #str -- 1,2,3,...#str....1,2,3,...#str
+		    else
+		       idx = 1
+		    end
+		    stro = str[idx]
+		 end
+	 else
+	    stro = luaStr
+	 end
 	 
-      else
+
+	 lcd.drawText(widget.xL - lcd.getTextWidth(edit.fcode[widget.fL], stro)/2,
+		      widget.yL - lcd.getTextHeight(edit.fcode[widget.fL])/2,
+		      stro, edit.fcode[widget.fL])
       end
    end
+   lcd.drawText(300,140, system.getCPU(), FONT_MINI)
 end
 
 local function prtForm(w,h)
@@ -846,11 +1293,7 @@ local function prtForm(w,h)
 	 yy = ipeg.yLV
 	 ff = ipeg.fLRV
       end
-      --[[
-      local strN, strX
-      if ipeg.min then strN = string.format("%d", ipeg.min) else strN = "---" end
-      if ipeg.max then strX = string.format("%d", ipeg.max) else strX = "---" end      
-      --]]
+
       local typ = edit.gaugeName[ipeg.type]
       if not typ then typ = "---" end
       
@@ -860,7 +1303,6 @@ local function prtForm(w,h)
       lcd.drawText(10, 157,
 		   string.format("Gauge %d Type: %s  [%d,%d]  %s %s",
 				 edit.gauge, typ, xx, yy, fn, ff))
-      local ip = InsP.panels[InsP.settings.selectedPanel]
       lcd.setColor(180,180,180)
       lcd.drawLine(0, yy, w, yy)
       lcd.drawLine(xx, 0, xx, h)      
@@ -874,12 +1316,16 @@ local function destroy()
       save.panels = InsP.panels
       save.panelImages = InsP.panelImages
       save.settings = InsP.settings
+      save.stateSw = stateSw
+      for k,v in pairs(stateSw) do
+	 stateSw[k].switch = nil -- don't save switchitems .. reconstitute with other method
+      end
       -- convert Id to hex, otherwise it comes in as a float and loss of precision
       -- creates invalid result on read
       if save.panels then
 	 for i in ipairs(save.panels) do
 	    if not save.panels[i] then print("nil panel", i) end
-	    for k,v in ipairs(save.panels[i]) do
+	    for _, v in ipairs(save.panels[i]) do
 	       for kk,vv in pairs(v) do
 		  if kk == "SeId" then v[kk] = string.format("0X%X", vv) end
 	       end
@@ -888,14 +1334,11 @@ local function destroy()
       end
       -- don't save the list of panels and background images, read new each time we start
       if save.settings then
-	 for k,v in pairs(save.settings) do
-	    --print("k,v", k, v)
+	 for k, _ in pairs(save.settings) do
 	    if k == "panels" then save.settings.panels = {} end
 	    if k == "backgrounds" then save.settings.backgrounds = {} end	       
 	 end
       end
-      --print("save.settings.panels", save.settings.panels)
-      --print("save.settings.backgrounds", save.settings.backgrounds)      
       fp = io.open(InsP.settings.fileBD, "w")
       if fp then
 	 io.write(fp, json.encode(save), "\n") 
@@ -906,8 +1349,6 @@ end
 
 local function init()
 
-   -- First see if there is a saved file that has prior modification and additions
-   
    local decoded
    local mn
    local file
@@ -920,10 +1361,8 @@ local function init()
       decoded = json.decode(file)
       if not decoded then
 	 decoded = {}
-	 decoded.panels = {}
-	 decoded.panels[1] = {}
-	 decoded.panelImages = {}
-	 decoded.panelImages[1] = {}
+	 initPanels(decoded)
+	 decoded.stateSw = {}
       end
       for i=1, #decoded.panels do
 	 InsP.panels[i] = decoded.panels[i]
@@ -934,8 +1373,13 @@ local function init()
       InsP.settings = decoded.settings
       if not InsP.settings then InsP.settings = {} end
 
+      stateSw = decoded.stateSw
+      if not stateSw then stateSw = {} end
+
+      decoded = nil
+      
       for i in ipairs(InsP.panels) do
-	 for k,v in ipairs(InsP.panels[i]) do
+	 for _ ,v in ipairs(InsP.panels[i]) do
 	    for kk,vv in pairs(v) do
 	       if kk == "SeId" then v[kk] = tonumber(vv) end
 	       if kk == "minval"  then v[kk] = nil end
@@ -945,14 +1389,16 @@ local function init()
       end
    else
       print("DFM-InsP: Did not read any jsn panel file")
-      InsP.panels = {}
-      InsP.panels[1] = {}
-      InsP.panelImages = {}
-      InsP.panelImages[1] = {}
+      initPanels(InsP)
+      InsP.settings.homePanel = 1
    end
    InsP.settings.fileBD = ff
    InsP.settings.writeBD = true
 
+   local is = InsP.settings
+   is.selectedPanel = is.homePanel
+   setToPanel(is.selectedPanel)
+   
    -- Populate a table with all the panel json files
    -- in the Panels/ directory
 
@@ -962,9 +1408,9 @@ local function init()
    for name, _, _ in dir(path) do
       dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
       if fn and ext then
-	 if string.lower(ext) == "jsn" then
-	    local ff = path .. "/" .. fn .. "." .. ext
-	    local file = io.open(ff)
+	 if string.lower(ext) == "json" then
+	    ff = path .. "/" .. fn .. "." .. ext
+	    file = io.open(ff)
 	    if file then
 	       if not InsP.settings.panels then InsP.settings.panels = {} end
 	       table.insert(InsP.settings.panels, fn)
@@ -976,38 +1422,18 @@ local function init()
 
    table.sort(InsP.settings.panels)
 
-   -- the list of panels may have changed, re-find selectedPanel if in the list
-   
-   local isel = 0
-   local pp = InsP.settings.selectedPanelName 
-   for i, p in ipairs(InsP.settings.panels) do
-      print(i,p,pp)
-      if p == pp then isel = i break end
-   end
-
-   print("isel loop done", isel)
-   if isel == 0 then
-      InsP.settings.selectedPanel = 1 -- InsP.panels inits to {}
-      --InsP.settings.selPanel = nil -- but no json or image
-   else
-      InsP.settings.selectedPanel = isel - 1 -- account for "..." in [1]
-      --InsP.settings.selPanel = InsP.settings.panels[isel+1]
-   end
-   
-   print("init: selectedPanel", InsP.settings.selectedPanel, InsP.settings.selectedPanelName)
-   
    -- Populate a table with all the background image files
    -- in the Backgrounds/ directory
    
    InsP.settings.backgrounds = {"..."}
-   local dd, fn, ext
-   local path = prefix() .. bDir
+   --local dd, fn, ext
+   path = prefix() .. bDir
    for name, _, _ in dir(path) do
       dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
       if fn and ext then
 	 if string.lower(ext) == "png" then
-	    local ff = path .. "/" .. fn .. "." .. ext
-	    local file = io.open(ff)
+	    ff = path .. "/" .. fn .. "." .. ext
+	    file = io.open(ff)
 	    if file then
 	       if not InsP.settings.backgrounds then InsP.settings.backgrounds = {} end
 	       table.insert(InsP.settings.backgrounds, fn)
@@ -1019,41 +1445,22 @@ local function init()
 
    table.sort(InsP.settings.backgrounds)
 
-   local is = InsP.settings
-   local ip = InsP.panels
-
-   if InsP.panelImages[is.selectedPanel].instImage then
-      panelImg = lcd.loadImage(pDir .. "/" .. InsP.panelImages[is.selectedPanel].instImage .. ".png")
-   end
-   
-   if InsP.panelImages[is.selectedPanel].backImage then
-      backImg = lcd.loadImage(bDir .. "/" .. InsP.panelImages[is.selectedPanel].backImage .. ".png")
-   end
-      
-   --[[
-   if InsP.settings.selPanel then
-      print("loadImage", InsP.settings.selPanel)
-      panelImg = lcd.loadImage(pDir .. "/"..InsP.settings.selPanel..".png")
-   end
-   if InsP.settings.selBack then
-      print("loadImage", InsP.settings.selBack)
-      backImg = lcd.loadImage(bDir .. "/"..InsP.settings.selBack..".png")
-   end
-   --]]
-   
-   
    for k, swi in pairs(InsP.settings.switchInfo) do
-      print("k, sw", k, swi.name, swi.mode, swi.activeOn)
-      --if swi.activeOn > -1 and swi.activeOn < 1 then print("swi.mode", swi.mode)  swi.mode = "P" end
       switches[k] = system.createSwitch(swi.name, swi.mode, swi.activeOn)
+      local iss = InsP.settings.switchInfo[k]
+      if iss.seqIdx and iss.seqIdx <= #stateSw then
+	 stateSw[iss.seqIdx].switch = switches[k]
+      end
    end
    
    readSensors(InsP)
 
    system.registerForm(1, MENU_APPS, "Instrument Panel", initForm, keyForm, prtForm)
-   system.registerTelemetry(1, "Instrument Panel", 4, printForm)
+   system.registerTelemetry(1, "DFM-InsP - Instrument Panel", 4, printForm)
+
+   appStartTime = system.getTimeCounter()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="0", name="DFM-InsP", destroy=destroy}
+return {init=init, loop=loop, author="DFM", version=InsPVersion, name="DFM-InsP", destroy=destroy}
 
