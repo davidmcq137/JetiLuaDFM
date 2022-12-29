@@ -33,8 +33,9 @@ body {
 
 .sliders {
     display: grid;
-    grid-template-columns: min-content min-content;
-    gap: 1ex;
+    grid-template-columns: max-content min-content;
+    row-gap: 1ex;
+    column-gap: 2ex;
     align-items: center;
 }
 
@@ -45,4 +46,21 @@ body {
 
 input[type="range"]:focus {
     outline: 1px solid white;
+}
+
+.plusminus {
+    display: inline-grid;
+    /* justify-self: center; */
+    grid-template-columns: 3ex 6ex 3ex;
+}
+
+.colorvals {
+    display: grid;
+    grid-template-columns: 8ex max-content 16ex;
+    justify-items: center;
+    column-gap: 2ex;
+}
+.colorvals input {
+    box-sizing: border-box;
+    width: 100%;
 }
