@@ -381,10 +381,7 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	    const cl = colors.length - 1;
 	    var aFrac = (a - start) / (end - start)
 	    var val = min + aFrac * (max - min)
-	    if (val > 0) {
-		val = val + fudge;
-	    }
-	    if (val < 0) {
+	    if (val != 0) {
 		val = val + fudge;
 	    }
 	    if (val <= colors[0].val) {
@@ -467,18 +464,45 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 
 function roundGauge(ctx, arr) {
 
-    //const start = -1.25 * Math.PI;
-    //const end = 0.25 * Math.PI;
+    var start = -1.25 * Math.PI;
+    var end = 0.25 * Math.PI;
     const eTrim = 0.99;
 
-    start = (arr.start - 90) * Math.PI / 180.0;
-    end   = (arr.end   - 90)   * Math.PI / 180.0;
-    ctx.fillStyle = "black";
+    if (typeof arr.start == 'number') {
+	start = (arr.start - 90) * Math.PI / 180.0;
+    }
+    if (typeof arr.end == 'number') {
+	end   = (arr.end   - 90)   * Math.PI / 180.0;
+    }
+    const bezel=3;
+    const radius = arr.radius - 2*bezel; 
+    console.log(radius)
+    const gradient = ctx.createRadialGradient(arr.x0, arr.y0, 0, arr.x0, arr.y0, radius) 
+    gradient.addColorStop(0  , "black");
+    gradient.addColorStop(0.6, "#202020");
+    gradient.addColorStop(  1, "#303030");
+    ctx.fillStyle = gradient;
+    //ctx.fillStyle = "black";
     ctx.beginPath();
-    ctx.ellipse(arr.x0, arr.y0, arr.radius * eTrim, arr.radius * eTrim, 0, 0, 2*Math.PI);
+    ctx.ellipse(arr.x0, arr.y0, radius * eTrim, radius * eTrim, 0, 0, 2*Math.PI);
     ctx.fill();
 
-    return roundG(ctx, arr.x0, arr.y0, arr.radius, start, end, arr.min, arr.max,
+    const b1gradient = ctx.createRadialGradient(arr.x0, arr.y0, radius-bezel, arr.x0, arr.y0, radius+bezel);
+    b1gradient.addColorStop(0, "black");
+    b1gradient.addColorStop(0.2, "#101010")
+    b1gradient.addColorStop(1, "#303030");
+    ctx.fillStyle = b1gradient;
+    arcsegment(ctx, arr.x0, arr.y0, radius-bezel, radius+bezel, 0, 2*Math.PI);
+
+    const b2gradient = ctx.createRadialGradient(arr.x0, arr.y0, radius+bezel, arr.x0, arr.y0, radius+2*bezel);
+    b2gradient.addColorStop(1, "black");
+    b2gradient.addColorStop(0.2, "#101010")
+    b2gradient.addColorStop(0, "#303030");
+    ctx.fillStyle = b2gradient;
+    arcsegment(ctx, arr.x0, arr.y0, radius+bezel, radius+2*bezel, 0, 2*Math.PI);
+    
+    
+    return roundG(ctx, arr.x0, arr.y0, radius, start, end, arr.min, arr.max,
 		  arr.divs, arr.subdivs, arr.spectrum, arr.colorvals,
 		  arr.value, arr.label);
 

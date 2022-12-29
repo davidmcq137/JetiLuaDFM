@@ -686,7 +686,8 @@ local function initForm(sf)
    elseif sf == 104 then -- edit item on sensor menu
       local ig = savedRow3
       local ip = InsP.panels[InsP.settings.selectedPanel]
-      form.setTitle("Edit Gauge "..ig.."  ("..ip[ig].label..")", savedRow3)
+      local lbl = ip[ig].label or "Gauge"..ig
+      form.setTitle("Edit Gauge "..ig.."  ("..lbl..")", savedRow3)
 
       local widget = ip[ig]
       local id = widget.SeId
@@ -707,7 +708,7 @@ local function initForm(sf)
       form.addRow(4)
       form.addLabel({label="Gauge Min", width=90})
       if ip[ig].min then
-	 if ip[ig].subdivs ~= 0 then
+	 if ip[ig].subdivs == 0 then
 	    form.addIntbox(ip[ig].min, -32768, 32767, 0, 0, 1,
 			   (function(x) return changedMinMax(x, "min", ip[ig]) end),
 			   {width=70})
@@ -719,7 +720,7 @@ local function initForm(sf)
       end
       form.addLabel({label="Gauge Max", width=90})
       if ip[ig].max then
-	 if ip[ig].subdivs ~= 0 then
+	 if ip[ig].subdivs == 0 then
 	    form.addIntbox(ip[ig].max, -32768, 32767, 0, 0, 1,
 			   (function(x) return changedMinMax(x, "max", ip[ig]) end),
 			   {width=70})
@@ -732,7 +733,7 @@ local function initForm(sf)
 
       form.addRow(2)
       form.addLabel({label="Label", width=60})
-      form.addTextbox(ip[ig].label, 63,
+      form.addTextbox(lbl, 63,
 		      (function(x) return changedLabel(x, ip[ig], sf) end),
 		      {width=245})
 
@@ -1209,6 +1210,11 @@ local function printForm()
 	    widget.xL = widget.x0 
 	    widget.yL = widget.y0
 	 end
+
+	 if not widget.xV then
+	    widget.xV = widget.x0
+	    widget.yV = widget.y0
+	 end
 	 
 	 if not widget.fL then
 	    widget.fL = "Bold"
@@ -1217,6 +1223,9 @@ local function printForm()
 	 local stro
 
 	 if not widget.lua then
+	    if i == 1 then
+	       print("widget.value", widget.value, stro, widget.xL, widget.yL, widget.fL)
+	    end
 	    local str = widget.value or "---" 
 	 	 if type(str) ~= "table" then
 		    stro = str
@@ -1259,9 +1268,11 @@ local function printForm()
 	    stro = luaStr
 	 end
 	 
-
-	 lcd.drawText(widget.xL - lcd.getTextWidth(edit.fcode[widget.fL], stro)/2,
-		      widget.yL - lcd.getTextHeight(edit.fcode[widget.fL])/2,
+	 if i == 1 then
+	    print("widget.value", widget.x0, widget.y0, widget.xL, widget.yL)
+	 end
+	 lcd.drawText(widget.xV - lcd.getTextWidth(edit.fcode[widget.fL], stro)/2,
+		      widget.yV - lcd.getTextHeight(edit.fcode[widget.fL])/2,
 		      stro, edit.fcode[widget.fL])
       end
    end
