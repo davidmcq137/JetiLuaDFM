@@ -380,7 +380,7 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	} else if (colors != null) {
 	    const cl = colors.length - 1;
 	    var aFrac = (a - start) / (end - start)
-	    var val = min + aFrac * (max - min)
+	    var val = (min + aFrac * (max - min))
 	    if (val != 0) {
 		val = val + fudge;
 	    }
@@ -420,7 +420,7 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	    ctx.fillStyle = "white";
 	    ctx.textAlign = "center";
 	    var rt = ri - label2C * (ro - ri)
-	    var val = Math.floor(min + i * (max - min) / nseg)
+	    var val = (min + i * (max - min) / nseg)
 	    ctx.fillText(val.toString(),
 			 x0 + rt * Math.cos(a),
 			 y0 + rt * Math.sin(a) + fontoffset)
@@ -447,7 +447,8 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
 	arrR.xV = x0;
 	arrR.yV = y0 + 0.3 * ro;
-	ctx.fillText(parseFloat(value).toFixed(1), arrR.xV, arrR.yV);
+	ctx.fillText(parseFloat(value).toFixed(2), arrR.xV, arrR.yV);
+	console.log(value, parseFloat(value).toFixed(2))
 	var frac = Math.max(Math.min( (value - min) / (max - min), 1), 0);
 	var angle = start + frac * (end - start) - Math.PI/2;
 	ctx.fillStyle = "white";
@@ -474,7 +475,7 @@ function roundGauge(ctx, arr) {
     if (typeof arr.end == 'number') {
 	end   = (arr.end   - 90)   * Math.PI / 180.0;
     }
-    const bezel=3;
+    const bezel=4;
     const radius = arr.radius - 2*bezel; 
     console.log(radius)
     const gradient = ctx.createRadialGradient(arr.x0, arr.y0, 0, arr.x0, arr.y0, radius) 
@@ -487,12 +488,12 @@ function roundGauge(ctx, arr) {
     ctx.ellipse(arr.x0, arr.y0, radius * eTrim, radius * eTrim, 0, 0, 2*Math.PI);
     ctx.fill();
 
-    const b1gradient = ctx.createRadialGradient(arr.x0, arr.y0, radius-bezel, arr.x0, arr.y0, radius+bezel);
+    const b1gradient = ctx.createRadialGradient(arr.x0, arr.y0, radius, arr.x0, arr.y0, radius+bezel);
     b1gradient.addColorStop(0, "black");
     b1gradient.addColorStop(0.2, "#101010")
     b1gradient.addColorStop(1, "#303030");
     ctx.fillStyle = b1gradient;
-    arcsegment(ctx, arr.x0, arr.y0, radius-bezel, radius+bezel, 0, 2*Math.PI);
+    arcsegment(ctx, arr.x0, arr.y0, radius, radius+bezel, 0, 2*Math.PI);
 
     const b2gradient = ctx.createRadialGradient(arr.x0, arr.y0, radius+bezel, arr.x0, arr.y0, radius+2*bezel);
     b2gradient.addColorStop(1, "black");
