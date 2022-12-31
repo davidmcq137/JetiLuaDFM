@@ -1,0 +1,12 @@
+{"XTFont":"FONT_MINI","Probes":
+[
+{"Yellow":50,"Red":100,"XT":5,"YT":10,"YP":7,"Green":10,"Name":"H1","XP":95},
+{"Yellow":50,"Red":100,"XT":5,"YT":30,"YP":120,"Green":10,"Name":"H2","XP":155},
+{"Yellow":50,"Red":100,"XT":5,"YT":20,"YP":140,"Green":10,"Name":"H3","XP":20}
+],
+"Image":"ThreeCylinderRadial.png","XPFont":"FONT_MINI","Gauges":
+[
+{"Min":0,"Max":100,"Sensor":"FuelPct","XG":20,"Name":"Fuel","YG":60},
+{"Min":0,"Max":11,"Sensor":"RPM2","XG":90,"Name":"RPM","YG":60}
+]
+}
