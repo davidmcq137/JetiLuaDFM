@@ -365,7 +365,7 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
     
     
     ctx.font="bold " + fontScale * ro + "px sans-serif"
-    const fontoffset = fontScale * ro / 4;
+    var fontoffset = fontScale * ro / 4;
 
     if (spec) {
 	var rainbow = new Rainbow();
@@ -435,7 +435,13 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	    ctx.textAlign = "center";
 	    var rt = ri - label2C * (ro - ri)
 	    var val = (min + i * (max - min) / nseg)
-	    if (val < max - 0.001) {
+	    if (val <=  max) {
+		console.log("&",val);
+		if (type == "airspeed") {
+		    ctx.font="bold " + 0.60 * fontScale * ro + "px sans-serif"
+		    fontoffset = fontScale * ro / 4;		    
+		}
+		
 		ctx.fillText(val.toString(),
 			     x0 + rt * Math.cos(a),
 			     y0 + rt * Math.sin(a) + fontoffset)
@@ -527,6 +533,13 @@ function roundGauge(ctx, arr) {
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
     const eTrim = 0.99;
+    var rotate = arr.rotate;
+    
+    if (arr.gaugetype == "airspeed") {
+	arr.start = 22.5
+	arr.end = -22.5 + 360
+	//rotate = 180;
+    }
 
     if (typeof arr.start == 'number') {
 	start = (arr.start - 90) * Math.PI / 180.0;
@@ -534,9 +547,11 @@ function roundGauge(ctx, arr) {
     if (typeof arr.end == 'number') {
 	end   = (arr.end   - 90)   * Math.PI / 180.0;
     }
-    if (typeof arr.rotate == 'number') {
-	start = start + arr.rotate * Math.PI / 180.0;
-	end   = end   + arr.rotate * Math.PI / 180.0;
+
+    
+    if (typeof rotate == 'number') {
+	start = start + rotate * Math.PI / 180.0;
+	end   = end   + rotate * Math.PI / 180.0;
     }
 
     const bezel=4;
@@ -570,17 +585,31 @@ function roundGauge(ctx, arr) {
     var min = arr.min;
     var divs = arr.divs;
     var subdivs = arr.subdivs;
+    var clr = arr.colorvals;
     if (arr.gaugetype == "altimeter") {
-	var max = 10;
-	var min = 0;
-	var divs = 50;
-	var subdivs = 5;
+	console.log("altimeter")
+	max = 10;
+	min = 0;
+	divs = 50;
+	subdivs = 5;
 	start = -Math.PI/2;
 	end = 2*Math.PI + start;
+	rotate = arr.rotate;
+    } else if (arr.gaugetype == "airspeed") {
+	console.log("airspeed", arr.Vspeeds.Vso)
+	min = 0;
+	max = 240;
+	clr = [ {color: "black", val: arr.Vspeeds.Vs},
+		{color: "green", val: arr.Vspeeds.Vno},
+		{color: "yellow", val: arr.Vspeeds.Vne},
+		{color: "red", val: 2 * arr.Vspeeds.Vne}
+	      ]
+	
     }
+    
     //console.log(min, max, divs, subdivs);
     return roundG(ctx, arr.x0, arr.y0, radius, start, end, min, max,
-		  divs, subdivs, arr.spectrum, arr.colorvals,
+		  divs, subdivs, arr.spectrum, clr,
 		  arr.value, arr.label, arr.gaugetype);
 
 }

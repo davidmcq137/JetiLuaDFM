@@ -39,9 +39,35 @@
     {
 	"type": "roundGauge",
 	"gaugetype":"altimeter",
+	"x0": 80,
+	"y0": 250,
+	"radius": 75,
+	"min": 0,
+	"max": 500,
+	"divs": 10,
+	"value": 0,
+	"subdivs": 2,
+	"label":""
+    },
+    {
+	"type": "roundGauge",
+	"gaugetype":"airspeed",
+	"Vspeeds": {"Vso": 40, "Vs":50, "Vfe":70, "Vno":180, "Vne":200},
 	"x0": 240,
 	"y0": 80,
-	"radius": 65,
+	"radius": 75,
+	"min": 0,
+	"max": 240,
+	"divs": 24,
+	"subdivs": 2,
+	"value":0,
+	"label":""
+    },
+    {
+	"type": "roundGauge",
+	"x0": 240,
+	"y0": 250,
+	"radius": 75,
 	"min": 0,
 	"max": 500,
 	"divs": 10,
@@ -71,5 +97,6 @@
 	    }
 	]
     }
+
 ]
 
