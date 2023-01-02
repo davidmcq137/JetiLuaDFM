@@ -1,4 +1,4 @@
-{:source-paths ["src"]
+{:source-paths ["src" "resources"]
  :jvm-opts ["-Xmx1184M"]
  :dependencies [[rum/rum "0.12.6"]]
  :dev-http {9907 "resources/"}

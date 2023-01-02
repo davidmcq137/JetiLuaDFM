@@ -448,7 +448,7 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	arrR.xV = x0;
 	arrR.yV = y0 + 0.3 * ro;
 	ctx.fillText(parseFloat(value).toFixed(2), arrR.xV, arrR.yV);
-	console.log(value, parseFloat(value).toFixed(2))
+	// console.log(value, parseFloat(value).toFixed(2))
 	var frac = Math.max(Math.min( (value - min) / (max - min), 1), 0);
 	var angle = start + frac * (end - start) - Math.PI/2;
 	ctx.fillStyle = "white";
@@ -477,7 +477,7 @@ function roundGauge(ctx, arr) {
     }
     const bezel=4;
     const radius = arr.radius - 2*bezel; 
-    console.log(radius)
+    // console.log(radius)
     const gradient = ctx.createRadialGradient(arr.x0, arr.y0, 0, arr.x0, arr.y0, radius) 
     gradient.addColorStop(0  , "black");
     gradient.addColorStop(0.6, "#202020");
