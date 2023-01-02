@@ -347,15 +347,22 @@ function arcsegment(ctx, x0, y0, ri, ro, a1, a2) {
     ctx.fill();
 }
 
-function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, colors, value, label) {
+function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, colors, value, label, type) {
     const ri = ro * 0.85;
     const fontScale = 0.24;
     var arrR = {};
-    
+
     arrR.ri = ri;
     
     needle = [ {x:-1,y:0}, {x:-2,y:1}, {x:-4,y:4}, {x:-1,y:58},
-	       {x:1,y:58}, {x:4, y:4}, {x:2, y:1}, {x:1,y:0} ]
+	       {x:1,y:58}, {x:4, y:4}, {x:2, y:1}, {x:1,y:0}]
+
+    needleAlt = [ {x:-2,y:0}, {x:-2,y:50}, {x:0,y:58},
+		  {x:2, y:50}, {x:2, y:0}, {x:0, y:-2}]
+    
+    needleFat = [ {x:-2,y:0}, {x:-4,y:30}, {x:0,y:45},
+		  {x:4, y:30}, {x:2,y:0}, {x:0, y:-2} ]
+    
     
     ctx.font="bold " + fontScale * ro + "px sans-serif"
     const fontoffset = fontScale * ro / 4;
@@ -374,30 +381,35 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	
 	var delta = (end - start) / nseg;
 	var a = start + i * delta
-	ctx.fillStyle = "gray";
-	if (spec != null) {
-	    ctx.fillStyle = "#"+rainbow.colourAt(i);
-	} else if (colors != null) {
-	    const cl = colors.length - 1;
-	    var aFrac = (a - start) / (end - start)
-	    var val = (min + aFrac * (max - min))
-	    if (val != 0) {
-		val = val + fudge;
-	    }
-	    if (val <= colors[0].val) {
-		ctx.fillStyle = colors[0].color
-	    } else if (val >= colors[cl].val) {
-		ctx.fillStyle = colors[cl].color
-	    } else {
-		for (let j = 1; j <= cl; j++) {
-		    if (val >= colors[j-1].val && val < colors[j].val) {
-			ctx.fillStyle = colors[j].color;
-			break;
+
+	if (type != "altimeter") {
+	    ctx.fillStyle = "gray";
+	    if (spec != null) {
+		ctx.fillStyle = "#"+rainbow.colourAt(i);
+	    } else if (colors != null) {
+		const cl = colors.length - 1;
+		var aFrac = (a - start) / (end - start)
+		var val = (min + aFrac * (max - min))
+		if (val != 0) {
+		    val = val + fudge;
+		}
+		if (val <= colors[0].val) {
+		    ctx.fillStyle = colors[0].color
+		} else if (val >= colors[cl].val) {
+		    ctx.fillStyle = colors[cl].color
+		} else {
+		    for (let j = 1; j <= cl; j++) {
+			if (val >= colors[j-1].val && val < colors[j].val) {
+			    ctx.fillStyle = colors[j].color;
+			    break;
+			}
 		    }
 		}
+	    } else {
+		ctx.fillStyle = "white";
 	    }
 	} else {
-	    ctx.fillStyle = "white";
+	    ctx.fillStyle = "#202020";
 	}
 
 	if (i < nseg) {
@@ -415,15 +427,19 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	ctx.stroke();
 
 	const label2C = 1.6
+
+	//console.log(i, minmaj, i % minmaj, (min + i * (max - min) / nseg));
 	
 	if (minmaj > 0 && i % minmaj == 0) {
 	    ctx.fillStyle = "white";
 	    ctx.textAlign = "center";
 	    var rt = ri - label2C * (ro - ri)
 	    var val = (min + i * (max - min) / nseg)
-	    ctx.fillText(val.toString(),
-			 x0 + rt * Math.cos(a),
-			 y0 + rt * Math.sin(a) + fontoffset)
+	    if (val < max - 0.001) {
+		ctx.fillText(val.toString(),
+			     x0 + rt * Math.cos(a),
+			     y0 + rt * Math.sin(a) + fontoffset)
+	    }
 	    ctx.lineWidth=ro/23;	
 	    ctx.strokeStyle="white";
 	    ctx.beginPath();
@@ -433,6 +449,8 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	    ctx.stroke();
 	}
     }
+
+    
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
 
@@ -443,22 +461,63 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	ctx.fillText(label, arrR.xL, arrR.yL);
     }
 
+    if (type == "altimeter") {
+	ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+	const xA = x0 + ro * 0.25;
+	const yA = y0 - ro * 0.1;
+	ctx.fillText("ALT", xA, yA);	
+	const x10 = x0 - ro * 0.03;
+	const y10 = y0 - ro * 0.40;
+	ctx.font = "bold " + 0.60 * fontScale * ro + "px sans-serif"
+	ctx.fillText("10 m", x10, y10);
+    }
+    
     if (typeof value == "number") {
 	ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
 	arrR.xV = x0;
 	arrR.yV = y0 + 0.3 * ro;
 	ctx.fillText(parseFloat(value).toFixed(2), arrR.xV, arrR.yV);
-	// console.log(value, parseFloat(value).toFixed(2))
-	var frac = Math.max(Math.min( (value - min) / (max - min), 1), 0);
-	var angle = start + frac * (end - start) - Math.PI/2;
-	ctx.fillStyle = "white";
-	ctx.beginPath();
-	let f = 0.90 * ro / 58;
-	for (let k = 0, len = needle.length; k < len; k++ ) {
-	    ctx.lineTo(x0 + f * needle[k].x * Math.cos(angle) - f * needle[k].y * Math.sin(angle),
-		       y0 + f * needle[k].x * Math.sin(angle) + f * needle[k].y * Math.cos(angle))
+	//console.log(value, parseFloat(value).toFixed(2))
+	if (type == "altimeter") {
+	    var val1C = value / 100.0;
+	    var valTC = Math.floor(value / 100.0)
+	    var valT  = 10 * (val1C - valTC);
+	    var frac = Math.max(Math.min( (val1C - min) / (max - min), 1), 0);
+	    var angle = start + frac * (end - start) - Math.PI/2;
+	    ctx.fillStyle = "white";
+	    ctx.beginPath();
+	    var f = 0.90 * ro / 58;
+	    for (let k = 0, len = needleFat.length; k < len; k++ ) {
+		ctx.lineTo(x0 + f * needleFat[k].x * Math.cos(angle) -
+			   f * needleFat[k].y * Math.sin(angle),
+			   y0 + f * needleFat[k].x * Math.sin(angle) +
+			   f * needleFat[k].y * Math.cos(angle))
+	    }
+	    ctx.fill();
+	    frac = Math.max(Math.min( (valT - min) / (max - min), 1), 0);
+	    angle = start + frac * (end - start) - Math.PI/2;
+	    ctx.fillStyle = "white";
+	    ctx.beginPath();
+	    f = 0.90 * ro / 58;
+	    for (let k = 0, len = needleAlt.length; k < len; k++ ) {
+		ctx.lineTo(x0 + f * needleAlt[k].x * Math.cos(angle) -
+			   f * needleAlt[k].y * Math.sin(angle),
+			   y0 + f * needleAlt[k].x * Math.sin(angle) +
+			   f * needleAlt[k].y * Math.cos(angle))
+	    }
+	    ctx.fill();
+	} else {
+	    var frac = Math.max(Math.min( (value - min) / (max - min), 1), 0);
+	    var angle = start + frac * (end - start) - Math.PI/2;
+	    ctx.fillStyle = "white";
+	    ctx.beginPath();
+	    let f = 0.90 * ro / 58;
+	    for (let k = 0, len = needle.length; k < len; k++ ) {
+		ctx.lineTo(x0 + f * needle[k].x * Math.cos(angle) - f * needle[k].y * Math.sin(angle),
+			   y0 + f * needle[k].x * Math.sin(angle) + f * needle[k].y * Math.cos(angle))
+	    }
+	    ctx.fill();
 	}
-	ctx.fill();
     }
     return arrR;
 }
@@ -475,9 +534,14 @@ function roundGauge(ctx, arr) {
     if (typeof arr.end == 'number') {
 	end   = (arr.end   - 90)   * Math.PI / 180.0;
     }
+    if (typeof arr.rotate == 'number') {
+	start = start + arr.rotate * Math.PI / 180.0;
+	end   = end   + arr.rotate * Math.PI / 180.0;
+    }
+
     const bezel=4;
     const radius = arr.radius - 2*bezel; 
-    // console.log(radius)
+    //console.log(radius)
     const gradient = ctx.createRadialGradient(arr.x0, arr.y0, 0, arr.x0, arr.y0, radius) 
     gradient.addColorStop(0  , "black");
     gradient.addColorStop(0.6, "#202020");
@@ -501,11 +565,23 @@ function roundGauge(ctx, arr) {
     b2gradient.addColorStop(0, "#303030");
     ctx.fillStyle = b2gradient;
     arcsegment(ctx, arr.x0, arr.y0, radius+bezel, radius+2*bezel, 0, 2*Math.PI);
-    
-    
-    return roundG(ctx, arr.x0, arr.y0, radius, start, end, arr.min, arr.max,
-		  arr.divs, arr.subdivs, arr.spectrum, arr.colorvals,
-		  arr.value, arr.label);
+
+    var max = arr.max;
+    var min = arr.min;
+    var divs = arr.divs;
+    var subdivs = arr.subdivs;
+    if (arr.gaugetype == "altimeter") {
+	var max = 10;
+	var min = 0;
+	var divs = 50;
+	var subdivs = 5;
+	start = -Math.PI/2;
+	end = 2*Math.PI + start;
+    }
+    //console.log(min, max, divs, subdivs);
+    return roundG(ctx, arr.x0, arr.y0, radius, start, end, min, max,
+		  divs, subdivs, arr.spectrum, arr.colorvals,
+		  arr.value, arr.label, arr.gaugetype);
 
 }
 
@@ -546,13 +622,18 @@ function textBox(ctx, arr) {
 
     ctx.font="bold " + fontScale * h + "px sans-serif"
 
+    const bezel = 2;
+
+    ctx.fillStyle = "#303030";
+    roundedRect(ctx, x0 - arr.width/2, y0 - h/2, arr.width, h, h/10);
+
     if (arr.color) {
 	ctx.fillStyle = arr.color;
     } else {
 	ctx.fillStyle = "yellowgreen";
     }
 
-    roundedRect(ctx, x0 - arr.width/2, y0 - h/2, arr.width, h, h/10);
+    roundedRect(ctx, x0 - arr.width/2 + bezel, y0 - h/2 + bezel, arr.width - 2*bezel, h-2*bezel, h/10);
         
     ctx.textAlign = "center";
 
@@ -579,7 +660,7 @@ function textBox(ctx, arr) {
     if (arr.value) {
 	ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
 	arrR.xV = x0;
-	arrR.yV = y0 + fontoffset;
+	arrR.yV = y0;
 	//console.log(typeof arr.value)
 	var str;
 	if (typeof arr.value == 'string') {
@@ -587,7 +668,7 @@ function textBox(ctx, arr) {
 	} else {
 	    str = arr.value[0];
 	}
-	ctx.fillText(str, arrR.xV, arrR.yV);
+	ctx.fillText(str, arrR.xV, arrR.yV + fontoffset);
     }
     return arrR;
 }
