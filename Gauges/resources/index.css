@@ -41,10 +41,6 @@ body {
     justify-content: space-around;
 }
 
-/* .onegauge .controls { */
-/*     outline: 1px solid tomato; */
-/* } */
-
 .onegauge:nth-of-type(odd) {
     background-color: #111;
 }
@@ -96,18 +92,6 @@ input[type="range"]:focus {
     margin-top: 2ex;
     margin-left: 2ex;
 }
-
-/* .gauge-list { */
-/*     display: grid; */
-/*     grid-template-columns: max-content 1fr; */
-/*     column-gap: 2ex; */
-/*     align-items: center; */
-/*     justify-items: center; */
-/* } */
-
-/* .sliders input[type="range"] { */
-/*     width: 14ex; */
-/* } */
 
 .onegauge > canvas {
     max-height: 12ex;
