@@ -1,0 +1,68 @@
+{
+    "examples": {
+        "FourUp": {"file": "FourUp.json"},
+        "Turbine": {"file": "Turbine.json"},
+        "PreFlight": {"file": "PreFlight.json"}
+    },
+    "prototypes": {
+
+        "textBox":  {
+            "type": "textBox",
+            "x0": 160,
+            "y0": 80,
+            "width": 65,
+            "height": 30,
+            "value": "OK",
+            "label":"Status"
+        },
+
+        "horizontalBar": {
+            "type": "horizontalBar",
+            "x0": 160,
+            "y0": 80,
+            "width": 110,
+            "height": 35,
+            "min": 0,
+            "max": 100,
+            "divs": 16,
+            "subdivs": 4,
+            "label":"Value",
+            "spectrum": [
+                "red",
+                "yellow",
+                "green"
+            ]
+        },
+        
+        "roundGauge": {
+            "type": "roundGauge",
+            "x0": 160,
+            "y0": 80,
+            "radius": 65,
+            "min": 0,
+            "max": 100,
+            "divs": 20,
+            "value":85,
+            "subdivs": 5,
+            "label":"Value",
+            "colorvals": [
+                {
+                    "color": "blue",
+                    "val": 50
+                },
+                {
+                    "color": "yellow",
+                    "val": 80
+                },
+                {
+                    "color": "orange",
+                    "val": 90
+                },
+                {
+                    "color": "red",
+                    "val": 100
+                }
+            ]
+        }
+    }
+}
