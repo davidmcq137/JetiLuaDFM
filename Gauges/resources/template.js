@@ -777,7 +777,7 @@ function textBox(ctx, arr) {
     const x0 = arr.x0;
     const y0 = arr.y0;
     
-    const fontScale = 0.35
+    const fontScale = 0.30;
     const fontoffset = fontScale * h / 4;
     h = h * hFrac;
 

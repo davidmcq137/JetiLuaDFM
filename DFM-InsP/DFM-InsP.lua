@@ -55,13 +55,16 @@ lua.completePass = false
 local subForm = 0
 local pDir = "Apps/DFM-InsP/Panels"
 local bDir = "Apps/DFM-InsP/Backgrounds"
-local panelImg
-local backImg
+local panelImg, panelImgA
+local backImg, backImgA
 local savedRow = 1
 local savedRow2 = 1
 local savedRow3 = 1
 local mmCI
 local swtCI ={}
+
+local auxWin = 1
+local auxWinLast = 0
 
 local appStartTime
 
@@ -171,6 +174,7 @@ local function initPanels(tbl)
    tbl.panelImages[1] = {}
    tbl.panelImages[1].instImage = "---"
    tbl.panelImages[1].backImage = "---"
+   tbl.panelImages[1].auxWin = 1
 end
 
 local function prefix()
@@ -222,7 +226,6 @@ local function setToPanel(iisp)
    InsP.settings.selectedPanel = isp
    
    local pv = InsP.panelImages[isp].instImage
-   
    if pv then
       panelImg = lcd.loadImage(pDir .. "/"..pv..".png")
    else
@@ -305,6 +308,7 @@ local function keyForm(key)
 	 is.selectedPanel = #InsP.panels
 	 InsP.panelImages[is.selectedPanel].instImage = "---"
 	 InsP.panelImages[is.selectedPanel].backImage = "---"
+	 InsP.panelImages[is.selectedPanel].auxWin = 1	 
 	 setToPanel(#InsP.panels)
 	 form.reinit(106)
       end
@@ -491,6 +495,11 @@ local function backGndChanged(val,sp)
       backImg = nil
       InsP.panelImages[sp].backImage = nil
    end
+end
+
+local function auxWinChanged(val,sp)
+   --print("twx", sp, val)
+   InsP.panelImages[sp].auxWin = val
 end
 
 local function changedSwitch(val, switchName, j)
@@ -815,14 +824,21 @@ local function initForm(sf)
       form.setButton(3, ":add", ENABLED)
       form.setButton(4, ":delete", ENABLED)
 
-      form.addRow(4)
-      form.addLabel({label=" ", width=40})
+      form.addRow(5)
+      form.addLabel({label=" ", width=30})
       form.addLabel({label="#", width=20})
-      form.addLabel({label="Panel     ", width=110, alignRight = true})
-      form.addLabel({label="Background", width=110, alighRight = true})
+      form.addLabel({label="Panel     ", width=105, alignRight = true})
+      form.addLabel({label="Background  ", width=105, alignRight = true})
+      form.addLabel({label="Aux", width=50, alignRight = false})      
+      
+      local pp = {} 
+      for k,v in ipairs(InsP.panelImages) do
+	 --print("k,v", k,v)
+	 pp[k] = tostring(k)
+      end
       
       for i, img in ipairs(InsP.panelImages) do
-	 form.addRow(4)
+	 form.addRow(5)
 	 local lbl=""
 	 if i == InsP.settings.selectedPanel then
 	    lbl = lbl .. "S"
@@ -830,7 +846,7 @@ local function initForm(sf)
 	 if i == InsP.settings.homePanel then
 	    lbl = lbl .. "H"
 	 end
-	 form.addLabel({label=lbl, width=40})
+	 form.addLabel({label=lbl, width=30})
 
 	 form.addLabel({label=i, width=20})
 
@@ -847,7 +863,7 @@ local function initForm(sf)
 	 end
 	 form.addSelectbox(InsP.settings.panels, isel, true,
 			   (function(x) return panelChanged(x, i) end),
-			   {width=110})
+			   {width=105})
 	 
 	 local bak = InsP.panelImages[i].backImage
 	 isel = 0
@@ -859,7 +875,13 @@ local function initForm(sf)
 	 end
 	 form.addSelectbox(InsP.settings.backgrounds, isel, true,
 			   (function(x) return backGndChanged(x, i) end),
-			   {width=110})      
+			   {width=105})
+
+	 isel = i + 1
+	 if isel > #InsP.panelImages then isel = 1 end
+	 form.addSelectbox(pp, isel, true,
+	    (function(x) return auxWinChanged(x,i) end),
+	    {width=50})
       end
       local isp = InsP.settings.selectedPanel
       if  isp >= 1 and isp <= #InsP.panelImages then
@@ -980,7 +1002,7 @@ local function loop()
 end
 
 
-local function printForm()
+local function printForm(w,h,tWin)
 
    local ctl, ctlmin, ctlmax
    local rot, rotmin, rotmax
@@ -988,15 +1010,58 @@ local function printForm()
    local sensor
    local sp = InsP.settings.selectedPanel
    local ip = InsP.panels[sp]
+   local aw = InsP.panelImages[sp].auxWin
+   
+   --print("w,h,sp,tw,#", w,h,sp,InsP.panelImages[sp].auxWin, tWin)
 
-   if backImg  then
-      lcd.drawImage(0, 0, backImg)
+   local np = #InsP.panelImages
+   local backI, instI
+   
+   if tWin == 1 then
+      if aw and aw > 0 and aw <= np then
+	 auxWin = aw
+	 if auxWin ~= auxWinLast then
+	    local pv = InsP.panelImages[auxWin].instImage
+	    if pv then
+	       panelImgA = lcd.loadImage(pDir .. "/"..pv..".png")
+	       --print("load panelImgA", pDir .. "/"..pv..".png", panelImgA)
+	    else
+	       panelImgA = nil
+	    end
+	    
+	    local bv = InsP.panelImages[auxWin].backImage
+	    if bv then
+	       backImgA =  lcd.loadImage(bDir .. "/"..bv..".png")
+	       --print("load backImgA", bDir .. "/"..bv..".png", backImgA)
+	    else
+	       backImgA = nil
+	    end
+	 end
+	 auxWinLast = auxWin
+      end
+      backI = backImg
+      instI = panelImg
+   else
+      if auxWin > 0 and auxWin <= np and backImgA and panelImgA then
+	 sp = auxWin
+	 ip = InsP.panels[sp]
+	 backI = backImgA
+	 instI = panelImgA
+      else -- show the selected panel if no valid aux is assigned
+	 backI = backImg
+	 instI = panelImg
+      end
+   end
+
+   
+   if backI  then
+      lcd.drawImage(0, 0, backI)
    else
       lcd.drawFilledRectangle(0,0,319,158)
    end
 
-   if panelImg then
-      lcd.drawImage(0, 0, panelImg)
+   if instI then
+      lcd.drawImage(0, 0, instI)
    else
       lcd.setColor(255,255,255)
       lcd.drawText(100, 70, "No Panel Image", FONT_BOLD)
@@ -1224,7 +1289,7 @@ local function printForm()
 
 	 if not widget.lua then
 	    if i == 1 then
-	       print("widget.value", widget.value, stro, widget.xL, widget.yL, widget.fL)
+	       --print("widget.value", widget.value, stro, widget.xL, widget.yL, widget.fL)
 	    end
 	    local str = widget.value or "---" 
 	 	 if type(str) ~= "table" then
@@ -1269,8 +1334,9 @@ local function printForm()
 	 end
 	 
 	 if i == 1 then
-	    print("widget.value", widget.x0, widget.y0, widget.xL, widget.yL)
+	    --print("widget.value", widget.x0, widget.y0, widget.xL, widget.yL)
 	 end
+
 	 lcd.drawText(widget.xV - lcd.getTextWidth(edit.fcode[widget.fL], stro)/2,
 		      widget.yV - lcd.getTextHeight(edit.fcode[widget.fL])/2,
 		      stro, edit.fcode[widget.fL])
@@ -1463,11 +1529,18 @@ local function init()
 	 stateSw[iss.seqIdx].switch = switches[k]
       end
    end
+
+   for _,v in ipairs(InsP.panelImages) do
+      if not v.auxWin then v.auxWin = 1 end
+   end
    
    readSensors(InsP)
 
    system.registerForm(1, MENU_APPS, "Instrument Panel", initForm, keyForm, prtForm)
-   system.registerTelemetry(1, "DFM-InsP - Instrument Panel", 4, printForm)
+   system.registerTelemetry(1, "DFM-InsP - Instrument Panel Win 1", 4,
+			    (function(w,h) return printForm(w,h,1) end) )
+   system.registerTelemetry(2, "DFM-InsP - Instrument Panel Win 2 ", 4,
+			    (function(w,h) return printForm(w,h,2) end) )   
 
    appStartTime = system.getTimeCounter()
 

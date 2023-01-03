@@ -6,7 +6,7 @@
 --]]
 
 --local trans11
-local DialVersion = "1.0"
+local DialVersion = "1.1"
 
 local runningTime = 0
 local startTime = 0
@@ -360,7 +360,6 @@ end
 
 local function dialPrint(w,h,win)
 
-   local theta
    local a0d = -35
    local a0 = math.rad(a0d)
    local aRd = -a0d*2 + 180
@@ -932,7 +931,10 @@ local function loop()
 	       end
 	       sensor.unit = sensorUnlist[idx]
 	       --the TX sends 0 for these params before the RX is on -- defend against that
-	       if timeNow - startTime > 1000 then -- wait 1 sec
+	       if sensor.unit == "V" and sensor.value > 1 and startTime == 0 then
+		  startTime = system.getTimeCounter()
+	       end
+	       if startTime > 0 and timeNow - startTime > 1000 then -- wait 1 sec
 		  sensor.valid = true
 	       else
 		  sensor.valid = false
@@ -1060,9 +1062,9 @@ local function init()
    -- clear out the items we don't want to remember from last run
    for i=1,2,1 do
       for k,v in pairs(tele[i]) do
-	 print("k,v", k,v)
-	 if k == "sensorVmax" then print("sensorVmax", v, type(v)) end
-	 if k == "sensorVmin" then print("sensorVmin", v, type(v)) end	 
+	 --print("k,v", k,v)
+	 --if k == "sensorVmax" then print("sensorVmax", v, type(v)) end
+	 --if k == "sensorVmin" then print("sensorVmin", v, type(v)) end	 
 	 if type(v) == "userdata" and tostring(v) == "userdata: (nil)" then
 	    tele[i][k] = nil
 	    print("Found and fixed [userdata: (nil)] at", i, k)
@@ -1113,8 +1115,6 @@ local function init()
    
    setLanguage()
 
-   startTime = system.getTimeCounter()
-   
    print("DFM-Dial: gcc " .. collectgarbage("count"))
    
 end
