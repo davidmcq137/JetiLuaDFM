@@ -23,8 +23,10 @@
 (defn shape->bbox
   [{:strs [type radius x0 y0 width height] :as sh}]
   (case type
-    "roundGauge" (let [d (* 2 radius)]
-                   [(- x0 radius) (- y0 radius) d d])
+    ("roundGauge" "virtualGauge")
+    (let [d (* 2 radius)]
+      [(- x0 radius) (- y0 radius) d d])
+    
     ("horizontalBar" "textBox")
     (let [halfw (* 0.5 width)
           halfh (* 0.5 height)]
