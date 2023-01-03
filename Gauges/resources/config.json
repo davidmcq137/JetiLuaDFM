@@ -1,5 +1,6 @@
 {
     "examples": {
+        "ThreeUp": {"file": "ThreeUp.json"},
         "FourUp": {"file": "FourUp.json"},
         "Turbine": {"file": "Turbine.json"},
         "PreFlight": {"file": "PreFlight.json"}
@@ -34,6 +35,18 @@
             ]
         },
         
+	"virtualGauge": {
+	    "type": "virtualGauge",
+	    "x0": 70,
+	    "y0": 80,
+	    "min": 0,
+	    "max": 100,
+	    "radius": 70,
+	    "value": 0,
+	    "start": -135,
+	    "end": 135
+	},
+	
         "roundGauge": {
             "type": "roundGauge",
             "x0": 160,
