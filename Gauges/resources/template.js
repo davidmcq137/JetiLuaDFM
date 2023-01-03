@@ -689,6 +689,8 @@ function virtualGauge(ctx, arr) {
     var rotate = arr.rotate;
     const fontScale = 0.24;
     var arrR = {};
+
+    console.log("virtual gauge called");
     
     if (typeof arr.value != "number") {
 	console.log("arr.value not number - returning - type:", typeof arr.value)
@@ -759,8 +761,7 @@ function roundedRect(ctx, x, y, w, h, r) {
     ctx.arcTo(x,   y+h, x,   y,   r);
     ctx.arcTo(x,   y,   x+w, y,   r);
     ctx.closePath();
-    ctx.fill()
-    
+    ctx.fill();
 }
 
 function textBox(ctx, arr) { 
