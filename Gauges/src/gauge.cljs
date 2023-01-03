@@ -529,5 +529,5 @@
   []
   (let [el (.getElementById js/document "root")]
     (when (empty? @db)
-      (reload-json! "/turbine.json"))
+      (reload-json! "/Turbine.json"))
     (rum/mount (root) el)))
