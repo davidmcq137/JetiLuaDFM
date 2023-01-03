@@ -25,7 +25,8 @@
     "x0": 74,
     "divs": 25,
     "subdivs": 5,
-    "type": "roundGauge"
+      "value":0,
+      "type": "roundGauge"
   },
   {
     "min": -100,
@@ -53,7 +54,8 @@
     "x0": 247.75,
     "divs": 32,
     "subdivs": 4,
-    "type": "roundGauge"
+      "value":0,
+      "type": "roundGauge"
   },
   {
     "min": 0,
@@ -67,7 +69,8 @@
     "x0": 162.25,
     "divs": 16,
     "subdivs": 4,
-    "type": "roundGauge"
+      "value":0,
+      "type": "roundGauge"
   },
   {
     "min": 0,
@@ -82,6 +85,7 @@
     "x0": 160.5,
     "divs": 16,
     "subdivs": 4,
-    "type": "roundGauge"
+      "value":0,
+      "type": "roundGauge"
   }
 ]

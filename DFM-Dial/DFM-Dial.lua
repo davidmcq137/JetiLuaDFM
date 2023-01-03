@@ -1060,6 +1060,13 @@ local function init()
    -- clear out the items we don't want to remember from last run
    for i=1,2,1 do
       for k,v in pairs(tele[i]) do
+	 print("k,v", k,v)
+	 if k == "sensorVmax" then print("sensorVmax", v, type(v)) end
+	 if k == "sensorVmin" then print("sensorVmin", v, type(v)) end	 
+	 if type(v) == "userdata" and tostring(v) == "userdata: (nil)" then
+	    tele[i][k] = nil
+	    print("Found and fixed [userdata: (nil)] at", i, k)
+	 end
 	 if type(v) == "table" then
 	    for kk,vv in pairs(v) do
 	       if type(vv) == "userdata" and tostring(vv) == "userdata: (nil)" then

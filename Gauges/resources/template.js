@@ -351,9 +351,9 @@ function returnColorVals(spec, min, max) {
     var cval = [];
     
     const step = (max - min) / spec.length;
-    console.log("step", step);
+    //console.log("step", step);
     for (var i = 0; i < spec.length; i++) {
-	console.log(i, spec[i], step * (i + 1))
+	//console.log(i, spec[i], step * (i + 1))
 	cval[i] = {color: spec[i], val: step * (i + 1) };
     }
     return cval;
@@ -369,10 +369,10 @@ function drawNeedle(ctx, arr, type, f, angle) {
 	      }
     
     if (typeof needles[type] == "undefined") {
-	console.log("returning")
+	//console.log("returning")
 	return
     }
-    console.log(type, f, angle, needles[type].length);
+    //console.log(type, f, angle, needles[type].length);
     
     ctx.beginPath();
     for (let k = 0, len = needles[type].length; k < len; k++ ) {
@@ -485,7 +485,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    var rt = ri - label2C * (ro - ri)
 	    var val = (min + i * (max - min) / nseg)
 	    if (val <=  max) {
-		console.log("&",val);
+		//console.log("&",val);
 		if (type == "airspeed") {
 		    ctx.font="bold " + 0.60 * fontScale * ro + "px sans-serif"
 		    fontoffset = fontScale * ro / 4;		    
@@ -541,6 +541,8 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    var angle = start + frac * (end - start) - Math.PI/2;
 	    ctx.fillStyle = "white";
 	    var f = 0.90 * ro / 58;
+	    drawNeedle(ctx, arr, "needleFat", f)
+	    /*
 	    ctx.beginPath();
 	    for (let k = 0, len = needleFat.length; k < len; k++ ) {
 		ctx.lineTo(x0 + f * needleFat[k].x * Math.cos(angle) -
@@ -549,10 +551,12 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 			   f * needleFat[k].y * Math.cos(angle))
 	    }
 	    ctx.fill();
+	    */
 	    frac = Math.max(Math.min( (valT - min) / (max - min), 1), 0);
 	    angle = start + frac * (end - start) - Math.PI/2;
 	    ctx.fillStyle = "white";
 	    f = 0.90 * ro / 58;
+	    /*
 	    ctx.beginPath();
 	    for (let k = 0, len = needleAlt.length; k < len; k++ ) {
 		ctx.lineTo(x0 + f * needleAlt[k].x * Math.cos(angle) -
@@ -561,6 +565,8 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 			   f * needleAlt[k].y * Math.cos(angle))
 	    }
 	    ctx.fill();
+	    */
+	    drawNeedle(ctx, arr, "needleAlt", f)
 	} else {
 	    var frac = Math.max(Math.min( (value - min) / (max - min), 1), 0);
 	    var angle = start + frac * (end - start) - Math.PI/2;
@@ -577,10 +583,10 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    */
 	}
     }
-    return arrR;
+    return arrR
 }
 
-function roundGauge(ctx, arr) {
+function XroundGauge(ctx, arr) {
 
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
@@ -664,7 +670,7 @@ function roundGauge(ctx, arr) {
     spec = arr.spectrum;
 
     if (typeof spec == 'XXXobject') {
-	console.log("spec", spec)
+	//console.log("spec", spec)
 	clr = returnColorVals(arr.spectrum, min, max);
 	spec = arr.barfo;
     }
@@ -676,26 +682,71 @@ function roundGauge(ctx, arr) {
 }
 
 
-function virtualGauge(ctx, arr) {
+function roundGauge(ctx, arr) {
 
-    if (typeof arr.value == "undefined") {
+    var start = -1.25 * Math.PI;
+    var end = 0.25 * Math.PI;
+    var rotate = arr.rotate;
+    const fontScale = 0.24;
+    var arrR = {};
+    
+    if (typeof arr.value != "number") {
+	console.log("arr.value not number - returning - type:", typeof arr.value)
 	return
     }
-    
+
+    if (typeof arr.start == 'number') {
+	start = (arr.start - 90) * Math.PI / 180.0;
+    }
+
+    if (typeof arr.end == 'number') {
+	end   = (arr.end   - 90)   * Math.PI / 180.0;
+    }
+
+    if (typeof rotate == 'number') {
+	start = start + rotate * Math.PI / 180.0;
+	end   = end   + rotate * Math.PI / 180.0;
+    }
+
     ctx.strokeStyle = "white";
+
+    const ro = arr.radius - 2;
     
     ctx.beginPath();
-    ctx.moveTo(0, arr.y0);
-    ctx.lineTo(320, arr.y0);
+    ctx.moveTo(arr.x0 - ro, arr.y0);
+    ctx.lineTo(arr.x0 + ro, arr.y0);
     ctx.stroke()
 
     ctx.beginPath();
-    ctx.moveTo(arr.x0, 0);
-    ctx.lineTo(arr.x0, 160);
+    ctx.moveTo(arr.x0, arr.y0 - ro);
+    ctx.lineTo(arr.x0, arr.y0 + ro);
     ctx.stroke();
 
     ctx.fillStyle = "white";
-    drawNeedle(ctx, arr, "needle", 0.6, Math.PI + Math.PI * arr.value / 180.0);
+
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(arr.x0, arr.y0, ro, ro, 0, 0, 2*Math.PI);
+    ctx.stroke();
+
+    const frac = Math.max(Math.min( (arr.value - arr.min) / (arr.max - arr.min), 1), 0);
+    const angle = start + frac * (end - start) - Math.PI/2;
+
+    ctx.fillStyle = "white";
+    let f = 0.90 * ro / 58;
+
+    drawNeedle(ctx, arr, "needle", f, angle);
+
+    ctx.textAlign = "center";
+    
+    if (arr.label) {
+	ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+	arrR.xL = arr.x0;
+	arrR.yL = arr.y0 + 0.90 * ro;
+	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+    }
+    
+    return arrR;
 }
 
 function roundedRect(ctx, x, y, w, h, r) {
@@ -783,7 +834,7 @@ function textBox(ctx, arr) {
 	}
 	ctx.fillText(str, arrR.xV, arrR.yV + fontoffset);
     }
-    return arrR;
+    return arrR
 }
 
 function horizontalBar(ctx, arr) {
