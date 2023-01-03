@@ -586,7 +586,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     return arrR
 }
 
-function XroundGauge(ctx, arr) {
+function roundGauge(ctx, arr) {
 
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
@@ -682,7 +682,7 @@ function XroundGauge(ctx, arr) {
 }
 
 
-function roundGauge(ctx, arr) {
+function virtualGauge(ctx, arr) {
 
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
