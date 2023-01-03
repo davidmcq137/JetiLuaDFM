@@ -36,7 +36,6 @@
       "subdivs": 4,
       "label":"RPM/1000",
     "spectrum": [
-      "blue",
       "blue"
     ]
   },
@@ -68,8 +67,8 @@
       "subdivs": 0,
       "label":"Batt",
     "spectrum": [
-      "red",
-      "yellow",
+	"red",
+	"yellow",
       "springgreen"
     ]
   },
@@ -80,7 +79,7 @@
     "radius": 25,
     "min": 0,
     "max": 10,
-      "divs": 16,
+      "divs": 15,
       "label":"Pump",
     "subdivs": 0,
     "spectrum": [

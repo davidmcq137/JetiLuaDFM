@@ -347,11 +347,57 @@ function arcsegment(ctx, x0, y0, ri, ro, a1, a2) {
     ctx.fill();
 }
 
-function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, colors, value, label, type) {
+function returnColorVals(spec, min, max) {
+    var cval = [];
+    
+    const step = (max - min) / spec.length;
+    console.log("step", step);
+    for (var i = 0; i < spec.length; i++) {
+	console.log(i, spec[i], step * (i + 1))
+	cval[i] = {color: spec[i], val: step * (i + 1) };
+    }
+    return cval;
+}
+
+function drawNeedle(ctx, arr, type, f, angle) {
+    needles = { needle: [ {x:-1,y:0}, {x:-2,y:1}, {x:-4,y:4}, {x:-1,y:58},
+			   {x:1,y:58}, {x:4, y:4}, {x:2, y:1}, {x:1,y:0}],
+		needleAlt: [ {x:-2,y:0}, {x:-2,y:50}, {x:0,y:58},
+			      {x:2, y:50}, {x:2, y:0}, {x:0, y:-2}],
+		needleFat: [ {x:-2,y:0}, {x:-4,y:30}, {x:0,y:45},
+			      {x:4, y:30}, {x:2,y:0}, {x:0, y:-2} ]
+	      }
+    
+    if (typeof needles[type] == "undefined") {
+	console.log("returning")
+	return
+    }
+    console.log(type, f, angle, needles[type].length);
+    
+    ctx.beginPath();
+    for (let k = 0, len = needles[type].length; k < len; k++ ) {
+	ctx.lineTo(arr.x0 + f * needles[type][k].x * Math.cos(angle) -
+		   f * needles[type][k].y * Math.sin(angle),
+		   arr.y0 + f * needles[type][k].x * Math.sin(angle) +
+		   f * needles[type][k].y * Math.cos(angle))
+    }
+    ctx.fill();
+    
+}
+
+function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn, colors, value, label, type) {
     const ri = ro * 0.85;
     const fontScale = 0.24;
     var arrR = {};
+    
+    var spec = specIn;
 
+    if (typeof specIn == "object" && specIn != null) {
+	if (specIn.length == 1) {
+	    spec[1] = spec[0];
+	}
+    }
+   
     arrR.ri = ri;
     
     needle = [ {x:-1,y:0}, {x:-2,y:1}, {x:-4,y:4}, {x:-1,y:58},
@@ -376,6 +422,9 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
     if (colors) {
 	// setup for colorvals if needed
     }
+
+    //console.log("colors", colors, typeof colors, "spec", spec, typeof spec)
+
     const fudge = 1 / (100*nseg);
     for (let i = 0; i <= nseg; i++) {
 	
@@ -491,8 +540,8 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	    var frac = Math.max(Math.min( (val1C - min) / (max - min), 1), 0);
 	    var angle = start + frac * (end - start) - Math.PI/2;
 	    ctx.fillStyle = "white";
-	    ctx.beginPath();
 	    var f = 0.90 * ro / 58;
+	    ctx.beginPath();
 	    for (let k = 0, len = needleFat.length; k < len; k++ ) {
 		ctx.lineTo(x0 + f * needleFat[k].x * Math.cos(angle) -
 			   f * needleFat[k].y * Math.sin(angle),
@@ -503,8 +552,8 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	    frac = Math.max(Math.min( (valT - min) / (max - min), 1), 0);
 	    angle = start + frac * (end - start) - Math.PI/2;
 	    ctx.fillStyle = "white";
-	    ctx.beginPath();
 	    f = 0.90 * ro / 58;
+	    ctx.beginPath();
 	    for (let k = 0, len = needleAlt.length; k < len; k++ ) {
 		ctx.lineTo(x0 + f * needleAlt[k].x * Math.cos(angle) -
 			   f * needleAlt[k].y * Math.sin(angle),
@@ -516,13 +565,16 @@ function roundG(ctx, x0, y0, ro, start, end, min, max, nseg, minmaj, spec, color
 	    var frac = Math.max(Math.min( (value - min) / (max - min), 1), 0);
 	    var angle = start + frac * (end - start) - Math.PI/2;
 	    ctx.fillStyle = "white";
-	    ctx.beginPath();
 	    let f = 0.90 * ro / 58;
+	    drawNeedle(ctx, arr, "needle", f, angle);
+	    /*
+	    ctx.beginPath();
 	    for (let k = 0, len = needle.length; k < len; k++ ) {
 		ctx.lineTo(x0 + f * needle[k].x * Math.cos(angle) - f * needle[k].y * Math.sin(angle),
 			   y0 + f * needle[k].x * Math.sin(angle) + f * needle[k].y * Math.cos(angle))
 	    }
 	    ctx.fill();
+	    */
 	}
     }
     return arrR;
@@ -574,7 +626,8 @@ function roundGauge(ctx, arr) {
     ctx.fillStyle = b1gradient;
     arcsegment(ctx, arr.x0, arr.y0, radius, radius+bezel, 0, 2*Math.PI);
 
-    const b2gradient = ctx.createRadialGradient(arr.x0, arr.y0, radius+bezel, arr.x0, arr.y0, radius+2*bezel);
+    const b2gradient = ctx.createRadialGradient(arr.x0, arr.y0, radius+bezel,
+						arr.x0, arr.y0, radius+2*bezel);
     b2gradient.addColorStop(1, "black");
     b2gradient.addColorStop(0.2, "#101010")
     b2gradient.addColorStop(0, "#303030");
@@ -585,7 +638,8 @@ function roundGauge(ctx, arr) {
     var min = arr.min;
     var divs = arr.divs;
     var subdivs = arr.subdivs;
-    var clr = arr.colorvals;
+    var clr = [];
+    clr = arr.colorvals;
     if (arr.gaugetype == "altimeter") {
 	console.log("altimeter")
 	max = 10;
@@ -604,14 +658,44 @@ function roundGauge(ctx, arr) {
 		{color: "yellow", val: arr.Vspeeds.Vne},
 		{color: "red", val: 2 * arr.Vspeeds.Vne}
 	      ]
-	
+    }
+
+    var spec = [];
+    spec = arr.spectrum;
+
+    if (typeof spec == 'XXXobject') {
+	console.log("spec", spec)
+	clr = returnColorVals(arr.spectrum, min, max);
+	spec = arr.barfo;
     }
     
-    //console.log(min, max, divs, subdivs);
-    return roundG(ctx, arr.x0, arr.y0, radius, start, end, min, max,
-		  divs, subdivs, arr.spectrum, clr,
+    return roundG(ctx, arr, arr.x0, arr.y0, radius, start, end, min, max,
+		  divs, subdivs, spec, clr,
 		  arr.value, arr.label, arr.gaugetype);
 
+}
+
+
+function virtualGauge(ctx, arr) {
+
+    if (typeof arr.value == "undefined") {
+	return
+    }
+    
+    ctx.strokeStyle = "white";
+    
+    ctx.beginPath();
+    ctx.moveTo(0, arr.y0);
+    ctx.lineTo(320, arr.y0);
+    ctx.stroke()
+
+    ctx.beginPath();
+    ctx.moveTo(arr.x0, 0);
+    ctx.lineTo(arr.x0, 160);
+    ctx.stroke();
+
+    ctx.fillStyle = "white";
+    drawNeedle(ctx, arr, "needle", 0.6, Math.PI + Math.PI * arr.value / 180.0);
 }
 
 function roundedRect(ctx, x, y, w, h, r) {
@@ -717,14 +801,21 @@ function horizontalBar(ctx, arr) {
     arrR.barH = h;
     
     ctx.fillStyle = "black";
-    ctx.fillRect(arr.x0 - arr.width / 2, arr.y0 - arr.height / 2, arr.width, arr.height)
+    //ctx.fillRect(arr.x0 - arr.width / 2, arr.y0 - arr.height / 2, arr.width, arr.height)
 
     const fontScale = 0.25;
     ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
     const fontoffset = 0.16 * arr.height
     
     var rainbow = new Rainbow();
-    rainbow.setSpectrumByArray(arr.spectrum); 
+
+    var spectrum = arr.spectrum;
+    
+    if (spectrum.length == 1) {
+	spectrum[1] = spectrum[0];
+    }
+    
+    rainbow.setSpectrumByArray(spectrum); 
     rainbow.setNumberRange(0,arr.divs-1)
 
     const cellMult = 0.4;

@@ -708,10 +708,13 @@ local function teleWinChanged(val, i)
    end
 
    -- set all styles to chart for this window if chart selected
-   for j = 1, nSens[6],1 do
-      tele[i].sensorStyle[j] = 4 -- Chart
+   if val == 6 then
+      for j = 1, nSens[6],1 do
+	 --print("setting style to 4: val, i, j", val, i, j)
+	 tele[i].sensorStyle[j] = 4 -- Chart
+      end
    end
-   
+
    system.unregisterTelemetry(i)
    system.registerTelemetry(i, str, ii,
 			    (function(x,y) return dialPrint(x,y,i) end))
@@ -894,7 +897,7 @@ local function writeTele()
 	 tele[i].sensorSample[j] = {}
       end
    end
-   
+
    save.tele = tele
    
    if writeBD then
@@ -929,11 +932,18 @@ local function loop()
 	       end
 	       sensor.unit = sensorUnlist[idx]
 	       --the TX sends 0 for these params before the RX is on -- defend against that
+	       if timeNow - startTime > 1000 then -- wait 1 sec
+		  sensor.valid = true
+	       else
+		  sensor.valid = false
+	       end
+	       --[[
 	       if sensor.unit == "V" and sensor.value > 1 then
 		  sensor.valid = true
 	       elseif sensor.value > 20 then -- % and "" for RSSI
 		  sensor.valid = true
 	       end
+	       --]]
 	    else
 	       sensor = system.getSensorByID(sensorIdlist[idx], sensorPalist[idx])
 	    end
@@ -957,15 +967,16 @@ local function loop()
 		  table.insert(tele[i].sensorSample[j], value)
 		  sample = false
 	       end
-	       if not tele[i].sensorVmin[j] then
-		  tele[i].sensorVmin[j] = value
+	       if value then
+		  if tele[i].sensorVmin[j] and tele[i].sensorVmax[j] then
+		     if value and value < tele[i].sensorVmin[j] then tele[i].sensorVmin[j] = value end
+		     if value and value > tele[i].sensorVmax[j] then tele[i].sensorVmax[j] = value end
+		  else
+		     tele[i].sensorVmin[j] = value
+		     tele[i].sensorVmax[j] = value
+		  end
 	       else
-		  if value < tele[i].sensorVmin[j] then tele[i].sensorVmin[j] = value end
-	       end
-	       if not tele[i].sensorVmax[j] then
-		  tele[i].sensorVmax[j] = value
-	       else
-		  if value > tele[i].sensorVmax[j] then tele[i].sensorVmax[j] = value end
+		  print("Trying to assign a nil value")
 	       end
 	    end
 	 end
@@ -1034,7 +1045,7 @@ local function init()
 	    tele[i].sensorMin[j] = 0
 	    tele[i].sensorMinMult[j] = 1	    
 	    tele[i].sensorMax[j] = 10
-	    tele[i].sensorMaxMult[j] = 1    
+	    tele[i].sensorMaxMult[j] = 1
 	    tele[i].sensorStyle[j] = 1 -- default to Arc
 	    tele[i].sensorSample[j] = {}
 	    tele[i].sensorChartTime[j] = 800
@@ -1047,20 +1058,28 @@ local function init()
    end
    
    -- clear out the items we don't want to remember from last run
-   
    for i=1,2,1 do
+      for k,v in pairs(tele[i]) do
+	 if type(v) == "table" then
+	    for kk,vv in pairs(v) do
+	       if type(vv) == "userdata" and tostring(vv) == "userdata: (nil)" then
+		  v[kk] = nil
+		  print("Found and fixed [userdata: (nil)] at", i, k, kk)
+	       end
+	    end
+	 end
+      end
       for j=1,4,1 do
 	 tele[i].sensorVmin[j] = nil
 	 tele[i].sensorVmax[j] = nil
 	 tele[i].sensorChartLast[j] = 0
-	 --tele[i].sensorValue[j] = 0
 	 tele[i].sensorValue[j] = nil
 	 tele[i].sensorMinWarnDone[j] = false
 	 tele[i].sensorMaxWarnDone[j] = false
 	 tele[i].sensorSample[j] = {}
       end
    end
-   
+
    readSensors()
    
    system.registerForm(1, MENU_APPS, "Dial Display", initForm, keyForm)
@@ -1086,6 +1105,8 @@ local function init()
    
    
    setLanguage()
+
+   startTime = system.getTimeCounter()
    
    print("DFM-Dial: gcc " .. collectgarbage("count"))
    

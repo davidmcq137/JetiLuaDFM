@@ -49,8 +49,8 @@
      "decimals": 0,
      "type": 1,
      "sensorName": "IBP",
-     "luaExp":"P7(0,11000)",
-     "label": "Supply",
+     "luaExp":"P5(0,10)",
+     "label": "Supply P5",
      "unit": "V"
     },
     {"id":168,
@@ -60,15 +60,15 @@
      "sensorName": "IBP",
      "label": "FuelPct",
      "unit": "%",
-     "luaExp":"3200 * math.exp(-t/60)"
+     "luaExp":"100 * math.exp(-t/60)"
     },
     {"id":168,
      "param": 7,
      "decimals": 0,
      "type": 1,
      "sensorName": "IBP",
-     "luaExp":"CapTotal[1]",
-     "label": "Cap. total",
+     "luaExp":"P6(0,10)",
+     "label": "Cap. total P6",
      "unit": "mAh"
     },
     {"id":168,
@@ -78,7 +78,7 @@
      "sensorName": "IBP",
      "label": "Temperature",
      "unit": "°C",
-     "luaExp":"P8(0,100)"
+     "luaExp":"P7(0,100)"
     },
     {"id":168,
      "param": 9,

@@ -59,7 +59,6 @@
     "min": 0,
     "spectrum": [
       "red",
-      "yellow",
       "springgreen"
     ],
     "y0": 128,
