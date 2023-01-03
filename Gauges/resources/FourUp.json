@@ -21,12 +21,17 @@
     ],
     "y0": 81.25,
     "max": 100,
-    "radius": 70,
-    "x0": 74,
+    "radius": 71,
+    "x0": 71,
     "divs": 25,
     "subdivs": 5,
-      "value":0,
-      "type": "roundGauge"
+    "value": 0,
+    "xV": 71,
+    "ri": 53.55,
+    "start": -135,
+    "type": "roundGauge",
+    "yV": 100.15,
+    "end": 135
   },
   {
     "min": -100,
@@ -50,12 +55,17 @@
     ],
     "y0": 79.75,
     "max": 100,
-    "radius": 70,
-    "x0": 247.75,
+    "radius": 71,
+    "x0": 248,
     "divs": 32,
     "subdivs": 4,
-      "value":0,
-      "type": "roundGauge"
+    "value": 0,
+    "xV": 248,
+    "ri": 53.55,
+    "start": -135,
+    "type": "roundGauge",
+    "yV": 98.65,
+    "end": 135
   },
   {
     "min": 0,
@@ -65,12 +75,17 @@
     ],
     "y0": 128,
     "max": 100,
-    "radius": 25,
-    "x0": 162.25,
-    "divs": 16,
-    "subdivs": 4,
-      "value":0,
-      "type": "roundGauge"
+    "radius": 32,
+    "x0": 159,
+    "divs": 10,
+    "subdivs": 0,
+    "value": 0,
+    "xV": 159,
+    "ri": 20.4,
+    "start": -135,
+    "type": "roundGauge",
+    "yV": 135.2,
+    "end": 135
   },
   {
     "min": 0,
@@ -79,13 +94,18 @@
       "yellow",
       "springgreen"
     ],
-    "y0": 30,
+    "y0": 32,
     "max": 100,
-    "radius": 25,
-    "x0": 160.5,
-    "divs": 16,
-    "subdivs": 4,
-      "value":0,
-      "type": "roundGauge"
+    "radius": 32,
+    "x0": 159,
+    "divs": 10,
+    "subdivs": 0,
+    "value": 0,
+    "xV": 159,
+    "ri": 20.4,
+    "start": -135,
+    "type": "roundGauge",
+    "yV": 39.2,
+    "end": 135
   }
 ]

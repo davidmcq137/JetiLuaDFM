@@ -1,52 +1,68 @@
 [
   {
-      "type": "textBox",
-      "x0": 80,
-      "y0": 18,
-      "width": 140,
-      "height":40,
-      "lua":"string.format('CB200: %.1f mA %.1f V', 5*7.12, 6.34*4)",
-      "value":"Rx1 Voltage 'v''u'",
-      "label":"Rx1 Voltage"
-  },
-  {
-      "type": "textBox",
-      "x0": 80,
-      "y0": 58,
-      "width": 140,
-      "height": 40,
-      "value": ["Ready to Start", "Starting", "Running", "Cooling", "User Off", "Standby"],
-      "label":"Status 2"
-  },
-  {
-    "type": "textBox",
+    "yL": 37.14,
+    "width": 150,
+    "xL": 80,
+    "height": 40,
+    "y0": 18,
+    "label": "Rx1 Voltage",
     "x0": 80,
+    "value": "Rx1 Voltage 'v''u'",
+    "xV": 80,
+    "lua": "string.format('CB200: %.1f mA %.1f V', 5*7.12, 6.34*4)",
+    "type": "textBox",
+    "yV": 18
+  },
+  {
+    "yL": 77.14,
+    "width": 150,
+    "xL": 80,
+    "height": 40,
+    "y0": 58,
+    "label": "Status 2",
+    "x0": 80,
+    "value": [
+      "Ready to Start",
+      "Starting",
+      "Running",
+      "Cooling",
+      "User Off",
+      "Standby"
+    ],
+    "xV": 80,
+    "type": "textBox",
+    "yV": 58
+  },
+  {
+    "yL": 117.14,
+    "width": 150,
+    "xL": 80,
+    "height": 40,
     "y0": 98,
-    "width": 140,
-      "height": 40,
-      "value": "Variable 3",
-      "label":"Status 3"      
-  },
-  {
-    "type": "textBox",
+    "label": "Status 3",
     "x0": 80,
-    "y0": 138,
-    "width": 140,
-      "height": 40,
-      "value": "Variable 4",
-      "label":"Status 4"
+    "value": "Variable 3",
+    "xV": 80,
+    "type": "textBox",
+    "yV": 98
   },
   {
-    "type": "roundGauge",
-    "x0": 240,
-    "y0": 80,
-    "radius": 65,
+    "yL": 157.14,
+    "width": 150,
+    "xL": 80,
+    "height": 40,
+    "y0": 138,
+    "label": "Status 4",
+    "x0": 80,
+    "value": "Variable 4",
+    "xV": 80,
+    "type": "textBox",
+    "yV": 138
+  },
+  {
+    "yL": 144.8,
     "min": 0,
-    "max": 120,
-      "divs": 24,
-      "value":85,
-      "subdivs": 4,
-      "label":"Current",
+    "xL": 239,
     "colorvals": [
       {
         "color": "blue",
@@ -64,6 +80,20 @@
         "color": "red",
         "val": 100
       }
-    ]
+    ],
+    "y0": 80,
+    "label": "Current",
+    "max": 120,
+    "radius": 80,
+    "x0": 239,
+    "divs": 24,
+    "subdivs": 4,
+    "value": 85,
+    "xV": 239,
+    "ri": 61.199999999999996,
+    "start": -120,
+    "type": "roundGauge",
+    "yV": 101.6,
+    "end": 120
   }
 ]
