@@ -150,10 +150,10 @@
         :value (or v 0)
         :onChange (fn [^js ev]
                     (swap! da merge
-                      (render-gauge*
-                        (assoc params
-                          k
-                            (js/parseFloat (.-value (.-target ev)))))))}
+                           (render-gauge*
+                            (assoc params
+                                   k
+                                   (js/parseFloat (.-value (.-target ev)))))))}
        props)]))
 
 
@@ -316,11 +316,6 @@
       (gaugeparam-plusminus da ["min"])
       [:span.slider-label "Maximum"]
       (gaugeparam-plusminus da ["max"])
-      [:span.slider-label "Value"]
-      (gaugeparam-slider da
-                         "value"
-                         {:min (get params "min")
-                          :max (get params "max")})
       [:span.slider-label "Divisions"]
       (gaugeparam-plusminus da ["divs"])
       [:span.slider-label "Subdivisions"]
@@ -335,19 +330,20 @@
   [da]
   (let [{:keys [params]  :as d} (rum/react da)]
     (rum/fragment
-      [:span.slider-label "Width"]
-      (gaugeparam-slider da "width" {:min 10 :max 320})
-      [:span.slider-label "Height"]
-      (gaugeparam-slider da "height" {:min 10 :max 80})
-      #_[:span.slider-label "Value"]
-      #_(gaugeparam-text da ["value"]))))
+     [:span.slider-label (str "Width = " (get params "width"))]
+     (gaugeparam-slider da "width" {:min 10 :max 320})
+     [:span.slider-label (str "Height = " (get params "height"))]
+     (gaugeparam-slider da "height" {:min 10 :max 80})
+     #_[:span.slider-label "Value"]
+     #_(gaugeparam-text da ["value"]))))
 
 (rum/defc onegauge-editor
   < rum/reactive
   [da i]
   (let [d (rum/react da)
         x0 (get (:params d) "x0")
-        y0 (get (:params d) "y0")]
+        y0 (get (:params d) "y0")
+        val (get (:params d) "value")]
     [:div.onegauge {}
      (when-let [bmap (:bitmap d)]
        (static-bitmap-canvas bmap))
@@ -357,7 +353,15 @@
       [:span.slider-label (str "X = " x0)]
       (gaugeparam-slider da "x0" {:min 0  :max 320})
       [:span.slider-label (str "Y = " y0)]
-      (gaugeparam-slider da "y0" {:min 0  :max 160})]
+      (gaugeparam-slider da "y0" {:min 0  :max 160})
+
+      (when val [:span.slider-label "Value"])
+      (when val
+        (let [{:strs [min max]} (:params d)]
+         (gaugeparam-slider da "value"
+                            {:min min
+                             :max max
+                             :step (* 0.01 (- max min))})))]
      [:div.controls
       [:input
        {:type "button"

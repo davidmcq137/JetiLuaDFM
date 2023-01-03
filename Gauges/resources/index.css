@@ -91,6 +91,9 @@ input[type="range"]:focus {
 .gauge-list {
     margin-top: 2ex;
     margin-left: 2ex;
+    scrollbar-gutter: stable;
+    overflow-y: auto;
+    height: 90vh;
 }
 
 .onegauge > canvas {
