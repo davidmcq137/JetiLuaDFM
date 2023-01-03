@@ -147,7 +147,6 @@
        {:type "range"
         :min 0
         :max 100
-        :step (* 0.01 (- (or (:max props) 100) (or (:min props) 1)))
         :value (or v 0)
         :onChange (fn [^js ev]
                     (swap! da merge
@@ -331,12 +330,12 @@
   [da]
   (let [{:keys [params]  :as d} (rum/react da)]
     (rum/fragment
-      [:span.slider-label "Width"]
-      (gaugeparam-slider da "width" {:min 10 :max 320})
-      [:span.slider-label "Height"]
-      (gaugeparam-slider da "height" {:min 10 :max 80})
-      #_[:span.slider-label "Value"]
-      #_(gaugeparam-text da ["value"]))))
+     [:span.slider-label (str "Width = " (get params "width"))]
+     (gaugeparam-slider da "width" {:min 10 :max 320})
+     [:span.slider-label (str "Height = " (get params "height"))]
+     (gaugeparam-slider da "height" {:min 10 :max 80})
+     #_[:span.slider-label "Value"]
+     #_(gaugeparam-text da ["value"]))))
 
 (rum/defc onegauge-editor
   < rum/reactive
@@ -357,9 +356,12 @@
       (gaugeparam-slider da "y0" {:min 0  :max 160})
 
       (when val [:span.slider-label "Value"])
-      (when val (gaugeparam-slider da "value"
-                                   {:min (get (:params d) "min")
-                                    :max (get (:params d) "max")}))]
+      (when val
+        (let [{:strs [min max]} (:params d)]
+         (gaugeparam-slider da "value"
+                            {:min min
+                             :max max
+                             :step (* 0.01 (- max min))})))]
      [:div.controls
       [:input
        {:type "button"
