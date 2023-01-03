@@ -147,13 +147,14 @@
        {:type "range"
         :min 0
         :max 100
+        :step (* 0.01 (- (or (:max props) 100) (or (:min props) 1)))
         :value (or v 0)
         :onChange (fn [^js ev]
                     (swap! da merge
-                      (render-gauge*
-                        (assoc params
-                          k
-                            (js/parseFloat (.-value (.-target ev)))))))}
+                           (render-gauge*
+                            (assoc params
+                                   k
+                                   (js/parseFloat (.-value (.-target ev)))))))}
        props)]))
 
 
@@ -316,11 +317,6 @@
       (gaugeparam-plusminus da ["min"])
       [:span.slider-label "Maximum"]
       (gaugeparam-plusminus da ["max"])
-      [:span.slider-label "Value"]
-      (gaugeparam-slider da
-                         "value"
-                         {:min (get params "min")
-                          :max (get params "max")})
       [:span.slider-label "Divisions"]
       (gaugeparam-plusminus da ["divs"])
       [:span.slider-label "Subdivisions"]
@@ -347,7 +343,8 @@
   [da i]
   (let [d (rum/react da)
         x0 (get (:params d) "x0")
-        y0 (get (:params d) "y0")]
+        y0 (get (:params d) "y0")
+        val (get (:params d) "value")]
     [:div.onegauge {}
      (when-let [bmap (:bitmap d)]
        (static-bitmap-canvas bmap))
@@ -357,7 +354,12 @@
       [:span.slider-label (str "X = " x0)]
       (gaugeparam-slider da "x0" {:min 0  :max 320})
       [:span.slider-label (str "Y = " y0)]
-      (gaugeparam-slider da "y0" {:min 0  :max 160})]
+      (gaugeparam-slider da "y0" {:min 0  :max 160})
+
+      (when val [:span.slider-label "Value"])
+      (when val (gaugeparam-slider da "value"
+                                   {:min (get (:params d) "min")
+                                    :max (get (:params d) "max")}))]
      [:div.controls
       [:input
        {:type "button"
