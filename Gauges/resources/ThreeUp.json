@@ -1,0 +1,88 @@
+[
+    {
+	"type": "virtualGauge",
+	"x0": 71,
+	"y0": 81.25,
+	"min": 0,
+	"max": 100,
+	"radius": 71,
+	"value": 0,
+	"start": -135,
+	"end": 135
+    },
+    {
+	"min": -100,
+	"colorvals": [
+	    {
+		"color": "blue",
+		"val": -75
+	    },
+	    {
+		"color": "yellow",
+		"val": 0
+	    },
+	    {
+		"color": "orange",
+		"val": 75
+	    },
+	    {
+		"color": "red",
+		"val": 100
+	    }
+	],
+	"y0": 79.75,
+	"max": 100,
+	"radius": 71,
+	"x0": 248,
+	"divs": 32,
+	"subdivs": 4,
+	"value": 0,
+	"xV": 248,
+	"ri": 53.55,
+	"start": -135,
+	"type": "roundGauge",
+	"yV": 98.65,
+	"end": 135
+    },
+    {
+	"min": 0,
+	"spectrum": [
+	    "red",
+	    "springgreen"
+	],
+	"y0": 128,
+	"max": 100,
+	"radius": 32,
+	"x0": 159,
+	"divs": 10,
+	"subdivs": 0,
+	"value": 0,
+	"xV": 159,
+	"ri": 20.4,
+	"start": -135,
+	"type": "roundGauge",
+	"yV": 135.2,
+	"end": 135
+    },
+    {
+	"min": 0,
+	"spectrum": [
+	    "red",
+	    "yellow",
+	    "springgreen"
+	],
+	"y0": 32,
+	"max": 100,
+	"radius": 32,
+	"x0": 159,
+	"divs": 10,
+	"subdivs": 0,
+	"value": 0,
+	"xV": 159,
+	"ri": 20.4,
+	"start": -135,
+	"type": "roundGauge",
+	"yV": 39.2,
+	"end": 135
+    }
+]

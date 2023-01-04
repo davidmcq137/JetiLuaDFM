@@ -681,7 +681,6 @@ function roundGauge(ctx, arr) {
 
 }
 
-
 function virtualGauge(ctx, arr) {
 
     var start = -1.25 * Math.PI;
@@ -924,7 +923,8 @@ function panelLight(ctx, x0, y0, radius, color) {
 }
 
 function renderGauge(ctx, input) {
-    const widgetFuncs = {textBox:textBox, horizontalBar:horizontalBar, roundGauge:roundGauge}
+    const widgetFuncs = {textBox:textBox, horizontalBar:horizontalBar,
+			 roundGauge:roundGauge, virtualGauge:virtualGauge}
     if (widgetFuncs[input.type]) {
 	return widgetFuncs[input.type](ctx, input);
     }
