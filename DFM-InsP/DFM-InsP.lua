@@ -57,6 +57,10 @@ local pDir = "Apps/DFM-InsP/Panels"
 local bDir = "Apps/DFM-InsP/Backgrounds"
 local panelImg, panelImgA
 local backImg, backImgA
+
+--- TEST ---
+local horizImg
+
 local savedRow = 1
 local savedRow2 = 1
 local savedRow3 = 1
@@ -1234,10 +1238,17 @@ local function printForm(w,h,tWin)
 	    end
 	 end
 
-      elseif widget.type == "horizontalBar" and ctl then
+      elseif widget.type == "horizontalBar" then -- and ctl then
+
+	 local p1 = (1 + system.getInputs("P1")) / 2
+	 local cw = 176 * p1
+	 lcd.setClipping(13,134,cw,42)
+	 lcd.drawImage(0,0,horizImg)
+	 
+	 if true then return end
 
 	 lcd.setColor(0,0,0)
-	 --lcd.setColor(200,200,200)
+
 	 local hPad = widget.height / 4
 	 local vPad = widget.height / 8
 	 local start = widget.x0 - widget.width / 2 + hPad
@@ -1347,7 +1358,7 @@ end
 
 local function prtForm(w,h)
    if subForm == 103 and InsP.panels[InsP.settings.selectedPanel] then
-      printForm(318,159)
+      printForm(318,159,1)
       local ip = InsP.panels[InsP.settings.selectedPanel]
       lcd.setColor(180,180,180)
       lcd.drawFilledRectangle(0, 158, 318, 20)
@@ -1544,6 +1555,9 @@ local function init()
 
    appStartTime = system.getTimeCounter()
 
+   horizImg = lcd.loadImage(pDir .. "/horiz.png")
+   print("horizImg", horizImg.height, horizImg.width)
+   
 end
 
 return {init=init, loop=loop, author="DFM", version=InsPVersion, name="DFM-InsP", destroy=destroy}

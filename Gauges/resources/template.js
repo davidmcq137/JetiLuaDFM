@@ -689,8 +689,6 @@ function virtualGauge(ctx, arr) {
     const fontScale = 0.24;
     var arrR = {};
 
-    console.log("virtual gauge called");
-    
     if (typeof arr.value != "number") {
 	console.log("arr.value not number - returning - type:", typeof arr.value)
 	return
@@ -709,7 +707,7 @@ function virtualGauge(ctx, arr) {
 	end   = end   + rotate * Math.PI / 180.0;
     }
 
-    ctx.strokeStyle = "white";
+    ctx.strokeStyle = "lightgray";
 
     const ro = arr.radius - 2;
     
@@ -722,8 +720,6 @@ function virtualGauge(ctx, arr) {
     ctx.moveTo(arr.x0, arr.y0 - ro);
     ctx.lineTo(arr.x0, arr.y0 + ro);
     ctx.stroke();
-
-    ctx.fillStyle = "white";
 
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -848,15 +844,12 @@ function horizontalBar(ctx, arr) {
 
     var arrR = {};
     
-    arrR.barW = w;
-    arrR.barH = h;
-    
     ctx.fillStyle = "black";
     //ctx.fillRect(arr.x0 - arr.width / 2, arr.y0 - arr.height / 2, arr.width, arr.height)
 
-    const fontScale = 0.25;
+    const fontScale = 0.18;
     ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
-    const fontoffset = 0.16 * arr.height
+    const fontoffset = -4 //0.00 * arr.height
     
     var rainbow = new Rainbow();
 
@@ -871,16 +864,32 @@ function horizontalBar(ctx, arr) {
 
     const cellMult = 0.4;
     const cellOff  = (1 - cellMult) / 2 * h;
+
+    arrR.barW = w;
+    arrR.barH = h * cellMult;
+
+    console.log("width, height, w,h", arr.width, arr.height, arrR.barW, arrR.barH);
+
+    const bezel = 3;
+
+    ctx.fillStyle = "#303030";
+    //roundedRect(ctx, arr.x0 - arrR.barW/2, arr.y0 - arrR.barH/2, arrR.barW, arrR.barH, arrR.barH/10);
+    roundedRect(ctx, arr.x0 - arrR.barW/2 - bezel, arr.y0 - arrR.barH/2 - bezel,
+		arrR.barW + 2*bezel, arrR.barH + 2 * bezel, arrR.barH/10);
+
+
+    var a;
     
     for (var i = 0; i <= arr.divs; i++) {
 	ctx.fillStyle = "#" + rainbow.colourAt(i);
 	var delta = (arr.width - 2*hPad) / arr.divs;
-	const a = start + i * delta;
+	a = start + i * delta;
 	
 	if (i < arr.divs) {
-	    var a1 = start + i * delta - 0 * delta
-	    var a2 = start + i * delta + 1 * delta;
-	    ctx.fillRect(a1, arr.y0 - h / 2 + cellOff, delta, cellMult * h)
+	    //var a1 = start + i * delta - 0 * delta
+	    //var a2 = start + i * delta + 1 * delta;
+	    //ctx.fillRect(a1, arr.y0 - h / 2 + cellOff, delta, cellMult * h)
+	    ctx.fillRect(a, arr.y0 - h / 2 + cellOff, delta, cellMult * h)
 	    ctx.lineWidth = h / 60;	
 	    ctx.strokeStyle="white";
 	    ctx.beginPath();
@@ -895,7 +904,7 @@ function horizontalBar(ctx, arr) {
 	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / arr.divs)
 	    ctx.fillText(val.toString(),
 			 a,
-			 arr.y0 - h/2 + fontoffset)
+			 arr.y0 - h/2 - fontoffset)
 	    ctx.lineWidth = h / 23;	
 	    ctx.strokeStyle="white";
 	    ctx.beginPath();
@@ -909,7 +918,7 @@ function horizontalBar(ctx, arr) {
     if (arr.label) {
 	ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
 	arrR.xL = arr.x0;
-	arrR.yL = arr.y0 + h / 2;
+	arrR.yL = arr.y0 +  h / 2;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
     return arrR;
@@ -927,5 +936,7 @@ function renderGauge(ctx, input) {
 			 roundGauge:roundGauge, virtualGauge:virtualGauge}
     if (widgetFuncs[input.type]) {
 	return widgetFuncs[input.type](ctx, input);
+    } else {
+	console.log("Attempt to dispatch unknown gauge type: ", input.type)
     }
 }

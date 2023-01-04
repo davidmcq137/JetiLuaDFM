@@ -4,7 +4,3 @@ set -x
 rm -f DFM-Temp.zip
 zip -ru DFM-Temp.zip DFM-Temp.lc DFM-Temp
 zip -ru DFMHC.zip DFM-Temp.lc DFM-Temp
-
-
-
-
