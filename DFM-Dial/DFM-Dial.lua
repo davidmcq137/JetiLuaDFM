@@ -151,8 +151,8 @@ end
 --]]
 
 local function niceScale(min, max) 
-   minPoint = min
-   maxPoint = max
+   if min then minPoint = min end
+   if max then maxPoint = max end
    calculate()
    return tickSpacing, niceMin, niceMax
 end
@@ -779,13 +779,13 @@ local function keyForm(key)
    
    if subForm == 1 and key == KEY_1 then
       local ans
-      ans = form.question("Are you sure?", "Delete all tele window data?",
+      ans = form.question("Are you sure?", "Reset all app settings?",
 			  "",
 			  0, false, 5)
       if ans == 1 then
 	 writeBD = false
 	 wcDelete("Apps/DFM-Dial", "DD_", "jsn")
-	 system.messageBox("Saved data cleared - restart App")
+	 system.messageBox("Saved data cleared - Restart App")
       end
    end
    
@@ -1219,8 +1219,10 @@ local function init()
    
    
    setLanguage()
-
-   --print("tickSpacing, niceMin, niceMax", niceScale(-111, -23))
+   setMinMaxPoints(0,120)
+   setMaxTicks(7)
+   print("tickSpacing, niceMin, niceMax", tickSpacing, niceMin, niceMax)
+   print("tickSpacing, niceMin, niceMax", niceScale())
 
    print("DFM-Dial: gcc " .. collectgarbage("count"))
    

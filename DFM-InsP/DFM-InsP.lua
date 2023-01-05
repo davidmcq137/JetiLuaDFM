@@ -667,9 +667,15 @@ local function initForm(sf)
       end
       form.setFocusedRow(savedRow2)
    elseif sf == 101 then
-      io.remove(InsP.settings.fileBD)
-      InsP.settings.writeBD = false
-      system.messageBox("All data deleted .. Restart App")
+      local ans
+      ans = form.question("Are you sure?", "Reset all app settings?",
+			  "",
+			  0, false, 5)
+      if ans == 1 then
+	 io.remove(InsP.settings.fileBD)
+	 InsP.settings.writeBD = false
+	 system.messageBox("All data deleted .. Restart App")
+      end
       form.reinit(1)
    elseif sf == 102 then
       

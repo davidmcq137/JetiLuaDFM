@@ -912,7 +912,10 @@ function horizontalBar(ctx, arr) {
     var rgbI, r, g, b;
 
     //console.log("arr.value", arr.value);
-    
+
+    let region = new Path2D();
+    region.rect(arr.x0 - w / 2, arr.y0 - cellMult * h / 2, w * arr.value / 100.0, cellMult * h)
+
     for (var i = 0; i <= arr.divs; i++) {
 	ctx.fillStyle = "#" + rainbow.colourAt(i);
 	delta = w / arr.divs;
@@ -927,6 +930,8 @@ function horizontalBar(ctx, arr) {
 			     w: delta, h: cellMult * h,
 			     r:r, g:g, b:b}
 	    //console.log(i, rainbow.colourAt(i), r, g, b)
+	    ctx.save();
+	    ctx.clip(region);
 	    if (typeof arr.value != "undefined") {
 		ctx.fillRect(a, arr.y0 - h / 2 + cellOff, delta, cellMult * h)
 		ctx.lineWidth = h / 60;	
@@ -936,6 +941,7 @@ function horizontalBar(ctx, arr) {
 		ctx.lineTo(a, arr.y0 + h / 2 - cellOff)
 		ctx.stroke();
 	    }
+	    ctx.restore();
 	}
 
 	if (arr.subdivs > 0 && i % arr.subdivs == 0) {
@@ -945,6 +951,8 @@ function horizontalBar(ctx, arr) {
 	    ctx.fillText(val.toString(),
 			 a,
 			 arr.y0 - h/2 - fontoffset)
+	    ctx.save();
+	    //ctx.clip(region);
 	    ctx.lineWidth = h / 23;	
 	    ctx.strokeStyle="white";
 	    if (typeof arr.value != "undefined") {
@@ -953,6 +961,7 @@ function horizontalBar(ctx, arr) {
 		ctx.lineTo(a, arr.y0 + h / 2  - cellOff)
 		ctx.stroke();
 	    }
+	    //ctx.restore();
 	}
     }
     ctx.fillStyle = "white";
