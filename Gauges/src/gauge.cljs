@@ -443,8 +443,15 @@
 (defn download-png!
   [w h]
   (let [c (js/OffscreenCanvas. w h)
-        ctx (.getContext c "2d")]
-    (doseq [[i {:keys [deleted]  :as d}] (:gauges @db)
+        ctx (.getContext c "2d")
+        {:keys [gauges background-image]} @db]
+    (when background-image
+      (.drawImage ctx
+                  (doto (js/document.createElement "img")
+                    (aset "src" background-image))
+                  0 0 w h))
+    
+    (doseq [[i {:keys [deleted]  :as d}] gauges
             :when (not deleted)]
       (js/renderGauge ctx
                       (clj->js
@@ -457,10 +464,18 @@
 
 (rum/defc app-controls
   [w h]
-  [:div [:h4 "Download"]
-   [:ul
-    [:li [:input {:type "button"  :value "Download JSON"  :onClick #(download-json! w h)}]]
-    [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]]])
+  [:div
+   [:div [:h4 "Background image"]
+    [:ul
+     [:li [:input {:type "file"
+                   :onChange (fn [ev]
+                               (when-let [f (first (.-files (.-target ev)))]
+                                 (swap! db assoc :background-image (js/URL.createObjectURL f))))}]]
+     [:li [:input {:type "button"  :value "Clear" :onClick #(swap!  db dissoc :background-image)}]]]]
+   [:div [:h4 "Download"]
+    [:ul
+     [:li [:input {:type "button"  :value "Download JSON"  :onClick #(download-json! w h)}]]
+     [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]]]])
 
 
 (rum/defc panel-list
@@ -523,7 +538,7 @@
   (let [cref (rum/create-ref)
         w 320
         h 160
-        gauges (:gauges (rum/react db))]
+        {:keys [gauges background-image]} (rum/react db)]
     [:div.container
      [:div {:style {:margin-left "2ex"}}
       [:h2 "Gauge creator"]
@@ -537,9 +552,11 @@
       (app-controls w h)]
      [:div {}
       [:div.composite
-       {:style {:width (str (* w draw-scale disp-scale) "px")
-                :height (str (* h draw-scale disp-scale) "px")
-                :position :relative}}
+       {:style (cond-> {:width (str (* w draw-scale disp-scale) "px")
+                        :height (str (* h draw-scale disp-scale) "px")
+                        :position :relative}
+                 background-image (assoc :background-image (str "url(" background-image ")")
+                                         :background-size "cover"))}
        (for [[i d] gauges
              :when (and (:bitmap d) (not (or (:hidden d) (:deleted d))))
              :let [[x y w h] (shape->bbox (:params d))]]
