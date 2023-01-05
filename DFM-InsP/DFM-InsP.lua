@@ -1124,7 +1124,6 @@ local function printForm(w,h,tWin)
 
 	 if sensor and sensor.valid then val = sensor.value end
 
-
 	 if val and
 	    ( (widget.maxWarn and val > widget.maxWarn) or
 	    (widget.minWarn and val < widget.minWarn) ) then

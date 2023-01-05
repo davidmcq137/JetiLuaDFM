@@ -590,7 +590,7 @@ function roundGauge(ctx, arr) {
 
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
-    const eTrim = 0.99;
+    const eTrim = 1.0 //0.99;
     var rotate = arr.rotate;
     
     if (arr.gaugetype == "airspeed") {
@@ -626,9 +626,12 @@ function roundGauge(ctx, arr) {
     ctx.fill();
 
     const b1gradient = ctx.createRadialGradient(arr.x0, arr.y0, radius, arr.x0, arr.y0, radius+bezel);
-    b1gradient.addColorStop(0, "black");
-    b1gradient.addColorStop(0.2, "#101010")
-    b1gradient.addColorStop(1, "#303030");
+    //b1gradient.addColorStop(0, "black");
+    //b1gradient.addColorStop(0.2, "#101010")
+    //b1gradient.addColorStop(1, "#303030");
+    b1gradient.addColorStop(0.0, "gray");
+    b1gradient.addColorStop(0.8, "#A9A9A9")
+    b1gradient.addColorStop(1.0, "#C0C0C0");    
     ctx.fillStyle = b1gradient;
     arcsegment(ctx, arr.x0, arr.y0, radius, radius+bezel, 0, 2*Math.PI);
 
@@ -637,8 +640,11 @@ function roundGauge(ctx, arr) {
     b2gradient.addColorStop(1, "black");
     b2gradient.addColorStop(0.2, "#101010")
     b2gradient.addColorStop(0, "#303030");
-    ctx.fillStyle = b2gradient;
-    arcsegment(ctx, arr.x0, arr.y0, radius+bezel, radius+2*bezel, 0, 2*Math.PI);
+    //b2gradient.addColorStop(0  , "gray");
+    //b2gradient.addColorStop(0.5, "#A9A9A9");
+    //b2gradient.addColorStop(  1, "#C0C0C0");
+    ctx.fillStyle = "#C0C0C0" //b2gradient;
+    //arcsegment(ctx, arr.x0, arr.y0, radius+bezel, radius+2*bezel, 0, 2*Math.PI);
 
     var max = arr.max;
     var min = arr.min;
@@ -690,7 +696,7 @@ function virtualGauge(ctx, arr) {
     var arrR = {};
 
     if (typeof arr.value != "number") {
-	console.log("arr.value not number - returning - type:", typeof arr.value)
+	//console.log("arr.value not number - returning - type:", typeof arr.value)
 	return
     }
 
@@ -803,18 +809,21 @@ function textBox(ctx, arr) {
 
     ctx.font="bold " + fontScale * h + "px sans-serif"
 
-    const bezel = 3;
+    const bezel = 2;
 
-    ctx.fillStyle = "#303030";
-    roundedRect(ctx, x0 - arr.width/2, y0 - h/2, arr.width, h, h/10);
+    ctx.fillStyle = "#C0C0C0" //"#303030";
+    ctx.strokeStyle = ctx.fillStyle;
+    roundedRectBezel(ctx, x0 - arr.width/2 + bezel, y0 - h/2 + bezel,
+		     arr.width - 2 * bezel, h - 2 * bezel, h/10, bezel + 1);
 
     if (arr.color) {
 	ctx.fillStyle = arr.color;
     } else {
-	ctx.fillStyle = "yellowgreen";
+	ctx.fillStyle = "#66CC00" //"yellowgreen";
     }
 
-    roundedRect(ctx, x0 - arr.width/2 + bezel, y0 - h/2 + bezel, arr.width - 2*bezel, h-2*bezel, h/10);
+    roundedRect(ctx, x0 - arr.width/2 + bezel + 1, y0 - h/2 + bezel + 1,
+		arr.width - 2 * bezel - 2, h - 2 * bezel - 2, h/10);
         
     ctx.textAlign = "center";
 
@@ -891,18 +900,18 @@ function horizontalBar(ctx, arr) {
 
     const bezel = 2;
 
-    ctx.fillStyle = "#303030";
+    ctx.fillStyle = "#C0C0C0" //"#303030";
     ctx.strokeStyle = ctx.fillStyle;
     
     roundedRectBezel(ctx, arr.x0 - arrR.barW/2 - bezel, arr.y0 - arrR.barH/2 - bezel,
-		 arrR.barW + 2*bezel, arrR.barH + 2 * bezel, arrR.barH/10, 3);
+		 arrR.barW + 2*bezel, arrR.barH + 2 * bezel, arrR.barH/10, bezel+1);
 
     var a;
     var delta;
     arrR.rects = [];
     var rgbI, r, g, b;
 
-    console.log("arr.value", arr.value);
+    //console.log("arr.value", arr.value);
     
     for (var i = 0; i <= arr.divs; i++) {
 	ctx.fillStyle = "#" + rainbow.colourAt(i);
