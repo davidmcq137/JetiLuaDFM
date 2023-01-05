@@ -294,17 +294,23 @@
   [da]
   (let [{:keys [params]  :as d} (rum/react da)]
     (rum/fragment
-      [:span.slider-label "Width"]
-      (gaugeparam-slider da "width" {:min 10  :max 320})
-      [:span.slider-label "Height"]
-      (gaugeparam-slider da "height" {:min 10  :max 80})
-      [:span.slider-label "Divisions"]
-      (gaugeparam-plusminus da ["divs"])
-      [:span.slider-label "Subdivisions"]
-      (gaugeparam-plusminus da ["subdivs"])
-      "Colors"
-      (cond (get params "colorvals") (edit-colorvals da)
-            (get params "spectrum") (edit-spectrum da)))))
+     [:span.slider-label "Width"]
+     (gaugeparam-slider da "width" {:min 10  :max 320})
+     [:span.slider-label "Height"]
+     (gaugeparam-slider da "height" {:min 10  :max 80})
+     
+     [:span.slider-label "Minimum"]
+     (gaugeparam-plusminus da ["min"])
+     [:span.slider-label "Maximum"]
+     (gaugeparam-plusminus da ["max"])
+     
+     [:span.slider-label "Divisions"]
+     (gaugeparam-plusminus da ["divs"])
+     [:span.slider-label "Subdivisions"]
+     (gaugeparam-plusminus da ["subdivs"])
+     "Colors"
+     (cond (get params "colorvals") (edit-colorvals da)
+           (get params "spectrum") (edit-spectrum da)))))
 
 
 (rum/defc edit-roundgauge
@@ -326,6 +332,17 @@
       (cond (get params "colorvals") (edit-colorvals da)
             (get params "spectrum") (edit-spectrum da)))))
 
+(rum/defc edit-virtualgauge
+  < rum/reactive
+  [da]
+  (let [{:keys [params]  :as d} (rum/react da)]
+    (rum/fragment
+     [:span.slider-label "Radius"]
+     (gaugeparam-plusminus da ["radius"])
+     [:span.slider-label "Minimum"]
+     (gaugeparam-plusminus da ["min"])
+     [:span.slider-label "Maximum"]
+     (gaugeparam-plusminus da ["max"]))))
 
 (rum/defc edit-textbox
   < rum/reactive
@@ -390,6 +407,7 @@
           "roundGauge" (edit-roundgauge da)
           "textBox" (edit-textbox da)
           "horizontalBar" (edit-horizontalbar da)
+          "virtualGauge" (edit-virtualgauge da)
           nil))]]))
 
 
@@ -418,7 +436,8 @@
   [w h]
   (let [c (js/OffscreenCanvas. w h)
         ctx (.getContext c "2d")]
-    (doseq [[i d] (:gauges @db)]
+    (doseq [[i {:keys [deleted]  :as d}] (:gauges @db)
+            :when (not deleted)]
       (js/renderGauge ctx
                       (clj->js
                        (dissoc (:params d)
