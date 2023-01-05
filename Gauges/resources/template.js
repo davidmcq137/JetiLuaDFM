@@ -424,12 +424,14 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     }
 
     //console.log("colors", colors, typeof colors, "spec", spec, typeof spec)
-
+    var a;
+    var delta;
+    
     const fudge = 1 / (100*nseg);
     for (let i = 0; i <= nseg; i++) {
 	
-	var delta = (end - start) / nseg;
-	var a = start + i * delta
+	delta = (end - start) / nseg;
+	a = start + i * delta
 
 	if (type != "altimeter") {
 	    //ctx.fillStyle = "gray";
@@ -913,8 +915,9 @@ function horizontalBar(ctx, arr) {
     roundedRectBezel(ctx, arr.x0 - arrR.barW/2 - bezel, arr.y0 - arrR.barH/2 - bezel,
 		 arrR.barW + 2*bezel, arrR.barH + 2 * bezel, arrR.barH/10, bezel+1);
 
-    var a;
     var delta;
+    var a;
+
     arrR.rects = [];
     var rgbI, r, g, b;
 
@@ -924,12 +927,37 @@ function horizontalBar(ctx, arr) {
     region.rect(arr.x0 - w / 2, arr.y0 - cellMult * h / 2, w * arr.value / 100.0, cellMult * h)
 
     for (var i = 0; i <= arr.divs; i++) {
-	ctx.fillStyle = "#" + rainbow.colourAt(i);
+
 	delta = w / arr.divs;
 	a = start + i * delta;
 	
-	if (i < arr.divs) {
+	if (typeof colors == "object") {
+	    const cl = colors.length - 1;
+	    var aFrac = (a - start) / (end - start)
+	    var val = (min + aFrac * (max - min))
+	    if (val != 0) {
+		val = val + fudge;
+	    }
+	    if (val <= colors[0].val) {
+		ctx.fillStyle = colors[0].color
+	    } else if (val >= colors[cl].val) {
+		ctx.fillStyle = colors[cl].color
+	    } else {
+		for (let j = 1; j <= cl; j++) {
+		    if (val >= colors[j-1].val && val < colors[j].val) {
+			ctx.fillStyle = colors[j].color;
+			break;
+		    }
+		}
+	    }
+	    rgbI = colors[j].color
+	} else {
+	    ctx.fillStyle = "#"+rainbow.colourAt(i);
 	    rgbI = parseInt(rainbow.colourAt(i), 16)
+	}
+	
+	if (i < arr.divs) {
+	    //rgbI = parseInt(rainbow.colourAt(i), 16)
 	    r = (rgbI >> 16) & 255;
 	    g = (rgbI >> 8) & 255;
 	    b = rgbI & 255;
