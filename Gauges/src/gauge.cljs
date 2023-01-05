@@ -347,10 +347,12 @@
      (gaugeparam-plusminus da ["min"])
      [:span.slider-label "Maximum"]
      (gaugeparam-plusminus da ["max"])
-     [:span.slider-label "Arc start"]
+     [:span.slider-label (str "Arc start = " (get params "start"))]
      (gaugeparam-slider da "start" {:min -180 :max 180})
-     [:span.slider-label "Arc end"]
-     (gaugeparam-slider da "end" {:min -180 :max 180}))))
+     [:span.slider-label (str "Arc end = " (get params "end"))]
+     (gaugeparam-slider da "end" {:min -180 :max 180})
+     [:span.slider-label "Needle clipping"]
+     (gaugeparam-slider da "needleClip"))))
 
 (rum/defc edit-textbox
   < rum/reactive
