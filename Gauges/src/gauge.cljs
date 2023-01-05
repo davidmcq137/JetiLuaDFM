@@ -318,19 +318,23 @@
   [da]
   (let [{:keys [params]  :as d} (rum/react da)]
     (rum/fragment
-      [:span.slider-label "Radius"]
-      (gaugeparam-plusminus da ["radius"])
-      [:span.slider-label "Minimum"]
-      (gaugeparam-plusminus da ["min"])
-      [:span.slider-label "Maximum"]
-      (gaugeparam-plusminus da ["max"])
-      [:span.slider-label "Divisions"]
-      (gaugeparam-plusminus da ["divs"])
-      [:span.slider-label "Subdivisions"]
-      (gaugeparam-plusminus da ["subdivs"])
-      "Colors"
-      (cond (get params "colorvals") (edit-colorvals da)
-            (get params "spectrum") (edit-spectrum da)))))
+     [:span.slider-label "Radius"]
+     (gaugeparam-plusminus da ["radius"])
+     [:span.slider-label "Minimum"]
+     (gaugeparam-plusminus da ["min"])
+     [:span.slider-label "Maximum"]
+     (gaugeparam-plusminus da ["max"])
+     [:span.slider-label "Divisions"]
+     (gaugeparam-plusminus da ["divs"])
+     [:span.slider-label "Subdivisions"]
+     (gaugeparam-plusminus da ["subdivs"])
+     [:span.slider-label "Arc start"]
+     (gaugeparam-slider da "start" {:min -180 :max 180})
+     [:span.slider-label "Arc end"]
+     (gaugeparam-slider da "end" {:min -180 :max 180})
+     "Colors"
+     (cond (get params "colorvals") (edit-colorvals da)
+           (get params "spectrum") (edit-spectrum da)))))
 
 (rum/defc edit-virtualgauge
   < rum/reactive
@@ -342,7 +346,11 @@
      [:span.slider-label "Minimum"]
      (gaugeparam-plusminus da ["min"])
      [:span.slider-label "Maximum"]
-     (gaugeparam-plusminus da ["max"]))))
+     (gaugeparam-plusminus da ["max"])
+     [:span.slider-label "Arc start"]
+     (gaugeparam-slider da "start" {:min -180 :max 180})
+     [:span.slider-label "Arc end"]
+     (gaugeparam-slider da "end" {:min -180 :max 180}))))
 
 (rum/defc edit-textbox
   < rum/reactive
