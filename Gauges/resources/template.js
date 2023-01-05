@@ -359,13 +359,31 @@ function returnColorVals(spec, min, max) {
     return cval;
 }
 
+function drawNeedleCustom(ctx, arr, points, f, angle) {
+    
+    if (typeof points == "undefined") {
+	//console.log("returning")
+	return
+    }
+    
+    ctx.beginPath();
+    for (let k = 0, len = points.length; k < len; k++ ) {
+	ctx.lineTo(arr.x0 + f * points[k].x * Math.cos(angle) -
+		   f * points[k].y * Math.sin(angle),
+		   arr.y0 + f * points[k].x * Math.sin(angle) +
+		   f * points[k].y * Math.cos(angle))
+    }
+    ctx.fill();
+    
+}
+
 function drawNeedle(ctx, arr, type, f, angle) {
     needles = { needle: [ {x:-1,y:0}, {x:-2,y:1}, {x:-4,y:4}, {x:-1,y:58},
 			   {x:1,y:58}, {x:4, y:4}, {x:2, y:1}, {x:1,y:0}],
 		needleAlt: [ {x:-2,y:0}, {x:-2,y:50}, {x:0,y:58},
 			      {x:2, y:50}, {x:2, y:0}, {x:0, y:-2}],
 		needleFat: [ {x:-2,y:0}, {x:-4,y:30}, {x:0,y:45},
-			      {x:4, y:30}, {x:2,y:0}, {x:0, y:-2} ]
+			     {x:4, y:30}, {x:2,y:0}, {x:0, y:-2} ]
 	      }
     
     if (typeof needles[type] == "undefined") {
@@ -399,7 +417,8 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     }
    
     arrR.ri = ri;
-    
+
+    /*
     needle = [ {x:-1,y:0}, {x:-2,y:1}, {x:-4,y:4}, {x:-1,y:58},
 	       {x:1,y:58}, {x:4, y:4}, {x:2, y:1}, {x:1,y:0}]
 
@@ -409,7 +428,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     needleFat = [ {x:-2,y:0}, {x:-4,y:30}, {x:0,y:45},
 		  {x:4, y:30}, {x:2,y:0}, {x:0, y:-2} ]
     
-    
+    */
     ctx.font="bold " + fontScale * ro + "px sans-serif"
     var fontoffset = fontScale * ro / 4;
 
@@ -703,6 +722,14 @@ function virtualGauge(ctx, arr) {
     var arrR = {};
     const ro = arr.radius - 2;
     const ri = ro * 0.85;
+    const nL = 58;
+    needleTri = [ {x:-4,y:0}, {x:-1,y:nL}, {x:1, y:nL}, {x:4, y:0}]
+
+    const aa = 41 //arr.value
+    needleTri[0].x = needleTri[0].x * (100 - aa) / 100 + needleTri[1].x * aa / 100
+    needleTri[0].y = nL * aa / 100
+    needleTri[3].x = needleTri[3].x * (100 - aa) / 100 + needleTri[2].x * aa / 100
+    needleTri[3].y = nL * aa / 100
     
     if (typeof arr.value != "number") {
 	//console.log("arr.value not number - returning - type:", typeof arr.value)
@@ -746,16 +773,23 @@ function virtualGauge(ctx, arr) {
     let f = 0.90 * ro / 58;
 
     arcsegment(ctx, arr.x0, arr.y0, ri, ro, start, end);
-    
-    drawNeedle(ctx, arr, "needle", f, angle);
+
+    ctx.fillStyle = "white";
+    drawNeedleCustom(ctx, arr, needleTri, f, angle);
 
     ctx.textAlign = "center";
     
     if (arr.label) {
 	ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+
 	arrR.xL = arr.x0;
 	arrR.yL = arr.y0 + 0.90 * ro;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+	
+	arrR.xV = arr.x0;
+	arrR.yV = arr.y0 + 0.60 * ro;
+	ctx.fillText(arr.value.toString(), arrR.xV, arrR.yV);
+
     }
     
     return arrR;
