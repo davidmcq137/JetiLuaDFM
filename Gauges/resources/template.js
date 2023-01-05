@@ -726,10 +726,18 @@ function virtualGauge(ctx, arr) {
     needleTri = [ {x:-4,y:0}, {x:-1,y:nL}, {x:1, y:nL}, {x:4, y:0}]
 
     const aa = 41 //arr.value
+    var needleTri;
     needleTri[0].x = needleTri[0].x * (100 - aa) / 100 + needleTri[1].x * aa / 100
     needleTri[0].y = nL * aa / 100
     needleTri[3].x = needleTri[3].x * (100 - aa) / 100 + needleTri[2].x * aa / 100
     needleTri[3].y = nL * aa / 100
+
+    arrR.needle = [];
+    const tL = needleTri.length;
+
+    for (let i = 0; i < tL; i++) {
+	arrR.needle[i] = needleTri[i];
+    }
     
     if (typeof arr.value != "number") {
 	//console.log("arr.value not number - returning - type:", typeof arr.value)
@@ -769,7 +777,7 @@ function virtualGauge(ctx, arr) {
     const frac = Math.max(Math.min( (arr.value - arr.min) / (arr.max - arr.min), 1), 0);
     const angle = start + frac * (end - start) - Math.PI/2;
 
-    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
     let f = 0.90 * ro / 58;
 
     arcsegment(ctx, arr.x0, arr.y0, ri, ro, start, end);
