@@ -759,6 +759,27 @@ function roundedRect(ctx, x, y, w, h, r) {
     ctx.fill();
 }
 
+function roundedRectBezel(ctx, xi, yi, wi, hi, r, b) {
+
+    x = xi;
+    y = yi;
+    w = wi;
+    h = hi;
+    
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    ctx.lineWidth = b;
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y,   x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x,   y+h, r);
+    ctx.arcTo(x,   y+h, x,   y,   r);
+    ctx.arcTo(x,   y,   x+w, y,   r);
+
+    ctx.stroke();
+
+
+}
 function textBox(ctx, arr) { 
 
     var arrR = {}
@@ -782,7 +803,7 @@ function textBox(ctx, arr) {
 
     ctx.font="bold " + fontScale * h + "px sans-serif"
 
-    const bezel = 2;
+    const bezel = 3;
 
     ctx.fillStyle = "#303030";
     roundedRect(ctx, x0 - arr.width/2, y0 - h/2, arr.width, h, h/10);
@@ -845,7 +866,6 @@ function horizontalBar(ctx, arr) {
     var arrR = {};
     
     ctx.fillStyle = "black";
-    //ctx.fillRect(arr.x0 - arr.width / 2, arr.y0 - arr.height / 2, arr.width, arr.height)
 
     const fontScale = 0.18;
     ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
@@ -867,35 +887,46 @@ function horizontalBar(ctx, arr) {
 
     arrR.barW = w;
     arrR.barH = h * cellMult;
+    //console.log("width, height, w,h", arr.width, arr.height, arrR.barW, arrR.barH);
 
-    console.log("width, height, w,h", arr.width, arr.height, arrR.barW, arrR.barH);
-
-    const bezel = 3;
+    const bezel = 2;
 
     ctx.fillStyle = "#303030";
-    //roundedRect(ctx, arr.x0 - arrR.barW/2, arr.y0 - arrR.barH/2, arrR.barW, arrR.barH, arrR.barH/10);
-    roundedRect(ctx, arr.x0 - arrR.barW/2 - bezel, arr.y0 - arrR.barH/2 - bezel,
-		arrR.barW + 2*bezel, arrR.barH + 2 * bezel, arrR.barH/10);
-
+    ctx.strokeStyle = ctx.fillStyle;
+    
+    roundedRectBezel(ctx, arr.x0 - arrR.barW/2 - bezel, arr.y0 - arrR.barH/2 - bezel,
+		 arrR.barW + 2*bezel, arrR.barH + 2 * bezel, arrR.barH/10, 3);
 
     var a;
+    var delta;
+    arrR.rects = [];
+    var rgbI, r, g, b;
+
+    console.log("arr.value", arr.value);
     
     for (var i = 0; i <= arr.divs; i++) {
 	ctx.fillStyle = "#" + rainbow.colourAt(i);
-	var delta = (arr.width - 2*hPad) / arr.divs;
+	delta = w / arr.divs;
 	a = start + i * delta;
 	
 	if (i < arr.divs) {
-	    //var a1 = start + i * delta - 0 * delta
-	    //var a2 = start + i * delta + 1 * delta;
-	    //ctx.fillRect(a1, arr.y0 - h / 2 + cellOff, delta, cellMult * h)
-	    ctx.fillRect(a, arr.y0 - h / 2 + cellOff, delta, cellMult * h)
-	    ctx.lineWidth = h / 60;	
-	    ctx.strokeStyle="white";
-	    ctx.beginPath();
-	    ctx.moveTo(a, arr.y0 - h / 2 + cellOff)
-	    ctx.lineTo(a, arr.y0 + h / 2 - cellOff)
-	    ctx.stroke();
+	    rgbI = parseInt(rainbow.colourAt(i), 16)
+	    r = (rgbI >> 16) & 255;
+	    g = (rgbI >> 8) & 255;
+	    b = rgbI & 255;
+	    arrR.rects[i] = {x:a, y: arr.y0 - h / 2 + cellOff,
+			     w: delta, h: cellMult * h,
+			     r:r, g:g, b:b}
+	    //console.log(i, rainbow.colourAt(i), r, g, b)
+	    if (typeof arr.value != "undefined") {
+		ctx.fillRect(a, arr.y0 - h / 2 + cellOff, delta, cellMult * h)
+		ctx.lineWidth = h / 60;	
+		ctx.strokeStyle="white";
+		ctx.beginPath();
+		ctx.moveTo(a, arr.y0 - h / 2 + cellOff)
+		ctx.lineTo(a, arr.y0 + h / 2 - cellOff)
+		ctx.stroke();
+	    }
 	}
 
 	if (arr.subdivs > 0 && i % arr.subdivs == 0) {
@@ -907,10 +938,12 @@ function horizontalBar(ctx, arr) {
 			 arr.y0 - h/2 - fontoffset)
 	    ctx.lineWidth = h / 23;	
 	    ctx.strokeStyle="white";
-	    ctx.beginPath();
-	    ctx.moveTo(a, arr.y0 - h / 2 + cellOff)
-	    ctx.lineTo(a, arr.y0 + h / 2  - cellOff)
-	    ctx.stroke();
+	    if (typeof arr.value != "undefined") {
+		ctx.beginPath();
+		ctx.moveTo(a, arr.y0 - h / 2 + cellOff)
+		ctx.lineTo(a, arr.y0 + h / 2  - cellOff)
+		ctx.stroke();
+	    }
 	}
     }
     ctx.fillStyle = "white";

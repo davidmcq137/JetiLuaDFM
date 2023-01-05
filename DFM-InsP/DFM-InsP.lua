@@ -58,8 +58,6 @@ local bDir = "Apps/DFM-InsP/Backgrounds"
 local panelImg, panelImgA
 local backImg, backImgA
 
---- TEST ---
-local horizImg
 
 local savedRow = 1
 local savedRow2 = 1
@@ -1151,8 +1149,8 @@ local function printForm(w,h,tWin)
 	 lcd.setColor(255,255,255)
 	 
 	 if ctl then
-	    factor = widget.radius / 65.0
-	    drawShape(widget.x0, widget.y0, needle, factor, rot + math.pi)
+	    factor = 0.90 * (widget.radius - 8) / 58
+	       drawShape(widget.x0, widget.y0, needle, factor, rot + math.pi)
 	    if rotmin and widget.showMM == "true" then
 	       drawShape(widget.x0, widget.y0, triangle, factor, rotmin + math.pi, 0,
 			 widget.radius, 0, 0, 0)
@@ -1238,13 +1236,28 @@ local function printForm(w,h,tWin)
 	    end
 	 end
 
-      elseif widget.type == "horizontalBar" then -- and ctl then
-
-	 local p1 = (1 + system.getInputs("P1")) / 2
-	 local cw = 176 * p1
-	 lcd.setClipping(13,134,cw,42)
-	 lcd.drawImage(0,0,horizImg)
+      elseif widget.type == "horizontalBar" and ctl then
+	 --print(#widget.rects, widget.divs, widget.subdivs)
+	 local xc = widget.x0 - widget.barW // 2 - 2
+	 local yc = widget.y0 - widget.barH // 2
+	 lcd.setClipping(xc, yc, widget.barW * ctl + 2, widget.barH)
+	 for i, p in ipairs(widget.rects) do
+	    lcd.setColor(p.r, p.g, p.b)
+	    local px, py, pw, ph = math.floor(p.x + 0.5), math.floor(p.y + 0.5),
+	    math.floor(p.w + 0.5), math.floor(p.h + 0.5)
+	    lcd.drawFilledRectangle(px - xc, py - yc, pw + 1, ph)
+	    lcd.setColor(255,255,255)
+	    lcd.drawLine(p.x - xc, p.y - yc, p.x - xc, p.y - yc + ph)
+	    if widget.subdivs > 0 and (i - 1) % widget.subdivs == 0 then
+	       lcd.drawFilledRectangle(px - xc - 1, py - yc, 2, ph)
+	    end
+	    if i == #widget.rects and i % widget.subdivs == 0 then
+	       lcd.drawFilledRectangle(widget.x0 + widget.barW//2 - xc - 1, p.y - yc, 2, ph)
+	    end
+	 end
+	 lcd.resetClipping()
 	 
+	 --[[
 	 if true then return end
 
 	 lcd.setColor(0,0,0)
@@ -1260,9 +1273,16 @@ local function printForm(w,h,tWin)
 	    lcd.drawFilledRectangle(start + ctl*(w+1)+1*(1-ctl), -1+widget.y0 - h/2 + cellOff,
 				    math.floor((1-ctl)*(w+1)+0.5), math.floor(h*cellMult+0.5)+2)
 	 end
+	 --]]
 	 lcd.setColor(255,255,255)
+
 	 local str
-	 if widget.label then str = widget.label else str = "Gauge"..i end
+	 local hPad = widget.height / 4
+	 local vPad = widget.height / 8
+	 local h = math.floor(widget.height - 2 * vPad + 0.5)
+
+ 	 if widget.label then str = widget.label else str = "Gauge"..i end
+
 	 if not widget.fL then
 	    widget.fL = "Mini"
 	 end
@@ -1555,9 +1575,6 @@ local function init()
 
    appStartTime = system.getTimeCounter()
 
-   horizImg = lcd.loadImage(pDir .. "/horiz.png")
-   print("horizImg", horizImg.height, horizImg.width)
-   
 end
 
 return {init=init, loop=loop, author="DFM", version=InsPVersion, name="DFM-InsP", destroy=destroy}
