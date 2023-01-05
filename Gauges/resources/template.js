@@ -432,10 +432,8 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	var a = start + i * delta
 
 	if (type != "altimeter") {
-	    ctx.fillStyle = "gray";
-	    if (spec != null) {
-		ctx.fillStyle = "#"+rainbow.colourAt(i);
-	    } else if (colors != null) {
+	    //ctx.fillStyle = "gray";
+	    if (typeof colors == "object") {
 		const cl = colors.length - 1;
 		var aFrac = (a - start) / (end - start)
 		var val = (min + aFrac * (max - min))
@@ -454,6 +452,8 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 			}
 		    }
 		}
+	    } else if (typeof spec == "object") {
+		ctx.fillStyle = "#"+rainbow.colourAt(i);
 	    } else {
 		ctx.fillStyle = "white";
 	    }
@@ -612,7 +612,12 @@ function roundGauge(ctx, arr) {
 	end   = end   + rotate * Math.PI / 180.0;
     }
 
-    const bezel=4;
+    var bezel=4;
+    
+    if (arr.radius < 40) {
+	bezel = 3;
+    }
+    
     const radius = arr.radius - 2*bezel; 
     //console.log(radius)
     const gradient = ctx.createRadialGradient(arr.x0, arr.y0, 0, arr.x0, arr.y0, radius) 
@@ -694,7 +699,9 @@ function virtualGauge(ctx, arr) {
     var rotate = arr.rotate;
     const fontScale = 0.24;
     var arrR = {};
-
+    const ro = arr.radius - 2;
+    const ri = ro * 0.85;
+    
     if (typeof arr.value != "number") {
 	//console.log("arr.value not number - returning - type:", typeof arr.value)
 	return
@@ -715,8 +722,6 @@ function virtualGauge(ctx, arr) {
 
     ctx.strokeStyle = "lightgray";
 
-    const ro = arr.radius - 2;
-    
     ctx.beginPath();
     ctx.moveTo(arr.x0 - ro, arr.y0);
     ctx.lineTo(arr.x0 + ro, arr.y0);
@@ -735,9 +740,11 @@ function virtualGauge(ctx, arr) {
     const frac = Math.max(Math.min( (arr.value - arr.min) / (arr.max - arr.min), 1), 0);
     const angle = start + frac * (end - start) - Math.PI/2;
 
-    ctx.fillStyle = "white";
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
     let f = 0.90 * ro / 58;
 
+    arcsegment(ctx, arr.x0, arr.y0, ri, ro, start, end);
+    
     drawNeedle(ctx, arr, "needle", f, angle);
 
     ctx.textAlign = "center";

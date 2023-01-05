@@ -1,14 +1,14 @@
 [
     {
 	"type": "virtualGauge",
-	"x0": 71,
-	"y0": 81.25,
+	"x0": 70,
+	"y0": 80,
 	"min": 0,
 	"max": 100,
 	"radius": 71,
 	"value": 0,
-	"start": -135,
-	"end": 135
+	"start": -115,
+	"end": 115
     },
     {
 	"min": -100,
