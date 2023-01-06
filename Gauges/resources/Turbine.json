@@ -24,10 +24,19 @@
       "value":100,
     "min": 0,
     "width": 176,
-    "spectrum": [
-      "red",
-      "yellow",
-      "green"
+    "colorvals": [
+      {
+        "color": "red",
+        "val": 10
+      },
+      {
+        "color": "yellow",
+        "val": 25
+      },
+      {
+        "color": "blue",
+        "val": 75
+      }
     ],
     "xL": 90,
     "height": 42,

@@ -933,18 +933,22 @@ function horizontalBar(ctx, arr) {
     const fontScale = 0.18;
     ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
     const fontoffset = -4 //0.00 * arr.height
-    
-    var rainbow = new Rainbow();
 
-    var spectrum = arr.spectrum;
-    
-    if (spectrum.length == 1) {
-	spectrum[1] = spectrum[0];
+    if (typeof arr.spectrum == "object") {
+	var rainbow = new Rainbow();
+	
+	var spectrum = arr.spectrum;
+	
+	if (spectrum.length == 1) {
+	    spectrum[1] = spectrum[0];
+	}
+	
+	rainbow.setSpectrumByArray(spectrum); 
+	rainbow.setNumberRange(0,arr.divs-1)
+    } else {
+	//setup for colorvals goes here
     }
     
-    rainbow.setSpectrumByArray(spectrum); 
-    rainbow.setNumberRange(0,arr.divs-1)
-
     const cellMult = 0.4;
     const cellOff  = (1 - cellMult) / 2 * h;
 
@@ -971,15 +975,17 @@ function horizontalBar(ctx, arr) {
     let region = new Path2D();
     region.rect(arr.x0 - w / 2, arr.y0 - cellMult * h / 2, w * arr.value / 100.0, cellMult * h)
 
+    var colors = arr.colorvals;
+    
     for (var i = 0; i <= arr.divs; i++) {
 
 	delta = w / arr.divs;
 	a = start + i * delta;
-	
+	const fudge = 1 / (100 * arr.divs);	
 	if (typeof colors == "object") {
 	    const cl = colors.length - 1;
 	    var aFrac = (a - start) / (end - start)
-	    var val = (min + aFrac * (max - min))
+	    var val = (arr.min + aFrac * (arr.max - arr.min))
 	    if (val != 0) {
 		val = val + fudge;
 	    }
@@ -991,11 +997,11 @@ function horizontalBar(ctx, arr) {
 		for (let j = 1; j <= cl; j++) {
 		    if (val >= colors[j-1].val && val < colors[j].val) {
 			ctx.fillStyle = colors[j].color;
+			rgbI = colors[j].color
 			break;
 		    }
 		}
 	    }
-	    rgbI = colors[j].color
 	} else {
 	    ctx.fillStyle = "#"+rainbow.colourAt(i);
 	    rgbI = parseInt(rainbow.colourAt(i), 16)
