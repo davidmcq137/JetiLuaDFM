@@ -723,10 +723,9 @@ function virtualGauge(ctx, arr) {
     const ro = arr.radius - 2;
     const ri = ro * 0.85;
     const nL = 58;
-    needleTri = [ {x:-4,y:0}, {x:-1,y:nL}, {x:1, y:nL}, {x:4, y:0}]
+    needleTri = [ {x:-5,y:0}, {x:-1,y:nL}, {x:1, y:nL}, {x:5, y:0}]
 
     const aa = arr.needleClip || 0;
-
 
     needleTri[0].x = needleTri[0].x * (100 - aa) / 100 + needleTri[1].x * aa / 100
     needleTri[0].y = nL * aa / 100
@@ -758,6 +757,9 @@ function virtualGauge(ctx, arr) {
 	end   = end   + rotate * Math.PI / 180.0;
     }
 
+    arrR.startArc = start;
+    arrR.endArc = end;
+    
     ctx.strokeStyle = "lightgray";
 
     ctx.beginPath();

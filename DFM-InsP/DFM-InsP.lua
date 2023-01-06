@@ -41,7 +41,7 @@ edit.dir = {"X", "Y", "Font"}
 edit.fonts = {"Mini", "Normal", "Bold", "Big", "None"}
 edit.fcode = {Mini=FONT_MINI, Normal=FONT_NORMAL, Bold=FONT_BOLD, Big=FONT_BIG, None=-1}
 edit.icode = {Mini=1, Normal=2, Bold=3, Big=4, None=5}
-edit.gaugeName = {roundGauge="RndG", horizontalBar="HBar", textBox="Text"}
+edit.gaugeName = {roundGauge="RndG", virtualGauge="VirG", horizontalBar="HBar", textBox="Text"}
 
 local lua = {}
 lua.chunk = {}
@@ -1085,17 +1085,23 @@ local function printForm(w,h,tWin)
       sensor = getSensorByID(widget.SeId, widget.SePa)
       
       ctl = nil
+      local minarc = -0.75 * math.pi
+      local maxarc =  0.75 * math.pi
+
+      if widget.startArc then minarc = math.pi/2 +  widget.startArc end
+      if widget.endArc then maxarc = math.pi/2 + widget.endArc end
+
       if sensor and sensor.valid then
 	 if widget.min and widget.max then
 	    ctl = math.min(math.max((sensor.value - widget.min) / (widget.max - widget.min), 0), 1)
-	    rot = -0.75*math.pi * (1-ctl) + 0.75*math.pi*(ctl)
+	    rot = minarc * (1-ctl) + maxarc * (ctl)
 	 end
 	 if widget.min and widget.max and widget.minval then
 	    ctlmin = math.min(math.max((widget.minval - widget.min) / (widget.max - widget.min), 0), 1)
-	    rotmin = -0.75*math.pi * (1-ctlmin) + 0.75*math.pi*(ctlmin)end
+	    rotmin = minarc * (1-ctlmin) + maxarc * (ctlmin) end
 	 if widget.min and widget.max and widget.maxval then
 	    ctlmax = math.min(math.max((widget.maxval - widget.min) / (widget.max - widget.min), 0), 1)
-	    rotmax = -0.75*math.pi * (1-ctlmax) + 0.75*math.pi*(ctlmax)
+	    rotmax = minarc * (1-ctlmax) + maxarc * (ctlmax)
 	 end
       end
 
@@ -1124,7 +1130,7 @@ local function printForm(w,h,tWin)
 	 end
       end
 
-      if widget.type == "roundGauge" then
+      if widget.type == "roundGauge" or widget.type == "virtualGauge" then
 
 	 local val
 
@@ -1155,7 +1161,16 @@ local function printForm(w,h,tWin)
 	 
 	 if ctl then
 	    factor = 0.90 * (widget.radius - 8) / 58
-	       drawShape(widget.x0, widget.y0, needle, factor, rot + math.pi)
+	    if widget.type == "roundGauge" then
+	       drawShape(widget.x0, widget.y0, neeedle, factor, rot + math.pi)
+	    else
+	       local shp = {}
+	       for i,v in ipairs(widget.needle) do
+		  shp[i] = {v.x, v.y}
+	       end
+	       drawShape(widget.x0, widget.y0, shp, factor, rot + math.pi)	       
+	    end
+	    
 	    if rotmin and widget.showMM == "true" then
 	       drawShape(widget.x0, widget.y0, triangle, factor, rotmin + math.pi, 0,
 			 widget.radius, 0, 0, 0)
@@ -1168,7 +1183,16 @@ local function printForm(w,h,tWin)
 	    end
 	    
 	    lcd.setColor(255,255,255)
-	    val = string.format("%.1f", sensor.value)
+	    local fmt
+	    if sensor.decimals == 0 then
+	       fmt = "%.0f"
+	    elseif sensor.decimals == 1 then
+	       fmt = "%.1f"
+	    else
+	       fmt = "%.2f"
+	    end
+	 
+	    val = string.format(fmt, sensor.value)
 	 else
 	    val = "---"
 	 end
