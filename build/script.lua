@@ -63,7 +63,11 @@ local function build_app(app)
    -- Compile main module if we are supposed to (it goes in the root)
    local lua_artifact = nil
    local ns
-   if app_settings[app].no_strip then ns = "" else ns = "-s" end
+   if not (app_settings[app] and app_settings[app].no_strip) then
+      ns = "-s"
+   else
+      ns = ""
+   end
    if not (app_settings[app] and app_settings[app].no_lc) then
      lua_artifact = string.format('%s.lc', app)
      make_lc(lua_source, lua_artifact, ns)
