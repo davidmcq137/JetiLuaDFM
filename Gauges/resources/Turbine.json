@@ -6,8 +6,9 @@
     "height": 34,
     "y0": 140,
     "label": "Turbine Status",
-    "x0": 245,
-    "value": [
+      "x0": 245,
+      "value":0,
+    "text": [
       "Ready to Start",
       "Starting",
       "Running",
@@ -35,7 +36,7 @@
       },
       {
         "color": "blue",
-        "val": 75
+        "val": 100
       }
     ],
     "xL": 90,

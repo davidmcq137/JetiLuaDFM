@@ -672,18 +672,16 @@ local function teleImage()
    
    lcd.drawImage( (310-backGndImage.width)/2+2+60, 10, backGndImage)
 
-   if screenConfig.XTFont == "FONT_MINI" then
-      textSize = FONT_MINI
-   else
-      textSize = FONT_NORMAL
+   local fonts = {FONT_MINI=FONT_MINI, FONT_NORMAL=FONT_NORMAL, FONT_BOLD=FONT_BOLD,
+		  FONT_BIG=FONT_BIG, FONT_MAXI=FONT_MAXI}
+
+   if not screenConfig.XTFont then textSize = FONT_NORMAL else
+      textSize = fonts[screenConfig.XTFont]
    end
-   
-   if screenConfig.XPFont == "FONT_MINI" then
-      fontSize = FONT_MINI
-   else
-      fontSize = FONT_NORMAL
+   if not screenConfig.XPFont then fontSize = FONT_NORMAL else
+      fontSize = fonts[screenConfig.XPFont]
    end
-   
+
    for k = 1, #screenConfig.Probes do
       x=screenConfig.Probes[k].XP
       y=screenConfig.Probes[k].YP

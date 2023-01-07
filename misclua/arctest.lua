@@ -106,6 +106,12 @@ end
 local function init()
 
    print(system.registerTelemetry(1, "arctest window", 4, printForm))
+   print("$$")
+   print("mini", lcd.getTextHeight(FONT_MINI))
+   print("normal", lcd.getTextHeight(FONT_NORMAL))
+   print("bold",lcd.getTextHeight(FONT_BOLD))
+   print("big",lcd.getTextHeight(FONT_BIG))
+   print("maxi",lcd.getTextHeight(FONT_MAXI))
 
 end
 

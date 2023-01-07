@@ -336,6 +336,16 @@ function savepng() {
     a.click();
 }
 
+function getTextHeight(ctx, text) {
+    let mtx = ctx.measureText(text)
+    return Math.abs(mtx.actualBoundingBoxAscent) + Math.abs( mtx.actualBoundingBoxDescent)
+}
+
+function getTextWidth(ctx, text) {
+    let mtx = ctx.measureText(text)
+    return mtx.width
+}
+
 function arcsegment(ctx, x0, y0, ri, ro, a1, a2) {
     ctx.beginPath();
     ctx.arc(x0, y0, ro, a1, a2);
@@ -652,12 +662,12 @@ function roundGauge(ctx, arr) {
     ctx.fill();
 
     const b1gradient = ctx.createRadialGradient(arr.x0, arr.y0, radius, arr.x0, arr.y0, radius+bezel);
-    //b1gradient.addColorStop(0, "black");
-    //b1gradient.addColorStop(0.2, "#101010")
-    //b1gradient.addColorStop(1, "#303030");
-    b1gradient.addColorStop(0.0, "gray");
-    b1gradient.addColorStop(0.8, "#A9A9A9")
-    b1gradient.addColorStop(1.0, "#C0C0C0");    
+    b1gradient.addColorStop(0, "black");
+    b1gradient.addColorStop(0.2, "#101010")
+    b1gradient.addColorStop(1, "#303030");
+    //b1gradient.addColorStop(0.0, "gray");
+    //b1gradient.addColorStop(0.8, "#A9A9A9")
+    //b1gradient.addColorStop(1.0, "#C0C0C0");    
     ctx.fillStyle = b1gradient;
     arcsegment(ctx, arr.x0, arr.y0, radius, radius+bezel, 0, 2*Math.PI);
 
@@ -669,7 +679,8 @@ function roundGauge(ctx, arr) {
     //b2gradient.addColorStop(0  , "gray");
     //b2gradient.addColorStop(0.5, "#A9A9A9");
     //b2gradient.addColorStop(  1, "#C0C0C0");
-    ctx.fillStyle = "#C0C0C0" //b2gradient;
+    ctx.fillStyle = b2gradient;
+    //ctx.fillStyle = "#C0C0C0" //b2gradient;    
     //arcsegment(ctx, arr.x0, arr.y0, radius+bezel, radius+2*bezel, 0, 2*Math.PI);
 
     var max = arr.max;
@@ -840,11 +851,13 @@ function roundedRectBezel(ctx, xi, yi, wi, hi, r, b) {
 
 
 }
+
 function textBox(ctx, arr) { 
 
     var arrR = {}
     var h
     const hFrac = 0.6
+    
     if (arr.height) {
 	h = arr.height;
     } else {
@@ -854,18 +867,28 @@ function textBox(ctx, arr) {
     const x0 = arr.x0;
     const y0 = arr.y0;
     
-    const fontScale = 0.30;
-    const fontoffset = fontScale * h / 4;
+    const fontScale = 0.20;
+    //const fontoffset = fontScale * h / 4;
     h = h * hFrac;
 
     arrR.height = h;
     arrR.width = arr.width;
 
-    ctx.font="bold " + fontScale * h + "px sans-serif"
+    var fontT;
+    var fontL;
+    
+    if (typeof arr.fontSize == "number") {
+	fontT = "bold " + arr.fontSize.toString() + "px sans-serif";
+	fontL = "bold " + 0.5 * arr.fontSize.toString() + "px sans-serif";
+    } else {
+	fontT = "bold " + fontScale * arr.height + "px sans-serif";
+	fontL = "bold " + 0.5 * fontScale * arr.height + "px sans-serif";	
+    }
 
     const bezel = 2;
 
-    ctx.fillStyle = "#C0C0C0" //"#303030";
+    ctx.fillStyle = "#303030";
+    //ctx.fillStyle = "#C0C0C0";
     ctx.strokeStyle = ctx.fillStyle;
     roundedRectBezel(ctx, x0 - arr.width/2 + bezel, y0 - h/2 + bezel,
 		     arr.width - 2 * bezel, h - 2 * bezel, h/10, bezel + 1);
@@ -879,7 +902,6 @@ function textBox(ctx, arr) {
     roundedRect(ctx, x0 - arr.width/2 + bezel + 1, y0 - h/2 + bezel + 1,
 		arr.width - 2 * bezel - 2, h - 2 * bezel - 2, h/10);
         
-    ctx.textAlign = "center";
 
     if (arr.label) {
 	if (arr.labelcolor) {
@@ -887,13 +909,16 @@ function textBox(ctx, arr) {
 	} else {
 	    ctx.fillStyle = "white";
 	}
-	ctx.font = "" + 0.9 * fontScale * h + "px sans-serif"
+
+	//ctx.font = "" + 0.9 * fontScale * h + "px sans-serif"
+	ctx.textAlign = "center";
+	ctx.textBaseLine = "middle"
 	arrR.xL = x0
 	
 	//console.log(y0, h/2, 0.85 * fontScale * h);
 
-	arrR.yL = y0 + h/2 + 0.85 * fontScale * h;
-
+	arrR.yL = y0 + h/2 + 0.6 * getTextHeight(ctx, arr.label)
+	ctx.font = fontL;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
     if (arr.textcolor) {
@@ -901,18 +926,36 @@ function textBox(ctx, arr) {
     } else {
 	ctx.fillStyle = "black";	
     }
-    if (arr.value) {
-	ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
+
+    //console.log(typeof arr.text, typeof arr.multiText)
+    
+    if (typeof arr.value == "number") {
+
+	ctx.textAlign = "center";
+	ctx.textBaseLine = "middle"
+	ctx.font = fontT;
 	arrR.xV = x0;
 	arrR.yV = y0;
-	//console.log(typeof arr.value)
 	var str;
-	if (typeof arr.value == 'string') {
-	    str = arr.value;
-	} else {
-	    str = arr.value[0];
+	if (typeof arr.text != "undefined") {
+	    if (typeof arr.text == 'string') {
+		str = arr.text;
+	    } else if (typeof arr.text == "object") {
+		const val = Math.floor(arr.value / Math.floor(100 / (arr.text.length - 1)));
+		str = arr.text[val];
+	    }
+	    //gkw why 3 .. looks good though
+	    ctx.fillText(str, arrR.xV, arrR.yV + getTextHeight(ctx, str) / 3);
+	} else if (typeof arr.multiText == "object") {
+	    let txH = getTextHeight(ctx, arr.multiText[0]);
+	    var yc = y0 + 1.5 * txH - 0.5 * (txH / 2) * (3 * arr.multiText.length + 1);
+	    //ctx.fillStyle = "white";
+	    for(let i = 0, len = arr.multiText.length; i < len; i++) {
+		let str = arr.multiText[i];
+		let txW = getTextWidth(ctx, str);
+		ctx.fillText(str, x0, yc + i * 1.5 * txH);		
+	    } 
 	}
-	ctx.fillText(str, arrR.xV, arrR.yV + fontoffset);
     }
     return arrR
 }
@@ -958,7 +1001,8 @@ function horizontalBar(ctx, arr) {
 
     const bezel = 2;
 
-    ctx.fillStyle = "#C0C0C0" //"#303030";
+    ctx.fillStyle = "#303030";
+    //ctx.fillStyle = "#C0C0C0"    ;
     ctx.strokeStyle = ctx.fillStyle;
     
     roundedRectBezel(ctx, arr.x0 - arrR.barW/2 - bezel, arr.y0 - arrR.barH/2 - bezel,

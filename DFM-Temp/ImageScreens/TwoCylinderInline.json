@@ -1,10 +1,14 @@
 {
     "Image": "TwoCylinderInline.png",
+    "XPFont": "FONT_NORMAL",
+    "XTFont": "FONT_BIG",
+    "Gauges": [
+	{"Name":"Fuel","Sensor":"FuelPct","Min":0,"Max":100,"XG": 10,"YG": 100},
+	{"Name":"RPM", "Sensor":"RPM2","Min":0,"Max":11,"XG": 80,"YG":100}
+    ],
     "Probes": [
-	{"Name":"H1",  "XT": 10,"YT":   0,"XP": 45,"YP": 60, "Green": 0, "Yellow":50, "Red":100},
-	{"Name":"H2",  "XT": 10,"YT":  20,"XP":125,"YP": 21, "Green": 0, "Yellow":50, "Red":100},
-	{"Name":"E1",  "XT": 10,"YT":  40,"XP": 40,"YP": 22, "Green": 0, "Yellow":50, "Red":100},
-	{"Name":"E2",  "XT": 10,"YT":  60,"XP": 85,"YP":  0, "Green": 0, "Yellow":50, "Red":100}
+	{"Name":"H1",  "XT": 10,"YT":  20,"XP": 35,"YP": 40, "Green": 0, "Yellow":50, "Red":100},
+	{"Name":"H2",  "XT": 10,"YT":  50,"XP":125,"YP": 20, "Green": 0, "Yellow":50, "Red":100}
     ]
 }
 
