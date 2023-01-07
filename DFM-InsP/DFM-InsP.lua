@@ -96,6 +96,8 @@ local triangle = {
 }
 
 local function getSensorByID(SeId, SePa)
+   if not SeId or not SePa then return nil end
+   
    if SeId ~= 0 then
       return system.getSensorByID(SeId, SePa)
    elseif SePa > 0 then -- txTel named

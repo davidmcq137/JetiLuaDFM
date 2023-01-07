@@ -33,13 +33,16 @@ end
 
 local app_settings = {
   ['DFM-Maps'] = {no_lc = true},   
+  ['DFM-InsP'] = {no_strip = true}
 }
 
-local function make_lc(lua_source, lc_out)
+local function make_lc(lua_source, lc_out, no_strip)
+
    assert(
       os.execute(
-         string.format('%sc -s -o %s %s',
+         string.format('%sc %s -o %s %s',
                        arg[-1],
+		       no_strip,
                        lc_out,
                        lua_source)))
 end
@@ -59,9 +62,11 @@ local function build_app(app)
    
    -- Compile main module if we are supposed to (it goes in the root)
    local lua_artifact = nil
+   local ns
+   if app_settings[app].no_strip then ns = "" else ns = "-s" end
    if not (app_settings[app] and app_settings[app].no_lc) then
      lua_artifact = string.format('%s.lc', app)
-     make_lc(lua_source, lua_artifact)
+     make_lc(lua_source, lua_artifact, ns)
    else
      lua_artifact = string.format('%s.lua', app)
      if lua_source ~= lua_artifact then
@@ -74,7 +79,7 @@ local function build_app(app)
    for _, f in ipairs(modules) do
       v = string.format('%s/%s', app, f)
       if v:sub(-4) == ".lua" and v ~= lua_source then
-         make_lc(v, string.format("%s.lc", v:sub(1, -5)))
+         make_lc(v, string.format("%s.lc", v:sub(1, -5)), ns)
       end
    end
 
