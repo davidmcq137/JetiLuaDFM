@@ -1,4 +1,21 @@
 [
+    {
+	"type":"panelLight",
+	"x0":160,
+	"y0": 20,
+	"lightColor":"red",
+	"min":0,
+	"max":1,
+	"value":0
+    },
+    
+    {
+	"type":"rawText",
+	"x0": 10,
+	"y0": 10,
+	"fontHeight":20,
+	"text":"This is a test of raw text"
+    },
   {
     "yL": 154.355,
     "width": 131,
@@ -70,7 +87,8 @@
     "ri": 45.9,
     "start": -135,
     "type": "roundGauge",
-    "yV": 78.2,
+      "needleType":"needle",
+      "yV": 78.2,
     "end": 135
   },
   {
@@ -94,7 +112,8 @@
     "xV": 255,
     "ri": 45.9,
     "start": -135,
-    "type": "roundGauge",
+      "type": "roundGauge",
+      "needleType":"needle",
     "yV": 78.2,
     "end": 135
   },

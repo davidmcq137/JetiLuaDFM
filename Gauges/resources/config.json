@@ -3,10 +3,29 @@
         "ThreeUp": {"file": "ThreeUp.json"},
         "FourUp": {"file": "FourUp.json"},
         "Turbine": {"file": "Turbine.json"},
+        "TurbineArc": {"file": "TurbineArc.json"},	
         "PreFlight": {"file": "PreFlight.json"}
     },
     "prototypes": {
-
+	"panelLight": {
+	    "type":"panelLight",
+	    "x0":160,
+	    "y0": 20,
+	    "lightColor":"red",
+	    "min":0,
+	    "max":1,
+	    "value":0
+	},
+	
+	"rawText": {
+	    "type":"rawText",
+	    "x0": 10,
+	    "y0": 10,
+	    "text":"raw text",
+	    "textColor":"tomato",
+	    "fontHeight":20
+	},
+	
         "textBox":  {
             "type": "textBox",
             "x0": 160,
@@ -32,7 +51,7 @@
                 "red",
                 "yellow",
                 "green"
-            ]
+            ] 
         },
         
 	"virtualGauge": {

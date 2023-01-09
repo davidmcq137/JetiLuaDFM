@@ -29,7 +29,9 @@
     "xV": 71,
     "ri": 53.55,
     "start": -135,
-    "type": "roundGauge",
+      "type": "roundGauge",
+      "needleType":"arc",
+      "label": "Current",
     "yV": 100.15,
     "end": 135
   },
@@ -62,8 +64,10 @@
     "value": 0,
     "xV": 248,
     "ri": 53.55,
-    "start": -135,
-    "type": "roundGauge",
+      "start": -135,
+      "label":"Position",
+      "type": "roundGauge",
+      "needleType":"arc",
     "yV": 98.65,
     "end": 135
   },
