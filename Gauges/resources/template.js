@@ -1154,10 +1154,13 @@ function horizontalBar(ctx, arr) {
 }
 
 function panelLight(ctx, arr) {
-    console.log("in panelLight", arr.value, arr.x0, arr.y0,arr.width, arr.height,
-		arr.radius, arr.lightColor)
-    const r = (arr.width / 2) - 3;
-    console.log("r", r)
+    var r;
+    if (typeof arr.radius != "number") {
+	r = (arr.width / 2) - 3;
+    } else {
+	r = arr.radius;
+    }
+
     if (typeof arr.value == "number") {
 	if (arr.value > (arr.min + arr.max) / 2) {
 	    ctx.fillStyle = arr.lightColor;
@@ -1165,12 +1168,16 @@ function panelLight(ctx, arr) {
 	    ctx.ellipse(arr.x0, arr.y0, r, r, 0, 0, Math.PI*2);
 	    ctx.fill();
 	} else {
-	    ctx.strokeStyle = "gray";
+	    if (typeof arr.offColor == "string") {
+		ctx.fillStyle = arr.offColor;
+	    } else {
+		ctx.fillStyle = "darkgray";
+	    }
+	    ctx.beginPath();
 	    ctx.ellipse(arr.x0, arr.y0, r, r, 0, 0, Math.PI*2);
-	    ctx.stroke();
+	    ctx.fill();
 	}
     }
-    console.log("returning")
 }
 
 function rawText(ctx, arr) {
@@ -1190,7 +1197,6 @@ function renderGauge(ctx, input) {
     const widgetFuncs = {textBox:textBox, horizontalBar:horizontalBar,
 			 roundGauge:roundGauge, virtualGauge:virtualGauge,
 			 panelLight:panelLight, rawText:rawText}
-    console.log("widget type", input.type)
     if (widgetFuncs[input.type]) {
 	return widgetFuncs[input.type](ctx, input);
     } else {
