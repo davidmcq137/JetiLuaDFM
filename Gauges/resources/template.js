@@ -1154,19 +1154,23 @@ function horizontalBar(ctx, arr) {
 }
 
 function panelLight(ctx, arr) {
+    console.log("in panelLight", arr.value, arr.x0, arr.y0,arr.width, arr.height,
+		arr.radius, arr.lightColor)
+    const r = (arr.width / 2) - 3;
+    console.log("r", r)
     if (typeof arr.value == "number") {
 	if (arr.value > (arr.min + arr.max) / 2) {
 	    ctx.fillStyle = arr.lightColor;
 	    ctx.beginPath();
-	    ctx.ellipse(arr.x0, arr.y0, arr.radius, arr.radius, 0, 0, Math.PI*2);
-	    ctx.endPath();
+	    ctx.ellipse(arr.x0, arr.y0, r, r, 0, 0, Math.PI*2);
 	    ctx.fill();
 	} else {
 	    ctx.strokeStyle = "gray";
-	    ctx.ellipse(arr.x0, arr.y0, arr.radius, arr.radius, 0, 0, Math.PI*2);
+	    ctx.ellipse(arr.x0, arr.y0, r, r, 0, 0, Math.PI*2);
 	    ctx.stroke();
 	}
     }
+    console.log("returning")
 }
 
 function rawText(ctx, arr) {

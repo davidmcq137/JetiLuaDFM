@@ -1,9 +1,12 @@
 [
     {
 	"type":"panelLight",
-	"x0":160,
-	"y0": 20,
+	"x0":120,
+	"y0": 110,
 	"lightColor":"red",
+	"radius":10,
+	"width":12,
+	"height":12,
 	"min":0,
 	"max":1,
 	"value":0
@@ -11,10 +14,13 @@
     
     {
 	"type":"rawText",
-	"x0": 10,
+	"x0": 160,
 	"y0": 10,
-	"fontHeight":20,
-	"text":"This is a test of raw text"
+	"fontHeight":10,
+	"textColor":"white",
+	"text":"This is a test of raw text",
+	"width":120,
+	"height":20
     },
   {
     "yL": 154.355,
