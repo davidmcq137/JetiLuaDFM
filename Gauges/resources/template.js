@@ -430,7 +430,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     }
    
     arrR.ri = ri;
-
+    arrR.ro = ro;
     /*
     needle = [ {x:-1,y:0}, {x:-2,y:1}, {x:-4,y:4}, {x:-1,y:58},
 	       {x:1,y:58}, {x:4, y:4}, {x:2, y:1}, {x:1,y:0}]
@@ -448,15 +448,39 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     if (spec) {
 	var rainbow = new Rainbow();
 	rainbow.setSpectrumByArray(spec); 
-	//console.log("nseg", nseg)
 	rainbow.setNumberRange(0,Math.max(nseg-1,1))
+
+	// if this is beign drawn as an arc gauge need to send colors and vals to TX
+	// needle gauges have arc pre-draw and it's in the png
+	
+	if (arr.needleType == "arc") {
+	    var vv;
+	    arrR.TXspectrum = []; // save colors at vals to send to TX
+	    for (let i = 0; i < nseg; i++) {
+		vv = min + i * (max - min) / (nseg - 1);
+		let rgbI = parseInt(rainbow.colourAt(i), 16)
+		let r = (rgbI >> 16) & 255;
+		let g = (rgbI >> 8) & 255;
+		let b = rgbI & 255;
+		arrR.TXspectrum[i] = {v:vv, r:r, g:g, b:b}
+	    }
+	}
     }
 
     if (colors) {
-	// setup for colorvals if needed
+	if (arr.needleType == "arc") {
+	    arrR.TXcolorvals = []; // send rgb colors to TX
+	    for(let i = 0, lcv = colors.length;i < lcv; i++) {
+		ctx.fillStyle = colors[i].color; //side effect turns "colorname" to hex on return
+		let rgbI = parseInt(ctx.fillStyle.slice(1), 16)
+		let r = (rgbI >> 16) & 255;
+		let g = (rgbI >> 8) & 255;
+		let b = rgbI & 255;
+		arrR.TXcolorvals[i] = {v:colors[i].val, r:r, g:g, b:b}
+	    }
+	}
     }
 
-    //console.log("colors", colors, typeof colors, "spec", spec, typeof spec)
     var a;
     var delta;
     
@@ -549,7 +573,8 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	}
     }
 
-    if (( ndlarc == "arc") && (typeof value == "number")) {
+    
+    if (( ndlarc == "arc") && (typeof value == "number")) { // done only if arc to be rendered
 
 	cf = "white";
 	
@@ -1060,7 +1085,7 @@ function horizontalBar(ctx, arr) {
     var a;
 
     arrR.rects = [];
-    var rgbI, r, g, b;
+    var rgbI, cfs, r, g, b;
 
     //console.log("arr.value", arr.value);
 
@@ -1083,30 +1108,37 @@ function horizontalBar(ctx, arr) {
 	    }
 	    if (val <= colors[0].val) {
 		ctx.fillStyle = colors[0].color
+		cfs = ctx.fillStyle; // sets rgbI to standard hex format even if color is "red"
+		//rgbI = colors[0].color
 	    } else if (val >= colors[cl].val) {
 		ctx.fillStyle = colors[cl].color
+		//rgbI = colors[cl].color
+		cfs = ctx.fillStyle;
 	    } else {
 		for (let j = 1; j <= cl; j++) {
 		    if (val >= colors[j-1].val && val < colors[j].val) {
 			ctx.fillStyle = colors[j].color;
-			rgbI = colors[j].color
+			//rgbI = colors[j].color
+			cfs = ctx.fillStyle;
 			break;
 		    }
 		}
 	    }
 	} else {
 	    ctx.fillStyle = "#"+rainbow.colourAt(i);
-	    rgbI = parseInt(rainbow.colourAt(i), 16)
+	    //rgbI = parseInt(rainbow.colourAt(i), 16)
+	    cfs = ctx.fillStyle;
 	}
 	
 	if (i < arr.divs) {
-	    //rgbI = parseInt(rainbow.colourAt(i), 16)
+	    rgbI = parseInt(cfs.slice(1), 16)
 	    r = (rgbI >> 16) & 255;
 	    g = (rgbI >> 8) & 255;
 	    b = rgbI & 255;
 	    arrR.rects[i] = {x:a, y: arr.y0 - h / 2 + cellOff,
 			     w: delta, h: cellMult * h,
 			     r:r, g:g, b:b}
+	    //console.log("cfs, cfs.slice(1), rgbI", cfs, r,g,b)
 	    //console.log(i, rainbow.colourAt(i), r, g, b)
 	    ctx.save();
 	    ctx.clip(region);

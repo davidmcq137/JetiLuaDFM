@@ -88,11 +88,16 @@ local hSlider = {
    {-6,6}
 }
 --]]
-
+local rectangle = {
+   {-2,  -4},
+   { 2,  -4},
+   { 2,  -10},
+   {-2,  -10}
+}
 local triangle = {
-   {-7,1},
-   {0,-9},
-   {7,1}
+   {-4,1},
+   {0,-5},
+   {4,1}
 }
 
 local function getSensorByID(SeId, SePa)
@@ -222,6 +227,25 @@ local function drawShape(col, row, shape, f, rotation, x0, y0, r, g, b)
    end
 end
 
+local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp)
+   local ren = lcd.renderer()
+   ren:reset()
+   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   ren:addPoint(x0 - ro * math.cos(a0), y0 - ro * math.sin(a0))   
+   
+   for i=1,im-1,1 do
+      ren:addPoint(x0 - ro * math.cos(a0 + i*theta/im), y0 - ro * math.sin(a0 + i*theta/im))
+   end
+   
+   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
+   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
+   
+   for i=im-1,1,-1 do
+      ren:addPoint(x0 - ri * math.cos(a0+i*theta/im), y0 - ri * math.sin(a0+i*theta/im))
+   end
+   ren:renderPolygon(alp)
+end
+
 local function setToPanel(iisp)
    --print("setToPanel", iisp)
    local isp = iisp
@@ -338,12 +362,12 @@ local function keyForm(key)
    end
    
    if subForm == 100 then
-      if keyExit(key) then
+      if keyExit(key) and key ~= KEY_ENTER then
 	 form.preventDefault()
 	 form.reinit(1)
 	 return
       end
-      if key == KEY_1 then -- edit
+      if key == KEY_1 or key == KEY_ENTER then -- edit
 	 savedRow2 = form.getFocusedRow()
 	 savedRow3 = form.getFocusedRow()
 	 form.reinit(104)
@@ -547,6 +571,7 @@ local function changedSwitch(val, switchName, j)
 end
 
 local function changedMinMax(val, sel, ipig)
+   print("chgMM", val, sel)
    ipig[sel] = val
 end
 
@@ -559,6 +584,7 @@ end
 
 local function changedShowMM(val, ipig)
    ipig.showMM = tostring(not val)
+   print("ipig, ipig.showMM", ipig, ipig.showMM)
    form.setValue(mmCI, not val)
 end
 
@@ -952,17 +978,21 @@ local function loop()
    swr = system.getInputsVal(switches.resetMinMax)
    if not swrLast then swrLast = swr end
    if swr and swr == 1 and swrLast ~= 1 then
-      for _, widget in ipairs(ip) do
-	 for k, _ in pairs(widget) do
-	    if k == "minval" or k == "maxval" then widget[k] = nil end
+      for _, panel in pairs(ip) do
+	 for _, gauge in pairs(panel) do
+	    for l, param in pairs(gauge) do
+	       if l == "minval" or l == "maxval" then
+		  gauge[l] = nil
+	       end
+	    end
 	 end
       end
    end
    swrLast = swr
 
    -- update min and max values
-   
-   for _, widget in ipairs(ip) do
+   local ips = InsP.panels[sp]
+   for iw, widget in ipairs(ips) do
       sensor = getSensorByID(widget.SeId, widget.SePa)	 
       if sensor and sensor.valid then
 	 -- text box does not have min or max
@@ -972,12 +1002,16 @@ local function loop()
 	 if not widget.minval then
 	    widget.minval = sensor.value
 	 end
-	 if sensor.value < widget.minval then widget.minval = sensor.value end
+	 if sensor.value < widget.minval then
+	    widget.minval = sensor.value
+	 end
 
 	 if not widget.maxval then
 	    widget.maxval = sensor.value
 	 end
-	 if sensor.value > widget.maxval then widget.maxval = sensor.value end
+	 if sensor.value > widget.maxval then
+	    widget.maxval = sensor.value
+	 end
       end
    end
 
@@ -1090,8 +1124,8 @@ local function printForm(w,h,tWin)
       local minarc = -0.75 * math.pi
       local maxarc =  0.75 * math.pi
 
-      if widget.startArc then minarc = math.pi/2 +  widget.startArc end
-      if widget.endArc then maxarc = math.pi/2 + widget.endArc end
+      if widget.start then minarc = math.pi/2 +  math.rad(widget.start) end
+      if widget["end"] then maxarc = math.pi/2 + math.rad(widget["end"]) end
 
       if sensor and sensor.valid then
 	 if widget.min and widget.max then
@@ -1164,26 +1198,66 @@ local function printForm(w,h,tWin)
 	 if ctl then
 	    factor = 0.90 * (widget.radius - 8) / 58
 	    if widget.type == "roundGauge" then
-	       drawShape(widget.x0, widget.y0, neeedle, factor, rot + math.pi)
-	    else
+	       if widget.needleType ~= "arc" then
+		  drawShape(widget.x0, widget.y0, needle, factor, rot + math.pi/2)
+	       else
+		  --local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp) XXXX
+		  local ri = widget.ri or 0.85 * widget.radius
+		  local ro = widget.ro or 0.87 * widget.radius
+		  lcd.setColor(0x80, 0x80, 0x80) -- same gray used on website.
+		  drawArc(maxarc - minarc, widget.x0, widget.y0, minarc, maxarc,
+			  ri, ro, 20, 1)
+		  local r,g,b = 255,255,255
+		  if widget.TXspectrum then
+		     local wmax = widget.TXspectrum[#widget.TXspectrum]
+		     r,g,b = wmax.r, wmax.g, wmax.b		     
+		     for i, tt in ipairs(widget.TXspectrum) do
+			--print(i, tt.v, val)
+			if tt.v >= val then
+			   r,g,b = tt.r, tt.g, tt.b
+			   break
+			end
+		     end
+		  end
+		  if widget.TXcolorvals then
+		     local wmax = widget.TXcolorvals[#widget.TXcolorvals]
+		     r,g,b = wmax.r, wmax.g. wmax.b
+		     for i, tt in pairs(widget.TXcolorvals) do
+			if tt.v >= val then
+			   r,g,b = tt.r, tt.g, tt.b
+			   break
+			end
+		     end
+		  end
+		  --print(val, math.deg(rot), r, g, b)
+		  lcd.setColor(r, g, b)
+		  drawArc(rot + math.pi/4, widget.x0, widget.y0, minarc, maxarc, ri, ro, 20, 1)
+	       end
+	    elseif widget.type == "virtualGauge" then
 	       local shp = {}
-	       for i,v in ipairs(widget.needle) do
-		  shp[i] = {v.x, v.y}
+	       for ii,v in ipairs(widget.needle) do
+		  shp[ii] = {v.x, v.y}
 	       end
 	       drawShape(widget.x0, widget.y0, shp, factor, rot + math.pi)	       
 	    end
-	    
-	    if rotmin and widget.showMM == "true" then
-	       drawShape(widget.x0, widget.y0, triangle, factor, rotmin + math.pi, 0,
-			 widget.radius, 0, 0, 0)
+
+	    if i == 4 then
+	       --print("widget, widget.showMM, rotmin, rotmax", widget, widget.showMM)
+	       --print("widget.minval, widget.maxval", widget.minval, widget.maxval)
 	    end
-	    
+
 	    lcd.setColor(255,255,255)
-	    if rotmax and widget.showMM == "true" then
-	       drawShape(widget.x0, widget.y0, triangle, factor, rotmax + math.pi, 0,
-			 widget.radius, 0, 0, 0)
+	    if rotmin and widget.showMM == "true" then
+	       --print("rotmin")
+	       drawShape(widget.x0, widget.y0, rectangle, factor, rotmin + math.pi/2, 0,
+			 widget.radius, 255,255,255)
 	    end
 	    
+	    if rotmax and widget.showMM == "true" then
+	       --print("rotmax")
+	       drawShape(widget.x0, widget.y0, rectangle, factor, rotmax + math.pi/2, 0,
+			 widget.radius, 255,255,255)
+	    end
 	    lcd.setColor(255,255,255)
 	    local fmt
 	    if sensor.decimals == 0 then
@@ -1267,44 +1341,36 @@ local function printForm(w,h,tWin)
 	    end
 	 end
 
-      elseif widget.type == "horizontalBar" and ctl then
-	 --print(#widget.rects, widget.divs, widget.subdivs)
+      elseif widget.type == "horizontalBar" then
 	 local xc = widget.x0 - widget.barW // 2 - 2
 	 local yc = widget.y0 - widget.barH // 2
-	 lcd.setClipping(xc, yc, widget.barW * ctl + 2, widget.barH)
+
+	 if ctl then
+	    lcd.setClipping(xc, yc, widget.barW * ctl + 2, widget.barH)
+	    for i, p in ipairs(widget.rects) do
+	       lcd.setColor(p.r, p.g, p.b)
+	       local px, py, pw, ph = math.floor(p.x + 0.5), math.floor(p.y + 0.5),
+	       math.floor(p.w + 0.5), math.floor(p.h + 0.5)
+	       lcd.drawFilledRectangle(px - xc, py - yc, pw + 1, ph)
+	    end
+	 end
+	 lcd.resetClipping()
+
+	 lcd.setColor(255,255,255)
+	 lcd.setClipping(xc, yc, widget.barW + 2, widget.barH)
 	 for i, p in ipairs(widget.rects) do
-	    lcd.setColor(p.r, p.g, p.b)
 	    local px, py, pw, ph = math.floor(p.x + 0.5), math.floor(p.y + 0.5),
 	    math.floor(p.w + 0.5), math.floor(p.h + 0.5)
-	    lcd.drawFilledRectangle(px - xc, py - yc, pw + 1, ph)
-	    lcd.setColor(255,255,255)
 	    lcd.drawLine(p.x - xc, p.y - yc, p.x - xc, p.y - yc + ph)
 	    if widget.subdivs > 0 and (i - 1) % widget.subdivs == 0 then
 	       lcd.drawFilledRectangle(px - xc - 1, py - yc, 2, ph)
 	    end
 	    if i == #widget.rects and i % widget.subdivs == 0 then
-	       lcd.drawFilledRectangle(widget.x0 + widget.barW//2 - xc - 1, p.y - yc, 2, ph)
+	       lcd.drawFilledRectangle(widget.x0 + widget.barW//2 - xc - 2, p.y - yc, 2, ph)
 	    end
 	 end
 	 lcd.resetClipping()
 	 
-	 --[[
-	 if true then return end
-
-	 lcd.setColor(0,0,0)
-
-	 local hPad = widget.height / 4
-	 local vPad = widget.height / 8
-	 local start = widget.x0 - widget.width / 2 + hPad
-	 local w = math.floor(widget.width - 2 * hPad + 0.5)
-	 local h = math.floor(widget.height - 2 * vPad + 0.5)
-	 local cellMult = 0.4
-	 local cellOff = math.floor((1-cellMult) / 2 * h + 0.5)
-	 if ctl then
-	    lcd.drawFilledRectangle(start + ctl*(w+1)+1*(1-ctl), -1+widget.y0 - h/2 + cellOff,
-				    math.floor((1-ctl)*(w+1)+0.5), math.floor(h*cellMult+0.5)+2)
-	 end
-	 --]]
 	 lcd.setColor(255,255,255)
 
 	 local str
@@ -1353,7 +1419,7 @@ local function printForm(w,h,tWin)
 	    if i == 1 then
 	       --print("widget.value", widget.value, stro, widget.xL, widget.yL, widget.fL)
 	    end
-	    local str = widget.value or "---" 
+	    local str = widget.text or "---" 
 	 	 if type(str) ~= "table" then
 		    stro = str
 		    for w in string.gmatch(str, "(%b'')") do
@@ -1396,11 +1462,11 @@ local function printForm(w,h,tWin)
 	 end
 	 
 	 if i == 1 then
-	    --print("widget.value", widget.x0, widget.y0, widget.xL, widget.yL)
+	    --print("widget.text", widget.x0, widget.y0, widget.xL, widget.yL)
 	 end
 
 	 lcd.drawText(widget.xV - lcd.getTextWidth(edit.fcode[widget.fL], stro)/2,
-		      widget.yV - lcd.getTextHeight(edit.fcode[widget.fL])/2,
+		      widget.yV - lcd.getTextHeight(edit.fcode[widget.fL])/2 -1,
 		      stro, edit.fcode[widget.fL])
       end
    end
