@@ -7,15 +7,23 @@
       Current={0,0,0,0}; 
       A123=require('A123')"
     },
-
     {"id":168,
-     "param": 1,
+     "param": 4,
      "decimals": 0,
      "type": 1,
-     "sensorName": "IBP", 
-     "label": "SOC P5",
-     "unit": "%",
-     "luaExp":"8*(sq(t/10) + 0.5 * (math.random() - 0.5))"
+     "sensorName": "IBP",
+     "label": "Pack P8",
+     "unit": "mV",
+     "luaExp":"-6+-3*(sin(t/10) + 0.0 * (math.random() - 0.5))"
+    },
+    {"id":168,
+     "param": 3,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "IBP",
+     "label": "Cell 2 P7",
+     "unit": "mv",
+     "luaExp":"-3+13*(sin(t/10) + 0.0 * (math.random() - 0.5))"
     },
     {"id":168,
      "param": 2,
@@ -27,22 +35,13 @@
      "luaExp":"-8*(sq(t/10+5) + 0.5 * (math.random() - 0.5))"
     },
     {"id":168,
-     "param": 3,
+     "param": 1,
      "decimals": 0,
      "type": 1,
-     "sensorName": "IBP",
-     "label": "Cell 2 P7",
-     "unit": "mv",
-     "luaExp":"-3+3*(sin(t/10) + 0.0 * (math.random() - 0.5))"
-    },
-    {"id":168,
-     "param": 4,
-     "decimals": 0,
-     "type": 1,
-     "sensorName": "IBP",
-     "label": "Pack P8",
-     "unit": "mV",
-     "luaExp":"-6+-3*(sin(t/10) + 0.0 * (math.random() - 0.5))"
+     "sensorName": "IBP", 
+     "label": "SOC P5",
+     "unit": "%",
+     "luaExp":"8*(sq(t/10) + 0.5 * (math.random() - 0.5))"
     },
     {"id":168,
      "param": 5,

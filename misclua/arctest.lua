@@ -191,6 +191,17 @@ local function printForm()
    str = string.format("CPU: %d%%", system.getCPU())
    lcd.drawText(240, 140, str)		       
    
+   local ren = lcd.renderer()
+
+   alp = 1.0
+   ren:reset()
+   ren:addPoint(226,59)
+   ren:addPoint(231,41)
+   ren:addPoint(313,26)
+   ren:addPoint(392,26)
+   ren:renderPolygon(alp)
+
+   
 end
 
 local function init()
