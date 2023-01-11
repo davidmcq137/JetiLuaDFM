@@ -431,10 +431,24 @@
      [:span.slider-label (str "Height = " (get params "height"))]
      (gaugeparam-slider da "height" {:min 10 :max 80})
      
-     "Text values"
-     (edit-multitext da)
-     #_[:span.slider-label "Value"]
-     #_(gaugeparam-text da ["value"]))))
+     [:span.slider-label "Text values"]
+     (edit-multitext da))))
+
+(rum/defc edit-rawtext
+  < rum/reactive
+  [da]
+  (let [{:keys [params]  :as d} (rum/react da)]
+    (rum/fragment
+     [:span.slider-label (str "Width = " (get params "width"))]
+     (gaugeparam-slider da "width" {:min 10 :max 320})
+     [:span.slider-label (str "Height = " (get params "height"))]
+     (gaugeparam-slider da "height" {:min 10 :max 80})
+     
+     [:span.slider-label "Font height"]
+     (gaugeparam-slider da "fontHeight" {:min 4 :max 80})
+     
+     [:span.slider-label "Color"]
+     (gaugeparam-text da "textColor"))))
 
 (rum/defc edit-panellight
   < rum/reactive
@@ -459,9 +473,9 @@
 (rum/defc onegauge-editor
   < rum/reactive
   [da i]
-  (let [d (rum/react da)
-        x0 (get (:params d) "x0")
-        y0 (get (:params d) "y0")
+  (let [d   (rum/react da)
+        x0  (get (:params d) "x0")
+        y0  (get (:params d) "y0")
         val (get (:params d) "value")]
     [:div.onegauge {}
      (when-let [bmap (:bitmap d)]
@@ -470,9 +484,9 @@
       [:span.slider-label "Label"]
       (gaugeparam-text da "label")
       [:span.slider-label (str "X = " x0)]
-      (gaugeparam-slider da "x0" {:min 0  :max 320})
+      (gaugeparam-slider da "x0" {:min 0 :max 320})
       [:span.slider-label (str "Y = " y0)]
-      (gaugeparam-slider da "y0" {:min 0  :max 160})
+      (gaugeparam-slider da "y0" {:min 0 :max 160})
 
       (when val [:span.slider-label "Value"])
       (when val
@@ -481,40 +495,40 @@
             ("textBox" "rawText" "sequencedTextBox" "stackedTextBox")
             (gaugeparam-plusminus da  ["value"])
             (gaugeparam-slider da "value"
-                               {:min min
-                                :max max
+                               {:min  min
+                                :max  max
                                 :step (* 0.01 (- max min))}))))]
      [:div.controls
       [:input
-       {:type "button"
-        :value (if-not (:editing d) "Edit" "Finish")
+       {:type    "button"
+        :value   (if-not (:editing d) "Edit" "Finish")
         :onClick #(swap! da update :editing not)}]
       
       #_[:input
-         {:type "button"
-          :value (if-not (:hidden d) "Hide" "Show")
+         {:type    "button"
+          :value   (if-not (:hidden d) "Hide" "Show")
           :onClick #(swap! da update :hidden not)}]
       
       [:input
-       {:type "button"
-        :value "Duplicate"
+       {:type    "button"
+        :value   "Duplicate"
         :onClick #(swap! db update :gauges assoc (count (:gauges @db)) d)}]
       [:input
-       {:type "button"
-        :value "Delete"
+       {:type    "button"
+        :value   "Delete"
         :onClick #(swap! da assoc :deleted true)}]]
      [:div.sliders
-      {:style {:grid-column "1/4"
-               :width "100%"
+      {:style {:grid-column     "1/4"
+               :width           "100%"
                :justify-content "space-between"}}
       (when (:editing d)
         (case (get (:params d) "type")
-          "roundGauge" (edit-roundgauge da)
-          "textBox" (edit-textbox da)
+          "roundGauge"    (edit-roundgauge da)
+          "textBox"       (edit-textbox da)
           "horizontalBar" (edit-horizontalbar da)
-          "virtualGauge" (edit-virtualgauge da)
-          "rawText" (edit-textbox da)
-          "panelLight" (edit-panellight da)
+          "virtualGauge"  (edit-virtualgauge da)
+          "rawText"       (edit-rawtext da)
+          "panelLight"    (edit-panellight da)
           nil))]]))
 
 
