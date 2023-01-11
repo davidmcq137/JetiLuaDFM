@@ -10,6 +10,8 @@
 
 
 (defonce db (atom {}))
+(defonce panels (atom {})) 
+
 
 (def config-json (js->clj (js/JSON.parse (rc/inline "config.json"))))
 
@@ -23,15 +25,17 @@
 (defn shape->bbox
   [{:strs [type radius x0 y0 width height] :as sh}]
   (case type
-    ("roundGauge" "virtualGauge" "panelLight")
+    ("roundGauge" "virtualGauge" "panelLight"
+     "roundNeedleGauge" "roundArcGauge")
     (let [d (* 2 radius)]
       [(- x0 radius) (- y0 radius) d d])
     
-    ("horizontalBar" "textBox" "rawText")
+    ("horizontalBar" "textBox" "rawText"
+     "sequencedTextBox" "stackedTextBox")
     (let [halfw (* 0.5 width)
           halfh (* 0.5 height)]
       [(- x0 halfw) (- y0 halfh) width height])
-    (println "Do not understand shape of" (pr-str type) "SH" sh)))
+    (println "Do not understand shape of" (pr-str type) "SH" (pr-str sh))))
 
 
 (rum/defc bitmap-canvas-drag
@@ -138,6 +142,11 @@
               :width (.-width bmap)
               :height (.-height bmap)}]))
 
+(defn update-gauge*
+  ([a f] (swap! a (fn [av] (merge av (render-gauge* (f (:params av)))))))
+  ([a f k v] (swap! a (fn [av] (merge av (render-gauge* (f (:params av) k v))))))
+  ([a f k v & more]
+   (swap! a (fn [av] (merge av (render-gauge* (apply f (:params av) (list* k v more))))))))
 
 (rum/defc gaugeparam-slider
   < rum/reactive
@@ -146,17 +155,13 @@
         v (get params k)]
     [:input
      (merge
-       {:type "range"
-        :min 0
-        :max 100
-        :value (or v 0)
-        :onChange (fn [^js ev]
-                    (swap! da merge
-                           (render-gauge*
-                            (assoc params
-                                   k
-                                   (js/parseFloat (.-value (.-target ev)))))))}
-       props)]))
+      {:type "range"
+       :min 0
+       :max 100
+       :value (or v 0)
+       :onChange (fn [^js ev] 
+                   (update-gauge* da assoc k (js/parseFloat (.-value (.-target ev)))))}
+      props)]))
 
 
 (rum/defc gaugeparam-text < rum/reactive
@@ -166,9 +171,7 @@
     [:input {:type "text"
              :value (or v "")
              :onChange (fn [^js ev]
-                         (swap! da merge
-                                (render-gauge*
-                                 (assoc params k (.-value (.-target ev))))))}]))
+                         (update-gauge* da assoc k (.-value (.-target ev))))}]))
 
 
 (rum/defc gaugeparam-plusminus < rum/reactive
@@ -178,57 +181,51 @@
     [:span.plusminus {}
      [:input {:type "button"
               :value "-"
-              :onClick #(swap! da merge (render-gauge* (update-in params k dec)))}]
+              :onClick #(update-gauge* da update-in k dec)}]
      [:input {:type "text"
               :style {:margin "0 1ex 0 1ex"}
-              :value v
+              :value (or v "0")
               :onChange (fn [^js ev]
-                          (swap! da merge
-                                 (render-gauge*
-                                  (assoc-in params
-                                            k
-                                            (js/parseInt (.-value (.-target ev)))))))}]
+                          (update-gauge* da assoc-in k (js/parseInt (.-value (.-target ev)))))}]
      [:input {:type "button"
               :value "+"
-              :onClick #(swap! da merge (render-gauge* (update-in params k inc)))}]]))
+              :onClick #(update-gauge* da update-in k inc)}]]))
 
 (rum/defc edit-spectrum
   < rum/reactive
   [da]
   (let [{:keys [params]} (rum/react da)
         {:strs [spectrum]} params]
-    [:div.edit-spectrum {}
-     (for [i (range (count spectrum))
-           t [:swatch :label]
-           :let [color (nth spectrum i)]]
-       (case t
-         :swatch
-           (if (string/starts-with? color "#")
-             [:input
-              {:type :color
-               :value color
-               :onChange (fn [ev]
-                           (swap! da merge
-                             (render-gauge*
-                               (assoc-in params
-                                 ["spectrum" i]
-                                 (.-value (.-target ev))))))}]
-             [:span
-              {:key (str "w" i)
-               :style {:height "2ex"
-                       :align-self "center"
-                       :width "4ex"
-                       :background-color color}}])
-         :label [:input
-                 {:type "text"
-                  :key (str "c" i)
-                  :value color
-                  :onChange (fn [^js ev]
-                              (swap! da merge
-                                (render-gauge*
-                                  (assoc-in params
-                                    ["spectrum" i]
-                                    (.-value (.-target ev))))))}]))]))
+    [:div
+     
+     [:div.edit-spectrum {}
+      (for [i (range (count spectrum))
+            t [:swatch :label]
+            :let [color (nth spectrum i)]]
+        (case t
+          :swatch
+          (if (string/starts-with? color "#")
+            [:input
+             {:type :color
+              :value color
+              :onChange (fn [ev]
+                          (update-gauge* da assoc-in
+                                         ["spectrum" i]
+                                         (.-value (.-target ev))))}]
+            [:span
+             {:key (str "w" i)
+              :style {:height "2ex"
+                      :align-self "center"
+                      :width "4ex"
+                      :background-color color}}])
+          :label [:input
+                  {:type "text"
+                   :key (str "c" i)
+                   :value color
+                   :onChange (fn [^js ev]
+                               (update-gauge* da assoc-in
+                                              ["spectrum" i]
+                                              (.-value (.-target ev))))}]))]]))
 
 
 (rum/defc edit-colorvals
@@ -261,11 +258,9 @@
                   :key (str "c" i)
                   :value color
                   :onChange (fn [^js ev]
-                              (swap! da merge
-                                (render-gauge*
-                                  (assoc-in params
-                                    ["colorvals" i "color"]
-                                    (.-value (.-target ev))))))}]
+                              (update-gauge* da assoc-in
+                                             ["colorvals" i "color"]
+                                             (.-value (.-target ev))))}]
          :slider
            [:input
             {:type "range"
@@ -274,20 +269,59 @@
              :max maxv
              :value val
              :onChange (fn [^js ev]
-                         (swap! da merge
-                           (render-gauge*
-                             (assoc-in params
-                               ["colorvals" i "val"]
-                               (js/parseInt (.-value (.-target ev)))))))}]))
+                         (update-gauge* da assoc-in 
+                                        ["colorvals" i "val"]
+                                        (js/parseInt (.-value (.-target ev)))))}]))
      [:input.add-arc
       {:type "button"
        :value "+"
-       :onClick #(swap! da merge
-                   (render-gauge* (update params
-                                          "colorvals"
-                                          conj
-                                          {"color" "red"
-                                           "val" (get params "max")})))}]]))
+       :onClick
+       #(update-gauge* da update "colorvals" conj
+                       {"color" "red"
+                        "val" (get params "max")})}]]))
+
+(rum/defc spectrum-or-colorvals < rum/reactive
+  [da]
+  (let [{:keys [params] :as d} (rum/react da)
+        {:strs [colorvals spectrum] :as kq} params]
+    
+    (cond
+      colorvals (rum/fragment
+                 [:div.edit-spectrum-label {}
+                  "Manual colors"
+                  [:input
+                   {:type "button"
+                    :value "Auto"
+                    :onClick (fn [^js ev]
+                               (update-gauge* da
+                                              #(-> %
+                                                   (dissoc "colorvals")
+                                                   (assoc "spectrum"
+                                                          (vec
+                                                           (for [c colorvals]
+                                                             (get c "color")))))))}]]
+                 (edit-colorvals da))
+      
+      spectrum (rum/fragment
+                [:div.edit-spectrum-label {}
+                 "Auto spectrum"
+                 [:input
+                  {:type "button"
+                   :value "Manual"
+                   :onClick (fn [^js ev]
+                              (update-gauge* da
+                                             #(-> %
+                                                  (dissoc "spectrum")
+                                                  (assoc "colorvals"
+                                                         (js->clj
+                                                          (js/returnColorVals
+                                                           (clj->js spectrum)
+                                                           (get params  "min")
+                                                           (get params  "max")))))))
+                   :style {:margin-left "2ex"}}]]
+                (edit-spectrum da))
+      
+      :else "Malformed gauge")))
 
 (rum/defc edit-horizontalbar
   < rum/reactive
@@ -308,9 +342,8 @@
      (gaugeparam-plusminus da ["divs"])
      [:span.slider-label "Subdivisions"]
      (gaugeparam-plusminus da ["subdivs"])
-     "Colors"
-     (cond (get params "colorvals") (edit-colorvals da)
-           (get params "spectrum") (edit-spectrum da)))))
+     (spectrum-or-colorvals da)
+     )))
 
 
 (rum/defc edit-roundgauge
@@ -332,7 +365,10 @@
      (gaugeparam-slider da "start" {:min -180 :max 180})
      [:span.slider-label "Arc end"]
      (gaugeparam-slider da "end" {:min -180 :max 180})
-     "Colors"
+     
+     (spectrum-or-colorvals da)
+     
+     #_ #_"Colors"
      (cond (get params "colorvals") (edit-colorvals da)
            (get params "spectrum") (edit-spectrum da)))))
 
@@ -354,6 +390,37 @@
      [:span.slider-label "Needle clipping"]
      (gaugeparam-slider da "needleClip"))))
 
+(rum/defc edit-multitext < rum/reactive
+  [da]
+  (let [{:keys [params]} (rum/react da)
+        {:strs [text]} params]
+    [:div.textvalue-list {}
+     (for [i (range (count text))
+           t [:index :textinput :remove-btn]]
+       (case t
+         :index [:span {:key (str "i" i)} (str i)]
+         :textinput [:input
+                     {:type "text"
+                      :value (nth text i)
+                      :key (str "t" i) 
+                      :onChange (fn [^js ev]
+                                  (update-gauge* da assoc-in ["text" i]
+                                                 (.-value (.-target ev))))}]
+         :remove-btn [:input
+                      {:type "button"
+                       :value "-"
+                       :key (str "r" i) 
+                       :onClick #(update-gauge* da update "text"
+                                                (fn [v]
+                                                  (vec (concat (take i v)
+                                                               (drop (inc i) v)))))}]))
+    
+     [:input
+      {:type "button"
+       :value "+"
+       :style {:grid-column 2 :width "8ex"}
+       :onClick #(update-gauge* da update "text" conj "")}]]))
+
 (rum/defc edit-textbox
   < rum/reactive
   [da]
@@ -363,15 +430,52 @@
      (gaugeparam-slider da "width" {:min 10 :max 320})
      [:span.slider-label (str "Height = " (get params "height"))]
      (gaugeparam-slider da "height" {:min 10 :max 80})
-     #_[:span.slider-label "Value"]
-     #_(gaugeparam-text da ["value"]))))
+     
+     [:span.slider-label "Text values"]
+     (edit-multitext da))))
+
+(rum/defc edit-rawtext
+  < rum/reactive
+  [da]
+  (let [{:keys [params]  :as d} (rum/react da)]
+    (rum/fragment
+     [:span.slider-label (str "Width = " (get params "width"))]
+     (gaugeparam-slider da "width" {:min 10 :max 320})
+     [:span.slider-label (str "Height = " (get params "height"))]
+     (gaugeparam-slider da "height" {:min 10 :max 80})
+     
+     [:span.slider-label "Font height"]
+     (gaugeparam-slider da "fontHeight" {:min 4 :max 80})
+     
+     [:span.slider-label "Color"]
+     (gaugeparam-text da "textColor"))))
+
+(rum/defc edit-panellight
+  < rum/reactive
+  [da]
+  (let [{:keys [params]  :as d} (rum/react da)]
+    (rum/fragment
+     [:span.slider-label "Radius"]
+     (gaugeparam-plusminus da ["radius"])
+     [:span.slider-label (str "Width = " (get params "width"))]
+     (gaugeparam-slider da "width" {:min 10 :max 320})
+     [:span.slider-label (str "Height = " (get params "height"))]
+     (gaugeparam-slider da "height" {:min 10 :max 80})
+     
+     [:span "Light"]
+     [:span "color"]
+     
+     [:span.slider-label "Value"]
+     (gaugeparam-slider da ["value"]))))
+
+
 
 (rum/defc onegauge-editor
   < rum/reactive
   [da i]
-  (let [d (rum/react da)
-        x0 (get (:params d) "x0")
-        y0 (get (:params d) "y0")
+  (let [d   (rum/react da)
+        x0  (get (:params d) "x0")
+        y0  (get (:params d) "y0")
         val (get (:params d) "value")]
     [:div.onegauge {}
      (when-let [bmap (:bitmap d)]
@@ -380,44 +484,51 @@
       [:span.slider-label "Label"]
       (gaugeparam-text da "label")
       [:span.slider-label (str "X = " x0)]
-      (gaugeparam-slider da "x0" {:min 0  :max 320})
+      (gaugeparam-slider da "x0" {:min 0 :max 320})
       [:span.slider-label (str "Y = " y0)]
-      (gaugeparam-slider da "y0" {:min 0  :max 160})
+      (gaugeparam-slider da "y0" {:min 0 :max 160})
 
       (when val [:span.slider-label "Value"])
       (when val
-        (let [{:strs [min max]} (:params d)]
-         (gaugeparam-slider da "value"
-                            {:min min
-                             :max max
-                             :step (* 0.01 (- max min))})))]
+        (let [{:strs [type min max]} (:params d)]
+          (case type
+            ("textBox" "rawText" "sequencedTextBox" "stackedTextBox")
+            (gaugeparam-plusminus da  ["value"])
+            (gaugeparam-slider da "value"
+                               {:min  min
+                                :max  max
+                                :step (* 0.01 (- max min))}))))]
      [:div.controls
       [:input
-       {:type "button"
-        :value (if-not (:editing d) "Edit" "Finish")
+       {:type    "button"
+        :value   (if-not (:editing d) "Edit" "Finish")
         :onClick #(swap! da update :editing not)}]
+      
+      #_[:input
+         {:type    "button"
+          :value   (if-not (:hidden d) "Hide" "Show")
+          :onClick #(swap! da update :hidden not)}]
+      
       [:input
-       {:type "button"
-        :value (if-not (:hidden d) "Hide" "Show")
-        :onClick #(swap! da update :hidden not)}]
-      [:input
-       {:type "button"
-        :value "Duplicate"
+       {:type    "button"
+        :value   "Duplicate"
         :onClick #(swap! db update :gauges assoc (count (:gauges @db)) d)}]
       [:input
-       {:type "button"
-        :value "Delete"
+       {:type    "button"
+        :value   "Delete"
         :onClick #(swap! da assoc :deleted true)}]]
      [:div.sliders
-      {:style {:grid-column "1/4"
-               :width "100%"
+      {:style {:grid-column     "1/4"
+               :width           "100%"
                :justify-content "space-between"}}
       (when (:editing d)
         (case (get (:params d) "type")
-          "roundGauge" (edit-roundgauge da)
-          "textBox" (edit-textbox da)
+          "roundGauge"    (edit-roundgauge da)
+          "textBox"       (edit-textbox da)
           "horizontalBar" (edit-horizontalbar da)
-          "virtualGauge" (edit-virtualgauge da)
+          "virtualGauge"  (edit-virtualgauge da)
+          "rawText"       (edit-rawtext da)
+          "panelLight"    (edit-panellight da)
           nil))]]))
 
 
@@ -480,7 +591,7 @@
      [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]]]])
 
 
-(rum/defc panel-list
+#_(rum/defc panel-list
   [ps]
   [:ul
    (for [[k {:panel/keys [name]}] ps]
@@ -505,6 +616,8 @@
     (count (:gauges @db))
     (assoc (render-gauge* (get-in config-json ["prototypes" new-gauge-type]))
       :editing true)))
+
+
 
 
 (rum/defc gauge-list-controls
@@ -534,23 +647,62 @@
                     i))]])
 
 
+(rum/defc panel-list-controls
+  [ps]
+  (let [[panel-name set-panel-name!] (rum/use-state "New panel")]
+    [:div
+     [:input {:type "button"
+              :value "Save as:"
+              :onClick #(swap! panels assoc
+                               @panels
+                               (assoc @db :panel/name panel-name))}]
+     [:input {:type "text"
+              :value panel-name
+              :onChange (fn [^js ev]
+                          (set-panel-name! (.-value (.-target ev))))}]]))
+
+
+(rum/defc panel-list*
+  [ps]
+  [:div {}
+   (when (not-empty ps)
+     [:ul.panel-list {}
+      (for [[i {:panel/keys [name] :as p}] ps]
+        [:li {:key i}
+         [:input {:type "button"
+                  :value name
+                  :onClick (fn []
+                             (reset! db p))}]])])
+   
+   
+   (panel-list-controls ps)])
+
+(rum/defc panel-list < rum/reactive
+  []
+  (panel-list* (rum/react panels)))
+
 (rum/defc root
   < rum/reactive
   []
   (let [cref (rum/create-ref)
         w 320
         h 160
-        {:keys [gauges background-image]} (rum/react db)]
+        {:keys [gauges panels background-image]} (rum/react db)]
     [:div.container
      [:div {:style {:margin-left "2ex"}}
       [:h2 "Gauge creator"]
       [:p "This app is for creating instrument panels for use with the companion"
        " app on the JETI transmitter."]
+      
       [:h4 "Example panels"]
       [:ul.example-panel-list
        (for [[name {:strs [file]}] (get config-json "examples")]
          [:li {:key (str name)}
           [:input {:type "button"  :value name  :onClick #(reload-json! (str "/" file))}]])]
+
+      [:h4 "My panels"]
+      (panel-list panels)
+      
       (app-controls w h)]
      [:div {}
       [:div.composite
@@ -564,15 +716,16 @@
              :let [[x y w h] (shape->bbox (:params d))]]
          (->> i
               (rum/with-key (bitmap-canvas-drag
-                              (:bitmap d)
-                              (* x draw-scale disp-scale)
-                              (* y draw-scale disp-scale)
-                              [:gauges i]))))]]
+                             (:bitmap d)
+                             (* x draw-scale disp-scale)
+                             (* y draw-scale disp-scale)
+                             [:gauges i]))))]]
      (gauge-list gauges)]))
 
 
 (defn ^:dev/after-load init
   []
+  
   (let [el (.getElementById js/document "root")]
     (when (empty? @db)
       (reload-json! "/Turbine.json"))
