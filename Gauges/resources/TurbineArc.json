@@ -3,7 +3,7 @@
     "yL": 154.10000000000002,
     "width": 131,
     "xL": 245,
-    "height": 31,
+    "height": 35,
     "y0": 140,
     "label": "Turbine Status",
     "x0": 245,
@@ -59,15 +59,14 @@
     "radius": 62,
     "x0": 65,
     "divs": 24,
-    "subdivs": 4,
+    "subdivs": 0,
     "value": 73.2,
     "xV": 65,
     "ri": 45.9,
     "start": -135,
-    "type": "roundGauge",
+    "type": "roundArcGauge",
     "yV": 78.2,
-    "end": 135,
-    "needleType": "arc"
+    "end": 135
   },
   {
     "yL": 110.6,
@@ -90,10 +89,9 @@
     "xV": 255,
     "ri": 45.9,
     "start": -135,
-    "type": "roundGauge",
+    "type": "roundArcGauge",
     "yV": 78.2,
-    "end": 135,
-    "needleType": "arc"
+    "end": 135
   },
   {
     "yL": 53.5,
@@ -115,7 +113,7 @@
     "xV": 160,
     "ri": 21.25,
     "start": -135,
-    "type": "roundGauge",
+    "type": "roundArcGauge",
     "yV": 38.5,
     "end": 135
   },
@@ -139,7 +137,7 @@
     "xV": 160,
     "ri": 21.25,
     "start": -135,
-    "type": "roundGauge",
+    "type": "roundArcGauge",
     "yV": 98.5,
     "end": 135
   }

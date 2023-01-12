@@ -29,7 +29,7 @@
     "xV": 71,
     "ri": 53.55,
     "start": -135,
-      "type": "roundGauge",
+      "type": "roundNeedleGauge",
       "needleType":"arc",
       "label": "Current",
     "yV": 100.15,
@@ -66,7 +66,7 @@
     "ri": 53.55,
       "start": -135,
       "label":"Position",
-      "type": "roundGauge",
+      "type": "roundNeedleGauge",
       "needleType":"arc",
     "yV": 98.65,
     "end": 135
@@ -87,7 +87,7 @@
     "xV": 159,
     "ri": 20.4,
     "start": -135,
-    "type": "roundGauge",
+    "type": "roundNeedleGauge",
     "yV": 135.2,
     "end": 135
   },
@@ -108,7 +108,7 @@
     "xV": 159,
     "ri": 20.4,
     "start": -135,
-    "type": "roundGauge",
+    "type": "roundNeedleGauge",
     "yV": 39.2,
     "end": 135
   }

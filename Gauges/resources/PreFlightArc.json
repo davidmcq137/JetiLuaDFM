@@ -85,12 +85,12 @@
     "radius": 80,
     "x0": 239,
     "divs": 24,
-    "subdivs": 4,
+    "subdivs": 0,
     "value": 85,
     "xV": 239,
     "ri": 61.199999999999996,
     "start": -120,
-    "type": "roundNeedleGauge",
+    "type": "roundArcGauge",
     "yV": 101.6,
     "end": 120
   }

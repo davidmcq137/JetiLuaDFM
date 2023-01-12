@@ -2,9 +2,10 @@
     {
 	"type":"panelLight",
 	"x0":120,
-	"y0": 110,
+	"y0": 106,
 	"lightColor":"red",
 	"offColor":"#202020",
+	"label":"Red",
 	"radius":6,
 	"width":50,
 	"height":50,
@@ -15,26 +16,18 @@
     {
 	"type":"panelLight",
 	"x0": 200,
-	"y0": 110,
+	"y0": 106,
 	"lightColor":"green",
+	"offColor":"#202020",
+	"label":"Green",
 	"radius":6,
-	"width":12,
-	"height":12,
+	"width":50,
+	"height":50,
 	"min":0,
 	"max":1,
 	"value":0
     },
     
-    {
-	"type":"rawText",
-	"x0": 160,
-	"y0": 10,
-	"fontHeight":10,
-	"textColor":"white",
-	"text":"Panels can have titles",
-	"width":120,
-	"height":20
-    },
   {
     "yL": 154.355,
     "width": 131,
@@ -105,8 +98,7 @@
     "xV": 65,
     "ri": 45.9,
     "start": -135,
-    "type": "roundGauge",
-      "needleType":"needle",
+    "type": "roundNeedleGauge",
       "yV": 78.2,
     "end": 135
   },
@@ -131,8 +123,7 @@
     "xV": 255,
     "ri": 45.9,
     "start": -135,
-      "type": "roundGauge",
-      "needleType":"needle",
+      "type": "roundNeedleGauge",
     "yV": 78.2,
     "end": 135
   },
@@ -156,7 +147,7 @@
     "xV": 160,
     "ri": 19.55,
     "start": -135,
-    "type": "roundGauge",
+    "type": "roundNeedleGauge",
     "yV": 37.9,
     "end": 135
   },
@@ -180,8 +171,18 @@
     "xV": 160,
     "ri": 19.55,
     "start": -135,
-    "type": "roundGauge",
+    "type": "roundNeedleGauge",
     "yV": 97.9,
     "end": 135
-  }
+  },
+    {
+	"type":"rawText",
+	"x0": 160,
+	"y0": 10,
+	"fontHeight":10,
+	"textColor":"white",
+	"text":"Panels can have titles",
+	"width":320,
+	"height":320
+    }
 ]

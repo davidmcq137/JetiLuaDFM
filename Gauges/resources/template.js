@@ -414,7 +414,14 @@ function drawNeedle(ctx, arr, type, f, angle) {
 }
 
 function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn, colors, value, label, type, ndlarc) {
-    const ri = ro * 0.85;
+
+    var ri;
+    
+    if (ndlarc == "needle") {
+	ri = ro * 0.85;
+    } else {
+	ri = ro * 0.80;
+    }
     const fontScale = 0.24;
 
     //console.log("type, ndlarc", type, ndlarc)
@@ -431,17 +438,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
    
     arrR.ri = ri;
     arrR.ro = ro;
-    /*
-    needle = [ {x:-1,y:0}, {x:-2,y:1}, {x:-4,y:4}, {x:-1,y:58},
-	       {x:1,y:58}, {x:4, y:4}, {x:2, y:1}, {x:1,y:0}]
 
-    needleAlt = [ {x:-2,y:0}, {x:-2,y:50}, {x:0,y:58},
-		  {x:2, y:50}, {x:2, y:0}, {x:0, y:-2}]
-    
-    needleFat = [ {x:-2,y:0}, {x:-4,y:30}, {x:0,y:45},
-		  {x:4, y:30}, {x:2,y:0}, {x:0, y:-2} ]
-    
-    */
     ctx.font="bold " + fontScale * ro + "px sans-serif"
     var fontoffset = fontScale * ro / 4;
 
@@ -453,7 +450,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	// if this is beign drawn as an arc gauge need to send colors and vals to TX
 	// needle gauges have arc pre-draw and it's in the png
 	
-	if (arr.needleType == "arc") {
+	if (ndlarc == "arc") {
 	    var vv;
 	    arrR.TXspectrum = []; // save colors at vals to send to TX
 	    for (let i = 0; i < nseg; i++) {
@@ -468,7 +465,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     }
 
     if (colors) {
-	if (arr.needleType == "arc") {
+	if (ndlarc == "arc") {
 	    arrR.TXcolorvals = []; // send rgb colors to TX
 	    for(let i = 0, lcv = colors.length;i < lcv; i++) {
 		ctx.fillStyle = colors[i].color; //side effect turns "colorname" to hex on return
@@ -523,16 +520,12 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    ctx.fillStyle = "#202020";
 	}
 
-	//console.log(ndlarc)
-	
 	if ( (i < nseg) && (ndlarc != "arc")) {
 	    var a1 = start + i * delta - 0*delta
 	    var a2 = start + i * delta + 1*delta;
 	    arcsegment(ctx, x0, y0, ri, ro, a1, a2 )
 	}
 
-
-	////////
 	ctx.lineWidth = ro / 46;	
 	ctx.strokeStyle="white";
 	ctx.beginPath();
@@ -541,24 +534,19 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	ctx.moveTo(x0 + tO * ro * Math.cos(a), y0 + tO * ro * Math.sin(a))
 	ctx.lineTo(x0 + tI * ri * Math.cos(a), y0 + tI * ri * Math.sin(a))
 	ctx.stroke();
-	////////
 	
 	const label2C = 1.8;//1.6;
 
-	//console.log(i, minmaj, i % minmaj, (min + i * (max - min) / nseg));
-	
 	if (minmaj > 0 && i % minmaj == 0) {
 	    ctx.fillStyle = "white";
 	    ctx.textAlign = "center";
 	    var rt = ri - label2C * (ro - ri)
 	    var val = (min + i * (max - min) / nseg)
 	    if (val <=  max) {
-		//console.log("&",val);
 		if (type == "airspeed") {
 		    ctx.font="bold " + 0.60 * fontScale * ro + "px sans-serif"
 		    fontoffset = fontScale * ro / 4;		    
 		}
-		
 		ctx.fillText(val.toString(),
 			     x0 + rt * Math.cos(a),
 			     y0 + rt * Math.sin(a) + fontoffset)
@@ -610,10 +598,16 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
 
-    if (label) {
+    if (typeof label != "undefined") {
 	ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
 	arrR.xL = x0;
-	arrR.yL = y0 + 0.90 * ro;
+	if (ndlarc == "needle") {
+	    arrR.yL = y0 + 0.90 * ro;
+	    ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+	} else {
+	    arrR.yL = y0 + 0.50 * ro;
+	    ctx.font = "bold " + 1.0 * fontScale * ro + "px sans-serif"
+	}
 	ctx.fillText(label, arrR.xL, arrR.yL);
     }
 
@@ -629,10 +623,21 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     }
     
     if (typeof value == "number") {
-	ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
-	arrR.xV = x0;
-	arrR.yV = y0 + 0.3 * ro;
-	ctx.fillText(parseFloat(value).toFixed(2), arrR.xV, arrR.yV);
+	if (ndlarc  == "needle") {
+	    ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
+	    arrR.xV = x0;
+	    arrR.yV = y0 + 0.3 * ro;
+	} else {
+	    ctx.textAlign = "center";
+	    ctx.textBaseline = "middle";
+	    ctx.font = "bold " + 1.7 * fontScale * ro + "px sans-serif";
+	    arrR.xV = x0;
+	    arrR.yV = y0;
+	}
+	var digits
+	digits = Math.max(2 - Math.floor(Math.log10(max - min)), 0);
+	//console.log("log, digits", Math.log10(max - min), digits)
+	ctx.fillText(parseFloat(value).toFixed(digits), arrR.xV, arrR.yV);
 	//console.log(value, parseFloat(value).toFixed(2))
 	if (type == "altimeter") {
 	    var val1C = value / 100.0;
@@ -643,30 +648,10 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    ctx.fillStyle = "white";
 	    var f = 0.90 * ro / 58;
 	    drawNeedle(ctx, arr, "needleFat", f)
-	    /*
-	    ctx.beginPath();
-	    for (let k = 0, len = needleFat.length; k < len; k++ ) {
-		ctx.lineTo(x0 + f * needleFat[k].x * Math.cos(angle) -
-			   f * needleFat[k].y * Math.sin(angle),
-			   y0 + f * needleFat[k].x * Math.sin(angle) +
-			   f * needleFat[k].y * Math.cos(angle))
-	    }
-	    ctx.fill();
-	    */
 	    frac = Math.max(Math.min( (valT - min) / (max - min), 1), 0);
 	    angle = start + frac * (end - start) - Math.PI/2;
 	    ctx.fillStyle = "white";
 	    f = 0.90 * ro / 58;
-	    /*
-	    ctx.beginPath();
-	    for (let k = 0, len = needleAlt.length; k < len; k++ ) {
-		ctx.lineTo(x0 + f * needleAlt[k].x * Math.cos(angle) -
-			   f * needleAlt[k].y * Math.sin(angle),
-			   y0 + f * needleAlt[k].x * Math.sin(angle) +
-			   f * needleAlt[k].y * Math.cos(angle))
-	    }
-	    ctx.fill();
-	    */
 	    drawNeedle(ctx, arr, "needleAlt", f)
 	} else {
 	    if (ndlarc != "arc") {
@@ -675,21 +660,21 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		ctx.fillStyle = "white";
 		let f = 0.90 * ro / 58;
 		drawNeedle(ctx, arr, "needle", f, angle);
-		/*
-		  ctx.beginPath();
-		  for (let k = 0, len = needle.length; k < len; k++ ) {
-		  ctx.lineTo(x0 + f * needle[k].x * Math.cos(angle) - f * needle[k].y * Math.sin(angle),
-		  y0 + f * needle[k].x * Math.sin(angle) + f * needle[k].y * Math.cos(angle))
-		  }
-		  ctx.fill();
-		*/
 	    }
 	}
     }
     return arrR
 }
 
-function roundGauge(ctx, arr) {
+function roundNeedleGauge(ctx, arr) {
+    roundGauge(ctx, arr, "needle");
+}
+
+function roundArcGauge(ctx, arr) {
+    roundGauge(ctx, arr, "arc");
+}
+
+function roundGauge(ctx, arr, indicator) {
 
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
@@ -790,10 +775,9 @@ function roundGauge(ctx, arr) {
 	spec = arr.barfo;
     }
     
-    //console.log(arr.gaugetype, arr.needleType)
     return roundG(ctx, arr, arr.x0, arr.y0, radius, start, end, min, max,
 		  divs, subdivs, spec, clr,
-		  arr.value, arr.label, arr.gaugetype, arr.needleType);
+		  arr.value, arr.label, arr.gaugetype, indicator);
 
 }
 
@@ -985,7 +969,7 @@ function textBox(ctx, arr) {
 
 	//ctx.font = "" + 0.9 * fontScale * h + "px sans-serif"
 	ctx.textAlign = "center";
-	ctx.textBaseLine = "middle"
+	ctx.textBaseline = "middle"
 	arrR.xL = x0
 	
 	//console.log(y0, h/2, 0.85 * fontScale * h);
@@ -1000,12 +984,10 @@ function textBox(ctx, arr) {
 	ctx.fillStyle = "black";	
     }
 
-    console.log(arr.value, arr.text)
-    
     if (typeof arr.value == "number") {
 
 	ctx.textAlign = "center";
-	ctx.textBaseLine = "middle"
+	ctx.textBaseline = "middle"
 	ctx.font = fontT;
 	arrR.xV = x0;
 	arrR.yV = y0;
@@ -1018,10 +1000,10 @@ function textBox(ctx, arr) {
 		str = arr.text[Math.floor(arr.value)];
 	    }
 	    //gkw why 3 .. looks good though
-	    ctx.fillText(str, arrR.xV, arrR.yV + getTextHeight(ctx, str) / 3);
+	    ctx.fillText(str, arrR.xV, arrR.yV);
 	} else if (typeof arr.multiText == "object") {
 	    let txH = getTextHeight(ctx, arr.multiText[0]);
-	    var yc = y0 + 1.5 * txH - 0.5 * (txH / 2) * (3 * arr.multiText.length + 1);
+	    var yc = y0 +  1.10 * txH - 0.5 * (txH / 2) * (3 * arr.multiText.length + 1);
 	    //ctx.fillStyle = "white";
 	    for(let i = 0, len = arr.multiText.length; i < len; i++) {
 		let str = arr.multiText[i];
@@ -1193,15 +1175,12 @@ function panelLight(ctx, arr) {
 	r = arr.radius;
     }
 
-    console.log(typeof arr.label, arr.label)
-    
     if (typeof arr.label == "string") {
-	console.log("label:", arr.label)
 	ctx.beginPath();
 	ctx.fillStyle = "white";
 	ctx.textAlign = "center";
-	ctx.font = "bold " + 20 + "px sans-serif"
-	ctx.fillText(arr.label, arr.x0, arr.y0 + 5);
+	ctx.font = "bold " + 6 + "px sans-serif"
+	ctx.fillText(arr.label, arr.x0, arr.y0 + 14);
     }
     
     if (typeof arr.value == "number") {
@@ -1214,7 +1193,7 @@ function panelLight(ctx, arr) {
 	    if (typeof arr.offColor == "string") {
 		ctx.fillStyle = arr.offColor;
 	    } else {
-		ctx.fillStyle = "darkgray";
+		ctx.fillStyle = "#202020";
 	    }
 	    ctx.beginPath();
 	    ctx.ellipse(arr.x0, arr.y0, r, r, 0, 0, Math.PI*2);
@@ -1223,23 +1202,54 @@ function panelLight(ctx, arr) {
     }
 }
 
+function setAlignmentGrid(ctx, arr, text) {
+    const w = 320;
+    const h = 160;
+    const num = {Halves:2,Thirds:3,Fourths:4,Fifths:5,Sixths:6,Seventh:7,Eighths:8}
+    if (typeof text != "string") {
+	return
+    }
+    const nn = num[text];
+    if (typeof nn != "number") {
+	return
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.setLineDash([8,5]);
+    for (i=2; i <= num[text]; i++) {
+	ctx.moveTo(0, (i - 1) * h / nn);
+	ctx.lineTo(w, (i - 1) * h / nn);
+	ctx.moveTo((i - 1) * w / nn, 0);
+	ctx.lineTo((i - 1) * w / nn, h);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+}
+
 function rawText(ctx, arr) {
     ctx.fillStyle = arr.textColor;
     ctx.textAlign = "center";
-    ctx.textBaseLine = "middle";
+    ctx.textBaseline = "middle";
     if (typeof arr.fontHeight == "number") {
 	ctx.font = "bold " + arr.fontHeight + "px sans-serif"
     } else {
 	ctx.font = "bold 20px sans-serif"
     }
 	
-    ctx.fillText(arr.text, arr.x0, arr.y0)
+    ctx.fillText(arr.text, arr.x0, arr.y0);
+    
+    setAlignmentGrid(ctx, arr, "Fifths");
 }
 
 function renderGauge(ctx, input) {
-    const widgetFuncs = {textBox:textBox, horizontalBar:horizontalBar,
-			 roundGauge:roundGauge, virtualGauge:virtualGauge,
-			 panelLight:panelLight, rawText:rawText}
+    const widgetFuncs = {textBox:textBox,
+			 horizontalBar:horizontalBar,
+			 roundNeedleGauge:roundNeedleGauge,
+			 roundArcGauge:roundArcGauge,
+			 virtualGauge:virtualGauge,
+			 panelLight:panelLight,
+			 rawText:rawText}
     if (widgetFuncs[input.type]) {
 	return widgetFuncs[input.type](ctx, input);
     } else {

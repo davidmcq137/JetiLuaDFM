@@ -2,9 +2,10 @@
     "examples": {
         "ThreeUp": {"file": "ThreeUp.json"},
         "FourUp": {"file": "FourUp.json"},
-        "Turbine": {"file": "Turbine.json"},
+        "Turbine *": {"file": "Turbine.json"},
         "TurbineArc": {"file": "TurbineArc.json"},	
-        "PreFlight": {"file": "PreFlight.json"}
+        "PreFlight": {"file": "PreFlight.json"},
+        "PreFlightArc": {"file": "PreFlightArc.json"}	
     },
     "prototypes": {
 	"panelLight": {
