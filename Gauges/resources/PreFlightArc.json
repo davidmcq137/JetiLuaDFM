@@ -9,10 +9,10 @@
       "fontSize":12,
     "x0": 80,
       "value": 0,
-      "text": "Rx1 Voltage 'v''u'",
+      "text": ["Rx1 Voltage 'v''u'"],
     "xV": 80,
     "lua": "string.format('CB200: %.1f mA %.1f V', 5*7.12, 6.34*4)",
-    "type": "textBox",
+    "type": "stackedTextBox",
     "yV": 18
   },
   {
@@ -34,7 +34,7 @@
       "Standby"
     ],
     "xV": 80,
-    "type": "textBox",
+    "type": "sequencedTextBox",
     "yV": 58
   },
   {
@@ -47,14 +47,14 @@
     "x0": 80,
       "value": 0,
       "fontSize":12,
-      "multiText": [
+      "text": [
 	  "Line One",
 	  "Line Two",
 	  "Line Three",
 	  "Line Four"
       ],
     "xV": 80,
-    "type": "textBox",
+    "type": "stackedTextBox",
     "yV": 98
   },
   {

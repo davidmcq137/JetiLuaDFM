@@ -909,7 +909,15 @@ function roundedRectBezel(ctx, xi, yi, wi, hi, r, b) {
 
 }
 
-function textBox(ctx, arr) { 
+function sequencedTextBox(ctx, arr) {
+    textBox(ctx, arr, "sequence");
+}
+
+function stackedTextBox(ctx, arr) {
+    textBox(ctx, arr, "stack");
+}
+
+function textBox(ctx, arr, type) { 
 
     var arrR = {}
     var h
@@ -925,7 +933,6 @@ function textBox(ctx, arr) {
     const y0 = arr.y0;
     
     const fontScale = 0.20;
-    //const fontoffset = fontScale * h / 4;
     h = h * hFrac;
 
     arrR.tBoxHgt = h;
@@ -945,7 +952,6 @@ function textBox(ctx, arr) {
     const bezel = 2;
 
     ctx.fillStyle = "#303030";
-    //ctx.fillStyle = "#C0C0C0";
     ctx.strokeStyle = ctx.fillStyle;
     roundedRectBezel(ctx, x0 - arr.width/2 + bezel, y0 - h/2 + bezel,
 		     arr.width - 2 * bezel, h - 2 * bezel, h/10, bezel + 1);
@@ -985,28 +991,20 @@ function textBox(ctx, arr) {
     }
 
     if (typeof arr.value == "number") {
-
 	ctx.textAlign = "center";
 	ctx.textBaseline = "middle"
 	ctx.font = fontT;
 	arrR.xV = x0;
 	arrR.yV = y0;
 	var str;
-	if (typeof arr.text != "undefined") {
-	    if (typeof arr.text == 'string') {
-		str = arr.text;
-	    } else if (typeof arr.text == "object") {
-		//const val = Math.floor(arr.value / Math.floor(100 / (arr.text.length - 1)));
-		str = arr.text[Math.floor(arr.value)];
-	    }
-	    //gkw why 3 .. looks good though
+	if (type != "stack") {
+	    str = arr.text[Math.floor(arr.value)];
 	    ctx.fillText(str, arrR.xV, arrR.yV);
-	} else if (typeof arr.multiText == "object") {
-	    let txH = getTextHeight(ctx, arr.multiText[0]);
-	    var yc = y0 +  1.10 * txH - 0.5 * (txH / 2) * (3 * arr.multiText.length + 1);
-	    //ctx.fillStyle = "white";
-	    for(let i = 0, len = arr.multiText.length; i < len; i++) {
-		let str = arr.multiText[i];
+	} else  {
+	    let txH = getTextHeight(ctx, arr.text[0]);
+	    var yc = y0 +  1.10 * txH - 0.5 * (txH / 2) * (3 * arr.text.length + 1);
+	    for(let i = 0, len = arr.text.length; i < len; i++) {
+		let str = arr.text[i];
 		let txW = getTextWidth(ctx, str);
 		ctx.fillText(str, x0, yc + i * 1.5 * txH);		
 	    } 
@@ -1206,7 +1204,7 @@ function setAlignmentGrid(ctx, arr, text) {
     const w = 320;
     const h = 160;
     const num = {Halves:2,Thirds:3,Fourths:4,Fifths:5,Sixths:6,Seventh:7,Eighths:8}
-    if (typeof text != "string") {
+    if ( (typeof text != "string") || text == "None") {
 	return
     }
     const nn = num[text];
@@ -1243,7 +1241,8 @@ function rawText(ctx, arr) {
 }
 
 function renderGauge(ctx, input) {
-    const widgetFuncs = {textBox:textBox,
+    const widgetFuncs = {sequencedTextBox:sequencedTextBox,
+			 stackedTextBox:stackedTextBox,
 			 horizontalBar:horizontalBar,
 			 roundNeedleGauge:roundNeedleGauge,
 			 roundArcGauge:roundArcGauge,

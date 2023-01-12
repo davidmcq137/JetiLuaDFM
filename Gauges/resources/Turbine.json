@@ -46,7 +46,7 @@
       "Standby"
     ],
     "xV": 250,
-    "type": "textBox",
+    "type": "sequencedTextBox",
     "yV": 140
   },
   {

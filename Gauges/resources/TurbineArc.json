@@ -19,7 +19,7 @@
       "User Off",
       "Standby"
     ],
-    "type": "textBox",
+    "type": "sequencedTextBox",
     "yV": 140
   },
   {
