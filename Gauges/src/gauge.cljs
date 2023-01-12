@@ -25,13 +25,13 @@
 (defn shape->bbox
   [{:strs [type radius x0 y0 width height] :as sh}]
   (case type
-    ("roundGauge" "virtualGauge" "panelLight"
-     "roundNeedleGauge" "roundArcGauge")
+    ("roundGauge" "virtualGauge" "roundNeedleGauge" "roundArcGauge")
     (let [d (* 2 radius)]
       [(- x0 radius) (- y0 radius) d d])
     
     ("horizontalBar" "textBox" "rawText"
-     "sequencedTextBox" "stackedTextBox")
+     "sequencedTextBox" "stackedTextBox"
+     "panelLight")
     (let [halfw (* 0.5 width)
           halfh (* 0.5 height)]
       [(- x0 halfw) (- y0 halfh) width height])
@@ -116,14 +116,17 @@
   ([i] (render-gauge* i draw-scale))
   ([i scl]
    (let [[x y w h :as bbox] (shape->bbox i)
-         c (js/OffscreenCanvas. (* w scl) (* h scl))
+         c #_(js/OffscreenCanvas. (* w scl) (* h scl))
+         (doto (js/document.createElement "canvas")
+           (aset "width" (* w scl))
+           (aset "height" (* h scl)))
          ctx (doto (.getContext c "2d")
                (.scale scl scl)
                (.translate (- x) (- y)))]
      (try
        (js/renderGauge ctx (clj->js i))
        (catch :default ex (js/console.log "Render exception" ex)))
-     {:bitmap (.transferToImageBitmap c)
+     {:bitmap c
       :params i})))
 
 
@@ -462,11 +465,8 @@
      [:span.slider-label (str "Height = " (get params "height"))]
      (gaugeparam-slider da "height" {:min 10 :max 80})
      
-     [:span "Light"]
-     [:span "color"]
-     
-     [:span.slider-label "Value"]
-     (gaugeparam-slider da ["value"]))))
+     [:span "Light color"]
+     (gaugeparam-text da "lightColor"))))
 
 
 
@@ -523,7 +523,9 @@
                :justify-content "space-between"}}
       (when (:editing d)
         (case (get (:params d) "type")
-          "roundGauge"    (edit-roundgauge da)
+          ("roundGauge" "roundNeedleGauge" "roundArcGauge")
+          (edit-roundgauge da)
+          
           "textBox"       (edit-textbox da)
           "horizontalBar" (edit-horizontalbar da)
           "virtualGauge"  (edit-virtualgauge da)
