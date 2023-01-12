@@ -1019,8 +1019,8 @@ function horizontalBar(ctx, arr) {
     const vPad = arr.height / 8;
     const h = arr.height - 2 * vPad;
     const w = arr.width - 2 * hPad;
-    const start = arr.x0 - w / 2 //arr.width / 2 + hPad;
-    const end = arr.x0 + w / 2 //arr.width / 2 - hPad;
+    const start = arr.x0 - w / 2;
+    const end = arr.x0 + w / 2;
 
     var arrR = {};
     
@@ -1178,7 +1178,7 @@ function panelLight(ctx, arr) {
 	ctx.fillStyle = "white";
 	ctx.textAlign = "center";
 	ctx.font = "bold " + 6 + "px sans-serif"
-	ctx.fillText(arr.label, arr.x0, arr.y0 + 14);
+	ctx.fillText(arr.label, arr.x0, arr.y0 + 18);
     }
     
     if (typeof arr.value == "number") {
@@ -1237,7 +1237,7 @@ function rawText(ctx, arr) {
 	
     ctx.fillText(arr.text, arr.x0, arr.y0);
     
-    setAlignmentGrid(ctx, arr, "Fifths");
+    //setAlignmentGrid(ctx, arr, "Fifths");
 }
 
 function renderGauge(ctx, input) {

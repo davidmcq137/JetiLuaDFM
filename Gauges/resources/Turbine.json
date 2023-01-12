@@ -2,7 +2,7 @@
     {
 	"type":"panelLight",
 	"x0":120,
-	"y0": 106,
+	"y0": 104,
 	"lightColor":"red",
 	"offColor":"#202020",
 	"label":"Red",
@@ -16,7 +16,7 @@
     {
 	"type":"panelLight",
 	"x0": 200,
-	"y0": 106,
+	"y0": 104,
 	"lightColor":"green",
 	"offColor":"#202020",
 	"label":"Green",
@@ -178,7 +178,7 @@
     {
 	"type":"rawText",
 	"x0": 160,
-	"y0": 10,
+	"y0": 8,
 	"fontHeight":10,
 	"textColor":"white",
 	"text":"Panels can have titles",
