@@ -6,8 +6,8 @@
 	"lightColor":"red",
 	"offColor":"#202020",
 	"radius":6,
-	"width":12,
-	"height":12,
+	"width":50,
+	"height":50,
 	"min":0,
 	"max":1,
 	"value":0

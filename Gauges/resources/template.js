@@ -1000,7 +1000,7 @@ function textBox(ctx, arr) {
 	ctx.fillStyle = "black";	
     }
 
-    //console.log(typeof arr.text, typeof arr.multiText)
+    console.log(arr.value, arr.text)
     
     if (typeof arr.value == "number") {
 
@@ -1014,8 +1014,8 @@ function textBox(ctx, arr) {
 	    if (typeof arr.text == 'string') {
 		str = arr.text;
 	    } else if (typeof arr.text == "object") {
-		const val = Math.floor(arr.value / Math.floor(100 / (arr.text.length - 1)));
-		str = arr.text[val];
+		//const val = Math.floor(arr.value / Math.floor(100 / (arr.text.length - 1)));
+		str = arr.text[Math.floor(arr.value)];
 	    }
 	    //gkw why 3 .. looks good though
 	    ctx.fillText(str, arrR.xV, arrR.yV + getTextHeight(ctx, str) / 3);
@@ -1176,7 +1176,7 @@ function horizontalBar(ctx, arr) {
     }
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
-    if (arr.label) {
+    if (arr.label) {	
 	ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
 	arrR.xL = arr.x0;
 	arrR.yL = arr.y0 +  h / 2;
@@ -1193,6 +1193,17 @@ function panelLight(ctx, arr) {
 	r = arr.radius;
     }
 
+    console.log(typeof arr.label, arr.label)
+    
+    if (typeof arr.label == "string") {
+	console.log("label:", arr.label)
+	ctx.beginPath();
+	ctx.fillStyle = "white";
+	ctx.textAlign = "center";
+	ctx.font = "bold " + 20 + "px sans-serif"
+	ctx.fillText(arr.label, arr.x0, arr.y0 + 5);
+    }
+    
     if (typeof arr.value == "number") {
 	if (arr.value > (arr.min + arr.max) / 2) {
 	    ctx.fillStyle = arr.lightColor;

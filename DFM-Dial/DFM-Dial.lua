@@ -528,7 +528,7 @@ local function dialPrint(w,h,win)
       lcdBG = "L"
    end
       
-   local ratio, theta, val, max, min, xz, yz, rI, rO, ovld, sg, np
+   local ratio, theta, val, max, min, xz, yz, rI, rO, ovld, unld, sg, np
    
    for i=1, nSens[tele[win].screen],1 do
       val = tele[win].sensorValue[i]
@@ -536,11 +536,13 @@ local function dialPrint(w,h,win)
 	 --if not val then print("val nil", win, i) return end
 	 min = tele[win].sensorMin[i] * tele[win].sensorMinMult[i]
 	 max = tele[win].sensorMax[i] * tele[win].sensorMaxMult[i]
+	 ovld = false
+	 unld = false
 	 if val then
-	    if val > max or val < min then ovld = true else ovld = false end
-	 else
-	    ovld = false
+	    if val > max then ovld = true end
+	    if val < min then unld = true end
 	 end
+	 
 	 if val and tele[win].sensorMinWarn[i] then
 	    if type(tele[win].sensorMinWarn[i]) == "number" then -- look for "arith with userdata" bug
 	       --print(win,i)
@@ -549,7 +551,7 @@ local function dialPrint(w,h,win)
 	       --print("not number type min", win, i)
 	       wmin = val
 	    end
-	    if val < wmin then ovld = true end
+	    if val < wmin then unld = true end
 	 end
 	 if val and tele[win].sensorMaxWarn[i] then
 	    if type(tele[win].sensorMaxWarn[i]) == "number" then
@@ -561,7 +563,7 @@ local function dialPrint(w,h,win)
 	    if val > wmax then ovld = true end
 	 end
 	 if val then
-	    ratio = (val-min)/(max-min)
+	    ratio = (val - min) / (max - min)
 	 else
 	    ratio = 0
 	 end
@@ -713,18 +715,22 @@ local function dialPrint(w,h,win)
 	       lcd.setColor(0,0,0)
 	    end
 
-	    -------------- ADD UNDERLOAD! ----------------
-
+	    local round = tele[win].sensorStyle[i] == 1 or tele[win].sensorStyle[i] == 2
 	    
-	    if ovld and ( (system.getTimeCounter() // 500) % 2 == 0) then
-	       lcd.setColor(255,0,0)
-	       drawCircle(xz, yz, rO, 20)
+	    if round and (ovld or unld) and ( (system.getTimeCounter() // 500) % 2 == 0) then
+	       if ovld then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
+	       drawCircle(xz, yz, rO, 25)
+	    end
+
+	    if lcdBG == "D" then
+	       lcd.setColor(255,255,255)
+	    else
+	       lcd.setColor(0,0,0)
 	    end
 
 	    text = formatD(val)
-	    if ovld then lcd.setColor(255,255,255) end 
+	    if round and (ovld or unld) then lcd.setColor(255,255,255) end 
 	    lcd.drawText(xz + x0 - lcd.getTextWidth(f1, text) / 2, yz+y1, text, f1)
-
 
 	    if lcdBG == "D" then
 	       lcd.setColor(255,255,255)
