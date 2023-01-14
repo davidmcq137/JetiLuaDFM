@@ -424,7 +424,6 @@ function drawNeedle(ctx, arr, type, f, angle) {
 function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn, colors, value, label, type, ndlarc) {
 
     var ri;
-    
     if (ndlarc == "needle") {
 	ri = ro * 0.85;
     } else {
@@ -753,8 +752,18 @@ function roundGauge(ctx, arr, indicator) {
 
     var max = arr.max;
     var min = arr.min;
-    var divs = arr.divs;
     var subdivs = arr.subdivs;
+    var majdivs = arr.majdivs;
+    var divs = subdivs * majdivs;
+
+    if (divs == 0) {
+	if (typeof arr.divisions == "number") {
+	    divs = arr.divisions;
+	} else {
+	    divs = 10;
+	}
+    }
+
     var clr = [];
     clr = arr.colorvals;
     if (arr.gaugetype == "altimeter") {
@@ -763,6 +772,7 @@ function roundGauge(ctx, arr, indicator) {
 	min = 0;
 	divs = 50;
 	subdivs = 5;
+	majdivs = divs / subdivs;
 	start = -Math.PI/2;
 	end = 2*Math.PI + start;
 	rotate = arr.rotate;
@@ -780,16 +790,9 @@ function roundGauge(ctx, arr, indicator) {
     var spec = [];
     spec = arr.spectrum;
 
-    if (typeof spec == 'XXXobject') {
-	//console.log("spec", spec)
-	clr = returnColorVals(arr.spectrum, min, max);
-	spec = arr.barfo;
-    }
-    
     return roundG(ctx, arr, arr.x0, arr.y0, radius, start, end, min, max,
 		  divs, subdivs, spec, clr,
 		  arr.value, arr.label, arr.gaugetype, indicator);
-
 }
 
 function virtualGauge(ctx, arr) {
@@ -1034,6 +1037,7 @@ function horizontalBar(ctx, arr) {
     const end = arr.x0 + w / 2;
 
     var arrR = {};
+    var divs = arr.subdivs * arr.majdivs;
     
     ctx.fillStyle = "black";
 
@@ -1051,7 +1055,7 @@ function horizontalBar(ctx, arr) {
 	}
 	
 	rainbow.setSpectrumByArray(spectrum); 
-	rainbow.setNumberRange(0,arr.divs-1)
+	rainbow.setNumberRange(0,divs-1)
     } else {
 	//setup for colorvals goes here
     }
@@ -1085,11 +1089,11 @@ function horizontalBar(ctx, arr) {
 
     var colors = arr.colorvals;
     
-    for (var i = 0; i <= arr.divs; i++) {
+    for (var i = 0; i <= divs; i++) {
 
-	delta = w / arr.divs;
+	delta = w / divs;
 	a = start + i * delta;
-	const fudge = 1 / (100 * arr.divs);	
+	const fudge = 1 / (100 * divs);	
 	if (typeof colors == "object") {
 	    const cl = colors.length - 1;
 	    var aFrac = (a - start) / (end - start)
@@ -1121,7 +1125,7 @@ function horizontalBar(ctx, arr) {
 	    cfs = ctx.fillStyle;
 	}
 	
-	if (i < arr.divs) {
+	if (i < divs) {
 	    rgbI = parseInt(cfs.slice(1), 16)
 	    r = (rgbI >> 16) & 255;
 	    g = (rgbI >> 8) & 255;
@@ -1148,7 +1152,7 @@ function horizontalBar(ctx, arr) {
 	if (arr.subdivs > 0 && i % arr.subdivs == 0) {
 	    ctx.fillStyle = "white";	
 	    ctx.textAlign = "center";
-	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / arr.divs)
+	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / divs)
 	    ctx.fillText(val.toString(),
 			 a,
 			 arr.y0 - h/2 - fontoffset)

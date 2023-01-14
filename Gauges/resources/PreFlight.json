@@ -84,7 +84,7 @@
     "max": 120,
     "radius": 80,
     "x0": 239,
-    "divs": 24,
+      "majdivs":6,
     "subdivs": 4,
     "value": 85,
     "xV": 239,
