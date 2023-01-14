@@ -508,8 +508,8 @@ function emulator_getSensorByID(ID, Param)
    local lonDeg, lonFrac, lonMin
    local GPSdt
    local uid
-   
-   -- print("getSensorByID")
+
+   --print("getSensorByID") end
    -- for some reason json decode returns two chars for the degree symbol (code 176)
    -- detect that and correct it
    local degSym1 = string.char(176)   
@@ -655,7 +655,6 @@ function emulator_getSensorByID(ID, Param)
 
 	    lastGPScalc = system.getTimeCounter()
 	 end
-
 	 --
 	 if v.funcString then
 	    v.luaExp = v.funcString
@@ -684,12 +683,14 @@ function emulator_getSensorByID(ID, Param)
 	 end
 
 	 if v.luaExp and v.luaExp ~= "" then
-	    chunk, err = load("return "..v.luaExp,"luaExp: "..uid,"t",env)
 	    
+	    chunk, err = load("return "..v.luaExp,"luaExp: "..uid,"t",env)
+
 	    if err then
 	       print("sensorEmulator: lua load error, returning 0 - "..err)
 	       expResult = 0
-	    else
+	    else	
+       
 	       if chunk then
 		  status, expResult = pcall(chunk)
 		  if not status then
@@ -708,7 +709,7 @@ function emulator_getSensorByID(ID, Param)
 	 -- e.g. "a=a+1; return S1(a,100)"
 	 -- but warn user if they try to return values from both .. if they do that we take the
 	 -- luaFunc return value as the result
-	 
+
 	 if expResult then -- take luaExp result if exists
 	    returnTbl.value = expResult
 	 elseif funcResult then -- if not fall back on luaFunc result if it exists
@@ -759,7 +760,6 @@ function emulator_getSensorByID(ID, Param)
 	    end
 	    sensorCache[k][kk] = vv
 	 end
-
 	 return returnTbl
       end
    end

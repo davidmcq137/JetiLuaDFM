@@ -182,7 +182,8 @@
 	"fontHeight":10,
 	"textColor":"white",
 	"text":"Panels can have titles",
-	"width":320,
-	"height":320
+	"label":"",
+	"width":200,
+	"height":50
     }
 ]

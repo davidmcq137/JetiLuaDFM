@@ -1,14 +1,21 @@
 --[[
-   ----------------------------------------------------------------------
+   --------------------------------------------------------------------------------
+
    DFM-InsP.lua released under MIT license by DFM 2022
    
    This app is intended to render instrument panels where a json and image file
    are produced on Russell's dynamic content app creation/distribution website
-   ----------------------------------------------------------------------
+
+   Started Dec 2022
+
+   V 0.2 01/12/23 - synch with near-final json format from the website panel maker
+
+   --------------------------------------------------------------------------------
 --]]
 
 
-local InsPVersion = 0.1
+local InsPVersion = 0.2
+
 local InsP = {}
 InsP.panels = {}
 InsP.panelImages = {}
@@ -25,7 +32,6 @@ local txSensorNames = {"txVoltage", "txBattPercent", "txCurrent", "txCapacity",
 		       "rxBVoltage", "rxBPercent", "photoValue"}
 local txSensorUnits = {"V", "%", "mA", "mAh", "%", "V", "%", "V", "V", "%", " "}
 local txSensorDP    = { 1,   0,    0,     0,   0,   1,   0,   1,   1,   0,   0}
-local txSensorsMax
 local txRSSINames = {"rx1Ant1", "rx1Ant2", "rx2Ant1", "rx2Ant2",
 		     "rxBAnt1", "rxBAnt2"}
 
@@ -36,12 +42,26 @@ local switches = {}
 local stateSw = {}
 
 local edit = {}
-edit.ops = {"Center", "Value", "Label", "Range"}
+edit.ops = {"Center", "Value", "Label", "Text", "Range"}
 edit.dir = {"X", "Y", "Font"}
-edit.fonts = {"Mini", "Normal", "Bold", "Big", "None"}
-edit.fcode = {Mini=FONT_MINI, Normal=FONT_NORMAL, Bold=FONT_BOLD, Big=FONT_BIG, None=-1}
-edit.icode = {Mini=1, Normal=2, Bold=3, Big=4, None=5}
-edit.gaugeName = {roundGauge="RndG", virtualGauge="VirG", horizontalBar="HBar", textBox="Text"}
+edit.fonts = {"Mini", "Normal", "Bold", "Big", "Maxi", "None"}
+edit.fcode = {Mini=FONT_MINI, Normal=FONT_NORMAL, Bold=FONT_BOLD, Big=FONT_BIG, Maxi=FONT_MAXI,
+	      None=-1}
+edit.icode = {Mini=1, Normal=2, Bold=3, Big=4, Maxi=5, None=6}
+
+-- sn field is short name for edit window disp
+-- en field is 1 (ENABLED) or 0 (DISABLED) appearance for edit button 2 depending on gauge type
+
+edit.gaugeName = {
+   roundNeedleGauge={sn="NdlG", en={0,1,1,0,1}},
+   roundArcGauge=   {sn="ArcG", en={0,1,1,0,1}},
+   virtualGauge=    {sn="VirG", en={1,0,0,0,0}},
+   horizontalBar=   {sn="HBar", en={0,0,1,0,0}},
+   sequencedTextBox={sn="SeqT", en={0,0,1,1,0}},
+   stackedTextBox=  {sn="StkT", en={0,0,1,1,0}},
+   panelLight=      {sn="PnlL", en={1,0,1,0,0}},
+   rawText=         {sn="RawT", en={1,0,0,1,0}}
+}
 
 local lua = {}
 lua.chunk = {}
@@ -55,7 +75,7 @@ lua.completePass = false
 local subForm = 0
 local pDir = "Apps/DFM-InsP/Panels"
 local bDir = "Apps/DFM-InsP/Backgrounds"
-local panelImg, panelImgA
+local instImg, instImgA
 local backImg, backImgA
 
 
@@ -69,6 +89,8 @@ local auxWin = 1
 local auxWinLast = 0
 
 local appStartTime
+local loopCPU = 0
+local editText
 
 local needle = {
    {-1,0},
@@ -94,18 +116,20 @@ local rectangle = {
    { 2,  -10},
    {-2,  -10}
 }
+--[[
 local triangle = {
    {-4,1},
    {0,-5},
    {4,1}
 }
+--]]
 
 local function getSensorByID(SeId, SePa)
    if not SeId or not SePa then return nil end
-   
    if SeId ~= 0 then
       return system.getSensorByID(SeId, SePa)
-   elseif SePa > 0 then -- txTel named
+   end
+   if SePa > 0 then -- txTel named
       local sensor={}
       sensor.value = lua.txTel[txSensorNames[SePa]] 
       sensor.unit  = InsP.sensorUnlist[teleSensors + SePa]
@@ -227,7 +251,7 @@ local function drawShape(col, row, shape, f, rotation, x0, y0, r, g, b)
    end
 end
 
-local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp)
+local function drawArc(theta, x0, y0, a0, ri, ro, im, alp)
    local ren = lcd.renderer()
    ren:reset()
    ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
@@ -247,17 +271,23 @@ local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp)
 end
 
 local function setToPanel(iisp)
-   --print("setToPanel", iisp)
+   local fn
    local isp = iisp
    if isp < 1 then isp = 1 end
    if isp > #InsP.panels then isp = #InsP.panels end
    InsP.settings.selectedPanel = isp
-   
+
+   if not InsP.panels[isp] then
+      fn = pDir .. "/"..InsP.settings.panels[isp]..".json"
+      local file = io.readall(fn)
+      InsP.panels[isp] = json.decode(file)
+   end
+
    local pv = InsP.panelImages[isp].instImage
    if pv then
-      panelImg = lcd.loadImage(pDir .. "/"..pv..".png")
+      instImg = lcd.loadImage(pDir .. "/"..pv..".png")
    else
-      panelImg = nil
+      instImg = nil
    end
    
    local bv = InsP.panelImages[InsP.settings.selectedPanel].backImage
@@ -277,10 +307,7 @@ local function setToPanelName(pn)
       end
    end
    if isel > 0 then
-      --print("calling setToPanel", pn, isel)
       setToPanel(isel)
-   else
-      --print("nothing done", pn)
    end
 end
 
@@ -357,7 +384,7 @@ local function keyForm(key)
 	    initPanels(InsP)
 	 end
 	 setToPanel(is.selectedPanel)
-      	 form.reinit(106)
+	 form.reinit(106)
       end
    end
    
@@ -389,6 +416,14 @@ local function keyForm(key)
 	 return
       end
    end
+
+   if subForm == 110 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(103)
+	 return
+      end
+   end
    
    if subForm == 103 then
       if keyExit(key) then
@@ -396,22 +431,33 @@ local function keyForm(key)
 	 form.reinit(1)
 	 return
       end
-      local ip = InsP.panels[InsP.settings.selectedPanel]
+      local ipsp = InsP.panels[InsP.settings.selectedPanel]
+      local ipeg = ipsp[edit.gauge] 
+      local en, en4
       if key == KEY_1 then
 	 edit.gauge = edit.gauge + 1
-	 if edit.gauge > #ip then edit.gauge = 1 end
+	 if edit.gauge > #ipsp then edit.gauge = 1 end
+	 ipeg = ipsp[edit.gauge] 
+	 en = edit.gaugeName[ipeg.type].en[edit.opsIdx]
+	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
+	 if ipeg.text then en4 = ENABLED else en4 = DISABLED end
+	 form.setButton(4, "Edit", en4)
       elseif key == KEY_2 then
 	 edit.opsIdx = edit.opsIdx + 1
 	 if edit.opsIdx > #edit.ops then edit.opsIdx = 1 end
-	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), ENABLED)
+	 en = edit.gaugeName[ipeg.type].en[edit.opsIdx]
+	 --print("ipeg", ipeg, ipeg.type, edit.opsIdx, en)
+	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
       elseif key == KEY_3 then
 	 edit.dirIdx = edit.dirIdx + 1
 	 if edit.dirIdx > #edit.dir then edit.dirIdx = 1 end
 	 form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)	 
+      elseif key == KEY_4 then
+	 editText = ipeg
+	 form.reinit(110)
       elseif key == KEY_UP or key == KEY_DOWN then
 	 local inc
 	 if key == KEY_UP then inc = 1 else inc = -1 end
-	 local ipeg = ip[edit.gauge] 
 	 local eo = edit.ops[edit.opsIdx]
 	 local ed = edit.dir[edit.dirIdx]
 	 if ed == "X" then
@@ -423,9 +469,21 @@ local function keyForm(key)
 	       ipeg.xL = ipeg.xL + inc
 	    end
 
+	    if eo == "Text" and ipeg.xT then
+	       ipeg.xT = ipeg.xT + inc
+	    end
+	    
 	    if eo == "Range" and ipeg.xLV and ipeg.xRV then
 	       ipeg.xLV = ipeg.xLV + inc
 	       ipeg.xRV = ipeg.xRV - inc
+	    end
+
+	    if eo == "Center" and ipeg.xPL then
+	       ipeg.xPL = ipeg.xPL + inc
+	    end
+
+	    if eo == "Center" and ipeg.xRT then
+	       ipeg.xRT = ipeg.xRT + inc
 	    end
 
 	 elseif ed == "Y" then
@@ -437,9 +495,21 @@ local function keyForm(key)
 	       ipeg.yL = ipeg.yL + inc	       
 	    end
 
+	    if eo == "Text" and ipeg.yT then
+	       ipeg.yT = ipeg.yT + inc
+	    end
+	    
 	    if eo == "Range" and ipeg.yLV and ipeg.yRV then
 	       ipeg.yLV = ipeg.yLV + inc
 	       ipeg.yRV = ipeg.yRV + inc
+	    end
+
+	    if eo == "Center" and ipeg.xPL then
+	       ipeg.yPL = ipeg.yPL + inc
+	    end
+
+	    if eo == "Center" and ipeg.yRT then
+	       ipeg.yRT = ipeg.yRT + inc
 	    end
 
 	 elseif ed == "Font" then
@@ -448,8 +518,10 @@ local function keyForm(key)
 	       i = i + inc
 	       if i > #edit.fonts then i = 1 end
 	       if i < 1 then i = #edit.fonts end
+	       --print("Setting .fV")
 	       ipeg.fV = edit.fonts[i]
 	    end
+	    
 	    if eo == "Label" and ipeg.fL then
 	       local i = edit.icode[ipeg.fL]
 	       i = i + inc
@@ -457,6 +529,15 @@ local function keyForm(key)
 	       if i < 1 then i = #edit.fonts end
 	       ipeg.fL = edit.fonts[i]
 	    end
+
+	    if eo == "Text" and ipeg.fT then
+	       local i = edit.icode[ipeg.fT]
+	       i = i + inc
+	       if i > #edit.fonts then i = 1 end
+	       if i < 1 then i = #edit.fonts end
+	       ipeg.fT = edit.fonts[i]
+	    end
+
 	    if eo == "Range" and ipeg.fLRV then
 	       local i = edit.icode[ipeg.fLRV]
 	       i = i + inc
@@ -499,17 +580,18 @@ end
 local function panelChanged(val, sp)
    local fn
    local pv = InsP.settings.panels[val]
-
    if val ~= 1 then
       fn = pDir .. "/"..pv..".json"
       local file = io.readall(fn)
       local bi = InsP.panelImages[sp].backImage
       InsP.panels[sp] = json.decode(file)
-      panelImg = lcd.loadImage(pDir .. "/"..pv..".png")
+      if not instImg then
+	 instImg = lcd.loadImage(pDir .. "/"..pv..".png")
+      end
       InsP.panelImages[sp].instImage = pv
       InsP.panelImages[sp].backImage = bi
    else
-      panelImg = nil
+      instImg = nil
       InsP.panelImages[sp].instImage = nil
    end
 end
@@ -571,7 +653,6 @@ local function changedSwitch(val, switchName, j)
 end
 
 local function changedMinMax(val, sel, ipig)
-   print("chgMM", val, sel)
    ipig[sel] = val
 end
 
@@ -584,7 +665,6 @@ end
 
 local function changedShowMM(val, ipig)
    ipig.showMM = tostring(not val)
-   print("ipig, ipig.showMM", ipig, ipig.showMM)
    form.setValue(mmCI, not val)
 end
 
@@ -593,12 +673,6 @@ local function initForm(sf)
    subForm = sf
 
    if sf == 1 then
-      local val
-      if InsP.settings.selectedPanel > 0 then
-	 val = string.format(" %d", InsP.settings.selectedPanel)
-      else
-	 val = " (none selected)"
-      end
       form.setButton(1, "Select", ENABLED)
       
       local sp = InsP.panelImages[InsP.settings.selectedPanel].instImage
@@ -678,7 +752,7 @@ local function initForm(sf)
 	 form.addRow(3)
 	 local str
 	 if widget.label then str = "  "..widget.label else str = "" end
-	 local typ = edit.gaugeName[widget.type]
+	 local typ = edit.gaugeName[widget.type].sn
 	 if not typ then typ = "---" end
 	 form.addLabel({label = string.format("%d %s", i, typ), width=60})
 	 form.addLabel({label = string.format("%s", str), width=160})      
@@ -726,7 +800,10 @@ local function initForm(sf)
       edit.opsIdx = 1
       edit.dirIdx = 2 -- default to "Y"
       form.setButton(1, "Select", ENABLED)
-      form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), ENABLED)
+      local ipsp = InsP.panels[InsP.settings.selectedPanel]
+      local ipeg = ipsp[edit.gauge] 
+      local en = edit.gaugeName[ipeg.type].en[edit.opsIdx]
+      form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
       form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)
    elseif sf == 104 then -- edit item on sensor menu
       local ig = savedRow3
@@ -784,7 +861,7 @@ local function initForm(sf)
 
       form.addRow(2)
       form.addLabel({label="Enable min/max value markers", width=270})
-      local isel = ip[ig].showMM == "true"
+      isel = ip[ig].showMM == "true"
       mmCI = form.addCheckbox(isel, (function(x) return changedShowMM(x, ip[ig]) end), {width=60} )
 
       if ip[ig].max and ip[ig].min then
@@ -868,12 +945,11 @@ local function initForm(sf)
       form.addLabel({label="Aux", width=50, alignRight = false})      
       
       local pp = {} 
-      for k,v in ipairs(InsP.panelImages) do
-	 --print("k,v", k,v)
+      for k in ipairs(InsP.panelImages) do
 	 pp[k] = tostring(k)
       end
       
-      for i, img in ipairs(InsP.panelImages) do
+      for i in ipairs(InsP.panelImages) do
 	 form.addRow(5)
 	 local lbl=""
 	 if i == InsP.settings.selectedPanel then
@@ -886,13 +962,13 @@ local function initForm(sf)
 
 	 form.addLabel({label=i, width=20})
 
-	 local sp = InsP.settings.selectedPanel
+	 --local sp = InsP.settings.selectedPanel
 	 local pnl = InsP.panelImages[i].instImage
 	 local isel = 0
 	 if InsP.settings.panels then
-	    for i, p in ipairs(InsP.settings.panels) do
+	    for ii, p in ipairs(InsP.settings.panels) do
 	       if p == pnl then
-		  isel = i
+		  isel = ii
 		  break
 	       end
 	    end
@@ -903,9 +979,9 @@ local function initForm(sf)
 	 
 	 local bak = InsP.panelImages[i].backImage
 	 isel = 0
-	 for i, p in ipairs(InsP.settings.backgrounds) do
+	 for ii, p in ipairs(InsP.settings.backgrounds) do
 	    if p == bak then
-	       isel = i
+	       isel = ii
 	       break
 	    end
 	 end
@@ -922,6 +998,22 @@ local function initForm(sf)
       local isp = InsP.settings.selectedPanel
       if  isp >= 1 and isp <= #InsP.panelImages then
 	 form.setFocusedRow(isp+1)
+      end
+   elseif sf == 110 then
+      local function editCB(val, i)
+	 editText.text[i] = val
+      end
+      form.setTitle("Text Editor")
+      if type(editText.text) == "string" then
+	 form.addRow(1)
+	 form.addTextbox(editText.text, 63,
+			 (function(v) editText.text = v; form.reinit(103) end))
+      else
+	 for i, txt in ipairs(editText.text) do
+	    form.addRow(1)
+	    form.addTextbox(editText.text[i], 63,
+			    (function(v) return editCB(v, i) end))
+	 end
       end
    end
 end
@@ -944,8 +1036,8 @@ local function loop()
    local sp  = InsP.settings.selectedPanel
    
    for i in ipairs(stateSw) do
+      swt = system.getInputsVal(stateSw[i].switch)
       if not stateSw[i].lastSw then stateSw[i].lastSw = swt end
-      local swt = system.getInputsVal(stateSw[i].switch)
       if swt and stateSw[i] and stateSw[i].lastSw ~= 0 and (swt ~= stateSw[i].lastSw) then
 	 -- "pos" is index 1 and "neg" is index 2
 	 if (swt == 1 and stateSw[i].dir == 1) or (swt == -1 and stateSw[i].dir == 2) then
@@ -957,7 +1049,7 @@ local function loop()
       end
       stateSw[i].lastSw = swt
    end
-   
+
    -- see if we need to rotate panels from the manual switch
 
    swp = system.getInputsVal(switches.rotatePanels)
@@ -974,30 +1066,26 @@ local function loop()
    swpLast = swp
    
    -- see if the reset min/max switch has moved
-   
    swr = system.getInputsVal(switches.resetMinMax)
    if not swrLast then swrLast = swr end
    if swr and swr == 1 and swrLast ~= 1 then
       for _, panel in pairs(ip) do
 	 for _, gauge in pairs(panel) do
-	    for l, param in pairs(gauge) do
-	       if l == "minval" or l == "maxval" then
-		  gauge[l] = nil
-	       end
-	    end
+	    gauge.minval = nil
+	    gauge.maxval = nil
 	 end
       end
    end
    swrLast = swr
-
+   
    -- update min and max values
    local ips = InsP.panels[sp]
-   for iw, widget in ipairs(ips) do
+   for _, widget in ipairs(ips) do
       sensor = getSensorByID(widget.SeId, widget.SePa)	 
-      if sensor and sensor.valid then
+      if sensor and sensor.valid and widget.min and widget.max then
 	 -- text box does not have min or max
-	 if not widget.min then widget.min = 0 end
-	 if not widget.max then widget.max = 1 end
+	 --if not widget.min then widget.min = 0 end
+	 --if not widget.max then widget.max = 1 end
 
 	 if not widget.minval then
 	    widget.minval = sensor.value
@@ -1022,31 +1110,29 @@ local function loop()
       lua.txTel = system.getTxTelemetry()
       lua.txTelLastUpdate = system.getTimeCounter()
    end
-   
-   for k = 1, 10 do
-      --[[
+   local sens, SeId, SePa
+   for _ = 1, 4 do
       if lua.index == 1 then
-	 print("time", system.getTimeCounter() - lastindex)
+	 --print("#s. time (ms)",#InsP.sensorLalist,  system.getTimeCounter() - lastindex)
 	 lastindex = system.getTimeCounter()
       end
-      --]]
       lua.index = lua.index + 1
       if lua.index <= #InsP.sensorLalist then
-	 local SeId = InsP.sensorIdlist[lua.index]
-	 local SePa = InsP.sensorPalist[lua.index]
-	 local sensor = getSensorByID(SeId, SePa)
-	 if sensor and sensor.valid then
-	    lua.env[InsP.sensorLalist[lua.index]] = sensor.value
+	 SeId = InsP.sensorIdlist[lua.index]
+	 SePa = InsP.sensorPalist[lua.index]
+	 sens = getSensorByID(SeId, SePa)
+	 if sens and sens.valid then
+	    lua.env[InsP.sensorLalist[lua.index]] = sens.value
 	 end
       else
 	 lua.index = 1
 	 lua.completePass = true
       end
    end
+   loopCPU = loopCPU + (system.getCPU() - loopCPU) / 5
 end
 
-
-local function printForm(w,h,tWin)
+local function printForm(_,_,tWin)
 
    local ctl, ctlmin, ctlmax
    local rot, rotmin, rotmax
@@ -1060,6 +1146,8 @@ local function printForm(w,h,tWin)
 
    local np = #InsP.panelImages
    local backI, instI
+
+   if not tWin or tWin < 1 or tWin > 2 then print("tWin ERROR") end
    
    if tWin == 1 then
       if aw and aw > 0 and aw <= np then
@@ -1067,10 +1155,9 @@ local function printForm(w,h,tWin)
 	 if auxWin ~= auxWinLast then
 	    local pv = InsP.panelImages[auxWin].instImage
 	    if pv then
-	       panelImgA = lcd.loadImage(pDir .. "/"..pv..".png")
-	       --print("load panelImgA", pDir .. "/"..pv..".png", panelImgA)
+	       instImgA = lcd.loadImage(pDir .. "/"..pv..".png")
 	    else
-	       panelImgA = nil
+	       instImgA = nil
 	    end
 	    
 	    local bv = InsP.panelImages[auxWin].backImage
@@ -1084,23 +1171,23 @@ local function printForm(w,h,tWin)
 	 auxWinLast = auxWin
       end
       backI = backImg
-      instI = panelImg
+      instI = instImg
    else
-      if auxWin > 0 and auxWin <= np and backImgA and panelImgA then
+      if auxWin > 0 and auxWin <= np and backImgA and instImgA then
 	 sp = auxWin
 	 ip = InsP.panels[sp]
 	 backI = backImgA
-	 instI = panelImgA
+	 instI = instImgA
       else -- show the selected panel if no valid aux is assigned
 	 backI = backImg
-	 instI = panelImg
+	 instI = instImg
       end
    end
-
    
    if backI  then
       lcd.drawImage(0, 0, backI)
    else
+      lcd.setColor(0,0,0)
       lcd.drawFilledRectangle(0,0,319,158)
    end
 
@@ -1116,9 +1203,12 @@ local function printForm(w,h,tWin)
       return
    end
 
-   for i, widget in ipairs(ip) do
+   local sensorVal 
+   for idxW, widget in ipairs(ip) do
 
       sensor = getSensorByID(widget.SeId, widget.SePa)
+
+      if sensor and sensor.value then sensorVal = sensor.value else sensorVal = nil end
       
       ctl = nil
       local minarc = -0.75 * math.pi
@@ -1147,16 +1237,16 @@ local function printForm(w,h,tWin)
 	 if not lua.chunk[sp] then
 	    lua.chunk[sp] = {}
 	 end
-	 if not lua.chunk[sp][i] then
-	    lua.chunk[sp][i], err = load("return "..widget.lua,"","t",lua.env)
+	 if not lua.chunk[sp][idxW] then
+	    lua.chunk[sp][idxW], err = load("return "..widget.lua,"","t",lua.env)
 	    if err then
 	       print("DFM-InsP - lua load error: " .. err)
 	       luaStr = "Check lua console"
 	    end
 	 end
 	 if not err then
-	    --print("pcall", sp, i)
-	    status, result = pcall(lua.chunk[sp][i])
+	    --print("pcall", sp, idxW)
+	    status, result = pcall(lua.chunk[sp][idxW])
 	    if not status then
 	       print("DFM-InsP - lua pcall error .. " .. result)
 	       luaStr = "Check lua console"
@@ -1166,15 +1256,12 @@ local function printForm(w,h,tWin)
 	 end
       end
 
-      if widget.type == "roundGauge" or widget.type == "virtualGauge" then
+      if widget.type == "roundNeedleGauge" or widget.type == "roundArcGauge" or
+      widget.type == "virtualGauge" then
 
-	 local val
-
-	 if sensor and sensor.valid then val = sensor.value end
-
-	 if val and
-	    ( (widget.maxWarn and val > widget.maxWarn) or
-	    (widget.minWarn and val < widget.minWarn) ) then
+	 if sensorVal and
+	    ( (widget.maxWarn and sensorVal > widget.maxWarn) or
+	    (widget.minWarn and sensorVal < widget.minWarn) ) then
 	    if (system.getTimeCounter() // 500) % 2 == 0 then
 	       local ren = lcd.renderer()
 	       ren:reset()
@@ -1184,7 +1271,7 @@ local function printForm(w,h,tWin)
 		     widget.y0 + 0.85 * widget.radius * math.cos(th)
 		  ) 
 	       end
-	       if val > widget.maxWarn then
+	       if sensorVal > widget.maxWarn then
 		  lcd.setColor(255,0,0)
 	       else
 		  lcd.setColor(0,0,255)
@@ -1194,26 +1281,28 @@ local function printForm(w,h,tWin)
 	 end
 	 
 	 lcd.setColor(255,255,255)
+
+	 local val
 	 
 	 if ctl then
 	    factor = 0.90 * (widget.radius - 8) / 58
-	    if widget.type == "roundGauge" then
-	       if widget.needleType ~= "arc" then
+	    if widget.type == "roundNeedleGauge" or widget.type == "roundArcGauge" then
+	       if widget.type ~= "roundArcGauge" then
 		  drawShape(widget.x0, widget.y0, needle, factor, rot + math.pi/2)
 	       else
-		  --local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp) XXXX
-		  local ri = widget.ri or 0.85 * widget.radius
+		  --local function drawArc(theta, x0, y0, a0, ri, ro, im, alp) 
 		  local ro = widget.ro or 0.87 * widget.radius
-		  lcd.setColor(0x80, 0x80, 0x80) -- same gray used on website.
-		  drawArc(maxarc - minarc, widget.x0, widget.y0, minarc, maxarc,
-			  ri, ro, 20, 1)
+		  local ri = widget.ri or 0.85 * widget.radius
+		  --lcd.setColor(0x80, 0x80, 0x80) -- same gray used on website.
+		  --drawArc(maxarc - minarc, widget.x0, widget.y0, minarc,
+			  --ri, ro, arcNP, 1)
 		  local r,g,b = 255,255,255
 		  if widget.TXspectrum then
 		     local wmax = widget.TXspectrum[#widget.TXspectrum]
 		     r,g,b = wmax.r, wmax.g, wmax.b		     
-		     for i, tt in ipairs(widget.TXspectrum) do
-			--print(i, tt.v, val)
-			if tt.v >= val then
+		     for _, tt in ipairs(widget.TXspectrum) do
+			--print(i, tt.v, sensorVal)
+			if tt.v >= sensorVal then
 			   r,g,b = tt.r, tt.g, tt.b
 			   break
 			end
@@ -1221,17 +1310,24 @@ local function printForm(w,h,tWin)
 		  end
 		  if widget.TXcolorvals then
 		     local wmax = widget.TXcolorvals[#widget.TXcolorvals]
-		     r,g,b = wmax.r, wmax.g. wmax.b
-		     for i, tt in pairs(widget.TXcolorvals) do
-			if tt.v >= val then
+		     r,g,b = wmax.r, wmax.g, wmax.b
+		     for _, tt in pairs(widget.TXcolorvals) do
+			if tt.v >= sensorVal then
 			   r,g,b = tt.r, tt.g, tt.b
 			   break
 			end
 		     end
 		  end
-		  --print(val, math.deg(rot), r, g, b)
+		  --print(sensorVal, math.deg(rot), r, g, b)
 		  lcd.setColor(r, g, b)
-		  drawArc(rot + math.pi/4, widget.x0, widget.y0, minarc, maxarc, ri, ro, 20, 1)
+		  local ratio = (rot + math.pi/4) / (maxarc - minarc)
+		  local arcNP
+		  if widget.radius > 40 then
+		     arcNP = 2 + ratio * 18
+		  else
+		     arcNP = 2 + ratio * 12
+		  end
+		  drawArc(rot + math.pi/4, widget.x0, widget.y0, minarc, ri, ro+1, arcNP, 1)
 	       end
 	    elseif widget.type == "virtualGauge" then
 	       local shp = {}
@@ -1239,11 +1335,6 @@ local function printForm(w,h,tWin)
 		  shp[ii] = {v.x, v.y}
 	       end
 	       drawShape(widget.x0, widget.y0, shp, factor, rot + math.pi)	       
-	    end
-
-	    if i == 4 then
-	       --print("widget, widget.showMM, rotmin, rotmax", widget, widget.showMM)
-	       --print("widget.minval, widget.maxval", widget.minval, widget.maxval)
 	    end
 
 	    lcd.setColor(255,255,255)
@@ -1267,20 +1358,30 @@ local function printForm(w,h,tWin)
 	    else
 	       fmt = "%.2f"
 	    end
-	 
+	    
 	    val = string.format(fmt, sensor.value)
 	 else
 	    val = "---"
 	 end
 	 local str
-	 if widget.label then str = widget.label else str = "Gauge"..i end
+	 if widget.label then str = widget.label else str = "Gauge"..idxW end
 
 	 if not widget.fL then
 	    widget.fL = "Mini"
 	 end
 
 	 if not widget.fV then
-	    widget.fV = "Mini"
+	    if widget.type == "roundArcGauge" then
+	       if widget.radius > 60 then
+		  widget.fV = "Maxi"
+	       elseif widget.radius > 40 then
+		  widget.fV = "Bold"
+	       else
+		  widget.fV = "Mini"
+	       end
+	    else
+	       widget.fV = "Mini"
+	    end
 	 end
 
 	 if not widget.fLRV then
@@ -1299,7 +1400,7 @@ local function printForm(w,h,tWin)
 	       widget.xV = widget.x0
 	       widget.yV = widget.y0 + 0.17 * widget.radius
 	    end
-
+	    --print(widget.fV, edit.fcode[widget.fV])
 	    drawTextCenter(widget.xV, widget.yV, string.format("%s", val), edit.fcode[widget.fV])
 	    
 	    if widget.subdivs == 0 then
@@ -1347,7 +1448,7 @@ local function printForm(w,h,tWin)
 
 	 if ctl then
 	    lcd.setClipping(xc, yc, widget.barW * ctl + 2, widget.barH)
-	    for i, p in ipairs(widget.rects) do
+	    for _, p in ipairs(widget.rects) do
 	       lcd.setColor(p.r, p.g, p.b)
 	       local px, py, pw, ph = math.floor(p.x + 0.5), math.floor(p.y + 0.5),
 	       math.floor(p.w + 0.5), math.floor(p.h + 0.5)
@@ -1358,14 +1459,14 @@ local function printForm(w,h,tWin)
 
 	 lcd.setColor(255,255,255)
 	 lcd.setClipping(xc, yc, widget.barW + 2, widget.barH)
-	 for i, p in ipairs(widget.rects) do
-	    local px, py, pw, ph = math.floor(p.x + 0.5), math.floor(p.y + 0.5),
-	    math.floor(p.w + 0.5), math.floor(p.h + 0.5)
+	 for ii, p in ipairs(widget.rects) do
+	    local px, py, ph = math.floor(p.x + 0.5), math.floor(p.y + 0.5),
+	    math.floor(p.h + 0.5)
 	    lcd.drawLine(p.x - xc, p.y - yc, p.x - xc, p.y - yc + ph)
-	    if widget.subdivs > 0 and (i - 1) % widget.subdivs == 0 then
+	    if widget.subdivs > 0 and (ii - 1) % widget.subdivs == 0 then
 	       lcd.drawFilledRectangle(px - xc - 1, py - yc, 2, ph)
 	    end
-	    if i == #widget.rects and i % widget.subdivs == 0 then
+	    if ii == #widget.rects and ii % widget.subdivs == 0 then
 	       lcd.drawFilledRectangle(widget.x0 + widget.barW//2 - xc - 2, p.y - yc, 2, ph)
 	    end
 	 end
@@ -1376,101 +1477,177 @@ local function printForm(w,h,tWin)
 	 local str
 	 local hPad = widget.height / 4
 	 local vPad = widget.height / 8
-	 local h = math.floor(widget.height - 2 * vPad + 0.5)
+	 local hh = math.floor(widget.height - 2 * vPad + 0.5)
 
- 	 if widget.label then str = widget.label else str = "Gauge"..i end
+	 if widget.label then str = widget.label else str = "Gauge"..idxW end
 
 	 if not widget.fL then
 	    widget.fL = "Mini"
 	 end
 	 if not widget.xL then
 	    widget.xL = widget.x0
-	    widget.yL = widget.y0 + h / 2 - hPad / 5
+	    widget.yL = widget.y0 + hh / 2 - hPad / 5
 	 end
 	 
 	 drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
 	 
-      elseif widget.type == "textBox" then
+      elseif widget.type == "sequencedTextBox" or widget.type == "stackedTextBox" then
 
 	 lcd.setColor(0,0,0)
 
-	 local val
-	 if sensor and sensor.valid then
-	    val = sensor.value
+	 if not widget.xT then
+	    widget.xT = widget.x0 
+	    widget.yT = widget.y0
 	 end
 
-	 if not widget.xL then
-	    widget.xL = widget.x0 
-	    widget.yL = widget.y0
-	 end
-
-	 if not widget.xV then
-	    widget.xV = widget.x0
-	    widget.yV = widget.y0
+	 if not widget.fT then
+	    widget.fT = "Mini"
 	 end
 	 
-	 if not widget.fL then
-	    widget.fL = "Bold"
-	 end
-
 	 local stro
 
 	 if not widget.lua then
-	    if i == 1 then
-	       --print("widget.value", widget.value, stro, widget.xL, widget.yL, widget.fL)
+	    local str = widget.text or "---"
+	    if #str == 1 then
+	    --if type(str) ~= "table" then
+	       stro = str
+	       for ww in string.gmatch(str, "(%b'')") do
+		  local q1, q2 = string.find(stro, ww)
+		  if q1 and q2 then
+		     local v
+		     local cc = string.sub(ww,2,2)
+		     if cc == 'v' then
+			if sensorVal then
+			   local fmt = string.format("%%.%df", widget.SeDp or 1)
+			   v = string.format(fmt, sensorVal)
+			else
+			   v = "---"
+			end
+		     elseif cc == 'u' then
+			if widget.SeUn then
+			   v = widget.SeUn
+			else
+			   v = "--"
+			end
+		     else
+			v = ww
+		     end
+		     local b = string.sub(stro, 1, q1 - 1)
+		     local a = string.sub(stro, q2 + 1, -1)
+		     stro = b .. v .. a
+		  end
+	       end
+	    else -- sequenced or stacked with more than 1 string
+	       local idx
+	       if widget.type == "sequencedTextBox" then
+		  if sensorVal then
+		     idx = 1 + (sensorVal - 1) % #str -- 1,2,3,...#str....1,2,3,...#str
+		  else
+		     idx = 1
+		  end
+		  stro = str[idx]
+	       else -- stackedTextBox
+		  if widget.fT ~= "None" then
+		     local strL = #str
+		     local txH = lcd.getTextHeight(edit.fcode[widget.fT])
+		     local txW
+		     local yc = widget.y0 + 1.25 * txH - 0.5 * (txH / 2) * (3 * strL + 1)
+		     for ii = 0, strL - 1 , 1 do
+			txW = lcd.getTextWidth(edit.fcode[widget.fT], str[ii + 1])
+			lcd.drawText(widget.x0 - txW / 2, yc + ii * txH, str[ii + 1],
+				     edit.fcode[widget.fT])
+		     end
+		  end
+		  stro = nil
+	       end
 	    end
-	    local str = widget.text or "---" 
-	 	 if type(str) ~= "table" then
-		    stro = str
-		    for w in string.gmatch(str, "(%b'')") do
-		       local q1, q2 = string.find(stro, w)
-		       if q1 and q2 then
-			  local v
-			  local cc = string.sub(w,2,2)
-			  if cc == 'v' then
-			     if val then
-				local fmt = string.format("%%.%df", widget.SeDp or 1)
-				v = string.format(fmt, val)
-			     else
-				v = "---"
-			     end
-			  elseif cc == 'u' then
-			     if widget.SeUn then
-				v = widget.SeUn
-			     else
-				v = "--"
-			     end
-			  else
-			     v = w
-			  end
-			  local b = string.sub(stro, 1, q1 - 1)
-			  local a = string.sub(stro, q2 + 1, -1)
-			  stro = b .. v .. a
-		       end
-		    end
-		 else
-		    local idx
-		    if val then
-		       idx = 1 + (val - 1) % #str -- 1,2,3,...#str....1,2,3,...#str
-		    else
-		       idx = 1
-		    end
-		    stro = str[idx]
-		 end
 	 else
 	    stro = luaStr
 	 end
-	 
-	 if i == 1 then
-	    --print("widget.text", widget.x0, widget.y0, widget.xL, widget.yL)
+
+	 if stro and widget.fT ~= "None" then
+	    lcd.drawText(widget.xT - lcd.getTextWidth(edit.fcode[widget.fT], stro)/2,
+			 widget.yT - lcd.getTextHeight(edit.fcode[widget.fT])/2 -1,
+			 stro, edit.fcode[widget.fT])
+	 end
+      elseif widget.type == "panelLight" then
+	 local nS = 18
+	 local ren = lcd.renderer()
+
+	 if not widget.xPL then
+	    widget.xPL = widget.x0
+	    widget.yPL = widget.y0
 	 end
 
-	 lcd.drawText(widget.xV - lcd.getTextWidth(edit.fcode[widget.fL], stro)/2,
-		      widget.yV - lcd.getTextHeight(edit.fcode[widget.fL])/2 -1,
-		      stro, edit.fcode[widget.fL])
+	 if not widget.xL then
+	    widget.xL = widget.xPL;
+	    widget.yL = widget.yPL + 12;
+	 end
+
+	 if not widget.fL then
+	    widget.fL = "Mini"
+	 end
+
+	 ren:reset()
+	 for th = 0, 2 * math.pi, 2 * math.pi / nS do
+	    ren:addPoint(
+	       widget.xPL + widget.radius * math.sin(th),
+	       widget.yPL + widget.radius * math.cos(th)
+	    ) 
+	 end
+
+	 if sensorVal and sensorVal > (widget.max - widget.min) / 2 then
+	    if widget.rgbLightColor then
+	       lcd.setColor(widget.rgbLightColor.r, widget.rgbLightColor.g, widget.rgbLightColor.b)
+	    end
+	 else
+	    if widget.rgbOffColor then
+	       lcd.setColor(widget.rgbOffColor.r, widget.rgbOffColor.g, widget.rgbOffColor.b)
+	    end
+	 end
+	 ren:renderPolygon(1)
+	 if widget.rgbLabelColor then
+	    lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
+	    ren:renderPolyline(2)
+	 end
+
+	 --print(widget.y0, widget.yL)
+	 
+	 if widget.xL and widget.fL ~= "None" then
+	    lcd.drawText(widget.xL - lcd.getTextWidth(edit.fcode[widget.fL], widget.label) / 2,
+			 widget.yL - lcd.getTextHeight(edit.fcode[widget.fL]) / 2,
+			 widget.label, edit.fcode[widget.fL])
+	 end
+	 
+      elseif widget.type == "rawText" then
+
+	 if not widget.xRT then
+	    widget.xRT = widget.x0
+	    widget.yRT = widget.y0
+	 end
+
+	 if not widget.fT then
+	    widget.fT = "Mini"
+	 end
+
+	 if widget.textColor then
+	    lcd.setColor(widget.textColor.r, widget.textColor.g, widget.textColor.b)
+	 end
+
+	 if widget.xRT and widget.text and widget.fT ~= "None" then
+	    lcd.drawText(widget.xRT - lcd.getTextWidth(edit.fcode[widget.fT], widget.text) / 2,
+			 widget.yRT - lcd.getTextHeight(edit.fcode[widget.fT]) / 2,
+			 widget.text, edit.fcode[widget.fT])
+	 end
+	 
+      --else
+	 --print("unknown widget", widget.type)
       end
    end
+
+   lcd.drawText(300,120, math.floor(loopCPU + 0.5), FONT_MINI)   
    lcd.drawText(300,140, system.getCPU(), FONT_MINI)
+   
 end
 
 local function prtForm(w,h)
@@ -1493,13 +1670,21 @@ local function prtForm(w,h)
 	 xx = ipeg.xL
 	 yy = ipeg.yL
 	 ff = ipeg.fL
+      elseif (ii == "Text") and ipeg.xT then
+	 xx = ipeg.xT
+	 yy = ipeg.yT
+	 ff = ipeg.fT	 
       elseif (ii == "Range") and ipeg.xLV then
 	 xx = (ipeg.xLV + ipeg.xRV) / 2
 	 yy = ipeg.yLV
 	 ff = ipeg.fLRV
+      elseif (ii == "Center") and ipeg.xPL then
+	 xx = ipeg.xPL
+	 yy = ipeg.yPL
+	 ff = ipeg.fL
       end
 
-      local typ = edit.gaugeName[ipeg.type]
+      local typ = edit.gaugeName[ipeg.type].sn
       if not typ then typ = "---" end
       
       local fn
@@ -1521,10 +1706,12 @@ local function destroy()
       save.panels = InsP.panels
       save.panelImages = InsP.panelImages
       save.settings = InsP.settings
-      save.stateSw = stateSw
-      for k,v in pairs(stateSw) do
+      save.stateSw = {}
+      --[[
+      for k,_ in pairs(stateSw) do
 	 stateSw[k].switch = nil -- don't save switchitems .. reconstitute with other method
       end
+      --]]
       -- convert Id to hex, otherwise it comes in as a float and loss of precision
       -- creates invalid result on read
       if save.panels then
@@ -1546,6 +1733,7 @@ local function destroy()
       end
       fp = io.open(InsP.settings.fileBD, "w")
       if fp then
+	 print("Writing", InsP.settings.fileBD)
 	 io.write(fp, json.encode(save), "\n") 
 	 io.close(fp)
       end
@@ -1562,6 +1750,8 @@ local function init()
    local ff = prefix() .. "Apps/DFM-InsP/II_" .. mn .. ".jsn"
 
    file = io.readall(ff)
+   if string.find(file, "null") then print("Warning: null in JSON") end
+   
    if file then
       decoded = json.decode(file)
       if not decoded then
@@ -1578,10 +1768,7 @@ local function init()
       InsP.settings = decoded.settings
       if not InsP.settings then InsP.settings = {} end
 
-      stateSw = decoded.stateSw
-      if not stateSw then stateSw = {} end
-
-      decoded = nil
+      stateSw = {}
       
       for i in ipairs(InsP.panels) do
 	 for _ ,v in ipairs(InsP.panels[i]) do

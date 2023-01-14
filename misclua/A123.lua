@@ -30,6 +30,7 @@ LiFe[24]={s=1.01,v=2.90}
 function A123.Volt(SOC)
 
    --print("a123: SOC", SOC)
+   local ds
    if SOC >= LiFe[1].s then return LiFe[1].v end
    if SOC <= LiFe[#LiFe].s then return LiFe[#LiFe].v end
 

@@ -1,16 +1,11 @@
 [
   {
-    "yL": 154.10000000000002,
     "width": 131,
-    "xL": 245,
     "height": 35,
     "y0": 140,
     "label": "Turbine Status",
     "x0": 245,
-    "tBoxHgt": 18.599999999999998,
     "value": 0,
-    "tBoxWid": 131,
-    "xV": 245,
     "text": [
       "Ready to Start",
       "Starting",
@@ -19,11 +14,9 @@
       "User Off",
       "Standby"
     ],
-    "type": "sequencedTextBox",
-    "yV": 140
+    "type": "sequencedTextBox"
   },
   {
-    "yL": 155.75,
     "min": 0,
     "width": 176,
     "spectrum": [
@@ -33,7 +26,6 @@
       "green",
       "green"
     ],
-    "xL": 90,
     "height": 42,
     "y0": 140,
     "label": "Fuel Remaining",
@@ -42,17 +34,13 @@
     "divs": 16,
     "subdivs": 4,
     "value": 100,
-    "type": "horizontalBar",
-    "barH": 12.600000000000001,
-    "barW": 155
+    "type": "horizontalBar"
   },
   {
-    "yL": 110.6,
     "min": 0,
     "spectrum": [
       "blue"
     ],
-    "xL": 65,
     "y0": 62,
     "label": "RPM/1000",
     "max": 120,
@@ -61,15 +49,11 @@
     "divs": 24,
     "subdivs": 0,
     "value": 73.2,
-    "xV": 65,
-    "ri": 45.9,
     "start": -135,
     "type": "roundArcGauge",
-    "yV": 78.2,
     "end": 135
   },
   {
-    "yL": 110.6,
     "min": 0,
     "spectrum": [
       "blue",
@@ -77,7 +61,6 @@
       "yellow",
       "red"
     ],
-    "xL": 255,
     "y0": 62,
     "label": "EGT °C",
     "max": 1000,
@@ -86,22 +69,17 @@
     "divs": 20,
     "subdivs": 0,
     "value": 1000,
-    "xV": 255,
-    "ri": 45.9,
     "start": -135,
     "type": "roundArcGauge",
-    "yV": 78.2,
     "end": 135
   },
   {
-    "yL": 53.5,
     "min": 0,
     "spectrum": [
       "red",
       "yellow",
       "springgreen"
     ],
-    "xL": 160,
     "y0": 31,
     "label": "Batt",
     "max": 10,
@@ -110,22 +88,17 @@
     "divs": 10,
     "subdivs": 0,
     "value": 0,
-    "xV": 160,
-    "ri": 21.25,
     "start": -135,
     "type": "roundArcGauge",
-    "yV": 38.5,
     "end": 135
   },
   {
-    "yL": 113.5,
     "min": 0,
     "spectrum": [
       "red",
       "yellow",
       "springgreen"
     ],
-    "xL": 160,
     "y0": 91,
     "label": "Pump",
     "max": 10,
@@ -134,11 +107,8 @@
     "divs": 10,
     "subdivs": 0,
     "value": 0,
-    "xV": 160,
-    "ri": 21.25,
     "start": -135,
     "type": "roundArcGauge",
-    "yV": 98.5,
     "end": 135
   }
 ]

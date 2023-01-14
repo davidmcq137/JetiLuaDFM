@@ -336,6 +336,14 @@ function savepng() {
     a.click();
 }
 
+function getRGB(cfs) {
+    let rgbI = parseInt(cfs.slice(1), 16)
+    let r = (rgbI >> 16) & 255;
+    let g = (rgbI >> 8) & 255;
+    let b = rgbI & 255;
+    return {r:r, g:g, b:b}
+}
+
 function getTextHeight(ctx, text) {
     let mtx = ctx.measureText(text)
     return Math.abs(mtx.actualBoundingBoxAscent) + Math.abs( mtx.actualBoundingBoxDescent)
@@ -442,14 +450,14 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     ctx.font="bold " + fontScale * ro + "px sans-serif"
     var fontoffset = fontScale * ro / 4;
 
-    if (spec) {
+    if (typeof spec == "object") {
 	var rainbow = new Rainbow();
 	rainbow.setSpectrumByArray(spec); 
 	rainbow.setNumberRange(0,Math.max(nseg-1,1))
 
 	// if this is beign drawn as an arc gauge need to send colors and vals to TX
 	// needle gauges have arc pre-draw and it's in the png
-	
+
 	if (ndlarc == "arc") {
 	    var vv;
 	    arrR.TXspectrum = []; // save colors at vals to send to TX
@@ -462,9 +470,10 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		arrR.TXspectrum[i] = {v:vv, r:r, g:g, b:b}
 	    }
 	}
+	//console.log("done. arrR", arrR.TXspectrum)
     }
 
-    if (colors) {
+    if (typeof colors == "object") {
 	if (ndlarc == "arc") {
 	    arrR.TXcolorvals = []; // send rgb colors to TX
 	    for(let i = 0, lcv = colors.length;i < lcv; i++) {
@@ -562,37 +571,38 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     }
 
     
-    if (( ndlarc == "arc") && (typeof value == "number")) { // done only if arc to be rendered
-
-	cf = "white";
-	
-	if (typeof colors == "object") {
-	    const cl = colors.length - 1;
-	    if (value <= colors[0].val) {
-		cf = colors[0].color
-	    } else if (value >= colors[cl].val) {
-		cf = colors[cl].color
-	    } else {
-		for (let j = 1; j <= cl; j++) {
-		    if (value >= colors[j-1].val && value < colors[j].val) {
-			cf = colors[j].color;
-			break;
+    if ( ndlarc == "arc") {
+	ctx.fillStyle = "gray"; // draw gray arc on png file
+	arcsegment(ctx, x0, y0, ri, ro, start, end);
+	if (typeof value == "number") { // done only if arc to be rendered
+	    cf = "white";
+	    
+	    if (typeof colors == "object") {
+		const cl = colors.length - 1;
+		if (value <= colors[0].val) {
+		    cf = colors[0].color
+		} else if (value >= colors[cl].val) {
+		    cf = colors[cl].color
+		} else {
+		    for (let j = 1; j <= cl; j++) {
+			if (value >= colors[j-1].val && value < colors[j].val) {
+			    cf = colors[j].color;
+			    break;
+			}
 		    }
 		}
 	    }
+	    if (typeof spec == "object") {
+		//rainbow.setNumberRange(0,nseg-1)
+		var ns = Math.floor((nseg - 1) * (value - min) / (max - min));
+		cf = "#"+rainbow.colourAt(ns);
+		//console.log(ns, ctx.fillStyle)
+	    }
+	    
+	    var valFrac = (arr.value - min) / (max - min)
+	    ctx.fillStyle = cf;
+	    arcsegment(ctx, x0, y0, ri, ro, start, start + (end-start) * valFrac);
 	}
-	if (typeof spec == "object") {
-	    //rainbow.setNumberRange(0,nseg-1)
-	    var ns = Math.floor((nseg - 1) * (value - min) / (max - min));
-	    cf = "#"+rainbow.colourAt(ns);
-	    //console.log(ns, ctx.fillStyle)
-	}
-
-	var valFrac = (arr.value - min) / (max - min)
-	ctx.fillStyle = "gray";
-	arcsegment(ctx, x0, y0, ri, ro, start, end);
-	ctx.fillStyle = cf;
-	arcsegment(ctx, x0, y0, ri, ro, start, start + (end-start) * valFrac);
     }
     
     ctx.fillStyle = "white";
@@ -663,15 +673,16 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    }
 	}
     }
-    return arrR
+    //console.log("done. arrR", arrR)
+    return arrR;
 }
 
 function roundNeedleGauge(ctx, arr) {
-    roundGauge(ctx, arr, "needle");
+    return roundGauge(ctx, arr, "needle");
 }
 
 function roundArcGauge(ctx, arr) {
-    roundGauge(ctx, arr, "arc");
+    return roundGauge(ctx, arr, "arc");
 }
 
 function roundGauge(ctx, arr, indicator) {
@@ -910,11 +921,11 @@ function roundedRectBezel(ctx, xi, yi, wi, hi, r, b) {
 }
 
 function sequencedTextBox(ctx, arr) {
-    textBox(ctx, arr, "sequence");
+    return textBox(ctx, arr, "sequence");
 }
 
 function stackedTextBox(ctx, arr) {
-    textBox(ctx, arr, "stack");
+    return textBox(ctx, arr, "stack");
 }
 
 function textBox(ctx, arr, type) { 
@@ -1166,22 +1177,47 @@ function horizontalBar(ctx, arr) {
 }
 
 function panelLight(ctx, arr) {
+    const offdef = "#202020";
+    let arrR = {};
+    
     var r;
     if (typeof arr.radius != "number") {
-	r = (arr.width / 2) - 3;
+	r = 6;
     } else {
 	r = arr.radius;
     }
 
+    // prepare rgb values for TX
+    
+    ctx.fillStyle = "white";
+    arrR.rgbLabelColor = getRGB(ctx.fillStyle)
+    ctx.fillStyle = arr.lightColor;
+    arrR.rgbLightColor = getRGB(ctx.fillStyle)
+    if (typeof arr.offColor == "string") {
+	ctx.fillStyle = arr.offColor;
+    } else {
+	ctx.fillStyle = offdef;
+    }
+    arrR.rgbOffColor = getRGB(ctx.fillStyle);
+    
     if (typeof arr.label == "string") {
 	ctx.beginPath();
 	ctx.fillStyle = "white";
 	ctx.textAlign = "center";
 	ctx.font = "bold " + 6 + "px sans-serif"
-	ctx.fillText(arr.label, arr.x0, arr.y0 + 18);
+	arrR.xL = arr.x0;
+	arrR.yL = arr.y0 + 14;
+	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
     
     if (typeof arr.value == "number") {
+
+	ctx.strokeStyle = "white" //arrR.labelColor;
+	ctx.lineWidth = 2;
+	ctx.beginPath();
+	ctx.ellipse(arr.x0, arr.y0, r, r, 0, 0, Math.PI*2);
+	ctx.stroke();
+	
 	if (arr.value > (arr.min + arr.max) / 2) {
 	    ctx.fillStyle = arr.lightColor;
 	    ctx.beginPath();
@@ -1191,14 +1227,16 @@ function panelLight(ctx, arr) {
 	    if (typeof arr.offColor == "string") {
 		ctx.fillStyle = arr.offColor;
 	    } else {
-		ctx.fillStyle = "#202020";
+		ctx.fillStyle = offdef;
 	    }
 	    ctx.beginPath();
 	    ctx.ellipse(arr.x0, arr.y0, r, r, 0, 0, Math.PI*2);
 	    ctx.fill();
 	}
     }
+    return arrR;
 }
+
 
 function setAlignmentGrid(ctx, arr, text) {
     const w = 320;
@@ -1226,18 +1264,22 @@ function setAlignmentGrid(ctx, arr, text) {
 }
 
 function rawText(ctx, arr) {
+    var arrR = {};
     ctx.fillStyle = arr.textColor;
+    arrR.textColor = getRGB(ctx.fillStyle);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+    
     if (typeof arr.fontHeight == "number") {
 	ctx.font = "bold " + arr.fontHeight + "px sans-serif"
     } else {
 	ctx.font = "bold 20px sans-serif"
     }
-	
-    ctx.fillText(arr.text, arr.x0, arr.y0);
-    
-    //setAlignmentGrid(ctx, arr, "Fifths");
+    // we don't want to put the text on the png
+    if (typeof arr.label == "string") {
+	ctx.fillText(arr.text, arr.x0, arr.y0);
+    }
+    return arrR;
 }
 
 function renderGauge(ctx, input) {
