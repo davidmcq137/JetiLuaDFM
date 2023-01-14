@@ -18,7 +18,6 @@
 
 (def draw-scale 2)
 
-
 (def disp-scale 2)
 
 
@@ -128,7 +127,6 @@
        (catch :default ex (js/console.log "Render exception" ex)))
      {:bitmap c
       :params i})))
-
 
 (rum/defc static-bitmap-canvas
   [bmap]
@@ -360,10 +358,12 @@
      (gaugeparam-plusminus da ["min"])
      [:span.slider-label "Maximum"]
      (gaugeparam-plusminus da ["max"])
+     
      [:span.slider-label "Divisions"]
      (gaugeparam-plusminus da ["divs"])
      [:span.slider-label "Subdivisions"]
      (gaugeparam-plusminus da ["subdivs"])
+     
      [:span.slider-label "Arc start"]
      (gaugeparam-slider da "start" {:min -180 :max 180})
      [:span.slider-label "Arc end"]
@@ -434,8 +434,17 @@
      [:span.slider-label (str "Height = " (get params "height"))]
      (gaugeparam-slider da "height" {:min 10 :max 80})
      
+     [:span.slider-label "Mode"]
+     [:div {}
+      [:input {:type "button" :value "Line chosen by value"
+               :disabled (= "sequencedTextBox" (get params "type"))
+               :onClick #(update-gauge* da assoc "type" "sequencedTextBox")}]
+      [:input {:type "button" :value "Multi-line"
+               :disabled (= "stackedTextBox" (get params "type"))
+               :onClick #(update-gauge* da assoc "type" "stackedTextBox")}]]
      [:span.slider-label "Text values"]
-     (edit-multitext da))))
+     (edit-multitext da)
+     )))
 
 (rum/defc edit-rawtext
   < rum/reactive
@@ -494,6 +503,7 @@
           (case type
             ("textBox" "rawText" "sequencedTextBox" "stackedTextBox")
             (gaugeparam-plusminus da  ["value"])
+            
             (gaugeparam-slider da "value"
                                {:min  min
                                 :max  max
@@ -526,7 +536,9 @@
           ("roundGauge" "roundNeedleGauge" "roundArcGauge")
           (edit-roundgauge da)
           
-          "textBox"       (edit-textbox da)
+          ("textBox" "stackedTextBox" "sequencedTextBox")
+          (edit-textbox da)
+          
           "horizontalBar" (edit-horizontalbar da)
           "virtualGauge"  (edit-virtualgauge da)
           "rawText"       (edit-rawtext da)
@@ -683,18 +695,47 @@
   []
   (panel-list* (rum/react panels)))
 
+
+
+(rum/defc alignment-grid
+  [d ww hh]
+  [:svg {:width ww
+         :height hh
+         :viewBox (str "0 0 " ww " " hh) 
+         :style {:position :absolute
+                 :pointer-events "none"
+                 :top 0
+                 :left 0
+                 :width (str ww "px")
+                 :height (str hh "px")}}
+   [:g {:stroke "#fff"
+        :stroke-width 1
+        :stroke-dasharray "8 5"}
+    (for [i (range 1 d)]
+      [:line {:key i
+              :x1 (* i (/ ww d)) :y1 0
+              :x2 (* i (/ ww d)) :y2 hh}])
+    (for [i (range 1 d)]
+      [:line {:key i
+              :x1 0 :y1 (* i (/ hh d))
+              :x2 ww :y2 (* i (/ hh d))}])]])
+
+
 (rum/defc root
   < rum/reactive
   []
   (let [cref (rum/create-ref)
         w 320
         h 160
-        {:keys [gauges panels background-image]} (rum/react db)]
+        {:keys [gauges panels align-divs background-image]} (rum/react db)]
     [:div.container
      [:div {:style {:margin-left "2ex"}}
       [:h2 "Gauge creator"]
-      [:p "This app is for creating instrument panels for use with the companion"
-       " app on the JETI transmitter."]
+      #_[:p "This app is for creating instrument panels for use with the companion app on the JETI transmitter."]
+      [:p "This web app is for creating instrument panels for display on Jeti transmitters using a Jeti Lua app named DFM-InsP."]
+      [:p "Once you have finished drawing your panels here, you will get a link to paste into Jeti studio that will install the Lua app and all of your panels using the Transmitter Wizard."]
+      [:p "You assign telemetry sensors to the gauges in the Lua app menus to animate the gauges and text boxes. Fine tuning of labels and fonts can be done on the transmitter."]
+      
       
       [:h4 "Example panels"]
       [:ul.example-panel-list
@@ -721,7 +762,17 @@
                              (:bitmap d)
                              (* x draw-scale disp-scale)
                              (* y draw-scale disp-scale)
-                             [:gauges i]))))]]
+                             [:gauges i]))))
+       (alignment-grid align-divs
+                       (* w draw-scale disp-scale)
+                       (* h draw-scale disp-scale))]
+      [:label "Alignment grid:"
+       [:select {:value (or align-divs "none")
+                 :style {:margin-left "2ex"}
+                 :onChange (fn [ev] (swap! db assoc :align-divs (js/parseInt (.-value (.-target ev)))))}
+        [:option {:value "none"} "none"]
+        (for [i [2 3 4 5 6 7 8]]
+          [:option {:key i :value (str i)} (str i)])]]]
      (gauge-list gauges)]))
 
 
