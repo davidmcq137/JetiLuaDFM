@@ -35,6 +35,10 @@
    The capability to use lua code in the virtual sensors is inspired
    by Jeti's V-sensor.lua app
 
+   Bug fixes:
+
+   01/14/2023 added check for valGPS to getPosition - Frank Scnreiber reported
+
 ----------------------------------------------------------------------------
 
    Released under MIT-license
@@ -470,10 +474,10 @@ function emulator_getPosition(sensID, parmLat, parmLng)
    local minutes, degs, latitude, longitude
    
    sensor = emulator_getSensorByID(sensID, parmLng)
-   if sensor and sensor.valid then
+   if sensor and sensor.valid and sensor.valGPS then
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       degs = (sensor.valGPS >> 16) & 0xFF
-      longitude = degs + minutes/60
+            longitude = degs + minutes/60
       if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
 	 longitude = longitude * -1
       end      

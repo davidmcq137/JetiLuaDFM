@@ -435,6 +435,8 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     
     var arrR = {};
     
+    arrR.divs = nseg;
+    
     var spec = specIn;
 
     if (typeof specIn == "object" && specIn != null) {
@@ -756,6 +758,8 @@ function roundGauge(ctx, arr, indicator) {
     var majdivs = arr.majdivs;
     var divs = subdivs * majdivs;
 
+    //note: divs is returned in arrR in roundG()
+    
     if (divs == 0) {
 	if (typeof arr.divisions == "number") {
 	    divs = arr.divisions;
@@ -1038,6 +1042,7 @@ function horizontalBar(ctx, arr) {
 
     var arrR = {};
     var divs = arr.subdivs * arr.majdivs;
+    arrR.divs = divs;
     
     ctx.fillStyle = "black";
 
