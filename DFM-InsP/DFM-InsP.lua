@@ -38,6 +38,7 @@ local txRSSINames = {"rx1Ant1", "rx1Ant2", "rx2Ant1", "rx2Ant2",
 InsP.settings = {}
 InsP.settings.switchInfo = {}
 
+local dataSources = {"Sensor", "Control"}
 local switches = {}
 local stateSw = {}
 
@@ -612,7 +613,7 @@ local function auxWinChanged(val,sp)
    InsP.panelImages[sp].auxWin = val
 end
 
-local function changedSwitch(val, switchName, j)
+local function changedSwitch(val, switchName, j, wid)
    local Invert = 1.0
 
    local swInfo = system.getSwitchInfo(val)
@@ -620,12 +621,16 @@ local function changedSwitch(val, switchName, j)
    local swTyp = string.sub(swInfo.label,1,1)
    if swInfo.assigned then
       if string.sub(swInfo.mode,-1,-1) == "I" then Invert = -1.0 end
-      if swInfo.value == Invert or swTyp == "L" or swTyp =="M" then
+      local prop = string.find(swInfo.mode, "P")
+      if prop or swInfo.value == Invert or swTyp == "L" or swTyp =="M" then
 	 switches[switchName] = val
 	 InsP.settings.switchInfo[switchName] = {} 
 	 if j then -- special adder for sequencer screen (sorry)
 	    InsP.settings.switchInfo[switchName].seqIdx = j
 	    stateSw[j].switch = val
+	 end
+	 if wid then
+	    wid.control = switchName
 	 end
 	 InsP.settings.switchInfo[switchName].name = swInfo.label
 	 if swTyp == "L" or swTyp =="M" then
@@ -633,7 +638,7 @@ local function changedSwitch(val, switchName, j)
 	 else
 	    local ao = system.getInputs(string.upper(swInfo.label))
 	    InsP.settings.switchInfo[switchName].activeOn = ao
-	    if ao > -1.0 and ao < 1.0 and swInfo.mode == "S" then swInfo.mode = "P" end
+	    --if ao > -1.0 and ao < 1.0 and swInfo.mode == "S" then swInfo.mode = "P" end
 	 end
 	 InsP.settings.switchInfo[switchName].mode = swInfo.mode
       else
@@ -667,6 +672,12 @@ local function changedShowMM(val, ipig)
    ipig.showMM = tostring(not val)
    form.setValue(mmCI, not val)
 end
+
+local function changedDataSrc(val, wid)
+   wid.dataSrc = dataSources[val]
+   form.reinit(104)
+end
+
 
 local function initForm(sf)
 
@@ -735,7 +746,7 @@ local function initForm(sf)
    elseif sf == 100 then
 
       local ip = InsP.panels[InsP.settings.selectedPanel]
-      form.setTitle("Sensors for Panel " ..
+      form.setTitle("Data for panel " ..
 		       InsP.panelImages[InsP.settings.selectedPanel].instImage)
 
       form.setButton(1, ":edit", ENABLED)
@@ -755,17 +766,30 @@ local function initForm(sf)
 	 local typ = edit.gaugeName[widget.type].sn
 	 if not typ then typ = "---" end
 	 form.addLabel({label = string.format("%d %s", i, typ), width=60})
-	 form.addLabel({label = string.format("%s", str), width=160})      
-	 local id = widget.SeId
-	 local pa = widget.SePa
-	 local isel = 1
-	 for k, _ in ipairs(InsP.sensorLalist) do
-	    if id == InsP.sensorIdlist[k] and pa == InsP.sensorPalist[k] then
-	       isel = k
-	       break
+	 form.addLabel({label = string.format("%s", str), width=160})
+	 if not widget.dataSrc then widget.dataSrc = "Sensor" end
+	 if widget.dataSrc == "Sensor" then
+	    local id = widget.SeId
+	    local pa = widget.SePa
+	    local isel = 1
+	    for k, _ in ipairs(InsP.sensorLalist) do
+	       if id == InsP.sensorIdlist[k] and pa == InsP.sensorPalist[k] then
+		  isel = k
+		  break
+	       end
+	    end
+	    form.addLabel({label=InsP.sensorLslist[isel], width=100})
+	 elseif widget.dataSrc == "Control" then
+	    local info = system.getSwitchInfo(switches[widget.control])
+	    print("info", info)
+	    if info then
+	       print("info.value, info.label, info.mode", info.value, info.label, info.mode)
+	       form.addLabel({label=info.label, width=100})
+	    else
+	       form.addLabel({label="---", width=100})	       
 	    end
 	 end
-	 form.addLabel({label=InsP.sensorLslist[isel], width=100})
+	 
       end
       form.setFocusedRow(savedRow2)
    elseif sf == 101 then
@@ -807,26 +831,56 @@ local function initForm(sf)
       form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)
    elseif sf == 104 then -- edit item on sensor menu
       local ig = savedRow3
-      local ip = InsP.panels[InsP.settings.selectedPanel]
+      local isp = InsP.settings.selectedPanel
+      local ip = InsP.panels[isp]
       local lbl = ip[ig].label or "Gauge"..ig
+      local pnl = InsP.panelImages[isp].instImage
+
       form.setTitle("Edit Gauge "..ig.."  ("..lbl..")", savedRow3)
 
       local widget = ip[ig]
-      local id = widget.SeId
-      local pa = widget.SePa
-      local isel = 1
-      for k, _ in ipairs(InsP.sensorLalist) do
-	 if id == InsP.sensorIdlist[k] and pa == InsP.sensorPalist[k] then
+
+      if not widget.dataSrc then widget.dataSrc = "Sensor" end
+
+      form.addRow(2)
+      form.addLabel({label="Gauge input source"})
+      local isel = 0
+      for k in ipairs(dataSources) do
+	 if widget.dataSrc == dataSources[k] then
 	    isel = k
 	    break
 	 end
       end
-      form.addRow(2)
-      form.addLabel({label="Sensor", width=80})
-      form.addSelectbox(InsP.sensorLalist, isel, true,
-			(function(x) return changedSensor(x, ig, ip) end),
-			{width=240, alignRight=true})
+      form.addSelectbox(dataSources, isel, true,
+			(function(x) return changedDataSrc(x, widget) end) )
 
+      if widget.dataSrc == "Sensor" then
+	 local id = widget.SeId
+	 local pa = widget.SePa
+	 local isel = 1
+	 for k, _ in ipairs(InsP.sensorLalist) do
+	    if id == InsP.sensorIdlist[k] and pa == InsP.sensorPalist[k] then
+	       isel = k
+	       break
+	    end
+	 end
+	 form.addRow(2)
+	 form.addLabel({label="Sensor", width=80})
+	 form.addSelectbox(InsP.sensorLalist, isel, true,
+			   (function(x) return changedSensor(x, ig, ip) end),
+			   {width=240, alignRight=true})
+      elseif widget.dataSrc == "Control" then
+	 form.addRow(2)
+	 form.addLabel({label="Control", width=80})
+	 local ctrlName = pnl .. "-" .. string.gsub(lbl, "%W", "_") 
+	 print("check ctrlName for uniqueness!")
+	 --print("ctrlName", ctrlName)
+	 swtCI[ctrlName] = form.addInputbox(switches[ctrlName], true,
+					    (function(x) return changedSwitch(x, ctrlName,
+									      nil, widget) end),
+					    {width=240, alignRight=true})
+      end
+      
       form.addRow(4)
       form.addLabel({label="Gauge Min", width=90})
       if ip[ig].min then
@@ -916,7 +970,7 @@ local function initForm(sf)
 	 end
 	 form.addRow(5)
 	 local stateSwitchN = "stateSwitch"..j
-	 swtCI[stateSwitchN] = form.addInputbox(switches[stateSwitchN], false,
+	 swtCI[stateSwitchN] = form.addInputbox(switches[stateSwitchN], true,
 					      (function(x)
 						    return
 						    changedSwitch(x, stateSwitchN, j)
@@ -1080,38 +1134,49 @@ local function loop()
    
    -- update min and max values
    local ips = InsP.panels[sp]
+   local val 
    for _, widget in ipairs(ips) do
-      sensor = getSensorByID(widget.SeId, widget.SePa)	 
-      if sensor and sensor.valid and widget.min and widget.max then
-	 -- text box does not have min or max
-	 --if not widget.min then widget.min = 0 end
-	 --if not widget.max then widget.max = 1 end
-
-	 if not widget.minval then
-	    widget.minval = sensor.value
+      if widget.dataSrc == "Sensor" then
+	 sensor = getSensorByID(widget.SeId, widget.SePa)
+	 if sensor and sensor.valid then val = sensor.value end
+      elseif widget.dataSrc == "Control" then
+	 local info = system.getSwitchInfo(switches[widget.control])
+	 if info then
+	    val = 100 * info.value
 	 end
-	 if sensor.value < widget.minval then
-	    widget.minval = sensor.value
+      end
+      
+      if val and widget.min and widget.max then
+	 if not widget.minval then
+	    widget.minval = val
+	 end
+	 if val < widget.minval then
+	    widget.minval = val
 	 end
 
 	 if not widget.maxval then
-	    widget.maxval = sensor.value
+	    widget.maxval = val
 	 end
-	 if sensor.value > widget.maxval then
-	    widget.maxval = sensor.value
+	 if val > widget.maxval then
+	    widget.maxval = val
 	 end
       end
    end
 
-   -- throttle the update rate of tele sensors by moving the upper loop index up and
-   -- down to determine how many updates are done per Hollywood call
-
+   -- keep txTel values up to date every 200 ms
+   
    if system.getTimeCounter() - lua.txTelLastUpdate > 200 then
       lua.txTel = system.getTxTelemetry()
       lua.txTelLastUpdate = system.getTimeCounter()
    end
+   
    local sens, SeId, SePa
-   for _ = 1, 4 do
+
+   -- throttle the update rate of tele sensors by moving the upper loop index up and
+   -- down to determine how many updates are done per Hollywood call
+
+   local doPerLoop = 4
+   for _ = 1, doPerLoop do -- 
       if lua.index == 1 then
 	 --print("#s. time (ms)",#InsP.sensorLalist,  system.getTimeCounter() - lastindex)
 	 lastindex = system.getTimeCounter()
@@ -1206,9 +1271,16 @@ local function printForm(_,_,tWin)
    local sensorVal 
    for idxW, widget in ipairs(ip) do
 
-      sensor = getSensorByID(widget.SeId, widget.SePa)
-
-      if sensor and sensor.value then sensorVal = sensor.value else sensorVal = nil end
+      sensorVal = nil
+      if widget.dataSrc == "Sensor" then
+	 sensor = getSensorByID(widget.SeId, widget.SePa)
+	 if sensor and sensor.value then sensorVal = sensor.value end
+      elseif widget.dataSrc == "Control" then
+	 local info = system.getSwitchInfo(switches[widget.control])
+	 if info then
+	    sensorVal = 100 * info.value
+	 end
+      end
       
       ctl = nil
       local minarc = -0.75 * math.pi
@@ -1217,9 +1289,9 @@ local function printForm(_,_,tWin)
       if widget.start then minarc = math.pi/2 +  math.rad(widget.start) end
       if widget["end"] then maxarc = math.pi/2 + math.rad(widget["end"]) end
 
-      if sensor and sensor.valid then
+      if sensorVal then
 	 if widget.min and widget.max then
-	    ctl = math.min(math.max((sensor.value - widget.min) / (widget.max - widget.min), 0), 1)
+	    ctl = math.min(math.max((sensorVal - widget.min) / (widget.max - widget.min), 0), 1)
 	    rot = minarc * (1-ctl) + maxarc * (ctl)
 	 end
 	 if widget.min and widget.max and widget.minval then
@@ -1351,15 +1423,15 @@ local function printForm(_,_,tWin)
 	    end
 	    lcd.setColor(255,255,255)
 	    local fmt
-	    if sensor.decimals == 0 then
+	    if widget.datSrc == "Sensor" and sensor.decimals == 0 then
 	       fmt = "%.0f"
-	    elseif sensor.decimals == 1 then
+	    elseif widget.dataSrc == "Sensor" and sensor.decimals == 1 then
 	       fmt = "%.1f"
 	    else
 	       fmt = "%.2f"
 	    end
 	    
-	    val = string.format(fmt, sensor.value)
+	    val = string.format(fmt, sensorVal)
 	 else
 	    val = "---"
 	 end
