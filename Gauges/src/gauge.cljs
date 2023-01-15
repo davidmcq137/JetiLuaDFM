@@ -3,7 +3,8 @@
     [goog.string :as gstring]
     [clojure.string :as string]
     [shadow.resource :as rc]
-    [rum.core :as rum]))
+    [rum.core :as rum]
+    [dynamic-repo]))
 
 
 (def static-input-data [])
@@ -549,7 +550,7 @@
     (.click a)))
 
 
-(defn download-json!
+(defn generate-json
   [w h]
   (let [c (doto (js/document.createElement "canvas")
             (aset "width" w)
@@ -558,11 +559,15 @@
         +calc (for [[i d] (:gauges @db)]
                 (merge (:params d)
                        (js->clj (js/renderGauge ctx (clj->js (:params d))))))]
-    (->> (js/JSON.stringify (clj->js +calc) nil 2)
-         (ask-download-file "gauges.json"))))
+    (js/JSON.stringify (clj->js +calc) nil 2)))
+
+(defn download-json!
+  [w h]
+  (->> (generate-json w h)
+       (ask-download-file "gauges.json")))
 
 
-(defn download-png!
+(defn output-png-blob!
   [w h]
   (let [c (doto (js/document.createElement "canvas")
             (aset "width" w)
@@ -582,9 +587,27 @@
                        (dissoc (:params d)
                                "value"
                                "label"))))
-    (.then (.convertToBlob c)
-           (fn [v] (ask-download-file "gauges.png" v)))))
+    (js/Promise.
+     (fn [resolve reject]
+       (.toBlob c resolve "png")))))
 
+(defn download-png!
+  [w h]
+  (.then (output-png-blob! w h)
+         (fn [v] (ask-download-file "gauges.png" v))))
+
+
+(defn get-png-base64!
+  [w h]
+  (js/Promise.
+   (fn [resolve reject]
+     (-> (output-png-blob! w h)
+         (.catch (fn [e] (reject e)))
+         (.then (fn [v]
+                  (let [fr (doto (js/FileReader.)
+                             (.readAsDataURL v))]
+                    (set! (.-error fr) reject)
+                    (set! (.-onloadend fr) #(resolve (.-result fr))))))))))
 
 (rum/defc app-controls
   [w h]
@@ -599,7 +622,24 @@
    [:div [:h4 "Download"]
     [:ul
      [:li [:input {:type "button"  :value "Download JSON"  :onClick #(download-json! w h)}]]
-     [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]]]])
+     [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]
+     [:li [:input {:type "button"
+                   :value "Dynamic repo"
+                   :onClick (fn [ev]
+                              (.then (get-png-base64! w h)
+                                     (fn [b]
+                                       (dynamic-repo/send-dynamic-repo-request! 
+                                        (clj->js
+                                         {:yoururl js/window.location.origin
+                                          :dynamic-files {"Gauge app"
+                                                          [{:prefix "Apps/"
+                                                            :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3852475316/DFM-InsP-v0.1.zip"}
+                                                           {:destination "Apps/DFM-InsP/Panels/gauges.png"
+                                                            :data-base64 (subs b (count "data:image/png;base64,"))}
+                                                           {:destination "Apps/DFM-InsP/Panels/gauges.json"
+                                                            :data (generate-json w h)}]}})))))}]]
+     ]]
+   (dynamic-repo/repo-result-modal)])
 
 
 #_(rum/defc panel-list
