@@ -137,3 +137,8 @@ input[disabled] {
   color: #666666;
 }
 
+
+.dynamic-repo-button {
+    background-color: #254a6c;
+    font-size: 115%;
+}

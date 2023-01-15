@@ -620,25 +620,34 @@
                                  (swap! db assoc :background-image (js/URL.createObjectURL f))))}]]
      [:li [:input {:type "button"  :value "Clear" :onClick #(swap!  db dissoc :background-image)}]]]]
    [:div [:h4 "Download"]
+    [:p
+     "When you are ready to install the Lua app along with your panel config, "
+     "click here to get the URL to paste into Jeti studio: "
+    
+     [:input {:type "button"
+              :display "inline"
+              :value "Create app source"
+              :class "dynamic-repo-button"
+              :onClick (fn [ev]
+                         (.then (get-png-base64! w h)
+                                (fn [b]
+                                  (dynamic-repo/send-dynamic-repo-request! 
+                                   (clj->js
+                                    {:yoururl js/window.location.origin
+                                     :dynamic-files {"Gauge app"
+                                                     [{:prefix "Apps/"
+                                                       :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3852475316/DFM-InsP-v0.1.zip"}
+                                                      {:destination "Apps/DFM-InsP/Panels/gauges.png"
+                                                       :data-base64 (subs b (count "data:image/png;base64,"))}
+                                                      {:destination "Apps/DFM-InsP/Panels/gauges.json"
+                                                       :data (generate-json w h)}]}})))))}]
+     
+     ]
+    [:p "You can also download the configuration data manually:"]
     [:ul
      [:li [:input {:type "button"  :value "Download JSON"  :onClick #(download-json! w h)}]]
      [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]
-     [:li [:input {:type "button"
-                   :value "Dynamic repo"
-                   :class "dynamic-repo-button"
-                   :onClick (fn [ev]
-                              (.then (get-png-base64! w h)
-                                     (fn [b]
-                                       (dynamic-repo/send-dynamic-repo-request! 
-                                        (clj->js
-                                         {:yoururl js/window.location.origin
-                                          :dynamic-files {"Gauge app"
-                                                          [{:prefix "Apps/"
-                                                            :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3852475316/DFM-InsP-v0.1.zip"}
-                                                           {:destination "Apps/DFM-InsP/Panels/gauges.png"
-                                                            :data-base64 (subs b (count "data:image/png;base64,"))}
-                                                           {:destination "Apps/DFM-InsP/Panels/gauges.json"
-                                                            :data (generate-json w h)}]}})))))}]]]]
+     ]]
    (dynamic-repo/repo-result-modal)])
 
 
