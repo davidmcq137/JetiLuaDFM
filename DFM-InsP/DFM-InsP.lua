@@ -781,9 +781,7 @@ local function initForm(sf)
 	    form.addLabel({label=InsP.sensorLslist[isel], width=100})
 	 elseif widget.dataSrc == "Control" then
 	    local info = system.getSwitchInfo(switches[widget.control])
-	    print("info", info)
 	    if info then
-	       print("info.value, info.label, info.mode", info.value, info.label, info.mode)
 	       form.addLabel({label=info.label, width=100})
 	    else
 	       form.addLabel({label="---", width=100})	       

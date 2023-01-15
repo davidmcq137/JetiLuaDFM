@@ -2,13 +2,13 @@
     
     "examples": {
 
-        "Empty":        {"file": "Empty.json"},
-        "FourUp":       {"file": "FourUp.json"},
-        "PreFlight":    {"file": "PreFlight.json"},
-        "PreFlightArc": {"file": "PreFlightArc.json"},
-	"ThreeUp":      {"file": "ThreeUp.json"},
-        "Turbine *":    {"file": "Turbine.json"},
-        "TurbineArc":   {"file": "TurbineArc.json"}
+        "Empty":         {"file": "Empty.json"},
+        "FourUp":        {"file": "FourUp.json"},
+        "PreFlight":     {"file": "PreFlight.json"},
+        "PreFlightArc":  {"file": "PreFlightArc.json"},
+        "PreFlightFour": {"file": "PreFlightFour.json"},	
+        "Turbine *":     {"file": "Turbine.json"},
+        "TurbineArc":    {"file": "TurbineArc.json"}
     },
 
     "prototypes": {
