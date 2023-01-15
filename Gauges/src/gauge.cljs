@@ -3,7 +3,8 @@
     [goog.string :as gstring]
     [clojure.string :as string]
     [shadow.resource :as rc]
-    [rum.core :as rum]))
+    [rum.core :as rum]
+    [dynamic-repo]))
 
 
 (def static-input-data [])
@@ -115,10 +116,9 @@
   ([i] (render-gauge* i draw-scale))
   ([i scl]
    (let [[x y w h :as bbox] (shape->bbox i)
-         c #_(js/OffscreenCanvas. (* w scl) (* h scl))
-         (doto (js/document.createElement "canvas")
-           (aset "width" (* w scl))
-           (aset "height" (* h scl)))
+         c (doto (js/document.createElement "canvas")
+             (aset "width" (* w scl))
+             (aset "height" (* h scl)))
          ctx (doto (.getContext c "2d")
                (.scale scl scl)
                (.translate (- x) (- y)))]
@@ -339,13 +339,11 @@
      [:span.slider-label "Maximum"]
      (gaugeparam-plusminus da ["max"])
      
-     [:span.slider-label "Divisions"]
-     (gaugeparam-plusminus da ["divs"])
-     [:span.slider-label "Subdivisions"]
+     [:span.slider-label "Major divisions"]
+     (gaugeparam-plusminus da ["majdivs"])
+     [:span.slider-label "Sub divisions"]
      (gaugeparam-plusminus da ["subdivs"])
-     (spectrum-or-colorvals da)
-     )))
-
+     (spectrum-or-colorvals da))))
 
 (rum/defc edit-roundgauge
   < rum/reactive
@@ -359,9 +357,9 @@
      [:span.slider-label "Maximum"]
      (gaugeparam-plusminus da ["max"])
      
-     [:span.slider-label "Divisions"]
-     (gaugeparam-plusminus da ["divs"])
-     [:span.slider-label "Subdivisions"]
+     [:span.slider-label "Major Divisions"]
+     (gaugeparam-plusminus da ["majdivs"])
+     [:span.slider-label "Sub divisions"]
      (gaugeparam-plusminus da ["subdivs"])
      
      [:span.slider-label "Arc start"]
@@ -369,11 +367,7 @@
      [:span.slider-label "Arc end"]
      (gaugeparam-slider da "end" {:min -180 :max 180})
      
-     (spectrum-or-colorvals da)
-     
-     #_ #_"Colors"
-     (cond (get params "colorvals") (edit-colorvals da)
-           (get params "spectrum") (edit-spectrum da)))))
+     (spectrum-or-colorvals da))))
 
 (rum/defc edit-virtualgauge
   < rum/reactive
@@ -440,7 +434,7 @@
                :disabled (= "sequencedTextBox" (get params "type"))
                :onClick #(update-gauge* da assoc "type" "sequencedTextBox")}]
       [:input {:type "button" :value "Multi-line"
-               :disabled (= "stackedTextBox" (get params "type"))
+               :disabled (if (= "stackedTextBox" (get params "type")) true false)
                :onClick #(update-gauge* da assoc "type" "stackedTextBox")}]]
      [:span.slider-label "Text values"]
      (edit-multitext da)
@@ -556,20 +550,28 @@
     (.click a)))
 
 
-(defn download-json!
+(defn generate-json
   [w h]
-  (let [c (js/OffscreenCanvas. w h)
+  (let [c (doto (js/document.createElement "canvas")
+            (aset "width" w)
+            (aset "height" h))
         ctx (.getContext c "2d")
         +calc (for [[i d] (:gauges @db)]
                 (merge (:params d)
                        (js->clj (js/renderGauge ctx (clj->js (:params d))))))]
-    (->> (js/JSON.stringify (clj->js +calc) nil 2)
-         (ask-download-file "gauges.json"))))
+    (js/JSON.stringify (clj->js +calc) nil 2)))
 
-
-(defn download-png!
+(defn download-json!
   [w h]
-  (let [c (js/OffscreenCanvas. w h)
+  (->> (generate-json w h)
+       (ask-download-file "gauges.json")))
+
+
+(defn output-png-blob!
+  [w h]
+  (let [c (doto (js/document.createElement "canvas")
+            (aset "width" w)
+            (aset "height" h))
         ctx (.getContext c "2d")
         {:keys [gauges background-image]} @db]
     (when background-image
@@ -585,9 +587,27 @@
                        (dissoc (:params d)
                                "value"
                                "label"))))
-    (.then (.convertToBlob c)
-           (fn [v] (ask-download-file "gauges.png" v)))))
+    (js/Promise.
+     (fn [resolve reject]
+       (.toBlob c resolve "png")))))
 
+(defn download-png!
+  [w h]
+  (.then (output-png-blob! w h)
+         (fn [v] (ask-download-file "gauges.png" v))))
+
+
+(defn get-png-base64!
+  [w h]
+  (js/Promise.
+   (fn [resolve reject]
+     (-> (output-png-blob! w h)
+         (.catch (fn [e] (reject e)))
+         (.then (fn [v]
+                  (let [fr (doto (js/FileReader.)
+                             (.readAsDataURL v))]
+                    (set! (.-error fr) reject)
+                    (set! (.-onloadend fr) #(resolve (.-result fr))))))))))
 
 (rum/defc app-controls
   [w h]
@@ -600,9 +620,35 @@
                                  (swap! db assoc :background-image (js/URL.createObjectURL f))))}]]
      [:li [:input {:type "button"  :value "Clear" :onClick #(swap!  db dissoc :background-image)}]]]]
    [:div [:h4 "Download"]
+    [:p
+     "When you are ready to install the Lua app along with your panel config, "
+     "click here to get the URL to paste into Jeti studio: "
+    
+     [:input {:type "button"
+              :display "inline"
+              :value "Create app source"
+              :class "dynamic-repo-button"
+              :onClick (fn [ev]
+                         (.then (get-png-base64! w h)
+                                (fn [b]
+                                  (dynamic-repo/send-dynamic-repo-request! 
+                                   (clj->js
+                                    {:yoururl js/window.location.origin
+                                     :dynamic-files {"Gauge app"
+                                                     [{:prefix "Apps/"
+                                                       :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3852475316/DFM-InsP-v0.1.zip"}
+                                                      {:destination "Apps/DFM-InsP/Panels/gauges.png"
+                                                       :data-base64 (subs b (count "data:image/png;base64,"))}
+                                                      {:destination "Apps/DFM-InsP/Panels/gauges.json"
+                                                       :data (generate-json w h)}]}})))))}]
+     
+     ]
+    [:p "You can also download the configuration data manually:"]
     [:ul
      [:li [:input {:type "button"  :value "Download JSON"  :onClick #(download-json! w h)}]]
-     [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]]]])
+     [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]
+     ]]
+   (dynamic-repo/repo-result-modal)])
 
 
 #_(rum/defc panel-list
@@ -699,26 +745,27 @@
 
 (rum/defc alignment-grid
   [d ww hh]
-  [:svg {:width ww
-         :height hh
-         :viewBox (str "0 0 " ww " " hh) 
-         :style {:position :absolute
-                 :pointer-events "none"
-                 :top 0
-                 :left 0
-                 :width (str ww "px")
-                 :height (str hh "px")}}
-   [:g {:stroke "#fff"
-        :stroke-width 1
-        :stroke-dasharray "8 5"}
-    (for [i (range 1 d)]
-      [:line {:key i
-              :x1 (* i (/ ww d)) :y1 0
-              :x2 (* i (/ ww d)) :y2 hh}])
-    (for [i (range 1 d)]
-      [:line {:key i
-              :x1 0 :y1 (* i (/ hh d))
-              :x2 ww :y2 (* i (/ hh d))}])]])
+  (when (and d ww hh)
+   [:svg {:width ww
+          :height hh
+          :viewBox (str "0 0 " ww " " hh) 
+          :style {:position :absolute
+                  :pointer-events "none"
+                  :top 0
+                  :left 0
+                  :width (str ww "px")
+                  :height (str hh "px")}}
+    [:g {:stroke "#fff"
+         :stroke-width 1
+         :stroke-dasharray "8 5"}
+     (for [i (range 1 d)]
+       [:line {:key i
+               :x1 (* i (/ ww d)) :y1 0
+               :x2 (* i (/ ww d)) :y2 hh}])
+     (for [i (range 1 d)]
+       [:line {:key i
+               :x1 0 :y1 (* i (/ hh d))
+               :x2 ww :y2 (* i (/ hh d))}])]]))
 
 
 (rum/defc root
@@ -763,9 +810,10 @@
                              (* x draw-scale disp-scale)
                              (* y draw-scale disp-scale)
                              [:gauges i]))))
-       (alignment-grid align-divs
-                       (* w draw-scale disp-scale)
-                       (* h draw-scale disp-scale))]
+       (when align-divs
+         (alignment-grid align-divs
+                         (* w draw-scale disp-scale)
+                         (* h draw-scale disp-scale)))]
       [:label "Alignment grid:"
        [:select {:value (or align-divs "none")
                  :style {:margin-left "2ex"}
