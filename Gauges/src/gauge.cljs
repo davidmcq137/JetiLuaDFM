@@ -736,26 +736,27 @@
 
 (rum/defc alignment-grid
   [d ww hh]
-  [:svg {:width ww
-         :height hh
-         :viewBox (str "0 0 " ww " " hh) 
-         :style {:position :absolute
-                 :pointer-events "none"
-                 :top 0
-                 :left 0
-                 :width (str ww "px")
-                 :height (str hh "px")}}
-   [:g {:stroke "#fff"
-        :stroke-width 1
-        :stroke-dasharray "8 5"}
-    (for [i (range 1 d)]
-      [:line {:key i
-              :x1 (* i (/ ww d)) :y1 0
-              :x2 (* i (/ ww d)) :y2 hh}])
-    (for [i (range 1 d)]
-      [:line {:key i
-              :x1 0 :y1 (* i (/ hh d))
-              :x2 ww :y2 (* i (/ hh d))}])]])
+  (when (and d ww hh)
+   [:svg {:width ww
+          :height hh
+          :viewBox (str "0 0 " ww " " hh) 
+          :style {:position :absolute
+                  :pointer-events "none"
+                  :top 0
+                  :left 0
+                  :width (str ww "px")
+                  :height (str hh "px")}}
+    [:g {:stroke "#fff"
+         :stroke-width 1
+         :stroke-dasharray "8 5"}
+     (for [i (range 1 d)]
+       [:line {:key i
+               :x1 (* i (/ ww d)) :y1 0
+               :x2 (* i (/ ww d)) :y2 hh}])
+     (for [i (range 1 d)]
+       [:line {:key i
+               :x1 0 :y1 (* i (/ hh d))
+               :x2 ww :y2 (* i (/ hh d))}])]]))
 
 
 (rum/defc root
@@ -800,9 +801,10 @@
                              (* x draw-scale disp-scale)
                              (* y draw-scale disp-scale)
                              [:gauges i]))))
-       (alignment-grid align-divs
-                       (* w draw-scale disp-scale)
-                       (* h draw-scale disp-scale))]
+       (when align-divs
+         (alignment-grid align-divs
+                         (* w draw-scale disp-scale)
+                         (* h draw-scale disp-scale)))]
       [:label "Alignment grid:"
        [:select {:value (or align-divs "none")
                  :style {:margin-left "2ex"}
