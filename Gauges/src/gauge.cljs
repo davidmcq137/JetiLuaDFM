@@ -434,7 +434,7 @@
                :disabled (= "sequencedTextBox" (get params "type"))
                :onClick #(update-gauge* da assoc "type" "sequencedTextBox")}]
       [:input {:type "button" :value "Multi-line"
-               :disabled (= "stackedTextBox" (get params "type"))
+               :disabled (if (= "stackedTextBox" (get params "type")) true false)
                :onClick #(update-gauge* da assoc "type" "stackedTextBox")}]]
      [:span.slider-label "Text values"]
      (edit-multitext da)
@@ -625,6 +625,7 @@
      [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]
      [:li [:input {:type "button"
                    :value "Dynamic repo"
+                   :class "dynamic-repo-button"
                    :onClick (fn [ev]
                               (.then (get-png-base64! w h)
                                      (fn [b]
@@ -637,8 +638,7 @@
                                                            {:destination "Apps/DFM-InsP/Panels/gauges.png"
                                                             :data-base64 (subs b (count "data:image/png;base64,"))}
                                                            {:destination "Apps/DFM-InsP/Panels/gauges.json"
-                                                            :data (generate-json w h)}]}})))))}]]
-     ]]
+                                                            :data (generate-json w h)}]}})))))}]]]]
    (dynamic-repo/repo-result-modal)])
 
 

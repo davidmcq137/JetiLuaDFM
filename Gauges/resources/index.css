@@ -2,8 +2,11 @@
 body {
     margin: 0;
     padding: 0;
-    background-color: #000;
-    color: #fff;
+    /* background-color: #000; */
+    /* color: #fff; */
+
+    background-color: #05101a;
+    color: #dbdbdb;
     font-family: sans-serif;
 }
 
@@ -42,7 +45,8 @@ body {
 }
 
 .onegauge:nth-of-type(odd) {
-    background-color: #111;
+    /* background-color: #111; */
+    background-color: #091724;
 }
 
 .sliders {
@@ -113,3 +117,23 @@ input[type="range"]:focus {
     align-items: center;
     gap: 1ex;
 }
+
+button, input, select, textarea {
+    color: #fff;
+    background-color: #161f27;
+    margin-right: 5px;
+    margin-bottom: 5px;
+    padding: 5px;
+    border: none;
+    border-radius: 5px;
+    outline: none;
+}
+
+
+input:disabled,
+input[disabled] {
+  border: 1px solid #999999;
+  background-color: #cccccc;
+  color: #666666;
+}
+
