@@ -115,10 +115,9 @@
   ([i] (render-gauge* i draw-scale))
   ([i scl]
    (let [[x y w h :as bbox] (shape->bbox i)
-         c #_(js/OffscreenCanvas. (* w scl) (* h scl))
-         (doto (js/document.createElement "canvas")
-           (aset "width" (* w scl))
-           (aset "height" (* h scl)))
+         c (doto (js/document.createElement "canvas")
+             (aset "width" (* w scl))
+             (aset "height" (* h scl)))
          ctx (doto (.getContext c "2d")
                (.scale scl scl)
                (.translate (- x) (- y)))]
@@ -339,13 +338,11 @@
      [:span.slider-label "Maximum"]
      (gaugeparam-plusminus da ["max"])
      
-     [:span.slider-label "Divisions"]
-     (gaugeparam-plusminus da ["divs"])
-     [:span.slider-label "Subdivisions"]
+     [:span.slider-label "Major divisions"]
+     (gaugeparam-plusminus da ["majdivs"])
+     [:span.slider-label "Sub divisions"]
      (gaugeparam-plusminus da ["subdivs"])
-     (spectrum-or-colorvals da)
-     )))
-
+     (spectrum-or-colorvals da))))
 
 (rum/defc edit-roundgauge
   < rum/reactive
@@ -359,9 +356,9 @@
      [:span.slider-label "Maximum"]
      (gaugeparam-plusminus da ["max"])
      
-     [:span.slider-label "Divisions"]
-     (gaugeparam-plusminus da ["divs"])
-     [:span.slider-label "Subdivisions"]
+     [:span.slider-label "Major Divisions"]
+     (gaugeparam-plusminus da ["majdivs"])
+     [:span.slider-label "Sub divisions"]
      (gaugeparam-plusminus da ["subdivs"])
      
      [:span.slider-label "Arc start"]
@@ -369,11 +366,7 @@
      [:span.slider-label "Arc end"]
      (gaugeparam-slider da "end" {:min -180 :max 180})
      
-     (spectrum-or-colorvals da)
-     
-     #_ #_"Colors"
-     (cond (get params "colorvals") (edit-colorvals da)
-           (get params "spectrum") (edit-spectrum da)))))
+     (spectrum-or-colorvals da))))
 
 (rum/defc edit-virtualgauge
   < rum/reactive
@@ -558,7 +551,9 @@
 
 (defn download-json!
   [w h]
-  (let [c (js/OffscreenCanvas. w h)
+  (let [c (doto (js/document.createElement "canvas")
+            (aset "width" w)
+            (aset "height" h))
         ctx (.getContext c "2d")
         +calc (for [[i d] (:gauges @db)]
                 (merge (:params d)
@@ -569,7 +564,9 @@
 
 (defn download-png!
   [w h]
-  (let [c (js/OffscreenCanvas. w h)
+  (let [c (doto (js/document.createElement "canvas")
+            (aset "width" w)
+            (aset "height" h))
         ctx (.getContext c "2d")
         {:keys [gauges background-image]} @db]
     (when background-image
