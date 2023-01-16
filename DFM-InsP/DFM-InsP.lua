@@ -67,7 +67,8 @@ edit.gaugeName = {
 local lua = {}
 lua.chunk = {}
 lua.env = {string=string, math=math, table=table, print=print,
-	   tonumber=tonumber, tostring=tostring,pairs=pairs, ipairs=ipairs}
+	   tonumber=tonumber, tostring=tostring,pairs=pairs,
+	   require=require, ipairs=ipairs}
 lua.index = 0
 lua.txTelLastUpdate = 0
 lua.txTel = {}
@@ -312,6 +313,107 @@ local function setToPanelName(pn)
    end
 end
 
+local pCallErr = 0
+
+local function evaluateLua(es, luastring, pnl, gauge, index)
+   local luaReturn = ""
+   local err, status, result
+   if luastring and lua.completePass then
+      if not lua.chunk[pnl] then
+	 lua.chunk[pnl] = {}
+      end
+      if not lua.chunk[pnl][gauge] then
+	 lua.chunk[pnl][gauge] = {}
+      end
+      if not lua.chunk[pnl][gauge][index] then
+	 --print("luastring", pnl, gauge, index, luastring)
+	 if es == "E" then
+	    lua.chunk[pnl][gauge][index], err = load("return "..luastring,"","t",lua.env)
+	 elseif es == "S" then
+	    lua.chunk[pnl][gauge][index], err = load(luastring,"","t",lua.env)
+	 else
+	    err = "lua exp or stmt not present"
+	 end
+	 if err then
+	    print("DFM-InsP - lua load error: " .. err)
+	    luaReturn = "Check lua console"
+	 end
+      end
+      if not err then
+	 --print("pcall", sp, idxW)
+	 status, result = pcall(lua.chunk[pnl][gauge][index])
+	 if not status then
+	    pCallErr = pCallErr + 1
+	    if pCallErr < 10 then
+	       print("DFM-InsP - pcall error: " .. result)
+	       print("DFM-InsP - P,G,I,L: ", pnl, gauge, index, luastr)
+	    end
+	    
+	    luaReturn = "Check lua console"
+	 else
+	    luaReturn = result
+	 end
+      end
+   end
+   --print("luaReturn", luaReturn)
+   return luaReturn or "lua return nil"
+end
+
+local function expandStr(stri, pnl, gauge, idx, val, SeDp, SeUn)
+
+   local str, stro
+   
+   if not stri then return "" end
+   
+   -- first check if it's lua expression
+
+   if string.find(stri, "luaE:") == 1 then
+      return evaluateLua("E", string.sub(stri, 6, -1), pnl, gauge, idx)
+   end
+
+   if string.find(stri, "luaS:") == 1 then
+      return evaluateLua("S", string.sub(stri, 6, -1), pnl, gauge, idx)
+   end
+
+   -- or an escaped :luaE or :luaS
+   
+   if string.find(stri, "%%luaE:") == 1 or string.find(stri, "%%luaS:") == 1 then 
+      str = string.sub(stri, 2, -1)
+   else
+      str = stri
+   end
+
+   -- if not .. substitute sensor value for 'v', sensor unit for 'u'
+   
+   stro = str
+   for ww in string.gmatch(str, "(%b'')") do
+      local q1, q2 = string.find(stro, ww)
+      if q1 and q2 then
+	 local v
+	 local cc = string.sub(ww,2,2)
+	 if cc == 'v' then
+	    if val then
+	       local fmt = string.format("%%.%df", SeDp or 1)
+	       v = string.format(fmt, val)
+	    else
+	       v = "---"
+	    end
+	 elseif cc == 'u' then
+	    if SeUn then
+	       v = SeUn
+	    else
+	       v = ""
+	    end
+	 else
+	    v = ww
+	 end
+	 local b = string.sub(stro, 1, q1 - 1)
+	 local a = string.sub(stro, q2 + 1, -1)
+	 stro = b .. v .. a
+      end
+   end
+   return stro
+end
 
 local function keyForm(key)
    
@@ -385,6 +487,7 @@ local function keyForm(key)
 	    initPanels(InsP)
 	 end
 	 setToPanel(is.selectedPanel)
+	 lua.chunk = {} -- will need to re-read all lua chunks 
 	 form.reinit(106)
       end
    end
@@ -583,6 +686,7 @@ local function panelChanged(val, sp)
    local pv = InsP.settings.panels[val]
    if val ~= 1 then
       fn = pDir .. "/"..pv..".json"
+      --print("panelChanged reading", fn, sp)
       local file = io.readall(fn)
       local bi = InsP.panelImages[sp].backImage
       InsP.panels[sp] = json.decode(file)
@@ -678,6 +782,9 @@ local function changedDataSrc(val, wid)
    form.reinit(104)
 end
 
+local function changedMultiplier(val, wid)
+   wid.multiplier = val
+end
 
 local function initForm(sf)
 
@@ -877,6 +984,12 @@ local function initForm(sf)
 					    (function(x) return changedSwitch(x, ctrlName,
 									      nil, widget) end),
 					    {width=240, alignRight=true})
+	 form.addRow(2)
+	 form.addLabel({label="Control multiplier", width=240})
+	 if not widget.multiplier then print("init mult") widget.multiplier = 100.0 end
+	 form.addIntbox(widget.multiplier, -10000, 10000, 100, 0, 1,
+			(function(x) return changedMultiplier(x, widget) end) )
+	 
       end
       
       form.addRow(4)
@@ -1056,15 +1169,33 @@ local function initForm(sf)
 	 editText.text[i] = val
       end
       form.setTitle("Text Editor")
-      if type(editText.text) == "string" then
+      if type(editText.text) == "string" then -- isn't .text always an array?
 	 form.addRow(1)
-	 form.addTextbox(editText.text, 63,
-			 (function(v) editText.text = v; form.reinit(103) end))
+	 --print("#text", #editText.text)
+	 if #editText.text <= 63 then
+	    form.addTextbox(editText.text, 63,
+			    (function(v)
+				  editText.text = v
+				  form.reinit(103)
+			    end)
+	    )
+	 else
+	    form.addLabel({label="Line too long to edit", alignRight=true})
+	 end
+	 
       else
 	 for i, txt in ipairs(editText.text) do
 	    form.addRow(1)
-	    form.addTextbox(editText.text[i], 63,
-			    (function(v) return editCB(v, i) end))
+	    --print("#text", #editText.text[i])
+	    if #editText.text[i] <= 63 then
+	       form.addTextbox(editText.text[i], 63,
+			       (function(v)
+				     return editCB(v, i)
+			       end)
+	    ) else
+		  form.addLabel({label="<Line too long to edit>", alignRight=true})
+	    end
+	    
 	 end
       end
    end
@@ -1140,7 +1271,7 @@ local function loop()
       elseif widget.dataSrc == "Control" then
 	 local info = system.getSwitchInfo(switches[widget.control])
 	 if info then
-	    val = 100 * info.value
+	    val = (widget.multiplier or 100.0) * info.value
 	 end
       end
       
@@ -1185,6 +1316,7 @@ local function loop()
 	 SePa = InsP.sensorPalist[lua.index]
 	 sens = getSensorByID(SeId, SePa)
 	 if sens and sens.valid then
+	    --print("InsP.sensorLalist[lua.index]", InsP.sensorLalist[lua.index], sens.value)
 	    lua.env[InsP.sensorLalist[lua.index]] = sens.value
 	 end
       else
@@ -1276,7 +1408,7 @@ local function printForm(_,_,tWin)
       elseif widget.dataSrc == "Control" then
 	 local info = system.getSwitchInfo(switches[widget.control])
 	 if info then
-	    sensorVal = 100 * info.value
+	    sensorVal = (widget.multiplier or 100.0) * info.value
 	 end
       end
       
@@ -1301,30 +1433,6 @@ local function printForm(_,_,tWin)
 	 end
       end
 
-      local luaStr = ""
-      local err, status, result
-      if widget.lua and lua.completePass then
-	 if not lua.chunk[sp] then
-	    lua.chunk[sp] = {}
-	 end
-	 if not lua.chunk[sp][idxW] then
-	    lua.chunk[sp][idxW], err = load("return "..widget.lua,"","t",lua.env)
-	    if err then
-	       print("DFM-InsP - lua load error: " .. err)
-	       luaStr = "Check lua console"
-	    end
-	 end
-	 if not err then
-	    --print("pcall", sp, idxW)
-	    status, result = pcall(lua.chunk[sp][idxW])
-	    if not status then
-	       print("DFM-InsP - lua pcall error .. " .. result)
-	       luaStr = "Check lua console"
-	    else
-	       luaStr = result
-	    end
-	 end
-      end
 
       if widget.type == "roundNeedleGauge" or widget.type == "roundArcGauge" or
       widget.type == "virtualGauge" then
@@ -1426,9 +1534,16 @@ local function printForm(_,_,tWin)
 	    elseif widget.dataSrc == "Sensor" and sensor.decimals == 1 then
 	       fmt = "%.1f"
 	    else
-	       fmt = "%.2f"
+	       local max = widget.max
+	       local min = widget.min
+	       local decims
+	       if max and min then
+		  decims = math.max(2 - math.floor(math.log(max - min) / math.log(10)), 0)
+	       else
+		  decims = 1
+	       end
+	       fmt = string.format("%%.%df", decims) --
 	    end
-	    
 	    val = string.format(fmt, sensorVal)
 	 else
 	    val = "---"
@@ -1563,8 +1678,6 @@ local function printForm(_,_,tWin)
 	 
       elseif widget.type == "sequencedTextBox" or widget.type == "stackedTextBox" then
 
-	 lcd.setColor(0,0,0)
-
 	 if not widget.xT then
 	    widget.xT = widget.x0 
 	    widget.yT = widget.y0
@@ -1573,73 +1686,65 @@ local function printForm(_,_,tWin)
 	 if not widget.fT then
 	    widget.fT = "Mini"
 	 end
-	 
-	 local stro
 
-	 if not widget.lua then
-	    local str = widget.text or "---"
-	    if #str == 1 then
-	    --if type(str) ~= "table" then
-	       stro = str
-	       for ww in string.gmatch(str, "(%b'')") do
-		  local q1, q2 = string.find(stro, ww)
-		  if q1 and q2 then
-		     local v
-		     local cc = string.sub(ww,2,2)
-		     if cc == 'v' then
-			if sensorVal then
-			   local fmt = string.format("%%.%df", widget.SeDp or 1)
-			   v = string.format(fmt, sensorVal)
-			else
-			   v = "---"
-			end
-		     elseif cc == 'u' then
-			if widget.SeUn then
-			   v = widget.SeUn
-			else
-			   v = "--"
-			end
-		     else
-			v = ww
-		     end
-		     local b = string.sub(stro, 1, q1 - 1)
-		     local a = string.sub(stro, q2 + 1, -1)
-		     stro = b .. v .. a
-		  end
-	       end
-	    else -- sequenced or stacked with more than 1 string
-	       local idx
-	       if widget.type == "sequencedTextBox" then
-		  if sensorVal then
-		     idx = 1 + (sensorVal - 1) % #str -- 1,2,3,...#str....1,2,3,...#str
-		  else
-		     idx = 1
-		  end
-		  stro = str[idx]
-	       else -- stackedTextBox
-		  if widget.fT ~= "None" then
-		     local strL = #str
-		     local txH = lcd.getTextHeight(edit.fcode[widget.fT])
-		     local txW
-		     local yc = widget.y0 + 1.25 * txH - 0.5 * (txH / 2) * (3 * strL + 1)
-		     for ii = 0, strL - 1 , 1 do
-			txW = lcd.getTextWidth(edit.fcode[widget.fT], str[ii + 1])
-			lcd.drawText(widget.x0 - txW / 2, yc + ii * txH, str[ii + 1],
-				     edit.fcode[widget.fT])
-		     end
-		  end
-		  stro = nil
+	 if not widget.fL then
+	    widget.fL = "Mini"
+	 end
+
+	 lcd.setColor(255,255,255)
+	 
+	 if widget.xL and widget.yL then
+	    drawTextCenter(widget.xL, widget.yL, widget.label, edit.fcode[widget.fL])
+	 end
+
+	 lcd.setColor(0,0,0)
+
+	 local str = widget.text or {"---"}
+
+	 if widget.type == "sequencedTextBox" then
+
+	    local idx, jj
+	    if sensorVal then
+	       jj = math.floor(sensorVal + 0.5)
+	       if jj >= 1 and jj <= #str then
+		  idx = jj
 	       end
 	    end
-	 else
-	    stro = luaStr
-	 end
 
-	 if stro and widget.fT ~= "None" then
-	    lcd.drawText(widget.xT - lcd.getTextWidth(edit.fcode[widget.fT], stro)/2,
-			 widget.yT - lcd.getTextHeight(edit.fcode[widget.fT])/2 -1,
-			 stro, edit.fcode[widget.fT])
+	    local stro
+
+	    if not idx then
+	       if sensorVal and jj then
+		  stro = string.format("Index %.2f/%d", sensorVal, jj)
+	       else
+		  stro = "<No Index>"
+	       end
+	    else
+	       stro = expandStr(str[idx], sp, idxW, idx, sensorVal, widget.SeDp, widget.SeUn)
+	    end
+	    
+	    if stro and widget.fT ~= "None" then
+	       lcd.drawText(widget.xT - lcd.getTextWidth(edit.fcode[widget.fT], stro)/2,
+			    widget.yT - lcd.getTextHeight(edit.fcode[widget.fT])/2 -1,
+			    stro, edit.fcode[widget.fT])
+	    end
+	 else -- stackedTextBox
+	    if widget.fT ~= "None" then
+	       local strL = #str
+	       local txH = lcd.getTextHeight(edit.fcode[widget.fT])
+	       local txW
+	       local yc = widget.y0 + 1.25 * txH - 0.5 * (txH / 2) * (3 * strL + 1)
+	       local stro
+	       for ii = 0, strL - 1 , 1 do
+		  stro = expandStr(str[ii + 1], sp, idxW, ii + 1, sensorVal,
+				   widget.SeDp, widget.SeUn)
+		  txW = lcd.getTextWidth(edit.fcode[widget.fT], stro)
+		  lcd.drawText(widget.x0 - txW / 2, yc + (ii - (strL % 2)*.7) * txH, stro,
+			       edit.fcode[widget.fT])
+	       end
+	    end
 	 end
+      
       elseif widget.type == "panelLight" then
 	 local nS = 18
 	 local ren = lcd.renderer()
@@ -1820,7 +1925,9 @@ local function init()
    local ff = prefix() .. "Apps/DFM-InsP/II_" .. mn .. ".jsn"
 
    file = io.readall(ff)
-   if string.find(file, "null") then print("Warning: null in JSON") end
+   if file then
+      if string.find(file, "null") then print("Warning: null in JSON") end
+   end
    
    if file then
       decoded = json.decode(file)
