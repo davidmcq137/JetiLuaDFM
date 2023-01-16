@@ -618,7 +618,7 @@
                 {:yoururl js/window.location.origin
                  :dynamic-files {"Gauges"
                                  (into [{:prefix "Apps/"
-                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3852475316/DFM-InsP-v0.1.zip"}]
+                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3924990728/DFM-InsP-v0.2.zip"}]
                                        cat
                                        filesets)}})))))
 
