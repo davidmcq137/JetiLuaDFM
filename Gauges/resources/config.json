@@ -7,7 +7,7 @@
         "PreFlight":    {"file": "PreFlight.json"},
         "PreFlightArc": {"file": "PreFlightArc.json"},
 	"ThreeUp":      {"file": "ThreeUp.json"},
-        "Turbine *":    {"file": "Turbine.json"},
+        "Turbine":    {"file": "Turbine.json"},
         "TurbineArc":   {"file": "TurbineArc.json"}
     },
 

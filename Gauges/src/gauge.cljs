@@ -9,9 +9,8 @@
 
 (def static-input-data [])
 
-
 (defonce db (atom {}))
-(defonce panels (atom {})) 
+#_(defonce panels (atom {})) 
 
 
 (def config-json (js->clj (js/JSON.parse (rc/inline "config.json"))))
@@ -549,55 +548,43 @@
     (set! (.-download a) path)
     (.click a)))
 
-
-(defn generate-json
-  [w h]
+(defn render-panel
+  [pdb w h]
   (let [c (doto (js/document.createElement "canvas")
             (aset "width" w)
             (aset "height" h))
         ctx (.getContext c "2d")
-        +calc (for [[i d] (:gauges @db)]
-                (merge (:params d)
-                       (js->clj (js/renderGauge ctx (clj->js (:params d))))))]
-    (js/JSON.stringify (clj->js +calc) nil 2)))
+        {:keys [gauges background-image]} pdb
+        bg (when background-image
+             (doto (js/document.createElement "img")
+               (aset "src" background-image)))
+        _ (when bg (.drawImage ctx 0 0 w h))
+        +calc (vec
+               (for [[i {:keys [deleted]  :as d}] gauges
+                     :when (not deleted)]
+                 (->> (dissoc (:params d) "value" "label")
+                      (clj->js)
+                      (js/renderGauge ctx)
+                      (js->clj)
+                      (merge (:params d)))))]
+    (js/Promise.
+     (fn [resolve reject]
+       (.toBlob c (fn [b] (resolve {:image b :data +calc}))
+                "png")))))
 
 (defn download-json!
   [w h]
-  (->> (generate-json w h)
-       (ask-download-file "gauges.json")))
-
-
-(defn output-png-blob!
-  [w h]
-  (let [c (doto (js/document.createElement "canvas")
-            (aset "width" w)
-            (aset "height" h))
-        ctx (.getContext c "2d")
-        {:keys [gauges background-image]} @db]
-    (when background-image
-      (.drawImage ctx
-                  (doto (js/document.createElement "img")
-                    (aset "src" background-image))
-                  0 0 w h))
-    
-    (doseq [[i {:keys [deleted]  :as d}] gauges
-            :when (not deleted)]
-      (js/renderGauge ctx
-                      (clj->js
-                       (dissoc (:params d)
-                               "value"
-                               "label"))))
-    (js/Promise.
-     (fn [resolve reject]
-       (.toBlob c resolve "png")))))
+  (.then (render-panel @db w h)
+         (fn [{:keys [data]}]
+           (ask-download-file "gauges.json" (js/JSON.stringify (clj->js data) nil 2)))))
 
 (defn download-png!
   [w h]
-  (.then (output-png-blob! w h)
-         (fn [v] (ask-download-file "gauges.png" v))))
+  (.then (render-panel @db w h)
+         (fn [{:keys [image]}]
+           (ask-download-file "gauges.png" image))))
 
-
-(defn get-png-base64!
+#_(defn get-png-base64!
   [w h]
   (js/Promise.
    (fn [resolve reject]
@@ -609,6 +596,7 @@
                     (set! (.-error fr) reject)
                     (set! (.-onloadend fr) #(resolve (.-result fr))))))))))
 
+
 (rum/defc app-controls
   [w h]
   [:div
@@ -617,7 +605,9 @@
      [:li [:input {:type "file"
                    :onChange (fn [ev]
                                (when-let [f (first (.-files (.-target ev)))]
-                                 (swap! db assoc :background-image (js/URL.createObjectURL f))))}]]
+                                 (swap! db assoc-in
+                                        [:panels (:selected-panel @db) :background-image]
+                                        (js/URL.createObjectURL f))))}]]
      [:li [:input {:type "button"  :value "Clear" :onClick #(swap!  db dissoc :background-image)}]]]]
    [:div [:h4 "Download"]
     [:p
@@ -629,18 +619,27 @@
               :value "Create app source"
               :class "dynamic-repo-button"
               :onClick (fn [ev]
-                         (.then (get-png-base64! w h)
-                                (fn [b]
-                                  (dynamic-repo/send-dynamic-repo-request! 
-                                   (clj->js
-                                    {:yoururl js/window.location.origin
-                                     :dynamic-files {"Gauge app"
-                                                     [{:prefix "Apps/"
-                                                       :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3852475316/DFM-InsP-v0.1.zip"}
-                                                      {:destination "Apps/DFM-InsP/Panels/gauges.png"
-                                                       :data-base64 (subs b (count "data:image/png;base64,"))}
-                                                      {:destination "Apps/DFM-InsP/Panels/gauges.json"
-                                                       :data (generate-json w h)}]}})))))}]
+                         #_(doseq [[pk p] @panels]
+                             (.then (render-panel p w h)
+                                    (fn [{:keys [image data]}]
+                                      #_(println "Complete?" name))))
+                         
+                         #_(.then (get-png-base64! w h)
+                                  (fn [b]
+                                    (dynamic-repo/send-dynamic-repo-request! 
+                                     (clj->js
+                                      {:yoururl js/window.location.origin
+                                       :dynamic-files {"Gauge app"
+                                                       [{:prefix "Apps/"
+                                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3852475316/DFM-InsP-v0.1.zip"}
+                                                        {:destination "Apps/DFM-InsP/Panels/gauges.png"
+                                                         :data-base64 (subs b (count "data:image/png;base64,"))}
+                                                        {:destination "Apps/DFM-InsP/Panels/gauges.json"
+                                                         :data (generate-json w h)}
+                                                        #_(when-let [bg (:background-image @db)]
+                                                            {}
+                                                            )
+                                                        ]}})))))}]
      
      ]
     [:p "You can also download the configuration data manually:"]
@@ -651,22 +650,23 @@
    (dynamic-repo/repo-result-modal)])
 
 
-#_(rum/defc panel-list
-  [ps]
-  [:ul
-   (for [[k {:panel/keys [name]}] ps]
-     [:li.panel-item {}
-      (str name)])])
+
+
 
 
 (defn reload-json!
-  [url]
+  [panel-name url]
   (-> (js/fetch url)
       (.then (fn [fr] (.json fr)))
       (.then (fn [jd]
-               (reset! db
-                       {:gauges (zipmap (range)
-                                        (map render-gauge* (js->clj jd)))})))))
+               (swap! db #(-> %
+                              (assoc-in [:panels panel-name]
+                                        {:gauges (zipmap (range)
+                                                         (map render-gauge* (js->clj jd)))})
+                              (assoc :selected-panel panel-name)))
+               #_(reset! db
+                         {:gauges (zipmap (range)
+                                          (map render-gauge* (js->clj jd)))})))))
 
 (defn new-gauge!
   [new-gauge-type]
@@ -697,51 +697,138 @@
 
 
 (rum/defc gauge-list
-  [gauges]
+  [which-panel gauges]
   [:div.gauge-list {}
    (gauge-list-controls)
    [:div
     (for [[i {:keys [deleted]  :as d}] gauges
           :when (not deleted)]
-      (rum/with-key (onegauge-editor (rum/cursor-in db [:gauges i]) i)
-                    i))]])
+      (rum/with-key (onegauge-editor (rum/cursor-in db [:panels which-panel :gauges i]) i)
+        i))]])
 
+
+
+
+(defn get-panel-unique-name
+  [proposed]
+  (first
+   (filter (or (some->> @db :panels (comp not))
+               #(do true))
+           (map str
+                (repeat proposed)
+                (cons nil
+                      (for [i (range)]
+                        (str " (" (inc i) ")")))))))
 
 (rum/defc panel-list-controls
-  [ps]
+  [sel ps]
   (let [[panel-name set-panel-name!] (rum/use-state "New panel")]
     [:div
-     [:input {:type "button"
-              :value "Save as:"
-              :onClick #(swap! panels assoc
-                               @panels
-                               (assoc @db :panel/name panel-name))}]
+     [:input.save-panel-button
+      {:type "button"
+       :value "Save this panel as:"
+       :onClick (fn []
+                  (let [uname (get-panel-unique-name panel-name)]
+                   (swap! db
+                          #(-> %
+                               (update :panels assoc uname (get ps sel))
+                               (assoc :selected-panel uname)))))}]
      [:input {:type "text"
               :value panel-name
               :onChange (fn [^js ev]
                           (set-panel-name! (.-value (.-target ev))))}]]))
 
 
+(defn do-panel-rename
+  [db old-name new-name]
+  (cond-> db
+    true (update :panels dissoc old-name)
+    true (update :panels assoc new-name (get (:panels db) old-name))
+    
+    (= old-name (:selected-panel db))
+    (assoc :selected-panel new-name)))
+
+(rum/defc panel-renamer
+  [ps old-name]
+  (let [[new-name set-new-name!] (rum/use-state old-name)
+        [collapse set-collapse!] (rum/use-state true)
+        taken? (contains? ps new-name)]
+    (if collapse
+      [:input.panel-rename-button
+       {:type "button"
+        :value "Rename"
+        :onClick #(set-collapse! nil)}]
+      
+      [:div.panel-rename
+       [:input {:type "text"
+                :value (or new-name "")
+                :placeholder "New name"
+                :onChange (fn [^js ev]
+                            (set-new-name! (.-value (.-target ev))))}]
+       [:input {:type "button"
+                :value "OK"
+                :disabled taken?
+                :onClick (fn [ev]
+                           (set-collapse! true)
+                           (swap! db do-panel-rename old-name new-name))}]
+       [:input {:type "button"
+                :value "Cancel"
+                :onClick #(set-collapse! true)}]])))
+
+(defn ensure-selected-panel
+  [{:keys [panels selected-panel] :as db}]
+  (println "Ensure SelectedPanel" selected-panel (keys panels) )
+  (cond
+    (contains? panels selected-panel) db
+    (empty? panels)                   db
+    :else                             (assoc db :selected-panel (ffirst panels))))
+
+(defn do-panel-delete
+  [db panel-name]
+  (-> db
+      (update :panels dissoc panel-name)
+      (ensure-selected-panel)))
+
+(rum/defc panel-deleter
+  [ps panel-name]
+  (let [[collapse set-collapse!] (rum/use-state true)]
+    (if collapse
+      [:input.panel-delete-button
+       {:type "button"
+        :value "Delete"
+        :style {:width "8ex" :justify-self "end"}
+        :onClick #(set-collapse! nil)}]
+      
+      [:div.panel-delete
+       [:input.panel-delete-button
+        {:type "button"
+         :value "Really delete"
+         :onClick (fn [ev]
+                    (set-collapse! true)
+                    (swap! db do-panel-delete panel-name))}]
+       [:input {:type "button"
+                :value "Cancel"
+                :onClick #(set-collapse! true)}]])))
+
 (rum/defc panel-list*
-  [ps]
+  [sel ps]
   [:div {}
    (when (not-empty ps)
-     [:ul.panel-list {}
-      (for [[i {:panel/keys [name] :as p}] ps]
-        [:li {:key i}
-         [:input {:type "button"
-                  :value name
-                  :onClick (fn []
-                             (reset! db p))}]])])
+     [:div.panel-list {}
+      (for [[panel-name panel] ps
+            c [:select :spacer :rename :delete]]
+        (case c
+          :rename (rum/with-key (panel-renamer ps panel-name) (str c panel-name))
+          :delete (rum/with-key (panel-deleter ps panel-name) (str c panel-name))
+          :spacer [:div {:key (str c panel-name)}
+                   (when (= panel-name sel) "(editing)")]
+          :select [:input {:key (str c panel-name)
+                           :type "button"
+                           :value panel-name
+                           :disabled (= sel panel-name)
+                           :onClick #(swap! db assoc :selected-panel panel-name)}]))])
    
-   
-   (panel-list-controls ps)])
-
-(rum/defc panel-list < rum/reactive
-  []
-  (panel-list* (rum/react panels)))
-
-
+   (panel-list-controls sel ps)])
 
 (rum/defc alignment-grid
   [d ww hh]
@@ -774,7 +861,9 @@
   (let [cref (rum/create-ref)
         w 320
         h 160
-        {:keys [gauges panels align-divs background-image]} (rum/react db)]
+        ;; {:keys [gauges panels align-divs background-image] :as gdb} (rum/react db)
+        {:keys [panels selected-panel align-divs]} (rum/react db)
+        {:keys [gauges background-image]} (get panels selected-panel)]
     [:div.container
      [:div {:style {:margin-left "2ex"}}
       [:h2 "Gauge creator"]
@@ -785,13 +874,19 @@
       
       
       [:h4 "Example panels"]
-      [:ul.example-panel-list
+      #_[:ul.example-panel-list
+         (for [[name {:strs [file]}] (get config-json "examples")]
+           [:li {:key (str name)}
+            [:input {:type "button"  :value name  :onClick #(reload-json! name (str "/" file))}]])]
+      
+      [:div.example-panels
        (for [[name {:strs [file]}] (get config-json "examples")]
-         [:li {:key (str name)}
-          [:input {:type "button"  :value name  :onClick #(reload-json! (str "/" file))}]])]
+         [:div {:key (str name)}
+          [:input {:type "button" :value name  :onClick #(reload-json! name (str "/" file))}]])]
 
       [:h4 "My panels"]
-      (panel-list panels)
+      (panel-list* selected-panel panels)
+      #_(panel-list selected-panel)
       
       (app-controls w h)]
      [:div {}
@@ -809,11 +904,15 @@
                              (:bitmap d)
                              (* x draw-scale disp-scale)
                              (* y draw-scale disp-scale)
-                             [:gauges i]))))
+                             [:panels selected-panel :gauges i]))))
+       
        (when align-divs
          (alignment-grid align-divs
                          (* w draw-scale disp-scale)
                          (* h draw-scale disp-scale)))]
+      
+      
+      
       [:label "Alignment grid:"
        [:select {:value (or align-divs "none")
                  :style {:margin-left "2ex"}
@@ -821,13 +920,16 @@
         [:option {:value "none"} "none"]
         (for [i [2 3 4 5 6 7 8]]
           [:option {:key i :value (str i)} (str i)])]]]
-     (gauge-list gauges)]))
+     
+     (gauge-list selected-panel gauges)]))
 
 
 (defn ^:dev/after-load init
   []
   
   (let [el (.getElementById js/document "root")]
+    #_(println "Reload db" @db)
     (when (empty? @db)
-      (reload-json! "/Turbine.json"))
+      
+      (reload-json! "Turbine" "/Turbine.json"))
     (rum/mount (root) el)))
