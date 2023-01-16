@@ -6,11 +6,7 @@
 --]]
 
 --local trans11
-local DialVersion = "2.0"
-
-local switches = {}
-local swtCI = {}
-local switchInfo = {}
+local DialVersion = "1.12"
 
 local runningTime = 0
 local startTime = 0
@@ -154,7 +150,7 @@ end
    *  max the maximum data point on the axis
 --]]
 
-local function heckbert(min, max) 
+local function niceScale(min, max) 
    if min then minPoint = min end
    if max then maxPoint = max end
    calculate()
@@ -231,24 +227,6 @@ local function readSensors()
       table.insert(sensorUnlist, "")
    end
    
-end
-
-local function reMapSensors()
-   local tsi
-   for iscreen=1,2,1 do
-      for idial=1,4,1 do
-	 tele[iscreen].sensor[idial] = 1 -- "..."
-	 tsi = tele[iscreen].sensorInfo[idial]
-	 for isensor in ipairs(sensorLslist) do
-	    if tsi.SeSet == "true" and tsi.SeId == sensorIdlist[isensor]
-	    and tsi.SePa == sensorPalist[isensor] then
-	       --print("set", iscreen, idial, isensor)
-	       tele[iscreen].sensor[idial] = isensor
-	       break
-	    end
-	 end
-      end
-   end
 end
 
 local function wcDelete(pathIn, pre, typ)
@@ -485,16 +463,6 @@ local function formatE(vv)
    return string.format("%.1f", val) .. suffix
 end
 
-local function drawCircle(x0, y0, r, seg)
-   local ren = lcd.renderer()
-   ren:reset()
-   local theta = math.pi * 2
-   for i=0, seg-1, 1 do
-      ren:addPoint(x0 - r * math.cos(i*theta/seg), y0 - r * math.sin(i*theta/seg))
-   end
-   ren:renderPolygon(0.6)
-end
-
 local function dialPrint(w,h,win)
 
    local a0d = -35
@@ -528,7 +496,7 @@ local function dialPrint(w,h,win)
       lcdBG = "L"
    end
       
-   local ratio, theta, val, max, min, xz, yz, rI, rO, ovld, unld, sg, np
+   local ratio, theta, val, max, min, xz, yz, rI, rO, ovld, sg, np
    
    for i=1, nSens[tele[win].screen],1 do
       val = tele[win].sensorValue[i]
@@ -536,13 +504,11 @@ local function dialPrint(w,h,win)
 	 --if not val then print("val nil", win, i) return end
 	 min = tele[win].sensorMin[i] * tele[win].sensorMinMult[i]
 	 max = tele[win].sensorMax[i] * tele[win].sensorMaxMult[i]
-	 ovld = false
-	 unld = false
 	 if val then
-	    if val > max then ovld = true end
-	    if val < min then unld = true end
+	    if val > max or val < min then ovld = true else ovld = false end
+	 else
+	    ovld = false
 	 end
-	 
 	 if val and tele[win].sensorMinWarn[i] then
 	    if type(tele[win].sensorMinWarn[i]) == "number" then -- look for "arith with userdata" bug
 	       --print(win,i)
@@ -551,7 +517,7 @@ local function dialPrint(w,h,win)
 	       --print("not number type min", win, i)
 	       wmin = val
 	    end
-	    if val < wmin then unld = true end
+	    if val < wmin then ovld = true end
 	 end
 	 if val and tele[win].sensorMaxWarn[i] then
 	    if type(tele[win].sensorMaxWarn[i]) == "number" then
@@ -563,7 +529,7 @@ local function dialPrint(w,h,win)
 	    if val > wmax then ovld = true end
 	 end
 	 if val then
-	    ratio = (val - min) / (max - min)
+	    ratio = (val-min)/(max-min)
 	 else
 	    ratio = 0
 	 end
@@ -714,24 +680,11 @@ local function dialPrint(w,h,win)
 	    else
 	       lcd.setColor(0,0,0)
 	    end
-
-	    local round = tele[win].sensorStyle[i] == 1 or tele[win].sensorStyle[i] == 2
 	    
-	    if round and (ovld or unld) and ( (system.getTimeCounter() // 500) % 2 == 0) then
-	       if ovld then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
-	       drawCircle(xz, yz, rO, 25)
-	    end
-
-	    if lcdBG == "D" then
-	       lcd.setColor(255,255,255)
-	    else
-	       lcd.setColor(0,0,0)
-	    end
-
 	    text = formatD(val)
-	    if round and (ovld or unld) then lcd.setColor(255,255,255) end 
+	    if ovld then lcd.setColor(255,0,0) end 
 	    lcd.drawText(xz + x0 - lcd.getTextWidth(f1, text) / 2, yz+y1, text, f1)
-
+	    
 	    if lcdBG == "D" then
 	       lcd.setColor(255,255,255)
 	    else
@@ -823,10 +776,8 @@ local function keyForm(key)
       savedRow = row
       form.reinit(13)
    end
-
+   
    if subForm == 1 and key == KEY_1 then
-      form.reinit(104)
-   --[[
       local ans
       ans = form.question("Are you sure?", "Reset all app settings?",
 			  "",
@@ -836,7 +787,6 @@ local function keyForm(key)
 	 wcDelete("Apps/DFM-Dial", "DD_", "jsn")
 	 system.messageBox("Saved data cleared - Restart App")
       end
-   --]]
    end
    
    if subForm == 13 and key == KEY_3 then
@@ -876,12 +826,6 @@ end
 
 local function teleSensorChanged(val,i,j)
    tele[i].sensor[j] = val
-   if val == 1 then
-      tele[i].sensorInfo[j] = {SeSet = "false", SeId = 0, SePa = 0}
-   else
-      tele[i].sensorInfo[j] = {SeSet = "true", SeId = sensorIdlist[val], SePa = sensorPalist[val]}
-   end
-   
 end
 
 local function sensorMinChanged(val, i, j)
@@ -918,14 +862,6 @@ local function sensorStyleChanged(val, i, j)
    tele[i].sensorStyle[j] = val
 end
 
-local function sensorAutoChanged(val, i, j)
-   if val == 1 then
-      tele[i].sensorAuto[j] = "On"
-   else
-      tele[i].sensorAuto[j] = "Off"
-   end
-end
-
 local function sensorChartTimeChanged(val, i, j)
    if j == 1 then
       for k=1, nSens[tele[i].screen],1 do
@@ -936,40 +872,6 @@ end
 
 local function sensorSmoothChanged(val, i, j)
    tele[i].sensorChartSmooth[j] = val
-end
-
-local function changedSwitch(val, switchName)
-   local Invert = 1.0
-   local swInfo = system.getSwitchInfo(val)
-   local swTyp = string.sub(swInfo.label,1,1)
-   if swInfo.assigned then
-      if string.sub(swInfo.mode,-1,-1) == "I" then Invert = -1.0 end
-      if swInfo.value == Invert or swTyp == "L" or swTyp =="M" then
-	 switches[switchName] = val
-	 switchInfo[switchName] = {} 
-	 switchInfo[switchName].name = swInfo.label
-	 if swTyp == "L" or swTyp =="M" then
-	    switchInfo[switchName].activeOn = 0
-	 else
-	    local ao = system.getInputs(string.upper(swInfo.label))
-	    switchInfo[switchName].activeOn = ao
-	    if ao > -1.0 and ao < 1.0 and swInfo.mode == "S" then swInfo.mode = "P" end
-	 end
-	 switchInfo[switchName].mode = swInfo.mode
-      else
-	 system.messageBox("Error - do not move switch when assigning")
-	 if switches[switchName] then
-	    form.setValue(swtCI[switchName], switches[switchName])
-	 else
-	    form.setValue(swtCI[switchName],nil)
-	 end
-      end
-   else
-      if switchInfo[switchName] then
-	 switches[switchName] = nil
-	 switchInfo[switchName] = nil
-      end
-   end
 end
 
 local function initForm(sf)
@@ -1014,14 +916,6 @@ local function initForm(sf)
 	 tele[savedRow].sensorStyle[savedRow2] = 4
 	 form.addLabel({label="Chart", alignRight=true})
       end
-
-      form.addRow(2)
-      form.addLabel({label="Autoscale"})
-      local temp
-      if tele[savedRow].sensorAuto[savedRow2] == "On" then temp = 1 else temp = 2 end
-      form.addSelectbox({"On", "Off"}, temp, true,
-	 	    (function(x) return sensorAutoChanged(x, savedRow, savedRow2) end))
-
       
       form.addRow(2)
       form.addLabel({label="Minimum displayed value", width=220})
@@ -1031,11 +925,11 @@ local function initForm(sf)
       form.addRow(2)
       form.addLabel({label="Minimum warning value", width=220})
       mm = tele[savedRow].sensorMinWarn[savedRow2]
-      --print("min: mm, type(mm)", mm, type(mm))
+      print("min: mm, type(mm)", mm, type(mm))
       if type(mm) ~= "number" then mm = tele[savedRow].sensorMin[savedRow2] end 
       minWarn = form.addIntbox(mm*10, -9999, 9999, 0, 1, 1,
 			       (function(x) return sensorMinWarnChanged(x, savedRow, savedRow2) end))
-
+      
       form.addRow(2)
       form.addLabel({label="Minimum multiplier", width=220})
       
@@ -1049,13 +943,13 @@ local function initForm(sf)
 		     (function(x) return sensorMaxChanged(x, savedRow, savedRow2) end))
       
       mm = tele[savedRow].sensorMaxWarn[savedRow2]
-      --print("max: mm, type(mm)", mm, type(mm))
+      print("max: mm, type(mm)", mm, type(mm))
       if type(mm) ~= "number" then mm = tele[savedRow].sensorMax[savedRow2] end 
       form.addRow(2)
       form.addLabel({label="Maximum warning value", width=220})
       maxWarn = form.addIntbox(mm*10, -9999, 9999, 0, 1, 1,
 			       (function(x) return sensorMaxWarnChanged(x, savedRow, savedRow2) end))
-
+      
       form.addRow(2)
       form.addLabel({label="Maximum multiplier", width=220})
       mm = math.log(tele[savedRow].sensorMaxMult[savedRow2])/math.log(10) + 1
@@ -1093,35 +987,7 @@ local function initForm(sf)
       else
 	 form.setFocusedRow(1)
       end
-   elseif sf == 104 then
-      form.setTitle("Settings")
-
-      form.addRow(2)
-      form.addLabel({label="Reset min/max markers", width=240})
-      swtCI.clearMinMax = form.addInputbox(switches.clearMinMax, false,
-					    (function(x) return changedSwitch(x, "clearMinMax") end))
       
-      form.addRow(2)
-      form.addLabel({label="Enable dial updates", width=240})
-      swtCI.holdDialData = form.addInputbox(switches.holdDialData, false,
-					    (function(x) return changedSwitch(x, "holdDialData") end))
-      form.addRow(2)
-      form.addLabel({label="Reset all app data >>", width=220})
-      form.addLink((function()
-	       local ans
-	       ans = form.question("Are you sure?", "Reset all app settings?",
-				   "",
-				   0, false, 5)
-	       if ans == 1 then
-		  writeBD = false
-		  wcDelete("Apps/DFM-Dial", "DD_", "jsn")
-		  system.messageBox("Saved data cleared - Restart App")
-		  form.reinit(1)
-	       else
-		  form.reinit(104)		  
-	       end
-	       form.waitForRelease()
-      end))      
    end
 end
 
@@ -1139,8 +1005,7 @@ local function writeTele()
    end
 
    save.tele = tele
-   save.switchInfo = switchInfo
-      
+   
    if writeBD then
       fp = io.open(fileBD, "w")
       if fp then
@@ -1151,57 +1016,13 @@ local function writeTele()
    end
 end
 
-local swclast
-local lastauto=0
-
 local function loop()
    local idx, sensor, value, sample
    local timeNow
    local txTel
    
    if #sensorIdlist < 2 then return end
-
-   local now = system.getTimeCounter()
-   if now > lastauto + 200 then
-      local twmin, twmax, twVmin, twVmax, tt
-      for win=1,2,1 do
-	 for i = 1,4,1 do
-	    twmin = tele[win].sensorMin[i] * tele[win].sensorMinMult[i]
-	    twmax = tele[win].sensorMax[i] * tele[win].sensorMaxMult[i]
-	    twVmin = tele[win].sensorVmin[i]
-	    twVmax = tele[win].sensorVmax[i]
-	    if tele[win].sensorAuto[i] == "On" and twVmin and twVmax then
-	       if twVmin < twmin or twVmax > twmax then
-		  tt, twmin, twmax = heckbert(twVmin, twVmax)
-		  tele[win].sensorMin[i] = twmin / tele[win].sensorMinMult[i]
-		  tele[win].sensorMax[i] = twmax / tele[win].sensorMaxMult[i]		  
-		  print("heckbert", win, i, twmin, twmax)
-	       end
-	    end
-	 end
-      end
-      
-      lastauto = now
-   end
    
-   local swc = system.getInputsVal(switches.clearMinMax)
-   if not swclast then swclast = swc end
-   if swc and swc == 1 and swclast ~= 1 then
-      for i=1,2,1 do
-	 for j=1,4,1 do
-	    tele[i].sensorVmin[j] = nil
-	    tele[i].sensorVmax[j] = nil
-	 end
-      end
-      system.messageBox("All min/max markers reset")
-   end
-   swclast = swc
-   
-   local swh = system.getInputsVal(switches.holdDialData)
-   if swh and swh ~= 1 then
-      return
-   end
-
    for i=1,2,1 do
       for j=1,nSens[tele[i].screen],1 do
 	 timeNow = system.getTimeCounter()
@@ -1279,8 +1100,10 @@ local function init()
    local mn
    local file
    local decoded
-   local jsnVersion = 7
+   local jsnVersion = 6
    
+
+
    emFlag = select(2, system.getDeviceType()) == 1
    if emFlag then pf = "" else pf = "/" end
    
@@ -1292,9 +1115,7 @@ local function init()
    if file then
       decoded = json.decode(file)
       tele = decoded.tele
-      switchInfo = decoded.switchInfo
    end
-   if not switchInfo then switchInfo = {} end
 
    if not file or tele[1].jsnVersion ~= jsnVersion then
       if not file then
@@ -1314,7 +1135,6 @@ local function init()
 	 tele[i].jsnVersion = jsnVersion
 	 tele[i].screen = 1 -- default to double tele window (one value)
 	 tele[i].sensor = {}
-	 tele[i].sensorInfo = {}
 	 tele[i].sensorMin = {}
 	 tele[i].sensorMinMult = {}	 
 	 tele[i].sensorMax = {}
@@ -1323,7 +1143,6 @@ local function init()
 	 tele[i].sensorValue = {}
 	 tele[i].sensorVmin = {}
 	 tele[i].sensorVmax = {}
-	 tele[i].sensorAuto = {}
 	 tele[i].sensorSample = {}
 	 tele[i].sensorChartTime = {}
 	 tele[i].sensorChartLast = {}
@@ -1334,12 +1153,10 @@ local function init()
 	 tele[i].sensorMaxWarnDone = {}
 	 for j=1,4,1 do
 	    tele[i].sensor[j] = 1 -- default to "..."
-	    tele[i].sensorInfo[j] = {SeSet = "false", SeId = 0, SePa = 0}
 	    tele[i].sensorMin[j] = 0
 	    tele[i].sensorMinMult[j] = 1	    
 	    tele[i].sensorMax[j] = 10
 	    tele[i].sensorMaxMult[j] = 1
-	    tele[i].sensorAuto[j] = "On"
 	    tele[i].sensorStyle[j] = 1 -- default to Arc
 	    tele[i].sensorSample[j] = {}
 	    tele[i].sensorChartTime[j] = 800
@@ -1364,18 +1181,17 @@ local function init()
 	 tele[i].sensorMaxWarnDone[j] = false
 	 tele[i].sensorSample[j] = {}
 	 if type(tele[i].sensorMinWarn[j]) ~= "number" then
-	    print("DFM-Dial: Fix MinW", i, j, type(tele[i].sensorMinWarn[j]))
+	    print("fix min", i, j, type(tele[i].sensorMinWarn[j]))
 	    tele[i].sensorMinWarn[j] = nil
 	 end
 	 if type(tele[i].sensorMaxWarn[j]) ~= "number" then
-	    print("DFM-Dial: Fix MaxW", i, j, type(tele[i].sensorMaxWarn[j]))
+	    print("fix max", i, j, type(tele[i].sensorMaxWarn[j]))
 	    tele[i].sensorMaxWarn[j] = nil
 	 end	 
       end
    end
 
    readSensors()
-   reMapSensors()
    
    system.registerForm(1, MENU_APPS, "Dial Display", initForm, keyForm)
    
@@ -1383,7 +1199,7 @@ local function init()
       local ii, str
       if tele[i].screen == 1 then
 	 ii = 2
-	 if tele[i].sensor[1] > 1 then -- only 1 window in a built-in double tele window
+	 if tele[i].sensor[1] > 1 then
 	    str = string.format("%d) ", i) .. sensorLslist[tele[i].sensor[1]] ..
 	       " (" .. sensorUnlist[tele[i].sensor[1]] .. ") " ..
 	       string.format("  [%.1f-%.1f]", tele[i].sensorMin[1], tele[i].sensorMax[1])
@@ -1398,11 +1214,13 @@ local function init()
 			       (function(x,y) return dialPrint(x,y,i) end))
    end
    
-   for k, swi in pairs(switchInfo) do
-      switches[k] = system.createSwitch(swi.name, swi.mode, swi.activeOn)
-   end
-
+   
    setLanguage()
+
+   --setMinMaxPoints(0,120)
+   --setMaxTicks(7)
+   --print("tickSpacing, niceMin, niceMax", tickSpacing, niceMin, niceMax)
+   --print("tickSpacing, niceMin, niceMax", niceScale())
 
    print("DFM-Dial: gcc " .. collectgarbage("count"))
    

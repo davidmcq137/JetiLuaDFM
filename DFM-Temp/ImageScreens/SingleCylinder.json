@@ -1,0 +1,23 @@
+{
+    "Image": "SingleCylinder.png",
+    "XPFont": "FONT_NORMAL",
+    "XTFont": "FONT_BIG",
+
+    "Gauges": [
+	{"Name":"Fuel","Sensor":"FuelPct","Min":0,"Max":100,"XG": 10,"YG": 100},
+	{"Name":"RPM", "Sensor":"RPM2","Min":0,"Max":11,"XG": 80,"YG":100}
+    ],
+
+    "Probes": [
+	{
+	    "Yellow": 50,
+	    "Red": 100,
+	    "XT": 5,
+	    "YT": 30,
+	    "YP": 15,
+	    "Green": 10,
+	    "Name": "H1",
+	    "XP": 42
+	}
+    ]
+}

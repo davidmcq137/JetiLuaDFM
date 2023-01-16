@@ -1165,7 +1165,19 @@ local function init()
 	 end
       end
    end
+
+   mt = {}
+   mt["__newindex"] = function(t, index, value)
+      print("mt: type(value)", type(value))
+      rawset(t, index, value)
+   end
+   for i=1,2,1 do
+      setmetatable(tele[i].sensorMaxWarn, mt)
+      setmetatable(tele[i].sensorMinWarn, mt)
+   end
    
+      
+	    
    -- clear out the items we don't want to remember from last run
    for i=1,2,1 do
       for k,v in pairs(tele[i]) do
@@ -1219,10 +1231,10 @@ local function init()
    
    
    setLanguage()
-   setMinMaxPoints(0,120)
-   setMaxTicks(7)
-   print("tickSpacing, niceMin, niceMax", tickSpacing, niceMin, niceMax)
-   print("tickSpacing, niceMin, niceMax", niceScale())
+   --setMinMaxPoints(0,120)
+   --setMaxTicks(7)
+   --print("tickSpacing, niceMin, niceMax", tickSpacing, niceMin, niceMax)
+   --print("tickSpacing, niceMin, niceMax", niceScale())
 
    print("DFM-Dial: gcc " .. collectgarbage("count"))
    
