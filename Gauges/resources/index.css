@@ -132,7 +132,7 @@ button, input, select, textarea {
 
 input:disabled,
 input[disabled] {
-  border: 1px solid #999999;
+  outline: 1px solid #999999;
   background-color: #cccccc;
   color: #666666;
 }
@@ -141,4 +141,35 @@ input[disabled] {
 .dynamic-repo-button {
     background-color: #254a6c;
     font-size: 115%;
+}
+
+.save-panel-button {
+    background-color: #254a6c;
+}
+
+.panel-list {
+    display: grid;
+    grid-template-columns: max-content 8ex 1fr min-content;
+    align-items: center;
+}
+
+.panel-rename-button {
+    justify-self: end; 
+}
+
+.panel-rename {
+    justify-self: end;
+    display: flex;
+}
+.panel-delete {
+    display: flex;
+}
+
+.panel-delete-button {
+    background-color: #6a0d12;
+}
+
+.example-panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(20%, 1fr));
 }
