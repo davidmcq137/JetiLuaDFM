@@ -10,16 +10,12 @@
 (def static-input-data [])
 
 (defonce db (atom {}))
-#_(defonce panels (atom {})) 
-
 
 (def config-json (js->clj (js/JSON.parse (rc/inline "config.json"))))
-
 
 (def draw-scale 2)
 
 (def disp-scale 2)
-
 
 (defn shape->bbox
   [{:strs [type radius x0 y0 width height] :as sh}]
@@ -562,26 +558,27 @@
         +calc (vec
                (for [[i {:keys [deleted]  :as d}] gauges
                      :when (not deleted)]
-                 (->> (dissoc (:params d) "value" "label")
-                      (clj->js)
-                      (js/renderGauge ctx)
-                      (js->clj)
-                      (merge (:params d)))))]
+                 (merge
+                  (:params d)
+                  (->> (dissoc (:params d) "value" "label")
+                       (clj->js)
+                       (js/renderGauge ctx)
+                       (js->clj)))))]
     (js/Promise.
      (fn [resolve reject]
        (.toBlob c (fn [b] (resolve {:image b :data +calc}))
                 "png")))))
 
-(defn generate-json
+(defn download-json!
   [w h]
-  (.then (render-panel @db w h)
+  (.then (render-panel (get (:panels @db) (get @db :selected-panel)) w h)
          (fn [{:keys [data]}]
            (ask-download-file "gauges.json" (js/JSON.stringify (clj->js data) nil 2)))))
 
 
 (defn output-png-blob!
   [w h]
-  (.then (render-panel @db w h)
+  (.then (render-panel (get (:panels @db) (get @db :selected-panel)) w h)
          (fn [{:keys [image]}]
            (ask-download-file "gauges.png" image))))
 
