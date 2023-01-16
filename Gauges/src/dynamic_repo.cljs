@@ -50,5 +50,5 @@
                            error [:p "Server error."]
                            repo_url [:code [:pre repo_url]])])
         (str "Weird modal state:" (pr-str st) ))
-      [:button {:on-click #(reset! modal-state nil)} "Close"]]]))
+      [:div [:button {:on-click #(reset! modal-state nil)} "Close"]]]]))
 

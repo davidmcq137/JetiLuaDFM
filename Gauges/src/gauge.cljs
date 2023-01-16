@@ -582,35 +582,46 @@
          (fn [{:keys [image]}]
            (ask-download-file "gauges.png" image))))
 
-#_(defn get-png-base64!
-  [w h]
-  (js/Promise.
-   (fn [resolve reject]
-     (-> (output-png-blob! w h)
-         (.catch (fn [e] (reject e)))
-         (.then (fn [v]
-                  (let [fr (doto (js/FileReader.)
-                             (.readAsDataURL v))]
-                    (set! (.-error fr) reject)
-                    (set! (.-onloadend fr) #(resolve (.-result fr))))))))))
-
 (defn download-png!
   [w h]
   (.then (output-png-blob! w h)
          (fn [v] (ask-download-file "gauges.png" v))))
 
-
-(defn get-png-base64!
-  [w h]
+(defn blob->base64
+  [v]
   (js/Promise.
    (fn [resolve reject]
-     (-> (output-png-blob! w h)
-         (.catch (fn [e] (reject e)))
-         (.then (fn [v]
-                  (let [fr (doto (js/FileReader.)
-                             (.readAsDataURL v))]
-                    (set! (.-error fr) reject)
-                    (set! (.-onloadend fr) #(resolve (.-result fr))))))))))
+     (let [fr (doto (js/FileReader.)
+               (.readAsDataURL v))]
+      (set! (.-error fr) reject)
+      (set! (.-onloadend fr) #(resolve (.-result fr)))))))
+
+(defn make-dynamic-repo-request*
+  [w h]
+  (js/Promise.all
+   (into-array
+    (for [[panel-name panel] (:panels @db)]
+      (.then (render-panel panel w h)
+             (fn [{:keys [image data]}]
+               (.then (blob->base64 image)
+                      (fn [base]
+                        #js [{:destination (str "Apps/DFM-InsP/Panels/" panel-name ".json")
+                              :json-data (clj->js data)}
+                             {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".png")
+                              :data-base64 (subs base (count "data:image/png;base64,"))}]))))))))
+
+(defn make-dynamic-repo-request
+  [w h]
+  (-> (make-dynamic-repo-request* w h)
+      (.then (fn [filesets]
+               (clj->js
+                {:yoururl js/window.location.origin
+                 :dynamic-files {"Gauges"
+                                 (into [{:prefix "Apps/"
+                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3924990728/DFM-InsP-v0.2.zip"}]
+                                       cat
+                                       filesets)}})))))
+
 
 (rum/defc app-controls
   [w h]
@@ -634,39 +645,14 @@
               :value "Create app source"
               :class "dynamic-repo-button"
               :onClick (fn [ev]
-                         #_(doseq [[pk p] @panels]
-                             (.then (render-panel p w h)
-                                    (fn [{:keys [image data]}]
-                                      #_(println "Complete?" name))))
-                         
-                         #_(.then (get-png-base64! w h)
-                                  (fn [b]
-                                    (dynamic-repo/send-dynamic-repo-request! 
-                                     (clj->js
-                                      {:yoururl js/window.location.origin
-                                       :dynamic-files {"Gauge app"
-                                                       [{:prefix "Apps/"
-                                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3852475316/DFM-InsP-v0.1.zip"}
-                                                        {:destination "Apps/DFM-InsP/Panels/gauges.png"
-                                                         :data-base64 (subs b (count "data:image/png;base64,"))}
-                                                        {:destination "Apps/DFM-InsP/Panels/gauges.json"
-                                                         :data (generate-json w h)}
-                                                        #_(when-let [bg (:background-image @db)]
-                                                            {}
-                                                            )
-                                                        ]}})))))}]
-     
-     ]
+                         (-> (make-dynamic-repo-request w h)
+                             (.then dynamic-repo/send-dynamic-repo-request! )))}]]
+    
     [:p "You can also download the configuration data manually:"]
     [:ul
      [:li [:input {:type "button"  :value "Download JSON"  :onClick #(download-json! w h)}]]
-     [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]
-     ]]
+     [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]]]
    (dynamic-repo/repo-result-modal)])
-
-
-
-
 
 
 (defn reload-json!
@@ -678,10 +664,7 @@
                               (assoc-in [:panels panel-name]
                                         {:gauges (zipmap (range)
                                                          (map render-gauge* (js->clj jd)))})
-                              (assoc :selected-panel panel-name)))
-               #_(reset! db
-                         {:gauges (zipmap (range)
-                                          (map render-gauge* (js->clj jd)))})))))
+                              (assoc :selected-panel panel-name)))))))
 
 (defn new-gauge!
   [new-gauge-type]
@@ -691,9 +674,6 @@
     (count (:gauges @db))
     (assoc (render-gauge* (get-in config-json ["prototypes" new-gauge-type]))
       :editing true)))
-
-
-
 
 (rum/defc gauge-list-controls
   []
@@ -868,6 +848,8 @@
        [:line {:key i
                :x1 0 :y1 (* i (/ hh d))
                :x2 ww :y2 (* i (/ hh d))}])]]))
+
+
 
 
 (rum/defc root
