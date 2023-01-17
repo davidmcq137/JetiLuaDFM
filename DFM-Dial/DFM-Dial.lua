@@ -146,6 +146,9 @@ local function heckbert(min, max)
       print("heckbert max-min<=0", max, min)
       return 0, min, max
    end
+   if math.abs(max) > 1.0E+6 or math.abs(min) > 1.0E+6 then
+      print("heckbert > 1M", min, max)
+   end
    if min then minPoint = min end
    if max then maxPoint = max end
    calculate()
@@ -166,10 +169,10 @@ local function readSensors()
    local sensorLbl = "***"
    
    local sensors = system.getSensors()
-   for i, sensor in ipairs(sensors) do
+   for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then sensorLbl = sensor.label else
-	    local ii = #sensorLalist+1
+	    --local ii = #sensorLalist+1
 	    table.insert(sensorLslist, sensor.label) -- .. "[" .. ii .. "]")
 	    table.insert(sensorLalist, sensorLbl .. "-> " .. sensor.label) -- .. "["..ii.."]")
 	    table.insert(sensorIdlist, sensor.id)
@@ -230,7 +233,7 @@ local function wcDelete(pathIn, pre, typ)
       path = pathIn
    end      
 
-   for name, filetype, size in dir(path) do
+   for name, _, _ in dir(path) do
       dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
       if fn and ext then
 	 if string.lower(ext) == string.lower(typ) and string.find(fn, pre) == 1 then
@@ -553,7 +556,7 @@ local function dialPrint(w,h,win)
 	    np = needle_poly_large
 	 end
 	 
-	 local text, f1, f2, y1, y2, y3, y4, x0, x1, x2, x3, bh, bw, ss
+	 local text, f1, f2, y1, y2, y3, y4, x00, x1, x2, x3, bh, bw, ss
 	 
 	 ss = tele[win].sensorStyle[i]
 	 
@@ -564,7 +567,7 @@ local function dialPrint(w,h,win)
 	       y1 = 14
 	       y2 = 25
 	       y3 = 0
-	       x0 = 0
+	       x00 = 0
 	       x1 = 70
 	       x2 = 70
 	       x3 = 0
@@ -575,7 +578,7 @@ local function dialPrint(w,h,win)
 		  y1 = 24
 		  y2 = 85
 		  y3 = 85
-		  x0 = 0
+		  x00 = 0
 		  x1 = 40
 		  x2 = -40
 		  x3 = 0
@@ -585,7 +588,7 @@ local function dialPrint(w,h,win)
 		  y1 = 24
 		  y2 = 85
 		  y3 = 85
-		  x0 = 0
+		  x00 = 0
 		  x1 = 40
 		  x2 = -40
 		  x3 = 0
@@ -599,7 +602,7 @@ local function dialPrint(w,h,win)
 	       y2 = 36
 	       y3 = 36
 	       y4 = 0
-	       x0 = 25
+	       x00 = 25
 	       x1 = 80
 	       x2 = -20
 	       x3 = 35
@@ -613,7 +616,7 @@ local function dialPrint(w,h,win)
 		  y2 = 85
 		  y3 = 85
 		  y4 = -10
-		  x0 = 3
+		  x00 = 3
 		  x1 = 45
 		  x2 = -45
 		  x3 = 0
@@ -626,7 +629,7 @@ local function dialPrint(w,h,win)
 		  y2 = 85
 		  y3 = 85
 		  y4 = -10
-		  x0 = 5
+		  x00 = 5
 		  x1 = 50
 		  x2 = -40
 		  x3 = 10
@@ -698,7 +701,7 @@ local function dialPrint(w,h,win)
 
 	    text = formatD(val)
 	    if round and (ovld or unld) then lcd.setColor(255,255,255) end 
-	    lcd.drawText(xz + x0 - lcd.getTextWidth(f1, text) / 2, yz+y1, text, f1)
+	    lcd.drawText(xz + x00 - lcd.getTextWidth(f1, text) / 2, yz+y1, text, f1)
 
 	    if lcdBG == "D" then
 	       lcd.setColor(255,255,255)
@@ -941,7 +944,6 @@ local function changedSwitch(val, switchName)
 end
 
 local function initForm(sf)
-   local str
    subForm = sf
    
    if sf == 1 then
@@ -988,7 +990,7 @@ local function initForm(sf)
       local temp
       if tele[savedRow].sensorAuto[savedRow2] == "On" then temp = 1 else temp = 2 end
       form.addSelectbox({"On", "Off"}, temp, true,
-	 	    (function(x) return sensorAutoChanged(x, savedRow, savedRow2) end))
+	 (function(x) return sensorAutoChanged(x, savedRow, savedRow2) end))
 
       
       form.addRow(2)
@@ -1332,11 +1334,11 @@ local function init()
 	 tele[i].sensorMaxWarnDone[j] = false
 	 tele[i].sensorSample[j] = {}
 	 if type(tele[i].sensorMinWarn[j]) ~= "number" then
-	    print("DFM-Dial: Fix MinW", i, j, type(tele[i].sensorMinWarn[j]))
+	    --print("DFM-Dial: Fix MinW", i, j, type(tele[i].sensorMinWarn[j]))
 	    tele[i].sensorMinWarn[j] = nil
 	 end
 	 if type(tele[i].sensorMaxWarn[j]) ~= "number" then
-	    print("DFM-Dial: Fix MaxW", i, j, type(tele[i].sensorMaxWarn[j]))
+	    --print("DFM-Dial: Fix MaxW", i, j, type(tele[i].sensorMaxWarn[j]))
 	    tele[i].sensorMaxWarn[j] = nil
 	 end	 
       end
@@ -1372,13 +1374,6 @@ local function init()
 
    setLanguage()
 
-   print("h 0,0:", heckbert(0,0))
-   print("h 10,10:", heckbert(10,10))
-   print("h 10,-10:", heckbert(10,-10))
-
-   print("h -3.5, 4.7:", heckbert(-3.5,4.7))         
-   
-	 
    print("DFM-Dial: gcc " .. collectgarbage("count"))
    
 end
