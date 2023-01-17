@@ -15,7 +15,11 @@
 
 (def draw-scale 2)
 
-(def disp-scale 2)
+(def disp-scale
+  (if (and (< 2000 js/window.innerWidth)
+           (< 600 js/window.innerHeight))
+    2
+    1))
 
 (defn shape->bbox
   [{:strs [type radius x0 y0 width height] :as sh}]
@@ -618,7 +622,7 @@
                 {:yoururl js/window.location.origin
                  :dynamic-files {"Gauges"
                                  (into [{:prefix "Apps/"
-                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3924990728/DFM-InsP-v0.2.zip"}]
+                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3934184717/DFM-InsP-v0.2.zip"}]
                                        cat
                                        filesets)}})))))
 
@@ -668,17 +672,18 @@
 
 (defn new-gauge!
   [new-gauge-type]
-  (swap! db update
-    :gauges
-    assoc
-    (count (:gauges @db))
-    (assoc (render-gauge* (get-in config-json ["prototypes" new-gauge-type]))
-      :editing true)))
+  (swap! db update-in
+         [:panels (:selected-panel @db) :gauges]
+         (fn [gs]
+           (assoc gs
+                  (count gs)
+                  (assoc (render-gauge*
+                          (get-in config-json ["prototypes" new-gauge-type])) :editing true)))))
 
 (rum/defc gauge-list-controls
   []
   (let [gauge-types (keys (get config-json "prototypes"))
-        [new-gauge-type set-new-gauge-type!] (rum/use-state "roundGauge")]
+        [new-gauge-type set-new-gauge-type!] (rum/use-state (first gauge-types))]
     [:div
      [:input
       {:type :button
