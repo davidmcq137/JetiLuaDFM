@@ -5,7 +5,8 @@
         "FourUp":        {"file": "FourUp.json"},
         "PreFlight":     {"file": "PreFlight.json"},
         "PreFlightArc":  {"file": "PreFlightArc.json"},
-        "PreFlightFour": {"file": "PreFlightFour.json"},	
+        "PreFlightFour": {"file": "PreFlightFour.json"},
+        "PreFlightCBox": {"file": "PreFlightCBox.json"},		
         "Turbine":       {"file": "Turbine.json"},
         "TurbineArc":    {"file": "TurbineArc.json"}
     },

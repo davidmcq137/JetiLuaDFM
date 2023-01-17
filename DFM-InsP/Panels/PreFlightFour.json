@@ -55,10 +55,10 @@
     "tBoxWid": 150,
     "xV": 80,
     "text": [
-	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 1)",
-	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 2)",
-	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 3)",
-    	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 4)"
+	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 1, 'LiFe')",
+	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 2, 'LiFe')",
+	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 3, 'LiFe')",
+    	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 4, 'LiFe')"
     ],
     "fontSize": 12,
     "type": "stackedTextBox",

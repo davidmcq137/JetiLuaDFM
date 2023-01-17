@@ -1,5 +1,6 @@
 local M = {}
 
+
 local LiFe={}
 LiFe[1]={s=100.00,v=3.59}
 LiFe[2]={s=95.71,v=3.32}
@@ -26,45 +27,55 @@ LiFe[22]={s=9.63,v=3.17}
 LiFe[23]={s=5.35,v=3.12}
 LiFe[24]={s=1.01,v=2.90}
 
+local dC = {LiFe=LiFe}
 
-function M.Volt(SOC)
+function M.Volt(SOC, batt)
 
    local ds
-   if SOC >= LiFe[1].s then return LiFe[1].v end
-   if SOC <= LiFe[#LiFe].s then return LiFe[#LiFe].v end
 
-   for i=1, #LiFe-1 do
-      if SOC >= LiFe[i+1].s and SOC <=LiFe[i].s then
-	 ds = (SOC - LiFe[i+1].s) / (LiFe[i].s - LiFe[i+1].s)
-	 return LiFe[i+1].v + ds * (LiFe[i].s - LiFe[i+1].v)
+   if not dC[batt] then return "no curve for " .. batt end
+   if SOC >= dC[batt][1].s then return dC[batt][1].v end
+   if SOC >= dC[batt][1].s then return dC[batt][1].v end
+   if SOC <= dC[batt][#dC[batt]].s then return dC[batt][#dC[batt]].v end
+
+   for i=1, #dC[batt]-1 do
+      if SOC >= dC[batt][i+1].s and SOC <=dC[batt][i].s then
+	 ds = (SOC - dC[batt][i+1].s) / (dC[batt][i].s - dC[batt][i+1].s)
+	 return dC[batt][i+1].v + ds * (dC[batt][i].s - dC[batt][i+1].v)
       end
    end
 end
 
-function M.SOC(Volt)
+function M.SOC(Volt, batt)
 
    local dv
-   if Volt >= LiFe[1].v then return LiFe[1].s end
-   if Volt <= LiFe[#LiFe].v then return LiFe[#LiFe].s end
 
-   for i=1, #LiFe-1 do
-      if Volt >= LiFe[i+1].v and Volt <=LiFe[i].v then
-	 dv = (Volt - LiFe[i+1].v) / (LiFe[i].v - LiFe[i+1].v)
-	 return LiFe[i+1].s + dv * (LiFe[i].s - LiFe[i+1].s)
+   if not dC[batt] then return "rt: no curve for " .. batt end
+   if Volt >= dC[batt][1].v then return dC[batt][1].s end
+   if Volt <= dC[batt][#dC[batt]].v then return dC[batt][#dC[batt]].s end
+
+   for i=1, #dC[batt]-1 do
+      if Volt >= dC[batt][i+1].v and Volt <=dC[batt][i].v then
+	 dv = (Volt - dC[batt][i+1].v) / (dC[batt][i].v - dC[batt][i+1].v)
+	 return dC[batt][i+1].s + dv * (dC[batt][i].s - dC[batt][i+1].s)
       end
    end
 end
 
-function M.text(env, line)
+function M.text(env, line, battType)
    local _ENV = env
+
+
    if line == 1 then
-      return string.format("Batt1 %.2fV  SOC: %d%%", CBOX200_UAccu1, M.SOC(CBOX200_UAccu1 / 2))
+      return string.format("Batt1 %.2fV  SOC: %d%%",
+			   CBOX200_UAccu1, M.SOC(CBOX200_UAccu1 / 2, battType))
    elseif line == 2 then
-      return string.format("Batt2 %.2fV  SOC: %d%%", CBOX200_UAccu2, M.SOC(CBOX200_UAccu2 / 2))
+      return string.format("Batt2 %.2fV  SOC: %d%%",
+			   CBOX200_UAccu2, M.SOC(CBOX200_UAccu2 / 2, battType))
    elseif line == 3 then
-      return string.format("Batt1 cap %d maH", CBOX200_Capacity1)
+      return string.format("Batt1 Cap %d maH", CBOX200_Capacity1)
    elseif line == 4 then
-      return string.format("Batt2 cap %d maH", CBOX200_Capacity2)
+      return string.format("Batt2 Cap %d maH", CBOX200_Capacity2)
    end
 end
 

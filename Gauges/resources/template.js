@@ -1017,6 +1017,9 @@ function textBox(ctx, arr, type) {
 	var str;
 	if (type != "stack") {
 	    str = arr.text[Math.floor(arr.value)];
+	    if (str.startsWith("luaS:") || str.startsWith("luaE:")) {
+		str = "<lua script>";
+	    }
 	    ctx.fillText(str, arrR.xV, arrR.yV);
 	} else  {
 	    let txH = getTextHeight(ctx, arr.text[0]);
@@ -1024,6 +1027,9 @@ function textBox(ctx, arr, type) {
 	    for(let i = 0, len = arr.text.length; i < len; i++) {
 		let str = arr.text[i];
 		let txW = getTextWidth(ctx, str);
+		if (str.startsWith("luaS:") || str.startsWith("luaE:")) {
+		    str = "<lua script>";
+		}
 		ctx.fillText(str, x0, yc + i * 1.5 * txH);		
 	    } 
 	}

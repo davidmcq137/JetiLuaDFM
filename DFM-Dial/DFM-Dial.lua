@@ -1150,7 +1150,6 @@ local function loop()
 	    end
 	 end
       end
-      
       lastauto = now
    end
    
