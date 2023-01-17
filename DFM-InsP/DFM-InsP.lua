@@ -341,12 +341,13 @@ local function evaluateLua(es, luastring, pnl, gauge, index)
       end
       if not err then
 	 --print("pcall", sp, idxW)
+	 --print("_ENV, lua.env, type(_ENV), type(lua.env)", _ENV, lua.env, type(_ENV), type(lua.env))
 	 status, result = pcall(lua.chunk[pnl][gauge][index])
 	 if not status then
 	    pCallErr = pCallErr + 1
 	    if pCallErr < 10 then
 	       print("DFM-InsP - pcall error: " .. result)
-	       print("DFM-InsP - P,G,I,L: ", pnl, gauge, index, luastr)
+	       print("DFM-InsP - P,G,I,L: ", pnl, gauge, index, luastring)
 	    end
 	    
 	    luaReturn = "Check lua console"
@@ -466,7 +467,7 @@ local function keyForm(key)
 	 is.selectedPanel = #InsP.panels
 	 InsP.panelImages[is.selectedPanel].instImage = "---"
 	 InsP.panelImages[is.selectedPanel].backImage = "---"
-	 InsP.panelImages[is.selectedPanel].auxWin = 1	 
+	 InsP.panelImages[is.selectedPanel].auxWin = 1
 	 setToPanel(#InsP.panels)
 	 form.reinit(106)
       end
@@ -690,6 +691,7 @@ local function panelChanged(val, sp)
       local file = io.readall(fn)
       local bi = InsP.panelImages[sp].backImage
       InsP.panels[sp] = json.decode(file)
+      lua.chunk = {} -- need to compute any chunks for this panel
       if not instImg then
 	 instImg = lcd.loadImage(pDir .. "/"..pv..".png")
       end

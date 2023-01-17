@@ -55,10 +55,10 @@
     "tBoxWid": 150,
     "xV": 80,
     "text": [
-	"luaE: string.format('Fuel Remaining: %.1f', Fuel_FuelPct)",
-	"luaE: string.format('Fuel Used: %.1f', 100 - Fuel_FuelPct)",	
-	"luaE: string.format('CB200: %.1f mA %.1f V', 5*7.12, 6.34*4)",
-	"luaS: A123 = require 'DFM-InsP/A123' return string.format('3.25V A123 %.2f%%SOC', A123.SOC(3.25))"
+	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 1)",
+	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 2)",
+	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 3)",
+    	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 4)"
     ],
     "fontSize": 12,
     "type": "stackedTextBox",

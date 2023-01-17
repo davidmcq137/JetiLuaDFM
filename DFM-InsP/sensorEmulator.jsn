@@ -22,6 +22,16 @@
      "label": "RPM",
      "unit": "rpm"
     },
+    {"id":11,
+     "param": 2,
+     "decimals": 0,
+     "type": 1,
+     "luaExp": "swseq('SA', {1,2,3,4,5,6})",
+     "sensorName": "",
+     "label": "Seq",
+     "unit": ""
+    },
+
     {"id":137, "param": 0,"sensorName": "SB-TEMP", "label": "General"},
 
     {"id":137,
@@ -51,13 +61,60 @@
      "label": "BattV",
      "unit": "V"
     },
-    {"id":137,
-     "param":7,
-     "decimals":0,
+    {"id":139, "param": 0,"sensorName": "XXX", "label": "CBOX200"},
+    {"id":139,
+     "param":1,
+     "decimals":1,
      "type":1,
-     "sensorName":"SB-Temp",
-     "label": "Seq",
-     "luaExp": "swseq('SA', {1,2,3,4,5,6})",
-     "unit": " "
+     "sensorName":"",
+     "label": "U Accu 1",
+     "luaExp":"P1(10)",
+     "unit": "V"
+    },
+    {"id":139,
+     "param":2,
+     "decimals":1,
+     "type":1,
+     "sensorName":"",
+     "luaExp":"P2(10)",
+     "label": "U Accu 2",
+     "unit": "V"
+    },
+    {"id":139,
+     "param":3,
+     "decimals":1,
+     "type":1,
+     "sensorName":"",
+     "luaExp":"P3(100)",     
+     "label": "I Accu 1",
+     "unit": "ma"
+    },
+    {"id":139,
+     "param":4,
+     "decimals":1,
+     "type":1,
+     "sensorName":"",
+     "luaExp":"P4(100)",
+     "label": "I Accu 2",
+     "unit": "ma"
+    },
+    {"id":139,
+     "param":5,
+     "decimals":1,
+     "type":1,
+     "sensorName":"",
+     "luaExp":"P5(100)",          
+     "label": "Capacity 1",
+     "unit": "mah"
+    },
+    {"id":139,
+     "param":6,
+     "decimals":1,
+     "type":1,
+     "sensorName":"",
+     "luaExp":"P6(100)",          
+     "label": "Capacity 2",
+     "unit": "mah"
     }
+
 ]

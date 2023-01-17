@@ -27,7 +27,7 @@ LiFe[23]={s=5.35,v=3.12}
 LiFe[24]={s=1.01,v=2.90}
 
 
-local function Volt(SOC)
+function M.Volt(SOC)
 
    local ds
    if SOC >= LiFe[1].s then return LiFe[1].v end
@@ -41,7 +41,7 @@ local function Volt(SOC)
    end
 end
 
-local function SOC(Volt)
+function M.SOC(Volt)
 
    local dv
    if Volt >= LiFe[1].v then return LiFe[1].s end
@@ -55,17 +55,18 @@ local function SOC(Volt)
    end
 end
 
-function M.returnText(line)
-
+function M.text(env, line)
+   local _ENV = env
    if line == 1 then
-      return string.format("Batt 1 (2S A123) %.2fV SOC: %d", 3.3, SOC(3.3))
+      return string.format("Batt1 %.2fV  SOC: %d%%", CBOX200_UAccu1, M.SOC(CBOX200_UAccu1 / 2))
    elseif line == 2 then
-      return string.format("Batt 2 (2S A123) %.2fV SOC: %d", 3.4, SOC(3.4))
+      return string.format("Batt2 %.2fV  SOC: %d%%", CBOX200_UAccu2, M.SOC(CBOX200_UAccu2 / 2))
    elseif line == 3 then
-      return string.format("Batt 1 capacity %d maH", 2300)
+      return string.format("Batt1 cap %d maH", CBOX200_Capacity1)
    elseif line == 4 then
-      return string.format("Batt 2 capacity %d maH", 2350)
+      return string.format("Batt2 cap %d maH", CBOX200_Capacity2)
    end
-   
+end
+
 return M
 
