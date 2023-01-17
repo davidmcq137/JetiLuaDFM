@@ -486,7 +486,7 @@ function emulator_getPosition(sensID, parmLat, parmLng)
    end
    
    sensor = emulator_getSensorByID(sensID, parmLat)
-   if sensor and sensor.valid then
+   if sensor and sensor.valid and sensor.valGPS then
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       degs = (sensor.valGPS >> 16) & 0xFF
       latitude = degs + minutes/60

@@ -12,9 +12,7 @@ local switches = {}
 local swtCI = {}
 local switchInfo = {}
 
-local runningTime = 0
 local startTime = 0
-local remainingTime
 local subForm = 0
 local emFlag
    
@@ -85,108 +83,78 @@ end
 
 --------------------------------------------------------------------------------
 
-local minPoint
-local maxPoint
-local maxTicks = 10
-local tickSpacing
-local range
-local niceMin
-local niceMax
-
---[[
-   * Returns a "nice" number approximately equal to range Rounds
-   * the number if round = true Takes the ceiling if round = false.
-   *
-   *  localRange the data range
-   *  round whether to round the result
-   *  a "nice" number to be used for the data range
---]]
-
-local function niceNum(localRange,  round)
-   local exponent  -- exponent of localRange
-   local fraction  -- fractional part of localRange
-   local niceFraction -- nice, rounded fraction
-   
-   exponent = math.floor(math.log(localRange) / math.log(10))
-   fraction = localRange / (10^exponent)
-
-    if (round) then
-        if (fraction < 1.5) then
-            niceFraction = 1
-        elseif (fraction < 3) then
-            niceFraction = 2
-        elseif (fraction < 7) then
-	   niceFraction = 5
-        else
-	   niceFraction = 10
-	end
-    else
-       if (fraction <= 1) then
-            niceFraction = 1
-        elseif (fraction <= 2) then
-            niceFraction = 2
-        elseif (fraction <= 5) then
-            niceFraction = 5
-        else
-            niceFraction = 10
-       end
-    end
-
-    return niceFraction * (10^exponent)
-end
-
---[[
-   * Calculate and update values for tick spacing and nice
-   * minimum and maximum data points on the axis.
---]]
-
-local function calculate() 
-   range = niceNum(maxPoint - minPoint, false)
-   tickSpacing = niceNum(range / (maxTicks - 1), true)
-   niceMin = math.floor(minPoint / tickSpacing) * tickSpacing
-   niceMax = math.ceil(maxPoint / tickSpacing) * tickSpacing
-end
-
-
---[[
-   *
-   *  min the minimum data point on the axis
-   *  max the maximum data point on the axis
---]]
 
 local function heckbert(min, max) 
+   local minPoint
+   local maxPoint
+   local tickSpacing
+   local range
+   local niceMin
+   local niceMax
+   local maxTicks = 10
+
+   --[[
+      * Returns a "nice" number approximately equal to range Rounds
+      * the number if round = true Takes the ceiling if round = false.
+      *
+      *  localRange the data range
+      *  round whether to round the result
+      *  a "nice" number to be used for the data range
+   --]]
+   
+   local function niceNum(localRange,  round)
+      local exponent  -- exponent of localRange
+      local fraction  -- fractional part of localRange
+      local niceFraction -- nice, rounded fraction
+      
+      exponent = math.floor(math.log(localRange) / math.log(10))
+      fraction = localRange / (10^exponent)
+      
+      if (round) then
+	 if (fraction < 1.5) then
+            niceFraction = 1
+	 elseif (fraction < 3) then
+            niceFraction = 2
+	 elseif (fraction < 7) then
+	    niceFraction = 5
+	 else
+	    niceFraction = 10
+	 end
+      else
+	 if (fraction <= 1) then
+            niceFraction = 1
+	 elseif (fraction <= 2) then
+            niceFraction = 2
+	 elseif (fraction <= 5) then
+            niceFraction = 5
+	 else
+            niceFraction = 10
+	 end
+      end
+      
+      return niceFraction * (10^exponent)
+   end
+   
+   local function calculate() 
+      range = niceNum(maxPoint - minPoint, false)
+      tickSpacing = niceNum(range / (maxTicks - 1), true)
+      niceMin = math.floor(minPoint / tickSpacing) * tickSpacing
+      niceMax = math.ceil(maxPoint / tickSpacing) * tickSpacing
+   end
+
+   if max - min <= 0 then
+      print("heckbert max-min<=0", max, min)
+      return 0, min, max
+   end
    if min then minPoint = min end
    if max then maxPoint = max end
    calculate()
+   if niceMin ~= niceMin or niceMax ~= niceMax then
+      print("heckbert nan, niceMin, niceMax, min, max", niceMin, niceMax, min, max)
+      return 0, min, max
+   end
    return tickSpacing, niceMin, niceMax
 end
-
-
-
---[[
-   * Sets the minimum and maximum data points for the axis.
-   *
-   *  minPoint the minimum data point on the axis
-   *  maxPoint the maximum data point on the axis
---]]
-
-local function setMinMaxPoints(localMinPoint, localMaxPoint) 
-    minPoint = localMinPoint
-    maxPoint = localMaxPoint
-    calculate()
-end
-
---[[
-   * Sets maximum number of tick marks we're comfortable with
-   *
-   *  maxTicks the maximum number of tick marks for the axis
---]]
-
-local function setMaxTicks(localMaxTicks) 
-    maxTicks = localMaxTicks
-    calculate()
-end
-
 
 --------------------------------------------------------------------------------
 
@@ -1404,6 +1372,13 @@ local function init()
 
    setLanguage()
 
+   print("h 0,0:", heckbert(0,0))
+   print("h 10,10:", heckbert(10,10))
+   print("h 10,-10:", heckbert(10,-10))
+
+   print("h -3.5, 4.7:", heckbert(-3.5,4.7))         
+   
+	 
    print("DFM-Dial: gcc " .. collectgarbage("count"))
    
 end
