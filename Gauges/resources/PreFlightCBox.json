@@ -40,10 +40,10 @@
 	"x0": 80,
 	"value": 0,
 	"text": [
-	    "luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 1, 'LiFe')",
-	    "luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 2, 'LiFe')",
-	    "luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 3, 'LiFe')",
-    	    "luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 4, 'LiFe')"
+	    "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 1, 'LiFe')",
+	    "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 2, 'LiFe')",
+	    "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 3, 'LiFe')",
+    	    "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 4, 'LiFe')"
 	],
 	"fontSize": 12,
 	"type": "stackedTextBox"
@@ -69,7 +69,7 @@
 	    }
 	],
 	"y0": 39,
-	"label": "Batt 1 V",
+	"label": "U Accu 1 (V)",
 	"max": 8,
 	"radius": 42,
 	"x0": 199,
@@ -81,19 +81,19 @@
 	"end": 120
     },
     {
-	"min": 0,
+	"min": 6,
 	"colorvals": [
 	    {
 		"color": "red",
-		"val": 6
+		"val": 6.5
 	    },
 	    {
 		"color": "yellow",
-		"val": 7
+		"val": 6.6
 	    },
 	    {
 		"color": "green",
-		"val": 9
+		"val": 7.2
 	    },
 	    {
 		"color": "green",
@@ -101,8 +101,8 @@
 	    }
 	],
 	"y0": 39,
-	"label": "Batt 2 V",
-	"max": 8,
+	"label": "U Accu 2 (V)",
+	"max": 7.5,
 	"radius": 42,
 	"x0": 280,
 	"majdivs": 4,
@@ -133,7 +133,7 @@
 	    }
 	],
 	"y0": 118,
-	"label": "Batt 1 mA",
+	"label": "I Accu 1 (mA)",
 	"max": 120,
 	"radius": 42,
 	"x0": 199,
@@ -165,7 +165,7 @@
 	    }
 	],
 	"y0": 118,
-	"label": "Batt 2 mA",
+	"label": "I Accu 2 (mA)",
 	"max": 120,
 	"radius": 42,
 	"x0": 280,

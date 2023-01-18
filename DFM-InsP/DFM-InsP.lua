@@ -314,6 +314,7 @@ local function setToPanelName(pn)
 end
 
 local pCallErr = 0
+local luaLoadErr = 0
 
 local function evaluateLua(es, luastring, pnl, gauge, index)
    local luaReturn = ""
@@ -334,14 +335,16 @@ local function evaluateLua(es, luastring, pnl, gauge, index)
 	 else
 	    err = "lua exp or stmt not present"
 	 end
+
 	 if err then
-	    print("DFM-InsP - lua load error: " .. err)
+	    luaLoadErr = luaLoadErr + 1
+	    if luaLoadErr < 10 then
+	       print("DFM-InsP - lua load error: " .. err)
+	    end
 	    luaReturn = "Check lua console"
 	 end
       end
       if not err then
-	 --print("pcall", sp, idxW)
-	 --print("_ENV, lua.env, type(_ENV), type(lua.env)", _ENV, lua.env, type(_ENV), type(lua.env))
 	 status, result = pcall(lua.chunk[pnl][gauge][index])
 	 if not status then
 	    pCallErr = pCallErr + 1
@@ -356,8 +359,7 @@ local function evaluateLua(es, luastring, pnl, gauge, index)
 	 end
       end
    end
-   --print("luaReturn", luaReturn)
-   return luaReturn or "lua return nil"
+   return luaReturn or "<lua return nil>"
 end
 
 local function expandStr(stri, pnl, gauge, idx, val, SeDp, SeUn)
@@ -1822,8 +1824,11 @@ local function printForm(_,_,tWin)
       end
    end
 
-   lcd.drawText(300,120, math.floor(loopCPU + 0.5), FONT_MINI)   
-   lcd.drawText(300,140, system.getCPU(), FONT_MINI)
+   if select(2, system.getDeviceType()) == 1 then
+      lcd.drawText(300,120, math.floor(loopCPU + 0.5), FONT_MINI)   
+      lcd.drawText(300,140, system.getCPU(), FONT_MINI)
+   end
+   
    
 end
 
