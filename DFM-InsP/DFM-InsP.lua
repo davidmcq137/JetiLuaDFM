@@ -345,6 +345,16 @@ local function evaluateLua(es, luastring, pnl, gauge, index)
 	 end
       end
       if not err then
+	 if InsP.panels[pnl][gauge].SeLa == "Turbine_Status" then
+	    --print("La", InsP.panels[pnl][gauge].SeLa)
+	    if InsP.panels[pnl][gauge].SeLa then
+	       lua.env["val"] = lua.env[InsP.panels[pnl][gauge].SeLa]
+	       --print("env value", lua.env[InsP.panels[pnl][gauge].SeLa])
+	    else
+	       --print("val index nil")
+	    end
+	 end
+	    
 	 status, result = pcall(lua.chunk[pnl][gauge][index])
 	 if not status then
 	    pCallErr = pCallErr + 1
@@ -682,6 +692,8 @@ local function changedSensor(val, i, ip)
    ip[i].SePa = InsP.sensorPalist[val]
    ip[i].SeUn = InsP.sensorUnlist[val]
    ip[i].SeDp = InsP.sensorDplist[val]
+   ip[i].SeLa = InsP.sensorLalist[val]
+   print("i, SeLa", i, InsP.sensorLalist[val])
 end
 
 local function panelChanged(val, sp)

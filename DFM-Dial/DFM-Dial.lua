@@ -1105,6 +1105,7 @@ local function writeTele()
    for i=1,2,1 do
       for j=1,4,1 do
 	 tele[i].sensorSample[j] = {}
+	 tele[i].sensorInfo[j].SeId = string.format("0X%X", tele[i].sensorInfo[j].SeId)
       end
    end
 
@@ -1114,7 +1115,7 @@ local function writeTele()
    if writeBD then
       fp = io.open(fileBD, "w")
       if fp then
-	 print("writing", fileBD)
+	 print("DFM-Dial: Writing", fileBD)
 	 io.write(fp, json.encode(save), "\n") 
 	 io.close(fp)
       end
@@ -1339,7 +1340,9 @@ local function init()
 	 if type(tele[i].sensorMaxWarn[j]) ~= "number" then
 	    --print("DFM-Dial: Fix MaxW", i, j, type(tele[i].sensorMaxWarn[j]))
 	    tele[i].sensorMaxWarn[j] = nil
-	 end	 
+	 end
+	 -- SeIds are written as hex strings .. e.g. 0XAAAAFFFF
+	 tele[i].sensorInfo[j].SeId = tonumber(tele[i].sensorInfo[j].SeId)
       end
    end
 

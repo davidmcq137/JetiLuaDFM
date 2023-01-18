@@ -22,13 +22,16 @@
      "label": "RPM",
      "unit": "rpm"
     },
-    {"id":11,
-     "param": 2,
+
+    {"id":12, "param": 0,"sensorName": "Turbine", "label": "Turbine"},
+    
+    {"id":12,
+     "param": 1,
      "decimals": 0,
      "type": 1,
      "luaExp": "swseq('SA', {1,2,3,4,5,6})",
      "sensorName": "",
-     "label": "Seq",
+     "label": "Status",
      "unit": ""
     },
 

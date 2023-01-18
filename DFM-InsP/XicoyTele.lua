@@ -21,7 +21,7 @@ local ecuMessage = {
     },
    [30]= {
       ["active"]= true,
-      ["text"]= "PumpLimi"
+      ["text"]= "PumpLimit"
     },
    [22]= {
       ["text"]= "Battery Low",
@@ -203,10 +203,18 @@ local ecuMessage = {
     }
 }
 
-function M.text(env, ecuCode)
+function M.text(env)
    local _ENV = env
-   return ecuMessage[ecuCode].text
-   
+   ecuCode = val -- val is populated in this env before pcall .. value of this widget
+   if ecuCode and ecuMessage[ecuCode] then
+
+      -- could take other actions here e.g. play wav files
+      -- (but would have to pass in the function addresses)
+      
+      return ecuMessage[ecuCode].text
+   else
+      return "No message for status " .. tostring(val)
+   end
 end
 
 return M

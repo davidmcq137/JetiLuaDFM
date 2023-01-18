@@ -13,33 +13,27 @@
     ],
     "fontSize": 12,
     "type": "stackedTextBox",
-    "Text": "Central Box Version"
   },
   {
     "width": 150,
     "height": 40,
     "y0": 61,
-    "label": "Status 2",
+    "label": "Turbine Status",
     "x0": 80,
     "tBoxHgt": 24,
     "value": 0,
     "tBoxWid": 150,
     "text": [
-      "Ready to Start",
-      "Starting",
-      "Running",
-      "Cooling",
-      "User Off",
-      "Standby"
+	"luaS: rt = require 'DFM-InsP/XicoyTele' return rt.text(_ENV)"
     ],
     "fontSize": 12,
-    "type": "sequencedTextBox"
+    "type": "stackedTextBox"
   },
   {
     "width": 150,
     "height": 125,
     "y0": 119,
-    "label": "Status 3",
+    "label": "CB Battery Status",
     "x0": 80,
     "tBoxHgt": 75,
     "value": 0,
