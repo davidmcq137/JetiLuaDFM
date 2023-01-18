@@ -557,8 +557,15 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		    ctx.font="bold " + 0.60 * fontScale * ro + "px sans-serif"
 		    fontoffset = fontScale * ro / 4;		    
 		}
-		var rval;
-		let vs = val.toString();
+		var sign;
+		if (val >= 0) {
+		    sign = 1.0
+		} else {
+		    sign = -1.0
+		}
+		var rval = sign * Math.floor(sign * val * 100000.0) / 100000.0;
+		let vs = rval.toString();
+		console.log(vs);
 		let vi = vs.indexOf(".");
 		if (vi == -1) {
 		    rval = vs;

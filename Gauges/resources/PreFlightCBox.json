@@ -49,19 +49,19 @@
 	"type": "stackedTextBox"
     },
     {
-	"min": 0,
+	"min": 6.2,
 	"colorvals": [
 	    {
 		"color": "red",
-		"val": 6
+		"val": 6.4
 	    },
 	    {
 		"color": "yellow",
-		"val": 7
+		"val": 6.6
 	    },
 	    {
 		"color": "green",
-		"val": 9
+		"val": 7.2
 	    },
 	    {
 		"color": "green",
@@ -70,22 +70,22 @@
 	],
 	"y0": 39,
 	"label": "U Accu 1 (V)",
-	"max": 8,
+	"max": 7.4,
 	"radius": 42,
 	"x0": 199,
 	"majdivs": 4,
-	"subdivs": 4,
+	"subdivs": 6,
 	"value": 3.2,
 	"start": -120,
 	"type": "roundNeedleGauge",
 	"end": 120
     },
     {
-	"min": 6,
+	"min": 6.2,
 	"colorvals": [
 	    {
 		"color": "red",
-		"val": 6.5
+		"val": 6.4
 	    },
 	    {
 		"color": "yellow",
@@ -102,11 +102,11 @@
 	],
 	"y0": 39,
 	"label": "U Accu 2 (V)",
-	"max": 7.5,
+	"max": 7.4,
 	"radius": 42,
 	"x0": 280,
 	"majdivs": 4,
-	"subdivs": 4,
+	"subdivs": 6,
 	"value": 6.48,
 	"start": -120,
 	"type": "roundNeedleGauge",

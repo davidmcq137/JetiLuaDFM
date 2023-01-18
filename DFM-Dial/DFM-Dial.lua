@@ -142,8 +142,8 @@ local function heckbert(min, max)
       niceMax = math.ceil(maxPoint / tickSpacing) * tickSpacing
    end
 
-   if max - min <= 0 then
-      print("heckbert max-min<=0", max, min)
+   if math.abs(max - min) <= 1 then -- should be 10 since max and min start at 10 and 0 
+      print("heckbert max-min<=1", max, min)
       return 0, min, max
    end
    if math.abs(max) > 1.0E+6 or math.abs(min) > 1.0E+6 then
