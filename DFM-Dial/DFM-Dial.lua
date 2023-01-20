@@ -6,7 +6,7 @@
 --]]
 
 --local trans11
-local DialVersion = "2.0"
+local DialVersion = "2.1"
 
 local switches = {}
 local swtCI = {}
@@ -30,7 +30,7 @@ local sensorUnlist = { "..." }  -- sensor units
 
 local txSel =  {"rx1Percent", "rx1Voltage", "rx2Percent", "rx2Voltage", "rxBPercent", "rxBVoltage"}
 local txRSSI = {"rx1-A1", "rx1-A2", "rx2-A1", "rx2-A2", "rxB-A1", "rxB-A2"}
-local txUnit = {"%",          "V",          "%",          "V",          "V",          "%"}
+local txUnit = {"%",      "V",      "%",      "V",      "V",      "%"}
 
 local tele = {}
 
@@ -456,6 +456,17 @@ local function formatE(vv)
    return string.format("%.1f", val) .. suffix
 end
 
+local function drawFilledRectangle(x0, y0, xl, yl)
+   local ren = lcd.renderer()
+   ren:reset()
+   ren:addPoint(x0, y0)
+   ren:addPoint(x0 + xl, y0)
+   ren:addPoint(x0 + xl, y0 + yl)
+   ren:addPoint(x0, y0+yl)
+   ren:addPoint(x0, y0)
+   ren:renderPolygon(0.6)
+end
+	    
 local function drawCircle(x0, y0, r, seg)
    local ren = lcd.renderer()
    ren:reset()
@@ -679,20 +690,29 @@ local function dialPrint(w,h,win)
 	 end
 	 
 	 
+	 --if tele[win].screen ~= 6 then
+	 if lcdBG == "D" then
+	    lcd.setColor(255,255,255)
+	 else
+	    lcd.setColor(0,0,0)
+	 end
+	 
+	 local round = tele[win].sensorStyle[i] == 1 or tele[win].sensorStyle[i] == 2
+	 --[[
+	 if round and (ovld or unld) and ( (system.getTimeCounter() // 500) % 2 == 0) then
+	    if ovld then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
+	    drawCircle(xz, yz, rO, 25)
+	 end
+	 --]]
+	 --if not round and (ovld or unld) and ( (system.getTimeCounter() // 500) % 2 == 0) then
+	 if (ovld or unld) and ( (system.getTimeCounter() // 500) % 2 == 0) then	 
+	    if ovld then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
+	    drawFilledRectangle(rx[tele[win].screen][i], ry[tele[win].screen][i],
+				    rxs[tele[win].screen][i], rys[tele[win].screen][i])
+	    --drawCircle(xz, yz, rO, 25) XXXXXX
+	 end
+	 
 	 if tele[win].screen ~= 6 then
-	    if lcdBG == "D" then
-	       lcd.setColor(255,255,255)
-	    else
-	       lcd.setColor(0,0,0)
-	    end
-
-	    local round = tele[win].sensorStyle[i] == 1 or tele[win].sensorStyle[i] == 2
-	    
-	    if round and (ovld or unld) and ( (system.getTimeCounter() // 500) % 2 == 0) then
-	       if ovld then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
-	       drawCircle(xz, yz, rO, 25)
-	    end
-
 	    if lcdBG == "D" then
 	       lcd.setColor(255,255,255)
 	    else
@@ -713,7 +733,6 @@ local function dialPrint(w,h,win)
 	    lcd.drawText(xz + x1 - lcd.getTextWidth(f2, text)/2, yz - y2, text, f2)
 	    text = formatD(tele[win].sensorVmin[i])
 	    lcd.drawText(xz + x2 - lcd.getTextWidth(f2, text)/2, yz - y3, text, f2)
-	    
 	 end
 	 
 	 local xc0, yc0
