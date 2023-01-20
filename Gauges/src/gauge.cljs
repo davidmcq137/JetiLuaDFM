@@ -183,10 +183,10 @@
               :value "-"
               :onClick #(update-gauge* da update-in k dec)}]
      [:input {:type "text"
-              :style {:margin "0 1ex 0 1ex"}
+              ;; :style {:margin "0 1ex 0 1ex"}
               :value (or v "0")
               :onChange (fn [^js ev]
-                          (update-gauge* da assoc-in k (js/parseInt (.-value (.-target ev)))))}]
+                          (update-gauge* da assoc-in k (js/parseFloat (.-value (.-target ev)))))}]
      [:input {:type "button"
               :value "+"
               :onClick #(update-gauge* da update-in k inc)}]]))
@@ -195,38 +195,52 @@
   < rum/reactive
   [da]
   (let [{:keys [params]} (rum/react da)
-        {:strs [spectrum]} params]
-    [:div
-     
-     [:div.edit-spectrum {}
-      (for [i (range (count spectrum))
-            t [:swatch :label]
-            :let [color (nth spectrum i)]]
-        (case t
-          :swatch
-          (if (string/starts-with? color "#")
-            [:input
-             {:type :color
-              :value color
-              :onChange (fn [ev]
-                          (update-gauge* da assoc-in
-                                         ["spectrum" i]
-                                         (.-value (.-target ev))))}]
-            [:span
-             {:key (str "w" i)
-              :style {:height "2ex"
-                      :align-self "center"
-                      :width "4ex"
-                      :background-color color}}])
-          :label [:input
-                  {:type "text"
-                   :key (str "c" i)
-                   :value color
-                   :onChange (fn [^js ev]
-                               (update-gauge* da assoc-in
-                                              ["spectrum" i]
-                                              (.-value (.-target ev))))}]))]]))
-
+        {:strs [spectrum]} params
+        n (count spectrum)]
+    [:div.edit-spectrum {}
+     (for [i (range n)
+           t [:label :swatch :delete]
+           :let [color (nth spectrum i)]]
+       (case t
+         :swatch
+         (if (string/starts-with? color "#")
+           [:input
+            {:type :color
+             :value color
+             :onChange (fn [ev]
+                         (update-gauge* da assoc-in
+                                        ["spectrum" i]
+                                        (.-value (.-target ev))))}]
+           [:span
+            {:key (str "w" i)
+             :style {:height "2ex"
+                     :align-self "center"
+                     :width "4ex"
+                     :background-color color}}])
+         :label [:input
+                 {:type "text"
+                  :key (str "c" i)
+                  :value color
+                  :onChange (fn [^js ev]
+                              (update-gauge* da assoc-in
+                                             ["spectrum" i]
+                                             (.-value (.-target ev))))}]
+         :delete [:input.delete-button
+                  {:type :button
+                   :value "-"
+                   :key (str "d" i)
+                   :disabled (< n 2)
+                   :onClick (fn []
+                              (update-gauge* da update "spectrum"
+                                             (fn [v]
+                                               (if (< n 2)
+                                                 v
+                                                 (vec (concat (take i v)
+                                                              (drop (inc i) v))) ))))}]))
+     [:input
+      {:type "button"
+       :value "+"
+       :onClick #(update-gauge* da update "spectrum" conj "red")}]]))
 
 (rum/defc edit-colorvals
   < rum/reactive
@@ -235,7 +249,7 @@
         cvs (get params "colorvals")
         n (count cvs)]
     [:div.colorvals {}
-     (for [i (range (count cvs))
+     (for [i (range n)
            :let [{:strs [val color]} (nth cvs i)
                  minv (if (= i 0)
                         (get params "min")
@@ -243,14 +257,26 @@
                  maxv (if (= i (dec n))
                         (get params "max")
                         (get (nth cvs (inc i)) "val"))]
-           t [:label :swatch :range :slider]]
+           t [ :label :swatch :range :slider :delete]]
        (case t
+         :delete [:input.delete-button
+                  {:type :button
+                   :key (str "b" i)
+                   :value "-"
+                   :disabled (< n 2)
+                   :onClick (fn []
+                              (update-gauge* da
+                                             update "colorvals"
+                                             (fn [v]
+                                               (if (< n 2)
+                                                 v
+                                                 (vec (concat (take i v)
+                                                              (drop (inc i) v))) ))))}]
          :range [:div {:key (str "l" i)}
                  (str val)]
          :swatch [:span
                   {:key (str "w" i)
                    :style {:height "2ex"
-                           :align-self "center"
                            :width "4ex"
                            :background-color color}}]
          :label [:input
@@ -262,16 +288,16 @@
                                              ["colorvals" i "color"]
                                              (.-value (.-target ev))))}]
          :slider
-           [:input
-            {:type "range"
-             :key (str "s" i)
-             :min minv
-             :max maxv
-             :value val
-             :onChange (fn [^js ev]
-                         (update-gauge* da assoc-in 
-                                        ["colorvals" i "val"]
-                                        (js/parseInt (.-value (.-target ev)))))}]))
+         [:input
+          {:type "range"
+           :key (str "s" i)
+           :min minv
+           :max maxv
+           :value val
+           :onChange (fn [^js ev]
+                       (update-gauge* da assoc-in 
+                                      ["colorvals" i "val"]
+                                      (js/parseFloat (.-value (.-target ev)))))}]))
      [:input.add-arc
       {:type "button"
        :value "+"
@@ -402,7 +428,7 @@
                       :onChange (fn [^js ev]
                                   (update-gauge* da assoc-in ["text" i]
                                                  (.-value (.-target ev))))}]
-         :remove-btn [:input
+         :remove-btn [:input.delete-button
                       {:type "button"
                        :value "-"
                        :key (str "r" i) 
@@ -515,7 +541,11 @@
       [:input
        {:type    "button"
         :value   "Duplicate"
-        :onClick #(swap! db update :gauges assoc (count (:gauges @db)) d)}]
+
+        :onClick (fn []
+                   (swap! db update-in
+                          [:panels (:selected-panel @db) :gauges]
+                          (fn [gs] (assoc gs (count gs) d))))}]
       [:input
        {:type    "button"
         :value   "Delete"
@@ -622,7 +652,7 @@
                 {:yoururl js/window.location.origin
                  :dynamic-files {"Gauges"
                                  (into [{:prefix "Apps/"
-                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3934184717/DFM-InsP-v0.2.zip"}]
+                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3940779532/DFM-InsP-v0.2.zip"}]
                                        cat
                                        filesets)}})))))
 
@@ -793,14 +823,14 @@
   [ps panel-name]
   (let [[collapse set-collapse!] (rum/use-state true)]
     (if collapse
-      [:input.panel-delete-button
+      [:input.delete-button
        {:type "button"
         :value "Delete"
         :style {:width "8ex" :justify-self "end"}
         :onClick #(set-collapse! nil)}]
       
       [:div.panel-delete
-       [:input.panel-delete-button
+       [:input.delete-button
         {:type "button"
          :value "Really delete"
          :onClick (fn [ev]
@@ -868,7 +898,7 @@
         {:keys [gauges background-image]} (get panels selected-panel)]
     [:div.container
      [:div {:style {:margin-left "2ex"}}
-      [:h2 "Gauge creator"]
+      [:h2 "Instrument Panel creator"]
       #_[:p "This app is for creating instrument panels for use with the companion app on the JETI transmitter."]
       [:p "This web app is for creating instrument panels for display on Jeti transmitters using a Jeti Lua app named DFM-InsP."]
       [:p "Once you have finished drawing your panels here, you will get a link to paste into Jeti studio that will install the Lua app and all of your panels using the Transmitter Wizard."]
@@ -876,10 +906,6 @@
       
       
       [:h4 "Example panels"]
-      #_[:ul.example-panel-list
-         (for [[name {:strs [file]}] (get config-json "examples")]
-           [:li {:key (str name)}
-            [:input {:type "button"  :value name  :onClick #(reload-json! name (str "/" file))}]])]
       
       [:div.example-panels
        (for [[name {:strs [file]}] (get config-json "examples")]

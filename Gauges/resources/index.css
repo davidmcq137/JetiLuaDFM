@@ -68,15 +68,20 @@ input[type="range"]:focus {
 
 .plusminus {
     display: inline-grid;
-    /* justify-self: center; */
-    grid-template-columns: 3ex 6ex 3ex;
+    justify-self: end;
+    grid-template-columns: 3ex 12ex 3ex;
+}
+.plusminus input[type="text"] {
+    text-align: right;
 }
 
 .colorvals {
     display: grid;
-    grid-template-columns: 8ex max-content max-content 16ex;
+    grid-template-columns: 12ex max-content max-content 16ex 2ex;
+    grid-auto-rows: 5ex;
     justify-items: center;
     column-gap: 2ex;
+    align-items: center
 }
 .colorvals input {
     box-sizing: border-box;
@@ -85,9 +90,15 @@ input[type="range"]:focus {
 
 .edit-spectrum {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 12ex 1fr 2ex;
+    grid-auto-rows: 5ex;
     justify-items: center;
     column-gap: 2ex;
+    align-items: center
+}
+.edit-spectrum input {
+    box-sizing: border-box;
+    width: 100%;
 }
 
 
@@ -137,6 +148,13 @@ input[disabled] {
   color: #666666;
 }
 
+input.delete-button:disabled,
+input.delete-button[disabled] {
+  outline: 1 px solid #999999;
+  background-color: transparent;
+}
+
+
 
 .dynamic-repo-button {
     background-color: #254a6c;
@@ -165,7 +183,7 @@ input[disabled] {
     display: flex;
 }
 
-.panel-delete-button {
+.delete-button {
     background-color: #6a0d12;
 }
 
