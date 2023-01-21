@@ -201,7 +201,8 @@
 
 (rum/defc gaugeparam-plusminus < rum/reactive
   [da k {:keys [d] :or {d 1} :as opts}]
-  (let [{:keys [params]} (rum/react da)]
+  (let [{:keys [params]} (rum/react da)
+        v (get-in params k)]
     [:span.plusminus {}
      [:input {:type "button"
               :value "-"
@@ -415,9 +416,9 @@
      (gaugeparam-plusminus da ["subdivs"])
      
      [:span.slider-label "Arc start"]
-     (gaugeparam-slider da "start" {:min -180 :max 180})
+     (gaugeparam-slider da "start" {:min -360 :max 360})
      [:span.slider-label "Arc end"]
-     (gaugeparam-slider da "end" {:min -180 :max 180})
+     (gaugeparam-slider da "end" {:min -360 :max 360})
      
      (spectrum-or-colorvals da))))
 
