@@ -12,7 +12,7 @@
       "Rx1 Voltage 'v''u'"
     ],
     "fontSize": 12,
-    "type": "stackedTextBox",
+    "type": "stackedTextBox"
   },
   {
     "width": 150,

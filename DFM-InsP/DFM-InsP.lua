@@ -16,6 +16,10 @@
 
 local InsPVersion = 0.2
 
+local LE
+local condition = {""}
+local condIdx = 1
+
 local InsP = {}
 InsP.panels = {}
 InsP.panelImages = {}
@@ -67,7 +71,7 @@ edit.gaugeName = {
 local lua = {}
 lua.chunk = {}
 lua.env = {string=string, math=math, table=table, print=print,
-	   tonumber=tonumber, tostring=tostring,pairs=pairs,
+	   tonumber=tonumber, tostring=tostring, pairs=pairs,
 	   require=require, ipairs=ipairs}
 lua.index = 0
 lua.txTelLastUpdate = 0
@@ -445,6 +449,10 @@ local function keyForm(key)
       end
    end
 
+   if subForm == 107 then
+      LE.luaEditKey(_ENV)
+   end
+   
    if subForm == 106 then
       if keyExit(key) then
 	 form.preventDefault()
@@ -858,13 +866,21 @@ local function initForm(sf)
       end))      
 
       form.addRow(2)
+      form.addLabel({label="Lua edit >>", width=220})
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       form.reinit(107)
+	       form.waitForRelease()
+      end))
+      
+      form.addRow(2)
       form.addLabel({label="Reset data >>", width=220})
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       form.reinit(101)
 	       form.waitForRelease()
       end))
-      
+
       form.setFocusedRow(savedRow)
    elseif sf == 100 then
 
@@ -1180,6 +1196,10 @@ local function initForm(sf)
       if  isp >= 1 and isp <= #InsP.panelImages then
 	 form.setFocusedRow(isp+1)
       end
+   elseif sf == 107 then
+
+      LE.luaEdit(_ENV)
+
    elseif sf == 110 then
       local function editCB(val, i)
 	 editText.text[i] = val
@@ -1845,7 +1865,9 @@ local function printForm(_,_,tWin)
 end
 
 local function prtForm(w,h)
-   if subForm == 103 and InsP.panels[InsP.settings.selectedPanel] then
+   if subForm == 107 then
+      LE.luaEditPrint(_ENV)
+   elseif subForm == 103 and InsP.panels[InsP.settings.selectedPanel] then
       printForm(318,159,1)
       local ip = InsP.panels[InsP.settings.selectedPanel]
       lcd.setColor(180,180,180)
@@ -2054,6 +2076,10 @@ local function init()
 			    (function(w,h) return printForm(w,h,2) end) )   
 
    appStartTime = system.getTimeCounter()
+
+   LE = require 'DFM-InsP/luaEdit'
+
+   if not LE then print("DFM-InsP: could not load lua editor") end
 
 end
 
