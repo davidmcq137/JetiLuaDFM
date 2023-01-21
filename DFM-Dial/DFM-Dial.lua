@@ -709,7 +709,7 @@ local function dialPrint(w,h,win)
 	    if ovld then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
 	    drawFilledRectangle(rx[tele[win].screen][i], ry[tele[win].screen][i],
 				    rxs[tele[win].screen][i], rys[tele[win].screen][i])
-	    --drawCircle(xz, yz, rO, 25) XXXXXX
+	    --drawCircle(xz, yz, rO, 25)
 	 end
 	 
 	 if tele[win].screen ~= 6 then
@@ -754,6 +754,13 @@ local function dialPrint(w,h,win)
 	 else
 	    lcd.setColor(0,0,0)
 	 end
+
+	 local t1
+	 if tele[win].sensorStyle[i] == 4 then
+	    t1 = "["  .. chartTime[tele[win].sensorChartTimeIdx[i]] .."]"
+	 else
+	    t1 = ""
+	 end
 	 
 	 local m1 = formatE(tele[win].sensorMin[i] * tele[win].sensorMinMult[i])
 	 local m2 = formatE(tele[win].sensorMax[i] * tele[win].sensorMaxMult[i])
@@ -762,7 +769,8 @@ local function dialPrint(w,h,win)
 		      ry[tele[win].screen][i]-12 + yc0,
 		      sensorLslist[tele[win].sensor[i]] ..
 			 " (" .. sensorUnlist[tele[win].sensor[i]] .. ") " ..
-			 "[" ..m1 .. "-" .. m2 .."]", FONT_MINI)
+			 t1 .. " [" .. m1 .. "-" .. m2 .."]", FONT_MINI)
+
 	 --string.format("  [%.1f-%.1f]",
 	 --tele[win].sensorMin[i] * tele[win].sensorMinMult[i],
 	 --tele[win].sensorMax[i] * tele[win].sensorMaxMult[i]),
@@ -917,11 +925,13 @@ local function sensorAutoChanged(val, i, j)
 end
 
 local function sensorChartTimeChanged(val, i, j)
-   if j == 1 then
-      for k=1, nSens[tele[i].screen],1 do
+   local k=j
+   --if j == 1 then
+      --for k=1, nSens[tele[i].screen],1 do
 	 tele[i].sensorChartTime[k] = 2^(val-1)*200
-      end
-   end
+	 tele[i].sensorChartTimeIdx[k] = val
+      --end
+   --end
 end
 
 local function sensorSmoothChanged(val, i, j)
@@ -1055,13 +1065,10 @@ local function initForm(sf)
 	 form.addRow(2)
 	 form.addLabel({label="Time span for Chart"})
 	 local dt = math.log(tele[savedRow].sensorChartTime[savedRow2]/200) / math.log(2) + 1
-	 if savedRow2 == 1 then
-	    form.addSelectbox(chartTime,
-			      dt, true, 
-			      (function(x) return sensorChartTimeChanged(x, savedRow, savedRow2) end))
-	 else
-	    form.addLabel({label = chartTime[dt], alignRight = true})
-	 end
+	 form.addSelectbox(chartTime,
+			   dt, true, 
+			   (function(x) return sensorChartTimeChanged(x, savedRow, savedRow2)
+	 end))
       end
       
       form.addRow(2)
@@ -1164,8 +1171,8 @@ local function loop()
 	       if twVmin < twmin or twVmax > twmax then
 		  tt, twmin, twmax = heckbert(twVmin, twVmax)
 		  tele[win].sensorMin[i] = twmin / tele[win].sensorMinMult[i]
-		  tele[win].sensorMax[i] = twmax / tele[win].sensorMaxMult[i]		  
-		  print("heckbert", win, i, twmin, twmax)
+		  tele[win].sensorMax[i] = twmax / tele[win].sensorMaxMult[i]
+		  print("heckbert", win, i, tt, twmin, twmax)
 	       end
 	    end
 	 end
@@ -1268,7 +1275,7 @@ local function init()
    local mn
    local file
    local decoded
-   local jsnVersion = 7
+   local jsnVersion = 8
    
    emFlag = select(2, system.getDeviceType()) == 1
    if emFlag then pf = "" else pf = "/" end
@@ -1315,6 +1322,7 @@ local function init()
 	 tele[i].sensorAuto = {}
 	 tele[i].sensorSample = {}
 	 tele[i].sensorChartTime = {}
+	 tele[i].sensorChartTimeIdx = {}
 	 tele[i].sensorChartLast = {}
 	 tele[i].sensorChartSmooth = {}
 	 tele[i].sensorMinWarn = {}
@@ -1332,6 +1340,7 @@ local function init()
 	    tele[i].sensorStyle[j] = 1 -- default to Arc
 	    tele[i].sensorSample[j] = {}
 	    tele[i].sensorChartTime[j] = 800
+	    tele[i].sensorChartTimeIdx[j] = 3
 	    tele[i].sensorChartLast[j] = 0
 	    tele[i].sensorChartSmooth[j] = 1
 	    tele[i].sensorMinWarnDone[j] = false
