@@ -182,11 +182,12 @@
        (let [fx (.toFixed value decimal-places)
              nv (js/parseFloat fx)
              d (- nv (js/parseFloat text) )]
-         (when (> (js/Math.abs d) (/ 1.0 (js/Math.pow 10 decimal-places)))
+         (when (or (js/isNaN d)
+                   (> (js/Math.abs d) (/ 1.0 (js/Math.pow 10 decimal-places))))
            (set-st! {:valid true
                      :text (-> fx
                                (string/replace #"\.0+$" "")
-                               (string/replace #"0+$" ""))})))
+                               (string/replace #"00+$" ""))})))
        nil)
      [value])
     [:input {:type "text"
@@ -206,14 +207,14 @@
     [:span.plusminus {}
      [:input {:type "button"
               :value "-"
-              :onClick #(update-gauge* da update-in k (partial - d))}]
+              :onClick #(update-gauge* da update-in k dec)}]
      
      (float-input {:value (or v 0)
                    :on-change #(update-gauge* da assoc-in k %)})
      
      [:input {:type "button"
               :value "+"
-              :onClick #(update-gauge* da update-in k (partial + d))}]]))
+              :onClick #(update-gauge* da update-in k inc)}]]))
 
 (rum/defc edit-spectrum
   < rum/reactive
@@ -314,17 +315,20 @@
                               (update-gauge* da assoc-in
                                              ["colorvals" i "color"]
                                              (.-value (.-target ev))))}]
-         :slider [:input
-                  {:type "range"
-                   :key (str "s" i)
-                   :min minv
-                   :max maxv
-                   :step (min 1 (*  0.001 (- maxv minv)))
-                   :value val
-                   :onChange (fn [^js ev]
-                               (update-gauge* da assoc-in 
-                                              ["colorvals" i "val"]
-                                              (js/parseFloat (.-value (.-target ev)))))}]))
+         :slider (let [{:strs [max min majdivs subdivs]} params
+                       step (/ (- max min)
+                                (* majdivs subdivs))]
+                   [:input
+                    {:type "range"
+                     :key (str "s" i)
+                     :min minv
+                     :max maxv
+                     :step step
+                     :value val
+                     :onChange (fn [^js ev]
+                                 (update-gauge* da assoc-in 
+                                                ["colorvals" i "val"]
+                                                (js/parseFloat (.-value (.-target ev)))))}])))
      [:input.add-arc
       {:type "button"
        :value "+"
