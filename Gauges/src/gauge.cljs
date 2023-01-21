@@ -175,8 +175,20 @@
 
 
 (rum/defc float-input
-  [{:keys [value on-change]}]
+  [{:keys [value on-change decimal-places] :or {decimal-places 2}}]
   (let [[{:keys [text valid] :as st } set-st!] (rum/use-state {:text value :valid true})]
+    (rum/use-effect!
+     (fn []
+       (let [fx (.toFixed value decimal-places)
+             nv (js/parseFloat fx)
+             d (- nv (js/parseFloat text) )]
+         (when (> (js/Math.abs d) (/ 1.0 (js/Math.pow 10 decimal-places)))
+           (set-st! {:valid true
+                     :text (-> fx
+                               (string/replace #"\.0+$" "")
+                               (string/replace #"0+$" ""))})))
+       nil)
+     [value])
     [:input {:type "text"
              :value text
              :style {:outline (if valid "unset" "2px solid tomato")}
@@ -188,20 +200,20 @@
                             (when v? (on-change n))))}]))
 
 (rum/defc gaugeparam-plusminus < rum/reactive
-  [da k]
-  (let [{:keys [params] :as d} (rum/react da)
+  [da k {:keys [d] :or {d 1} :as opts}]
+  (let [{:keys [params]} (rum/react da)
         v (get-in params k)]
     [:span.plusminus {}
      [:input {:type "button"
               :value "-"
-              :onClick #(update-gauge* da update-in k dec)}]
+              :onClick #(update-gauge* da update-in k (partial - d))}]
      
-     (float-input {:value (or v "0")
+     (float-input {:value (or v 0)
                    :on-change #(update-gauge* da assoc-in k %)})
      
      [:input {:type "button"
               :value "+"
-              :onClick #(update-gauge* da update-in k inc)}]]))
+              :onClick #(update-gauge* da update-in k (partial + d))}]]))
 
 (rum/defc edit-spectrum
   < rum/reactive
@@ -285,7 +297,10 @@
                                                  (vec (concat (take i v)
                                                               (drop (inc i) v))) ))))}]
          :range [:div {:key (str "l" i)}
-                 (str val)]
+                 (-> (.toFixed val 3)
+                     (string/replace #"\.0+$" "")
+                     (string/replace #"0+$" ""))
+                 #_(str val)]
          :swatch [:span
                   {:key (str "w" i)
                    :style {:height "2ex"
@@ -299,17 +314,17 @@
                               (update-gauge* da assoc-in
                                              ["colorvals" i "color"]
                                              (.-value (.-target ev))))}]
-         :slider
-         [:input
-          {:type "range"
-           :key (str "s" i)
-           :min minv
-           :max maxv
-           :value val
-           :onChange (fn [^js ev]
-                       (update-gauge* da assoc-in 
-                                      ["colorvals" i "val"]
-                                      (js/parseFloat (.-value (.-target ev)))))}]))
+         :slider [:input
+                  {:type "range"
+                   :key (str "s" i)
+                   :min minv
+                   :max maxv
+                   :step (min 1 (*  0.001 (- maxv minv)))
+                   :value val
+                   :onChange (fn [^js ev]
+                               (update-gauge* da assoc-in 
+                                              ["colorvals" i "val"]
+                                              (js/parseFloat (.-value (.-target ev)))))}]))
      [:input.add-arc
       {:type "button"
        :value "+"
@@ -389,6 +404,7 @@
     (rum/fragment
      [:span.slider-label "Radius"]
      (gaugeparam-plusminus da ["radius"])
+     
      [:span.slider-label "Minimum"]
      (gaugeparam-plusminus da ["min"])
      [:span.slider-label "Maximum"]
@@ -486,6 +502,9 @@
      (gaugeparam-slider da "width" {:min 10 :max 320})
      [:span.slider-label (str "Height = " (get params "height"))]
      (gaugeparam-slider da "height" {:min 10 :max 80})
+     
+     [:span "Text"]
+     (gaugeparam-text da "text")
      
      [:span.slider-label "Font height"]
      (gaugeparam-slider da "fontHeight" {:min 4 :max 80})

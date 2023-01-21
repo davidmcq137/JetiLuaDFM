@@ -565,7 +565,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		}
 		var rval = sign * Math.floor(sign * val * 100000.0) / 100000.0;
 		let vs = rval.toString();
-		console.log(vs);
+		// console.log(vs);
 		let vi = vs.indexOf(".");
 		if (vi == -1) {
 		    rval = vs;
