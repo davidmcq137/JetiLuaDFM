@@ -174,6 +174,19 @@
                          (update-gauge* da assoc k (.-value (.-target ev))))}]))
 
 
+(rum/defc float-input
+  [{:keys [value on-change]}]
+  (let [[{:keys [text valid] :as st } set-st!] (rum/use-state {:text value :valid true})]
+    [:input {:type "text"
+             :value text
+             :style {:outline (if valid "unset" "2px solid tomato")}
+             :on-change (fn [^js ev]
+                          (let [n (js/parseFloat (.-value (.-target ev)))
+                                v? (not (js/isNaN n))]
+                            (set-st! {:text (.-value (.-target ev))
+                                      :valid v?})
+                            (when v? (on-change n))))}]))
+
 (rum/defc gaugeparam-plusminus < rum/reactive
   [da k]
   (let [{:keys [params] :as d} (rum/react da)
@@ -182,11 +195,10 @@
      [:input {:type "button"
               :value "-"
               :onClick #(update-gauge* da update-in k dec)}]
-     [:input {:type "text"
-              ;; :style {:margin "0 1ex 0 1ex"}
-              :value (or v "0")
-              :onChange (fn [^js ev]
-                          (update-gauge* da assoc-in k (js/parseFloat (.-value (.-target ev)))))}]
+     
+     (float-input {:value (or v "0")
+                   :on-change #(update-gauge* da assoc-in k %)})
+     
      [:input {:type "button"
               :value "+"
               :onClick #(update-gauge* da update-in k inc)}]]))
