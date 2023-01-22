@@ -2,13 +2,27 @@ local M = {}
 
 local fAvailable = {}
 local fIndex = {}
+local fResult = {}
 
-function M.luaEditPrint(env)
+function M.luaEditPrint(cond, condIdx)
 
-   _ENV = env
+   local condition = cond.luastring
+
+   if not condition[condIdx] then
+      condition[condIdx] = ""
+   end
    
-   --local r = string.format("%s: %s",resultName[condIdx],formattedResult(condIdx))
-   --lcd.drawText(lcd.width - 10 - lcd.getTextWidth(FONT_BIG,r),120,r, FONT_BIG)
+   if cond.result and cond.result[condIdx] then
+      local res = cond.result[condIdx]
+      local str
+      if type(res) == "number" then
+	 str = string.format("Lua value: %.2f",cond.result[condIdx])
+      else
+	 str = "---"
+      end
+      lcd.drawText(lcd.width - 10 - lcd.getTextWidth(FONT_BIG,str),120,str, FONT_BIG)
+   end
+   
    local len = #condition[condIdx]
    local ss = string.sub(condition[condIdx], math.max(len-30, 1), len)
    if len > 31 then
@@ -32,10 +46,12 @@ function M.luaEditPrint(env)
    end
 end
 
-function M.luaEditKey(env)
+function M.luaEditKey(cond, condIdx, key, pnl, gau, idx, eval, chunk)
 
-   _ENV = env
+   local condition = cond.luastring
 
+   --print("luaEditKey, cond", condition[condIdx])
+   
    if not fIndex[condIdx] then fIndex[condIdx] = 1 end
    
    if(key == KEY_DOWN) then
@@ -61,30 +77,32 @@ function M.luaEditKey(env)
       form.reinit(3)
       form.preventDefault()                         
    end
+   if chunk and chunk[pnl] and chunk[pnl][gau] and chunk[pnl][gau][idx] then
+      chunk[pnl][gau][idx] = nil
+   end
    
+   local res = eval("E", condition[condIdx], pnl, gau, idx)
+   if not cond.result then cond.result = {} end
+   cond.result[condIdx] = res
 end
 
-function M.luaEdit(env)
-
-   _ENV = env
-
+function M.luaEdit(vars)
+   
    local fA = { "*","/","+","-","^","(","%",
-		">", "<", ">=", "<=", "==","~=",
-		" and ", " or ",
 		"0","1","2","3","4","5","6","7","8","9",
-		"abs(","sin(","cos(","atan(","rad(","deg(","sqrt(",
-		"max(", "min(", "floor("
+		"abs("
    }
 
    -- rebuilt the expression element string from the
    -- latest info
-   
-   local tt = {"t1", "t2", "t3"}
+
+   print("luaEdit", vars, #vars)
    
    fAvailable = {}
 
-   for i in ipairs(tt) do
-      fAvailable[i] = tt[i]
+   for i,v in ipairs(vars) do
+      print("adding to fAv", i, v.name)
+      fAvailable[i] = v.name
    end
    
    for i in ipairs(fA) do

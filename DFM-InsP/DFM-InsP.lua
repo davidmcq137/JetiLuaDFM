@@ -17,8 +17,6 @@
 local InsPVersion = 0.2
 
 local LE
-local condition = {""}
-local condIdx = 1
 
 local InsP = {}
 InsP.panels = {}
@@ -29,7 +27,8 @@ InsP.sensorIdlist = {0}
 InsP.sensorPalist = {0}
 InsP.sensorUnlist = {"-"}
 InsP.sensorDplist = {0}
-
+InsP.variables = {}
+   
 local teleSensors, txTeleSensors
 local txSensorNames = {"txVoltage", "txBattPercent", "txCurrent", "txCapacity",
 		       "rx1Percent", "rx1Voltage", "rx2Percent", "rx2Voltage",
@@ -42,7 +41,7 @@ local txRSSINames = {"rx1Ant1", "rx1Ant2", "rx2Ant1", "rx2Ant2",
 InsP.settings = {}
 InsP.settings.switchInfo = {}
 
-local dataSources = {"Sensor", "Control"}
+local dataSources = {"Sensor", "Control", "Lua", "Extension"}
 local switches = {}
 local stateSw = {}
 
@@ -73,6 +72,7 @@ lua.chunk = {}
 lua.env = {string=string, math=math, table=table, print=print,
 	   tonumber=tonumber, tostring=tostring, pairs=pairs,
 	   require=require, ipairs=ipairs}
+
 lua.index = 0
 lua.txTelLastUpdate = 0
 lua.txTel = {}
@@ -323,6 +323,21 @@ local luaLoadErr = 0
 local function evaluateLua(es, luastring, pnl, gauge, index)
    local luaReturn = ""
    local err, status, result
+   local varenv = {}
+
+   -- for now, copy the std env and add the variables each time we are called
+   -- inefficient but can improve later
+   
+   for k,v in pairs(lua.env) do
+      varenv[k] = v
+   end
+
+   local sn
+   for i,v in ipairs(InsP.variables) do
+      sn = InsP.sensorLalist[v.sensor]
+      varenv[v.name] = lua.env[sn]
+   end
+
    if luastring and lua.completePass then
       if not lua.chunk[pnl] then
 	 lua.chunk[pnl] = {}
@@ -330,12 +345,11 @@ local function evaluateLua(es, luastring, pnl, gauge, index)
       if not lua.chunk[pnl][gauge] then
 	 lua.chunk[pnl][gauge] = {}
       end
-      if not lua.chunk[pnl][gauge][index] then
-	 --print("luastring", pnl, gauge, index, luastring)
+      if true then --not lua.chunk[pnl][gauge][index] then
 	 if es == "E" then
-	    lua.chunk[pnl][gauge][index], err = load("return "..luastring,"","t",lua.env)
+	    lua.chunk[pnl][gauge][index], err = load("return "..luastring,"","t", varenv)
 	 elseif es == "S" then
-	    lua.chunk[pnl][gauge][index], err = load(luastring,"","t",lua.env)
+	    lua.chunk[pnl][gauge][index], err = load(luastring,"","t", varenv)
 	 else
 	    err = "lua exp or stmt not present"
 	 end
@@ -349,6 +363,7 @@ local function evaluateLua(es, luastring, pnl, gauge, index)
 	 end
       end
       if not err then
+	 --[[
 	 if InsP.panels[pnl][gauge].SeLa == "Turbine_Status" then
 	    --print("La", InsP.panels[pnl][gauge].SeLa)
 	    if InsP.panels[pnl][gauge].SeLa then
@@ -358,7 +373,7 @@ local function evaluateLua(es, luastring, pnl, gauge, index)
 	       --print("val index nil")
 	    end
 	 end
-	    
+	 --]]
 	 status, result = pcall(lua.chunk[pnl][gauge][index])
 	 if not status then
 	    pCallErr = pCallErr + 1
@@ -449,8 +464,41 @@ local function keyForm(key)
       end
    end
 
+   if subForm == 108 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(1)
+	 return
+      end
+
+      if key == KEY_3 then -- add variable
+	 local l = #InsP.variables + 1
+	 table.insert(InsP.variables, {name="S"..l, sensor = 0, SeID = 0, SePa = 0})
+	 form.reinit(108)
+	 return
+      end
+
+      if key == KEY_2 then -- remove variable
+	 local row = form.getFocusedRow()
+	 table.remove(InsP.variables, row)
+	 form.reinit(108)
+	 return
+      end
+   end
+   
    if subForm == 107 then
-      LE.luaEditKey(_ENV)
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(1)
+	 return
+      end
+      local sp = InsP.settings.selectedPanel
+      print("sp, savedRow, savedRow2", sp, savedRow, savedRow2)
+      if not InsP.panels[sp][savedRow2].luastring then
+	 InsP.panels[sp][savedRow2].luastring = {}
+      end
+      
+      LE.luaEditKey(InsP.panels[sp][savedRow2], 1, key, sp, savedRow2, 1, evaluateLua, lua.chunk)
    end
    
    if subForm == 106 then
@@ -865,6 +913,7 @@ local function initForm(sf)
 	       form.waitForRelease()
       end))      
 
+      --[[
       form.addRow(2)
       form.addLabel({label="Lua edit >>", width=220})
       form.addLink((function()
@@ -872,14 +921,16 @@ local function initForm(sf)
 	       form.reinit(107)
 	       form.waitForRelease()
       end))
+      --]]
       
       form.addRow(2)
-      form.addLabel({label="Reset data >>", width=220})
+      form.addLabel({label="Lua variables >>", width=220})
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
-	       form.reinit(101)
+	       form.reinit(108)
 	       form.waitForRelease()
       end))
+
 
       form.setFocusedRow(savedRow)
    elseif sf == 100 then
@@ -894,7 +945,8 @@ local function initForm(sf)
 	 form.addRow(1)
 	 form.addLabel({label="No instrument panel defined"})
 	 form.addRow(1)
-	 form.addLabel({label="Use the settings menu to select a panel"})
+	 form.addLabel({label="Use Panels>> to select a panel"})
+	 form.setFocusedRow(1)
 	 return
       end
       
@@ -917,14 +969,23 @@ local function initForm(sf)
 		  break
 	       end
 	    end
-	    form.addLabel({label=InsP.sensorLslist[isel], width=100})
+	    if InsP.sensorLslist[isel] == "..." and typ == "StkT" then
+	       form.addLabel({label="<Text>", width=100})
+	    else
+	       form.addLabel({label=InsP.sensorLslist[isel], width=100})
+	    end
+	    
 	 elseif widget.dataSrc == "Control" then
 	    local info = system.getSwitchInfo(switches[widget.control])
 	    if info then
-	       form.addLabel({label=info.label, width=100})
+	       form.addLabel({label="<C:"..info.label..">", width=100})
 	    else
-	       form.addLabel({label="---", width=100})	       
+	       form.addLabel({label="<C:--->", width=100})	       
 	    end
+	 elseif widget.dataSrc == "Lua" then
+	    form.addLabel({label="<Lua>"})
+	 elseif widget.dataSrc == "Extension" then
+	    form.addLabel({label="<Ext>"})
 	 end
 	 
       end
@@ -954,6 +1015,14 @@ local function initForm(sf)
       swtCI.rotatePanels = form.addInputbox(switches.rotatePanels, false,
 			      (function(x) return changedSwitch(x, "rotatePanels") end))
 
+      form.addRow(2)
+      form.addLabel({label="Reset all app data >>", width=220})
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       form.reinit(101)
+	       form.waitForRelease()
+      end))
+      
       form.setFocusedRow(savedRow2)
    elseif sf == 103 then
       form.setTitle("")
@@ -1022,6 +1091,16 @@ local function initForm(sf)
 	 form.addIntbox(widget.multiplier, -10000, 10000, 100, 0, 1,
 			(function(x) return changedMultiplier(x, widget) end) )
 	 
+      elseif widget.dataSrc == "Lua" then
+	 form.addRow(2)
+	 form.addLabel({label="Edit lua >>", width=220})
+	 form.addLink((function()
+		  savedRow = form.getFocusedRow()
+		  form.reinit(107)
+		  form.waitForRelease()
+	 end))
+      elseif widget.dataSrc == "Extension" then
+	 print("Extension")
       end
       
       form.addRow(4)
@@ -1198,7 +1277,43 @@ local function initForm(sf)
       end
    elseif sf == 107 then
 
-      LE.luaEdit(_ENV)
+      LE.luaEdit(InsP.variables)
+
+   elseif sf == 108 then
+      form.setTitle("Lua Variables")
+      local function changedVariableName(val, i)
+	 InsP.variables[i].name = val
+      end
+
+      local function changedSensor(val, i)
+	 InsP.variables[i].sensor = val
+	 InsP.variables[i].SeId = InsP.sensorIdlist[val]
+	 InsP.variables[i].SePa = InsP.sensorPalist[val]
+	 print("Id, Pa", InsP.variables[i].SeId, InsP.variables[i].SePa)
+      end
+      
+      form.setButton(3, ":add", ENABLED)
+      form.setButton(2, ":delete", ENABLED)
+      
+      if #InsP.variables == 0 then
+	 form.addRow(1)
+	 form.addLabel({label="No lua variables defined"})
+	 form.addRow(1)
+	 form.addLabel({label="Press plus key to add new variables"})
+	 form.setFocusedRow(1)
+	 return
+      end
+
+      for i in ipairs(InsP.variables) do
+	 form.addRow(4)
+	 form.addLabel({label="Name", width=50})
+	 form.addTextbox(InsP.variables[i].name, 63,
+			 (function(x) return changedVariableName(x, i) end), {width=60})
+	 form.addLabel({label = "Sensor", width=60})
+	 form.addSelectbox(InsP.sensorLalist, InsP.variables[i].sensor, 63,
+			   (function(x) return changedSensor(x, i) end), {width=150})
+      end
+      
 
    elseif sf == 110 then
       local function editCB(val, i)
@@ -1360,7 +1475,7 @@ local function loop()
 	 lua.completePass = true
       end
    end
-   loopCPU = loopCPU + (system.getCPU() - loopCPU) / 5
+   loopCPU = loopCPU + (system.getCPU() - loopCPU) / 10
 end
 
 local function printForm(_,_,tWin)
@@ -1446,6 +1561,8 @@ local function printForm(_,_,tWin)
 	 if info then
 	    sensorVal = (widget.multiplier or 100.0) * info.value
 	 end
+      elseif widget.dataSrc == "Lua" and widget.luastring and  widget.luastring[1] then
+	 sensorVal = tonumber(evaluateLua("E", widget.luastring[1], sp, idxW, 1))
       end
       
       ctl = nil
@@ -1857,8 +1974,8 @@ local function printForm(_,_,tWin)
    end
 
    if select(2, system.getDeviceType()) == 1 then
-      lcd.drawText(300,120, math.floor(loopCPU + 0.5), FONT_MINI)   
-      lcd.drawText(300,140, system.getCPU(), FONT_MINI)
+      lcd.drawText(300,70, math.floor(loopCPU + 0.5), FONT_MINI)   
+      lcd.drawText(300,90, system.getCPU(), FONT_MINI)
    end
    
    
@@ -1866,7 +1983,13 @@ end
 
 local function prtForm(w,h)
    if subForm == 107 then
-      LE.luaEditPrint(_ENV)
+
+      local sp = InsP.settings.selectedPanel
+      if not InsP.panels[sp][savedRow2].luastring then
+	 InsP.panels[sp][savedRow2].luastring = {}
+	 --InsP.panels[sp][savedRow2].luastring[1] = ""
+      end
+      LE.luaEditPrint(InsP.panels[sp][savedRow2], 1)
    elseif subForm == 103 and InsP.panels[InsP.settings.selectedPanel] then
       printForm(318,159,1)
       local ip = InsP.panels[InsP.settings.selectedPanel]
@@ -1922,6 +2045,7 @@ local function destroy()
       save.panels = InsP.panels
       save.panelImages = InsP.panelImages
       save.settings = InsP.settings
+      save.variables = InsP.variables
       save.stateSw = {}
       --[[
       for k,_ in pairs(stateSw) do
@@ -1983,9 +2107,13 @@ local function init()
       for i=1, #decoded.panelImages do
 	 InsP.panelImages[i] = decoded.panelImages[i]
       end
+
       InsP.settings = decoded.settings
       if not InsP.settings then InsP.settings = {} end
 
+      InsP.variables = decoded.variables
+      if not InsP.variables then InsP.variables = {} end
+      
       stateSw = {}
       
       for i in ipairs(InsP.panels) do
