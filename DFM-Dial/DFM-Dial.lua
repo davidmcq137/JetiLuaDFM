@@ -6,7 +6,7 @@
 --]]
 
 --local trans11
-local DialVersion = "2.1"
+local DialVersion = "2.11"
 
 local switches = {}
 local swtCI = {}

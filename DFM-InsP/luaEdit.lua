@@ -46,7 +46,7 @@ function M.luaEditPrint(cond, condIdx)
    end
 end
 
-function M.luaEditKey(cond, condIdx, key, pnl, gau, idx, eval, chunk)
+function M.luaEditKey(cond, condIdx, key, eval)
 
    local condition = cond.luastring
 
@@ -77,18 +77,15 @@ function M.luaEditKey(cond, condIdx, key, pnl, gau, idx, eval, chunk)
       form.reinit(3)
       form.preventDefault()                         
    end
-   if chunk and chunk[pnl] and chunk[pnl][gau] and chunk[pnl][gau][idx] then
-      chunk[pnl][gau][idx] = nil
-   end
    
-   local res = eval("E", condition[condIdx], pnl, gau, idx)
+   local res = eval("E", condition[condIdx])
    if not cond.result then cond.result = {} end
    cond.result[condIdx] = res
 end
 
 function M.luaEdit(vars)
    
-   local fA = { "*","/","+","-","^","(","%",
+   local fA = { "*","/","+","-","^","(",
 		"0","1","2","3","4","5","6","7","8","9",
 		"abs("
    }
@@ -101,7 +98,7 @@ function M.luaEdit(vars)
    fAvailable = {}
 
    for i,v in ipairs(vars) do
-      print("adding to fAv", i, v.name)
+      --print("adding to fAv", i, v.name)
       fAvailable[i] = v.name
    end
    
