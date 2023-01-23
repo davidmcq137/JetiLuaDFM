@@ -1077,13 +1077,14 @@ local function initForm(sf)
       form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
       form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)
       local en4
+      --[[
       print("type of ipeg.text", type(ipeg.text))
       if type(ipeg.text) == "string" then
 	 print("ipeg.text", ipeg.text)
       elseif type(ipeg.text) == "table" then
 	 print("ipeg.text[1]", ipeg.text[1])
       end
-      
+      --]]
       if ipeg.text then en4 = ENABLED else en4 = DISABLED end
       form.setButton(4, "Edit", en4)
    elseif sf == 104 then -- edit item on sensor menu
@@ -2032,7 +2033,7 @@ local function printForm(_,_,tWin)
 	 end
 
 	 local str
-	 str = expandStr(widget.text, sensorVal,
+	 str = expandStr(widget.text[1], sensorVal,
 				   widget.SeDp, widget.SeUn)
 
 	 if widget.xRT and str and widget.fT ~= "None" then

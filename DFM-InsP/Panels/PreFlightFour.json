@@ -1,8 +1,6 @@
 [
   {
-    "yL": 36,
     "width": 150,
-    "xL": 80,
     "height": 40,
     "y0": 18,
     "label": "Rx1 Voltage",
@@ -10,18 +8,15 @@
     "tBoxHgt": 24,
     "value": 0,
     "tBoxWid": 150,
-    "xV": 80,
     "text": [
       "Rx1 Voltage 'v''u'"
     ],
     "fontSize": 12,
-    "type": "stackedTextBox",
-    "yV": 18
+    "lua": "string.format('CB200: %.1f mA %.1f V', 5*7.12, 6.34*4)",
+    "type": "stackedTextBox"
   },
   {
-    "yL": 78.4,
     "width": 150,
-    "xL": 80,
     "height": 40,
     "y0": 61,
     "label": "Status 2",
@@ -29,7 +24,6 @@
     "tBoxHgt": 24,
     "value": 0,
     "tBoxWid": 150,
-    "xV": 80,
     "text": [
       "Ready to Start",
       "Starting",
@@ -39,13 +33,10 @@
       "Standby"
     ],
     "fontSize": 12,
-    "type": "sequencedTextBox",
-    "yV": 61
+    "type": "sequencedTextBox"
   },
   {
-    "yL": 155.9,
     "width": 150,
-    "xL": 80,
     "height": 105,
     "y0": 119,
     "label": "Status 3",
@@ -53,22 +44,18 @@
     "tBoxHgt": 63,
     "value": 0,
     "tBoxWid": 150,
-    "xV": 80,
     "text": [
-	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 1, 'LiFe')",
-	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 2, 'LiFe')",
-	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 3, 'LiFe')",
-    	"luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 4, 'LiFe')"
+      "Line One",
+      "Line Two",
+      "Line Three",
+      "Line Four"
     ],
     "fontSize": 12,
-    "type": "stackedTextBox",
-    "yV": 119
+    "type": "stackedTextBox"
   },
   {
-    "yL": 69.6,
     "min": 0,
     "ro": 34,
-    "xL": 199,
     "colorvals": [
       {
         "color": "red",
@@ -96,18 +83,14 @@
     "divs": 16,
     "subdivs": 4,
     "value": 3.2,
-    "xV": 199,
     "ri": 28.9,
     "start": -120,
     "type": "roundNeedleGauge",
-    "yV": 49.2,
     "end": 120
   },
   {
-    "yL": 69.6,
     "min": 0,
     "ro": 34,
-    "xL": 280,
     "colorvals": [
       {
         "color": "red",
@@ -135,18 +118,14 @@
     "divs": 16,
     "subdivs": 4,
     "value": 6.48,
-    "xV": 280,
     "ri": 28.9,
     "start": -120,
     "type": "roundNeedleGauge",
-    "yV": 49.2,
     "end": 120
   },
   {
-    "yL": 148.6,
     "min": 0,
     "ro": 34,
-    "xL": 199,
     "colorvals": [
       {
         "color": "green",
@@ -174,18 +153,14 @@
     "divs": 24,
     "subdivs": 4,
     "value": 85,
-    "xV": 199,
     "ri": 28.9,
     "start": -120,
     "type": "roundNeedleGauge",
-    "yV": 128.2,
     "end": 120
   },
   {
-    "yL": 148.6,
     "min": 0,
     "ro": 34,
-    "xL": 280,
     "colorvals": [
       {
         "color": "green",
@@ -213,11 +188,9 @@
     "divs": 24,
     "subdivs": 4,
     "value": 85,
-    "xV": 280,
     "ri": 28.9,
     "start": -120,
     "type": "roundNeedleGauge",
-    "yV": 128.2,
     "end": 120
   }
 ]

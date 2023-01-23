@@ -1,11 +1,9 @@
 [
   {
-    "yL": 118,
     "min": 0,
     "width": 50,
     "lightColor": "red",
     "offColor": "#202020",
-    "xL": 120,
     "height": 50,
     "y0": 104,
     "label": "Red",
@@ -31,12 +29,10 @@
     }
   },
   {
-    "yL": 118,
     "min": 0,
     "width": 50,
     "lightColor": "green",
     "offColor": "#202020",
-    "xL": 200,
     "height": 50,
     "y0": 104,
     "label": "Green",
@@ -62,9 +58,9 @@
     }
   },
   {
-    "yL": 152.6,
+    "yL": 154.355,
     "width": 131,
-    "xL": 245,
+    "xL": 250,
     "height": 34,
     "y0": 140,
     "label": "Turbine Status",
@@ -72,7 +68,7 @@
     "tBoxHgt": 20.4,
     "value": 0,
     "tBoxWid": 131,
-    "xV": 245,
+    "xV": 250,
     "text": [
       "Ready to Start",
       "Starting",
@@ -108,6 +104,7 @@
     "label": "Fuel Remaining",
     "max": 100,
     "x0": 90,
+    "majdivs": 4,
     "divs": 16,
     "subdivs": 4,
     "value": 100,
@@ -274,6 +271,7 @@
     "max": 120,
     "radius": 62,
     "x0": 65,
+    "majdivs": 6,
     "divs": 24,
     "subdivs": 4,
     "value": 0,
@@ -300,6 +298,7 @@
     "max": 1000,
     "radius": 62,
     "x0": 255,
+    "majdivs": 5,
     "divs": 20,
     "subdivs": 4,
     "value": 0,
@@ -311,7 +310,7 @@
     "end": 135
   },
   {
-    "yL": 54,
+    "yL": 51.7,
     "min": 0,
     "spectrum": [
       "red",
@@ -325,6 +324,7 @@
     "max": 10,
     "radius": 26,
     "x0": 160,
+    "majdivs": 0,
     "divs": 10,
     "subdivs": 0,
     "value": 0,
@@ -332,11 +332,11 @@
     "ri": 17,
     "start": -135,
     "type": "roundNeedleGauge",
-    "yV": 42,
+    "yV": 37.9,
     "end": 135
   },
   {
-    "yL": 113.5,
+    "yL": 111.7,
     "min": 0,
     "spectrum": [
       "red",
@@ -350,6 +350,7 @@
     "max": 10,
     "radius": 31,
     "x0": 160,
+    "majdivs": 0,
     "divs": 10,
     "subdivs": 0,
     "value": 0,
@@ -357,17 +358,19 @@
     "ri": 21.25,
     "start": -135,
     "type": "roundNeedleGauge",
-    "yV": 98.5,
+    "yV": 97.9,
     "end": 135
   },
   {
-    "width": 320,
-    "height": 320,
+    "width": 200,
+    "height": 50,
     "y0": 8,
     "label": "",
     "x0": 160,
     "fontHeight": 10,
-    "text": "Panels can have titles",
+    "text": [
+      "Panel title"
+    ],
     "textColor": {
       "r": 255,
       "g": 255,

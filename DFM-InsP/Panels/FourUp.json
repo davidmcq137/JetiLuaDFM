@@ -1,0 +1,123 @@
+[
+  {
+    "min": 0,
+    "ro": 63,
+    "colorvals": [
+      {
+        "color": "blue",
+        "val": 20
+      },
+      {
+        "color": "yellow",
+        "val": 60
+      },
+      {
+        "color": "orange",
+        "val": 80
+      },
+      {
+        "color": "red",
+        "val": 100
+      }
+    ],
+    "y0": 81.25,
+    "label": "Current",
+    "max": 100,
+    "radius": 71,
+    "x0": 71,
+    "majdivs": 5,
+    "divs": 25,
+    "subdivs": 5,
+    "value": 0,
+    "xV": 71,
+    "ri": 53.55,
+    "start": -135,
+    "type": "roundNeedleGauge",
+    "yV": 100.15,
+    "end": 135,
+    "needleType": "arc"
+  },
+  {
+    "min": -100,
+    "ro": 63,
+    "colorvals": [
+      {
+        "color": "blue",
+        "val": -75
+      },
+      {
+        "color": "yellow",
+        "val": 0
+      },
+      {
+        "color": "orange",
+        "val": 75
+      },
+      {
+        "color": "red",
+        "val": 100
+      }
+    ],
+    "y0": 79.75,
+    "label": "Position",
+    "max": 100,
+    "radius": 71,
+    "x0": 248,
+    "majdivs": 8,
+    "divs": 32,
+    "subdivs": 4,
+    "value": 0,
+    "xV": 248,
+    "ri": 53.55,
+    "start": -135,
+    "type": "roundNeedleGauge",
+    "yV": 98.65,
+    "end": 135,
+    "needleType": "arc"
+  },
+  {
+    "min": 0,
+    "spectrum": [
+      "red",
+      "springgreen"
+    ],
+    "ro": 26,
+    "y0": 128,
+    "max": 100,
+    "radius": 32,
+    "x0": 159,
+    "majdivs": 0,
+    "divs": 10,
+    "subdivs": 0,
+    "value": 0,
+    "xV": 159,
+    "ri": 22.099999999999998,
+    "start": -135,
+    "type": "roundNeedleGauge",
+    "yV": 135.2,
+    "end": 135
+  },
+  {
+    "min": 0,
+    "spectrum": [
+      "red",
+      "yellow",
+      "springgreen"
+    ],
+    "ro": 26,
+    "y0": 32,
+    "max": 100,
+    "radius": 32,
+    "x0": 159,
+    "majdivs": 0,
+    "divs": 10,
+    "subdivs": 0,
+    "value": 0,
+    "xV": 159,
+    "ri": 22.099999999999998,
+    "start": -135,
+    "type": "roundNeedleGauge",
+    "yV": 39.2,
+    "end": 135
+  }
+]

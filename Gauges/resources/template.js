@@ -987,7 +987,7 @@ function textBox(ctx, arr, type) {
     ctx.fillStyle = "#303030";
     ctx.strokeStyle = ctx.fillStyle;
     roundedRectBezel(ctx, x0 - arr.width/2 + bezel, y0 - h/2 + bezel,
-		     arr.width - 2 * bezel, h - 2 * bezel, 5, bezel + 1);
+		     arr.width - 2 * bezel, h - 2 * bezel, 3, bezel + 1);
 
     if (arr.color) {
 	ctx.fillStyle = arr.color;
@@ -996,7 +996,7 @@ function textBox(ctx, arr, type) {
     }
 
     roundedRect(ctx, x0 - arr.width/2 + bezel + 1, y0 - h/2 + bezel + 1,
-		arr.width - 2 * bezel - 2, h - 2 * bezel - 2, 5);
+		arr.width - 2 * bezel - 2, h - 2 * bezel - 2, 3);
         
 
     if (arr.label) {
@@ -1100,7 +1100,7 @@ function horizontalBar(ctx, arr) {
     ctx.strokeStyle = ctx.fillStyle;
     
     roundedRectBezel(ctx, arr.x0 - arrR.barW/2 - bezel, arr.y0 - arrR.barH/2 - bezel,
-		 arrR.barW + 2*bezel, arrR.barH + 2 * bezel, 5, bezel+1);
+		 arrR.barW + 2*bezel, arrR.barH + 2 * bezel, 3, bezel+1);
 
     var delta;
     var a;

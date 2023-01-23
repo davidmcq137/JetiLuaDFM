@@ -93,15 +93,41 @@
     "max": 120,
     "radius": 80,
     "x0": 239,
-    "majdivs": 6,
-    "divs": 24,
-    "subdivs": 4,
+    "majdivs": 0,
+    "divs": 10,
+    "subdivs": 0,
     "value": 85,
     "xV": 239,
-    "ri": 61.199999999999996,
+    "ri": 57.6,
     "start": -120,
-    "type": "roundNeedleGauge",
+    "type": "roundArcGauge",
     "yV": 101.6,
+    "TXcolorvals": [
+      {
+        "v": 60,
+        "r": 0,
+        "g": 0,
+        "b": 255
+      },
+      {
+        "v": 80,
+        "r": 255,
+        "g": 255,
+        "b": 0
+      },
+      {
+        "v": 90,
+        "r": 255,
+        "g": 165,
+        "b": 0
+      },
+      {
+        "v": 100,
+        "r": 255,
+        "g": 0,
+        "b": 0
+      }
+    ],
     "end": 120
   }
 ]

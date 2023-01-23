@@ -17,14 +17,14 @@
   {
     "width": 150,
     "height": 40,
-    "y0": 61,
+    "y0": 53,
     "label": "Turbine Status",
     "x0": 80,
     "tBoxHgt": 24,
     "value": 0,
     "tBoxWid": 150,
     "text": [
-	"luaS: rt = require 'DFM-InsP/XicoyTele' return rt.text(_ENV)"
+      "luaS: rt = require 'DFM-InsP/XicoyTele' return rt.text(_ENV)"
     ],
     "fontSize": 12,
     "type": "stackedTextBox"
@@ -32,36 +32,36 @@
   {
     "width": 150,
     "height": 125,
-    "y0": 119,
+    "y0": 114,
     "label": "CB Battery Status",
     "x0": 80,
     "tBoxHgt": 75,
     "value": 0,
     "tBoxWid": 150,
     "text": [
-      "luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 1, 'LiFe')",
-      "luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 2, 'LiFe')",
-      "luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 3, 'LiFe')",
-      "luaS: rt = require 'DFM-InsP/returnText' return rt.text(_ENV, 4, 'LiFe')"
+      "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 1, 'LiFe')",
+      "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 2, 'LiFe')",
+      "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 3, 'LiFe')",
+      "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 4, 'LiFe')"
     ],
     "fontSize": 12,
     "type": "stackedTextBox"
   },
   {
-    "min": 0,
+    "min": 6,
     "ro": 34,
     "colorvals": [
       {
         "color": "red",
-        "val": 6
+        "val": 6.4
       },
       {
         "color": "yellow",
-        "val": 7
+        "val": 6.7
       },
       {
         "color": "green",
-        "val": 9
+        "val": 7.5
       },
       {
         "color": "green",
@@ -70,33 +70,33 @@
     ],
     "y0": 39,
     "label": "U Accu 1 (V)",
-    "max": 8,
+    "max": 7.5,
     "radius": 42,
     "x0": 199,
-    "majdivs": 4,
-    "divs": 16,
+    "majdivs": 5,
+    "divs": 20,
     "subdivs": 4,
-    "value": 3.2,
+    "value": 6.6,
     "ri": 28.9,
     "start": -120,
     "type": "roundNeedleGauge",
     "end": 120
   },
   {
-    "min": 0,
+    "min": 6,
     "ro": 34,
     "colorvals": [
       {
         "color": "red",
-        "val": 6
+        "val": 6.4
       },
       {
         "color": "yellow",
-        "val": 7
+        "val": 6.7
       },
       {
         "color": "green",
-        "val": 9
+        "val": 7.5
       },
       {
         "color": "green",
@@ -105,13 +105,13 @@
     ],
     "y0": 39,
     "label": "U Accu 2 (V)",
-    "max": 8,
+    "max": 7.5,
     "radius": 42,
     "x0": 280,
-    "majdivs": 4,
-    "divs": 16,
+    "majdivs": 5,
+    "divs": 20,
     "subdivs": 4,
-    "value": 6.48,
+    "value": 6.6,
     "ri": 28.9,
     "start": -120,
     "type": "roundNeedleGauge",
