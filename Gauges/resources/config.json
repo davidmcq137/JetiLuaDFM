@@ -125,7 +125,9 @@
 	    "type":"rawText",
 	    "x0": 160,
 	    "y0": 80,
-	    "text":"Some raw text",
+	    "text": [
+		"Some raw text"
+	    ],
 	    "label":"",
 	    "textColor":"white",
 	    "fontHeight":20,

@@ -318,13 +318,6 @@ local function setToPanelName(pn)
    end
 end
 
-local function setVariables()
-   for i, var in ipairs(InsP.variables) do
-      if lua.env[var.name] then
-	 InsP.variables[i].value = lua.env[var.name]
-      end
-   end
-end
 
 local pCallErr = 0
 local luaLoadErr = 0
@@ -336,16 +329,18 @@ local function evaluateLua(es, luastring)
 
    -- for now, copy the std env and add the variables each time we are called
    -- inefficient but can improve later
+   -- assume that setVariables has been called first so that all variables are
+   -- up-to-date
    
    for k,v in pairs(lua.env) do
       varenv[k] = v
    end
 
-   local sn
+   --local sn
    for i,v in ipairs(InsP.variables) do
-      sn = InsP.sensorLalist[v.sensor]
-      InsP.variables[i].value = lua.env[sn]
-      varenv[v.name] = lua.env[sn]
+      --sn = InsP.sensorLalist[v.sensor]
+      --InsP.variables[i].value = lua.env[sn]
+      varenv[v.name] = v.value
    end
 
    if luastring and lua.completePass then
@@ -383,6 +378,28 @@ local function evaluateLua(es, luastring)
    return luaReturn or "<lua return nil>"
 end
 
+local function setVariables()
+   for i, var in ipairs(InsP.variables) do
+      if InsP.variables[i].source == 1 then
+	 local name = InsP.sensorLalist[var.sensor]
+	 --print("setV 1", i, var, name, lua.env[name])
+	 InsP.variables[i].value = lua.env[name]
+      elseif InsP.variables[i].source == 2 then
+	 InsP.variables[i].value = evaluateLua("E", InsP.variables[i].luastring[1])
+	 if type(InsP.variables[i].value) ~= "number" then
+	    InsP.variables[i].value = 0
+	 end
+	 --print("setV 2", InsP.variables[i].value, type(InsP.variables[i].value))
+	 --print("setV 2", i, var.name, "*"..var.value.."*", InsP.variables[i].luastring[1])
+      end
+   end
+end
+
+local function evaluate(es, luastring)
+   setVariables()
+   return evaluateLua(es, luastring)
+end
+
 local function expandStr(stri, val, SeDp, SeUn)
 
    local str, stro
@@ -392,11 +409,11 @@ local function expandStr(stri, val, SeDp, SeUn)
    -- first check if it's lua expression
 
    if string.find(stri, "luaE:") == 1 then
-      return evaluateLua("E", string.sub(stri, 6, -1))
+      return evaluate("E", string.sub(stri, 6, -1))
    end
 
    if string.find(stri, "luaS:") == 1 then
-      return evaluateLua("S", string.sub(stri, 6, -1))
+      return evaluate("S", string.sub(stri, 6, -1))
    end
 
    -- or an escaped :luaE or :luaS
@@ -414,10 +431,19 @@ local function expandStr(stri, val, SeDp, SeUn)
       local q1, q2 = string.find(stro, ww)
       if q1 and q2 then
 	 local v
+	 local bb,aa
+	 local fmt
 	 local cc = string.sub(ww,2,2)
+	 local dd = string.sub(ww,2,-2)
+	 bb,aa = string.match(dd, "(.+)%.(.+)")
+	 if aa and (aa == "0") then fmt = "%.0f" end
+	 if aa and (aa == "1") then fmt = "%.1f" end
+	 if aa and (aa == "2") then fmt = "%.2f" end
 	 if cc == 'v' then
 	    if val then
-	       local fmt = string.format("%%.%df", SeDp or 1)
+	       if not fmt then
+		  fmt = string.format("%%.%df", SeDp or 1)
+	       end
 	       v = string.format(fmt, val)
 	    else
 	       v = "---"
@@ -432,12 +458,22 @@ local function expandStr(stri, val, SeDp, SeUn)
 	    setVariables()
 	    cc = string.sub(ww, 2, -2)
 	    v = ww
-	    print("ww,cc", ww, cc)
+	    --print("ww,cc", ww, cc, bb, aa, fmt)
+	    if aa then cc = bb end
 	    for i,var in ipairs(InsP.variables) do
 	       if cc == var.name then
-		  print("match", cc, var.value)
+		  --print("match", cc, var.value)
 		  if var.value then
-		     v = string.format("%.2f", var.value)
+		     --print("var.value", var.value, type(var.value))
+		     if type(var.value) == "number" then
+			if fmt then
+			   v = string.format(fmt, var.value)
+			else
+			   v = string.format("%.2f", var.value)
+			end
+		     else
+			v="---"
+		     end
 		  else
 		     v = ww
 		  end
@@ -500,17 +536,18 @@ local function keyForm(key)
 	 return
       end
 
-      print("107, savedRow, savedRow2", savedRow, savedRow2)
+      --print("107, savedRow, savedRow2", savedRow, savedRow2)
       
       if savedRow == 3 then -- sensors top level command
 	 local sp = InsP.settings.selectedPanel
-	 print("sp, savedRow, savedRow2", sp, savedRow, savedRow2)
+	 --print("sp, savedRow, savedRow2", sp, savedRow, savedRow2)
 	 if not InsP.panels[sp][savedRow2].luastring then
 	    InsP.panels[sp][savedRow2].luastring = {}
 	 end
-	 LE.luaEditKey(InsP.panels[sp][savedRow2], 1, key, evaluateLua)
+	 LE.luaEditKey(InsP.panels[sp][savedRow2], 1, key, evaluate)
       elseif savedRow == 6 then -- lua variables top level command
-	 LE.luaEditKey(InsP.variables[savedRow2], 1, key, evaluateLua)	 
+	 --print("about to editkey", InsP.variables[savedRow2].name)
+	 LE.luaEditKey(InsP.variables[savedRow2], 1, key, evaluate)	 
       end
       
    end
@@ -627,8 +664,9 @@ local function keyForm(key)
 	 ipeg = ipsp[edit.gauge] 
 	 en = edit.gaugeName[ipeg.type].en[edit.opsIdx]
 	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
-	 --if ipeg.text then en4 = ENABLED else en4 = DISABLED end
-	 --form.setButton(4, "Edit", en4)
+	 local en4
+	 if ipeg.text then en4 = ENABLED else en4 = DISABLED end
+	 form.setButton(4, "Edit", en4)
       elseif key == KEY_2 then
 	 edit.opsIdx = edit.opsIdx + 1
 	 if edit.opsIdx > #edit.ops then edit.opsIdx = 1 end
@@ -763,7 +801,7 @@ local function changedSensor(val, i, ip)
    ip[i].SeUn = InsP.sensorUnlist[val]
    ip[i].SeDp = InsP.sensorDplist[val]
    ip[i].SeLa = InsP.sensorLalist[val]
-   print("i, SeLa", i, InsP.sensorLalist[val])
+   --print("i, SeLa", i, InsP.sensorLalist[val])
 end
 
 local function panelChanged(val, sp)
@@ -1039,8 +1077,14 @@ local function initForm(sf)
       form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
       form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)
       local en4
-      --print("ipeg.text", ipeg.text)      
-      if ipeg.text then en4 = ENABLED else en4 = DISABLE end
+      print("type of ipeg.text", type(ipeg.text))
+      if type(ipeg.text) == "string" then
+	 print("ipeg.text", ipeg.text)
+      elseif type(ipeg.text) == "table" then
+	 print("ipeg.text[1]", ipeg.text[1])
+      end
+      
+      if ipeg.text then en4 = ENABLED else en4 = DISABLED end
       form.setButton(4, "Edit", en4)
    elseif sf == 104 then -- edit item on sensor menu
       local ig = savedRow3
@@ -1282,8 +1326,8 @@ local function initForm(sf)
 	 form.setFocusedRow(isp+1)
       end
    elseif sf == 107 then
-
-      LE.luaEdit(InsP.variables)
+      --print("about to luaEdit", savedRow, savedRow2)
+      LE.luaEdit(InsP.variables, savedRow2)
 
    elseif sf == 108 then
       form.setTitle("Lua Variables")
@@ -1295,7 +1339,7 @@ local function initForm(sf)
 	 InsP.variables[i].sensor = val
 	 InsP.variables[i].SeId = InsP.sensorIdlist[val]
 	 InsP.variables[i].SePa = InsP.sensorPalist[val]
-	 print("Id, Pa", InsP.variables[i].SeId, InsP.variables[i].SePa)
+	 --print("Id, Pa", InsP.variables[i].SeId, InsP.variables[i].SePa)
       end
 
       local function changedSource(val, i)
@@ -1329,7 +1373,7 @@ local function initForm(sf)
 	 elseif InsP.variables[i].source == 2 then
 	    form.addLink((function()
 		     savedRow2 = form.getFocusedRow()
-		     print("lua edit var, savedRow2", savedRow2)
+		     --print("lua edit var, savedRow2", savedRow2)
 		     form.waitForRelease()
 		     form.reinit(107)
 			 end), {label="Edit Lua>>", width=120})
@@ -1587,7 +1631,7 @@ local function printForm(_,_,tWin)
 	    sensorVal = (widget.multiplier or 100.0) * info.value
 	 end
       elseif widget.dataSrc == "Lua" and widget.luastring and  widget.luastring[1] then
-	 sensorVal = tonumber(evaluateLua("E", widget.luastring[1]))
+	 sensorVal = tonumber(evaluate("E", widget.luastring[1]))
       end
       
       ctl = nil
@@ -1987,10 +2031,14 @@ local function printForm(_,_,tWin)
 	    lcd.setColor(widget.textColor.r, widget.textColor.g, widget.textColor.b)
 	 end
 
-	 if widget.xRT and widget.text and widget.fT ~= "None" then
-	    lcd.drawText(widget.xRT - lcd.getTextWidth(edit.fcode[widget.fT], widget.text) / 2,
+	 local str
+	 str = expandStr(widget.text, sensorVal,
+				   widget.SeDp, widget.SeUn)
+
+	 if widget.xRT and str and widget.fT ~= "None" then
+	    lcd.drawText(widget.xRT - lcd.getTextWidth(edit.fcode[widget.fT], str) / 2,
 			 widget.yRT - lcd.getTextHeight(edit.fcode[widget.fT]) / 2,
-			 widget.text, edit.fcode[widget.fT])
+			 str, edit.fcode[widget.fT])
 	 end
 	 
       --else

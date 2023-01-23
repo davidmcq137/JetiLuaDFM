@@ -50,6 +50,8 @@ function M.luaEditKey(cond, condIdx, key, eval)
 
    local condition = cond.luastring
 
+   print("ek", cond.name)
+
    --print("luaEditKey, cond", condition[condIdx])
    
    if not fIndex[condIdx] then fIndex[condIdx] = 1 end
@@ -83,23 +85,29 @@ function M.luaEditKey(cond, condIdx, key, eval)
    cond.result[condIdx] = res
 end
 
-function M.luaEdit(vars)
+function M.luaEdit(vars, excl)
    
    local fA = { "*","/","+","-","^","(",
 		"0","1","2","3","4","5","6","7","8","9",
 		"abs("
    }
 
-   -- rebuilt the expression element string from the
+   -- rebuild the expression element string from the
    -- latest info
 
-   print("luaEdit", vars, #vars)
+   print("luaEdit", vars, #vars, excl)
    
    fAvailable = {}
 
+   local ii = 0
    for i,v in ipairs(vars) do
       --print("adding to fAv", i, v.name)
-      fAvailable[i] = v.name
+      -- don't let this assignment be circular (exclude var being defined)
+      if i ~= excl then
+	 ii = ii + 1
+	 fAvailable[ii] = v.name
+      end
+      
    end
    
    for i in ipairs(fA) do

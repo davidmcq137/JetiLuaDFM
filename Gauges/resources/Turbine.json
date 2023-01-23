@@ -181,7 +181,10 @@
 	"y0": 8,
 	"fontHeight":10,
 	"textColor":"white",
-	"text":"Panels can have titles",
+	"text":
+	[
+	    "Panel title"
+	],
 	"label":"",
 	"width":200,
 	"height":50

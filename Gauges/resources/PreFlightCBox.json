@@ -15,7 +15,7 @@
     {
 	"width": 150,
 	"height": 40,
-	"y0": 61,
+	"y0": 53,
 	"label": "Turbine Status",
 	"x0": 80,
 	"value": 0,
@@ -29,7 +29,7 @@
     {
 	"width": 150,
 	"height": 125,
-	"y0": 119,
+	"y0": 114,
 	"label": "CB Battery Status",
 	"x0": 80,
 	"value": 0,
@@ -43,7 +43,7 @@
 	"type": "stackedTextBox"
     },
     {
-	"min": 6.2,
+	"min": 6.0,
 	"colorvals": [
 	    {
 		"color": "red",
@@ -51,11 +51,11 @@
 	    },
 	    {
 		"color": "yellow",
-		"val": 6.6
+		"val": 6.7
 	    },
 	    {
 		"color": "green",
-		"val": 7.2
+		"val": 7.5
 	    },
 	    {
 		"color": "green",
@@ -64,18 +64,18 @@
 	],
 	"y0": 39,
 	"label": "U Accu 1 (V)",
-	"max": 7.4,
+	"max": 7.5,
 	"radius": 42,
 	"x0": 199,
-	"majdivs": 4,
-	"subdivs": 6,
-	"value": 3.2,
+	"majdivs": 5,
+	"subdivs": 4,
+	"value": 6.6,
 	"start": -120,
 	"type": "roundNeedleGauge",
 	"end": 120
     },
     {
-	"min": 6.2,
+	"min": 6.0,
 	"colorvals": [
 	    {
 		"color": "red",
@@ -83,11 +83,11 @@
 	    },
 	    {
 		"color": "yellow",
-		"val": 6.6
+		"val": 6.7
 	    },
 	    {
 		"color": "green",
-		"val": 7.2
+		"val": 7.5
 	    },
 	    {
 		"color": "green",
@@ -96,12 +96,12 @@
 	],
 	"y0": 39,
 	"label": "U Accu 2 (V)",
-	"max": 7.4,
+	"max": 7.5,
 	"radius": 42,
 	"x0": 280,
-	"majdivs": 4,
-	"subdivs": 6,
-	"value": 6.48,
+	"majdivs": 5,
+	"subdivs": 4,
+	"value": 6.6,
 	"start": -120,
 	"type": "roundNeedleGauge",
 	"end": 120
