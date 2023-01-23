@@ -999,22 +999,24 @@ function textBox(ctx, arr, type) {
 		arr.width - 2 * bezel - 2, h - 2 * bezel - 2, 3);
         
 
-    if (arr.label) {
-	if (arr.labelcolor) {
-	    ctx.fillStyle = arr.labelcolor;
-	} else {
-	    ctx.fillStyle = "white";
-	}
+    if (arr.labelcolor) {
+	ctx.fillStyle = arr.labelcolor;
+    } else {
+	ctx.fillStyle = "white";
+    }
+    
+    //ctx.font = "" + 0.9 * fontScale * h + "px sans-serif"
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle"
+    arrR.xL = x0
+    
+    //console.log(y0, h/2, 0.85 * fontScale * h);
+    
+    arrR.yL = y0 + h/2 + 0.6 * getTextHeight(ctx, arr.label)
+    ctx.font = fontL;
+    //console.log("arrR.yL", arrR.yL, arr.label)
 
-	//ctx.font = "" + 0.9 * fontScale * h + "px sans-serif"
-	ctx.textAlign = "center";
-	ctx.textBaseline = "middle"
-	arrR.xL = x0
-	
-	//console.log(y0, h/2, 0.85 * fontScale * h);
-
-	arrR.yL = y0 + h/2 + 0.6 * getTextHeight(ctx, arr.label)
-	ctx.font = fontL;
+    if (arr.label) { // don't draw the text when being rendered for the png file
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
     if (arr.textcolor) {

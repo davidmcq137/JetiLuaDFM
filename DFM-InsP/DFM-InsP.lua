@@ -72,7 +72,9 @@ local lua = {}
 --lua.chunk = {}
 lua.env = {string=string, math=math, table=table, print=print,
 	   tonumber=tonumber, tostring=tostring, pairs=pairs,
-	   require=require, ipairs=ipairs, abs = math.abs}
+	   require=require, ipairs=ipairs, abs = math.abs,
+	   getSensorByID=(function(a1,a2) return system.getSensorByID(a1,a2) end)
+}
 
 lua.index = 0
 lua.txTelLastUpdate = 0
@@ -1639,13 +1641,18 @@ local function printForm(_,_,tWin)
       local minarc = -0.75 * math.pi
       local maxarc =  0.75 * math.pi
 
-      if widget.start then minarc = math.pi/2 +  math.rad(widget.start) end
+      --print("b",math.deg(minarc), math.deg(maxarc))
+
+      if widget.start then minarc = math.pi/2 + math.rad(widget.start) end
       if widget["end"] then maxarc = math.pi/2 + math.rad(widget["end"]) end
+
+      --print("a",math.deg(minarc), math.deg(maxarc), widget.start, widget["end"])
 
       if sensorVal then
 	 if widget.min and widget.max then
 	    ctl = math.min(math.max((sensorVal - widget.min) / (widget.max - widget.min), 0), 1)
 	    rot = minarc * (1-ctl) + maxarc * (ctl)
+	    --print(ctl, math.deg(rot))
 	 end
 	 if widget.min and widget.max and widget.minval then
 	    ctlmin = math.min(math.max((widget.minval - widget.min) / (widget.max - widget.min), 0), 1)
@@ -1728,7 +1735,7 @@ local function printForm(_,_,tWin)
 		  else
 		     arcNP = 2 + ratio * 12
 		  end
-		  drawArc(rot + math.pi/4, widget.x0, widget.y0, minarc, ri, ro+1, arcNP, 1)
+		  drawArc(rot - minarc, widget.x0, widget.y0, minarc, ri, ro+1, arcNP, 1)
 	       end
 	    elseif widget.type == "virtualGauge" then
 	       local shp = {}
@@ -2277,9 +2284,9 @@ local function init()
    readSensors(InsP)
 
    system.registerForm(1, MENU_APPS, "Instrument Panel", initForm, keyForm, prtForm)
-   system.registerTelemetry(1, "DFM-InsP - Instrument Panel Win 1", 4,
+   system.registerTelemetry(1, "DFM-InsP-1", 4,
 			    (function(w,h) return printForm(w,h,1) end) )
-   system.registerTelemetry(2, "DFM-InsP - Instrument Panel Win 2 ", 4,
+   system.registerTelemetry(2, "DFM-InsP-2 ", 4,
 			    (function(w,h) return printForm(w,h,2) end) )   
 
    appStartTime = system.getTimeCounter()
