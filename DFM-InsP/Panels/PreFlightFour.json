@@ -45,10 +45,10 @@
     "value": 0,
     "tBoxWid": 150,
     "text": [
-      "Line One",
-      "Line Two",
-      "Line Three",
-      "Line Four"
+	"CB200 U Accu 1 'S1.2'",
+	"CB200 U Accu 2 'S2.2'",
+	"CB200 I Accu 1 'S3.2'",
+	"CB200 I Accu 2 'S4.2'"
     ],
     "fontSize": 12,
     "type": "stackedTextBox"

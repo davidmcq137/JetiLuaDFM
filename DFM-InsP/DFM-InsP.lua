@@ -8,13 +8,14 @@
 
    Started Dec 2022
 
-   V 0.2 01/12/23 - synch with near-final json format from the website panel maker
+   Version 0.2 01/12/23 - synch with near-final json format from the website panel maker
+   Version 0.3 01/23/23 - lua integrated in sensors and text strings
 
    --------------------------------------------------------------------------------
 --]]
 
 
-local InsPVersion = 0.2
+local InsPVersion = 0.3
 
 local LE
 
@@ -27,6 +28,7 @@ InsP.sensorIdlist = {0}
 InsP.sensorPalist = {0}
 InsP.sensorUnlist = {"-"}
 InsP.sensorDplist = {0}
+InsP.sensorTable = {}
 InsP.variables = {}
    
 local teleSensors, txTeleSensors
@@ -41,7 +43,7 @@ local txRSSINames = {"rx1Ant1", "rx1Ant2", "rx2Ant1", "rx2Ant2",
 InsP.settings = {}
 InsP.settings.switchInfo = {}
 
-local dataSources = {"Sensor", "Control", "Lua", "Extension"}
+local dataSources = {"Sensor", "Control", "Lua"} --, "Extension"}
 local switches = {}
 local stateSw = {}
 
@@ -72,10 +74,11 @@ local lua = {}
 --lua.chunk = {}
 lua.env = {string=string, math=math, table=table, print=print,
 	   tonumber=tonumber, tostring=tostring, pairs=pairs,
-	   require=require, ipairs=ipairs, abs = math.abs,
+	   require=require, ipairs=ipairs, abs = math.abs, type=type,
 	   getSensorByID=(function(a1,a2) return system.getSensorByID(a1,a2) end)
 }
 
+lua.ext = {}
 lua.index = 0
 lua.txTelLastUpdate = 0
 lua.txTel = {}
@@ -207,6 +210,11 @@ local function readSensors(tt)
       table.insert(tt.sensorDplist, 0)
    end
 
+   for i,v in ipairs(tt.sensorLalist) do
+      tt.sensorTable[v] = {SeId = tt.sensorIdlist[i], SePa = tt.sensorPalist[i],
+			   SeUn = tt.sensorUnlist[i], SeDp = tt.sensorDplist[i]}
+   end
+   
 end
 
 local function initPanels(tbl)
@@ -324,7 +332,7 @@ end
 local pCallErr = 0
 local luaLoadErr = 0
 
-local function evaluateLua(es, luastring)
+local function evaluateLua(es, luastring, val)
    local luaReturn = ""
    local err, status, result
    local varenv = {}
@@ -345,6 +353,9 @@ local function evaluateLua(es, luastring)
       varenv[v.name] = v.value
    end
 
+   varenv["ptr"] = InsP
+   if val then varenv["val"] = val end
+   
    if luastring and lua.completePass then
       if es == "E" then
 	 lua.chunk, err = load("return "..luastring,"","t", varenv)
@@ -368,7 +379,7 @@ local function evaluateLua(es, luastring)
 	    pCallErr = pCallErr + 1
 	    if pCallErr < 10 then
 	       print("DFM-InsP - pcall error: " .. result)
-	       print("DFM-InsP - P,G,I,L: ", pnl, gauge, index, luastring)
+	       print("DFM-InsP - lua: ", luastring)
 	    end
 	    
 	    luaReturn = "Check lua console"
@@ -397,9 +408,9 @@ local function setVariables()
    end
 end
 
-local function evaluate(es, luastring)
+local function evaluate(es, luastring, val)
    setVariables()
-   return evaluateLua(es, luastring)
+   return evaluateLua(es, luastring, val)
 end
 
 local function expandStr(stri, val, SeDp, SeUn)
@@ -411,11 +422,11 @@ local function expandStr(stri, val, SeDp, SeUn)
    -- first check if it's lua expression
 
    if string.find(stri, "luaE:") == 1 then
-      return evaluate("E", string.sub(stri, 6, -1))
+      return evaluate("E", string.sub(stri, 6, -1), val)
    end
 
    if string.find(stri, "luaS:") == 1 then
-      return evaluate("S", string.sub(stri, 6, -1))
+      return evaluate("S", string.sub(stri, 6, -1), val)
    end
 
    -- or an escaped :luaE or :luaS
@@ -1527,7 +1538,7 @@ local function loop()
    -- throttle the update rate of tele sensors by moving the upper loop index up and
    -- down to determine how many updates are done per Hollywood call
 
-   local doPerLoop = 4
+   local doPerLoop = 5
    for _ = 1, doPerLoop do -- 
       if lua.index == 1 then
 	 --print("#s. time (ms)",#InsP.sensorLalist,  system.getTimeCounter() - lastindex)
@@ -1930,27 +1941,28 @@ local function printForm(_,_,tWin)
 	 lcd.setColor(0,0,0)
 
 	 local str = widget.text or {"---"}
-
+	 
 	 if widget.type == "sequencedTextBox" then
 
-	    local idx, jj
-	    if sensorVal then
-	       jj = math.floor(sensorVal + 0.5)
-	       if jj >= 1 and jj <= #str then
-		  idx = jj
-	       end
-	    end
-
 	    local stro
-
-	    if not idx then
-	       if sensorVal and jj then
-		  stro = string.format("Index %.2f/%d", sensorVal, jj)
-	       else
-		  stro = "<No Index>"
-	       end
+	    
+	    if string.find(str[1], "luaE:") == 1 or string.find(str[1], "luaS:") == 1 then
+	       stro = expandStr(str[1], sensorVal, widget.SeDp, widget.SeUn)
 	    else
-	       stro = expandStr(str[idx], sensorVal, widget.SeDp, widget.SeUn)
+	       local idx, jj
+	       if sensorVal then
+		  jj = math.floor(sensorVal + 0.5)
+		  if jj >= 1 and jj <= #str then
+		     idx = jj
+		  end
+	       end
+	       if not idx then
+		  if sensorVal and jj then
+		     stro = string.format("Index %.2f/%d", sensorVal, jj)
+		  else
+		     stro = "<No Index>"
+		  end
+	       end
 	    end
 	    
 	    if stro and widget.fT ~= "None" then
@@ -1966,8 +1978,12 @@ local function printForm(_,_,tWin)
 	       local yc = widget.y0 + 1.25 * txH - 0.5 * (txH / 2) * (3 * strL + 1)
 	       local stro
 	       for ii = 0, strL - 1 , 1 do
+
 		  stro = expandStr(str[ii + 1], sensorVal,
 				   widget.SeDp, widget.SeUn)
+
+		  --print(str[ii+1], stro)
+		  
 		  txW = lcd.getTextWidth(edit.fcode[widget.fT], stro)
 		  lcd.drawText(widget.x0 - txW / 2, yc + (ii - (strL % 2)*.7) * txH, stro,
 			       edit.fcode[widget.fT])
@@ -2058,7 +2074,6 @@ local function printForm(_,_,tWin)
       lcd.drawText(300,70, math.floor(loopCPU + 0.5), FONT_MINI)   
       lcd.drawText(300,90, system.getCPU(), FONT_MINI)
    end
-   
    
 end
 
@@ -2294,6 +2309,22 @@ local function init()
    LE = require 'DFM-InsP/luaEdit'
 
    if not LE then print("DFM-InsP: could not load lua editor") end
+
+   local TT = {}
+   TT[1] = require 'DFM-InsP/Functions/A123'
+   TT[2] = require 'DFM-InsP/Functions/LiPo'
+   
+   for i in ipairs(TT) do
+      for k,v in pairs(TT[i]) do
+	 table.insert(lua.ext, {idx=1, name=k, func=v})
+      end
+   end
+   
+   print("A123V(50)", TT[1].A123V(50))
+   print("A123S(3.3)", TT[1].A123S(3.3))
+
+   print("LiPoV(50)", TT[2].LiPoV(50))
+   print("LiPoS(3.8)", TT[2].LiPoS(3.8))   
 
 end
 

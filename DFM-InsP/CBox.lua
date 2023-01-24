@@ -63,19 +63,32 @@ function M.SOC(Volt, batt)
    end
 end
 
+local function getValue(env, name)
+
+   _ENV = env
+   local id = ptr.sensorTable[name].SeId
+   local pa = ptr.sensorTable[name].SePa
+   return getSensorByID(id, pa).value
+   
+end
+
 function M.text(env, line, battType)
+
    local _ENV = env
 
+   cbUa1 = getValue(env, "CBOX200_UAccu1")
+   cbUa2 = getValue(env, "CBOX200_UAccu2")
+   capV1 = getValue(env, "CBOX200_Capacity1")
+   capV2 = getValue(env, "CBOX200_Capacity2")
+
    if line == 1 then
-      return string.format("Batt1 %.2fV  SOC: %d%%",
-			   CBOX200_UAccu1, M.SOC(CBOX200_UAccu1 / 2, battType))
+      return string.format("Batt1 %.2fV  SOC: %d%%", cbUa1, M.SOC(cbUa1 / 2, battType))
    elseif line == 2 then
-      return string.format("Batt2 %.2fV  SOC: %d%%",
-			   CBOX200_UAccu2, M.SOC(CBOX200_UAccu2 / 2, battType))
+      return string.format("Batt2 %.2fV  SOC: %d%%", cbUa2, M.SOC(cbUa2 / 2, battType))
    elseif line == 3 then
-      return string.format("Batt1 Cap %d maH", CBOX200_Capacity1)
+      return string.format("Batt1 Cap %d maH", capV1)
    elseif line == 4 then
-      return string.format("Batt2 Cap %d maH", CBOX200_Capacity2)
+      return string.format("Batt2 Cap %d maH", capV2)
    end
 end
 

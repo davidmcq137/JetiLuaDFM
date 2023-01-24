@@ -27,7 +27,7 @@
       "luaS: rt = require 'DFM-InsP/XicoyTele' return rt.text(_ENV)"
     ],
     "fontSize": 12,
-    "type": "stackedTextBox"
+    "type": "sequencedTextBox"
   },
   {
     "width": 150,

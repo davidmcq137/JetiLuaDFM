@@ -70,12 +70,7 @@
     "tBoxWid": 131,
     "xV": 250,
     "text": [
-      "Ready to Start",
-      "Starting",
-      "Running",
-      "Cooling",
-      "User Off",
-      "Standby"
+      "luaS: rt = require 'DFM-InsP/XicoyTele' return rt.text(_ENV)"
     ],
     "type": "sequencedTextBox",
     "yV": 140
@@ -84,8 +79,7 @@
     "yL": 155.75,
     "min": 0,
     "width": 176,
-    "xL": 90,
-    "height": 42,
+    "xL": 90,    "height": 42,
     "colorvals": [
       {
         "color": "red",

@@ -7,12 +7,7 @@
     "x0": 245,
     "value": 0,
     "text": [
-      "Ready to Start",
-      "Starting",
-      "Running",
-      "Cooling",
-      "User Off",
-      "Standby"
+      "luaS: rt = require 'DFM-InsP/XicoyTele' return rt.text(_ENV)"
     ],
     "type": "sequencedTextBox"
   },
