@@ -203,38 +203,12 @@ local ecuMessage = {
     }
 }
 
-function M.text(env)
-   local _ENV = env
-
-   -- Example: assume the sensor name is "Turbine" and the label for status is "Status"
-   -- then we can look in the sensor table to get Id and Pa and then call the getSensorByID
-   -- function to read it.
-   --
-   -- We can ready any other sensors this way so long as we know their sensor name and label.
-   --
-   -- The table for each sensor in sensorTable is of the form
-   -- {SeId = id, SePa = param, SeUn = unit, SeDp = decimals}
-   --
-   -- So we reference values like this:
-   -- 
-   -- local SeId = ptr.sensorTable.Turbine_Status.SeId
-   -- local SePa = ptr.sensorTable.Turbine_Status.SePa
-   -- local SeUn = ptr.sensorTable.Turbine_Status.SeUn
-   -- local SeDp = ptr.sensorTable.Turbine_Status.SeDp   
-   
-   -- local value = getSensorByID(SeId, SePa).value
-   
-   -- But .. if we assign the "Turbine_Status" sensor to the textbox, this is automatic
-   -- and the value of this sensor label is put in the variable "val" before this routine
-   -- is called
-   
-   ecuCode = val -- val is populated in this env before pcall .. value of this widget
+function M.text(ptr, val)
+   local ecuCode = val 
    if ecuCode and ecuMessage[ecuCode] then
-
       -- could take other actions here e.g. play wav files
-      -- (but would have to pass in the playFile function addresse in env)
-      
-      return ecuMessage[ecuCode].text
+      local msg = {ecuMessage[ecuCode].text}
+      return msg
    else
       return "No message for status " .. tostring(val)
    end

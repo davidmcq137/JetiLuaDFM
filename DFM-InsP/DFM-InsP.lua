@@ -30,7 +30,9 @@ InsP.sensorUnlist = {"-"}
 InsP.sensorDplist = {0}
 InsP.sensorTable = {}
 InsP.variables = {}
-   
+
+local jsnVersion = 1
+
 local teleSensors, txTeleSensors
 local txSensorNames = {"txVoltage", "txBattPercent", "txCurrent", "txCapacity",
 		       "rx1Percent", "rx1Voltage", "rx2Percent", "rx2Voltage",
@@ -74,11 +76,10 @@ local lua = {}
 --lua.chunk = {}
 lua.env = {string=string, math=math, table=table, print=print,
 	   tonumber=tonumber, tostring=tostring, pairs=pairs,
-	   require=require, ipairs=ipairs, abs = math.abs, type=type,
+	   require=require, ipairs=ipairs, type=type,
 	   getSensorByID=(function(a1,a2) return system.getSensorByID(a1,a2) end)
 }
 
-lua.ext = {}
 lua.index = 0
 lua.txTelLastUpdate = 0
 lua.txTel = {}
@@ -87,9 +88,13 @@ lua.completePass = false
 local subForm = 0
 local pDir = "Apps/DFM-InsP/Panels"
 local bDir = "Apps/DFM-InsP/Backgrounds"
+local fDir = "Apps/DFM-InsP/Functions"
+local fmDir = "DFM-InsP/Functions"
+local xDir  = "Apps/DFM-InsP/Extensions"
+local xmDir = "DFM-InsP/Extensions"
+
 local instImg, instImgA
 local backImg, backImgA
-
 
 local savedRow = 1
 local savedRow2 = 1
@@ -346,6 +351,14 @@ local function evaluateLua(es, luastring, val)
       varenv[k] = v
    end
 
+   -- add in the external function modules
+   
+   for i,v in ipairs(lua.funcext) do
+      varenv[v.name] = v.func
+      --print(i, v.idx, v.name, v.func)
+   end
+
+   -- and finally the special "var" and "ptr" variables
    --local sn
    for i,v in ipairs(InsP.variables) do
       --sn = InsP.sensorLalist[v.sensor]
@@ -364,6 +377,8 @@ local function evaluateLua(es, luastring, val)
       else
 	 err = "lua exp or stmt not present"
       end
+
+      lua.loadErr = err
       
       if err then
 	 luaLoadErr = luaLoadErr + 1
@@ -529,7 +544,7 @@ local function keyForm(key)
       if key == KEY_3 then -- add variable
 	 local l = #InsP.variables + 1
 	 table.insert(InsP.variables,
-		      {name="S"..l, source = 1, luastring={}, sensor = 0, SeID = 0, SePa = 0})
+		      {name="S"..l, source = 1, luastring={}, sensor = 0, SeId = 0, SePa = 0})
 	 form.reinit(108)
 	 return
       end
@@ -591,7 +606,6 @@ local function keyForm(key)
 	 --print("home panel set to", is.homePanel)
 	 form.reinit(106)
       end
-      
       if key == KEY_3 then
 	 local ii = #InsP.panels+1
 	 InsP.panels[ii] = {}
@@ -603,9 +617,17 @@ local function keyForm(key)
 	 setToPanel(#InsP.panels)
 	 form.reinit(106)
       end
-      if key == KEY_4 then
+      if key == KEY_4 then -- delete panel
 	 local row = form.getFocusedRow() - 1
 	 table.remove(InsP.panels, row)
+
+	 -- remove switchInfo "soft switch" data for this panel
+	 for k,v in pairs(InsP.settings.switchInfo) do
+	    if  string.match(k, "(.+)%-") == InsP.panelImages[row].instImage then
+	       InsP.settings.switchInfo[k] = nil
+	       switches[k] = nil
+	    end
+	 end	 
 	 table.remove(InsP.panelImages, row)
 	 if row == is.homePanel then
 	    system.messageBox("Home Panel deleted")
@@ -620,7 +642,6 @@ local function keyForm(key)
 	    initPanels(InsP)
 	 end
 	 setToPanel(is.selectedPanel)
-	 --lua.chunk = {} -- will need to re-read all lua chunks 
 	 form.reinit(106)
       end
    end
@@ -923,6 +944,11 @@ local function changedMultiplier(val, wid)
    wid.multiplier = val
 end
 
+local function changedModule(val, wid)
+   wid.modext = val - 1 -- {"..."} is index 1
+end
+      
+
 local function initForm(sf)
 
    subForm = sf
@@ -952,7 +978,7 @@ local function initForm(sf)
       end))      
       
       form.addRow(2)
-      form.addLabel({label="Sensors >>", width=220})
+      form.addLabel({label="Inputs >>", width=220})
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       savedRow2 = 1
@@ -1029,10 +1055,10 @@ local function initForm(sf)
 	    else
 	       form.addLabel({label=InsP.sensorLslist[isel], width=100})
 	    end
-	    
 	 elseif widget.dataSrc == "Control" then
 	    local info = system.getSwitchInfo(switches[widget.control])
 	    if info then
+	       --print("?? widget.control", widget.control)
 	       form.addLabel({label="<C:"..info.label..">", width=100})
 	    else
 	       form.addLabel({label="<C:--->", width=100})	       
@@ -1145,14 +1171,15 @@ local function initForm(sf)
 	 form.addLabel({label="Control", width=80})
 	 local ctrlName = pnl .. "-" .. string.gsub(lbl, "%W", "_") 
 	 print("check ctrlName for uniqueness!")
-	 --print("ctrlName", ctrlName)
+	 --print("ctrlName", ctrlName, switches[ctrlName], widget.control)
+	 if not widget.control then switches[ctrlName] = nil end
 	 swtCI[ctrlName] = form.addInputbox(switches[ctrlName], true,
 					    (function(x) return changedSwitch(x, ctrlName,
 									      nil, widget) end),
 					    {width=240, alignRight=true})
 	 form.addRow(2)
 	 form.addLabel({label="Control multiplier", width=240})
-	 if not widget.multiplier then print("init mult") widget.multiplier = 100.0 end
+	 if not widget.multiplier then widget.multiplier = 100.0 end
 	 form.addIntbox(widget.multiplier, -10000, 10000, 100, 0, 1,
 			(function(x) return changedMultiplier(x, widget) end) )
 	 
@@ -1163,9 +1190,19 @@ local function initForm(sf)
 		  form.reinit(107)
 		  form.waitForRelease()
 		      end), {label="Edit Lua>>"})
-      elseif widget.dataSrc == "Extension" then
-	 print("Extension")
       end
+      
+      form.addRow(2)
+      form.addLabel({label="Lua f(x) extension", width=140})
+      local ttbi = 0
+      local ttb = {"..."}
+      for i,v in ipairs(lua.modext) do
+	 if widget.modext == i then ttbi = i+1 end
+	 table.insert(ttb, v.name)
+      end
+      if not widget.modext then widget.modext = 0 end
+      form.addSelectbox(ttb, ttbi, true,
+			(function(x) return changedModule(x, widget) end), {width=180})
       
       form.addRow(4)
       form.addLabel({label="Gauge Min", width=90})
@@ -1341,7 +1378,7 @@ local function initForm(sf)
       end
    elseif sf == 107 then
       --print("about to luaEdit", savedRow, savedRow2)
-      LE.luaEdit(InsP.variables, savedRow2)
+      LE.luaEdit(InsP.variables, lua.funcext, savedRow2)
 
    elseif sf == 108 then
       form.setTitle("Lua Variables")
@@ -1374,23 +1411,23 @@ local function initForm(sf)
       end
 
       for i in ipairs(InsP.variables) do
-	 form.addRow(4)
-	 form.addLabel({label="Name", width=50})
+	 form.addRow(3)
+	 --form.addLabel({label="Name", width=50})
 	 form.addTextbox(InsP.variables[i].name, 63,
-			 (function(x) return changedVariableName(x, i) end), {width=60})
+			 (function(x) return changedVariableName(x, i) end), {width=80})
 	 if not InsP.variables[i].source then InsP.variables[i].source = 1 end
 	 form.addSelectbox({"Sensor", "Lua"}, InsP.variables[i].source, true,
-			   (function(x) return changedSource(x, i) end), {width=60})	    
+			   (function(x) return changedSource(x, i) end), {width=80})	    
 	 if InsP.variables[i].source == 1 then
 	    form.addSelectbox(InsP.sensorLalist, InsP.variables[i].sensor, true,
-			      (function(x) return changedSensor(x, i) end), {width=150})
+			      (function(x) return changedSensor(x, i) end), {width=150, alignRight=false})
 	 elseif InsP.variables[i].source == 2 then
 	    form.addLink((function()
 		     savedRow2 = form.getFocusedRow()
 		     --print("lua edit var, savedRow2", savedRow2)
 		     form.waitForRelease()
 		     form.reinit(107)
-			 end), {label="Edit Lua>>", width=120})
+			 end), {label="Edit Lua>>", width=150})
 	 end
 
 	 form.setFocusedRow(savedRow2)
@@ -1632,7 +1669,10 @@ local function printForm(_,_,tWin)
       return
    end
 
-   local sensorVal 
+   local sensorVal
+   local textVal
+   local modret
+   
    for idxW, widget in ipairs(ip) do
 
       sensorVal = nil
@@ -1641,13 +1681,32 @@ local function printForm(_,_,tWin)
 	 if sensor and sensor.value then sensorVal = sensor.value end
       elseif widget.dataSrc == "Control" then
 	 local info = system.getSwitchInfo(switches[widget.control])
+	 --if idxW == 1 then print("widget.control", widget.control) end
 	 if info then
 	    sensorVal = (widget.multiplier or 100.0) * info.value
 	 end
       elseif widget.dataSrc == "Lua" and widget.luastring and  widget.luastring[1] then
 	 sensorVal = tonumber(evaluate("E", widget.luastring[1]))
       end
-      
+
+      --if idxW == 1 then print("Apl", sensorVal, widget.max, widget.min, widget.dataSrc) end
+
+      textVal = nil
+
+      if widget.modext and widget.modext > 0 then
+	 --print("calling", idxW, widget.modext, lua.modext[widget.modext].name,
+	       --lua.modext[widget.modext].func)
+	 local modret = lua.modext[widget.modext].func(InsP, sensorVal)
+	 if type(modret) == "number" then
+	    print("modret number", ret)
+	    sensorVal = ret
+	 elseif type(modret) == "table" and type(modret[1]) == "string" then
+	    textVal = modret
+	 end
+      end
+
+      --if idxW == 1 then print("Bpl", sensorVal, widget.max, widget.min) end
+
       ctl = nil
       local minarc = -0.75 * math.pi
       local maxarc =  0.75 * math.pi
@@ -1939,30 +1998,39 @@ local function printForm(_,_,tWin)
 	 end
 
 	 lcd.setColor(0,0,0)
-
-	 local str = widget.text or {"---"}
 	 
+	 local str
+	 if textVal then
+	    str = textVal
+	 else
+	    str = widget.text or {"..."}
+	 end
+
 	 if widget.type == "sequencedTextBox" then
 
 	    local stro
-	    
-	    if string.find(str[1], "luaE:") == 1 or string.find(str[1], "luaS:") == 1 then
-	       stro = expandStr(str[1], sensorVal, widget.SeDp, widget.SeUn)
+
+	    if not widget.modext or widget.modext < 1 then
+	       if string.find(str[1], "luaE:") == 1 or string.find(str[1], "luaS:") == 1 then
+		  stro = expandStr(str[1], sensorVal, widget.SeDp, widget.SeUn)
+	       else
+		  local idx, jj
+		  if sensorVal then
+		     jj = math.floor(sensorVal + 0.5)
+		     if jj >= 1 and jj <= #str then
+			idx = jj
+		     end
+		  end
+		  if not idx then
+		     if sensorVal and jj then
+			stro = string.format("Index %.2f/%d", sensorVal, jj)
+		     else
+			stro = "<No Index>"
+		     end
+		  end
+	       end
 	    else
-	       local idx, jj
-	       if sensorVal then
-		  jj = math.floor(sensorVal + 0.5)
-		  if jj >= 1 and jj <= #str then
-		     idx = jj
-		  end
-	       end
-	       if not idx then
-		  if sensorVal and jj then
-		     stro = string.format("Index %.2f/%d", sensorVal, jj)
-		  else
-		     stro = "<No Index>"
-		  end
-	       end
+	       stro = str[1]
 	    end
 	    
 	    if stro and widget.fT ~= "None" then
@@ -1979,11 +2047,13 @@ local function printForm(_,_,tWin)
 	       local stro
 	       for ii = 0, strL - 1 , 1 do
 
-		  stro = expandStr(str[ii + 1], sensorVal,
-				   widget.SeDp, widget.SeUn)
-
-		  --print(str[ii+1], stro)
-		  
+		  if not widget.modext or widget.modext < 1 then
+		     stro = expandStr(str[ii + 1], sensorVal,
+				      widget.SeDp, widget.SeUn)
+		  else
+		     stro = str[ii+1]
+		  end
+		  		  
 		  txW = lcd.getTextWidth(edit.fcode[widget.fT], stro)
 		  lcd.drawText(widget.x0 - txW / 2, yc + (ii - (strL % 2)*.7) * txH, stro,
 			       edit.fcode[widget.fT])
@@ -2016,7 +2086,8 @@ local function printForm(_,_,tWin)
 	       widget.yPL + widget.radius * math.cos(th)
 	    ) 
 	 end
-
+	 --if idxW == 1 then print("pl", sensorVal, widget.max, widget.min) end
+	 
 	 if sensorVal and sensorVal > (widget.max - widget.min) / 2 then
 	    if widget.rgbLightColor then
 	       lcd.setColor(widget.rgbLightColor.r, widget.rgbLightColor.g, widget.rgbLightColor.b)
@@ -2080,6 +2151,10 @@ end
 local function prtForm(w,h)
    if subForm == 107 then
       --print("prtForm 107", savedRow, savedRow2)
+      --if lua.loadErr then
+	 --print(lua.loadErr)
+	 --lcd.drawText(5,0, lua.loadErr, FONT_MINI)
+      --end
       if savedRow == 3 then
 	 local sp = InsP.settings.selectedPanel
 	 if not InsP.panels[sp][savedRow2].luastring then
@@ -2147,12 +2222,9 @@ local function destroy()
       save.panelImages = InsP.panelImages
       save.settings = InsP.settings
       save.variables = InsP.variables
+      print("saving jsnVersion", jsnVersion)
+      save.jsnVersion = jsnVersion
       save.stateSw = {}
-      --[[
-      for k,_ in pairs(stateSw) do
-	 stateSw[k].switch = nil -- don't save switchitems .. reconstitute with other method
-      end
-      --]]
       -- convert Id to hex, otherwise it comes in as a float and loss of precision
       -- creates invalid result on read
       if save.panels then
@@ -2165,6 +2237,13 @@ local function destroy()
 	    end
 	 end
       end
+
+      if save.variables then
+	 for i,v in ipairs(save.variables) do
+	    if v.SeId then save.variables[i].SeId = string.format("0X%X", v.SeId) end
+	 end
+      end
+      
       -- don't save the list of panels and background images, read new each time we start
       if save.settings then
 	 for k, _ in pairs(save.settings) do
@@ -2186,7 +2265,7 @@ local function init()
    local decoded
    local mn
    local file
-
+   
    mn = string.gsub(system.getProperty("Model"), " ", "_")
    local ff = prefix() .. "Apps/DFM-InsP/II_" .. mn .. ".jsn"
 
@@ -2214,6 +2293,16 @@ local function init()
 
       InsP.variables = decoded.variables
       if not InsP.variables then InsP.variables = {} end
+
+      for i,v in ipairs(InsP.variables) do
+	 if v.SeId then InsP.variables[i].SeId = tonumber(v.SeId) end
+      end
+      
+      if decoded.jsnVersion then
+	 jsnVersion = decoded.jsnVersion
+      end
+
+      print("jsnVersion", jsnVersion)
       
       stateSw = {}
       
@@ -2310,21 +2399,72 @@ local function init()
 
    if not LE then print("DFM-InsP: could not load lua editor") end
 
-   local TT = {}
-   TT[1] = require 'DFM-InsP/Functions/A123'
-   TT[2] = require 'DFM-InsP/Functions/LiPo'
-   
-   for i in ipairs(TT) do
-      for k,v in pairs(TT[i]) do
-	 table.insert(lua.ext, {idx=1, name=k, func=v})
+   local dd, fn, ext, fr
+   local path = prefix() .. fDir
+   lua.funcmods = {}
+   local ifunc = 0
+   for name, _, _ in dir(path) do
+      dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
+      if fn and ext then
+	 if string.lower(ext) == "lua" then
+	    ff = path .. "/" .. fn .. "." .. ext
+	    file = io.open(ff)
+	    if file then
+	       io.close(file)
+	       ifunc = ifunc + 1
+	       fr = fmDir.."/"..fn
+	       lua.funcmods[ifunc] = require(fr)
+	    end
+	 end
       end
    end
-   
-   print("A123V(50)", TT[1].A123V(50))
-   print("A123S(3.3)", TT[1].A123S(3.3))
 
-   print("LiPoV(50)", TT[2].LiPoV(50))
-   print("LiPoS(3.8)", TT[2].LiPoS(3.8))   
+   lua.funcext = {}
+   for i, m in ipairs(lua.funcmods) do
+      for k,v in pairs(m) do
+	 table.insert(lua.funcext, {idx=i, name=k, func=v})
+      end
+   end
+
+   print("DFM-InsP: function modules read: " .. #lua.funcext)
+
+   local dd, fn, ext, fr
+   local path = prefix() .. xDir
+   lua.extmods = {}
+   local modname = {}
+   local imod = 0
+   for name, _, _ in dir(path) do
+      dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
+      if fn and ext then
+	 if string.lower(ext) == "lua" then
+	    ff = path .. "/" .. fn .. "." .. ext
+	    file = io.open(ff)
+	    if file then
+	       io.close(file)
+	       imod = imod + 1
+	       fr = xmDir.."/"..fn
+	       lua.extmods[imod] = require(fr)
+	       modname[imod] = fn
+	    end
+	 end
+      end
+   end
+
+   lua.modext = {}
+   for i, m in ipairs(lua.extmods) do
+      for k,v in pairs(m) do
+	 table.insert(lua.modext, {idx=i, name=modname[i].."_"..k.."()", func=v})
+      end
+   end
+
+   --for i,v in ipairs(lua.modext) do
+      --print(i,v.name, v.func)
+   --end
+   
+   print(string.format("DFM-InsP: %d extension modules read with %d functions",
+		       #lua.extmods, #lua.modext))
+
+
 
 end
 

@@ -50,7 +50,7 @@ function M.luaEditKey(cond, condIdx, key, eval)
 
    local condition = cond.luastring
 
-   print("ek", cond.name)
+   --print("ek", cond.name)
 
    --print("luaEditKey, cond", condition[condIdx])
    
@@ -85,7 +85,7 @@ function M.luaEditKey(cond, condIdx, key, eval)
    cond.result[condIdx] = res
 end
 
-function M.luaEdit(vars, excl)
+function M.luaEdit(vars, funcs, excl)
    
    local fA = { "*","/","+","-","^","(",
 		"0","1","2","3","4","5","6","7","8","9",
@@ -95,7 +95,7 @@ function M.luaEdit(vars, excl)
    -- rebuild the expression element string from the
    -- latest info
 
-   print("luaEdit", vars, #vars, excl)
+   --print("luaEdit", vars, #vars, excl)
    
    fAvailable = {}
 
@@ -109,9 +109,13 @@ function M.luaEdit(vars, excl)
       end
       
    end
+
+   for i,v in ipairs(fA) do
+      table.insert(fAvailable, v)
+   end
    
-   for i in ipairs(fA) do
-      table.insert(fAvailable, fA[i])
+   for i,v in ipairs(funcs) do
+      table.insert(fAvailable, v.name)
    end
    
    form.setButton(4,":backspace",ENABLED)  

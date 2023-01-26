@@ -36,7 +36,7 @@ function M.LiPoV(SOC)
    for i=1, #LiPo-1 do
       if SOC >= LiPo[i+1].s and SOC <=LiPo[i].s then
 	 ds = (SOC - LiPo[i+1].s) / (LiPo[i].s - LiPo[i+1].s)
-	 return LiPo[i+1].v + ds * (LiPo[i].s - LiPo[i+1].v)
+	 return LiPo[i+1].v + ds * (LiPo[i].v - LiPo[i+1].v)
       end
    end
 end

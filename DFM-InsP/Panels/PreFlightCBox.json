@@ -39,10 +39,10 @@
     "value": 0,
     "tBoxWid": 150,
     "text": [
-      "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 1, 'LiFe')",
-      "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 2, 'LiFe')",
-      "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 3, 'LiFe')",
-      "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 4, 'LiFe')"
+	"Battery 1 'S1.2'V, SOC 'S5.0'%",
+	"Battery 2 S2.2V, SOC S6.0%",
+	"Battery 1 S1.2V, SOC S5.0%",
+	"Battery 2 S2.2V, SOC S6.0%"	
     ],
     "fontSize": 12,
     "type": "stackedTextBox"
