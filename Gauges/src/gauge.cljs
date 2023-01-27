@@ -698,6 +698,44 @@
 (def localstorage-db-key "gauges-db")
 (def save-watch-key :save-watch-key)
 
+(defn encode-edn-string
+  [dbval]
+  (->> dbval
+       (walk/prewalk
+        (fn [j]
+          (if-not (map? j)
+            j
+            (dissoc j :bitmap))))
+       (pr-str)))
+
+(defn save-to-localstorage!
+  [dbval]
+  (.setItem js/window.localStorage localstorage-db-key
+            (encode-edn-string dbval)))
+
+(defn restore-db!
+  [saved-db]
+  (reset! db
+          (update saved-db :panels
+                  (fn [ps]
+                    (into {}
+                          (for [[pk p] ps]
+                            [pk (update p :gauges
+                                        (fn [gs]
+                                          (into {}
+                                                (for [[gk g] gs]
+                                                  [gk (merge g (render-gauge* (:params g)))]))))]))))))
+
+(defn load-from-localstorage!
+  []
+  (when-let [saved-db (some-> js/window.localStorage
+                              (.getItem localstorage-db-key)
+                              (edn/read-string))]
+    (restore-db! saved-db))) 
+
+(defn download-edn!
+  []
+  (ask-download-file "panels.edn" (encode-edn-string @db)))
 
 
 
@@ -715,9 +753,8 @@
      [:li [:input {:type "button"  :value "Clear" :onClick #(swap!  db dissoc :background-image)}]]]]
    [:div [:h4 "Download"]
     [:p
-     "When you are ready to install the Lua app along with your panel config, "
+     "When you are ready to install the Lua app along with all your created panels, "
      "click here to get the URL to paste into Jeti studio: "
-    
      [:input {:type "button"
               :display "inline"
               :value "Create app source"
@@ -726,10 +763,27 @@
                          (-> (make-dynamic-repo-request w h)
                              (.then dynamic-repo/send-dynamic-repo-request! )))}]]
     
-    [:p "You can also download the configuration data manually:"]
+    [:p "You can also manually download this panel's configuration data:"]
     [:ul
-     [:li [:input {:type "button"  :value "Download JSON"  :onClick #(download-json! w h)}]]
+     [:li [:input {:type "button"  :value "Download JSON" :onClick #(download-json! w h)}]]
      [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]]]
+   
+   [:div [:h4 "Backup & restore"]
+    [:p "Data for ALL panels can be saved to a file and reloaded.  "
+     "Be careful - restoring replaces all your panels!"]
+    [:ul
+     [:li [:input {:type "button"  :value "Download EDN backup" :onClick #(download-edn!)}]]
+     [:li [:label
+           "Restore"
+           [:input.delete-button
+            {:type "file"
+             :style {:margin-left "1ch"}
+             :onChange (fn [ev]
+                         (when-let [f (first (.-files (.-target ev)))]
+                           (let [fr (doto (js/FileReader.)
+                                      (.readAsText f "utf-8"))]
+                             (set! (.-onloadend fr)
+                                   #(restore-db! (edn/read-string (.-result fr)))))))}]]]]]
    (dynamic-repo/repo-result-modal)])
 
 
@@ -993,32 +1047,7 @@
 
 
 
-(defn save-to-localstorage!
-  [dbval]
-  (->> dbval
-       (walk/prewalk
-        (fn [j]
-          (if-not (map? j)
-            j
-            (dissoc j :bitmap))))
-       (pr-str)
-       (.setItem js/window.localStorage localstorage-db-key)))
 
-(defn load-from-localstorage!
-  []
-  (when-let [saved-db (some-> js/window.localStorage
-                              (.getItem localstorage-db-key)
-                              (edn/read-string))]
-    (reset! db
-            (update saved-db :panels
-                    (fn [ps]
-                      (into {}
-                            (for [[pk p] ps]
-                              [pk (update p :gauges
-                                          (fn [gs]
-                                            (into {}
-                                                  (for [[gk g] gs]
-                                                    [gk (merge g (render-gauge* (:params g)))]))))])))))))
 
 (defn ^:def/before-load stop
   []
