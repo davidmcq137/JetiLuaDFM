@@ -36,8 +36,8 @@
 	"text": [
 	    "Batt 1: 'S1.2'V 'S5.0'%",
 	    "Batt 2: 'S2.2'V 'S6.0'%",
-	    "Batt 1 Cap: 'S7.0' maH",
-	    "Batt 2 Cap: 'S8.0' maH"
+	    "Batt 1 Cap: 'S7.0' mAh",
+	    "Batt 2 Cap: 'S8.0' mAh"
 	],
 	"fontSize": 12,
 	"type": "stackedTextBox"
