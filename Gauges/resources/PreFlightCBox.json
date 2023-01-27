@@ -21,7 +21,7 @@
 	"value": 0,
 	"tBoxWid": 150,
 	"text": [
-	    "luaS: rt = require 'DFM-InsP/XicoyTele' return rt.text(_ENV)"
+	    "Use Xicoy Extension "
 	],
 	"fontSize": 12,
 	"type": "stackedTextBox"
@@ -34,10 +34,10 @@
 	"x0": 80,
 	"value": 0,
 	"text": [
-	    "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 1, 'LiFe')",
-	    "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 2, 'LiFe')",
-	    "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 3, 'LiFe')",
-    	    "luaS: cb = require 'DFM-InsP/CBox' return cb.text(_ENV, 4, 'LiFe')"
+	    "Batt 1: 'S1.2'V 'S5.0'%",
+	    "Batt 2: 'S2.2'V 'S6.0'%",
+	    "Batt 1 Cap: 'S7.0' maH",
+	    "Batt 2 Cap: 'S8.0' maH"
 	],
 	"fontSize": 12,
 	"type": "stackedTextBox"

@@ -10,7 +10,6 @@
       "Rx1 Voltage 'v''u'"
     ],
     "fontSize": 12,
-    "lua": "string.format('CB200: %.1f mA %.1f V', 5*7.12, 6.34*4)",
     "type": "stackedTextBox"
   },
   {

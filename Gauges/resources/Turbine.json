@@ -29,23 +29,18 @@
     },
     
   {
-    "yL": 154.355,
     "width": 131,
-    "xL": 250,
     "height": 34,
     "y0": 140,
     "label": "Turbine Status",
       "x0": 245,
       "value":0,
     "text": [
-      "luaS: rt = require 'DFM-InsP/XicoyTele' return rt.text(_ENV)"
+      "Use Xicoy extension"
     ],
-    "xV": 250,
-    "type": "sequencedTextBox",
-    "yV": 140
+    "type": "sequencedTextBox"
   },
   {
-      "yL": 155.75,
       "value":100,
     "min": 0,
     "width": 176,
@@ -63,7 +58,6 @@
         "val": 100
       }
     ],
-    "xL": 90,
     "height": 42,
     "y0": 140,
     "label": "Fuel Remaining",
@@ -71,17 +65,13 @@
     "x0": 90,
       "majdivs":4,
     "subdivs": 4,
-    "type": "horizontalBar",
-    "barH": 31.5,
-    "barW": 155
+    "type": "horizontalBar"
   },
   {
-    "yL": 110.6,
     "min": 0,
     "spectrum": [
       "blue"
     ],
-    "xL": 65,
     "y0": 62,
     "label": "RPM/1000",
     "max": 120,
@@ -90,15 +80,11 @@
       "majdivs":6,
     "subdivs": 4,
     "value": 0,
-    "xV": 65,
-    "ri": 45.9,
     "start": -135,
     "type": "roundNeedleGauge",
-      "yV": 78.2,
     "end": 135
   },
   {
-    "yL": 110.6,
     "min": 0,
     "spectrum": [
       "blue",
@@ -106,7 +92,6 @@
       "yellow",
       "red"
     ],
-    "xL": 255,
     "y0": 62,
     "label": "EGT °C",
     "max": 1000,
@@ -115,22 +100,17 @@
       "majdivs":5,
     "subdivs": 4,
     "value": 0,
-    "xV": 255,
-    "ri": 45.9,
     "start": -135,
       "type": "roundNeedleGauge",
-    "yV": 78.2,
     "end": 135
   },
   {
-    "yL": 51.7,
     "min": 0,
     "spectrum": [
       "red",
       "yellow",
       "springgreen"
     ],
-    "xL": 160,
     "y0": 36,
     "label": "Batt",
     "max": 10,
@@ -139,22 +119,17 @@
     "majdivs": 0,
     "subdivs": 0,
     "value": 0,
-    "xV": 160,
-    "ri": 19.55,
     "start": -135,
     "type": "roundNeedleGauge",
-    "yV": 37.9,
     "end": 135
   },
   {
-    "yL": 111.7,
     "min": 0,
     "spectrum": [
       "red",
       "yellow",
       "springgreen"
     ],
-    "xL": 160,
     "y0": 91,
     "label": "Pump",
     "max": 10,
@@ -163,11 +138,8 @@
     "majdivs": 0,
     "subdivs": 0,
     "value": 0,
-    "xV": 160,
-    "ri": 19.55,
     "start": -135,
     "type": "roundNeedleGauge",
-    "yV": 97.9,
     "end": 135
   },
     {
@@ -178,7 +150,7 @@
 	"textColor":"white",
 	"text":
 	[
-	    "Panel title"
+	    "Turbine Dashboard"
 	],
 	"label":"",
 	"width":200,

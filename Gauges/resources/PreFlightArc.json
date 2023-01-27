@@ -1,97 +1,83 @@
 [
-  {
-    "yL": 37.14,
-    "width": 150,
-    "xL": 80,
-    "height": 40,
-    "y0": 18,
-      "label": "Rx1 Voltage",
-      "fontSize":12,
-    "x0": 80,
-      "value": 0,
-      "text": ["Rx1 Voltage 'v''u'"],
-    "xV": 80,
-    "lua": "string.format('CB200: %.1f mA %.1f V', 5*7.12, 6.34*4)",
-    "type": "stackedTextBox",
-    "yV": 18
-  },
-  {
-    "yL": 77.14,
-    "width": 150,
-    "xL": 80,
-    "height": 40,
-    "y0": 58,
-    "label": "Status 2",
-      "x0": 80,
-      "value":0,
-      "fontSize":12,
-    "text": [
-      "Ready to Start",
-      "Starting",
-      "Running",
-      "Cooling",
-      "User Off",
-      "Standby"
-    ],
-    "xV": 80,
-    "type": "sequencedTextBox",
-    "yV": 58
-  },
-  {
-    "yL": 117.14,
-    "width": 150,
-    "xL": 80,
-    "height": 105,
-    "y0": 117,
-    "label": "Status 3",
-    "x0": 80,
-      "value": 0,
-      "fontSize":12,
-      "text": [
-	  "Line One",
-	  "Line Two",
-	  "Line Three",
-	  "Line Four"
-      ],
-    "xV": 80,
-    "type": "stackedTextBox",
-    "yV": 98
-  },
-  {
-    "yL": 144.8,
-    "min": 0,
-    "xL": 239,
-    "colorvals": [
-      {
-        "color": "blue",
-        "val": 60
-      },
-      {
-        "color": "yellow",
-        "val": 80
-      },
-      {
-        "color": "orange",
-        "val": 90
-      },
-      {
-        "color": "red",
-        "val": 100
-      }
-    ],
-    "y0": 80,
-    "label": "Current",
-    "max": 120,
-    "radius": 80,
-    "x0": 239,
-      "majdivs":0,
-      "subdivs": 0,
-    "value": 85,
-    "xV": 239,
-    "ri": 61.199999999999996,
-    "start": -120,
-    "type": "roundArcGauge",
-    "yV": 101.6,
-    "end": 120
-  }
+    {
+	"yL": 37.14,
+	"width": 150,
+	"xL": 80,
+	"height": 40,
+	"y0": 18,
+	"label": "Rx1 Voltage",
+	"fontSize":12,
+	"x0": 80,
+	"value": 0,
+	"text": ["Rx1 Voltage 'v''u'"],
+	"type": "stackedTextBox"
+    },
+    {
+	"width": 150,
+	"height": 40,
+	"y0": 58,
+	"label": "Turbine Status",
+	"x0": 80,
+	"value":0,
+	"fontSize":12,
+	"text": [
+	    "Ready to Start",
+	    "Starting",
+	    "Running",
+	    "Cooling",
+	    "User Off",
+	    "Standby"
+	],
+	"type": "sequencedTextBox"
+    },
+    {
+	"width": 150,
+	"height": 105,
+	"y0": 117,
+	"label": "Status 3",
+	"x0": 80,
+	"value": 0,
+	"fontSize":12,
+	"text": [
+	    "Line One",
+	    "Line Two",
+	    "Line Three",
+	    "Line Four"
+	],
+	"type": "stackedTextBox"
+    },
+    {
+	"yL": 144.8,
+	"min": 0,
+	"xL": 239,
+	"colorvals": [
+	    {
+		"color": "blue",
+		"val": 60
+	    },
+	    {
+		"color": "yellow",
+		"val": 80
+	    },
+	    {
+		"color": "orange",
+		"val": 90
+	    },
+	    {
+		"color": "red",
+		"val": 100
+	    }
+	],
+	"y0": 80,
+	"label": "Current",
+	"max": 120,
+	"radius": 80,
+	"x0": 239,
+	"majdivs":0,
+	"subdivs": 0,
+	"value": 85,
+	"start": -120,
+	"type": "roundArcGauge",
+	"end": 120
+    }
 ]
