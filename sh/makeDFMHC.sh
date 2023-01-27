@@ -11,6 +11,7 @@ sh sh/makeAmix.sh
 sh sh/makeVsens.sh
 sh sh/makeTimG.sh
 sh sh/makeTimV.sh
+sh sh/makeTemp.sh
 set +e
 # we don't want the test versions of the .jsn files in the distro .. temp rename them then put back later
 for f in DFM-Batt/BD_*.jsn; do

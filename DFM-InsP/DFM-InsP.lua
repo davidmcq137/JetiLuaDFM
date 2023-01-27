@@ -1169,8 +1169,11 @@ local function initForm(sf)
       elseif widget.dataSrc == "Control" then
 	 form.addRow(2)
 	 form.addLabel({label="Control", width=80})
+	 
 	 local ctrlName = pnl .. "-" .. string.gsub(lbl, "%W", "_") 
 	 print("check ctrlName for uniqueness!")
+
+
 	 --print("ctrlName", ctrlName, switches[ctrlName], widget.control)
 	 if not widget.control then switches[ctrlName] = nil end
 	 swtCI[ctrlName] = form.addInputbox(switches[ctrlName], true,

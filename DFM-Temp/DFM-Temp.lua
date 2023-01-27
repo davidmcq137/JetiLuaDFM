@@ -47,7 +47,7 @@
 local appShort   = "DFM-Temp"
 local appName    = "Temp Display"
 local appAuthor  = "DFM"
-local appVersion = "0.9"
+local appVersion = "1.0"
 local appDir = "Apps/DFM-Temp/"
 local transFile  = appDir .. "Trans.jsn"
 local savedForm = 1
@@ -787,6 +787,7 @@ local function teleSmall()
 
    local r,g,b
    local kk
+   local ibox = 0
    
    for k = 1, #screenConfig.Probes do
       kk = "T"..k
@@ -803,10 +804,11 @@ local function teleSmall()
 	    r,g,b = 255,0,0
 	 end
 	 lcd.setColor(r,g,b)
-	 lcd.drawFilledRectangle(6+18*(k-1), 6, 12, 12)
+	 ibox = ibox + 1
+	 lcd.drawFilledRectangle(6+18*(ibox-1), 6, 12, 12)
       else
-	 lcd.setColor(200,200,200)
-	 lcd.drawRectangle(6+18*(k-1), 6, 12, 12)
+	 --lcd.setColor(200,200,200)
+	 --lcd.drawRectangle(6+18*(k-1), 6, 12, 12)
       end
    end
 end
