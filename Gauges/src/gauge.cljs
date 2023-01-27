@@ -1,10 +1,13 @@
 (ns gauge
   (:require
-    [goog.string :as gstring]
-    [clojure.string :as string]
-    [shadow.resource :as rc]
-    [rum.core :as rum]
-    [dynamic-repo]))
+   [clojure.edn :as edn]
+   [goog.string :as gstring]
+   [clojure.string :as string]
+   [shadow.resource :as rc]
+   [goog.functions :as gfunc]
+   [clojure.walk :as walk]
+   [rum.core :as rum]
+   [dynamic-repo]))
 
 
 (def static-input-data [])
@@ -508,7 +511,7 @@
      (gaugeparam-slider da "height" {:min 10 :max 80})
      
      [:span "Text"]
-     (gaugeparam-text da "text")
+     (edit-multitext da "text")
      
      [:span.slider-label "Font height"]
      (gaugeparam-slider da "fontHeight" {:min 4 :max 80})
@@ -623,7 +626,7 @@
         bg (when background-image
              (doto (js/document.createElement "img")
                (aset "src" background-image)))
-        _ (when bg (.drawImage ctx 0 0 w h))
+        _ (when bg (.drawImage ctx bg 0 0 w h))
         +calc (vec
                (for [[i {:keys [deleted]  :as d}] gauges
                      :when (not deleted)]
@@ -690,6 +693,12 @@
                                          :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3940779532/DFM-InsP-v0.2.zip"}]
                                        cat
                                        filesets)}})))))
+
+
+(def localstorage-db-key "gauges-db")
+(def save-watch-key :save-watch-key)
+
+
 
 
 (rum/defc app-controls
@@ -919,9 +928,6 @@
                :x1 0 :y1 (* i (/ hh d))
                :x2 ww :y2 (* i (/ hh d))}])]]))
 
-
-
-
 (rum/defc root
   < rum/reactive
   []
@@ -985,12 +991,50 @@
      (gauge-list selected-panel gauges)]))
 
 
+
+
+(defn save-to-localstorage!
+  [dbval]
+  (->> dbval
+       (walk/prewalk
+        (fn [j]
+          (if-not (map? j)
+            j
+            (dissoc j :bitmap))))
+       (pr-str)
+       (.setItem js/window.localStorage localstorage-db-key)))
+
+(defn load-from-localstorage!
+  []
+  (when-let [saved-db (some-> js/window.localStorage
+                              (.getItem localstorage-db-key)
+                              (edn/read-string))]
+    (reset! db
+            (update saved-db :panels
+                    (fn [ps]
+                      (into {}
+                            (for [[pk p] ps]
+                              [pk (update p :gauges
+                                          (fn [gs]
+                                            (into {}
+                                                  (for [[gk g] gs]
+                                                    [gk (merge g (render-gauge* (:params g)))]))))])))))))
+
+(defn ^:def/before-load stop
+  []
+  (remove-watch db save-watch-key))
+
 (defn ^:dev/after-load init
   []
   
   (let [el (.getElementById js/document "root")]
-    #_(println "Reload db" @db)
-    (when (empty? @db)
-      
-      (reload-json! "Turbine" "/Turbine.json"))
+    
+    (or (load-from-localstorage!)
+        (reload-json! "Turbine" "/Turbine.json"))
+    
+    (add-watch db save-watch-key
+               (-> (fn [_ _ _ new]
+                     (save-to-localstorage! new))
+                   (gfunc/throttle 5000)))
+    
     (rum/mount (root) el)))
