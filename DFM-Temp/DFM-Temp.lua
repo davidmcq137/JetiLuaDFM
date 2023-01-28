@@ -47,7 +47,7 @@
 local appShort   = "DFM-Temp"
 local appName    = "Temp Display"
 local appAuthor  = "DFM"
-local appVersion = "1.0"
+local appVersion = "1.1"
 local appDir = "Apps/DFM-Temp/"
 local transFile  = appDir .. "Trans.jsn"
 local savedForm = 1
@@ -70,6 +70,7 @@ local jsnFileName
 local dx1, dx2 = 0, 0
 local idNonTemp = {}
 local paramNonTemp = {}
+local blackText
 
 local allGreenEn, allGreenEnIndex, allGreenEver
 local hotWarnEn, hotWarnEnIndex
@@ -98,6 +99,15 @@ local needle_poly_small = {
    {1,26},
    {2,12}
 }
+
+local function setTextColor()
+   local is = system.getProperty("Color")
+   if is == 7 or is == 9 or is == 10 or is == 11 then
+      lcd.setColor(255,255,255)
+   else
+      lcd.setColor(0,0,0)
+   end
+end
 
 local function readSensors()
    local text
@@ -159,7 +169,8 @@ local function drawShape(col, row, shape, rotation, clr)
    end
    lcd.setColor(clr.r,clr.g,clr.b)
    ren:renderPolygon()
-   lcd.setColor(0, 0, 0)
+   setTextColor()
+   --lcd.setColor(0, 0, 0)
 end
 
 local function drawTextCenter(font, txt, ox, oy)
@@ -192,7 +203,10 @@ local function drawHistogram(label, min, mid, max, temp, unit, ox, oy)
    end
    
    drawTextCenter(FONT_MINI, label, ox+15, oy+0)
-   lcd.setColor(0,0,255)
+
+   --lcd.setColor(lcd.getFgColor())
+   --lcd.setColor(0,0,255)
+   setTextColor()
    drawTextCenter(FONT_BOLD, string.format("%d", temp), ox+15, oy+16)
    
    lcd.setColor(120,120,120)
@@ -205,8 +219,9 @@ local function drawHistogram(label, min, mid, max, temp, unit, ox, oy)
 		     string.format("%d", max) .. unit,
 		     ox + 25, oy+48)
    end
-   
-   lcd.setColor(0,0,0)
+
+   --lcd.setColor(lcd.getFgColor())
+   --lcd.setColor(0,0,0)
    
    temp = math.min(max, math.max(temp, min))
    
@@ -218,7 +233,9 @@ local function drawHistogram(label, min, mid, max, temp, unit, ox, oy)
    lcd.drawRectangle(ox+34, oy-6, 12, 52)   
    lcd.drawFilledRectangle(ox+35, oy+25-hgt+20, 10, hgt)
 
-   lcd.setColor(0,0,0)
+   setTextColor()
+   --lcd.setColor(lcd.getFgColor())
+   --lcd.setColor(0,0,0)
    
 end
 
@@ -257,7 +274,11 @@ local function drawGauge(label, min, mid, max, tmp, unit, ox, oy)
    end
    
    drawTextCenter(FONT_MINI, label, ox+25, oy+38)
-   lcd.setColor(0,0,255)
+
+   setTextColor()
+   --lcd.setColor(lcd.getFgColor())
+   --lcd.setColor(0,0,255)
+   
    if tmp then
       drawTextCenter(FONT_BOLD, string.format("%d", temp), ox+25, oy+16)
    end
@@ -275,7 +296,8 @@ local function drawGauge(label, min, mid, max, tmp, unit, ox, oy)
       end
    end
    
-   lcd.setColor(0,0,0)
+   lcd.setColor(lcd.getFgColor())
+   --lcd.setColor(0,0,0)
    
    temp = math.min(max, math.max(temp, min))
    theta = math.pi - math.rad(135 - 2 * 135 * (temp - min) / (max - min) )
@@ -693,7 +715,8 @@ local function teleImage()
       y = y + 10
 	 
       kk = "T"..k
-      r,g,b = 0,0,0
+      --r,g,b = 0,0,0
+      r,g,b = lcd.getFgColor()
       if SBT_Telem[kk].value then
 	 if SBT_Telem[kk].value < screenConfig.Probes[k].Green then
 	    r,g,b = 0,0,255
@@ -724,20 +747,21 @@ local function teleImage()
       lcd.setColor(r,g,b)
       lcd.drawText(xp,yp, screenConfig.Probes[k].Name, fontSize)
 
-      lcd.setColor(0,0,0)
-
       local ffx = FONT_MINI
       xt=screenConfig.Probes[k].XT
       yt=screenConfig.Probes[k].YT
       text = screenConfig.Probes[k].Name.."("..kk.."): "
       dx1 = math.max(dx1,lcd.getTextWidth(textSize, text))
+      setTextColor()
       lcd.drawText(xt, yt, text, textSize)
       lcd.setColor(r,g,b)
       if SBT_Telem[kk].value then
 	 text = string.format("%.1f", SBT_Telem[kk].value)
 	 lcd.drawText(xt+dx1, yt, text, textSize)
       end
-      lcd.setColor(0,0,0)
+      setTextColor()
+      --lcd.setColor(lcd.getFgColor())
+      --lcd.setColor(0,0,0)
       if SBT_Telem[kk].unit then
 	 dx2 = math.max(dx2, lcd.getTextWidth(textSize, text))
 	 lcd.drawText(xt+dx1+dx2+3, yt, SBT_Telem[kk].unit, textSize)
@@ -775,8 +799,7 @@ local function teleImage()
 		   screenConfig.Gauges[ig].YG)		
       end
    end
-   
-   
+
 end
 
 local function tele()
@@ -823,6 +846,7 @@ local function init()
    
    dev, emFlag = system.getDeviceType()   
 
+   
    SBTDeviceNumber = system.pLoad("SBTDeviceNumber", 0)
    SBTChannelsActive = system.pLoad("SBTChannelsActive", 8)
 

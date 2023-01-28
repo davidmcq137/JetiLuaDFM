@@ -490,6 +490,8 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 
     var a;
     var delta;
+    arrR.tickLabels = [];
+    var idxT = 0;
     
     const fudge = 1 / (100*nseg);
     for (let i = 0; i <= nseg; i++) {
@@ -547,6 +549,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	
 	const label2C = 1.8;//1.6;
 
+
 	if (minmaj > 0 && i % minmaj == 0) {
 	    ctx.fillStyle = "white";
 	    ctx.textAlign = "center";
@@ -567,14 +570,19 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		let vs = rval.toString();
 		// console.log(vs);
 		let vi = vs.indexOf(".");
+		var tval;
 		if (vi == -1) {
-		    rval = vs;
+		    tval = vs;
 		} else {
-		    rval = vs.substring(0, vi+4);
+		    tval = vs.substring(0, vi+4);
 		}
-		ctx.fillText(rval.toString(),
+		// here are the tick labels
+		ctx.fillText(tval,
 			     x0 + rt * Math.cos(a),
 			     y0 + rt * Math.sin(a) + fontoffset)
+		//arrR.TXcolorvals[i] = {v:colors[i].val, r:r, g:g, b:b}
+		arrR.tickLabels[idxT] = {x: x0 + rt * Math.cos(a), y: y0 + rt * Math.sin(a), v: rval, t: tval, f: 99};
+		idxT = idxT + 1;
 	    }
 	    ctx.lineWidth=ro/23;	
 	    ctx.strokeStyle="white";
