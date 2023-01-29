@@ -50,7 +50,7 @@ local switches = {}
 local stateSw = {}
 
 local edit = {}
-edit.ops = {"Center", "Value", "Label", "Text", "Range"}
+edit.ops = {"Center", "Value", "Label", "Text", "MMLbl", "TicLbl", "TicSpc", "MinMx"}
 edit.dir = {"X", "Y", "Font"}
 edit.fonts = {"Mini", "Normal", "Bold", "Big", "Maxi", "None"}
 edit.fcode = {Mini=FONT_MINI, Normal=FONT_NORMAL, Bold=FONT_BOLD, Big=FONT_BIG, Maxi=FONT_MAXI,
@@ -62,14 +62,14 @@ edit.icode = {Mini=1, Normal=2, Bold=3, Big=4, Maxi=5, None=6}
 -- en elements follow edit.ops
 
 edit.gaugeName = {
-   roundNeedleGauge={sn="NdlG", en={0,1,1,0,1}},
-   roundArcGauge=   {sn="ArcG", en={0,1,1,0,1}},
-   virtualGauge=    {sn="VirG", en={1,0,0,0,0}},
-   horizontalBar=   {sn="HBar", en={0,0,1,0,0}},
-   sequencedTextBox={sn="SeqT", en={0,0,1,1,0}},
-   stackedTextBox=  {sn="StkT", en={0,0,1,1,0}},
-   panelLight=      {sn="PnlL", en={1,0,1,0,0}},
-   rawText=         {sn="RawT", en={1,0,0,1,0}}
+   roundNeedleGauge={sn="NdlG", en={0,1,1,0,1,1,1,1}},
+   roundArcGauge=   {sn="ArcG", en={0,1,1,0,1,0,0,1}},
+   virtualGauge=    {sn="VirG", en={1,0,0,0,0,0,0,0}},
+   horizontalBar=   {sn="HBar", en={0,0,1,0,0,0,0,0}},
+   sequencedTextBox={sn="SeqT", en={0,0,1,1,0,0,0,0}},
+   stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0}},
+   panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0}},
+   rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0}}
 }
 
 local lua = {}
@@ -108,6 +108,8 @@ local auxWinLast = 0
 local appStartTime
 local loopCPU = 0
 local editText
+local editWidget
+local editWidgetType
 
 local needle = {
    {-1,0},
@@ -161,9 +163,16 @@ local function getSensorByID(SeId, SePa)
    elseif SePa < 0 then -- txTel RSSI
       local NePa = -SePa
       local sensor = {}
-      sensor.value = lua.txTel.RSSI[NePa]
-      sensor.unit  = InsP.sensorUnlist[txTeleSensors + NePa]
-      sensor.decimals = InsP.sensorDplist[txTeleSensors + NePa]
+      if not lua.txTel or not lua.txTel.RSSI then
+	 print("DFM-InsP: RSSI nil", lua.txTel, lua.txTel.RSSI, NePa)
+	 sensor.value = 0
+	 sensor.unit = ""
+	 sensor.decimals = 0
+      else
+	 sensor.value = lua.txTel.RSSI[NePa]
+	 sensor.unit  = InsP.sensorUnlist[txTeleSensors + NePa]
+	 sensor.decimals = InsP.sensorDplist[txTeleSensors + NePa]
+      end
       -- TX reports 0 until it has good data for txTel .. ruins max/min
       if system.getTimeCounter() - appStartTime > 200 then
 	 sensor.valid = true
@@ -689,36 +698,50 @@ local function keyForm(key)
 	 form.reinit(1)
 	 return
       end
+
       local ipsp = InsP.panels[InsP.settings.selectedPanel]
       local ipeg = ipsp[edit.gauge] 
-      local en
-      if key == KEY_1 then
+      local en = edit.gaugeName[ipeg.type].en[edit.opsIdx]
+      local eo = edit.ops[edit.opsIdx]
+      local ed = edit.dir[edit.dirIdx]
+      local en4
+
+      local et, editState
+      if key ~= KEY_RELEASED then
+	 et, editState = form.getButton(4)
+      end
+      
+      if key == KEY_RELEASED then -- set up for next press
+	 form.setButton(1, "Select", ENABLED)
+	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
+	 form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)	 	 
+	 if (eo == "Text" or eo == "MinMx" or eo == "Label") and en == 1 then
+	    en4 = ENABLED
+	 else
+	    en4 = DISABLED
+	 end
+	 form.setButton(4, "Edit", en4)
+      elseif key == KEY_1 then
 	 edit.gauge = edit.gauge + 1
 	 if edit.gauge > #ipsp then edit.gauge = 1 end
 	 ipeg = ipsp[edit.gauge] 
-	 en = edit.gaugeName[ipeg.type].en[edit.opsIdx]
-	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
-	 local en4
-	 if ipeg.text then en4 = ENABLED else en4 = DISABLED end
-	 form.setButton(4, "Edit", en4)
-      elseif key == KEY_2 then
+      elseif key == KEY_2  then
 	 edit.opsIdx = edit.opsIdx + 1
 	 if edit.opsIdx > #edit.ops then edit.opsIdx = 1 end
-	 en = edit.gaugeName[ipeg.type].en[edit.opsIdx]
-	 --print("ipeg", ipeg, ipeg.type, edit.opsIdx, en)
-	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
-      elseif key == KEY_3 then
+      elseif key == KEY_3  then
 	 edit.dirIdx = edit.dirIdx + 1
 	 if edit.dirIdx > #edit.dir then edit.dirIdx = 1 end
-	 form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)	 
-      elseif key == KEY_4 then
-	 editText = ipeg
+      elseif key == KEY_4 and editState ~= 0 then
+	 editWidget = ipeg
+	 editWidgetType = eo
+	 --print("calling Edit", eo)
 	 form.reinit(110)
       elseif key == KEY_UP or key == KEY_DOWN then
 	 local inc
 	 if key == KEY_UP then inc = 1 else inc = -1 end
-	 local eo = edit.ops[edit.opsIdx]
-	 local ed = edit.dir[edit.dirIdx]
+	 -- hack: make TicSpc work with X or Y or Font
+	 if eo == "TicSpc" then ed = "Font" end
+	 
 	 if ed == "X" then
 	    if eo == "Value" and ipeg.xV then
 	       ipeg.xV = ipeg.xV + inc
@@ -732,7 +755,7 @@ local function keyForm(key)
 	       ipeg.xT = ipeg.xT + inc
 	    end
 	    
-	    if eo == "Range" and ipeg.xLV and ipeg.xRV then
+	    if eo == "MMLbl" and ipeg.xLV and ipeg.xRV then
 	       ipeg.xLV = ipeg.xLV + inc
 	       ipeg.xRV = ipeg.xRV - inc
 	    end
@@ -758,7 +781,7 @@ local function keyForm(key)
 	       ipeg.yT = ipeg.yT + inc
 	    end
 	    
-	    if eo == "Range" and ipeg.yLV and ipeg.yRV then
+	    if eo == "MMLbl" and ipeg.yLV and ipeg.yRV then
 	       ipeg.yLV = ipeg.yLV + inc
 	       ipeg.yRV = ipeg.yRV + inc
 	    end
@@ -797,12 +820,26 @@ local function keyForm(key)
 	       ipeg.fT = edit.fonts[i]
 	    end
 
-	    if eo == "Range" and ipeg.fLRV then
+	    if eo == "MMLbl" and ipeg.fLRV then
 	       local i = edit.icode[ipeg.fLRV]
 	       i = i + inc
 	       if i > #edit.fonts then i = 1 end	       
 	       if i < 1 then i = #edit.fonts end
 	       ipeg.fLRV = edit.fonts[i]
+	    end
+
+	    if eo == "TicLbl" and ipeg.fTL then
+	       local i = edit.icode[ipeg.fTL]
+	       i = i + inc
+	       if i > #edit.fonts then i = 1 end	       
+	       if i < 1 then i = #edit.fonts end
+	       ipeg.fTL = edit.fonts[i]
+	    end
+
+	    if eo == "TicSpc" and ipeg.TS then
+	       if ipeg.TS + inc > 0 and ipeg.TS + inc < 100 then
+		  ipeg.TS = ipeg.TS + inc
+	       end
 	    end
 	 end
       end
@@ -991,6 +1028,10 @@ local function initForm(sf)
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       savedRow2 = 1
+	       form.setTitle("")
+	       edit.gauge = 1
+	       edit.opsIdx = 1
+	       edit.dirIdx = 2 -- default to "Y"
 	       form.reinit(103)
 	       form.waitForRelease()
       end))      
@@ -1106,26 +1147,29 @@ local function initForm(sf)
       form.setFocusedRow(savedRow2)
    elseif sf == 103 then
       form.setTitle("")
+      --[[
       edit.gauge = 1
       edit.opsIdx = 1
       edit.dirIdx = 2 -- default to "Y"
-      form.setButton(1, "Select", ENABLED)
-      local ipsp = InsP.panels[InsP.settings.selectedPanel]
-      local ipeg = ipsp[edit.gauge] 
-      local en = edit.gaugeName[ipeg.type].en[edit.opsIdx]
-      form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
-      form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)
-      local en4
-      --[[
-      print("type of ipeg.text", type(ipeg.text))
-      if type(ipeg.text) == "string" then
-	 print("ipeg.text", ipeg.text)
-      elseif type(ipeg.text) == "table" then
-	 print("ipeg.text[1]", ipeg.text[1])
-      end
       --]]
-      if ipeg.text then en4 = ENABLED else en4 = DISABLED end
-      form.setButton(4, "Edit", en4)
+      keyForm(KEY_RELEASED)
+      --[[
+	 form.setButton(1, "Select", ENABLED)
+	 local ipsp = InsP.panels[InsP.settings.selectedPanel]
+	 local ipeg = ipsp[edit.gauge] 
+	 local en = edit.gaugeName[ipeg.type].en[edit.opsIdx]
+	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
+	 form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)
+	 local en4
+	 local eo = edit.ops[edit.opsIdx]
+	 print("103 eo", eo)
+	 if (eo == "Text" or eo == "MinMx" or eo == "Label") and en == 1 then
+	 en4 = ENABLED
+	 else
+	 en4 = DISABLED
+	 end
+	 form.setButton(4, "Edit", en4)
+      --]]
    elseif sf == 104 then -- edit item on sensor menu
       local ig = savedRow3
       local isp = InsP.settings.selectedPanel
@@ -1206,7 +1250,8 @@ local function initForm(sf)
       if not widget.modext then widget.modext = 0 end
       form.addSelectbox(ttb, ttbi, true,
 			(function(x) return changedModule(x, widget) end), {width=180})
-      
+
+      --[[
       form.addRow(4)
       form.addLabel({label="Gauge Min", width=90})
       if ip[ig].min then
@@ -1238,7 +1283,7 @@ local function initForm(sf)
       form.addTextbox(lbl, 63,
 		      (function(x) return changedLabel(x, ip[ig], sf) end),
 		      {width=245})
-
+      --]]
       form.addRow(2)
       form.addLabel({label="Enable min/max value markers", width=270})
       isel = ip[ig].showMM == "true"
@@ -1439,10 +1484,22 @@ local function initForm(sf)
       
 
    elseif sf == 110 then
-      local function editCB(val, i)
-	 editText.text[i] = val
+      local function editTextCB(val, i)
+	 editWidget.text[i] = val 
       end
-      form.setTitle("Text Editor")
+      local function editMinMaxCB(val, mm)
+	 if mm == "min" then
+	    editWidget.min = val / 10 
+	 else
+	    editWidget.max = val / 10
+	 end
+      end
+      local function editLabelCB(val)
+	 editWidget.label = val
+      end
+      
+      form.setTitle("Gauge Editor")
+      --[[
       if type(editText.text) == "string" then -- isn't .text always an array?
 	 form.addRow(1)
 	 --print("#text", #editText.text)
@@ -1458,19 +1515,40 @@ local function initForm(sf)
 	 end
 	 
       else
-	 for i, txt in ipairs(editText.text) do
+      --]]
+      if editWidgetType == "Text" then
+	 if not editWidget.text then return end
+	 for i, txt in ipairs(editWidget.text) do
 	    form.addRow(1)
 	    --print("#text", #editText.text[i])
-	    if #editText.text[i] <= 63 then
-	       form.addTextbox(editText.text[i], 63,
+	    if #editWidget.text[i] <= 63 then
+	       form.addTextbox(editWidget.text[i], 63,
 			       (function(v)
-				     return editCB(v, i)
-			       end)
-	    ) else
+				     return editTextCB(v, i)
+	       end))
+	    else
 		  form.addLabel({label="<Line too long to edit>", alignRight=true})
 	    end
 	    
+	 end 
+      elseif editWidgetType == "MinMx" then
+	 form.addRow(2)
+	 form.addLabel({label="Min"})
+	 form.addIntbox(10*editWidget.min, -32768, 32767, 0, 1, 1,
+			(function(v) return editMinMaxCB(v, "min") end))
+	 form.addRow(2)	 
+	 form.addLabel({label="Max"})	 
+	 form.addIntbox(10*editWidget.max, -32768, 32767, 100, 1, 1,
+			(function(v) return editMinMaxCB(v, "max") end))
+      elseif editWidgetType == "Label" then
+	 form.addRow(1)
+	 if not editWidget.label then editWidget.label = '---' end
+	 if #editWidget.label <= 63 then
+	    form.addTextbox(editWidget.label, 63, editLabelCB)
+	 else
+	       form.addLabel({label="<Line too long to edit>", alignRight=true})
 	 end
+	 
       end
    end
 end
@@ -1768,15 +1846,28 @@ local function printForm(_,_,tWin)
 	 if ctl then
 	    factor = 0.90 * (widget.radius - 8) / 58
 	    if widget.type == "roundNeedleGauge" or widget.type == "roundArcGauge" then
+	       local ro = widget.ro or 0.87 * widget.radius
+	       local ri = widget.ri or 0.85 * widget.radius
 	       if widget.type ~= "roundArcGauge" then
+		  if not widget.TS then widget.TS = ri - 1.8 * (ro - ri) end
+		  local rt = widget.TS
+		  if not widget.dp then widget.dp = 0 end
+		  local dp = math.floor(widget.dp)
+		  local fstr = "%."..dp.."f"
+		  if not widget.fTL then widget.fTL = widget.jFont or "Mini" end
+		  local vv, vt
+		  if widget.tickLabels and widget.subdivs > 0 and widget.majdivs > 0 then
+		     for i,v in ipairs(widget.tickLabels) do
+			vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
+			vt = string.format(fstr, vv)
+			--print("widget.fTL, edit.fcode[widget.fTL]", widget.fTL, edit.fcode[widget.fTL])
+			local vrt = widget.TS
+			drawTextCenter(widget.x0 + vrt * v.ca, widget.y0 + vrt * v.sa,
+				       vt, edit.fcode[widget.fTL])
+		     end
+		  end
 		  drawShape(widget.x0, widget.y0, needle, factor, rot + math.pi/2)
 	       else
-		  --local function drawArc(theta, x0, y0, a0, ri, ro, im, alp) 
-		  local ro = widget.ro or 0.87 * widget.radius
-		  local ri = widget.ri or 0.85 * widget.radius
-		  --lcd.setColor(0x80, 0x80, 0x80) -- same gray used on website.
-		  --drawArc(maxarc - minarc, widget.x0, widget.y0, minarc,
-			  --ri, ro, arcNP, 1)
 		  local r,g,b = 255,255,255
 		  if widget.TXspectrum then
 		     local wmax = widget.TXspectrum[#widget.TXspectrum]
@@ -2145,8 +2236,8 @@ local function printForm(_,_,tWin)
    end
 
    if select(2, system.getDeviceType()) == 1 then
-      lcd.drawText(300,70, math.floor(loopCPU + 0.5), FONT_MINI)   
-      lcd.drawText(300,90, system.getCPU(), FONT_MINI)
+      lcd.drawText(300,70, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   
+      lcd.drawText(300,90, string.format("%02d", system.getCPU()), FONT_MINI)
    end
    
 end
@@ -2179,6 +2270,8 @@ local function prtForm(w,h)
       if not ipeg then return end
       local xx, yy = ipeg.x0, ipeg.y0 -- default for Center
       local ff
+      local ss
+      local mm
       local ii = edit.ops[edit.opsIdx]
       if (ii == "Value") and ipeg.xV then
 	 xx = ipeg.xV
@@ -2192,7 +2285,7 @@ local function prtForm(w,h)
 	 xx = ipeg.xT
 	 yy = ipeg.yT
 	 ff = ipeg.fT	 
-      elseif (ii == "Range") and ipeg.xLV then
+      elseif (ii == "MMLbl") and ipeg.xLV then
 	 xx = (ipeg.xLV + ipeg.xRV) / 2
 	 yy = ipeg.yLV
 	 ff = ipeg.fLRV
@@ -2200,13 +2293,23 @@ local function prtForm(w,h)
 	 xx = ipeg.xPL
 	 yy = ipeg.yPL
 	 ff = ipeg.fL
+      elseif (ii == "TicLbl") and ipeg.fTL then
+	 ff = ipeg.fTL
+      elseif (ii == "TicSpc") and ipeg.TS then
+	 ss = tonumber(math.floor(ipeg.TS))
+      elseif (ii == "MinMx") then
+	 mm = "Edit Min Max"
       end
 
+      --print("typ", ipeg.type, edit.gaugeName[ipeg.type].sn)
+      
       local typ = edit.gaugeName[ipeg.type].sn
       if not typ then typ = "---" end
       
       local fn
       if ff then fn = "Font: " else fn = ""; ff = "" end
+      if ss then fn = "Spacing: "; ff=ss end
+      if mm then fn = ""; ff = mm end
       
       lcd.drawText(10, 157,
 		   string.format("Gauge %d Type: %s  [%d,%d]  %s %s",
@@ -2466,8 +2569,6 @@ local function init()
    
    print(string.format("DFM-InsP: %d extension modules read with %d functions",
 		       #lua.extmods, #lua.modext))
-
-
 
 end
 

@@ -421,6 +421,20 @@ function drawNeedle(ctx, arr, type, f, angle) {
     
 }
 
+function jetiFont(font) {
+    const jetiFonts = ["Mini", "Normal", "Bold", "Big", "Maxi"] 
+    const jetiSizes = [12, 18, 18, 22, 40]
+    let jF = 0
+    let dF = Math.abs(font - jetiSizes[0]) // assume MINI
+    for (let i = 1; i < 5; i++) {
+	if (Math.abs(font - jetiSizes[i]) < dF) {
+	    dF = Math.abs(font - jetiSizes[i]);
+	    jF = i;
+	}
+    }
+    return jetiFonts[jF]
+}
+
 function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn, colors, value, label, type, ndlarc) {
 
     var ri;
@@ -492,7 +506,9 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     var delta;
     arrR.tickLabels = [];
     var idxT = 0;
+    arrR.jFont = jetiFont(fontScale * ro);
     
+		//console.log(ctx.font, fontScale * ro, jetiFont(fontScale * ro))    
     const fudge = 1 / (100*nseg);
     for (let i = 0; i <= nseg; i++) {
 	
@@ -570,18 +586,23 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		let vs = rval.toString();
 		// console.log(vs);
 		let vi = vs.indexOf(".");
+		let vl = vs.length
+		let dp = 0
 		var tval;
 		if (vi == -1) {
 		    tval = vs;
 		} else {
 		    tval = vs.substring(0, vi+4);
+		    dp = (vl - vi) - 1
 		}
 		// here are the tick labels
-		ctx.fillText(tval,
-			     x0 + rt * Math.cos(a),
-			     y0 + rt * Math.sin(a) + fontoffset)
-		//arrR.TXcolorvals[i] = {v:colors[i].val, r:r, g:g, b:b}
-		arrR.tickLabels[idxT] = {x: x0 + rt * Math.cos(a), y: y0 + rt * Math.sin(a), v: rval, t: tval, f: 99};
+		if (typeof(arr.value) != "undefined") {
+		    let xt = x0 + rt * Math.cos(a);
+		    let yt = y0 + rt * Math.sin(a) + fontoffset;
+		    ctx.fillText(tval, xt, yt)
+		}
+		arrR.tickLabels[idxT] = {rt:rt, ca:Math.cos(a), sa:Math.sin(a), dp:dp}
+		//console.log(ctx.font, fontScale * ro, jetiFont(fontScale * ro))
 		idxT = idxT + 1;
 	    }
 	    ctx.lineWidth=ro/23;	
