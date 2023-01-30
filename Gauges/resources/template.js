@@ -435,6 +435,19 @@ function jetiFont(font) {
     return jetiFonts[jF]
 }
 
+function jetiSize(font) {
+    const jetiSizes = [12, 18, 18, 22, 40]
+    let jF = 0
+    let dF = Math.abs(font - jetiSizes[0]) // assume MINI
+    for (let i = 1; i < 5; i++) {
+	if (Math.abs(font - jetiSizes[i]) < dF) {
+	    dF = Math.abs(font - jetiSizes[i]);
+	    jF = i;
+	}
+    }
+    return jetiSizes[jF]
+}
+
 function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn, colors, value, label, type, ndlarc) {
 
     var ri;
@@ -508,7 +521,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     var idxT = 0;
     arrR.jFont = jetiFont(fontScale * ro);
     
-		//console.log(ctx.font, fontScale * ro, jetiFont(fontScale * ro))    
+    //console.log(ctx.font, fontScale * ro, jetiFont(fontScale * ro))    
     const fudge = 1 / (100*nseg);
     for (let i = 0; i <= nseg; i++) {
 	
@@ -596,13 +609,15 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		    dp = (vl - vi) - 1
 		}
 		// here are the tick labels
+		//ctx.font="bold " + fontScale * ro + "px sans-serif"
+		//console.log(ctx.font, fontScale * ro, jetiSize(fontScale * ro))
+		ctx.font = "bold " + jetiSize(fontScale * ro) + "px sans-serif"
 		if (typeof(arr.value) != "undefined") {
 		    let xt = x0 + rt * Math.cos(a);
 		    let yt = y0 + rt * Math.sin(a) + fontoffset;
 		    ctx.fillText(tval, xt, yt)
 		}
 		arrR.tickLabels[idxT] = {rt:rt, ca:Math.cos(a), sa:Math.sin(a), dp:dp}
-		//console.log(ctx.font, fontScale * ro, jetiFont(fontScale * ro))
 		idxT = idxT + 1;
 	    }
 	    ctx.lineWidth=ro/23;	
@@ -1206,13 +1221,25 @@ function horizontalBar(ctx, arr) {
 	    ctx.restore();
 	}
 
+	var idxL = 0;
+	//arrR.tickLabels[idxT] = {rt:rt, ca:Math.cos(a), sa:Math.sin(a), dp:dp}
+	//const fontScale = 0.18;
+	//ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
+	//console.log("fS*a.h, jSz", fontScale * arr.height, jetiSize(fontScale*arr.height))
+	ctx.font = "bold " + jetiSize(fontScale * arr.height) + "px sans-serif"
+	arrR.hbarLabels = [];
 	if (arr.subdivs > 0 && i % arr.subdivs == 0) {
 	    ctx.fillStyle = "white";	
 	    ctx.textAlign = "center";
 	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / divs)
-	    ctx.fillText(val.toString(),
-			 a,
-			 arr.y0 - h/2 - fontoffset)
+
+	    if (typeof arr.value != "undefined") {
+		ctx.fillText(val.toString(),
+			     a,
+			     arr.y0 - h/2 - fontoffset);
+	    }
+
+	    arrR.hbarLabels[idxL] = {x:a, y:arr.y0 - h/2}
 	    ctx.save();
 	    //ctx.clip(region);
 	    ctx.lineWidth = h / 23;	

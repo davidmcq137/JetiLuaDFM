@@ -2281,9 +2281,14 @@ local function prtForm(w,h)
 	 xx = ipeg.xL
 	 yy = ipeg.yL
 	 ff = ipeg.fL
-      elseif (ii == "Text") and ipeg.xT then
-	 xx = ipeg.xT
-	 yy = ipeg.yT
+      elseif (ii == "Text") and (ipeg.xT or ipeg.xRT) then
+	 if ipeg.xRT then
+	    xx = ipeg.xRT
+	    yy = ipeg.yRT
+	    else
+	    xx = ipeg.xT
+	    yy = ipeg.yT
+	 end
 	 ff = ipeg.fT	 
       elseif (ii == "MMLbl") and ipeg.xLV then
 	 xx = (ipeg.xLV + ipeg.xRV) / 2
@@ -2436,6 +2441,8 @@ local function init()
    -- Populate a table with all the panel json files
    -- in the Panels/ directory
 
+   local t1 = system.getTimeCounter()
+   
    InsP.settings.panels = {'...'}
    local dd, fn, ext
    local path = prefix() .. pDir
@@ -2446,6 +2453,7 @@ local function init()
 	    ff = path .. "/" .. fn .. "." .. ext
 	    file = io.open(ff)
 	    if file then
+	       decoded = json.decode(io.readall(ff))
 	       if not InsP.settings.panels then InsP.settings.panels = {} end
 	       table.insert(InsP.settings.panels, fn)
 	       io.close(file)
@@ -2454,6 +2462,9 @@ local function init()
       end
    end
 
+   local t2 = system.getTimeCounter()
+   print("delta t", (t2 - t1) / 1000)
+   
    table.sort(InsP.settings.panels)
 
    -- Populate a table with all the background image files
