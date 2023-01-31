@@ -486,7 +486,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     arrR.ri = ri;
     arrR.ro = ro;
 
-    ctx.font = jetiToCtx(arr.textFont)
+    ctx.font = jetiToCtx(arr.tickFont);
     
     //ctx.font="bold " + fontScale * ro + "px sans-serif"
     //var fontoffset = fontScale * ro / 4;
@@ -691,11 +691,11 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	arrR.xL = x0;
 	if (ndlarc == "needle") {
 	    arrR.yL = y0 + 0.90 * ro;
-	    ctx.font = jetiToCtx(arr.tickFont)
+	    ctx.font = jetiToCtx(arr.tickFont);
 	    //ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
 	} else {
 	    arrR.yL = y0 + 0.50 * ro;
-	    ctx.font = jetiToCtx(arr.textFont)
+	    ctx.font = jetiToCtx(arr.tickFont);
 	    //ctx.font = "bold " + 1.0 * fontScale * ro + "px sans-serif"
 	}
 	ctx.textBaseline = "middle";
@@ -728,7 +728,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    ctx.textAlign = "center";
 	    ctx.textBaseline = "middle";
 	    //ctx.font = "bold " + 1.7 * fontScale * ro + "px sans-serif";
-	    ctx.font = jetiToCtx(arr.textFont);
+	    ctx.font = jetiToCtx(arr.tickFont);
 	    arrR.xV = x0;
 	    arrR.yV = y0;
 	}
