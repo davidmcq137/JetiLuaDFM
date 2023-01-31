@@ -174,6 +174,22 @@
                          (update-gauge* da assoc k (.-value (.-target ev))))}]))
 
 
+(def font-size-options ["Mini" "Normal" "Bold" "Big" "Maxi"])
+
+(rum/defc gaugeparam-fontsize
+  < rum/reactive
+  [da k]
+  (let [{:keys [params]  :as d} (rum/react da)
+        v (get params k)]
+    [:select
+     {:value (or v "Normal")
+      :style {:width "8em"
+              :justify-self "end"}
+      :onChange (fn [ev]
+                  (update-gauge* da assoc k (.-value (.-target ev))))}
+     (for [fs font-size-options]
+       [:option {:key fs  :value fs} fs])]))
+
 (rum/defc float-input
   [{:keys [value on-change decimal-places] :or {decimal-places 2}}]
   (let [[{:keys [text valid] :as st } set-st!] (rum/use-state {:text value :valid true})]
@@ -400,6 +416,12 @@
      (gaugeparam-plusminus da ["majdivs"])
      [:span.slider-label "Sub divisions"]
      (gaugeparam-plusminus da ["subdivs"])
+     
+     [:span "Font size (numbers)"]
+     (gaugeparam-fontsize da "tickFont")
+     [:span "Font size (label)"]
+     (gaugeparam-fontsize da "labelFont")
+
      (spectrum-or-colorvals da))))
 
 (rum/defc edit-roundgauge
@@ -420,6 +442,11 @@
      [:span.slider-label "Sub divisions"]
      (gaugeparam-plusminus da ["subdivs"])
      
+     [:span "Font size (numbers)"]
+     (gaugeparam-fontsize da "tickFont")
+     [:span "Font size (label)"]
+     (gaugeparam-fontsize da "labelFont")
+     
      [:span.slider-label "Arc start"]
      (gaugeparam-slider da "start" {:min -360 :max 360})
      [:span.slider-label "Arc end"]
@@ -438,6 +465,9 @@
      (gaugeparam-plusminus da ["min"])
      [:span.slider-label "Maximum"]
      (gaugeparam-plusminus da ["max"])
+     [:span "Font size"]
+     (gaugeparam-fontsize da "textFont")
+     
      [:span.slider-label (str "Arc start = " (get params "start"))]
      (gaugeparam-slider da "start" {:min -180 :max 180})
      [:span.slider-label (str "Arc end = " (get params "end"))]
@@ -486,6 +516,12 @@
      [:span.slider-label (str "Height = " (get params "height"))]
      (gaugeparam-slider da "height" {:min 10 :max 80})
      
+     [:span "Font size (text)"]
+     (gaugeparam-fontsize da "textFont")
+     [:span "Font size (label)"]
+     (gaugeparam-fontsize da "labelFont")
+     
+     
      [:span.slider-label "Mode"]
      [:div {}
       [:input {:type "button" :value "Line chosen by value"
@@ -511,9 +547,11 @@
      [:span "Text"]
      (edit-multitext da "text")
      
-     [:span.slider-label "Font height"]
-     (gaugeparam-slider da "fontHeight" {:min 4 :max 80})
-     
+     [:span "Font size (text)"]
+     (gaugeparam-fontsize da "textFont")
+     [:span "Font size (label)"]
+     (gaugeparam-fontsize da "labelFont")
+
      [:span.slider-label "Color"]
      (gaugeparam-text da "textColor"))))
 
@@ -532,6 +570,9 @@
      (gaugeparam-slider da "width" {:min 10 :max 320})
      [:span.slider-label (str "Height = " (get params "height"))]
      (gaugeparam-slider da "height" {:min 10 :max 80})
+     
+     [:span "Font size"]
+     (gaugeparam-fontsize da "labelFont")
      
      [:span "Light color"]
      (gaugeparam-text da "lightColor"))))

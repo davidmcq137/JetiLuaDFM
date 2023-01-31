@@ -455,6 +455,7 @@ function jetiToCtx(jfont) {
     if (jfont == "Bold") {
 	bstr = "bold ";
     }
+
     let pstr = point[jfont]
     if (typeof pstr == "undefined") {
 	pstr = "12"
@@ -462,6 +463,7 @@ function jetiToCtx(jfont) {
     //console.log("jetiToCtx returning", bstr + pstr + "px sans-serif")
     
     return bstr + pstr + "px sans-serif"
+
 }
 
 
@@ -492,11 +494,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     arrR.ri = ri;
     arrR.ro = ro;
 
-    if (ndlarc != "arc") {
-	ctx.font = jetiToCtx(arr.textFont)
-    } else {
-	ctx.font = jetiToCtx(arr.minmaxFont)
-    }
+    ctx.font = jetiToCtx(arr.tickFont);
     
     //ctx.font="bold " + fontScale * ro + "px sans-serif"
     //var fontoffset = fontScale * ro / 4;
@@ -701,11 +699,11 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	arrR.xL = x0;
 	if (ndlarc == "needle") {
 	    arrR.yL = y0 + 0.90 * ro;
-	    ctx.font = jetiToCtx(arr.tickFont)
+	    ctx.font = jetiToCtx(arr.tickFont);
 	    //ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
 	} else {
 	    arrR.yL = y0 + 0.50 * ro;
-	    ctx.font = jetiToCtx(arr.minmaxFont)
+	    ctx.font = jetiToCtx(arr.tickFont);
 	    //ctx.font = "bold " + 1.0 * fontScale * ro + "px sans-serif"
 	}
 	ctx.textBaseline = "middle";
@@ -724,21 +722,21 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	const x10 = x0 - ro * 0.03;
 	const y10 = y0 - ro * 0.40;
 	//ctx.font = "bold " + 0.60 * fontScale * ro + "px sans-serif"
-	ctx.font = jetiToCtx(arr.labelFont)	
+	ctx.font = jetiToCtx(arr.labelFont);
 	ctx.fillText("10 m", x10, y10);
     }
     
     if (typeof value == "number") {
 	if (ndlarc  == "needle") {
 	    //ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
-	    ctx.font = jetiToCtx(arr.tickFont)
+	    ctx.font = jetiToCtx(arr.tickFont);
 	    arrR.xV = x0;
 	    arrR.yV = y0 + 0.3 * ro;
 	} else {
 	    ctx.textAlign = "center";
 	    ctx.textBaseline = "middle";
 	    //ctx.font = "bold " + 1.7 * fontScale * ro + "px sans-serif";
-	    ctx.font = jetiToCtx(arr.minmaxFont)
+	    ctx.font = jetiToCtx(arr.tickFont);
 	    arrR.xV = x0;
 	    arrR.yV = y0;
 	}
