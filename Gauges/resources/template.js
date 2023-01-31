@@ -783,7 +783,7 @@ function roundArcGauge(ctx, arr) {
 
 function roundGauge(ctx, arr, indicator) {
 
-    console.log("roundGauge", arr.tickFont, arr.labelFont)
+    console.log("roundGauge", arr)
     
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
