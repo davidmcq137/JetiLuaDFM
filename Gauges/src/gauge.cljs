@@ -47,13 +47,13 @@
         pos-top (str (or y iy) "px")
         pos-left (str (or x ix) "px")
         scaled-x (js/Math.round
-                  (/ (+ (/ (or x ix) draw-scale)
+                  (/ (+ (/ (or x ix) disp-scale)
                         (* 0.5 (.-width bmap)))
-                     disp-scale))
+                     draw-scale))
         scaled-y (js/Math.round
-                  (/ (+ (/ (or y iy) draw-scale)
+                  (/ (+ (/ (or y iy) disp-scale)
                         (* 0.5 (.-height bmap)))
-                     disp-scale))]
+                     draw-scale))]
     (rum/use-effect!
      (fn []
        (let [cvs (rum/deref cref)
@@ -68,6 +68,7 @@
                  :top pos-top
                  :left pos-left}}
         (str scaled-x "," scaled-y)])
+     
      [:canvas {:ref cref
                :width (.-width bmap)
                :height (.-height bmap)
@@ -79,11 +80,9 @@
                        :outline (if-not mousedown "none" "1px solid #fff")
                        :top pos-top
                        :left pos-left
-                       :z-index (if mousedown 999 0)
+                       :z-index (if mousedown 998 0)
                        :user-select (if mousedown "none" "auto")}
                :onMouseDown (fn [^js ev]
-                              #_(.preventDefault ev)
-                              #_(.stopPropagation ev)
                               (let [ox (.-offsetX (.-nativeEvent ev))
                                     oy (.-offsetY (.-nativeEvent ev))
                                     cx (.-clientX ev)
@@ -100,14 +99,12 @@
                                             (.-clientY ev))]
                                   (set-drag-state! (assoc drag-state
                                                           :x (- (.-offsetLeft (.-target ev))
-                                                                 dx)
+                                                                dx)
                                                           :y (- (.-offsetTop (.-target ev))
                                                                 dy)
                                                           :xinit (.-clientX ev)
                                                           :yinit (.-clientY ev))))))
                :onMouseUp (fn [^js ev]
-                            #_(.preventDefault ev)
-                            #_(.stopPropagation ev)
                             (set-drag-state! (assoc drag-state :mousedown nil :x nil :y nil))
                             (when (and x y)
                               (swap! db update-in k update :params assoc
@@ -235,6 +232,7 @@
            [:input
             {:type :color
              :value color
+             :key (str "cc" i)
              :onChange (fn [ev]
                          (update-gauge* da assoc-in
                                         ["spectrum" i]
@@ -519,6 +517,10 @@
      [:span.slider-label "Color"]
      (gaugeparam-text da "textColor"))))
 
+
+
+
+
 (rum/defc edit-panellight
   < rum/reactive
   [da]
@@ -561,10 +563,12 @@
             ("textBox" "rawText" "sequencedTextBox" "stackedTextBox")
             (gaugeparam-plusminus da  ["value"])
             
-            (gaugeparam-slider da "value"
-                               {:min  min
-                                :max  max
-                                :step (* 0.01 (- max min))}))))]
+            (let [real-min (clojure.core/min min max)
+                  real-max (clojure.core/max min max)]
+             (gaugeparam-slider da "value"
+                                {:min  real-min
+                                 :max  real-max
+                                 :step (* 0.01 (- real-max real-min))})))))]
      [:div.controls
       [:input
        {:type    "button"
@@ -750,7 +754,11 @@
                                  (swap! db assoc-in
                                         [:panels (:selected-panel @db) :background-image]
                                         (js/URL.createObjectURL f))))}]]
-     [:li [:input {:type "button"  :value "Clear" :onClick #(swap!  db dissoc :background-image)}]]]]
+     [:li [:input {:type "button"
+                   :value "Clear"
+                   :onClick #(swap! db update-in
+                                    [:panels (:selected-panel @db)]
+                                    dissoc :background-image)}]]]]
    [:div [:h4 "Download"]
     [:p
      "When you are ready to install the Lua app along with all your created panels, "
@@ -966,6 +974,7 @@
           :viewBox (str "0 0 " ww " " hh) 
           :style {:position :absolute
                   :pointer-events "none"
+                  :z-index 999
                   :top 0
                   :left 0
                   :width (str ww "px")
