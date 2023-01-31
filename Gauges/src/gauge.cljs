@@ -181,12 +181,13 @@
   [da k]
   (let [{:keys [params]  :as d} (rum/react da)
         v (get params k)]
-    [:select 
+    (println "V=" v (pr-str params))
+    [:select
      {:value (or v "Normal")
       :style {:width "8em"
               :justify-self "end"}
       :onChange (fn [ev]
-                  (update-gauge* da assoc k (js/parseFloat (.-value (.-target ev)))))}
+                  (update-gauge* da assoc k (.-value (.-target ev))))}
      (for [fs font-size-options]
        [:option {:key fs  :value fs} fs])]))
 
@@ -418,7 +419,7 @@
      (gaugeparam-plusminus da ["subdivs"])
      
      [:span "Font size (numbers)"]
-     (gaugeparam-fontsize da "textFont")
+     (gaugeparam-fontsize da "tickFont")
      [:span "Font size (label)"]
      (gaugeparam-fontsize da "labelFont")
 
@@ -575,7 +576,7 @@
      (gaugeparam-slider da "height" {:min 10 :max 80})
      
      [:span "Font size"]
-     (gaugeparam-fontsize da "textFont")
+     (gaugeparam-fontsize da "labelFont")
      
      [:span "Light color"]
      (gaugeparam-text da "lightColor"))))
