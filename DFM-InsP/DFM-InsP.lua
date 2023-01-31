@@ -1902,11 +1902,15 @@ local function printForm(_,_,tWin)
 		  drawArc(rot - minarc, widget.x0, widget.y0, minarc, ri, ro+1, arcNP, 1)
 	       end
 	    elseif widget.type == "virtualGauge" then
-	       local shp = {}
-	       for ii,v in ipairs(widget.needle) do
-		  shp[ii] = {v.x, v.y}
+	       if widget.needle then
+		  local shp = {}
+		  for ii,v in ipairs(widget.needle) do
+		     shp[ii] = {v.x, v.y}
+		  end
+		  drawShape(widget.x0, widget.y0, shp, factor, rot + math.pi)
+	       else
+		  print("DFM-InsP: no needle shape for virtual gauge")
 	       end
-	       drawShape(widget.x0, widget.y0, shp, factor, rot + math.pi)	       
 	    end
 
 	    lcd.setColor(255,255,255)
@@ -1931,8 +1935,8 @@ local function printForm(_,_,tWin)
 	       local max = widget.max
 	       local min = widget.min
 	       local decims
-	       if max and min then
-		  decims = math.max(2 - math.floor(math.log(max - min) / math.log(10)), 0)
+	       if max and min and (max ~= min) then
+		  decims = math.max(2 - math.floor(math.log(math.abs(max - min)) / math.log(10)), 0)
 	       else
 		  decims = 1
 	       end
@@ -2441,7 +2445,7 @@ local function init()
    -- Populate a table with all the panel json files
    -- in the Panels/ directory
 
-   local t1 = system.getTimeCounter()
+   --local t1 = system.getTimeCounter()
    
    InsP.settings.panels = {'...'}
    local dd, fn, ext
@@ -2453,7 +2457,6 @@ local function init()
 	    ff = path .. "/" .. fn .. "." .. ext
 	    file = io.open(ff)
 	    if file then
-	       decoded = json.decode(io.readall(ff))
 	       if not InsP.settings.panels then InsP.settings.panels = {} end
 	       table.insert(InsP.settings.panels, fn)
 	       io.close(file)
@@ -2462,8 +2465,8 @@ local function init()
       end
    end
 
-   local t2 = system.getTimeCounter()
-   print("delta t", (t2 - t1) / 1000)
+   --local t2 = system.getTimeCounter()
+   --print("delta t", (t2 - t1) / 1000)
    
    table.sort(InsP.settings.panels)
 

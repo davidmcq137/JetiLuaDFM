@@ -168,7 +168,7 @@ function ColourGradient()
 		burlywood: "DEB887",
 		cadetblue: "5F9EA0",
 		chartreuse: "7FFF00",
-		chocolate: "D2691E",
+	        chocolate: "D2691E",
 		coral: "FF7F50",
 		cornflowerblue: "6495ED",
 		cornsilk: "FFF8DC",
@@ -448,6 +448,17 @@ function jetiSize(font) {
     return jetiSizes[jF]
 }
 
+function jetiToCtx(jfont) {
+    const point = {Mini:12, Normal:18, Bold:18, Big: 22, Maxi: 40, None:6}
+    //ctx.font="bold " + fontScale * ro + "px sans-serif"
+    let bstr = "";
+    if (jfont == "Bold") {
+	bstr = "bold ";
+    }
+    return bstr + point[jfont] + "px sans-serif"
+}
+
+
 function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn, colors, value, label, type, ndlarc) {
 
     var ri;
@@ -475,8 +486,14 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     arrR.ri = ri;
     arrR.ro = ro;
 
-    ctx.font="bold " + fontScale * ro + "px sans-serif"
-    var fontoffset = fontScale * ro / 4;
+    if (ndlarc != "arc") {
+	ctx.font = jetiToCtx(arr.textFont)
+    } else {
+	ctx.font = jetiToCtx(arr.minmaxFont)
+    }
+    
+    //ctx.font="bold " + fontScale * ro + "px sans-serif"
+    //var fontoffset = fontScale * ro / 4;
 
     if (typeof spec == "object") {
 	var rainbow = new Rainbow();
@@ -564,6 +581,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	if ( (i < nseg) && (ndlarc != "arc")) {
 	    var a1 = start + i * delta - 0*delta
 	    var a2 = start + i * delta + 1*delta;
+	    //console.log(i, spec, x0, y0, ri, ro, ctx.fillStyle)
 	    arcsegment(ctx, x0, y0, ri, ro, a1, a2 )
 	}
 
@@ -584,10 +602,11 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    ctx.textAlign = "center";
 	    var rt = ri - label2C * (ro - ri)
 	    var val = (min + i * (max - min) / nseg)
-	    if (val <=  max) {
+	    if (1==1) { //(val <=  max) {
 		if (type == "airspeed") {
-		    ctx.font="bold " + 0.60 * fontScale * ro + "px sans-serif"
-		    fontoffset = fontScale * ro / 4;		    
+		    //ctx.font="bold " + 0.60 * fontScale * ro + "px sans-serif"
+		    ctx.font=jetiToCtx(arr.tickFont)
+		    //fontoffset = fontScale * ro / 4;		    
 		}
 		var sign;
 		if (val >= 0) {
@@ -611,10 +630,13 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		// here are the tick labels
 		//ctx.font="bold " + fontScale * ro + "px sans-serif"
 		//console.log(ctx.font, fontScale * ro, jetiSize(fontScale * ro))
-		ctx.font = "bold " + jetiSize(fontScale * ro) + "px sans-serif"
+		//ctx.font = "bold " + jetiSize(fontScale * ro) + "px sans-serif"
+		ctx.font = jetiToCtx(arr.tickFont)
 		if (typeof(arr.value) != "undefined") {
 		    let xt = x0 + rt * Math.cos(a);
-		    let yt = y0 + rt * Math.sin(a) + fontoffset;
+		    let yt = y0 + rt * Math.sin(a);
+		    ctx.textBaseline = "middle";
+		    ctx.textAlign = "center";
 		    ctx.fillText(tval, xt, yt)
 		}
 		arrR.tickLabels[idxT] = {rt:rt, ca:Math.cos(a), sa:Math.sin(a), dp:dp}
@@ -669,38 +691,48 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     ctx.textAlign = "center";
 
     if (typeof label != "undefined") {
-	ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+	//ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
 	arrR.xL = x0;
 	if (ndlarc == "needle") {
 	    arrR.yL = y0 + 0.90 * ro;
-	    ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+	    ctx.font = jetiToCtx(arr.tickFont)
+	    //ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
 	} else {
 	    arrR.yL = y0 + 0.50 * ro;
-	    ctx.font = "bold " + 1.0 * fontScale * ro + "px sans-serif"
+	    ctx.font = jetiToCtx(arr.minmaxFont)
+	    //ctx.font = "bold " + 1.0 * fontScale * ro + "px sans-serif"
 	}
+	ctx.textBaseline = "middle";
+	ctx.textAlign = "center";
 	ctx.fillText(label, arrR.xL, arrR.yL);
     }
 
     if (type == "altimeter") {
-	ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+	//ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+	ctx.font = jetiToCtx(arr.tickFont)
 	const xA = x0 + ro * 0.25;
 	const yA = y0 - ro * 0.1;
+	ctx.textBaseline = "middle";
+	ctx.textAlign = "center";
 	ctx.fillText("ALT", xA, yA);	
 	const x10 = x0 - ro * 0.03;
 	const y10 = y0 - ro * 0.40;
-	ctx.font = "bold " + 0.60 * fontScale * ro + "px sans-serif"
+	//ctx.font = "bold " + 0.60 * fontScale * ro + "px sans-serif"
+	ctx.font = jetiToCtx(arr.labelFont)	
 	ctx.fillText("10 m", x10, y10);
     }
     
     if (typeof value == "number") {
 	if (ndlarc  == "needle") {
-	    ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
+	    //ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
+	    ctx.font = jetiToCtx(arr.tickFont)
 	    arrR.xV = x0;
 	    arrR.yV = y0 + 0.3 * ro;
 	} else {
 	    ctx.textAlign = "center";
 	    ctx.textBaseline = "middle";
-	    ctx.font = "bold " + 1.7 * fontScale * ro + "px sans-serif";
+	    //ctx.font = "bold " + 1.7 * fontScale * ro + "px sans-serif";
+	    ctx.font = jetiToCtx(arr.minmaxFont)
 	    arrR.xV = x0;
 	    arrR.yV = y0;
 	}
@@ -863,7 +895,7 @@ function virtualGauge(ctx, arr) {
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
     var rotate = arr.rotate;
-    const fontScale = 0.24;
+    //const fontScale = 0.24;
     var arrR = {};
     const ro = arr.radius - 2;
     const ri = ro * 0.85;
@@ -884,9 +916,9 @@ function virtualGauge(ctx, arr) {
 	arrR.needle[i] = needleTri[i];
     }
     
-    if (typeof arr.value != "number") {
+    if (typeof arr.value == "undefined") {
 	//console.log("arr.value not number - returning - type:", typeof arr.value)
-	return
+	return arrR;
     }
 
     if (typeof arr.start == 'number') {
@@ -936,8 +968,8 @@ function virtualGauge(ctx, arr) {
     ctx.textAlign = "center";
     
     if (arr.label) {
-	ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
-
+	//ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+	ctx.font = jetoToCtx(arr.labelFont)
 	arrR.xL = arr.x0;
 	arrR.yL = arr.y0 + 0.90 * ro;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
@@ -1009,7 +1041,7 @@ function textBox(ctx, arr, type) {
     const x0 = arr.x0;
     const y0 = arr.y0;
     
-    const fontScale = 0.20;
+    //const fontScale = 0.20;
     h = h * hFrac;
 
     arrR.tBoxHgt = h;
@@ -1017,7 +1049,11 @@ function textBox(ctx, arr, type) {
 
     var fontT;
     var fontL;
+
+    fontT = jetiToCtx(arr.textFont)
+    fontL = jetiToCtx(arr.labelFont)
     
+    /*
     if (typeof arr.fontSize == "number") {
 	fontT = "bold " + arr.fontSize.toString() + "px sans-serif";
 	fontL = "bold " + 0.5 * arr.fontSize.toString() + "px sans-serif";
@@ -1025,7 +1061,7 @@ function textBox(ctx, arr, type) {
 	fontT = "bold " + fontScale * arr.height + "px sans-serif";
 	fontL = "bold " + 0.5 * fontScale * arr.height + "px sans-serif";	
     }
-
+    */
     const bezel = 2;
 
     ctx.fillStyle = "#303030";
@@ -1113,9 +1149,10 @@ function horizontalBar(ctx, arr) {
     
     ctx.fillStyle = "black";
 
-    const fontScale = 0.18;
-    ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
-    const fontoffset = -4 //0.00 * arr.height
+    //const fontScale = 0.18;
+    //ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
+    ctx.font = jetoToCtx(arr.tickFont)
+    //const fontoffset = -4 //0.00 * arr.height
 
     if (typeof arr.spectrum == "object") {
 	var rainbow = new Rainbow();
@@ -1226,17 +1263,19 @@ function horizontalBar(ctx, arr) {
 	//const fontScale = 0.18;
 	//ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
 	//console.log("fS*a.h, jSz", fontScale * arr.height, jetiSize(fontScale*arr.height))
-	ctx.font = "bold " + jetiSize(fontScale * arr.height) + "px sans-serif"
+	//ctx.font = "bold " + jetiSize(fontScale * arr.height) + "px sans-serif"
+	ctx.font = jetiToCtx(arr.tickFont)
 	arrR.hbarLabels = [];
 	if (arr.subdivs > 0 && i % arr.subdivs == 0) {
 	    ctx.fillStyle = "white";	
 	    ctx.textAlign = "center";
+	    ctx.textBaseline = "middle";
 	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / divs)
 
 	    if (typeof arr.value != "undefined") {
 		ctx.fillText(val.toString(),
 			     a,
-			     arr.y0 - h/2 - fontoffset);
+			     arr.y0 - h/2);
 	    }
 
 	    arrR.hbarLabels[idxL] = {x:a, y:arr.y0 - h/2}
@@ -1256,7 +1295,8 @@ function horizontalBar(ctx, arr) {
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
     if (arr.label) {	
-	ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
+	//ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
+	ctx.font = jetoToCtx(arr.labelFont)
 	arrR.xL = arr.x0;
 	arrR.yL = arr.y0 +  h / 2;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
@@ -1292,7 +1332,8 @@ function panelLight(ctx, arr) {
 	ctx.beginPath();
 	ctx.fillStyle = "white";
 	ctx.textAlign = "center";
-	ctx.font = "bold " + 6 + "px sans-serif"
+	//ctx.font = "bold " + 6 + "px sans-serif"
+	ctx.font = jetiToCtx(arr.labelFont);
 	arrR.xL = arr.x0;
 	arrR.yL = arr.y0 + 14;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
@@ -1359,12 +1400,15 @@ function rawText(ctx, arr) {
     ctx.textBaseline = "middle";
     
     if (typeof arr.fontHeight == "number") {
-	ctx.font = "bold " + arr.fontHeight + "px sans-serif"
+	//ctx.font = "bold " + arr.fontHeight + "px sans-serif"
+	ctx.font = jetiToCtx(arr.textFont)
     } else {
-	ctx.font = "bold 20px sans-serif"
+	//ctx.font = "bold 20px sans-serif"
+	ctx.font = jetiToCtx(arr.textFont)	
     }
     // we don't want to put the text on the png
     if (typeof arr.label == "string") {
+	ctx.font = jetiToCtx(arr.labelFont)
 	ctx.fillText(arr.text, arr.x0, arr.y0);
     }
     return arrR;
