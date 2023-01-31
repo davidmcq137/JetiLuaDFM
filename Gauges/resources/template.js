@@ -455,7 +455,7 @@ function jetiToCtx(jfont) {
     if (jfont == "Bold") {
 	bstr = "bold ";
     }
-    return bstr + point[jfont] + "px sans-serif"
+    return bstr + (point[jfont] || point["Normal"]) + "px sans-serif"
 }
 
 

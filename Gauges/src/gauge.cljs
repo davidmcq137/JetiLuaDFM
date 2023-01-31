@@ -547,9 +547,6 @@
      [:span "Text"]
      (edit-multitext da "text")
      
-     [:span.slider-label "Font height"]
-     (gaugeparam-slider da "fontHeight" {:min 4 :max 80})
-     
      [:span "Font size (text)"]
      (gaugeparam-fontsize da "textFont")
      [:span "Font size (label)"]
