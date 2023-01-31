@@ -173,27 +173,6 @@
              :onChange (fn [^js ev]
                          (update-gauge* da assoc k (.-value (.-target ev))))}]))
 
-#_(def font-size-options [12 18 18 22 40])
-#_(def font-sizes (sorted-map
-                 12 "Mini"
-                 18 "Normal"
-                 
-                 ))
-
-#_(rum/defc gaugeparam-fontsize
-  < rum/reactive
-  [da k]
-  (let [{:keys [params]  :as d} (rum/react da)
-        v (get params k)]
-    [:select
-     {:value (or v (first font-size-options))
-      :onChange (fn [ev]
-                  (update-gauge* da assoc k (js/parseFloat (.-value (.-target ev)))))}
-     (for [fs font-size-options]
-       [:option {:key fs  :value fs} ])]
-    
-    ))
-
 
 (rum/defc float-input
   [{:keys [value on-change decimal-places] :or {decimal-places 2}}]
