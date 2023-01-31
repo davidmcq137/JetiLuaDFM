@@ -181,7 +181,6 @@
   [da k]
   (let [{:keys [params]  :as d} (rum/react da)
         v (get params k)]
-    (println "V=" v (pr-str params))
     [:select
      {:value (or v "Normal")
       :style {:width "8em"
