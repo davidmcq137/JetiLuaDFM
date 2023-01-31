@@ -1009,7 +1009,7 @@
 
 (rum/defc alignment-grid
   [d ww hh]
-  (when (and d ww hh)
+  (when (and d ww hh (number? d) (< 0 d))
    [:svg {:width ww
           :height hh
           :viewBox (str "0 0 " ww " " hh) 
