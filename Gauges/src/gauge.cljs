@@ -1087,7 +1087,12 @@
       [:label "Alignment grid:"
        [:select {:value (or align-divs "none")
                  :style {:margin-left "2ex"}
-                 :onChange (fn [ev] (swap! db assoc :align-divs (js/parseInt (.-value (.-target ev)))))}
+                 :onChange (fn [ev]
+                             (let [s (.-value (.-target ev))]
+                               (swap! db assoc :align-divs
+                                      (case s
+                                        "none" nil
+                                        s))))}
         [:option {:value "none"} "none"]
         (for [i [2 3 4 5 6 7 8]]
           [:option {:key i :value (str i)} (str i)])]]]
