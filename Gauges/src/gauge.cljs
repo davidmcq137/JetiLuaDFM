@@ -174,7 +174,7 @@
                          (update-gauge* da assoc k (.-value (.-target ev))))}]))
 
 
-(def font-size-options ["Mini" "Normal" "Bold" "Big" "Maxi"])
+(def font-size-options ["Mini" "Normal" "Bold" "Big" "Maxi" "None"])
 
 (rum/defc gaugeparam-fontsize
   < rum/reactive
@@ -231,6 +231,33 @@
      [:input {:type "button"
               :value "+"
               :onClick #(update-gauge* da update-in k inc)}]]))
+
+(rum/defc gaugeparam-color < rum/reactive
+  [da k]
+  (let [{:keys [params]} (rum/react da)
+        v (get params k)]
+    [:div {:style {:justify-self "end"
+                   :display "grid"
+                   :align-items "center"
+                   :column-gap "2ex"
+                   :grid-template-columns "1.5em 8em"}}
+     
+     (if (string/starts-with? k "#")
+       [:input
+        {:type :color
+         :value k
+         :onChange (fn [ev]
+                     (update-gauge* da assoc k (.-value (.-target ev))))}]
+       [:div
+        {:style {:height "2ex"
+                 :width "4ex"
+                 :background-color v}}])
+     
+     [:input
+      {:type "text"
+       :value (or v "transparent")
+       :onChange (fn [^js ev]
+                   (update-gauge* da assoc k (.-value (.-target ev))))}]]))
 
 (rum/defc edit-spectrum
   < rum/reactive
@@ -417,6 +444,9 @@
      [:span.slider-label "Sub divisions"]
      (gaugeparam-plusminus da ["subdivs"])
      
+     [:span "Color"]
+     (gaugeparam-color da "backColor")
+     
      [:span "Font size (numbers)"]
      (gaugeparam-fontsize da "tickFont")
      [:span "Font size (label)"]
@@ -442,10 +472,13 @@
      [:span.slider-label "Sub divisions"]
      (gaugeparam-plusminus da ["subdivs"])
      
-     [:span "Font size (numbers)"]
+     [:span "Font size (ticks)"]
      (gaugeparam-fontsize da "tickFont")
      [:span "Font size (label)"]
      (gaugeparam-fontsize da "labelFont")
+     [:span "Font size (readout)"]
+     (gaugeparam-fontsize da "valueFont")
+     
      
      [:span.slider-label "Arc start"]
      (gaugeparam-slider da "start" {:min -360 :max 360})
