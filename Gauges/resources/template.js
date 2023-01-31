@@ -455,7 +455,13 @@ function jetiToCtx(jfont) {
     if (jfont == "Bold") {
 	bstr = "bold ";
     }
-    return bstr + point[jfont] + "px sans-serif"
+    let pstr = point[jfont]
+    if (typeof pstr == "undefined") {
+	pstr = "12"
+    }
+    //console.log("jetiToCtx returning", bstr + pstr + "px sans-serif")
+    
+    return bstr + pstr + "px sans-serif"
 }
 
 
@@ -779,6 +785,8 @@ function roundArcGauge(ctx, arr) {
 
 function roundGauge(ctx, arr, indicator) {
 
+    console.log("roundGauge", arr.tickFont, arr.labelFont)
+    
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
     const eTrim = 1.0 //0.99;
@@ -969,7 +977,7 @@ function virtualGauge(ctx, arr) {
     
     if (arr.label) {
 	//ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
-	ctx.font = jetoToCtx(arr.labelFont)
+	ctx.font = jetiToCtx(arr.labelFont)
 	arrR.xL = arr.x0;
 	arrR.yL = arr.y0 + 0.90 * ro;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
@@ -1151,7 +1159,7 @@ function horizontalBar(ctx, arr) {
 
     //const fontScale = 0.18;
     //ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
-    ctx.font = jetoToCtx(arr.tickFont)
+    ctx.font = jetiToCtx(arr.tickFont)
     //const fontoffset = -4 //0.00 * arr.height
 
     if (typeof arr.spectrum == "object") {
@@ -1296,7 +1304,7 @@ function horizontalBar(ctx, arr) {
     ctx.textAlign = "center";
     if (arr.label) {	
 	//ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
-	ctx.font = jetoToCtx(arr.labelFont)
+	ctx.font = jetiToCtx(arr.labelFont)
 	arrR.xL = arr.x0;
 	arrR.yL = arr.y0 +  h / 2;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
