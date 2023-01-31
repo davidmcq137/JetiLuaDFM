@@ -486,11 +486,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     arrR.ri = ri;
     arrR.ro = ro;
 
-    if (ndlarc != "arc") {
-	ctx.font = jetiToCtx(arr.textFont)
-    } else {
-	ctx.font = jetiToCtx(arr.minmaxFont)
-    }
+    ctx.font = jetiToCtx(arr.textFont)
     
     //ctx.font="bold " + fontScale * ro + "px sans-serif"
     //var fontoffset = fontScale * ro / 4;
@@ -699,7 +695,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    //ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
 	} else {
 	    arrR.yL = y0 + 0.50 * ro;
-	    ctx.font = jetiToCtx(arr.minmaxFont)
+	    ctx.font = jetiToCtx(arr.textFont)
 	    //ctx.font = "bold " + 1.0 * fontScale * ro + "px sans-serif"
 	}
 	ctx.textBaseline = "middle";
@@ -718,21 +714,21 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	const x10 = x0 - ro * 0.03;
 	const y10 = y0 - ro * 0.40;
 	//ctx.font = "bold " + 0.60 * fontScale * ro + "px sans-serif"
-	ctx.font = jetiToCtx(arr.labelFont)	
+	ctx.font = jetiToCtx(arr.labelFont);
 	ctx.fillText("10 m", x10, y10);
     }
     
     if (typeof value == "number") {
 	if (ndlarc  == "needle") {
 	    //ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
-	    ctx.font = jetiToCtx(arr.tickFont)
+	    ctx.font = jetiToCtx(arr.tickFont);
 	    arrR.xV = x0;
 	    arrR.yV = y0 + 0.3 * ro;
 	} else {
 	    ctx.textAlign = "center";
 	    ctx.textBaseline = "middle";
 	    //ctx.font = "bold " + 1.7 * fontScale * ro + "px sans-serif";
-	    ctx.font = jetiToCtx(arr.minmaxFont)
+	    ctx.font = jetiToCtx(arr.textFont);
 	    arrR.xV = x0;
 	    arrR.yV = y0;
 	}
@@ -969,7 +965,7 @@ function virtualGauge(ctx, arr) {
     
     if (arr.label) {
 	//ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
-	ctx.font = jetoToCtx(arr.labelFont)
+	ctx.font = jetiToCtx(arr.labelFont)
 	arrR.xL = arr.x0;
 	arrR.yL = arr.y0 + 0.90 * ro;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
@@ -1151,7 +1147,7 @@ function horizontalBar(ctx, arr) {
 
     //const fontScale = 0.18;
     //ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
-    ctx.font = jetoToCtx(arr.tickFont)
+    ctx.font = jetiToCtx(arr.tickFont)
     //const fontoffset = -4 //0.00 * arr.height
 
     if (typeof arr.spectrum == "object") {
@@ -1296,7 +1292,7 @@ function horizontalBar(ctx, arr) {
     ctx.textAlign = "center";
     if (arr.label) {	
 	//ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
-	ctx.font = jetoToCtx(arr.labelFont)
+	ctx.font = jetiToCtx(arr.labelFont)
 	arrR.xL = arr.x0;
 	arrR.yL = arr.y0 +  h / 2;
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
