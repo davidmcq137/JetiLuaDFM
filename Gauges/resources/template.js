@@ -455,7 +455,15 @@ function jetiToCtx(jfont) {
     if (jfont == "Bold") {
 	bstr = "bold ";
     }
-    return bstr + (point[jfont] || point["Normal"]) + "px sans-serif"
+
+    let pstr = point[jfont]
+    if (typeof pstr == "undefined") {
+	pstr = "12"
+    }
+    //console.log("jetiToCtx returning", bstr + pstr + "px sans-serif")
+    
+    return bstr + pstr + "px sans-serif"
+
 }
 
 
@@ -775,6 +783,8 @@ function roundArcGauge(ctx, arr) {
 
 function roundGauge(ctx, arr, indicator) {
 
+    console.log("roundGauge", arr.tickFont, arr.labelFont)
+    
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
     const eTrim = 1.0 //0.99;
