@@ -18,10 +18,13 @@
             "radius": 65,
             "min": 0,
             "max": 100,
+	    "tickFont":"Bold",
             "value":85,
+	    "valueFont":"Mini",
 	    "majdivs":4,
             "subdivs": 5,
             "label":"Value",
+	    "labelFont":"Bold",
             "spectrum": [
 		"red",
 		"orange",
@@ -37,10 +40,12 @@
             "radius": 65,
             "min": 0,
             "max": 100,
+	    "valueFont":"Maxi",
 	    "majdivs": 0,
             "subdivs": 0,
             "value":85,
             "label":"Value",
+	    "labelFont":"Bold",
             "spectrum": [
 		"red",
 		"orange",
@@ -53,13 +58,15 @@
             "type": "horizontalBar",
             "x0": 160,
             "y0": 80,
-            "width": 110,
-            "height": 35,
+            "width": 120,
+            "height": 50,
             "min": 0,
             "max": 100,
+	    "tickFont":"Mini",
 	    "majdivs":4,
             "subdivs": 4,
             "label":"Value",
+	    "labelFont":"Mini",
 	    "value":50,
             "spectrum": [
                 "red",
@@ -70,7 +77,7 @@
 
         "sequencedTextBox":  {
             "type": "sequencedTextBox",
-	    "fontSize":12,
+	    "textFont":"Mini",
             "x0": 160,
             "y0": 80,
             "width": 100,
@@ -83,12 +90,13 @@
 	    ],
 	    "textcolor": "black",
             "label":"Status",
-	    "labelcolor": "white"
+	    "labelcolor": "white",
+	    "labelFont":"Mini"
         },
 
         "stackedTextBox":  {
             "type": "stackedTextBox",
-	    "fontSize":12,
+	    "textFont":"Mini",
             "x0": 160,
             "y0": 80,
             "width": 120,
@@ -101,7 +109,8 @@
 	    ],
 	    "textcolor": "black",
             "label":"Info",
-	    "labelcolor": "white"
+	    "labelcolor": "white",
+	    "labelFont":"Mini"
         },
 
 	"panelLight": {
@@ -111,6 +120,7 @@
 	    "lightColor":"red",
 	    "offColor":"#202020",
 	    "label":"Red Light",
+	    "labelFont":"None",
 	    "radius":10,
 	    "width":40,
 	    "height":40,	    

@@ -423,7 +423,7 @@ function drawNeedle(ctx, arr, type, f, angle) {
 
 function jetiFont(font) {
     const jetiFonts = ["Mini", "Normal", "Bold", "Big", "Maxi"] 
-    const jetiSizes = [12, 18, 18, 22, 40]
+    const jetiSizes = [10, 15, 15, 22, 40]
     let jF = 0
     let dF = Math.abs(font - jetiSizes[0]) // assume MINI
     for (let i = 1; i < 5; i++) {
@@ -436,7 +436,7 @@ function jetiFont(font) {
 }
 
 function jetiSize(font) {
-    const jetiSizes = [12, 18, 18, 22, 40]
+    const jetiSizes = [10, 15, 15, 22, 40]
     let jF = 0
     let dF = Math.abs(font - jetiSizes[0]) // assume MINI
     for (let i = 1; i < 5; i++) {
@@ -449,7 +449,7 @@ function jetiSize(font) {
 }
 
 function jetiToCtx(jfont) {
-    const point = {Mini:12, Normal:18, Bold:18, Big: 22, Maxi: 40, None:6}
+    const point = {Mini:10, Normal:15, Bold:15, Big: 22, Maxi: 40, None:3}
     //ctx.font="bold " + fontScale * ro + "px sans-serif"
     let bstr = "";
     if (jfont == "Bold") {
@@ -458,7 +458,7 @@ function jetiToCtx(jfont) {
 
     let pstr = point[jfont]
     if (typeof pstr == "undefined") {
-	pstr = "12"
+	pstr = "10"
     }
     //console.log("jetiToCtx returning", bstr + pstr + "px sans-serif")
     
@@ -475,8 +475,8 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     } else {
 	ri = ro * 0.80;
     }
-    const fontScale = 0.24;
 
+    //const fontScale = 0.24;
     //console.log("type, ndlarc", type, ndlarc)
     
     var arrR = {};
@@ -540,9 +540,9 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     var delta;
     arrR.tickLabels = [];
     var idxT = 0;
-    arrR.jFont = jetiFont(fontScale * ro);
-    
+    //arrR.jFont = jetiFont(fontScale * ro);
     //console.log(ctx.font, fontScale * ro, jetiFont(fontScale * ro))    
+
     const fudge = 1 / (100*nseg);
     for (let i = 0; i <= nseg; i++) {
 	
@@ -641,7 +641,9 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		    let yt = y0 + rt * Math.sin(a);
 		    ctx.textBaseline = "middle";
 		    ctx.textAlign = "center";
-		    ctx.fillText(tval, xt, yt)
+		    if (arr.tickFont != "None" ) {
+			ctx.fillText(tval, xt, yt)
+		    }
 		}
 		arrR.tickLabels[idxT] = {rt:rt, ca:Math.cos(a), sa:Math.sin(a), dp:dp}
 		idxT = idxT + 1;
@@ -697,53 +699,73 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     if (typeof label != "undefined") {
 	//ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
 	arrR.xL = x0;
+	ctx.font = jetiToCtx(arr.labelFont);
 	if (ndlarc == "needle") {
 	    arrR.yL = y0 + 0.90 * ro;
-	    ctx.font = jetiToCtx(arr.tickFont);
+	    //ctx.font = jetiToCtx(arr.labelFont);
 	    //ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
 	} else {
-	    arrR.yL = y0 + 0.50 * ro;
-	    ctx.font = jetiToCtx(arr.tickFont);
+	    arrR.yL = y0 + 0.55 * ro;
+	    //ctx.font = jetiToCtx(arr.labelFont);
 	    //ctx.font = "bold " + 1.0 * fontScale * ro + "px sans-serif"
 	}
 	ctx.textBaseline = "middle";
 	ctx.textAlign = "center";
-	ctx.fillText(label, arrR.xL, arrR.yL);
+	if (arr.labelFont != "None") {
+	    ctx.fillText(label, arrR.xL, arrR.yL);
+	    ctx.font = jetiToCtx(arr.tickFont);
+	    var dig
+	    dig = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
+	    //console.log("log, digits", Math.log10(max - min), digits)
+	    if (ndlarc != "needle") {
+		arrR.xLV = x0 - 0.55 * ro;
+		arrR.xRV = x0 + 0.55 * ro;
+		arrR.yLV = y0 + 0.92 * ro;
+		arrR.yRV = arrR.yLV;
+		if (arr.tickFont != "None") {
+		    ctx.fillText(parseFloat(min).toFixed(digits), arrR.xLV, arrR.yLV);
+		    ctx.fillText(parseFloat(max).toFixed(digits), arrR.xRV, arrR.yRV);
+		}
+	    }
+	}
     }
 
     if (type == "altimeter") {
 	//ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
-	ctx.font = jetiToCtx(arr.tickFont)
+	ctx.font = jetiToCtx(arr.labelFont)
 	const xA = x0 + ro * 0.25;
 	const yA = y0 - ro * 0.1;
 	ctx.textBaseline = "middle";
 	ctx.textAlign = "center";
-	ctx.fillText("ALT", xA, yA);	
+	if (arr.labelFont != "None") {
+	    ctx.fillText("ALT", xA, yA);
+	}
 	const x10 = x0 - ro * 0.03;
 	const y10 = y0 - ro * 0.40;
 	//ctx.font = "bold " + 0.60 * fontScale * ro + "px sans-serif"
 	ctx.font = jetiToCtx(arr.labelFont);
-	ctx.fillText("10 m", x10, y10);
+	if (arr.labelFont != "None") {
+	    ctx.fillText("10 m", x10, y10);
+	}
     }
     
     if (typeof value == "number") {
+	ctx.font = jetiToCtx(arr.valueFont);
+	ctx.textAlign = "center";
+	ctx.textBaseline = "middle";
 	if (ndlarc  == "needle") {
-	    //ctx.font = "bold " + 0.75* fontScale * ro + "px sans-serif"
-	    ctx.font = jetiToCtx(arr.tickFont);
 	    arrR.xV = x0;
-	    arrR.yV = y0 + 0.3 * ro;
+	    arrR.yV = y0 + 0.6 * ro;
 	} else {
-	    ctx.textAlign = "center";
-	    ctx.textBaseline = "middle";
-	    //ctx.font = "bold " + 1.7 * fontScale * ro + "px sans-serif";
-	    ctx.font = jetiToCtx(arr.tickFont);
 	    arrR.xV = x0;
 	    arrR.yV = y0;
 	}
 	var digits
-	digits = Math.max(2 - Math.floor(Math.log10(max - min)), 0);
+	digits = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
 	//console.log("log, digits", Math.log10(max - min), digits)
-	ctx.fillText(parseFloat(value).toFixed(digits), arrR.xV, arrR.yV);
+	if (arr.valueFont != "None") {
+	    ctx.fillText(parseFloat(value).toFixed(digits), arrR.xV, arrR.yV);
+	}
 	//console.log(value, parseFloat(value).toFixed(2))
 	if (type == "altimeter") {
 	    var val1C = value / 100.0;
@@ -783,7 +805,7 @@ function roundArcGauge(ctx, arr) {
 
 function roundGauge(ctx, arr, indicator) {
 
-    console.log("roundGauge", arr)
+    //console.log("roundGauge", arr)
     
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
@@ -978,12 +1000,15 @@ function virtualGauge(ctx, arr) {
 	ctx.font = jetiToCtx(arr.labelFont)
 	arrR.xL = arr.x0;
 	arrR.yL = arr.y0 + 0.90 * ro;
-	ctx.fillText(arr.label, arrR.xL, arrR.yL);
-	
+	if (arr.labelFont != "None") {
+	    ctx.fillText(arr.label, arrR.xL, arrR.yL);
+	}
+	ctx.font = jetiToCtx(arr.valueFont)
 	arrR.xV = arr.x0;
 	arrR.yV = arr.y0 + 0.60 * ro;
-	ctx.fillText(arr.value.toString(), arrR.xV, arrR.yV);
-
+	if (arr.valueFont != "None") {
+	    ctx.fillText(arr.value.toString(), arrR.xV, arrR.yV);
+	}
     }
     
     return arrR;
@@ -1036,7 +1061,7 @@ function textBox(ctx, arr, type) {
 
     var arrR = {}
     var h
-    const hFrac = 0.6
+    const hFrac = 0.5
     
     if (arr.height) {
 	h = arr.height;
@@ -1068,6 +1093,7 @@ function textBox(ctx, arr, type) {
 	fontL = "bold " + 0.5 * fontScale * arr.height + "px sans-serif";	
     }
     */
+
     const bezel = 2;
 
     ctx.fillStyle = "#303030";
@@ -1091,26 +1117,24 @@ function textBox(ctx, arr, type) {
 	ctx.fillStyle = "white";
     }
     
-    //ctx.font = "" + 0.9 * fontScale * h + "px sans-serif"
     ctx.textAlign = "center";
     ctx.textBaseline = "middle"
-    arrR.xL = x0
     
-    //console.log(y0, h/2, 0.85 * fontScale * h);
-    
-    arrR.yL = y0 + h/2 + 0.6 * getTextHeight(ctx, arr.label)
+    arrR.xL = x0;
+    arrR.yL = y0 + h/2 + 0.6 * getTextHeight(ctx, arr.label);
     ctx.font = fontL;
-    //console.log("arrR.yL", arrR.yL, arr.label)
-
-    if (arr.label) { // don't draw the text when being rendered for the png file
+    // don't draw the text when being rendered for the png file
+    if (typeof arr.label != "none" && arr.labelFont != "None") { 
+	//console.log("ctx.font", arr)
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
+
+
     if (arr.textcolor) {
 	ctx.fillStyle = arr.textcolor;
     } else {
 	ctx.fillStyle = "black";	
     }
-
     if (typeof arr.value == "number") {
 	ctx.textAlign = "center";
 	ctx.textBaseline = "middle"
@@ -1123,7 +1147,9 @@ function textBox(ctx, arr, type) {
 	    if (str.startsWith("luaS:") || str.startsWith("luaE:")) {
 		str = "<lua script>";
 	    }
-	    ctx.fillText(str, arrR.xV, arrR.yV);
+	    if (arr.textFont != "None") {
+		ctx.fillText(str, arrR.xV, arrR.yV);
+	    }
 	} else  {
 	    let txH = getTextHeight(ctx, arr.text[0]);
 	    var yc = y0 +  1.10 * txH - 0.5 * (txH / 2) * (3 * arr.text.length + 1);
@@ -1133,7 +1159,9 @@ function textBox(ctx, arr, type) {
 		if (str.startsWith("luaS:") || str.startsWith("luaE:")) {
 		    str = "<lua script>";
 		}
-		ctx.fillText(str, x0, yc + i * 1.5 * txH);		
+		if (arr.textFont != "None") {
+		    ctx.fillText(str, x0, yc + i * 1.5 * txH);
+		}
 	    } 
 	}
     }
@@ -1143,7 +1171,7 @@ function textBox(ctx, arr, type) {
 function horizontalBar(ctx, arr) {
 
     const hPad = arr.height / 4;
-    const vPad = arr.height / 8;
+    const vPad = arr.height / 4;
     const h = arr.height - 2 * vPad;
     const w = arr.width - 2 * hPad;
     const start = arr.x0 - w / 2;
@@ -1175,14 +1203,18 @@ function horizontalBar(ctx, arr) {
 	//setup for colorvals goes here
     }
     
-    const cellMult = 0.4;
+    const cellMult = 0.5;
     const cellOff  = (1 - cellMult) / 2 * h;
-
+    const yOff = 4;
+    
     arrR.barW = w;
     arrR.barH = h * cellMult;
     //console.log("width, height, w,h", arr.width, arr.height, arrR.barW, arrR.barH);
 
     const bezel = 2;
+
+    ctx.fillStyle = arr.backColor
+    ctx.fillRect(arr.x0 - arrR.barW/2, arr.y0 - arrR.barH/2, arrR.barW, arrR.barH)
 
     ctx.fillStyle = "#303030";
     //ctx.fillStyle = "#C0C0C0"    ;
@@ -1202,6 +1234,7 @@ function horizontalBar(ctx, arr) {
     let region = new Path2D();
     region.rect(arr.x0 - w / 2, arr.y0 - cellMult * h / 2, w * arr.value / 100.0, cellMult * h)
 
+    
     var colors = arr.colorvals;
     
     for (var i = 0; i <= divs; i++) {
@@ -1278,10 +1311,10 @@ function horizontalBar(ctx, arr) {
 	    ctx.textBaseline = "middle";
 	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / divs)
 
-	    if (typeof arr.value != "undefined") {
+	    if (typeof arr.value != "undefined" && arr.tickFont != "None") {
 		ctx.fillText(val.toString(),
 			     a,
-			     arr.y0 - h/2);
+			     arr.y0 - (h/2 + yOff));
 	    }
 
 	    arrR.hbarLabels[idxL] = {x:a, y:arr.y0 - h/2}
@@ -1304,8 +1337,10 @@ function horizontalBar(ctx, arr) {
 	//ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
 	ctx.font = jetiToCtx(arr.labelFont)
 	arrR.xL = arr.x0;
-	arrR.yL = arr.y0 +  h / 2;
-	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+	arrR.yL = arr.y0 +  h / 2 + yOff;
+	if (arr.labelFont != "None") {
+	    ctx.fillText(arr.label, arrR.xL, arrR.yL);
+	}
     }
     return arrR;
 }
@@ -1342,7 +1377,9 @@ function panelLight(ctx, arr) {
 	ctx.font = jetiToCtx(arr.labelFont);
 	arrR.xL = arr.x0;
 	arrR.yL = arr.y0 + 14;
-	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+	if (arr.labelFont != "None") {
+	    ctx.fillText(arr.label, arrR.xL, arrR.yL);
+	}
     }
     
     if (typeof arr.value == "number") {
@@ -1400,22 +1437,20 @@ function setAlignmentGrid(ctx, arr, text) {
 
 function rawText(ctx, arr) {
     var arrR = {};
+    //console.log(arr);
     ctx.fillStyle = arr.textColor;
     arrR.textColor = getRGB(ctx.fillStyle);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     
-    if (typeof arr.fontHeight == "number") {
-	//ctx.font = "bold " + arr.fontHeight + "px sans-serif"
-	ctx.font = jetiToCtx(arr.textFont)
-    } else {
-	//ctx.font = "bold 20px sans-serif"
-	ctx.font = jetiToCtx(arr.textFont)	
-    }
+    ctx.font = jetiToCtx(arr.textFont)	
+
     // we don't want to put the text on the png
     if (typeof arr.label == "string") {
-	ctx.font = jetiToCtx(arr.labelFont)
-	ctx.fillText(arr.text, arr.x0, arr.y0);
+	ctx.font = jetiToCtx(arr.textFont)
+	if (arr.textFont != "None") {
+	    ctx.fillText(arr.text, arr.x0, arr.y0);
+	}
     }
     return arrR;
 }

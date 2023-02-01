@@ -6,6 +6,7 @@
 	"lightColor":"red",
 	"offColor":"#202020",
 	"label":"Red",
+	"labelFont":"None",
 	"radius":6,
 	"width":50,
 	"height":50,
@@ -18,6 +19,7 @@
 	"x0": 200,
 	"y0": 104,
 	"lightColor":"green",
+	"labelFont":"None",
 	"offColor":"#202020",
 	"label":"Green",
 	"radius":6,
@@ -28,125 +30,139 @@
 	"value":0
     },
     
-  {
-    "width": 131,
-    "height": 34,
-    "y0": 140,
-    "label": "Turbine Status",
-      "x0": 245,
-      "value":0,
-    "text": [
-      "Use Xicoy extension"
-    ],
-    "type": "sequencedTextBox"
-  },
-  {
-      "value":100,
-    "min": 0,
-    "width": 176,
-    "colorvals": [
-      {
-        "color": "red",
-        "val": 10
-      },
-      {
-        "color": "yellow",
-        "val": 25
-      },
-      {
-        "color": "blue",
-        "val": 100
-      }
-    ],
-    "height": 42,
-    "y0": 140,
-    "label": "Fuel Remaining",
-    "max": 100,
-    "x0": 90,
-      "majdivs":4,
-    "subdivs": 4,
-    "type": "horizontalBar"
-  },
-  {
-    "min": 0,
-    "spectrum": [
-      "blue"
-    ],
-    "y0": 62,
-    "label": "RPM/1000",
-    "max": 120,
-    "radius": 62,
-    "x0": 65,
-      "majdivs":6,
-    "subdivs": 4,
-    "value": 0,
-    "start": -135,
-    "type": "roundNeedleGauge",
-    "end": 135
-  },
-  {
-    "min": 0,
-    "spectrum": [
-      "blue",
-      "springgreen",
-      "yellow",
-      "red"
-    ],
-    "y0": 62,
-    "label": "EGT °C",
-    "max": 1000,
-    "radius": 62,
-    "x0": 255,
-      "majdivs":5,
-    "subdivs": 4,
-    "value": 0,
-    "start": -135,
-      "type": "roundNeedleGauge",
-    "end": 135
-  },
-  {
-    "min": 0,
-    "spectrum": [
-      "red",
-      "yellow",
-      "springgreen"
-    ],
-    "y0": 36,
-    "label": "Batt",
-    "max": 10,
-    "radius": 26,
-    "x0": 160,
-    "majdivs": 0,
-    "subdivs": 0,
-    "value": 0,
-    "start": -135,
-    "type": "roundNeedleGauge",
-    "end": 135
-  },
-  {
-    "min": 0,
-    "spectrum": [
-      "red",
-      "yellow",
-      "springgreen"
-    ],
-    "y0": 91,
-    "label": "Pump",
-    "max": 10,
-    "radius": 31,
-    "x0": 160,
-    "majdivs": 0,
-    "subdivs": 0,
-    "value": 0,
-    "start": -135,
-    "type": "roundNeedleGauge",
-    "end": 135
-  },
+    {
+	"width": 131,
+	"height": 34,
+	"y0": 138,
+	"textFont":"Mini",
+	"labelFont":"None",
+	"label": "Turbine Status",
+	"x0": 245,
+	"value":0,
+	"text": [
+	    "Use Xicoy extension"
+	],
+	"type": "sequencedTextBox"
+    },
+    {
+	"value":100,
+	"min": 0,
+	"width": 176,
+	"colorvals": [
+	    {
+		"color": "red",
+		"val": 10
+	    },
+	    {
+		"color": "yellow",
+		"val": 25
+	    },
+	    {
+		"color": "blue",
+		"val": 100
+	    }
+	],
+	"height": 42,
+	"y0": 138,
+	"label": "Fuel Remaining",
+	"labelFont":"Mini",
+	"tickFont":"None",
+	"max": 100,
+	"x0": 90,
+	"majdivs":4,
+	"subdivs": 4,
+	"type": "horizontalBar"
+    },
+    {
+	"min": 0,
+	"spectrum": [
+	    "blue"
+	],
+	"y0": 62,
+	"label": "RPM/1000",
+	"labelFont":"Bold",
+	"tickFont":"Bold",
+	"valueFont":"Mini",
+	"max": 120,
+	"radius": 62,
+	"x0": 65,
+	"majdivs":6,
+	"subdivs": 4,
+	"value": 0,
+	"start": -135,
+	"type": "roundNeedleGauge",
+	"end": 135
+    },
+    {
+	"min": 0,
+	"spectrum": [
+	    "blue",
+	    "springgreen",
+	    "yellow",
+	    "red"
+	],
+	"y0": 62,
+	"label": "EGT °C",
+	"labelFont":"Bold",
+	"tickFont":"Bold",
+	"valueFont":"Mini",
+	"max": 1000,
+	"radius": 62,
+	"x0": 255,
+	"majdivs":5,
+	"subdivs": 4,
+	"value": 0,
+	"start": -135,
+	"type": "roundNeedleGauge",
+	"end": 135
+    },
+    {
+	"min": 0,
+	"spectrum": [
+	    "red",
+	    "yellow",
+	    "springgreen"
+	],
+	"y0": 36,
+	"label": "Batt",
+	"labelFont":"Mini",
+	"valueFont":"None",
+	"max": 10,
+	"radius": 26,
+	"x0": 160,
+	"majdivs": 0,
+	"subdivs": 0,
+	"value": 0,
+	"start": -135,
+	"type": "roundNeedleGauge",
+	"end": 135
+    },
+    {
+	"min": 0,
+	"spectrum": [
+	    "red",
+	    "yellow",
+	    "springgreen"
+	],
+	"y0": 91,
+	"label": "Pump",
+	"labelFont":"Mini",
+	"valueFont":"None",
+	"max": 10,
+	"radius": 31,
+	"x0": 160,
+	"majdivs": 0,
+	"subdivs": 0,
+	"value": 0,
+	"start": -135,
+	"type": "roundNeedleGauge",
+	"end": 135
+    },
     {
 	"type":"rawText",
 	"x0": 160,
 	"y0": 8,
-	"fontHeight":10,
+	"textFont":"Mini",
 	"textColor":"white",
 	"text":
 	[

@@ -3,10 +3,11 @@
 	"yL": 37.14,
 	"width": 150,
 	"xL": 80,
-	"height": 40,
+	"height": 44,
 	"y0": 18,
 	"label": "Rx1 Voltage",
-	"fontSize":12,
+	"textFont":"Normal",
+	"labelFont":"Mini",
 	"x0": 80,
 	"value": 0,
 	"text": ["Rx1 Voltage 'v''u'"],
@@ -14,12 +15,13 @@
     },
     {
 	"width": 150,
-	"height": 40,
-	"y0": 58,
+	"height": 44,
+	"y0": 61,
 	"label": "Turbine Status",
+	"labelFont":"Mini",
 	"x0": 80,
 	"value":0,
-	"fontSize":12,
+	"textFont":"Normal",
 	"text": [
 	    "Ready to Start",
 	    "Starting",
@@ -37,7 +39,8 @@
 	"label": "Status 3",
 	"x0": 80,
 	"value": 0,
-	"fontSize":12,
+	"textFont":"Mini",
+	"labelFont":"Mini",
 	"text": [
 	    "Line One",
 	    "Line Two",
@@ -78,6 +81,8 @@
 	"value": 85,
 	"start": -120,
 	"type": "roundArcGauge",
+	"labelFont":"Bold",
+	"valueFont":"Maxi",
 	"end": 120
     }
 ]

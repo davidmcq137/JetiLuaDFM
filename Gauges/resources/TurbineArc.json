@@ -37,7 +37,7 @@
 	    "blue"
 	],
 	"y0": 62,
-	"label": "RPM/1000",
+	"label": "RPM",
 	"max": 120,
 	"radius": 62,
 	"x0": 65,
@@ -46,6 +46,9 @@
 	"value": 73.2,
 	"start": -135,
 	"type": "roundArcGauge",
+	"valueFont":"Maxi",
+	"tickFont":"None",
+	"labelFont":"Bold",
 	"end": 135
     },
     {
@@ -63,9 +66,12 @@
 	"x0": 255,
 	"majdivs":0,
 	"subdivs": 0,
-	"value": 1000,
+	"value": 800,
 	"start": -135,
 	"type": "roundArcGauge",
+	"tickFont":"None",
+	"labelFont":"Bold",
+	"valueFont":"Maxi",
 	"end": 135
     },
     {
@@ -82,9 +88,10 @@
 	"x0": 160,
 	"majdivs":0,
 	"subdivs": 0,
-	"value": 0,
+	"value": 7,
 	"start": -135,
 	"type": "roundArcGauge",
+	"tickFont": "None",
 	"end": 135
     },
     {
@@ -101,9 +108,10 @@
 	"x0": 160,
 	"majdivs":0,
 	"subdivs": 0,
-	"value": 0,
+	"value": 7,
 	"start": -135,
 	"type": "roundArcGauge",
+	"tickFont":"None",
 	"end": 135
     }
 ]
