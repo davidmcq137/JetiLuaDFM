@@ -182,7 +182,7 @@
   (let [{:keys [params]  :as d} (rum/react da)
         v (get params k)]
     [:select
-     {:value (or v "Normal")
+     {:value (or v "Mini")
       :style {:width "8em"
               :justify-self "end"}
       :onChange (fn [ev]
