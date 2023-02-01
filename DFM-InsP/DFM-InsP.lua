@@ -112,6 +112,15 @@ local editText
 local editWidget
 local editWidgetType
 
+local formN = {main=1, settings=102, inputs=100, editpanel=103,
+	       editlinks = 105, luavariables=108, resetall=101,
+	       editlua = 107}
+
+local formS = {[1]="main", [102]="settings", [100]="inputs", [103]="editpanel",
+   [105] = "editlinks", [108] = "luavariables", [101] = "resetall",
+   [107] = "editlua"}
+
+
 local needle = {
    {-1,0},
    {-2,1},
@@ -143,6 +152,22 @@ local triangle = {
    {4,1}
 }
 --]]
+
+local function showExternal(ff)
+
+   local locale = "EN"
+   local fn = formS[ff]
+   
+   if tonumber(system.getVersion()) > 5.01 then
+      if select(2, system.getDeviceType()) == 1 then
+	 system.openExternal("DOCS/DFM-INSP/"..string.upper(locale).."-"..
+				string.upper(fn) ..".HTML")
+      else
+	 system.openExternal("Apps/DFM-InsP/Docs/"..locale.."-"..fn..".html")
+      end
+      return
+   end
+end
 
 local function getSensorByID(SeId, SePa)
    if not SeId or not SePa then return nil end
@@ -533,8 +558,18 @@ local function keyForm(key)
    local ip = InsP.panels
    local sp = is.selectedPanel
 
-   if subForm == 1 then
+   if key == KEY_MENU then
+      form.preventDefault()
+      showExternal(subForm)
+      return
+   end
+   
+   if subForm == formN.main then
       if key == KEY_1 then
+	 showExternal(subForm)
+      end
+      
+      if key == KEY_2 then
 	 if not sp then return end
 	 local temp = sp
 	 temp = temp + 1
@@ -987,12 +1022,14 @@ local function changedModule(val, wid)
 end
       
 
+
 local function initForm(sf)
 
    subForm = sf
 
    if sf == 1 then
-      form.setButton(1, "Select", ENABLED)
+      form.setButton(1, ":help", ENABLED)
+      form.setButton(2, "Select", ENABLED)
       
       local sp = InsP.panelImages[InsP.settings.selectedPanel].instImage
       form.setTitle(string.format("Selected Panel: %s", sp))
@@ -1856,7 +1893,16 @@ local function printForm(_,_,tWin)
 	       if widget.type ~= "roundArcGauge" then
 		  if not widget.TS then widget.TS = ri - 1.8 * (ro - ri) end
 		  local rt = widget.TS
-		  if not widget.dp then widget.dp = 0 end
+		  if not widget.dp then
+		     local max = widget.max
+		     local min = widget.min
+		     if max and min and (max ~= min) then
+			widget.dp = math.max(1-math.floor(math.log(math.abs((max - min)))/math.log(10)), 0)
+		     else
+			widget.dp = 0
+		     end
+		  end
+		  
 		  local dp = math.floor(widget.dp)
 		  local fstr = "%."..dp.."f"
 		  
@@ -1870,6 +1916,7 @@ local function printForm(_,_,tWin)
 		     for i,v in ipairs(widget.tickLabels) do
 			vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
 			vt = string.format(fstr, vv)
+			--vt = tostring(vv)
 			--print("widget.fTL, edit.fcode[widget.fTL]", widget.fTL, edit.fcode[widget.fTL])
 			local vrt = widget.TS
 			drawTextCenter(widget.x0 + vrt * v.ca, widget.y0 + vrt * v.sa,
