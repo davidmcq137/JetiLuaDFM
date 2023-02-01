@@ -6,7 +6,9 @@
         "PreFlightArc":  {"file": "PreFlightArc.json"},
         "PreFlightCBox": {"file": "PreFlightCBox.json"},		
         "Turbine":       {"file": "Turbine.json"},
-        "TurbineArc":    {"file": "TurbineArc.json"}
+        "TurbineArc":    {"file": "TurbineArc.json"},
+	"TwoLarge":      {"file": "TwoLarge.json"},
+	"TwoLargeArc":   {"file": "TwoLargeArc.json"}	
     },
 
     "prototypes": {

@@ -1,0 +1,49 @@
+
+[
+    {
+	"min": 0,
+	"spectrum": [
+	    "red",
+	    "orange",
+	    "yellow",
+	    "green"
+	],
+	"y0": 78,
+	"label": "Value1",
+	"max": 100,
+	"radius": 80,
+	"x0": 80,
+	"majdivs": 0,
+	"divs": 10,
+	"labelFont": "Bold",
+	"subdivs": 0,
+	"value": 90,
+	"type": "roundArcGauge",
+	"valueFont": "Maxi",
+	"start":-45,
+	"end":225
+    },{
+	"min": 0,
+	"spectrum": [
+	    "green",
+	    "yellow",
+	    "orange",
+	    "red"
+	],
+	"y0": 78,
+	"label": "Value2",
+	"max": 100,
+	"radius": 80,
+	"x0": 240,
+	"majdivs": 0,
+	"divs": 10,
+	"labelFont": "Bold",
+	"subdivs": 0,
+	"value": 64,
+	"type": "roundArcGauge",
+	"valueFont": "Maxi",
+	"start":135,
+	"end":405
+	
+    }
+]

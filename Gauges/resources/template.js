@@ -592,7 +592,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	ctx.lineWidth = ro / 46;	
 	ctx.strokeStyle="white";
 	ctx.beginPath();
-	const tO = 0.98;
+	const tO = 1.0; //0.98;
 	const tI = 2 - tO;
 	ctx.moveTo(x0 + tO * ro * Math.cos(a), y0 + tO * ro * Math.sin(a))
 	ctx.lineTo(x0 + tI * ri * Math.cos(a), y0 + tI * ri * Math.sin(a))
@@ -651,7 +651,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    ctx.lineWidth=ro/23;	
 	    ctx.strokeStyle="white";
 	    ctx.beginPath();
-	    var rr = ri - (ro - ri) / 2;
+	    var rr = ri - (ro - ri) / 4; //2;
 	    ctx.moveTo(x0 + tO * ro * Math.cos(a), y0 + tO * ro * Math.sin(a))
 	    ctx.lineTo(x0 + rr * Math.cos(a), y0 + rr * Math.sin(a))
 	    ctx.stroke();

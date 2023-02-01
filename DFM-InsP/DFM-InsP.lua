@@ -10,6 +10,7 @@
 
    Version 0.2 01/12/23 - synch with near-final json format from the website panel maker
    Version 0.3 01/23/23 - lua integrated in sensors and text strings
+   Version 0.4 02/01/23 - integrated with uppdates to website for font size quantization
 
    --------------------------------------------------------------------------------
 --]]
@@ -1075,7 +1076,11 @@ local function initForm(sf)
       for i, widget in ipairs(ip) do
 	 form.addRow(3)
 	 local str
-	 if widget.label then str = "  "..widget.label else str = "" end
+	 if widget.label then
+	    str = "  "..widget.label
+	 else
+	    str = "  Gauge"..i
+	 end
 	 local typ = edit.gaugeName[widget.type].sn
 	 if not typ then typ = "---" end
 	 form.addLabel({label = string.format("%d %s", i, typ), width=60})
