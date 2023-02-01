@@ -15,7 +15,7 @@
 --]]
 
 
-local InsPVersion = 0.3
+local InsPVersion = 0.4
 
 local LE
 
