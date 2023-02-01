@@ -1854,7 +1854,12 @@ local function printForm(_,_,tWin)
 		  if not widget.dp then widget.dp = 0 end
 		  local dp = math.floor(widget.dp)
 		  local fstr = "%."..dp.."f"
-		  if not widget.fTL then widget.fTL = widget.jFont or "Mini" end
+		  
+		  if not widget.fTL then
+		     --print("widget.fTL <"..tostring(widget.fTL)..">")
+		     --print("widget.tickFont", widget.tickFont)
+		     widget.fTL = widget.tickFont or "Mini"
+		  end
 		  local vv, vt
 		  if widget.tickLabels and widget.subdivs > 0 and widget.majdivs > 0 then
 		     for i,v in ipairs(widget.tickLabels) do
@@ -1950,9 +1955,14 @@ local function printForm(_,_,tWin)
 	 if widget.label then str = widget.label else str = "Gauge"..idxW end
 
 	 if not widget.fL then
-	    widget.fL = "Mini"
+	    widget.fL = widget.labelFont or "Mini"
 	 end
 
+	 if not widget.fV then
+	    widget.fV = widget.valueFont or "Mini"
+	 end
+	 
+	 --[[
 	 if not widget.fV then
 	    if widget.type == "roundArcGauge" then
 	       if widget.radius > 60 then
@@ -1966,9 +1976,10 @@ local function printForm(_,_,tWin)
 	       widget.fV = "Mini"
 	    end
 	 end
+	 --]]
 
 	 if not widget.fLRV then
-	    widget.fLRV = "Mini"
+	    widget.fLRV = widget.tickLabel or "Mini"
 	 end
 	 
 	 if widget.radius > 30 then
@@ -2028,7 +2039,14 @@ local function printForm(_,_,tWin)
       elseif widget.type == "horizontalBar" then
 	 local xc = widget.x0 - widget.barW // 2 - 2
 	 local yc = widget.y0 - widget.barH // 2
-
+	 
+	 if widget.backColor and (widget.backColor.t == "false") then
+	    --print("drawing backgnd", widget.backColor.r, widget.backColor.g, widget.backColor.b)
+	    --print(widget.backColor.t)
+	    lcd.setColor(widget.backColor.r, widget.backColor.g, widget.backColor.b)
+	    lcd.drawFilledRectangle(xc, yc, widget.barW, widget.barH)
+	 end
+	 
 	 if ctl then
 	    lcd.setClipping(xc, yc, widget.barW * ctl + 2, widget.barH)
 	    for _, p in ipairs(widget.rects) do
@@ -2065,7 +2083,7 @@ local function printForm(_,_,tWin)
 	 if widget.label then str = widget.label else str = "Gauge"..idxW end
 
 	 if not widget.fL then
-	    widget.fL = "Mini"
+	    widget.fL = widget.tickLabel or "Mini"
 	 end
 	 if not widget.xL then
 	    widget.xL = widget.x0
@@ -2082,11 +2100,11 @@ local function printForm(_,_,tWin)
 	 end
 
 	 if not widget.fT then
-	    widget.fT = "Mini"
+	    widget.fT = widget.textFont or "Mini"
 	 end
 
 	 if not widget.fL then
-	    widget.fL = "Mini"
+	    widget.fL = widget.labelFont or "Mini"
 	 end
 
 	 lcd.setColor(255,255,255)
@@ -2174,7 +2192,7 @@ local function printForm(_,_,tWin)
 	 end
 
 	 if not widget.fL then
-	    widget.fL = "Mini"
+	    widget.fL = widget.labelFont or "Mini"
 	 end
 
 	 ren:reset()
@@ -2217,7 +2235,7 @@ local function printForm(_,_,tWin)
 	 end
 
 	 if not widget.fT then
-	    widget.fT = "Mini"
+	    widget.fT = widget.textFont or "Mini"
 	 end
 
 	 if widget.textColor then

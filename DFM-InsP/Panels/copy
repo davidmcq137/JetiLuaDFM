@@ -1,0 +1,6 @@
+#! /bin/bash
+set -e
+set -x
+cp ~/Downloads/gauges.json $1.json
+cp ~/Downloads/gauges.png $1.png
+rm -v ~/Downloads/gauges*.*

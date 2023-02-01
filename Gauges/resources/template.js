@@ -1214,6 +1214,19 @@ function horizontalBar(ctx, arr) {
     const bezel = 2;
 
     ctx.fillStyle = arr.backColor
+    console.log("backColor", arr.backColor, typeof arr.backColor)
+    let transP
+    if (arr.backColor == "transparent" || typeof arr.backColor == "undefined") {
+	transP = "true"
+    } else {
+	transP = "false"
+    }
+    rgbI = parseInt(ctx.fillStyle.slice(1), 16)
+    r = (rgbI >> 16) & 255;
+    g = (rgbI >> 8) & 255;
+    b = rgbI & 255;
+    arrR.backColor = {t:transP, r:r, g:g, b:b}
+
     ctx.fillRect(arr.x0 - arrR.barW/2, arr.y0 - arrR.barH/2, arrR.barW, arrR.barH)
 
     ctx.fillStyle = "#303030";

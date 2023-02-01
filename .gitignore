@@ -36,6 +36,9 @@ DFM-InsP/II_*
 Gauges/.shadow-cljs/
 Gauges/node_modules/
 Gauges/resources/js/
+DFM-InsP/Panels/*.png
+DFM-InsP/Panels/*.json
+
 
 
 
