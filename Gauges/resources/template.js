@@ -1124,8 +1124,8 @@ function textBox(ctx, arr, type) {
     arrR.yL = y0 + h/2 + 0.6 * getTextHeight(ctx, arr.label);
     ctx.font = fontL;
     // don't draw the text when being rendered for the png file
-    if (typeof arr.label != "none" && arr.labelFont != "None") { 
-	//console.log("ctx.font", arr)
+    if (typeof arr.label != "undefined" && arr.labelFont != "None") { 
+	//console.log("arr.label", arr.label)
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
 
@@ -1214,7 +1214,7 @@ function horizontalBar(ctx, arr) {
     const bezel = 2;
 
     ctx.fillStyle = arr.backColor
-    console.log("backColor", arr.backColor, typeof arr.backColor)
+    //console.log("backColor", arr.backColor, typeof arr.backColor)
     let transP
     if (arr.backColor == "transparent" || typeof arr.backColor == "undefined") {
 	transP = "true"

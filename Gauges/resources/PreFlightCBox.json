@@ -9,7 +9,7 @@
 	"text": [
 	    "Rx1 Voltage 'v''u'"
 	],
-	"fontSize": 12,
+	"textFont":"Mini",
 	"type": "stackedTextBox"
     },
     {
@@ -23,7 +23,7 @@
 	"text": [
 	    "Use Xicoy Extension "
 	],
-	"fontSize": 12,
+	"textFont":"Mini",
 	"type": "stackedTextBox"
     },
     {
@@ -39,7 +39,7 @@
 	    "Batt 1 Cap: 'S7.0' mAh",
 	    "Batt 2 Cap: 'S8.0' mAh"
 	],
-	"fontSize": 12,
+	"textFont":"Mini",
 	"type": "stackedTextBox"
     },
     {
