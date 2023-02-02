@@ -64,6 +64,24 @@
      "label": "BattV",
      "unit": "V"
     },
+    {"id":137,
+     "param": 4,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "MotorV",
+     "luaExp":"P4(0,1)*30",
+     "label": "MotorV",
+     "unit": "V"
+    },
+    {"id":137,
+     "param": 5,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "MotorI",
+     "luaExp":"P4(0,1)*100",
+     "label": "MotorI",
+     "unit": "A"
+    },
     {"id":139, "param": 0,"sensorName": "XXX", "label": "CBOX200"},
     {"id":139,
      "param":1,
@@ -106,7 +124,7 @@
      "decimals":1,
      "type":1,
      "sensorName":"",
-     "luaExp":"P5(100)",          
+     "luaExp":"P5(5000)",          
      "label": "Capacity 1",
      "unit": "mah"
     },

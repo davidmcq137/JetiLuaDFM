@@ -52,7 +52,7 @@ local stateSw = {}
 
 local edit = {}
 edit.ops = {"Center", "Value", "Label", "Text", "MMLbl", "TicLbl", "TicSpc", "MinMx"}
-edit.dir = {"X", "Y", "Font"}
+edit.dir = {"X", "Y", "Font", "DecPt"}
 edit.fonts = {"Mini", "Normal", "Bold", "Big", "Maxi", "None"}
 edit.fcode = {Mini=FONT_MINI, Normal=FONT_NORMAL, Bold=FONT_BOLD, Big=FONT_BIG, Maxi=FONT_MAXI,
 	      None=-1}
@@ -157,6 +157,8 @@ local function showExternal(ff)
 
    local locale = "EN"
    local fn = formS[ff]
+
+   if not fn then return end
    
    if tonumber(system.getVersion()) > 5.01 then
       if select(2, system.getDeviceType()) == 1 then
@@ -274,8 +276,10 @@ local function prefix()
 end
 
 local function drawTextCenter(x, y, str, font)
-   if font < 0 then return end -- an "invisible" font :-)
-   if not font then font = FONT_NORMAL end
+   if font and font < 0 then return end -- an "invisible" font :-)
+   if not font then
+      font = FONT_NORMAL
+   end
    lcd.drawText(x - lcd.getTextWidth(font, str)/2,
 		y - lcd.getTextHeight(font)/2, str, font)
 end
@@ -875,6 +879,13 @@ local function keyForm(key)
 	    if eo == "TicSpc" and ipeg.TS then
 	       if ipeg.TS + inc > 0 and ipeg.TS + inc < 100 then
 		  ipeg.TS = ipeg.TS + inc
+	       end
+	    end
+	    
+	 elseif ed == "DecPt" then
+	    if eo == "TicLbl" and ipeg.dp then
+	       if ipeg.dp + inc >= 0 and ipeg.dp + inc <= 2 then
+		  ipeg.dp = ipeg.dp + inc
 	       end
 	    end
 	 end
@@ -1836,8 +1847,10 @@ local function printForm(_,_,tWin)
 
       --print("b",math.deg(minarc), math.deg(maxarc))
 
-      if widget.start then minarc = math.pi/2 + math.rad(widget.start) end
-      if widget["end"] then maxarc = math.pi/2 + math.rad(widget["end"]) end
+      --if widget.start then minarc = math.pi/2 + math.rad(widget.start) end
+      if widget.start then minarc = math.rad(widget.start) end
+      --if widget["end"] then maxarc = math.pi/2 + math.rad(widget["end"]) end
+      if widget["end"] then maxarc = math.rad(widget["end"]) end      
 
       --print("a",math.deg(minarc), math.deg(maxarc), widget.start, widget["end"])
 
@@ -1949,14 +1962,14 @@ local function printForm(_,_,tWin)
 		  end
 		  --print(sensorVal, math.deg(rot), r, g, b)
 		  lcd.setColor(r, g, b)
-		  local ratio = (rot + math.pi/4) / (maxarc - minarc)
+		  local ratio = (rot - minarc) / math.abs(maxarc - minarc)		  
 		  local arcNP
 		  if widget.radius > 40 then
 		     arcNP = 2 + ratio * 18
 		  else
 		     arcNP = 2 + ratio * 12
 		  end
-		  drawArc(rot - minarc, widget.x0, widget.y0, minarc, ri, ro+1, arcNP, 1)
+		  drawArc(rot - minarc, widget.x0, widget.y0, minarc + math.pi/2, ri, ro+1, arcNP, 1)
 	       end
 	    elseif widget.type == "virtualGauge" then
 	       if widget.needle then
@@ -2044,7 +2057,7 @@ local function printForm(_,_,tWin)
 	    
 	    if not widget.xV then
 	       widget.xV = widget.x0
-	       widget.yV = widget.y0 + 0.17 * widget.radius
+	       widget.yV = widget.y0-- + 0.17 * widget.radius
 	    end
 	    --print(widget.fV, edit.fcode[widget.fV])
 	    drawTextCenter(widget.xV, widget.yV, string.format("%s", val), edit.fcode[widget.fV])
@@ -2064,7 +2077,7 @@ local function printForm(_,_,tWin)
 	 elseif widget.radius >= 20 then
 	    if not widget.xV then
 	       widget.xV = widget.x0
-	       widget.yV = widget.y0 + 0.25 * widget.radius
+	       widget.yV = widget.y0 --+ 0.25 * widget.radius
 	    end
 	    drawTextCenter(widget.xV, widget.yV,
 			   string.format("%s", val), edit.fcode[widget.fV])	    
@@ -2309,11 +2322,12 @@ local function printForm(_,_,tWin)
       end
    end
 
+   --[[
    if select(2, system.getDeviceType()) == 1 then
       lcd.drawText(300,70, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   
       lcd.drawText(300,90, string.format("%02d", system.getCPU()), FONT_MINI)
    end
-   
+   --]]
 end
 
 local function prtForm(w,h)
@@ -2346,6 +2360,7 @@ local function prtForm(w,h)
       local ff
       local ss
       local mm
+      local dd
       local ii = edit.ops[edit.opsIdx]
       if (ii == "Value") and ipeg.xV then
 	 xx = ipeg.xV
@@ -2374,6 +2389,7 @@ local function prtForm(w,h)
 	 ff = ipeg.fL
       elseif (ii == "TicLbl") and ipeg.fTL then
 	 ff = ipeg.fTL
+	 dd = ipeg.dp
       elseif (ii == "TicSpc") and ipeg.TS then
 	 ss = tonumber(math.floor(ipeg.TS))
       elseif (ii == "MinMx") then
@@ -2384,9 +2400,11 @@ local function prtForm(w,h)
       
       local typ = edit.gaugeName[ipeg.type].sn
       if not typ then typ = "---" end
+
+      if not dd then dd = 0 end
       
       local fn
-      if ff then fn = "Font: " else fn = ""; ff = "" end
+      if ff then fn = string.format("D: %d F: ", dd) else fn = ""; ff = "" end
       if ss then fn = "Spacing: "; ff=ss end
       if mm then fn = ""; ff = mm end
       
