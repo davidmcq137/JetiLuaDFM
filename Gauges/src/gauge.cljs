@@ -726,16 +726,11 @@
            (ask-download-file "gauges.json" (js/JSON.stringify (clj->js data) nil 2)))))
 
 
-(defn output-png-blob!
+(defn download-png!
   [w h]
   (.then (render-panel (get (:panels @db) (get @db :selected-panel)) w h)
          (fn [{:keys [image]}]
            (ask-download-file "gauges.png" image))))
-
-(defn download-png!
-  [w h]
-  (.then (output-png-blob! w h)
-         (fn [v] (ask-download-file "gauges.png" v))))
 
 (defn blob->base64
   [v]
