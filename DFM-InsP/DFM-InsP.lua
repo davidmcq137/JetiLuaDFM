@@ -66,7 +66,7 @@ edit.icode = {Mini=1, Normal=2, Bold=3, Big=4, Maxi=5, None=6}
 edit.gaugeName = {
    roundNeedleGauge={sn="NdlG", en={0,1,1,0,1,1,1,1}},
    roundArcGauge=   {sn="ArcG", en={0,1,1,0,1,0,0,1}},
-   virtualGauge=    {sn="VirG", en={1,0,0,0,0,0,0,0}},
+   virtualGauge=    {sn="VirG", en={1,1,1,0,0,0,0,1}},
    horizontalBar=   {sn="HBar", en={0,0,1,0,0,1,1,0}},
    sequencedTextBox={sn="SeqT", en={0,0,1,1,0,0,0,0}},
    stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0}},
@@ -1937,7 +1937,7 @@ local function printForm(_,_,tWin)
 				       vt, edit.fcode[widget.fTL])
 		     end
 		  end
-		  drawShape(widget.x0, widget.y0, needle, factor, rot + math.pi/2)
+		  drawShape(widget.x0, widget.y0, needle, factor, rot + math.pi) --math.pi/2)
 	       else
 		  local r,g,b = 255,255,255
 		  if widget.TXspectrum then
@@ -1973,12 +1973,18 @@ local function printForm(_,_,tWin)
 		  drawArc(rot - minarc, widget.x0, widget.y0, minarc + math.pi/2, ri, ro+1, arcNP, 1)
 	       end
 	    elseif widget.type == "virtualGauge" then
+
+	       if not widget.xPL then
+		  widget.xPL = widget.x0
+		  widget.yPL = widget.y0
+	       end
+
 	       if widget.needle then
 		  local shp = {}
 		  for ii,v in ipairs(widget.needle) do
 		     shp[ii] = {v.x, v.y}
 		  end
-		  drawShape(widget.x0, widget.y0, shp, factor, rot + math.pi)
+		  drawShape(widget.xPL, widget.yPL, shp, factor, rot + math.pi)
 	       else
 		  print("DFM-InsP: no needle shape for virtual gauge")
 	       end
