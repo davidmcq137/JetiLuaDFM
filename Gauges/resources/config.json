@@ -2,6 +2,7 @@
     
     "examples": {
         "Empty":         {"file": "Empty.json"},
+        "ElectricArc":   {"file": "ElectricArc.json"},	
         "FourUp":        {"file": "FourUp.json"},
         "PreFlightArc":  {"file": "PreFlightArc.json"},
         "PreFlightCBox": {"file": "PreFlightCBox.json"},		
