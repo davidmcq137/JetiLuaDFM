@@ -66,7 +66,7 @@ edit.gaugeName = {
    roundNeedleGauge={sn="NdlG", en={0,1,1,0,1,1,1,1}},
    roundArcGauge=   {sn="ArcG", en={0,1,1,0,1,0,0,1}},
    virtualGauge=    {sn="VirG", en={1,0,0,0,0,0,0,0}},
-   horizontalBar=   {sn="HBar", en={0,0,1,0,0,0,0,0}},
+   horizontalBar=   {sn="HBar", en={0,0,1,0,0,1,1,0}},
    sequencedTextBox={sn="SeqT", en={0,0,1,1,0,0,0,0}},
    stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0}},
    panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0}},
@@ -877,7 +877,7 @@ local function keyForm(key)
 	    end
 
 	    if eo == "TicSpc" and ipeg.TS then
-	       if ipeg.TS + inc > 0 and ipeg.TS + inc < 100 then
+	       if ipeg.TS + inc > -20 and ipeg.TS + inc < 20 then
 		  ipeg.TS = ipeg.TS + inc
 	       end
 	    end
@@ -1478,8 +1478,8 @@ local function initForm(sf)
 	 form.setFocusedRow(isp+1)
       end
    elseif sf == 107 then
-      --print("about to luaEdit", savedRow, savedRow2)
-      LE.luaEdit(InsP.variables, lua.funcext, savedRow2)
+      --print("about to luaEdit", subForm, savedRow, savedRow2) -- xxxx
+      LE.luaEdit(InsP.variables, lua.funcext, 0)--savedRow2)
 
    elseif sf == 108 then
       form.setTitle("Lua Variables")
@@ -2144,11 +2144,25 @@ local function printForm(_,_,tWin)
 	 local hPad = widget.height / 4
 	 local vPad = widget.height / 8
 	 local hh = math.floor(widget.height - 2 * vPad + 0.5)
+	 local vv, vt
+
+	 if not widget.fTL then widget.fTL = widget.tickFont or "Mini" end
+	 if not widget.TS then widget.TS = 0 end
+	 
+	 if sensorVal then
+	    for i,v in ipairs(widget.hbarLabels) do
+	       vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
+	       vt = string.format("%d", vv)
+	       drawTextCenter(v.x, v.y + widget.TS,
+			      vt, edit.fcode[widget.fTL])
+	    end
+	 end
+	 
 
 	 if widget.label then str = widget.label else str = "Gauge"..idxW end
 
 	 if not widget.fL then
-	    widget.fL = widget.tickLabel or "Mini"
+	    widget.fL = widget.labelFont or "Mini"
 	 end
 	 if not widget.xL then
 	    widget.xL = widget.x0

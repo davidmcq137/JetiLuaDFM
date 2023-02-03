@@ -696,33 +696,37 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
 
-    if (typeof label != "undefined") {
+    //ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
+    arrR.xL = x0;
+    ctx.font = jetiToCtx(arr.labelFont);
+    if (ndlarc == "needle") {
+	arrR.yL = y0 + 0.90 * ro;
+	//console.log("needle, yL", arrR.yL)
+	//ctx.font = jetiToCtx(arr.labelFont);
 	//ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
-	arrR.xL = x0;
-	ctx.font = jetiToCtx(arr.labelFont);
-	if (ndlarc == "needle") {
-	    arrR.yL = y0 + 0.90 * ro;
-	    //ctx.font = jetiToCtx(arr.labelFont);
-	    //ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
-	} else {
-	    arrR.yL = y0 + 0.55 * ro;
-	    //ctx.font = jetiToCtx(arr.labelFont);
-	    //ctx.font = "bold " + 1.0 * fontScale * ro + "px sans-serif"
-	}
-	ctx.textBaseline = "middle";
-	ctx.textAlign = "center";
-	if (arr.labelFont != "None") {
+    } else {
+	arrR.yL = y0 + 0.55 * ro;
+	//console.log("arc, yL", arrR.yL)
+	//ctx.font = jetiToCtx(arr.labelFont);
+	//ctx.font = "bold " + 1.0 * fontScale * ro + "px sans-serif"
+    }
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    if (arr.labelFont != "None") {
+	if (typeof label != "undefined") {
 	    ctx.fillText(label, arrR.xL, arrR.yL);
-	    ctx.font = jetiToCtx(arr.tickFont);
-	    var dig
-	    dig = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
-	    //console.log("log, digits", Math.log10(max - min), digits)
-	    if (ndlarc != "needle") {
-		arrR.xLV = x0 - 0.55 * ro;
-		arrR.xRV = x0 + 0.55 * ro;
-		arrR.yLV = y0 + 0.92 * ro;
-		arrR.yRV = arrR.yLV;
-		if (arr.tickFont != "None") {
+	}
+	ctx.font = jetiToCtx(arr.tickFont);
+	var dig
+	dig = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
+	//console.log("log, digits", Math.log10(max - min), digits)
+	if (ndlarc != "needle") {
+	    arrR.xLV = x0 - 0.55 * ro;
+	    arrR.xRV = x0 + 0.55 * ro;
+	    arrR.yLV = y0 + 0.92 * ro;
+	    arrR.yRV = arrR.yLV;
+	    if (arr.tickFont != "None") {
+		if (typeof label != "undefined") {
 		    ctx.fillText(parseFloat(min).toFixed(digits), arrR.xLV, arrR.yLV);
 		    ctx.fillText(parseFloat(max).toFixed(digits), arrR.xRV, arrR.yRV);
 		}
@@ -749,17 +753,18 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	}
     }
     
+    ctx.font = jetiToCtx(arr.valueFont);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    if (ndlarc  == "needle") {
+	arrR.xV = x0;
+	arrR.yV = y0 + 0.6 * ro;
+    } else {
+	arrR.xV = x0;
+	arrR.yV = y0;
+    }
+
     if (typeof value == "number") {
-	ctx.font = jetiToCtx(arr.valueFont);
-	ctx.textAlign = "center";
-	ctx.textBaseline = "middle";
-	if (ndlarc  == "needle") {
-	    arrR.xV = x0;
-	    arrR.yV = y0 + 0.6 * ro;
-	} else {
-	    arrR.xV = x0;
-	    arrR.yV = y0;
-	}
 	var digits
 	digits = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
 	//console.log("log, digits", Math.log10(max - min), digits)
@@ -1246,9 +1251,10 @@ function horizontalBar(ctx, arr) {
 
     let region = new Path2D();
     region.rect(arr.x0 - w / 2, arr.y0 - cellMult * h / 2, w * arr.value / 100.0, cellMult * h)
-
     
     var colors = arr.colorvals;
+    var idxL = 0;
+    arrR.hbarLabels = [];
     
     for (var i = 0; i <= divs; i++) {
 
@@ -1310,27 +1316,28 @@ function horizontalBar(ctx, arr) {
 	    ctx.restore();
 	}
 
-	var idxL = 0;
 	//arrR.tickLabels[idxT] = {rt:rt, ca:Math.cos(a), sa:Math.sin(a), dp:dp}
 	//const fontScale = 0.18;
 	//ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
 	//console.log("fS*a.h, jSz", fontScale * arr.height, jetiSize(fontScale*arr.height))
 	//ctx.font = "bold " + jetiSize(fontScale * arr.height) + "px sans-serif"
 	ctx.font = jetiToCtx(arr.tickFont)
-	arrR.hbarLabels = [];
 	if (arr.subdivs > 0 && i % arr.subdivs == 0) {
 	    ctx.fillStyle = "white";	
 	    ctx.textAlign = "center";
 	    ctx.textBaseline = "middle";
 	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / divs)
-
-	    if (typeof arr.value != "undefined" && arr.tickFont != "None") {
-		ctx.fillText(val.toString(),
-			     a,
-			     arr.y0 - (h/2 + yOff));
+	    //console.log("i, subdivs, idxL", i, arr.subdivs, idxL)
+	    arrR.hbarLabels[idxL] = {x:a, y:arr.y0 - h/2}
+	    idxL = idxL + 1;
+	    if (arr.tickFont != "None") {
+		if (typeof arr.value != "undefined") {
+		    ctx.fillText(val.toString(),
+				 a,
+				 arr.y0 - (h/2 + yOff));
+		}
 	    }
 
-	    arrR.hbarLabels[idxL] = {x:a, y:arr.y0 - h/2}
 	    ctx.save();
 	    //ctx.clip(region);
 	    ctx.lineWidth = h / 23;	
@@ -1346,15 +1353,16 @@ function horizontalBar(ctx, arr) {
     }
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
+    arrR.xL = arr.x0;
+    arrR.yL = arr.y0 +  h / 2 + yOff;
+    ctx.font = jetiToCtx(arr.labelFont)
     if (arr.label) {	
 	//ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
-	ctx.font = jetiToCtx(arr.labelFont)
-	arrR.xL = arr.x0;
-	arrR.yL = arr.y0 +  h / 2 + yOff;
 	if (arr.labelFont != "None") {
 	    ctx.fillText(arr.label, arrR.xL, arrR.yL);
 	}
     }
+    //console.log("arrR", arrR)
     return arrR;
 }
 
