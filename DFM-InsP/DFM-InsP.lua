@@ -8,15 +8,16 @@
 
    Started Dec 2022
 
-   Version 0.2 01/12/23 - synch with near-final json format from the website panel maker
-   Version 0.3 01/23/23 - lua integrated in sensors and text strings
-   Version 0.4 02/01/23 - integrated with uppdates to website for font size quantization
+   Version 0.2  01/12/23 - synch with near-final json format from the website panel maker
+   Version 0.3  01/23/23 - lua integrated in sensors and text strings
+   Version 0.4  02/01/23 - integrated with uppdates to website for font size quantization
+   Version 0.41 02/02/23 - fixed some bugs in horizBar and arcGauge
 
    --------------------------------------------------------------------------------
 --]]
 
 
-local InsPVersion = 0.4
+local InsPVersion = 0.41
 
 local LE
 
@@ -583,7 +584,7 @@ local function keyForm(key)
       end
    end
 
-   if subForm == 108 then
+   if subForm == formN.luavariables then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
@@ -594,26 +595,26 @@ local function keyForm(key)
 	 local l = #InsP.variables + 1
 	 table.insert(InsP.variables,
 		      {name="S"..l, source = 1, luastring={}, sensor = 0, SeId = 0, SePa = 0})
-	 form.reinit(108)
+	 form.reinit(formN.luavariables)
 	 return
       end
 
       if key == KEY_2 then -- remove variable
 	 local row = form.getFocusedRow()
 	 table.remove(InsP.variables, row)
-	 form.reinit(108)
+	 form.reinit(formN.luavariables)
 	 return
       end
    end
    
-   if subForm == 107 then
+   if subForm == formN.editlua then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
 	 return
       end
 
-      --print("107, savedRow, savedRow2", savedRow, savedRow2)
+      --print("formN.editlua, savedRow, savedRow2", savedRow, savedRow2)
       
       if savedRow == 3 then -- sensors top level command
 	 local sp = InsP.settings.selectedPanel
@@ -695,7 +696,7 @@ local function keyForm(key)
       end
    end
    
-   if subForm == 100 then
+   if subForm == formN.inputs then
       if keyExit(key) and key ~= KEY_ENTER then
 	 form.preventDefault()
 	 form.reinit(1)
@@ -708,7 +709,7 @@ local function keyForm(key)
       end
    end
 
-   if subForm == 102 then
+   if subForm == formN.settings then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
@@ -719,7 +720,7 @@ local function keyForm(key)
    if subForm == 104 then
       if keyExit(key) then
 	 form.preventDefault()
-	 form.reinit(100)
+	 form.reinit(formN.inputs)
 	 return
       end
    end
@@ -727,12 +728,12 @@ local function keyForm(key)
    if subForm == 110 then
       if keyExit(key) then
 	 form.preventDefault()
-	 form.reinit(103)
+	 form.reinit(formN.editpanel)
 	 return
       end
    end
    
-   if subForm == 103 then
+   if subForm == formN.editpanel then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
@@ -891,7 +892,7 @@ local function keyForm(key)
 	 end
       end
    end
-   if subForm == 105 then
+   if subForm == formN.editlinks then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
@@ -900,7 +901,7 @@ local function keyForm(key)
       if key == KEY_1 then
 	 table.insert(stateSw, {switch=nil, dir=1, from="*", to="*", lastSw=0})
 	 form.setFocusedRow(#stateSw + 1)
-	 form.reinit(105)
+	 form.reinit(formN.editlinks)
       elseif key == KEY_2 then
 	 local fr = form.getFocusedRow()
 	 if fr - 1 > 0 then
@@ -908,7 +909,7 @@ local function keyForm(key)
 	    switches["stateSwitch"..(fr-1)] = nil
 	    table.remove(stateSw, fr - 1)
 	 end
-	 form.reinit(105)
+	 form.reinit(formN.editlinks)
       end
    end
 end
@@ -1059,7 +1060,7 @@ local function initForm(sf)
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       savedRow2 = 1
-	       form.reinit(102)
+	       form.reinit(formN.settings)
 	       form.waitForRelease()
       end))      
       
@@ -1068,7 +1069,7 @@ local function initForm(sf)
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       savedRow2 = 1
-	       form.reinit(100)
+	       form.reinit(formN.inputs)
 	       form.waitForRelease()
       end))      
 
@@ -1081,7 +1082,7 @@ local function initForm(sf)
 	       edit.gauge = 1
 	       edit.opsIdx = 1
 	       edit.dirIdx = 2 -- default to "Y"
-	       form.reinit(103)
+	       form.reinit(formN.editpanel)
 	       form.waitForRelease()
       end))      
 
@@ -1090,7 +1091,7 @@ local function initForm(sf)
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       savedRow2 = 1
-	       form.reinit(105)
+	       form.reinit(formN.editlinks)
 	       form.waitForRelease()
       end))      
 
@@ -1098,13 +1099,13 @@ local function initForm(sf)
       form.addLabel({label="Lua variables >>", width=220})
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
-	       form.reinit(108)
+	       form.reinit(formN.luavariables)
 	       form.waitForRelease()
       end))
 
 
       form.setFocusedRow(savedRow)
-   elseif sf == 100 then
+   elseif sf == formN.inputs then
 
       local ip = InsP.panels[InsP.settings.selectedPanel]
       form.setTitle("Data for panel " ..
@@ -1165,7 +1166,7 @@ local function initForm(sf)
 	 
       end
       form.setFocusedRow(savedRow2)
-   elseif sf == 101 then
+   elseif sf == formN.resetall then
       local ans
       ans = form.question("Are you sure?", "Reset all app settings?",
 			  "",
@@ -1176,7 +1177,7 @@ local function initForm(sf)
 	 system.messageBox("All data deleted .. Restart App")
       end
       form.reinit(1)
-   elseif sf == 102 then
+   elseif sf == formN.settings then
       
       form.setTitle("Settings for all Panels ")
 
@@ -1193,12 +1194,12 @@ local function initForm(sf)
       form.addRow(2)
       form.addLabel({label="Reset all app data >>", width=220})
       form.addLink((function()
-	       form.reinit(101)
+	       form.reinit(formN.resetall)
 	       form.waitForRelease()
       end))
       
       form.setFocusedRow(savedRow2)
-   elseif sf == 103 then
+   elseif sf == formN.editpanel then
       form.setTitle("")
       --[[
       edit.gauge = 1
@@ -1215,7 +1216,7 @@ local function initForm(sf)
 	 form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)
 	 local en4
 	 local eo = edit.ops[edit.opsIdx]
-	 print("103 eo", eo)
+	 print("formN.editpanel eo", eo)
 	 if (eo == "Text" or eo == "MinMx" or eo == "Label") and en == 1 then
 	 en4 = ENABLED
 	 else
@@ -1287,7 +1288,7 @@ local function initForm(sf)
 	 form.addRow(1)
 	 --form.addLabel({label="Edit lua >>", width=220})
 	 form.addLink((function()
-		  form.reinit(107)
+		  form.reinit(formN.editlua)
 		  form.waitForRelease()
 		      end), {label="Edit Lua>>"})
       end
@@ -1357,20 +1358,20 @@ local function initForm(sf)
       end
       
       form.setFocusedRow(1)
-   elseif sf == 105 then
+   elseif sf == formN.editlinks then
       local function dirChanged(val, j)
 	 stateSw[j].dir = val
-	 form.reinit(105)
+	 form.reinit(formN.editlinks)
       end
 
       local function fromChanged(val, j)
 	 stateSw[j].from = InsP.panelImages[val-1].instImage
-	 form.reinit(105)
+	 form.reinit(formN.editlinks)
       end
       
       local function toChanged(val, j)
 	 stateSw[j].to = InsP.panelImages[val-1].instImage
-	 form.reinit(105)
+	 form.reinit(formN.editlinks)
       end
 
       form.setTitle("Sequence switch setup")
@@ -1477,11 +1478,11 @@ local function initForm(sf)
       if  isp >= 1 and isp <= #InsP.panelImages then
 	 form.setFocusedRow(isp+1)
       end
-   elseif sf == 107 then
+   elseif sf == formN.editlua then
       --print("about to luaEdit", subForm, savedRow, savedRow2) -- xxxx
       LE.luaEdit(InsP.variables, lua.funcext, 0)--savedRow2)
 
-   elseif sf == 108 then
+   elseif sf == formN.luavariables then
       form.setTitle("Lua Variables")
       local function changedVariableName(val, i)
 	 InsP.variables[i].name = val
@@ -1496,7 +1497,7 @@ local function initForm(sf)
 
       local function changedSource(val, i)
 	 InsP.variables[i].source = val
-	 form.reinit(108)
+	 form.reinit(formN.luavariables)
       end
       
       form.setButton(3, ":add", ENABLED)
@@ -1527,7 +1528,7 @@ local function initForm(sf)
 		     savedRow2 = form.getFocusedRow()
 		     --print("lua edit var, savedRow2", savedRow2)
 		     form.waitForRelease()
-		     form.reinit(107)
+		     form.reinit(formN.editlua)
 			 end), {label="Edit Lua>>", width=150})
 	 end
 
@@ -1560,7 +1561,7 @@ local function initForm(sf)
 	    form.addTextbox(editText.text, 63,
 			    (function(v)
 				  editText.text = v
-				  form.reinit(103)
+				  form.reinit(formN.editpanel)
 			    end)
 	    )
 	 else
@@ -2158,7 +2159,6 @@ local function printForm(_,_,tWin)
 	    end
 	 end
 	 
-
 	 if widget.label then str = widget.label else str = "Gauge"..idxW end
 
 	 if not widget.fL then
@@ -2345,8 +2345,8 @@ local function printForm(_,_,tWin)
 end
 
 local function prtForm(w,h)
-   if subForm == 107 then
-      --print("prtForm 107", savedRow, savedRow2)
+   if subForm == formN.editlua then
+      --print("prtForm formN.editlua", savedRow, savedRow2)
       --if lua.loadErr then
 	 --print(lua.loadErr)
 	 --lcd.drawText(5,0, lua.loadErr, FONT_MINI)
@@ -2362,7 +2362,7 @@ local function prtForm(w,h)
 	 LE.luaEditPrint(InsP.variables[savedRow2], 1)	 
       end
       
-   elseif subForm == 103 and InsP.panels[InsP.settings.selectedPanel] then
+   elseif subForm == formN.editpanel and InsP.panels[InsP.settings.selectedPanel] then
       printForm(318,159,1)
       local ip = InsP.panels[InsP.settings.selectedPanel]
       lcd.setColor(180,180,180)
