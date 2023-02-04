@@ -115,11 +115,11 @@ local editWidgetType
 
 local formN = {main=1, settings=102, inputs=100, editpanel=103,
 	       editlinks = 105, luavariables=108, resetall=101,
-	       editlua = 107}
+	       editlua = 107, panels=106}
 
 local formS = {[1]="main", [102]="settings", [100]="inputs", [103]="editpanel",
    [105] = "editlinks", [108] = "luavariables", [101] = "resetall",
-   [107] = "editlua"}
+   [107] = "editlua", [106] = "panels"}
 
 
 local needle = {
@@ -448,17 +448,20 @@ end
 
 local function setVariables()
    for i, var in ipairs(InsP.variables) do
-      if InsP.variables[i].source == 1 then
+      if InsP.variables[i].source == "Sensor" then
 	 local name = InsP.sensorLalist[var.sensor]
 	 --print("setV 1", i, var, name, lua.env[name])
 	 InsP.variables[i].value = lua.env[name]
-      elseif InsP.variables[i].source == 2 then
+      elseif InsP.variables[i].source == "Lua" then
 	 InsP.variables[i].value = evaluateLua("E", InsP.variables[i].luastring[1])
 	 if type(InsP.variables[i].value) ~= "number" then
 	    InsP.variables[i].value = 0
 	 end
 	 --print("setV 2", InsP.variables[i].value, type(InsP.variables[i].value))
 	 --print("setV 2", i, var.name, "*"..var.value.."*", InsP.variables[i].luastring[1])
+      elseif InsP.variables[i].source == "Control" then -- control
+	 local info = system.getSwitchInfo(switches[InsP.variables[i].control])
+	 if info then InsP.variables[i].value = info.value end
       end
    end
 end
@@ -592,15 +595,34 @@ local function keyForm(key)
       end
 
       if key == KEY_3 then -- add variable
-	 local l = #InsP.variables + 1
+	 local l
+	 local found
+	 for i=1,1000,1 do
+	    found = false
+	    for k,v in ipairs(InsP.variables) do
+	       if v.name == "S"..i then found = true break end
+	    end
+	    if not found then l = i break end
+	 end
+	 
 	 table.insert(InsP.variables,
-		      {name="S"..l, source = 1, luastring={}, sensor = 0, SeId = 0, SePa = 0})
+		      {name="S"..l, source = 1, luastring={}, sensor = 0, SeId = 0, SePa = 0, control = 0})
 	 form.reinit(formN.luavariables)
 	 return
       end
 
       if key == KEY_2 then -- remove variable
 	 local row = form.getFocusedRow()
+	 if not row or row > #InsP.variables or not InsP.variables[row] then return end
+	 if InsP.variables[row].source == "Control" then
+	    local cvarName = InsP.variables[row].control
+	    if not cvarName then
+	       print("InsP.variables[row].control nil for row", row)
+	    else
+	       switches[cvarName] = nil
+	       InsP.settings.switchInfo[cvarName] = nil
+	    end
+	 end
 	 table.remove(InsP.variables, row)
 	 form.reinit(formN.luavariables)
 	 return
@@ -630,7 +652,7 @@ local function keyForm(key)
       
    end
    
-   if subForm == 106 then
+   if subForm == formN.panels then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
@@ -642,7 +664,7 @@ local function keyForm(key)
 	 temp = temp + 1
 	 if temp > #ip  then is.selectedPanel = 1 else is.selectedPanel = temp end
 	 setToPanel(is.selectedPanel)
-	 form.reinit(106)
+	 form.reinit(formN.panels)
       end
       if key == KEY_2 then
 	 if not sp then return end
@@ -654,7 +676,7 @@ local function keyForm(key)
 	    is.homePanel = row
 	 end
 	 --print("home panel set to", is.homePanel)
-	 form.reinit(106)
+	 form.reinit(formN.panels)
       end
       if key == KEY_3 then
 	 local ii = #InsP.panels+1
@@ -665,7 +687,7 @@ local function keyForm(key)
 	 InsP.panelImages[is.selectedPanel].backImage = "---"
 	 InsP.panelImages[is.selectedPanel].auxWin = 1
 	 setToPanel(#InsP.panels)
-	 form.reinit(106)
+	 form.reinit(formN.panels)
       end
       if key == KEY_4 then -- delete panel
 	 local row = form.getFocusedRow() - 1
@@ -692,7 +714,7 @@ local function keyForm(key)
 	    initPanels(InsP)
 	 end
 	 setToPanel(is.selectedPanel)
-	 form.reinit(106)
+	 form.reinit(formN.panels)
       end
    end
    
@@ -977,6 +999,7 @@ local function changedSwitch(val, switchName, j, wid)
 	    stateSw[j].switch = val
 	 end
 	 if wid then
+	    print("if wid", switchName)
 	    wid.control = switchName
 	 end
 	 InsP.settings.switchInfo[switchName].name = swInfo.label
@@ -1051,7 +1074,7 @@ local function initForm(sf)
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       savedRow2 = 1
-	       form.reinit(106)
+	       form.reinit(formN.panels)
 	       form.waitForRelease()
       end))      
 
@@ -1408,7 +1431,7 @@ local function initForm(sf)
 	 form.addSelectbox(teleLabel, to  , true,
 			   (function(x) return toChanged(x,j)   end), {width=100})
       end
-   elseif sf == 106 then
+   elseif sf == formN.panels then
       form.setTitle("Edit Panels")
 
       form.setButton(1, "Select", ENABLED)
@@ -1483,9 +1506,14 @@ local function initForm(sf)
       LE.luaEdit(InsP.variables, lua.funcext, 0)--savedRow2)
 
    elseif sf == formN.luavariables then
+
+      local varopts = {"Sensor", "Control", "Lua"}
+
       form.setTitle("Lua Variables")
+
       local function changedVariableName(val, i)
 	 InsP.variables[i].name = val
+	 form.reinit(formN.luavariables)
       end
 
       local function changedSensor(val, i)
@@ -1493,10 +1521,12 @@ local function initForm(sf)
 	 InsP.variables[i].SeId = InsP.sensorIdlist[val]
 	 InsP.variables[i].SePa = InsP.sensorPalist[val]
 	 --print("Id, Pa", InsP.variables[i].SeId, InsP.variables[i].SePa)
+	 form.reinit(formN.luavariables)
       end
 
       local function changedSource(val, i)
-	 InsP.variables[i].source = val
+	 InsP.variables[i].source = varopts[val]
+	 print("set source to", varopts[val], val)
 	 form.reinit(formN.luavariables)
       end
       
@@ -1513,25 +1543,60 @@ local function initForm(sf)
       end
 
       for i in ipairs(InsP.variables) do
+
 	 form.addRow(3)
 	 --form.addLabel({label="Name", width=50})
 	 form.addTextbox(InsP.variables[i].name, 63,
 			 (function(x) return changedVariableName(x, i) end), {width=80})
-	 if not InsP.variables[i].source then InsP.variables[i].source = 1 end
-	 form.addSelectbox({"Sensor", "Lua"}, InsP.variables[i].source, true,
+	 if not InsP.variables[i].source then InsP.variables[i].source = "Sensor" end
+
+	 local iv = 0
+	 if InsP.variables and #InsP.variables  > 0 then
+	    for k,v in ipairs(varopts) do
+	       if InsP.variables[i].source == v then
+		  iv = k
+		  break
+	       end
+	    end
+	    if iv == 0 then InsP.variables[i].source = "Sensor"; iv = 1 end
+	 end
+	    
+	 form.addSelectbox(varopts, iv, true,
 			   (function(x) return changedSource(x, i) end), {width=80})	    
-	 if InsP.variables[i].source == 1 then
+	 if InsP.variables[i].source == "Sensor" then
 	    form.addSelectbox(InsP.sensorLalist, InsP.variables[i].sensor, true,
 			      (function(x) return changedSensor(x, i) end), {width=150, alignRight=false})
-	 elseif InsP.variables[i].source == 2 then
+	 elseif InsP.variables[i].source == "Lua" then 
 	    form.addLink((function()
 		     savedRow2 = form.getFocusedRow()
 		     --print("lua edit var, savedRow2", savedRow2)
 		     form.waitForRelease()
 		     form.reinit(formN.editlua)
 			 end), {label="Edit Lua>>", width=150})
-	 end
-
+	 elseif InsP.variables[i].source == "Control" then
+	    local cvarName
+	    --print("top", i, InsP.variables[i].control)
+	    if not InsP.variables[i].control or InsP.variables[i].control == 0 then
+	       --print("searching for cvarName")
+	       for k=1,1000,1 do
+		  if not InsP.settings.switchInfo["var"..k.."ctl"] then
+		     cvarName = "var"..k.."ctl"
+		     break
+		  end
+	       end
+	    else
+	       cvarName = InsP.variables[i].control
+	    end
+	    
+	    --print("before inputbox", cvarName)
+	    swtCI[cvarName] = form.addInputbox(switches[cvarName], true,
+					       (function(x)
+						     return
+							changedSwitch(x, cvarName,
+								      nil, InsP.variables[i])
+					       end),
+					       {width=240, alignRight=true})
+	 	 end
 	 form.setFocusedRow(savedRow2)
 	 
       end
@@ -2292,13 +2357,16 @@ local function printForm(_,_,tWin)
 	 if sensorVal and sensorVal > (widget.max - widget.min) / 2 then
 	    if widget.rgbLightColor then
 	       lcd.setColor(widget.rgbLightColor.r, widget.rgbLightColor.g, widget.rgbLightColor.b)
+	       ren:renderPolygon(1)
 	    end
 	 else
 	    if widget.rgbOffColor then
-	       lcd.setColor(widget.rgbOffColor.r, widget.rgbOffColor.g, widget.rgbOffColor.b)
+	       --print(widget.rgbOffColor.r, widget.rgbOffColor.g, widget.rgbOffColor.b)
+	       --lcd.setColor(widget.rgbOffColor.r, widget.rgbOffColor.g, widget.rgbOffColor.b)
+	       --ren:renderPolygon(1)
 	    end
 	 end
-	 ren:renderPolygon(1)
+	 	 
 	 if widget.rgbLabelColor then
 	    lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
 	    ren:renderPolyline(2)

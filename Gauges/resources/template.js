@@ -582,7 +582,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    ctx.fillStyle = "#202020";
 	}
 
-	if ( (i < nseg) && (ndlarc != "arc")) {
+	if ( (i < nseg) && (ndlarc != "arc") ) {
 	    var a1 = start + i * delta - 0*delta
 	    var a2 = start + i * delta + 1*delta;
 	    //console.log(i, spec, x0, y0, ri, ro, ctx.fillStyle)
@@ -883,7 +883,7 @@ function roundGauge(ctx, arr, indicator) {
     var divs = subdivs * majdivs;
 
     //note: divs is returned in arrR in roundG()
-    
+
     if (divs == 0) {
 	if (typeof arr.divisions == "number") {
 	    divs = arr.divisions;
