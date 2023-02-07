@@ -928,7 +928,11 @@ function virtualGauge(ctx, arr) {
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
     var rotate = arr.rotate;
+
+    //console.log(arr)
+    
     //const fontScale = 0.24;
+
     var arrR = {};
     const ro = arr.radius - 2;
     const ri = ro * 0.85;
@@ -1067,6 +1071,8 @@ function textBox(ctx, arr, type) {
     var arrR = {}
     var h
     const hFrac = 0.5
+
+    console.log(arr);
     
     if (arr.height) {
 	h = arr.height;
@@ -1172,6 +1178,107 @@ function textBox(ctx, arr, type) {
     }
     return arrR
 }
+
+function verticalTape(ctx, arr) {
+
+    //console.log("vertical Tape", arr)
+
+    let width=55;
+    let height = 140;
+    let barW = width - 10;
+    let barH = height - 10;
+    
+    let val = arr.value + 0
+    
+    ctx.fillStyle = "black";
+    ctx.strokeStyle = "white";
+    
+    ctx.fillRect(arr.x0 - barW/2, arr.y0 - barH/2, barW, barH);
+
+    ctx.beginPath();
+    ctx.rect(arr.x0 - barW/2, arr.y0 - barH/2, barW, barH);
+    ctx.stroke();
+
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle"
+    ctx.fillStyle = "white";
+    
+    // don't draw the text when being rendered for the png file
+    if (typeof arr.label != "undefined" && arr.labelFont != "None") { 
+	//console.log("arr.label", arr.label)
+	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+    }
+
+    let region = new Path2D();
+    region.rect(arr.x0 - barW / 2, arr.y0 - barH / 2, barW, barH)
+
+    let delta;
+    let step = 20;
+    delta = val % step;
+
+    let yp;
+    let xp = arr.x0 + barW/4 + 3;
+    let yv;
+
+    // pointer triangle
+    ctx.beginPath()
+    ctx.moveTo(arr.x0 + barW/2, arr.y0 + 5)
+    ctx.lineTo(arr.x0 + barW/2, arr.y0 - 5)
+    ctx.lineTo(arr.x0 + barW/2 - 5, arr.y0)
+    ctx.lineTo(arr.x0 + barW/2, arr.y0 + 5)
+    ctx.fill();
+
+    
+    //ctx.rect(arr.x0 + barW/2, arr.y0 - 10, barW, 20)
+    //ctx.stroke()
+
+    //ctx.font = jetiToCtx("Normal");    
+    //ctx.fillText(""+val, arr.x0 + barW + 20,arr.y0 + 0);
+
+    //console.log(val, delta, val-delta)
+    //console.log(jetiToCtx("Mini"));
+    ctx.font = jetiToCtx("Mini")
+
+    ctx.save();
+    ctx.clip(region);
+
+    let zp = 5;
+    let nums = 10; // # of numbers shown in tape
+    let inc = step / 10;
+    let k1 = (zp * nums) / step - (zp+1); // should be zp .. + 1 to make sure 
+    let k2 = (zp * nums) / step + (zp+1); // we go past clip point on both ends
+    for(let kdx = k1; kdx <= k2; kdx = kdx + 1) {    
+	let idx = kdx * inc
+	yp = arr.y0 - zp * (barH / step) + (barH/step) * (delta/step) * inc + (barH / step) * idx
+	yv = zp * step / inc - step * idx / inc  + (val - delta)
+	yv = Math.round( (yv + Number.EPSILON) * 100) / 100;
+	//console.log(kdx, idx, yp, yv)
+	ctx.fillText(""+ yv, xp, yp)
+	ctx.moveTo(arr.x0 - barW/2, yp)
+	ctx.lineTo(arr.x0 - barW/2 + 7, yp)
+	ctx.stroke();
+    }
+
+    ctx.restore();
+
+    /*
+    ctx.fillStyle = "black";
+    ctx.fillRect(arr.x0 - barW/2, arr.y0 - 14, barW, 28);
+    ctx.beginPath();
+    ctx.rect(arr.x0 - barW/2, arr.y0 - 12, barW, 24);
+    ctx.stroke();
+
+    ctx.fillStyle = "yellow";
+    ctx.font = jetiToCtx("Bold");    
+    ctx.fillText(""+val, arr.x0 + 20,arr.y0 + 0);
+
+    ctx.strokeStyle = "white";
+    ctx.beginPath();
+    ctx.rect(arr.x0 - barW/2, arr.y0 - barH/2, barW, barH);
+    ctx.stroke();
+    */
+}
+
 
 function horizontalBar(ctx, arr) {
 
@@ -1482,7 +1589,7 @@ function renderGauge(ctx, input) {
 			 horizontalBar:horizontalBar,
 			 roundNeedleGauge:roundNeedleGauge,
 			 roundArcGauge:roundArcGauge,
-			 virtualGauge:virtualGauge,
+			 virtualGauge:verticalTape,
 			 panelLight:panelLight,
 			 rawText:rawText}
     if (widgetFuncs[input.type]) {
