@@ -1210,6 +1210,7 @@ function drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0) {
 	    //ren:renderPolyline(2)
 
 	    ctx.strokeStyle = "white";
+	    ctx.lineWidth = 2;
 	    ctx.beginPath();
 	    ctx.moveTo(X0 + radAH + X1, Y0 + radAH + Y1);
 	    ctx.lineTo(X0 + radAH + X2, Y0 + radAH + Y2);
@@ -1247,7 +1248,7 @@ function artHorizon(ctx, arr) {
 
     //
     roll  = arr.value;
-    pitch = arr.start;
+    pitch = arr.start / 10;
     //
     
     dPitch_1 = pitch % 180
@@ -1350,6 +1351,20 @@ function artHorizon(ctx, arr) {
     ctx.moveTo(X0, Y0);
     ctx.lineTo(X0 + 2 * radAH, Y0);
 
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(X0 + radAH - 0.7 * radAH, Y0 + radAH);
+    ctx.lineTo(X0 + radAH - 0.2 * radAH, Y0 + radAH);
+    ctx.lineTo(X0 + radAH - 0.2 * radAH, Y0 + radAH + radAH / 8);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(X0 + radAH + 0.7 * radAH, Y0 + radAH);
+    ctx.lineTo(X0 + radAH + 0.2 * radAH, Y0 + radAH);
+    ctx.lineTo(X0 + radAH + 0.2 * radAH, Y0 + radAH + radAH / 8);
+    ctx.lineWidth = 2;
     ctx.stroke();
 
     drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0);
