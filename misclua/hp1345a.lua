@@ -145,8 +145,9 @@ local function drawHP1345A(x, y, str, scale, rot, wid)
    --
    -- x,y:   start location in pixels (upper left or first char)
    -- str:   string to draw
-   -- scale: size multiplier. 1 is nominal
+   -- scale: size multiplier .. 1 is nominal
    -- rot:   rotation angle (radians)
+   -- wid:   width of polyline (pixels)
    
    local ren = lcd.renderer()
    local xc, yc = x, y
@@ -183,7 +184,7 @@ local function printForm()
    local scale = system.getInputs("P4") + 1
    local rot = 180 * (system.getInputs("P1") + 1)
    drawHP1345A(100,80, "123.4567890", scale, math.rad(rot),2)
-   lcd.drawText(10,140, system.getCPU())
+   lcd.drawText(10,140, "CPU: "..system.getCPU().. string.format(" Angle: %d°", rot))
    
 end
 
