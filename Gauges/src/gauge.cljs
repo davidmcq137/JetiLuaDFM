@@ -25,19 +25,18 @@
     1))
 
 (defn shape->bbox
-  [{:strs [type radius x0 y0 width height] :as sh}]
-  (case type
-    ("roundGauge" "virtualGauge" "roundNeedleGauge" "roundArcGauge")
-    (let [d (* 2 radius)]
-      [(- x0 radius) (- y0 radius) d d])
-    
-    ("horizontalBar" "textBox" "rawText"
-     "sequencedTextBox" "stackedTextBox"
-     "panelLight")
+  [{:strs [radius x0 y0 width height] :as sh}]
+  (cond
+    (and width height x0 y0)
     (let [halfw (* 0.5 width)
           halfh (* 0.5 height)]
       [(- x0 halfw) (- y0 halfh) width height])
-    (println "Do not understand shape of" (pr-str type) "SH" (pr-str sh))))
+    
+    (and radius x0 y0)
+    (let [d (* 2 radius)]
+      [(- x0 radius) (- y0 radius) d d])
+
+    :else (js/console.error "Cannot determine bounding box" sh)))
 
 
 (rum/defc bitmap-canvas-drag
@@ -565,9 +564,10 @@
      [:div.sliders
       [:span.slider-label "Label"]
       (gaugeparam-text da "label")
-      [:span.slider-label (str "X = " x0)]
+      
+      [:span.slider-label "X"]
       (gaugeparam-slider da "x0" {:min 0 :max 320})
-      [:span.slider-label (str "Y = " y0)]
+      [:span.slider-label "Y"]
       (gaugeparam-slider da "y0" {:min 0 :max 160})
 
       (when val [:span.slider-label "Value"])
