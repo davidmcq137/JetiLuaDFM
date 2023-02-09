@@ -148,7 +148,7 @@
   ([a f k v & more]
    (swap! a (fn [av] (merge av (render-gauge* (apply f (:params av) (list* k v more))))))))
 
-(rum/defc gaugeparam-slider
+#_(rum/defc gaugeparam-slider
   < rum/reactive
   [da k props]
   (let [{:keys [params]  :as d} (rum/react da)
@@ -162,6 +162,28 @@
        :onChange (fn [^js ev] 
                    (update-gauge* da assoc k (js/parseFloat (.-value (.-target ev)))))}
       props)]))
+
+(rum/defc gaugeparam-slider
+  < rum/reactive
+  [da k props]
+  (let [{:keys [params]  :as d} (rum/react da)
+        v (get params k)]
+    [:span {:style {:display "inline-grid"
+                    :grid-template-columns "1fr 5fr"
+                    :column-gap "1ch"
+                    :align-items "center"
+                    :justify-content "space-between"
+                    :width "100%"}}
+     [:span (str v)]
+     [:input 
+      (merge
+       {:type "range"
+        :min 0
+        :max 100
+        :value (or v 0)
+        :onChange (fn [^js ev] 
+                    (update-gauge* da assoc k (js/parseFloat (.-value (.-target ev)))))}
+       props)]]))
 
 
 (rum/defc gaugeparam-text < rum/reactive
@@ -231,6 +253,22 @@
      [:input {:type "button"
               :value "+"
               :onClick #(update-gauge* da update-in k inc)}]]))
+
+(rum/defc gaugeparam-plusminus-fixed < rum/reactive
+  [da k {:keys [d] :or {d 1} :as opts}]
+  (let [{:keys [params]} (rum/react da)
+        v (get params k)]
+    [:span.plusminus {}
+     [:input {:type "button"
+              :value "-"
+              :onClick #(update-gauge* da update k dec)}]
+     
+     (float-input {:value (or v 0)
+                   :on-change #(update-gauge* da assoc k %)})
+     
+     [:input {:type "button"
+              :value "+"
+              :onClick #(update-gauge* da update k inc)}]]))
 
 (rum/defc gaugeparam-color < rum/reactive
   [da k]
@@ -424,89 +462,11 @@
       
       :else "Malformed gauge")))
 
-(rum/defc edit-horizontalbar
-  < rum/reactive
-  [da]
-  (let [{:keys [params]  :as d} (rum/react da)]
-    (rum/fragment
-     [:span.slider-label "Width"]
-     (gaugeparam-slider da "width" {:min 10  :max 320})
-     [:span.slider-label "Height"]
-     (gaugeparam-slider da "height" {:min 10  :max 80})
-     
-     [:span.slider-label "Minimum"]
-     (gaugeparam-plusminus da ["min"])
-     [:span.slider-label "Maximum"]
-     (gaugeparam-plusminus da ["max"])
-     
-     [:span.slider-label "Major divisions"]
-     (gaugeparam-plusminus da ["majdivs"])
-     [:span.slider-label "Sub divisions"]
-     (gaugeparam-plusminus da ["subdivs"])
-     
-     [:span "Color"]
-     (gaugeparam-color da "backColor")
-     
-     [:span "Font size (numbers)"]
-     (gaugeparam-fontsize da "tickFont")
-     [:span "Font size (label)"]
-     (gaugeparam-fontsize da "labelFont")
 
-     (spectrum-or-colorvals da))))
 
-(rum/defc edit-roundgauge
-  < rum/reactive
-  [da]
-  (let [{:keys [params]  :as d} (rum/react da)]
-    (rum/fragment
-     [:span.slider-label "Radius"]
-     (gaugeparam-plusminus da ["radius"])
-     
-     [:span.slider-label "Minimum"]
-     (gaugeparam-plusminus da ["min"])
-     [:span.slider-label "Maximum"]
-     (gaugeparam-plusminus da ["max"])
-     
-     [:span.slider-label "Major Divisions"]
-     (gaugeparam-plusminus da ["majdivs"])
-     [:span.slider-label "Sub divisions"]
-     (gaugeparam-plusminus da ["subdivs"])
-     
-     [:span "Font size (ticks)"]
-     (gaugeparam-fontsize da "tickFont")
-     [:span "Font size (label)"]
-     (gaugeparam-fontsize da "labelFont")
-     [:span "Font size (readout)"]
-     (gaugeparam-fontsize da "valueFont")
-     
-     
-     [:span.slider-label "Arc start"]
-     (gaugeparam-slider da "start" {:min -360 :max 360})
-     [:span.slider-label "Arc end"]
-     (gaugeparam-slider da "end" {:min -360 :max 360})
-     
-     (spectrum-or-colorvals da))))
 
-(rum/defc edit-virtualgauge
-  < rum/reactive
-  [da]
-  (let [{:keys [params]  :as d} (rum/react da)]
-    (rum/fragment
-     [:span.slider-label "Radius"]
-     (gaugeparam-plusminus da ["radius"])
-     [:span.slider-label "Minimum"]
-     (gaugeparam-plusminus da ["min"])
-     [:span.slider-label "Maximum"]
-     (gaugeparam-plusminus da ["max"])
-     [:span "Font size"]
-     (gaugeparam-fontsize da "textFont")
-     
-     [:span.slider-label (str "Arc start = " (get params "start"))]
-     (gaugeparam-slider da "start" {:min -180 :max 180})
-     [:span.slider-label (str "Arc end = " (get params "end"))]
-     (gaugeparam-slider da "end" {:min -180 :max 180})
-     [:span.slider-label "Needle clipping"]
-     (gaugeparam-slider da "needleClip"))))
+
+
 
 (rum/defc edit-multitext < rum/reactive
   [da]
@@ -539,78 +499,58 @@
        :style {:grid-column 2 :width "8ex"}
        :onClick #(update-gauge* da update "text" conj "")}]]))
 
-(rum/defc edit-textbox
-  < rum/reactive
+(rum/defc textbox-mode-switcher < rum/reactive
   [da]
   (let [{:keys [params]  :as d} (rum/react da)]
-    (rum/fragment
-     [:span.slider-label (str "Width = " (get params "width"))]
-     (gaugeparam-slider da "width" {:min 10 :max 320})
-     [:span.slider-label (str "Height = " (get params "height"))]
-     (gaugeparam-slider da "height" {:min 10 :max 80})
-     
-     [:span "Font size (text)"]
-     (gaugeparam-fontsize da "textFont")
-     [:span "Font size (label)"]
-     (gaugeparam-fontsize da "labelFont")
-     
-     
-     [:span.slider-label "Mode"]
-     [:div {}
-      [:input {:type "button" :value "Line chosen by value"
-               :disabled (= "sequencedTextBox" (get params "type"))
-               :onClick #(update-gauge* da assoc "type" "sequencedTextBox")}]
-      [:input {:type "button" :value "Multi-line"
-               :disabled (if (= "stackedTextBox" (get params "type")) true false)
-               :onClick #(update-gauge* da assoc "type" "stackedTextBox")}]]
-     [:span.slider-label "Text values"]
-     (edit-multitext da)
-     )))
+   [:div {}
+    [:input {:type "button" :value "Line chosen by value"
+             :disabled (= "sequencedTextBox" (get params "type"))
+             :onClick #(update-gauge* da assoc "type" "sequencedTextBox")}]
+    [:input {:type "button" :value "Multi-line"
+             :disabled (if (= "stackedTextBox" (get params "type")) true false)
+             :onClick #(update-gauge* da assoc "type" "stackedTextBox")}]]))
 
-(rum/defc edit-rawtext
-  < rum/reactive
+(def gauge-editor-map (js->clj (js/setupWidgets)))
+
+(defn type->fields
+  [t]
+  (let [fs? (get gauge-editor-map t)
+        fs (if-not (string? fs?)
+             fs?
+             (get gauge-editor-map fs?))]
+    (when-not fs
+      (throw (ex-info (str "Don't know about " fs?) {:t t})))
+    fs))
+
+(rum/defc gauge-field
+  [da {:strs [key label type props]}]
+  (rum/fragment
+   (when label
+     [:span {} label])
+   (case type
+     "plusminus" (gaugeparam-plusminus-fixed da key)
+     "fontsize"  (gaugeparam-fontsize da key)
+     "slider"    (gaugeparam-slider da key props)
+     "color"     (gaugeparam-color da key)
+     
+     "multitext" (edit-multitext da)
+     "textbox-mode-switcher" (textbox-mode-switcher da)
+     "spectrum-or-colorvals" (spectrum-or-colorvals da)
+     
+     (do (js/console.error "No gauge type:" type)
+         nil))))
+
+(rum/defc generic-gauge < rum/reactive
   [da]
-  (let [{:keys [params]  :as d} (rum/react da)]
+  (let [{:keys [params] :as d} (rum/react da)
+        ty (get params "type")
+        fs (type->fields ty)]
+    (when-not (seq fs)
+      (js/console.error "Cannot get field list" params))
     (rum/fragment
-     [:span.slider-label (str "Width = " (get params "width"))]
-     (gaugeparam-slider da "width" {:min 10 :max 320})
-     [:span.slider-label (str "Height = " (get params "height"))]
-     (gaugeparam-slider da "height" {:min 10 :max 80})
-     
-     [:span "Text"]
-     (edit-multitext da "text")
-     
-     [:span "Font size (text)"]
-     (gaugeparam-fontsize da "textFont")
-     [:span "Font size (label)"]
-     (gaugeparam-fontsize da "labelFont")
-
-     [:span.slider-label "Color"]
-     (gaugeparam-text da "textColor"))))
-
-
-
-
-
-(rum/defc edit-panellight
-  < rum/reactive
-  [da]
-  (let [{:keys [params]  :as d} (rum/react da)]
-    (rum/fragment
-     [:span.slider-label "Radius"]
-     (gaugeparam-plusminus da ["radius"])
-     [:span.slider-label (str "Width = " (get params "width"))]
-     (gaugeparam-slider da "width" {:min 10 :max 320})
-     [:span.slider-label (str "Height = " (get params "height"))]
-     (gaugeparam-slider da "height" {:min 10 :max 80})
-     
-     [:span "Font size"]
-     (gaugeparam-fontsize da "labelFont")
-     
-     [:span "Light color"]
-     (gaugeparam-text da "lightColor"))))
-
-
+     (for [i (range (count fs))]
+       (-> (gauge-field da (nth fs i))
+           (rum/with-key i))))))
 
 (rum/defc onegauge-editor
   < rum/reactive
@@ -639,10 +579,10 @@
             
             (let [real-min (clojure.core/min min max)
                   real-max (clojure.core/max min max)]
-             (gaugeparam-slider da "value"
-                                {:min  real-min
-                                 :max  real-max
-                                 :step (* 0.01 (- real-max real-min))})))))]
+              (gaugeparam-slider da "value"
+                                 {:min  real-min
+                                  :max  real-max
+                                  :step (* 0.01 (- real-max real-min))})))))]
      [:div.controls
       [:input
        {:type    "button"
@@ -671,19 +611,7 @@
                :width           "100%"
                :justify-content "space-between"}}
       (when (:editing d)
-        (case (get (:params d) "type")
-          ("roundGauge" "roundNeedleGauge" "roundArcGauge")
-          (edit-roundgauge da)
-          
-          ("textBox" "stackedTextBox" "sequencedTextBox")
-          (edit-textbox da)
-          
-          "horizontalBar" (edit-horizontalbar da)
-          "virtualGauge"  (edit-virtualgauge da)
-          "rawText"       (edit-rawtext da)
-          "panelLight"    (edit-panellight da)
-          nil))]]))
-
+        (generic-gauge da))]]))
 
 (defn ask-download-file
   [path contents]
@@ -726,16 +654,11 @@
            (ask-download-file "gauges.json" (js/JSON.stringify (clj->js data) nil 2)))))
 
 
-(defn output-png-blob!
+(defn download-png!
   [w h]
   (.then (render-panel (get (:panels @db) (get @db :selected-panel)) w h)
          (fn [{:keys [image]}]
            (ask-download-file "gauges.png" image))))
-
-(defn download-png!
-  [w h]
-  (.then (output-png-blob! w h)
-         (fn [v] (ask-download-file "gauges.png" v))))
 
 (defn blob->base64
   [v]
@@ -768,7 +691,7 @@
                 {:yoururl js/window.location.origin
                  :dynamic-files {"Gauges"
                                  (into [{:prefix "Apps/"
-                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-3940779532/DFM-InsP-v0.2.zip"}]
+                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-4080161972/DFM-InsP-v0.4.zip"}]
                                        cat
                                        filesets)}})))))
 
@@ -1143,15 +1066,19 @@
 
 (defn ^:dev/after-load init
   []
-  
   (let [el (.getElementById js/document "root")]
+    #_(js/console.log (clj->js gauge-editor-map))
     
-    (or (load-from-localstorage!)
-        (reload-json! "Turbine" "/Turbine.json"))
+    
     
     (add-watch db save-watch-key
                (-> (fn [_ _ _ new]
                      (save-to-localstorage! new))
                    (gfunc/throttle 5000)))
     
-    (rum/mount (root) el)))
+    (rum/mount (root) el)
+    
+    (-> (fn []
+          (or (load-from-localstorage!)
+              (reload-json! "Turbine" "/Turbine.json")))
+        (js/setTimeout 0))))
