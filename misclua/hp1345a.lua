@@ -138,6 +138,12 @@ local hp1345a = {
    }
 }
 
+local savrot
+local cosrot
+local sinrot
+
+local count=0
+
 local function drawHP1345A(x, y, str, scale, rot, wid)
 
    -- function requires a string to be passed ... formatting to be done
@@ -148,15 +154,21 @@ local function drawHP1345A(x, y, str, scale, rot, wid)
    -- scale: size multiplier .. 1 is nominal
    -- rot:   rotation angle (radians)
    -- wid:   width of polyline (pixels)
-   
+
    local ren = lcd.renderer()
    local xc, yc = x, y
    local xr, yr
    local shape
-   local b0 = string.byte("0")
+   local b0 = 48 -- string.byte("0")
    local cc, np
    
-   for char in str:gmatch(".") do
+   if rot ~= savrot then
+      cosrot = math.cos(-rot)
+      sinrot = math.sin(-rot)
+      savrot = rot
+   end
+   
+   for char in string.gmatch(str, ".") do
       if char == "." then cc = "/" else cc = char end
       np = string.byte(cc) - b0 + 2
       shape = hp1345a[np]
@@ -167,14 +179,14 @@ local function drawHP1345A(x, y, str, scale, rot, wid)
 	       ren:renderPolyline(wid)
 	       ren:reset()
 	    else
-	       xr = xc + scale*v[1]*math.cos(-rot) - scale*v[2]*math.sin(-rot)
-	       yr = yc + scale*v[1]*math.sin(-rot) + scale*v[2]*math.cos(-rot)
+	       xr = xc + scale*v[1]*cosrot - scale*v[2]*sinrot
+	       yr = yc + scale*v[1]*sinrot + scale*v[2]*cosrot
 	       ren:addPoint(xr, yr)
 	    end
 	 end
 	 ren:renderPolyline(wid)      
-	 xc = xc + scale * 18 * math.cos(-rot)
-	 yc = yc + scale * 18 * math.sin(-rot)
+	 xc = xc + scale * 18 * cosrot
+	 yc = yc + scale * 18 * sinrot
       end
    end
 end

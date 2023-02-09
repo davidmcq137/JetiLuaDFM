@@ -2028,7 +2028,10 @@ function setupWidgets() {
             width,
             height,
             labelFont,
-            {key: "lightColor", label: "Color", type: "color"}
+	    {key: "labelPos", label: "Label Position", type: "slider"},
+            {key: "lightColor", label: "Color", type: "color"},
+	    {key: "backColor", label: "Background Color", type: "color"}
+	    
         ]
     };
 
