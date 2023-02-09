@@ -462,89 +462,11 @@
       
       :else "Malformed gauge")))
 
-(rum/defc edit-horizontalbar
-  < rum/reactive
-  [da]
-  (let [{:keys [params]  :as d} (rum/react da)]
-    (rum/fragment
-     [:span.slider-label "Width"]
-     (gaugeparam-slider da "width" {:min 10  :max 320})
-     [:span.slider-label "Height"]
-     (gaugeparam-slider da "height" {:min 10  :max 80})
-     
-     [:span.slider-label "Minimum"]
-     (gaugeparam-plusminus da ["min"])
-     [:span.slider-label "Maximum"]
-     (gaugeparam-plusminus da ["max"])
-     
-     [:span.slider-label "Major divisions"]
-     (gaugeparam-plusminus da ["majdivs"])
-     [:span.slider-label "Sub divisions"]
-     (gaugeparam-plusminus da ["subdivs"])
-     
-     [:span "Color"]
-     (gaugeparam-color da "backColor")
-     
-     [:span "Font size (numbers)"]
-     (gaugeparam-fontsize da "tickFont")
-     [:span "Font size (label)"]
-     (gaugeparam-fontsize da "labelFont")
 
-     (spectrum-or-colorvals da))))
 
-(rum/defc edit-roundgauge
-  < rum/reactive
-  [da]
-  (let [{:keys [params]  :as d} (rum/react da)]
-    (rum/fragment
-     [:span.slider-label "Radius"]
-     (gaugeparam-plusminus da ["radius"])
-     
-     [:span.slider-label "Minimum"]
-     (gaugeparam-plusminus da ["min"])
-     [:span.slider-label "Maximum"]
-     (gaugeparam-plusminus da ["max"])
-     
-     [:span.slider-label "Major Divisions"]
-     (gaugeparam-plusminus da ["majdivs"])
-     [:span.slider-label "Sub divisions"]
-     (gaugeparam-plusminus da ["subdivs"])
-     
-     [:span "Font size (ticks)"]
-     (gaugeparam-fontsize da "tickFont")
-     [:span "Font size (label)"]
-     (gaugeparam-fontsize da "labelFont")
-     [:span "Font size (readout)"]
-     (gaugeparam-fontsize da "valueFont")
-     
-     
-     [:span.slider-label "Arc start"]
-     (gaugeparam-slider da "start" {:min -360 :max 360})
-     [:span.slider-label "Arc end"]
-     (gaugeparam-slider da "end" {:min -360 :max 360})
-     
-     (spectrum-or-colorvals da))))
 
-(rum/defc edit-virtualgauge
-  < rum/reactive
-  [da]
-  (let [{:keys [params]  :as d} (rum/react da)]
-    (rum/fragment
-     [:span.slider-label "Radius"]
-     (gaugeparam-plusminus da ["radius"])
-     [:span.slider-label "Minimum"]
-     (gaugeparam-plusminus da ["min"])
-     [:span.slider-label "Maximum"]
-     (gaugeparam-plusminus da ["max"])
-     [:span "Font size"]
-     (gaugeparam-fontsize da "textFont")
-     
-     [:span.slider-label (str "Arc start = " (get params "start"))]
-     (gaugeparam-slider da "start" {:min -180 :max 180})
-     [:span.slider-label (str "Arc end = " (get params "end"))]
-     (gaugeparam-slider da "end" {:min -180 :max 180})
-     [:span.slider-label "Needle clipping"]
-     (gaugeparam-slider da "needleClip"))))
+
+
 
 (rum/defc edit-multitext < rum/reactive
   [da]
@@ -588,109 +510,6 @@
              :disabled (if (= "stackedTextBox" (get params "type")) true false)
              :onClick #(update-gauge* da assoc "type" "stackedTextBox")}]]))
 
-(rum/defc edit-textbox
-  < rum/reactive
-  [da]
-  (let [{:keys [params]  :as d} (rum/react da)]
-    (rum/fragment
-     [:span.slider-label (str "Width = " (get params "width"))]
-     (gaugeparam-slider da "width" {:min 10 :max 320})
-     [:span.slider-label (str "Height = " (get params "height"))]
-     (gaugeparam-slider da "height" {:min 10 :max 80})
-     
-     [:span "Font size (text)"]
-     (gaugeparam-fontsize da "textFont")
-     [:span "Font size (label)"]
-     (gaugeparam-fontsize da "labelFont")
-     
-     [:span.slider-label "Mode"]
-     (textbox-mode-switcher da)
-     
-     [:span.slider-label "Text values"]
-     (edit-multitext da))))
-
-(rum/defc edit-rawtext
-  < rum/reactive
-  [da]
-  (let [{:keys [params]  :as d} (rum/react da)]
-    (rum/fragment
-     [:span.slider-label (str "Width = " (get params "width"))]
-     (gaugeparam-slider da "width" {:min 10 :max 320})
-     [:span.slider-label (str "Height = " (get params "height"))]
-     (gaugeparam-slider da "height" {:min 10 :max 80})
-     
-     [:span "Text"]
-     (edit-multitext da "text")
-     
-     [:span "Font size (text)"]
-     (gaugeparam-fontsize da "textFont")
-     [:span "Font size (label)"]
-     (gaugeparam-fontsize da "labelFont")
-
-     [:span.slider-label "Color"]
-     (gaugeparam-text da "textColor"))))
-
-
-
-
-
-(rum/defc edit-panellight
-  < rum/reactive
-  [da]
-  (let [{:keys [params]  :as d} (rum/react da)]
-    (rum/fragment
-     [:span.slider-label "Radius"]
-     (gaugeparam-plusminus da ["radius"])
-     [:span.slider-label (str "Width = " (get params "width"))]
-     (gaugeparam-slider da "width" {:min 10 :max 320})
-     [:span.slider-label (str "Height = " (get params "height"))]
-     (gaugeparam-slider da "height" {:min 10 :max 80})
-     
-     [:span "Font size"]
-     (gaugeparam-fontsize da "labelFont")
-     
-     [:span "Light color"]
-     (gaugeparam-text da "lightColor"))))
-
-
-
-#_(def gauge-editor-map
-  {"roundNeedleGauge" "roundGauge"
-   "roundArcGauge" "roundGauge"
-   "roundGauge" [{:key "radius" :label "Radius" :type "plusminus"}
-                 {:key "min" :label "Minimum" :type "plusminus"}
-                 {:key "max" :label "Maximum" :type "plusminus"}
-
-                 {:key "majdivs" :label "MajorDivisions" :type "plusminus"}
-                 {:key "subdivs" :label "Sub divisions" :type "plusminus"}
-
-                 {:key "tickFont" :label "Font size (ticks)" :type "fontsize"}
-                 {:key "labelFont" :label "Font size (label)" :type "fontsize"}
-                 {:key "valueFont" :label "Font size (readout)" :type "fontsize"}
-                 
-                 {:key "start" :label "Arc start" :type "slider" :props {:min -360 :max 360}}
-                 {:key "end" :label "Arc end" :type "slider" :props {:min -360 :max 360}}
-                 
-                 {:type "spectrum-or-colorvals"}]
-
-   "stackedTextBox" "textBox"
-   "sequencedTextBox" "textBox"
-   "textBox" [{:key "width" :label "Width" :type "slider" :props {:min 10 :max 320}}
-              {:key "height" :label "Height" :type "slider" :props {:min 10 :max 80}}
-              
-              {:key "textFont" :label "Font size (text)" :type "fontsize"}
-              {:key "labelFont" :label "Font size (label)" :type "fontsize"}
-              
-              {:label "Mode" :type "textbox-mode-switcher"}
-              
-              {:label "Text values" :type "multitext"}]
-
-   "horizontalBar" []
-   "virtualGauge" []
-   "rawText" []
-   
-   })
-
 (def gauge-editor-map (js->clj (js/setupWidgets)))
 
 (defn type->fields
@@ -702,7 +521,6 @@
     (when-not fs
       (throw (ex-info (str "Don't know about " fs?) {:t t})))
     fs))
-
 
 (rum/defc gauge-field
   [da {:strs [key label type props]}]
@@ -793,20 +611,7 @@
                :width           "100%"
                :justify-content "space-between"}}
       (when (:editing d)
-        (generic-gauge da)
-        #_(case (get (:params d) "type")
-          ("roundGauge" "roundNeedleGauge" "roundArcGauge")
-          (edit-roundgauge da)
-          
-          ("textBox" "stackedTextBox" "sequencedTextBox")
-          (edit-textbox da)
-          
-          "horizontalBar" (edit-horizontalbar da)
-          "virtualGauge"  (edit-virtualgauge da)
-          "rawText"       (edit-rawtext da)
-          "panelLight"    (edit-panellight da)
-          nil))]]))
-
+        (generic-gauge da))]]))
 
 (defn ask-download-file
   [path contents]
