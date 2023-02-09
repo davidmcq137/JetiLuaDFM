@@ -1,37 +1,25 @@
-local ff
-local count = 0
-local sgTC0
-local line
-local done = false
 
 local function loop()
-
-   if done then return end
-   
-   for i = 1, 1000, 1 do
-      line = io.readline(ff)
-      count = count + 1
-      if not line then break end
-   end
-
-   print(count, system.getCPU())
-   
-   if not line then
-      done = true
-      print("time:", (system.getTimeCounter() - sgTC0) / 1000) 
-   end
-end
 
 local function printForm()
 
 end
 
 local function init()
+   local turbineID
+   
+   local sensors = system.getSensors()
+   for i, sensor in ipairs(sensors) do
+      if sensor.param == 0 and sensor.label == "Turbine" then
+	 turbineID = sensor.id
+	 print("turbine id", sensor.id)
+      end
+   end
 
-   ff = io.open("Log/20210528/07-43-21.log", "r")
-   print("ff:", ff)
-   sgTC0 = system.getTimeCounter()
-   system.registerForm(1, MENU_APPS, "test", initForm, nil, printForm)
+   local table = system.getDeviceInfo(turbineID)
+   for k,v in pairs(table) do
+      print(k,v)
+   end
    
 end
 

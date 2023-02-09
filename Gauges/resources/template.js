@@ -435,17 +435,16 @@ function jetiFont(font) {
     return jetiFonts[jF]
 }
 
-function jetiSize(font) {
+function jetiHeight(font) {
+    const jetiFonts = ["Mini", "Normal", "Bold", "Big", "Maxi"]
     const jetiSizes = [10, 15, 15, 22, 40]
-    let jF = 0
-    let dF = Math.abs(font - jetiSizes[0]) // assume MINI
-    for (let i = 1; i < 5; i++) {
-	if (Math.abs(font - jetiSizes[i]) < dF) {
-	    dF = Math.abs(font - jetiSizes[i]);
-	    jF = i;
+    let iF = 1
+    for (let i = 0; i < 4; i++) {
+	if (font == jetiFonts[i]) {
+	    iF = i;
 	}
     }
-    return jetiSizes[jF]
+    return jetiSizes[iF]
 }
 
 function jetiToCtx(jfont) {
@@ -582,7 +581,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    ctx.fillStyle = "#202020";
 	}
 
-	if ( (i < nseg) && (ndlarc != "arc")) {
+	if ( (i < nseg) && (ndlarc != "arc") ) {
 	    var a1 = start + i * delta - 0*delta
 	    var a2 = start + i * delta + 1*delta;
 	    //console.log(i, spec, x0, y0, ri, ro, ctx.fillStyle)
@@ -632,9 +631,6 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		    dp = (vl - vi) - 1
 		}
 		// here are the tick labels
-		//ctx.font="bold " + fontScale * ro + "px sans-serif"
-		//console.log(ctx.font, fontScale * ro, jetiSize(fontScale * ro))
-		//ctx.font = "bold " + jetiSize(fontScale * ro) + "px sans-serif"
 		ctx.font = jetiToCtx(arr.tickFont)
 		if (typeof(arr.value) != "undefined") {
 		    let xt = x0 + rt * Math.cos(a);
@@ -883,7 +879,7 @@ function roundGauge(ctx, arr, indicator) {
     var divs = subdivs * majdivs;
 
     //note: divs is returned in arrR in roundG()
-    
+
     if (divs == 0) {
 	if (typeof arr.divisions == "number") {
 	    divs = arr.divisions;
@@ -928,7 +924,11 @@ function virtualGauge(ctx, arr) {
     var start = -1.25 * Math.PI;
     var end = 0.25 * Math.PI;
     var rotate = arr.rotate;
+
+    //console.log(arr)
+    
     //const fontScale = 0.24;
+
     var arrR = {};
     const ro = arr.radius - 2;
     const ri = ro * 0.85;
@@ -1067,6 +1067,8 @@ function textBox(ctx, arr, type) {
     var arrR = {}
     var h
     const hFrac = 0.5
+
+    console.log(arr);
     
     if (arr.height) {
 	h = arr.height;
@@ -1130,7 +1132,6 @@ function textBox(ctx, arr, type) {
     ctx.font = fontL;
     // don't draw the text when being rendered for the png file
     if (typeof arr.label != "undefined" && arr.labelFont != "None") { 
-	//console.log("arr.label", arr.label)
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
 
@@ -1172,6 +1173,332 @@ function textBox(ctx, arr, type) {
     }
     return arrR
 }
+
+function rad(deg) {
+    return deg * Math.PI / 180.0
+}
+
+function drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0) {
+
+    let XH;
+    let YH;
+    
+    let sinRoll = Math.sin(rad(-roll))
+    let cosRoll = Math.cos(rad(-roll))
+    let delta = pitch % 15    
+
+    for (let i = delta - 45; i < 45 + delta; i = i + 15) {
+	//XH = Math.abs(pitch - i % 360) < 0.01 and 30 or 13
+	if (Math.abs(pitch - i % 360) < 0.01) {
+	    XH = 30;
+	} else {
+	    XH = 13;
+	}
+	YH = pitchR * i                      
+    
+	X1 = -XH * cosRoll - YH * sinRoll
+	Y1 = -XH * sinRoll + YH * cosRoll
+	X2 = (XH - 2) * cosRoll - YH * sinRoll
+	Y2 = (XH - 2) * sinRoll + YH * cosRoll
+
+	if ( !( (X1 < -radAH && X2 < -radAH) ||  (X1 > radAH && X2 > radAH)
+		|| (Y1 < -radAH && Y2 < -radAH) ||  (Y1 > radAH && Y2 > radAH) ) ) {
+
+	    //ren:reset()
+	    //ren:addPoint(radAH+X1, radAH+ Y1)
+	    //ren:addPoint(radAH + X2, radAH+Y2) 
+	    //ren:renderPolyline(2)
+
+	    ctx.strokeStyle = "white";
+	    ctx.lineWidth = 2;
+	    ctx.beginPath();
+	    ctx.moveTo(X0 + radAH + X1, Y0 + radAH + Y1);
+	    ctx.lineTo(X0 + radAH + X2, Y0 + radAH + Y2);
+	    ctx.stroke();
+	}
+    }
+}
+
+function artHorizon(ctx, arr) {
+
+    /*
+      function artHorizon is based on code in the Jeti Artificial Horizon App
+
+      Copyright (c) 2016 JETI
+      Copyright (c) 2015 dandys.
+      Copyright (c) 2014 Marco Ricci.
+
+      Use here conforms with the license terms
+    */
+
+    let pitch = 0;
+    let roll = 0;
+
+    let rowAH = 62;
+    let radAH = 62;
+    let pitchR = radAH / 25;
+
+    let tanRoll;
+    let cosRoll;
+    let sinRoll;
+    
+    let dPitch_1;
+    let dPitch_2;
+    let mapRatio;
+
+    //
+    roll  = arr.value;
+    pitch = arr.start / 10;
+    //
+    
+    dPitch_1 = pitch % 180
+    if (dPitch_1 > 90) {
+	dPitch_1 = 180 - dPitch_1
+    }
+
+    if (roll == 270) {
+	roll = 269.99;
+    }
+    if (roll == 90) {
+	roll = 89.99;
+    }
+    
+    cosRoll = 1 / Math.cos(rad(roll))
+
+    if (pitch > 270) {
+	dPitch_1 = -dPitch_1 * pitchR * cosRoll
+	dPitch_2 = radAH * cosRoll
+    } else if (pitch > 180) {
+	dPitch_1 = dPitch_1 * pitchR * cosRoll
+	dPitch_2 = -radAH * cosRoll
+    } else if (pitch > 90) {
+	dPitch_1 = -dPitch_1 * pitchR * cosRoll
+	dPitch_2 = -radAH * cosRoll
+    } else {
+	dPitch_1 = dPitch_1 * pitchR * cosRoll
+	dPitch_2 = radAH * cosRoll
+    }
+    
+    tanRoll = -Math.tan(rad(roll))
+
+    X0 = arr.x0 - radAH
+    Y0 = arr.y0 - radAH
+
+    X1 = 0
+
+    YH = (-radAH) * tanRoll
+    Y1 = YH + dPitch_1
+    Y2 = YH + 1.5 * dPitch_2 
+
+    ctx.strokeStyle = "white";
+    ctx.fillStyle = "blue";
+    
+    // define clipping region 
+    let region = new Path2D();
+    region.rect(X0, Y0, 2 * radAH, 2 * radAH)
+
+    ctx.save();
+    ctx.clip(region);
+    ctx.fillStyle  = "blue";
+    ctx.fillRect(X0, Y0, 2 * radAH + 1, 2 * radAH + 1);
+    ctx.fillStyle = "chocolate";
+    
+    ctx.beginPath();
+    
+    if (Y1 < Y2) {
+	ctx.moveTo(X0 + X1, Y0 + rowAH + Y1)
+	ctx.lineTo(X0 + X1, Y0 + rowAH + Y2)
+	//ren:addPoint(X1, rowAH + Y1)
+	//ren:addPoint(X1, rowAH + Y2 )
+    } else if (Y1 > Y2) {
+	ctx.moveTo(X0 + X1, Y0 + rowAH + Y2)
+	ctx.lineTo(X0 + X1, Y0 + rowAH + Y1)
+	//ren:addPoint(X1, rowAH + Y2)
+	//ren:addPoint(X1, rowAH + Y1) 
+    }
+
+    X1 = 2 * radAH + 1
+    YH = (radAH) * tanRoll
+    Y1 = YH + dPitch_1
+    Y2 = YH + 1.5 * dPitch_2 
+    
+    if (Y1 < Y2) {
+	ctx.lineTo(X0 + X1, Y0 + rowAH + Y2)
+	ctx.lineTo(X0 + X1, Y0 + rowAH + Y1)
+    } else if (Y1 > Y2) {
+	ctx.lineTo(X0 + X1, Y0 + rowAH + Y1)
+	ctx.lineTo(X0 + X1, Y0 + rowAH + Y2)
+    }
+
+    ctx.fill();
+
+    ctx.strokeStyle = "white";
+    ctx.beginPath();
+    
+    //lcd.drawLine(0, 0, 0, 2*radAH + 1 )
+    ctx.moveTo(X0, Y0);
+    ctx.lineTo(X0, Y0 + 2 * radAH + 1);
+
+    //lcd.drawLine(2* radAH, 0, 2* radAH , 2*radAH  )
+    ctx.moveTo(X0 + 2 * radAH, Y0);
+    ctx.lineTo(X0 + 2 * radAH, Y0 + 2 * radAH)
+    
+    //lcd.drawLine(0, 2*radAH,2* radAH , 2* radAH )
+    ctx.moveTo(X0, Y0 + 2 * radAH);
+    ctx.lineTo(X0 + 2 * radAH, Y0 + 2 * radAH);
+
+    //lcd.drawLine(0, 0, 2*radAH, 0)
+    ctx.moveTo(X0, Y0);
+    ctx.lineTo(X0 + 2 * radAH, Y0);
+
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(X0 + radAH - 0.7 * radAH, Y0 + radAH);
+    ctx.lineTo(X0 + radAH - 0.2 * radAH, Y0 + radAH);
+    ctx.lineTo(X0 + radAH - 0.2 * radAH, Y0 + radAH + radAH / 8);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(X0 + radAH + 0.7 * radAH, Y0 + radAH);
+    ctx.lineTo(X0 + radAH + 0.2 * radAH, Y0 + radAH);
+    ctx.lineTo(X0 + radAH + 0.2 * radAH, Y0 + radAH + radAH / 8);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0);
+
+    ctx.restore();
+}
+
+
+function verticalTape(ctx, arr) {
+
+    var arrR = {};
+    
+    arr.label = "Airspeed";
+    arr.labelFont = "Mini";
+    arr.valuePos = "Side";
+    arr.valueFont = "Normal";
+    arr.backColor = "#101010";
+    arr.handed = "left";
+    
+    let width = 55;
+    let height = 130;
+    let barW = width - 10;
+    let barH = height - 10;
+    
+    let val = arr.value
+    
+    ctx.fillStyle = arr.backColor;
+    ctx.strokeStyle = "white";
+    
+    // background rectangle and outline
+    ctx.fillRect(arr.x0 - barW/2, arr.y0 - barH/2, barW, barH);
+    ctx.beginPath();
+    ctx.rect(arr.x0 - barW/2, arr.y0 - barH/2, barW, barH);
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle"
+    ctx.fillStyle = "white";
+
+    // draw label
+    arrR.xL = arr.x0
+    arrR.yL = arr.y0 + barH / 2 + jetiHeight(arr.labelFont)
+    if (typeof arr.label != "undefined" && arr.labelFont != "None") { 
+	ctx.font = jetiToCtx(arr.labelFont)
+	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+    }
+
+    // draw value on top
+    if (arr.valuePos == "Top") {
+	arrR.xV = arr.x0;
+	arrR.yV = arr.y0 - barH / 2 //- jetiHeight(arr.valueFont);
+	if (typeof arr.value != "undefined" && arr.labelFont != "None") {
+	    ctx.font = jetiToCtx(arr.valueFont);
+	    ctx.fillText("" + val, arrR.xV, arrR.yV)
+	}
+    }
+    
+    // draw pointer triangle
+    ctx.beginPath()
+    ctx.moveTo(arr.x0 + barW/2, arr.y0 + 5)
+    ctx.lineTo(arr.x0 + barW/2, arr.y0 - 5)
+    ctx.lineTo(arr.x0 + barW/2 - 5, arr.y0)
+    ctx.lineTo(arr.x0 + barW/2, arr.y0 + 5)
+    ctx.fill();
+
+    // draw side value label box and number
+    if (arr.valuePos == "Side") {
+	ctx.fillStyle = arr.backColor;
+	ctx.fillRect(arr.x0 + barW/2, arr.y0 - 10, barW, 20)
+	ctx.fillStyle = "white";
+	ctx.rect(arr.x0 + barW/2, arr.y0 - 10, barW, 20)
+	ctx.stroke()
+	
+	ctx.font = jetiToCtx("Normal");    
+	ctx.textAlign = "right";
+	ctx.fillText(""+val, arr.x0 + barW + 20,arr.y0 + 0);
+    }
+
+    // define clipping region for use with tape box
+    let region = new Path2D();
+    region.rect(arr.x0 - barW / 2, arr.y0 - barH / 2, barW, barH)
+
+    let step = 10;
+    let delta = val % step;
+    let yp;
+    let xp = arr.x0 + barW/4 + 3;
+    let yv;
+    let nums = 6; // # of numbers shown in tape
+    let zp = nums / 2;
+    let inc = step / nums;
+    let k1 = (zp * nums) / step - (zp+1); // should be zp .. + 1 to make sure 
+    let k2 = (zp * nums) / step + (zp+1); // we go past clip point on both ends
+
+    // draw the actual tape
+    ctx.save();
+    ctx.clip(region);
+    ctx.font = jetiToCtx("Mini")
+    ctx.textAlign = "right";
+    for(let kdx = k1; kdx <= k2; kdx = kdx + 1) {    
+	let idx = kdx * inc
+	yp = arr.y0 - zp * (barH / step) + (barH/step) * (delta/step) * inc + (barH / step) * idx
+	yv = zp * step / inc - step * idx / inc  + (val - delta)
+	yv = Math.round( (yv + Number.EPSILON) * 100) / 100;
+	ctx.fillText(""+ yv, xp, yp)
+	ctx.moveTo(arr.x0 - barW/2, yp)
+	ctx.lineTo(arr.x0 - barW/2 + 7, yp)
+	ctx.stroke();
+    }
+    ctx.restore();
+
+    // draw the value in overlay mode
+    if (arr.valuePos == "Overlay") {
+	ctx.fillStyle = arr.backColor;
+	ctx.fillRect(arr.x0 - barW/2, arr.y0 - 14, barW, 28);
+	ctx.beginPath();
+	ctx.rect(arr.x0 - barW/2, arr.y0 - 12, barW, 24);
+	ctx.stroke();
+	ctx.textAlign = "right";	
+	ctx.fillStyle = "yellow";
+	ctx.font = jetiToCtx(arr.valueFont);    
+	arrR.xV = arr.x0 + 20;
+	arrR.yV = arr.y0;
+	if (typeof arr.value != "undefined" && arr.valueFont != "None") {
+	    console.log(val, arrR.xV, arrR.yV)
+	    ctx.fillText(""+val, arrR.xV,arrR.yV);
+	}
+	ctx.strokeStyle = "white";
+	ctx.beginPath();
+	ctx.rect(arr.x0 - barW/2, arr.y0 - barH/2, barW, barH);
+	ctx.stroke();
+    }
+    return arrR
+}
+
 
 function horizontalBar(ctx, arr) {
 
@@ -1316,11 +1643,6 @@ function horizontalBar(ctx, arr) {
 	    ctx.restore();
 	}
 
-	//arrR.tickLabels[idxT] = {rt:rt, ca:Math.cos(a), sa:Math.sin(a), dp:dp}
-	//const fontScale = 0.18;
-	//ctx.font = "bold " + fontScale * arr.height + "px sans-serif"
-	//console.log("fS*a.h, jSz", fontScale * arr.height, jetiSize(fontScale*arr.height))
-	//ctx.font = "bold " + jetiSize(fontScale * arr.height) + "px sans-serif"
 	ctx.font = jetiToCtx(arr.tickFont)
 	if (arr.subdivs > 0 && i % arr.subdivs == 0) {
 	    ctx.fillStyle = "white";	
@@ -1482,7 +1804,7 @@ function renderGauge(ctx, input) {
 			 horizontalBar:horizontalBar,
 			 roundNeedleGauge:roundNeedleGauge,
 			 roundArcGauge:roundArcGauge,
-			 virtualGauge:virtualGauge,
+			 virtualGauge:artHorizon,
 			 panelLight:panelLight,
 			 rawText:rawText}
     if (widgetFuncs[input.type]) {

@@ -521,7 +521,7 @@ function emulator_getSensorByID(ID, Param)
    if not sensorTbl then return nil end
    if not ID or not Param then return nil end
    if ID == 0 or Param == 0 then return nil end
-   if system.getTimeCounter() < 0 then print("time negative") end
+   --if system.getTimeCounter() < 0 then print("time negative") end
    --print(env.t, lastT, 1000*env.dt)
    for k,v in ipairs(sensorTbl) do
       if v.id == ID and v.param == Param then
