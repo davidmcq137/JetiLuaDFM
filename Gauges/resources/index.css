@@ -150,7 +150,7 @@ input[disabled] {
 
 input.delete-button:disabled,
 input.delete-button[disabled] {
-  outline: 1 px solid #999999;
+  outline: 1px solid #999999;
   background-color: transparent;
 }
 
