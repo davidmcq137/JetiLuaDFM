@@ -1491,3 +1491,99 @@ function renderGauge(ctx, input) {
 	console.log("Attempt to dispatch unknown gauge type: ", input.type)
     }
 }
+
+function setupWidgets() {
+    let radius = {key: "radius", label: "Radius", type: "plusminus"},
+        min = {key: "min", label: "Minimum", type: "plusminus"},
+        max = {key: "max", label: "Maximum", type: "plusminus"},
+        width = {key: "width", label: "Width", type: "slider", props: {min: 10, max: 320}},
+        height = {key: "height", label: "Height", type: "slider", props: {min: 10, max: 80}},
+        majdivs = {key: "majdivs", label: "Major Divisions", type: "plusminus"},
+        subdivs = {key: "subdivs", label: "Sub divisions", type: "plusminus"},
+        arc_props = {min: -360, max: 360},
+        arc_start = {key: "start", label: "Arc start", type: "slider", props: arc_props},
+        arc_end = {key: "end", label: "Arc end", type: "slider", props: arc_props},
+        textFont = {key: "textFont", label: "Font size (text)", type: "fontsize"},
+        labelFont = {key: "labelFont", label: "Font size (label)", type: "fontsize"},
+        tickFont = {key: "tickFont",  label: "Font size (ticks)", type: "fontsize"},
+        valueFont = {key: "valueFont", label: "Font size (readout)", type: "fontsize"};
+
+    return {
+        roundNeedleGauge: "roundGauge",
+        roundArcGauge: "roundGauge",
+        roundGauge: [
+            radius,
+            min,
+            max,
+
+            majdivs,
+            subdivs,
+            
+            tickFont,
+            labelFont,
+            valueFont,
+                 
+            arc_start,
+            arc_end,
+            {type: "spectrum-or-colorvals"}
+        ],
+        stackedTextBox: "textBox",
+        sequencedTextBox: "textBox",
+        textBox: [
+            width,
+            height,
+            
+            textFont,
+            labelFont,
+
+            {label: "Mode", type: "textbox-mode-switcher"},
+
+            {label: "Text values", type: "multitext"}
+        ],
+        
+        horizontalBar: [
+            width,
+            height,
+
+            min,
+            max,
+            
+            majdivs,
+            subdivs,
+            
+            {key: "backColor", label: "Color", type: "color"},
+            
+            {key: "tickFont", label: "Font size (numbers)", type: "fontsize"},
+            {key: "labelFont", label: "Font size (label)", type: "fontsize"},
+            
+            {type: "spectrum-or-colorvals"}
+        ],
+        virtualGauge: [
+            radius,
+            min,
+            max,
+            textFont,
+            arc_start,
+            arc_end,
+            
+            {key: "needleClip", label: "Needle clipping", type: "slider"},
+        ],
+        rawText: [
+            width,
+            height,
+            {label: "Text", type: "multitext"},
+            textFont,
+            labelFont,
+            {key: "textColor", label: "Color", type: "color"}
+        ],
+        panelLight: [
+            radius,
+            width,
+            height,
+            labelFont,
+            {key: "lightColor", label: "Color", type: "color"}
+        ]
+    };
+
+}
+
