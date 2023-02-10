@@ -28,6 +28,7 @@
             "subdivs": 5,
             "label":"Value",
 	    "labelFont":"Bold",
+	    "labelPos":0,
             "spectrum": [
 		"red",
 		"orange",
@@ -48,6 +49,7 @@
             "subdivs": 0,
             "value":85,
             "label":"Value",
+	    "labelPos":0,
 	    "labelFont":"Bold",
             "spectrum": [
 		"red",
@@ -61,15 +63,18 @@
             "type": "horizontalBar",
             "x0": 160,
             "y0": 80,
-            "width": 120,
-            "height": 50,
+            "width": 200,
+            "height": 70,
             "min": 0,
             "max": 100,
 	    "tickFont":"Mini",
 	    "majdivs":4,
             "subdivs": 4,
             "label":"Value",
+	    "labelPos":0,
 	    "labelFont":"Mini",
+	    "backColor":"black",
+	    "bezelColor":"transparent",
 	    "value":50,
             "spectrum": [
                 "red",
@@ -92,7 +97,10 @@
 		"Running"
 	    ],
 	    "textcolor": "black",
+	    "backColor":"yellowgreen",
+	    "bezelColor":"transparent",
             "label":"Status",
+	    "labelPos":0,
 	    "labelcolor": "white",
 	    "labelFont":"Mini"
         },
@@ -111,7 +119,10 @@
 		"Lastly this is line 3"
 	    ],
 	    "textcolor": "black",
+	    "backColor":"yellowgreen",
+	    "bezelColor":"transparent",
             "label":"Info",
+	    "labelPos":0,
 	    "labelcolor": "white",
 	    "labelFont":"Mini"
         },
@@ -121,15 +132,17 @@
 	    "x0":160,
 	    "y0":80,
 	    "lightColor":"red",
-	    "offColor":"#202020",
+	    "backColor":"black",
+	    "bezelColor":"transparent",
 	    "label":"Red Light",
 	    "labelFont":"None",
+	    "labelPos":0,
 	    "radius":10,
-	    "width":40,
-	    "height":40,	    
+	    "width":50,
+	    "height":50,	    
 	    "min":0,
 	    "max":1,
-	    "value":0
+	    "value":1
 	},
 	
 	"rawText": {
@@ -139,7 +152,6 @@
 	    "text": [
 		"Some raw text"
 	    ],
-	    "label":"",
 	    "textColor":"white",
 	    "width":200,
 	    "height":20
@@ -155,6 +167,37 @@
 	    "value": 0,
 	    "start": -135,
 	    "end": 135
+	},
+
+	"artHorizon": {
+	    "type": "artHorizon",
+	    "x0": 160,
+	    "y0": 80,
+	    "roll":0,
+	    "pitch":0,
+	    "width":62,
+	    "height":62,
+	    "skyColor":"blue",
+	    "landColor":"chocolate"
+	},
+
+	"verticalTape": {
+	    "type": "vericalTape",
+	    "x0": 160,
+	    "y0": 80,
+	    "height": 130,
+	    "width": 55,
+	    "step":10,
+	    "value":200,
+	    "numbers":6,
+	    "label":"Airspeed",
+	    "labelFont":"Mini",
+	    "valueFont":"Big",
+	    "valuePos": "Side",
+	    "tapeFont": "Mini",
+	    "valueFont": "Normal",
+	    "backColor": "black",
+	    "handed":"left"
 	}
     }
 }
