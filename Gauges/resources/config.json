@@ -175,8 +175,8 @@
 	    "y0": 80,
 	    "roll":0,
 	    "pitch":0,
-	    "width":62,
-	    "height":62,
+	    "width":120,
+	    "height":120,
 	    "skyColor":"blue",
 	    "landColor":"chocolate"
 	},

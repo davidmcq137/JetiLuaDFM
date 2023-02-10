@@ -1871,6 +1871,7 @@ function rawText(ctx, arr) {
 }
 
 function renderGauge(ctx, input) {
+    console.log(ctx, input);
     const widgetFuncs = {sequencedTextBox:sequencedTextBox,
 			 stackedTextBox:stackedTextBox,
 			 horizontalBar:horizontalBar,
@@ -1878,9 +1879,9 @@ function renderGauge(ctx, input) {
 			 roundArcGauge:roundArcGauge,
 			 virtualGauge:virtualGauge,
 			 panelLight:panelLight,
-			 rawText:rawText}
-			 //artHorizon:artHorizon,
-			 //verticalTape:verticalTape}
+			 rawText:rawText,
+			 artHorizon:artHorizon,
+			 verticalTape:verticalTape}
     if (widgetFuncs[input.type]) {
 	return widgetFuncs[input.type](ctx, input);
     } else {
@@ -1985,7 +1986,7 @@ function setupWidgets() {
 	    width,
 	    height,
 	    {key: "roll", label: "Roll (deg)", type: "slider", props: {min: -180, max: 180}},
-	    {key: "pitch", label: "Pitch (deg)", type: "slider", props: {min: -180, max: 180}},	    
+	    {key: "pitch", label: "Pitch (deg)", type: "slider", props: {min: -45, max: 45}},	    
 	    {key: "skyColor", label: "Color", type: "color"},
             {key: "landColor", label: "Color", type: "color"}
 	],
