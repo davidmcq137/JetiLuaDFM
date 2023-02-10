@@ -211,6 +211,23 @@
      (for [fs font-size-options]
        [:option {:key fs  :value fs} fs])]))
 
+(rum/defc gaugeparam-select
+  < rum/reactive
+  [da k {:strs [options def]}]
+  (let [{:keys [params]  :as d} (rum/react da)
+        v (get params k)]
+    [:select
+     {:value (or v def)
+      :style {:width "12em"
+              :justify-self "end"}
+      :onChange (fn [ev]
+                  (update-gauge* da assoc k (.-value (.-target ev))))}
+     (for [o options]
+       (if (string? o)
+         [:option {:key o  :value o} o]
+         (let [{:strs [value label]} o]
+           [:option {:key value :value value} label])))]))
+
 (rum/defc float-input
   [{:keys [value on-change decimal-places] :or {decimal-places 2}}]
   (let [[{:keys [text valid] :as st } set-st!] (rum/use-state {:text value :valid true})]
@@ -531,8 +548,9 @@
      "fontsize"  (gaugeparam-fontsize da key)
      "slider"    (gaugeparam-slider da key props)
      "color"     (gaugeparam-color da key)
+     "select"    (gaugeparam-select da key props)
      
-     "multitext" (edit-multitext da)
+     "multitext"             (edit-multitext da)
      "textbox-mode-switcher" (textbox-mode-switcher da)
      "spectrum-or-colorvals" (spectrum-or-colorvals da)
      
