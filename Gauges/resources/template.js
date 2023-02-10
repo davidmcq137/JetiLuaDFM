@@ -1209,13 +1209,19 @@ function textBox(ctx, arr, type) {
 
     const bezel = 2;
 
+    if (typeof arr.bezelColor == "undefined") {
+	arr.bezelColor = "transparent";
+    }
     if (arr.bezelColor != "transparent") {
-	ctx.fillStyle = arr.bezelColor;
-	ctx.strokeStyle = ctx.fillStyle;
+	//console.log("bezel", arr.bezelColor);
+	ctx.strokeStyle = arr.bezelColor;
 	roundedRectBezel(ctx, x0 - arr.width/2 + bezel, y0 - h/2 + bezel,
 			 arr.width - 2 * bezel, h - 2 * bezel, 3, bezel + 1);
     }
 
+    if (typeof arr.backColor == "undefined") {
+	arr.backColor = "yellowgreen";
+    }
     if (arr.backColor != "transparent") {
 	ctx.fillStyle = arr.backColor;
 	roundedRect(ctx, x0 - arr.width/2 + bezel + 1, y0 - h/2 + bezel + 1,
@@ -1230,6 +1236,7 @@ function textBox(ctx, arr, type) {
     arrR.yL = y0 + h/4 + jetiHeight(arr.labelFont) + arr.labelPos
 
     if (typeof arr.label != "undefined" && arr.labelFont != "None") { 
+	ctx.fillStyle = "white";
 	ctx.font = arr.labelFont
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
@@ -1238,7 +1245,7 @@ function textBox(ctx, arr, type) {
     arrR.yV = y0;
 
     if (typeof arr.value != "undefined") {
-	ctx.fillStyle = arr.textcolor;
+	ctx.fillStyle = "black";
 	ctx.textAlign = "center";
 	ctx.textBaseline = "middle"
 	ctx.font = arr.textFont
@@ -1326,12 +1333,16 @@ function artHorizon(ctx, arr) {
       Use here conforms with the license terms
     */
 
+    var arrR = {};
+    
     let pitch = arr.pitch;
     let roll = arr.roll;
 
-    let rowAH = arr.width;
-    let radAH = arr.width;
+    let rowAH = arr.width / 2 - 20;
+    let radAH = arr.width / 2 - 20;
     let pitchR = radAH / 25;
+
+    console.log(arr.width, rowAH);
 
     let tanRoll;
     let cosRoll;
@@ -1380,17 +1391,19 @@ function artHorizon(ctx, arr) {
     Y2 = YH + 1.5 * dPitch_2 
 
     ctx.strokeStyle = "white";
-    ctx.fillStyle = "blue";
-    
+    ctx.fillStyle = arr.skyColor;
+
     // define clipping region 
     let region = new Path2D();
     region.rect(X0, Y0, 2 * radAH, 2 * radAH)
 
+    console.log(X0, Y0, 2 * radAH, 2 * radAH)
+    
     ctx.save();
     ctx.clip(region);
-    ctx.fillStyle  = "blue";
+    ctx.fillStyle  = arr.skyColor;
     ctx.fillRect(X0, Y0, 2 * radAH + 1, 2 * radAH + 1);
-    ctx.fillStyle = "chocolate";
+    ctx.fillStyle = arr.landColor;
     
     ctx.beginPath();
     
@@ -1459,6 +1472,20 @@ function artHorizon(ctx, arr) {
     drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0);
 
     ctx.restore();
+
+    arrR.xL = arr.x0
+    arrR.yL = arr.y0 + radAH + jetiHeight(arr.labelFont) + arr.labelPos
+
+    //console.log("arr.label, arr.labelFont, arrR.xL, arrR.yL", arr.label, arr.labelFont, arrR.xL, arrR.yL)
+    
+    if (typeof arr.label != "undefined" && arr.labelFont != "None") { 
+	ctx.fillStyle = "white";
+	ctx.textAlign = "center";
+	ctx.textBaseline = "middle"
+	ctx.font = arr.labelFont
+	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+    }
+
 }
 
 
@@ -1468,11 +1495,13 @@ function verticalTape(ctx, arr) {
     
     let width = arr.width;
     let height = arr.height;
-    let barW = width - 10;
-    let barH = height - 10;
+    let barW = width - 110;
+    let barH = height - 30;
     
     let val = arr.value
 
+    arr.handed = "right";
+    
     // background rectangle
     if (arr.backColor != "transparent") {
 	ctx.fillStyle = arr.backColor;
@@ -1490,13 +1519,14 @@ function verticalTape(ctx, arr) {
 
     ctx.textAlign = "center";
     ctx.textBaseline = "middle"
-    ctx.fillStyle = "white";
 
     // draw label
     arrR.xL = arr.x0
     arrR.yL = arr.y0 + barH / 2 + jetiHeight(arr.labelFont)
     if (typeof arr.label != "undefined" && arr.labelFont != "None") { 
+	console.log(arrR.xL, arrR.yL)
 	ctx.font = jetiToCtx(arr.labelFont)
+	ctx.fillStyle = "white";
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
 
@@ -1506,29 +1536,66 @@ function verticalTape(ctx, arr) {
 	arrR.yV = arr.y0 - barH / 2 //- jetiHeight(arr.valueFont);
 	if (typeof arr.value != "undefined" && arr.labelFont != "None") {
 	    ctx.font = jetiToCtx(arr.valueFont);
+	    ctx.fillStyle = "white";
 	    ctx.fillText("" + val, arrR.xV, arrR.yV)
 	}
     }
     
     // draw pointer triangle
+
+    let dx;
+    let dx1;
+    if (arr.handed == "left") {
+	dx = barW / 2;
+	dx1 = -5;
+    } else {
+	dx = -barW / 2;
+	dx1 = 5;
+    }
+    ctx.fillStyle = "white";
     ctx.beginPath()
-    ctx.moveTo(arr.x0 + barW/2, arr.y0 + 5)
-    ctx.lineTo(arr.x0 + barW/2, arr.y0 - 5)
-    ctx.lineTo(arr.x0 + barW/2 - 5, arr.y0)
-    ctx.lineTo(arr.x0 + barW/2, arr.y0 + 5)
+    ctx.moveTo(arr.x0 + dx, arr.y0 + 5)
+    ctx.lineTo(arr.x0 + dx, arr.y0 - 5)
+    ctx.lineTo(arr.x0 + dx + dx1, arr.y0)
+    ctx.lineTo(arr.x0 + dx, arr.y0 + 5)
     ctx.fill();
 
     // draw side value label box and number
+    if (arr.handed == "left") {
+	arrR.xV = arr.x0 + barW + 18;
+    } else {
+	arrR.xV = arr.x0 - barW + 6;
+    }
+    
+    //console.log(0.08 * jetiHeight(arr.valueFont));
+    arrR.yV = arr.y0 + .04 * jetiHeight(arr.valueFont);
     if (arr.valuePos == "Side") {
-	ctx.fillStyle = arr.backColor;
-	ctx.fillRect(arr.x0 + barW/2, arr.y0 - 10, barW, 20)
-	ctx.fillStyle = "white";
-	ctx.rect(arr.x0 + barW/2, arr.y0 - 10, barW, 20)
-	ctx.stroke()
+	console.log("side", arr.backColor)
+	ctx.fillStyle = "black";
+	if (arr.backColor != "transparent") {
+	    ctx.fillStyle = arr.backColor;
+	    if (arr.handed == "left") {
+		ctx.fillRect(arr.x0 + barW/2, arr.y0 - 10, barW, 20)
+	    } else {
+		ctx.fillRect(arr.x0 - 3 * barW/2, arr.y0 - 10, barW, 20)
+	    }
+	}
+	ctx.strokeStyle = "white";
+	if (arr.handed == "left") {
+	    ctx.rect(arr.x0 + barW/2, arr.y0 - 10, barW, 20)
+	} else {
+	    ctx.rect(arr.x0 - 3 * barW/2, arr.y0 - 10, barW, 20)
+	}
 	
-	ctx.font = jetiToCtx(arr.valueFont);    
-	ctx.textAlign = "right";
-	ctx.fillText(""+val, arr.x0 + barW + 20,arr.y0 + 0);
+	ctx.stroke()
+	ctx.font = jetiToCtx(arr.valueFont);
+	if (arr.handed == "left") {
+	    ctx.textAlign = "right";
+	} else {
+	    ctx.textAlighn = "left";
+	}
+	ctx.fillStyle = "white";
+	ctx.fillText("" + val, arrR.xV, arrR.yV);
     }
 
     // define clipping region for use with tape box
@@ -1538,28 +1605,45 @@ function verticalTape(ctx, arr) {
     let step = arr.step;
     let delta = val % step;
     let yp;
-    let xp = arr.x0 + barW/4 + 3;
+    let xp;
     let yv;
     let nums = arr.numbers; // # of numbers shown in tape
     let zp = nums / 2;
     let inc = step / nums;
     let k1 = (zp * nums) / step - (zp+1); // should be zp .. + 1 to make sure 
     let k2 = (zp * nums) / step + (zp+1); // we go past clip point on both ends
-
+    if (arr.handed == "left") {
+	xp = arr.x0 + barW/4 + 3;
+    } else {
+	xp = arr.x0 - barW/4 - 2;
+    }
+    
     // draw the actual tape
     ctx.save();
     ctx.clip(region);
     ctx.font = jetiToCtx(arr.tapeFont);
-    ctx.textAlign = "right";
+    if (arr.handed == "left") {
+	ctx.textAlign = "right";
+    } else {
+	ctx.textAlign = "left";
+    }
+    ctx.fillStyle = "white";
     for(let kdx = k1; kdx <= k2; kdx = kdx + 1) {    
 	let idx = kdx * inc
 	yp = arr.y0 - zp * (barH / step) + (barH/step) * (delta/step) * inc + (barH / step) * idx
 	yv = zp * step / inc - step * idx / inc  + (val - delta)
 	yv = Math.round( (yv + Number.EPSILON) * 100) / 100;
 	ctx.fillText(""+ yv, xp, yp)
-	ctx.moveTo(arr.x0 - barW/2, yp)
-	ctx.lineTo(arr.x0 - barW/2 + 7, yp)
-	ctx.stroke();
+	if (arr.handed == "left") {
+	    ctx.moveTo(arr.x0 - barW/2, yp)
+	    ctx.lineTo(arr.x0 - barW/2 + 7, yp)
+	    ctx.stroke();
+	} else {
+	    ctx.moveTo(arr.x0 + barW/2, yp)
+	    ctx.lineTo(arr.x0 + barW/2 - 7, yp)
+	    ctx.stroke();
+	}
+	
     }
     ctx.restore();
 
@@ -1654,15 +1738,16 @@ function horizontalBar(ctx, arr) {
     arrR.rects = [];
     var rgbI, cfs, r, g, b;
 
-    //console.log("arr.value", arr.value);
-
     let region = new Path2D();
-    region.rect(arr.x0 - w / 2, arr.y0 - cellMult * h / 2, w * arr.value / 100.0, cellMult * h)
+    let ff = (arr.value - arr.min) / (arr.max - arr.min); // goes from 0 to 1 over min to max
+    console.log("ff, w, w*ff", ff, w, w*ff);
+    region.rect(arr.x0 - w / 2, arr.y0 - cellMult * h / 2, w * ff, cellMult * h);
     
     var colors = arr.colorvals;
     var idxL = 0;
     arrR.hbarLabels = [];
-    
+    var val;
+    var aFrac;
     for (var i = 0; i <= divs; i++) {
 
 	delta = w / divs;
@@ -1670,8 +1755,9 @@ function horizontalBar(ctx, arr) {
 	const fudge = 1 / (100 * divs);	
 	if (typeof colors == "object") {
 	    const cl = colors.length - 1;
-	    var aFrac = (a - start) / (end - start)
-	    var val = (arr.min + aFrac * (arr.max - arr.min))
+	    aFrac = (a - start) / (end - start);
+	    val = (arr.min + aFrac * (arr.max - arr.min))
+	    //console.log("val, aFrac", val, aFrac);
 	    if (val != 0) {
 		val = val + fudge;
 	    }
@@ -1871,7 +1957,6 @@ function rawText(ctx, arr) {
 }
 
 function renderGauge(ctx, input) {
-    console.log(ctx, input);
     const widgetFuncs = {sequencedTextBox:sequencedTextBox,
 			 stackedTextBox:stackedTextBox,
 			 horizontalBar:horizontalBar,
@@ -1889,7 +1974,7 @@ function renderGauge(ctx, input) {
     }
 }
 
-function setupWidgets() {
+function setupWidgets(){ 
     let radius = {key: "radius", label: "Radius", type: "plusminus"},
         min = {key: "min", label: "Minimum", type: "plusminus"},
         max = {key: "max", label: "Maximum", type: "plusminus"},
@@ -1897,7 +1982,7 @@ function setupWidgets() {
         height = {key: "height", label: "Height", type: "slider", props: {min: 10, max: 160}},
         majdivs = {key: "majdivs", label: "Major Divisions", type: "plusminus"},
         subdivs = {key: "subdivs", label: "Sub divisions", type: "plusminus"},
-        arc_props = {min: -180, max: 180},
+        arc_props = {min: -270, max: 270},
         arc_start = {key: "start", label: "Arc start", type: "slider", props: arc_props},
         arc_end = {key: "end", label: "Arc end", type: "slider", props: arc_props},
         textFont = {key: "textFont", label: "Font size (text)", type: "fontsize"},
@@ -1979,7 +2064,6 @@ function setupWidgets() {
             {key: "lightColor", label: "Color", type: "color"},
 	    {key: "backColor", label: "Background Color", type: "color"},
 	    {key: "bezelColor", label: "Bezel Color", type: "color"}
-	    
         ],
 	
 	artHorizon: [
@@ -1987,13 +2071,16 @@ function setupWidgets() {
 	    height,
 	    {key: "roll", label: "Roll (deg)", type: "slider", props: {min: -180, max: 180}},
 	    {key: "pitch", label: "Pitch (deg)", type: "slider", props: {min: -45, max: 45}},	    
-	    {key: "skyColor", label: "Color", type: "color"},
-            {key: "landColor", label: "Color", type: "color"}
+	    {key: "skyColor", label: "Sky Color", type: "color"},
+            {key: "landColor", label:"Land Color", type: "color"},
+	    {key: "labelPos", label: "Label Position", type: "slider", props: {min: -140, max: 10}},
+	    labelFont
 	],
 
 	verticalTape: [
 	    width,
 	    height,
+	    {key: "value", label: "Value", type: "slider", props: {min: 1, max: 1000}},	    
 	    {key: "step", label: "Step", type: "slider", props: {min: 1, max: 100}},
             {key: "numbers", label: "Numbers shown", type: "plusminus"},
 	    labelFont,

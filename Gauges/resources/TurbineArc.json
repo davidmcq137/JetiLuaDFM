@@ -1,9 +1,11 @@
 [
     {
-	"width": 131,
-	"height": 35,
+	"width": 130,
+	"height": 50,
 	"y0": 140,
 	"label": "Turbine Status",
+	"bezelColor":"transparent",
+	"backColor":"yellowgreen",
 	"x0": 245,
 	"value": 0,
 	"text": [
@@ -24,6 +26,9 @@
 	"height": 42,
 	"y0": 140,
 	"label": "Fuel Remaining",
+	"labelPos":0,
+	"bezelColor":"transparent",
+	"backColor":"black",
 	"max": 100,
 	"x0": 90,
 	"majdivs":4,

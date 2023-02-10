@@ -42,8 +42,8 @@
 	"value": 64,
 	"type": "roundArcGauge",
 	"valueFont": "Maxi",
-	"start":135,
-	"end":405
+	"start": -225,
+	"end":45
 	
     }
 ]

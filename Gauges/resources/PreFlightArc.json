@@ -11,7 +11,9 @@
 	"x0": 80,
 	"value": 0,
 	"text": ["Rx1 Voltage 'v''u'"],
-	"type": "stackedTextBox"
+	"type": "stackedTextBox",
+	"backColor":"yellowgreen",
+	"bezelColor":"transparent"
     },
     {
 	"width": 150,
@@ -30,7 +32,9 @@
 	    "User Off",
 	    "Standby"
 	],
-	"type": "sequencedTextBox"
+	"type": "sequencedTextBox",
+	"backColor":"yellowgreen",
+	"bezelColor":"transparent"
     },
     {
 	"width": 150,
@@ -47,7 +51,9 @@
 	    "Line Three",
 	    "Line Four"
 	],
-	"type": "stackedTextBox"
+	"type": "stackedTextBox",
+	"backColor":"yellowgreen",
+	"bezelColor":"transparent"
     },
     {
 	"yL": 144.8,

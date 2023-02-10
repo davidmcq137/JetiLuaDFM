@@ -10,7 +10,9 @@
 	    "Rx1 Voltage 'v''u'"
 	],
 	"textFont":"Mini",
-	"type": "stackedTextBox"
+	"type": "stackedTextBox",
+	"backColor":"yellowgreen",
+	"bezelColor":"transparent"
     },
     {
 	"width": 150,
@@ -24,7 +26,9 @@
 	    "Use Xicoy Extension "
 	],
 	"textFont":"Mini",
-	"type": "stackedTextBox"
+	"type": "stackedTextBox",
+	"backColor":"yellowgreen",
+	"bezelColor":"transparent"
     },
     {
 	"width": 150,
@@ -40,7 +44,9 @@
 	    "Batt 2 Cap: 'S8.0' mAh"
 	],
 	"textFont":"Mini",
-	"type": "stackedTextBox"
+	"type": "stackedTextBox",
+	"backColor":"yellowgreen",
+	"bezelColor":"transparent"
     },
     {
 	"min": 6.0,
