@@ -14,6 +14,10 @@
 --]]
 
 local hp1345a = {
+   { --minus sign
+      {0,8},
+      {12,8}
+   },
    { --dec pt
       {6,18},
       {8,18},
@@ -160,7 +164,7 @@ local function drawHP1345A(x, y, str, scale, rot, wid)
    local xr, yr
    local shape
    local b0 = 48 -- string.byte("0")
-   local cc, np
+   local np
    
    if rot ~= savrot then
       cosrot = math.cos(-rot)
@@ -169,8 +173,13 @@ local function drawHP1345A(x, y, str, scale, rot, wid)
    end
    
    for char in string.gmatch(str, ".") do
-      if char == "." then cc = "/" else cc = char end
-      np = string.byte(cc) - b0 + 2
+      if char == "-" then
+	 np = 1
+      elseif char == "." then
+	 np = 2
+      else
+	 np = string.byte(char) - b0 + 3
+      end
       shape = hp1345a[np]
       if shape then 
 	 ren:reset()
@@ -195,7 +204,7 @@ local function printForm()
 
    local scale = system.getInputs("P4") + 1
    local rot = 180 * (system.getInputs("P1") + 1)
-   drawHP1345A(100,80, "12345.67890", scale, math.rad(rot),2)
+   drawHP1345A(80,80, "-12345.67890", scale, math.rad(rot),2)
    lcd.drawText(10,140, "CPU: "..system.getCPU().. string.format(" Angle: %d°", rot))
    
 end

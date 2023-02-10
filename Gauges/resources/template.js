@@ -305,130 +305,195 @@ function ColourGradient()
 
 
 var hp1345a = [
-   [ 
-      [6,18],
-      [8,18],
-      [8,16],
-      [6,16],
-      [6,18]
-   ],
-   [ 
-      [3,18],
-      [9,18],
-      [12,12],
-      [12,6],
-      [9,0],
-      [3,0],
-      [0,6],
-      [0,12],
-      [3,18],
-      [-1,-1],
-      [1,16],
-      [11,2]
-   ],
-   [ 
-      [3,18],
-      [9,18],
-      [-1,-1],
-      [6,18],
-      [6,0],
-      [3,3]
-   ],
-   [ 
-      [12,18],
-      [0,18],
-      [2,13],
-      [12,7],
-      [12,3],
-      [9,0],
-      [3,0],
-      [0,3]
-   ],
-   [ 
-      [0,16],
-      [3,18],
-      [9,18],
-      [12,15],
-      [12,11],
-      [9,9],
-      [3,9],
-      [9,9],
-      [12,7],
-      [12,3],
-      [9,0],
-      [3,0],
-      [0,2]
-   ],
-   [ 
-      [12,12],
-      [0,12],
-      [9,0],
-      [9,18]
-   ],
-   [ 
-      [0,16],
-      [3,18],
-      [9,18],
-      [12,16],
-      [12,10],
-      [9,8],
-      [3,8],
-      [0,9],
-      [2,0],
-      [12,0]
-   ],
-   [ 
-      [0,11],
-      [3,8],
-      [9,8],
-      [12,11],
-      [12,15],
-      [9,18],
-      [3,18],
-      [0,15],
-      [0,8],
-      [3,3],
-      [7,0]
-   ],
-   [ 
-      [4,18],
-      [12,0],
-      [0,0]
-   ],
-   [ 
-      [3,18],
-      [9,18],
-      [12,15],
-      [12,11],
-      [9,8],
-      [3,8],
-      [0,5],
-      [0,2],
-      [3,-1],
-      [9,-1],
-      [12,2],
-      [12,5],
-      [9,8],
-      [3,8],
-      [0,11],
-      [0,15],
-      [3,18]
-   ],
-   [ 
-      [5,18],
-      [9,15],
-      [12,10],
-      [12,3],
-      [9,0],
-      [3,0],
-      [0,3],
-      [0,7],
-      [3,10],
-      [9,10],
-      [12,7]
-   ]
+    [
+	[0,8],
+	[12,8]
+    ],
+    [
+	[6,18],
+	[8,18],
+	[8,16],
+	[6,16],
+	[6,18]
+    ],
+    [ 
+	[3,18],
+	[9,18],
+	[12,12],
+	[12,6],
+	[9,0],
+	[3,0],
+	[0,6],
+	[0,12],
+	[3,18],
+	[-1,-1],
+	[1,16],
+	[11,2]
+    ],
+    [ 
+	[3,18],
+	[9,18],
+	[-1,-1],
+	[6,18],
+	[6,0],
+	[3,3]
+    ],
+    [ 
+	[12,18],
+	[0,18],
+	[2,13],
+	[12,7],
+	[12,3],
+	[9,0],
+	[3,0],
+	[0,3]
+    ],
+    [ 
+	[0,16],
+	[3,18],
+	[9,18],
+	[12,15],
+	[12,11],
+	[9,9],
+	[3,9],
+	[9,9],
+	[12,7],
+	[12,3],
+	[9,0],
+	[3,0],
+	[0,2]
+    ],
+    [ 
+	[12,12],
+	[0,12],
+	[9,0],
+	[9,18]
+    ],
+    [ 
+	[0,16],
+	[3,18],
+	[9,18],
+	[12,16],
+	[12,10],
+	[9,8],
+	[3,8],
+	[0,9],
+	[2,0],
+	[12,0]
+    ],
+    [ 
+	[0,11],
+	[3,8],
+	[9,8],
+	[12,11],
+	[12,15],
+	[9,18],
+	[3,18],
+	[0,15],
+	[0,8],
+	[3,3],
+	[7,0]
+    ],
+    [ 
+	[4,18],
+	[12,0],
+	[0,0]
+    ],
+    [ 
+	[3,18],
+	[9,18],
+	[12,15],
+	[12,11],
+	[9,8],
+	[3,8],
+	[0,5],
+	[0,2],
+	[3,-1],
+	[9,-1],
+	[12,2],
+	[12,5],
+	[9,8],
+	[3,8],
+	[0,11],
+	[0,15],
+	[3,18]
+    ],
+    [ 
+	[5,18],
+	[9,15],
+	[12,10],
+	[12,3],
+	[9,0],
+	[3,0],
+	[0,3],
+	[0,7],
+	[3,10],
+	[9,10],
+	[12,7]
+    ]
 ]
 
+function drawHP1345A(ctx, x, y, str, scale, rot, wid) {
+
+    // function requires a string to be passed ... formatting to be done
+    // by caller. Ignores non number or . characters
+    //
+    // x,y:   start location in pixels (upper left or first char)
+    // str:   string to draw
+    // scale: size multiplier .. 1 is nominal
+    // rot:   rotation angle (radians)
+    // wid:   width of polyline (pixels)
+    
+    let xc = x;
+    let yc = y;
+    let xr;
+    let yr;
+    let shape = [];
+    let b0 = 48 // string.byte("0")
+    let np;
+    let first;
+    let v = [];
+
+    for (let char of str) {
+	if (char == "-") {
+	    np = 0
+	} else if (char == ".") {
+	    np = 1
+	} else {
+	    np = char.charCodeAt() - b0 + 2
+	}
+	shape = hp1345a[np]
+	ctx.strokeStyle = "white";
+	ctx.lineWidth = wid;
+	ctx.linecap = "round";
+	
+	if (typeof shape != "undefined") {
+	    ctx.beginPath();
+	    first = true;
+	    for (let k = 0, len = shape.length; k < len; k++) {
+		v = shape[k]
+		if (v[0] == -1) { // pick up pen
+		    ctx.stroke();
+		    ctx.beginPath();
+		    first = true;
+		} else {
+		    xr = xc + scale*v[0]*Math.cos(-rot) - scale*v[1]*Math.sin(-rot)
+		    yr = yc + scale*v[0]*Math.sin(-rot) + scale*v[1]*Math.cos(-rot)
+		    if (first == true) {
+			ctx.moveTo(xr, yr);
+			first = false;
+		    } else {
+			ctx.lineTo(xr, yr);
+		    }
+		}
+	    }
+	    ctx.stroke();
+	    xc = xc + scale * 18 * Math.cos(-rot)
+	    yc = yc + scale * 18 * Math.sin(-rot)
+	}
+    }
+}
+    
 function go() {
     let t = document.getElementById("input-json").value;
     var obj = null, err = null;
@@ -1280,36 +1345,39 @@ function rad(deg) {
     return deg * Math.PI / 180.0
 }
 
-function drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0) {
+function drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0, scl) {
 
-    let XH;
-    let YH;
+    let XH,YH,X1,X2,X3,Y1,Y2,Y3;
+    let pp;
+    const XHS = 18 * radAH / 70;
+    const XHL = 40 * radAH / 70;
+    const scale = scl * radAH / 70;
     
     let sinRoll = Math.sin(rad(-roll))
     let cosRoll = Math.cos(rad(-roll))
     let delta = pitch % 15    
 
     for (let i = delta - 45; i < 45 + delta; i = i + 15) {
-	//XH = Math.abs(pitch - i % 360) < 0.01 and 30 or 13
 	if (Math.abs(pitch - i % 360) < 0.01) {
-	    XH = 30;
+	    XH = XHL;
 	} else {
-	    XH = 13;
+	    XH = XHS;
 	}
-	YH = pitchR * i                      
-    
-	X1 = -XH * cosRoll - YH * sinRoll
-	Y1 = -XH * sinRoll + YH * cosRoll
-	X2 = (XH - 2) * cosRoll - YH * sinRoll
-	Y2 = (XH - 2) * sinRoll + YH * cosRoll
 
+	YH = pitchR * i                      
+	pp = pitch - i;
+    
+	X1 = -XH * cosRoll - YH * sinRoll;
+	Y1 = -XH * sinRoll + YH * cosRoll;
+	X2 = (XH - 0) * cosRoll - YH * sinRoll;
+	Y2 = (XH - 0) * sinRoll + YH * cosRoll;
+	X3 = (XH + 5) * cosRoll - (YH - 3) * sinRoll;
+	Y3 = (XH + 5) * sinRoll + (YH - 3) * cosRoll;	
+	X4 = (-XH - 18*scale*pp.toString().length - 5) * cosRoll - (YH - 3) * sinRoll;
+	Y4 = (-XH - 18*scale*pp.toString().length - 5) * sinRoll + (YH - 3) * cosRoll;	
+	
 	if ( !( (X1 < -radAH && X2 < -radAH) ||  (X1 > radAH && X2 > radAH)
 		|| (Y1 < -radAH && Y2 < -radAH) ||  (Y1 > radAH && Y2 > radAH) ) ) {
-
-	    //ren:reset()
-	    //ren:addPoint(radAH+X1, radAH+ Y1)
-	    //ren:addPoint(radAH + X2, radAH+Y2) 
-	    //ren:renderPolyline(2)
 
 	    ctx.strokeStyle = "white";
 	    ctx.lineWidth = 2;
@@ -1317,6 +1385,10 @@ function drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0) {
 	    ctx.moveTo(X0 + radAH + X1, Y0 + radAH + Y1);
 	    ctx.lineTo(X0 + radAH + X2, Y0 + radAH + Y2);
 	    ctx.stroke();
+	    if (XH == XHS) {
+		drawHP1345A(ctx, X0 + radAH + X3, Y0 + radAH + Y3, "" + pp, scale, rad(roll), 1);
+		drawHP1345A(ctx, X0 + radAH + X4, Y0 + radAH + Y4, "" + pp, scale, rad(roll), 1);
+	    }
 	}
     }
 }
@@ -1342,7 +1414,7 @@ function artHorizon(ctx, arr) {
     let radAH = arr.width / 2 - 20;
     let pitchR = radAH / 25;
 
-    console.log(arr.width, rowAH);
+    //console.log(arr.width, rowAH);
 
     let tanRoll;
     let cosRoll;
@@ -1389,22 +1461,20 @@ function artHorizon(ctx, arr) {
     YH = (-radAH) * tanRoll
     Y1 = YH + dPitch_1
     Y2 = YH + 1.5 * dPitch_2 
-
-    ctx.strokeStyle = "white";
-    ctx.fillStyle = arr.skyColor;
-
+  
     // define clipping region 
     let region = new Path2D();
     region.rect(X0, Y0, 2 * radAH, 2 * radAH)
 
-    console.log(X0, Y0, 2 * radAH, 2 * radAH)
+    //console.log(X0, Y0, 2 * radAH, 2 * radAH)
     
     ctx.save();
     ctx.clip(region);
+    ctx.strokeStyle = "white";
     ctx.fillStyle  = arr.skyColor;
     ctx.fillRect(X0, Y0, 2 * radAH + 1, 2 * radAH + 1);
+
     ctx.fillStyle = arr.landColor;
-    
     ctx.beginPath();
     
     if (Y1 < Y2) {
@@ -1458,18 +1528,18 @@ function artHorizon(ctx, arr) {
     ctx.beginPath();
     ctx.moveTo(X0 + radAH - 0.7 * radAH, Y0 + radAH);
     ctx.lineTo(X0 + radAH - 0.2 * radAH, Y0 + radAH);
-    ctx.lineTo(X0 + radAH - 0.2 * radAH, Y0 + radAH + radAH / 8);
+    ctx.lineTo(X0 + radAH - 0.2 * radAH, Y0 + radAH + radAH / 10);
     ctx.lineWidth = 2;
     ctx.stroke();
 
     ctx.beginPath();
     ctx.moveTo(X0 + radAH + 0.7 * radAH, Y0 + radAH);
     ctx.lineTo(X0 + radAH + 0.2 * radAH, Y0 + radAH);
-    ctx.lineTo(X0 + radAH + 0.2 * radAH, Y0 + radAH + radAH / 8);
+    ctx.lineTo(X0 + radAH + 0.2 * radAH, Y0 + radAH + radAH / 10);
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0);
+    drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0, 0.4);
 
     ctx.restore();
 
@@ -1486,6 +1556,9 @@ function artHorizon(ctx, arr) {
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
 
+    
+    //drawHP1345A(ctx, arr.x0, arr.y0, "123.456", 0.4, 0, 1)
+
 }
 
 
@@ -1500,7 +1573,10 @@ function verticalTape(ctx, arr) {
     
     let val = arr.value
 
-    arr.handed = "right";
+    //arr.handed = "right";
+    if (typeof arr.handed == "undefined") {
+	arr.handed = "left";
+    }
     
     // background rectangle
     if (arr.backColor != "transparent") {
@@ -1524,7 +1600,7 @@ function verticalTape(ctx, arr) {
     arrR.xL = arr.x0
     arrR.yL = arr.y0 + barH / 2 + jetiHeight(arr.labelFont)
     if (typeof arr.label != "undefined" && arr.labelFont != "None") { 
-	console.log(arrR.xL, arrR.yL)
+	//console.log(arrR.xL, arrR.yL)
 	ctx.font = jetiToCtx(arr.labelFont)
 	ctx.fillStyle = "white";
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
@@ -1570,7 +1646,7 @@ function verticalTape(ctx, arr) {
     //console.log(0.08 * jetiHeight(arr.valueFont));
     arrR.yV = arr.y0 + .04 * jetiHeight(arr.valueFont);
     if (arr.valuePos == "Side") {
-	console.log("side", arr.backColor)
+	//console.log("side", arr.backColor)
 	ctx.fillStyle = "black";
 	if (arr.backColor != "transparent") {
 	    ctx.fillStyle = arr.backColor;
@@ -2070,7 +2146,7 @@ function setupWidgets(){
 	    width,
 	    height,
 	    {key: "roll", label: "Roll (deg)", type: "slider", props: {min: -180, max: 180}},
-	    {key: "pitch", label: "Pitch (deg)", type: "slider", props: {min: -45, max: 45}},	    
+	    {key: "pitch", label: "Pitch (deg)", type: "slider", props: {min: -180, max: 180}},	    
 	    {key: "skyColor", label: "Sky Color", type: "color"},
             {key: "landColor", label:"Land Color", type: "color"},
 	    {key: "labelPos", label: "Label Position", type: "slider", props: {min: -140, max: 10}},
@@ -2083,6 +2159,17 @@ function setupWidgets(){
 	    {key: "value", label: "Value", type: "slider", props: {min: 1, max: 1000}},	    
 	    {key: "step", label: "Step", type: "slider", props: {min: 1, max: 100}},
             {key: "numbers", label: "Numbers shown", type: "plusminus"},
+	    { key: "handed", 
+	      label: "Left or Right handed", 
+	      type: "select",
+	      props: {
+		  def: "left", 
+		  options: [
+		      {value: "left", label: "Left"},
+		      {value: "right", label: "Right"}
+		  ]
+	      }
+	    }, 
 	    labelFont,
 	    valueFont,
             {key: "tapeFont", label: "Font size (tape)", type: "fontsize"},	    
