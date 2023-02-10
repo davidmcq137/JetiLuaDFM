@@ -9,7 +9,8 @@
         "Turbine":       {"file": "Turbine.json"},
         "TurbineArc":    {"file": "TurbineArc.json"},
 	"TwoLarge":      {"file": "TwoLarge.json"},
-	"TwoLargeArc":   {"file": "TwoLargeArc.json"}	
+	"TwoLargeArc":   {"file": "TwoLargeArc.json"},	
+	"GlassCockpit":  {"file": "GlassCockpit.json"}
     },
 
     "prototypes": {
