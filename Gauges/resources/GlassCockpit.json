@@ -1,6 +1,5 @@
 [
     {
-	"type":"artHorizon",
 	"width": 183,
 	"height": 150,
 	"y0": 79,
@@ -15,7 +14,6 @@
 	"pitch": 6
     },
     {
-	"type":"verticalTape",
 	"width": 150,
 	"backColor": "black",
 	"valuePos": "Side",
@@ -32,7 +30,6 @@
 	"step": 10
     },
     {
-	"type":"verticalTape",
 	"width": 150,
 	"backColor": "black",
 	"valuePos": "Side",
