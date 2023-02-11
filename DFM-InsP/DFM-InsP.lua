@@ -71,7 +71,9 @@ edit.gaugeName = {
    sequencedTextBox={sn="SeqT", en={0,0,1,1,0,0,0,0}},
    stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0}},
    panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0}},
-   rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0}}
+   rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0}},
+   verticalTape=    {sn="verT", en={0,1,1,0,0,0,0,0}},
+   artHorizon=      {sn="artH", en={0,1,1,0,0,0,0,0}}
 }
 
 local lua = {}
@@ -1516,7 +1518,7 @@ local function initForm(sf)
 	 form.reinit(formN.luavariables)
       end
 
-      local function changedSensor(val, i)
+      local function changedSensor2(val, i)
 	 InsP.variables[i].sensor = val
 	 InsP.variables[i].SeId = InsP.sensorIdlist[val]
 	 InsP.variables[i].SePa = InsP.sensorPalist[val]
@@ -1565,7 +1567,7 @@ local function initForm(sf)
 			   (function(x) return changedSource(x, i) end), {width=80})	    
 	 if InsP.variables[i].source == "Sensor" then
 	    form.addSelectbox(InsP.sensorLalist, InsP.variables[i].sensor, true,
-			      (function(x) return changedSensor(x, i) end), {width=150, alignRight=false})
+			      (function(x) return changedSensor2(x, i) end), {width=150, alignRight=false})
 	 elseif InsP.variables[i].source == "Lua" then 
 	    form.addLink((function()
 		     savedRow2 = form.getFocusedRow()
@@ -1798,6 +1800,8 @@ local function loop()
    loopCPU = loopCPU + (system.getCPU() - loopCPU) / 10
 end
 
+local foo
+
 local function printForm(_,_,tWin)
 
    local ctl, ctlmin, ctlmax
@@ -1898,8 +1902,8 @@ local function printForm(_,_,tWin)
 	       --lua.modext[widget.modext].func)
 	 local modret = lua.modext[widget.modext].func(InsP, sensorVal)
 	 if type(modret) == "number" then
-	    print("modret number", ret)
-	    sensorVal = ret
+	    --print("modret number", ret)
+	    sensorVal = modret
 	 elseif type(modret) == "table" and type(modret[1]) == "string" then
 	    textVal = modret
 	 end
@@ -2405,11 +2409,231 @@ local function printForm(_,_,tWin)
 			 str, edit.fcode[widget.fT])
 	 end
 	 
-      --else
-	 --print("unknown widget", widget.type)
+      elseif widget.type == "verticalTape" then
+
+	 local ren = lcd.renderer()
+	 local width = widget.width;
+	 local height = widget.height;
+	 local barW = width - 110;
+	 local barH = height - 30;
+	 
+	 local val = sensorVal or 0
+	 
+	 local wH
+	 if not widget.handed then wH = "left" else wH = widget.handed end
+
+	 -- background rectangle
+	 if (widget.backColor ~= "transparent") then
+	    lcd.setColor(0,0,0)
+	    if widget.rgbBackColor then
+	       lcd.setColor(widget.rgbBackColor.r, widget.rgbBackColor.g, widget.rgbBackColor.b)
+	    end
+	    lcd.drawFilledRectangle(widget.x0 - barW/2, widget.y0 - barH/2, barW, barH);
+	 end
+	 
+	 -- outline
+	 lcd.setColor(255,255,255)
+	 lcd.drawRectangle(widget.x0 - barW/2, widget.y0 - barH/2, barW, barH);
+	 
+	 -- draw label
+	 
+	 local fL
+	 if not widget.labelFont then
+	    fL = "Mini"
+	 else
+	    fL = widget.labelFont
+	 end
+	 
+	 local xL, yL
+	 if not widget.xL then
+	    xL = widget.x0
+	    yL = widget.y0 + barH / 2 + lcd.getTextHeight(FONT_MINI)
+	 else
+	    xL = widget.xL
+	    yL = widget.yL
+	 end
+	 
+	 if (widget.labelFont ~= "None") then
+	    lcd.setColor(255,255,255)
+	    drawTextCenter(xL, yL, widget.label, edit.fcode[fL]);
+	 end
+
+	 local pV
+	 if not widget.valuePos then
+	    pV = "side"
+	 else
+	    pV = widget.valuePos
+	 end
+	 
+	 local xV
+	 local yV
+	 local fV
+	 if not widget.valueFont then
+	    fV = "Mini"
+	 else
+	    fV = widget.valueFont
+	 end
+	 
+	 --draw value on top
+	 if (pV == "Top") then
+	    if not widget.xV then
+	       xV = widget.x0
+	       yV = widget.y0 - barH / 2 
+	    end
+	    if (widget.labelFont ~= "None") then
+	       lcd.setColor(255,255,255)
+	       lcd.drawText(string.format("%g", val), xV, yV, edit.fcode[fV])
+	    end
+	 end
+	 
+	 -- draw pointer triangle
+	 local dx, dx1
+	 
+	 if (wH == "left") then
+	    dx = barW / 2;
+	    dx1 = -5;
+	 else
+	    dx = -barW / 2;
+	    dx1 = 5;
+	 end
+	 
+	 lcd.setColor(255,255,255)
+	 
+	 ren:reset()
+	 ren:addPoint(widget.x0 + dx, widget.y0 + 5)
+	 ren:addPoint(widget.x0 + dx, widget.y0 - 5)
+	 ren:addPoint(widget.x0 + dx + dx1, widget.y0)
+	 ren:addPoint(widget.x0 + dx, widget.y0 + 5)
+	 ren:renderPolygon()
+	 
+	 -- draw side value label box and number
+	 
+	 if (pV == "Side") then
+	    if (wH == "left") then
+	       xV = widget.x0 + barW;
+	    else 
+	       xV = widget.x0 - barW;
+	    end
+	    yV = widget.y0 + .04 * lcd.getTextHeight(edit.fcode[fV])
+	    lcd.setColor(0,0,0)
+	    if (widget.backColor ~= "transparent") then
+	       if widget.rgbBackColor then
+		  lcd.setColor(widget.rgbBackColor.r, widget.rgbBackColor.g, widget.rgbBackColor.b)
+	       end
+	       if (wH == "left") then
+		  lcd.drawFilledRectangle(widget.x0 + barW/2, widget.y0 - 10, barW, 20)
+	       else
+		  lcd.drawFilledRectangle(widget.x0 - 3 * barW/2, widget.y0 - 10, barW, 20)
+	       end
+	    end
+	    
+	    lcd.setColor(255,255,255)
+	    
+	    if (wH == "left") then
+	       lcd.drawRectangle(widget.x0 + barW/2, widget.y0 - 10, barW, 20)
+	    else
+	       lcd.drawRectangle(widget.x0 - 3 * barW/2, widget.y0 - 10, barW, 20)
+	    end
+	    
+	    lcd.setColor(255,255,255)
+	    local str = string.format("%d", math.floor(val + 0.5))
+	    --local dy = lcd.getTextHeight(edit.fcode[fV]) / 2 + 1
+	    if (wH == "left") then
+	       drawTextCenter(xV, yV - 1, str, edit.fcode[fV]);
+	    else
+	       drawTextCenter(xV, yV - 1, str, edit.fcode[fV])
+	    end
+	 end
+
+	 local step = widget.step;
+	 local delta = val % step;
+	 local xp, yp, yv 
+	 local nums = widget.numbers; -- # of numbers shown in tape
+	 local zp = nums / 2;
+	 local inc = step / nums;
+	 local k1 = (zp * nums) / step - (zp+1); -- should be zp .. + 1 to make sure 
+	 local k2 = (zp * nums) / step + (zp+1); -- we go past clip point on both ends
+
+	 --print(step, delta, zp, inc, k1, k2)
+	 
+	 local fT
+	 if not widget.tapeFont then
+	    fT = "Mini"
+	 else
+	    fT = widget.tapeFont
+	 end
+
+	 if (wH == "left") then
+	    xp = widget.x0 + barW/4 + 3;
+	 else
+	    xp = widget.x0 - barW/4 - 2;
+	 end
+
+	 -- draw the actual tape
+	 lcd.setColor(255,255,255)
+	 lcd.setClipping(widget.x0 - barW / 2, widget.y0 - barH / 2, barW, barH)
+
+	 local xc0 = widget.x0 -  barW / 2 -- clip resets 0,0 to 
+	 local yc0 = widget.y0 - barH / 2  -- top left of clip region
+	 local idx
+	 local kdx = k1
+	 local str, dy
+	 
+	 repeat
+	    --for kdx = k1, k2, 1 do
+	    idx = kdx * inc
+	    yp = widget.y0 - zp * (barH / step) + (barH/step) * (delta/step) * inc + (barH / step) * idx
+	    yv = zp * step / inc - step * idx / inc  + (val - delta)
+	    yv = math.floor(yv * 100 + 0.5) / 100
+	    str = string.format("%g", yv)
+	    dy = lcd.getTextHeight(edit.fcode[fT]) / 2
+	    if wH == "left" then
+	       lcd.drawText(xp - xc0 - lcd.getTextWidth(edit.fcode[fT], str), yp - yc0 - dy, str,
+			    edit.fcode[fT])
+	    else
+	       lcd.drawText(xp - xc0, yp - yc0 - dy, str, edit.fcode[fT])
+	    end
+	    if (wH == "left") then
+	       lcd.drawLine(widget.x0 - barW/2 - xc0, yp - yc0, widget.x0 - barW/2 + 7 - xc0, yp - yc0)
+	    else
+	       lcd.drawLine(widget.x0 + barW/2 - xc0, yp - yc0, widget.x0 + barW/2 - 7 - xc0, yp - yc0)
+	    end
+	    kdx = kdx + 1
+	 until kdx > k2
+	 lcd.resetClipping()
+
+	 foo = (foo or 0) + 1
+	 
+	 -- draw the value in overlay mode
+	 if (pV == "Overlay") then
+	    if (widget.backColor ~= "transparent") then
+	       lcd.setColor(widget.rgbBackColor.r, widget.rgbBackColor.g, widget.rgbBackColor.b)
+	       lcd.drawFilledRectangle(widget.x0 - barW/2, widget.y0 - 14, barW, 28);
+	    end
+	    
+	    lcd.drawRectangle(widget.x0 - barW/2, widget.y0 - 12, barW, 24);
+	    
+	    if not widget.xV then
+	       xV = widget.x0 + 20;
+	       yV = widget.y0;
+	    else
+	       xV = widget.xV
+	       yV = widget.yV
+	    end
+	    
+	    if (widget.valueFont ~= "None") then
+	       str = string.format("%g", math.floor(val * 100 + 0.5) / 100)
+	       lcd.drawText(str, xV - lcd.getTextWidth(edit.fcode[widget.valueFont], str) ,
+			    yV, edit.fcode[widget.valueFont]);
+	    end
+	    --ctx.strokeStyle = "white";
+	    --ctx.beginPath();
+	    lcd.setColor(255,255,255)
+	    lcd.drawRectangle(widget.x0 - barW/2, widget.y0 - barH/2, barW, barH);
+	    --ctx.stroke();
+	 end
       end
    end
-
    --[[
    if select(2, system.getDeviceType()) == 1 then
       lcd.drawText(300,70, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   

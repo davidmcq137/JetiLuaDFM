@@ -1610,7 +1610,7 @@ function verticalTape(ctx, arr) {
     if (arr.valuePos == "Top") {
 	arrR.xV = arr.x0;
 	arrR.yV = arr.y0 - barH / 2 //- jetiHeight(arr.valueFont);
-	if (typeof arr.value != "undefined" && arr.labelFont != "None") {
+	if (typeof val != "undefined" && arr.labelFont != "None") {
 	    ctx.font = jetiToCtx(arr.valueFont);
 	    ctx.fillStyle = "white";
 	    ctx.fillText("" + val, arrR.xV, arrR.yV)
@@ -1637,15 +1637,13 @@ function verticalTape(ctx, arr) {
     ctx.fill();
 
     // draw side value label box and number
-    if (arr.handed == "left") {
-	arrR.xV = arr.x0 + barW + 18;
-    } else {
-	arrR.xV = arr.x0 - barW + 6;
-    }
-    
-    //console.log(0.08 * jetiHeight(arr.valueFont));
-    arrR.yV = arr.y0 + .04 * jetiHeight(arr.valueFont);
     if (arr.valuePos == "Side") {
+	if (arr.handed == "left") {
+	    arrR.xV = arr.x0 + barW + 18;
+	} else {
+	    arrR.xV = arr.x0 - barW + 6;
+	}
+	arrR.yV = arr.y0 + .04 * jetiHeight(arr.valueFont);
 	//console.log("side", arr.backColor)
 	ctx.fillStyle = "black";
 	if (arr.backColor != "transparent") {
@@ -1668,10 +1666,13 @@ function verticalTape(ctx, arr) {
 	if (arr.handed == "left") {
 	    ctx.textAlign = "right";
 	} else {
-	    ctx.textAlighn = "left";
+	    ctx.textAlign = "left";
 	}
 	ctx.fillStyle = "white";
-	ctx.fillText("" + val, arrR.xV, arrR.yV);
+
+	if (typeof val != "undefined" && arr.valueFont != "None") {
+	    ctx.fillText("" + val, arrR.xV, arrR.yV);
+	}
     }
 
     // define clipping region for use with tape box
@@ -1709,7 +1710,9 @@ function verticalTape(ctx, arr) {
 	yp = arr.y0 - zp * (barH / step) + (barH/step) * (delta/step) * inc + (barH / step) * idx
 	yv = zp * step / inc - step * idx / inc  + (val - delta)
 	yv = Math.round( (yv + Number.EPSILON) * 100) / 100;
-	ctx.fillText(""+ yv, xp, yp)
+	if (typeof yv != "undefined" && arr.tapeFont != "None") {
+	    ctx.fillText(""+ yv, xp, yp)
+	}
 	if (arr.handed == "left") {
 	    ctx.moveTo(arr.x0 - barW/2, yp)
 	    ctx.lineTo(arr.x0 - barW/2 + 7, yp)
@@ -1737,7 +1740,7 @@ function verticalTape(ctx, arr) {
 	ctx.font = jetiToCtx(arr.valueFont);    
 	arrR.xV = arr.x0 + 20;
 	arrR.yV = arr.y0;
-	if (typeof arr.value != "undefined" && arr.valueFont != "None") {
+	if (typeof val != "undefined" && arr.valueFont != "None") {
 	    console.log(val, arrR.xV, arrR.yV)
 	    ctx.fillText(""+val, arrR.xV,arrR.yV);
 	}
@@ -2156,7 +2159,6 @@ function setupWidgets(){
 	verticalTape: [
 	    width,
 	    height,
-	    {key: "value", label: "Value", type: "slider", props: {min: 1, max: 1000}},	    
 	    {key: "step", label: "Step", type: "slider", props: {min: 1, max: 100}},
             {key: "numbers", label: "Numbers shown", type: "plusminus"},
 	    { key: "handed", 

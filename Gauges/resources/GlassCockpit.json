@@ -1,0 +1,52 @@
+[
+    {
+	"type":"artHorizon",
+	"width": 183,
+	"height": 150,
+	"y0": 79,
+	"label": "",
+	"x0": 160,
+	"labelFont": "Mini",
+	"type": "artHorizon",
+	"landColor": "chocolate",
+	"roll": 15,
+	"labelPos": -4,
+	"skyColor": "blue",
+	"pitch": 6
+    },
+    {
+	"type":"verticalTape",
+	"width": 150,
+	"backColor": "black",
+	"valuePos": "Side",
+	"height": 160,
+	"y0": 75,
+	"tapeFont": "Mini",
+	"label": "Altitude",
+	"labelFont": "Mini",
+	"value": 98,
+	"type": "verticalTape",
+	"numbers": 6,
+	"handed": "right",
+	"valueFont": "Normal",
+	"step": 10
+    },
+    {
+	"type":"verticalTape",
+	"width": 150,
+	"backColor": "black",
+	"valuePos": "Side",
+	"height": 160,
+	"y0": 75,
+	"tapeFont": "Mini",
+	"label": "Airspeed",
+	"x0": 27,
+	"labelFont": "Mini",
+	"value": 46,
+	"type": "verticalTape",
+	"numbers": 6,
+	"handed": "left",
+	"valueFont": "Normal",
+	"step": 10
+    }
+]
