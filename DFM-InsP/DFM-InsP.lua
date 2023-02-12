@@ -115,11 +115,11 @@ local editText
 local editWidget
 local editWidgetType
 
-local formN = {main=1, settings=102, inputs=100, editpanel=103,
+local formN = {main=1, settings=102, inputs=100, editpanel=103, editgauge=104,
 	       editlinks = 105, luavariables=108, resetall=101,
 	       editlua = 107, panels=106}
 
-local formS = {[1]="main", [102]="settings", [100]="inputs", [103]="editpanel",
+local formS = {[1]="main", [102]="settings", [100]="inputs", [103]="editpanel", [104]="editgauge",
    [105] = "editlinks", [108] = "luavariables", [101] = "resetall",
    [107] = "editlua", [106] = "panels"}
 
@@ -729,7 +729,7 @@ local function keyForm(key)
       if key == KEY_1 or key == KEY_ENTER then -- edit
 	 savedRow2 = form.getFocusedRow()
 	 savedRow3 = form.getFocusedRow()
-	 form.reinit(104)
+	 form.reinit(formN.editgauge) -- XXXXX
       end
    end
 
@@ -741,7 +741,7 @@ local function keyForm(key)
       end
    end
 
-   if subForm == 104 then
+   if subForm == formN.editgauge then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(formN.inputs)
@@ -1047,7 +1047,7 @@ end
 
 local function changedDataSrc(val, wid)
    wid.dataSrc = dataSources[val]
-   form.reinit(104)
+   form.reinit(formN.editgauge)
 end
 
 local function changedMultiplier(val, wid)
@@ -1249,7 +1249,7 @@ local function initForm(sf)
 	 end
 	 form.setButton(4, "Edit", en4)
       --]]
-   elseif sf == 104 then -- edit item on sensor menu
+   elseif sf == formN.editgauge then -- edit item on sensor menu
       local ig = savedRow3
       local isp = InsP.settings.selectedPanel
       local ip = InsP.panels[isp]
@@ -1294,7 +1294,7 @@ local function initForm(sf)
 	 form.addLabel({label="Control", width=80})
 	 
 	 local ctrlName = pnl .. "-" .. string.gsub(lbl, "%W", "_") 
-	 print("check ctrlName for uniqueness!")
+	 print("check ctrlName " ..ctrlName .. " for uniqueness!")
 
 
 	 --print("ctrlName", ctrlName, switches[ctrlName], widget.control)
@@ -1883,6 +1883,7 @@ local function printForm(_,_,tWin)
       if widget.dataSrc == "Sensor" then
 	 sensor = getSensorByID(widget.SeId, widget.SePa)
 	 if sensor and sensor.value then sensorVal = sensor.value end
+	 
       elseif widget.dataSrc == "Control" then
 	 local info = system.getSwitchInfo(switches[widget.control])
 	 --if idxW == 1 then print("widget.control", widget.control) end

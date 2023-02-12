@@ -27,7 +27,7 @@
 	    "valueFont":"Mini",
 	    "majdivs":4,
             "subdivs": 5,
-            "label":"Value",
+            "label":"Label",
 	    "labelFont":"Bold",
 	    "labelPos":0,
             "spectrum": [
@@ -35,7 +35,11 @@
 		"orange",
 		"yellow",
 		"green"
-            ]
+            ],
+	    "faceVis":"on",
+	    "needleType":"needle",
+	    "needleColor":"white",
+	    "labelColor":"white"
         },
 
         "roundArcGauge": {
@@ -180,7 +184,8 @@
 	    "height":150,
 	    "skyColor":"blue",
 	    "landColor":"chocolate",
-	    "labelFont":"Mini",
+	    "label":"Artificial Horizon",
+	    "labelFont":"None",
 	    "labelPos": 0,
 	    "value":0
 	},

@@ -594,10 +594,11 @@ function drawNeedleCustom(ctx, arr, points, f, angle) {
 function drawNeedle(ctx, arr, type, f, angle) {
     needles = { needle: [ {x:-1,y:0}, {x:-2,y:1}, {x:-4,y:4}, {x:-1,y:58},
 			   {x:1,y:58}, {x:4, y:4}, {x:2, y:1}, {x:1,y:0}],
-		needleAlt: [ {x:-2,y:0}, {x:-2,y:50}, {x:0,y:58},
-			      {x:2, y:50}, {x:2, y:0}, {x:0, y:-2}],
-		needleFat: [ {x:-2,y:0}, {x:-4,y:30}, {x:0,y:45},
-			     {x:4, y:30}, {x:2,y:0}, {x:0, y:-2} ]
+		needleAlt: [ {x:0,y:0}, {x:-3,y:3}, {x:-3,y:50}, {x:0,y:58},
+			     {x:3, y:50}, {x:3, y:0}, {x:3, y:3},{x:0,y:0} ],
+		needleFat: [ {x:0,y:0}, {x:-3, y:3}, {x:-6,y:35}, {x:0,y:58},
+			     {x:6, y:35}, {x:3,y:3},{x:0,y:0} ],
+		inner:     [ {x:0,y:0}, {x:-3,y:3}, {x:0,y:45},{x:3,y:3},{x:0,y:0} ]
 	      }
     
     if (typeof needles[type] == "undefined") {
@@ -605,15 +606,39 @@ function drawNeedle(ctx, arr, type, f, angle) {
 	return
     }
     //console.log(type, f, angle, needles[type].length);
-    
-    ctx.beginPath();
+
+    let ncolor
+    //console.log("arr.nc", arr.needleColor);
+    if (typeof arr.needleColor != "undefined") {
+	ncolor = arr.needleColor;
+    } else {
+	ncolor = "white";
+    }
+
+    ctx.fillStyle = "white";
+    //ctx.beginPath();
+    let ndl = new Path2D();
     for (let k = 0, len = needles[type].length; k < len; k++ ) {
-	ctx.lineTo(arr.x0 + f * needles[type][k].x * Math.cos(angle) -
+	ndl.lineTo(arr.x0 + f * needles[type][k].x * Math.cos(angle) -
 		   f * needles[type][k].y * Math.sin(angle),
 		   arr.y0 + f * needles[type][k].x * Math.sin(angle) +
 		   f * needles[type][k].y * Math.cos(angle))
     }
+    ndl.closePath();
+    ctx.fill(ndl);
+    
+    ctx.fillStyle = ncolor;
+    ctx.beginPath();
+
+    for (let k = 0, len = needles["inner"].length; k < len; k++ ) {
+	ctx.lineTo(arr.x0 + f * needles["inner"][k].x * Math.cos(angle) -
+		   f * needles["inner"][k].y * Math.sin(angle),
+		   arr.y0 + f * needles["inner"][k].x * Math.sin(angle) +
+		   f * needles["inner"][k].y * Math.cos(angle))
+    }
+
     ctx.fill();
+    
     
 }
 
@@ -781,17 +806,21 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    var a1 = start + i * delta - 0*delta
 	    var a2 = start + i * delta + 1*delta;
 	    //console.log(i, spec, x0, y0, ri, ro, ctx.fillStyle)
-	    arcsegment(ctx, x0, y0, ri, ro, a1, a2 )
+	    if (arr.faceVis == "on") {
+		arcsegment(ctx, x0, y0, ri, ro, a1, a2 )
+	    }
 	}
 
 	ctx.lineWidth = ro / 46;	
 	ctx.strokeStyle="white";
-	ctx.beginPath();
 	const tO = 1.0; //0.98;
 	const tI = 2 - tO;
-	ctx.moveTo(x0 + tO * ro * Math.cos(a), y0 + tO * ro * Math.sin(a))
-	ctx.lineTo(x0 + tI * ri * Math.cos(a), y0 + tI * ri * Math.sin(a))
-	ctx.stroke();
+	if (arr.faceVis == "on") {
+	    ctx.beginPath();
+	    ctx.moveTo(x0 + tO * ro * Math.cos(a), y0 + tO * ro * Math.sin(a))
+	    ctx.lineTo(x0 + tI * ri * Math.cos(a), y0 + tI * ri * Math.sin(a))
+	    ctx.stroke();
+	}
 	
 	const label2C = 1.8;//1.6;
 
@@ -833,7 +862,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		    let yt = y0 + rt * Math.sin(a);
 		    ctx.textBaseline = "middle";
 		    ctx.textAlign = "center";
-		    if (arr.tickFont != "None" ) {
+		    if (arr.tickFont != "None" && arr.faceVis == "on") {
 			ctx.fillText(tval, xt, yt)
 		    }
 		}
@@ -842,18 +871,22 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    }
 	    ctx.lineWidth=ro/23;	
 	    ctx.strokeStyle="white";
-	    ctx.beginPath();
 	    var rr = ri - (ro - ri) / 4; //2;
-	    ctx.moveTo(x0 + tO * ro * Math.cos(a), y0 + tO * ro * Math.sin(a))
-	    ctx.lineTo(x0 + rr * Math.cos(a), y0 + rr * Math.sin(a))
-	    ctx.stroke();
+	    if (arr.faceVis == "on") {
+		ctx.beginPath();
+		ctx.moveTo(x0 + tO * ro * Math.cos(a), y0 + tO * ro * Math.sin(a))
+		ctx.lineTo(x0 + rr * Math.cos(a), y0 + rr * Math.sin(a))
+		ctx.stroke();
+	    }
 	}
     }
 
     
     if ( ndlarc == "arc") {
 	ctx.fillStyle = "gray"; // draw gray arc on png file
-	arcsegment(ctx, x0, y0, ri, ro, start, end);
+	if (arr.faceVis == "on") {	
+	    arcsegment(ctx, x0, y0, ri, ro, start, end);
+	}
 	if (typeof value == "number") { // done only if arc to be rendered
 	    cf = "white";
 	    
@@ -881,7 +914,9 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    
 	    var valFrac = (arr.value - min) / (max - min)
 	    ctx.fillStyle = cf;
-	    arcsegment(ctx, x0, y0, ri, ro, start, start + (end-start) * valFrac);
+	    if (arr.faceVis == "on") {
+		arcsegment(ctx, x0, y0, ri, ro, start, start + (end-start) * valFrac);
+	    }
 	}
     }
     
@@ -906,7 +941,15 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     ctx.textAlign = "center";
     if (arr.labelFont != "None") {
 	if (typeof label != "undefined") {
+	    let lblclr
+	    if (typeof arr.labelColor != "undefined"){
+		lblclr = arr.labelColor;
+	    } else {
+		lblclr = "white"
+	    }
+	    ctx.fillStyle = lblclr; 
 	    ctx.fillText(label, arrR.xL, arrR.yL);
+	    ctx.fillStyle = "white";
 	}
 	ctx.font = jetiToCtx(arr.tickFont);
 	var dig
@@ -984,7 +1027,16 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		var angle = start + frac * (end - start) - Math.PI/2;
 		ctx.fillStyle = "white";
 		let f = 0.90 * ro / 58;
-		drawNeedle(ctx, arr, "needle", f, angle);
+		let ntype
+		if (typeof arr.needleType != "undefined") {
+		    //console.log("not undef", arr.needleType)
+		    ntype = arr.needleType;
+		} else {
+
+		    console.log("undef", "needle")
+		    ntype = "needle";
+		}
+		drawNeedle(ctx, arr, ntype, f, angle);
 	    }
 	}
     }
@@ -1042,9 +1094,11 @@ function roundGauge(ctx, arr, indicator) {
     gradient.addColorStop(  1, "#303030");
     ctx.fillStyle = gradient;
     //ctx.fillStyle = "black";
-    ctx.beginPath();
-    ctx.ellipse(arr.x0, arr.y0, radius * eTrim, radius * eTrim, 0, 0, 2*Math.PI);
-    ctx.fill();
+    if (arr.faceVis == "on") {
+	ctx.beginPath();
+	ctx.ellipse(arr.x0, arr.y0, radius * eTrim, radius * eTrim, 0, 0, 2*Math.PI);
+	ctx.fill();
+    }
 
     const b1gradient = ctx.createRadialGradient(arr.x0, arr.y0, radius, arr.x0, arr.y0, radius+bezel);
     b1gradient.addColorStop(0, "black");
@@ -1054,7 +1108,9 @@ function roundGauge(ctx, arr, indicator) {
     //b1gradient.addColorStop(0.8, "#A9A9A9")
     //b1gradient.addColorStop(1.0, "#C0C0C0");    
     ctx.fillStyle = b1gradient;
-    arcsegment(ctx, arr.x0, arr.y0, radius, radius+bezel, 0, 2*Math.PI);
+    if (arr.faceVis == "on") {
+	arcsegment(ctx, arr.x0, arr.y0, radius, radius+bezel, 0, 2*Math.PI);
+    }
 
     const b2gradient = ctx.createRadialGradient(arr.x0, arr.y0, radius+bezel,
 						arr.x0, arr.y0, radius+2*bezel);
@@ -2105,11 +2161,36 @@ function setupWidgets(){
             subdivs,
             tickFont,
             labelFont,
+	    {key: "labelColor", label: "Font color (label)", type: "color"},
+	    {key: "labelPos", label: "Label Position", type: "slider", props: {min: -100, max: 100}},
             valueFont,
             arc_start,
             arc_end,
-	    {key: "labelPos", label: "Label Position", type: "slider", props: {min: -100, max: 100}},
-            {type: "spectrum-or-colorvals"}
+            {type: "spectrum-or-colorvals"},
+	    {key: "faceVis", 
+	     label: "Face Visibility", 
+	     type: "select",
+	     props: {
+		 def: "on", 
+		 options: [
+		     {value: "on", label: "On"},
+		     {value: "off", label: "Off"}
+		 ]
+	     }
+	    },
+	    { key: "needleType", 
+	      label: "Needle Style", 
+	      type: "select",
+	      props: {
+		  def: "standard", 
+		  options: [
+		      {value: "needle", label: "Standard"},
+		      {value: "needleAlt", label: "Straight"},
+		      {value: "needleFat", label: "Wide"}
+		  ]
+	      }
+	    },
+	    {key: "needleColor", label: "Needle color", type: "color"}
         ],
 
         stackedTextBox: "textBox",
