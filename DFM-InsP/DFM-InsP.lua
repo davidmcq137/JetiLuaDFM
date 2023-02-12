@@ -1001,7 +1001,7 @@ local function changedSwitch(val, switchName, j, wid)
 	    stateSw[j].switch = val
 	 end
 	 if wid then
-	    print("if wid", switchName)
+	    --print("if wid", switchName)
 	    wid.control = switchName
 	 end
 	 InsP.settings.switchInfo[switchName].name = swInfo.label
@@ -2447,7 +2447,7 @@ local function printForm(_,_,tWin)
 	 local xL, yL
 	 if not widget.xL then
 	    xL = widget.x0
-	    yL = widget.y0 + barH / 2 + lcd.getTextHeight(FONT_MINI)
+	    yL = widget.y0 + barH / 2 + lcd.getTextHeight(edit.fcode[fL])
 	 else
 	    xL = widget.xL
 	    yL = widget.yL
@@ -2632,6 +2632,203 @@ local function printForm(_,_,tWin)
 	    lcd.drawRectangle(widget.x0 - barW/2, widget.y0 - barH/2, barW, barH);
 	    --ctx.stroke();
 	 end
+      elseif widget.type == "artHorizon" then
+	 
+	 local HP = require 'DFM-InsP/hp1345a'
+	 local function drawPitch(roll, pitch, pitchR, radAH, X0, Y0, scl)
+
+	    local XH,YH,X1,X2,X3,Y1,Y2,Y3,X4,Y4
+	    local pp, pps
+	    local XHS = 18 * radAH / 70
+	    local  XHL = 40 * radAH / 70
+	    local  scale = scl * radAH / 70
+	    
+	    local sinRoll = math.sin(math.rad(-roll))
+	    local cosRoll = math.cos(math.rad(-roll))
+	    local delta = pitch % 15    
+	    local ren = lcd.renderer()
+	    
+	    --for (let i = delta - 45; i < 45 + delta; i = i + 15) {
+
+	    local i = delta - 45
+	    repeat
+	       --if (math.abs(pitch - i % 360) < 0.01) then
+	       if math.abs(pitch - i) < 0.01 then
+		  XH = XHL;
+	       else
+		  XH = XHS;
+	       end
+	       YH = pitchR * i                      
+	       pp = pitch - i
+	       pps = string.format("%d", math.floor(pp*10 + 0.5) / 10)
+	       
+	       X1 = -XH * cosRoll - YH * sinRoll;
+	       Y1 = -XH * sinRoll + YH * cosRoll;
+	       X2 = (XH - 0) * cosRoll - YH * sinRoll;
+	       Y2 = (XH - 0) * sinRoll + YH * cosRoll;
+	       X3 = (XH + 5) * cosRoll - (YH - 3) * sinRoll;
+	       Y3 = (XH + 5) * sinRoll + (YH - 3) * cosRoll;	
+	       X4 = (-XH - 18 * scale * #pps - 5) * cosRoll - (YH - 3) * sinRoll;
+	       Y4 = (-XH - 18 * scale * #pps - 5) * sinRoll + (YH - 3) * cosRoll;	
+	       
+	       if( not ( (X1 < -radAH and X2 < -radAH) or  (X1 > radAH and X2 > radAH)
+		      or (Y1 < -radAH and Y2 < -radAH) or  (Y1 > radAH and Y2 > radAH) ) ) then
+		  lcd.setColor(255,255,255)
+		  ren:reset()
+		  ren:addPoint(X0 + radAH + X1, Y0 + radAH + Y1)
+		  ren:addPoint(X0 + radAH + X2, Y0 + radAH + Y2)
+		  ren:renderPolyline(2)
+		  if (XH == XHS) then
+		     HP.drawHP1345A(X0 + radAH + X3, Y0 + radAH + Y3, pps, scale,
+				    math.rad(roll), 2);
+		     HP.drawHP1345A(X0 + radAH + X4, Y0 + radAH + Y4, pps, scale,
+				    math.rad(roll), 2);
+		  end
+	       end
+	       i = i + 15
+	    until i >= 45 + delta
+	 end
+
+	 --[[
+	    function artHorizon is based on code in the Jeti Artificial Horizon App
+	    
+	    Copyright (c) 2016 JETI
+	    Copyright (c) 2015 dandys.
+	    Copyright (c) 2014 Marco Ricci.
+	    
+	    Use here conforms with the license terms
+	 --]]
+    
+	 local pitch = system.getInputs("P2") * 90
+	 local roll = system.getInputs("P3") * 180
+
+	 local rowAH = widget.width / 2 - 20;
+	 local radAH = widget.width / 2 - 20;
+	 local pitchR = radAH / 25;
+
+	 local tanRoll
+	 local cosRoll
+	 
+	 local dPitch_1
+	 local dPitch_2
+
+	 local X0, Y0, X1, Y1, Y2, YH
+	 local ren = lcd.renderer()
+
+	 if pitch >= 0 then -- heaven knows why we have to do this
+	    dPitch_1 = pitch % 180
+	 else
+	    dPitch_1 = -1*(-pitch % 180)
+	 end
+	 
+	 --print(pitch, dPitch_1)
+	 if (dPitch_1 > 90) then
+	    dPitch_1 = 180 - dPitch_1
+	 end
+	 if (roll == 270) then
+	    roll = 269.99;
+	 end
+	 if (roll == 90) then
+	    roll = 89.99;
+	 end
+	 
+	 cosRoll = 1 / math.cos(math.rad(roll))
+	 
+	 if (pitch > 270) then
+	    dPitch_1 = -dPitch_1 * pitchR * cosRoll
+	    dPitch_2 = radAH * cosRoll
+	 elseif (pitch > 180) then
+	    dPitch_1 = dPitch_1 * pitchR * cosRoll
+	    dPitch_2 = -radAH * cosRoll
+	 elseif (pitch > 90) then
+		  dPitch_1 = -dPitch_1 * pitchR * cosRoll
+		  dPitch_2 = -radAH * cosRoll
+	 else
+	    dPitch_1 = dPitch_1 * pitchR * cosRoll
+	    dPitch_2 = radAH * cosRoll
+	 end
+
+	 --print(dPitch_1, dPitch_2)
+	 
+	 tanRoll = -math.tan(math.rad(roll))
+	 
+	 X1 = 0
+	 YH = (-radAH) * tanRoll
+	 Y1 = YH + dPitch_1
+	 Y2 = YH + 1.5 * dPitch_2 
+	 
+	 -- define clipping region 
+	 X0 = widget.x0 - radAH
+	 Y0 = widget.y0 - radAH
+	 lcd.setClipping(X0, Y0, 2 * radAH, 2 * radAH)
+	 X0 = 0
+	 Y0 = 0
+	 -- draw sky over entire box
+	 lcd.setColor(widget.rgbSkyColor.r, widget.rgbSkyColor.g, widget.rgbSkyColor.b)
+	 lcd.drawFilledRectangle(X0, Y0, 2 * radAH + 1, 2 * radAH + 1);
+	 
+	 lcd.setColor(widget.rgbLandColor.r, widget.rgbLandColor.g, widget.rgbLandColor.b)
+	 ren:reset()
+
+	 if (Y1 < Y2) then
+	    ren:addPoint(X0 + X1, Y0 + rowAH + Y1)
+	    ren:addPoint(X0 + X1, Y0 + rowAH + Y2)
+	 elseif (Y1 > Y2) then
+	    ren:addPoint(X0 + X1, Y0 + rowAH + Y2)
+	    ren:addPoint(X0 + X1, Y0 + rowAH + Y1)
+	 end
+
+	 X1 = 2 * radAH + 1
+	 YH = (radAH) * tanRoll
+	 Y1 = YH + dPitch_1
+	 Y2 = YH + 1.5 * dPitch_2
+	 
+	 if (Y1 < Y2) then
+	    ren:addPoint(X0 + X1, Y0 + rowAH + Y2)
+	    ren:addPoint(X0 + X1, Y0 + rowAH + Y1)
+	 elseif (Y1 > Y2) then
+	    ren:addPoint(X0 + X1, Y0 + rowAH + Y1)
+	    ren:addPoint(X0 + X1, Y0 + rowAH + Y2)
+	 end				       
+	 ren:renderPolygon(1)
+	 
+	 lcd.setColor(255,255,255)
+	 lcd.drawLine(X0, Y0, X0, Y0 + 2 * radAH + 1);
+	 lcd.drawLine(X0 + 2 * radAH - 1, Y0, X0 + 2 * radAH - 1, Y0 + 2 * radAH - 1)
+	 lcd.drawLine(X0, Y0 + 2 * radAH - 1, X0 + 2 * radAH - 1, Y0 + 2 * radAH - 1)
+	 lcd.drawLine(X0, Y0, X0 + 2 * radAH, Y0)
+
+	 lcd.drawLine(X0 + radAH - 0.7 * radAH, Y0 + radAH, X0 + radAH - 0.2 * radAH, Y0 + radAH);
+	 lcd.drawLine(X0 + radAH - 0.2 * radAH, Y0 + radAH,
+		      X0 + radAH - 0.2 * radAH, Y0 + radAH + radAH / 10);
+	 lcd.drawLine(X0 + radAH + 0.7 * radAH, Y0 + radAH, X0 + radAH + 0.2 * radAH, Y0 + radAH);
+	 lcd.drawLine(X0 + radAH + 0.2 * radAH, Y0 + radAH,
+		      X0 + radAH + 0.2 * radAH, Y0 + radAH + radAH / 10);
+	 drawPitch(roll, pitch, pitchR, radAH, X0, Y0, 0.4);
+	 
+	 lcd.resetClipping()
+
+	 --X0 = widget.x0 - radAH
+	 --Y0 = widget.y0 - radAH
+
+	 local fL
+	 if not widget.labelFont then
+	    fL = "Mini"
+	 else
+	    fL = widget.labelFont
+	 end
+	 
+	 local xL, yL
+	 if not widget.xL then
+	    xL = widget.x0
+	    yL = widget.y0 + radAH + lcd.getTextHeight(edit.fcode[fL])
+	 else
+	    xL = widget.xL
+	    yL = widget.yL
+	 end
+
+	 lcd.setColor(255,255,255)
+	 drawTextCenter(xL, yL, widget.label, edit.fcode[fL])
       end
    end
    --[[

@@ -181,7 +181,8 @@
 	    "skyColor":"blue",
 	    "landColor":"chocolate",
 	    "labelFont":"Mini",
-	    "labelPos": 0
+	    "labelPos": 0,
+	    "value":0
 	},
 
 	"verticalTape": {

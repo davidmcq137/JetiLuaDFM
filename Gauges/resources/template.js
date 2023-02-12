@@ -465,7 +465,7 @@ function drawHP1345A(ctx, x, y, str, scale, rot, wid) {
 	shape = hp1345a[np]
 	ctx.strokeStyle = "white";
 	ctx.lineWidth = wid;
-	ctx.linecap = "round";
+	ctx.lineJoin = "round";
 	
 	if (typeof shape != "undefined") {
 	    ctx.beginPath();
@@ -1347,7 +1347,7 @@ function rad(deg) {
 
 function drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0, scl) {
 
-    let XH,YH,X1,X2,X3,Y1,Y2,Y3;
+    let XH,YH,X1,X2,X3,Y1,Y2,Y3,X4,Y4;
     let pp;
     const XHS = 18 * radAH / 70;
     const XHL = 40 * radAH / 70;
@@ -1424,6 +1424,9 @@ function artHorizon(ctx, arr) {
     let dPitch_2;
 
     dPitch_1 = pitch % 180
+
+    console.log(pitch, dPitch_1)
+    
     if (dPitch_1 > 90) {
 	dPitch_1 = 180 - dPitch_1
     }
@@ -1461,88 +1464,96 @@ function artHorizon(ctx, arr) {
     YH = (-radAH) * tanRoll
     Y1 = YH + dPitch_1
     Y2 = YH + 1.5 * dPitch_2 
-  
-    // define clipping region 
-    let region = new Path2D();
-    region.rect(X0, Y0, 2 * radAH, 2 * radAH)
 
-    //console.log(X0, Y0, 2 * radAH, 2 * radAH)
-    
-    ctx.save();
-    ctx.clip(region);
-    ctx.strokeStyle = "white";
-    ctx.fillStyle  = arr.skyColor;
-    ctx.fillRect(X0, Y0, 2 * radAH + 1, 2 * radAH + 1);
-
+    ctx.fillStyle = arr.skyColor;
+    arrR.rgbSkyColor = getRGB(ctx.fillStyle);
     ctx.fillStyle = arr.landColor;
-    ctx.beginPath();
+    arrR.rgbLandColor = getRGB(ctx.fillStyle)
     
-    if (Y1 < Y2) {
-	ctx.moveTo(X0 + X1, Y0 + rowAH + Y1)
-	ctx.lineTo(X0 + X1, Y0 + rowAH + Y2)
-	//ren:addPoint(X1, rowAH + Y1)
-	//ren:addPoint(X1, rowAH + Y2 )
-    } else if (Y1 > Y2) {
-	ctx.moveTo(X0 + X1, Y0 + rowAH + Y2)
-	ctx.lineTo(X0 + X1, Y0 + rowAH + Y1)
-	//ren:addPoint(X1, rowAH + Y2)
-	//ren:addPoint(X1, rowAH + Y1) 
+    if (typeof arr.value != "undefined") {
+	
+	// define clipping region 
+	let region = new Path2D();
+	region.rect(X0, Y0, 2 * radAH, 2 * radAH)
+
+	//console.log(X0, Y0, 2 * radAH, 2 * radAH)
+	
+	ctx.save();
+	ctx.clip(region);
+	ctx.strokeStyle = "white";
+	ctx.fillStyle  = arr.skyColor;
+	ctx.fillRect(X0, Y0, 2 * radAH + 1, 2 * radAH + 1);
+
+	ctx.fillStyle = arr.landColor;
+	ctx.beginPath();
+	
+	if (Y1 < Y2) {
+	    ctx.moveTo(X0 + X1, Y0 + rowAH + Y1)
+	    ctx.lineTo(X0 + X1, Y0 + rowAH + Y2)
+	    //ren:addPoint(X1, rowAH + Y1)
+	    //ren:addPoint(X1, rowAH + Y2 )
+	} else if (Y1 > Y2) {
+	    ctx.moveTo(X0 + X1, Y0 + rowAH + Y2)
+	    ctx.lineTo(X0 + X1, Y0 + rowAH + Y1)
+	    //ren:addPoint(X1, rowAH + Y2)
+	    //ren:addPoint(X1, rowAH + Y1) 
+	}
+
+	X1 = 2 * radAH + 1
+	YH = (radAH) * tanRoll
+	Y1 = YH + dPitch_1
+	Y2 = YH + 1.5 * dPitch_2 
+	
+	if (Y1 < Y2) {
+	    ctx.lineTo(X0 + X1, Y0 + rowAH + Y2)
+	    ctx.lineTo(X0 + X1, Y0 + rowAH + Y1)
+	} else if (Y1 > Y2) {
+	    ctx.lineTo(X0 + X1, Y0 + rowAH + Y1)
+	    ctx.lineTo(X0 + X1, Y0 + rowAH + Y2)
+	}
+
+	ctx.fill();
+
+	ctx.strokeStyle = "white";
+	ctx.beginPath();
+	
+	//lcd.drawLine(0, 0, 0, 2*radAH + 1 )
+	ctx.moveTo(X0, Y0);
+	ctx.lineTo(X0, Y0 + 2 * radAH + 1);
+
+	//lcd.drawLine(2* radAH, 0, 2* radAH , 2*radAH  )
+	ctx.moveTo(X0 + 2 * radAH, Y0);
+	ctx.lineTo(X0 + 2 * radAH, Y0 + 2 * radAH)
+	
+	//lcd.drawLine(0, 2*radAH,2* radAH , 2* radAH )
+	ctx.moveTo(X0, Y0 + 2 * radAH);
+	ctx.lineTo(X0 + 2 * radAH, Y0 + 2 * radAH);
+
+	//lcd.drawLine(0, 0, 2*radAH, 0)
+	ctx.moveTo(X0, Y0);
+	ctx.lineTo(X0 + 2 * radAH, Y0);
+
+	ctx.stroke();
+
+	ctx.beginPath();
+	ctx.moveTo(X0 + radAH - 0.7 * radAH, Y0 + radAH);
+	ctx.lineTo(X0 + radAH - 0.2 * radAH, Y0 + radAH);
+	ctx.lineTo(X0 + radAH - 0.2 * radAH, Y0 + radAH + radAH / 10);
+	ctx.lineWidth = 2;
+	ctx.stroke();
+
+	ctx.beginPath();
+	ctx.moveTo(X0 + radAH + 0.7 * radAH, Y0 + radAH);
+	ctx.lineTo(X0 + radAH + 0.2 * radAH, Y0 + radAH);
+	ctx.lineTo(X0 + radAH + 0.2 * radAH, Y0 + radAH + radAH / 10);
+	ctx.lineWidth = 2;
+	ctx.stroke();
+
+	drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0, 0.4);
+
+	ctx.restore();
     }
-
-    X1 = 2 * radAH + 1
-    YH = (radAH) * tanRoll
-    Y1 = YH + dPitch_1
-    Y2 = YH + 1.5 * dPitch_2 
     
-    if (Y1 < Y2) {
-	ctx.lineTo(X0 + X1, Y0 + rowAH + Y2)
-	ctx.lineTo(X0 + X1, Y0 + rowAH + Y1)
-    } else if (Y1 > Y2) {
-	ctx.lineTo(X0 + X1, Y0 + rowAH + Y1)
-	ctx.lineTo(X0 + X1, Y0 + rowAH + Y2)
-    }
-
-    ctx.fill();
-
-    ctx.strokeStyle = "white";
-    ctx.beginPath();
-    
-    //lcd.drawLine(0, 0, 0, 2*radAH + 1 )
-    ctx.moveTo(X0, Y0);
-    ctx.lineTo(X0, Y0 + 2 * radAH + 1);
-
-    //lcd.drawLine(2* radAH, 0, 2* radAH , 2*radAH  )
-    ctx.moveTo(X0 + 2 * radAH, Y0);
-    ctx.lineTo(X0 + 2 * radAH, Y0 + 2 * radAH)
-    
-    //lcd.drawLine(0, 2*radAH,2* radAH , 2* radAH )
-    ctx.moveTo(X0, Y0 + 2 * radAH);
-    ctx.lineTo(X0 + 2 * radAH, Y0 + 2 * radAH);
-
-    //lcd.drawLine(0, 0, 2*radAH, 0)
-    ctx.moveTo(X0, Y0);
-    ctx.lineTo(X0 + 2 * radAH, Y0);
-
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(X0 + radAH - 0.7 * radAH, Y0 + radAH);
-    ctx.lineTo(X0 + radAH - 0.2 * radAH, Y0 + radAH);
-    ctx.lineTo(X0 + radAH - 0.2 * radAH, Y0 + radAH + radAH / 10);
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(X0 + radAH + 0.7 * radAH, Y0 + radAH);
-    ctx.lineTo(X0 + radAH + 0.2 * radAH, Y0 + radAH);
-    ctx.lineTo(X0 + radAH + 0.2 * radAH, Y0 + radAH + radAH / 10);
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    drawPitch(ctx, arr, roll, pitch, pitchR, radAH, X0, Y0, 0.4);
-
-    ctx.restore();
-
     arrR.xL = arr.x0
     arrR.yL = arr.y0 + radAH + jetiHeight(arr.labelFont) + arr.labelPos
 
@@ -1555,10 +1566,7 @@ function artHorizon(ctx, arr) {
 	ctx.font = arr.labelFont
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
-
-    
-    //drawHP1345A(ctx, arr.x0, arr.y0, "123.456", 0.4, 0, 1)
-
+    return arrR;
 }
 
 
@@ -1579,7 +1587,7 @@ function verticalTape(ctx, arr) {
     }
     
     // background rectangle
-    if (arr.backColor != "transparent") {
+    if (arr.backColor != "transparent" && typeof val != "undefined") {
 	ctx.fillStyle = arr.backColor;
 	arrR.rgbBackColor = getRGB(ctx.fillStyle);
 	ctx.fillRect(arr.x0 - barW/2, arr.y0 - barH/2, barW, barH);
@@ -1589,9 +1597,11 @@ function verticalTape(ctx, arr) {
     
     // outline
     ctx.strokeStyle = "white";
-    ctx.beginPath();
-    ctx.rect(arr.x0 - barW/2, arr.y0 - barH/2, barW, barH);
-    ctx.stroke();
+    if (typeof val != "undefined") {
+	ctx.beginPath();
+	ctx.rect(arr.x0 - barW/2, arr.y0 - barH/2, barW, barH);
+	ctx.stroke();
+    }
 
     ctx.textAlign = "center";
     ctx.textBaseline = "middle"
@@ -1613,6 +1623,9 @@ function verticalTape(ctx, arr) {
 	if (typeof val != "undefined" && arr.labelFont != "None") {
 	    ctx.font = jetiToCtx(arr.valueFont);
 	    ctx.fillStyle = "white";
+	    if (typeof ("" + val) == "undefined") {
+		console.log("One");
+	    }
 	    ctx.fillText("" + val, arrR.xV, arrR.yV)
 	}
     }
@@ -1629,24 +1642,26 @@ function verticalTape(ctx, arr) {
 	dx1 = 5;
     }
     ctx.fillStyle = "white";
-    ctx.beginPath()
-    ctx.moveTo(arr.x0 + dx, arr.y0 + 5)
-    ctx.lineTo(arr.x0 + dx, arr.y0 - 5)
-    ctx.lineTo(arr.x0 + dx + dx1, arr.y0)
-    ctx.lineTo(arr.x0 + dx, arr.y0 + 5)
-    ctx.fill();
+    if (typeof val != "undefined") {
+	ctx.beginPath()
+	ctx.moveTo(arr.x0 + dx, arr.y0 + 5)
+	ctx.lineTo(arr.x0 + dx, arr.y0 - 5)
+	ctx.lineTo(arr.x0 + dx + dx1, arr.y0)
+	ctx.lineTo(arr.x0 + dx, arr.y0 + 5)
+	ctx.fill();
+    }
 
     // draw side value label box and number
     if (arr.valuePos == "Side") {
 	if (arr.handed == "left") {
 	    arrR.xV = arr.x0 + barW + 18;
 	} else {
-	    arrR.xV = arr.x0 - barW + 6;
+	    arrR.xV = arr.x0 - barW - 18;
 	}
 	arrR.yV = arr.y0 + .04 * jetiHeight(arr.valueFont);
 	//console.log("side", arr.backColor)
 	ctx.fillStyle = "black";
-	if (arr.backColor != "transparent") {
+	if (arr.backColor != "transparent" && typeof val != "undefined") {
 	    ctx.fillStyle = arr.backColor;
 	    if (arr.handed == "left") {
 		ctx.fillRect(arr.x0 + barW/2, arr.y0 - 10, barW, 20)
@@ -1654,14 +1669,16 @@ function verticalTape(ctx, arr) {
 		ctx.fillRect(arr.x0 - 3 * barW/2, arr.y0 - 10, barW, 20)
 	    }
 	}
-	ctx.strokeStyle = "white";
-	if (arr.handed == "left") {
-	    ctx.rect(arr.x0 + barW/2, arr.y0 - 10, barW, 20)
-	} else {
-	    ctx.rect(arr.x0 - 3 * barW/2, arr.y0 - 10, barW, 20)
+	if (typeof val != "undefined") {	
+	    ctx.strokeStyle = "white";
+	    if (arr.handed == "left") {
+		ctx.rect(arr.x0 + barW/2, arr.y0 - 10, barW, 20)
+	    } else {
+		ctx.rect(arr.x0 - 3 * barW/2, arr.y0 - 10, barW, 20)
+	    }
+		    ctx.stroke()
 	}
 	
-	ctx.stroke()
 	ctx.font = jetiToCtx(arr.valueFont);
 	if (arr.handed == "left") {
 	    ctx.textAlign = "right";
@@ -1711,6 +1728,10 @@ function verticalTape(ctx, arr) {
 	yv = zp * step / inc - step * idx / inc  + (val - delta)
 	yv = Math.round( (yv + Number.EPSILON) * 100) / 100;
 	if (typeof yv != "undefined" && arr.tapeFont != "None") {
+	    if (typeof ("" + yv) == "undefined") {
+		console.log("Three");
+	    }
+
 	    ctx.fillText(""+ yv, xp, yp)
 	}
 	if (arr.handed == "left") {
@@ -1742,6 +1763,10 @@ function verticalTape(ctx, arr) {
 	arrR.yV = arr.y0;
 	if (typeof val != "undefined" && arr.valueFont != "None") {
 	    console.log(val, arrR.xV, arrR.yV)
+	    if (typeof ("" + val) == "undefined") {
+		console.log("Four");
+	    }
+
 	    ctx.fillText(""+val, arrR.xV,arrR.yV);
 	}
 	ctx.strokeStyle = "white";

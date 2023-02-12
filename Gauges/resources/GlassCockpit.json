@@ -11,13 +11,15 @@
 	"roll": 15,
 	"labelPos": -4,
 	"skyColor": "blue",
-	"pitch": 6
+	"pitch": 6,
+	"value":0
     },
     {
 	"width": 150,
 	"backColor": "black",
 	"valuePos": "Side",
 	"height": 160,
+	"x0":295,
 	"y0": 75,
 	"tapeFont": "Mini",
 	"label": "Altitude",
@@ -37,7 +39,7 @@
 	"y0": 75,
 	"tapeFont": "Mini",
 	"label": "Airspeed",
-	"x0": 27,
+	"x0": 25,
 	"labelFont": "Mini",
 	"value": 46,
 	"type": "verticalTape",
