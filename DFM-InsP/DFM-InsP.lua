@@ -278,6 +278,22 @@ local function prefix()
    return pf
 end
 
+local function drawFilledBezel(x,y,w,h,z)
+
+   local ren = lcd.renderer()
+   ren:reset()
+   ren:addPoint(x, y+z)
+   ren:addPoint(x+z, y)
+   ren:addPoint(x+w-z, y)
+   ren:addPoint(x+w, y+z)
+   ren:addPoint(x+w, y+h-z)
+   ren:addPoint(x+w-z, y+h)
+   ren:addPoint(x+z, y+h)
+   ren:addPoint(x, y+h-z)
+   ren:renderPolygon()
+
+end
+
 local function drawTextCenter(x, y, str, font)
    if font and font < 0 then return end -- an "invisible" font :-)
    if not font then
@@ -313,6 +329,24 @@ local function drawShape(col, row, shape, f, rotation, x0, y0, r, g, b)
       lcd.setColor(r,g,b)
       ren:renderPolyline(2)
    end
+end
+
+local function drawShapeXY(col, row, shape, f, rotation)
+
+   local sinShape, cosShape
+   local ren = lcd.renderer()
+   local fw = f^0.55
+   local x0,y0 = 0,0
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   ren:reset()
+   for _, point in pairs(shape) do
+      ren:addPoint(
+	 col + ((fw*point.x+x0) * cosShape - (f*point.y+y0) * sinShape + 0.5),
+	 row + ((fw*point.x+x0) * sinShape + (f*point.y+y0) * cosShape + 0.5)
+      ) 
+   end
+   ren:renderPolygon()
 end
 
 local function drawArc(theta, x0, y0, a0, ri, ro, im, alp)
@@ -729,7 +763,7 @@ local function keyForm(key)
       if key == KEY_1 or key == KEY_ENTER then -- edit
 	 savedRow2 = form.getFocusedRow()
 	 savedRow3 = form.getFocusedRow()
-	 form.reinit(formN.editgauge) -- XXXXX
+	 form.reinit(formN.editgauge) 
       end
    end
 
@@ -1504,7 +1538,7 @@ local function initForm(sf)
 	 form.setFocusedRow(isp+1)
       end
    elseif sf == formN.editlua then
-      --print("about to luaEdit", subForm, savedRow, savedRow2) -- xxxx
+      --print("about to luaEdit", subForm, savedRow, savedRow2)
       LE.luaEdit(InsP.variables, lua.funcext, 0)--savedRow2)
 
    elseif sf == formN.luavariables then
@@ -1944,19 +1978,26 @@ local function printForm(_,_,tWin)
       if widget.type == "roundNeedleGauge" or widget.type == "roundArcGauge" or
       widget.type == "virtualGauge" then
 
-	 if sensorVal and
-	    ( (widget.maxWarn and sensorVal > widget.maxWarn) or
-	    (widget.minWarn and sensorVal < widget.minWarn) ) then
-	    if (system.getTimeCounter() // 500) % 2 == 0 then
+	 if sensorVal and widget.maxWarn and widget.minWarn then
+	    local hiwarn = false
+	    local lowarn = false
+	    if widget.maxWarn >= widget.minWarn then
+	       if sensorVal > widget.maxWarn then hiwarn = true
+	       elseif sensorVal < widget.minWarn then lowarn = true end
+	    else
+	       if sensorVal > widget.minWarn then hiwarn = true
+	       elseif sensorVal < widget.maxWarn then lowarn = true end
+	    end
+	    if (hiwarn or lowarn) and (system.getTimeCounter() // 500) % 2 == 0 then
 	       local ren = lcd.renderer()
 	       ren:reset()
 	       for th = 0, 2 * math.pi, 2 * math.pi / 20 do
 		  ren:addPoint(
-		     widget.x0 + 0.85 * widget.radius * math.sin(th),
-		     widget.y0 + 0.85 * widget.radius * math.cos(th)
+		     widget.x0 + 0.85 * widget.gaugeRadius * math.sin(th),
+		     widget.y0 + 0.85 * widget.gaugeRadius * math.cos(th)
 		  ) 
 	       end
-	       if sensorVal > widget.maxWarn then
+	       if hiwarn then
 		  lcd.setColor(255,0,0)
 	       else
 		  lcd.setColor(0,0,255)
@@ -1970,10 +2011,11 @@ local function printForm(_,_,tWin)
 	 local val
 	 
 	 if ctl then
-	    factor = 0.90 * (widget.radius - 8) / 58
+	    --factor = 0.90 * (widget.radius - 8) / 58
 	    if widget.type == "roundNeedleGauge" or widget.type == "roundArcGauge" then
 	       local ro = widget.ro or 0.87 * widget.radius
 	       local ri = widget.ri or 0.85 * widget.radius
+	       factor = 0.90 * ro / 58
 	       if widget.type ~= "roundArcGauge" then
 		  if not widget.TS then widget.TS = ri - 1.8 * (ro - ri) end
 		  local rt = widget.TS
@@ -1996,7 +2038,8 @@ local function printForm(_,_,tWin)
 		     widget.fTL = widget.tickFont or "Mini"
 		  end
 		  local vv, vt
-		  if widget.tickLabels and widget.subdivs > 0 and widget.majdivs > 0 then
+		  if widget.tickLabels and widget.subdivs > 0 and widget.majdivs > 0 and
+		  widget.scaleVis ~= "off" then
 		     for i,v in ipairs(widget.tickLabels) do
 			vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
 			vt = string.format(fstr, vv)
@@ -2007,7 +2050,13 @@ local function printForm(_,_,tWin)
 				       vt, edit.fcode[widget.fTL])
 		     end
 		  end
-		  drawShape(widget.x0, widget.y0, needle, factor, rot + math.pi) --math.pi/2)
+		  if widget.needleType ~= "None" then
+		     lcd.setColor(255,255,255)
+		     drawShapeXY(widget.x0, widget.y0, widget.needle, factor, rot + math.pi)
+		     lcd.setColor(widget.rgbInnerFillColor.r,
+				  widget.rgbInnerFillColor.g, widget.rgbInnerFillColor.b)
+		     drawShapeXY(widget.x0, widget.y0, widget.inner, factor, rot + math.pi)
+		  end
 	       else
 		  local r,g,b = 255,255,255
 		  if widget.TXspectrum then
@@ -2063,14 +2112,14 @@ local function printForm(_,_,tWin)
 	    lcd.setColor(255,255,255)
 	    if rotmin and widget.showMM == "true" then
 	       --print("rotmin")
-	       drawShape(widget.x0, widget.y0, rectangle, factor, rotmin + math.pi/2, 0,
-			 widget.radius, 255,255,255)
+	       drawShape(widget.x0, widget.y0, rectangle, factor, rotmin + math.pi, 0,
+			 widget.ro+10, 255,255,255)
 	    end
 	    
 	    if rotmax and widget.showMM == "true" then
 	       --print("rotmax")
-	       drawShape(widget.x0, widget.y0, rectangle, factor, rotmax + math.pi/2, 0,
-			 widget.radius, 255,255,255)
+	       drawShape(widget.x0, widget.y0, rectangle, factor, rotmax + math.pi, 0,
+			 widget.ro+10, 255,255,255)
 	    end
 	    lcd.setColor(255,255,255)
 	    local fmt
@@ -2104,39 +2153,36 @@ local function printForm(_,_,tWin)
 	    widget.fV = widget.valueFont or "Mini"
 	 end
 	 
-	 --[[
-	 if not widget.fV then
-	    if widget.type == "roundArcGauge" then
-	       if widget.radius > 60 then
-		  widget.fV = "Maxi"
-	       elseif widget.radius > 40 then
-		  widget.fV = "Bold"
-	       else
-		  widget.fV = "Mini"
-	       end
-	    else
-	       widget.fV = "Mini"
-	    end
-	 end
-	 --]]
-
 	 if not widget.fLRV then
 	    widget.fLRV = widget.tickLabel or "Mini"
 	 end
 	 
-	 if widget.radius > 30 then
+	 if widget.gaugeRadius > 30 then
+
+	    --if widget.labelPosX then widget.xL = widget.labelPosX end
+	    --if widget.labelPosY then widget.yL = widget.labelPosY end
+	    
 	    if not widget.xL then
 	       widget.xL = widget.x0
 	       widget.yL = widget.y0 + 1.0 * widget.radius - 15
 	    end
 
+	    if widget.labelBoxColor ~= "transparent" then
+	       lcd.setColor(widget.rgbLabelBoxColor.r, widget.rgbLabelBoxColor.g, widget.rgbLabelBoxColor.b)
+	       drawFilledBezel(widget.xLB+14, widget.yLB+1, widget.wLB-28, widget.hLB, 2)
+	    end
+	    lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
 	    drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
 	    
+	    --if widget.readoutPosX then widget.xV = widget.readoutPosX end
+	    --if widget.readoutPosY then widget.yV = widget.readoutPosY end
+
 	    if not widget.xV then
 	       widget.xV = widget.x0
 	       widget.yV = widget.y0-- + 0.17 * widget.radius
 	    end
-	    --print(widget.fV, edit.fcode[widget.fV])
+
+	    lcd.setColor(255,255,255)
 	    drawTextCenter(widget.xV, widget.yV, string.format("%s", val), edit.fcode[widget.fV])
 	    
 	    if widget.subdivs == 0 then
@@ -2151,17 +2197,34 @@ local function printForm(_,_,tWin)
 	       val = string.format("%d", widget.max)
 	       drawTextCenter(widget.xRV, widget.yRV, string.format("%s", val), edit.fcode[widget.fLRV])
 	    end
-	 elseif widget.radius >= 20 then
+	 elseif widget.gaugeRadius >= 20 then
+
+	    --if widget.readoutPosX then widget.xV = widget.readoutPosX end
+	    --if widget.readoutPosY then widget.yV = widget.readoutPosY end
+
 	    if not widget.xV then
 	       widget.xV = widget.x0
 	       widget.yV = widget.y0 --+ 0.25 * widget.radius
 	    end
+
+	    lcd.setColor(255,255,255)
 	    drawTextCenter(widget.xV, widget.yV,
 			   string.format("%s", val), edit.fcode[widget.fV])	    
+
+	    --if widget.labelPosX then widget.xL = widget.labelPosX end
+	    --if widget.labelPosY then widget.yL = widget.labelPosY end
+
 	    if not widget.xL then
 	       widget.xL = widget.x0
 	       widget.yL = widget.y0 + 1.0 * widget.radius - 9
 	    end
+
+	    if widget.labelBoxColor ~= "transparent" then
+	       lcd.setColor(widget.rgbLabelBoxColor.r, widget.rgbLabelBoxColor.g, widget.rgbLabelBoxColor.b)
+	       drawFilledBezel(widget.xLB+12, widget.yLB+4, widget.wLB-24, widget.hLB-4, 2)
+	    end
+
+	    lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
 	    drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
 
 	    if widget.subdivs == 0 then
@@ -2183,8 +2246,6 @@ local function printForm(_,_,tWin)
 	 local yc = widget.y0 - widget.barH // 2
 	 
 	 if widget.backColor and (widget.backColor.t == "false") then
-	    --print("drawing backgnd", widget.backColor.r, widget.backColor.g, widget.backColor.b)
-	    --print(widget.backColor.t)
 	    lcd.setColor(widget.backColor.r, widget.backColor.g, widget.backColor.b)
 	    lcd.drawFilledRectangle(xc, yc, widget.barW, widget.barH)
 	 end

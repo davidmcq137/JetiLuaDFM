@@ -19,17 +19,22 @@
             "type": "roundNeedleGauge",
             "x0": 160,
             "y0": 80,
-            "radius": 65,
+            "radius": 80,
             "min": 0,
             "max": 100,
 	    "tickFont":"Bold",
+	    "tickSpace":100,
             "value":85,
+	    "readoutPosX":0,
+	    "readoutPosY":0,
 	    "valueFont":"Mini",
 	    "majdivs":4,
             "subdivs": 5,
             "label":"Label",
 	    "labelFont":"Bold",
-	    "labelPos":0,
+	    "labelBoxColor":"transparent",
+	    "labelPosX":0,
+	    "labelPosY":0,	    
             "spectrum": [
 		"red",
 		"orange",
@@ -37,9 +42,11 @@
 		"green"
             ],
 	    "faceVis":"on",
+	    "scaleVis":"on",
 	    "needleType":"needle",
 	    "needleColor":"white",
-	    "labelColor":"white"
+	    "labelColor":"white",
+	    "arcWidth":15
         },
 
         "roundArcGauge": {
@@ -49,19 +56,29 @@
             "radius": 65,
             "min": 0,
             "max": 100,
+	    "tickFont":"Normal",
+	    "tickSpace":100,
 	    "valueFont":"Maxi",
 	    "majdivs": 0,
             "subdivs": 0,
             "value":85,
-            "label":"Value",
-	    "labelPos":0,
+	    "readoutPosX":0,
+	    "readoutPosY":0,
+            "label":"Label",
+	    "labelPosX":0,
+	    "labelPosY":0,	    
 	    "labelFont":"Bold",
+	    "labelColor":"white",
+	    "labelBoxColor":"transparent",
             "spectrum": [
 		"red",
 		"orange",
 		"yellow",
 		"green"
-            ]
+            ],
+	    "arcWidth":20,
+	    "faceVis":"on",
+	    "scaleVis":"on"
         },
 	
         "horizontalBar": {
@@ -76,7 +93,8 @@
 	    "majdivs":4,
             "subdivs": 4,
             "label":"Value",
-	    "labelPos":0,
+	    "labelPosX":0,
+	    "labelPosY":0,	    
 	    "labelFont":"Mini",
 	    "backColor":"black",
 	    "bezelColor":"transparent",
@@ -105,7 +123,8 @@
 	    "backColor":"yellowgreen",
 	    "bezelColor":"transparent",
             "label":"Status",
-	    "labelPos":0,
+	    "labelPosX":0,
+	    "labelPosY":0,	    
 	    "labelcolor": "white",
 	    "labelFont":"Mini"
         },
@@ -127,7 +146,8 @@
 	    "backColor":"yellowgreen",
 	    "bezelColor":"transparent",
             "label":"Info",
-	    "labelPos":0,
+	    "labelPosX":0,
+	    "labelPosY":0,	    
 	    "labelcolor": "white",
 	    "labelFont":"Mini"
         },
@@ -141,7 +161,8 @@
 	    "bezelColor":"transparent",
 	    "label":"Red Light",
 	    "labelFont":"None",
-	    "labelPos":0,
+	    "labelPosX":0,
+	    "labelPosY":0,	    
 	    "radius":10,
 	    "width":50,
 	    "height":50,	    
@@ -186,7 +207,8 @@
 	    "landColor":"chocolate",
 	    "label":"Artificial Horizon",
 	    "labelFont":"None",
-	    "labelPos": 0,
+	    "labelPosX": 0,
+	    "labelPosY": 0,	    
 	    "value":0
 	},
 
