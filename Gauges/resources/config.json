@@ -10,7 +10,9 @@
         "TurbineArc":    {"file": "TurbineArc.json"},
 	"TwoLarge":      {"file": "TwoLarge.json"},
 	"TwoLargeArc":   {"file": "TwoLargeArc.json"},	
-	"GlassCockpit":  {"file": "GlassCockpit.json"}
+	"GlassCockpit":  {"file": "GlassCockpit.json"},
+	"TwoNeedle":     {"file": "TwoNeedle.json"},
+	"Concentric":    {"file": "Concentric.json"}
     },
 
     "prototypes": {
@@ -53,7 +55,7 @@
             "type": "roundArcGauge",
             "x0": 160,
             "y0": 80,
-            "radius": 65,
+            "radius": 80,
             "min": 0,
             "max": 100,
 	    "tickFont":"Normal",
@@ -189,7 +191,7 @@
 	    "y0": 80,
 	    "min": 0,
 	    "max": 100,
-	    "radius": 70,
+	    "radius": 80,
 	    "value": 0,
 	    "start": -135,
 	    "end": 135

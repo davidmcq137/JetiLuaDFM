@@ -618,7 +618,7 @@ function drawNeedle(ctx, arr, arrR, type, f, angle) {
     //console.log("drawneedle", type);
     
     if (typeof needles[type] == "undefined" || type == "none" ) {
-	console.log("RETURNING", type)
+	//console.log("RETURNING", type)
 	return
     }
 
@@ -696,7 +696,7 @@ function drawNeedle(ctx, arr, arrR, type, f, angle) {
 
 function jetiFont(font) {
     const jetiFonts = ["Mini", "Normal", "Bold", "Big", "Maxi"] 
-    const jetiSizes = [10, 15, 15, 22, 40]
+    const jetiSizes = [10, 15, 15, 20, 40]
     let jF = 0
     let dF = Math.abs(font - jetiSizes[0]) // assume MINI
     for (let i = 1; i < 5; i++) {
@@ -710,7 +710,7 @@ function jetiFont(font) {
 
 function jetiHeight(font) {
     const jetiFonts = ["Mini", "Normal", "Bold", "Big", "Maxi"]
-    const jetiSizes = [10, 15, 15, 22, 40]
+    const jetiSizes = [10, 15, 15, 19, 34]
     let iF = 1
     for (let i = 0; i < 4; i++) {
 	if (font == jetiFonts[i]) {
@@ -721,7 +721,7 @@ function jetiHeight(font) {
 }
 
 function jetiToCtx(jfont) {
-    const point = {Mini:10, Normal:15, Bold:15, Big: 22, Maxi: 40, None:3}
+    const point = {Mini:10, Normal:15, Bold:15, Big: 19, Maxi: 34, None:3}
     //ctx.font="bold " + fontScale * ro + "px sans-serif"
     let bstr = "";
     if (jfont == "Bold") {
@@ -1274,6 +1274,28 @@ function virtualGauge(ctx, arr) {
     needleTri[3].x = needleTri[3].x * (100 - aa) / 100 + needleTri[2].x * aa / 100
     needleTri[3].y = nL * aa / 100
 
+    console.log("dfc", document.fonts.check("12px courier"))
+		
+    ctx.fillStyle = "black"
+
+    ctx.font = jetiToCtx("Mini");
+    console.log("Mini", ctx.font)
+    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2)
+    
+    ctx.font = jetiToCtx("Normal");
+    console.log("Mini", ctx.font)
+    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 20)
+    
+    ctx.font = jetiToCtx("Big");
+    console.log("Mini", ctx.font)
+    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 40)
+    
+    ctx.font = jetiToCtx("Maxi");
+    console.log("Mini", ctx.font)
+    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 80)
+    
+    return
+    
     arrR.needle = [];
     const tL = needleTri.length;
 
