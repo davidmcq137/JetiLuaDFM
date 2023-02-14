@@ -1005,14 +1005,26 @@ end
 
 local function panelChanged(val, sp)
    local fn
+   local decodedfile
    local pv = InsP.settings.panels[val]
    if val ~= 1 then
       fn = pDir .. "/"..pv..".json"
       --print("panelChanged reading", fn, sp)
       local file = io.readall(fn)
       local bi = InsP.panelImages[sp].backImage
-      InsP.panels[sp] = json.decode(file)
-      --lua.chunk = {} -- need to compute any chunks for this panel
+
+      --InsP.panels[sp] = json.decode(file)
+
+      decodedfile =  json.decode(file)
+      if decodedfile.panels then
+	 InsP.panels[sp] = decodedfile.panels
+	 InsP.panelImages[sp].timestamp = decodedfile.timestamp
+	 print("DFM-InsP: new json format " .. decodedfile.timestamp)
+      else
+	 InsP.panels[sp] = decodedfile
+	 print("DFM-InsP: old json format - no timestamp")
+      end
+      
       if not instImg then
 	 instImg = lcd.loadImage(pDir .. "/"..pv..".png")
       end
@@ -1510,9 +1522,9 @@ local function initForm(sf)
 
       form.addRow(5)
       form.addLabel({label=" ", width=30})
-      form.addLabel({label="#", width=20})
-      form.addLabel({label="Panel     ", width=105, alignRight = true})
-      form.addLabel({label="Background  ", width=105, alignRight = true})
+      form.addLabel({label="#", width=30})
+      form.addLabel({label="Panel     ", width=100, alignRight = true})
+      form.addLabel({label="Background  ", width=100, alignRight = true})
       form.addLabel({label="Aux", width=50, alignRight = false})      
       
       local pp = {} 
@@ -1531,7 +1543,7 @@ local function initForm(sf)
 	 end
 	 form.addLabel({label=lbl, width=30})
 
-	 form.addLabel({label=i, width=20})
+	 form.addLabel({label=i, width=30})
 
 	 --local sp = InsP.settings.selectedPanel
 	 local pnl = InsP.panelImages[i].instImage
@@ -1546,7 +1558,7 @@ local function initForm(sf)
 	 end
 	 form.addSelectbox(InsP.settings.panels, isel, true,
 			   (function(x) return panelChanged(x, i) end),
-			   {width=105})
+			   {width=100})
 	 
 	 local bak = InsP.panelImages[i].backImage
 	 isel = 0
@@ -1558,7 +1570,7 @@ local function initForm(sf)
 	 end
 	 form.addSelectbox(InsP.settings.backgrounds, isel, true,
 			   (function(x) return backGndChanged(x, i) end),
-			   {width=105})
+			   {width=100})
 
 	 isel = i + 1
 	 if isel > #InsP.panelImages then isel = 1 end
@@ -2935,7 +2947,7 @@ local function printForm(_,_,tWin)
 	 drawTextCenter(widget.xL, widget.yL, widget.label, edit.fcode[fL])
       end
    end
-   ---[[
+   --[[
    if select(2, system.getDeviceType()) == 1 then
       lcd.drawText(300,70, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   
       lcd.drawText(300,90, string.format("%02d", system.getCPU()), FONT_MINI)
@@ -3078,6 +3090,26 @@ local function destroy()
    end
 end
 
+local function initNewer(sf, tbl)
+
+   form.setTitle("Newer Panels are available")
+
+   form.addRow(1)
+   form.addLabel({label="Press OK then go to the Panels menu",
+		  width=320, font=FONT_MINI})
+   form.addRow(1)
+   form.addLabel({label="Delete then re-read the panel(s)",
+		  width=320, font=FONT_MINI})
+
+   for i,v in ipairs(tbl) do
+      form.addRow(1) 
+      form.addLabel({label = i .. ".   " ..v.fn .."       " .. string.sub(v.ts,1,19)})
+   end
+
+   form.setFocusedRow(3)
+
+end
+
 local function init()
 
    local decoded
@@ -3099,6 +3131,7 @@ local function init()
 	 initPanels(decoded)
 	 decoded.stateSw = {}
       end
+      
       for i=1, #decoded.panels do
 	 InsP.panels[i] = decoded.panels[i]
       end
@@ -3155,22 +3188,48 @@ local function init()
    
    InsP.settings.panels = {'...'}
    local dd, fn, ext
+   local newerPanels = {}
    local path = prefix() .. pDir
    for name, _, _ in dir(path) do
       dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
       if fn and ext then
 	 if string.lower(ext) == "json" then
 	    ff = path .. "/" .. fn .. "." .. ext
-	    file = io.open(ff)
+	    --print("opening " .. ff)
+	    file = io.readall(ff)
 	    if file then
+	       local dc = json.decode(file)
+	       local ts = dc.timestamp
+	       if ts then
+		  --print("found timestamp " .. ts, "#InsP.panels", #InsP.panels)
+		  for i in ipairs(InsP.panels) do
+		     --print(i, fn, InsP.panelImages[i].instImage)
+		     if InsP.panelImages[i].instImage == fn then
+			--print("fn, ts, .ts", fn, ts, InsP.panelImages[i].timestamp)
+			if ts > (InsP.panelImages[i].timestamp or "0") then
+			   --print("ts >= timestamp .. newer version of ".. fn )
+			   table.insert(newerPanels, {fn = fn, ts = ts})
+			end
+			break
+		     end
+		  end
+	       end
 	       if not InsP.settings.panels then InsP.settings.panels = {} end
 	       table.insert(InsP.settings.panels, fn)
-	       io.close(file)
+	       --io.close(file)
 	    end
 	 end
       end
    end
 
+   for i,v in ipairs(newerPanels) do
+      print(i, v.fn, v.ts)
+   end
+
+   print("1")
+   local abc = system.registerForm(2, 0, "Newer Panels", (function(x) return initNewer(x, newerPanels) end))
+   print("abc", abc)
+   
    --local t2 = system.getTimeCounter()
    --print("delta t", (t2 - t1) / 1000)
    
