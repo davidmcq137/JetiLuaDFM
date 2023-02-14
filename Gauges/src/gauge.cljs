@@ -438,8 +438,7 @@
 (rum/defc spectrum-or-colorvals < rum/reactive
   [da]
   (let [{:keys [params] :as d} (rum/react da)
-        {:strs [colorvals spectrum] :as kq} params]
-    
+        {:strs [colorvals spectrum min max] :as kq} params]
     (cond
       colorvals (rum/fragment
                  [:div.edit-spectrum-label {}
@@ -452,9 +451,10 @@
                                               #(-> %
                                                    (dissoc "colorvals")
                                                    (assoc "spectrum"
-                                                          (vec
-                                                           (for [c colorvals]
-                                                             (get c "color")))))))}]]
+                                                          (cond-> (for [c colorvals]
+                                                                    (get c "color"))
+                                                            true vec
+                                                            (< max min) reverse)))))}]]
                  (edit-colorvals da))
       
       spectrum (rum/fragment
