@@ -672,7 +672,7 @@
            (ask-download-file "gauges.json" (js/JSON.stringify (clj->js data) nil 2))
            (ask-download-file "gauges.new.json"
                               (js/JSON.stringify
-                               (clj->js {:panels data
+                               (clj->js {:panel data
                                          :timestamp (.toISOString (js/Date.))})
                                nil 2)))))
 
@@ -704,7 +704,7 @@
                         #js [{:destination (str "Apps/DFM-InsP/Panels/" panel-name ".json")
                               :json-data (clj->js data)}
                              {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".new.json")
-                              :json-data (clj->js {:panels data
+                              :json-data (clj->js {:panel data
                                                    :timestamp (.toISOString (js/Date.))})}
                              {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".png")
                               :data-base64 (subs base (count "data:image/png;base64,"))}]))))))))
