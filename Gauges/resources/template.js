@@ -572,14 +572,42 @@ function arcsegment(ctx, x0, y0, ri, ro, a1, a2) {
     ctx.fill();
 }
 
-function returnColorVals(spec, min, max) {
+function returnColorVals(spec, minI, maxI) {
     var cval = [];
-    
-    const step = (max - min) / spec.length;
+    let min, max
+
+    min = minI
+    max = maxI
+    /*
+    if (maxI >= minI) {
+	min = minI
+	max = maxI
+    } else {
+	min = maxI
+	max = minI
+    }
+    */
+    let normal
+    if (max >= min) {
+	normal = true
+    } else {
+	normal = false
+    }
+    const step = Math.abs(max - min) / spec.length;
     //console.log("step", step);
+    let k
     for (var i = 0; i < spec.length; i++) {
-	//console.log(i, spec[i], step * (i + 1))
-	cval[i] = {color: spec[i], val: step * (i + 1) };
+	if (normal) {
+	    k = i
+	} else {
+	    k = spec.length - i - 1
+	}
+	if (normal) {
+	    cval[i] = {color: spec[i], val: step * (i + 1) };
+	} else {
+	    cval[i] = {color: spec[k], val: step * (i + 1) };
+	}
+	console.log(i, k, spec[i], step * (i+1), cval[i])
     }
     return cval;
 }
@@ -820,10 +848,11 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     var idxT = 0;
     //arrR.jFont = jetiFont(fontScale * ro);
     //console.log(ctx.font, fontScale * ro, jetiFont(fontScale * ro))    
-
+    let normal = (max >= min);
+    let valdelta = Math.abs(max-min) / nseg;
     const fudge = 1 / (100*nseg);
     for (let i = 0; i <= nseg; i++) {
-	
+
 	delta = (end - start) / nseg;
 	a = start + i * delta
 
@@ -831,23 +860,40 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	var aFrac = (a - start) / (end - start)
 	var val = (min + aFrac * (max - min))
 
+	//console.log(i, a, aFrac, val)
+	
 	if (type != "altimeter") {
 	    //ctx.fillStyle = "gray";
 	    if (typeof colors == "object") {
 		const cl = colors.length - 1;
 
 		if (val != 0) {
-		    val = val + fudge;
+		    if (normal) {
+			val = val + fudge;
+		    } else {
+			val - val - fudge;
+		    }
 		}
 		if (val <= colors[0].val) {
 		    ctx.fillStyle = colors[0].color
 		} else if (val >= colors[cl].val) {
 		    ctx.fillStyle = colors[cl].color
 		} else {
-		    for (let j = 1; j <= cl; j++) {
-			if (val >= colors[j-1].val && val < colors[j].val) {
-			    ctx.fillStyle = colors[j].color;
-			    break;
+		    if (normal) {
+			for (let j = 1; j <= cl; j++) {
+			    if (val >= colors[j-1].val && val < colors[j].val) {
+				ctx.fillStyle = colors[j].color;
+				break;
+			    }
+			}
+		    } else {
+			for (let j = 1; j <= cl; j++) {
+			    //console.log("$", j, val, colors[j-1].val, colors[j].val, colors[j].color)
+			    if ( (val - valdelta) >= colors[j-1].val && (val - valdelta) < colors[j].val) {
+				//console.log("#", j, val, colors[j].val, colors[j].color)
+				ctx.fillStyle = colors[j].color;
+				break;
+			    }
 			}
 		    }
 		}
@@ -885,7 +931,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	if (typeof arr.tickSpace != "undefined") {
 	    label2C = 1.8 * arr.tickSpace / 100
 	} else {
-	    label2X = 1.8
+	    label2C = 1.8
 	}
 
 	if (minmaj > 0 && i % minmaj == 0) {
@@ -1001,10 +1047,9 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	lpy= arr.labelPosY
     }
     
-	    
     if (ndlarc == "needle") {
 	arrR.yL = y0 + 0.90 * ro + lpy
-	arrR.xL = x0 + arr.lpx;
+	arrR.xL = x0 + lpx;
 	//console.log("needle, yL", arrR.yL)
 	//ctx.font = jetiToCtx(arr.labelFont);
 	//ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
@@ -1017,6 +1062,9 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     }
     ctx.textBaseline = "middle";
     ctx.textAlign = "center";
+
+    //console.log(arr.labelFont, arr.label, lpx, lpy, arrR.xL, arrR.yL)
+
     if (arr.labelFont != "None") {
 	ctx.font = jetiToCtx(arr.labelFont);
 	let lblclr
@@ -1109,8 +1157,11 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     }
 
     var digits
-    digits = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
-    //console.log("log, digits", Math.log10(max - min), digits)
+    if (max != min) {
+	digits = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
+    } else {
+	digits = 0;
+    }
     if (arr.valueFont != "None" && typeof arr.label != "undefined") {
 	ctx.fillText(parseFloat(value).toFixed(digits), arrR.xV, arrR.yV);
     }
@@ -1466,8 +1517,21 @@ function textBox(ctx, arr, type) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle"
     
-    arrR.xL = x0 + arr.labelPosX;
-    arrR.yL = y0 + h/4 + jetiHeight(arr.labelFont) + arr.labelPosY
+    let lpx, lpy
+    
+    if (typeof arr.labelPosX == "undefined") {
+	lpx = 0
+    } else {
+	lpx= arr.labelPosX
+    }
+    if (typeof arr.labelPosY == "undefined") {
+	lpy = 0
+    } else {
+	lpy= arr.labelPosY
+    }
+
+    arrR.xL = x0 + lpx;
+    arrR.yL = y0 + h/4 + jetiHeight(arr.labelFont) + lpy;
 
     if (typeof arr.label != "undefined" && arr.labelFont != "None") { 
 	ctx.fillStyle = "white";
@@ -1723,8 +1787,22 @@ function artHorizon(ctx, arr) {
 	ctx.restore();
     }
     
-    arrR.xL = arr.x0 + arr.labelPosX;
-    arrR.yL = arr.y0 + radAH + jetiHeight(arr.labelFont) + arr.labelPosY;
+    let lpx, lpy
+    if (typeof arr.labelPosX == "undefined") {
+	lpx = 0
+    } else {
+	lpx = arr.labelPosX
+    }
+    if (typeof arr.labelPosY == "undefined") {
+	lpy = 0
+    } else {
+	lpy = arr.labelPosY
+    }    
+	
+    arrR.xL = arr.x0 + lpx;
+    arrR.yL = arr.y0 + radAH + jetiHeight(arr.labelFont) + lpy;
+
+    console.log(arrR.xL, arrR.yL)
 
     //console.log("arr.label, arr.labelFont, arrR.xL, arrR.yL", arr.label, arr.labelFont, arrR.xL, arrR.yL)
     
@@ -2114,6 +2192,7 @@ function horizontalBar(ctx, arr) {
     }
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
+    let lpx, lpy;
     if (typeof arr.labelPosX == "undefined") {
 	lpx = 0
     } else {
@@ -2127,6 +2206,7 @@ function horizontalBar(ctx, arr) {
     arrR.xL = arr.x0 + lpx;
     arrR.yL = arr.y0 +  h / 2 + yOff + lpy;
     ctx.font = jetiToCtx(arr.labelFont)
+    
     if (typeof arr.label != "undefined") {	
 	if (arr.labelFont != "None") {
 	    ctx.fillText(arr.label, arrR.xL, arrR.yL);
@@ -2154,8 +2234,21 @@ function panelLight(ctx, arr) {
     if (arr.bezelColor != "transparent") {
 	ctx.fillStyle = arr.bezelColor;
 	arrR.rgbBezelColor = getRGB(ctx.fillStyle);
-    } else {
+    } else{ 
 	arrR.rgbBezelColor = getRGB(arr.bezelColor);
+    }
+
+    let lpx, lpy
+    
+    if (typeof arr.labelPosX == "undefined") {
+	lpx = 0
+    } else {
+	lpx= arr.labelPosX
+    }
+    if (typeof arr.labelPosY == "undefined") {
+	lpy = 0
+    } else {
+	lpy= arr.labelPosY
     }
 
     if (typeof arr.label != "undefined") {
@@ -2163,8 +2256,8 @@ function panelLight(ctx, arr) {
 	ctx.fillStyle = "white";
 	ctx.textAlign = "center";
 	ctx.font = jetiToCtx(arr.labelFont);
-	arrR.xL = arr.x0 + arr.labelPosX;
-	arrR.yL = arr.y0 + jetiHeight(arr.labelFont) + arr.radius + arr.labelPosY
+	arrR.xL = arr.x0 + lpx;
+	arrR.yL = arr.y0 + jetiHeight(arr.labelFont) + arr.radius + lpy;
 	if (arr.labelFont != "None") {
 	    ctx.fillText(arr.label, arrR.xL, arrR.yL);
 	}

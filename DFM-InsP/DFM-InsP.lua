@@ -301,6 +301,7 @@ local function drawTextCenter(x, y, str, font)
    if not font then
       font = FONT_NORMAL
    end
+   
    lcd.drawText(x - lcd.getTextWidth(font, str)/2,
 		y - lcd.getTextHeight(font)/2, str, font)
 end
@@ -938,7 +939,7 @@ local function keyForm(key)
 	    end
 
 	    if eo == "TicSpc" and ipeg.TS then
-	       if ipeg.TS + inc > -20 and ipeg.TS + inc < 20 then
+	       if ipeg.TS + inc > -100 and ipeg.TS + inc < 100 then
 		  ipeg.TS = ipeg.TS + inc
 	       end
 	    end
@@ -2048,6 +2049,7 @@ local function printForm(_,_,tWin)
 			--vt = tostring(vv)
 			--print("widget.fTL, edit.fcode[widget.fTL]", widget.fTL, edit.fcode[widget.fTL])
 			local vrt = widget.TS
+			--print(vrt)
 			drawTextCenter(widget.x0 + vrt * v.ca, widget.y0 + vrt * v.sa,
 				       vt, edit.fcode[widget.fTL])
 		     end
@@ -2170,8 +2172,8 @@ local function printForm(_,_,tWin)
 	       local lH = lcd.getTextHeight(edit.fcode[widget.fL]) - 2 -- 2 is a fudge
 	       local lW = lcd.getTextWidth(edit.fcode[widget.fL], str)
 	       drawFilledBezel(widget.xL, widget.yL, lW, lH, 2)	       
-	       
 	    end
+
 	    if widget.rgbLabelColor then
 	       lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
 	       drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
@@ -2215,13 +2217,16 @@ local function printForm(_,_,tWin)
 	       widget.yL = widget.y0 + 1.0 * widget.radius - 9
 	    end
 
-	    if widget.labelBoxColor ~= "transparent" then
+	    if widget.labelBoxColor ~= "transparent" and widget.rgbLabelBoxColor then
 	       lcd.setColor(widget.rgbLabelBoxColor.r, widget.rgbLabelBoxColor.g, widget.rgbLabelBoxColor.b)
 	       drawFilledBezel(widget.xLB+12, widget.yLB+4, widget.wLB-24, widget.hLB-4, 2)
 	    end
 
-	    lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
-	    drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
+	    if widget.rgbLabelColor then
+	       lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
+	       drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
+	    end
+	    
 
 	    if widget.subdivs == 0 then
 	       if not widget.xLV then
@@ -2416,16 +2421,15 @@ local function printForm(_,_,tWin)
 	 end
 	 --if idxW == 1 then print("pl", sensorVal, widget.max, widget.min) end
 	 
-	 if sensorVal and sensorVal > (widget.max - widget.min) / 2 then
+	 if sensorVal and sensorVal > (widget.max - widget.min) / 2 and widget.rgbLightColor then
 	    if widget.rgbLightColor then
 	       lcd.setColor(widget.rgbLightColor.r, widget.rgbLightColor.g, widget.rgbLightColor.b)
 	       ren:renderPolygon(1)
 	    end
 	 else
-	    if widget.rgbOffColor then
-	       --print(widget.rgbOffColor.r, widget.rgbOffColor.g, widget.rgbOffColor.b)
-	       --lcd.setColor(widget.rgbOffColor.r, widget.rgbOffColor.g, widget.rgbOffColor.b)
-	       --ren:renderPolygon(1)
+	    if widget.rgbBackColor and widget.backColor ~= "transparent" then
+	       lcd.setColor(widget.rgbBackColor.r, widget.rgbBackColor.g, widget.rgbBackColor.b)
+	       ren:renderPolygon(1)
 	    end
 	 end
 	 	 
@@ -2453,8 +2457,8 @@ local function printForm(_,_,tWin)
 	    widget.fT = widget.textFont or "Mini"
 	 end
 
-	 if widget.textColor then
-	    lcd.setColor(widget.textColor.r, widget.textColor.g, widget.textColor.b)
+	 if widget.rgbTextColor then
+	    lcd.setColor(widget.rgbTextColor.r, widget.rgbTextColor.g, widget.rgbTextColor.b)
 	 end
 
 	 local str
@@ -2876,17 +2880,13 @@ local function printForm(_,_,tWin)
 	    fL = widget.labelFont
 	 end
 	 
-	 local xL, yL
 	 if not widget.xL then
-	    xL = widget.x0
-	    yL = widget.y0 + radAH + lcd.getTextHeight(edit.fcode[fL])
-	 else
-	    xL = widget.xL
-	    yL = widget.yL
+	    widget.xL = widget.x0
+	    widget.yL = widget.y0 + radAH + lcd.getTextHeight(edit.fcode[fL])
 	 end
 
 	 lcd.setColor(255,255,255)
-	 drawTextCenter(xL, yL, widget.label, edit.fcode[fL])
+	 drawTextCenter(widget.xL, widget.yL, widget.label, edit.fcode[fL])
       end
    end
    ---[[

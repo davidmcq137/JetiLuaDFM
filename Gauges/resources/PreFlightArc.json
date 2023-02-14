@@ -41,6 +41,7 @@
 	"height": 105,
 	"y0": 117,
 	"label": "Status 3",
+	"labelPosY":8,
 	"x0": 80,
 	"value": 0,
 	"textFont":"Mini",
