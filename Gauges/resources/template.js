@@ -987,15 +987,30 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 
     //ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
     ctx.font = jetiToCtx(arr.labelFont);
+
+    let lpx, lpy
+    
+    if (typeof arr.labelPosX == "undefined") {
+	lpx = 0
+    } else {
+	lpx= arr.labelPosX
+    }
+    if (typeof arr.labelPosY == "undefined") {
+	lpy = 0
+    } else {
+	lpy= arr.labelPosY
+    }
+    
+	    
     if (ndlarc == "needle") {
-	arrR.yL = y0 + 0.90 * ro + arr.labelPosY;
-	arrR.xL = x0 + arr.labelPosX;
+	arrR.yL = y0 + 0.90 * ro + lpy
+	arrR.xL = x0 + arr.lpx;
 	//console.log("needle, yL", arrR.yL)
 	//ctx.font = jetiToCtx(arr.labelFont);
 	//ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
     } else {
-	arrR.yL = y0 + 0.55 * ro + arr.labelPosY;
-	arrR.xL = x0 + arr.labelPosX;
+	arrR.yL = y0 + 0.70 * ro + lpy;
+	arrR.xL = x0 + lpx;
 	//console.log("arc, yL", arrR.yL)
 	//ctx.font = jetiToCtx(arr.labelFont);
 	//ctx.font = "bold " + 1.0 * fontScale * ro + "px sans-serif"
@@ -1013,13 +1028,13 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	if (typeof arr.labelBoxColor != "undefined" && arr.labelBoxColor != "transparent") {
 	    ctx.fillStyle = arr.labelBoxColor
 	    arrR.rgbLabelBoxColor = getRGB(ctx.fillStyle)
-	    let ltw = Math.floor(getTextWidth(ctx, label) + 3.5);
+	    let ltw = Math.floor(getTextWidth(ctx, label) + 1.5);
 	    let lta = Math.floor(getTextAscent(ctx, label));
 	    let ltd = Math.floor(getTextDescent(ctx, label));
 	    arrR.xLB = arrR.xL - ltw / 2;
-	    arrR.yLB = arrR.yL - lta;
 	    arrR.wLB = ltw;
-	    arrR.hLB = lta + ltd;
+	    arrR.hLB = Math.floor(lta) + Math.floor(ltd);
+	    arrR.yLB = arrR.yL - arrR.hLB / 2 - 1;
 	    arrR.rLB = (lta+ltd) / 4
 	    if (typeof label != "undefined") {
 		roundedRect(ctx,arrR.xLB, arrR.yLB, arrR.wLB, arrR.hLB, arrR.rLB)
@@ -1274,8 +1289,6 @@ function virtualGauge(ctx, arr) {
     needleTri[3].x = needleTri[3].x * (100 - aa) / 100 + needleTri[2].x * aa / 100
     needleTri[3].y = nL * aa / 100
 
-    console.log("dfc", document.fonts.check("12px courier"))
-		
     ctx.fillStyle = "black"
 
     ctx.font = jetiToCtx("Mini");
@@ -1404,8 +1417,6 @@ function roundedRectBezel(ctx, xi, yi, wi, hi, r, b) {
     ctx.arcTo(x,   y,   x+w, y,   r);
 
     ctx.stroke();
-
-
 }
 
 function sequencedTextBox(ctx, arr) {
@@ -2103,8 +2114,18 @@ function horizontalBar(ctx, arr) {
     }
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
-    arrR.xL = arr.x0 + arr.labelPosX;
-    arrR.yL = arr.y0 +  h / 2 + yOff + arr.labelPosY;
+    if (typeof arr.labelPosX == "undefined") {
+	lpx = 0
+    } else {
+	lpx = arr.labelPosX
+    }
+    if (typeof arr.labelPosY == "undefined") {
+	lpy = 0
+    } else {
+	lpy = arr.labelPosY
+    }
+    arrR.xL = arr.x0 + lpx;
+    arrR.yL = arr.y0 +  h / 2 + yOff + lpy;
     ctx.font = jetiToCtx(arr.labelFont)
     if (typeof arr.label != "undefined") {	
 	if (arr.labelFont != "None") {

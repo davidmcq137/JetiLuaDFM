@@ -278,8 +278,10 @@ local function prefix()
    return pf
 end
 
-local function drawFilledBezel(x,y,w,h,z)
-
+local function drawFilledBezel(xc,yc,w,h,z)
+   local x = xc - w/2
+   local y = yc - h/2
+   --print(xc, yc, x, y, w, h, z)
    local ren = lcd.renderer()
    ren:reset()
    ren:addPoint(x, y+z)
@@ -2164,7 +2166,11 @@ local function printForm(_,_,tWin)
 
 	    if widget.labelBoxColor and widget.labelBoxColor ~= "transparent" then
 	       lcd.setColor(widget.rgbLabelBoxColor.r, widget.rgbLabelBoxColor.g, widget.rgbLabelBoxColor.b)
-	       drawFilledBezel(widget.xLB+14, widget.yLB+1, widget.wLB-28, widget.hLB, 2)
+	       --drawFilledBezel(widget.xLB+14, widget.yLB+1, widget.wLB-28, widget.hLB, 2)
+	       local lH = lcd.getTextHeight(edit.fcode[widget.fL]) - 2 -- 2 is a fudge
+	       local lW = lcd.getTextWidth(edit.fcode[widget.fL], str)
+	       drawFilledBezel(widget.xL, widget.yL, lW, lH, 2)	       
+	       
 	    end
 	    if widget.rgbLabelColor then
 	       lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
