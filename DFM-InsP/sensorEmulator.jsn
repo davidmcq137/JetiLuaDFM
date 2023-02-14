@@ -1,4 +1,25 @@
 [
+    {"id":9, "param": 0,"sensorName": "RexA", "label": "AH"},
+    
+    {"id":9,
+     "param": 15,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "ArtH",
+     "luaExp":"P5(-180,180)",
+     "label": "Roll",
+     "unit": "°"
+    },
+    {"id":9,
+     "param": 16,
+     "decimals": 0,
+     "type": 1,
+     "sensorName": "ArtH",
+     "luaExp":"P6(-90,90)",
+     "label": "Pitch",
+     "unit": "°"
+    },
+
     {"id":10, "param": 0,"sensorName": "MFlow", "label": "Fuel"},
     
     {"id":10,

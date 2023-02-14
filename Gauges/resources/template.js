@@ -1658,7 +1658,7 @@ function artHorizon(ctx, arr) {
 
     dPitch_1 = pitch % 180
 
-    console.log(pitch, dPitch_1)
+    //console.log(pitch, dPitch_1)
     
     if (dPitch_1 > 90) {
 	dPitch_1 = 180 - dPitch_1
@@ -1802,7 +1802,7 @@ function artHorizon(ctx, arr) {
     arrR.xL = arr.x0 + lpx;
     arrR.yL = arr.y0 + radAH + jetiHeight(arr.labelFont) + lpy;
 
-    console.log(arrR.xL, arrR.yL)
+    //console.log(arrR.xL, arrR.yL)
 
     //console.log("arr.label, arr.labelFont, arrR.xL, arrR.yL", arr.label, arr.labelFont, arrR.xL, arrR.yL)
     

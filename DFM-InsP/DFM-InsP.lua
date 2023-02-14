@@ -72,8 +72,8 @@ edit.gaugeName = {
    stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0}},
    panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0}},
    rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0}},
-   verticalTape=    {sn="verT", en={0,1,1,0,0,0,0,0}},
-   artHorizon=      {sn="artH", en={0,1,1,0,0,0,0,0}}
+   verticalTape=    {sn="VerT", en={0,1,1,0,0,0,0,0}},
+   artHorizon=      {sn="ArtH", en={0,1,1,0,0,0,0,0}}
 }
 
 local lua = {}
@@ -981,7 +981,26 @@ local function changedSensor(val, i, ip)
    ip[i].SeUn = InsP.sensorUnlist[val]
    ip[i].SeDp = InsP.sensorDplist[val]
    ip[i].SeLa = InsP.sensorLalist[val]
-   --print("i, SeLa", i, InsP.sensorLalist[val])
+end
+
+local function changedAHSensor(val, i, ip, rp)
+   if rp == "roll" then
+      ip[i].SeId = 0
+      ip[i].SePa = 0      
+      ip[i].rollSeId = InsP.sensorIdlist[val]
+      ip[i].rollSePa = InsP.sensorPalist[val]
+      ip[i].rollSeUn = InsP.sensorUnlist[val]
+      ip[i].rollSeDp = InsP.sensorDplist[val]
+      ip[i].rollSeLa = InsP.sensorLalist[val]
+   elseif rp == "pitch" then
+      ip[i].SeId = 0
+      ip[i].SePa = 0      
+      ip[i].pitchSeId = InsP.sensorIdlist[val]
+      ip[i].pitchSePa = InsP.sensorPalist[val]
+      ip[i].pitchSeUn = InsP.sensorUnlist[val]
+      ip[i].pitchSeDp = InsP.sensorDplist[val]
+      ip[i].pitchSeLa = InsP.sensorLalist[val]
+   end
 end
 
 local function panelChanged(val, sp)
@@ -1209,6 +1228,8 @@ local function initForm(sf)
 	    end
 	    if InsP.sensorLslist[isel] == "..." and typ == "StkT" then
 	       form.addLabel({label="<Text>", width=100})
+	    elseif InsP.sensorLslist[isel] == "..." and typ == "ArtH" then
+	       form.addLabel({label="<AH>", width=100})
 	    else
 	       form.addLabel({label=InsP.sensorLslist[isel], width=100})
 	    end
@@ -1292,12 +1313,53 @@ local function initForm(sf)
       local ip = InsP.panels[isp]
       local lbl = ip[ig].label or "Gauge"..ig
       local pnl = InsP.panelImages[isp].instImage
+      local widget = ip[ig]
 
       form.setTitle("Edit Gauge "..ig.."  ("..lbl..")", savedRow3)
 
-      local widget = ip[ig]
-
       if not widget.dataSrc then widget.dataSrc = "Sensor" end
+
+      -- check for special case first: Artificial Horizon
+      
+      if widget.type == "artHorizon" then
+
+	 local rollId = widget.rollSeId or 0
+	 local rollPa = widget.rollSePa or 0
+	 local pitchId = widget.pitchSeId or 0
+	 local pitchPa = widget.pitchSePa or 0
+	 
+	 local rollSel = 1 -- index 1 is "..."
+	 for k, _ in ipairs(InsP.sensorLalist) do
+	    if rollId == InsP.sensorIdlist[k] and rollPa == InsP.sensorPalist[k] then
+	       rollSel = k
+	       break
+	    end
+	 end
+
+	 local pitchSel = 1 -- index 1 is "..."
+	 for k, _ in ipairs(InsP.sensorLalist) do
+	    if pitchId == InsP.sensorIdlist[k] and pitchPa == InsP.sensorPalist[k] then
+	       pitchSel = k
+	       break
+	    end
+	 end
+
+	 form.addRow(2)
+	 form.addLabel({label="Roll Sensor", width=120})
+	 form.addSelectbox(InsP.sensorLalist, rollSel, true,
+			   (function(x) return changedAHSensor(x, ig, ip, "roll") end),
+			   {width=240, alignRight=true})
+
+	 form.addRow(2)
+	 form.addLabel({label="Pitch Sensor", width=120})
+	 form.addSelectbox(InsP.sensorLalist, pitchSel, true,
+			   (function(x) return changedAHSensor(x, ig, ip, "pitch") end),
+			   {width=240, alignRight=true})
+
+	 form.setFocusedRow(1)
+	 return
+      end
+
 
       form.addRow(2)
       form.addLabel({label="Gauge input source"})
@@ -1308,6 +1370,7 @@ local function initForm(sf)
 	    break
 	 end
       end
+
       form.addSelectbox(dataSources, isel, true,
 			(function(x) return changedDataSrc(x, widget) end) )
 
@@ -1367,39 +1430,6 @@ local function initForm(sf)
       form.addSelectbox(ttb, ttbi, true,
 			(function(x) return changedModule(x, widget) end), {width=180})
 
-      --[[
-      form.addRow(4)
-      form.addLabel({label="Gauge Min", width=90})
-      if ip[ig].min then
-	 if ip[ig].subdivs == 0 then
-	    form.addIntbox(ip[ig].min, -32768, 32767, 0, 0, 1,
-			   (function(x) return changedMinMax(x, "min", ip[ig]) end),
-			   {width=70})
-	 else
-	    form.addLabel({label=string.format("%d", ip[ig].min), width=70, alignRight=true})
-	 end
-      else
-	    form.addLabel({label="---", width=70, alignRight=true})
-      end
-      form.addLabel({label="Gauge Max", width=90})
-      if ip[ig].max then
-	 if ip[ig].subdivs == 0 then
-	    form.addIntbox(ip[ig].max, -32768, 32767, 0, 0, 1,
-			   (function(x) return changedMinMax(x, "max", ip[ig]) end),
-			   {width=70})
-	 else
-	    form.addLabel({label=string.format("%d", ip[ig].max), width=70, alignRight=true})
-	 end
-      else
-	 form.addLabel({label="---", width=70, alignRight=true})
-      end
-
-      form.addRow(2)
-      form.addLabel({label="Label", width=60})
-      form.addTextbox(lbl, 63,
-		      (function(x) return changedLabel(x, ip[ig], sf) end),
-		      {width=245})
-      --]]
       form.addRow(2)
       form.addLabel({label="Enable min/max value markers", width=270})
       isel = ip[ig].showMM == "true"
@@ -1565,7 +1595,7 @@ local function initForm(sf)
 
       local function changedSource(val, i)
 	 InsP.variables[i].source = varopts[val]
-	 print("set source to", varopts[val], val)
+	 --print("set source to", varopts[val], val)
 	 form.reinit(formN.luavariables)
       end
       
@@ -1775,6 +1805,8 @@ local function loop()
    local ips = InsP.panels[sp]
    local val 
    for _, widget in ipairs(ips) do
+      -- could special case for Art Horiz here .. but for now just ignore min and max for that
+      -- it has SeId and SePa set to 0,0
       if widget.dataSrc == "Sensor" then
 	 sensor = getSensorByID(widget.SeId, widget.SePa)
 	 if sensor and sensor.valid then val = sensor.value end
@@ -1911,6 +1943,8 @@ local function printForm(_,_,tWin)
    end
 
    local sensorVal
+   local rollVal
+   local pitchVal
    local textVal
    local modret
    
@@ -1918,9 +1952,21 @@ local function printForm(_,_,tWin)
 
       sensorVal = nil
       if widget.dataSrc == "Sensor" then
-	 sensor = getSensorByID(widget.SeId, widget.SePa)
-	 if sensor and sensor.value then sensorVal = sensor.value end
-	 
+	 if widget.type ~= "artHorizon" then
+	    sensor = getSensorByID(widget.SeId, widget.SePa)
+	    if sensor and sensor.value then sensorVal = sensor.value end
+	 else
+	    rollVal = 0
+	    pitchVal = 0
+	    if widget.rollSeId and widget.rollSePa then
+	       sensor = getSensorByID(widget.rollSeId, widget.rollSePa)
+	       if sensor and sensor.value then rollVal = sensor.value end
+	    end
+	    if widget.pitchSeId and widget.pitchSePa then
+	       sensor = getSensorByID(widget.pitchSeId, widget.pitchSePa)
+	       if sensor and sensor.value then pitchVal = sensor.value end	       
+	    end
+	 end
       elseif widget.dataSrc == "Control" then
 	 local info = system.getSwitchInfo(switches[widget.control])
 	 --if idxW == 1 then print("widget.control", widget.control) end
@@ -2125,7 +2171,7 @@ local function printForm(_,_,tWin)
 	    end
 	    lcd.setColor(255,255,255)
 	    local fmt
-	    if widget.datSrc == "Sensor" and sensor.decimals == 0 then
+	    if widget.dataSrc == "Sensor" and sensor.decimals == 0 then
 	       fmt = "%.0f"
 	    elseif widget.dataSrc == "Sensor" and sensor.decimals == 1 then
 	       fmt = "%.1f"
@@ -2761,8 +2807,8 @@ local function printForm(_,_,tWin)
 	    Use here conforms with the license terms
 	 --]]
     
-	 local pitch = system.getInputs("P2") * 90
-	 local roll = system.getInputs("P3") * 180
+	 local pitch = pitchVal or 0 -- system.getInputs("P2") * 90
+	 local roll = rollVal or 0 --system.getInputs("P3") * 180
 
 	 local rowAH = widget.width / 2 - 20;
 	 local radAH = widget.width / 2 - 20;
@@ -3002,7 +3048,9 @@ local function destroy()
 	    if not save.panels[i] then print("nil panel", i) end
 	    for _, v in ipairs(save.panels[i]) do
 	       for kk,vv in pairs(v) do
-		  if kk == "SeId" then v[kk] = string.format("0X%X", vv) end
+		  if kk == "SeId" or kk == "rollSeId" or kk == "pitchSeId" then
+		     v[kk] = string.format("0X%X", vv)
+		  end
 	       end
 	    end
 	 end
@@ -3079,7 +3127,10 @@ local function init()
       for i in ipairs(InsP.panels) do
 	 for _ ,v in ipairs(InsP.panels[i]) do
 	    for kk,vv in pairs(v) do
-	       if kk == "SeId" then v[kk] = tonumber(vv) end
+	       if kk == "SeId" or kk == "rollSeId" or kk == "pitchSeId" then
+		  --print(v.type,kk,vv)
+		  v[kk] = tonumber(vv) -- convert back from hex
+	       end
 	       if kk == "minval"  then v[kk] = nil end
 	       if kk == "maxval"  then v[kk] = nil end
 	    end
