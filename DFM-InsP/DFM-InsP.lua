@@ -3102,8 +3102,10 @@ local function initNewer(sf, tbl)
 		  width=320, font=FONT_MINI})
 
    for i,v in ipairs(tbl) do
-      form.addRow(1) 
-      form.addLabel({label = i .. ".   " ..v.fn .."       " .. string.sub(v.ts,1,19)})
+      form.addRow(3)
+      form.addLabel({label = tostring(i)..".", width=30})      
+      form.addLabel({label = v.fn, width=120})
+      form.addLabel({label = string.sub(v.ts,1,19), width=160})
    end
 
    form.setFocusedRow(3)
@@ -3222,16 +3224,9 @@ local function init()
       end
    end
 
-   for i,v in ipairs(newerPanels) do
-      print(i, v.fn, v.ts)
+   if #newerPanels > 0 then
+      system.registerForm(2, 0, "Newer Panels", (function(x) return initNewer(x, newerPanels) end))
    end
-
-   print("1")
-   local abc = system.registerForm(2, 0, "Newer Panels", (function(x) return initNewer(x, newerPanels) end))
-   print("abc", abc)
-   
-   --local t2 = system.getTimeCounter()
-   --print("delta t", (t2 - t1) / 1000)
    
    table.sort(InsP.settings.panels)
 
