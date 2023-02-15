@@ -29,7 +29,9 @@
 	"numbers": 6,
 	"handed": "right",
 	"valueFont": "Normal",
-	"step": 10
+	"step": 10,
+	"min":0,
+	"max":500
     },
     {
 	"width": 150,
@@ -46,6 +48,8 @@
 	"numbers": 6,
 	"handed": "left",
 	"valueFont": "Normal",
-	"step": 10
+	"step": 10,
+	"min":0,
+	"max":200
     }
 ]

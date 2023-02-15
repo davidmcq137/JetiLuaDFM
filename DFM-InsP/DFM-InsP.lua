@@ -12,12 +12,13 @@
    Version 0.3  01/23/23 - lua integrated in sensors and text strings
    Version 0.4  02/01/23 - integrated with uppdates to website for font size quantization
    Version 0.41 02/02/23 - fixed some bugs in horizBar and arcGauge
+   Version 0.50 02/14/23 - added tapes and AH, expanded web editor functions and templates
 
    --------------------------------------------------------------------------------
 --]]
 
 
-local InsPVersion = 0.41
+local InsPVersion = 0.50
 
 local LE
 
@@ -33,7 +34,7 @@ InsP.sensorDplist = {0}
 InsP.sensorTable = {}
 InsP.variables = {}
 
-local jsnVersion = 1
+local jsnVersion = 2
 
 local teleSensors, txTeleSensors
 local txSensorNames = {"txVoltage", "txBattPercent", "txCurrent", "txCapacity",
@@ -374,14 +375,26 @@ end
 local function setToPanel(iisp)
    local fn
    local isp = iisp
+
+   print("setToPanel", iisp)
+   
    if isp < 1 then isp = 1 end
    if isp > #InsP.panels then isp = #InsP.panels end
    InsP.settings.selectedPanel = isp
 
    if not InsP.panels[isp] then
       fn = pDir .. "/"..InsP.settings.panels[isp]..".json"
+      print("setToPanel reading " .. fn)
       local file = io.readall(fn)
-      InsP.panels[isp] = json.decode(file)
+      local decode = json.decode(file)
+      if decode.panel then
+	 InsP.panels[isp] = decode.panel
+	 InsP.panelImages[isp].timestamp = decode.timestamp
+	 print("DFM-InsP: New json format " .. decode.timestamp)	 
+      else
+	 InsP.panels[isp] = decode
+	 print("DFM-InsP: Old json format - no timestamp")	 
+      end
    end
 
    local pv = InsP.panelImages[isp].instImage
@@ -1013,11 +1026,9 @@ local function panelChanged(val, sp)
       local file = io.readall(fn)
       local bi = InsP.panelImages[sp].backImage
 
-      --InsP.panels[sp] = json.decode(file)
-
       decodedfile =  json.decode(file)
       if decodedfile.panels then
-	 InsP.panels[sp] = decodedfile.panels
+	 InsP.panels[sp] = decodedfile.panel
 	 InsP.panelImages[sp].timestamp = decodedfile.timestamp
 	 print("DFM-InsP: new json format " .. decodedfile.timestamp)
       else
@@ -3197,19 +3208,14 @@ local function init()
       if fn and ext then
 	 if string.lower(ext) == "json" then
 	    ff = path .. "/" .. fn .. "." .. ext
-	    --print("opening " .. ff)
 	    file = io.readall(ff)
 	    if file then
 	       local dc = json.decode(file)
 	       local ts = dc.timestamp
 	       if ts then
-		  --print("found timestamp " .. ts, "#InsP.panels", #InsP.panels)
 		  for i in ipairs(InsP.panels) do
-		     --print(i, fn, InsP.panelImages[i].instImage)
 		     if InsP.panelImages[i].instImage == fn then
-			--print("fn, ts, .ts", fn, ts, InsP.panelImages[i].timestamp)
 			if ts > (InsP.panelImages[i].timestamp or "0") then
-			   --print("ts >= timestamp .. newer version of ".. fn )
 			   table.insert(newerPanels, {fn = fn, ts = ts})
 			end
 			break
