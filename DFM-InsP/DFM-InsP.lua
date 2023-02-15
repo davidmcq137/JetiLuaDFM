@@ -1027,7 +1027,7 @@ local function panelChanged(val, sp)
       local bi = InsP.panelImages[sp].backImage
 
       decodedfile =  json.decode(file)
-      if decodedfile.panels then
+      if decodedfile.panel then
 	 InsP.panels[sp] = decodedfile.panel
 	 InsP.panelImages[sp].timestamp = decodedfile.timestamp
 	 print("DFM-InsP: new json format " .. decodedfile.timestamp)
@@ -1212,6 +1212,7 @@ local function initForm(sf)
    elseif sf == formN.inputs then
 
       local ip = InsP.panels[InsP.settings.selectedPanel]
+      print("ip", ip, #ip, InsP.settings.selectedPanel)
       form.setTitle("Data for panel " ..
 		       InsP.panelImages[InsP.settings.selectedPanel].instImage)
 
