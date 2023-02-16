@@ -2336,25 +2336,55 @@ function chartRecorder(ctx, arr) {
 
     var arrR = {};
 
-    const chartOffsetXR = 100;
-    const chartOffsetXL = 10;
-    const chartOffsetYT = 23;
-    const chartOffsetYB = 25;
-    const chartOffsetXV = 30;
+    const chartOffsetXL = 12;
+    const chartOffsetYT = 18;
+    const chartOffsetYB = 20;
+    const chartOffsetXV = 34;
     const chartOffsetV = 13;
+
+    let timeStamps = [
+	["0:00", "0:05", "0:10", "0:15", "0:20", "0:25", "0:30"],
+	["0:00", "0:10", "0:20", "0:30", "0:40", "0:50", "1:00"],
+	["0:00", "0:20", "0:40", "1:00", "1:20", "1:40", "2:00"],
+	["0:00", "0:40", "1:20", "2:00", "2:40", "3:20", "4:00"],
+	["0:00", "1:20", "2:40", "4:00", "5:20", "6:40", "8:00"]
+    ]
+
+    let stampIndex = {"t30": 0, "t60": 1, "t120": 2, "t240": 3, "t480": 4}
     
+    let maxTraces;
+    if (typeof arr.maxTraces != "undefined") {
+	maxTraces = arr.maxTraces;
+    } else {
+	maxTraces = 1;
+    }
+    maxTraces = Math.max(1, Math.min(4, maxTraces));
+    console.log("maxTraces", maxTraces)
+
     let barOffset;
-    let barWidth = 22;
+    let barWidth = 21;
     if (typeof arr.traceNumber != "undefined") {
-	traceNumber = arr.traceNumber
-	barOffset = (traceNumber - 1) *  barWidth;
+	traceNumber = Math.min(maxTraces, arr.traceNumber);
+	barOffset = (traceNumber - 1) *  (barWidth);
     } else {
 	traceNumber = 1
 	barOffset = barWidth
     }
+    traceNumber = Math.max(1, traceNumber);
+    
+    console.log("traceNumber, maxTraces", traceNumber, maxTraces)
     barOffset = Math.max(0, Math.min(3 * barWidth, barOffset));
 
-    arrR.boxW = 2 * (arr.width / 2 - chartOffsetXR / 2 - chartOffsetXL / 2);
+    const chartOffsetXR = barWidth + maxTraces * barWidth;
+
+    let timeSpan;
+    if (typeof arr.timeSpan != "undefined") {
+	timeSpan= stampIndex[arr.timeSpan];
+    } else {
+	timeSpan = stampIndex["0:30"]
+    }
+
+    arrR.boxW = 2 * (arr.width / 2 - chartOffsetXR / 2 - chartOffsetXL / 2) + 4;
     arrR.boxH = arr.height - (chartOffsetYT + chartOffsetYB);
     arrR.boxXL = arr.x0 - arr.width/2 + chartOffsetXL;
     arrR.boxYL = arr.y0 - arr.height/2 + chartOffsetYT;
@@ -2381,8 +2411,6 @@ function chartRecorder(ctx, arr) {
 	ctx.rect(arr.x0 - arr.width/2, arr.y0 - arr.height/2, arr.width, arr.height);
 	ctx.stroke();
     }
-    
-    console.log(arr, arr.chartBackColor)
     
     if (typeof arr.chartBackColor != "undefined") {
 	ctx.fillStyle = arr.chartBackColor;
@@ -2433,16 +2461,16 @@ function chartRecorder(ctx, arr) {
 	for (let i=0; i<= 6; i++) {
 	    ss = i * 5;
 	    xx = arrR.boxXL + i * arrR.boxW / 6;
+	    //console.log(timeSpan, i, timeStamps[timeSpan][i])
+	    ctx.fillText(timeStamps[timeSpan][i], xx, arrR.vertYB + hh)
+	    /*
 	    if (i % 2 == 0) {
 		ctx.fillText(":" + ("0" + ss).slice(-2), xx, arrR.vertYB + hh)
 	    }
+	    */
 	    ctx.beginPath();
 	    ctx.moveTo(xx, arrR.vertYB)
-	    if (i % 2 == 0) {
-		ctx.lineTo(xx, arrR.vertYB + ticL)
-	    } else {
-		ctx.lineTo(xx, arrR.vertYB + ticL / 2)
-	    }
+	    ctx.lineTo(xx, arrR.vertYB + ticL)
 	    ctx.stroke();
 	}
     }
@@ -2487,13 +2515,12 @@ function chartRecorder(ctx, arr) {
 		 2 * ticL, fy * arrR.boxH);
     
     hh = getTextHeight(ctx, ":00") + 5;
-    const labelStep = arrR.boxW / 4;
-    let labelOffset = (traceNumber - 1) * labelStep
+    const labelStep = 3 + arrR.boxW / maxTraces;
+    let labelOffset = (traceNumber - 1) * labelStep - hh / 2
     
     ctx.fillStyle = "white";
     roundedRect(ctx, arrR.boxXL + labelOffset, arrR.boxYL - (hh + 3), hh, hh, 3)
     ctx.font = jetiToCtx("Mini")
-    console.log(arr.label)
     ctx.textAlign = "left";
     ctx.fillText(arr.label, arrR.boxXL + hh + 2 + labelOffset, arrR.boxYL - (hh + 3) / 2)
     ctx.fillStyle = traceColor;
@@ -2705,6 +2732,7 @@ function setupWidgets(){
 	    {key: "chartBackColor", label: "Chart Background Color", type: "color"}	    ,
 	    {key: "chartTraceColor", label: "Chart Trace Color", type: "color"},	    
 	    {key: "traceNumber", label: "Trace number", type: "plusminus"},
+	    {key: "maxTraces", label: "Max number of traces", type: "plusminus"},
 	    {key: "timeSpan", 
 	      label: "Chart time span (mm:ss)", 
 	      type: "select",
@@ -2716,7 +2744,6 @@ function setupWidgets(){
 		      {value: "t120", label :"02:00"},
 		      {value: "t240", label :"04:00"},
 		      {value: "t480", label :"08:00"}
-		      
 		  ]
 	      }
 	    }, 

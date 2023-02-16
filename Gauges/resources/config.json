@@ -246,7 +246,8 @@
 	    "chartTraceColor":"blue",
 	    "traceNumber":1,
 	    "label":"Trace",
-	    "timeSpan":"01:00"
+	    "timeSpan":"t60",
+	    "maxTraces":1
 	}	
     }
 }
