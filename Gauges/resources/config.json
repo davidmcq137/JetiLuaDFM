@@ -231,6 +231,22 @@
 	    "valueFont": "Normal",
 	    "backColor": "black",
 	    "handed":"left"
-	}
+	},
+	"chartRecorder": {
+	    "type": "chartRecorder",
+	    "x0":160,
+	    "y0":80,
+	    "height": 160,
+	    "width":320,
+	    "value":50,
+	    "min":0,
+	    "max":100,
+	    "backColor":"black",
+	    "chartBackColor":"grey",
+	    "chartTraceColor":"blue",
+	    "traceNumber":1,
+	    "label":"Trace",
+	    "timeSpan":"01:00"
+	}	
     }
 }

@@ -3225,7 +3225,6 @@ local function init()
 	       end
 	       if not InsP.settings.panels then InsP.settings.panels = {} end
 	       table.insert(InsP.settings.panels, fn)
-	       --io.close(file)
 	    end
 	 end
       end

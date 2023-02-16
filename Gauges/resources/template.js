@@ -2332,6 +2332,176 @@ function rawText(ctx, arr) {
     return arrR;
 }
 
+function chartRecorder(ctx, arr) {
+
+    var arrR = {};
+
+    const chartOffsetXR = 100;
+    const chartOffsetXL = 10;
+    const chartOffsetYT = 23;
+    const chartOffsetYB = 25;
+    const chartOffsetXV = 30;
+    const chartOffsetV = 13;
+    
+    let barOffset;
+    let barWidth = 22;
+    if (typeof arr.traceNumber != "undefined") {
+	traceNumber = arr.traceNumber
+	barOffset = (traceNumber - 1) *  barWidth;
+    } else {
+	traceNumber = 1
+	barOffset = barWidth
+    }
+    barOffset = Math.max(0, Math.min(3 * barWidth, barOffset));
+
+    arrR.boxW = 2 * (arr.width / 2 - chartOffsetXR / 2 - chartOffsetXL / 2);
+    arrR.boxH = arr.height - (chartOffsetYT + chartOffsetYB);
+    arrR.boxXL = arr.x0 - arr.width/2 + chartOffsetXL;
+    arrR.boxYL = arr.y0 - arr.height/2 + chartOffsetYT;
+    arrR.vertX = arrR.boxXL + arrR.boxW + chartOffsetXV;
+    arrR.vertYB = arrR.boxYL + arrR.boxH
+    arrR.vertYT = arrR.boxYL
+
+    
+    if (typeof arr.backColor != "undefined") {
+	ctx.fillStyle = arr.backColor;
+    } else {
+	ctx.fillStyle = "black";
+    }
+
+    if (traceNumber == 1 && arr.backColor != "transparent" ) {
+	ctx.fillRect(arr.x0 - arr.width/2, arr.y0 - arr.height/2, arr.width, arr.height);
+    }
+
+    ctx.lineWidth = 1;
+
+    ctx.strokeStyle = "peachpuff";
+    if (traceNumber == 1) {
+	ctx.beginPath();
+	ctx.rect(arr.x0 - arr.width/2, arr.y0 - arr.height/2, arr.width, arr.height);
+	ctx.stroke();
+    }
+    
+    console.log(arr, arr.chartBackColor)
+    
+    if (typeof arr.chartBackColor != "undefined") {
+	ctx.fillStyle = arr.chartBackColor;
+    } else {
+	ctx.fillStyle = "black";
+    }
+
+    if (traceNumber == 1) {
+	ctx.fillRect(arrR.boxXL, arrR.boxYL, arrR.boxW, arrR.boxH);
+    }
+    
+    ctx.strokeStyle = "white";
+    if (traceNumber == 1) {
+	ctx.beginPath();
+	ctx.rect(arrR.boxXL, arrR.boxYL, arrR.boxW, arrR.boxH);
+	ctx.stroke();
+    }
+    
+    ctx.beginPath();
+    ctx.moveTo(arrR.vertX + barOffset, arrR.vertYB);
+    ctx.lineTo(arrR.vertX + barOffset, arrR.vertYT);
+    ctx.stroke();
+    
+    ctx.beginPath();
+    const ticL = 6; 
+    for (let i=0; i <= 10; i++) {
+	ctx.moveTo(arrR.vertX + barOffset, arrR.vertYB + i * (arrR.vertYT - arrR.vertYB) / 10)
+	let tl;
+	if (i % 5 == 0) { tl = ticL } else { tl = ticL / 2}
+	ctx.lineTo(arrR.vertX - tl + barOffset, arrR.vertYB + i * (arrR.vertYT - arrR.vertYB) / 10)	
+    }
+    ctx.stroke();
+    
+    ctx.fillStyle = "white";
+    ctx.font = jetiToCtx("Mini")
+    
+    let hh = getTextHeight(ctx, ":00") + 6
+
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center"; 
+    ctx.fillText("" + arr.min, arrR.vertX - chartOffsetV + barOffset, arrR.vertYB + hh / 2)
+    ctx.fillText("" + arr.max, arrR.vertX - chartOffsetV + barOffset, arrR.vertYT - hh / 2)
+
+    ctx.align = "middle"
+    let ss, xx
+
+    if (traceNumber == 1) {
+	for (let i=0; i<= 6; i++) {
+	    ss = i * 5;
+	    xx = arrR.boxXL + i * arrR.boxW / 6;
+	    if (i % 2 == 0) {
+		ctx.fillText(":" + ("0" + ss).slice(-2), xx, arrR.vertYB + hh)
+	    }
+	    ctx.beginPath();
+	    ctx.moveTo(xx, arrR.vertYB)
+	    if (i % 2 == 0) {
+		ctx.lineTo(xx, arrR.vertYB + ticL)
+	    } else {
+		ctx.lineTo(xx, arrR.vertYB + ticL / 2)
+	    }
+	    ctx.stroke();
+	}
+    }
+
+    let xmin = 0;
+    let xmax = 2;
+    let ymin = -1;
+    let ymax = 1;
+    let x, xp, y, yp, fx, fy
+
+    if (typeof arr.chartTraceColor != "undefined") {
+	ctx.strokeStyle = arr.chartTraceColor;
+    } else {
+	ctx.strokeStyle = "blue";
+    }
+    let traceColor = ctx.strokeStyle
+    
+    ctx.beginPath();
+    for (let t = 0; t <= 2.0;t = t + 0.01) {
+	x = t;
+	y = 0.9 * Math.sin(2 * Math.PI * (t -  Math.PI / 4 * (traceNumber - 1)));
+	fx = (x - xmin) / (xmax - xmin);
+	xp = arrR.boxXL + fx * arrR.boxW
+	fy = (y - ymin) / (ymax - ymin)
+	yp = arrR.boxYL + fy * arrR.boxH
+	ctx.lineTo(xp, yp);
+    }
+    ctx.stroke();
+
+    ymin = arr.min;
+    ymax = arr.max;
+    
+    if (typeof arr.chartTraceColor != "undefined") {
+	ctx.fillStyle = arr.chartTraceColor;
+    } else {
+	ctx.fillStyle = "blue";
+    }
+
+    fy = (arr.value - ymin) / (ymax - ymin);
+    fy = Math.max(0, Math.min(fy, 1));
+    ctx.fillRect(arrR.vertX - 3 * ticL + barOffset, arrR.vertYT + (1 - fy) * arrR.boxH,
+		 2 * ticL, fy * arrR.boxH);
+    
+    hh = getTextHeight(ctx, ":00") + 5;
+    const labelStep = arrR.boxW / 4;
+    let labelOffset = (traceNumber - 1) * labelStep
+    
+    ctx.fillStyle = "white";
+    roundedRect(ctx, arrR.boxXL + labelOffset, arrR.boxYL - (hh + 3), hh, hh, 3)
+    ctx.font = jetiToCtx("Mini")
+    console.log(arr.label)
+    ctx.textAlign = "left";
+    ctx.fillText(arr.label, arrR.boxXL + hh + 2 + labelOffset, arrR.boxYL - (hh + 3) / 2)
+    ctx.fillStyle = traceColor;
+    roundedRect(ctx, arrR.boxXL + 1 + labelOffset, arrR.boxYL - hh - 2, hh - 2, hh - 2, 2)
+    
+    return arrR
+}
+
 function renderGauge(ctx, input) {
     const widgetFuncs = {sequencedTextBox:sequencedTextBox,
 			 stackedTextBox:stackedTextBox,
@@ -2342,7 +2512,9 @@ function renderGauge(ctx, input) {
 			 panelLight:panelLight,
 			 rawText:rawText,
 			 artHorizon:artHorizon,
-			 verticalTape:verticalTape}
+			 verticalTape:verticalTape,
+			 chartRecorder:chartRecorder}
+    
     if (widgetFuncs[input.type]) {
 	return widgetFuncs[input.type](ctx, input);
     } else {
@@ -2522,7 +2694,34 @@ function setupWidgets(){
 	    valueFont,
             {key: "tapeFont", label: "Font size (tape)", type: "fontsize"},	    
 	    {key: "backColor", label: "Background Color", type: "color"}
+	],
+
+	chartRecorder: [
+	    width,
+	    height,
+	    min,
+	    max,
+	    {key: "backColor", label: "Background Color", type: "color"},
+	    {key: "chartBackColor", label: "Chart Background Color", type: "color"}	    ,
+	    {key: "chartTraceColor", label: "Chart Trace Color", type: "color"},	    
+	    {key: "traceNumber", label: "Trace number", type: "plusminus"},
+	    {key: "timeSpan", 
+	      label: "Chart time span (mm:ss)", 
+	      type: "select",
+	      props: {
+		  def: "t30", 
+		  options: [
+		      {value: "t30",  label: "00:30"},
+		      {value: "t60",  label: "01:00"},
+		      {value: "t120", label :"02:00"},
+		      {value: "t240", label :"04:00"},
+		      {value: "t480", label :"08:00"}
+		      
+		  ]
+	      }
+	    }, 
 	]
+	
     }
 }
 
