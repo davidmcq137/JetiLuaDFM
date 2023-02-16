@@ -247,7 +247,8 @@
 	    "traceNumber":1,
 	    "label":"Trace",
 	    "timeSpan":"t60",
-	    "maxTraces":1
+	    "maxTraces":1,
+	    "timeFont":"Mini"
 	}	
     }
 }

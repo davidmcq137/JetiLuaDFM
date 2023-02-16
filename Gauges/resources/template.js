@@ -2746,7 +2746,7 @@ function setupWidgets(){
 		      {value: "t480", label :"08:00"}
 		  ]
 	      }
-	    }, 
+	    }
 	]
 	
     }
