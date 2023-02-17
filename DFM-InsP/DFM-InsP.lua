@@ -18,7 +18,7 @@
 --]]
 
 
-local InsPVersion = 0.50
+local InsPVersion = 0.51
 
 local LE
 
@@ -805,6 +805,19 @@ local function keyForm(key)
 	 form.reinit(formN.editpanel)
 	 return
       end
+      if key == KEY_2 and editWidget.type == "sequencedTextBox" then
+	 print("key 2", #editWidget.text, form.getFocusedRow())
+	 table.remove(editWidget.text, form.getFocusedRow())
+	 if #editWidget.text < 1 then
+	    editWidget.text = {"..."}
+	 end
+	 form.reinit(110)
+      end
+      if key == KEY_3 and editWidget.type == "sequencedTextBox" then
+	 print("key 3", #editWidget.text, form.getFocusedRow())
+	 table.insert(editWidget.text, "...")
+	 form.reinit(110)
+      end
    end
    
    if subForm == formN.editpanel then
@@ -1065,9 +1078,11 @@ end
 
 local function changedSwitch(val, switchName, j, wid)
    local Invert = 1.0
-
+   
    local swInfo = system.getSwitchInfo(val)
 
+   system.pSave(switchName, val)
+   
    local swTyp = string.sub(swInfo.label,1,1)
    if swInfo.assigned then
       if string.sub(swInfo.mode,-1,-1) == "I" then Invert = -1.0 end
@@ -1212,7 +1227,7 @@ local function initForm(sf)
    elseif sf == formN.inputs then
 
       local ip = InsP.panels[InsP.settings.selectedPanel]
-      print("ip", ip, #ip, InsP.settings.selectedPanel)
+      --print("ip", ip, #ip, InsP.settings.selectedPanel)
       form.setTitle("Data for panel " ..
 		       InsP.panelImages[InsP.settings.selectedPanel].instImage)
 
@@ -1730,9 +1745,15 @@ local function initForm(sf)
       --]]
       if editWidgetType == "Text" then
 	 if not editWidget.text then return end
+	 print("#text", #editWidget.text, "type", editWidget.type)
+	 if editWidget.type == "sequencedTextBox" then
+	    form.setButton(3, ":add", ENABLED)
+	    form.setButton(2, ":delete", ENABLED)
+	 end
+	 
 	 for i, txt in ipairs(editWidget.text) do
+	    print(i, editWidget.text[i])
 	    form.addRow(1)
-	    --print("#text", #editText.text[i])
 	    if #editWidget.text[i] <= 63 then
 	       form.addTextbox(editWidget.text[i], 63,
 			       (function(v)
@@ -2412,7 +2433,6 @@ local function printForm(_,_,tWin)
 	 if widget.type == "sequencedTextBox" then
 
 	    local stro
-
 	    if not widget.modext or widget.modext < 1 then
 	       if string.find(str[1], "luaE:") == 1 or string.find(str[1], "luaS:") == 1 then
 		  stro = expandStr(str[1], sensorVal, widget.SeDp, widget.SeUn)
@@ -2424,7 +2444,9 @@ local function printForm(_,_,tWin)
 			idx = jj
 		     end
 		  end
-		  if not idx then
+		  if idx then
+		     stro = str[idx]
+		  else
 		     if sensorVal and jj then
 			stro = string.format("Index %.2f/%d", sensorVal, jj)
 		     else
@@ -2490,8 +2512,8 @@ local function printForm(_,_,tWin)
 	    ) 
 	 end
 	 --if idxW == 1 then print("pl", sensorVal, widget.max, widget.min) end
-	 
-	 if sensorVal and sensorVal > (widget.max - widget.min) / 2 and widget.rgbLightColor then
+
+	 if sensorVal and sensorVal > (widget.max - widget.min) / 2  then
 	    if widget.rgbLightColor then
 	       lcd.setColor(widget.rgbLightColor.r, widget.rgbLightColor.g, widget.rgbLightColor.b)
 	       ren:renderPolygon(1)
@@ -2503,13 +2525,15 @@ local function printForm(_,_,tWin)
 	    end
 	 end
 	 	 
-	 if widget.rgbLabelColor then
-	    lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
+	 if widget.rgbBezellColor then
+	    lcd.setColor(widget.rgbBezelColor.r, widget.rgbBezelColor.g, widget.rgbBezelColor.b)
 	    ren:renderPolyline(2)
 	 end
 
 	 --print(widget.y0, widget.yL)
 	 
+	 lcd.setColor(255,255,255)
+
 	 if widget.xL and widget.fL ~= "None" then
 	    lcd.drawText(widget.xL - lcd.getTextWidth(edit.fcode[widget.fL], widget.label) / 2,
 			 widget.yL - lcd.getTextHeight(edit.fcode[widget.fL]) / 2,
@@ -3259,12 +3283,25 @@ local function init()
 
    table.sort(InsP.settings.backgrounds)
 
+   local lostSw = ""
    for k, swi in pairs(InsP.settings.switchInfo) do
-      switches[k] = system.createSwitch(swi.name, swi.mode, swi.activeOn)
+      local ud = system.pLoad(k)
+      if ud then
+	 --print("Using switch userdata: " .. k)
+	 switches[k] = ud
+      else
+	 lostSw = lostSw .. " "..k
+	 switches[k] = system.createSwitch(swi.name, swi.mode, swi.activeOn)
+      end
       local iss = InsP.settings.switchInfo[k]
       if iss.seqIdx and iss.seqIdx <= #stateSw then
 	 stateSw[iss.seqIdx].switch = switches[k]
       end
+   end
+
+   if lostSw ~= "" then
+      system.messageBox("See lua console to reassign switches")
+      print("Please reassign "..lostSw)
    end
 
    for _,v in ipairs(InsP.panelImages) do
