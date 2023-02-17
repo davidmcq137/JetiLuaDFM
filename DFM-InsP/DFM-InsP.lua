@@ -53,7 +53,7 @@ local switches = {}
 local stateSw = {}
 
 local edit = {}
-edit.ops = {"Center", "Value", "Label", "Text", "MMLbl", "TicLbl", "TicSpc", "MinMx"}
+edit.ops = {"Center", "Value", "Label", "Text", "MMLbl", "TicLbl", "TicSpc", "MinMx", "Tape"}
 edit.dir = {"X", "Y", "Font", "DecPt"}
 edit.fonts = {"Mini", "Normal", "Bold", "Big", "Maxi", "None"}
 edit.fcode = {Mini=FONT_MINI, Normal=FONT_NORMAL, Bold=FONT_BOLD, Big=FONT_BIG, Maxi=FONT_MAXI,
@@ -65,16 +65,16 @@ edit.icode = {Mini=1, Normal=2, Bold=3, Big=4, Maxi=5, None=6}
 -- en elements follow edit.ops
 
 edit.gaugeName = {
-   roundNeedleGauge={sn="NdlG", en={0,1,1,0,1,1,1,1}},
-   roundArcGauge=   {sn="ArcG", en={0,1,1,0,1,0,0,1}},
-   virtualGauge=    {sn="VirG", en={1,1,1,0,0,0,0,1}},
-   horizontalBar=   {sn="HBar", en={0,0,1,0,0,1,1,0}},
-   sequencedTextBox={sn="SeqT", en={0,0,1,1,0,0,0,0}},
-   stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0}},
-   panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0}},
-   rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0}},
-   verticalTape=    {sn="VerT", en={0,1,1,0,0,0,0,0}},
-   artHorizon=      {sn="ArtH", en={0,1,1,0,0,0,0,0}}
+   roundNeedleGauge={sn="NdlG", en={0,1,1,0,1,1,1,1,0}},
+   roundArcGauge=   {sn="ArcG", en={0,1,1,0,1,0,0,1,0}},
+   virtualGauge=    {sn="VirG", en={1,1,1,0,0,0,0,1,0}},
+   horizontalBar=   {sn="HBar", en={0,0,1,0,0,1,1,0,0}},
+   sequencedTextBox={sn="SeqT", en={0,0,1,1,0,0,0,0,0}},
+   stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0,0}},
+   panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0,0}},
+   rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0,0}},
+   verticalTape=    {sn="VerT", en={0,1,1,0,0,0,0,0,1}},
+   artHorizon=      {sn="ArtH", en={0,1,1,0,0,0,0,0,0}}
 }
 
 local lua = {}
@@ -806,7 +806,6 @@ local function keyForm(key)
 	 return
       end
       if key == KEY_2 and editWidget.type == "sequencedTextBox" then
-	 print("key 2", #editWidget.text, form.getFocusedRow())
 	 table.remove(editWidget.text, form.getFocusedRow())
 	 if #editWidget.text < 1 then
 	    editWidget.text = {"..."}
@@ -814,7 +813,6 @@ local function keyForm(key)
 	 form.reinit(110)
       end
       if key == KEY_3 and editWidget.type == "sequencedTextBox" then
-	 print("key 3", #editWidget.text, form.getFocusedRow())
 	 table.insert(editWidget.text, "...")
 	 form.reinit(110)
       end
@@ -843,7 +841,7 @@ local function keyForm(key)
 	 form.setButton(1, "Select", ENABLED)
 	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
 	 form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)	 	 
-	 if (eo == "Text" or eo == "MinMx" or eo == "Label") and en == 1 then
+	 if (eo == "Text" or eo == "MinMx" or eo == "Label" or eo == "Tape") and en == 1 then
 	    en4 = ENABLED
 	 else
 	    en4 = DISABLED
@@ -1724,25 +1722,16 @@ local function initForm(sf)
       local function editLabelCB(val)
 	 editWidget.label = val
       end
-      
-      form.setTitle("Gauge Editor")
-      --[[
-      if type(editText.text) == "string" then -- isn't .text always an array?
-	 form.addRow(1)
-	 --print("#text", #editText.text)
-	 if #editText.text <= 63 then
-	    form.addTextbox(editText.text, 63,
-			    (function(v)
-				  editText.text = v
-				  form.reinit(formN.editpanel)
-			    end)
-	    )
+      local function editTapeCB(val, ns)
+	 if ns == "numbers" then
+	    editWidget.numbers = val
 	 else
-	    form.addLabel({label="Line too long to edit", alignRight=true})
+	    editWidget.step = val
 	 end
-	 
-      else
-      --]]
+      end
+
+      form.setTitle("Gauge Editor")
+
       if editWidgetType == "Text" then
 	 if not editWidget.text then return end
 	 print("#text", #editWidget.text, "type", editWidget.type)
@@ -1781,7 +1770,15 @@ local function initForm(sf)
 	 else
 	       form.addLabel({label="<Line too long to edit>", alignRight=true})
 	 end
-	 
+      elseif editWidgetType == "Tape" then
+	 form.addRow(2)
+	 form.addLabel({label="Numbers"})
+	 form.addIntbox(editWidget.numbers, 1, 10, 6, 0, 1,
+			(function(v) return editTapeCB(v, "numbers") end))
+	 form.addRow(2)
+	 form.addLabel({label="Step"})
+	 form.addIntbox(editWidget.step, 1, 100, 10, 0, 1,
+			(function(v) return editTapeCB(v, "step") end))
       end
    end
 end

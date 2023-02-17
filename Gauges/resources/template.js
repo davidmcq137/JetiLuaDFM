@@ -1340,6 +1340,8 @@ function virtualGauge(ctx, arr) {
     needleTri[3].x = needleTri[3].x * (100 - aa) / 100 + needleTri[2].x * aa / 100
     needleTri[3].y = nL * aa / 100
 
+
+    /*
     ctx.fillStyle = "black"
 
     ctx.font = jetiToCtx("Mini");
@@ -1357,8 +1359,11 @@ function virtualGauge(ctx, arr) {
     ctx.font = jetiToCtx("Maxi");
     console.log("Mini", ctx.font)
     ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 80)
-    
+
     return
+
+    */
+    
     
     arrR.needle = [];
     const tL = needleTri.length;
@@ -2495,7 +2500,7 @@ function chartRecorder(ctx, arr) {
 	fx = (x - xmin) / (xmax - xmin);
 	xp = arrR.boxXL + fx * arrR.boxW
 	fy = (y - ymin) / (ymax - ymin)
-	yp = arrR.boxYL + fy * arrR.boxH
+	yp = arrR.boxYL + (1 - fy) * arrR.boxH
 	ctx.lineTo(xp, yp);
     }
     ctx.stroke();
