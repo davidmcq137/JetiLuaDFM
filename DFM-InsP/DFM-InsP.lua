@@ -13,6 +13,8 @@
    Version 0.4  02/01/23 - integrated with uppdates to website for font size quantization
    Version 0.41 02/02/23 - fixed some bugs in horizBar and arcGauge
    Version 0.50 02/14/23 - added tapes and AH, expanded web editor functions and templates
+   Version 0.51 02/16/23 - fixed bugs in seq text box
+   Version 0.52 02/17/23 - more minor tweaks
 
    --------------------------------------------------------------------------------
 --]]
