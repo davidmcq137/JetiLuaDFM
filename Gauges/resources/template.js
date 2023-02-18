@@ -1562,7 +1562,7 @@ function textBox(ctx, arr, type) {
 
     if (typeof arr.label != "undefined" && arr.labelFont != "None") { 
 	ctx.fillStyle = "white";
-	ctx.font = arr.labelFont
+	ctx.font = jetiToCtx(arr.labelFont);
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
 
@@ -1573,7 +1573,7 @@ function textBox(ctx, arr, type) {
 	ctx.fillStyle = "black";
 	ctx.textAlign = "center";
 	ctx.textBaseline = "middle"
-	ctx.font = arr.textFont
+	ctx.font = jetiToCtx(arr.textFont)
 	var str;
 	if (type != "stack") {
 	    str = arr.text[Math.floor(arr.value)];
@@ -1837,7 +1837,7 @@ function artHorizon(ctx, arr) {
 	ctx.fillStyle = "white";
 	ctx.textAlign = "center";
 	ctx.textBaseline = "middle"
-	ctx.font = arr.labelFont
+	ctx.font = jetiToCtx(arr.labelFont);
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
     return arrR;
