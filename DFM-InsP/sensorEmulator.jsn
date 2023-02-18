@@ -1,5 +1,5 @@
 [
-    {"id":9, "param": 0,"sensorName": "RexA", "label": "AH"},
+    {"id":9, "param": 0,"sensorName": "Assist", "label": "RexA"},
     
     {"id":9,
      "param": 15,

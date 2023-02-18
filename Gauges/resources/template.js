@@ -800,7 +800,14 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     arrR.ri = ri;
     arrR.ro = ro;
 
-    ctx.font = jetiToCtx(arr.tickFont);
+
+    if (typeof arr.tickFont == "undefined") {
+	//console.log("tickFont undefined")
+	ctx.font = jetiToCtx("Mini")
+	arrR.tickFont = "Mini"
+    } else {
+	ctx.font = jetiToCtx(arr.tickFont)
+    }
     
     //ctx.font="bold " + fontScale * ro + "px sans-serif"
     //var fontoffset = fontScale * ro / 4;
@@ -1031,8 +1038,13 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
 
-    //ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
-    ctx.font = jetiToCtx(arr.labelFont);
+    if (typeof arr.labelFont == "undefined") {
+	//console.log("labelFont undefined")
+	ctx.font = jetiToCtx("Mini")
+	arrR.labelFont = "Mini"
+    } else {
+	ctx.font = jetiToCtx(arr.labelFont)
+    }
 
     let lpx, lpy
     
@@ -1130,8 +1142,18 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    ctx.fillText("10 m", x10, y10);
 	}
     }
-    
+
+    if (typeof arr.valueFont == "undefined") {
+	//console.log("valueFont undefined")
+	ctx.font = jetiToCtx("Mini")
+	arrR.valueFont = "Mini"
+    } else {
+	//console.log("valueFont", arr.valueFont)
+	ctx.font = jetiToCtx(arr.valueFont)
+    }
+
     ctx.font = jetiToCtx(arr.valueFont);
+    
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 

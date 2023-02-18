@@ -15,12 +15,15 @@
    Version 0.50 02/14/23 - added tapes and AH, expanded web editor functions and templates
    Version 0.51 02/16/23 - fixed bugs in seq text box
    Version 0.52 02/17/23 - more minor tweaks
+   Version 0.53 02/17/23 - yet more tweaks
+ 
+   *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
 
-local InsPVersion = 0.52
+local InsPVersion = 0.53
 
 local LE
 
@@ -378,7 +381,7 @@ local function setToPanel(iisp)
    local fn
    local isp = iisp
 
-   print("setToPanel", iisp)
+   --print("setToPanel", iisp)
    
    if isp < 1 then isp = 1 end
    if isp > #InsP.panels then isp = #InsP.panels end
@@ -386,7 +389,7 @@ local function setToPanel(iisp)
 
    if not InsP.panels[isp] then
       fn = pDir .. "/"..InsP.settings.panels[isp]..".json"
-      print("setToPanel reading " .. fn)
+      print("DFM-InsP: <setToPanel> reading " .. fn)
       local file = io.readall(fn)
       local decode = json.decode(file)
       if decode.panel then
@@ -914,7 +917,7 @@ local function keyForm(key)
 	       ipeg.yRV = ipeg.yRV + inc
 	    end
 
-	    if eo == "Center" and ipeg.xPL then
+	    if eo == "Center" and ipeg.yPL then
 	       ipeg.yPL = ipeg.yPL + inc
 	    end
 
@@ -1252,6 +1255,7 @@ local function initForm(sf)
 	 end
 	 local typ = edit.gaugeName[widget.type].sn
 	 if not typ then typ = "---" end
+	 --print("widget.type", widget.type, typ)
 	 form.addLabel({label = string.format("%d %s", i, typ), width=60})
 	 form.addLabel({label = string.format("%s", str), width=160})
 	 if not widget.dataSrc then widget.dataSrc = "Sensor" end
@@ -1736,7 +1740,7 @@ local function initForm(sf)
 
       if editWidgetType == "Text" then
 	 if not editWidget.text then return end
-	 print("#text", #editWidget.text, "type", editWidget.type)
+	 --print("#text", #editWidget.text, "type", editWidget.type)
 	 if editWidget.type == "sequencedTextBox" then
 	    form.setButton(3, ":add", ENABLED)
 	    form.setButton(2, ":delete", ENABLED)
@@ -1851,6 +1855,7 @@ local function loop()
    for _, widget in ipairs(ips) do
       -- could special case for Art Horiz here .. but for now just ignore min and max for that
       -- it has SeId and SePa set to 0,0
+      val = nil
       if widget.dataSrc == "Sensor" then
 	 sensor = getSensorByID(widget.SeId, widget.SePa)
 	 if sensor and sensor.valid then val = sensor.value end
@@ -1868,7 +1873,6 @@ local function loop()
 	 if val < widget.minval then
 	    widget.minval = val
 	 end
-
 	 if not widget.maxval then
 	    widget.maxval = val
 	 end
@@ -2102,7 +2106,7 @@ local function printForm(_,_,tWin)
 	 lcd.setColor(255,255,255)
 
 	 local val
-	 
+
 	 if ctl then
 	    --factor = 0.90 * (widget.radius - 8) / 58
 	    if widget.type == "roundNeedleGauge" or widget.type == "roundArcGauge" then
@@ -2128,11 +2132,13 @@ local function printForm(_,_,tWin)
 		  if not widget.fTL then
 		     --print("widget.fTL <"..tostring(widget.fTL)..">")
 		     --print("widget.tickFont", widget.tickFont)
-		     widget.fTL = widget.tickFont or "None"
+		     widget.fTL = widget.tickFont or "Mini"
 		  end
 		  local vv, vt
+		  --print(widget.tickLabels, widget.subdivs, widget.majdivs, widget.fTL)
 		  if widget.tickLabels and widget.subdivs > 0 and widget.majdivs > 0 and
-		  widget.tickFont ~= "None" then
+		  widget.fTL ~= "None" then
+		     --print(#widget.tickLabels)
 		     for i,v in ipairs(widget.tickLabels) do
 			vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
 			vt = string.format(fstr, vv)
@@ -2238,15 +2244,15 @@ local function printForm(_,_,tWin)
 	 if widget.label then str = widget.label else str = "Gauge"..idxW end
 
 	 if not widget.fL then
-	    widget.fL = widget.labelFont or "None"
+	    widget.fL = widget.labelFont or "Mini"
 	 end
 
 	 if not widget.fV then
-	    widget.fV = widget.valueFont or "None"
+	    widget.fV = widget.valueFont or "Mini"
 	 end
 	 
 	 if not widget.fLRV then
-	    widget.fLRV = widget.tickFont or "None"
+	    widget.fLRV = widget.tickFont or "Mini"
 	 end
 	 
 	 if widget.gaugeRadius > 30 then -- really ought to consolidate with >= 20 code below
@@ -2466,8 +2472,10 @@ local function printForm(_,_,tWin)
 	    if widget.fT ~= "None" then
 	       local strL = #str
 	       local txH = lcd.getTextHeight(edit.fcode[widget.fT])
+	       --print("widget.fT, txH, tBoxHgt", widget.fT, txH, widget.tBoxHgt)
 	       local txW
-	       local yc = widget.y0 + 1.25 * txH - 0.5 * (txH / 2) * (3 * strL + 1)
+	       local yc = math.floor(widget.y0  - widget.tBoxHgt / 2 + txH / 4 + 0.5)
+	       if strL < 3 then yc = yc + 1 else yc = yc + 3 end -- awful!
 	       local stro
 	       for ii = 0, strL - 1 , 1 do
 
@@ -2479,7 +2487,7 @@ local function printForm(_,_,tWin)
 		  end
 		  		  
 		  txW = lcd.getTextWidth(edit.fcode[widget.fT], stro)
-		  lcd.drawText(widget.x0 - txW / 2, yc + (ii - (strL % 2)*.7) * txH, stro,
+		  lcd.drawText(widget.x0 - txW / 2, yc + (txH) * ii, stro,
 			       edit.fcode[widget.fT])
 	       end
 	    end
