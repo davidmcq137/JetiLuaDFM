@@ -12,7 +12,8 @@
 	"TwoLargeArc":   {"file": "TwoLargeArc.json"},	
 	"GlassCockpit":  {"file": "GlassCockpit.json"},
 	"TwoNeedle":     {"file": "TwoNeedle.json"},
-	"Concentric":    {"file": "Concentric.json"}
+	"Concentric":    {"file": "Concentric.json"},
+	"SplitLarge":    {"file": "SplitSpread.json"}
     },
 
     "prototypes": {

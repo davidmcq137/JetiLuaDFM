@@ -79,7 +79,8 @@ edit.gaugeName = {
    panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0,0}},
    rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0,0}},
    verticalTape=    {sn="VerT", en={0,1,1,0,0,0,0,0,1}},
-   artHorizon=      {sn="ArtH", en={0,1,1,0,0,0,0,0,0}}
+   artHorizon=      {sn="ArtH", en={0,1,1,0,0,0,0,0,0}},
+   chartRecorder=   {sn="ChtR", en={0,0,1,0,0,0,0,1,0}}   
 }
 
 local lua = {}
@@ -129,6 +130,8 @@ local formS = {[1]="main", [102]="settings", [100]="inputs", [103]="editpanel", 
    [105] = "editlinks", [108] = "luavariables", [101] = "resetall",
    [107] = "editlua", [106] = "panels"}
 
+local MAXSAMPLE = 160
+local modSample = 0
 
 local needle = {
    {-1,0},
@@ -161,6 +164,10 @@ local triangle = {
    {4,1}
 }
 --]]
+
+local function setColorRGB(rgb)
+   lcd.setColor(rgb.r, rgb.g, rgb.b)
+end
 
 local function showExternal(ff)
 
@@ -831,7 +838,9 @@ local function keyForm(key)
       end
 
       local ipsp = InsP.panels[InsP.settings.selectedPanel]
-      local ipeg = ipsp[edit.gauge] 
+      local ipeg = ipsp[edit.gauge]
+      if not ipeg then return end
+      
       local en = edit.gaugeName[ipeg.type].en[edit.opsIdx]
       local eo = edit.ops[edit.opsIdx]
       local ed = edit.dir[edit.dirIdx]
@@ -1880,6 +1889,31 @@ local function loop()
 	    widget.maxval = val
 	 end
       end
+      
+      local xp, yc, fy, yp
+      local ymin, ymax = widget.min, widget.max
+      if widget.type == "chartRecorder" then
+	 local now = system.getTimeCounter()
+	 if not widget.chartInterval or #widget.chartSample < 1 then
+	    widget.chartInterval = tonumber(string.sub(widget.timeSpan,2)) * 1000 / MAXSAMPLE
+	    print("interval", widget.chartInterval)
+	    widget.chartLast = 0
+	    widget.chartSample = {}
+	    widget.chartSampleYP = {}
+	 end
+	 if (now > widget.chartLast + widget.chartInterval) and val then
+	    if #widget.chartSample + 1 > MAXSAMPLE then
+	       table.remove(widget.chartSample, 1)
+	       table.remove(widget.chartSampleYP, 1)	       
+	    end
+	    table.insert(widget.chartSample, val)
+	    yc = math.max(ymin, math.min(val, ymax))
+	    fy = (yc - ymin) / (ymax - ymin)	    
+	    yp = widget.boxYL + (1 - fy) * widget.boxH
+	    table.insert(widget.chartSampleYP, yp)
+	    widget.chartLast = now
+	 end
+      end
    end
 
    -- keep txTel values up to date every 200 ms
@@ -1919,7 +1953,7 @@ end
 
 local foo
 
-local function printForm(_,_,tWin)
+local function printForm(ww0,hh0,tWin)
 
    local ctl, ctlmin, ctlmax
    local rot, rotmin, rotmax
@@ -2532,7 +2566,7 @@ local function printForm(_,_,tWin)
 	    end
 	 end
 	 	 
-	 if widget.rgbBezellColor then
+	 if widget.rgbBezelColor then
 	    lcd.setColor(widget.rgbBezelColor.r, widget.rgbBezelColor.g, widget.rgbBezelColor.b)
 	    ren:renderPolyline(2)
 	 end
@@ -2988,9 +3022,189 @@ local function printForm(_,_,tWin)
 
 	 lcd.setColor(255,255,255)
 	 drawTextCenter(widget.xL, widget.yL, widget.label, edit.fcode[fL])
+      elseif widget.type == "chartRecorder" then
+
+	 --local chartOffsetXL = 12;
+	 --local chartOffsetYT = 18;
+	 --local chartOffsetYB = 20;
+	 --local chartOffsetXV = 34;
+
+	 local chartOffsetV = 13;
+	 
+	 local timeStamps = {
+	    {"0:00", "0:05", "0:10", "0:15", "0:20", "0:25", "0:30"},
+	    {"0:00", "0:10", "0:20", "0:30", "0:40", "0:50", "1:00"},
+	    {"0:00", "0:20", "0:40", "1:00", "1:20", "1:40", "2:00"},
+	    {"0:00", "0:40", "1:20", "2:00", "2:40", "3:20", "4:00"},
+	    {"0:00", "1:20", "2:40", "4:00", "5:20", "6:40", "8:00"}
+	 }
+	 
+	 local stampIndex = {t30 = 1, t60 = 2, t120= 3, t240 = 4, t480 = 5}
+	 
+	 local maxTraces = widget.maxTraces or 1
+	 maxTraces = math.max(1, math.min(4, maxTraces));
+
+	 local barOffset
+	 local barWidth = 21;
+
+	 local traceNumber = widget.traceNumber or 1
+	 barOffset = (traceNumber - 1) *  (barWidth);
+	 barOffset = math.max(0, math.min(3 * barWidth, barOffset));
+
+	 --local chartOffsetXR = barWidth + maxTraces * barWidth;
+
+	 local timeSpan = stampIndex[widget.timeSpan or "t60"]
+
+	 --arrR.boxW = 2 * (arr.width / 2 - chartOffsetXR / 2 - chartOffsetXL / 2) + 4;
+	 --arrR.boxH = arr.height - (chartOffsetYT + chartOffsetYB);
+	 --arrR.boxXL = arr.x0 - arr.width/2 + chartOffsetXL;
+	 --arrR.boxYL = arr.y0 - arr.height/2 + chartOffsetYT;
+	 --arrR.vertX = arrR.boxXL + arrR.boxW + chartOffsetXV;
+	 --arrR.vertYB = arrR.boxYL + arrR.boxH
+	 --arrR.vertYT = arrR.boxYL
+    
+	 setColorRGB(widget.rgbBackColor)
+	 
+	 if (traceNumber == 1 and widget.backColor ~= "transparent" ) then
+	    lcd.drawFilledRectangle(widget.x0 - widget.width/2,
+				    widget.y0 - widget.height/2, widget.width, widget.height)
+	    --lcd.setColor(255,0,0)
+	    --lcd.drawRectangle(1,1,318,158)
+	 end
+
+	 lcd.setColor(255,255,255)
+	 --print(widget.x0 - widget.width/2, widget.y0 - widget.height/2, widget.width, widget.height)
+	 
+	 lcd.drawRectangle(widget.x0 - widget.width/2, widget.y0 - widget.height/2,
+			   widget.width, widget.height);
+	 
+	 setColorRGB(widget.rgbChartBackColor)
+	 
+	 if (traceNumber == 1) then
+	    lcd.drawFilledRectangle(widget.boxXL, widget.boxYL, widget.boxW, widget.boxH);
+	 end
+
+	 lcd.setColor(255,255,255)
+	 if (traceNumber == 1) then
+	    lcd.drawRectangle(widget.boxXL, widget.boxYL, widget.boxW, widget.boxH);
+	 end
+	 
+	 lcd.drawLine(widget.vertX + barOffset, widget.vertYB, widget.vertX + barOffset, widget.vertYT)
+	 
+	 local ticL = 6; 
+	 for i=0,10,1 do 
+	    local tl
+	    if (i % 5 == 0) then tl = ticL else tl = ticL / 2 end
+	    lcd.drawLine(widget.vertX + barOffset,
+			 widget.vertYB + i * (widget.vertYT - widget.vertYB) / 10,
+			 widget.vertX - tl + barOffset,
+			 widget.vertYB + i * (widget.vertYT - widget.vertYB) / 10)	
+	 end
+	 
+	 lcd.setColor(255,255,255)
+
+	 -- set font to "Mini"
+	 
+	 local hh = lcd.getTextHeight(FONT_MINI) + 6
+
+	 local str
+	 str = string.format("%d", widget.min)
+	 drawTextCenter(widget.vertX - chartOffsetV + barOffset, widget.vertYB + hh / 2 -2, str, FONT_MINI)
+	 str = string.format("%d", widget.max)
+	 drawTextCenter(widget.vertX - chartOffsetV + barOffset, widget.vertYT - hh / 2, str, FONT_MINI)
+
+	 local xx
+
+	 if (traceNumber == 1) then
+	    for i=0,6,1 do
+	       xx = widget.boxXL + i * widget.boxW / 6
+	       if i == 6 then xx = xx - 1 end
+	       --print(widget.vertYB, hh, timeStamps[timeSpan][i+1])
+	       drawTextCenter(xx, widget.vertYB + hh - 6, timeStamps[timeSpan][i + 1], FONT_MINI)
+	       lcd.drawLine(xx, widget.vertYB, xx, widget.vertYB + ticL)
+	    end
+	 end
+
+	 local xmin = 0;
+	 local xmax = 2;
+	 local ymin = 0;
+	 local ymax = 100;
+	 local x, xp, y, yp, fx, fy
+
+	 setColorRGB(widget.rgbChartTraceColor)
+
+	 local np = 0
+	 local yc 
+	 local ren = lcd.renderer()
+	 if sensorVal and widget.chartSample and #widget.chartSample > 0 then
+	    ren:reset()
+	    local aa = widget.boxW / MAXSAMPLE
+	    local bb = widget.boxXL
+	    local cc = widget.chartSampleYP
+	    for i, v in ipairs(widget.chartSample) do
+	       --xp = widget.chartSampleXP[i]
+	       yp = cc[i]
+	       xp = bb + i * aa
+	       --yc = math.max(ymin, math.min(v, ymax))
+	       --fy = (yc - ymin) / (ymax - ymin)	    
+	       --yp = widget.boxYL + (1 - fy) * widget.boxH
+	       if np < 127 then
+		  ren:addPoint(xp, yp)
+		  np = np + 1
+	       else
+		  ren:addPoint(xp, yp)
+		  ren:renderPolyline(2)
+		  ren:reset()
+		  ren:addPoint(xp, yp)
+		  np = 1
+	       end
+	    end
+	 end
+      	 ren:renderPolyline(2)
+
+	 --[[
+	 for t= 0,2,0.02 do
+	    x = t;
+	    y = 0.9 * math.sin(2 * math.pi * (t -  math.pi / 4 * (traceNumber - 1)));
+	    fx = (x - xmin) / (xmax - xmin);
+	    xp = widget.boxXL + fx * widget.boxW
+	    fy = (y - ymin) / (ymax - ymin)
+	    yp = widget.boxYL + (1 - fy) * widget.boxH
+	    ren:addPoint(xp, yp);
+	 end
+	 ren:renderPolyline(2)
+	 --]]
+
+	 ymin = widget.min;
+	 ymax = widget.max;
+
+	 if sensorVal then
+	    fy = (sensorVal - ymin) / (ymax - ymin);
+	    fy = math.max(0, math.min(fy, 1));
+	    lcd.drawFilledRectangle(widget.vertX - 3 * ticL + barOffset,
+				    widget.vertYT + (1 - fy) * widget.boxH,
+				    2 * ticL, fy * widget.boxH);
+	    
+	 end
+	 hh = lcd.getTextHeight(FONT_MINI) + 2;
+	 --print(hh)
+	 local labelStep = 3 + widget.boxW / maxTraces;
+	 local labelOffset = (traceNumber - 1) * labelStep - hh / 2
+	 
+	 lcd.setColor(255,255,255)
+	 --local function drawFilledBezel(xc,yc,w,h,z)
+	 --print(widget.boxYL, hh)
+	 drawFilledBezel(widget.boxXL + labelOffset + hh / 2, widget.boxYL - hh/2 -1, hh-2, hh-2, 3)
+	 --set font to "Mini"
+	 --ctx.textAlign = "left";
+	 lcd.drawText(widget.boxXL + labelOffset + hh + 2, widget.boxYL - hh - 1, widget.label, FONT_MINI)
+	 setColorRGB(widget.rgbChartTraceColor)
+	 --ctx.fillStyle = traceColor;
+	 drawFilledBezel(widget.boxXL + labelOffset + hh/2, widget.boxYL - hh/2 - 1, hh - 4, hh - 4, 3)
       end
    end
-   --[[
+   ---[[
+   lcd.setColor(255,255,255)
    if select(2, system.getDeviceType()) == 1 then
       lcd.drawText(300,70, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   
       lcd.drawText(300,90, string.format("%02d", system.getCPU()), FONT_MINI)
@@ -3047,7 +3261,7 @@ local function prtForm(w,h)
 	    yy = ipeg.yT
 	 end
 	 ff = ipeg.fT	 
-      elseif (ii == "MMLbl") and ipeg.xLV then
+      elseif (ii == "MMLbl") and ipeg.xLV and ipeg.xRV then
 	 xx = (ipeg.xLV + ipeg.xRV) / 2
 	 yy = ipeg.yLV
 	 ff = ipeg.fLRV
@@ -3062,6 +3276,12 @@ local function prtForm(w,h)
 	 ss = tonumber(math.floor(ipeg.TS))
       elseif (ii == "MinMx") then
 	 mm = "Edit Min Max"
+	 if ipeg.type == "chartRecorder" then
+	    xx = ipeg.vertX - ipeg.barWidth / 2 + (ipeg.traceNumber - 1) * ipeg.barWidth
+	    yy = (ipeg.vertYB + ipeg.vertYT) / 2
+	    ff = "Mini"
+	 end
+	 
       end
 
       --print("typ", ipeg.type, edit.gaugeName[ipeg.type].sn)
@@ -3101,8 +3321,10 @@ local function destroy()
       if save.panels then
 	 for i in ipairs(save.panels) do
 	    if not save.panels[i] then print("nil panel", i) end
-	    for _, v in ipairs(save.panels[i]) do
+	    for k, v in ipairs(save.panels[i]) do
 	       for kk,vv in pairs(v) do
+		  if kk == "chartSample" then v[kk] = {} end
+		  if kk == "chartSampleYP" then v[kk] = {} end		  
 		  if kk == "SeId" or kk == "rollSeId" or kk == "pitchSeId" then
 		     v[kk] = string.format("0X%X", vv)
 		  end

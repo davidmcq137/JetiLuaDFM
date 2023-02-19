@@ -2386,10 +2386,12 @@ function chartRecorder(ctx, arr) {
 	maxTraces = 1;
     }
     maxTraces = Math.max(1, Math.min(4, maxTraces));
-    console.log("maxTraces", maxTraces)
+    //console.log("maxTraces", maxTraces)
 
     let barOffset;
     let barWidth = 21;
+    arrR.barWidth = barWidth
+    
     if (typeof arr.traceNumber != "undefined") {
 	traceNumber = Math.min(maxTraces, arr.traceNumber);
 	barOffset = (traceNumber - 1) *  (barWidth);
@@ -2399,7 +2401,7 @@ function chartRecorder(ctx, arr) {
     }
     traceNumber = Math.max(1, traceNumber);
     
-    console.log("traceNumber, maxTraces", traceNumber, maxTraces)
+    //console.log("traceNumber, maxTraces", traceNumber, maxTraces)
     barOffset = Math.max(0, Math.min(3 * barWidth, barOffset));
 
     const chartOffsetXR = barWidth + maxTraces * barWidth;
@@ -2425,6 +2427,7 @@ function chartRecorder(ctx, arr) {
     } else {
 	ctx.fillStyle = "black";
     }
+    arrR.rgbBackColor = getRGB(ctx.fillStyle)
 
     if (traceNumber == 1 && arr.backColor != "transparent" ) {
 	ctx.fillRect(arr.x0 - arr.width/2, arr.y0 - arr.height/2, arr.width, arr.height);
@@ -2444,7 +2447,8 @@ function chartRecorder(ctx, arr) {
     } else {
 	ctx.fillStyle = "black";
     }
-
+    arrR.rgbChartBackColor = getRGB(ctx.fillStyle)
+    
     if (traceNumber == 1) {
 	ctx.fillRect(arrR.boxXL, arrR.boxYL, arrR.boxW, arrR.boxH);
     }
@@ -2484,7 +2488,7 @@ function chartRecorder(ctx, arr) {
     ctx.align = "middle"
     let ss, xx
 
-    if (traceNumber == 1) {
+    if (traceNumber == 1 && typeof arr.value != "undefined" ) {
 	for (let i=0; i<= 6; i++) {
 	    ss = i * 5;
 	    xx = arrR.boxXL + i * arrR.boxW / 6;
@@ -2513,20 +2517,23 @@ function chartRecorder(ctx, arr) {
     } else {
 	ctx.strokeStyle = "blue";
     }
+    arrR.rgbChartTraceColor = getRGB(ctx.strokeStyle)
     let traceColor = ctx.strokeStyle
     
-    ctx.beginPath();
-    for (let t = 0; t <= 2.0;t = t + 0.01) {
-	x = t;
-	y = 0.9 * Math.sin(2 * Math.PI * (t -  Math.PI / 4 * (traceNumber - 1)));
-	fx = (x - xmin) / (xmax - xmin);
-	xp = arrR.boxXL + fx * arrR.boxW
-	fy = (y - ymin) / (ymax - ymin)
-	yp = arrR.boxYL + (1 - fy) * arrR.boxH
-	ctx.lineTo(xp, yp);
+    if (typeof arr.value != "undefined") {
+	ctx.beginPath();
+	for (let t = 0; t <= 2.0;t = t + 0.01) {
+	    x = t;
+	    y = 0.9 * Math.sin(2 * Math.PI * (t -  Math.PI / 4 * (traceNumber - 1)));
+	    fx = (x - xmin) / (xmax - xmin);
+	    xp = arrR.boxXL + fx * arrR.boxW
+	    fy = (y - ymin) / (ymax - ymin)
+	    yp = arrR.boxYL + (1 - fy) * arrR.boxH
+	    ctx.lineTo(xp, yp);
+	}
+	ctx.stroke();
     }
-    ctx.stroke();
-
+    
     ymin = arr.min;
     ymax = arr.max;
     
@@ -2538,20 +2545,26 @@ function chartRecorder(ctx, arr) {
 
     fy = (arr.value - ymin) / (ymax - ymin);
     fy = Math.max(0, Math.min(fy, 1));
-    ctx.fillRect(arrR.vertX - 3 * ticL + barOffset, arrR.vertYT + (1 - fy) * arrR.boxH,
-		 2 * ticL, fy * arrR.boxH);
+    if (typeof arr.value != "undefined") {
+	ctx.fillRect(arrR.vertX - 3 * ticL + barOffset, arrR.vertYT + (1 - fy) * arrR.boxH,
+		     2 * ticL, fy * arrR.boxH);
+    }
     
     hh = getTextHeight(ctx, ":00") + 5;
     const labelStep = 3 + arrR.boxW / maxTraces;
     let labelOffset = (traceNumber - 1) * labelStep - hh / 2
     
     ctx.fillStyle = "white";
-    roundedRect(ctx, arrR.boxXL + labelOffset, arrR.boxYL - (hh + 3), hh, hh, 3)
-    ctx.font = jetiToCtx("Mini")
-    ctx.textAlign = "left";
-    ctx.fillText(arr.label, arrR.boxXL + hh + 2 + labelOffset, arrR.boxYL - (hh + 3) / 2)
-    ctx.fillStyle = traceColor;
-    roundedRect(ctx, arrR.boxXL + 1 + labelOffset, arrR.boxYL - hh - 2, hh - 2, hh - 2, 2)
+    arrR.xL = arrR.boxXL + hh + 2 + labelOffset;
+    arrR.yL = arrR.boxYL - (hh + 3) / 2;
+    if (typeof arr.label != "undefined") {
+	roundedRect(ctx, arrR.boxXL + labelOffset, arrR.boxYL - (hh + 3), hh, hh, 3)
+	ctx.font = jetiToCtx("Mini")
+	ctx.textAlign = "left";
+	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+	ctx.fillStyle = traceColor;
+	roundedRect(ctx, arrR.boxXL + 1 + labelOffset, arrR.boxYL - hh - 2, hh - 2, hh - 2, 2)
+    }
     
     return arrR
 }
