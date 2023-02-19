@@ -2391,7 +2391,7 @@ function chartRecorder(ctx, arr) {
     let barOffset;
     let barWidth = 21;
     arrR.barWidth = barWidth
-    
+
     if (typeof arr.traceNumber != "undefined") {
 	traceNumber = Math.min(maxTraces, arr.traceNumber);
 	barOffset = (traceNumber - 1) *  (barWidth);
@@ -2436,7 +2436,7 @@ function chartRecorder(ctx, arr) {
     ctx.lineWidth = 1;
 
     ctx.strokeStyle = "peachpuff";
-    if (traceNumber == 1) {
+    if (traceNumber == 1 && typeof arr.label != "undefined") {
 	ctx.beginPath();
 	ctx.rect(arr.x0 - arr.width/2, arr.y0 - arr.height/2, arr.width, arr.height);
 	ctx.stroke();
@@ -2466,12 +2466,14 @@ function chartRecorder(ctx, arr) {
     ctx.stroke();
     
     ctx.beginPath();
-    const ticL = 6; 
-    for (let i=0; i <= 10; i++) {
-	ctx.moveTo(arrR.vertX + barOffset, arrR.vertYB + i * (arrR.vertYT - arrR.vertYB) / 10)
+    const ticL = 6;
+    arrR.numberTicks = 10;    
+    for (let i=0; i <= arrR.numberTicks; i++) {
+	ctx.moveTo(arrR.vertX + barOffset, arrR.vertYB + i * (arrR.vertYT - arrR.vertYB) / arrR.numberTicks)
 	let tl;
-	if (i % 5 == 0) { tl = ticL } else { tl = ticL / 2}
-	ctx.lineTo(arrR.vertX - tl + barOffset, arrR.vertYB + i * (arrR.vertYT - arrR.vertYB) / 10)	
+	if (i % (arrR.numberTicks / 2) == 0) { tl = ticL } else { tl = ticL / 2}
+	ctx.lineTo(arrR.vertX - tl + barOffset,
+		   arrR.vertYB + i * (arrR.vertYT - arrR.vertYB) / arrR.numberTicks);	
     }
     ctx.stroke();
     

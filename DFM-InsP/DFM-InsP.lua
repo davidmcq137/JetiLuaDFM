@@ -16,6 +16,7 @@
    Version 0.51 02/16/23 - fixed bugs in seq text box
    Version 0.52 02/17/23 - more minor tweaks
    Version 0.53 02/17/23 - yet more tweaks
+   Version 0.54 02/19/23 - ported new chartRecorder widget to TX
  
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -23,7 +24,7 @@
 --]]
 
 
-local InsPVersion = 0.53
+local InsPVersion = 0.54
 
 local LE
 
@@ -3075,8 +3076,8 @@ local function printForm(ww0,hh0,tWin)
 	 lcd.setColor(255,255,255)
 	 --print(widget.x0 - widget.width/2, widget.y0 - widget.height/2, widget.width, widget.height)
 	 
-	 lcd.drawRectangle(widget.x0 - widget.width/2, widget.y0 - widget.height/2,
-			   widget.width, widget.height);
+	 --lcd.drawRectangle(widget.x0 - widget.width/2, widget.y0 - widget.height/2,
+	 --widget.width, widget.height);
 	 
 	 setColorRGB(widget.rgbChartBackColor)
 	 
