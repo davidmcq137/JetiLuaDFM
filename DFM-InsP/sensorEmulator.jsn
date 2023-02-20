@@ -108,8 +108,9 @@
      "decimals": 0,
      "type": 1,
      "sensorName": "Sine",
-     "luaExp":"50*(1 + math.sin(6.28 * t / 20))",
-     "label": "Sin0",
+     "luaExp":"50*(1 + math.sin(2 * math.pi * t / 30)
+)",
+     "label": "Sin1",
      "unit": "V"
     },
     {"id":137,
@@ -117,8 +118,8 @@
      "decimals": 0,
      "type": 1,
      "sensorName": "Sine",
-     "luaExp":"50*(1 + math.sin(6.28 * (t - 3.14) / 20))",
-     "label": "Sin90",
+     "luaExp":"50*(1 + math.cos(2*math.pi * (t) / 30))",
+     "label": "Sin2",
      "unit": "V"
     },
     {"id":137,
@@ -126,8 +127,8 @@
      "decimals": 0,
      "type": 1,
      "sensorName": "Sine",
-     "luaExp":"50*(1 + math.sin(6.28 * (t - 6.28) / 20))",
-     "label": "Sin180",
+     "luaExp":"50*(1 + math.sin(2*math.pi * (-t) / 30))",
+     "label": "Sin3",
      "unit": "V"
     },
     {"id":137,
@@ -135,8 +136,8 @@
      "decimals": 0,
      "type": 1,
      "sensorName": "Sine",
-     "luaExp":"50*(1 + math.sin(6.28 * (t - 9.42) / 20))",
-     "label": "Sin225",
+     "luaExp":"50*(1+ math.cos(2*math.pi * (t + math.pi) / 30))",
+     "label": "Sin4",
      "unit": "V"
     },
     {"id":139, "param": 0,"sensorName": "XXX", "label": "CBOX200"},

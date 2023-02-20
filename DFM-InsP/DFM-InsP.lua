@@ -16,7 +16,7 @@
    Version 0.51 02/16/23 - fixed bugs in seq text box
    Version 0.52 02/17/23 - more minor tweaks
    Version 0.53 02/17/23 - yet more tweaks
-   Version 0.54 02/19/23 - ported new chartRecorder widget to TX
+   Version 0.54 02/19/23 - ported new chartRecorder widget to TX, added logging of lua variables
  
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -59,7 +59,7 @@ local switches = {}
 local stateSw = {}
 
 local edit = {}
-edit.ops = {"Center", "Value", "Label", "Text", "MMLbl", "TicLbl", "TicSpc", "MinMx", "Tape"}
+edit.ops = {"Center", "Value", "Label", "Text", "MMLbl", "TicLbl", "TicSpc", "MinMx", "Tape", "Chart"}
 edit.dir = {"X", "Y", "Font", "DecPt"}
 edit.fonts = {"Mini", "Normal", "Bold", "Big", "Maxi", "None"}
 edit.fcode = {Mini=FONT_MINI, Normal=FONT_NORMAL, Bold=FONT_BOLD, Big=FONT_BIG, Maxi=FONT_MAXI,
@@ -71,18 +71,22 @@ edit.icode = {Mini=1, Normal=2, Bold=3, Big=4, Maxi=5, None=6}
 -- en elements follow edit.ops
 
 edit.gaugeName = {
-   roundNeedleGauge={sn="NdlG", en={0,1,1,0,1,1,1,1,0}},
-   roundArcGauge=   {sn="ArcG", en={0,1,1,0,1,0,0,1,0}},
-   virtualGauge=    {sn="VirG", en={1,1,1,0,0,0,0,1,0}},
-   horizontalBar=   {sn="HBar", en={0,0,1,0,0,1,1,0,0}},
-   sequencedTextBox={sn="SeqT", en={0,0,1,1,0,0,0,0,0}},
-   stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0,0}},
-   panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0,0}},
-   rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0,0}},
-   verticalTape=    {sn="VerT", en={0,1,1,0,0,0,0,0,1}},
-   artHorizon=      {sn="ArtH", en={0,1,1,0,0,0,0,0,0}},
-   chartRecorder=   {sn="ChtR", en={0,0,1,0,0,0,0,1,0}}   
+   roundNeedleGauge={sn="NdlG", en={0,1,1,0,1,1,1,1,0,0}},
+   roundArcGauge=   {sn="ArcG", en={0,1,1,0,1,0,0,1,0,0}},
+   virtualGauge=    {sn="VirG", en={1,1,1,0,0,0,0,1,0,0}},
+   horizontalBar=   {sn="HBar", en={0,0,1,0,0,1,1,0,0,0}},
+   sequencedTextBox={sn="SeqT", en={0,0,1,1,0,0,0,0,0,0}},
+   stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0,0,0}},
+   panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0,0,0}},
+   rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0,0,0}},
+   verticalTape=    {sn="VerT", en={0,1,1,0,0,0,0,0,1,0}},
+   artHorizon=      {sn="ArtH", en={0,1,1,0,0,0,0,0,0,0}},
+   chartRecorder=   {sn="ChtR", en={0,0,1,0,0,0,0,1,0,1}}   
 }
+
+local stampIndex = {t30 = 1, t60 = 2, t120= 3, t240 = 4, t480 = 5}
+local stampVals  = {"t30", "t60", "t120", "t240", "t480"}
+local stampTimes = {"0:30", "1:00", "2:00", "4:00", "8:00"}
 
 local lua = {}
 --lua.chunk = {}
@@ -512,6 +516,7 @@ local function evaluateLua(es, luastring, val)
 end
 
 local function setVariables()
+   --print("setVariables")
    for i, var in ipairs(InsP.variables) do
       if InsP.variables[i].source == "Sensor" then
 	 local name = InsP.sensorLalist[var.sensor]
@@ -856,7 +861,8 @@ local function keyForm(key)
 	 form.setButton(1, "Select", ENABLED)
 	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
 	 form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)	 	 
-	 if (eo == "Text" or eo == "MinMx" or eo == "Label" or eo == "Tape") and en == 1 then
+	 if (eo == "Text" or eo == "MinMx" or eo == "Label" or eo == "Tape" or eo == "Chart")
+	 and en == 1 then
 	    en4 = ENABLED
 	 else
 	    en4 = DISABLED
@@ -1725,6 +1731,17 @@ local function initForm(sf)
       
 
    elseif sf == 110 then
+      local colors = {"black", "silver", "gray",   "white", "maroon",
+		      "red",   "purple", "fuscia", "green", "lime",
+		      "olive", "yellow", "navy", "blue", "teal",
+		      "aqua"}
+      local rgbColors = {
+	 {0,0,0},     {192,192,192}, {128,128,128}, {255,255,255}, {128,0,0},
+	 {255,0,0},   {128,0,128},   {255,0,255},   {0,128,0},     {0,255,0},
+	 {128,128,0}, {255,255,0},   {0,0,128},     {0,0,255},     {0,128,128},
+	 {0,255,255}
+
+      }
       local function editTextCB(val, i)
 	 editWidget.text[i] = val 
       end
@@ -1745,7 +1762,18 @@ local function initForm(sf)
 	    editWidget.step = val
 	 end
       end
-
+      local function editTimeCB(val)
+	 editWidget.timeSpan = stampVals[val]
+	 editWidget.chartInterval = tonumber(string.sub(editWidget.timeSpan,2)) * 1000 / MAXSAMPLE
+      end
+      
+      local function editTraceColorCB(val)
+	 editWidget.chartTraceColor = colors[val]
+	 editWidget.rgbChartTraceColor.r = rgbColors[val][1]
+	 editWidget.rgbChartTraceColor.g = rgbColors[val][2]
+	 editWidget.rgbChartTraceColor.b = rgbColors[val][3]	 
+      end
+      
       form.setTitle("Gauge Editor")
 
       if editWidgetType == "Text" then
@@ -1795,6 +1823,30 @@ local function initForm(sf)
 	 form.addLabel({label="Step"})
 	 form.addIntbox(editWidget.step, 1, 100, 10, 0, 1,
 			(function(v) return editTapeCB(v, "step") end))
+      elseif editWidgetType == "Chart" then
+	 local tt = 0
+	 for k,t in ipairs(stampVals) do
+	    --print(t, editWidget.timeSpan)
+	    if t == editWidget.timeSpan then
+	       tt = k
+	       break
+	    end
+	 end
+	 form.addRow(1)
+	 form.addLabel({label="NOTE: Ensure stacked chart time scales are the same", font=FONT_MINI})
+	 form.addRow(2)
+	 form.addLabel({label="Time scale"})
+	 form.addSelectbox(stampTimes, tt, true, editTimeCB)
+	 form.addRow(2)
+	 form.addLabel({label="Trace Color"})
+	 local cc = 0
+	 for k,c in ipairs(colors) do
+	    if c == editWidget.chartTraceColor then
+	       cc = k
+	       break
+	    end
+	 end
+	 form.addSelectbox(colors, cc, true, editTraceColorCB)
       end
    end
 end
@@ -1897,7 +1949,7 @@ local function loop()
 	 local now = system.getTimeCounter()
 	 if not widget.chartInterval or #widget.chartSample < 1 then
 	    widget.chartInterval = tonumber(string.sub(widget.timeSpan,2)) * 1000 / MAXSAMPLE
-	    print("interval", widget.chartInterval)
+	    --print("interval", widget.chartInterval)
 	    widget.chartLast = 0
 	    widget.chartSample = {}
 	    widget.chartSampleYP = {}
@@ -3040,8 +3092,6 @@ local function printForm(ww0,hh0,tWin)
 	    {"0:00", "1:20", "2:40", "4:00", "5:20", "6:40", "8:00"}
 	 }
 	 
-	 local stampIndex = {t30 = 1, t60 = 2, t120= 3, t240 = 4, t480 = 5}
-	 
 	 local maxTraces = widget.maxTraces or 1
 	 maxTraces = math.max(1, math.min(4, maxTraces));
 
@@ -3117,11 +3167,22 @@ local function printForm(ww0,hh0,tWin)
 	 local xx
 
 	 if (traceNumber == 1) then
+	    local str
 	    for i=0,6,1 do
 	       xx = widget.boxXL + i * widget.boxW / 6
 	       if i == 6 then xx = xx - 1 end
 	       --print(widget.vertYB, hh, timeStamps[timeSpan][i+1])
-	       drawTextCenter(xx, widget.vertYB + hh - 6, timeStamps[timeSpan][i + 1], FONT_MINI)
+	       if #widget.chartSample < MAXSAMPLE then
+		  drawTextCenter(xx, widget.vertYB + hh - 6, timeStamps[timeSpan][i + 1], FONT_MINI)
+	       else
+		  if 6 - i + 1 == 1 then
+		     str = "Now"
+		  else
+		     str = "-" .. timeStamps[timeSpan][6 - i + 1]
+		  end
+		  drawTextCenter(xx, widget.vertYB + hh - 6, str, FONT_MINI)
+	       end
+	       
 	       lcd.drawLine(xx, widget.vertYB, xx, widget.vertYB + ticL)
 	    end
 	 end
@@ -3204,7 +3265,7 @@ local function printForm(ww0,hh0,tWin)
 	 drawFilledBezel(widget.boxXL + labelOffset + hh/2, widget.boxYL - hh/2 - 1, hh - 4, hh - 4, 3)
       end
    end
-   ---[[
+   --[[
    lcd.setColor(255,255,255)
    if select(2, system.getDeviceType()) == 1 then
       lcd.drawText(300,70, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   
@@ -3378,6 +3439,18 @@ local function initNewer(sf, tbl)
 
 end
 
+local function luaLogCB(idx)
+   setVariables()
+   ret, dp = 0, 2
+   for k,v in ipairs(InsP.variables) do
+      if idx and v.logID and v.logID == idx then
+	 ret = v.value
+	 break
+      end
+   end
+   return math.floor(ret * 100 +  0.5), dp
+end
+
 local function init()
 
    local decoded
@@ -3536,6 +3609,13 @@ local function init()
 
    for _,v in ipairs(InsP.panelImages) do
       if not v.auxWin then v.auxWin = 1 end
+   end
+
+   for k,v in ipairs(InsP.variables) do
+      if v.source == "Lua" then
+	 InsP.variables[k].logID = system.registerLogVariable(string.sub(v.name, 1, 14), "", luaLogCB)
+	 --print("registerLog", v.name, v.source, v.luastring[1], InsP.variables[k].logID)
+      end
    end
    
    readSensors(InsP)
