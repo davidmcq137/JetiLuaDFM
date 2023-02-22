@@ -24,6 +24,9 @@
     2
     1))
 
+(def screen-width 318)
+(def screen-height 159)
+
 (defn shape->bbox
   [{:strs [radius x0 y0 width height] :as sh}]
   (cond
@@ -561,9 +564,9 @@
       (gaugeparam-text da "label")
       
       [:span.slider-label "X"]
-      (gaugeparam-slider da "x0" {:min 0 :max 320})
+      (gaugeparam-slider da "x0" {:min 0 :max screen-width})
       [:span.slider-label "Y"]
-      (gaugeparam-slider da "y0" {:min 0 :max 160})
+      (gaugeparam-slider da "y0" {:min 0 :max screen-height})
 
       (when val [:span.slider-label "Value"])
       (when val
@@ -995,8 +998,8 @@
   < rum/reactive
   []
   (let [cref (rum/create-ref)
-        w 320
-        h 160
+        w screen-width
+        h screen-height
         ;; {:keys [gauges panels align-divs background-image] :as gdb} (rum/react db)
         {:keys [panels selected-panel align-divs]} (rum/react db)
         {:keys [gauges background-image]} (get panels selected-panel)]
