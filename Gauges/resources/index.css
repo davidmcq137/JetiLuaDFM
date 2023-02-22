@@ -121,14 +121,6 @@ input[type="range"]:focus {
     flex-direction: column;
 }
 
-.textvalue-list {
-    display: grid;
-    grid-template-columns: 3ex 1fr 3ex;
-    justify-items: center;
-    align-items: center;
-    gap: 1ex;
-}
-
 button, input, select, textarea {
     color: #fff;
     background-color: #161f27;
