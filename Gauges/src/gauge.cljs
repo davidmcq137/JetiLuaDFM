@@ -478,42 +478,18 @@
       
       :else "Malformed gauge")))
 
-
-
-
-
-
-
 (rum/defc edit-multitext < rum/reactive
   [da]
   (let [{:keys [params]} (rum/react da)
         {:strs [text]} params]
-    [:div.textvalue-list {}
-     (for [i (range (count text))
-           t [:index :textinput :remove-btn]]
-       (case t
-         :index [:span {:key (str "i" i)} (str i)]
-         :textinput [:input
-                     {:type "text"
-                      :value (nth text i)
-                      :key (str "t" i) 
-                      :onChange (fn [^js ev]
-                                  (update-gauge* da assoc-in ["text" i]
-                                                 (.-value (.-target ev))))}]
-         :remove-btn [:input.delete-button
-                      {:type "button"
-                       :value "-"
-                       :key (str "r" i) 
-                       :onClick #(update-gauge* da update "text"
-                                                (fn [v]
-                                                  (vec (concat (take i v)
-                                                               (drop (inc i) v)))))}]))
-    
-     [:input
-      {:type "button"
-       :value "+"
-       :style {:grid-column 2 :width "8ex"}
-       :onClick #(update-gauge* da update "text" conj "")}]]))
+    [:textarea
+     {:rows (count text)
+      :value (string/join "\n" text)
+      :onChange (fn [^js ev]
+                  (update-gauge* da assoc "text"
+                                 (string/split
+                                  (.-value (.-target ev))
+                                  #"\n")))}]))
 
 (rum/defc textbox-mode-switcher < rum/reactive
   [da]
