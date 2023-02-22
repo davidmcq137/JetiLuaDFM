@@ -2581,7 +2581,7 @@ local function printForm(ww0,hh0,tWin)
 		  end
 		  		  
 		  txW = lcd.getTextWidth(edit.fcode[widget.fT], stro)
-		  lcd.drawText(widget.x0 - txW / 2, yc + (0.94 * txH) * ii, stro,
+		  lcd.drawText(widget.x0 - txW / 2, yc + (0.90 * txH) * ii, stro,
 			       edit.fcode[widget.fT])
 	       end
 	    end
