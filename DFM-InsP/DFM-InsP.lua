@@ -25,6 +25,7 @@
 --]]
 
 
+
 local InsPVersion = 0.55
 
 local LE
@@ -1620,8 +1621,9 @@ local function initForm(sf)
 			   (function(x) return backGndChanged(x, i) end),
 			   {width=100})
 
-	 isel = i + 1
-	 if isel > #InsP.panelImages then isel = 1 end
+	 --isel = i + 1
+	 --if isel > #InsP.panelImages then isel = 1 end
+	 isel = InsP.panelImages[i].auxWin or 0
 	 form.addSelectbox(pp, isel, true,
 	    (function(x) return auxWinChanged(x,i) end),
 	    {width=50})
@@ -1770,6 +1772,7 @@ local function initForm(sf)
 	 editWidget.chartSample = {}
 	 editWidget.chartSamples = 0
 	 editWidget.chartSampleYP = {}
+	 editWidget.chartSampleXP = {}
 	 editWidget.chartStartTime = system.getTimeCounter()
       end
       
@@ -1916,63 +1919,71 @@ local function loop()
       end
    end
    swrLast = swr
+
+   -- now loop over all panels and all widgets in panels to update min,max and keep
+   -- chart data up to date even if not on the screen
    
-   -- update min and max values
-   local ips = InsP.panels[sp]
-   local val 
-   for _, widget in ipairs(ips) do
-      -- could special case for Art Horiz here .. but for now just ignore min and max for that
-      -- it has SeId and SePa set to 0,0
-      val = nil
-      if widget.dataSrc == "Sensor" then
-	 sensor = getSensorByID(widget.SeId, widget.SePa)
-	 if sensor and sensor.valid then val = sensor.value end
-      elseif widget.dataSrc == "Control" then
-	 local info = system.getSwitchInfo(switches[widget.control])
-	 if info then
-	    val = (widget.multiplier or 100.0) * info.value
-	 end
-      elseif widget.dataSrc == "Lua" and widget.luastring and widget.luastring[1] then
-	 val = tonumber(evaluate("E", widget.luastring[1]))
-      end
-      
-      if val and widget.min and widget.max then
-	 if not widget.minval then
-	    widget.minval = val
-	 end
-	 if val < widget.minval then
-	    widget.minval = val
-	 end
-	 if not widget.maxval then
-	    widget.maxval = val
-	 end
-	 if val > widget.maxval then
-	    widget.maxval = val
-	 end
-      end
-      
-      local xp, yc, fy, yp
-      local ymin, ymax = widget.min, widget.max
-      if widget.type == "chartRecorder" then
-	 local now = system.getTimeCounter()
-	 if (not widget.chartInterval) or (#widget.chartSample < 1) then
-	    widget.chartInterval = tonumber(string.sub(widget.timeSpan,2)) * 1000 / MAXSAMPLE
-	    widget.chartSample = {}
-	    widget.chartSamples = 0
-	    widget.chartSampleYP = {}
-	    widget.chartStartTime = now
-	 end
-	 if (now > (widget.chartStartTime + widget.chartInterval * widget.chartSamples)) and val then
-	    widget.chartSamples = widget.chartSamples + 1
-	    if #widget.chartSample + 1 > MAXSAMPLE then
-	       table.remove(widget.chartSample, 1)
-	       table.remove(widget.chartSampleYP, 1)	       
+   local val
+   for _, panel in ipairs(InsP.panels) do
+      for _, widget in ipairs(panel) do
+	 -- could special case for Art Horiz here .. but for now just ignore min and max for that
+	 -- it has SeId and SePa set to 0,0
+	 val = nil
+	 if widget.dataSrc == "Sensor" then
+	    sensor = getSensorByID(widget.SeId, widget.SePa)
+	    if sensor and sensor.valid then val = sensor.value end
+	 elseif widget.dataSrc == "Control" then
+	    local info = system.getSwitchInfo(switches[widget.control])
+	    if info then
+	       val = (widget.multiplier or 100.0) * info.value
 	    end
-	    table.insert(widget.chartSample, val)
-	    yc = math.max(ymin, math.min(val, ymax))
-	    fy = (yc - ymin) / (ymax - ymin)	    
-	    yp = widget.boxYL + (1 - fy) * widget.boxH
-	    table.insert(widget.chartSampleYP, yp)
+	 elseif widget.dataSrc == "Lua" and widget.luastring and widget.luastring[1] then
+	    val = tonumber(evaluate("E", widget.luastring[1]))
+	 end
+	 
+	 if val and widget.min and widget.max then
+	    if not widget.minval then
+	       widget.minval = val
+	    end
+	    if val < widget.minval then
+	       widget.minval = val
+	    end
+	    if not widget.maxval then
+	       widget.maxval = val
+	    end
+	    if val > widget.maxval then
+	       widget.maxval = val
+	    end
+	 end
+	 
+	 local xp, yc, fy, yp
+	 local ymin, ymax = widget.min, widget.max
+	 
+	 if widget.type == "chartRecorder" then
+	    local now = system.getTimeCounter()
+	    if (not widget.chartInterval) or (#widget.chartSample < 1) then
+	       widget.chartInterval = tonumber(string.sub(widget.timeSpan,2)) * 1000 / MAXSAMPLE
+	       widget.chartSample = {}
+	       widget.chartSamples = 0
+	       widget.chartSampleYP = {}
+	       widget.chartSampleXP = {}
+	       widget.chartStartTime = now
+	    end
+	    if (now > (widget.chartStartTime + widget.chartInterval * widget.chartSamples)) and val then
+	       --print("sample", widget.chartSamples)
+	       widget.chartSamples = widget.chartSamples + 1
+	       if #widget.chartSample + 1 > MAXSAMPLE then
+		  table.remove(widget.chartSample, 1)
+		  table.remove(widget.chartSampleYP, 1)
+		  table.remove(widget.chartSampleXP, 1)
+	       end
+	       table.insert(widget.chartSample, val)
+	       yc = math.max(ymin, math.min(val, ymax))
+	       fy = (yc - ymin) / (ymax - ymin)	    
+	       yp = widget.boxYL + (1 - fy) * widget.boxH
+	       table.insert(widget.chartSampleYP, yp)
+	       table.insert(widget.chartSampleXP, now)
+	    end
 	 end
       end
    end
@@ -2020,52 +2031,47 @@ local function printForm(ww0,hh0,tWin)
    local rot, rotmin, rotmax
    local factor
    local sensor
+   
    local sp = InsP.settings.selectedPanel
    local ip = InsP.panels[sp]
-   local aw = InsP.panelImages[sp].auxWin
+   local auxWin = InsP.panelImages[sp].auxWin
    
-   --print("w,h,sp,tw,#", w,h,sp,InsP.panelImages[sp].auxWin, tWin)
+   --print(string.format("Selected: %d Aux: %d Win: %d", sp, aw, tWin))
 
    local np = #InsP.panelImages
    local backI, instI
 
-   if not tWin or tWin < 1 or tWin > 2 then print("tWin ERROR") end
-   
-   if tWin == 1 then
-      if aw and aw > 0 and aw <= np then
-	 auxWin = aw
-	 if auxWin ~= auxWinLast then
-	    local pv = InsP.panelImages[auxWin].instImage
-	    if pv then
-	       instImgA = lcd.loadImage(pDir .. "/"..pv..".png")
-	    else
-	       instImgA = nil
-	    end
-	    
-	    local bv = InsP.panelImages[auxWin].backImage
-	    if bv then
-	       backImgA =  lcd.loadImage(bDir .. "/"..bv..".png")
-	       --print("load backImgA", bDir .. "/"..bv..".png", backImgA)
-	    else
-	       backImgA = nil
-	    end
-	 end
-	 auxWinLast = auxWin
+   if auxWinLast == 0 or auxWin ~= auxWinLast then
+      local pv = InsP.panelImages[auxWin].instImage
+      if pv then
+	 instImgA = lcd.loadImage(pDir .. "/"..pv..".png")
+      else
+	 instImgA = nil
       end
+      local bv = InsP.panelImages[auxWin].backImage
+      if bv then
+	 backImgA =  lcd.loadImage(bDir .. "/"..bv..".png")
+      else
+	 backImgA = nil
+      end
+      auxWinLast = auxWin
+   end
+
+   if tWin == 1 then
       backI = backImg
       instI = instImg
    else
-      if auxWin > 0 and auxWin <= np and backImgA and instImgA then
+      if auxWin > 0 and auxWin <= np and instImgA then
 	 sp = auxWin
 	 ip = InsP.panels[sp]
 	 backI = backImgA
 	 instI = instImgA
-      else -- show the selected panel if no valid aux is assigned
+      else  -- no valid aux, show primary instead
 	 backI = backImg
 	 instI = instImg
       end
    end
-   
+
    if backI  then
       lcd.drawImage(0, 0, backI)
    else
@@ -3226,18 +3232,31 @@ local function printForm(ww0,hh0,tWin)
 
 	 if (traceNumber == 1) then
 
-	    local now = system.getTimeCounter()
-	    local timeS = (now - widget.chartStartTime) / 1000.0
-	    local timeLine = widget.chartInterval * MAXSAMPLE / 1000
-	    local timeTic = timeLine / 6
-	    local remTic = timeS % timeTic
-	    local intTic = (timeS // timeTic) * timeTic
+	    local now
+	    local timeS
+	    local timeLine
+	    local timeTic
+	    local remTic
+	    local intTic
+	    
+	    --local now = system.getTimeCounter()
+
+	    if #widget.chartSample >= MAXSAMPLE then
+	       now = system.getTimeCounter() -- widget.chartSampleXP[MAXSAMPLE]
+	       timeS = (now - widget.chartStartTime) / 1000.0
+	       timeLine = widget.chartInterval * MAXSAMPLE / 1000
+	       timeTic = timeLine / 6
+	       remTic = timeS % timeTic
+	       intTic = (timeS // timeTic) * timeTic
+	    end
+	    
 	    local mm, ss, str
 	    --print(timeS, timeLine, #widget.chartSample)
 	    for i=-1,6,1 do
 	       xx = widget.boxXL + i * widget.boxW / 6
 	       if i == 6 then xx = xx - 1 end
-	       if timeS < timeLine then
+	       --if timeS < timeLine then
+	       if #widget.chartSample < MAXSAMPLE then
 		  --if #widget.chartSample < MAXSAMPLE then
 		  --print("timeS, timeLine", timeS, timeLine)
 		  if i >= 0 then
@@ -3245,7 +3264,7 @@ local function printForm(ww0,hh0,tWin)
 		     lcd.drawLine(xx, widget.vertYB, xx, widget.vertYB + ticL)
 		  end
 	       else
-		  --now = system.getTimeCounter()
+		  --now = widget.chartSampleXP[MAXSAMPLE]
 		  --timeS = (now - widget.chartStartTime) / 1000.0
 		  --remTic = timeS % timeTic
 		  --intTic = (timeS // timeTic) * timeTic
@@ -3478,7 +3497,8 @@ local function destroy()
 	    for k, v in ipairs(save.panels[i]) do
 	       for kk,vv in pairs(v) do
 		  if kk == "chartSample" then v[kk] = {} end
-		  if kk == "chartSampleYP" then v[kk] = {} end		  
+		  if kk == "chartSampleYP" then v[kk] = {} end
+		  if kk == "chartSampleXP" then v[kk] = {} end		  		  
 		  if kk == "SeId" or kk == "rollSeId" or kk == "pitchSeId" then
 		     v[kk] = string.format("0X%X", vv)
 		  end
