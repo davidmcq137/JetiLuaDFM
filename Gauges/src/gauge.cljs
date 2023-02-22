@@ -478,18 +478,19 @@
       
       :else "Malformed gauge")))
 
-(rum/defc edit-multitext < rum/reactive
-  [da]
+(rum/defcs edit-multitext < rum/reactive (rum/local nil ::value)
+  [{::keys [value] :as cls} da]
   (let [{:keys [params]} (rum/react da)
         {:strs [text]} params]
     [:textarea
      {:rows (count text)
-      :value (string/join "\n" text)
+      :value (or (not-empty (some-> value deref))
+               (string/join "\n" text))
       :onChange (fn [^js ev]
-                  (update-gauge* da assoc "text"
-                                 (string/split
-                                  (.-value (.-target ev))
-                                  #"\n")))}]))
+                  (let [v (.-value (.-target ev))]
+                    (some-> value (reset! v))
+                    (update-gauge* da assoc "text"
+                                   (string/split v #"\n"))))}]))
 
 (rum/defc textbox-mode-switcher < rum/reactive
   [da]
