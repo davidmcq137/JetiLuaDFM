@@ -724,7 +724,7 @@ function drawNeedle(ctx, arr, arrR, type, f, angle) {
 
 function jetiFont(font) {
     const jetiFonts = ["Mini", "Normal", "Bold", "Big", "Maxi"] 
-    const jetiSizes = [10, 15, 15, 20, 40]
+    const jetiSizes = [10, 16, 16, 20, 40]
     let jF = 0
     let dF = Math.abs(font - jetiSizes[0]) // assume MINI
     for (let i = 1; i < 5; i++) {
@@ -738,7 +738,7 @@ function jetiFont(font) {
 
 function jetiHeight(font) {
     const jetiFonts = ["Mini", "Normal", "Bold", "Big", "Maxi"]
-    const jetiSizes = [10, 15, 15, 19, 34]
+    const jetiSizes = [10, 16, 16, 19, 34]
     let iF = 1
     for (let i = 0; i < 4; i++) {
 	if (font == jetiFonts[i]) {
@@ -749,7 +749,7 @@ function jetiHeight(font) {
 }
 
 function jetiToCtx(jfont) {
-    const point = {Mini:10, Normal:15, Bold:15, Big: 19, Maxi: 34, None:3}
+    const point = {Mini:10, Normal:16, Bold:16, Big: 19, Maxi: 34, None:3}
     //ctx.font="bold " + fontScale * ro + "px sans-serif"
     let bstr = "";
     if (jfont == "Bold") {
@@ -2345,16 +2345,85 @@ function setAlignmentGrid(ctx, arr, text) {
 function rawText(ctx, arr) {
     var arrR = {};
 
+    let tF
+    if (typeof arr.textFont != "undefined") {
+	tF = arr.textFont;
+    } else {
+	tF = "Mini";
+    }
+
+    ctx.font = jetiToCtx(tF)	
+
+    let bC
+    if (typeof arr.backColor != "undefined") {
+	bC = arr.backColor;
+    } else {
+	bC = "transparent";
+    }
+    ctx.fillStyle = bC
+    arrR.rgbBackColor = getRGB(ctx.fillStyle)
+
     ctx.fillStyle = arr.textColor;
     arrR.rgbTextColor = getRGB(ctx.fillStyle);
-    ctx.textAlign = "center";
+
+    if (typeof arr.textJust != "undefined") {
+	tJ = arr.textJust;
+    } else {
+	tJ = "center"
+    }
+    
+    ctx.textAlign = tJ;
     ctx.textBaseline = "middle";
+
+    let maxW = getTextWidth(ctx, arr.text[0]);
+			    
+    for (let i = 1, len = arr.text.length; i < len; i++) {
+	if (getTextWidth(ctx, arr.text[i]) > maxW) {
+	    maxW = getTextWidth(ctx, arr.text[i])
+	}
+    }
+
+    let txH = getTextHeight(ctx, arr.text[0]);
+    let hgt = arr.text.length * 1.5 * txH;
+    let xBorder = txH / 2;
+    let yBorder = txH / 4;
+
+    let xRT
+    let yRT = arr.y0
+    if (tJ == "center") {
+	xRT = arr.x0 - maxW / 2 - xBorder;
+    } else if (tJ == "left") {
+	xRT = arr.x0 - xBorder;
+    } else if (tJ == "right") {
+	xRT = arr.x0 - maxW - xBorder;
+    }
+    //console.log(arr.text)
+
+    arrR.xBorder = xBorder;
+    arrR.yBorder = yBorder;
     
     if (typeof arr.label != "undefined") {
-	ctx.font = jetiToCtx(arr.textFont)	
-	if (arr.textFont != "None") {
-	    ctx.fillText(arr.text, arr.x0, arr.y0);
+	//ctx.fillText(arr.text, arr.x0, arr.y0);
+	let x0 = arr.x0
+	let y0 = arr.y0
+
+	ctx.fillStyle = bC;
+	if (bC != "transparent") {
+	    roundedRect(ctx, xRT, y0 - hgt / 2 - yBorder, maxW + xBorder * 2, hgt + yBorder * 2, 3)
 	}
+
+	ctx.fillStyle = arr.textColor;
+	var yc = y0 +  1.10 * txH - 0.5 * (txH / 2) * (3 * arr.text.length + 1);
+	for(let i = 0, len = arr.text.length; i < len; i++) {
+	    let str = arr.text[i];
+	    let txW = getTextWidth(ctx, str);
+	    if (str.startsWith("luaS:") || str.startsWith("luaE:")) {
+		str = "<lua script>";
+	    }
+	    if (tF != "None") {
+		ctx.fillText(str, x0, yc + i * 1.5 * txH);
+	    }
+	} 
     }
     return arrR;
 }
@@ -2716,7 +2785,20 @@ function setupWidgets(){
             height,
             {label: "Text", type: "multitext"},
             textFont,
-            {key: "textColor", label: "Color", type: "color"}
+            {key: "textColor", label: "Font color (text)", type: "color"},
+	    { key: "textJust", 
+	      label: "Justification (text)", 
+	      type: "select",
+	      props: {
+		  def: "center", 
+		  options: [
+		      {value: "center", label: "Centered"},
+		      {value: "left", label: "Left"},
+		      {value: "right", label: "Right"}
+		  ]
+	      }
+	    },
+            {key: "backColor", label: "Background Box Color", type: "color"},	    
         ],
 	
         panelLight: [

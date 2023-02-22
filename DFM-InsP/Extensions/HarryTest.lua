@@ -6,10 +6,10 @@ local ecuMessage = {
       ["text"]= "Trim Low",
     },
    [0]= {
-      ["text"]= "Run",
+      ["text"]= "Code 0",
     },
    [1]= {
-      ["text"]= "Code 1",
+      ["text"]= "Run",
     }
 }
 

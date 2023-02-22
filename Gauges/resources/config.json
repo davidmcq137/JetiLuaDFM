@@ -181,9 +181,11 @@
 	    "text": [
 		"Some raw text"
 	    ],
+	    "label":"Label",
 	    "textColor":"white",
 	    "width":200,
-	    "height":20
+	    "height":40,
+	    "backColor":"transparent"
 	},
 
 	"virtualGauge": {

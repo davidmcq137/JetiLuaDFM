@@ -17,14 +17,15 @@
    Version 0.52 02/17/23 - more minor tweaks
    Version 0.53 02/17/23 - yet more tweaks
    Version 0.54 02/19/23 - ported new chartRecorder widget to TX, added logging of lua variables
- 
+   Version 0.55 02/20/23 - tweaking font size/spacing for stacked text boxes, reworked rawText
+
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
 
-local InsPVersion = 0.54
+local InsPVersion = 0.55
 
 local LE
 
@@ -320,8 +321,8 @@ local function drawTextCenter(x, y, str, font)
       font = FONT_NORMAL
    end
    
-   lcd.drawText(x - lcd.getTextWidth(font, str)/2,
-		y - lcd.getTextHeight(font)/2, str, font)
+   lcd.drawText(math.floor(x - lcd.getTextWidth(font, str)/2 + 0.5),
+		math.floor(y - lcd.getTextHeight(font)/2 + 0.5), str, font)
 end
 
 local function keyExit(k)
@@ -1763,8 +1764,13 @@ local function initForm(sf)
 	 end
       end
       local function editTimeCB(val)
+	 print("editTimeCB - resetting")
 	 editWidget.timeSpan = stampVals[val]
 	 editWidget.chartInterval = tonumber(string.sub(editWidget.timeSpan,2)) * 1000 / MAXSAMPLE
+	 editWidget.chartSample = {}
+	 editWidget.chartSamples = 0
+	 editWidget.chartSampleYP = {}
+	 editWidget.chartStartTime = system.getTimeCounter()
       end
       
       local function editTraceColorCB(val)
@@ -1926,6 +1932,8 @@ local function loop()
 	 if info then
 	    val = (widget.multiplier or 100.0) * info.value
 	 end
+      elseif widget.dataSrc == "Lua" and widget.luastring and widget.luastring[1] then
+	 val = tonumber(evaluate("E", widget.luastring[1]))
       end
       
       if val and widget.min and widget.max then
@@ -1947,14 +1955,15 @@ local function loop()
       local ymin, ymax = widget.min, widget.max
       if widget.type == "chartRecorder" then
 	 local now = system.getTimeCounter()
-	 if not widget.chartInterval or #widget.chartSample < 1 then
+	 if (not widget.chartInterval) or (#widget.chartSample < 1) then
 	    widget.chartInterval = tonumber(string.sub(widget.timeSpan,2)) * 1000 / MAXSAMPLE
-	    --print("interval", widget.chartInterval)
-	    widget.chartLast = 0
 	    widget.chartSample = {}
+	    widget.chartSamples = 0
 	    widget.chartSampleYP = {}
+	    widget.chartStartTime = now
 	 end
-	 if (now > widget.chartLast + widget.chartInterval) and val then
+	 if (now > (widget.chartStartTime + widget.chartInterval * widget.chartSamples)) and val then
+	    widget.chartSamples = widget.chartSamples + 1
 	    if #widget.chartSample + 1 > MAXSAMPLE then
 	       table.remove(widget.chartSample, 1)
 	       table.remove(widget.chartSampleYP, 1)	       
@@ -1964,7 +1973,6 @@ local function loop()
 	    fy = (yc - ymin) / (ymax - ymin)	    
 	    yp = widget.boxYL + (1 - fy) * widget.boxH
 	    table.insert(widget.chartSampleYP, yp)
-	    widget.chartLast = now
 	 end
       end
    end
@@ -2561,8 +2569,7 @@ local function printForm(ww0,hh0,tWin)
 	       local txH = lcd.getTextHeight(edit.fcode[widget.fT])
 	       --print("widget.fT, txH, tBoxHgt", widget.fT, txH, widget.tBoxHgt)
 	       local txW
-	       local yc = math.floor(widget.y0  - widget.tBoxHgt / 2 + txH / 4 + 0.5)
-	       if strL < 3 then yc = yc + 1 else yc = yc + 3 end -- awful!
+	       local yc = math.floor(widget.y0  - widget.tBoxHgt / 2 + 0.5) + 2
 	       local stro
 	       for ii = 0, strL - 1 , 1 do
 
@@ -2574,7 +2581,7 @@ local function printForm(ww0,hh0,tWin)
 		  end
 		  		  
 		  txW = lcd.getTextWidth(edit.fcode[widget.fT], stro)
-		  lcd.drawText(widget.x0 - txW / 2, yc + (txH) * ii, stro,
+		  lcd.drawText(widget.x0 - txW / 2, yc + (0.94 * txH) * ii, stro,
 			       edit.fcode[widget.fT])
 	       end
 	    end
@@ -2635,32 +2642,83 @@ local function printForm(ww0,hh0,tWin)
 	 end
 	 
       elseif widget.type == "rawText" then
-
+	 
 	 if not widget.xRT then
 	    widget.xRT = widget.x0
 	    widget.yRT = widget.y0
 	 end
-
+	 
 	 if not widget.fT then
 	    widget.fT = widget.textFont or "Mini"
 	 end
 
-	 if widget.rgbTextColor then
-	    lcd.setColor(widget.rgbTextColor.r, widget.rgbTextColor.g, widget.rgbTextColor.b)
+	 local tJ
+	 if widget.textJust then
+	    tJ = widget.textJust
+	 else
+	    tJ = "center"
 	 end
 
-	 local str
-	 str = expandStr(widget.text[1], sensorVal,
+	 local str = widget.text or {"..."}
+
+	 if widget.fT ~= "None" then
+	    local strL = #str
+	    local txH = lcd.getTextHeight(edit.fcode[widget.fT])
+	    local hgt = strL * 0.94 * txH
+	    local txW
+	    local maxW = lcd.getTextWidth(edit.fcode[widget.fT], widget.text[1])
+	    for ii = 2, strL, 1 do
+	       if lcd.getTextWidth(edit.fcode[widget.fT], widget.text[ii]) > maxW then
+		  maxW = lcd.getTextWidth(edit.fcode[widget.fT], widget.text[ii])
+	       end
+	    end
+
+	    local xB = txH / 2
+	    local yB = txH / 4
+	    local xb0
+	    if tJ == "center" then
+	       xb0 = 0
+	    elseif tJ == "left" then
+	       xb0 = maxW / 2 
+	    elseif tJ == "right" then
+	       xb0 = -maxW / 2
+	    end
+
+	    if widget.backColor and widget.backColor ~= "transparent" then
+	       setColorRGB(widget.rgbBackColor)
+	       drawFilledBezel(widget.xRT + xb0, widget.yRT, maxW + 2 * xB, hgt + 2 * yB, 2)
+	    end
+	    
+	    if widget.rgbTextColor then
+	       setColorRGB(widget.rgbTextColor)
+	    else
+	       lcd.setColor(255,255,255)
+	    end
+
+	    local yc = math.floor(widget.yRT  - hgt / 2 + 0.5) + txH / 2 - 2
+	    local stro
+	    local x00
+	    for ii = 0, strL - 1 , 1 do
+	       if not widget.modext or widget.modext < 1 then
+		  stro = expandStr(str[ii + 1], sensorVal,
 				   widget.SeDp, widget.SeUn)
-
-	 if widget.xRT and str and widget.fT ~= "None" then
-	    lcd.drawText(widget.xRT - lcd.getTextWidth(edit.fcode[widget.fT], str) / 2,
-			 widget.yRT - lcd.getTextHeight(edit.fcode[widget.fT]) / 2,
-			 str, edit.fcode[widget.fT])
+	       else
+		  stro = str[ii+1]
+	       end
+	       txW = lcd.getTextWidth(edit.fcode[widget.fT], stro)
+	       if tJ == "center" then
+		  x00 = 0
+	       elseif tJ == "left" then
+		  x00 = txW / 2
+	       elseif tJ == "right" then
+		  x00 = -txW / 2
+	       end
+	       drawTextCenter(widget.xRT + x00, yc + (0.94 * txH) * ii, stro,
+			    edit.fcode[widget.fT])
+	    end
 	 end
-	 
       elseif widget.type == "verticalTape" then
-
+	 
 	 local ren = lcd.renderer()
 	 local width = widget.width;
 	 local height = widget.height;
@@ -3167,23 +3225,54 @@ local function printForm(ww0,hh0,tWin)
 	 local xx
 
 	 if (traceNumber == 1) then
-	    local str
-	    for i=0,6,1 do
+
+	    local now = system.getTimeCounter()
+	    local timeS = (now - widget.chartStartTime) / 1000.0
+	    local timeLine = widget.chartInterval * MAXSAMPLE / 1000
+	    local timeTic = timeLine / 6
+	    local remTic = timeS % timeTic
+	    local intTic = (timeS // timeTic) * timeTic
+	    local mm, ss, str
+	    --print(timeS, timeLine, #widget.chartSample)
+	    for i=-1,6,1 do
 	       xx = widget.boxXL + i * widget.boxW / 6
 	       if i == 6 then xx = xx - 1 end
-	       --print(widget.vertYB, hh, timeStamps[timeSpan][i+1])
-	       if #widget.chartSample < MAXSAMPLE then
-		  drawTextCenter(xx, widget.vertYB + hh - 6, timeStamps[timeSpan][i + 1], FONT_MINI)
+	       if timeS < timeLine then
+		  --if #widget.chartSample < MAXSAMPLE then
+		  --print("timeS, timeLine", timeS, timeLine)
+		  if i >= 0 then
+		     drawTextCenter(xx, widget.vertYB + hh - 6, timeStamps[timeSpan][i + 1], FONT_MINI)
+		     lcd.drawLine(xx, widget.vertYB, xx, widget.vertYB + ticL)
+		  end
 	       else
+		  --now = system.getTimeCounter()
+		  --timeS = (now - widget.chartStartTime) / 1000.0
+		  --remTic = timeS % timeTic
+		  --intTic = (timeS // timeTic) * timeTic
+		  xx = widget.boxW - math.floor(remTic * widget.boxW / timeLine + 0.5)
+				     - i * math.floor(widget.boxW / 6 + 0.5)
+		  mm = (intTic - timeTic * i) // 60
+		  ss = intTic - timeTic * i - mm * 60
+		  str = string.format("%d:%02d", mm, ss)
+		  lcd.setClipping(widget.boxXL, 0, widget.boxW, 160)
+		  drawTextCenter(xx, widget.vertYB + hh - 6,
+				 str, FONT_MINI)
+		  lcd.drawLine(xx, widget.vertYB, xx, widget.vertYB + ticL)
+		  lcd.resetClipping()
+		  
+		  --[[
+		  -------------------------------------------
 		  if 6 - i + 1 == 1 then
 		     str = "Now"
 		  else
 		     str = "-" .. timeStamps[timeSpan][6 - i + 1]
 		  end
 		  drawTextCenter(xx, widget.vertYB + hh - 6, str, FONT_MINI)
+		  lcd.drawLine(xx, widget.vertYB, xx, widget.vertYB + ticL)
+		  -------------------------------------------
+		  --]]
+
 	       end
-	       
-	       lcd.drawLine(xx, widget.vertYB, xx, widget.vertYB + ticL)
 	    end
 	 end
 
@@ -3206,7 +3295,7 @@ local function printForm(ww0,hh0,tWin)
 	    for i, v in ipairs(widget.chartSample) do
 	       --xp = widget.chartSampleXP[i]
 	       yp = cc[i]
-	       xp = bb + i * aa
+	       xp = bb + i * aa 
 	       --yc = math.max(ymin, math.min(v, ymax))
 	       --fy = (yc - ymin) / (ymax - ymin)	    
 	       --yp = widget.boxYL + (1 - fy) * widget.boxH
@@ -3265,7 +3354,7 @@ local function printForm(ww0,hh0,tWin)
 	 drawFilledBezel(widget.boxXL + labelOffset + hh/2, widget.boxYL - hh/2 - 1, hh - 4, hh - 4, 3)
       end
    end
-   --[[
+   ---[[
    lcd.setColor(255,255,255)
    if select(2, system.getDeviceType()) == 1 then
       lcd.drawText(300,70, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   
@@ -3275,21 +3364,24 @@ local function printForm(ww0,hh0,tWin)
 end
 
 local function prtForm(w,h)
+   
    if subForm == formN.editlua then
       --print("prtForm formN.editlua", savedRow, savedRow2)
       --if lua.loadErr then
 	 --print(lua.loadErr)
 	 --lcd.drawText(5,0, lua.loadErr, FONT_MINI)
       --end
+      --print("calling setVariables", savedRow)
+      setVariables()
       if savedRow == 3 then
 	 local sp = InsP.settings.selectedPanel
 	 if not InsP.panels[sp][savedRow2].luastring then
 	    InsP.panels[sp][savedRow2].luastring = {}
 	    --InsP.panels[sp][savedRow2].luastring[1] = ""
 	 end
-	 LE.luaEditPrint(InsP.panels[sp][savedRow2], 1)
+	 LE.luaEditPrint(InsP.panels[sp][savedRow2], 1, evaluate)
       elseif savedRow == 6 then
-	 LE.luaEditPrint(InsP.variables[savedRow2], 1)	 
+	 LE.luaEditPrint(InsP.variables[savedRow2], 1, evaluate)	 
       end
       
    elseif subForm == formN.editpanel and InsP.panels[InsP.settings.selectedPanel] then
@@ -3359,7 +3451,7 @@ local function prtForm(w,h)
       if mm then fn = ""; ff = mm end
       
       lcd.drawText(10, 157,
-		   string.format("Gauge %d Type: %s  [%d,%d]  %s %s",
+		   string.format("Widget %d Type: %s  [%d,%d]  %s %s",
 				 edit.gauge, typ, xx, yy, fn, ff))
       lcd.setColor(180,180,180)
       lcd.drawLine(0, yy, w, yy)
