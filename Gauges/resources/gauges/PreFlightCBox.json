@@ -28,7 +28,7 @@
 	    "Use Xicoy Extension "
 	],
 	"textFont":"Mini",
-	"type": "stackedTextBox",
+	"type": "sequencedTextBox",
 	"backColor":"yellowgreen",
 	"bezelColor":"transparent"
     },

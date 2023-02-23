@@ -4,14 +4,18 @@ local fAvailable = {}
 local fIndex = {}
 local fResult = {}
 
-function M.luaEditPrint(cond, condIdx)
+function M.luaEditPrint(cond, condIdx, eval)
 
    local condition = cond.luastring
 
    if not condition[condIdx] then
       condition[condIdx] = ""
    end
-   
+
+   local res = eval("E", condition[condIdx])
+   if not cond.result then cond.result = {} end
+   cond.result[condIdx] = res
+
    if cond.result and cond.result[condIdx] then
       local res = cond.result[condIdx]
       local str
@@ -20,6 +24,7 @@ function M.luaEditPrint(cond, condIdx)
       else
 	 str = "---"
       end
+      --print("luaeditprint")
       lcd.drawText(lcd.width - 10 - lcd.getTextWidth(FONT_BIG,str),120,str, FONT_BIG)
    end
    

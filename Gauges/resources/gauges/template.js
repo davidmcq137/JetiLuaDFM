@@ -724,7 +724,7 @@ function drawNeedle(ctx, arr, arrR, type, f, angle) {
 
 function jetiFont(font) {
     const jetiFonts = ["Mini", "Normal", "Bold", "Big", "Maxi"] 
-    const jetiSizes = [10, 15, 15, 20, 40]
+    const jetiSizes = [10, 16, 16, 20, 40]
     let jF = 0
     let dF = Math.abs(font - jetiSizes[0]) // assume MINI
     for (let i = 1; i < 5; i++) {
@@ -738,7 +738,7 @@ function jetiFont(font) {
 
 function jetiHeight(font) {
     const jetiFonts = ["Mini", "Normal", "Bold", "Big", "Maxi"]
-    const jetiSizes = [10, 15, 15, 19, 34]
+    const jetiSizes = [10, 16, 16, 19, 34]
     let iF = 1
     for (let i = 0; i < 4; i++) {
 	if (font == jetiFonts[i]) {
@@ -749,7 +749,9 @@ function jetiHeight(font) {
 }
 
 function jetiToCtx(jfont) {
-    const point = {Mini:10, Normal:15, Bold:15, Big: 19, Maxi: 34, None:3}
+    // note - these sizes are what is needed to match pixel height to jeti fonts
+    // checked with special background file
+    const point = {Mini:10, Normal:16, Bold:16, Big: 20, Maxi: 34, None:3}
     //ctx.font="bold " + fontScale * ro + "px sans-serif"
     let bstr = "";
     if (jfont == "Bold") {
@@ -800,7 +802,14 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     arrR.ri = ri;
     arrR.ro = ro;
 
-    ctx.font = jetiToCtx(arr.tickFont);
+
+    if (typeof arr.tickFont == "undefined") {
+	//console.log("tickFont undefined")
+	ctx.font = jetiToCtx("Mini")
+	arrR.tickFont = "Mini"
+    } else {
+	ctx.font = jetiToCtx(arr.tickFont)
+    }
     
     //ctx.font="bold " + fontScale * ro + "px sans-serif"
     //var fontoffset = fontScale * ro / 4;
@@ -1031,8 +1040,13 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
 
-    //ctx.font = "bold " + 0.90 * fontScale * ro + "px sans-serif"
-    ctx.font = jetiToCtx(arr.labelFont);
+    if (typeof arr.labelFont == "undefined") {
+	//console.log("labelFont undefined")
+	ctx.font = jetiToCtx("Mini")
+	arrR.labelFont = "Mini"
+    } else {
+	ctx.font = jetiToCtx(arr.labelFont)
+    }
 
     let lpx, lpy
     
@@ -1130,8 +1144,18 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    ctx.fillText("10 m", x10, y10);
 	}
     }
-    
+
+    if (typeof arr.valueFont == "undefined") {
+	//console.log("valueFont undefined")
+	ctx.font = jetiToCtx("Mini")
+	arrR.valueFont = "Mini"
+    } else {
+	//console.log("valueFont", arr.valueFont)
+	ctx.font = jetiToCtx(arr.valueFont)
+    }
+
     ctx.font = jetiToCtx(arr.valueFont);
+    
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
@@ -1340,25 +1364,33 @@ function virtualGauge(ctx, arr) {
     needleTri[3].x = needleTri[3].x * (100 - aa) / 100 + needleTri[2].x * aa / 100
     needleTri[3].y = nL * aa / 100
 
+
+    /*
     ctx.fillStyle = "black"
 
     ctx.font = jetiToCtx("Mini");
     console.log("Mini", ctx.font)
-    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2)
+    ctx.fillText("Mini Font Test", arr.x0+10, arr.y0 - arr.radius/2)
     
     ctx.font = jetiToCtx("Normal");
-    console.log("Mini", ctx.font)
-    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 20)
+    console.log("Normal", ctx.font)
+    ctx.fillText("Normal Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 15)
     
+    ctx.font = jetiToCtx("Bold");
+    console.log("Bold", ctx.font)
+    ctx.fillText("Bold Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 30)
+
     ctx.font = jetiToCtx("Big");
-    console.log("Mini", ctx.font)
-    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 40)
+    console.log("Big", ctx.font)
+    ctx.fillText("Big Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 45)
     
     ctx.font = jetiToCtx("Maxi");
-    console.log("Mini", ctx.font)
-    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 80)
-    
+    console.log("Maxi", ctx.font)
+    ctx.fillText("Maxi Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 80)
+
     return
+
+    */
     
     arrR.needle = [];
     const tL = needleTri.length;
@@ -1535,7 +1567,7 @@ function textBox(ctx, arr, type) {
 
     if (typeof arr.label != "undefined" && arr.labelFont != "None") { 
 	ctx.fillStyle = "white";
-	ctx.font = arr.labelFont
+	ctx.font = jetiToCtx(arr.labelFont);
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
 
@@ -1546,7 +1578,7 @@ function textBox(ctx, arr, type) {
 	ctx.fillStyle = "black";
 	ctx.textAlign = "center";
 	ctx.textBaseline = "middle"
-	ctx.font = arr.textFont
+	ctx.font = jetiToCtx(arr.textFont)
 	var str;
 	if (type != "stack") {
 	    str = arr.text[Math.floor(arr.value)];
@@ -1557,7 +1589,9 @@ function textBox(ctx, arr, type) {
 		ctx.fillText(str, arrR.xV, arrR.yV);
 	    }
 	} else  {
-	    let txH = getTextHeight(ctx, arr.text[0]);
+	    let txH = jetiHeight(arr.textFont);
+	    let jsH = getTextHeight(ctx, arr.text[0])
+	    console.log("textFont, txH, jsH, arr.text[0]", arr.textFont, txH, jsH, arr.text[0])
 	    var yc = y0 +  1.10 * txH - 0.5 * (txH / 2) * (3 * arr.text.length + 1);
 	    for(let i = 0, len = arr.text.length; i < len; i++) {
 		let str = arr.text[i];
@@ -1566,7 +1600,7 @@ function textBox(ctx, arr, type) {
 		    str = "<lua script>";
 		}
 		if (arr.textFont != "None") {
-		    ctx.fillText(str, x0, yc + i * 1.5 * txH);
+		    ctx.fillText(str, x0, yc + i * 1.45 * txH);
 		}
 	    } 
 	}
@@ -1638,6 +1672,7 @@ function artHorizon(ctx, arr) {
       Use here conforms with the license terms
     */
 
+    
     var arrR = {};
     
     let pitch = arr.pitch;
@@ -1810,7 +1845,7 @@ function artHorizon(ctx, arr) {
 	ctx.fillStyle = "white";
 	ctx.textAlign = "center";
 	ctx.textBaseline = "middle"
-	ctx.font = arr.labelFont
+	ctx.font = jetiToCtx(arr.labelFont);
 	ctx.fillText(arr.label, arrR.xL, arrR.yL);
     }
     return arrR;
@@ -2318,18 +2353,309 @@ function setAlignmentGrid(ctx, arr, text) {
 function rawText(ctx, arr) {
     var arrR = {};
 
+
+    /*
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "Yellow";
+    ctx.rect(0,0,158,158)
+    ctx.rect(2,2,154,154)
+    ctx.stroke();
+    */
+
+
+    let tF
+    if (typeof arr.textFont != "undefined") {
+	tF = arr.textFont;
+    } else {
+	tF = "Mini";
+    }
+
+    ctx.font = jetiToCtx(tF)	
+
+    let bC
+    if (typeof arr.backColor != "undefined") {
+	bC = arr.backColor;
+    } else {
+	bC = "transparent";
+    }
+    ctx.fillStyle = bC
+    arrR.rgbBackColor = getRGB(ctx.fillStyle)
+
     ctx.fillStyle = arr.textColor;
     arrR.rgbTextColor = getRGB(ctx.fillStyle);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+
+    if (typeof arr.textJust != "undefined") {
+	tJ = arr.textJust;
+    } else {
+	tJ = "center"
+    }
     
-    if (typeof arr.label != "undefined") {
-	ctx.font = jetiToCtx(arr.textFont)	
-	if (arr.textFont != "None") {
-	    ctx.fillText(arr.text, arr.x0, arr.y0);
+    ctx.textAlign = tJ;
+    ctx.textBaseline = "middle";
+
+    let maxW = getTextWidth(ctx, arr.text[0]);
+			    
+    for (let i = 1, len = arr.text.length; i < len; i++) {
+	if (getTextWidth(ctx, arr.text[i]) > maxW) {
+	    maxW = getTextWidth(ctx, arr.text[i])
 	}
     }
+
+    let txH = getTextHeight(ctx, arr.text[0]);
+    let hgt = arr.text.length * 1.5 * txH;
+    let xBorder = txH / 2;
+    let yBorder = txH / 4;
+
+    let xRT
+    let yRT = arr.y0
+    if (tJ == "center") {
+	xRT = arr.x0 - maxW / 2 - xBorder;
+    } else if (tJ == "left") {
+	xRT = arr.x0 - xBorder;
+    } else if (tJ == "right") {
+	xRT = arr.x0 - maxW - xBorder;
+    }
+    //console.log(arr.text)
+
+    arrR.xBorder = xBorder;
+    arrR.yBorder = yBorder;
+    
+    if (typeof arr.label != "undefined") {
+	//ctx.fillText(arr.text, arr.x0, arr.y0);
+	let x0 = arr.x0
+	let y0 = arr.y0
+
+	ctx.fillStyle = bC;
+	if (bC != "transparent") {
+	    roundedRect(ctx, xRT, y0 - hgt / 2 - yBorder, maxW + xBorder * 2, hgt + yBorder * 2, 3)
+	}
+
+	ctx.fillStyle = arr.textColor;
+	var yc = y0 +  1.10 * txH - 0.5 * (txH / 2) * (3 * arr.text.length + 1);
+	for(let i = 0, len = arr.text.length; i < len; i++) {
+	    let str = arr.text[i];
+	    let txW = getTextWidth(ctx, str);
+	    if (str.startsWith("luaS:") || str.startsWith("luaE:")) {
+		str = "<lua script>";
+	    }
+	    if (tF != "None") {
+		ctx.fillText(str, x0, yc + i * 1.5 * txH);
+	    }
+	} 
+    }
     return arrR;
+}
+
+function chartRecorder(ctx, arr) {
+
+    var arrR = {};
+
+    const chartOffsetXL = 12;
+    const chartOffsetYT = 18;
+    const chartOffsetYB = 20;
+    const chartOffsetXV = 34;
+    const chartOffsetV = 13;
+
+    let timeStamps = [
+	["0:00", "0:05", "0:10", "0:15", "0:20", "0:25", "0:30"],
+	["0:00", "0:10", "0:20", "0:30", "0:40", "0:50", "1:00"],
+	["0:00", "0:20", "0:40", "1:00", "1:20", "1:40", "2:00"],
+	["0:00", "0:40", "1:20", "2:00", "2:40", "3:20", "4:00"],
+	["0:00", "1:20", "2:40", "4:00", "5:20", "6:40", "8:00"]
+    ]
+
+    let stampIndex = {"t30": 0, "t60": 1, "t120": 2, "t240": 3, "t480": 4}
+    
+    let maxTraces;
+    if (typeof arr.maxTraces != "undefined") {
+	maxTraces = arr.maxTraces;
+    } else {
+	maxTraces = 1;
+    }
+    maxTraces = Math.max(1, Math.min(4, maxTraces));
+    //console.log("maxTraces", maxTraces)
+
+    let barOffset;
+    let barWidth = 21;
+    arrR.barWidth = barWidth
+
+    if (typeof arr.traceNumber != "undefined") {
+	traceNumber = Math.min(maxTraces, arr.traceNumber);
+	barOffset = (traceNumber - 1) *  (barWidth);
+    } else {
+	traceNumber = 1
+	barOffset = barWidth
+    }
+    traceNumber = Math.max(1, traceNumber);
+    
+    //console.log("traceNumber, maxTraces", traceNumber, maxTraces)
+    barOffset = Math.max(0, Math.min(3 * barWidth, barOffset));
+
+    const chartOffsetXR = barWidth + maxTraces * barWidth;
+
+    let timeSpan;
+    if (typeof arr.timeSpan != "undefined") {
+	timeSpan= stampIndex[arr.timeSpan];
+    } else {
+	timeSpan = stampIndex["0:30"]
+    }
+
+    arrR.boxW = 2 * (arr.width / 2 - chartOffsetXR / 2 - chartOffsetXL / 2) + 4;
+    arrR.boxH = arr.height - (chartOffsetYT + chartOffsetYB);
+    arrR.boxXL = arr.x0 - arr.width/2 + chartOffsetXL;
+    arrR.boxYL = arr.y0 - arr.height/2 + chartOffsetYT;
+    arrR.vertX = arrR.boxXL + arrR.boxW + chartOffsetXV;
+    arrR.vertYB = arrR.boxYL + arrR.boxH
+    arrR.vertYT = arrR.boxYL
+
+    
+    if (typeof arr.backColor != "undefined") {
+	ctx.fillStyle = arr.backColor;
+    } else {
+	ctx.fillStyle = "black";
+    }
+    arrR.rgbBackColor = getRGB(ctx.fillStyle)
+
+    if (traceNumber == 1 && arr.backColor != "transparent" ) {
+	ctx.fillRect(arr.x0 - arr.width/2, arr.y0 - arr.height/2, arr.width, arr.height);
+    }
+
+    ctx.lineWidth = 1;
+
+    ctx.strokeStyle = "peachpuff";
+    if (traceNumber == 1 && typeof arr.label != "undefined") {
+	ctx.beginPath();
+	ctx.rect(arr.x0 - arr.width/2, arr.y0 - arr.height/2, arr.width, arr.height);
+	ctx.stroke();
+    }
+    
+    if (typeof arr.chartBackColor != "undefined") {
+	ctx.fillStyle = arr.chartBackColor;
+    } else {
+	ctx.fillStyle = "black";
+    }
+    arrR.rgbChartBackColor = getRGB(ctx.fillStyle)
+    
+    if (traceNumber == 1) {
+	ctx.fillRect(arrR.boxXL, arrR.boxYL, arrR.boxW, arrR.boxH);
+    }
+    
+    ctx.strokeStyle = "white";
+    if (traceNumber == 1) {
+	ctx.beginPath();
+	ctx.rect(arrR.boxXL, arrR.boxYL, arrR.boxW, arrR.boxH);
+	ctx.stroke();
+    }
+    
+    ctx.beginPath();
+    ctx.moveTo(arrR.vertX + barOffset, arrR.vertYB);
+    ctx.lineTo(arrR.vertX + barOffset, arrR.vertYT);
+    ctx.stroke();
+    
+    ctx.beginPath();
+    const ticL = 6;
+    arrR.numberTicks = 10;    
+    for (let i=0; i <= arrR.numberTicks; i++) {
+	ctx.moveTo(arrR.vertX + barOffset, arrR.vertYB + i * (arrR.vertYT - arrR.vertYB) / arrR.numberTicks)
+	let tl;
+	if (i % (arrR.numberTicks / 2) == 0) { tl = ticL } else { tl = ticL / 2}
+	ctx.lineTo(arrR.vertX - tl + barOffset,
+		   arrR.vertYB + i * (arrR.vertYT - arrR.vertYB) / arrR.numberTicks);	
+    }
+    ctx.stroke();
+    
+    ctx.fillStyle = "white";
+    ctx.font = jetiToCtx("Mini")
+    
+    let hh = getTextHeight(ctx, ":00") + 6
+
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center"; 
+    ctx.fillText("" + arr.min, arrR.vertX - chartOffsetV + barOffset, arrR.vertYB + hh / 2)
+    ctx.fillText("" + arr.max, arrR.vertX - chartOffsetV + barOffset, arrR.vertYT - hh / 2)
+
+    ctx.align = "middle"
+    let ss, xx
+
+    if (traceNumber == 1 && typeof arr.value != "undefined" ) {
+	for (let i=0; i<= 6; i++) {
+	    ss = i * 5;
+	    xx = arrR.boxXL + i * arrR.boxW / 6;
+	    //console.log(timeSpan, i, timeStamps[timeSpan][i])
+	    ctx.fillText(timeStamps[timeSpan][i], xx, arrR.vertYB + hh)
+	    /*
+	    if (i % 2 == 0) {
+		ctx.fillText(":" + ("0" + ss).slice(-2), xx, arrR.vertYB + hh)
+	    }
+	    */
+	    ctx.beginPath();
+	    ctx.moveTo(xx, arrR.vertYB)
+	    ctx.lineTo(xx, arrR.vertYB + ticL)
+	    ctx.stroke();
+	}
+    }
+
+    let xmin = 0;
+    let xmax = 2;
+    let ymin = -1;
+    let ymax = 1;
+    let x, xp, y, yp, fx, fy
+
+    if (typeof arr.chartTraceColor != "undefined") {
+	ctx.strokeStyle = arr.chartTraceColor;
+    } else {
+	ctx.strokeStyle = "blue";
+    }
+    arrR.rgbChartTraceColor = getRGB(ctx.strokeStyle)
+    let traceColor = ctx.strokeStyle
+    
+    if (typeof arr.value != "undefined") {
+	ctx.beginPath();
+	for (let t = 0; t <= 2.0;t = t + 0.01) {
+	    x = t;
+	    y = 0.9 * Math.sin(2 * Math.PI * (t -  Math.PI / 4 * (traceNumber - 1)));
+	    fx = (x - xmin) / (xmax - xmin);
+	    xp = arrR.boxXL + fx * arrR.boxW
+	    fy = (y - ymin) / (ymax - ymin)
+	    yp = arrR.boxYL + (1 - fy) * arrR.boxH
+	    ctx.lineTo(xp, yp);
+	}
+	ctx.stroke();
+    }
+    
+    ymin = arr.min;
+    ymax = arr.max;
+    
+    if (typeof arr.chartTraceColor != "undefined") {
+	ctx.fillStyle = arr.chartTraceColor;
+    } else {
+	ctx.fillStyle = "blue";
+    }
+
+    fy = (arr.value - ymin) / (ymax - ymin);
+    fy = Math.max(0, Math.min(fy, 1));
+    if (typeof arr.value != "undefined") {
+	ctx.fillRect(arrR.vertX - 3 * ticL + barOffset, arrR.vertYT + (1 - fy) * arrR.boxH,
+		     2 * ticL, fy * arrR.boxH);
+    }
+    
+    hh = getTextHeight(ctx, ":00") + 5;
+    const labelStep = 3 + arrR.boxW / maxTraces;
+    let labelOffset = (traceNumber - 1) * labelStep - hh / 2
+    
+    ctx.fillStyle = "white";
+    arrR.xL = arrR.boxXL + hh + 2 + labelOffset;
+    arrR.yL = arrR.boxYL - (hh + 3) / 2;
+    if (typeof arr.label != "undefined") {
+	roundedRect(ctx, arrR.boxXL + labelOffset, arrR.boxYL - (hh + 3), hh, hh, 3)
+	ctx.font = jetiToCtx("Mini")
+	ctx.textAlign = "left";
+	ctx.fillText(arr.label, arrR.xL, arrR.yL);
+	ctx.fillStyle = traceColor;
+	roundedRect(ctx, arrR.boxXL + 1 + labelOffset, arrR.boxYL - hh - 2, hh - 2, hh - 2, 2)
+    }
+    
+    return arrR
 }
 
 function renderGauge(ctx, input) {
@@ -2342,7 +2668,9 @@ function renderGauge(ctx, input) {
 			 panelLight:panelLight,
 			 rawText:rawText,
 			 artHorizon:artHorizon,
-			 verticalTape:verticalTape}
+			 verticalTape:verticalTape,
+			 chartRecorder:chartRecorder}
+    
     if (widgetFuncs[input.type]) {
 	return widgetFuncs[input.type](ctx, input);
     } else {
@@ -2379,12 +2707,12 @@ function setupWidgets(){
 	    {key: "tickSpace", label: "Tick to number spacing", type: "slider", props:{min:-200, max: 150}},
 	    {key: "readoutPosX", label: "Readout Position L-R", type:"slider", props:{min: -100, max: 50}},
 	    {key: "readoutPosY", label: "Readout Position U-D", type: "slider",props:{min: -100, max: 50}},
-	    labelFont,
+            valueFont,
 	    {key: "labelColor", label: "Font color (label)", type: "color"},
 	    {key: "labelBoxColor", label: "Back box color (label)", type: "color"},	    
 	    {key: "labelPosX", label: "Label Position L-R", type: "slider", props: {min: -100, max: 100}},
 	    {key: "labelPosY", label: "Label Position U-D", type: "slider", props: {min: -100, max: 100}},
-            valueFont,
+	    labelFont,
 	    {key: "arcWidth", label: "Arc Width % of radius", type: "slider", props: {min: 0, max: 50}},
             arc_start,
             arc_end,
@@ -2475,7 +2803,20 @@ function setupWidgets(){
             height,
             {label: "Text", type: "multitext"},
             textFont,
-            {key: "textColor", label: "Color", type: "color"}
+            {key: "textColor", label: "Font color (text)", type: "color"},
+	    { key: "textJust", 
+	      label: "Justification (text)", 
+	      type: "select",
+	      props: {
+		  def: "center", 
+		  options: [
+		      {value: "center", label: "Centered"},
+		      {value: "left", label: "Left"},
+		      {value: "right", label: "Right"}
+		  ]
+	      }
+	    },
+            {key: "backColor", label: "Background Box Color", type: "color"},	    
         ],
 	
         panelLight: [
@@ -2522,7 +2863,34 @@ function setupWidgets(){
 	    valueFont,
             {key: "tapeFont", label: "Font size (tape)", type: "fontsize"},	    
 	    {key: "backColor", label: "Background Color", type: "color"}
+	],
+
+	chartRecorder: [
+	    width,
+	    height,
+	    min,
+	    max,
+	    {key: "backColor", label: "Background Color", type: "color"},
+	    {key: "chartBackColor", label: "Chart Background Color", type: "color"}	    ,
+	    {key: "chartTraceColor", label: "Chart Trace Color", type: "color"},	    
+	    {key: "traceNumber", label: "Trace number", type: "plusminus"},
+	    {key: "maxTraces", label: "Max number of traces", type: "plusminus"},
+	    {key: "timeSpan", 
+	      label: "Chart time span (mm:ss)", 
+	      type: "select",
+	      props: {
+		  def: "t30", 
+		  options: [
+		      {value: "t30",  label: "00:30"},
+		      {value: "t60",  label: "01:00"},
+		      {value: "t120", label :"02:00"},
+		      {value: "t240", label :"04:00"},
+		      {value: "t480", label :"08:00"}
+		  ]
+	      }
+	    }
 	]
+	
     }
 }
 

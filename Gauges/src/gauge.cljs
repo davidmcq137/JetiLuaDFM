@@ -24,6 +24,9 @@
     2
     1))
 
+(def screen-width 318)
+(def screen-height 159)
+
 (defn shape->bbox
   [{:strs [radius x0 y0 width height] :as sh}]
   (cond
@@ -478,42 +481,19 @@
       
       :else "Malformed gauge")))
 
-
-
-
-
-
-
-(rum/defc edit-multitext < rum/reactive
-  [da]
+(rum/defcs edit-multitext < rum/reactive (rum/local nil ::value)
+  [{::keys [value] :as cls} da]
   (let [{:keys [params]} (rum/react da)
         {:strs [text]} params]
-    [:div.textvalue-list {}
-     (for [i (range (count text))
-           t [:index :textinput :remove-btn]]
-       (case t
-         :index [:span {:key (str "i" i)} (str i)]
-         :textinput [:input
-                     {:type "text"
-                      :value (nth text i)
-                      :key (str "t" i) 
-                      :onChange (fn [^js ev]
-                                  (update-gauge* da assoc-in ["text" i]
-                                                 (.-value (.-target ev))))}]
-         :remove-btn [:input.delete-button
-                      {:type "button"
-                       :value "-"
-                       :key (str "r" i) 
-                       :onClick #(update-gauge* da update "text"
-                                                (fn [v]
-                                                  (vec (concat (take i v)
-                                                               (drop (inc i) v)))))}]))
-    
-     [:input
-      {:type "button"
-       :value "+"
-       :style {:grid-column 2 :width "8ex"}
-       :onClick #(update-gauge* da update "text" conj "")}]]))
+    [:textarea
+     {:rows (count text)
+      :value (or (not-empty (some-> value deref))
+               (string/join "\n" text))
+      :onChange (fn [^js ev]
+                  (let [v (.-value (.-target ev))]
+                    (some-> value (reset! v))
+                    (update-gauge* da assoc "text"
+                                   (string/split v #"\n"))))}]))
 
 (rum/defc textbox-mode-switcher < rum/reactive
   [da]
@@ -584,9 +564,9 @@
       (gaugeparam-text da "label")
       
       [:span.slider-label "X"]
-      (gaugeparam-slider da "x0" {:min 0 :max 320})
+      (gaugeparam-slider da "x0" {:min 0 :max screen-width})
       [:span.slider-label "Y"]
-      (gaugeparam-slider da "y0" {:min 0 :max 160})
+      (gaugeparam-slider da "y0" {:min 0 :max screen-height})
 
       (when val [:span.slider-label "Value"])
       (when val
@@ -974,7 +954,7 @@
   [:div {}
    (when (not-empty ps)
      [:div.panel-list {}
-      (for [[panel-name panel] ps
+      (for [[panel-name panel] (sort-by first ps)
             c [:select :spacer :rename :delete]]
         (case c
           :rename (rum/with-key (panel-renamer ps panel-name) (str c panel-name))
@@ -1018,13 +998,14 @@
   < rum/reactive
   []
   (let [cref (rum/create-ref)
-        w 320
-        h 160
+        w screen-width
+        h screen-height
         ;; {:keys [gauges panels align-divs background-image] :as gdb} (rum/react db)
         {:keys [panels selected-panel align-divs]} (rum/react db)
         {:keys [gauges background-image]} (get panels selected-panel)]
     [:div.container
-     [:div {:style {:margin-left "2ex"}}
+     [:div {:style {:margin-left "2ex"
+                    :z-index 1000}}
       [:h2 "Instrument Panel creator"]
       #_[:p "This app is for creating instrument panels for use with the companion app on the JETI transmitter."]
       [:p "This web app is for creating instrument panels for display on Jeti transmitters using a Jeti Lua app named DFM-InsP."]

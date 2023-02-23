@@ -13,12 +13,21 @@
    Version 0.4  02/01/23 - integrated with uppdates to website for font size quantization
    Version 0.41 02/02/23 - fixed some bugs in horizBar and arcGauge
    Version 0.50 02/14/23 - added tapes and AH, expanded web editor functions and templates
+   Version 0.51 02/16/23 - fixed bugs in seq text box
+   Version 0.52 02/17/23 - more minor tweaks
+   Version 0.53 02/17/23 - yet more tweaks
+   Version 0.54 02/19/23 - ported new chartRecorder widget to TX, added logging of lua variables
+   Version 0.55 02/20/23 - tweaking font size/spacing for stacked text boxes, reworked rawText
+   Version 0.56 02/22/23 - more size/spacing tweaking, fixed chart recorder not recording if not on screen
+
+   *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
 
-local InsPVersion = 0.50
+
+local InsPVersion = 0.56
 
 local LE
 
@@ -53,7 +62,7 @@ local switches = {}
 local stateSw = {}
 
 local edit = {}
-edit.ops = {"Center", "Value", "Label", "Text", "MMLbl", "TicLbl", "TicSpc", "MinMx"}
+edit.ops = {"Center", "Value", "Label", "Text", "MMLbl", "TicLbl", "TicSpc", "MinMx", "Tape", "Chart"}
 edit.dir = {"X", "Y", "Font", "DecPt"}
 edit.fonts = {"Mini", "Normal", "Bold", "Big", "Maxi", "None"}
 edit.fcode = {Mini=FONT_MINI, Normal=FONT_NORMAL, Bold=FONT_BOLD, Big=FONT_BIG, Maxi=FONT_MAXI,
@@ -65,17 +74,22 @@ edit.icode = {Mini=1, Normal=2, Bold=3, Big=4, Maxi=5, None=6}
 -- en elements follow edit.ops
 
 edit.gaugeName = {
-   roundNeedleGauge={sn="NdlG", en={0,1,1,0,1,1,1,1}},
-   roundArcGauge=   {sn="ArcG", en={0,1,1,0,1,0,0,1}},
-   virtualGauge=    {sn="VirG", en={1,1,1,0,0,0,0,1}},
-   horizontalBar=   {sn="HBar", en={0,0,1,0,0,1,1,0}},
-   sequencedTextBox={sn="SeqT", en={0,0,1,1,0,0,0,0}},
-   stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0}},
-   panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0}},
-   rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0}},
-   verticalTape=    {sn="VerT", en={0,1,1,0,0,0,0,0}},
-   artHorizon=      {sn="ArtH", en={0,1,1,0,0,0,0,0}}
+   roundNeedleGauge={sn="NdlG", en={0,1,1,0,1,1,1,1,0,0}},
+   roundArcGauge=   {sn="ArcG", en={0,1,1,0,1,0,0,1,0,0}},
+   virtualGauge=    {sn="VirG", en={1,1,1,0,0,0,0,1,0,0}},
+   horizontalBar=   {sn="HBar", en={0,0,1,0,0,1,1,0,0,0}},
+   sequencedTextBox={sn="SeqT", en={0,0,1,1,0,0,0,0,0,0}},
+   stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0,0,0}},
+   panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0,0,0}},
+   rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0,0,0}},
+   verticalTape=    {sn="VerT", en={0,1,1,0,0,0,0,0,1,0}},
+   artHorizon=      {sn="ArtH", en={0,1,1,0,0,0,0,0,0,0}},
+   chartRecorder=   {sn="ChtR", en={0,0,1,0,0,0,0,1,0,1}}   
 }
+
+local stampIndex = {t30 = 1, t60 = 2, t120= 3, t240 = 4, t480 = 5}
+local stampVals  = {"t30", "t60", "t120", "t240", "t480"}
+local stampTimes = {"0:30", "1:00", "2:00", "4:00", "8:00"}
 
 local lua = {}
 --lua.chunk = {}
@@ -124,6 +138,8 @@ local formS = {[1]="main", [102]="settings", [100]="inputs", [103]="editpanel", 
    [105] = "editlinks", [108] = "luavariables", [101] = "resetall",
    [107] = "editlua", [106] = "panels"}
 
+local MAXSAMPLE = 160
+local modSample = 0
 
 local needle = {
    {-1,0},
@@ -156,6 +172,10 @@ local triangle = {
    {4,1}
 }
 --]]
+
+local function setColorRGB(rgb)
+   lcd.setColor(rgb.r, rgb.g, rgb.b)
+end
 
 local function showExternal(ff)
 
@@ -303,8 +323,8 @@ local function drawTextCenter(x, y, str, font)
       font = FONT_NORMAL
    end
    
-   lcd.drawText(x - lcd.getTextWidth(font, str)/2,
-		y - lcd.getTextHeight(font)/2, str, font)
+   lcd.drawText(math.floor(x - lcd.getTextWidth(font, str)/2 + 0.5),
+		math.floor(y - lcd.getTextHeight(font)/2 + 0.5), str, font)
 end
 
 local function keyExit(k)
@@ -376,7 +396,7 @@ local function setToPanel(iisp)
    local fn
    local isp = iisp
 
-   print("setToPanel", iisp)
+   --print("setToPanel", iisp)
    
    if isp < 1 then isp = 1 end
    if isp > #InsP.panels then isp = #InsP.panels end
@@ -384,7 +404,7 @@ local function setToPanel(iisp)
 
    if not InsP.panels[isp] then
       fn = pDir .. "/"..InsP.settings.panels[isp]..".json"
-      print("setToPanel reading " .. fn)
+      print("DFM-InsP: <setToPanel> reading " .. fn)
       local file = io.readall(fn)
       local decode = json.decode(file)
       if decode.panel then
@@ -499,6 +519,7 @@ local function evaluateLua(es, luastring, val)
 end
 
 local function setVariables()
+   --print("setVariables")
    for i, var in ipairs(InsP.variables) do
       if InsP.variables[i].source == "Sensor" then
 	 local name = InsP.sensorLalist[var.sensor]
@@ -805,6 +826,17 @@ local function keyForm(key)
 	 form.reinit(formN.editpanel)
 	 return
       end
+      if key == KEY_2 and editWidget.type == "sequencedTextBox" then
+	 table.remove(editWidget.text, form.getFocusedRow())
+	 if #editWidget.text < 1 then
+	    editWidget.text = {"..."}
+	 end
+	 form.reinit(110)
+      end
+      if key == KEY_3 and editWidget.type == "sequencedTextBox" then
+	 table.insert(editWidget.text, "...")
+	 form.reinit(110)
+      end
    end
    
    if subForm == formN.editpanel then
@@ -815,7 +847,9 @@ local function keyForm(key)
       end
 
       local ipsp = InsP.panels[InsP.settings.selectedPanel]
-      local ipeg = ipsp[edit.gauge] 
+      local ipeg = ipsp[edit.gauge]
+      if not ipeg then return end
+      
       local en = edit.gaugeName[ipeg.type].en[edit.opsIdx]
       local eo = edit.ops[edit.opsIdx]
       local ed = edit.dir[edit.dirIdx]
@@ -830,7 +864,8 @@ local function keyForm(key)
 	 form.setButton(1, "Select", ENABLED)
 	 form.setButton(2, string.format("%s", edit.ops[edit.opsIdx]), en)
 	 form.setButton(3, string.format("%s", edit.dir[edit.dirIdx]), ENABLED)	 	 
-	 if (eo == "Text" or eo == "MinMx" or eo == "Label") and en == 1 then
+	 if (eo == "Text" or eo == "MinMx" or eo == "Label" or eo == "Tape" or eo == "Chart")
+	 and en == 1 then
 	    en4 = ENABLED
 	 else
 	    en4 = DISABLED
@@ -901,7 +936,7 @@ local function keyForm(key)
 	       ipeg.yRV = ipeg.yRV + inc
 	    end
 
-	    if eo == "Center" and ipeg.xPL then
+	    if eo == "Center" and ipeg.yPL then
 	       ipeg.yPL = ipeg.yPL + inc
 	    end
 
@@ -1065,9 +1100,11 @@ end
 
 local function changedSwitch(val, switchName, j, wid)
    local Invert = 1.0
-
+   
    local swInfo = system.getSwitchInfo(val)
 
+   system.pSave(switchName, val)
+   
    local swTyp = string.sub(swInfo.label,1,1)
    if swInfo.assigned then
       if string.sub(swInfo.mode,-1,-1) == "I" then Invert = -1.0 end
@@ -1212,7 +1249,7 @@ local function initForm(sf)
    elseif sf == formN.inputs then
 
       local ip = InsP.panels[InsP.settings.selectedPanel]
-      print("ip", ip, #ip, InsP.settings.selectedPanel)
+      --print("ip", ip, #ip, InsP.settings.selectedPanel)
       form.setTitle("Data for panel " ..
 		       InsP.panelImages[InsP.settings.selectedPanel].instImage)
 
@@ -1237,6 +1274,7 @@ local function initForm(sf)
 	 end
 	 local typ = edit.gaugeName[widget.type].sn
 	 if not typ then typ = "---" end
+	 --print("widget.type", widget.type, typ)
 	 form.addLabel({label = string.format("%d %s", i, typ), width=60})
 	 form.addLabel({label = string.format("%s", str), width=160})
 	 if not widget.dataSrc then widget.dataSrc = "Sensor" end
@@ -1584,8 +1622,9 @@ local function initForm(sf)
 			   (function(x) return backGndChanged(x, i) end),
 			   {width=100})
 
-	 isel = i + 1
-	 if isel > #InsP.panelImages then isel = 1 end
+	 --isel = i + 1
+	 --if isel > #InsP.panelImages then isel = 1 end
+	 isel = InsP.panelImages[i].auxWin or 0
 	 form.addSelectbox(pp, isel, true,
 	    (function(x) return auxWinChanged(x,i) end),
 	    {width=50})
@@ -1696,6 +1735,17 @@ local function initForm(sf)
       
 
    elseif sf == 110 then
+      local colors = {"black", "silver", "gray",   "white", "maroon",
+		      "red",   "purple", "fuscia", "green", "lime",
+		      "olive", "yellow", "navy", "blue", "teal",
+		      "aqua"}
+      local rgbColors = {
+	 {0,0,0},     {192,192,192}, {128,128,128}, {255,255,255}, {128,0,0},
+	 {255,0,0},   {128,0,128},   {255,0,255},   {0,128,0},     {0,255,0},
+	 {128,128,0}, {255,255,0},   {0,0,128},     {0,0,255},     {0,128,128},
+	 {0,255,255}
+
+      }
       local function editTextCB(val, i)
 	 editWidget.text[i] = val 
       end
@@ -1709,30 +1759,44 @@ local function initForm(sf)
       local function editLabelCB(val)
 	 editWidget.label = val
       end
+      local function editTapeCB(val, ns)
+	 if ns == "numbers" then
+	    editWidget.numbers = val
+	 else
+	    editWidget.step = val
+	 end
+      end
+      local function editTimeCB(val)
+	 print("editTimeCB - resetting")
+	 editWidget.timeSpan = stampVals[val]
+	 editWidget.chartInterval = tonumber(string.sub(editWidget.timeSpan,2)) * 1000 / MAXSAMPLE
+	 editWidget.chartSample = {}
+	 editWidget.chartSamples = 0
+	 editWidget.chartSampleYP = {}
+	 editWidget.chartSampleXP = {}
+	 editWidget.chartStartTime = system.getTimeCounter()
+      end
+      
+      local function editTraceColorCB(val)
+	 editWidget.chartTraceColor = colors[val]
+	 editWidget.rgbChartTraceColor.r = rgbColors[val][1]
+	 editWidget.rgbChartTraceColor.g = rgbColors[val][2]
+	 editWidget.rgbChartTraceColor.b = rgbColors[val][3]	 
+      end
       
       form.setTitle("Gauge Editor")
-      --[[
-      if type(editText.text) == "string" then -- isn't .text always an array?
-	 form.addRow(1)
-	 --print("#text", #editText.text)
-	 if #editText.text <= 63 then
-	    form.addTextbox(editText.text, 63,
-			    (function(v)
-				  editText.text = v
-				  form.reinit(formN.editpanel)
-			    end)
-	    )
-	 else
-	    form.addLabel({label="Line too long to edit", alignRight=true})
-	 end
-	 
-      else
-      --]]
+
       if editWidgetType == "Text" then
 	 if not editWidget.text then return end
+	 --print("#text", #editWidget.text, "type", editWidget.type)
+	 if editWidget.type == "sequencedTextBox" then
+	    form.setButton(3, ":add", ENABLED)
+	    form.setButton(2, ":delete", ENABLED)
+	 end
+	 
 	 for i, txt in ipairs(editWidget.text) do
+	    print(i, editWidget.text[i])
 	    form.addRow(1)
-	    --print("#text", #editText.text[i])
 	    if #editWidget.text[i] <= 63 then
 	       form.addTextbox(editWidget.text[i], 63,
 			       (function(v)
@@ -1760,7 +1824,39 @@ local function initForm(sf)
 	 else
 	       form.addLabel({label="<Line too long to edit>", alignRight=true})
 	 end
-	 
+      elseif editWidgetType == "Tape" then
+	 form.addRow(2)
+	 form.addLabel({label="Numbers"})
+	 form.addIntbox(editWidget.numbers, 1, 10, 6, 0, 1,
+			(function(v) return editTapeCB(v, "numbers") end))
+	 form.addRow(2)
+	 form.addLabel({label="Step"})
+	 form.addIntbox(editWidget.step, 1, 100, 10, 0, 1,
+			(function(v) return editTapeCB(v, "step") end))
+      elseif editWidgetType == "Chart" then
+	 local tt = 0
+	 for k,t in ipairs(stampVals) do
+	    --print(t, editWidget.timeSpan)
+	    if t == editWidget.timeSpan then
+	       tt = k
+	       break
+	    end
+	 end
+	 form.addRow(1)
+	 form.addLabel({label="NOTE: Ensure stacked chart time scales are the same", font=FONT_MINI})
+	 form.addRow(2)
+	 form.addLabel({label="Time scale"})
+	 form.addSelectbox(stampTimes, tt, true, editTimeCB)
+	 form.addRow(2)
+	 form.addLabel({label="Trace Color"})
+	 local cc = 0
+	 for k,c in ipairs(colors) do
+	    if c == editWidget.chartTraceColor then
+	       cc = k
+	       break
+	    end
+	 end
+	 form.addSelectbox(colors, cc, true, editTraceColorCB)
       end
    end
 end
@@ -1824,36 +1920,71 @@ local function loop()
       end
    end
    swrLast = swr
-   
-   -- update min and max values
-   local ips = InsP.panels[sp]
-   local val 
-   for _, widget in ipairs(ips) do
-      -- could special case for Art Horiz here .. but for now just ignore min and max for that
-      -- it has SeId and SePa set to 0,0
-      if widget.dataSrc == "Sensor" then
-	 sensor = getSensorByID(widget.SeId, widget.SePa)
-	 if sensor and sensor.valid then val = sensor.value end
-      elseif widget.dataSrc == "Control" then
-	 local info = system.getSwitchInfo(switches[widget.control])
-	 if info then
-	    val = (widget.multiplier or 100.0) * info.value
-	 end
-      end
-      
-      if val and widget.min and widget.max then
-	 if not widget.minval then
-	    widget.minval = val
-	 end
-	 if val < widget.minval then
-	    widget.minval = val
-	 end
 
-	 if not widget.maxval then
-	    widget.maxval = val
+   -- now loop over all panels and all widgets in panels to update min,max and keep
+   -- chart data up to date even if not on the screen
+   
+   local val
+   for _, panel in ipairs(InsP.panels) do
+      for _, widget in ipairs(panel) do
+	 -- could special case for Art Horiz here .. but for now just ignore min and max for that
+	 -- it has SeId and SePa set to 0,0
+	 val = nil
+	 if widget.dataSrc == "Sensor" then
+	    sensor = getSensorByID(widget.SeId, widget.SePa)
+	    if sensor and sensor.valid then val = sensor.value end
+	 elseif widget.dataSrc == "Control" then
+	    local info = system.getSwitchInfo(switches[widget.control])
+	    if info then
+	       val = (widget.multiplier or 100.0) * info.value
+	    end
+	 elseif widget.dataSrc == "Lua" and widget.luastring and widget.luastring[1] then
+	    val = tonumber(evaluate("E", widget.luastring[1]))
 	 end
-	 if val > widget.maxval then
-	    widget.maxval = val
+	 
+	 if val and widget.min and widget.max then
+	    if not widget.minval then
+	       widget.minval = val
+	    end
+	    if val < widget.minval then
+	       widget.minval = val
+	    end
+	    if not widget.maxval then
+	       widget.maxval = val
+	    end
+	    if val > widget.maxval then
+	       widget.maxval = val
+	    end
+	 end
+	 
+	 local xp, yc, fy, yp
+	 local ymin, ymax = widget.min, widget.max
+	 
+	 if widget.type == "chartRecorder" then
+	    local now = system.getTimeCounter()
+	    if (not widget.chartInterval) or (#widget.chartSample < 1) then
+	       widget.chartInterval = tonumber(string.sub(widget.timeSpan,2)) * 1000 / MAXSAMPLE
+	       widget.chartSample = {}
+	       widget.chartSamples = 0
+	       widget.chartSampleYP = {}
+	       widget.chartSampleXP = {}
+	       widget.chartStartTime = now
+	    end
+	    if (now > (widget.chartStartTime + widget.chartInterval * widget.chartSamples)) and val then
+	       --print("sample", widget.chartSamples)
+	       widget.chartSamples = widget.chartSamples + 1
+	       if #widget.chartSample + 1 > MAXSAMPLE then
+		  table.remove(widget.chartSample, 1)
+		  table.remove(widget.chartSampleYP, 1)
+		  table.remove(widget.chartSampleXP, 1)
+	       end
+	       table.insert(widget.chartSample, val)
+	       yc = math.max(ymin, math.min(val, ymax))
+	       fy = (yc - ymin) / (ymax - ymin)	    
+	       yp = widget.boxYL + (1 - fy) * widget.boxH
+	       table.insert(widget.chartSampleYP, yp)
+	       table.insert(widget.chartSampleXP, now)
+	    end
 	 end
       end
    end
@@ -1895,58 +2026,53 @@ end
 
 local foo
 
-local function printForm(_,_,tWin)
+local function printForm(ww0,hh0,tWin)
 
    local ctl, ctlmin, ctlmax
    local rot, rotmin, rotmax
    local factor
    local sensor
+   
    local sp = InsP.settings.selectedPanel
    local ip = InsP.panels[sp]
-   local aw = InsP.panelImages[sp].auxWin
+   local auxWin = InsP.panelImages[sp].auxWin
    
-   --print("w,h,sp,tw,#", w,h,sp,InsP.panelImages[sp].auxWin, tWin)
+   --print(string.format("Selected: %d Aux: %d Win: %d", sp, aw, tWin))
 
    local np = #InsP.panelImages
    local backI, instI
 
-   if not tWin or tWin < 1 or tWin > 2 then print("tWin ERROR") end
-   
-   if tWin == 1 then
-      if aw and aw > 0 and aw <= np then
-	 auxWin = aw
-	 if auxWin ~= auxWinLast then
-	    local pv = InsP.panelImages[auxWin].instImage
-	    if pv then
-	       instImgA = lcd.loadImage(pDir .. "/"..pv..".png")
-	    else
-	       instImgA = nil
-	    end
-	    
-	    local bv = InsP.panelImages[auxWin].backImage
-	    if bv then
-	       backImgA =  lcd.loadImage(bDir .. "/"..bv..".png")
-	       --print("load backImgA", bDir .. "/"..bv..".png", backImgA)
-	    else
-	       backImgA = nil
-	    end
-	 end
-	 auxWinLast = auxWin
+   if auxWinLast == 0 or auxWin ~= auxWinLast then
+      local pv = InsP.panelImages[auxWin].instImage
+      if pv then
+	 instImgA = lcd.loadImage(pDir .. "/"..pv..".png")
+      else
+	 instImgA = nil
       end
+      local bv = InsP.panelImages[auxWin].backImage
+      if bv then
+	 backImgA =  lcd.loadImage(bDir .. "/"..bv..".png")
+      else
+	 backImgA = nil
+      end
+      auxWinLast = auxWin
+   end
+
+   if tWin == 1 then
       backI = backImg
       instI = instImg
    else
-      if auxWin > 0 and auxWin <= np and backImgA and instImgA then
+      if auxWin > 0 and auxWin <= np and instImgA then
 	 sp = auxWin
 	 ip = InsP.panels[sp]
 	 backI = backImgA
 	 instI = instImgA
-      else -- show the selected panel if no valid aux is assigned
+      else  -- no valid aux, show primary instead
 	 backI = backImg
 	 instI = instImg
       end
    end
-   
+
    if backI  then
       lcd.drawImage(0, 0, backI)
    else
@@ -1961,6 +2087,9 @@ local function printForm(_,_,tWin)
       lcd.drawText(100, 70, "No Panel Image", FONT_BOLD)
    end
 
+   --lcd.setColor(255,255,255)
+   --lcd.drawRectangle(0,0,318,159)
+   
    if not ip or #ip == 0 then
       drawTextCenter(160, 60, "No instrument panel json defined", FONT_BOLD)
       return
@@ -2082,7 +2211,7 @@ local function printForm(_,_,tWin)
 	 lcd.setColor(255,255,255)
 
 	 local val
-	 
+
 	 if ctl then
 	    --factor = 0.90 * (widget.radius - 8) / 58
 	    if widget.type == "roundNeedleGauge" or widget.type == "roundArcGauge" then
@@ -2108,11 +2237,13 @@ local function printForm(_,_,tWin)
 		  if not widget.fTL then
 		     --print("widget.fTL <"..tostring(widget.fTL)..">")
 		     --print("widget.tickFont", widget.tickFont)
-		     widget.fTL = widget.tickFont or "None"
+		     widget.fTL = widget.tickFont or "Mini"
 		  end
 		  local vv, vt
+		  --print(widget.tickLabels, widget.subdivs, widget.majdivs, widget.fTL)
 		  if widget.tickLabels and widget.subdivs > 0 and widget.majdivs > 0 and
-		  widget.tickFont ~= "None" then
+		  widget.fTL ~= "None" then
+		     --print(#widget.tickLabels)
 		     for i,v in ipairs(widget.tickLabels) do
 			vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
 			vt = string.format(fstr, vv)
@@ -2218,15 +2349,15 @@ local function printForm(_,_,tWin)
 	 if widget.label then str = widget.label else str = "Gauge"..idxW end
 
 	 if not widget.fL then
-	    widget.fL = widget.labelFont or "None"
+	    widget.fL = widget.labelFont or "Mini"
 	 end
 
 	 if not widget.fV then
-	    widget.fV = widget.valueFont or "None"
+	    widget.fV = widget.valueFont or "Mini"
 	 end
 	 
 	 if not widget.fLRV then
-	    widget.fLRV = widget.tickFont or "None"
+	    widget.fLRV = widget.tickFont or "Mini"
 	 end
 	 
 	 if widget.gaugeRadius > 30 then -- really ought to consolidate with >= 20 code below
@@ -2412,7 +2543,6 @@ local function printForm(_,_,tWin)
 	 if widget.type == "sequencedTextBox" then
 
 	    local stro
-
 	    if not widget.modext or widget.modext < 1 then
 	       if string.find(str[1], "luaE:") == 1 or string.find(str[1], "luaS:") == 1 then
 		  stro = expandStr(str[1], sensorVal, widget.SeDp, widget.SeUn)
@@ -2424,7 +2554,9 @@ local function printForm(_,_,tWin)
 			idx = jj
 		     end
 		  end
-		  if not idx then
+		  if idx then
+		     stro = str[idx]
+		  else
 		     if sensorVal and jj then
 			stro = string.format("Index %.2f/%d", sensorVal, jj)
 		     else
@@ -2446,7 +2578,7 @@ local function printForm(_,_,tWin)
 	       local strL = #str
 	       local txH = lcd.getTextHeight(edit.fcode[widget.fT])
 	       local txW
-	       local yc = widget.y0 + 1.25 * txH - 0.5 * (txH / 2) * (3 * strL + 1)
+	       local yc = widget.y0 + 0.85 * txH - 0.5 * (.41 * txH) * (3 * #widget.text + 1)
 	       local stro
 	       for ii = 0, strL - 1 , 1 do
 
@@ -2458,8 +2590,7 @@ local function printForm(_,_,tWin)
 		  end
 		  		  
 		  txW = lcd.getTextWidth(edit.fcode[widget.fT], stro)
-		  lcd.drawText(widget.x0 - txW / 2, yc + (ii - (strL % 2)*.7) * txH, stro,
-			       edit.fcode[widget.fT])
+		  drawTextCenter(widget.x0, yc + 1.16 * txH * ii, stro, edit.fcode[widget.fT])		  
 	       end
 	    end
 	 end
@@ -2490,8 +2621,8 @@ local function printForm(_,_,tWin)
 	    ) 
 	 end
 	 --if idxW == 1 then print("pl", sensorVal, widget.max, widget.min) end
-	 
-	 if sensorVal and sensorVal > (widget.max - widget.min) / 2 and widget.rgbLightColor then
+
+	 if sensorVal and sensorVal > (widget.max - widget.min) / 2  then
 	    if widget.rgbLightColor then
 	       lcd.setColor(widget.rgbLightColor.r, widget.rgbLightColor.g, widget.rgbLightColor.b)
 	       ren:renderPolygon(1)
@@ -2503,13 +2634,15 @@ local function printForm(_,_,tWin)
 	    end
 	 end
 	 	 
-	 if widget.rgbLabelColor then
-	    lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
+	 if widget.rgbBezelColor then
+	    lcd.setColor(widget.rgbBezelColor.r, widget.rgbBezelColor.g, widget.rgbBezelColor.b)
 	    ren:renderPolyline(2)
 	 end
 
 	 --print(widget.y0, widget.yL)
 	 
+	 lcd.setColor(255,255,255)
+
 	 if widget.xL and widget.fL ~= "None" then
 	    lcd.drawText(widget.xL - lcd.getTextWidth(edit.fcode[widget.fL], widget.label) / 2,
 			 widget.yL - lcd.getTextHeight(edit.fcode[widget.fL]) / 2,
@@ -2517,32 +2650,83 @@ local function printForm(_,_,tWin)
 	 end
 	 
       elseif widget.type == "rawText" then
-
+	 
 	 if not widget.xRT then
 	    widget.xRT = widget.x0
 	    widget.yRT = widget.y0
 	 end
-
+	 
 	 if not widget.fT then
 	    widget.fT = widget.textFont or "Mini"
 	 end
 
-	 if widget.rgbTextColor then
-	    lcd.setColor(widget.rgbTextColor.r, widget.rgbTextColor.g, widget.rgbTextColor.b)
+	 local tJ
+	 if widget.textJust then
+	    tJ = widget.textJust
+	 else
+	    tJ = "center"
 	 end
 
-	 local str
-	 str = expandStr(widget.text[1], sensorVal,
+	 local str = widget.text or {"..."}
+
+	 if widget.fT ~= "None" then
+	    local strL = #str
+	    local txH = lcd.getTextHeight(edit.fcode[widget.fT])
+	    local hgt = strL * 0.94 * txH
+	    local txW
+	    local maxW = lcd.getTextWidth(edit.fcode[widget.fT], widget.text[1])
+	    for ii = 2, strL, 1 do
+	       if lcd.getTextWidth(edit.fcode[widget.fT], widget.text[ii]) > maxW then
+		  maxW = lcd.getTextWidth(edit.fcode[widget.fT], widget.text[ii])
+	       end
+	    end
+
+	    local xB = txH / 2
+	    local yB = txH / 4
+	    local xb0
+	    if tJ == "center" then
+	       xb0 = 0
+	    elseif tJ == "left" then
+	       xb0 = maxW / 2 
+	    elseif tJ == "right" then
+	       xb0 = -maxW / 2
+	    end
+
+	    if widget.backColor and widget.backColor ~= "transparent" then
+	       setColorRGB(widget.rgbBackColor)
+	       drawFilledBezel(widget.xRT + xb0, widget.yRT, maxW + 2 * xB, hgt + 2 * yB, 2)
+	    end
+	    
+	    if widget.rgbTextColor then
+	       setColorRGB(widget.rgbTextColor)
+	    else
+	       lcd.setColor(255,255,255)
+	    end
+
+	    local yc = math.floor(widget.yRT  - hgt / 2 + 0.5) + txH / 2 - 2
+	    local stro
+	    local x00
+	    for ii = 0, strL - 1 , 1 do
+	       if not widget.modext or widget.modext < 1 then
+		  stro = expandStr(str[ii + 1], sensorVal,
 				   widget.SeDp, widget.SeUn)
-
-	 if widget.xRT and str and widget.fT ~= "None" then
-	    lcd.drawText(widget.xRT - lcd.getTextWidth(edit.fcode[widget.fT], str) / 2,
-			 widget.yRT - lcd.getTextHeight(edit.fcode[widget.fT]) / 2,
-			 str, edit.fcode[widget.fT])
+	       else
+		  stro = str[ii+1]
+	       end
+	       txW = lcd.getTextWidth(edit.fcode[widget.fT], stro)
+	       if tJ == "center" then
+		  x00 = 0
+	       elseif tJ == "left" then
+		  x00 = txW / 2
+	       elseif tJ == "right" then
+		  x00 = -txW / 2
+	       end
+	       drawTextCenter(widget.xRT + x00, yc + (0.94 * txH) * ii, stro,
+			    edit.fcode[widget.fT])
+	    end
 	 end
-	 
       elseif widget.type == "verticalTape" then
-
+	 
 	 local ren = lcd.renderer()
 	 local width = widget.width;
 	 local height = widget.height;
@@ -2957,9 +3141,242 @@ local function printForm(_,_,tWin)
 
 	 lcd.setColor(255,255,255)
 	 drawTextCenter(widget.xL, widget.yL, widget.label, edit.fcode[fL])
+      elseif widget.type == "chartRecorder" then
+
+	 --local chartOffsetXL = 12;
+	 --local chartOffsetYT = 18;
+	 --local chartOffsetYB = 20;
+	 --local chartOffsetXV = 34;
+
+	 local chartOffsetV = 13;
+	 
+	 local timeStamps = {
+	    {"0:00", "0:05", "0:10", "0:15", "0:20", "0:25", "0:30"},
+	    {"0:00", "0:10", "0:20", "0:30", "0:40", "0:50", "1:00"},
+	    {"0:00", "0:20", "0:40", "1:00", "1:20", "1:40", "2:00"},
+	    {"0:00", "0:40", "1:20", "2:00", "2:40", "3:20", "4:00"},
+	    {"0:00", "1:20", "2:40", "4:00", "5:20", "6:40", "8:00"}
+	 }
+	 
+	 local maxTraces = widget.maxTraces or 1
+	 maxTraces = math.max(1, math.min(4, maxTraces));
+
+	 local barOffset
+	 local barWidth = 21;
+
+	 local traceNumber = widget.traceNumber or 1
+	 barOffset = (traceNumber - 1) *  (barWidth);
+	 barOffset = math.max(0, math.min(3 * barWidth, barOffset));
+
+	 --local chartOffsetXR = barWidth + maxTraces * barWidth;
+
+	 local timeSpan = stampIndex[widget.timeSpan or "t60"]
+
+	 --arrR.boxW = 2 * (arr.width / 2 - chartOffsetXR / 2 - chartOffsetXL / 2) + 4;
+	 --arrR.boxH = arr.height - (chartOffsetYT + chartOffsetYB);
+	 --arrR.boxXL = arr.x0 - arr.width/2 + chartOffsetXL;
+	 --arrR.boxYL = arr.y0 - arr.height/2 + chartOffsetYT;
+	 --arrR.vertX = arrR.boxXL + arrR.boxW + chartOffsetXV;
+	 --arrR.vertYB = arrR.boxYL + arrR.boxH
+	 --arrR.vertYT = arrR.boxYL
+    
+	 setColorRGB(widget.rgbBackColor)
+	 
+	 if (traceNumber == 1 and widget.backColor ~= "transparent" ) then
+	    lcd.drawFilledRectangle(widget.x0 - widget.width/2,
+				    widget.y0 - widget.height/2, widget.width, widget.height)
+	    --lcd.setColor(255,0,0)
+	    --lcd.drawRectangle(1,1,318,158)
+	 end
+
+	 lcd.setColor(255,255,255)
+	 --print(widget.x0 - widget.width/2, widget.y0 - widget.height/2, widget.width, widget.height)
+	 
+	 --lcd.drawRectangle(widget.x0 - widget.width/2, widget.y0 - widget.height/2,
+	 --widget.width, widget.height);
+	 
+	 setColorRGB(widget.rgbChartBackColor)
+	 
+	 if (traceNumber == 1) then
+	    lcd.drawFilledRectangle(widget.boxXL, widget.boxYL, widget.boxW, widget.boxH);
+	 end
+
+	 lcd.setColor(255,255,255)
+	 if (traceNumber == 1) then
+	    lcd.drawRectangle(widget.boxXL, widget.boxYL, widget.boxW, widget.boxH);
+	 end
+	 
+	 lcd.drawLine(widget.vertX + barOffset, widget.vertYB, widget.vertX + barOffset, widget.vertYT)
+	 
+	 local ticL = 6; 
+	 for i=0,10,1 do 
+	    local tl
+	    if (i % 5 == 0) then tl = ticL else tl = ticL / 2 end
+	    lcd.drawLine(widget.vertX + barOffset,
+			 widget.vertYB + i * (widget.vertYT - widget.vertYB) / 10,
+			 widget.vertX - tl + barOffset,
+			 widget.vertYB + i * (widget.vertYT - widget.vertYB) / 10)	
+	 end
+	 
+	 lcd.setColor(255,255,255)
+
+	 -- set font to "Mini"
+	 
+	 local hh = lcd.getTextHeight(FONT_MINI) + 6
+
+	 local str
+	 str = string.format("%d", widget.min)
+	 drawTextCenter(widget.vertX - chartOffsetV + barOffset, widget.vertYB + hh / 2 -2, str, FONT_MINI)
+	 str = string.format("%d", widget.max)
+	 drawTextCenter(widget.vertX - chartOffsetV + barOffset, widget.vertYT - hh / 2, str, FONT_MINI)
+
+	 local xx
+
+	 if (traceNumber == 1) then
+
+	    local now
+	    local timeS
+	    local timeLine
+	    local timeTic
+	    local remTic
+	    local intTic
+	    
+	    --local now = system.getTimeCounter()
+
+	    if #widget.chartSample >= MAXSAMPLE then
+	       now = system.getTimeCounter() -- widget.chartSampleXP[MAXSAMPLE]
+	       timeS = (now - widget.chartStartTime) / 1000.0
+	       timeLine = widget.chartInterval * MAXSAMPLE / 1000
+	       timeTic = timeLine / 6
+	       remTic = timeS % timeTic
+	       intTic = (timeS // timeTic) * timeTic
+	    end
+	    
+	    local mm, ss, str
+	    --print(timeS, timeLine, #widget.chartSample)
+	    for i=-1,6,1 do
+	       xx = widget.boxXL + i * widget.boxW / 6
+	       if i == 6 then xx = xx - 1 end
+	       --if timeS < timeLine then
+	       if #widget.chartSample < MAXSAMPLE then
+		  --if #widget.chartSample < MAXSAMPLE then
+		  --print("timeS, timeLine", timeS, timeLine)
+		  if i >= 0 then
+		     drawTextCenter(xx, widget.vertYB + hh - 6, timeStamps[timeSpan][i + 1], FONT_MINI)
+		     lcd.drawLine(xx, widget.vertYB, xx, widget.vertYB + ticL)
+		  end
+	       else
+		  --now = widget.chartSampleXP[MAXSAMPLE]
+		  --timeS = (now - widget.chartStartTime) / 1000.0
+		  --remTic = timeS % timeTic
+		  --intTic = (timeS // timeTic) * timeTic
+		  xx = widget.boxW - math.floor(remTic * widget.boxW / timeLine + 0.5)
+				     - i * math.floor(widget.boxW / 6 + 0.5)
+		  mm = (intTic - timeTic * i) // 60
+		  ss = intTic - timeTic * i - mm * 60
+		  str = string.format("%d:%02d", mm, ss)
+		  lcd.setClipping(widget.boxXL, 0, widget.boxW, 160)
+		  drawTextCenter(xx, widget.vertYB + hh - 6,
+				 str, FONT_MINI)
+		  lcd.drawLine(xx, widget.vertYB, xx, widget.vertYB + ticL)
+		  lcd.resetClipping()
+		  
+		  --[[
+		  -------------------------------------------
+		  if 6 - i + 1 == 1 then
+		     str = "Now"
+		  else
+		     str = "-" .. timeStamps[timeSpan][6 - i + 1]
+		  end
+		  drawTextCenter(xx, widget.vertYB + hh - 6, str, FONT_MINI)
+		  lcd.drawLine(xx, widget.vertYB, xx, widget.vertYB + ticL)
+		  -------------------------------------------
+		  --]]
+
+	       end
+	    end
+	 end
+
+	 local xmin = 0;
+	 local xmax = 2;
+	 local ymin = 0;
+	 local ymax = 100;
+	 local x, xp, y, yp, fx, fy
+
+	 setColorRGB(widget.rgbChartTraceColor)
+
+	 local np = 0
+	 local yc 
+	 local ren = lcd.renderer()
+	 if sensorVal and widget.chartSample and #widget.chartSample > 0 then
+	    ren:reset()
+	    local aa = widget.boxW / MAXSAMPLE
+	    local bb = widget.boxXL
+	    local cc = widget.chartSampleYP
+	    for i, v in ipairs(widget.chartSample) do
+	       --xp = widget.chartSampleXP[i]
+	       yp = cc[i]
+	       xp = bb + i * aa 
+	       --yc = math.max(ymin, math.min(v, ymax))
+	       --fy = (yc - ymin) / (ymax - ymin)	    
+	       --yp = widget.boxYL + (1 - fy) * widget.boxH
+	       if np < 127 then
+		  ren:addPoint(xp, yp)
+		  np = np + 1
+	       else
+		  ren:addPoint(xp, yp)
+		  ren:renderPolyline(2)
+		  ren:reset()
+		  ren:addPoint(xp, yp)
+		  np = 1
+	       end
+	    end
+	 end
+      	 ren:renderPolyline(2)
+
+	 --[[
+	 for t= 0,2,0.02 do
+	    x = t;
+	    y = 0.9 * math.sin(2 * math.pi * (t -  math.pi / 4 * (traceNumber - 1)));
+	    fx = (x - xmin) / (xmax - xmin);
+	    xp = widget.boxXL + fx * widget.boxW
+	    fy = (y - ymin) / (ymax - ymin)
+	    yp = widget.boxYL + (1 - fy) * widget.boxH
+	    ren:addPoint(xp, yp);
+	 end
+	 ren:renderPolyline(2)
+	 --]]
+
+	 ymin = widget.min;
+	 ymax = widget.max;
+
+	 if sensorVal then
+	    fy = (sensorVal - ymin) / (ymax - ymin);
+	    fy = math.max(0, math.min(fy, 1));
+	    lcd.drawFilledRectangle(widget.vertX - 3 * ticL + barOffset,
+				    widget.vertYT + (1 - fy) * widget.boxH,
+				    2 * ticL, fy * widget.boxH);
+	    
+	 end
+	 hh = lcd.getTextHeight(FONT_MINI) + 2;
+	 --print(hh)
+	 local labelStep = 3 + widget.boxW / maxTraces;
+	 local labelOffset = (traceNumber - 1) * labelStep - hh / 2
+	 
+	 lcd.setColor(255,255,255)
+	 --local function drawFilledBezel(xc,yc,w,h,z)
+	 --print(widget.boxYL, hh)
+	 drawFilledBezel(widget.boxXL + labelOffset + hh / 2, widget.boxYL - hh/2 -1, hh-2, hh-2, 3)
+	 --set font to "Mini"
+	 --ctx.textAlign = "left";
+	 lcd.drawText(widget.boxXL + labelOffset + hh + 2, widget.boxYL - hh - 1, widget.label, FONT_MINI)
+	 setColorRGB(widget.rgbChartTraceColor)
+	 --ctx.fillStyle = traceColor;
+	 drawFilledBezel(widget.boxXL + labelOffset + hh/2, widget.boxYL - hh/2 - 1, hh - 4, hh - 4, 3)
       end
    end
-   --[[
+   ---[[
+   lcd.setColor(255,255,255)
    if select(2, system.getDeviceType()) == 1 then
       lcd.drawText(300,70, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   
       lcd.drawText(300,90, string.format("%02d", system.getCPU()), FONT_MINI)
@@ -2968,21 +3385,24 @@ local function printForm(_,_,tWin)
 end
 
 local function prtForm(w,h)
+   
    if subForm == formN.editlua then
       --print("prtForm formN.editlua", savedRow, savedRow2)
       --if lua.loadErr then
 	 --print(lua.loadErr)
 	 --lcd.drawText(5,0, lua.loadErr, FONT_MINI)
       --end
+      --print("calling setVariables", savedRow)
+      setVariables()
       if savedRow == 3 then
 	 local sp = InsP.settings.selectedPanel
 	 if not InsP.panels[sp][savedRow2].luastring then
 	    InsP.panels[sp][savedRow2].luastring = {}
 	    --InsP.panels[sp][savedRow2].luastring[1] = ""
 	 end
-	 LE.luaEditPrint(InsP.panels[sp][savedRow2], 1)
+	 LE.luaEditPrint(InsP.panels[sp][savedRow2], 1, evaluate)
       elseif savedRow == 6 then
-	 LE.luaEditPrint(InsP.variables[savedRow2], 1)	 
+	 LE.luaEditPrint(InsP.variables[savedRow2], 1, evaluate)	 
       end
       
    elseif subForm == formN.editpanel and InsP.panels[InsP.settings.selectedPanel] then
@@ -3016,7 +3436,7 @@ local function prtForm(w,h)
 	    yy = ipeg.yT
 	 end
 	 ff = ipeg.fT	 
-      elseif (ii == "MMLbl") and ipeg.xLV then
+      elseif (ii == "MMLbl") and ipeg.xLV and ipeg.xRV then
 	 xx = (ipeg.xLV + ipeg.xRV) / 2
 	 yy = ipeg.yLV
 	 ff = ipeg.fLRV
@@ -3031,6 +3451,12 @@ local function prtForm(w,h)
 	 ss = tonumber(math.floor(ipeg.TS))
       elseif (ii == "MinMx") then
 	 mm = "Edit Min Max"
+	 if ipeg.type == "chartRecorder" then
+	    xx = ipeg.vertX - ipeg.barWidth / 2 + (ipeg.traceNumber - 1) * ipeg.barWidth
+	    yy = (ipeg.vertYB + ipeg.vertYT) / 2
+	    ff = "Mini"
+	 end
+	 
       end
 
       --print("typ", ipeg.type, edit.gaugeName[ipeg.type].sn)
@@ -3046,7 +3472,7 @@ local function prtForm(w,h)
       if mm then fn = ""; ff = mm end
       
       lcd.drawText(10, 157,
-		   string.format("Gauge %d Type: %s  [%d,%d]  %s %s",
+		   string.format("Widget %d Type: %s  [%d,%d]  %s %s",
 				 edit.gauge, typ, xx, yy, fn, ff))
       lcd.setColor(180,180,180)
       lcd.drawLine(0, yy, w, yy)
@@ -3070,8 +3496,11 @@ local function destroy()
       if save.panels then
 	 for i in ipairs(save.panels) do
 	    if not save.panels[i] then print("nil panel", i) end
-	    for _, v in ipairs(save.panels[i]) do
+	    for k, v in ipairs(save.panels[i]) do
 	       for kk,vv in pairs(v) do
+		  if kk == "chartSample" then v[kk] = {} end
+		  if kk == "chartSampleYP" then v[kk] = {} end
+		  if kk == "chartSampleXP" then v[kk] = {} end		  		  
 		  if kk == "SeId" or kk == "rollSeId" or kk == "pitchSeId" then
 		     v[kk] = string.format("0X%X", vv)
 		  end
@@ -3122,6 +3551,18 @@ local function initNewer(sf, tbl)
 
    form.setFocusedRow(3)
 
+end
+
+local function luaLogCB(idx)
+   setVariables()
+   ret, dp = 0, 2
+   for k,v in ipairs(InsP.variables) do
+      if idx and v.logID and v.logID == idx then
+	 ret = v.value
+	 break
+      end
+   end
+   return math.floor(ret * 100 +  0.5), dp
 end
 
 local function init()
@@ -3225,7 +3666,6 @@ local function init()
 	       end
 	       if not InsP.settings.panels then InsP.settings.panels = {} end
 	       table.insert(InsP.settings.panels, fn)
-	       --io.close(file)
 	    end
 	 end
       end
@@ -3260,16 +3700,36 @@ local function init()
 
    table.sort(InsP.settings.backgrounds)
 
+   local lostSw = ""
    for k, swi in pairs(InsP.settings.switchInfo) do
-      switches[k] = system.createSwitch(swi.name, swi.mode, swi.activeOn)
+      local ud = system.pLoad(k)
+      if ud then
+	 --print("Using switch userdata: " .. k)
+	 switches[k] = ud
+      else
+	 lostSw = lostSw .. " "..k
+	 switches[k] = system.createSwitch(swi.name, swi.mode, swi.activeOn)
+      end
       local iss = InsP.settings.switchInfo[k]
       if iss.seqIdx and iss.seqIdx <= #stateSw then
 	 stateSw[iss.seqIdx].switch = switches[k]
       end
    end
 
+   if lostSw ~= "" then
+      system.messageBox("See lua console to reassign switches")
+      print("Please reassign "..lostSw)
+   end
+
    for _,v in ipairs(InsP.panelImages) do
       if not v.auxWin then v.auxWin = 1 end
+   end
+
+   for k,v in ipairs(InsP.variables) do
+      if v.source == "Lua" then
+	 InsP.variables[k].logID = system.registerLogVariable(string.sub(v.name, 1, 14), "", luaLogCB)
+	 --print("registerLog", v.name, v.source, v.luastring[1], InsP.variables[k].logID)
+      end
    end
    
    readSensors(InsP)
