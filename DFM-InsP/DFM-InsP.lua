@@ -18,6 +18,7 @@
    Version 0.53 02/17/23 - yet more tweaks
    Version 0.54 02/19/23 - ported new chartRecorder widget to TX, added logging of lua variables
    Version 0.55 02/20/23 - tweaking font size/spacing for stacked text boxes, reworked rawText
+   Version 0.56 02/22/23 - more size/spacing tweaking, fixed chart recorder not recording if not on screen
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -26,7 +27,7 @@
 
 
 
-local InsPVersion = 0.55
+local InsPVersion = 0.56
 
 local LE
 
@@ -2086,6 +2087,9 @@ local function printForm(ww0,hh0,tWin)
       lcd.drawText(100, 70, "No Panel Image", FONT_BOLD)
    end
 
+   --lcd.setColor(255,255,255)
+   --lcd.drawRectangle(0,0,318,159)
+   
    if not ip or #ip == 0 then
       drawTextCenter(160, 60, "No instrument panel json defined", FONT_BOLD)
       return
@@ -2573,9 +2577,8 @@ local function printForm(ww0,hh0,tWin)
 	    if widget.fT ~= "None" then
 	       local strL = #str
 	       local txH = lcd.getTextHeight(edit.fcode[widget.fT])
-	       --print("widget.fT, txH, tBoxHgt", widget.fT, txH, widget.tBoxHgt)
 	       local txW
-	       local yc = math.floor(widget.y0  - widget.tBoxHgt / 2 + 0.5) + 2
+	       local yc = widget.y0 + 0.85 * txH - 0.5 * (.41 * txH) * (3 * #widget.text + 1)
 	       local stro
 	       for ii = 0, strL - 1 , 1 do
 
@@ -2587,8 +2590,7 @@ local function printForm(ww0,hh0,tWin)
 		  end
 		  		  
 		  txW = lcd.getTextWidth(edit.fcode[widget.fT], stro)
-		  lcd.drawText(widget.x0 - txW / 2, yc + (0.90 * txH) * ii, stro,
-			       edit.fcode[widget.fT])
+		  drawTextCenter(widget.x0, yc + 1.16 * txH * ii, stro, edit.fcode[widget.fT])		  
 	       end
 	    end
 	 end

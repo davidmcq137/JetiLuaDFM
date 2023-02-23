@@ -749,7 +749,9 @@ function jetiHeight(font) {
 }
 
 function jetiToCtx(jfont) {
-    const point = {Mini:10, Normal:16, Bold:16, Big: 19, Maxi: 34, None:3}
+    // note - these sizes are what is needed to match pixel height to jeti fonts
+    // checked with special background file
+    const point = {Mini:10, Normal:16, Bold:16, Big: 20, Maxi: 34, None:3}
     //ctx.font="bold " + fontScale * ro + "px sans-serif"
     let bstr = "";
     if (jfont == "Bold") {
@@ -1368,24 +1370,27 @@ function virtualGauge(ctx, arr) {
 
     ctx.font = jetiToCtx("Mini");
     console.log("Mini", ctx.font)
-    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2)
+    ctx.fillText("Mini Font Test", arr.x0+10, arr.y0 - arr.radius/2)
     
     ctx.font = jetiToCtx("Normal");
-    console.log("Mini", ctx.font)
-    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 20)
+    console.log("Normal", ctx.font)
+    ctx.fillText("Normal Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 15)
     
+    ctx.font = jetiToCtx("Bold");
+    console.log("Bold", ctx.font)
+    ctx.fillText("Bold Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 30)
+
     ctx.font = jetiToCtx("Big");
-    console.log("Mini", ctx.font)
-    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 40)
+    console.log("Big", ctx.font)
+    ctx.fillText("Big Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 45)
     
     ctx.font = jetiToCtx("Maxi");
-    console.log("Mini", ctx.font)
-    ctx.fillText("Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 80)
+    console.log("Maxi", ctx.font)
+    ctx.fillText("Maxi Font Test", arr.x0+10, arr.y0 - arr.radius/2 + 80)
 
     return
 
     */
-    
     
     arrR.needle = [];
     const tL = needleTri.length;
@@ -1584,7 +1589,9 @@ function textBox(ctx, arr, type) {
 		ctx.fillText(str, arrR.xV, arrR.yV);
 	    }
 	} else  {
-	    let txH = getTextHeight(ctx, arr.text[0]);
+	    let txH = jetiHeight(arr.textFont);
+	    let jsH = getTextHeight(ctx, arr.text[0])
+	    console.log("textFont, txH, jsH, arr.text[0]", arr.textFont, txH, jsH, arr.text[0])
 	    var yc = y0 +  1.10 * txH - 0.5 * (txH / 2) * (3 * arr.text.length + 1);
 	    for(let i = 0, len = arr.text.length; i < len; i++) {
 		let str = arr.text[i];
@@ -1593,7 +1600,7 @@ function textBox(ctx, arr, type) {
 		    str = "<lua script>";
 		}
 		if (arr.textFont != "None") {
-		    ctx.fillText(str, x0, yc + i * 1.5 * txH);
+		    ctx.fillText(str, x0, yc + i * 1.45 * txH);
 		}
 	    } 
 	}
@@ -1665,6 +1672,7 @@ function artHorizon(ctx, arr) {
       Use here conforms with the license terms
     */
 
+    
     var arrR = {};
     
     let pitch = arr.pitch;
@@ -2344,6 +2352,16 @@ function setAlignmentGrid(ctx, arr, text) {
 
 function rawText(ctx, arr) {
     var arrR = {};
+
+
+    /*
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "Yellow";
+    ctx.rect(0,0,158,158)
+    ctx.rect(2,2,154,154)
+    ctx.stroke();
+    */
+
 
     let tF
     if (typeof arr.textFont != "undefined") {
