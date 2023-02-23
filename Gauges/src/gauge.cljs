@@ -954,7 +954,7 @@
   [:div {}
    (when (not-empty ps)
      [:div.panel-list {}
-      (for [[panel-name panel] ps
+      (for [[panel-name panel] (sort-by first ps)
             c [:select :spacer :rename :delete]]
         (case c
           :rename (rum/with-key (panel-renamer ps panel-name) (str c panel-name))
@@ -1004,7 +1004,8 @@
         {:keys [panels selected-panel align-divs]} (rum/react db)
         {:keys [gauges background-image]} (get panels selected-panel)]
     [:div.container
-     [:div {:style {:margin-left "2ex"}}
+     [:div {:style {:margin-left "2ex"
+                    :z-index 1000}}
       [:h2 "Instrument Panel creator"]
       #_[:p "This app is for creating instrument panels for use with the companion app on the JETI transmitter."]
       [:p "This web app is for creating instrument panels for display on Jeti transmitters using a Jeti Lua app named DFM-InsP."]
