@@ -184,6 +184,10 @@ local function setColorRGB(rgb)
    lcd.setColor(rgb.r, rgb.g, rgb.b)
 end
 
+local function makeRGB(t)
+   return string.format("%s - rgb(%d,%d,%d)", t.colorname, t.red, t.green, t.blue)
+end
+
 local function showExternal(ff)
 
    local locale = "EN"
@@ -1054,6 +1058,16 @@ local function keyForm(key)
    if subForm == formN.backcolors then
       if keyExit(key) then
 	 form.preventDefault()
+	 -- see if a new background color was set for a panel and update if so
+	 for i,p in ipairs(InsP.panelImages) do
+	    --print("exiting .. setting to", p.newBackImage)
+	    if p.newBackImage then
+	       InsP.panelImages[i].backImage = p.newBackImage
+	       InsP.panelImages[i].newBackImage = nil
+	       lastPanel1, lastPanel2 = 0, 0 -- force re-read of backgnd color
+	    end
+	 end
+	 
 	 form.reinit(1)
 	 return
       end
@@ -1689,7 +1703,8 @@ local function initForm(sf)
 	    table.insert(bgt, p)
 	 end
 	 for ii, p in ipairs(InsP.colors) do
-	    table.insert(bgt, string.format("%s - rgb(%d,%d,%d)", p.colorname, p.red, p.green, p.blue))
+	    --print("makeRGB(p)", makeRGB(p))
+	    table.insert(bgt, makeRGB(p))
 	 end
 	 
 	 local bak = InsP.panelImages[i].backImage
@@ -1984,7 +1999,6 @@ local function initForm(sf)
 	 form.addIntbox(c.blue, 0, 255, 0, 0, 1,
 			(function(x) return changedColor(x, i, "blue") end), {width=60})	 
       end
-      print("savedRow, savedRow2", savedRow, savedRow2)
       form.setFocusedRow(savedRow2 + 1)
       
    elseif sf == formN.backcolors then
@@ -1994,12 +2008,30 @@ local function initForm(sf)
       form.setButton(3, ":add", ENABLED)
       form.setButton(2, ":delete", ENABLED)
 
-      local function changedColorName(val, i)
-	 InsP.colors[i].colorname = val
+      local oldColor
+      local newColor
+      
+      local function checkColorChange(val, i)
+	 --print("checkColorChange", oldColor, newColor, InsP.panelImages[i].backColor)
+	 if InsP.panelImages[i].backImage == oldColor or InsP.panelImages[i].newBackImage == oldColor then
+	    --print("newbackColor", newColor)
+	    InsP.panelImages[i].newBackImage = newColor
+	 end
       end
-
+      
+      local function changedColorName(val, i)
+	 oldColor = makeRGB(InsP.colors[i])
+	 InsP.colors[i].colorname = val
+	 newColor = makeRGB(InsP.colors[i])
+	 checkColorChange(val, i)
+      end
+      
       local function changedColor(val, i, clr)
+	 --print("changedColor", val, i, clr)
+	 oldColor = makeRGB(InsP.colors[i])
 	 InsP.colors[i][clr] = val
+	 newColor = makeRGB(InsP.colors[i])
+	 checkColorChange(val, i)
       end
 
       --InsP.colors[1] = {colorname="red", red=255, green=0, blue=0}
@@ -3827,13 +3859,13 @@ local function init()
       {colorname="maroon",red=128, green=0,   blue=0},
       {colorname="navy",  red=0,   green=0,   blue=128},
       {colorname="olive", red=128, green=128, blue=0},
-      {colorname="orange",red=255, green=165, blue=0}
+      {colorname="orange",red=255, green=165, blue=0},
       {colorname="purple",red=128, green=0,   blue=128},
       {colorname="red",   red=255, green=0,   blue=0},
       {colorname="silver",red=192, green=192, blue=192},
       {colorname="teal",  red=0,   green=128, blue=128},
       {colorname="white", red=255, green=255, blue=255},
-      {colorname="yellow",red=255, green=255, blue=0},
+      {colorname="yellow",red=255, green=255, blue=0}
    }
    
    mn = string.gsub(system.getProperty("Model"), " ", "_")
