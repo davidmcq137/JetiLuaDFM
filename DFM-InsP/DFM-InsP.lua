@@ -21,6 +21,8 @@
    Version 0.56 02/22/23 - more size/spacing tweaking, fixed chart recorder not recording if not on screen
    Version 0.60 02/23/23 - per HC, tossed S, H, Alt in favor of new simpler two window scheme
    Version 0.61 02/24/23 - Fixed crash in sequencer on "*" ... added "+". changed window start defaults
+   Version 0.62 02/24/23 - Added background color to settings
+   Version 0.63 02/25/23 - Added widget color to settings
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -29,7 +31,7 @@
 
 
 
-local InsPVersion = 0.62
+local InsPVersion = 0.63
 
 local LE
 
@@ -136,11 +138,12 @@ local editWidgetType
 
 local formN = {main=1, settings=102, inputs=100, editpanel=103, editgauge=104,
 	       editlinks = 105, luavariables=108, resetall=101,
-	       editlua = 107, panels=106, editpanelsub=110, colors=111}
+	       editlua = 107, panels=106, editpanelsub=110, backcolors=111, widgetcolors=112}
 
 local formS = {[1]="main", [102]="settings", [100]="inputs", [103]="editpanel", [104]="editgauge",
    [105] = "editlinks", [108] = "luavariables", [101] = "resetall",
-   [107] = "editlua", [106] = "panels", [110] = "editpanelsub", [111] = "colors"}
+   [107] = "editlua", [106] = "panels", [110] = "editpanelsub", [111] = "backcolors",
+   [112] = "widgetcolors"}
 
 local MAXSAMPLE = 160
 local modSample = 0
@@ -1048,8 +1051,7 @@ local function keyForm(key)
       end
    end
    
-   if subForm == formN.colors then
-      print("colors", key)
+   if subForm == formN.backcolors then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
@@ -1059,15 +1061,35 @@ local function keyForm(key)
 	 local fr = form.getFocusedRow()
 	 if fr - 1 > 0 then
 	    table.remove(InsP.colors, fr - 1)
-	    form.reinit(formN.colors)
+	    form.reinit(formN.backcolors)
 	 end
       elseif key == KEY_3 then -- add
-	 table.insert(InsP.colors, {colorname="black", red=0, green=0, blue=0})
-	 form.reinit(formN.colors)
+	 table.insert(InsP.colors, {colorname="newcolor", red=0, green=0, blue=0})
+	 form.reinit(formN.backcolors)
       end
       return
    end
 
+   if subForm == formN.widgetcolors then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(1)
+	 return
+      end
+      if key == KEY_2 then -- delete
+	 local fr = form.getFocusedRow()
+	 if fr - 1 > 0 then
+	    table.remove(InsP.widgetColors, fr - 1)
+	    form.reinit(formN.widgetcolors)
+	 end
+      elseif key == KEY_3 then -- add
+	 table.insert(InsP.widgetColors, {colorname="newcolor", red=0, green=0, blue=0})
+	 savedRow2 = #InsP.widgetColors
+	 form.reinit(formN.widgetcolors)
+      end
+      return
+   end
+   
 end
 
 local function changedSensor(val, i, ip)
@@ -1329,7 +1351,7 @@ local function initForm(sf)
 	 if widget.label then
 	    str = "  "..widget.label
 	 else
-	    str = "  Gauge"..i
+	    str = "  Widget"..i
 	 end
 	 local typ = edit.gaugeName[widget.type].sn
 	 if not typ then typ = "---" end
@@ -1396,9 +1418,16 @@ local function initForm(sf)
 					    (function(x) return changedSwitch(x, "rotatePanels") end))
 
       form.addRow(2)
-      form.addLabel({label="Colors >>", width=220})
+      form.addLabel({label="Widget Colors >>", width=220})
       form.addLink((function()
-	       form.reinit(formN.colors)
+	       form.reinit(formN.widgetcolors)
+	       form.waitForRelease()
+      end))
+
+      form.addRow(2)
+      form.addLabel({label="Background Colors >>", width=220})
+      form.addLink((function()
+	       form.reinit(formN.backcolors)
 	       form.waitForRelease()
       end))
 
@@ -1417,11 +1446,11 @@ local function initForm(sf)
       local ig = savedRow3
       local isp = InsP.settings.selectedPanel
       local ip = InsP.panels[isp]
-      local lbl = ip[ig].label or "Gauge"..ig
+      local lbl = ip[ig].label or "Widget"..ig
       local pnl = InsP.panelImages[isp].instImage
       local widget = ip[ig]
 
-      form.setTitle("Edit Gauge "..ig.."  ("..lbl..")", savedRow3)
+      form.setTitle("Edit Widget "..ig.."  ("..lbl..")", savedRow3)
 
       if not widget.dataSrc then widget.dataSrc = "Sensor" end
 
@@ -1468,7 +1497,7 @@ local function initForm(sf)
 
 
       form.addRow(2)
-      form.addLabel({label="Gauge input source"})
+      form.addLabel({label="Widget input source"})
       local isel = 0
       for k in ipairs(dataSources) do
 	 if widget.dataSrc == dataSources[k] then
@@ -1786,6 +1815,7 @@ local function initForm(sf)
       
       
    elseif sf == formN.editpanelsub then
+      --[[
       local colors = {"black", "silver", "gray",   "white", "maroon",
 		      "red",   "purple", "fuscia", "green", "lime",
 		      "olive", "yellow", "navy", "blue", "teal",
@@ -1797,6 +1827,7 @@ local function initForm(sf)
 	 {0,255,255}
 
       }
+      --]]
       local function editTextCB(val, i)
 	 editWidget.text[i] = val 
       end
@@ -1829,13 +1860,13 @@ local function initForm(sf)
       end
       
       local function editTraceColorCB(val)
-	 editWidget.chartTraceColor = colors[val]
-	 editWidget.rgbChartTraceColor.r = rgbColors[val][1]
-	 editWidget.rgbChartTraceColor.g = rgbColors[val][2]
-	 editWidget.rgbChartTraceColor.b = rgbColors[val][3]	 
+	 editWidget.chartTraceColor = InsP.widgetColors[val].colorname
+	 editWidget.rgbChartTraceColor.r = InsP.widgetColors[val].red
+	 editWidget.rgbChartTraceColor.g = InsP.widgetColors[val].green
+	 editWidget.rgbChartTraceColor.b = InsP.widgetColors[val].blue
       end
       
-      form.setTitle("Gauge Editor")
+      form.setTitle("Widget Editor")
 
       if editWidgetType == "Text" then
 	 if not editWidget.text then return end
@@ -1901,17 +1932,64 @@ local function initForm(sf)
 	 form.addRow(2)
 	 form.addLabel({label="Trace Color"})
 	 local cc = 0
-	 for k,c in ipairs(colors) do
-	    if c == editWidget.chartTraceColor then
+	 --print("traceColor", editWidget.chartTraceColor)
+	 for k,c in ipairs(InsP.widgetColors) do
+	    if c.colorname == editWidget.chartTraceColor then
 	       cc = k
 	       break
 	    end
 	 end
-	 form.addSelectbox(colors, cc, true, editTraceColorCB)
-      end
-   elseif sf == formN.colors then
 
-      form.setTitle("Define Colors")
+	 local tmp = {}
+	 if cc == 0 then
+	    tmp[1] = string.format("rgb(%d,%d,%d)", editWidget.rgbChartTraceColor.r,
+				   editWidget.rgbChartTraceColor.g, editWidget.rgbChartTraceColor.b)
+	    cc = 1
+	 end
+	 
+	 for i,c in ipairs(InsP.widgetColors) do
+	    table.insert(tmp, c.colorname)
+	 end
+	 
+	 form.addSelectbox(tmp, cc, true, editTraceColorCB)
+      end
+
+   elseif sf == formN.widgetcolors then
+      form.setTitle("Define Widget Colors")
+      
+      form.setButton(3, ":add", ENABLED)
+      form.setButton(2, ":delete", ENABLED)
+
+      local function changedColorName(val, i)
+	 InsP.widgetColors[i].colorname = val
+      end
+
+      local function changedColor(val, i, clr)
+	 InsP.widgetColors[i][clr] = val
+      end
+
+      form.addRow(4)
+      form.addLabel({label="Name    ", width=120, alignRight=true})
+      form.addLabel({label="R", width=60})
+      form.addLabel({label="G", width=60})
+      form.addLabel({label="B", width=60})
+	 
+      for i,c in ipairs(InsP.widgetColors) do
+	 form.addRow(4)
+	 form.addTextbox(c.colorname, 16, (function(x) return changedColorName(x,i) end), {width=120})
+	 form.addIntbox(c.red, 0, 255, 0, 0, 1,
+			(function(x) return changedColor(x, i, "red") end), {width=60})
+	 form.addIntbox(c.green, 0, 255, 0, 0, 1,
+			(function(x) return changedColor(x, i, "green") end), {width=60})
+	 form.addIntbox(c.blue, 0, 255, 0, 0, 1,
+			(function(x) return changedColor(x, i, "blue") end), {width=60})	 
+      end
+      print("savedRow, savedRow2", savedRow, savedRow2)
+      form.setFocusedRow(savedRow2 + 1)
+      
+   elseif sf == formN.backcolors then
+
+      form.setTitle("Define Background Colors")
       
       form.setButton(3, ":add", ENABLED)
       form.setButton(2, ":delete", ENABLED)
@@ -2500,7 +2578,7 @@ local function printForm(ww0,hh0,tWin)
 	    val = "---"
 	 end
 	 local str
-	 if widget.label then str = widget.label else str = "Gauge"..idxW end
+	 if widget.label then str = widget.label else str = "Widget"..idxW end
 
 	 if not widget.fL then
 	    widget.fL = widget.labelFont or "Mini"
@@ -2652,7 +2730,7 @@ local function printForm(ww0,hh0,tWin)
 	    end
 	 end
 	 
-	 if widget.label then str = widget.label else str = "Gauge"..idxW end
+	 if widget.label then str = widget.label else str = "Widget"..idxW end
 
 	 if not widget.fL then
 	    widget.fL = widget.labelFont or "Mini"
@@ -3647,6 +3725,7 @@ local function destroy()
       save.settings = InsP.settings
       save.variables = InsP.variables
       save.colors = InsP.colors
+      save.widgetColors = InsP.widgetColors      
       --print("saving jsnVersion", jsnVersion)
       save.jsnVersion = jsnVersion
       save.stateSw = stateSw
@@ -3737,6 +3816,26 @@ local function init()
    local mn
    local file
    
+   widgetColors = {
+      {colorname="aqua",  red=0,   green=255, blue=255},
+      {colorname="black", red=0,   green=0,   blue=0},
+      {colorname="blue",  red=0,   green=0,   blue=255},
+      {colorname="fuscia",red=255, green=0,   blue=255},
+      {colorname="gray",  red=128, green=128, blue=128},
+      {colorname="green", red=0,   green=128, blue=0},
+      {colorname="lime",  red=0,   green=255, blue=0},
+      {colorname="maroon",red=128, green=0,   blue=0},
+      {colorname="navy",  red=0,   green=0,   blue=128},
+      {colorname="olive", red=128, green=128, blue=0},
+      {colorname="orange",red=255, green=165, blue=0}
+      {colorname="purple",red=128, green=0,   blue=128},
+      {colorname="red",   red=255, green=0,   blue=0},
+      {colorname="silver",red=192, green=192, blue=192},
+      {colorname="teal",  red=0,   green=128, blue=128},
+      {colorname="white", red=255, green=255, blue=255},
+      {colorname="yellow",red=255, green=255, blue=0},
+   }
+   
    mn = string.gsub(system.getProperty("Model"), " ", "_")
    local ff = prefix() .. "Apps/DFM-InsP/II_" .. mn .. ".jsn"
 
@@ -3763,8 +3862,8 @@ local function init()
       InsP.settings = decoded.settings
       if not InsP.settings then InsP.settings = {} end
 
-      InsP.colors = decoded.colors
-      if not InsP.colors then InsP.colors = {} end
+      InsP.colors = decoded.colors -- see below if nil
+      InsP.widgetColors = decoded.widgetColors -- see below if nil
       
       InsP.variables = decoded.variables
       if not InsP.variables then InsP.variables = {} end
@@ -3801,6 +3900,16 @@ local function init()
       print("DFM-InsP: Did not read any jsn panel file")
       initPanels(InsP)
    end
+
+   if not InsP.colors then InsP.colors = {} end
+
+   if not InsP.widgetColors then
+      InsP.widgetColors = {}
+      for k,v in pairs(widgetColors) do
+	 InsP.widgetColors[k] = v
+      end
+   end
+   
    InsP.settings.fileBD = ff
    InsP.settings.writeBD = true
    
