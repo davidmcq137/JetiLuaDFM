@@ -3847,6 +3847,15 @@ local function init()
    local decoded
    local mn
    local file
+
+   backColors = {
+      {colorname="grey",        red=128, green=128, blue=128},
+      {colorname="lavender",    red=230, green=230, blue=250},
+      {colorname="lightgrey",   red=211, green=211, blue=211},
+      {colorname="lightyellow", red=255, green=255, blue=224},
+      {colorname="nightrider",  red=48,  green=48,  blue=48},
+      {colorname="silver",      red=192, green=192, blue=192}
+   }
    
    widgetColors = {
       {colorname="aqua",  red=0,   green=255, blue=255},
@@ -3933,7 +3942,14 @@ local function init()
       initPanels(InsP)
    end
 
-   if not InsP.colors then InsP.colors = {} end
+   print("InsP.colors", InsP.colors)
+   
+   if not InsP.colors then
+      InsP.colors = {}
+      for k,v in pairs(backColors) do
+	 InsP.colors[k] = v
+      end
+   end
 
    if not InsP.widgetColors then
       InsP.widgetColors = {}
@@ -4143,4 +4159,3 @@ local function init()
 end
 
 return {init=init, loop=loop, author="DFM", version=InsPVersion, name="DFM-InsP", destroy=destroy}
-
