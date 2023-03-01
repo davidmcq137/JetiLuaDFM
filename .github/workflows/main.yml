@@ -42,3 +42,9 @@ jobs:
         run: |
           ./bb clojure -M -e "(user/build-uberjar-and-exit)"
           
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: server-jar
+          path: ffff.jar
+
