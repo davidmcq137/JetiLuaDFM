@@ -1,18 +1,16 @@
 {
-  "author": "DFM",
-  "description": {
-    "en": "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM-Amix/DFM-Amix.html"
+  "author":"DFM",
+  "description":{
+    "en":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM-Amix/DFM-Amix.html"
   },
-  "hw": [
+  "hw":[
     678,
     679,
     680
   ],
-  "id": 0,
-  "name": {
-    "en": "DFM-Amix"
+  "id":0,
+  "name":{
+    "en":"DFM-Amix"
   },
-  "previewIcon": "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png",
-  "version": "1.4",
-  "releaseDate": "Wed  1 Mar 2023 02:28:46 -0800"
+  "previewIcon":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png"
 }

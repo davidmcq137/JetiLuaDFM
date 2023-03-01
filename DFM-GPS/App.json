@@ -1,26 +1,24 @@
 {
-  "author": "DFM",
-  "description": {
-    "en": "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/beta/DFM-GPS/DFM-GPS.html"
+  "author":"DFM",
+  "description":{
+    "en":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/beta/DFM-GPS/DFM-GPS.html"
   },
-  "hw": [
-    674,
-    675,
-    676,
-    677,
-    678,
-    679,
-    680,
-    652,
-    653,
-    3857,
-    3858
-  ],
-  "id": 0,
-  "name": {
-    "en": "DFM-GPS"
+    "hw":[
+	674,
+        675,
+        676,
+        677,
+        678,
+        679,
+        680,
+        652,
+        653,
+        3857,
+        3858	
+    ],
+  "id":0,
+  "name":{
+    "en":"DFM-GPS"
   },
-  "previewIcon": "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png",
-  "version": "0.7",
-  "releaseDate": "Wed  1 Mar 2023 02:28:46 -0800"
+  "previewIcon":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png"
 }

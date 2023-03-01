@@ -5,10 +5,9 @@
   (:gen-class))
 
 (defn -main [& args]
-  (println "Drs main???????")
   (let [port (or (some-> (System/getenv "PORT")
                          (Integer/parseInt))
                  8080)] 
-    (println "Server port??????" port)
+    (println "Starting web server on port" port)
     (hk/run-server s/app {:port port})))
 

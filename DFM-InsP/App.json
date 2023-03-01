@@ -1,22 +1,20 @@
 {
-  "author": "DFM",
-  "description": {
-    "en": "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/beta/DFM-InsP/DFM-InsP.html"
+  "author":"DFM",
+  "description":{
+    "en":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/beta/DFM-InsP/DFM-InsP.html"
   },
-  "hw": [
-    678,
-    679,
-    680,
-    652,
-    653,
-    3857,
-    3858
-  ],
-  "id": 0,
-  "name": {
-    "en": "DFM-InsP"
+    "hw":[
+        678,
+        679,
+        680,
+        652,
+        653,
+        3857,
+        3858	
+    ],
+  "id":0,
+  "name":{
+    "en":"DFM-InsP"
   },
-  "previewIcon": "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png",
-  "version": "0.56",
-  "releaseDate": "Wed  1 Mar 2023 02:28:47 -0800"
+  "previewIcon":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png"
 }

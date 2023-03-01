@@ -164,7 +164,7 @@ local function main()
                                     r.zip))
    end
 
-   io.stderr:write("===========================================================================\n")
+   -----------
    local mf = io.open(string.format("%s/manifest.txt", output_dir), "w")
    for _, r in ipairs(rs) do
       mf:write(string.format("%s\n", r.zip))
