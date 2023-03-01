@@ -159,6 +159,12 @@
         (swap! dynamic-repo-cache assoc k body)
         body))))
 
+(defn stream->bytes
+  [in]
+  (let [ba (ByteArrayOutputStream.)]
+    (io/copy in ba)
+    (.toByteArray ba)))
+
 (defn process-zip!
   [istream prefix]
   (with-open [zis (ZipInputStream. istream)]
@@ -185,15 +191,17 @@
                           :size n
                           :hash (sha1hex buf)}))))))))
 
-(comment
-  (process-zip!
-   (io/input-stream (io/file "/Users/russell/src/JetiLuaDFM/release-output/DFM-Maps-v7.24.zip"))
-   "Apps"))
 
-
+(def included-apps
+  (delay
+    (let [base "compiled-apps"]
+      (into {}
+       (for [ma (string/split-lines (slurp (io/resource (str base "/manifest.txt"))))
+             :let [[_ app vers] (re-find #"(.*)-v(.*)\.zip" ma)]]
+         [app (io/resource (str base "/" ma))])))))
 
 (defn process-file-spec
-  [{:strs [url data data-base64 json-data zip-url prefix] :as obj}]
+  [{:strs [url data data-base64 json-data zip-url prefix app] :as obj}]
   (or
    (when json-data
      (let [enc (-> json-data
@@ -219,11 +227,11 @@
      nil 
      (let [bs (.decode (Base64/getDecoder) data-base64)
            hash (sha1hex bs)]
-         (swap! dynamic-repo-cache assoc [:sha1 hash] bs)
-         [(-> obj
-              (dissoc "data-base64")
-              (assoc :size (count bs)
-                     :hash hash))]))
+       (swap! dynamic-repo-cache assoc [:sha1 hash] bs)
+       [(-> obj
+            (dissoc "data-base64")
+            (assoc :size (count bs)
+                   :hash hash))]))
    
    (when url
      (let [body (cached-url-fetch url)
@@ -240,8 +248,20 @@
      (let [{:keys [status body]} (try (client/get zip-url {:as :byte-array})
                                       (catch Exception e (throw (ex-info "Cannot fetch zip" {:url url} e))))]
        (with-open [in (ByteArrayInputStream. body)]
-         (process-zip! in prefix))))))
+         (process-zip! in prefix))))
 
+   (when app
+     (prn "!!!!!!!!!!!!!!!!!!!!" app)
+     (if-let [zr (get @included-apps app)]
+       (with-open [in (io/input-stream zr)]
+         (process-zip! in "Apps/"))
+       (throw (ex-info "No such app" {:app app}))))))
+
+(comment
+  
+  (process-file-spec {:app "DFM-InsP"})
+  (with-open [i (io/input-stream (io/resource "compiled-apps/DFM-InsP-v0.56.zip"))]
+    (run! prn (process-zip! i "What"))))
 
 (defn add-cas-url
   [my-url {:keys [url hash] :as e} ]
@@ -303,11 +323,12 @@
     {:status 200
      :headers {"Content-Type" "application/json"} 
      :body (json/generate-string
-            {"repo_url" (str yoururl "/" token "/Apps.json") })}))
+            {"repo_url"
+             (str yoururl "/repo/" token "/Apps.json") })}))
 
 (defn do-dynamic-repo-zip
-  [{:keys [query-params] :as req}]
-  (let [{:strs [token]} query-params
+  [{:keys [route-params]}]
+  (let [{:keys [token]} route-params
         {:strs [applications]} (json/parse-stream (io/reader (get @dynamic-repo-cache [:token token])))
         [{:strs [files]} & more] applications]
     {:status 200
@@ -331,7 +352,6 @@
                            (json/generate-string )
                            (.getBytes "utf-8"))}))
 
-
 (defn do-elevation
   [{:keys [query-params query-string body] :as req}]
   (let [{:strs [lat lng]} query-params]
@@ -342,7 +362,7 @@
          (+ 360 x)
          x)))))
 
-(defn handler
+#_(defn handler
   [{:keys [uri] :as req}]
   (let [u (string/lower-case uri) ]
     (println "Handler" u)
@@ -383,88 +403,43 @@
         (println 'Token token)
         (do-repo token)))))
 
+(defn do-token-repo
+  [{:keys [route-params]}]
+  (if-let [t (:token route-params)]
+    (do-repo t)
+    {:status 400 :body "No token?"}))
 
-#_(def app (-> #'handler
-               (ring-params/wrap-params)))
 
 
 
-(defrecord Files [options]
-  bidi/Matched
-  (resolve-handler [this m]
-    (assoc (dissoc m :remainder)
-           :handler (->
-                     (fn [req]
-                       (println "Remaineder"
-                                (pr-str (bidi/url-decode (:remainder m))))
-                       (ring-resp/file-response
-                        (bidi/url-decode (:remainder m))
-                        {:root (:dir options)
-                         :index-files? nil}))
-                     (wrap-content-type options)
-                     (wrap-not-modified))))
-  (unresolve-handler [this m]
-    (when (= this (:handler m)) "")))
 
- (defrecord ResourcesMaybe [options]
-   bidi/Matched
-   (resolve-handler [this m]
-     (let [path (bidi/url-decode (:remainder m))]
-       (when (not-empty path)
-         (println "Path" (pr-str path))
-         (println "Prefix" (:prefix options)
-                  "Res"  (pr-str (io/resource (str (:prefix options) path))))
-         (when-let [res (io/resource (str (:prefix options) path))]
-           (assoc (dissoc m :remainder)
-                  :handler (->
-                            (fn [req] (ring-resp/resource-response (str (:prefix options) path)))
-                            (wrap-content-type options)))))))
-   (unresolve-handler [this m]
-     (when (= this (:handler m)) "")))
-
-(defrecord Archive [options]
-  bidi/Matched
-  (resolve-handler [this m]
-    (let [path (bidi/url-decode (:remainder m))]
-      (when (not-empty path)
-        (-> m
-            (assoc
-             :handler
-             (->
-              (fn [req]
-                (ring-resp/url-response
-                 (java.net.URL.
-                  (doto
-                      (str "jar:" (:archive options) "!"
-                           (or (:resource-prefix options) "/") path)
-                    (println "URL was")
-                      ))))
-              (wrap-content-type)
-              (wrap-not-modified)))
-            (dissoc :remainder)))))
-  (unresolve-handler [this m]
-    (when (= this (:handler m)) "")))
+(comment
+  (io/resource "compiled-apps/DFM-InsP-v0.5.zip"))
 
 (def routes
-  ["/" [["gauges/" (->ResourcesMaybe {:prefix "gauges/"})]
-        ["DFM-InsP/" (->Files {:dir "DFM-InsP"})]
-        #_["gauges/" (->Files {:dir "Gauges/resources/gauges"})]]])
+  ["/" {"gauges/"         (bring/resources {:prefix "gauges/"})
+        ;; "DFM-InsP/"       (bring/files {:dir "DFM-InsP"})
+        "dynamic-repo-v2" #'do-dynamic-repo-v2
+        "repo/"           {[:token "/Apps.json"] (bidi/tag #'do-token-repo :apps-json)
+                           [:token ".zip"] (bidi/tag #'do-dynamic-repo-zip :zip)}
+        "cas"             (bidi/tag #'do-cas :cas)}])
+
+(def app
+  (-> (bring/make-handler routes)
+      (ring-params/wrap-params)))
+
+(comment
+  
+  (for [ma (string/split-lines (slurp (io/resource "compiled-apps/manifest.txt")))]
+    [(io/resource (str "compiled-apps/" ma ".lua"))
+     (io/resource (str "compiled-apps/" ma ".lc") )
+     (io/resource (str "compiled-apps/" ma) )]))
 
 
-
-
-
-#_(bidi/match-route routes "/gauge/bink")
-
-
-
-(def app (-> (bring/make-handler routes)
-             (ring-params/wrap-params)))
-#_(System/getProperty "java.class.path")
-
-
-;; /gauge/X -> Gauges/resources/X
-;; 
+(comment
+  (bidi/match-route routes "/repo/GTH47HRF/Apps.json")
+  (bidi/match-route routes "/repo/GTH47HRF.zip")
+  (bidi/path-for routes :repo :id "F"))
 
 (defn start-dev
   []
@@ -479,9 +454,3 @@
 
 (comment
   (start-dev))
-
-
-
-
-
-

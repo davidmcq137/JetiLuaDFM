@@ -38,7 +38,7 @@
   (when-let [st (rum/react modal-state)]
     [:div.modal
      [:div.modal-content
-      [:span.close {:on-click #(reset! modal-state nil)} "×"]
+      [:span.close {:on-click #(reset! modal-state nil)} "\u00d7"]
       (case st
         :repo-request (let [res (rum/react apps-request-result)
                             repo_url (some-> res (aget "repo_url"))
