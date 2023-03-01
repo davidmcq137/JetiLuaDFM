@@ -40,11 +40,33 @@ jobs:
       - name: Build server jar
         shell: bash
         run: |
-          ./bb clojure -M -e "(user/build-uberjar-and-exit)"
-          
+          ./bb clojure -M -e '(user/build-uberjar-and-exit "dist.jar")'
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: server-jar
-          path: ffff.jar
+          path: dist.jar
+      - name: Set up heroku credentials
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_EMAIL: ${{ secrets.HEROKU_EMAIL }}
+        run: |
+          cat > ~/.netrc <<EOF
+            machine api.heroku.com
+              login $HEROKU_EMAIL
+              password $HEROKU_API_KEY
+            machine git.heroku.com
+              login $HEROKU_EMAIL
+              password $HEROKU_API_KEY
+          EOF
+      - name: Install heroku java plugin
+        shell: bash
+        run: |
+          heroku plugins:install java
+      - name: Heroku deploy
+        shell: bash
+        run: |
+          heroku deploy:jar dist.jar --app enigmatic-ridge-40555
+
+          
 

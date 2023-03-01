@@ -58,7 +58,7 @@
              (run! io/delete-file))
     (io/make-parents (io/file cls "whatever"))))
 
-(defn jar []
+(defn jar [jarname]
   (let [exclusions [#"\.DS_Store"
                     #".*\.cljs"
                     #"cljsjs/.*"
@@ -70,12 +70,13 @@
                                'thheller/shadow-cljs
                                'uberdeps/uberdeps))]
     (binding [uberdeps/level :error]
-      (uberdeps/package deps "ffff.jar"
+      (uberdeps/package deps
+                        jarname
                         {:aliases    #{:uberjar}
                          :exclusions exclusions
                          :main-class "drs.main"}))))
 
-(defn uberjar []
+(defn uberjar [jarname]
   (clean)
   (println "Compile clj...")
   (compile 'drs.main)
@@ -83,10 +84,10 @@
   (println "Compile cljs...")
   (release-cljs :gauge)
   (println "Jar...")
-  (jar))
+  (jar jarname))
 
-(defn build-uberjar-and-exit []
-  (uberjar)
-  (println "Finished")
+(defn build-uberjar-and-exit [jarname]
+  (uberjar jarname)
+  (println "Finished building" jarname)
   (System/exit 0))
 

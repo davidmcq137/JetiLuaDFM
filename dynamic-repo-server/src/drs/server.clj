@@ -409,7 +409,9 @@
     (do-repo t)
     {:status 400 :body "No token?"}))
 
-
+(defn do-info
+  [req]
+  {:status 200 :body "This is my info handler."})
 
 
 
@@ -421,8 +423,9 @@
         ;; "DFM-InsP/"       (bring/files {:dir "DFM-InsP"})
         "dynamic-repo-v2" #'do-dynamic-repo-v2
         "repo/"           {[:token "/Apps.json"] (bidi/tag #'do-token-repo :apps-json)
-                           [:token ".zip"] (bidi/tag #'do-dynamic-repo-zip :zip)}
-        "cas"             (bidi/tag #'do-cas :cas)}])
+                           [:token ".zip"]       (bidi/tag #'do-dynamic-repo-zip :zip)}
+        "cas"             (bidi/tag #'do-cas :cas)
+        "info"            #'do-info}])
 
 (def app
   (-> (bring/make-handler routes)
