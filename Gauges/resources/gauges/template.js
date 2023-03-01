@@ -2711,7 +2711,7 @@ function setupWidgets(){
 	    {key: "labelColor", label: "Font color (label)", type: "color"},
 	    {key: "labelBoxColor", label: "Back box color (label)", type: "color"},	    
 	    {key: "labelPosX", label: "Label Position L-R", type: "slider", props: {min: -100, max: 100}},
-	    {key: "labelPosY", label: "Label Position U-D", type: "slider", props: {min: -100, max: 100}},
+	    {key: "labelPosY", label: "Label Position U-D", type: "slider", props: {min: -200, max: 200}},
 	    labelFont,
 	    {key: "arcWidth", label: "Arc Width % of radius", type: "slider", props: {min: 0, max: 50}},
             arc_start,
