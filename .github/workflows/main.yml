@@ -68,7 +68,7 @@ jobs:
       - name: Heroku deploy
         shell: bash
         run: |
-          heroku deploy:jar dist.jar --app enigmatic-ridge-40555
+          heroku deploy:jar dist.jar --app jetiluastaging
 
           
 
