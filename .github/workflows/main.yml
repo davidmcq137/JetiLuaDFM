@@ -4,7 +4,7 @@ on:
     branches: [master, beta]
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v2
@@ -19,31 +19,56 @@ jobs:
           set -ex
           cd lua_jeti
           make -j4 linux
-      - name: Install dependencies
+      - name: apt deps
         shell: bash
         run: "sudo apt-get install -y jq sox"
-      - name: Build LC
+      - name: Build Lua apps
         id: lc_build
         shell: bash
-        run: "lua_jeti/src/lua build/script.lua"
-      - name: Upload release asset
-        if: ${{ github.ref == 'refs/heads/master' }}
-        id: upload-release-asset 
-        uses: softprops/action-gh-release@v1
+        run: |
+          set -ex
+          lua_jeti/src/lua build/script.lua
+      - name: Install bb
+        shell: bash
+        run: |
+          set -e
+          curl -L -o bb.tar.gz "https://github.com/babashka/babashka/releases/download/v1.2.174/babashka-1.2.174-linux-amd64-static.tar.gz"
+          tar -xvzf bb.tar.gz
+          chmod +x bb
+      - name: npm deps
+        shell: bash
+        run: |
+          npm ci
+      - name: Build server jar
+        shell: bash
+        run: |
+          ./bb clojure -M -e '(user/build-uberjar-and-exit "dist.jar")'
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: release-v${{ steps.lc_build.outputs.dfm_maps_version }}
-          name: "DFM-Maps Version ${{ steps.lc_build.outputs.dfm_maps_version }}"
-          files: |
-            release-output/*
-      - name: Upload dev asset
-        if: ${{ github.ref == 'refs/heads/beta' }}
-        id: upload-dev-asset 
-        uses: softprops/action-gh-release@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          prerelease: true
-          tag_name: prerelease-v${{ steps.lc_build.outputs.dfm_maps_version }}-${{ github.run_id }}
-          name: "DFM-Maps Pre-Release ${{ steps.lc_build.outputs.dfm_maps_version }} #${{ github.run_id }}"
-          files: |
-            release-output/*
+          name: server-jar
+          path: dist.jar
+      - name: Set up heroku credentials
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_EMAIL: ${{ secrets.HEROKU_EMAIL }}
+        run: |
+          cat > ~/.netrc <<EOF
+            machine api.heroku.com
+              login $HEROKU_EMAIL
+              password $HEROKU_API_KEY
+            machine git.heroku.com
+              login $HEROKU_EMAIL
+              password $HEROKU_API_KEY
+          EOF
+      - name: Install heroku java plugin
+        shell: bash
+        run: |
+          heroku plugins:install java
+      - name: Heroku deploy
+        shell: bash
+        run: |
+          heroku deploy:jar dist.jar --app jetiluastaging
+
+          
+

@@ -14,7 +14,7 @@
 
 (defonce db (atom {}))
 
-(def config-json (js->clj (js/JSON.parse (rc/inline "config.json"))))
+(def config-json (js->clj (js/JSON.parse (rc/inline "gauges/config.json"))))
 
 (def draw-scale 2)
 
@@ -695,11 +695,7 @@
       (.then (fn [filesets]
                (clj->js
                 {:yoururl js/window.location.origin
-                 :dynamic-files {"Gauges"
-                                 (into [{:prefix "Apps/"
-                                         :zip-url "https://github.com/davidmcq137/JetiLuaDFM/releases/download/prerelease-v8.12-4080161972/DFM-InsP-v0.4.zip"}]
-                                       cat
-                                       filesets)}})))))
+                 :dynamic-files {"Gauges" (into [{:app "DFM-InsP"}] cat filesets)}})))))
 
 
 (def localstorage-db-key "gauges-db")
@@ -1018,7 +1014,7 @@
       [:div.example-panels
        (for [[name {:strs [file]}] (get config-json "examples")]
          [:div {:key (str name)}
-          [:input {:type "button" :value name  :onClick #(reload-json! name (str "/" file))}]])]
+          [:input {:type "button" :value name  :onClick #(reload-json! name file)}]])]
 
       [:h4 "My panels"]
       (panel-list* selected-panel panels)
@@ -1062,11 +1058,6 @@
      
      (gauge-list selected-panel gauges)]))
 
-
-
-
-
-
 (defn ^:def/before-load stop
   []
   (remove-watch db save-watch-key))
@@ -1074,9 +1065,6 @@
 (defn ^:dev/after-load init
   []
   (let [el (.getElementById js/document "root")]
-    #_(js/console.log (clj->js gauge-editor-map))
-    
-    
     
     (add-watch db save-watch-key
                (-> (fn [_ _ _ new]
@@ -1087,5 +1075,5 @@
     
     (-> (fn []
           (or (load-from-localstorage!)
-              (reload-json! "Turbine" "/Turbine.json")))
+              (reload-json! "Turbine" "Turbine.json")))
         (js/setTimeout 0))))

@@ -1,0 +1,11 @@
+{:source-paths ["Gauges/src"
+                "Gauges/resources"]
+ :jvm-opts ["-Xmx1184M"]
+ :dependencies []
+ :nrepl false
+ :js-options {:js-package-dirs ["node_modules"]}
+ :http {:port 9899}
+ :builds {:gauge {:target :browser
+                  :output-dir "Gauges/resources/gauges/js"
+                  :modules {:main {:init-fn gauge/init}}
+                  :release {:compiler-options {:optimizations :advanced}}}}}

@@ -1,19 +1,13 @@
-local function json_array_scalars(xs)
-   str = "["
-   for k,v in pairs(xs) do
-      str = str .. tostring(v)
-      if k == #xs then str = str .. "]"
-      else str = str .. ','
-      end
-   end
-   return str
+local output_dir = "release-output/compiled-apps"
+
+local function os_execute(cmd)
+   io.stderr:write(string.format("[ %s exec] %s\n", arg[0], cmd))
+   return os.execute(cmd)
 end
 
 local function resample_wav(path)
-   assert(
-      os.execute(string.format("sox %s -r 16000 -c 1 %s.out.wav", path, path)),
-      "sox failure on " .. path)
-   assert(os.execute(string.format("mv %s.out.wav %s", path, path)))
+   assert(os_execute(string.format("sox %s -r 16000 -c 1 %s/%s", path, output_dir, path)),
+          "sox failure on " .. path)
 end
 
 local function listing(path)
@@ -37,9 +31,8 @@ local app_settings = {
 }
 
 local function make_lc(lua_source, lc_out, no_strip)
-
    assert(
-      os.execute(
+      os_execute(
          string.format('%sc %s -o %s %s',
                        arg[-1],
 		       no_strip,
@@ -48,6 +41,8 @@ local function make_lc(lua_source, lc_out, no_strip)
 end
 
 local function build_app(app)
+   os_execute(string.format("cp -r %s %s/%s", app, output_dir, app))
+
    -- Find and load the lua source
    local lua_source = string.format('%s.lua', app)
    local app_chunk, err = loadfile(lua_source)
@@ -70,23 +65,20 @@ local function build_app(app)
    end
    if not (app_settings[app] and app_settings[app].no_lc) then
      lua_artifact = string.format('%s.lc', app)
-     make_lc(lua_source, lua_artifact, ns)
+     make_lc(lua_source, string.format("%s/%s", output_dir, lua_artifact), ns)
    else
      lua_artifact = string.format('%s.lua', app)
-     if lua_source ~= lua_artifact then
-       assert(os.execute(string.format('cp %s %s', lua_source, lua_artifact)))
-     end
+     assert(os_execute(string.format('cp %s %s/%s', lua_source, output_dir, lua_artifact)))
    end
    
    -- Compile secondary modules if there are any (they remain in app dir)
    local modules = listing(app)
    for _, f in ipairs(modules) do
       v = string.format('%s/%s', app, f)
-      if v:sub(-4) == ".lua" and v ~= lua_source then
-         make_lc(v, string.format("%s.lc", v:sub(1, -5)), ns)
+      if v:sub(-4) == ".lua" and f ~= lua_source then
+         make_lc(v, string.format("%s/%s.lc", output_dir,v:sub(1, -5)), ns)
       end
    end
-
 
    -- Run the chunk to get the returned table 
    local info = app_chunk()
@@ -94,46 +86,91 @@ local function build_app(app)
    -- Add the version and release date to App.json "in place"
    local json_filename = string.format('%s/App.json', app)
    assert(
-      os.execute(
+      os_execute(
          string.format(
-            ">%s.out jq '. + {version: %q, releaseDate: %q}' %s && mv %s.out %s",
-            json_filename,
+            "jq '. + {version: %q, releaseDate: %q}' %s >%s/%s",
             info.version,
             os.date("%a %e %b %Y %H:%M:%S %z"),
             json_filename,
-            json_filename,
+            output_dir,
             json_filename)))
 
    -- Produce the zip
-   output_dir = "release-output"
-   os.execute("mkdir -p release-output")
-   zip_name = string.format('%s/%s-v%s.zip', output_dir, app, info.version)
+   os_execute(string.format("mkdir -p %s", output_dir))
+   zip_name = string.format('%s-v%s.zip', app, info.version)
    assert(
-      os.execute(
+      os_execute(
          string.format(
-            'zip -r %s %s %s %s',
+            'cd %s && zip -r %s %s %s %s',
+            output_dir,
+            --&&
             zip_name,
             lua_artifact,
             json_filename,
             app)))
-   return info
+
+   return {
+      app = app,
+      version = info.version,
+      name = info.name,
+      author = info.author,
+      zip = zip_name
+   }
+end
+
+local function rpad(s, l, c)
+  return s .. string.rep(c or ' ', l - #s)
+end
+
+local function mkdirs(xs)
+   local dirs = {}
+   for k, v in ipairs(xs) do
+      dirs[v:match('(.*/)')] = true
+   end
+   assert(not dirs[nil], "unparseable path")
+   for k, _ in pairs(dirs) do
+      assert(os_execute(string.format("mkdir -p %s/%s", output_dir, k)))
+   end
 end
 
 local function main()
+   assert(os_execute(string.format("rm -rvf %s", output_dir)))
+   assert(os_execute(string.format("mkdir -p %s", output_dir)))
+
    -- Find and resample all the wav files 
-   xs = listing("DFM-Maps/Lang/*/Audio/*.wav") or listing("DFM-Maps/Audio/*.wav") 
+   local xs = listing("DFM-Maps/Lang/*/Audio/*.wav") or listing("DFM-Maps/Audio/*.wav") 
+
+   mkdirs(xs)
+
    for k, v in ipairs(xs) do
       resample_wav(v)
    end
+   
+   local rs = {}
+   local go = function(a) 
+      table.insert(rs, assert(build_app(a)))
+   end
 
-   dfm_maps_info = assert(build_app('DFM-Maps'))
-   -- Use github's hacky in-band signaling to pass the version string to the release upload step
-   print("::set-output name=dfm_maps_version::" .. dfm_maps_info.version)
-   
-   assert(build_app('DFM-Amix'))
-   assert(build_app('DFM-GPS'))
-   assert(build_app('DFM-InsP'))      
-   
+   go('DFM-Maps')
+   go('DFM-Amix')
+   go('DFM-GPS')
+   go('DFM-InsP')
+
+   io.stderr:write("===========================================================================\n")
+   for _, r in ipairs(rs) do
+      io.stderr:write(string.format("%s%s%s\n",
+                                    rpad(r.name, 20),
+                                    rpad(tostring(r.version), 8),
+                                    r.zip))
+   end
+
+   -----------
+   local mf = io.open(string.format("%s/manifest.txt", output_dir), "w")
+   for _, r in ipairs(rs) do
+      mf:write(string.format("%s\n", r.zip))
+   end
+   mf:close()
+
 end
 
 main()
