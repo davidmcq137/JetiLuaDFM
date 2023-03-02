@@ -23,6 +23,8 @@
    Version 0.61 02/24/23 - Fixed crash in sequencer on "*" ... added "+". changed window start defaults
    Version 0.62 02/24/23 - Added background color to settings
    Version 0.63 02/25/23 - Added widget color to settings
+   Version 0.64 02/26/23 - Added sqrt to lua expr editor, added glideslope extension
+   Version 0.65 02/27/23 - added gslope ext func, protected calls to dir() with bad paths
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -31,7 +33,7 @@
 
 
 
-local InsPVersion = 0.63
+local InsPVersion = 0.66
 
 local LE
 
@@ -64,6 +66,19 @@ InsP.settings.switchInfo = {}
 local dataSources = {"Sensor", "Control", "Lua"} --, "Extension"}
 local switches = {}
 local stateSw = {}
+
+local units = {}
+units.typeList =  { temp={"°C","°F"}, dist={"m", "ft",    "km",  "mi.",    "yd."},
+		    speed= {"m/s", "ft./s", "km/h", "kt.",   "mph"}
+		  }
+units.toNative = {temp = {},
+		  dist = {m=1,   ft=0.3048,  km=1000,  ["mi."] = 1609.34 , ["yd."] = 0.9144},
+		  speed = {["m/s"]=1,["ft./s"]=0.3048,["km/h"] = 0.2778,["kt."] = 0.51444,["yd."] = 0.4407 }
+		 }
+
+units.type = {["°C"]="temp", ["°F"]="temp",
+   m="dist", ft="dist", km="dist", ["mi."]="dist", ["yd."]="dist",
+   ["m/s"]="speed", ["ft./s"]="speed", ["km/h"]="speed", ["kt."]="speed", mph="s"}
 
 local edit = {}
 edit.ops = {"Center", "Value", "Label", "Text", "MMLbl", "TicLbl", "TicSpc", "MinMx", "Tape", "Chart"}
@@ -99,7 +114,7 @@ local lua = {}
 --lua.chunk = {}
 lua.env = {string=string, math=math, table=table, print=print,
 	   tonumber=tonumber, tostring=tostring, pairs=pairs,
-	   require=require, ipairs=ipairs, type=type,
+	   require=require, ipairs=ipairs, type=type, abs=math.abs, sqrt=math.sqrt,
 	   getSensorByID=(function(a1,a2) return system.getSensorByID(a1,a2) end)
 }
 
@@ -208,8 +223,46 @@ end
 
 local function getSensorByID(SeId, SePa)
    if not SeId or not SePa then return nil end
+   --print("SeId, SePa", SeId, SePa)
    if SeId ~= 0 then
-      return system.getSensorByID(SeId, SePa)
+      local sensor
+      sensor = system.getSensorByID(SeId, SePa)
+
+      if string.byte(string.sub(sensor.unit, 1, 1)) == 176 then
+	 sensor.unit = string.char(194) .. sensor.unit
+      end
+
+      print("sensor in",
+	    sensor.label, sensor.unit, sensor.value, units.type[sensor.unit])
+
+      local function convertUnits(sensor)
+	 local value = sensor.value
+	 local typ = units.type[sensor.unit]      
+	 if typ then
+	    for k,v in pairs(units.typeList) do
+	       if k == "temp" then -- special case temp since it's not a simple propo
+		  if sensor.unit ~= InsP.settings.units[k] then
+		     if sensor.unit == "°F" then -- convert to °C
+			value = 5/9 * (sensor.value - 32)
+		     else  -- convert to °F
+			value = 9/5 * sensor.value + 32
+		     end
+		  end
+	       elseif k == typ then
+		  --print("k,v", k,v[1], sensor.unit, units.toNative[k][sensor.unit])
+		  if sensor.unit ~= InsP.settings.units[k] then
+		     value = sensor.value * units.toNative[k][sensor.unit]
+		     value = sensor.value / units.toNative[k][InsP.settings.units[k]]
+		  end
+		  print(k, sensor.unit, InsP.settings.units[k], units.toNative[k][sensor.unit], units.toNative[k][InsP.settings.units[k]], value)
+	       end
+	    end
+	 end
+	 return value
+      end
+
+      local foo = convertUnits(sensor)
+      print("sensor out, sensor.value", foo, sensor.value)
    end
    if SePa > 0 then -- txTel named
       local sensor={}
@@ -473,8 +526,11 @@ local function evaluateLua(es, luastring, val)
    -- add in the external function modules
    
    for i,v in ipairs(lua.funcext) do
-      varenv[v.name] = v.func
-      --print(i, v.idx, v.name, v.func)
+      if string.sub(v.name, -1) == "(" then -- func names have "foo(" for convenience
+	 varenv[string.sub(v.name, 1, -2)] = v.func 
+      else
+	 varenv[v.name] = v.func
+      end
    end
 
    -- and finally the special "var" and "ptr" variables
@@ -1432,6 +1488,42 @@ local function initForm(sf)
 					    (function(x) return changedSwitch(x, "rotatePanels") end))
 
       form.addRow(2)
+      form.addLabel({label="Temperature units", width=250})
+      local isel = 0
+      for i,u in ipairs(units.typeList.temp) do
+	 if u == InsP.settings.units.temp then
+	    isel = i
+	    break
+	 end
+      end
+      form.addSelectbox(units.typeList.temp, isel, true,
+			(function(val) InsP.settings.units.temp = units.typeList.temp[val] end), {width=60})
+			
+      form.addRow(2)
+      form.addLabel({label="Distance units", width=250})
+      local isel = 0
+      for i,u in ipairs(units.typeList.dist) do
+	 if u == InsP.settings.units.dist then
+	    isel = i
+	    break
+	 end
+      end
+      form.addSelectbox(units.typeList.dist, isel, true,
+			(function(val) InsP.settings.units.dist = units.typeList.dist[val] end), {width=60})
+
+      form.addRow(2)
+      form.addLabel({label="Speed units", width=250})
+      local isel = 0
+      for i,u in ipairs(units.typeList.speed) do
+	 if u == InsP.settings.units.speed then
+	    isel = i
+	    break
+	 end
+      end
+      form.addSelectbox(units.typeList.speed, isel, true,
+			(function(val) InsP.settings.units.speed = units.typeList.speed[val] end), {width=60})
+
+      form.addRow(2)
       form.addLabel({label="Widget Colors >>", width=220})
       form.addLink((function()
 	       form.reinit(formN.widgetcolors)
@@ -1526,6 +1618,8 @@ local function initForm(sf)
       if widget.dataSrc == "Sensor" then
 	 local id = widget.SeId
 	 local pa = widget.SePa
+	 local un = widget.SeUn
+	 
 	 local isel = 1
 	 for k, _ in ipairs(InsP.sensorLalist) do
 	    if id == InsP.sensorIdlist[k] and pa == InsP.sensorPalist[k] then
@@ -1539,6 +1633,7 @@ local function initForm(sf)
 			   (function(x) return changedSensor(x, ig, ip) end),
 			   {width=240, alignRight=true})
       elseif widget.dataSrc == "Control" then
+	 widget.SeUn = ""
 	 form.addRow(2)
 	 form.addLabel({label="Control", width=80})
 	 
@@ -1559,6 +1654,7 @@ local function initForm(sf)
 			(function(x) return changedMultiplier(x, widget) end) )
 	 
       elseif widget.dataSrc == "Lua" then
+	 widget.SeUn = ""
 	 form.addRow(1)
 	 --form.addLabel({label="Edit lua >>", width=220})
 	 form.addLink((function()
@@ -1566,9 +1662,14 @@ local function initForm(sf)
 		  form.waitForRelease()
 		      end), {label="Edit Lua>>"})
       end
+
+      --form.addRow(2)
+      --form.addLabel({label="Sensor units " .. widget.SeUn .. " Widget units, width=140})
+      --form.addSelectbox()
       
       form.addRow(2)
       form.addLabel({label="Lua f(x) extension", width=140})
+	 
       local ttbi = 0
       local ttb = {"..."}
       for i,v in ipairs(lua.modext) do
@@ -2212,7 +2313,9 @@ local function loop()
    -- throttle the update rate of tele sensors by moving the upper loop index up and
    -- down to determine how many updates are done per Hollywood call
 
-   local doPerLoop = 5
+   -- turned off for now pending making lua variables for all sensors
+   
+   local doPerLoop = 0
    for _ = 1, doPerLoop do -- 
       if lua.index == 1 then
 	 --print("#s. time (ms)",#InsP.sensorLalist,  system.getTimeCounter() - lastindex)
@@ -2232,6 +2335,7 @@ local function loop()
 	 lua.completePass = true
       end
    end
+
    loopCPU = loopCPU + (system.getCPU() - loopCPU) / 10
 end
 
@@ -2351,7 +2455,7 @@ local function printForm(ww0,hh0,tWin)
 
    lcd.setColor(255,255,255)
    if not ip or #ip == 0 then
-      drawTextCenter(160, 60, "No instrument panel json defined", FONT_BOLD)
+      drawTextCenter(160, 60, "Window " .. tWin .. ": No inst panel json defined", FONT_BOLD)
       return
    end
    
@@ -3848,7 +3952,7 @@ local function init()
    local mn
    local file
 
-   backColors = {
+   local backColors = {
       {colorname="grey",        red=128, green=128, blue=128},
       {colorname="lavender",    red=230, green=230, blue=250},
       {colorname="lightgrey",   red=211, green=211, blue=211},
@@ -3857,7 +3961,7 @@ local function init()
       {colorname="silver",      red=192, green=192, blue=192}
    }
    
-   widgetColors = {
+   local widgetColors = {
       {colorname="aqua",  red=0,   green=255, blue=255},
       {colorname="black", red=0,   green=0,   blue=0},
       {colorname="blue",  red=0,   green=0,   blue=255},
@@ -3882,7 +3986,7 @@ local function init()
 
    file = io.readall(ff)
    if file then
-      if string.find(file, "null") then print("Warning: null in JSON") end
+      if string.find(file, "null") then print("DFM-InsP: Warning - null in JSON") end
    end
    
    if file then
@@ -3917,7 +4021,7 @@ local function init()
 	 jsnVersion = decoded.jsnVersion
       end
 
-      print("DFM-InsP reading jsnVersion "..jsnVersion)
+      --print("DFM-InsP reading jsnVersion "..jsnVersion)
 
       if decoded.stateSw then
 	 stateSw = decoded.stateSw
@@ -3942,7 +4046,7 @@ local function init()
       initPanels(InsP)
    end
 
-   print("InsP.colors", InsP.colors)
+   --print("InsP.colors", InsP.colors)
    
    if not InsP.colors then
       InsP.colors = {}
@@ -3968,6 +4072,19 @@ local function init()
    end
 
    if not InsP.settings.selectedPanel then InsP.settings.selectedPanel = 1 end
+
+   print("InsP.settings.units", InsP.settings.units)
+   
+   if not InsP.settings.units  then
+      InsP.settings.units  = {}
+      for k,v in pairs(units.typeList) do
+	 print("#", k, v[1])
+	 InsP.settings.units[k] = v[1]
+      end
+      --InsP.settings.units.temp  = units.temp[1] 
+      --InsP.settings.units.dist  = units.dist[1]
+      --InsP.settings.units.speed = units.speed[1]
+   end
    
    -- Populate a table with all the panel json files
    -- in the Panels/ directory
@@ -3978,31 +4095,38 @@ local function init()
    local dd, fn, ext
    local newerPanels = {}
    local path = prefix() .. pDir
-   for name, _, _ in dir(path) do
-      dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
-      if fn and ext then
-	 if string.lower(ext) == "json" then
-	    ff = path .. "/" .. fn .. "." .. ext
-	    file = io.readall(ff)
-	    if file then
-	       local dc = json.decode(file)
-	       local ts = dc.timestamp
-	       if ts then
-		  for i in ipairs(InsP.panels) do
-		     if InsP.panelImages[i].instImage == fn then
-			if ts > (InsP.panelImages[i].timestamp or "0") then
-			   table.insert(newerPanels, {fn = fn, ts = ts})
+   if dir(path) then
+      --print("dir(path) true for Panels")
+      for name, _, _ in dir(path) do
+	 dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
+	 if fn and ext then
+	    if string.lower(ext) == "json" then
+	       ff = path .. "/" .. fn .. "." .. ext
+	       file = io.readall(ff)
+	       if file then
+		  local dc = json.decode(file)
+		  local ts = dc.timestamp
+		  if ts then
+		     for i in ipairs(InsP.panels) do
+			if InsP.panelImages[i].instImage == fn then
+			   if ts > (InsP.panelImages[i].timestamp or "0") then
+			      table.insert(newerPanels, {fn = fn, ts = ts})
+			   end
+			   break
 			end
-			break
 		     end
 		  end
+		  if not InsP.settings.panels then InsP.settings.panels = {} end
+		  table.insert(InsP.settings.panels, fn)
 	       end
-	       if not InsP.settings.panels then InsP.settings.panels = {} end
-	       table.insert(InsP.settings.panels, fn)
 	    end
 	 end
       end
+   else
+      system.messageBox("DFM-InsP: No panels directory")
+      print("DFM-InsP: bad path to dir - "..path)      
    end
+   
 
    if #newerPanels > 0 then
       system.registerForm(2, 0, "Newer Panels", (function(x) return initNewer(x, newerPanels) end))
@@ -4016,21 +4140,25 @@ local function init()
    InsP.settings.backgrounds = {"..."}
    --local dd, fn, ext
    path = prefix() .. bDir
-   for name, _, _ in dir(path) do
-      dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
-      if fn and ext then
-	 if string.lower(ext) == "png" then
-	    ff = path .. "/" .. fn .. "." .. ext
-	    file = io.open(ff)
-	    if file then
-	       if not InsP.settings.backgrounds then InsP.settings.backgrounds = {} end
-	       table.insert(InsP.settings.backgrounds, fn)
-	       io.close(file)
+   if dir(path) then
+      for name, _, _ in dir(path) do
+	 dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
+	 if fn and ext then
+	    if string.lower(ext) == "png" then
+	       ff = path .. "/" .. fn .. "." .. ext
+	       file = io.open(ff)
+	       if file then
+		  if not InsP.settings.backgrounds then InsP.settings.backgrounds = {} end
+		  table.insert(InsP.settings.backgrounds, fn)
+		  io.close(file)
+	       end
 	    end
 	 end
       end
+   else
+      print("DFM-InsP: bad path to dir - "..path)      
    end
-
+   
    table.sort(InsP.settings.backgrounds)
 
    local lostSw = ""
@@ -4094,26 +4222,32 @@ local function init()
    local path = prefix() .. fDir
    lua.funcmods = {}
    local ifunc = 0
-   for name, _, _ in dir(path) do
-      dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
-      if fn and ext then
-	 if string.lower(ext) == "lua" then
-	    ff = path .. "/" .. fn .. "." .. ext
-	    file = io.open(ff)
-	    if file then
-	       io.close(file)
-	       ifunc = ifunc + 1
-	       fr = fmDir.."/"..fn
-	       lua.funcmods[ifunc] = require(fr)
+   if dir(path) then
+      for name, _, _ in dir(path) do
+	 dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
+	 if fn and ext then
+	    if string.lower(ext) == "lua" then
+	       ff = path .. "/" .. fn .. "." .. ext
+	       file = io.open(ff)
+	       if file then
+		  io.close(file)
+		  ifunc = ifunc + 1
+		  fr = fmDir.."/"..fn
+		  lua.funcmods[ifunc] = require(fr)
+	       end
 	    end
 	 end
       end
+   else
+      print("DFM-InsP: bad path to dir - "..path)
    end
+   
 
    lua.funcext = {}
    for i, m in ipairs(lua.funcmods) do
       for k,v in pairs(m) do
-	 table.insert(lua.funcext, {idx=i, name=k, func=v})
+	 --print("i, k, v", i, k, v)
+	 table.insert(lua.funcext, {idx=i, name=k.."(", func=v})
       end
    end
 
@@ -4124,22 +4258,29 @@ local function init()
    lua.extmods = {}
    local modname = {}
    local imod = 0
-   for name, _, _ in dir(path) do
-      dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
-      if fn and ext then
-	 if string.lower(ext) == "lua" then
-	    ff = path .. "/" .. fn .. "." .. ext
-	    file = io.open(ff)
-	    if file then
-	       io.close(file)
-	       imod = imod + 1
-	       fr = xmDir.."/"..fn
-	       lua.extmods[imod] = require(fr)
-	       modname[imod] = fn
+
+   if dir(path) then
+      for name, _, _ in dir(path) do
+	 dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
+	 if fn and ext then
+	    if string.lower(ext) == "lua" then
+	       ff = path .. "/" .. fn .. "." .. ext
+	       file = io.open(ff)
+	       if file then
+		  io.close(file)
+		  imod = imod + 1
+		  fr = xmDir.."/"..fn
+		  lua.extmods[imod] = require(fr)
+		  --print("modname[imod]", fn)
+		  modname[imod] = fn
+	       end
 	    end
 	 end
       end
+   else
+      print("DFM-InsP: bad path to dir - "..path)      
    end
+   
 
    lua.modext = {}
    for i, m in ipairs(lua.extmods) do
@@ -4155,7 +4296,16 @@ local function init()
    print(string.format("DFM-InsP: %d extension modules read with %d functions",
 		       #lua.extmods, #lua.modext))
 
+   print("DFM-InsP: Version " .. InsPVersion)
+   
    --print(system.getTime())
+
+   foo= { ["°C"]="degc", ["°F"] = "degF" }
+   for k,v in pairs(foo) do
+      print(string.byte(string.sub(k, 1,1)), string.byte(string.sub(k, 2,2)), string.byte(string.sub(k, 3, 3)))
+      
+   end
+   
 end
 
 return {init=init, loop=loop, author="DFM", version=InsPVersion, name="DFM-InsP", destroy=destroy}

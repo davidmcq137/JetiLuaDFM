@@ -194,6 +194,7 @@ function Ann.init(r,rN)
    result = r
    resultName = rN
 
+   --print("Ann.init")
    annTypes  = {lang.prc, lang.aut, lang.edg}
    edgeTypes = {lang.ris, lang.fal, lang.risx, lang.falx}
    buzzTypes = {lang.non, lang.lp, lang.sp, lang.sp2, lang.sp3}

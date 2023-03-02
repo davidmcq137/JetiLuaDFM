@@ -193,6 +193,16 @@
      "luaExp":"P6(100)",          
      "label": "Capacity 2",
      "unit": "mah"
+    },
+    {"id":139,
+     "param":7,
+     "decimals":1,
+     "type":1,
+     "sensorName":"",
+     "luaExp":"P6(100)",          
+     "label": "Distance",
+     "unit": "ft"
     }
+    
 
 ]

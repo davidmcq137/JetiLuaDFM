@@ -524,7 +524,8 @@ local function initForm(formID)
      form.addRow(1)
      form.addLink((function() form.reinit(5); form.waitForRelease() end),
 	{label=lang.GPSPt})
-     
+
+     print("initForm", V_Ann)
      if V_Ann then
 	form.addRow(1)
 	form.addLink((function() form.reinit(100); form.waitForRelease() end),
@@ -1323,11 +1324,13 @@ local function init()
    system.getSensors()
 
    if luaCtlMax > 4 then
+      --print("requiring V-Ann")
       V_Ann = require "V-Ann"
+      --print("returned", V_Ann)
       V_Ann.init(result, resultName)
    end
 
-   V_Ann = nil
+   V_Ann = nil -- I guess this is to make sure the anns don't work
 
    collectgarbage()
    

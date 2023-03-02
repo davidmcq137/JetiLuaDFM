@@ -2686,7 +2686,7 @@ function setupWidgets(){
         height = {key: "height", label: "Height", type: "slider", props: {min: 10, max: 160}},
         majdivs = {key: "majdivs", label: "Major Divisions", type: "plusminus"},
         subdivs = {key: "subdivs", label: "Sub divisions", type: "plusminus"},
-        arc_props = {min: -270, max: 270},
+        arc_props = {min: -360, max: 360},
         arc_start = {key: "start", label: "Arc start", type: "slider", props: arc_props},
         arc_end = {key: "end", label: "Arc end", type: "slider", props: arc_props},
         textFont = {key: "textFont", label: "Font size (text)", type: "fontsize"},
