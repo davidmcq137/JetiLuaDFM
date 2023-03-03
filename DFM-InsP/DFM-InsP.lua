@@ -25,6 +25,7 @@
    Version 0.63 02/25/23 - Added widget color to settings
    Version 0.64 02/26/23 - Added sqrt to lua expr editor, added glideslope extension
    Version 0.65 02/27/23 - added gslope ext func, protected calls to dir() with bad paths
+   Version 0.70 03/02/23 - added support for units: temperature, distance, speed
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -33,7 +34,7 @@
 
 
 
-local InsPVersion = 0.66
+local InsPVersion = 0.70
 
 local LE
 
@@ -68,17 +69,40 @@ local switches = {}
 local stateSw = {}
 
 local units = {}
-units.typeList =  { temp={"°C","°F"}, dist={"m", "ft",    "km",  "mi.",    "yd."},
-		    speed= {"m/s", "ft./s", "km/h", "kt.",   "mph"}
-		  }
-units.toNative = {temp = {},
-		  dist = {m=1,   ft=0.3048,  km=1000,  ["mi."] = 1609.34 , ["yd."] = 0.9144},
-		  speed = {["m/s"]=1,["ft./s"]=0.3048,["km/h"] = 0.2778,["kt."] = 0.51444,["yd."] = 0.4407 }
-		 }
 
-units.type = {["°C"]="temp", ["°F"]="temp",
+units.typeList =  {
+   temp   = {"°C","°F"},
+   dist={"m", "ft",    "km",  "mi.",    "yd."},
+   speed  = {"m/s", "ft./s", "km/h", "kmh", "kt.",   "mph"},
+   volume = {"ml", "l", "hl", "floz", "gal"},
+   flow   = {"ml/m", "l/m", "oz/m", "gpm"}
+}
+
+units.typeName = {
+   {dist="Distance"},
+   {flow="Flow Rate"},
+   {speed="Speed"},
+   {temp = "Temperature"},
+   {volume="Volume"}
+}
+
+units.toNative = {
+   temp = {["°C"]=0, ["°F"]=0}, -- these are special cased in the conversions
+   dist = {m=1,   ft=0.3048,  km=1000,  ["mi."] = 1609.34 , ["yd."] = 0.9144},
+   speed = {["m/s"]=1, ["ft./s"]=0.3048, ["km/h"] = 0.2778, kmh = 0.2778,
+      ["kt."] = 0.51444, ["yd."] = 0.4407 },
+   volume = {ml=1, l=1000, hl = 100000, floz=29.5735, gal=3785.41},
+   flow = {["ml/m"] = 1, ["l/m"] = 1000, ["oz/m"] = 29.5735, gpm=3785.41}
+}
+
+units.type = {
+   ["°C"]="temp", ["°F"]="temp",
    m="dist", ft="dist", km="dist", ["mi."]="dist", ["yd."]="dist",
-   ["m/s"]="speed", ["ft./s"]="speed", ["km/h"]="speed", ["kt."]="speed", mph="s"}
+   ["m/s"]="speed", ["ft./s"]="speed", ["km/h"]="speed", kmh = "speed", ["kt."]="speed", mph="s",
+   ml="volume", l = "volume", hl = "volume", floz="volume", gal="volume",
+   ["ml/m"]="flow", ["l/m"]="flow", ["oz/m"]="flow", gpm="flow"
+}
+
 
 local edit = {}
 edit.ops = {"Center", "Value", "Label", "Text", "MMLbl", "TicLbl", "TicSpc", "MinMx", "Tape", "Chart"}
@@ -133,7 +157,7 @@ local xmDir = "DFM-InsP/Extensions"
 
 local instImg1, instImg2
 local backImg1, backImg2
-local lastPanel1, lastPanel2
+local lastPanel1, lastPanel2 = 0, 0
 local dispWindow, dispWindowLast, dispSave = 0, 0, 0
 
 local savedRow = 1
@@ -153,12 +177,13 @@ local editWidgetType
 
 local formN = {main=1, settings=102, inputs=100, editpanel=103, editgauge=104,
 	       editlinks = 105, luavariables=108, resetall=101,
-	       editlua = 107, panels=106, editpanelsub=110, backcolors=111, widgetcolors=112}
+	       editlua = 107, panels=106, editpanelsub=110, backcolors=111, widgetcolors=112,
+	       units=113,colors=114}
 
 local formS = {[1]="main", [102]="settings", [100]="inputs", [103]="editpanel", [104]="editgauge",
    [105] = "editlinks", [108] = "luavariables", [101] = "resetall",
    [107] = "editlua", [106] = "panels", [110] = "editpanelsub", [111] = "backcolors",
-   [112] = "widgetcolors"}
+   [112] = "widgetcolors", [113] = "units", [114] = "colors"}
 
 local MAXSAMPLE = 160
 local modSample = 0
@@ -227,42 +252,48 @@ local function getSensorByID(SeId, SePa)
    if SeId ~= 0 then
       local sensor
       sensor = system.getSensorByID(SeId, SePa)
-
+      if not (sensor and sensor.value and sensor.unit) then return sensor end
+      
       if string.byte(string.sub(sensor.unit, 1, 1)) == 176 then
 	 sensor.unit = string.char(194) .. sensor.unit
       end
 
-      print("sensor in",
-	    sensor.label, sensor.unit, sensor.value, units.type[sensor.unit])
+      --print("sensor in",
+      --sensor.label, sensor.value, sensor.unit, units.type[sensor.unit])
 
       local function convertUnits(sensor)
-	 local value = sensor.value
 	 local typ = units.type[sensor.unit]      
 	 if typ then
 	    for k,v in pairs(units.typeList) do
-	       if k == "temp" then -- special case temp since it's not a simple propo
+	       -- special case temp since it's not a simple propo
+	       if k == "temp" and typ == "temp" then 
 		  if sensor.unit ~= InsP.settings.units[k] then
 		     if sensor.unit == "°F" then -- convert to °C
-			value = 5/9 * (sensor.value - 32)
+			sensor.value = 5/9 * (sensor.value - 32)
+			sensor.unit = "°C"
 		     else  -- convert to °F
-			value = 9/5 * sensor.value + 32
+			sensor.value = 9/5 * sensor.value + 32
+			sensor.unit = "°F"
 		     end
 		  end
 	       elseif k == typ then
-		  --print("k,v", k,v[1], sensor.unit, units.toNative[k][sensor.unit])
 		  if sensor.unit ~= InsP.settings.units[k] then
-		     value = sensor.value * units.toNative[k][sensor.unit]
-		     value = sensor.value / units.toNative[k][InsP.settings.units[k]]
+		     sensor.value = sensor.value * units.toNative[k][sensor.unit]
+		     sensor.value = sensor.value / units.toNative[k][InsP.settings.units[k]]
+		     --print("converting units", sensor.label, sensor.unit, InsP.settings.units[k])
+		     sensor.unit = InsP.settings.units[k]
 		  end
-		  print(k, sensor.unit, InsP.settings.units[k], units.toNative[k][sensor.unit], units.toNative[k][InsP.settings.units[k]], value)
 	       end
 	    end
 	 end
-	 return value
+	 return
       end
 
-      local foo = convertUnits(sensor)
-      print("sensor out, sensor.value", foo, sensor.value)
+      if sensor and sensor.value and sensor.unit then 
+	 convertUnits(sensor)
+      end
+      --print("sensor out", sensor.value, sensor.unit)
+      return sensor
    end
    if SePa > 0 then -- txTel named
       local sensor={}
@@ -607,7 +638,7 @@ local function evaluate(es, luastring, val)
    return evaluateLua(es, luastring, val)
 end
 
-local function expandStr(stri, val, SeDp, SeUn)
+local function expandStr(stri, val, widget)
 
    local str, stro
    
@@ -649,15 +680,17 @@ local function expandStr(stri, val, SeDp, SeUn)
 	 if cc == 'v' then
 	    if val then
 	       if not fmt then
-		  fmt = string.format("%%.%df", SeDp or 1)
+		  fmt = string.format("%%.%df", widget.SeDp or 1)
 	       end
 	       v = string.format(fmt, val)
 	    else
 	       v = "---"
 	    end
 	 elseif cc == 'u' then
-	    if SeUn then
-	       v = SeUn
+	    if widget.SeUnDisp then
+	       v = widget.SeUnDisp
+	    elseif widget.SeUn then
+	       v = widget.SeUn
 	    else
 	       v = ""
 	    end
@@ -1159,6 +1192,22 @@ local function keyForm(key)
       end
       return
    end
+
+   if subForm == formN.units then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(formN.settings)
+	 return
+      end
+   end
+
+   if subForm == formN.colors then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(formN.settings)
+	 return
+      end
+   end
    
 end
 
@@ -1168,6 +1217,8 @@ local function changedSensor(val, i, ip)
    ip[i].SeUn = InsP.sensorUnlist[val]
    ip[i].SeDp = InsP.sensorDplist[val]
    ip[i].SeLa = InsP.sensorLalist[val]
+   ip[i].SeUnDisp = nil
+   form.reinit(formN.editgauge)
 end
 
 local function changedAHSensor(val, i, ip, rp)
@@ -1488,52 +1539,16 @@ local function initForm(sf)
 					    (function(x) return changedSwitch(x, "rotatePanels") end))
 
       form.addRow(2)
-      form.addLabel({label="Temperature units", width=250})
-      local isel = 0
-      for i,u in ipairs(units.typeList.temp) do
-	 if u == InsP.settings.units.temp then
-	    isel = i
-	    break
-	 end
-      end
-      form.addSelectbox(units.typeList.temp, isel, true,
-			(function(val) InsP.settings.units.temp = units.typeList.temp[val] end), {width=60})
-			
-      form.addRow(2)
-      form.addLabel({label="Distance units", width=250})
-      local isel = 0
-      for i,u in ipairs(units.typeList.dist) do
-	 if u == InsP.settings.units.dist then
-	    isel = i
-	    break
-	 end
-      end
-      form.addSelectbox(units.typeList.dist, isel, true,
-			(function(val) InsP.settings.units.dist = units.typeList.dist[val] end), {width=60})
-
-      form.addRow(2)
-      form.addLabel({label="Speed units", width=250})
-      local isel = 0
-      for i,u in ipairs(units.typeList.speed) do
-	 if u == InsP.settings.units.speed then
-	    isel = i
-	    break
-	 end
-      end
-      form.addSelectbox(units.typeList.speed, isel, true,
-			(function(val) InsP.settings.units.speed = units.typeList.speed[val] end), {width=60})
-
-      form.addRow(2)
-      form.addLabel({label="Widget Colors >>", width=220})
+      form.addLabel({label="Units >>", width=220})
       form.addLink((function()
-	       form.reinit(formN.widgetcolors)
+	       form.reinit(formN.units)
 	       form.waitForRelease()
       end))
 
       form.addRow(2)
-      form.addLabel({label="Background Colors >>", width=220})
+      form.addLabel({label="Colors >>", width=220})
       form.addLink((function()
-	       form.reinit(formN.backcolors)
+	       form.reinit(formN.colors)
 	       form.waitForRelease()
       end))
 
@@ -1618,7 +1633,7 @@ local function initForm(sf)
       if widget.dataSrc == "Sensor" then
 	 local id = widget.SeId
 	 local pa = widget.SePa
-	 local un = widget.SeUn
+	 local un = widget.SeUn or "---"
 	 
 	 local isel = 1
 	 for k, _ in ipairs(InsP.sensorLalist) do
@@ -1632,6 +1647,48 @@ local function initForm(sf)
 	 form.addSelectbox(InsP.sensorLalist, isel, true,
 			   (function(x) return changedSensor(x, ig, ip) end),
 			   {width=240, alignRight=true})
+	 form.addRow(3)
+	 local typ = units.type[un]
+	 local utl
+	 if typ then
+	    utl = units.typeList[typ][1]
+	 else
+	    utl = "..."
+	 end
+	 
+	 form.addLabel({label="Sensor: " .. un .. "  Default: " .. utl, width=175})
+	 form.addLabel({label="Display:", width=65})
+	 --print("un, typ:", un, typ)
+	 if not widget.SeUnDisp and typ then
+	    print("setting widget.SeUnDisp to", units.typeList[typ][1])
+	    widget.SeUnDisp = units.typeList[typ][1]
+	 end
+	 local isel = 0
+	 --print("before loop widget.SeUnDisp", widget.SeUnDisp)
+	 if typ then
+	    for i,v in ipairs(units.typeList[typ]) do
+	       if v == widget.SeUnDisp then
+		  isel = i
+		  break
+	       end
+	    end
+	 end
+
+	 if typ then
+	    utl = units.typeList[typ]
+	 else
+	    utl = {un}
+	    isel = 1
+	 end
+	 
+	 form.addSelectbox(utl, isel, true,
+			   (function(val)
+				 if typ then
+				    widget.SeUnDisp = units.typeList[typ][val]
+				 end
+			   end),
+			   {width=70})
+
       elseif widget.dataSrc == "Control" then
 	 widget.SeUn = ""
 	 form.addRow(2)
@@ -2153,7 +2210,43 @@ local function initForm(sf)
 	 form.addIntbox(c.blue, 0, 255, 0, 0, 1,
 			(function(x) return changedColor(x, i, "blue") end), {width=60})	 
       end
-      
+
+   elseif sf == formN.units then
+
+      form.setTitle("Set Default Units")
+
+      for k,v in pairs(units.typeName) do
+	 local kk,vv = next(v)
+	 form.addRow(2)
+	 form.addLabel({label=vv, width=220})
+	 local isel = 0
+	 for i,u in ipairs(units.typeList[kk]) do
+	    if u == InsP.settings.units[kk] then
+	       isel = i
+	       break
+	    end
+	 end
+	 form.addSelectbox(units.typeList[kk], isel, true,
+			   (function(val)
+				 InsP.settings.units[kk] = units.typeList.temp[val]
+			   end),
+			   {width=90})
+      end
+   elseif sf == formN.colors then
+      form.setTitle("Set Colors")
+      form.addRow(2)
+      form.addLabel({label="Widget Colors >>", width=220})
+      form.addLink((function()
+	       form.reinit(formN.widgetcolors)
+	       form.waitForRelease()
+      end))
+
+      form.addRow(2)
+      form.addLabel({label="Background Colors >>", width=220})
+      form.addLink((function()
+	       form.reinit(formN.backcolors)
+	       form.waitForRelease()
+      end))
    end
 end
 
@@ -2374,13 +2467,14 @@ local function printForm(ww0,hh0,tWin)
       end
       if lastPanel1 ~= isp1 then
 	 pv = InsP.panelImages[isp1].instImage
-	 --print("win 1 loading panel " .. isp1 .. "  " .. pv)
+	 print("win 1 loading panel " .. isp1 .. "  " .. pv)
 	 if pv then
 	    instImg1 = lcd.loadImage(pDir .. "/"..pv..".png")
 	 else
+	    print("pv was nil")
 	    instImg1 = nil
 	 end
-	 --print("instImg1", instImg1)
+	 print("instImg1, pv", instImg1, pv)
 	 
 	 bv = InsP.panelImages[isp1].backImage
 	 if bv then
@@ -2471,6 +2565,32 @@ local function printForm(ww0,hh0,tWin)
       if widget.dataSrc == "Sensor" then
 	 if widget.type ~= "artHorizon" then
 	    sensor = getSensorByID(widget.SeId, widget.SePa)
+	    
+	    --if sensor and sensor.value then sensorVal = sensor.value end
+	    if sensor then
+	       --print("widget.SeId, widget.SePa, sensor",
+	       --widget.SeId, widget.SePa, sensor.value, sensor.unit, widget.type)
+	    end
+	    
+	    local typ
+	    if sensor and sensor.unit then typ = units.type[sensor.unit] end
+	    if typ and not widget.SeUnDisp then widget.SeUnDisp = units.typeList[typ][1] end
+	    if sensor and sensor.value and typ and sensor.unit ~= widget.SeUnDisp then
+	       --print("~= sensor.unit, widget.SeUnDisp", sensor.unit, widget.SeUnDisp)
+	       if typ == "temp" then
+		  if sensor.unit == "°F" then -- convert to °C
+		     sensor.value = 5/9 * (sensor.value - 32)
+		     sensor.unit = "°C"
+		  else  -- convert to °F
+		     sensor.value = 9/5 * sensor.value + 32
+		     sensor.unit = "°F"
+		  end
+	       else
+		  sensor.value = sensor.value * units.toNative[typ][sensor.unit]
+		  sensor.value = sensor.value / units.toNative[typ][widget.SeUnDisp]
+		  sensor.unit = widget.SeUnDisp
+	       end
+	    end
 	    if sensor and sensor.value then sensorVal = sensor.value end
 	 else
 	    rollVal = 0
@@ -2913,7 +3033,7 @@ local function printForm(ww0,hh0,tWin)
 	    local stro
 	    if not widget.modext or widget.modext < 1 then
 	       if string.find(str[1], "luaE:") == 1 or string.find(str[1], "luaS:") == 1 then
-		  stro = expandStr(str[1], sensorVal, widget.SeDp, widget.SeUn)
+		  stro = expandStr(str[1], sensorVal, widget)
 	       else
 		  local idx, jj
 		  if sensorVal then
@@ -2952,7 +3072,7 @@ local function printForm(ww0,hh0,tWin)
 
 		  if not widget.modext or widget.modext < 1 then
 		     stro = expandStr(str[ii + 1], sensorVal,
-				      widget.SeDp, widget.SeUn)
+				      widget)
 		  else
 		     stro = str[ii+1]
 		  end
@@ -3077,7 +3197,7 @@ local function printForm(ww0,hh0,tWin)
 	    for ii = 0, strL - 1 , 1 do
 	       if not widget.modext or widget.modext < 1 then
 		  stro = expandStr(str[ii + 1], sensorVal,
-				   widget.SeDp, widget.SeUn)
+				   widget)
 	       else
 		  stro = str[ii+1]
 	       end
@@ -4073,12 +4193,12 @@ local function init()
 
    if not InsP.settings.selectedPanel then InsP.settings.selectedPanel = 1 end
 
-   print("InsP.settings.units", InsP.settings.units)
+   --print("InsP.settings.units", InsP.settings.units)
    
    if not InsP.settings.units  then
       InsP.settings.units  = {}
       for k,v in pairs(units.typeList) do
-	 print("#", k, v[1])
+	 --print("#", k, v[1])
 	 InsP.settings.units[k] = v[1]
       end
       --InsP.settings.units.temp  = units.temp[1] 
@@ -4297,14 +4417,6 @@ local function init()
 		       #lua.extmods, #lua.modext))
 
    print("DFM-InsP: Version " .. InsPVersion)
-   
-   --print(system.getTime())
-
-   foo= { ["°C"]="degc", ["°F"] = "degF" }
-   for k,v in pairs(foo) do
-      print(string.byte(string.sub(k, 1,1)), string.byte(string.sub(k, 2,2)), string.byte(string.sub(k, 3, 3)))
-      
-   end
    
 end
 
