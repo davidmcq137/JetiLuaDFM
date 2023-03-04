@@ -109,6 +109,7 @@ input[type="range"]:focus {
     scrollbar-gutter: stable;
     overflow-y: auto;
     height: 90vh;
+    z-index: 1000;
 }
 
 .onegauge > canvas {
