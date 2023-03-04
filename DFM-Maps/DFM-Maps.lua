@@ -35,7 +35,7 @@
    
    Thoughts for future releases:
 
-   0) IGC file CRC computation is disabled for now. The initial lump of header
+   0) IGC file CRC computation is disable for now. The initial lump of header
    messages were taking CPU usage past 100% and killing the app. We need to have
    a FIFO that drains on a periodic basis or some other way to level out the
    load since other writes to the IGC file are 1/sec
@@ -48,23 +48,13 @@
    centered on zero since we don't have a direction, use standard mag levels,
    and light or dark background)
 
-   Currently working on 8.12:
-
-   0) changed version number to variable
-
-   1) adding switch to announce remaining race time every minute. need to handle
-   language translation for menu and wav file .. just literal English for
-   now. Will get tester input and when ok will handle translations.
-
 --]]
 
 local appInfo={}
 appInfo.Name = "DFM-Maps"
-appInfo.Version = "8.12"
 appInfo.Maps = "DFM-Maps"
 appInfo.menuTitle = "GPS Maps"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
-appInfo.Path  = "Apps/" .. appInfo.Name
 appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
 appInfo.SaveData = true
 
@@ -566,7 +556,7 @@ local function setLanguage()
 
    locale = system.getLocale()
 
-   --locale = "it" ------------------------------- TEST ------------------------
+   --locale = "de" ------------------------------- TEST ------------------------
    
    transFile = appInfo.Dir .. "Lang/" .. locale .. "/Text/Text.jsn"
    fp = io.readall(transFile)
@@ -617,7 +607,7 @@ end
 
 local function kFilename()
    return appInfo.Dir .. "MF-" ..
-      string.gsub(system.getProperty("Model"), " ", "_") ..
+      string.gsub(system.getProperty("Model")..".jsn", " ", "_") ..
       "-" .. Field.shortname .. ".jsn"
 end
 
@@ -690,22 +680,9 @@ local function readSensors()
    local sensors = system.getSensors()
    local seSeq, param, label
    local sensName = ""
-   local idToName = {}
    
    jt = io.readall(appInfo.Dir.."JSON/paramGPS.jsn")
    paramGPS = json.decode(jt)
-
-   --[[
-      -- issue: PBS GPS and GPS III both have ID 42001 .. Pioneer may also .. need to get its ID
-   for k,v in pairs(paramGPS) do
-      print(k,v,v.ID, type(k), type(v.ID))
-      if v.ID then
-	 idToName[tostring(math.floor(v.ID))] = k
-      end
-   end
-
-   print("idToName['42001']", idToName['42001'])
-   --]]
    
    for i, sensor in ipairs(sensors) do
       --print("for loop:", i, sensor.sensorName, sensor.label, sensor.param, sensor.type)
@@ -895,7 +872,6 @@ local function tri2XY()
       tri.center = ll2xy(Field.triangle.center.lat, Field.triangle.center.lng)
       lx = tri[1].x - tri.center.x
       ly = tri[1].y - tri.center.y
-      --print("tri2XY - lx, ly", lx, ly)
       tri[1].x = tri.center.x + (variables.triHeightScale / 100.0) * lx
       tri[1].y = tri.center.y + (variables.triHeightScale / 100.0) * ly
    end
@@ -960,31 +936,16 @@ end
 
 local function setField(sname)
 
-   --print("setField", sname)
-   
-   if sname then
-      Field = Fields[sname]
-   else
-      Field.name = "-Unnamed Field-"
-      Field.shortname = "-Noname-"
-   end
-
+   Field = Fields[sname]
+   Field.imageWidth = {}
    Field.lat = Field.images[1].center.lat
    Field.lng = Field.images[1].center.lng
-   
    fieldPNG={}
-   --print("sF set Field.imageWidth to {}")
-   Field.imageWidth = {}
 
-   --print("setField", #Field.images)
-   --print("heading", Field.images[1].heading)
-   
    for k,v in ipairs(Field.images) do
       Field.imageWidth[k] = math.floor(v.meters_per_pixel * 320 + 0.5)
-       --print("sf:", k, Field.imageWidth[k])
    end
-   --print("SF: lat0, lng0, variables.rotationAngle", lat0, lng0, variables.rotationAngle)
-   
+
    ------------------------------------------------------------
    local triT
 
@@ -1016,7 +977,6 @@ local function setField(sname)
    lat0  = Field.lat
    coslat0 = math.cos(math.rad(lat0))
    variables.rotationAngle  = Field.images[1].heading
-
    tri2XY()
    rwy2XY()
    nfz2XY()
@@ -1177,14 +1137,14 @@ local function pngLoad(j)
    end
    
    pfn = Field.images[j].file
-   --print("pngLoad: file", pfn)
    fieldPNG[j] = lcd.loadImage(pfn)
+   
    if not fieldPNG[j] then
       print(appInfo.Name .. ": Failed to load image", j, pfn)
       return
    end
 
-   -- get here if image file opened successfully or if this is a -noname- field with no images
+   -- get here if image file opened successfully
    
    Field.lat = Field.images[j].center.lat
    Field.lng = Field.images[j].center.lng
@@ -1243,13 +1203,10 @@ end
 local function initField(fn)
 
    local atField
-
-   -- in case no field from maps app, use these as default meters per pixel
-   --local mpp = {0.896711, 1.268140, 1.793418, 2.536270, 3.586816, 5.072501, 7.173555}
-   local mpp = {1,1.4,2,2.8,4,5.6,8}
+   
    Field = {}
 
-   local matchFields = {}
+   matchFields = {}
    
    -- Use the highest mag image to determine if we are at this field
    -- Russell is sorting the images from highest to lowest zoom
@@ -1267,10 +1224,7 @@ local function initField(fn)
 	    end
 	 end
       end
-   else
-      return
    end
-   
 
    if #matchFields > 0 then
       table.sort(matchFields, function(a,b) return a<b end)  
@@ -1282,6 +1236,15 @@ local function initField(fn)
       
       setField(matchFields[ii])
 
+      -- see if file <model_name>_icon.jsn exists
+      -- if so try to read airplane icon
+      
+      local fg = io.readall("Apps/"..appInfo.Maps .."/JSON/"..
+			       string.gsub(system.getProperty("Model")..
+					      "_icon.jsn", " ", "_"))
+      if fg then
+	 shapes.airplaneIcon = json.decode(fg).icon
+      end
    end
    
    if Field and Field.name then
@@ -1294,37 +1257,9 @@ local function initField(fn)
 	 graphInit(currentImage) -- re-init graph scales with images loaded
       end
    else
-      print("DFM-Maps: Not a known field: lat0, lng0", lat0, lng0)
-      -- create a dummy Field
-      system.messageBox("No Maps for this location")
-      Field.images = {}
-      for i=1,#mpp,1 do
-	 Field.images[i] = {}
-	 Field.images[i].file = appInfo.Dir.."/JSON/NonameImage.png"
-	 Field.images[i].meters_per_pixel = mpp[i]
-	 Field.images[i].center = {}
-	 Field.images[i].center.lat = lat0
-	 Field.images[i].center.lng = lng0
-	 Field.images[i].heading = system.getIMU(1).y or 0
-      end
-      maxImage = #Field.images
-      currentImage = 1
-      graphInit(currentImage)
-      --print("precall", #Field.images)
-      setField()
-      --gotInitPos = false -- reset and try again with next gps lat long
-   end
-
-   -- see if file <model_name>_icon.jsn exists
-   -- if so try to read airplane icon
-   
-   if Field and Field.name then
-      local fg = io.readall("Apps/"..appInfo.Maps .."/JSON/"..
-			       string.gsub(system.getProperty("Model")..
-					      "_icon.jsn", " ", "_"))
-      if fg then
-	 shapes.airplaneIcon = json.decode(fg).icon
-      end
+      --system.messageBox("Current location: not a known field", 2)
+      --print("not a known field: lat0, lng0", lat0, lng0)
+      gotInitPos = false -- reset and try again with next gps lat long
    end
 end
 
@@ -1440,7 +1375,6 @@ local function keyForm(key)
 	    nfc = {}
 	    nfp = {}
 	    tri = {}
-	    print("setting currentImage to nil")
 	    currentImage = nil
 	    fieldPNG={}
 	    --browse.OriginalFieldName = nil
@@ -1607,13 +1541,10 @@ local function initForm(subform)
 
       switchAdd(lang.swThrottle, "throttle", subform)
       
-      
       form.addRow(2)
       form.addLabel({label=lang.raceTime, width=220})
       form.addIntbox(variables.raceTime, 1, 60, 30, 0, 1, raceTimeChanged)
       
-      switchAdd("Time Ann", "rtAnn", subform)
-
       form.addRow(2)
       form.addLabel({label=lang.maxStartSpd, width=220})
       form.addIntbox(variables.maxSpeed, 10, 500, 100, 0, 10, maxSpeedChanged)
@@ -1655,12 +1586,9 @@ local function initForm(subform)
       form.addLink((function() form.reinit(9) end),
 	 {label = lang.racepreAnn})            
 
-      form.addLink((function() form.reinit(13) end),
-	 {label = "Read rct file >>"})
-      
       form.addLink((function() form.reinit(1) end),
 	 {label = lang.backMain,font=FONT_BOLD})
-	 
+
       form.setFocusedRow(1)
 
    elseif subform == 4 then
@@ -1770,24 +1698,6 @@ local function initForm(subform)
       form.addIntbox(variables.elev, -1000, 1000, 0, 0, 1, elevChanged)
       
       checkBoxAdd(lang.recordIGC, "recordIGC")
-
-      local function setRot()
-
-	 if Field.triangle then
-	    system.messageBox("Warning: triangle defined")
-	    return
-	 end
-	 
-	 Field.images[1].heading = variables.rotationAngle
-	 tri2XY()
-      end
-
-      if not Field.triangle then
-	 form.addRow(2)
-	 form.addLabel({label="Field orientation", width=220})
-	 form.addIntbox(variables.rotationAngle, 0, 359, 0, 0, 1,
-		     (function(xx) return variableChanged(xx, "rotationAngle", setRot) end) )
-      end
       
       form.addLink(clearData, {label = lang.clearAll})
       
@@ -1906,138 +1816,6 @@ local function initForm(subform)
       
       form.addLink((function() form.reinit(1) end),
 	 {label = lang.backMain,font=FONT_BOLD})
-      
-   elseif subform == 13 then
-      local dd, fn, ext
-      local rctFiles={}
-      local rctIdx = 0
-      local triName, triLat, triLng, triElev
-      local triDir, triDist, triMaxAlt, triMaxSpd, triMinAlt, triTim 
-
-      local matchStr = "T:(%P+),(%-?%d*%.?%d+),(%-?%d*%.?%d+),(%d+),(%d+),(%d+),(%d+),(%d+),(%d+),(%d+)"
-      
-      local function xy2ll(x, y, lt0, lg0, theta)
-	 local lt, lg
-	 local cl0
-	 local xr, yr
-	 
-	 cl0 = math.cos(math.rad(lt0))
-	 xr,yr = rotateXY(x, y, math.rad(theta))
-	 lt = math.deg(math.rad(lt0) + yr / rE)
-	 lg = math.deg(math.rad(lg0) + xr / (rE * cl0))
-	 return lt, lg
-      end
-      
-      local function rctFileClicked(idx)
-	 local ff, ll
-	 --print("rctFileClicked", idx, appInfo.Dir .. rctFiles[idx])
-	 if not Field or not Field.images or not Field.images[1].heading then
-	    system.messageBox("No Field defined - rct not read")
-	    form.reinit(subform)
-	    return
-	 end
-	 ff = io.open(appInfo.Dir .. rctFiles[idx], "r")
-	 if not ff then
-	    system.messageBox("Cannot open rct file")
-	    return
-	 end
-	 while true do
-	    ll = io.readline(ff)
-	    if not ll then break end
-	    --print("#" .. ll)
-	    if string.find(ll, "T:") == 1 then
-	       triName, triLat, triLng, triElev, triDir, triDist,
-	       triMaxAlt, triMaxSpd, triMinAlt, triTim =
-		  string.match(ll, matchStr)
-	       if not triName then
-		  system.messageBox("rct file read error")
-		  io.close(ff)
-		  return
-	       else
-		  system.messageBox("Reading rct file for " .. triName)		  
-	       end
-	       --triDir = triDir - 90 -- different convention for rct file (0 deg = E vs 0 deg = N)
-	       --print(triName, triLat, triLng, triElev,
-		--     triDir, triDist,triMaxAlt,triMaxSpd, triMinAlt,triTim)
-	       break
-	    end
-	 end
-	 if not triName then
-	    system.messageBox("Could not read rct file")
-	    return
-	 end
-	 
-	 if ff then io.close(ff) end
-	 local txy = {}
-	 --print("triDist:", triDist)
-	 txy[3] = {x=-triDist, y=0}
-	 txy[2] = {x= triDist, y=0}
-	 txy[1] = {x=0, y= triDist}	 
-
-	 triReset()
-	 
-	 Field.triangle = {}
-	 Field.triangle.path = {}
-	 Field.triangle.center = {}
-	 Field.triangle.center.lat = tonumber(triLat)
-	 Field.triangle.center.lng = tonumber(triLng)
-	 Field.elevation = {}
-	 Field.elevation.elevation = tonumber(triElev)
-	 variables.maxSpeed = tonumber(triMaxSpd)
-	 variables.maxAlt = tonumber(triMaxAlt)
-	 variables.raceTime = tonumber(triTim)
-	 --print("triDir", triDir)
-	 --Field.triangle.heading = 270 - (triDir - Field.images[1].heading)
-	 Field.triangle.heading = tonumber(triDir) - 90
-	 Field.triangle.size = tonumber(triDist)
-	 variables.triLength = Field.triangle.size
-	 --print("variables.triRotation", variables.triRotation)
-	 variables.triRotation = 0
-	 --print("Field.images[1].heading", Field.images[1].heading)
-	 --print("Field.triangle.heading", Field.triangle.heading)
-	 local rot
-	 rot = -Field.triangle.heading
-	 for j=1,3,1 do
-	    --local function xy2ll(x, y, lt0, lg0, theta)
-	    Field.triangle.path[j] = {}
-	    Field.triangle.path[j].lat, Field.triangle.path[j].lng =
-	       xy2ll(txy[j].x, txy[j].y, triLat, triLng, rot)
-	    --print(j, Field.triangle.path[j].lat, Field.triangle.path[j].lng)
-	 end
-	 pylon={}
-	 tri2XY()
-	 
-      end
-
-      local path
-      if not emFlag then path = "/" .. appInfo.Path else path = appInfo.Path end      
-
-      print("path: " .. path)
-      
-      for name, filetype, size in dir(path) do
-	 dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
-	 if fn and ext then
-	    if string.lower(ext) == "rct" then
-	       print("inserting " .. fn .. "." .. ext)
-	       table.insert(rctFiles, fn .. "." .. ext)
-	    end
-	 end
-      end
-
-      print("#rctFiles:", #rctFiles)
-      
-      if #rctFiles < 1 then
-	 system.messageBox("No rct files found")
-      else
-	 table.sort(rctFiles, function(a,b) return a<b end)
-	 form.addRow(2)
-	 form.addLabel({label="Select rct file to read"})
-	 form.addSelectbox(rctFiles, rctIdx, true, rctFileClicked) 
-      end
-      
-      form.addLink((function() form.reinit(1) end),
-	 {label = lang.backMain,font=FONT_BOLD})
-      
    end
    
 end
@@ -2077,8 +1855,8 @@ local function playFile(ffn, as)
    system.playFile("/".. fn, as)
 end
 
-local function playNumber(n, dp, un, la)
-   system.playNumber(n, dp, un, la)
+local function playNumber(n, dp)
+   system.playNumber(n, dp)
 end
 
 local function toXPixel(coord, min, range, width)
@@ -2455,7 +2233,6 @@ local function calcTriRace()
       --print("calcTriRace .xm")
       for j=1, #pylon do
 	 local zx, zy
-	 --print("calctrirace . F.t.h F.i[1].h", Field.triangle.heading, Field.images[1].heading)
 	 local rot = {
 	    math.rad(-112.5) + math.rad(variables.triRotation) -
 	       math.rad(Field.triangle.heading - Field.images[1].heading),
@@ -2713,7 +2490,6 @@ local function calcTriRace()
 	 raceParam.racingStartTime = system.getTimeCounter()
 	 nextPylon = 1
 	 raceParam.lapStartTime = system.getTimeCounter()
-	 raceParam.nextTimeAnn = variables.raceTime - 1 --ann every minute if enabled
 	 raceParam.lapsComplete = 0
 	 raceParam.rawScore = 0
 	 raceParam.usedythrottle = false
@@ -2730,21 +2506,7 @@ local function calcTriRace()
    
    local sgTC = system.getTimeCounter()
 
-   local swt=0
-   if switchItems.rtAnn then
-      swt = system.getInputsVal(switchItems.rtAnn)
-   end
-
-   local remainMins = variables.raceTime - (sgTC - raceParam.racingStartTime) / 60000
-
-   if raceParam.racing and swt and raceParam.nextTimeAnn
-   and remainMins < raceParam.nextTimeAnn and remainMins > 0.5 then
-      --print("remain mins:", raceParam.nextTimeAnn)
-      playFile("race_time_remaining.wav", AUDIO_QUEUE)
-      playNumber(raceParam.nextTimeAnn, 0, "min")
-      raceParam.nextTimeAnn = raceParam.nextTimeAnn - 1
-   end
-   
+   --print( (sgTC - raceParam.racingStartTime) / 1000, variables.raceTime*60)
    if raceParam.racing and (sgTC - raceParam.racingStartTime) / 1000 >= variables.raceTime*60 then
       playFile("race_finished.wav", AUDIO_IMMEDIATE)	    	 
       raceParam.racing = false
@@ -3280,7 +3042,6 @@ local function dirPrint(xw, xh, kk)
    local function circFit(k)
       -- tradeoff to use jth point .. closer to real time but noisier when still
       -- very close to current point
-      local j
       if true then --latHist[k] == latitude and lngHist[k] == lngHist[k] then
 	 j=k-1
       else
@@ -3466,7 +3227,7 @@ local function dirPrint(xw, xh, kk)
    -- draw the projected flight path
    -- optimization needed: only call circFit when new hist point available otherwise cache
 
-   local cx, cy, r, A
+   local xx, cy, r, A
    local recomp
    local t0, t1, tn
    local dt
@@ -3750,7 +3511,6 @@ local function graphScale(xx, yy)
 	 path.ymax > ymaxImg(currentImage)
       then
 	 currentImage = math.min(currentImage+1, maxImage)
-	 --print("setting currentImage to", currentImage)
       end
 
       if not fieldPNG[currentImage] then
@@ -3760,7 +3520,7 @@ local function graphScale(xx, yy)
 	 recalcCount = 0
       end
    else
-      print("** graphScale else clause **")
+      --print("** graphScale else clause **")
       -- if no image then just scale to keep the path on the map
       -- round Xrange to nearest 60 m, Yrange to nearest 30 m maintain 2:1 aspect ratio
       map.Xrange = math.floor((path.xmax-path.xmin)/60 + .5) * 60
@@ -3842,7 +3602,6 @@ local function mapPrint(windowWidth, windowHeight)
    end
    --]]
 
-   local tt
    if fieldPNG[currentImage] then
       if variables.triEnabled and (variables.triColorMode ~= "Image") then
 	 setColor("Background", variables.triColorMode)
@@ -3850,16 +3609,10 @@ local function mapPrint(windowWidth, windowHeight)
       else
       	 lcd.drawImage(0,0,fieldPNG[currentImage])
       end
-      --print(Field, Field.imageWidth, currentImage)--, Field.imageWidth[1])
-      if Field and Field.imageWidth and currentImage then
-	 tt = "S: " .. Field.imageWidth[currentImage] .. "m"
-      end
    else
       setColor("Label", "Light")
       lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, lang.noGPSfix))/2, 60,
 	 lang.noGPSfix, FONT_BIG)
-      --print(map.Xrange, variables.rotationAngle)
-      setColor("Label", "Light")
    end
    
    -- in case the draw functions left color set to their specific values
@@ -3875,14 +3628,7 @@ local function mapPrint(windowWidth, windowHeight)
    -- 		  toYPixel(0, map.Ymin, map.Yrange, windowHeight),
    -- 		  4)
 
-   if not tt then tt = "" end
-   
    lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6, "N", FONT_MINI)
-   if Field.shortname == "-Noname-" then
-      lcd.drawText(30-lcd.getTextWidth(FONT_MINI, tt) / 2, 26, tt, FONT_MINI)
-      --tt = system.getIMU(1).y or 0
-      --lcd.drawText(30-lcd.getTextWidth(FONT_MINI, tt) / 2, 46, tt, FONT_MINI)            
-   end
    drawShape(20, 12, shapes.arrow, math.rad(-1*variables.rotationAngle))
    lcd.drawCircle(20, 12, 7)
 
@@ -4787,13 +4533,11 @@ local function init()
    variables.colorSwitchDir    = jLoad(variables, "colorSwitchDir", 0)            
    variables.noFlySwitchName   = jLoad(variables, "noFlySwitchName", 0)
    variables.noFlySwitchDir    = jLoad(variables, "noFlySwitchDir", 0)   
-   variables.rtAnnSwitchName   = jLoad(variables, "rtAnnSwitchName", 0)
-   variables.rtAnnSwitchDir    = jLoad(variables, "rtAnnSwitchDir", 0)
    variables.triColorMode      = jLoad(variables, "triColorMode", "Image")
    variables.airplaneIcon      = jLoad(variables, "airplaneIcon", 1)
    variables.triHistMax        = jLoad(variables, "triHistMax", 20)
    variables.triViewScale      = jLoad(variables, "triViewScale", 300)
-   variables.triHeightScale    = jLoad(variables, "triHeightScale", 100)
+   variables.triHeightFactor   = jLoad(variables, "triHeightScale", 100)
    variables.lastMatchField    = jLoad(variables, "lastMatchField", "")
    variables.maxTriAlt         = jLoad(variables, "maxTriAlt", 500)
    
@@ -4862,7 +4606,7 @@ local function init()
 
    readSensors()
    
-   switchItems = {point = 0, start = 0, triA = 0, throttle = 0, color = 0, noFly = 0, rtAnn = 0}
+   switchItems = {point = 0, start = 0, triA = 0, throttle = 0, color = 0, noFly = 0}
    
    for k,v in pairs(switchItems) do
       switchItems[k] = createSw(shapes.switchNames[variables[k.."SwitchName"]],
@@ -4872,6 +4616,6 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version=appInfo.Version, name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="8.11", name=appInfo.Name, destroy=destroy}
 
 
