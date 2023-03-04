@@ -1043,7 +1043,8 @@
                          (* w draw-scale disp-scale)
                          (* h draw-scale disp-scale)))]
       
-      [:label "Alignment grid:"
+      [:label {:style {:z-index 1000}}
+       "Alignment grid:"
        [:select {:value (or align-divs "none")
                  :style {:margin-left "2ex"}
                  :onChange (fn [ev]
