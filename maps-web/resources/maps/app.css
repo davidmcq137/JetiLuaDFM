@@ -1,0 +1,228 @@
+body {
+    margin: 0 !important;
+    color: #dbdbdb;
+    background:#202b38;
+}
+
+div.app {
+    height: 90vh;
+    width: 100%;
+    /* margin-top: 4vh; */
+}
+
+.hflex {
+    display: flex;
+    flex-direction: row;
+}
+
+.vflex {
+    display: flex;
+    flex-direction: column;
+}
+
+#main {
+    flex-grow: 5;
+    height: 100%;
+}
+
+#images-preview {
+    width: 350px;
+    padding: 0px 32px 0px 16px;
+}
+
+.field-image {
+    /* border: 1px solid; */
+    margin: auto;
+}
+
+div.sidebar-left {
+    flex-grow: 1;
+    max-width: 22em;
+}
+
+div.map {
+    flex-grow: 5;
+    margin: 2vw;
+}
+#map-canvas {
+    height: 90%
+}
+
+fieldset {
+    margin: 10px;
+}
+
+.remove-button {
+    background-color: #773030;
+    width: 5em;
+}
+
+.table-button {
+    background-color: #444;
+}
+
+.inline-form input {
+    display: inline !important;
+}
+
+.inline-button {
+    width: 2em;
+    padding: 0
+}
+.margin-auto {
+    margin: auto;
+}
+
+
+button, input, select, textarea {
+    color: #fff;
+    background-color: #161f27;
+    margin-right: 6px;
+    margin-bottom: 6px;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    outline: none;
+}
+
+
+button:disabled,
+button[disabled]{
+  border: 1px solid #999999;
+  background-color: #cccccc;
+  color: #666666;
+}
+
+
+a {
+    text-decoration: none;
+    color: #41adff;
+}
+
+.field-info-form input {
+    display: block;
+}
+.field-info-form .label {
+    display: block;
+}
+label span.label {
+    display: block;
+}
+
+/*
+https://codepen.io/mihalik/pen/IHgvh
+ */
+.TabbedArea {
+  /* color: #555; */
+}
+.Tab li {
+  float: left;
+  width: 20%;
+  list-style: none;
+}
+.Tab a {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+  padding: 10px 0;
+  border-bottom: 2px solid #888;
+  background: #f7f7f7;
+}
+.Tab a:hover,
+.Tab a.active {
+  background: #ddd;
+}
+.TabPane {
+  padding: 30px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+.clearfix:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+/* ================================================================ */
+/* The Modal (background) */
+.modal {
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  padding-top: 100px; /* Location of the box */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+/* Modal Content */
+.modal-content {
+  background-color: #202b38;
+  margin: auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%;
+  margin-bottom: 200px;
+}
+
+/* The Close Button */
+.close {
+  color: #aaaaaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+  color: #000;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+
+.lp-root {
+    margin-left: 5px;
+    margin-bottom: 16ex;
+    width: 70em;
+}
+.lp-step {
+    font-size: 105%;
+    font-weight: bolder;
+}
+.lp-indent {
+    margin-left: 2em;
+}
+/* .lp-root p { */
+/*     width: 70em; */
+/* } */
+.lp-screenshot {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+
+}
+
+.warning-label {
+    background-color: #d9534f;
+    margin: .2em .6em 2em;
+    line-height: 1;
+    color: #fff;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: .25em;
+}
+
+.newversion-label {
+    background-color: #2a4a2a;
+    margin: .2em .6em 2em;
+    line-height: 1;
+    color: #fff;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: .25em;
+}
