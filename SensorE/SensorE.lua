@@ -337,7 +337,15 @@ end
 function emulator_vibration(lr, prof)
    local lrText, i
    local profText = {"Long Pulse", "Short Pulse", "2x Short Pulse", "3x Short Pulse", "Other"}
+   if lr == nil then
+      print("SensorE - l/r nil")
+   end
    if lr then lrText = "Right" else lrText = "Left" end
+   if not prof then
+      print("SensorE - vib profile nil")
+      return
+   end
+   
    if prof < 1 or prof > 5 then
       i = 5
    else

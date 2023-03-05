@@ -19,7 +19,12 @@ function M.val(ptr, val)
 	 vario = v.value
       end
    end
-   if not speed or not vario then return 0 end
+
+   if not speed then return -9000 end
+   if not vario then return -9001 end
+
+   print("speed, vario", speed, vario)
+   
    if math.abs(speed / vario) < maxRatio then
       arg = speed*speed - vario*vario
       if arg > 0 then
@@ -28,7 +33,11 @@ function M.val(ptr, val)
 	 glideRatio = speed / vario
       end
    else
-      glideRatio = maxRatio
+      if speed / vario >= 0 then
+	 glideRatio = maxRatio
+      else
+	 glideRatio = -maxRatio
+      end
    end
    return glideRatio
 end
