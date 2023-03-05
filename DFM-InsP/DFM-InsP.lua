@@ -1767,6 +1767,31 @@ local function initForm(sf)
 	 if not ip[ig].minWarn then ip[ig].minWarn = ip[ig].min end
 	 form.addIntbox(ip[ig].minWarn, ip[ig].min, ip[ig].max, ip[ig].min, 0, 1,
 			(function(x) return changedMinMax(x, "minWarn", ip[ig]) end))
+
+	 local stickShake = {"...", "Left 1 Long", "Left 1 Short", "Left 2 Short", "Left 3 Short",
+			     "Right 1 Long", "Right 1 Short", "Right 2 Short", "Right 3 Short"}
+	 --[[
+	 local stickCode = {
+	    {lr = false, vib = 0},
+	    {lr = false, vib = 1}, {lr = false, vib = 2},
+	    {lr = false, vib = 3}, {lr = false, vib = 4},
+	    {lr = true, vib = 0},
+	    {lr = true, vib = 1}, {lr = true, vib = 2},
+	    {lr = true, vib = 3}, {lr = true, vib = 4}
+	 }
+	 --]]
+	 form.addRow(2)
+	 form.addLabel({label="Min warning stick shake", width=200})
+	 if not ip[ig].minShake then ip[ig].minShake = 0 end
+	 form.addSelectbox(stickShake, ip[ig].minShake, true,
+			   (function(val) ip[ig].minShake = val end), {width=110})
+				 
+	 form.addRow(2)
+	 form.addLabel({label="Max warning stick shake", width=200})
+	 if not ip[ig].maxShake then ip[ig].maxShake = 0 end
+	 form.addSelectbox(stickShake, ip[ig].maxShake, true,
+			   (function(val) ip[ig].maxShake = val end), {width=110})
+	 
       end
       
       form.setFocusedRow(1)
@@ -2343,7 +2368,7 @@ local function loop()
    -- chart data up to date even if not on the screen
    
    local val
-   for _, panel in ipairs(InsP.panels) do
+   for pp, panel in ipairs(InsP.panels) do
       for _, widget in ipairs(panel) do
 	 -- could special case for Art Horiz here .. but for now just ignore min and max for that
 	 -- it has SeId and SePa set to 0,0
@@ -2360,15 +2385,60 @@ local function loop()
 	    val = tonumber(evaluate("E", widget.luastring[1]))
 	 end
 	 
-	 if val and widget.min and widget.max then
+	 --[[
+	 local stickShake = {"...", "Left 1 Long", "Left 1 Short", "Left 2 Short", "Left 3 Short",
+			     "Right 1 Long", "Right 1 Short", "Right 2 Short", "Right 3 Short"}
+	 --]]
+	 local stickCode = {
+	    {lr = false, vib = 0},
+	    {lr = false, vib = 1}, {lr = false, vib = 2},
+	    {lr = false, vib = 3}, {lr = false, vib = 4},
+	    {lr = true,  vib = 1}, {lr = true,  vib = 2},
+	    {lr = true,  vib = 3}, {lr = true,  vib = 4}
+	 }
+
+	 if val and widget.min then
 	    if not widget.minval then
 	       widget.minval = val
+	    end
+	    if val >= widget.minWarn then
+	       widget.minvalArmed = true
+	       widget.minvalCount = 0
+	    end
+	    if (val < widget.minWarn) and widget.minvalArmed == true then
+	       if not widget.minvalCount then widget.minvalCount = 0 end
+	       widget.minvalCount = math.min(widget.minvalCount + 1, 100)
+
+	       if widget.minvalCount == 1 then
+		  print("minval count 1", InsP.panelImages[pp].instImage,widget.label,val,widget.minWarn)
+		  if widget.minShake and widget.minShake > 1 then
+		     system.vibration(stickCode[widget.minShake].lr, stickCode[widget.minShake].vib)
+		  end
+	       end
 	    end
 	    if val < widget.minval then
 	       widget.minval = val
 	    end
+	 end
+	 
+	 if val and widget.max then
 	    if not widget.maxval then
 	       widget.maxval = val
+	    end
+	    if val <= widget.maxWarn then
+	       widget.maxvalArmed = true
+	       widget.maxvalCount = 0
+	    end
+	    if (val > widget.maxWarn) and widget.maxvalArmed == true then
+	       if not widget.maxvalCount then widget.maxvalCount = 0 end
+	       widget.maxvalCount = math.min(widget.maxvalCount + 1, 100)
+
+	       if widget.maxvalCount == 1 then
+		  print("maxval count 1", InsP.panelImages[pp].instImage,widget.label,val,widget.maxWarn, widget.maxShake)
+		  if widget.maxShake and widget.maxShake > 1 then
+		     system.vibration(stickCode[widget.maxShake].lr, stickCode[widget.maxShake].vib)
+		  end
+	       end
 	    end
 	    if val > widget.maxval then
 	       widget.maxval = val
