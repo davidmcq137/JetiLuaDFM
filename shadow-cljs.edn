@@ -1,11 +1,17 @@
 {:source-paths ["Gauges/src"
-                "Gauges/resources"]
+                "Gauges/resources"
+                "maps-web/src"]
  :jvm-opts ["-Xmx1184M"]
  :dependencies []
  :nrepl false
- :js-options {:js-package-dirs ["node_modules"]}
+ ;; :js-options {:js-package-dirs ["node_modules"]}
  :http {:port 9899}
  :builds {:gauge {:target :browser
                   :output-dir "Gauges/resources/gauges/js"
                   :modules {:main {:init-fn gauge/init}}
-                  :release {:compiler-options {:optimizations :advanced}}}}}
+                  :release {:compiler-options {:optimizations :advanced}}}
+          :maps {:target :browser
+                 :output-dir "maps-web/resources/maps/js"
+                 :modules {:main {:init-fn triangle.client.main/init}}
+                 :compiler-options {:externs ["maps-web/resources/externs/google_maps_api_v3.js"]}
+                 :release {:compiler-options {:optimizations :advanced}}}}}

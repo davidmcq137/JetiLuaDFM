@@ -35,7 +35,8 @@ CTU-DFM/LF_*
 DFM-InsP/II_*
 .shadow-cljs/
 node_modules/
-Gauges/resources/js/
+Gauges/resources/maps/js/
+maps-web/resources/maps/js/
 DFM-InsP/Panels/*.png
 DFM-InsP/Panels/*.json
 

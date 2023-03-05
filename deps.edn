@@ -1,7 +1,13 @@
 {:paths ["Gauges/src"
          "Gauges/resources"
+         
          "dynamic-repo-server/src"
-         "release-output"]
+
+         "maps-web/src"
+         "maps-web/resources"
+         
+         "release-output"
+         ]
  :deps  {org.clojure/clojure             {:mvn/version "1.11.1"}
          cheshire/cheshire               {:mvn/version "5.1.0"}
          ring/ring-core                  {:mvn/version "1.9.3"}

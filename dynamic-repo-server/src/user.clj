@@ -17,11 +17,18 @@
     (println "started nrepl server on port" port)
     (spit ".nrepl-port" port)))
 
+(comment
+  
+  (io/resource "triangle/client/main.cljs")
+  (shadow/watch :maps)
+  )
+
 (defonce shadow-watch
   (delay
     (future
       @@shadow-server
-      (shadow/watch :gauge))))
+      (shadow/watch :gauge)
+      (shadow/watch :maps))))
 
 (defonce server-lazy
   (delay
@@ -81,8 +88,10 @@
   (println "Compile clj...")
   (compile 'drs.main)
   #_(run! println (file-seq (io/file "classes")))
-  (println "Compile cljs...")
+  (println "Compile gauge cljs...")
   (release-cljs :gauge)
+  (println "Compile maps cljs...")
+  (release-cljs :maps)
   (println "Jar...")
   (jar jarname))
 

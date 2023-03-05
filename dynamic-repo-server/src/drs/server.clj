@@ -42,7 +42,9 @@
                  [:meta {:charset "utf-8"}]
                  [:link {:rel "stylesheet" :href "/app.css"}]
 
-                 analytics-script]
+                 #_analytics-script
+                 
+                 ]
                 [:div#landing-page-root]
                 [:script {:type "text/javascript" :src "/js/main.js"}]
                 ]))})
@@ -58,13 +60,13 @@
                  [:title "JETI Map Generator"]
                  [:meta {:charset "utf-8"}]
 
-                 [:link {:rel "stylesheet" :href "/app.css"}]
+                 [:link {:rel "stylesheet" :href "/maps/app.css"}]
                  [:script {:type "text/javascript"
                            :src "https://maps.googleapis.com/maps/api/js?key=AIzaSyCsDIgcntL8vPV1WZPUuXPh-ennc7HAXCI&libraries=drawing"}]
                  analytics-script
                  ]
                 [:div#root]
-                [:script {:type "text/javascript" :src "/js/main.js"}]]))})
+                [:script {:type "text/javascript" :src "/maps/js/main.js"}]]))})
 
 (defn gauge-app
   [request]
@@ -416,7 +418,10 @@
 
 
 (comment
-  (io/resource "compiled-apps/DFM-InsP-v0.5.zip"))
+  (io/resource "compiled-apps/DFM-InsP-v0.5.zip")
+  (io/resource "maps/app.css")
+  )
+
 
 (def routes
   ["/" {"gauges/"         (bring/resources {:prefix "gauges/"})
@@ -425,7 +430,11 @@
         "repo/"           {[:token "/Apps.json"] (bidi/tag #'do-token-repo :apps-json)
                            [:token ".zip"]       (bidi/tag #'do-dynamic-repo-zip :zip)}
         "cas"             (bidi/tag #'do-cas :cas)
-        "info"            #'do-info}])
+        "info"            #'do-info
+        "create-maps"     #'maps-app
+        "maps/"           (bring/resources {:prefix "maps/"})
+        "staticmap"       #'get-static-map
+        }])
 
 (def app
   (-> (bring/make-handler routes)
@@ -437,7 +446,6 @@
     [(io/resource (str "compiled-apps/" ma ".lua"))
      (io/resource (str "compiled-apps/" ma ".lc") )
      (io/resource (str "compiled-apps/" ma) )]))
-
 
 (comment
   (bidi/match-route routes "/repo/GTH47HRF/Apps.json")
@@ -455,5 +463,13 @@
                 (ring-params/wrap-params))
           {:port 8098})))
 
+
+
 (comment
   (start-dev))
+
+(comment
+  (ring-resp/resource-response "gauges/template.js")
+  ;; => {:status 200, :headers {"Content-Length" "74774", "Last-Modified" "Sat, 04 Mar 2023 00:15:55 GMT"}, :body #object[java.io.File 0x2ea3f4a0 "C:\\Users\\rmcq\\Documents\\GitHub\\JetiLuaDFM\\Gauges\\resources\\gauges\\template.js"]}
+  ;; i modify it
+  (ring-resp/resource-response "gauges/template.js"))
