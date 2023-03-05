@@ -42,9 +42,7 @@
                  [:meta {:charset "utf-8"}]
                  [:link {:rel "stylesheet" :href "/app.css"}]
 
-                 #_analytics-script
-                 
-                 ]
+                 analytics-script]
                 [:div#landing-page-root]
                 [:script {:type "text/javascript" :src "/js/main.js"}]
                 ]))})
