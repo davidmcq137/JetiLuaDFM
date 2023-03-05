@@ -7,7 +7,7 @@ function M.gratio(airspeed, vario)
    local arg
    local maxRatio = 1000
 
-   print("M.gratio", airspeed, vario)
+   --print("M.gratio", airspeed, vario)
    if not airspeed or not vario then return 0 end
    if math.abs(airspeed / vario) < maxRatio then
       arg = airspeed*airspeed - vario*vario
@@ -17,9 +17,13 @@ function M.gratio(airspeed, vario)
 	 glideRatio = airspeed / vario
       end
    else
-      glideRatio = maxRatio
+      if speed / vario >= 0 then
+	 glideRatio = maxRatio
+      else
+	 glideRatio = -maxRatio
+      end
    end
-   print("return", glideRatio)
+   --print("return", glideRatio)
    return glideRatio
 end
 

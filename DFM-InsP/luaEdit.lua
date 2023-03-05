@@ -12,7 +12,10 @@ function M.luaEditPrint(cond, condIdx, eval)
       condition[condIdx] = ""
    end
 
+   --print("condition[condIdx]".."#"..condition[condIdx].."#")
+   
    local res = eval("E", condition[condIdx])
+   --print("res: #"..res.."#")
    if not cond.result then cond.result = {} end
    cond.result[condIdx] = res
 

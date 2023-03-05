@@ -26,6 +26,7 @@
    Version 0.64 02/26/23 - Added sqrt to lua expr editor, added glideslope extension
    Version 0.65 02/27/23 - added gslope ext func, protected calls to dir() with bad paths
    Version 0.70 03/02/23 - added support for units: temperature, distance, speed, stick shake min/max
+   Version 0.71 03/05/23 - bugfix if doPerLoop was 0
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -34,7 +35,7 @@
 
 
 
-local InsPVersion = 0.70
+local InsPVersion = 0.71
 
 local LE
 
@@ -549,6 +550,8 @@ local function evaluateLua(es, luastring, val)
    -- inefficient but can improve later
    -- assume that setVariables has been called first so that all variables are
    -- up-to-date
+
+   --print("evaluateLua: es, luastring, val", es, luastring, val)
    
    for k,v in pairs(lua.env) do
       varenv[k] = v
@@ -564,7 +567,7 @@ local function evaluateLua(es, luastring, val)
       end
    end
 
-   -- and finally the special "var" and "ptr" variables
+   -- and finally the special "val" and "_ptr" variables
    --local sn
    for i,v in ipairs(InsP.variables) do
       --sn = InsP.sensorLalist[v.sensor]
@@ -572,7 +575,7 @@ local function evaluateLua(es, luastring, val)
       varenv[v.name] = v.value
    end
 
-   varenv["ptr"] = InsP
+   varenv["_ptr"] = InsP
    if val then varenv["val"] = val end
    
    if luastring and lua.completePass then
@@ -589,9 +592,9 @@ local function evaluateLua(es, luastring, val)
       if err then
 	 luaLoadErr = luaLoadErr + 1
 	 if luaLoadErr < 10 then
-	    print("DFM-InsP - lua load error: " .. err)
+	    --print("DFM-InsP - lua load error: " .. err)
 	 end
-	 luaReturn = "Check lua console"
+	 luaReturn = "<load Error>"
       end
       
       if not err then
@@ -609,7 +612,8 @@ local function evaluateLua(es, luastring, val)
 	 end
       end
    end
-   return luaReturn or "<lua return nil>"
+   --print("evaluate ret", luaReturn, type(luaReturn))
+   return luaReturn or "<no value>"
 end
 
 local function setVariables()
@@ -809,6 +813,10 @@ local function keyForm(key)
       end
 
       --print("formN.editlua, savedRow, savedRow2", savedRow, savedRow2)
+
+      -- YUK! savedRow = 3 and savedRow = 6 refer to what line in the main
+      -- panel is "Input" and "Lua variables" respectively .. this is bad bad bad
+      -- in case things rearrange
       
       if savedRow == 3 then -- sensors top level command
 	 local sp = InsP.settings.selectedPanel
@@ -2511,6 +2519,8 @@ local function loop()
       end
    end
 
+   if doPerLoop == 0 then lua.completePass = true end
+   
    loopCPU = loopCPU + (system.getCPU() - loopCPU) / 10
 end
 
@@ -3967,7 +3977,7 @@ local function prtForm(w,h)
 	 --print(lua.loadErr)
 	 --lcd.drawText(5,0, lua.loadErr, FONT_MINI)
       --end
-      --print("calling setVariables", savedRow)
+      --print("prtForm calling setVariables", savedRow, savedRow2)
       setVariables()
       if savedRow == 3 then
 	 local sp = InsP.settings.selectedPanel
@@ -4412,13 +4422,16 @@ local function init()
       if not v.auxWin then v.auxWin = 1 end
    end
    --]]
-   
+
+   local logstr = ""
    for k,v in ipairs(InsP.variables) do
       if v.source == "Lua" then
+	 logstr = logstr .. v.name .. ", "
 	 InsP.variables[k].logID = system.registerLogVariable(string.sub(v.name, 1, 14), "", luaLogCB)
 	 --print("registerLog", v.name, v.source, v.luastring[1], InsP.variables[k].logID)
       end
    end
+   print("DFM-InsP: registering logfile entries for " .. string.sub(logstr, 1, -3))
    
    readSensors(InsP)
 
@@ -4531,7 +4544,7 @@ local function init()
    print(string.format("DFM-InsP: %d extension modules read with %d functions",
 		       #lua.extmods, #lua.modext))
 
-   print("DFM-InsP: Version " .. InsPVersion)
+   print("DFM-InsP: version " .. InsPVersion)
    
 end
 
