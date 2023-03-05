@@ -1043,19 +1043,21 @@
                          (* w draw-scale disp-scale)
                          (* h draw-scale disp-scale)))]
       
-      [:label {:style {:z-index 1000}}
-       "Alignment grid:"
-       [:select {:value (or align-divs "none")
-                 :style {:margin-left "2ex"}
-                 :onChange (fn [ev]
-                             (let [s (.-value (.-target ev))]
-                               (swap! db assoc :align-divs
-                                      (case s
-                                        "none" nil
-                                        s))))}
-        [:option {:value "none"} "none"]
-        (for [i [2 3 4 5 6 7 8]]
-          [:option {:key i :value (str i)} (str i)])]]]
+      [:div {:style {:position "relative"
+                     :z-index 1000}}
+       [:label 
+        "Alignment grid:"
+        [:select {:value (or align-divs "none")
+                  :style {:margin-left "2ex"}
+                  :onChange (fn [ev]
+                              (let [s (.-value (.-target ev))]
+                                (swap! db assoc :align-divs
+                                       (case s
+                                         "none" nil
+                                         s))))}
+         [:option {:value "none"} "none"]
+         (for [i [2 3 4 5 6 7 8]]
+           [:option {:key i :value (str i)} (str i)])]]]]
      
      (gauge-list selected-panel gauges)]))
 
