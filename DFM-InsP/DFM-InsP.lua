@@ -2355,7 +2355,7 @@ local function loop()
    swr = system.getInputsVal(switches.resetMinMax)
    if not swrLast then swrLast = swr end
    if swr and swr == 1 and swrLast ~= 1 then
-      for _, panel in pairs(ip) do
+      for _, panel in pairs(InsP.panels) do
 	 for _, gauge in pairs(panel) do
 	    gauge.minval = nil
 	    gauge.maxval = nil
