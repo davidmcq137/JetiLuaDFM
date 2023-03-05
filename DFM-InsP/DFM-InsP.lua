@@ -616,9 +616,12 @@ local function setVariables()
    --print("setVariables")
    for i, var in ipairs(InsP.variables) do
       if InsP.variables[i].source == "Sensor" then
-	 local name = InsP.sensorLalist[var.sensor]
-	 --print("setV 1", i, var, name, lua.env[name])
-	 InsP.variables[i].value = lua.env[name]
+	 --local name = InsP.sensorLalist[var.sensor]
+	 --InsP.variables[i].value = lua.env[name]
+	 local id = InsP.sensorIdlist[var.sensor]
+	 local pa = InsP.sensorPalist[var.sensor]
+	 local sensor = getSensorByID(id, pa)
+	 if sensor and sensor.value then InsP.variables[i].value = sensor.value end
       elseif InsP.variables[i].source == "Lua" then
 	 InsP.variables[i].value = evaluateLua("E", InsP.variables[i].luastring[1])
 	 if type(InsP.variables[i].value) ~= "number" then
@@ -1244,13 +1247,16 @@ end
 local function panelChanged(val, sp)
    local fn
    local decodedfile
+   --local ii
+   --local bi
    --local instImg
    local pv = InsP.settings.panels[val]
    if val ~= 1 then
+      --ii = InsP.panelImages[sp].instImage
+      --bi = InsP.panelImages[sp].backImage
       fn = pDir .. "/"..pv..".json"
-      --print("panelChanged reading", fn, sp)
+      --print("panelChanged reading fn sp pv", fn, sp, pv)
       local file = io.readall(fn)
-      local bi = InsP.panelImages[sp].backImage
 
       decodedfile =  json.decode(file)
       if decodedfile.panel then
@@ -1261,13 +1267,10 @@ local function panelChanged(val, sp)
 	 InsP.panels[sp] = decodedfile
 	 print("DFM-InsP: old json format - no timestamp")
       end
-      --[[
-      if not instImg then
-	 instImg = lcd.loadImage(pDir .. "/"..pv..".png")
-      end
-      --]]
       InsP.panelImages[sp].instImage = pv
-      InsP.panelImages[sp].backImage = bi
+      -- force reload of panels
+      lastPanel1 = 0
+      lastPanel2 = 0
       --print("sp, #InsP.panels", sp, #InsP.panels)
       if sp == 1 and #InsP.panels == 1  then
 	 InsP.settings.window1Panel = sp
@@ -1277,13 +1280,18 @@ local function panelChanged(val, sp)
       end
    else
       if (InsP.settings.window1Panel or 0) == val then
-	 settings.window1Panel = 1
+	 InsP.settings.window1Panel = 1
       end
       if (InsP.settings.window2Panel or 0) == val then
-	 settings.window2Panel = 0
+	 InsP.settings.window2Panel = 0
       end
-      instImg = nil
-      InsP.panelImages[sp].instImage = nil
+      --instImg = nil
+      --InsP.panelImages[sp].instImage = nil
+      InsP.panels[sp] = {}
+      InsP.panelImages[sp].instImage = "---"
+      InsP.panelImages[sp].backImage = "---"
+      lastPanel1 = 0
+      lastPanel2 = 0
    end
    form.reinit(formN.panels)
 end
@@ -1372,11 +1380,11 @@ local function changedMultiplier(val, wid)
    wid.multiplier = val
 end
 
-local function changedModule(val, wid)
+local function changedModule(val, wid, ttb)
    wid.modext = val - 1 -- {"..."} is index 1
+   wid.modextName = ttb[val]
+   form.reinit(formN.editgauge)   
 end
-      
-
 
 local function initForm(sf)
 
@@ -1656,11 +1664,11 @@ local function initForm(sf)
 	    utl = "..."
 	 end
 	 
-	 form.addLabel({label="Sensor: " .. un .. "  Default: " .. utl, width=175})
+	 form.addLabel({label="Sensor: " .. un .. "  Def: " .. utl, width=175})
 	 form.addLabel({label="Display:", width=65})
 	 --print("un, typ:", un, typ)
 	 if not widget.SeUnDisp and typ then
-	    print("setting widget.SeUnDisp to", units.typeList[typ][1])
+	    --print("setting widget.SeUnDisp to", units.typeList[typ][1])
 	    widget.SeUnDisp = units.typeList[typ][1]
 	 end
 	 local isel = 0
@@ -1681,6 +1689,11 @@ local function initForm(sf)
 	    isel = 1
 	 end
 	 
+	 if widget.modext and widget.modext ~= 0 then
+	    utl = {"f(x)"}
+	    isel = 1
+	 end
+	 
 	 form.addSelectbox(utl, isel, true,
 			   (function(val)
 				 if typ then
@@ -1688,7 +1701,7 @@ local function initForm(sf)
 				 end
 			   end),
 			   {width=70})
-
+	 
       elseif widget.dataSrc == "Control" then
 	 widget.SeUn = ""
 	 form.addRow(2)
@@ -1735,7 +1748,7 @@ local function initForm(sf)
       end
       if not widget.modext then widget.modext = 0 end
       form.addSelectbox(ttb, ttbi, true,
-			(function(x) return changedModule(x, widget) end), {width=180})
+			(function(x) return changedModule(x, widget, ttb) end), {width=180})
 
       form.addRow(2)
       form.addLabel({label="Enable min/max value markers", width=270})
@@ -2406,7 +2419,8 @@ local function loop()
    -- throttle the update rate of tele sensors by moving the upper loop index up and
    -- down to determine how many updates are done per Hollywood call
 
-   -- turned off for now pending making lua variables for all sensors
+   -- leave this off for now .. until we decide to have variables for all tele sensors
+   -- which was the intent when this was done
    
    local doPerLoop = 0
    for _ = 1, doPerLoop do -- 
@@ -2461,20 +2475,20 @@ local function printForm(ww0,hh0,tWin)
    
    if tWin == 1 and isp1 and isp1 ~= 0 then
       if isp1 < 1 or isp1 > #InsP.panels then
-	 print("bad isp1", isp1)
+	 --print("bad isp1", isp1)
 	 InsP.settings.window1Panel = 1
 	 isp1 = 1
       end
       if lastPanel1 ~= isp1 then
 	 pv = InsP.panelImages[isp1].instImage
-	 print("win 1 loading panel " .. isp1 .. "  " .. pv)
+	 --print("win 1 loading panel " .. isp1 .. "  " .. pv)
 	 if pv then
 	    instImg1 = lcd.loadImage(pDir .. "/"..pv..".png")
 	 else
-	    print("pv was nil")
+	    --print("pv was nil")
 	    instImg1 = nil
 	 end
-	 print("instImg1, pv", instImg1, pv)
+	 --print("instImg1, pv, lastPanel1", instImg1, pv, lastPanel1)
 	 
 	 bv = InsP.panelImages[isp1].backImage
 	 if bv then
@@ -2498,7 +2512,7 @@ local function printForm(ww0,hh0,tWin)
    
    if tWin == 2 and isp2 and isp2 ~= 0 then
       if isp2< 1 or isp2 > #InsP.panels then
-	 print("bad isp2", isp2)
+	 --print("bad isp2", isp2)
 	 InsP.settings.window2Panel = 1
 	 isp2 = 1
       end
@@ -2549,11 +2563,12 @@ local function printForm(ww0,hh0,tWin)
 
    lcd.setColor(255,255,255)
    if not ip or #ip == 0 then
-      drawTextCenter(160, 60, "Window " .. tWin .. ": No inst panel json defined", FONT_BOLD)
+      drawTextCenter(160, 60, "Window " .. tWin .. ": No inst panel assigned", FONT_BOLD)
       return
    end
    
    local sensorVal
+   local sensorValNative
    local rollVal
    local pitchVal
    local textVal
@@ -2562,6 +2577,8 @@ local function printForm(ww0,hh0,tWin)
    for idxW, widget in ipairs(ip) do
 
       sensorVal = nil
+      sensorValNative = nil
+      
       if widget.dataSrc == "Sensor" then
 	 if widget.type ~= "artHorizon" then
 	    sensor = getSensorByID(widget.SeId, widget.SePa)
@@ -2571,7 +2588,12 @@ local function printForm(ww0,hh0,tWin)
 	       --print("widget.SeId, widget.SePa, sensor",
 	       --widget.SeId, widget.SePa, sensor.value, sensor.unit, widget.type)
 	    end
+
+	    -- remember native value returned by getSensorByID before changing
+	    -- to display units
 	    
+	    if sensor and sensor.value then sensorValNative = sensor.value end
+
 	    local typ
 	    if sensor and sensor.unit then typ = units.type[sensor.unit] end
 	    if typ and not widget.SeUnDisp then widget.SeUnDisp = units.typeList[typ][1] end
@@ -2614,14 +2636,13 @@ local function printForm(ww0,hh0,tWin)
 	 sensorVal = tonumber(evaluate("E", widget.luastring[1]))
       end
 
-      --if idxW == 1 then print("Apl", sensorVal, widget.max, widget.min, widget.dataSrc) end
-
       textVal = nil
-
       if widget.modext and widget.modext > 0 then
 	 --print("calling", idxW, widget.modext, lua.modext[widget.modext].name,
-	       --lua.modext[widget.modext].func)
-	 local modret = lua.modext[widget.modext].func(InsP, sensorVal)
+	 --lua.modext[widget.modext].func)
+	 --print("sensorValNative", sensorValNative)
+	 setVariables()
+	 local modret = lua.modext[widget.modext].func(InsP, sensorValNative)
 	 if type(modret) == "number" then
 	    --print("modret number", ret)
 	    sensorVal = modret
@@ -2629,9 +2650,7 @@ local function printForm(ww0,hh0,tWin)
 	    textVal = modret
 	 end
       end
-
-      --if idxW == 1 then print("Bpl", sensorVal, widget.max, widget.min) end
-
+      
       ctl = nil
       local minarc = -0.75 * math.pi
       local maxarc =  0.75 * math.pi
@@ -4409,9 +4428,28 @@ local function init()
       end
    end
 
-   --for i,v in ipairs(lua.modext) do
-      --print(i,v.name, v.func)
-   --end
+   -- Look for references to modules in all panel widgets in all panels
+   -- Make sure the numeric reference is set to the correct name
+   -- This is in case modules were deleted which would change numbering
+
+   for i, panel in ipairs(InsP.panels) do
+      for j, widget in ipairs(panel) do
+	 if widget.modext then
+	    --print(InsP.panelImages[i].instImage, widget.type, widget.modext, widget.modextName)
+	    widget.modext = 0
+	    for k, ext in ipairs(lua.modext) do
+	       if widget.modextName == ext.name then
+		  widget.modext = k
+		  break
+	       end
+	    end
+	    if widget.modext == 0 then
+	       widget.modextName = nil
+	       widget.modext = nil
+	    end
+	 end
+      end
+   end
    
    print(string.format("DFM-InsP: %d extension modules read with %d functions",
 		       #lua.extmods, #lua.modext))
