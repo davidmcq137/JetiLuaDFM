@@ -4277,7 +4277,7 @@ local function init()
    if #InsP.panels > 1 then
       InsP.settings.window2Panel = 2
    end
-
+   
    if not InsP.settings.selectedPanel then InsP.settings.selectedPanel = 1 end
 
    --print("InsP.settings.units", InsP.settings.units)
@@ -4333,8 +4333,17 @@ local function init()
       system.messageBox("DFM-InsP: No panels directory")
       print("DFM-InsP: bad path to dir - "..path)      
    end
-   
 
+   local w1II = InsP.panelImages[InsP.settings.window1Panel].instImage
+   local w1 = 0
+   for i,p in ipairs(InsP.settings.panels) do
+      if p == w1II then
+	 w1 = i
+	 break
+      end
+   end
+   system.messageBox("DFM-InsP: Missing files for Panel 1")
+   
    if #newerPanels > 0 then
       system.registerForm(2, 0, "Newer Panels", (function(x) return initNewer(x, newerPanels) end))
    end
