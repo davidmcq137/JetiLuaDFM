@@ -1262,24 +1262,14 @@
 (defn make-dynamic-repo-request [db]
   ;; apps json?
   (let [origin js/window.location.origin
-        state (d/entity db ::state)
-        ref (:state/dynamic-repo-git-ref state)
-        selr (:state/selected-release state )
-        zip-url (:release/zip-url selr)
-        zum (:release/zip-url-map selr)]
-    #_(println "The state is" (d/touch (d/entity db ::state)))
-    
-    (println "The selected release is "
-             (:state/selected-release (d/entity db ::state) )
-             "zip url"
-             zip-url)
+        state (d/entity db ::state)]
     (clj->js
      {:yoururl origin
-      
       :dynamic-files
       {"Maps app"
        (concat
-        [{:zip-url (get zum "DFM-Maps") :prefix "Apps/"}
+        [{:app "DFM-Maps" :prefix "Apps/"}
+         
          {:destination "Apps/DFM-Maps/Maps/Fields.jsn"
           :json-data (into {}
                            (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
@@ -1294,13 +1284,12 @@
                        (zone-image-query-params c
                                                 default-image-width
                                                 default-image-height))})))
-                      
+       
        "GPS app"
-       (when-let [gps-url (get zum "DFM-GPS")]
-         (into [{:zip-url gps-url :prefix "Apps/"}]
-               (for [f (qes-by db :field/name)]
-                 {:destination (str "Apps/DFM-GPS/FF_" (:field/short-name f) ".jsn")
-                  :json-data (simple-json-data-for-field f)})))}})))
+       (into [{:app "DFM-GPS" :prefix "Apps/"}]
+             (for [f (qes-by db :field/name)]
+               {:destination (str "Apps/DFM-GPS/FF_" (:field/short-name f) ".jsn")
+                :json-data (simple-json-data-for-field f)}))}})))
 
 (defn send-dynamic-repo-request! [json-data]
   (let [xhr (XhrIo.)]
@@ -1596,52 +1585,7 @@
              (.toLocaleString (js/Date. published-at))]]])]])
 
 
-(rum/defc version-selector-view  < rum/reactive 
-  [bus]
-  (let [db (rum/react conn)
-        all-releases (reverse (sort-by :release/published-at (qes-by db :release/id)))
-        published (filter (comp not :release/prerelease) all-releases)
-        {:state/keys [selected-release show-prereleases]} (d/entity @conn ::state)
-        releases (if (or show-prereleases
-                         (:release/prerelease selected-release))
-                   all-releases
-                   published)]
-    
-    [:div {:style {:margin-bottom "3ex"}}
-     (let [version-re #"[\.\d]+"]
-       (when-let [[version-name] (some (partial re-seq version-re)
-                                       (map :release/name published))]
-        [:div {:style {:margin-bottom "2ex"}}
-         [:span.newversion-label
-          (str "Version " version-name " has been released! ")
-          [:a {:href "https://github.com/davidmcq137/JetiLuaDFM/blob/master/DFM-Maps-CHANGELOG.md"}
-           "View the changelog here."]]]))
-     
-     (cond
-       (:release/deleted selected-release)
-       [:div [:span.warning-label "The selected release was deleted.  Select a current release below:"]
-        (releases-table releases)]
-       
-       show-prereleases
-       (releases-table releases)
 
-       (= (:db/id selected-release) (:db/id (first published)))
-       [:div "Using latest version: "
-        [:a {:href (:release/html-url selected-release)}
-         (:release/name selected-release)]]
-       
-       :else
-       [:div
-        [:div "Newer version available:"]
-        (releases-table releases)])
-     
-     [:label
-      [:input {:type "checkbox"
-               :checked (if show-prereleases true false)
-               :on-change (fn [ev]
-                            (async/put! bus
-                                        [::set-show-prereleases (not show-prereleases)]))}]
-      "Show development builds"]]))
 
 (rum/defc apps-request-view < rum/reactive
   [json-data db bus]
@@ -1653,16 +1597,10 @@
        [:p
         "If you prefer manual installation, you can also "
         [:a {:download (str "DFM-Maps " (get-or-create-token!) ".zip")
-             :href (str "/dynamic-repo-zip?token=" (get-or-create-token!))}
+             :href (str "/repo/" (get-or-create-token!) ".zip")}
          "download a zip archive"]
-        "."]
-        
-       #_(git-ref-selector db bus)
-       (version-selector-view bus)
-       ])
-    [:div
-     "Creating repository..."
-     (version-selector-view bus)]))
+        "."]])
+    [:div {} "Creating repository..."]))
 
 (rum/defc root-component < rum/reactive [conn bus]
   (let [db (rum/react conn)
@@ -1675,7 +1613,7 @@
      (when modal
        [:div.modal
         [:div.modal-content
-         [:span.close {:on-click #(async/put! bus [::close-modal])} "×"]
+         [:span.close {:on-click #(async/put! bus [::close-modal])} "\u00d7"]
          (case modal
            ;; :json-data [:pre (.stringify js/JSON (make-json-data db) nil 2)] 
            :image-request  "Image request lol"

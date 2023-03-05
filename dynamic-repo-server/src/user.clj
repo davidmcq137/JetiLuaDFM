@@ -21,6 +21,7 @@
   
   (io/resource "triangle/client/main.cljs")
   (shadow/watch :maps)
+  (shadow/compile :maps)
   )
 
 (defonce shadow-watch
