@@ -2543,7 +2543,7 @@ function chartRecorder(ctx, arr) {
     arrR.rgbChartBackColor = getRGB(ctx.fillStyle)
 
     if (traceNumber == 1) {
-	ctx.fillRect(arrR.boxXL, arrR.boxYL, arrR.boxW-1, arrR.boxH-1);
+	ctx.fillRect(arrR.boxXL, arrR.boxYL, arrR.boxW, arrR.boxH);
     }
     
     ctx.strokeStyle = "white";
