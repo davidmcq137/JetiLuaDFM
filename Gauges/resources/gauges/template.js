@@ -2516,18 +2516,24 @@ function chartRecorder(ctx, arr) {
     }
     arrR.rgbBackColor = getRGB(ctx.fillStyle)
 
+    let maxwid = Math.min(arr.width, 316);
+    let maxhgt = Math.min(arr.height, 158);
+    
     if (traceNumber == 1 && arr.backColor != "transparent" ) {
-	ctx.fillRect(arr.x0 - arr.width/2, arr.y0 - arr.height/2, arr.width, arr.height);
+	ctx.fillRect(arr.x0 - arr.width/2, arr.y0 - arr.height/2,
+		     maxwid, maxhgt);
     }
 
     ctx.lineWidth = 1;
 
+    /*
     ctx.strokeStyle = "peachpuff";
     if (traceNumber == 1 && typeof arr.label != "undefined") {
 	ctx.beginPath();
 	ctx.rect(arr.x0 - arr.width/2, arr.y0 - arr.height/2, arr.width, arr.height);
 	ctx.stroke();
     }
+    */
     
     if (typeof arr.chartBackColor != "undefined") {
 	ctx.fillStyle = arr.chartBackColor;
@@ -2535,9 +2541,9 @@ function chartRecorder(ctx, arr) {
 	ctx.fillStyle = "black";
     }
     arrR.rgbChartBackColor = getRGB(ctx.fillStyle)
-    
+
     if (traceNumber == 1) {
-	ctx.fillRect(arrR.boxXL, arrR.boxYL, arrR.boxW, arrR.boxH);
+	ctx.fillRect(arrR.boxXL, arrR.boxYL, arrR.boxW-1, arrR.boxH-1);
     }
     
     ctx.strokeStyle = "white";
