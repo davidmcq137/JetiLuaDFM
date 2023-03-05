@@ -25,7 +25,7 @@
    Version 0.63 02/25/23 - Added widget color to settings
    Version 0.64 02/26/23 - Added sqrt to lua expr editor, added glideslope extension
    Version 0.65 02/27/23 - added gslope ext func, protected calls to dir() with bad paths
-   Version 0.70 03/02/23 - added support for units: temperature, distance, speed
+   Version 0.70 03/02/23 - added support for units: temperature, distance, speed, stick shake min/max
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -2410,7 +2410,6 @@ local function loop()
 	       widget.minvalCount = math.min(widget.minvalCount + 1, 100)
 
 	       if widget.minvalCount == 1 then
-		  print("minval count 1", InsP.panelImages[pp].instImage,widget.label,val,widget.minWarn)
 		  if widget.minShake and widget.minShake > 1 then
 		     system.vibration(stickCode[widget.minShake].lr, stickCode[widget.minShake].vib)
 		  end
@@ -2434,7 +2433,6 @@ local function loop()
 	       widget.maxvalCount = math.min(widget.maxvalCount + 1, 100)
 
 	       if widget.maxvalCount == 1 then
-		  print("maxval count 1", InsP.panelImages[pp].instImage,widget.label,val,widget.maxWarn, widget.maxShake)
 		  if widget.maxShake and widget.maxShake > 1 then
 		     system.vibration(stickCode[widget.maxShake].lr, stickCode[widget.maxShake].vib)
 		  end

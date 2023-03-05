@@ -337,7 +337,6 @@ end
 function emulator_vibration(lr, prof)
    local lrText, i
    local profText = {"Long Pulse", "Short Pulse", "2x Short Pulse", "3x Short Pulse", "Other"}
-   print("SensorE ", lr, prof)
    if lr == nil then
       print("SensorE - l/r nil")
    end
