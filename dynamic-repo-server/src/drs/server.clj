@@ -200,6 +200,17 @@
              :let [[_ app vers] (re-find #"(.*)-v(.*)\.zip" ma)]]
          [app (io/resource (str base "/" ma))])))))
 
+(defn cached-proxy
+  [url]
+  (let [body (cached-url-fetch url)
+        hash-val (sha1hex body)]
+    (swap! dynamic-repo-cache assoc [:sha1 hash-val]
+           (with-open [baos (ByteArrayOutputStream.)]
+             (io/copy body baos)
+             (.toByteArray baos)))
+    {:size (count body)
+     :hash hash-val}))
+
 (defn process-file-spec
   [{:strs [url data data-base64 json-data zip-url prefix app] :as obj}]
   (or
