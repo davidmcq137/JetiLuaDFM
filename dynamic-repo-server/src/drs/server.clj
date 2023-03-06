@@ -315,7 +315,7 @@
   [{:keys [query-params query-string body] :as req}]
   (let [{:strs [token]} query-params
         {:strs [dynamic-files] :as opts} (json/parse-stream (io/reader body))
-        yoururl (no-https (:yoururl opts))
+        yoururl (no-https (get opts "yoururl"))
         apps-json (cond
                     (sequential? dynamic-files)
                     {:applications [(create-app-json! yoururl dynamic-files)]}
