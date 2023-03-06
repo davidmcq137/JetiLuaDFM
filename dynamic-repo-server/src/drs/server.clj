@@ -302,10 +302,20 @@
                           (json/parse-stream))]
     (assoc app-json-data :files files)))
 
+(defn no-https
+  [url]
+  (let [http "http://"
+        https "https://"]
+   (if-not (string/starts-with? url https)
+     url
+     (str http (subs url (count https))))))
+
+
 (defn do-dynamic-repo-v2
   [{:keys [query-params query-string body] :as req}]
   (let [{:strs [token]} query-params
-        {:strs [yoururl dynamic-files]} (json/parse-stream (io/reader body))
+        {:strs [dynamic-files] :as opts} (json/parse-stream (io/reader body))
+        yoururl (no-https (:yoururl opts))
         apps-json (cond
                     (sequential? dynamic-files)
                     {:applications [(create-app-json! yoururl dynamic-files)]}

@@ -19,7 +19,7 @@
 (def draw-scale 2)
 
 (def disp-scale
-  (if (and (< 2000 js/window.innerWidth)
+  (if (and (< 2450 js/window.innerWidth)
            (< 600 js/window.innerHeight))
     2
     1))
