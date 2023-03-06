@@ -7,6 +7,7 @@
    ---------------------------------------------------------
    
    Version 0.1 - July 22, 2020
+   Version 0.2 - Mar  05, 2023 added kmh and km/hr conversion to m/s if required. fixed x10 log bug
    
 --]]
 
@@ -22,7 +23,7 @@ sharedVar["DFM-GRat"].dp    = {}
 
 -- Locals for application
 
-local GRatVersion= 0.1
+local GRatVersion= 0.2
 
 local sensorLalist = { "..." }
 local sensorIdlist = { "..." }
@@ -157,14 +158,17 @@ local function loop()
 
    if spdSensor and varSensor and spdSensor.valid and varSensor.valid then
       speed = spdSensor.value
+      if varSensor.unit == "m/s" and (spdSensor.unit == "km/h" or spdSensor.unit== "kmh") then
+	 speed = speed / 3.6
+      end
       vario = varSensor.value
-      if math.abs(spdSensor.value / varSensor.value) < maxRatio then
-	 arg = spdSensor.value*spdSensor.value - varSensor.value*varSensor.value
+      if math.abs(speed / vario) < maxRatio then
+	 arg = speed*speed - vario*vario
 	 if arg > 0 then
-	    glideRatio = math.sqrt(arg) / varSensor.value
+	    glideRatio = math.sqrt(arg) / vario
 	    --print(spdSensor.value, varSensor.value, arg, glideRatio)
 	 else
-	    glideRatio = spdSensor.value / varSensor.value
+	    glideRatio = speed / vario
 	 end
 	 sharedVar["DFM-GRat"].value[1] = glideRatio
       else
@@ -176,6 +180,8 @@ local function loop()
       sharedVar["DFM-GRat"].value[1] = 0.0
       return
    end
+   
+   --print(spdSensor.value, speed, vario, glideRatio)
    
    if glideRatio and swa == 1 and (system.getTimeCounter() - lastAnnTime > 2000) then
       lastAnnTime = now
@@ -194,13 +200,13 @@ end
 local function glideLog()
    local logval
    if not glideRatio then logval = 0 else logval = glideRatio end
-   return logval, 1
+   return logval * 10, 1
 end
 
 local function teleWindow(w,h)
    local gtext, stext, vtext
    if glideRatio and math.abs(glideRatio) < 1000 then
-      gtext = string.format("Ratio %.1f", rndInt(glideRatio))
+      gtext = string.format("Ratio %.1f", rndInt(glideRatio*10) / 10)
    else
       gtext = "---"
    end

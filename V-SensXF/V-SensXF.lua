@@ -1330,7 +1330,7 @@ local function init()
       V_Ann.init(result, resultName)
    end
 
-   V_Ann = nil -- I guess this is to make sure the anns don't work
+   --V_Ann = nil -- I guess this is to make sure the anns don't work
 
    collectgarbage()
    
