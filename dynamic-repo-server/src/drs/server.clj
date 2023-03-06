@@ -240,9 +240,11 @@
               (with-open [baos (ByteArrayOutputStream.)]
                 (io/copy body baos)
                 (.toByteArray baos)))
-       [(assoc obj
-               :size (count body)
-               :hash hash-val)]))
+       [(-> obj
+            (dissoc "url")
+            (assoc
+             :size (count body)
+             :hash hash-val))]))
 
    (when zip-url
      (let [{:keys [status body]} (try (client/get zip-url {:as :byte-array})
@@ -297,9 +299,14 @@
         _ (when-not manifest-file?
             (throw (ex-info "No app.json" {:files files})))
         
-        app-json-data (-> (get @dynamic-repo-cache [:sha1 (:hash manifest-file?)])
-                          (io/reader)
-                          (json/parse-stream))]
+        app-json-data (->> (get @dynamic-repo-cache [:sha1 (:hash manifest-file?)])
+                           (io/reader)
+                           (json/parse-stream)
+                           (walk/postwalk
+                            (fn [e]
+                              (if-not (and (string? e) (string/starts-with? e "https://"))
+                                e
+                                (str yoururl "/cas?sha1=" (:hash (cached-proxy e)))))))]
     (assoc app-json-data :files files)))
 
 (defn no-https
