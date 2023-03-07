@@ -27,6 +27,7 @@
    Version 0.65 02/27/23 - added gslope ext func, protected calls to dir() with bad paths
    Version 0.70 03/02/23 - added support for units: temperature, distance, speed, stick shake min/max
    Version 0.71 03/05/23 - bugfix if doPerLoop was 0
+   Version 0.72 03/07/23 - bugfix on units causing crashes
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -35,7 +36,7 @@
 
 
 
-local InsPVersion = 0.71
+local InsPVersion = 0.72
 
 local LE
 
@@ -74,7 +75,7 @@ local units = {}
 units.typeList =  {
    temp   = {"°C","°F"},
    dist={"m", "ft",    "km",  "mi.",    "yd."},
-   speed  = {"m/s", "ft./s", "km/h", "kmh", "kt.",   "mph"},
+   speed  = {"m/s", "ft./s", "km/h", "kmh", "kt.", "mph"},
    volume = {"ml", "l", "hl", "floz", "gal"},
    flow   = {"ml/m", "l/m", "oz/m", "gpm"}
 }
@@ -91,7 +92,7 @@ units.toNative = {
    temp = {["°C"]=0, ["°F"]=0}, -- these are special cased in the conversions
    dist = {m=1,   ft=0.3048,  km=1000,  ["mi."] = 1609.34 , ["yd."] = 0.9144},
    speed = {["m/s"]=1, ["ft./s"]=0.3048, ["km/h"] = 0.2778, kmh = 0.2778,
-      ["kt."] = 0.51444, ["yd."] = 0.4407 },
+      ["kt."] = 0.51444, ["mph"] = 0.4407 },
    volume = {ml=1, l=1000, hl = 100000, floz=29.5735, gal=3785.41},
    flow = {["ml/m"] = 1, ["l/m"] = 1000, ["oz/m"] = 29.5735, gpm=3785.41}
 }
@@ -99,7 +100,7 @@ units.toNative = {
 units.type = {
    ["°C"]="temp", ["°F"]="temp",
    m="dist", ft="dist", km="dist", ["mi."]="dist", ["yd."]="dist",
-   ["m/s"]="speed", ["ft./s"]="speed", ["km/h"]="speed", kmh = "speed", ["kt."]="speed", mph="s",
+   ["m/s"]="speed", ["ft./s"]="speed", ["km/h"]="speed", kmh = "speed", ["kt."]="speed", mph="speed",
    ml="volume", l = "volume", hl = "volume", floz="volume", gal="volume",
    ["ml/m"]="flow", ["l/m"]="flow", ["oz/m"]="flow", gpm="flow"
 }
@@ -280,6 +281,13 @@ local function getSensorByID(SeId, SePa)
 	       elseif k == typ then
 		  if sensor.unit ~= InsP.settings.units[k] then
 		     sensor.value = sensor.value * units.toNative[k][sensor.unit]
+		     --print(k, InsP.settings.units[k])
+		     if not InsP.settings.units[k] then
+			for k,v in pairs(InsP.settings.units) do
+			   print("@", k,v)
+			end
+		     end
+		     
 		     sensor.value = sensor.value / units.toNative[k][InsP.settings.units[k]]
 		     --print("converting units", sensor.label, sensor.unit, InsP.settings.units[k])
 		     sensor.unit = InsP.settings.units[k]
@@ -1667,23 +1675,25 @@ local function initForm(sf)
 	 local typ = units.type[un]
 	 local utl
 	 if typ then
-	    utl = units.typeList[typ][1]
+	    utl = InsP.settings.units[typ] -- units.typeList[typ][1] --XXXXXX
 	 else
-	    utl = "..."
+	    utl = un
 	 end
 	 
 	 form.addLabel({label="Sensor: " .. un .. "  Def: " .. utl, width=175})
 	 form.addLabel({label="Display:", width=65})
 	 --print("un, typ:", un, typ)
-	 if not widget.SeUnDisp and typ then
+	 --if not widget.SeUnDisp and typ then
 	    --print("setting widget.SeUnDisp to", units.typeList[typ][1])
-	    widget.SeUnDisp = units.typeList[typ][1]
-	 end
+	    --widget.SeUnDisp = units.typeList[typ][1]
+	 --end
+	 local SeUnDisp = widget.SeUnDisp
+	 if not SeUnDisp then SeUnDisp = InsP.settings.units[typ] end
 	 local isel = 0
 	 --print("before loop widget.SeUnDisp", widget.SeUnDisp)
 	 if typ then
 	    for i,v in ipairs(units.typeList[typ]) do
-	       if v == widget.SeUnDisp then
+	       if v == SeUnDisp then
 		  isel = i
 		  break
 	       end
@@ -2274,7 +2284,8 @@ local function initForm(sf)
 	 end
 	 form.addSelectbox(units.typeList[kk], isel, true,
 			   (function(val)
-				 InsP.settings.units[kk] = units.typeList.temp[val]
+				 --print("~", kk, val, units.typeList[kk][val])
+				 InsP.settings.units[kk] = units.typeList[kk][val]
 			   end),
 			   {width=90})
       end
@@ -2674,7 +2685,8 @@ local function printForm(ww0,hh0,tWin)
 
 	    local typ
 	    if sensor and sensor.unit then typ = units.type[sensor.unit] end
-	    if typ and not widget.SeUnDisp then widget.SeUnDisp = units.typeList[typ][1] end
+	    --if typ and not widget.SeUnDisp then widget.SeUnDisp = units.typeList[typ][1] end
+	    if typ and not widget.SeUnDisp then widget.SeUnDisp = InsP.settings.units[typ] end	    
 	    if sensor and sensor.value and typ and sensor.unit ~= widget.SeUnDisp then
 	       --print("~= sensor.unit, widget.SeUnDisp", sensor.unit, widget.SeUnDisp)
 	       if typ == "temp" then
@@ -2686,6 +2698,7 @@ local function printForm(ww0,hh0,tWin)
 		     sensor.unit = "°F"
 		  end
 	       else
+		  --print("&", typ, sensor.unit)
 		  sensor.value = sensor.value * units.toNative[typ][sensor.unit]
 		  sensor.value = sensor.value / units.toNative[typ][widget.SeUnDisp]
 		  sensor.unit = widget.SeUnDisp
@@ -4301,6 +4314,10 @@ local function init()
       --InsP.settings.units.temp  = units.temp[1] 
       --InsP.settings.units.dist  = units.dist[1]
       --InsP.settings.units.speed = units.speed[1]
+   else
+      --for k,v in pairs(InsP.settings.units) do
+	 --print("%", k, v)
+      --end
    end
    
    -- Populate a table with all the panel json files
@@ -4452,6 +4469,7 @@ local function init()
    lua.funcmods = {}
    local ifunc = 0
    if dir(path) then
+      --print("path: "..path)
       for name, _, _ in dir(path) do
 	 dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
 	 if fn and ext then

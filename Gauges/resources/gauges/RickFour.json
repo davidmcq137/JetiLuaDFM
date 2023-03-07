@@ -1,0 +1,669 @@
+[
+    {
+	"tickFont": "Mini",
+	"yL": 25.700000000000003,
+	"min": 250,
+	"spectrum": [
+            "red",
+            "yellow",
+            "green"
+	],
+	"ro": 63,
+	"xL": 74,
+	"y0": 69,
+	"hLB": 16,
+	"rgbInnerFillColor": {
+            "r": 255,
+            "g": 165,
+            "b": 0,
+            "t": "false"
+	},
+	"label": "1",
+	"max": 0,
+	"radius": 85,
+	"TS": 36.53999999999999,
+	"x0": 11,
+	"majdivs": 2,
+	"rgbLabelColor": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "t": "false"
+	},
+	"divs": 10,
+	"yLB": 16.700000000000003,
+	"labelFont": "Bold",
+	"subdivs": 5,
+	"rgbLabelBoxColor": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "t": "false"
+	},
+	"tickLabels": [
+            {
+		"rt": 36.53999999999999,
+		"ca": 6.123233995736766e-17,
+		"sa": -1,
+		"dp": 0
+            },
+            {
+		"rt": 36.53999999999999,
+		"ca": 0.7071067811865476,
+		"sa": -0.7071067811865475,
+		"dp": 0
+            },
+            {
+		"rt": 36.53999999999999,
+		"ca": 1,
+		"sa": 0,
+		"dp": 0
+            }
+	],
+	"value": 0,
+	"wLB": 77,
+	"tickSpace": 100,
+	"xV": 22,
+	"ri": 53.55,
+	"start": 0,
+	"readoutPosY": -38,
+	"needleColor": "orange",
+	"labelBoxColor": "black",
+	"type": "roundNeedleGauge",
+	"needle": [
+            {
+		"x": -3.44,
+		"y": 22.62
+            },
+            {
+		"x": -1,
+		"y": 58
+            },
+            {
+		"x": 1,
+		"y": 58
+            },
+            {
+		"x": 3.44,
+		"y": 22.62
+            }
+	],
+	"readoutPosX": 11,
+	"rLB": 4,
+	"yV": 68.8,
+	"inner": [
+            {
+		"x": -2.22,
+		"y": 22.62
+            },
+            {
+		"x": -1,
+		"y": 48
+            },
+            {
+		"x": 1,
+		"y": 48
+            },
+            {
+		"x": 2.22,
+		"y": 22.62
+            }
+	],
+	"gaugeRadius": 63,
+	"xLB": 35.5,
+	"valueFont": "Normal",
+	"needleTrim": 39,
+	"labelPosX": 63,
+	"labelColor": "white",
+	"end": 90,
+	"arcWidth": 15,
+	"needleType": "needleTrim",
+	"labelPosY": -100,
+	"faceVis": "off",
+	"scaleVis": "on"
+    },
+    {
+	"tickFont": "Mini",
+	"yL": 98.69999999999999,
+	"min": 250,
+	"spectrum": [
+            "red",
+            "orange",
+            "green",
+            "green"
+	],
+	"ro": 63,
+	"xL": 72,
+	"y0": 142,
+	"hLB": 16,
+	"rgbInnerFillColor": {
+            "r": 255,
+            "g": 165,
+            "b": 0,
+            "t": "false"
+	},
+	"label": "3",
+	"max": 0,
+	"radius": 85,
+	"TS": 42.32339999999999,
+	"x0": 11,
+	"majdivs": 2,
+	"rgbLabelColor": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "t": "false"
+	},
+	"divs": 10,
+	"yLB": 89.69999999999999,
+	"labelFont": "Bold",
+	"subdivs": 5,
+	"rgbLabelBoxColor": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "t": "false"
+	},
+	"tickLabels": [
+            {
+		"rt": 42.32339999999999,
+		"ca": 6.123233995736766e-17,
+		"sa": -1,
+		"dp": 0
+            },
+            {
+		"rt": 42.32339999999999,
+		"ca": 0.7071067811865476,
+		"sa": -0.7071067811865475,
+		"dp": 0
+            },
+            {
+		"rt": 42.32339999999999,
+		"ca": 1,
+		"sa": 0,
+		"dp": 0
+            }
+	],
+	"value": 0,
+	"wLB": 77,
+	"tickSpace": 66,
+	"xV": 21,
+	"ri": 53.55,
+	"start": 0,
+	"readoutPosY": -37,
+	"needleColor": "orange",
+	"labelBoxColor": "black",
+	"type": "roundNeedleGauge",
+	"needle": [
+            {
+		"x": -3.44,
+		"y": 22.62
+            },
+            {
+		"x": -1,
+		"y": 58
+            },
+            {
+		"x": 1,
+		"y": 58
+            },
+            {
+		"x": 3.44,
+		"y": 22.62
+            }
+	],
+	"readoutPosX": 10,
+	"rLB": 4,
+	"yV": 142.8,
+	"inner": [
+            {
+		"x": -2.22,
+		"y": 22.62
+            },
+            {
+		"x": -1,
+		"y": 48
+            },
+            {
+		"x": 1,
+		"y": 48
+            },
+            {
+		"x": 2.22,
+		"y": 22.62
+            }
+	],
+	"gaugeRadius": 63,
+	"xLB": 33.5,
+	"valueFont": "Normal",
+	"needleTrim": 39,
+	"labelPosX": 61,
+	"labelColor": "white",
+	"end": 90,
+	"arcWidth": 15,
+	"needleType": "needleTrim",
+	"labelPosY": -100,
+	"faceVis": "off",
+	"scaleVis": "on"
+    },
+    {
+	"tickFont": "Mini",
+	"yL": 98.69999999999999,
+	"min": 0,
+	"spectrum": [
+            "green",
+            "green",
+            "yellow",
+            "red"
+	],
+	"ro": 63,
+	"xL": 244,
+	"y0": 142,
+	"hLB": 16,
+	"rgbInnerFillColor": {
+            "r": 255,
+            "g": 165,
+            "b": 0,
+            "t": "false"
+	},
+	"label": "4",
+	"max": 250,
+	"radius": 85,
+	"TS": 36.53999999999999,
+	"x0": 304,
+	"majdivs": 2,
+	"rgbLabelColor": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "t": "false"
+	},
+	"divs": 10,
+	"yLB": 89.69999999999999,
+	"labelFont": "Bold",
+	"subdivs": 5,
+	"rgbLabelBoxColor": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "t": "false"
+	},
+	"tickLabels": [
+            {
+		"rt": 36.53999999999999,
+		"ca": -1,
+		"sa": -1.2246467991473532e-16,
+		"dp": 0
+            },
+            {
+		"rt": 36.53999999999999,
+		"ca": -0.7071067811865475,
+		"sa": -0.7071067811865476,
+		"dp": 0
+            },
+            {
+		"rt": 36.53999999999999,
+		"ca": 6.123233995736766e-17,
+		"sa": -1,
+		"dp": 0
+            }
+	],
+	"value": 0,
+	"wLB": 77,
+	"tickSpace": 100,
+	"xV": 293,
+	"ri": 53.55,
+	"start": -90,
+	"readoutPosY": -35,
+	"needleColor": "orange",
+	"labelBoxColor": "black",
+	"type": "roundNeedleGauge",
+	"needle": [
+            {
+		"x": -3.44,
+		"y": 22.62
+            },
+            {
+		"x": -1,
+		"y": 58
+            },
+            {
+		"x": 1,
+		"y": 58
+            },
+            {
+		"x": 3.44,
+		"y": 22.62
+            }
+	],
+	"readoutPosX": -11,
+	"rLB": 4,
+	"yV": 144.8,
+	"inner": [
+            {
+		"x": -2.22,
+		"y": 22.62
+            },
+            {
+		"x": -1,
+		"y": 48
+            },
+            {
+		"x": 1,
+		"y": 48
+            },
+            {
+		"x": 2.22,
+		"y": 22.62
+            }
+	],
+	"gaugeRadius": 63,
+	"xLB": 205.5,
+	"valueFont": "Normal",
+	"needleTrim": 39,
+	"labelPosX": -60,
+	"labelColor": "white",
+	"end": 0,
+	"arcWidth": 15,
+	"needleType": "needleTrim",
+	"labelPosY": -100,
+	"faceVis": "off",
+	"scaleVis": "on"
+    },
+    {
+	"tickFont": "Mini",
+	"yL": 26.700000000000003,
+	"min": 0,
+	"spectrum": [
+            "green",
+            "green",
+            "yellow",
+            "red"
+	],
+	"ro": 63,
+	"xL": 242,
+	"y0": 70,
+	"hLB": 16,
+	"rgbInnerFillColor": {
+            "r": 255,
+            "g": 165,
+            "b": 0,
+            "t": "false"
+	},
+	"label": "2",
+	"max": 250,
+	"radius": 85,
+	"TS": 36.53999999999999,
+	"x0": 304,
+	"majdivs": 2,
+	"rgbLabelColor": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "t": "false"
+	},
+	"divs": 10,
+	"yLB": 17.700000000000003,
+	"labelFont": "Bold",
+	"subdivs": 5,
+	"rgbLabelBoxColor": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "t": "false"
+	},
+	"tickLabels": [
+            {
+		"rt": 36.53999999999999,
+		"ca": -1,
+		"sa": -1.2246467991473532e-16,
+		"dp": 0
+            },
+            {
+		"rt": 36.53999999999999,
+		"ca": -0.7071067811865475,
+		"sa": -0.7071067811865476,
+		"dp": 0
+            },
+            {
+		"rt": 36.53999999999999,
+		"ca": 6.123233995736766e-17,
+		"sa": -1,
+		"dp": 0
+            }
+	],
+	"value": 0,
+	"wLB": 77,
+	"tickSpace": 100,
+	"xV": 293,
+	"ri": 53.55,
+	"start": -90,
+	"readoutPosY": -39,
+	"needleColor": "orange",
+	"labelBoxColor": "black",
+	"type": "roundNeedleGauge",
+	"needle": [
+            {
+		"x": -3.44,
+		"y": 22.62
+            },
+            {
+		"x": -1,
+		"y": 58
+            },
+            {
+		"x": 1,
+		"y": 58
+            },
+            {
+		"x": 3.44,
+		"y": 22.62
+            }
+	],
+	"readoutPosX": -11,
+	"rLB": 4,
+	"yV": 68.8,
+	"inner": [
+            {
+		"x": -2.22,
+		"y": 22.62
+            },
+            {
+		"x": -1,
+		"y": 48
+            },
+            {
+		"x": 1,
+		"y": 48
+            },
+            {
+		"x": 2.22,
+		"y": 22.62
+            }
+	],
+	"gaugeRadius": 63,
+	"xLB": 203.5,
+	"valueFont": "Normal",
+	"needleTrim": 39,
+	"labelPosX": -62,
+	"labelColor": "white",
+	"end": 0,
+	"arcWidth": 15,
+	"needleType": "needleTrim",
+	"labelPosY": -100,
+	"faceVis": "off",
+	"scaleVis": "on"
+    },
+    {
+	"tickFont": "Mini",
+	"yL": 144.2,
+	"min": 0,
+	"spectrum": [
+            "green",
+            "green",
+            "green",
+            "yellow",
+            "red"
+	],
+	"ro": 68,
+	"xL": 160,
+	"y0": 76,
+	"hLB": 16,
+	"rgbInnerFillColor": {
+            "r": 0,
+            "g": 0,
+            "b": 255,
+            "t": "false"
+	},
+	"label": "RPM",
+	"max": 7000,
+	"radius": 90,
+	"TS": 42.19399999999999,
+	"x0": 160,
+	"majdivs": 7,
+	"rgbLabelColor": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "t": "false"
+	},
+	"divs": 35,
+	"yLB": 135.2,
+	"labelFont": "Bold",
+	"subdivs": 5,
+	"rgbLabelBoxColor": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "t": "false"
+	},
+	"tickLabels": [
+            {
+		"rt": 42.19399999999999,
+		"ca": -0.7071067811865477,
+		"sa": 0.7071067811865475,
+		"dp": 0
+            },
+            {
+		"rt": 42.19399999999999,
+		"ca": -0.9937122098932426,
+		"sa": 0.11196447610330773,
+		"dp": 0
+            },
+            {
+		"rt": 42.19399999999999,
+		"ca": -0.8467241992282841,
+		"sa": -0.5320320765153367,
+		"dp": 0
+            },
+            {
+		"rt": 42.19399999999999,
+		"ca": -0.330279061955167,
+		"sa": -0.9438833303083676,
+		"dp": 0
+            },
+            {
+		"rt": 42.19399999999999,
+		"ca": 0.33027906195516715,
+		"sa": -0.9438833303083676,
+		"dp": 0
+            },
+            {
+		"rt": 42.19399999999999,
+		"ca": 0.8467241992282842,
+		"sa": -0.5320320765153366,
+		"dp": 0
+            },
+            {
+		"rt": 42.19399999999999,
+		"ca": 0.9937122098932426,
+		"sa": 0.11196447610330786,
+		"dp": 0
+            },
+            {
+		"rt": 42.19399999999999,
+		"ca": 0.7071067811865476,
+		"sa": 0.7071067811865475,
+		"dp": 0
+            }
+	],
+	"value": 1610,
+	"wLB": 77,
+	"tickSpace": 85,
+	"xV": 160,
+	"ri": 57.8,
+	"readoutPosY": 5,
+	"needleColor": "blue",
+	"labelBoxColor": "black",
+	"type": "roundNeedleGauge",
+	"needle": [
+            {
+		"x": -1,
+		"y": 0
+            },
+            {
+		"x": -2,
+		"y": 1
+            },
+            {
+		"x": -4,
+		"y": 4
+            },
+            {
+		"x": -1,
+		"y": 58
+            },
+            {
+		"x": 1,
+		"y": 58
+            },
+            {
+		"x": 4,
+		"y": 4
+            },
+            {
+		"x": 2,
+		"y": 1
+            },
+            {
+		"x": 1,
+		"y": 0
+            }
+	],
+	"readoutPosX": 0,
+	"rLB": 4,
+	"yV": 121.8,
+	"inner": [
+            {
+		"x": 0,
+		"y": 0
+            },
+            {
+		"x": -3,
+		"y": 3
+            },
+            {
+		"x": 0,
+		"y": 45
+            },
+            {
+		"x": 3,
+		"y": 3
+            },
+            {
+		"x": 0,
+		"y": 0
+            }
+	],
+	"gaugeRadius": 68,
+	"xLB": 121.5,
+	"valueFont": "Normal",
+	"labelPosX": 0,
+	"labelColor": "white",
+	"arcWidth": 15,
+	"needleType": "needle",
+	"labelPosY": 7,
+	"faceVis": "on",
+	"scaleVis": "on"
+    }
+]

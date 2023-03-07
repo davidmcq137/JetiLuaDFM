@@ -14,7 +14,9 @@
 	"TwoNeedle":     {"file": "TwoNeedle.json"},
 	"Concentric":    {"file": "Concentric.json"},
 	"SplitLarge":    {"file": "SplitSpread.json"},
-	"ChartRecorder": {"file": "ChartRecorder.json"}
+	"ChartRecorder": {"file": "ChartRecorder.json"},
+	"RickDFour":     {"file": "RickFour.json"},
+	"RickDFive":     {"file": "RickFive.json"}
     },
 
     "prototypes": {
