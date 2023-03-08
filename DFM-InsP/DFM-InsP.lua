@@ -28,15 +28,14 @@
    Version 0.70 03/02/23 - added support for units: temperature, distance, speed, stick shake min/max
    Version 0.71 03/05/23 - bugfix if doPerLoop was 0
    Version 0.72 03/07/23 - bugfix on units causing crashes
+   Version 0.73 03/07/23 - bugfix on showing arc labels on needle gauges
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
-
-
-local InsPVersion = 0.72
+local InsPVersion = 0.73
 
 local LE
 
@@ -246,6 +245,35 @@ local function showExternal(ff)
       end
       return
    end
+end
+
+local function convertDispUnits(widget, sensor)
+
+   local typ
+   local sensorVal
+   
+   if sensor and sensor.unit then typ = units.type[sensor.unit] end
+   local SeUnDisp = widget.SeUnDisp
+   if (not SeUnDisp) and typ then SeUnDisp = InsP.settings.units[typ] end
+   
+   if sensor and sensor.value and typ and SeUnDisp and sensor.unit ~= SeUnDisp then
+      if typ == "temp" then
+	 if sensor.unit == "°F" then -- convert to °C
+	    sensor.value = 5/9 * (sensor.value - 32)
+	    sensor.unit = "°C"
+	 else  -- convert to °F
+	    sensor.value = 9/5 * sensor.value + 32
+	    sensor.unit = "°F"
+	 end
+      else
+	 sensor.value = sensor.value * units.toNative[typ][sensor.unit]
+	 sensor.value = sensor.value / units.toNative[typ][SeUnDisp]
+	 sensor.unit = SeUnDisp
+      end
+   end
+   if sensor and sensor.value then sensorVal = sensor.value end
+
+   return sensorVal
 end
 
 local function getSensorByID(SeId, SePa)
@@ -2394,7 +2422,9 @@ local function loop()
 	 val = nil
 	 if widget.dataSrc == "Sensor" then
 	    sensor = getSensorByID(widget.SeId, widget.SePa)
-	    if sensor and sensor.valid then val = sensor.value end
+	    if sensor and sensor.valid then
+	       val = convertDispUnits(widget, sensor)
+	    end
 	 elseif widget.dataSrc == "Control" then
 	    local info = system.getSwitchInfo(switches[widget.control])
 	    if info then
@@ -2672,39 +2702,14 @@ local function printForm(ww0,hh0,tWin)
 	 if widget.type ~= "artHorizon" then
 	    sensor = getSensorByID(widget.SeId, widget.SePa)
 	    
-	    --if sensor and sensor.value then sensorVal = sensor.value end
-	    if sensor then
-	       --print("widget.SeId, widget.SePa, sensor",
-	       --widget.SeId, widget.SePa, sensor.value, sensor.unit, widget.type)
-	    end
-
 	    -- remember native value returned by getSensorByID before changing
 	    -- to display units
 	    
-	    if sensor and sensor.value then sensorValNative = sensor.value end
-
-	    local typ
-	    if sensor and sensor.unit then typ = units.type[sensor.unit] end
-	    --if typ and not widget.SeUnDisp then widget.SeUnDisp = units.typeList[typ][1] end
-	    if typ and not widget.SeUnDisp then widget.SeUnDisp = InsP.settings.units[typ] end	    
-	    if sensor and sensor.value and typ and sensor.unit ~= widget.SeUnDisp then
-	       --print("~= sensor.unit, widget.SeUnDisp", sensor.unit, widget.SeUnDisp)
-	       if typ == "temp" then
-		  if sensor.unit == "°F" then -- convert to °C
-		     sensor.value = 5/9 * (sensor.value - 32)
-		     sensor.unit = "°C"
-		  else  -- convert to °F
-		     sensor.value = 9/5 * sensor.value + 32
-		     sensor.unit = "°F"
-		  end
-	       else
-		  --print("&", typ, sensor.unit)
-		  sensor.value = sensor.value * units.toNative[typ][sensor.unit]
-		  sensor.value = sensor.value / units.toNative[typ][widget.SeUnDisp]
-		  sensor.unit = widget.SeUnDisp
-	       end
+	    if sensor and sensor.value then
+	       sensorValNative = sensor.value
+	       sensorVal = convertDispUnits(widget, sensor)
 	    end
-	    if sensor and sensor.value then sensorVal = sensor.value end
+
 	 else
 	    rollVal = 0
 	    pitchVal = 0
@@ -2806,7 +2811,7 @@ local function printForm(ww0,hh0,tWin)
 
 	 local val
 
-	 if ctl then
+	 if true then -- ctl then
 	    --factor = 0.90 * (widget.radius - 8) / 58
 	    if widget.type == "roundNeedleGauge" or widget.type == "roundArcGauge" then
 	       local ro = widget.ro or 0.87 * widget.radius
@@ -2849,7 +2854,7 @@ local function printForm(ww0,hh0,tWin)
 				       vt, edit.fcode[widget.fTL])
 		     end
 		  end
-		  if widget.needleType ~= "None" then
+		  if widget.needleType ~= "None" and ctl then
 		     lcd.setColor(255,255,255)
 		     if widget.needle then
 			drawShapeXY(widget.x0, widget.y0, widget.needle, factor, rot + math.pi)
@@ -2866,8 +2871,8 @@ local function printForm(ww0,hh0,tWin)
 		     local wmax = widget.TXspectrum[#widget.TXspectrum]
 		     r,g,b = wmax.r, wmax.g, wmax.b		     
 		     for _, tt in ipairs(widget.TXspectrum) do
-			--print(i, tt.v, sensorVal)
-			if tt.v >= sensorVal then
+			--print(tt.v, widget.min,sensorVal)
+			if tt.v >= (sensorVal or math.min(widget.min, widget.max)) then
 			   r,g,b = tt.r, tt.g, tt.b
 			   break
 			end
@@ -2877,7 +2882,7 @@ local function printForm(ww0,hh0,tWin)
 		     local wmax = widget.TXcolorvals[#widget.TXcolorvals]
 		     r,g,b = wmax.r, wmax.g, wmax.b
 		     for _, tt in pairs(widget.TXcolorvals) do
-			if tt.v >= sensorVal then
+			if tt.v >= (sensorVal or math.min(widget.min, widget.max)) then
 			   r,g,b = tt.r, tt.g, tt.b
 			   break
 			end
@@ -2885,14 +2890,16 @@ local function printForm(ww0,hh0,tWin)
 		  end
 		  --print(sensorVal, math.deg(rot), r, g, b)
 		  lcd.setColor(r, g, b)
-		  local ratio = (rot - minarc) / math.abs(maxarc - minarc)		  
-		  local arcNP
-		  if widget.radius > 40 then
-		     arcNP = 2 + ratio * 22
-		  else
-		     arcNP = 2 + ratio * 14
+		  if rot then
+		     local ratio = (rot - minarc) / math.abs(maxarc - minarc)		  
+		     local arcNP
+		     if widget.radius > 40 then
+			arcNP = 2 + ratio * 22
+		     else
+			arcNP = 2 + ratio * 14
+		     end
+		     drawArc(rot - minarc, widget.x0, widget.y0, minarc + math.pi/2, ri, ro+1, arcNP, 1)
 		  end
-		  drawArc(rot - minarc, widget.x0, widget.y0, minarc + math.pi/2, ri, ro+1, arcNP, 1)
 	       end
 	    elseif widget.type == "virtualGauge" then
 
@@ -2924,9 +2931,9 @@ local function printForm(ww0,hh0,tWin)
 	    end
 	    lcd.setColor(255,255,255)
 	    local fmt
-	    if widget.dataSrc == "Sensor" and sensor.decimals == 0 then
+	    if widget.dataSrc == "Sensor" and sensor and sensor.decimals == 0 then
 	       fmt = "%.0f"
-	    elseif widget.dataSrc == "Sensor" and sensor.decimals == 1 then
+	    elseif widget.dataSrc == "Sensor" and sensor and sensor.decimals == 1 then
 	       fmt = "%.1f"
 	    else
 	       local max = widget.max
@@ -2939,7 +2946,7 @@ local function printForm(ww0,hh0,tWin)
 	       end
 	       fmt = string.format("%%.%df", decims) --
 	    end
-	    val = string.format(fmt, sensorVal)
+	    val = string.format(fmt, sensorVal or math.min(widget.min, widget.max))
 	 else
 	    val = "---"
 	 end
@@ -2955,7 +2962,11 @@ local function printForm(ww0,hh0,tWin)
 	 end
 	 
 	 if not widget.fLRV then
-	    widget.fLRV = widget.tickFont or "Mini"
+	    if widget.type ~= "roundNeedleGauge" then
+	       widget.fLRV = widget.tickFont or "Mini"
+	    else
+	       widget.fLRV = "None"
+	    end
 	 end
 	 
 	 if widget.gaugeRadius > 30 then -- really ought to consolidate with >= 20 code below
@@ -4369,7 +4380,12 @@ local function init()
 	 break
       end
    end
-   system.messageBox("DFM-InsP: Missing files for Panel 1")
+
+   if w1 == 0 then
+      print("$", w1II, w1, InsP.settings.window1Panel)
+      system.messageBox("DFM-InsP: Missing files for Panel 1")
+   end
+   
    
    if #newerPanels > 0 then
       system.registerForm(2, 0, "Newer Panels", (function(x) return initNewer(x, newerPanels) end))
