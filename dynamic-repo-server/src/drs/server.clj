@@ -513,17 +513,15 @@
   (ring-resp/resource-response "gauges/template.html"))
 
 
+
 (defn do-app-file
   [{:keys [route-params] :as req}]
   (let [app (:appname route-params)]
-    (println "Dooappfile" route-params)
     (if-not app
       {:status 400 :body "No token?"}
       (if-not (some? (io/resource (str  "compiled-apps/" app "/App.json" )))
         {:status 404 :body "No such app"}
-        (ring-resp/resource-response (str "compiled-apps/" (subs (:uri req) (count "/app/"))))
-        #_{:status 200 :body (subs (:uri req)
-                                   (count "/app/"))}))))
+        (ring-resp/resource-response (str "compiled-apps/" (subs (:uri req) (count "/app/"))))))))
 
 
 
