@@ -383,7 +383,7 @@
       (str http (subs url (count https))))))
 
 
-#_(defn do-dynamic-repo-v2
+(defn do-dynamic-repo-v2
   [{:keys [query-params query-string body] :as req}]
   (let [{:strs [token]} query-params
         {:strs [dynamic-files yoururl] :as opts} (json/parse-stream (io/reader body))
@@ -544,6 +544,7 @@
                                    (count "/app/"))}))))
 
 
+
 (def routes
   ["/" {"gauges"          #'gauge-app
         "gauges/"         (bring/resources {:prefix "gauges/"})
@@ -560,11 +561,13 @@
         "apps"            #'appslist
         "app/"            {[:appname] {true (bidi/tag #'do-app-file :app-file)}}
         "app-file/"       (bring/files {:dir "."})
-        "common/"         (bring/resources {:prefix "common"})}])
+        "common/"         (bring/resources {:prefix "common/"})}])
+
 
 (def app
   (-> (bring/make-handler routes)
       (ring-params/wrap-params)))
+
 
 (comment
   
@@ -579,7 +582,9 @@
   (bidi/path-for routes :repo :id "F")
 
   (bidi/match-route routes "/app/DFM-InsP/DFM-InsP.html")
+  (bidi/match-route routes "/common/DFM.png")
   
+  (client/get "http://localhost:8098/common/DFM.png")
   )
 
 (defn start-dev

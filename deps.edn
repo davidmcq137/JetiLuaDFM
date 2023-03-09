@@ -9,7 +9,7 @@
          
          "release-output"
          
-         "common"
+         "common-resources"
          ]
  :deps  {org.clojure/clojure             {:mvn/version "1.11.1"}
          cheshire/cheshire               {:mvn/version "5.1.0"}
