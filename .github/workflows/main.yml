@@ -46,6 +46,9 @@ jobs:
           Build for $GITHUB_REF_NAME @ $GITHUB_SHA
           $(date -Iseconds)
           EOF
+          echo '================================================================'
+          cat common-resources/common/banner.txt
+          echo '================================================================'
           ./bb clojure -M -e '(user/build-uberjar-and-exit "dist.jar")'
       - name: Upload artifact
         uses: actions/upload-artifact@v3

@@ -1017,7 +1017,7 @@
       [:div.example-panels
        (for [[name {:strs [file]}] (get config-json "examples")]
          [:div {:key (str name)}
-          [:input {:type "button" :value name  :onClick #(reload-json! name file)}]])]
+          [:input {:type "button" :value name  :onClick #(reload-json! name (str "gauges/" file))}]])]
 
       [:h4 "My panels"]
       (panel-list* selected-panel panels)
@@ -1070,7 +1070,7 @@
 
 (defn ^:dev/after-load init
   []
-  (js/console.log release-banner )
+  (js/console.log "Release:" release-banner)
   (let [el (.getElementById js/document "root")]
     
     (add-watch db save-watch-key
@@ -1082,5 +1082,5 @@
     
     (-> (fn []
           (or (load-from-localstorage!)
-              (reload-json! "Turbine" "Turbine.json")))
+              (reload-json! "Turbine" "gauges/Turbine.json")))
         (js/setTimeout 0))))
