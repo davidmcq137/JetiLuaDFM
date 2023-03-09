@@ -1,8 +1,5 @@
 {
-  "author":"DFM",
-  "description":{
-    "en":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/beta/DFM-InsP/DFM-InsP.html"
-  },
+    "author":"DFM",
     "hw":[
         678,
         679,
@@ -12,9 +9,8 @@
         3857,
         3858	
     ],
-  "id":0,
-  "name":{
-    "en":"DFM-InsP"
-  },
-  "previewIcon":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png"
+    "id":0,
+    "name":{
+        "en":"DFM-InsP"
+    }
 }

@@ -695,7 +695,8 @@
       (.then (fn [filesets]
                (clj->js
                 {:yoururl js/window.location.origin
-                 :dynamic-files {"Gauges" (into [{:app "DFM-InsP"}] cat filesets)}})))))
+                 :apps [{:base-app "DFM-InsP"
+                         :dynamic-files (into [] cat filesets)}]})))))
 
 
 (def localstorage-db-key "gauges-db")

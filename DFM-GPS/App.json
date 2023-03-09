@@ -1,8 +1,5 @@
 {
-  "author":"DFM",
-  "description":{
-    "en":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/beta/DFM-GPS/DFM-GPS.html"
-  },
+    "author":"DFM",
     "hw":[
 	674,
         675,
@@ -16,9 +13,8 @@
         3857,
         3858	
     ],
-  "id":0,
-  "name":{
-    "en":"DFM-GPS"
-  },
-  "previewIcon":"https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png"
+    "id":0,
+    "name":{
+        "en":"DFM-GPS"
+    }
 }
