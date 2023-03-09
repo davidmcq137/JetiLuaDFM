@@ -196,9 +196,44 @@
   (delay
     (let [base "compiled-apps"]
       (into {}
-       (for [ma (string/split-lines (slurp (io/resource (str base "/manifest.txt"))))
-             :let [[_ app vers] (re-find #"(.*)-v(.*)\.zip" ma)]]
-         [app (io/resource (str base "/" ma))])))))
+            (for [ma (string/split-lines (slurp (io/resource (str base "/manifest.txt"))))
+                  :let [[_ app vers] (re-find #"(.*)-v(.*)\.zip" ma)]]
+              [app (io/resource (str base "/" ma))])))))
+
+(def app-info-map
+  (delay
+    (let [base "compiled-apps"
+          apps (keys @included-apps)]
+      (->> apps
+           (map #(-> (str base "/" % "/App.json") io/resource io/reader (json/parse-stream true)))
+           (zipmap apps)))))
+
+(defn appslist
+  [req]
+  {:status  200
+   :headers {"Content-Type" "text/html"}
+   :body    (str "<!DOCTYPE html>\n"
+                 (rum/render-html
+                  [:html
+                   [:head
+                    [:title "Apps index"]
+                    [:meta {:charset "utf-8"}]
+                    [:link {:rel "stylesheet" :href "/maps/app.css"}]]
+                   [:body
+                    [:ul {}
+                     (for [[app info] @app-info-map]
+                       [:li {}
+                        [:div {}
+                         [:p (-> info :name :en)]
+                         (let [durl (-> info :description :en)
+                               [_ path]    (->> durl
+                                                (re-find (re-pattern (str app "/(.*)"))))]
+                           (when path
+                             [:iframe {:src         (str "/app-file/" app "/" path)
+                                       :width       "50%"
+                                       :height      "500px"
+                                       :frameborder 0}]))
+                         ]])]]]))})
 
 (defn cached-proxy
   [url]
@@ -318,22 +353,41 @@
                               (if-not (and (string? e) (string/starts-with? e "https://"))
                                 e
                                 (str yoururl "/cas?sha1=" (:hash (cached-proxy e)))))))]
-    (assoc app-json-data :files files)))
+    (assoc app-json-data
+           :files files
+           :description {:en (str yoururl "/app/" )})))
+
+(defn app-json-next!
+  [yoururl base-app dynamic-files]
+  (let [base "compiled-apps"
+        files (->> (into [{"app" base-app}] dynamic-files)
+                   (mapv #(future (process-file-spec %)))
+                   (mapcat deref)
+                   (map (partial add-cas-url yoururl)))
+        manifest-file (io/resource (str base "/" base-app "/App.json"))
+        
+        app-json-data (->> manifest-file
+                           (io/reader)
+                           (json/parse-stream))]
+    (assoc app-json-data
+           "files" files
+           "description" {"en" (str yoururl "/app/" base-app "/" base-app ".html" )})))
 
 (defn no-https
   [url]
   (let [http "http://"
         https "https://"]
-   (if-not (string/starts-with? url https)
-     url
-     (str http (subs url (count https))))))
+    (if-not (string/starts-with? url https)
+      url
+      (str http (subs url (count https))))))
 
 
-(defn do-dynamic-repo-v2
+#_(defn do-dynamic-repo-v2
   [{:keys [query-params query-string body] :as req}]
   (let [{:strs [token]} query-params
-        {:strs [dynamic-files] :as opts} (json/parse-stream (io/reader body))
-        yoururl (no-https (get opts "yoururl"))
+        {:strs [dynamic-files yoururl] :as opts} (json/parse-stream (io/reader body))
+        yoururl (no-https yoururl)
+        
         apps-json (cond
                     (sequential? dynamic-files)
                     {:applications [(create-app-json! yoururl dynamic-files)]}
@@ -342,6 +396,28 @@
                     {:applications (for [[_ fs] dynamic-files
                                          :when (not-empty fs)]
                                      (create-app-json! yoururl fs))})]
+    
+    (swap! dynamic-repo-cache assoc [:token token]
+           (-> apps-json
+               (json/generate-string)
+               (.getBytes "utf-8")))
+    
+    {:status 200
+     :headers {"Content-Type" "application/json"} 
+     :body (json/generate-string
+            {"repo_url"
+             (str yoururl "/repo/" token "/Apps.json") })}))
+
+
+(defn do-dynamic-repo-v3
+  [{:keys [query-params query-string body] :as req}]
+  (let [{:strs [token]} query-params
+        {:strs [apps yoururl] :as opts} (json/parse-stream (io/reader body))
+        yoururl (no-https yoururl)
+        
+        apps-json {:applications
+                   (for [{:strs [base-app dynamic-files]} apps]
+                     (app-json-next! yoururl base-app dynamic-files))}]
     
     (swap! dynamic-repo-cache assoc [:token token]
            (-> apps-json
@@ -448,17 +524,31 @@
   (io/resource "maps/app.css")
   )
 
-
 (defn gauge-app
   [req]
   (prn "Gauge app")
   (ring-resp/resource-response "gauges/template.html"))
 
+
+(defn do-app-file
+  [{:keys [route-params] :as req}]
+  (let [app (:appname route-params)]
+    (println "Dooappfile" route-params)
+    (if-not app
+      {:status 400 :body "No token?"}
+      (if-not (some? (io/resource (str  "compiled-apps/" app "/App.json" )))
+        {:status 404 :body "No such app"}
+        (ring-resp/resource-response (str "compiled-apps/" (subs (:uri req) (count "/app/"))))
+        #_{:status 200 :body (subs (:uri req)
+                                   (count "/app/"))}))))
+
+
 (def routes
   ["/" {"gauges"          #'gauge-app
         "gauges/"         (bring/resources {:prefix "gauges/"})
-        ;; "DFM-InsP/"       (bring/files {:dir "DFM-InsP"})
+        ;; "DFM-InsP/"       (bring/files {:dir "DFM-InsP"})n
         "dynamic-repo-v2" #'do-dynamic-repo-v2
+        "dynamic-repo-v3" #'do-dynamic-repo-v3
         "repo/"           {[:token "/Apps.json"] (bidi/tag #'do-token-repo :apps-json)
                            [:token ".zip"]       (bidi/tag #'do-dynamic-repo-zip :zip)}
         "cas"             (bidi/tag #'do-cas :cas)
@@ -466,7 +556,9 @@
         "create-maps"     #'maps-app
         "maps/"           (bring/resources {:prefix "maps/"})
         "staticmap"       #'get-static-map
-        }])
+        "apps"            #'appslist
+        "app/"            {[:appname] {true (bidi/tag #'do-app-file :app-file)}}
+        "app-file/"       (bring/files {:dir "."})}])
 
 (def app
   (-> (bring/make-handler routes)
@@ -482,7 +574,11 @@
 (comment
   (bidi/match-route routes "/repo/GTH47HRF/Apps.json")
   (bidi/match-route routes "/repo/GTH47HRF.zip")
-  (bidi/path-for routes :repo :id "F"))
+  (bidi/path-for routes :repo :id "F")
+
+  (bidi/match-route routes "/app/DFM-InsP/DFM-InsP.html")
+  
+  )
 
 (defn start-dev
   []

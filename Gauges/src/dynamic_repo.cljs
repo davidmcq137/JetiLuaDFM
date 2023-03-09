@@ -28,7 +28,7 @@
     (.listen xhr EventType/COMPLETE
              (fn [_]
                (reset! apps-request-result (.getResponseJson xhr))))
-    (.send xhr (str "/dynamic-repo-v2?token=" (get-or-create-token!))
+    (.send xhr (str "/dynamic-repo-v3?token=" (get-or-create-token!))
            "POST"
            (.stringify js/JSON json-data nil 2)
            #js {"Content-Type" "application/json;charset=UTF-8"})))

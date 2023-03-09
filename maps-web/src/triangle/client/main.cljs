@@ -1265,31 +1265,29 @@
         state (d/entity db ::state)]
     (clj->js
      {:yoururl origin
-      :dynamic-files
-      {"Maps app"
-       (concat
-        [{:app "DFM-Maps" :prefix "Apps/"}
-         
-         {:destination "Apps/DFM-Maps/Maps/Fields.jsn"
-          :json-data (into {}
-                           (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
-                             [short-name (json-data-for-field field)]))}]
-        
-        (for [{:field/keys [name short-name clipbox runway triangle noflys]} (qes-by db :field/name)
-              c clipbox]
-          (let [i (:clipbox/preview-zoom c)]
-            {:destination (str "Apps/DFM-Maps/Maps/" short-name "/" i ".png")
-             :url (str (.-origin (.-location js/window))
-                       "/staticmap?"
-                       (zone-image-query-params c
-                                                default-image-width
-                                                default-image-height))})))
-       
-       "GPS app"
-       (into [{:app "DFM-GPS" :prefix "Apps/"}]
-             (for [f (qes-by db :field/name)]
-               {:destination (str "Apps/DFM-GPS/FF_" (:field/short-name f) ".jsn")
-                :json-data (simple-json-data-for-field f)}))}})))
+      :apps [{:base-app "DFM-Maps"
+              :dynamic-files 
+              (into
+               [{:destination "Apps/DFM-Maps/Maps/Fields.jsn"
+                 :json-data (into {}
+                                  (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
+                                    [short-name (json-data-for-field field)]))}]
+               
+               (for [{:field/keys [name short-name clipbox runway triangle noflys]} (qes-by db :field/name)
+                     c clipbox]
+                 (let [i (:clipbox/preview-zoom c)]
+                   {:destination (str "Apps/DFM-Maps/Maps/" short-name "/" i ".png")
+                    :url (str (.-origin (.-location js/window))
+                              "/staticmap?"
+                              (zone-image-query-params c
+                                                       default-image-width
+                                                       default-image-height))})))}
+             {:base-app "DFM-GPS"
+              :dynamic-files 
+              (into [{:app "DFM-GPS" :prefix "Apps/"}]
+                    (for [f (qes-by db :field/name)]
+                      {:destination (str "Apps/DFM-GPS/FF_" (:field/short-name f) ".jsn")
+                       :json-data (simple-json-data-for-field f)}))}]})))
 
 (defn send-dynamic-repo-request! [json-data]
   (let [xhr (XhrIo.)]
@@ -1297,7 +1295,7 @@
              (fn [_]
                (println "complete")
                (reset! apps-request-result (.getResponseJson xhr))))
-    (.send xhr (str "/dynamic-repo-v2?token=" (get-or-create-token!))
+    (.send xhr (str "/dynamic-repo-v3?token=" (get-or-create-token!))
            "POST"
            (.stringify js/JSON json-data nil 2)
            #js {"Content-Type" "application/json;charset=UTF-8"})))
