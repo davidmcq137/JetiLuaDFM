@@ -43,3 +43,4 @@ release-output/
 build/bb
 .nrepl-port
 classes/
+.cpcache/
