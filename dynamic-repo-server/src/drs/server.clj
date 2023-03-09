@@ -371,7 +371,8 @@
                            (json/parse-stream))]
     (assoc app-json-data
            "files" files
-           "description" {"en" (str yoururl "/app/" base-app "/" base-app ".html" )})))
+           "description" {"en" (str yoururl "/app/" base-app "/" base-app ".html" )}
+           "previewIcon" (str yoururl "/common/DFM.png"))))
 
 (defn no-https
   [url]
@@ -558,7 +559,8 @@
         "staticmap"       #'get-static-map
         "apps"            #'appslist
         "app/"            {[:appname] {true (bidi/tag #'do-app-file :app-file)}}
-        "app-file/"       (bring/files {:dir "."})}])
+        "app-file/"       (bring/files {:dir "."})
+        "common/"         (bring/resources {:prefix "common"})}])
 
 (def app
   (-> (bring/make-handler routes)
