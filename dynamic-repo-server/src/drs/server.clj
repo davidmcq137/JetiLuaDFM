@@ -64,22 +64,6 @@
                 [:div#root]
                 [:script {:type "text/javascript" :src "/maps/js/main.js"}]]))})
 
-(defn gauge-app
-  [request]
-  {:status  200
-   :headers {"Content-Type" "text/html"}
-   :body
-   (str "<!DOCTYPE html>\n"
-        (rum/render-html
-         [:html
-          [:head
-           [:title "Instrument Panel Creator"]
-           [:meta {:charset "utf-8"}]
-
-           [:link {:rel "stylesheet" :href "/gauge/index.css"}]]
-          [:div#root]
-          [:script {:type "text/javascript" :src "/gauge/template.js"}]
-          [:script {:type "text/javascript" :src "/gauge/js/main.js"}]]))})
 
 (def static-file-root (atom  "resources/"))
 

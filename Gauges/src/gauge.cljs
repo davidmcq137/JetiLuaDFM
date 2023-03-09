@@ -16,6 +16,8 @@
 
 (def config-json (js->clj (js/JSON.parse (rc/inline "gauges/config.json"))))
 
+(def release-banner (rc/inline "common/banner.txt"))
+
 (def draw-scale 2)
 
 (def disp-scale
@@ -1068,6 +1070,7 @@
 
 (defn ^:dev/after-load init
   []
+  (js/console.log release-banner )
   (let [el (.getElementById js/document "root")]
     
     (add-watch db save-watch-key
