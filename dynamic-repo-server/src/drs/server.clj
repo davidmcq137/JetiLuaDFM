@@ -40,12 +40,11 @@
                 [:head
                  [:title "JETI Lua DFM"]
                  [:meta {:charset "utf-8"}]
-                 [:link {:rel "stylesheet" :href "/app.css"}]
-
+                 [:link {:rel "stylesheet" :href "/maps/app.css"}]
+                 
                  analytics-script]
                 [:div#landing-page-root]
-                [:script {:type "text/javascript" :src "/js/main.js"}]
-                ]))})
+                [:script {:type "text/javascript" :src "/maps/js/main.js"}]]))})
 
 (defn maps-app
   [request]
@@ -61,8 +60,7 @@
                  [:link {:rel "stylesheet" :href "/maps/app.css"}]
                  [:script {:type "text/javascript"
                            :src "https://maps.googleapis.com/maps/api/js?key=AIzaSyCsDIgcntL8vPV1WZPUuXPh-ennc7HAXCI&libraries=drawing"}]
-                 analytics-script
-                 ]
+                 analytics-script]
                 [:div#root]
                 [:script {:type "text/javascript" :src "/maps/js/main.js"}]]))})
 
@@ -561,16 +559,15 @@
         "apps"            #'appslist
         "app/"            {[:appname] {true (bidi/tag #'do-app-file :app-file)}}
         "app-file/"       (bring/files {:dir "."})
-        "common/"         (bring/resources {:prefix "common/"})}])
+        "common/"         (bring/resources {:prefix "common/"})
+        ""                #'landing-page}])
 
 
 (def app
   (-> (bring/make-handler routes)
       (ring-params/wrap-params)))
 
-
 (comment
-  
   (for [ma (string/split-lines (slurp (io/resource "compiled-apps/manifest.txt")))]
     [(io/resource (str "compiled-apps/" ma ".lua"))
      (io/resource (str "compiled-apps/" ma ".lc") )
