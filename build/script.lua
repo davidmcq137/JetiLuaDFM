@@ -41,7 +41,7 @@ local function make_lc(lua_source, lc_out, no_strip)
 end
 
 local function build_app(app)
-   os_execute(string.format("cp -r %s %s/%s", app, output_dir, app))
+   os_execute(string.format("cp -r %s %s", app, output_dir))
 
    -- Find and load the lua source
    local lua_source = string.format('%s.lua', app)
