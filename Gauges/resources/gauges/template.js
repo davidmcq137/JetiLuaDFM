@@ -1874,7 +1874,8 @@ function verticalTape(ctx, arr) {
 	arrR.rgbBackColor = getRGB(ctx.fillStyle);
 	ctx.fillRect(arr.x0 - barW/2, arr.y0 - barH/2, barW, barH);
     } else {
-	arrR.rgbBackColor = getRGB(arr.backColor);
+	ctx.fillStyle = arr.backColor;
+	arrR.rgbBackColor = getRGB(ctx.fillStyle);
     }
     
     // outline
