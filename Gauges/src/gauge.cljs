@@ -370,6 +370,12 @@
        :value "+"
        :onClick #(update-gauge* da update "spectrum" conj "red")}]]))
 
+(defn numberformat-colorvals
+  [val]
+  (-> (.toFixed val 3)
+      (string/replace #"\.0+$" "")
+      #_(string/replace #"0+$" "")))
+
 (rum/defc edit-colorvals
   < rum/reactive
   [da]
@@ -401,10 +407,7 @@
                                                  (vec (concat (take i v)
                                                               (drop (inc i) v))) ))))}]
          :range [:div {:key (str "l" i)}
-                 (-> (.toFixed val 3)
-                     (string/replace #"\.0+$" "")
-                     (string/replace #"0+$" ""))
-                 #_(str val)]
+                 (numberformat-colorvals val)]
          :swatch [:span
                   {:key (str "w" i)
                    :style {:height "2ex"
@@ -420,7 +423,7 @@
                                              (.-value (.-target ev))))}]
          :slider (let [{:strs [max min majdivs subdivs]} params
                        step (/ (- max min)
-                                (* majdivs subdivs))]
+                               (* majdivs subdivs))]
                    [:input
                     {:type "range"
                      :key (str "s" i)
@@ -649,21 +652,22 @@
 
 (defn download-json!
   [w h]
-  (.then (render-panel (get (:panels @db) (get @db :selected-panel)) w h)
-         (fn [{:keys [data]}]
-           (ask-download-file "gauges.json" (js/JSON.stringify (clj->js data) nil 2))
-           (ask-download-file "gauges.new.json"
-                              (js/JSON.stringify
-                               (clj->js {:panel data
-                                         :timestamp (.toISOString (js/Date.))})
-                               nil 2)))))
+  (let [panel-name (get @db :selected-panel)]
+   (.then (render-panel (get (:panels @db) panel-name) w h)
+          (fn [{:keys [data]}]
+            (ask-download-file (str panel-name ".json")
+                               (js/JSON.stringify
+                                (clj->js {:panel data
+                                          :timestamp (.toISOString (js/Date.))})
+                                nil 2))))))
 
 
 (defn download-png!
   [w h]
-  (.then (render-panel (get (:panels @db) (get @db :selected-panel)) w h)
-         (fn [{:keys [image]}]
-           (ask-download-file "gauges.png" image))))
+  (let [panel-name (get @db :selected-panel)]
+    (.then (render-panel (get (:panels @db) panel-name) w h)
+           (fn [{:keys [image]}]
+             (ask-download-file (str panel-name ".png") image)))))
 
 (defn blob->base64
   [v]
@@ -744,6 +748,43 @@
   (ask-download-file "panels.edn" (encode-edn-string @db)))
 
 
+(rum/defc restorer
+  []
+  [:input.delete-button
+   {:type "file"
+    :style {:margin-left "1ch"}
+    :accept ".edn"
+    :onChange (fn [ev]
+                (when-let [f (first (.-files (.-target ev)))]
+                  (let [fr (doto (js/FileReader.)
+                             (.readAsText f "utf-8"))]
+                    (set! (.-onloadend fr)
+                          #(restore-db! (edn/read-string (.-result fr)))))))}])
+
+(rum/defc loader
+  []
+  [:label "Import panel json"
+   [:input
+    {:type "file"
+     :style {:margin-left "1ch"}
+     :accept ".json"
+     :onChange (fn [ev]
+                 (when-let [f (first (.-files (.-target ev)))]
+                   (let [upload-name (.-name f)
+                         panel-name (string/replace upload-name #"\.json$" "")
+                         fr (doto (js/FileReader.)
+                              (.readAsText f "utf-8"))]
+                     (set! (.-onloadend fr)
+                           (fn []
+                             (let [json (.-result fr)
+                                   data (-> (js/JSON.parse json)
+                                            (js->clj))]
+                               (swap! db #(-> %
+                                              (assoc-in [:panels panel-name]
+                                                        {:gauges (zipmap (range)
+                                                                         (map render-gauge* (get data "panel")))})
+                                              (assoc :selected-panel panel-name)))))))))}]])
+
 
 (rum/defc app-controls
   [w h]
@@ -776,7 +817,8 @@
     [:p "You can also manually download this panel's configuration data:"]
     [:ul
      [:li [:input {:type "button"  :value "Download JSON" :onClick #(download-json! w h)}]]
-     [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]]]
+     [:li [:input {:type "button"  :value "Download PNG"  :onClick #(download-png! w h)}]]]
+    (loader)]
    
    [:div [:h4 "Backup & restore"]
     [:p "Data for ALL panels can be saved to a file and reloaded.  "
@@ -785,15 +827,7 @@
      [:li [:input {:type "button"  :value "Download EDN backup" :onClick #(download-edn!)}]]
      [:li [:label
            "Restore"
-           [:input.delete-button
-            {:type "file"
-             :style {:margin-left "1ch"}
-             :onChange (fn [ev]
-                         (when-let [f (first (.-files (.-target ev)))]
-                           (let [fr (doto (js/FileReader.)
-                                      (.readAsText f "utf-8"))]
-                             (set! (.-onloadend fr)
-                                   #(restore-db! (edn/read-string (.-result fr)))))))}]]]]]
+           (restorer)]]]]
    (dynamic-repo/repo-result-modal)])
 
 
