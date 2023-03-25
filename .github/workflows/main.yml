@@ -21,7 +21,9 @@ jobs:
           make -j4 linux
       - name: apt deps
         shell: bash
-        run: "sudo apt-get install -y jq sox"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq sox
       - name: Build Lua apps
         id: lc_build
         shell: bash
