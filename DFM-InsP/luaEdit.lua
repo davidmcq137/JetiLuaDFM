@@ -95,9 +95,9 @@ end
 
 function M.luaEdit(vars, funcs, excl)
    
-   local fA = { "*","/","+","-","^","(",
+   local fA = { "*","/","+","-","^","(", "'",
 		"0","1","2","3","4","5","6","7","8","9",
-		"abs(", "sqrt("
+		"abs(", "sqrt(", "minV(", "maxV(", "avgV("
    }
 
    -- rebuild the expression element string from the

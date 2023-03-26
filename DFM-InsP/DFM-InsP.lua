@@ -29,6 +29,7 @@
    Version 0.71 03/05/23 - bugfix if doPerLoop was 0
    Version 0.72 03/07/23 - bugfix on units causing crashes
    Version 0.73 03/07/23 - bugfix on showing arc labels on needle gauges
+   Version 0.74 03/25/23 - performance opt of where serVariables() is called
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -137,12 +138,7 @@ local stampTimes = {"0:30", "1:00", "2:00", "4:00", "8:00"}
 
 local lua = {}
 --lua.chunk = {}
-lua.env = {string=string, math=math, table=table, print=print,
-	   tonumber=tonumber, tostring=tostring, pairs=pairs,
-	   require=require, ipairs=ipairs, type=type, abs=math.abs, sqrt=math.sqrt,
-	   getSensorByID=(function(a1,a2) return system.getSensorByID(a1,a2) end)
-}
-
+-- lua.env was here
 lua.index = 0
 lua.txTelLastUpdate = 0
 lua.txTel = {}
@@ -574,6 +570,35 @@ local function getPanelNumber(name)
    return num
 end
 
+local function accEnv(arg, typ)
+   if type(arg) == "string" then
+      local ivar = 0
+      for i,v in ipairs(InsP.variables) do
+	 if v.name == arg then
+	    ivar = i
+	    break
+	 end
+      end
+      if ivar > 0 then
+	 return InsP.variables[ivar][typ]
+      else
+	 return nil
+      end
+   else
+      return nil
+   end
+end
+
+
+lua.env = {string=string, math=math, table=table, print=print,
+	   tonumber=tonumber, tostring=tostring, pairs=pairs,
+	   require=require, ipairs=ipairs, type=type, abs=math.abs, sqrt=math.sqrt,
+	   getSensorByID=(function(a1,a2) return system.getSensorByID(a1,a2) end),
+	   minV = (function(a1, a2) return accEnv(a1, "min") end),
+	   maxV = (function(a1, a2) return accEnv(a1, "max") end),
+	   avgV = (function(a1, a2) return accEnv(a1, "avg") end)
+}
+
 local pCallErr = 0
 local luaLoadErr = 0
 
@@ -652,9 +677,20 @@ local function evaluateLua(es, luastring, val)
    return luaReturn or "<no value>"
 end
 
+local setVarIndex = 0
 local function setVariables()
    --print("setVariables")
-   for i, var in ipairs(InsP.variables) do
+   local nvar = #InsP.variables
+   local i, var
+   local doPerLoop = 6
+   for ii = 1, math.min(doPerLoop, nvar) do
+   --for i, var in ipairs(InsP.variables) do
+      setVarIndex = setVarIndex + 1
+      if setVarIndex > nvar then
+	 setVarIndex = 1
+      end
+      i = setVarIndex
+      var = InsP.variables[i]
       if InsP.variables[i].source == "Sensor" then
 	 --local name = InsP.sensorLalist[var.sensor]
 	 --InsP.variables[i].value = lua.env[name]
@@ -672,6 +708,23 @@ local function setVariables()
       elseif InsP.variables[i].source == "Control" then -- control
 	 local info = system.getSwitchInfo(switches[InsP.variables[i].control])
 	 if info then InsP.variables[i].value = info.value end
+      end
+      if var.value then
+	 if not var.min or var.value < var.min then
+	    var.min = var.value
+	 end
+	 if not var.max or var.value > var.max then
+	    var.max = var.value
+	 end
+	 if not var.avg then
+	    var.count = 1
+	    var.sum = var.value 
+	    var.avg = var.value
+	 else
+	    var.sum = var.sum + var.value
+	    var.count = var.count + 1
+	    var.avg = var.sum / var.count
+	 end
       end
    end
 end
@@ -738,7 +791,7 @@ local function expandStr(stri, val, widget)
 	       v = ""
 	    end
 	 else -- see if the single quoted item is a variable .. else leave it in
-	    setVariables()
+	    --setVariables() -- causing excessive cpu usage .. now called from loop()
 	    cc = string.sub(ww, 2, -2)
 	    v = ww
 	    --print("ww,cc", ww, cc, bb, aa, fmt)
@@ -2344,6 +2397,8 @@ local function loop()
    local sensor
    local swr, swp, swt
 
+   setVariables()
+   
    -- see if sequencer has triggered a change
 
    local w1 = InsP.settings.window1Panel
@@ -2402,11 +2457,16 @@ local function loop()
    swr = system.getInputsVal(switches.resetMinMax)
    if not swrLast then swrLast = swr end
    if swr and swr == 1 and swrLast ~= 1 then
+      --first reset the widget "bug" pointers
       for _, panel in pairs(InsP.panels) do
 	 for _, gauge in pairs(panel) do
 	    gauge.minval = nil
 	    gauge.maxval = nil
 	 end
+      end
+      --and then the accumulating lua variables
+      for i,v in ipairs(InsP.variables) do
+	 v.min, v.max, v.avg, v.sum, v.count = nil, nil, nil, nil, nil
       end
    end
    swrLast = swr
@@ -2737,7 +2797,7 @@ local function printForm(ww0,hh0,tWin)
 	 --print("calling", idxW, widget.modext, lua.modext[widget.modext].name,
 	 --lua.modext[widget.modext].func)
 	 --print("sensorValNative", sensorValNative)
-	 setVariables()
+	 --setVariables() -- now called from loop()
 	 local modret = lua.modext[widget.modext].func(InsP, sensorValNative)
 	 if type(modret) == "number" then
 	    --print("modret number", ret)
@@ -3987,8 +4047,8 @@ local function printForm(ww0,hh0,tWin)
    ---[[
    lcd.setColor(255,255,255)
    if select(2, system.getDeviceType()) == 1 then
-      lcd.drawText(300,70, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   
-      lcd.drawText(300,90, string.format("%02d", system.getCPU()), FONT_MINI)
+      lcd.drawText(300,0, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   
+      lcd.drawText(300,80, string.format("%02d", system.getCPU()), FONT_MINI)
    end
    --]]
 end
@@ -4002,7 +4062,7 @@ local function prtForm(w,h)
 	 --lcd.drawText(5,0, lua.loadErr, FONT_MINI)
       --end
       --print("prtForm calling setVariables", savedRow, savedRow2)
-      setVariables()
+      --setVariables() -- now called from loop()
       if savedRow == 3 then
 	 local sp = InsP.settings.selectedPanel
 	 if not InsP.panels[sp][savedRow2].luastring then
@@ -4176,7 +4236,7 @@ local function initNewer(sf, tbl)
 end
 
 local function luaLogCB(idx)
-   setVariables()
+   --setVariables() -- now called from loop()
    ret, dp = 0, 2
    for k,v in ipairs(InsP.variables) do
       if idx and v.logID and v.logID == idx then
@@ -4256,6 +4316,7 @@ local function init()
 
       for i,v in ipairs(InsP.variables) do
 	 if v.SeId then InsP.variables[i].SeId = tonumber(v.SeId) end
+	 v.min, v.max, v.avg, v.sum, v.count = nil, nil, nil, nil, nil
       end
       
       if decoded.jsnVersion then
