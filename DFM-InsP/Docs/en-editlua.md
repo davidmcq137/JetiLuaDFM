@@ -10,7 +10,7 @@ to speed up the input process.
 
 __abs(v)__ Returns the absolute value of v
 
-__sqrt(v) __ Returns the square root of v
+__sqrt(v)__ Returns the square root of v
 
 __minV(\'Sn\')__ Returns the minimum value of lua variable Sn since app start or
 reset. Quotation marks required.
