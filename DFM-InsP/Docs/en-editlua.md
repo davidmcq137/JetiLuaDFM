@@ -44,13 +44,13 @@ __LiPoV(s)__ Returns the generic (brands can vary!) 1S LiPo voltage at state of
 charge s
 
 __LiPoS(v)__ Returns the generic (brands can vary!) 1S LiPo state of charge at
-voltage s
+voltage v
 
 __LiFeV(s)__ Returns the generic (brands can vary!) 1S LiFe voltage at state of
 charge s
 
 __LiFeS(v)__ Returns the generic (brands can vary!) 1S LiFe state of charge at
-voltage s
+voltage v
 
 __gratio(a,v)__ Returns the glide ratio computed from airspeed a and vario
 reading v
