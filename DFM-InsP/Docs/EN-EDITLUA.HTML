@@ -17,6 +17,22 @@
 <header id="title-block-header">
 <h1 class="title">DFM-InsP Edit Lua Expressions Help</h1>
 </header>
-<p>This is the lua expression editor. You use the 3D wheel to scroll the list of numbers, functions, variables and operators back and forth. The highlighted symbol will be included in the expression if you press enter while it is highlighted. Note that some common symbols are assigned to softkeys to speed up the input process.</p>
+<p>This is the lua expression editor. You use the 3D wheel to scroll the list of numbers, functions, variables and operators back and forth.</p>
+<p>The highlighted symbol will be included in the expression if you press enter while it is highlighted. Note that some common symbols are assigned to softkeys to speed up the input process.</p>
+<h1 id="functions-available">Functions available</h1>
+<p><strong>abs(v)</strong> Returns the absolute value of v</p>
+<p><strong>sqrt(v) </strong> Returns the square root of v</p>
+<p><strong>minV('Sn')</strong> Returns the minimum value of lua variable Sn since app start or reset. Quotation marks required.</p>
+<p><strong>maxV('Sn')</strong> Returns the maximum value of lua variable Sn since app start or reset. Quotation marks required.</p>
+<p><strong>avgV('Sn')</strong> Returns the average value of lua variable Sn since app start or reset. Quotation marks required.</p>
+<p><strong>avgV('Sn', N)</strong> Returns the 'running average' of lua variable Sn over approximately N updates. Quotation marks required. Depending on the number of lua variables defined, they are updated 20-30 times per second so a value of 30 for N will give approximately 1s averaging time.</p>
+<p>Notes:</p>
+<p>The max, min and average values returned by maxV, minV and avgV are reset at app startup and can also be reset with the switch assigned to reset the min/max on gauges. This switch assignment is done in the <strong>Settings</strong> menu.</p>
+<p>There may be other functions shown in the scroll list that are loaded dynamically at app start and are provisioned from lua files in the <strong>Extensions</strong> or <strong>Functions</strong> directories. Some examples include:</p>
+<p><strong>LiPoV(s)</strong> Returns the generic (brands can vary!) 1S LiPo voltage at state of charge s</p>
+<p><strong>LiPoS(v)</strong> Returns the generic (brands can vary!) 1S LiPo state of charge at voltage s</p>
+<p><strong>LiFrV(s)</strong> Returns the generic (brands can vary!) 1S LiFe voltage at state of charge s</p>
+<p><strong>LiFeS(v)</strong> Returns the generic (brands can vary!) 1S LiFe state of charge at voltage s</p>
+<p><strong>gratio(a,v)</strong> Returns the glide ratio computed from airspeed a and vario reading v</p>
 </body>
 </html>

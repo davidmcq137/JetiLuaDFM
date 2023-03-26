@@ -1,0 +1,25 @@
+[
+
+    {"id":1,"param":0,"sensorName":"", "label":"PS1(P5)"},
+    {"id":1,"param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS1(P5)",
+     "label":"Vario",
+     "unit":"m/s",
+     "luaFunc":"local tt = 12 + (t%30)/30 * (19-12) return 0.5*(math.random() - 0.5) +  -27.3424 + 3.443062*tt -0.1117096*tt*tt"
+    },
+    
+    {"id":2,"param":0,"sensorName":"", "label":"PS2(P6)"},
+    {"id":2,
+     "param":1,
+     "decimals":0,
+     "type":1,
+     "sensorName":"PS2(P6)",
+     "label":"Airspeed",
+     "unit":"m/s",
+     "luaExp" :"12 + (t%30)/30 * (19-12)"
+    }
+     
+    
+]

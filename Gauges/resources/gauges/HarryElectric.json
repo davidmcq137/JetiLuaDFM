@@ -1,0 +1,516 @@
+[
+    {
+	"tickFont": "Bold",
+	"yL": 115.2,
+	"min": 0,
+	"ro": 58,
+	"xL": 257,
+	"colorvals": [
+            {
+		"color": "green",
+		"val": 90
+            },
+            {
+		"color": "red",
+		"val": 100
+            }
+	],
+	"y0": 63,
+	"rgbInnerFillColor": {
+            "r": 255,
+            "g": 0,
+            "b": 0,
+            "t": "false"
+	},
+	"label": "Amps",
+	"max": 100,
+	"radius": 80,
+	"TS": 33.63999999999999,
+	"x0": 257,
+	"majdivs": 4,
+	"rgbLabelColor": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "t": "false"
+	},
+	"divs": 20,
+	"labelFont": "Bold",
+	"subdivs": 5,
+	"tickLabels": [
+            {
+		"rt": 33.63999999999999,
+		"ca": -0.7071067811865477,
+		"sa": 0.7071067811865475,
+		"dp": 0
+            },
+            {
+		"rt": 33.63999999999999,
+		"ca": -0.9238795325112867,
+		"sa": -0.3826834323650899,
+		"dp": 0
+            },
+            {
+		"rt": 33.63999999999999,
+		"ca": 6.123233995736766e-17,
+		"sa": -1,
+		"dp": 0
+            },
+            {
+		"rt": 33.63999999999999,
+		"ca": 0.9238795325112867,
+		"sa": -0.3826834323650898,
+		"dp": 0
+            },
+            {
+		"rt": 33.63999999999999,
+		"ca": 0.7071067811865476,
+		"sa": 0.7071067811865475,
+		"dp": 0
+            }
+	],
+	"value": 100,
+	"tickSpace": 100,
+	"xV": 257,
+	"ri": 49.3,
+	"readoutPosY": 0,
+	"needleColor": "red",
+	"labelBoxColor": "transparent",
+	"type": "roundNeedleGauge",
+	"needle": [
+            {
+		"x": -1,
+		"y": 0
+            },
+            {
+		"x": -2,
+		"y": 1
+            },
+            {
+		"x": -4,
+		"y": 4
+            },
+            {
+		"x": -1,
+		"y": 58
+            },
+            {
+		"x": 1,
+		"y": 58
+            },
+            {
+		"x": 4,
+		"y": 4
+            },
+            {
+		"x": 2,
+		"y": 1
+            },
+            {
+		"x": 1,
+		"y": 0
+            }
+	],
+	"readoutPosX": 0,
+	"yV": 97.8,
+	"inner": [
+            {
+		"x": 0,
+		"y": 0
+            },
+            {
+		"x": -3,
+		"y": 3
+            },
+            {
+		"x": 0,
+		"y": 45
+            },
+            {
+		"x": 3,
+		"y": 3
+            },
+            {
+		"x": 0,
+		"y": 0
+            }
+	],
+	"gaugeRadius": 58,
+	"valueFont": "Bold",
+	"labelPosX": 0,
+	"labelColor": "white",
+	"arcWidth": 15,
+	"needleType": "needle",
+	"labelPosY": 0,
+	"faceVis": "on",
+	"scaleVis": "on"
+    },
+    {
+	"tickFont": "Bold",
+	"yL": 115.2,
+	"min": 0,
+	"ro": 58,
+	"xL": 63,
+	"colorvals": [
+            {
+		"color": "red",
+		"val": 10
+            },
+            {
+		"color": "orange",
+		"val": 20
+            },
+            {
+		"color": "green",
+		"val": 75
+            }
+	],
+	"y0": 63,
+	"rgbInnerFillColor": {
+            "r": 255,
+            "g": 0,
+            "b": 0,
+            "t": "false"
+	},
+	"label": "Volts",
+	"max": 100,
+	"radius": 80,
+	"TS": 33.63999999999999,
+	"x0": 63,
+	"majdivs": 4,
+	"rgbLabelColor": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "t": "false"
+	},
+	"divs": 20,
+	"labelFont": "Bold",
+	"subdivs": 5,
+	"tickLabels": [
+            {
+		"rt": 33.63999999999999,
+		"ca": -0.7071067811865477,
+		"sa": 0.7071067811865475,
+		"dp": 0
+            },
+            {
+		"rt": 33.63999999999999,
+		"ca": -0.9238795325112867,
+		"sa": -0.3826834323650899,
+		"dp": 0
+            },
+            {
+		"rt": 33.63999999999999,
+		"ca": 6.123233995736766e-17,
+		"sa": -1,
+		"dp": 0
+            },
+            {
+		"rt": 33.63999999999999,
+		"ca": 0.9238795325112867,
+		"sa": -0.3826834323650898,
+		"dp": 0
+            },
+            {
+		"rt": 33.63999999999999,
+		"ca": 0.7071067811865476,
+		"sa": 0.7071067811865475,
+		"dp": 0
+            }
+	],
+	"value": 85,
+	"tickSpace": 100,
+	"xV": 63,
+	"ri": 49.3,
+	"readoutPosY": 0,
+	"needleColor": "red",
+	"labelBoxColor": "transparent",
+	"type": "roundNeedleGauge",
+	"needle": [
+            {
+		"x": -1,
+		"y": 0
+            },
+            {
+		"x": -2,
+		"y": 1
+            },
+            {
+		"x": -4,
+		"y": 4
+            },
+            {
+		"x": -1,
+		"y": 58
+            },
+            {
+		"x": 1,
+		"y": 58
+            },
+            {
+		"x": 4,
+		"y": 4
+            },
+            {
+		"x": 2,
+		"y": 1
+            },
+            {
+		"x": 1,
+		"y": 0
+            }
+	],
+	"readoutPosX": 0,
+	"yV": 97.8,
+	"inner": [
+            {
+		"x": 0,
+		"y": 0
+            },
+            {
+		"x": -3,
+		"y": 3
+            },
+            {
+		"x": 0,
+		"y": 45
+            },
+            {
+		"x": 3,
+		"y": 3
+            },
+            {
+		"x": 0,
+		"y": 0
+            }
+	],
+	"gaugeRadius": 58,
+	"valueFont": "Bold",
+	"labelPosX": 0,
+	"labelColor": "white",
+	"arcWidth": 15,
+	"needleType": "needle",
+	"labelPosY": 0,
+	"faceVis": "on",
+	"scaleVis": "on"
+    },
+    {
+	"tickFont": "Bold",
+	"yL": 150.8,
+	"min": 0,
+	"ro": 42,
+	"xL": 160,
+	"colorvals": [
+            {
+		"color": "green",
+		"val": 90
+            },
+            {
+		"color": "red",
+		"val": 100
+            }
+	],
+	"y0": 113,
+	"rgbInnerFillColor": {
+            "r": 255,
+            "g": 0,
+            "b": 0,
+            "t": "false"
+	},
+	"label": "Watts",
+	"max": 100,
+	"radius": 64,
+	"TS": 24.359999999999985,
+	"x0": 160,
+	"majdivs": 4,
+	"rgbLabelColor": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "t": "false"
+	},
+	"divs": 20,
+	"labelFont": "Bold",
+	"subdivs": 5,
+	"tickLabels": [
+            {
+		"rt": 24.359999999999985,
+		"ca": -0.7071067811865477,
+		"sa": 0.7071067811865475,
+		"dp": 0
+            },
+            {
+		"rt": 24.359999999999985,
+		"ca": -0.9238795325112867,
+		"sa": -0.3826834323650899,
+		"dp": 0
+            },
+            {
+		"rt": 24.359999999999985,
+		"ca": 6.123233995736766e-17,
+		"sa": -1,
+		"dp": 0
+            },
+            {
+		"rt": 24.359999999999985,
+		"ca": 0.9238795325112867,
+		"sa": -0.3826834323650898,
+		"dp": 0
+            },
+            {
+		"rt": 24.359999999999985,
+		"ca": 0.7071067811865476,
+		"sa": 0.7071067811865475,
+		"dp": 0
+            }
+	],
+	"value": 85,
+	"tickSpace": 100,
+	"xV": 160,
+	"ri": 35.699999999999996,
+	"readoutPosY": 0,
+	"needleColor": "red",
+	"labelBoxColor": "transparent",
+	"type": "roundNeedleGauge",
+	"needle": [
+            {
+		"x": -1,
+		"y": 0
+            },
+            {
+		"x": -2,
+		"y": 1
+            },
+            {
+		"x": -4,
+		"y": 4
+            },
+            {
+		"x": -1,
+		"y": 58
+            },
+            {
+		"x": 1,
+		"y": 58
+            },
+            {
+		"x": 4,
+		"y": 4
+            },
+            {
+		"x": 2,
+		"y": 1
+            },
+            {
+		"x": 1,
+		"y": 0
+            }
+	],
+	"readoutPosX": 0,
+	"yV": 138.2,
+	"inner": [
+            {
+		"x": 0,
+		"y": 0
+            },
+            {
+		"x": -3,
+		"y": 3
+            },
+            {
+		"x": 0,
+		"y": 45
+            },
+            {
+		"x": 3,
+		"y": 3
+            },
+            {
+		"x": 0,
+		"y": 0
+            }
+	],
+	"gaugeRadius": 42,
+	"valueFont": "Bold",
+	"labelPosX": 0,
+	"labelColor": "white",
+	"arcWidth": 15,
+	"needleType": "needle",
+	"labelPosY": 0,
+	"faceVis": "on",
+	"scaleVis": "on"
+    },
+    {
+	"min": 0,
+	"width": 50,
+	"backColor": "black",
+	"lightColor": "red",
+	"height": 50,
+	"y0": 19,
+	"label": "Thr Lock",
+	"max": 1,
+	"radius": 13,
+	"x0": 160,
+	"labelFont": "Mini",
+	"rgbBezelColor": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "t": "true"
+	},
+	"value": 1,
+	"rgbBackColor": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "t": "false"
+	},
+	"type": "panelLight",
+	"rgbLightColor": {
+            "r": 255,
+            "g": 0,
+            "b": 0,
+            "t": "false"
+	},
+	"bezelColor": "transparent",
+	"labelPosX": 0,
+	"labelPosY": 0
+    },
+    {
+	"min": 0,
+	"width": 50,
+	"backColor": "transparent",
+	"lightColor": "green",
+	"height": 50,
+	"y0": 19,
+	"label": "green Light",
+	"max": 1,
+	"radius": 13,
+	"x0": 160,
+	"labelFont": "None",
+	"rgbBezelColor": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "t": "true"
+	},
+	"value": 0.11,
+	"rgbBackColor": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "t": "true"
+	},
+	"type": "panelLight",
+	"rgbLightColor": {
+            "r": 0,
+            "g": 128,
+            "b": 0,
+            "t": "false"
+	},
+	"bezelColor": "transparent",
+	"labelPosX": 0,
+	"labelPosY": 0
+    }
+]
