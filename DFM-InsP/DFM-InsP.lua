@@ -570,7 +570,7 @@ local function getPanelNumber(name)
    return num
 end
 
-local function accEnv(arg, typ)
+local function accEnv(arg, typ, sm)
    if type(arg) == "string" then
       local ivar = 0
       for i,v in ipairs(InsP.variables) do
@@ -580,6 +580,9 @@ local function accEnv(arg, typ)
 	 end
       end
       if ivar > 0 then
+	 if sm and type(sm) == "number" then
+	    InsP.variables[ivar].sm = sm
+	 end
 	 return InsP.variables[ivar][typ]
       else
 	 return nil
@@ -594,9 +597,10 @@ lua.env = {string=string, math=math, table=table, print=print,
 	   tonumber=tonumber, tostring=tostring, pairs=pairs,
 	   require=require, ipairs=ipairs, type=type, abs=math.abs, sqrt=math.sqrt,
 	   getSensorByID=(function(a1,a2) return system.getSensorByID(a1,a2) end),
-	   minV = (function(a1, a2) return accEnv(a1, "min") end),
-	   maxV = (function(a1, a2) return accEnv(a1, "max") end),
-	   avgV = (function(a1, a2) return accEnv(a1, "avg") end)
+	   minV = (function(a1) return accEnv(a1, "min") end),
+	   maxV = (function(a1) return accEnv(a1, "max") end),
+	   avgV = (function(a1, a2) return accEnv(a1, "avg", a2) end),
+	   
 }
 
 local pCallErr = 0
@@ -721,9 +725,15 @@ local function setVariables()
 	    var.sum = var.value 
 	    var.avg = var.value
 	 else
-	    var.sum = var.sum + var.value
-	    var.count = var.count + 1
-	    var.avg = var.sum / var.count
+	    if not var.sm then
+	       var.sum = var.sum + var.value
+	       var.count = var.count + 1
+	       var.avg = var.sum / var.count
+	    else
+	       if var.sm > 0 then
+		  var.avg = (var.value - var.avg) / var.sm + var.avg
+	       end
+	    end
 	 end
       end
    end
