@@ -730,7 +730,7 @@ local function setVariables()
 	       var.count = var.count + 1
 	       var.avg = var.sum / var.count
 	    else
-	       if var.sm > 0 then
+	       if var.sm >= 1 then
 		  var.avg = (var.value - var.avg) / var.sm + var.avg
 	       end
 	    end
