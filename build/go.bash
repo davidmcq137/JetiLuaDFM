@@ -13,6 +13,6 @@ fi
 
 # npm i
 
-# export GOOGLE_MAPS_API_KEY=$(heroku config:get --app stark-savannah-19620 GOOGLE_MAPS_API_KEY)
+export GOOGLE_MAPS_API_KEY=$(heroku config:get --app stark-savannah-19620 GOOGLE_MAPS_API_KEY)
 "$BB" clojure -M -e '(user/go)'
 
