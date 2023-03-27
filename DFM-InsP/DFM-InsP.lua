@@ -2607,13 +2607,14 @@ local function loop()
 	    local now = system.getTimeCounter()
 	    if (not widget.chartInterval) or (#widget.chartSample < 1) then
 	       widget.chartInterval = tonumber(string.sub(widget.timeSpan,2)) * 1000 / MAXSAMPLE
+	       --print("chartSample init", widget.chartInterval, val)
 	       widget.chartSample = {}
 	       widget.chartSamples = 0
 	       widget.chartSampleYP = {}
 	       widget.chartSampleXP = {}
 	       widget.chartStartTime = now
 	    end
-	    if (now > (widget.chartStartTime + widget.chartInterval * widget.chartSamples)) and val then
+	    if (now >= (widget.chartStartTime + widget.chartInterval * widget.chartSamples)) and val then
 	       --print("sample", widget.chartSamples)
 	       widget.chartSamples = widget.chartSamples + 1
 	       if #widget.chartSample + 1 > MAXSAMPLE then
@@ -4025,6 +4026,7 @@ local function printForm(ww0,hh0,tWin)
 	 local np = 0
 	 local yc 
 	 local ren = lcd.renderer()
+	 --print("sensorVal, #widget.chartSample", sensorVal, #widget.chartSample)
 	 if sensorVal and widget.chartSample and #widget.chartSample > 0 then
 	    ren:reset()
 	    local aa = widget.boxW / MAXSAMPLE
@@ -4575,7 +4577,10 @@ local function init()
 	 --print("registerLog", v.name, v.source, v.luastring[1], InsP.variables[k].logID)
       end
    end
-   print("DFM-InsP: registering logfile entries for " .. string.sub(logstr, 1, -3))
+
+   if logstr ~= "" then
+      print("DFM-InsP: registering logfile entries for " .. string.sub(logstr, 1, -3))
+   end
    
    readSensors(InsP)
 
