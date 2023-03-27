@@ -687,10 +687,10 @@
              (fn [{:keys [image data]}]
                (.then (blob->base64 image)
                       (fn [base]
-                        #js [{:destination (str "Apps/DFM-InsP/Panels/gauges.json")
+                        #js [{:destination (str "Apps/DFM-InsP/Panels/" panel-name ".json")
                               :json-data (clj->js {:panel data
                                                    :timestamp (.toISOString (js/Date.))})}
-                             {:destination (str "Apps/DFM-InsP/Panels/gauges.png")
+                             {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".png")
                               :data-base64 (subs base (count "data:image/png;base64,"))}]))))))))
 
 (defn make-dynamic-repo-request
