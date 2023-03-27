@@ -687,9 +687,7 @@
              (fn [{:keys [image data]}]
                (.then (blob->base64 image)
                       (fn [base]
-                        #js [{:destination (str "Apps/DFM-InsP/Panels/" panel-name ".json")
-                              :json-data (clj->js data)}
-                             {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".new.json")
+                        #js [{:destination (str "Apps/DFM-InsP/Panels/" panel-name ".new.json")
                               :json-data (clj->js {:panel data
                                                    :timestamp (.toISOString (js/Date.))})}
                              {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".png")
