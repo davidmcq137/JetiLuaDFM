@@ -15,5 +15,9 @@ define variable S1, it is the averaging settings for S4 that will determine the
 behavior of the avgV(\'S4\') function that is returned to the expression
 defining S1.
 
+Depending on the number of lua variables defined, they are updated 20-30 times
+per second so a value of 30 for N will give approximately a 1s averaging time. N
+must be greater than or equal to 1. With N=1 no averaging is performed.
+
 See the help file one level up for more information on functions.
 
