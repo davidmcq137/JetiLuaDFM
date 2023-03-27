@@ -21,6 +21,7 @@
 <p>The choice of averaging mode and N control the behavior of the avgV('Sn') function anywhere it is used in a lua expression in the app and is based on the settings for the lua variable Sn.</p>
 <p>Please note that the control of how a lua variable e.g. Sn is averaged is a property of the variable Sn itself and will determine the output of the avgV('Sn') function wherever it is called.</p>
 <p>For example if the function avgV('S4') is included in the lua expression to define variable S1, it is the averaging settings for S4 that will determine the behavior of the avgV('S4') function that is returned to the expression defining S1.</p>
+<p>Depending on the number of lua variables defined, they are updated 20-30 times per second so a value of 30 for N will give approximately a 1s averaging time. N must be greater than or equal to 1. With N=1 no averaging is performed.</p>
 <p>See the help file one level up for more information on functions.</p>
 </body>
 </html>
