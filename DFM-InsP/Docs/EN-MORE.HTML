@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>DFM-InsP Lua Variables - More</title>
+  <style>
+   div.info{padding:5pt;color:black;backgro
+       und-color:#f2c0b8;margin-bottom:0.5em}p.h{font-size:1.08em;font-weight:700;margin-top:1em;margin-bottom:0.2em}img{border:1px solid;di
+	   splay:block;margin-left:auto;margin-right:auto;max-width:100%}#jetired{color:#d42e12;}.navbar{margin:1em 0}img.optional,img{display:n
+	       one}img.lq{display:block;}@media(min-width:600px){img.optional{display:block}}@media(min-width:320px),print{img{display:block}img.lq{
+		   display:none}}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">DFM-InsP Lua Variables - More</h1>
+</header>
+<p>Set the averaging mode for variable Sn in this sub-menu - Choose <strong>Global Average</strong> mode to average Sn from app start or reset, or <strong>Running Average</strong> mode to compute a 'sliding window average' over N samples. N is also set here.</p>
+<p>The choice of averaging mode and N control the behavior of the avgV('Sn') function anywhere it is used in a lua expression in the app and is based on the settings for the lua variable Sn.</p>
+<p>Please note that the control of how a lua variable e.g. Sn is averaged is a property of the variable Sn itself and will determine the output of the avgV('Sn') function wherever it is called.</p>
+<p>For example if the function avgV('S4') is included in the lua expression to define variable S1, it is the averaging settings for S4 that will determine the behavior of the avgV('S4') function that is returned to the expression defining S1.</p>
+<p>See the help file one level up for more information on functions.</p>
+</body>
+</html>

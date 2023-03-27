@@ -28,3 +28,11 @@ cp EN-EDITLUA.HTML ~/JSE/DOCS/DFM-INSP/
 pandoc en-inputs.md -f markdown -t html  -o EN-INPUTS.HTML --metadata title="DFM-InsP Edit Inputs Help" --template="jeti.html"
 cp EN-INPUTS.HTML ~/JSE/DOCS/DFM-INSP/
 
+pandoc en-more.md -f markdown -t html  -o EN-MORE.HTML --metadata title="DFM-InsP Lua Variables - More" --template="jeti.html"
+cp EN-MORE.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc en-harryCBdial.md -f markdown -t html  -o EN-HARRYCBDIAL.HTML --metadata title="Harry C. CB Dial Panel" --template="jeti.html"
+cp EN-HARRYCBDIAL.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc en-HarryElectric.md -f markdown -t html  -o EN-HARRYELECTRIC.HTML --metadata title="Harry C. Electric Panel" --template="jeti.html"
+cp EN-HARRYELECTRIC.HTML ~/JSE/DOCS/DFM-INSP/

@@ -1,4 +1,3 @@
-
 This is the lua expression editor. You use the 3D wheel to scroll the list of
 numbers, functions, variables and operators back and forth.
 
@@ -13,22 +12,26 @@ __abs(v)__ Returns the absolute value of v
 __sqrt(v)__ Returns the square root of v
 
 __minV(\'Sn\')__ Returns the minimum value of lua variable Sn since app start or
-reset. Quotation marks required.
+reset. __Single Quotation marks required__.
 
 __maxV(\'Sn\')__ Returns the maximum value of lua variable Sn since app start or
-reset. Quotation marks required.
+reset. __Single Quotation marks required__.
 
 __avgV(\'Sn\')__ Returns the average value of lua variable Sn since app start or
-reset. Quotation marks required.
+reset, OR the running average value of Sn. __Single Quotation marks required__.
 
-__avgV(\'Sn\', N)__ Returns the \'running average\' of lua variable Sn over
-approximately N updates. Quotation marks required.
+Set the averaging mode for variable Sn in the _Lua Variables_ \'More\' sub-menu
+- Choose _Global Average_ mode to average Sn from app start or reset, or _Running
+Average_ mode to compute a \'sliding window average\' over N samples. N is also set
+in the \'More\' menu.
 
 Depending on the number of lua variables defined, they are updated 20-30 times
-per second so a value of 30 for N will give approximately 1s averaging time. N
-must be greater than or equal to 1. With N=1 no averaging is performed. This
-function is useful for \'cleaning up\' noisy data to display on a gauge or chart
-recorder.
+per second so a value of 30 for N will give approximately a 1s averaging time. N
+must be greater than or equal to 1. With N=1 no averaging is performed.
+
+This function is useful for \'cleaning up\' noisy data to display on a gauge or
+chart recorder. You can select the average mode and averaging number for each
+lua variable independent of its source.
 
 Notes:
 

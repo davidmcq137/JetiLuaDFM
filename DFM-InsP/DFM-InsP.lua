@@ -175,12 +175,12 @@ local editWidgetType
 local formN = {main=1, settings=102, inputs=100, editpanel=103, editgauge=104,
 	       editlinks = 105, luavariables=108, resetall=101,
 	       editlua = 107, panels=106, editpanelsub=110, backcolors=111, widgetcolors=112,
-	       units=113,colors=114}
+	       units=113,colors=114,more=115}
 
 local formS = {[1]="main", [102]="settings", [100]="inputs", [103]="editpanel", [104]="editgauge",
    [105] = "editlinks", [108] = "luavariables", [101] = "resetall",
    [107] = "editlua", [106] = "panels", [110] = "editpanelsub", [111] = "backcolors",
-   [112] = "widgetcolors", [113] = "units", [114] = "colors"}
+   [112] = "widgetcolors", [113] = "units", [114] = "colors", [115] = "more"}
 
 local MAXSAMPLE = 160
 local modSample = 0
@@ -570,7 +570,7 @@ local function getPanelNumber(name)
    return num
 end
 
-local function accEnv(arg, typ, sm)
+local function accEnv(arg, typ)
    if type(arg) == "string" then
       local ivar = 0
       for i,v in ipairs(InsP.variables) do
@@ -580,9 +580,6 @@ local function accEnv(arg, typ, sm)
 	 end
       end
       if ivar > 0 then
-	 if sm and type(sm) == "number" then
-	    InsP.variables[ivar].sm = sm
-	 end
 	 return InsP.variables[ivar][typ]
       else
 	 return nil
@@ -599,7 +596,7 @@ lua.env = {string=string, math=math, table=table, print=print,
 	   getSensorByID=(function(a1,a2) return system.getSensorByID(a1,a2) end),
 	   minV = (function(a1) return accEnv(a1, "min") end),
 	   maxV = (function(a1) return accEnv(a1, "max") end),
-	   avgV = (function(a1, a2) return accEnv(a1, "avg", a2) end),
+	   avgV = (function(a1) return accEnv(a1, "avg") end),
 	   
 }
 
@@ -724,15 +721,16 @@ local function setVariables()
 	    var.count = 1
 	    var.sum = var.value 
 	    var.avg = var.value
+	    if not var.avgtype then var.avgtype = 1 end
+	    if not var.avgnumber then var.avgnumber = 10 end
 	 else
-	    if not var.sm then
+	    --if i == 4 then print(var.avgtype, var.avgnumber) end
+	    if var.avgtype == 1 then -- general average
 	       var.sum = var.sum + var.value
 	       var.count = var.count + 1
 	       var.avg = var.sum / var.count
-	    else
-	       if var.sm >= 1 then
-		  var.avg = (var.value - var.avg) / var.sm + var.avg
-	       end
+	    else -- running average
+	       var.avg = (var.value - var.avg) / var.avgnumber + var.avg
 	    end
 	 end
       end
@@ -1318,6 +1316,14 @@ local function keyForm(key)
 	 return
       end
    end
+
+   if subForm == formN.more then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(formN.luavariables)
+	 return
+      end
+   end
    
 end
 
@@ -1557,6 +1563,7 @@ local function initForm(sf)
       form.addLabel({label="Lua variables >>", width=220})
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
+	       savedRow2 = 1
 	       form.reinit(formN.luavariables)
 	       form.waitForRelease()
       end))
@@ -2076,8 +2083,8 @@ local function initForm(sf)
 
       for i in ipairs(InsP.variables) do
 
-	 form.addRow(3)
-	 --form.addLabel({label="Name", width=50})
+	 form.addRow(4)
+	 
 	 form.addTextbox(InsP.variables[i].name, 63,
 			 (function(x) return changedVariableName(x, i) end), {width=80})
 	 if not InsP.variables[i].source then InsP.variables[i].source = "Sensor" end
@@ -2097,14 +2104,15 @@ local function initForm(sf)
 			   (function(x) return changedSource(x, i) end), {width=80})	    
 	 if InsP.variables[i].source == "Sensor" then
 	    form.addSelectbox(InsP.sensorLalist, InsP.variables[i].sensor, true,
-			      (function(x) return changedSensor2(x, i) end), {width=150, alignRight=false})
+			      (function(x) return changedSensor2(x, i) end), {width=85, alignRight=false})
 	 elseif InsP.variables[i].source == "Lua" then 
+	    --form.addIntbox(1, 1, 9999, 10, 0, 1, nil, {width=60})
 	    form.addLink((function()
 		     savedRow2 = form.getFocusedRow()
 		     --print("lua edit var, savedRow2", savedRow2)
 		     form.waitForRelease()
 		     form.reinit(formN.editlua)
-			 end), {label="Edit Lua>>", width=150})
+			 end), {label="Edit Lua >>", width=85})
 	 elseif InsP.variables[i].source == "Control" then
 	    local cvarName
 	    --print("top", i, InsP.variables[i].control)
@@ -2127,8 +2135,15 @@ local function initForm(sf)
 							changedSwitch(x, cvarName,
 								      nil, InsP.variables[i])
 					       end),
-					       {width=240, alignRight=true})
-	 	 end
+					       {width=85, alignRight=true})
+	 end
+	 form.addLink((function()
+		  savedRow2 = form.getFocusedRow()
+		  --print("lua edit var, savedRow2", savedRow2)
+		  form.waitForRelease()
+		  form.reinit(formN.more)
+		      end), {label="More >>", width=65})
+	 
 	 form.setFocusedRow(savedRow2)
 	 
       end
@@ -2395,8 +2410,31 @@ local function initForm(sf)
 	       form.reinit(formN.backcolors)
 	       form.waitForRelease()
       end))
+   elseif sf == formN.more then
+      form.setTitle("Lua Variables - More")
+      form.addRow(2)
+      form.addLabel({label="avgV() func mode", width=170})
+      form.addSelectbox({"Global Average", "Running Average"}, InsP.variables[savedRow2].avgtype, true,
+	 (function(val)
+	       InsP.variables[savedRow2].avgtype = val
+	       --print("set", savedRow2, val)
+	       form.reinit(formN.more)
+	 end),
+	 {width = 150})
+      if InsP.variables[savedRow2].avgtype == 2 then
+	 form.addRow(2)
+	 form.addLabel({label="avgV() Running Average length", width=220})
+	 form.addIntbox(InsP.variables[savedRow2].avgnumber, 1, 9999, 10, 0, 1,
+			(function(val)
+			      InsP.variables[savedRow2].avgnumber = val
+			      --print("set", savedRow2, val)
+			      --form.reinit(formN.more)
+			end),
+			{width=90})
+      end
    end
 end
+
 
 local swrLast
 local swpLast
@@ -4327,6 +4365,8 @@ local function init()
       for i,v in ipairs(InsP.variables) do
 	 if v.SeId then InsP.variables[i].SeId = tonumber(v.SeId) end
 	 v.min, v.max, v.avg, v.sum, v.count = nil, nil, nil, nil, nil
+	 if not v.avgtype then v.avgtype = 1 end
+	 if not v.avgnumber then v.avgnumber = 10 end
       end
       
       if decoded.jsnVersion then
