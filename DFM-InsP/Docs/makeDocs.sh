@@ -49,11 +49,57 @@ cp EN-EDITPANELSUB.HTML ~/JSE/DOCS/DFM-INSP/
 pandoc en-editgauge.md -f markdown -t html  -o EN-EDITGAUGE.HTML --metadata title="DFM-InsP Lua Variables - Edit Widget" --template="jeti.html"
 cp EN-EDITGAUGE.HTML ~/JSE/DOCS/DFM-INSP/
 
-
-
-
-pandoc en-harryCBdial.md -f markdown -t html  -o EN-HARRYCBDIAL.HTML --metadata title="Harry C. CB Dial Panel" --template="jeti.html"
+pandoc ~/JS/Gauges/resources/gauges/en-HarryCBdial.md -f markdown -t html  -o EN-HARRYCBDIAL.HTML --metadata title="Harry C. CB Dial Panel" --template="jeti.html"
 cp EN-HARRYCBDIAL.HTML ~/JSE/DOCS/DFM-INSP/
 
-pandoc en-HarryElectric.md -f markdown -t html  -o EN-HARRYELECTRIC.HTML --metadata title="Harry C. Electric Panel" --template="jeti.html"
+pandoc ~/JS/Gauges/resources/gauges/en-HarryElectric.md -f markdown -t html  -o EN-HARRYELECTRIC.HTML --metadata title="Harry C. Electric panel" --template="jeti.html"
 cp EN-HARRYELECTRIC.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-ChartRecorder.md -f markdown -t html -o EN-CHARTRECORDER.HTML --metadata title="Title" --template="jeti.html"
+cp EN-CHARTRECORDER.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-Concentric.md -f markdown -t html -o EN-CONCENTRIC.HTML --metadata title="Title" --template="jeti.html"
+cp EN-CONCENTRIC.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-ElectricArc.md -f markdown -t html -o EN-ELECTRICARC.HTML --metadata title="Title" --template="jeti.html"
+cp EN-ELECTRICARC.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-FourUp.md -f markdown -t html -o EN-FOURUP.HTML --metadata title="Title" --template="jeti.html"
+cp EN-FOURUP.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-GlassCockpit.md -f markdown -t html -o EN-GLASSCOCKPIT.HTML --metadata title="Title" --template="jeti.html"
+cp EN-GLASSCOCKPIT.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-HarryCBdial.md -f markdown -t html -o EN-HARRYCBDIAL.HTML --metadata title="Title" --template="jeti.html"
+cp EN-HARRYCBDIAL.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-HarryElectric.md -f markdown -t html -o EN-HARRYELECTRIC.HTML --metadata title="Title" --template="jeti.html"
+cp EN-HARRYELECTRIC.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-PreFlightArc.md -f markdown -t html -o EN-PREFLIGHTARC.HTML --metadata title="Title" --template="jeti.html"
+cp EN-PREFLIGHTARC.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-PreFlightCBox.md -f markdown -t html -o EN-PREFLIGHTCBOX.HTML --metadata title="Title" --template="jeti.html"
+cp EN-PREFLIGHTCBOX.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-RickDFour.md -f markdown -t html -o EN-RICKDFOUR.HTML --metadata title="Title" --template="jeti.html"
+cp EN-RICKDFOUR.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-RickFive.md -f markdown -t html -o EN-RICKFIVE.HTML --metadata title="Title" --template="jeti.html"
+cp EN-RICKFIVE.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-TurbineArc.md -f markdown -t html -o EN-TURBINEARC.HTML --metadata title="Title" --template="jeti.html"
+cp EN-TURBINEARC.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-Turbine.md -f markdown -t html -o EN-TURBINE.HTML --metadata title="Title" --template="jeti.html"
+cp EN-TURBINE.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-TwoLargeArc.md -f markdown -t html -o EN-TWOLARGEARC.HTML --metadata title="Title" --template="jeti.html"
+cp EN-TWOLARGEARC.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-TwoLarge.md -f markdown -t html -o EN-TWOLARGE.HTML --metadata title="Title" --template="jeti.html"
+cp EN-TWOLARGE.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc ~/JS/Gauges/resources/gauges/en-TwoNeedle.md -f markdown -t html -o EN-TWONEEDLE.HTML --metadata title="Title" --template="jeti.html"
+cp EN-TWONEEDLE.HTML ~/JSE/DOCS/DFM-INSP/
+
