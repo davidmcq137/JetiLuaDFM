@@ -31,6 +31,7 @@
    Version 0.73 03/07/23 - bugfix on showing arc labels on needle gauges
    Version 0.74 03/25/23 - performance opt of where serVariables() is called
    Version 0.75 03/28/23 - fix but in input menu re: saving control info, added ext Switch2Seq
+                         - fix crash in Lua variables if going direct to more>>      
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -859,10 +860,12 @@ local function keyForm(key)
 
    if key == KEY_MENU then
       form.preventDefault()
+      print("subForm", subForm)
       if subForm ~= formN.panels then
 	 showExternal(subForm)
       else
 	 local foc = form.getFocusedRow() - 1
+	 print("foc", foc)
 	 if foc > 0 then
 	    local pname = InsP.panelImages[foc].instImage
 	    --print("pname: " .. pname)
@@ -906,7 +909,8 @@ local function keyForm(key)
 	 end
 	 
 	 table.insert(InsP.variables,
-		      {name="S"..l, source = 1, luastring={}, sensor = 0, SeId = 0, SePa = 0, control = 0})
+		      {name="S"..l, source = 1, luastring={}, sensor = 0, SeId = 0, SePa = 0,
+		       control = 0, avgtype = 1, avgnumber = 10})
 	 form.reinit(formN.luavariables)
 	 return
       end

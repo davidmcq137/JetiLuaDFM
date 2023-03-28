@@ -103,3 +103,6 @@ cp ~/JS/DFM-InsP/Panels/EN-TWOLARGE.HTML ~/JSE/DOCS/DFM-INSP/
 pandoc ~/JS/Gauges/resources/gauges/en-TwoNeedle.md -f markdown -t html -o ~/JS/DFM-InsP/Panels/EN-TWONEEDLE.HTML --metadata title="Split Gauge Example Panel" --template="jeti.html"
 cp ~/JS/DFM-InsP/Panels/EN-TWONEEDLE.HTML ~/JSE/DOCS/DFM-INSP/
 
+pandoc ~/JS/Gauges/resources/gauges/en-TurbineHarry2.md -f markdown -t html -o ~/JS/DFM-InsP/Panels/EN-TURBINEHARRY2.HTML --metadata title="Harry C. Turbine Panel" --template="jeti.html"
+cp ~/JS/DFM-InsP/Panels/EN-TURBINEHARRY2.HTML ~/JSE/DOCS/DFM-INSP/
+
