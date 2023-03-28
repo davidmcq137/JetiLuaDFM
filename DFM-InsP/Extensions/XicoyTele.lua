@@ -204,7 +204,8 @@ local ecuMessage = {
 }
 
 function M.text(ptr, val)
-   local ecuCode = val 
+   local ecuCode = val
+   if not val or type(val) ~= "number" then return "Invalid input" end
    if ecuCode and ecuMessage[ecuCode] then
       -- could take other actions here e.g. play wav files
       local msg = {ecuMessage[ecuCode].text}

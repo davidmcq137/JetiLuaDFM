@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>DFM-InsP Lua Variables - Units</title>
+  <style>
+   div.info{padding:5pt;color:black;backgro
+       und-color:#f2c0b8;margin-bottom:0.5em}p.h{font-size:1.08em;font-weight:700;margin-top:1em;margin-bottom:0.2em}img{border:1px solid;di
+	   splay:block;margin-left:auto;margin-right:auto;max-width:100%}#jetired{color:#d42e12;}.navbar{margin:1em 0}img.optional,img{display:n
+	       one}img.lq{display:block;}@media(min-width:600px){img.optional{display:block}}@media(min-width:320px),print{img{display:block}img.lq{
+		   display:none}}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">DFM-InsP Lua Variables - Units</h1>
+</header>
+<p>Default units are the units into which all telemetry readings are converted as they come from the sensor. The app defaults to metric/MKS units, as these are the Jeti standard.</p>
+<p>Some sensors to not follow Jeti guidance and have non-standard units, or settable units. The Jeti guidance is that all sensors should report in metric units, and then the TX or Jeti Studio can do conversions. We convert these units to the default units (again the “default default” is metric units) in these non-standard cases. Some sensor manufacturers even create their own non-standard unit names (e.g. kmh vs. the Jeti standard km/h). We convert the ones we know about but can’t handle everything. Let us know if we missed any that are important to you.</p>
+<p>Units are converted within a units group such as distance, speed, flow rate, etc.</p>
+<p>Units not in these unit groups are not converted.</p>
+<p>It is important to have consistent units if doing lua computations and all lua variable operations are done in the default units. You can change the default units to different systems than metric, but you then have to be consistent across unit groups if you expect lua variable computations to be correct.</p>
+<p>In addition to setting the default used inside the app (e.g. for lua variables), you can set specific units for an indvidual gauge that apply to that gauge only. This can be convenient if you want speed and vario in m/s to compute glide ratio but prefer to display speed in km/h or mph. The gauge-specific units are set in the Inputs panel and are only available if a sensor is selected for input.</p>
+</body>
+</html>

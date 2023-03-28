@@ -31,6 +31,27 @@ cp EN-INPUTS.HTML ~/JSE/DOCS/DFM-INSP/
 pandoc en-more.md -f markdown -t html  -o EN-MORE.HTML --metadata title="DFM-InsP Lua Variables - More" --template="jeti.html"
 cp EN-MORE.HTML ~/JSE/DOCS/DFM-INSP/
 
+pandoc en-colors.md -f markdown -t html  -o EN-COLORS.HTML --metadata title="DFM-InsP Lua Variables - Colors" --template="jeti.html"
+cp EN-COLORS.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc en-units.md -f markdown -t html  -o EN-UNITS.HTML --metadata title="DFM-InsP Lua Variables - Units" --template="jeti.html"
+cp EN-UNITS.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc en-widgetcolors.md -f markdown -t html  -o EN-WIDGETCOLORS.HTML --metadata title="DFM-InsP - Widget colors" --template="jeti.html"
+cp EN-WIDGETCOLORS.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc en-backcolors.md -f markdown -t html  -o EN-BACKCOLORS.HTML --metadata title="DFM-InsP - Background colors" --template="jeti.html"
+cp EN-BACKCOLORS.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc en-editpanelsub.md -f markdown -t html  -o EN-EDITPANELSUB.HTML --metadata title="DFM-InsP - Editpanel subpanel" --template="jeti.html"
+cp EN-EDITPANELSUB.HTML ~/JSE/DOCS/DFM-INSP/
+
+pandoc en-editgauge.md -f markdown -t html  -o EN-EDITGAUGE.HTML --metadata title="DFM-InsP Lua Variables - Edit Widget" --template="jeti.html"
+cp EN-EDITGAUGE.HTML ~/JSE/DOCS/DFM-INSP/
+
+
+
+
 pandoc en-harryCBdial.md -f markdown -t html  -o EN-HARRYCBDIAL.HTML --metadata title="Harry C. CB Dial Panel" --template="jeti.html"
 cp EN-HARRYCBDIAL.HTML ~/JSE/DOCS/DFM-INSP/
 

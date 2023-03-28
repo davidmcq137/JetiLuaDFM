@@ -30,6 +30,7 @@
    Version 0.72 03/07/23 - bugfix on units causing crashes
    Version 0.73 03/07/23 - bugfix on showing arc labels on needle gauges
    Version 0.74 03/25/23 - performance opt of where serVariables() is called
+   Version 0.75 03/28/23 - fix but in input menu re: saving control info, added ext Switch2Seq
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -223,6 +224,23 @@ end
 
 local function makeRGB(t)
    return string.format("%s - rgb(%d,%d,%d)", t.colorname, t.red, t.green, t.blue)
+end
+
+local function showExternalPanel(fn)
+
+   local locale = "EN"
+
+   if not fn then return end
+   
+   if tonumber(system.getVersion()) > 5.01 then
+      if select(2, system.getDeviceType()) == 1 then
+	 system.openExternal("DOCS/DFM-INSP/"..string.upper(locale).."-"..
+				string.upper(fn) ..".HTML")
+      else
+	 system.openExternal("Apps/DFM-InsP/Panels/"..locale.."-"..fn..".html")
+      end
+      return
+   end
 end
 
 local function showExternal(ff)
@@ -841,7 +859,16 @@ local function keyForm(key)
 
    if key == KEY_MENU then
       form.preventDefault()
-      showExternal(subForm)
+      if subForm ~= formN.panels then
+	 showExternal(subForm)
+      else
+	 local foc = form.getFocusedRow() - 1
+	 if foc > 0 then
+	    local pname = InsP.panelImages[foc].instImage
+	    --print("pname: " .. pname)
+	    showExternalPanel(pname)
+	 end
+      end
       return
    end
    
@@ -1427,6 +1454,7 @@ local function changedSwitch(val, switchName, j, wid)
    local swInfo = system.getSwitchInfo(val)
 
    system.pSave(switchName, val)
+   print("changedSwitch pSave", switchName, val)
    
    local swTyp = string.sub(swInfo.label,1,1)
    if swInfo.assigned then
@@ -1822,15 +1850,15 @@ local function initForm(sf)
 	 widget.SeUn = ""
 	 form.addRow(2)
 	 form.addLabel({label="Control", width=80})
-	 
-	 local ctrlName = pnl .. "-" .. string.gsub(lbl, "%W", "_") .."_"..system.getTime()
-	 --print("check ctrlName " ..ctrlName .. " for uniqueness!")
 
+	 if not widget.control then
+	    widget.control = pnl .. "-" .. string.gsub(lbl, "%W", "_") .."_"..system.getTime()
+	    switches[widget.control] = nil
+	 end
 
-	 --print("ctrlName", ctrlName, switches[ctrlName], widget.control)
-	 if not widget.control then switches[ctrlName] = nil end
-	 swtCI[ctrlName] = form.addInputbox(switches[ctrlName], true,
-					    (function(x) return changedSwitch(x, ctrlName,
+	 local ud = system.pLoad(widget.control)
+	 swtCI[widget.control] = form.addInputbox(ud, true,
+					    (function(x) return changedSwitch(x, widget.control,
 									      nil, widget) end),
 					    {width=240, alignRight=true})
 	 form.addRow(2)
@@ -2847,9 +2875,8 @@ local function printForm(ww0,hh0,tWin)
 	 --lua.modext[widget.modext].func)
 	 --print("sensorValNative", sensorValNative)
 	 --setVariables() -- now called from loop()
-	 local modret = lua.modext[widget.modext].func(InsP, sensorValNative)
+	 local modret = lua.modext[widget.modext].func(InsP, sensorVal)
 	 if type(modret) == "number" then
-	    --print("modret number", ret)
 	    sensorVal = modret
 	 elseif type(modret) == "table" and type(modret[1]) == "string" then
 	    textVal = modret
@@ -3261,7 +3288,7 @@ local function printForm(ww0,hh0,tWin)
 	 if widget.type == "sequencedTextBox" then
 
 	    local stro
-	    if not widget.modext or widget.modext < 1 then
+	    if (not widget.modext) or (widget.modext < 1) then
 	       if string.find(str[1], "luaE:") == 1 or string.find(str[1], "luaS:") == 1 then
 		  stro = expandStr(str[1], sensorVal, widget)
 	       else
@@ -3283,7 +3310,20 @@ local function printForm(ww0,hh0,tWin)
 		  end
 	       end
 	    else
-	       stro = str[1]
+	       if textVal then
+		  stro = str[1]
+	       else
+		  local jj = math.floor(sensorVal + 0.5)
+		  if jj >= 1 and jj <= #str then
+		     stro = str[jj]
+		  else
+		     if sensorVal and jj then
+			stro = string.format("Index %.2f/%d", sensorVal, jj)
+		     else
+			stro = "<No Index>"
+		     end
+		  end
+	       end
 	    end
 	    
 	    if stro and widget.fT ~= "None" then
@@ -4536,15 +4576,15 @@ local function init()
    local lostSw = ""
    for k, swi in pairs(InsP.settings.switchInfo) do
       local ud = system.pLoad(k)
-      --print("switches", k, swi.name, swi.seqIdx, ud)
+      --print("switches", k, swi.name, ud)
       if ud then
-	 --print("Using switch userdata: " .. k)
+	 --print("Switch " .. k .. " using  " .. tostring(ud))
 	 switches[k] = ud
       else
 	 --print("swi.name", swi.name)
 	 local t = string.sub(swi.name,1,1)
 	 -- we don't need userdata for controls, switches and log. switches
-	 -- we do need it for more exotic controls .. mark them lost of the
+	 -- we do need it for more exotic controls .. mark them lost if the
 	 -- userdata is missing
 	 if t ~= "P" and t ~= "S" and t ~= "L" then
 	    lostSw = lostSw .. " "..k
