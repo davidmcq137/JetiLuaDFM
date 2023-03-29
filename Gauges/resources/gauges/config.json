@@ -115,6 +115,33 @@
             ] 
         },
 
+        "verticalBar": {
+            "type": "verticalBar",
+            "x0": 160,
+            "y0": 80,
+            "width": 70,
+            "height": 200,
+            "min": 0,
+            "max": 100,
+	    "tickFont":"Mini",
+	    "majdivs":4,
+            "subdivs": 4,
+            "label":"Value",
+	    "labelPosX":0,
+	    "labelPosY":0,	    
+	    "labelFont":"Mini",
+	    "backColor":"black",
+	    "bezelColor":"transparent",
+	    "value":50,
+            "spectrum": [
+                "red",
+                "yellow",
+                "green"
+            ],
+	    "labelside":"left",
+	    "labeltopbot":"bottom"
+        },
+	
         "sequencedTextBox":  {
             "type": "sequencedTextBox",
 	    "textFont":"Mini",

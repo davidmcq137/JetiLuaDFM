@@ -2240,12 +2240,226 @@ function horizontalBar(ctx, arr) {
 	lpy = arr.labelPosY
     }
     arrR.xL = arr.x0 + lpx;
-    arrR.yL = arr.y0 +  h / 2 + yOff + lpy;
+    arrR.yL = arr.y0 +  h / 2 + lpy;
     ctx.font = jetiToCtx(arr.labelFont)
     
     if (typeof arr.label != "undefined") {	
 	if (arr.labelFont != "None") {
 	    ctx.fillText(arr.label, arrR.xL, arrR.yL);
+	}
+    }
+    return arrR;
+}
+
+function verticalBar(ctx, arr) {
+
+    //console.log("arr.width, arr.height", arr.width, arr.height)
+    
+    const hPad = arr.width / 3;
+    const vPad = arr.width / 4
+    const h = arr.height - 2 * vPad;
+    const w = arr.width - 2 * hPad;
+    const start = arr.y0 - h / 2;
+    const end = arr.y0 + h / 2;
+
+    var arrR = {};
+    var divs = arr.subdivs * arr.majdivs;
+    arrR.divs = divs;
+    
+    ctx.fillStyle = "black";
+
+    ctx.font = jetiToCtx(arr.tickFont)
+
+    if (typeof arr.spectrum == "object") {
+	var rainbow = new Rainbow();
+	
+	var spectrum = arr.spectrum;
+	
+	if (spectrum.length == 1) {
+	    spectrum[1] = spectrum[0];
+	}
+	
+	rainbow.setSpectrumByArray(spectrum); 
+	rainbow.setNumberRange(0,divs-1)
+    } else {
+	//setup for colorvals goes here
+    }
+    
+    const cellMult = 0.5;
+    const cellOff  = (1 - cellMult) / 2 * w;
+    const xOff = 0;
+    
+    arrR.barH = h;
+    arrR.barW = w * cellMult;
+
+    const bezel = 2;
+
+    if (arr.backColor != "transparent") {
+	ctx.fillStyle = arr.backColor;
+	arrR.rgbBackColor = getRGB(ctx.fillStyle);
+	//console.log("~", arr.x0 - arrR.barW/2, arr.y0 - arrR.barH/2, arrR.barH, arrR.barW)
+	ctx.fillRect(arr.x0 - arrR.barW/2, arr.y0 - arrR.barH/2, arrR.barW, arrR.barH)
+    } else {
+	arrR.rgbBackColor = getRGB(arr.backColor);
+    }
+    
+    if (arr.bezelColor != "transparent") {
+	ctx.fillStyle = arr.bezelColor;
+	ctx.strokeStyle = arr.bezelColor;
+	arrR.rgbBezelColor = getRGB(ctx.fillStyle);
+	roundedRectBezel(ctx, arr.x0 - arrR.barW/2 - bezel, arr.y0 - arrR.barH/2 - bezel,
+			 arrR.barW + 2 * bezel, arrR.barH + 2*bezel, 3, bezel+1);
+    } else {
+	arrR.rgbBezelColor = getRGB(arr.bezelColor);
+    }
+
+    var delta;
+    var a;
+
+    arrR.rects = [];
+    var rgbI, cfs, r, g, b;
+
+    let region = new Path2D();
+    let ff = (arr.value - arr.min) / (arr.max - arr.min); // goes from 0 to 1 over min to max
+    //console.log("ff, w, w*ff", ff, w, w*ff);
+    //console.log("@", arr.x0 - cellMult * w / 2, arr.y0 - h / 2, h * ff, cellMult * w);
+    region.rect(arr.x0 - cellMult * w / 2, arr.y0 - h / 2 + h * (1-ff), cellMult * w, h * ff);
+    
+    var colors = arr.colorvals;
+    var idxL = 0;
+    arrR.vbarLabels = [];
+    var val;
+    var aFrac;
+    for (var i = 0; i <= divs; i++) {
+	delta = h / divs;
+	//a = start + i * delta;
+	a = start + h - i * delta
+	//console.log(i, a, h, divs, delta)
+	const fudge = 1 / (100 * divs);	
+	if (typeof colors == "object") {
+	    const cl = colors.length - 1;
+	    aFrac = 1 - (a - start) / (end - start);
+	    val = (arr.min + aFrac * (arr.max - arr.min))
+	    //console.log("val, aFrac", val, aFrac);
+	    if (val != 0) {
+		val = val + fudge;
+	    }
+	    if (val <= colors[0].val) {
+		ctx.fillStyle = colors[0].color
+		cfs = ctx.fillStyle; // sets rgbI to standard hex format even if color is "red"
+		//rgbI = colors[0].color
+	    } else if (val >= colors[cl].val) {
+		ctx.fillStyle = colors[cl].color
+		//rgbI = colors[cl].color
+		cfs = ctx.fillStyle;
+	    } else {
+		for (let j = 1; j <= cl; j++) {
+		    if (val >= colors[j-1].val && val < colors[j].val) {
+			ctx.fillStyle = colors[j].color;
+			//rgbI = colors[j].color
+			cfs = ctx.fillStyle;
+			break;
+		    }
+		}
+	    }
+	} else {
+	    ctx.fillStyle = "#"+rainbow.colourAt(i);
+	    //rgbI = parseInt(rainbow.colourAt(i), 16)
+	    cfs = ctx.fillStyle;
+	}
+	
+	if (i < divs) {
+	    rgbI = parseInt(cfs.slice(1), 16)
+	    r = (rgbI >> 16) & 255;
+	    g = (rgbI >> 8) & 255;
+	    b = rgbI & 255;
+	    arrR.rects[i] = {y:a - delta, x: arr.x0 - w / 2 + cellOff,
+			     h: delta, w: cellMult * w,
+			     r:r, g:g, b:b}
+	    //console.log("cfs, cfs.slice(1), rgbI", cfs, r,g,b)
+	    //console.log(i, rainbow.colourAt(i), r, g, b)
+	    ctx.save();
+	    ctx.clip(region);
+	    if (typeof arr.value != "undefined") {
+		//console.log("$", arr.x0 - w / 2 + cellOff, a, cellMult * w, delta)
+		ctx.fillRect(arr.x0 - w / 2 + cellOff, a - delta, cellMult * w, delta)
+		ctx.lineWidth = w / 60;	
+		ctx.strokeStyle="white";
+		ctx.beginPath();
+		ctx.moveTo(arr.x0 - w / 2 + cellOff, a)
+		ctx.lineTo(arr.x0 + w / 2 - cellOff, a)
+		ctx.stroke();
+	    }
+	    ctx.restore();
+	}
+
+	ctx.font = jetiToCtx(arr.tickFont)
+	if (arr.subdivs > 0 && i % arr.subdivs == 0) {
+	    ctx.fillStyle = "white";
+	    //console.log("arr.labelside", arr.labelside)
+	    let lroff
+	    if (arr.labelside == "left") {
+		ctx.textAlign = "right";
+		lroff = 0
+	    } else {
+		ctx.textAlign = "left";
+		lroff = w
+	    }
+	    ctx.textBaseline = "middle";
+	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / divs)
+	    //var val = Math.floor(arr.max - i * (arr.max - arr.min) / divs)	    
+	    //console.log("i, subdivs, idxL", i, arr.subdivs, idxL)
+	    arrR.vbarLabels[idxL] = {y:a, x:arr.x0 - w/2}
+	    idxL = idxL + 1;
+	    if (arr.tickFont != "None") {
+		if (typeof arr.value != "undefined") {
+		    ctx.fillText(val.toString(),
+				 arr.x0 - (w/2 + xOff) + lroff, a);
+		}
+	    }
+
+	    ctx.save();
+	    //ctx.clip(region);
+	    ctx.lineWidth = w / 23;	
+	    ctx.strokeStyle="white";
+	    if (typeof arr.value != "undefined") {
+		ctx.beginPath();
+		ctx.moveTo(arr.x0 - w / 2 + cellOff, a)
+		ctx.lineTo(arr.x0 + w / 2 - cellOff, a)
+		ctx.stroke();
+	    }
+	    //ctx.restore();
+	}
+    }
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+    let lpx, lpy;
+    if (typeof arr.labelPosX == "undefined") {
+	lpx = 0
+    } else {
+	lpx = arr.labelPosX
+    }
+    if (typeof arr.labelPosY == "undefined") {
+	lpy = 0
+    } else {
+	lpy = arr.labelPosY
+    }
+    const yOff = 10;
+    arrR.xL = arr.x0 + lpx;
+    arrR.yL = arr.y0 +  h / 2 + yOff + lpy;
+    //console.log("%", arrR.xL, arrR.yL, xOff)
+    ctx.font = jetiToCtx(arr.labelFont)
+
+    let tboff
+    if (arr.labeltopbot == "bottom") {
+	tboff = 0
+    } else {
+	tboff = h + 2 * yOff
+    }
+    
+    if (typeof arr.label != "undefined") {	
+	if (arr.labelFont != "None") {
+	    ctx.fillText(arr.label, arrR.xL, arrR.yL - tboff);
 	}
     }
     return arrR;
@@ -2676,7 +2890,8 @@ function renderGauge(ctx, input) {
 			 rawText:rawText,
 			 artHorizon:artHorizon,
 			 verticalTape:verticalTape,
-			 chartRecorder:chartRecorder}
+			 chartRecorder:chartRecorder,
+			 verticalBar:verticalBar}
     
     if (widgetFuncs[input.type]) {
 	//console.log("Input.type", input.type)
@@ -2796,6 +3011,44 @@ function setupWidgets(){
             {type: "spectrum-or-colorvals"}
         ],
 	
+        verticalBar: [
+            width,
+            height,
+            min,
+            max,
+            majdivs,
+            subdivs,
+            {key: "backColor", label: "Background Color", type: "color"},
+	    {key: "bezelColor", label: "Bezel Color", type: "color"},
+            {key: "tickFont", label: "Font size (numbers)", type: "fontsize"},
+	    { key: "labelside", 
+	      label: "Tick label side", 
+	      type: "select",
+	      props: {
+		  def: "left", 
+		  options: [
+		      {value: "left", label: "Left"},
+		      {value: "right", label: "Right"}
+		  ]
+	      }
+	    },
+            {key: "labelFont", label: "Font size (label)", type: "fontsize"},
+	    {key: "labelPosX", label: "Label Position L-R", type: "slider", props: {min: -50, max: 50}},
+	    {key: "labelPosY", label: "Label Position U-D", type: "slider", props: {min: -75, max: 25}},
+	    { key: "labeltopbot", 
+	      label: "Label top or bottom", 
+	      type: "select",
+	      props: {
+		  def: "bottom", 
+		  options: [
+		      {value: "bottom", label: "Bottom"},
+		      {value: "top", label: "Top"}
+		  ]
+	      }
+	    },
+            {type: "spectrum-or-colorvals"}
+        ],
+
         virtualGauge: [
             radius,
             min,
