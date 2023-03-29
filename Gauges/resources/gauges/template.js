@@ -607,7 +607,7 @@ function returnColorVals(spec, minI, maxI) {
 	} else {
 	    cval[i] = {color: spec[k], val: step * (i + 1) };
 	}
-	console.log(i, k, spec[i], step * (i+1), cval[i])
+	//console.log(i, k, spec[i], step * (i+1), cval[i])
     }
     return cval;
 }
@@ -2906,7 +2906,7 @@ function setupWidgets(){
         min = {key: "min", label: "Minimum", type: "plusminus"},
         max = {key: "max", label: "Maximum", type: "plusminus"},
         width = {key: "width", label: "Width", type: "slider", props: {min: 10, max: 320}},
-        height = {key: "height", label: "Height", type: "slider", props: {min: 10, max: 160}},
+        height = {key: "height", label: "Height", type: "slider", props: {min: 10, max: 200}},
         majdivs = {key: "majdivs", label: "Major Divisions", type: "plusminus"},
         subdivs = {key: "subdivs", label: "Sub divisions", type: "plusminus"},
         arc_props = {min: -360, max: 360},

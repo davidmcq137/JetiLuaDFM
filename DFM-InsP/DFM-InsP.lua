@@ -33,6 +33,9 @@
    Version 0.75 03/28/23 - fix bug in input menu re: saving control info, added ext Switch2Seq
                          - fix crash in Lua variables if going direct to more>>      
 
+   Version 0.76          - open limits on min warn, max warn
+                         - add horizontal bar
+
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
@@ -131,7 +134,8 @@ edit.gaugeName = {
    rawText=         {sn="RawT", en={1,0,0,1,0,0,0,0,0,0}},
    verticalTape=    {sn="VerT", en={0,1,1,0,0,0,0,0,1,0}},
    artHorizon=      {sn="ArtH", en={0,1,1,0,0,0,0,0,0,0}},
-   chartRecorder=   {sn="ChtR", en={0,0,1,0,0,0,0,1,0,1}}   
+   chartRecorder=   {sn="ChtR", en={0,0,1,0,0,0,0,1,0,1}},   
+   verticalBar=     {sn="Vbar", en={0,0,1,0,0,1,1,0,0,0}}
 }
 
 local stampIndex = {t30 = 1, t60 = 2, t120= 3, t240 = 4, t480 = 5}
@@ -1907,13 +1911,13 @@ local function initForm(sf)
 	 form.addRow(2)
 	 form.addLabel({label="Max warning value"})
 	 if not ip[ig].maxWarn then ip[ig].maxWarn = ip[ig].max end
-	 form.addIntbox(ip[ig].maxWarn, ip[ig].min, ip[ig].max, ip[ig].max, 0, 1,
+	 form.addIntbox(ip[ig].maxWarn, -32768, 32767, ip[ig].max, 0, 1,
 			(function(x) return changedMinMax(x, "maxWarn", ip[ig]) end))
 	 
 	 form.addRow(2)
 	 form.addLabel({label="Min warning value"})
 	 if not ip[ig].minWarn then ip[ig].minWarn = ip[ig].min end
-	 form.addIntbox(ip[ig].minWarn, ip[ig].min, ip[ig].max, ip[ig].min, 0, 1,
+	 form.addIntbox(ip[ig].minWarn, -32768, 32767, ip[ig].min, 0, 1,
 			(function(x) return changedMinMax(x, "minWarn", ip[ig]) end))
 
 	 local stickShake = {"...", "Left 1 Long", "Left 1 Short", "Left 2 Short", "Left 3 Short",
@@ -3195,7 +3199,7 @@ local function printForm(ww0,hh0,tWin)
       elseif widget.type == "horizontalBar" then
 	 local xc = widget.x0 - widget.barW // 2 - 2
 	 local yc = widget.y0 - widget.barH // 2
-	 
+
 	 if widget.backColor and (widget.backColor.t == "false") then
 	    lcd.setColor(widget.backColor.r, widget.backColor.g, widget.backColor.b)
 	    lcd.drawFilledRectangle(xc, yc, widget.barW, widget.barH)
@@ -3237,7 +3241,7 @@ local function printForm(ww0,hh0,tWin)
 
 	 if not widget.fTL then widget.fTL = widget.tickFont or "Mini" end
 	 if not widget.TS then widget.TS = 0 end
-	 
+
 	 if sensorVal then
 	    for i,v in ipairs(widget.hbarLabels) do
 	       vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
@@ -3258,6 +3262,97 @@ local function printForm(ww0,hh0,tWin)
 	 end
 	 
 	 drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
+
+      elseif widget.type == "verticalBar" then
+	 local xc = widget.x0 - widget.barW // 2 - 2
+	 local yc = widget.y0 - widget.barH // 2 - 0
+	 
+	 if widget.backColor and (widget.backColor.t == "false") then
+	    lcd.setColor(widget.backColor.r, widget.backColor.g, widget.backColor.b)
+	    lcd.drawFilledRectangle(xc, yc, widget.barW, widget.barH)
+	 end
+
+	 if ctl then
+	    --lcd.setClipping(xc, yc - widget.barH * (1-ctl), widget.barW + 2, widget.barH * ctl)
+	    --print(xc, yc, ctl, yc + widget.barH * (1-ctl))
+	    --lcd.drawRectangle(xc, yc + widget.barH * (1-ctl), widget.barW + 2, widget.barH * (ctl))
+	    lcd.setClipping(xc, yc + widget.barH * (1-ctl), widget.barW + 2, widget.barH * (ctl))
+	    for _, p in ipairs(widget.rects) do
+	       lcd.setColor(p.r, p.g, p.b)
+	       local px, py, pw, ph = math.floor(p.x + 0.5), math.floor(p.y + 0.5),
+	       math.floor(p.w + 0.5), math.floor(p.h + 0.5)
+	       lcd.drawFilledRectangle(px - xc, py - yc - widget.barH * (1-ctl), pw + 1, ph)
+	    end
+	 end
+	 lcd.resetClipping()
+
+	 lcd.setColor(255,255,255)
+	 lcd.setClipping(xc, yc, widget.barW + 2, widget.barH)
+	 for ii, p in ipairs(widget.rects) do
+	    local px, py, ph, pw = math.floor(p.x + 0.5), math.floor(p.y + 0.5),
+	    math.floor(p.h + 0.5), math.floor(p.w + 0.5)
+	    --lcd.drawLine(p.x - xc, p.y - yc, p.x - xc, p.y - yc + ph)
+	    lcd.drawLine(p.x - xc + 1, p.y - yc, p.x - xc + pw, p.y - yc)	    
+	    if widget.subdivs > 0 and (ii - 1) % widget.subdivs == 0 then
+	       --print("#", ii,  p.y - yc, ph, widget.divs, ph / widget.divs)
+	       lcd.drawFilledRectangle(px - xc, py - yc + p.h, pw, 2)
+	    end
+	    if ii == #widget.rects and ii % widget.subdivs == 0 then
+	       --print("#", ii,  p.y - yc, ph / widget.divs)
+	       --lcd.setColor(255,0,0)
+	       lcd.drawFilledRectangle(px - xc, p.y - yc + 1, pw, 2)
+	       --lcd.drawFilledRectangle(widget.x0 + widget.barW//2 - xc - 2, p.y - yc, pw, ph)
+	    end
+	 end
+	 lcd.resetClipping()
+	 
+	 lcd.setColor(255,255,255)
+
+	 local str
+	 local hPad = widget.height / 4
+	 local vPad = widget.height / 8
+	 local hh = math.floor(widget.height - 2 * vPad + 0.5)
+	 local vv, vt
+
+	 if not widget.fTL then widget.fTL = widget.tickFont or "Mini" end
+	 if not widget.TS then widget.TS = 0 end
+	 
+	 if sensorVal then
+	    for i,v in ipairs(widget.vbarLabels) do
+	       vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
+	       vt = string.format("%d", vv)
+	       local lr
+	       --print("widget.labelside", widget.labelside)
+	       if widget.labelside ~= "left" then
+		  lr = 2 * widget.barW + 4
+	       else
+		  lr = -4
+	       end
+	       
+	       drawTextCenter(v.x + lr, v.y + widget.TS,
+			      vt, edit.fcode[widget.fTL])
+	    end
+	 end
+	 
+	 if widget.label then str = widget.label else str = "Widget"..idxW end
+
+	 if not widget.fL then
+	    widget.fL = widget.labelFont or "Mini"
+	 end
+	 if not widget.xL then
+	    widget.xL = widget.x0
+	    widget.yL = widget.y0 + hh / 2 - hPad / 5
+	 end
+
+	 local tb
+	 if widget.labeltopbot ~= "bottom" then
+	    tb = hh + hPad / 5
+	 else
+	    tb = 0
+	 end
+	 
+	 drawTextCenter(widget.xL, widget.yL - tb, str, edit.fcode[widget.fL])
+
 	 
       elseif widget.type == "sequencedTextBox" or widget.type == "stackedTextBox" then
 

@@ -1,6 +1,8 @@
 #! /bin/bash
 set -e
 set -x
-cp ~/Downloads/gauges.new.json $1.json
-cp ~/Downloads/gauges.png $1.png
-rm -v ~/Downloads/gauges*.*
+cp ~/Downloads/$1.json .
+cp ~/Downloads/$1.png .
+rm -v ~/Downloads/$1.json
+rm -v ~/Downloads/$1.png
+
