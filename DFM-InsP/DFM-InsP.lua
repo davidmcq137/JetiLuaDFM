@@ -18,7 +18,8 @@
    Version 0.53 02/17/23 - yet more tweaks
    Version 0.54 02/19/23 - ported new chartRecorder widget to TX, added logging of lua variables
    Version 0.55 02/20/23 - tweaking font size/spacing for stacked text boxes, reworked rawText
-   Version 0.56 02/22/23 - more size/spacing tweaking, fixed chart recorder not recording if not on screen
+   Version 0.56 02/22/23 - more size/spacing tweaking, fixed chart recorder not recording 
+                         - if not on screen
    Version 0.60 02/23/23 - per HC, tossed S, H, Alt in favor of new simpler two window scheme
    Version 0.61 02/24/23 - Fixed crash in sequencer on "*" ... added "+". changed window start defaults
    Version 0.62 02/24/23 - Added background color to settings
@@ -32,8 +33,7 @@
    Version 0.74 03/25/23 - performance opt of where serVariables() is called
    Version 0.75 03/28/23 - fix bug in input menu re: saving control info, added ext Switch2Seq
                          - fix crash in Lua variables if going direct to more>>      
-
-   Version 0.76          - open limits on min warn, max warn
+   Version 0.76 03/29/23 - open limits on min warn, max warn
                          - add horizontal bar
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
@@ -41,7 +41,7 @@
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.75
+local InsPVersion = 0.76
 
 local LE
 
