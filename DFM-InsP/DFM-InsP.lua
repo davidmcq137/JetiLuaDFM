@@ -35,7 +35,7 @@
                          - fix crash in Lua variables if going direct to more>>      
    Version 0.76 03/29/23 - open limits on min warn, max warn
                          - add horizontal bar
-   Version 0.77          - can now add and remove lines in rawtext
+   Version 0.77 03/30/23 - can now add and remove lines in rawtext
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
