@@ -35,13 +35,14 @@
                          - fix crash in Lua variables if going direct to more>>      
    Version 0.76 03/29/23 - open limits on min warn, max warn
                          - add horizontal bar
+   Version 0.77          - can now add and remove lines in rawtext
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.76
+local InsPVersion = 0.77
 
 local LE
 
@@ -1087,14 +1088,14 @@ local function keyForm(key)
 	 form.reinit(formN.editpanel)
 	 return
       end
-      if key == KEY_2 and editWidget.type == "sequencedTextBox" then
+      if key == KEY_2 and (editWidget.type == "sequencedTextBox" or editWidget.type == "rawText")  then
 	 table.remove(editWidget.text, form.getFocusedRow())
 	 if #editWidget.text < 1 then
 	    editWidget.text = {"..."}
 	 end
 	 form.reinit(formN.editpanelsub)
       end
-      if key == KEY_3 and editWidget.type == "sequencedTextBox" then
+      if key == KEY_3 and (editWidget.type == "sequencedTextBox" or editWidget.type == "rawText") then
 	 table.insert(editWidget.text, "...")
 	 form.reinit(formN.editpanelsub)
       end
@@ -1809,7 +1810,7 @@ local function initForm(sf)
 	 local typ = units.type[un]
 	 local utl
 	 if typ then
-	    utl = InsP.settings.units[typ] -- units.typeList[typ][1] --XXXXXX
+	    utl = InsP.settings.units[typ] -- units.typeList[typ][1] 
 	 else
 	    utl = un
 	 end
@@ -2243,7 +2244,7 @@ local function initForm(sf)
       if editWidgetType == "Text" then
 	 if not editWidget.text then return end
 	 --print("#text", #editWidget.text, "type", editWidget.type)
-	 if editWidget.type == "sequencedTextBox" then
+	 if editWidget.type == "sequencedTextBox" or editWidget.type == "rawText" then
 	    form.setButton(3, ":add", ENABLED)
 	    form.setButton(2, ":delete", ENABLED)
 	 end

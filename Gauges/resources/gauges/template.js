@@ -1591,7 +1591,7 @@ function textBox(ctx, arr, type) {
 	} else  {
 	    let txH = jetiHeight(arr.textFont);
 	    let jsH = getTextHeight(ctx, arr.text[0])
-	    console.log("textFont, txH, jsH, arr.text[0]", arr.textFont, txH, jsH, arr.text[0])
+	    //console.log("textFont, txH, jsH, arr.text[0]", arr.textFont, txH, jsH, arr.text[0])
 	    var yc = y0 +  1.10 * txH - 0.5 * (txH / 2) * (3 * arr.text.length + 1);
 	    for(let i = 0, len = arr.text.length; i < len; i++) {
 		let str = arr.text[i];
