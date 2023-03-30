@@ -127,7 +127,7 @@ edit.gaugeName = {
    roundNeedleGauge={sn="NdlG", en={0,1,1,0,1,1,1,1,0,0}},
    roundArcGauge=   {sn="ArcG", en={0,1,1,0,1,0,0,1,0,0}},
    virtualGauge=    {sn="VirG", en={1,1,1,0,0,0,0,1,0,0}},
-   horizontalBar=   {sn="HBar", en={0,0,1,0,0,1,1,0,0,0}},
+   horizontalBar=   {sn="HBar", en={0,0,1,0,0,1,1,1,0,0}},
    sequencedTextBox={sn="SeqT", en={0,0,1,1,0,0,0,0,0,0}},
    stackedTextBox=  {sn="StkT", en={0,0,1,1,0,0,0,0,0,0}},
    panelLight=      {sn="PnlL", en={1,0,1,0,0,0,0,0,0,0}},
@@ -135,7 +135,7 @@ edit.gaugeName = {
    verticalTape=    {sn="VerT", en={0,1,1,0,0,0,0,0,1,0}},
    artHorizon=      {sn="ArtH", en={0,1,1,0,0,0,0,0,0,0}},
    chartRecorder=   {sn="ChtR", en={0,0,1,0,0,0,0,1,0,1}},   
-   verticalBar=     {sn="Vbar", en={0,0,1,0,0,1,1,0,0,0}}
+   verticalBar=     {sn="Vbar", en={0,0,1,0,0,1,1,1,0,0}}
 }
 
 local stampIndex = {t30 = 1, t60 = 2, t120= 3, t240 = 4, t480 = 5}
@@ -2202,11 +2202,12 @@ local function initForm(sf)
       local function editTextCB(val, i)
 	 editWidget.text[i] = val 
       end
-      local function editMinMaxCB(val, mm)
+      local function editMinMaxCB(val, mm, ii)
+	 --print("val, mm, ii", val, mm, ii)
 	 if mm == "min" then
-	    editWidget.min = val / 10 
+	    editWidget.min = val / (10^ii)
 	 else
-	    editWidget.max = val / 10
+	    editWidget.max = val / (10^ii)
 	 end
       end
       local function editLabelCB(val)
@@ -2263,12 +2264,18 @@ local function initForm(sf)
       elseif editWidgetType == "MinMx" then
 	 form.addRow(2)
 	 form.addLabel({label="Min"})
-	 form.addIntbox(10*editWidget.min, -32768, 32767, 0, 1, 1,
-			(function(v) return editMinMaxCB(v, "min") end))
+	 local ii
+	 if math.abs(editWidget.min) < 1000 and math.abs(editWidget.max) < 1000 then
+	    ii = 1
+	 else
+	    ii = 0
+	 end
+	 form.addIntbox((10^ii) * editWidget.min, -32768, 32767, 0, ii, 1,
+			(function(v) return editMinMaxCB(v, "min", ii) end))
 	 form.addRow(2)	 
-	 form.addLabel({label="Max"})	 
-	 form.addIntbox(10*editWidget.max, -32768, 32767, 100, 1, 1,
-			(function(v) return editMinMaxCB(v, "max") end))
+	 form.addLabel({label="Max"})
+	 form.addIntbox((10^ii) * editWidget.max, -32768, 32767, 100, ii, 1,
+			(function(v) return editMinMaxCB(v, "max", ii) end))
       elseif editWidgetType == "Label" then
 	 form.addRow(1)
 	 if not editWidget.label then editWidget.label = '---' end
