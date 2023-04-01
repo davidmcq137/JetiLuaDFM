@@ -224,6 +224,10 @@ local triangle = {
 }
 --]]
 
+local function addret()
+   return InsP
+end
+
 local function setColorRGB(rgb)
    lcd.setColor(rgb.r, rgb.g, rgb.b)
 end
@@ -857,6 +861,21 @@ local function expandStr(stri, val, widget)
    return stro
 end
 
+local function newpanel()
+   local is = InsP.settings
+   --print("key 3 add panel")
+   local ii = #InsP.panels+1
+   InsP.panels[ii] = {}
+   InsP.panelImages[ii] = {}
+   is.selectedPanel = #InsP.panels
+   InsP.panelImages[is.selectedPanel].instImage = "---"
+   InsP.panelImages[is.selectedPanel].backImage = "---"
+   lastPanel1 = 0 -- force reread of png files
+   lastPanel2 = 0
+   setToPanel(#InsP.panels)
+   form.reinit(formN.panels)
+end
+
 local function keyForm(key)
    
    local is = InsP.settings
@@ -980,16 +999,7 @@ local function keyForm(key)
 	 form.reinit(formN.panels)
       end
       if key == KEY_3 then -- add panel
-	 local ii = #InsP.panels+1
-	 InsP.panels[ii] = {}
-	 InsP.panelImages[ii] = {}
-	 is.selectedPanel = #InsP.panels
-	 InsP.panelImages[is.selectedPanel].instImage = "---"
-	 InsP.panelImages[is.selectedPanel].backImage = "---"
-	 lastPanel1 = 0 -- force reread of png files
-	 lastPanel2 = 0
-	 setToPanel(#InsP.panels)
-	 form.reinit(formN.panels)
+	 newpanel()
       end
       if key == KEY_4 then -- delete panel
 	 local row = form.getFocusedRow() - 1
@@ -1400,6 +1410,9 @@ local function panelChanged(val, sp)
    --local bi
    --local instImg
    local pv = InsP.settings.panels[val]
+
+   --print("panelChanged val, sp", val, sp)
+   
    if val ~= 1 then
       --ii = InsP.panelImages[sp].instImage
       --bi = InsP.panelImages[sp].backImage
@@ -2753,7 +2766,7 @@ local function printForm(ww0,hh0,tWin)
       end
       if lastPanel1 ~= isp1 then
 	 pv = InsP.panelImages[isp1].instImage
-	 --print("win 1 loading panel " .. isp1 .. "  " .. pv)
+	 print("win 1 loading panel " .. isp1 .. " " .. pv)
 	 if pv then
 	    instImg1 = lcd.loadImage(pDir .. "/"..pv..".png")
 	 else
@@ -2790,7 +2803,7 @@ local function printForm(ww0,hh0,tWin)
       end
       if lastPanel2 ~= isp2 then
 	 pv = InsP.panelImages[isp2].instImage
-	 --print("win 2 loading panel " .. isp2 .. " " ..pv)
+	 print("win 2 loading panel " .. isp2 .. " " ..pv)
 	 if pv then
 	    instImg2 = lcd.loadImage(pDir .. "/"..pv..".png")
 	 else
@@ -4350,9 +4363,10 @@ local function prtForm(w,h)
    end
 end
 
-local function destroy()
+local function destroy(icode)
    local fp
    local save = {}
+   --print("DFM-InsP: icode " .. tostring(icode))
    if InsP.settings.writeBD then
       save.panels = InsP.panels
       save.panelImages = InsP.panelImages
@@ -4403,8 +4417,14 @@ local function destroy()
       end
       fp = io.open(InsP.settings.fileBD, "w")
       if fp then
-	 print("Writing", InsP.settings.fileBD)
-	 io.write(fp, json.encode(save), "\n") 
+	 if icode ~= -1 then
+	    print("Writing", InsP.settings.fileBD)
+	    io.write(fp, json.encode(save), "\n")
+	 else
+	    print("Test Environment - Writing", InsP.settings.fileBD)
+	    io.output(fp)
+	    io.write(json.encode(save), "\n")
+	 end
 	 io.close(fp)
       end
    end
@@ -4444,7 +4464,7 @@ local function luaLogCB(idx)
    return math.floor(ret * 100 +  0.5), dp
 end
 
-local function init()
+local function init(icode)
 
    local decoded
    local mn
@@ -4478,10 +4498,23 @@ local function init()
       {colorname="white", red=255, green=255, blue=255},
       {colorname="yellow",red=255, green=255, blue=0}
    }
+
+   if icode == -1 then
+      print("DFM-InsP: Init TESTING")
+   end
    
    mn = string.gsub(system.getProperty("Model"), " ", "_")
-   local ff = prefix() .. "Apps/DFM-InsP/II_" .. mn .. ".jsn"
+   local fd
+   if icode == -1 then
+      fd = "II_"
+   else
+      fd = "Apps/DFM-InsP/II_"
+   end
+   
+   local ff = prefix() .. fd .. mn .. ".jsn"
 
+   print("DFM-InsP: readall json " .. ff)
+   
    file = io.readall(ff)
    if file then
       if string.find(file, "null") then print("DFM-InsP: Warning - null in JSON") end
@@ -4599,7 +4632,17 @@ local function init()
    InsP.settings.panels = {'...'}
    local dd, fn, ext
    local newerPanels = {}
-   local path = prefix() .. pDir
+
+   --local pDir = "Apps/DFM-InsP/Panels"
+   local path
+   if icode == -1 then
+      pDir = "Panels"
+   else
+      pDir = "Apps/DFM-InsP/Panels"
+   end
+
+   path = prefix() .. pDir
+   
    if dir(path) then
       --print("dir(path) true for Panels")
       for name, _, _ in dir(path) do
@@ -4642,7 +4685,7 @@ local function init()
    end
 
    if w1 == 0 then
-      print("$", w1II, w1, InsP.settings.window1Panel)
+      --print("$", w1II, w1, InsP.settings.window1Panel)
       system.messageBox("DFM-InsP: Missing files for Panel 1")
    end
    
@@ -4658,7 +4701,15 @@ local function init()
    
    InsP.settings.backgrounds = {"..."}
    --local dd, fn, ext
-   path = prefix() .. bDir
+
+   --local bDir = "Apps/DFM-InsP/Backgrounds"
+   if icode == -1 then
+      bDir = "Backgrounds"
+   else
+      bDir = "Apps/DFM-InsP/Backgrounds"
+   end
+   
+   path = prefix() .. bDir   
    if dir(path) then
       for name, _, _ in dir(path) do
 	 dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
@@ -4744,9 +4795,21 @@ local function init()
    if not LE then print("DFM-InsP: could not load lua editor") end
 
    local dd, fn, ext, fr
-   local path = prefix() .. fDir
+   --local fDir = "Apps/DFM-InsP/Functions"
+   --local fmDir = "DFM-InsP/Functions"
+   if icode == -1 then
+      fDir = "Functions"
+      fmDir = "Functions"
+   else
+      fDir = "Apps/DFM-InsP/Functions"
+      fmDir = "DFM-InsP/Functions"
+   end
+
+   path = prefix() .. fDir   
+
    lua.funcmods = {}
    local ifunc = 0
+   print("functions path", path)
    if dir(path) then
       --print("path: "..path)
       for name, _, _ in dir(path) do
@@ -4780,11 +4843,24 @@ local function init()
    print("DFM-InsP: function modules read: " .. #lua.funcext)
 
    local dd, fn, ext, fr
-   local path = prefix() .. xDir
+
+   --local xDir  = "Apps/DFM-InsP/Extensions"   
+   if icode == -1 then
+      xDir = "Extensions"
+      xmDir = "Extensions"
+   else
+      xDir = "Apps/DFM-InsP/Extensions"
+      xmDir = "DFM-InsP/Extensions"
+   end
+   
+   path = prefix() .. xDir
+
    lua.extmods = {}
    local modname = {}
    local imod = 0
 
+   print("extensions path", path)
+   
    if dir(path) then
       for name, _, _ in dir(path) do
 	 dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
@@ -4845,4 +4921,7 @@ local function init()
    
 end
 
-return {init=init, loop=loop, author="DFM", version=InsPVersion, name="DFM-InsP", destroy=destroy}
+local extaddr = {addret=addret, panelChanged=panelChanged, newpanel=newpanel}
+
+return {init=init, loop=loop, author="DFM", version=InsPVersion, name="DFM-InsP",
+	destroy=destroy, extaddr=extaddr}

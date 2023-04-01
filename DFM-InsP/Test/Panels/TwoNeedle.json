@@ -1,0 +1,553 @@
+{
+  "panel": [
+    {
+      "tickFont": "Mini",
+      "yL": 138.2,
+      "min": 100,
+      "spectrum": [
+        "green",
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "ro": 58,
+      "xL": 106,
+      "y0": 70,
+      "hLB": 16,
+      "rgbInnerFillColor": {
+        "r": 255,
+        "g": 165,
+        "b": 0,
+        "t": "false"
+      },
+      "label": "Batt 2",
+      "max": 0,
+      "radius": 80,
+      "TS": 33.63999999999999,
+      "x0": 70,
+      "majdivs": 1,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 165,
+        "b": 0,
+        "t": "false"
+      },
+      "divs": 5,
+      "yLB": 129.2,
+      "labelFont": "Bold",
+      "subdivs": 5,
+      "rgbLabelBoxColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "tickLabels": [
+        {
+          "rt": 33.63999999999999,
+          "ca": 0.3420201433256688,
+          "sa": -0.9396926207859083,
+          "dp": 0
+        },
+        {
+          "rt": 33.63999999999999,
+          "ca": 0.17364817766693064,
+          "sa": 0.984807753012208,
+          "dp": 0
+        }
+      ],
+      "value": 62,
+      "wLB": 77,
+      "tickSpace": 100,
+      "xV": 92,
+      "ri": 49.3,
+      "start": 20,
+      "readoutPosY": -20,
+      "needleColor": "orange",
+      "labelBoxColor": "white",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "readoutPosX": 22,
+      "rLB": 4,
+      "yV": 84.8,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 58,
+      "xLB": 67.5,
+      "valueFont": "Big",
+      "labelPosX": 36,
+      "labelColor": "orange",
+      "end": 170,
+      "arcWidth": 15,
+      "needleType": "needle",
+      "labelPosY": 16,
+      "faceVis": "on",
+      "scaleVis": "on"
+    },
+    {
+      "tickFont": "Mini",
+      "yL": 138.2,
+      "min": 0,
+      "spectrum": [
+        "red",
+        "orange",
+        "yellow",
+        "green"
+      ],
+      "ro": 58,
+      "xL": 34,
+      "y0": 70,
+      "hLB": 16,
+      "rgbInnerFillColor": {
+        "r": 128,
+        "g": 0,
+        "b": 128,
+        "t": "false"
+      },
+      "label": "Batt 1",
+      "max": 100,
+      "radius": 80,
+      "TS": 33.68639999999999,
+      "x0": 70,
+      "majdivs": 1,
+      "rgbLabelColor": {
+        "r": 128,
+        "g": 0,
+        "b": 128,
+        "t": "false"
+      },
+      "divs": 5,
+      "yLB": 129.2,
+      "labelFont": "Bold",
+      "subdivs": 5,
+      "rgbLabelBoxColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "tickLabels": [
+        {
+          "rt": 33.68639999999999,
+          "ca": -0.17364817766693033,
+          "sa": 0.984807753012208,
+          "dp": 0
+        },
+        {
+          "rt": 33.68639999999999,
+          "ca": -0.34202014332566827,
+          "sa": -0.9396926207859085,
+          "dp": 0
+        }
+      ],
+      "value": 80,
+      "wLB": 77,
+      "tickSpace": 90,
+      "xV": 48,
+      "ri": 48.72,
+      "start": -170,
+      "readoutPosY": -20,
+      "needleColor": "purple",
+      "labelBoxColor": "white",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "readoutPosX": -22,
+      "rLB": 4,
+      "yV": 84.8,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 58,
+      "xLB": -4.5,
+      "valueFont": "Big",
+      "labelPosX": -36,
+      "labelColor": "purple",
+      "end": -20,
+      "arcWidth": 16,
+      "needleType": "needle",
+      "labelPosY": 16,
+      "faceVis": "off",
+      "scaleVis": "on"
+    },
+    {
+      "tickFont": "Mini",
+      "yL": 138.2,
+      "min": 100,
+      "spectrum": [
+        "green",
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "ro": 58,
+      "xL": 206,
+      "y0": 70,
+      "hLB": 16,
+      "rgbInnerFillColor": {
+        "r": 255,
+        "g": 165,
+        "b": 0,
+        "t": "false"
+      },
+      "label": "Batt 2",
+      "max": 0,
+      "radius": 80,
+      "TS": 33.63999999999999,
+      "x0": 170,
+      "majdivs": 1,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 165,
+        "b": 0,
+        "t": "false"
+      },
+      "divs": 5,
+      "yLB": 129.2,
+      "labelFont": "Bold",
+      "subdivs": 5,
+      "rgbLabelBoxColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "tickLabels": [
+        {
+          "rt": 33.63999999999999,
+          "ca": 6.123233995736766e-17,
+          "sa": -1,
+          "dp": 0
+        },
+        {
+          "rt": 33.63999999999999,
+          "ca": 6.123233995736766e-17,
+          "sa": 1,
+          "dp": 0
+        }
+      ],
+      "value": 62,
+      "wLB": 77,
+      "tickSpace": 100,
+      "xV": 192,
+      "ri": 49.3,
+      "start": 0,
+      "readoutPosY": -20,
+      "needleColor": "orange",
+      "labelBoxColor": "white",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "readoutPosX": 22,
+      "rLB": 4,
+      "yV": 84.8,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 58,
+      "xLB": 167.5,
+      "valueFont": "Big",
+      "labelPosX": 36,
+      "labelColor": "orange",
+      "end": 180,
+      "arcWidth": 15,
+      "needleType": "needle",
+      "labelPosY": 16,
+      "faceVis": "off",
+      "scaleVis": "on"
+    },
+    {
+      "tickFont": "Mini",
+      "yL": 138.2,
+      "min": 0,
+      "spectrum": [
+        "red",
+        "orange",
+        "yellow",
+        "green"
+      ],
+      "ro": 58,
+      "xL": 264,
+      "y0": 70,
+      "hLB": 16,
+      "rgbInnerFillColor": {
+        "r": 128,
+        "g": 0,
+        "b": 128,
+        "t": "false"
+      },
+      "label": "Batt 1",
+      "max": 100,
+      "radius": 80,
+      "TS": 33.68639999999999,
+      "x0": 300,
+      "majdivs": 1,
+      "rgbLabelColor": {
+        "r": 128,
+        "g": 0,
+        "b": 128,
+        "t": "false"
+      },
+      "divs": 5,
+      "yLB": 129.2,
+      "labelFont": "Bold",
+      "subdivs": 5,
+      "rgbLabelBoxColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "tickLabels": [
+        {
+          "rt": 33.68639999999999,
+          "ca": -1.8369701987210297e-16,
+          "sa": 1,
+          "dp": 0
+        },
+        {
+          "rt": 33.68639999999999,
+          "ca": 6.123233995736766e-17,
+          "sa": -1,
+          "dp": 0
+        }
+      ],
+      "value": 80,
+      "wLB": 77,
+      "tickSpace": 90,
+      "xV": 278,
+      "ri": 48.72,
+      "start": -180,
+      "readoutPosY": -20,
+      "needleColor": "purple",
+      "labelBoxColor": "white",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "readoutPosX": -22,
+      "rLB": 4,
+      "yV": 84.8,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 58,
+      "xLB": 225.5,
+      "valueFont": "Big",
+      "labelPosX": -36,
+      "labelColor": "purple",
+      "end": 0,
+      "arcWidth": 16,
+      "needleType": "needle",
+      "labelPosY": 16,
+      "faceVis": "off",
+      "scaleVis": "on"
+    }
+  ],
+  "timestamp": "2023-03-04T02:08:30.389Z"
+}

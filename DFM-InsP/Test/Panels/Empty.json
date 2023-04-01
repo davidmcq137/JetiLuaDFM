@@ -1,0 +1,32 @@
+{
+  "panel": [
+    {
+      "xBorder": 4,
+      "width": 200,
+      "backColor": "transparent",
+      "height": 40,
+      "y0": 80,
+      "label": "Label",
+      "x0": 160,
+      "rgbTextColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "text": [
+        "Some raw text"
+      ],
+      "textColor": "white",
+      "type": "rawText",
+      "yBorder": 2
+    }
+  ],
+  "timestamp": "2023-03-29T13:17:34.466Z"
+}

@@ -1,0 +1,62 @@
+{
+  "panel": [
+    {
+      "yL": 93.5,
+      "width": 120,
+      "backColor": "yellowgreen",
+      "xL": 76,
+      "height": 100,
+      "y0": 71,
+      "label": "Info",
+      "x0": 76,
+      "tBoxHgt": 50,
+      "labelFont": "Mini",
+      "value": 0,
+      "labelcolor": "white",
+      "tBoxWid": 120,
+      "xV": 76,
+      "text": [
+        "This is line 1",
+        "And this is line 2",
+        "Lastly this is line 3"
+      ],
+      "textFont": "Mini",
+      "type": "stackedTextBox",
+      "yV": 71,
+      "textcolor": "black",
+      "bezelColor": "transparent",
+      "labelPosX": 0,
+      "labelPosY": 0
+    },
+    {
+      "xBorder": 4,
+      "width": 200,
+      "backColor": "yellowgreen",
+      "height": 40,
+      "y0": 73,
+      "label": "Label",
+      "x0": 216,
+      "rgbTextColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "rgbBackColor": {
+        "r": 154,
+        "g": 205,
+        "b": 50,
+        "t": "false"
+      },
+      "text": [
+        "Some raw text",
+        "line two",
+        "line three"
+      ],
+      "textColor": "black",
+      "type": "rawText",
+      "yBorder": 2
+    }
+  ],
+  "timestamp": "2023-03-30T14:02:34.640Z"
+}

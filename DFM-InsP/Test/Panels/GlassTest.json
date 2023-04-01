@@ -1,0 +1,92 @@
+{
+  "panel": [
+    {
+      "yL": 160.5,
+      "width": 183,
+      "rgbSkyColor": {
+        "r": 0,
+        "g": 0,
+        "b": 255,
+        "t": "false"
+      },
+      "xL": 160,
+      "height": 150,
+      "y0": 79,
+      "label": "",
+      "x0": 160,
+      "labelFont": "Mini",
+      "value": 0,
+      "rgbLandColor": {
+        "r": 210,
+        "g": 105,
+        "b": 30,
+        "t": "false"
+      },
+      "type": "artHorizon",
+      "landColor": "chocolate",
+      "roll": 15,
+      "labelPos": -4,
+      "skyColor": "blue",
+      "pitch": 6
+    },
+    {
+      "yL": 150,
+      "min": 0,
+      "width": 150,
+      "backColor": "red",
+      "valuePos": "Side",
+      "xL": 295,
+      "height": 160,
+      "y0": 75,
+      "tapeFont": "Mini",
+      "label": "Altitude",
+      "max": 500,
+      "x0": 295,
+      "labelFont": "Mini",
+      "value": 98,
+      "rgbBackColor": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "xV": 237,
+      "type": "verticalTape",
+      "numbers": 6,
+      "yV": 75.64,
+      "handed": "right",
+      "valueFont": "Normal",
+      "step": 10
+    },
+    {
+      "yL": 150,
+      "min": 0,
+      "width": 150,
+      "backColor": "green",
+      "valuePos": "Side",
+      "xL": 25,
+      "height": 160,
+      "y0": 75,
+      "tapeFont": "Mini",
+      "label": "Airspeed",
+      "max": 200,
+      "x0": 25,
+      "labelFont": "Mini",
+      "value": 46,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 128,
+        "b": 0,
+        "t": "false"
+      },
+      "xV": 83,
+      "type": "verticalTape",
+      "numbers": 6,
+      "yV": 75.64,
+      "handed": "left",
+      "valueFont": "Normal",
+      "step": 10
+    }
+  ],
+  "timestamp": "2023-03-23T02:20:21.534Z"
+}

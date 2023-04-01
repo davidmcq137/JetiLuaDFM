@@ -1,0 +1,160 @@
+{
+  "panel": [
+    {
+      "yL": 34.875,
+      "width": 150,
+      "backColor": "yellowgreen",
+      "xL": 80,
+      "height": 55,
+      "y0": 18,
+      "label": "Rx1 Voltage",
+      "x0": 80,
+      "tBoxHgt": 27.5,
+      "labelFont": "Mini",
+      "value": 0,
+      "tBoxWid": 150,
+      "xV": 80,
+      "text": [
+        "Rx1 Voltage 'v''u'"
+      ],
+      "textFont": "Normal",
+      "type": "stackedTextBox",
+      "yV": 18,
+      "bezelColor": "transparent"
+    },
+    {
+      "yL": 77.875,
+      "width": 150,
+      "backColor": "yellowgreen",
+      "xL": 80,
+      "height": 55,
+      "y0": 61,
+      "label": "Turbine Status",
+      "x0": 80,
+      "tBoxHgt": 27.5,
+      "labelFont": "Mini",
+      "value": 0,
+      "tBoxWid": 150,
+      "xV": 80,
+      "text": [
+        "Ready to Start",
+        "Starting",
+        "Running",
+        "Cooling",
+        "User Off",
+        "Standby"
+      ],
+      "textFont": "Normal",
+      "type": "sequencedTextBox",
+      "yV": 61,
+      "bezelColor": "transparent"
+    },
+    {
+      "yL": 150.25,
+      "width": 150,
+      "backColor": "yellowgreen",
+      "xL": 80,
+      "height": 130,
+      "y0": 115,
+      "label": "Status 3",
+      "x0": 80,
+      "tBoxHgt": 65,
+      "labelFont": "Mini",
+      "value": 0,
+      "tBoxWid": 150,
+      "xV": 80,
+      "text": [
+        "Line One",
+        "Line Two",
+        "Line Three",
+        "Line Four"
+      ],
+      "textFont": "Mini",
+      "type": "stackedTextBox",
+      "yV": 115,
+      "bezelColor": "transparent",
+      "labelPosY": 9
+    },
+    {
+      "tickFont": "Mini",
+      "yL": 120.6,
+      "min": 0,
+      "ro": 58,
+      "xL": 239,
+      "colorvals": [
+        {
+          "color": "blue",
+          "val": 60
+        },
+        {
+          "color": "yellow",
+          "val": 80
+        },
+        {
+          "color": "orange",
+          "val": 90
+        },
+        {
+          "color": "red",
+          "val": 100
+        }
+      ],
+      "y0": 80,
+      "label": "Current",
+      "xLV": 207.1,
+      "max": 120,
+      "radius": 80,
+      "x0": 239,
+      "majdivs": 0,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "divs": 10,
+      "labelFont": "Bold",
+      "subdivs": 0,
+      "tickLabels": [],
+      "value": 85,
+      "xRV": 270.9,
+      "xV": 239,
+      "ri": 46.400000000000006,
+      "start": -120,
+      "yRV": 133.36,
+      "type": "roundArcGauge",
+      "yV": 80,
+      "TXcolorvals": [
+        {
+          "v": 60,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "v": 80,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "v": 90,
+          "r": 255,
+          "g": 165,
+          "b": 0
+        },
+        {
+          "v": 100,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        }
+      ],
+      "yLV": 133.36,
+      "gaugeRadius": 58,
+      "valueFont": "Maxi",
+      "end": 120
+    }
+  ],
+  "timestamp": "2023-03-04T02:08:48.899Z"
+}
