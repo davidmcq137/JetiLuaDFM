@@ -22,8 +22,6 @@
 
    Prefix header file for testing DFM-InsP.lua
 
-   03/31/23 New File
-
 --]]
 
 system={}
