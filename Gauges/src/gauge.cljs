@@ -664,6 +664,14 @@
       (set! (.-error fr) reject)
       (set! (.-onloadend fr) #(resolve (.-result fr)))))))
 
+(defn md->html-file
+  [md-text]
+  (str "<html>"
+       "<body>"
+       (md/md->html md-text)
+       "</body>"
+       "</html>"))
+
 (defn make-dynamic-repo-request*
   [w h]
   (js/Promise.all
@@ -680,7 +688,7 @@
                                :data-base64 (subs base (count "data:image/png;base64,"))}
                               (when-let [md (get panel :doc-md)]
                                 {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".html")
-                                 :data (md/md->html md)})]
+                                 :data (md->html-file md)})]
                              (keep identity)
                              (clj->js))))))))))
 
