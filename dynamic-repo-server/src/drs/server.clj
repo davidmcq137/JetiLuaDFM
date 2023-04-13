@@ -30,7 +30,7 @@
                                 :data-domain "jetiluadfm.app"
                                 :src "https://plausible.io/js/plausible.js"}])
 
-(defn landing-page
+#_(defn landing-page
   [request]
   {:status  200
    :headers {"Content-Type" "text/html"}
@@ -45,6 +45,10 @@
                  analytics-script]
                 [:div#landing-page-root]
                 [:script {:type "text/javascript" :src "/maps/js/main.js"}]]))})
+
+(defn landing-page
+  [request]
+  (ring-resp/resource-response "common/landing.html"))
 
 (defn maps-app
   [request]
@@ -509,10 +513,7 @@
 
 (defn gauge-app
   [req]
-  (prn "Gauge app")
   (ring-resp/resource-response "gauges/template.html"))
-
-
 
 (defn do-app-file
   [{:keys [route-params] :as req}]
