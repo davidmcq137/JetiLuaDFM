@@ -1582,7 +1582,7 @@ function textBox(ctx, arr, type) {
 	var str;
 	if (type != "stack") {
 	    str = arr.text[Math.floor(arr.value)];
-	    if (str.startsWith("luaS:") || str.startsWith("luaE:")) {
+	    if (typeof str != "undefined" && (str.startsWith("luaS:") || str.startsWith("luaE:"))) {
 		str = "<lua script>";
 	    }
 	    if (arr.textFont != "None") {
