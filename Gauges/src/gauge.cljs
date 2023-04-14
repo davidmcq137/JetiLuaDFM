@@ -636,16 +636,21 @@
        (.toBlob c (fn [b] (resolve {:image b :data +calc}))
                 "png")))))
 
+(defn panel-json*
+  [panel rendered]
+  (clj->js {:panel rendered
+            :doc-md (get panel :doc-md)
+            :timestamp (.toISOString (js/Date.))}))
+
 (defn download-json!
   [w h]
-  (let [panel-name (get @db :selected-panel)]
-   (.then (render-panel (get (:panels @db) panel-name) w h)
-          (fn [{:keys [data]}]
-            (ask-download-file (str panel-name ".json")
-                               (js/JSON.stringify
-                                (clj->js {:panel data
-                                          :timestamp (.toISOString (js/Date.))})
-                                nil 2))))))
+  (let [panel-name (get @db :selected-panel)
+        p (get (:panels @db) panel-name)]
+    (.then (render-panel p w h)
+           (fn [{:keys [data]}]
+             (ask-download-file (str panel-name ".json")
+                                (-> (panel-json* p data)
+                                    (js/JSON.stringify nil 2)))))))
 
 
 (defn download-png!
@@ -682,8 +687,7 @@
                (.then (blob->base64 image)
                       (fn [base]
                         (->> [{:destination (str "Apps/DFM-InsP/Panels/" panel-name ".json")
-                               :json-data (clj->js {:panel data
-                                                    :timestamp (.toISOString (js/Date.))})}
+                               :json-data (panel-json* panel data)}
                               {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".png")
                                :data-base64 (subs base (count "data:image/png;base64,"))}
                               (when-let [md (get panel :doc-md)]
