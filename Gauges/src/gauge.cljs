@@ -691,7 +691,9 @@
                               {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".png")
                                :data-base64 (subs base (count "data:image/png;base64,"))}
                               (when-let [md (get panel :doc-md)]
-                                {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".html")
+                                {:destination (str "Apps/DFM-InsP/Panels/"
+                                                   (string/upper-case
+                                                    (str "en-" panel-name ".html")))
                                  :data (md->html-file {:body md
                                                        :title panel-name})})]
                              (keep identity)
