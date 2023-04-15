@@ -1,109 +1,90 @@
-[
-    {
-	"min": 0,
-	"colorvals": [
-	    {
-		"color": "blue",
-		"val": 20
-	    },
-	    {
-		"color": "yellow",
-		"val": 60
-	    },
-	    {
-		"color": "orange",
-		"val": 80
-	    },
-	    {
-		"color": "red",
-		"val": 100
-	    }
-	],
-	"y0": 81.25,
-	"max": 100,
-	"radius": 85,
-	"x0": 71,
-	"majdivs":5,
-	"subdivs": 5,
-	"value": 0,
-	"start": -135,
-	"type": "roundNeedleGauge",
-	"label": "Current",
-	"labelFont":"Bold",
-	"tickFont":"Bold",
-	"valueFont":"Normal",
-	"end": 135
-    },
-    {
-	"min": -100,
-	"colorvals": [
-	    {
-		"color": "blue",
-		"val": -75
-	    },
-	    {
-		"color": "yellow",
-		"val": 0
-	    },
-	    {
-		"color": "orange",
-		"val": 75
-	    },
-	    {
-		"color": "red",
-		"val": 100
-	    }
-	],
-	"y0": 79.75,
-	"max": 100,
-	"radius": 85,
-	"x0": 248,
-	"majdivs":8,
-	"subdivs": 4,
-	"value": 0,
-	"start": -135,
-	"label":"Position",
-	"labelFont":"Bold",
-	"valueFont":"Normal",
-	"tickFont":"Bold",
-	"type": "roundNeedleGauge",
-	"end": 135
-    },
-    {
-	"min": 0,
-	"spectrum": [
-	    "red",
-	    "springgreen"
-	],
-	"y0": 128,
-	"max": 100,
-	"radius": 46,
-	"x0": 159,
-	"majdivs":0,
-	"subdivs": 0,
-	"value": 0,
-	"start": -135,
-	"type": "roundNeedleGauge",
-	"valueFont":"Mini",
-	"end": 135
-    },
-    {
-	"min": 0,
-	"spectrum": [
-	    "red",
-	    "yellow",
-	    "springgreen"
-	],
-	"y0": 32,
-	"max": 100,
-	"radius": 46,
-	"x0": 159,
-	"majdivs":0,
-	"subdivs": 0,
-	"value": 0,
-	"start": -135,
-	"type": "roundNeedleGauge",
-	"valueFont":"Mini",
-	"end": 135
-    }
-]
+{
+  "panel" : [ {
+    "tickFont" : "Bold",
+    "min" : 0,
+    "colorvals" : [ {
+      "color" : "blue",
+      "val" : 20
+    }, {
+      "color" : "yellow",
+      "val" : 60
+    }, {
+      "color" : "orange",
+      "val" : 80
+    }, {
+      "color" : "red",
+      "val" : 100
+    } ],
+    "y0" : 81.25,
+    "label" : "Current",
+    "max" : 100,
+    "radius" : 85,
+    "x0" : 71,
+    "majdivs" : 5,
+    "labelFont" : "Bold",
+    "subdivs" : 5,
+    "value" : 0,
+    "start" : -135,
+    "type" : "roundNeedleGauge",
+    "valueFont" : "Normal",
+    "end" : 135
+  }, {
+    "tickFont" : "Bold",
+    "min" : -100,
+    "colorvals" : [ {
+      "color" : "blue",
+      "val" : -75
+    }, {
+      "color" : "yellow",
+      "val" : 0
+    }, {
+      "color" : "orange",
+      "val" : 75
+    }, {
+      "color" : "red",
+      "val" : 100
+    } ],
+    "y0" : 79.75,
+    "label" : "Position",
+    "max" : 100,
+    "radius" : 85,
+    "x0" : 248,
+    "majdivs" : 8,
+    "labelFont" : "Bold",
+    "subdivs" : 4,
+    "value" : 0,
+    "start" : -135,
+    "type" : "roundNeedleGauge",
+    "valueFont" : "Normal",
+    "end" : 135
+  }, {
+    "min" : 0,
+    "spectrum" : [ "red", "springgreen" ],
+    "y0" : 128,
+    "max" : 100,
+    "radius" : 46,
+    "x0" : 159,
+    "majdivs" : 0,
+    "subdivs" : 0,
+    "value" : 0,
+    "start" : -135,
+    "type" : "roundNeedleGauge",
+    "valueFont" : "Mini",
+    "end" : 135
+  }, {
+    "min" : 0,
+    "spectrum" : [ "red", "yellow", "springgreen" ],
+    "y0" : 32,
+    "max" : 100,
+    "radius" : 46,
+    "x0" : 159,
+    "majdivs" : 0,
+    "subdivs" : 0,
+    "value" : 0,
+    "start" : -135,
+    "type" : "roundNeedleGauge",
+    "valueFont" : "Mini",
+    "end" : 135
+  } ],
+  "timestamp" : "2023-04-15T21:28:58.845084800Z"
+}

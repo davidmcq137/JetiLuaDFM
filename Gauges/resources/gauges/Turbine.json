@@ -1,181 +1,149 @@
-[
-    {
-	"type":"panelLight",
-	"x0":120,
-	"y0": 104,
-	"lightColor":"red",
-	"backColor":"transparent",
-	"bezelColor":"transparent",
-	"label":"Red",
-	"labelFont":"None",
-	"radius":6,
-	"width":50,
-	"height":50,
-	"min":0,
-	"max":1,
-	"value":1
-    },
-    {
-	"type":"panelLight",
-	"x0": 200,
-	"y0": 104,
-	"lightColor":"green",
-	"labelFont":"None",
-	"backColor":"transparent",
-	"bezelColor":"transparent",
-	"label":"Green",
-	"radius":6,
-	"width":50,
-	"height":50,
-	"min":0,
-	"max":1,
-	"value":1
-    },
-    
-    {
-	"width": 130,
-	"height": 50,
-	"y0": 138,
-	"textFont":"Mini",
-	"labelFont":"None",
-	"label": "Turbine Status",
-	"backColor":"yellowgreen",
-	"x0": 245,
-	"value":0,
-	"text": [
-	    "Use Xicoy extension"
-	],
-	"type": "sequencedTextBox"
-    },
-    {
-	"value":100,
-	"min": 0,
-	"width": 200,
-	"colorvals": [
-	    {
-		"color": "red",
-		"val": 10
-	    },
-	    {
-		"color": "yellow",
-		"val": 25
-	    },
-	    {
-		"color": "blue",
-		"val": 100
-	    }
-	],
-	"height": 70,
-	"y0": 138,
-	"label": "Fuel Remaining",
-	"labelPosY":-6,
-	"labelFont":"Mini",
-	"tickFont":"None",
-	"bezelColor":"transparent",
-	"backColor":"transparent",
-	"max": 100,
-	"x0": 90,
-	"majdivs":4,
-	"subdivs": 4,
-	"type": "horizontalBar"
-    },
-    {
-	"min": 0,
-	"spectrum": [
-	    "blue"
-	],
-	"y0": 62,
-	"label": "RPM/1000",
-	"labelFont":"Bold",
-	"tickFont":"Bold",
-	"valueFont":"Mini",
-	"max": 120,
-	"radius": 76,
-	"x0": 65,
-	"majdivs":6,
-	"subdivs": 4,
-	"value": 0,
-	"start": -135,
-	"type": "roundNeedleGauge",
-	"end": 135
-    },
-    {
-	"min": 0,
-	"spectrum": [
-	    "blue",
-	    "springgreen",
-	    "yellow",
-	    "red"
-	],
-	"y0": 62,
-	"label": "EGT °C",
-	"labelFont":"Bold",
-	"tickFont":"Bold",
-	"valueFont":"Mini",
-	"max": 1000,
-	"radius": 76,
-	"x0": 255,
-	"majdivs":5,
-	"subdivs": 4,
-	"value": 0,
-	"start": -135,
-	"type": "roundNeedleGauge",
-	"end": 135
-    },
-    {
-	"min": 0,
-	"spectrum": [
-	    "red",
-	    "yellow",
-	    "springgreen"
-	],
-	"y0": 36,
-	"label": "Batt",
-	"labelFont":"Mini",
-	"valueFont":"None",
-	"max": 10,
-	"radius": 40,
-	"x0": 160,
-	"majdivs": 0,
-	"subdivs": 0,
-	"value": 0,
-	"start": -135,
-	"type": "roundNeedleGauge",
-	"end": 135
-    },
-    {
-	"min": 0,
-	"spectrum": [
-	    "red",
-	    "yellow",
-	    "springgreen"
-	],
-	"y0": 91,
-	"label": "Pump",
-	"labelFont":"Mini",
-	"valueFont":"None",
-	"max": 10,
-	"radius": 40,
-	"x0": 160,
-	"majdivs": 0,
-	"subdivs": 0,
-	"value": 0,
-	"start": -135,
-	"type": "roundNeedleGauge",
-	"end": 135
-    },
-    {
-	"type":"rawText",
-	"x0": 160,
-	"y0": 8,
-	"textFont":"Mini",
-	"textColor":"white",
-	"text":
-	[
-	    "Turbine Dashboard"
-	],
-	"label":"",
-	"width":200,
-	"height":50
-    }
-]
+{
+  "panel" : [ {
+    "min" : 0,
+    "width" : 50,
+    "backColor" : "transparent",
+    "lightColor" : "red",
+    "height" : 50,
+    "y0" : 104,
+    "label" : "Red",
+    "max" : 1,
+    "radius" : 6,
+    "x0" : 120,
+    "labelFont" : "None",
+    "value" : 1,
+    "type" : "panelLight",
+    "bezelColor" : "transparent"
+  }, {
+    "min" : 0,
+    "width" : 50,
+    "backColor" : "transparent",
+    "lightColor" : "green",
+    "height" : 50,
+    "y0" : 104,
+    "label" : "Green",
+    "max" : 1,
+    "radius" : 6,
+    "x0" : 200,
+    "labelFont" : "None",
+    "value" : 1,
+    "type" : "panelLight",
+    "bezelColor" : "transparent"
+  }, {
+    "width" : 130,
+    "backColor" : "yellowgreen",
+    "height" : 50,
+    "y0" : 138,
+    "label" : "Turbine Status",
+    "x0" : 245,
+    "labelFont" : "None",
+    "value" : 0,
+    "text" : [ "Use Xicoy extension" ],
+    "textFont" : "Mini",
+    "type" : "sequencedTextBox"
+  }, {
+    "tickFont" : "None",
+    "min" : 0,
+    "width" : 200,
+    "backColor" : "transparent",
+    "height" : 70,
+    "colorvals" : [ {
+      "color" : "red",
+      "val" : 10
+    }, {
+      "color" : "yellow",
+      "val" : 25
+    }, {
+      "color" : "blue",
+      "val" : 100
+    } ],
+    "y0" : 138,
+    "label" : "Fuel Remaining",
+    "max" : 100,
+    "x0" : 90,
+    "majdivs" : 4,
+    "labelFont" : "Mini",
+    "subdivs" : 4,
+    "value" : 100,
+    "type" : "horizontalBar",
+    "bezelColor" : "transparent",
+    "labelPosY" : -6
+  }, {
+    "tickFont" : "Bold",
+    "min" : 0,
+    "spectrum" : [ "blue" ],
+    "y0" : 62,
+    "label" : "RPM/1000",
+    "max" : 120,
+    "radius" : 76,
+    "x0" : 65,
+    "majdivs" : 6,
+    "labelFont" : "Bold",
+    "subdivs" : 4,
+    "value" : 0,
+    "start" : -135,
+    "type" : "roundNeedleGauge",
+    "valueFont" : "Mini",
+    "end" : 135
+  }, {
+    "tickFont" : "Bold",
+    "min" : 0,
+    "spectrum" : [ "blue", "springgreen", "yellow", "red" ],
+    "y0" : 62,
+    "label" : "EGT °C",
+    "max" : 1000,
+    "radius" : 76,
+    "x0" : 255,
+    "majdivs" : 5,
+    "labelFont" : "Bold",
+    "subdivs" : 4,
+    "value" : 0,
+    "start" : -135,
+    "type" : "roundNeedleGauge",
+    "valueFont" : "Mini",
+    "end" : 135
+  }, {
+    "min" : 0,
+    "spectrum" : [ "red", "yellow", "springgreen" ],
+    "y0" : 36,
+    "label" : "Batt",
+    "max" : 10,
+    "radius" : 40,
+    "x0" : 160,
+    "majdivs" : 0,
+    "labelFont" : "Mini",
+    "subdivs" : 0,
+    "value" : 0,
+    "start" : -135,
+    "type" : "roundNeedleGauge",
+    "valueFont" : "None",
+    "end" : 135
+  }, {
+    "min" : 0,
+    "spectrum" : [ "red", "yellow", "springgreen" ],
+    "y0" : 91,
+    "label" : "Pump",
+    "max" : 10,
+    "radius" : 40,
+    "x0" : 160,
+    "majdivs" : 0,
+    "labelFont" : "Mini",
+    "subdivs" : 0,
+    "value" : 0,
+    "start" : -135,
+    "type" : "roundNeedleGauge",
+    "valueFont" : "None",
+    "end" : 135
+  }, {
+    "width" : 200,
+    "height" : 50,
+    "y0" : 8,
+    "label" : "",
+    "x0" : 160,
+    "text" : [ "Turbine Dashboard" ],
+    "textColor" : "white",
+    "textFont" : "Mini",
+    "type" : "rawText"
+  } ],
+  "timestamp" : "2023-04-15T21:28:58.858086200Z"
+}

@@ -1,693 +1,586 @@
-[
-    {
-	"tickFont": "Mini",
-	"yL": 91.9,
-	"min": 6,
-	"ro": 51,
-	"xL": 56,
-	"colorvals": [
-            {
-		"color": "red",
-		"val": 6.4
-            },
-            {
-		"color": "yellow",
-		"val": 6.7
-            },
-            {
-		"color": "green",
-		"val": 7.5
-            },
-            {
-		"color": "green",
-		"val": 100
-            }
-	],
-	"y0": 56,
-	"hLB": 10,
-	"rgbInnerFillColor": {
-            "r": 0,
-            "g": 128,
-            "b": 0,
-            "t": "false"
-	},
-	"label": " Batt 1 V ",
-	"max": 8.5,
-	"radius": 73,
-	"TS": 29.580000000000005,
-	"x0": 56,
-	"majdivs": 5,
-	"rgbLabelColor": {
-            "r": 0,
-            "g": 128,
-            "b": 0,
-            "t": "false"
-	},
-	"divs": 5,
-	"yLB": 85.9,
-	"labelFont": "Mini",
-	"subdivs": 1,
-	"rgbLabelBoxColor": {
-            "r": 211,
-            "g": 211,
-            "b": 211,
-            "t": "false"
-	},
-	"tickLabels": [
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.8660254037844386,
-		"sa": 0.5000000000000001,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.9510565162951535,
-		"sa": -0.3090169943749475,
-		"dp": 1
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.40673664307580026,
-		"sa": -0.9135454576426009,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.4067366430758,
-		"sa": -0.913545457642601,
-		"dp": 1
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.9510565162951535,
-		"sa": -0.3090169943749474,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.8660254037844385,
-		"sa": 0.5000000000000002,
-		"dp": 1
-            }
-	],
-	"value": 6.8,
-	"wLB": 45,
-	"xV": 56,
-	"ri": 43.35,
-	"start": -120,
-	"readoutPosY": -18,
-	"needleColor": "green",
-	"labelBoxColor": "lightgrey",
-	"type": "roundNeedleGauge",
-	"needle": [
-            {
-		"x": -1,
-		"y": 0
-            },
-            {
-		"x": -2,
-		"y": 1
-            },
-            {
-		"x": -4,
-		"y": 4
-            },
-            {
-		"x": -1,
-		"y": 58
-            },
-            {
-		"x": 1,
-		"y": 58
-            },
-            {
-		"x": 4,
-		"y": 4
-            },
-            {
-		"x": 2,
-		"y": 1
-            },
-            {
-		"x": 1,
-		"y": 0
-            }
-	],
-	"rLB": 2.5,
-	"yV": 68.6,
-	"inner": [
-            {
-		"x": 0,
-		"y": 0
-            },
-            {
-		"x": -3,
-		"y": 3
-            },
-            {
-		"x": 0,
-		"y": 45
-            },
-            {
-		"x": 3,
-		"y": 3
-            },
-            {
-		"x": 0,
-		"y": 0
-            }
-	],
-	"gaugeRadius": 51,
-	"xLB": 33.5,
-	"valueFont": "Mini",
-	"needleTrim": 0,
-	"labelColor": "green",
-	"end": 120,
-	"labelPosY": -10
+{
+  "panel" : [ {
+    "tickFont" : "Mini",
+    "yL" : 91.9,
+    "min" : 6,
+    "ro" : 51,
+    "xL" : 56,
+    "colorvals" : [ {
+      "color" : "red",
+      "val" : 6.4
+    }, {
+      "color" : "yellow",
+      "val" : 6.7
+    }, {
+      "color" : "green",
+      "val" : 7.5
+    }, {
+      "color" : "green",
+      "val" : 100
+    } ],
+    "y0" : 56,
+    "hLB" : 10,
+    "rgbInnerFillColor" : {
+      "r" : 0,
+      "g" : 128,
+      "b" : 0,
+      "t" : "false"
     },
-    {
-	"tickFont": "Mini",
-	"yL": 102.9,
-	"min": 6,
-	"ro": 51,
-	"xL": 56,
-	"colorvals": [
-            {
-		"color": "red",
-		"val": 6.4
-            },
-            {
-		"color": "yellow",
-		"val": 6.7
-            },
-            {
-		"color": "green",
-		"val": 7.5
-            },
-            {
-		"color": "green",
-		"val": 100
-            }
-	],
-	"y0": 56,
-	"hLB": 10,
-	"rgbInnerFillColor": {
-            "r": 255,
-            "g": 0,
-            "b": 0,
-            "t": "false"
-	},
-	"label": " Batt 2 V ",
-	"max": 8.5,
-	"radius": 73,
-	"TS": 29.580000000000005,
-	"x0": 56,
-	"majdivs": 5,
-	"rgbLabelColor": {
-            "r": 255,
-            "g": 0,
-            "b": 0,
-            "t": "false"
-	},
-	"divs": 5,
-	"yLB": 96.9,
-	"labelFont": "Mini",
-	"subdivs": 1,
-	"rgbLabelBoxColor": {
-            "r": 211,
-            "g": 211,
-            "b": 211,
-            "t": "false"
-	},
-	"tickLabels": [
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.8660254037844386,
-		"sa": 0.5000000000000001,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.9510565162951535,
-		"sa": -0.3090169943749475,
-		"dp": 1
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.40673664307580026,
-		"sa": -0.9135454576426009,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.4067366430758,
-		"sa": -0.913545457642601,
-		"dp": 1
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.9510565162951535,
-		"sa": -0.3090169943749474,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.8660254037844385,
-		"sa": 0.5000000000000002,
-		"dp": 1
-            }
-	],
-	"value": 7.275,
-	"wLB": 45,
-	"xV": 56,
-	"ri": 43.35,
-	"start": -120,
-	"readoutPosY": -7,
-	"needleColor": "red",
-	"labelBoxColor": "lightgrey",
-	"type": "roundNeedleGauge",
-	"needle": [
-            {
-		"x": -3.68,
-		"y": 19.14
-            },
-            {
-		"x": -1,
-		"y": 58
-            },
-            {
-		"x": 1,
-		"y": 58
-            },
-            {
-		"x": 3.68,
-		"y": 19.14
-            }
-	],
-	"rLB": 2.5,
-	"yV": 79.6,
-	"inner": [
-            {
-		"x": -2.34,
-		"y": 19.14
-            },
-            {
-		"x": -1,
-		"y": 48
-            },
-            {
-		"x": 1,
-		"y": 48
-            },
-            {
-		"x": 2.34,
-		"y": 19.14
-            }
-	],
-	"gaugeRadius": 51,
-	"xLB": 33.5,
-	"valueFont": "Mini",
-	"needleTrim": 33,
-	"labelColor": "red",
-	"end": 120,
-	"needleType": "needleTrim",
-	"labelPosY": 1,
-	"faceVis": "off",
-	"scaleVis": "off"
+    "label" : " Batt 1 V ",
+    "max" : 8.5,
+    "radius" : 73,
+    "TS" : 29.580000000000005,
+    "x0" : 56,
+    "majdivs" : 5,
+    "rgbLabelColor" : {
+      "r" : 0,
+      "g" : 128,
+      "b" : 0,
+      "t" : "false"
     },
-    {
-	"tickFont": "Normal",
-	"yL": 93.9,
-	"min": 0,
-	"ro": 51,
-	"xL": 264,
-	"colorvals": [
-            {
-		"color": "green",
-		"val": 4
-            },
-            {
-		"color": "yellow",
-		"val": 5
-            },
-            {
-		"color": "red",
-		"val": 6
-            }
-	],
-	"y0": 56,
-	"hLB": 10,
-	"rgbInnerFillColor": {
-            "r": 0,
-            "g": 128,
-            "b": 0,
-            "t": "false"
-	},
-	"label": " Batt 1 Amps ",
-	"max": 6,
-	"radius": 73,
-	"TS": 29.580000000000005,
-	"x0": 264,
-	"majdivs": 6,
-	"rgbLabelColor": {
-            "r": 0,
-            "g": 128,
-            "b": 0,
-            "t": "false"
-	},
-	"divs": 6,
-	"yLB": 87.9,
-	"labelFont": "Mini",
-	"subdivs": 1,
-	"rgbLabelBoxColor": {
-            "r": 211,
-            "g": 211,
-            "b": 211,
-            "t": "false"
-	},
-	"tickLabels": [
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.8660254037844386,
-		"sa": 0.5000000000000001,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.984807753012208,
-		"sa": -0.17364817766693028,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.6427876096865394,
-		"sa": -0.766044443118978,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 6.123233995736766e-17,
-		"sa": -1,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.6427876096865395,
-		"sa": -0.7660444431189779,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.9848077530122081,
-		"sa": -0.17364817766693014,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.8660254037844385,
-		"sa": 0.5000000000000002,
-		"dp": 0
-            }
-	],
-	"value": 1.02,
-	"wLB": 45,
-	"xV": 264,
-	"ri": 43.35,
-	"start": -120,
-	"readoutPosY": -14,
-	"needleColor": "green",
-	"labelBoxColor": "lightgrey",
-	"type": "roundNeedleGauge",
-	"needle": [
-            {
-		"x": -1,
-		"y": 0
-            },
-            {
-		"x": -2,
-		"y": 1
-            },
-            {
-		"x": -4,
-		"y": 4
-            },
-            {
-		"x": -1,
-		"y": 58
-            },
-            {
-		"x": 1,
-		"y": 58
-            },
-            {
-		"x": 4,
-		"y": 4
-            },
-            {
-		"x": 2,
-		"y": 1
-            },
-            {
-		"x": 1,
-		"y": 0
-            }
-	],
-	"rLB": 2.5,
-	"yV": 72.6,
-	"inner": [
-            {
-		"x": 0,
-		"y": 0
-            },
-            {
-		"x": -3,
-		"y": 3
-            },
-            {
-		"x": 0,
-		"y": 45
-            },
-            {
-		"x": 3,
-		"y": 3
-            },
-            {
-		"x": 0,
-		"y": 0
-            }
-	],
-	"gaugeRadius": 51,
-	"xLB": 241.5,
-	"valueFont": "Mini",
-	"needleTrim": 0,
-	"labelColor": "green",
-	"end": 120,
-	"labelPosY": -8
+    "divs" : 5,
+    "yLB" : 85.9,
+    "labelFont" : "Mini",
+    "subdivs" : 1,
+    "rgbLabelBoxColor" : {
+      "r" : 211,
+      "g" : 211,
+      "b" : 211,
+      "t" : "false"
     },
-    {
-	"tickFont": "Normal",
-	"yL": 104.9,
-	"min": 0,
-	"ro": 51,
-	"xL": 264,
-	"colorvals": [
-            {
-		"color": "green",
-		"val": 4
-            },
-            {
-		"color": "yellow",
-		"val": 5
-            },
-            {
-		"color": "red",
-		"val": 6
-            }
-	],
-	"y0": 56,
-	"hLB": 10,
-	"rgbInnerFillColor": {
-            "r": 255,
-            "g": 0,
-            "b": 0,
-            "t": "false"
-	},
-	"label": " Batt 2 Amps ",
-	"max": 6,
-	"radius": 73,
-	"TS": 29.580000000000005,
-	"x0": 264,
-	"majdivs": 6,
-	"rgbLabelColor": {
-            "r": 255,
-            "g": 0,
-            "b": 0,
-            "t": "false"
-	},
-	"divs": 6,
-	"yLB": 98.9,
-	"labelFont": "Mini",
-	"subdivs": 1,
-	"rgbLabelBoxColor": {
-            "r": 211,
-            "g": 211,
-            "b": 211,
-            "t": "false"
-	},
-	"tickLabels": [
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.8660254037844386,
-		"sa": 0.5000000000000001,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.984807753012208,
-		"sa": -0.17364817766693028,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": -0.6427876096865394,
-		"sa": -0.766044443118978,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 6.123233995736766e-17,
-		"sa": -1,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.6427876096865395,
-		"sa": -0.7660444431189779,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.9848077530122081,
-		"sa": -0.17364817766693014,
-		"dp": 0
-            },
-            {
-		"rt": 29.580000000000005,
-		"ca": 0.8660254037844385,
-		"sa": 0.5000000000000002,
-		"dp": 0
-            }
-	],
-	"value": 1.38,
-	"wLB": 45,
-	"xV": 264,
-	"ri": 43.35,
-	"start": -120,
-	"readoutPosY": -4,
-	"needleColor": "red",
-	"labelBoxColor": "lightgrey",
-	"type": "roundNeedleGauge",
-	"needle": [
-            {
-		"x": -3.68,
-		"y": 19.14
-            },
-            {
-		"x": -1,
-		"y": 58
-            },
-            {
-		"x": 1,
-		"y": 58
-            },
-            {
-		"x": 3.68,
-		"y": 19.14
-            }
-	],
-	"rLB": 2.5,
-	"yV": 82.6,
-	"inner": [
-            {
-		"x": -2.34,
-		"y": 19.14
-            },
-            {
-		"x": -1,
-		"y": 48
-            },
-            {
-		"x": 1,
-		"y": 48
-            },
-            {
-		"x": 2.34,
-		"y": 19.14
-            }
-	],
-	"gaugeRadius": 51,
-	"xLB": 241.5,
-	"valueFont": "Mini",
-	"needleTrim": 33,
-	"labelColor": "red",
-	"end": 120,
-	"needleType": "needleTrim",
-	"labelPosY": 3,
-	"faceVis": "off"
+    "tickLabels" : [ {
+      "rt" : 29.580000000000005,
+      "ca" : -0.8660254037844386,
+      "sa" : 0.5000000000000001,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : -0.9510565162951535,
+      "sa" : -0.3090169943749475,
+      "dp" : 1
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : -0.40673664307580026,
+      "sa" : -0.9135454576426009,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.4067366430758,
+      "sa" : -0.913545457642601,
+      "dp" : 1
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.9510565162951535,
+      "sa" : -0.3090169943749474,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.8660254037844385,
+      "sa" : 0.5000000000000002,
+      "dp" : 1
+    } ],
+    "value" : 6.8,
+    "wLB" : 45,
+    "xV" : 56,
+    "ri" : 43.35,
+    "start" : -120,
+    "readoutPosY" : -18,
+    "needleColor" : "green",
+    "labelBoxColor" : "lightgrey",
+    "type" : "roundNeedleGauge",
+    "needle" : [ {
+      "x" : -1,
+      "y" : 0
+    }, {
+      "x" : -2,
+      "y" : 1
+    }, {
+      "x" : -4,
+      "y" : 4
+    }, {
+      "x" : -1,
+      "y" : 58
+    }, {
+      "x" : 1,
+      "y" : 58
+    }, {
+      "x" : 4,
+      "y" : 4
+    }, {
+      "x" : 2,
+      "y" : 1
+    }, {
+      "x" : 1,
+      "y" : 0
+    } ],
+    "rLB" : 2.5,
+    "yV" : 68.6,
+    "inner" : [ {
+      "x" : 0,
+      "y" : 0
+    }, {
+      "x" : -3,
+      "y" : 3
+    }, {
+      "x" : 0,
+      "y" : 45
+    }, {
+      "x" : 3,
+      "y" : 3
+    }, {
+      "x" : 0,
+      "y" : 0
+    } ],
+    "gaugeRadius" : 51,
+    "xLB" : 33.5,
+    "valueFont" : "Mini",
+    "needleTrim" : 0,
+    "labelColor" : "green",
+    "end" : 120,
+    "labelPosY" : -10
+  }, {
+    "tickFont" : "Mini",
+    "yL" : 102.9,
+    "min" : 6,
+    "ro" : 51,
+    "xL" : 56,
+    "colorvals" : [ {
+      "color" : "red",
+      "val" : 6.4
+    }, {
+      "color" : "yellow",
+      "val" : 6.7
+    }, {
+      "color" : "green",
+      "val" : 7.5
+    }, {
+      "color" : "green",
+      "val" : 100
+    } ],
+    "y0" : 56,
+    "hLB" : 10,
+    "rgbInnerFillColor" : {
+      "r" : 255,
+      "g" : 0,
+      "b" : 0,
+      "t" : "false"
     },
-    {
-	"xBorder": 6,
-	"width": 200,
-	"height": 20,
-	"y0": 9,
-	"label": "PANEL NAME",
-	"x0": 160,
-	"rgbTextColor": {
-            "r": 0,
-            "g": 0,
-            "b": 0,
-            "t": "false"
-	},
-	"rgbBackColor": {
-            "r": 0,
-            "g": 0,
-            "b": 0,
-            "t": "false"
-	},
-	"text": [
-            "CENTRAL BOX DATA"
-	],
-	"textColor": "black",
-	"textFont": "Normal",
-	"type": "rawText",
-	"yBorder": 3
+    "label" : " Batt 2 V ",
+    "max" : 8.5,
+    "radius" : 73,
+    "TS" : 29.580000000000005,
+    "x0" : 56,
+    "majdivs" : 5,
+    "rgbLabelColor" : {
+      "r" : 255,
+      "g" : 0,
+      "b" : 0,
+      "t" : "false"
     },
-    {
-	"yL": 165.25,
-	"width": 252,
-	"backColor": "yellowgreen",
-	"xL": 160,
-	"height": 106,
-	"y0": 136,
-	"label": "Capacity used",
-	"x0": 160,
-	"tBoxHgt": 53,
-	"labelFont": "None",
-	"value": 0,
-	"labelcolor": "white",
-	"tBoxWid": 252,
-	"xV": 160,
-	"text": [
-            "Batt 1 Capacity used: 'S1.0' mAh",
-            "Batt 2 Capacity used: 'S2.0' mAh"
-	],
-	"textFont": "Normal",
-	"type": "stackedTextBox",
-	"yV": 136,
-	"textcolor": "black",
-	"bezelColor": "transparent",
-	"labelPosX": 0,
-	"labelPosY": 0
-    }
-]
+    "divs" : 5,
+    "yLB" : 96.9,
+    "labelFont" : "Mini",
+    "subdivs" : 1,
+    "rgbLabelBoxColor" : {
+      "r" : 211,
+      "g" : 211,
+      "b" : 211,
+      "t" : "false"
+    },
+    "tickLabels" : [ {
+      "rt" : 29.580000000000005,
+      "ca" : -0.8660254037844386,
+      "sa" : 0.5000000000000001,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : -0.9510565162951535,
+      "sa" : -0.3090169943749475,
+      "dp" : 1
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : -0.40673664307580026,
+      "sa" : -0.9135454576426009,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.4067366430758,
+      "sa" : -0.913545457642601,
+      "dp" : 1
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.9510565162951535,
+      "sa" : -0.3090169943749474,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.8660254037844385,
+      "sa" : 0.5000000000000002,
+      "dp" : 1
+    } ],
+    "value" : 7.275,
+    "wLB" : 45,
+    "xV" : 56,
+    "ri" : 43.35,
+    "start" : -120,
+    "readoutPosY" : -7,
+    "needleColor" : "red",
+    "labelBoxColor" : "lightgrey",
+    "type" : "roundNeedleGauge",
+    "needle" : [ {
+      "x" : -3.68,
+      "y" : 19.14
+    }, {
+      "x" : -1,
+      "y" : 58
+    }, {
+      "x" : 1,
+      "y" : 58
+    }, {
+      "x" : 3.68,
+      "y" : 19.14
+    } ],
+    "rLB" : 2.5,
+    "yV" : 79.6,
+    "inner" : [ {
+      "x" : -2.34,
+      "y" : 19.14
+    }, {
+      "x" : -1,
+      "y" : 48
+    }, {
+      "x" : 1,
+      "y" : 48
+    }, {
+      "x" : 2.34,
+      "y" : 19.14
+    } ],
+    "gaugeRadius" : 51,
+    "xLB" : 33.5,
+    "valueFont" : "Mini",
+    "needleTrim" : 33,
+    "labelColor" : "red",
+    "end" : 120,
+    "needleType" : "needleTrim",
+    "labelPosY" : 1,
+    "faceVis" : "off",
+    "scaleVis" : "off"
+  }, {
+    "tickFont" : "Normal",
+    "yL" : 93.9,
+    "min" : 0,
+    "ro" : 51,
+    "xL" : 264,
+    "colorvals" : [ {
+      "color" : "green",
+      "val" : 4
+    }, {
+      "color" : "yellow",
+      "val" : 5
+    }, {
+      "color" : "red",
+      "val" : 6
+    } ],
+    "y0" : 56,
+    "hLB" : 10,
+    "rgbInnerFillColor" : {
+      "r" : 0,
+      "g" : 128,
+      "b" : 0,
+      "t" : "false"
+    },
+    "label" : " Batt 1 Amps ",
+    "max" : 6,
+    "radius" : 73,
+    "TS" : 29.580000000000005,
+    "x0" : 264,
+    "majdivs" : 6,
+    "rgbLabelColor" : {
+      "r" : 0,
+      "g" : 128,
+      "b" : 0,
+      "t" : "false"
+    },
+    "divs" : 6,
+    "yLB" : 87.9,
+    "labelFont" : "Mini",
+    "subdivs" : 1,
+    "rgbLabelBoxColor" : {
+      "r" : 211,
+      "g" : 211,
+      "b" : 211,
+      "t" : "false"
+    },
+    "tickLabels" : [ {
+      "rt" : 29.580000000000005,
+      "ca" : -0.8660254037844386,
+      "sa" : 0.5000000000000001,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : -0.984807753012208,
+      "sa" : -0.17364817766693028,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : -0.6427876096865394,
+      "sa" : -0.766044443118978,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 6.123233995736766E-17,
+      "sa" : -1,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.6427876096865395,
+      "sa" : -0.7660444431189779,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.9848077530122081,
+      "sa" : -0.17364817766693014,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.8660254037844385,
+      "sa" : 0.5000000000000002,
+      "dp" : 0
+    } ],
+    "value" : 1.02,
+    "wLB" : 45,
+    "xV" : 264,
+    "ri" : 43.35,
+    "start" : -120,
+    "readoutPosY" : -14,
+    "needleColor" : "green",
+    "labelBoxColor" : "lightgrey",
+    "type" : "roundNeedleGauge",
+    "needle" : [ {
+      "x" : -1,
+      "y" : 0
+    }, {
+      "x" : -2,
+      "y" : 1
+    }, {
+      "x" : -4,
+      "y" : 4
+    }, {
+      "x" : -1,
+      "y" : 58
+    }, {
+      "x" : 1,
+      "y" : 58
+    }, {
+      "x" : 4,
+      "y" : 4
+    }, {
+      "x" : 2,
+      "y" : 1
+    }, {
+      "x" : 1,
+      "y" : 0
+    } ],
+    "rLB" : 2.5,
+    "yV" : 72.6,
+    "inner" : [ {
+      "x" : 0,
+      "y" : 0
+    }, {
+      "x" : -3,
+      "y" : 3
+    }, {
+      "x" : 0,
+      "y" : 45
+    }, {
+      "x" : 3,
+      "y" : 3
+    }, {
+      "x" : 0,
+      "y" : 0
+    } ],
+    "gaugeRadius" : 51,
+    "xLB" : 241.5,
+    "valueFont" : "Mini",
+    "needleTrim" : 0,
+    "labelColor" : "green",
+    "end" : 120,
+    "labelPosY" : -8
+  }, {
+    "tickFont" : "Normal",
+    "yL" : 104.9,
+    "min" : 0,
+    "ro" : 51,
+    "xL" : 264,
+    "colorvals" : [ {
+      "color" : "green",
+      "val" : 4
+    }, {
+      "color" : "yellow",
+      "val" : 5
+    }, {
+      "color" : "red",
+      "val" : 6
+    } ],
+    "y0" : 56,
+    "hLB" : 10,
+    "rgbInnerFillColor" : {
+      "r" : 255,
+      "g" : 0,
+      "b" : 0,
+      "t" : "false"
+    },
+    "label" : " Batt 2 Amps ",
+    "max" : 6,
+    "radius" : 73,
+    "TS" : 29.580000000000005,
+    "x0" : 264,
+    "majdivs" : 6,
+    "rgbLabelColor" : {
+      "r" : 255,
+      "g" : 0,
+      "b" : 0,
+      "t" : "false"
+    },
+    "divs" : 6,
+    "yLB" : 98.9,
+    "labelFont" : "Mini",
+    "subdivs" : 1,
+    "rgbLabelBoxColor" : {
+      "r" : 211,
+      "g" : 211,
+      "b" : 211,
+      "t" : "false"
+    },
+    "tickLabels" : [ {
+      "rt" : 29.580000000000005,
+      "ca" : -0.8660254037844386,
+      "sa" : 0.5000000000000001,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : -0.984807753012208,
+      "sa" : -0.17364817766693028,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : -0.6427876096865394,
+      "sa" : -0.766044443118978,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 6.123233995736766E-17,
+      "sa" : -1,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.6427876096865395,
+      "sa" : -0.7660444431189779,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.9848077530122081,
+      "sa" : -0.17364817766693014,
+      "dp" : 0
+    }, {
+      "rt" : 29.580000000000005,
+      "ca" : 0.8660254037844385,
+      "sa" : 0.5000000000000002,
+      "dp" : 0
+    } ],
+    "value" : 1.38,
+    "wLB" : 45,
+    "xV" : 264,
+    "ri" : 43.35,
+    "start" : -120,
+    "readoutPosY" : -4,
+    "needleColor" : "red",
+    "labelBoxColor" : "lightgrey",
+    "type" : "roundNeedleGauge",
+    "needle" : [ {
+      "x" : -3.68,
+      "y" : 19.14
+    }, {
+      "x" : -1,
+      "y" : 58
+    }, {
+      "x" : 1,
+      "y" : 58
+    }, {
+      "x" : 3.68,
+      "y" : 19.14
+    } ],
+    "rLB" : 2.5,
+    "yV" : 82.6,
+    "inner" : [ {
+      "x" : -2.34,
+      "y" : 19.14
+    }, {
+      "x" : -1,
+      "y" : 48
+    }, {
+      "x" : 1,
+      "y" : 48
+    }, {
+      "x" : 2.34,
+      "y" : 19.14
+    } ],
+    "gaugeRadius" : 51,
+    "xLB" : 241.5,
+    "valueFont" : "Mini",
+    "needleTrim" : 33,
+    "labelColor" : "red",
+    "end" : 120,
+    "needleType" : "needleTrim",
+    "labelPosY" : 3,
+    "faceVis" : "off"
+  }, {
+    "xBorder" : 6,
+    "width" : 200,
+    "height" : 20,
+    "y0" : 9,
+    "label" : "PANEL NAME",
+    "x0" : 160,
+    "rgbTextColor" : {
+      "r" : 0,
+      "g" : 0,
+      "b" : 0,
+      "t" : "false"
+    },
+    "rgbBackColor" : {
+      "r" : 0,
+      "g" : 0,
+      "b" : 0,
+      "t" : "false"
+    },
+    "text" : [ "CENTRAL BOX DATA" ],
+    "textColor" : "black",
+    "textFont" : "Normal",
+    "type" : "rawText",
+    "yBorder" : 3
+  }, {
+    "yL" : 165.25,
+    "width" : 252,
+    "backColor" : "yellowgreen",
+    "xL" : 160,
+    "height" : 106,
+    "y0" : 136,
+    "label" : "Capacity used",
+    "x0" : 160,
+    "tBoxHgt" : 53,
+    "labelFont" : "None",
+    "value" : 0,
+    "labelcolor" : "white",
+    "tBoxWid" : 252,
+    "xV" : 160,
+    "text" : [ "Batt 1 Capacity used: 'S1.0' mAh", "Batt 2 Capacity used: 'S2.0' mAh" ],
+    "textFont" : "Normal",
+    "type" : "stackedTextBox",
+    "yV" : 136,
+    "textcolor" : "black",
+    "bezelColor" : "transparent",
+    "labelPosX" : 0,
+    "labelPosY" : 0
+  } ],
+  "timestamp" : "2023-04-15T21:28:58.855086300Z"
+}
