@@ -33,6 +33,7 @@ DFM-GPS/GG_*
 DFM-Amix/C-*
 CTU-DFM/LF_*
 DFM-InsP/II_*
+DFM-InsP/Docs/*.HTML
 .shadow-cljs/
 node_modules/
 Gauges/resources/gauges/js/
