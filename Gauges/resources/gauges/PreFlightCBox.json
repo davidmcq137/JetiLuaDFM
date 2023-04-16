@@ -1,182 +1,148 @@
-[
-    {
-	"width": 150,
-	"height": 40,
-	"y0": 18,
-	"label": "Rx1 Voltage",
-	"labelPosY":-6,
-	"x0": 80,
-	"value": 0,
-	"text": [
-	    "Rx1 Voltage 'v''u'"
-	],
-	"textFont":"Mini",
-	"type": "stackedTextBox",
-	"backColor":"yellowgreen",
-	"bezelColor":"transparent"
-    },
-    {
-	"width": 150,
-	"height": 40,
-	"y0": 53,
-	"label": "Turbine Status",
-	"labelPosY":-6,
-	"x0": 80,
-	"value": 0,
-	"tBoxWid": 150,
-	"text": [
-	    "Use Xicoy Extension "
-	],
-	"textFont":"Mini",
-	"type": "sequencedTextBox",
-	"backColor":"yellowgreen",
-	"bezelColor":"transparent"
-    },
-    {
-	"width": 150,
-	"height": 125,
-	"y0": 114,
-	"label": "CB Battery Status",
-	"labelPosY": 6,
-	"x0": 80,
-	"value": 0,
-	"text": [
-	    "Batt 1: 'S1.2'V 'S5.0'%",
-	    "Batt 2: 'S2.2'V 'S6.0'%",
-	    "Batt 1 Cap: 'S7.0' mAh",
-	    "Batt 2 Cap: 'S8.0' mAh"
-	],
-	"textFont":"Mini",
-	"type": "stackedTextBox",
-	"backColor":"yellowgreen",
-	"bezelColor":"transparent"
-    },
-    {
-	"min": 6.0,
-	"colorvals": [
-	    {
-		"color": "red",
-		"val": 6.4
-	    },
-	    {
-		"color": "yellow",
-		"val": 6.7
-	    },
-	    {
-		"color": "green",
-		"val": 7.5
-	    },
-	    {
-		"color": "green",
-		"val": 100
-	    }
-	],
-	"y0": 39,
-	"label": "U Accu 1 (V)",
-	"max": 7.5,
-	"radius": 56,
-	"x0": 199,
-	"majdivs": 5,
-	"subdivs": 4,
-	"value": 6.6,
-	"start": -120,
-	"type": "roundNeedleGauge",
-	"end": 120
-    },
-    {
-	"min": 6.0,
-	"colorvals": [
-	    {
-		"color": "red",
-		"val": 6.4
-	    },
-	    {
-		"color": "yellow",
-		"val": 6.7
-	    },
-	    {
-		"color": "green",
-		"val": 7.5
-	    },
-	    {
-		"color": "green",
-		"val": 100
-	    }
-	],
-	"y0": 39,
-	"label": "U Accu 2 (V)",
-	"max": 7.5,
-	"radius": 56,
-	"x0": 280,
-	"majdivs": 5,
-	"subdivs": 4,
-	"value": 6.6,
-	"start": -120,
-	"type": "roundNeedleGauge",
-	"end": 120
-    },
-    {
-	"min": 0,
-	"colorvals": [
-	    {
-		"color": "green",
-		"val": 60
-	    },
-	    {
-		"color": "yellow",
-		"val": 80
-	    },
-	    {
-		"color": "orange",
-		"val": 90
-	    },
-	    {
-		"color": "red",
-		"val": 100
-	    }
-	],
-	"y0": 118,
-	"label": "I Accu 1 (mA)",
-	"max": 120,
-	"radius": 56,
-	"x0": 199,
-	"majdivs": 6,
-	"subdivs": 4,
-	"value": 85,
-	"start": -120,
-	"type": "roundNeedleGauge",
-	"end": 120
-    },
-    {
-	"min": 0,
-	"colorvals": [
-	    {
-		"color": "green",
-		"val": 60
-	    },
-	    {
-		"color": "yellow",
-		"val": 80
-	    },
-	    {
-		"color": "orange",
-		"val": 90
-	    },
-	    {
-		"color": "red",
-		"val": 100
-	    }
-	],
-	"y0": 118,
-	"label": "I Accu 2 (mA)",
-	"max": 120,
-	"radius": 56,
-	"x0": 280,
-	"majdivs": 6,
-	"subdivs": 4,
-	"value": 85,
-	"start": -120,
-	"type": "roundNeedleGauge",
-	"end": 120
-    }
-]
+{
+  "panel" : [ {
+    "width" : 150,
+    "backColor" : "yellowgreen",
+    "height" : 40,
+    "y0" : 18,
+    "label" : "Rx1 Voltage",
+    "x0" : 80,
+    "value" : 0,
+    "text" : [ "Rx1 Voltage 'v''u'" ],
+    "textFont" : "Mini",
+    "type" : "stackedTextBox",
+    "bezelColor" : "transparent",
+    "labelPosY" : -6
+  }, {
+    "width" : 150,
+    "backColor" : "yellowgreen",
+    "height" : 40,
+    "y0" : 53,
+    "label" : "Turbine Status",
+    "x0" : 80,
+    "value" : 0,
+    "tBoxWid" : 150,
+    "text" : [ "Use Xicoy Extension " ],
+    "textFont" : "Mini",
+    "type" : "sequencedTextBox",
+    "bezelColor" : "transparent",
+    "labelPosY" : -6
+  }, {
+    "width" : 150,
+    "backColor" : "yellowgreen",
+    "height" : 125,
+    "y0" : 114,
+    "label" : "CB Battery Status",
+    "x0" : 80,
+    "value" : 0,
+    "text" : [ "Batt 1: 'S1.2'V 'S5.0'%", "Batt 2: 'S2.2'V 'S6.0'%", "Batt 1 Cap: 'S7.0' mAh", "Batt 2 Cap: 'S8.0' mAh" ],
+    "textFont" : "Mini",
+    "type" : "stackedTextBox",
+    "bezelColor" : "transparent",
+    "labelPosY" : 6
+  }, {
+    "min" : 6.0,
+    "colorvals" : [ {
+      "color" : "red",
+      "val" : 6.4
+    }, {
+      "color" : "yellow",
+      "val" : 6.7
+    }, {
+      "color" : "green",
+      "val" : 7.5
+    }, {
+      "color" : "green",
+      "val" : 100
+    } ],
+    "y0" : 39,
+    "label" : "U Accu 1 (V)",
+    "max" : 7.5,
+    "radius" : 56,
+    "x0" : 199,
+    "majdivs" : 5,
+    "subdivs" : 4,
+    "value" : 6.6,
+    "start" : -120,
+    "type" : "roundNeedleGauge",
+    "end" : 120
+  }, {
+    "min" : 6.0,
+    "colorvals" : [ {
+      "color" : "red",
+      "val" : 6.4
+    }, {
+      "color" : "yellow",
+      "val" : 6.7
+    }, {
+      "color" : "green",
+      "val" : 7.5
+    }, {
+      "color" : "green",
+      "val" : 100
+    } ],
+    "y0" : 39,
+    "label" : "U Accu 2 (V)",
+    "max" : 7.5,
+    "radius" : 56,
+    "x0" : 280,
+    "majdivs" : 5,
+    "subdivs" : 4,
+    "value" : 6.6,
+    "start" : -120,
+    "type" : "roundNeedleGauge",
+    "end" : 120
+  }, {
+    "min" : 0,
+    "colorvals" : [ {
+      "color" : "green",
+      "val" : 60
+    }, {
+      "color" : "yellow",
+      "val" : 80
+    }, {
+      "color" : "orange",
+      "val" : 90
+    }, {
+      "color" : "red",
+      "val" : 100
+    } ],
+    "y0" : 118,
+    "label" : "I Accu 1 (mA)",
+    "max" : 120,
+    "radius" : 56,
+    "x0" : 199,
+    "majdivs" : 6,
+    "subdivs" : 4,
+    "value" : 85,
+    "start" : -120,
+    "type" : "roundNeedleGauge",
+    "end" : 120
+  }, {
+    "min" : 0,
+    "colorvals" : [ {
+      "color" : "green",
+      "val" : 60
+    }, {
+      "color" : "yellow",
+      "val" : 80
+    }, {
+      "color" : "orange",
+      "val" : 90
+    }, {
+      "color" : "red",
+      "val" : 100
+    } ],
+    "y0" : 118,
+    "label" : "I Accu 2 (mA)",
+    "max" : 120,
+    "radius" : 56,
+    "x0" : 280,
+    "majdivs" : 6,
+    "subdivs" : 4,
+    "value" : 85,
+    "start" : -120,
+    "type" : "roundNeedleGauge",
+    "end" : 120
+  } ],
+  "timestamp" : "2023-04-15T21:28:58.864087Z"
+}

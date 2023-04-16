@@ -19,6 +19,8 @@
 
 (def release-banner (rc/inline "common/banner.txt"))
 
+(def jeti-html-template (rc/inline "common/jeti-template.html"))
+
 (def draw-scale 2)
 
 (def disp-scale
@@ -670,12 +672,10 @@
       (set! (.-onloadend fr) #(resolve (.-result fr)))))))
 
 (defn md->html-file
-  [md-text]
-  (str "<html>"
-       "<body>"
-       (md/md->html md-text)
-       "</body>"
-       "</html>"))
+  [{:keys [title body]}]
+  (-> jeti-html-template
+      (string/replace #"\$title\$" title)
+      (string/replace #"\$body\$" (md/md->html body))))
 
 (defn make-dynamic-repo-request*
   [w h]
@@ -691,8 +691,11 @@
                               {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".png")
                                :data-base64 (subs base (count "data:image/png;base64,"))}
                               (when-let [md (get panel :doc-md)]
-                                {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".html")
-                                 :data (md->html-file md)})]
+                                {:destination (str "Apps/DFM-InsP/Panels/"
+                                                   (string/upper-case
+                                                    (str "en-" panel-name ".html")))
+                                 :data (md->html-file {:body md
+                                                       :title panel-name})})]
                              (keep identity)
                              (clj->js))))))))))
 
@@ -763,11 +766,12 @@
                           #(restore-db! (edn/read-string (.-result fr)))))))}])
 
 (defn load-panel!
-  [panel-name panel-data-clj]
+  [panel-name {:strs [panel doc-md] :as panel-data-clj}]
   (swap! db #(-> %
                  (assoc-in [:panels panel-name]
-                           {:gauges (zipmap (range)
-                                            (map render-gauge* panel-data-clj))})
+                           {:doc-md doc-md
+                            :gauges (zipmap (range)
+                                            (map render-gauge* panel))})
                  (assoc :selected-panel panel-name))))
 
 (rum/defc loader
