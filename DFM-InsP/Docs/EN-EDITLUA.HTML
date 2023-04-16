@@ -19,15 +19,15 @@
 </header>
 <p>This is the lua expression editor. You use the 3D wheel to scroll the list of numbers, functions, variables and operators back and forth.</p>
 <p>The highlighted symbol will be included in the expression if you press enter while it is highlighted. Note that some common symbols are assigned to softkeys to speed up the input process.</p>
-<h1 id="functions-available">Functions available</h1>
+<h1>Functions available</h1>
 <p><strong>abs(v)</strong> Returns the absolute value of v</p>
 <p><strong>sqrt(v)</strong> Returns the square root of v</p>
-<p><strong>minV('Sn')</strong> Returns the minimum value of lua variable Sn since app start or reset. <strong>Single Quotation marks required</strong>.</p>
-<p><strong>maxV('Sn')</strong> Returns the maximum value of lua variable Sn since app start or reset. <strong>Single Quotation marks required</strong>.</p>
-<p><strong>avgV('Sn')</strong> Returns the average value of lua variable Sn since app start or reset, OR the running average value of Sn. <strong>Single Quotation marks required</strong>.</p>
-<p>Set the averaging mode for variable Sn in the <em>Lua Variables</em> 'More' sub-menu - Choose <em>Global Average</em> mode to average Sn from app start or reset, or <em>Running Average</em> mode to compute a 'sliding window average' over N samples. N is also set in the 'More' menu.</p>
+<p><strong>minV(\'Sn\')</strong> Returns the minimum value of lua variable Sn since app start or reset. <strong>Single Quotation marks required</strong>.</p>
+<p><strong>maxV(\'Sn\')</strong> Returns the maximum value of lua variable Sn since app start or reset. <strong>Single Quotation marks required</strong>.</p>
+<p><strong>avgV(\'Sn\')</strong> Returns the average value of lua variable Sn since app start or reset, OR the running average value of Sn. <strong>Single Quotation marks required</strong>.</p>
+<p>Set the averaging mode for variable Sn in the <em>Lua Variables</em> \'More\' sub-menu - Choose <em>Global Average</em> mode to average Sn from app start or reset, or <em>Running Average</em> mode to compute a \'sliding window average\' over N samples. N is also set in the \'More\' menu.</p>
 <p>Depending on the number of lua variables defined, they are updated 20-30 times per second so a value of 30 for N will give approximately a 1s averaging time. N must be greater than or equal to 1. With N=1 no averaging is performed.</p>
-<p>This function is useful for 'cleaning up' noisy data to display on a gauge or chart recorder. You can select the average mode and averaging number for each lua variable independent of its source.</p>
+<p>This function is useful for \'cleaning up\' noisy data to display on a gauge or chart recorder. You can select the average mode and averaging number for each lua variable independent of its source.</p>
 <p>Notes:</p>
 <p>The max, min and average values returned by maxV, minV and avgV are reset at app startup and can also be reset with the switch assigned to reset the min/max on gauges. This switch assignment is done in the <strong>Settings</strong> menu.</p>
 <p>There may be other functions shown in the scroll list that are loaded dynamically at app start and are provisioned from lua files in the <strong>Extensions</strong> or <strong>Functions</strong> directories. Some examples include:</p>
