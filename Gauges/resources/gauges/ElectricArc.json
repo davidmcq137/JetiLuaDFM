@@ -1,71 +1,440 @@
 {
-  "panel" : [ {
-    "min" : 0,
-    "spectrum" : [ "blue", "yellow", "red" ],
-    "y0" : 55,
-    "label" : "Volts",
-    "max" : 30,
-    "radius" : 60,
-    "x0" : 46,
-    "majdivs" : 0,
-    "divs" : 10,
-    "labelFont" : "Bold",
-    "subdivs" : 0,
-    "value" : 23.7,
-    "type" : "roundArcGauge",
-    "valueFont" : "Big",
-    "labelColor" : "white"
-  }, {
-    "min" : 0,
-    "spectrum" : [ "blue", "yellow", "red" ],
-    "y0" : 55,
-    "label" : "Amps",
-    "max" : 100,
-    "radius" : 60,
-    "x0" : 133,
-    "majdivs" : 0,
-    "divs" : 10,
-    "labelFont" : "Bold",
-    "subdivs" : 0,
-    "value" : 67,
-    "type" : "roundArcGauge",
-    "valueFont" : "Big",
-    "labelColor" : "white"
-  }, {
-    "min" : 0,
-    "spectrum" : [ "blue", "yellow", "red" ],
-    "y0" : 81,
-    "label" : "Power(W)",
-    "max" : 3000,
-    "radius" : 86,
-    "x0" : 244,
-    "majdivs" : 0,
-    "divs" : 10,
-    "labelFont" : "Bold",
-    "subdivs" : 0,
-    "value" : 3000,
-    "type" : "roundArcGauge",
-    "valueFont" : "Maxi",
-    "labelColor" : "white"
-  }, {
-    "tickFont" : "Mini",
-    "min" : 0,
-    "width" : 169,
-    "backColor" : "black",
-    "spectrum" : [ "red", "yellow", "green" ],
-    "height" : 50,
-    "y0" : 131,
-    "label" : "Capacity (mAh)",
-    "max" : 5000,
-    "x0" : 92,
-    "majdivs" : 2,
-    "divs" : 8,
-    "labelFont" : "Mini",
-    "subdivs" : 4,
-    "value" : 2500,
-    "type" : "horizontalBar",
-    "bezelColor" : "transparent",
-    "labelColor" : "white"
-  } ],
-  "timestamp" : "2023-04-15T21:28:58.859086200Z"
+  "panel": [
+    {
+      "tickFont": "Mini",
+      "TXspectrum": [
+        {
+          "v": 0,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "v": 3.3333333333333335,
+          "r": 57,
+          "g": 57,
+          "b": 198
+        },
+        {
+          "v": 6.666666666666667,
+          "r": 113,
+          "g": 113,
+          "b": 142
+        },
+        {
+          "v": 10,
+          "r": 170,
+          "g": 170,
+          "b": 85
+        },
+        {
+          "v": 13.333333333333334,
+          "r": 227,
+          "g": 227,
+          "b": 28
+        },
+        {
+          "v": 16.666666666666668,
+          "r": 255,
+          "g": 227,
+          "b": 0
+        },
+        {
+          "v": 20,
+          "r": 255,
+          "g": 170,
+          "b": 0
+        },
+        {
+          "v": 23.333333333333332,
+          "r": 255,
+          "g": 113,
+          "b": 0
+        },
+        {
+          "v": 26.666666666666668,
+          "r": 255,
+          "g": 57,
+          "b": 0
+        },
+        {
+          "v": 30,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        }
+      ],
+      "yL": 81.6,
+      "min": 0,
+      "spectrum": [
+        "blue",
+        "yellow",
+        "red"
+      ],
+      "ro": 38,
+      "xL": 46,
+      "y0": 55,
+      "label": "Volts",
+      "xLV": 25.099999999999998,
+      "max": 30,
+      "radius": 60,
+      "x0": 46,
+      "majdivs": 0,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "divs": 10,
+      "labelFont": "Bold",
+      "subdivs": 0,
+      "tickLabels": [],
+      "value": 23.7,
+      "xRV": 66.9,
+      "xV": 46,
+      "ri": 30.400000000000002,
+      "yRV": 89.96000000000001,
+      "type": "roundArcGauge",
+      "yV": 55,
+      "yLV": 89.96000000000001,
+      "gaugeRadius": 38,
+      "valueFont": "Big",
+      "labelColor": "white"
+    },
+    {
+      "tickFont": "Mini",
+      "TXspectrum": [
+        {
+          "v": 0,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "v": 11.11111111111111,
+          "r": 57,
+          "g": 57,
+          "b": 198
+        },
+        {
+          "v": 22.22222222222222,
+          "r": 113,
+          "g": 113,
+          "b": 142
+        },
+        {
+          "v": 33.333333333333336,
+          "r": 170,
+          "g": 170,
+          "b": 85
+        },
+        {
+          "v": 44.44444444444444,
+          "r": 227,
+          "g": 227,
+          "b": 28
+        },
+        {
+          "v": 55.55555555555556,
+          "r": 255,
+          "g": 227,
+          "b": 0
+        },
+        {
+          "v": 66.66666666666667,
+          "r": 255,
+          "g": 170,
+          "b": 0
+        },
+        {
+          "v": 77.77777777777777,
+          "r": 255,
+          "g": 113,
+          "b": 0
+        },
+        {
+          "v": 88.88888888888889,
+          "r": 255,
+          "g": 57,
+          "b": 0
+        },
+        {
+          "v": 100,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        }
+      ],
+      "yL": 81.6,
+      "min": 0,
+      "spectrum": [
+        "blue",
+        "yellow",
+        "red"
+      ],
+      "ro": 38,
+      "xL": 133,
+      "y0": 55,
+      "label": "Amps",
+      "xLV": 112.1,
+      "max": 100,
+      "radius": 60,
+      "x0": 133,
+      "majdivs": 0,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "divs": 10,
+      "labelFont": "Bold",
+      "subdivs": 0,
+      "tickLabels": [],
+      "value": 67,
+      "xRV": 153.9,
+      "xV": 133,
+      "ri": 30.400000000000002,
+      "yRV": 89.96000000000001,
+      "type": "roundArcGauge",
+      "yV": 55,
+      "yLV": 89.96000000000001,
+      "gaugeRadius": 38,
+      "valueFont": "Big",
+      "labelColor": "white"
+    },
+    {
+      "tickFont": "Mini",
+      "TXspectrum": [
+        {
+          "v": 0,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "v": 333.3333333333333,
+          "r": 57,
+          "g": 57,
+          "b": 198
+        },
+        {
+          "v": 666.6666666666666,
+          "r": 113,
+          "g": 113,
+          "b": 142
+        },
+        {
+          "v": 1000,
+          "r": 170,
+          "g": 170,
+          "b": 85
+        },
+        {
+          "v": 1333.3333333333333,
+          "r": 227,
+          "g": 227,
+          "b": 28
+        },
+        {
+          "v": 1666.6666666666667,
+          "r": 255,
+          "g": 227,
+          "b": 0
+        },
+        {
+          "v": 2000,
+          "r": 255,
+          "g": 170,
+          "b": 0
+        },
+        {
+          "v": 2333.3333333333335,
+          "r": 255,
+          "g": 113,
+          "b": 0
+        },
+        {
+          "v": 2666.6666666666665,
+          "r": 255,
+          "g": 57,
+          "b": 0
+        },
+        {
+          "v": 3000,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        }
+      ],
+      "yL": 125.8,
+      "min": 0,
+      "spectrum": [
+        "blue",
+        "yellow",
+        "red"
+      ],
+      "ro": 64,
+      "xL": 244,
+      "y0": 81,
+      "label": "Power(W)",
+      "xLV": 208.8,
+      "max": 3000,
+      "radius": 86,
+      "x0": 244,
+      "majdivs": 0,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "divs": 10,
+      "labelFont": "Bold",
+      "subdivs": 0,
+      "tickLabels": [],
+      "value": 3000,
+      "xRV": 279.2,
+      "xV": 244,
+      "ri": 51.2,
+      "yRV": 139.88,
+      "type": "roundArcGauge",
+      "yV": 81,
+      "yLV": 139.88,
+      "gaugeRadius": 64,
+      "valueFont": "Maxi",
+      "labelColor": "white"
+    },
+    {
+      "tickFont": "Mini",
+      "yL": 143.5,
+      "min": 0,
+      "width": 169,
+      "backColor": "black",
+      "spectrum": [
+        "red",
+        "yellow",
+        "green"
+      ],
+      "hbarLabels": [
+        {
+          "x": 20,
+          "y": 118.5
+        },
+        {
+          "x": 92,
+          "y": 118.5
+        },
+        {
+          "x": 164,
+          "y": 118.5
+        }
+      ],
+      "xL": 92,
+      "height": 50,
+      "y0": 131,
+      "label": "Capacity (mAh)",
+      "max": 5000,
+      "x0": 92,
+      "majdivs": 2,
+      "divs": 8,
+      "labelFont": "Mini",
+      "subdivs": 4,
+      "rgbBezelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "value": 2500,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "rects": [
+        {
+          "x": 20,
+          "y": 124.75,
+          "w": 18,
+          "h": 12.5,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        },
+        {
+          "x": 38,
+          "y": 124.75,
+          "w": 18,
+          "h": 12.5,
+          "r": 255,
+          "g": 73,
+          "b": 0
+        },
+        {
+          "x": 56,
+          "y": 124.75,
+          "w": 18,
+          "h": 12.5,
+          "r": 255,
+          "g": 146,
+          "b": 0
+        },
+        {
+          "x": 74,
+          "y": 124.75,
+          "w": 18,
+          "h": 12.5,
+          "r": 255,
+          "g": 219,
+          "b": 0
+        },
+        {
+          "x": 92,
+          "y": 124.75,
+          "w": 18,
+          "h": 12.5,
+          "r": 219,
+          "g": 237,
+          "b": 0
+        },
+        {
+          "x": 110,
+          "y": 124.75,
+          "w": 18,
+          "h": 12.5,
+          "r": 146,
+          "g": 201,
+          "b": 0
+        },
+        {
+          "x": 128,
+          "y": 124.75,
+          "w": 18,
+          "h": 12.5,
+          "r": 73,
+          "g": 164,
+          "b": 0
+        },
+        {
+          "x": 146,
+          "y": 124.75,
+          "w": 18,
+          "h": 12.5,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        }
+      ],
+      "type": "horizontalBar",
+      "barH": 12.5,
+      "barW": 144,
+      "bezelColor": "transparent",
+      "labelColor": "white"
+    }
+  ],
+  "doc-md": "# ElectricArc\n\nThis is a simple panel designed to show how a group of arc gauges look when\ncombined into a panel.\n\n",
+  "timestamp": "2023-04-17T17:15:17.469Z"
 }

@@ -1,0 +1,76 @@
+{
+  "panel" : [ {
+    "yL" : 37.14,
+    "width" : 150,
+    "backColor" : "yellowgreen",
+    "xL" : 80,
+    "height" : 55,
+    "y0" : 18,
+    "label" : "Rx1 Voltage",
+    "x0" : 80,
+    "labelFont" : "Mini",
+    "value" : 0,
+    "text" : [ "Rx1 Voltage 'v''u'" ],
+    "textFont" : "Normal",
+    "type" : "stackedTextBox",
+    "bezelColor" : "transparent"
+  }, {
+    "width" : 150,
+    "backColor" : "yellowgreen",
+    "height" : 55,
+    "y0" : 61,
+    "label" : "Turbine Status",
+    "x0" : 80,
+    "labelFont" : "Mini",
+    "value" : 0,
+    "text" : [ "Ready to Start", "Starting", "Running", "Cooling", "User Off", "Standby" ],
+    "textFont" : "Normal",
+    "type" : "sequencedTextBox",
+    "bezelColor" : "transparent"
+  }, {
+    "width" : 150,
+    "backColor" : "yellowgreen",
+    "height" : 130,
+    "y0" : 115,
+    "label" : "Status 3",
+    "x0" : 80,
+    "labelFont" : "Mini",
+    "value" : 0,
+    "text" : [ "Line One", "Line Two", "Line Three", "Line Four" ],
+    "textFont" : "Mini",
+    "type" : "stackedTextBox",
+    "bezelColor" : "transparent",
+    "labelPosY" : 9
+  }, {
+    "yL" : 144.8,
+    "min" : 0,
+    "xL" : 239,
+    "colorvals" : [ {
+      "color" : "blue",
+      "val" : 60
+    }, {
+      "color" : "yellow",
+      "val" : 80
+    }, {
+      "color" : "orange",
+      "val" : 90
+    }, {
+      "color" : "red",
+      "val" : 100
+    } ],
+    "y0" : 80,
+    "label" : "Current",
+    "max" : 120,
+    "radius" : 80,
+    "x0" : 239,
+    "majdivs" : 0,
+    "labelFont" : "Bold",
+    "subdivs" : 0,
+    "value" : 85,
+    "start" : -120,
+    "type" : "roundArcGauge",
+    "valueFont" : "Maxi",
+    "end" : 120
+  } ],
+  "timestamp" : "2023-04-15T21:28:58.850086500Z"
+}

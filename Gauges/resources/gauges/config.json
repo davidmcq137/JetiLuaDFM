@@ -15,9 +15,9 @@
 	"Concentric":    {"file": "Concentric.json"},
 	"SplitLarge":    {"file": "SplitSpread.json"},
 	"ChartRecorder": {"file": "ChartRecorder.json"},
-	"RickDFour":     {"file": "RickFour.json"},
-	"RickDFive":     {"file": "RickFive.json"},
-	"CB Harry Dial": {"file": "CBHarryDial.json"},
+	"RickDFour":     {"file": "RickDFour.json"},
+	"RickDFive":     {"file": "RickDFive.json"},
+	"CBHarryDial":   {"file": "CBHarryDial.json"},
 	"HarryElectric": {"file": "HarryElectric.json"},
 	"TurbineHarry2": {"file": "TurbineHarry2.json"}
     },

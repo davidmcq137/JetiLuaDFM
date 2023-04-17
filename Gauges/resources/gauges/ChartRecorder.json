@@ -1,96 +1,100 @@
 {
-  "panel" : [ {
-    "yL" : 10,
-    "min" : 0,
-    "timeSpan" : "t60",
-    "chartBackColor" : "grey",
-    "chartTraceColor" : "blue",
-    "width" : 320,
-    "backColor" : "black",
-    "boxXL" : 12,
-    "boxYL" : 18,
-    "traceNumber" : 1,
-    "barWidth" : 21,
-    "vertYB" : 140,
-    "xL" : 20.5,
-    "height" : 160,
-    "maxTraces" : 2,
-    "y0" : 80,
-    "label" : "Trace 1",
-    "max" : 100,
-    "x0" : 160,
-    "value" : 50,
-    "rgbChartTraceColor" : {
-      "r" : 0,
-      "g" : 0,
-      "b" : 255,
-      "t" : "false"
+  "panel": [
+    {
+      "yL": 10,
+      "min": 0,
+      "timeSpan": "t60",
+      "chartBackColor": "grey",
+      "chartTraceColor": "blue",
+      "width": 320,
+      "backColor": "black",
+      "boxXL": 12,
+      "boxYL": 18,
+      "traceNumber": 1,
+      "barWidth": 21,
+      "vertYB": 140,
+      "xL": 20.5,
+      "height": 160,
+      "maxTraces": 2,
+      "y0": 80,
+      "label": "Trace 1",
+      "max": 100,
+      "x0": 160,
+      "value": 50,
+      "rgbChartTraceColor": {
+        "r": 0,
+        "g": 0,
+        "b": 255,
+        "t": "false"
+      },
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "boxW": 249,
+      "vertYT": 18,
+      "vertX": 295,
+      "numberTicks": 10,
+      "timeFont": "Mini",
+      "type": "chartRecorder",
+      "rgbChartBackColor": {
+        "r": 128,
+        "g": 128,
+        "b": 128,
+        "t": "false"
+      },
+      "boxH": 122
     },
-    "rgbBackColor" : {
-      "r" : 0,
-      "g" : 0,
-      "b" : 0,
-      "t" : "false"
-    },
-    "boxW" : 249,
-    "vertYT" : 18,
-    "vertX" : 295,
-    "numberTicks" : 10,
-    "timeFont" : "Mini",
-    "type" : "chartRecorder",
-    "rgbChartBackColor" : {
-      "r" : 128,
-      "g" : 128,
-      "b" : 128,
-      "t" : "false"
-    },
-    "boxH" : 122
-  }, {
-    "yL" : 10,
-    "min" : 0,
-    "timeSpan" : "t60",
-    "chartBackColor" : "grey",
-    "chartTraceColor" : "orange",
-    "width" : 320,
-    "backColor" : "black",
-    "boxXL" : 12,
-    "boxYL" : 18,
-    "traceNumber" : 2,
-    "barWidth" : 21,
-    "vertYB" : 140,
-    "xL" : 148,
-    "height" : 160,
-    "maxTraces" : 2,
-    "y0" : 80,
-    "label" : "Trace 2",
-    "max" : 100,
-    "x0" : 160,
-    "value" : 50,
-    "rgbChartTraceColor" : {
-      "r" : 255,
-      "g" : 165,
-      "b" : 0,
-      "t" : "false"
-    },
-    "rgbBackColor" : {
-      "r" : 0,
-      "g" : 0,
-      "b" : 0,
-      "t" : "false"
-    },
-    "boxW" : 249,
-    "vertYT" : 18,
-    "vertX" : 295,
-    "numberTicks" : 10,
-    "timeFont" : "Mini",
-    "type" : "chartRecorder",
-    "rgbChartBackColor" : {
-      "r" : 128,
-      "g" : 128,
-      "b" : 128,
-      "t" : "false"
-    },
-    "boxH" : 122
-  } ],
-  "timestamp" : "2023-04-15T21:28:58.854085500Z"
+    {
+      "yL": 10,
+      "min": 0,
+      "timeSpan": "t60",
+      "chartBackColor": "grey",
+      "chartTraceColor": "orange",
+      "width": 320,
+      "backColor": "black",
+      "boxXL": 12,
+      "boxYL": 18,
+      "traceNumber": 2,
+      "barWidth": 21,
+      "vertYB": 140,
+      "xL": 148,
+      "height": 160,
+      "maxTraces": 2,
+      "y0": 80,
+      "label": "Trace 2",
+      "max": 100,
+      "x0": 160,
+      "value": 50,
+      "rgbChartTraceColor": {
+        "r": 255,
+        "g": 165,
+        "b": 0,
+        "t": "false"
+      },
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "boxW": 249,
+      "vertYT": 18,
+      "vertX": 295,
+      "numberTicks": 10,
+      "timeFont": "Mini",
+      "type": "chartRecorder",
+      "rgbChartBackColor": {
+        "r": 128,
+        "g": 128,
+        "b": 128,
+        "t": "false"
+      },
+      "boxH": 122
+    }
+  ],
+  "doc-md": "#Chart Recorder\n\nThis panel demonstrates the Chart Recorder widget. It has a two trace chart\nrecorder constructed from stacking two one-trace chart recorder widgets on on\ntop of the other. You can look at the example and see that if you specify a\nwidget as chart recorder trace 1 it will include the bacground, but traces 2-4\nomit the background to facilitate stacking.\n\nYou should take special care to ensure that all the stacked traces have the same\ntime axis.\n\nWhile these widgets are usually displayed full screen they can be shrunk if\ndesired.\n\n",
+  "timestamp": "2023-04-16T20:33:06.664Z"
 }

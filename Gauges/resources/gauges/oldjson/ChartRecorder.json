@@ -1,0 +1,96 @@
+{
+  "panel" : [ {
+    "yL" : 10,
+    "min" : 0,
+    "timeSpan" : "t60",
+    "chartBackColor" : "grey",
+    "chartTraceColor" : "blue",
+    "width" : 320,
+    "backColor" : "black",
+    "boxXL" : 12,
+    "boxYL" : 18,
+    "traceNumber" : 1,
+    "barWidth" : 21,
+    "vertYB" : 140,
+    "xL" : 20.5,
+    "height" : 160,
+    "maxTraces" : 2,
+    "y0" : 80,
+    "label" : "Trace 1",
+    "max" : 100,
+    "x0" : 160,
+    "value" : 50,
+    "rgbChartTraceColor" : {
+      "r" : 0,
+      "g" : 0,
+      "b" : 255,
+      "t" : "false"
+    },
+    "rgbBackColor" : {
+      "r" : 0,
+      "g" : 0,
+      "b" : 0,
+      "t" : "false"
+    },
+    "boxW" : 249,
+    "vertYT" : 18,
+    "vertX" : 295,
+    "numberTicks" : 10,
+    "timeFont" : "Mini",
+    "type" : "chartRecorder",
+    "rgbChartBackColor" : {
+      "r" : 128,
+      "g" : 128,
+      "b" : 128,
+      "t" : "false"
+    },
+    "boxH" : 122
+  }, {
+    "yL" : 10,
+    "min" : 0,
+    "timeSpan" : "t60",
+    "chartBackColor" : "grey",
+    "chartTraceColor" : "orange",
+    "width" : 320,
+    "backColor" : "black",
+    "boxXL" : 12,
+    "boxYL" : 18,
+    "traceNumber" : 2,
+    "barWidth" : 21,
+    "vertYB" : 140,
+    "xL" : 148,
+    "height" : 160,
+    "maxTraces" : 2,
+    "y0" : 80,
+    "label" : "Trace 2",
+    "max" : 100,
+    "x0" : 160,
+    "value" : 50,
+    "rgbChartTraceColor" : {
+      "r" : 255,
+      "g" : 165,
+      "b" : 0,
+      "t" : "false"
+    },
+    "rgbBackColor" : {
+      "r" : 0,
+      "g" : 0,
+      "b" : 0,
+      "t" : "false"
+    },
+    "boxW" : 249,
+    "vertYT" : 18,
+    "vertX" : 295,
+    "numberTicks" : 10,
+    "timeFont" : "Mini",
+    "type" : "chartRecorder",
+    "rgbChartBackColor" : {
+      "r" : 128,
+      "g" : 128,
+      "b" : 128,
+      "t" : "false"
+    },
+    "boxH" : 122
+  } ],
+  "timestamp" : "2023-04-15T21:28:58.854085500Z"
+}
