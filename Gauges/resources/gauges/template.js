@@ -2893,8 +2893,9 @@ function renderGauge(ctx, input) {
 			 chartRecorder:chartRecorder,
 			 verticalBar:verticalBar}
     
+    console.log("* Input.type", input.type)
     if (widgetFuncs[input.type]) {
-	//console.log("Input.type", input.type)
+
 	return widgetFuncs[input.type](ctx, input);
     } else {
 	console.log("Attempt to dispatch unknown gauge type: ", input.type)

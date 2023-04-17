@@ -42,7 +42,7 @@
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.77
+local InsPVersion = 0.78
 
 local LE
 
@@ -306,7 +306,8 @@ local function getSensorByID(SeId, SePa)
    if SeId ~= 0 then
       local sensor
       sensor = system.getSensorByID(SeId, SePa)
-      if not (sensor and sensor.value and sensor.unit) then return sensor end
+      --if not (sensor and sensor.value and sensor.unit) then return sensor end
+      if not (sensor and sensor.valid) then return nil end
       
       if string.byte(string.sub(sensor.unit, 1, 1)) == 176 then
 	 sensor.unit = string.char(194) .. sensor.unit
@@ -2867,6 +2868,9 @@ local function printForm(ww0,hh0,tWin)
       if widget.dataSrc == "Sensor" then
 	 if widget.type ~= "artHorizon" then
 	    sensor = getSensorByID(widget.SeId, widget.SePa)
+
+	    --if sensor then print("$", sensor.label, sensor.valid, sensor.value)
+	    --else print("sensor nil") end
 	    
 	    -- remember native value returned by getSensorByID before changing
 	    -- to display units
@@ -2954,6 +2958,7 @@ local function printForm(ww0,hh0,tWin)
 	       if sensorVal > widget.minWarn then hiwarn = true
 	       elseif sensorVal < widget.maxWarn then lowarn = true end
 	    end
+	    --print("@", sensorVal, hiwarn, lowarn)
 	    if (hiwarn or lowarn) and (system.getTimeCounter() // 500) % 2 == 0 then
 	       local ren = lcd.renderer()
 	       ren:reset()
@@ -3111,7 +3116,12 @@ local function printForm(ww0,hh0,tWin)
 	       end
 	       fmt = string.format("%%.%df", decims) --
 	    end
-	    val = string.format(fmt, sensorVal or math.min(widget.min, widget.max))
+	    if sensorVal then
+	       val = string.format(fmt, sensorVal)
+	    else
+	       val = "---"
+	    end
+	    --val = string.format(fmt, sensorVal or math.min(widget.min, widget.max))
 	 else
 	    val = "---"
 	 end
