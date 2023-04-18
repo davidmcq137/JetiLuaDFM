@@ -13,7 +13,7 @@
 	"GlassCockpit":  {"file": "GlassCockpit.json"},
 	"TwoNeedle":     {"file": "TwoNeedle.json"},
 	"Concentric":    {"file": "Concentric.json"},
-	"SplitLarge":    {"file": "SplitSpread.json"},
+	"SplitLarge":    {"file": "SplitLarge.json"},
 	"ChartRecorder": {"file": "ChartRecorder.json"},
 	"RickDFour":     {"file": "RickDFour.json"},
 	"RickDFive":     {"file": "RickDFive.json"},
