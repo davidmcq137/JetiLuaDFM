@@ -765,14 +765,21 @@
                     (set! (.-onloadend fr)
                           #(restore-db! (edn/read-string (.-result fr)))))))}])
 
+(defn normalize-panel*
+  [pd]
+  (if (map? pd)
+    pd
+    {:panel pd}))
+
 (defn load-panel!
-  [panel-name {:strs [panel doc-md] :as panel-data-clj}]
-  (swap! db #(-> %
-                 (assoc-in [:panels panel-name]
-                           {:doc-md doc-md
-                            :gauges (zipmap (range)
-                                            (map render-gauge* panel))})
-                 (assoc :selected-panel panel-name))))
+  [panel-name panel-data-clj]
+  (let [{:strs [panel doc-md]} (normalize-panel* panel-data-clj)]
+    (swap! db #(-> %
+                   (assoc-in [:panels panel-name]
+                             {:doc-md doc-md
+                              :gauges (zipmap (range)
+                                              (map render-gauge* panel))})
+                   (assoc :selected-panel panel-name)))))
 
 (rum/defc loader
   []
@@ -846,13 +853,13 @@
                (load-panel! panel-name (js->clj jd))
                
                #_(when md-url
-                 (-> (js/fetch md-url)
-                     (.catch (fn [e] (js/console.error "Mde" e)))
-                     (.then (fn [fr] (.text fr)))
-                     (.then (fn [r]
-                              (swap! db assoc-in [:panels panel-name :doc-md] r)
-                              (prn "Assocd"
-                                   [:panels panel-name :doc-md])))))))))
+                   (-> (js/fetch md-url)
+                       (.catch (fn [e] (js/console.error "Mde" e)))
+                       (.then (fn [fr] (.text fr)))
+                       (.then (fn [r]
+                                (swap! db assoc-in [:panels panel-name :doc-md] r)
+                                (prn "Assocd"
+                                     [:panels panel-name :doc-md])))))))))
 
 (defn new-gauge!
   [new-gauge-type]
