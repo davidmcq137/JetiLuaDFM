@@ -95,6 +95,6 @@
       "boxH": 122
     }
   ],
-  "doc-md": "#Chart Recorder\n\nThis panel demonstrates the Chart Recorder widget. It has a two trace chart\nrecorder constructed from stacking two one-trace chart recorder widgets on on\ntop of the other. You can look at the example and see that if you specify a\nwidget as chart recorder trace 1 it will include the bacground, but traces 2-4\nomit the background to facilitate stacking.\n\nYou should take special care to ensure that all the stacked traces have the same\ntime axis.\n\nWhile these widgets are usually displayed full screen they can be shrunk if\ndesired.\n\n",
+  "doc-md": "This panel demonstrates the Chart Recorder widget. It has a two trace chart\nrecorder constructed from stacking two one-trace chart recorder widgets on on\ntop of the other. You can look at the example and see that if you specify a\nwidget as chart recorder trace 1 it will include the bacground, but traces 2-4\nomit the background to facilitate stacking.\n\nYou should take special care to ensure that all the stacked traces have the same\ntime axis.\n\nWhile these widgets are usually displayed full screen they can be shrunk if\ndesired.\n\n",
   "timestamp": "2023-04-16T20:33:06.664Z"
 }

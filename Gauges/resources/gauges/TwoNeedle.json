@@ -549,6 +549,6 @@
       "scaleVis": "on"
     }
   ],
-  "doc-md": "#TwoNeedle\n\nThis panel is intended to show several techniques for split gauges with arcs\nsmaller than the standard 270 degrees.  It also shows how to use color in Gauge\nlabels and needles. Note that in some cases the min and max have to be reversed\nto label the gauges in the desired orientation.\n",
+  "doc-md": "This panel is intended to show several techniques for split gauges with arcs\nsmaller than the standard 270 degrees.  It also shows how to use color in Gauge\nlabels and needles. Note that in some cases the min and max have to be reversed\nto label the gauges in the desired orientation.\n",
   "timestamp": "2023-04-17T17:17:06.344Z"
 }

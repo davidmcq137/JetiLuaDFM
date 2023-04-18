@@ -227,6 +227,6 @@
       "scaleVis": "on"
     }
   ],
-  "doc-md": "#SplitLarge\n\nThis panel shows how you can use a very large gauge radius, and a relatively small arc to make a very cool two needle gauge.\n",
+  "doc-md": "This panel shows how you can use a very large gauge radius, and a relatively small arc to make a very cool two needle gauge.\n",
   "timestamp": "2023-04-17T21:49:47.206Z"
 }

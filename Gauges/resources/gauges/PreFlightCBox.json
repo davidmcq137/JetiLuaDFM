@@ -682,6 +682,6 @@
       "end": 120
     }
   ],
-  "doc-md": "#AAAPreFlightCBoxAAA\n\nThis is a rather busy panel with some very dense information. Since it is\nintended to be looked at during preflight (on the ground) that is ok. It\ndemonstrates the sequenced text box with a lua f(x) extension, some more\nsophisticated string interpolation, and gauges to evaluate critical battery\nproperties at startup. If you add the min/max 'bug' indicators to the gauges,\nespecially the current gauges, you can move all the controls and check for\nbinding which would give high max current readings.\n",
+  "doc-md": "This is a rather busy panel with some very dense information. Since it is\nintended to be looked at during preflight (on the ground) that is ok. It\ndemonstrates the sequenced text box with a lua f(x) extension, some more\nsophisticated string interpolation, and gauges to evaluate critical battery\nproperties at startup. If you add the min/max 'bug' indicators to the gauges,\nespecially the current gauges, you can move all the controls and check for\nbinding which would give high max current readings.\n",
   "timestamp": "2023-04-16T20:46:15.803Z"
 }

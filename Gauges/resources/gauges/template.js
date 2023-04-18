@@ -2893,7 +2893,7 @@ function renderGauge(ctx, input) {
 			 chartRecorder:chartRecorder,
 			 verticalBar:verticalBar}
     
-    console.log("* Input.type", input.type)
+    //console.log("* Input.type", input.type)
     if (widgetFuncs[input.type]) {
 
 	return widgetFuncs[input.type](ctx, input);

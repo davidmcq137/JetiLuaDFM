@@ -514,6 +514,6 @@
       "end": 135
     }
   ],
-  "doc-md": "#FourUp\n\nThis panel shows how to combine large gauges with tick labels with smaller\ngauges that look better without labels given their small size. The telemetry\nvariables on the small gauges are likely ones of secondary importance.\n",
+  "doc-md": "This panel shows how to combine large gauges with tick labels with smaller\ngauges that look better without labels given their small size. The telemetry\nvariables on the small gauges are likely ones of secondary importance.\n",
   "timestamp": "2023-04-17T17:16:31.548Z"
 }

@@ -156,6 +156,6 @@
       "end": 120
     }
   ],
-  "doc-md": "#PreFlightArc\n\nThis panel shows how to use text boxes with string interpolation (inserting\nnumerical values in a string value).\n",
+  "doc-md": "This panel shows how to use text boxes with string interpolation (inserting\nnumerical values in a string value).\n",
   "timestamp": "2023-04-16T20:38:20.508Z"
 }

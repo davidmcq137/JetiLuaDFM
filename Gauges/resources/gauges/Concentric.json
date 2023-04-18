@@ -484,6 +484,6 @@
       "scaleVis": "off"
     }
   ],
-  "doc-md": "#Conventric\n\nThis widget was inspired by the work that Guenter07 has shown on the German Jeti\nforum. His gauges are hand-drawn and very very nice! We did this to show how you\ncan stack many gauges of multiple types to create some really visually\ninteresting displays.\n",
+  "doc-md": "This widget was inspired by the work that Guenter07 has shown on the German Jeti\nforum. His gauges are hand-drawn and very very nice! We did this to show how you\ncan stack many gauges of multiple types to create some really visually\ninteresting displays.\n",
   "timestamp": "2023-04-16T20:33:50.371Z"
 }

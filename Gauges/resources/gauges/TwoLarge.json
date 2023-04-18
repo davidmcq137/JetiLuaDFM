@@ -273,6 +273,6 @@
       "valueFont": "Normal"
     }
   ],
-  "doc-md": "#TwoLarge\n\nThis panel is intended to show the two largest gauges that can fit on the screen.\n",
+  "doc-md": "This panel is intended to show the two largest gauges that can fit on the screen.\n",
   "timestamp": "2023-04-16T20:52:07.882Z"
 }

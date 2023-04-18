@@ -811,6 +811,6 @@
       "yBorder": 2
     }
   ],
-  "doc-md": "#Turbine\n\nThis panel shows how we might collect all the critical operational data for a\nturbine engine on one panel. It also shows how to use panel lights as\nindicators, and how to use a sequenced text box, possibly with a lua f(x)\nextension. This was one of our early test panels.\n",
+  "doc-md": "This panel shows how we might collect all the critical operational data for a\nturbine engine on one panel. It also shows how to use panel lights as\nindicators, and how to use a sequenced text box, possibly with a lua f(x)\nextension. This was one of our early test panels.\n",
   "timestamp": "2023-04-17T17:15:51.706Z"
 }

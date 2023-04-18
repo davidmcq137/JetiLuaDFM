@@ -435,6 +435,6 @@
       "labelColor": "white"
     }
   ],
-  "doc-md": "# ElectricArc\n\nThis is a simple panel designed to show how a group of arc gauges look when\ncombined into a panel.\n\n",
+  "doc-md": "This is a simple panel designed to show how a group of arc gauges look when\ncombined into a panel.\n\n",
   "timestamp": "2023-04-17T17:15:17.469Z"
 }

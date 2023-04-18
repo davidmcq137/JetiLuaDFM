@@ -641,6 +641,6 @@
       "end": 135
     }
   ],
-  "doc-md": "#TurbineArc\n\nThis is an arc gauge version of the turbine display panel which collects most\nessential data for starting a turbine engine.\n",
+  "doc-md": "This is an arc gauge version of the turbine display panel which collects most\nessential data for starting a turbine engine.\n",
   "timestamp": "2023-04-16T20:49:54.254Z"
 }
