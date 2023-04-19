@@ -36,13 +36,16 @@
    Version 0.76 03/29/23 - open limits on min warn, max warn
                          - add horizontal bar
    Version 0.77 03/30/23 - can now add and remove lines in rawtext
+   Version 0.78
+   Version 0.79
+   Version 0.80 04/18/23 - enable edit of dec pts on gauge value
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.79
+local InsPVersion = 0.80
 
 local LE
 
@@ -1272,6 +1275,11 @@ local function keyForm(key)
 	    if eo == "TicLbl" and ipeg.dp then
 	       if ipeg.dp + inc >= 0 and ipeg.dp + inc <= 2 then
 		  ipeg.dp = ipeg.dp + inc
+	       end
+	    end
+	    if eo == "Value" and ipeg.decPt then
+	       if ipeg.decPt + inc >= 0 and ipeg.decPt + inc <= 2 then
+		  ipeg.decPt = ipeg.decPt + inc
 	       end
 	    end
 	 end
@@ -3102,21 +3110,37 @@ local function printForm(ww0,hh0,tWin)
 	    lcd.setColor(255,255,255)
 	    local fmt
 	    if widget.dataSrc == "Sensor" and sensor and sensor.decimals == 0 then
-	       fmt = "%.0f"
-	    elseif widget.dataSrc == "Sensor" and sensor and sensor.decimals == 1 then
-	       fmt = "%.1f"
-	    else
-	       local max = widget.max
-	       local min = widget.min
-	       local decims
-	       if max and min and (max ~= min) then
-		  decims = math.max(2 - math.floor(math.log(math.abs(max - min)) / math.log(10)), 0)
+	       if not widget.decPt then
+		  fmt = "%.0f"
+		  widget.decPt = 0
 	       else
-		  decims = 1
+		  fmt = string.format("%%.%df", widget.decPt)	       		  
 	       end
-	       fmt = string.format("%%.%df", decims) --
+	    elseif widget.dataSrc == "Sensor" and sensor and sensor.decimals == 1 then
+	       if not widget.decPt then
+		  fmt = "%.1f"
+		  widget.decPt = 1
+	       else
+		  fmt = string.format("%%.%df", widget.decPt)	       		  
+	       end
+	    else
+	       local decims
+	       if not widget.decPt then
+		  local max = widget.max
+		  local min = widget.min
+		  if max and min and (max ~= min) then
+		     decims = math.max(2 - math.floor(math.log(math.abs(max - min)) / math.log(10)), 0)
+		  else
+		     decims = 1
+		  end
+		  widget.decPt = decims
+	       else
+		  decims = widget.decPt
+	       end
+	       fmt = string.format("%%.%df", decims)	       
 	    end
 	    if sensorVal then
+	       --print("fmt", fmt, sensorVal, decims, widget.decPt)
 	       val = string.format(fmt, sensorVal)
 	    else
 	       val = "---"
