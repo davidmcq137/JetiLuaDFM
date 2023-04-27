@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Harry C. Elecric Panel</title>
+  <title>HarryElectric</title>
   <style>
    div.info{padding:5pt;color:black;backgro
        und-color:#f2c0b8;margin-bottom:0.5em}p.h{font-size:1.08em;font-weight:700;margin-top:1em;margin-bottom:0.2em}img{border:1px solid;di
@@ -15,8 +15,12 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Harry C. Elecric Panel</h1>
+<h1 class="title">HarryElectric</h1>
 </header>
-<p>This Harry Curzon-designed panel shows how to use the panel light widget as an indicator and also shows a nice use of accent colors on gauge needles.</p>
+<h1>HarryElectric</h1>
+<p>This panel features a Watt meter and a red/green panel light to be operated by the throttle lock safety switch.</p>
+<p>Some ESCs or electric sensors will tell you Watts in the telemetry but a Jeti MUI does not. This is not a problem for the app, because instead of selecting telemetry Watts for the Watt meter we can set its input to be LUA instead of a sensor, and in the LUA editor we can simply multiply volts by amps.</p>
+<p>Before we can use the editor to build the equation we need to create the items for it to use, so we go to the LUA variables menu and define one of them as the telemetry volts and another as telemetry amps, then go back to inputs, to the watt meter, go to its Edit LUA menu where we now find the volts and amps variables for us to multiply them together.</p>
+<p>The throttle lock panel light will show as red or green depending how you assign the throttle lock safety switch on your Tx. It is composed of a red panel light overlaid with a duplicated panel light. The duplicate is changed from red to green colour, with a transparent background so that when it is off we can see the red beneath it. on the transmitter app we simply assign the red and green to whichever directions of the throttle lock switch we want. You might think red for danger meaning T-lock is off, or red for stop meaning T-lock is on, is it up to your taste!</p>
 </body>
 </html>

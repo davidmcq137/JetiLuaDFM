@@ -40,6 +40,8 @@ Gauges/resources/gauges/js/
 maps-web/resources/maps/js/
 DFM-InsP/Panels/*.png
 DFM-InsP/Panels/*.json
+DFM-InsP/Panels/*.HTML
+Gauges/resources/gauges/*.md
 release-output/
 build/bb
 .nrepl-port

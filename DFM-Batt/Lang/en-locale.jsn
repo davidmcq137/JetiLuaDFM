@@ -7,7 +7,7 @@
 	"nomAh":"No mAh sensor",
 	"battery":"Battery",
 	"cap":"Cap",
-	"warn":"Warn",
+	"warn":"W",
 	"battAlready":"Battery already selected",
 	"exitWithout":"Exit without selecting a battery?",
 	"noBatteryModel":"No battery group selected for model",

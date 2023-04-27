@@ -36,8 +36,8 @@
    Version 0.76 03/29/23 - open limits on min warn, max warn
                          - add horizontal bar
    Version 0.77 03/30/23 - can now add and remove lines in rawtext
-   Version 0.78
-   Version 0.79
+   Version 0.78 04/17/23 - fix bug with min/max flashing
+   Version 0.79 04/17/23 - panel documentation enabled
    Version 0.80 04/18/23 - enable edit of dec pts on gauge value
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
@@ -1485,7 +1485,7 @@ local function changedSwitch(val, switchName, j, wid)
    local swInfo = system.getSwitchInfo(val)
 
    system.pSave(switchName, val)
-   print("changedSwitch pSave", switchName, val)
+   --print("changedSwitch pSave", switchName, val)
    
    local swTyp = string.sub(swInfo.label,1,1)
    if swInfo.assigned then
@@ -2775,7 +2775,7 @@ local function printForm(ww0,hh0,tWin)
       end
       if lastPanel1 ~= isp1 then
 	 pv = InsP.panelImages[isp1].instImage
-	 print("win 1 loading panel " .. isp1 .. " " .. pv)
+	 --print("win 1 loading panel " .. isp1 .. " " .. pv)
 	 if pv then
 	    instImg1 = lcd.loadImage(pDir .. "/"..pv..".png")
 	 else
@@ -2812,7 +2812,7 @@ local function printForm(ww0,hh0,tWin)
       end
       if lastPanel2 ~= isp2 then
 	 pv = InsP.panelImages[isp2].instImage
-	 print("win 2 loading panel " .. isp2 .. " " ..pv)
+	 --print("win 2 loading panel " .. isp2 .. " " ..pv)
 	 if pv then
 	    instImg2 = lcd.loadImage(pDir .. "/"..pv..".png")
 	 else

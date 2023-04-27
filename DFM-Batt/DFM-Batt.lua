@@ -4,12 +4,15 @@
    
    There was an original model-specific app called DFM-Batt. This one was created to
    handle global groups, and for a time was called DFM-BatG .. now this one is DFM-Batt
+
+   Version 2.4 21-Apr-2023 Increase max mAh on packs to 32767 from 9999 per HC request
+
    ----------------------------------------------------------------------
    
 --]]
 
 --local trans11
-local BattVersion = "2.3"
+local BattVersion = "2.4"
 
 local subForm = 0
 local emFlag
@@ -170,12 +173,13 @@ local function timePrint()
    if selectedGroup < 1 or selectedGroup > #Battery then
       str = lang.noGroup
    elseif selectedBattery < 1 or selectedBattery > #Battery[selectedGroup] then
+      --print("selectedBattery", selectedBattery)
       str = lang.noBattery
    elseif not battmAh then
       str = lang.nomAh
    else
       local sGsB = Battery[selectedGroup][selectedBattery]
-      str = string.format(lang.battery.." %d   %d mAh", selectedBattery,
+      str = string.format(lang.battery.." %d  %d mAh", selectedBattery,
 			  sGsB.cap - battmAh)
       local battPct = 100 * (sGsB.cap - battmAh) / sGsB.cap
       if  battPct <= sGsB.warn then
@@ -188,7 +192,7 @@ local function timePrint()
       end
       drawRectGaugeAbs(75, 33, 140, 25, 0, 100, battPct,"", rgb)
       
-      strCap = string.format(lang.cap .. " %4d  " .. lang.warn .. " %4d %4d",
+      strCap = string.format(lang.cap .. " %5d " .. lang.warn .. " %5d %5d",
 			     sGsB.cap,
 			     sGsB.cap * sGsB.warn  / 100,
 			     sGsB.cap * sGsB.warn2 / 100)	 
@@ -202,7 +206,7 @@ local function timePrint()
    end
    
    if strCap then lcd.drawText(8,50, strCap, FONT_MINI) end
-   lcd.drawText(4,0,str)
+   lcd.drawText(2,0,str)
 
 end
 
@@ -273,7 +277,7 @@ end
 
 
 local function initForm0()
-   --local str
+   local str
    local row = 0
    local focusRow = 1
    local prefix
@@ -298,7 +302,6 @@ local function initForm0()
 	       focusRow = row
 	    end
 	    form.addRow(1)
-	    --local str
 	    local bb = Battery[selectedGroup][i]
 	    prefix=""
 	    for j=1, #selBatt do
@@ -644,7 +647,7 @@ local function initForm(sf)
 	 for i=1,#Battery[savedRow],1 do
 	    form.addRow(5)
 	    form.addLabel({label=i.."  ", width=40, alignRight=true, font=FONT_NORMAL})
-	    form.addIntbox(Battery[savedRow][i].cap, 0, 9999, 5000, 0, 10,
+	    form.addIntbox(Battery[savedRow][i].cap, 0, 32767, 5000, 0, 10,
 			   (function(x) return BattChanged(x, savedRow, i, "cap") end),
 			   {width=80, font=FONT_NORMAL})
 	    form.addIntbox(Battery[savedRow][i].warn, 0, 100, 50, 0, 1,
@@ -771,6 +774,10 @@ local function init()
 
    emFlag = select(2, system.getDeviceType())
    if emFlag == 1 then pf = "" else pf = "/" end
+
+   if emFlag == 1 and system.getInputs("SA") ~= 1 then
+      system.messageBox("Emulator: Set SA to 1 to run init dialog")
+   end
    
    mn = string.gsub(system.getProperty("Model"), " ", "_")
    fileBD = pf .. "Apps/DFM-Batt/BD_" .. mn .. ".jsn"
