@@ -1132,9 +1132,13 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		tdig = 0;
 	    }
 	}
-
-	arrR.tickDigits = tdig;
-	//console.log(arr.type, "tick2", arrR.tickDigits)
+	if (typeof arr.tickDigits != "undefined") {
+	    arrR.tickDigits = arr.tickDigits //= tdig;
+	} else {
+	    arrR.tickDigits = "Auto"
+	}
+	
+	console.log(arr.type, "tick2", arrR.tickDigits, tdig)
 	if (ndlarc != "needle") {
 	    arrR.xLV = x0 - 0.55 * ro;
 	    arrR.xRV = x0 + 0.55 * ro;

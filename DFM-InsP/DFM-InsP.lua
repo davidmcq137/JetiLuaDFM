@@ -1277,10 +1277,16 @@ local function keyForm(key)
 	       if ipeg.dp + inc >= 0 and ipeg.dp + inc <= 2 then
 		  ipeg.dp = ipeg.dp + inc
 	       end
+	       if ipeg.tickDigits == "Auto" then
+		  ipeg.tickDigits = ipeg.dp
+	       end
 	    end
 	    if eo == "MMLbl" and ipeg.dp then
 	       if ipeg.dp + inc >= 0 and ipeg.dp + inc <= 2 then
 		  ipeg.dp = ipeg.dp + inc
+	       end
+	       if ipeg.tickDigits == "Auto" then
+		  ipeg.tickDigits = ipeg.dp
 	       end
 	    end
 	    if eo == "Value" and ipeg.decPt then
@@ -3031,9 +3037,12 @@ local function printForm(ww0,hh0,tWin)
 		  if widget.tickLabels and widget.subdivs > 0 and widget.majdivs > 0 and
 		  widget.fTL ~= "None" then
 		     --print(#widget.tickLabels)
+		     --print("widget.tickDigits", widget.tickDigits)
 		     for i,v in ipairs(widget.tickLabels) do
 			vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
-			fstr = "%."..math.floor(v.dp).."f"
+			if (not widget.tickDigits) or widget.tickDigits == "Auto" then
+			   fstr = "%."..math.floor(v.dp).."f"
+			end
 			--print("fstr", fstr, math.floor(v.dp))
 			vt = string.format(fstr, vv)
 			--vt = tostring(vv)
