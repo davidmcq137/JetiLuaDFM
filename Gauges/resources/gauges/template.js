@@ -989,7 +989,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 
 
 		//arrR.tickDigits = tdp;
-		//console.log(arr.type, "tick1", arrR.tickDigits)
+		console.log(arr.type, "tick1", arrR.tickDigits)
 		
 		ctx.font = jetiToCtx(arr.tickFont)
 		if (typeof(arr.value) != "undefined") {
