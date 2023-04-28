@@ -3033,6 +3033,8 @@ local function printForm(ww0,hh0,tWin)
 		     --print(#widget.tickLabels)
 		     for i,v in ipairs(widget.tickLabels) do
 			vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
+			fstr = "%."..math.floor(v.dp).."f"
+			--print("fstr", fstr, math.floor(v.dp))
 			vt = string.format(fstr, vv)
 			--vt = tostring(vv)
 			--print("widget.fTL, edit.fcode[widget.fTL]", widget.fTL, edit.fcode[widget.fTL])
