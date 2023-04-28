@@ -983,13 +983,6 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		} else {
 		    tdp = dp;
 		}
-
-		
-		//parseFloat(min).toFixed(tdig)
-
-
-		//arrR.tickDigits = tdp;
-		//console.log(arr.type, "tick1", arrR.tickDigits)
 		
 		ctx.font = jetiToCtx(arr.tickFont)
 		if (typeof(arr.value) != "undefined") {
@@ -1141,7 +1134,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	}
 
 	arrR.tickDigits = tdig;
-	console.log(arr.type, "tick2", arrR.tickDigits)
+	//console.log(arr.type, "tick2", arrR.tickDigits)
 	if (ndlarc != "needle") {
 	    arrR.xLV = x0 - 0.55 * ro;
 	    arrR.xRV = x0 + 0.55 * ro;
@@ -1223,7 +1216,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     }
 
     arrR.valDigits = digits;
-    console.log(arr.type, "val", arrR.valDigits)
+    //console.log(arr.type, "val", arrR.valDigits)
     
     if (arr.valueFont != "None" && typeof arr.label != "undefined") {
 	ctx.fillText(parseFloat(value).toFixed(digits), arrR.xV, arrR.yV);
