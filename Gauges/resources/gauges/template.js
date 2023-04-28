@@ -978,7 +978,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		// here are the tick labels
 
 		var tdp;
-		if (typeof arr.tickDigits != "None" && arr.tickDigits != "Auto") {
+		if (typeof arr.tickDigits != "undefined" && arr.tickDigits != "Auto") {
 		    tdp = arr.tickDigits;
 		} else {
 		    tdp = dp;
@@ -989,7 +989,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 
 
 		//arrR.tickDigits = tdp;
-		console.log(arr.type, "tick1", arrR.tickDigits)
+		//console.log(arr.type, "tick1", arrR.tickDigits)
 		
 		ctx.font = jetiToCtx(arr.tickFont)
 		if (typeof(arr.value) != "undefined") {
@@ -1130,7 +1130,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	//dig = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
 	//console.log("log, digits", Math.log10(max - min), digits)
 	var tdig
-	if (typeof arr.tickDigits != "None" && arr.tickDigits != "Auto") {
+	if (typeof arr.tickDigits != "undefined" && arr.tickDigits != "Auto") {
 	    tdig = arr.tickDigits;
 	} else {
 	    if (max != min) {
@@ -1212,7 +1212,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 
     var digits
 
-    if (typeof arr.readDigits != "None") {
+    if (typeof arr.readDigits != "undefined") {
 	digits = arr.readDigits;
     } else {
 	if (max != min) {
