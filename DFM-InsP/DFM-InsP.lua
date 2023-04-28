@@ -1278,6 +1278,11 @@ local function keyForm(key)
 		  ipeg.dp = ipeg.dp + inc
 	       end
 	    end
+	    if eo == "MMLbl" and ipeg.dp then
+	       if ipeg.dp + inc >= 0 and ipeg.dp + inc <= 2 then
+		  ipeg.dp = ipeg.dp + inc
+	       end
+	    end
 	    if eo == "Value" and ipeg.decPt then
 	       if ipeg.decPt + inc >= 0 and ipeg.decPt + inc <= 2 then
 		  ipeg.decPt = ipeg.decPt + inc
@@ -3049,6 +3054,10 @@ local function printForm(ww0,hh0,tWin)
 		     end
 		  end
 	       else
+		  --print(widget.type, widget.tickDigits, widget.dp)
+		  if widget.tickDigits and widget.tickDigits ~= "Auto" and not widget.dp then
+		     widget.dp = widget.tickDigits
+		  end
 		  local r,g,b = 255,255,255
 		  if widget.TXspectrum then
 		     local wmax = widget.TXspectrum[#widget.TXspectrum]
@@ -3183,9 +3192,10 @@ local function printForm(ww0,hh0,tWin)
 	 end
 
 	 local valmin, valmax
-	 if widget.tickDigits and widget.tickDigits ~= "Auto" then
+	 --if widget.tickDigits and widget.tickDigits ~= "Auto" then
+	 if widget.dp then
 	    local fmt
-	    fmt = string.format("%%.%df", widget.tickDigits)
+	    fmt = string.format("%%.%df", widget.dp)
 	    valmax = string.format(fmt, widget.max)
 	    valmin = string.format(fmt, widget.min)
 	 else
