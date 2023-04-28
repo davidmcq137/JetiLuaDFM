@@ -973,8 +973,24 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		} else {
 		    tval = vs.substring(0, vi+4);
 		    dp = (vl - vi) - 1
+		    if (dp > 3) { dp = 3 }
 		}
 		// here are the tick labels
+
+		var tdp;
+		if (typeof arr.tickDigits != "None" && arr.tickDigits != "Auto") {
+		    tdp = arr.tickDigits;
+		} else {
+		    tdp = dp;
+		}
+
+		
+		//parseFloat(min).toFixed(tdig)
+
+
+		//arrR.tickDigits = tdp;
+		//console.log(arr.type, "tick1", arrR.tickDigits)
+		
 		ctx.font = jetiToCtx(arr.tickFont)
 		if (typeof(arr.value) != "undefined") {
 		    let xt = x0 + rt * Math.cos(a);
@@ -982,7 +998,8 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 		    ctx.textBaseline = "middle";
 		    ctx.textAlign = "center";
 		    if (arr.tickFont != "None" && arr.scaleVis != "off") {
-			ctx.fillText(tval, xt, yt)
+			//ctx.fillText(tval, xt, yt)
+			ctx.fillText(parseFloat(tval).toFixed(tdp), xt, yt)
 		    }
 		}
 		arrR.tickLabels[idxT] = {rt:rt, ca:Math.cos(a), sa:Math.sin(a), dp:dp}
@@ -1109,9 +1126,22 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	}
 	ctx.fillStyle = "white";
 	ctx.font = jetiToCtx(arr.tickFont);
-	var dig
-	dig = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
+	//var dig
+	//dig = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
 	//console.log("log, digits", Math.log10(max - min), digits)
+	var tdig
+	if (typeof arr.tickDigits != "None" && arr.tickDigits != "Auto") {
+	    tdig = arr.tickDigits;
+	} else {
+	    if (max != min) {
+		tdig = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
+	    } else {
+		tdig = 0;
+	    }
+	}
+
+	arrR.tickDigits = tdig;
+	console.log(arr.type, "tick2", arrR.tickDigits)
 	if (ndlarc != "needle") {
 	    arrR.xLV = x0 - 0.55 * ro;
 	    arrR.xRV = x0 + 0.55 * ro;
@@ -1119,8 +1149,8 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    arrR.yRV = arrR.yLV;
 	    if (arr.tickFont != "None") {
 		if (typeof label != "undefined") {
-		    ctx.fillText(parseFloat(min).toFixed(digits), arrR.xLV, arrR.yLV);
-		    ctx.fillText(parseFloat(max).toFixed(digits), arrR.xRV, arrR.yRV);
+		    ctx.fillText(parseFloat(min).toFixed(tdig), arrR.xLV, arrR.yLV);
+		    ctx.fillText(parseFloat(max).toFixed(tdig), arrR.xRV, arrR.yRV);
 		}
 	    }
 	}
@@ -1181,11 +1211,20 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
     }
 
     var digits
-    if (max != min) {
-	digits = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
+
+    if (typeof arr.readDigits != "None") {
+	digits = arr.readDigits;
     } else {
-	digits = 0;
+	if (max != min) {
+	    digits = Math.max(2 - Math.floor(Math.log10(Math.abs(max - min))), 0);
+	} else {
+	    digits = 0;
+	}
     }
+
+    arrR.valDigits = digits;
+    console.log(arr.type, "val", arrR.valDigits)
+    
     if (arr.valueFont != "None" && typeof arr.label != "undefined") {
 	ctx.fillText(parseFloat(value).toFixed(digits), arrR.xV, arrR.yV);
     }
@@ -2917,7 +2956,7 @@ function setupWidgets(){
         labelFont = {key: "labelFont", label: "Font size (label)", type: "fontsize"},
         tickFont = {key: "tickFont",  label: "Font size (ticks)", type: "fontsize"},
         valueFont = {key: "valueFont", label: "Font size (readout)", type: "fontsize"};
-
+    
     return {
         roundNeedleGauge: "roundGauge",
         roundArcGauge: "roundGauge",
@@ -2928,15 +2967,48 @@ function setupWidgets(){
             majdivs,
             subdivs,
             tickFont,
+
+	    {key: "tickDigits", 
+	     label: "Digits (tick labels)", 
+	     type: "select",
+	     props: {
+		 def: "Auto", 
+		 options: [
+		     {value: "Auto", label: "Auto"},
+		     {value: "0", label: "0"},
+		     {value: "1", label: "1"},
+		     {value: "2", label: "2"}		     
+		 ]
+	     }
+	    },
+
 	    {key: "tickSpace", label: "Tick to number spacing", type: "slider", props:{min:-200, max: 150}},
 	    {key: "readoutPosX", label: "Readout Position L-R", type:"slider", props:{min: -100, max: 50}},
 	    {key: "readoutPosY", label: "Readout Position U-D", type: "slider",props:{min: -100, max: 50}},
             valueFont,
+
+	    {key: "readDigits", 
+	     label: "Digits (readout)", 
+	     type: "select",
+	     props: {
+		 def: "Auto", 
+		 options: [
+		     {value: "Auto", label: "Auto"},
+		     {value: "0", label: "0"},
+		     {value: "1", label: "1"},
+		     {value: "2", label: "2"}		     
+		 ]
+	     }
+	    },
+
 	    {key: "labelColor", label: "Font color (label)", type: "color"},
 	    {key: "labelBoxColor", label: "Back box color (label)", type: "color"},	    
 	    {key: "labelPosX", label: "Label Position L-R", type: "slider", props: {min: -100, max: 100}},
 	    {key: "labelPosY", label: "Label Position U-D", type: "slider", props: {min: -200, max: 200}},
 	    labelFont,
+
+
+
 	    {key: "arcWidth", label: "Arc Width % of radius", type: "slider", props: {min: 0, max: 50}},
             arc_start,
             arc_end,

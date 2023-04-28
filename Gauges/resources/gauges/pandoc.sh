@@ -16,4 +16,3 @@ echo 'Processing' $1
 jq -r '."doc-md"' $FNAME | sed 's/\\n/\n/g' > 'en-'$BNAME'.md'
 pandoc 'en-'$BNAME'.md' -f markdown_strict -t html -o $HNAME --metadata title=$BNAME --template="jeti.html"
 cp $HNAME '/home/davidmcq/JSE/DOCS/DFM-INSP/'
-

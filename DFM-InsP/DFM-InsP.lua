@@ -39,13 +39,14 @@
    Version 0.78 04/17/23 - fix bug with min/max flashing
    Version 0.79 04/17/23 - panel documentation enabled
    Version 0.80 04/18/23 - enable edit of dec pts on gauge value
+   Version 0.81 04/27/23 - enable use of decimal places settings added to website
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.80
+local InsPVersion = 0.81
 
 local LE
 
@@ -2925,6 +2926,7 @@ local function printForm(ww0,hh0,tWin)
       end
       
       ctl = nil
+      rot = nil
       local minarc = -0.75 * math.pi
       local maxarc =  0.75 * math.pi
 
@@ -2998,6 +3000,9 @@ local function printForm(ww0,hh0,tWin)
 	       if widget.type ~= "roundArcGauge" then
 		  if not widget.TS then widget.TS = ri - 1.8 * (ro - ri) end
 		  local rt = widget.TS
+		  if widget.tickDigits and widget.tickDigits ~= "Auto" and not widget.dp then
+		     widget.dp = widget.tickDigits
+		  end
 		  if not widget.dp then
 		     local max = widget.max
 		     local min = widget.min
@@ -3108,37 +3113,45 @@ local function printForm(ww0,hh0,tWin)
 			 widget.ro+10, 255,255,255)
 	    end
 	    lcd.setColor(255,255,255)
+
 	    local fmt
-	    if widget.dataSrc == "Sensor" and sensor and sensor.decimals == 0 then
-	       if not widget.decPt then
-		  fmt = "%.0f"
-		  widget.decPt = 0
-	       else
-		  fmt = string.format("%%.%df", widget.decPt)	       		  
-	       end
-	    elseif widget.dataSrc == "Sensor" and sensor and sensor.decimals == 1 then
-	       if not widget.decPt then
-		  fmt = "%.1f"
-		  widget.decPt = 1
-	       else
-		  fmt = string.format("%%.%df", widget.decPt)	       		  
-	       end
+	    --print(widget.type, widget.valDigits, widget.tickDigits)
+	    if widget.valDigits and widget.valDigits ~= "Auto" and not widget.decPt then
+	       widget.decPt = widget.valDigits
+	       fmt = string.format("%%.%df", widget.decPt)
 	    else
-	       local decims
-	       if not widget.decPt then
-		  local max = widget.max
-		  local min = widget.min
-		  if max and min and (max ~= min) then
-		     decims = math.max(2 - math.floor(math.log(math.abs(max - min)) / math.log(10)), 0)
+	       if widget.dataSrc == "Sensor" and sensor and sensor.decimals == 0 then
+		  if not widget.decPt then
+		     fmt = "%.0f"
+		     widget.decPt = 0
 		  else
-		     decims = 1
+		     fmt = string.format("%%.%df", widget.decPt)	       		  
 		  end
-		  widget.decPt = decims
+	       elseif widget.dataSrc == "Sensor" and sensor and sensor.decimals == 1 then
+		  if not widget.decPt then
+		     fmt = "%.1f"
+		     widget.decPt = 1
+		  else
+		     fmt = string.format("%%.%df", widget.decPt)	       		  
+		  end
 	       else
-		  decims = widget.decPt
+		  local decims
+		  if not widget.decPt then
+		     local max = widget.max
+		     local min = widget.min
+		     if max and min and (max ~= min) then
+			decims = math.max(2 - math.floor(math.log(math.abs(max - min)) / math.log(10)), 0)
+		     else
+			decims = 1
+		     end
+		     widget.decPt = decims
+		  else
+		     decims = widget.decPt
+		  end
+		  fmt = string.format("%%.%df", decims)	       
 	       end
-	       fmt = string.format("%%.%df", decims)	       
 	    end
+	    
 	    if sensorVal then
 	       --print("fmt", fmt, sensorVal, decims, widget.decPt)
 	       val = string.format(fmt, sensorVal)
@@ -3149,6 +3162,7 @@ local function printForm(ww0,hh0,tWin)
 	 else
 	    val = "---"
 	 end
+
 	 local str
 	 if widget.label then str = widget.label else str = "Widget"..idxW end
 
@@ -3166,6 +3180,17 @@ local function printForm(ww0,hh0,tWin)
 	    else
 	       widget.fLRV = "None"
 	    end
+	 end
+
+	 local valmin, valmax
+	 if widget.tickDigits and widget.tickDigits ~= "Auto" then
+	    local fmt
+	    fmt = string.format("%%.%df", widget.tickDigits)
+	    valmax = string.format(fmt, widget.max)
+	    valmin = string.format(fmt, widget.min)
+	 else
+	    valmax = string.format("%d", widget.max)
+	    valmin = string.format("%d", widget.min)	    
 	 end
 	 
 	 if widget.gaugeRadius > 30 then -- really ought to consolidate with >= 20 code below
@@ -3205,10 +3230,8 @@ local function printForm(ww0,hh0,tWin)
 		  widget.yLV = widget.y0 + 0.9 * widget.radius
 		  widget.yRV = widget.y0 + 0.9 * widget.radius
 	       end
-	       val = string.format("%d", widget.min)
-	       drawTextCenter(widget.xLV, widget.yRV, string.format("%s", val), edit.fcode[widget.fLRV])
-	       val = string.format("%d", widget.max)
-	       drawTextCenter(widget.xRV, widget.yRV, string.format("%s", val), edit.fcode[widget.fLRV])
+	       drawTextCenter(widget.xLV, widget.yRV, string.format("%s", valmin), edit.fcode[widget.fLRV])
+	       drawTextCenter(widget.xRV, widget.yRV, string.format("%s", valmax), edit.fcode[widget.fLRV])
 	    end
 	 elseif widget.gaugeRadius >= 20 then
 
@@ -3235,7 +3258,6 @@ local function printForm(ww0,hh0,tWin)
 	       lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
 	       drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
 	    end
-	    
 
 	    if widget.subdivs == 0 then
 	       if not widget.xLV then
@@ -3244,10 +3266,8 @@ local function printForm(ww0,hh0,tWin)
 		  widget.yLV = widget.y0 + 1.0 * widget.radius
 		  widget.yRV = widget.y0 + 1.0 * widget.radius
 	       end
-	       val = string.format("%d", widget.min)
-	       drawTextCenter(widget.xLV, widget.yLV, string.format("%s", val), edit.fcode[widget.fLRV])
-	       val = string.format("%d", widget.max)
-	       drawTextCenter(widget.xRV, widget.yRV, string.format("%s", val), edit.fcode[widget.fLRV])
+	       drawTextCenter(widget.xLV, widget.yLV, string.format("%s", valmin), edit.fcode[widget.fLRV])
+	       drawTextCenter(widget.xRV, widget.yRV, string.format("%s", valmax), edit.fcode[widget.fLRV])
 	    end
 	 end
 
