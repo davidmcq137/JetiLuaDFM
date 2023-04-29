@@ -3256,18 +3256,6 @@ function setupWidgets(){
 	    height,
 	    min,
 	    max,
-	    {key: "tickDigits", 
-	     label: "Digits (tick labels)", 
-	     type: "select",
-	     props: {
-		 def: "0", 
-		 options: [
-		     {value: "0", label: "0"},
-		     {value: "1", label: "1"},
-		     {value: "2", label: "2"}		     
-		 ]
-	     }
-	    },
 	    {key: "backColor", label: "Background Color", type: "color"},
 	    {key: "chartBackColor", label: "Chart Background Color", type: "color"}	    ,
 	    {key: "chartTraceColor", label: "Chart Trace Color", type: "color"},	    
