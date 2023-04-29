@@ -40,13 +40,14 @@
    Version 0.79 04/17/23 - panel documentation enabled
    Version 0.80 04/18/23 - enable edit of dec pts on gauge value
    Version 0.81 04/27/23 - enable use of decimal places settings added to website
+   Version 0.82 04/29/23 - add decimal places to horiz and vert bar, improve format on chart rec min/max
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.81
+local InsPVersion = 0.82
 
 local LE
 
