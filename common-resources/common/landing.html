@@ -15,50 +15,67 @@
           This is the home page for a collaboration between Dave McQueeney and Harry Curzon for a series of Jeti apps that we have developed to further our interests in our RC aircraft hobby.
           Harry also has a <a href="https://www.youtube.com/user/cotswoldpilot">YouTube channel </a>with information and tutorials on the use of Jeti systems.
         </p>
+	<h3>DFM-InsP - Instrument Panel Creator and Display</h3>
+	<div class="lp-indent">
+	    <p>
+		Our latest release is web-based app that creates instrument panels that can be installed on the Jeti Transmitter. A menu of instrument types is available, including
+		round needle and arc gauges, bar gauges, a chart recorder and an atrificial horizon that can be used with Jeti Assist receivers. Similar to our DFM-Maps app, pilots can
+		create an individual set of instrument panels and then create an app source for use with the Transmitter Wizard and its Lua App manager. The app, DFM-InsP.lua, will be downloaded along with
+		the individual set of instrument panels created on the website.
+	    </p>
+	    <h4>Screenshots</h4>
+	    <div class="lp-screenshot">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP258.png">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP259.png">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP260.png">		
+	    </div>
+	</div>
+	<p>To create your instrument panels, you will need to use our web setup app - <a target="_blank" href="/gauges">click here to open it. </a>
+	</p>
         <h3>DFM-Maps</h3>
         <div class="lp-indent">
-          <p>
-            Our first release on this site is a flight display app (DFM-Maps) that can overlay your aircraft's flight pattern on a series of Google maps images while flying.
-            We have a website where you can create a set of maps for your flying field(s).
-            These maps can include a runway, a set of circular or polygonal no-fly zones, and even a GPS triangle race course.
-          </p>
-          <h4>Screenshots</h4>
-          <div class="lp-screenshot">
-            <img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-Maps196.png">
-            <img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-Maps199.png">
-            <img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-Maps190.png">
-          </div>
-          <h4>Video tutorials</h4>
-          <div style="margin-top: 2ex;" class="lp-screenshot">
-            <iframe src="https://www.youtube.com/embed/53ELHC4AZJc" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" width="320" height="240" frameborder="0"></iframe>
-            <iframe src="https://www.youtube.com/embed/JX3DzkZhP_U" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" width="320" height="240" frameborder="0"></iframe>
-            <iframe src="https://www.youtube.com/embed/TuDt0r6rF5I" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" width="320" height="240" frameborder="0"></iframe>
-          </div>
-          <h4>Setup</h4>
-          <div class="lp-indent">
-            <p>To install DFM-Maps, you will need to use our web setup tool - <a target="_blank" href="/create-maps">click here to open it. </a>
-            </p>
-            <p>Then, after following these three steps, you will have the app up and running with maps for your field!</p>
-            <ol>
-              <li>
-                <span class="lp-step">Create the field information</span>
-                <p>Navigate so that your flying field is in the middle of the map, and click "New field at map center".</p>
-                <p>If you can't find the field, you can right-click anywhere on <a target="_blank" href="https://www.google.com/maps">regular Google maps</a> to copy a lat/long, which you can paste into our tool at the lower left. </p>
-              </li>
-              <li>
-                <span class="lp-step">Create your JETI repository</span>
-                <p>When you are happy with the field, click "Create JETI repository". </p>
-                <p>This will create for you a unique URL which you can add as a repository in <a href="https://www.jetimodel.com/support/jeti-studio/jeti-studio.html">JETI Studio</a>. The repository is unique to you - it includes both the app itself, and your field data. </p>
-              </li>
-              <li>
-                <span class="lp-step">Install DFM-Maps with <a href="https://www.jetimodel.com/support/jeti-studio/jeti-studio.html">JETI Studio</a>
-                </span>
-                <p>In JETI Studio, open File &gt; Configuration &gt; App Sources, and paste your repository URL.</p>
-                <p>Then use the Lua App Manager to download the app and your maps to your transmitter.</p>
-              </li>
-            </ol>
-            <p>When you load the DFM-Maps app into one of your models, it will display the set of images for the field where the aircraft is located, and while flying it will overlay the aircraft's position on the map in the transmitter's screen. It will also warn of upcoming no-fly zones, and can announce verbally or via a stick shaker a no-fly breach. It can even verbally direct you to fly around a <a href="https://gps-triangle.net/">GPS triangle</a> race course. </p>
-          </div>
+	    <p>
+		Our first release on this site is a flight display app (DFM-Maps) that can overlay your aircraft's flight pattern on a series of Google maps images while flying.
+		We have a website where you can create a set of maps for your flying field(s).
+		These maps can include a runway, a set of circular or polygonal no-fly zones, and even a GPS triangle race course.
+	    </p>
+	    <h4>Screenshots</h4>
+	    <div class="lp-screenshot">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-Maps196.png">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-Maps199.png">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-Maps190.png">
+            </div>
+            <h4>Video tutorials</h4>
+            <div style="margin-top: 2ex;" class="lp-screenshot">
+		<iframe src="https://www.youtube.com/embed/53ELHC4AZJc" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" width="320" height="240" frameborder="0"></iframe>
+		<iframe src="https://www.youtube.com/embed/JX3DzkZhP_U" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" width="320" height="240" frameborder="0"></iframe>
+		<iframe src="https://www.youtube.com/embed/TuDt0r6rF5I" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" width="320" height="240" frameborder="0"></iframe>
+            </div>
+            <h4>Setup</h4>
+            <div class="lp-indent">
+		<p>To install DFM-Maps, you will need to use our web setup tool - <a target="_blank" href="/create-maps">click here to open it. </a>
+		</p>
+		<p>Then, after following these three steps, you will have the app up and running with maps for your field!</p>
+		<ol>
+		    <li>
+			<span class="lp-step">Create the field information</span>
+			<p>Navigate so that your flying field is in the middle of the map, and click "New field at map center".</p>
+			<p>If you can't find the field, you can right-click anywhere on <a target="_blank" href="https://www.google.com/maps">regular Google maps</a> to copy a lat/long, which you can paste into our tool at the lower left. </p>
+		    </li>
+		    <li>
+			<span class="lp-step">Create your JETI repository</span>
+			<p>When you are happy with the field, click "Create JETI repository". </p>
+			<p>This will create for you a unique URL which you can add as a repository in <a href="https://www.jetimodel.com/support/jeti-studio/jeti-studio.html">JETI Studio</a>. The repository is unique to you - it includes both the app itself, and your field data. </p>
+		    </li>
+		    <li>
+			<span class="lp-step">Install DFM-Maps with <a href="https://www.jetimodel.com/support/jeti-studio/jeti-studio.html">JETI Studio</a>
+			</span>
+			<p>In JETI Studio, open File &gt; Configuration &gt; App Sources, and paste your repository URL.</p>
+			<p>Then use the Lua App Manager to download the app and your maps to your transmitter.</p>
+		    </li>
+		</ol>
+		<p>When you load the DFM-Maps app into one of your models, it will display the set of images for the field where the aircraft is located, and while flying it will overlay the aircraft's position on the map in the transmitter's screen. It will also warn of upcoming no-fly zones, and can announce verbally or via a stick shaker a no-fly breach. It can even verbally direct you to fly around a <a href="https://gps-triangle.net/">GPS triangle</a> race course. </p>
+            </div>
         </div>
         <h4>Note</h4>
         <p class="lp-indent">We are doing this as part of our hobby and these apps are offered free of charge.</p>

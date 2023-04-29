@@ -2234,7 +2234,7 @@ function horizontalBar(ctx, arr) {
 
 	ctx.font = jetiToCtx(arr.tickFont)
 	var tickD
-	if (arr.tickDigits != "undefined") {
+	if (typeof arr.tickDigits != "undefined") {
 	    tickD = arr.tickDigits
 	} else {
 	    tickD = 0
@@ -2440,7 +2440,7 @@ function verticalBar(ctx, arr) {
 
 	ctx.font = jetiToCtx(arr.tickFont)
 	var tickD
-	if (arr.tickDigits != "undefined") {
+	if (typeof arr.tickDigits != "undefined") {
 	    tickD = arr.tickDigits
 	} else {
 	    tickD = 0

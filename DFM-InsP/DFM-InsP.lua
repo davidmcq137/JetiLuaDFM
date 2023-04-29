@@ -3216,7 +3216,7 @@ local function printForm(ww0,hh0,tWin)
 	 end
 	 
 	 if widget.gaugeRadius > 30 then -- really ought to consolidate with >= 20 code below
-	    
+
 	    if not widget.xL then
 	       widget.xL = widget.x0
 	       widget.yL = widget.y0 + 1.0 * widget.radius - 15
@@ -3230,6 +3230,7 @@ local function printForm(ww0,hh0,tWin)
 	       drawFilledBezel(widget.xL, widget.yL, lW, lH, 2)	       
 	    end
 
+	    
 	    if widget.rgbLabelColor then
 	       lcd.setColor(widget.rgbLabelColor.r, widget.rgbLabelColor.g, widget.rgbLabelColor.b)
 	       drawTextCenter(widget.xL, widget.yL, str, edit.fcode[widget.fL])
@@ -3255,7 +3256,7 @@ local function printForm(ww0,hh0,tWin)
 	       drawTextCenter(widget.xLV, widget.yRV, string.format("%s", valmin), edit.fcode[widget.fLRV])
 	       drawTextCenter(widget.xRV, widget.yRV, string.format("%s", valmax), edit.fcode[widget.fLRV])
 	    end
-	 elseif widget.gaugeRadius >= 20 then
+	 elseif widget.gaugeRadius >= 15 then
 
 	    if not widget.xV then
 	       widget.xV = widget.x0
@@ -4352,8 +4353,8 @@ local function printForm(ww0,hh0,tWin)
    ---[[
    lcd.setColor(255,255,255)
    if select(2, system.getDeviceType()) == 1 then
-      lcd.drawText(300,0, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   
-      lcd.drawText(300,80, string.format("%02d", system.getCPU()), FONT_MINI)
+      --lcd.drawText(300,0, string.format("%02d", math.floor(loopCPU + 0.5)), FONT_MINI)   
+      --lcd.drawText(300,80, string.format("%02d", system.getCPU()), FONT_MINI)
    end
    --]]
 end
