@@ -3338,10 +3338,19 @@ local function printForm(ww0,hh0,tWin)
 	 if not widget.fTL then widget.fTL = widget.tickFont or "Mini" end
 	 if not widget.TS then widget.TS = 0 end
 
+	 local decims
+	 if widget.tickDigits then
+	    decims = widget.tickDigits
+	 else
+	    decims = 0
+	 end
+	 if not widget.dp then widget.dp = decims end
+	 local fmt = string.format("%%.%df", widget.dp)	       
+	 
 	 if sensorVal then
 	    for i,v in ipairs(widget.hbarLabels) do
 	       vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
-	       vt = string.format("%d", vv)
+	       vt = string.format(fmt, vv) --string.format("%d", vv)
 	       drawTextCenter(v.x, v.y + widget.TS,
 			      vt, edit.fcode[widget.fTL])
 	    end
@@ -3413,10 +3422,20 @@ local function printForm(ww0,hh0,tWin)
 	 if not widget.fTL then widget.fTL = widget.tickFont or "Mini" end
 	 if not widget.TS then widget.TS = 0 end
 	 
+	 local decims
+	 if widget.tickDigits then
+	    decims = widget.tickDigits
+	 else
+	    decims = 0
+	 end
+	 if not widget.dp then widget.dp = decims end
+	 local fmt = string.format("%%.%df", widget.dp)	       
+
+	 
 	 if sensorVal then
 	    for i,v in ipairs(widget.vbarLabels) do
 	       vv = widget.min + (i - 1) * (widget.max - widget.min) / (widget.majdivs)
-	       vt = string.format("%d", vv)
+	       vt = string.format(fmt, vv) --string.format("%d", vv)
 	       local lr
 	       --print("widget.labelside", widget.labelside)
 	       if widget.labelside ~= "left" then
@@ -3425,7 +3444,7 @@ local function printForm(ww0,hh0,tWin)
 		  lr = -4
 	       end
 	       
-	       drawTextCenter(v.x + lr, v.y + widget.TS,
+	       drawTextCenter(v.x + lr + widget.TS, v.y,
 			      vt, edit.fcode[widget.fTL])
 	    end
 	 end
@@ -4178,9 +4197,9 @@ local function printForm(ww0,hh0,tWin)
 	 local hh = lcd.getTextHeight(FONT_MINI) + 6
 
 	 local str
-	 str = string.format("%d", widget.min)
+	 str = string.format("%g", widget.min)
 	 drawTextCenter(widget.vertX - chartOffsetV + barOffset, widget.vertYB + hh / 2 -2, str, FONT_MINI)
-	 str = string.format("%d", widget.max)
+	 str = string.format("%g", widget.max)
 	 drawTextCenter(widget.vertX - chartOffsetV + barOffset, widget.vertYT - hh / 2, str, FONT_MINI)
 
 	 local xx

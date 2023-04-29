@@ -1138,7 +1138,7 @@ function roundG(ctx, arr, x0, y0, ro, start, end, min, max, nseg, minmaj, specIn
 	    arrR.tickDigits = "Auto"
 	}
 	
-	console.log(arr.type, "tick2", arrR.tickDigits, tdig)
+	//console.log(arr.type, "tick2", arrR.tickDigits, tdig)
 	if (ndlarc != "needle") {
 	    arrR.xLV = x0 - 0.55 * ro;
 	    arrR.xRV = x0 + 0.55 * ro;
@@ -2233,17 +2233,26 @@ function horizontalBar(ctx, arr) {
 	}
 
 	ctx.font = jetiToCtx(arr.tickFont)
+	var tickD
+	if (arr.tickDigits != "undefined") {
+	    tickD = arr.tickDigits
+	} else {
+	    tickD = 0
+	}
+	arrR.tickDigits = tickD;
+	
 	if (arr.subdivs > 0 && i % arr.subdivs == 0) {
 	    ctx.fillStyle = "white";	
 	    ctx.textAlign = "center";
 	    ctx.textBaseline = "middle";
-	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / divs)
+	    //var val = Math.floor(arr.min + i * (arr.max - arr.min) / divs)
+	    var val = (arr.min + i * (arr.max - arr.min) / divs)	    
 	    //console.log("i, subdivs, idxL", i, arr.subdivs, idxL)
 	    arrR.hbarLabels[idxL] = {x:a, y:arr.y0 - h/2}
 	    idxL = idxL + 1;
 	    if (arr.tickFont != "None") {
 		if (typeof arr.value != "undefined") {
-		    ctx.fillText(val.toString(),
+		    ctx.fillText(parseFloat(val).toFixed(tickD), // val.toString(),
 				 a,
 				 arr.y0 - (h/2 + yOff));
 		}
@@ -2430,6 +2439,15 @@ function verticalBar(ctx, arr) {
 	}
 
 	ctx.font = jetiToCtx(arr.tickFont)
+	var tickD
+	if (arr.tickDigits != "undefined") {
+	    tickD = arr.tickDigits
+	} else {
+	    tickD = 0
+	}
+
+	arrR.tickDigits = tickD;
+	
 	if (arr.subdivs > 0 && i % arr.subdivs == 0) {
 	    ctx.fillStyle = "white";
 	    //console.log("arr.labelside", arr.labelside)
@@ -2442,14 +2460,15 @@ function verticalBar(ctx, arr) {
 		lroff = w
 	    }
 	    ctx.textBaseline = "middle";
-	    var val = Math.floor(arr.min + i * (arr.max - arr.min) / divs)
+	    //var val = Math.floor(arr.min + i * (arr.max - arr.min) / divs)
+	    var val = (arr.min + i * (arr.max - arr.min) / divs)	    
 	    //var val = Math.floor(arr.max - i * (arr.max - arr.min) / divs)	    
 	    //console.log("i, subdivs, idxL", i, arr.subdivs, idxL)
 	    arrR.vbarLabels[idxL] = {y:a, x:arr.x0 - w/2}
 	    idxL = idxL + 1;
 	    if (arr.tickFont != "None") {
 		if (typeof arr.value != "undefined") {
-		    ctx.fillText(val.toString(),
+		    ctx.fillText(parseFloat(val).toFixed(tickD),// val.toString(),
 				 arr.x0 - (w/2 + xOff) + lroff, a);
 		}
 	    }
@@ -2828,8 +2847,20 @@ function chartRecorder(ctx, arr) {
 
     ctx.textBaseline = "middle";
     ctx.textAlign = "center"; 
+
+    /*
+    var tickD
+    if (arr.tickDigits != "undefined") {
+	tickD = arr.tickDigits
+    } else {
+	tickD = 0
+    }
+    arrR.tickDigits = tickD;
+    */
     ctx.fillText("" + arr.min, arrR.vertX - chartOffsetV + barOffset, arrR.vertYB + hh / 2)
+    //ctx.fillText(parseFloar(arr.min).toFixed(tickD), arrR.vertX - chartOffsetV + barOffset, arrR.vertYB + hh / 2)    
     ctx.fillText("" + arr.max, arrR.vertX - chartOffsetV + barOffset, arrR.vertYT - hh / 2)
+    //ctx.fillText(parseFloat(arr.max).toFixed(tickD), arrR.vertX - chartOffsetV + barOffset, arrR.vertYT - hh / 2)    
 
     ctx.align = "middle"
     let ss, xx
@@ -3075,6 +3106,18 @@ function setupWidgets(){
             {key: "backColor", label: "Background Color", type: "color"},
 	    {key: "bezelColor", label: "Bezel Color", type: "color"},
             {key: "tickFont", label: "Font size (numbers)", type: "fontsize"},
+	    {key: "tickDigits", 
+	     label: "Digits (tick labels)", 
+	     type: "select",
+	     props: {
+		 def: "0", 
+		 options: [
+		     {value: "0", label: "0"},
+		     {value: "1", label: "1"},
+		     {value: "2", label: "2"}		     
+		 ]
+	     }
+	    },
             {key: "labelFont", label: "Font size (label)", type: "fontsize"},
 	    {key: "labelPosX", label: "Label Position L-R", type: "slider", props: {min: -50, max: 50}},
 	    {key: "labelPosY", label: "Label Position U-D", type: "slider", props: {min: -75, max: 25}},
@@ -3091,6 +3134,18 @@ function setupWidgets(){
             {key: "backColor", label: "Background Color", type: "color"},
 	    {key: "bezelColor", label: "Bezel Color", type: "color"},
             {key: "tickFont", label: "Font size (numbers)", type: "fontsize"},
+	    {key: "tickDigits", 
+	     label: "Digits (tick labels)", 
+	     type: "select",
+	     props: {
+		 def: "0", 
+		 options: [
+		     {value: "0", label: "0"},
+		     {value: "1", label: "1"},
+		     {value: "2", label: "2"}		     
+		 ]
+	     }
+	    },
 	    { key: "labelside", 
 	      label: "Tick label side", 
 	      type: "select",
@@ -3201,6 +3256,18 @@ function setupWidgets(){
 	    height,
 	    min,
 	    max,
+	    {key: "tickDigits", 
+	     label: "Digits (tick labels)", 
+	     type: "select",
+	     props: {
+		 def: "0", 
+		 options: [
+		     {value: "0", label: "0"},
+		     {value: "1", label: "1"},
+		     {value: "2", label: "2"}		     
+		 ]
+	     }
+	    },
 	    {key: "backColor", label: "Background Color", type: "color"},
 	    {key: "chartBackColor", label: "Chart Background Color", type: "color"}	    ,
 	    {key: "chartTraceColor", label: "Chart Trace Color", type: "color"},	    
