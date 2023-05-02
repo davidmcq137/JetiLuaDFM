@@ -44,7 +44,7 @@ jobs:
       - name: Build server jar
         shell: bash
         run: |
-          echo >common-resources/common/banner.txt <<EOF
+          cat >common-resources/common/banner.txt <<EOF
           Build for $GITHUB_REF_NAME @ $GITHUB_SHA
           $(date -Iseconds)
           EOF
