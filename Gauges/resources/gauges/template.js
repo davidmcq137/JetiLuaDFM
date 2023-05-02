@@ -2997,7 +2997,7 @@ function setupWidgets(){
             tickFont,
 
 	    {key: "tickDigits", 
-	     label: "Digits (tick labels)", 
+	     label: "Decimal places (tick labels)", 
 	     type: "select",
 	     props: {
 		 def: "Auto", 
@@ -3016,7 +3016,7 @@ function setupWidgets(){
             valueFont,
 
 	    {key: "readDigits", 
-	     label: "Digits (readout)", 
+	     label: "Decimal places (readout)", 
 	     type: "select",
 	     props: {
 		 def: "Auto", 
@@ -3107,7 +3107,7 @@ function setupWidgets(){
 	    {key: "bezelColor", label: "Bezel Color", type: "color"},
             {key: "tickFont", label: "Font size (numbers)", type: "fontsize"},
 	    {key: "tickDigits", 
-	     label: "Digits (tick labels)", 
+	     label: "Decimal places (tick labels)", 
 	     type: "select",
 	     props: {
 		 def: "0", 
@@ -3135,7 +3135,7 @@ function setupWidgets(){
 	    {key: "bezelColor", label: "Bezel Color", type: "color"},
             {key: "tickFont", label: "Font size (numbers)", type: "fontsize"},
 	    {key: "tickDigits", 
-	     label: "Digits (tick labels)", 
+	     label: "Decimal places (tick labels)", 
 	     type: "select",
 	     props: {
 		 def: "0", 
