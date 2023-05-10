@@ -41,13 +41,14 @@
    Version 0.80 04/18/23 - enable edit of dec pts on gauge value
    Version 0.81 04/27/23 - enable use of decimal places settings added to website
    Version 0.82 04/29/23 - add decimal places to horiz and vert bar, improve format on chart rec min/max
+   Version 0.83 05/09/23 - add decimal place computation to min and max warn values
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.82
+local InsPVersion = 0.83
 
 local LE
 
@@ -1540,8 +1541,8 @@ local function changedSwitch(val, switchName, j, wid)
    end
 end
 
-local function changedMinMax(val, sel, ipig)
-   ipig[sel] = val
+local function changedMinMax(val, sel, ipig, dp)
+   ipig[sel] = val / (10^dp)
 end
 
 local function changedLabel(val, ipig, f)
@@ -1941,20 +1942,31 @@ local function initForm(sf)
       form.addRow(2)
       form.addLabel({label="Enable min/max value markers", width=270})
       isel = ip[ig].showMM == "true"
-      mmCI = form.addCheckbox(isel, (function(x) return changedShowMM(x, ip[ig]) end), {width=60} )
+      mmCI = form.addCheckbox(isel, (function(x) return changedShowMM(x, ip[ig]) end), {width=60} ) 
 
       if ip[ig].max and ip[ig].min then
+	 local decpl
+	 local mmr
+	 mmr = math.abs(math.max(ip[ig].min, ip[ig].max))
+	 if mmr < 10 then
+	    decpl = 2
+	 elseif mmr < 100 then
+	    decpl = 1
+	 else
+	    decpl = 0
+	 end
+	 
 	 form.addRow(2)
 	 form.addLabel({label="Max warning value"})
 	 if not ip[ig].maxWarn then ip[ig].maxWarn = ip[ig].max end
-	 form.addIntbox(ip[ig].maxWarn, -32768, 32767, ip[ig].max, 0, 1,
-			(function(x) return changedMinMax(x, "maxWarn", ip[ig]) end))
+	 form.addIntbox(ip[ig].maxWarn * (10^decpl), -32768, 32767, ip[ig].max, decpl, 1,
+			(function(x) return changedMinMax(x, "maxWarn", ip[ig], decpl) end))
 	 
 	 form.addRow(2)
 	 form.addLabel({label="Min warning value"})
 	 if not ip[ig].minWarn then ip[ig].minWarn = ip[ig].min end
-	 form.addIntbox(ip[ig].minWarn, -32768, 32767, ip[ig].min, 0, 1,
-			(function(x) return changedMinMax(x, "minWarn", ip[ig]) end))
+	 form.addIntbox(ip[ig].minWarn * (10^decpl), -32768, 32767, ip[ig].min, decpl, 1,
+			(function(x) return changedMinMax(x, "minWarn", ip[ig], decpl) end))
 
 	 local stickShake = {"...", "Left 1 Long", "Left 1 Short", "Left 2 Short", "Left 3 Short",
 			     "Right 1 Long", "Right 1 Short", "Right 2 Short", "Right 3 Short"}

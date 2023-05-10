@@ -15,5 +15,7 @@ HNAME='/home/davidmcq/JS/DFM-InsP/Panels/EN-'$UNAME'.HTML'
 echo 'Processing' $1 
 jq -r '."doc-md"' $FNAME | sed 's/\\n/\n/g' > 'en-'$BNAME'.md'
 pandoc 'en-'$BNAME'.md' -t html -o $HNAME --from markdown_strict-smart --metadata title=$BNAME --template="jeti.html"
+# jeti TX browser does not support smart quotes... and
+# -smart option does not really stop smart quotes (known issue w/pandoc), so remove them in place
 sed -i s/[”“]/'"'/g $HNAME
 cp $HNAME '/home/davidmcq/JSE/DOCS/DFM-INSP/'
