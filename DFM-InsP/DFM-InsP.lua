@@ -42,13 +42,14 @@
    Version 0.81 04/27/23 - enable use of decimal places settings added to website
    Version 0.82 04/29/23 - add decimal places to horiz and vert bar, improve format on chart rec min/max
    Version 0.83 05/09/23 - add decimal place computation to min and max warn values
+   Version 0.84 05/10/23 - only warn once for newer panel, better roundoff on min and max warn
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.83
+local InsPVersion = 0.84
 
 local LE
 
