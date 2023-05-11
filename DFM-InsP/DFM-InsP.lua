@@ -1944,6 +1944,15 @@ local function initForm(sf)
       isel = ip[ig].showMM == "true"
       mmCI = form.addCheckbox(isel, (function(x) return changedShowMM(x, ip[ig]) end), {width=60} ) 
 
+      local function rndMM(val, dp)
+	 local sign
+	 local mag
+	 --print("rndMM", val, dp)
+	 if val >= 0 then sign = 1 else sign = -1 end
+	 mag = math.abs(val)
+	 return sign * math.floor(mag * (10^dp) + 0.5)
+      end
+      
       if ip[ig].max and ip[ig].min then
 	 local decpl
 	 local mmr
@@ -1959,13 +1968,13 @@ local function initForm(sf)
 	 form.addRow(2)
 	 form.addLabel({label="Max warning value"})
 	 if not ip[ig].maxWarn then ip[ig].maxWarn = ip[ig].max end
-	 form.addIntbox(ip[ig].maxWarn * (10^decpl), -32768, 32767, ip[ig].max, decpl, 1,
+	 form.addIntbox(rndMM(ip[ig].maxWarn, decpl), -32768, 32767, ip[ig].max, decpl, 1,
 			(function(x) return changedMinMax(x, "maxWarn", ip[ig], decpl) end))
 	 
 	 form.addRow(2)
 	 form.addLabel({label="Min warning value"})
 	 if not ip[ig].minWarn then ip[ig].minWarn = ip[ig].min end
-	 form.addIntbox(ip[ig].minWarn * (10^decpl), -32768, 32767, ip[ig].min, decpl, 1,
+	 form.addIntbox(rndMM(ip[ig].minWarn, decpl), -32768, 32767, ip[ig].min, decpl, 1,
 			(function(x) return changedMinMax(x, "minWarn", ip[ig], decpl) end))
 
 	 local stickShake = {"...", "Left 1 Long", "Left 1 Short", "Left 2 Short", "Left 3 Short",
@@ -4765,7 +4774,9 @@ local function init(icode)
 		  if ts then
 		     for i in ipairs(InsP.panels) do
 			if InsP.panelImages[i].instImage == fn then
-			   if ts > (InsP.panelImages[i].timestamp or "0") then
+			   if (ts > (InsP.panelImages[i].timestamp or "0")) and
+			   (InsP.panelImages[i].alreadyWarned ~= ts) then
+			      InsP.panelImages[i].alreadyWarned = ts
 			      table.insert(newerPanels, {fn = fn, ts = ts})
 			   end
 			   break
