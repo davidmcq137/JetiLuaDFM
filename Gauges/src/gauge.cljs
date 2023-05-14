@@ -47,8 +47,51 @@
     :else (js/console.error "Cannot determine bounding box" sh)))
 
 
+(defn render-gauge*
+  ([i] (render-gauge* i draw-scale))
+  ([i scl]
+   (let [[x y w h :as bbox] (shape->bbox i)
+         c (doto (js/document.createElement "canvas")
+             (aset "width" (* w scl))
+             (aset "height" (* h scl)))
+         ctx (doto (.getContext c "2d")
+               (.scale scl scl)
+               (.translate (- x) (- y)))] 
+     (try
+       (js/renderGauge ctx (clj->js i))
+       (catch :default ex (js/console.log "Render exception" ex)))
+     {:bitmap c
+      :params i})))
+
+(rum/defc static-bitmap-canvas
+  [bmap] 
+  (let [cref (rum/create-ref)]
+    (rum/use-effect!
+     (fn []
+       (when (rum/deref cref)
+        (let [cvs (rum/deref cref)
+              ctx (.getContext cvs "2d")]
+          (.clearRect ctx 0 0 (.-width bmap) (.-height bmap))
+          (.drawImage ctx bmap 0 0))))
+     [bmap])
+    [:canvas {:ref cref
+              :width (.-width bmap)
+              :height (.-height bmap)}]))
+
+(defn +modtime
+  [m]
+  (assoc m :modified-time (.getTime (js/Date.))))
+
+(defn update-gauge*
+  ([a f]
+   (swap! a (fn [av] (+modtime (merge (render-gauge* (f (:params av))))))))
+  ([a f k v]
+   (swap! a (fn [av] (+modtime (merge av (render-gauge* (f (:params av) k v)))))))
+  ([a f k v & more]
+   (swap! a (fn [av] (+modtime (merge av (render-gauge* (apply f (:params av) (list* k v more)))))))))
+
 (rum/defc bitmap-canvas-drag
-  [bmap ix iy k]
+  [bmap ix iy da]
   (let [cref (rum/create-ref)
         [{:keys [x y mousedown] :as drag-state} set-drag-state!] (rum/use-state {})
         pos-top (str (or y iy) "px")
@@ -114,46 +157,9 @@
                :onMouseUp (fn [^js ev]
                             (set-drag-state! (assoc drag-state :mousedown nil :x nil :y nil))
                             (when (and x y)
-                              (swap! db update-in k update :params assoc
-                                     "x0" scaled-x
-                                     "y0" scaled-y)))}])))
-
-(defn render-gauge*
-  ([i] (render-gauge* i draw-scale))
-  ([i scl]
-   (let [[x y w h :as bbox] (shape->bbox i)
-         c (doto (js/document.createElement "canvas")
-             (aset "width" (* w scl))
-             (aset "height" (* h scl)))
-         ctx (doto (.getContext c "2d")
-               (.scale scl scl)
-               (.translate (- x) (- y)))] 
-     (try
-       (js/renderGauge ctx (clj->js i))
-       (catch :default ex (js/console.log "Render exception" ex)))
-     {:bitmap c
-      :params i})))
-
-(rum/defc static-bitmap-canvas
-  [bmap] 
-  (let [cref (rum/create-ref)]
-    (rum/use-effect!
-     (fn []
-       (when (rum/deref cref)
-        (let [cvs (rum/deref cref)
-              ctx (.getContext cvs "2d")]
-          (.clearRect ctx 0 0 (.-width bmap) (.-height bmap))
-          (.drawImage ctx bmap 0 0))))
-     [bmap])
-    [:canvas {:ref cref
-              :width (.-width bmap)
-              :height (.-height bmap)}]))
-
-(defn update-gauge*
-  ([a f] (swap! a (fn [av] (merge av (render-gauge* (f (:params av)))))))
-  ([a f k v] (swap! a (fn [av] (merge av (render-gauge* (f (:params av) k v))))))
-  ([a f k v & more]
-   (swap! a (fn [av] (merge av (render-gauge* (apply f (:params av) (list* k v more))))))))
+                              (update-gauge* da assoc
+                                             "x0" scaled-x
+                                             "y0" scaled-y)))}])))
 
 (rum/defc gaugeparam-slider
   < rum/reactive
@@ -640,9 +646,17 @@
 
 (defn panel-json*
   [panel rendered]
-  (clj->js {:panel rendered
-            :doc-md (get panel :doc-md)
-            :timestamp (.toISOString (js/Date.))}))
+  (let [now (.getTime (js/Date.))
+        tstamps (->> (:gauges panel)
+                     vals
+                     (keep :modified-time)
+                     (not-empty))
+        mod-date (if-not tstamps
+                   (js/Date.)
+                   (js/Date. (apply max tstamps)))]
+    (clj->js {:panel rendered
+              :doc-md (get panel :doc-md)
+              :timestamp (.toISOString mod-date)})))
 
 (defn download-json!
   [w h]
@@ -686,6 +700,7 @@
              (fn [{:keys [image data]}]
                (.then (blob->base64 image)
                       (fn [base]
+
                         (->> [{:destination (str "Apps/DFM-InsP/Panels/" panel-name ".json")
                                :json-data (panel-json* panel data)}
                               {:destination (str "Apps/DFM-InsP/Panels/" panel-name ".png")
@@ -1127,7 +1142,8 @@
                              (:bitmap d)
                              (* x draw-scale disp-scale)
                              (* y draw-scale disp-scale)
-                             [:panels selected-panel :gauges i]))))
+                             (rum/cursor-in db [:panels selected-panel :gauges i])
+                             #_[:panels selected-panel :gauges i]))))
        
        (when align-divs
          (alignment-grid align-divs
