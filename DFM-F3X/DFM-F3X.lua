@@ -111,7 +111,7 @@ end
 
 local function keyForm(key)
    -- return value lets us know if menu is exiting and we can release memory
-   local rel = MM.keyForm(key, F3X, resetFlight)
+   local rel = MM.keyForm(key, F3X, loopV, resetFlight)
    if rel then MM = nil; collectgarbage() end
 end
 
@@ -120,6 +120,15 @@ local function printTele(w,h)
 end
 
 local xmin, xmax, ymin, ymax = -110, 290, -30, 170
+
+local function xyAdj()
+   local f = 1.1
+   --print("Adjusting", loopV.curX, loopV.curY)
+   xmin, xmax, ymin, ymax = xmin*f, xmax*f, ymin*f, ymax*f
+   F3X.xlen = xmax - xmin
+   F3X.yhgt = ymax
+   print(xmin, xmax, ymin, ymax)
+end
 
 local function xp(x)
    return 320 * (x - xmin) / (xmax - xmin)
@@ -211,10 +220,22 @@ local function loop()
       loopV.curX = loopV.curDist * math.cos(math.rad(F3X.gpsP.curBear+270)) -- why not same angle X and Y??
       loopV.curY = loopV.curDist * math.sin(math.rad(F3X.gpsP.curBear+90))
       
+      
       if not loopV.lastX then loopV.lastX = loopV.curX end
       if not loopV.lastY then loopV.lastY = loopV.curY end
-      
-      loopV.curX, loopV.curY = rotateXY(loopV.curX, loopV.curY, F3X.gpsP.rotA)
+
+      if F3X.gpsP.rotA then
+	 loopV.curX, loopV.curY = rotateXY(loopV.curX, loopV.curY, F3X.gpsP.rotA)
+	 if F3X.gpsScale then
+	    loopV.curX = loopV.curX * F3X.gpsScale
+	 end
+      end
+
+      if loopV.curX < xmin or loopV.curX > xmax or loopV.curY < ymin or loopV.curY > ymax then
+	 xyAdj()
+	 savedXP = {}
+	 savedYP = {}
+      end
 
       local dist = math.sqrt( (loopV.curX - loopV.lastX)^2 + (loopV.curY - loopV.lastY)^2)
 
@@ -499,7 +520,7 @@ local function virtualTele(tt, iTele)
 	 tt[2] = require "DFM-F3X/doubleTele"
       end
       lastCall[2] = system.getTimeCounter()
-      tt[2].doubleTele(loopV)
+      tt[2].doubleTele(loopV, F3X)
    end 
 end
 
@@ -552,14 +573,20 @@ end
 local function init()
 
    local M = require "DFM-F3X/initCmd"
-   F3X = M.initCmd(F3X, TT, initForm, keyForm, printTele, virtualTele, resetFlight, logWriteCB)
+
+   F3X = M.initCmd(F3X, loopV, TT, initForm, keyForm, printTele, virtualTele, resetFlight, logWriteCB)
    M = nil
+   F3X.xlen = xmax - xmin
+   F3X.yhgt = ymax
+   
    collectgarbage()
 
    local s1,s2 = system.getInputs("P1", "P2")
+   print("s1,s2", s1, s2)
    
    if (s1 < -0.8 and s2 < -0.8) or not
    (F3X.sens.lat.SeId > 0 and F3X.sens.lat.SePa > 0 and F3X.sens.lng.SePa > 0) then
+      print("call teleCmd")
       local M = require "DFM-F3X/teleCmd"
       M.teleCmd(F3X)
       M = nil

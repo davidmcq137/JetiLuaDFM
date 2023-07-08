@@ -3,11 +3,11 @@ local M = {}
 local function drawPylons(xp, yp, F3X)
    local early = 0
    lcd.drawLine(xp(-50), yp(0), xp(200), yp(0))
-   lcd.drawLine(xp(0), yp(-10), xp(0), yp(130))
+   lcd.drawLine(xp(0), yp(-10), xp(0), yp(F3X.yhgt * 0.8))
    lcd.setColor(200,200,200)
    lcd.drawLine(xp(F3X.gpsP.distAB) - F3X.short150, yp(-10), xp(F3X.gpsP.distAB)-F3X.short150, yp(130))
    lcd.setColor(0,0,0)
-   lcd.drawLine(xp(F3X.gpsP.distAB), yp(-10), xp(F3X.gpsP.distAB), yp(130))
+   lcd.drawLine(xp(F3X.gpsP.distAB), yp(-10), xp(F3X.gpsP.distAB), yp(F3X.yhgt * 0.8))
    lcd.drawText(xp(0) - 4, yp(-10), "A")
    lcd.drawText(xp(F3X.gpsP.distAB) - 4, yp(-10), "B")
    --[[
@@ -65,7 +65,15 @@ function M.fullTele(F3X, loopV, cross, savedXP, savedYP, xp, yp)
       text = string.format("T: %.2f s", loopV.flightTime/1000)	 
    end
    lcd.drawText(150-lcd.getTextWidth(FONT_NORMAL, text)/2,10,text)
+
+   if F3X.xlen then
+      lcd.drawText(10, 25, string.format("XL: %.1f", F3X.xlen))
+   end
    
+   --lcd.drawText(240, 40, string.format("X: %.1f", loopV.curX or 0))
+   --lcd.drawText(240, 55, string.format("Y: %.1f", loopV.curY or 0))
+   
+
    if #savedXP >= 2 then
       for i=2,#savedXP,1 do
 	 lcd.drawLine(savedXP[i-1], savedYP[i-1], savedXP[i], savedYP[i])
@@ -106,8 +114,8 @@ function M.fullTele(F3X, loopV, cross, savedXP, savedYP, xp, yp)
       end
       --]]
       if #cross == 3 then
-	 lcd.drawText(260, 10, string.format("D: %.1f", F3X.depth))
-	 lcd.drawText(260, 25, string.format("W: %.1f", F3X.width))
+	 lcd.drawText(240, 10, string.format("D: %.1f", F3X.depth))
+	 lcd.drawText(240, 25, string.format("W: %.1f", F3X.width))
       end
       text = string.format("%.2f", loopV.perpA)
       lcd.drawText( xp(0) - lcd.getTextWidth(FONT_NORMAL, text)/2 , yp(-60), text)
@@ -116,8 +124,9 @@ function M.fullTele(F3X, loopV, cross, savedXP, savedYP, xp, yp)
 
       lcd.drawText(10,10, loopV.fsTxt[loopV.flightState], FONT_NORMAL)
       if loopV.perpA then
-	 text = string.format("%.2f m", loopV.perpA)
-	 lcd.drawText(10,25,text)
+	 text = string.format("%.2f", loopV.perpA)
+	 --lcd.drawText(10,25,text .. " m")
+	 lcd.drawText(150 - lcd.getTextWidth(FONT_MAXI, text)/2, 30,text, FONT_MAXI)	 
       end
    end
 end

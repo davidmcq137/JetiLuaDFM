@@ -33,8 +33,8 @@ function M.printTele(w,h,F3X)
    local text, text2
    
    if subForm ~= 1 then return end
-   text = string.format("Rotate: %d", math.deg(F3X.gpsP.rotA))
-   lcd.drawText(230,120, text)
+   text = string.format("Rotate: %d°  X Scale: %.5f", math.deg(F3X.gpsP.rotA or 0), F3X.gpsScale)
+   lcd.drawText(0,100, text)
    if F3X.gpsP.curPos then
       text, text2 = gps.getStrig(F3X.gpsP.curPos)
       lcd.drawText(0,120,"[" .. text .. "," .. text2 .. "]")
@@ -43,7 +43,7 @@ function M.printTele(w,h,F3X)
    end
 end
 
-function M.keyForm(key, F3X, resetFlight)
+function M.keyForm(key, F3X, loopV, resetFlight)
 
    if subForm ~= 1 then
       if keyExit(key) then
@@ -72,11 +72,24 @@ function M.keyForm(key, F3X, resetFlight)
 	 if F3X.gpsP.curBear then
 	    F3X.gpsP.rotA = math.rad(F3X.gpsP.curBear-90)
 	    system.pSave("rotA", F3X.gpsP.rotA*1000)
+	    F3X.gpsScale = 1.0
+	    system.pSave("gpsScale", F3X.gpsScale*1000)
+	    system.messageBox("GPS scale set to 1.0")
 	 else
 	    system.messageBox("No Current Position")
 	 end
       elseif key == KEY_3 then
 	 resetFlight()
+      elseif key == KEY_4 then
+	 if F3X.gpsScale ~= 1.0 then
+	    system.messageBox("Do DirB first")
+	    return
+	 end
+	 if loopV.curX and loopV.curY then
+	    F3X.gpsScale = 150.0/math.sqrt(loopV.curX^2 + loopV.curY^2)
+	    print("curX, gpsScale", loopV.curX, loopV.curY, F3X.gpsScale)
+	    system.pSave("gpsScale", F3X.gpsScale*1000)
+	 end
       end
    end
    return false
@@ -92,7 +105,8 @@ function M.menuCmd(sf, F3X, resetFlight)
       form.setButton(1, "Pt A",  ENABLED)
       form.setButton(2, "Dir B", ENABLED)
       form.setButton(3, "Reset", ENABLED)   
-
+      form.setButton(4, "C 150", ENABLED)
+      
       form.addRow(2)
       form.addLabel({label="Controls >>", width=220})
       form.addLink((function()

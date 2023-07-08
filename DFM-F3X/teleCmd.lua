@@ -42,7 +42,7 @@ local function telemChanged(val, stbl, v, ttbl)
 end
 
 local function initForm(sf, F3X)
-
+   print("TEST")
    print("iFT", collectgarbage("count"))
    if sf == 1 then
       form.setTitle("F3X Telemetry Sensors")
@@ -58,7 +58,9 @@ local function initForm(sf, F3X)
 end
 
 function  M.teleCmd(F3X)
-   system.registerForm(2, 0, "F3X Sensors", (function(x) return initForm(x, F3X) end))
+   print("teleCmd")
+   print("reg", system.registerForm(2, 0, "F3X Sensors", (function(x) return initForm(x, F3X) end)) )
+   print("exit teleCmd")
 end
 
 return M

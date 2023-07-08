@@ -1,8 +1,7 @@
 local M = {}
 
-function M.initCmd(F3X, TT, initForm, keyForm, printTele, virtualTele, resetFlight, logWriteCB)
+function M.initCmd(F3X, loopV, TT, initForm, keyForm, printTele, virtualTele, resetFlight, logWriteCB)
 
-   
    for i in ipairs(F3X.sens) do
       local v = F3X.sens[i].var
       if not F3X.sens[v] then F3X.sens[v] = {} end
@@ -21,9 +20,15 @@ function M.initCmd(F3X, TT, initForm, keyForm, printTele, virtualTele, resetFlig
 
    F3X.gpsP.distAB = system.pLoad("distAB", 150)
    --print("distAB", F3X.gpsP.distAB)
+
+   F3X.gpsScale = system.pLoad("gpsScale", 1000)
+   F3X.gpsScale = F3X.gpsScale / 1000.0
    
-   F3X.gpsP.rotA = system.pLoad("rotA", 0)
-   F3X.gpsP.rotA = F3X.gpsP.rotA / 1000.0 -- rotA was saved as *1000 since it has to be an int
+   F3X.gpsP.rotA = system.pLoad("rotA")
+   if F3X.gpsP.rotA then
+      F3X.gpsP.rotA = F3X.gpsP.rotA / 1000.0 -- rotA was saved as *1000 since it has to be an int
+   end
+   
    --print("rotA", F3X.gpsP.rotA)
    
    F3X.gpsP.zeroLatStr = system.pLoad("zeroLatString")
