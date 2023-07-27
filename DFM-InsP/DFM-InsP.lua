@@ -43,6 +43,8 @@
    Version 0.82 04/29/23 - add decimal places to horiz and vert bar, improve format on chart rec min/max
    Version 0.83 05/09/23 - add decimal place computation to min and max warn values
    Version 0.84 05/10/23 - only warn once for newer panel, better roundoff on min and max warn
+   Version 0.85
+   Version 0.86 07/27/23 - Add extension SwiwinTele.lua
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 

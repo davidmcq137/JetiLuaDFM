@@ -11,7 +11,7 @@
    
 --]]
 
-local F3XVersion = "0.70"
+local F3XVersion = "0.80"
 local MM
 local F3X = {}
 local cross = {}
