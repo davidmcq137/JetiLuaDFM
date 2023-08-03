@@ -45,13 +45,14 @@
    Version 0.84 05/10/23 - only warn once for newer panel, better roundoff on min and max warn
    Version 0.85
    Version 0.86 07/27/23 - Add extension SwiwinTele.lua
+   Version 0.87 08/02/23 - Fix possible null on sensorVal in seq textbox 
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.85
+local InsPVersion = 0.87
 
 local LE
 
@@ -3553,7 +3554,7 @@ local function printForm(ww0,hh0,tWin)
 	       if textVal then
 		  stro = str[1]
 	       else
-		  local jj = math.floor(sensorVal + 0.5)
+		  local jj = math.floor((sensorVal or 0) + 0.5)
 		  if jj >= 1 and jj <= #str then
 		     stro = str[jj]
 		  else
