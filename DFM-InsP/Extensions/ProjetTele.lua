@@ -97,10 +97,15 @@ local ecuMessage = {
 
 function M.text(ptr, val)
    local ecuCode = val
-   if not val or type(val) ~= "number" then return "Invalid:" .. tostring(val) end
+   --print("Input Val", val, type(val))
+   if not val or type(val) ~= "number" then
+      --print("error return", val, tostring(val))
+      return "Invalid:" .. tostring(val)
+   end
    if ecuCode and ecuMessage[ecuCode] then
       -- could take other actions here e.g. play wav files
       local msg = {ecuMessage[ecuCode].text}
+      --print("normal return", msg)
       return msg
    else
       return "Status" .. tostring(val)

@@ -46,13 +46,13 @@
    Version 0.85
    Version 0.86 07/27/23 - Add extension SwiwinTele.lua
    Version 0.87 08/02/23 - Fix possible null on sensorVal in seq textbox 
-
+   Version 0.88 09/27/23 - Add lua f(x) ext for Kingtech, Projet
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.87
+local InsPVersion = 0.88
 
 local LE
 

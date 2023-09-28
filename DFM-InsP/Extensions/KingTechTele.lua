@@ -19,21 +19,21 @@ local M = {}
 --Stop 2
 --User Off 1
 --Trim Low 0
---Glow Bad 1
---Ign Fail 2
---Timeout 3
---Weak Gas 4
---Start Bad 5
---Low Batt 6
---Overload 7
---Rx Pw Fail 8
---Failsafe 9
---Speed Low 10
---Temp High 11
---Flame Out 12
---CAB Lost 13
---Unknown 19
---Error 20
+--Glow Bad -1
+--Ign Fail -2
+--Timeout -3
+--Weak Gas -4
+--Start Bad -5
+--Low Batt -6
+--Overload -7
+--Rx Pw Fail -8
+--Failsafe -9
+--Speed Low -10
+--Temp High -11
+--Flame Out -12
+--CAB Lost -13
+--Unknown -19
+--Error -20
 
 local ecuMessage = {
 
