@@ -13,7 +13,7 @@
    
 --]]
 
-local F3GVersion = "0.5"
+local F3GVersion = "0.6"
 
 local subForm = 0
 
@@ -284,7 +284,14 @@ local function loop()
    now = system.getTimeCounter()
    early = 5 * ((system.getInputsVal(ctl.pre) or -1) + 1)
 
-   curPos = gps.getPosition(sens.lat.SeId, sens.lat.SePa, sens.lng.SePa)   
+   --print("sens.lat.SeId", sens.lat.SeId, type(sens.lat.SeId))
+   if type(sens.lat.SeId) ~= "number" or type(sens.lat.SePa) ~= "number" then
+      --print("string in SeId, SePa")
+   else
+      --print("Id, Pa", sens.lat.SeId, sens.lat.SePa)
+      curPos = gps.getPosition(sens.lat.SeId, sens.lat.SePa, sens.lng.SePa)
+   end
+   
 
    if curPos then
       if not initPos then
@@ -583,6 +590,7 @@ local function printTele()
 
 end
 
+--[[
 local function elePullCB()
    if elePullLog then
       return elePullLog, 0
@@ -624,6 +632,7 @@ local function logWriteCB(idx)
       end      
    end
 end
+--]]
 
 local function init()
    
@@ -641,6 +650,8 @@ local function init()
       sens[v].Se   = system.pLoad(v.."Se", 0)
       sens[v].SeId = system.pLoad(v.."SeId", 0)
       sens[v].SePa = system.pLoad(v.."SePa", 0)
+      print("sens", v, sens[v].Se, type(sens[v].Se), sens[v].SeId, type(sens[v].SeId), sens[v].SePa,
+	    type(sens[v].SePa))
    end
    
    for i in ipairs(ctl) do
@@ -670,14 +681,14 @@ local function init()
       system.setControl(1, 1, 0)
    end
 
-   system.registerLogVariable("elePullTime", "ms", elePullCB)
+   --system.registerLogVariable("elePullTime", "ms", elePullCB)
    readSensors(telem)
 
-   lvP = system.registerLogVariable("elePullTime", "ms", logWriteCB)
-   lvX = system.registerLogVariable("courseX", "m", logWriteCB)
-   lvY = system.registerLogVariable("courseY", "m", logWriteCB)   
-   lvD = system.registerLogVariable("perpDistA", "m", logWriteCB)
-   lvT = system.registerLogVariable("beep", "s", logWriteCB)
+   --lvP = system.registerLogVariable("elePullTime", "ms", logWriteCB)
+   --lvX = system.registerLogVariable("courseX", "m", logWriteCB)
+   --lvY = system.registerLogVariable("courseY", "m", logWriteCB)   
+   --lvD = system.registerLogVariable("perpDistA", "m", logWriteCB)
+   --lvT = system.registerLogVariable("beep", "s", logWriteCB)
 
    resetFlight()
    

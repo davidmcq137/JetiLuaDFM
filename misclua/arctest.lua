@@ -210,6 +210,6 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="1", name="arctest.lua"}
+return {init=init, loop=loop, author="DFM", version="1", name="arctestname"}
 
 
