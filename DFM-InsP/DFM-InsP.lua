@@ -47,12 +47,14 @@
    Version 0.86 07/27/23 - Add extension SwiwinTele.lua
    Version 0.87 08/02/23 - Fix possible null on sensorVal in seq textbox 
    Version 0.88 09/27/23 - Add lua f(x) ext for Kingtech, Projet
+   Version 0.89 10/27/23 - more f(x) extensions
+
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.88
+local InsPVersion = 0.89
 
 local LE
 
@@ -2955,6 +2957,9 @@ local function printForm(ww0,hh0,tWin)
 	 --print("sensorValNative", sensorValNative)
 	 --setVariables() -- now called from loop()
 	 local modret = lua.modext[widget.modext].func(InsP, sensorVal)
+	 
+	 --print("modret, type", modret, type(modret))
+	       
 	 if type(modret) == "number" then
 	    sensorVal = modret
 	 elseif type(modret) == "table" and type(modret[1]) == "string" then

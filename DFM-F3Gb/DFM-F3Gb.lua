@@ -13,7 +13,7 @@
    
 --]]
 
-local F3GVersion = "0.6"
+local F3GVersion = "0.7"
 
 local subForm = 0
 
@@ -25,43 +25,36 @@ local telem = {
 
 local sens = {
    {var="lat",  label="Latitude"},
-   {var="lng",  label="Longitude"},
-   {var="volt", label="Motor Voltage"},
-   {var="amp",  label="Motor Current"},
-   {var="alt",  label="Altitude"},
+   {var="lng",  label="Longitude"}
 }
 
 local ctl = {
-   {var="thr", label="Throttle"},
-   {var="arm", label="Arming"},
-   {var="ele", label="Elevator"},
-   {var="rst", label="Reset Flight"},
-   {var="pre", label="150 m offset (0-10m)"}
+   {var="arm", label="Arming"}
 }
 
-local elePullTime
-local elePullLog
-local swrLast
+--local elePullTime
+--local elePullLog
+--local swrLast
 local swaLast
 
-local lvP
-local lvX
-local lvY
-local lvD
-local lvT
+--local lvP
+--local lvX
+--local lvY
+--local lvD
+--local lvT
 
-local flightState
-local fs = {Idle=1,MotorOn=2,MotorOff=3,Altitude=4,Ready=5, AtoB=6,BtoA=7, Done=8}
-local fsTxt = {"Idle", "Motor On", "Motor Off", "Altitude", "Ready", "A to B", "B to A", "Done"}
+--local flightState
+--local fs = {Idle=1,MotorOn=2,MotorOff=3,Altitude=4,Ready=5, AtoB=6,BtoA=7, Done=8}
+--local fsTxt = {"Idle", "Motor On", "Motor Off", "Altitude", "Ready", "A to B", "B to A", "Done"}
 local distAB
 local gpsScale
 
-local motorTime
-local motorStart
-local motorPower
-local motorWattSec
-local motorOffTime
-local lastPowerTime
+--local motorTime
+--local motorStart
+--local motorPower
+--local motorWattSec
+--local motorOffTime
+--local lastPowerTime
 local flightTime
 local flightStart
 local flightDone
@@ -114,16 +107,17 @@ local function readSensors(tbl)
 end
 
 local function resetFlight()
-   flightState = fs.Idle
-   motorStart = 0
-   motorTime = 0
-   motorPower = 0
-   motorWattSec = 0
-   flightTime = 0
+   --flightState = fs.Idle
+   --motorStart = 0
+   --motorTime = 0
+   --motorPower = 0
+   --motorWattSec = 0
+   --flightTime = 0
    taskStartTime = nil
-   system.setControl(1,1,0)
+   --system.setControl(1,1,0)
 end
 
+--[[
 local function keyExit(k)
    if k == KEY_5 or k == KEY_ENTER or k == KEY_ESC then
       return true
@@ -131,8 +125,44 @@ local function keyExit(k)
       return false
    end
 end
+--]]
 
 local function keyForm(key)
+   if key == KEY_1 then
+      zeroPos = curPos
+      if zeroPos then
+	 zeroLatString, zeroLngString = gps.getStrig(zeroPos)
+	 system.pSave("zeroLatString", zeroLatString)
+	 system.pSave("zeroLngString", zeroLngString)
+      else
+	 system.messageBox("No Current Position")
+      end
+   elseif key == KEY_2 then
+      if curBear then
+	 rotA = math.rad(curBear-90)
+	 system.pSave("rotA", rotA*1000)
+	 gpsScale = 1.0
+	 system.pSave("gpsScale", gpsScale*1000)
+	 system.messageBox("GPS scale factor reset to 1.0")
+      else
+	 system.messageBox("No Current Position")
+      end
+   elseif key == KEY_3 then
+      resetFlight()
+   elseif key == KEY_4 then
+      if gpsScale ~= 1.0 then
+	 system.messageBox("Do DirB first")
+	 return
+end
+      if curX and curY then
+	 gpsScale = 150.0/math.sqrt(curX^2 + curY^2)
+	 print("curX, gpsScale", curX, curY, gpsScale)
+	 system.pSave("gpsScale", gpsScale*1000)
+      end
+   end
+end
+
+--[[
    if subForm ~= 1 then
       if keyExit(key) then
 	 form.preventDefault()
@@ -174,7 +204,9 @@ local function keyForm(key)
 	 end
       end
    end
-end
+   end
+
+--]]
 
 local function ctlChanged(val, ctbl, v)
    local ss = system.getSwitchInfo(val)
@@ -186,11 +218,13 @@ local function ctlChanged(val, ctbl, v)
    system.pSave(v.."Ctl", ctbl[v])
 end
 
+--[[
 local function changedDist(val)
    distAB = val
    system.pSave("distAB", distAB)
    print("DFM-F3G: gcc " .. collectgarbage("count"))
 end
+--]]
 
 local function telemChanged(val, stbl, v, ttbl)
    stbl[v].Se = val
@@ -204,7 +238,12 @@ end
 local function initForm(sf)
    subForm = sf
    if sf == 1 then
-      form.setTitle("F3G Practice")
+      form.setTitle("F3G Practice/Basic")
+
+      form.setButton(1, "Pt A",  ENABLED)
+      form.setButton(2, "Dir B", ENABLED)
+      form.setButton(3, "Reset", ENABLED)   
+      form.setButton(4, "C 150", ENABLED)
 
       form.addRow(2)
       form.addLabel({label="Telemetry >>", width=220})
@@ -222,6 +261,8 @@ local function initForm(sf)
 	       form.waitForRelease()
       end))      
 
+
+      --[[
       form.addRow(2)
       form.addLabel({label="Course/GPS Setup >>", width=220})
       form.addLink((function()
@@ -229,7 +270,8 @@ local function initForm(sf)
 	       form.reinit(2)
 	       form.waitForRelease()
       end))
-
+      --]]
+      
       --form.addRow(2)
       --form.addLabel({label="Course Length", width=220})      
       --form.addIntbox(distAB, 20, 200, 150, 0, 1, changedDist)
@@ -282,7 +324,7 @@ local function loop()
    local volt, amp
    
    now = system.getTimeCounter()
-   early = 5 * ((system.getInputsVal(ctl.pre) or -1) + 1)
+   --early = 5 * ((system.getInputsVal(ctl.pre) or -1) + 1)
 
    --print("sens.lat.SeId", sens.lat.SeId, type(sens.lat.SeId))
    if type(sens.lat.SeId) ~= "number" or type(sens.lat.SePa) ~= "number" then
@@ -346,6 +388,7 @@ local function loop()
       end
    end
 
+   --[[
    sensor = system.getSensorByID(sens.alt.SeId, sens.alt.SePa)
    if sensor and sensor.valid then
       altitude = sensor.value
@@ -364,11 +407,15 @@ local function loop()
    if volt and amp then
       motorPower = volt * amp
    end
-
-   swt = system.getInputsVal(ctl.thr)
+   --]]
+   
    swa = system.getInputsVal(ctl.arm)
+
+   --[[
+   swt = system.getInputsVal(ctl.thr)
    swe = system.getInputsVal(ctl.ele)   
    swr = system.getInputsVal(ctl.rst)
+   --]]
    
    if (flightZone == 3 and lastFlightZone == 2) or (flightZone == 1 and lastFlightZone == 2) then
       if not swa or swa == 1 then
@@ -376,7 +423,8 @@ local function loop()
 	 print("Beep")
       end
    end
-   
+
+   --[[
    if not swrLast then swrLast = swr end
    if swr and swr == 1 and swrLast == -1 then
       resetFlight()
@@ -426,7 +474,7 @@ local function loop()
 	 system.playFile("/Apps/DFM-F3G/motor_off_wattmin.wav", AUDIO_QUEUE)
       end
    end
-
+   
    if flightState == fs.MotorOff then
       if now > motorOffTime + 10*1000 then
 	 --system.playFile("/Apps/DFM-F3G/start_altitude.wav", AUDIO_QUEUE)
@@ -486,6 +534,7 @@ local function loop()
       taskDone = now - taskStartTime
       --system.playFile("/Apps/DFM-F3G/task_complete.wav", AUDIO_QUEUE)
    end
+   --]]
    
    lastFlightZone = flightZone
 end
@@ -500,6 +549,7 @@ local function yp(y)
    return 160 *(1 -  (y - ymin) / (ymax - ymin))
 end
 
+--[[
 local function drawPylons()
    lcd.drawLine(xp(-50), yp(0), xp(200), yp(0))
    lcd.drawLine(xp(0), yp(-50), xp(0), yp(50))
@@ -510,9 +560,32 @@ local function drawPylons()
       lcd.setColor(0,0,0)
    end
 end
+--]]
 
 local function printTele()
+   local pa
+   local pb
 
+   if perpA then
+      pa = string.format("A %.2f", perpA)
+   else
+      pa = "---"
+   end
+   
+   if perpB then
+      pb = string.format("B %.2f", perpB)
+   else
+      pb = "---"
+   end
+   
+   
+   lcd.drawText(0,0,pa, FONT_MAXI)
+   lcd.drawText(0,35, pb, FONT_MAXI)
+end
+
+--[[
+
+local function printTele()
    local text, text2
    
    if subForm ~= 2 then return end
@@ -522,7 +595,7 @@ local function printTele()
    form.setButton(2, "Dir B", ENABLED)
    form.setButton(3, "Reset", ENABLED)   
    form.setButton(4, "C 150", ENABLED)
-   
+
    lcd.drawText(0,0,"["..fsTxt[flightState].."]")
 
    if flightState ~= fs.Done then
@@ -587,8 +660,9 @@ local function printTele()
 
    lcd.setColor(0,0,0)
    drawPylons()
-
+   
 end
+--]]
 
 --[[
 local function elePullCB()
@@ -641,17 +715,14 @@ local function init()
    --emFlag = select(2, system.getDeviceType()) == 1
    --if emFlag then pf = "" else pf = "/" end
 
-   zeroLatString = system.pLoad("zeroLatString")
-   zeroLngString = system.pLoad("zeroLngString")
-
    for i in ipairs(sens) do
       local v = sens[i].var
       if not sens[v] then sens[v] = {} end
       sens[v].Se   = system.pLoad(v.."Se", 0)
       sens[v].SeId = system.pLoad(v.."SeId", 0)
       sens[v].SePa = system.pLoad(v.."SePa", 0)
-      print("sens", v, sens[v].Se, type(sens[v].Se), sens[v].SeId, type(sens[v].SeId), sens[v].SePa,
-	    type(sens[v].SePa))
+      --print("sens", v, sens[v].Se, type(sens[v].Se), sens[v].SeId, type(sens[v].SeId), sens[v].SePa,
+      --    type(sens[v].SePa))
    end
    
    for i in ipairs(ctl) do
@@ -660,6 +731,9 @@ local function init()
    end
 
    distAB = system.pLoad("distAB", 150)
+
+   zeroLatString = system.pLoad("zeroLatString")
+   zeroLngString = system.pLoad("zeroLngString")
 
    gpsScale = system.pLoad("gpsScale", 1000)
    gpsScale = gpsScale / 1000.0
@@ -671,8 +745,10 @@ local function init()
       zeroPos = gps.newPoint(zeroLatString, zeroLngString)
    end
 
-   system.registerForm(1, MENU_APPS, "F3G", initForm, keyForm, printTele)
-
+   system.registerForm(1, MENU_APPS, "F3Gb", initForm, keyForm)
+   system.registerTelemetry(1, "F3Gb Status", 2, printTele)
+   
+   --[[
    local cc = system.registerControl(1, "Motor Enable", "MOT")
 
    if not cc then
@@ -680,7 +756,8 @@ local function init()
    else
       system.setControl(1, 1, 0)
    end
-
+   --]]
+   
    --system.registerLogVariable("elePullTime", "ms", elePullCB)
    readSensors(telem)
 
