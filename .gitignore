@@ -41,6 +41,7 @@ maps-web/resources/maps/js/
 DFM-InsP/Panels/*.png
 DFM-InsP/Panels/*.json
 DFM-InsP/Panels/*.HTML
+DFM-F3Gb/GPS.jsn
 Gauges/resources/gauges/*.md
 release-output/
 build/bb
