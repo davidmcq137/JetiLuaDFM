@@ -269,7 +269,7 @@ local function getAB()
    local pa, pb
    local z = zeroLatString and zeroLngString   
 
-   if perpA and z then
+   if rotA and perpA and z then
       pa = string.format("A %.2f", perpA)
    else
       pa = "A ---"
