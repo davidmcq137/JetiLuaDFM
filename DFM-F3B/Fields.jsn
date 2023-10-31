@@ -1,6 +1,7 @@
 [
-    {"name":"Field One","Lat":41.340084, "Lng":-74.430816,"rotA":700,"gpsScale":1000},    
-    {"name":"Field Two","Lat":41.341084, "Lng":-74.430816,"rotA":800,"gpsScale":1000},
+    {"name":"Field One","Lat":41.24537, "Lng":-73.75980,"rotA":700,"gpsScale":1000},
+    {"name":"DW Field","Lat":41.24536, "Lng":-73.75955,"LatB":41.24656,"LngB":-73.75872,"gpsScale":1000},
+    {"name":"Field Two","Lat":41.339975, "Lng":-74.430895,"rotA":800,"gpsScale":1000},
     {"name":"Field Three","Lat":43.340584, "Lng":-74.430816,"rotA":900,"gpsScale":1000},    
     {"name":"New York","Lat":40.758000, "Lng":-73.985500,"rotA":-1570.7,"gpsScale":1000},
     {"name":"Paris","Lat":48.858400, "Lng":2.294500,"rotA":-1570.7,"gpsScale":1000},

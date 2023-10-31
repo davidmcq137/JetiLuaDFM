@@ -13,7 +13,7 @@
    
 --]]
 
-local F3BVersion = "1.9"
+local F3BVersion = "1.5"
 
 local telem = {
    Lalist={"..."},
@@ -53,10 +53,24 @@ local dA, dB, dd
 local perpA, perpB
 
 local early = 0
-local gotTelemetry, hasPopped
+local gotTelemetry, gotLast
 
-local highWater = 0
-local forceTeleInit
+local function readSensors(tbl)
+   local sensors = system.getSensors()
+   for _, sensor in ipairs(sensors) do
+      if (sensor.label ~= "") then
+	 if sensor.param == 0 then
+	    table.insert(tbl.Lalist, ">> "..sensor.label)
+	    table.insert(tbl.Idlist, 0)
+	    table.insert(tbl.Palist, 0)
+	 else
+	    table.insert(tbl.Lalist, sensor.label)
+	    table.insert(tbl.Idlist, sensor.id)
+	    table.insert(tbl.Palist, sensor.param)
+	 end
+      end
+   end
+end
 
 local function prefix()
    local pf
@@ -75,14 +89,12 @@ local function keyForm(key)
    elseif key == KEY_2 then
       if curBear then
 	 rotA = math.rad(curBear-90)
+	 --system.pSave("rotA", rotA*1000)
 	 gpsScale = 1.0
 	 system.messageBox("GPS scale factor reset to 1.0")
       else
 	 system.messageBox("No Current Position")
       end
-   elseif key == KEY_3 then
-      system.messageBox("Exit menu to TX main screen")
-      hasPopped = false
    elseif key == KEY_4 then
       if gpsScale ~= 1.0 then
 	 system.messageBox("Do DirB first")
@@ -117,15 +129,31 @@ local function ctlChanged(val, ctbl, v)
    system.pSave(v.."Ctl", ctbl[v])
 end
 
+local function telemChanged(val, stbl, v, ttbl)
+   stbl[v].Se = val
+   stbl[v].SeId = ttbl.Idlist[val]
+   stbl[v].SePa = ttbl.Palist[val]
+   system.pSave(v.."Se",   stbl[v].Se)
+   system.pSave(v.."SeId", stbl[v].SeId)
+   system.pSave(v.."SePa", stbl[v].SePa)
+end
+
 local function initForm(sf)
    if sf == 1 then
       form.setTitle("F3B Practice")
 
       form.setButton(1, "Pt A",  ENABLED)
       form.setButton(2, "Dir B", ENABLED)
-      form.setButton(3, "Fields", ENABLED)      
       form.setButton(4, "C 150", ENABLED)
-      
+
+      for i in ipairs(sens) do
+	 form.addRow(2)
+	 form.addLabel({label=sens[i].label,width=140})
+	 form.addSelectbox(telem.Lalist, sens[sens[i].var].Se, true,
+			   (function(x) return telemChanged(x, sens, sens[i].var, telem) end),
+			   {width=180, alignRight=false})
+      end
+
       for i in ipairs(ctl) do
 	 form.addRow(2)
 	 form.addLabel({label=ctl[i].label, width=220})
@@ -143,6 +171,10 @@ local function initForm(sf)
 	       rotA = nil
 	       curDist = nil
 	       curBear = nil
+	       --curX = nil
+	       --curY = nil
+	       --perpA = nil
+	       --perpB = nil
 	       io.remove(prefix() .. 'Apps/DFM-F3B/GPS.jsn')
 	       system.messageBox("GPS data reset")
 	       form.reinit(1)
@@ -166,67 +198,117 @@ local function rotateXY(xx, yy, rotation)
    return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
 end
 
-local function varCB(ff)
-   local bPos, bearing, distance
-   zeroLatString = ff.Lat
-   zeroLngString = ff.Lng
-   if zeroLatString and zeroLngString then
-      zeroPos = gps.newPoint(zeroLatString, zeroLngString)
+local popRows
+local fields = {}
+
+local function initPop(sf)
+   form.setButton(1, ":down",  ENABLED)
+   form.setButton(2, ":up", ENABLED)
+   form.setButton(4, "Esc", ENABLED)
+
+   local ss
+   for i=1,#fields,1 do
+      form.addRow(5)
+      local b = math.deg(fields[i].rotA/1000) + 90
+      form.addLabel({label=string.format("%-10s", fields[i].name) ,width=70, font=FONT_MINI})
+      form.addLabel({label=string.format("%3.6f°", fields[i].Lat) ,width=70, font=FONT_MINI})
+      form.addLabel({label=string.format("%3.6f°", fields[i].Lng) ,width=70, font=FONT_MINI})
+      form.addLabel({label=string.format("%3.1f°", b), width=60, font=FONT_MINI})
+      if fields[i].dist then
+	 if fields[i].dist < 1000 then
+	    ss = string.format("%3d m", fields[i].dist)
+	 else
+	    ss = ">1km"
+	 end
+      else
+	 ss = "---"
+      end
+      form.addLabel({label=string.format("%5s", ss), width=60, font=FONT_MINI, alignRight=true})      
+      
    end
-   if ff.gpsScale then -- in case no gpsScale
-      gpsScale = ff.gpsScale / 1000.0
+   form.setFocusedRow(1)
+   popRows = #fields
+end
+
+local function keyPop(key)
+   
+   if key == KEY_UP or key == KEY_1 then
+      --print("DOWN")
+      form.preventDefault()
+      local r = form.getFocusedRow()
+      r = math.min(r + 1, popRows)
+      form.setFocusedRow(r)
+   elseif key == KEY_DOWN or key == KEY_2 then
+      --print("UP")
+      form.preventDefault()
+      local r = form.getFocusedRow()
+      r = math.max(r - 1, 1)
+      form.setFocusedRow(r)
+   elseif key == KEY_ESC or key == KEY_4 then
+      --print("key ESC")
+      form.preventDefault()
+      system.messageBox("No field selected from table")
+      form.close(2)
+   elseif key == KEY_ENTER or key == KEY_5 then
+      --print("key ENTER or 5")
+      form.preventDefault()
+      local fr = form.getFocusedRow()
+      --print("exiting with focrow", fr)
+      --select the row from the table here
+      if fr >= 1 and fr <= #fields then
+	 system.messageBox("Selecting field " .. fields[fr].name)
+	 zeroLatString = fields[fr].Lat
+	 zeroLngString = fields[fr].Lng
+	 gpsScale = fields[fr].gpsScale / 1000.0
+	 rotA = fields[fr].rotA / 1000.0
+      end
+      
+      form.close(2)
+   end
+   
+end
+
+local function fieldPop()
+   --print("fieldPop")
+   local pos
+   local jtext = io.readall(prefix() .. 'Apps/DFM-F3B/Fields.jsn')
+   if jtext then
+      fields = json.decode(jtext)
+      if fields then
+	 --print("#fields", #fields, fields[1].name, fields[1].Lat,fields[1].Lng, type(fields[1].Lat))
+      else
+	 return
+      end
+      for i = 1, #fields, 1 do
+	 pos = gps.newPoint(fields[i].Lat, fields[i].Lng)
+	 if pos and curPos then
+	    fields[i].dist = gps.getDistance(pos, curPos)
+	 end
+      end
+      --sort fields table by distance to current position
+      table.sort(fields, (function(a,b) return a.dist < b.dist end))
    else
-      gpsScale = 1.0
+      return
    end
-   -- if rotA is specified, it is x1000
-   -- if LatB and LngB are specified as point B it overrides rotA
-   -- (if both are specified)
-   if ff.rotA then
-      rotA = ff.rotA / 1000.0
-   elseif ff.LatB and ff.LngB then
-      bPos = gps.newPoint(ff.LatB, ff.LngB)
-      distance = gps.getDistance(zeroPos, bPos)
-      bearing = gps.getBearing(zeroPos, bPos)
-      rotA = math.rad(bearing-90)
-      --print("d,b,r", distance, bearing, rotA)
-   else
-      rotA = 0
-   end
+   system.registerForm(2, 0, "Field selection", initPop, keyPop)
 end
 
 local function loop()
-
-   local gcc = collectgarbage("count")
-   if gcc > highWater then
-      highWater = gcc
-      --print("gcc loop highWater", gcc)
-   end
    
-   local swa, latS, lngS
+   local swa
    
-   if sens.lat.SeId and sens.lat.SePa and sens.lng.SePa then
-      local lt, lg
-      latS = system.getSensorValueByID(sens.lat.SeId, sens.lat.SePa)
-      lngS = system.getSensorValueByID(sens.lng.SeId, sens.lng.SePa)
-      if latS and lngS and latS.valid and lngS.valid then
-	 curPos = gps.getPosition(sens.lat.SeId, sens.lat.SePa, sens.lng.SePa)
-	 lt, lg = gps.getValue(curPos)
-      else
-	 curPos = nil
-      end
-      if curPos and (lt ~= 0) and (lg ~= 0) then gotTelemetry = true end
+   if type(sens.lat.SeId) == "number" and type(sens.lat.SePa) == "number" then
+      curPos = gps.getPosition(sens.lat.SeId, sens.lat.SePa, sens.lng.SePa)
+      if curPos then gotTelemetry = true end
    else
       gotTelemetry = false
    end
 
-   if gotTelemetry and not hasPopped and not form.getActiveForm() then
-      local M = require "DFM-F3B/fieldPopUp"
-      M.fieldPopUp(curPos, varCB)
-      M = nil
-      package.loaded["DFM-F3B/fieldPopUp"] = false
-      collectgarbage()
-      hasPopped = true
+   if gotTelemetry and not gotLast then
+      fieldPop()
    end
+   
+   gotLast = gotTelemetry
    
    if curPos and zeroPos then
       if not initPos then
@@ -290,18 +372,14 @@ local function getAB()
    local pa, pb
    local z = zeroLatString and zeroLngString   
 
-   if rotA and perpA and z and math.abs(perpA) < 1000 then
+   if rotA and perpA and z then
       pa = string.format("A %.2f", perpA)
-   elseif perpA and math.abs(perpA) >= 1000 then
-      pa = "A > 1 km"
    else
       pa = "A ---"
    end
    
-   if rotA and perpB and z and math.abs(perpB) < 1000 then
+   if rotA and perpB and z then
       pb = string.format("B %.2f", perpB)
-   elseif perpB and math.abs(perpB) >= 1000 then
-      pb = "B > 1 km"
    else
       pb = "B ---"
    end
@@ -329,63 +407,24 @@ local function formTele()
    lcd.drawText(10,100, pa .. "  "..pb)
 end
 
-local xmin, xmax = -110, 290
-local ymin, ymax =  -80, 120
-
-local function xp(x)
-   return 320 * (x - xmin) / (xmax - xmin)
-end
-
-local function yp(y)
-   return 160 *(1 -  (y - ymin) / (ymax - ymin))
-end
-
-local function fullTele()
-   lcd.setColor(0,0,0)
-   lcd.drawLine(xp(-50), yp(0), xp(200), yp(0))
-   lcd.drawLine(xp(0), yp(-50), xp(0), yp(110))
-   --lcd.setColor(200,200,200)
-   --lcd.drawLine(xp(150), yp(-10), xp(150), yp(130))
-   lcd.drawLine(xp(150), yp(-50), xp(150), yp(110))
-   lcd.drawText(xp(0) - 4, yp(-50), "A")
-   lcd.drawText(xp(150) - 4, yp(-50), "B")
-   if curX and curY then
-      lcd.drawFilledRectangle(xp(curX)-3, yp(curY)-3, 6, 6)
-      local ss
-      ss = string.format("X: %3d", curX)
-      lcd.drawText(10, 115, ss)
-      ss = string.format("Y: %3d", curY)
-      lcd.drawText(10, 135, ss)
-   end
-end
-
 local function printTele()
    local pa
    local pb
    pa, pb = getAB()
    lcd.drawText(0,0,pa, FONT_MAXI)
-   lcd.drawText(0,30, pb, FONT_MAXI)
+   lcd.drawText(0,35, pb, FONT_MAXI)
 end
 
 local function init()
-
-   local p1, p2
-   p1, p2 = system.getInputs("P1", "P2")
-
-   if p1 < -0.8 and p2 < -0.8 then forceTeleInit = true else forceTeleInit = false end
-
-   local gotSe = 0
    
    for i in ipairs(sens) do
       local v = sens[i].var
       if not sens[v] then sens[v] = {} end
-      sens[v].Se = system.pLoad(v.."Se", 0)
+      sens[v].Se   = system.pLoad(v.."Se", 0)
       sens[v].SeId = system.pLoad(v.."SeId", 0)
       sens[v].SePa = system.pLoad(v.."SePa", 0)
-      --print(i, sens[v].Se, sens[v].SeId, sens[v].SePa)
-      if sens[v].SeId ~= 0 and sens[v].SePa ~= 0 then gotSe = gotSe + 1 end
    end
-
+   
    for i in ipairs(ctl) do
       local v = ctl[i].var
       ctl[v] = system.pLoad(v.."Ctl")
@@ -417,25 +456,13 @@ local function init()
 
    system.registerForm(1, MENU_APPS, "F3B", initForm, keyForm, formTele)
    system.registerTelemetry(1, "F3B Status", 2, printTele)
-   system.registerTelemetry(2, "F3B Map", 4, fullTele)   
 
    gotTelemetry = false
-   hasPopped = false
+   gotLast = false
+   
+   readSensors(telem)
 
-   local M = require "DFM-F3B/readSensors"
-
-   if gotSe < #sens or forceTeleInit then
-      M.readSensors(sens)
-   else
-      M.readSensors()
-   end
-
-   M = nil
-   package.loaded["DFM-F3B/readSensors"] = false
-
-   collectgarbage()
-
-   print("DFM-F3B init: gcc " .. collectgarbage("count"))
+   print("DFM-F3B: gcc " .. collectgarbage("count"))
 
 end
 --------------------------------------------------------------------------------
