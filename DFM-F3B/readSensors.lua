@@ -36,7 +36,7 @@ end
 function M.readSensors(sens)
 
    local sensors = system.getSensors()
-   print("gcc read", collectgarbage("count"))
+   print("DFM-F3B/readSensors: gcc: ", collectgarbage("count"))
    if not sens then return end -- for emulator, have to  call system.getSensors() to wake it up
    
    for _, sensor in ipairs(sensors) do

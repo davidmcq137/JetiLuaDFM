@@ -291,7 +291,7 @@ local function getAB()
    local z = zeroLatString and zeroLngString   
 
    if rotA and perpA and z and math.abs(perpA) < 1000 then
-      pa = string.format("A %.2f", perpA)
+      pa = string.format("A %.1f", perpA)
    elseif perpA and math.abs(perpA) >= 1000 then
       pa = "A > 1 km"
    else
@@ -299,7 +299,7 @@ local function getAB()
    end
    
    if rotA and perpB and z and math.abs(perpB) < 1000 then
-      pb = string.format("B %.2f", perpB)
+      pb = string.format("B %.1f", perpB)
    elseif perpB and math.abs(perpB) >= 1000 then
       pb = "B > 1 km"
    else
@@ -340,6 +340,14 @@ local function yp(y)
    return 160 *(1 -  (y - ymin) / (ymax - ymin))
 end
 
+local function xTele(x0, y0)
+   local pa
+   local pb
+   pa, pb = getAB()
+   lcd.drawText(x0+0,y0+0,pa, FONT_MAXI)
+   lcd.drawText(x0+0,y0+30, pb, FONT_MAXI)
+end
+
 local function fullTele()
    lcd.setColor(0,0,0)
    lcd.drawLine(xp(-50), yp(0), xp(200), yp(0))
@@ -349,7 +357,7 @@ local function fullTele()
    lcd.drawLine(xp(150), yp(-50), xp(150), yp(110))
    lcd.drawText(xp(0) - 4, yp(-50), "A")
    lcd.drawText(xp(150) - 4, yp(-50), "B")
-   if curX and curY then
+   if curX and curY and curX >= xmin and curX <= xmax and curY >= ymin and curY <= ymax then
       lcd.drawFilledRectangle(xp(curX)-3, yp(curY)-3, 6, 6)
       local ss
       ss = string.format("X: %3d", curX)
@@ -357,14 +365,11 @@ local function fullTele()
       ss = string.format("Y: %3d", curY)
       lcd.drawText(10, 135, ss)
    end
+   xTele(90, 0)
 end
 
 local function printTele()
-   local pa
-   local pb
-   pa, pb = getAB()
-   lcd.drawText(0,0,pa, FONT_MAXI)
-   lcd.drawText(0,30, pb, FONT_MAXI)
+   xTele(0,0)
 end
 
 local function init()
@@ -435,7 +440,7 @@ local function init()
 
    collectgarbage()
 
-   print("DFM-F3B init: gcc " .. collectgarbage("count"))
+   print("DFM-F3B/init: gcc " .. collectgarbage("count"))
 
 end
 --------------------------------------------------------------------------------

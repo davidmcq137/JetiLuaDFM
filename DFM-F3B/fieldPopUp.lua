@@ -104,7 +104,7 @@ function M.fieldPopUp(curPos, CB)
    end
    system.registerForm(2, 0, "Field selection", (function(x) return initPop(x, curPos) end),
 		       (function(x) return keyPop(x,CB) end))
-   print("gcc pop", collectgarbage("count"))
+   print("DFM-F3B/fieldPopUp: gcc ", collectgarbage("count"))
 end
 
 return M
