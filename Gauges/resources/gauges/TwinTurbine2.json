@@ -1,0 +1,1198 @@
+{
+  "panel": [
+    {
+      "tickFont": "Normal",
+      "yL": 109.9,
+      "min": 0,
+      "ro": 61,
+      "xL": 65,
+      "colorvals": [
+        {
+          "color": "red",
+          "val": 45
+        },
+        {
+          "color": "green",
+          "val": 160
+        }
+      ],
+      "y0": 71,
+      "rgbInnerFillColor": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "label": "RPM Left",
+      "max": 160,
+      "radius": 83,
+      "TS": 30.021759999999997,
+      "x0": 65,
+      "majdivs": 4,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "divs": 32,
+      "labelFont": "Mini",
+      "subdivs": 8,
+      "tickLabels": [
+        {
+          "rt": 30.021759999999997,
+          "ca": -0.7071067811865477,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": -0.9238795325112867,
+          "sa": -0.3826834323650899,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 6.123233995736766e-17,
+          "sa": -1,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 0.9238795325112867,
+          "sa": -0.3826834323650898,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 0.7071067811865476,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        }
+      ],
+      "tickDigits": "Auto",
+      "value": 0,
+      "tickSpace": 62,
+      "xV": 65,
+      "ri": 46.36,
+      "start": -135,
+      "needleColor": "red",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "yV": 107.6,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 61,
+      "valDigits": 0,
+      "valueFont": "None",
+      "needleTrim": 0,
+      "labelColor": "Red",
+      "end": 135,
+      "arcWidth": 24,
+      "needleType": "needle",
+      "labelPosY": -16,
+      "faceVis": "on",
+      "scaleVis": "on"
+    },
+    {
+      "yL": 170.375,
+      "width": 100,
+      "backColor": "yellowgreen",
+      "xL": 65,
+      "height": 51,
+      "y0": 148,
+      "label": "Status Left",
+      "x0": 65,
+      "tBoxHgt": 25.5,
+      "labelFont": "None",
+      "value": 2,
+      "labelcolor": "white",
+      "tBoxWid": 100,
+      "xV": 65,
+      "text": [
+        "Trim Low",
+        "Run"
+      ],
+      "textFont": "Normal",
+      "type": "sequencedTextBox",
+      "yV": 148,
+      "textcolor": "black",
+      "bezelColor": "transparent",
+      "labelPosX": 0,
+      "labelPosY": 0
+    },
+    {
+      "tickFont": "Normal",
+      "yL": 121.9,
+      "min": 0,
+      "ro": 61,
+      "xL": 65,
+      "colorvals": [
+        {
+          "color": "red",
+          "val": 45
+        },
+        {
+          "color": "green",
+          "val": 160
+        }
+      ],
+      "y0": 71,
+      "rgbInnerFillColor": {
+        "r": 0,
+        "g": 128,
+        "b": 0,
+        "t": "false"
+      },
+      "label": "RPM Right",
+      "max": 160,
+      "radius": 83,
+      "TS": 30.021759999999997,
+      "x0": 65,
+      "majdivs": 4,
+      "rgbLabelColor": {
+        "r": 0,
+        "g": 128,
+        "b": 0,
+        "t": "false"
+      },
+      "divs": 32,
+      "labelFont": "Mini",
+      "subdivs": 8,
+      "tickLabels": [
+        {
+          "rt": 30.021759999999997,
+          "ca": -0.7071067811865477,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": -0.9238795325112867,
+          "sa": -0.3826834323650899,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 6.123233995736766e-17,
+          "sa": -1,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 0.9238795325112867,
+          "sa": -0.3826834323650898,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 0.7071067811865476,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        }
+      ],
+      "tickDigits": "Auto",
+      "value": 17.6,
+      "tickSpace": 62,
+      "xV": 65,
+      "ri": 46.36,
+      "start": -135,
+      "needleColor": "green",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -2.92,
+          "y": 30.16
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 2.92,
+          "y": 30.16
+        }
+      ],
+      "yV": 107.6,
+      "inner": [
+        {
+          "x": -1.96,
+          "y": 30.16
+        },
+        {
+          "x": -1,
+          "y": 48
+        },
+        {
+          "x": 1,
+          "y": 48
+        },
+        {
+          "x": 1.96,
+          "y": 30.16
+        }
+      ],
+      "gaugeRadius": 61,
+      "valDigits": 0,
+      "valueFont": "None",
+      "needleTrim": 52,
+      "labelColor": "green",
+      "end": 135,
+      "arcWidth": 24,
+      "needleType": "needleTrim",
+      "labelPosY": -4,
+      "faceVis": "off",
+      "scaleVis": "off"
+    },
+    {
+      "yL": 170.375,
+      "width": 100,
+      "backColor": "yellowgreen",
+      "xL": 255,
+      "height": 51,
+      "y0": 148,
+      "label": "Status Right",
+      "x0": 255,
+      "tBoxHgt": 25.5,
+      "labelFont": "None",
+      "value": 2,
+      "labelcolor": "white",
+      "tBoxWid": 100,
+      "xV": 255,
+      "text": [
+        "Trim Low",
+        "Run"
+      ],
+      "textFont": "Normal",
+      "type": "sequencedTextBox",
+      "yV": 148,
+      "textcolor": "black",
+      "bezelColor": "transparent",
+      "labelPosX": 0,
+      "labelPosY": 0
+    },
+    {
+      "labeltopbot": "bottom",
+      "tickFont": "Mini",
+      "yL": 151,
+      "min": 0,
+      "width": 70,
+      "backColor": "black",
+      "vbarLabels": [
+        {
+          "y": 141,
+          "x": 127.33333333333333
+        },
+        {
+          "y": 110.5,
+          "x": 127.33333333333333
+        },
+        {
+          "y": 80,
+          "x": 127.33333333333333
+        },
+        {
+          "y": 49.5,
+          "x": 127.33333333333333
+        },
+        {
+          "y": 19,
+          "x": 127.33333333333333
+        }
+      ],
+      "xL": 139,
+      "height": 157,
+      "colorvals": [
+        {
+          "color": "yellow",
+          "val": 400
+        },
+        {
+          "color": "green",
+          "val": 650
+        },
+        {
+          "color": "red",
+          "val": 800
+        }
+      ],
+      "y0": 80,
+      "label": "EGT L",
+      "max": 800,
+      "x0": 139,
+      "majdivs": 4,
+      "divs": 16,
+      "labelFont": "Mini",
+      "subdivs": 4,
+      "tickDigits": 0,
+      "rgbBezelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "value": 288,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "rects": [
+        {
+          "y": 133.375,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 125.75,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 118.125,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 110.5,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 102.875,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 95.25,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 87.625,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 80,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 72.375,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 64.75,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 57.125,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 49.5,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 41.875,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 34.25,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        },
+        {
+          "y": 26.625,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        },
+        {
+          "y": 19,
+          "x": 133.16666666666666,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        }
+      ],
+      "type": "verticalBar",
+      "labelside": "right",
+      "barH": 122,
+      "barW": 11.666666666666668,
+      "bezelColor": "transparent",
+      "labelPosX": 0,
+      "labelPosY": 0
+    },
+    {
+      "labeltopbot": "bottom",
+      "tickFont": "None",
+      "yL": 151,
+      "min": 0,
+      "width": 70,
+      "backColor": "black",
+      "vbarLabels": [
+        {
+          "y": 141,
+          "x": 164.33333333333334
+        },
+        {
+          "y": 110.5,
+          "x": 164.33333333333334
+        },
+        {
+          "y": 80,
+          "x": 164.33333333333334
+        },
+        {
+          "y": 49.5,
+          "x": 164.33333333333334
+        },
+        {
+          "y": 19,
+          "x": 164.33333333333334
+        }
+      ],
+      "xL": 176,
+      "height": 157,
+      "colorvals": [
+        {
+          "color": "yellow",
+          "val": 400
+        },
+        {
+          "color": "green",
+          "val": 650
+        },
+        {
+          "color": "red",
+          "val": 800
+        }
+      ],
+      "y0": 80,
+      "label": "EGT R",
+      "max": 800,
+      "x0": 176,
+      "majdivs": 4,
+      "divs": 16,
+      "labelFont": "Mini",
+      "subdivs": 4,
+      "tickDigits": 0,
+      "rgbBezelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "value": 120,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "rects": [
+        {
+          "y": 133.375,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 125.75,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 118.125,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 110.5,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 102.875,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 95.25,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 87.625,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 80,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "y": 72.375,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 64.75,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 57.125,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 49.5,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 41.875,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 34.25,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        },
+        {
+          "y": 26.625,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        },
+        {
+          "y": 19,
+          "x": 170.16666666666669,
+          "h": 7.625,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        }
+      ],
+      "type": "verticalBar",
+      "labelside": "left",
+      "barH": 122,
+      "barW": 11.666666666666668,
+      "bezelColor": "transparent",
+      "labelPosX": 0,
+      "labelPosY": 0
+    },
+    {
+      "labeltopbot": "bottom",
+      "tickFont": "Mini",
+      "yL": 127,
+      "min": 0,
+      "width": 70,
+      "backColor": "black",
+      "spectrum": [
+        "green"
+      ],
+      "vbarLabels": [
+        {
+          "y": 117,
+          "x": 192.33333333333334
+        },
+        {
+          "y": 97.4,
+          "x": 192.33333333333334
+        },
+        {
+          "y": 77.8,
+          "x": 192.33333333333334
+        },
+        {
+          "y": 58.199999999999996,
+          "x": 192.33333333333334
+        },
+        {
+          "y": 38.599999999999994,
+          "x": 192.33333333333334
+        },
+        {
+          "y": 19,
+          "x": 192.33333333333334
+        }
+      ],
+      "xL": 204,
+      "height": 133,
+      "y0": 68,
+      "label": "Pump L",
+      "max": 10,
+      "x0": 204,
+      "majdivs": 5,
+      "divs": 5,
+      "labelFont": "Mini",
+      "subdivs": 1,
+      "tickDigits": 0,
+      "rgbBezelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "value": 2.2,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "rects": [
+        {
+          "y": 97.4,
+          "x": 198.16666666666669,
+          "h": 19.6,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 77.80000000000001,
+          "x": 198.16666666666669,
+          "h": 19.6,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 58.199999999999996,
+          "x": 198.16666666666669,
+          "h": 19.6,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 38.599999999999994,
+          "x": 198.16666666666669,
+          "h": 19.6,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 18.999999999999993,
+          "x": 198.16666666666669,
+          "h": 19.6,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        }
+      ],
+      "type": "verticalBar",
+      "labelside": "right",
+      "barH": 98,
+      "barW": 11.666666666666668,
+      "bezelColor": "transparent",
+      "labelPosX": 0,
+      "labelPosY": 0
+    },
+    {
+      "labeltopbot": "bottom",
+      "tickFont": "None",
+      "yL": 127,
+      "min": 0,
+      "width": 70,
+      "backColor": "black",
+      "spectrum": [
+        "green"
+      ],
+      "vbarLabels": [
+        {
+          "y": 117,
+          "x": 226.33333333333334
+        },
+        {
+          "y": 97.4,
+          "x": 226.33333333333334
+        },
+        {
+          "y": 77.8,
+          "x": 226.33333333333334
+        },
+        {
+          "y": 58.199999999999996,
+          "x": 226.33333333333334
+        },
+        {
+          "y": 38.599999999999994,
+          "x": 226.33333333333334
+        },
+        {
+          "y": 19,
+          "x": 226.33333333333334
+        }
+      ],
+      "xL": 238,
+      "height": 133,
+      "y0": 68,
+      "label": "Pmp R",
+      "max": 10,
+      "x0": 238,
+      "majdivs": 5,
+      "divs": 5,
+      "labelFont": "Mini",
+      "subdivs": 1,
+      "tickDigits": 0,
+      "rgbBezelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "value": 0.7,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "rects": [
+        {
+          "y": 97.4,
+          "x": 232.16666666666669,
+          "h": 19.6,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 77.80000000000001,
+          "x": 232.16666666666669,
+          "h": 19.6,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 58.199999999999996,
+          "x": 232.16666666666669,
+          "h": 19.6,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 38.599999999999994,
+          "x": 232.16666666666669,
+          "h": 19.6,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 18.999999999999993,
+          "x": 232.16666666666669,
+          "h": 19.6,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        }
+      ],
+      "type": "verticalBar",
+      "labelside": "right",
+      "barH": 98,
+      "barW": 11.666666666666668,
+      "bezelColor": "transparent",
+      "labelPosX": 0,
+      "labelPosY": 0
+    },
+    {
+      "labeltopbot": "bottom",
+      "tickFont": "Mini",
+      "yL": 127,
+      "min": 6,
+      "width": 70,
+      "backColor": "black",
+      "vbarLabels": [
+        {
+          "y": 117,
+          "x": 260.3333333333333
+        },
+        {
+          "y": 84.33333333333334,
+          "x": 260.3333333333333
+        },
+        {
+          "y": 51.66666666666667,
+          "x": 260.3333333333333
+        },
+        {
+          "y": 19,
+          "x": 260.3333333333333
+        }
+      ],
+      "xL": 272,
+      "height": 133,
+      "colorvals": [
+        {
+          "color": "red",
+          "val": 7
+        },
+        {
+          "color": "green",
+          "val": 9
+        }
+      ],
+      "y0": 68,
+      "label": "Batt L",
+      "max": 9,
+      "x0": 272,
+      "majdivs": 3,
+      "divs": 3,
+      "labelFont": "Mini",
+      "subdivs": 1,
+      "tickDigits": 0,
+      "rgbBezelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "value": 8.1,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "rects": [
+        {
+          "y": 84.33333333333334,
+          "x": 266.16666666666663,
+          "h": 32.666666666666664,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        },
+        {
+          "y": 51.66666666666668,
+          "x": 266.16666666666663,
+          "h": 32.666666666666664,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 19.000000000000007,
+          "x": 266.16666666666663,
+          "h": 32.666666666666664,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        }
+      ],
+      "type": "verticalBar",
+      "labelside": "right",
+      "barH": 98,
+      "barW": 11.666666666666668,
+      "bezelColor": "transparent",
+      "labelPosX": 0,
+      "labelPosY": 0
+    },
+    {
+      "labeltopbot": "bottom",
+      "tickFont": "None",
+      "yL": 127,
+      "min": 6,
+      "width": 70,
+      "backColor": "black",
+      "vbarLabels": [
+        {
+          "y": 117,
+          "x": 289.3333333333333
+        },
+        {
+          "y": 84.33333333333334,
+          "x": 289.3333333333333
+        },
+        {
+          "y": 51.66666666666667,
+          "x": 289.3333333333333
+        },
+        {
+          "y": 19,
+          "x": 289.3333333333333
+        }
+      ],
+      "xL": 301,
+      "height": 133,
+      "colorvals": [
+        {
+          "color": "red",
+          "val": 7
+        },
+        {
+          "color": "green",
+          "val": 9
+        }
+      ],
+      "y0": 68,
+      "label": "Batt R",
+      "max": 9,
+      "x0": 301,
+      "majdivs": 3,
+      "divs": 3,
+      "labelFont": "Mini",
+      "subdivs": 1,
+      "tickDigits": 0,
+      "rgbBezelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "value": 8.55,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "rects": [
+        {
+          "y": 84.33333333333334,
+          "x": 295.16666666666663,
+          "h": 32.666666666666664,
+          "w": 11.666666666666668,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        },
+        {
+          "y": 51.66666666666668,
+          "x": 295.16666666666663,
+          "h": 32.666666666666664,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "y": 19.000000000000007,
+          "x": 295.16666666666663,
+          "h": 32.666666666666664,
+          "w": 11.666666666666668,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        }
+      ],
+      "type": "verticalBar",
+      "labelside": "right",
+      "barH": 98,
+      "barW": 11.666666666666668,
+      "bezelColor": "transparent",
+      "labelPosX": 0,
+      "labelPosY": 0
+    }
+  ],
+  "doc-md": "The point of interest in this panel is the sequenced text box which can be\nmade to state the position of the trim or throttle lock switch, such as\n“Trim Low” and “Engine Run”. You can do the same thing on other panels to\nshow, for instance the position of a throttle lock switch for electrics,\nthe choke switch for petrol (gas) engines, etc.\n\nThe length of the following text will make it seem that this is a difficult\nsubject but the length of the text is just to give space to explain fully\nwhat is happening and how to understand sequenced text boxes in general,\nrather than just give a few lines on how to set it for this particular\npanel. For a visual example see the training video on Harry Curzon’s\nYoutube channel.\n\nThe text shown in the edit panel for the sequenced text box on the website\ndoes not matter because you can edit it totally in the app on the\ntransmitter, in fact you can have a blank in the text on the website and\ninsert whatever text you want, per model, in the Tx.\n\nThe basis of the sequenced text box is that each line of text corresponds\nto its line number. Therefore the line numbers start at 1 and go upwards.\nThe input from telemetry, control or LUA states a number, and the sequenced\ntext box will display the text from the matching line number. For example,\nif the input is the number 2, then the seq txt box will display the text\nfrom line 2.\n\nThe following all relates to the app on the Tx, not to the website panel\nbuilder.\n\nWe can use this to display the position of the switch or trims, however we\ncannot simply set the Widget Input Source as Control and choose the trim or\nswitch. Jeti trims or switches output from minus 100% through 0% at\ncentre, to +100%. These translate to the numbers -1, 0, +1, so if we set\nthe Widget Input Source as a Control and choose the switch or trims, the\nseq txt box will not understand minus 1 or 0 as there are no corresponding\nline numbers. We need to add 2 to the switch output so that minus 1, 0 and\nplus 1 become plus 1, 2, and 3, then the seq txt box can find those line\nnumbers.\n\nGo to LUA variables and set a variable as a Control, then set the switch,\ntrim etc as its source. In the Inputs menu, set the Widget Input Source as\nLUA, in Edit LUA simply select the variable then move the control to\nconfirm it is working and the Lua value shown should move between the minus\n1, 0 and plus 1 values (no zero value if you are using a 2 position\ncontrol). Then finally in the Lua f(x) extension menu choose\nSwitch2Seq_value(). That step does the adding 2 to the switch value for\nyou. (Or you can do it manually by adding 2 to the variable in the Edit\nLua menu and not select a Lua f(x) extension!)\n\nFinally, add or edit the text to suit the trim/switch positions. If you\nset a turbine throttle trim to one step from centre to forward only, then\nthe Lua will output 2 and 3, since trim position minus 100%, or minus 1, is\nnot used. In that case simply put any useless text in line 1 as the app\nwill never go to it! (Or do what I do, do not use the extension, simply\nwrite your own line of variable+1 in the Edit Lua menu, because 0 and 1\nwill become 1 and 2 and then I need only write lines 1 and 2 in the seq txt\nbox).\n\nGo to the Edit Panel menu, press F1 Select until the seq txt box is chosen,\npress F2 until Text is selected, press F4 Edit and you will be able to\nedit, add, delete lines of text. For example in mine line 1 is Trim Low\nand line 2 is Run. With my trim outputting 0 and 1, and the Lua adding 1\nto convert that to 1 and 2, trim centre will pick line 1 “Trim Low” for the\ndisplay, and trim forward will pick line 2 “Run” for the display. If you\nfind the text that is displayed is the wrong way around it is simply that\nthe switch is outputting plus 1 and minus 1 at opposite ends to what you\nexpected so just edit the order of the text in the lines in the editor.\n\n",
+  "timestamp": "2023-11-21T13:02:33.944Z"
+}

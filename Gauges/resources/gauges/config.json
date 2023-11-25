@@ -19,7 +19,9 @@
 	"RickDFive":     {"file": "RickDFive.json"},
 	"CBHarryDial":   {"file": "CBHarryDial.json"},
 	"HarryElectric": {"file": "HarryElectric.json"},
-	"TurbineHarry2": {"file": "TurbineHarry2.json"}
+	"TurbineHarry2": {"file": "TurbineHarry2.json"},
+	"TwinTurbine1":  {"file": "TwinTurbine1.json"},
+	"TwinTurbine2":  {"file": "TwinTurbine2.json"}	
     },
 
     "prototypes": {

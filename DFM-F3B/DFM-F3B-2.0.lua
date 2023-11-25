@@ -13,14 +13,13 @@
    
 --]]
 
-local F3BVersion = "2.1"
+local F3BVersion = "2.0"
 
---[[local telem = {
+local telem = {
    Lalist={"..."},
    Idlist={"..."},
    Palist={"..."}
 }
---]]
 
 local sens = {
    {var="lat",  label="Latitude"},
@@ -31,7 +30,7 @@ local ctl = {
    {var="arm", label="Arming"}
 }
 
-local distAB = 150
+local distAB
 local gpsScale
 
 local flightZone
@@ -57,7 +56,7 @@ local early = 0
 local gotTelemetry, hasPopped
 
 local highWater = 0
---local forceTeleInit
+local forceTeleInit
 
 local function prefix()
    local pf
@@ -220,9 +219,7 @@ local function loop()
       gotTelemetry = false
    end
 
-   
    if gotTelemetry and not hasPopped and not form.getActiveForm() then
-      --print("calling fieldPopUp")
       local M = require "DFM-F3B/fieldPopUp"
       M.fieldPopUp(curPos, varCB)
       M = nil
@@ -378,9 +375,7 @@ local function printTele()
 end
 
 local function init()
-   
 
-   --[[
    local p1, p2
    p1, p2 = system.getInputs("P1", "P2")
 
@@ -403,6 +398,7 @@ local function init()
       ctl[v] = system.pLoad(v.."Ctl")
    end
 
+   distAB = 150
 
    local jtext = io.readall(prefix() .. 'Apps/DFM-F3B/GPS.jsn')
 
@@ -425,8 +421,7 @@ local function init()
    if zeroLatString and zeroLngString then
       zeroPos = gps.newPoint(zeroLatString, zeroLngString)
    end
-   ---]]
-   
+
    system.registerForm(1, MENU_APPS, "F3B", initForm, keyForm, formTele)
    system.registerTelemetry(1, "F3B Status", 2, printTele)
    --[[
@@ -436,27 +431,17 @@ local function init()
    gotTelemetry = false
    hasPopped = false
 
-   local gotSe
-   
-   local M = require "DFM-F3B/initVars"
-   zeroLatString, zeroLngString, gpsScale, rotA, zeroPos, gotSe = M.initVars(sens, ctl)
-   package.loaded["DFM-F3B/initVars"] = false
-   M = nil
+   local M = require "DFM-F3B/readSensors"
 
-   if gotSe < #sens then
-      M = require "DFM-F3B/readSensors"
-      local tbl = M.readSensors()
-      M = nil
-      package.loaded["DFM-F3B/readSensors"] = false
-      
-      M = require "DFM-F3B/initSensors"
-      M.initSensors(sens, tbl)
-      M = nil
-      package.loaded["DFM-F3B/initSensors"] = false
-   else -- force init call when using sensor emulator
-      if (select(2, system.getDeviceType()) == 1) then system.getSensors() end
+   if gotSe < #sens or forceTeleInit then
+      M.readSensors(sens)
+   else
+      M.readSensors()
    end
-   
+
+   M = nil
+   package.loaded["DFM-F3B/readSensors"] = false
+
    collectgarbage()
 
    print("DFM-F3B/init: gcc " .. collectgarbage("count"))

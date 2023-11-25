@@ -1,5 +1,6 @@
 local M = {}
 
+--[[
 local tbl = {
    Lalist={"..."},
    Idlist={"..."},
@@ -33,11 +34,20 @@ local function keyForm(key)
    end
 end
 
-function M.readSensors(sens)
+--]]
 
+function M.readSensors()
+
+   local tbl = {
+      Lalist={"..."},
+      Idlist={"..."},
+      Palist={"..."}
+   }
+
+   print("DFM-F3B/readSensors1: gcc: ", collectgarbage("count"))
    local sensors = system.getSensors()
-   print("DFM-F3B/readSensors: gcc: ", collectgarbage("count"))
-   if not sens then return end -- for emulator, have to  call system.getSensors() to wake it up
+   print("DFM-F3B/readSensors2: gcc: ", collectgarbage("count"), #sensors)
+   --if not tbl then return end -- for emulator, have to  call system.getSensors() to wake it up
    
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
@@ -53,7 +63,8 @@ function M.readSensors(sens)
       end
    end
 
-   system.registerForm(2, 0, "Sensor Selection", (function(x) return initForm(x, sens) end), keyForm)   
+   --system.registerForm(2, 0, "Sensor Selection", (function(x) return initForm(x, tbl) end), keyForm)   
+   return tbl
    
 end
 
