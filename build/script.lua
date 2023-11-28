@@ -26,8 +26,16 @@ local function listing(path)
 end
 
 local app_settings = {
-  ['DFM-Maps'] = {no_lc = true},   
-  ['DFM-InsP'] = {no_strip = true}
+  ['DFM-Maps']  = {no_lc = true},
+  ['DFM-InsP']  = {no_strip = true},
+  ['DFM-SWT']   = {no_lc = true},
+  ['DFM-Watt']  = {no_lc = true},
+  ['DFM-Dial']  = {no_strip = true},
+  ['DFM-TimG']  = {no_lc = true},
+  ['DFM-Chute'] = {no_lc = true},
+  ['DFM-SpdA']  = {no_lc = true},
+  ['DFM-Smoke'] = {no_lc = true},
+  ['CTU-DFM']   = {no_lc = true}
 }
 
 local function make_lc(lua_source, lc_out, no_strip)
@@ -151,15 +159,18 @@ local function main()
       table.insert(rs, assert(build_app(a)))
    end
 
-   go('DFM-Maps')
-   go('DFM-Amix')
-   go('DFM-GPS')
-   go('DFM-InsP')
+   local app_json_files = listing("*/App.json")
+
+   for _, app_json_path in ipairs(app_json_files) do
+      local subdir = app_json_path:match("(.*/)")
+      subdir = subdir:sub(1, -2) -- Remove trailing slash
+      go(subdir)
+   end
 
    io.stderr:write("===========================================================================\n")
    for _, r in ipairs(rs) do
       io.stderr:write(string.format("%s%s%s\n",
-                                    rpad(r.name, 20),
+                                    rpad(r.name, 30),
                                     rpad(tostring(r.version), 8),
                                     r.zip))
    end

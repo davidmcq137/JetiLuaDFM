@@ -58,7 +58,6 @@ local SBTChannelsActive
 
 ----------------------------------------------------------------------------
 
-local ren = lcd.renderer()
 local screens={}
 local arcFile = {}
 local screenConfig={}
@@ -157,6 +156,7 @@ end
 
 local function drawShape(col, row, shape, rotation, clr)
    local sinShape, cosShape
+   local ren = lcd.renderer()
 
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
