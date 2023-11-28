@@ -46,7 +46,7 @@ local fuelVoiceEnabled = false
 local fuelThreshold = 20
 local fuelVibration = 4
 local fuelRepeat = 15
-local fuelWarnTrigger = system.getTime()
+local fuelWarnTrigger
 local fuelWarnFormItem
 local fuelVoiceFormItem
 local fuelLowFile
@@ -959,6 +959,8 @@ local function init(code)
     local idx
     local fg
     local jsonFile
+
+    fuelWarnTrigger = system.getTime()
 
     dev, emFlag = system.getDeviceType()
     --print("dev, emFlag", dev, emFlag)
