@@ -1,10 +1,7 @@
 {
     "author":"DFM and HC",
+    "id":0,
     "hw": [
-	674,
-	675,
-	676,
-	677,
 	678,
 	679,
 	680,
@@ -13,9 +10,8 @@
 	3857,
 	3858
     ],
-    "id":0,
-    "repo":"DFMHC",    
+    "repo":"DFMHC",
     "name":{
-        "en":"DFM-Amix"
+	"en":"DFM-TimG"
     }
 }
