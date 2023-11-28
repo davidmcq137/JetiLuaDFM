@@ -18,7 +18,6 @@ local turbineProps={}
 local dev, emFlag
 local ann={}
 local start
-local ren = lcd.renderer()
 
 local turbineNames={"..."}
 local turbineName = "..."
@@ -275,6 +274,7 @@ local needle_poly_small = {
 
 local function drawShape(col, row, shape, rotation)
    local sinShape, cosShape
+   local ren = lcd.renderer()
 
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
