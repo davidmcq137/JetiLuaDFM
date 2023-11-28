@@ -152,18 +152,26 @@
     (.toByteArray ba)))
 
 (defn list-files-in-zip
-  [istream prefix]
+  [istream dest-prefix url-prefix]
   (with-open [zis (ZipInputStream. istream)]
     (loop [ze (.getNextEntry zis)
            acc []]
       (if-not ze
         acc
-        (let [filename (str prefix (.getName ze))]
+        (let [n (.getSize ze)
+              ba (ByteArrayOutputStream.)
+              _ (io/copy zis ba)
+              buf (.toByteArray ba)]
+
           (.closeEntry zis)
           (recur (.getNextEntry zis)
                  (if (.isDirectory ze)
                    acc
-                   (conj acc filename))))))))
+                   (conj acc
+                         {:url (str url-prefix (.getName ze))
+                          :destination (str dest-prefix (.getName ze))
+                          :size n
+                          :hash (sha1hex buf)}))))))))
 
 (defn process-zip!
   [istream prefix]
@@ -396,6 +404,7 @@
                            (json/parse-stream))]
     (assoc app-json-data
            "files" (list-files-in-zip (io/input-stream (get @included-apps base-app))
+                                      "Apps/"
                                       (str yoururl "/app/" base-app "/"))
            "description" {"en" (str yoururl "/app/" base-app "/" base-app ".html" )}
            "previewIcon" (str yoururl "/common/DFM.png"))))
