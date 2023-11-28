@@ -576,7 +576,7 @@
       {:status 400 :body "No repo?"}
       {:status 200 :body
        (-> {:applications (for [ra repo-apps]
-                            (static-app-json (str (System/getenv "MY_BASE_URL") "/")
+                            (static-app-json (System/getenv "MY_BASE_URL")
                                              ra))}
            (json/generate-string)
            (.getBytes "utf-8"))})))
