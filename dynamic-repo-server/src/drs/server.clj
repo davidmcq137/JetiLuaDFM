@@ -195,7 +195,7 @@
 (def apps-base-dir (str #_"release-output/"
                         "compiled-apps"))
 
-(def resource** io/file)
+(def resource** io/resource)
 
 (def included-apps
   (delay
