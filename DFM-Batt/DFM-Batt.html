@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Battery Tracker</title>
+</head>
+<body>
+    <h1>DFM-Batt</h1>
+    <p></p>
+    <h2>Description</h2>
+    <p>
+        Allows pilot to define multiple groups of battery packs and select a
+        group for each model. On startup of the model, pops up a window to
+        select one or more battery packs from the selected group for that
+        flight.
+    </p>
+    <h2>Release Notes</h2>
+    <p>
+	Version 2.4 Update: Maximum battery capacity has been increased from
+	9999 mAh to 32767 mAh to accommodate new high-capacity batteries
+    </p>
+    <p>
+	Version 2.2 Update : There is a new key defined on the popup screen where
+	you select a battery group, called "+Batt". This allows selection of
+	multiple batteries. When the popup is displayed, position the cursor to
+	what you consider the primary battery ... the app will read capacity and
+	warning levels from this battery. If you press OK it will be selected as
+	the one battery as the app has worked before. If you press "+Batt" it
+	will select this battery as primary and re-load the menu where you can
+	position the cursor to a second battery and press enter, selecting a
+	second battery. You can repeat this as many times as you like. All
+	selected batteries will be announced with an audio announcement, and all
+	will have their cycle count incremented.
+    </p>
+    <p>
+	Also, for Version 2.2, we've added a key in the group setup screen to
+	delete a battery group. 
+    </p>
+    <p>
+	Note: If you downloaded the original version, the file is
+	DFM-Batt.lua. The newer versions are DFM-Batt.lc. If you see DFM-Batt
+	listed twice when adding an app, you still have the old DFM-Batt.lua
+	file .. you may want to delete it. The old app will come up as version
+	1.0 in the Applications menu if you want to confirm. This was done to
+	allow the app to continue to work on the older mono TX devices.
+    </p>
+</body>
+</html>
