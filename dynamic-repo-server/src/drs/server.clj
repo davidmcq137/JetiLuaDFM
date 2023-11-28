@@ -151,6 +151,20 @@
     (io/copy in ba)
     (.toByteArray ba)))
 
+(defn list-files-in-zip
+  [istream prefix]
+  (with-open [zis (ZipInputStream. istream)]
+    (loop [ze (.getNextEntry zis)
+           acc []]
+      (if-not ze
+        acc
+        (let [filename (str prefix (.getName ze))]
+          (.closeEntry zis)
+          (recur (.getNextEntry zis)
+                 (if (.isDirectory ze)
+                   acc
+                   (conj acc filename))))))))
+
 (defn process-zip!
   [istream prefix]
   (with-open [zis (ZipInputStream. istream)]
@@ -178,21 +192,33 @@
                           :hash (sha1hex buf)}))))))))
 
 
+(def apps-base-dir (str #_"release-output/"
+                        "compiled-apps"))
+
+(def resource** io/file)
+
 (def included-apps
   (delay
-    (let [base "compiled-apps"]
-      (into {}
-            (for [ma (string/split-lines (slurp (io/resource (str base "/manifest.txt"))))
-                  :let [[_ app vers] (re-find #"(.*)-v(.*)\.zip" ma)]]
-              [app (io/resource (str base "/" ma))])))))
+    (into {}
+          (for [ma (string/split-lines (slurp (resource** (str apps-base-dir "/manifest.txt"))))
+                :let [[_ app vers] (re-find #"(.*)-v(.*)\.zip" ma)]]
+            [app (resource** (str apps-base-dir "/" ma))]))))
+
 
 (def app-info-map
   (delay
-    (let [base "compiled-apps"
-          apps (keys @included-apps)]
+    (let [apps (keys @included-apps)]
       (->> apps
-           (map #(-> (str base "/" % "/App.json") io/resource io/reader (json/parse-stream true)))
+           (map #(-> (str apps-base-dir "/" % "/App.json") resource** io/reader (json/parse-stream true)))
            (zipmap apps)))))
+
+
+(def static-app-repos
+  (delay
+   (->> (keys @app-info-map)
+        (group-by (fn [a] (some-> @app-info-map (get a) (get :repo))))
+        (filter key)
+        (into {}))))
 
 (defn appslist
   [req]
@@ -360,6 +386,20 @@
            "description" {"en" (str yoururl "/app/" base-app "/" base-app ".html" )}
            "previewIcon" (str yoururl "/common/DFM.png"))))
 
+
+
+(defn static-app-json
+  [yoururl base-app ]
+  (let [manifest-file (resource** (str apps-base-dir "/" base-app "/App.json"))
+        app-json-data (->> manifest-file
+                           (io/reader)
+                           (json/parse-stream))]
+    (assoc app-json-data
+           "files" (list-files-in-zip (io/input-stream (get @included-apps base-app))
+                                      (str yoururl "/app/" base-app "/"))
+           "description" {"en" (str yoururl "/app/" base-app "/" base-app ".html" )}
+           "previewIcon" (str yoururl "/common/DFM.png"))))
+
 (defn no-https
   [url]
   (let [http "http://"
@@ -520,11 +560,26 @@
   (let [app (:appname route-params)]
     (if-not app
       {:status 400 :body "No token?"}
-      (if-not (some? (io/resource (str  "compiled-apps/" app "/App.json" )))
+      (if-not (some? (resource** (str  apps-base-dir "/" app "/App.json" )))
         {:status 404 :body "No such app"}
-        (ring-resp/resource-response (str "compiled-apps/" (subs (:uri req) (count "/app/"))))))))
+        (let [p (str apps-base-dir "/" (subs (:uri req) (count "/app/")))]
+          (or (ring-resp/resource-response p)
+              (ring-resp/file-response p)))))))
 
 
+
+(defn do-static-repo-apps-json
+  [{:keys [route-params] :as req}]
+  (let [repo (:reponame route-params)
+        repo-apps (get @static-app-repos repo)]
+    (if-not repo
+      {:status 400 :body "No repo?"}
+      {:status 200 :body
+       (-> {:applications (for [ra repo-apps]
+                            (static-app-json (str (System/getenv "MY_BASE_URL") "/")
+                                             ra))}
+           (json/generate-string)
+           (.getBytes "utf-8"))})))
 
 (def routes
   ["/" {"gauges"          #'gauge-app
@@ -543,6 +598,8 @@
         "app/"            {[:appname] {true (bidi/tag #'do-app-file :app-file)}}
         "app-file/"       (bring/files {:dir "."})
         "common/"         (bring/resources {:prefix "common/"})
+        "staticrepo/"     {[:reponame "/Apps.json"]
+                           {true (bidi/tag #'do-static-repo-apps-json :sr-apps-json)}}
         ""                #'landing-page}])
 
 
