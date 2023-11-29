@@ -20,6 +20,6 @@
          datascript/datascript           {:mvn/version "1.2.2"}
          rum/rum                         {:mvn/version "0.12.6"}
          bidi/bidi                       {:mvn/version "2.1.6"}
-         ;; io.github.clojure/tools.build   {:mvn/version "0.9.3"}
+         org.clj-commons/hickory         {:mvn/version "0.7.3"}
          markdown-clj/markdown-clj       {:mvn/version "1.11.4"}
          uberdeps/uberdeps               {:mvn/version "1.2.0"}}}

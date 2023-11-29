@@ -17,9 +17,12 @@
           Curzon for a series of Jeti apps that we have developed to further our
           interests in our RC aircraft hobby.  Harry also has a <a href="https://www.youtube.com/user/cotswoldpilot">YouTube channel </a>with information and tutorials on the use of Jeti systems.
         </p>
-	
-	<h3>DFM-InsP - Instrument Panel Creation and Display</h3>
 
+        <h2>Apps formerly hosted at <code>jetimodel.nl</code></h2>
+
+        %%appslist%%
+
+	<h3>DFM-InsP - Instrument Panel Creation and Display</h3>
 	<div class="lp-indent">
 	    <p>
 		Our latest release is a web-based app that creates instrument
@@ -130,6 +133,9 @@
 		<p>When you load the DFM-Maps app into one of your models, it will display the set of images for the field where the aircraft is located, and while flying it will overlay the aircraft's position on the map in the transmitter's screen. It will also warn of upcoming no-fly zones, and can announce verbally or via a stick shaker a no-fly breach. It can even verbally direct you to fly around a <a href="https://gps-triangle.net/">GPS triangle</a> race course. </p>
             </div>
         </div>
+
+        %%appsbody%%
+
         <h4>Note</h4>
         <p class="lp-indent">We are doing this as part of our hobby and these apps are offered free of charge.</p>
         <p class="lp-indent">We welcome anyone who would like to collaborate on their future development! <a href="https://github.com/davidmcq137/JetiLuaDFM/tree/master/DFM-Maps">Check us out on GitHub!</a>

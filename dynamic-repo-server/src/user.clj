@@ -88,11 +88,17 @@
   (clean)
   (println "Compile clj...")
   (compile 'drs.main)
-  #_(run! println (file-seq (io/file "classes")))
+  
+  (println "Landing page templating...")
+  (require 'drs.landing-page-template)
+  ((resolve 'drs.landing-page-template/go))
+  
   (println "Compile gauge cljs...")
   (release-cljs :gauge)
+  
   (println "Compile maps cljs...")
   (release-cljs :maps)
+  
   (println "Jar...")
   (jar jarname))
 
