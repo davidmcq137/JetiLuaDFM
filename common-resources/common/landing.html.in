@@ -15,13 +15,27 @@
           new capabilities, especially in the use of telemetry sensors.  This is
           the home page for a collaboration between Dave McQueeney and Harry
           Curzon for a series of Jeti apps that we have developed to further our
-          interests in our RC aircraft hobby.  Harry also has a <a href="https://www.youtube.com/user/cotswoldpilot">YouTube channel </a>with information and tutorials on the use of Jeti systems.
+          interests in our RC aircraft hobby.  Harry also has
+          a <a href="https://www.youtube.com/user/cotswoldpilot">YouTube
+          channel </a>with information and tutorials on the use of Jeti systems.
         </p>
 
-        <h2>Apps formerly hosted at <code>jetimodel.nl</code></h2>
+        <h2>These apps were formerly hosted at <code>jetimodel.nl</code></h2>
 
         %%appslist%%
-
+	<p>
+	To access these apps in Jeti Studio, open the Jeti Studio File menu,
+	then the Configuration menu and add this URL to the list ot
+	repositories: __to be added before shipping to production__
+	</p>
+	<p>
+	  NOTE: If you had the original repository string in your configuration
+	  (http://jetimodel.nl/DFMHC/Apps.json), you must remove that original
+	  string and replace it with the one above. It will create an error message
+	  from Jeti studio if you have both the old and new repository strings
+	  in the Configuration, since both repositories have the same apps in
+	  them and Jeti studio does not allow duplicate app names.
+	</p>
 	<h3>DFM-InsP - Instrument Panel Creation and Display</h3>
 	<div class="lp-indent">
 	    <p>
