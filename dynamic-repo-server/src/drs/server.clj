@@ -391,10 +391,8 @@
                            (json/parse-stream))]
     (assoc app-json-data
            "files" files
-           "description" {"en" (str yoururl "/app/" base-app "/" base-app ".html" )}
+           "description" {"en" (str yoururl "/app/" base-app "/" base-app "/" base-app ".html" )}
            "previewIcon" (str yoururl "/common/DFM.png"))))
-
-
 
 (defn static-app-json
   [yoururl base-app ]
@@ -405,9 +403,23 @@
     (assoc app-json-data
            "files" (list-files-in-zip (io/input-stream (get @included-apps base-app))
                                       "Apps/"
-                                      (str yoururl "/app/"))
-           "description" {"en" (str yoururl "/app/" base-app "/" base-app ".html" )}
+                                      (str yoururl "/app/" base-app "/"))
+           "description" {"en" (str yoururl "/app/" base-app "/" base-app "/" base-app ".html" )}
            "previewIcon" (str yoururl "/common/DFM.png"))))
+
+
+(comment
+  ;; check
+  (run! prn (map :url (get (static-app-json nil "DFM-Amix") "files")))
+  (->> (get (static-app-json nil "V-SensXF") "files")
+       (map :url)
+       (map (fn [u]
+              {:uri u
+               :route-params (:route-params (bidi/match-route routes u))}))
+       (map (juxt (comp :status do-app-file) :uri))
+       (run! prn))
+  
+  (do-app-file {:uri "/app/DFM-Amix/App.json"}))
 
 (defn no-https
   [url]
@@ -416,34 +428,6 @@
     (if-not (string/starts-with? url https)
       url
       (str http (subs url (count https))))))
-
-
-(defn do-dynamic-repo-v2
-  [{:keys [query-params query-string body] :as req}]
-  (let [{:strs [token]} query-params
-        {:strs [dynamic-files yoururl] :as opts} (json/parse-stream (io/reader body))
-        yoururl (no-https yoururl)
-        
-        apps-json (cond
-                    (sequential? dynamic-files)
-                    {:applications [(create-app-json! yoururl dynamic-files)]}
-                    
-                    (map? dynamic-files)
-                    {:applications (for [[_ fs] dynamic-files
-                                         :when (not-empty fs)]
-                                     (create-app-json! yoururl fs))})]
-    
-    (swap! dynamic-repo-cache assoc [:token token]
-           (-> apps-json
-               (json/generate-string)
-               (.getBytes "utf-8")))
-    
-    {:status 200
-     :headers {"Content-Type" "application/json"} 
-     :body (json/generate-string
-            {"repo_url"
-             (str yoururl "/repo/" token "/Apps.json") })}))
-
 
 (defn do-dynamic-repo-v3
   [{:keys [query-params query-string body] :as req}]
@@ -571,11 +555,12 @@
       {:status 400 :body "No token?"}
       (if-not (some? (resource** (str  apps-base-dir "/" app "/App.json" )))
         {:status 404 :body "No such app"}
-        (let [p (str apps-base-dir "/" (subs (:uri req) (count "/app/")))]
+        (let [p (str apps-base-dir "/" (subs (:uri req)
+                                             (+ (count "/app/")
+                                                (count app))))]
+          
           (or (ring-resp/resource-response p)
               (ring-resp/file-response p)))))))
-
-
 
 (defn do-static-repo-apps-json
   [{:keys [route-params] :as req}]
@@ -594,7 +579,6 @@
   ["/" {"gauges"          #'gauge-app
         "gauges/"         (bring/resources {:prefix "gauges/"})
         ;; "DFM-InsP/"       (bring/files {:dir "DFM-InsP"})n
-        "dynamic-repo-v2" #'do-dynamic-repo-v2
         "dynamic-repo-v3" #'do-dynamic-repo-v3
         "repo/"           {[:token "/Apps.json"] (bidi/tag #'do-token-repo :apps-json)
                            [:token ".zip"]       (bidi/tag #'do-dynamic-repo-zip :zip)}
