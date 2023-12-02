@@ -22,11 +22,15 @@
 
         <h2>These apps were formerly hosted at <code>jetimodel.nl</code></h2>
 
-        %%appslist%%
+        <div class="lp-indent">
+          %%appslist%%
+        </div>
+
 	<p>
 	To access these apps in Jeti Studio, open the Jeti Studio File menu,
 	then the Configuration menu and add this URL to the list ot
-	repositories: __to be added before shipping to production__
+	repositories:
+          <span style="outline: 2px solid tomato">__to be added before shipping to production__</span>
 	</p>
 	<p>
 	  NOTE: If you had the original repository string in your configuration
