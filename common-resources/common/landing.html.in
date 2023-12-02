@@ -19,7 +19,23 @@
           a <a href="https://www.youtube.com/user/cotswoldpilot">YouTube
           channel </a>with information and tutorials on the use of Jeti systems.
         </p>
-
+	<p class="lp-indent">
+	  We have created these apps as part of our RC Jet hobby and we are
+	  happy to share them with the community. The are all avaialable as open
+	  source code. Hosting the apps does incur costs for application and
+	  content hosting, and if you wish to contribute to that, we would
+	  appreciate it.
+	</p>
+	<form action="https://www.paypal.com/donate" method="post" target="_top">
+	  <input type="hidden" name="business" value="6UZU8X2NVYUG6" />
+	  <input type="hidden" name="no_recurring" value="1" />
+	  <input type="hidden" name="item_name" value="We appreciate your help in covering the cost of app hosting for our pilot community." />
+	  <input type="hidden" name="currency_code" value="USD" />
+	  <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" />
+	  <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
+	</form>
+	
+	
         <h2>These apps were formerly hosted at <code>jetimodel.nl</code></h2>
 
         <div class="lp-indent">
