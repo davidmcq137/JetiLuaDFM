@@ -405,7 +405,7 @@
     (assoc app-json-data
            "files" (list-files-in-zip (io/input-stream (get @included-apps base-app))
                                       "Apps/"
-                                      (str yoururl "/app/" base-app "/"))
+                                      (str yoururl "/app/"))
            "description" {"en" (str yoururl "/app/" base-app "/" base-app ".html" )}
            "previewIcon" (str yoururl "/common/DFM.png"))))
 
