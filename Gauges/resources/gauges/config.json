@@ -21,7 +21,9 @@
 	"HarryElectric": {"file": "HarryElectric.json"},
 	"TurbineHarry2": {"file": "TurbineHarry2.json"},
 	"TwinTurbine1":  {"file": "TwinTurbine1.json"},
-	"TwinTurbine2":  {"file": "TwinTurbine2.json"}	
+	"TwinTurbine2":  {"file": "TwinTurbine2.json"},
+	"TwinEngineProp1":  {"file": "TwinEngineProp1.json"},
+	"TwinEngineProp2":  {"file": "TwinEngineProp2.json"}		
     },
 
     "prototypes": {

@@ -90,7 +90,20 @@
           <a target="_blank" href="/gauges">(go directly to panel creator)</a>
         </h3>
 	<div class="lp-indent">
-	    <p>
+	    <h4>Screenshots</h4>
+	    <div class="lp-screenshot">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP258.png">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP264.png">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP260.png">
+	    </div>
+	    <p></p>
+	    <div class="lp-screenshot">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP261.png">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP259.png">
+		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP266.png">
+            </div>
+
+	  <p>
 		Our latest release is a web-based app that creates instrument
 		panels along with a companion app that can be installed on the
 		Jeti Transmitter. A variety of instrument types are available,
@@ -131,19 +144,7 @@
 	    controls on the transmitter, allowing the appropriate panel to be
 		displayed for all phases of flight.
 	    </p>
-	    
-	    <h4>Screenshots</h4>
-	    <div class="lp-screenshot">
-		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP258.png">
-		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP264.png">
-		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP260.png">
-	    </div>
-	    <p></p>
-	    <div class="lp-screenshot">
-		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP261.png">
-		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP259.png">
-		<img src="https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/dev/Screenshots/DFM-InsP266.png">
-            </div>
+
 
 	    <h4>Setup</h4>
 	    <p>To create your instrument panels, you will need to use our web setup app - <a target="_blank" href="/gauges">click here to open it. </a>
