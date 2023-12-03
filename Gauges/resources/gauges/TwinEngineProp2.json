@@ -595,6 +595,6 @@
       "scaleVis": "on"
     }
   ],
-  "doc-md": "The RPM gauges go up to a maximum of 80 rpm, so you must use the LUA capability within the app to divide the actual rpm from the sensor by 100.",
+  "doc-md": "The RPM gauges go up to a maximum of 80 rpm, so you can use the LUA capability within the app to divide the actual rpm from the sensor by 100, or just select lua f(x) extension Div100",
   "timestamp": "2023-12-03T11:29:46.437Z"
 }
