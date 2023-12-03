@@ -32,14 +32,6 @@
         and prudent operation. We do not offer any guarantee and will not accept
         any liability for their use.
 	</p>
-	
-	<!-- <p class="lp-indent"> -->
-	<!--   We have created these apps as part of our RC Jet hobby and we are -->
-	<!--   happy to share them with the community. The are all avaialable as open -->
-	<!--   source code. Hosting the apps does incur costs for application and -->
-	<!--   content hosting, and if you wish to contribute to that, we would -->
-	<!--   appreciate it. -->
-	<!-- </p> -->
 
         <div class="lp-indent">
           <p>
@@ -73,9 +65,10 @@
 
 	<p>
 	To access these apps in Jeti Studio, open the Jeti Studio File menu,
-	then the Configuration menu and add this URL to the list ot
+	then the Configuration menu and add this URL to the list of
 	repositories:
-          <span style="outline: 2px solid tomato">__to be added before shipping to production__</span>
+	<code>http://www.jetiluadfm.app/staticrepo/DFMHC/Apps.json</code>
+        <!-- <span style="outline: 2px solid tomato">__to be added before shipping to production__</span> -->
 	</p>
 	<p>
 	  NOTE: If you had the original repository string in your configuration
