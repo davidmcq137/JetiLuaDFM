@@ -1325,7 +1325,7 @@ local function init()
 
    if luaCtlMax > 4 then
       --print("requiring V-Ann")
-      V_Ann = require "V-Ann"
+      V_Ann = require "V-SensXF/V-Ann"
       --print("returned", V_Ann)
       V_Ann.init(result, resultName)
    end
