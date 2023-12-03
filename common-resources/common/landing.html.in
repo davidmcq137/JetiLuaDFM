@@ -9,7 +9,7 @@
   <body>
     <div id="landing-page-root">
       <div style="font-family: sans-serif;" class="lp-root">
-        <h1>Dave and Harry's Jeti Lua Apps</h1>
+        <h1>Dave, Russell and Harry's Jeti Lua Apps</h1>
         <p class="lp-indent">
           Extending the functions of the Jeti RC systems can provide significant
           new capabilities, especially in the use of telemetry sensors.  This is
@@ -19,6 +19,20 @@
           a <a href="https://www.youtube.com/user/cotswoldpilot">YouTube
           channel </a>with information and tutorials on the use of Jeti systems.
         </p>
+
+        <p class="lp-indent">We welcome anyone who would like to collaborate on
+        their future
+        development! <a href="https://github.com/davidmcq137/JetiLuaDFM/tree/master/DFM-Maps">Check
+        us out on GitHub!</a>
+        </p>
+        <h4>Disclaimer</h4>
+        <p class="lp-indent">The apps are provided "as-is" under the MIT open
+        source license, and you are soley responsible to determine if they are
+        suitable for your own purposes, and for their safe and prudent
+        operation. We do not offer any guarantee and will not accept any
+          liability for their use.
+	</p>
+	
 	<!-- <p class="lp-indent"> -->
 	<!--   We have created these apps as part of our RC Jet hobby and we are -->
 	<!--   happy to share them with the community. The are all avaialable as open -->
