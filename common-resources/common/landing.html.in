@@ -68,11 +68,13 @@
 	To access the apps listed above in Jeti Studio, open the Jeti Studio File menu,
 	then the Configuration menu and add this URL to the list of
 	repositories:
-	<br>
+	</p>
+	<p>
 	<code>http://www.jetiluadfm.app/staticrepo/DFMHC/Apps.json</code>
         <!-- <span style="outline: 2px solid tomato">__to be added before
 	     shipping to production__</span> -->
-	<br>
+	</p>
+	<p>
 	The Instrument Panel and Maps apps have their own special repostiory
 	names which are explained below (the Create app source box).
 	</p>
