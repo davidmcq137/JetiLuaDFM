@@ -13,7 +13,7 @@
         <p class="lp-indent">
           Extending the functions of the Jeti RC systems can provide significant
           new capabilities, especially in the use of telemetry sensors.  This is
-          the home page for a collaboration between Dave McQueeney and Harry
+          the home page for a collaboration between Dave and Russell McQueeney and Harry
           Curzon for a series of Jeti apps that we have developed to further our
           interests in our RC aircraft hobby.  Harry also has
           a <a href="https://www.youtube.com/user/cotswoldpilot">YouTube
@@ -56,7 +56,6 @@
 
         <div class="lp-indent">
           %%appslist%%
-        </div>
 
 	<p>
 	To access these apps in Jeti Studio, open the Jeti Studio File menu,
@@ -72,8 +71,9 @@
 	  in the Configuration, since both repositories have the same apps in
 	  them and Jeti studio does not allow duplicate app names.
 	</p>
+        </div>
 	<h3>DFM-InsP - Instrument Panel Creation and Display
-          <a target="_blank" href="/gauges">(go to panel creator)</a>
+          <a target="_blank" href="/gauges">(go directly to panel creator)</a>
         </h3>
 	<div class="lp-indent">
 	    <p>
@@ -140,7 +140,7 @@
 	</div>
 	
         <h3>DFM-Maps - Flight Display
-          <a target="_blank" href="/create-maps">(go to maps creator)</a>
+          <a target="_blank" href="/create-maps">(go directly to maps creator)</a>
         </h3>
 
 	<div class="lp-indent">
