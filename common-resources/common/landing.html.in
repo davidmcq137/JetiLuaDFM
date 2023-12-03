@@ -29,8 +29,9 @@
         <p class="lp-indent"><b>Disclaimer: </b>The apps are provided "as-is"
         under the MIT open source license, and you are soley responsible to
         determine if they are suitable for your own purposes, and for their safe
-        and prudent operation. We do not offer any guarantee and will not accept
-        any liability for their use.
+        and prudent operation. We do not offer any guarantees and will not accept
+        any liability for their use. We don't have any personal info on our
+        pilots .. we don't solicit it in the first place.
 	</p>
 
         <div class="lp-indent">
@@ -64,11 +65,16 @@
           %%appslist%%
 
 	<p>
-	To access these apps in Jeti Studio, open the Jeti Studio File menu,
+	To access the apps listed above in Jeti Studio, open the Jeti Studio File menu,
 	then the Configuration menu and add this URL to the list of
 	repositories:
+	<br>
 	<code>http://www.jetiluadfm.app/staticrepo/DFMHC/Apps.json</code>
-        <!-- <span style="outline: 2px solid tomato">__to be added before shipping to production__</span> -->
+        <!-- <span style="outline: 2px solid tomato">__to be added before
+	     shipping to production__</span> -->
+	<br>
+	The Instrument Panel and Maps apps have their own special repostiory
+	names which are explained below (the Create app source box).
 	</p>
 	<p>
 	  NOTE: If you had the original repository string in your configuration
@@ -196,6 +202,7 @@
             </div>
         </div>
 
+	<hr>
         %%appsbody%%
 
         <h4>Note</h4>
