@@ -1,0 +1,600 @@
+{
+  "panel": [
+    {
+      "tickFont": "Big",
+      "yL": 126.9,
+      "min": 0,
+      "ro": 61,
+      "xL": 65,
+      "colorvals": [
+        {
+          "color": "blue",
+          "val": 80
+        }
+      ],
+      "y0": 71,
+      "hLB": 16,
+      "rgbInnerFillColor": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "label": "RPM Left",
+      "max": 80,
+      "radius": 83,
+      "TS": 30.021759999999997,
+      "x0": 65,
+      "majdivs": 4,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "divs": 8,
+      "yLB": 117.9,
+      "labelFont": "Bold",
+      "subdivs": 2,
+      "rgbLabelBoxColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "tickLabels": [
+        {
+          "rt": 30.021759999999997,
+          "ca": -0.7071067811865477,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": -0.9238795325112867,
+          "sa": -0.3826834323650899,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 6.123233995736766e-17,
+          "sa": -1,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 0.9238795325112867,
+          "sa": -0.3826834323650898,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 0.7071067811865476,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        }
+      ],
+      "tickDigits": "Auto",
+      "value": 23.2,
+      "wLB": 77,
+      "tickSpace": 62,
+      "xV": 65,
+      "ri": 46.36,
+      "start": -135,
+      "needleColor": "red",
+      "labelBoxColor": "white",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "rLB": 4,
+      "yV": 107.6,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 61,
+      "valDigits": 1,
+      "xLB": 26.5,
+      "valueFont": "None",
+      "needleTrim": 0,
+      "labelColor": "red",
+      "end": 135,
+      "arcWidth": 24,
+      "needleType": "needle",
+      "labelPosY": 1,
+      "faceVis": "on",
+      "scaleVis": "on"
+    },
+    {
+      "tickFont": "Mini",
+      "yL": 144.9,
+      "min": 300,
+      "ro": 61,
+      "xL": 184,
+      "colorvals": [
+        {
+          "color": "blue",
+          "val": 75
+        },
+        {
+          "color": "springgreen",
+          "val": 150
+        },
+        {
+          "color": "yellow",
+          "val": 225
+        },
+        {
+          "color": "red",
+          "val": 300
+        }
+      ],
+      "y0": 71,
+      "hLB": 16,
+      "rgbInnerFillColor": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "label": "CHT Left",
+      "max": 0,
+      "radius": 83,
+      "TS": 40.1563,
+      "x0": 159,
+      "majdivs": 1,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "divs": 4,
+      "yLB": 135.9,
+      "labelFont": "Normal",
+      "subdivs": 4,
+      "rgbLabelBoxColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "tickLabels": [
+        {
+          "rt": 40.1563,
+          "ca": 6.123233995736766e-17,
+          "sa": -1,
+          "dp": 0
+        },
+        {
+          "rt": 40.1563,
+          "ca": 6.123233995736766e-17,
+          "sa": 1,
+          "dp": 0
+        }
+      ],
+      "tickDigits": "Auto",
+      "value": 156,
+      "wLB": 71,
+      "tickSpace": 71,
+      "xV": 168,
+      "ri": 51.85,
+      "start": 0,
+      "readoutPosY": -18,
+      "needleColor": "red",
+      "labelBoxColor": "white",
+      "readDigits": "0",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "readoutPosX": 9,
+      "rLB": 4,
+      "yV": 89.6,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 61,
+      "valDigits": "0",
+      "xLB": 148.5,
+      "valueFont": "Normal",
+      "labelPosX": 25,
+      "labelColor": "red",
+      "end": 180,
+      "labelPosY": 19,
+      "faceVis": "off",
+      "scaleVis": "on"
+    },
+    {
+      "tickFont": "None",
+      "yL": 143.9,
+      "min": 0,
+      "ro": 61,
+      "xL": 65,
+      "colorvals": [
+        {
+          "color": "red",
+          "val": 45
+        },
+        {
+          "color": "green",
+          "val": 160
+        }
+      ],
+      "y0": 71,
+      "hLB": 16,
+      "rgbInnerFillColor": {
+        "r": 0,
+        "g": 128,
+        "b": 0,
+        "t": "false"
+      },
+      "label": "RPM Right",
+      "max": 80,
+      "radius": 83,
+      "TS": 30.021759999999997,
+      "x0": 65,
+      "majdivs": 4,
+      "rgbLabelColor": {
+        "r": 0,
+        "g": 128,
+        "b": 0,
+        "t": "false"
+      },
+      "divs": 4,
+      "yLB": 134.9,
+      "labelFont": "Bold",
+      "subdivs": 1,
+      "rgbLabelBoxColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "tickLabels": [
+        {
+          "rt": 30.021759999999997,
+          "ca": -0.7071067811865477,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": -0.9238795325112867,
+          "sa": -0.3826834323650899,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 6.123233995736766e-17,
+          "sa": -1,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 0.9238795325112867,
+          "sa": -0.3826834323650898,
+          "dp": 0
+        },
+        {
+          "rt": 30.021759999999997,
+          "ca": 0.7071067811865476,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        }
+      ],
+      "tickDigits": "Auto",
+      "value": 25.6,
+      "wLB": 77,
+      "tickSpace": 62,
+      "xV": 65,
+      "ri": 46.36,
+      "start": -135,
+      "needleColor": "green",
+      "labelBoxColor": "white",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -3.8,
+          "y": 17.4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 3.8,
+          "y": 17.4
+        }
+      ],
+      "rLB": 4,
+      "yV": 107.6,
+      "inner": [
+        {
+          "x": -2.4,
+          "y": 17.4
+        },
+        {
+          "x": -1,
+          "y": 48
+        },
+        {
+          "x": 1,
+          "y": 48
+        },
+        {
+          "x": 2.4,
+          "y": 17.4
+        }
+      ],
+      "gaugeRadius": 61,
+      "valDigits": 1,
+      "xLB": 26.5,
+      "valueFont": "None",
+      "needleTrim": 30,
+      "labelColor": "green",
+      "end": 135,
+      "arcWidth": 24,
+      "needleType": "needleTrim",
+      "labelPosY": 18,
+      "faceVis": "off",
+      "scaleVis": "off"
+    },
+    {
+      "tickFont": "Mini",
+      "yL": 144.9,
+      "min": 0,
+      "ro": 61,
+      "xL": 271,
+      "colorvals": [
+        {
+          "color": "blue",
+          "val": 75
+        },
+        {
+          "color": "springgreen",
+          "val": 150
+        },
+        {
+          "color": "yellow",
+          "val": 225
+        },
+        {
+          "color": "red",
+          "val": 300
+        }
+      ],
+      "y0": 71,
+      "hLB": 16,
+      "rgbInnerFillColor": {
+        "r": 0,
+        "g": 128,
+        "b": 0,
+        "t": "false"
+      },
+      "label": "CHT Right",
+      "max": 300,
+      "radius": 83,
+      "TS": 40.1563,
+      "x0": 296,
+      "majdivs": 1,
+      "rgbLabelColor": {
+        "r": 0,
+        "g": 128,
+        "b": 0,
+        "t": "false"
+      },
+      "divs": 4,
+      "yLB": 135.9,
+      "labelFont": "Normal",
+      "subdivs": 4,
+      "rgbLabelBoxColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "tickLabels": [
+        {
+          "rt": 40.1563,
+          "ca": -1.8369701987210297e-16,
+          "sa": 1,
+          "dp": 0
+        },
+        {
+          "rt": 40.1563,
+          "ca": 6.123233995736766e-17,
+          "sa": -1,
+          "dp": 0
+        }
+      ],
+      "tickDigits": "Auto",
+      "value": 183,
+      "wLB": 71,
+      "tickSpace": 71,
+      "xV": 291,
+      "ri": 51.85,
+      "start": -180,
+      "readoutPosY": -18,
+      "needleColor": "green",
+      "labelBoxColor": "white",
+      "readDigits": "0",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "readoutPosX": -5,
+      "rLB": 4,
+      "yV": 89.6,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 61,
+      "valDigits": "0",
+      "xLB": 235.5,
+      "valueFont": "Normal",
+      "labelPosX": -25,
+      "labelColor": "green",
+      "end": 0,
+      "labelPosY": 19,
+      "faceVis": "off",
+      "scaleVis": "on"
+    }
+  ],
+  "doc-md": "The RPM gauges go up to a maximum of 80 rpm, so you must use the LUA capability within the app to divide the actual rpm from the sensor by 100.",
+  "timestamp": "2023-12-04T12:32:33.662Z"
+}
