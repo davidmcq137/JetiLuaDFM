@@ -774,6 +774,6 @@
       "end": 135
     }
   ],
-  "doc-md": "The RPM gauges go up to a maximum of 80 rpm, so you must use the LUA capability within the app to divide the actual rpm from the sensor by 100. \nThe fuel flow gauges are rated from 0 to 10 so you will need to adjust the maximum from 10 to suit whatever numbers your telemetry sensor produces, or simply delete them if they are not relevant to your model.",
+  "doc-md": "The RPM gauges go up to a maximum of 80 rpm, so you must use the LUA capability within the app to divide the actual rpm from the sensor by 100, or more simply use the Function Extension Div100. The fuel flow gauges are rated from 0 to 10 so you will need to adjust the maximum from 10 to suit whatever numbers your telemetry sensor produces, or simply delete them if they are not relevant to your model.",
   "timestamp": "2023-12-04T12:34:45.814Z"
 }
