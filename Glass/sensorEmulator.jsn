@@ -1,32 +1,30 @@
 [
-
     {"id":137, "param": 0,"sensorName": "SB-TEMP", "label": "General"},
-
     {"id":137,
      "param": 1,
      "decimals": 1,
      "type": 1,
      "sensorName": "Sine",
-     "luaFunc":"return 5*(1 + sin(t/30))",
-     "label": "Sin010",
-     "unit": "V"
+     "luaFunc":"return 100*(1 + sin(t/30))",
+     "label": "Altitude",
+     "unit": "m"
     },
     {"id":137,
      "param": 2,
      "decimals": 2,
      "type": 1,
      "sensorName": "Sine",
-     "luaFunc":"return 10*(1 + tri(t/30 - 1*math.pi / 4))",
-     "label": "Tri020",
-     "unit": "V"
+     "luaFunc":"return 3*tri(t/30 - 1*math.pi / 4)",
+     "label": "Vario",
+     "unit": "m/s"
     },
     {"id":137,
      "param": 3,
-     "decimals": 0,
+     "decimals": 1,
      "type": 1,
      "sensorName": "Sine",
-     "luaFunc":"return 250*(1 + sq(t/30 - 2 * math.pi / 4))",
-     "label": "Sq0500",
+     "luaFunc":"return 5*(1 + tri(t/30 - 2 * math.pi / 4))",
+     "label": "Voltage",
      "unit": "V"
     },
     {"id":137,
@@ -120,6 +118,4 @@
      "label": "Distance",
      "unit": "ft"
     }
-    
-
 ]

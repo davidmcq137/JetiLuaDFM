@@ -48,3 +48,8 @@ build/bb
 .nrepl-port
 classes/
 .cpcache/
+Glass/ALookCom
+Glass/__pycache__
+Glass/font
+Glass/sensorParam.py
+Glass/setTimer.py

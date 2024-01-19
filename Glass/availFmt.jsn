@@ -1,0 +1,18 @@
+[
+    [
+	{"x0":"L1", "y0":"H1", "width":"full", "height":"full"}
+    ],
+    [
+	{"x0":"L2", "y0":"H2", "width":"half", "height":"full"},
+	{"x0":"R2", "y0":"H2", "width":"full", "height":"full"}
+    ],
+    [
+	{"x0":"L3", "y0":"H3", "width":"full", "height":"full"},
+	{"x0":"R3", "y0":"H3", "width":"half", "height":"full"}
+    ],
+    [
+	{"x0":"L4", "y0":"H4", "width":"half", "height":"full"},
+	{"x0":"C4", "y0":"H4", "width":"half", "height":"full"},
+	{"x0":"R4", "y0":"H4", "width":"half", "height":"full"}
+    ]
+]

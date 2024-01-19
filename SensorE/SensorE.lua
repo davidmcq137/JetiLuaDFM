@@ -419,6 +419,7 @@ function emulator_getSensors()
    fg = io.readall(text)
    if not fg then print("Cannot read " .. text) else
       print("Sensor config: "..text)
+      --print("JSON text[1-80]: ", string.sub(fg, 1, 80))
       sensorTbl=json.decode(fg)
       initStr = sensorTbl[1].initString
       if initStr and initStr ~= "" then
@@ -890,7 +891,8 @@ end
 local function init()
 
    local fg
-   
+
+   os.setlocale("C") -- required in Germany so commas don't get changed in json
    fieldIdx = 0
    fg = io.readall("Apps/SensorFields.jsn")
    if fg then

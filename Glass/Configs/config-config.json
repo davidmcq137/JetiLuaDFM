@@ -1,0 +1,26 @@
+{
+    "config":[
+        {"deprecated": false, "cfg": "aviator", "cfgVersion": 2, "cfgKey": 1}
+    ],
+
+    "fonts":[
+    ],
+
+    "layoutDelete":[
+    ],
+
+    "layouts": [
+    ],
+
+    "imgDelete":[
+    ],
+
+    "imgs": [
+    ],
+
+    "anim": [
+    ],
+
+    "pages": [
+    ]
+}
