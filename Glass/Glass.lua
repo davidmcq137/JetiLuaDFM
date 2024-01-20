@@ -37,9 +37,11 @@ local image = {}
 local imageFile = {}
 local modelName
 local sendingJSON = true
-local state = {IDLE = 1, STANDBY = 2,SENDING = 3}
+local state = {IDLE = 1, STANDBY = 2,SENDHEADER = 3, SENDFONTS = 4, SENDIMGS = 5, SENDFOOTER = 6}
 local sendState = state.IDLE
-local sendFP
+local sendFP, sendFPser
+local sendImgs
+local sendImgsIdx
 local sendAA
 local sendFF
 local sendTime
@@ -193,9 +195,50 @@ local function loop()
 	 end
 	 lastWrite = now
       end
-   elseif sendState == state.SENDING then
+   elseif sendState == state.SENDHEADER or sendState == state.SENDFOOTER then
+
+      --[[
+	 config.txt formatting overview
+
+	 "FFD0001561766961746F72000000000000000001AA" config header for "aviator" with zero version, key 1
+	 "FF51...AA" fonts (many lines)
+	 "FF41...AA" images (many lines)
+	 "FFD0001561766961746F72000000000200000001AA" config footer for "aviator" with version 2, key 1
+	 "FFD2000D61766961746F7200AA" config set to "aviator"
+
+      --]]
+      
+      local cfgVersion = 2
+      local cfgKey = 1
+      local bufPre = "FFD0001561766961746F7200"
+      local bufSet = "FFD2000D61766961746F7200AA"
+      local bufH = bufPre .. string.format("%08X%08X", 0, cfgKey) .. "AA\n"
+      local bufF = bufPre .. string.format("%08X%08X", cfgVersion, cfgKey) .. "AA\n"..bufSet.."\n"
+      local bw
+      if sendState == state.SENDHEADER then
+	 print("send header ", bufH) 
+	 bw = serial.write(sidSerial, bufH)
+	 io.write(sendFPser, bufH)
+	 if not bw then
+	    print("Glass: serial write error header")
+	 else
+	    sendState = state.SENDFONTS
+	 end
+      elseif sendState == state.SENDFOOTER then
+	 print("send footer ", bufF)
+	 bw = serial.write(sidSerial, bufF)
+	 io.write(sendFPser, bufF)
+	 if not bw then print("Glass: serial write error on footer") end
+      end
+      if not bw or (sendState == state.SENDFOOTER) then
+	 if sendFPser then io.close(sendFPser) end
+	 sendState = state.IDLE
+	 --sendTime = system.getTimeCounter()	 
+	 print("DONE", system.getTimeCounter() - sendTime)
+      end
+   elseif (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) then
       local buf, start, before, after
-      if system.getTimeCounter() - sendLast > 10 then
+      if system.getTimeCounter() - sendLast > 10 then -- 10ms is essentially no delay .. can throttle...
 	 for k=1,20,1 do
 	    buf = io.read(sendFP, 128)
 	    start = string.find(buf, "\n")
@@ -214,16 +257,52 @@ local function loop()
 	       end
 	       configLine = after
 	    end
-	    
+	    local bw
 	    if sidSerial and buf and buf ~= "" then
 	       sendLast = system.getTimeCounter()
-	       serial.write(sidSerial, buf)
+	       bw = serial.write(sidSerial, buf)
+	       io.write(sendFPser, buf)
+	       print("write buf", buf)
+	       if not bw then
+		  print("Glass: Serial write error")
+		  buf = ""
+	       end
 	    end
 	    if buf == "" then
-	       --print("Glass: closing file, FF, AA, cr, nl:", sendFF, sendAA, system.getTimeCounter() - sendTime)
-	       io.close(sendFP)
-	       sendState = state.IDLE
-	       break
+	       print("reached EOF on a file", sendImgsIdx, sendState)
+	       if sendState == state.SENDFONTS then
+		  print("done with fonts, starting images")
+		  io.close(sendFP)
+		  sendImgsIdx = 1
+		  print("image opening " .. sendImgs[sendImgsIdx])
+		  sendFP = io.open(sendImgs[sendImgsIdx], "r")
+		  print("sendFP image file tt", sendFP)
+		  if not sendFP then
+		     print("Glass:cannot open image file "..sendImgsIdx)
+		     sendState = state.IDLE
+		     break
+		  else
+		     sendState = state.SENDIMGS
+		  end
+	       elseif sendState == state.SENDIMGS then
+		  print("end of image file " .. sendImgsIdx)
+		  io.close(sendFP)
+		  if sendImgsIdx < #sendImgs then
+		     sendImgsIdx = sendImgsIdx + 1
+		     print("opening image file " ..sendImgs[sendImgsIdx])
+		     sendFP = io.open(sendImgs[sendImgsIdx], "r")
+		     print("sendFP image file  bb", sendFP)
+		     if not sendFP then
+			print("Glass cannot open image file "..sendImgsIdx)
+			sendState = state.IDLE
+			break
+		     end
+		  else
+		     print("end of last image file")
+		     sendState = state.SENDFOOTER
+		     break
+		  end
+	       end
 	    end
 	 end
       end
@@ -260,20 +339,31 @@ local function clearJSON()
    
 end
 
-local function sendFile()
+local function sendUSB()
 
-   sendFP = io.open(prefix().."Apps/Glass/config/config2.txt")
+   sendFP = io.open(prefix().."Apps/Glass/Configs/config-fonts.txt", "r")
+   print("sendFP", sendFP)
+   sendFPser = io.open(prefix().."Apps/Glass/Configs/config-serialout.txt", "w")
+   print("sendFPser ", sendFPser)
+   sendImgs = {prefix().."Apps/Glass/Configs/config-imgs-square-full.txt",
+	       prefix().."Apps/Glass/Configs/config-imgs-right-half.txt",
+	       prefix().."Apps/Glass/Configs/config-imgs-left-half.txt"
+   }
+   
    if sendFP and sidSerial then
       sendAA = 0
       sendFF = 0
       sendTime = system.getTimeCounter()
       configLine = ""
-      sendState = state.SENDING
+      sendState = state.SENDHEADER
    else
-      print("Glass: could not open config file or serial port not open")
+      print("Glass: could not open config font file or serial port not open")
       sendState = state.IDLE
    end
    
+end
+
+local function sendFile()
 end
 
 local function initForm(sf)
@@ -343,7 +433,7 @@ local function initForm(sf)
       form.setFocusedRow(1)
    elseif sf == 11 then
       form.addRow(1)
-      form.addLink(sendFile, {label="Send File>>"})
+      form.addLink(sendUSB, {label="Send config on serial>>"})
       form.addRow(1)
       form.addLink(clearJSON, {label="Reset app settings>>"})
       
