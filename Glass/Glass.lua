@@ -29,15 +29,18 @@ local subForm
 local savedRow = 0
 local gaugeNumber = 0
 local gaugeMax = 4
-local imageMax
 local emflag
 local sidSerial
 local lastWrite = 0
-local image = {}
-local imageFile = {}
+local availImgs = {}
+local encodedImgs = {}
+local id2avail = {}
+local editImgs = {}
+local imageNum
+local imageMax
 local modelName
-local sendingJSON = true
-local state = {IDLE = 1, STANDBY = 2,SENDHEADER = 3, SENDFONTS = 4, SENDIMGS = 5, SENDFOOTER = 6}
+local state = {IDLE = 1, STANDBY = 2,SENDHEADER = 3, SENDFONTS = 4, SENDIMGS = 5,
+	       SENDFOOTER = 6, SENDACTIVE = 7, SENDFMTS = 8}
 local sendState = state.IDLE
 local sendFP, sendFPser
 local sendImgs
@@ -50,8 +53,16 @@ local cpu = 0
 local configLine
 local fmtNumber = 0
 local writeJSON = true
-
-local teleSensors, txTeleSensors
+local appName = "Glass"
+local pathApp = "Apps/"..appName.."/"
+local pathImages = pathApp.."Images/"
+local pathConfigs = pathApp.."Configs/"
+local jsonHoldTime = 0
+local availFmt = {}
+local availFmts = {}
+--[[
+local teleSensors
+local txTeleSensors
 local txSensorNames = {"txVoltage", "txBattPercent", "txCurrent", "txCapacity",
 		       "rx1Percent", "rx1Voltage", "rx2Percent", "rx2Voltage",
 		       "rxBVoltage", "rxBPercent", "photoValue"}
@@ -59,44 +70,7 @@ local txSensorUnits = {"V", "%", "mA", "mAh", "%", "V", "%", "V", "V", "%", " "}
 local txSensorDP    = { 1,   0,    0,     0,   0,   1,   0,   1,   1,   0,   0}
 local txRSSINames = {"rx1Ant1", "rx1Ant2", "rx2Ant1", "rx2Ant2",
 		     "rxBAnt1", "rxBAnt2"}
-
--- base64 encoding/decoding routines
--- Lua 5.1+ base64 v3.0 (c) 2009 by Alex Kloss <alexthkloss@web.de>
--- licensed under the terms of the LGPL2
-
--- character table string
-local b='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-
--- encoding
-local function enc(data)
-    return ((data:gsub('.', function(x) 
-        local r,b='',x:byte()
-        for i=8,1,-1 do r=r..(b%2^i-b%2^(i-1)>0 and '1' or '0') end
-        return r;
-    end)..'0000'):gsub('%d%d%d?%d?%d?%d?', function(x)
-        if (#x < 6) then return '' end
-        local c=0
-        for i=1,6 do c=c+(x:sub(i,i)=='1' and 2^(6-i) or 0) end
-        return b:sub(c+1,c+1)
-    end)..({ '', '==', '=' })[#data%3+1])
-end
-
--- decoding
-local function dec(data)
-    data = string.gsub(data, '[^'..b..'=]', '')
-    return (data:gsub('.', function(x)
-        if (x == '=') then return '' end
-        local r,f='',(b:find(x)-1)
-        for i=6,1,-1 do r=r..(f%2^i-f%2^(i-1)>0 and '1' or '0') end
-        return r;
-    end):gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
-        if (#x ~= 8) then return '' end
-        local c=0
-        for i=1,8 do c=c+(x:sub(i,i)=='1' and 2^(8-i) or 0) end
-        return string.char(c)
-    end))
-end
-
+--]]
 local function prefix()
    local pf
    if (select(2, system.getDeviceType()) == 1) then pf = "" else pf = "/" end
@@ -122,10 +96,9 @@ local function readSensors(tt)
 	 end
       end
    end
-   teleSensors = #tt.sensorLalist
 
-   if true then return end -- leave the tx stuff off for now
-      
+   --[[
+   teleSensors = #tt.sensorLalist
    l1 = "txTel"
    for i, label in ipairs(txSensorNames) do
       table.insert(tt.sensorLalist, l1 .. "_" .. label)
@@ -146,23 +119,25 @@ local function readSensors(tt)
       table.insert(tt.sensorUnlist, " ")
       table.insert(tt.sensorDplist, 0)
    end
-
+   --]]
 end
 
 local function loop()
    local now = system.getTimeCounter()
-   local sensor, val, sval
+   local unow = system.getTime()
+   local sensor, sval
    local stbl = {}
    local gtbl = {}
-
-   if sendState == state.IDLE then
+   local av
+   local scale
+   local minV, maxV
+      
+   if sendState == state.IDLE and unow > jsonHoldTime then
       if pageMax > 0 and (now > lastWrite + 500) then
-	 --local p2 = 1+math.floor(2.51 * (1 + system.getInputs("P2")))
+
 	 local p1 = math.floor(255 * (1 + system.getInputs("P1")) / 2)
 	 local p2 = math.floor(255 * (1 + system.getInputs("P2")) / 2)
 	 
-	 --print("p2", p2)
-	 --stbl = {page=p2}
 	 stbl = {page=pageNumber, P1=p1, P2=p2}
 	 for k,v in pairs(Glass.page[pageNumber]) do
 	    if (v.sensorId ~= 0) and (v.sensorLa ~= 0) then
@@ -170,6 +145,22 @@ local function loop()
 	       if sensor and sensor.valid then
 		  v.value = sensor.value
 	       end
+	       if v.imageID >= 0 then
+		  av = id2avail[v.imageID]
+	       else
+		  av = nil
+	       end
+	       if av then
+		  scale = availImgs[av].scale
+	       end
+	       if scale == "variable" then
+		  minV = v.minV or availImgs[av].minV -- if min/max not set pick up defaults
+		  maxV = v.maxV or availImgs[av].maxV
+	       else
+		  minV = availImgs[av].minV
+		  maxV = availImgs[av].maxV
+	       end
+	       --print("pn,g, g.imageID, scale", pageNumber, k, v.imageID, av, scale)
 	    end
 	    local fms
 	    if v.decimals == 0 then
@@ -181,6 +172,11 @@ local function loop()
 	    end
 	    sval = string.format(fms, v.value or 0)
 	    gtbl = {type=v.type, value = sval, unit=v.units}
+	    gtbl.id = v.imageID
+	    if scale == "variable" then
+	       gtbl.minV = minV
+	       gtbl.maxV = maxV
+	    end
 	    if Glass.page[pageNumber][k].sensorLa ~= "..." then
 	       stbl[Glass.page[pageNumber][k].instName] = gtbl
 	    end
@@ -195,6 +191,7 @@ local function loop()
 	 end
 	 lastWrite = now
       end
+
    elseif sendState == state.SENDHEADER or sendState == state.SENDFOOTER then
 
       --[[
@@ -216,27 +213,38 @@ local function loop()
       local bufF = bufPre .. string.format("%08X%08X", cfgVersion, cfgKey) .. "AA\n"..bufSet.."\n"
       local bw
       if sendState == state.SENDHEADER then
-	 print("send header ", bufH) 
+	 --print("send header ", bufH)
+	 print("Glass: Sending config header")
 	 bw = serial.write(sidSerial, bufH)
 	 io.write(sendFPser, bufH)
+	 --print("bw, bufH", bw, bufH)
 	 if not bw then
 	    print("Glass: serial write error header")
 	 else
 	    sendState = state.SENDFONTS
+	    sendFP = io.open(prefix() .. pathConfigs .. "config-fonts.txt", "r")
+	    if not sendFP then
+	       print("Glass: cannot open font config")
+	       sendState = state.IDLE
+	    end
 	 end
+	 print("Glass: Sending font configs")
       elseif sendState == state.SENDFOOTER then
-	 print("send footer ", bufF)
+	 --print("send footer ", bufF)
 	 bw = serial.write(sidSerial, bufF)
 	 io.write(sendFPser, bufF)
 	 if not bw then print("Glass: serial write error on footer") end
       end
       if not bw or (sendState == state.SENDFOOTER) then
+	 print("Glass: Sending config footer")
 	 if sendFPser then io.close(sendFPser) end
 	 sendState = state.IDLE
 	 --sendTime = system.getTimeCounter()	 
-	 print("DONE", system.getTimeCounter() - sendTime)
+	 print("Send config done. Time (ms): ", system.getTimeCounter() - sendTime)
+	 jsonHoldTime = system.getTime() + 2
       end
-   elseif (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) then
+   elseif (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) or
+      (sendState == state.SENDACTIVE) or (sendState == state.SENDFMTS) then
       local buf, start, before, after
       if system.getTimeCounter() - sendLast > 10 then -- 10ms is essentially no delay .. can throttle...
 	 for k=1,20,1 do
@@ -262,43 +270,58 @@ local function loop()
 	       sendLast = system.getTimeCounter()
 	       bw = serial.write(sidSerial, buf)
 	       io.write(sendFPser, buf)
-	       print("write buf", buf)
+	       --print("write buf", buf)
 	       if not bw then
 		  print("Glass: Serial write error")
 		  buf = ""
 	       end
 	    end
 	    if buf == "" then
-	       print("reached EOF on a file", sendImgsIdx, sendState)
-	       if sendState == state.SENDFONTS then
-		  print("done with fonts, starting images")
+	       --print("reached EOF on a file", sendImgsIdx, sendState)
+	       if sendState == state.SENDFMTS then
+		  io.close(sendFP)
+		  sendFP = io.open(prefix() .. pathImages .. "encodedImgs.jsn", "r")
+		  if not sendFP then
+		     print("Glass: cannot open encoded images")
+		     sendState = state.IDLE
+		  end
+		  sendState = state.SENDACTIVE
+		  break
+	       elseif sendState == state.SENDACTIVE then
+		  io.close(sendFP)
+		  sendState = state.SENDHEADER
+		  break
+	       elseif sendState == state.SENDFONTS then
+		  --print("done with fonts, starting images")
 		  io.close(sendFP)
 		  sendImgsIdx = 1
-		  print("image opening " .. sendImgs[sendImgsIdx])
+		  --print("image opening " .. sendImgs[sendImgsIdx])
+		  print("Glass: Sending image file " ..sendImgs[sendImgsIdx])
 		  sendFP = io.open(sendImgs[sendImgsIdx], "r")
-		  print("sendFP image file tt", sendFP)
+		  --print("sendFP image file tt", sendFP)
 		  if not sendFP then
 		     print("Glass:cannot open image file "..sendImgsIdx)
 		     sendState = state.IDLE
 		     break
 		  else
 		     sendState = state.SENDIMGS
+		     --print("Glass: Sending images")
 		  end
 	       elseif sendState == state.SENDIMGS then
-		  print("end of image file " .. sendImgsIdx)
+		  --print("end of image file " .. sendImgsIdx)
 		  io.close(sendFP)
 		  if sendImgsIdx < #sendImgs then
 		     sendImgsIdx = sendImgsIdx + 1
-		     print("opening image file " ..sendImgs[sendImgsIdx])
+		     print("Glass: Sending image file " ..sendImgs[sendImgsIdx])
 		     sendFP = io.open(sendImgs[sendImgsIdx], "r")
-		     print("sendFP image file  bb", sendFP)
+		     --print("sendFP image file  bb", sendFP)
 		     if not sendFP then
 			print("Glass cannot open image file "..sendImgsIdx)
 			sendState = state.IDLE
 			break
 		     end
 		  else
-		     print("end of last image file")
+		     --print("end of last image file")
 		     sendState = state.SENDFOOTER
 		     break
 		  end
@@ -325,7 +348,7 @@ local function changedName(value)
 end
 
 local function clearJSON()
-   local fn = prefix().."Apps/Glass/GG_" .. modelName.. ".jsn"
+   local fn = prefix() .. pathApp .. "GG_" .. modelName.. ".jsn"
    local ans
    ans = form.question("Are you sure?", "Reset all app settings?",
 		       "",
@@ -341,29 +364,45 @@ end
 
 local function sendUSB()
 
-   sendFP = io.open(prefix().."Apps/Glass/Configs/config-fonts.txt", "r")
-   print("sendFP", sendFP)
-   sendFPser = io.open(prefix().."Apps/Glass/Configs/config-serialout.txt", "w")
-   print("sendFPser ", sendFPser)
-   sendImgs = {prefix().."Apps/Glass/Configs/config-imgs-square-full.txt",
-	       prefix().."Apps/Glass/Configs/config-imgs-right-half.txt",
-	       prefix().."Apps/Glass/Configs/config-imgs-left-half.txt"
-   }
+   -- go thru all pages, and gauges to find imageIDs that are referenced
+   -- and put them in a table to set up the data transmission
+   
+   sendImgs = {}
+   local av
+   for k,p in ipairs(Glass.page) do
+      for j, g in ipairs(p) do
+	 if g.imageID >=0 then
+	    av = id2avail[g.imageID]
+	 else
+	    av = nil
+	 end
+	 if av then
+	    local fn = prefix() .. pathConfigs .. "config-imgs-" .. availImgs[av].name .. ".txt"
+	    table.insert(sendImgs, fn)
+	 end
+      end
+   end
+
+   if #sendImgs < 1 then
+      print("Glass: no image files referenced - nothing sent")
+      return
+   end
+
+   sendFP = io.open(prefix() .. pathImages .. "glassFmts.jsn", "r")
+   sendFPser = io.open(prefix() .. pathConfigs .. "config-serialout.txt", "w")
    
    if sendFP and sidSerial then
       sendAA = 0
       sendFF = 0
       sendTime = system.getTimeCounter()
       configLine = ""
-      sendState = state.SENDHEADER
+      sendState = state.SENDFMTS
+      print("Glass: Sending image json description")
    else
-      print("Glass: could not open config font file or serial port not open")
+      print("Glass: could not open file or serial port not open")
       sendState = state.IDLE
    end
    
-end
-
-local function sendFile()
 end
 
 local function initForm(sf)
@@ -389,25 +428,66 @@ local function initForm(sf)
       form.setTitle("Display Pages")
    elseif sf == 10 then
       form.setButton(1, ":forward", ENABLED)
-      form.setButton(3, ":up", ENABLED)
-      form.setButton(4, ":down", ENABLED)
-
+      form.setButton(2, ":up", ENABLED)
+      
       if gaugeNumber == 0 then gaugeNumber = 1 end
       if pageNumber == 0 then pageNumber = 1 end
       if not Glass.page[pageNumber][gaugeNumber].instName then
 	 Glass.page[pageNumber][gaugeNumber].instName = 'Gauge'..gaugeNumber
       end
 
-      --print("sf 10", Glass.page[pageNumber][1].fmtNumber)
       if Glass.page[pageNumber][1].fmtNumber < 1 then
 	 Glass.page[pageNumber][1].fmtNumber = 1
+	 fmtNumber = 1
+      end
+
+      --sift thru avail images and find the ones that are the correct size
+      --for this gauge in the selected format
+
+      imageNum = nil
+      local imageID = Glass.page[pageNumber][gaugeNumber].imageID
+      local fn = Glass.page[pageNumber][1].fmtNumber
+      local wid = availFmt[fn][gaugeNumber].width
+      editImgs = {}
+      for i, img in ipairs(availImgs) do
+	 if ((wid == "full") and (img.imageWidth > 100)) or ( (wid == "half") and (img.imageWidth < 100) ) then
+	    table.insert(editImgs,
+			 {id=img.id, loadImage=img.loadImage, scale=img.scale, minV=img.minV, maxV = img.maxV})
+	    if img.id == imageID then
+	       imageNum = #editImgs
+	    end
+	 end
+      end
+      imageMax = #editImgs
+      if not imageNum then imageNum = 1 end
+      if imageID < 0 then
+	 if #editImgs < 1 then
+	    print("Glass: no images for", pageNumber, gaugeNumber)
+	 else
+	    imageID = editImgs[1].id
+	    Glass.page[pageNumber][gaugeNumber].imageID = imageID
+	 end
       end
       
-      if Glass.page[pageNumber][gaugeNumber].gaugeFile == "..." then
-	 Glass.page[pageNumber][gaugeNumber].gaugeFile = imageFile[1]
-      end
+      form.addRow(1)
+      form.addLink((function(x) form.reinit(12) end), {label="Data source >"})
+
+      form.addRow(1)
+      form.addLink((function(x) form.reinit(13) end), {label="Min/Max >"})
+
       
-      local isen = 1
+      form.setTitle("Page " .. pageNumber .. " Gauge " .. gaugeNumber)
+      
+      form.setFocusedRow(1)
+   elseif sf == 11 then
+
+      form.addRow(1)
+      form.addLink(sendUSB, {label="Send config on serial>>"})
+      form.addRow(1)
+      form.addLink(clearJSON, {label="Reset app settings>>"})
+
+   elseif sf == 12 then
+
       local isel = 0
       for k = 1, #Glass.sensorLalist do
 	 if (Glass.sensorIdlist[k] == Glass.page[pageNumber][gaugeNumber].sensorId) and
@@ -416,28 +496,74 @@ local function initForm(sf)
 	    break
 	 end
       end
-      --form.addRow(1)
-      --form.addLabel({label="Sensor:", width=155, font=FONT_NORMAL})
-      form.addRow(1)
+
+      form.addRow(2)
+      form.addLabel({label="Sensor:", font=FONT_NORMAL})
       form.addSelectbox(Glass.sensorLalist, isel, true, changedSensor,
 			{width=155, font=FONT_NORMAL, alignRight=false})
 
-      --form.addRow(1)
-      --form.addLabel({label="Inst Name:", width=155, font=FONT_NORMAL})
-      form.addRow(1)
+      form.addRow(2)
+      form.addLabel({label="Gauge Name:", font=FONT_NORMAL})
       form.addTextbox(Glass.page[pageNumber][gaugeNumber].instName, 10, changedName,
 			{width=155, font=FONT_NORMAL})
+   elseif sf == 13 then
 
-      form.setTitle("Page " .. pageNumber .. " Gauge " .. gaugeNumber)
+      local id, fn, minV, maxV, av
+
+      fn = Glass.page[pageNumber][1].fmtNumber
+      id = Glass.page[pageNumber][gaugeNumber].imageID
+      if id < 0 then
+	 print("Glass: no images")
+	 return
+      end
+
+      av = id2avail[id]
+
+      --print("pN,gN,fn,id,av", pageNumber, gaugeNumber, fn, id, av)
+
+      local scale = availImgs[av].scale
       
-      form.setFocusedRow(1)
-   elseif sf == 11 then
-      form.addRow(1)
-      form.addLink(sendUSB, {label="Send config on serial>>"})
-      form.addRow(1)
-      form.addLink(clearJSON, {label="Reset app settings>>"})
+      if scale == "fixed" or not Glass.page[pageNumber][gaugeNumber].minV then
+	 minV = availImgs[av].minV
+      else
+	 minV = Glass.page[pageNumber][gaugeNumber].minV
+      end
+
+      if scale == "fixed" or not Glass.page[pageNumber][gaugeNumber].maxV then
+	 maxV = availImgs[av].maxV
+      else
+	 maxV = Glass.page[pageNumber][gaugeNumber].maxV
+      end      
       
-      --form.addLabel({label="Tools menu", width = 220})      
+      if availImgs[av].scale == "variable" then
+	 local function minChanged(value)
+	    Glass.page[pageNumber][gaugeNumber].minV = value / 10.0
+	 end
+
+	 form.addRow(2)
+	 form.addLabel({label="Min value"})
+	 form.addIntbox(minV*10, -32768, 32767, 0, 1, 1, minChanged)
+
+	 local function maxChanged(value)
+	    Glass.page[pageNumber][gaugeNumber].maxV = value / 10.0
+	 end
+
+	 form.addRow(2)
+	 form.addLabel({label="Max value"})
+	 form.addIntbox(maxV*10, -32768, 32767, 100, 1, 1, maxChanged)
+      else
+	 if not minV or not maxV then
+	    form.addRow(1)
+	    form.addLabel({label="Min/Max not applicable"})
+	 else
+	    form.addRow(2)
+	    form.addLabel({label="Min value (fixed)"})
+	    form.addLabel({label=string.format("%.1f", minV)})
+	    form.addRow(2)
+	    form.addLabel({label="Max value (fixed)"})
+	    form.addLabel({label=string.format("%.1f", maxV)})	 	 
+	 end
+      end
    end
 end
 
@@ -446,9 +572,25 @@ local function keyExit(k)
       return true else return false end
 end
 
+local function clearPage(pn, gm)
+   local fmtNumber = 1
+   Glass.page[pn] = {}
+   for k=1,gm do
+      Glass.page[pn][k] = {}
+      Glass.page[pn][k].sensorId = 0
+      Glass.page[pn][k].sensorPa = 0	 
+      Glass.page[pn][k].sensorLs = "..."
+      Glass.page[pn][k].sensorLa = "..."	    
+      Glass.page[pn][k].units = "-"
+      Glass.page[pn][k].decimals = 0
+      Glass.page[pn][k].imageID = -1
+      Glass.page[pn][k].value = 0.0
+      Glass.page[pn][k].instName = "Gauge"..k
+   end
+   Glass.page[pn][1].fmtNumber = fmtNumber
+end
 
 local function keyPressed(key)
-   local imageNum
    
    if subForm == 1 then
 
@@ -467,29 +609,16 @@ local function keyPressed(key)
 	 end
 	 pageMax = pageNumber
 	 fmtNumber = 1
-	 Glass.page[pageNumber] = {}
-	 for k=1,gaugeMax do
-	    Glass.page[pageNumber][k] = {}
-	    Glass.page[pageNumber][k].sensorId = 0
-	    Glass.page[pageNumber][k].sensorPa = 0	 
-	    Glass.page[pageNumber][k].sensorLs = "..."
-	    Glass.page[pageNumber][k].sensorLa = "..."	    
-	    Glass.page[pageNumber][k].units = "-"
-	    Glass.page[pageNumber][k].decimals = 0
-	    Glass.page[pageNumber][k].imageNum = 0
-	    Glass.page[pageNumber][k].gaugeFile = "..."
-	    Glass.page[pageNumber][k].value = 0.0
-	    Glass.page[pageNumber][k].instName = "Gauge"..k
-	 end
-	 Glass.page[pageNumber][1].fmtNumber = fmtNumber
+	 clearPage(pageNumber, gaugeMax)
 	 form.reinit(1)
       elseif key == KEY_2 then
 	 if pageNumber < 1 then
 	    system.messageBox("No pages defined")
 	    return
 	 end
+	 clearPage(pageNumber, gaugeMax)
 	 fmtNumber = fmtNumber + 1
-	 if fmtNumber > #Glass.availFmt then fmtNumber = 1 end
+	 if fmtNumber > #availFmt then fmtNumber = 1 end
 	 --print("setting .fmtNumber", fmtNumber, pageNumber)
 	 Glass.page[pageNumber or 1][1].fmtNumber = fmtNumber
 	 return
@@ -498,6 +627,7 @@ local function keyPressed(key)
 	 if pageNumber > 0 then
 	    pageNumber = savedRow
 	    Glass.page[pageNumber][1].fmtNumber = fmtNumber
+	    gaugeNumber = 1
 	    form.reinit(10)
 	 else
 	    system.messageBox("No pages defined to edit")
@@ -509,42 +639,46 @@ local function keyPressed(key)
    elseif subForm == 10 then
       if keyExit(key) then
 	 form.preventDefault()
+	 imageNum = nil
 	 form.reinit(1)
       end
-
-      imageNum = Glass.page[pageNumber][gaugeNumber].imageNum
-      
       if key == KEY_1 then
-	 gaugeNumber = gaugeNumber + 1
-	 --if gaugeNumber > gaugeMax then
 	 local fm = Glass.page[pageNumber][1].fmtNumber
-	 local mx = #Glass.availFmt[fm]
-	 if gaugeNumber > mx then	 
+	 local mx = #availFmt[fm]
+	 if gaugeNumber + 1 > mx then	 
 	    gaugeNumber = 1
+	 else
+	    gaugeNumber = gaugeNumber + 1
 	 end
+	 --print("key1 mx,gaugeNumber", mx, gaugeNumber)
+	 imageNum = nil
 	 form.reinit(10)
 	 return
-      elseif key == KEY_3 then
-	 --print("enter key_3", imageNum)
+      elseif key == KEY_2 then
 	 imageNum = imageNum + 1
 	 if imageNum > imageMax then imageNum = 1 end
-      elseif key == KEY_4 then
-	 imageNum = imageNum - 1
-	 if imageNum < 1 then imageNum = imageMax end      
       end
-      if key == KEY_3 or key == KEY_4 then
-	 Glass.page[pageNumber][gaugeNumber].imageNum = imageNum
-	 Glass.page[pageNumber][gaugeNumber].gaugeFile = imageFile[imageNum]
-	 --print("key3/4", imageNum, imageFile[imageNum])
+      if key == KEY_2 then
+	 local iid = 0
+	 for i,img in ipairs(availImgs) do
+	    if img.id == editImgs[imageNum].id then
+	       iid = img.id
+	    end
+	 end
+	 Glass.page[pageNumber][gaugeNumber].imageID = iid
+	 print("key2 set imageID to", pageNumber, gaugeNumber, Glass.page[pageNumber][gaugeNumber].imageID)
       end
    elseif subForm == 11 then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
       end
-      
+   elseif subForm == 12 or subForm == 13 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(10)
+      end
    end
-   
 end
 
 local function drawRectangleGlass(x0, y0, xl, yl)
@@ -553,55 +687,33 @@ local function drawRectangleGlass(x0, y0, xl, yl)
 end
 
 local function printForm(w,h)
+
    local offset = w - 144
+   --[[
    local gw = 304
    local gh = 256
    local large = 160
    local small = 144
    local ofs=5
-   
    local vals = {L1 = gw/2,
 		 L2 = gw/2 - large/2 - ofs, R2 = gw/2 + ofs + -large/4 + large/2,
 		 L3 = gw/2 - ofs - large/4, R3 = gw/2 + ofs + large/2,
 		 L4 = gw/2 - ofs - large/2, C4 = gw/2, R4 = gw/2 + ofs + large/2,
-		 L5 = gw/2 - small/2, R5 = gw/2 + small/2,
+		 --L5 = gw/2 - small/2, R5 = gw/2 + small/2,
 		 H1 = gh/2, H2 = gh/2, H3 = gh/2, H4 = gh/2, H5 = gh/2,
 		 full = 160, half = 80, small=144
    }
-		 
+   --]]
    if subForm == 10 then
       lcd.setColor(255,255,255)
       lcd.drawFilledRectangle(offset-5, 0, h+1+5, h+1)
-      local imageNum = Glass.page[pageNumber][gaugeNumber].imageNum
-      local fn = Glass.page[pageNumber][1].fmtNumber
-      local alpha
-      --print("#", fmtNumber, gaugeNumber, imageNum, Glass.availFmt[fmtNumber][gaugeNumber].width) --,
-      --image[imageNum].size)\
-      if imageNum < 1 then
-	 imageNum = 1
-	 Glass.page[pageNumber][gaugeNumber].imageNum = imageNum
-      end
-      --print("$", #image, ii, image[1], image[1].size)
-      --print("%", Glass.availFmt[fmtNumber][gaugeNumber].width)
-      if Glass.availFmt[fmtNumber][gaugeNumber].width == image[imageNum].size then
-	 alpha = 255
+      --print("pF", imageNum)
+      if imageNum and imageNum > 0 and editImgs[imageNum] and editImgs[imageNum].loadImage then
+	 lcd.drawImage(offset,0,editImgs[imageNum].loadImage)
       else
-	 alpha = 32
+	 lcd.setColor(0,0,0)
+	 lcd.drawText(200,80, "imageNum " .. (imageNum or "nil") .." " .. #editImgs)
       end
-      if imageNum > 0 then
-	 lcd.drawImage(offset,0,image[imageNum], alpha)
-      end
-      local ss = Glass.page[pageNumber][gaugeNumber].gaugeFile
-      --[[
-      lcd.setColor(0,0,255)
-      lcd.drawText(10,50, "Units: " .. Glass.page[pageNumber][gaugeNumber].units)
-      lcd.drawText(10,70, "Decimals: " .. math.floor(Glass.page[pageNumber][gaugeNumber].decimals))
-      --local ww = lcd.getTextWidth(FONT_MINI, ss)
-      --lcd.drawText(offset + h/2 - ww / 2, 130, ss, FONT_MINI)
-      lcd.drawText(10,90, "Img: " .. ss)      
-      --]]
-   elseif subForm == 11 then
-      lcd.drawText(10, 120, "CPU: " ..cpu)
    elseif subForm == 1 then
       lcd.setColor(255,255,255)
       lcd.drawFilledRectangle(310-167, 0, 167, 141)
@@ -615,24 +727,54 @@ local function printForm(w,h)
       lcd.setColor(0,0,0)
 
       if fmtNumber > 0 then
-	 local gp = Glass.availFmt[fmtNumber]
+	 --local gp = availFmt[fmtNumber]
+	 local gp = availFmts[fmtNumber]
 	 for g,t in ipairs(gp) do
-	    --print(fmtNumber, g, t, vals[t.x0], vals[t.y0], vals[t.width], vals[t.height])
-	    drawRectangleGlass(vals[t.x0], vals[t.y0], vals[t.width], vals[t.height])
+	    drawRectangleGlass(t.xc, t.yc, t.width, t.height)
 	 end
       end
       
       lcd.resetClipping()
    end
-   
-   
 end
 
 local function printTele(w,h)
 
    local offset = (159-144) / 2
-   lcd.setColor(0,0,0)
-   lcd.drawFilledRectangle(0,0,319,159)
+   local v0 = 256-160
+   local h0 = 5
+   local id
+   local av
+   local xr, yr
+   local gpp
+   
+   if fmtNumber > 0 then
+      local gp = availFmts[fmtNumber]
+      for g,t in ipairs(gp) do
+	 --print(t.xc - t.width/2, t.yc - t.height/2, t.width, t.height)
+	 xr = t.xc - t.width/2 +  h0
+	 yr = t.yc - t.height/2 - v0/2
+	 lcd.drawRectangle(xr, yr, t.width, t.height)
+	 gpp = Glass.page[pageNumber]
+	 id = gpp[g].imageID
+	 if id >0 then
+	    av = id2avail[id]
+	 else
+	    av = nil
+	 end
+	 --print(pageNumber, g, id, av)
+	 if av then
+	    lcd.drawCircle(xr + availImgs[av].x0, yr + availImgs[av].y0, 5)
+	    lcd.drawText(xr + availImgs[av].x0, yr + availImgs[av].y0, string.format("%.1f", gpp[g].value or 0))
+	 end
+	 
+      end
+   end
+
+   
+
+   
+   --[[ fix this code .. old var names and incomplete function!
    if pageNumber > 0 and gaugeNumber > 0 then
       local imageNum = Glass.page[pageNumber][1].imageNum
       local value = Glass.page[pageNumber][1].value or 0.0
@@ -651,6 +793,7 @@ local function printTele(w,h)
 	 lcd.drawText(65+160, 138, string.format("%.2f", value))
       end
    end
+   --]]
 
 end
 
@@ -693,8 +836,7 @@ end
 
 local function init()
 
-   local dd, fn, ext
-   local ff
+   local fn
 
    modelName = string.gsub(system.getProperty("Model"), " ", "_")
 
@@ -702,41 +844,52 @@ local function init()
    
    system.registerForm(1, MENU_APPS, "Glass", initForm, keyPressed, printForm)
 
-   local path = prefix().."Apps/Glass/Images"
+   fn = prefix() .. pathImages .. "availImgs.jsn"
+      
+   local file = io.readall(fn)
+   availImgs = {}
+   if file then
+      availImgs = json.decode(file)
+      print("Glass - Reading avail images from ", fn)
+   else
+      system.messageBox("Glass: Cannot read " .. fn)
+      return
+   end
+
+   -- availImgs.jsn has a lot of whitespace in it for readability, re-encode it
+   -- to denser format for transmission to the ESP. Also put a 0XDD and 0XAA
+   -- wrapper around it
    
-   imageMax = 0
-   if dir(path) then
-      for name, _, _ in dir(path) do
-	 dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
-	 if fn and ext then
-	    if string.lower(ext) == "png" then
-	       ff = path .. "/" .. fn .. "." .. ext
-	       imageMax = imageMax + 1
-	       --print(imageMax, fn)
-	       imageFile[imageMax] = fn
-	       image[imageMax] = lcd.loadImage(ff)
-	       local w = image[imageMax].width
-	       local h = image[imageMax].height
-	       local s
-	       if w == 144 and h == 144 then
-		  s = "full"
-	       elseif w == 75 and h == 144 then
-		  s = "half"
-	       else
-		  s = "unk"
-	       end
-	       image[imageMax].size = s		  
-	       --print("image: "..fn..' '..w..' '.. h .. ' ' ..s)
-	    end
-	 end
+   encodedImgs = json.encode(availImgs)
+
+   local fp = io.open(prefix() .. pathImages .. "encodedImgs.jsn", "w")
+   if not fp then
+      print("Glass: cannot open encodedImgs.jsn for writing")
+      return
+   else
+      if not io.write(fp, "FFDE", encodedImgs, "AA\n") then
+	 print("Glass: write error encodedImgs.jsn")
+	 return
       end
+      io.close(fp)
+      encodedImgs = nil
+   end
+   
+
+   id2avail = {}
+   for i,img in ipairs(availImgs) do
+      local im = prefix() .. pathImages .. img.name .. "-small.png"
+      img.loadImage = lcd.loadImage(im)
+      img.imageWidth = img.loadImage.width
+      img.imageHeight = img.loadImage.height
+      id2avail[img.id] = i
    end
 
    local device
    
    device, emflag = system.getDeviceType() 
    
-   local descr
+   local success, descr
    local portlist = serial.getPorts()
    for k,v in pairs(portlist) do
       print("Glass - Available COM port "..k..": ".. v)
@@ -756,11 +909,11 @@ local function init()
       serial.setBaudrate(sidSerial, baud)
       -- SPECIAL
       -- SPECIAL .. for Dave's BLE device turn on gpio 8
-      --gpio.mode(8, "out-pp")
-      --gpio.write(8,1)
-      --SPECIAL
-      --SPECIAL
-      local success, descr = serial.onRead(sidSerial,onRead)   
+      -- gpio.mode(8, "out-pp")
+      -- gpio.write(8,1)
+      -- SPECIAL
+      -- SPECIAL
+      success, descr = serial.onRead(sidSerial,onRead)   
       if success then
 	 print("Glass: Callback registered")
       else
@@ -773,9 +926,8 @@ local function init()
 
    system.registerTelemetry(1, "Glass Instruments", 4, printTele)
 
-   local fn = prefix().."Apps/Glass/GG_" .. modelName.. ".jsn"
-
-   local file = io.readall(fn)
+   fn = prefix().."Apps/Glass/GG_" .. modelName.. ".jsn"
+   file = io.readall(fn)
    if file then
       Glass.page = json.decode(file)
       print("Glass - Reading saved state from ", fn)
@@ -800,14 +952,14 @@ local function init()
       end
    end
 
-   local fn = prefix().."Apps/Glass/availFmt.jsn"
-   local file = io.readall(fn)
+   fn = prefix().."Apps/Glass/availFmt.jsn"
+   file = io.readall(fn)
    if file then
-      Glass.availFmt = json.decode(file)
+      availFmt = json.decode(file)
       print("Glass - Reading availFmt ", fn)
    else
       print("Glass - Could not read availFmt.jsn")
-      Glass.availFmt =  {}
+      availFmt =  {}
    end
 
    if #Glass.page < 1 then
@@ -816,11 +968,55 @@ local function init()
       fmtNumber = Glass.page[1][1].fmtNumber
    end
 
+   local gw = 304
+   local gh = 256
+   local large = 160
+   local ofs=5
    
+   local availVals = {L1 = gw/2,
+		 L2 = gw/2 - large/2 - ofs, R2 = gw/2 + ofs + -large/4 + large/2,
+		 L3 = gw/2 - ofs - large/4, R3 = gw/2 + ofs + large/2,
+		 L4 = gw/2 - ofs - large/2, C4 = gw/2, R4 = gw/2 + ofs + large/2,
+		 H1 = gh/2, H2 = gh/2, H3 = gh/2, H4 = gh/2, H5 = gh/2,
+		 full = 160, half = 80
+   }
+
+   local aF = {}
+   availFmts = {}
+   local gp = availFmt[fmtNumber]
+   for k,gp in ipairs(availFmt) do
+      aF[k] = {}
+      availFmts[k] = {}
+      for g,t in ipairs(gp) do
+	 aF[k][g] = {}
+	 availFmts[k][g] =  {}
+	 --image coords for glasses are lower right of image, not upper left as traditional 
+	 aF[k][g].xlr = availVals[t.xc] + availVals[t.width]/2
+	 aF[k][g].ylr = availVals[t.yc] + availVals[t.height]/2
+	 aF[k][g].width = availVals[t.width]
+	 aF[k][g].height = availVals[t.hwight]
+
+	 availFmts[k][g].xc = availVals[t.xc]
+	 availFmts[k][g].yc = availVals[t.yc]
+	 availFmts[k][g].width = availVals[t.width]
+	 availFmts[k][g].height = availVals[t.height]
+      end
+   end
    
+   local encodedaF = json.encode(aF)
+
+   local fp = io.open(prefix() .. pathImages .. "glassFmts.jsn", "w")
+   if not fp then
+      print("Glass: cannot open glassFmts.jsn for writing")
+      return
+   else
+      if not io.write(fp, "FFDD", encodedaF, "AA\n") then
+	 print("Glass: write error glassFmts.jsn")
+	 return
+      end
+      io.close(fp)
+      encodedaF = nil
+   end
 end
-
-
-   
 
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.1", name="Glass"}

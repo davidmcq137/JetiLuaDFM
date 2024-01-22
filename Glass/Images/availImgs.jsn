@@ -4,7 +4,7 @@
      "height":160, "width":160, "type":"gauge","nlen":75, "scale":"variable", "label":"...", "inputs":1,
      "x0":    80, "y0":    80,
      "minA":-150, "maxA": 150,
-     "minV":   0  "maxV": 100,
+     "minV":   0, "maxV": 100,
      "xlmin": 20, "ylmin":145,
      "xlmax":140, "ylmax":140,
      "xlbl":  80, "ylbl": 135
@@ -14,7 +14,7 @@
      "height":160, "width":160, "type":"gauge", "nlen":75, "scale":"fixed", "label":"V", "inputs":1,
      "x0":    80, "y0":    80,
      "minA":-150, "maxA": 150,
-     "minV":  12  "maxV":  18,
+     "minV":  12, "maxV":  18,
      "xlmin": 20, "ylmin":145,
      "xlmax":140, "ylmax":140,
      "xlbl":  80, "ylbl": 135
@@ -81,7 +81,7 @@
     },
 
     {"id":18, "name":"compass",
-     "height":160, "width":160, , "type":"compass", "nlen1":75, "nlen2":75, "label":"NESW", "inputs":2,
+     "height":160, "width":160, "type":"compass", "nlen1":75, "nlen2":75, "label":"NESW", "inputs":2,
      "x0":    80, "y0":    80
     }
     

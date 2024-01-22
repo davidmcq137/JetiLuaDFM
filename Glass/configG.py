@@ -271,10 +271,8 @@ class ConfigGenerator:
 
 # --- main ---
 if __name__ == '__main__':
-    print(sys.argv, len(sys.argv))
     if len(sys.argv) > 0:
         comName = "./Configs/" + sys.argv[1] + ".txt"
-        print("comName " + comName)
     else:
         comName = "test.txt"
     folder = 'cfgDescriptor'
@@ -295,7 +293,7 @@ if __name__ == '__main__':
         print("Activelook not connected")
         sys.exit()
 
-    print("Opening " + comName)
+    print("Writing " + comName)
     com.open(comName)
     generator = ConfigGenerator(com)
 
@@ -307,7 +305,7 @@ if __name__ == '__main__':
     folderChoosen = "aviator"
     #folderPath = f"cfgDescriptor/{folderChoosen}/config.json"
     folderPath = "./Configs/" + sys.argv[1] + ".json"
-    print("folderPath " + folderPath)
+    #print("folderPath " + folderPath)
     if not generator.parseJson(folderPath):
         print("failed to generate config")
     else:
