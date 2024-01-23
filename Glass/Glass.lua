@@ -13,6 +13,11 @@
 
 --]]
 
+local appName = "Glass"
+local pathApp = "Apps/"..appName.."/"
+local pathImages = pathApp.."Images/"
+local pathConfigs = pathApp.."Configs/"
+
 local Glass = {}
 Glass.sensorLalist = {"..."}
 Glass.sensorLslist = {"..."}
@@ -25,6 +30,9 @@ Glass.sensorTylist = {0}
 
 local pageNumber = 0
 local pageMax = 0
+local pageLimit = 3
+local pageNumberTele
+local pageSw
 local subForm
 local savedRow = 0
 local gaugeNumber = 0
@@ -51,12 +59,8 @@ local sendTime
 local sendLast = 0
 local cpu = 0
 local configLine
-local fmtNumber = 0
+--local fmtNumber = 0
 local writeJSON = true
-local appName = "Glass"
-local pathApp = "Apps/"..appName.."/"
-local pathImages = pathApp.."Images/"
-local pathConfigs = pathApp.."Configs/"
 local jsonHoldTime = 0
 local availFmt = {}
 local availFmts = {}
@@ -84,6 +88,7 @@ local function readSensors(tt)
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then sensorLbl = sensor.label else
+	    --print("sensor.label, sensor.type", sensor.label, sensor.type)
 	    l1 = string.gsub(sensorLbl, "%W", "")
 	    l2 = string.gsub(sensor.label, "%W", "")
 	    table.insert(tt.sensorLalist, l1 .. "_" .. l2)
@@ -131,18 +136,31 @@ local function loop()
    local av
    local scale
    local minV, maxV
-      
+
+   if pageSw then
+      local sw = system.getInputsVal(pageSw)
+      local pp = sw + 2 -- -1, 0, 1 --> 1,2,3
+      pp = math.min(pp, pageMax)
+      pageNumberTele = pp
+   end
+
    if sendState == state.IDLE and unow > jsonHoldTime then
-      if pageMax > 0 and (now > lastWrite + 500) then
+      if pageMax > 0 and (now > lastWrite + 200) then
 
 	 local p1 = math.floor(255 * (1 + system.getInputs("P1")) / 2)
 	 local p2 = math.floor(255 * (1 + system.getInputs("P2")) / 2)
-	 
-	 stbl = {page=pageNumber, P1=p1, P2=p2}
-	 for k,v in pairs(Glass.page[pageNumber]) do
+
+	 if (not pageSw) then pageNumberTele = pageNumber end
+
+	 --stbl = {page=pageNumberTele, P1=p1, P2=p2}
+	 stbl = {page=pageNumberTele}
+	 --print("$", Glass.page, pageNumberTele)
+	 if pageNumberTele < 1 then return end
+	 for k,v in pairs(Glass.page[pageNumberTele]) do
 	    if (v.sensorId ~= 0) and (v.sensorLa ~= 0) then
 	       sensor = system.getSensorByID(v.sensorId, v.sensorPa)
 	       if sensor and sensor.valid then
+		  --print(k, v.sensorId, v.sensorPa, sensor.value)
 		  v.value = sensor.value
 	       end
 	       if v.imageID >= 0 then
@@ -177,16 +195,20 @@ local function loop()
 	       gtbl.minV = minV
 	       gtbl.maxV = maxV
 	    end
-	    if Glass.page[pageNumber][k].sensorLa ~= "..." then
-	       stbl[Glass.page[pageNumber][k].instName] = gtbl
+	    if Glass.page[pageNumberTele][k].sensorLa ~= "..." then
+	       stbl[Glass.page[pageNumberTele][k].instName] = gtbl
 	    end
 	 end
 	 if next(stbl) then
 	    local espjson = json.encode(stbl)
-	    local swa = system.getInputs("SA")
-	    if swa and swa == 1 then
-	       print(espjson)
+
+	    if emflag then
+	       local swa = system.getInputs("SA")
+	       if swa and swa == 1 then
+		  print(espjson)
+	       end
 	    end
+	    
 	    local count = serial.write(sidSerial, espjson)
 	 end
 	 lastWrite = now
@@ -354,7 +376,7 @@ local function clearJSON()
 		       "",
 		       0, false, 5)
    if ans == 1 then
-      print("removing " .. fn)
+      --print("removing " .. fn)
       io.remove(fn)
       system.messageBox("All settings deleted .. Restart App")
       writeJSON = false
@@ -438,7 +460,7 @@ local function initForm(sf)
 
       if Glass.page[pageNumber][1].fmtNumber < 1 then
 	 Glass.page[pageNumber][1].fmtNumber = 1
-	 fmtNumber = 1
+	 --fmtNumber = 1
       end
 
       --sift thru avail images and find the ones that are the correct size
@@ -475,17 +497,37 @@ local function initForm(sf)
       form.addRow(1)
       form.addLink((function(x) form.reinit(13) end), {label="Min/Max >"})
 
-      
       form.setTitle("Page " .. pageNumber .. " Gauge " .. gaugeNumber)
       
       form.setFocusedRow(1)
    elseif sf == 11 then
 
+      local function pageSwChanged(val)
+	 pageSw = val
+	 local swInfo =system.getSwitchInfo(val)
+	 --print("swInfo.mode", swInfo.mode)
+	 if not swInfo.proportional then
+	    system.messageBox("Please select as Proportional")
+	    return
+	 end
+	 if not swInfo.assigned then
+	    print("Sw unassigned")
+	    pageSw = nil
+	    pageNumberTele = nil
+	 end
+	 system.pSave("pageSw", pageSw)
+      end
+      
+      form.addRow(2)
+      form.addLabel({label="Page change switch"})
+      form.addInputbox(pageSw, true, pageSwChanged)
+      
       form.addRow(1)
       form.addLink(sendUSB, {label="Send config on serial>>"})
       form.addRow(1)
       form.addLink(clearJSON, {label="Reset app settings>>"})
 
+      
    elseif sf == 12 then
 
       local isel = 0
@@ -573,7 +615,6 @@ local function keyExit(k)
 end
 
 local function clearPage(pn, gm)
-   local fmtNumber = 1
    Glass.page[pn] = {}
    for k=1,gm do
       Glass.page[pn][k] = {}
@@ -587,29 +628,28 @@ local function clearPage(pn, gm)
       Glass.page[pn][k].value = 0.0
       Glass.page[pn][k].instName = "Gauge"..k
    end
-   Glass.page[pn][1].fmtNumber = fmtNumber
+   Glass.page[pn][1].fmtNumber = 1
 end
 
 local function keyPressed(key)
+
+   local fmtNumber = Glass.page[pageNumber][1].fmtNumber
    
    if subForm == 1 then
 
       if keyExit(key) then
 	 if key ~= KEY_ESC then
 	    form.preventDefault()
+	    savedRow = form.getFocusedRow()
 	    form.reinit(1)
 	 end
       end
    
       if key == KEY_1 then
-	 pageNumber = pageNumber + 1
-	 if pageNumber > 1 then -- limit #pages to 1 now
-	    pageNumber = 1
-	    return
+	 if pageMax < pageLimit then
+	    pageMax = pageMax + 1
+	    clearPage(pageMax, gaugeMax)
 	 end
-	 pageMax = pageNumber
-	 fmtNumber = 1
-	 clearPage(pageNumber, gaugeMax)
 	 form.reinit(1)
       elseif key == KEY_2 then
 	 if pageNumber < 1 then
@@ -624,9 +664,9 @@ local function keyPressed(key)
 	 return
       elseif key == KEY_3 or key == KEY_ENTER then
 	 savedRow = form.getFocusedRow()
-	 if pageNumber > 0 then
+	 if savedRow > 0 then
 	    pageNumber = savedRow
-	    Glass.page[pageNumber][1].fmtNumber = fmtNumber
+	    --Glass.page[pageNumber][1].fmtNumber = fmtNumber
 	    gaugeNumber = 1
 	    form.reinit(10)
 	 else
@@ -660,13 +700,19 @@ local function keyPressed(key)
       end
       if key == KEY_2 then
 	 local iid = 0
+	 local min, max
 	 for i,img in ipairs(availImgs) do
 	    if img.id == editImgs[imageNum].id then
 	       iid = img.id
+	       min = img.minV
+	       max = img.maxV
 	    end
 	 end
 	 Glass.page[pageNumber][gaugeNumber].imageID = iid
-	 print("key2 set imageID to", pageNumber, gaugeNumber, Glass.page[pageNumber][gaugeNumber].imageID)
+	 Glass.page[pageNumber][gaugeNumber].minV = min -- may be nil
+	 Glass.page[pageNumber][gaugeNumber].maxV = max -- may be nil
+	 
+	 --print("key2 set imageID to", pageNumber, gaugeNumber, Glass.page[pageNumber][gaugeNumber].imageID)
       end
    elseif subForm == 11 then
       if keyExit(key) then
@@ -688,6 +734,8 @@ end
 
 local function printForm(w,h)
 
+   local fmtNumber
+   
    local offset = w - 144
    --[[
    local gw = 304
@@ -715,6 +763,10 @@ local function printForm(w,h)
 	 lcd.drawText(200,80, "imageNum " .. (imageNum or "nil") .." " .. #editImgs)
       end
    elseif subForm == 1 then
+      local fr = form.getFocusedRow()
+      --print(fr)
+      if fr <= pageMax and fr > 0 then pageNumber =  fr end
+      
       lcd.setColor(255,255,255)
       lcd.drawFilledRectangle(310-167, 0, 167, 141)
 
@@ -726,6 +778,7 @@ local function printForm(w,h)
       lcd.drawRectangle(33/2, 28/2, 134, 113)
       lcd.setColor(0,0,0)
 
+      fmtNumber = Glass.page[pageNumber][1].fmtNumber
       if fmtNumber > 0 then
 	 --local gp = availFmt[fmtNumber]
 	 local gp = availFmts[fmtNumber]
@@ -738,63 +791,87 @@ local function printForm(w,h)
    end
 end
 
+local function drawNeedle(x0, y0, degMin, degMax, min, max, val, len)
+
+   local ren = lcd.renderer()
+   local sinpt, cospt
+   local pct = (val - min) / (max - min)
+   local deg = 180 + degMin + pct * (degMax - degMin)
+   sinpt = math.sin(math.rad(deg))
+   cospt = math.cos(math.rad(deg))
+   ren:reset()
+   ren:addPoint(x0, y0)
+   local x1 = 0
+   local y1 = len
+   ren:addPoint(x0 + x1 * cospt - y1 * sinpt, y0 + x1 * sinpt + y1 * cospt)
+   ren:renderPolyline(2)
+
+end
+
 local function printTele(w,h)
 
    local offset = (159-144) / 2
    local v0 = 256-160
-   local h0 = 5
+   local h0 = 25
    local id
    local av
    local xr, yr
+   local xc, yc
    local gpp
+   local r = 144/160
+   local max, min, val
+   local fmtNumber
    
+   lcd.setColor(0,0,0)
+   lcd.drawFilledRectangle(0,0,319,159)
+   --lcd.setColor(100,100,100)
+   --lcd.drawRectangle(45, 0, 319-90, 157)
+   --lcd.setColor(0,0,0)
+
+   if (not pageSw) then pageNumberTele = pageNumber end
+
+   fmtNumber = Glass.page[pageNumberTele][1].fmtNumber
    if fmtNumber > 0 then
       local gp = availFmts[fmtNumber]
       for g,t in ipairs(gp) do
-	 --print(t.xc - t.width/2, t.yc - t.height/2, t.width, t.height)
-	 xr = t.xc - t.width/2 +  h0
-	 yr = t.yc - t.height/2 - v0/2
-	 lcd.drawRectangle(xr, yr, t.width, t.height)
-	 gpp = Glass.page[pageNumber]
+	 xr = t.xc - t.width/2 + h0
+	 yr = t.yc - t.height/2 - r * v0/2
+	 gpp = Glass.page[pageNumberTele]
 	 id = gpp[g].imageID
 	 if id >0 then
 	    av = id2avail[id]
 	 else
 	    av = nil
 	 end
-	 --print(pageNumber, g, id, av)
-	 if av then
-	    lcd.drawCircle(xr + availImgs[av].x0, yr + availImgs[av].y0, 5)
-	    lcd.drawText(xr + availImgs[av].x0, yr + availImgs[av].y0, string.format("%.1f", gpp[g].value or 0))
-	 end
 	 
+	 --print(pageNumberTele, g, id, av)
+	 lcd.setColor(255,255,255)
+	 if av then
+	    local aI = availImgs[av]
+	    lcd.drawImage(xr*r, yr*r, aI.loadImage)
+	    xc = xr + aI.x0
+	    yc = yr + aI.y0
+	    if gpp[g].value then
+	       --print(gpp[g].minV, aI.minV, gpp[g].maxV, aI.maxV) 
+	       if not gpp[g].minV then min = aI.minV else min = gpp[g].minV end
+	       if not gpp[g].maxV then max = aI.maxV else max = gpp[g].maxV end
+	       local ss = string.format("%.1f", gpp[g].value)
+	       if t.width < 100 then
+		  lcd.drawText(r*xr+t.width/2 -lcd.getTextWidth(FONT_MINI, ss)/2, r*yc+68, ss, FONT_MINI)
+	       else
+		  lcd.drawText(r*xc - lcd.getTextWidth(FONT_MINI, ss)/2, r*yc+68, ss, FONT_MINI)
+	       end
+	       if aI.scale == "variable" then
+		  lcd.drawText(xr*r + r*aI.xlmin, r*aI.ylmin, string.format("%.1f", min), FONT_MINI)
+		  lcd.drawText(xr*r + r*aI.xlmax, r*aI.ylmax, string.format("%.1f", max), FONT_MINI)
+	       end
+	       val = math.min(math.max(gpp[g].value, min), max)
+	       --print(fmtNumber, pageNumberTele, g, id, av, val, gpp[g].value, min, max)
+	       drawNeedle(r*xc, r*yc, aI.minA, aI.maxA, min, max, val, r*aI.nlen)
+	    end
+	 end
       end
    end
-
-   
-
-   
-   --[[ fix this code .. old var names and incomplete function!
-   if pageNumber > 0 and gaugeNumber > 0 then
-      local imageNum = Glass.page[pageNumber][1].imageNum
-      local value = Glass.page[pageNumber][1].value or 0.0
-      local ss
-      lcd.setColor(255,255,255)
-      if imageNum > 0 then
-	 lcd.drawImage(offset,offset,image[imageNum])
-	 ss = string.format("%.2f", value)
-	 lcd.drawText(65, 138, ss)
-      end
-      imageNum = Glass.page[pageNumber][2].imageNum
-      value = Glass.page[pageNumber][2].value or 0.0
-      if imageNum > 0 then
-	 lcd.drawImage(offset + 160, offset,image[imageNum])
-	 ss = string.format("%.2f", value)
-	 lcd.drawText(65+160, 138, string.format("%.2f", value))
-      end
-   end
-   --]]
-
 end
 
 local function destroy()
@@ -837,7 +914,8 @@ end
 local function init()
 
    local fn
-
+   local fmtNumber
+   
    modelName = string.gsub(system.getProperty("Model"), " ", "_")
 
    readSensors(Glass)
@@ -867,7 +945,8 @@ local function init()
       print("Glass: cannot open encodedImgs.jsn for writing")
       return
    else
-      if not io.write(fp, "FFDE", encodedImgs, "AA\n") then
+      --if not io.write(fp, "FFDE", encodedImgs, "AA\n") then
+      if not io.write(fp, encodedImgs) then      
 	 print("Glass: write error encodedImgs.jsn")
 	 return
       end
@@ -934,6 +1013,7 @@ local function init()
       if #Glass.page > 0 then
 	 pageNumber = 1
 	 pageMax = #Glass.page
+	 --print("Found #Glass.page > 0", pageNumber, #Glass.page)
       end
       gaugeNumber = 1
    else
@@ -962,12 +1042,14 @@ local function init()
       availFmt =  {}
    end
 
+   --[[
    if #Glass.page < 1 then
       fmtNumber = 0
    else
       fmtNumber = Glass.page[1][1].fmtNumber
    end
-
+   --]]
+   
    local gw = 304
    local gh = 256
    local large = 160
@@ -1005,18 +1087,21 @@ local function init()
    
    local encodedaF = json.encode(aF)
 
-   local fp = io.open(prefix() .. pathImages .. "glassFmts.jsn", "w")
+   fp = io.open(prefix() .. pathImages .. "glassFmts.jsn", "w")
    if not fp then
       print("Glass: cannot open glassFmts.jsn for writing")
       return
    else
-      if not io.write(fp, "FFDD", encodedaF, "AA\n") then
+      --if not io.write(fp, "FFDD", encodedaF, "AA\n") then
+      if not io.write(fp, encodedaF) then
 	 print("Glass: write error glassFmts.jsn")
 	 return
       end
       io.close(fp)
       encodedaF = nil
    end
+
+   pageSw = system.pLoad("pageSw")
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.1", name="Glass"}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.2", name=appName}

@@ -1,7 +1,7 @@
 [
 
     {"id":10, "name":"square",
-     "height":160, "width":160, "type":"gauge","nlen":75, "scale":"variable", "label":"...", "inputs":1,
+     "height":160, "width":160, "type":"gauge","nlen":70, "scale":"variable", "label":"...", "inputs":1,
      "x0":    80, "y0":    80,
      "minA":-150, "maxA": 150,
      "minV":   0, "maxV": 100,
@@ -11,7 +11,7 @@
     },
 
     {"id":11, "name":"volt_12_18",
-     "height":160, "width":160, "type":"gauge", "nlen":75, "scale":"fixed", "label":"V", "inputs":1,
+     "height":160, "width":160, "type":"gauge", "nlen":70, "scale":"fixed", "label":"V", "inputs":1,
      "x0":    80, "y0":    80,
      "minA":-150, "maxA": 150,
      "minV":  12, "maxV":  18,
@@ -21,7 +21,7 @@
     },
 
     {"id":12, "name":"vario_0_3",
-     "height":160, "width":160, "type":"gauge", "nlen":75, "scale":"fixed", "label":"m/s", "inputs":1,
+     "height":160, "width":160, "type":"gauge", "nlen":70, "scale":"fixed", "label":"m/s", "inputs":1,
      "x0":    80, "y0":    80,
      "minA":-240, "maxA":  60,
      "minV":  -3,  "maxV":  3,
@@ -31,7 +31,7 @@
     },
 
     {"id":13, "name":"alti_0_5",
-     "height":160, "width":160, "type":"gauge", "nlen":75, "scale":"fixed", "label":"x100 m", "inputs":1,
+     "height":160, "width":160, "type":"gauge", "nlen":70, "scale":"fixed", "label":"x100 m", "inputs":1,
      "x0":    80, "y0":    80,
      "minA":-180, "maxA": 120,
      "minV":  0,  "maxV": 500,
@@ -41,47 +41,47 @@
     },
 
     {"id":14, "name":"left",
-     "height":160, "width":83, "type":"gauge", "nlen":75, "scale":"variable", "label":"...", "inputs":1,
+     "height":160, "width":83, "type":"gauge", "nlen":70, "scale":"variable", "label":"...", "inputs":1,
      "x0":    80, "y0":    80,
      "minA":-165, "maxA": -15,
      "minV":  0,  "maxV": 100,
-     "xlmin": 20, "ylmin":145,
-     "xlmax": 20, "ylmax": 15,
+     "xlmin": 70, "ylmin":140,
+     "xlmax": 70, "ylmax": 10,
      "xlbl":  60, "ylbl": 100
     },
 
     {"id":15, "name":"tl_0_2",
-     "height":160, "width":83, "type":"gauge", "nlen":75, "scale":"fixed", "label":"TL", "inputs":1,
+     "height":160, "width":83, "type":"gauge", "nlen":70, "scale":"fixed", "label":"TL", "inputs":1,
      "x0":    80, "y0":    80,
      "minA":-165, "maxA": -15,
      "minV":  0,  "maxV":   2,
-     "xlmin": 20, "ylmin":145,
-     "xlmax": 20, "ylmax": 15,
+     "xlmin": 70, "ylmin":140,
+     "xlmax": 70, "ylmax": 10,
      "xlbl":  60, "ylbl": 100
     },
 
     {"id":16, "name":"right",
-     "height":160, "width":83, "type":"gauge", "nlen":75, "scale":"variable", "label":"...", "inputs":1,
+     "height":160, "width":83, "type":"gauge", "nlen":70, "scale":"variable", "label":"...", "inputs":1,
      "x0":    3,  "y0":    80,
-     "minA":-195, "maxA":  15,
+     "minA":165, "maxA":  15,
      "minV":  0,  "maxV": 100,
-     "xlmin":140, "ylmin":145,
-     "xlmax":140, "ylmax": 15,
+     "xlmin":150, "ylmin":140,
+     "xlmax":150, "ylmax": 10,
      "xlbl":  20, "ylbl": 100
     },
 
     {"id":17, "name":"tr_0_2",
-     "height":160, "width":83, "type":"gauge", "nlen":75, "scale":"fixed", "label":"TR", "inputs":1,
+     "height":160, "width":83, "type":"gauge", "nlen":70, "scale":"fixed", "label":"TR", "inputs":1,
      "x0":    3,  "y0":    80,
-     "minA":-195, "maxA":  15,
+     "minA":165, "maxA":   15,
      "minV":  0,  "maxV":   2,
-     "xlmin":140, "ylmin":145,
-     "xlmax":140, "ylmax": 15,
+     "xlmin":150, "ylmin":140,
+     "xlmax":150, "ylmax": 10,
      "xlbl":  20, "ylbl": 100
     },
 
     {"id":18, "name":"compass",
-     "height":160, "width":160, "type":"compass", "nlen1":75, "nlen2":75, "label":"NESW", "inputs":2,
+     "height":160, "width":160, "type":"compass", "nlen1":70, "nlen2":70, "label":"NESW", "inputs":2,
      "x0":    80, "y0":    80
     }
     
