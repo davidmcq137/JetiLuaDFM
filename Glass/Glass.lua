@@ -17,6 +17,7 @@ local appName = "Glass"
 local pathApp = "Apps/"..appName.."/"
 local pathImages = pathApp.."Images/"
 local pathConfigs = pathApp.."Configs/"
+local pathJson = pathApp.."Json/"
 
 local Glass = {}
 Glass.sensorLalist = {"..."}
@@ -291,18 +292,20 @@ local function loop()
 	    if sidSerial and buf and buf ~= "" then
 	       sendLast = system.getTimeCounter()
 	       bw = serial.write(sidSerial, buf)
-	       io.write(sendFPser, buf)
-	       --print("write buf", buf)
-	       if not bw then
-		  print("Glass: Serial write error")
-		  buf = ""
+	       if (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) then
+		  io.write(sendFPser, buf)
+		  --print("write buf", buf)
+		  if not bw then
+		     print("Glass: Serial write error")
+		     buf = ""
+		  end
 	       end
 	    end
 	    if buf == "" then
 	       --print("reached EOF on a file", sendImgsIdx, sendState)
 	       if sendState == state.SENDFMTS then
 		  io.close(sendFP)
-		  sendFP = io.open(prefix() .. pathImages .. "encodedImgs.jsn", "r")
+		  sendFP = io.open(prefix() .. pathJson .. "encodedImgs.jsn", "r")
 		  if not sendFP then
 		     print("Glass: cannot open encoded images")
 		     sendState = state.IDLE
@@ -370,7 +373,7 @@ local function changedName(value)
 end
 
 local function clearJSON()
-   local fn = prefix() .. pathApp .. "GG_" .. modelName.. ".jsn"
+   local fn = prefix() .. pathJson .. "GG_" .. modelName.. ".jsn"
    local ans
    ans = form.question("Are you sure?", "Reset all app settings?",
 		       "",
@@ -410,7 +413,7 @@ local function sendUSB()
       return
    end
 
-   sendFP = io.open(prefix() .. pathImages .. "glassFmts.jsn", "r")
+   sendFP = io.open(prefix() .. pathJson .. "glassFmts.jsn", "r")
    sendFPser = io.open(prefix() .. pathConfigs .. "config-serialout.txt", "w")
    
    if sendFP and sidSerial then
@@ -885,7 +888,7 @@ end
 local function destroy()
 
    local fp
-   local fn = prefix().."Apps/Glass/GG_" .. modelName.. ".jsn"
+   local fn = prefix()..pathJson.."GG_" .. modelName.. ".jsn"
 
    if not writeJSON then
       return
@@ -916,7 +919,7 @@ local function destroy()
 end
 
 local function onRead(data)
-   print("Glass onRead:", data)
+   if data == "W" then print("ENGO gesture") else print("serial input:", data) end
 end
 
 local function init()
@@ -930,7 +933,7 @@ local function init()
    
    system.registerForm(1, MENU_APPS, "Glass", initForm, keyPressed, printForm)
 
-   fn = prefix() .. pathImages .. "availImgs.jsn"
+   fn = prefix() .. pathJson .. "availImgs.jsn"
       
    local file = io.readall(fn)
    availImgs = {}
@@ -948,7 +951,7 @@ local function init()
    
    encodedImgs = json.encode(availImgs)
 
-   local fp = io.open(prefix() .. pathImages .. "encodedImgs.jsn", "w")
+   local fp = io.open(prefix() .. pathJson .. "encodedImgs.jsn", "w")
    if not fp then
       print("Glass: cannot open encodedImgs.jsn for writing")
       return
@@ -1002,7 +1005,7 @@ local function init()
       -- SPECIAL
       success, descr = serial.onRead(sidSerial,onRead)   
       if success then
-	 print("Glass: Callback registered")
+	 --print("Glass: Callback registered")
       else
 	 print("Glass: Error setting callback", descr)
       end
@@ -1013,11 +1016,11 @@ local function init()
 
    system.registerTelemetry(1, "Glass Instruments", 4, printTele)
 
-   fn = prefix().."Apps/Glass/GG_" .. modelName.. ".jsn"
+   fn = prefix()..pathJson.."GG_" .. modelName.. ".jsn"
    file = io.readall(fn)
    if file then
       Glass.page = json.decode(file)
-      print("Glass - Reading saved state from ", fn)
+      --print("Glass - Reading saved state from ", fn)
       if #Glass.page > 0 then
 	 pageNumber = 1
 	 pageMax = #Glass.page
@@ -1040,11 +1043,11 @@ local function init()
       end
    end
 
-   fn = prefix().."Apps/Glass/availFmt.jsn"
+   fn = prefix()..pathJson.."availFmt.jsn"
    file = io.readall(fn)
    if file then
       availFmt = json.decode(file)
-      print("Glass - Reading availFmt ", fn)
+      --print("Glass - Reading availFmt ", fn)
    else
       print("Glass - Could not read availFmt.jsn")
       availFmt =  {}
@@ -1081,8 +1084,8 @@ local function init()
 	 aF[k][g] = {}
 	 availFmts[k][g] =  {}
 	 --image coords for glasses are lower right of image, not upper left as traditional 
-	 aF[k][g].xlr = availVals[t.xc] + availVals[t.width]/2
-	 aF[k][g].ylr = availVals[t.yc] + availVals[t.height]/2
+	 aF[k][g].xlr = availVals[t.xc] - availVals[t.width]/2
+	 aF[k][g].ylr = availVals[t.yc] - availVals[t.height]/2
 	 aF[k][g].width = availVals[t.width]
 	 aF[k][g].height = availVals[t.hwight]
 
@@ -1095,7 +1098,7 @@ local function init()
    
    local encodedaF = json.encode(aF)
 
-   fp = io.open(prefix() .. pathImages .. "glassFmts.jsn", "w")
+   fp = io.open(prefix() .. pathJson .. "glassFmts.jsn", "w")
    if not fp then
       print("Glass: cannot open glassFmts.jsn for writing")
       return
