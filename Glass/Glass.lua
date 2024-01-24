@@ -227,7 +227,7 @@ local function loop()
 
       --]]
       
-      local cfgVersion = 2
+      local cfgVersion = 99
       local cfgKey = 1
       local bufPre = "FFD0001561766961746F7200"
       local bufSet = "FFD2000D61766961746F7200AA"
@@ -633,7 +633,13 @@ end
 
 local function keyPressed(key)
 
-   local fmtNumber = Glass.page[pageNumber][1].fmtNumber
+   local fmtNumber
+   
+   if pageNumber < 1 then
+      fmtNumber = 1
+   else
+      fmtNumber = Glass.page[pageNumber][1].fmtNumber
+   end
    
    if subForm == 1 then
 
@@ -778,6 +784,8 @@ local function printForm(w,h)
       lcd.drawRectangle(33/2, 28/2, 134, 113)
       lcd.setColor(0,0,0)
 
+      if pageNumber < 1 then return end
+      
       fmtNumber = Glass.page[pageNumber][1].fmtNumber
       if fmtNumber > 0 then
 	 --local gp = availFmt[fmtNumber]
