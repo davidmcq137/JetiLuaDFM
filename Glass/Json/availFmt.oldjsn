@@ -1,0 +1,18 @@
+[
+    [
+	{"xc":"L1", "yc":"H1", "width":"full", "height":"full", "wtype":"gauge"}
+    ],
+    [
+	{"xc":"L2", "yc":"H2", "width":"half", "height":"full", "wtype":"gauge"},
+	{"xc":"R2", "yc":"H2", "width":"full", "height":"full", "wtype":"gauge"}
+    ],
+    [
+	{"xc":"L3", "yc":"H3", "width":"full", "height":"full", "wtype":"gauge"},
+	{"xc":"R3", "yc":"H3", "width":"half", "height":"full", "wtype":"gauge"}
+    ],
+    [
+	{"xc":"L4", "yc":"H4", "width":"half", "height":"full", "wtype":"gauge"},
+	{"xc":"C4", "yc":"H4", "width":"half", "height":"full", "wtype":"gauge"},
+	{"xc":"R4", "yc":"H4", "width":"half", "height":"full", "wtype":"gauge"}
+    ]
+]

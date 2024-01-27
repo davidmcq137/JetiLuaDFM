@@ -5,8 +5,8 @@
      "decimals": 1,
      "type": 1,
      "sensorName": "Sine",
-     "luaFunc":"return 250*(1 + sin(t/30))",
-     "label": "Alti0500",
+     "luaFunc":"return 50*(1 + sin(t/30))",
+     "label": "Alti0100",
      "unit": "m"
     },
     {"id":137,
@@ -23,8 +23,8 @@
      "decimals": 1,
      "type": 1,
      "sensorName": "Sine",
-     "luaFunc":"return 2*(1 + sin(t/30 - 2 * math.pi / 4))",
-     "label": "T04",
+     "luaFunc":"return 1*(1 + sin(t/30 - 2 * math.pi / 4))",
+     "label": "T02",
      "unit": "V"
     },
     {"id":137,
@@ -42,8 +42,8 @@
      "type": 1,
      "sensorName": "Airspeed",
      "luaExp": "P1(100)",
-     "label": "SMTEK Airspeed",
-     "unit": "kmh"
+     "label": "0100Percent",
+     "unit": "%"
     },
     {"id":137,
      "param": 6,

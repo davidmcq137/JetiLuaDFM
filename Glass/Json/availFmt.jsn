@@ -1,18 +1,38 @@
 [
     [
-	{"xc":"L1", "yc":"H1", "width":"full", "height":"full"}
+	{"xc":"L1", "yc":"H1", "width":160, "height":160, "wtype":"unknown"}
     ],
     [
-	{"xc":"L2", "yc":"H2", "width":"half", "height":"full"},
-	{"xc":"R2", "yc":"H2", "width":"full", "height":"full"}
+	{"xc":"L1", "yc":"H2", "width":160, "height":160, "wtype":"unknown"},
+	{"xc":"L1", "yc":"H3", "width":240, "height":45, "wtype":"unknown"}	
     ],
     [
-	{"xc":"L3", "yc":"H3", "width":"full", "height":"full"},
-	{"xc":"R3", "yc":"H3", "width":"half", "height":"full"}
+	{"xc":"L2", "yc":"H1", "width":83, "height":160, "wtype":"unknown"},
+	{"xc":"R2", "yc":"H1", "width":160, "height":160, "wtype":"unknown"}
     ],
     [
-	{"xc":"L4", "yc":"H4", "width":"half", "height":"full"},
-	{"xc":"C4", "yc":"H4", "width":"half", "height":"full"},
-	{"xc":"R4", "yc":"H4", "width":"half", "height":"full"}
+	{"xc":"L2", "yc":"H2", "width":83, "height":160, "wtype":"unknown"},
+	{"xc":"R2", "yc":"H2", "width":160, "height":160, "wtype":"unknown"},
+	{"xc":"L1", "yc":"H3", "width":240, "height":45, "wtype":"unknown"}
+    ],
+    [
+	{"xc":"L3", "yc":"H1", "width":160, "height":160, "wtype":"unknown"},
+	{"xc":"R3", "yc":"H1", "width":83, "height":160, "wtype":"unknown"}
+    ],
+    [
+	{"xc":"L3", "yc":"H2", "width":160, "height":160, "wtype":"unknown"},
+	{"xc":"R3", "yc":"H2", "width":83, "height":160, "wtype":"unknown"},
+	{"xc":"L1", "yc":"H3", "width":240, "height":45, "wtype":"unknown"}
+    ],
+    [
+	{"xc":"L4", "yc":"H1", "width":83, "height":160, "wtype":"unknown"},
+	{"xc":"C4", "yc":"H1", "width":83, "height":160, "wtype":"unknown"},
+	{"xc":"R4", "yc":"H1", "width":83, "height":160, "wtype":"unknown"}
+    ],
+    [
+	{"xc":"L4", "yc":"H2", "width":83, "height":160, "wtype":"unknown"},
+	{"xc":"C4", "yc":"H2", "width":83, "height":160, "wtype":"unknown"},
+	{"xc":"R4", "yc":"H2", "width":83, "height":160, "wtype":"unknown"},
+	{"xc":"L1", "yc":"H3", "width":240, "height":45, "wtype":"unknown"}
     ]
 ]

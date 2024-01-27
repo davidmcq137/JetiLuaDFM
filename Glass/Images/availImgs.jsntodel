@@ -83,6 +83,10 @@
     {"id":18, "name":"compass",
      "height":160, "width":160, "type":"compass", "nlen1":70, "nlen2":70, "label":"NESW", "inputs":2,
      "x0":    80, "y0":    80
-    }
+    },
     
+    {"id":19, "name":"hbar",
+     "height":35, "width":220, "type":"hbar", "label":"Percent", "inputs":1,
+     "x0":    10, "y0":    10
+    }
 ]

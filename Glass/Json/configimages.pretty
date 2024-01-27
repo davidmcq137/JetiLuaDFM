@@ -1,0 +1,224 @@
+{
+  "config": {
+    "p2": {
+      "g2": {
+        "ylr": 48,
+        "xlr": 117,
+        "wtype": "gauge"
+      },
+      "g1": {
+        "ylr": 48,
+        "xlr": 27,
+        "wtype": "gauge"
+      }
+    },
+    "p3": {
+      "g2": {
+        "ylr": 48,
+        "xlr": 197,
+        "wtype": "gauge"
+      },
+      "g1": {
+        "ylr": 48,
+        "xlr": 27,
+        "wtype": "gauge"
+      }
+    },
+    "p4": {
+      "g1": {
+        "ylr": 48,
+        "xlr": 27,
+        "wtype": "gauge"
+      },
+      "g3": {
+        "ylr": 48,
+        "xlr": 197,
+        "wtype": "gauge"
+      },
+      "g2": {
+        "ylr": 48,
+        "xlr": 112,
+        "wtype": "gauge"
+      }
+    },
+    "p1": {
+      "g1": {
+        "ylr": 48,
+        "xlr": 72,
+        "wtype": "gauge"
+      }
+    }
+  },
+  "images": {
+    "id16": {
+      "inputs": 1,
+      "type": "gauge",
+      "minV": 0,
+      "ylmin": 20,
+      "xlmax": -67,
+      "scale": "variable",
+      "xlmin": 73,
+      "x0": 80,
+      "y0": 80,
+      "ylbl": 60,
+      "xlbl": 63,
+      "minA": 165,
+      "maxV": 100,
+      "id": 16,
+      "maxA": 15,
+      "label": "...",
+      "nlen": 70,
+      "ylmax": 150
+    },
+    "id13": {
+      "inputs": 1,
+      "type": "gauge",
+      "minV": 0,
+      "ylmin": 15,
+      "xlmax": 20,
+      "scale": "fixed",
+      "xlmin": 140,
+      "x0": 80,
+      "y0": 80,
+      "ylbl": 25,
+      "xlbl": 80,
+      "minA": -180,
+      "maxV": 500,
+      "id": 13,
+      "maxA": 120,
+      "label": "x100 m",
+      "nlen": 70,
+      "ylmax": 20
+    },
+    "id10": {
+      "inputs": 1,
+      "type": "gauge",
+      "minV": 0,
+      "ylmin": 15,
+      "xlmax": 20,
+      "scale": "variable",
+      "xlmin": 140,
+      "x0": 80,
+      "y0": 80,
+      "ylbl": 25,
+      "xlbl": 80,
+      "minA": -150,
+      "maxV": 100,
+      "id": 10,
+      "maxA": 150,
+      "label": "...",
+      "nlen": 70,
+      "ylmax": 20
+    },
+    "id18": {
+      "inputs": 2,
+      "type": "compass",
+      "nlen1": 70,
+      "id": 18,
+      "nlen2": 70,
+      "x0": 80,
+      "y0": 80,
+      "label": "NESW"
+    },
+    "id15": {
+      "inputs": 1,
+      "type": "gauge",
+      "minV": 0,
+      "ylmin": 20,
+      "xlmax": 13,
+      "scale": "fixed",
+      "xlmin": 13,
+      "x0": 3,
+      "y0": 80,
+      "ylbl": 60,
+      "xlbl": 23,
+      "minA": -165,
+      "maxV": 2,
+      "id": 15,
+      "maxA": -15,
+      "label": "TL",
+      "nlen": 70,
+      "ylmax": 150
+    },
+    "id11": {
+      "inputs": 1,
+      "type": "gauge",
+      "minV": 12,
+      "ylmin": 15,
+      "xlmax": 20,
+      "scale": "fixed",
+      "xlmin": 140,
+      "x0": 80,
+      "y0": 80,
+      "ylbl": 25,
+      "xlbl": 80,
+      "minA": -150,
+      "maxV": 18,
+      "id": 11,
+      "maxA": 150,
+      "label": "V",
+      "nlen": 70,
+      "ylmax": 20
+    },
+    "id14": {
+      "inputs": 1,
+      "type": "gauge",
+      "minV": 0,
+      "ylmin": 20,
+      "xlmax": 13,
+      "scale": "variable",
+      "xlmin": 13,
+      "x0": 3,
+      "y0": 80,
+      "ylbl": 60,
+      "xlbl": 23,
+      "minA": -165,
+      "maxV": 100,
+      "id": 14,
+      "maxA": -15,
+      "label": "...",
+      "nlen": 70,
+      "ylmax": 150
+    },
+    "id17": {
+      "inputs": 1,
+      "type": "gauge",
+      "minV": 0,
+      "ylmin": 20,
+      "xlmax": -67,
+      "scale": "fixed",
+      "xlmin": 73,
+      "x0": 80,
+      "y0": 80,
+      "ylbl": 60,
+      "xlbl": 63,
+      "minA": 165,
+      "maxV": 2,
+      "id": 17,
+      "maxA": 15,
+      "label": "TR",
+      "nlen": 70,
+      "ylmax": 150
+    },
+    "id12": {
+      "inputs": 1,
+      "type": "gauge",
+      "minV": -3,
+      "ylmin": 15,
+      "xlmax": 20,
+      "scale": "fixed",
+      "xlmin": 140,
+      "x0": 80,
+      "y0": 80,
+      "ylbl": 25,
+      "xlbl": 80,
+      "minA": -240,
+      "maxV": 3,
+      "id": 12,
+      "maxA": 60,
+      "label": "m/s",
+      "nlen": 70,
+      "ylmax": 20
+    }
+  }
+}
