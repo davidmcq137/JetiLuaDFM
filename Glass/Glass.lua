@@ -67,6 +67,7 @@ local availFmts = {}
 local tempCall
 local sendFPtemp
 local configVersion
+local cfgimg = {}
 
 --[[
 local teleSensors
@@ -167,7 +168,7 @@ local function loop()
    local av
    local scale
    local minV, maxV, lbl
-
+   local LOOPTIME = 400
    if pageSw then
       local sw = system.getInputsVal(pageSw)
       local pp = sw + 2 -- -1, 0, 1 --> 1,2,3
@@ -175,17 +176,33 @@ local function loop()
       pageNumberTele = pp
    end
 
+   local swh
+   local oldmode 
+   if emflag then
+      swh = system.getInputs("SH")
+      if swh and swh == 1 then
+	 oldmode = true
+      else
+	 oldmode = false
+      end
+   end
+
    if sendState == state.IDLE and unow > jsonHoldTime then
-      if pageMax > 0 and (now > lastWrite + 200) then
+      if pageMax > 0 and (now > lastWrite + LOOPTIME) then
 
 	 local p1 = math.floor(255 * (1 + system.getInputs("P1")) / 2)
 	 local p2 = math.floor(255 * (1 + system.getInputs("P2")) / 2)
 
 	 if (not pageSw) then pageNumberTele = pageNumber end
 
-	 stbl = {page=string.format("p%d", pageNumberTele)}
-	 
-	 if pageNumberTele < 1 then return end
+	 if not pageNumberTele or pageNumberTele < 1 then return end
+
+	 if oldmode then
+	    stbl = {page=pageNumberTele}
+	 else
+	    stbl = {page=string.format("p%d", pageNumberTele)}
+	 end
+
 	 for k,v in pairs(Glass.page[pageNumberTele]) do
 
 	    if v.imageID >= 0 then
@@ -230,9 +247,15 @@ local function loop()
 	    
 	    if v.imageID >= 0 then
 	       stbl["g"..k] = {}
-	       stbl["g"..k].id = string.format("id%d", v.imageID)
+
+	       if oldmode then
+		  stbl["g"..k].id = v.imageID
+	       else
+		  stbl["g"..k].id = string.format("id%d", v.imageID)
+	       end
+	       
 	       if sval then
-		  stbl["g"..k].value = sval
+		  stbl["g"..k].value = tonumber(sval)
 	       end
 	       if scale == "variable" and sval then
 		  stbl["g"..k].minV = minV
@@ -447,7 +470,7 @@ local function sendUSB()
       serial.write = tempWrite
    end
    
-   sendFPtemp = io.open(prefix() .. pathConfigs .. "config-serialout.txt", "w")
+   sendFPtemp = io.open(prefix() .. pathConfigs .. "config-xxxx.txt", "w")
    print("sendFPtemp", sendFPtemp)
    --]]
 
@@ -495,7 +518,8 @@ local function sendUSB()
    end
    
    sendFP = io.open(prefix() .. pathJson .. "configimages.jsn", "r")
-   sendFPser = io.open(prefix() .. pathConfigs .. "config-streamed.txt", "w")
+   if not configVersion then configVersion = 0 end
+   sendFPser = io.open(prefix() .. pathConfigs .. string.format("config%d.txt", configVersion), "w")
    
    if sendFP and sidSerial then
       sendAA = 0
@@ -712,7 +736,7 @@ local function keyExit(k)
 end
 
 local function clearPage(pn, gm)
-   print("clearPage", pn, gm)
+   --print("clearPage", pn, gm)
    Glass.page[pn] = {}
    for k=1,gm do
       Glass.page[pn][k] = {}
@@ -923,9 +947,100 @@ local function drawHbar(x0, y0, min, max, val, barW, barH)
    lcd.drawFilledRectangle(x0, y0, bw, barH)
 end
 
+local function printTele(w,h)
+
+--[[
+
+   Sample json file structure (snipped from configconfig.jsn) 
+   It contains just one object each for "configs" and "images" as an example of the data shape
+   All position coordinates are in the ActivImage space .. origin at lower right
+   The main table is cfgimg .. then cfgimg.config and cfgimg.images
+
+{
+    {"config": {"p1": {"g1": {"xlr": 72, "ylr": 48}}}},
+    {"images": {"id10": {"x0": 80, "scale": "variable", "wtype": "gauge", "ylmin": 15,
+                            "ylmax": 15, "maxV": 100, "id": 10, "minV": 0, "inputs": 1,
+		            "xlmax": 20, "minA": -150, "nlen": 70, "y0": 80, "maxA": 150,
+	 	            "xlbl": 80, "ylbl": 50, "xlmin": 140}}}
+}
+
+--]]
+   
+   local r = 160 / 256 -- show the glasses space (304x256) in Jeti screen (320x160) .. scale by 160/256
+   local offset = (319 - r * 304) / 2 -- center the shrunk glasses space on the Jeti screen
+   local fmt
+   local gpp
+
+   -- Select the appropriate page (controlled by assigned switch or line in menu)
+   -- Individual dynamic widget info stored in Glass.page[pageNumber][gaugeNumber].property
+   -- The Glass.page values are the ones that form the 200msec json
+   
+   if not pageSw then pageNumberTele = pageNumber end
+   if not pageNumberTele then return end
+   gpp = Glass.page[pageNumberTele]
+   fmt = string.format("p%d", gpp[1].fmtNumber)
+
+   lcd.setColor(0,0,0)
+   lcd.drawFilledRectangle(0,0,319,159) -- black background over entire window
+   lcd.setColor(255,255,255)            -- rest of animation (needles, etc) is white
+   lcd.drawRectangle(1+offset, 1, (304-2)*r, (256-4)*r) -- draw scaled glasses hw screen as box
+   lcd.drawText(10, 10, string.format("Page %d", pageNumberTele))
+   
+   local xr, yr, xc, yc
+   local min, max, val, id, lbl
+   local ccfg, cid
+
+   local ccf =  cfgimg.config[fmt]
+
+   -- From here, everything referenced with "t." would come from the 200msec json if we
+   -- were in the ESP. Make sure we only reference things that are sent that way so we're not
+   -- cheating. Everything from "cid." is from the images section cfgimg.images
+   
+   for g,t in ipairs(gpp) do        -- loop over all gauges on this page with a valid imageID
+      ccfg = ccf["g"..g]            -- this is the "config" key for this page and this widget
+      id = string.format("id%d", t.imageID)
+      cid = cfgimg.images[id]       -- this is the "images" key for this page and this widget
+      if t.imageID > 0 then         -- if there is a value to animate
+	 xr = ccfg.xul
+	 yr = ccfg.yul
+	 xc = xr + cid.x0           -- for gauge, this is the pivot point of the needle
+	 yc = yr + cid.y0
+	 if t.value then
+	    -- if scale "fixed" then scale comes from images, else from 200ms json
+	    if cid.scale and cid.scale == "fixed" then
+	       min = cid.minV
+	       max = cid.maxV
+	    else  -- be defensive in case of missing minV/maxV
+	       min = t.minV or 0
+	       max = t.maxV or 1
+	    end
+	    lbl = t.instName or "..." --.instName is named .label in the 200ms json 
+	    val = t.value
+	    --print(g, id, min, max, val, lbl)
+	    if cid.wtype == "gauge" then
+	       lcd.drawImage(offset + xr * r, yr * r, cid.loadImageSmaller)
+	       drawNeedle(offset + r * xc, r * yc, cid.minA, cid.maxA, min, max, val, r * cid.nlen)
+	    elseif cid.wtype == "hbar" then
+	       lcd.drawImage(offset + xr * r, yr * r, cid.loadImageSmaller)
+	       drawHbar(offset + r * xc, r * yc, min, max, val, r * cid.barW, r * cid.barH)
+	    elseif cid.wtype == "htext" then
+	       drawText(offset + r * xc, r * yc, val, lbl, r * cid.txtW, r * cid.txtH)
+	    end 
+	    if (cid.wtype == "gauge" or cid.wtype == "hbar") and cid.scale == "variable" then
+	       drawTextCenter(offset + xr * r + r * cid.xlmin, yr * r + r * cid.ylmin,
+			      string.format(dpFmt(min), min), FONT_MINI)
+	       drawTextCenter(offset + xr * r + r * cid.xlmax, yr * r + r * cid.ylmax,
+			      string.format(dpFmt(max), max), FONT_MINI)
+	       drawTextCenter(offset + xr * r + r * cid.xlbl, yr * r + r * cid.ylbl,
+			      lbl, FONT_MINI)			      
+	    end
+	 end
+      end
+   end
+end
 
 			
-local function printTele(w,h)
+local function printTeleOld(w,h)
 
    local id
    local av
@@ -948,6 +1063,7 @@ local function printTele(w,h)
       for g,t in ipairs(gp) do -- loop over gauge positions in this screen format
 	 xr = t.xc - t.width/2
 	 yr = t.yc - t.height/2
+	 print(g, xr, yr)
 	 gpp = Glass.page[pageNumberTele]
 	 id = gpp[g].imageID
 	 if id >0 then
@@ -958,7 +1074,6 @@ local function printTele(w,h)
 	 lcd.setColor(255,255,255)
 	 lcd.drawRectangle(1+offset, 1, (304-2)*r, (256-4)*r) -- draw scaled glasses hw screen as box
 	 lcd.drawText(10, 10, "Page "..pageNumberTele)
-	 --print(g, id, av, gpp[g].value, gpp[g].wtype)
 	 if av then
 	    local aI = availImgs[av]
 	    xc = xr + aI.x0
@@ -974,8 +1089,8 @@ local function printTele(w,h)
 		  lcd.drawImage(offset+xr*r, yr*r, aI.loadImageSmaller)
 		  drawHbar(offset + r * xc, r * yc, min, max, val, r * aI.barW, r * aI.barH)
 	       elseif gpp[g].wtype == "htext" then
-		  local label = Glass.page[pageNumberTele][g].instName
-		  drawText(offset + r * xc, r * yc, val, label, r * aI.txtW, r * aI.txtH)
+		  local ins = Glass.page[pageNumberTele][g].instName
+		  drawText(offset + r * xc, r * yc, val, ins, r * aI.txtW, r * aI.txtH)
 	       end 
 	       if gpp[g].wtype == "gauge" and aI.scale == "variable" then
 		  drawTextCenter(offset + xr*r + r*aI.xlmin, yr * r + r*aI.ylmin,
@@ -984,6 +1099,10 @@ local function printTele(w,h)
 				 string.format(dpFmt(max), max), FONT_MINI)
 		  drawTextCenter(offset + xr*r + r*aI.xlbl, yr * r + r*aI.ylbl,
 			       Glass.page[pageNumberTele][g].instName, FONT_MINI)
+	       end
+	       if gpp[g].wtype == "hbar" then -- this is cheating .. the ESP won't have this info!
+		  drawTextCenter(offset + xr*r + r*aI.xlbl, yr * r + r*aI.ylbl,
+				 Glass.page[pageNumberTele][g].instName, FONT_MINI)
 	       end
 	    end
 	 end
@@ -1032,17 +1151,28 @@ local function prepCI(availVals)
    -- prepare json to send to the ESP
    -- top key "config" is the widget positions
    -- top key "images" is the widget internal details
+
+   local gw = 304
+   local gh = 256
    
-   local aF = {}
-   aF.config = {}
+   local cfgimgESP = {}
+   cfgimgESP.config = {}
+   cfgimg.config = {}
    for k,gp in ipairs(availFmt) do
-      aF.config["p"..k] = {}
+      cfgimgESP.config["p"..k] = {}
+      cfgimg.config["p"..k] = {}
       availFmts[k] = {}
       for g,t in ipairs(gp) do
-	 aF.config["p"..k]["g"..g] = {}
-	 aF.config["p"..k]["g"..g].xlr = availVals[t.xc] - t.width/2
-	 aF.config["p"..k]["g"..g].ylr = availVals[t.yc] - t.height/2
-	 aF.config["p"..k]["g"..g].wtype = t.wtype
+	 cfgimgESP.config["p"..k]["g"..g] = {}
+	 cfgimgESP.config["p"..k]["g"..g].xlr = math.floor(gw - (availVals[t.xc] + t.width/2))
+	 cfgimgESP.config["p"..k]["g"..g].ylr = math.floor(gh - (availVals[t.yc] + t.height/2))
+	 --cfgimgESP.config["p"..k]["g"..g].wtype = t.wtype
+
+	 cfgimg.config["p"..k]["g"..g] = {}
+	 cfgimg.config["p"..k]["g"..g].xul = math.floor(availVals[t.xc] - t.width/2)
+	 cfgimg.config["p"..k]["g"..g].yul = math.floor(availVals[t.yc] - t.height/2)
+	 --cfgimg.config["p"..k]["g"..g].wtype = t.wtype
+	 
 	 availFmts[k][g] =  {}
 	 availFmts[k][g].xc = availVals[t.xc]
 	 availFmts[k][g].yc = availVals[t.yc]
@@ -1051,28 +1181,36 @@ local function prepCI(availVals)
       end
    end
 
-   aF.images = {}
+   cfgimgESP.images = {}
+   cfgimg.images = {}
    local skip = {height=true, width=true, loadImage=true, loadImageSmaller = true,
-		 imageHeight=true, imageWidth=true, name=true}
+		 imageHeight=true, imageWidth=true, name=true, origHeight=true,
+		 origWidth=true, label=true, BMPname=true}
    local transX = {x0=true, xlmin=true, xlmax=true, xlbl=true}
    local transY = {y0=true, ylmin=true, ylmax=true, ylbl=true}   
    for i,img in ipairs(availImgs) do
       local id = math.floor(img.id)
-      aF.images["id"..id] = {}
+      cfgimgESP.images["id"..id] = {}
+      cfgimg.images["id"..id] = {}
       for k,v in pairs(img) do
 	 if not skip[k] then
 	    if transX[k] then -- move from upper left origin to lower right origin
-	       aF.images["id"..id][k] = img.width - v
+	       cfgimgESP.images["id"..id][k] = img.width - v
 	    elseif transY[k] then
-	       aF.images["id"..id][k] = img.height - v
+	       cfgimgESP.images["id"..id][k] = img.height - v
 	    else
-	       aF.images["id"..id][k] = v
+	       cfgimgESP.images["id"..id][k] = v
 	    end
+	 end
+      end
+      for k,v in pairs(img) do
+	 if true then --not skip[k] then
+	    cfgimg.images["id"..id][k] = v
 	 end
       end
    end
    
-   local encodedaF = json.encode(aF)
+   local encodedaF = json.encode(cfgimgESP)
 
    local fp = io.open(prefix() .. pathJson .. "configimages.jsn", "w")
    if not fp then
@@ -1085,8 +1223,12 @@ local function prepCI(availVals)
       end
       io.close(fp)
       encodedaF = nil
-      aF = nil
    end
+
+   --local encT = json.encode(cfgimg)
+   --fp = io.open(prefix() .. pathJson .. "cfgimgTest.jsn", "w")
+   --io.write(fp, encT)
+   --io.close(fp)
 end
 
 local function init()
@@ -1116,6 +1258,7 @@ local function init()
    id2avail = {}
    local im, ims
    for i,img in ipairs(availImgs) do
+      --print("BMPname: $$"..img.BMPname.."$$")
       if img.BMPname ~= "" then
 	 im = prefix() .. pathImages .. img.BMPname .. "-small.png"
 	 ims = prefix() .. pathImages .. img.BMPname .. "-smaller.png"      
@@ -1218,7 +1361,9 @@ local function init()
 		 L2 = gw/2 - large/2 - ofs, R2 = gw/2 + ofs + -large/4 + large/2,
 		 L3 = gw/2 - ofs - large/4, R3 = gw/2 + ofs + large/2,
 		 L4 = gw/2 - ofs - large/2, C4 = gw/2, R4 = gw/2 + ofs + large/2,
-		 H1 = gh/2, H2 = gh/2 - ofs * 4, H3 = gh/2 + large/2 + ofs * 2
+		 H1 = gh/2, H2 = gh/2 - ofs * 6, H3 = gh/2 + large/2 + ofs * 2,
+		 GWID = gw, GHGT = gh
+		 
    }
 
    -- fill in availFmts table with actual pixel value

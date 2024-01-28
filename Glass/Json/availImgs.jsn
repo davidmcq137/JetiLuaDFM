@@ -7,7 +7,7 @@
      "minV":   0, "maxV": 100,
      "xlmin": 20, "ylmin":145,
      "xlmax":140, "ylmax":145,
-     "xlbl":  80, "ylbl": 150
+     "xlbl":  80, "ylbl": 110
     },
 
     {"id":11, "BMPname":"volt_12_18",
@@ -85,16 +85,25 @@
      "x0":    80, "y0":    80
     },
     
-    {"id":19, "BMPname":"hbar",
+    {"id":19, "BMPname":"hbar0100",
      "height":45, "width":240, "wtype":"hbar", "label":"Percent", "inputs":1,
      "scale":"fixed", "minV":0, "maxV":100, "xlmin": 20, "xlmax": 200,
      "ylmin":30, "ylmax":30,"barH": 20, "barW": 220,
+     "xlbl": 120, "ylbl": -8,
      "x0":    10, "y0":    5
     },
 
-    {"id":20, "BMPname":"",
-     "height":45, "width":240, "wtype":"htext", "inputs":1, "label":"...",
+    {"id":20, "BMPname":"hbar",
+     "height":45, "width":240, "wtype":"hbar", "inputs":1,
+     "scale":"variable", "minV":0, "maxV":100, "xlmin": 10, "xlmax": 230,
+     "ylmin":35, "ylmax":35,"barH": 20, "barW": 220,
+     "xlbl": 120, "ylbl": -8,
+     "x0":    10, "y0":    5
+    },
+    
+    {"id":21, "BMPname":"",
+     "height":45, "width":240, "wtype":"htext", "inputs":1,
      "txtW": 220, "txtH":20, "x0":10, "y0":5
     }
-    
+
 ]
