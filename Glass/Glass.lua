@@ -36,7 +36,7 @@ local pageSw
 local subForm
 local savedRow = 0
 local gaugeNumber = 0
-local gaugeMax = 10
+local gaugeMax = 10 -- max # gauges in a format
 local emflag
 local sidSerial
 local lastWrite = 0
@@ -550,15 +550,19 @@ local function sendUSB()
    end
 
    -- transmission protocol:
-   -- ascii 0x01 three times: here comes file 1
-   -- ascii 0x02 three times: close file 1, here comes file 2
-   -- ascii 0x03 three times: close file 2, here comes file 3
-   -- ascii 0x00 three times: close file 3, back to normal
    --
+   -- stop "200ms" json .. wait for n*200ms
+   -- ascii 0x01 four times: here comes file 1
+   -- ascii 0x02 four times: close file 1, here comes file 2
+   -- ascii 0x03 four times: close file 2, here comes file 3
+   -- ascii 0x00 four times: close file 3, back to normal
+   -- wait for n*200ms
+   --
+   -- note:
    -- file 1 is configformats.jsn
    -- file 2 is the streaming config.txt info
    
-   --First, send 0x01 3 times to indicate file #1
+   --First, send 0x01 4 times to indicate file #1
 
    startingTime = system.getTimeCounter() + WAIT_TIME
    sendState = state.WAITING
@@ -1020,11 +1024,12 @@ local function printTele(w,h)
    The main table is cfgimg .. then cfgimg.config and cfgimg.images
 
 {
-    {"config": {"p1": {"g1": {"xlr": 72, "ylr": 48}}}},
-    {"images": {"id10": {"x0": 80, "scale": "variable", "wtype": "gauge", "ylmin": 15,
-                            "ylmax": 15, "maxV": 100, "id": 10, "minV": 0, "inputs": 1,
-		            "xlmax": 20, "minA": -150, "nlen": 70, "y0": 80, "maxA": 150,
-	 	            "xlbl": 80, "ylbl": 50, "xlmin": 140}}}
+    { "config": [ [ {"xlr": 72,"ylr": 48} ], [] ...] },
+    { "images": [{"scale": "variable","xlmin": 140,"ylmin": 15,
+      "ylmax": 15,"xlmax": 20,"x0": 80,"y0": 80,"nlen": 70,
+      "maxA": 150, "inputs": 1,"minA": -150,"maxV": 100,
+      "ylbl": 50,"wtype": "gauge","xlbl": 80,"widgetID": 10,
+      "minV": 0},{} ... ] }
 }
 
 --]]
@@ -1338,13 +1343,13 @@ local function init()
 	 img.imageHeight = img.loadImage.height
 	 img.origWidth = img.width
 	 img.origHeight = img.height
-	 id2avail[img.widgetID] = i
       else
 	 img.origWidth = img.width
 	 img.origHeight = img.height
 	 img.imageWidth = img.width * ratio
 	 img.imageHeight = img.height * ratio
       end
+      id2avail[img.widgetID] = i
    end
 
    local device
