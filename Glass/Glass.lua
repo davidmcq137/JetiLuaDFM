@@ -162,7 +162,7 @@ end
 local function loop()
    local now = system.getTimeCounter()
    local unow = system.getTime()
-   local sensor, sval
+   local sensor, sval, sval2
    local stbl = {}
    local gtbl = {}
    local av
@@ -222,7 +222,6 @@ local function loop()
 	    end
 	    
 	    v.value=nil
-	    --if k == 1 then print("L", k, v.sensorId, v.sensorLa) end
 	    if (v.sensorId ~= 0) and (v.sensorLa ~= 0) then
 	       sensor = system.getSensorByID(v.sensorId, v.sensorPa)
 	       if sensor and sensor.valid then
@@ -230,6 +229,40 @@ local function loop()
 	       end
 	    end
 
+	    v.value2=nil
+	    if v.sensorId2 and (v.sensorId2 ~= 0) and v.sensorLa2 and (v.sensorLa2 ~= 0) then
+	       sensor = system.getSensorByID(v.sensorId2, v.sensorPa2)
+	       if sensor and sensor.valid then
+		  v.value2 = sensor.value
+	       end
+	    end
+
+	    local function sv(dec, val)
+	       local fms
+	       if not dec or (dec < 0) or (dec > 2) then return nil end
+	       if dec == 0 then
+		  fms = "%.0f"
+	       elseif dec == 1 then
+		  fms = "%.2f"
+	       else
+		  fms = "%.3f"
+	       end
+	       
+	       if val then 
+		  return string.format(fms, val)
+	       else
+		  return nil
+	       end
+	    end
+
+	    sval = sv(v.decimals, v.value)
+	    sval2 = sv(v.decimals2, v.value2)
+	    --if v.imageID >= 0 then
+	      -- print(sval, sval2)
+	      -- print(v.sensorId, v.sensorPa, v.value, v.sensorId2, v.sensorPa2, v.value2)
+	    --end
+	    
+	    --[[
 	    local fms
 	    if v.decimals == 0 then
 	       fms = "%.0f"
@@ -244,6 +277,7 @@ local function loop()
 	    else
 	       sval = nil
 	    end
+	    --]]
 	    
 	    if v.imageID >= 0 then
 	       stbl["g"..k] = {}
@@ -257,6 +291,10 @@ local function loop()
 	       if sval then
 		  stbl["g"..k].value = tonumber(sval)
 	       end
+	       if sval and sval2 then
+		  stbl["g"..k].value2 = tonumber(sval2)
+	       end
+	       
 	       if scale == "variable" and sval then
 		  stbl["g"..k].minV = minV
 		  stbl["g"..k].maxV = maxV
@@ -423,15 +461,31 @@ local function loop()
    cpu = system.getCPU()
 end
 
-local function changedSensor(value)
-   Glass.page[pageNumber][gaugeNumber].sensorId = Glass.sensorIdlist[value]
-   Glass.page[pageNumber][gaugeNumber].sensorPa = Glass.sensorPalist[value]
-   Glass.page[pageNumber][gaugeNumber].sensorLa = Glass.sensorLalist[value]
-   Glass.page[pageNumber][gaugeNumber].sensorLs = Glass.sensorLslist[value]
-   Glass.page[pageNumber][gaugeNumber].units    = Glass.sensorUnlist[value]   
-   Glass.page[pageNumber][gaugeNumber].decimals = Glass.sensorDplist[value]
-   Glass.page[pageNumber][gaugeNumber].type     = Glass.sensorTylist[value]   
+local function changedSensor(value, inp)
+   print("changedSensor: val, inp", value, inp)
+   if inp ~= 2 then
+      Glass.page[pageNumber][gaugeNumber].sensorId = Glass.sensorIdlist[value]
+      Glass.page[pageNumber][gaugeNumber].sensorPa = Glass.sensorPalist[value]
+      Glass.page[pageNumber][gaugeNumber].sensorLa = Glass.sensorLalist[value]
+      Glass.page[pageNumber][gaugeNumber].sensorLs = Glass.sensorLslist[value]
+      Glass.page[pageNumber][gaugeNumber].units    = Glass.sensorUnlist[value]   
+      Glass.page[pageNumber][gaugeNumber].decimals = Glass.sensorDplist[value]
+      Glass.page[pageNumber][gaugeNumber].type     = Glass.sensorTylist[value]
+   else
+      Glass.page[pageNumber][gaugeNumber].sensorId2 = Glass.sensorIdlist[value]
+      Glass.page[pageNumber][gaugeNumber].sensorPa2 = Glass.sensorPalist[value]
+      Glass.page[pageNumber][gaugeNumber].sensorLa2 = Glass.sensorLalist[value]
+      Glass.page[pageNumber][gaugeNumber].sensorLs2 = Glass.sensorLslist[value]
+      Glass.page[pageNumber][gaugeNumber].units2    = Glass.sensorUnlist[value]   
+      Glass.page[pageNumber][gaugeNumber].decimals2 = Glass.sensorDplist[value]
+      Glass.page[pageNumber][gaugeNumber].type2     = Glass.sensorTylist[value]
+   end
+   if inp == 0 then
+      Glass.page[pageNumber][gaugeNumber].sensorId2 = 0
+      Glass.page[pageNumber][gaugeNumber].sensorPa2 = 0
+   end
 end
+
 
 local function changedName(value)
    print("changedName instName", value, "page, gauge", pageNumber, gaugeNumber)
@@ -470,7 +524,7 @@ local function sendUSB()
       serial.write = tempWrite
    end
    
-   sendFPtemp = io.open(prefix() .. pathConfigs .. "config-xxxx.txt", "w")
+   sendFPtemp = io.open(prefix() .. pathConfigs .. "config-serialout.txt", "w")
    print("sendFPtemp", sendFPtemp)
    --]]
 
@@ -535,6 +589,8 @@ local function sendUSB()
    
 end
 
+local inpN
+
 local function initForm(sf)
 
    subForm = sf
@@ -589,7 +645,7 @@ local function initForm(sf)
 	    table.insert(editImgs,
 			 {id=img.id, loadImage=img.loadImage,
 			  imageWidth=img.imageWidth, imageHeight = img.imageHeight,
-			  wtype=img.wtype})
+			  wtype=img.wtype, inputs=img.inputs})
 	    if img.id == imageID then
 	       imageNum = #editImgs
 	    end
@@ -605,13 +661,24 @@ local function initForm(sf)
 	    Glass.page[pageNumber][gaugeNumber].wtype = editImgs[1].wtype
 	 end
       end
+
+      local function setinp(inp, ii)
+	 if ii == 0 then inpN = 0 else inpN = inp end
+	 form.reinit(12)
+      end
       
-      form.addRow(1)
-      form.addLink((function(x) form.reinit(12) end), {label="Data source >"})
+      inpN = 0
+      local inpS
+      local ii
+      for inp=1,editImgs[imageNum].inputs do
+	 if editImgs[imageNum].inputs == 1 then inpS = "" ii = 0 else inpS = tostring(inp) ii = inp end
+	 form.addRow(1)
+	 form.addLink((function() print(inp, ii) return setinp(inp, ii) end), {label="Data source "..inpS.." >"})
+      end
 
       form.addRow(1)
-      form.addLink((function(x) form.reinit(13) end), {label="Min/Max >"})
-
+      form.addLink((function() form.reinit(13) end), {label="Min/Max >"})
+      
       form.setTitle("Page " .. pageNumber .. " Gauge " .. gaugeNumber)
       
       form.setFocusedRow(1)
@@ -655,23 +722,36 @@ local function initForm(sf)
 
       local isel = 0
       for k = 1, #Glass.sensorLalist do
-	 if (Glass.sensorIdlist[k] == Glass.page[pageNumber][gaugeNumber].sensorId) and
-	    (Glass.sensorPalist[k] == Glass.page[pageNumber][gaugeNumber].sensorPa) then
-	    isel = k
-	    break
+	 if inpN ~= 2 then
+	    if (Glass.sensorIdlist[k] == Glass.page[pageNumber][gaugeNumber].sensorId) and
+	       (Glass.sensorPalist[k] == Glass.page[pageNumber][gaugeNumber].sensorPa) then
+	       isel = k
+	       break
+	    end
+	 else
+	    if (Glass.sensorIdlist[k] == Glass.page[pageNumber][gaugeNumber].sensorId2) and
+	       (Glass.sensorPalist[k] == Glass.page[pageNumber][gaugeNumber].sensorPa2) then
+	       isel = k
+	       break
+	    end
 	 end
       end
 
       form.addRow(2)
       form.addLabel({label="Sensor:", font=FONT_NORMAL})
-      form.addSelectbox(Glass.sensorLalist, isel, true, changedSensor,
+      form.addSelectbox(Glass.sensorLalist, isel, true,
+			(function(x) return changedSensor(x, inpN) end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
 
       form.addRow(2)
       form.addLabel({label="Gauge Name:", font=FONT_NORMAL})
-      form.addTextbox(Glass.page[pageNumber][gaugeNumber].instName, 10, changedName,
-			{width=155, font=FONT_NORMAL})
+      form.addTextbox(Glass.page[pageNumber][gaugeNumber].instName, 10,
+		      (function(x) return changedName(x, inpN) end),
+		      {width=155, font=FONT_NORMAL})
+
    elseif sf == 13 then
+
+      print("sf 13, inpN", inpN)
 
       local id, fn, minV, maxV, av
 
@@ -749,6 +829,8 @@ local function clearPage(pn, gm)
       Glass.page[pn][k].imageID = -1
       Glass.page[pn][k].value = 0.0
       Glass.page[pn][k].instName = "Gauge"..k
+      Glass.page[pn][k].sensorId2 = 0
+      Glass.page[pn][k].sensorPa2 = 0      
    end
    Glass.page[pn][1].fmtNumber = 1
 end
@@ -825,19 +907,22 @@ local function keyPressed(key)
       end
       if key == KEY_2 then
 	 local iid = 0
-	 local min, max, wtype
+	 local min, max, wtype, inp
 	 for i,img in ipairs(availImgs) do
 	    if img.id == editImgs[imageNum].id then
 	       iid = img.id
 	       min = img.minV
 	       max = img.maxV
 	       wtype = img.wtype
+	       inp = img.inputs
 	    end
 	 end
 	 Glass.page[pageNumber][gaugeNumber].imageID = iid
 	 Glass.page[pageNumber][gaugeNumber].minV = min -- may be nil
 	 Glass.page[pageNumber][gaugeNumber].maxV = max -- may be nil
 	 Glass.page[pageNumber][gaugeNumber].wtype = wtype
+	 Glass.page[pageNumber][gaugeNumber].inputs = inp	 
+	 form.reinit(10)
       end
    elseif subForm == 11 then
       if keyExit(key) then
