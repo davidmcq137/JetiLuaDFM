@@ -48,8 +48,10 @@ local imageNum
 local imageMax
 local modelName
 local state = {IDLE = 1, STANDBY = 2,SENDHEADER = 3, SENDFONTS = 4, SENDIMGS = 5,
-	       SENDFOOTER = 6, SENDACTIVE = 7, SENDFMTS = 8}
+	       SENDFOOTER = 6, SENDACTIVE = 7, SENDFMTS = 8, WAITING = 9}
 local sendState = state.IDLE
+local startingTime = 0
+local WAIT_TIME = 1000
 local sendFP, sendFPser
 local sendImgs
 local sendImgsIdx
@@ -161,7 +163,7 @@ end
 
 local function loop()
    local now = system.getTimeCounter()
-   local unow = system.getTime()
+   local unow = system.getTimeCounter()
    local sensor, sval, sval2
    local stbl = {}
    local gtbl = {}
@@ -176,17 +178,10 @@ local function loop()
       pageNumberTele = pp
    end
 
-   local swh
-   local oldmode 
-   if emflag then
-      swh = system.getInputs("SH")
-      if swh and swh == 1 then
-	 oldmode = true
-      else
-	 oldmode = false
-      end
+   if sendState == state.IDLE and unow < jsonHoldTime then
+      print("Glass: Waiting to restart json...")
    end
-
+   
    if sendState == state.IDLE and unow > jsonHoldTime then
       if pageMax > 0 and (now > lastWrite + LOOPTIME) then
 
@@ -197,20 +192,16 @@ local function loop()
 
 	 if not pageNumberTele or pageNumberTele < 1 then return end
 
-	 if oldmode then
-	    stbl = {page=pageNumberTele}
-	 else
-	    stbl = {page=string.format("p%d", pageNumberTele)}
-	 end
+	 stbl = {page=pageNumberTele}
+	 gtbl = {}
+	 gtbl["p"] = pageNumberTele
+	 gtbl["f"] = Glass.page[pageNumberTele][1].fmtNumber
 
-	 for k,v in pairs(Glass.page[pageNumberTele]) do
+	 for k,v in ipairs(Glass.page[pageNumberTele]) do
 
-	    if v.imageID >= 0 then
+	    if v.imageID and v.imageID >= 0 then
 	       av = id2avail[v.imageID]
-	    else
-	       av = nil
-	    end
-	    if av then
+	       if not av then print(k, v.imageID) end
 	       scale = availImgs[av].scale
 	       if scale == "variable" then
 		  minV = v.minV or availImgs[av].minV -- if min/max not set pick up defaults
@@ -219,92 +210,69 @@ local function loop()
 		  minV = availImgs[av].minV
 		  maxV = availImgs[av].maxV
 	       end
-	    end
-	    
-	    v.value=nil
-	    if (v.sensorId ~= 0) and (v.sensorLa ~= 0) then
-	       sensor = system.getSensorByID(v.sensorId, v.sensorPa)
-	       if sensor and sensor.valid then
-		  v.value = sensor.value
-	       end
-	    end
-
-	    v.value2=nil
-	    if v.sensorId2 and (v.sensorId2 ~= 0) and v.sensorLa2 and (v.sensorLa2 ~= 0) then
-	       sensor = system.getSensorByID(v.sensorId2, v.sensorPa2)
-	       if sensor and sensor.valid then
-		  v.value2 = sensor.value
-	       end
-	    end
-
-	    local function sv(dec, val)
-	       local fms
-	       if not dec or (dec < 0) or (dec > 2) then return nil end
-	       if dec == 0 then
-		  fms = "%.0f"
-	       elseif dec == 1 then
-		  fms = "%.2f"
-	       else
-		  fms = "%.3f"
-	       end
 	       
-	       if val then 
-		  return string.format(fms, val)
-	       else
-		  return nil
+	       v.value=nil
+	       if (v.sensorId ~= 0) and (v.sensorLa ~= 0) then
+		  sensor = system.getSensorByID(v.sensorId, v.sensorPa)
+		  if sensor and sensor.valid then
+		     v.value = sensor.value
+		  end
 	       end
-	    end
 
-	    sval = sv(v.decimals, v.value)
-	    sval2 = sv(v.decimals2, v.value2)
-	    --if v.imageID >= 0 then
-	      -- print(sval, sval2)
-	      -- print(v.sensorId, v.sensorPa, v.value, v.sensorId2, v.sensorPa2, v.value2)
-	    --end
-	    
-	    --[[
-	    local fms
-	    if v.decimals == 0 then
-	       fms = "%.0f"
-	    elseif v.decimals == 1 then
-	       fms = "%.2f"
-	    else
-	       fms = "%.3f"
-	    end
-
-	    if v.value then 
-	       sval = string.format(fms, v.value)
-	    else
-	       sval = nil
-	    end
-	    --]]
-	    
-	    if v.imageID >= 0 then
-	       stbl["g"..k] = {}
-
-	       if oldmode then
-		  stbl["g"..k].id = v.imageID
-	       else
-		  stbl["g"..k].id = string.format("id%d", v.imageID)
+	       v.value2=nil
+	       if v.sensorId2 and (v.sensorId2 ~= 0) and v.sensorLa2 and (v.sensorLa2 ~= 0) then
+		  sensor = system.getSensorByID(v.sensorId2, v.sensorPa2)
+		  if sensor and sensor.valid then
+		     v.value2 = sensor.value
+		  end
 	       end
+
+	       local function sv(dec, val)
+		  local fms
+		  if not dec or (dec < 0) or (dec > 2) then return nil end
+		  if dec == 0 then
+		     fms = "%.0f"
+		  elseif dec == 1 then
+		     fms = "%.2f"
+		  else
+		     fms = "%.3f"
+		  end
+		  
+		  if val then 
+		     return string.format(fms, val)
+		  else
+		     return nil
+		  end
+	       end
+
+	       sval = sv(v.decimals, v.value)
+	       sval2 = sv(v.decimals2, v.value2)
 	       
-	       if sval then
-		  stbl["g"..k].value = tonumber(sval)
-	       end
-	       if sval and sval2 then
-		  stbl["g"..k].value2 = tonumber(sval2)
-	       end
-	       
-	       if scale == "variable" and sval then
-		  stbl["g"..k].minV = minV
-		  stbl["g"..k].maxV = maxV
-		  stbl["g"..k].label=Glass.page[pageNumberTele][k].instName
+	       if v.imageID >= 0 then
+		  stbl[k] = {}
+		  stbl[k].id = k
+		  if sval then
+		     stbl[k].v = tonumber(sval)
+		  end
+		  if sval and sval2 then
+		     stbl[k].v2 = tonumber(sval2)
+		  end
+		  if scale == "variable" and sval then
+		     stbl[k].nV = minV
+		     stbl[k].xV = maxV		  
+		     stbl[k].l=Glass.page[pageNumberTele][k].instName		  
+		  end
 	       end
 	    end
-
+	    gtbl["w"] = {}
+	    for kk,vv in ipairs(stbl) do
+	       gtbl["w"][kk] = vv
+	    end
 	 end
-	 if next(stbl) then
-	    local espjson = json.encode(stbl)
+
+	 if true then --next(stbl) then
+	 --   local espjson = json.encode(stbl)
+	 local espjson = json.encode(gtbl)
 
 	    if emflag then
 	       local swa = system.getInputs("SA")
@@ -316,6 +284,31 @@ local function loop()
 	    local count = serial.write(sidSerial, espjson)
 	 end
 	 lastWrite = now
+      end
+
+   elseif sendState == state.WAITING then 
+      print("Glass: Waiting to send config...")
+      if system.getTimeCounter() > startingTime then
+	 sendFP = io.open(prefix() .. pathJson .. "configimages.jsn", "r")
+	 if not configVersion then configVersion = 0 end
+	 sendFPser = io.open(prefix() .. pathConfigs .. string.format("config%d.txt", configVersion), "w")
+	 if sendFP and sidSerial then
+	    if not sendCtrl("\001", 4) then
+	       sendState = state.IDLE
+	       return
+	    end
+	    sendAA = 0
+	    sendFF = 0
+	    sendTime = system.getTimeCounter()
+	    configLine = ""
+	    sendState = state.SENDFMTS
+	    print("Glass: Sending image json description")
+	 else
+	    print("Glass: could not open file or serial port not open")
+	    sendState = state.IDLE
+	 end
+      else
+	 return
       end
 
    elseif sendState == state.SENDHEADER or sendState == state.SENDFOOTER then
@@ -365,7 +358,7 @@ local function loop()
 	 sendCtrl("\000", 1) -- back to normal mode
 	 print("Send config done. Time (ms): ", system.getTimeCounter() - sendTime)
 	 if tempCall then io.close(sendFPtemp) end
-	 jsonHoldTime = system.getTime() + 1
+	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME
 	 sendState = state.IDLE
       end
    elseif (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) or
@@ -409,7 +402,7 @@ local function loop()
 		     return
 		  end
 		  --send 0x02 three times to indicate file #2
-		  if not sendCtrl("\002", 3) then
+		  if not sendCtrl("\002", 4) then
 		     sendState = state.IDLE
 		     return
 		  end
@@ -419,7 +412,7 @@ local function loop()
 	       elseif sendState == state.SENDACTIVE then
 		  io.close(sendFP)
 		  --send 0x03 three times to indicate sending config txt info
-		  if not sendCtrl("\003",3) then
+		  if not sendCtrl("\003",4) then
 		     sendState = state.IDLE
 		     return
 		  end
@@ -519,6 +512,7 @@ local function sendUSB()
 
 
    --[[ test code to capture serialout stream by hihacking the system call
+   print("NOTE **** CREATING config-serialout.txt  ******")
    if not tempCall then
       tempCall = serial.write
       serial.write = tempWrite
@@ -565,27 +559,9 @@ local function sendUSB()
    -- file 2 is the streaming config.txt info
    
    --First, send 0x01 3 times to indicate file #1
-   
-   if not sendCtrl("\001", 3) then
-      sendState = state.IDLE
-      return
-   end
-   
-   sendFP = io.open(prefix() .. pathJson .. "configimages.jsn", "r")
-   if not configVersion then configVersion = 0 end
-   sendFPser = io.open(prefix() .. pathConfigs .. string.format("config%d.txt", configVersion), "w")
-   
-   if sendFP and sidSerial then
-      sendAA = 0
-      sendFF = 0
-      sendTime = system.getTimeCounter()
-      configLine = ""
-      sendState = state.SENDFMTS
-      print("Glass: Sending image json description")
-   else
-      print("Glass: could not open file or serial port not open")
-      sendState = state.IDLE
-   end
+
+   startingTime = system.getTimeCounter() + WAIT_TIME
+   sendState = state.WAITING
    
 end
 
@@ -639,25 +615,26 @@ local function initForm(sf)
       
       editImgs = {}
       for i, img in ipairs(availImgs) do
-	 --print(i, wid, img.origWidth, hgt, img.origHeight)
 	 if (wid == img.origWidth) and (hgt == img.origHeight) then
-	    --print("inserting", i)
 	    table.insert(editImgs,
-			 {id=img.id, loadImage=img.loadImage,
+			 {widgetID=img.widgetID, loadImage=img.loadImage,
 			  imageWidth=img.imageWidth, imageHeight = img.imageHeight,
 			  wtype=img.wtype, inputs=img.inputs})
-	    if img.id == imageID then
+	    if img.widgetID == imageID then
 	       imageNum = #editImgs
 	    end
 	 end
       end
       imageMax = #editImgs
       if not imageNum then imageNum = 1 end
+
+      print("imageMax, imageNum", imageMax, imageNum)
+      
       if imageID < 0 then
 	 if #editImgs < 1 then
 	    print("Glass: no images for", pageNumber, gaugeNumber)
 	 else -- default to first image
-	    Glass.page[pageNumber][gaugeNumber].imageID = editImgs[1].id
+	    Glass.page[pageNumber][gaugeNumber].imageID = editImgs[1].widgetID
 	    Glass.page[pageNumber][gaugeNumber].wtype = editImgs[1].wtype
 	 end
       end
@@ -673,7 +650,7 @@ local function initForm(sf)
       for inp=1,editImgs[imageNum].inputs do
 	 if editImgs[imageNum].inputs == 1 then inpS = "" ii = 0 else inpS = tostring(inp) ii = inp end
 	 form.addRow(1)
-	 form.addLink((function() print(inp, ii) return setinp(inp, ii) end), {label="Data source "..inpS.." >"})
+	 form.addLink((function() return setinp(inp, ii) end), {label="Data source "..inpS.." >"})
       end
 
       form.addRow(1)
@@ -909,14 +886,15 @@ local function keyPressed(key)
 	 local iid = 0
 	 local min, max, wtype, inp
 	 for i,img in ipairs(availImgs) do
-	    if img.id == editImgs[imageNum].id then
-	       iid = img.id
+	    if img.widgetID == editImgs[imageNum].widgetID then
+	       iid = img.widgetID
 	       min = img.minV
 	       max = img.maxV
 	       wtype = img.wtype
 	       inp = img.inputs
 	    end
 	 end
+	 print("key2, iid, id2avail(iid)", iid, id2avail[iid])
 	 Glass.page[pageNumber][gaugeNumber].imageID = iid
 	 Glass.page[pageNumber][gaugeNumber].minV = min -- may be nil
 	 Glass.page[pageNumber][gaugeNumber].maxV = max -- may be nil
@@ -1061,20 +1039,24 @@ local function printTele(w,h)
    -- The Glass.page values are the ones that form the 200msec json
    
    if not pageSw then pageNumberTele = pageNumber end
-   if not pageNumberTele then return end
-   gpp = Glass.page[pageNumberTele]
-   fmt = string.format("p%d", gpp[1].fmtNumber)
 
    lcd.setColor(0,0,0)
    lcd.drawFilledRectangle(0,0,319,159) -- black background over entire window
    lcd.setColor(255,255,255)            -- rest of animation (needles, etc) is white
    lcd.drawRectangle(1+offset, 1, (304-2)*r, (256-4)*r) -- draw scaled glasses hw screen as box
-   lcd.drawText(10, 10, string.format("Page %d", pageNumberTele))
+   if pageNumberTele and pageNumberTele > 0 then
+      lcd.drawText(10, 10, string.format("Page %d", pageNumberTele))
+   end
    
+   if not pageNumberTele or pageNumberTele < 1 then return end
+
    local xr, yr, xc, yc
-   local min, max, val, id, lbl
+   local min, max, val, lbl
    local ccfg, cid
 
+   gpp = Glass.page[pageNumberTele]
+   if not gpp[1].fmtNumber then gpp[1].fmtNumber = 1 end
+   fmt = gpp[1].fmtNumber --  string.format("p%d", gpp[1].fmtNumber)
    local ccf =  cfgimg.config[fmt]
 
    -- From here, everything referenced with "t." would come from the 200msec json if we
@@ -1082,10 +1064,10 @@ local function printTele(w,h)
    -- cheating. Everything from "cid." is from the images section cfgimg.images
    
    for g,t in ipairs(gpp) do        -- loop over all gauges on this page with a valid imageID
-      ccfg = ccf["g"..g]            -- this is the "config" key for this page and this widget
-      id = string.format("id%d", t.imageID)
-      cid = cfgimg.images[id]       -- this is the "images" key for this page and this widget
-      if t.imageID > 0 then         -- if there is a value to animate
+      ccfg = ccf[g]                 -- this is the "config" key for this page and this widget
+      --id = g --t.imageID
+      cid = cfgimg.images[id2avail[t.imageID]]
+      if t.imageID >= 0 then        -- if there is a value to animate
 	 xr = ccfg.xul
 	 yr = ccfg.yul
 	 xc = xr + cid.x0           -- for gauge, this is the pivot point of the needle
@@ -1101,7 +1083,7 @@ local function printTele(w,h)
 	    end
 	    lbl = t.instName or "..." --.instName is named .label in the 200ms json 
 	    val = t.value
-	    --print(g, id, min, max, val, lbl)
+	    --print(g, cid.wtype, cid.widgetID, cid.BMPname, val, lbl)
 	    if cid.wtype == "gauge" then
 	       lcd.drawImage(offset + xr * r, yr * r, cid.loadImageSmaller)
 	       drawNeedle(offset + r * xc, r * yc, cid.minA, cid.maxA, min, max, val, r * cid.nlen)
@@ -1244,18 +1226,18 @@ local function prepCI(availVals)
    cfgimgESP.config = {}
    cfgimg.config = {}
    for k,gp in ipairs(availFmt) do
-      cfgimgESP.config["p"..k] = {}
-      cfgimg.config["p"..k] = {}
+      cfgimgESP.config[k] = {}
+      cfgimg.config[k] = {}
       availFmts[k] = {}
       for g,t in ipairs(gp) do
-	 cfgimgESP.config["p"..k]["g"..g] = {}
-	 cfgimgESP.config["p"..k]["g"..g].xlr = math.floor(gw - (availVals[t.xc] + t.width/2))
-	 cfgimgESP.config["p"..k]["g"..g].ylr = math.floor(gh - (availVals[t.yc] + t.height/2))
+	 cfgimgESP.config[k][g] = {}
+	 cfgimgESP.config[k][g].xlr = math.floor(gw - (availVals[t.xc] + t.width/2))
+	 cfgimgESP.config[k][g].ylr = math.floor(gh - (availVals[t.yc] + t.height/2))
 	 --cfgimgESP.config["p"..k]["g"..g].wtype = t.wtype
 
-	 cfgimg.config["p"..k]["g"..g] = {}
-	 cfgimg.config["p"..k]["g"..g].xul = math.floor(availVals[t.xc] - t.width/2)
-	 cfgimg.config["p"..k]["g"..g].yul = math.floor(availVals[t.yc] - t.height/2)
+	 cfgimg.config[k][g] = {}
+	 cfgimg.config[k][g].xul = math.floor(availVals[t.xc] - t.width/2)
+	 cfgimg.config[k][g].yul = math.floor(availVals[t.yc] - t.height/2)
 	 --cfgimg.config["p"..k]["g"..g].wtype = t.wtype
 	 
 	 availFmts[k][g] =  {}
@@ -1273,24 +1255,27 @@ local function prepCI(availVals)
 		 origWidth=true, label=true, BMPname=true}
    local transX = {x0=true, xlmin=true, xlmax=true, xlbl=true}
    local transY = {y0=true, ylmin=true, ylmax=true, ylbl=true}   
+   local id = 0
    for i,img in ipairs(availImgs) do
-      local id = math.floor(img.id)
-      cfgimgESP.images["id"..id] = {}
-      cfgimg.images["id"..id] = {}
+      --local id = math.floor(img.id)
+      id = id + 1
+      cfgimgESP.images[id] = {}
+      cfgimg.images[id] = {}
       for k,v in pairs(img) do
+	 --print("k,v,skip[k]", k, v, skip[k])
 	 if not skip[k] then
 	    if transX[k] then -- move from upper left origin to lower right origin
-	       cfgimgESP.images["id"..id][k] = img.width - v
+	       cfgimgESP.images[id][k] = img.width - v
 	    elseif transY[k] then
-	       cfgimgESP.images["id"..id][k] = img.height - v
+	       cfgimgESP.images[id][k] = img.height - v
 	    else
-	       cfgimgESP.images["id"..id][k] = v
+	       cfgimgESP.images[id][k] = v
 	    end
 	 end
       end
       for k,v in pairs(img) do
 	 if true then --not skip[k] then
-	    cfgimg.images["id"..id][k] = v
+	    cfgimg.images[id][k] = v
 	 end
       end
    end
@@ -1353,13 +1338,13 @@ local function init()
 	 img.imageHeight = img.loadImage.height
 	 img.origWidth = img.width
 	 img.origHeight = img.height
+	 id2avail[img.widgetID] = i
       else
 	 img.origWidth = img.width
 	 img.origHeight = img.height
 	 img.imageWidth = img.width * ratio
 	 img.imageHeight = img.height * ratio
       end
-      id2avail[img.id] = i
    end
 
    local device
@@ -1475,4 +1460,4 @@ local function init()
    
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.4", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.5", name=appName}

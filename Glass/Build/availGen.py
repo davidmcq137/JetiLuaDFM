@@ -28,7 +28,7 @@ with open(availFile) as json_data:
 os.system("set -x;rm Images/small/*; rm Images/smaller/*")
 
 for img in jd:
-	fileid = img["id"]
+	fileid = img["widgetID"]
 	name = img["BMPname"]
 	if name != "":
 		config = {"imgs": [{"id":fileid, "path":"./Images/" + name + ".bmp", "fmt":"mono_4bpp"}] }
