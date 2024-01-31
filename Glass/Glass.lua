@@ -168,9 +168,9 @@ local function loop()
    local stbl = {}
    local gtbl = {}
    local av
-   local scale
+   local scale, widgetID
    local minV, maxV, lbl
-   local LOOPTIME = 400
+   local LOOPTIME = 250
    if pageSw then
       local sw = system.getInputsVal(pageSw)
       local pp = sw + 2 -- -1, 0, 1 --> 1,2,3
@@ -181,6 +181,9 @@ local function loop()
    if sendState == state.IDLE and unow < jsonHoldTime then
       print("Glass: Waiting to restart json...")
    end
+
+   -- maybe consider letting the internal update (for the tele window) run at full speed
+   -- and only throttling the sending of json for 200msec?
    
    if sendState == state.IDLE and unow > jsonHoldTime then
       if pageMax > 0 and (now > lastWrite + LOOPTIME) then
@@ -202,6 +205,7 @@ local function loop()
 	    if v.imageID and v.imageID >= 0 then
 	       av = id2avail[v.imageID]
 	       if not av then print(k, v.imageID) end
+	       widgetID = availImgs[av].widgetID
 	       scale = availImgs[av].scale
 	       if scale == "variable" then
 		  minV = v.minV or availImgs[av].minV -- if min/max not set pick up defaults
@@ -250,7 +254,7 @@ local function loop()
 	       
 	       if v.imageID >= 0 then
 		  stbl[k] = {}
-		  stbl[k].id = k
+		  stbl[k].id = widgetID
 		  if sval then
 		     stbl[k].v = tonumber(sval)
 		  end
@@ -632,7 +636,7 @@ local function initForm(sf)
       imageMax = #editImgs
       if not imageNum then imageNum = 1 end
 
-      print("imageMax, imageNum", imageMax, imageNum)
+      --print("imageMax, imageNum", imageMax, imageNum)
       
       if imageID < 0 then
 	 if #editImgs < 1 then
@@ -898,7 +902,7 @@ local function keyPressed(key)
 	       inp = img.inputs
 	    end
 	 end
-	 print("key2, iid, id2avail(iid)", iid, id2avail[iid])
+	 --print("key2, iid, id2avail(iid)", iid, id2avail[iid])
 	 Glass.page[pageNumber][gaugeNumber].imageID = iid
 	 Glass.page[pageNumber][gaugeNumber].minV = min -- may be nil
 	 Glass.page[pageNumber][gaugeNumber].maxV = max -- may be nil
@@ -1462,7 +1466,8 @@ local function init()
    -- to do: configVersion should go in the GG file
    
    configVersion = system.pLoad("configVersion", 1)
-   
+
+   print("CPU: ", system.getCPU())
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.5", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.6", name=appName}
