@@ -25,7 +25,7 @@ with open(availFile) as json_data:
 		print(valmsg)
 		exit()
 
-os.system("set -x;rm Images/small/*; rm Images/smaller/*")
+os.system("rm -v Images/small/*; rm -v Images/smaller/*")
 
 for img in jd:
 	fileid = img["widgetID"]
@@ -33,7 +33,7 @@ for img in jd:
 	if name != "":
 		config = {"imgs": [{"id":fileid, "path":"./Images/" + name + ".bmp", "fmt":"mono_4bpp"}] }
 		str = json.dumps(config)
-		print("dumps: " + str)
+		# print("dumps: " + str)
 		with open("./Configs/config-imgs-" + name + ".json", "w") as cf:
 			try:
 				json.dump(config, cf)
@@ -42,20 +42,20 @@ for img in jd:
 				print(valmsg)
 				exit()
 
-		os.system("set -e; set -x; python3 configG.py " + "config-imgs-" + name)
-		oscmd = "set -x;set -e;mogrify -resize 90% -format png -path Images/small " + "Images/" + name + ".bmp"
+		os.system("set -e; python3 configG.py " + "config-imgs-" + name)
+		oscmd = "set -e;mogrify -resize 90% -format png -path Images/small " + "Images/" + name + ".bmp"
 		os.system(oscmd)
-		oscmd = "set -x;set -e;mogrify -resize 63% -format png -path Images/smaller " + "Images/" + name + ".bmp"	
+		oscmd = "set -e;mogrify -resize 63% -format png -path Images/smaller " + "Images/" + name + ".bmp"	
 		os.system(oscmd)
-		os.system("set -x;mv -v ./Images/small/" + name + ".png " +
+		os.system("mv -v ./Images/small/" + name + ".png " +
 				  " ./Images/small/" + name + "-small.png")
-		os.system("set -x;mv -v ./Images/smaller/" + name + ".png " +
+		os.system("mv -v ./Images/smaller/" + name + ".png " +
 				  " ./Images/smaller/" + name + "-smaller.png")
 	else:
-		print("blank name",fileid)
+		print("No BMP file for widget ",fileid)
 		
 	
-os.system('set -x;cp -v Configs/config-*.txt ../Configs')
-os.system('set -x;cp -v Images/small/*-small.png ../Images')
-os.system('set -x;cp -v Images/smaller/*-smaller.png ../Images')
-os.system('set -x;cp -v Images/availImgsMaster.jsn ../Json/availImgs.jsn')
+os.system('set -e;cp -v Configs/config-*.txt ../Configs')
+os.system('set -e;cp -v Images/small/*-small.png ../Images')
+os.system('set -e;cp -v Images/smaller/*-smaller.png ../Images')
+os.system('set -e;cp -v Images/availImgsMaster.jsn ../Json/availImgs.jsn')

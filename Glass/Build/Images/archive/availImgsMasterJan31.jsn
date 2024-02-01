@@ -1,5 +1,15 @@
 [
 
+    {"widgetID":10, "BMPname":"square",
+     "height":160, "width":160, "wtype":"gauge","nlen":70, "scale":"variable", "label":"...", "inputs":1,
+     "x0":    80, "y0":    80,
+     "minA":-150, "maxA": 150,
+     "minV":   0, "maxV": 100,
+     "xlmin": 20, "ylmin":145,
+     "xlmax":140, "ylmax":145,
+     "xlbl":  80, "ylbl": 110
+    },
+
     {"widgetID":11, "BMPname":"volt_12_18",
      "height":160, "width":160, "wtype":"gauge", "nlen":70, "scale":"fixed", "label":"V", "inputs":1,
      "x0":    80, "y0":    80,
@@ -30,6 +40,16 @@
      "xlbl":  80, "ylbl": 135
     },
 
+    {"widgetID":14, "BMPname":"left",
+     "height":160, "width":83, "wtype":"gauge", "nlen":70, "scale":"variable", "label":"...", "inputs":1,
+     "x0":    80, "y0":    80,
+     "minA":-165, "maxA": -15,
+     "minV":  0,  "maxV": 100,
+     "xlmin": 30, "ylmin":155,
+     "xlmax": 30, "ylmax":  5,
+     "xlbl":  50, "ylbl":  95
+    },
+
     {"widgetID":15, "BMPname":"tl_0_2",
      "height":160, "width":83, "wtype":"gauge", "nlen":70, "scale":"fixed", "label":"TL", "inputs":1,
      "x0":    80, "y0":    80,
@@ -38,6 +58,16 @@
      "xlmin": 30, "ylmin":155,
      "xlmax": 30, "ylmax":  5,
      "xlbl":  50, "ylbl":  95
+    },
+
+    {"widgetID":16, "BMPname":"right",
+     "height":160, "width":83, "wtype":"gauge", "nlen":70, "scale":"variable", "label":"...", "inputs":1,
+     "x0":    3,  "y0":    80,
+     "minA":165, "maxA":  15,
+     "minV":  0,  "maxV": 100,
+     "xlmin":50, "ylmin": 155,
+     "xlmax":50, "ylmax":   5,
+     "xlbl": 30, "ylbl":   95
     },
 
     {"widgetID":17, "BMPname":"tr_0_2",
@@ -63,14 +93,17 @@
      "x0":    10, "y0":    5
     },
 
+    {"widgetID":20, "BMPname":"hbar",
+     "height":45, "width":240, "wtype":"hbar", "inputs":1,
+     "scale":"variable", "minV":0, "maxV":100, "xlmin": 10, "xlmax": 230,
+     "ylmin":35, "ylmax":35,"barH": 20, "barW": 220,
+     "xlbl": 120, "ylbl": -8,
+     "x0":    10, "y0":    5
+    },
+    
     {"widgetID":21, "BMPname":"",
      "height":45, "width":240, "wtype":"htext", "inputs":1,
      "txtW": 220, "txtH":20, "x0":10, "y0":5
-    },
-
-    {"widgetID":22, "BMPname":"",
-     "height":45, "width":240, "wtype":"timer", "inputs":1,
-     "txtW": 220, "txtH":20, "x0":10, "y0":5
     }
-    
+
 ]
