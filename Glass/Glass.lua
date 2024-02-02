@@ -38,6 +38,8 @@ Glass.gpsPalist = {0}
 Glass.settings = {}
 Glass.timers = {}
 
+Glass.switches = {}
+
 local pageNumber = 0
 local pageMax = 0
 local pageLimit = 3
@@ -103,6 +105,29 @@ local function drawTextCenter(x, y, str, font)
    local w = lcd.getTextWidth(font, str)
    local h = lcd.getTextHeight(font, str)
    lcd.drawText(x - w/2, y - h/2, str, font)
+end
+
+local function ms(ival)
+   local val
+   if not ival then val = 0 else val = ival / 1000 end
+   local sign
+   if val > 0 then sign = "+" elseif val < 0 then sign = "-" else sign = " " end
+   local aval = math.abs(val)
+   local mins = aval // 60
+   local secs = math.floor(aval - mins * 60)
+   return mins, secs, sign
+end
+
+local function hms(ival)
+   local val
+   if not ival then val = 0 else val = ival / 1000 end
+   local sign
+   if val > 0 then sign = "+" elseif val < 0 then sign = "-" else sign = " " end
+   local aval = math.abs(val)
+   local hrs = aval // (3600)
+   local mins = (aval - hrs * 3600) // 60
+   local secs = math.floor(aval - hrs * 3600 - mins * 60)
+   return hrs, mins, secs, sign
 end
 
 local function dpFmt(x)
@@ -212,6 +237,11 @@ local function loop()
    local minV, maxV, lbl
    local LOOPTIME = 250
    local CTRLREP = 4
+
+   if system.getTimeCounter() < 0 then
+      print("system.getTimeCounter() wrapped. Restart emulator")
+      barf()
+   end
    
    if pageSw then
       local sw = system.getInputsVal(pageSw)
@@ -235,9 +265,70 @@ local function loop()
       end
    end
 
-   --Glass.timers.timer1 = {state = Glass.timers.stateSTOP, time=0, start=0, target=0, direction="+"}
    local gt = Glass.timers
+   local gs = Glass.switches
+   local si, ud1, ud2
+   local now = system.getTimeCounter()
+
+   if (gt.timer1.target or 0) - (gt.timer1.initial or 0) < 0 then
+      ud1 = "down"
+   else
+      ud1 = "up"
+   end
+
+   if gs.t1enable then
+      si = system.getSwitchInfo(gs.t1enable)
+      if si and si.value == 1 then 
+	 if gt.timer1.state == gt.stateSTOP then --prior sw position
+	    if ud1 == "up" then
+	       gt.timer1.start = now - gt.timer1.time
+	    else
+	       gt.timer1.start = now + gt.timer1.time
+	    end
+	 end
+	 gt.timer1.state = gt.stateRUN
+      else
+	 gt.timer1.state = gt.stateSTOP
+      end
+   end
+
+   if gs.t1reset then
+      si = system.getSwitchInfo(gs.t1reset)
+      if si and si.value == 1 then -- and si.value ~= gs.t1resetLast then
+	 gt.timer1.time = gt.timer1.initial
+      end
+      --gs.t1resetLast = si.value
+   end
    
+   if (gt.timer2.target or 0) - (gt.timer2.initial or 0) < 0 then
+      ud2 = "down"
+   else
+      ud2 = "up"
+   end
+
+   if gs.t2enable then
+      si = system.getSwitchInfo(gs.t2enable)
+      if si and si.value == 1 then -- current sw position
+	 if gt.timer2.state == gt.stateSTOP then --prior sw position
+	    if ud2 == "up" then
+	       gt.timer2.start = now - gt.timer2.time
+	    else
+	       gt.timer2.start = now + gt.timer2.time
+	    end
+	 end
+	 gt.timer2.state = gt.stateRUN
+      else
+	 gt.timer2.state = gt.stateSTOP
+      end
+   end
+
+   if gs.t2reset then
+      si = system.getSwitchInfo(gs.t2reset)
+      if si and si.value == 1 and si.value ~= gs.t2resetLast then
+	 gt.timer2.time = gt.timer2.initial
+      end
+      gs.t2resetLast = si.value
+   end
 
    if sendState == state.IDLE and unow < jsonHoldTime then
       --print("Glass: Waiting to restart json...")
@@ -246,6 +337,7 @@ local function loop()
    -- maybe consider letting the internal update (for the tele window) run at full speed
    -- and only throttling the sending of json for 200msec?
 
+
    if sendState == state.IDLE and system.getTimeCounter() > jsonHoldTime then
       if pageMax > 0 and (now > lastWrite + LOOPTIME) then
 
@@ -253,8 +345,6 @@ local function loop()
 	    Glass.gpsBearing = gps.getBearing(Glass.curPos, Glass.zeroPos)
 	    Glass.gpsDistance = gps.getDistance(Glass.curPos, Glass.zeroPos)
 	 end
-	 
-	 -- timers update goes here
 	 
 	 local p1 = math.floor(255 * (1 + system.getInputs("P1")) / 2)
 	 local p2 = math.floor(255 * (1 + system.getInputs("P2")) / 2)
@@ -265,8 +355,8 @@ local function loop()
 	 if not Glass.page[pageNumberTele] then return end
 	 stbl = {page=pageNumberTele}
 	 gtbl = {}
-	 gtbl["p"] = pageNumberTele
-	 gtbl["f"] = Glass.page[pageNumberTele][1].fmtNumber
+	 gtbl["p"] = pageNumberTele 
+	 gtbl["f"] = Glass.page[pageNumberTele][1].fmtNumber - 1
 
 	 for k,v in ipairs(Glass.page[pageNumberTele]) do
 
@@ -282,8 +372,9 @@ local function loop()
 		  minV = availImgs[av].minV
 		  maxV = availImgs[av].maxV
 	       end
-	       
-	       v.value=nil
+
+	       local now = system.getTimeCounter()
+	       v.value = nil
 	       sensor = {}
 	       if (v.sensorId ~= 0) and (v.sensorPa ~= 0) then
 		  if v.sensorId == -1 then -- special sensors, derived values
@@ -302,18 +393,56 @@ local function loop()
 			   sensor.valid = false
 			end
 		     elseif v.sensorPa == 3 then
+			if Glass.timers.timer1.state == Glass.timers.stateSTOP then
+			   if ud1 == "up" then
+			      Glass.timers.timer1.start = now - Glass.timers.timer1.time
+			   else
+			      Glass.timers.timer1.start = now + Glass.timers.timer1.time
+			   end
+			end
+			if ud1 == "up" then
+			   Glass.timers.timer1.time = (now - Glass.timers.timer1.start)
+			   sensor.tpct = 100 * Glass.timers.timer1.time /
+			      (Glass.timers.timer1.target - Glass.timers.timer1.initial)
+			   sensor.tpct = math.floor(10 * math.min(math.max(sensor.t1pct, 0), 100)) / 10
+			else
+			   Glass.timers.timer1.time = (Glass.timers.timer1.start - now)
+			   sensor.tpct = 100 * Glass.timers.timer1.time /
+			      (Glass.timers.timer1.initial - Glass.timers.timer1.target)
+			   sensor.tpct = math.floor(10 * math.min(math.max(sensor.tpct, 0), 100)) / 10
+			end
+			sensor.value = math.floor(100 * Glass.timers.timer1.time / 1000) / 100
+			--print(sensor.value, sensor.t1pct)
 			sensor.valid = true
-			sensor.value = Glass.timers.timer1.time
-			--print("timer1", sensor.value)
 		     elseif v.sensorPa == 4 then
+			if Glass.timers.timer2.state == Glass.timers.stateSTOP then
+			   if ud2 == "up" then
+			      Glass.timers.timer2.start = now - Glass.timers.timer2.time
+			   else
+			      Glass.timers.timer2.start = now + Glass.timers.timer2.time
+			   end
+			end
+			if ud2 == "up" then
+			   Glass.timers.timer2.time = (now - Glass.timers.timer2.start)
+			   sensor.tpct = 100 * Glass.timers.timer2.time /
+			      (Glass.timers.timer2.target - Glass.timers.timer2.initial)
+			   sensor.tpct = math.floor(10 * math.min(math.max(sensor.tpct, 0), 100)) / 10
+			else
+			   Glass.timers.timer2.time = (Glass.timers.timer2.start - now)
+			   sensor.tpct = 100 * Glass.timers.timer2.time /
+			      (Glass.timers.timer2.initial - Glass.timers.timer2.target)
+			   sensor.tpct = math.floor(10 * math.min(math.max(sensor.tpct, 0), 100)) / 10
+			end
+			sensor.value = Glass.timers.timer2.time / 1000
 			sensor.valid = true
-			sensor.value = Glass.timers.timer2.time
+
 		     end
 		  else
 		     sensor = system.getSensorByID(v.sensorId, v.sensorPa)
 		  end
 		  if sensor and sensor.valid then
 		     v.value = sensor.value
+		     if sensor.tpct then v.tpct = sensor.tpct else v.tpct= nil end
 		  end
 	       end
 
@@ -882,7 +1011,12 @@ local function initForm(sf)
       form.addLink(sendUSB, {label="Send config on serial>>"})
 
       form.addRow(1)
+      form.addLink((function() form.reinit(14) return end), {label="Timer setup>>"})      
+
+      form.addRow(1)
       form.addLink(clearJSON, {label="Reset app settings>>"})
+
+
 
       
    elseif sf == 12 then
@@ -972,6 +1106,175 @@ local function initForm(sf)
 	    form.addLabel({label=string.format("%.1f", maxV)})	 	 
 	 end
       end
+   elseif sf == 14 then
+      local hrs, mins, secs, sign      
+            
+      local function timerSwChanged(v, s)
+	 Glass.switches[s] = v
+	 print("psave", s, v)
+	 system.pSave(s, v)
+      end
+
+      local function changedMS(val, tn, u, tm, tmud)
+	 print("ms", mins, secs)
+	 local tt = {hrs=hrs, mins=mins, secs=secs}
+	 local tmsg = {timer1="Timer 1 ", timer2="Timer 2 "}
+	 local umsg = {initial = "Initial Value ", target = "Target Value "} 
+	 print("val, tn, u", val, tn, u)
+	 tt[u] = val
+	 mins, secs, sign = ms(Glass.timers[tn][tm])
+	 print("mins, secs, sign", mins, secs, sign)
+	 local ss = 1
+	 if Glass.timers[tn][tmud] == "-" then ss = -1 end
+	 Glass.timers[tn][tm] = ss * (tt.secs + 60 * tt.mins) * 1000
+	 print(tm .." ", Glass.timers[tn][tm])
+	 mins, secs, sign = ms(Glass.timers[tn][tm])
+	 form.setTitle(string.format(tmsg[tn]..umsg[tm]..sign.."%02d:%02d", mins, secs))
+      end
+
+      local function timerPMChanged(x, tn, ud)
+	 Glass.timers[tn][ud] = string.sub("+-", x, x)
+	 sign = Glass.timers[tn][ud]
+	 if sign == "-" then
+	    Glass.timers[tn].initial = math.abs(Glass.timers[tn].initial) * -1
+	 else
+	    Glass.timers[tn].initial = math.abs(Glass.timers[tn].initial)	    
+	 end
+      end
+      
+      local plusminus = {"+", "-"}
+
+      form.addRow(1)
+            form.addLabel({label=string.rep(" ", 28) .. "Timer 1", font=FONT_BOLD})
+      
+      form.addRow(8)
+      form.addLabel({label="Initial:", width=65})
+      local isel = string.find("+-", (Glass.timers.timer1.initialUD or "+"))
+      form.addSelectbox(plusminus, isel, false,
+		       (function(x) return timerPMChanged(x,"timer1", "initialUD") end),
+		       {width=40}
+      )
+
+      mins, secs, sign = ms(Glass.timers.timer1.initial)
+
+      form.addLabel({label="Mins", width=45})      
+      form.addIntbox(mins, 0, 99, 10, 0, 1,
+		     (function(x) return changedMS(x, "timer1", "mins", "initial", "initialUD") end),
+		     {width=60}
+      )
+
+      form.addLabel({label="Secs", width=45})
+      
+      form.addIntbox(secs, 0, 59, 0, 0, 1,
+		     (function(x) return changedMS(x, "timer1", "secs", "initial", "initialUD") end),
+		     {width=60}
+      )
+      
+      form.addRow(8)
+      form.addLabel({label="Target:", width=65})
+      local isel = string.find("+-", (Glass.timers.timer1.targetUD or "+"))
+      form.addSelectbox(plusminus, isel, false,
+		       (function(x) return timerPMChanged(x,"timer1", "targetUD") end),
+		       {width=40}
+      )
+
+      mins, secs, sign = ms(Glass.timers.timer1.target)
+
+      form.addLabel({label="Mins", width=45})      
+      form.addIntbox(mins, 0, 99, 10, 0, 1,
+		     (function(x) return changedMS(x, "timer1", "mins", "target", "targetUD") end),
+		     {width=60}
+      )
+
+      form.addLabel({label="Secs", width=45})
+      
+      form.addIntbox(secs, 0, 59, 0, 0, 1,
+		     (function(x) return changedMS(x, "timer1", "secs", "target", "targetUD") end),
+		     {width=60}
+      )
+
+      form.addRow(4)
+      form.addLabel({label="Run Sw", width=60})
+      local swe = "t1enable"
+      form.addInputbox(Glass.switches[swe], true,
+		       (function(x) return timerSwChanged(x, swe) end),
+		       {width=100}
+      )
+      form.addLabel({label="Rst Sw", width=60})
+      local swr = "t1reset"
+      form.addInputbox(Glass.switches[swr], true,
+		       (function(x) return timerSwChanged(x, swr) end),
+		       {width=100}
+      )
+
+      -------------------------------------------------------------------------
+      
+      form.addRow(1)
+      form.addLabel({label=string.rep(" ", 28) .. "Timer 2", font=FONT_BOLD})
+
+      form.addRow(8)
+      form.addLabel({label="Initial:", width=65})
+      local isel = string.find("+-", (Glass.timers.timer2.initialUD or "+"))
+      form.addSelectbox(plusminus, isel, false,
+		       (function(x) return timerPMChanged(x,"timer2", "initialUD") end),
+		       {width=40}
+      )
+
+      mins, secs, sign = ms(Glass.timers.timer2.initial)
+
+      form.addLabel({label="Mins", width=45})      
+      form.addIntbox(mins, 0, 99, 10, 0, 1,
+		     (function(x) return changedMS(x, "timer2", "mins", "initial", "initialUD") end),
+		     {width=60}
+      )
+
+      form.addLabel({label="Secs", width=45})
+      
+      form.addIntbox(secs, 0, 59, 0, 0, 1,
+		     (function(x) return changedMS(x, "timer2", "secs", "initial", "initialUD") end),
+		     {width=60}
+      )
+      
+      form.addRow(8)
+      form.addLabel({label="Target:", width=65})
+      local isel = string.find("+-", (Glass.timers.timer2.targetUD or "+"))
+      form.addSelectbox(plusminus, isel, false,
+		       (function(x) return timerPMChanged(x,"timer2", "targetUD") end),
+		       {width=40}
+      )
+
+      mins, secs, sign = ms(Glass.timers.timer2.target)
+
+      form.addLabel({label="Mins", width=45})      
+      form.addIntbox(mins, 0, 99, 10, 0, 1,
+		     (function(x) return changedMS(x, "timer2", "mins", "target", "targetUD") end),
+		     {width=60}
+      )
+
+      form.addLabel({label="Secs", width=45})
+      
+      form.addIntbox(secs, 0, 59, 0, 0, 1,
+		     (function(x) return changedMS(x, "timer2", "secs", "target", "targetUD") end),
+		     {width=60}
+      )
+
+      form.addRow(4)
+      form.addLabel({label="Run Sw", width=60})
+      local swe = "t2enable"
+      form.addInputbox(Glass.switches[swe], true,
+		       (function(x) return timerSwChanged(x, swe) end),
+		       {width=100}
+      )
+      form.addLabel({label="Rst Sw", width=60})
+      local swr = "t2reset"
+      form.addInputbox(Glass.switches[swr], true,
+		       (function(x) return timerSwChanged(x, swr) end),
+		       {width=100}
+      )
+
+
+      form.setFocusedRow(1)
+      form.setTitle("Timer Setup")
    end
 end
 
@@ -1117,14 +1420,9 @@ local function drawText(x0, y0, val, lbl, twid, thgt)
 end
 
 local function drawTimer(x0, y0, val, lbl, twid, thgt)
-   local sign
-   if val >= 0 then sign = "+" else sign = "-" end
-   local aval = math.abs(val)
-   local hrs = aval // (3600)
-   local mins = (aval - hrs * 3600) // 60
-   local secs = aval - hrs * 3600 - mins * 60
-   
-   local text = string.format(lbl .. ' ' .. "%s%02d:%02d:%02d", sign, hrs, mins, secs)
+   local sign, mins, secs
+   mins, secs, sign = ms(val * 1000)
+   local text = string.format(lbl .. ' ' .. "%s%02d:%02d", sign, mins, secs)
    local ww = lcd.getTextWidth(FONT_BIG, text)
    local hh = lcd.getTextHeight(FONT_BIG, text)
    lcd.drawText(x0 + (twid - ww)/2, y0 + (thgt - hh)/2, text, FONT_BIG)
@@ -1636,8 +1934,10 @@ local function init()
       Glass.timers = {}
       Glass.timers.stateSTOP = 0
       Glass.timers.stateRUN = 1
-      Glass.timers.timer1 = {state = Glass.timers.stateSTOP, time=0, start=0, target=0, direction="+"}
-      Glass.timers.timer2 = {state = Glass.timers.stateSTOP, time=0, start=0, target=0, direction="+"}
+      Glass.timers.timer1 = {state = Glass.timers.stateSTOP, time=0, start=0,
+			     target=0, initial = 0}
+      Glass.timers.timer2 = {state = Glass.timers.stateSTOP, time=0, start=0,
+			     target=0, initial = 0}
    end
    
    local GGtbl = {}
@@ -1653,6 +1953,11 @@ local function init()
 	 pageMax = #Glass.page
       end
       gaugeNumber = 1
+      if not Glass.timers then Glass.timers = {} end
+      Glass.timers.timer1.time = 0
+      Glass.timers.timer2.time = 0   
+      Glass.timers.stateSTOP = 0
+      Glass.timers.stateRUN = 1
    else
       initG()
    end
@@ -1724,9 +2029,40 @@ local function init()
    
    pageSw = system.pLoad("pageSw")
 
+   Glass.switches.t1enable = system.pLoad("t1enable")
+   Glass.switches.t1reset = system.pLoad("t1reset")
+
+   Glass.switches.t2enable = system.pLoad("t2enable")
+   Glass.switches.t2reset = system.pLoad("t2reset")   
+      
    Glass.gpsReads = 0
 
-   Glass.timers.timer1.time = 5*3600 + 6*60 + 7
+   Glass.timers.timer1.state = Glass.timers.stateSTOP
+   Glass.timers.timer2.state = Glass.timers.stateSTOP
+
+   if not Glass.timers.timer1.initial then
+      Glass.timers.timer1.start = 0
+      Glass.timers.timer1.initial = 300 * 1000 -- 5:00 in ms
+      Glass.timers.timer1.time = 300 * 1000
+   else
+      Glass.timers.timer1.start = 0
+      Glass.timers.timer1.time = Glass.timers.timer1.initial
+   end
+   if not Glass.timers.timer1.target then
+      Glass.timers.timer1.target = 0 -- 0:00
+   end
+
+   if not Glass.timers.timer2.initial then
+      Glass.timers.timer2.start = 0
+      Glass.timers.timer2.initial = 300 * 1000 -- 5:00 in ms
+      Glass.timers.timer2.time = 300 * 1000
+   else
+      Glass.timers.timer2.start = 0
+      Glass.timers.timer2.time = Glass.timers.timer2.initial
+   end
+   if not Glass.timers.timer2.target then
+      Glass.timers.timer2.target = 0 -- 0:00
+   end
    
    print("CPU: ", system.getCPU())
 end
