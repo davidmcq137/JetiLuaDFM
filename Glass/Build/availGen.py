@@ -53,9 +53,12 @@ for img in jd:
 				  " ./Images/smaller/" + name + "-smaller.png")
 	else:
 		print("No BMP file for widget ",fileid)
-		
-	
+			
 os.system('set -e;cp -v Configs/config-*.txt ../Configs')
 os.system('set -e;cp -v Images/small/*-small.png ../Images')
 os.system('set -e;cp -v Images/smaller/*-smaller.png ../Images')
 os.system('set -e;cp -v Images/availImgsMaster.jsn ../Json/availImgs.jsn')
+
+os.system('set -e;lua prepCI.lua')
+os.system('set -e;cp -v Images/configimages.jsn ../Json')
+os.system('set -e;cp -v Images/cfgimg.jsn ../Json')

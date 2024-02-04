@@ -18,7 +18,7 @@ local pathApp = "Apps/"..appName.."/"
 local pathImages = pathApp.."Images/"
 local pathConfigs = pathApp.."Configs/"
 local pathJson = pathApp.."Json/"
-local JSNVERSION = 2
+local JSNVERSION = 4
 
 local Glass = {}
 
@@ -37,14 +37,17 @@ Glass.gpsPalist = {0}
 
 Glass.settings = {}
 Glass.timers = {}
+Glass.switchInfo = {}
 
-Glass.switches = {}
+--Glass.switches = {}
+
+local swtCI = {}
+local switchItems = {}
 
 local pageNumber = 0
 local pageMax = 0
 local pageLimit = 3
 local pageNumberTele
-local pageSw
 local subForm
 local savedRow = 0
 local gaugeNumber = 0
@@ -52,7 +55,6 @@ local gaugeMax = 10 -- max # gauges in a format
 local emflag
 local sidSerial
 local lastWrite = 0
-local availImgs = {}
 local encodedImgs = {}
 local id2avail = {}
 local editImgs = {}
@@ -74,14 +76,16 @@ local sendTime
 local sendLast = 0
 local cpu = 0
 local configLine
---local fmtNumber = 0
 local writeJSON = true
 local jsonHoldTime = 0
-local availFmt = {}
-local availFmts = {}
 local tempCall
 local sendFPtemp
 local cfgimg = {}
+local glassesIcon
+local redcrossIcon
+local configString
+local currentConfigString
+local serialBytesSent = 0
 
 --[[
 local teleSensors
@@ -94,6 +98,54 @@ local txSensorDP    = { 1,   0,    0,     0,   0,   1,   0,   1,   1,   0,   0}
 local txRSSINames = {"rx1Ant1", "rx1Ant2", "rx2Ant1", "rx2Ant2",
 		     "rxBAnt1", "rxBAnt2"}
 --]]
+
+local function drawImage(x,y,imgt, key)
+
+   --if type(imgt[key]) ~= "table" then
+   --   print("loading image " .. imgt[key])
+   --   imgt[key] = lcd.loadImage(imgt[key])
+   --end
+   
+   return lcd.drawImage(x,y,imgt[key])
+end
+
+local function changedSwitch(val, switchName)
+   --print("changedSwitch", val, switchName)
+   local Invert = 1.0
+   local swInfo = system.getSwitchInfo(val)
+   local swTyp = string.sub(swInfo.label,1,1)
+   if swInfo.assigned then
+      if string.sub(swInfo.mode,-1,-1) == "I" then Invert = -1.0 end
+      -- note: swInfo.mode will be "PS" for normal sw eval, "P" for proportional
+      local prop = (string.find(swInfo.mode, "S") == nil)
+      print("cS, prop, swTyp", prop, swTyp, swInfo.mode, Invert, swInfo.value)
+      if prop or (swInfo.value == Invert) or swTyp == "L" or swTyp =="M" then
+	 print("CS assigning")
+	 switchItems[switchName] = val
+	 Glass.switchInfo[switchName] = {} 
+	 Glass.switchInfo[switchName].name = swInfo.label
+	 if swTyp == "L" or swTyp =="M" then
+	    Glass.switchInfo[switchName].activeOn = 0
+	 else
+	    local ao = system.getInputs(string.upper(swInfo.label))
+	    Glass.switchInfo[switchName].activeOn = ao
+	 end
+	 Glass.switchInfo[switchName].mode = swInfo.mode
+      else
+	 system.messageBox("Error - do not move switch when assigning")
+	 print("CS zeroing")
+	 form.setValue(swtCI[switchName], nil)
+	 switchItems[switchName] = nil
+	 Glass.switchInfo[switchName] = nil	 
+      end
+   else
+      if Glass.switchInfo[switchName] then
+	 print("CS zeroing - not assigned")
+	 switchItems[switchName] = nil
+	 Glass.switchInfo[switchName] = nil
+      end
+   end
+end
 
 local function prefix()
    local pf
@@ -174,10 +226,13 @@ local function readSensors(tt)
    -- Id = -1
    --
    -- Pa = 1  GPS Distance
-   -- Pa = 2  GPS Bearing
-   -- Pa = 3  Timer 1
-   -- Pa = 4  Timer 2
-
+   -- Pa = 2  GPS Bearing To
+   -- Pa = 3  GPS Bearing From
+   -- Pa = 4  Timer 1
+   -- Pa = 5  Timer 2
+   -- Pa = 6  Timer 1 percentage of time/(initial-target)
+   -- Pa = 7  Timer 2 percentage of time/(initial-target)   
+   
    local function insertSp(tbl, id, pa, la, ls)
       table.insert(tbl.sensorLalist, la)
       table.insert(tbl.sensorLslist, ls)
@@ -186,10 +241,13 @@ local function readSensors(tt)
    end
 
    insertSp(tt, -1, 1, "GPS_Distance", "Distance")
-   insertSp(tt, -1, 2, "GPS_Bearing", "Bearing")
-   insertSp(tt, -1, 3, "T_Timer1", "Timer1")
-   insertSp(tt, -1, 4, "T_Timer2", "Timer2")
-   
+   insertSp(tt, -1, 2, "GPS_BearingTo", "BearingTo")
+   insertSp(tt, -1, 3, "GPS_BearingFrom", "BearingFrom")   
+   insertSp(tt, -1, 4, "T_Timer1", "Timer1Secs")
+   insertSp(tt, -1, 5, "T_Timer2", "Timer2Secs")
+   insertSp(tt, -1, 6, "T_Timer1Pct", "Timer1Pct")
+   insertSp(tt, -1, 7, "T_Timer2Pct", "Timer2Pct")   
+
    --[[
    teleSensors = #tt.sensorLalist
    l1 = "txTel"
@@ -223,6 +281,7 @@ local function sendCtrl(cc, nn)
       sendState = state.IDLE
       return false
    end
+   serialBytesSent = serialBytesSent + bw
    return bw
 end
 
@@ -237,14 +296,31 @@ local function loop()
    local minV, maxV, lbl
    local LOOPTIME = 250
    local CTRLREP = 4
+   local SEND_DELAY = 10
+   local BUF_SIZE = 128
+   local SEND_LOOPS = 20
+   local iid
 
+   currentConfigString = ""
+   for p,v in ipairs(Glass.page) do
+      currentConfigString = currentConfigString .. "p" .. p
+      for g in ipairs(v) do
+	 iid = math.floor(Glass.page[p][g].imageID)
+	 if Glass.page[p][g].imageID >= 0 then
+	    currentConfigString = currentConfigString .. "g" .. iid
+	 end
+      end
+   end
+
+   --print(currentConfigString)
+   
    if system.getTimeCounter() < 0 then
       print("system.getTimeCounter() wrapped. Restart emulator")
       barf()
    end
    
-   if pageSw then
-      local sw = system.getInputsVal(pageSw)
+   if switchItems.pageChange then
+      local sw = system.getInputsVal(switchItems.pageChange)
       local pp = sw + 2 -- -1, 0, 1 --> 1,2,3
       pp = math.min(pp, pageMax)
       pageNumberTele = pp
@@ -266,7 +342,6 @@ local function loop()
    end
 
    local gt = Glass.timers
-   local gs = Glass.switches
    local si, ud1, ud2
    local now = system.getTimeCounter()
 
@@ -276,8 +351,8 @@ local function loop()
       ud1 = "up"
    end
 
-   if gs.t1enable then
-      si = system.getSwitchInfo(gs.t1enable)
+   if switchItems.t1enable then
+      si = system.getSwitchInfo(switchItems.t1enable)      
       if si and si.value == 1 then 
 	 if gt.timer1.state == gt.stateSTOP then --prior sw position
 	    if ud1 == "up" then
@@ -292,12 +367,11 @@ local function loop()
       end
    end
 
-   if gs.t1reset then
-      si = system.getSwitchInfo(gs.t1reset)
-      if si and si.value == 1 then -- and si.value ~= gs.t1resetLast then
+   if switchItems.t1reset then
+      si = system.getSwitchInfo(switchItems.t1reset)
+      if si and si.value == 1 then 
 	 gt.timer1.time = gt.timer1.initial
       end
-      --gs.t1resetLast = si.value
    end
    
    if (gt.timer2.target or 0) - (gt.timer2.initial or 0) < 0 then
@@ -306,8 +380,8 @@ local function loop()
       ud2 = "up"
    end
 
-   if gs.t2enable then
-      si = system.getSwitchInfo(gs.t2enable)
+   if switchItems.t2enable then
+      si = system.getSwitchInfo(switchItems.t2enable)
       if si and si.value == 1 then -- current sw position
 	 if gt.timer2.state == gt.stateSTOP then --prior sw position
 	    if ud2 == "up" then
@@ -322,12 +396,11 @@ local function loop()
       end
    end
 
-   if gs.t2reset then
-      si = system.getSwitchInfo(gs.t2reset)
-      if si and si.value == 1 and si.value ~= gs.t2resetLast then
+   if switchItems.t2reset then
+      si = system.getSwitchInfo(switchItems.t2reset)      
+      if si and si.value == 1 then
 	 gt.timer2.time = gt.timer2.initial
       end
-      gs.t2resetLast = si.value
    end
 
    if sendState == state.IDLE and unow < jsonHoldTime then
@@ -337,40 +410,39 @@ local function loop()
    -- maybe consider letting the internal update (for the tele window) run at full speed
    -- and only throttling the sending of json for 200msec?
 
-
    if sendState == state.IDLE and system.getTimeCounter() > jsonHoldTime then
       if pageMax > 0 and (now > lastWrite + LOOPTIME) then
 
 	 if Glass.curPos and Glass.zeroPos then
-	    Glass.gpsBearing = gps.getBearing(Glass.curPos, Glass.zeroPos)
+	    Glass.gpsBearingTo = gps.getBearing(Glass.curPos, Glass.zeroPos)
+	    Glass.gpsBearingFrom = gps.getBearing(Glass.zeroPos, Glass.curPos)	    
 	    Glass.gpsDistance = gps.getDistance(Glass.curPos, Glass.zeroPos)
 	 end
 	 
 	 local p1 = math.floor(255 * (1 + system.getInputs("P1")) / 2)
 	 local p2 = math.floor(255 * (1 + system.getInputs("P2")) / 2)
 
-	 if (not pageSw) then pageNumberTele = pageNumber end
+	 if (not switchItems.pageChange) then pageNumberTele = pageNumber end
 
 	 if not pageNumberTele or pageNumberTele < 1 then return end
 	 if not Glass.page[pageNumberTele] then return end
 	 stbl = {page=pageNumberTele}
 	 gtbl = {}
 	 gtbl["p"] = pageNumberTele 
-	 gtbl["f"] = Glass.page[pageNumberTele][1].fmtNumber - 1
+	 gtbl["f"] = Glass.page[pageNumberTele][1].fmtNumber - 1 --  convert lua convention to c++
 
 	 for k,v in ipairs(Glass.page[pageNumberTele]) do
-
 	    if v.imageID and v.imageID >= 0 then
 	       av = id2avail[v.imageID]
 	       if not av then print(k, v.imageID) end
-	       widgetID = availImgs[av].widgetID
-	       scale = availImgs[av].scale
+	       widgetID = cfgimg.images[av].widgetID
+	       scale = cfgimg.images[av].scale
 	       if scale == "variable" then
-		  minV = v.minV or availImgs[av].minV -- if min/max not set pick up defaults
-		  maxV = v.maxV or availImgs[av].maxV
+		  minV = v.minV or cfgimg.images[av].minV -- if min/max not set pick up defaults
+		  maxV = v.maxV or cfgimg.images[av].maxV
 	       else
-		  minV = availImgs[av].minV
-		  maxV = availImgs[av].maxV
+		  minV = cfgimg.images[av].minV
+		  maxV = cfgimg.images[av].maxV
 	       end
 
 	       local now = system.getTimeCounter()
@@ -385,14 +457,17 @@ local function loop()
 			else
 			   sensor.valid = false
 			end
-		     elseif v.sensorPa == 2 then
-			if Glass.gpsBearing then
+		     elseif v.sensorPa == 2 or v.sensorPa == 3 then -- bearing to or from
+			if Glass.gpsBearingTo and v.sensorPa == 2 then
 			   sensor.valid = true
-			   sensor.value = Glass.gpsBearing
+			   sensor.value = Glass.gpsBearingTo
+			elseif Glass.gpsBearingFrom and v.sensorPa == 3 then
+			   sensor.valid = true
+			   sensor.value = Glass.gpsBearingFrom
 			else
 			   sensor.valid = false
 			end
-		     elseif v.sensorPa == 3 then
+		     elseif v.sensorPa == 4 or v.sensorPa == 6 then -- t1sec and t1pct
 			if Glass.timers.timer1.state == Glass.timers.stateSTOP then
 			   if ud1 == "up" then
 			      Glass.timers.timer1.start = now - Glass.timers.timer1.time
@@ -404,17 +479,21 @@ local function loop()
 			   Glass.timers.timer1.time = (now - Glass.timers.timer1.start)
 			   sensor.tpct = 100 * Glass.timers.timer1.time /
 			      (Glass.timers.timer1.target - Glass.timers.timer1.initial)
-			   sensor.tpct = math.floor(10 * math.min(math.max(sensor.t1pct, 0), 100)) / 10
+			   sensor.tpct = math.floor(10 * math.min(math.max(sensor.tpct, 0), 100)) / 10
 			else
 			   Glass.timers.timer1.time = (Glass.timers.timer1.start - now)
 			   sensor.tpct = 100 * Glass.timers.timer1.time /
 			      (Glass.timers.timer1.initial - Glass.timers.timer1.target)
 			   sensor.tpct = math.floor(10 * math.min(math.max(sensor.tpct, 0), 100)) / 10
 			end
-			sensor.value = math.floor(100 * Glass.timers.timer1.time / 1000) / 100
-			--print(sensor.value, sensor.t1pct)
+			if v.sensorPa == 4 then
+			   sensor.value = math.floor(100 * Glass.timers.timer1.time / 1000) / 100
+			else
+			   sensor.value = (sensor.tpct or 0)
+			end
+
 			sensor.valid = true
-		     elseif v.sensorPa == 4 then
+		     elseif v.sensorPa == 5 or v.sensorPa == 7 then --t2sec and t2pct
 			if Glass.timers.timer2.state == Glass.timers.stateSTOP then
 			   if ud2 == "up" then
 			      Glass.timers.timer2.start = now - Glass.timers.timer2.time
@@ -433,20 +512,23 @@ local function loop()
 			      (Glass.timers.timer2.initial - Glass.timers.timer2.target)
 			   sensor.tpct = math.floor(10 * math.min(math.max(sensor.tpct, 0), 100)) / 10
 			end
-			sensor.value = Glass.timers.timer2.time / 1000
+			if v.sensorPa == 5 then
+			   sensor.value = math.floor(100 * Glass.timers.timer2.time / 1000) / 100
+			else
+			   sensor.value = (sensor.tpct or 0)
+			end
 			sensor.valid = true
-
 		     end
 		  else
 		     sensor = system.getSensorByID(v.sensorId, v.sensorPa)
 		  end
 		  if sensor and sensor.valid then
 		     v.value = sensor.value
-		     if sensor.tpct then v.tpct = sensor.tpct else v.tpct= nil end
+		     if not v.value then print("v.value nil") end
 		  end
 	       end
 
-	       v.value2 = nil
+	       v.value2 = nil -- value2 can only be for compass now...
 	       sensor = {}
 	       if v.sensorId2 and v.sensorId2 ~= 0 and v.sensorPa2 and v.sensorPa2 ~= 0 then
 		  if v.sensorId2 == -1 then -- special sensors, derived values
@@ -457,10 +539,13 @@ local function loop()
 			else
 			   sensor.valid = false
 			end
-		     elseif v.sensorPa2 == 2 then
-			if Glass.gpsBearing then
+		     elseif v.sensorPa2 == 2 or v.sensorPa2 == 3 then
+			if Glass.gpsBearingTo and v.sensorPa2 == 2 then
 			   sensor.valid = true
-			   sensor.value = Glass.gpsBearing
+			   sensor.value = Glass.gpsBearingTo
+			elseif Glass.gpsBearingFrom and v.sensorPa2 == 3 then
+			   sensor.valid = true
+			   sensor.value = Glass.gpsBearingFrom
 			else
 			   sensor.valid = false
 			end
@@ -531,6 +616,7 @@ local function loop()
 	 end
 	 lastWrite = now
       end
+
    end
 
    if unow <= jsonHoldTime then return end
@@ -604,6 +690,7 @@ local function loop()
 	 else
 	    print("Glass: Sending config header")
 	    bw = serial.write(sidSerial, bufH)
+	    serialBytesSent = serialBytesSent + bw	    
 	    io.write(sendFPser, bufH)
 	 end
 	 
@@ -621,6 +708,7 @@ local function loop()
       elseif sendState == state.SENDFOOTER then
 	 --print("send footer ", bufF)
 	 bw = serial.write(sidSerial, bufF)
+	 serialBytesSent = serialBytesSent + bw
 	 io.write(sendFPser, bufF)
 	 if not bw then print("Glass: serial write error on footer") end
       end
@@ -629,17 +717,21 @@ local function loop()
 	 if sendFPser then io.close(sendFPser) end
 	 print("sending \\000 " .. (system.getTimeCounter() - startingTime) .. " ms")
 	 sendCtrl("\000", 1) -- back to normal mode
-	 print("Send config done. Time (ms): ", system.getTimeCounter() - startingTime)
+	 local dt = system.getTimeCounter() - startingTime
+	 print(string.format("Send config done. Time: %.2f s", dt / 1000))
+	 print(string.format("%d bytes sent. Aggregate data rate: %.1f kB/s",
+			     serialBytesSent, serialBytesSent / dt))
 	 if tempCall then io.close(sendFPtemp) end
+	 configString = currentConfigString	  -- remember that this config was sent last
 	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME
 	 sendState = state.IDLE
       end
    elseif (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) or
       (sendState == state.SENDACTIVE) or (sendState == state.SENDFMTS) then
       local buf, start, before, after
-      if system.getTimeCounter() - sendLast > 10 then -- 10ms is essentially no delay .. can throttle...
-	 for k=1,20,1 do
-	    buf = io.read(sendFP, 128)
+      if system.getTimeCounter() - sendLast > SEND_DELAY then -- throttle send rate here
+	 for k=1,SEND_LOOPS,1 do
+	    buf = io.read(sendFP, BUF_SIZE)
 	    start = string.find(buf, "\n")
 	    if not start then
 	       configLine = configLine .. buf
@@ -659,6 +751,7 @@ local function loop()
 	    if sidSerial and buf and buf ~= "" then
 	       sendLast = system.getTimeCounter()
 	       bw = serial.write(sidSerial, buf)
+	       serialBytesSent = serialBytesSent + bw
 	       if (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) then
 		  io.write(sendFPser, buf)
 		  if not bw then
@@ -718,7 +811,7 @@ local function loop()
 		     print("Glass: Sending image file " ..sendImgs[sendImgsIdx])
 		     sendFP = io.open(sendImgs[sendImgsIdx], "r")
 		     if not sendFP then
-			print("Glass cannot open image file "..sendImgsIdx)
+			print("Glass: cannot open image file "..sendImgsIdx, sendImgs[sendImgsIdx])
 			sendState = state.IDLE
 			break
 		     end
@@ -813,19 +906,19 @@ local function sendUSB()
 	    av = nil
 	 end
 	 if av then
-	    local fn = prefix() .. pathConfigs .. "config-imgs-" .. availImgs[av].BMPname .. ".txt"
+	    local fn = prefix() .. pathConfigs .. "config-imgs-" .. cfgimg.images[av].BMPname .. ".txt"
 	    local included = false
 	    for kk,vv in pairs(sendImgs) do
 	       if fn == vv then included = true end
 	    end
-	    if not included then table.insert(sendImgs, fn) end
+	    if not included and cfgimg.images[av].BMPname ~= "" then table.insert(sendImgs, fn) end
 	 end
       end
    end
    
    if #sendImgs < 1 then
-      print("Glass: no image files referenced - nothing sent")
-      return
+      print("Glass: no image files referenced")
+      --return -- ok if no images (e.g. only a timer widget sent)
    end
 
    -- transmission protocol:
@@ -847,7 +940,7 @@ local function sendUSB()
    jsonHoldTime = startingTime + WAIT_TIME
    sendState = state.WAITING
    sendCtrlCount = 0
-   
+   serialBytesSent = 0
 end
 
 local inpN
@@ -882,6 +975,12 @@ local function initForm(sf)
 
       if gaugeNumber == 0 then gaugeNumber = 1 end
       if pageNumber == 0 then pageNumber = 1 end
+      if  #Glass.page < 1 then
+	 form.addRow(1)
+	 form.addLabel({label="No pages defined"})
+	 return
+      end
+      
       if not Glass.page[pageNumber][gaugeNumber].instName then
 	 Glass.page[pageNumber][gaugeNumber].instName = 'Gauge'..gaugeNumber
       end
@@ -897,15 +996,16 @@ local function initForm(sf)
       imageNum = nil
       local imageID = Glass.page[pageNumber][gaugeNumber].imageID
       local fn = Glass.page[pageNumber][1].fmtNumber
-      local wid = availFmt[fn][gaugeNumber].width
-      local hgt = availFmt[fn][gaugeNumber].height
+      local wid = cfgimg.config[fn][gaugeNumber].width
+      local hgt = cfgimg.config[fn][gaugeNumber].height
       local label
       
       editImgs = {}
-      for i, img in ipairs(availImgs) do
+      for i, img in ipairs(cfgimg.images) do
 	 if (wid == img.origWidth) and (hgt == img.origHeight) then
 	    table.insert(editImgs,
 			 {widgetID=img.widgetID, loadImage=img.loadImage,
+			  loadImageSmaller = img.loadImageSmaller,
 			  imageWidth=img.imageWidth, imageHeight = img.imageHeight,
 			  wtype=img.wtype, inputs=img.inputs})
 	    if img.widgetID == imageID then
@@ -949,8 +1049,7 @@ local function initForm(sf)
       form.setFocusedRow(1)
    elseif sf == 11 then
 
-      local function pageSwChanged(val)
-	 pageSw = val
+      local function pageSwChanged(val, name)
 	 local swInfo =system.getSwitchInfo(val)
 	 if not swInfo.proportional then
 	    system.messageBox("Please select as Proportional")
@@ -958,11 +1057,12 @@ local function initForm(sf)
 	 end
 	 if not swInfo.assigned then
 	    print("Sw unassigned")
-	    pageSw = nil
+	    --pageSw = nil
 	    pageNumberTele = nil
 	 end
-	 system.pSave("pageSw", pageSw)
+	 changedSwitch(val, name)
       end
+      
 
       local function cvchanged(val)
 	 Glass.settings.configVersion = val
@@ -983,7 +1083,10 @@ local function initForm(sf)
 
       form.addRow(2)
       form.addLabel({label="Page change switch"})
-      form.addInputbox(pageSw, true, pageSwChanged)
+      swtCI.pageChange = form.addInputbox(switchItems.pageChange, true,
+					  (function(x) return  pageSwChanged(x, "pageChange") end)
+      )
+      
       
       form.addRow(2)
       form.addLabel({label="Set config version"})
@@ -1015,9 +1118,6 @@ local function initForm(sf)
 
       form.addRow(1)
       form.addLink(clearJSON, {label="Reset app settings>>"})
-
-
-
       
    elseif sf == 12 then
 
@@ -1063,21 +1163,21 @@ local function initForm(sf)
 
       av = id2avail[id]
 
-      local scale = availImgs[av].scale
+      local scale = cfgimg.images[av].scale
       
       if scale == "fixed" or not Glass.page[pageNumber][gaugeNumber].minV then
-	 minV = availImgs[av].minV
+	 minV = cfgimg.images[av].minV
       else
 	 minV = Glass.page[pageNumber][gaugeNumber].minV
       end
 
       if scale == "fixed" or not Glass.page[pageNumber][gaugeNumber].maxV then
-	 maxV = availImgs[av].maxV
+	 maxV = cfgimg.images[av].maxV
       else
 	 maxV = Glass.page[pageNumber][gaugeNumber].maxV
       end      
       
-      if availImgs[av].scale == "variable" then
+      if cfgimg.images[av].scale == "variable" then
 	 local function minChanged(value)
 	    Glass.page[pageNumber][gaugeNumber].minV = value / 10.0
 	 end
@@ -1107,27 +1207,17 @@ local function initForm(sf)
 	 end
       end
    elseif sf == 14 then
-      local hrs, mins, secs, sign      
+      local mins, secs, sign      
             
-      local function timerSwChanged(v, s)
-	 Glass.switches[s] = v
-	 print("psave", s, v)
-	 system.pSave(s, v)
-      end
-
       local function changedMS(val, tn, u, tm, tmud)
-	 print("ms", mins, secs)
 	 local tt = {hrs=hrs, mins=mins, secs=secs}
 	 local tmsg = {timer1="Timer 1 ", timer2="Timer 2 "}
 	 local umsg = {initial = "Initial Value ", target = "Target Value "} 
-	 print("val, tn, u", val, tn, u)
 	 tt[u] = val
 	 mins, secs, sign = ms(Glass.timers[tn][tm])
-	 print("mins, secs, sign", mins, secs, sign)
 	 local ss = 1
 	 if Glass.timers[tn][tmud] == "-" then ss = -1 end
 	 Glass.timers[tn][tm] = ss * (tt.secs + 60 * tt.mins) * 1000
-	 print(tm .." ", Glass.timers[tn][tm])
 	 mins, secs, sign = ms(Glass.timers[tn][tm])
 	 form.setTitle(string.format(tmsg[tn]..umsg[tm]..sign.."%02d:%02d", mins, secs))
       end
@@ -1194,16 +1284,16 @@ local function initForm(sf)
       )
 
       form.addRow(4)
-      form.addLabel({label="Run Sw", width=60})
+      form.addLabel({label="Run Sw", width=65})
       local swe = "t1enable"
-      form.addInputbox(Glass.switches[swe], true,
-		       (function(x) return timerSwChanged(x, swe) end),
+      swtCI.t1enable = form.addInputbox(switchItems.t1enable, true,
+		       (function(x) return changedSwitch(x, "t1enable") end),
 		       {width=100}
       )
-      form.addLabel({label="Rst Sw", width=60})
+      form.addLabel({label="Rst Sw", width=65})
       local swr = "t1reset"
-      form.addInputbox(Glass.switches[swr], true,
-		       (function(x) return timerSwChanged(x, swr) end),
+      swtCI.t1reset = form.addInputbox(switchItems.t1reset, true,
+		       (function(x) return changedSwitch(x, "t1reset") end),
 		       {width=100}
       )
 
@@ -1259,20 +1349,19 @@ local function initForm(sf)
       )
 
       form.addRow(4)
-      form.addLabel({label="Run Sw", width=60})
+      form.addLabel({label="Run Sw", width=65})
       local swe = "t2enable"
-      form.addInputbox(Glass.switches[swe], true,
-		       (function(x) return timerSwChanged(x, swe) end),
+      swtCI.t2enable = form.addInputbox(switchItems.t2enable, true,
+		       (function(x) return changedSwitch(x, "t2enable") end),
 		       {width=100}
       )
-      form.addLabel({label="Rst Sw", width=60})
+      form.addLabel({label="Rst Sw", width=65})
       local swr = "t2reset"
-      form.addInputbox(Glass.switches[swr], true,
-		       (function(x) return timerSwChanged(x, swr) end),
+      swtCI.t2reset = form.addInputbox(switchItems.t2reset, true,
+		       (function(x) return changedSwitch(x, "t2reset") end),
 		       {width=100}
       )
-
-
+      
       form.setFocusedRow(1)
       form.setTitle("Timer Setup")
    end
@@ -1284,7 +1373,6 @@ local function keyExit(k)
 end
 
 local function clearPage(pn, gm)
-   --print("clearPage", pn, gm)
    Glass.page[pn] = {}
    for k=1,gm do
       Glass.page[pn][k] = {}
@@ -1307,7 +1395,7 @@ local function keyPressed(key)
 
    local fmtNumber
    
-   if pageNumber < 1 then
+   if pageNumber < 1 or #Glass.page < 1 then
       fmtNumber = 1
    else
       fmtNumber = Glass.page[pageNumber][1].fmtNumber
@@ -1320,6 +1408,13 @@ local function keyPressed(key)
 	    form.preventDefault()
 	    savedRow = form.getFocusedRow()
 	    form.reinit(1)
+	 else
+	    if configString ~= currentConfigString then
+	       system.messageBox("Need to send config to Glasses")
+	       -- send goes here --
+	       -- then if successful:
+	       configString = currentConfigString
+	    end
 	 end
       end
    
@@ -1336,8 +1431,9 @@ local function keyPressed(key)
 	 end
 	 clearPage(pageNumber, gaugeMax)
 	 fmtNumber = fmtNumber + 1
-	 if fmtNumber > #availFmt then fmtNumber = 1 end
+	 if fmtNumber > #cfgimg.config then fmtNumber = 1 end
 	 Glass.page[pageNumber or 1][1].fmtNumber = fmtNumber
+	 savedRow = form.getFocusedRow()
 	 form.reinit(1)
 	 return
       elseif key == KEY_3 or key == KEY_ENTER then
@@ -1361,7 +1457,7 @@ local function keyPressed(key)
       end
       if key == KEY_1 then
 	 local fm = Glass.page[pageNumber][1].fmtNumber
-	 local mx = #availFmt[fm]
+	 local mx = #cfgimg.config[fm]
 	 if gaugeNumber + 1 > mx then	 
 	    gaugeNumber = 1
 	 else
@@ -1377,7 +1473,7 @@ local function keyPressed(key)
       if key == KEY_2 then
 	 local iid = 0
 	 local min, max, wtype, inp
-	 for i,img in ipairs(availImgs) do
+	 for i,img in ipairs(cfgimg.images) do
 	    if img.widgetID == editImgs[imageNum].widgetID then
 	       iid = img.widgetID
 	       min = img.minV
@@ -1386,7 +1482,6 @@ local function keyPressed(key)
 	       inp = img.inputs
 	    end
 	 end
-	 --print("key2, iid, id2avail(iid)", iid, id2avail[iid])
 	 Glass.page[pageNumber][gaugeNumber].imageID = iid
 	 Glass.page[pageNumber][gaugeNumber].minV = min -- may be nil
 	 Glass.page[pageNumber][gaugeNumber].maxV = max -- may be nil
@@ -1399,10 +1494,15 @@ local function keyPressed(key)
 	 form.preventDefault()
 	 form.reinit(1)
       end
-   elseif subForm == 12 or subForm == 13 then
+   elseif subForm == 12 then
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(10)
+      end
+   elseif subForm == 13 or subForm == 14 then
+      if keyExit(key) then
+	 form.preventDefault()
+	 form.reinit(1)
       end
    end
 end
@@ -1436,7 +1536,6 @@ local function printForm(w,h)
    if subForm == 10 then
       lcd.setColor(255,255,255)
       lcd.drawFilledRectangle(offset-5, 0, h+1+5, h+1)
-      --print("pF", imageNum)
       if imageNum and imageNum > 0 and editImgs[imageNum] then --and editImgs[imageNum].loadImage then
 	 local xi, yi
 	 if editImgs[imageNum].imageWidth > 144 then
@@ -1447,7 +1546,7 @@ local function printForm(w,h)
 	 --if editImgs[imageNum].loadImage then
 	 if editImgs[imageNum].wtype == "gauge" or editImgs[imageNum].wtype == "compass" or
 	    editImgs[imageNum].wtype == "hbar" then
-	    lcd.drawImage(xi,yi,editImgs[imageNum].loadImage)
+	    drawImage(xi,yi,editImgs[imageNum], "loadImage") -- XXXXXX
 	 elseif editImgs[imageNum].wtype == "htext" then
 	    lcd.setColor(0,0,0)
 	    lcd.drawRectangle(xi, yi, editImgs[imageNum].imageWidth, editImgs[imageNum].imageHeight)
@@ -1463,7 +1562,8 @@ local function printForm(w,h)
 	 end
       else
 	 lcd.setColor(0,0,0)
-	 lcd.drawText(200,80, "imageNum " .. (imageNum or "nil") .." " .. #editImgs)
+	 --lcd.drawText(200,80, "imageNum " .. (imageNum or "nil") .." " .. #editImgs)
+	 lcd.drawText(200,60, "No Image")
       end
    elseif subForm == 1 then
       local fr = form.getFocusedRow()
@@ -1484,8 +1584,7 @@ local function printForm(w,h)
       
       fmtNumber = Glass.page[pageNumber][1].fmtNumber
       if fmtNumber > 0 then
-	 --local gp = availFmt[fmtNumber]
-	 local gp = availFmts[fmtNumber]
+	 local gp = cfgimg.config[fmtNumber]
 	 for g,t in ipairs(gp) do
 	    drawRectangleGlass(t.xc, t.yc, t.width, t.height)
 	 end
@@ -1548,7 +1647,7 @@ local function printTele(w,h)
    -- Individual dynamic widget info stored in Glass.page[pageNumber][gaugeNumber].property
    -- The Glass.page values are the ones that form the 200msec json
    
-   if not pageSw then pageNumberTele = pageNumber end
+   if not switchItems.pageChange  then pageNumberTele = pageNumber end
 
    lcd.setColor(0,0,0)
    lcd.drawFilledRectangle(0,0,319,159) -- black background over entire window
@@ -1557,7 +1656,10 @@ local function printTele(w,h)
    if pageNumberTele and pageNumberTele > 0 then
       lcd.drawText(10, 10, string.format("Page %d", pageNumberTele))
    end
-   
+
+   lcd.drawImage(265, 15, glassesIcon)
+   lcd.drawImage(295, 15, redcrossIcon)   
+
    if not pageNumberTele or pageNumberTele < 1 then return end
 
    local xr, yr, xc, yc
@@ -1593,18 +1695,17 @@ local function printTele(w,h)
 	    end
 	    lbl = t.instName or "..." --.instName is named .label in the 200ms json 
 	    val = t.value
-	    --print(g, cid.wtype, cid.widgetID, cid.BMPname, val, lbl)
 	    if cid.wtype == "gauge" then
-	       lcd.drawImage(offset + xr * r, yr * r, cid.loadImageSmaller)
+	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
 	       drawNeedle(offset + r * xc, r * yc, cid.minA, cid.maxA, min, max, val, r * cid.nlen)
 	    elseif cid.wtype == "compass" then
-	       lcd.drawImage(offset + xr * r, yr * r, cid.loadImageSmaller)
+	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
 	       drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, val, r * cid.nlen1)
 	       if t.value2 then
 		  drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, t,value2, r * cid.nlen2)
 	       end
 	    elseif cid.wtype == "hbar" then
-	       lcd.drawImage(offset + xr * r, yr * r, cid.loadImageSmaller)
+	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
 	       drawHbar(offset + r * xc, r * yc, min, max, val, r * cid.barW, r * cid.barH)
 	    elseif cid.wtype == "htext" then
 	       drawText(offset + r * xc, r * yc, val, lbl, r * cid.txtW, r * cid.txtH)
@@ -1640,11 +1741,11 @@ local function printTeleOld(w,h)
    lcd.setColor(0,0,0)
    lcd.drawFilledRectangle(0,0,319,159) -- black background
 
-   if (not pageSw) then pageNumberTele = pageNumber end
+   if (not switchItems.pageChange) then pageNumberTele = pageNumber end
 
    fmtNumber = Glass.page[pageNumberTele][1].fmtNumber -- this is the chosen screen format
    if fmtNumber > 0 then
-      local gp = availFmts[fmtNumber]
+      local gp = cfgimg.config[fmtNumber]
       for g,t in ipairs(gp) do -- loop over gauge positions in this screen format
 	 xr = t.xc - t.width/2
 	 yr = t.yc - t.height/2
@@ -1660,7 +1761,7 @@ local function printTeleOld(w,h)
 	 lcd.drawRectangle(1+offset, 1, (304-2)*r, (256-4)*r) -- draw scaled glasses hw screen as box
 	 lcd.drawText(10, 10, "Page "..pageNumberTele)
 	 if av then
-	    local aI = availImgs[av]
+	    local aI = cfgimg.images[av]
 	    xc = xr + aI.x0
 	    yc = yr + aI.y0
 	    if gpp[g].value then
@@ -1668,10 +1769,10 @@ local function printTeleOld(w,h)
 	       if not gpp[g].maxV then max = aI.maxV else max = gpp[g].maxV end
 	       val = gpp[g].value
 	       if gpp[g].wtype == "gauge" then
-		  lcd.drawImage(offset+xr*r, yr*r, aI.loadImageSmaller)
+		  drawImage(offset+xr*r, yr*r, aI, "loadImageSmaller")
 		  drawNeedle(offset+r*xc, r*yc, aI.minA, aI.maxA, min, max, val, r*aI.nlen)
 	       elseif gpp[g].wtype == "hbar" then
-		  lcd.drawImage(offset+xr*r, yr*r, aI.loadImageSmaller)
+		  drawImage(offset+xr*r, yr*r, aI, "loadImageSmaller")
 		  drawHbar(offset + r * xc, r * yc, min, max, val, r * aI.barW, r * aI.barH)
 	       elseif gpp[g].wtype == "htext" then
 		  local ins = Glass.page[pageNumberTele][g].instName
@@ -1721,120 +1822,43 @@ local function destroy()
 	 Glass.settings[k] = string.format("0X%X", math.floor(v))
       end
    end
+
+   Glass.timers.timer1.start = 0 -- no need to save these
+   Glass.timers.timer1.time = 0 
+   
+   Glass.timers.timer2.start = 0
+   Glass.timers.timer2.time = 0
    
    local GGtbl = {}
    GGtbl.page = Glass.page
    GGtbl.settings = Glass.settings
    GGtbl.timers = Glass.timers
    GGtbl.settings.jsnVersion = JSNVERSION
+   GGtbl.switchInfo = Glass.switchInfo
    
    fp = io.open(fn, "w")
    if fp then
-      io.write(fp, json.encode(GGtbl), "\n")
-      io.close(fp)
+      local jt = json.encode(GGtbl)
+      if not jt then print("json encode error GGtbl") else
+	 io.write(fp, json.encode(GGtbl), "\n")
+	 io.close(fp)
+      end
       print("Glass - State saved " .. fn)
    else
       print("Glass - Could not save state")
    end
-   
 end
 
 local function onRead(data)
    if data == "W" then print("ENGO gesture") else print("serial input:", data) end
 end
 
-local function prepCI(availVals)
-   
-   -- prepare json to send to the ESP
-   -- top key "config" is the widget positions
-   -- top key "images" is the widget internal details
-
-   local gw = 304
-   local gh = 256
-   
-   local cfgimgESP = {}
-   cfgimgESP.config = {}
-   cfgimg.config = {}
-   for k,gp in ipairs(availFmt) do
-      cfgimgESP.config[k] = {}
-      cfgimg.config[k] = {}
-      availFmts[k] = {}
-      for g,t in ipairs(gp) do
-	 cfgimgESP.config[k][g] = {}
-	 cfgimgESP.config[k][g].xlr = math.floor(gw - (availVals[t.xc] + t.width/2))
-	 cfgimgESP.config[k][g].ylr = math.floor(gh - (availVals[t.yc] + t.height/2))
-	 --cfgimgESP.config["p"..k]["g"..g].wtype = t.wtype
-
-	 cfgimg.config[k][g] = {}
-	 cfgimg.config[k][g].xul = math.floor(availVals[t.xc] - t.width/2)
-	 cfgimg.config[k][g].yul = math.floor(availVals[t.yc] - t.height/2)
-	 --cfgimg.config["p"..k]["g"..g].wtype = t.wtype
-	 
-	 availFmts[k][g] =  {}
-	 availFmts[k][g].xc = availVals[t.xc]
-	 availFmts[k][g].yc = availVals[t.yc]
-	 availFmts[k][g].width = t.width -- availVals[t.width]
-	 availFmts[k][g].height = t.height --availVals[t.height]
-      end
-   end
-
-   cfgimgESP.images = {}
-   cfgimg.images = {}
-   local skip = {height=true, width=true, loadImage=true, loadImageSmaller = true,
-		 imageHeight=true, imageWidth=true, name=true, origHeight=true,
-		 origWidth=true, label=true, BMPname=true}
-   local transX = {x0=true, xlmin=true, xlmax=true, xlbl=true}
-   local transY = {y0=true, ylmin=true, ylmax=true, ylbl=true}   
-   local id = 0
-   for i,img in ipairs(availImgs) do
-      --local id = math.floor(img.id)
-      id = id + 1
-      cfgimgESP.images[id] = {}
-      cfgimg.images[id] = {}
-      for k,v in pairs(img) do
-	 --print("k,v,skip[k]", k, v, skip[k])
-	 if not skip[k] then
-	    if transX[k] then -- move from upper left origin to lower right origin
-	       cfgimgESP.images[id][k] = img.width - v
-	    elseif transY[k] then
-	       cfgimgESP.images[id][k] = img.height - v
-	    else
-	       cfgimgESP.images[id][k] = v
-	    end
-	 end
-      end
-      for k,v in pairs(img) do
-	 if true then --not skip[k] then
-	    cfgimg.images[id][k] = v
-	 end
-      end
-   end
-   
-   local encodedaF = json.encode(cfgimgESP)
-
-   local fp = io.open(prefix() .. pathJson .. "configimages.jsn", "w")
-   if not fp then
-      print("Glass: cannot open configimages.jsn for writing")
-      return
-   else
-      if not io.write(fp, encodedaF) then
-	 print("Glass: write error configimages.jsn")
-	 return
-      end
-      io.close(fp)
-      encodedaF = nil
-   end
-
-   --local encT = json.encode(cfgimg)
-   --fp = io.open(prefix() .. pathJson .. "cfgimgTest.jsn", "w")
-   --io.write(fp, encT)
-   --io.close(fp)
-end
-
 local function init()
 
    local fn
    local fmtNumber
+
+   --print("CPU Entry ", system.getCPU())
    
    modelName = string.gsub(system.getProperty("Model"), " ", "_")
 
@@ -1842,23 +1866,24 @@ local function init()
    
    system.registerForm(1, MENU_APPS, "Glass", initForm, keyPressed, printForm)
 
-   fn = prefix() .. pathJson .. "availImgs.jsn"
+   fn = prefix() .. pathJson .. "cfgimg.jsn"
       
    local file = io.readall(fn)
-   availImgs = {}
+   cfgimg = {}
    if file then
-      availImgs = json.decode(file)
+      cfgimg = json.decode(file)
       print("Glass - Reading avail images from ", fn)
    else
       system.messageBox("Glass: Cannot read " .. fn)
       return
    end
 
+   --print("CPU 0: ", system.getCPU())
+
    local ratio = 144 / 160 -- ratio of "small" images to jeti screen height
    id2avail = {}
    local im, ims
-   for i,img in ipairs(availImgs) do
-      --print("BMPname: $$"..img.BMPname.."$$")
+   for i,img in ipairs(cfgimg.images) do   
       if img.BMPname ~= "" then
 	 im = prefix() .. pathImages .. img.BMPname .. "-small.png"
 	 ims = prefix() .. pathImages .. img.BMPname .. "-smaller.png"      
@@ -1876,6 +1901,13 @@ local function init()
       end
       id2avail[img.widgetID] = i
    end
+
+   fn = prefix() .. pathImages .. "glasses.png"
+   glassesIcon = lcd.loadImage(fn)
+   fn = prefix() .. pathImages .. "redcross.png"
+   redcrossIcon = lcd.loadImage(fn)
+   
+   --print("CPU 1: ", system.getCPU())
 
    local device
    device, emflag = system.getDeviceType() 
@@ -1898,19 +1930,12 @@ local function init()
    if sidSerial then   
       print("Glass - Serial port init succeeded: ", sidSerial)
       serial.setBaudrate(sidSerial, baud)
-      -- SPECIAL
-      -- SPECIAL .. for Dave's BLE device turn on gpio 8
-      -- gpio.mode(8, "out-pp")
-      -- gpio.write(8,1)
-      -- SPECIAL
-      -- SPECIAL
       success, descr = serial.onRead(sidSerial,onRead)   
       if success then
 	 --print("Glass: Callback registered")
       else
 	 print("Glass: Error setting callback", descr)
       end
-            
    else
       print("Glass - Serial port init failed", sidSerial, descr)
    end 
@@ -1935,11 +1960,13 @@ local function init()
       Glass.timers.stateSTOP = 0
       Glass.timers.stateRUN = 1
       Glass.timers.timer1 = {state = Glass.timers.stateSTOP, time=0, start=0,
-			     target=0, initial = 0}
+			     target=0, initial = 300 * 1000}
       Glass.timers.timer2 = {state = Glass.timers.stateSTOP, time=0, start=0,
-			     target=0, initial = 0}
+			     target=0, initial = 300 * 1000}
    end
-   
+
+   --print("CPU 2", system.getCPU())   
+
    local GGtbl = {}
    fn = prefix()..pathJson.."GG_" .. modelName.. ".jsn"
    file = io.readall(fn)
@@ -1948,6 +1975,7 @@ local function init()
       Glass.page = GGtbl.page
       Glass.settings = GGtbl.settings
       Glass.timers  = GGtbl.timers
+      Glass.switchInfo = GGtbl.switchInfo
       if #Glass.page > 0 then
 	 pageNumber = 1
 	 pageMax = #Glass.page
@@ -1962,6 +1990,8 @@ local function init()
       initG()
    end
 
+   if not Glass.switchInfo then Glass.switchInfo = {} end
+      
    if not Glass.settings then Glass.settings = {} end
    if not Glass.settings.jsnVersion or Glass.settings.jsnVersion ~= JSNVERSION then
       print("old JSON in "..fn.. " - starting with no saved state")
@@ -1988,52 +2018,7 @@ local function init()
       end
    end
 
-   fn = prefix()..pathJson.."availFmt.jsn"
-   file = io.readall(fn)
-   if file then
-      availFmt = json.decode(file)
-   else
-      print("Glass - Could not read availFmt.jsn")
-      availFmt =  {}
-   end
-
-   local gw = 304
-   local gh = 256
-   local large = 160
-   local ofs=5
-   
-   local availVals = {L1 = gw/2,
-		 L2 = gw/2 - large/2 - ofs, R2 = gw/2 + ofs + -large/4 + large/2,
-		 L3 = gw/2 - ofs - large/4, R3 = gw/2 + ofs + large/2,
-		 L4 = gw/2 - ofs - large/2, C4 = gw/2, R4 = gw/2 + ofs + large/2,
-		 H1 = gh/2, H2 = gh/2 - ofs * 6, H3 = gh/2 + large/2 + ofs * 2,
-		 GWID = gw, GHGT = gh
-		 
-   }
-
-   -- fill in availFmts table with actual pixel value
-   
-   availFmts = {}
-   for k,gp in ipairs(availFmt) do
-      availFmts[k] = {}
-      for g,t in ipairs(gp) do
-	 availFmts[k][g] =  {}
-	 availFmts[k][g].xc = availVals[t.xc]
-	 availFmts[k][g].yc = availVals[t.yc]
-	 availFmts[k][g].width = t.width -- availVals[t.width]
-	 availFmts[k][g].height = t.height -- availVals[t.height]
-      end
-   end
-
-   prepCI(availVals)
-   
-   pageSw = system.pLoad("pageSw")
-
-   Glass.switches.t1enable = system.pLoad("t1enable")
-   Glass.switches.t1reset = system.pLoad("t1reset")
-
-   Glass.switches.t2enable = system.pLoad("t2enable")
-   Glass.switches.t2reset = system.pLoad("t2reset")   
+   --print("CPU 3: ", system.getCPU())
       
    Glass.gpsReads = 0
 
@@ -2063,8 +2048,17 @@ local function init()
    if not Glass.timers.timer2.target then
       Glass.timers.timer2.target = 0 -- 0:00
    end
+
+   for k, swi in pairs(Glass.switchInfo) do
+      local t = string.sub(swi.name,1,1)
+      --print("k, swi", k, swi.name, swi.mode, swi.activeOn)
+      switchItems[k] = system.createSwitch(swi.name, swi.mode, swi.activeOn)
+   end
+
+   -- configString is the current config sent to the glasses .. 
+   configString = ""
    
-   print("CPU: ", system.getCPU())
+   print("CPU end init(): ", system.getCPU())
 end
 
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.6", name=appName}
