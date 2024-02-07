@@ -38,6 +38,7 @@ Glass.gpsPalist = {0}
 Glass.settings = {}
 Glass.timers = {}
 Glass.switchInfo = {}
+Glass.var = {}
 
 --Glass.switches = {}
 
@@ -83,8 +84,10 @@ local sendFPtemp
 local cfgimg = {}
 local glassesIcon
 local redcrossIcon
-local configString
-local currentConfigString
+local greencheckIcon
+local batteryIcon
+local configIDs
+local currentConfigIDs
 local serialBytesSent = 0
 
 --[[
@@ -98,6 +101,74 @@ local txSensorDP    = { 1,   0,    0,     0,   0,   1,   0,   1,   1,   0,   0}
 local txRSSINames = {"rx1Ant1", "rx1Ant2", "rx2Ant1", "rx2Ant2",
 		     "rxBAnt1", "rxBAnt2"}
 --]]
+
+local function updateConfigIDs()
+   -- note the current configuration of which imageIDs are used.
+   -- redo whenver we hit a key so it's always current
+   local iid 
+   currentConfigIDs = {}
+   for p,v in ipairs(Glass.page) do
+      for g in ipairs(v) do
+	 iid = math.floor(Glass.page[p][g].imageID)
+	 if Glass.page[p][g].imageID >= 0 then
+	    table.insert(currentConfigIDs, iid)
+	 end
+      end
+   end
+end
+
+local function sortUniq(tt, ttc)
+   local inc
+   local outk = 1
+   ttc[outk] = tt[1]
+   for k in ipairs(tt) do
+      for j = 1, #ttc, 1 do
+	 inc = false
+	 if (tt[k] == ttc[j]) then
+	    inc = true
+	    break
+	 end
+      end
+      if not inc then
+	 outk = outk + 1
+	 ttc[outk] = tt[k]
+      end
+   end
+   table.sort(ttc)
+end
+
+   
+local function matchConfigID(t1, t2)
+
+   --if not t1 or not t2 or (#t1 ~= #t2) then return false end
+   local t1c, t2c = {}, {}
+
+   sortUniq(t1, t1c)
+   sortUniq(t2, t2c)
+
+   local s = ""
+   for k,v in ipairs(t1c) do
+      s = s..v.." "
+   end
+   print("t1c " .. s)
+
+   s = ""
+   for k,v in ipairs(t2c) do
+      s = s..v.." "
+   end
+   print("t2c " .. s)
+
+
+   local ret = true
+   for k in ipairs(t2) do
+      if t1c[k] ~= t2c[k] then
+	 ret = false
+	 break
+      end
+   end
+   print("matchConfigID ret",  ret)
+   return ret
+end
 
 local function drawImage(x,y,imgt, key)
 
@@ -299,20 +370,6 @@ local function loop()
    local SEND_DELAY = 10
    local BUF_SIZE = 128
    local SEND_LOOPS = 20
-   local iid
-
-   currentConfigString = ""
-   for p,v in ipairs(Glass.page) do
-      currentConfigString = currentConfigString .. "p" .. p
-      for g in ipairs(v) do
-	 iid = math.floor(Glass.page[p][g].imageID)
-	 if Glass.page[p][g].imageID >= 0 then
-	    currentConfigString = currentConfigString .. "g" .. iid
-	 end
-      end
-   end
-
-   --print(currentConfigString)
    
    if system.getTimeCounter() < 0 then
       print("system.getTimeCounter() wrapped. Restart emulator")
@@ -626,7 +683,8 @@ local function loop()
       if true then --system.getTimeCounter() > startingTime then
 	 sendFP = io.open(prefix() .. pathJson .. "configimages.jsn", "r")
 	 if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
-	 sendFPser = io.open(prefix() .. pathConfigs .. string.format("config%d.txt", Glass.settings.configVersion), "w")
+	 sendFPser = io.open(prefix() .. pathConfigs ..
+			     string.format("config%d.txt", Glass.settings.configVersion), "w")
 	 if sendFP and sidSerial then
 	    print("sending \\001 "..(system.getTimeCounter() - startingTime).." ms")
 	    if not sendCtrl("\001", 1) then
@@ -722,8 +780,10 @@ local function loop()
 	 print(string.format("%d bytes sent. Aggregate data rate: %.1f kB/s",
 			     serialBytesSent, serialBytesSent / dt))
 	 if tempCall then io.close(sendFPtemp) end
-	 configString = currentConfigString	  -- remember that this config was sent last
-	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME
+	 for k in ipairs(currentConfigIDs) do
+	    configIDs[k] = currentConfigIDs[k]	  -- remember that this config was sent last
+	 end
+	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME * 5 -- extra long wait before restarting 200ms json
 	 sendState = state.IDLE
       end
    elseif (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) or
@@ -898,21 +958,23 @@ local function sendUSB()
    
    sendImgs = {}
    local av
-   for k,p in ipairs(Glass.page) do
-      for j, g in ipairs(p) do
-	 if g.imageID >=0 then
-	    av = id2avail[g.imageID]
-	 else
-	    av = nil
-	 end
-	 if av then
+
+   -- loop over all imageIDs referenced in the current pages and formats
+   -- note the filenames for each image
+   
+   for k,v in ipairs(currentConfigIDs) do
+      if v >= 0 then
+	 av = id2avail[v]
+      else
+	 av = nil
+      end
+      if av then
 	    local fn = prefix() .. pathConfigs .. "config-imgs-" .. cfgimg.images[av].BMPname .. ".txt"
 	    local included = false
 	    for kk,vv in pairs(sendImgs) do
 	       if fn == vv then included = true end
 	    end
 	    if not included and cfgimg.images[av].BMPname ~= "" then table.insert(sendImgs, fn) end
-	 end
       end
    end
    
@@ -1394,13 +1456,17 @@ end
 local function keyPressed(key)
 
    local fmtNumber
-   
+   local iid
    if pageNumber < 1 or #Glass.page < 1 then
       fmtNumber = 1
    else
       fmtNumber = Glass.page[pageNumber][1].fmtNumber
    end
+
+
+   updateConfigIDs()
    
+
    if subForm == 1 then
 
       if keyExit(key) then
@@ -1409,11 +1475,9 @@ local function keyPressed(key)
 	    savedRow = form.getFocusedRow()
 	    form.reinit(1)
 	 else
-	    if configString ~= currentConfigString then
-	       system.messageBox("Need to send config to Glasses")
+	    if not matchConfigID(configIDs, currentConfigIDs) then
+	       system.messageBox("Need to send new config to Glasses")
 	       -- send goes here --
-	       -- then if successful:
-	       configString = currentConfigString
 	    end
 	 end
       end
@@ -1658,7 +1722,18 @@ local function printTele(w,h)
    end
 
    lcd.drawImage(265, 15, glassesIcon)
-   lcd.drawImage(295, 15, redcrossIcon)   
+   if not Glass.var.statusAL or Glass.var.statusAL.Conn == 0 then
+      lcd.drawImage(295, 15, redcrossIcon)
+   end
+
+   if Glass.var.statusAL and Glass.var.statusAL.Conn == 1 then
+      lcd.drawImage(295, 15, greencheckIcon)
+      lcd.drawImage(272, 40, batteryIcon)
+      drawTextCenter(287, 75, string.format("%d%%", Glass.var.statusAL.Batt), FONT_MINI)
+      drawTextCenter(287, 90, string.format("C:%d", Glass.var.statusAL.Conf), FONT_MINI)
+      drawTextCenter(287,105, string.format("CG:%d", Glass.var.statusAL.GlassConf), FONT_MINI)            
+      
+   end
 
    if not pageNumberTele or pageNumberTele < 1 then return end
 
@@ -1725,77 +1800,6 @@ local function printTele(w,h)
    end
 end
 
-			
-local function printTeleOld(w,h)
-
-   local id
-   local av
-   local xr, yr
-   local xc, yc
-   local gpp
-   local r = 160/256 -- show the glasses space (304x256) in Jeti screen (320x160) .. scale by 160/256
-   local offset = (319-r * 304) / 2 -- center the shrunk glasses space on the Jeti screen
-   local max, min, val
-   local fmtNumber
-   
-   lcd.setColor(0,0,0)
-   lcd.drawFilledRectangle(0,0,319,159) -- black background
-
-   if (not switchItems.pageChange) then pageNumberTele = pageNumber end
-
-   fmtNumber = Glass.page[pageNumberTele][1].fmtNumber -- this is the chosen screen format
-   if fmtNumber > 0 then
-      local gp = cfgimg.config[fmtNumber]
-      for g,t in ipairs(gp) do -- loop over gauge positions in this screen format
-	 xr = t.xc - t.width/2
-	 yr = t.yc - t.height/2
-	 print(g, xr, yr)
-	 gpp = Glass.page[pageNumberTele]
-	 id = gpp[g].imageID
-	 if id >0 then
-	    av = id2avail[id]
-	 else
-	    av = nil
-	 end
-	 lcd.setColor(255,255,255)
-	 lcd.drawRectangle(1+offset, 1, (304-2)*r, (256-4)*r) -- draw scaled glasses hw screen as box
-	 lcd.drawText(10, 10, "Page "..pageNumberTele)
-	 if av then
-	    local aI = cfgimg.images[av]
-	    xc = xr + aI.x0
-	    yc = yr + aI.y0
-	    if gpp[g].value then
-	       if not gpp[g].minV then min = aI.minV else min = gpp[g].minV end
-	       if not gpp[g].maxV then max = aI.maxV else max = gpp[g].maxV end
-	       val = gpp[g].value
-	       if gpp[g].wtype == "gauge" then
-		  drawImage(offset+xr*r, yr*r, aI, "loadImageSmaller")
-		  drawNeedle(offset+r*xc, r*yc, aI.minA, aI.maxA, min, max, val, r*aI.nlen)
-	       elseif gpp[g].wtype == "hbar" then
-		  drawImage(offset+xr*r, yr*r, aI, "loadImageSmaller")
-		  drawHbar(offset + r * xc, r * yc, min, max, val, r * aI.barW, r * aI.barH)
-	       elseif gpp[g].wtype == "htext" then
-		  local ins = Glass.page[pageNumberTele][g].instName
-		  drawText(offset + r * xc, r * yc, val, ins, r * aI.txtW, r * aI.txtH)
-	       end 
-	       if gpp[g].wtype == "gauge" and aI.scale == "variable" then
-		  drawTextCenter(offset + xr*r + r*aI.xlmin, yr * r + r*aI.ylmin,
-			       string.format(dpFmt(min), min), FONT_MINI)
-		  drawTextCenter(offset + xr*r + r*aI.xlmax, yr * r + r*aI.ylmax,
-				 string.format(dpFmt(max), max), FONT_MINI)
-		  drawTextCenter(offset + xr*r + r*aI.xlbl, yr * r + r*aI.ylbl,
-			       Glass.page[pageNumberTele][g].instName, FONT_MINI)
-	       end
-	       if gpp[g].wtype == "hbar" then -- this is cheating .. the ESP won't have this info!
-		  drawTextCenter(offset + xr*r + r*aI.xlbl, yr * r + r*aI.ylbl,
-				 Glass.page[pageNumberTele][g].instName, FONT_MINI)
-	       end
-	    end
-	 end
-      end
-   end
-end
-
 local function destroy()
 
    local fp
@@ -1850,7 +1854,20 @@ local function destroy()
 end
 
 local function onRead(data)
-   if data == "W" then print("ENGO gesture") else print("serial input:", data) end
+   if data == "W" then
+      print("ENGO gesture") 
+   elseif string.find(data, "{") == 1 and string.find(data, "}") then
+      local callOK
+      callOK, Glass.var.statusAL = pcall(json.decode,data)
+      if callOK then
+	 --print(Glass.var.statusAL.Conf,Glass.var.statusAL.GlassConf)
+      else
+	 Glass.var.statusAL = nil
+      end
+   else
+      --print("Unknown serial data: ", data)
+   end
+   
 end
 
 local function init()
@@ -1906,7 +1923,11 @@ local function init()
    glassesIcon = lcd.loadImage(fn)
    fn = prefix() .. pathImages .. "redcross.png"
    redcrossIcon = lcd.loadImage(fn)
-   
+   fn = prefix() .. pathImages .. "greencheck.png"
+   greencheckIcon = lcd.loadImage(fn)   
+   fn = prefix() .. pathImages .. "battery.png"   
+   batteryIcon = lcd.loadImage(fn)   
+
    --print("CPU 1: ", system.getCPU())
 
    local device
@@ -2055,10 +2076,10 @@ local function init()
       switchItems[k] = system.createSwitch(swi.name, swi.mode, swi.activeOn)
    end
 
-   -- configString is the current config sent to the glasses .. 
-   configString = ""
-   
+   updateConfigIDs()
+   configIDs = {} -- don't have info yet on what's on the glasses
+
    print("CPU end init(): ", system.getCPU())
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.6", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.7", name=appName}
