@@ -662,7 +662,7 @@ local function loop()
 	 --   local espjson = json.encode(stbl)
 	 local espjson = json.encode(gtbl)
 
-	    if emflag then
+	    if emflag ~= 0 then
 	       local swa = system.getInputs("SA")
 	       if swa and swa == 1 then
 		  print(espjson)
@@ -1682,6 +1682,23 @@ local function drawHbar(x0, y0, min, max, val, barW, barH)
    lcd.drawFilledRectangle(x0, y0, bw, barH)
 end
 
+local function printTeleSmall(w,h)
+   if pageNumberTele and pageNumberTele > 0 then
+      lcd.drawText(5, 3, string.format("Page %d", pageNumberTele), FONT_MINI)
+   end
+
+   lcd.drawImage(45, 3, glassesIcon)
+   if not Glass.var.statusAL or Glass.var.statusAL.Conn == 0 then
+      lcd.drawImage(75, 3, redcrossIcon)
+   end
+
+   if Glass.var.statusAL and Glass.var.statusAL.Conn == 1 then
+      lcd.drawImage(75, 3, greencheckIcon)
+      --lcd.drawImage(100,  0, batteryIcon)
+      lcd.drawText(100, 3, string.format("Batt %d%%", Glass.var.statusAL.Batt), FONT_MINI)
+   end
+end
+
 local function printTele(w,h)
 
 --[[
@@ -1728,11 +1745,10 @@ local function printTele(w,h)
 
    if Glass.var.statusAL and Glass.var.statusAL.Conn == 1 then
       lcd.drawImage(295, 15, greencheckIcon)
-      lcd.drawImage(272, 40, batteryIcon)
-      drawTextCenter(287, 75, string.format("%d%%", Glass.var.statusAL.Batt), FONT_MINI)
-      drawTextCenter(287, 90, string.format("C:%d", Glass.var.statusAL.Conf), FONT_MINI)
-      drawTextCenter(287,105, string.format("CG:%d", Glass.var.statusAL.GlassConf), FONT_MINI)            
-      
+      lcd.drawImage(272,  40, batteryIcon)
+      drawTextCenter(287, 70, string.format("%d%%", Glass.var.statusAL.Batt), FONT_MINI)
+      drawTextCenter(287,120, string.format("C:%d", Glass.var.statusAL.Conf), FONT_MINI)
+      drawTextCenter(287,135, string.format("CG:%d", Glass.var.statusAL.GlassConf), FONT_MINI)            
    end
 
    if not pageNumberTele or pageNumberTele < 1 then return end
@@ -1853,7 +1869,18 @@ local function destroy()
    end
 end
 
-local function onRead(data)
+local savedData
+
+local function onRead(indata)
+   --print("indata", indata)
+   local data
+   if savedData then
+      data = savedData ..indata
+      savedData = ""
+   else
+      data = indata
+      savedData = ""
+   end
    if data == "W" then
       print("ENGO gesture") 
    elseif string.find(data, "{") == 1 and string.find(data, "}") then
@@ -1865,9 +1892,13 @@ local function onRead(data)
 	 Glass.var.statusAL = nil
       end
    else
-      --print("Unknown serial data: ", data)
+      if string.find(data, "{") == 1 and not string.find(data, "}") then
+	 savedData = data
+      else
+	 print("Unknown serial data: ", data)
+	 savedData = ""
+      end
    end
-   
 end
 
 local function init()
@@ -1961,7 +1992,8 @@ local function init()
       print("Glass - Serial port init failed", sidSerial, descr)
    end 
 
-   system.registerTelemetry(1, "Glass Instruments", 4, printTele)
+   system.registerTelemetry(1, "Glasses Display", 4, printTele)
+   system.registerTelemetry(2, "Glasses Status", 1, printTeleSmall)   
 
    local function initG()
       print("Glass - No saved state")
