@@ -2114,4 +2114,4 @@ local function init()
    print("CPU end init(): ", system.getCPU())
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.7", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.8", name=appName}
