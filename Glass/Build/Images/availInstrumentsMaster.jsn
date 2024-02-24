@@ -1,0 +1,125 @@
+{
+    "forms":
+    [
+	{
+	    "nlen":    70,
+	    "x0":      80, "y0",     80,
+	    "minA":  -150, "maxA":  150,
+	    "height": 160, "width": 160,
+	    "xlmin":   20, "ylmin": 145,
+	    "xlmax":  140, "ylmax": 140,  
+	    "xlbl":    80, "ylbl":  135
+	},
+	{
+	    "nlen":   70,
+	    "x0":     80, "y0":     80,
+	    "minA": -240, "maxA":   60,
+	    "height":160, "width": 160,
+	    "xlmin":  20, "ylmin": 145,
+	    "xlmax": 140, "ylmax": 140,
+	    "xlbl":   80, "ylbl":  135
+	},
+	{
+	    "nlen":70,
+	    "x0":    80, "y0":    80,
+	    "minA":-180, "maxA": 120,
+	    "height":160, "width":160,
+	    "xlmin": 20, "ylmin":145,
+	    "xlmax":140, "ylmax":140,
+	    "xlbl":  80, "ylbl": 135
+	},
+	{
+	    "nlen":70,
+	    "x0":    80, "y0":    80,
+	    "minA":-165, "maxA": -15,
+	    "height":160, "width":83,
+	    "xlmin": 30, "ylmin":155,
+	    "xlmax": 30, "ylmax":  5,
+	    "xlbl":  50, "ylbl":  95
+	},
+	{
+	    "nlen":70,
+	    "x0":    3,  "y0":    80,
+	    "minA":165, "maxA":   15,
+	    "height":160, "width":83,
+	    "xlmin":50, "ylmin": 155,
+	    "xlmax":50, "ylmax":   5,
+	    "xlbl":  30, "ylbl":  95
+	},
+	{
+	    "nlen1":70,
+	    "nlen2":70,
+	    "x0":    80, "y0":    80,
+	    "height":160, "width":160
+	},
+	{
+	    "height":45, "width":240,
+	    "xlmin": 20, "xlmax": 200,
+	    "ylmin":30, "ylmax":30,"barH": 20, "barW": 220,
+	    "xlbl": 120, "ylbl": -8,
+	    "x0":    10, "y0":    5
+	},
+	{
+	    "height":45, "width":240,
+	    "txtW": 220, "txtH":20,
+	    "x0":10, "y0":5
+	},
+	{
+	    "height":45, "width":240,
+	    "txtW": 220, "txtH":20,
+	    "x0":10, "y0":5
+	}
+    ],
+    
+    "instruments":
+    [
+
+	{"formID": 1, "name":"volt_12_18", "type": "gauge",
+	 "scale":"fixed", "label":"V", "inputs":1,
+	 "minV":  12, "maxV":  18,
+	},
+
+	{"formID": 2, "name":"vario_0_3", "type": "gauge",
+	 "scale":"fixed", "label":"m/s", "inputs":1,
+	 "minV":  -3,  "maxV":  3,
+	},
+
+	{"formID": 3, "name":"alti_0_5", "type", "gauge",
+	 "scale":"fixed", "label":"x100 m", "inputs":1,
+	 "minV":  0,  "maxV": 500,
+	},
+
+	{"formID": 4, "name":"tl_0_2", "type": "gauge",
+	 "scale":"fixed", "label":"TL", "inputs":1,
+	 "minV":  0,  "maxV":   2,
+	},
+
+	{"formID": 5, "name":"tr_0_2", "type": "gauge",
+	 "scale":"fixed", "label":"TR", "inputs":1,
+	 "minV":  0,  "maxV":   2,
+	},
+
+	{"formID": 6, "name":"compass", "type": "compass",
+	 "label":"NESW", "inputs":2,
+	},
+	
+	{"formID": 7, "name":"hbar0100", "type", "hbar",
+	 "label":"Percent", "inputs":1,
+	 "scale":"fixed",
+	 "minV":0, "maxV":100,
+	},
+	
+	{"formID": 7, "name":"hbar", "type": "hbar",
+	 "inputs":1,
+	 "scale":"variable",
+	},
+
+	{"formID": 8, "name":"","type": "htext",
+	 "inputs":1,
+	},
+
+	{"formID": 9, "name":"", "type": "timer",
+	 "inputs":1,
+	}
+	
+    ]
