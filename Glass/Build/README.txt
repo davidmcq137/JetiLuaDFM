@@ -1,29 +1,30 @@
-How to add new widgets:
+How to add new instruments/widgets:
 
-If the new widget has an image that will be displayed on the glasses, create the
-image in a bmp file.
+Edit the file Glass/Build/Images/avialInstrumentsMaster.jsn.
 
-Edit the file Glass/Build/Images/avialImgsMaster.jsn.
+If a new gauge "form" (basic image property) is required, add that to the forms
+object. This is only necessary if a new gauge type is added.
 
-Add a new array element as required. The "ALid" field is the Activelook id
-number that will be used for the image if the entry has one. Set the "BMPfile"
-field to the filename of the bmp file. Enter all the relevant info for the
-image.
-
-If the ALid field is 0, then it is assumed that the ESP will draw the widget
-"manually" with no image (e.g. the text/data widget with widget type "wytpe" of
-"htext") and no config-imgs-xxx.txt file will be created.
+Then add a new array element to the instruments object referring to the proper
+formID in the form object. Many instruments can refer to the same formIDs.
 
 Then go to the Glass/Build directory and run availGen.py which will read
-configImgsMaster.jsn to create the individual json "snippets" to feed to the
-slightly modified version of the AL config generator (configG.py) and then
-create the config-imgs-xxx.txt file that corresponds to that snipped for the
-image .. the Activelook id will be ALid. The script will also generate the two
-derived png files needed by the app.
+configInstrumentsMaster.jsn ... first it will create all the required bmp file
+images using either gaugeGen.py or hbarGen.py.
+
+Then, once the bmp files exist, it will create the individual json "snippets" to
+feed to the slightly modified version of the AL config generator (configG.py)
+which will then create the config-imgs-xxx.txt file that corresponds to that
+snippets for the images.
+
+The Activelook id will be assigned automatically in the order of the array in
+the instruments object. IDs of 0 will be assigned to instruments that do not
+require an image. The script will also generate the two derived png files needed
+by the app.
 
 After creating all the .txt fragment files for the images, the script will copy
-a working version of the file availImagesMaster.jsn to the Glass/Json directory
-as availImgs.jsn. It will also copy the png files to Glass/Images/ and the AL
+a working version of the file availInstrumentsMaster.jsn to the Glass/Json directory
+as availInstruments.jsn. It will also copy the png files to Glass/Images/ and the AL
 image .txt fragment files to Glass/Configs.
 
 

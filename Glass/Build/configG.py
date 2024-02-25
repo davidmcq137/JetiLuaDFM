@@ -275,6 +275,7 @@ if __name__ == '__main__':
         comName = "./Configs/" + sys.argv[1] + ".txt"
     else:
         comName = "test.txt"
+    print("configG comName", comName)
     folder = 'cfgDescriptor'
     #sub_folders = [name for name in os.listdir(folder) if os.path.isdir(os.path.join(folder, name))]
     folderChoosen = ''

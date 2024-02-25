@@ -13,7 +13,7 @@ availVals = {L1 = gw/2,
 }
 
 availFmt = {}
-availImgs = {}
+availFormsInstr = {}
 cfgimg = {}
 cfgimgESP = {}
 
@@ -26,12 +26,12 @@ print("Read "..fn)
 fp:close()
 availFmt = json.decode(file)
 
-fn = "./Images/availImgsMaster.jsn"
+fn = "./Images/availInstrumentsMaster.jsn"
 fp = assert(io.open(fn, "r"))
 file = assert(fp:read("a"))
 print("Read "..fn)
 fp:close()
-availImgs = json.decode(file)
+availFormsInstr = json.decode(file)
 
 -- fill in availFmts table with actual pixel value
 
@@ -47,10 +47,11 @@ for k,gp in ipairs(availFmt) do
    end
 end
 
--- prepare cfgimg table for printTele(), save as cfgimg.jsn
--- prepare json file to send to the ESP, save as configimages.jsn
+-- prepare cfgimg table for printTele(), save as instr.jsn
+-- prepare json file to send to the ESP, save as instruments.jsn
 -- top key "config" is the widget positions
--- top key "images" is the widget internal details
+-- top key "forms" is the forms (basic instrument image) info
+-- top key "instrument" is the widget (instrument) internal details
 
 cfgimgESP = {}
 cfgimgESP.config = {}
@@ -63,12 +64,10 @@ for k,gp in ipairs(availFmt) do
       cfgimgESP.config[k][g] = {}
       cfgimgESP.config[k][g].xlr = math.floor(gw - (availVals[t.xc] + t.width/2))
       cfgimgESP.config[k][g].ylr = math.floor(gh - (availVals[t.yc] + t.height/2))
-      --cfgimgESP.config["p"..k]["g"..g].wtype = t.wtype
 
       cfgimg.config[k][g] = {}
       cfgimg.config[k][g].xul = math.floor(availVals[t.xc] - t.width/2)
       cfgimg.config[k][g].yul = math.floor(availVals[t.yc] - t.height/2)
-      --cfgimg.config["p"..k]["g"..g].wtype = t.wtype
       cfgimg.config[k][g].xc = availVals[t.xc]
       cfgimg.config[k][g].yc = availVals[t.yc]
       cfgimg.config[k][g].width = t.width
@@ -77,64 +76,121 @@ for k,gp in ipairs(availFmt) do
       availFmts[k][g] =  {}
       availFmts[k][g].xc = availVals[t.xc]
       availFmts[k][g].yc = availVals[t.yc]
-      availFmts[k][g].width = t.width -- availVals[t.width]
-      availFmts[k][g].height = t.height --availVals[t.height]
+      availFmts[k][g].width = t.width
+      availFmts[k][g].height = t.height
    end
 end
 
-cfgimgESP.images = {}
-cfgimg.images = {}
+cfgimgESP.forms = {}
+cfgimgESP.instruments = {}
 
-skip = {height=true, width=true, loadImage=true, loadImageSmaller = true,
-	imageHeight=true, imageWidth=true, name=true, origHeight=true,
-	origWidth=true, label=true, BMPname=true}
+cfgimg.forms = {}
+cfgimg.instruments = {}
+
+-- skip the keys that we don't need in the app or on the ESP, the ones that are only used
+-- during the build process
+--
+-- leave the xlmin, xlmax, ylmin, ylmax values in the json file for now in case we
+-- resurrect the idea of variable gauges .. but skip them so they are not copied to
+-- the operational json files
+
+skip = {height=true, width=true, name=true, label=true, descr=true, xlmin=true,
+	xlmax=true, ylmin=true, ylmax=true, major=true, minor=true, fine=true,
+	ticlabels=true}
+
+-- identify which values have to be translated from the conventional upper left origin
+-- to the lower right origin of the glasses
 
 transX = {x0=true, xlmin=true, xlmax=true, xlbl=true}
 transY = {y0=true, ylmin=true, ylmax=true, ylbl=true}   
-id = 0
-ii = 0
-jj = 0
-print("#availImgs", #availImgs)
 
-for i,img in ipairs(availImgs) do
+-- first prepare the forms table
+
+id = 0
+jj = 0
+ii = 0
+for i, img in ipairs(availFormsInstr.forms) do
    ii = ii + 1
    -- id = math.floor(img.id)
    id = id + 1
-   cfgimgESP.images[id] = {}
-   cfgimg.images[id] = {}
+   cfgimgESP.forms[id] = {}
+   cfgimg.forms[id] = {}
    for k,v in pairs(img) do
       jj = jj + 1
       --print("k,v,skip[k]", k, v, skip[k])
       if not skip[k] then
 	 if transX[k] then -- move from upper left origin to lower right origin
-	    cfgimgESP.images[id][k] = img.width - v
+	    cfgimgESP.forms[id][k] = img.width - v
 	 elseif transY[k] then
-	    cfgimgESP.images[id][k] = img.height - v
+	    cfgimgESP.forms[id][k] = img.height - v
 	 else
-	    cfgimgESP.images[id][k] = v
+	    cfgimgESP.forms[id][k] = v
 	 end
       end
    end
+   ---[[
    for k,v in pairs(img) do
-      if true then --not skip[k] then
-	 cfgimg.images[id][k] = v
+      if not skip[k] then
+	 cfgimg.forms[id][k] = v
+      end
+   end
+   --]]
+end
+
+-- then the instruments table
+
+id = 0
+jj = 0
+ii = 0
+for i,img in ipairs(availFormsInstr.instruments) do
+   ii = ii + 1
+   id = id + 1
+   cfgimgESP.instruments[id] = {}
+   cfgimg.instruments[id] = {}
+   jj = 0
+   for k,v in pairs(img) do
+      jj = jj + 1
+      --print("k,v,skip[k]", k, v, skip[k])
+      if not skip[k] then
+	 if transX[k] then -- move from upper left origin to lower right origin
+	    cfgimgESP.instruments[id][k] = img.width - v
+	 elseif transY[k] then
+	    cfgimgESP.instruments[id][k] = img.height - v
+	 else
+	    cfgimgESP.instruments[id][k] = v
+	 end
+      end
+      cft = cfgimgESP.instruments[id].type
+      if cft == "gauge" or cft == "compass" or cft == "hbar" then
+	 cfgimgESP.instruments[id].imageID = id
+      else
+	 cfgimgESP.instruments[id].imageID = 0
+      end
+	 
+   end
+   for k,v in pairs(img) do
+      if not skip[k] then
+	 cfgimg.instruments[id][k] = v
+      end
+      cft = cfgimgESP.instruments[id].type
+      if cft == "gauge" or cft == "compass" or cft == "hbar" then
+	 cfgimg.instruments[id].imageID = id
+      else
+	 cfgimg.instruments[id].imageID = 0	 
       end
    end
 end
 
-print("ii,jj", ii,jj)
---print("3", system.getCPU())
-
 encodedESP = json.encode(cfgimgESP)
 encoded = json.encode(cfgimg)
 
-fn = "./Images/configimages.jsn"
+fn = "./Images/instruments.jsn"
 fp = assert(io.open(fn, "w"))
 assert(fp:write(encodedESP))
 print("Wrote " .. fn)
 fp:close()
 
-fn = "./Images/cfgimg.jsn"
+fn = "./Images/instr.jsn"
 fp = assert(io.open(fn , "w"))
 assert(fp:write(encoded))
 print("Wrote " .. fn)

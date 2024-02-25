@@ -134,7 +134,7 @@ tx = int(sys.argv[13])
 ty = int(sys.argv[14])
 file = sys.argv[15]
 
-print("width", width, type(width))
+#print("width", width, type(width))
 
 mult = 1
 im = Image.new('RGB', (width * mult, height * mult))
