@@ -32,8 +32,8 @@ with open(availFile) as json_data:
 
 # delete any old images first
 
-os.system("rm -v Images/small/*; rm -v Images/smaller/*; rm -v Images/Image*")
-os.system("rm -v Configs/config-imgs-Image*")
+os.system("rm Images/small/*; rm Images/smaller/*; rm Images/Image*")
+os.system("rm Configs/config-imgs-Image*")
 
 # usage: python3 gaugeGen.py wid, hgt, x0, y0, rad, minA, maxA, maj, min, fine, labels, title, tx, ty, file
 # usage: python3 hbarGen.py wid, hgt, x0, y0, barw, barh, maj, labels, title, tx, ty, file
@@ -79,15 +79,14 @@ for ins in jd["instruments"]:
 
 imageID = 0
 for imgs in jd["instruments"]:
-	#name = ins["name"]
-	print("loop", imgs["type"])
+	#print("loop", imgs["type"])
 	if imgs["type"] == "gauge" or imgs["type"] == "hbar":
 		imageID += 1
 		name = "Image{:02d}.bmp".format(imageID)
 		sname = "Image{:02d}".format(imageID)
 		config = {"imgs": [{"id":imageID, "path":"./Images/" + name, "fmt":"mono_4bpp"}] }
 		str = json.dumps(config)
-		print("dumps: " + str)
+		#print("dumps: " + str)
 		with open("./Configs/config-imgs-" + sname + ".json", "w") as cf:
 			try:
 				json.dump(config, cf)
@@ -107,12 +106,14 @@ for imgs in jd["instruments"]:
 				  " ./Images/smaller/" + sname + "-smaller.png")
 
 			
-os.system('set -e;cp -v Configs/config-*.txt ../Configs')
-os.system('set -e;cp -v Images/small/*-small.png ../Images')
-os.system('set -e;cp -v Images/smaller/*-smaller.png ../Images')
-os.system('set -e;cp -v Images/availInstrumentsMaster.jsn ../Json/availInstruments.jsn')
-os.system('set -e;cp -v Images/availFmtMaster.jsn ../Json/availFmt.jsn')
+os.system('set -e;cp -v Configs/config-*.txt ../Glass/Configs')
+exit()
+
+os.system('set -e;cp -v Images/small/*-small.png ../Glass/Images')
+os.system('set -e;cp -v Images/smaller/*-smaller.png ../Glass/Images')
+os.system('set -e;cp -v Images/availInstrumentsMaster.jsn ../Glass/Json/availInstruments.jsn')
+os.system('set -e;cp -v Images/availFmtMaster.jsn ../Glass/Json/availFmt.jsn')
 
 os.system('set -e;lua prepCI.lua')
-os.system('set -e;cp -v Images/instruments.jsn ../Json')
-os.system('set -e;cp -v Images/instr.jsn ../Json')
+os.system('set -e;cp -v Images/instruments.jsn ../Glass/Json')
+os.system('set -e;cp -v Images/instr.jsn ../Glass/Json')
