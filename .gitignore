@@ -54,3 +54,10 @@ Glass/font
 Glass/sensorParam.py
 Glass/setTimer.py
 Glass/GG*.jsn
+Glass/Configs/*Image*.txt
+Glass/Images/*Image*.png
+GlassBuild/Configs/*Image*.txt
+GlassBuild/Configs/*Image*.json
+GlassBuild/Images/small/*Image*.png
+GlassBuild/Images/smaller/*Image*.png
+
