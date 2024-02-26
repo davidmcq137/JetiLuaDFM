@@ -109,8 +109,9 @@ local function updateConfigIDs()
    currentConfigIDs = {}
    for p,v in ipairs(Glass.page) do
       for g in ipairs(v) do
+	 print("updateConfigIDs", p,g,Glass.page[p][g].imageID)
 	 iid = math.floor(Glass.page[p][g].imageID)
-	 if Glass.page[p][g].imageID >= 0 then
+	 if Glass.page[p][g].imageID > 0 then
 	    table.insert(currentConfigIDs, iid)
 	 end
       end
@@ -363,7 +364,7 @@ local function loop()
    local stbl = {}
    local gtbl = {}
    local av
-   local scale, widgetID
+   local scale
    local minV, maxV, lbl
    local LOOPTIME = 250
    local CTRLREP = 4
@@ -485,23 +486,23 @@ local function loop()
 	 if not Glass.page[pageNumberTele] then return end
 	 stbl = {page=pageNumberTele}
 	 gtbl = {}
-	 gtbl["p"] = pageNumberTele 
-	 gtbl["f"] = Glass.page[pageNumberTele][1].fmtNumber - 1 --  convert lua convention to c++
+	 gtbl["pg"] = pageNumberTele 
+	 gtbl["cfg"] = Glass.page[pageNumberTele][1].fmtNumber - 1 --  convert lua convention to c++
 
 	 for k,v in ipairs(Glass.page[pageNumberTele]) do
 	    if v.imageID and v.imageID >= 0 then
-	       av = id2avail[v.imageID]
-	       if not av then print(k, v.imageID) end
-	       widgetID = cfgimg.images[av].widgetID
-	       scale = cfgimg.images[av].scale
-	       if scale == "variable" then
-		  minV = v.minV or cfgimg.images[av].minV -- if min/max not set pick up defaults
-		  maxV = v.maxV or cfgimg.images[av].maxV
-	       else
-		  minV = cfgimg.images[av].minV
-		  maxV = cfgimg.images[av].maxV
+	       av = v.imageID -- id2avail[v.imageID]
+	       if not av then print("av nil:", k, v.imageID) end
+	       if av > 0 then
+		  scale = cfgimg.instruments[av].scale
+		  if scale == "variable" then
+		     minV = v.minV or cfgimg.instruments[av].minV -- if min/max not set pick up defaults
+		     maxV = v.maxV or cfgimg.instruments[av].maxV
+		  else
+		     minV = cfgimg.instruments[av].minV
+		     maxV = cfgimg.instruments[av].maxV 
+		  end
 	       end
-
 	       local now = system.getTimeCounter()
 	       v.value = nil
 	       sensor = {}
@@ -638,7 +639,8 @@ local function loop()
 	       
 	       if v.imageID >= 0 then
 		  stbl[k] = {}
-		  stbl[k].id = av - 1 --convert this value for c++ with array starting at 0
+		  stbl[k].im = av - 1 --convert this value for c++ with array starting at 0
+		  stbl[k].fm = cfgimg.instruments[v.widgetID].formID
 		  if sval then
 		     stbl[k].v = tonumber(sval)
 		  end
@@ -652,9 +654,9 @@ local function loop()
 		  end
 	       end
 	    end
-	    gtbl["w"] = {}
+	    gtbl["inst"] = {}
 	    for kk,vv in ipairs(stbl) do
-	       gtbl["w"][kk] = vv
+	       gtbl["inst"][kk] = vv
 	    end
 	 end
 
@@ -783,7 +785,7 @@ local function loop()
 	 for k in ipairs(currentConfigIDs) do
 	    configIDs[k] = currentConfigIDs[k]	  -- remember that this config was sent last
 	 end
-	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME * 5 -- extra long wait before restarting 200ms json
+	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME * 80 -- extra long (!) wait before restarting 200ms json
 	 sendState = state.IDLE
       end
    elseif (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) or
@@ -896,7 +898,7 @@ local function changedSensor(value, inp)
       Glass.page[pageNumber][gaugeNumber].sensorLs = Glass.sensorLslist[value]
       Glass.page[pageNumber][gaugeNumber].units    = Glass.sensorUnlist[value]   
       Glass.page[pageNumber][gaugeNumber].decimals = Glass.sensorDplist[value]
-      Glass.page[pageNumber][gaugeNumber].type     = Glass.sensorTylist[value]
+      Glass.page[pageNumber][gaugeNumber].wtype     = Glass.sensorTylist[value]
    else
       Glass.page[pageNumber][gaugeNumber].sensorId2 = Glass.sensorIdlist[value]
       Glass.page[pageNumber][gaugeNumber].sensorPa2 = Glass.sensorPalist[value]
@@ -904,7 +906,7 @@ local function changedSensor(value, inp)
       Glass.page[pageNumber][gaugeNumber].sensorLs2 = Glass.sensorLslist[value]
       Glass.page[pageNumber][gaugeNumber].units2    = Glass.sensorUnlist[value]   
       Glass.page[pageNumber][gaugeNumber].decimals2 = Glass.sensorDplist[value]
-      Glass.page[pageNumber][gaugeNumber].type2     = Glass.sensorTylist[value]
+      Glass.page[pageNumber][gaugeNumber].wtype2     = Glass.sensorTylist[value]
    end
    if inp == 0 then
       Glass.page[pageNumber][gaugeNumber].sensorId2 = 0
@@ -969,12 +971,12 @@ local function sendUSB()
 	 av = nil
       end
       if av then
-	    local fn = prefix() .. pathConfigs .. "config-imgs-" .. cfgimg.images[av].BMPname .. ".txt"
+	    local fn = prefix() .. pathConfigs .. "config-imgs-" .. cfgimg.instruments[av].BMPname .. ".txt"
 	    local included = false
 	    for kk,vv in pairs(sendImgs) do
 	       if fn == vv then included = true end
 	    end
-	    if not included and cfgimg.images[av].BMPname ~= "" then table.insert(sendImgs, fn) end
+	    if not included and cfgimg.instruments[av].BMPname ~= "" then table.insert(sendImgs, fn) end
       end
    end
    
@@ -1055,39 +1057,42 @@ local function initForm(sf)
       --sift thru avail images and find the ones that are the correct size
       --for this gauge in the selected format
 
-      imageNum = nil
+      --imageNum = nil
+      local widgetID = Glass.page[pageNumber][gaugeNumber].widgetID
       local imageID = Glass.page[pageNumber][gaugeNumber].imageID
       local fn = Glass.page[pageNumber][1].fmtNumber
       local wid = cfgimg.config[fn][gaugeNumber].width
       local hgt = cfgimg.config[fn][gaugeNumber].height
       local label
+
+      --print("$ fn, gaugeNumber wid hgt", fn, gaugeNumber, wid, hgt)
       
       editImgs = {}
-      for i, img in ipairs(cfgimg.images) do
+      for i, img in ipairs(cfgimg.instruments) do
+	 --print("% i, img.origWidth, img.origHeight", i, img.origWidth, img.origHeight)
 	 if (wid == img.origWidth) and (hgt == img.origHeight) then
 	    table.insert(editImgs,
-			 {widgetID=img.widgetID, loadImage=img.loadImage,
+			 {widgetID = i, imageID=img.imageID, loadImage=img.loadImage,
 			  loadImageSmaller = img.loadImageSmaller,
 			  imageWidth=img.imageWidth, imageHeight = img.imageHeight,
 			  wtype=img.wtype, inputs=img.inputs})
-	    if img.widgetID == imageID then
-	       imageNum = #editImgs
-	    end
 	 end
       end
       imageMax = #editImgs
+      print("imageMax", imageMax)
       if not imageNum then imageNum = 1 end
 
-      --print("imageMax, imageNum", imageMax, imageNum)
-      
-      if imageID < 0 then
+      if widgetID <= 0 then
 	 if #editImgs < 1 then
 	    print("Glass: no images for", pageNumber, gaugeNumber)
 	 else -- default to first image
-	    Glass.page[pageNumber][gaugeNumber].imageID = editImgs[1].widgetID
+	    print("defaulting widgetID")
+	    Glass.page[pageNumber][gaugeNumber].widgetID = editImgs[1].widgetID	    
+	    Glass.page[pageNumber][gaugeNumber].imageID = editImgs[1].imageID
 	    Glass.page[pageNumber][gaugeNumber].wtype = editImgs[1].wtype
 	 end
       end
+
 
       local function setinp(inp, ii)
 	 if ii == 0 then inpN = 0 else inpN = inp end
@@ -1225,21 +1230,21 @@ local function initForm(sf)
 
       av = id2avail[id]
 
-      local scale = cfgimg.images[av].scale
+      local scale = cfgimg.instruments[av].scale
       
       if scale == "fixed" or not Glass.page[pageNumber][gaugeNumber].minV then
-	 minV = cfgimg.images[av].minV
+	 minV = cfgimg.instruments[av].minV
       else
 	 minV = Glass.page[pageNumber][gaugeNumber].minV
       end
 
       if scale == "fixed" or not Glass.page[pageNumber][gaugeNumber].maxV then
-	 maxV = cfgimg.images[av].maxV
+	 maxV = cfgimg.instruments[av].maxV
       else
 	 maxV = Glass.page[pageNumber][gaugeNumber].maxV
       end      
       
-      if cfgimg.images[av].scale == "variable" then
+      if cfgimg.instruments[av].scale == "variable" then
 	 local function minChanged(value)
 	    Glass.page[pageNumber][gaugeNumber].minV = value / 10.0
 	 end
@@ -1445,6 +1450,7 @@ local function clearPage(pn, gm)
       Glass.page[pn][k].units = "-"
       Glass.page[pn][k].decimals = 0
       Glass.page[pn][k].imageID = -1
+      Glass.page[pn][k].widgetID = -1
       Glass.page[pn][k].value = 0.0
       Glass.page[pn][k].instName = "Gauge"..k
       Glass.page[pn][k].sensorId2 = 0
@@ -1463,7 +1469,7 @@ local function keyPressed(key)
       fmtNumber = Glass.page[pageNumber][1].fmtNumber
    end
 
-
+   print("key pressed", key)
    updateConfigIDs()
    
 
@@ -1531,21 +1537,29 @@ local function keyPressed(key)
 	 form.reinit(10)
 	 return
       elseif key == KEY_2 then
+	 print("key2 in,  imageNum", imageNum)
 	 imageNum = imageNum + 1
 	 if imageNum > imageMax then imageNum = 1 end
+	 print("key2 out,  imageNum", imageNum)
       end
       if key == KEY_2 then
 	 local iid = 0
+	 local wid = 0
 	 local min, max, wtype, inp
-	 for i,img in ipairs(cfgimg.images) do
-	    if img.widgetID == editImgs[imageNum].widgetID then
-	       iid = img.widgetID
+	 print("key2: imageNum, editImgs[imageNum].widgetID", imageNum, editImgs[imageNum].widgetID)
+	 for i,img in ipairs(cfgimg.instruments) do
+	    if i == editImgs[imageNum].widgetID then
+	       print("key2 match")
+	    --if img.imageID == editImgs[imageNum].imageID then
+	       wid = i
+	       iid = img.imageID
 	       min = img.minV
 	       max = img.maxV
 	       wtype = img.wtype
 	       inp = img.inputs
 	    end
 	 end
+	 Glass.page[pageNumber][gaugeNumber].widgetID = wid	 
 	 Glass.page[pageNumber][gaugeNumber].imageID = iid
 	 Glass.page[pageNumber][gaugeNumber].minV = min -- may be nil
 	 Glass.page[pageNumber][gaugeNumber].maxV = max -- may be nil
@@ -1602,6 +1616,7 @@ local function printForm(w,h)
       lcd.drawFilledRectangle(offset-5, 0, h+1+5, h+1)
       if imageNum and imageNum > 0 and editImgs[imageNum] then --and editImgs[imageNum].loadImage then
 	 local xi, yi
+	 -- This works but is stupid ... rethink a better way to offset the long thin hbars and text boxes
 	 if editImgs[imageNum].imageWidth > 144 then
 	    xi, yi = w/2 - editImgs[imageNum].imageWidth/2, 80
 	 else
@@ -1702,11 +1717,12 @@ end
 local function printTele(w,h)
 
 --[[
+   UPDATE: THIS IS OLD
 
    Sample json file structure (snipped from configconfig.jsn) 
    It contains just one object each for "configs" and "images" as an example of the data shape
    All position coordinates are in the ActivImage space .. origin at lower right
-   The main table is cfgimg .. then cfgimg.config and cfgimg.images
+   The main table is cfgimg .. then cfgimg.config and cfgimg.instruments
 
 {
     { "config": [ [ {"xlr": 72,"ylr": 48} ], [] ...] },
@@ -1755,7 +1771,7 @@ local function printTele(w,h)
 
    local xr, yr, xc, yc
    local min, max, val, lbl
-   local ccfg, cid
+   local ccfg, cid, fid
 
    gpp = Glass.page[pageNumberTele]
    if not gpp[1].fmtNumber then gpp[1].fmtNumber = 1 end
@@ -1764,17 +1780,23 @@ local function printTele(w,h)
 
    -- From here, everything referenced with "t." would come from the 200msec json if we
    -- were in the ESP. Make sure we only reference things that are sent that way so we're not
-   -- cheating. Everything from "cid." is from the images section cfgimg.images
+   -- cheating. Everything from "cid." is from the instruments section cfgimg.instruments
    
    for g,t in ipairs(gpp) do        -- loop over all gauges on this page with a valid imageID
-      ccfg = ccf[g]                 -- this is the "config" key for this page and this widget
-      --id = g --t.imageID
-      cid = cfgimg.images[id2avail[t.imageID]]
-      if t.imageID >= 0 then        -- if there is a value to animate
+
+      if g <= 3  then
+	 --print("g, t.widgetID, t.imageID", g, t.widgetID, t.imageID)
+      end
+      
+      if t.widgetID > 0 and t.imageID >= 0 then        -- if there is a value to animate
+	 ccfg = ccf[g]                 -- this is the "config" key for this page and this widget
+	 cid = cfgimg.instruments[t.widgetID]
+	 fid = cid.formID + 1
+	 --print("fid", fid)
 	 xr = ccfg.xul
 	 yr = ccfg.yul
-	 xc = xr + cid.x0           -- for gauge, this is the pivot point of the needle
-	 yc = yr + cid.y0
+	 xc = xr + cfgimg.forms[fid].x0           -- for gauge, this is the pivot point of the needle
+	 yc = yr + cfgimg.forms[fid].y0
 	 if t.value then
 	    -- if scale "fixed" then scale comes from images, else from 200ms json
 	    if cid.scale and cid.scale == "fixed" then
@@ -1786,22 +1808,27 @@ local function printTele(w,h)
 	    end
 	    lbl = t.instName or "..." --.instName is named .label in the 200ms json 
 	    val = t.value
+	    --print(g, cid.wtype,t.widgetID)
 	    if cid.wtype == "gauge" then
 	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
-	       drawNeedle(offset + r * xc, r * yc, cid.minA, cid.maxA, min, max, val, r * cid.nlen)
+	       drawNeedle(offset + r * xc, r * yc, cfgimg.forms[fid].minA, cfgimg.forms[fid].maxA,
+			  min, max, val, r * cfgimg.forms[fid].nlen)
 	    elseif cid.wtype == "compass" then
 	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
-	       drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, val, r * cid.nlen1)
+	       drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, val, r * cfgimg.forms[fid].nlen1)
 	       if t.value2 then
-		  drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, t,value2, r * cid.nlen2)
+		  drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, t,value2, r * cfgimg.forms[fid].nlen2)
 	       end
 	    elseif cid.wtype == "hbar" then
 	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
-	       drawHbar(offset + r * xc, r * yc, min, max, val, r * cid.barW, r * cid.barH)
+	       drawHbar(offset + r * xc, r * yc, min, max, val, r * cfgimg.forms[fid].barW,
+			r * cfgimg.forms[fid].barH)
 	    elseif cid.wtype == "htext" then
-	       drawText(offset + r * xc, r * yc, val, lbl, r * cid.txtW, r * cid.txtH)
+	       drawText(offset + r * xc, r * yc, val, lbl, r * cfgimg.forms[fid].txtW,
+			r * cfgimg.forms[fid].txtH)
 	    elseif cid.wtype == "timer" then
-	       drawTimer(offset + r * xc, r * yc, val, lbl, r * cid.txtW, r * cid.txtH)
+	       drawTimer(offset + r * xc, r * yc, val, lbl, r * cfgimg.forms[fid].txtW,
+			 r * cfgimg.forms[fid].txtH)
 	    end 
 	    if (cid.wtype == "gauge" or cid.wtype == "hbar") and cid.scale == "variable" then
 	       drawTextCenter(offset + xr * r + r * cid.xlmin, yr * r + r * cid.ylmin,
@@ -1914,13 +1941,13 @@ local function init()
    
    system.registerForm(1, MENU_APPS, "Glass", initForm, keyPressed, printForm)
 
-   fn = prefix() .. pathJson .. "cfgimg.jsn"
+   fn = prefix() .. pathJson .. "instr.jsn"
       
    local file = io.readall(fn)
    cfgimg = {}
    if file then
       cfgimg = json.decode(file)
-      print("Glass - Reading avail images from ", fn)
+      print("Glass - Reading avail instruments from ", fn)
    else
       system.messageBox("Glass: Cannot read " .. fn)
       return
@@ -1931,25 +1958,38 @@ local function init()
    local ratio = 144 / 160 -- ratio of "small" images to jeti screen height
    id2avail = {}
    local im, ims
-   for i,img in ipairs(cfgimg.images) do   
-      if img.BMPname ~= "" then
-	 im = prefix() .. pathImages .. img.BMPname .. "-small.png"
-	 ims = prefix() .. pathImages .. img.BMPname .. "-smaller.png"      
+   for i,img in ipairs(cfgimg.instruments) do
+      if img.imageID > 0 then --img.BMPname ~= "" then
+	 local imn = string.format("Image%02d", img.imageID)
+	 --im = prefix() .. pathImages .. img.BMPname .. "-small.png"
+	 im = prefix() .. pathImages .. imn  .. "-small.png"	 
+	 ims = prefix() .. pathImages .. imn .. "-smaller.png"      
+	 --print("loading images im, ims:", im, ims)
 	 img.loadImage = lcd.loadImage(im)
 	 img.loadImageSmaller = lcd.loadImage(ims)
 	 img.imageWidth = img.loadImage.width
 	 img.imageHeight = img.loadImage.height
-	 img.origWidth = img.width
-	 img.origHeight = img.height
+	 print("* i, img.formID", i, img.formID)
+	 
+	 img.origWidth = cfgimg.forms[img.formID + 1].width --img.width
+	 img.origHeight = cfgimg.forms[img.formID + 1].height --img.height
       else
-	 img.origWidth = img.width
-	 img.origHeight = img.height
-	 img.imageWidth = img.width * ratio
-	 img.imageHeight = img.height * ratio
+	 local ww = cfgimg.forms[img.formID + 1].width
+	 local hh = cfgimg.forms[img.formID + 1].height
+	 img.origWidth = ww or 0
+	 img.origHeight = hh or 0
+	 img.imageWidth = (ww or 0) * ratio
+	 img.imageHeight = (hh or 0) * ratio
       end
-      id2avail[img.widgetID] = i
+      if img.imageID > 0 then -- prob can remove .. is is2avail identity matrix now?
+	 id2avail[img.imageID] = i
+      end
    end
 
+   for k,v in pairs(id2avail) do
+      print("id2avail k,v", k,v)
+   end
+   
    fn = prefix() .. pathImages .. "glasses.png"
    glassesIcon = lcd.loadImage(fn)
    fn = prefix() .. pathImages .. "redcross.png"

@@ -93,67 +93,67 @@
     "instruments":
     [
 
-	{"formID": 0, "type": "gauge",
+	{"formID": 0, "wtype": "gauge",
 	 "scale":"fixed", "label":"V", "inputs":1,
 	 "ticlabels":"12,13,14,15,16,17,18",
 	 "minV":  12, "maxV":  18
 	},
 
-	{"formID": 1, "type": "gauge",
+	{"formID": 1, "wtype": "gauge",
 	 "scale":"fixed", "label":"m/s", "inputs":1,
 	 "ticlabels": "3,2,1,0,1,2,3",
 	 "minV":  -3,  "maxV":  3
 	},
 
-	{"formID": 2, "type": "gauge",
+	{"formID": 2, "wtype": "gauge",
 	 "scale":"fixed", "label":"x100 m", "inputs":1,
 	 "ticlabels": "0,1,2,3,4,5",
 	 "minV":  0,  "maxV": 500
 	},
 
-	{"formID": 3, "type": "gauge",
+	{"formID": 3, "wtype": "gauge",
 	 "scale":"fixed", "label":"TL", "inputs":1,
 	 "ticlabels": "0,1,2",
 	 "minV":  0,  "maxV":   2
 	},
 
-	{"formID": 4, "type": "gauge",
+	{"formID": 4, "wtype": "gauge",
 	 "scale":"fixed", "label":"TR", "inputs":1,
 	 "ticlabels": "0,1,2",
 	 "minV":  0,  "maxV":   2
 	},
 
-	{"formID": 5, "type": "compass",
+	{"formID": 5, "wtype": "compass",
 	 "ticlabels": "N,O,S,W",
 	 "label": "", 
 	 "inputs":2
 	},
 
-	{"formID": 5, "type": "compass",
+	{"formID": 5, "wtype": "compass",
 	 "label": "",
 	 "ticlabels": "N,E,S,W",
 	 "inputs":2
 	},
 	
-	{"formID": 6, "type": "hbar",
+	{"formID": 6, "wtype": "hbar",
 	 "label":"Percent", "inputs":1,
 	 "ticlabels": "0,20,40,60,80,100",
 	 "scale":"fixed",
 	 "minV":0, "maxV":100
 	},
 	
-	{"formID": 6, "type": "hbar",
+	{"formID": 6, "wtype": "hbar",
 	 "inputs":1,
 	 "label": "",
 	 "ticlabels": "",
 	 "scale":"variable"
 	},
 
-	{"formID": 7, "type": "htext",
+	{"formID": 7, "wtype": "htext",
 	 "inputs":1
 	},
 
-	{"formID": 8, "type": "timer",
+	{"formID": 8, "wtype": "timer",
 	 "inputs":1
 	}
     ]

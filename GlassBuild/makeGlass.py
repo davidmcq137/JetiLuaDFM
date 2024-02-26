@@ -43,12 +43,12 @@ os.system("rm Configs/config-imgs-Image*")
 imageID = 0
 frm = jd["forms"]
 for ins in jd["instruments"]:
-	if ins["type"] == "gauge" or ins["type"] == "compass":
+	if ins["wtype"] == "gauge" or ins["wtype"] == "compass":
 		imageID += 1
 		formID = ins["formID"]
 		ff = frm[formID]
 		imgs = "./Images/Image{:02d}.bmp".format(imageID)
-		print("Creating Image:", imgs, ins["type"], ff["descr"])
+		print("Creating Image:", imgs, ins["wtype"], ff["descr"])
 		options = str(ff["width"]) + " " + str(ff["height"]) + " "
 		options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
 		options = options + str(ff["radius"]) + " " + str(ff["minA"]) + " "
@@ -60,12 +60,12 @@ for ins in jd["instruments"]:
 		options = options + imgs
 		#print("gaugeGen.py options: ", options)
 		os.system("set -e; python3 gaugeGen.py " + options)
-	elif ins["type"] == "hbar":
+	elif ins["wtype"] == "hbar":
 		imageID += 1
 		formID = ins["formID"]
 		ff = frm[formID]
 		imgs = "./Images/Image{:02d}.bmp".format(imageID)
-		print("Creating Image:", imgs, ins["type"], ff["descr"])
+		print("Creating Image:", imgs, ins["wtype"], ff["descr"])
 		options = str(ff["width"]) + " " + str(ff["height"]) + " "
 		options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
 		options = options + str(ff["barW"]) + " " + str(ff["barH"]) + " "
@@ -79,8 +79,8 @@ for ins in jd["instruments"]:
 
 imageID = 0
 for imgs in jd["instruments"]:
-	#print("loop", imgs["type"])
-	if imgs["type"] == "gauge" or imgs["type"] == "hbar":
+	#print("loop", imgs["wtype"])
+	if imgs["wtype"] == "gauge" or imgs["wtype"] == "compass" or imgs["wtype"] == "hbar":
 		imageID += 1
 		name = "Image{:02d}.bmp".format(imageID)
 		sname = "Image{:02d}".format(imageID)
@@ -100,15 +100,13 @@ for imgs in jd["instruments"]:
 		os.system(oscmd)
 		oscmd = "set -e;mogrify -resize 63% -format png -path Images/smaller " + "Images/" + name	
 		os.system(oscmd)
-		os.system("mv -v ./Images/small/" + sname + ".png " +
+		os.system("mv ./Images/small/" + sname + ".png " +
 				  " ./Images/small/" + sname + "-small.png")
-		os.system("mv -v ./Images/smaller/" + sname + ".png " +
+		os.system("mv ./Images/smaller/" + sname + ".png " +
 				  " ./Images/smaller/" + sname + "-smaller.png")
 
 			
 os.system('set -e;cp -v Configs/config-*.txt ../Glass/Configs')
-exit()
-
 os.system('set -e;cp -v Images/small/*-small.png ../Glass/Images')
 os.system('set -e;cp -v Images/smaller/*-smaller.png ../Glass/Images')
 os.system('set -e;cp -v Images/availInstrumentsMaster.jsn ../Glass/Json/availInstruments.jsn')

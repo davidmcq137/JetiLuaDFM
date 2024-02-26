@@ -130,7 +130,8 @@ for i, img in ipairs(availFormsInstr.forms) do
    end
    ---[[
    for k,v in pairs(img) do
-      if not skip[k] then
+      --need height and width in the app
+      if k == "height" or k == "width" or not skip[k] then
 	 cfgimg.forms[id][k] = v
       end
    end
@@ -160,7 +161,7 @@ for i,img in ipairs(availFormsInstr.instruments) do
 	    cfgimgESP.instruments[id][k] = v
 	 end
       end
-      cft = cfgimgESP.instruments[id].type
+      cft = cfgimgESP.instruments[id].wtype
       if cft == "gauge" or cft == "compass" or cft == "hbar" then
 	 cfgimgESP.instruments[id].imageID = id
       else
@@ -172,7 +173,7 @@ for i,img in ipairs(availFormsInstr.instruments) do
       if not skip[k] then
 	 cfgimg.instruments[id][k] = v
       end
-      cft = cfgimgESP.instruments[id].type
+      cft = cfgimgESP.instruments[id].wtype
       if cft == "gauge" or cft == "compass" or cft == "hbar" then
 	 cfgimg.instruments[id].imageID = id
       else
