@@ -2,11 +2,12 @@ gw = 304
 gh = 256
 large = 160
 ofs=5
+ofs2=-3
 
 availVals = {L1 = gw/2,
 	     L2 = gw/2 - large/2 - ofs, R2 = gw/2 + ofs + -large/4 + large/2,
 	     L3 = gw/2 - ofs - large/4, R3 = gw/2 + ofs + large/2,
-	     L4 = gw/2 - ofs - large/2, C4 = gw/2, R4 = gw/2 + ofs + large/2,
+	     L4 = gw/2 - ofs - large/2, C4 = gw/2, R4 = gw/2 + ofs2 + large/2,
 	     H1 = gh/2, H2 = gh/2 - ofs * 6, H3 = gh/2 + large/2 + ofs * 2,
 	     GWID = gw, GHGT = gh
 	     
@@ -90,13 +91,14 @@ cfgimg.instruments = {}
 -- skip the keys that we don't need in the app or on the ESP, the ones that are only used
 -- during the build process
 --
--- leave the xlmin, xlmax, ylmin, ylmax values in the json file for now in case we
--- resurrect the idea of variable gauges .. but skip them so they are not copied to
--- the operational json files
+-- leave the xlmin, xlmax, ylmin, ylmax values in the json file suffixed with an
+-- X for now in case we resurrect the idea of variable gauges .. but skip them
+-- so they are not copied to the operational json files. They remain included
+-- for the hbar type
 
-skip = {height=true, width=true, name=true, label=true, descr=true, xlmin=true,
-	xlmax=true, ylmin=true, ylmax=true, major=true, minor=true, fine=true,
-	ticlabels=true}
+skip = {height=true, width=true, name=true, label=true, descr=true,
+	xlminX=true, xlmaxX=true, ylminX=true, ylmaxX=true,
+	major=true, minor=true, fine=true, ticlabels=true, radius=true}
 
 -- identify which values have to be translated from the conventional upper left origin
 -- to the lower right origin of the glasses
@@ -131,7 +133,8 @@ for i, img in ipairs(availFormsInstr.forms) do
    ---[[
    for k,v in pairs(img) do
       --need height and width in the app
-      if k == "height" or k == "width" or not skip[k] then
+      if k == "height" or k == "width"
+	 or not skip[k] then
 	 cfgimg.forms[id][k] = v
       end
    end
@@ -143,9 +146,14 @@ end
 id = 0
 jj = 0
 ii = 0
+iid = 0
 for i,img in ipairs(availFormsInstr.instruments) do
+   if img.wtype == "gauge" or img.wtype == "compass" or img.wtype == "hbar" then
+      iid = iid + 1
+   end
    ii = ii + 1
    id = id + 1
+   --print("i, id, iid, img.wtype", i, id, iid, img.wtype)
    cfgimgESP.instruments[id] = {}
    cfgimg.instruments[id] = {}
    jj = 0
@@ -163,7 +171,7 @@ for i,img in ipairs(availFormsInstr.instruments) do
       end
       cft = cfgimgESP.instruments[id].wtype
       if cft == "gauge" or cft == "compass" or cft == "hbar" then
-	 cfgimgESP.instruments[id].imageID = id
+	 cfgimgESP.instruments[id].imageID = iid
       else
 	 cfgimgESP.instruments[id].imageID = 0
       end
@@ -175,7 +183,7 @@ for i,img in ipairs(availFormsInstr.instruments) do
       end
       cft = cfgimgESP.instruments[id].wtype
       if cft == "gauge" or cft == "compass" or cft == "hbar" then
-	 cfgimg.instruments[id].imageID = id
+	 cfgimg.instruments[id].imageID = iid
       else
 	 cfgimg.instruments[id].imageID = 0	 
       end
@@ -185,7 +193,7 @@ end
 encodedESP = json.encode(cfgimgESP)
 encoded = json.encode(cfgimg)
 
-fn = "./Images/instruments.jsn"
+fn = "./Images/instrESP.jsn"
 fp = assert(io.open(fn, "w"))
 assert(fp:write(encodedESP))
 print("Wrote " .. fn)

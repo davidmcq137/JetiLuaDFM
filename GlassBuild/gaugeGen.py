@@ -145,7 +145,8 @@ linewidth = 2
 
 draw = ImageDraw.Draw(im)
 
-font = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSansMono-ExtraCondensedLight.ttf", mult*17)
+font = ImageFont.truetype("/usr/share/fonts/truetype/Roboto/Roboto-Light.ttf", mult*16)
+#font = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSansMono-ExtraCondensedLight.ttf", mult*17)
 #font = ImageFont.truetype("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 70)
 #font = ImageFont.truetype("/usr/share/fonts/opentype/cantarell/Cantarell-Regular.otf", 60)
 

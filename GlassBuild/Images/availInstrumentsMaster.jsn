@@ -7,9 +7,9 @@
 	    "x0":      80, "y0":     80,
 	    "minA":  -150, "maxA":  150,
 	    "height": 160, "width": 160,
-	    "xlmin":   20, "ylmin": 145,
-	    "xlmax":  140, "ylmax": 140,  
-	    "xlbl":    80, "ylbl":  135,
+	    "xlminX":   20, "ylminX": 145,
+	    "xlmaxX":  140, "ylmaxX": 140,  
+	    "xlbl":    80, "ylbl":  145,
 	    "major": 6, "minor":12, "fine": 60
 	},
 	{
@@ -18,8 +18,8 @@
 	    "x0":     80, "y0":     80,
 	    "minA": -240, "maxA":   60,
 	    "height":160, "width": 160,
-	    "xlmin":  20, "ylmin": 145,
-	    "xlmax": 140, "ylmax": 140,
+	    "xlminX":  20, "ylminX": 145,
+	    "xlmaxX": 140, "ylmaxX": 140,
 	    "xlbl":  135, "ylbl":   80,
 	    "major": 6, "minor":12, "fine": 60	    
 	},
@@ -29,8 +29,8 @@
 	    "x0":    80, "y0":    80,
 	    "minA":-180, "maxA": 120,
 	    "height":160, "width":160,
-	    "xlmin": 20, "ylmin":145,
-	    "xlmax":140, "ylmax":140,
+	    "xlminX": 20, "ylminX":145,
+	    "xlmaxX":140, "ylmaxX":140,
 	    "xlbl": 120, "ylbl": 135,
 	    "major": 5, "minor":10, "fine": 50	    
 	},
@@ -40,8 +40,8 @@
 	    "x0":    80, "y0":    80,
 	    "minA":-165, "maxA": -15,
 	    "height":160, "width":83,
-	    "xlmin": 30, "ylmin":155,
-	    "xlmax": 30, "ylmax":  5,
+	    "xlminX": 30, "ylminX":155,
+	    "xlmaxX": 30, "ylmaxX":  5,
 	    "xlbl":  60, "ylbl":  95,
 	    "major": 2, "minor":4, "fine": 20	    
 	},
@@ -51,8 +51,8 @@
 	    "x0":    3,  "y0":    80,
 	    "minA":165, "maxA":   15,
 	    "height":160, "width":83,
-	    "xlmin":50, "ylmin": 155,
-	    "xlmax":50, "ylmax":   5,
+	    "xlminX":50, "ylminX": 155,
+	    "xlmaxX":50, "ylmaxX":   5,
 	    "xlbl":  20, "ylbl":  95,
 	    "major": 2, "minor":4, "fine": 20	    	    
 	},
@@ -70,9 +70,9 @@
 	{
 	    "descr": "hbar 240x45",
 	    "height":45, "width":240,
-	    "xlmin": 20, "xlmax": 200,
-	    "ylmin":30, "ylmax":30,"barH": 20, "barW": 210,
-	    "xlbl": 120, "ylbl": -8,
+	    "xlmin": 15, "xlmax": 225,
+	    "ylmin":35, "ylmax":35,"barH": 20, "barW": 210,
+	    "xlbl": 120, "ylbl": 35,
 	    "x0":    15, "y0":    5,
 	    "major": 5
 	},
@@ -125,7 +125,7 @@
 
 	{"formID": 5, "wtype": "compass",
 	 "ticlabels": "N,O,S,W",
-	 "label": "", 
+	 "label": "",
 	 "inputs":2
 	},
 
@@ -136,7 +136,7 @@
 	},
 	
 	{"formID": 6, "wtype": "hbar",
-	 "label":"Percent", "inputs":1,
+	 "label":"", "inputs":1,
 	 "ticlabels": "0,20,40,60,80,100",
 	 "scale":"fixed",
 	 "minV":0, "maxV":100
@@ -145,6 +145,7 @@
 	{"formID": 6, "wtype": "hbar",
 	 "inputs":1,
 	 "label": "",
+	 "minV":0, "maxV":100,	 
 	 "ticlabels": "",
 	 "scale":"variable"
 	},
@@ -155,6 +156,13 @@
 
 	{"formID": 8, "wtype": "timer",
 	 "inputs":1
+	},
+
+	{"formID": 0, "wtype": "gauge",
+	 "scale":"fixed", "label":"kRPM", "inputs":1,
+	 "ticlabels":"0,20,40,60,80,100,120",
+	 "minV":  0, "maxV":  120
 	}
+	
     ]
 }

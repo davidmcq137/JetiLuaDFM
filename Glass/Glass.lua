@@ -86,7 +86,7 @@ local glassesIcon
 local redcrossIcon
 local greencheckIcon
 local batteryIcon
-local configIDs
+--local configIDs
 local currentConfigIDs
 local serialBytesSent = 0
 
@@ -109,7 +109,7 @@ local function updateConfigIDs()
    currentConfigIDs = {}
    for p,v in ipairs(Glass.page) do
       for g in ipairs(v) do
-	 print("updateConfigIDs", p,g,Glass.page[p][g].imageID)
+	 --print("updateConfigIDs", p,g,Glass.page[p][g].imageID)
 	 iid = math.floor(Glass.page[p][g].imageID)
 	 if Glass.page[p][g].imageID > 0 then
 	    table.insert(currentConfigIDs, iid)
@@ -190,9 +190,9 @@ local function changedSwitch(val, switchName)
       if string.sub(swInfo.mode,-1,-1) == "I" then Invert = -1.0 end
       -- note: swInfo.mode will be "PS" for normal sw eval, "P" for proportional
       local prop = (string.find(swInfo.mode, "S") == nil)
-      print("cS, prop, swTyp", prop, swTyp, swInfo.mode, Invert, swInfo.value)
+      --print("cS, prop, swTyp", prop, swTyp, swInfo.mode, Invert, swInfo.value)
       if prop or (swInfo.value == Invert) or swTyp == "L" or swTyp =="M" then
-	 print("CS assigning")
+	 --print("CS assigning")
 	 switchItems[switchName] = val
 	 Glass.switchInfo[switchName] = {} 
 	 Glass.switchInfo[switchName].name = swInfo.label
@@ -205,14 +205,14 @@ local function changedSwitch(val, switchName)
 	 Glass.switchInfo[switchName].mode = swInfo.mode
       else
 	 system.messageBox("Error - do not move switch when assigning")
-	 print("CS zeroing")
+	 --print("CS zeroing")
 	 form.setValue(swtCI[switchName], nil)
 	 switchItems[switchName] = nil
 	 Glass.switchInfo[switchName] = nil	 
       end
    else
       if Glass.switchInfo[switchName] then
-	 print("CS zeroing - not assigned")
+	 --print("CS zeroing - not assigned")
 	 switchItems[switchName] = nil
 	 Glass.switchInfo[switchName] = nil
       end
@@ -639,10 +639,17 @@ local function loop()
 	       
 	       if v.imageID >= 0 then
 		  stbl[k] = {}
-		  stbl[k].im = av - 1 --convert this value for c++ with array starting at 0
+		  stbl[k].im = av -- image number, 0 for no image, 1 for Image01...
 		  stbl[k].fm = cfgimg.instruments[v.widgetID].formID
 		  if sval then
 		     stbl[k].v = tonumber(sval)
+		     if cfgimg.instruments[v.widgetID].wtype == "htext" then
+			stbl[k].u=Glass.page[pageNumberTele][k].units
+			stbl[k].l=Glass.page[pageNumberTele][k].instName
+		     else
+			stbl[k].u = nil
+		     end
+		     
 		  end
 		  if sval and sval2 then
 		     stbl[k].v2 = tonumber(sval2)
@@ -650,7 +657,7 @@ local function loop()
 		  if scale == "variable" and sval then
 		     stbl[k].nV = minV
 		     stbl[k].xV = maxV		  
-		     stbl[k].l=Glass.page[pageNumberTele][k].instName		  
+		     stbl[k].t=Glass.page[pageNumberTele][k].instName
 		  end
 	       end
 	    end
@@ -683,12 +690,12 @@ local function loop()
    if sendState == state.WAITING then 
       --print("Glass: Waiting to send config...")
       if true then --system.getTimeCounter() > startingTime then
-	 sendFP = io.open(prefix() .. pathJson .. "configimages.jsn", "r")
-	 if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
+	 sendFP = io.open(prefix() .. pathJson .. "instrESP.jsn", "r")
+	 if not Glass.settings.configVersion then Glass.settings.configVersion = 1 end
 	 sendFPser = io.open(prefix() .. pathConfigs ..
 			     string.format("config%d.txt", Glass.settings.configVersion), "w")
 	 if sendFP and sidSerial then
-	    print("sending \\001 "..(system.getTimeCounter() - startingTime).." ms")
+	    --print("sending \\001 "..(system.getTimeCounter() - startingTime).." ms")
 	    if not sendCtrl("\001", 1) then
 	       sendState = state.IDLE
 	       return
@@ -725,19 +732,26 @@ local function loop()
 	 "FF41...AA" images (many lines)
 	 "FFD0001561766961746F72000000000200000001AA" config footer for "aviator" with version 2, key 1
 	 "FFD2000D61766961746F7200AA" config set to "aviator"
+	 
+	 "FF460006FFAA" delete all images
 
       --]]
-      
-      local cfgVersion = Glass.settings.configVersion or 1
+
+      if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
+      local cfgVersion = Glass.settings.configVersion + 1 -- G.s.configVersion updated when send complete
       local cfgKey = 1
       local bufPre = "FFD0001561766961746F7200"
       local bufSet = "FFD2000D61766961746F7200AA"
       local bufH = bufPre .. string.format("%08X%08X", 0, cfgKey) .. "AA\n"
       local bufF = bufPre .. string.format("%08X%08X", cfgVersion, cfgKey) .. "AA\n"..bufSet.."\n"
+      local bufD = "FF460006FFAA\n" -- delete all images
       local bw
+
+      print("sending cfgVersion", cfgVersion)
+      
       if sendState == state.SENDHEADER then
 
-	 print("sending \\002 from header "..(system.getTimeCounter() - startingTime) .. " ms")
+	 --print("sending \\002 from header "..(system.getTimeCounter() - startingTime) .. " ms")
 	 if not sendCtrl("\002", 1) then
 	    sendState = state.IDLE
 	    return
@@ -748,10 +762,14 @@ local function loop()
 	    jsonHoldTime = system.getTimeCounter() + WAIT_TIME
 	    return
 	 else
-	    print("Glass: Sending config header")
+	    --print("Glass: Sending config header")
 	    bw = serial.write(sidSerial, bufH)
 	    serialBytesSent = serialBytesSent + bw	    
 	    io.write(sendFPser, bufH)
+
+	    bw = serial.write(sidSerial, bufD)
+	    serialBytesSent = serialBytesSent + bw	    
+	    io.write(sendFPser, bufD)
 	 end
 	 
 	 if not bw then
@@ -775,17 +793,20 @@ local function loop()
       if not bw or (sendState == state.SENDFOOTER) then
 	 print("Glass: Sending config footer")
 	 if sendFPser then io.close(sendFPser) end
-	 print("sending \\000 " .. (system.getTimeCounter() - startingTime) .. " ms")
+	 --print("sending \\000 " .. (system.getTimeCounter() - startingTime) .. " ms")
 	 sendCtrl("\000", 1) -- back to normal mode
 	 local dt = system.getTimeCounter() - startingTime
 	 print(string.format("Send config done. Time: %.2f s", dt / 1000))
 	 print(string.format("%d bytes sent. Aggregate data rate: %.1f kB/s",
 			     serialBytesSent, serialBytesSent / dt))
 	 if tempCall then io.close(sendFPtemp) end
+	 Glass.settings.configIDs = {}
 	 for k in ipairs(currentConfigIDs) do
-	    configIDs[k] = currentConfigIDs[k]	  -- remember that this config was sent last
+	    Glass.settings.configIDs[k] = currentConfigIDs[k]	  -- remember that this config was sent last
 	 end
-	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME * 80 -- extra long (!) wait before restarting 200ms json
+	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME * 80 -- long (!) wait before restarting 200ms json
+	 Glass.settings.configVersion = Glass.settings.configVersion + 1
+	 print("cfgV", Glass.settings.configVersion)
 	 sendState = state.IDLE
       end
    elseif (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) or
@@ -825,7 +846,7 @@ local function loop()
 	    if buf == "" then
 	       if sendState == state.SENDFMTS then
 		  io.close(sendFP)
-		  print("sending \\000 " .. (system.getTimeCounter() - startingTime) .. " ms")
+		  --print("sending \\000 " .. (system.getTimeCounter() - startingTime) .. " ms")
 		  if not sendCtrl("\000", 1) then -- signify end
 		     sendState = state.IDLE
 		     return
@@ -916,7 +937,7 @@ end
 
 
 local function changedName(value)
-   print("changedName instName", value, "page, gauge", pageNumber, gaugeNumber)
+   --print("changedName instName", value, "page, gauge", pageNumber, gaugeNumber)
    Glass.page[pageNumber][gaugeNumber].instName = value
 end
 
@@ -970,13 +991,19 @@ local function sendUSB()
       else
 	 av = nil
       end
-      if av then
-	    local fn = prefix() .. pathConfigs .. "config-imgs-" .. cfgimg.instruments[av].BMPname .. ".txt"
-	    local included = false
-	    for kk,vv in pairs(sendImgs) do
-	       if fn == vv then included = true end
-	    end
-	    if not included and cfgimg.instruments[av].BMPname ~= "" then table.insert(sendImgs, fn) end
+
+      local iid = cfgimg.instruments[av].imageID
+
+      if av and iid > 0 then -- imageID is 0 if no image (e.g. text box)
+	 local imn = string.format("Image%02d", iid)
+	 --local fn = prefix() .. pathConfigs .. "config-imgs-" .. cfgimg.instruments[av].BMPname .. ".txt"
+	 local fn = prefix() .. pathConfigs .. "config-imgs-" .. imn .. ".txt"	 
+	 local included = false
+	 for kk,vv in pairs(sendImgs) do
+	    if fn == vv then included = true end
+	 end
+	 --if not included and cfgimg.instruments[av].BMPname ~= "" then table.insert(sendImgs, fn) end
+	 if not included then table.insert(sendImgs, fn) end
       end
    end
    
@@ -1057,7 +1084,7 @@ local function initForm(sf)
       --sift thru avail images and find the ones that are the correct size
       --for this gauge in the selected format
 
-      --imageNum = nil
+      imageNum = nil
       local widgetID = Glass.page[pageNumber][gaugeNumber].widgetID
       local imageID = Glass.page[pageNumber][gaugeNumber].imageID
       local fn = Glass.page[pageNumber][1].fmtNumber
@@ -1076,23 +1103,23 @@ local function initForm(sf)
 			  loadImageSmaller = img.loadImageSmaller,
 			  imageWidth=img.imageWidth, imageHeight = img.imageHeight,
 			  wtype=img.wtype, inputs=img.inputs})
+	    if widgetID == i then imageNum = #editImgs end
 	 end
       end
       imageMax = #editImgs
-      print("imageMax", imageMax)
+      --print("imageMax", imageMax)
       if not imageNum then imageNum = 1 end
 
       if widgetID <= 0 then
 	 if #editImgs < 1 then
 	    print("Glass: no images for", pageNumber, gaugeNumber)
 	 else -- default to first image
-	    print("defaulting widgetID")
+	    --print("defaulting widgetID")
 	    Glass.page[pageNumber][gaugeNumber].widgetID = editImgs[1].widgetID	    
 	    Glass.page[pageNumber][gaugeNumber].imageID = editImgs[1].imageID
 	    Glass.page[pageNumber][gaugeNumber].wtype = editImgs[1].wtype
 	 end
       end
-
 
       local function setinp(inp, ii)
 	 if ii == 0 then inpN = 0 else inpN = inp end
@@ -1469,7 +1496,7 @@ local function keyPressed(key)
       fmtNumber = Glass.page[pageNumber][1].fmtNumber
    end
 
-   print("key pressed", key)
+   --print("key pressed", key)
    updateConfigIDs()
    
 
@@ -1481,7 +1508,7 @@ local function keyPressed(key)
 	    savedRow = form.getFocusedRow()
 	    form.reinit(1)
 	 else
-	    if not matchConfigID(configIDs, currentConfigIDs) then
+	    if not matchConfigID(Glass.settings.configIDs, currentConfigIDs) then
 	       system.messageBox("Need to send new config to Glasses")
 	       -- send goes here --
 	    end
@@ -1537,19 +1564,17 @@ local function keyPressed(key)
 	 form.reinit(10)
 	 return
       elseif key == KEY_2 then
-	 print("key2 in,  imageNum", imageNum)
 	 imageNum = imageNum + 1
 	 if imageNum > imageMax then imageNum = 1 end
-	 print("key2 out,  imageNum", imageNum)
       end
       if key == KEY_2 then
 	 local iid = 0
 	 local wid = 0
 	 local min, max, wtype, inp
-	 print("key2: imageNum, editImgs[imageNum].widgetID", imageNum, editImgs[imageNum].widgetID)
+	 --print("key2: imageNum, editImgs[imageNum].widgetID", imageNum, editImgs[imageNum].widgetID)
 	 for i,img in ipairs(cfgimg.instruments) do
 	    if i == editImgs[imageNum].widgetID then
-	       print("key2 match")
+	       --print("key2 match")
 	    --if img.imageID == editImgs[imageNum].imageID then
 	       wid = i
 	       iid = img.imageID
@@ -1559,6 +1584,7 @@ local function keyPressed(key)
 	       inp = img.inputs
 	    end
 	 end
+	 --print("key2 set widgetID", wid)
 	 Glass.page[pageNumber][gaugeNumber].widgetID = wid	 
 	 Glass.page[pageNumber][gaugeNumber].imageID = iid
 	 Glass.page[pageNumber][gaugeNumber].minV = min -- may be nil
@@ -1590,11 +1616,19 @@ local function drawRectangleGlass(x0, y0, xl, yl)
    lcd.drawRectangle(f*x0 - f*xl / 2, f*y0 - f*yl / 2, f*xl, f*yl)
 end
 
-local function drawText(x0, y0, val, lbl, twid, thgt)
-   local text = string.format(lbl .. ' ' .. "%.2f", val)
+local function drawText(x0, y0, val, lbl, units, twid, thgt)
+   --print("@", units, x0, y0, twid, thgt)
+   --local text = string.format(lbl .. ' ' .. "%.2f", val)
+   local text = string.format("%.2f", val)
    local ww = lcd.getTextWidth(FONT_BIG, text)
    local hh = lcd.getTextHeight(FONT_BIG, text)
-   lcd.drawText(x0 + (twid - ww)/2, y0 + (thgt - hh)/2, text, FONT_BIG)
+   lcd.drawText(x0 + (twid - ww)/2, y0 - hh/2, text, FONT_BIG)
+   ww = lcd.getTextWidth(FONT_MINI, lbl)
+   hh = lcd.getTextHeight(FONT_MINI, lbl)
+   lcd.drawText(x0, y0 - hh/2, lbl, FONT_MINI)
+   ww = lcd.getTextWidth(FONT_MINI, units)
+   hh = lcd.getTextHeight(FONT_MINI, units)
+   lcd.drawText(x0 + twid - ww, y0-hh/2, units, FONT_MINI)
 end
 
 local function drawTimer(x0, y0, val, lbl, twid, thgt)
@@ -1623,6 +1657,7 @@ local function printForm(w,h)
 	    xi, yi = offset, 0
 	 end
 	 --if editImgs[imageNum].loadImage then
+	 local un = Glass.page[pageNumber][gaugeNumber].units
 	 if editImgs[imageNum].wtype == "gauge" or editImgs[imageNum].wtype == "compass" or
 	    editImgs[imageNum].wtype == "hbar" then
 	    drawImage(xi,yi,editImgs[imageNum], "loadImage") -- XXXXXX
@@ -1631,7 +1666,8 @@ local function printForm(w,h)
 	    lcd.drawRectangle(xi, yi, editImgs[imageNum].imageWidth, editImgs[imageNum].imageHeight)
 	    local iN = Glass.page[pageNumber][gaugeNumber].instName
 	    local vv = Glass.page[pageNumber][gaugeNumber].value or 0.0
-	    drawText(xi, yi, vv, iN, editImgs[imageNum].imageWidth, editImgs[imageNum].imageHeight)
+	    drawText(xi, yi + editImgs[imageNum].imageHeight/2, vv, iN, un,
+		     editImgs[imageNum].imageWidth, editImgs[imageNum].imageHeight)
 	 elseif editImgs[imageNum].wtype == "timer" then
 	    lcd.setColor(0,0,0)
 	    lcd.drawRectangle(xi, yi, editImgs[imageNum].imageWidth, editImgs[imageNum].imageHeight)
@@ -1717,7 +1753,7 @@ end
 local function printTele(w,h)
 
 --[[
-   UPDATE: THIS IS OLD
+   UPDATE: THIS IS OLD (PRE-FORMS) -- PLS UPDATE IT
 
    Sample json file structure (snipped from configconfig.jsn) 
    It contains just one object each for "configs" and "images" as an example of the data shape
@@ -1783,11 +1819,11 @@ local function printTele(w,h)
    -- cheating. Everything from "cid." is from the instruments section cfgimg.instruments
    
    for g,t in ipairs(gpp) do        -- loop over all gauges on this page with a valid imageID
-
+      --[[
       if g <= 3  then
-	 --print("g, t.widgetID, t.imageID", g, t.widgetID, t.imageID)
+	 print("g, t.widgetID, t.imageID", g, t.widgetID, t.imageID)
       end
-      
+      --]]
       if t.widgetID > 0 and t.imageID >= 0 then        -- if there is a value to animate
 	 ccfg = ccf[g]                 -- this is the "config" key for this page and this widget
 	 cid = cfgimg.instruments[t.widgetID]
@@ -1797,7 +1833,7 @@ local function printTele(w,h)
 	 yr = ccfg.yul
 	 xc = xr + cfgimg.forms[fid].x0           -- for gauge, this is the pivot point of the needle
 	 yc = yr + cfgimg.forms[fid].y0
-	 if t.value then
+	 if true then --t.value then
 	    -- if scale "fixed" then scale comes from images, else from 200ms json
 	    if cid.scale and cid.scale == "fixed" then
 	       min = cid.minV
@@ -1811,31 +1847,43 @@ local function printTele(w,h)
 	    --print(g, cid.wtype,t.widgetID)
 	    if cid.wtype == "gauge" then
 	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
-	       drawNeedle(offset + r * xc, r * yc, cfgimg.forms[fid].minA, cfgimg.forms[fid].maxA,
-			  min, max, val, r * cfgimg.forms[fid].nlen)
+	       if val then
+		  drawNeedle(offset + r * xc, r * yc, cfgimg.forms[fid].minA, cfgimg.forms[fid].maxA,
+			     min, max, val, r * cfgimg.forms[fid].nlen)
+	       end
 	    elseif cid.wtype == "compass" then
 	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
-	       drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, val, r * cfgimg.forms[fid].nlen1)
+	       if val then
+		  drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, val, r * cfgimg.forms[fid].nlen1)
+	       end
 	       if t.value2 then
 		  drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, t,value2, r * cfgimg.forms[fid].nlen2)
 	       end
 	    elseif cid.wtype == "hbar" then
 	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
-	       drawHbar(offset + r * xc, r * yc, min, max, val, r * cfgimg.forms[fid].barW,
-			r * cfgimg.forms[fid].barH)
+	       if val then
+		  drawHbar(offset + r * xc, r * yc, min, max, val, r * cfgimg.forms[fid].barW,
+			   r * cfgimg.forms[fid].barH)
+	       end
 	    elseif cid.wtype == "htext" then
-	       drawText(offset + r * xc, r * yc, val, lbl, r * cfgimg.forms[fid].txtW,
-			r * cfgimg.forms[fid].txtH)
+	       if val then
+		  drawText(offset + r * xc, r * yc, val, lbl, t.units, r * cfgimg.forms[fid].txtW,
+			   r * cfgimg.forms[fid].txtH)
+	       end
 	    elseif cid.wtype == "timer" then
-	       drawTimer(offset + r * xc, r * yc, val, lbl, r * cfgimg.forms[fid].txtW,
-			 r * cfgimg.forms[fid].txtH)
+	       if val then
+		  drawTimer(offset + r * xc, r * yc, val, lbl, r * cfgimg.forms[fid].txtW,
+			    r * cfgimg.forms[fid].txtH)
+	       end
 	    end 
 	    if (cid.wtype == "gauge" or cid.wtype == "hbar") and cid.scale == "variable" then
-	       drawTextCenter(offset + xr * r + r * cid.xlmin, yr * r + r * cid.ylmin,
+	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlmin,
+			      yr * r + r * cfgimg.forms[fid].ylmin,
 			      string.format(dpFmt(min), min), FONT_MINI)
-	       drawTextCenter(offset + xr * r + r * cid.xlmax, yr * r + r * cid.ylmax,
+	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlmax,
+			      yr * r + r * cfgimg.forms[fid].ylmax,
 			      string.format(dpFmt(max), max), FONT_MINI)
-	       drawTextCenter(offset + xr * r + r * cid.xlbl, yr * r + r * cid.ylbl,
+	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlbl, yr * r + r * cfgimg.forms[fid].ylbl,
 			      lbl, FONT_MINI)			      
 	    end
 	 end
@@ -1966,10 +2014,11 @@ local function init()
 	 ims = prefix() .. pathImages .. imn .. "-smaller.png"      
 	 --print("loading images im, ims:", im, ims)
 	 img.loadImage = lcd.loadImage(im)
+	 --print("lcd.loadImage ret", img.loadImage)
 	 img.loadImageSmaller = lcd.loadImage(ims)
 	 img.imageWidth = img.loadImage.width
 	 img.imageHeight = img.loadImage.height
-	 print("* i, img.formID", i, img.formID)
+	 --print("* i, img.formID", i, img.formID)
 	 
 	 img.origWidth = cfgimg.forms[img.formID + 1].width --img.width
 	 img.origHeight = cfgimg.forms[img.formID + 1].height --img.height
@@ -1986,9 +2035,11 @@ local function init()
       end
    end
 
+   --[[
    for k,v in pairs(id2avail) do
       print("id2avail k,v", k,v)
    end
+   --]]
    
    fn = prefix() .. pathImages .. "glasses.png"
    glassesIcon = lcd.loadImage(fn)
@@ -2149,9 +2200,11 @@ local function init()
    end
 
    updateConfigIDs()
-   configIDs = {} -- don't have info yet on what's on the glasses
-
+   if not Glass.settings.configIDs then
+      Glass.settings.configIDs = {}
+   end
+   
    print("CPU end init(): ", system.getCPU())
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.8", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.9", name=appName}

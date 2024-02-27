@@ -109,9 +109,9 @@ for imgs in jd["instruments"]:
 os.system('set -e;cp -v Configs/config-*.txt ../Glass/Configs')
 os.system('set -e;cp -v Images/small/*-small.png ../Glass/Images')
 os.system('set -e;cp -v Images/smaller/*-smaller.png ../Glass/Images')
-os.system('set -e;cp -v Images/availInstrumentsMaster.jsn ../Glass/Json/availInstruments.jsn')
-os.system('set -e;cp -v Images/availFmtMaster.jsn ../Glass/Json/availFmt.jsn')
+#os.system('set -e;cp -v Images/availInstrumentsMaster.jsn ../Glass/Json/availInstruments.jsn')
+#os.system('set -e;cp -v Images/availFmtMaster.jsn ../Glass/Json/availFmt.jsn')
 
 os.system('set -e;lua prepCI.lua')
-os.system('set -e;cp -v Images/instruments.jsn ../Glass/Json')
+os.system('set -e;cp -v Images/instrESP.jsn ../Glass/Json')
 os.system('set -e;cp -v Images/instr.jsn ../Glass/Json')
