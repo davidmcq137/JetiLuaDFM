@@ -77,6 +77,10 @@ for ins in jd["instruments"]:
 		#print("hbarGen.py options: ", options)
 		os.system("set -e; python3 hbarGen.py " + options)
 
+# before making the .txt files for the images, "compile" the fonts portion
+
+os.system("set -e; python3 configG.py config-fonts")
+
 imageID = 0
 for imgs in jd["instruments"]:
 	#print("loop", imgs["wtype"])

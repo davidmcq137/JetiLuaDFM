@@ -641,6 +641,7 @@ local function loop()
 		  stbl[k] = {}
 		  stbl[k].im = av -- image number, 0 for no image, 1 for Image01...
 		  stbl[k].fm = cfgimg.instruments[v.widgetID].formID
+		  stbl[k].wt = string.sub(cfgimg.instruments[v.widgetID].wtype,0,2)
 		  if sval then
 		     stbl[k].v = tonumber(sval)
 		     if cfgimg.instruments[v.widgetID].wtype == "htext" then
@@ -733,7 +734,7 @@ local function loop()
 	 "FFD0001561766961746F72000000000200000001AA" config footer for "aviator" with version 2, key 1
 	 "FFD2000D61766961746F7200AA" config set to "aviator"
 	 
-	 "FF460006FFAA" delete all images
+	 --"FF460006FFAA" delete all images
 
       --]]
 
@@ -767,9 +768,9 @@ local function loop()
 	    serialBytesSent = serialBytesSent + bw	    
 	    io.write(sendFPser, bufH)
 
-	    bw = serial.write(sidSerial, bufD)
-	    serialBytesSent = serialBytesSent + bw	    
-	    io.write(sendFPser, bufD)
+	    --bw = serial.write(sidSerial, bufD)
+	    --serialBytesSent = serialBytesSent + bw	    
+	    --io.write(sendFPser, bufD)
 	 end
 	 
 	 if not bw then
