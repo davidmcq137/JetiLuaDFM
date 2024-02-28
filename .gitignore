@@ -63,5 +63,5 @@ GlassBuild/Images/smaller/*Image*.png
 Glass/Configs/config*.txt
 Glass/Json/instr*.jsn
 GlassBuild/Images/Image*.bmp
-GlassBuild/Images/Instr*.jsn
+GlassBuild/Images/Inst*.jsn
 

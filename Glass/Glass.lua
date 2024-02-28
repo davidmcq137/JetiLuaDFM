@@ -368,9 +368,9 @@ local function loop()
    local minV, maxV, lbl
    local LOOPTIME = 250
    local CTRLREP = 4
-   local SEND_DELAY = 10
+   local SEND_DELAY = 100 --10
    local BUF_SIZE = 128
-   local SEND_LOOPS = 20
+   local SEND_LOOPS = 5 --20
    
    if system.getTimeCounter() < 0 then
       print("system.getTimeCounter() wrapped. Restart emulator")
@@ -734,18 +734,19 @@ local function loop()
 	 "FFD0001561766961746F72000000000200000001AA" config footer for "aviator" with version 2, key 1
 	 "FFD2000D61766961746F7200AA" config set to "aviator"
 	 
-	 --"FF460006FFAA" delete all images
+	 --"FF460006FFAA" delete all images -- this is now done in the config-fonts.json file
 
       --]]
 
       if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
+      
       local cfgVersion = Glass.settings.configVersion + 1 -- G.s.configVersion updated when send complete
       local cfgKey = 1
       local bufPre = "FFD0001561766961746F7200"
       local bufSet = "FFD2000D61766961746F7200AA"
       local bufH = bufPre .. string.format("%08X%08X", 0, cfgKey) .. "AA\n"
       local bufF = bufPre .. string.format("%08X%08X", cfgVersion, cfgKey) .. "AA\n"..bufSet.."\n"
-      local bufD = "FF460006FFAA\n" -- delete all images
+      --local bufD = "FF460006FFAA\n" -- delete all images
       local bw
 
       print("sending cfgVersion", cfgVersion)
@@ -807,13 +808,14 @@ local function loop()
 	 end
 	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME * 80 -- long (!) wait before restarting 200ms json
 	 Glass.settings.configVersion = Glass.settings.configVersion + 1
-	 print("cfgV", Glass.settings.configVersion)
+	 print("cfgV set to", Glass.settings.configVersion)
 	 sendState = state.IDLE
       end
    elseif (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) or
       (sendState == state.SENDACTIVE) or (sendState == state.SENDFMTS) then
       local buf, start, before, after
       if system.getTimeCounter() - sendLast > SEND_DELAY then -- throttle send rate here
+	 --print("send_loops")
 	 for k=1,SEND_LOOPS,1 do
 	    buf = io.read(sendFP, BUF_SIZE)
 	    start = string.find(buf, "\n")
@@ -906,6 +908,9 @@ local function loop()
 	       end
 	    end
 	 end
+      else
+	 --print("send delay spin", (system.getTimeCounter() - startingTime) / 1000, serialBytesSent)
+	 
       end
    end
    cpu = system.getCPU()
