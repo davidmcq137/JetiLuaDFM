@@ -3,8 +3,8 @@
     ],
 
     "fonts":[
-	{"id": 4, "path": "./font/ComputerModern/cmunss.ttf", "height": 12, "first": " ","last": "~"},
-	{"id": 5, "path": "./font/ComputerModern/cmunss.ttf", "height": 16, "first": " ","last": "~"}			
+	{"id": 4, "path": "./font/Roboto/Roboto-Light.ttf", "height": 16, "first": " ","last": "~"},
+	{"id": 5, "path": "./font/Roboto/Roboto-Light.ttf", "height": 36, "first": " ","last": "~"}			
     ],
 
     "layoutDelete":[

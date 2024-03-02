@@ -96,6 +96,7 @@
 	{"formID": 0, "wtype": "gauge",
 	 "scale":"fixed", "label":"V", "inputs":1,
 	 "ticlabels":"12,13,14,15,16,17,18",
+	 "<remove to use bmpfile>bmpfile":"volt_12_18.bmp",
 	 "minV":  12, "maxV":  18
 	},
 

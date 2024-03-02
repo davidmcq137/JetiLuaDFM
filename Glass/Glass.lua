@@ -86,9 +86,13 @@ local glassesIcon
 local redcrossIcon
 local greencheckIcon
 local batteryIcon
+local yellowpauseIcon
 --local configIDs
 local currentConfigIDs
 local serialBytesSent = 0
+local totalSendBytes
+local serialFileName
+local lastRead = 0
 
 --[[
 local teleSensors
@@ -139,9 +143,14 @@ local function sortUniq(tt, ttc)
 end
 
    
-local function matchConfigID(t1, t2)
+local function matchConfigID()
+   --Glass.settings.configIDs, currentConfigIDs)
+
+   local t1 = Glass.settings.configIDs
+   local t2 = currentConfigIDs
 
    --if not t1 or not t2 or (#t1 ~= #t2) then return false end
+
    local t1c, t2c = {}, {}
 
    sortUniq(t1, t1c)
@@ -151,13 +160,13 @@ local function matchConfigID(t1, t2)
    for k,v in ipairs(t1c) do
       s = s..v.." "
    end
-   print("t1c " .. s)
+   --print("t1c " .. s)
 
    s = ""
    for k,v in ipairs(t2c) do
       s = s..v.." "
    end
-   print("t2c " .. s)
+   --print("t2c " .. s)
 
 
    local ret = true
@@ -167,7 +176,7 @@ local function matchConfigID(t1, t2)
 	 break
       end
    end
-   print("matchConfigID ret",  ret)
+   --print("matchConfigID ret",  ret)
    return ret
 end
 
@@ -368,9 +377,10 @@ local function loop()
    local minV, maxV, lbl
    local LOOPTIME = 250
    local CTRLREP = 4
-   local SEND_DELAY = 100 --10
-   local BUF_SIZE = 128
-   local SEND_LOOPS = 5 --20
+   local SEND_DELAY = 50 --10
+   local BUF_SIZE = 64
+   local SEND_LOOPS = 2 --20
+
    
    if system.getTimeCounter() < 0 then
       print("system.getTimeCounter() wrapped. Restart emulator")
@@ -484,6 +494,8 @@ local function loop()
 
 	 if not pageNumberTele or pageNumberTele < 1 then return end
 	 if not Glass.page[pageNumberTele] then return end
+
+
 	 stbl = {page=pageNumberTele}
 	 gtbl = {}
 	 gtbl["pg"] = pageNumberTele 
@@ -491,16 +503,15 @@ local function loop()
 
 	 for k,v in ipairs(Glass.page[pageNumberTele]) do
 	    if v.imageID and v.imageID >= 0 then
-	       av = v.imageID -- id2avail[v.imageID]
-	       if not av then print("av nil:", k, v.imageID) end
-	       if av > 0 then
-		  scale = cfgimg.instruments[av].scale
-		  if scale == "variable" then
-		     minV = v.minV or cfgimg.instruments[av].minV -- if min/max not set pick up defaults
-		     maxV = v.maxV or cfgimg.instruments[av].maxV
+	       if not v.imageID then print("imageID nil:", k, v.imageID) end
+	       if v.imageID > 0 then
+		  scale = cfgimg.instruments[v.widgetID].scale
+		  if scale == "variable" then -- if min/max not set pick up defaults
+		     minV = v.minV or cfgimg.instruments[v.widgetID].minV
+		     maxV = v.maxV or cfgimg.instruments[v.widgetID].maxV
 		  else
-		     minV = cfgimg.instruments[av].minV
-		     maxV = cfgimg.instruments[av].maxV 
+		     minV = cfgimg.instruments[v.widgetID].minV
+		     maxV = cfgimg.instruments[v.widgetID].maxV 
 		  end
 	       end
 	       local now = system.getTimeCounter()
@@ -639,7 +650,8 @@ local function loop()
 	       
 	       if v.imageID >= 0 then
 		  stbl[k] = {}
-		  stbl[k].im = av -- image number, 0 for no image, 1 for Image01...
+		  stbl[k].im = v.imageID
+		  stbl[k].wd = v.widgetID - 1
 		  stbl[k].fm = cfgimg.instruments[v.widgetID].formID
 		  stbl[k].wt = string.sub(cfgimg.instruments[v.widgetID].wtype,0,2)
 		  if sval then
@@ -668,17 +680,29 @@ local function loop()
 	    end
 	 end
 
-	 if true then --next(stbl) then
-	 --   local espjson = json.encode(stbl)
-	 local espjson = json.encode(gtbl)
+	 -- if we don't match the glasses config, or there is a menu open don't
+	 -- send the 200 ms json
 
+	 local sendJson = true
+	 if not Glass.var.statusAL then
+	    sendJson = false
+	 else
+	    if Glass.var.statusAL.Conn == 0 then sendJson = false  end
+	    if Glass.var.statusAL.Conf ~= Glass.var.statusAL.GlassConf then sendJson = false end 
+	    if not matchConfigID() then sendJson = false  end
+	    if form.getActiveForm() then sendJson = false end
+	 end
+	 
+	 local swb = system.getInputs("SB") -- SB to force sending only on emulator
+
+	 if sendJson or (emflag ~= 0 and swb and swb == 1) then
+	    local espjson = json.encode(gtbl)
 	    if emflag ~= 0 then
-	       local swa = system.getInputs("SA")
+	       local swa = system.getInputs("SA") -- SA to show json only on emulator
 	       if swa and swa == 1 then
 		  print(espjson)
 	       end
 	    end
-	    
 	    local count = serial.write(sidSerial, espjson, "\n")
 	 end
 	 lastWrite = now
@@ -692,7 +716,7 @@ local function loop()
       --print("Glass: Waiting to send config...")
       if true then --system.getTimeCounter() > startingTime then
 	 sendFP = io.open(prefix() .. pathJson .. "instrESP.jsn", "r")
-	 if not Glass.settings.configVersion then Glass.settings.configVersion = 1 end
+	 if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
 	 sendFPser = io.open(prefix() .. pathConfigs ..
 			     string.format("config%d.txt", Glass.settings.configVersion), "w")
 	 if sendFP and sidSerial then
@@ -710,7 +734,7 @@ local function loop()
 	       configLine = ""
 	       sendState = state.SENDFMTS
 	       sendCtrlCount = 0
-	       print("Glass: Sending image json description")
+	       serialFileName = "Sending gauge and panel descriptions"
 	    else
 	       jsonHoldTime = system.getTimeCounter() + WAIT_TIME
 	       return
@@ -784,7 +808,7 @@ local function loop()
 	       sendState = state.IDLE
 	    end
 	 end
-	 print("Glass: Sending font configs")
+	 serialFileName = "Sending fonts"
       elseif sendState == state.SENDFOOTER then
 	 --print("send footer ", bufF)
 	 bw = serial.write(sidSerial, bufF)
@@ -798,13 +822,14 @@ local function loop()
 	 --print("sending \\000 " .. (system.getTimeCounter() - startingTime) .. " ms")
 	 sendCtrl("\000", 1) -- back to normal mode
 	 local dt = system.getTimeCounter() - startingTime
+	 serialFileName = string.format("Transfer complete. Time: %.2f s", dt / 1000.0)
 	 print(string.format("Send config done. Time: %.2f s", dt / 1000))
 	 print(string.format("%d bytes sent. Aggregate data rate: %.1f kB/s",
 			     serialBytesSent, serialBytesSent / dt))
 	 if tempCall then io.close(sendFPtemp) end
 	 Glass.settings.configIDs = {}
-	 for k in ipairs(currentConfigIDs) do
-	    Glass.settings.configIDs[k] = currentConfigIDs[k]	  -- remember that this config was sent last
+	 for k in ipairs(currentConfigIDs) do -- remember that this config was sent last
+	    Glass.settings.configIDs[k] = currentConfigIDs[k] 
 	 end
 	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME * 80 -- long (!) wait before restarting 200ms json
 	 Glass.settings.configVersion = Glass.settings.configVersion + 1
@@ -881,7 +906,7 @@ local function loop()
 	       elseif sendState == state.SENDFONTS then
 		  io.close(sendFP)
 		  sendImgsIdx = 1
-		  print("Glass: Sending image file " ..sendImgs[sendImgsIdx])
+		  serialFileName = "Sending instrument: " .. string.sub(sendImgs[sendImgsIdx], -11)
 		  sendFP = io.open(sendImgs[sendImgsIdx], "r")
 		  if not sendFP then
 		     print("Glass:cannot open image file "..sendImgsIdx)
@@ -894,7 +919,7 @@ local function loop()
 		  io.close(sendFP)
 		  if sendImgsIdx < #sendImgs then
 		     sendImgsIdx = sendImgsIdx + 1
-		     print("Glass: Sending image file " ..sendImgs[sendImgsIdx])
+		     serialFileName = "Sending instrument: " .. string.sub(sendImgs[sendImgsIdx], -11)
 		     sendFP = io.open(sendImgs[sendImgsIdx], "r")
 		     if not sendFP then
 			print("Glass: cannot open image file "..sendImgsIdx, sendImgs[sendImgsIdx])
@@ -986,6 +1011,7 @@ local function sendUSB()
    -- create the list of config-imgs fragments that must be uploaded
    
    sendImgs = {}
+   local sendImgsFiles = {}
    local av
 
    -- loop over all imageIDs referenced in the current pages and formats
@@ -1003,13 +1029,17 @@ local function sendUSB()
       if av and iid > 0 then -- imageID is 0 if no image (e.g. text box)
 	 local imn = string.format("Image%02d", iid)
 	 --local fn = prefix() .. pathConfigs .. "config-imgs-" .. cfgimg.instruments[av].BMPname .. ".txt"
+	 local fn0 = "config-imgs-" .. imn .. ".txt"
 	 local fn = prefix() .. pathConfigs .. "config-imgs-" .. imn .. ".txt"	 
 	 local included = false
 	 for kk,vv in pairs(sendImgs) do
 	    if fn == vv then included = true end
 	 end
 	 --if not included and cfgimg.instruments[av].BMPname ~= "" then table.insert(sendImgs, fn) end
-	 if not included then table.insert(sendImgs, fn) end
+	 if not included then
+	    table.insert(sendImgs, fn)
+	    table.insert(sendImgsFiles, fn0)
+	 end
       end
    end
    
@@ -1018,6 +1048,31 @@ local function sendUSB()
       --return -- ok if no images (e.g. only a timer widget sent)
    end
 
+   -- add up all the font, image and json files to see total bytes
+   -- to allow us to show progress
+   
+   table.insert(sendImgsFiles, "config-fonts.txt")
+   table.insert(sendImgsFiles, "instrESP.jsn")
+   totalSendBytes = 0
+   for n,ft,s in dir(prefix().."Apps/Glass/Configs") do
+      for i, file in ipairs(sendImgsFiles) do
+	 if file == n then
+	    print("got  it", n, ft, s)
+	    totalSendBytes = totalSendBytes + s
+	 end
+      end
+   end
+   for n,ft,s in dir(prefix().."Apps/Glass/Json") do
+      for i, file in ipairs(sendImgsFiles) do
+	 if file == n then
+	    print("got  it", n, ft, s)
+	    totalSendBytes = totalSendBytes + s
+	 end
+      end
+   end
+   
+   print("total bytes to send in files ", totalSendBytes)
+      
    -- transmission protocol:
    --
    -- stop "200ms" json .. wait for n*200ms
@@ -1038,6 +1093,7 @@ local function sendUSB()
    sendState = state.WAITING
    sendCtrlCount = 0
    serialBytesSent = 0
+   serialFileName = ""
 end
 
 local inpN
@@ -1190,7 +1246,7 @@ local function initForm(sf)
       
       form.addRow(2)
       form.addLabel({label="Set config version"})
-      form.addIntbox(Glass.settings.configVersion, 1, 32767, 1, 0, 1, cvchanged)
+      form.addIntbox(Glass.settings.configVersion, 0, 32767, 1, 0, 1, cvchanged)
 
       form.addRow(2)
       form.addLabel({label="GPS Lat Sensor:", font=FONT_NORMAL})
@@ -1211,7 +1267,7 @@ local function initForm(sf)
 			{width=155, font=FONT_NORMAL, alignRight=false})
 
       form.addRow(1)
-      form.addLink(sendUSB, {label="Send config on serial>>"})
+      form.addLink((function() sendUSB() form.reinit(15) return end), {label="Send config on serial>>"})
 
       form.addRow(1)
       form.addLink((function() form.reinit(14) return end), {label="Timer setup>>"})      
@@ -1464,6 +1520,10 @@ local function initForm(sf)
       
       form.setFocusedRow(1)
       form.setTitle("Timer Setup")
+   elseif sf == 15 then
+      --form.addRow(1)
+      --form.addLabel({label="sf15"})
+      form.setTitle("Serial data transfer")
    end
 end
 
@@ -1504,7 +1564,6 @@ local function keyPressed(key)
 
    --print("key pressed", key)
    updateConfigIDs()
-   
 
    if subForm == 1 then
 
@@ -1514,9 +1573,18 @@ local function keyPressed(key)
 	    savedRow = form.getFocusedRow()
 	    form.reinit(1)
 	 else
-	    if not matchConfigID(Glass.settings.configIDs, currentConfigIDs) then
+	    if not matchConfigID() then
 	       system.messageBox("Need to send new config to Glasses")
-	       -- send goes here --
+	       print("time since last onRead: ", system.getTime() - lastRead)
+	       if (lastRead ~= 0) and (system.getTime() - lastRead > 5) then
+		  system.messageBox("Can't update - glasses offline")
+	       else
+		  -- send goes here --
+		  system.messageBox("Calling sendUSB")
+		  sendUSB()
+		  form.preventDefault()
+		  form.reinit(15)
+	       end
 	    end
 	 end
       end
@@ -1614,6 +1682,11 @@ local function keyPressed(key)
 	 form.preventDefault()
 	 form.reinit(1)
       end
+   elseif subForm == 15 then
+      if keyExit(key) or key == KEY_ENTER then
+	 --form.preventDefault()
+	 --form.reinit(1)
+      end
    end
 end
 
@@ -1651,7 +1724,13 @@ local function printForm(w,h)
    local fmtNumber
    local offset = w - 144
 
-   if subForm == 10 then
+   if subForm == 15 then
+      lcd.setColor(0,0,255)
+      lcd.drawFilledRectangle(10, 20, (w-20) * serialBytesSent / (totalSendBytes + 125), 30)
+      lcd.setColor(0,0,0)
+      lcd.drawText(10, 60, string.format("Bytes sent: %d / %d", serialBytesSent, totalSendBytes + 125))
+      lcd.drawText(10, 80, serialFileName)
+   elseif subForm == 10 then
       lcd.setColor(255,255,255)
       lcd.drawFilledRectangle(offset-5, 0, h+1+5, h+1)
       if imageNum and imageNum > 0 and editImgs[imageNum] then --and editImgs[imageNum].loadImage then
@@ -1736,6 +1815,7 @@ end
 local function drawHbar(x0, y0, min, max, val, barW, barH)
    local bw = math.floor(barW * (val - min) / (max - min) + 0.5)
    bw = math.min(math.max(0, bw), barW+1)
+   --print(x0, y0, bw, barH)
    lcd.drawFilledRectangle(x0, y0, bw, barH)
 end
 
@@ -1744,6 +1824,26 @@ local function printTeleSmall(w,h)
       lcd.drawText(5, 3, string.format("Page %d", pageNumberTele), FONT_MINI)
    end
 
+   lcd.drawImage(45, 3, glassesIcon)
+   if not Glass.var.statusAL then
+      lcd.drawImage(75, 3, redcrossIcon)
+   end
+
+   if Glass.var.statusAL and Glass.var.statusAL.Conn then
+      if Glass.var.statusAL.Conn == 1 then
+	 drawTextCenter(100, 3, string.format("%d%%", Glass.var.statusAL.Batt), FONT_MINI)
+	 if (Glass.var.statusAL.Conf == Glass.var.statusAL.GlassConf and matchConfigID()) then
+	    lcd.drawImage(75, 3, greencheckIcon)
+	 else
+	    lcd.drawImage(75, 3, yellowpauseIcon)	 
+	 end
+      else
+	 lcd.drawImage(75, 3, yellowpauseIcon)	 
+      end
+   end
+   
+
+   --[[
    lcd.drawImage(45, 3, glassesIcon)
    if not Glass.var.statusAL or Glass.var.statusAL.Conn == 0 then
       lcd.drawImage(75, 3, redcrossIcon)
@@ -1754,6 +1854,7 @@ local function printTeleSmall(w,h)
       --lcd.drawImage(100,  0, batteryIcon)
       lcd.drawText(100, 3, string.format("Batt %d%%", Glass.var.statusAL.Batt), FONT_MINI)
    end
+   --]]
 end
 
 local function printTele(w,h)
@@ -1797,18 +1898,25 @@ local function printTele(w,h)
    end
 
    lcd.drawImage(265, 15, glassesIcon)
-   if not Glass.var.statusAL or Glass.var.statusAL.Conn == 0 then
+   if not Glass.var.statusAL then
       lcd.drawImage(295, 15, redcrossIcon)
    end
 
-   if Glass.var.statusAL and Glass.var.statusAL.Conn == 1 then
-      lcd.drawImage(295, 15, greencheckIcon)
-      lcd.drawImage(272,  40, batteryIcon)
-      drawTextCenter(287, 70, string.format("%d%%", Glass.var.statusAL.Batt), FONT_MINI)
+   if Glass.var.statusAL and Glass.var.statusAL.Conn then
+      if Glass.var.statusAL.Conn == 1 then
+	 lcd.drawImage(272,  40, batteryIcon)
+	 drawTextCenter(287, 70, string.format("%d%%", Glass.var.statusAL.Batt), FONT_MINI)
+	 if (Glass.var.statusAL.Conf == Glass.var.statusAL.GlassConf and matchConfigID()) then
+	    lcd.drawImage(295, 15, greencheckIcon)
+	 else
+	    lcd.drawImage(295, 15, yellowpauseIcon)	    
+	 end
+      else
+	 lcd.drawImage(295, 15, yellowpauseIcon)	 
+      end
       drawTextCenter(287,120, string.format("C:%d", Glass.var.statusAL.Conf), FONT_MINI)
-      drawTextCenter(287,135, string.format("CG:%d", Glass.var.statusAL.GlassConf), FONT_MINI)            
-   end
-
+      drawTextCenter(287,135, string.format("CG:%d", Glass.var.statusAL.GlassConf), FONT_MINI)          end
+   
    if not pageNumberTele or pageNumberTele < 1 then return end
 
    local xr, yr, xc, yc
@@ -1953,6 +2061,9 @@ end
 local savedData
 
 local function onRead(indata)
+
+   --print("time since last onRead: ", system.getTime() - lastRead)
+   lastRead = system.getTime()
    --print("indata", indata)
    local data
    if savedData then
@@ -2055,7 +2166,8 @@ local function init()
    greencheckIcon = lcd.loadImage(fn)   
    fn = prefix() .. pathImages .. "battery.png"   
    batteryIcon = lcd.loadImage(fn)   
-
+   fn = prefix() .. pathImages .. "yellowpause.png"
+   yellowpauseIcon = lcd.loadImage(fn)      
    --print("CPU 1: ", system.getCPU())
 
    local device
@@ -2149,7 +2261,7 @@ local function init()
       system.messageBox("App settings were reset")
    end
    
-   if not Glass.settings.configVersion then Glass.settings.configVersion = 1 end
+   if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
    
    -- put hex strings back into numbers for Id and Pa
    for k, v in pairs(Glass.page) do
@@ -2205,8 +2317,10 @@ local function init()
       switchItems[k] = system.createSwitch(swi.name, swi.mode, swi.activeOn)
    end
 
+   if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
+   
    updateConfigIDs()
-   if not Glass.settings.configIDs then
+   if not Glass.settings.configIDs or Glass.settings.configVersion == 0 then
       Glass.settings.configIDs = {}
    end
    

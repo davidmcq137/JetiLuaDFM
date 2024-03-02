@@ -49,17 +49,23 @@ for ins in jd["instruments"]:
 		ff = frm[formID]
 		imgs = "./Images/Image{:02d}.bmp".format(imageID)
 		print("Creating Image:", imgs, ins["wtype"], ff["descr"])
-		options = str(ff["width"]) + " " + str(ff["height"]) + " "
-		options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
-		options = options + str(ff["radius"]) + " " + str(ff["minA"]) + " "
-		options = options + str(ff["maxA"]) + " " + str(ff["major"]) + " "
-		options = options + str(ff["minor"]) + " " + str(ff["fine"]) + " "
-		options = options + "'" + ins["ticlabels"] + "' "
-		options = options + "'" + ins["label"] + "' "
-		options = options + str(ff["xlbl"]) + " " + str(ff["ylbl"]) + " "
-		options = options + imgs
-		#print("gaugeGen.py options: ", options)
-		os.system("set -e; python3 gaugeGen.py " + options)
+		bmpf = ins.get("bmpfile")
+		if bmpf == None:
+			options = str(ff["width"]) + " " + str(ff["height"]) + " "
+			options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
+			options = options + str(ff["radius"]) + " " + str(ff["minA"]) + " "
+			options = options + str(ff["maxA"]) + " " + str(ff["major"]) + " "
+			options = options + str(ff["minor"]) + " " + str(ff["fine"]) + " "
+			options = options + "'" + ins["ticlabels"] + "' "
+			options = options + "'" + ins["label"] + "' "
+			options = options + str(ff["xlbl"]) + " " + str(ff["ylbl"]) + " "
+			options = options + imgs
+			#print("gaugeGen.py options: ", options)
+			os.system("set -e; python3 gaugeGen.py " + options)
+		else:
+			print("Copying manually drawn file " + bmpf + " as " + imgs)
+			os.system("set -e; cp Images/archive/" + bmpf + " " + imgs)
+			
 	elif ins["wtype"] == "hbar":
 		imageID += 1
 		formID = ins["formID"]

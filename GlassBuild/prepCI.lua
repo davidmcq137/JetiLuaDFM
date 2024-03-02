@@ -65,7 +65,9 @@ for k,gp in ipairs(availFmt) do
       cfgimgESP.config[k][g] = {}
       cfgimgESP.config[k][g].xlr = math.floor(gw - (availVals[t.xc] + t.width/2))
       cfgimgESP.config[k][g].ylr = math.floor(gh - (availVals[t.yc] + t.height/2))
-
+      cfgimgESP.config[k][g].width = t.width
+      cfgimgESP.config[k][g].height = t.height
+      
       cfgimg.config[k][g] = {}
       cfgimg.config[k][g].xul = math.floor(availVals[t.xc] - t.width/2)
       cfgimg.config[k][g].yul = math.floor(availVals[t.yc] - t.height/2)
