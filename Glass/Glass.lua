@@ -659,6 +659,9 @@ local function loop()
 		     if cfgimg.instruments[v.widgetID].wtype == "htext" then
 			stbl[k].u=Glass.page[pageNumberTele][k].units
 			stbl[k].l=Glass.page[pageNumberTele][k].instName
+		     elseif cfgimg.instruments[v.widgetID].wtype == "timer" then
+			stbl[k].u = ""
+			stbl[k].l = Glass.page[pageNumberTele][k].instName
 		     else
 			stbl[k].u = nil
 		     end
@@ -773,7 +776,7 @@ local function loop()
       --local bufD = "FF460006FFAA\n" -- delete all images
       local bw
 
-      print("sending cfgVersion", cfgVersion)
+      --print("sending cfgVersion", cfgVersion)
       
       if sendState == state.SENDHEADER then
 
@@ -1057,7 +1060,7 @@ local function sendUSB()
    for n,ft,s in dir(prefix().."Apps/Glass/Configs") do
       for i, file in ipairs(sendImgsFiles) do
 	 if file == n then
-	    print("got  it", n, ft, s)
+	    --print("got  it", n, ft, s)
 	    totalSendBytes = totalSendBytes + s
 	 end
       end
@@ -1205,6 +1208,10 @@ local function initForm(sf)
       form.setFocusedRow(1)
    elseif sf == 11 then
 
+      if emflag ~= 0 then -- emulator only: button to force serial send
+	 form.setButton(1, "USB",   ENABLED)
+      end
+      
       local function pageSwChanged(val, name)
 	 local swInfo =system.getSwitchInfo(val)
 	 if not swInfo.proportional then
@@ -1244,9 +1251,9 @@ local function initForm(sf)
       )
       
       
-      form.addRow(2)
-      form.addLabel({label="Set config version"})
-      form.addIntbox(Glass.settings.configVersion, 0, 32767, 1, 0, 1, cvchanged)
+      --form.addRow(2)
+      --form.addLabel({label="Set config version"})
+      --form.addIntbox(Glass.settings.configVersion, 0, 32767, 1, 0, 1, cvchanged)
 
       form.addRow(2)
       form.addLabel({label="GPS Lat Sensor:", font=FONT_NORMAL})
@@ -1266,8 +1273,9 @@ local function initForm(sf)
 			      return end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
 
-      form.addRow(1)
-      form.addLink((function() sendUSB() form.reinit(15) return end), {label="Send config on serial>>"})
+      --form.addRow(1)
+      --form.addLink((function() sendUSB() form.reinit(15) return end),
+      --{label="Send config on serial>>"})
 
       form.addRow(1)
       form.addLink((function() form.reinit(14) return end), {label="Timer setup>>"})      
@@ -1575,7 +1583,7 @@ local function keyPressed(key)
 	 else
 	    if not matchConfigID() then
 	       system.messageBox("Need to send new config to Glasses")
-	       print("time since last onRead: ", system.getTime() - lastRead)
+	       --print("time since last onRead: ", system.getTime() - lastRead)
 	       if (lastRead ~= 0) and (system.getTime() - lastRead > 5) then
 		  system.messageBox("Can't update - glasses offline")
 	       else
@@ -1668,6 +1676,10 @@ local function keyPressed(key)
 	 form.reinit(10)
       end
    elseif subForm == 11 then
+      if key == KEY_1 then
+	 sendUSB()
+	 form.reinit(15)
+      end
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
@@ -1821,7 +1833,7 @@ end
 
 local function printTeleSmall(w,h)
    if pageNumberTele and pageNumberTele > 0 then
-      lcd.drawText(5, 3, string.format("Page %d", pageNumberTele), FONT_MINI)
+      drawTextCenter(20, 10, string.format("Page %d", pageNumberTele), FONT_MINI)
    end
 
    lcd.drawImage(45, 3, glassesIcon)
@@ -1831,7 +1843,7 @@ local function printTeleSmall(w,h)
 
    if Glass.var.statusAL and Glass.var.statusAL.Conn then
       if Glass.var.statusAL.Conn == 1 then
-	 drawTextCenter(100, 3, string.format("%d%%", Glass.var.statusAL.Batt), FONT_MINI)
+	 drawTextCenter(110, 10, string.format("%d%%", Glass.var.statusAL.Batt), FONT_MINI)
 	 if (Glass.var.statusAL.Conf == Glass.var.statusAL.GlassConf and matchConfigID()) then
 	    lcd.drawImage(75, 3, greencheckIcon)
 	 else
@@ -1914,8 +1926,12 @@ local function printTele(w,h)
       else
 	 lcd.drawImage(295, 15, yellowpauseIcon)	 
       end
-      drawTextCenter(287,120, string.format("C:%d", Glass.var.statusAL.Conf), FONT_MINI)
-      drawTextCenter(287,135, string.format("CG:%d", Glass.var.statusAL.GlassConf), FONT_MINI)          end
+      --drawTextCenter(287,120, string.format("C:%d", Glass.var.statusAL.Conf), FONT_MINI)
+      --drawTextCenter(287,135, string.format("CG:%d", Glass.var.statusAL.GlassConf), FONT_MINI)
+      drawTextCenter(287,135, string.format("%d/%d", Glass.var.statusAL.Conf,
+					    Glass.var.statusAL.GlassConf), FONT_MINI)
+   end
+      
    
    if not pageNumberTele or pageNumberTele < 1 then return end
 

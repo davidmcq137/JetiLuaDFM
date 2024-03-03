@@ -64,4 +64,5 @@ Glass/Configs/config*.txt
 Glass/Json/instr*.jsn
 GlassBuild/Images/Image*.bmp
 GlassBuild/Images/Inst*.jsn
+GlassBuild/Images/inst*.jsn
 
