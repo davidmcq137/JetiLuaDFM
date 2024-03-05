@@ -190,6 +190,117 @@ local function drawImage(x,y,imgt, key)
    return lcd.drawImage(x,y,imgt[key])
 end
 
+local function drawTextCenter(x, y, str, font)
+   local w = lcd.getTextWidth(font, str)
+   local h = lcd.getTextHeight(font, str)
+   lcd.drawText(x - w/2, y - h/2, str, font)
+end
+
+local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp)
+   local ren = lcd.renderer()
+   ren:reset()
+   ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
+   ren:addPoint(x0 - ro * math.cos(a0), y0 - ro * math.sin(a0))   
+   
+   for i=1,im-1,1 do
+      ren:addPoint(x0 - ro * math.cos(a0 + i*theta/im), y0 - ro * math.sin(a0 + i*theta/im))
+   end
+   
+   ren:addPoint(x0 - ro * math.cos(a0+theta), y0 - ro * math.sin(a0+theta))
+   ren:addPoint(x0 - ri * math.cos(a0+theta), y0 - ri * math.sin(a0+theta))
+   
+   for i=im-1,1,-1 do
+      ren:addPoint(x0 - ri * math.cos(a0+i*theta/im), y0 - ri * math.sin(a0+i*theta/im))
+   end
+   lcd.setColor(255,255,255)
+   ren:renderPolygon(alp)
+end
+
+local function drawArcGauge(x0, y0, degMin, degMax, min, max, val, rO, rI)
+   local pct = (val - min) / (max - min)
+   pct = math.max(math.min(pct, 1.0), 0.0)
+   local thd = degMin + pct * (degMax - degMin)
+   local thr = math.rad(thd - degMin)
+   drawArc(thr, x0, y0, math.rad(degMin + 90), math.rad(degMax + 90), rI, rO, 20, 1)
+   drawTextCenter(x0, y0, string.format("%.2f", val), FONT_BIG)
+end
+
+local function drawPitch(roll, pitch, pitchR, radAH, X0, Y0)
+
+   local XH,YH
+   local XHS = 18 * radAH / 70
+   local XHL = 40 * radAH / 70
+   
+   local sinRoll = math.sin(math.rad(-roll))
+   local cosRoll = math.cos(math.rad(-roll))
+   local delta = pitch % 15    
+   local ren = lcd.renderer()
+   
+   local i = delta - 45
+   repeat
+      if math.abs(pitch - i) < 0.01 then
+	 XH = XHL;
+      else
+	 XH = XHS;
+      end
+      YH = pitchR * i                      
+
+      local dxh = XH / 5
+      local xw = {XH, XH - 3 * dxh, XH - 4 * dxh, 0}
+      local yw = {YH, YH, YH + dxh, YH}
+      local xp = {}
+      local yp = {}
+      for i = 1, 4, 1 do
+	 xp[i] = -xw[i] * cosRoll - yw[i] * sinRoll
+	 yp[i] = -xw[i] * sinRoll + yw[i] * cosRoll
+      end
+      for i = 3, 1, -1 do
+	 xp[8-i] = xw[i] * cosRoll - yw[i] * sinRoll
+	 yp[8-i] = xw[i] * sinRoll + yw[i] * cosRoll
+      end
+      if( not ( (xp[1] < -radAH and xp[7] < -radAH) or  (xp[1] > radAH and xp[7] > radAH)
+	     or (yp[1] < -radAH and yp[7] < -radAH) or  (yp[1] > radAH and yp[7] > radAH) ) ) then
+	 lcd.setColor(255,255,255)
+	 ren:reset()
+	 if (XH == XHL) then
+	    for i = 1, #xp, 1 do
+	       ren:addPoint(X0 + radAH + xp[i], Y0 + radAH + yp[i])
+	    end
+	    ren:renderPolyline(2)
+	 else
+	    ren:addPoint(X0 + radAH + xp[1], Y0 + radAH + yp[1])
+	    ren:addPoint(X0 + radAH + xp[7], Y0 + radAH + yp[7])	    
+	    ren:renderPolyline(2)
+	 end
+      end
+      i = i + 15
+   until i >= 45 + delta
+
+end
+
+local function drawahGauge(x, y, r, hh, ww, pp, rr)
+   --local pitch = system.getInputs("P2") * 90
+   --local roll = system.getInputs("P1") * 180
+   local pitch, roll
+   if not pp then pitch = 0 else pitch = pp end
+   if not rr then roll = 0 else roll = rr end
+   --print("p,r", pitch, roll)
+   lcd.setColor(0,0,0)
+   lcd.drawFilledRectangle(x - ww/2, y - hh/2, ww, hh)
+   lcd.setColor(255,255,255)
+   lcd.drawCircle(x, y, 5)
+   local BAR = 25
+   local EE = 5
+   lcd.drawLine(x - ww / 2 + EE, y, x - (ww / 2 - BAR), y)
+   lcd.drawLine(x - ww / 2 + EE, y, x - ww / 2 + EE, y + EE)
+   lcd.drawLine(x + ww / 2 - EE, y, x + (ww / 2 - BAR), y)
+   lcd.drawLine(x + ww / 2 - EE, y, x + ww / 2 - EE, y + EE)
+   lcd.drawText(x - ww / 2 + EE, y + hh / 2 - 25, string.format("P: %d°", pitch), FONT_MINI)
+   lcd.drawText(x - ww / 2 + EE, y - hh / 2 + 5,  string.format("R: %d°", roll), FONT_MINI)   
+   local radAH = ww / 2
+   drawPitch(roll, pitch, radAH / 25, radAH, x - radAH, y - radAH)
+end
+
 local function changedSwitch(val, switchName)
    --print("changedSwitch", val, switchName)
    local Invert = 1.0
@@ -232,12 +343,6 @@ local function prefix()
    local pf
    if (select(2, system.getDeviceType()) == 1) then pf = "" else pf = "/" end
    return pf
-end
-
-local function drawTextCenter(x, y, str, font)
-   local w = lcd.getTextWidth(font, str)
-   local h = lcd.getTextHeight(font, str)
-   lcd.drawText(x - w/2, y - h/2, str, font)
 end
 
 local function ms(ival)
@@ -327,7 +432,8 @@ local function readSensors(tt)
    insertSp(tt, -1, 4, "T_Timer1", "Timer1Secs")
    insertSp(tt, -1, 5, "T_Timer2", "Timer2Secs")
    insertSp(tt, -1, 6, "T_Timer1Pct", "Timer1Pct")
-   insertSp(tt, -1, 7, "T_Timer2Pct", "Timer2Pct")   
+   insertSp(tt, -1, 7, "T_Timer2Pct", "Timer2Pct")
+   insertSp(tt, -1, 8, "P_ControlP4", "P4")      
 
    --[[
    teleSensors = #tt.sensorLalist
@@ -375,7 +481,7 @@ local function loop()
    local av
    local scale
    local minV, maxV, lbl
-   local LOOPTIME = 250
+   local LOOPTIME = 350
    local CTRLREP = 4
    local SEND_DELAY = 50 --10
    local BUF_SIZE = 64
@@ -487,8 +593,8 @@ local function loop()
 	    Glass.gpsDistance = gps.getDistance(Glass.curPos, Glass.zeroPos)
 	 end
 	 
-	 local p1 = math.floor(255 * (1 + system.getInputs("P1")) / 2)
-	 local p2 = math.floor(255 * (1 + system.getInputs("P2")) / 2)
+	 --local p1 = math.floor(255 * (1 + system.getInputs("P1")) / 2)
+	 --local p2 = math.floor(255 * (1 + system.getInputs("P2")) / 2)
 
 	 if (not switchItems.pageChange) then pageNumberTele = pageNumber end
 
@@ -504,8 +610,12 @@ local function loop()
 	 for k,v in ipairs(Glass.page[pageNumberTele]) do
 	    if v.imageID and v.imageID >= 0 then
 	       if not v.imageID then print("imageID nil:", k, v.imageID) end
-	       if v.imageID > 0 then
-		  scale = cfgimg.instruments[v.widgetID].scale
+	       if v.imageID >= 0 then
+		  if cfgimg.instruments[v.widgetID].scale ~= "fixed" then
+		     scale = "variable"
+		  else
+		     scale = "fixed"
+		  end
 		  if scale == "variable" then -- if min/max not set pick up defaults
 		     minV = v.minV or cfgimg.instruments[v.widgetID].minV
 		     maxV = v.maxV or cfgimg.instruments[v.widgetID].maxV
@@ -587,6 +697,9 @@ local function loop()
 			   sensor.value = (sensor.tpct or 0)
 			end
 			sensor.valid = true
+		     elseif v.sensorPa == 8 then
+			sensor.value = 50 * (1 + system.getInputs("P4"))
+			sensor.valid = true
 		     end
 		  else
 		     sensor = system.getSensorByID(v.sensorId, v.sensorPa)
@@ -597,8 +710,9 @@ local function loop()
 		  end
 	       end
 
-	       v.value2 = nil -- value2 can only be for compass now...
+	       v.value2 = nil -- value2 can only be for compass or ahGauge now...
 	       sensor = {}
+	       --print("v.sensorId2, v.sensorPa2", v.sensorId2, v.sensorPa2)
 	       if v.sensorId2 and v.sensorId2 ~= 0 and v.sensorPa2 and v.sensorPa2 ~= 0 then
 		  if v.sensorId2 == -1 then -- special sensors, derived values
 		     if v.sensorPa2 == 1 then
@@ -618,18 +732,23 @@ local function loop()
 			else
 			   sensor.valid = false
 			end
-		     else
-			sensor = system.getSensorByID(v.sensorId2, v.sensorPa2)
 		     end
 		     if sensor and sensor.valid then
 			v.value2 = sensor.value
+			--print("v.value2", v.value2)
+		     end
+		  else
+		     sensor = system.getSensorByID(v.sensorId2, v.sensorPa2)
+		     if sensor and sensor.valid then
+			v.value2 = sensor.value
+			--print("v.value2", v.value2)
 		     end
 		  end
 	       end
 
 	       local function sv(dec, val)
 		  local fms
-		  if not dec or (dec < 0) or (dec > 2) then return nil end
+		  --if not dec or (dec < 0) or (dec > 2) then return nil end
 		  if dec == 0 then
 		     fms = "%.0f"
 		  elseif dec == 1 then
@@ -644,7 +763,7 @@ local function loop()
 		     return nil
 		  end
 	       end
-
+	       
 	       sval = sv(v.decimals, v.value)
 	       sval2 = sv(v.decimals2, v.value2)
 	       
@@ -1068,7 +1187,7 @@ local function sendUSB()
    for n,ft,s in dir(prefix().."Apps/Glass/Json") do
       for i, file in ipairs(sendImgsFiles) do
 	 if file == n then
-	    print("got  it", n, ft, s)
+	    --print("got  it", n, ft, s)
 	    totalSendBytes = totalSendBytes + s
 	 end
       end
@@ -1175,6 +1294,8 @@ local function initForm(sf)
       --print("imageMax", imageMax)
       if not imageNum then imageNum = 1 end
 
+      -- isn't imageNum really widgetID??
+      
       if widgetID <= 0 then
 	 if #editImgs < 1 then
 	    print("Glass: no images for", pageNumber, gaugeNumber)
@@ -1195,9 +1316,27 @@ local function initForm(sf)
       local inpS
       local ii
       for inp=1,editImgs[imageNum].inputs do
-	 if editImgs[imageNum].inputs == 1 then inpS = "" ii = 0 else inpS = tostring(inp) ii = inp end
+	 if editImgs[imageNum].inputs == 1 then
+	    inpS = "" ii = 0
+	 else
+	    inpS = "Data source " .. tostring(inp)
+	    if editImgs[imageNum].wtype == "ahGauge" then
+	       if inp == 1 then
+		  inpS = "Pitch"
+	       elseif inp == 2 then
+		  inpS = "Roll"
+	       end
+	    elseif editImgs[imageNum].wtype == "compass" then
+	       if inp == 1 then
+		  inpS = "Heading"
+	       elseif inp == 2 then
+		  inpS = "Bearing"
+	       end
+	    end
+	    ii = inp
+	 end
 	 form.addRow(1)
-	 form.addLink((function() return setinp(inp, ii) end), {label="Data source "..inpS.." >"})
+	 form.addLink((function() return setinp(inp, ii) end), {label=inpS.." >"})
       end
 
       form.addRow(1)
@@ -1316,32 +1455,30 @@ local function initForm(sf)
 
    elseif sf == 13 then
 
-      local id, fn, minV, maxV, av
+      local id, fn, minV, maxV
 
       fn = Glass.page[pageNumber][1].fmtNumber
-      id = Glass.page[pageNumber][gaugeNumber].imageID
+      id = Glass.page[pageNumber][gaugeNumber].widgetID
       if id < 0 then
 	 print("Glass: no images")
 	 return
       end
 
-      av = id2avail[id]
-
-      local scale = cfgimg.instruments[av].scale
+      local scale = cfgimg.instruments[id].scale
       
       if scale == "fixed" or not Glass.page[pageNumber][gaugeNumber].minV then
-	 minV = cfgimg.instruments[av].minV
+	 minV = cfgimg.instruments[id].minV
       else
 	 minV = Glass.page[pageNumber][gaugeNumber].minV
       end
 
       if scale == "fixed" or not Glass.page[pageNumber][gaugeNumber].maxV then
-	 maxV = cfgimg.instruments[av].maxV
+	 maxV = cfgimg.instruments[id].maxV
       else
 	 maxV = Glass.page[pageNumber][gaugeNumber].maxV
       end      
       
-      if cfgimg.instruments[av].scale == "variable" then
+      if cfgimg.instruments[id].scale == "variable" then
 	 local function minChanged(value)
 	    Glass.page[pageNumber][gaugeNumber].minV = value / 10.0
 	 end
@@ -1531,6 +1668,7 @@ local function initForm(sf)
    elseif sf == 15 then
       --form.addRow(1)
       --form.addLabel({label="sf15"})
+      form.setButton(1, "Exit",   ENABLED)
       form.setTitle("Serial data transfer")
    end
 end
@@ -1696,8 +1834,11 @@ local function keyPressed(key)
       end
    elseif subForm == 15 then
       if keyExit(key) or key == KEY_ENTER then
-	 --form.preventDefault()
+	 --print("sf 15, keyExit, key", keyExit(key), key)
+	 form.preventDefault()
 	 --form.reinit(1)
+      elseif key == KEY_1 then
+	 form.reinit(1)
       end
    end
 end
@@ -1757,7 +1898,34 @@ local function printForm(w,h)
 	 local un = Glass.page[pageNumber][gaugeNumber].units
 	 if editImgs[imageNum].wtype == "gauge" or editImgs[imageNum].wtype == "compass" or
 	    editImgs[imageNum].wtype == "hbar" then
-	    drawImage(xi,yi,editImgs[imageNum], "loadImage") -- XXXXXX
+	    drawImage(xi,yi,editImgs[imageNum], "loadImage")
+	 elseif editImgs[imageNum].wtype == "arcGauge" then
+	    lcd.setColor(0,0,0)
+	    lcd.drawFilledRectangle(xi, yi, editImgs[imageNum].imageWidth,
+				    editImgs[imageNum].imageHeight)
+	    local id = editImgs[imageNum].widgetID
+	    --drawArcGauge(offset + r * xc, r * yc, minA, maxA,
+	    --min, max, val, r*cfgimg.forms[fid].radiusOut, r*cfgimg.forms[fid].radiusIn)
+	    local fid = cfgimg.instruments[id].formID + 1
+	    --print("id, fid", id, fid)
+	    local r = 144/160
+	    local minA = 22.5 * (cfgimg.forms[fid].arcStart - 9)
+	    local maxA = 22.5 * (cfgimg.forms[fid].arcEnd - 8)
+	    local hh, ww = cfgimg.forms[fid].height, cfgimg.forms[fid].width
+	    --print(xi, yi, hh, ww, minA, maxA)
+	    lcd.setColor(255,255,255)
+	    drawArcGauge(xi + ww / 2 - 8, yi + hh / 2 - 4, minA, maxA,
+			 cfgimg.instruments[id].minV, cfgimg.instruments[id].maxV,
+			 cfgimg.instruments[id].maxV, r * cfgimg.forms[fid].radiusOut,
+			 r * cfgimg.forms[fid].radiusIn)
+	 elseif editImgs[imageNum].wtype == "ahGauge" then
+	    local id = editImgs[imageNum].widgetID
+	    local fid = cfgimg.instruments[id].formID + 1	    
+	    local hh, ww = cfgimg.forms[fid].height, cfgimg.forms[fid].width	    
+	    local rr = ww / 2
+	    local r = 144/160
+	    --print(xi + ww / 2, yi + hh / 2, rr)
+	    drawahGauge(xi + ww / 2 - 8, yi + hh / 2 - 8, r * rr, r * hh, r * ww)
 	 elseif editImgs[imageNum].wtype == "htext" then
 	    lcd.setColor(0,0,0)
 	    lcd.drawRectangle(xi, yi, editImgs[imageNum].imageWidth, editImgs[imageNum].imageHeight)
@@ -1806,6 +1974,7 @@ local function printForm(w,h)
    end
 end
 
+
 local function drawNeedle(x0, y0, degMin, degMax, min, max, val, len)
    
    local ren = lcd.renderer()
@@ -1837,8 +2006,9 @@ local function printTeleSmall(w,h)
    end
 
    lcd.drawImage(45, 3, glassesIcon)
-   if not Glass.var.statusAL then
+   if not Glass.var.statusAL or system.getTime() - lastRead > 5 then
       lcd.drawImage(75, 3, redcrossIcon)
+      return
    end
 
    if Glass.var.statusAL and Glass.var.statusAL.Conn then
@@ -1909,12 +2079,14 @@ local function printTele(w,h)
       lcd.drawText(10, 10, string.format("Page %d", pageNumberTele))
    end
 
+   local offline = system.getTime() - lastRead > 5
+
    lcd.drawImage(265, 15, glassesIcon)
-   if not Glass.var.statusAL then
+   if not Glass.var.statusAL or offline then
       lcd.drawImage(295, 15, redcrossIcon)
    end
 
-   if Glass.var.statusAL and Glass.var.statusAL.Conn then
+   if Glass.var.statusAL and Glass.var.statusAL.Conn and not offline then
       if Glass.var.statusAL.Conn == 1 then
 	 lcd.drawImage(272,  40, batteryIcon)
 	 drawTextCenter(287, 70, string.format("%d%%", Glass.var.statusAL.Batt), FONT_MINI)
@@ -1936,7 +2108,7 @@ local function printTele(w,h)
    if not pageNumberTele or pageNumberTele < 1 then return end
 
    local xr, yr, xc, yc
-   local min, max, val, lbl
+   local min, max, val, val2, lbl
    local ccfg, cid, fid
 
    gpp = Glass.page[pageNumberTele]
@@ -1947,7 +2119,7 @@ local function printTele(w,h)
    -- From here, everything referenced with "t." would come from the 200msec json if we
    -- were in the ESP. Make sure we only reference things that are sent that way so we're not
    -- cheating. Everything from "cid." is from the instruments section cfgimg.instruments
-   
+
    for g,t in ipairs(gpp) do        -- loop over all gauges on this page with a valid imageID
       --[[
       if g <= 3  then
@@ -1974,6 +2146,7 @@ local function printTele(w,h)
 	    end
 	    lbl = t.instName or "..." --.instName is named .label in the 200ms json 
 	    val = t.value
+	    val2 = t.value2
 	    --print(g, cid.wtype,t.widgetID)
 	    if cid.wtype == "gauge" then
 	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
@@ -2005,15 +2178,31 @@ local function printTele(w,h)
 		  drawTimer(offset + r * xc, r * yc, val, lbl, r * cfgimg.forms[fid].txtW,
 			    r * cfgimg.forms[fid].txtH)
 	       end
+	    elseif cid.wtype == "arcGauge" then
+	       if val then
+		  local minA = 22.5 * (cfgimg.forms[fid].arcStart - 9)
+		  local maxA = 22.5 * (cfgimg.forms[fid].arcEnd - 8)
+		  drawArcGauge(offset + r * xc, r * yc, minA, maxA,
+			  min, max, val, r*cfgimg.forms[fid].radiusOut, r*cfgimg.forms[fid].radiusIn)
+	       end
+	    elseif cid.wtype == "ahGauge" then
+	       local hh = cfgimg.forms[fid].width
+	       local ww = cfgimg.forms[fid].height
+	       --print("ahGauge", val, offset + r * xc, r * yc, r * ww / 2)
+	       if val then
+		  drawahGauge(offset + r * xc, r * yc, r * (ww - 10) / 2, r*hh, r*ww, val, val2)
+	       end
 	    end 
-	    if (cid.wtype == "gauge" or cid.wtype == "hbar") and cid.scale == "variable" then
+	    if (cid.wtype == "gauge" or cid.wtype == "hbar" or cid.wtype == "arcGauge")
+	       and cid.scale == "variable" then
 	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlmin,
 			      yr * r + r * cfgimg.forms[fid].ylmin,
 			      string.format(dpFmt(min), min), FONT_MINI)
 	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlmax,
 			      yr * r + r * cfgimg.forms[fid].ylmax,
 			      string.format(dpFmt(max), max), FONT_MINI)
-	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlbl, yr * r + r * cfgimg.forms[fid].ylbl,
+	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlbl,
+			      yr * r + r * cfgimg.forms[fid].ylbl,
 			      lbl, FONT_MINI)			      
 	    end
 	 end

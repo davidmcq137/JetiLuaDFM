@@ -119,8 +119,28 @@
      "unit": "ft"
     },
 
+    {"id":4,"param":0,"sensorName":"Generic", "label":"generic"},
+    {"id":4,
+     "param":1,
+     "decimals":1,
+     "type":1,
+     "sensorName":"gen",
+     "label":"Roll",
+     "luaExp":"P1(-180, 180)",
+     "unit":"°"
+    },
+    {"id":4,
+     "param":2,
+     "decimals":1,
+     "type":1,
+     "sensorName":"gen",
+     "label":"Pitch",
+     "luaExp":"P2(-90, 90)",
+     "unit":"°"
+    },        
+
     {"id":3,"param":0,"sensorName":"MGPS", "label":"MGPS"},
-    {"id":201,
+    {"id":3,
      "param":2,
      "decimals":0,
      "type":9,
@@ -128,7 +148,7 @@
      "label":"Latitude",
      "unit":""
     },    
-    {"id":201,
+    {"id":3,
      "param":3,
      "decimals":0,
      "type":9,
@@ -136,7 +156,7 @@
      "label":"Longitude",
      "unit":""
     },
-    {"id":201,
+    {"id":3,
      "param":6,
      "decimals":0,
      "type":1,
@@ -145,7 +165,7 @@
      "unit":"m",
      "luaExp":"P5(0,200)"
     },
-    {"id":201,
+    {"id":3,
      "param":8,
      "decimals":0,
      "type":1,
@@ -154,7 +174,7 @@
      "unit":"m/s",
      "luaExp":"P8(0,200/3.6)"
     },
-    {"id":201,
+    {"id":3,
      "param":5,
      "decimals":0,
      "type":1,
@@ -163,7 +183,7 @@
      "unit":"",
      "luaExp":"5"
     },
-    {"id":201,
+    {"id":3,
      "param":4,
      "decimals":0,
      "type":1,
@@ -172,7 +192,7 @@
      "unit":"",
      "luaExp":"1.1"
     },
-    {"id":201,
+    {"id":3,
      "param":10,
      "decimals":0,
      "type":1,

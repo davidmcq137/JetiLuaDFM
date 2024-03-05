@@ -4,7 +4,6 @@ import json
 import os
 import sys
 
-
 #
 # The availFile (see below) has a list of all the gauge images along with their properties.
 #

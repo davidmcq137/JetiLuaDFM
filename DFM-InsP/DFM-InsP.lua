@@ -3997,7 +3997,12 @@ local function printForm(ww0,hh0,tWin)
 		  ren:reset()
 		  ren:addPoint(X0 + radAH + X1, Y0 + radAH + Y1)
 		  ren:addPoint(X0 + radAH + X2, Y0 + radAH + Y2)
-		  ren:renderPolyline(2)
+		  if (XH == XHL) then
+		     ren:renderPolyline(3)
+		  else
+		     ren:renderPolyline(2)
+		  end
+		  
 		  if (XH == XHS) then
 		     HP.drawHP1345A(X0 + radAH + X3, Y0 + radAH + Y3, pps, scale,
 				    math.rad(roll), 2);
