@@ -238,6 +238,7 @@ local function drawPitch(roll, pitch, pitchR, radAH, X0, Y0)
    
    local i = delta - 45
    repeat
+      print(string.format("i %f delta %f pitch %f abs(pitch - i) %f", i, delta, pitch, math.abs(pitch-i)))
       if math.abs(pitch - i) < 0.01 then
 	 XH = XHL;
       else
@@ -291,10 +292,13 @@ local function drawahGauge(x, y, r, hh, ww, pp, rr)
    lcd.drawCircle(x, y, 5)
    local BAR = 25
    local EE = 5
+
    lcd.drawLine(x - ww / 2 + EE, y, x - (ww / 2 - BAR), y)
    lcd.drawLine(x - ww / 2 + EE, y, x - ww / 2 + EE, y + EE)
+   
    lcd.drawLine(x + ww / 2 - EE, y, x + (ww / 2 - BAR), y)
    lcd.drawLine(x + ww / 2 - EE, y, x + ww / 2 - EE, y + EE)
+
    lcd.drawText(x - ww / 2 + EE, y + hh / 2 - 25, string.format("P: %d°", pitch), FONT_MINI)
    lcd.drawText(x - ww / 2 + EE, y - hh / 2 + 5,  string.format("R: %d°", roll), FONT_MINI)   
    local radAH = ww / 2
@@ -1317,7 +1321,8 @@ local function initForm(sf)
       local ii
       for inp=1,editImgs[imageNum].inputs do
 	 if editImgs[imageNum].inputs == 1 then
-	    inpS = "" ii = 0
+	    inpS = "Data source"
+	    ii = 0
 	 else
 	    inpS = "Data source " .. tostring(inp)
 	    if editImgs[imageNum].wtype == "ahGauge" then
