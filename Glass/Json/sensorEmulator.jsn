@@ -135,7 +135,7 @@
      "type":1,
      "sensorName":"gen",
      "label":"Pitch",
-     "luaExp":"P2(-90, 90)",
+     "luaExp":"P2(-45, 45)",
      "unit":"°"
     },        
 

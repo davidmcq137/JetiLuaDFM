@@ -238,7 +238,7 @@ local function drawPitch(roll, pitch, pitchR, radAH, X0, Y0)
    
    local i = delta - 45
    repeat
-      print(string.format("i %f delta %f pitch %f abs(pitch - i) %f", i, delta, pitch, math.abs(pitch-i)))
+      --print(string.format("i %f delta %f pitch %f abs(pitch - i) %f", i, delta, pitch, math.abs(pitch-i)))
       if math.abs(pitch - i) < 0.01 then
 	 XH = XHL;
       else
@@ -299,8 +299,8 @@ local function drawahGauge(x, y, r, hh, ww, pp, rr)
    lcd.drawLine(x + ww / 2 - EE, y, x + (ww / 2 - BAR), y)
    lcd.drawLine(x + ww / 2 - EE, y, x + ww / 2 - EE, y + EE)
 
-   lcd.drawText(x - ww / 2 + EE, y + hh / 2 - 25, string.format("P: %d°", pitch), FONT_MINI)
-   lcd.drawText(x - ww / 2 + EE, y - hh / 2 + 5,  string.format("R: %d°", roll), FONT_MINI)   
+   --lcd.drawText(x - ww / 2 + EE, y + hh / 2 - 25, string.format("P: %d°", pitch), FONT_MINI)
+   --lcd.drawText(x - ww / 2 + EE, y - hh / 2 + 5,  string.format("R: %d°", roll), FONT_MINI)   
    local radAH = ww / 2
    drawPitch(roll, pitch, radAH / 25, radAH, x - radAH, y - radAH)
 end
@@ -423,21 +423,25 @@ local function readSensors(tt)
    -- Pa = 6  Timer 1 percentage of time/(initial-target)
    -- Pa = 7  Timer 2 percentage of time/(initial-target)   
    
-   local function insertSp(tbl, id, pa, la, ls)
+   local function insertSp(tbl, id, pa, la, ls, un)
       table.insert(tbl.sensorLalist, la)
       table.insert(tbl.sensorLslist, ls)
       table.insert(tbl.sensorIdlist, id)
       table.insert(tbl.sensorPalist, pa)
+      table.insert(tbl.sensorUnlist, un)      
    end
 
-   insertSp(tt, -1, 1, "GPS_Distance", "Distance")
-   insertSp(tt, -1, 2, "GPS_BearingTo", "BearingTo")
-   insertSp(tt, -1, 3, "GPS_BearingFrom", "BearingFrom")   
-   insertSp(tt, -1, 4, "T_Timer1", "Timer1Secs")
-   insertSp(tt, -1, 5, "T_Timer2", "Timer2Secs")
-   insertSp(tt, -1, 6, "T_Timer1Pct", "Timer1Pct")
-   insertSp(tt, -1, 7, "T_Timer2Pct", "Timer2Pct")
-   insertSp(tt, -1, 8, "P_ControlP4", "P4")      
+   insertSp(tt, -1, 1, "GPS_Distance", "Distance", "m")
+   insertSp(tt, -1, 2, "GPS_BearingTo", "BearingTo", "°")
+   insertSp(tt, -1, 3, "GPS_BearingFrom", "BearingFrom", "°")   
+   insertSp(tt, -1, 4, "T_Timer1", "Timer1Secs", "s")
+   insertSp(tt, -1, 5, "T_Timer2", "Timer2Secs", "s")
+   insertSp(tt, -1, 6, "T_Timer1Pct", "Timer1Pct", "%")
+   insertSp(tt, -1, 7, "T_Timer2Pct", "Timer2Pct", "%")
+   insertSp(tt, -1, 8, "P_ControlP1", "P1", "")
+   insertSp(tt, -1, 9, "P_ControlP2", "P2", "")
+   insertSp(tt, -1,10, "P_ControlP3", "P3", "")
+   insertSp(tt, -1,11, "P_ControlP4", "P4", "")      
 
    --[[
    teleSensors = #tt.sensorLalist
@@ -633,6 +637,7 @@ local function loop()
 	       sensor = {}
 	       if (v.sensorId ~= 0) and (v.sensorPa ~= 0) then
 		  if v.sensorId == -1 then -- special sensors, derived values
+		     --print("v1 sensorPa", v.sensorPa)
 		     if v.sensorPa == 1 then
 			if Glass.gpsDistance then
 			   sensor.valid = true
@@ -702,6 +707,15 @@ local function loop()
 			end
 			sensor.valid = true
 		     elseif v.sensorPa == 8 then
+			sensor.value = 45 * system.getInputs("P1")
+			sensor.valid = true
+		     elseif v.sensorPa == 9 then
+			sensor.value = 45 * system.getInputs("P2")
+			sensor.valid = true
+		     elseif v.sensorPa == 10 then
+			sensor.value =  1 + system.getInputs("P3")
+			sensor.valid = true
+		     elseif v.sensorPa == 11 then
 			sensor.value = 50 * (1 + system.getInputs("P4"))
 			sensor.valid = true
 		     end
@@ -719,6 +733,7 @@ local function loop()
 	       --print("v.sensorId2, v.sensorPa2", v.sensorId2, v.sensorPa2)
 	       if v.sensorId2 and v.sensorId2 ~= 0 and v.sensorPa2 and v.sensorPa2 ~= 0 then
 		  if v.sensorId2 == -1 then -- special sensors, derived values
+		     --print("v2 sensorPa2", v.sensorPa)
 		     if v.sensorPa2 == 1 then
 			if Glass.gpsDistance then
 			   sensor.valid = true
@@ -736,6 +751,18 @@ local function loop()
 			else
 			   sensor.valid = false
 			end
+		     elseif v.sensorPa2 == 8 then
+			sensor.value = 45 * system.getInputs("P1")
+			sensor.valid = true
+		     elseif v.sensorPa2 == 9 then
+			sensor.value = 45 * system.getInputs("P2")
+			sensor.valid = true
+		     elseif v.sensorPa2 == 10 then
+			sensor.value =  1 + system.getInputs("P3")
+			sensor.valid = true
+		     elseif v.sensorPa2 == 11 then
+			sensor.value = 50 * (1 + system.getInputs("P4"))
+			sensor.valid = true
 		     end
 		     if sensor and sensor.valid then
 			v.value2 = sensor.value
@@ -944,7 +971,7 @@ local function loop()
       end
       if not bw or (sendState == state.SENDFOOTER) then
 	 print("Glass: Sending config footer")
-	 if sendFPser then io.close(sendFPser) end
+	 --if sendFPser then io.close(sendFPser) end -- uncomment to save the .txt files
 	 --print("sending \\000 " .. (system.getTimeCounter() - startingTime) .. " ms")
 	 sendCtrl("\000", 1) -- back to normal mode
 	 local dt = system.getTimeCounter() - startingTime
@@ -1863,8 +1890,8 @@ local function drawText(x0, y0, val, lbl, units, twid, thgt)
    ww = lcd.getTextWidth(FONT_MINI, lbl)
    hh = lcd.getTextHeight(FONT_MINI, lbl)
    lcd.drawText(x0, y0 - hh/2, lbl, FONT_MINI)
-   ww = lcd.getTextWidth(FONT_MINI, units)
-   hh = lcd.getTextHeight(FONT_MINI, units)
+   ww = lcd.getTextWidth(FONT_MINI, (units or ""))
+   hh = lcd.getTextHeight(FONT_MINI, (units or ""))
    lcd.drawText(x0 + twid - ww, y0-hh/2, units, FONT_MINI)
 end
 
@@ -2198,14 +2225,22 @@ local function printTele(w,h)
 		  drawahGauge(offset + r * xc, r * yc, r * (ww - 10) / 2, r*hh, r*ww, val, val2)
 	       end
 	    end 
-	    if (cid.wtype == "gauge" or cid.wtype == "hbar" or cid.wtype == "arcGauge")
-	       and cid.scale == "variable" then
+	    --print(cid.wtype, cid.scale, min, max)
+	    if ( ((cid.wtype == "gauge" or cid.wtype == "hbar" or cid.wtype == "arcGauge")
+	       and cid.scale == "variable") or cid.wtype == "ahGauge") then
+	       local smin = string.format(dpFmt(min), min)
+	       local smax = string.format(dpFmt(max), max)
+	       if cid.wtype == "ahGauge" then
+		  smin = string.format("R: %.0f°", val2)
+		  smax = string.format("P: %.0f°", val)
+		  lbl = ""
+	       end
 	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlmin,
 			      yr * r + r * cfgimg.forms[fid].ylmin,
-			      string.format(dpFmt(min), min), FONT_MINI)
+			      smin, FONT_MINI)
 	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlmax,
 			      yr * r + r * cfgimg.forms[fid].ylmax,
-			      string.format(dpFmt(max), max), FONT_MINI)
+			      smax, FONT_MINI)
 	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlbl,
 			      yr * r + r * cfgimg.forms[fid].ylbl,
 			      lbl, FONT_MINI)			      

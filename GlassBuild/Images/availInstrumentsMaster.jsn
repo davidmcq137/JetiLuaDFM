@@ -102,8 +102,8 @@
 	    "descr": "Art Horiz 160x160",
 	    "x0":      80, "y0":     80,
 	    "height": 160, "width": 160,
-	    "xlmin":   20, "ylmin": 145,
-	    "xlmax":  140, "ylmax": 145,  
+	    "xlmin":   25, "ylmin":  60,
+	    "xlmax":  145, "ylmax":  60,  
 	    "xlbl":    80, "ylbl":  145
 	}
 
