@@ -592,6 +592,7 @@ local function loop()
    -- maybe consider letting the internal update (for the tele window) run at full speed
    -- and only throttling the sending of json for 200msec?
 
+   --print(sendState, pageMax)
    if sendState == state.IDLE and system.getTimeCounter() > jsonHoldTime then
       if pageMax > 0 and (now > lastWrite + LOOPTIME) then
 
@@ -1058,16 +1059,21 @@ local function loop()
 		  --]]
 	       elseif sendState == state.SENDFONTS then
 		  io.close(sendFP)
-		  sendImgsIdx = 1
-		  serialFileName = "Sending instrument: " .. string.sub(sendImgs[sendImgsIdx], -11)
-		  sendFP = io.open(sendImgs[sendImgsIdx], "r")
-		  if not sendFP then
-		     print("Glass:cannot open image file "..sendImgsIdx)
-		     sendState = state.IDLE
-		     break
+		  if #sendImgs > 0 then
+		     sendImgsIdx = 1
+		     serialFileName = "Sending instrument: " .. string.sub(sendImgs[sendImgsIdx], -11)
+		     sendFP = io.open(sendImgs[sendImgsIdx], "r")
+		     if not sendFP then
+			print("Glass:cannot open image file "..sendImgsIdx)
+			sendState = state.IDLE
+			break
+		     else
+			sendState = state.SENDIMGS
+		     end
 		  else
-		     sendState = state.SENDIMGS
+		     sendState = state.SENDFOOTER
 		  end
+		  
 	       elseif sendState == state.SENDIMGS then
 		  io.close(sendFP)
 		  if sendImgsIdx < #sendImgs then

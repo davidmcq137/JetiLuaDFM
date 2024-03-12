@@ -1,0 +1,12 @@
+{
+    "turbineName": "Xicoy X95",
+    "turbineIdleKRPM":48,
+    "turbineMaxKRPM":175,
+    "turbineMaxEGT":800,
+    "turbineThrustTable": [
+	0.0,
+	0.0,
+	0.0,
+	0.0
+    ]
+}

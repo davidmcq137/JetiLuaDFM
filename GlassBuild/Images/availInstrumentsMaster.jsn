@@ -106,8 +106,6 @@
 	    "xlmax":  145, "ylmax":  60,  
 	    "xlbl":    80, "ylbl":  145
 	}
-
-
     ],
     
     "instruments":
@@ -193,6 +191,12 @@
 	{"formID": 10, "wtype": "ahGauge",
 	 "scale":"fixed","label":"",
 	 "inputs":2, "minV":0, "maxV":100
+	},
+
+	{"formID": 0, "wtype": "gNew",
+	 "scale":"fixed","label":"",
+	 "inputs":1, "minV":12, "maxV":18
 	}	
+	
     ]
 }
