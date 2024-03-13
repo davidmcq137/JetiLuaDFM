@@ -194,8 +194,10 @@
 	},
 
 	{"formID": 0, "wtype": "gNew",
-	 "scale":"fixed","label":"",
-	 "inputs":1, "minV":12, "maxV":18
+	 "scale":"variable","label":"",
+	 "inputs":1, "minV":0, "maxV":120,
+	 "majorD": 6, "minorD":12, "fineD":60,
+	 "ticfmt":"%.0f"
 	}	
 	
     ]

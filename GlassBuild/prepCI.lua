@@ -100,7 +100,9 @@ cfgimg.instruments = {}
 
 skip = {height=true, width=true, name=true, label=true, descr=true,
 	xlminX=true, xlmaxX=true, ylminX=true, ylmaxX=true,
-	major=true, minor=true, fine=true, ticlabels=true, radius=true}
+	major=true, minor=true, fine=true, ticlabels=true, radius=true,
+	["<remove to use bmpfile>bmpfile"]=true
+}
 
 -- identify which values have to be translated from the conventional upper left origin
 -- to the lower right origin of the glasses
