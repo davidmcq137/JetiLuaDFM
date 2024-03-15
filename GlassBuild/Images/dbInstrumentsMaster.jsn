@@ -70,7 +70,7 @@
 	    "descr": "hbar 240x45",
 	    "height":45, "width":240,
 	    "xlmin": 15, "xlmax": 225,
-	    "ylmin":35, "ylmax":35,"hgt": 20, "wid": 210,
+	    "ylmin":35, "ylmax":35,"barH": 20, "barW": 210,
 	    "xlbl": 120, "ylbl": 35,
 	    "x0":    15, "y0":    5,
 	    "major": 5
@@ -78,13 +78,13 @@
 	{
 	    "descr": "text 240x45",
 	    "height":45, "width":240,
-	    "wid": 220, "hgt":20,
+	    "txtW": 220, "txtH":20,
 	    "x0":10, "y0":5
 	},
 	{
 	    "descr": "timer 240x45",
 	    "height":45, "width":240,
-	    "wid": 220, "hgt":20,
+	    "txtW": 220, "txtH":20,
 	    "x0":10, "y0":5
 	}
     ],

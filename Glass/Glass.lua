@@ -708,16 +708,16 @@ local function loop()
 			end
 			sensor.valid = true
 		     elseif v.sensorPa == 8 then
-			sensor.value = 45 * system.getInputs("P1")
+			sensor.value = minV + (maxV - minV) * (1 + system.getInputs("P1")) / 2
 			sensor.valid = true
 		     elseif v.sensorPa == 9 then
-			sensor.value = 45 * system.getInputs("P2")
+			sensor.value = minV + (maxV - minV) * (1 + system.getInputs("P2")) / 2
 			sensor.valid = true
 		     elseif v.sensorPa == 10 then
-			sensor.value =  1 + system.getInputs("P3")
+			sensor.value = minV + (maxV - minV) * (1 + system.getInputs("P3")) / 2
 			sensor.valid = true
 		     elseif v.sensorPa == 11 then
-			sensor.value = 50 * (1 + system.getInputs("P4"))
+			sensor.value = minV + (maxV - minV) * (1 + system.getInputs("P4")) / 2
 			sensor.valid = true
 		     end
 		  else
@@ -822,9 +822,13 @@ local function loop()
 		     stbl[k].v2 = tonumber(sval2)
 		  end
 		  if scale == "variable" and sval then
-		     stbl[k].nV = minV
-		     stbl[k].xV = maxV		  
-		     stbl[k].t=Glass.page[pageNumberTele][k].instName
+		     stbl[k].nV = string.format("%.2f", minV) 
+		     stbl[k].xV = string.format("%.2f", maxV)
+		     stbl[k].t = Glass.page[pageNumberTele][k].instName
+		     stbl[k].mJ = Glass.page[pageNumberTele][k].major
+		     stbl[k].mN = Glass.page[pageNumberTele][k].minor		     
+		     stbl[k].f = Glass.page[pageNumberTele][k].fine
+		     stbl[k].fM = Glass.page[pageNumberTele][k].ticfmt		     
 		  end
 	       end
 	    end
@@ -2031,11 +2035,10 @@ local function drawNeedle(x0, y0, degMin, degMax, min, max, val, len)
 
 end
 
-local function drawHbar(x0, y0, min, max, val, barW, barH)
-   local bw = math.floor(barW * (val - min) / (max - min) + 0.5)
-   bw = math.min(math.max(0, bw), barW+1)
-   --print(x0, y0, bw, barH)
-   lcd.drawFilledRectangle(x0, y0, bw, barH)
+local function drawHbar(x0, y0, min, max, val, wid, hgt)
+   local bw = math.floor(wid * (val - min) / (max - min) + 0.5)
+   bw = math.min(math.max(0, bw), wid+1)
+   lcd.drawFilledRectangle(x0, y0, bw, hgt)
 end
 
 local function printTeleSmall(w,h)
@@ -2195,26 +2198,28 @@ local function printTele(w,h)
 	    elseif cid.wtype == "compass" then
 	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
 	       if val then
-		  drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, val, r * cfgimg.forms[fid].nlen1)
+		  drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, val,
+			     r * cfgimg.forms[fid].nlen)
 	       end
 	       if t.value2 then
-		  drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, t,value2, r * cfgimg.forms[fid].nlen2)
+		  drawNeedle(offset + r * xc, r * yc, 0, 360, 0, 360, t.value2,
+			     r * cfgimg.forms[fid].nlen)
 	       end
 	    elseif cid.wtype == "hbar" then
 	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
 	       if val then
-		  drawHbar(offset + r * xc, r * yc, min, max, val, r * cfgimg.forms[fid].barW,
-			   r * cfgimg.forms[fid].barH)
+		  drawHbar(offset + r * xc, r * yc, min, max, val, r * cfgimg.forms[fid].wid,
+			   r * cfgimg.forms[fid].hgt)
 	       end
 	    elseif cid.wtype == "htext" then
 	       if val then
-		  drawText(offset + r * xc, r * yc, val, lbl, t.units, r * cfgimg.forms[fid].txtW,
-			   r * cfgimg.forms[fid].txtH)
+		  drawText(offset + r * xc, r * yc, val, lbl, t.units, r * cfgimg.forms[fid].wid,
+			   r * cfgimg.forms[fid].hgt)
 	       end
 	    elseif cid.wtype == "timer" then
 	       if val then
-		  drawTimer(offset + r * xc, r * yc, val, lbl, r * cfgimg.forms[fid].txtW,
-			    r * cfgimg.forms[fid].txtH)
+		  drawTimer(offset + r * xc, r * yc, val, lbl, r * cfgimg.forms[fid].wid,
+			    r * cfgimg.forms[fid].hgt)
 	       end
 	    elseif cid.wtype == "arcGauge" then
 	       if val then

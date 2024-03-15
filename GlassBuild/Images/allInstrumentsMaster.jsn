@@ -86,6 +86,24 @@
 	    "height":45, "width":240,
 	    "wid": 220, "hgt":20,
 	    "x0":10, "y0":5
+	},
+	{
+	    "descr": "arc 160x160 -135->135",
+	    "radiusIn":    60, "radiusOut": 75,
+	    "arcStart":3, "arcEnd":14,
+	    "x0":      80, "y0":     80,
+	    "height": 160, "width": 160,
+	    "xlmin":   20, "ylmin": 145,
+	    "xlmax":  140, "ylmax": 145,  
+	    "xlbl":    80, "ylbl":  145
+	},
+	{
+	    "descr": "Art Horiz 160x160",
+	    "x0":      80, "y0":     80,
+	    "height": 160, "width": 160,
+	    "xlmin":   25, "ylmin":  60,
+	    "xlmax":  145, "ylmax":  60,  
+	    "xlbl":    80, "ylbl":  145
 	}
     ],
     
@@ -160,6 +178,30 @@
 	{"formID": 8, "wtype": "timer",
 	 "scale":"fixed",
 	 "inputs":1
-	}
+	},
+
+	{"formID": 0, "wtype": "gauge",
+	 "scale":"fixed", "label":"kRPM", "inputs":1,
+	 "ticlabels":"0,20,40,60,80,100,120",
+	 "minV":  0, "maxV":  120
+	},
+	
+	{"formID": 9, "wtype": "arcGauge",
+	 "scale":"variable","label":"",
+	 "inputs":1, "minV":0, "maxV":100
+	},
+
+	{"formID": 10, "wtype": "ahGauge",
+	 "scale":"fixed","label":"",
+	 "inputs":2, "minV":0, "maxV":100
+	},
+
+	{"formID": 0, "wtype": "gNew",
+	 "scale":"variable","label":"",
+	 "inputs":1, "minV":0, "maxV":120,
+	 "majorD": 6, "minorD":12, "fineD":60,
+	 "ticDP":2
+	}	
+	
     ]
 }

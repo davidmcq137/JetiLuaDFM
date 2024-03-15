@@ -73,7 +73,7 @@ for ins in jd["instruments"]:
 		print("Creating Image:", imgs, ins["wtype"], ff["descr"])
 		options = str(ff["width"]) + " " + str(ff["height"]) + " "
 		options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
-		options = options + str(ff["barW"]) + " " + str(ff["barH"]) + " "
+		options = options + str(ff["wid"]) + " " + str(ff["hgt"]) + " "
 		options = options + str(ff["major"]) + " "
 		options = options + "'" + ins["ticlabels"] + "' "
 		options = options + "'" + ins["label"] + "' "
@@ -124,3 +124,4 @@ os.system('set -e;cp -v Images/smaller/*-smaller.png ../Glass/Images')
 os.system('set -e;lua prepCI.lua')
 os.system('set -e;cp -v Images/instrESP.jsn ../Glass/Json')
 os.system('set -e;cp -v Images/instr.jsn ../Glass/Json')
+os.system('set -e;lua header.lua')
