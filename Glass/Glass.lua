@@ -486,6 +486,8 @@ local function loop()
    local sensor, sval, sval2
    local stbl = {}
    local gtbl = {}
+   local dbstbl = {}
+   local dbgtbl = {}
    local av
    local scale
    local minV, maxV, lbl
@@ -613,9 +615,13 @@ local function loop()
 
 	 stbl = {page=pageNumberTele}
 	 gtbl = {}
+	 dbgtbl = {}
+	 
 	 gtbl["pg"] = pageNumberTele 
 	 gtbl["cfg"] = Glass.page[pageNumberTele][1].fmtNumber - 1 --  convert lua convention to c++
 
+	 dbgtbl["p"] = pageNumberTele
+	 
 	 for k,v in ipairs(Glass.page[pageNumberTele]) do
 	    if v.imageID and v.imageID >= 0 then
 	       if not v.imageID then print("imageID nil:", k, v.imageID) end
@@ -801,30 +807,49 @@ local function loop()
 	       
 	       if v.imageID >= 0 then
 		  stbl[k] = {}
+		  dbstbl[k] = {}
+		  dbstbl[k].id = v.widgetID - 1
+		  --print(Glass.page[pageNumberTele][1].fmtNumber,k, cfgimg.lenmap[Glass.page[pageNumberTele][1].fmtNumber][k])
+		  dbstbl[k].loc = cfgimg.lenmap[Glass.page[pageNumberTele][1].fmtNumber][k] - 1
 		  stbl[k].im = v.imageID
 		  stbl[k].wd = v.widgetID - 1
 		  stbl[k].fm = cfgimg.instruments[v.widgetID].formID
 		  stbl[k].wt = string.sub(cfgimg.instruments[v.widgetID].wtype,0,2)
 		  if sval then
 		     stbl[k].v = tonumber(sval)
+		     dbstbl[k].v = tonumber(sval)
 		     if cfgimg.instruments[v.widgetID].wtype == "htext" then
 			stbl[k].u=Glass.page[pageNumberTele][k].units
+			dbstbl[k].u=Glass.page[pageNumberTele][k].units
+			
 			stbl[k].l=Glass.page[pageNumberTele][k].instName
+			dbstbl[k].l=Glass.page[pageNumberTele][k].instName			
 		     elseif cfgimg.instruments[v.widgetID].wtype == "timer" then
 			stbl[k].u = ""
+			dbstbl[k].u = ""			
 			stbl[k].l = Glass.page[pageNumberTele][k].instName
+			dbstbl[k].l = Glass.page[pageNumberTele][k].instName
 		     else
 			stbl[k].u = nil
+			dbstbl[k].u = nil			
 		     end
 		     
 		  end
 		  if sval and sval2 then
 		     stbl[k].v2 = tonumber(sval2)
+		     dbstbl[k].v2 = tonumber(sval2)
 		  end
 		  if scale == "variable" and sval then
-		     stbl[k].nV = string.format("%.2f", minV) 
-		     stbl[k].xV = string.format("%.2f", maxV)
+		     stbl[k].nV = tonumber(sv(2, minV))
+		     dbstbl[k].nV = tonumber(sv(2, minV))
+
+		     stbl[k].xV = tonumber(sv(2, maxV))
+		     dbstbl[k].xV = tonumber(sv(2, maxV))
+
 		     stbl[k].t = Glass.page[pageNumberTele][k].instName
+		     dbstbl[k].t = Glass.page[pageNumberTele][k].instName
+		     
+		     -- not yet in db info
 		     stbl[k].mJ = Glass.page[pageNumberTele][k].major
 		     stbl[k].mN = Glass.page[pageNumberTele][k].minor		     
 		     stbl[k].f = Glass.page[pageNumberTele][k].fine
@@ -836,6 +861,11 @@ local function loop()
 	    for kk,vv in ipairs(stbl) do
 	       gtbl["inst"][kk] = vv
 	    end
+	    dbgtbl["w"] = {}
+	    for kk,vv in ipairs(dbstbl) do
+	       dbgtbl["w"][kk] = vv
+	    end
+	    dbgtbl["n"] = #dbstbl
 	 end
 
 	 -- if we don't match the glasses config, or there is a menu open don't
@@ -853,8 +883,16 @@ local function loop()
 	 
 	 local swb = system.getInputs("SB") -- SB to force sending only on emulator
 
+	 local dbmode = true
+	 
 	 if sendJson or (emflag ~= 0 and swb and swb == 1) then
-	    local espjson = json.encode(gtbl)
+	    local espjson
+	    if not dbmode then
+	       espjson = json.encode(gtbl)
+	    else
+	       espjson = json.encode(dbgtbl)
+	    end
+	    
 	    if emflag ~= 0 then
 	       local swa = system.getInputs("SA") -- SA to show json only on emulator
 	       if swa and swa == 1 then

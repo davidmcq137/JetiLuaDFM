@@ -54,6 +54,7 @@ end
 -- top key "forms" is the forms (basic instrument image) info
 -- top key "instrument" is the widget (instrument) internal details
 
+cfgimgDB = {}
 cfgimgESP = {}
 cfgimgESP.config = {}
 cfgimg.config = {}
@@ -83,6 +84,9 @@ for k,gp in ipairs(availFmt) do
       availFmts[k][g].height = t.height
    end
 end
+
+cfgimgDB.locations = {}
+cfgimgDB.instruments = {}
 
 cfgimgESP.forms = {}
 cfgimgESP.instruments = {}
@@ -160,6 +164,7 @@ for i,img in ipairs(availFormsInstr.instruments) do
    --print("i, id, iid, img.wtype", i, id, iid, img.wtype)
    cfgimgESP.instruments[id] = {}
    cfgimg.instruments[id] = {}
+   cfgimgDB.instruments[id] = {}
    jj = 0
    for k,v in pairs(img) do
       jj = jj + 1
@@ -167,20 +172,29 @@ for i,img in ipairs(availFormsInstr.instruments) do
       if not skip[k] then
 	 if transX[k] then -- move from upper left origin to lower right origin
 	    cfgimgESP.instruments[id][k] = img.width - v
+	    cfgimgDB.instruments[id][k] = img.width - v
 	 elseif transY[k] then
 	    cfgimgESP.instruments[id][k] = img.height - v
+	    cfgimgDB.instruments[id][k] = img.height - v	    
 	 else
 	    cfgimgESP.instruments[id][k] = v
+	    cfgimgDB.instruments[id][k] = v	    
 	 end
       end
       cft = cfgimgESP.instruments[id].wtype
       if cft == "gauge" or cft == "compass" or cft == "hbar" then
 	 cfgimgESP.instruments[id].imageID = iid
+	 cfgimgDB.instruments[id].imageID = iid	 
       else
 	 cfgimgESP.instruments[id].imageID = 0
+	 cfgimgDB.instruments[id].imageID = 0	 
       end
 	 
    end
+
+   typekey = {gauge=0, compass=1, hbar=2, htext=3, timer=4}
+   scalekey = {fixed=0, variable=1}
+   
    for k,v in pairs(img) do
       if not skip[k] then
 	 cfgimg.instruments[id][k] = v
@@ -191,15 +205,68 @@ for i,img in ipairs(availFormsInstr.instruments) do
       else
 	 cfgimg.instruments[id].imageID = 0	 
       end
+
+      if typekey[cft] then cfgimgDB.instruments[id].wtype = typekey[cft] end
+	 
+      cfs = cfgimgESP.instruments[id].scale
+      if scalekey[cfs] then cfgimgDB.instruments[id].scale = scalekey[cfs] end
+
+      swapkeys = {formID="formNum", minV="minValue", maxV = "maxValue", inputs = "nVal"}
+      --print("k, swapkeys[k]", k, swapkeys[k])
+
+      if swapkeys[k] then
+	 cfgimgDB.instruments[id][swapkeys[k]] = v
+	 cfgimgDB.instruments[id][k]= nil
+      end
+      
+   end
+end
+------------------------------
+
+
+
+
+lenarray = {}
+lenuniq = {}
+lenmap = {}
+lu = 0
+for i, screen in ipairs(cfgimgESP.config) do
+   for j, window in ipairs(screen) do
+      window.xlr = math.floor(window.xlr)
+      window.ylr = math.floor(window.ylr)
+      idx = "x"..tostring(window.xlr).."y"..tostring(window.ylr)
+      if not lenuniq[idx] then
+	 lu = lu + 1
+	 --print("creating", lu, idx)
+	 lenuniq[idx] = lu
+	 if not lenmap[i] then lenmap[i] = {} end
+	 lenmap[i][j] = lu
+	 lenarray[lu] = {x=window.xlr, y = window.ylr}
+      else
+	 if not lenmap[i] then lenmap[i] = {} end
+	 lenmap[i][j] = lenuniq[idx]
+      end
    end
 end
 
+cfgimgDB.locations = lenarray
+cfgimg.lenmap = lenmap
+
+
+------------------------------
+encodedDB = json.encode(cfgimgDB)
 encodedESP = json.encode(cfgimgESP)
 encoded = json.encode(cfgimg)
 
 fn = "./Images/instrESP.jsn"
 fp = assert(io.open(fn, "w"))
 assert(fp:write(encodedESP))
+print("Wrote " .. fn)
+fp:close()
+
+fn = "./Images/instrDB.jsn"
+fp = assert(io.open(fn, "w"))
+assert(fp:write(encodedDB))
 print("Wrote " .. fn)
 fp:close()
 

@@ -95,31 +95,35 @@
 	{"formID": 0, "wtype": "gauge",
 	 "scale":"fixed", "label":"V", "inputs":1,
 	 "ticlabels":"12,13,14,15,16,17,18",
-	 "<remove to use bmpfile>bmpfile":"volt_12_18.bmp",
+	 "bmpfile":"volt_12_18.bmp",
 	 "minV":  12, "maxV":  18
 	},
 
 	{"formID": 1, "wtype": "gauge",
 	 "scale":"fixed", "label":"m/s", "inputs":1,
 	 "ticlabels": "3,2,1,0,1,2,3",
+	 "bmpfile":"vario_0_3.bmp",
 	 "minV":  -3,  "maxV":  3
 	},
 
 	{"formID": 2, "wtype": "gauge",
 	 "scale":"fixed", "label":"x100 m", "inputs":1,
 	 "ticlabels": "0,1,2,3,4,5",
+	 "bmpfile":"alti_0_5.bmp",
 	 "minV":  0,  "maxV": 500
 	},
 
 	{"formID": 3, "wtype": "gauge",
 	 "scale":"fixed", "label":"TL", "inputs":1,
 	 "ticlabels": "0,1,2",
+	 "bmpfile":"tl_0_2.bmp",
 	 "minV":  0,  "maxV":   2
 	},
 
 	{"formID": 4, "wtype": "gauge",
 	 "scale":"fixed", "label":"TR", "inputs":1,
 	 "ticlabels": "0,1,2",
+	 "bmpfile":"tr_0_2.bmp",
 	 "minV":  0,  "maxV":   2
 	},
 
@@ -127,14 +131,17 @@
 	 "scale":"fixed",
 	 "ticlabels": "N,O,S,W",
 	 "label": "",
-	 "inputs":2
+	 "inputs":2,
+	 "bmpfile": "compass.bmp",
+	 "minV":0, "maxV":360
 	},
 
 	{"formID": 5, "wtype": "compass",
 	 "scale":"fixed",
 	 "label": "",
 	 "ticlabels": "N,E,S,W",
-	 "inputs":2
+	 "inputs":2,
+	 "minV":0, "maxV":360
 	},
 	
 	{"formID": 6, "wtype": "hbar",
@@ -154,12 +161,16 @@
 
 	{"formID": 7, "wtype": "htext",
 	 "scale":"fixed",
-	 "inputs":1
+	 "inputs":1,
+	 "label":"",
+	 "minV":0, "maxV":100
 	},
 
 	{"formID": 8, "wtype": "timer",
 	 "scale":"fixed",
-	 "inputs":1
+	 "inputs":1,
+	 "label":"",
+	 "minV":0, "maxV":100
 	}
     ]
 }

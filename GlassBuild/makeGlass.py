@@ -123,5 +123,6 @@ os.system('set -e;cp -v Images/smaller/*-smaller.png ../Glass/Images')
 
 os.system('set -e;lua prepCI.lua')
 os.system('set -e;cp -v Images/instrESP.jsn ../Glass/Json')
+os.system('set -e;cp -v Images/instrDB.jsn ../Glass/Json')
 os.system('set -e;cp -v Images/instr.jsn ../Glass/Json')
 os.system('set -e;lua header.lua')
