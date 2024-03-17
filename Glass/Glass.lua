@@ -19,6 +19,8 @@ local pathImages = pathApp.."Images/"
 local pathConfigs = pathApp.."Configs/"
 local pathJson = pathApp.."Json/"
 local JSNVERSION = 4
+local dbmode = true
+	 
 
 local Glass = {}
 
@@ -588,7 +590,7 @@ local function loop()
    end
 
    if sendState == state.IDLE and unow < jsonHoldTime then
-      --print("Glass: Waiting to restart json...")
+      --print("Glass: jsonHoldTime: waiting to restart json...")
    end
 
    -- maybe consider letting the internal update (for the tele window) run at full speed
@@ -809,7 +811,6 @@ local function loop()
 		  stbl[k] = {}
 		  dbstbl[k] = {}
 		  dbstbl[k].id = v.widgetID - 1
-		  --print(Glass.page[pageNumberTele][1].fmtNumber,k, cfgimg.lenmap[Glass.page[pageNumberTele][1].fmtNumber][k])
 		  dbstbl[k].loc = cfgimg.lenmap[Glass.page[pageNumberTele][1].fmtNumber][k] - 1
 		  stbl[k].im = v.imageID
 		  stbl[k].wd = v.widgetID - 1
@@ -883,8 +884,6 @@ local function loop()
 	 
 	 local swb = system.getInputs("SB") -- SB to force sending only on emulator
 
-	 local dbmode = true
-	 
 	 if sendJson or (emflag ~= 0 and swb and swb == 1) then
 	    local espjson
 	    if not dbmode then
@@ -911,7 +910,12 @@ local function loop()
    if sendState == state.WAITING then 
       --print("Glass: Waiting to send config...")
       if true then --system.getTimeCounter() > startingTime then
-	 sendFP = io.open(prefix() .. pathJson .. "instrESP.jsn", "r")
+	 if not dbmode then
+	    sendFP = io.open(prefix() .. pathJson .. "instrESP.jsn", "r")
+	 else
+	    sendFP = io.open(prefix() .. pathJson .. "instrDB.jsn", "r")
+	 end
+	 
 	 if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
 	 sendFPser = io.open(prefix() .. pathConfigs ..
 			     string.format("config%d.txt", Glass.settings.configVersion), "w")
@@ -1027,7 +1031,7 @@ local function loop()
 	 for k in ipairs(currentConfigIDs) do -- remember that this config was sent last
 	    Glass.settings.configIDs[k] = currentConfigIDs[k] 
 	 end
-	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME * 80 -- long (!) wait before restarting 200ms json
+	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME * 40 -- long (!) wait before restarting 200ms json
 	 Glass.settings.configVersion = Glass.settings.configVersion + 1
 	 print("cfgV set to", Glass.settings.configVersion)
 	 sendState = state.IDLE
@@ -1210,7 +1214,7 @@ local function sendUSB()
    --]]
 
    -- create the list of config-imgs fragments that must be uploaded
-   
+
    sendImgs = {}
    local sendImgsFiles = {}
    local av
@@ -1253,7 +1257,12 @@ local function sendUSB()
    -- to allow us to show progress
    
    table.insert(sendImgsFiles, "config-fonts.txt")
-   table.insert(sendImgsFiles, "instrESP.jsn")
+   if dbmode then
+      table.insert(sendImgsFiles, "instrDB.jsn")
+   else
+      table.insert(sendImgsFiles, "instrESP.jsn")
+   end
+   
    totalSendBytes = 0
    for n,ft,s in dir(prefix().."Apps/Glass/Configs") do
       for i, file in ipairs(sendImgsFiles) do
@@ -1800,13 +1809,13 @@ local function keyPressed(key)
 	    form.reinit(1)
 	 else
 	    if not matchConfigID() then
-	       system.messageBox("Need to send new config to Glasses")
 	       --print("time since last onRead: ", system.getTime() - lastRead)
-	       if (lastRead ~= 0) and (system.getTime() - lastRead > 5) then
+	       print("lastRead, system.getTime() - lastRead", lastRead, system.getTime() - lastRead)
+	       if (lastRead == 0) or (system.getTime() - lastRead > 5) then
 		  system.messageBox("Can't update - glasses offline")
 	       else
 		  -- send goes here --
-		  system.messageBox("Calling sendUSB")
+		  system.messageBox("Sending new config to Glasses")
 		  sendUSB()
 		  form.preventDefault()
 		  form.reinit(15)
@@ -2357,7 +2366,6 @@ local savedData
 local function onRead(indata)
 
    --print("time since last onRead: ", system.getTime() - lastRead)
-   lastRead = system.getTime()
    --print("indata", indata)
    local data
    if savedData then
@@ -2374,6 +2382,7 @@ local function onRead(indata)
       callOK, Glass.var.statusAL = pcall(json.decode,data)
       if callOK then
 	 --print(Glass.var.statusAL.Conf,Glass.var.statusAL.GlassConf)
+	 lastRead = system.getTime()
       else
 	 Glass.var.statusAL = nil
       end
