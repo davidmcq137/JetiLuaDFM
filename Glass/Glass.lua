@@ -18,8 +18,8 @@ local pathApp = "Apps/"..appName.."/"
 local pathImages = pathApp.."Images/"
 local pathConfigs = pathApp.."Configs/"
 local pathJson = pathApp.."Json/"
-local JSNVERSION = 4
-local dbmode = true
+local JSNVERSION = 5
+local dbmode = false
 	 
 
 local Glass = {}
@@ -847,8 +847,8 @@ local function loop()
 		     stbl[k].xV = tonumber(sv(2, maxV))
 		     dbstbl[k].xV = tonumber(sv(2, maxV))
 
-		     stbl[k].t = Glass.page[pageNumberTele][k].instName
-		     dbstbl[k].t = Glass.page[pageNumberTele][k].instName
+		     stbl[k].l = Glass.page[pageNumberTele][k].instName
+		     dbstbl[k].l = Glass.page[pageNumberTele][k].instName
 		     
 		     -- not yet in db info
 		     stbl[k].mJ = Glass.page[pageNumberTele][k].major
@@ -911,8 +911,10 @@ local function loop()
       --print("Glass: Waiting to send config...")
       if true then --system.getTimeCounter() > startingTime then
 	 if not dbmode then
+	    print("io.open instrESP.jsn")
 	    sendFP = io.open(prefix() .. pathJson .. "instrESP.jsn", "r")
 	 else
+	    print("io.open instrDB.jsn")
 	    sendFP = io.open(prefix() .. pathJson .. "instrDB.jsn", "r")
 	 end
 	 
@@ -1258,8 +1260,10 @@ local function sendUSB()
    
    table.insert(sendImgsFiles, "config-fonts.txt")
    if dbmode then
+      print("send instrDB")
       table.insert(sendImgsFiles, "instrDB.jsn")
    else
+      print("send instrESP")
       table.insert(sendImgsFiles, "instrESP.jsn")
    end
    
@@ -1998,8 +2002,8 @@ local function printForm(w,h)
 	    local fid = cfgimg.instruments[id].formID + 1
 	    --print("id, fid", id, fid)
 	    local r = 144/160
-	    local minA = 22.5 * (cfgimg.forms[fid].arcStart - 9)
-	    local maxA = 22.5 * (cfgimg.forms[fid].arcEnd - 8)
+	    local minA = cfgimg.forms[fid].arcStart --22.5 * (cfgimg.forms[fid].arcStart - 9)
+	    local maxA = cfgimg.forms[fid].arcEnd --22.5 * (cfgimg.forms[fid].arcEnd - 8)
 	    local hh, ww = cfgimg.forms[fid].height, cfgimg.forms[fid].width
 	    --print(xi, yi, hh, ww, minA, maxA)
 	    lcd.setColor(255,255,255)
@@ -2270,8 +2274,8 @@ local function printTele(w,h)
 	       end
 	    elseif cid.wtype == "arcGauge" then
 	       if val then
-		  local minA = 22.5 * (cfgimg.forms[fid].arcStart - 9)
-		  local maxA = 22.5 * (cfgimg.forms[fid].arcEnd - 8)
+		  local minA = cfgimg.forms[fid].arcStart --22.5 * (cfgimg.forms[fid].arcStart - 9)
+		  local maxA = cfgimg.forms[fid].arcEnd--22.5 * (cfgimg.forms[fid].arcEnd - 8)
 		  drawArcGauge(offset + r * xc, r * yc, minA, maxA,
 			  min, max, val, r*cfgimg.forms[fid].radiusOut, r*cfgimg.forms[fid].radiusIn)
 	       end
@@ -2630,4 +2634,4 @@ local function init()
    print("CPU end init(): ", system.getCPU())
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.9", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.91", name=appName}
