@@ -93,7 +93,7 @@
     },
     {"id":139,
      "param":5,
-     "decimals":1,
+     "decimals":0,
      "type":1,
      "sensorName":"",
      "luaExp":"P5(5000)",          

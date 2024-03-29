@@ -93,9 +93,9 @@
 	    "arcStart":-125, "arcEnd":125,
 	    "x0":      80, "y0":     80,
 	    "height": 160, "width": 160,
-	    "xlmin":   20, "ylmin": 145,
-	    "xlmax":  140, "ylmax": 145,  
-	    "xlbl":    80, "ylbl":  145
+	    "xlmin":   20, "ylmin": 155,
+	    "xlmax":  140, "ylmax": 155,  
+	    "xlbl":    80, "ylbl":  105
 	},
 	{
 	    "descr": "Art Horiz 160x160",
@@ -104,7 +104,38 @@
 	    "xlmin":   25, "ylmin":  60,
 	    "xlmax":  145, "ylmax":  60,  
 	    "xlbl":    80, "ylbl":  145
+	},
+	{
+	    "descr": "arc half-round-right 83x160 165->15",
+	    "radiusIn":    60, "radiusOut": 75,
+	    "x0":    3,  "y0":    80,
+	    "arcStart":165, "arcEnd":   15,
+	    "height":160, "width":83,
+	    "xlmin":70, "ylmin": 155,
+	    "xlmax":70, "ylmax":   5,
+	    "xlbl":  20, "ylbl": 105
+	},
+	{
+	    "descr": "arc half-round-left 83x160 -165-> -15",
+	    "radiusIn":    60, "radiusOut": 75,
+	    "x0":    80,  "y0":    80,
+	    "arcStart":-165, "arcEnd":  -15,
+	    "height":160, "width":83,
+	    "xlmin": 10, "ylmin":155,
+	    "xlmax": 10, "ylmax":  5,
+	    "xlbl":  60, "ylbl":  105
+	},
+	{
+	    "descr": "arc 120x120 -135->135",
+	    "radiusIn":    45, "radiusOut": 56,
+	    "arcStart":-125, "arcEnd":125,
+	    "x0":      60, "y0":     60,
+	    "height": 120, "width": 120,
+	    "xlmin":   20, "ylmin": 105,
+	    "xlmax":  105, "ylmax": 105,  
+	    "xlbl":    60, "ylbl":  85
 	}
+	
     ],
     
     "instruments":
@@ -190,6 +221,7 @@
 	 "label":"",
 	 "minV":0, "maxV":100
 	},
+
 	{"formID": 9, "wtype": "arcGauge",
 	 "scale":"variable","label":"",
 	 "inputs":1, "minV":0, "maxV":100
@@ -205,6 +237,21 @@
 	 "inputs":1, "minV":0, "maxV":120,
 	 "majorD": 6, "minorD":12, "fineD":60,
 	 "ticDP":2
-	}		
+	},
+	
+	{"formID": 11, "wtype": "arcGauge",
+	 "scale":"variable","label":"",
+	 "inputs":1, "minV":0, "maxV":100
+	},
+	
+	{"formID": 12, "wtype": "arcGauge",
+	 "scale":"variable","label":"",
+	 "inputs":1, "minV":0, "maxV":100
+	},
+
+	{"formID": 13, "wtype": "arcGauge",
+	 "scale":"variable","label":"",
+	 "inputs":1, "minV":0, "maxV":100
+	}	
     ]
 }

@@ -1,6 +1,7 @@
 gw = 304
 gh = 256
 large = 160
+small = 120
 ofs=5
 ofs2=-3
 
@@ -8,7 +9,11 @@ availVals = {L1 = gw/2,
 	     L2 = gw/2 - large/2 - ofs, R2 = gw/2 + ofs + -large/4 + large/2,
 	     L3 = gw/2 - ofs - large/4, R3 = gw/2 + ofs + large/2,
 	     L4 = gw/2 - ofs - large/2, C4 = gw/2, R4 = gw/2 + ofs2 + large/2,
+	     L5 = gw/2 - ofs - large * 0.4, R5 = gw/2 + ofs2 + large * 0.4,
+	     L6 = gw/2 - ofs - small/2, R6 = gw/2 + small / 2 + ofs, 
 	     H1 = gh/2, H2 = gh/2 - ofs * 6, H3 = gh/2 + large/2 + ofs * 2,
+	     H4 = gh/2 + ofs*8,
+	     H5 = gh/2 - small / 2 + ofs * 2,
 	     GWID = gw, GHGT = gh
 	     
 }

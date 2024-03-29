@@ -30,9 +30,20 @@
 	{"xc":"R4", "yc":"H1", "width":83, "height":160}
     ],
     [
+	{"xc":"L5", "yc":"H2", "width":83, "height":160},
+	{"xc":"R5", "yc":"H2", "width":83, "height":160},
+	{"xc":"L1", "yc":"H3", "width":240, "height":45}
+    ],
+    [
 	{"xc":"L4", "yc":"H2", "width":83, "height":160},
 	{"xc":"C4", "yc":"H2", "width":83, "height":160},
 	{"xc":"R4", "yc":"H2", "width":83, "height":160},
 	{"xc":"L1", "yc":"H3", "width":240, "height":45}
+    ],
+    [
+	{"xc":"L6", "yc":"H5", "width":120, "height":120},
+	{"xc":"R6", "yc":"H5", "width":120, "height":120},	
+	{"xc":"L1", "yc":"H3", "width":240, "height":45},
+	{"xc":"L1", "yc":"H4", "width":240, "height":45}
     ]
 ]
