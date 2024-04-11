@@ -9,11 +9,14 @@ availVals = {L1 = gw/2,
 	     L2 = gw/2 - large/2 - ofs, R2 = gw/2 + ofs + -large/4 + large/2,
 	     L3 = gw/2 - ofs - large/4, R3 = gw/2 + ofs + large/2,
 	     L4 = gw/2 - ofs - large/2, C4 = gw/2, R4 = gw/2 + ofs2 + large/2,
-	     L5 = gw/2 - ofs - large * 0.4, R5 = gw/2 + ofs2 + large * 0.4,
+	     L5 = gw/2 - ofs*2 - large * 0.5, R5 = gw/2 + ofs*6 + large * 0.5,
 	     L6 = gw/2 - ofs - small/2, R6 = gw/2 + small / 2 + ofs, 
-	     H1 = gh/2, H2 = gh/2 - ofs * 6, H3 = gh/2 + large/2 + ofs * 2,
+	     H1 = gh/2, H2 = gh/2 - ofs * 6, H3 = gh/2 + large/2 + ofs * 3,
+	     H2A = gh/2  -ofs * 8,
 	     H4 = gh/2 + ofs*8,
-	     H5 = gh/2 - small / 2 + ofs * 2,
+	     H5 = gh/2 - small / 2 + ofs,
+	     H6 = gh/2 - ofs*3,
+	     H7 = gh/2 + small / 2 - ofs,
 	     GWID = gw, GHGT = gh
 	     
 }
@@ -109,8 +112,9 @@ cfgimg.instruments = {}
 
 skip = {height=true, width=true, name=true, label=true, descr=true,
 	xlminX=true, xlmaxX=true, ylminX=true, ylmaxX=true,
-	major=true, minor=true, fine=true, ticlabels=true, radius=true,
-	["<remove to use bmpfile>bmpfile"]=true
+	--major=true, minor=true, fine=true,
+	ticlabels=true, --, radius=true,
+	["xbmpfile"]=true
 }
 
 -- identify which values have to be translated from the conventional upper left origin

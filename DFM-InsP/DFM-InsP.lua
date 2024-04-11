@@ -3898,6 +3898,7 @@ local function printForm(ww0,hh0,tWin)
 	 local idx
 	 local kdx = k1
 	 local str, dy
+
 	 
 	 repeat
 	    --for kdx = k1, k2, 1 do

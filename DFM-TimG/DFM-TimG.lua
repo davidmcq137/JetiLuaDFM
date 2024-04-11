@@ -62,6 +62,11 @@
 --]]
 
 --local trans11
+
+sharedVar["DFM-TimG"] = {}
+sharedVar["DFM-TimG"].elapsed = 0
+sharedVar["DFM-TimG"].remaining = 0
+
 local TimAnnVersion = "1.1"
 local gearSwitch
 local thrControl
@@ -300,7 +305,7 @@ local function timePrint(width, height, key)
    if key == KEY_1 then -- "Ann" (see system.registerTelemetry call below)
       forceAnn = true
    end
-   
+
    mm,rr = math.modf(runningTime/60)
    pts = string.format("%02d:%02d", math.floor(mm), math.floor(rr*60))
 
@@ -432,6 +437,9 @@ local function loop()
       bingoAnnounced = true
    end
 
+   sharedVar["DFM-TimG"].elapsed = runningTime or 0
+   sharedVar["DFM-TimG"].remaining = remainingTime or 0
+   
    if system.getTimeCounter() - (emptyAnnouncedTime or 0) > 10000 then emptyAnnounced = false end
 
    if remainingTime and remainingTime <= 0 and not emptyAnnounced then

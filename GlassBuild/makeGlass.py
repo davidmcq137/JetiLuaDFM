@@ -126,3 +126,6 @@ os.system('set -e;cp -v Images/instrESP.jsn ../Glass/Json')
 os.system('set -e;cp -v Images/instrDB.jsn ../Glass/Json')
 os.system('set -e;cp -v Images/instr.jsn ../Glass/Json')
 os.system('set -e;lua header.lua')
+
+os.system('set -e;cp -v Images/instrESP.h ~/nimBLE-Jeti-FS-json-ota-01/src')
+

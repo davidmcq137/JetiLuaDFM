@@ -2,62 +2,62 @@
     "forms":
     [
 	{
-	    "descr": "round 160x160 -150->150",
+	    "descr": "0) round 160x160 -150->150",
 	    "nlen":    70, "radius": 75,
 	    "x0":      80, "y0":     80,
 	    "minA":  -150, "maxA":  150,
 	    "height": 160, "width": 160,
-	    "xlminX":   20, "ylminX": 145,
-	    "xlmaxX":  140, "ylmaxX": 140,  
+	    "xlmin":   20, "ylmin": 150,
+	    "xlmax":  140, "ylmax": 150,  
 	    "xlbl":    80, "ylbl":  145,
 	    "major": 6, "minor":12, "fine": 60
 	},
 	{
-	    "descr": "round 160x160 -240->60",
+	    "descr": "1) round 160x160 -240->60",
 	    "nlen":   70, "radius": 75,
 	    "x0":     80, "y0":     80,
 	    "minA": -240, "maxA":   60,
 	    "height":160, "width": 160,
-	    "xlminX":  20, "ylminX": 145,
-	    "xlmaxX": 140, "ylmaxX": 140,
+	    "xlmin":  20, "ylmin": 145,
+	    "xlmax": 140, "ylmax": 140,
 	    "xlbl":  135, "ylbl":   80,
 	    "major": 6, "minor":12, "fine": 60	    
 	},
 	{
-	    "descr": "round 160x160 -180->120",
+	    "descr": "2) round 160x160 -180->120",
 	    "nlen":70, "radius": 75,
 	    "x0":    80, "y0":    80,
 	    "minA":-180, "maxA": 120,
 	    "height":160, "width":160,
-	    "xlminX": 20, "ylminX":145,
-	    "xlmaxX":140, "ylmaxX":140,
+	    "xlmin": 20, "ylmin":145,
+	    "xlmax":140, "ylmax":140,
 	    "xlbl": 120, "ylbl": 135,
 	    "major": 5, "minor":10, "fine": 50	    
 	},
 	{
-	    "descr": "half-round-left 83x160 -165->-15",
+	    "descr": "3) half-round-left 83x160 -165->-15",
 	    "nlen":70, "radius": 75,
 	    "x0":    80, "y0":    80,
 	    "minA":-165, "maxA": -15,
 	    "height":160, "width":83,
-	    "xlminX": 30, "ylminX":155,
-	    "xlmaxX": 30, "ylmaxX":  5,
+	    "xlmin": 30, "ylmin":155,
+	    "xlmax": 30, "ylmax":  5,
 	    "xlbl":  60, "ylbl":  95,
 	    "major": 2, "minor":4, "fine": 20	    
 	},
 	{
-	    "descr": "half-round-right 83x160 165->15",
+	    "descr": "4)half-round-right 83x160 165->15",
 	    "nlen":70, "radius": 75,
 	    "x0":    3,  "y0":    80,
 	    "minA":165, "maxA":   15,
 	    "height":160, "width":83,
-	    "xlminX":50, "ylminX": 155,
-	    "xlmaxX":50, "ylmaxX":   5,
+	    "xlmin":50, "ylmin": 155,
+	    "xlmax":50, "ylmax":   5,
 	    "xlbl":  20, "ylbl":  95,
 	    "major": 2, "minor":4, "fine": 20	    	    
 	},
 	{
-	    "descr": "compass 160x160",
+	    "descr": "5)compass 160x160",
 	    "nlen":  70,
 	    "radius": 75,
 	    "x0":     80, "y0":    80,
@@ -67,7 +67,7 @@
 	    "major": 4, "minor": 8, "fine": 40
 	},
 	{
-	    "descr": "hbar 240x45",
+	    "descr": "6) hbar 240x45",
 	    "height":45, "width":240,
 	    "xlmin": 15, "xlmax": 225,
 	    "ylmin":35, "ylmax":35,"hgt": 20, "wid": 210,
@@ -76,19 +76,19 @@
 	    "major": 5
 	},
 	{
-	    "descr": "text 240x45",
+	    "descr": "7) text 240x45",
 	    "height":45, "width":240,
 	    "wid": 220, "hgt":20,
 	    "x0":10, "y0":5
 	},
 	{
-	    "descr": "timer 240x45",
+	    "descr": "8) timer 240x45",
 	    "height":45, "width":240,
 	    "wid": 220, "hgt":20,
 	    "x0":10, "y0":5
 	},
 	{
-	    "descr": "arc 160x160 -135->135",
+	    "descr": "9) arc 160x160 -135->135",
 	    "radiusIn":    60, "radiusOut": 75,
 	    "arcStart":-125, "arcEnd":125,
 	    "x0":      80, "y0":     80,
@@ -98,7 +98,7 @@
 	    "xlbl":    80, "ylbl":  105
 	},
 	{
-	    "descr": "Art Horiz 160x160",
+	    "descr": "10) Art Horiz 160x160",
 	    "x0":      80, "y0":     80,
 	    "height": 160, "width": 160,
 	    "xlmin":   25, "ylmin":  60,
@@ -106,7 +106,7 @@
 	    "xlbl":    80, "ylbl":  145
 	},
 	{
-	    "descr": "arc half-round-right 83x160 165->15",
+	    "descr": "11) arc half-round-right 83x160 165->15",
 	    "radiusIn":    60, "radiusOut": 75,
 	    "x0":    3,  "y0":    80,
 	    "arcStart":165, "arcEnd":   15,
@@ -116,7 +116,7 @@
 	    "xlbl":  20, "ylbl": 105
 	},
 	{
-	    "descr": "arc half-round-left 83x160 -165-> -15",
+	    "descr": "12) arc half-round-left 83x160 -165-> -15",
 	    "radiusIn":    60, "radiusOut": 75,
 	    "x0":    80,  "y0":    80,
 	    "arcStart":-165, "arcEnd":  -15,
@@ -126,80 +126,129 @@
 	    "xlbl":  60, "ylbl":  105
 	},
 	{
-	    "descr": "arc 120x120 -135->135",
-	    "radiusIn":    45, "radiusOut": 56,
+	    "descr": "13) arc 100x100 -135->135",
+	    "radiusIn":    36, "radiusOut": 46,
 	    "arcStart":-125, "arcEnd":125,
-	    "x0":      60, "y0":     60,
-	    "height": 120, "width": 120,
-	    "xlmin":   20, "ylmin": 105,
-	    "xlmax":  105, "ylmax": 105,  
-	    "xlbl":    60, "ylbl":  85
+	    "x0":      50, "y0":     50,
+	    "height": 100, "width": 100,
+	    "xlmin":   10, "ylmin": 95,
+	    "xlmax":  100, "ylmax": 95,  
+	    "xlbl":    50, "ylbl":  85
+	},
+	{
+	    "descr": "14) round 100x100 -150->150",
+	    "nlen":    35, "radius": 46,
+	    "x0":      50, "y0":     50,
+	    "minA":  -125, "maxA":  125,
+	    "height": 100, "width": 100,
+	    "xlmin":    0, "ylmin":  95,
+	    "xlmax":  100, "ylmax":  95,  
+	    "xlbl":    50, "ylbl":   85,
+	    "major": 6, "minor":12, "fine": 36
+	},
+	{
+	    "descr": "15) Art Horiz 100x100",
+	    "x0":      50, "y0":     50,
+	    "height": 100, "width": 100,
+	    "xlmin":   25, "ylmin":  60,
+	    "xlmax":   85, "ylmax":  60,  
+	    "xlbl":    80, "ylbl":   85
+	},
+	{
+	    "descr": "16) round 200x200 -150->150",
+	    "nlen":    80, "radius": 95,
+	    "x0":     100, "y0":    100,
+	    "minA":  -150, "maxA":  150,
+	    "height": 200, "width": 200,
+	    "xlmin":   20, "ylmin": 180,
+	    "xlmax":  180, "ylmax": 180,  
+	    "xlbl":   100, "ylbl":  185,
+	    "major": 6, "minor":12, "fine": 60
+	},
+	{
+	    "descr": "17) arc 200x200 -135->135",
+	    "radiusIn":    80, "radiusOut": 95,
+	    "arcStart":-125, "arcEnd":125,
+	    "x0":     100, "y0":    100,
+	    "height": 200, "width": 200,
+	    "xlmin":   20, "ylmin": 195,
+	    "xlmax":  140, "ylmax": 195,  
+	    "xlbl":   100, "ylbl":  145
+	},
+	{
+	    "descr": "18) Art Horiz 200x200",
+	    "x0":     100, "y0":    100,
+	    "height": 200, "width": 200,
+	    "xlmin":   25, "ylmin":  60,
+	    "xlmax":  185, "ylmax":  60,  
+	    "xlbl":    80, "ylbl":  185
+	},
+	{
+	    "descr": "19) Vertical tape 160x60",
+	    "x0":   0,  "y0":    0,
+	    "height":160, "width":83,
+	    "hgt":160, "wid": 60,
+	    "xlbl":  20, "ylbl": 150
 	}
-	
     ],
     
     "instruments":
     [
 
 	{"formID": 0, "wtype": "gauge",
-	 "scale":"fixed", "label":"V", "inputs":1,
-	 "ticlabels":"12,13,14,15,16,17,18",
-	 "bmpfile":"volt_12_18.bmp",
-	 "minV":  12, "maxV":  18
-	},
-
-	{"formID": 1, "wtype": "gauge",
-	 "scale":"fixed", "label":"m/s", "inputs":1,
-	 "ticlabels": "3,2,1,0,1,2,3",
-	 "bmpfile":"vario_0_3.bmp",
-	 "minV":  -3,  "maxV":  3
-	},
-
-	{"formID": 2, "wtype": "gauge",
-	 "scale":"fixed", "label":"x100 m", "inputs":1,
-	 "ticlabels": "0,1,2,3,4,5",
-	 "bmpfile":"alti_0_5.bmp",
-	 "minV":  0,  "maxV": 500
+	 "scale":"variable", "label":"",
+	 "ticlabels":"",
+	 "inputs":1, "minV":  0, "maxV": 100
 	},
 
 	{"formID": 3, "wtype": "gauge",
-	 "scale":"fixed", "label":"TL", "inputs":1,
-	 "ticlabels": "0,1,2",
-	 "bmpfile":"tl_0_2.bmp",
-	 "minV":  0,  "maxV":   2
+	 "scale":"variable", "label":"",
+	 "ticlabels":"",
+	 "inputs":1, "minV":  0,  "maxV": 100
 	},
 
 	{"formID": 4, "wtype": "gauge",
-	 "scale":"fixed", "label":"TR", "inputs":1,
-	 "ticlabels": "0,1,2",
-	 "bmpfile":"tr_0_2.bmp",
-	 "minV":  0,  "maxV":   2
+	 "scale":"variable", "label":"",
+	 "ticlabels":"",
+	 "inputs":1, "minV":  0,  "maxV": 100
 	},
 
-	{"formID": 5, "wtype": "compass",
-	 "scale":"fixed",
-	 "ticlabels": "N,O,S,W",
-	 "label": "",
-	 "inputs":2,
-	 "bmpfile": "compass.bmp",
-	 "minV":0, "maxV":360
+	{"formID": 14, "wtype": "gauge",
+	 "scale":"variable", "label":"",
+	 "ticlabels":"",
+	 "inputs":1, "minV":  0, "maxV": 100
 	},
 
-	{"formID": 5, "wtype": "compass",
-	 "scale":"fixed",
-	 "label": "",
-	 "ticlabels": "N,E,S,W",
-	 "inputs":2,
-	 "minV":0, "maxV":360
+	{"formID": 9, "wtype": "arcGauge",
+	 "scale":"variable","label":"",
+	 "inputs":1, "minV":0, "maxV":100
+	},
+
+	{"formID": 11, "wtype": "arcGauge",
+	 "scale":"variable","label":"",
+	 "inputs":1, "minV":0, "maxV":100
 	},
 	
-	{"formID": 6, "wtype": "hbar",
-	 "label":"", "inputs":1,
-	 "ticlabels": "0,20,40,60,80,100",
-	 "scale":"fixed",
-	 "minV":0, "maxV":100
+	{"formID": 12, "wtype": "arcGauge",
+	 "scale":"variable","label":"",
+	 "inputs":1, "minV":0, "maxV":100
 	},
-	
+
+	{"formID": 13, "wtype": "arcGauge",
+	 "scale":"variable","label":"",
+	 "inputs":1, "minV":0, "maxV":100
+	},
+
+	{"formID": 10, "wtype": "ahGauge",
+	 "scale":"fixed","label":"",
+	 "inputs":2, "minV":0, "maxV":100
+	},
+
+	{"formID": 15, "wtype": "ahGauge",
+	 "scale":"fixed","label":"",
+	 "inputs":2, "minV":0, "maxV":100
+	},
+
 	{"formID": 6, "wtype": "hbar",
 	 "inputs":1,
 	 "label": "",
@@ -222,36 +271,46 @@
 	 "minV":0, "maxV":100
 	},
 
-	{"formID": 9, "wtype": "arcGauge",
+	{"formID": 16, "wtype": "gauge",
+	 "scale":"variable", "label":"",
+	 "ticlabels":"",
+	 "inputs":1, "minV":  0, "maxV": 100
+	},
+
+	{"formID": 17, "wtype": "arcGauge",
 	 "scale":"variable","label":"",
 	 "inputs":1, "minV":0, "maxV":100
 	},
 
-	{"formID": 10, "wtype": "ahGauge",
+	{"formID": 18, "wtype": "ahGauge",
 	 "scale":"fixed","label":"",
 	 "inputs":2, "minV":0, "maxV":100
 	},
 
-	{"formID": 0, "wtype": "gNew",
-	 "scale":"variable","label":"",
-	 "inputs":1, "minV":0, "maxV":120,
-	 "majorD": 6, "minorD":12, "fineD":60,
-	 "ticDP":2
+	{"formID": 5, "wtype": "compass",
+	 "scale":"variable",
+	 "label": "",
+	 "ticlabels": "N,E,S,W",
+	 "inputs":2,
+	 "minV":0, "maxV":360
 	},
 	
-	{"formID": 11, "wtype": "arcGauge",
-	 "scale":"variable","label":"",
-	 "inputs":1, "minV":0, "maxV":100
-	},
-	
-	{"formID": 12, "wtype": "arcGauge",
-	 "scale":"variable","label":"",
-	 "inputs":1, "minV":0, "maxV":100
+	{"formID":19, "wtype": "vltape",
+	 "scale":"variable",
+	 "side":"left",
+	 "label":"",
+	 "ticlabels":"",
+	 "inputs":1,
+	 "minV":0, "maxV":100
 	},
 
-	{"formID": 13, "wtype": "arcGauge",
-	 "scale":"variable","label":"",
-	 "inputs":1, "minV":0, "maxV":100
-	}	
+	{"formID":19, "wtype": "vltape",
+	 "scale":"variable",
+	 "side":"right",
+	 "label":"",
+	 "ticlabels":"",
+	 "inputs":1,
+	 "minV":0, "maxV":100
+	}
     ]
 }
