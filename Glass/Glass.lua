@@ -349,6 +349,7 @@ local function writeInst()
 	       stbl[j].u = nil
 	    end
 	    --]]
+	    local dd
 	    if true then --scale == "variable" then
 	       stbl[j].nV = tonumber(sv(2, minV))
 	       stbl[j].xV = tonumber(sv(2, maxV))
@@ -357,7 +358,12 @@ local function writeInst()
 	       stbl[j].mN = Glass.page[p][k].minor		     
 	       stbl[j].f = Glass.page[p][k].fine
 	       --stbl[j].fM = Glass.page[p][k].ticfmt
-	       stbl[j].d = Glass.page[p][k].decimals
+	       if Glass.page[p][k].dispdec then
+		  dd = Glass.page[p][k].dispdec
+	       else
+		  dd = Glass.page[p][k].decimals
+	       end
+	       stbl[j].d = dd
 	       stbl[j].u = Glass.page[p][k].units
 	    end
 	 end
@@ -1544,7 +1550,7 @@ local function loop()
    loopCPU = loopCPU + (system.getCPU() - loopCPU) / 10
 end
 
-local function changedSensor(value, inp)
+local function changedSensor(value, inp, sf)
    --print("changedSensor: val, inp", value, inp)
    if inp ~= 2 then
       Glass.page[pageNumber][gaugeNumber].sensorId = Glass.sensorIdlist[value]
@@ -1567,6 +1573,7 @@ local function changedSensor(value, inp)
       Glass.page[pageNumber][gaugeNumber].sensorId2 = 0
       Glass.page[pageNumber][gaugeNumber].sensorPa2 = 0
    end
+   if sf then form.reinit(sf) end
 end
 
 
@@ -1842,15 +1849,35 @@ local function initForm(sf)
       form.addRow(2)
       form.addLabel({label="Sensor:", font=FONT_NORMAL})
       form.addSelectbox(Glass.sensorLalist, isel, true,
-			(function(x) return changedSensor(x, inpN) end),
+			(function(x) return changedSensor(x, inpN, 12) end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
 
+      local sd = Glass.page[pageNumber][gaugeNumber].decimals
+      local txt = string.format("Sensor Decimals: %d", sd)
+      form.addRow(1)
+      form.addLabel({label=txt, font=FONT_NORMAL})
+
+      form.addRow(2)
+      form.addLabel({label="Displayed Decimals", font=FONT_NORMAL})
+
+      if not Glass.page[pageNumber][gaugeNumber].dispdec then
+	 Glass.page[pageNumber][gaugeNumber].dispdec = sd
+      end
+      
+      local function changedDispDec(val)
+	 Glass.page[pageNumber][gaugeNumber].dispdec = val
+      end
+      
+      local dd = Glass.page[pageNumber][gaugeNumber].dispdec
+      local idx = form.addIntbox(dd, 0, 2, sd, 0, 1, changedDispDec)
+      
       form.addRow(2)
       form.addLabel({label="Gauge Name:", font=FONT_NORMAL})
       form.addTextbox(Glass.page[pageNumber][gaugeNumber].instName, 10,
 		      (function(x) return changedName(x, inpN) end),
 		      {width=155, font=FONT_NORMAL})
 
+      
    elseif sf == 13 then
 
       local id, fn, minV, maxV
@@ -2089,6 +2116,7 @@ local function clearPage(pn, gm)
       Glass.page[pn][k].sensorLa = "..."	    
       Glass.page[pn][k].units = "-"
       Glass.page[pn][k].decimals = 0
+      Glass.page[pn][k].dispdec = nil
       Glass.page[pn][k].imageID = -1
       Glass.page[pn][k].widgetID = -1
       Glass.page[pn][k].value = 0.0
@@ -2284,22 +2312,18 @@ local function drawTape(r, x, y, v, lbl, barW, barH, width, height, side)
    local xb
    local xs
    local valX
-   local valXT
+   local barX
    
    if side == "left"  then
-      valX = -3 * barW / 2
-      valXT = -barW
+      barX = 0
+      valX = 3 * barW / 2 - 1
       xtick = -5
-      xnum = -25*r
-      xb = -barW
-      xs = 0
+      xnum = 25*r + 4
    else
-      valX = barW / 2 - 1
-      valXT = 0
+      barX = barW
+      valX = barW / 2 + 1
       xtick = 5
-      xnum = 25*r
-      xb = barW
-      xs = barW-1
+      xnum = barW/2 
    end
    
    local nums = 6
@@ -2316,9 +2340,9 @@ local function drawTape(r, x, y, v, lbl, barW, barH, width, height, side)
    local bar = barH
    local valText
    local ypi
-   
-   lcd.setClipping(x, y, barW, barH)
-   local x0 = x
+
+   lcd.setClipping(x + barX, y, barW, barH)
+   local x0 = x + barX
    local y0 = y
    kdx = k1
    repeat
@@ -2329,19 +2353,20 @@ local function drawTape(r, x, y, v, lbl, barW, barH, width, height, side)
       yv = math.floor(yv * 100.0 + 0.5) / 100.0
       valText = string.format("%g", yv) 
       if true then --if (y - barH / 2 + ypi > 0 and y + barH / 2 - ypi < 160) then
-	 lcd.drawLine(x + xs - x0 , y + barH / 2 - ypi - y0,
-		      x - xtick + xs - x0, y + barH / 2 - ypi - y0)
-	 drawTextCenter(x - xnum + xs - x0, y + barH / 2 - ypi - y0, valText, FONT_MINI)
+	 lcd.drawLine(x - x0 + 2 * barX, y + barH / 2 - ypi - y0,
+		      x - x0 - xtick + 2 * barX, y + barH / 2 - ypi - y0)
+	 drawTextCenter(x - x0 + xnum + barX, y + barH / 2 - ypi - y0, valText, FONT_MINI)
       end
       kdx = kdx + 1
    until (kdx > k2)
    lcd.resetClipping()
    
-   lcd.drawLine(x - valXT, y + barH / 2, x - valXT + xtick, y + barH / 2)
-   lcd.drawRectangle(x, y, barW, barH)
-   drawRectangleCenter(x - valX, y + barH / 2, barW, lcd.getTextHeight(FONT_NORMAL) + 4)
+   lcd.drawLine(x + barW , y + barH / 2, x + barW + xtick, y + barH / 2)
+   lcd.drawRectangle(x + barX, y, barW, barH)
+   drawRectangleCenter(x + valX, y + barH / 2, barW, lcd.getTextHeight(FONT_NORMAL) + 4)
    valText = string.format("%d", v)
-   drawTextCenter(x  - valX, y + barH / 2, valText, FONT_NORMAL)
+   drawTextCenter(x + valX, y + barH / 2, valText, FONT_NORMAL)
+   
 end
 
 local function printForm(w,h)
@@ -2428,7 +2453,7 @@ local function printForm(w,h)
 	    local bh, bw = cfgimg.forms[fid].hgt, cfgimg.forms[fid].wid	    	    
 	    local side = cfgimg.instruments[id].side
 	    local dx
-	    if side == "left" then dx = 10 else dx = 55 end
+	    if side == "left" then dx = 10 else dx = 10 end
 	    drawTape(r, xi + dx, yi+5, 100, "", bw*r, bh*r, ww*r, hh*r, side) 
 	 end
       else

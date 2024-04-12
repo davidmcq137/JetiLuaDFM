@@ -41,7 +41,7 @@
      "decimals": 0,
      "type": 1,
      "sensorName": "Airspeed",
-     "luaExp": "P1(100)",
+     "luaExp": "P1(1000)",
      "label": "0100Percent",
      "unit": "%"
     },

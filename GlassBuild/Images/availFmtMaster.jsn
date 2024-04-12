@@ -30,8 +30,8 @@
 	{"xc":"R4", "yc":"H1", "width":83, "height":160}
     ],
     [
-	{"xc":"L5", "yc":"H2A", "width":83, "height":160},
-	{"xc":"R5", "yc":"H2A", "width":83, "height":160},
+	{"xc":"L5", "yc":"H2A", "width":120, "height":160},
+	{"xc":"R5", "yc":"H2A", "width":120, "height":160},
 	{"xc":"L1", "yc":"H3", "width":240, "height":45}
     ],
     [

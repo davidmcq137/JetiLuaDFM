@@ -184,12 +184,20 @@
 	    "xlbl":    80, "ylbl":  185
 	},
 	{
-	    "descr": "19) Vertical tape 160x60",
+	    "descr": "19) Vertical tape left 160x60",
 	    "x0":   0,  "y0":    0,
-	    "height":160, "width":83,
+	    "height":160, "width":120,
+	    "hgt":160, "wid": 60,
+	    "xlbl":  20, "ylbl": 150
+	},
+	{
+	    "descr": "20) Vertical tape right 160x60",
+	    "x0":  0,  "y0":    0,
+	    "height":160, "width":120,
 	    "hgt":160, "wid": 60,
 	    "xlbl":  20, "ylbl": 150
 	}
+
     ],
     
     "instruments":
@@ -304,7 +312,7 @@
 	 "minV":0, "maxV":100
 	},
 
-	{"formID":19, "wtype": "vltape",
+	{"formID":20, "wtype": "vltape",
 	 "scale":"variable",
 	 "side":"right",
 	 "label":"",
