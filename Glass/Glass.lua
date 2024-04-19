@@ -363,6 +363,7 @@ local function writeInst()
 	       else
 		  dd = Glass.page[p][k].decimals
 	       end
+	       stbl[j].mK = Glass.page[p][k].marker
 	       stbl[j].d = dd
 	       stbl[j].u = Glass.page[p][k].units
 	    end
@@ -1852,7 +1853,7 @@ local function initForm(sf)
 			(function(x) return changedSensor(x, inpN, 12) end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
 
-      local sd = Glass.page[pageNumber][gaugeNumber].decimals
+      local sd = Glass.page[pageNumber][gaugeNumber].decimals or 0
       local txt = string.format("Sensor Decimals: %d", sd)
       form.addRow(1)
       form.addLabel({label=txt, font=FONT_NORMAL})
@@ -1869,7 +1870,23 @@ local function initForm(sf)
       end
       
       local dd = Glass.page[pageNumber][gaugeNumber].dispdec
-      local idx = form.addIntbox(dd, 0, 2, sd, 0, 1, changedDispDec)
+      form.addIntbox(dd, 0, 2, sd, 0, 1, changedDispDec)
+
+      form.addRow(2)
+      form.addLabel({label="Marker value", font=FONT_NORMAL})
+
+      local mk = Glass.page[pageNumber][gaugeNumber].marker or 0
+      
+      if not Glass.page[pageNumber][gaugeNumber].marker then
+	 Glass.page[pageNumber][gaugeNumber].marker = mk
+      end
+      
+      local function changedMarker(val)
+	 Glass.page[pageNumber][gaugeNumber].marker = val
+	 print("marker", val)
+      end
+      
+      form.addIntbox(mk, -32768, 32767, 0, 0, 1, changedMarker)
       
       form.addRow(2)
       form.addLabel({label="Gauge Name:", font=FONT_NORMAL})
