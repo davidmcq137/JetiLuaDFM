@@ -12,7 +12,7 @@
 --]]
 
 --local trans11
-local BattVersion = "2.4"
+local BattVersion = "2.5"
 
 local subForm = 0
 local emFlag

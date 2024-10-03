@@ -44,6 +44,10 @@ Glass.timers = {}
 Glass.switchInfo = {}
 Glass.var = {}
 
+Glass.convertStr = {"None", "m to ft", "m/s to mph", "m/s to km/h"}
+Glass.convertVal = {1, 3.28084, 2.23694 , 3.6}
+Glass.convertUnits = {"-", "ft", "mph", "km/h"}
+
 --Glass.switches = {}
 
 local swtCI = {}
@@ -98,6 +102,8 @@ local serialBytesSent = 0
 local totalSendBytes
 local serialFileName
 local lastRead = 0
+
+local initTime
 
 --[[
 local teleSensors
@@ -306,7 +312,12 @@ local function writeInst()
    local stbl = {}
    local gtbl = {}
 
-   if not Glass.page or #Glass.page == 0 or #Glass.page[pageNumberTele] == 0 then
+   print("writeInst: Glass", Glass)
+   print("writeInst: Glass.page", Glass.page)
+   print("writeInst: pageNumberTele", pageNumberTele)
+   print("writeInst: Glass.page[pageNumberTele", Glass.page[pageNumberTele])
+   
+   if not Glass.page or #Glass.page == 0 or not pageNumberTele or #Glass.page[pageNumberTele] == 0 then
       print("Glass: No instrESPW to send")
       return
    end
@@ -392,6 +403,9 @@ local function writeInst()
    end
    print("sending USB part")
    sendUSB("part")
+   --print("sending USB full")
+   --sendUSB("full")
+
 end
 
 
@@ -773,6 +787,13 @@ local function sendCtrl(cc, nn)
    return bw
 end
 
+local function setpNT()
+      local sw = system.getInputsVal(switchItems.pageChange) or -1
+      local pp = sw + 2 -- -1, 0, 1 --> 1,2,3
+      pp = math.min(pp, pageMax)
+      pageNumberTele = pp
+end
+
 local function loop()
    local now = system.getTimeCounter()
    local unow = system.getTimeCounter()
@@ -790,17 +811,26 @@ local function loop()
    local BUF_SIZE = 64
    local SEND_LOOPS = 2 --20
 
+   -- we perform writeInst() to send the json for the selected pages at init() time, but it can
+   -- sometimes get missed if the ESP is busy .. send once more 10s after init
    
+   if initTime ~= 0 and system.getTime() > initTime + 10 then
+      print("10s writeInst")
+      writeInst()
+      initTime = 0
+   end
+      
    if system.getTimeCounter() < 0 then
       print("system.getTimeCounter() wrapped. Restart emulator")
       barf()
    end
    
    if switchItems.pageChange then
-      local sw = system.getInputsVal(switchItems.pageChange)
-      local pp = sw + 2 -- -1, 0, 1 --> 1,2,3
-      pp = math.min(pp, pageMax)
-      pageNumberTele = pp
+     setpNT()
+      --local sw = system.getInputsVal(switchItems.pageChange)
+      --local pp = sw + 2 -- -1, 0, 1 --> 1,2,3
+      --pp = math.min(pp, pageMax)
+      --pageNumberTele = pp
    end
 
    local gs = Glass.settings
@@ -991,7 +1021,7 @@ local function loop()
 			      (Glass.timers.timer1.initial - Glass.timers.timer1.target)
 			   sensor.tpct = math.floor(10 * math.min(math.max(sensor.tpct, 0), 100)) / 10
 			end
-			if v.sensorPa == 4 then
+			if v.sensorPa == 5 then
 			   sensor.value = math.floor(100 * Glass.timers.timer1.time / 1000) / 100
 			else
 			   sensor.value = (sensor.tpct or 0)
@@ -1047,6 +1077,11 @@ local function loop()
 		  end
 		  if sensor and sensor.valid then
 		     v.value = sensor.value
+		     --print("v.value", v.value)
+		     if v.convertIdx then
+			--print("v.convertIdx", v.convertIdx, Glass.convertVal[v.convertIdx])
+			v.value = v.value * Glass.convertVal[v.convertIdx]
+		     end
 		     if not v.value then print("v.value nil") end
 		  end
 	       end
@@ -1183,16 +1218,31 @@ local function loop()
 
 	 local sendJson = true
 	 if not Glass.var.statusAL then
+	    print("not statusAL")
 	    sendJson = false
 	 else
-	    if Glass.var.statusAL.Conn == 0 then sendJson = false  end
-	    if Glass.var.statusAL.Conf ~= Glass.var.statusAL.GlassConf then sendJson = false end 
-	    if not matchConfigID() then sendJson = false  end
-	    if form.getActiveForm() then sendJson = false end
+	    if Glass.var.statusAL.Conn == 0 then
+	       print(".Conn is 0")
+	       sendJson = false
+	    end
+	    if Glass.var.statusAL.Conf ~= Glass.var.statusAL.GlassConf then
+	       print(".Conf ~=")
+	       sendJson = false
+	    end 
+	    if not matchConfigID() then
+	       print("not matchConfigID")
+	       sendJson = false
+	    end
+	    if form.getActiveForm() then
+	       --print("getActiveForm")
+	       sendJson = false
+	    end
 	 end
 	 
 	 local swb = system.getInputs("SB") -- SB to force sending only on emulator
 
+	 --print("swb, sendJson", swb, sendJson)
+	 
 	 if sendJson or (emflag ~= 0 and swb and swb == 1) then
 	    local espjson
 	    if not dbmode then
@@ -1558,7 +1608,8 @@ local function changedSensor(value, inp, sf)
       Glass.page[pageNumber][gaugeNumber].sensorPa = Glass.sensorPalist[value]
       Glass.page[pageNumber][gaugeNumber].sensorLa = Glass.sensorLalist[value]
       Glass.page[pageNumber][gaugeNumber].sensorLs = Glass.sensorLslist[value]
-      Glass.page[pageNumber][gaugeNumber].units    = Glass.sensorUnlist[value]   
+      Glass.page[pageNumber][gaugeNumber].units    = Glass.sensorUnlist[value]
+      Glass.page[pageNumber][gaugeNumber].nativeUnits    = Glass.sensorUnlist[value]   
       Glass.page[pageNumber][gaugeNumber].decimals = Glass.sensorDplist[value]
       Glass.page[pageNumber][gaugeNumber].wtype     = Glass.sensorTylist[value]
    else
@@ -1857,6 +1908,37 @@ local function initForm(sf)
       local txt = string.format("Sensor Decimals: %d", sd)
       form.addRow(1)
       form.addLabel({label=txt, font=FONT_NORMAL})
+
+      local sc = Glass.page[pageNumber][gaugeNumber].units or '-'
+      txt = string.format("Sensor Units: %s", sc)
+      form.addRow(1)
+      form.addLabel({label=txt, font=FONT_NORMAL})
+
+      form.addRow(2)
+      form.addLabel({label="Unit conversion:", font=FONT_NORMAL})
+
+      if not Glass.page[pageNumber][gaugeNumber].convertIdx then
+	 Glass.page[pageNumber][gaugeNumber].convertIdx = 1
+      end
+
+      local cvi = Glass.page[pageNumber][gaugeNumber].convertIdx
+
+      local function changedConversion(val)
+	 --print("pageNumber, gaugeNumber, val", pageNumber, gaugeNumber, val)
+	 Glass.page[pageNumber][gaugeNumber].convertIdx =  val
+	 if val == 1 then -- val is 1 means no conversion
+	    if Glass.page[pageNumber][gaugeNumber].nativeUnits then
+	       Glass.page[pageNumber][gaugeNumber].units =
+		  Glass.page[pageNumber][gaugeNumber].nativeUnits
+	    end
+	 else
+	    Glass.page[pageNumber][gaugeNumber].units = Glass.convertUnits[val]
+	 end
+	 form.reinit(12)
+	 
+      end
+
+      form.addSelectbox(Glass.convertStr, cvi, true, changedConversion)
 
       form.addRow(2)
       form.addLabel({label="Displayed Decimals", font=FONT_NORMAL})
@@ -2873,8 +2955,11 @@ local function printTele(w,h)
 	 end
       end
    end
-   lcd.drawText(10,130, string.format("%d", system.getCPU()))
-   lcd.drawText(10,110, string.format("%d", loopCPU))
+   if emflag ~= 0 then
+      lcd.drawText(10,130, string.format("%d", system.getCPU()))
+      lcd.drawText(10,110, string.format("%d", loopCPU))
+   end
+   
    
 end
 
@@ -2958,7 +3043,10 @@ local function onRead(indata)
       local testJsonT
       callOK, testJsonT = pcall(json.decode,data)
       if callOK then
-	 --print(Glass.var.statusAL.Conf,Glass.var.statusAL.GlassConf)
+	 if Glass.var.statusAL then
+	    --print("Conf, GlassConf:", Glass.var.statusAL.Conf,Glass.var.statusAL.GlassConf)
+	 end
+	 
 	 if testJsonT.mb then
 	    system.messageBox(testJsonT.mb)
 	 else
@@ -2986,6 +3074,12 @@ local function init()
 
    --print("CPU Entry ", system.getCPU())
    
+   initTime = system.getTime()
+   tenSecTimer = initTime
+   
+   sendState = state.IDLE
+   --jsonHoldTime = system.getTimeCounter() + 10 * WAIT_TIME
+
    modelName = string.gsub(system.getProperty("Model"), " ", "_")
 
    readSensors(Glass)
@@ -3212,8 +3306,11 @@ local function init()
    if not Glass.settings.configIDs or Glass.settings.configVersion == 0 then
       Glass.settings.configIDs = {}
    end
+   setpNT()
+   
+   writeInst() --- will also get done in loop() based on tenSecTimer
    
    print("CPU end init(): ", system.getCPU())
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.91", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.94", name=appName}

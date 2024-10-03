@@ -51,6 +51,7 @@
 	"short3":"3x Short",
 	"noBattGrp":"No batteries in group",
 	"left":"Left",
+	"right":"Right",
 	"cycles":"Cycles",
 	"selFltBatt":"Select Flight Battery",
 	"noModelData":"No model data read: initializing",
