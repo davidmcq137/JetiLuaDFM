@@ -196,8 +196,16 @@
 	    "height":160, "width":120,
 	    "hgt":160, "wid": 60,
 	    "xlbl":  20, "ylbl": 150
+	},
+	{
+	    "descr": "21) vbar 83x160",
+	    "height":160, "width":83,
+	    "xlmin": 20, "xlmax": 20,
+	    "ylmin": 150, "ylmax":5,"hgt": 155, "wid": 25,
+	    "xlbl": 20, "ylbl": 75,
+	    "x0":    45, "y0":    0,
+	    "major": 5
 	}
-
     ],
     
     "instruments":
@@ -319,6 +327,14 @@
 	 "ticlabels":"",
 	 "inputs":1,
 	 "minV":0, "maxV":100
+	},
+
+	{"formID": 21, "wtype": "vbar",
+	 "inputs":1,
+	 "label": "",
+	 "minV":0, "maxV":100,	 
+	 "ticlabels": "",
+	 "scale":"variable"
 	}
     ]
 }

@@ -1234,7 +1234,7 @@ local function loop()
 	       sendJson = false
 	    end
 	    if form.getActiveForm() then
-	       --print("getActiveForm")
+	       print("getActiveForm")
 	       sendJson = false
 	    end
 	 end
@@ -2219,7 +2219,7 @@ local function clearPage(pn, gm)
       Glass.page[pn][k].imageID = -1
       Glass.page[pn][k].widgetID = -1
       Glass.page[pn][k].value = 0.0
-      Glass.page[pn][k].instName = "Gauge"..k
+      Glass.page[pn][k].instName = "GG"..k
       Glass.page[pn][k].sensorId2 = 0
       Glass.page[pn][k].sensorPa2 = 0      
       Glass.page[pn][k].scl = 1
@@ -2321,7 +2321,7 @@ local function keyPressed(key)
 	 local iid = 0
 	 local wid = 0
 	 local min, max, wtype, inp
-	 --print("key2: imageNum, editImgs[imageNum].widgetID", imageNum, editImgs[imageNum].widgetID)
+	 print("key2: imageNum, editImgs[imageNum].widgetID", imageNum, editImgs[imageNum].widgetID)
 	 
 	 for i,img in ipairs(cfgimg.instruments) do
 	    if i == editImgs[imageNum].widgetID then
@@ -2496,7 +2496,7 @@ local function printForm(w,h)
 	 local dp = Glass.page[pageNumber][gaugeNumber].decimals
 	 --print("wtype", editImgs[imageNum].wtype)
 	 if editImgs[imageNum].wtype == "gauge" or editImgs[imageNum].wtype == "compass" or
-	    editImgs[imageNum].wtype == "hbar" then
+	    editImgs[imageNum].wtype == "hbar" or  editImgs[imageNum].wtype == "vbar" then
 	    drawImage(xi,yi,editImgs[imageNum], "loadImage")
 	 elseif editImgs[imageNum].wtype == "gNew" then
 	    lcd.setColor(0,0,0)
@@ -2610,10 +2610,16 @@ end
 
 local function drawHbar(x0, y0, min, max, val, wid, hgt)
    local bw = math.floor(wid * (val - min) / (max - min) + 0.5)
-   bw = math.min(math.max(0, bw), wid+1)
+   bw = math.min(math.max(0, bw), wid)
    lcd.drawFilledRectangle(x0, y0, bw, hgt)
 end
 
+local function drawVbar(x0, y0, min, max, val, wid, hgt)
+   local bh = math.floor(hgt * (val - min) / (max - min) + 0.5)
+   bh = math.min(math.max(0, bh), hgt + 1)
+   --print(x0, y0, wid, hgt, bh)
+   lcd.drawFilledRectangle(x0, math.floor(y0) + (math.floor(hgt) - math.floor(bh)) + 2, wid+1, bh)
+end
 
 local function drawScale(x0, y0, minA, maxA, major, minor, fine, ro)
    local minR = math.rad(minA)
@@ -2879,10 +2885,26 @@ local function printTele(w,h)
 		  drawHbar(offset + r * xc, r * yc, min, max, val, r * cfgimg.forms[fid].wid,
 			   r * cfgimg.forms[fid].hgt)
 	       end
+	       --[[
 	       lcd.drawRectangle(offset + r * xr,
 	       r * yr,
 	       r*cfgimg.forms[fid].width,
 	       r*cfgimg.forms[fid].height)
+	       --]]
+	    elseif cid.wtype == "vbar" then
+	       --print(offset+r*xr, r*yr,  cfgimg.forms[fid].width, cfgimg.forms[fid].height)
+				 
+	       drawImage(offset + xr * r, yr * r, cid, "loadImageSmaller")
+	       if val then
+		  drawVbar(offset + r * xc, r * yc, min, max, val, r * cfgimg.forms[fid].wid,
+			   r * cfgimg.forms[fid].hgt)
+	       end
+	       --[[
+	       lcd.drawRectangle(offset + r * xr,
+	       r * yr,
+	       r*cfgimg.forms[fid].width,
+	       r*cfgimg.forms[fid].height)
+	       --]]
 	    elseif cid.wtype == "htext" then
 	       if val then
 		  drawText(offset + r * xc, r * yc, val, lbl, t.units, t.decimals, r * cfgimg.forms[fid].wid,
@@ -2925,7 +2947,7 @@ local function printTele(w,h)
 	       
 	    end 
 	    --print(cid.wtype, cid.scale, min, max)
-	    if ( ((cid.wtype == "gauge" or cid.wtype == "hbar" or cid.wtype == "arcGauge")
+	    if ( ((cid.wtype == "gauge" or cid.wtype == "hbar" or cid.wtype == "vbar" or cid.wtype == "arcGauge")
 	       and cid.scale == "variable") or cid.wtype == "ahGauge") then
 	       local smin = string.format(dpFmt(min), min)
 	       local smax = string.format(dpFmt(max), max)
@@ -2934,14 +2956,21 @@ local function printTele(w,h)
 		  smax = ""--string.format("P: %.0f°", val or 0)
 		  lbl = ""
 	       end
+
+	       local cfylmin 
+	       local cfylmax 
+
+	       cfylmin = cfgimg.forms[fid].ylmin
+	       cfylmax = cfgimg.forms[fid].ylmax
+	       
 	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlmin,
-			      yr * r + r * cfgimg.forms[fid].ylmin,
+			      yr * r + r * cfylmin,
 			      smin, FONT_MINI)
 	       drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlmax,
-			      yr * r + r * cfgimg.forms[fid].ylmax,
+			      yr * r + r * cfylmax,
 			      smax, FONT_MINI)
 	       --print("cid.wtype, cid.scale, val", cid.wtype, cid.scale, val)
-	       if ((cid.wtype == "gauge") or (cid.wtype == "hbar")) and (cid.scale == "variable") then
+	       if ((cid.wtype == "gauge") or (cid.wtype == "hbar") or (cid.wtype == "vbar")) and (cid.scale == "variable") then
 		  drawTextCenter(offset + xr * r + r * cfgimg.forms[fid].xlbl,
 				 yr * r + r * cfgimg.forms[fid].ylbl,
 				 svv(t.decimals, val), FONT_MINI)
@@ -3313,4 +3342,4 @@ local function init()
    print("CPU end init(): ", system.getCPU())
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.94", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.95", name=appName}

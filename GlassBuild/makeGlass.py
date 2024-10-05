@@ -17,6 +17,7 @@ import sys
 # 20-Jan-2024 McQ
 # Updates:
 # 25-Feb-2024 McQ New Json formats and file names, adding forms
+# -3-Oct-2024 McQ Added vbar (vertical bar gauge)
 #
 
 availFile = "./Images/availInstrumentsMaster.jsn"
@@ -47,7 +48,7 @@ for ins in jd["instruments"]:
 		formID = ins["formID"]
 		ff = frm[formID]
 		imgs = "./Images/Image{:02d}.bmp".format(imageID)
-		print("Creating Image:", imgs, ins["wtype"], ff["descr"])
+		print("gauge/compass creating Image:", imgs, ins["wtype"], ff["descr"])
 		bmpf = ins.get("bmpfile")
 		if bmpf == None:
 			options = str(ff["width"]) + " " + str(ff["height"]) + " "
@@ -70,7 +71,7 @@ for ins in jd["instruments"]:
 		formID = ins["formID"]
 		ff = frm[formID]
 		imgs = "./Images/Image{:02d}.bmp".format(imageID)
-		print("Creating Image:", imgs, ins["wtype"], ff["descr"])
+		print("hbar creating Image:", imgs, ins["wtype"], ff["descr"])
 		options = str(ff["width"]) + " " + str(ff["height"]) + " "
 		options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
 		options = options + str(ff["wid"]) + " " + str(ff["hgt"]) + " "
@@ -82,6 +83,23 @@ for ins in jd["instruments"]:
 		#print("hbarGen.py options: ", options)
 		os.system("set -e; python3 hbarGen.py " + options)
 
+	elif ins["wtype"] == "vbar":
+		imageID += 1
+		formID = ins["formID"]
+		ff = frm[formID]
+		imgs = "./Images/Image{:02d}.bmp".format(imageID)
+		print("vbar creating Image:", imgs, ins["wtype"], ff["descr"])
+		options = str(ff["width"]) + " " + str(ff["height"]) + " "
+		options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
+		options = options + str(ff["wid"]) + " " + str(ff["hgt"]) + " "
+		options = options + str(ff["major"]) + " "
+		options = options + "'" + ins["ticlabels"] + "' "
+		options = options + "'" + ins["label"] + "' "
+		options = options + str(ff["xlbl"]) + " " + str(ff["ylbl"]) + " "
+		options = options + imgs
+		#print("vbarGen.py options: ", options)
+		os.system("set -e; python3 vbarGen.py " + options)
+		
 # before making the .txt files for the images, "compile" the fonts portion
 
 os.system("set -e; python3 configG.py config-fonts")
@@ -89,7 +107,7 @@ os.system("set -e; python3 configG.py config-fonts")
 imageID = 0
 for imgs in jd["instruments"]:
 	#print("loop", imgs["wtype"])
-	if imgs["wtype"] == "gauge" or imgs["wtype"] == "compass" or imgs["wtype"] == "hbar":
+	if imgs["wtype"] == "gauge" or imgs["wtype"] == "compass" or imgs["wtype"] == "hbar" or imgs["wtype"] == "vbar":
 		imageID += 1
 		name = "Image{:02d}.bmp".format(imageID)
 		sname = "Image{:02d}".format(imageID)
@@ -114,7 +132,9 @@ for imgs in jd["instruments"]:
 		os.system("mv ./Images/smaller/" + sname + ".png " +
 				  " ./Images/smaller/" + sname + "-smaller.png")
 
-			
+#print("EXITING")
+#exit()
+		
 os.system('set -e;cp -v Configs/config-*.txt ../Glass/Configs')
 os.system('set -e;cp -v Images/small/*-small.png ../Glass/Images')
 os.system('set -e;cp -v Images/smaller/*-smaller.png ../Glass/Images')

@@ -166,7 +166,8 @@ jj = 0
 ii = 0
 iid = 0
 for i,img in ipairs(availFormsInstr.instruments) do
-   if img.wtype == "gauge" or img.wtype == "compass" or img.wtype == "hbar" then
+   if img.wtype == "gauge" or img.wtype == "compass" or
+      img.wtype == "hbar" or img.wtype == "vbar" then
       iid = iid + 1
    end
    ii = ii + 1
@@ -192,7 +193,7 @@ for i,img in ipairs(availFormsInstr.instruments) do
 	 end
       end
       cft = cfgimgESP.instruments[id].wtype
-      if cft == "gauge" or cft == "compass" or cft == "hbar" then
+      if cft == "gauge" or cft == "compass" or cft == "hbar" or cfg == "vbar" then
 	 cfgimgESP.instruments[id].imageID = iid
 	 cfgimgDB.instruments[id].imageID = iid	 
       else
@@ -202,7 +203,7 @@ for i,img in ipairs(availFormsInstr.instruments) do
 	 
    end
 
-   typekey = {gauge=0, compass=1, hbar=2, htext=3, timer=4}
+   typekey = {gauge=0, compass=1, hbar=2, htext=3, timer=4, vbar=5}
    scalekey = {fixed=0, variable=1}
    
    for k,v in pairs(img) do
@@ -210,7 +211,7 @@ for i,img in ipairs(availFormsInstr.instruments) do
 	 cfgimg.instruments[id][k] = v
       end
       cft = cfgimgESP.instruments[id].wtype
-      if cft == "gauge" or cft == "compass" or cft == "hbar" then
+      if cft == "gauge" or cft == "compass" or cft == "hbar" or cft == "vbar" then
 	 cfgimg.instruments[id].imageID = iid
       else
 	 cfgimg.instruments[id].imageID = 0	 
