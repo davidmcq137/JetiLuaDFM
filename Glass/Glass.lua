@@ -3341,6 +3341,7 @@ local function init()
    writeInst() --- will also get done in loop() based on tenSecTimer
    
    print("CPU end init(): ", system.getCPU())
+
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.95", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.96", name=appName}
