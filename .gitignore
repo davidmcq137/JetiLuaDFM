@@ -54,6 +54,7 @@ Glass/font
 Glass/sensorParam.py
 Glass/setTimer.py
 Glass/GG*.jsn
+Glass/Json/GG*.jsn
 Glass/Configs/*Image*.txt
 Glass/Images/*Image*.png
 GlassBuild/Configs/*Image*.txt
@@ -65,4 +66,7 @@ Glass/Json/instr*.jsn
 GlassBuild/Images/Image*.bmp
 GlassBuild/Images/Inst*.jsn
 GlassBuild/Images/inst*.jsn
+GlassBuild/Images/availInstrumentsMaster.js0
+GlassBuild/Images/availInstrumentsMaster.js1
+GlassBuild/Images/instrESP.h
 

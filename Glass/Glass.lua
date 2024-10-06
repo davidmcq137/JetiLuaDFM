@@ -44,9 +44,9 @@ Glass.timers = {}
 Glass.switchInfo = {}
 Glass.var = {}
 
-Glass.convertStr = {"None", "m to ft", "m/s to mph", "m/s to km/h"}
-Glass.convertVal = {1, 3.28084, 2.23694 , 3.6}
-Glass.convertUnits = {"-", "ft", "mph", "km/h"}
+Glass.convertStr = {"None", "m to ft", "m/s to mph", "m/s to km/h", "°C to °F"}
+Glass.convertVal = {{1,0}, {3.28084,0}, {2.23694,0} , {3.6,0}, {1.8,32}}
+Glass.convertUnits = {"-", "ft", "mph", "km/h", "°F"}
 
 --Glass.switches = {}
 
@@ -1080,7 +1080,8 @@ local function loop()
 		     --print("v.value", v.value)
 		     if v.convertIdx then
 			--print("v.convertIdx", v.convertIdx, Glass.convertVal[v.convertIdx])
-			v.value = v.value * Glass.convertVal[v.convertIdx]
+			v.value = v.value * Glass.convertVal[v.convertIdx][1] +
+			   Glass.convertVal[v.convertIdx][2]
 		     end
 		     if not v.value then print("v.value nil") end
 		  end
@@ -1218,23 +1219,23 @@ local function loop()
 
 	 local sendJson = true
 	 if not Glass.var.statusAL then
-	    print("not statusAL")
+	    --print("not statusAL")
 	    sendJson = false
 	 else
 	    if Glass.var.statusAL.Conn == 0 then
-	       print(".Conn is 0")
+	       --print(".Conn is 0")
 	       sendJson = false
 	    end
 	    if Glass.var.statusAL.Conf ~= Glass.var.statusAL.GlassConf then
-	       print(".Conf ~=")
+	       --print(".Conf ~=")
 	       sendJson = false
 	    end 
 	    if not matchConfigID() then
-	       print("not matchConfigID")
+	       --print("not matchConfigID")
 	       sendJson = false
 	    end
 	    if form.getActiveForm() then
-	       print("getActiveForm")
+	       --print("getActiveForm")
 	       sendJson = false
 	    end
 	 end
