@@ -3185,7 +3185,7 @@ local function onRead(indata)
 
 	 if Glass.var.statusAL and Glass.var.statusAL.Gesture == 1 then
 	    print("ENGO gesture")
-	    system.messageBox("AL gesture logged")
+	    system.messageBox("AL gesture received")
 	    gestureTime = system.getTimeCounter() + 1000
 	 end
 	 
