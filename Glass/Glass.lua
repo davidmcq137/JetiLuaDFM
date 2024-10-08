@@ -28,7 +28,8 @@ local wasEverGreen = false
 local Glass = {}
 local otaTimer = 0
 local restartTimer = 0
-local rebootDisco = false
+local gestureTime = 0
+--local rebootDisco = false
 
 Glass.sensorLalist = {"..."}
 Glass.sensorLslist = {"..."}
@@ -316,10 +317,10 @@ local function writeInst()
    local stbl = {}
    local gtbl = {}
 
-   print("writeInst: Glass", Glass)
-   print("writeInst: Glass.page", Glass.page)
-   print("writeInst: pageNumberTele", pageNumberTele)
-   print("writeInst: Glass.page[pageNumberTele", Glass.page[pageNumberTele])
+   --print("writeInst: Glass", Glass)
+   --print("writeInst: Glass.page", Glass.page)
+   --print("writeInst: pageNumberTele", pageNumberTele)
+   --print("writeInst: Glass.page[pageNumberTele", Glass.page[pageNumberTele])
    
    if not Glass.page or #Glass.page == 0 or not pageNumberTele or #Glass.page[pageNumberTele] == 0 then
       print("Glass: No instrESPW to send")
@@ -388,7 +389,7 @@ local function writeInst()
    end
    local pptbl={}
    pptbl["instW"] = ptbl
-   print(json.encode(pptbl))
+   --print(json.encode(pptbl))
 	 
    --[[
    gtbl["instW"] = {}
@@ -397,7 +398,7 @@ local function writeInst()
    end
    --]]
    local instW =  json.encode(pptbl)
-   print("opening instW")
+   --print("opening instW")
    local FP = io.open(prefix() .. pathJson .. "instrESPW.jsn", "w")
    if FP  then
       io.write(FP, instW, "\n")
@@ -405,7 +406,7 @@ local function writeInst()
    else
       print("Glass: Cannot open instrESPW.jsn for writing")
    end
-   print("sending USB part")
+   --print("sending USB part")
    sendUSB("part")
    --print("sending USB full")
    --sendUSB("full")
@@ -837,7 +838,7 @@ local function loop()
    -- sometimes get missed if the ESP is busy .. send once more 10s after init
    
    if initTime ~= 0 and system.getTime() > initTime + 10 then
-      print("10s writeInst")
+      --print("10s writeInst")
       writeInst()
       initTime = 0
    end
@@ -1927,7 +1928,23 @@ local function initForm(sf)
 	       return
 	 end), {label="Reboot AL controller>>"}
       )
-      
+
+      form.addRow(2)
+      form.addLabel({label="Reboot on disconnect", width=270})
+      local rdIndex
+      rdIndex = form.addCheckbox(Glass.settings.rebootDisco,
+				 (function()
+				       if not Glass.settings.rebootDisco then
+					  Glass.settings.rebootDisco = true
+				       else
+					  Glass.settings.rebootDisco = not Glass.settings.rebootDisco
+				       end
+				       form.setValue(rdIndex, Glass.settings.rebootDisco)
+				       print("rebootDisco", Glass.settings.rebootDisco)
+				       return
+				 end)
+      )
+      --[[
       form.addRow(1)
       form.addLink(
 	 (
@@ -1937,7 +1954,7 @@ local function initForm(sf)
 	       return
 	 end), {label="Set reboot on disconnect>>"}
       )
-
+      --]]
    elseif sf == 12 then
 
       local isel = 0
@@ -2822,7 +2839,8 @@ local function printTele(w,h)
       drawTextCenter(287, 90, "G", FONT_MINI)
    else
       drawTextCenter(287, 90, "-", FONT_MINI)
-      if wasEverGreen and rebootDisco then
+      if system.getTimeCounter() > initTime + 2 -- only when run
+	 and wasEverGreen and Glass.settings.rebootDisco then
 	 wasEverGreen = false
 	 Glass.var.statusAL.Conn = 0 -- note that we are no longer connected
 	 restartTimer = system.getTimeCounter() + 500 -- set high for 500ms
@@ -3067,11 +3085,9 @@ end
 
 local function destroy()
 
-   print("closing")
+   --print("closing")
    if (logFileFP) then
-      print(io.close(logFileFP))
-   else
-      print("logFileFP not open")
+      io.close(logFileFP)
    end
    
    local fp
@@ -3139,8 +3155,11 @@ local function onRead(indata)
       data = indata
       savedData = ""
    end
-   if data == "W" then
-      print("ENGO gesture") 
+   --print(data)
+   if data == "W" or (emflag ~= 0 and system.getInputs("SE") == 1) then
+      print("ENGO gesture")
+      system.messageBox("AL gesture logged")
+      gestureTime = system.getTimeCounter() + 1000
    elseif string.find(data, "{") == 1 and string.find(data, "}") then
       local callOK
       if emflag ~= 0 then
@@ -3171,13 +3190,23 @@ local function onRead(indata)
       if string.find(data, "{") == 1 and not string.find(data, "}") then
 	 savedData = data
       else
-	 print("Unknown serial data: ", data)
+	 print("serial data: ", data)
 	 --print("logFileFP", logFileFP)
 	 if (logFileFP) then
 	    io.write(logFileFP, data, "\n")
 	 end
 	 savedData = ""
       end
+   end
+end
+
+local function gestureCB()
+   if gestureTime ~= 0 and system.getTimeCounter() < gestureTime then
+      --print("logging 1")
+      return 1
+   else
+      gestureTime = 0
+      return 0
    end
 end
 
@@ -3189,7 +3218,7 @@ local function init()
    --print("CPU Entry ", system.getCPU())
    
    initTime = system.getTime()
-   tenSecTimer = initTime
+   --tenSecTimer = initTime
    
    sendState = state.IDLE
    --jsonHoldTime = system.getTimeCounter() + 10 * WAIT_TIME
@@ -3395,7 +3424,7 @@ local function init()
    if not Glass.timers.timer1.target then
       Glass.timers.timer1.target = 0 -- 0:00
    end
-
+   
    if not Glass.timers.timer2.initial then
       Glass.timers.timer2.start = 0
       Glass.timers.timer2.initial = 300 * 1000 -- 5:00 in ms
@@ -3441,11 +3470,14 @@ local function init()
    end
    
    local lfn = string.format("logfile%d.txt", Glass.settings.logSeq)
-   print("lfn", lfn)
-   logFileFP = io.open(prefix() .. pathJson .. lfn, "w")   
+   --print("lfn", lfn)
+   logFileFP = io.open(prefix() .. pathJson .. lfn, "w")
+
+   system.registerLogVariable("ALGesture", "", gestureCB) 
 
    print("CPU end init(): ", system.getCPU())
 
+   -- for testing: Glass.settings.rebootDisco = nil
 end
 
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.97", name=appName}
