@@ -2847,6 +2847,7 @@ local function printTele(w,h)
 	 gpio.write(6,1)
 	 print("gpio 6 set high rebootDisco")
 	 system.messageBox("Rebooting AL controller")
+	 system.playBeep(2, 440, 200)
       end
    end
    
