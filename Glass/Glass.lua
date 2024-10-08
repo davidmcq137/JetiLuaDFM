@@ -3156,11 +3156,12 @@ local function onRead(indata)
       savedData = ""
    end
    --print(data)
-   if data == "W" or (emflag ~= 0 and system.getInputs("SE") == 1) then
-      print("ENGO gesture")
-      system.messageBox("AL gesture logged")
-      gestureTime = system.getTimeCounter() + 1000
-   elseif string.find(data, "{") == 1 and string.find(data, "}") then
+   --if data == "W" or (emflag ~= 0 and system.getInputs("SE") == 1) then
+      --print("ENGO gesture")
+      --system.messageBox("AL gesture logged")
+      --gestureTime = system.getTimeCounter() + 1000
+   --elseif string.find(data, "{") == 1 and string.find(data, "}") then
+   if string.find(data, "{") == 1 and string.find(data, "}") then
       local callOK
       if emflag ~= 0 then
 	 local swd = system.getInputs("SD") -- SD to print json only on emulator
@@ -3180,6 +3181,12 @@ local function onRead(indata)
 	 else
 	    Glass.var.statusAL = testJsonT
 	    Glass.var.statusTime = system.getTimeCounter()
+	 end
+
+	 if Glass.var.statusAL and Glass.var.statusAL.Gesture == 1 then
+	    print("ENGO gesture")
+	    system.messageBox("AL gesture logged")
+	    gestureTime = system.getTimeCounter() + 1000
 	 end
 	 
 	 lastRead = system.getTime()
