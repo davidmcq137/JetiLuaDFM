@@ -3487,4 +3487,4 @@ local function init()
    -- for testing: Glass.settings.rebootDisco = nil
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.97", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.98", name=appName}
