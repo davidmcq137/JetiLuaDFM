@@ -69,4 +69,5 @@ GlassBuild/Images/inst*.jsn
 GlassBuild/Images/availInstrumentsMaster.js0
 GlassBuild/Images/availInstrumentsMaster.js1
 GlassBuild/Images/instrESP.h
+Glass/Json/logfile*.txt
 

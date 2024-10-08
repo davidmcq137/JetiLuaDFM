@@ -23,8 +23,12 @@ local pathJson = pathApp.."Json/"
 local JSNVERSION = 5
 local dbmode = false
 local loopCPU = 0	 
-
+local logFileFP
+local wasEverGreen = false
 local Glass = {}
+local otaTimer = 0
+local restartTimer = 0
+local rebootDisco = false
 
 Glass.sensorLalist = {"..."}
 Glass.sensorLslist = {"..."}
@@ -811,6 +815,24 @@ local function loop()
    local BUF_SIZE = 64
    local SEND_LOOPS = 2 --20
 
+   if otaTimer ~= 0 and now > otaTimer then
+      otaTimer = 0
+      gpio.write(5,0)
+      print("gpio 5 cleared")
+   end
+
+   if restartTimer ~= 0 and now > restartTimer then
+      restartTimer = 0
+      gpio.write(6,0)
+      print("gpio 6 cleared")
+   end
+   
+   if Glass.var.statusAL and Glass.var.statusAL.Conn and Glass.var.statusAL.Conn == 1 and
+      Glass.var.statusAL.Conf == Glass.var.statusAL.GlassConf and matchConfigID() then
+      --and system.getTimeCounter() < Glass.var.statusTime + 3000 then
+      wasEverGreen = true
+   end
+
    -- we perform writeInst() to send the json for the selected pages at init() time, but it can
    -- sometimes get missed if the ESP is busy .. send once more 10s after init
    
@@ -1291,7 +1313,7 @@ local function loop()
 	    end
 	    --local count = serial.write(sidSerial, espjson, "\n")
 	    local count = serial.write(sidSerial, binser, "\n")
-	    --print("count", count)
+	    --print("count, out", count, out)
 	 end
 	 lastWrite = now
       end
@@ -1802,6 +1824,7 @@ local function initForm(sf)
       form.setFocusedRow(1)
    elseif sf == 11 then
 
+      form.setTitle("Utilities")
       if emflag ~= 0 then -- emulator only: button to force serial send
 	 form.setButton(1, "USB",   ENABLED)
       end
@@ -1879,6 +1902,41 @@ local function initForm(sf)
       
       form.addRow(1)
       form.addLink((function() sendUSB("full") form.reinit(15) return end), {label="Set up AL Glasses>>"})
+      form.addRow(1)
+      form.addLink(
+	 (
+	    function()
+	       otaTimer = system.getTimeCounter() + 500 -- set high for 500ms
+	       gpio.write(5,1)
+	       print("gpio 5 set high")
+	       system.messageBox("OTA update initialized")
+	       --form.reinit(11)
+	       return
+	 end), {label="Start OTA update>>"}
+      )
+
+      form.addRow(1)
+      form.addLink(
+	 (
+	    function()
+	       restartTimer = system.getTimeCounter() + 500 -- set high for 500ms
+	       gpio.write(6,1)
+	       print("gpio 6 set high")
+	       system.messageBox("Rebooting AL controller")
+	       --form.reinit(11)
+	       return
+	 end), {label="Reboot AL controller>>"}
+      )
+      
+      form.addRow(1)
+      form.addLink(
+	 (
+	    function()
+	       rebootDisco = true
+	       --form.reinit(11)
+	       return
+	 end), {label="Set reboot on disconnect>>"}
+      )
 
    elseif sf == 12 then
 
@@ -2734,7 +2792,7 @@ local function printTele(w,h)
    if pageNumberTele and pageNumberTele > 0 then
       lcd.drawText(10, 10, string.format("Page %d", pageNumberTele))
    end
-   local offline = system.getTime() - lastRead > 5
+   local offline = system.getTime() - lastRead > 10
 
    lcd.drawImage(265, 15, glassesIcon)
    if not Glass.var.statusAL or offline then
@@ -2759,6 +2817,20 @@ local function printTele(w,h)
 					    Glass.var.statusAL.GlassConf), FONT_MINI)
    end
       
+   if Glass.var.statusAL and Glass.var.statusTime and Glass.var.statusAL.Conn == 1 and
+      system.getTimeCounter() < Glass.var.statusTime + 5000 then
+      drawTextCenter(287, 90, "G", FONT_MINI)
+   else
+      drawTextCenter(287, 90, "-", FONT_MINI)
+      if wasEverGreen and rebootDisco then
+	 wasEverGreen = false
+	 Glass.var.statusAL.Conn = 0 -- note that we are no longer connected
+	 restartTimer = system.getTimeCounter() + 500 -- set high for 500ms
+	 gpio.write(6,1)
+	 print("gpio 6 set high rebootDisco")
+	 system.messageBox("Rebooting AL controller")
+      end
+   end
    
    if not pageNumberTele or pageNumberTele < 1 then return end
 
@@ -2995,6 +3067,13 @@ end
 
 local function destroy()
 
+   print("closing")
+   if (logFileFP) then
+      print(io.close(logFileFP))
+   else
+      print("logFileFP not open")
+   end
+   
    local fp
    local fn = prefix()..pathJson.."GG_" .. modelName.. ".jsn"
 
@@ -3081,6 +3160,7 @@ local function onRead(indata)
 	    system.messageBox(testJsonT.mb)
 	 else
 	    Glass.var.statusAL = testJsonT
+	    Glass.var.statusTime = system.getTimeCounter()
 	 end
 	 
 	 lastRead = system.getTime()
@@ -3092,6 +3172,10 @@ local function onRead(indata)
 	 savedData = data
       else
 	 print("Unknown serial data: ", data)
+	 --print("logFileFP", logFileFP)
+	 if (logFileFP) then
+	    io.write(logFileFP, data, "\n")
+	 end
 	 savedData = ""
       end
    end
@@ -3339,9 +3423,29 @@ local function init()
    setpNT()
    
    writeInst() --- will also get done in loop() based on tenSecTimer
+
+   --gpio 6 drives the D2 pin on the ESP32 for reboot
+   --gpio 5 drives the D0 pin on the ESP32 for OTA start
    
+   gpio.mode(5, "out-pp");
+   gpio.mode(6, "out-pp");
+
+   gpio.write(5,0) -- set to 1 to start OTA
+   gpio.write(6,0) -- set to 1 to reboot
+
+   if not Glass.settings.logSeq then
+      Glass.settings.logSeq = 1
+   else
+      Glass.settings.logSeq = Glass.settings.logSeq + 1
+      if Glass.settings.logSeq > 10 then Glass.settings.logSeq = 1 end
+   end
+   
+   local lfn = string.format("logfile%d.txt", Glass.settings.logSeq)
+   print("lfn", lfn)
+   logFileFP = io.open(prefix() .. pathJson .. lfn, "w")   
+
    print("CPU end init(): ", system.getCPU())
 
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.96", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.97", name=appName}
