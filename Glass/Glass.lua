@@ -2842,7 +2842,9 @@ local function printTele(w,h)
       if system.getTimeCounter() > initTime + 2 -- only when run
 	 and wasEverGreen and Glass.settings.rebootDisco then
 	 wasEverGreen = false
-	 Glass.var.statusAL.Conn = 0 -- note that we are no longer connected
+	 if Glass.var.statusAL then
+	    Glass.var.statusAL.Conn = 0 -- note that we are no longer connected
+	 end
 	 restartTimer = system.getTimeCounter() + 500 -- set high for 500ms
 	 gpio.write(6,1)
 	 print("gpio 6 set high rebootDisco")
@@ -3192,7 +3194,8 @@ local function onRead(indata)
 	 
 	 lastRead = system.getTime()
       else
-	 Glass.var.statusAL = nil
+	 print("not callOK", data)
+	 Glass.var.statusAL = nil -- too aggressive? .. leave at last value vs set to nil??
       end
    else
       if string.find(data, "{") == 1 and not string.find(data, "}") then
@@ -3488,4 +3491,4 @@ local function init()
    -- for testing: Glass.settings.rebootDisco = nil
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.98", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.99", name=appName}
