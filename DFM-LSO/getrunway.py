@@ -98,7 +98,7 @@ if len(sys.argv) > 2:
 else:
 	iPad = False
 	imageSize = "640x640"
-	imageOut = (320, 160)
+	imageOut = (320, 235)
 	print("Jeti mode")
 	
 # experimentation showed these zooms best for these field image widths

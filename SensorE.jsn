@@ -1,5 +1,6 @@
 {
-    "configDir":"Apps/Glass/Json",
+    "configDir":"Apps/DFM-Maps/JSON",
+    "configDir0":"Apps/Glass/Json",
     "configDir1":"Apps/DFM-InsP"
 }
 

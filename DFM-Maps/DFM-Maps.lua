@@ -229,6 +229,7 @@ auxSensors.satQuality = 0
 
 local lang
 local locale
+local newTransmitter = false
 
 local function rotateXY(xx, yy, rotation)
    local sinShape, cosShape
@@ -2048,6 +2049,7 @@ local function drawTriRace(windowWidth, windowHeight)
       ren:addPoint(toXPixel(pylon[m3(j)].x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[m3(j)].y, map.Ymin, map.Yrange, windowHeight) )
    end
+   --lcd.setClipping(0,0,320,160)   
    ren:renderPolyline(2, 0.7)
    -- draw the startline
    if #pylon == 3 and pylon.start then
@@ -2822,8 +2824,16 @@ local function isNoFlyP(nn,p)
    
 end
 
-local function prtForm(windowWidth, windowHeight)
+local function prtForm(wwx, whx)
 
+   local windowWidth = 320
+   local windowHeight = 160
+   
+   if newTransmitter then
+      lcd.setClipping(0,0,320,160) -- needed for 24-II
+   end
+   
+   --print("**", windowWidth, windowHeight)
    setColor("Map", "Image")
 
    for k,v in pairs(switchItems) do
@@ -2973,7 +2983,10 @@ local function dirPrint(xw, xh, kk)
 
    if not xtable or not ytable then return end
 
-   --lcd.setClipping(0,0,320,160)
+   if newTransmitter then
+      lcd.setClipping(0,0,320,160) -- needed for 24-II
+   end
+   
    --lcd.setColor(255,0,0)
    --lcd.drawRectangle(0,0,300,150)
    
@@ -3544,7 +3557,10 @@ end
 
 local panic = false
 
-local function mapPrint(windowWidth, windowHeight)
+local function mapPrint(wWid, wHgt)
+
+   local windowWidth = 319
+   local windowHeight = 159
 
    local swp
    local offset
@@ -3559,7 +3575,7 @@ local function mapPrint(windowWidth, windowHeight)
       metrics.lastxPCount = metrics.xPCount
    end
    --]]
-   
+
    if not emFlag then
       if form.getActiveForm() then
 	 return
@@ -3570,7 +3586,10 @@ local function mapPrint(windowWidth, windowHeight)
       graphScale(xtable[#xtable], ytable[#ytable])
    end
 
-   --lcd.setClipping(0,0,320,160)
+   if newTransmitter then
+      lcd.setClipping(0,0,320,160) -- needed for 24-II
+   end
+   
    
    --[[
       -- started to separate no GPS from no map .. user sugggestion to show icon in motion or timer
@@ -3773,7 +3792,7 @@ local function mapPrint(windowWidth, windowHeight)
 				  map.Ymin, map.Yrange, windowHeight))
 	    
 	 end
-	 --lcd.setClipping(0,0,310,160)
+	 --lcd.setClipping(0,0,320,160)
 	 ren:renderPolyline(2,0.5)
       end
 
@@ -4614,8 +4633,10 @@ local function init()
       checkBox[k.."Switch"] = system.getInputsVal(switchItems[k]) == 1
    end
 
+   newTransmitter = (string.find(select(1, system.getDeviceType()), "24 II"))
+
 end
 
-return {init=init, loop=loop, author="DFM", version="8.11", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="8.12", name=appInfo.Name, destroy=destroy}
 
 
