@@ -56,12 +56,12 @@ Glass/setTimer.py
 Glass/GG*.jsn
 Glass/Json/GG*.jsn
 Glass/Configs/*Image*.txt
+Glass/Json/log*.txt
 GlassBuild/Configs/*Image*.txt
 GlassBuild/Configs/*Image*.json
 GlassBuild/Images/small/*Image*.png
 GlassBuild/Images/smaller/*Image*.png
 Glass/Configs/config*.txt
-Glass/Json/instr*.jsn
 GlassBuild/Images/Image*.bmp
 GlassBuild/Images/Inst*.jsn
 GlassBuild/Images/inst*.jsn

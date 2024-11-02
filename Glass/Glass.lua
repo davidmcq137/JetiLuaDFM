@@ -28,6 +28,7 @@ local wasEverGreen = false
 local Glass = {}
 local otaTimer = 0
 local restartTimer = 0
+local powerDownTimer = 0
 local gestureTime = 0
 --local rebootDisco = false
 
@@ -828,6 +829,12 @@ local function loop()
       print("gpio 6 cleared")
    end
    
+   if powerDownTimer ~= 0 and now > powerDownTimer then
+      powerDownTimer = 0
+      gpio.write(7,1)
+      print("gpio 7 set high")
+   end
+
    if Glass.var.statusAL and Glass.var.statusAL.Conn and Glass.var.statusAL.Conn == 1 and
       Glass.var.statusAL.Conf == Glass.var.statusAL.GlassConf and matchConfigID() then
       --and system.getTimeCounter() < Glass.var.statusTime + 3000 then
@@ -1927,6 +1934,19 @@ local function initForm(sf)
 	       --form.reinit(11)
 	       return
 	 end), {label="Reboot AL controller>>"}
+      )
+
+      form.addRow(1)
+      form.addLink(
+	 (
+	    function()
+	       powerDownTimer = system.getTimeCounter() + 500 -- set high for 500ms
+	       gpio.write(7,0)
+	       print("gpio 7 set low")
+	       system.messageBox("Cycling AL controller power")
+	       --form.reinit(11)
+	       return
+	 end), {label="CyclePwr AL controller>>"}
       )
 
       form.addRow(2)
@@ -3466,13 +3486,16 @@ local function init()
 
    --gpio 6 drives the D2 pin on the ESP32 for reboot
    --gpio 5 drives the D0 pin on the ESP32 for OTA start
+   --gpio 7 drives the power-on circuit via P3-3 (IO7)
    
    gpio.mode(5, "out-pp");
    gpio.mode(6, "out-pp");
-
+   gpio.mode(7, "out-pp");
+   
    gpio.write(5,0) -- set to 1 to start OTA
    gpio.write(6,0) -- set to 1 to reboot
-
+   gpio.write(7,1) -- turn power on
+   
    if not Glass.settings.logSeq then
       Glass.settings.logSeq = 1
    else

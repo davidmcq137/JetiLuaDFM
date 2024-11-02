@@ -2370,7 +2370,7 @@ local function calcTriRace()
    local inStartZone
 
    if not detS1 then
-      print("DFM-Maps: Not detS1")
+      --print("DFM-Maps: Not detS1")
       return
    end
 
@@ -2826,11 +2826,12 @@ end
 
 local function prtForm(wwx, whx)
 
-   local windowWidth = 320
-   local windowHeight = 160
+   --print("wwx, whx", wwx, whx)
+   local windowWidth = 310
+   local windowHeight = 175
    
    if newTransmitter then
-      lcd.setClipping(0,0,320,160) -- needed for 24-II
+      lcd.setClipping(0,0,310,160) -- needed for 24-II
    end
    
    --print("**", windowWidth, windowHeight)
@@ -4066,7 +4067,7 @@ local function loop()
    
    sensor = system.getSensorByID(telem.Latitude.SeId, telem.Latitude.SePa)
 
-   if(sensor and sensor.valid) then
+   if(sensor and sensor.valid and sensor.valGPS) then
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       degs = (sensor.valGPS >> 16) & 0xFF
       latitude = degs + minutes/60
