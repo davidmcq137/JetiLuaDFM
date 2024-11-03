@@ -58,6 +58,8 @@
    :state/save-status {:persistence :ephemeral}
    :state/current-tab {}
    :state/modal {}
+   :state/image-width-px {}
+   :state/image-height-px {}
    
    :state/dynamic-repo-git-ref {:deprecated true}
    
@@ -138,7 +140,8 @@
        :state/save-status "No save status"
        :state/current-tab :map
        :state/dynamic-repo-git-ref "master"
-       }])))
+       :state/image-width-px 320
+       :state/image-height-px 160}])))
 
 (def conn (d/conn-from-db @default-db-conn))
 
@@ -1370,6 +1373,11 @@
                 (d/transact! conn [{:db/ident ::state
                                     :state/show-prereleases show?}])))
 
+(register-sub ::set-image-size
+              (fn [[_ w h]]
+                (d/transact! conn [{:db/ident ::state
+                                    :state/image-width-px w
+                                    :state/image-height-px h}])))
 
 (def month-names-vec
   ["January" "February" "March" "April" "May" "June" "July" "August" "September" "October" "November" "December"])
@@ -1389,6 +1397,40 @@
      (.getFullYear d)
      ".edn")))
 
+(rum/defcs image-size-edit-form < (rum/local nil ::st)
+  [{::keys [st]} bus]
+  (let [{:keys [editing s-width s-height]} @st
+        {:state/keys [image-width-px image-height-px]} (d/entity @conn ::state)
+        v-width (or s-width (str image-width-px))
+        v-height (or s-height (str image-height-px))
+        {:keys [valid error]} (let [p-width (js/parseInt v-width)
+                                    p-height (js/parseInt v-height)]
+                                (cond
+                                  (js/isNaN p-width) {:error "width"}
+                                  (js/isNaN p-height) {:error "height"}
+                                  :else {:valid [p-width p-height]}))]
+    (if-not editing
+      [:input {:type "button"
+               :value (str "Set custom size"
+                           " [" image-width-px "x" image-height-px "]")
+               :on-click #(swap! st assoc :editing true)}]
+      [:div.vflex {}
+       (when editing
+         [:fieldset
+          [:legend "Set custom size"]
+          [:p {} "Default size is for DS-24 - newer TX may need larger"]
+          [:label "Width" [:input {:value v-width :on-change #(swap! st assoc :s-width (.-value (.-target %)))}]]
+          [:label "Height" [:input {:value v-height :on-change #(swap! st assoc :s-height (.-value (.-target %)))}]]
+          (if-let [[nw nh] valid]
+            [:input {:type "button"
+                     :value "Save"
+                     :on-click #(do (swap! st dissoc :editing)
+                                    (async/put! bus [::set-image-size nw nh]))}]
+            [:span {} "Invalid " (str error)])
+          [:input {:type "button"
+                   :value "Cancel"
+                   :on-click #(reset! st {})}]])])))
+
 (rum/defc sidebar-form [db bus]
   [:.sidebar-left
    [:.sidebar
@@ -1398,8 +1440,7 @@
        #_(field-info f bus)
        (field-info-collapse f bus)])
     
-    [:div.vflex {:style {:width "14em"}}
-
+    [:div.vflex {:style {:width "14em" :margin "auto"}}
      #_ [:input {:type "button"
                  :value "Show JSON"
                  :on-click #(async/put! bus [::show-modal :json-data])}]
@@ -1419,6 +1460,7 @@
                    (swap! gmaps-force-render inc)
                    (.setItem js/window.localStorage localstorage-db-key nil)
                    (d/reset-conn! conn @default-db-conn))}]
+     (image-size-edit-form bus)
      [:input {:type "button" :value "Save all to file"
               :on-click (fn [ev]
                           (dl/download-string

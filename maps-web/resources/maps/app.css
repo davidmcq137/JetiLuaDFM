@@ -35,15 +35,20 @@ div.app {
     margin: auto;
 }
 
+
 div.sidebar-left {
     flex-grow: 1;
     max-width: 22em;
 }
 
-div.map {
-    flex-grow: 5;
+.sidebar, .map {
     margin: 2vw;
 }
+
+div.map {
+    flex-grow: 5;
+}
+
 #map-canvas {
     height: 90%
 }
