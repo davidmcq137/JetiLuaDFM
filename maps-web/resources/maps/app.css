@@ -37,8 +37,8 @@ div.app {
 
 
 div.sidebar-left {
-    flex-grow: 1;
-    max-width: 22em;
+    flex-shrink: 1;
+    /* max-width: 22em; */
 }
 
 .sidebar, .map {

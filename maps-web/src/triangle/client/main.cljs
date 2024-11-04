@@ -314,8 +314,8 @@
     
     #js [(offset-point lat lng (- vx hx) (- vy hy)) ; top left
          ;; (offset-point lat lng  0 0) ; pointy bit
-         (offset-point lat lng (+ vx hx) (+ vy hy)) ; top right
-         (offset-point lat lng (- hx vx) (- hy vy)) ; bottom right
+         (offset-point lat lng (+ vx hx) (+ vy hy))     ; top right
+         (offset-point lat lng (- hx vx) (- hy vy))     ; bottom right
          (offset-point lat lng (- 0 hx vx) (- 0 hy vy)) ; bottom left
          ]))
 
@@ -514,31 +514,26 @@
   [zoom lat]
   (/ 1 (staticmap-meters-per-pixel zoom lat)))
 
-(defn set-clipbox-zoom* [{:zone/keys [center-lat center-lng] :as c} zoom]
+(defn set-clipbox-zoom*
+  [{:zone/keys [center-lat center-lng] :as c} zoom w-px h-px]
   (let [mpp (staticmap-meters-per-pixel zoom center-lat)]
     {:clipbox/preview-zoom zoom
-     :zone/length-m (* 160 mpp)
-     :zone/width-m (* 320 mpp)
-     }))
+     :zone/length-m (* h-px mpp)
+     :zone/width-m (* w-px mpp)}))
 
 (defn set-clipbox-zoom [c zoom]
-  (cond-> (set-clipbox-zoom* c zoom)
-    (:db/id c) (assoc :db/id (:db/id c))))
-
-(defn make-clipbox [zoom lat lng]
-  (-> {:zone/type :clipbox
-       :zone/center-lat lat
-       :zone/center-lng lng
-       :zone/heading 0}
-      (set-clipbox-zoom* zoom)))
+  (let [{:state/keys [image-width-px image-height-px]} (d/entity @conn ::state)]
+   (cond-> (set-clipbox-zoom* c zoom image-width-px image-height-px)
+     (:db/id c) (assoc :db/id (:db/id c)))))
 
 (def zoom-levels [14 14.5 15 15.5 16 16.5 17])
 
 
 (register-sub ::create-field
               (fn [[_]]
-                (let  [{:map/keys [center-lat center-lng]} (d/entity @conn ::map)
-                       {:state/keys [current-field]} (d/entity @conn ::state)
+                (let  [db @conn
+                       {:map/keys [center-lat center-lng]} (d/entity db ::map)
+                       {:state/keys [current-field image-width-px image-height-px]} (d/entity db ::state)
                        _ (when current-field
                            (async/put! bus [::deselect-field current-field]))
                        clipbox-template {:zone/type :clipbox
@@ -556,7 +551,9 @@
                             :field/short-name "NONAME"
                             :field/current-clipbox "default-clip"
                             :field/clipbox (for [i zoom-levels]
-                                             (cond-> (merge clipbox-template (set-clipbox-zoom* clipbox-template i))
+                                             (cond-> (merge clipbox-template (set-clipbox-zoom* clipbox-template i
+                                                                                                image-width-px
+                                                                                                image-height-px))
                                                (= i 17) (merge default-clip)))}]
                        {:keys [tempids]} (d/transact! conn tx)]
                   
@@ -1141,7 +1138,7 @@
              :on-click #(async/put! bus [::runway-placement-start])}]))
 
 (rum/defc add-noflys-helper [db bus]
-  [:div
+  [:<>
    [:input {:type "button"
             :value "Start drawing no-fly circle"
             :style {:width "15em"}
@@ -1169,8 +1166,10 @@
    [:a {:href "#" :on-click #(async/put! bus [::delete-field (:db/id f)])}
     "(delete)"]])
 
-(def default-image-width 320)
-(def default-image-height 160)
+#_(def default-image-width 320)
+#_(def default-image-height 160)
+
+
 (defn zone-image-query-params
   [{:zone/keys [center-lat center-lng heading] :as zone} img-width img-height]
   (.toString
@@ -1184,13 +1183,13 @@
       :out-height img-height}))))
 
 (rum/defc zone-image-preview [zone bus]
-  [:img {:width default-image-width
-         :height default-image-height
-         :src (str "/staticmap?"
-                   (zone-image-query-params zone
-                                            default-image-width
-                                            default-image-height))}])
-
+  (let [{:state/keys [image-width-px image-height-px]} (d/entity @conn ::state)]
+   [:img {:width image-width-px
+          :height image-height-px
+          :src (str "/staticmap?"
+                    (zone-image-query-params zone
+                                             image-width-px
+                                             image-height-px))}]))
 
 ;; whatever
 (rum/defcs clipbox-zoom-slider < (rum/local nil ::slider)
@@ -1265,7 +1264,8 @@
 (defn make-dynamic-repo-request [db]
   ;; apps json?
   (let [origin js/window.location.origin
-        state (d/entity db ::state)]
+        state (d/entity db ::state)
+        {:state/keys [image-width-px image-height-px]} state]
     (clj->js
      {:yoururl origin
       :apps [{:base-app "DFM-Maps"
@@ -1274,8 +1274,10 @@
                [{:destination "Apps/DFM-Maps/Maps/Fields.jsn"
                  :json-data (into {}
                                   (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
-                                    [short-name (json-data-for-field field)]))}]
-               
+                                    [short-name (json-data-for-field field)]))}
+                {:destination "Apps/DFM-Maps/Maps/Config.jsn"
+                 :json-data {"image_width_px" image-width-px
+                             "image-height-px" image-height-px}}]
                (for [{:field/keys [name short-name clipbox runway triangle noflys]} (qes-by db :field/name)
                      c clipbox]
                  (let [i (:clipbox/preview-zoom c)]
@@ -1283,8 +1285,8 @@
                     :url (str (.-origin (.-location js/window))
                               "/staticmap?"
                               (zone-image-query-params c
-                                                       default-image-width
-                                                       default-image-height))})))}
+                                                       image-width-px
+                                                       image-height-px))})))}
              {:base-app "DFM-GPS"
               :dynamic-files 
               (into [{:app "DFM-GPS" :prefix "Apps/"}]
@@ -1375,9 +1377,27 @@
 
 (register-sub ::set-image-size
               (fn [[_ w h]]
-                (d/transact! conn [{:db/ident ::state
-                                    :state/image-width-px w
-                                    :state/image-height-px h}])))
+                (let [db @conn
+                      {:keys [db-after tx-data]}
+                      (d/transact! conn
+                                   (into [{:db/ident ::state
+                                           :state/image-width-px w
+                                           :state/image-height-px h}]
+                                         ;; resize all
+                                         (for [[eid] (d/datoms db :avet :zone/type :clipbox)
+                                               :let [e (d/entity db eid)]]
+                                           (merge {:db/id eid}
+                                                  (set-clipbox-zoom* e (:clipbox/preview-zoom e) w h)))))]
+                  ;; update paths on google map
+                  (doseq [[eid] (d/datoms db-after :avet :zone/type :clipbox)
+                          :let [e (d/entity db-after eid)
+                                ^js p (:zone/map.polygon e)]]
+                    (when p
+                      (.setPath p (clipbox-path
+                                   (:zone/center-lat e)
+                                   (:zone/center-lng e)
+                                   (:zone/heading e)
+                                   e)))))))
 
 (def month-names-vec
   ["January" "February" "March" "April" "May" "June" "July" "August" "September" "October" "November" "December"])
