@@ -1277,7 +1277,7 @@
                                     [short-name (json-data-for-field field)]))}
                 {:destination "Apps/DFM-Maps/Maps/Config.jsn"
                  :json-data {"image_width_px" image-width-px
-                             "image-height-px" image-height-px}}]
+                             "image-height_px" image-height-px}}]
                (for [{:field/keys [name short-name clipbox runway triangle noflys]} (qes-by db :field/name)
                      c clipbox]
                  (let [i (:clipbox/preview-zoom c)]
