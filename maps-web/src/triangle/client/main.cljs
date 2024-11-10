@@ -1431,14 +1431,14 @@
                                   :else {:valid [p-width p-height]}))]
     (if-not editing
       [:input {:type "button"
-               :value (str "Set custom size"
+               :value (str "Generated image size"
                            " [" image-width-px "x" image-height-px "]")
                :on-click #(swap! st assoc :editing true)}]
       [:div.vflex {}
        (when editing
          [:fieldset
           [:legend "Set custom size"]
-          [:p {} "Default size is for DS-24 - newer TX may need larger"]
+          [:p {} "Do not change image size"]
           [:label "Width" [:input {:value v-width :on-change #(swap! st assoc :s-width (.-value (.-target %)))}]]
           [:label "Height" [:input {:value v-height :on-change #(swap! st assoc :s-height (.-value (.-target %)))}]]
           (if-let [[nw nh] valid]
