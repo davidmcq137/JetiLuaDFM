@@ -1143,6 +1143,8 @@ local function pngLoad(j)
    if not fieldPNG[j] then
       print(appInfo.Name .. ": Failed to load image", j, pfn)
       return
+   else
+      --print("image width, height", pfn, fieldPNG[j].width, fieldPNG[j].height)
    end
 
    -- get here if image file opened successfully
@@ -1207,7 +1209,7 @@ local function initField(fn)
    
    Field = {}
 
-   matchFields = {}
+   local matchFields = {}
    
    -- Use the highest mag image to determine if we are at this field
    -- Russell is sorting the images from highest to lowest zoom
@@ -2777,6 +2779,7 @@ local function isNoFlyP(nn,p)
 
    local isInside
    local next
+   local extreme
 
    -- There must be at least 3 vertices in polygon[]
 
@@ -2831,7 +2834,7 @@ local function prtForm(wwx, whx)
    local windowHeight = 175
    
    if newTransmitter then
-      lcd.setClipping(0,0,310,160) -- needed for 24-II
+      lcd.setClipping(0,0,310,175) -- needed for 24-II
    end
    
    --print("**", windowWidth, windowHeight)
@@ -2859,8 +2862,11 @@ local function prtForm(wwx, whx)
       if not browse.MapDisplayed then return end
       if #browse.List < 1 then return end
       local ren=lcd.renderer()
-
-      lcd.drawImage(-5,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)      
+      if newTransmitter then
+	 lcd.drawImage(-5+2,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
+      else
+	 lcd.drawImage(-5,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
+      end
       if Field then
 	 setColor("Label", "Image")
 	 lcd.drawText(10,10, Field.images[currentImage].file, FONT_NORMAL)	 
@@ -3588,7 +3594,7 @@ local function mapPrint(wWid, wHgt)
    end
 
    if newTransmitter then
-      lcd.setClipping(0,0,320,160) -- needed for 24-II
+      lcd.setClipping(0,0,windowWidth+1,windowHeight+1) -- needed for 24-II
    end
    
    
