@@ -1077,7 +1077,7 @@ local function loop()
 			      (Glass.timers.timer2.initial - Glass.timers.timer2.target)
 			   sensor.tpct = math.floor(10 * math.min(math.max(sensor.tpct, 0), 100)) / 10
 			end
-			if v.sensorPa == 5 then
+			if v.sensorPa == 6 then
 			   sensor.value = math.floor(100 * Glass.timers.timer2.time / 1000) / 100
 			else
 			   sensor.value = (sensor.tpct or 0)
@@ -2131,7 +2131,7 @@ local function initForm(sf)
 	 end
       end
    elseif sf == 14 then
-      local mins, secs, sign      
+      local hrs, mins, secs, sign      
             
       local function changedMS(val, tn, u, tm, tmud)
 	 local tt = {hrs=hrs, mins=mins, secs=secs}
@@ -3514,4 +3514,4 @@ local function init()
    -- for testing: Glass.settings.rebootDisco = nil
 end
 
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.99", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="1.00", name=appName}
