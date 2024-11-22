@@ -407,7 +407,7 @@ local function writeInst()
    else
       print("Glass: Cannot open instrESPW.jsn for writing")
    end
-   --print("sending USB part")
+   print("sending USB part")
    sendUSB("part")
    --print("sending USB full")
    --sendUSB("full")

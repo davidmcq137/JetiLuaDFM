@@ -4056,7 +4056,7 @@ local function loop()
    local sign, minstr, latstr, lngstr
    --]]
    
-   if(sensor and sensor.valid) then
+   if(sensor and sensor.valid and sensor.valGPS) then
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       degs = (sensor.valGPS >> 16) & 0xFF
       longitude = degs + minutes/60

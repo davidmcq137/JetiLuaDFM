@@ -28,6 +28,7 @@
    Version 0.2 - Sept 2020
    Version 0.3 - Oct  2020
    Version 0.4 - Apr  2022
+   Version 0.5 - Nov  2024 -- added time of day
 
    Created and tested on DC/DS-24 emulator, tested on DS-24 TX
 
@@ -46,7 +47,7 @@
 if not sharedVar then sharedVar = {} end
 
 local appName = "Short/Long Switch"
-local SWTVersion= 0.5
+local SWTVersion= 0.6
 local currSwitchState
 local lastSwitchState
 local switch
@@ -59,6 +60,7 @@ local teleSe
 local teleSeId
 local teleSePa
 local teleSeUn
+local teleSeUd
 local teleSeLs
 local teleSeLa
 local teleSeDp
@@ -84,15 +86,15 @@ local sensorDplist = { "...", 0}
 
 local txTelem = {"txVoltage", "txBattPercent", "txCurrent", "txCapacity",
 		 "rx1Percent", "rx1Voltage", "rx2Percent", "rx2Voltage",
-		 "rxBVoltage", "rxBPercent", "photoValue"}
+		 "rxBVoltage", "rxBPercent", "photoValue", "txClock"}
 
 local txTelemUn = {"V", "%", "mA", "mAh",
 		   "%", "V", "%", "V",
-		   "V", "%", ""}
+		   "V", "%", "", ""}
 
 local txTelemDp = {2, 0, 0, 0,
 		   0, 2, 0, 2,
-		   2, 0, 0}
+		   2, 0, 0, -1}
 
 local txTRSSI = {"rx1A1", "rx1A2", "rx2A1",
 		 "rx2A2", "rxBA1", "rxBA2"}
@@ -421,7 +423,7 @@ local function pressAction(pC)
    local value, unit, dp
    local fn
    local sensor
-   local txTele, txRSSI
+   local txTele, txRSSI, txDateTime
    
    --print("pA: pC, teleSe, vCtrl", pC, teleSe[pC], vCtrl[pC])
 
@@ -443,6 +445,7 @@ local function pressAction(pC)
       end
    elseif teleSe[pC] > maxTele and teleSe[pC] <= maxTxTele then -- Tx tele selected
       txTele = system.getTxTelemetry()
+      txDateTime = system.getDateTime()
       --print("SYS Tele - teleSe[pC] - maxTele:", teleSe[pC] - maxTele, teleSeLs[pC])
       value = txTele[teleSeLs[pC]]
       unit = teleSeUn[pC]
@@ -499,8 +502,36 @@ local function pressAction(pC)
 	 --print("DFM-SWT: playNumber:", value, dp, unit)
       end
       if fn then -- and value then -- and dp and unit then
-	 system.playFile(fn, AUDIO_QUEUE)
-	 system.playNumber((value or 0), (dp or 0), unit) -- not ok for dp to be nil, ok for unit to be nil
+	 if teleSeLs[pC] ~= "txClock" then
+	    system.playFile(fn, AUDIO_QUEUE)
+	    -- not ok for dp to be nil, ok for unit to be nil
+	    system.playNumber((value or 0), (dp or 0), unit) 
+	 else
+	    --print("clock", txDateTime.hour, txDateTime.min, txDateTime.sec)
+	    if txDateTime.hour > 0 then
+	       system.playNumber(txDateTime.hour or 0, 0)
+	    else
+	       system.playFile("/Apps/DFM-SWT/"..locale .."/".."txClock00.wav", AUDIO_QUEUE)
+	    end
+	    if txDateTime.min == 0 then
+	       system.playFile("/Apps/DFM-SWT/"..locale .."/".."hundred.wav", AUDIO_QUEUE)
+	    else
+	       if txDateTime.min > 9 then
+		  system.playNumber(txDateTime.min or 0, 0)
+	       else
+		  system.playFile("/Apps/DFM-SWT/"..locale .."/".."txClock0" ..txDateTime.min .. ".wav",
+				  AUDIO_QUEUE)
+	       end
+	    end
+	    if dp > 0 then
+	       if txDateTime.sec > 9 then
+		  system.playNumber(txDateTime.sec or 0, 0)
+	       else
+		  system.playFile("/Apps/DFM-SWT/"..locale .."/".."txClock0" ..txDateTime.sec .. ".wav",
+				  AUDIO_QUEUE)		  
+	       end
+	    end
+	 end
       else
 	 print("DFM-SWT: Some play vals nil:")
 	 print(fn, value, dp, unit)
@@ -657,7 +688,7 @@ local function init()
    -- may be changed since last stored with pSave. Just need to remember which entries in vCtrl
    -- were non-zero, then we repopulate vCtrl
    
-   kCtrl = {}
+   local kCtrl = {}
    for k in ipairs(vCtrl) do
       kCtrl[k] = vCtrl[k]
       vCtrl[k] = 0
