@@ -856,7 +856,7 @@ local function ALDrawText(str, fontHeight, xp, yp, wait)
 
    if fontHeight == 16 then
       fontCode = 4
-   elseif fontheight == 26 then
+   elseif fontHeight == 26 then
       fontCode = 6
    elseif fontHeight == 36 then
       fontCode = 5
@@ -891,10 +891,11 @@ local function ALDrawArc(x, y, r, arcS, arcE, thk)
       arcEnd = arcEnd + 1
    end
 
-   local pattern = ">BBBI1I2I2I1I2I2I1B"
+   local pattern = ">BBBI1I2I2I1i2i2I1B"
    local len = string.packsize(pattern)
+   --print("ALDrawArc len, r, thk", len, r, thk, arcStart, arcEnd)
    serial.write(sidSerial, string.pack(pattern, 0xFF, 0x3C, 0x00, len, x, y, r,
-				       arcStart, arcEnd, thk, 0xAA)
+				       arcStart, arcEnd, thk, 0xAA))
 end
 
 
@@ -912,9 +913,9 @@ local function RLwid(str, font)
    return math.floor( (20/36) * font * #str + 0.5 )
 end
 
-arcAnglePrev = {0,0,0,0}
-arcFirstTime = {0,0,0,0}
-arcAngle = {0,0,0,0}
+local arcAnglePrev = {0,0,0,0}
+local arcFirstTime = {0,0,0,0}
+local arcAngle = {0,0,0,0}
 
 
 local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
@@ -925,7 +926,6 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
    local markAngle
    local arcStart = as
    local arcEnd = ae
-   local width
    local thk = rOut - rIn
    local sinM, cosM
    local xm1, ym1, xm2, ym2
@@ -933,19 +933,19 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
    local valText
    local valX, valY
    local minText
-   local xlMin, ylMin
+   local xlMin, xlMax
    local maxText
    local ylMin, ylMax
    local valaX, valaY
    local valbX, valbY
    local arcErase
    
-   print("ag", seq, xc, yc, xr, yr)
-   print(nv, xv, lbl, val, val2)
-   print(as, ae, mk, dd, xlbl, ylbl, width)
+   --print("ag", seq, x0, y0, x, y)
+   --print(nv, xv, lbl, val, val2)
+   --print(as, ae, mk, dd, xlbl, ylbl, width)
 
    if reset == 1 then
-      firstTime[seq] = 1
+      arcFirstTime[seq] = 1
    end
    
    pct = (val - nv) / (xv - nv)
@@ -967,7 +967,7 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
    ym2 = y + y0 + cosM * rOut * 1.25
 
    lblX = xlbl + x + RLwid(lbl, 16) / 2
-   lbly = ylbl + y + 16 / 2
+   lblY = ylbl + y + 16 / 2
 
    valText = encdp(dd, val)
    
@@ -994,10 +994,10 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
 
    --****
 
-   if ( (firstTime[seq] ==  1) || arcAnglePrev[seq] ~= arcAngle[seq]) then
+   if ( (arcFirstTime[seq] ==  1) or arcAnglePrev[seq] ~= arcAngle[seq]) then
 
-    if (firstTime[seq] == 1) then
-      firstTime[seq] = 0;
+    if (arcFirstTime[seq] == 1) then
+      arcFirstTime[seq] = 0;
 
       ALDrawText(lbl, 4, lblX, lblY, false)
       --pRemActiveLookRxChar->writeValue(drawLbl, sizeofLbl, false);
@@ -1017,7 +1017,7 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
     ALColorBlack()
 
     --local function ALDrawRect(x0, y0, x1, y1, rCode, wait)
-    ALDrawRect(valaX, valaY, valbX, valbY, 0x34, false))
+    ALDrawRect(valaX, valaY, valbX, valbY, 0x34, false)
     --pRemActiveLookRxChar->writeValue(drawBox, sizeof(drawBox), false);
 
     arcErase = arcAnglePrev[seq];
@@ -1044,7 +1044,7 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
 
     --pRemActiveLookRxChar->writeValue(drawArc, sizeofArc, true);
     
-    if ( (markPct > 0.0) && (markPct < 1.0) ) {
+    if ( (markPct > 0.0) and (markPct < 1.0) ) then
        --while (controlState > 1);
        --ALDrawLine(xm1, ym1, xm2, ym2, false);
       --ALDrawCircF(xm1, ym1, thk/2, false);
@@ -1066,7 +1066,7 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
       --while (controlState > 1);
       --pRemActiveLookRxChar->writeValue(drawArc, sizeofArc, false);
       --Serial.printf("white arc %d %d\n", arcStart, arcAngle);
-    }
+    end
 
     ALDrawText(valText, 6, valX, valY, false)
     --pRemActiveLookRxChar->writeValue(drawVal, sizeofVal, false);
@@ -1076,7 +1076,8 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
     ALFlush(true)
     --pRemActiveLookRxChar->writeValue(flush, sizeof(flush), true);
 
-  }
+   end
+   
 
    --****
 end
@@ -1096,7 +1097,7 @@ local function sendAL(j2)
    local width
    local xlmin, ylmin
    local xlmax, ylmax
-   
+   local lbl
    --
    -- REMINDER: USE cfgimgESP table to send to the glasses!!!
    --
@@ -1124,6 +1125,7 @@ local function sendAL(j2)
 	 --print("fid", fid)
 	 xr = ccfg.xlr
 	 yr = ccfg.ylr
+	 width = ccfg.width
 	 xc = xr + cfgimgESP.forms[fid].x0           -- for gauge, this is the pivot point of the needle
 	 yc = yr + cfgimgESP.forms[fid].y0
 	 mk = t.marker
@@ -1134,7 +1136,6 @@ local function sendAL(j2)
 	 end
 	 xlbl = cfgimgESP.forms[fid].xlbl
 	 ylbl = cfgimgESP.forms[fid].ylbl
-	 width = cfgimgESP.forms[fid].width
 	 xlmin = cfgimgESP.forms[fid].xlmin
 	 ylmin = cfgimgESP.forms[fid].ylmin
 	 xlmax = cfgimgESP.forms[fid].xlmax
@@ -1205,6 +1206,9 @@ local function sendAL(j2)
       end
    end
 end
+
+
+local lastSend = 0
 
 local function loop()
    local now = system.getTimeCounter()
@@ -1729,7 +1733,14 @@ local function loop()
 	       end
 	    end
 	    --local count = serial.write(sidSerial, espjson, "\n")
-	    sendAL(gtbl)
+	    if system.getTimeCounter() - lastSend > 2*LOOPTIME then
+	       print("=================> sendAL")
+	       sendAL(gtbl)
+	       lastSend = system.getTimeCounter()
+	    end
+	    
+
+	    
 	    --*********************************local count = serial.write(sidSerial, binser, "\n")
 	    --print("count, out", count, out)
 	 end
@@ -3576,17 +3587,78 @@ local function destroy()
 end
 
 local savedData
+local onReadBuf = ""
 
 local function onRead(indata)
 
-   --if string.byte(indata, 1) == 0xFF then
-      local str = "==> "
-      for i=1,#indata,1 do
-	 str = str .. string.format("0x%02X ", string.byte(indata, i))
-      end
-      print(str)
-   --end
+   local MAX_ALOOK_CMD = 533
+   local cmd_len
+   local command
    
+   local str = "indata ==> "
+   for i=1,#indata,1 do
+      str = str .. string.format("0x%02X ", string.byte(indata, i))
+   end
+   print(str)
+   
+   onReadBuf = onReadBuf .. indata
+   if #onReadBuf < 1 or string.byte(onReadBuf, 1) ~= 0xFF then
+      print("DFM-HUD: CS_INVALID - bad format")
+      onReadBuf = ""
+      return
+   end
+   
+   cmd_len = string.byte(onReadBuf, 4)
+   print("DFM-HUD: cmd_len", cmd_len)
+   
+   if not cmd_len then return end -- input too short to have len 
+   
+   if cmd_len > MAX_ALOOK_CMD then
+      print("DFM-HUD: CS_INVALID - too long")
+      onReadBuf = ""
+      return
+   end
+
+   if #onReadBuf < cmd_len then -- incomplete .. wait for more data
+      print("waiting for more data")
+      return
+   end
+
+   if string.byte(onReadBuf, cmd_len) == 0xAA then -- complete and valid
+
+      print("complete command")
+
+      str = "Cmd ==> "
+      for i=1,cmd_len,1 do
+	 str = str .. string.format("0x%02X ", string.byte(onReadBuf, i))
+      end
+      
+      print(str)
+      command = string.sub(onReadBuf, 1, cmd_len)
+      onReadBuf = string.sub(onReadBuf, cmd_len+1)
+      print("#onReadBuf len after sub", #onReadBuf)
+
+      local name, size, version, usgCnt, installCnt, isSystem
+      
+      if string.byte(command, 2) == 0xD3 then
+	 print("cfgList response")
+	 local i = 7
+	 repeat
+	    name, size, version, usgCnt, installCnt, isSystem =
+	       string.unpack(">zI4I4I1I1I1", command, i)
+	    print(string.format("Name: %s Size %d Version %d", name, size, version))
+	    --print("name", name, "size", size, "version", version)
+	    --print("usgCnt", usgCnt, "installCnt", installCnt, "isSystem", isSystem)
+	    i = i + #name + 1 + 11
+	 until i >= cmd_len
+      end
+      
+   end
+
+   if true then return end
+   
+      
+
    
    --print("time since last onRead: ", system.getTime() - lastRead)
    --print("indata", indata)
