@@ -241,7 +241,8 @@ local function initForm(subform)
    if subform == 1 then
 
       form.setTitle(appName..": Main")
-      form.addRow(2)
+      form.addRow(4)
+
       form.addLabel({label="Switch", width=220})
       form.addInputbox(switch, true, switchChanged)
 
@@ -547,6 +548,15 @@ local function loop()
    currSwitchState= system.getInputsVal(switch)
    now = system.getTimeCounter()
 
+   --[[
+   local tt = system.getSwitchInfo(switch)
+   if (tt) then
+      print(currSwitchState,  tt.label, tt.value, tt.proportional, tt.assigned, tt.mode)
+   else
+      print("tt nil", currSwitchState)
+   end
+   --]]
+   
    for i=1, maxPressCount+1 do
       if ctrlOffTime[i] and ctrlOffTime[i] ~= 0 then
 	 if now > ctrlOffTime[i] then
