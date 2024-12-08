@@ -76,10 +76,9 @@ local editImgs = {}
 local imageNum
 local imageMax
 local modelName
-local state = {IDLE = 1, STANDBY = 2,SENDHEADER = 3, SENDFONTS = 4, SENDIMGS = 5,
-	       SENDFOOTER = 6, SENDACTIVE = 7, SENDFMTS = 8, WAITING = 9, WAITACTIVE=10,
-	       WAITMIN = 11, ACTIVEMIN = 12}
-local sendState = state.IDLE
+local state = {DISCONNECTED=1, WAITING=2, CONNECTED=3, SENDHEADER=4, SENDFILE=5, SENDFOOTER=6,
+	       COMPLETE=7}
+local sendState = state.DISCONNECTED
 local startingTime = 0
 local WAIT_TIME = 200
 local sendCtrlCount
@@ -109,6 +108,7 @@ local serialBytesSent = 0
 local totalSendBytes
 local serialFileName
 local lastRead = 0
+local serialWriteCount = 0
 
 local gtbl = {}
 
@@ -145,135 +145,6 @@ end
 local function tempWrite(a,b)
    io.write(sendFPtemp, b)
    return tempCall(a,b)
-end
-
-local function sendUSB(quan)
-
-   -- go thru all pages, and gauges to find imageIDs that are referenced
-   -- and put them in a table to set up the data transmission
-
-
-   --[[ test code to capture serialout stream by hihacking the system call
-   print("NOTE **** CREATING config-serialout.txt  ******")
-   if not tempCall then
-      tempCall = serial.write
-      serial.write = tempWrite
-   end
-   
-   sendFPtemp = io.open(prefix() .. pathConfigs .. "config-serialout.txt", "w")
-   print("sendFPtemp", sendFPtemp)
-   --]]
-
-   -- create the list of config-imgs fragments that must be uploaded
-
-   sendImgs = {}
-   local sendImgsFiles = {}
-   local av
-
-   if quan == "full" then
-      -- loop over all imageIDs referenced in the current pages and formats
-      -- note the filenames for each image
-
-      if dbmode then
-	 for k,v in ipairs(currentConfigIDs) do
-	    if v >= 0 then
-	       av = id2avail[v]
-	    else
-	       av = nil
-	    end
-
-	    local iid = cfgimg.instruments[av].imageID
-
-	    if av and iid > 0 then -- imageID is 0 if no image (e.g. text box)
-	       local imn = string.format("Image%02d", iid)
-	       --local fn = prefix() .. pathConfigs .. "config-imgs-" .. cfgimg.instruments[av].BMPname .. ".txt"
-	       local fn0 = "config-imgs-" .. imn .. ".txt"
-	       local fn = prefix() .. pathConfigs .. "config-imgs-" .. imn .. ".txt"	 
-	       local included = false
-	       for kk,vv in pairs(sendImgs) do
-		  if fn == vv then included = true end
-	       end
-	       --if not included and cfgimg.instruments[av].BMPname ~= "" then table.insert(sendImgs, fn) end
-	       if not included then
-		  table.insert(sendImgs, fn)
-		  table.insert(sendImgsFiles, fn0)
-	       end
-	    end
-	 end
-      end
-      
-      
-      if #sendImgs < 1 then
-	 print("Glass: no image files referenced")
-	 --return -- ok if no images (e.g. only a timer widget sent)
-      end
-
-      table.insert(sendImgsFiles, "config-fonts.txt")
-      if dbmode then
-	 print("send instrDB")
-	 table.insert(sendImgsFiles, "instrDB.jsn")
-      else
-	 --print("send instrESP")
-	 --table.insert(sendImgsFiles, "instrESP.jsn")
-      end
-      print("send instrESPW")
-      table.insert(sendImgsFiles, "instrESPW.jsn")
-      
-      -- add up all the font, image and json files to see total bytes
-      -- to allow us to show progress
-      
-      totalSendBytes = 0
-      for n,ft,s in dir(prefix().."Apps/Glass/Configs") do
-	 for i, file in ipairs(sendImgsFiles) do
-	    if file == n then
-	       --print("got  it", n, ft, s)
-	       totalSendBytes = totalSendBytes + s
-	    end
-	 end
-      end
-      for n,ft,s in dir(prefix().."Apps/Glass/Json") do
-	 for i, file in ipairs(sendImgsFiles) do
-	    if file == n then
-	       --print("got  it", n, ft, s)
-	       totalSendBytes = totalSendBytes + s
-	    end
-	 end
-      end
-      
-      print("total bytes to send in files ", totalSendBytes)
-      for k,v in pairs(sendImgs) do
-	 print(k,v)
-      end
-      
-      
-      -- transmission protocol:
-      --
-      -- stop "200ms" json .. wait for n*200ms
-      -- ascii 0x01 four times: here comes file 1
-      -- ascii 0x02 four times: close file 1, here comes file 2
-      -- ascii 0x03 four times: close file 2, here comes file 3
-      -- ascii 0x00 four times: close file 3, back to normal
-      -- wait for n*200ms
-      --
-      -- note:
-      -- file 1 is configformats.jsn
-      -- file 2 is the streaming config.txt info
-      
-      --First, send 0x01 4 times to indicate file #1
-
-   end
-   
-   startingTime = system.getTimeCounter()
-   jsonHoldTime = startingTime + WAIT_TIME
-   if quan == "full" then
-      sendState = state.WAITING
-   else
-      sendState = state.WAITMIN
-   end
-   
-   sendCtrlCount = 0
-   serialBytesSent = 0
-   serialFileName = ""
 end
 
 
@@ -391,8 +262,8 @@ local function writeInst()
       end
       ptbl[p] = stbl
    end
-   local pptbl={}
-   pptbl["instW"] = ptbl
+   --local pptbl={}
+   --pptbl["instW"] = ptbl
    --print(json.encode(pptbl))
 	 
    --[[
@@ -401,17 +272,17 @@ local function writeInst()
       gtbl["instW"][kk] = vv
    end
    --]]
-   local instW =  json.encode(pptbl)
+   --local instW =  json.encode(pptbl)
    --print("opening instW")
-   local FP = io.open(prefix() .. pathJson .. "instrESPW.jsn", "w")
-   if FP  then
-      io.write(FP, instW, "\n")
-      io.close(FP)
-   else
-      print("Glass: Cannot open instrESPW.jsn for writing")
-   end
-   print("sending USB part")
-   sendUSB("part")
+   --local FP = io.open(prefix() .. pathJson .. "instrESPW.jsn", "w")
+   --if FP  then
+   --   io.write(FP, instW, "\n")
+   --   io.close(FP)
+   --else
+   --   print("Glass: Cannot open instrESPW.jsn for writing")
+   --end
+   --print("sending USB part")
+   --sendUSB("part")
    --print("sending USB full")
    --sendUSB("full")
 
@@ -782,18 +653,18 @@ local function readSensors(tt)
    --]]
 end
 
-local function sendCtrl(cc, nn)
+local function serialWrite(port, ...)
+   local arg = {...}
+   local cc, err
+   cc, err = serial.write(port, table.unpack(arg))
 
-   print("called sendCtrl", string.byte(cc).."b", nn)
-   
-   local bw = #string.rep(cc,nn) -- serial.write(sidSerial, string.rep(cc, nn))
-   if not bw then
-      print("Glass: Serial write error")
-      sendState = state.IDLE
-      return false
+   if not cc then
+      print("DFM-HUD: serial write error " .. err)
+   else
+      serialBytesSent = serialBytesSent + cc
    end
-   serialBytesSent = serialBytesSent + bw
-   return bw
+
+   return cc
 end
 
 local function setpNT()
@@ -866,8 +737,16 @@ local function ALDrawText(str, fontHeight, xp, yp, wait)
    
    local pattern = string.format(">BBBI1I2I2I1I1I1c%dB", #str)
    local len = string.packsize(pattern)
-   serial.write(sidSerial,string.pack(pattern, 0xFF, 0x37, 0x00, len, xp, yp,
-				      textDir, fontCode, textColor, str, 0xAA))
+   local ps = string.pack(pattern, 0xFF, 0x37, 0x00, len, xp, yp, textDir, fontCode,
+			  textColor, str, 0xAA)
+   serial.write(sidSerial,ps)
+   print("ALDrawText", str, fontHeight, fontCode, xp, yp)
+   --local ss=""
+   --for i=1,#ps,1 do
+   --   ss = ss .. string.format("%02X ", string.byte(ps, i))
+   --end
+   --print(ss)
+   
    return len
 end
 
@@ -916,7 +795,7 @@ end
 local arcAnglePrev = {0,0,0,0}
 local arcFirstTime = {0,0,0,0}
 local arcAngle = {0,0,0,0}
-
+local arcReset = 1
 
 local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
 			as, ae, mk, dd, xlbl, ylbl, width, rIn, rOut,
@@ -939,13 +818,18 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
    local valaX, valaY
    local valbX, valbY
    local arcErase
+
+   serialWriteCount = 0
+   local now = system.getTimeCounter()
    
    --print("ag", seq, x0, y0, x, y)
    --print(nv, xv, lbl, val, val2)
    --print(as, ae, mk, dd, xlbl, ylbl, width)
 
+   reset = arcReset
    if reset == 1 then
       arcFirstTime[seq] = 1
+      arcReset = 0
    end
    
    pct = (val - nv) / (xv - nv)
@@ -999,13 +883,13 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
     if (arcFirstTime[seq] == 1) then
       arcFirstTime[seq] = 0;
 
-      ALDrawText(lbl, 4, lblX, lblY, false)
+      ALDrawText(lbl, 16, lblX, lblY, false)
       --pRemActiveLookRxChar->writeValue(drawLbl, sizeofLbl, false);
       
-      ALDrawText(minText, 6, xlMin, ylMin, false)
+      ALDrawText(minText, 16, xlMin, ylMin, false)
       --pRemActiveLookRxChar->writeValue(drawMin, sizeofMin, false);
 
-      ALDrawText(maxText, 6, xlMax, ylMax, false)
+      ALDrawText(maxText, 16, xlMax, ylMax, false)
       --pRemActiveLookRxChar->writeValue(drawMax, sizeofMax, false);
     end
 
@@ -1068,7 +952,7 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
       --Serial.printf("white arc %d %d\n", arcStart, arcAngle);
     end
 
-    ALDrawText(valText, 6, valX, valY, false)
+    ALDrawText(valText, 26, valX, valY, false)
     --pRemActiveLookRxChar->writeValue(drawVal, sizeofVal, false);
     
     --flush pending writes
@@ -1078,8 +962,23 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
 
    end
    
-
+   arcAnglePrev[seq] = arcAngle[seq]
+   --print("arcgauge delta t", (system.getTimeCounter() - now))
    --****
+   print("serialWriteCount", serialWriteCount)
+end
+
+local function encodeBuf(str)
+   local ret
+   ret = str:gsub("(%x%x)", (function(s) return string.char(tonumber(s,16)) end))
+   --[[
+   local ss = ""
+   for i=1,#ret,1 do
+      ss = ss .. string.format("%02X ", string.byte(ret, i))
+   end
+   print("encodebuf==>"..ss)
+   --]]
+   return ret
 end
 
 
@@ -1090,6 +989,7 @@ local function sendAL(j2)
    local min, max
    local xr, yr
    local xc, yc
+   local x0, y0
    local mk
    local dd
    local val, val2
@@ -1126,8 +1026,12 @@ local function sendAL(j2)
 	 xr = ccfg.xlr
 	 yr = ccfg.ylr
 	 width = ccfg.width
-	 xc = xr + cfgimgESP.forms[fid].x0           -- for gauge, this is the pivot point of the needle
+	 xc = xr + cfgimgESP.forms[fid].x0           -- for gauge, this is the pivot pt of the needle
 	 yc = yr + cfgimgESP.forms[fid].y0
+
+	 x0 = cfgimgESP.forms[fid].x0
+	 y0 = cfgimgESP.forms[fid].y0
+
 	 mk = t.marker
 	 if t.dispdec then
 	    dd = t.dispdec
@@ -1197,7 +1101,7 @@ local function sendAL(j2)
 	       local ae = cfgimgESP.forms[fid].arcEnd
 	       local rIn = cfgimgESP.forms[fid].radiusIn
 	       local rOut = cfgimgESP.forms[fid].radiusOut
-	       arcGauge(g, reset, xc, yc, xr, yr, min, max, lbl, val, val2,
+	       arcGauge(g, reset, x0, y0, xr, yr, min, max, lbl, val, val2,
 			as, ae, mk, dd, xlbl, ylbl, width, rIn, rOut, xlmin, ylmin, xlmax, ylmax)
 	    elseif cid.wtype == "ahGauge" then
 	    elseif cid.wtype == "vltape" then
@@ -1209,6 +1113,7 @@ end
 
 
 local lastSend = 0
+local linecount = 0
 
 local function loop()
    local now = system.getTimeCounter()
@@ -1265,7 +1170,6 @@ local function loop()
    --]]
    if system.getTimeCounter() < 0 then
       print("system.getTimeCounter() wrapped. Restart emulator")
-      barf()
    end
    
    if switchItems.pageChange then
@@ -1360,15 +1264,7 @@ local function loop()
       end
    end
 
-   if sendState == state.IDLE and unow < jsonHoldTime then
-      --print("Glass: jsonHoldTime: waiting to restart json...")
-   end
-
-   -- maybe consider letting the internal update (for the tele window) run at full speed
-   -- and only throttling the sending of json for 200msec?
-
-   --print(sendState, pageMax)
-   if sendState == state.IDLE and system.getTimeCounter() > jsonHoldTime then
+   if sendState == state.COMPLETE and system.getTimeCounter() > jsonHoldTime then
       if pageMax > 0 and (now > lastWrite + LOOPTIME) then
 
 	 if Glass.curPos and Glass.zeroPos then
@@ -1688,43 +1584,6 @@ local function loop()
 	 --print("swb, sendJson", swb, sendJson)
 	 
 	 if sendJson or (emflag ~= 0 and swb and swb == 1) then
-	    local espjson
-	    if not dbmode then
-	       espjson = json.encode(gtbl)
-	    else
-	       espjson = json.encode(dbgtbl)
-	    end
-	    ------------------------
-
-	    local vtbl = {}
-	    local check = 0
-	    check = check ~ 4 ~ gtbl.pg ~ gtbl.cfg ~ gtbl.n
-	    for j= 1, 4, 1 do
-	       vtbl[j] = math.floor(1000*(gtbl.v[j]  or 0))
-	       check = check ~ vtbl[j]
-	       vtbl[4+j] = math.floor(1000*(gtbl.v2[j] or 0))
-	       check = check ~ vtbl[4+j]
-	    end
-	    vtbl[9] = check
-	    vtbl[10] = 4
-	    --                 123123412341
-	    local fmtstr = "<i4i4i4i4i4i4i4i4i4i4i4i4i4i4"
-
-	    --print(gtbl.pg, gtbl.cfg, gtbl.n)
-	    --print(table.unpack(vtbl))
-	    --print(check)
-
-	    local binser = string.pack(fmtstr, 4, 
-				       math.floor(gtbl.pg), math.floor(gtbl.cfg), math.floor(gtbl.n),
-				       table.unpack(vtbl))
-
-	    local out=""
-	    for i=1,#binser,1 do
-	       out = out .. string.format("%x", string.byte(binser, i))
-	    end
-	    --print("out", out)
-	    
-	    ------------------------
 	    
 	    if emflag ~= 0 then
 	       local swa = system.getInputs("SA") -- SA to show json only on emulator
@@ -1733,7 +1592,7 @@ local function loop()
 	       end
 	    end
 	    --local count = serial.write(sidSerial, espjson, "\n")
-	    if system.getTimeCounter() - lastSend > 2*LOOPTIME then
+	    if system.getTimeCounter() - lastSend > (1*LOOPTIME) then
 	       print("=================> sendAL")
 	       sendAL(gtbl)
 	       lastSend = system.getTimeCounter()
@@ -1751,91 +1610,44 @@ local function loop()
 
    if unow <= jsonHoldTime then return end
 
-   if sendState == state.WAITING then 
-      if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
-      --print("Write opening config version", Glass.settings.configVersion)
-      sendFPser = io.open(prefix() .. pathConfigs ..
-			  string.format("config%d.txt", Glass.settings.configVersion), "w")
-      if sidSerial then
-	 --print("WAITING sending 001")
-	 if not sendCtrl("\001", 1) then
-	    sendState = state.IDLE
-	    return
-	 end
-	 sendCtrlCount = sendCtrlCount + 1
-	 --print("WAITING: sendCtrlCount 001", sendCtrlCount, CTRLREP)
-	 if sendCtrlCount > CTRLREP then
-	    if not dbmode then
-	       --print("io.open instrESP.jsn")
-	       sendFP = io.open(prefix() .. pathJson .. "instrESP.jsn", "r")
-	    else
-	       --print("io.open instrDB.jsn")
-	       sendFP = io.open(prefix() .. pathJson .. "instrDB.jsn", "r")
-	    end
-	    if not sendFP then
-	       print("Glass: could not open instrESP.jsn")
-	       sendState = state.IDLE
-	       return
-	    end
-	    sendAA = 0
-	    sendFF = 0
-	    sendTime = system.getTimeCounter()
-	    configLine = ""
-	    sendState = state.SENDFMTS
-	    sendCtrlCount = 0
-	    serialFileName = "Sending gauge and panel descriptions"
-	 end
-      else
-	 print("Glass: serial port not open")
-	 sendState = state.IDLE
+   if sendState == state.DISCONNECTED then
+      print("disconnected, sending config request")
+      bw = serialWrite(sidSerial, 0xFF, 0xD3, 0x02, 0x07, 0x01, 0x01, 0xAA) -- read config
+      if not bw then
+	 print("DFM-HUD: cannot write config query")
+	 jsonHoldTime = unow + 1000
       end
+      print("set state to WAITING")
+      sendState = state.WAITING -- wait for onRead to get config list
    end
 
-   if (sendState == state.WAITACTIVE) or (sendState == state.WAITMIN) then -----------
-      if sendState == state.WAITMIN then
-	 configLine = ""
-	 sendAA = 0
-	 sendFF = 0
-	 sendFPser = nil
-      end
-      
-      if not sendCtrl("\003",1) then
-	 sendState = state.IDLE
-	 return
-      end
-      sendCtrlCount = sendCtrlCount + 1
-      if sendState == state.WAITACTIVE then
-	 --print("WAITACTIVE sendCtrlCount 003", sendCtrlCount, CTRLREP)
-      end
-      if sendCtrlCount <= CTRLREP then
-	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME
-	 return
-      else
-	 --print("opening instrESPW.jsn")
-	 sendFP = io.open(prefix() .. pathJson .. "instrESPW.jsn", "r")
-	 if not sendFP then
-	    print("Glass:cannot open instrESPW.jsn")
-	    sendState = state.IDLE
-	    return
-	 else
-	    ----print("io.opened instrESPW.jsn")
-	    if sendState == state.WAITMIN then
-	       sendState = state.ACTIVEMIN
-	       --print("state to ACTIVEMIN")
-	    else
-	       sendState = state.SENDACTIVE
-	       --print("state to SENDACTIVE")
-	    end
-	 end
-      end
+   if sendState == state.WAITING then
+      --just spin, when config is available, sendState will be set to CONNECTED
+      --print("sendState WAITING")
    end
    
-   if (sendState == state.SENDHEADER) or (sendState == state.SENDFOOTER) then -----------
+   if sendState == state.CONNECTED then 
+      if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
+      sendFP = io.open(prefix() .. pathConfigs .. "config-fonts.txt", "r")
+      if not sendFP then
+	 print("Glass: cannot open font config")
+	 sendState = state.DISCONNECTED
+	 jsonHoldTime = unow + 1000
+      else
+	 print("opened config-fonts-break.txt")
+	 sendState = state.SENDHEADER
+      end
+      linecount = 0
+      serialBytesSent = 0
+      startingTime = system.getTimeCounter()
+   end
+   
+   if (sendState == state.SENDHEADER) or (sendState == state.SENDFOOTER) then
       
       --[[
 	 config.txt formatting overview
 	 
-	 "FFD0001561766961746F72000000000000000001AA" config header for "aviator" with zero version, key 1
+	 "FFD0001561766961746F72000000000000000001AA" config header for "aviator" with 0 version, key 1
 	 "FF51...AA" fonts (many lines)
 	 "FF41...AA" images (many lines)
 	 "FFD0001561766961746F72000000000200000001AA" config footer for "aviator" with version 2, key 1
@@ -1847,208 +1659,90 @@ local function loop()
       
       if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
       
-      local cfgVersion = Glass.settings.configVersion + 1 -- G.s.configVersion updated when send complete
+      local cfgVersion = 1
       local cfgKey = 1
       local bufPre = "FFD0001561766961746F7200"
       local bufSet = "FFD2000D61766961746F7200AA"
-      local bufH = bufPre .. string.format("%08X%08X", 0, cfgKey) .. "AA\n"
-      local bufF = bufPre .. string.format("%08X%08X", cfgVersion, cfgKey) .. "AA\n"..bufSet.."\n"
-      --local bufD = "FF460006FFAA\n" -- delete all images
+      local bufH = bufPre .. string.format("%08X%08X", 0, cfgKey) .. "AA"
+      local bufF = bufPre .. string.format("%08X%08X", cfgVersion, cfgKey) .. "AA"
       local bw
-      
-      print("sending cfgVersion", cfgVersion)
-      
+            
       if sendState == state.SENDHEADER then
-	 
-	 --print("sending \\002 from header "..(system.getTimeCounter() - startingTime) .. " ms")
-	 --print("SENDHEADER sending 002")
-	 if not sendCtrl("\002", 1) then
-	    sendState = state.IDLE
-	    return
-	 end
-	 sendCtrlCount = sendCtrlCount + 1
-	 --print("sendCtrlCount 002 SENDHEADER", sendCtrlCount, CTRLREP)
-	 if sendCtrlCount <= CTRLREP then
-	    jsonHoldTime = system.getTimeCounter() + WAIT_TIME
-	    return
-	 else
-	    print("Glass: Sending config header")
-	    bw = #bufH --serial.write(sidSerial, bufH)
-	    serialBytesSent = serialBytesSent + bw	    
-	    if sendFPser then
-	       io.write(sendFPser, bufH)
-	    end
-	    --bw = serial.write(sidSerial, bufD)
-	    --serialBytesSent = serialBytesSent + bw	    
-	    --io.write(sendFPser, bufD)
-	 end
-	 
+	 print("sending header")
+	 bw = serialWrite(sidSerial, encodeBuf(bufH))
+	 --bw = serial.write(sidSerial,0xFF, 0xD0,  0x00, 0x15, 0x61, 0x76, 0x69, 0x61, 0x74, 0x6F, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xAA)
 	 if not bw then
-	    print("Glass: serial write error header")
+	    print("DFM-HUD: cannot write header")
+	    io.close(sendFP)
+	    sendState = state.DISCONNECTED
+	    jsonHoldTime = unow + 1000 -- wait one sec before possibly sending config request again  
 	 else
-	    sendState = state.SENDFONTS
-	    --print("opening config-fonts.txt")
-	    sendFP = io.open(prefix() .. pathConfigs .. "config-fonts.txt", "r")
-	    if not sendFP then
-	       print("Glass: cannot open font config")
-	       sendState = state.IDLE
-	    end
+	    sendState = state.SENDFILE
 	 end
-	 serialFileName = "Sending Glasses Setup Data"
       end
-      
-      if sendState == state.SENDFOOTER then ------
-	 print("send footer ", bufF)
-	 bw = #bufF --serial.write(sidSerial, bufF)
-	 serialBytesSent = serialBytesSent + bw
-	 io.write(sendFPser, bufF)
-	 if not bw then print("Glass: serial write error on footer") end
-      end
-      
-      if not bw or (sendState == state.SENDFOOTER) then
-	 print("Glass: Sending config footer")
-	 --if sendFPser then io.close(sendFPser) end -- uncomment to save the .txt files
-	 ----print("sending \\000 " .. (system.getTimeCounter() - startingTime) .. " ms")
-	 sendCtrl("\000", 1) -- back to normal mode
+
+      if sendState == state.SENDFOOTER then
+	 print("DFM-HUD: Sending config footer")
+	 bw = serialWrite(sidSerial, encodeBuf(bufF))
+	 --bw = serial.write(sidSerial, encodeBuf(bufSet))
+	 if not bw then
+	    print("DFM-HUD: cannot write footer")
+	    io.close(sendFP)
+	    sendState = state.DISCONNECTED
+	    jsonHoldTime = unow + 1000 -- wait one sec before possibly sending config request again  
+	 else
+	    print("set state to COMPLETE")
+	    sendState = state.COMPLETE
+	 end
+	 
 	 local dt = system.getTimeCounter() - startingTime
 	 serialFileName = string.format("Transfer complete. Time: %.2f s", dt / 1000.0)
 	 print(string.format("Send config done. Time: %.2f s", dt / 1000))
 	 print(string.format("%d bytes sent. Aggregate data rate: %.1f kB/s",
 			     serialBytesSent, serialBytesSent / dt))
-	 if tempCall then io.close(sendFPtemp) end
 	 Glass.settings.configIDs = {}
 	 for k in ipairs(currentConfigIDs) do -- remember that this config was sent last
 	    Glass.settings.configIDs[k] = currentConfigIDs[k] 
 	 end
 	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME * 40 -- long (!) wait before restarting 200ms json
-	 Glass.settings.configVersion = Glass.settings.configVersion + 1
-	 --print("cfgV set to", Glass.settings.configVersion)
-	 sendState = state.IDLE
+	 Glass.settings.configVersion = 1
       end
    end
 
-   
-   if (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) or ----
-      (sendState == state.SENDACTIVE) or (sendState == state.SENDFMTS) or
-      (sendState == state.ACTIVEMIN) then
+   local LINESPERLOOP = 1
+   local line   
+   if sendState == state.SENDFILE then
+      --print("sendState is SENDFILE")
       
-      local buf, start, before, after
-      if system.getTimeCounter() - sendLast > SEND_DELAY then -- throttle send rate here
-	 --print("send_loops")
-	 for k=1,SEND_LOOPS,1 do
-	    if not dbmode and sendState == state.SENDFMTS then
-	       buf = ""
-	       print("skipping instrESP.jsn")
-	    else
-	       buf = io.read(sendFP, BUF_SIZE)
-	    end
-	    start = string.find(buf, "\n")
-	    if not start then
-	       configLine = configLine .. buf
-	    else
-	       before = string.sub(buf, 1, start-1)
-	       after = string.sub(buf, start+1)
-	       configLine = configLine .. before
-	       if string.find(configLine, "AA") then
-		  sendAA = sendAA + 1
-	       end
-	       if string.find(configLine, "FF") then
-		  sendFF = sendFF + 1
-	       end
-	       configLine = after
-	    end
-	    local bw
-	    if sidSerial and buf and buf ~= "" then
-	       sendLast = system.getTimeCounter()
-	       print("sending @@")
-	       bw = #buf --serial.write(sidSerial, buf)
-	       serialBytesSent = serialBytesSent + bw
-	       if (sendState == state.SENDFONTS) or (sendState == state.SENDIMGS) then
-		  if sendFPser then
-		     io.write(sendFPser, buf)
-		  end
-		  if not bw then
-		     print("Glass: Serial write error")
-		     buf = ""
-		  end
-	       end
-	    end
-	    if buf == "" then
-	       if sendState == state.SENDFMTS then
-		  --print("closing after SENDFMTS")
-		  io.close(sendFP)
-		  if not sendCtrl("\000", 1) then -- signify end
-		     sendState = state.IDLE
-		     return
-		  end
-		  if (dbmode) then
-		     sendState = state.SENDHEADER
-		  else
-		     --print("end file SENDFMTS: set state WAITACTIVE")
-		     sendState = state.WAITACTIVE
-		  end
-		  sendCtrlCount = 0
-		  jsonHoldTime = system.getTimeCounter() + WAIT_TIME
-		  break
-	       elseif (sendState == state.SENDACTIVE) or (sendState == state.ACTIVEMIN) then
-		  io.close(sendFP)
-		  --print("closing after SENDACTIVE or ACTIVEMIN")
-		  if not sendCtrl("\000", 1) then -- signify end
-		     sendState = state.IDLE
-		     return
-		  end
-		  if sendState == state.SENDACTIVE then
-		     --print("end SENDACTIVE setting state.SENDHEADER")
-		     sendState = state.SENDHEADER
-		  else
-		     --print("min done, going to idle")
-		     sendState = state.IDLE
-		  end
-		  sendCtrlCount = 0
-		  jsonHoldTime = system.getTimeCounter() + WAIT_TIME
-		  break
-	       elseif sendState == state.SENDFONTS then
-		  io.close(sendFP)
-		  --print("closing after SENDFONTS")
-		  if #sendImgs > 0 then
-		     sendImgsIdx = 1
-		     serialFileName = "Sending instrument: " .. string.sub(sendImgs[sendImgsIdx], -11)
-		     --print("opening", serialFileName)
-		     sendFP = io.open(sendImgs[sendImgsIdx], "r")
-		     if not sendFP then
-			print("Glass:cannot open image file "..sendImgsIdx)
-			sendState = state.IDLE
-			break
-		     else
-			sendState = state.SENDIMGS
-		     end
-		  else
-		     sendState = state.SENDFOOTER
-		     break
-		  end
-	       elseif sendState == state.SENDIMGS then
-		  --print("closing after SENDIMGS")
-		  io.close(sendFP)
-		  if sendImgsIdx < #sendImgs then
-		     sendImgsIdx = sendImgsIdx + 1
-		     serialFileName = "Sending instrument: " .. string.sub(sendImgs[sendImgsIdx], -11)
-		     --print("opening", serialFileName)
-		     sendFP = io.open(sendImgs[sendImgsIdx], "r")
-		     if not sendFP then
-			print("Glass: cannot open image file "..sendImgsIdx, sendImgs[sendImgsIdx])
-			sendState = state.IDLE
-			break
-		     end
-		  else
-		     --print("setting SENDFOOTER")
-		     sendState = state.SENDFOOTER
-		     break
-		  end
-	       end
+      for i=1, LINESPERLOOP, 1 do
+	 line = io.readline(sendFP, true)
+	 linecount = linecount + 1
+	 if not line then
+	    print("io,readline EOF")
+	    sendState = state.SENDFOOTER
+	    io.close(sendFP)
+	    break
+	 else
+	    local ll
+	    local ldx=1
+	    local chunk = 100
+	    repeat
+	       ll = string.sub(line, ldx, ldx + chunk - 1)
+	       ldx = ldx + chunk
+	       --print("> "..ll)
+	       bw = serialWrite(sidSerial, encodeBuf(ll))
+	       --print("write encoded line, bw", bw, #line)
+	    until ldx >= #line
+	    
+	    if not bw then
+	       print("DFM-HUD: cannot write line of config file")
+	       io.close(sendFP)
+	       sendState = state.DISCONNECTED
+	       jsonHoldTime = unow + 1000
+	       break
 	    end
 	 end
-      else
-	 --print("send delay spin", (system.getTimeCounter() - startingTime) / 1000, serialBytesSent)
+	 jsonHoldTime = unow + 50
       end
    end
    loopCPU = loopCPU + (system.getCPU() - loopCPU) / 10
@@ -3594,22 +3288,24 @@ local function onRead(indata)
    local MAX_ALOOK_CMD = 533
    local cmd_len
    local command
+   local str
    
-   local str = "indata ==> "
-   for i=1,#indata,1 do
-      str = str .. string.format("0x%02X ", string.byte(indata, i))
-   end
-   print(str)
+   --local str = "indata ==> "
+   --for i=1,#indata,1 do
+   --   str = str .. string.format("0x%02X ", string.byte(indata, i))
+   --end
+   --print(str)
    
    onReadBuf = onReadBuf .. indata
    if #onReadBuf < 1 or string.byte(onReadBuf, 1) ~= 0xFF then
       print("DFM-HUD: CS_INVALID - bad format")
+      print(onReadBuf)
       onReadBuf = ""
       return
    end
    
    cmd_len = string.byte(onReadBuf, 4)
-   print("DFM-HUD: cmd_len", cmd_len)
+   --print("DFM-HUD: cmd_len", cmd_len)
    
    if not cmd_len then return end -- input too short to have len 
    
@@ -3620,45 +3316,65 @@ local function onRead(indata)
    end
 
    if #onReadBuf < cmd_len then -- incomplete .. wait for more data
-      print("waiting for more data")
+      --print("waiting for more data")
       return
    end
 
-   if string.byte(onReadBuf, cmd_len) == 0xAA then -- complete and valid
+   if string.byte(onReadBuf, cmd_len) == 0xAA then -- complete and valid Alook reply
 
-      print("complete command")
-
-      str = "Cmd ==> "
-      for i=1,cmd_len,1 do
-	 str = str .. string.format("0x%02X ", string.byte(onReadBuf, i))
-      end
+      --str = "DFM-HUD onRead complete Cmd ==> "
+      --for i=1,cmd_len,1 do
+      -- str = str .. string.format("0x%02X ", string.byte(onReadBuf, i))
+      --end
+      --print(str)
       
-      print(str)
       command = string.sub(onReadBuf, 1, cmd_len)
-      onReadBuf = string.sub(onReadBuf, cmd_len+1)
-      print("#onReadBuf len after sub", #onReadBuf)
+      onReadBuf = string.sub(onReadBuf, cmd_len+1, -1)
+      --print("#onReadBuf len after sub", #onReadBuf)
 
-      local name, size, version, usgCnt, installCnt, isSystem
-      
-      if string.byte(command, 2) == 0xD3 then
-	 print("cfgList response")
-	 local i = 7
+      if string.byte(command, 2) == 0xD3 then -- cfglist
+	 local name, size, version, usgCnt, installCnt, isSystem
+	 print("DFM-HUD onRead: cfgList response")
+	 local i = 7 -- first char of cfg payload (see AL docs section 4.14)
+	 local aviatorVersion = -1
+	 local aviatorCurrentVersion = 1
 	 repeat
 	    name, size, version, usgCnt, installCnt, isSystem =
 	       string.unpack(">zI4I4I1I1I1", command, i)
 	    print(string.format("Name: %s Size %d Version %d", name, size, version))
-	    --print("name", name, "size", size, "version", version)
-	    --print("usgCnt", usgCnt, "installCnt", installCnt, "isSystem", isSystem)
+	    if name == "aviator" then
+	       aviatorVersion = version
+	    end
 	    i = i + #name + 1 + 11
+	 until i >= cmd_len
+
+	 if aviatorVersion ~= aviatorCurrentVersion then
+	    sendState = state.CONNECTED --send the preparation info and font file
+	 else
+	    sendState = state.CONNECTED -- for testing .. do every time
+	    --sendState = state.COMPLETE -- glasses have current info - good to go
+	 end
+
+      elseif string.byte(command, 2) == 0x05 then -- battery level
+	 print("DFM-HUD Battery level (%)", string.byte(command, 7))
+      elseif string.byte(command, 2) == 0x50 then -- font list
+	 print("DFM-HUD onRead: font list response")
+	 local id, height
+	 local i = 7 -- first char of cfg payload (see AL docs section 4.14)
+	 repeat
+	    id, height = string.unpack(">I1I1", command, i)
+	    print("id " .. id .. " height " .. height)
+	    i = i + 2
 	 until i >= cmd_len
       end
       
    end
 
-   if true then return end
+   --if buffer has more commands, recurse to process
    
-      
-
+   if #onReadBuf > 0 then onRead("") end
+   
+   if true then return end
    
    --print("time since last onRead: ", system.getTime() - lastRead)
    --print("indata", indata)
@@ -3748,8 +3464,8 @@ local function init()
    initTime = system.getTime()
    --tenSecTimer = initTime
    
-   sendState = state.IDLE
-   --jsonHoldTime = system.getTimeCounter() + 10 * WAIT_TIME
+   sendState = state.DISCONNECTED
+   jsonHoldTime = system.getTimeCounter()-- + 10 * WAIT_TIME
 
    modelName = string.gsub(system.getProperty("Model"), " ", "_")
 
@@ -4056,28 +3772,14 @@ local function init()
 
    
    local bw, xx
-   bw = serial.write(sidSerial, 0xFF, 0X01, 0x00, 0x05, 0xAA, 0xFF, 0X01, 0x00, 0x05, 0xAA)
-   --bw = serial.write(sidSerial, 0xFF, 0X01, 0x00, 0x05, 0xAA)
-   print("bw=", bw)
-   bw = serial.write(sidSerial, 0xFF, 0X01)   
-   print("bw=", bw)
-   xx = system.getTimeCounter()
-   --for i=1,320000,1 do end
-   print("delta t", system.getTimeCounter() - xx)
-   bw = serial.write(sidSerial, 0x00, 0x05, 0xAA)
-   print("bw=", bw)
-   -- arc 0xFF, 0x3C, 0x00, 0x0F, x_u, x_l, y_u, y_l, r, as_u, as_l, ae_u, ae_l, thk, 0xAA   
-   -- 150 is 0x96
-   bw = serial.write(sidSerial,
- 		     0xFF, 0x3C, 0x00, 0x0F, 0x00, 0x96, 0x00, 0x96, 0x80, 0x00, 0x00, 0x00, 0x50, 0x10, 0xAA)
-   print("bw=", bw)
 
-   bw = serial.write(sidSerial, 0xFF, 0x05, 0x02, 0x07, 0x01, 0x01, 0xAA)
-   print("bw=", bw)
-
-   bw = serial.write(sidSerial, 0xFF, 0xD3, 0x02, 0x07, 0x01, 0x01, 0xAA)
-   print("bw=", bw)
-   
+   bw = serial.write(sidSerial, 0xFF, 0X01, 0x00, 0x05, 0xAA) -- clear
+   bw = serial.write(sidSerial, 0xFF, 0X39, 0x00, 0x06, 0xFF, 0xAA) -- flush and reset
+   --bw = serial.write(sidSerial, 0xFF, 0x05, 0x02, 0x07, 0x01, 0x01, 0xAA) -- read batt
+   -- select "aviator" app
+   --bw = serial.write(sidSerial, 0xFF, 0xD2, 0x00, 0x0D, 'a', 'v', 'i', 'a', 't', 'o', 'r', 0x00, 0xAA)
+   --bw = serial.write(sidSerial, 0xFF, 0x50, 0x02, 0x07, 0x01, 0x02, 0xAA) -- read fonts
+  
 end
 
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="1.00", name=appName}
