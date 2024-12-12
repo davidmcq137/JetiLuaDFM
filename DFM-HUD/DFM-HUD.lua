@@ -77,7 +77,7 @@ local imageNum
 local imageMax
 local modelName
 local state = {DISCONNECTED=1, WAITING=2, CONNECTED=3, SENDHEADER=4, SENDFILE=5, SENDFOOTER=6,
-	       COMPLETE=7}
+	       COMPLETE=7, SELECT=8}
 local sendState = state.DISCONNECTED
 local startingTime = 0
 local WAIT_TIME = 200
@@ -108,7 +108,7 @@ local serialBytesSent = 0
 local totalSendBytes
 local serialFileName
 local lastRead = 0
-local serialWriteCount = 0
+local resetGlasses
 
 local gtbl = {}
 
@@ -184,13 +184,31 @@ local function svv(dec, val)
    end
 end
 
+local function encodeBuf(str)
+   local ret
+   ret = str:gsub("(%x%x)", (function(s) return string.char(tonumber(s,16)) end))
+   --[[
+   local ss = ""
+   for i=1,#ret,1 do
+      ss = ss .. string.format("%02X ", string.byte(ret, i))
+   end
+   print("encodebuf==>"..ss)
+   --]]
+   return ret
+end
+
 local function writeInst()
 
-   --print("writeInst()")
+   local bufClr = "FF010005AA"   
+   print("writeInst()")
+   resetGlasses = 1
+   serial.write(sidSerial, encodeBuf(bufClr)) -- clear screen
+   if true then return end
+   
    local scale
    local minV, maxV
    local stbl = {}
-   local gtbl = {}
+   gtbl = {}
 
    --print("writeInst: Glass", Glass)
    --print("writeInst: Glass.page", Glass.page)
@@ -384,6 +402,7 @@ local function drawTextCenter(x, y, strIn, font)
 end
 
 local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp)
+   --aR not used?
    local ren = lcd.renderer()
    ren:reset()
    ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
@@ -654,16 +673,27 @@ local function readSensors(tt)
 end
 
 local function serialWrite(port, ...)
-   local arg = {...}
    local cc, err
-   cc, err = serial.write(port, table.unpack(arg))
-
-   if not cc then
-      print("DFM-HUD: serial write error " .. err)
-   else
-      serialBytesSent = serialBytesSent + cc
+   local arg = table.pack(...)
+   print("serialWrite arg.n", arg.n, type(arg), type(arg[1]),string.byte(arg[1]))
+   local narg = select("#", ...)
+   print("serialWrite narg", narg)
+   
+   --if select(1, ...) ~= 0xFF or select(narg, ...) ~= 0xAA or select(4, ...) ~= narg then
+   --   print("serialWrite: bad command", string.byte(select(1,...)), string.byte(select(narg, ...)),
+	--    string.byte(select(4, ...)), narg)
+      --barf()
+   --end
+   
+   for i=1, narg, 1 do
+      cc = serial.write(port, select(i, ...))
+      if not cc then
+	 print("DFM-HUD: serial write error " .. err)
+      else
+	 serialBytesSent = serialBytesSent + cc
+      end      
    end
-
+   
    return cc
 end
 
@@ -675,7 +705,7 @@ local function setpNT()
 end
 
 local function ALColor(color) 
-      serial.write(sidSerial, 0xFF, 0x30, 0x00, 0x06, color & 0xF, 0xAA)
+   serial.write(sidSerial, 0xFF, 0x30, 0x00, 0x06, color & 0xF, 0xAA)
 end
 
 local function ALColorBlack()
@@ -687,16 +717,23 @@ local function ALColorGray()
 end
 
 local function ALColorWhite() 
-  ALColor(0xFF);
+  ALColor(0x0F);
 end
 
-local function ALHold()
-   serial.write(sidSerial, 0xFF, 0x39, 0x00, 0x06, 0x00, 0xAA)
+local function ALHold(wait)
+   if wait then
+      serial.write(sidSerial, 0xFF, 0x39, 0x02, 0x08, 0x00, 0x00, 0x00, 0xAA)
+   else
+      serial.write(sidSerial, 0xFF, 0x39, 0x00, 0x06, 0x00, 0xAA)
+   end
 end
 
 local function ALFlush(wait)
-   --how to implement waitReply .. talk to RFM
-   serial.write(sidSerial, 0xFF, 0x39, 0x00, 0x06, 0x01, 0xAA)
+   if wait then
+      serial.write(sidSerial, 0xFF, 0x39, 0x02, 0x08, 0x00, 0x00, 0x01, 0xAA)
+   else
+      serial.write(sidSerial, 0xFF, 0x39, 0x00, 0x06, 0x01, 0xAA)
+   end
 end
 
 local function ALDrawRect(x0, y0, x1, y1, rCode, wait)
@@ -705,10 +742,47 @@ local function ALDrawRect(x0, y0, x1, y1, rCode, wait)
    --     1     2     3     4     5     6     7     8       9      10      11      12    13
    -- rCode 0X33 for empty rect
    -- rCode 0X34 for filled rect
-   local pattern = ">BBBI1I2I2I2I2B"
-   local len = string.packsize(pattern)
-   serial.write(sidSerial,string.pack(pattern, 0xFF, rCode, 0x00, len, x0, y0, x1, y1, 0xAA))
+   local pattern 
+   local len
+   if not wait then 
+      pattern = ">BBBI1I2I2I2I2B"
+      len = string.packsize(pattern)
+      serial.write(sidSerial,string.pack(pattern, 0xFF, rCode, 0x00, len, x0, y0, x1, y1, 0xAA))
+   else
+      pattern = ">BBBI1I1I1I2I2I2I2B"
+      len = string.packsize(pattern)
+      serial.write(sidSerial,string.pack(pattern, 0xFF, rCode, 0x02, len, 0, 0, x0, y0, x1, y1, 0xAA))
+   end
+   
    return (len);
+end
+
+
+local function ALDrawCircF(xc, yc, rad, wait)
+   local pattern, len
+   if not wait then
+      pattern = ">BBBI1I2I2I1B"
+      len = string.packsize(pattern)
+      serial.write(sidSerial, string.pack(pattern, 0xFF, 0x36, 0x00, len, xc, yc, rad, 0xAA))
+   else
+      pattern = ">BBBI1I1I1I2I2I1B"
+      len = string.packsize(pattern)
+      serial.write(sidSerial, string.pack(pattern, 0xFF, 0x36, 0x02, len, 0x00, 0x00, xc, yc, rad, 0xAA))
+   end
+end
+
+local function ALDrawCirc(xc, yc, rad, wait)
+   local pattern, len
+   if not wait then
+      pattern = ">BBBI1I2I2I1B"
+      len = string.packsize(pattern)
+      print("ALDrawCirc", xc, yc, len, rad, wait)
+      serial.write(sidSerial, string.pack(pattern, 0xFF, 0x35, 0x00, len, xc, yc, rad, 0xAA))
+   else
+      pattern = ">BBBI1I1I1I2I2I1B"
+      len = string.packsize(pattern)
+      serial.write(sidSerial, string.pack(pattern, 0xFF, 0x35, 0x02, len, 0x00, 0x00, xc, yc, rad, 0xAA))
+   end
 end
 
 local function ALDrawText(str, fontHeight, xp, yp, wait) 
@@ -732,27 +806,32 @@ local function ALDrawText(str, fontHeight, xp, yp, wait)
    elseif fontHeight == 36 then
       fontCode = 5
    else
-      fontCode = 0
+      fontCode = 4
    end
    
-   local pattern = string.format(">BBBI1I2I2I1I1I1c%dB", #str)
-   local len = string.packsize(pattern)
-   local ps = string.pack(pattern, 0xFF, 0x37, 0x00, len, xp, yp, textDir, fontCode,
+   local pattern
+   local len
+   local ps
+   if wait then
+      pattern = string.format(">BBBI1I1I1I2I2I1I1I1c%dB", #str)
+      len = string.packsize(pattern)
+      ps = string.pack(pattern, 0xFF, 0x37, 0x02, len, 0, 0, xp, yp, textDir, fontCode,
 			  textColor, str, 0xAA)
+   else
+      pattern = string.format(">BBBI1I2I2I1I1I1c%dB", #str)
+      len = string.packsize(pattern)
+      ps = string.pack(pattern, 0xFF, 0x37, 0x00, len, xp, yp, textDir, fontCode,
+			  textColor, str, 0xAA)
+   end
+
    serial.write(sidSerial,ps)
-   print("ALDrawText", str, fontHeight, fontCode, xp, yp)
-   --local ss=""
-   --for i=1,#ps,1 do
-   --   ss = ss .. string.format("%02X ", string.byte(ps, i))
-   --end
-   --print(ss)
    
    return len
 end
 
 --sizeofArc = ALPackArc(drawArc, x + x0, y + y0, rOut, arcStart, arcErase, thk);
 
-local function ALDrawArc(x, y, r, arcS, arcE, thk)
+local function ALDrawArc(x, y, r, arcS, arcE, thk, wait)
 
    --0xFF, 0x3C, 0x00, 0x0F, x_u, x_l, y_u, y_l, r, as_u, as_l, ae_u, ae_l, thk, 0xAA
    --   0     1     2     3    4    5    6    7  8     9     A     B     C    D     E
@@ -770,12 +849,43 @@ local function ALDrawArc(x, y, r, arcS, arcE, thk)
       arcEnd = arcEnd + 1
    end
 
-   local pattern = ">BBBI1I2I2I1i2i2I1B"
-   local len = string.packsize(pattern)
+   local pattern
+   local len
    --print("ALDrawArc len, r, thk", len, r, thk, arcStart, arcEnd)
-   serial.write(sidSerial, string.pack(pattern, 0xFF, 0x3C, 0x00, len, x, y, r,
-				       arcStart, arcEnd, thk, 0xAA))
+   local waitReply
+   if wait then
+      pattern = ">BBBI1I1I1I2I2I1i2i2I1B"
+      len = string.packsize(pattern)
+      waitReply = 0x02
+      serial.write(sidSerial, string.pack(pattern, 0xFF, 0x3C, waitReply, len, 0, 0, x, y, r,
+					 arcStart, arcEnd, thk, 0xAA))
+   else
+      pattern = ">BBBI1I2I2I1i2i2I1B"
+      len = string.packsize(pattern)      
+      waitReply = 0x00
+      serial.write(sidSerial, string.pack(pattern, 0xFF, 0x3C, waitReply, len, x, y, r,
+				      arcStart, arcEnd, thk, 0xAA))
+   end
+   
+   
 end
+
+local function ALDrawLine(x1, y1, x2, y2, wait)
+   
+   local pattern, len
+
+   if not wait then
+      pattern = ">BBBI1I2I2I2I2B"
+      len = string.packsize(pattern)
+      serial.write(sidSerial, string.pack(pattern, 0xFF, 0x32, 0x00, len, x1, y1, x2, y2, 0xAA))
+   else
+      pattern = ">BBBI1I1I1I2I2I2I2B"
+      len = string.packsize(pattern)
+      serial.write(sidSerial, string.pack(pattern, 0xFF, 0x32, 0x02, len, 0, 0, x1, y1, x2, y2, 0xAA))
+   end
+					 
+end
+
 
 
 local function encdp(dp, val)
@@ -792,19 +902,261 @@ local function RLwid(str, font)
    return math.floor( (20/36) * font * #str + 0.5 )
 end
 
+-- ****
+
+local function ALDrawRectC(xc, yc, width, height, rCode)
+   local pattern, len
+   pattern = ">BBBI1I2I2I2I2B"
+   len = string.packsize(pattern)
+   serial.write(sidSerial, string.pack(pattern, 0xFF, rCode, 0x00, len,
+				      xc - width/2, yc - height/2, xc + width/2, yc + height/2, 0xAA))
+
+end
+
+
+local function ALDrawMinMaxLabel(x, y, x0, y0, label, xlbl, ylbl,
+			       xlmin, ylmin, xlmax, ylmax, v, dp, minV, maxV)
+
+  -- label
+
+   local lblX = xlbl + x + RLwid(label, 16) / 2;
+   local lblY = ylbl + y + 16 / 2;
+
+  -- min 
+  
+  local minText = encdp(dp, minV);
+  local xlMin = xlmin + x + RLwid(minText, 16) / 2;
+  local ylMin = ylmin + y + 16 / 2;
+
+  -- max
+
+  local maxText = encdp(dp, maxV);
+  local xlMax = xlmax + x + RLwid(maxText, 16) / 2; 
+  local ylMax = ylmax + y + 16 / 2;
+
+  ALDrawText(label, 16, lblX, lblY, false)
+  ALDrawText(minText, 16, xlMin, ylMin, false)
+  ALDrawText(maxText, 16, xlMax, ylMax, false)  
+end
+
+
+-- ****
+
+-- ****
+local function ALDrawScale (x0, y0, alphaStart, alphaEnd, minA, maxA, ro, 
+			  major, minor, fine, minV, maxV, scale) 
+  
+   --uint8_t buf[15];
+   print("ALDrawScale - minA, maxA, alphaStart, alphaEnd", minA, maxA, alphaStart, alphaEnd)
+  local ri;
+  local rt;
+  local alpha;
+  local alphaA;
+  local minR = math.rad(minA)
+  local maxR = math.rad(maxA)
+  local dR; 
+  local dA;
+  local xo;
+  local yo;
+  local xi;
+  local yi;
+  local xt;
+  local yt;
+  local sinA;
+  local cosA;
+  rt = math.floor(ro / 1.5);
+  
+  dR = (maxR - minR) / fine;
+  dA = (maxA - minA) / fine;
+
+  local nextMaj = math.floor(0);
+  local nextMin = math.floor(0);
+  
+  major = math.floor(major)
+  minor = math.floor(minor)
+  fine = math.floor(fine)
+  
+  local waitReply;
+  local val;
+  --uint8_t drawLabel[30];
+  local sizeofDrawLabel;
+  local valstr;
+  local lblNum = 0;
+  print("fine, major, minor, nextMaj", fine, major, minor, nextMaj)
+
+  for tick = 0, fine, 1 do
+     
+     sizeofDrawLabel = 0;
+     alpha = minR + tick * dR;
+     alphaA = minA + tick * dA;
+     sinA = -math.sin(alpha);
+     cosA = math.cos(alpha);
+     
+     xo = ro * sinA;
+     yo = ro * cosA;
+     xt = rt * sinA;
+     yt = rt * cosA;
+     
+     if (tick == nextMaj) then
+	ri = ro * 0.85;
+	val = minV + lblNum * (maxV - minV) / major;
+	lblNum = lblNum + 1;
+	--sprintf(valstr, "%d", val);
+	valstr = string.format("%d", val)
+	sizeofDrawLabel = #valstr
+	--sizeofDrawLabel = ALPackText(drawLabel, valstr, 4, 4, xt + x0 + RLwid(valstr, 16) / 2,
+	--yt + y0 + 16 / 2);
+	nextMaj = nextMaj + math.floor(fine / major);
+	waitReply = false; --true;
+     else
+	sizeofDrawLabel = 0;
+	ri = ro * 0.90;
+	waitReply = false;
+     end
+     
+     xi = ri * sinA;
+     yi = ri * cosA;
+     
+     --Serial.printf("alphaStart %d alphaEnd %d alphaA %d\n", alphaStart, alphaEnd, alphaA);
+     -- make sure it works for start > end and end > start
+     if ( (alphaA >= alphaStart and alphaA <= alphaEnd) or
+	(alphaA <= alphaStart and alphaA >= alphaEnd) ) then
+	--int sizeofbuf = ALPackLine(buf, xo + x0, yo + y0, xi + x0, yi + y0, 0, 0);
+	--while (controlState > 1);
+	--Serial.printf("drawPointer tipX_l %d tipY_l %d\n", tipX_l, tipY_l);
+	if sizeofDrawLabel ~= 0 then
+	   ALDrawLine(xo + x0, yo + y0, xi + x0, yi + y0, waitReply)
+	   --ALDrawText(valstr, 16, xt + x0 + RLwid(valstr, 16)/2, yt + y0 + 16/2, false)
+	end
+	if (scale ~= "variable" and sizeofDrawLabel > 0) then
+	   --Serial.printf("drawing %s\n", valstr);
+	   --while (controlState > 1);
+	   --Serial.printf("(re)draw label %s\n", valstr);
+	   --pRemActiveLookRxChar->writeValue(drawLabel, sizeofDrawLabel, waitReply);    
+	end
+     end
+  end
+
+end
+
+local tipXprev = {0,0,0,0};
+local tipYprev = {0,0,0,0};
+local alphaDispXPrev= {0,0,0,0};
+
+local function gaugeNew (seq, reset, x0, y0, x, y, minV, maxV, label, val, val2,
+			 scale, mk, dp, xlbl, ylbl, width, height, rIn, rOut,
+			 xlmin, ylmin, xlmax, ylmax, degMin, degMax,
+			 ro, major, minor, fine, fm)
+
+   if not val then return end
+
+  local pct = (val - minV) / (maxV - minV);
+  local mpct = (mk - minV) / (maxV - minV);
+
+  local alphaDispF = 180 + (degMin + pct * (degMax - degMin));
+  local alphaDispM = 180 + (degMin + mpct * (degMax - degMin));
+  
+  local alphaDispX = (degMin + pct * (degMax - degMin));
+  local alphaDisp = math.floor(alphaDispF);
+
+  local sinA = math.sin(math.rad(alphaDispF));
+  local cosA = math.cos(math.rad(alphaDispF));
+
+  local sinM = math.sin(math.rad(alphaDispM));
+  local cosM = math.cos(math.rad(alphaDispM));
+  
+  local nlen = 0.75 * ro;
+
+  local centX = x + x0;
+  local centY = y + y0;
+
+  -- tip of pointer
+  local tipX = x + x0 + math.floor(sinA * nlen);
+  local tipY = y + y0 - math.floor(cosA * nlen);
+
+  local mX = x + x0 + math.floor(sinM * nlen);
+  local mY = y + y0 - math.floor(cosM * nlen);
+
+
+  if (reset == 1 or tipX ~= tipXprev[seq] or tipY ~= tipYprev[seq]) then
+
+    ALHold(false)
+
+    if (reset == 0) then
+       ALColorBlack()
+    end
+
+    if (reset == 0) then
+       ALDrawLine(tipXprev[seq], tipYprev[seq], centX, centY, false)
+    end
+
+    --value
+
+    local valText = encdp(dp, val);
+    
+    local ww = RLwid("0000", 26);
+
+    if (reset ~= 1) then
+       ALDrawRectC(xlbl + x, ylbl + y, ww, 26, 0x34)
+    end
+
+    ALColorWhite()
+
+    ALDrawRect(x + x0 - width/2, y + y0 - height/2, x + x0 + width/2, y + y0 + height/2, 0x33)
+    
+    if (reset ~= 0) then
+       print("drawing scale and minmax labels")
+
+       ALDrawArc(centX, centY, ro, degMin - 90, degMax - 90, 4, false)
+       --ALDrawCirc(centX, centY, ro, false)
+
+       ALDrawScale(x+x0, y+y0, degMin - 1, degMax + 1, degMin, degMax, ro, major, minor, fine, minV, maxV, scale);
+      ALDrawMinMaxLabel(x, y, x0, y0, label, xlbl, ylbl,
+		      xlmin, ylmin, xlmax, ylmax,
+		      val, dp, minV, maxV);
+    else
+      -- leave this commented out for now .. we don't have any gauges with labels at the moment
+    end
+    ALDrawLine(tipX, tipY, centX, centY, false)
+    
+    if ( (mpct > 0.0) and (mpct < 1.0)) then
+       ALDrawCircF(mX, mY, (nlen*0.1), false);
+    end
+
+    local valX = xlbl + x + RLwid(valText, 26) / 2;
+    local valY = ylbl + y  + 26 / 2;
+
+    ALDrawText(valText, 26, valX, valY, false) 
+    -- flush pending writes
+    ALFlush(true)
+
+    -- save old values
+    tipXprev[seq] = tipX;
+    tipYprev[seq] = tipY;
+    alphaDispXPrev[seq] = alphaDispX;
+  else
+     --print("else", seq, tipX, tipXprev[seq], tipY, tipYprev[seq])
+  end
+  
+end
+
+
+-- ****
+
+
+
 local arcAnglePrev = {0,0,0,0}
 local arcFirstTime = {0,0,0,0}
 local arcAngle = {0,0,0,0}
-local arcReset = 1
 
 local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
-			as, ae, mk, dd, xlbl, ylbl, width, rIn, rOut,
+			as, ae, mk, dd, xlbl, ylbl, width, height, rIn, rOut,
 			xlmin, ylmin, xlmax, ylmax)
 
    local pct, markPct, ipct10
    local markAngle
-   local arcStart = as
-   local arcEnd = ae
+   local arcStart = math.floor(as)
+   local arcEnd = math.floor(ae)
    local thk = rOut - rIn
    local sinM, cosM
    local xm1, ym1, xm2, ym2
@@ -819,17 +1171,16 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
    local valbX, valbY
    local arcErase
 
-   serialWriteCount = 0
+   if not val then return end
+   
    local now = system.getTimeCounter()
    
    --print("ag", seq, x0, y0, x, y)
    --print(nv, xv, lbl, val, val2)
    --print(as, ae, mk, dd, xlbl, ylbl, width)
 
-   reset = arcReset
    if reset == 1 then
       arcFirstTime[seq] = 1
-      arcReset = 0
    end
    
    pct = (val - nv) / (xv - nv)
@@ -878,107 +1229,48 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
 
    --****
 
-   if ( (arcFirstTime[seq] ==  1) or arcAnglePrev[seq] ~= arcAngle[seq]) then
-
-    if (arcFirstTime[seq] == 1) then
-      arcFirstTime[seq] = 0;
-
-      ALDrawText(lbl, 16, lblX, lblY, false)
-      --pRemActiveLookRxChar->writeValue(drawLbl, sizeofLbl, false);
-      
-      ALDrawText(minText, 16, xlMin, ylMin, false)
-      --pRemActiveLookRxChar->writeValue(drawMin, sizeofMin, false);
-
-      ALDrawText(maxText, 16, xlMax, ylMax, false)
-      --pRemActiveLookRxChar->writeValue(drawMax, sizeofMax, false);
-    end
-
-    ALHold()
-    --pRemActiveLookRxChar->writeValue(hold, sizeof(hold), true);
-
-    --//Serial.printf("drawColorBlack\n");
-    --pRemActiveLookRxChar->writeValue(drawColorBlack, sizeof(drawColorBlack), false);
-    ALColorBlack()
-
-    --local function ALDrawRect(x0, y0, x1, y1, rCode, wait)
-    ALDrawRect(valaX, valaY, valbX, valbY, 0x34, false)
-    --pRemActiveLookRxChar->writeValue(drawBox, sizeof(drawBox), false);
-
-    arcErase = arcAnglePrev[seq];
-    if (arcErase == arcStart) then
+   local sbs = serialBytesSent
+   ALHold(true)
+   ALColorBlack()
+   ALDrawRect(x+x0-width/2-2, y+y0-height/2-2, x+x0-width/2+width+2, y+y0-height/2+height+2, 0x34, false)
+   ALColorWhite()
+   arcFirstTime[seq] = 0;
+   
+   ALDrawText(lbl, 16, lblX, lblY, false)
+   ALDrawText(minText, 16, xlMin, ylMin, false)
+   ALDrawText(maxText, 16, xlMax, ylMax, false)
+   
+   arcErase = arcAnglePrev[seq];
+   if (arcErase == arcStart) then
       arcErase = arcErase + 1;
-    end
-    
-    --sizeofArc = ALPackArc(drawArc, x + x0, y + y0, rOut, arcStart, arcErase, thk);
-    ALDrawArc(x + x0, y + y0, rOut, arcStart, arcErase, thk)
-    --pRemActiveLookRxChar->writeValue(drawArc, sizeofArc, true);
-    --Serial.printf("black arc %d %d\n", arcStart, arcErase);
-    
-    --Serial.printf("drawColorWhite\n");
-    ALColorWhite()
-    --pRemActiveLookRxChar->writeValue(drawColorWhite, sizeof(drawColorWhite), false);
-
-    if (arcAngle[seq] == arcStart) then
-       ALDrawArc(x + x0, y + y0, rOut, arcStart, arcAngle[seq] + 1, thk)
-       --sizeofArc = ALPackArc(drawArc, x + x0, y + y0, rOut, arcStart, arcAngle[seq] + 1, thk);  
-    else
-       ALDrawArc(x + x0, y + y0, rOut, arcStart, arcAngle[seq], thk)
-      --sizeofArc = ALPackArc(drawArc, x + x0, y + y0, rOut, arcStart, arcAngle[seq], thk);  
-    end
-
-    --pRemActiveLookRxChar->writeValue(drawArc, sizeofArc, true);
-    
-    if ( (markPct > 0.0) and (markPct < 1.0) ) then
-       --while (controlState > 1);
-       --ALDrawLine(xm1, ym1, xm2, ym2, false);
-      --ALDrawCircF(xm1, ym1, thk/2, false);
-      --Serial.printf("markAngle %d thk %d\n", markAngle, thk);
-      if (markPct > pct) then
-	 --sizeofArc = ALPackArc(drawArc, x + x0, y + y0, rOut, (markAngle - 2) - 90, (markAngle + 2) - 90, thk);
-	 ALDrawArc(x + x0, y + y0, rOut, (markAngle - 2) - 90, (markAngle + 2) - 90, thk)
-	 --pRemActiveLookRxChar->writeValue(drawArc, sizeofArc, true);      
-      else
-	 ALDrawBlack()
-	 --pRemActiveLookRxChar->writeValue(drawColorBlack, sizeof(drawColorBlack), false);
-	 --sizeofArc = ALPackArc(drawArc, x + x0, y + y0, rOut, (markAngle - 2) - 90, (markAngle + 2) - 90, thk);
-	 ALDrawArc(x + x0, y + y0, rOut, (markAngle - 2) - 90, (markAngle + 2) - 90, thk)
-        --pRemActiveLookRxChar->writeValue(drawArc, sizeofArc, true);
-	 ALDrawWhite()
-	 --pRemActiveLookRxChar->writeValue(drawColorWhite, sizeof(drawColorWhite), false);
-      end
-
-      --while (controlState > 1);
-      --pRemActiveLookRxChar->writeValue(drawArc, sizeofArc, false);
-      --Serial.printf("white arc %d %d\n", arcStart, arcAngle);
-    end
-
-    ALDrawText(valText, 26, valX, valY, false)
-    --pRemActiveLookRxChar->writeValue(drawVal, sizeofVal, false);
-    
-    --flush pending writes
-    --Serial.printf("flush\n");
-    ALFlush(true)
-    --pRemActiveLookRxChar->writeValue(flush, sizeof(flush), true);
-
    end
    
-   arcAnglePrev[seq] = arcAngle[seq]
-   --print("arcgauge delta t", (system.getTimeCounter() - now))
-   --****
-   print("serialWriteCount", serialWriteCount)
-end
-
-local function encodeBuf(str)
-   local ret
-   ret = str:gsub("(%x%x)", (function(s) return string.char(tonumber(s,16)) end))
-   --[[
-   local ss = ""
-   for i=1,#ret,1 do
-      ss = ss .. string.format("%02X ", string.byte(ret, i))
+   --sizeofArc = ALPackArc(drawArc, x + x0, y + y0, rOut, arcStart, arcErase, thk);
+   ALDrawArc(x + x0, y + y0, rOut, arcStart, arcErase, thk, false)
+   
+--   if (arcAngle[seq] == arcStart) then
+--      ALDrawArc(x + x0, y + y0, rOut, arcStart, arcAngle[seq] + 1, thk, true)
+--   else
+--      ALDrawArc(x + x0, y + y0, rOut, arcStart, arcAngle[seq], thk, true)
+--   end
+   
+   --print("markPct", markPct)
+   
+   if ( (markPct > 0.0) and (markPct < 1.0) ) then
+      if (markPct > pct) then
+	 ALDrawArc(x + x0, y + y0, rOut, (markAngle - 2) - 90, (markAngle + 2) - 90, thk, false)
+      else
+	 ALColorBlack()
+	 ALDrawArc(x + x0, y + y0, rOut, (markAngle - 2) - 90, (markAngle + 2) - 90, thk, false)
+	 ALColorWhite()
+      end
    end
-   print("encodebuf==>"..ss)
-   --]]
-   return ret
+   
+   ALDrawText(valText, 26, valX, valY, false)
+   ALFlush(false)
+   
+   arcAnglePrev[seq] = arcAngle[seq]
+   --print("serial bytes sent", serialBytesSent - sbs + 1)
 end
 
 
@@ -994,10 +1286,14 @@ local function sendAL(j2)
    local dd
    local val, val2
    local xlbl, ylbl
-   local width
+   local width, height
    local xlmin, ylmin
    local xlmax, ylmax
    local lbl
+   local minA, maxA
+   local radius
+   local major, minor, fine
+   local rIn, rOut
    --
    -- REMINDER: USE cfgimgESP table to send to the glasses!!!
    --
@@ -1011,7 +1307,7 @@ local function sendAL(j2)
    if not gpp[1].fmtNumber then gpp[1].fmtNumber = 1 end
    fmt = gpp[1].fmtNumber --  string.format("p%d", gpp[1].fmtNumber)
    local ccf =  cfgimgESP.config[fmt]
-   
+
    for g,t in ipairs(gpp) do        -- loop over all gauges on this page with a valid imageID
       --[[
 	 if g <= 3  then
@@ -1026,6 +1322,7 @@ local function sendAL(j2)
 	 xr = ccfg.xlr
 	 yr = ccfg.ylr
 	 width = ccfg.width
+	 height = ccfg.height
 	 xc = xr + cfgimgESP.forms[fid].x0           -- for gauge, this is the pivot pt of the needle
 	 yc = yr + cfgimgESP.forms[fid].y0
 
@@ -1044,6 +1341,8 @@ local function sendAL(j2)
 	 ylmin = cfgimgESP.forms[fid].ylmin
 	 xlmax = cfgimgESP.forms[fid].xlmax
 	 ylmax = cfgimgESP.forms[fid].ylmax	 	 
+	 rIn = cfgimgESP.forms[fid].radiusIn
+	 rOut = cfgimgESP.forms[fid].radiusOut
 	 
 	 if true then --t.value then
 	    -- if scale "fixed" then scale comes from images, else from 200ms json
@@ -1073,7 +1372,28 @@ local function sendAL(j2)
 	    --print(g, cid.wtype,t.widgetID)
 	    if cid.wtype == "oldgauge" then
 	    elseif cid.wtype == "gauge" then
-	    elseif cid.wtype == "gNew" then
+
+	       --arcGauge(g, reset, x0, y0, xr, yr, min, max, lbl, val, val2,
+	       --as, ae, mk, dd, xlbl, ylbl, width, height,
+	       --rIn, rOut, xlmin, ylmin, xlmax, ylmax)
+
+	       --local function gaugeNew (seq, reset, x0, y0, x, y, minV, maxV, label, val, val2,
+	       --scale, mk, dp, xlbl, ylbl, width, height, rIn, rOut,
+	       --xlmin, ylmin, xlmax, ylmax, degMin, degMax,
+	       --ro, major, minor, fine, fm)
+
+	       radius = cfgimgESP.forms[fid].radius
+	       minA = cfgimgESP.forms[fid].minA
+	       maxA = cfgimgESP.forms[fid].maxA	 
+	       major = cfgimgESP.forms[fid].major
+	       minor = cfgimgESP.forms[fid].minor
+	       fine = cfgimgESP.forms[fid].fine
+	       
+	       gaugeNew(g, resetGlasses, x0, y0, xr, yr, min, max, lbl, val, val2,
+			cid.scale, mk, dd, xlbl, ylbl, width, height, rIn, rOut,
+			xlmin, ylmin, xlmax, ylmax, minA, maxA,
+			radius, major, minor, fine)
+	       
 	    elseif cid.wtype == "compass" then
 	    elseif cid.wtype == "hbar" then
 	    elseif cid.wtype == "vbar" then
@@ -1099,22 +1419,22 @@ local function sendAL(j2)
 	       --]]
 	       local as = cfgimgESP.forms[fid].arcStart
 	       local ae = cfgimgESP.forms[fid].arcEnd
-	       local rIn = cfgimgESP.forms[fid].radiusIn
-	       local rOut = cfgimgESP.forms[fid].radiusOut
-	       arcGauge(g, reset, x0, y0, xr, yr, min, max, lbl, val, val2,
-			as, ae, mk, dd, xlbl, ylbl, width, rIn, rOut, xlmin, ylmin, xlmax, ylmax)
+	       arcGauge(g, resetGlasses, x0, y0, xr, yr, min, max, lbl, val, val2,
+			as, ae, mk, dd, xlbl, ylbl, width, height,
+			rIn, rOut, xlmin, ylmin, xlmax, ylmax)
 	    elseif cid.wtype == "ahGauge" then
 	    elseif cid.wtype == "vltape" then
 	    end
 	 end
       end
    end
+   resetGlasses = 0
 end
 
 
 local lastSend = 0
 local linecount = 0
-
+local enterWaiting = 0
 local function loop()
    local now = system.getTimeCounter()
    local unow = system.getTimeCounter()
@@ -1588,12 +1908,12 @@ local function loop()
 	    if emflag ~= 0 then
 	       local swa = system.getInputs("SA") -- SA to show json only on emulator
 	       if swa and swa == 1 then
-		  print(espjson)
+		  --print(espjson) -- what happened to espjson?
 	       end
 	    end
 	    --local count = serial.write(sidSerial, espjson, "\n")
 	    if system.getTimeCounter() - lastSend > (1*LOOPTIME) then
-	       print("=================> sendAL")
+	       --print("=================> sendAL")
 	       sendAL(gtbl)
 	       lastSend = system.getTimeCounter()
 	    end
@@ -1609,21 +1929,55 @@ local function loop()
    end
 
    if unow <= jsonHoldTime then return end
-
+   --               a v i a t o r
+   local appHex = "61766961746F72"
+   --                 D F M - H U D
+   --local appHex = "44464D2D485544"
+   
    if sendState == state.DISCONNECTED then
       print("disconnected, sending config request")
-      bw = serialWrite(sidSerial, 0xFF, 0xD3, 0x02, 0x07, 0x01, 0x01, 0xAA) -- read config
+      local bufCfg = "FFD302070101AA"
+      --bw = serial.write(sidSerial, 0xFF, 0xD3, 0x02, 0x07, 0x01, 0x01, 0xAA) -- read config
+      bw = serial.write(sidSerial, encodeBuf(bufCfg)) -- read config
       if not bw then
 	 print("DFM-HUD: cannot write config query")
 	 jsonHoldTime = unow + 1000
       end
       print("set state to WAITING")
       sendState = state.WAITING -- wait for onRead to get config list
+      enterWaiting = system.getTimeCounter()
    end
 
    if sendState == state.WAITING then
       --just spin, when config is available, sendState will be set to CONNECTED
       --print("sendState WAITING")
+      if system.getTimeCounter() - enterWaiting > 1000 then --no response to config request in 1 sec
+	 sendState = state.DISCONNECTED
+	 print("no cfg response in 1 sec .. set DISCONNECTED and try again")
+	 jsonHoldTime = unow + 1000 -- wait 1 more sec then try config request again
+      end
+      
+   end
+
+   if sendState == state.SELECT then
+      local bufSet = "FFD2000D" .. appHex .. "00AA"      
+      local bufClr = "FF010005AA"
+      local bufFls = "FF390006FFAA"
+
+      bw = serial.write(sidSerial, encodeBuf(bufSet)) -- set glasses to our app
+      bw = serial.write(sidSerial, encodeBuf(bufClr)) -- clear screen
+      bw = serial.write(sidSerial, encodeBuf(bufFls)) -- flush, set to known state
+      
+      if not bw then
+	 print("DFM-HUD: cannot write select")
+	 if sendFP then io.close(sendFP) end
+	 sendState = state.DISCONNECTED
+	 jsonHoldTime = unow + 1000 -- wait one sec before possibly sending config request again  
+      else
+	 print("set state to COMPLETE")
+	 sendState = state.COMPLETE
+	 resetGlasses = 1
+      end
    end
    
    if sendState == state.CONNECTED then 
@@ -1652,28 +2006,24 @@ local function loop()
 	 "FF41...AA" images (many lines)
 	 "FFD0001561766961746F72000000000200000001AA" config footer for "aviator" with version 2, key 1
 	 "FFD2000D61766961746F7200AA" config set to "aviator"
-	 
-	 --"FF460006FFAA" delete all images -- this is now done in the config-fonts.json file
-	 
       --]]
       
       if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
       
       local cfgVersion = 1
       local cfgKey = 1
-      local bufPre = "FFD0001561766961746F7200"
-      local bufSet = "FFD2000D61766961746F7200AA"
+      local bufPre = "FFD00015" .. appHex .. "00"
+
       local bufH = bufPre .. string.format("%08X%08X", 0, cfgKey) .. "AA"
       local bufF = bufPre .. string.format("%08X%08X", cfgVersion, cfgKey) .. "AA"
       local bw
             
       if sendState == state.SENDHEADER then
 	 print("sending header")
-	 bw = serialWrite(sidSerial, encodeBuf(bufH))
-	 --bw = serial.write(sidSerial,0xFF, 0xD0,  0x00, 0x15, 0x61, 0x76, 0x69, 0x61, 0x74, 0x6F, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xAA)
+	 bw = serial.write(sidSerial, encodeBuf(bufH))
 	 if not bw then
 	    print("DFM-HUD: cannot write header")
-	    io.close(sendFP)
+	    if sendFP then io.close(sendFP) end
 	    sendState = state.DISCONNECTED
 	    jsonHoldTime = unow + 1000 -- wait one sec before possibly sending config request again  
 	 else
@@ -1683,16 +2033,16 @@ local function loop()
 
       if sendState == state.SENDFOOTER then
 	 print("DFM-HUD: Sending config footer")
-	 bw = serialWrite(sidSerial, encodeBuf(bufF))
-	 --bw = serial.write(sidSerial, encodeBuf(bufSet))
+	 bw = serial.write(sidSerial, encodeBuf(bufF))
+
 	 if not bw then
 	    print("DFM-HUD: cannot write footer")
-	    io.close(sendFP)
+	    if sendFP then io.close(sendFP) end
 	    sendState = state.DISCONNECTED
 	    jsonHoldTime = unow + 1000 -- wait one sec before possibly sending config request again  
 	 else
-	    print("set state to COMPLETE")
-	    sendState = state.COMPLETE
+	    print("set state to SELECT")
+	    sendState = state.SELECT
 	 end
 	 
 	 local dt = system.getTimeCounter() - startingTime
@@ -1720,7 +2070,7 @@ local function loop()
 	 if not line then
 	    print("io,readline EOF")
 	    sendState = state.SENDFOOTER
-	    io.close(sendFP)
+	    if sendFP then io.close(sendFP) end
 	    break
 	 else
 	    local ll
@@ -1730,13 +2080,13 @@ local function loop()
 	       ll = string.sub(line, ldx, ldx + chunk - 1)
 	       ldx = ldx + chunk
 	       --print("> "..ll)
-	       bw = serialWrite(sidSerial, encodeBuf(ll))
+	       bw = serial.write(sidSerial, encodeBuf(ll))
 	       --print("write encoded line, bw", bw, #line)
 	    until ldx >= #line
 	    
 	    if not bw then
 	       print("DFM-HUD: cannot write line of config file")
-	       io.close(sendFP)
+	       if sendFP then io.close(sendFP) end
 	       sendState = state.DISCONNECTED
 	       jsonHoldTime = unow + 1000
 	       break
@@ -3351,8 +3701,8 @@ local function onRead(indata)
 	 if aviatorVersion ~= aviatorCurrentVersion then
 	    sendState = state.CONNECTED --send the preparation info and font file
 	 else
-	    sendState = state.CONNECTED -- for testing .. do every time
-	    --sendState = state.COMPLETE -- glasses have current info - good to go
+	    --sendState = state.CONNECTED -- for testing .. do every time
+	    sendState = state.SELECT -- glasses have current info 
 	 end
 
       elseif string.byte(command, 2) == 0x05 then -- battery level
@@ -3366,6 +3716,16 @@ local function onRead(indata)
 	    print("id " .. id .. " height " .. height)
 	    i = i + 2
 	 until i >= cmd_len
+      elseif string.byte(command,2) == 0xE2 then -- error
+	 local str = ""
+	 for i=1,#command,1 do
+	    str = str .. string.format("0x%02X ", string.byte(command, i))
+	 end
+	 print(str)
+	 local cmdId, err, subErr = string.unpack(">I1I1", command, 7)
+	 print(string.format("DFM-HUD: onRead -  cmdID 0x%02x, error 0x%02x", cmdId, err))
+      else
+	 print("DFM-HUD: onRead - command[2]", string.format("0x%02x", string.byte(command,2)))
       end
       
    end
@@ -3457,7 +3817,6 @@ end
 local function init()
 
    local fn
-   local fmtNumber
 
    --print("CPU Entry ", system.getCPU())
    
@@ -3773,8 +4132,6 @@ local function init()
    
    local bw, xx
 
-   bw = serial.write(sidSerial, 0xFF, 0X01, 0x00, 0x05, 0xAA) -- clear
-   bw = serial.write(sidSerial, 0xFF, 0X39, 0x00, 0x06, 0xFF, 0xAA) -- flush and reset
    --bw = serial.write(sidSerial, 0xFF, 0x05, 0x02, 0x07, 0x01, 0x01, 0xAA) -- read batt
    -- select "aviator" app
    --bw = serial.write(sidSerial, 0xFF, 0xD2, 0x00, 0x0D, 'a', 'v', 'i', 'a', 't', 'o', 'r', 0x00, 0xAA)
