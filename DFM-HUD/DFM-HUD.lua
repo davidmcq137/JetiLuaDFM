@@ -575,6 +575,7 @@ local function readSensors(tt)
 	    l1 = string.gsub(sensorLbl, "%W", "")
 	    l2 = string.gsub(sensor.label, "%W", "")
 	    if sensor.type ~= GPStype then
+	       print("GPS", sensor.id, sensor.param)
 	       table.insert(tt.sensorLalist, l1 .. "_" .. l2)
 	       table.insert(tt.sensorLslist, sensor.label)	    
 	       table.insert(tt.sensorIdlist, sensor.id)
@@ -591,7 +592,6 @@ local function readSensors(tt)
 	 end
       end
    end
-
    -- Special sensors (values come from other than telemetry sensors)
    --
    -- Id = -1
@@ -2117,6 +2117,29 @@ local function loop()
    local scale
    local minV, maxV
 
+   Glass.var.currentPosition = gps.getPosition(3, 2, 3)
+   
+   --print("start->to Distance: ", gps.getDistance(Glass.var.startTakeoff, Glass.var.gearUp))
+   --print("start->to Bearing: ", gps.getBearing(Glass.var.startTakeoff, Glass.var.gearUp))
+
+   if Glass.var.currentPosition then
+      --print("curr->start Distance: ", gps.getDistance(Glass.var.currentPosition, Glass.var.startTakeoff))
+      --print("curr->start Bearing: ", gps.getBearing(Glass.var.currentPosition, Glass.var.startTakeoff))
+      local curr2gearUpB = gps.getBearing(Glass.var.currentPosition, Glass.var.gearUp)
+      local gearUp2toB = gps.getBearing(Glass.var.startTakeoff, Glass.var.gearUp)
+      local curr2gearUpD = gps.getDistance(Glass.var.currentPosition, Glass.var.gearUp)
+      local gearUp2toD = gps.getDistance(Glass.var.startTakeoff, Glass.var.gearUp)
+      local deltaB = curr2gearUpB - gearUp2toB
+      local deltaD = curr2gearUpD
+      if math.abs(deltaB) < 30 then 
+	 print("deltaB, deltaD", deltaB, deltaD)
+      end
+      
+   else
+      print("no currentPosition")
+   end
+   
+   
    if system.getTimeCounter() > oncePerSecond and sendState == state.COMPLETE then
       Glass.var.output = "Glass"
       ALBattCheck()
@@ -4719,6 +4742,9 @@ local function init()
    print("CPU end init(): ", system.getCPU())
 
    Glass.var.output = "Glass"
+
+   Glass.var.startTakeoff = gps.newPoint(41.34062, -74.43160)
+   Glass.var.gearUp = gps.newPoint(41.33989, -74.43137)
    
    -- for testing: Glass.settings.rebootDisco = nil
 

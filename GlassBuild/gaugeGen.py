@@ -195,30 +195,34 @@ for alpha in rr (minA, maxA, (maxA - minA) / major):
 	
 ri = ro * .75
 
-for alpha in rr (minA, maxA, (maxA - minA) / minor):
-	xo = ro * math.sin(math.radians(alpha))
-	yo = ro * math.cos(math.radians(alpha))
-
-	xi = ri * math.sin(math.radians(alpha))
-	yi = ri * math.cos(math.radians(alpha))	
-
-	if ticlist.count(alpha) == 0:
-		#draw.line((x0 + xi, h - (y0 + yi), x0 + xo, h - (y0 + yo)), fill=(255,255,255,128), width=linewidth)
-		draw_line_antialiased(draw, im, x0 + xi, h - (y0 + yi), x0 + xo, h - (y0 + yo), (255,255,255,255))
-		ticlist.append(alpha)
-	
+if minor != 0:
+	for alpha in rr (minA, maxA, (maxA - minA) / minor):
+		xo = ro * math.sin(math.radians(alpha))
+		yo = ro * math.cos(math.radians(alpha))
+		
+		xi = ri * math.sin(math.radians(alpha))
+		yi = ri * math.cos(math.radians(alpha))	
+		
+		if ticlist.count(alpha) == 0:
+			#draw.line((x0 + xi, h - (y0 + yi), x0 + xo, h - (y0 + yo)), fill=(255,255,255,128), width=linewidth)
+			draw_line_antialiased(draw, im, x0 + xi, h - (y0 + yi), x0 + xo, h - (y0 + yo), (255,255,255,255))
+			ticlist.append(alpha)
+			
 ri = ro * .85
-for alpha in rr (minA, maxA, (maxA - minA) / fine):
-	xo = ro * math.sin(math.radians(alpha))
-	yo = ro * math.cos(math.radians(alpha))
+if fine != 0:
+	for alpha in rr (minA, maxA, (maxA - minA) / fine):
+		xo = ro * math.sin(math.radians(alpha))
+		yo = ro * math.cos(math.radians(alpha))
+		
+		xi = ri * math.sin(math.radians(alpha))
+		yi = ri * math.cos(math.radians(alpha))	
+		
+		if ticlist.count(alpha) == 0:
+			#draw.line((x0 + xi, h - (y0 + yi), x0 + xo, h - (y0 + yo)), fill=(255,255,255,128), width=linewidth)
+			draw_line_antialiased(draw, im, x0 + xi, h - (y0 + yi), x0 + xo, h - (y0 + yo), (255,255,255,255))
 
-	xi = ri * math.sin(math.radians(alpha))
-	yi = ri * math.cos(math.radians(alpha))	
-
-	if ticlist.count(alpha) == 0:
-		#draw.line((x0 + xi, h - (y0 + yi), x0 + xo, h - (y0 + yo)), fill=(255,255,255,128), width=linewidth)
-		draw_line_antialiased(draw, im, x0 + xi, h - (y0 + yi), x0 + xo, h - (y0 + yo), (255,255,255,255))
-
+shape = [(0,0),(2*radius*mult, 2*radius*mult)]
+draw.arc(shape, start=minA-90, end=maxA-90)
 
 if mult > 1.0:
 	im160 = im.resize((160,160), Image.BICUBIC)
