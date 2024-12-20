@@ -1,0 +1,9 @@
+MONO_4BPP = 0                       # MDP05 4bpp monochrome, value used by fw must be 0
+MONO_1BPP = 1                       # MDP05 1bpp monochrome, value used by fw must be 1
+MONO_4BPP_HEATSHRINK = 2            # MDP05 4bpp+heatshrink compression, saved raw 4bpp,  value used by fw must be 2
+MONO_4BPP_HEATSHRINK_SAVE_COMP = 3  # MDP05 4bpp+heatshrink compression, saved compressed, value used by fw must be 3
+STREAM_1BPP = 4                     # MDP05 1bpp monochrome streaming, param: 'x', 'y', 'useDeprecateCmd'
+STREAM_4BPP_HEATSHRINK = 5          # MDP05 4bpp compressed streaming, param: 'x', 'y'
+RYYG = 6                            # MDP08 4bpp color RYYG
+RRYG = 7                            # MDP08 4bpp color RRYG
+MONOALPHA_8BPP = 8                  # MDP05 8bpp monochrome on first 4 bits and alpha on last 4 bits

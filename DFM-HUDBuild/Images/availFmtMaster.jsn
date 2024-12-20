@@ -1,0 +1,66 @@
+[
+    [
+	{"xc":"L1", "yc":"H1", "width":200, "height":200}
+    ],
+    [
+	{"xc":"L1", "yc":"H2", "width":160, "height":160},
+	{"xc":"L1", "yc":"H3", "width":240, "height":45}	
+    ],
+    [
+	{"xc":"L2", "yc":"H1", "width":83, "height":160},
+	{"xc":"R2", "yc":"H1", "width":160, "height":160}
+    ],
+    [
+	{"xc":"L2", "yc":"H2", "width":83, "height":160},
+	{"xc":"R2", "yc":"H2", "width":160, "height":160},
+	{"xc":"L1", "yc":"H3", "width":240, "height":45}
+    ],
+    [
+	{"xc":"L3", "yc":"H1", "width":160, "height":160},
+	{"xc":"R3", "yc":"H1", "width":83, "height":160}
+    ],
+    [
+	{"xc":"L3", "yc":"H2", "width":160, "height":160},
+	{"xc":"R3", "yc":"H2", "width":83, "height":160},
+	{"xc":"L1", "yc":"H3", "width":240, "height":45}
+    ],
+    [
+	{"xc":"L4", "yc":"H1", "width":83, "height":160},
+	{"xc":"C4", "yc":"H1", "width":83, "height":160},
+	{"xc":"R4", "yc":"H1", "width":83, "height":160}
+    ],
+    [
+	{"xc":"L5", "yc":"H2A", "width":120, "height":160},
+	{"xc":"R5", "yc":"H2A", "width":120, "height":160},
+	{"xc":"L1", "yc":"H3", "width":240, "height":45}
+    ],
+    [
+	{"xc":"L4", "yc":"H2", "width":83, "height":160},
+	{"xc":"C4", "yc":"H2", "width":83, "height":160},
+	{"xc":"R4", "yc":"H2", "width":83, "height":160},
+	{"xc":"L1", "yc":"H3", "width":240, "height":45}
+    ],
+    [
+	{"xc":"L6", "yc":"H5", "width":100, "height":100},
+	{"xc":"R6", "yc":"H5", "width":100, "height":100},	
+	{"xc":"L1", "yc":"H3", "width":240, "height":45},
+	{"xc":"L1", "yc":"H4", "width":240, "height":45}
+    ],
+    [
+	{"xc":"L6", "yc":"H5", "width":100, "height":100},
+	{"xc":"R6", "yc":"H5", "width":100, "height":100},	
+	{"xc":"L6", "yc":"H7", "width":100, "height":100},
+	{"xc":"R6", "yc":"H7", "width":100, "height":100}
+    ],
+    [
+	{"xc":"L1", "yc":"H3", "width":240, "height":45},
+	{"xc":"L1", "yc":"H4", "width":240, "height":45},
+	{"xc":"L1", "yc":"H6", "width":240, "height":45}	
+    ],
+    [
+	{"xc":"L1", "yc":"H3", "width":240, "height":45},
+	{"xc":"L1", "yc":"H4", "width":240, "height":45}
+    ]
+    
+    
+]

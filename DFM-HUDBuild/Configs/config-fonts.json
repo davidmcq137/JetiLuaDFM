@@ -1,0 +1,29 @@
+{
+    "config":[
+    ],
+
+    "fonts":[
+	{"id": 4, "path": "./font/Roboto/Roboto-Light.ttf", "height": 16, "first": " ","last": "~"},
+	{"id": 5, "path": "./font/Roboto/Roboto-Light.ttf", "height": 36, "first": " ","last": "~"},
+	{"id": 6, "path": "./font/Roboto/Roboto-Light.ttf", "height": 26, "first": " ","last": "~"}				
+    ],
+
+    "layoutDelete":[
+    ],
+
+    "layouts": [
+    ],
+
+    "imgDelete":[
+	{"deprecated": false, "id":255}
+    ],
+
+    "imgs": [
+    ],
+
+    "anim": [
+    ],
+
+    "pages": [
+    ]
+}
