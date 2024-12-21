@@ -221,8 +221,23 @@ if fine != 0:
 			#draw.line((x0 + xi, h - (y0 + yi), x0 + xo, h - (y0 + yo)), fill=(255,255,255,128), width=linewidth)
 			draw_line_antialiased(draw, im, x0 + xi, h - (y0 + yi), x0 + xo, h - (y0 + yo), (255,255,255,255))
 
-shape = [(0,0),(2*radius*mult, 2*radius*mult)]
-draw.arc(shape, start=minA-90, end=maxA-90)
+#shape = [(0,0),(2*radius*mult, 2*radius*mult)]
+
+deltax = 0
+deltay = 0
+
+if width == height:
+	deltax = (width - 2*radius) / 2.0
+	deltay = (height- 2*radius) / 2.0
+	shape = [(0 + deltax,0+deltay),(width-deltax, height-deltay)]
+else:
+	if x0 - radius > 0:
+		shape = (x0 - radius, y0 - radius, x0 + radius, y0 + radius)
+		draw.arc(shape, start=minA-90, end=maxA-90)
+	else:
+		shape = (x0 - radius, y0 - radius, x0 + radius, y0 + radius)
+		draw.arc(shape, end=minA-90, start=maxA-90)
+
 
 if mult > 1.0:
 	im160 = im.resize((160,160), Image.BICUBIC)

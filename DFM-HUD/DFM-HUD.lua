@@ -105,6 +105,11 @@ local initTime
 local LOOPTIME = 250
 
 local savedSerial = {}
+local savedSerialReset = {}
+local teleSerial = {}
+local teleSerialReset = {}
+local sendIndex = 0
+
 --[[
 local teleSensors
 local txTeleSensors
@@ -116,6 +121,17 @@ local txSensorDP    = { 1,   0,    0,     0,   0,   1,   0,   1,   1,   0,   0}
 local txRSSINames = {"rx1Ant1", "rx1Ant2", "rx2Ant1", "rx2Ant2",
 		     "rxBAnt1", "rxBAnt2"}
 --]]
+
+local resetState = false
+local ALisBlack = false
+
+local function resetOn()
+   resetState = true
+end
+local function resetOff()
+   resetState = false
+end
+
 local function sendUSB(text)
    print("sendUSB: " .. text)
 end
@@ -200,20 +216,21 @@ local function encodeBuf(str)
    return ret
 end
 
-local function decodeAL(ps)
+local function decodeAL(ps, dest)
    local gw = 304
    local gh = 256
    local rr = 160/256
    local offset = (319 - rr * 304) / 2 -- center the shrunk glasses space on the Jeti screen   
-   
    local str
-   str = ""
-   for i=1,#ps,1 do
-      str = str .. string.format("0x%02x ", string.byte(ps, i))
-   end
-   if string.byte(ps, 2) ~= 0x05 then
+   
+   --str = ""
+   --for i=1,#ps,1 do
+   --   str = str .. string.format("0x%02x ", string.byte(ps, i))
+   --end
+   --if string.byte(ps, 2) ~= 0x05 then
       --print("###> " .. str)
-   end
+   --end
+   
    local x1, y1, x2, y2
    local x1j, y1j, x2j, y2j
    local r, f, c, t, r1, r2
@@ -286,6 +303,7 @@ local function decodeAL(ps)
       
    elseif b == 0x38 then --polyline
       local ren = lcd.renderer()
+      local len
       ren:reset()
       len = string.byte(ps, 4)
       local start = 5
@@ -320,8 +338,8 @@ local function decodeAL(ps)
       x1, y1, rad, as, ae, th = string.unpack(">i2i2I1i2i2I1", ps, 5)
       x1j = rr*(gw - x1) + offset
       y1j = rr*(gh - y1)
-      drawArc(math.rad(ae-as), x1j, y1j, math.rad(as + 180), math.rad(ae), rr*(rad), rr*(rad + th), 26, 1)
-   elseif b == 0x39 or b == 0x05 or b == 0x01 or b == 0xD3 then
+      drawArc(math.rad(ae-as), x1j, y1j, math.rad(as + 180), math.rad(ae), rr*(rad), rr*(rad + th), 18, 1)
+   elseif b == 0x39 or b == 0x05 or b == 0x01 or b == 0xD3 or b == 0xD2 then
       
    else
       print("###> "..string.format("0x%02x", b))
@@ -351,26 +369,51 @@ local function serialWrite(port, packedStr)
       return
    end
    --]]
-   if Glass.var.output ~= "Jeti" then
-      cc, err = serial.write(port, packedStr)
-      if not cc then
-	 print("DFM-HUD: serial write error " .. err)
+   --if Glass.var.output ~= "Jeti" then
+      --cc, err = serial.write(port, packedStr)
+      --if not cc then
+	-- print("DFM-HUD: serial write error " .. err)
+      --else
+	-- serialBytesSent = serialBytesSent + cc
+      --end
+      if resetState then
+	 table.insert(savedSerialReset, packedStr)
       else
-	 serialBytesSent = serialBytesSent + cc
+	 table.insert(savedSerial, packedStr)
       end
-      table.insert(savedSerial, packedStr)
-   else
-      decodeAL(packedStr)
-   end
-   
+  --end
 
+   return cc
+end
+
+local function serialWriteDirect(port, packedStr)
+   local cc, err
+   --print("serialWriteDirect")
+   local str = ""
+   --for k=1,#packedStr do
+   --   str = str .. string.format("0x%02x ", string.byte(packedStr, k))
+   --				 end
+   --print("$$$:" .. str)
+   cc, err = serial.write(sidSerial, packedStr)
+   if not cc then
+      print("DFM-HUD: serial write error " .. err)
+   else
+      --print("cc:", cc)
+      serialBytesSent = serialBytesSent + cc
+   end
    return cc
 end
 
 local function writeInst()
    local bufClr = "FF010005AA"   
+   print("writeInst()")
    resetGlasses = 1
-   serialWrite(sidSerial, encodeBuf(bufClr)) -- clear screen
+   serialWriteDirect(sidSerial, encodeBuf(bufClr)) -- clear screen
+   savedSerial = {}
+   savedSerialReset = {}
+   teleSerial = {}
+   teleSerialReset = {}
+   sendIndex = 0
 end
 
 
@@ -421,6 +464,8 @@ local function drawPitch(roll, pitch, pitchR, radAH, X0, Y0)
    local cosRoll = math.cos(math.rad(-roll))
    local delta = pitch % 15    
    local ren = lcd.renderer()
+
+   --print("drawPitch", roll, sinRoll, cosRoll)
    
    local i = delta - 45
    repeat
@@ -437,13 +482,14 @@ local function drawPitch(roll, pitch, pitchR, radAH, X0, Y0)
       local yw = {YH, YH, YH + dxh, YH}
       local xp = {}
       local yp = {}
+      
       for j = 1, 4, 1 do
-	 xp[j] = -xw[j] * cosRoll - yw[i] * sinRoll
-	 yp[j] = -xw[j] * sinRoll + yw[i] * cosRoll
+	 xp[j] = -xw[j] * cosRoll - yw[j] * sinRoll
+	 yp[j] = -xw[j] * sinRoll + yw[j] * cosRoll
       end
       for j = 3, 1, -1 do
-	 xp[8-j] = xw[j] * cosRoll - yw[i] * sinRoll
-	 yp[8-j] = xw[j] * sinRoll + yw[i] * cosRoll
+	 xp[8-j] = xw[j] * cosRoll - yw[j] * sinRoll
+	 yp[8-j] = xw[j] * sinRoll + yw[j] * cosRoll
       end
       if( not ( (xp[1] < -radAH and xp[7] < -radAH) or  (xp[1] > radAH and xp[7] > radAH)
 	     or (yp[1] < -radAH and yp[7] < -radAH) or  (yp[1] > radAH and yp[7] > radAH) ) ) then
@@ -652,12 +698,17 @@ local function readSensors(tt)
    --]]
 end
 
+local oldPageNumber = 0
 
 local function setpNT()
       local sw = system.getInputsVal(switchItems.pageChange) or -1
       local pp = sw + 2 -- -1, 0, 1 --> 1,2,3
       pp = math.min(pp, pageMax)
       pageNumberTele = pp
+      if pp ~= oldPageNumber then
+	 writeInst()
+      end
+      oldPageNumber = pp
 end
 
 local function RLwid(str, font)
@@ -666,16 +717,17 @@ end
 
 local function ALBattCheck()
    local pattern = ">BBBI1B"
-   serialWrite(sidSerial, string.pack(pattern, 0xFF, 0x05, 0x00, 0x05, 0xAA))
+   serialWriteDirect(sidSerial, string.pack(pattern, 0xFF, 0x05, 0x00, 0x05, 0xAA))
 end
 
 local function ALColor(color)
    local pattern=">BBBI1I1B"
+   if color == 0x00 then ALisBlack = true else ALisBlack = false end
    serialWrite(sidSerial, string.pack(pattern, 0xFF, 0x30, 0x00, 0x06, color & 0xF, 0xAA))
 end
 
 local function ALColorBlack()
-  ALColor(0x00);
+   ALColor(0x00);
 end
 
 --local function ALColorGray()
@@ -683,7 +735,7 @@ end
 --end
 
 local function ALColorWhite() 
-  ALColor(0x0F);
+   ALColor(0x0F);
 end
 
 local function ALHold(wait)
@@ -1029,13 +1081,14 @@ local function ALVbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
      lblVal = encdp(dd, val or 0);
   end
   
-  if (reset == 1 or (vbarPctPrev[seq] ~= inpct) ) then
-     
-     ALHold();
-    
+  ALHold();
+
+  if true then -- (reset == 1 or (vbarPctPrev[seq] ~= inpct) ) then
      if (reset == 1) then
+	resetOn()
 	ALDrawTextC(minText, 16, xlmin, ylmin, false);
 	ALDrawTextC(maxText, 16, xlmax, ylmax, false);
+	resetOff()
      else
 	ALColorBlack(); --erase prev bar and value
 	ALDrawRect(vbarLowXprev[seq], vbarLowYprev[seq], vbarUpXprev[seq], vbarUpYprev[seq],
@@ -1056,7 +1109,9 @@ local function ALVbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
 
     if (maxV > 0 and minV < 0) or (maxV < 0 and minV > 0) then
        lowY = y + y0 - barH*(1-pct)
-       upY = y + y0 - barH / 2
+
+       upY = y + y0 - barH * (maxV / (maxV - minV))
+
        ALDrawRect(lowX, lowY, upX, upY, 0x34, false);       
     else
        lowY = y + y0 - barH*(1-pct); --(1 - pct) - barH;
@@ -1108,8 +1163,8 @@ local function ALVbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
     if (scale == "variable") then
        ALDrawTextC(lblVal, 16, xlbl, ylbl, false);
     end
-    ALFlush(true);
   end
+  ALFlush(true);
 
   -- save old values
   vbarPctPrev[seq] = inpct;
@@ -1402,19 +1457,22 @@ local function ALAhGauge (reset, seq, ccfg, cff, cid, val, val2)
    
    ahGaugeAlphaDispInt = math.floor(roll + pitch);
    
-   if (reset == 1 or ahGaugeAlphaDispIntPrev[seq] ~= ahGaugeAlphaDispInt) then
+   if true then -- (reset == 1 or ahGaugeAlphaDispIntPrev[seq] ~= ahGaugeAlphaDispInt) then
       
-      if (reset == 1) then
-	 --print("ahGauge got reset");
-      end
       
       ALHold()
-      ALColorBlack()
-      ALDrawRect(valaX, valaY, valbX, valbY, 0x34, false)
+      --ALColorBlack()
+      --ALDrawRect(valaX, valaY, valbX, valbY, 0x34, false)
       ALColorWhite()
       ALDrawCirc(circX, circY, 5, false)
-      ALDrawPolyLine(2, 3, xLH, yLH, x+x0, y+y0, false)
-      ALDrawPolyLine(2, 3, xRH, yRH, x+x0, y+y0, false)
+      
+      if reset == 1 then
+	 resetOn()
+	 print("reset", reset)
+	 ALDrawPolyLine(2, 3, xLH, yLH, x+x0, y+y0, false)
+	 ALDrawPolyLine(2, 3, xRH, yRH, x+x0, y+y0, false)
+	 resetOff()
+      end
       
       local xw = {};
       local yw = {};
@@ -1718,7 +1776,8 @@ local function gaugeNew (seq, reset, x0, y0, x, y, minV, maxV, label, val, val2,
 			 ro, major, minor, fine, fm)
 
    val = val or 0
-
+   mk = mk or 0
+   
   local pct = (val - minV) / (maxV - minV);
   local mpct = (mk - minV) / (maxV - minV);
 
@@ -1747,11 +1806,14 @@ local function gaugeNew (seq, reset, x0, y0, x, y, minV, maxV, label, val, val2,
   local mY = y + y0 - math.floor(cosM * nlen);
 
 
-  if (reset == 1 or tipX ~= tipXprev[seq] or tipY ~= tipYprev[seq]) then
 
-     ALHold(false)
+  ALHold(false)
 
-    local ww = RLwid("0000", 26);
+  --try drawing every time to see if glasses can keep up .. needed for local display
+  
+  if true then --(reset == 1 or tipX ~= tipXprev[seq] or tipY ~= tipYprev[seq]) then
+
+     local ww = RLwid("0000", 26);
 
     --local valX = xlbl + x + RLwid(valText, 26) / 2;
     --local valY = ylbl + y  + 26 / 2 + 26;
@@ -1771,6 +1833,7 @@ local function gaugeNew (seq, reset, x0, y0, x, y, minV, maxV, label, val, val2,
     --ALDrawRect(x + x0 - width/2, y + y0 - height/2, x + x0 + width/2, y + y0 + height/2, 0x33)
     
     if (reset == 1) then
+       resetOn()
        --print("drawing scale and minmax labels", seq)
 
        ALDrawArc(centX, centY, ro, degMin - 90 - 1, degMax - 90, 4, false)
@@ -1789,6 +1852,7 @@ local function gaugeNew (seq, reset, x0, y0, x, y, minV, maxV, label, val, val2,
        ALDrawMinMaxLabel(x, y, x0, y0, label, xlbl, ylbl,
 			 xlmin, ylmin, xlmax, ylmax,
 			 val, dp, minV, maxV, sq);
+       resetOff()
     else
        -- leave this commented out for now .. we don't have any gauges with labels at the moment
     end
@@ -1804,9 +1868,6 @@ local function gaugeNew (seq, reset, x0, y0, x, y, minV, maxV, label, val, val2,
     if width == height then -- square gauges only
        ALDrawText(valText, 26, valX, valY, false)
     end
-    
-    -- flush pending writes
-    ALFlush(true)
 
     -- save old values
     tipXprev[seq] = tipX;
@@ -1815,6 +1876,9 @@ local function gaugeNew (seq, reset, x0, y0, x, y, minV, maxV, label, val, val2,
 
      --print("else", seq, tipX, tipXprev[seq], tipY, tipYprev[seq])
   end
+
+  ALFlush(true)
+
 end
 
 
@@ -1901,18 +1965,20 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
    --local sbs = serialBytesSent
    ALHold(false)
 
-   if reset == 1 or arcAnglePrev[seq] ~= arcAngle then
+   if true then -- reset == 1 or arcAnglePrev[seq] ~= arcAngle then
       ALColorBlack()
-      ALDrawArc(x + x0, y + y0, rOut, arcStart, arcAnglePrev[seq], thk, false)
       ALDrawRectC(valX, valY, RLwid("0000", 26), 26, 0x34)
+      ALDrawArc(x + x0, y + y0, rOut, arcStart, arcAnglePrev[seq], thk, false)
    end
    
    ALColorWhite()
 
    if reset == 1 then
+      resetOn()
       ALDrawText(lbl, 16, lblX, lblY, false)
       ALDrawText(minText, 16, xlMin, ylMin, false)
       ALDrawText(maxText, 16, xlMax, ylMax, false)
+      resetOff()
    end
 
    arcErase = arcAngle[seq]
@@ -1942,7 +2008,7 @@ end
 
 
 
-local function sendAL(dest)
+local function sendAL(g)
 
    local gpp
    local ccfg, cid, fid, fmt, cff, ccf
@@ -1968,7 +2034,6 @@ local function sendAL(dest)
    -- REMINDER: USE cfgimgESP table to send to the glasses!!!
    --
 
-
    gpp = Glass.page[pageNumberTele]
    if not gpp then
       print("sendAL: Glass.page[pageNumberTele] is nil")
@@ -1979,10 +2044,11 @@ local function sendAL(dest)
    if not gpp[1].fmtNumber then gpp[1].fmtNumber = 1 end
    fmt = gpp[1].fmtNumber
    ccf =  cfgimgESP.config[fmt]
+
+   --print("g", g)
+   local t = gpp[g]
    
-   savedSerial = {}
-   
-   for g,t in ipairs(gpp) do        -- loop over all gauges on this page with a valid imageID
+   --for g,t in ipairs(gpp) do        -- loop over all gauges on this page with a valid imageID
       --[[
 	 if g <= 3  then
 	 print("g, t.widgetID, t.imageID", g, t.widgetID, t.imageID)
@@ -1993,13 +2059,16 @@ local function sendAL(dest)
 	 --print("pageNumberTele, g", pageNumberTele, g)
 	 
 	 local rst
-	 if dest == "Jeti" then
-	    seq = 0
-	    rst = 1
-	 else
-	    seq = g
-	    rst = resetGlasses
-	 end
+	 --if dest == "Jeti" then
+	 --   seq = 0
+	 --   rst = 1
+	 --else
+	 --   seq = g
+	 --   rst = resetGlasses
+	 --end
+
+	 rst = resetGlasses
+	 seq = g
 	 
 	 ccfg = ccf[g]                 -- this is the "config" key for this page and this widget
 	 cid = cfgimgESP.instruments[t.widgetID]
@@ -2094,10 +2163,10 @@ local function sendAL(dest)
 	    end
 	 end
       end
-   end
-   if dest == "Glass" then
-      resetGlasses = 0
-   end
+   --end
+   --if dest == "Glass" then
+      --resetGlasses = 0
+   --end
    --print("#savedSerial", #savedSerial)
 end
 
@@ -2106,7 +2175,6 @@ local lastSend = 0
 local linecount = 0
 local enterWaiting = 0
 local oncePerSecond = 0
-   
 
 local function loop()
    local now = system.getTimeCounter()
@@ -2132,16 +2200,16 @@ local function loop()
       local deltaB = curr2gearUpB - gearUp2toB
       local deltaD = curr2gearUpD
       if math.abs(deltaB) < 30 then 
-	 print("deltaB, deltaD", deltaB, deltaD)
+	 --print("deltaB, deltaD", deltaB, deltaD)
       end
       
    else
-      print("no currentPosition")
+      --print("no currentPosition")
    end
    
    
    if system.getTimeCounter() > oncePerSecond and sendState == state.COMPLETE then
-      Glass.var.output = "Glass"
+      --Glass.var.output = "Glass"
       ALBattCheck()
       oncePerSecond =system.getTimeCounter() + 1000
    end
@@ -2285,7 +2353,10 @@ local function loop()
       end
    end
 
-   if sendState == state.COMPLETE and system.getTimeCounter() > jsonHoldTime then
+   local swb = system.getInputs("SB") -- SB to force sending only on emulator
+   local forceSend = (swb and swb == 1)
+
+   if forceSend or sendState == state.COMPLETE and system.getTimeCounter() > jsonHoldTime then
       if pageMax > 0 and (now > lastWrite + LOOPTIME) then
 
 	 if Glass.curPos and Glass.zeroPos then
@@ -2570,11 +2641,7 @@ local function loop()
 	    end
 	 end
 	 
-	 local swb = system.getInputs("SB") -- SB to force sending only on emulator
-
-	 --print("swb, sendJson", swb, sendJson)
-	 
-	 if sendJson or (emflag ~= 0 and swb and swb == 1) then
+	 if sendJson or (emflag ~= 0 and forceSend) then
 	    
 	    if emflag ~= 0 then
 	       local swa = system.getInputs("SA") -- SA to show json only on emulator
@@ -2582,18 +2649,49 @@ local function loop()
 		  --print(espjson) -- what happened to espjson?
 	       end
 	    end
-	    --local count = serialWrite(sidSerial, espjson, "\n")
-	    if system.getTimeCounter() - lastSend > (1*LOOPTIME) then
-	       --print("=================> sendAL")
-	       Glass.var.output = "Glass"
-	       sendAL("Glass")
-	       lastSend = system.getTimeCounter()
-	    end
-	    
 
+	    loopCPU = system.getCPU()
+
+	    local fmt = Glass.page[pageNumberTele][1].fmtNumber
+	    local numInsts = #cfgimg.config[fmt]
 	    
-	    --*********************************local count = serialWrite(sidSerial, binser, "\n")
-	    --print("count, out", count, out)
+	    if sendJson then --system.getTimeCounter() - lastSend > (1*LOOPTIME) then
+	       --print("=================> sendAL")
+	       --Glass.var.output = "Glass"
+	       sendIndex = sendIndex + 1
+	       if sendIndex <= numInsts then
+		  sendAL(sendIndex)
+	       end
+	       if sendIndex >= numInsts and ((system.getTimeCounter() - lastSend) > LOOPTIME) then
+		  local cc, err
+		  teleSerialReset = {}
+		  teleSerial = {}
+		  for k,v in ipairs(savedSerialReset) do
+		     teleSerialReset[k] = v
+		     cc, err = serial.write(sidSerial, v)
+		     if not cc then
+			print("DFM-HUD: serial write error " .. err)
+		     else
+		     serialBytesSent = serialBytesSent + cc
+		     end
+		  end
+		  for k,v in ipairs(savedSerial) do
+		     teleSerial[k] = v
+		     cc, err = serial.write(sidSerial, v)
+		     if not cc then
+			print("DFM-HUD: serial write error " .. err)
+		     else
+		     serialBytesSent = serialBytesSent + cc
+		     end
+		  end
+		  sendIndex = 0
+		  --print(#savedSerialReset, #savedSerial)
+		  savedSerial = {}
+		  resetGlasses = 0
+		  --print("delta t", (system.getTimeCounter() - (lastSend or 0))/1000)
+		  lastSend = system.getTimeCounter()
+	       end
+	    end
 	 end
 	 lastWrite = now
       end
@@ -2602,13 +2700,13 @@ local function loop()
 
    if unow <= jsonHoldTime then return end
 
-   Glass.var.output = "Glass" -- just in case...
+   --Glass.var.output = "Glass" -- just in case...
 
    if sendState == state.DISCONNECTED then
       print("DFM-HUD: DISCONNECTED - sending config request")
       local bufCfg = "FFD302070101AA"
       --bw = serialWrite(sidSerial, 0xFF, 0xD3, 0x02, 0x07, 0x01, 0x01, 0xAA) -- read config
-      local bw = serialWrite(sidSerial, encodeBuf(bufCfg)) -- read config
+      local bw = serialWriteDirect(sidSerial, encodeBuf(bufCfg)) -- read config
       if not bw then
 	 print("DFM-HUD: cannot write config query")
 	 jsonHoldTime = unow + 1000
@@ -2621,12 +2719,11 @@ local function loop()
    if sendState == state.WAITING then
       --just spin, when config is available, sendState will be set to CONNECTED
       --print("sendState WAITING")
-      if system.getTimeCounter() - enterWaiting > 1000 then --no response to config request in 1 sec
+      if system.getTimeCounter() - enterWaiting > 2000 then --no response to config request in 2 sec
 	 sendState = state.DISCONNECTED
 	 print("DFM-HUD: No cfg response .. set DISCONNECTED and retry")
 	 jsonHoldTime = unow + 1000 -- wait 1 more sec then try config request again
       end
-      
    end
 
    if sendState == state.SELECT then
@@ -2637,9 +2734,9 @@ local function loop()
       print("DFM-HUD: Enter state SELECT")
       
       local bw1, bw2, bw3
-      bw1 = serialWrite(sidSerial, encodeBuf(bufSet)) -- set glasses to our app
-      bw2 = serialWrite(sidSerial, encodeBuf(bufClr)) -- clear screen
-      bw3 = serialWrite(sidSerial, encodeBuf(bufFls)) -- flush, set to known state
+      bw1 = serialWriteDirect(sidSerial, encodeBuf(bufSet)) -- set glasses to our app
+      bw2 = serialWriteDirect(sidSerial, encodeBuf(bufClr)) -- clear screen
+      bw3 = serialWriteDirect(sidSerial, encodeBuf(bufFls)) -- flush, set to known state
       
       if not bw1 or not bw2 or not bw3 then
 	 print("DFM-HUD: cannot write select")
@@ -2649,6 +2746,7 @@ local function loop()
       else
 	 print("DFM-HUD: state COMPLETE")
 	 sendState = state.COMPLETE
+	 writeInst() 
 	 jsonHoldTime = unow + 1000 -- wait 1s to allow setup, clear, flush
 	 resetGlasses = 1
       end
@@ -2685,7 +2783,7 @@ local function loop()
             
       if sendState == state.SENDHEADER then
 	 print("sending header")
-	 bw = serialWrite(sidSerial, encodeBuf(bufH))
+	 bw = serialWriteDirect(sidSerial, encodeBuf(bufH))
 	 if not bw then
 	    print("DFM-HUD: cannot write header")
 	    if sendFP then io.close(sendFP) end
@@ -2698,7 +2796,7 @@ local function loop()
 
       if sendState == state.SENDFOOTER then
 	 print("DFM-HUD: Sending config footer")
-	 bw = serialWrite(sidSerial, encodeBuf(bufF))
+	 bw = serialWriteDirect(sidSerial, encodeBuf(bufF))
 
 	 if not bw then
 	    print("DFM-HUD: cannot write footer")
@@ -2747,7 +2845,7 @@ local function loop()
 	       ll = string.sub(line, ldx, ldx + chunk - 1)
 	       ldx = ldx + chunk
 	       print("> "..ll)
-	       bw = serialWrite(sidSerial, encodeBuf(ll))
+	       bw = serialWriteDirect(sidSerial, encodeBuf(ll))
 	       --print("write encoded line, bw", bw, #line)
 	    until ldx >= #line
 	    
@@ -2764,9 +2862,7 @@ local function loop()
    end
 
    --loopCPU = loopCPU + (system.getCPU() - loopCPU) / 10
-   if system.getCPU() > 10 then
-      loopCPU = system.getCPU()
-   end
+
    
 end
 
@@ -3204,7 +3300,7 @@ local function initForm(sf)
       
       local function changedMarker(val)
 	 Glass.page[pageNumber][gaugeNumber].marker = val
-	 print("marker", val)
+	 --print("marker", val)
       end
       
       form.addIntbox(mk, -32768, 32767, 0, 0, 1, changedMarker)
@@ -3957,6 +4053,7 @@ local function printTele(w,h)
    local offset = (319 - r * 304) / 2 -- center the shrunk glasses space on the Jeti screen
    local fmt
    local gpp
+   local sgc
 
    -- Select the appropriate page (controlled by assigned switch or line in menu)
    -- Individual dynamic widget info stored in Glass.page[pageNumber][gaugeNumber].property
@@ -4001,7 +4098,7 @@ local function printTele(w,h)
       system.getTimeCounter() < Glass.var.statusTime + 5000 then
       drawTextCenter(287, 90, "G", FONT_MINI)
    else
-      local now = system.getTimeCounter()
+      local now = system.getTime()
       drawTextCenter(287, 90, "Searching", FONT_MINI)
       if now > initTime + 2 and wasEverGreen and Glass.settings.rebootDisco then
 	 wasEverGreen = false
@@ -4032,17 +4129,21 @@ local function printTele(w,h)
 
    local legacy = false
    
-   Glass.var.output = "Jeti"
+   --Glass.var.output = "Jeti"
    --if (not legacy) then 
    --   sendAL("Jeti")
    --end
-   if not legacy then
-      for k,v in ipairs(savedSerial) do
-	 decodeAL(v)
+
+   if not legacy and #teleSerialReset > 0 and #teleSerial > 0 then
+      for k,v in ipairs(teleSerialReset) do
+	 decodeAL(v, "Jeti")
+      end
+      for k,v in ipairs(teleSerial) do
+	 decodeAL(v, "Jeti")
       end
    end
    
-   Glass.var.output = "Glass"
+   --Glass.var.output = "Glass"
 
    -- ***
    if (legacy) then
@@ -4260,8 +4361,9 @@ local function printTele(w,h)
    end
    end -- if false
    -- ***
-   local sgc = system.getCPU()
    
+   sgc = system.getCPU()
+
    if emflag ~= 0 then
       lcd.drawText(10,130, string.format("%d", sgc))
       lcd.drawText(10,110, string.format("%d", loopCPU))
@@ -4741,7 +4843,7 @@ local function init()
 
    print("CPU end init(): ", system.getCPU())
 
-   Glass.var.output = "Glass"
+   --Glass.var.output = "Glass"
 
    Glass.var.startTakeoff = gps.newPoint(41.34062, -74.43160)
    Glass.var.gearUp = gps.newPoint(41.33989, -74.43137)

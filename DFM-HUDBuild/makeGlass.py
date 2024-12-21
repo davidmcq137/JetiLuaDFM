@@ -135,17 +135,17 @@ for imgs in jd["instruments"]:
 #print("EXITING")
 #exit()
 		
-os.system('set -e;cp -v Configs/config-*.txt ../Glass/Configs')
-os.system('set -e;cp -v Images/small/*-small.png ../Glass/Images')
-os.system('set -e;cp -v Images/smaller/*-smaller.png ../Glass/Images')
-#os.system('set -e;cp -v Images/availInstrumentsMaster.jsn ../Glass/Json/availInstruments.jsn')
-#os.system('set -e;cp -v Images/availFmtMaster.jsn ../Glass/Json/availFmt.jsn')
+os.system('set -e;cp -v Configs/config-*.txt ../DFM-HUD/Configs')
+os.system('set -e;cp -v Images/small/*-small.png ../DFM-HUD/Images')
+os.system('set -e;cp -v Images/smaller/*-smaller.png ../DFM-HUD/Images')
+#os.system('set -e;cp -v Images/availInstrumentsMaster.jsn ../DFM-HUD/Json/availInstruments.jsn')
+#os.system('set -e;cp -v Images/availFmtMaster.jsn ../DFM-HUD/Json/availFmt.jsn')
 
 os.system('set -e;lua prepCI.lua')
-os.system('set -e;cp -v Images/instrESP.jsn ../Glass/Json')
-os.system('set -e;cp -v Images/instrDB.jsn ../Glass/Json')
-os.system('set -e;cp -v Images/instr.jsn ../Glass/Json')
+os.system('set -e;cp -v Images/instrESP.jsn ../DFM-HUD/Json')
+os.system('set -e;cp -v Images/instrDB.jsn ../DFM-HUD/Json')
+os.system('set -e;cp -v Images/instr.jsn ../DFM-HUD/Json')
 os.system('set -e;lua header.lua')
 
-os.system('set -e;cp -v Images/instrESP.h ~/nimBLE-Jeti-FS-json-ota-01/src')
+#os.system('set -e;cp -v Images/instrESP.h ~/nimBLE-Jeti-FS-json-ota-01/src')
 
