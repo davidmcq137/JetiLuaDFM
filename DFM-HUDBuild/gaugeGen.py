@@ -230,6 +230,7 @@ if width == height:
 	deltax = (width - 2*radius) / 2.0
 	deltay = (height- 2*radius) / 2.0
 	shape = [(0 + deltax,0+deltay),(width-deltax, height-deltay)]
+	draw.arc(shape, start=minA-90, end=maxA-90)
 else:
 	if x0 - radius > 0:
 		shape = (x0 - radius, y0 - radius, x0 + radius, y0 + radius)

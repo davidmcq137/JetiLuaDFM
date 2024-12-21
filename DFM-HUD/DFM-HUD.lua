@@ -352,37 +352,37 @@ local function serialWrite(port, packedStr)
 
    
    --[[ cannot check these because sending of fonts chunks the line
-   local ll = string.byte(packedStr, 4)
-   if ll ~= #packedStr then
+      local ll = string.byte(packedStr, 4)
+      if ll ~= #packedStr then
       print("serialWrite: length mismatch")
       cc = nil
       return
-   end
-   if string.byte(packedStr, #packedStr) ~= 0xAA then
+      end
+      if string.byte(packedStr, #packedStr) ~= 0xAA then
       print("serialWrite: no 0xAA at end")
       cc = nil
       return
-   end
-   if string.byte(packedStr, 1) ~= 0xFF then
+      end
+      if string.byte(packedStr, 1) ~= 0xFF then
       print("serialWrite: no 0xFF at begin")
       cc = nil
       return
-   end
+      end
    --]]
    --if Glass.var.output ~= "Jeti" then
-      --cc, err = serial.write(port, packedStr)
-      --if not cc then
-	-- print("DFM-HUD: serial write error " .. err)
-      --else
-	-- serialBytesSent = serialBytesSent + cc
-      --end
-      if resetState then
-	 table.insert(savedSerialReset, packedStr)
-      else
-	 table.insert(savedSerial, packedStr)
-      end
-  --end
-
+   --cc, err = serial.write(port, packedStr)
+   --if not cc then
+   -- print("DFM-HUD: serial write error " .. err)
+   --else
+   -- serialBytesSent = serialBytesSent + cc
+   --end
+   if resetState then
+      table.insert(savedSerialReset, packedStr)
+   else
+      table.insert(savedSerial, packedStr)
+   end
+   --end
+   cc = 0
    return cc
 end
 
@@ -509,6 +509,22 @@ local function drawPitch(roll, pitch, pitchR, radAH, X0, Y0)
       i = i + 15
    until i >= 45 + delta
 
+end
+
+local function drawILSGauge(x, y, r, hh, ww, pp, rr)
+   local cc = {24, 36, 48, 60}
+   lcd.setColor(0,0,0)
+   lcd.drawFilledRectangle(x - ww/2, y - hh/2, ww, hh)
+   lcd.setColor(255,255,255)
+   lcd.drawCircle(x,y,12)
+   for k=1,4 do
+      lcd.drawCircle(x + cc[k], y, 3)
+      lcd.drawCircle(x - cc[k], y, 3)
+   end
+   for k=1,4 do
+      lcd.drawCircle(x, y + cc[k], 3)
+      lcd.drawCircle(x, y - cc[k], 3)
+   end
 end
 
 local function drawahGauge(x, y, r, hh, ww, pp, rr)
@@ -1547,6 +1563,55 @@ local function ALAhGauge (reset, seq, ccfg, cff, cid, val, val2)
    
 end
 
+-- ****
+
+local ilsGaugeAlphaDispInt = 0
+local ilsGaugeAlphaDispIntPrev = {0,0,0,0}
+
+local function ALILSGauge (reset, seq, ccfg, cff, cid, val, val2)
+
+   print("ALILSGauge", reset, seq, val, val2)
+   
+   local x = ccfg.xlr;
+   local y = ccfg.ylr;
+   
+   local x0 = cff.x0;
+   local y0 = cff.y0;
+   
+   local ww = ccfg.width;
+   --local hh = ccfg.height;
+
+   local circX = x + x0;
+   local circY = y + y0;
+
+   ilsGaugeAlphaDispInt = math.floor(0) -- prob should be left-right dev and have a second one for up-dn
+   
+   val = val or 0;
+   val2 = val2 or 0;
+   
+   if true then -- (reset == 1 or ahGaugeAlphaDispIntPrev[seq] ~= ahGaugeAlphaDispInt) then
+      ALHold()
+      --ALColorBlack()
+      --ALDrawRect(valaX, valaY, valbX, valbY, 0x34, false)
+      ALColorWhite()
+      ALDrawCirc(circX, circY, 30, false)
+      
+      if reset == 1 then
+	 resetOn()
+	 print("ILS reset", reset)
+	 --ALDrawPolyLine(2, 3, xLH, yLH, x+x0, y+y0, false)
+	 --ALDrawPolyLine(2, 3, xRH, yRH, x+x0, y+y0, false)
+	 resetOff()
+      end
+      ALFlush(true)
+      
+   end
+   
+   -- save old value
+   ilsGaugeAlphaDispIntPrev[seq] = ilsGaugeAlphaDispInt;
+   
+end
+
 
 
 -- ****
@@ -2160,6 +2225,8 @@ local function sendAL(g)
 	       ALAhGauge (rst, seq, ccfg, cff, cid, val, val2)
 	    elseif cid.wtype == "vltape" then
 	       ALVertTape (rst, seq, ccfg, cff, cid, val)	       
+	    elseif cid.wtype == "ils" then
+	       ALILSGauge (rst, seq, ccfg, cff, cid, val, val2)
 	    end
 	 end
       end
@@ -3713,7 +3780,7 @@ local function drawText(x0, y0, val, lbl, units, dp, twid, thgt)
    --local ww = lcd.getTextWidth(FONT_MINI, lbl)
    hh = lcd.getTextHeight(FONT_MINI, lbl)
    lcd.drawText(x0, y0 + thgt/2 - hh/2, lbl, FONT_MINI)
-   local ww = lcd.getTextWidth(FONT_MINI, (units or ""))
+   ww = lcd.getTextWidth(FONT_MINI, (units or ""))
    hh = lcd.getTextHeight(FONT_MINI, (units or ""))
    lcd.drawText(x0 + twid - ww, y0 + thgt/2 - hh/2, units, FONT_MINI)
 end
@@ -3852,6 +3919,14 @@ local function printForm(w,h)
 	    r = 144/160
 	    --print(xi + ww / 2, yi + hh / 2, rr)
 	    drawahGauge(xi + ww / 2 - 8, yi + hh / 2 - 8, r * rr, r * hh, r * ww)
+	 elseif editImgs[imageNum].wtype == "ils" then
+	    local id = editImgs[imageNum].widgetID
+	    local fid = cfgimg.instruments[id].formID + 1	    
+	    local hh, ww = cfgimg.forms[fid].height, cfgimg.forms[fid].width	    
+	    local rr = ww / 2
+	    r = 144/160
+	    --print(xi + ww / 2, yi + hh / 2, rr)
+	    drawILSGauge(xi + ww / 2 - 8, yi + hh / 2 - 8, r * rr, r * hh, r * ww)
 	 elseif editImgs[imageNum].wtype == "htext" then
 	    lcd.setColor(0,0,0)
 	    lcd.drawRectangle(xi, yi, editImgs[imageNum].imageWidth, editImgs[imageNum].imageHeight)
@@ -4319,7 +4394,12 @@ local function printTele(w,h)
 			   r * cfgimg.forms[fid].hgt, r * cfgimg.forms[fid].width,
 			   r * cfgimg.forms[fid].height, cid.side)
 	       end
-	       
+	    elseif cid.wtype == "ils" then
+	       local hh = cfgimg.forms[fid].width
+	       local ww = cfgimg.forms[fid].height
+	       if val then
+		  drawILSGauge(offset + r * xc, r * yc, r * (ww - 10) / 2, r*hh, r*ww, val, val2)
+	       end
 	    end 
 	    --print(cid.wtype, cid.scale, min, max)
 	    if ( ((cid.wtype == "gauge" or cid.wtype == "hbar" or cid.wtype == "vbar" or cid.wtype == "arcGauge")
@@ -4629,6 +4709,7 @@ local function init()
 	 img.origWidth = cfgimg.forms[img.formID + 1].width --img.width
 	 img.origHeight = cfgimg.forms[img.formID + 1].height --img.height
       else
+	 print("img.imageID, img.formID, #cfgimg.forms", img.imageID, img.formID, #cfgimg.forms)
 	 local ww = cfgimg.forms[img.formID + 1].width
 	 local hh = cfgimg.forms[img.formID + 1].height
 	 img.origWidth = ww or 0

@@ -55,7 +55,7 @@ typedef struct {
   char side[6];
   char wtype[9];
 } instItem;
-instItem instruments[20] = {
+instItem instruments[21] = {
 { 0, 1, 1, 100, 0, "variable", "", "gauge"},
 { 3, 2, 1, 100, 0, "variable", "", "gauge"},
 { 4, 3, 1, 100, 0, "variable", "", "gauge"},
@@ -75,7 +75,8 @@ instItem instruments[20] = {
 { 5, 7, 2, 360, 0, "variable", "", "compass"},
 { 19, 0, 1, 100, 0, "variable", "left", "vltape"},
 { 20, 0, 1, 100, 0, "variable", "right", "vltape"},
-{ 21, 0, 1, 100, 0, "variable", "", "vbar"}
+{ 21, 0, 1, 100, 0, "variable", "", "vbar"},
+{ 10, 0, 1, 100, 0, "variable", "", "ils"}
 };
 typedef struct {
    int16_t height;
