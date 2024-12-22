@@ -220,7 +220,7 @@ local function decodeAL(ps, dest)
    local gw = 304
    local gh = 256
    local rr = 160/256
-   local offset = (319 - rr * 304) / 2 -- center the shrunk glasses space on the Jeti screen   
+   local offset = math.floor((320 - rr * 304) / 2) -- center the shrunk glasses space on the TX screen   
    local str
    
    --str = ""
@@ -247,10 +247,10 @@ local function decodeAL(ps, dest)
 
    elseif b == 0x32 then --line
       x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
-      x1j = rr*(gw - x1) + offset
-      y1j = rr*(gh - y1)
-      x2j = rr*(gw - x2) + offset
-      y2j = rr*(gh - y2)
+      x1j = math.floor(math.floor(rr*(gw - x1)) + offset)
+      y1j = math.floor(rr*(gh - y1))
+      x2j = math.floor(math.floor(rr*(gw - x2)) + offset)
+      y2j = math.floor(rr*(gh - y2))
       lcd.drawLine(x1j, y1j, x2j, y2j)
 
       --if x1j == x2j then
@@ -261,31 +261,30 @@ local function decodeAL(ps, dest)
       --end
       
       --print("###>line", x1, y1, x2, y2)
-      
    elseif b == 0x33 then --rect
       x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
-      x1j = rr*(gw - x1) + offset
-      y1j = rr*(gh - y1)
-      x2j = rr*(gw - x2) + offset
-      y2j = rr*(gh - y2)
+      x1j = math.floor(math.floor(rr*(gw - x1)) + offset)
+      y1j = math.floor(rr*(gh - y1))
+      x2j = math.floor(math.floor(rr*(gw - x2)) + offset)
+      y2j = math.floor(rr*(gh - y2))
       --print("###>rect", x1, y1, x2, y2)
       lcd.drawRectangle(math.min(x1j, x2j), math.min(y1j, y2j),
 			math.abs(x2j - x1j), math.abs(y2j - y1j))
       --print("###>rect", math.min(y1j, y2j), math.abs(y2j-y1j))      
    elseif b == 0x34 then --rectf
       x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
-      x1j = rr*(gw - x1) + offset
-      y1j = rr*(gh - y1)
-      x2j = rr*(gw - x2) + offset
-      y2j = rr*(gh - y2)
+      x1j = math.floor(math.floor(rr*(gw - x1)) + offset)
+      y1j = math.floor(rr*(gh - y1))
+      x2j = math.floor(math.floor(rr*(gw - x2)) + offset)
+      y2j = math.floor(rr*(gh - y2))
       lcd.drawFilledRectangle(math.min(x2j,x1j), math.min(y2j,y1j),
 			      math.abs(x2j - x1j), math.abs(y2j - y1j))
       --print("###>rectf", math.min(y1j, y2j), math.abs(y2j-y1j))
       
    elseif b == 0x37 then --text
       x1, y1, r, f, c, str = string.unpack(">i2i2I1I1I1z", ps, 5)
-      x1j = rr*(gw - x1) + offset
-      y1j = rr*(gh - y1)
+      x1j = math.floor(rr*(gw - x1) + offset)
+      y1j = math.floor(rr*(gh - y1))
       str = string.sub(str,1, -2)
       --print("x1, y1, r, f, c, str", x1, y1, r, f, c, str)
       --local grey = string.byte(ps, 5)
@@ -311,8 +310,8 @@ local function decodeAL(ps, dest)
       --print("t, r1, r2, start", t, r1, r2, start, len)
       for i=1,(len-8) / 4 do -- 7 bytes of preamble plus ending "0xAA"
 	 xt[i], yt[i], start = string.unpack(">i2i2", ps, start)
-	 xtj[i] = rr * (gw - xt[i]) + offset
-	 ytj[i] = rr * (gh - yt[i])
+	 xtj[i] = math.floor(rr * (gw - xt[i]) + offset)
+	 ytj[i] = math.floor(rr * (gh - yt[i]))
 	 ren:addPoint(xtj[i], ytj[i])
       end
       ren:renderPolyline(2)
@@ -321,8 +320,8 @@ local function decodeAL(ps, dest)
       local ren = lcd.renderer()
       ren:reset()
       x1, y1, rad = string.unpack(">i2i2I1", ps, 5)
-      x1j = rr*(gw - x1) + offset
-      y1j = rr*(gh - y1)
+      x1j = math.floor(rr*(gw - x1) + offset)
+      y1j = math.floor(rr*(gh - y1))
       if b == 0x35 then
 	 lcd.drawCircle(x1j, y1j, rr*rad)
       else
@@ -336,8 +335,8 @@ local function decodeAL(ps, dest)
    elseif b == 0x3c then -- arc
       local rad, as, ae, th
       x1, y1, rad, as, ae, th = string.unpack(">i2i2I1i2i2I1", ps, 5)
-      x1j = rr*(gw - x1) + offset
-      y1j = rr*(gh - y1)
+      x1j = math.floor(rr*(gw - x1) + offset)
+      y1j = math.floor(rr*(gh - y1))
       drawArc(math.rad(ae-as), x1j, y1j, math.rad(as + 180), math.rad(ae), rr*(rad), rr*(rad + th), 18, 1)
    elseif b == 0x39 or b == 0x05 or b == 0x01 or b == 0xD3 or b == 0xD2 then
       
@@ -590,7 +589,6 @@ local function changedSwitch(val, switchName)
       end
    end
 end
-
 
 local function ms(ival)
    local val
@@ -1132,9 +1130,9 @@ local function ALVbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
     else
        lowY = y + y0 - barH*(1-pct); --(1 - pct) - barH;
        ALDrawRect(lowX, lowY, upX, upY, 0x34, false);
-       ALDrawCirc(x+x0,y+y0,10,false)
-       ALDrawCirc(upX,upY,7,false)
-       ALDrawCirc(lowX,lowY,3,false)
+       --ALDrawCirc(x+x0,y+y0,10,false)
+       --ALDrawCirc(upX,upY,7,false)
+       --ALDrawCirc(lowX,lowY,3,false)
     end
     
     local markY;
@@ -1565,12 +1563,12 @@ end
 
 -- ****
 
-local ilsGaugeAlphaDispInt = 0
-local ilsGaugeAlphaDispIntPrev = {0,0,0,0}
+local ilsGaugeLocPrev = {0,0,0,0}
+local ilsGaugeGSPrev = {0,0,0,0}
 
 local function ALILSGauge (reset, seq, ccfg, cff, cid, val, val2)
 
-   print("ALILSGauge", reset, seq, val, val2)
+   --print("ALILSGauge", reset, seq, val, val2)
    
    local x = ccfg.xlr;
    local y = ccfg.ylr;
@@ -1579,26 +1577,48 @@ local function ALILSGauge (reset, seq, ccfg, cff, cid, val, val2)
    local y0 = cff.y0;
    
    local ww = ccfg.width;
-   --local hh = ccfg.height;
+   local hh = ccfg.height;
 
    local circX = x + x0;
    local circY = y + y0;
 
-   ilsGaugeAlphaDispInt = math.floor(0) -- prob should be left-right dev and have a second one for up-dn
+   --print("Glass.var.ilsLoc", Glass.var.ilsLoc)
+   --print("Glass.var.ilsGS", Glass.var.ilsGS)
    
    val = val or 0;
    val2 = val2 or 0;
+
+   local loc = 0
+   local gs = 0
    
    if true then -- (reset == 1 or ahGaugeAlphaDispIntPrev[seq] ~= ahGaugeAlphaDispInt) then
       ALHold()
-      --ALColorBlack()
-      --ALDrawRect(valaX, valaY, valbX, valbY, 0x34, false)
+      ALColorBlack()
+      if seq > 0 then
+	 ALDrawLine(circX - ilsGaugeLocPrev[seq], circY - hh/2,
+		    circX - ilsGaugeLocPrev[seq], circY + hh/2)
+      end
+      
       ALColorWhite()
-      ALDrawCirc(circX, circY, 30, false)
+      ALDrawCirc(circX, circY, 20, false)
+      for k=1,4 do
+	 ALDrawCirc(circX + 20 + k * 15, circY, 5, false)
+	 ALDrawCirc(circX - 20 - k * 15, circY, 5, false)
+      end
+
+      if Glass.var.ilsLoc then
+	 loc = math.floor(math.min(Glass.var.ilsLoc, 80))
+	 ALDrawLine(circX - loc, circY - hh/2, circX - loc, circY + hh/2)
+      end
+
+      if Glass.var.ilsGS then
+	 gs = math.min(math.max(10 * Glass.var.ilsGS, -80), 80)
+   	 ALDrawLine(circX - ww/2, circY + gs, circX + ww/2, circY + gs)
+      end
       
       if reset == 1 then
 	 resetOn()
-	 print("ILS reset", reset)
+	 --print("ILS reset", reset)
 	 --ALDrawPolyLine(2, 3, xLH, yLH, x+x0, y+y0, false)
 	 --ALDrawPolyLine(2, 3, xRH, yRH, x+x0, y+y0, false)
 	 resetOff()
@@ -1606,9 +1626,9 @@ local function ALILSGauge (reset, seq, ccfg, cff, cid, val, val2)
       ALFlush(true)
       
    end
-   
+
    -- save old value
-   ilsGaugeAlphaDispIntPrev[seq] = ilsGaugeAlphaDispInt;
+   ilsGaugeLocPrev[seq] = loc
    
 end
 
@@ -2252,7 +2272,18 @@ local function loop()
    local scale
    local minV, maxV
 
-   Glass.var.currentPosition = gps.getPosition(3, 2, 3)
+   if Glass.settings.latId ~= 0 and Glass.settings.latPa ~= 0 and Glass.settings.lngPa ~= 0 then
+      Glass.var.currentPosition = gps.getPosition(Glass.settings.latId,
+						  Glass.settings.latPa, Glass.settings.lngPa)
+   end
+      
+   local alt = 0
+   if Glass.settings.altId ~= 0 and Glass.settings.altPa ~= 0 then
+      sensor = system.getSensorByID(Glass.settings.altId, Glass.settings.altPa)
+      if sensor and sensor.valid then
+	 alt = sensor.value - (Glass.var.startTakeoffAlt or 0)
+      end
+   end
    
    --print("start->to Distance: ", gps.getDistance(Glass.var.startTakeoff, Glass.var.gearUp))
    --print("start->to Bearing: ", gps.getBearing(Glass.var.startTakeoff, Glass.var.gearUp))
@@ -2260,20 +2291,29 @@ local function loop()
    if Glass.var.currentPosition then
       --print("curr->start Distance: ", gps.getDistance(Glass.var.currentPosition, Glass.var.startTakeoff))
       --print("curr->start Bearing: ", gps.getBearing(Glass.var.currentPosition, Glass.var.startTakeoff))
+      local GSdeg = 6
       local curr2gearUpB = gps.getBearing(Glass.var.currentPosition, Glass.var.gearUp)
       local gearUp2toB = gps.getBearing(Glass.var.startTakeoff, Glass.var.gearUp)
       local curr2gearUpD = gps.getDistance(Glass.var.currentPosition, Glass.var.gearUp)
+      local curr2toD = gps.getDistance(Glass.var.currentPosition, Glass.var.startTakeoff)
+      local curr2toB = gps.getBearing(Glass.var.currentPosition, Glass.var.startTakeoff)
       local gearUp2toD = gps.getDistance(Glass.var.startTakeoff, Glass.var.gearUp)
       local deltaB = curr2gearUpB - gearUp2toB
-      local deltaD = curr2gearUpD
-      if math.abs(deltaB) < 30 then 
-	 --print("deltaB, deltaD", deltaB, deltaD)
+      --local deltaD = curr2toD
+      if math.abs(deltaB) < 30 then
+	 Glass.var.ilsLoc = -deltaB
+	 if curr2toB - gearUp2toB > 0 and curr2toB - gearUp2toB < 90 then
+	    Glass.var.ilsGS = math.deg(math.atan(alt, math.abs(curr2toD))) - GSdeg
+	 else
+	    Glass.var.ilsGS = nil
+	 end
+      else
+	 Glass.var.ilsLoc = nil
+	 Glass.var.ilsGS = nil
       end
-      
    else
       --print("no currentPosition")
    end
-   
    
    if system.getTimeCounter() > oncePerSecond and sendState == state.COMPLETE then
       --Glass.var.output = "Glass"
@@ -2580,6 +2620,9 @@ local function loop()
 			v.value = v.value * Glass.convertVal[v.convertIdx][1] +
 			   Glass.convertVal[v.convertIdx][2]
 		     end
+		     if v.zeroOffset then
+			v.value = v.value - v.zeroOffset
+		     end
 		     if not v.value then print("v.value nil") end
 		  end
 	       end
@@ -2721,8 +2764,8 @@ local function loop()
 
 	    local fmt = Glass.page[pageNumberTele][1].fmtNumber
 	    local numInsts = #cfgimg.config[fmt]
-	    
-	    if sendJson then --system.getTimeCounter() - lastSend > (1*LOOPTIME) then
+
+	    if sendJson or forceSend then --system.getTimeCounter() - lastSend > (1*LOOPTIME) then
 	       --print("=================> sendAL")
 	       --Glass.var.output = "Glass"
 	       sendIndex = sendIndex + 1
@@ -3138,7 +3181,7 @@ local function initForm(sf)
 	 --form.setButton(1, "USB",   ENABLED)
       end
       
-      local function pageSwChanged(val, name)
+      local function switchChanged(val, name)
 	 local swInfo =system.getSwitchInfo(val)
 	 if not swInfo.proportional then
 	    system.messageBox("Please select as Proportional")
@@ -3169,20 +3212,40 @@ local function initForm(sf)
 	    lngsel = k
 	 end	 
       end
+      
+      local altsel = 0
+      for k = 1, #Glass.sensorLalist do
+	 if (Glass.sensorIdlist[k] == Glass.settings.altId) and
+	    (Glass.sensorPalist[k] == Glass.settings.altPa) then
+	    altsel = k
+	 end
+      end
+      
 
       form.addRow(2)
       form.addLabel({label="Page change switch"})
       swtCI.pageChange = form.addInputbox(switchItems.pageChange, true,
-					  (function(x) return  pageSwChanged(x, "pageChange") end)
+					  (function(x) return switchChanged(x, "pageChange") end)
       )
       
+      form.addRow(2)
+      form.addLabel({label="Takeoff switch"})
+      swtCI.takeoffChange = form.addInputbox(switchItems.takeoffChange, true,
+					  (function(x) return  switchChanged(x, "takeoffChange") end)
+      )
       
+      form.addRow(2)
+      form.addLabel({label="Gear up switch"})
+      swtCI.gearUpChange = form.addInputbox(switchItems.gearUpChange, true,
+					  (function(x) return  switchChanged(x, "gearUpChange") end)
+      )
+
       --form.addRow(2)
       --form.addLabel({label="Set config version"})
       --form.addIntbox(Glass.settings.configVersion, 0, 32767, 1, 0, 1, cvchanged)
 
       form.addRow(2)
-      form.addLabel({label="GPS Lat Sensor:", font=FONT_NORMAL})
+      form.addLabel({label="GPS Lat Sensor", font=FONT_NORMAL})
       form.addSelectbox(Glass.gpsLalist, latsel, true,
 			(function(i)
 			      Glass.settings.latId = Glass.gpsIdlist[i]
@@ -3191,11 +3254,20 @@ local function initForm(sf)
 			{width=155, font=FONT_NORMAL, alignRight=false})
 
       form.addRow(2)
-      form.addLabel({label="GPS Lng Sensor:", font=FONT_NORMAL})
+      form.addLabel({label="GPS Lng Sensor", font=FONT_NORMAL})
       form.addSelectbox(Glass.gpsLalist, lngsel, true,
 			(function(i)
 			      Glass.settings.lngId = Glass.gpsIdlist[i]
 			      Glass.settings.lngPa = Glass.gpsPalist[i]			      
+			      return end),
+			{width=155, font=FONT_NORMAL, alignRight=false})
+
+      form.addRow(2)
+      form.addLabel({label="Altitude Sensor", font=FONT_NORMAL})
+      form.addSelectbox(Glass.sensorLalist, altsel, true,
+			(function(i)
+			      Glass.settings.altId = Glass.sensorIdlist[i]
+			      Glass.settings.altPa = Glass.sensorPalist[i]			      
 			      return end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
 
@@ -3355,6 +3427,20 @@ local function initForm(sf)
       
       local dd = Glass.page[pageNumber][gaugeNumber].dispdec
       form.addIntbox(dd, 0, 2, sd, 0, 1, changedDispDec)
+      
+      form.addRow(2)
+      form.addLabel({label="Zero offset", font=FONT_NORMAL})
+
+      if not Glass.page[pageNumber][gaugeNumber].zeroOffset then
+	 Glass.page[pageNumber][gaugeNumber].zeroOffset = 0
+      end
+      
+      local function changedZeroOffset(val)
+	 Glass.page[pageNumber][gaugeNumber].zeroOffset = val
+      end
+      
+      local zo = Glass.page[pageNumber][gaugeNumber].zeroOffset
+      form.addIntbox(zo, -32768, 32767, 0, 0, 1, changedZeroOffset)
 
       form.addRow(2)
       form.addLabel({label="Marker value", font=FONT_NORMAL})
@@ -4209,7 +4295,7 @@ local function printTele(w,h)
    --   sendAL("Jeti")
    --end
 
-   if not legacy and #teleSerialReset > 0 and #teleSerial > 0 then
+   if not legacy then
       for k,v in ipairs(teleSerialReset) do
 	 decodeAL(v, "Jeti")
       end
@@ -4478,7 +4564,8 @@ local function destroy()
    end
 
    for k,v in pairs(Glass.settings) do
-      if k == "latId" or k == "lngId" or k == "latPa" or k == "lngPa" then
+      if k == "latId" or k == "lngId" or k == "latPa" or k == "lngPa"
+	 or k == "altId" or k == "altPa" then
 	 Glass.settings[k] = string.format("0X%X", math.floor(v))
       end
    end
@@ -4784,7 +4871,9 @@ local function init()
       Glass.settings.latPa = 0
       Glass.settings.lngId = 0
       Glass.settings.lngPa = 0
-
+      Glass.settings.altId = 0
+      Glass.settings.altPa = 0
+      
       Glass.timers = {}
       Glass.timers.stateSTOP = 0
       Glass.timers.stateRUN = 1
@@ -4842,7 +4931,8 @@ local function init()
    end
 
    for k,v in pairs(Glass.settings) do
-      if k == "latId" or k == "lngId" or k == "latPa" or k == "lngPa" then
+      if k == "latId" or k == "lngId" or k == "latPa" or k == "lngPa"
+	 or k == "altId" or k == "altPa" then
 	 Glass.settings[k] = tonumber(v)
       end
    end
@@ -4926,9 +5016,16 @@ local function init()
 
    --Glass.var.output = "Glass"
 
-   Glass.var.startTakeoff = gps.newPoint(41.34062, -74.43160)
-   Glass.var.gearUp = gps.newPoint(41.33989, -74.43137)
+   --debugging GPS points for ILS at Black Dirt Field
    
+   if emFlag ~= 0 then
+      Glass.settings.latId = 3
+      Glass.settings.latPa = 2
+      Glass.settings.lngPa = 3
+      Glass.var.startTakeoff = gps.newPoint(41.34062, -74.43160)
+      Glass.var.gearUp = gps.newPoint(41.33827, -74.43077)
+   end
+      
    -- for testing: Glass.settings.rebootDisco = nil
 
    --[[
