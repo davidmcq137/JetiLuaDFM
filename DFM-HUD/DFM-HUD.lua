@@ -75,7 +75,7 @@ local imageNum
 local imageMax
 local modelName
 local state = {DISCONNECTED=1, WAITING=2, CONNECTED=3, SENDHEADER=4, SENDFILE=5, SENDFOOTER=6,
-	       COMPLETE=7, SELECT=8}
+	       COMPLETE=7, SELECT=8, ALMOST=9}
 local sendState = state.DISCONNECTED
 local startingTime = 0
 local WAIT_TIME = 200
@@ -102,13 +102,14 @@ local resetGlasses
 local gtbl = {}
 
 local initTime
-local LOOPTIME = 250
+local LOOPTIME = 80
 
 local savedSerial = {}
 local savedSerialReset = {}
 local teleSerial = {}
 local teleSerialReset = {}
 local sendIndex = 0
+local splashScreen
 
 --[[
 local teleSensors
@@ -771,6 +772,17 @@ local function ALFlush(wait)
    else
       pattern = ">BBBI1I1B"
       serialWrite(sidSerial, string.pack(pattern, 0xFF, 0x39, 0x00, 0x06, 0x01, 0xAA))
+   end
+end
+
+local function ALFlushReset(wait)
+   local pattern
+   if wait then
+      pattern = ">BBBI1I1I1I1B"
+      serialWrite(sidSerial, string.pack(pattern, 0xFF, 0x39, 0x02, 0x08, 0x00, 0x00, 0xFF, 0xAA))
+   else
+      pattern = ">BBBI1I1B"
+      serialWrite(sidSerial, string.pack(pattern, 0xFF, 0x39, 0x00, 0x06, 0xFF, 0xAA))
    end
 end
 
@@ -2783,6 +2795,9 @@ local function loop()
 	       --print("getActiveForm")
 	       sendJson = false
 	    end
+	    if sendState ~= state.COMPLETE then
+	       sendJson = false
+	    end
 	 end
 	 
 	 if sendJson or (emflag ~= 0 and forceSend) then
@@ -2805,6 +2820,7 @@ local function loop()
 	       if sendIndex <= numInsts then
 		  sendAL(sendIndex)
 	       end
+	       ALFlushReset(false) -- clear graphics engine hold state before sending new frame
 	       if sendIndex >= numInsts and ((system.getTimeCounter() - lastSend) > LOOPTIME) then
 		  local cc, err
 		  teleSerial = {}
@@ -2849,8 +2865,13 @@ local function loop()
       local bw = serialWriteDirect(sidSerial, encodeBuf(bufCfg)) -- read config
       if not bw then
 	 print("DFM-HUD: cannot write config query")
-	 jsonHoldTime = unow + 1000
       end
+      local imgCfg = "FF4702070102AA"
+      local bw = serialWriteDirect(sidSerial, encodeBuf(imgCfg)) -- read config
+      if not bw then
+	 print("DFM-HUD: cannot write image query")
+      end
+      jsonHoldTime = unow + 1000
       print("DFM-HUD: WAITING for Glasses")
       sendState = state.WAITING -- wait for onRead to get config list
       enterWaiting = system.getTimeCounter()
@@ -2866,10 +2887,18 @@ local function loop()
       end
    end
 
+   if sendState == state.ALMOST then
+      print("DFM-HUD: state COMPLETE")
+      sendState = state.COMPLETE
+      writeInst()
+      resetGlasses = 1
+   end
+
    if sendState == state.SELECT then
       local bufSet = "FFD2000D" .. appHex .. "00AA"      
       local bufClr = "FF010005AA"
       local bufFls = "FF390006FFAA"
+      local bufDsp = "FF42000A0100000000AA"
 
       print("DFM-HUD: Enter state SELECT")
       
@@ -2884,24 +2913,28 @@ local function loop()
 	 sendState = state.DISCONNECTED
 	 jsonHoldTime = unow + 1000 -- wait one sec before possibly sending config request again  
       else
-	 print("DFM-HUD: state COMPLETE")
-	 sendState = state.COMPLETE
-	 writeInst() 
-	 jsonHoldTime = unow + 1000 -- wait 1s to allow setup, clear, flush
-	 resetGlasses = 1
+	 print("DFM-HUD: state ALMOST")
+	 sendState = state.ALMOST
+	 --writeInst()
+	 serialWriteDirect(sidSerial, encodeBuf(bufDsp))
+	 jsonHoldTime = unow + 3000 -- wait 3s to allow setup, clear, flush and disp splash screen
+	 --resetGlasses = 1
+	 return
       end
    end
+
    
    if sendState == state.CONNECTED then 
       if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
       system.messageBox("Preparing Glasses for DFM-HUD")
-      sendFP = io.open(prefix() .. pathConfigs .. "config-fonts.txt", "r")
+      print("DFM-HUD: opening file " .. prefix() .. pathConfigs .. "config-fonts-images.txt")
+      sendFP = io.open(prefix() .. pathConfigs .. "config-fonts-images.txt", "r")
       if not sendFP then
-	 print("DFM-HUD: cannot open font config")
+	 print("DFM-HUD: cannot open font and image config file")
 	 sendState = state.DISCONNECTED
 	 jsonHoldTime = unow + 1000
       else
-	 print("DFM-HUD: opened config-fonts.txt")
+	 print("DFM-HUD: opened config-fonts-images.txt")
 	 sendState = state.SENDHEADER
       end
       linecount = 0
@@ -2953,7 +2986,7 @@ local function loop()
 	 print(string.format("Send config done. Time: %.2f s", dt / 1000))
 	 print(string.format("%d bytes sent. Aggregate data rate: %.1f kB/s",
 			     serialBytesSent, serialBytesSent / dt))
-	 system.messageBox("Complete " .. serialBytesSent .. " bytes sent")
+	 system.messageBox("Transfer complete")
 	 Glass.settings.configIDs = {}
 	 for k in ipairs(currentConfigIDs) do -- remember that this config was sent last
 	    Glass.settings.configIDs[k] = currentConfigIDs[k] 
@@ -2972,8 +3005,11 @@ local function loop()
       for i=1, LINESPERLOOP, 1 do
 	 line = io.readline(sendFP, true)
 	 linecount = linecount + 1
+	 if linecount % 20 == 0 then
+	    system.messageBox("Reading line " .. linecount,5)
+	 end
 	 if not line then
-	    print("io,readline EOF")
+	    --print("io,readline EOF")
 	    sendState = state.SENDFOOTER
 	    if sendFP then io.close(sendFP) end
 	    break
@@ -2984,7 +3020,7 @@ local function loop()
 	    repeat
 	       ll = string.sub(line, ldx, ldx + chunk - 1)
 	       ldx = ldx + chunk
-	       print("> "..ll)
+	       --print("> "..ll)
 	       bw = serialWriteDirect(sidSerial, encodeBuf(ll))
 	       --print("write encoded line, bw", bw, #line)
 	    until ldx >= #line
@@ -4260,7 +4296,6 @@ local function printTele(w,h)
       lcd.drawText(10, 10, string.format("Page %d", pageNumberTele))
    end
 
-
    local offline = system.getTime() - lastRead > 10
 
    lcd.drawImage(265, 15, glassesIcon)
@@ -4325,6 +4360,10 @@ local function printTele(w,h)
    --   sendAL("Jeti")
    --end
 
+   if sendState == state.ALMOST then
+      lcd.drawImage(offset + 20, 20, splashScreen)
+   end
+   
    if not legacy then
       for k,v in ipairs(teleSerialReset) do
 	 decodeAL(v, "Jeti")
@@ -4683,11 +4722,11 @@ local function onRead(indata)
 	 local i = 7 -- first char of cfg payload (see AL docs section 4.14)
 	 local DFMHUDVersion = -1
 
-	 -- DFMHUDCurrentVersion is the version of the font  file (config-fonts.txt) which
+	 -- DFMHUDCurrentVersion is the version of the font  file (config-fonts-images.txt) which
 	 -- has the expected fonts and is built by the build system in ~/JS/GlassBuild
 	 -- if changing/adding/deleting fonts, increment this value so that the app reloads
 	 -- the fonts into the DFM-HUD ALook application
-	 -- Future: could read the file config-fonts.json and get the list of font codes and sizes
+	 -- Future: could read the file config-fonts-images.json and get the list of font codes and sizes
 	 -- and could add a version number to that file
 	 
 	 local DFMHUDCurrentVersion = 1
@@ -4699,7 +4738,7 @@ local function onRead(indata)
 	       DFMHUDVersion = version
 	       Glass.var.statusAL.GlassConf = version
 	    end
-	    i = i + #name + 1 + 11
+	    i = i + #name + 1 + 11 -- 11 is 4+4+1+1+1 ("I4I4I1I1I1")
 	 until i >= cmd_len
 
 	 if DFMHUDVersion ~= DFMHUDCurrentVersion then
@@ -4708,7 +4747,19 @@ local function onRead(indata)
 	    --sendState = state.CONNECTED -- for testing .. do every time
 	    sendState = state.SELECT -- glasses have current info 
 	 end
-
+      elseif string.byte(command, 2) == 0x47 then -- image list
+	 print("DFM-HUD onRead: image list response", cmd_len)
+	 if cmd_len <= 7 then
+	    print("DFM-HUD onRead: no images")
+	 else
+	    local i = 7
+	    repeat
+	       local id, height, width = 
+		  string.unpack(">I1I2I2", command, i)
+	       print(string.format("DFM-HUD ALOOK image: id %d height %d width %d", id, height, width))
+	       i = i + 5 + 1 -- 5 is 1+2+2 ("I1I2I2")
+	    until i >= cmd_len
+	 end
       elseif string.byte(command, 2) == 0x05 then -- battery level
 	 --print("DFM-HUD Battery level (%)", string.byte(command, 5))
 	 Glass.var.statusAL.Batt = string.byte(command, 5)
@@ -4730,11 +4781,16 @@ local function onRead(indata)
 			     cmdId, err, subErr))
       elseif string.byte(command, 2) == 0xA2 then -- use deprecated code 0xA2 for return ctrl msgs
 	 local errTxt = {"Go", "Stop", "Message Error", "Overflow", "Missing cfgwrite", "Unknown state"}
-	 print(string.format("DFM-HUD: onRead - ALOOK control says: " ..
-			     errTxt[string.byte(command, 5)]))
-	 if string.byte(command, 5) == 2 then
-	    print("DFM-HUD: Flow control delay")
-	    lastSend = system.getTimeCounter() + 100
+	 if string.byte(command, 5) <= #errTxt then
+	    print(string.format("DFM-HUD: onRead - ALOOK control says: " ..
+				errTxt[string.byte(command, 5)]))
+	    if string.byte(command, 5) == 2 then
+	       print("DFM-HUD: Flow control delay")
+	       lastSend = system.getTimeCounter() + 100
+	    end
+	 elseif string.byte(command, 5) == 0x0f then
+	    print("DFM-HUD: Gesture received")
+	    gestureTime = system.getTimeCounter() + 1000
 	 end
       else
 	 print("DFM-HUD: onRead - command[2]", string.format("0x%02x", s))
@@ -4745,7 +4801,7 @@ local function onRead(indata)
 	 print(str)
       end
    end
-
+   
    --if buffer has more commands, recurse to process
    
    if #onReadBuf > 0 then onRead("") end
@@ -4809,8 +4865,8 @@ local function init()
       system.messageBox("DFM-HUD: Cannot read " .. fn)
       return
    end
-
-   --print("CPU 0: ", system.getCPU())
+   fn = prefix() .. pathImages .."DFML7Small.png"
+   splashScreen = lcd.loadImage(fn)
 
    local ratio = 144 / 160 -- ratio of "small" images to jeti screen height
    local im, ims
@@ -5042,14 +5098,12 @@ local function init()
    end
    
    local lfn = string.format("logfile%d.txt", Glass.settings.logSeq)
-   --print("lfn", lfn)
+
    logFileFP = io.open(prefix() .. pathJson .. lfn, "w")
 
    system.registerLogVariable("ALGesture", "", gestureCB) 
 
-   print("CPU end init(): ", system.getCPU())
-
-   --Glass.var.output = "Glass"
+   print("DFM-HUD: CPU end init(): ", system.getCPU())
 
    --debugging GPS points for ILS at Black Dirt Field
    
@@ -5060,43 +5114,7 @@ local function init()
       Glass.var.startTakeoff = gps.newPoint(41.34062, -74.43160)
       Glass.var.gearUp = gps.newPoint(41.33827, -74.43077)
    end
-      
-   -- for testing: Glass.settings.rebootDisco = nil
-
-   --[[
-   print("===> cfgimg.config")
-   for k,v in pairs(cfgimg.config) do
-      print("cfgimg.config 1", k,v)
-      for kk,vv in pairs(v) do
-	 print("cfgimg.config 2", kk,vv)
-	 for kkk,vvv in pairs(vv) do
-	    print("cfgimg.config 3", kkk, vvv)
-	 end
-      end
-   end
-
-   print("===> cfgimg.forms")
-   for k,v in pairs(cfgimg.forms) do
-      print("cfgimg.forms 1", k,v)
-      for kk,vv in pairs(v) do
-	 print("cfgimg.forms 2", kk,vv)
-      end
-   end
-
-   print("===> Glass.page")
-   for k,v in pairs(Glass.page) do
-      print("Glass.page 1", k,v)
-      for kk,vv in pairs(v) do
-	 print("Glass.page 2", kk, vv)
-	 for kkk,vvv in pairs(vv) do
-	    print("Glass.page 3", kkk, vvv)
-	 end
-      end
-   end
-   --]]
-
    
-  
 end
-
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="1.00", name=appName}
+   
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.00", name=appName}

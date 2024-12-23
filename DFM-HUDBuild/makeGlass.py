@@ -136,6 +136,7 @@ for imgs in jd["instruments"]:
 #exit()
 		
 os.system('set -e;cp -v Configs/config-*.txt ../DFM-HUD/Configs')
+os.system('set -e;cat ../DFM-HUD/Configs/config-fonts.txt ../DFM-HUD/Configs/config-imgs-DFML7Gray.txt > ../DFM-HUD/Configs/config-fonts-images.txt')
 os.system('set -e;cp -v Images/small/*-small.png ../DFM-HUD/Images')
 os.system('set -e;cp -v Images/smaller/*-smaller.png ../DFM-HUD/Images')
 #os.system('set -e;cp -v Images/availInstrumentsMaster.jsn ../DFM-HUD/Json/availInstruments.jsn')
