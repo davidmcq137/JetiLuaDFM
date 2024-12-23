@@ -13,7 +13,7 @@
 
 --]]
 
-if not sharedVar then sharedVar = {} end
+--if not sharedVar then sharedVar = {} end
 
 local appName = "DFM-HUD"
 local appHex = "44464D2D485544" -- "DFM-HUD" in hex
@@ -388,7 +388,7 @@ end
 local function serialWriteDirect(port, packedStr)
    local cc, err
    --print("serialWriteDirect")
-   local str = ""
+   --local str = ""
    --for k=1,#packedStr do
    --   str = str .. string.format("0x%02x ", string.byte(packedStr, k))
    --				 end
@@ -405,7 +405,7 @@ end
 
 local function writeInst()
    local bufClr = "FF010005AA"   
-   print("writeInst()")
+   --print("writeInst()")
    resetGlasses = 1
    serialWriteDirect(sidSerial, encodeBuf(bufClr)) -- clear screen
    savedSerial = {}
@@ -635,7 +635,7 @@ local function readSensors(tt)
 	    l1 = string.gsub(sensorLbl, "%W", "")
 	    l2 = string.gsub(sensor.label, "%W", "")
 	    if sensor.type ~= GPStype then
-	       print("GPS", sensor.id, sensor.param)
+	       --print("GPS", sensor.id, sensor.param)
 	       table.insert(tt.sensorLalist, l1 .. "_" .. l2)
 	       table.insert(tt.sensorLslist, sensor.label)	    
 	       table.insert(tt.sensorIdlist, sensor.id)
@@ -1136,8 +1136,14 @@ local function ALVbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
     end
     
     local markY;
-    local mpct = (mk - minV) / (maxV - minV);
-    --print("inpct, mpct", inpct, mpct)
+    local mpct
+    if mk then
+       mpct = (mk - minV) / (maxV - minV);
+    else
+       mk = 0
+       mpct = 0
+    end
+        --print("inpct, mpct", inpct, mpct)
     if (mpct> 0.0 and mpct < 1.0) then
        --markY = y + (height - y0);
        --markY = markY + barH * (1 - mpct);
@@ -1482,7 +1488,7 @@ local function ALAhGauge (reset, seq, ccfg, cff, cid, val, val2)
       
       if reset == 1 then
 	 resetOn()
-	 print("reset", reset)
+	 --print("reset", reset)
 	 ALDrawPolyLine(2, 3, xLH, yLH, x+x0, y+y0, false)
 	 ALDrawPolyLine(2, 3, xRH, yRH, x+x0, y+y0, false)
 	 resetOff()
@@ -1582,9 +1588,6 @@ local function ALILSGauge (reset, seq, ccfg, cff, cid, val, val2)
    local circX = x + x0;
    local circY = y + y0;
 
-   --print("Glass.var.ilsLoc", Glass.var.ilsLoc)
-   --print("Glass.var.ilsGS", Glass.var.ilsGS)
-   
    val = val or 0;
    val2 = val2 or 0;
 
@@ -1802,10 +1805,10 @@ local function ALHbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
     ALDrawRect(x+x0, y+y0, x+x0-barW, y+y0-barH, 0x33, false);
     --Serial.printf("mN %d mJ %d fine %d\n", dW.mN, dW.mJ, dW.f);
 
-    local dx = barW / 4;
-    for i = 1, 3, 1 do
-      ALDrawLine(x+x0-i*dx, y+y0, x+x0-i*dx, y+y0-barH+3, false); --+3 fudge. roundoff errors?
-    end
+    --local dx = barW / 4;
+    --for i = 1, 3, 1 do
+    --  ALDrawLine(x+x0-i*dx, y+y0, x+x0-i*dx, y+y0-barH+3, false); --+3 fudge. roundoff errors?
+    --end
 
     
     --do not draw image in variable model
@@ -2250,11 +2253,6 @@ local function sendAL(g)
 	    end
 	 end
       end
-   --end
-   --if dest == "Glass" then
-      --resetGlasses = 0
-   --end
-   --print("#savedSerial", #savedSerial)
 end
 
 
@@ -2262,6 +2260,8 @@ local lastSend = 0
 local linecount = 0
 local enterWaiting = 0
 local oncePerSecond = 0
+local lastTakeoffSw = 0
+local lastGearUpSw = 0
 
 local function loop()
    local now = system.getTimeCounter()
@@ -2271,14 +2271,49 @@ local function loop()
    -- temporarily made global -- local gtbl = {}
    local scale
    local minV, maxV
+   local gotGPS
+   local takeoff = system.getInputsVal(switchItems.takeoff) or 0      
+   local gearUp = system.getInputsVal(switchItems.gearUp) or 0
 
    if Glass.settings.latId ~= 0 and Glass.settings.latPa ~= 0 and Glass.settings.lngPa ~= 0 then
-      Glass.var.currentPosition = gps.getPosition(Glass.settings.latId,
-						  Glass.settings.latPa, Glass.settings.lngPa)
+      gotGPS = true
+   else
+      gotGPS = false
+   end
+   
+   if takeoff ~= lastTakeoffSw and takeoff == 1 then
+      if gotGPS then
+	 Glass.var.startTakeoff = gps.getPosition(Glass.settings.latId, Glass.settings.latPa,
+						  Glass.settings.lngPa)
+      end
+      sensor = system.getSensorByID(Glass.settings.altId, Glass.settings.altPa)
+      if sensor and sensor.valid then
+	 Glass.var.startTakeoffAlt = sensor.value
+      end
+	 
+      local s1, s2 = gps.getStrig(Glass.var.startTakeoff)
+      print("Start takeoff:", s1, s2, Glass.var.startTakeoffAlt)
+   end
+
+   if gearUp ~= lastGearUpSw and gearUp == 1 then
+      if gotGPS then
+	 Glass.var.gearUP = gps.getPosition(Glass.settings.latId, Glass.settings.latPa,
+					    Glass.settings.lngPa)
+	 local s1, s2 = gps.getStrig(Glass.var.gearUp)
+	 print("Gear up:", s1, s2)
+      end
+   end
+   
+   lastTakeoffSw = takeoff
+   lastGearUpSw = gearUp
+   
+   if Glass.settings.latId ~= 0 and Glass.settings.latPa ~= 0 and Glass.settings.lngPa ~= 0 then
+      Glass.var.currentPosition = gps.getPosition(Glass.settings.latId, Glass.settings.latPa,
+						  Glass.settings.lngPa)
    end
       
    local alt = 0
-   if Glass.settings.altId ~= 0 and Glass.settings.altPa ~= 0 then
+   if gotGPS then
       sensor = system.getSensorByID(Glass.settings.altId, Glass.settings.altPa)
       if sensor and sensor.valid then
 	 alt = sensor.value - (Glass.var.startTakeoffAlt or 0)
@@ -2316,7 +2351,6 @@ local function loop()
    end
    
    if system.getTimeCounter() > oncePerSecond and sendState == state.COMPLETE then
-      --Glass.var.output = "Glass"
       ALBattCheck()
       oncePerSecond =system.getTimeCounter() + 1000
    end
@@ -2767,14 +2801,12 @@ local function loop()
 
 	    if sendJson or forceSend then --system.getTimeCounter() - lastSend > (1*LOOPTIME) then
 	       --print("=================> sendAL")
-	       --Glass.var.output = "Glass"
 	       sendIndex = sendIndex + 1
 	       if sendIndex <= numInsts then
 		  sendAL(sendIndex)
 	       end
 	       if sendIndex >= numInsts and ((system.getTimeCounter() - lastSend) > LOOPTIME) then
 		  local cc, err
-		  teleSerialReset = {}
 		  teleSerial = {}
 		  for k,v in ipairs(savedSerialReset) do
 		     teleSerialReset[k] = v
@@ -2795,10 +2827,9 @@ local function loop()
 		     end
 		  end
 		  sendIndex = 0
-		  --print(#savedSerialReset, #savedSerial)
 		  savedSerial = {}
+		  savedSerialReset = {} -- was sent once, don't send again
 		  resetGlasses = 0
-		  --print("delta t", (system.getTimeCounter() - (lastSend or 0))/1000)
 		  lastSend = system.getTimeCounter()
 	       end
 	    end
@@ -2810,7 +2841,6 @@ local function loop()
 
    if unow <= jsonHoldTime then return end
 
-   --Glass.var.output = "Glass" -- just in case...
 
    if sendState == state.DISCONNECTED then
       print("DFM-HUD: DISCONNECTED - sending config request")
@@ -3230,14 +3260,14 @@ local function initForm(sf)
       
       form.addRow(2)
       form.addLabel({label="Takeoff switch"})
-      swtCI.takeoffChange = form.addInputbox(switchItems.takeoffChange, true,
-					  (function(x) return  switchChanged(x, "takeoffChange") end)
+      swtCI.takeoff = form.addInputbox(switchItems.takeoff, true,
+					  (function(x) return  switchChanged(x, "takeoff") end)
       )
       
       form.addRow(2)
       form.addLabel({label="Gear up switch"})
-      swtCI.gearUpChange = form.addInputbox(switchItems.gearUpChange, true,
-					  (function(x) return  switchChanged(x, "gearUpChange") end)
+      swtCI.gearUp = form.addInputbox(switchItems.gearUp, true,
+					  (function(x) return  switchChanged(x, "gearUp") end)
       )
 
       --form.addRow(2)
@@ -4304,8 +4334,6 @@ local function printTele(w,h)
       end
    end
    
-   --Glass.var.output = "Glass"
-
    -- ***
    if (legacy) then
    if not gpp[1].fmtNumber then gpp[1].fmtNumber = 1 end
@@ -4590,9 +4618,9 @@ local function destroy()
 	 io.write(fp, json.encode(GGtbl), "\n")
 	 io.close(fp)
       end
-      print("Glass - State saved " .. fn)
+      print("DFM-HUD - State saved " .. fn)
    else
-      print("Glass - Could not save state")
+      print("DFM-HUD - Could not save state")
    end
 end
 
@@ -4666,7 +4694,7 @@ local function onRead(indata)
 	 repeat
 	    name, size, version, usgCnt, installCnt, isSystem =
 	       string.unpack(">zI4I4I1I1I1", command, i)
-	    print(string.format("Name: %s Size %d Version %d", name, size, version))
+	    print(string.format("DFM-HUD ALOOK app: %s Size %d Version %d", name, size, version))
 	    if name == "DFM-HUD" then
 	       DFMHUDVersion = version
 	       Glass.var.statusAL.GlassConf = version
@@ -4700,15 +4728,22 @@ local function onRead(indata)
 	 local cmdId, err, subErr = string.unpack(">I1I1I1", command, 5)
 	 print(string.format("DFM-HUD: onRead -  cmdID 0x%02x, error 0x%02x, subErr 0x%02x",
 			     cmdId, err, subErr))
+      elseif string.byte(command, 2) == 0xA2 then -- use deprecated code 0xA2 for return ctrl msgs
+	 local errTxt = {"Go", "Stop", "Message Error", "Overflow", "Missing cfgwrite", "Unknown state"}
+	 print(string.format("DFM-HUD: onRead - ALOOK control says: " ..
+			     errTxt[string.byte(command, 5)]))
+	 if string.byte(command, 5) == 2 then
+	    print("DFM-HUD: Flow control delay")
+	    lastSend = system.getTimeCounter() + 100
+	 end
       else
-	 print("DFM-HUD: onRead - command[2]", string.format("0x%02x", string.byte(command,2)))
+	 print("DFM-HUD: onRead - command[2]", string.format("0x%02x", s))
 	 local str = "DFM-HUD: onRead full response: "
 	 for i=1,#command,1 do
 	    str = str .. string.format("0x%02X ", string.byte(command, i))
 	 end
 	 print(str)
       end
-      
    end
 
    --if buffer has more commands, recurse to process
@@ -4749,7 +4784,7 @@ local function init()
 
    readSensors(Glass)
    
-   system.registerForm(1, MENU_APPS, "Glass", initForm, keyPressed, printForm)
+   system.registerForm(1, MENU_APPS, "DFM-HUD", initForm, keyPressed, printForm)
 
    fn = prefix() .. pathJson .. "instr.jsn"
       
@@ -4757,7 +4792,7 @@ local function init()
    cfgimg = {}
    if file then
       cfgimg = json.decode(file)
-      print("Glass - Reading avail instruments from ", fn)
+      print("DFM-HUD - Reading avail instruments from ", fn)
    else
       system.messageBox("DFM-HUD: Cannot read " .. fn)
       return
@@ -4769,7 +4804,7 @@ local function init()
    cfgimgESP = {}
    if file then
       cfgimgESP = json.decode(file)
-      print("Glass - Reading avail instruments (ESP) from ", fn)
+      print("DFM-HUD - Reading avail instruments (ESP) from ", fn)
    else
       system.messageBox("DFM-HUD: Cannot read " .. fn)
       return
@@ -4796,7 +4831,7 @@ local function init()
 	 img.origWidth = cfgimg.forms[img.formID + 1].width --img.width
 	 img.origHeight = cfgimg.forms[img.formID + 1].height --img.height
       else
-	 print("img.imageID, img.formID, #cfgimg.forms", img.imageID, img.formID, #cfgimg.forms)
+	 --print("img.imageID, img.formID, #cfgimg.forms", img.imageID, img.formID, #cfgimg.forms)
 	 local ww = cfgimg.forms[img.formID + 1].width
 	 local hh = cfgimg.forms[img.formID + 1].height
 	 img.origWidth = ww or 0
@@ -4830,7 +4865,7 @@ local function init()
    local success, descr
    local portlist = serial.getPorts()
    for k,v in pairs(portlist) do
-      print("Glass - Available COM port "..k..": ".. v)
+      print("DFM-HUD - Available COM port "..k..": ".. v)
    end
 
    local baud = 115200
@@ -4843,7 +4878,7 @@ local function init()
    end
    
    if sidSerial then   
-      print("Glass - Serial port init succeeded: ", sidSerial)
+      print("DFM-HUD - Serial port init succeeded: ", sidSerial)
       serial.setBaudrate(sidSerial, baud)
       success, descr = serial.onRead(sidSerial,onRead)   
       if success then
@@ -4855,8 +4890,8 @@ local function init()
       print("DFM-HUD - Serial port init failed", sidSerial, descr)
    end 
 
-   system.registerTelemetry(1, "Glasses Display", 4, printTele)
-   system.registerTelemetry(2, "Glasses Status", 1, printTeleSmall)   
+   system.registerTelemetry(1, "DFM-HUD Display", 4, printTele)
+   system.registerTelemetry(2, "DFM-HUD Status", 1, printTeleSmall)   
 
    local function initG()
       print("DFM-HUD: - No saved state")
@@ -5018,7 +5053,7 @@ local function init()
 
    --debugging GPS points for ILS at Black Dirt Field
    
-   if emFlag ~= 0 then
+   if emflag ~= 0 then
       Glass.settings.latId = 3
       Glass.settings.latPa = 2
       Glass.settings.lngPa = 3
