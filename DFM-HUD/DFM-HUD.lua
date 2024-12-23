@@ -2438,7 +2438,7 @@ local function loop()
 	 Glass.gpsReads = Glass.gpsReads + 1
       end
       if Glass.gpsReads > 9 and not Glass.initPos then
-	 system.messageBox("GPS zero point set")
+	 system.messageBox("DFM-HUD: GPS zero set")
 	 Glass.initPos = Glass.curPos
 	 if not Glass.zeroPos then Glass.zeroPos = Glass.curPos end
       end
@@ -2922,11 +2922,10 @@ local function loop()
 	 return
       end
    end
-
    
    if sendState == state.CONNECTED then 
       if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
-      system.messageBox("Preparing Glasses for DFM-HUD")
+      system.messageBox("DFM-HUD: Preparing Glasses")
       print("DFM-HUD: opening file " .. prefix() .. pathConfigs .. "config-fonts-images.txt")
       sendFP = io.open(prefix() .. pathConfigs .. "config-fonts-images.txt", "r")
       if not sendFP then
@@ -2986,7 +2985,7 @@ local function loop()
 	 print(string.format("Send config done. Time: %.2f s", dt / 1000))
 	 print(string.format("%d bytes sent. Aggregate data rate: %.1f kB/s",
 			     serialBytesSent, serialBytesSent / dt))
-	 system.messageBox("Transfer complete")
+	 system.messageBox("DFM-HUD: Transfer complete")
 	 Glass.settings.configIDs = {}
 	 for k in ipairs(currentConfigIDs) do -- remember that this config was sent last
 	    Glass.settings.configIDs[k] = currentConfigIDs[k] 
@@ -3006,7 +3005,7 @@ local function loop()
 	 line = io.readline(sendFP, true)
 	 linecount = linecount + 1
 	 if linecount % 20 == 0 then
-	    system.messageBox("Reading line " .. linecount,5)
+	    system.messageBox("DFM-HUD: Reading line " .. linecount,5)
 	 end
 	 if not line then
 	    --print("io,readline EOF")
@@ -3083,7 +3082,7 @@ local function clearJSON()
 		       0, false, 5)
    if ans == 1 then
       io.remove(fn)
-      system.messageBox("All settings deleted .. Restart App")
+      system.messageBox("DFM-HUD: Settings deleted .. Restart App")
       writeJSON = false
    end
    
@@ -3355,11 +3354,11 @@ local function initForm(sf)
 	    function()
 	       otaTimer = system.getTimeCounter() + 500 -- set high for 500ms
 	       if Glass.settings.rebootDisco then
-		  system.messageBox("Turn off reboot disconnect")
+		  system.messageBox("DFM-HUD: Turn off reboot disconnect")
 	       else
 		  gpio.write(5,1)
 		  print("gpio 5 set high")
-		  system.messageBox("OTA update initialized")
+		  system.messageBox("DFM-HUD: OTA update initialized")
 		  Glass.var.timeOTA = system.getTimeCounter()
 		  --form.reinit(11)
 	       end
@@ -3374,7 +3373,7 @@ local function initForm(sf)
 	       restartTimer = system.getTimeCounter() + 500 -- set high for 500ms
 	       gpio.write(6,1)
 	       print("gpio 6 set high")
-	       system.messageBox("Rebooting AL controller")
+	       system.messageBox("DFM-HUD: Rebooting AL controller")
 	       --form.reinit(11)
 	       return
 	 end), {label="Reboot AL controller>>"}
@@ -3387,7 +3386,7 @@ local function initForm(sf)
 	       powerDownTimer = system.getTimeCounter() + 500 -- set high for 500ms
 	       gpio.write(7,0)
 	       print("gpio 7 set low")
-	       system.messageBox("Cycling AL controller power")
+	       system.messageBox("DFM-HUD: Cycling AL power")
 	       --form.reinit(11)
 	       return
 	 end), {label="Cycle Power AL controller>>"}
@@ -3815,7 +3814,7 @@ local function keyPressed(key)
 	 form.reinit(1)
       elseif key == KEY_2 then
 	 if pageNumber < 1 then
-	    system.messageBox("No pages defined")
+	    system.messageBox("DFM-HUD: No pages defined")
 	    return
 	 end
 	 clearPage(pageNumber, gaugeMax)
@@ -3832,7 +3831,7 @@ local function keyPressed(key)
 	    gaugeNumber = 1
 	    form.reinit(10)
 	 else
-	    system.messageBox("No pages defined to edit")
+	    system.messageBox("DFM-HUD: No pages defined")
 	    form.reinit(1)
 	 end
       elseif key == KEY_4 then
@@ -4334,7 +4333,7 @@ local function printTele(w,h)
 	 restartTimer = system.getTimeCounter() + 500 -- set high for 500ms
 	 gpio.write(6,1)
 	 print("gpio 6 set high rebootDisco")
-	 system.messageBox("Rebooting AL controller")
+	 system.messageBox("DFM-HUD: Rebooting AL controller")
 	 system.playBeep(2, 440, 200)
 	 sendState = state.DISCONNECTED
       end
@@ -4865,6 +4864,7 @@ local function init()
       system.messageBox("DFM-HUD: Cannot read " .. fn)
       return
    end
+   
    fn = prefix() .. pathImages .."DFML7Small.png"
    splashScreen = lcd.loadImage(fn)
 
@@ -5005,7 +5005,7 @@ local function init()
    if not Glass.settings.jsnVersion or Glass.settings.jsnVersion ~= JSNVERSION then
       print("old JSON in "..fn.. " - starting with no saved state")
       initG()
-      system.messageBox("App settings were reset")
+      system.messageBox("DFM-HUD: settings reset")
    end
    
    if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
