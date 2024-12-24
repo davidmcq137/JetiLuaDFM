@@ -2821,6 +2821,7 @@ local function loop()
 		  sendAL(sendIndex)
 	       end
 	       ALFlushReset(false) -- clear graphics engine hold state before sending new frame
+
 	       if sendIndex >= numInsts and ((system.getTimeCounter() - lastSend) > LOOPTIME) then
 		  local cc, err
 		  teleSerial = {}
@@ -2890,6 +2891,7 @@ local function loop()
    if sendState == state.ALMOST then
       print("DFM-HUD: state COMPLETE")
       sendState = state.COMPLETE
+      splashScreen = nil -- don't redisplay it on reconnect
       writeInst()
       resetGlasses = 1
    end
@@ -2914,10 +2916,16 @@ local function loop()
 	 jsonHoldTime = unow + 1000 -- wait one sec before possibly sending config request again  
       else
 	 print("DFM-HUD: state ALMOST")
+	 savedSerial = {}
+	 savedSerialReset = {}
+	 teleSerial = {}
+	 teleSerialReset = {}
 	 sendState = state.ALMOST
 	 --writeInst()
 	 serialWriteDirect(sidSerial, encodeBuf(bufDsp))
-	 jsonHoldTime = unow + 3000 -- wait 3s to allow setup, clear, flush and disp splash screen
+	 if splashScreen then
+	    jsonHoldTime = unow + 3000 -- wait 3s to allow setup, clear, flush and disp splash screen
+	 end
 	 --resetGlasses = 1
 	 return
       end
@@ -4359,8 +4367,9 @@ local function printTele(w,h)
    --   sendAL("Jeti")
    --end
 
-   if sendState == state.ALMOST then
+   if (sendState == state.ALMOST) and splashScreen then
       lcd.drawImage(offset + 20, 20, splashScreen)
+      return
    end
    
    if not legacy then
@@ -4676,11 +4685,16 @@ local function onRead(indata)
    --   str = str .. string.format("0x%02X ", string.byte(indata, i))
    --end
    --print(str)
-   
+
+   --print("#onReadBuf", #onReadBuf)
    onReadBuf = onReadBuf .. indata
    if #onReadBuf < 1 or string.byte(onReadBuf, 1) ~= 0xFF then
       print("DFM-HUD: CS_INVALID - bad format")
-      print(onReadBuf)
+      local str = "command: "
+      for i=1,#indata,1 do
+	 str = str .. string.format("0x%02X ", string.byte(indata, i))
+      end
+      print(str)
       onReadBuf = ""
       return
    end
@@ -4688,7 +4702,10 @@ local function onRead(indata)
    cmd_len = string.byte(onReadBuf, 4)
    --print("DFM-HUD: cmd_len", cmd_len)
    
-   if not cmd_len then return end -- input too short to have len 
+   if not cmd_len then
+      --print("too short")
+      return
+   end -- input too short to have len 
    
    if cmd_len > MAX_ALOOK_CMD then
       print("DFM-HUD: CS_INVALID - too long")
@@ -4799,12 +4816,9 @@ local function onRead(indata)
 	 end
 	 print(str)
       end
+      
    end
-   
-   --if buffer has more commands, recurse to process
-   
-   if #onReadBuf > 0 then onRead("") end
-   
+   onReadBuf = "" -- assume no more commands (do we have to worry about this??)
 end
 
 local function gestureCB()
