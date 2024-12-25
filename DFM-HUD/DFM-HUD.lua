@@ -1365,7 +1365,7 @@ local function ALVertTape (reset, seq, ccfg, cff, cid, val)
   
   local valInt = math.floor(val + 0.5);
 
-  if true then --(reset == 1 ) or valInt ~= vertTapeValIntprev[seq]) then
+  if true then -- (reset == 1 ) or valInt ~= vertTapeValIntprev[seq]) then
 
     local xtick;
     local xnum;
