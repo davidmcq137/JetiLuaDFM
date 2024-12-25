@@ -1080,6 +1080,14 @@ local function ALVbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
 
   local scale = cid.scale;
 
+  if seq == 0 then
+     x = 0
+     y = 0
+     val = 0
+     mk = 0
+     seq = #vbarPctPrev
+  end
+
   local xlmin, ylmin, xlmax, ylmax, xlbl, ylbl;
   if (scale == "variable") then
      xlmin = x + cff.xlmin;
@@ -1090,16 +1098,7 @@ local function ALVbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
      ylbl  = y + cff.ylbl;
   end
 
-  print("!", seq, xlmin, ylmin, xlmax, ylmax, x0, y0)
-  
-  if seq == 0 then
-     x = 0
-     y = 0
-     val = 0
-     mk = 0
-     seq = #vbarPctPrev
-  end
-  
+
   local inpct, pct
   if val and (maxV ~= minV) then
      inpct = (val - minV) / (maxV - minV);
@@ -1815,6 +1814,15 @@ local function ALHbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
 
   local scale = cid.scale;
 
+
+  if seq == 0 then
+     x = 0
+     y = 0
+     val = 0
+     mk = 0
+     seq = #hbarPctPrev
+  end
+  
   local xlmin, ylmin, xlmax, ylmax, xlbl, ylbl;
   if scale == "variable" then
     xlmin = x + cff.xlmin;
@@ -1825,14 +1833,6 @@ local function ALHbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
     ylbl = y + cff.ylbl;
   end
 
-  if seq == 0 then
-     x = 0
-     y = 0
-     val = 0
-     mk = 0
-     seq = #hbarPctPrev
-  end
-  
   local inpct, pct
   if val then
      inpct = (val - minV) / (maxV - minV);
