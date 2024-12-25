@@ -13,7 +13,7 @@
 
 --]]
 
---if not sharedVar then sharedVar = {} end
+if not sharedVar then sharedVar = {} end
 
 local appName = "DFM-HUD"
 local appHex = "44464D2D485544" -- "DFM-HUD" in hex
@@ -217,21 +217,12 @@ local function encodeBuf(str)
    return ret
 end
 
-local function decodeAL(ps, dest)
+local greyB = 0
+
+local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
    local gw = 304
    local gh = 256
-   local rr = 160/256
-   local offset = math.floor((320 - rr * 304) / 2) -- center the shrunk glasses space on the TX screen   
    local str
-   
-   --str = ""
-   --for i=1,#ps,1 do
-   --   str = str .. string.format("0x%02x ", string.byte(ps, i))
-   --end
-   --if string.byte(ps, 2) ~= 0x05 then
-      --print("###> " .. str)
-   --end
-   
    local x1, y1, x2, y2
    local x1j, y1j, x2j, y2j
    local r, f, c, t, r1, r2
@@ -241,52 +232,55 @@ local function decodeAL(ps, dest)
    local xtj = {}
    local ytj={}
 
+   local function Xa2jc(x)
+      return math.floor(rr * ((wid - x) - wid / 2)) + xoffset
+   end
+
+   local function Ya2jc(y)
+      return math.floor(rr * ((hgt - y) - hgt / 2)) + yoffset
+   end
+   
+   lcd.setColor(greyB, greyB, greyB)
+      
    if b == 0x30 then --color
       local grey = string.byte(ps, 5)
-      local greyB = grey | grey<<4
+      greyB = grey | grey<<4
       lcd.setColor(greyB, greyB, greyB)
-
+      
    elseif b == 0x32 then --line
       x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
-      x1j = math.floor(math.floor(rr*(gw - x1)) + offset)
-      y1j = math.floor(rr*(gh - y1))
-      x2j = math.floor(math.floor(rr*(gw - x2)) + offset)
-      y2j = math.floor(rr*(gh - y2))
+      x1j = Xa2jc(x1) --math.floor(math.floor(rr*(gw - x1)) + xoffset)
+      y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
+      x2j = Xa2jc(x2) --math.floor(math.floor(rr*(gw - x2)) + xoffset)
+      y2j = Ya2jc(y2) --math.floor(rr*(gh - y2) + yoffset)
       lcd.drawLine(x1j, y1j, x2j, y2j)
-
-      --if x1j == x2j then
-	-- if math.abs(y1j - y2j) ~= 12.5 then
-	--    print(math.abs(y1j - y2j))
-	 --end
-	 --print("y1j, y2j", y1j, y2j, math.abs(y1j-y2j))
-      --end
-      
-      --print("###>line", x1, y1, x2, y2)
    elseif b == 0x33 then --rect
       x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
-      x1j = math.floor(math.floor(rr*(gw - x1)) + offset)
-      y1j = math.floor(rr*(gh - y1))
-      x2j = math.floor(math.floor(rr*(gw - x2)) + offset)
-      y2j = math.floor(rr*(gh - y2))
+      x1j = Xa2jc(x1) --math.floor(math.floor(rr*(gw - x1)) + xoffset)
+      y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
+      x2j = Xa2jc(x2) --math.floor(math.floor(rr*(gw - x2)) + xoffset)
+      y2j = Ya2jc(y2) --math.floor(rr*(gh - y2) + yoffset)
       --print("###>rect", x1, y1, x2, y2)
       lcd.drawRectangle(math.min(x1j, x2j), math.min(y1j, y2j),
 			math.abs(x2j - x1j), math.abs(y2j - y1j))
       --print("###>rect", math.min(y1j, y2j), math.abs(y2j-y1j))      
    elseif b == 0x34 then --rectf
       x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
-      x1j = math.floor(math.floor(rr*(gw - x1)) + offset)
-      y1j = math.floor(rr*(gh - y1))
-      x2j = math.floor(math.floor(rr*(gw - x2)) + offset)
-      y2j = math.floor(rr*(gh - y2))
+      x1j = Xa2jc(x1) --math.floor(math.floor(rr*(gw - x1)) + xoffset)
+      y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
+      x2j = Xa2jc(x2) --math.floor(math.floor(rr*(gw - x2)) + xoffset)
+      y2j = Ya2jc(y2) --math.floor(rr*(gh - y2) + yoffset)
       lcd.drawFilledRectangle(math.min(x2j,x1j), math.min(y2j,y1j),
 			      math.abs(x2j - x1j), math.abs(y2j - y1j))
       --print("###>rectf", math.min(y1j, y2j), math.abs(y2j-y1j))
       
    elseif b == 0x37 then --text
       x1, y1, r, f, c, str = string.unpack(">i2i2I1I1I1z", ps, 5)
-      x1j = math.floor(rr*(gw - x1) + offset)
-      y1j = math.floor(rr*(gh - y1))
       str = string.sub(str,1, -2)
+      --print(str, x1, y1, wid, hgt)
+      x1j = Xa2jc(x1) --math.floor(rr*(gw - x1) + xoffset)
+      y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
+      --print(x1j, y1j)
       --print("x1, y1, r, f, c, str", x1, y1, r, f, c, str)
       --local grey = string.byte(ps, 5)
       --local greyB = grey | grey<<4
@@ -311,8 +305,8 @@ local function decodeAL(ps, dest)
       --print("t, r1, r2, start", t, r1, r2, start, len)
       for i=1,(len-8) / 4 do -- 7 bytes of preamble plus ending "0xAA"
 	 xt[i], yt[i], start = string.unpack(">i2i2", ps, start)
-	 xtj[i] = math.floor(rr * (gw - xt[i]) + offset)
-	 ytj[i] = math.floor(rr * (gh - yt[i]))
+	 xtj[i] = Xa2jc(xt[i]) --math.floor(rr * (gw - xt[i]) + xoffset)
+	 ytj[i] = Ya2jc(yt[i]) --math.floor(rr * (gh - yt[i]) + yoffset)
 	 ren:addPoint(xtj[i], ytj[i])
       end
       ren:renderPolyline(2)
@@ -321,8 +315,12 @@ local function decodeAL(ps, dest)
       local ren = lcd.renderer()
       ren:reset()
       x1, y1, rad = string.unpack(">i2i2I1", ps, 5)
-      x1j = math.floor(rr*(gw - x1) + offset)
-      y1j = math.floor(rr*(gh - y1))
+      --if rad ~= 5 then
+	 --print("circ", x1, y1, rad)
+      --end
+      
+      x1j = Xa2jc(x1) --math.floor(rr*(gw - x1) + xoffset)
+      y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
       if b == 0x35 then
 	 lcd.drawCircle(x1j, y1j, rr*rad)
       else
@@ -336,8 +334,8 @@ local function decodeAL(ps, dest)
    elseif b == 0x3c then -- arc
       local rad, as, ae, th
       x1, y1, rad, as, ae, th = string.unpack(">i2i2I1i2i2I1", ps, 5)
-      x1j = math.floor(rr*(gw - x1) + offset)
-      y1j = math.floor(rr*(gh - y1))
+      x1j = Xa2jc(x1) --math.floor(rr*(gw - x1) + xoffset)
+      y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
       drawArc(math.rad(ae-as), x1j, y1j, math.rad(as + 180), math.rad(ae), rr*(rad), rr*(rad + th), 18, 1)
    elseif b == 0x39 or b == 0x05 or b == 0x01 or b == 0xD3 or b == 0xD2 then
       
@@ -406,7 +404,7 @@ end
 
 local function writeInst()
    local bufClr = "FF010005AA"   
-   --print("writeInst()")
+   print("writeInst()")
    resetGlasses = 1
    serialWriteDirect(sidSerial, encodeBuf(bufClr)) -- clear screen
    savedSerial = {}
@@ -797,7 +795,13 @@ local function ALDrawRect(x0, y0, x1, y1, rCode, wait)
    if not wait then 
       pattern = ">BBBI1I2I2I2I2B"
       len = string.packsize(pattern)
-      serialWrite(sidSerial,string.pack(pattern, 0xFF, rCode, 0x00, len, x0, y0, x1, y1, 0xAA))
+      if (x0 < 0 or y0 < 0 or x1 < 0 or y1 < 0) then
+	 print("& ALDrawRect", x0, y0, x1, y1, rCode)
+      end
+      
+      serialWrite(sidSerial,string.pack(pattern, 0xFF, rCode, 0x00, len,
+					math.max(x0,0), math.max(y0,0),
+					math.max(x1,0), math.max(y1,0), 0xAA))
    else
       pattern = ">BBBI1I1I1I2I2I2I2B"
       len = string.packsize(pattern)
@@ -966,7 +970,8 @@ local function ALDrawRectC(xc, yc, width, height, rCode)
    pattern = ">BBBI1I2I2I2I2B"
    len = string.packsize(pattern)
    serialWrite(sidSerial, string.pack(pattern, 0xFF, rCode, 0x00, len,
-				      xc - width/2, yc - height/2, xc + width/2, yc + height/2, 0xAA))
+				      math.max(xc - width/2,0), math.max(yc - height/2, 0),
+				      xc + width/2, yc + height/2, 0xAA))
 
 end
 
@@ -1053,11 +1058,11 @@ end
 
 -- ****
 
-local vbarLowXprev = {0,0,0,0}
-local vbarLowYprev = {0,0,0,0}
-local vbarUpXprev =  {0,0,0,0}
-local vbarUpYprev =  {0,0,0,0}
-local vbarPctPrev =  {0,0,0,0}
+local vbarLowXprev = {0,0,0,0,0}
+local vbarLowYprev = {0,0,0,0,0}
+local vbarUpXprev =  {0,0,0,0,0}
+local vbarUpYprev =  {0,0,0,0,0}
+local vbarPctPrev =  {0,0,0,0,0}
 
 local function ALVbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd) 
   
@@ -1085,10 +1090,18 @@ local function ALVbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
      ylbl  = y + cff.ylbl;
   end
 
-  if (maxV == minV) then return end
+  print("!", seq, xlmin, ylmin, xlmax, ylmax, x0, y0)
+  
+  if seq == 0 then
+     x = 0
+     y = 0
+     val = 0
+     mk = 0
+     seq = #vbarPctPrev
+  end
   
   local inpct, pct
-  if (val) then
+  if val and (maxV ~= minV) then
      inpct = (val - minV) / (maxV - minV);
      pct = math.max(0, math.min(inpct, 1)) --clip(0.0, 1.0, inpct);
   else
@@ -1209,10 +1222,9 @@ end
 
 -- ****
 
-local ALCompassBrgXprev = {0,0,0,0};
-local ALCompassBrgYprev = {0,0,0,0};
---local ALCompassAlphaDispXPrev = {0,0,0,0};
-local ALCompassRotPrev = {0,0,0,0};
+local ALCompassBrgXprev = {0,0,0,0,0};
+local ALCompassBrgYprev = {0,0,0,0,0};
+local ALCompassRotPrev = {0,0,0,0,0};
 
 local function ALCompass (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, label)
    
@@ -1248,6 +1260,14 @@ local function ALCompass (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, lab
    local xrr = {}
    local yrr = {}
 
+   if seq == 0 then
+      x = 0
+      y = 0
+      val = 0
+      val2 = 0
+      seq = #ALCompassBrgXprev
+   end
+   
    for i,_ in ipairs(xdelta) do
       xrr[i], yrr[i] = rotateXY(xdelta[i], ydelta[i], rotdeg);
    end
@@ -1309,7 +1329,7 @@ end
 
 
 -- ****
-local vertTapeValIntprev = {0,0,0,0};
+local vertTapeValIntprev = {0,0,0,0,0};
 
 local function ALVertTape (reset, seq, ccfg, cff, cid, val)
   
@@ -1334,14 +1354,22 @@ local function ALVertTape (reset, seq, ccfg, cff, cid, val)
 
   local side = cid.side;
 
+  if seq == 0 then
+     x = 0
+     y = 0
+     val = 0
+     seq = #vertTapeValIntprev
+  end
+  
   val = val or 0
   
   local valInt = math.floor(val + 0.5);
 
-  if (reset == 1 or valInt ~= vertTapeValIntprev[seq]) then
+  if true then --(reset == 1 ) or valInt ~= vertTapeValIntprev[seq]) then
 
     local xtick;
     local xnum;
+
     local valX;
     local barX;
 
@@ -1427,7 +1455,7 @@ end
 -- ****
 
 local ahGaugeAlphaDispInt = 0
-local ahGaugeAlphaDispIntPrev = {0,0,0,0}
+local ahGaugeAlphaDispIntPrev = {0,0,0,0,0}
 
 local function ALAhGauge (reset, seq, ccfg, cff, cid, val, val2)
 
@@ -1444,13 +1472,22 @@ local function ALAhGauge (reset, seq, ccfg, cff, cid, val, val2)
 
    val = val or 0;
    val2 = val2 or 0;
-   
+
+   if seq == 0 then
+      x = 0
+      y = 0
+      val = 0
+      val2 = 0
+      seq = #ahGaugeAlphaDispIntPrev
+   end
+
    local pitch = -val or 0 ---(val-50);
    local roll = -val2;
-
+   
    --print("pitch, roll", pitch, roll)
    
    --horion markers on left and right sides of screen
+
    
    local BAR = (25 * ww / 160)
    local EE  = (5 * ww / 160)
@@ -1581,8 +1618,8 @@ end
 
 -- ****
 
-local ilsGaugeLocPrev = {0,0,0,0}
-local ilsGaugeGSPrev = {0,0,0,0}
+local ilsGaugeLocPrev = {0,0,0,0,0}
+local ilsGaugeGSPrev = {0,0,0,0,0}
 
 local function ALILSGauge (reset, seq, ccfg, cff, cid, val, val2)
 
@@ -1597,15 +1634,28 @@ local function ALILSGauge (reset, seq, ccfg, cff, cid, val, val2)
    local ww = ccfg.width;
    local hh = ccfg.height;
 
-   local circX = x + x0;
-   local circY = y + y0;
-
    val = val or 0;
    val2 = val2 or 0;
 
    local loc = 0
    local gs = 0
+
+   local ilsLoc = Glass.var.ilsLoc
+   local ilsGS = Glass.var.ilsGS
+      
+   if seq == 0 then
+      x = 0
+      y = 0
+      val = 0
+      val2 = 0
+      ilsLoc = 0
+      ilsGS = 0
+      seq = #ilsGaugeLocPrev
+   end
    
+   local circX = x + x0;
+   local circY = y + y0;
+
    if true then -- (reset == 1 or ahGaugeAlphaDispIntPrev[seq] ~= ahGaugeAlphaDispInt) then
       ALHold()
       ALColorBlack()
@@ -1621,13 +1671,13 @@ local function ALILSGauge (reset, seq, ccfg, cff, cid, val, val2)
 	 ALDrawCirc(circX - 20 - k * 15, circY, 5, false)
       end
 
-      if Glass.var.ilsLoc then
-	 loc = math.floor(math.min(Glass.var.ilsLoc, 80))
+      if ilsLoc then
+	 loc = math.floor(math.min(ilsLoc, 80))
 	 ALDrawLine(circX - loc, circY - hh/2, circX - loc, circY + hh/2)
       end
 
-      if Glass.var.ilsGS then
-	 gs = math.min(math.max(10 * Glass.var.ilsGS, -80), 80)
+      if ilsGS then
+	 gs = math.min(math.max(10 * ilsGS, -80), 80)
    	 ALDrawLine(circX - ww/2, circY + gs, circX + ww/2, circY + gs)
       end
       
@@ -1653,7 +1703,7 @@ end
 
 --local htextFirst = true
 
-local htextValPrev = {0,0,0,0}
+local htextValPrev = {0,0,0,0,0}
 
 local function ALHtext(ty, reset, seq, ccfg, cff, cid, vv, label, unit)
 
@@ -1672,6 +1722,14 @@ local function ALHtext(ty, reset, seq, ccfg, cff, cid, vv, label, unit)
    --local txtH = cff.hgt;
    
    local valText; 
+
+   if seq == 0 then
+      x = 0
+      y = 0
+      vv = 0
+      seq = #htextValPrev
+   end
+   
    if (ty == "ht") then
       valText = string.format("%.2f", val)
    else
@@ -1699,7 +1757,7 @@ local function ALHtext(ty, reset, seq, ccfg, cff, cid, vv, label, unit)
    local valY = y + y0 - height / 2 + 18;
    
    local valXc = x + x0 - width / 2; 
-   local valYc = y + y0 - height / 2;
+   local valYc = y + y0 - height / 2 + 2;
    
    local lblX = x + x0; -- + RLwid(label, 16); 
    local lblY = y + y0 - height / 2 + 8;
@@ -1709,12 +1767,14 @@ local function ALHtext(ty, reset, seq, ccfg, cff, cid, vv, label, unit)
    
    if (reset == 1) then
       --htextFirst = true;
+      resetOn()
       ALColorWhite()
       ALDrawText(label, 16, lblX, lblY, false)
       ALDrawText(unit, 16, unitX, unitY, false)
+      resetOff()
    end
    
-   if (htextValPrev[seq] ~= val or seq == 0) then
+   if (htextValPrev[seq] ~= val ) or seq == #htextValPrev then
       ALHold()
       ALColorBlack()
       ALDrawRectC(valXc, valYc, RLwid("000000", 36), 36, 0x34)
@@ -1732,11 +1792,12 @@ end
 
 -- ****
 
-local hbarLowXprev = {0,0,0,0}
-local hbarLowYprev = {0,0,0,0}
-local hbarUpXprev = {0,0,0,0}
-local hbarUpYprev = {0,0,0,0}
-local hbarPctPrev = {0,0,0,0}
+local hbarLowXprev = {0,0,0,0,0}
+local hbarLowYprev = {0,0,0,0,0}
+local hbarUpXprev = {0,0,0,0,0}
+local hbarUpYprev = {0,0,0,0,0}
+local hbarPctPrev = {0,0,0,0,0}
+
 
 local function ALHbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd)
   
@@ -1744,7 +1805,7 @@ local function ALHbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
   local y = ccfg.ylr;
   
   local width = ccfg.width;
-  --local height = ccfg.height;
+  local height = ccfg.height;
 
   local x0 = cff.x0;
   local y0 = cff.y0;
@@ -1764,7 +1825,13 @@ local function ALHbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
     ylbl = y + cff.ylbl;
   end
 
-  --print("xlmin, ylmin, xlmax, ylmax, xlbl, ylbl", xlmin, ylmin, xlmax, ylmax, xlbl, ylbl)
+  if seq == 0 then
+     x = 0
+     y = 0
+     val = 0
+     mk = 0
+     seq = #hbarPctPrev
+  end
   
   local inpct, pct
   if val then
@@ -1778,6 +1845,7 @@ local function ALHbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
   local lowX = x + (width - x0);
   lowX = lowX + barW * (1 - pct);
   local lowY = y + y0;
+
   --upper left
   local upX = lowX + pct * barW;
   local upY = y + barH;
@@ -1799,9 +1867,12 @@ local function ALHbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
     ALHold();
     
     if (reset == 1) then
-       --print("reset 1", xlmin, ylmin, minText, xlmax, ylmax, maxText)
-      ALDrawTextC(minText, 16, xlmin, ylmin, false);
-      ALDrawTextC(maxText, 16, xlmax, ylmax, false);
+       resetOn()
+       --print("reset = 1", xlmin, ylmin, minText, xlmax, ylmax, maxText, seq)
+       --ALColorWhite()
+       ALDrawTextC(minText, 16, xlmin, ylmin, false);
+       ALDrawTextC(maxText, 16, xlmax, ylmax, false);
+       resetOff()
     elseif (reset == 0) then
       ALColorBlack(); --erase prev bar and value
       ALDrawRect(hbarLowXprev[seq], hbarLowYprev[seq], hbarUpXprev[seq], hbarUpYprev[seq],
@@ -1815,24 +1886,10 @@ local function ALHbar (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dd
 
     --draw box outline
     ALDrawRect(x+x0, y+y0, x+x0-barW, y+y0-barH, 0x33, false);
-    --Serial.printf("mN %d mJ %d fine %d\n", dW.mN, dW.mJ, dW.f);
-
-    --local dx = barW / 4;
-    --for i = 1, 3, 1 do
-    --  ALDrawLine(x+x0-i*dx, y+y0, x+x0-i*dx, y+y0-barH+3, false); --+3 fudge. roundoff errors?
-    --end
-
-    
-    --do not draw image in variable model
-    --if (strcmp(scale, "variable") != 0) { 
-    --  ALDrawScale(img, x, y);
-    --}
 
     --draw bargraph filled box
     ALDrawRect(lowX, lowY, upX, upY, 0x34, false);
 
-    --print("ALHbar: mk", mk)
-    
     local markX;
     local mpct = ((mk or 0)- minV) / (maxV - minV);
     if (mpct> 0.0 and mpct < 1.0) then
@@ -1866,20 +1923,46 @@ end
 
 -- ****
 
-local tipXprev = {0,0,0,0};
-local tipYprev = {0,0,0,0};
---local alphaDispXPrev= {0,0,0,0};
+local tipXprev = {0,0,0,0,0};
+local tipYprev = {0,0,0,0,0};
 
-local function gaugeNew (seq, reset, x0, y0, x, y, minV, maxV, label, val, val2,
-			 scale, mk, dp, xlbl, ylbl, width, height, rIn, rOut,
-			 xlmin, ylmin, xlmax, ylmax, degMin, degMax,
-			 ro, major, minor, fine, fm)
+local function ALGauge(reset, seq, ccfg, cff, cid, val, val2, minV, maxV, mk, dp, lbl)
 
+   local x0 = cff.x0
+   local y0 = cff.y0
+   local x = ccfg.xlr
+   local y = ccfg.ylr
+   local width = ccfg.width
+   local height = ccfg.height
+   local xlbl = cff.xlbl
+   local ylbl = cff.ylbl
+   local xlmin = cff.xlmin
+   local ylmin = cff.ylmin
+   local xlmax = cff.xlmax
+   local ylmax = cff.ylmax	 	 
+   --local rIn = cff.radiusIn
+   --local rOut = cff.radiusOut
+   local ro = cff.radius
+   local degMin = cff.minA
+   local degMax = cff.maxA	 
+   local major = cff.major
+   local minor = cff.minor
+   local fine = cff.fine
+   local scale = cid.scale
+
+   if seq == 0 then
+      x = 0
+      y = 0
+      val = 0
+      mk = 0
+      seq = #tipXprev
+   end
+   
    val = val or 0
    mk = mk or 0
    
-  local pct = (val - minV) / (maxV - minV);
-  local mpct = (mk - minV) / (maxV - minV);
+   local pct = (val - minV) / (maxV - minV);
+   local mpct = (mk - minV) / (maxV - minV);
 
   local alphaDispF = 180 + (degMin + pct * (degMax - degMin));
   local alphaDispM = 180 + (degMin + mpct * (degMax - degMin));
@@ -1904,8 +1987,6 @@ local function gaugeNew (seq, reset, x0, y0, x, y, minV, maxV, label, val, val2,
 
   local mX = x + x0 + math.floor(sinM * nlen);
   local mY = y + y0 - math.floor(cosM * nlen);
-
-
 
   ALHold(false)
 
@@ -1949,7 +2030,7 @@ local function gaugeNew (seq, reset, x0, y0, x, y, minV, maxV, label, val, val2,
 	  sq = false
        end
        
-       ALDrawMinMaxLabel(x, y, x0, y0, label, xlbl, ylbl,
+       ALDrawMinMaxLabel(x, y, x0, y0, lbl, xlbl, ylbl,
 			 xlmin, ylmin, xlmax, ylmax,
 			 val, dp, minV, maxV, sq);
        resetOff()
@@ -1986,21 +2067,30 @@ end
 
 
 
-local arcAnglePrev = {0,0,0,0}
---local arcFirstTime = {0,0,0,0}
-local arcAngle = {0,0,0,0}
+local arcAnglePrev = {0,0,0,0,0}
+local arcAngle = {0,0,0,0,0}
 
-local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
-			as, ae, mk, dd, xlbl, ylbl, width, height, rIn, rOut,
-			xlmin, ylmin, xlmax, ylmax)
+local function ALArcGauge(reset, seq, ccfg, cff, cid, val, val2, nv, xv, mk, dd, lbl)
 
+   local x0 = cff.x0
+   local y0 = cff.y0
+   local x = ccfg.xlr
+   local y = ccfg.ylr
+   local xlbl = cff.xlbl
+   local ylbl = cff.ylbl
+   local xlmin = cff.xlmin
+   local ylmin = cff.ylmin
+   local xlmax = cff.xlmax
+   local ylmax = cff.ylmax	 	 
+   local rIn = cff.radiusIn
+   local rOut = cff.radiusOut
+   local as = cff.arcStart
+   local ae = cff.arcEnd
    local pct, markPct
    local markAngle
    local arcStart = math.floor(as)
    local arcEnd = math.floor(ae)
    local thk = rOut - rIn
-   --local sinM, cosM
-   --local xm1, ym1, xm2, ym2
    local lblX, lblY
    local valText
    local valX, valY
@@ -2008,31 +2098,28 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
    local xlMin, xlMax
    local maxText
    local ylMin, ylMax
-   --local valaX, valaY
-   --local valbX, valbY
    local arcErase
 
-   if not val then return end
-   
-   --local now = system.getTimeCounter()
+   if seq == 0 then
+      x = 0
+      y = 0
+      val = xv
+      mk = 0
+      seq = #arcAngle
+   end
 
+   val = val or 0
+   mk = mk or 0
+   
    pct = (val - nv) / (xv - nv)
+   
    markPct = (mk - nv) / (xv - nv)
-   --ipct10 = math.floor(pct * 1000)
 
    arcAngle[seq] = arcStart + pct * (arcEnd - arcStart)
    markAngle = arcStart + markPct * (arcEnd - arcStart)
 
    arcStart = arcStart - 90
    arcAngle[seq] = arcAngle[seq] - 90
-
-   --sinM = math.sin(math.rad(markAngle))
-   --cosM = math.cos(math.rad(markAngle))
-   
-   --xm1 = x + x0 - sinM * (rIn - thk/4)
-   --ym1 = y + y0 + cosM * (rIn - thk/4)
-   --xm2 = x + x0 - sinM * rOut * 1.25
-   --ym2 = y + y0 + cosM * rOut * 1.25
 
    lblX = xlbl + x + RLwid(lbl, 16) / 2
    lblY = ylbl + y + 16 / 2
@@ -2054,15 +2141,6 @@ local function arcGauge(seq, reset, x0, y0, x, y, nv, xv, lbl, val, val2,
    xlMax = xlMax + x + RLwid(maxText, 16) / 2
    ylMax = ylMax + y + 16 / 2   
 
-   --valaX = x
-   --valaY = y + y0 + 18
-
-   --valbX = x + width
-   --valbY = y + y0 - 18
-
-   --****
-
-   --local sbs = serialBytesSent
    ALHold(false)
 
    if true then -- reset == 1 or arcAnglePrev[seq] ~= arcAngle then
@@ -2108,27 +2186,15 @@ end
 
 
 
-local function sendAL(g)
+local function sendAL(g, seq)
 
    local gpp
    local ccfg, cid, fid, fmt, cff, ccf
    local min, max
-   local xr, yr
-   --local xc, yc
-   local x0, y0
    local mk
    local dd
    local val, val2
-   local xlbl, ylbl
-   local width, height
-   local xlmin, ylmin
-   local xlmax, ylmax
    local lbl, units
-   local minA, maxA
-   local radius
-   local major, minor, fine
-   local rIn, rOut
-   local seq
 
    --
    -- REMINDER: USE cfgimgESP table to send to the glasses!!!
@@ -2139,132 +2205,82 @@ local function sendAL(g)
       print("sendAL: Glass.page[pageNumberTele] is nil")
       return
    end
-
    
    if not gpp[1].fmtNumber then gpp[1].fmtNumber = 1 end
    fmt = gpp[1].fmtNumber
    ccf =  cfgimgESP.config[fmt]
-
-   --print("g", g)
    local t = gpp[g]
    
-   --for g,t in ipairs(gpp) do        -- loop over all gauges on this page with a valid imageID
-      --[[
-	 if g <= 3  then
-	 print("g, t.widgetID, t.imageID", g, t.widgetID, t.imageID)
-      end
-      --]]
-      if t.widgetID > 0 and t.imageID >= 0 then        -- if there is a value to animate
-
-	 --print("pageNumberTele, g", pageNumberTele, g)
-	 
-	 local rst
-	 --if dest == "Jeti" then
-	 --   seq = 0
-	 --   rst = 1
-	 --else
-	 --   seq = g
-	 --   rst = resetGlasses
-	 --end
-
-	 rst = resetGlasses
+   --print("sendAL pn, gn", pageNumberTele, g)
+   
+   if t.widgetID > 0 and t.imageID >= 0 then        -- if there is a value to animate
+      if not seq then
 	 seq = g
-	 
-	 ccfg = ccf[g]                 -- this is the "config" key for this page and this widget
-	 cid = cfgimgESP.instruments[t.widgetID]
-	 fid = cid.formID + 1
-	 cff = cfgimgESP.forms[fid]
-	 --print("fid", fid)
-	 xr = ccfg.xlr
-	 yr = ccfg.ylr
-	 width = ccfg.width
-	 height = ccfg.height
-	 --xc = xr + cfgimgESP.forms[fid].x0           -- for gauge, this is the pivot pt of the needle
-	 --yc = yr + cfgimgESP.forms[fid].y0
+      else
+	 seq = 0
+	 resetGlasses = 1
+      end
 
-	 x0 = cfgimgESP.forms[fid].x0
-	 y0 = cfgimgESP.forms[fid].y0
-
-	 mk = t.marker
-	 if t.dispdec then
-	    dd = t.dispdec
+      local rst
+      rst = resetGlasses
+      
+      ccfg = ccf[g]                 -- this is the "config" key for this page and this widget
+      cid = cfgimgESP.instruments[t.widgetID]
+      fid = cid.formID + 1
+      cff = cfgimgESP.forms[fid]
+      mk = t.marker
+      if t.dispdec then
+	 dd = t.dispdec
+      else
+	 dd = t.decimals
+      end
+      
+      if cid.scale and cid.scale == "fixed" then
+	 min = cid.minV
+	 max = cid.maxV
+      else  -- be defensive in case of missing minV/maxV
+	 if not t.minV then
+	    if cid.minV then min = cid.minV else min = 0 end
 	 else
-	    dd = t.decimals
+	    min = t.minV
 	 end
-	 xlbl = cfgimgESP.forms[fid].xlbl
-	 ylbl = cfgimgESP.forms[fid].ylbl
-	 xlmin = cfgimgESP.forms[fid].xlmin
-	 ylmin = cfgimgESP.forms[fid].ylmin
-	 xlmax = cfgimgESP.forms[fid].xlmax
-	 ylmax = cfgimgESP.forms[fid].ylmax	 	 
-	 rIn = cfgimgESP.forms[fid].radiusIn
-	 rOut = cfgimgESP.forms[fid].radiusOut
-
-	 if true then --t.value then
-	    -- if scale "fixed" then scale comes from images, else from 200ms json
-	    if cid.scale and cid.scale == "fixed" then
-	       min = cid.minV
-	       max = cid.maxV
-	    else  -- be defensive in case of missing minV/maxV
-	       --print(t.minV, cid.minV, t.maxV, cid.maxV)
-	       if not t.minV then
-		  if cid.minV then min = cid.minV else min = 0 end
-	       else
-		  min = t.minV
-	       end
-	       if not t.maxV then
-		  if cid.maxV then max = cid.maxV else max = 1 end
-	       else
-		  max = t.maxV
-	       end
-	       
-	       --min = t.minV or 0
-	       --max = t.maxV or 1
-	    end
-	    lbl = t.instName or "..." --.instName is named .label in the 200ms json 
-	    units = t.units
-	    val = t.value
-	    val2 = t.value2
-	    --local reset = 0
-	    --print(g, cid.wtype,t.widgetID)
-
-	    if cid.wtype == "oldgauge" then
-	    elseif cid.wtype == "gauge" then
-	       radius = cfgimgESP.forms[fid].radius
-	       minA = cfgimgESP.forms[fid].minA
-	       maxA = cfgimgESP.forms[fid].maxA	 
-	       major = cfgimgESP.forms[fid].major
-	       minor = cfgimgESP.forms[fid].minor
-	       fine = cfgimgESP.forms[fid].fine
-	       gaugeNew(seq, rst, x0, y0, xr, yr, min, max, lbl, val, val2,
-			cid.scale, mk, dd, xlbl, ylbl, width, height, rIn, rOut,
-			xlmin, ylmin, xlmax, ylmax, minA, maxA,
-			radius, major, minor, fine)
-	    elseif cid.wtype == "compass" then
-	       ALCompass (rst, seq, ccfg, cff, cid, val, val2, min, max, lbl)
-	    elseif cid.wtype == "hbar" then
-	       ALHbar(rst, seq, ccfg, cff, cid, val, val2, min, max, mk, dd)
-	    elseif cid.wtype == "vbar" then
-	       ALVbar(rst, seq, ccfg, cff, cid, val, val2, min, max, mk, dd)	       
-	    elseif cid.wtype == "htext" then
-	       ALHtext ("ht", rst, seq, ccfg, cff, cid, val, lbl, units)
-	    elseif cid.wtype == "timer" then
-	       ALHtext ("ti", rst, seq, ccfg, cff, cid, val, lbl, units)
-	    elseif cid.wtype == "arcGauge" then
-	       local as = cfgimgESP.forms[fid].arcStart
-	       local ae = cfgimgESP.forms[fid].arcEnd
-	       arcGauge(seq, rst, x0, y0, xr, yr, min, max, lbl, val, val2,
-			as, ae, mk, dd, xlbl, ylbl, width, height,
-			rIn, rOut, xlmin, ylmin, xlmax, ylmax)
-	    elseif cid.wtype == "ahGauge" then
-	       ALAhGauge (rst, seq, ccfg, cff, cid, val, val2)
-	    elseif cid.wtype == "vltape" then
-	       ALVertTape (rst, seq, ccfg, cff, cid, val)	       
-	    elseif cid.wtype == "ils" then
-	       ALILSGauge (rst, seq, ccfg, cff, cid, val, val2)
-	    end
+	 if not t.maxV then
+	    if cid.maxV then max = cid.maxV else max = 1 end
+	 else
+	    max = t.maxV
 	 end
       end
+      lbl = t.instName or "..." --.instName is named .label in the 200ms json 
+      units = t.units
+      val = t.value
+      val2 = t.value2
+
+      --print("sendAL: g, pageNumberTele, t.widgetID, cid.type", g, pageNumberTele, t.widgetID, cid.wtype)
+      
+      if cid.wtype == "gauge" then
+	 ALGauge(rst, seq, ccfg, cff, cid, val, val2, min, max, mk, dd, lbl)
+      elseif cid.wtype == "compass" then
+	 ALCompass (rst, seq, ccfg, cff, cid, val, val2, min, max, lbl)
+      elseif cid.wtype == "hbar" then
+	 ALHbar(rst, seq, ccfg, cff, cid, val, val2, min, max, mk, dd)
+      elseif cid.wtype == "vbar" then
+	 ALVbar(rst, seq, ccfg, cff, cid, val, val2, min, max, mk, dd)	       
+      elseif cid.wtype == "htext" then
+	 ALHtext ("ht", rst, seq, ccfg, cff, cid, val, lbl, units)
+      elseif cid.wtype == "timer" then
+	 ALHtext ("ti", rst, seq, ccfg, cff, cid, val, lbl, units)
+      elseif cid.wtype == "arcGauge" then
+	 ALArcGauge(rst, seq, ccfg, cff, cid, val, val2, min, max, mk, dd, lbl)
+      elseif cid.wtype == "ahGauge" then
+	 ALAhGauge (rst, seq, ccfg, cff, cid, val, val2)
+      elseif cid.wtype == "vltape" then
+	 ALVertTape (rst, seq, ccfg, cff, cid, val)	       
+      elseif cid.wtype == "ils" then
+	 ALILSGauge (rst, seq, ccfg, cff, cid, val, val2)
+      else
+	 print("DFM-HUD: unrecognized wtype:", cid,wtype)
+      end
+   end
 end
 
 
@@ -2814,8 +2830,9 @@ local function loop()
 	    local fmt = Glass.page[pageNumberTele][1].fmtNumber
 	    local numInsts = #cfgimg.config[fmt]
 
-	    if sendJson or forceSend then --system.getTimeCounter() - lastSend > (1*LOOPTIME) then
-	       --print("=================> sendAL")
+	    --never send with forms active
+	    
+	    if not form.getActiveForm() and (sendJson or forceSend) then 
 	       sendIndex = sendIndex + 1
 	       if sendIndex <= numInsts then
 		  sendAL(sendIndex)
@@ -2858,9 +2875,8 @@ local function loop()
 
    if unow <= jsonHoldTime then return end
 
-
    if sendState == state.DISCONNECTED then
-      print("DFM-HUD: DISCONNECTED - sending config request")
+      --print("DFM-HUD: DISCONNECTED - sending config request")
       local bufCfg = "FFD302070101AA"
       --bw = serialWrite(sidSerial, 0xFF, 0xD3, 0x02, 0x07, 0x01, 0x01, 0xAA) -- read config
       local bw = serialWriteDirect(sidSerial, encodeBuf(bufCfg)) -- read config
@@ -2873,7 +2889,7 @@ local function loop()
 	 print("DFM-HUD: cannot write image query")
       end
       jsonHoldTime = unow + 1000
-      print("DFM-HUD: WAITING for Glasses")
+      --print("DFM-HUD: WAITING for Glasses")
       sendState = state.WAITING -- wait for onRead to get config list
       enterWaiting = system.getTimeCounter()
    end
@@ -2883,7 +2899,7 @@ local function loop()
       --print("sendState WAITING")
       if system.getTimeCounter() - enterWaiting > 2000 then --no response to config request in 2 sec
 	 sendState = state.DISCONNECTED
-	 print("DFM-HUD: No cfg response .. set DISCONNECTED and retry")
+	 --print("DFM-HUD: No cfg response .. set DISCONNECTED and retry")
 	 jsonHoldTime = unow + 1000 -- wait 1 more sec then try config request again
       end
    end
@@ -2960,9 +2976,9 @@ local function loop()
       local bufH = bufPre .. string.format("%08X%08X", 0, cfgKey) .. "AA"
       local bufF = bufPre .. string.format("%08X%08X", cfgVersion, cfgKey) .. "AA"
       local bw
-            
+      
       if sendState == state.SENDHEADER then
-	 print("sending header")
+	 --print("sending header")
 	 bw = serialWriteDirect(sidSerial, encodeBuf(bufH))
 	 if not bw then
 	    print("DFM-HUD: cannot write header")
@@ -3165,6 +3181,7 @@ local function initForm(sf)
 	    table.insert(editImgs,
 			 {widgetID = i, imageID=img.imageID, loadImage=img.loadImage,
 			  loadImageSmaller = img.loadImageSmaller,
+			  wid = wid, hgt = hgt,
 			  imageWidth=img.imageWidth, imageHeight = img.imageHeight,
 			  wtype=img.wtype, inputs=img.inputs, scale = img.scale })
 	    if widgetID == i then imageNum = #editImgs end
@@ -3890,7 +3907,8 @@ local function keyPressed(key)
 	 Glass.page[pageNumber][gaugeNumber].minV = min -- may be nil
 	 Glass.page[pageNumber][gaugeNumber].maxV = max -- may be nil
 	 Glass.page[pageNumber][gaugeNumber].wtype = wtype
-	 Glass.page[pageNumber][gaugeNumber].inputs = inp	 
+	 Glass.page[pageNumber][gaugeNumber].inputs = inp
+	 
 	 form.reinit(10)
       end
    elseif subForm == 11 then
@@ -4030,88 +4048,67 @@ local function printForm(w,h)
       lcd.drawText(10, 60, string.format("Bytes sent: %d", serialBytesSent))
       lcd.drawText(10, 80, serialFileName)
    elseif subForm == 10 then
-      lcd.setColor(255,255,255)
-      lcd.drawFilledRectangle(offset-5, 0, h+1+5, h+1)
-      if imageNum and imageNum > 0 and editImgs[imageNum] then --and editImgs[imageNum].loadImage then
-	 local xi, yi
-	 -- This works but is stupid ... rethink a better way to offset the long thin hbars and text boxes
-	 if editImgs[imageNum].imageWidth > 144 and editImgs[imageNum].imageHeight < 50 then -- 160 widths on glasses are 144 on Jeti
-	    xi, yi = w/2 - editImgs[imageNum].imageWidth/2, 80
+
+      if imageNum and imageNum > 0 and editImgs[imageNum] then
+
+	 local wid = editImgs[imageNum].wid
+	 local hgt = editImgs[imageNum].hgt
+	 local gpg = Glass.page[pageNumber][gaugeNumber]
+
+	 gpg.widgetID = editImgs[imageNum].widgetID
+	 gpg.imageID = editImgs[imageNum].imageID
+	 gpg.minV = editImgs[imageNum].minV
+	 gpg.maxX = editImgs[imageNum].maxV
+	 gpg.wtype = editImgs[imageNum].wtype
+	 gpg.inputs = editImgs[imageNum].inputs
+
+	 local bw = w / 2
+	 local bh = h
+	 local rr
+	 local xoffset -- = w / 2 + w / 4
+	 local yoffset -- = h / 2
+
+	 lcd.setColor(0,0,0)
+
+	 local dh, dw
+	 
+	 if wid > 144 and hgt < 50 then  -- horiz gauges and text gauges
+	    rr = 0.8
+	    xoffset, yoffset = w / 2, 3 * h / 4
+	    dh = 0
+	    dw = 0
+	    --lcd.drawFilledRectangle(w / 8, h/2 , 3 * w / 4, h / 2)
+	    lcd.drawFilledRectangle(0, h/2 , w, h / 2)
 	 else
-	    xi, yi = offset, 0
+	    rr = 0.6
+	    xoffset, yoffset = w / 2 + w / 4, h / 2
+	    dh = 0
+	    dw = 0
+	    lcd.drawFilledRectangle(w - bw, 0, bw, bh)
 	 end
-	 --if editImgs[imageNum].loadImage then
-	 local un = Glass.page[pageNumber][gaugeNumber].units
-	 local dp = Glass.page[pageNumber][gaugeNumber].decimals
-	 --print("wtype", editImgs[imageNum].wtype)
-	 if editImgs[imageNum].wtype == "gauge" or editImgs[imageNum].wtype == "compass" or
-	    editImgs[imageNum].wtype == "hbar" or  editImgs[imageNum].wtype == "vbar" then
-	    drawImage(xi,yi,editImgs[imageNum], "loadImage")
-	 elseif editImgs[imageNum].wtype == "gNew" then
-	    lcd.setColor(0,0,0)
-	    lcd.drawText(xi + 40, yi + 40, "gNew")
-	 elseif editImgs[imageNum].wtype == "arcGauge" then
-	    lcd.setColor(0,0,0)
-	    lcd.drawFilledRectangle(xi, yi, editImgs[imageNum].imageWidth,
-				    editImgs[imageNum].imageHeight)
-	    local id = editImgs[imageNum].widgetID
-	    --drawArcGauge(offset + r * xc, r * yc, minA, maxA,
-	    --min, max, val, r*cfgimg.forms[fid].radiusOut, r*cfgimg.forms[fid].radiusIn)
-	    local fid = cfgimg.instruments[id].formID + 1
-	    --print("id, fid", id, fid)
-	    local minA = cfgimg.forms[fid].arcStart --22.5 * (cfgimg.forms[fid].arcStart - 9)
-	    local maxA = cfgimg.forms[fid].arcEnd --22.5 * (cfgimg.forms[fid].arcEnd - 8)
-	    --local hh, ww = cfgimg.forms[fid].height, cfgimg.forms[fid].width
-	    local x0, y0 = cfgimg.forms[fid].x0, cfgimg.forms[fid].y0
-	    --local xc, yc = x0 + ww / 2, y0 + hh / 2
-	    --print(xi, yi, hh, ww, minA, maxA)
-	    lcd.setColor(255,255,255)
-	    drawArcGauge(xi + r * x0 , yi + r * y0, minA, maxA,
-			 cfgimg.instruments[id].minV, cfgimg.instruments[id].maxV,
-			 cfgimg.instruments[id].maxV, r * cfgimg.forms[fid].radiusOut,
-			 r * cfgimg.forms[fid].radiusIn)
-	 elseif editImgs[imageNum].wtype == "ahGauge" then
-	    local id = editImgs[imageNum].widgetID
-	    local fid = cfgimg.instruments[id].formID + 1	    
-	    local hh, ww = cfgimg.forms[fid].height, cfgimg.forms[fid].width	    
-	    local rr = ww / 2
-	    r = 144/160
-	    --print(xi + ww / 2, yi + hh / 2, rr)
-	    drawahGauge(xi + ww / 2 - 8, yi + hh / 2 - 8, r * rr, r * hh, r * ww)
-	 elseif editImgs[imageNum].wtype == "ils" then
-	    local id = editImgs[imageNum].widgetID
-	    local fid = cfgimg.instruments[id].formID + 1	    
-	    local hh, ww = cfgimg.forms[fid].height, cfgimg.forms[fid].width	    
-	    local rr = ww / 2
-	    r = 144/160
-	    --print(xi + ww / 2, yi + hh / 2, rr)
-	    drawILSGauge(xi + ww / 2 - 8, yi + hh / 2 - 8, r * rr, r * hh, r * ww)
-	 elseif editImgs[imageNum].wtype == "htext" then
-	    lcd.setColor(0,0,0)
-	    lcd.drawRectangle(xi, yi, editImgs[imageNum].imageWidth, editImgs[imageNum].imageHeight)
-	    local iN = Glass.page[pageNumber][gaugeNumber].instName
-	    local vv = Glass.page[pageNumber][gaugeNumber].value or 0.0
-	    drawText(xi, yi + 0*editImgs[imageNum].imageHeight/2, vv, iN, un, dp,
-		     editImgs[imageNum].imageWidth, editImgs[imageNum].imageHeight)
-	 elseif editImgs[imageNum].wtype == "timer" then
-	    lcd.setColor(0,0,0)
-	    lcd.drawRectangle(xi, yi, editImgs[imageNum].imageWidth, editImgs[imageNum].imageHeight)
-	    local iN = Glass.page[pageNumber][gaugeNumber].instName
-	    local vv = Glass.page[pageNumber][gaugeNumber].value or 0.0
-	    drawTimer(xi, yi, vv, iN, editImgs[imageNum].imageWidth, editImgs[imageNum].imageHeight)
-	 elseif editImgs[imageNum].wtype == "vltape" then
-	    lcd.setColor(0,0,0)
-	    --local function drawTape(r, x, y, v, lbl, barW, barH, width, height, side)
-	    r = 130/160
-	    local id = editImgs[imageNum].widgetID
-	    local fid = cfgimg.instruments[id].formID + 1
-	    local hh, ww = cfgimg.forms[fid].height, cfgimg.forms[fid].width	    	    
-	    local bh, bw = cfgimg.forms[fid].hgt, cfgimg.forms[fid].wid	    	    
-	    local side = cfgimg.instruments[id].side
-	    local dx
-	    if side == "left" then dx = 10 else dx = 10 end
-	    drawTape(r, xi + dx, yi+5, 100, "", bw*r, bh*r, ww*r, hh*r, side) 
+
+	 sendAL(gaugeNumber, 0)
+
+	 for k,v in ipairs(savedSerialReset) do
+	    teleSerialReset[k] = v
 	 end
+	 for k,v in ipairs(savedSerial) do
+	    teleSerial[k] = v
+	 end
+
+	 local xxx = 0
+	 for k,v in ipairs(teleSerialReset) do
+	    decodeAL(v, rr, xoffset, yoffset, wid, hgt)
+	 end
+	 for k,v in ipairs(teleSerial) do
+	    decodeAL(v, rr, xoffset, yoffset, wid, hgt)
+	 end
+
+	 savedSerialReset = {}
+	 savedSerial = {}
+	 teleSerialReset = {}
+	 teleSerial = {}
+
       else
 	 lcd.setColor(0,0,0)
 	 --lcd.drawText(200,80, "imageNum " .. (imageNum or "nil") .." " .. #editImgs)
@@ -4145,7 +4142,6 @@ local function printForm(w,h)
       lcd.resetClipping()
    end
 end
-
 
 local function drawNeedle(x0, y0, degMin, degMax, min, max, val, len)
    
@@ -4362,22 +4358,28 @@ local function printTele(w,h)
 
    local legacy = false
    
-   --Glass.var.output = "Jeti"
-   --if (not legacy) then 
-   --   sendAL("Jeti")
-   --end
-
    if (sendState == state.ALMOST) and splashScreen then
       lcd.drawImage(offset + 20, 20, splashScreen)
       return
    end
+
+   local rr = 160/256
+   --local xoffset = math.floor((320 - rr * 304) / 2) -- center the shrunk glasses space on the TX screen
+   --local yoffset = 0
+
+   local xoffset = 253 --200 * (system.getInputs("P7") + 1)
+   local yoffset = 153 --200 * (system.getInputs("P8") + 1)
+
+   --print("xoffset, yoffset", xoffset, yoffset)
+   
+   local wid, hgt = 0,0 --cfgimg.forms[fid].width, cfgimg.forms[fid].height)
    
    if not legacy then
       for k,v in ipairs(teleSerialReset) do
-	 decodeAL(v, "Jeti")
+	 decodeAL(v, rr, xoffset, yoffset, wid, hgt)
       end
       for k,v in ipairs(teleSerial) do
-	 decodeAL(v, "Jeti")
+	 decodeAL(v, rr, xoffset, yoffset, wid, hgt)
       end
    end
    
@@ -4809,7 +4811,7 @@ local function onRead(indata)
 	    gestureTime = system.getTimeCounter() + 1000
 	 end
       else
-	 print("DFM-HUD: onRead - command[2]", string.format("0x%02x", s))
+	 print("DFM-HUD: onRead - command[2]", string.format("0x%02x", string.byte(command,2)))
 	 local str = "DFM-HUD: onRead full response: "
 	 for i=1,#command,1 do
 	    str = str .. string.format("0x%02X ", string.byte(command, i))
