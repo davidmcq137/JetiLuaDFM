@@ -186,14 +186,14 @@
 	{
 	    "descr": "19) Vertical tape left 160x60",
 	    "x0":   0,  "y0":    0,
-	    "height":160, "width":120,
+	    "height":180, "width":120,
 	    "hgt":160, "wid": 60,
 	    "xlbl":  20, "ylbl": 150
 	},
 	{
 	    "descr": "20) Vertical tape right 160x60",
 	    "x0":  0,  "y0":    0,
-	    "height":160, "width":120,
+	    "height":180, "width":120,
 	    "hgt":160, "wid": 60,
 	    "xlbl":  20, "ylbl": 150
 	},

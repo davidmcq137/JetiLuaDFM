@@ -227,11 +227,17 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
    local x1j, y1j, x2j, y2j
    local r, f, c, t, r1, r2
    local b = string.byte(ps, 2)
+   local q = string.byte(ps, 3)
+   local qr
    local xt = {}
    local yt = {}
    local xtj = {}
    local ytj={}
 
+   if q~=0 and q~=2 then -- if need other command fmts need to support here - see AL docs sec 3.1
+      return
+   end
+   
    local function Xa2jc(x)
       return math.floor(rr * ((wid - x) - wid / 2)) + xoffset
    end
@@ -240,6 +246,7 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
       return math.floor(rr * ((hgt - y) - hgt / 2)) + yoffset
    end
    
+   -- set persisted Jeti color
    lcd.setColor(greyB, greyB, greyB)
       
    if b == 0x30 then --color
@@ -248,14 +255,22 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
       lcd.setColor(greyB, greyB, greyB)
       
    elseif b == 0x32 then --line
-      x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
+      if q == 0 then
+	 x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
+      elseif q == 2 then
+	 qr, x1, y1, x2, y2 = string.unpack(">I2i2i2i2i2", ps, 5)	 
+      end
       x1j = Xa2jc(x1) --math.floor(math.floor(rr*(gw - x1)) + xoffset)
       y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
       x2j = Xa2jc(x2) --math.floor(math.floor(rr*(gw - x2)) + xoffset)
       y2j = Ya2jc(y2) --math.floor(rr*(gh - y2) + yoffset)
       lcd.drawLine(x1j, y1j, x2j, y2j)
    elseif b == 0x33 then --rect
-      x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
+      if q == 0 then
+	 x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
+      elseif q == 2 then
+	 qr, x1, y1, x2, y2 = string.unpack(">I2i2i2i2i2", ps, 5)
+      end
       x1j = Xa2jc(x1) --math.floor(math.floor(rr*(gw - x1)) + xoffset)
       y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
       x2j = Xa2jc(x2) --math.floor(math.floor(rr*(gw - x2)) + xoffset)
@@ -265,7 +280,12 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
 			math.abs(x2j - x1j), math.abs(y2j - y1j))
       --print("###>rect", math.min(y1j, y2j), math.abs(y2j-y1j))      
    elseif b == 0x34 then --rectf
-      x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
+      if q == 0 then
+	 x1, y1, x2, y2 = string.unpack(">i2i2i2i2", ps, 5)
+      elseif q == 2 then
+	 qr, x1, y1, x2, y2 = string.unpack(">I2i2i2i2i2", ps, 5)
+      end
+      
       x1j = Xa2jc(x1) --math.floor(math.floor(rr*(gw - x1)) + xoffset)
       y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
       x2j = Xa2jc(x2) --math.floor(math.floor(rr*(gw - x2)) + xoffset)
@@ -275,7 +295,12 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
       --print("###>rectf", math.min(y1j, y2j), math.abs(y2j-y1j))
       
    elseif b == 0x37 then --text
-      x1, y1, r, f, c, str = string.unpack(">i2i2I1I1I1z", ps, 5)
+      if q == 0 then
+	 x1, y1, r, f, c, str = string.unpack(">i2i2I1I1I1z", ps, 5)
+      elseif q == 2 then
+	 qr, x1, y1, r, f, c, str = string.unpack(">I2i2i2I1I1I1z", ps, 5)
+      end
+      
       str = string.sub(str,1, -2)
       --print(str, x1, y1, wid, hgt)
       x1j = Xa2jc(x1) --math.floor(rr*(gw - x1) + xoffset)
@@ -301,7 +326,12 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
       ren:reset()
       len = string.byte(ps, 4)
       local start = 5
-      t, r1, r2, start = string.unpack(">i1i1i1", ps, start)
+      if q == 0 then
+	 t, r1, r2, start = string.unpack(">i1i1i1", ps, start)
+      elseif q == 2 then
+	 qr, t, r1, r2, start = string.unpack(">I2i1i1i1", ps, start)
+      end
+      
       --print("t, r1, r2, start", t, r1, r2, start, len)
       for i=1,(len-8) / 4 do -- 7 bytes of preamble plus ending "0xAA"
 	 xt[i], yt[i], start = string.unpack(">i2i2", ps, start)
@@ -314,11 +344,11 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
       local rad
       local ren = lcd.renderer()
       ren:reset()
-      x1, y1, rad = string.unpack(">i2i2I1", ps, 5)
-      --if rad ~= 5 then
-	 --print("circ", x1, y1, rad)
-      --end
-      
+      if q == 0 then
+	 x1, y1, rad = string.unpack(">i2i2I1", ps, 5)
+      elseif q == 2 then
+	 qr, x1, y1, rad = string.unpack(">I2i2i2I1", ps, 5)
+      end
       x1j = Xa2jc(x1) --math.floor(rr*(gw - x1) + xoffset)
       y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
       if b == 0x35 then
@@ -333,7 +363,12 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
       
    elseif b == 0x3c then -- arc
       local rad, as, ae, th
-      x1, y1, rad, as, ae, th = string.unpack(">i2i2I1i2i2I1", ps, 5)
+      if q == 0 then
+	 x1, y1, rad, as, ae, th = string.unpack(">i2i2I1i2i2I1", ps, 5)
+      elseif q == 2 then
+	 qr, x1, y1, rad, as, ae, th = string.unpack(">I2i2i2I1i2i2I1", ps, 5)
+      end
+      
       x1j = Xa2jc(x1) --math.floor(rr*(gw - x1) + xoffset)
       y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
       drawArc(math.rad(ae-as), x1j, y1j, math.rad(as + 180), math.rad(ae), rr*(rad), rr*(rad + th), 18, 1)
@@ -404,7 +439,7 @@ end
 
 local function writeInst()
    local bufClr = "FF010005AA"   
-   print("writeInst()")
+   --print("writeInst()")
    resetGlasses = 1
    serialWriteDirect(sidSerial, encodeBuf(bufClr)) -- clear screen
    savedSerial = {}
@@ -796,12 +831,12 @@ local function ALDrawRect(x0, y0, x1, y1, rCode, wait)
       pattern = ">BBBI1I2I2I2I2B"
       len = string.packsize(pattern)
       if (x0 < 0 or y0 < 0 or x1 < 0 or y1 < 0) then
-	 print("& ALDrawRect", x0, y0, x1, y1, rCode)
+	 --print("& ALDrawRect", x0, y0, x1, y1, rCode)
       end
       
       serialWrite(sidSerial,string.pack(pattern, 0xFF, rCode, 0x00, len,
-					math.max(x0,0), math.max(y0,0),
-					math.max(x1,0), math.max(y1,0), 0xAA))
+					math.floor(x0), math.floor(y0),
+					math.floor(x1), math.floor(y1), 0xAA))
    else
       pattern = ">BBBI1I1I1I2I2I2I2B"
       len = string.packsize(pattern)
@@ -867,7 +902,9 @@ local function ALDrawText(str, fontHeight, xp, yp, wait)
    local len
    local ps
    if wait then
-      pattern = string.format(">BBBI1I1I1I2I2I1I1I1c%dB", #str)
+      --                       >BBBI1    I2I2I1I1I1c%dB
+      --                        12345678901234567890123
+      pattern = string.format(">BBBI1I1I1i2i2I1I1I1c%dB", #str)
       len = string.packsize(pattern)
       ps = string.pack(pattern, 0xFF, 0x37, 0x02, len, 0, 0, xp, yp, textDir, fontCode,
 			  textColor, str, 0xAA)
@@ -941,7 +978,9 @@ local function ALDrawLine(x1, y1, x2, y2, wait)
    if not wait then
       pattern = ">BBBI1I2I2I2I2B"
       len = string.packsize(pattern)
-      serialWrite(sidSerial, string.pack(pattern, 0xFF, 0x32, 0x00, len, x1, y1, x2, y2, 0xAA))
+      serialWrite(sidSerial, string.pack(pattern, 0xFF, 0x32, 0x00, len,
+					 math.floor(x1), math.floor(y1),
+					 math.floor(x2), math.floor(y2), 0xAA))
    else
       pattern = ">BBBI1I1I1I2I2I2I2B"
       len = string.packsize(pattern)
@@ -1389,7 +1428,7 @@ local function ALVertTape (reset, seq, ccfg, cff, cid, val)
     local step = 10;
     local delta = val - math.floor(val / step) * step; -- this is equiv to v % step in lua
     local inc = step / nums;
-    local k1 = ((zp * nums) / step - (zp+1));
+    local k1 = ((zp * nums) / step - (zp));
     local k2 = ((zp * nums) / step + (zp-1));
     local kdx;
     local idx;
@@ -1403,6 +1442,7 @@ local function ALVertTape (reset, seq, ccfg, cff, cid, val)
 
     ALHold();
     ALColorBlack();
+    --print('1', x+x0 - barX, y+y0, x+x0-barX - barW, y+y0-barH)
     ALDrawRect(x+x0 - barX, y+y0, x+x0-barX - barW, y+y0-barH, 0x34, false); --erase last numbers in box
     ALColorWhite();
 
@@ -1421,18 +1461,25 @@ local function ALVertTape (reset, seq, ccfg, cff, cid, val)
         end
         ALDrawLine(x + x0 - 2 * barX, y + y0 - barH / 2 + ypi, x + x0 -2*barX + xtick,
 		   y + y0 - barH / 2 + ypi, false);
+	--print(valText, 16, x + x0 - barX - xnum, y + y0 - barH / 2 + ypi)
         ALDrawTextC(valText, 16, x + x0 - barX - xnum, y + y0 - barH / 2 + ypi, waitReply);
         waitReply = false;
       end 
       kdx = kdx + 1;
     until (kdx > k2);
     
-    local blnk = 30;
+    local blnk = 20;
     
     ALColorBlack();
-    
-    ALDrawRect(x+x0-barX, y+y0+1, x+x0-barX-barW, y+y0+blnk, 0x34, false); --erase above box
+    --print("2", x+x0-barX, y+y0+1, x+x0-barX-barW, y+y0+blnk)
+    --ALColorWhite()
+    ALDrawRect(x+x0-barX, y+y0+0*1, x+x0-barX-barW, y+y0+blnk, 0x34, false); --erase above box
+    --ALColorBlack()
+    --print("3", x+x0-barX, y+y0-barH-1, x+x0-barX-barW, y+y0-barH-blnk, x0, y0)
+    --ALColorWhite()
     ALDrawRect(x+x0-barX, y+y0-barH-1, x+x0-barX-barW, y+y0-barH-blnk, 0x34, false); -- erase below box
+    --ALColorBlack()
+    --print("4", x + x0 - valX, y + y0 - barH / 2, barW, 26+4); -- erase value box
     ALDrawRectC(x + x0 - valX, y + y0 - barH / 2, barW, 26+4, 0x34); -- erase value box
 
     ALColorWhite();
@@ -2186,7 +2233,7 @@ end
 
 
 
-local function sendAL(g, seq)
+local function sendAL(g, pN, seq)
 
    local gpp
    local ccfg, cid, fid, fmt, cff, ccf
@@ -2200,9 +2247,9 @@ local function sendAL(g, seq)
    -- REMINDER: USE cfgimgESP table to send to the glasses!!!
    --
 
-   gpp = Glass.page[pageNumberTele]
+   gpp = Glass.page[pN]
    if not gpp then
-      print("sendAL: Glass.page[pageNumberTele] is nil")
+      print("sendAL: Glass.page[pN] is nil")
       return
    end
    
@@ -2211,7 +2258,7 @@ local function sendAL(g, seq)
    ccf =  cfgimgESP.config[fmt]
    local t = gpp[g]
    
-   --print("sendAL pn, gn", pageNumberTele, g)
+   --print("sendAL pn, gn", pN, g)
    
    if t.widgetID > 0 and t.imageID >= 0 then        -- if there is a value to animate
       if not seq then
@@ -2255,7 +2302,7 @@ local function sendAL(g, seq)
       val = t.value
       val2 = t.value2
 
-      --print("sendAL: g, pageNumberTele, t.widgetID, cid.type", g, pageNumberTele, t.widgetID, cid.wtype)
+      --print("sendAL: g, pN, t.widgetID, cid.type", g, pN, t.widgetID, cid.wtype)
       
       if cid.wtype == "gauge" then
 	 ALGauge(rst, seq, ccfg, cff, cid, val, val2, min, max, mk, dd, lbl)
@@ -2835,7 +2882,7 @@ local function loop()
 	    if not form.getActiveForm() and (sendJson or forceSend) then 
 	       sendIndex = sendIndex + 1
 	       if sendIndex <= numInsts then
-		  sendAL(sendIndex)
+		  sendAL(sendIndex, pageNumberTele)
 	       end
 	       ALFlushReset(false) -- clear graphics engine hold state before sending new frame
 
@@ -4077,8 +4124,8 @@ local function printForm(w,h)
 	    xoffset, yoffset = w / 2, 3 * h / 4
 	    dh = 0
 	    dw = 0
-	    --lcd.drawFilledRectangle(w / 8, h/2 , 3 * w / 4, h / 2)
-	    lcd.drawFilledRectangle(0, h/2 , w, h / 2)
+	    lcd.drawFilledRectangle(w / 8, h/2 , 3 * w / 4, h / 2)
+	    --lcd.drawFilledRectangle(0, h/2 , w, h / 2)
 	 else
 	    rr = 0.6
 	    xoffset, yoffset = w / 2 + w / 4, h / 2
@@ -4087,7 +4134,7 @@ local function printForm(w,h)
 	    lcd.drawFilledRectangle(w - bw, 0, bw, bh)
 	 end
 
-	 sendAL(gaugeNumber, 0)
+	 sendAL(gaugeNumber, pageNumber, 0)
 
 	 for k,v in ipairs(savedSerialReset) do
 	    teleSerialReset[k] = v
@@ -4294,7 +4341,7 @@ local function printTele(w,h)
    lcd.setColor(0,0,0)
    lcd.drawFilledRectangle(0,0,319,159) -- black background over entire window
    lcd.setColor(255,255,255)            -- rest of animation (needles, etc) is white
-   lcd.drawRectangle(1+offset, 1, (304-2)*r, (256-4)*r) -- draw scaled glasses hw screen as box
+   --lcd.drawRectangle(1+offset, 1, (304-2)*r, (256-4)*r) -- draw scaled glasses hw screen as box
    if pageNumberTele and pageNumberTele > 0 then
       lcd.drawText(10, 10, string.format("Page %d", pageNumberTele))
    end
@@ -4382,6 +4429,8 @@ local function printTele(w,h)
 	 decodeAL(v, rr, xoffset, yoffset, wid, hgt)
       end
    end
+
+   lcd.drawRectangle(1+offset, 1, (304-2)*r, (256-4)*r) -- draw scaled glasses hw screen as box
    
    -- ***
    if (legacy) then
