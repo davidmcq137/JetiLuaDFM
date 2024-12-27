@@ -184,14 +184,14 @@
 	    "xlbl":    80, "ylbl":  185
 	},
 	{
-	    "descr": "19) Vertical tape left 160x60",
+	    "descr": "19) Vertical tape left 180x60",
 	    "x0":   0,  "y0":    0,
 	    "height":180, "width":120,
 	    "hgt":160, "wid": 60,
 	    "xlbl":  20, "ylbl": 150
 	},
 	{
-	    "descr": "20) Vertical tape right 160x60",
+	    "descr": "20) Vertical tape right 180x60",
 	    "x0":  0,  "y0":    0,
 	    "height":180, "width":120,
 	    "hgt":160, "wid": 60,
