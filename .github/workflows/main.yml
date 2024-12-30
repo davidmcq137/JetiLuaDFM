@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq sox
+          sudo apt-get install -y jq sox libreadline-dev
       - name: Build Lua apps
         id: lc_build
         shell: bash
