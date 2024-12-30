@@ -41,7 +41,7 @@
      "decimals": 0,
      "type": 1,
      "sensorName": "Airspeed",
-     "luaExp": "P1(100)",
+     "luaExp": "300 + P1(200) * sin(t/20)",
      "label": "Airspeed",
      "unit": "m/s"
     },

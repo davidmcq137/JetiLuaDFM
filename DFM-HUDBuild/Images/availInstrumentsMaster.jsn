@@ -205,7 +205,13 @@
 	    "xlbl": 20, "ylbl": 75,
 	    "x0":    45, "y0":    0,
 	    "major": 5
+	},
+	{
+	    "descr": "22) map 250x300",
+	    "height":250, "width":300,
+	    "x0": 150, "y0": 125
 	}
+	
     ],
     
     "instruments":
@@ -342,6 +348,14 @@
 	 "label": "",
 	 "minV":0, "maxV":100,	 
 	 "ticlabels": "",
+	 "scale":"variable"
+	},
+
+	{"formID":22, "wtype": "man",
+	 "inputs":1,
+	 "label":"",
+	 "minV":0, "maxV":100,
+	 "ticlabels":"",
 	 "scale":"variable"
 	}
     ]
