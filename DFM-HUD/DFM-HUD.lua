@@ -2347,7 +2347,7 @@ local function loop()
       end
    end
 
-   local historyPts = 40
+   local historyPts = 40 -- making this larger causes too much CPU load in the tele draw callback
    
    if Glass.var.currentPosition and Glass.var.zeroPos and
       Glass.var.startTakeoff and Glass.var.gearUp and now > lastScreen then
@@ -2355,7 +2355,6 @@ local function loop()
       local zero2currD = gps.getDistance(Glass.var.currentPosition, Glass.var.zeroPos)
       local gearUp2toB = gps.getBearing(Glass.var.startTakeoff, Glass.var.gearUp)
       local theta = zero2currB - gearUp2toB - 90
-      --print("A", zero2currB, gearUp2toB, zero2currB - gearUp2toB - 90, theta)
       local idx = #pos3D.x
       if idx >= historyPts then
 	 table.remove(pos3D.x,1)
