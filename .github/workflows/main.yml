@@ -18,6 +18,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq sox libreadline-dev          
+      - name: install heroku cli
+        shell: bash
+        run: |
+          sudo curl https://cli-assets.heroku.com/install-ubuntu.sh | sh
       - name: Build lua itself
         shell: bash
         run: |
