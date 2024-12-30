@@ -57,7 +57,7 @@ jobs:
           echo '================================================================'
           ./bb clojure -M -e '(user/build-uberjar-and-exit "dist.jar")'
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: server-jar
           path: dist.jar
