@@ -13,17 +13,17 @@ jobs:
         with:
           repository: fazzone/lua_jeti
           path: lua_jeti
+      - name: apt deps
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq sox libreadline-dev          
       - name: Build lua itself
         shell: bash
         run: |
           set -ex
           cd lua_jeti
           make -j4 linux
-      - name: apt deps
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq sox libreadline-dev
       - name: Build Lua apps
         id: lc_build
         shell: bash
