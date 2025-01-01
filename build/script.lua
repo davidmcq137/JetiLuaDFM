@@ -36,7 +36,8 @@ local app_settings = {
   ['DFM-SpdA']  = {no_lc = true},
   ['DFM-Smoke'] = {no_lc = true},
   ['CTU-DFM']   = {no_lc = true},
-  ['Glass']     = {no_lc = true}
+  ['Glass']     = {no_lc = true},
+  ['DFM-HUD']   = {no_lc = true}  
 }
 
 local function make_lc(lua_source, lc_out, no_strip)
