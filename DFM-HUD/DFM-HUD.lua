@@ -677,6 +677,11 @@ local function RLhgt(str, font)
    if str == "---" then return mm * font else return font end
 end
 
+local function ALVersCheck()
+   local pattern = ">BBBI1B"
+   serialWriteDirect(sidSerial, string.pack(pattern, 0xFF, 0x06, 0x00, 0x05, 0xAA))
+end
+
 local function ALBattCheck()
    local pattern = ">BBBI1B"
    serialWriteDirect(sidSerial, string.pack(pattern, 0xFF, 0x05, 0x00, 0x05, 0xAA))
@@ -2379,6 +2384,7 @@ local function loop()
       local zero2currD = gps.getDistance(Glass.var.currentPosition, Glass.var.zeroPos)
       local gearUp2toB = gps.getBearing(Glass.var.startTakeoff, Glass.var.gearUp)
       local theta = zero2currB - gearUp2toB - 90
+      --print("perp", gearUp2toB - 90)
       local idx = #pos3D.x
       if idx >= historyPts then
 	 table.remove(pos3D.x,1)
@@ -2435,7 +2441,7 @@ local function loop()
    
    if system.getTimeCounter() > oncePerSecond and sendState == state.COMPLETE then
       ALBattCheck()
-      oncePerSecond =system.getTimeCounter() + 1000
+      oncePerSecond = system.getTimeCounter() + 1000
    end
 
    if emflag ~= 0 then

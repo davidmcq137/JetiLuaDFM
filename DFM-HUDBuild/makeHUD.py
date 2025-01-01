@@ -104,6 +104,10 @@ for ins in jd["instruments"]:
 
 os.system("set -e; python3 configG.py config-fonts")
 
+# and the splash screen
+
+os.system("set -e; python3 configG.py config-imgs-DFML7Gray")
+
 imageID = 0
 for imgs in jd["instruments"]:
 	#print("loop", imgs["wtype"])
