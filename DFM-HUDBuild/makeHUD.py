@@ -104,7 +104,7 @@ for ins in jd["instruments"]:
 
 os.system("set -e; python3 configG.py config-fonts")
 
-# and the splash screen
+# and the splash screen (the only image we are actually using)
 
 os.system("set -e; python3 configG.py config-imgs-DFML7Gray")
 
