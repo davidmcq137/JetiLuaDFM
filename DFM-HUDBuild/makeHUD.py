@@ -155,6 +155,8 @@ with open("./Configs/config-version.jsn", "w") as cf:
 ##os.system('set -e;cp -v Configs/config-*.txt ../DFM-HUD/Configs')
 #os.system('set -e;cat ../DFM-HUD/Configs/config-fonts.txt ../DFM-HUD/Configs/config-imgs-DFML7Gray.txt ../DFM-HUD/Configs/config-imgs-arc160.txt > ../DFM-HUD/Configs/config-fonts-images.txt')
 os.system('set -e;cat ./Configs/config-fonts.txt ./Configs/config-imgs-DFML7Gray.txt > ./Configs/config-fonts-images.txt')
+os.system('set -e;cp -v ./Images/DFML7Small.png ../DFM-HUD/Images/DFML7Small.png')
+
 os.system('set -e; cp -v ./Configs/config-fonts-images.txt ../DFM-HUD/Configs')
 os.system('set -e;cp -v Configs/config-version.jsn ../DFM-HUD/Json')
 ##os.system('set -e;cp -v Images/small/*-small.png ../DFM-HUD/Images')

@@ -79,8 +79,7 @@ DFM-HUD/Json/GG*.jsn
 DFM-HUD/Configs/*Image*.txt
 DFM-HUD/Json/log*.txt
 DFM-HUD/Json/logfile*.txt
-#DFM-HUD/Configs/config*.txt
-#DFM-HUDBuild/Configs/*config-fonts*.txt
+DFM-HUDBuild/Configs/config-fonts-images.txt
 DFM-HUDBuild/Configs/*config-imgs*.txt
 DFM-HUDBuild/Configs/*Image*.txt
 DFM-HUDBuild/Configs/*Image*.json

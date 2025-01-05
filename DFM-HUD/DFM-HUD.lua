@@ -2198,10 +2198,13 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    ALHold(false)
 
    ALColorBlack()
-   ALDrawRectC(valX, valY, RLwid("0000", 26), 26, 0x34)
-   if reset ~= 1 and arcAnglePrev[seq] ~= arcStart then
-      ALDrawArc(x + x0, y + y0, rOut, arcStart, arcAnglePrev[seq], thk, false)
-   end
+   ALDrawRect(x, y, x + width, y + height, 0x34, false)
+   
+   ---ALColorBlack()
+   ---ALDrawRectC(valX, valY, RLwid("0000", 26), 26, 0x34)
+   ---if reset ~= 1 and arcAnglePrev[seq] ~= arcStart then
+   ---   ALDrawArc(x + x0, y + y0, rOut, arcStart, arcAnglePrev[seq], thk, false)
+   ---end
 
    --if width == 160 and height == 160 then
    --   print(x,y,x0,y0,rOut,thk)
@@ -2235,14 +2238,18 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    
    ALColorWhite()
    
-   if reset == 1 then
-      resetOn()
-      --print("alarc reset")
-      ALDrawText(lbl, 16, lblX, lblY, false)
-      ALDrawText(minText, 16, xlMin, ylMin, false)
-      ALDrawText(maxText, 16, xlMax, ylMax, false)
-      resetOff()
-   end
+   ---if reset == 1 then
+   ---   resetOn()
+   ---   --print("alarc reset")
+   ---   ALDrawText(lbl, 16, lblX, lblY, false)
+   ---   ALDrawText(minText, 16, xlMin, ylMin, false)
+   ---   ALDrawText(maxText, 16, xlMax, ylMax, false)
+   ---   resetOff()
+   ---end
+
+   ALDrawText(lbl, 16, lblX, lblY, false)
+   ALDrawText(minText, 16, xlMin, ylMin, false)
+   ALDrawText(maxText, 16, xlMax, ylMax, false)
 
    arcErase = arcAngle[seq]
    
@@ -2514,7 +2521,8 @@ local function loop()
       --print("no currentPosition")
    end
    
-   if system.getTimeCounter() > oncePerSecond and sendState == state.COMPLETE then
+   if system.getTimeCounter() > oncePerSecond and sendState == state.COMPLETE then --and
+	 --not form.getActiveForm() then
       ALBattCheck()
       oncePerSecond = system.getTimeCounter() + 1000
    end
@@ -2882,7 +2890,7 @@ local function loop()
 
       if hasArcGauge then
 	 --print("clamp looptime")
-	 LOOPTIME = math.max(LOOPTIME, 300)
+	 LOOPTIME = math.max(LOOPTIME, 250)
       end
 
       if sendIndex >= numInsts and now - lastSend > LOOPTIME then
@@ -3004,6 +3012,7 @@ local function loop()
 	 --writeInst()
 	 serialWriteDirect(sidSerial, encodeBuf(bufDsp))
 	 if splashScreen then
+	    print("SPLASH!")
 	    jsonHoldTime = unow + 3000 -- wait 3s to allow setup, clear, flush and disp splash screen
 	 end
 	 --resetGlasses = 1
@@ -3452,6 +3461,18 @@ local function initForm(sf)
 	 end), {label="Delete app from glasses >>"}
       )
 
+      form.addRow(1)
+      form.addLink(
+	 (
+	    function()
+	       local pattern = ">BBBI1B"
+	       local len = string.packsize(pattern)
+	       serialWriteDirect(sidSerial, string.pack(pattern, 0xEE, 0xD5, 0x00, len,
+							0xBB))
+	       system.messageBox("DFM-HUD: Sent PM")
+	 end), {label="Send PM >>"}
+      )
+
    elseif sf == 12 then
 
       local isel = 0
@@ -3526,20 +3547,16 @@ local function initForm(sf)
       
       local dd = Glass.page[pageNumber][gaugeNumber].dispdec
       form.addIntbox(dd, 0, 2, sd, 0, 1, changedDispDec)
-      
+
       local maj, majD
       local wid = Glass.page[pageNumber][gaugeNumber].widgetID
-      print("widgetID", wid)
       local cid = cfgimgESP.instruments[wid]
       local fid = cid.formID + 1
-      print("fid", fid)
       majD = cfgimgESP.forms[fid].major
       maj = Glass.page[pageNumber][gaugeNumber].major
       if not maj then maj = majD end
       
-      print("%%", "maj, majD", maj, majD)
-
-      if majD then -- if they key "major" exists
+      if majD then -- if they key "major" exists (it's a gauge, not an arc or ...)
 	 local function changedMajor(val)
 	    Glass.page[pageNumber][gaugeNumber].major = val
 	 end
@@ -3548,7 +3565,6 @@ local function initForm(sf)
 	 form.addIntbox(maj, 2, 12, majD, 0, 1, changedMajor)
       end
       
-
       form.addRow(2)
       form.addLabel({label="Zero offset", font=FONT_NORMAL})
 
@@ -4580,7 +4596,7 @@ local function init()
    end
    --]]
    
-   print("1", system.getCPU())
+   print("CPU 1", system.getCPU())
    
    fn = prefix() .. pathJson .. "instrESP.jsn"
       
@@ -4614,6 +4630,7 @@ local function init()
    
    fn = prefix() .. pathImages .."DFML7Small.png"
    splashScreen = lcd.loadImage(fn)
+   print("splashScreen", splashScreen)
    fn = prefix() .. pathImages .. "glasses.png"
    glassesIcon = lcd.loadImage(fn)
    fn = prefix() .. pathImages .. "redcross.png"
