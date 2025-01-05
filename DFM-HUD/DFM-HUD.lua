@@ -2396,7 +2396,7 @@ local oncePerSecond = 0
 local lastTakeoffSw = 0
 local lastGearUpSw = 0
 local lastScreen = 0
-local startUp = system.getTimeCounter()
+--local startUp = system.getTimeCounter()
 
 local function loop()
    local now = system.getTimeCounter()
