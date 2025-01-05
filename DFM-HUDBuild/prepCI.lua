@@ -77,6 +77,8 @@ for k,gp in ipairs(availFmt) do
       cfgimgESP.config[k][g].ylr = math.floor(gh - (availVals[t.yc] + t.height/2))
       cfgimgESP.config[k][g].width = t.width
       cfgimgESP.config[k][g].height = t.height
+      cfgimgESP.config[k][g].jxc = availVals[t.xc] -- Jeti xc needed for printscreen fcn
+      cfgimgESP.config[k][g].jyc = availVals[t.yc] -- Jeti yc
       
       cfgimg.config[k][g] = {}
       cfgimg.config[k][g].xul = math.floor(availVals[t.xc] - t.width/2)
@@ -111,11 +113,13 @@ cfgimg.instruments = {}
 -- so they are not copied to the operational json files. They remain included
 -- for the hbar type
 
-skip = {height=true, width=true, name=true, label=true, descr=true,
-	xlminX=true, xlmaxX=true, ylminX=true, ylmaxX=true,
-	--major=true, minor=true, fine=true,
-	ticlabels=true, --, radius=true,
-	["xbmpfile"]=true
+skip = {
+   --height=true, width=true,
+   name=true, label=true, descr=true,
+   xlminX=true, xlmaxX=true, ylminX=true, ylmaxX=true,
+   --major=true, minor=true, fine=true,
+   ticlabels=true, --, radius=true,
+   ["xbmpfile"]=true
 }
 
 -- identify which values have to be translated from the conventional upper left origin

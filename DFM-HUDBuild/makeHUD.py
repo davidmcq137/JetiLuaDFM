@@ -40,117 +40,133 @@ os.system("rm Configs/config-imgs-Image*")
 
 # now loop over the instruments file and create all the required bmp images
 
-imageID = 0
-frm = jd["forms"]
-for ins in jd["instruments"]:
-	if ins["wtype"] == "gauge" or ins["wtype"] == "compass":
-		imageID += 1
-		formID = ins["formID"]
-		ff = frm[formID]
-		imgs = "./Images/Image{:02d}.bmp".format(imageID)
-		print("gauge/compass creating Image:", imgs, ins["wtype"], ff["descr"])
-		bmpf = ins.get("bmpfile")
-		if bmpf == None:
-			options = str(ff["width"]) + " " + str(ff["height"]) + " "
-			options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
-			options = options + str(ff["radius"]) + " " + str(ff["minA"]) + " "
-			options = options + str(ff["maxA"]) + " " + str(ff["major"]) + " "
-			options = options + str(ff["minor"]) + " " + str(ff["fine"]) + " "
-			options = options + "'" + ins["ticlabels"] + "' "
-			options = options + "'" + ins["label"] + "' "
-			options = options + str(ff["xlbl"]) + " " + str(ff["ylbl"]) + " "
-			options = options + imgs
-			#print("gaugeGen.py options: ", options)
-			os.system("set -e; python3 gaugeGen.py " + options)
-		else:
-			print("Copying manually drawn file " + bmpf + " as " + imgs)
-			os.system("set -e; cp Images/archive/" + bmpf + " " + imgs)
+# imageID = 0
+# frm = jd["forms"]
+# for ins in jd["instruments"]:
+# 	if ins["wtype"] == "gauge" or ins["wtype"] == "compass":
+# 		imageID += 1
+# 		formID = ins["formID"]
+# 		ff = frm[formID]
+# 		imgs = "./Images/Image{:02d}.bmp".format(imageID)
+# 		print("gauge/compass creating Image:", imgs, ins["wtype"], ff["descr"])
+# 		bmpf = ins.get("bmpfile")
+# 		if bmpf == None:
+# 			options = str(ff["width"]) + " " + str(ff["height"]) + " "
+# 			options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
+# 			options = options + str(ff["radius"]) + " " + str(ff["minA"]) + " "
+# 			options = options + str(ff["maxA"]) + " " + str(ff["major"]) + " "
+# 			options = options + str(ff["minor"]) + " " + str(ff["fine"]) + " "
+# 			options = options + "'" + ins["ticlabels"] + "' "
+# 			options = options + "'" + ins["label"] + "' "
+# 			options = options + str(ff["xlbl"]) + " " + str(ff["ylbl"]) + " "
+# 			options = options + imgs
+# 			#print("gaugeGen.py options: ", options)
+# 			os.system("set -e; python3 gaugeGen.py " + options)
+# 		else:
+# 			print("Copying manually drawn file " + bmpf + " as " + imgs)
+# 			os.system("set -e; cp Images/archive/" + bmpf + " " + imgs)
 			
-	elif ins["wtype"] == "hbar":
-		imageID += 1
-		formID = ins["formID"]
-		ff = frm[formID]
-		imgs = "./Images/Image{:02d}.bmp".format(imageID)
-		print("hbar creating Image:", imgs, ins["wtype"], ff["descr"])
-		options = str(ff["width"]) + " " + str(ff["height"]) + " "
-		options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
-		options = options + str(ff["wid"]) + " " + str(ff["hgt"]) + " "
-		options = options + str(ff["major"]) + " "
-		options = options + "'" + ins["ticlabels"] + "' "
-		options = options + "'" + ins["label"] + "' "
-		options = options + str(ff["xlbl"]) + " " + str(ff["ylbl"]) + " "
-		options = options + imgs
-		#print("hbarGen.py options: ", options)
-		os.system("set -e; python3 hbarGen.py " + options)
+# 	elif ins["wtype"] == "hbar":
+# 		imageID += 1
+# 		formID = ins["formID"]
+# 		ff = frm[formID]
+# 		imgs = "./Images/Image{:02d}.bmp".format(imageID)
+# 		print("hbar creating Image:", imgs, ins["wtype"], ff["descr"])
+# 		options = str(ff["width"]) + " " + str(ff["height"]) + " "
+# 		options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
+# 		options = options + str(ff["wid"]) + " " + str(ff["hgt"]) + " "
+# 		options = options + str(ff["major"]) + " "
+# 		options = options + "'" + ins["ticlabels"] + "' "
+# 		options = options + "'" + ins["label"] + "' "
+# 		options = options + str(ff["xlbl"]) + " " + str(ff["ylbl"]) + " "
+# 		options = options + imgs
+# 		#print("hbarGen.py options: ", options)
+# 		os.system("set -e; python3 hbarGen.py " + options)
 
-	elif ins["wtype"] == "vbar":
-		imageID += 1
-		formID = ins["formID"]
-		ff = frm[formID]
-		imgs = "./Images/Image{:02d}.bmp".format(imageID)
-		print("vbar creating Image:", imgs, ins["wtype"], ff["descr"])
-		options = str(ff["width"]) + " " + str(ff["height"]) + " "
-		options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
-		options = options + str(ff["wid"]) + " " + str(ff["hgt"]) + " "
-		options = options + str(ff["major"]) + " "
-		options = options + "'" + ins["ticlabels"] + "' "
-		options = options + "'" + ins["label"] + "' "
-		options = options + str(ff["xlbl"]) + " " + str(ff["ylbl"]) + " "
-		options = options + imgs
-		#print("vbarGen.py options: ", options)
-		os.system("set -e; python3 vbarGen.py " + options)
+# 	elif ins["wtype"] == "vbar":
+# 		imageID += 1
+# 		formID = ins["formID"]
+# 		ff = frm[formID]
+# 		imgs = "./Images/Image{:02d}.bmp".format(imageID)
+# 		print("vbar creating Image:", imgs, ins["wtype"], ff["descr"])
+# 		options = str(ff["width"]) + " " + str(ff["height"]) + " "
+# 		options = options + str(ff["x0"]) + " " + str(ff["y0"]) + " "
+# 		options = options + str(ff["wid"]) + " " + str(ff["hgt"]) + " "
+# 		options = options + str(ff["major"]) + " "
+# 		options = options + "'" + ins["ticlabels"] + "' "
+# 		options = options + "'" + ins["label"] + "' "
+# 		options = options + str(ff["xlbl"]) + " " + str(ff["ylbl"]) + " "
+# 		options = options + imgs
+# 		#print("vbarGen.py options: ", options)
+# 		os.system("set -e; python3 vbarGen.py " + options)
 		
 # before making the .txt files for the images, "compile" the fonts portion
 
 os.system("set -e; python3 configG.py config-fonts")
 
 # and the splash screen (the only image we are actually using)
+# ... testing with arc160
 
 os.system("set -e; python3 configG.py config-imgs-DFML7Gray")
+#os.system("set -e; python3 configG.py config-imgs-arc160")
 
-imageID = 0
-for imgs in jd["instruments"]:
-	#print("loop", imgs["wtype"])
-	if imgs["wtype"] == "gauge" or imgs["wtype"] == "compass" or imgs["wtype"] == "hbar" or imgs["wtype"] == "vbar":
-		imageID += 1
-		name = "Image{:02d}.bmp".format(imageID)
-		sname = "Image{:02d}".format(imageID)
-		config = {"imgs": [{"id":imageID, "path":"./Images/" + name, "fmt":"mono_4bpp"}] }
-		str = json.dumps(config)
-		#print("dumps: " + str)
-		with open("./Configs/config-imgs-" + sname + ".json", "w") as cf:
-			try:
-				json.dump(config, cf)
-			except ValueError as valmsg:
-				print("Could not open json file to write " + name)
-				print(valmsg)
-				exit()
+# imageID = 0
+# for imgs in jd["instruments"]:
+# 	#print("loop", imgs["wtype"])
+# 	if imgs["wtype"] == "gauge" or imgs["wtype"] == "compass" or imgs["wtype"] == "hbar" or imgs["wtype"] == "vbar":
+# 		imageID += 1
+# 		name = "Image{:02d}.bmp".format(imageID)
+# 		sname = "Image{:02d}".format(imageID)
+# 		config = {"imgs": [{"id":imageID, "path":"./Images/" + name, "fmt":"mono_4bpp"}] }
+# 		str = json.dumps(config)
+# 		#print("dumps: " + str)
+# 		with open("./Configs/config-imgs-" + sname + ".json", "w") as cf:
+# 			try:
+# 				json.dump(config, cf)
+# 			except ValueError as valmsg:
+# 				print("Could not open json file to write " + name)
+# 				print(valmsg)
+# 				exit()
 
-		os.system("set -e; python3 configG.py " + "config-imgs-" + sname)
-		oscmd = "set -e;mogrify -resize 90% -format png -path Images/small " + "Images/" + name
-		os.system(oscmd)
-		oscmd = "set -e;mogrify -resize 63% -format png -path Images/smaller " + "Images/" + name	
-		os.system(oscmd)
-		os.system("mv ./Images/small/" + sname + ".png " +
-				  " ./Images/small/" + sname + "-small.png")
-		os.system("mv ./Images/smaller/" + sname + ".png " +
-				  " ./Images/smaller/" + sname + "-smaller.png")
+# 		os.system("set -e; python3 configG.py " + "config-imgs-" + sname)
+# 		oscmd = "set -e;mogrify -resize 90% -format png -path Images/small " + "Images/" + name
+# 		os.system(oscmd)
+# 		oscmd = "set -e;mogrify -resize 63% -format png -path Images/smaller " + "Images/" + name	
+# 		os.system(oscmd)
+# 		os.system("mv ./Images/small/" + sname + ".png " +
+# 				  " ./Images/small/" + sname + "-small.png")
+# 		os.system("mv ./Images/smaller/" + sname + ".png " +
+# 				  " ./Images/smaller/" + sname + "-smaller.png")
 
+vers = {"version": 8} # increment this when changing fonts or splash screen
+
+with open("./Configs/config-version.jsn", "w") as cf:
+	try:
+		json.dump(vers, cf)
+	except ValueError as valmsg:
+		print("Could not open json file to write version file")
+		print(valmsg)
+		exit()
+		
+		
 #print("EXITING")
 #exit()
 		
-os.system('set -e;cp -v Configs/config-*.txt ../DFM-HUD/Configs')
-os.system('set -e;cat ../DFM-HUD/Configs/config-fonts.txt ../DFM-HUD/Configs/config-imgs-DFML7Gray.txt > ../DFM-HUD/Configs/config-fonts-images.txt')
-os.system('set -e;cp -v Images/small/*-small.png ../DFM-HUD/Images')
-os.system('set -e;cp -v Images/smaller/*-smaller.png ../DFM-HUD/Images')
+##os.system('set -e;cp -v Configs/config-*.txt ../DFM-HUD/Configs')
+#os.system('set -e;cat ../DFM-HUD/Configs/config-fonts.txt ../DFM-HUD/Configs/config-imgs-DFML7Gray.txt ../DFM-HUD/Configs/config-imgs-arc160.txt > ../DFM-HUD/Configs/config-fonts-images.txt')
+os.system('set -e;cat ./Configs/config-fonts.txt ./Configs/config-imgs-DFML7Gray.txt > ./Configs/config-fonts-images.txt')
+os.system('set -e; cp -v ./Configs/config-fonts-images.txt ../DFM-HUD/Configs')
+os.system('set -e;cp -v Configs/config-version.jsn ../DFM-HUD/Json')
+##os.system('set -e;cp -v Images/small/*-small.png ../DFM-HUD/Images')
+##os.system('set -e;cp -v Images/smaller/*-smaller.png ../DFM-HUD/Images')
 #os.system('set -e;cp -v Images/availInstrumentsMaster.jsn ../DFM-HUD/Json/availInstruments.jsn')
 #os.system('set -e;cp -v Images/availFmtMaster.jsn ../DFM-HUD/Json/availFmt.jsn')
 
 os.system('set -e;lua prepCI.lua')
 os.system('set -e;cp -v Images/instrESP.jsn ../DFM-HUD/Json')
-os.system('set -e;cp -v Images/instrDB.jsn ../DFM-HUD/Json')
-os.system('set -e;cp -v Images/instr.jsn ../DFM-HUD/Json')
-os.system('set -e;lua header.lua')
+#os.system('set -e;cp -v Images/instrDB.jsn ../DFM-HUD/Json')
+#os.system('set -e;cp -v Images/instr.jsn ../DFM-HUD/Json')
+#os.system('set -e;lua header.lua')
 
 #os.system('set -e;cp -v Images/instrESP.h ~/nimBLE-Jeti-FS-json-ota-01/src')
 

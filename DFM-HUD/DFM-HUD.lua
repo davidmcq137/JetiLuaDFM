@@ -50,9 +50,9 @@ Glass.timers = {}
 Glass.switchInfo = {}
 Glass.var = {}
 
-Glass.convertStr = {"None", "m to ft", "m/s to mph", "m/s to km/h", "°C to °F"}
-Glass.convertVal = {{1,0}, {3.28084,0}, {2.23694,0} , {3.6,0}, {1.8,32}}
-Glass.convertUnits = {"-", "ft", "mph", "km/h", "°F"}
+Glass.convertStr = {"None", "m to ft", "m/s to mph", "m/s to km/h", "°C to °F", "/1000"}
+Glass.convertVal = {{1,0}, {3.28084,0}, {2.23694,0} , {3.6,0}, {1.8,32}, {.001,0}}
+Glass.convertUnits = {"-", "ft", "mph", "km/h", "°F", "-"}
 
 --Glass.switches = {}
 
@@ -150,8 +150,9 @@ local function rotateXY(xx, yy, rotation)
 end
 
 local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp)
-   --aR not used?
+
    local ren = lcd.renderer()
+
    ren:reset()
    ren:addPoint(x0 - ri * math.cos(a0), y0 - ri * math.sin(a0))
    ren:addPoint(x0 - ro * math.cos(a0), y0 - ro * math.sin(a0))   
@@ -166,7 +167,7 @@ local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp)
    for i=im-1,1,-1 do
       ren:addPoint(x0 - ri * math.cos(a0+i*theta/im), y0 - ri * math.sin(a0+i*theta/im))
    end
-   lcd.setColor(255,255,255)
+
    ren:renderPolygon(alp)
 end
 
@@ -234,6 +235,9 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
       
    if b == 0x30 then --color
       local grey = string.byte(ps, 5)
+      if grey ~= 0 then
+	 grey = math.max(string.byte(ps, 5),7)
+      end
       greyB = grey | grey<<4
       lcd.setColor(greyB, greyB, greyB)
       
@@ -373,9 +377,16 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
 	 qr, x1, y1, rad, as, ae, th = string.unpack(">I2i2i2I1i2i2I1", ps, 5)
       end
       
-      x1j = Xa2jc(x1) --math.floor(rr*(gw - x1) + xoffset)
-      y1j = Ya2jc(y1) --math.floor(rr*(gh - y1) + yoffset)
-      drawArc(math.rad(ae-as), x1j, y1j, math.rad(as + 180), math.rad(ae), rr*(rad), rr*(rad + th), 18, 1)
+      x1j = Xa2jc(x1)
+      y1j = Ya2jc(y1)
+
+      --drawArc(math.rad(ae-as), x1j, y1j, math.rad(as + 180), math.rad(ae),
+      --      rr*(rad), rr*(rad + th), 18, 1)
+
+      drawArc(math.rad(ae-as), x1j, y1j, math.rad(as + 180), math.rad(ae),
+            rr*(rad - th/2), rr*(rad + th/2), 18, 1)
+   elseif b == 0x42 then
+      --image draw
    elseif b == 0x39 or b == 0x05 or b == 0x01 or b == 0xD3 or b == 0xD2 then
       
    else
@@ -910,6 +921,19 @@ local pattern, len
 
 end
 
+local function ALDrawImage(x, y, img, wait)
+   
+   if not wait then
+      pattern = ">BBBI1I1i2i2B"
+      len = string.packsize(pattern)
+      print("ALDrawImage", len)
+      serialWrite(sidSerial, string.pack(pattern, 0xFF, 0x42, 0x00, len, img,
+					 math.floor(x), math.floor(y), 0xAA))
+   else
+   end
+
+end
+
 local function ALDrawLine(x1, y1, x2, y2, wait)
    
    local pattern, len
@@ -1141,6 +1165,7 @@ local function ALVbar (reset, seq, ccfg, cff, cid, inval, val2, minV, maxV, mk, 
      mk = 0
      mpct = 0
   end
+
 
   if (mpct> 0.0 and mpct < 1.0) then
      markY = y + y0;
@@ -1848,9 +1873,6 @@ local function ALHbar (reset, seq, ccfg, cff, cid, inval, val2, minV, maxV, mk, 
   
   ALColorWhite();
 
-  --draw box outline
-  ALDrawRect(x+x0, y+y0, x+x0-barW, y+y0-barH, 0x33, false);
-
   --draw bargraph filled box
   ALDrawRect(lowX, lowY, upX, upY, 0x34, false);
 
@@ -1869,6 +1891,9 @@ local function ALHbar (reset, seq, ccfg, cff, cid, inval, val2, minV, maxV, mk, 
      end
   end
   
+  --draw box outline
+  ALDrawRect(x+x0, y+y0, x+x0-barW, y+y0-barH, 0x33, false);
+
   if (scale == "variable") then
      ALDrawTextC(lblVal, 16, xlbl, ylbl, false);
   end
@@ -1952,7 +1977,7 @@ end
 local tipXprev = {0,0,0,0,0};
 local tipYprev = {0,0,0,0,0};
 
-local function ALGauge(reset, seq, ccfg, cff, cid, inval, val2, minV, maxV, mk, dp, lbl)
+local function ALGauge(reset, seq, ccfg, cff, cid, inval, val2, minV, maxV, mk, dp, major, lbl)
 
    local x0 = cff.x0
    local y0 = cff.y0
@@ -1971,7 +1996,7 @@ local function ALGauge(reset, seq, ccfg, cff, cid, inval, val2, minV, maxV, mk, 
    local ro = cff.radius
    local degMin = cff.minA
    local degMax = cff.maxA	 
-   local major = cff.major
+   --local major = cff.major
    local minor = cff.minor
    local fine = cff.fine
    local scale = cid.scale
@@ -2105,13 +2130,15 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    local ylmax = cff.ylmax	 	 
    local rIn = cff.radiusIn
    local rOut = cff.radiusOut
+   local rIn = cff.radiusIn
+   --local rOut = (cff.radiusOut + cff.radiusIn) / 2
+   local thk = cff.radiusOut - cff.radiusIn
    local as = cff.arcStart
    local ae = cff.arcEnd
    local pct, markPct
    local markAngle
    local arcStart = math.floor(as)
    local arcEnd = math.floor(ae)
-   local thk = rOut - rIn
    local lblX, lblY
    local valText
    local valX, valY
@@ -2122,6 +2149,9 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    local arcErase
 
    local val = inval or 0
+   local width = ccfg.width
+   local height = ccfg.height
+
    
    if seq == 0 then
       x = 0
@@ -2141,6 +2171,7 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    markAngle = arcStart + markPct * (arcEnd - arcStart)
 
    arcStart = arcStart - 90
+   arcEnd = arcEnd - 90
    arcAngle[seq] = arcAngle[seq] - 90
 
    lblX = xlbl + x + RLwid(lbl, 16) / 2
@@ -2168,14 +2199,45 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
 
    ALColorBlack()
    ALDrawRectC(valX, valY, RLwid("0000", 26), 26, 0x34)
-   if reset ~= 1 then
+   if reset ~= 1 and arcAnglePrev[seq] ~= arcStart then
       ALDrawArc(x + x0, y + y0, rOut, arcStart, arcAnglePrev[seq], thk, false)
    end
+
+   --if width == 160 and height == 160 then
+   --   print(x,y,x0,y0,rOut,thk)
+   --   ALDrawImage(x, y, 2, false)
+   --end
+   
+   ---[[
+   ALColor(0x03)
+   
+   ALDrawArc(x + x0, y + y0, rOut - thk/2, arcStart, arcEnd, 1, false)
+   ALDrawArc(x + x0, y + y0, rOut + thk/2, arcStart, arcEnd, 1, false)
+
+   local x1,y1,x2,y2
+
+   x1 = -(rOut - thk/2) * math.sin(math.rad(arcStart + 90))
+   y1 = (rOut - thk/2) * math.cos(math.rad(arcStart + 90))
+
+   x2 = -(rOut + thk/2) * math.sin(math.rad(arcStart + 90))
+   y2 = (rOut + thk/2) * math.cos(math.rad(arcStart + 90))
+   
+   ALDrawLine(x1 + x + x0, y1 + y + y0, x2 + x + x0, y2 + y + y0, false)
+
+   x1 = -(rOut - thk/2) * math.sin(math.rad(arcEnd + 90))
+   y1 = (rOut - thk/2) * math.cos(math.rad(arcEnd + 90))
+
+   x2 = -(rOut + thk/2) * math.sin(math.rad(arcEnd + 90))
+   y2 = (rOut + thk/2) * math.cos(math.rad(arcEnd + 90))
+   
+   ALDrawLine(x1 + x + x0, y1 + y + y0, x2 + x + x0, y2 + y + y0, false)
+   --]]
    
    ALColorWhite()
-
+   
    if reset == 1 then
       resetOn()
+      --print("alarc reset")
       ALDrawText(lbl, 16, lblX, lblY, false)
       ALDrawText(minText, 16, xlMin, ylMin, false)
       ALDrawText(maxText, 16, xlMax, ylMax, false)
@@ -2184,11 +2246,13 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
 
    arcErase = arcAngle[seq]
    
-   if (arcErase == arcStart) then
-      arcErase = arcErase + 1;
-   end
+   --if (arcErase == arcStart) then
+   --   arcErase = arcErase + 1;
+   --end
 
-   ALDrawArc(x + x0, y + y0, rOut, arcStart, arcErase, thk, false)
+   if arcAngle[seq] ~= arcStart then
+      ALDrawArc(x + x0, y + y0, rOut, arcStart, arcErase, thk, false)
+   end
    
    if ( (markPct > 0.0) and (markPct < 1.0) ) then
       if (markPct > pct) then
@@ -2201,6 +2265,7 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    end
    
    ALDrawTextC(valText, 26, valX, valY, false)
+
    ALFlush(false)
    
    arcAnglePrev[seq] = arcErase
@@ -2215,6 +2280,7 @@ local function sendAL(g, pN, seq)
    local min, max
    local mk
    local dd
+   local major
    local val, val2
    local lbl, units
 
@@ -2251,7 +2317,15 @@ local function sendAL(g, pN, seq)
       cid = cfgimgESP.instruments[t.widgetID]
       fid = cid.formID + 1
       cff = cfgimgESP.forms[fid]
+
+      if t.major then
+	 major = t.major
+      else
+	 major = cff.major
+      end
+
       mk = t.marker
+
       if t.dispdec then
 	 dd = t.dispdec
       else
@@ -2273,13 +2347,14 @@ local function sendAL(g, pN, seq)
 	    max = t.maxV
 	 end
       end
+      
       lbl = t.instName or "..." --.instName is named .label in the 200ms json 
       units = t.units
       val = t.value
       val2 = t.value2
       
       if cid.wtype == "gauge" then
-	 ALGauge(rst, seq, ccfg, cff, cid, val, val2, min, max, mk, dd, lbl)
+	 ALGauge(rst, seq, ccfg, cff, cid, val, val2, min, max, mk, dd, major, lbl)
       elseif cid.wtype == "compass" then
 	 ALCompass (rst, seq, ccfg, cff, cid, val, val2, min, max, lbl)
       elseif cid.wtype == "hbar" then
@@ -2318,7 +2393,7 @@ local startUp = system.getTimeCounter()
 
 local function loop()
    local now = system.getTimeCounter()
-   local unow = system.getTimeCounter()
+   local unow = now 
    local sensor, sval, sval2
    local scale
    local minV, maxV
@@ -2447,11 +2522,12 @@ local function loop()
    if emflag ~= 0 then
       local P4 = system.getInputs("P4") -- to show json only on emulator
       if P4 then
-	 LOOPTIME = 90*(P4 + 1)
+	 LOOPTIME = 200*(P4 + 1)
 	 --print("LOOPTIME", LOOPTIME)
       end
    end
 
+   
    if otaTimer ~= 0 and now > otaTimer then
       otaTimer = 0
       gpio.write(5,0)
@@ -2571,6 +2647,8 @@ local function loop()
       end
    end
 
+   local hasArcGauge = false
+
    if pageMax > 0 and (now > lastSend + LOOPTIME) then
 
       if Glass.curPos and Glass.zeroPos then
@@ -2589,6 +2667,9 @@ local function loop()
 
       for k,v in ipairs(Glass.page[pageNumberTele]) do
 	 if v.widgetID >= 0 then
+	    if cfgimg.instruments[v.widgetID].wtype == "arcGauge" then
+	       hasArcGauge = true
+	    end
 	    if cfgimg.instruments[v.widgetID].scale ~= "fixed" then
 	       scale = "variable"
 	    else
@@ -2799,8 +2880,14 @@ local function loop()
 	 end
       end
 
-      if sendIndex >= numInsts then
+      if hasArcGauge then
+	 --print("clamp looptime")
+	 LOOPTIME = math.max(LOOPTIME, 300)
+      end
+
+      if sendIndex >= numInsts and now - lastSend > LOOPTIME then
 	 local cc, err
+	 --print("@@", system.getTimeCounter() - lastSend, LOOPTIME, hasArcGauge)
 	 ALFlushReset(false) -- clear graphics engine hold state before sending new frame
 	 teleSerial = {}
 	 for k,v in ipairs(savedSerialReset) do
@@ -2831,24 +2918,44 @@ local function loop()
 	 savedSerial = {}
 	 savedSerialReset = {} -- was sent once, don't send again
 	 resetGlasses = 0
+
+	 lastSend = now	 
       end
-      
-      lastSend = now	 
+      --lastSend = now	 
    end
 
    if unow <= jsonHoldTime then return end
 
+   local LINESPERLOOP = 1
+   local line   
+   local bw
+   
    if sendState == state.DISCONNECTED then
+      --print("STATE DISCON")
       local bufCfg = "FFD302070101AA"
+      --local imgCfg = "FF4702070102AA"
+      --local fntCfg = "FF5002070103AA"
+      --[[
       local bw = serialWriteDirect(sidSerial, encodeBuf(bufCfg)) -- read config
       if not bw then
 	 print("DFM-HUD: cannot write config query")
       end
-      local imgCfg = "FF4702070102AA"
-      local bw = serialWriteDirect(sidSerial, encodeBuf(imgCfg)) -- read config
+	 local bw = serialWriteDirect(sidSerial, encodeBuf(imgCfg)) -- read config
       if not bw then
 	 print("DFM-HUD: cannot write image query")
       end
+
+      local bw = serialWriteDirect(sidSerial, encodeBuf(fntCfg)) -- read config
+      if not bw then
+	 print("DFM-HUD: cannot write image query")
+      end
+      --]]
+      --local bw = serialWriteDirect(sidSerial, encodeBuf(bufCfg..imgCfg..fntCfg)) -- read config
+      local bw = serialWriteDirect(sidSerial, encodeBuf(bufCfg)) -- read config
+      if not bw then
+	 print("DFM-HUD: cannot write config query")
+      end
+      
       jsonHoldTime = unow + 1000
       sendState = state.WAITING -- wait for onRead to get config list
       enterWaiting = system.getTimeCounter()
@@ -2860,23 +2967,22 @@ local function loop()
 	 --print("DFM-HUD: No cfg response .. set DISCONNECTED and retry")
 	 jsonHoldTime = unow + 1000 -- wait 1 more sec then try config request again
       end
-   end
 
-   if sendState == state.ALMOST then
+   elseif sendState == state.ALMOST then
       print("DFM-HUD: state COMPLETE")
       sendState = state.COMPLETE
       splashScreen = nil -- don't redisplay it on reconnect
       writeInst()
       resetGlasses = 1
-   end
 
-   if sendState == state.SELECT then
+
+   elseif sendState == state.SELECT then
       local bufSet = "FFD2000D" .. appHex .. "00AA"      
       local bufClr = "FF010005AA"
       local bufFls = "FF390006FFAA"
       local bufDsp = "FF42000A0100000000AA"
 
-      print("DFM-HUD: Enter state SELECT")
+      print("DFM-HUD: state SELECT")
       
       local bw1, bw2, bw3
       bw1 = serialWriteDirect(sidSerial, encodeBuf(bufSet)) -- set glasses to our app
@@ -2903,10 +3009,9 @@ local function loop()
 	 --resetGlasses = 1
 	 return
       end
-   end
    
-   if sendState == state.CONNECTED then 
-      if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
+   elseif sendState == state.CONNECTED then 
+      --if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
       system.messageBox("DFM-HUD: Preparing Glasses")
       print("DFM-HUD: opening file " .. prefix() .. pathConfigs .. "config-fonts-images.txt")
       sendFP = io.open(prefix() .. pathConfigs .. "config-fonts-images.txt", "r")
@@ -2921,22 +3026,18 @@ local function loop()
       linecount = 0
       serialBytesSent = 0
       startingTime = system.getTimeCounter()
-   end
-   
-   if (sendState == state.SENDHEADER) or (sendState == state.SENDFOOTER) then
+
+   elseif (sendState == state.SENDHEADER) or (sendState == state.SENDFOOTER) then
       
-      if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
+      --if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
       
-      local cfgVersion = 1
       local cfgKey = 1
       local bufPre = "FFD00015" .. appHex .. "00"
-
       local bufH = bufPre .. string.format("%08X%08X", 0, cfgKey) .. "AA"
-      local bufF = bufPre .. string.format("%08X%08X", cfgVersion, cfgKey) .. "AA"
       local bw
       
       if sendState == state.SENDHEADER then
-	 --print("sending header")
+	 print("DFM-HUD: sending config header")
 	 bw = serialWriteDirect(sidSerial, encodeBuf(bufH))
 	 if not bw then
 	    print("DFM-HUD: cannot write header")
@@ -2944,21 +3045,26 @@ local function loop()
 	    sendState = state.DISCONNECTED
 	    jsonHoldTime = unow + 1000 -- wait one sec before possibly sending config request again  
 	 else
+	    jsonHoldTime = unow + 600
 	    sendState = state.SENDFILE
+	    Glass.var.rememberMe = system.getTimeCounter()
 	 end
-      end
-
-      if sendState == state.SENDFOOTER then
-	 print("DFM-HUD: Sending config footer")
+	 
+      elseif sendState == state.SENDFOOTER then
+	 local cfgVersion = Glass.var.statusAL.Conf -- read during init()
+	 local cfgKey = 1
+	 local bufPre = "FFD00015" .. appHex .. "00"
+	 local bufF = bufPre .. string.format("%08X%08X", cfgVersion, cfgKey) .. "AA"
+	 print("DFM-HUD: Sending config footer, cfgVersion", cfgVersion)
 	 bw = serialWriteDirect(sidSerial, encodeBuf(bufF))
-
+	 
 	 if not bw then
 	    print("DFM-HUD: cannot write footer")
 	    if sendFP then io.close(sendFP) end
 	    sendState = state.DISCONNECTED
 	    jsonHoldTime = unow + 1000 -- wait one sec before possibly sending config request again  
 	 else
-	    print("set state to SELECT")
+	    print("DFM-HUD: state to SELECT")
 	    sendState = state.SELECT
 	 end
 	 
@@ -2973,20 +3079,17 @@ local function loop()
 	 --   Glass.settings.configIDs[k] = currentConfigIDs[k] 
 	 --end
 	 jsonHoldTime = system.getTimeCounter() + WAIT_TIME * 40 -- long (!) wait before restarting 200ms json
-	 Glass.settings.configVersion = 1
+	 Glass.var.statusAL.GlassConf = Glass.var.statusAL.Conf
+	 --Glass.settings.configVersion = 1
       end
-   end
-
-   local LINESPERLOOP = 1
-   local line   
-   local bw
-   if sendState == state.SENDFILE then
-      --print("sendState is SENDFILE")
       
+   elseif sendState == state.SENDFILE then
+      --print("sendState is SENDFILE")
+      --print("Sendfile", system.getTimeCounter() - Glass.var.rememberMe)
       for i=1, LINESPERLOOP, 1 do
 	 line = io.readline(sendFP, true)
 	 linecount = linecount + 1
-	 if linecount % 20 == 0 then
+	 if linecount % 5 == 0 then
 	    system.messageBox("DFM-HUD: Reading line " .. linecount,5)
 	 end
 	 if not line then
@@ -2997,7 +3100,7 @@ local function loop()
 	 else
 	    local ll
 	    local ldx=1
-	    local chunk = 100
+	    local chunk = 20
 	    repeat
 	       ll = string.sub(line, ldx, ldx + chunk - 1)
 	       ldx = ldx + chunk
@@ -3014,7 +3117,7 @@ local function loop()
 	       break
 	    end
 	 end
-	 jsonHoldTime = unow + 100
+	 jsonHoldTime = unow + 200
       end
    end
 
@@ -3329,17 +3432,26 @@ local function initForm(sf)
 				       return
 				 end)
       )
-      --[[
+
       form.addRow(1)
       form.addLink(
 	 (
 	    function()
-	       rebootDisco = true
-	       --form.reinit(11)
+	       local appd = "DFM-HUD"
+	       local pattern = string.format(">BBBI1c%dB", #appd)
+	       local len = string.packsize(pattern)
+	       serialWriteDirect(sidSerial, string.pack(pattern, 0xFF, 0xD5, 0x00, len,
+							appd, 0xAA))
+	       system.messageBox("DFM-HUD: Deleted " .. appd .. " from Glasses")
+	       local bufCfg = "FFD302070101AA"
+	       local bw = serialWriteDirect(sidSerial, encodeBuf(bufCfg)) -- read config
+	       if not bw then
+		  print("DFM-HUD: cannot write config query")
+	       end
 	       return
-	 end), {label="Set reboot on disconnect>>"}
+	 end), {label="Delete app from glasses >>"}
       )
-      --]]
+
    elseif sf == 12 then
 
       local isel = 0
@@ -3387,7 +3499,7 @@ local function initForm(sf)
       local function changedConversion(val)
 	 --print("pageNumber, gaugeNumber, val", pageNumber, gaugeNumber, val)
 	 Glass.page[pageNumber][gaugeNumber].convertIdx =  val
-	 if val == 1 then -- val is 1 means no conversion
+	 if Glass.convertUnits[val] == "-" then --val == 1 then -- val is 1 means no conversion
 	    if Glass.page[pageNumber][gaugeNumber].nativeUnits then
 	       Glass.page[pageNumber][gaugeNumber].units =
 		  Glass.page[pageNumber][gaugeNumber].nativeUnits
@@ -3415,6 +3527,28 @@ local function initForm(sf)
       local dd = Glass.page[pageNumber][gaugeNumber].dispdec
       form.addIntbox(dd, 0, 2, sd, 0, 1, changedDispDec)
       
+      local maj, majD
+      local wid = Glass.page[pageNumber][gaugeNumber].widgetID
+      print("widgetID", wid)
+      local cid = cfgimgESP.instruments[wid]
+      local fid = cid.formID + 1
+      print("fid", fid)
+      majD = cfgimgESP.forms[fid].major
+      maj = Glass.page[pageNumber][gaugeNumber].major
+      if not maj then maj = majD end
+      
+      print("%%", "maj, majD", maj, majD)
+
+      if majD then -- if they key "major" exists
+	 local function changedMajor(val)
+	    Glass.page[pageNumber][gaugeNumber].major = val
+	 end
+	 form.addRow(2)
+	 form.addLabel({label="Major divisions", font=FONT_NORMAL})      
+	 form.addIntbox(maj, 2, 12, majD, 0, 1, changedMajor)
+      end
+      
+
       form.addRow(2)
       form.addLabel({label="Zero offset", font=FONT_NORMAL})
 
@@ -3924,9 +4058,6 @@ local function drawRectangleGlass(x0, y0, xl, yl)
    lcd.drawRectangle(f*x0 - f*xl / 2, f*y0 - f*yl / 2, f*xl, f*yl)
 end
 
-
-
-
 local function printForm(w,h)
 
    local fmtNumber
@@ -4021,15 +4152,13 @@ local function printForm(w,h)
       if fmtNumber > 0 then
 	 local gp = cfgimg.config[fmtNumber]
 	 for g,t in ipairs(gp) do
-	    drawRectangleGlass(t.xc, t.yc, t.width, t.height)
+	    drawRectangleGlass(t.jxc, t.jyc, t.width, t.height)
 	 end
       end
       lcd.drawText(2,0,string.format("%d", fmtNumber))
       lcd.resetClipping()
    end
 end
-
-
 
 local function printTeleSmall(w,h)
    if pageNumberTele and pageNumberTele > 0 then
@@ -4054,20 +4183,6 @@ local function printTeleSmall(w,h)
 	 lcd.drawImage(75, 3, yellowpauseIcon)	 
       end
    end
-   
-
-   --[[
-   lcd.drawImage(45, 3, glassesIcon)
-   if not Glass.var.statusAL or Glass.var.statusAL.Conn == 0 then
-      lcd.drawImage(75, 3, redcrossIcon)
-   end
-
-   if Glass.var.statusAL and Glass.var.statusAL.Conn == 1 then
-      lcd.drawImage(75, 3, greencheckIcon)
-      --lcd.drawImage(100,  0, batteryIcon)
-      lcd.drawText(100, 3, string.format("Batt %d%%", Glass.var.statusAL.Batt), FONT_MINI)
-   end
-   --]]
 end
 
 local function printTele(w,h)
@@ -4121,7 +4236,7 @@ local function printTele(w,h)
    else
       local now = system.getTime()
       drawTextCenter(287, 90, "Searching", FONT_MINI)
-      if now > initTime + 2 and wasEverGreen and Glass.settings.rebootDisco then
+      if now > initTime + 120 and wasEverGreen and Glass.settings.rebootDisco then
 	 wasEverGreen = false
 	 if Glass.var.statusAL then
 	    Glass.var.statusAL.Conn = 0 -- note that we are no longer connected
@@ -4271,6 +4386,13 @@ local function onRead(indata)
 
    --print("#onReadBuf", #onReadBuf)
    onReadBuf = onReadBuf .. indata
+
+   local loops = 0
+   
+   ::start::
+
+   loops = loops + 1
+   
    if #onReadBuf < 1 or string.byte(onReadBuf, 1) ~= 0xFF then
       print("DFM-HUD: CS_INVALID - bad format")
       local str = "command: "
@@ -4319,35 +4441,35 @@ local function onRead(indata)
 	 local name, size, version, usgCnt, installCnt, isSystem
 	 print("DFM-HUD onRead: cfgList response")
 	 local i = 7 -- first char of cfg payload (see AL docs section 4.14)
-	 local DFMHUDVersion = -1
 
-	 -- DFMHUDCurrentVersion is the version of the font  file (config-fonts-images.txt) which
-	 -- has the expected fonts and is built by the build system in ~/JS/GlassBuild
-	 -- if changing/adding/deleting fonts, increment this value so that the app reloads
-	 -- the fonts into the DFM-HUD ALook application
-	 -- Future: could read the file config-fonts-images.json and get the list of font codes and sizes
-	 -- and could add a version number to that file
+	 -- Glass.var.statusAL.Conf is the version of the font file
+	 -- (config-fonts-images.txt) which has the expected fonts and splash
+	 -- screen and is built by the build system in
+	 -- ~/JS/DFM-HUDBuild/makeHUD.py this is read during init() from
+	 -- DFM-HUD/Json/config-version.jsn When required, increment this
+	 -- version in DFM-HUDBuild/Configs/config-version.jsn
 	 
-	 local DFMHUDCurrentVersion = 1
 	 repeat
 	    name, size, version, usgCnt, installCnt, isSystem =
 	       string.unpack(">zI4I4I1I1I1", command, i)
 	    print(string.format("DFM-HUD ALOOK app: %s Size %d Version %d", name, size, version))
 	    if name == "DFM-HUD" then
-	       DFMHUDVersion = version
 	       Glass.var.statusAL.GlassConf = version
 	    end
 	    i = i + #name + 1 + 11 -- 11 is 4+4+1+1+1 ("I4I4I1I1I1")
 	 until i >= cmd_len
 
-	 if DFMHUDVersion ~= DFMHUDCurrentVersion then
+	 print("DFM-HUD: Glass.var.statusAL.GlassConf, Glass.var.statusAL.Conf",
+	       Glass.var.statusAL.GlassConf, Glass.var.statusAL.Conf)
+	 
+	 if Glass.var.statusAL.GlassConf ~= Glass.var.statusAL.Conf then
 	    sendState = state.CONNECTED --send the preparation info and font file
 	 else
 	    --sendState = state.CONNECTED -- for testing .. do every time
 	    sendState = state.SELECT -- glasses have current info 
 	 end
       elseif string.byte(command, 2) == 0x47 then -- image list
-	 print("DFM-HUD onRead: image list response", cmd_len)
+	 print("DFM-HUD onRead: image list response")
 	 if cmd_len <= 7 then
 	    print("DFM-HUD onRead: no images")
 	 else
@@ -4371,7 +4493,7 @@ local function onRead(indata)
 	 local i = 7 -- first char of cfg payload (see AL docs section 4.14)
 	 repeat
 	    id, height = string.unpack(">I1I1", command, i)
-	    print("id " .. id .. " height " .. height)
+	    print("DFM-HUD ALOOK Font: id " .. id .. " height " .. height)
 	    i = i + 2
 	 until i >= cmd_len
       elseif string.byte(command,2) == 0xE2 then -- error
@@ -4385,7 +4507,7 @@ local function onRead(indata)
 				errTxt[string.byte(command, 5)]))
 	    if string.byte(command, 5) == 2 then
 	       print("DFM-HUD: Flow control delay")
-	       lastSend = system.getTimeCounter() + 100
+	       lastSend = system.getTimeCounter() + 200
 	    end
 	 elseif string.byte(command, 5) == 0x0f then
 	    print("DFM-HUD: Gesture received")
@@ -4401,7 +4523,11 @@ local function onRead(indata)
       end
       
    end
-   onReadBuf = "" -- assume no more commands (do we have to worry about this??)
+   --print("onRead", #onReadBuf, loops)
+
+   -- 4 is arbitrary ... to guard against inf loop if garbled data
+   if #onReadBuf > 0 and loops < 4 then goto start end
+
 end
 
 local function gestureCB()
@@ -4419,7 +4545,7 @@ local function init()
    local fn
 
    Glass.var.statusAL = {}
-   Glass.var.statusAL.Conf = 1 -- this is the required version of the glasses config
+   --Glass.var.statusAL.Conf = 1 -- this is the required version of the glasses config
    Glass.var.statusAL.GlassConf = 0
    Glass.var.statusAL.Conn = 0
    Glass.var.statusAL.Batt = 0
@@ -4440,19 +4566,21 @@ local function init()
 
    system.registerForm(1, MENU_APPS, "DFM-HUD", initForm, keyPressed, printForm)
 
+   --[[
    fn = prefix() .. pathJson .. "instr.jsn"
-
+   
    local file = io.readall(fn)
    cfgimg = {}
    if file then
       cfgimg = json.decode(file)
-      print("DFM-HUD - Reading avail instruments from ", fn)
+      print("DFM-HUD: Reading avail instruments from ", fn)
    else
       system.messageBox("DFM-HUD: Cannot read " .. fn)
       return
    end
-
-   --print("1", system.getCPU())
+   --]]
+   
+   print("1", system.getCPU())
    
    fn = prefix() .. pathJson .. "instrESP.jsn"
       
@@ -4460,53 +4588,32 @@ local function init()
    cfgimgESP = {}
    if file then
       cfgimgESP = json.decode(file)
-      print("DFM-HUD - Reading avail instruments (ESP) from ", fn)
+      cfgimg = cfgimgESP
+      print("DFM-HUD: Reading avail instruments (ESP) from ", fn)
    else
       system.messageBox("DFM-HUD: Cannot read " .. fn)
       return
    end
 
-   --print("2", system.getCPU())
+   -- Read the version of the font and splash screen data that
+   -- is contained in Configs/config-fonts-images.txt
+   
+   fn = prefix() .. pathJson .. "config-version.jsn"
+      
+   file = io.readall(fn)
+
+   if file then
+      Glass.var.statusAL.Conf = math.floor(json.decode(file).version)
+      print("DFM-HUD: Reading data config from ", fn)
+   else
+      system.messageBox("DFM-HUD: Cannot read " .. fn)
+      return
+   end
+
+   print("DFM-HUD: Glass.var.statusAL.Conf", Glass.var.statusAL.Conf)
    
    fn = prefix() .. pathImages .."DFML7Small.png"
    splashScreen = lcd.loadImage(fn)
-
-   --[[
-   local ratio = 144 / 160 -- ratio of "small" images to jeti screen height
-   local im, ims
-   for i,img in ipairs(cfgimg.instruments) do
-      if img.imageID > 0 then --img.BMPname ~= "" then
-	 local imn = string.format("Image%02d", img.imageID)
-	 --im = prefix() .. pathImages .. img.BMPname .. "-small.png"
-	 im = prefix() .. pathImages .. imn  .. "-small.png"	 
-	 ims = prefix() .. pathImages .. imn .. "-smaller.png"      
-	 --print("loading images im, ims:", im, ims)
-	 img.loadImage = lcd.loadImage(im)
-	 --print("lcd.loadImage ret", img.loadImage)
-	 img.loadImageSmaller = lcd.loadImage(ims)
-	 img.imageWidth = img.loadImage.width
-	 img.imageHeight = img.loadImage.height
-	 --print("* i, img.formID", i, img.formID)
-	 
-	 img.origWidth = cfgimg.forms[img.formID + 1].width --img.width
-	 img.origHeight = cfgimg.forms[img.formID + 1].height --img.height
-      else
-	 --print("img.imageID, img.formID, #cfgimg.forms", img.imageID, img.formID, #cfgimg.forms)
-	 local ww = cfgimg.forms[img.formID + 1].width
-	 local hh = cfgimg.forms[img.formID + 1].height
-	 img.origWidth = ww or 0
-	 img.origHeight = hh or 0
-	 img.imageWidth = (ww or 0) * ratio
-	 img.imageHeight = (hh or 0) * ratio
-      end
-   end
-   --]]
-   --[[
-   for k,v in pairs(id2avail) do
-      print("id2avail k,v", k,v)
-   end
-   --]]
-   
    fn = prefix() .. pathImages .. "glasses.png"
    glassesIcon = lcd.loadImage(fn)
    fn = prefix() .. pathImages .. "redcross.png"
@@ -4517,9 +4624,6 @@ local function init()
    batteryIcon = lcd.loadImage(fn)   
    fn = prefix() .. pathImages .. "yellowpause.png"
    yellowpauseIcon = lcd.loadImage(fn)      
-   --print("CPU 1: ", system.getCPU())
-
-   --print("3", system.getCPU())
    
    local device
    device, emflag = system.getDeviceType() 
@@ -4527,7 +4631,7 @@ local function init()
    local success, descr
    local portlist = serial.getPorts()
    for k,v in pairs(portlist) do
-      print("DFM-HUD - Available COM port "..k..": ".. v)
+      print("DFM-HUD: Available COM port "..k..": ".. v)
    end
 
    local baud = 115200
@@ -4540,7 +4644,7 @@ local function init()
    end
    
    if sidSerial then   
-      print("DFM-HUD - Serial port init succeeded: ", sidSerial)
+      print("DFM-HUD: Serial port init succeeded: ", sidSerial)
       serial.setBaudrate(sidSerial, baud)
       success, descr = serial.onRead(sidSerial,onRead)   
       if success then
@@ -4549,14 +4653,14 @@ local function init()
 	 print("DFM-HUD: Error setting callback", descr)
       end
    else
-      print("DFM-HUD - Serial port init failed", sidSerial, descr)
+      print("DFM-HUD: Serial port init failed", sidSerial, descr)
    end 
 
    system.registerTelemetry(1, "DFM-HUD Display", 4, printTele)
    system.registerTelemetry(2, "DFM-HUD Status", 1, printTeleSmall)   
 
    local function initG()
-      print("DFM-HUD: - No saved state")
+      print("DFM-HUD: No saved state")
 
       Glass.page = {}
       pageMax = #Glass.page
@@ -4580,7 +4684,7 @@ local function init()
 			     target=0, initial = 300 * 1000}
    end
 
-   --print("CPU 2", system.getCPU())   
+   print("CPU 2", system.getCPU())   
 
    local GGtbl
    fn = prefix()..pathJson.."GG_" .. modelName.. ".jsn"
@@ -4605,7 +4709,7 @@ local function init()
       initG()
    end
 
-   --print("4", system.getCPU())
+   print("4", system.getCPU())
    
    if not Glass.switchInfo then Glass.switchInfo = {} end
       
@@ -4616,7 +4720,7 @@ local function init()
       system.messageBox("DFM-HUD: settings reset")
    end
    
-   if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
+   --if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
    if not Glass.settings.distMan then Glass.settings.distMan = 200 end
    if not Glass.settings.fltWidth then Glass.settings.fltWidth = 300 end
    if not Glass.settings.historyLength then Glass.settings.historyLength = 20 end   
@@ -4641,7 +4745,7 @@ local function init()
       end
    end
 
-   --print("4.2", system.getCPU())
+   print("4.2", system.getCPU())
 
    for k,v in pairs(Glass.settings) do
       if k == "latId" or k == "lngId" or k == "latPa" or k == "lngPa"
@@ -4650,7 +4754,7 @@ local function init()
       end
    end
 
-   --print("4.5", system.getCPU())
+   print("4.5", system.getCPU())
       
    Glass.gpsReads = 0
    Glass.initPos = nil
@@ -4684,7 +4788,7 @@ local function init()
       Glass.timers.timer2.target = 0 -- 0:00
    end
 
-   --print("4.6", system.getCPU())
+   print("4.6", system.getCPU())
    
    for k, swi in pairs(Glass.switchInfo) do
       local t = string.sub(swi.name,1,1)
@@ -4692,16 +4796,16 @@ local function init()
       switchItems[k] = system.createSwitch(swi.name, swi.mode, swi.activeOn)
    end
 
-   if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
+   --if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
    
    --updateConfigIDs()
-   if not Glass.settings.configIDs or Glass.settings.configVersion == 0 then
-      Glass.settings.configIDs = {}
-   end
+   --if not Glass.settings.configIDs or Glass.settings.configVersion == 0 then
+   --   Glass.settings.configIDs = {}
+   --end
    
    setpNT()
 
-   --print("5", system.getCPU())
+   print("5", system.getCPU())
    
    writeInst() --- will also get done in loop() based on tenSecTimer
 

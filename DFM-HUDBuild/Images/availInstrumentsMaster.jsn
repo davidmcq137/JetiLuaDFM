@@ -88,7 +88,7 @@
 	    "x0":10, "y0":5
 	},
 	{
-	    "descr": "9) arc 160x160 -135->135",
+	    "descr": "9) arc 160x160 -125->125",
 	    "radiusIn":    50, "radiusOut": 65,
 	    "arcStart":-125, "arcEnd":125,
 	    "x0":      80, "y0":     80,
