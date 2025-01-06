@@ -721,6 +721,13 @@ local function ALClear()
    serialWrite(sidSerial, string.pack(pattern, 0xFF, 0x01, 0x00, 0x05, 0xAA))
 end
 
+local function ALWait()
+   local pattern = ">BBBI1B"
+   local len = string.packsize(pattern)
+   serialWrite(sidSerial, string.pack(pattern, 0xEE, 0x01, 0x00, len,
+					    0xBB))
+end
+
 local function ALHold(wait)
    local pattern
    if wait then
@@ -2195,6 +2202,7 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    xlMax = xlMax + x + RLwid(maxText, 16) / 2
    ylMax = ylMax + y + 16 / 2   
 
+
    ALHold(false)
 
    ALColorBlack()
@@ -2257,6 +2265,7 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    --   arcErase = arcErase + 1;
    --end
 
+
    if arcAngle[seq] ~= arcStart then
       ALDrawArc(x + x0, y + y0, rOut, arcStart, arcErase, thk, false)
    end
@@ -2272,6 +2281,8 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    end
    
    ALDrawTextC(valText, 26, valX, valY, false)
+
+   ALWait()
 
    ALFlush(false)
    
@@ -2408,6 +2419,14 @@ local function loop()
    local takeoff = system.getInputsVal(switchItems.takeoff) or 0      
    local gearUp = system.getInputsVal(switchItems.gearUp) or 0
 
+   --print("system.getTime(), lastRead", system.getTime(), lastRead)
+   
+   local offline = system.getTime() - lastRead > 10
+   if sendState == state.COMPLETE and lastRead ~= 0 and offline then
+      sendState = state.DISCONNECTED
+      lastRead = 0
+   end
+   
    if Glass.settings.latId ~= 0 and Glass.settings.latPa ~= 0 and Glass.settings.lngPa ~= 0 then
       gotGPS = true
    else
@@ -2888,9 +2907,9 @@ local function loop()
 	 end
       end
 
-      if hasArcGauge then
+      if hasArcGauge then -- have to slow down update rate for fat arcs
 	 --print("clamp looptime")
-	 LOOPTIME = math.max(LOOPTIME, 250)
+	 LOOPTIME = math.max(LOOPTIME, 280)
       end
 
       if sendIndex >= numInsts and now - lastSend > LOOPTIME then
@@ -2939,7 +2958,6 @@ local function loop()
    local bw
    
    if sendState == state.DISCONNECTED then
-      --print("STATE DISCON")
       local bufCfg = "FFD302070101AA"
       --local imgCfg = "FF4702070102AA"
       --local fntCfg = "FF5002070103AA"
@@ -2967,9 +2985,8 @@ local function loop()
       jsonHoldTime = unow + 1000
       sendState = state.WAITING -- wait for onRead to get config list
       enterWaiting = system.getTimeCounter()
-   end
 
-   if sendState == state.WAITING then
+   elseif sendState == state.WAITING then
       if system.getTimeCounter() - enterWaiting > 2000 then --no response to config request in 2 sec
 	 sendState = state.DISCONNECTED
 	 --print("DFM-HUD: No cfg response .. set DISCONNECTED and retry")
@@ -3012,7 +3029,7 @@ local function loop()
 	 --writeInst()
 	 serialWriteDirect(sidSerial, encodeBuf(bufDsp))
 	 if splashScreen then
-	    print("SPLASH!")
+	    --aprint("SPLASH!")
 	    jsonHoldTime = unow + 3000 -- wait 3s to allow setup, clear, flush and disp splash screen
 	 end
 	 --resetGlasses = 1
@@ -3467,7 +3484,7 @@ local function initForm(sf)
 	    function()
 	       local pattern = ">BBBI1B"
 	       local len = string.packsize(pattern)
-	       serialWriteDirect(sidSerial, string.pack(pattern, 0xEE, 0xD5, 0x00, len,
+	       serialWriteDirect(sidSerial, string.pack(pattern, 0xEE, 0x02, 0x00, len,
 							0xBB))
 	       system.messageBox("DFM-HUD: Sent PM")
 	 end), {label="Send PM >>"}
@@ -4252,6 +4269,8 @@ local function printTele(w,h)
    else
       local now = system.getTime()
       drawTextCenter(287, 90, "Searching", FONT_MINI)
+      --lcd.drawText(10,50, sendState)
+      --print("state:", sendState)
       if now > initTime + 120 and wasEverGreen and Glass.settings.rebootDisco then
 	 wasEverGreen = false
 	 if Glass.var.statusAL then

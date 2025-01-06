@@ -167,7 +167,7 @@
 	},
 	{
 	    "descr": "17) arc 200x200 -135->135",
-	    "radiusIn":    80, "radiusOut": 95,
+	    "radiusIn":    75, "radiusOut": 90,
 	    "arcStart":-125, "arcEnd":125,
 	    "x0":     100, "y0":    100,
 	    "height": 200, "width": 200,
