@@ -3486,8 +3486,20 @@ local function initForm(sf)
 	       local len = string.packsize(pattern)
 	       serialWriteDirect(sidSerial, string.pack(pattern, 0xEE, 0x02, 0x00, len,
 							0xBB))
-	       system.messageBox("DFM-HUD: Sent PM")
-	 end), {label="Send PM >>"}
+	       system.messageBox("DFM-HUD: Bound")
+	 end), {label="Bind these glasses >>"}
+      )
+
+      form.addRow(1)
+      form.addLink(
+	 (
+	    function()
+	       local pattern = ">BBBI1B"
+	       local len = string.packsize(pattern)
+	       serialWriteDirect(sidSerial, string.pack(pattern, 0xEE, 0x03, 0x00, len,
+							0xBB))
+	       system.messageBox("DFM-HUD: Unbound")
+	 end), {label="Unbind glasses >>"}
       )
 
    elseif sf == 12 then
@@ -4269,7 +4281,9 @@ local function printTele(w,h)
    else
       local now = system.getTime()
       drawTextCenter(287, 90, "Searching", FONT_MINI)
-      --lcd.drawText(10,50, sendState)
+      if emflag ~= 0 then
+	 lcd.drawText(10,50, sendState)
+      end
       --print("state:", sendState)
       if now > initTime + 120 and wasEverGreen and Glass.settings.rebootDisco then
 	 wasEverGreen = false
