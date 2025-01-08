@@ -276,19 +276,19 @@ encoded = json.encode(cfgimg)
 fn = "./Images/instrESP.jsn"
 fp = assert(io.open(fn, "w"))
 assert(fp:write(encodedESP))
-print("Wrote " .. fn)
+print("prepCI wrote " .. fn)
 fp:close()
 
-fn = "./Images/instrDB.jsn"
-fp = assert(io.open(fn, "w"))
-assert(fp:write(encodedDB))
-print("Wrote " .. fn)
-fp:close()
+-- fn = "./Images/instrDB.jsn"
+-- fp = assert(io.open(fn, "w"))
+-- assert(fp:write(encodedDB))
+-- print("Wrote " .. fn)
+-- fp:close()
 
-fn = "./Images/instr.jsn"
-fp = assert(io.open(fn , "w"))
-assert(fp:write(encoded))
-print("Wrote " .. fn)
-fp:close()
+-- fn = "./Images/instr.jsn"
+-- fp = assert(io.open(fn , "w"))
+-- assert(fp:write(encoded))
+-- print("Wrote " .. fn)
+-- fp:close()
 
 os.exit(0)

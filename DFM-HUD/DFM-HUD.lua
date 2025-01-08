@@ -99,10 +99,8 @@ local serialFileName
 local lastRead = 0
 local resetGlasses
 
---local gtbl = {}
-
 local initTime
-local LOOPTIME = 90
+local LOOPTIME = 100
 
 local savedSerial = {}
 local savedSerialReset = {}
@@ -114,6 +112,9 @@ local pos3D = {}
 pos3D.x = {}
 pos3D.y = {}
 pos3D.z = {}
+local pos2D = {}
+pos2D.x = {}
+pos2D.y = {}
 
 --[[
 local teleSensors
@@ -148,6 +149,62 @@ local function rotateXY(xx, yy, rotation)
    cosShape = math.cos(rotation)
    return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
 end
+
+local function ll2xy(rp)
+   local x, y
+   local brg = gps.getBearing(Glass.var.Field.center, rp)
+   brg = brg - Glass.var.Field.heading
+   local dist = gps.getDistance(Glass.var.Field.center,rp)
+   x = dist * math.sin(math.rad(brg))
+   y = dist * math.cos(math.rad(brg))
+   return {x=x,y=y}
+end
+
+local function nfz2XY()
+	    
+   local rp
+
+   Glass.var.nfc = {}
+   Glass.var.nfp = {}
+   
+   if Glass.var.Field.nofly then
+      for j = 1, #Glass.var.Field.nofly, 1 do
+	 if Glass.var.Field.nofly[j].type == "circle" then
+	    local rp = gps.newPoint(Glass.var.Field.nofly[j].lat,
+				    Glass.var.Field.nofly[j].lng)
+	    local tt = ll2xy(rp)
+	    tt.r = Glass.var.Field.nofly[j].diameter / 2
+	    tt.inside = Glass.var.Field.nofly[j].inside_or_outside == "inside"
+	    table.insert(Glass.var.nfc, tt)
+	 elseif Glass.var.Field.nofly[j].type == "polygon" then
+	    local pp = {}
+	    for k = 1, #Glass.var.Field.nofly[j].path, 1 do
+	       rp = gps.newPoint(Glass.var.Field.nofly[j].path[k].lat,
+				       Glass.var.Field.nofly[j].path[k].lng)
+	       table.insert(pp,ll2xy(rp))
+	    end
+	    table.insert(Glass.var.nfp,
+			 {inside=(Glass.var.Field.nofly[j].inside_or_outside == "inside"),
+			  path = pp})
+	 end
+      end
+   end
+end
+
+local function rwy2XY()
+   local rPos
+   Glass.var.rwy = {}
+   if Glass.var.Field.runway then
+      for j=1, #Glass.var.Field.runway.path, 1 do
+	 rPos = gps.newPoint(Glass.var.Field.runway.path[j].lat, Glass.var.Field.runway.path[j].lng)
+	 Glass.var.rwy[j] = ll2xy(rPos)
+	 --print("j, rwy.x, rwy.y:", j, Glass.var.rwy[j].x, Glass.var.rwy[j].y)
+      end
+      Glass.var.rwy.heading = Glass.var.Field.runway.heading
+      --print("rwy heading:", Glass.var.rwy.heading)
+   end
+end
+
 
 local function drawArc(theta, x0, y0, a0, aR, ri, ro, im, alp)
 
@@ -387,7 +444,7 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
             rr*(rad - th/2), rr*(rad + th/2), 18, 1)
    elseif b == 0x42 then
       --image draw
-   elseif b == 0x39 or b == 0x05 or b == 0x01 or b == 0xD3 or b == 0xD2 then
+   elseif b == 0x39 or b == 0x05 or b == 0x01 or b == 0xD3 or b == 0xD2 or b == 0x04 then
       
    else
       print("###> "..string.format("0x%02x", b))
@@ -725,6 +782,13 @@ local function ALWait()
    local pattern = ">BBBI1B"
    local len = string.packsize(pattern)
    serialWrite(sidSerial, string.pack(pattern, 0xEE, 0x01, 0x00, len,
+					    0xBB))
+end
+
+local function ALPrivate(cmd)
+   local pattern = ">B I1 B I1 B"
+   local len = string.packsize(pattern)
+   serialWrite(sidSerial, string.pack(pattern, 0xEE, cmd, 0x00, len,
 					    0xBB))
 end
 
@@ -1919,6 +1983,124 @@ end
 
 -- ****
 
+local function ALMap(reset, seq, ccfg, cff, cid, inval, val2)
+
+   local x0 = cff.x0
+   local y0 = cff.y0
+   local x = ccfg.xlr
+   local y = ccfg.ylr
+   local width = ccfg.width
+   local height = ccfg.height
+   local fw = Glass.settings.mapWidth / 2 -- meters
+   local sxmin, sxmax, symin, symax = -fw * width/height, fw * width/height, -2*fw/4, 6*fw/4
+   local xlbl = width / 2
+   local ylbl = height - 20
+   local txt
+   local outsideColor = 0x03
+   
+   if seq == 0 then
+      x = 0
+      y = 0
+   end
+
+   ALHold()
+   ALClear()
+   ALColorWhite()
+
+   if not Glass.var.Field or not Glass.var.Field.name then
+      ALDrawTextC("Map", 16, xlbl, ylbl, false);
+   end
+   
+   if seq ~= 0 then
+      local xpoly = {}
+      local ypoly = {}
+      local sx, sy
+      local px, py
+
+      if Glass.var.rwy then
+	 for k=0, #Glass.var.rwy do 
+	    sx = Glass.var.rwy[1 + k % 4].x
+	    sy = Glass.var.rwy[1 + k % 4].y
+	    px = width - width * (sx - sxmin) / (sxmax - sxmin)
+	    py = height * (sy - symin) / (symax - symin)
+	    table.insert(xpoly, px)
+	    table.insert(ypoly, py)
+	 end
+	 ALDrawPolyLine(1, #xpoly, xpoly, ypoly, x, y, false)
+      end
+      
+      if Glass.var.nfp then
+	 local nv
+	 for k = 1, #Glass.var.nfp do
+	    nv = #Glass.var.nfp[k].path
+	    xpoly = {}
+	    ypoly = {}
+	    for j = 0, nv do
+	       sx = Glass.var.nfp[k].path[1 + j % nv].x
+	       sy = Glass.var.nfp[k].path[1 + j % nv].y
+	       px = width - width * (sx - sxmin) / (sxmax - sxmin)
+	       py = height * (sy - symin) / (symax - symin)
+	       table.insert(xpoly, px)
+	       table.insert(ypoly, py)
+	    end
+	    if Glass.var.nfp[k].inside then
+	       ALColorWhite()
+	    else
+	       ALColor(outsideColor)
+	    end
+	    ALDrawPolyLine(1, #xpoly, xpoly, ypoly, x, y, false)
+	 end
+      end
+
+      if Glass.var.nfc then
+	 local r
+	 for k = 1, #Glass.var.nfc do
+	    if Glass.var.nfc[k].inside then
+	       ALColorWhite()
+	    else
+	       ALColor(outsideColor)
+	    end
+	    px = width - width * (Glass.var.nfc[k].x - sxmin) / (sxmax - sxmin)
+	    py = height * (Glass.var.nfc[k].y - symin) / (symax - symin)
+	    r = Glass.var.nfc[k].r * width / (sxmax - sxmin)
+	    ALDrawCirc(x + px, y + py, r, false)
+	 end
+      end
+
+      ALColorWhite()
+      
+      local len = #pos2D.x
+      local cometRad = 6
+      if Glass.var.Field and Glass.var.currentPosition and len > 0 then
+	 for i=0,math.min(len-1,Glass.settings.cometPts-1),1 do
+	    px = width - width * (pos2D.x[len-i] - sxmin) / (sxmax - sxmin)
+	    py = height * (pos2D.y[len-i] - symin) / (symax - symin)
+	    ALDrawCircF(x + px, y + py, math.max(2, cometRad-i/2), false)
+	 end
+      end
+
+      if Glass.var.Field and Glass.var.currentPosition and Glass.var.zeroPos then
+	 local tt = ll2xy(Glass.var.zeroPos)
+	 px = width - width * (tt.x - sxmin) / (sxmax - sxmin)
+	 py = height * (tt.y - symin) / (symax - symin)
+	 ALDrawCircF(x + px, y + py, 6, false)
+      end
+      
+      if Glass.settings.displayDB then
+	 local dist, brg
+	 if Glass.var.Field and Glass.var.currentPosition and Glass.var.zeroPos then
+	    dist = gps.getDistance(Glass.var.zeroPos, Glass.var.currentPosition)
+	    brg = gps.getBearing(Glass.var.zeroPos, Glass.var.currentPosition)
+	       - Glass.var.Field.heading
+	    ALDrawTextC(string.format("%.1f m", dist), 26, width/2 - 70, 15)
+	    ALDrawTextC(string.format("%d deg", brg), 26, width/2 + 70, 15) 
+	 end
+      end
+   end
+   ALFlush()
+
+end
+
 local function ALMan(reset, seq, ccfg, cff, cid, inval, val2)
 
    local x0 = cff.x0
@@ -1927,7 +2109,7 @@ local function ALMan(reset, seq, ccfg, cff, cid, inval, val2)
    local y = ccfg.ylr
    local width = ccfg.width
    local height = ccfg.height
-   local fw = Glass.settings.fltWidth
+   local fw = Glass.settings.fltWidth / 2
    local sxmin, sxmax, szmin, szmax = -fw * width/height, fw * width/height, 0, 2 * fw
    local refDist = Glass.settings.distMan -- "screen" dist (m) from pilot
    
@@ -2202,7 +2384,13 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    xlMax = xlMax + x + RLwid(maxText, 16) / 2
    ylMax = ylMax + y + 16 / 2   
 
+   --ALWait()
+   --ALPrivate(0x05)
 
+   ALPrivate(0x04) -- flush snooper
+   --ALPrivate(0x01) -- waitNext
+   --ALPrivate(0x04) -- flush snooper
+   
    ALHold(false)
 
    ALColorBlack()
@@ -2281,8 +2469,6 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    end
    
    ALDrawTextC(valText, 26, valX, valY, false)
-
-   ALWait()
 
    ALFlush(false)
    
@@ -2393,10 +2579,35 @@ local function sendAL(g, pN, seq)
 	 ALILSGauge (rst, seq, ccfg, cff, cid, val, val2)
       elseif cid.wtype == "man" then
 	 ALMan (rst, seq, ccfg, cff, cid, val, val2)
+      elseif cid.wtype == "map" then
+	 ALMap (rst, seq, ccfg, cff, cid, val, val2)
       else
 	 print("DFM-HUD: unrecognized wtype:", cid.wtype)
       end
    end
+end
+
+
+local function initField(zeroPos)
+   local atField, fieldPos
+   if not Glass.var.Fields then print("DFM-HUD: no fields") return end
+   Glass.var.Field = {}
+   for sname, _ in pairs(Glass.var.Fields) do
+      fieldPos = gps.newPoint(Glass.var.Fields[sname].images[1].center.lat,
+			      Glass.var.Fields[sname].images[1].center.lng)
+      -- if within 1km select this field
+      -- future: could handle multiple fields at same location like DFM-Maps..
+      atField = gps.getDistance(zeroPos, fieldPos) < 1000
+      if (atField) then 
+	 Glass.var.Field = Glass.var.Fields[sname]
+	 local GvF1 = Glass.var.Field.images[1]
+	 Glass.var.Field.center = gps.newPoint(GvF1.center.lat, GvF1.center.lng)
+	 Glass.var.Field.heading = GvF1.heading
+	 break
+      end
+   end
+   rwy2XY()
+   nfz2XY()
 end
 
 
@@ -2407,6 +2618,8 @@ local oncePerSecond = 0
 local lastTakeoffSw = 0
 local lastGearUpSw = 0
 local lastScreen = 0
+local lastMapScreen = 0
+
 --local startUp = system.getTimeCounter()
 
 local function loop()
@@ -2415,18 +2628,34 @@ local function loop()
    local sensor, sval, sval2
    local scale
    local minV, maxV
+
+   -- check online status .. look for last response to battery level query
+   -- which is also our heartbeat signal. glasses will also send message to onRead()
+   -- when disconnected
+
+   -- now handled in onRead ... disconnected message from glasses
+   
+   -- local offline = system.getTime() - lastRead > 10 
+   -- if sendState == state.COMPLETE and lastRead ~= 0 and offline then
+   --    sendState = state.DISCONNECTED
+   --    lastRead = 0
+   --    if Glass.var.statusAL then
+   -- 	 Glass.var.statusAL.Conn = 0
+   --    end
+   --    if now > initTime + 120 and wasEverGreen and Glass.settings.rebootDisco then
+   -- 	 wasEverGreen = false
+   -- 	 restartTimer = system.getTimeCounter() + 500 -- set high for 500ms
+   -- 	 gpio.write(6,1)
+   -- 	 print("DFM-HUD: gpio 6 set high rebootDisco")
+   -- 	 system.messageBox("DFM-HUD: Rebooting AL controller")
+   -- 	 system.playBeep(2, 440, 200)
+   --    end
+   -- end
+   
    local gotGPS
    local takeoff = system.getInputsVal(switchItems.takeoff) or 0      
    local gearUp = system.getInputsVal(switchItems.gearUp) or 0
 
-   --print("system.getTime(), lastRead", system.getTime(), lastRead)
-   
-   local offline = system.getTime() - lastRead > 10
-   if sendState == state.COMPLETE and lastRead ~= 0 and offline then
-      sendState = state.DISCONNECTED
-      lastRead = 0
-   end
-   
    if Glass.settings.latId ~= 0 and Glass.settings.latPa ~= 0 and Glass.settings.lngPa ~= 0 then
       gotGPS = true
    else
@@ -2477,6 +2706,20 @@ local function loop()
       end
    end
 
+   local cometTailPts = 10 --max #points in comet tail
+   
+   if Glass.var.currentPosition and Glass.var.Field and now > lastMapScreen then
+      local idx = #pos2D.x
+      if idx >= cometTailPts then
+	 table.remove(pos2D.x,1)
+	 table.remove(pos2D.y,1)
+      end
+      local t = ll2xy(Glass.var.currentPosition)
+      table.insert(pos2D.x, t.x)
+      table.insert(pos2D.y, t.y)
+      lastMapScreen = now + 1000 * Glass.settings.cometTailLength / cometTailPts
+   end
+   
    local historyPts = 40 -- making this larger causes too much CPU load in the tele draw callback
    
    if Glass.var.currentPosition and Glass.var.zeroPos and
@@ -2553,24 +2796,23 @@ local function loop()
 	 --print("LOOPTIME", LOOPTIME)
       end
    end
-
    
    if otaTimer ~= 0 and now > otaTimer then
       otaTimer = 0
       gpio.write(5,0)
-      print("gpio 5 cleared")
+      print("DFM-HUD: gpio 5 cleared")
    end
 
    if restartTimer ~= 0 and now > restartTimer then
       restartTimer = 0
       gpio.write(6,0)
-      print("gpio 6 cleared")
+      print("DFM-HUD: gpio 6 cleared")
    end
    
    if powerDownTimer ~= 0 and now > powerDownTimer then
       powerDownTimer = 0
       gpio.write(7,1)
-      print("gpio 7 set high")
+      print("DFM-HUD: gpio 7 set high")
    end
 
    if Glass.var.statusAL and Glass.var.statusAL.Conn and Glass.var.statusAL.Conn == 1 and
@@ -2610,6 +2852,7 @@ local function loop()
 	 if not Glass.var.zeroPos then
 	    Glass.var.zeroPos = Glass.curPos
 	 end
+	 initField(Glass.var.zeroPos) -- if maps info has been read, get the field
       end
    end
 
@@ -3917,19 +4160,53 @@ local function initForm(sf)
 			{width=155, font=FONT_NORMAL, alignRight=false})
       
       form.addRow(2)
-      form.addLabel({label="History timeline (s)", font=FONT_NORMAL})
+      form.addLabel({label="Flt path timeline (s)", font=FONT_NORMAL})
       form.addIntbox(Glass.settings.historyLength, 10, 100, 20, 0, 1,
 		     (function(x) Glass.settings.historyLength = x end))
 
       form.addRow(2)
-      form.addLabel({label="Dist to flt path (m)", font=FONT_NORMAL})
+      form.addLabel({label="Flt path perp dist (m)", font=FONT_NORMAL})
       form.addIntbox(Glass.settings.distMan, 10, 500, 100, 0, 1,
 		     (function(x) Glass.settings.distMan = x end))
 
       form.addRow(2)
-      form.addLabel({label="Flt path width (m)", font=FONT_NORMAL})
-      form.addIntbox(Glass.settings.fltWidth, 10, 500, 100, 0, 1,
-		     (function(x) Glass.settings.fltWidth = x end))
+      form.addLabel({label="Flt path screen width (m)", font=FONT_NORMAL, width=250})
+      form.addIntbox(Glass.settings.fltWidth, 10, 1000, 200, 0, 1,
+		     (function(x) Glass.settings.fltWidth = x end), {width=60})
+
+      form.addRow(2)
+      form.addLabel({label="Map screen width (m)", font=FONT_NORMAL, width=250})
+      form.addIntbox(Glass.settings.mapWidth, 100, 1000, 200, 0, 1,
+		     (function(x) Glass.settings.mapWidth = x end), {width=60})
+
+
+      form.addRow(2)
+      form.addLabel({label="Map display dist/bearing", width=270})
+      local dbIndex
+      dbIndex = form.addCheckbox(Glass.settings.displayDB,
+				 (function()
+				       if not Glass.settings.displayDB then
+					  Glass.settings.displayDB = true
+				       else
+					  Glass.settings.displayDB = not Glass.settings.displayDB
+				       end
+				       form.setValue(dbIndex, Glass.settings.displayDB)
+				       print("displayDB", Glass.settings.displayDB)
+				       return
+				 end)
+      )
+
+
+      form.addRow(2)
+      form.addLabel({label="Comet tail timeline (s)", font=FONT_NORMAL, width=250})
+      form.addIntbox(Glass.settings.cometTailLength, 1, 60, 10, 0, 1,
+		     (function(x) Glass.settings.cometTailLength = x end), {width=60})
+
+      form.addRow(2)
+      form.addLabel({label="Comet tail points", font=FONT_NORMAL})
+      form.addIntbox(Glass.settings.cometPts, 1, 10, 7, 0, 1,
+		     (function(x) Glass.settings.cometPts = x end))
+
    end
 end
 
@@ -4251,7 +4528,7 @@ local function printTele(w,h)
       lcd.drawText(10, 10, string.format("Page %d", pageNumberTele))
    end
 
-   local offline = system.getTime() - lastRead > 10
+   local offline = Glass.var.statusAL.Conn ~= 1 -- system.getTime() - lastRead > 10
 
    lcd.drawImage(265, 15, glassesIcon)
    if not Glass.var.statusAL or offline then
@@ -4285,18 +4562,6 @@ local function printTele(w,h)
 	 lcd.drawText(10,50, sendState)
       end
       --print("state:", sendState)
-      if now > initTime + 120 and wasEverGreen and Glass.settings.rebootDisco then
-	 wasEverGreen = false
-	 if Glass.var.statusAL then
-	    Glass.var.statusAL.Conn = 0 -- note that we are no longer connected
-	 end
-	 restartTimer = system.getTimeCounter() + 500 -- set high for 500ms
-	 gpio.write(6,1)
-	 print("gpio 6 set high rebootDisco")
-	 system.messageBox("DFM-HUD: Rebooting AL controller")
-	 system.playBeep(2, 440, 200)
-	 sendState = state.DISCONNECTED
-      end
    end
 
    --print("printTele", pageNumberTele)
@@ -4325,10 +4590,16 @@ local function printTele(w,h)
 
    -- next params determined empirically
    
-   local xoffset = 253 --200 * (system.getInputs("P7") + 1)
-   local yoffset = 153 --200 * (system.getInputs("P8") + 1)
+   --local xoffset = 253 --200 * (system.getInputs("P7") + 1) 
+   --local yoffset = 153 --200 * (system.getInputs("P8") + 1)
 
    local wid, hgt = 0,0 --cfgimg.forms[fid].width, cfgimg.forms[fid].height)
+
+   lcd.setClipping(offset, 0, 304*r, (256-7)*r)
+   -- next params determined empirically
+   -- to center map in glasses window
+   local xoffset = 190
+   local yoffset = 155
 
    --print("#teleSerialReset", #teleSerialReset)
    for k,v in ipairs(teleSerialReset) do
@@ -4340,8 +4611,11 @@ local function printTele(w,h)
    end
    --end
 
+   lcd.resetClipping()
+   
    lcd.drawRectangle(offset, 0, 304*r, (256-7)*r) -- draw scaled glasses hw screen as box
 
+   
    --lcd.setColor(255,255,255)
    --local npts = #pos3D.x
    --if npts > 0 then
@@ -4558,6 +4832,21 @@ local function onRead(indata)
 	       print("DFM-HUD: Flow control delay")
 	       lastSend = system.getTimeCounter() + 200
 	    end
+	 elseif string.byte(command, 5) == 0x0a then
+	    print("DFM-HUD: Glasses Disconnected")
+	    system.messageBox("DFM-HUD: Glasses Disconnected")
+	    Glass.var.statusAL.Conn = 0
+	    local now = system.getTimeCounter()
+	    if now > initTime + 120 and wasEverGreen and Glass.settings.rebootDisco then
+	       wasEverGreen = false
+	       restartTimer = now + 500 -- set high for 500ms
+	       gpio.write(6,1)
+	       print("DFM-HUD: gpio 6 set high rebootDisco")
+	       --system.messageBox("DFM-HUD: Rebooting AL controller")
+	       system.playBeep(2, 440, 200)
+	    end
+	    sendState = state.DISCONNECTED
+	    lastRead = 0
 	 elseif string.byte(command, 5) == 0x0f then
 	    print("DFM-HUD: Gesture received")
 	    gestureTime = system.getTimeCounter() + 1000
@@ -4772,8 +5061,12 @@ local function init()
    
    --if not Glass.settings.configVersion then Glass.settings.configVersion = 0 end
    if not Glass.settings.distMan then Glass.settings.distMan = 200 end
-   if not Glass.settings.fltWidth then Glass.settings.fltWidth = 300 end
-   if not Glass.settings.historyLength then Glass.settings.historyLength = 20 end   
+   if not Glass.settings.fltWidth then Glass.settings.fltWidth = 200 end
+   if not Glass.settings.historyLength then Glass.settings.historyLength = 20 end
+   if not Glass.settings.cometTailLength then Glass.settings.cometTailLength = 10 end
+   if not Glass.settings.cometPts then Glass.settings.cometPts = 7 end
+   if not Glass.settings.mapWidth then Glass.settings.mapWidth = 200 end
+   if not Glass.settings.displayDB then Glass.settings.displayDB = true end      
 
    -- unHex the Pa and Id numbers (they get garbled if stored as floating point by the
    -- CJSON library)
@@ -4897,6 +5190,11 @@ local function init()
       Glass.var.zeroPos = gps.newPoint(41.33980, -74.43146)
    end
    --]]
+
+   file = io.readall('Apps/DFM-Maps/Maps/Fields.jsn')
+   Glass.var.Fields = json.decode(file)
+   print("Name:", Glass.var.Fields.BDS.name)
+
 end
    
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.01", name=appName}
