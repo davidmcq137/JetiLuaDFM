@@ -5164,7 +5164,8 @@ local function init()
    gpio.write(5,0) -- set to 1 to start OTA
    gpio.write(6,0) -- set to 1 to reboot
    gpio.write(7,1) -- turn power on
-   
+
+   --[[
    if not Glass.settings.logSeq then
       Glass.settings.logSeq = 1
    else
@@ -5174,8 +5175,9 @@ local function init()
    
    local lfn = string.format("logfile%d.txt", Glass.settings.logSeq)
 
-   --logFileFP = io.open(prefix() .. pathJson .. lfn, "w")
-
+   logFileFP = io.open(prefix() .. pathJson .. lfn, "w")
+   --]]
+   
    system.registerLogVariable("ALGesture", "", gestureCB) 
 
    --debugging GPS points for ILS at Black Dirt Field
