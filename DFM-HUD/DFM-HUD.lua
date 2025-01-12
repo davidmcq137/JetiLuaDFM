@@ -2319,7 +2319,7 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    local ylmax = cff.ylmax	 	 
    local rIn = cff.radiusIn
    local rOut = cff.radiusOut
-   local rIn = cff.radiusIn
+   --local rIn = cff.radiusIn
    --local rOut = (cff.radiusOut + cff.radiusIn) / 2
    local thk = cff.radiusOut - cff.radiusIn
    local as = cff.arcStart
@@ -2388,8 +2388,8 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    --ALPrivate(0x05)
 
    ALPrivate(0x04) -- flush snooper
-   --ALPrivate(0x01) -- waitNext
-   --ALPrivate(0x04) -- flush snooper
+   ALPrivate(0x01) -- waitNext
+   ALPrivate(0x04) -- flush snooper
    
    ALHold(false)
 
@@ -2406,7 +2406,7 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    --   print(x,y,x0,y0,rOut,thk)
    --   ALDrawImage(x, y, 2, false)
    --end
-   
+
    ---[[
    ALColor(0x03)
    
@@ -2455,6 +2455,7 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
 
 
    if arcAngle[seq] ~= arcStart then
+      --print("thk", thk)
       ALDrawArc(x + x0, y + y0, rOut, arcStart, arcErase, thk, false)
    end
    
@@ -5177,10 +5178,8 @@ local function init()
 
    system.registerLogVariable("ALGesture", "", gestureCB) 
 
-   print("DFM-HUD: CPU end init(): ", system.getCPU())
-
    --debugging GPS points for ILS at Black Dirt Field
-   ---[[
+   --[[
    if emflag ~= 0 then
       Glass.settings.latId = 3
       Glass.settings.latPa = 2
@@ -5191,10 +5190,15 @@ local function init()
    end
    --]]
 
-   file = io.readall('Apps/DFM-Maps/Maps/Fields.jsn')
-   Glass.var.Fields = json.decode(file)
-   print("Name:", Glass.var.Fields.BDS.name)
+   file = io.readall(prefix() .. 'Apps/DFM-Maps/Maps/Fields.jsn')
+   if file then
+      Glass.var.Fields = json.decode(file)
+   else
+      Glass.var.Fields = nil
+   end
 
+   print("DFM-HUD: CPU end init(): ", system.getCPU())
+   
 end
    
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.01", name=appName}
