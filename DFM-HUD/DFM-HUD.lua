@@ -1726,12 +1726,12 @@ local function ALILSGauge (reset, seq, ccfg, cff, cid, val, val2)
       end
 
       if ilsLoc then
-	 loc = math.floor(math.min(ilsLoc, 80))
+	 loc = math.floor(math.min(ilsLoc, ww/2))
 	 ALDrawLine(circX - loc, circY - hh/2, circX - loc, circY + hh/2)
       end
 
       if ilsGS then
-	 gs = math.min(math.max(10 * ilsGS, -80), 80)
+	 gs = math.min(math.max(10 * ilsGS, -hh/2), hh/2)
    	 ALDrawLine(circX - ww/2, circY + gs, circX + ww/2, circY + gs)
       end
       
@@ -2007,7 +2007,7 @@ local function ALMap(reset, seq, ccfg, cff, cid, inval, val2)
    ALClear()
    ALColorWhite()
 
-   if not Glass.var.Field or not Glass.var.Field.name then
+   if not Glass.var.Field or not Glass.var.Field.name or reset ~= 0 then
       ALDrawTextC("Map", 16, xlbl, ylbl, false);
    end
    
@@ -2769,10 +2769,11 @@ local function loop()
       local gearUp2toD = gps.getDistance(Glass.var.startTakeoff, Glass.var.gearUp)
       local deltaB = curr2gearUpB - gearUp2toB
       --local deltaD = curr2toD
-      if math.abs(deltaB) < 30 then
-	 Glass.var.ilsLoc = -deltaB
-	 if curr2toB - gearUp2toB > 0 and curr2toB - gearUp2toB < 90 then
-	    Glass.var.ilsGS = math.deg(math.atan(alt, math.abs(curr2toD))) - GSdeg
+      if math.abs(deltaB) < 10 then
+	 Glass.var.ilsLoc = 10*deltaB
+	 --print("D", curr2toB - gearUp2toB)
+	 if curr2toB - gearUp2toB > -45 and curr2toB - gearUp2toB < 45 then
+	    Glass.var.ilsGS = 10 * (GSdeg - math.deg(math.atan(alt, math.abs(curr2toD))))
 	 else
 	    Glass.var.ilsGS = nil
 	 end
@@ -5181,14 +5182,15 @@ local function init()
    system.registerLogVariable("ALGesture", "", gestureCB) 
 
    --debugging GPS points for ILS at Black Dirt Field
-   --[[
+   ---[[
    if emflag ~= 0 then
       Glass.settings.latId = 3
       Glass.settings.latPa = 2
       Glass.settings.lngPa = 3
       Glass.var.startTakeoff = gps.newPoint(41.34062, -74.43160)
-      Glass.var.gearUp = gps.newPoint(41.33827, -74.43077)
+      Glass.var.gearUp = gps.newPoint(41.337295, -74.430496)
       Glass.var.zeroPos = gps.newPoint(41.33980, -74.43146)
+      Glass.var.startTakeoffAlt = 0
    end
    --]]
 

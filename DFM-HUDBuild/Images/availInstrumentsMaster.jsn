@@ -365,6 +365,14 @@
 	 "minV":0, "maxV":100,
 	 "ticlabels":"",
 	 "scale":"variable"
+	},
+
+	{"formID": 18, "wtype": "ils",
+	 "inputs":1,
+	 "label": "",
+	 "minV":0, "maxV":100,	 
+	 "ticlabels": "",
+	 "scale":"variable"
 	}
     ]
 }

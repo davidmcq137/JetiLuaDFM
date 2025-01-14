@@ -109,7 +109,7 @@ local latVal
 local lonVal
 local latDecimals
 local lonDecimals
-local time0
+local time0, timeW
 local saveSwitch={}
 local switchSeq
 local geo = {}
@@ -464,7 +464,12 @@ function emulator_getSensors()
    end
    
    time0 = system.getTimeCounter()
-   
+   timeW = 0
+
+   if GPSparms and GPSparms.startTime then
+      time0 = time0 - GPSparms.startTime * 1000
+   end
+
    return sensorTbl
 end
 
@@ -544,7 +549,14 @@ function emulator_getSensorByID(ID, Param)
 	 returnTbl.valid = true
 	 returnTbl.sensorName = v.sensorName
 	 uid = tostring(math.floor(ID)).."-"..tostring(math.floor(Param))
-	 env.t = ((system.getTimeCounter() - time0)/1000)
+	 if system.getInputs("SI") == 1 and env.t then -- set SI to 1 to hold time
+	    timeW = system.getTimeCounter() - (env.t * 1000 + time0)
+	 else
+	    env.t = (system.getTimeCounter() - time0 - timeW)/1000
+	 end
+
+	 --print("env.t", env.t, GPSparms.startTime)
+	 
 	 if lastT[uid] then
 	    deltaT[uid] = env.t - lastT[uid]
 	 else
@@ -553,9 +565,9 @@ function emulator_getSensorByID(ID, Param)
 	 env.dt = deltaT[uid]
 	 lastT[uid] = env.t
    
-	 if GPSparms and GPSparms.startTime then
-	    env.t = env.t + GPSparms.startTime
-	 end
+	 --if GPSparms and GPSparms.startTime then
+	    --env.t = env.t + GPSparms.startTime
+	 --end
 
 	 -- if we have GPS values spec'd, then load the GPS auxcontrols, env variables
 	 -- and evaluate the lua strings
