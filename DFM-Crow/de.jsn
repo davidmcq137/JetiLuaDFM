@@ -23,5 +23,7 @@
     "teleTitle":"Krähenmischungskurve",
     "cannotReg":"Lua-Steuerelemente konnten nicht registriert werden",
     "pleaseProp":"Bitte Geber auf Proportional setzen",
-    "noSave": " - keine gespeicherte config"
+    "noSave": " - keine gespeicherte config",
+    "resetCtrl": "Mix kurve zurücksetzen",
+    "curveReset": "Mix kurve zurücksetzen kontrolle"
 }

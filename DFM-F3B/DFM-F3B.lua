@@ -90,7 +90,12 @@ local function keyForm(key)
 	 return
       end
       if curX and curY then
-	 gpsScale = 150.0/math.sqrt(curX^2 + curY^2)
+	 if math.abs(math.sqrt(curX^2 + curY^2) - 150) > 20 then
+	    system.messageBox("Move closer to 150m")
+	    gpsScale = 1.0
+	 else
+	    gpsScale = 150.0/math.sqrt(curX^2 + curY^2)
+	 end
       end
    end
 

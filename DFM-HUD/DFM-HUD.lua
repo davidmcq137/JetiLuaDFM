@@ -441,7 +441,7 @@ local function decodeAL(ps, rr, xoffset, yoffset, wid, hgt)
       --      rr*(rad), rr*(rad + th), 18, 1)
 
       drawArc(math.rad(ae-as), x1j, y1j, math.rad(as + 180), math.rad(ae),
-            rr*(rad - th/2), rr*(rad + th/2), 18, 1)
+            rr*(rad - th/2), rr*(rad + th/2), 20, 1)
    elseif b == 0x42 then
       --image draw
    elseif b == 0x39 or b == 0x05 or b == 0x01 or b == 0xD3 or b == 0xD2 or b == 0x04 then
@@ -1274,7 +1274,7 @@ local function ALVbar (reset, seq, ccfg, cff, cid, inval, val2, minV, maxV, mk, 
      ALDrawTextC(lblVal, 16, xlbl, ylbl, false);
   end
   
-  ALFlush(true);
+  ALFlush(false);
 
   -- save old values
   vbarPctPrev[seq] = inpct;
@@ -1382,7 +1382,7 @@ local function ALCompass (reset, seq, ccfg, cff, cid, val, val2, minV, maxV, lab
       
       --flush pending writes
       
-      ALFlush(true)
+      ALFlush(false)
       
       -- save old values
       
@@ -1502,7 +1502,7 @@ local function ALVertTape (reset, seq, ccfg, cff, cid, inval)
    if not inval then valText = "---" end
    ALDrawTextC(valText, 26, x + x0 - valX, y + y0 - barH / 2 + 1, false); ---value
 
-   ALFlush(true);
+   ALFlush(false);
    
    vertTapeValIntprev[seq] = valInt;
 
@@ -1661,7 +1661,7 @@ local function ALAhGauge (reset, seq, ccfg, cff, cid, val, val2)
 	 
       until i > 45 + delta;
       
-      ALFlush(true)
+      ALFlush(false)
       
    end
    
@@ -1742,7 +1742,7 @@ local function ALILSGauge (reset, seq, ccfg, cff, cid, val, val2)
 	 --ALDrawPolyLine(2, 3, xRH, yRH, x+x0, y+y0, false)
 	 resetOff()
       end
-      ALFlush(true)
+      ALFlush(false)
       
    end
 
@@ -1969,7 +1969,7 @@ local function ALHbar (reset, seq, ccfg, cff, cid, inval, val2, minV, maxV, mk, 
      ALDrawTextC(lblVal, 16, xlbl, ylbl, false);
   end
 
-  ALFlush(true);
+  ALFlush(false);
 
 
   -- save old values
@@ -2293,7 +2293,7 @@ local function ALGauge(reset, seq, ccfg, cff, cid, inval, val2, minV, maxV, mk, 
   --print("else", seq, tipX, tipXprev[seq], tipY, tipYprev[seq])
   --end
 
-  ALFlush(true)
+  ALFlush(false)
 
 end
 
@@ -2386,10 +2386,9 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
 
    --ALWait()
    --ALPrivate(0x05)
-
-   ALPrivate(0x04) -- flush snooper
-   ALPrivate(0x01) -- waitNext
-   ALPrivate(0x04) -- flush snooper
+   --ALPrivate(0x04) -- flush snooper
+   --ALPrivate(0x01) -- waitNext
+   --ALPrivate(0x04) -- flush snooper
    
    ALHold(false)
 
@@ -2471,7 +2470,7 @@ local function ALArcGauge(reset, seq, ccfg, cff, cid, inval, val2, nv, xv, mk, d
    
    ALDrawTextC(valText, 26, valX, valY, false)
 
-   ALFlush(false)
+   ALFlush(true)
    
    arcAnglePrev[seq] = arcErase
 end
@@ -2770,7 +2769,7 @@ local function loop()
       local deltaB = curr2gearUpB - gearUp2toB
       --local deltaD = curr2toD
       if math.abs(deltaB) < 10 then
-	 Glass.var.ilsLoc = 10*deltaB
+	 Glass.var.ilsLoc = 10 * deltaB
 	 --print("D", curr2toB - gearUp2toB)
 	 if curr2toB - gearUp2toB > -45 and curr2toB - gearUp2toB < 45 then
 	    Glass.var.ilsGS = 10 * (GSdeg - math.deg(math.atan(alt, math.abs(curr2toD))))

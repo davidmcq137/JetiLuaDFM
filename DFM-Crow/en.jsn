@@ -23,6 +23,8 @@
     "teleTitle":"Crow Mix Curve",
     "cannotReg":"Could not register lua controls",
     "pleaseProp":"Please set control to Proportional",
-    "noSave": " - no saved config"    
+    "noSave": " - no saved config",
+    "resetCtrl": "Curve reset control",
+    "curveReset": "Curve reset"
 }
 

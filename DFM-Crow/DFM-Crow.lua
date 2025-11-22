@@ -27,6 +27,8 @@
    Version 1.5 - Jul 25, 2021 fix bug that prevented use of logical sw/ctrl for crow
                               change speaking of crow points to indiv wav files
    Version 1.6 - Dec 01, 2021 start lua control search at control 1 to accommodate DS-16 II
+   Version 1.7 - Nov 11, 2025 add switch to reset crow curve per Harry suggestion
+                              changed announce points default to false
 
    Limitations: 
    
@@ -41,7 +43,7 @@
 
 --]]
 
-local crowVersion= 1.6
+local crowVersion= 1.7
 local appShort="DFM-Crow"
 local appDir = "Apps/"..appShort.."/"
 
@@ -52,6 +54,7 @@ local acvCtrl
 local fmCtrl
 local elevCtrl
 local autoCtrl
+local resetCtrl
 local autoAnnounce = 0
 local autoCrowRate
 local luaControlMax = 0.50
@@ -202,6 +205,11 @@ local function autoCtrlChanged(value)
    system.pSave("autoCtrl", autoCtrl)
 end
 
+local function resetCtrlChanged(value)
+   resetCtrl = value
+   system.pSave("resetCtrl", resetCtrl)
+end
+
 local function reverseCrowChanged(value)
    reverseCrow = not value
    form.setValue(reverseCrowIndex, reverseCrow)
@@ -259,6 +267,7 @@ local function rstCurve()
    crowConfig.trimCurveU[1]=1
 end
 
+
 local function initForm(sF)
 
    if sF == 1 then
@@ -278,6 +287,10 @@ local function initForm(sF)
       form.addRow(2)
       form.addLabel({label=lang.autoCrowElev, width=220})
       form.addInputbox(elevCtrl, true, elevCtrlChanged)
+
+      form.addRow(2)
+      form.addLabel({label=lang.resetCtrl, width=220})
+      form.addInputbox(resetCtrl, true, resetCtrlChanged)
 
       form.addRow(2)
       form.addLink((function() form.reinit(2) end), {label = lang.crowSettings .. ">>", width=220})
@@ -344,6 +357,8 @@ local function loop()
    local deadBand = 0.02
    local deadCrow = 0.02
    local highestSet
+   local swr
+   local notZero
    
    info = system.getSwitchInfo(crowCtrl)
    if info then
@@ -364,6 +379,27 @@ local function loop()
    info = system.getSwitchInfo(elevCtrl)
    if info then
       swe = info.value
+   end
+   
+   info = system.getSwitchInfo(resetCtrl)
+   if info then
+      swr = info.value
+   end
+
+   if swa ~= 1 and swr and swr == 1 then -- only reset when autocrow off
+      notZero = false
+      for i=1, #crowConfig.trimCurveX do
+	 if crowConfig.trimCurveY[i] ~= 0 then
+	    notZero = true
+	    break
+	 end
+      end
+      -- in case we see the reset for many loops, only do the message once
+      -- but reset each time
+      if notZero then
+	 system.messageBox(appShort ..": " .. lang.curveReset)
+      end
+      rstCurve()
    end
    
    if swc then
@@ -387,7 +423,7 @@ local function loop()
 
       if crowConfig.trimPoint ~= crowConfig.lastTrimPoint then
 	 if crowConfig.trimCurveU[crowConfig.trimPoint] == 0 then
-	    if announcePoints then
+	    if announcePoints and swa and swa == 1 then
 	       --print("playNumber:", crowConfig.trimPoint-1, 0)
 	       --system.playNumber((crowConfig.trimPoint-1), 0)
 	       playNumber(crowConfig.trimPoint-1) -- avoid DS-12 upgrade .. don't use system.playNumber
@@ -654,7 +690,8 @@ local function init()
    trimStep        = system.pLoad("trimStep", 2)
    --tPoints         = system.pLoad("tPoints", 7)   
    elevCtrl        = system.pLoad("elevCtrl")
-   autoCtrl        = system.pLoad("autoCtrl")   
+   autoCtrl        = system.pLoad("autoCtrl")
+   resetCtrl       = system.pLoad("resetCtrl")
    autoCrowRate    = system.pLoad("autoCrowRate", 300)
    autoCrowSens    = system.pLoad("autoCrowSens", 1)
    autoCrowSpacing = system.pLoad("autoCrowSpacing", 1)   
@@ -665,7 +702,7 @@ local function init()
    reverseTrim = system.pLoad("reverseTrim", "false")
    reverseTrim = (reverseTrim == "true")
 
-   announcePoints = system.pLoad("announcePoints", "true")
+   announcePoints = system.pLoad("announcePoints", "false")
    announcePoints = (announcePoints == "true")      
 
    devType, emFlag = system.getDeviceType()
