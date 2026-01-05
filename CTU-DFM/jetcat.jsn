@@ -293,8 +293,8 @@
     },
     "64": {
       "active": true,
-      "speech": "ecu reboot.wav",
-      "de": "ecu reboot-DE.wav",
+      "speech": "ECU_reboot.wav",
+      "de": "ECU_reboot-DE.wav",
       "text": "ECU reboot"
     },
     "65": {
