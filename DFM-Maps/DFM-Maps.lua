@@ -1139,9 +1139,8 @@ local function pngLoad(j)
    
    pfn = Field.images[j].file
    print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j])
- if (fieldPNG[j]==nil) then
    fieldPNG[j] = lcd.loadImage(pfn)
- end
+   
    if not fieldPNG[j] then
       print(appInfo.Name .. ": Failed to load image", j, pfn)
       return
@@ -1828,24 +1827,20 @@ local function initForm(subform)
 end
 
 -- Various shape and polyline functions using the anti-aliasing renderer
-local drawShapeRenderer
+
 local function drawShape(col, row, shape, rotation)
    local sinShape, cosShape
-   if (drawShapeRenderer == nil) then
-      drawShapeRenderer = lcd.renderer()
-   else 
-      drawShapeRenderer:reset()
-   end
+   local ren=lcd.renderer()
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
-   drawShapeRenderer:reset()
+   ren:reset()
    for _, point in pairs(shape) do
-      drawShapeRenderer:addPoint(
+      ren:addPoint(
 	 col + (point[1] * cosShape - point[2] * sinShape + 0.5),
 	 row + (point[1] * sinShape + point[2] * cosShape + 0.5)
       ) 
    end
-   drawShapeRenderer:renderPolygon()
+   ren:renderPolygon()
 end
 
 local function playFile(ffn, as)
@@ -1976,26 +1971,21 @@ local function computeBezier(numT)
    end
 end
 
-local bezierRenderer
 local function drawBezier(windowWidth, windowHeight, yoff)
 
-   if (bezierRenderer == nil) then
-      bezierRenderer = lcd.renderer()
-   else
-      bezierRenderer:reset()
-   end
-       
+      
+   local ren=lcd.renderer()   
    -- draw Bezier curve points computed in computeBezier()
 
    if not bezierPath[1]  then return end
 
-   bezierRenderer:reset()
+   ren:reset()
 
    for j=1, #bezierPath do
-      bezierRenderer:addPoint(toXPixel(bezierPath[j].x, map.Xmin, map.Xrange, windowWidth),
+      ren:addPoint(toXPixel(bezierPath[j].x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(bezierPath[j].y, map.Ymin, map.Yrange, windowHeight)+yoff)
    end
-   bezierRenderer:renderPolyline(3)
+   ren:renderPolyline(3)
 
 end
 
@@ -2026,14 +2016,9 @@ local lastsws
 local lastdetS1 = -1
 local inZoneLast = {}
 
-local triRaceRenderer
 local function drawTriRace(windowWidth, windowHeight)
 
-   if (triRaceRenderer == nil) then
-      triRaceRenderer = lcd.renderer()
-   else
-      triRaceRenderer:reset()
-   end
+   local ren=lcd.renderer()
    
    if not variables.triEnabled then return end
    if not pylon[1] then return end
@@ -2063,22 +2048,22 @@ local function drawTriRace(windowWidth, windowHeight)
    -- draw the triangle race course
 
    setColor("Triangle", variables.triColorMode)
-   triRaceRenderer:reset()
+   ren:reset()
    for j = 1, #pylon + 1 do
 
-      triRaceRenderer:addPoint(toXPixel(pylon[m3(j)].x, map.Xmin, map.Xrange, windowWidth),
+      ren:addPoint(toXPixel(pylon[m3(j)].x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[m3(j)].y, map.Ymin, map.Yrange, windowHeight) )
    end
    --lcd.setClipping(0,0,320,160)   
-   triRaceRenderer:renderPolyline(2, 0.7)
+   ren:renderPolyline(2, 0.7)
    -- draw the startline
    if #pylon == 3 and pylon.start then
-      triRaceRenderer:reset()
-      triRaceRenderer:addPoint(toXPixel(pylon[2].x, map.Xmin, map.Xrange, windowWidth),
+      ren:reset()
+      ren:addPoint(toXPixel(pylon[2].x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon[2].y, map.Ymin, map.Yrange, windowHeight))
-      triRaceRenderer:addPoint(toXPixel(pylon.start.x, map.Xmin, map.Xrange, windowWidth),
+      ren:addPoint(toXPixel(pylon.start.x, map.Xmin, map.Xrange, windowWidth),
 		   toYPixel(pylon.start.y,map.Ymin,map.Yrange,windowHeight))
-      triRaceRenderer:renderPolyline(2,0.7)
+      ren:renderPolyline(2,0.7)
    end
 
    setColor("Map", variables.triColorMode)
@@ -2845,7 +2830,6 @@ local function isNoFlyP(nn,p)
    
 end
 
-local formRenderer
 local function prtForm(wwx, whx)
 
    --print("wwx, whx", wwx, whx)
@@ -2880,11 +2864,7 @@ local function prtForm(wwx, whx)
    elseif savedSubform == 10 then
       if not browse.MapDisplayed then return end
       if #browse.List < 1 then return end
-      if (formRenderer==nil) then 
-               formRenderer = lcd.renderer()
-      else 
-         formRenderer:reset()
-      end
+      local ren=lcd.renderer()
       if newTransmitter then
 	 lcd.drawImage(-5+2,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
       else
@@ -2899,53 +2879,53 @@ local function prtForm(wwx, whx)
 
 	 setColor("Runway", "Image")
 	 if #rwy == 4 then
-	    formRenderer:reset()
+	    ren:reset()
 	    for j = 1, 5, 1 do
-	       formRenderer:addPoint(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
+	       ren:addPoint(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
 			    toYPixel(rwy[j%4+1].y, map.Ymin, map.Yrange, windowHeight))
 	    end
-	    formRenderer:renderPolyline(2,0.7)
+	    ren:renderPolyline(2,0.7)
 	 end
 
 	 if #tri == 3 then
-	    formRenderer:reset()
+	    ren:reset()
 	    for j= 1, 4, 1 do
-	       formRenderer:addPoint(toXPixel(tri[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
+	       ren:addPoint(toXPixel(tri[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
 			    toYPixel(tri[j%3+1].y, map.Ymin, map.Yrange, windowHeight))
 	    end
 	    setColor("Triangle", "Image")
-	    formRenderer:renderPolyline(2,0.7)
+	    ren:renderPolyline(2,0.7)
 	 end
 
 	 if browse.FieldName == browse.OriginalFieldName then
 	    if #pylon == 3 then
-	       formRenderer:reset()
+	       ren:reset()
 	       for j= 1, 4, 1 do
-		  formRenderer:addPoint(toXPixel(pylon[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
+		  ren:addPoint(toXPixel(pylon[j%3+1].x, map.Xmin, map.Xrange, windowWidth),
 			       toYPixel(pylon[j%3+1].y, map.Ymin, map.Yrange, windowHeight))
 	       end
 	       setColor("TriRot", "Image")
-	       formRenderer:renderPolyline(2,0.7)
+	       ren:renderPolyline(2,0.7)
 	       -- we don't have the aim points computed yet (pylon[].xt and .yt) so the code
 	       -- to show them would go here
 	    end
 	 end
 	 
 	 for i = 1, #nfp, 1 do
-	    formRenderer:reset()
+	    ren:reset()
 	    if nfp[i].inside then
 	       setColor("NoFlyInside", "Image")
 	    else
 	       setColor("NoFlyOutside", "Image")
 	    end
 	    for j = 1, #nfp[i].path+1, 1 do
-	       formRenderer:addPoint(toXPixel(nfp[i].path[j % (#nfp[i].path) + 1].x,
+	       ren:addPoint(toXPixel(nfp[i].path[j % (#nfp[i].path) + 1].x,
 				     map.Xmin, map.Xrange, windowWidth),
 			    toYPixel(nfp[i].path[j % (#nfp[i].path) + 1].y,
 				     map.Ymin, map.Yrange, windowHeight))
 	       
 	    end
-	    formRenderer:renderPolyline(2,0.5)
+	    ren:renderPolyline(2,0.5)
 	 end
 	 
 
@@ -2974,7 +2954,6 @@ local savedRx={}
 local savedRy={}
 local circFitCache={}
 
-local dirPrintRenderer
 local function dirPrint(xw, xh, kk)
    local sC = variables.triLength * variables.triViewScale / 100 -- scale factor for this tele window
    local xf = 0.40 -- center X is at 1-xf of width
@@ -2986,12 +2965,7 @@ local function dirPrint(xw, xh, kk)
    local yrange = ymax - ymin
    local ww = 320
    local wh = 160
-   if (dirPrintRenderer==nil) then 
-      dirPrintRenderer = lcd.renderer()
-   else
-      dirPrintRenderer:reset()
-   end   
-   
+   local ren=lcd.renderer()
    local hh
    local triColorMode
 
@@ -3160,7 +3134,7 @@ local function dirPrint(xw, xh, kk)
    
    if not pylon or not pylon[3] then return end
    
-   dirPrintRenderer:reset()
+   ren:reset()
 
    -- draw the triangle
    
@@ -3168,33 +3142,33 @@ local function dirPrint(xw, xh, kk)
    for j = 1, #pylon + 1 do
       rap(pylon[m3(j)].x, pylon[m3(j)].y)
    end
-   dirPrintRenderer:renderPolyline(2, 0.7)
+   ren:renderPolyline(2, 0.7)
 
    --draw the startline
 
    setColor("StartLine", triColorMode)
    if #pylon == 3 and pylon.start then
-      dirPrintRenderer:reset()
+      ren:reset()
       rap(pylon[2].x, pylon[2].y)
       rap(pylon.start.x, pylon.start.y)
       --lcd.setColor(0,0,255)
-      dirPrintRenderer:renderPolyline(2,0.7)
+      ren:renderPolyline(2,0.7)
    end
 
    -- draw the line to the next aim point
    setColor("AimPt", triColorMode)
    if raceParam.racing then
       --lcd.setColor(250,177,216)
-      dirPrintRenderer:reset()
+      ren:reset()
       rap(xx,yy)
       rap(pylon[m3(nextPylon)].xt, pylon[m3(nextPylon)].yt)
-      dirPrintRenderer:renderPolyline(2, 0.7)
+      ren:renderPolyline(2, 0.7)
    end
 
    -- draw the turning zones
    setColor("TurnZone", triColorMode)
    for j = 1, #pylon do
-      dirPrintRenderer:reset()
+      ren:reset()
       rap(pylon[j].x, pylon[j].y)
       rap(pylon[j].zxl, pylon[j].zyl)
       rap(pylon[j].zxr, pylon[j].zyr)
@@ -3206,7 +3180,7 @@ local function dirPrint(xw, xh, kk)
       else
 	 alpha = 0.4
       end
-      dirPrintRenderer:renderPolygon(alpha)
+      ren:renderPolygon(alpha)
    end
 
    ------------------------------------------------------------
@@ -3236,7 +3210,7 @@ local function dirPrint(xw, xh, kk)
 	    savedRx[i], savedRy[i] = rapN(xrr, yrr, 2)
 	 end
       end
-      dirPrintRenderer:reset()
+      ren:reset()
       rgb.last = -1
       -- display the history ribbon from the cached points, handle color changes
       for i=istart, iend do
@@ -3249,8 +3223,8 @@ local function dirPrint(xw, xh, kk)
 	 if rgbHist[i] ~= rgb.last then
 	    rgb.last = rgbHist[i]
 	    rapC(savedRx[i], savedRy[i], 2)
-	    dirPrintRenderer:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
-	    dirPrintRenderer:reset()
+	    ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
+	    ren:reset()
 	    if variables.ribbonColorSource == 1 then
 	       setColor("Map", triColorMode)
 	    else
@@ -3260,7 +3234,7 @@ local function dirPrint(xw, xh, kk)
 	 rapC(savedRx[i], savedRy[i], 2)
       end
       rap(xx,yy,2)
-      dirPrintRenderer:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
+      ren:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
       
    end
    lastHeading = hh
@@ -3312,12 +3286,12 @@ local function dirPrint(xw, xh, kk)
 	 if math.deg(dt) > 180 then dt = dt - 2*math.pi end
 	 dt = math.max(math.min(dt, math.pi/12), -math.pi/12)
 	 if r > (sC / 20) then
-	    dirPrintRenderer:reset()
+	    ren:reset()
 	    for i=1,10,1 do
 	       rap(cx + r * math.sin(tn + 2.5*(i-1)*(dt)/9),
 		   cy + r * math.cos(tn + 2.5*(i-1)*(dt)/9))
 	    end
-	    dirPrintRenderer:renderPolyline(3,0.7)
+	    ren:renderPolyline(3,0.7)
 	 else
 	    --print(r, k)
 	 end
@@ -3593,7 +3567,6 @@ end
 
 local panic = false
 
-local mapPrintRenderer
 local function mapPrint(wWid, wHgt)
 
    local windowWidth = 319
@@ -3601,11 +3574,7 @@ local function mapPrint(wWid, wHgt)
 
    local swp
    local offset
-   if (mapPrintRenderer == nil) then
-      mapPrintRenderer = lcd.renderer()
-   else
-      mapPrintRenderer:reset()
-   end
+   local ren=lcd.renderer()
 
    --metrics.mapPCount = metrics.mapPCount + 1
    --[[
@@ -3801,18 +3770,18 @@ local function mapPrint(wWid, wHgt)
    end
       
    if #rwy == 4 then
-      mapPrintRenderer:reset()
+      ren:reset()
       for j = 1, 5, 1 do
-	 mapPrintRenderer:addPoint(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
+	 ren:addPoint(toXPixel(rwy[j%4+1].x, map.Xmin, map.Xrange, windowWidth),
 		      toYPixel(rwy[j%4+1].y, map.Ymin, map.Yrange, windowHeight))
       end
-      mapPrintRenderer:renderPolyline(2,0.7)
+      ren:renderPolyline(2,0.7)
    end
    
    -- draw the polygon no fly zones if defined
    if checkBox.noflyEnabled then
       for i = 1, #nfp, 1 do
-	 mapPrintRenderer:reset()
+	 ren:reset()
 	 if nfp[i].inside then
 	    if variables.triEnabled then
 	       setColor("NoFlyInside", variables.triColorMode)
@@ -3827,14 +3796,14 @@ local function mapPrint(wWid, wHgt)
 	    end
 	 end
 	 for j = 1, #nfp[i].path+1, 1 do
-	    mapPrintRenderer:addPoint(toXPixel(nfp[i].path[j % (#nfp[i].path) + 1].x,
+	    ren:addPoint(toXPixel(nfp[i].path[j % (#nfp[i].path) + 1].x,
 				  map.Xmin, map.Xrange, windowWidth),
 			 toYPixel(nfp[i].path[j % (#nfp[i].path) + 1].y,
 				  map.Ymin, map.Yrange, windowHeight))
 	    
 	 end
 	 --lcd.setClipping(0,0,320,160)
-	 mapPrintRenderer:renderPolyline(2,0.5)
+	 ren:renderPolyline(2,0.5)
       end
 
       -- this section for debugging enclosing box and circle for polygons
@@ -4680,6 +4649,6 @@ local function init()
 
 end
 
-return {init=init, loop=loop, author="DFM", version="8.12", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="8.13", name=appInfo.Name, destroy=destroy}
 
 
