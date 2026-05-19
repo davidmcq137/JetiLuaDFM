@@ -951,7 +951,7 @@ local function init()
    os.setlocale("C") -- required in Germany so commas don't get changed in json
    fieldIdx = 0
    fg = io.readall("Apps/SensorFields.jsn")
-   print("SensorFields fg", fg)
+   --print("SensorFields fg", fg)
    if fg then
       geo = json.decode(fg)
       if geo then

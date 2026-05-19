@@ -1138,7 +1138,7 @@ local function pngLoad(j)
    end
    
    pfn = Field.images[j].file
-   print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j])
+   --print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j])
  if (fieldPNG[j]==nil) then
    fieldPNG[j] = lcd.loadImage(pfn)
  end
@@ -3132,7 +3132,7 @@ local function dirPrint(xw, xh, kk)
       local dy = yy - y
       local rx, ry = rotateXY(dx, dy, math.rad(hh))
       rx, ry = toXPixel(rx, xmin, xrange, ww), toYPixel(ry, ymin, yrange, wh)
-      ren:addPoint(rx, ry)
+      dirPrintRenderer:addPoint(rx, ry)
       if d then
 	 lcd.drawCircle(rx, ry, d)
       end
@@ -3148,7 +3148,7 @@ local function dirPrint(xw, xh, kk)
    end
 
    local function rapC(rx,ry,d) -- C for cached
-      ren:addPoint(rx, ry)
+      dirPrintRenderer:addPoint(rx, ry)
       if d then
 	 lcd.drawCircle(rx, ry, d)
       end      
@@ -3219,6 +3219,8 @@ local function dirPrint(xw, xh, kk)
       swp = system.getInputsVal(switchItems.point)
    end
 
+   --print("@@@@@@@@@@@@switchItems.point, swp, #xPHist", switchItems.point, swp, #xPHist)
+   
    if ( (not switchItems.point) or (swp and swp == 1) ) and (#xPHist > 0) then
       local kk
       local jj
@@ -3379,7 +3381,7 @@ local function dirPrint(xw, xh, kk)
       
    end
 
-   collectgarbage()
+   --collectgarbage()
    
 end
 
@@ -3704,6 +3706,7 @@ local function mapPrint(wWid, wHgt)
       swp = system.getInputsVal(switchItems.point)
    end
 
+   --print("@@@ switchItems.point, swp, #xPHist", switchItems.point, swp, #xPHist)
    if ( (not switchItems.point) or (swp and swp == 1) ) and (#xPHist > 0) then
 
       --check if we need to panic .. xPHist got too big while we were off screen
@@ -4495,6 +4498,7 @@ local function init()
    --local emptySw = system.getSwitchInfo(system.createSwitch("??", ""))
 
    --print("DFM-Maps init()")
+   lastHistTime = system.getTimeCounter()
    
    local fg = io.readall(appInfo.Dir.."JSON/Shapes.jsn")
 
