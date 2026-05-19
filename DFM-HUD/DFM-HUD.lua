@@ -2823,7 +2823,7 @@ local function loop()
    end
 
    if system.getTimeCounter() < 0 then
-      print("system.getTimeCounter() wrapped. Restart emulator")
+      --print("system.getTimeCounter() wrapped. Restart emulator")
    end
    
    if switchItems.pageChange then setpNT() end
@@ -4967,6 +4967,7 @@ local function init()
    
    local device
    device, emflag = system.getDeviceType() 
+   print("Device", device, "emflag", emflag)
    
    local success, descr
    local portlist = serial.getPorts()
@@ -5201,6 +5202,9 @@ local function init()
    end
 
    print("DFM-HUD: CPU end init(): ", system.getCPU())
+   print("DFM-HUD: system.getSensorByID", system.getSensorByID)
+   print("DFM-HUD: emulator_getSensorByID", emulator_getSensorByID)
+   --dumpGlobalVars()
    
 end
    

@@ -72,26 +72,30 @@
 -- detect read or write to global .. will have to handle intentional globals at some point...
 
 ---[[
+
+
 local sensorE_Global = {emulator_init=true, emulator_vibration=true, emulator_playFile=true,
 		  emulator_playNumber=true, emulator_getSensors=true,
 		  emulator_getSensorValueByID=true,emulator_getSensorByID=true,
 		  emulator_init=true, emulator_getPosition=true, emulator_playBeep=true}
-setmetatable(_G, {
-		__newindex = function (t, n, v)
-		   if not sensorE_Global[n] then
-		      print("SensorE: Write to undeclared variable ".."<"..n..">")
-		      rawset(t, n, v)
-		   else
-		      rawset(t, n, v)
-		   end
-		   
-		end,
-		__index = function (_, n)
-		   if not sensorE_Global[n] then
-		      print("SensorE: Read from undeclared variable ".."<"..n..">")
-		   end
-		end,
-})
+
+
+--setmetatable(_G, {
+--		__newindex = function (t, n, v)
+--		   if not sensorE_Global[n] then
+--		      print("SensorE: Write to undeclared variable ".."<"..n..">")
+--		      rawset(t, n, v)
+--		   else
+--		      rawset(t, n, v)
+--		   end
+--		   
+--		end,
+--		__index = function (_, n)
+--		   if not sensorE_Global[n] then
+--		      print("SensorE: Read from undeclared variable ".."<"..n..">")
+--		   end
+--		end,
+--})
 --]]
 local appName="Sensor Emulator"
 --local appShort="SensorE"
@@ -105,6 +109,7 @@ local activeSensors={}
 local GPSparms
 local coslat0
 local lastGPScalc=0
+local GPSMINMS = 200
 local latVal
 local lonVal
 local latDecimals
@@ -313,10 +318,13 @@ local env = {
 function emulator_init()
 
    local dev, emflag
-   
+
+   lastGPScalc = system.getTimeCounter()
    dev, emflag = system.getDeviceType()
    
    if emflag == 1 then      
+      --print("Before -- Emulator_init: system.getSensorByID", system.getSensorByID)
+      --print("Before -- Emulator_init: emulator_getSensorByID", emulator_getSensorByID)      
       system.getSensors = emulator_getSensors
       system.getSensorByID = emulator_getSensorByID
       system.getSensorValueByID = emulator_getSensorValueByID
@@ -325,10 +333,15 @@ function emulator_init()
       system.vibration = emulator_vibration
       gps.getPosition = emulator_getPosition
       system.playBeep = emulator_playBeep
+
+      --print("Emulator_init: emulator_getSensorByID", emulator_getSensorByID)
+      --print("Emulator_init: system.getSensorByID", system.getSensorByID)      
       --system.messageBox("SensorE: Using emulated sensors", 3)
    else
       --system.messageBox("SensorE: Using native sensors", 3)
    end
+   --print("system.getSensors", system.getSensors)
+
 end
 function emulator_playBeep(rep, hz, len)
    print(string.format("SensorE - playBeep: Repeat %d, Freq %d, Duration %d", rep, hz, len))
@@ -449,7 +462,8 @@ function emulator_getSensors()
    if not fg then print("Info: No GPS file " .. text) else
       GPSparms=json.decode(fg)
       coslat0 = math.cos(math.rad(GPSparms.lat0))
-      print("GPS Config: "..text)
+      --print("GPS Config: "..text)
+      --print("fg:", fg)
       --print("lat0:", GPSparms.lat0)
       --print("lon0:", GPSparms.lon0)
    end
@@ -476,7 +490,8 @@ end
 
 function emulator_getSensorValueByID(ID, Param)
    -- fake it .. return the extra info anyway
-   return emulator_getSensorByID(ID, Param)
+   --return emulator_getSensorByID(ID, Param)
+   return system.getSensorByID(ID, Param)
 end
 
 local lastT = {}
@@ -486,8 +501,11 @@ function emulator_getPosition(sensID, parmLat, parmLng)
 
    local sensor
    local minutes, degs, latitude, longitude
+
+   --print("****SensorE getPosition", emulator_getSensorByID, system.getSensorByID)
    
-   sensor = emulator_getSensorByID(sensID, parmLng)
+   --sensor = emulator_getSensorByID(sensID, parmLng)
+   sensor = system.getSensorByID(sensID, parmLng) -- this is now pointing to emulator_getSensorByID
    if sensor and sensor.valid and sensor.valGPS then
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       degs = (sensor.valGPS >> 16) & 0xFF
@@ -499,7 +517,8 @@ function emulator_getPosition(sensID, parmLat, parmLng)
       return nil
    end
    
-   sensor = emulator_getSensorByID(sensID, parmLat)
+   --sensor = emulator_getSensorByID(sensID, parmLat)
+   sensor = system.getSensorByID(sensID, parmLat) -- this is not pointing to emulator_getSensorByID
    if sensor and sensor.valid and sensor.valGPS then
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       degs = (sensor.valGPS >> 16) & 0xFF
@@ -573,7 +592,9 @@ function emulator_getSensorByID(ID, Param)
 	 -- and evaluate the lua strings
 	 
 	 GPSdt = system.getTimeCounter() - lastGPScalc
-	 if GPSparms and v.type == 9 and (v.param == 2 or v.param == 3) and GPSdt > 200 then
+	 --print("%%%%%%%%%%%%%%Emulator: GPSparms, v.type, v.param, GPSdt", GPSparms, v.type, v.param, GPSdt)
+	 --print(system.getTimeCounter(), lastGPScalc)
+	 if GPSparms and v.type == 9 and (v.param == 2 or v.param == 3) and GPSdt > GPSMINMS then
 	    if GPSparms.auxcontrol and #GPSparms.auxcontrol > 0 then
 	       for i = 1,#GPSparms.auxcontrol,1 do
 		  c = system.getInputs(GPSparms.auxcontrol[i]) -- e.g P6 = <-1..1>
@@ -904,9 +925,33 @@ local function init()
 
    local fg
 
+   
+--[[
+   declareGlobal(emulator_init, emulator_init)
+   declareGlobal(emulator_vibration, emulator_vibration)
+   declareGlobal(emulator_playFile, emulator_playFile)
+   declareGlobal(emulator_playNumber, emulator_playNumber)
+   declareGlobal(emulator_getSensors, emulator_getSensors)
+   declareGlobal(emulator_getSensorValueByID, emulator_getSensorValueByID)
+   declareGlobal(emulator_getSensorByID, emulator_getSensorByID)
+   declareGlobal(emulator_init, emulator_init)
+   declareGlobal(emulator_getPosition, emulator_getPosition)
+   declareGlobal(emulator_playBeep, emulator_playBeep)
+
+   print("SensorE init: emulator_getSensors", emulator_getSensors)
+   print("SensorE init: system.getSensors", system.getSensors)
+   print("SensorE init: emulator_getSensorByID", emulator_getSensorByID)
+   print("SensorE init: system.getSensorByID", system.getSensorByID)   
+
+   --dumpGlobalVars()
+   
+
+   --]]
+   
    os.setlocale("C") -- required in Germany so commas don't get changed in json
    fieldIdx = 0
    fg = io.readall("Apps/SensorFields.jsn")
+   print("SensorFields fg", fg)
    if fg then
       geo = json.decode(fg)
       if geo then
