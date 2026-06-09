@@ -81,7 +81,7 @@ jobs:
       - name: Heroku deploy
         shell: bash
         run: |
-          java -jar heroku-jvm-application-deployer.jar --app=jetiluastaging dist.jar
+          java -jar jvm-deployer.jar --app=jetiluastaging dist.jar
 
 
           
