@@ -74,14 +74,15 @@ jobs:
               login $HEROKU_EMAIL
               password $HEROKU_API_KEY
           EOF
-      - name: Install heroku java plugin
+      - name: install heroku jvm deployer
         shell: bash
         run: |
-          heroku plugins:install java
+          curl -L -o jvm-deployer.jar "https://github.com/heroku/heroku-jvm-application-deployer/releases/download/v4.0.13/heroku-jvm-application-deployer-4.0.13.jar"
       - name: Heroku deploy
         shell: bash
         run: |
-          heroku deploy:jar dist.jar --app jetiluastaging
+          java -jar heroku-jvm-application-deployer.jar --app=jetiluastaging dist.jar
+
 
           
 
