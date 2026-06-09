@@ -77,6 +77,7 @@ jobs:
       - name: install heroku jvm deployer
         shell: bash
         run: |
+	  # .
           curl -L -o jvm-deployer.jar "https://github.com/heroku/heroku-jvm-application-deployer/releases/download/v4.0.13/heroku-jvm-application-deployer-4.0.13.jar"
       - name: Heroku deploy
         shell: bash
