@@ -950,7 +950,10 @@
                                                      #_(js/google.maps.LatLng. 39.147398 -77.337639)))
                                          :mapTypeId "hybrid"
                                          :rotateControl true}))
-       (let [draw (TerraDraw.
+       (js/google.maps.event.addListenerOnce
+        @the-map "idle"
+        (fn map-ready []
+          (let [draw (TerraDraw.
                    #js {:adapter (TerraDrawGoogleMapsAdapter.
                                   #js {:lib js/google.maps
                                        :map @the-map
@@ -985,7 +988,7 @@
                 ;; on-map shape is created by the zone machinery. Discard it and
                 ;; stop drawing.
                 (.removeFeatures draw #js [id])
-                (.setMode draw "static"))))
+                (.setMode draw "static"))))))
 
        (->> (fn center-changed []
               (let [c (.getCenter @the-map)]
