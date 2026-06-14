@@ -1138,9 +1138,11 @@ local function pngLoad(j)
    end
    
    pfn = Field.images[j].file
-   --print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j])
- if (fieldPNG[j]==nil) then
-   fieldPNG[j] = lcd.loadImage(pfn)
+   print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j], pfn)
+   if (fieldPNG[j]==nil) then
+      print("@@@@ pngLoad doing lcd.loadImage", pfn)
+    fieldPNG[j] = lcd.loadImage(pfn)
+    --collectgarbage()
  end
    if not fieldPNG[j] then
       print(appInfo.Name .. ": Failed to load image", j, pfn)
@@ -1303,17 +1305,21 @@ local function keyForm(key)
    end
    
    if key == KEY_2 or key == KEY_3 or key == KEY_4 then
+      print("$$$$$$$$$$$$ key:", key, KEY_2, KEY_3, KEY_4)
 
       if key == KEY_3 or key == KEY_4 then
 	 if key == KEY_3 then inc = -1 else inc = 1 end
 	 browse.Idx = browse.Idx + inc
 	 browse.Idx = math.max(math.min(browse.Idx, #Fields[browse.FieldName].images), 1)
 	 currentImage = browse.Idx
+	 print("call pngLoad", currentImage)
 	 pngLoad(currentImage)
+	 print("call graphScaleRst", currentImage)
 	 graphScaleRst(currentImage)
+	 print("call triRot")
 	 triRot(0) -- rotate and translate triangle to pylons
       else -- KEY_2
-	 --print("key2, savedSubform", savedSubform)
+	 print("key2, savedSubform", savedSubform)
 	 if savedSubform == 7 then
 	    if not browse.OriginalFieldName then
 	       --print("setting orig:", browse.OriginalFieldName, Field.shortname, activeField)
@@ -1343,7 +1349,7 @@ local function keyForm(key)
       end
    end
    if key == KEY_1 or key == KEY_5 or key == KEY_ESC then
-      --print("1/5/E", key, savedSubform)
+      print("1/5/E", key, savedSubform)
       if savedSubform == 9 or savedSubform == 10 then
 	 form.preventDefault()
 	 if savedSubform == 10 then
@@ -1398,6 +1404,7 @@ local function keyForm(key)
 	 end
       end
    end
+   print("$$$$$$$$$$ keyForm returning", key)
 end
 
 local function browseFieldClicked(i)
@@ -1745,7 +1752,7 @@ local function initForm(subform)
       form.addRow(1)
       form.addLabel({label=lang.showtoBrowse, font=FONT_NORMAL})
       form.addRow(1)
-      form.addLabel({label=lang.ifyouBrowse, font=FONT_MINI})
+      form.addLabel({label=lang.ifyouBrowse, font=FONT_MINI}) 
       form.addRow(1)
       form.addLabel({label=lang.ontheMap, font=FONT_MINI})
       form.addRow(1)
