@@ -11,7 +11,9 @@
    #_[datascript.serialize :as dser]
    [goog.object :as gobj]
    [goog.functions :as gfunc]
-   [goog.date :as gdate])
+   [goog.date :as gdate]
+   ["terra-draw" :refer [TerraDraw TerraDrawPointMode TerraDrawCircleMode TerraDrawPolygonMode]]
+   ["terra-draw-google-maps-adapter" :refer [TerraDrawGoogleMapsAdapter]])
   (:import
    [goog.net XhrIo]
    [goog.async Debouncer]
@@ -149,7 +151,7 @@
 (def pub (async/pub bus first))
 
 (defonce the-map (atom nil))
-(defonce the-drawing-manager (atom nil))
+(defonce the-draw (atom nil))
 
 
 (defn db-transact-debouncer
@@ -338,6 +340,33 @@
       {:lat (.lat pt)
        :lng (.lng pt)})
     (js->clj (.getArray (.getPath path))))))
+
+(defn geojson-ring->clj-path
+  "Convert a Terra Draw / GeoJSON polygon ring (array of [lng lat], closed so
+  first==last) into our {:lat :lng} clj path, dropping the closing duplicate."
+  [ring]
+  (let [n (dec (.-length ring))]
+    (vec
+     (for [i (range n)
+           :let [c (aget ring i)]]
+       {:lat (aget c 1)
+        :lng (aget c 0)}))))
+
+(defn circle-feature->center+radius
+  "Terra Draw's circle mode produces a Polygon (no stored center). Recover the
+  center as the mean of the ring vertices (the polygon is symmetric about the
+  center) and the radius in meters from the radiusKilometers property."
+  [feature]
+  (let [ring (aget (.. feature -geometry -coordinates) 0)
+        n (dec (.-length ring))
+        [slng slat] (reduce (fn [[slng slat] i]
+                              (let [c (aget ring i)]
+                                [(+ slng (aget c 0)) (+ slat (aget c 1))]))
+                            [0 0]
+                            (range n))]
+    {:lat (/ slat n)
+     :lng (/ slng n)
+     :radius (* 1000 (.. feature -properties -radiusKilometers))}))
 
 (defn clj-path->js
   [path]
@@ -727,31 +756,31 @@
 
 (register-sub ::triangle-placement-start
               (fn [_]
-                (.setDrawingMode @the-drawing-manager "marker")
+                (.setMode @the-draw "point")
                 (d/transact! conn [{:db/ident ::map
                                     :map/marker-complete-action ::place-triangle-center}])))
 
 (register-sub ::runway-placement-start
               (fn [_]
-                (.setDrawingMode @the-drawing-manager "marker")
+                (.setMode @the-draw "point")
                 (d/transact! conn [{:db/ident ::map
                                     :map/marker-complete-action ::place-runway-center}])))
 
 (register-sub ::clipbox-placement-start
               (fn [_]
-                (.setDrawingMode @the-drawing-manager "marker")
+                (.setMode @the-draw "point")
                 (d/transact! conn [{:db/ident ::map
                                     :map/marker-complete-action ::place-clipbox-center}])))
 
 (register-sub ::nofly-circle-placement-start
               (fn [_]
-                (.setDrawingMode @the-drawing-manager "circle")
+                (.setMode @the-draw "circle")
                 #_(d/transact! conn [{:db/ident ::map
                                       :map/marker-complete-action ::place-clipbox-center}])))
 
 (register-sub ::nofly-polygon-placement-start
               (fn [_]
-                (.setDrawingMode @the-drawing-manager "polygon")
+                (.setMode @the-draw "polygon")
                 #_(d/transact! conn [{:db/ident ::map
                                       :map/marker-complete-action ::place-clipbox-center}])))
 
@@ -921,39 +950,45 @@
                                                      #_(js/google.maps.LatLng. 39.147398 -77.337639)))
                                          :mapTypeId "hybrid"
                                          :rotateControl true}))
-       (reset! the-drawing-manager
-               (js/google.maps.drawing.DrawingManager.
-                (clj->js
-                 {:drawingControl true
-                  :drawingMode nil
-                  :drawingControlOptions {:position js/google.maps.ControlPosition.TOP_CENTER
-                                          :drawingModes ["marker" "circle" "polygon"]}
-                  :polygonOptions {:editable true :draggable true}
-                  :markerOptions {:draggable true}
-                  :circleOptions {:draggable true}})))
-       (.setMap @the-drawing-manager @the-map)
-       
-       (->> (fn overlay-complete [event]
-              (js/console.log "Drawing event" (.-type event) event)
-              (let [overlay (.-overlay event)]
-                (case (.-type event)
-                  "circle" (let [center (.getCenter overlay)]
-                             (.setMap overlay nil)
-                             (async/put! bus [::place-nofly-circle (.lat center) (.lng center) (.getRadius overlay)]))
-                  "polygon" (let []
-                              (.setMap overlay nil)
-                              (async/put! bus [::place-nofly-polygon (polygon->clj-path overlay)]))
-                  "marker" (when-let [mca (:map/marker-complete-action (d/entity @conn ::map))]
-                             (.setMap overlay nil)
-                             ;; do it here 
-
-                             (prn "Reteacterino" (:tx-data (d/transact! conn [[:db/retract (d/entid @conn ::map) :map/marker-complete-action mca]])))
-                             (async/put! bus [mca
-                                              (.lat (.getPosition overlay))
-                                              (.lng (.getPosition overlay))]))
-                  (js/console.log "Other event" event)))
-              (.setDrawingMode @the-drawing-manager nil))
-            (js/google.maps.event.addListener @the-drawing-manager "overlaycomplete"))
+       (js/google.maps.event.addListenerOnce
+        @the-map "idle"
+        (fn map-ready []
+          (let [draw (TerraDraw.
+                   #js {:adapter (TerraDrawGoogleMapsAdapter.
+                                  #js {:lib js/google.maps
+                                       :map @the-map
+                                       :coordinatePrecision 9})
+                        :modes #js [(TerraDrawPointMode.)
+                                    (TerraDrawCircleMode.)
+                                    (TerraDrawPolygonMode.)]})]
+         (reset! the-draw draw)
+         (.start draw)
+         ;; The Google Maps adapter creates its OverlayView asynchronously; wait
+         ;; for "ready" before touching modes. "static" disables drawing (the
+         ;; equivalent of the old (setDrawingMode nil)).
+         (.on draw "ready" (fn ready [] (.setMode draw "static")))
+         (.on draw "finish"
+              (fn drawing-finish [id context]
+                (js/console.log "Drawing finish" (.-mode context) id)
+                (let [feature (.getSnapshotFeature draw id)]
+                  (case (.-mode context)
+                    "circle" (let [{:keys [lat lng radius]} (circle-feature->center+radius feature)]
+                               (async/put! bus [::place-nofly-circle lat lng radius]))
+                    "polygon" (async/put! bus [::place-nofly-polygon
+                                               (geojson-ring->clj-path
+                                                (aget (.. feature -geometry -coordinates) 0))])
+                    "point" (when-let [mca (:map/marker-complete-action (d/entity @conn ::map))]
+                              (prn "Reteacterino" (:tx-data (d/transact! conn [[:db/retract (d/entid @conn ::map) :map/marker-complete-action mca]])))
+                              (let [coords (.. feature -geometry -coordinates)]
+                                (async/put! bus [mca
+                                                 (aget coords 1)
+                                                 (aget coords 0)])))
+                    (js/console.log "Other finish" id context)))
+                ;; The captured feature is only an input gesture; the real
+                ;; on-map shape is created by the zone machinery. Discard it and
+                ;; stop drawing.
+                (.removeFeatures draw #js [id])
+                (.setMode draw "static"))))))
 
        (->> (fn center-changed []
               (let [c (.getCenter @the-map)]
@@ -970,6 +1005,8 @@
              zones (field->zones current-field)]
          (run! attach-zone! zones))
        (fn effect-cleanup []
+         (some-> @the-draw (.stop))
+         (reset! the-draw nil)
          (reset! the-map nil)))
      [fake-dep])
     [:div#map-canvas {:ref my-ref}]))

@@ -63,7 +63,7 @@
 
                  [:link {:rel "stylesheet" :href "/maps/app.css"}]
                  [:script {:type "text/javascript"
-                           :src "https://maps.googleapis.com/maps/api/js?key=AIzaSyCsDIgcntL8vPV1WZPUuXPh-ennc7HAXCI&libraries=drawing"}]
+                           :src "https://maps.googleapis.com/maps/api/js?key=AIzaSyCsDIgcntL8vPV1WZPUuXPh-ennc7HAXCI"}]
                  analytics-script]
                 [:div#root]
                 [:script {:type "text/javascript" :src "/maps/js/main.js"}]]))})
@@ -626,7 +626,7 @@
           app
           #_(-> #'handler
                 (ring-params/wrap-params))
-          {:port 8098})))
+          {:port 18091})))
 
 (comment
   (start-dev))
