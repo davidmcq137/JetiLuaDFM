@@ -16,7 +16,6 @@
 
 local appName = "DFM-RTH"
 local pathApp = "Apps/"..appName.."/"
-local JSNVERSION = 1
 local RTH = {}
 
 RTH.sensorLalist = {"..."}
@@ -43,36 +42,7 @@ RTH.convertUnits = {"-", "ft", "mph", "km/h", "°F", "-"}
 
 --RTH.switches = {}
 
-local swtCI = {}
-local switchItems = {}
-
 local emflag
-local modelName
-local state = {DISCONNECTED=1, WAITING=2, CONNECTED=3, SENDHEADER=4, SENDFILE=5, SENDFOOTER=6,
-	       COMPLETE=7, SELECT=8, ALMOST=9}
-
-local initTime
-local pos3D = {}
-pos3D.x = {}
-pos3D.y = {}
-pos3D.z = {}
-local pos2D = {}
-pos2D.x = {}
-pos2D.y = {}
-
-
-local function rotateXY(xx, yy, rotation)
-   local sinShape, cosShape
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
-   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
-end
-
-local function prefix()
-   local pf
-   if (select(2, system.getDeviceType()) == 1) then pf = "" else pf = "/" end
-   return pf
-end
 
 local function drawTextCenter(x, y, strIn, font)
    local str
@@ -80,44 +50,6 @@ local function drawTextCenter(x, y, strIn, font)
    local w = lcd.getTextWidth(font, str)
    local h = lcd.getTextHeight(font, str)
    lcd.drawText(x - w/2, y - h/2, str, font)
-end
-
-local function changedSwitch(val, switchName)
-   --print("changedSwitch", val, switchName)
-   local Invert = 1.0
-   local swInfo = system.getSwitchInfo(val)
-   local swTyp = string.sub(swInfo.label,1,1)
-   if swInfo.assigned then
-      if string.sub(swInfo.mode,-1,-1) == "I" then Invert = -1.0 end
-      -- note: swInfo.mode will be "PS" for normal sw eval, "P" for proportional
-      local prop = (string.find(swInfo.mode, "S") == nil)
-      --print("cS, prop, swTyp", prop, swTyp, swInfo.mode, Invert, swInfo.value)
-      if prop or (swInfo.value == Invert) or swTyp == "L" or swTyp =="M" then
-	 --print("CS assigning")
-	 switchItems[switchName] = val
-	 RTH.switchInfo[switchName] = {} 
-	 RTH.switchInfo[switchName].name = swInfo.label
-	 if swTyp == "L" or swTyp =="M" then
-	    RTH.switchInfo[switchName].activeOn = 0
-	 else
-	    local ao = system.getInputs(string.upper(swInfo.label))
-	    RTH.switchInfo[switchName].activeOn = ao
-	 end
-	 RTH.switchInfo[switchName].mode = swInfo.mode
-      else
-	 system.messageBox("Error - do not move switch when assigning")
-	 --print("CS zeroing")
-	 form.setValue(swtCI[switchName], nil)
-	 switchItems[switchName] = nil
-	 RTH.switchInfo[switchName] = nil	 
-      end
-   else
-      if RTH.switchInfo[switchName] then
-	 --print("CS zeroing - not assigned")
-	 switchItems[switchName] = nil
-	 RTH.switchInfo[switchName] = nil
-      end
-   end
 end
 
 local function ms(ival)
@@ -173,15 +105,19 @@ local function encdp(dp, val)
 end
 
 local lastSec
+local fifteenSec
+local lastonoff = -1
 
 local function loop()
    local now = system.getTimeCounter()
    local sensor
-   local MINHDGDIST = 10
+   local MINHDGDIST = 2
    local MINGPSREADS= 9
+   local info, onoff
    
    if not lastSec then lastSec = now end
-      
+   if not fifteenSec then fifteenSec = now end
+   
    if emflag ~= 0 and system.getTimeCounter() < 0 then
       print("system.getTimeCounter() wrapped. Restart emulator")
    end
@@ -252,16 +188,59 @@ local function loop()
       end
    end
    if now - lastSec > 2000 then
-      print(RTH.gpsBearingFrom, RTH.gpsBearingTo, RTH.gpsDistance, RTH.gpsHeading, RTH.altitude)
+      --print(RTH.gpsBearingFrom, RTH.gpsBearingTo, RTH.gpsDistance, RTH.gpsHeading, RTH.altitude)
       lastSec = now + 2000
    end
+
+   -- read the switch for RTH steering on/off
+   if RTH.settings.onoffSw then
+      info = system.getSwitchInfo(RTH.settings.onoffSw)
+      if info then
+	 onoff = info.value
+      else
+	 onoff = -1
+      end
+   end
    
+   RTH.settings.onoff = onoff
+   
+   if lastonoff == -1 and onoff == 1 then
+      system.playFile(pathApp .. "Audio/rthenabled.wav", AUDIO_QUEUE)
+      fifteenSec = now
+   end
+
+   lastonoff = onoff
+   
+   -- if on, compute and set steering control
+   -- and make 15 sec announcements when scheduled
+   RTH.settings.steer = 0
+   if onoff == 1 then
+      if RTH.gpsHeading and RTH.gpsBearingFrom then
+	 RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
+      end
+      if RTH.settings.steerCtrl and RTH.settings.steer then
+	 system.setControl(RTH.settings.steerCtrl, RTH.settings.steer, 1000, 1)
+	 if now >= fifteenSec then
+	    if RTH.gpsBearingFrom then
+	       system.playFile(pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
+	       system.playNumber(RTH.gpsBearingFrom, 0, "°")
+	    end
+	    if RTH.gpsDistance then
+	       system.playFile(pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
+	       system.playNumber(RTH.gpsDistance, 0, "m")
+	    end
+	    if RTH.altitude then
+	       system.playFile(pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
+	       system.playNumber(RTH.altitude, 0, "m")
+	    end
+	    fifteenSec = now + 15000
+	 end
+      end
+   end
 end
 
-local function initForm(sf)
+local function initForm()
 
-   print("initForm, sf=", sf)
-   
    local latsel = 0
    local lngsel = 0
    for k = 1, #RTH.gpsLalist do
@@ -290,7 +269,16 @@ local function initForm(sf)
 	 hdgsel = k
       end
    end
+
+   local function onoffChanged(value)
+      RTH.settings.onoffSw = value
+      system.pSave("RTHonoffSw", RTH.settings.onoffSw)
+   end
    
+   form.addRow(2)
+   form.addLabel({label="RTH on/off switch", width=280})
+   form.addInputbox(RTH.settings.onoffSw, true, onoffChanged, {alignRight=true})
+      
    form.addRow(2)
    form.addLabel({label="GPS Lat Sensor", font=FONT_NORMAL})
    form.addSelectbox(RTH.gpsLalist, latsel, true,
@@ -330,18 +318,29 @@ local function initForm(sf)
 
 end
 
-local function drawRectangleGlass(x0, y0, xl, yl)
-   local f = 0.55
-   lcd.drawRectangle(f*x0 - f*xl / 2, f*y0 - f*yl / 2, f*xl, f*yl)
+local renShape = lcd.renderer()
+
+local homeShape = {
+ { 0, -15},
+ {-12, 12},
+ { 0, 6},
+ { 12, 12}
+}
+
+local function drawShape(col, row, shape, rotation)
+ sinShape = math.sin(rotation)
+ cosShape = math.cos(rotation)
+ renShape:reset()
+ for _, point in pairs(shape) do
+ renShape:addPoint(
+ col + (point[1] * cosShape - point[2] * sinShape + 0.5),
+ row + (point[1] * sinShape + point[2] * cosShape + 0.5)
+ )
+ end
+ renShape:renderPolygon()
 end
 
 local function printForm(w,h)
-end
-
-local function printTeleSmall(w,h)
-end
-
-local function printTele(w,h)
 end
 
 local function destroy()
@@ -354,6 +353,35 @@ local function xytopixel(x, y, w, h)
    local ix = (w) * (x - xmin) / (xmax - xmin)
    local iy = h - (h) * (y - ymin) / (ymax - ymin)
    return ix,iy
+end
+
+local function printTeleBig(w,h)
+   if not RTH.gpsBearingTo then return end
+   lcd.drawText(5,  2, string.format("Distance: %.0f", RTH.gpsDistance or 0), FONT_NORMAL)
+   lcd.drawText(5, 20, string.format("Bearing: %.0f°", RTH.gpsBearingTo or 0), FONT_NORMAL)
+   lcd.drawText(5, 38, string.format("Heading: %.0f°", RTH.gpsHeading or 0), FONT_NORMAL)   
+   lcd.drawText(5, 54, string.format("Altitude: %.1f ", RTH.altitude or 0), FONT_NORMAL)
+
+   if RTH.gpsHeading and RTH.gpsBearingFrom then
+      local steer = RTH.settings.steer
+      local normSteer = steer / 180.0
+      --normSteer = system.getInputs("P4")
+      --print(normSteer)
+      lcd.drawRectangle(20,75,120,20)
+      if RTH.settings.onoff == 1 then lcd.setColor(255,0,0) else lcd.setColor(0,0,0) end
+      lcd.drawFilledRectangle(79, 75, 2, 20)
+      if normSteer >= 0 then
+	 lcd.drawFilledRectangle(80,75, 60*normSteer, 20)
+      else
+	 local ns = math.floor(60*(1+normSteer))
+	 lcd.drawFilledRectangle(20 + ns,75, 60-ns, 20)	 
+      end
+   end
+   if RTH.gpsHeading then
+      lcd.setColor(0,0,255)
+      drawShape(120,20, homeShape, math.rad(RTH.gpsHeading)) 
+   end
+   
 end
 
 local function printTele(w,h)
@@ -383,20 +411,20 @@ local function printTele(w,h)
 
    lcd.setColor(255,0,0)
    if RTH.gpsHeading and RTH.gpsBearingFrom then
-      local steer = (-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
+      local steer = RTH.settings.steer --(-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
       lcd.drawText(20, 100, string.format("Steer: %.2f ", steer), FONT_MINI)
       local ixs, iys = ix + 20 * math.sin(math.rad(steer)), iy - 20 * math.cos(math.rad(steer)) 
       lcd.drawLine(ix, iy, ixs, iys)
       local normSteer = steer / 180.0
-      lcd.drawRectangle(60,180,200,30)
+      lcd.drawRectangle(60,120,200,30)
       --normSteer = system.getInputs("P4")
+      lcd.drawFilledRectangle(159, 120, 2, 30) 
       if normSteer >= 0 then
-	 lcd.drawFilledRectangle(160,180, 100*normSteer, 30)
+	 lcd.drawFilledRectangle(160,120, 100*normSteer, 30)
       else
 	 local ns = math.floor(100*(1+normSteer))
-	 lcd.drawFilledRectangle(60 + ns,180, math.floor(100-ns+0.5), 30)	 
+	 lcd.drawFilledRectangle(60 + ns,120, math.floor(100-ns+0.5), 30)	 
       end
-      
    end
    
    
@@ -404,10 +432,6 @@ local function printTele(w,h)
 end
 
 local function init()
-
-   initTime = system.getTime()
-
-   modelName = string.gsub(system.getProperty("Model"), " ", "_")
 
    readSensors(RTH)
    
@@ -417,23 +441,41 @@ local function init()
    device, emflag = system.getDeviceType() 
    print("Device", device, "emflag", emflag)
    
-   system.registerTelemetry(1, "DFM-RTH Display", 4, printTele)
-   system.registerTelemetry(2, "DFM-RTH Status", 1, printTeleSmall)   
+   system.registerTelemetry(1, "RTH Debug", 4, printTele)
+   print("ret", system.registerTelemetry(2, "RTH Status", 2, printTeleBig))
 
    RTH.settings = {}
-   RTH.settings.latId = 0
-   RTH.settings.latPa = 0
-   RTH.settings.lngId = 0
-   RTH.settings.lngPa = 0
-   RTH.settings.altId = 0
-   RTH.settings.altPa = 0
-   RTH.settings.hdgId = 0
-   RTH.settings.hdgPa = 0      
+   RTH.settings.latId = system.pLoad("RTHlatId", 0)
+   RTH.settings.latPa = system.pLoad("RTHlatPa", 0)
+   RTH.settings.lngId = system.pLoad("RTHlngId", 0)
+   RTH.settings.lngPa = system.pLoad("RTHlngPa", 0)
+   RTH.settings.altId = system.pLoad("RTHaltId", 0)
+   RTH.settings.altPa = system.pLoad("RTHaltPa", 0)
+   RTH.settings.hdgId = system.pLoad("RTHhdgId", 0)
+   RTH.settings.hdgPa = system.pLoad("RTHhdgPa", 0)
+   RTH.settings.onoffSw = system.pLoad("RTHonoffSw")
       
    RTH.gpsReads = 0
    RTH.initPos = nil
    RTH.curPos = nil
    RTH.zeroPos = nil
+
+   RTH.settings.steerCtrl = nil
+   for i=1,10,1 do
+      RTH.settings.steerCtrl = system.registerControl(i, "RTH Steering", "RTH")
+      if RTH.settings.steerCtrl then break end
+   end
+
+   RTH.settings.steer = 0
+
+   if RTH.settings.steerCtrl then
+      print(appName ..": Steering registered to control "..RTH.settings.steerCtrl)
+      system.setControl(RTH.settings.steerCtrl, RTH.settings.steer, 0)
+   else
+      print(appName .. ": Could not register steer control")
+   end
+   
+      
    
    ---[[
    if emflag ~= 0 then
@@ -444,18 +486,9 @@ local function init()
       RTH.settings.lngPa = 3
       RTH.settings.altId = 137
       RTH.settings.altPa = 1
-	 
-      RTH.var.startTakeoff = gps.newPoint(41.34062, -74.43160)
-      RTH.var.gearUp = gps.newPoint(41.337295, -74.430496)
-      --RTH.var.zeroPos = gps.newPoint(41.33980, -74.43146)
-      RTH.var.startTakeoffAlt = 0
    end
    --]]
 
-   system.registerTelemetry(1, "DFM-RTH Display", 4, printTele)
-   system.registerTelemetry(2, "DFM-RTH Status", 1, printTeleSmall)   
-   
-
 end
    
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.01", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.02", name=appName}
