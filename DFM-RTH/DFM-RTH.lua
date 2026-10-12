@@ -172,24 +172,30 @@ local function encdp(dp, val)
    end
 end
 
+local lastSec
+
 local function loop()
    local now = system.getTimeCounter()
    local sensor
-   local scale
-   local minV, maxV
-   local MINHDGDIST = 5
+   local MINHDGDIST = 10
    local MINGPSREADS= 9
    
+   if not lastSec then lastSec = now end
+      
    if emflag ~= 0 and system.getTimeCounter() < 0 then
       print("system.getTimeCounter() wrapped. Restart emulator")
    end
 
+   --print("+", RTH.settings.altId, RTH.settings.altPa)
    sensor = system.getSensorByID(RTH.settings.altId, RTH.settings.altPa)
+   --print("~", sensor, sensor.valid, sensor.value)
    if sensor and sensor.valid then
+      --print("##", RTH.var.startTakeoffAlt, sensor.value)
       if not RTH.var.startTakeoffAlt then
 	 RTH.var.startTakeoffAlt = sensor.value
       end
-      RTH.altitide = sensor.value - RTH.var.startTakeoffAlt
+      RTH.altitude = sensor.value - RTH.var.startTakeoffAlt
+      --print("RTH.altitude", RTH.altitude)
    end
 
    -- read heading here if GPS sensor has one
@@ -199,20 +205,24 @@ local function loop()
    if sensor and sensor.valid then
       hdg = sensor.value
    end
-
    
    local gs = RTH.settings
+   local compHdg
    if gs.latId ~= 0 and gs.latPa ~= 0 and gs.lngId ~= 0 and gs.lngPa ~= 0 then
-      local temp
-      temp = RTH.curPos
+      --print("#", gs.latId, gs.latPa, gs.lngId, gs.lngPa)
       RTH.curPos = gps.getPosition(gs.latId, gs.latPa, gs.lngPa)
-      if RTH.curPos and temp then
-	 if gps.getDistance(temp, RTH.curPos) > MINHDGDIST then 
-	    RTH.lastPos = temp
+      --print("%", RTH.curPos)
+      if RTH.curPos then
+	 if not RTH.lastPos then RTH.lastPos = RTH.curPos end
+	 if gps.getDistance(RTH.curPos, RTH.lastPos) > MINHDGDIST then 
+	    compHdg = gps.getBearing(RTH.lastPos, RTH.curPos)
+	    --print("compHdg", compHdg)
+	    RTH.lastPos = RTH.curPos
 	 end
       end
       local lt, lg = 0, 0
       if RTH.curPos then lt, lg = gps.getValue(RTH.curPos) end
+      --print("$", lt, lg, RTH.initPos)
       if RTH.curPos and lt ~= 0 and lg ~= 0 and not RTH.initPos then
 	 RTH.gpsReads = RTH.gpsReads + 1
 	 print("DFM-RTH: RTH.gpsReads:", RTH.gpsReads)
@@ -235,12 +245,17 @@ local function loop()
 	 if hdg then
 	    RTH.gpsHeading = hdg
 	 else
-	    if RTH.lastPos then
-	       RTH.gpsHeading = gps.getBearing(RTH.lastPos, RTH.curPos)
+	    if compHdg then
+	       RTH.gpsHeading = compHdg
 	    end
 	 end
       end
    end
+   if now - lastSec > 2000 then
+      print(RTH.gpsBearingFrom, RTH.gpsBearingTo, RTH.gpsDistance, RTH.gpsHeading, RTH.altitude)
+      lastSec = now + 2000
+   end
+   
 end
 
 local function initForm(sf)
@@ -332,6 +347,62 @@ end
 local function destroy()
 end
 
+local function xytopixel(x, y, w, h)
+   
+   local xmin, xmax = -400, 400
+   local ymin, ymax = -400, 400
+   local ix = (w) * (x - xmin) / (xmax - xmin)
+   local iy = h - (h) * (y - ymin) / (ymax - ymin)
+   return ix,iy
+end
+
+local function printTele(w,h)
+   if not RTH.gpsBearingTo then return end
+   --local tl = gps.newPoint(41.340733, -74.432382)
+   --local x, y = gps.getLcdXY(RTH.curPos, tl, 14)
+   local x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
+   local y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))   
+
+   local ix, iy = xytopixel(x, y, w, h)
+   lcd.drawCircle(ix, iy, 10)
+   local ix0 , iy0 = xytopixel(0, 0, w, h)
+   lcd.setColor(0,0,255)
+   lcd.drawCircle(ix0, iy0, 5)
+   lcd.drawText(20, 20, string.format("gpsDistance: %.2f", RTH.gpsDistance), FONT_MINI)
+   lcd.drawText(20, 40, string.format("gpsBearingTo: %.2f ", RTH.gpsBearingTo), FONT_MINI)
+   lcd.drawText(20, 60, string.format("gpsBearingFrom: %.2f ", RTH.gpsBearingFrom), FONT_MINI)
+
+   lcd.setColor(0,255,0)
+   if RTH.gpsHeading then
+      local ixh, iyh = ix + 20 * math.sin(math.rad(RTH.gpsHeading)),
+	 iy - 20 * math.cos(math.rad(RTH.gpsHeading))
+      lcd.drawLine(ix, iy, ixh, iyh)
+      lcd.drawText(20, 80, string.format("gpsHeading: %.2f ", RTH.gpsHeading or 0), FONT_MINI)   
+
+   end
+
+   lcd.setColor(255,0,0)
+   if RTH.gpsHeading and RTH.gpsBearingFrom then
+      local steer = (-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
+      lcd.drawText(20, 100, string.format("Steer: %.2f ", steer), FONT_MINI)
+      local ixs, iys = ix + 20 * math.sin(math.rad(steer)), iy - 20 * math.cos(math.rad(steer)) 
+      lcd.drawLine(ix, iy, ixs, iys)
+      local normSteer = steer / 180.0
+      lcd.drawRectangle(60,180,200,30)
+      --normSteer = system.getInputs("P4")
+      if normSteer >= 0 then
+	 lcd.drawFilledRectangle(160,180, 100*normSteer, 30)
+      else
+	 local ns = math.floor(100*(1+normSteer))
+	 lcd.drawFilledRectangle(60 + ns,180, math.floor(100-ns+0.5), 30)	 
+      end
+      
+   end
+   
+   
+   
+end
+
 local function init()
 
    initTime = system.getTime()
@@ -340,7 +411,7 @@ local function init()
 
    readSensors(RTH)
    
-   system.registerForm(1, MENU_APPS, "DFM-RTH", initForm, keyPressed, printForm)
+   system.registerForm(1, MENU_APPS, "DFM-RTH", initForm, nil, printForm)
    
    local device
    device, emflag = system.getDeviceType() 
@@ -349,53 +420,41 @@ local function init()
    system.registerTelemetry(1, "DFM-RTH Display", 4, printTele)
    system.registerTelemetry(2, "DFM-RTH Status", 1, printTeleSmall)   
 
-   local function initG()
-      print("DFM-RTH: No saved state")
-
-      RTH.settings = {}
-      RTH.settings.latId = 0
-      RTH.settings.latPa = 0
-      RTH.settings.lngId = 0
-      RTH.settings.lngPa = 0
-      RTH.settings.altId = 0
-      RTH.settings.altPa = 0
-      RTH.settings.hdgId = 0
-      RTH.settings.hdgPa = 0      
+   RTH.settings = {}
+   RTH.settings.latId = 0
+   RTH.settings.latPa = 0
+   RTH.settings.lngId = 0
+   RTH.settings.lngPa = 0
+   RTH.settings.altId = 0
+   RTH.settings.altPa = 0
+   RTH.settings.hdgId = 0
+   RTH.settings.hdgPa = 0      
       
-   end
-
-   if not RTH.switchInfo then RTH.switchInfo = {} end
-      
-   if not RTH.settings then RTH.settings = {} end
-   if not RTH.settings.jsnVersion or RTH.settings.jsnVersion ~= JSNVERSION then
-      print("old JSON in "..fn.. " - starting with no saved state")
-      initG()
-      system.messageBox("DFM-RTH: settings reset")
-   end
-   
    RTH.gpsReads = 0
    RTH.initPos = nil
    RTH.curPos = nil
    RTH.zeroPos = nil
    
-   for k, swi in pairs(RTH.switchInfo) do
-      local t = string.sub(swi.name,1,1)
-      --print("k, swi", k, swi.name, swi.mode, swi.activeOn)
-      switchItems[k] = system.createSwitch(swi.name, swi.mode, swi.activeOn)
-   end
-
    ---[[
    if emflag ~= 0 then
       print("*** DFM-RTH: BDS Defaults being set")
       RTH.settings.latId = 3
       RTH.settings.latPa = 2
+      RTH.settings.lngId = 3
       RTH.settings.lngPa = 3
+      RTH.settings.altId = 137
+      RTH.settings.altPa = 1
+	 
       RTH.var.startTakeoff = gps.newPoint(41.34062, -74.43160)
       RTH.var.gearUp = gps.newPoint(41.337295, -74.430496)
-      RTH.var.zeroPos = gps.newPoint(41.33980, -74.43146)
+      --RTH.var.zeroPos = gps.newPoint(41.33980, -74.43146)
       RTH.var.startTakeoffAlt = 0
    end
    --]]
+
+   system.registerTelemetry(1, "DFM-RTH Display", 4, printTele)
+   system.registerTelemetry(2, "DFM-RTH Status", 1, printTeleSmall)   
+   
 
 end
    
