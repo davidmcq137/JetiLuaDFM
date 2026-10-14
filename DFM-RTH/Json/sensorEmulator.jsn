@@ -69,18 +69,18 @@
      "decimals":1,
      "type":1,
      "sensorName":"",
-     "luaExp":"P2(10)",
-     "label": "U Accu 2",
-     "unit": "V"
+     "luaExp":"P3(-90,90)",
+     "label": "Roll",
+     "unit": "rad"
     },
     {"id":139,
      "param":3,
      "decimals":1,
      "type":1,
      "sensorName":"",
-     "luaExp":"P3(100)",     
-     "label": "I Accu 1",
-     "unit": "ma"
+     "luaExp":"P2(-180,180)",     
+     "label": "Pitch",
+     "unit": "rad"
     },
     {"id":139,
      "param":4,

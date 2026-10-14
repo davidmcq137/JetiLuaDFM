@@ -39,9 +39,17 @@ RTH.var = {}
 RTH.convertStr = {"None", "m to ft", "m/s to mph", "m/s to km/h", "°C to °F", "/1000"}
 RTH.convertVal = {{1,0}, {3.28084,0}, {2.23694,0} , {3.6,0}, {1.8,32}, {.001,0}}
 RTH.convertUnits = {"-", "ft", "mph", "km/h", "°F", "-"}
+local rollVal, pitchVal = 0,0
 
---RTH.switches = {}
+local renShape = lcd.renderer()
+local ren = lcd.renderer()
 
+local homeShape = {
+ { 0, -15},
+ {-12, 12},
+ { 0, 6},
+ { 12, 12}
+}
 local emflag
 
 local function drawTextCenter(x, y, strIn, font)
@@ -141,7 +149,19 @@ local function loop()
    if sensor and sensor.valid then
       hdg = sensor.value
    end
+
+   rollVal = 0
+   sensor = system.getSensorByID(RTH.settings.rollId, RTH.settings.rollPa)
+   if sensor and sensor.valid then
+     rollVal = sensor.value
+   end
    
+   pitchVal = 0
+   sensor = system.getSensorByID(RTH.settings.pitchId, RTH.settings.pitchPa)
+   if sensor and sensor.valid then
+     pitchVal = sensor.value
+   end
+
    local gs = RTH.settings
    local compHdg
    if gs.latId ~= 0 and gs.latPa ~= 0 and gs.lngId ~= 0 and gs.lngPa ~= 0 then
@@ -217,9 +237,10 @@ local function loop()
    if onoff == 1 then
       if RTH.gpsHeading and RTH.gpsBearingFrom then
 	 RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
+	 --print("steer:", RTH.settings.steer)
       end
       if RTH.settings.steerCtrl and RTH.settings.steer then
-	 system.setControl(RTH.settings.steerCtrl, RTH.settings.steer, 1000, 1)
+	 system.setControl(RTH.settings.steerCtrl, RTH.settings.steer / 180.0, 1000, 1)
 	 if now >= fifteenSec then
 	    if RTH.gpsBearingFrom then
 	       system.playFile(pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
@@ -270,6 +291,22 @@ local function initForm()
       end
    end
 
+   local rollsel = 0
+   for k = 1, #RTH.sensorLalist do
+      if (RTH.sensorIdlist[k] == RTH.settings.rollId) and
+	 (RTH.sensorPalist[k] == RTH.settings.rollPa) then
+	 rollsel = k
+      end
+   end
+   
+   local pitchsel = 0
+   for k = 1, #RTH.sensorLalist do
+      if (RTH.sensorIdlist[k] == RTH.settings.pitchId) and
+	 (RTH.sensorPalist[k] == RTH.settings.pitchPa) then
+	 pitchsel = k
+      end
+   end
+
    local function onoffChanged(value)
       RTH.settings.onoffSw = value
       system.pSave("RTHonoffSw", RTH.settings.onoffSw)
@@ -278,13 +315,15 @@ local function initForm()
    form.addRow(2)
    form.addLabel({label="RTH on/off switch", width=280})
    form.addInputbox(RTH.settings.onoffSw, true, onoffChanged, {alignRight=true})
-      
+   
    form.addRow(2)
    form.addLabel({label="GPS Lat Sensor", font=FONT_NORMAL})
    form.addSelectbox(RTH.gpsLalist, latsel, true,
 		     (function(i)
 			   RTH.settings.latId = RTH.gpsIdlist[i]
-			   RTH.settings.latPa = RTH.gpsPalist[i]			      
+			   RTH.settings.latPa = RTH.gpsPalist[i]
+			   system.pSave("RTHlatId", RTH.settings.latId)
+			   system.pSave("RTHlatPa", RTH.settings.latPa)
 			   return end),
 		     {width=155, font=FONT_NORMAL, alignRight=false})
    
@@ -294,6 +333,8 @@ local function initForm()
 		     (function(i)
 			   RTH.settings.lngId = RTH.gpsIdlist[i]
 			   RTH.settings.lngPa = RTH.gpsPalist[i]			      
+			   system.pSave("RTHlngId", RTH.settings.lngId)
+			   system.pSave("RTHlngPa", RTH.settings.lngPa)
 			   return end),
 		     {width=155, font=FONT_NORMAL, alignRight=false})
    
@@ -302,7 +343,9 @@ local function initForm()
    form.addSelectbox(RTH.sensorLalist, hdgsel, true,
 		     (function(i)
 			   RTH.settings.hdgId = RTH.sensorIdlist[i]
-			   RTH.settings.hdgPa = RTH.sensorPalist[i]			      
+			   RTH.settings.hdgPa = RTH.sensorPalist[i]
+			   system.pSave("RTHhdgId", RTH.settings.hdgId)
+			   system.pSave("RTHhdgPa", RTH.settings.hdgPa)			   
 			   return end),
 		     {width=155, font=FONT_NORMAL, alignRight=false})
 
@@ -311,21 +354,37 @@ local function initForm()
    form.addSelectbox(RTH.sensorLalist, altsel, true,
 		     (function(i)
 			   RTH.settings.altId = RTH.sensorIdlist[i]
-			   RTH.settings.altPa = RTH.sensorPalist[i]			      
+			   RTH.settings.altPa = RTH.sensorPalist[i]
+			   system.pSave("RTHaltId", RTH.settings.altId)
+			   system.pSave("RTHaltPa", RTH.settings.altPa)			   
 			   return end),
 		     {width=155, font=FONT_NORMAL, alignRight=false})
    
+   form.addRow(2)
+   form.addLabel({label="Roll Sensor", font=FONT_NORMAL})
+   form.addSelectbox(RTH.sensorLalist, rollsel, true,
+		     (function(i)
+			   RTH.settings.rollId = RTH.sensorIdlist[i]
+			   RTH.settings.rollPa = RTH.sensorPalist[i]
+			   system.pSave("RTHrollId", RTH.settings.rollId)
+			   system.pSave("RTHrollPa", RTH.settings.rollPa)			   
+			   return end),
+		     {width=155, font=FONT_NORMAL, alignRight=false})
+
+   form.addRow(2)
+   form.addLabel({label="Pitch Sensor", font=FONT_NORMAL})
+   form.addSelectbox(RTH.sensorLalist, pitchsel, true,
+		     (function(i)
+			   RTH.settings.pitchId = RTH.sensorIdlist[i]
+			   RTH.settings.pitchPa = RTH.sensorPalist[i]
+			   system.pSave("RTHpitchId", RTH.settings.pitchId)
+			   system.pSave("RTHpitchPa", RTH.settings.pitchPa)			   
+			   return end),
+		     {width=155, font=FONT_NORMAL, alignRight=false})
 
 end
 
-local renShape = lcd.renderer()
 
-local homeShape = {
- { 0, -15},
- {-12, 12},
- { 0, 6},
- { 12, 12}
-}
 
 local function drawShape(col, row, shape, rotation)
  sinShape = math.sin(rotation)
@@ -384,6 +443,196 @@ local function printTeleBig(w,h)
    
 end
 
+local function printTeleAH()
+   
+   local HP = require 'DFM-RTH/hp1345a'
+   local function drawPitch(roll, pitch, pitchR, radAH, X0, Y0, scl)
+
+      local XH,YH,X1,X2,X3,Y1,Y2,Y3,X4,Y4
+      local pp, pps
+      local XHS = 18 * radAH / 70
+      local  XHL = 40 * radAH / 70
+      local  scale = scl * radAH / 70
+      
+      local sinRoll = math.sin(math.rad(-roll))
+      local cosRoll = math.cos(math.rad(-roll))
+      local delta = pitch % 15    
+      --local ren = lcd.renderer()
+      
+      --for (let i = delta - 45; i < 45 + delta; i = i + 15) {
+
+      local i = delta - 45
+      repeat
+	 --if (math.abs(pitch - i % 360) < 0.01) then
+	 if math.abs(pitch - i) < 0.01 then
+	    XH = XHL;
+	 else
+	    XH = XHS;
+	 end
+	 YH = pitchR * i                      
+	 pp = pitch - i
+	 pps = string.format("%d", math.floor(pp*10 + 0.5) / 10)
+	 
+	 X1 = -XH * cosRoll - YH * sinRoll;
+	 Y1 = -XH * sinRoll + YH * cosRoll;
+	 X2 = (XH - 0) * cosRoll - YH * sinRoll;
+	 Y2 = (XH - 0) * sinRoll + YH * cosRoll;
+	 X3 = (XH + 5) * cosRoll - (YH - 3) * sinRoll;
+	 Y3 = (XH + 5) * sinRoll + (YH - 3) * cosRoll;	
+	 X4 = (-XH - 18 * scale * #pps - 5) * cosRoll - (YH - 3) * sinRoll;
+	 Y4 = (-XH - 18 * scale * #pps - 5) * sinRoll + (YH - 3) * cosRoll;	
+	 
+	 if( not ( (X1 < -radAH and X2 < -radAH) or  (X1 > radAH and X2 > radAH)
+		or (Y1 < -radAH and Y2 < -radAH) or  (Y1 > radAH and Y2 > radAH) ) ) then
+	    lcd.setColor(255,255,255)
+	    ren:reset()
+	    ren:addPoint(X0 + radAH + X1, Y0 + radAH + Y1)
+	    ren:addPoint(X0 + radAH + X2, Y0 + radAH + Y2)
+	    if (XH == XHL) then
+	       ren:renderPolyline(2)
+	    else
+	       ren:renderPolyline(1)
+	    end
+	    
+	    if (XH == XHS) then
+	       HP.drawHP1345A(X0 + radAH + X3, Y0 + radAH + Y3, pps, scale,
+			      math.rad(roll), 1);
+	       HP.drawHP1345A(X0 + radAH + X4, Y0 + radAH + Y4, pps, scale,
+			      math.rad(roll), 1);
+	    end
+	 end
+	 i = i + 15
+      until i >= 45 + delta
+   end
+
+   --[[
+      function artHorizon is based on code in the Jeti Artificial Horizon App
+      
+      Copyright (c) 2016 JETI
+      Copyright (c) 2015 dandys.
+      Copyright (c) 2014 Marco Ricci.
+      
+      Use here conforms with the license terms
+   --]]
+   
+   local pitch = pitchVal or 0 -- system.getInputs("P2") * 90 -- pitchVal or 0 
+   local roll = rollVal or 0 --system.getInputs("P3") * 180 -- rollVal or 0
+   --183
+   local rowAH = 130 / 2 - 20; --widget.width / 2 - 20;
+   local radAH = 130 / 2 - 20; --widget.width / 2 - 20;
+   local pitchR = radAH / 25;
+
+   local tanRoll
+   local cosRoll
+   
+   local dPitch_1
+   local dPitch_2
+
+   local X0, Y0, X1, Y1, Y2, YH
+   local ren = lcd.renderer()
+
+   if pitch >= 0 then -- heaven knows why we have to do this
+      dPitch_1 = pitch % 180
+   else
+      dPitch_1 = -1*(-pitch % 180)
+   end
+   
+   --print(pitch, dPitch_1)
+   if (dPitch_1 > 90) then
+      dPitch_1 = 180 - dPitch_1
+   end
+   if (roll == 270) then
+      roll = 269.99;
+   end
+   if (roll == 90) then
+      roll = 89.99;
+   end
+   
+   cosRoll = 1 / math.cos(math.rad(roll))
+   
+   if (pitch > 270) then
+      dPitch_1 = -dPitch_1 * pitchR * cosRoll
+      dPitch_2 = radAH * cosRoll
+   elseif (pitch > 180) then
+      dPitch_1 = dPitch_1 * pitchR * cosRoll
+      dPitch_2 = -radAH * cosRoll
+   elseif (pitch > 90) then
+      dPitch_1 = -dPitch_1 * pitchR * cosRoll
+      dPitch_2 = -radAH * cosRoll
+   else
+      dPitch_1 = dPitch_1 * pitchR * cosRoll
+      dPitch_2 = radAH * cosRoll
+   end
+
+   --print(dPitch_1, dPitch_2)
+   
+   tanRoll = -math.tan(math.rad(roll))
+   
+   X1 = 0
+   YH = (-radAH) * tanRoll
+   Y1 = YH + dPitch_1
+   Y2 = YH + 1.5 * dPitch_2 
+   
+   -- define clipping region 
+   --X0 160 Y0 79
+   X0 = 80 - radAH --widget.x0 - radAH
+   Y0 = 50 - radAH --widget.y0 - radAH
+   lcd.setClipping(X0, Y0, 2 * radAH, 2 * radAH)
+   X0 = 0
+   Y0 = 0
+   -- draw sky over entire box
+   lcd.setColor(0,0,255)
+   --lcd.setColor(widget.rgbSkyColor.r, widget.rgbSkyColor.g, widget.rgbSkyColor.b)
+   lcd.drawFilledRectangle(X0, Y0, 2 * radAH + 1, 2 * radAH + 1);
+
+   lcd.setColor(210,105,30)
+   --lcd.setColor(widget.rgbLandColor.r, widget.rgbLandColor.g, widget.rgbLandColor.b)
+   ren:reset()
+
+   if (Y1 < Y2) then
+      ren:addPoint(X0 + X1, Y0 + rowAH + Y1)
+      ren:addPoint(X0 + X1, Y0 + rowAH + Y2)
+   elseif (Y1 > Y2) then
+      ren:addPoint(X0 + X1, Y0 + rowAH + Y2)
+      ren:addPoint(X0 + X1, Y0 + rowAH + Y1)
+   end
+
+   X1 = 2 * radAH + 1
+   YH = (radAH) * tanRoll
+   Y1 = YH + dPitch_1
+   Y2 = YH + 1.5 * dPitch_2
+   
+   if (Y1 < Y2) then
+      ren:addPoint(X0 + X1, Y0 + rowAH + Y2)
+      ren:addPoint(X0 + X1, Y0 + rowAH + Y1)
+   elseif (Y1 > Y2) then
+      ren:addPoint(X0 + X1, Y0 + rowAH + Y1)
+      ren:addPoint(X0 + X1, Y0 + rowAH + Y2)
+   end				       
+   ren:renderPolygon(1)
+   
+   lcd.setColor(255,255,255)
+   lcd.drawLine(X0, Y0, X0, Y0 + 2 * radAH + 1);
+   lcd.drawLine(X0 + 2 * radAH - 1, Y0, X0 + 2 * radAH - 1, Y0 + 2 * radAH - 1)
+   lcd.drawLine(X0, Y0 + 2 * radAH - 1, X0 + 2 * radAH - 1, Y0 + 2 * radAH - 1)
+   lcd.drawLine(X0, Y0, X0 + 2 * radAH, Y0)
+
+   lcd.drawLine(X0 + radAH - 0.7 * radAH, Y0 + radAH, X0 + radAH - 0.2 * radAH, Y0 + radAH);
+   lcd.drawLine(X0 + radAH - 0.2 * radAH, Y0 + radAH,
+		X0 + radAH - 0.2 * radAH, Y0 + radAH + radAH / 10);
+   lcd.drawLine(X0 + radAH + 0.7 * radAH, Y0 + radAH, X0 + radAH + 0.2 * radAH, Y0 + radAH);
+   lcd.drawLine(X0 + radAH + 0.2 * radAH, Y0 + radAH,
+		X0 + radAH + 0.2 * radAH, Y0 + radAH + radAH / 10);
+   drawPitch(roll, pitch, pitchR, radAH, X0, Y0, 0.4);
+   
+   lcd.resetClipping()
+
+   lcd.setColor(255,255,255)
+   --drawTextCenter(widget.xL, widget.yL, widget.label, edit.fcode[fL])
+   drawTextCenter(0, 0, "wl", FONT_MINI)
+   
+end
+
 local function printTele(w,h)
    if not RTH.gpsBearingTo then return end
    --local tl = gps.newPoint(41.340733, -74.432382)
@@ -431,6 +680,23 @@ local function printTele(w,h)
    
 end
 
+local function logfileCB(idx)
+   if idx == 1 then
+      return RTH.gpsBearingFrom or 0
+   elseif idx == 2 then
+      return RTH.gpsBearingTo or 0      
+   elseif idx == 3 then
+      return 10 * (RTH.gpsDistance or 0), 1
+   elseif idx == 4 then
+      return RTH.gpsHeading or 0
+   elseif idx == 5 then
+      print("##", RTH.settings.steer, RTH.settings.steer / 1.80)
+      return (RTH.settings.steer or 0) / 1.80
+   else
+      return -999
+   end
+end
+
 local function init()
 
    readSensors(RTH)
@@ -441,8 +707,8 @@ local function init()
    device, emflag = system.getDeviceType() 
    print("Device", device, "emflag", emflag)
    
-   system.registerTelemetry(1, "RTH Debug", 4, printTele)
-   print("ret", system.registerTelemetry(2, "RTH Status", 2, printTeleBig))
+   system.registerTelemetry(1, "RTH Attitude", 2, printTeleAH)
+   system.registerTelemetry(2, "RTH Status", 2, printTeleBig)
 
    RTH.settings = {}
    RTH.settings.latId = system.pLoad("RTHlatId", 0)
@@ -452,7 +718,11 @@ local function init()
    RTH.settings.altId = system.pLoad("RTHaltId", 0)
    RTH.settings.altPa = system.pLoad("RTHaltPa", 0)
    RTH.settings.hdgId = system.pLoad("RTHhdgId", 0)
-   RTH.settings.hdgPa = system.pLoad("RTHhdgPa", 0)
+   RTH.settings.rollPa = system.pLoad("RTHhdgPa", 0)
+   RTH.settings.rollId = system.pLoad("RTHRollId", 0)
+   RTH.settings.rollPa = system.pLoad("RTHRollPa", 0)
+   RTH.settings.pitchId = system.pLoad("RTHPitchId", 0)
+   RTH.settings.pitchPa = system.pLoad("RTHPitchPa", 0)      
    RTH.settings.onoffSw = system.pLoad("RTHonoffSw")
       
    RTH.gpsReads = 0
@@ -473,11 +743,16 @@ local function init()
       system.setControl(RTH.settings.steerCtrl, RTH.settings.steer, 0)
    else
       print(appName .. ": Could not register steer control")
+      system.messageBox(appName .. ": Could not register steer control")
    end
-   
-      
-   
-   ---[[
+
+   system.registerLogVariable("RTHBrgFrom", "°", logfileCB)
+   system.registerLogVariable("RTHBrgTo",   "°", logfileCB)
+   system.registerLogVariable("RTHDst",     "m", logfileCB)
+   system.registerLogVariable("RTHHdg",     "°", logfileCB)
+   system.registerLogVariable("RTHStr",     "%", logfileCB)
+			      
+--[[
    if emflag ~= 0 then
       print("*** DFM-RTH: BDS Defaults being set")
       RTH.settings.latId = 3
