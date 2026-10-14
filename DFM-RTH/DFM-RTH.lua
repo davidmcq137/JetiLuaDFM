@@ -17,6 +17,7 @@
 local appName = "DFM-RTH"
 local pathApp = "Apps/"..appName.."/"
 local RTH = {}
+local Mixers = {}
 
 RTH.sensorLalist = {"..."}
 RTH.sensorLslist = {"..."}
@@ -51,6 +52,52 @@ local homeShape = {
  { 12, 12}
 }
 local emflag
+
+local function mixOut(mix, val)
+   local np = #mix.points
+   local mg = mix.gain / 100
+   if val <= mix.points[1].x / 100 then
+      return mg * mix.points[1].y / 100 
+   end
+   
+   if val >= mix.points[np].x / 100 then
+      return mg * mix.points[np].y / 100
+   end
+   
+   for i=2,np,1 do
+      if val <= mix.points[i].x / 100 then
+	 return mg * (mix.points[i-1].y + (mix.points[i].y - mix.points[i-1].y) *
+			    (val * 100 - mix.points[i-1].x) / (mix.points[i].x - mix.points[i-1].x)) / 100
+      end
+   end
+   
+   return 0 -- should not happen
+end
+--[[
+Amix = {gain=100,
+	points={
+	   {x=-100,y=-100},
+	   {x=-15,y=-100},
+	   {x=-5,y=0},
+	   {x=0,y=0},
+	   {x=5,y=0},
+	   {x=15,y=100},
+	   {x=100,y=100}
+	}
+}
+
+Emix = {gain=35,
+	points={
+	   {x=-100,y=-100},
+	   {x=-15,y=-100},
+	   {x=-5,y=0},
+	   {x=0,y=0},
+	   {x=5,y=0},
+	   {x=15,y=-100},
+	   {x=100,y=-100}
+	}
+}
+--]]
 
 local function drawTextCenter(x, y, strIn, font)
    local str
@@ -738,7 +785,7 @@ local function init()
 
    RTH.settings.steerCtrl = nil
    for i=1,10,1 do
-      RTH.settings.steerCtrl = system.registerControl(i, "RTH Steering", "RTH")
+      RTH.settings.steerCtrl = system.registerControl(i, "RTH Steering", "RTS")
       if RTH.settings.steerCtrl then break end
    end
 
@@ -752,6 +799,23 @@ local function init()
       system.messageBox(appName .. ": Could not register steer control")
    end
 
+   RTH.settings.elevCtrl = nil
+   for i=1,10,1 do
+      RTH.settings.elevCtrl = system.registerControl(i, "RTH Elevator", "RTE")
+      if RTH.settings.elevCtrl then break end
+   end
+
+   RTH.settings.elev = 0
+
+   if RTH.settings.elevCtrl then
+      print(appName ..": Elevator registered to control "..RTH.settings.elevCtrl)
+      system.setControl(RTH.settings.elevCtrl, RTH.settings.elev, 0)
+   else
+      print(appName .. ": Could not register elevator control")
+      system.messageBox(appName .. ": Could not register elevator control")
+   end
+
+   
    system.registerLogVariable("RTHBrgFrom", "°", logfileCB)
    system.registerLogVariable("RTHBrgTo",   "°", logfileCB)
    system.registerLogVariable("RTHDst",     "m", logfileCB)
@@ -768,7 +832,20 @@ local function init()
       RTH.settings.altId = 137
       RTH.settings.altPa = 1
    end
-   --]]
+--]]
+
+   local str = io.readall(pathApp.."Json/Mixers.jsn")
+   if not str then
+      print("DFM-RTH: cannot read Mixers.jsn")
+   end
+   
+   Mixers = json.decode(str)
+      
+   for v = -110,110, 1 do
+      print(v/100, mixOut(Mixers.Amix, v/100))
+   end
+   
+
 
 end
    
