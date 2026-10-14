@@ -18,7 +18,8 @@ local appName = "DFM-RTH"
 local pathApp = "Apps/"..appName.."/"
 local RTH = {}
 local Mixers = {}
-
+local MIN_DISTANCE = 50
+local MIN_ALTITUDE = 15
 RTH.sensorLalist = {"..."}
 RTH.sensorLslist = {"..."}
 RTH.sensorIdlist = {0}
@@ -169,6 +170,7 @@ local function loop()
    local MINHDGDIST = 2
    local MINGPSREADS= 9
    local info, onoff
+   local altnow
    
    if not lastSec then lastSec = now end
    if not fifteenSec then fifteenSec = now end
@@ -177,16 +179,13 @@ local function loop()
       print("system.getTimeCounter() wrapped. Restart emulator")
    end
 
-   --print("+", RTH.settings.altId, RTH.settings.altPa)
    sensor = system.getSensorByID(RTH.settings.altId, RTH.settings.altPa)
-   --print("~", sensor, sensor.valid, sensor.value)
    if sensor and sensor.valid then
-      --print("##", RTH.var.startTakeoffAlt, sensor.value)
       if not RTH.var.startTakeoffAlt then
 	 RTH.var.startTakeoffAlt = sensor.value
       end
+      altnow = sensor.value
       RTH.altitude = sensor.value - RTH.var.startTakeoffAlt
-      --print("RTH.altitude", RTH.altitude)
    end
 
    -- read heading here if GPS sensor has one
@@ -212,27 +211,22 @@ local function loop()
    local gs = RTH.settings
    local compHdg
    if gs.latId ~= 0 and gs.latPa ~= 0 and gs.lngId ~= 0 and gs.lngPa ~= 0 then
-      --print("#", gs.latId, gs.latPa, gs.lngId, gs.lngPa)
       RTH.curPos = gps.getPosition(gs.latId, gs.latPa, gs.lngPa)
-      --print("%", RTH.curPos)
       if RTH.curPos then
 	 if not RTH.lastPos then RTH.lastPos = RTH.curPos end
 	 if gps.getDistance(RTH.curPos, RTH.lastPos) > MINHDGDIST then 
 	    compHdg = gps.getBearing(RTH.lastPos, RTH.curPos)
-	    --print("compHdg", compHdg)
 	    RTH.lastPos = RTH.curPos
 	 end
       end
       local lt, lg = 0, 0
       if RTH.curPos then lt, lg = gps.getValue(RTH.curPos) end
-      --print("$", lt, lg, RTH.initPos)
       if RTH.curPos and lt ~= 0 and lg ~= 0 and not RTH.initPos then
 	 RTH.gpsReads = RTH.gpsReads + 1
-	 print("DFM-RTH: RTH.gpsReads:", RTH.gpsReads)
       end
       if RTH.gpsReads > MINGPSREADS and not RTH.initPos then
-	 system.messageBox("DFM-RTH: GPS zero set")
-	 print("DFM-RTH: GPS zero set")
+	 system.messageBox("DFM-RTH: GPS and Alt zero set")
+	 print("DFM-RTH: GPS and Alt zero set")
 	 RTH.initPos = RTH.curPos
 	 if not RTH.zeroPos then
 	    RTH.zeroPos = RTH.curPos
@@ -240,6 +234,7 @@ local function loop()
 	 if not RTH.var.zeroPos then
 	    RTH.var.zeroPos = RTH.curPos
 	 end
+	 if altnow then RTH.var.startTakeoffAlt = altnow end
       end
       if RTH.curPos and RTH.zeroPos then
 	 RTH.gpsBearingFrom = gps.getBearing(RTH.curPos, RTH.zeroPos)
@@ -254,10 +249,9 @@ local function loop()
 	 end
       end
    end
-   if now - lastSec > 2000 then
-      --print(RTH.gpsBearingFrom, RTH.gpsBearingTo, RTH.gpsDistance, RTH.gpsHeading, RTH.altitude)
-      lastSec = now + 2000
-   end
+   --if now - lastSec > 2000 then
+   --   lastSec = now + 2000
+   --end
 
    -- read the switch for RTH steering on/off
    if RTH.settings.onoffSw then
@@ -280,30 +274,53 @@ local function loop()
    
    -- if on, compute and set steering control
    -- and make 15 sec announcements when scheduled
+
    RTH.settings.steer = 0
+   RTH.settings.elev = 0
+   local validmix = false
    if onoff == 1 then
       if RTH.gpsHeading and RTH.gpsBearingFrom then
 	 RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
-	 --print("steer:", RTH.settings.steer)
       end
       if RTH.settings.steerCtrl and RTH.settings.steer then
-	 system.setControl(RTH.settings.steerCtrl, RTH.settings.steer / 180.0, 1000, 1)
+	 local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
+	 if (RTH.gpsDistance and (RTH.gpsDistance > MIN_DISTANCE)) and
+	    (RTH.altitude and (RTH.altitude > MIN_ALTITUDE)) then
+	    system.setControl(RTH.settings.steerCtrl, mixOut(Mixers.Amix,ns), 1000, 1)
+	    system.setControl(RTH.settings.elevCtrl, mixOut(Mixers.Emix,ns), 1000, 1)
+	 else
+	    system.setControl(RTH.settings.steerCtrl, -1, 1000, 1)
+	    system.setControl(RTH.settings.elevCtrl, -1, 1000, 1)	    
+	 end
+	 validmix = true
+	 --print("ns, A, E", ns, mixOut(Mixers.Amix, ns), mixOut(Mixers.Emix, ns))
 	 if now >= fifteenSec then
 	    if RTH.gpsBearingFrom then
 	       system.playFile(pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
 	       system.playNumber(RTH.gpsBearingFrom, 0, "°")
 	    end
 	    if RTH.gpsDistance then
-	       system.playFile(pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
-	       system.playNumber(RTH.gpsDistance, 0, "m")
+	       --system.playFile(pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
+	       system.playNumber(RTH.gpsDistance, 0, "m", "Distance")
 	    end
 	    if RTH.altitude then
-	       system.playFile(pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
-	       system.playNumber(RTH.altitude, 0, "m")
+	       --system.playFile(pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
+	       system.playNumber(RTH.altitude, 0, "m", "AltRelat")
 	    end
+	    if RTH.gpsDistance and RTH.altitude then
+	       if RTH.gpsDistance <= MIN_DISTANCE or RTH.altitude <= MIN_ALTITUDE then
+		  system.playFile(pathApp.."Audio/tooclose.wav", AUDIO_QUEUE)
+	       end
+	    end
+	    
 	    fifteenSec = now + 15000
 	 end
       end
+   end
+   --if for any reason mix was not done, set mix control to 0
+   if not validmix then
+      system.setControl(RTH.settings.steerCtrl, 0, 0)
+      system.setControl(RTH.settings.elevCtrl, 0, 0)
    end
 end
 
@@ -576,7 +593,7 @@ local function printTeleAH()
    local dPitch_2
 
    local X0, Y0, X1, Y1, Y2, YH
-   local ren = lcd.renderer()
+   --local ren = lcd.renderer()
 
    if pitch >= 0 then -- heaven knows why we have to do this
       dPitch_1 = pitch % 180
@@ -801,8 +818,10 @@ local function init()
 
    RTH.settings.elevCtrl = nil
    for i=1,10,1 do
-      RTH.settings.elevCtrl = system.registerControl(i, "RTH Elevator", "RTE")
-      if RTH.settings.elevCtrl then break end
+      if i ~= RTH.settings.steerCtrl then
+	 RTH.settings.elevCtrl = system.registerControl(i, "RTH Elevator", "RTE")
+	 if RTH.settings.elevCtrl then break end
+      end
    end
 
    RTH.settings.elev = 0
@@ -841,12 +860,6 @@ local function init()
    
    Mixers = json.decode(str)
       
-   for v = -110,110, 1 do
-      print(v/100, mixOut(Mixers.Amix, v/100))
-   end
-   
-
-
 end
    
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.02", name=appName}
