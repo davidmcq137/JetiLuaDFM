@@ -713,16 +713,22 @@ local function init()
    RTH.settings = {}
    RTH.settings.latId = system.pLoad("RTHlatId", 0)
    RTH.settings.latPa = system.pLoad("RTHlatPa", 0)
+
    RTH.settings.lngId = system.pLoad("RTHlngId", 0)
    RTH.settings.lngPa = system.pLoad("RTHlngPa", 0)
+
    RTH.settings.altId = system.pLoad("RTHaltId", 0)
    RTH.settings.altPa = system.pLoad("RTHaltPa", 0)
+
    RTH.settings.hdgId = system.pLoad("RTHhdgId", 0)
-   RTH.settings.rollPa = system.pLoad("RTHhdgPa", 0)
-   RTH.settings.rollId = system.pLoad("RTHrollId", 0)
+   RTH.settings.hdgPa = system.pLoad("RTHhdgPa", 0)   
+
    RTH.settings.rollPa = system.pLoad("RTHrollPa", 0)
+   RTH.settings.rollId = system.pLoad("RTHrollId", 0)
+
    RTH.settings.pitchId = system.pLoad("RTHpitchId", 0)
    RTH.settings.pitchPa = system.pLoad("RTHpitchPa", 0)      
+
    RTH.settings.onoffSw = system.pLoad("RTHonoffSw")
       
    RTH.gpsReads = 0
