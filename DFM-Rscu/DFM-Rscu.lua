@@ -20,6 +20,7 @@ local RTH = {}
 local Mixers = {}
 local MIN_DISTANCE = 50
 local MIN_ALTITUDE = 15
+
 RTH.sensorLalist = {"..."}
 RTH.sensorLslist = {"..."}
 RTH.sensorIdlist = {0}
@@ -53,6 +54,13 @@ local homeShape = {
  { 12, 12}
 }
 local emflag
+
+
+local function prefix()
+   local pf
+   if (select(2, system.getDeviceType()) == 1) then pf = "" else pf = "/" end
+   return pf
+end
 
 local function mixOut(mix, val)
    local np = #mix.points
@@ -161,8 +169,10 @@ local function encdp(dp, val)
 end
 
 local lastSec
-local fifteenSec
+local announceTime
 local lastonoff = -1
+local ttt = 0
+local annSeq = 1
 
 local function loop()
    local now = system.getTimeCounter()
@@ -171,9 +181,34 @@ local function loop()
    local MINGPSREADS= 9
    local info, onoff
    local altnow
+
+   --[[
+   if system.getTimeCounter() > ttt and not system.isPlayback() then
+      if annSeq == 1 then
+	 system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
+	 system.playNumber(123, 0)
+	 system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)	 
+      elseif annSeq == 2 then
+	 system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
+	 system.playNumber(456, 0)
+	 system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+      elseif annSeq == 3 then
+	 system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
+	 system.playNumber(789, 0)
+	 system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+      elseif annSeq == 4 then
+	 system.playFile(prefix() .. pathApp.."Audio/tooclose.wav", AUDIO_QUEUE)
+      end
+      annSeq = annSeq + 1
+      if annSeq > 7 then annSeq = 1 end
+      ttt = system.getTimeCounter() + 1000
+   end
+   
+   if true then return end
+   --]]
    
    if not lastSec then lastSec = now end
-   if not fifteenSec then fifteenSec = now end
+   if not announceTime then announceTime = now end
    
    if emflag ~= 0 and system.getTimeCounter() < 0 then
       print("system.getTimeCounter() wrapped. Restart emulator")
@@ -266,14 +301,14 @@ local function loop()
    RTH.settings.onoff = onoff
    
    if lastonoff == -1 and onoff == 1 then
-      system.playFile(pathApp .. "Audio/rthenabled.wav", AUDIO_QUEUE)
-      fifteenSec = now
+      system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_QUEUE)
+      announceTime = now
    end
 
    lastonoff = onoff
    
    -- if on, compute and set steering control
-   -- and make 15 sec announcements when scheduled
+   -- and make announcements when scheduled
 
    RTH.settings.steer = 0
    RTH.settings.elev = 0
@@ -284,7 +319,7 @@ local function loop()
       end
       if RTH.settings.steerCtrl and RTH.settings.steer then
 	 local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
-	 if (RTH.gpsDistance and (RTH.gpsDistance > MIN_DISTANCE)) and
+	 if (RTH.gpsDistance and (RTH.gpsDistance > MIN_DISTANCE)) or
 	    (RTH.altitude and (RTH.altitude > MIN_ALTITUDE)) then
 	    system.setControl(RTH.settings.steerCtrl, mixOut(Mixers.Amix,ns), 1000, 1)
 	    system.setControl(RTH.settings.elevCtrl, mixOut(Mixers.Emix,ns), 1000, 1)
@@ -293,27 +328,37 @@ local function loop()
 	    system.setControl(RTH.settings.elevCtrl, -1, 1000, 1)	    
 	 end
 	 validmix = true
-	 --print("ns, A, E", ns, mixOut(Mixers.Amix, ns), mixOut(Mixers.Emix, ns))
-	 if now >= fifteenSec then
-	    if RTH.gpsBearingFrom then
-	       system.playFile(pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
-	       system.playNumber(RTH.gpsBearingFrom, 0, "°")
-	    end
-	    if RTH.gpsDistance then
-	       --system.playFile(pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
-	       system.playNumber(RTH.gpsDistance, 0, "m", "Distance")
-	    end
-	    if RTH.altitude then
-	       --system.playFile(pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
-	       system.playNumber(RTH.altitude, 0, "m", "AltRelat")
-	    end
-	    if RTH.gpsDistance and RTH.altitude then
-	       if RTH.gpsDistance <= MIN_DISTANCE or RTH.altitude <= MIN_ALTITUDE then
-		  system.playFile(pathApp.."Audio/tooclose.wav", AUDIO_QUEUE)
+	 -- seems you can't make more than 2 number playbacks in a row without truncation
+	 -- work around using a time delay and checking system.isPlayback()
+	 if now >= announceTime and not system.isPlayback() then
+	    if annSeq == 1 then
+	       if RTH.gpsBearingFrom then
+		  system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
+		  system.playNumber(RTH.gpsBearingFrom, 0)
+		  system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
+	       end
+	    elseif annSeq == 2 then
+	       if RTH.gpsDistance then
+		  system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
+		  system.playNumber(RTH.gpsDistance, 0)
+		  system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+	       end
+	    elseif annSeq == 3 then
+	       if RTH.altitude then
+		  system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
+		  system.playNumber(RTH.altitude, 0)
+		  system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+	       end
+	    elseif annSeq == 4 then
+	       if RTH.gpsDistance and RTH.altitude then
+		  if RTH.gpsDistance <= MIN_DISTANCE or RTH.altitude <= MIN_ALTITUDE then
+		     system.playFile(prefix() .. pathApp.."Audio/tooclose.wav", AUDIO_QUEUE)
+		  end
 	       end
 	    end
-	    
-	    fifteenSec = now + 15000
+	    annSeq = annSeq + 1
+	    if annSeq > 7 then annSeq = 1 end -- allow empty slots to space out announcements
+	    announceTime = now + 1000
 	 end
       end
    end
@@ -853,13 +898,21 @@ local function init()
    end
 --]]
 
-   local str = io.readall(pathApp.."Json/Mixers.jsn")
+   local str = io.readall(prefix() .. pathApp.."Json/Mixers.jsn")
    if not str then
       print("DFM-RTH: cannot read Mixers.jsn")
    end
    
    Mixers = json.decode(str)
-      
+
+   print("mixers", json.encode(Mixers))
+
+   --system.playFile(prefix() .. pathApp.."Audio/tooclose.wav", AUDIO_QUEUE)
+   --system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
+   --system.playNumber(123, 0, "°")
+   --system.playNumber(456, 0, "m", "Distance")
+   --system.playNumber(789, 0, "m", "AltRelat.")
+
 end
    
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.02", name=appName}
