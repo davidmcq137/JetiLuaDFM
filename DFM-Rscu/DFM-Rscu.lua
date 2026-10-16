@@ -1,25 +1,25 @@
 --[[
 
    -----------------------------------------------------------------------------------------
-   DFM-RTH "Return to home" .. Conceived by Harry Curzon, coded by DFM. Initially copied from
-   DFM-HUD.lua as starting point
+   DFM-Rscu "rescue/return to home" .. Conceived by Harry Curzon, coded by DFM. Initially copied 
+   from DFM-HUD.lua as starting point
 
    Requires transmitter firmware 4.22 or higher
     
    Developed on DS-24, only tested on DS-24
 
    -----------------------------------------------------------------------------------------
-   DFM-RTH.lua released under MIT license by DFM 2026
+   DFM-Rscu.lua released under MIT license by DFM 2026
    -----------------------------------------------------------------------------------------
 
 --]]
 
-local appName = "DFM-RTH"
+local appName = "DFM-Rscu"
 local pathApp = "Apps/"..appName.."/"
 local RTH = {}
-local Mixers = {}
-local MIN_DISTANCE = 50
-local MIN_ALTITUDE = 15
+local config = {}
+local MIN_DISTANCE
+local MIN_ALTITUDE
 
 RTH.sensorLalist = {"..."}
 RTH.sensorLslist = {"..."}
@@ -82,31 +82,6 @@ local function mixOut(mix, val)
    
    return 0 -- should not happen
 end
---[[
-Amix = {gain=100,
-	points={
-	   {x=-100,y=-100},
-	   {x=-15,y=-100},
-	   {x=-5,y=0},
-	   {x=0,y=0},
-	   {x=5,y=0},
-	   {x=15,y=100},
-	   {x=100,y=100}
-	}
-}
-
-Emix = {gain=35,
-	points={
-	   {x=-100,y=-100},
-	   {x=-15,y=-100},
-	   {x=-5,y=0},
-	   {x=0,y=0},
-	   {x=5,y=0},
-	   {x=15,y=-100},
-	   {x=100,y=-100}
-	}
-}
---]]
 
 local function drawTextCenter(x, y, strIn, font)
    local str
@@ -129,7 +104,7 @@ end
 
 local function readSensors(tt)
    local sensorLbl = "***"
-   local l1, l2
+   local l1, l2, l3
    local GPStype = 9
    
    local sensors = system.getSensors()
@@ -138,9 +113,10 @@ local function readSensors(tt)
 	 if sensor.param == 0 then sensorLbl = sensor.label else
 	    l1 = string.gsub(sensorLbl, "%W", "")
 	    l2 = string.gsub(sensor.label, "%W", "")
+	    l3 = string.gsub(sensor.unit, "%W", "")
 	    if sensor.type ~= GPStype then
 	       --print("GPS", sensor.id, sensor.param)
-	       table.insert(tt.sensorLalist, l1 .. "_" .. l2)
+	       table.insert(tt.sensorLalist, l1 .. "_" .. l2 .. " [" .. l3 .. "]")
 	       table.insert(tt.sensorLslist, sensor.label)	    
 	       table.insert(tt.sensorIdlist, sensor.id)
 	       table.insert(tt.sensorPalist, sensor.param)
@@ -148,7 +124,7 @@ local function readSensors(tt)
 	       table.insert(tt.sensorDplist, sensor.decimals)
 	       table.insert(tt.sensorTylist, sensor.type)
 	    else
-	       table.insert(tt.gpsLalist, l1 .. "_" .. l2)	       
+	       table.insert(tt.gpsLalist, l1 .. "_" .. l2 .. " [" .. l3 .. "]")
 	       table.insert(tt.gpsLslist, sensor.label)	    
 	       table.insert(tt.gpsIdlist, sensor.id)
 	       table.insert(tt.gpsPalist, sensor.param)
@@ -181,31 +157,6 @@ local function loop()
    local MINGPSREADS= 9
    local info, onoff
    local altnow
-
-   --[[
-   if system.getTimeCounter() > ttt and not system.isPlayback() then
-      if annSeq == 1 then
-	 system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
-	 system.playNumber(123, 0)
-	 system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)	 
-      elseif annSeq == 2 then
-	 system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
-	 system.playNumber(456, 0)
-	 system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
-      elseif annSeq == 3 then
-	 system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
-	 system.playNumber(789, 0)
-	 system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
-      elseif annSeq == 4 then
-	 system.playFile(prefix() .. pathApp.."Audio/tooclose.wav", AUDIO_QUEUE)
-      end
-      annSeq = annSeq + 1
-      if annSeq > 7 then annSeq = 1 end
-      ttt = system.getTimeCounter() + 1000
-   end
-   
-   if true then return end
-   --]]
    
    if not lastSec then lastSec = now end
    if not announceTime then announceTime = now end
@@ -216,11 +167,21 @@ local function loop()
 
    sensor = system.getSensorByID(RTH.settings.altId, RTH.settings.altPa)
    if sensor and sensor.valid then
-      if not RTH.var.startTakeoffAlt then
-	 RTH.var.startTakeoffAlt = sensor.value
+      --tele should only report in m but some devices can do other units .. be defensive
+      if sensor.unit == "ft" or sensor.unit == "ft." then
+	 altnow = sensor.value * 0.3048
+      else
+	 altnow = sensor.value
       end
-      altnow = sensor.value
-      RTH.altitude = sensor.value - RTH.var.startTakeoffAlt
+      if not RTH.var.startTakeoffAlt then
+	 if emflag ~= 0 then
+	    RTH.var.startTakeoffAlt = 0
+	 else
+	    RTH.var.startTakeoffAlt = altnow
+	 end
+      end
+      --print(emflag, altnow, RTH.var.startTakeoffAlt)
+      RTH.altitude = altnow - RTH.var.startTakeoffAlt
    end
 
    -- read heading here if GPS sensor has one
@@ -260,8 +221,8 @@ local function loop()
 	 RTH.gpsReads = RTH.gpsReads + 1
       end
       if RTH.gpsReads > MINGPSREADS and not RTH.initPos then
-	 system.messageBox("DFM-RTH: GPS and Alt zero set")
-	 print("DFM-RTH: GPS and Alt zero set")
+	 system.messageBox("DFM-Rscu: GPS and Alt zero set")
+	 print("DFM-Rscu: GPS and Alt zero set")
 	 RTH.initPos = RTH.curPos
 	 if not RTH.zeroPos then
 	    RTH.zeroPos = RTH.curPos
@@ -269,7 +230,14 @@ local function loop()
 	 if not RTH.var.zeroPos then
 	    RTH.var.zeroPos = RTH.curPos
 	 end
-	 if altnow then RTH.var.startTakeoffAlt = altnow end
+	 if altnow then
+	    if emflag ~= 0 then
+	       RTH.var.startTakeoffAlt = 0
+	    else
+	       RTH.var.startTakeoffAlt = altnow
+	    end
+	    
+	 end
       end
       if RTH.curPos and RTH.zeroPos then
 	 RTH.gpsBearingFrom = gps.getBearing(RTH.curPos, RTH.zeroPos)
@@ -284,9 +252,6 @@ local function loop()
 	 end
       end
    end
-   --if now - lastSec > 2000 then
-   --   lastSec = now + 2000
-   --end
 
    -- read the switch for RTH steering on/off
    if RTH.settings.onoffSw then
@@ -321,8 +286,8 @@ local function loop()
 	 local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
 	 if (RTH.gpsDistance and (RTH.gpsDistance > MIN_DISTANCE)) or
 	    (RTH.altitude and (RTH.altitude > MIN_ALTITUDE)) then
-	    system.setControl(RTH.settings.steerCtrl, mixOut(Mixers.Amix,ns), 1000, 1)
-	    system.setControl(RTH.settings.elevCtrl, mixOut(Mixers.Emix,ns), 1000, 1)
+	    system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 1000, 1)
+	    system.setControl(RTH.settings.elevCtrl, mixOut(config.Emix,ns), 1000, 1)
 	 else
 	    system.setControl(RTH.settings.steerCtrl, -1, 1000, 1)
 	    system.setControl(RTH.settings.elevCtrl, -1, 1000, 1)	    
@@ -339,15 +304,29 @@ local function loop()
 	       end
 	    elseif annSeq == 2 then
 	       if RTH.gpsDistance then
-		  system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
-		  system.playNumber(RTH.gpsDistance, 0)
-		  system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+		  if RTH.settings.distUnits == 1 then --m
+		     system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
+		     system.playNumber(RTH.gpsDistance, 0)
+		     system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+		  else
+		     system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
+		     system.playNumber(RTH.gpsDistance * 3.2808, 0)
+		     system.playFile(prefix() .. pathApp .. "Audio/feet.wav", AUDIO_QUEUE)
+		  end
+		  
 	       end
 	    elseif annSeq == 3 then
 	       if RTH.altitude then
-		  system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
-		  system.playNumber(RTH.altitude, 0)
-		  system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+		  if RTH.settings.distUnits == 1 then --m
+		     system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
+		     system.playNumber(RTH.altitude, 0)
+		     system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+		  else
+		     system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
+		     system.playNumber(RTH.altitude * 3.2808, 0)
+		     system.playFile(prefix() .. pathApp .. "Audio/feet.wav", AUDIO_QUEUE)
+		  end
+		  
 	       end
 	    elseif annSeq == 4 then
 	       if RTH.gpsDistance and RTH.altitude then
@@ -357,8 +336,8 @@ local function loop()
 	       end
 	    end
 	    annSeq = annSeq + 1
-	    if annSeq > 7 then annSeq = 1 end -- allow empty slots to space out announcements
-	    announceTime = now + 1000
+	    if annSeq > config.annMax then annSeq = 1 end -- allow empty slots to space out announcements
+	    announceTime = now + config.annDelay
 	 end
       end
    end
@@ -491,6 +470,16 @@ local function initForm()
 			   return end),
 		     {width=155, font=FONT_NORMAL, alignRight=false})
 
+   form.addRow(2)
+   form.addLabel({label="Distance units", font=FONT_NORMAL})
+   form.addSelectbox({"m", "ft"}, RTH.settings.distUnits, true,
+		     (function(i)
+			   RTH.settings.distUnits = i
+			   system.pSave("RTHdistUnits", RTH.settings.distUnits)
+			   return end),
+		     {width=155, font=FONT_NORMAL, alignRight=false})
+
+
 end
 
 
@@ -523,12 +512,62 @@ local function xytopixel(x, y, w, h)
    return ix,iy
 end
 
+local function printTeleMix(w,h)
+
+   local x0,y0 = 15, 5
+   local xl, yl = 1.23*80, 80
+   local min, max = -100, 100
+   
+   local function xp(val)
+      return x0 + xl * (val - min) / (max - min)
+   end
+
+   local function yp(val)
+      return 90  - (y0 + yl * (val - min) / (max - min))
+   end   
+   if not RTH.settings.steerCtrl or not RTH.settings.steer then
+      lcd.drawText(5, 2, "No steering value", FONT_NORMAL)
+      return
+   end
+
+   local ns = system.getInputs("P1") -- RTH.settings.steer / 180.0
+   local am = mixOut(config.Amix, ns)
+   local em = mixOut(config.Emix, ns)
+
+   for i=2,#config.Amix.points,1 do
+      --print(i, config.Amix.points[i-1].x , config.Amix.points[i-1].y,
+      --xp(config.Amix.points[i-1].x), yp(config.Amix.points[i-1].y))
+
+      lcd.drawLine(xp(config.Amix.points[i-1].x), yp(config.Amix.points[i-1].y),
+		   xp(config.Amix.points[i].x), yp(config.Amix.points[i].y))
+      lcd.drawLine(xp(config.Emix.points[i-1].x), yp(config.Emix.points[i-1].y),
+		   xp(config.Emix.points[i].x), yp(config.Emix.points[i].y))
+
+      lcd.setColor(0,0,255)
+      lcd.drawCircle(xp(ns * 100), yp(am * 100), 4)
+      lcd.setColor(255,0,0)
+      lcd.drawCircle(xp(ns * 100), yp(em * 100), 3)      
+      lcd.setColor(0,0,0)
+   end
+   
+end
+
 local function printTeleBig(w,h)
-   if not RTH.gpsBearingTo then return end
-   lcd.drawText(5,  2, string.format("Distance: %.0f", RTH.gpsDistance or 0), FONT_NORMAL)
-   lcd.drawText(5, 20, string.format("Bearing: %.0f°", RTH.gpsBearingTo or 0), FONT_NORMAL)
-   lcd.drawText(5, 38, string.format("Heading: %.0f°", RTH.gpsHeading or 0), FONT_NORMAL)   
-   lcd.drawText(5, 54, string.format("Altitude: %.1f ", RTH.altitude or 0), FONT_NORMAL)
+   if not RTH.gpsBearingTo then
+      lcd.drawText(5,  2, "No GPS signal", FONT_NORMAL)
+      return
+   end
+   local conv = 1
+   local un = "m"
+   if RTH.settings.distUnits ~= 1 then -- ft
+      conv = 3.2808
+      un = "ft"
+   end
+         
+   lcd.drawText(5, 2, string.format("Bearing: %.0f°", RTH.gpsBearingFrom or 0), FONT_NORMAL)
+   lcd.drawText(5, 20, string.format("Distance: %.0f"..un, conv*(RTH.gpsDistance or 0), FONT_NORMAL))
+   lcd.drawText(5, 38, string.format("Altitude: %.1f"..un, conv*(RTH.altitude or 0), FONT_NORMAL))
+   lcd.drawText(5, 54, string.format("Heading: %.0f°", RTH.gpsHeading or 0), FONT_NORMAL)   
 
    if RTH.gpsHeading and RTH.gpsBearingFrom then
       local steer = RTH.settings.steer
@@ -554,8 +593,8 @@ end
 
 local function printTeleAH()
    
-   local HP = require 'DFM-RTH/hp1345a'
-   local function drawPitch(roll, pitch, pitchR, radAH, X0, Y0, scl)
+   local HP = require 'DFM-Rscu/hp1345a'
+   local function drawPitch(ren, roll, pitch, pitchR, radAH, X0, Y0, scl)
 
       local XH,YH,X1,X2,X3,Y1,Y2,Y3,X4,Y4
       local pp, pps
@@ -604,9 +643,9 @@ local function printTeleAH()
 	    end
 	    
 	    if (XH == XHS) then
-	       HP.drawHP1345A(X0 + radAH + X3, Y0 + radAH + Y3, pps, scale,
+	       HP.drawHP1345A(ren, X0 + radAH + X3, Y0 + radAH + Y3, pps, scale,
 			      math.rad(roll), 1);
-	       HP.drawHP1345A(X0 + radAH + X4, Y0 + radAH + Y4, pps, scale,
+	       HP.drawHP1345A(ren, X0 + radAH + X4, Y0 + radAH + Y4, pps, scale,
 			      math.rad(roll), 1);
 	    end
 	 end
@@ -717,7 +756,7 @@ local function printTeleAH()
    elseif (Y1 > Y2) then
       ren:addPoint(X0 + X1, Y0 + rowAH + Y1)
       ren:addPoint(X0 + X1, Y0 + rowAH + Y2)
-   end				       
+   end
    ren:renderPolygon(1)
    
    lcd.setColor(255,255,255)
@@ -732,13 +771,13 @@ local function printTeleAH()
    lcd.drawLine(X0 + radAH + 0.7 * radAH, Y0 + radAH, X0 + radAH + 0.2 * radAH, Y0 + radAH);
    lcd.drawLine(X0 + radAH + 0.2 * radAH, Y0 + radAH,
 		X0 + radAH + 0.2 * radAH, Y0 + radAH + radAH / 10);
-   drawPitch(roll, pitch, pitchR, radAH, X0, Y0, 0.4);
+   drawPitch(ren, roll, pitch, pitchR, radAH, X0, Y0, 0.4);
    
    lcd.resetClipping()
 
-   lcd.setColor(255,255,255)
+   --lcd.setColor(255,255,255)
    --drawTextCenter(widget.xL, widget.yL, widget.label, edit.fcode[fL])
-   drawTextCenter(0, 0, "wl", FONT_MINI)
+   --drawTextCenter(0, 0, "wl", FONT_MINI)
    
 end
 
@@ -810,14 +849,19 @@ local function init()
 
    readSensors(RTH)
    
-   system.registerForm(1, MENU_APPS, "DFM-RTH", initForm, nil, printForm)
+   system.registerForm(1, MENU_APPS, "DFM-Rscu", initForm, nil, printForm)
    
    local device
    device, emflag = system.getDeviceType() 
    print("Device", device, "emflag", emflag)
+
+   local ts = 4
+   if device == "JETI DS-24 II" or device == "JETI DC-24 II" then
+      ts = 2
+   end
    
-   system.registerTelemetry(1, "RTH Attitude", 2, printTeleAH)
-   system.registerTelemetry(2, "RTH Status", 2, printTeleBig)
+   system.registerTelemetry(1, "RScu Mix", ts, printTeleMix)
+   system.registerTelemetry(2, "Rscu Status", ts, printTeleBig)
 
    RTH.settings = {}
    RTH.settings.latId = system.pLoad("RTHlatId", 0)
@@ -839,7 +883,8 @@ local function init()
    RTH.settings.pitchPa = system.pLoad("RTHpitchPa", 0)      
 
    RTH.settings.onoffSw = system.pLoad("RTHonoffSw")
-      
+   RTH.settings.distUnits = system.pLoad("RTHdistUnits", 1) -- meters is default
+   
    RTH.gpsReads = 0
    RTH.initPos = nil
    RTH.curPos = nil
@@ -878,7 +923,6 @@ local function init()
       print(appName .. ": Could not register elevator control")
       system.messageBox(appName .. ": Could not register elevator control")
    end
-
    
    system.registerLogVariable("RTHBrgFrom", "°", logfileCB)
    system.registerLogVariable("RTHBrgTo",   "°", logfileCB)
@@ -886,33 +930,20 @@ local function init()
    system.registerLogVariable("RTHHdg",     "°", logfileCB)
    system.registerLogVariable("RTHStr",     "%", logfileCB)
 			      
---[[
-   if emflag ~= 0 then
-      print("*** DFM-RTH: BDS Defaults being set")
-      RTH.settings.latId = 3
-      RTH.settings.latPa = 2
-      RTH.settings.lngId = 3
-      RTH.settings.lngPa = 3
-      RTH.settings.altId = 137
-      RTH.settings.altPa = 1
-   end
---]]
-
-   local str = io.readall(prefix() .. pathApp.."Json/Mixers.jsn")
+   local str = io.readall(prefix() .. pathApp.."Json/Config.jsn")
    if not str then
-      print("DFM-RTH: cannot read Mixers.jsn")
+      print("DFM-Rscu: cannot read Config.jsn")
    end
    
-   Mixers = json.decode(str)
+   config = json.decode(str)
 
-   print("mixers", json.encode(Mixers))
+   --print("config", json.encode(config))
 
-   --system.playFile(prefix() .. pathApp.."Audio/tooclose.wav", AUDIO_QUEUE)
-   --system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
-   --system.playNumber(123, 0, "°")
-   --system.playNumber(456, 0, "m", "Distance")
-   --system.playNumber(789, 0, "m", "AltRelat.")
+   MIN_DISTANCE = config.minDist
+   MIN_ALTITUDE = config.minAlt
+
+   --print(MIN_DISTANCE, MIN_ALTITUDE, config.annMax, config.annDelay)
 
 end
    
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.02", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.03", name=appName}

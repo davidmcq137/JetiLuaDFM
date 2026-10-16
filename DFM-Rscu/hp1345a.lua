@@ -148,7 +148,7 @@ local savrot
 local cosrot
 local sinrot
 
-function M.drawHP1345A(x, y, str, scale, rot, wid)
+function M.drawHP1345A(ren, x, y, str, scale, rot, wid)
 
    -- function requires a string to be passed ... formatting to be done
    -- by caller. Ignores non number or . characters
@@ -159,12 +159,13 @@ function M.drawHP1345A(x, y, str, scale, rot, wid)
    -- rot:   rotation angle (radians)
    -- wid:   width of polyline (pixels)
 
-   local ren = lcd.renderer()
+   --local ren = lcd.renderer()
    local xc, yc = x, y
    local xr, yr
    local shape
    local b0 = 48 -- string.byte("0")
    local np
+
    
    if rot ~= savrot then
       cosrot = math.cos(-rot)
@@ -190,7 +191,11 @@ function M.drawHP1345A(x, y, str, scale, rot, wid)
 	    else
 	       xr = xc + scale*v[1]*cosrot - scale*v[2]*sinrot
 	       yr = yc + scale*v[1]*sinrot + scale*v[2]*cosrot
-	       ren:addPoint(xr, yr)
+	       if xr < 0 or yr < 0 then
+		  --print("x,y<0 str:", xr, yr, str)
+	       else
+		  ren:addPoint(xr, yr)
+	       end
 	    end
 	 end
 	 ren:renderPolyline(wid)      
