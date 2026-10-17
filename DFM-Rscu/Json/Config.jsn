@@ -1,6 +1,6 @@
 {
-    "annMax":8,
-    "annDelay":3000,
+    "annMax":6,
+    "annDelay":4000,
     "Amix": {
 	"points": [
 	    {

@@ -23,6 +23,10 @@ local MIN_ALTITUDE
 local circling
 local armed = false
 local everEnabled = false
+local lastSec
+local announceTime
+local lastSwO = -1
+local annSeq = 1
 
 RTH.sensorLalist = {"..."}
 RTH.sensorLslist = {"..."}
@@ -147,20 +151,16 @@ local function encdp(dp, val)
    end
 end
 
-local lastSec
-local announceTime
-local lastSwO = -1
-local annSeq = 1
-
 local function loop()
-   local now = system.getTimeCounter()
+   local now
    local sensor
    local MINHDGDIST = 2
    local MINGPSREADS= 9
    local info
    local SwO
    local altnow
-   
+
+   now = system.getTimeCounter()
    if not lastSec then lastSec = now end
    if not announceTime then announceTime = now end
    
@@ -220,19 +220,13 @@ local function loop()
       end
       local lt, lg = 0, 0
       if RTH.curPos then lt, lg = gps.getValue(RTH.curPos) end
-      if RTH.curPos and lt ~= 0 and lg ~= 0 and not RTH.initPos then
+      if RTH.curPos and lt ~= 0 and lg ~= 0 and not RTH.zeroPos then
 	 RTH.gpsReads = RTH.gpsReads + 1
       end
-      if RTH.gpsReads > MINGPSREADS and not RTH.initPos then
+      if RTH.gpsReads > MINGPSREADS and not RTH.zeroPos then
 	 system.messageBox("DFM-Rscu: GPS and Alt zero set")
 	 print("DFM-Rscu: GPS and Alt zero set")
-	 RTH.initPos = RTH.curPos
-	 if not RTH.zeroPos then
-	    RTH.zeroPos = RTH.curPos
-	 end
-	 if not RTH.var.zeroPos then
-	    RTH.var.zeroPos = RTH.curPos
-	 end
+	 RTH.zeroPos = RTH.curPos
 	 if altnow then
 	    if emflag ~= 0 then
 	       RTH.var.startTakeoffAlt = 0
@@ -295,8 +289,10 @@ local function loop()
    --]]
    
    if lastSwO == -1 and SwO == 1 then
-      system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_QUEUE)
+      system.stopPlayback()
+      system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_IMMEDIATE)
       circling = false
+      annSeq = 1
       announceTime = now
    end
 
@@ -316,61 +312,72 @@ local function loop()
       end
       if RTH.settings.steerCtrl and RTH.settings.steer then
 	 local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
-	 if RTH.gpsDistance and (RTH.gpsDistance >= RTH.settings.circleMax) then
-	    if circling then
-	       system.playFile(prefix() .. pathApp .. "Audio/circterm.wav", AUDIO_QUEUE)
+	 if RTH.gpsDistance then
+	    if RTH.gpsDistance >= RTH.settings.circleMax then
+	       if circling then
+		  system.stopPlayback()
+		  system.playFile(prefix() .. pathApp .. "Audio/circterm.wav", AUDIO_IMMEDIATE)
+		  annSeq = 1
+	       end
+	       circling = false
 	    end
-	    circling = false
 	 end
-	 if RTH.gpsDistance and ((RTH.gpsDistance <= RTH.settings.circleMin) or circling) then
-	    circling = true
-	    system.setControl(RTH.settings.steerCtrl, -1, 1000, 1)
-	    system.setControl(RTH.settings.elevCtrl, -1, 1000, 1)
-	 else
-	    system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 1000, 1)
-	    system.setControl(RTH.settings.elevCtrl, mixOut(config.Emix,ns), 1000, 1)
+	 if RTH.gpsDistance then
+	    if (RTH.gpsDistance <= RTH.settings.circleMin) or circling then
+	       circling = true
+	       system.setControl(RTH.settings.steerCtrl, -1, 1000, 1)
+	       system.setControl(RTH.settings.elevCtrl, -1, 1000, 1)
+	    else
+	       system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 1000, 1)
+	       system.setControl(RTH.settings.elevCtrl, mixOut(config.Emix,ns), 1000, 1)
+	    end
 	 end
 	 validmix = true
 	 -- seems you can't make more than 2 number playbacks in a row without truncation
 	 -- work around using a time delay and checking system.isPlayback()
-	 if now >= announceTime and not system.isPlayback() then
-	    if not circling and annSeq == 1 then
-	       if RTH.gpsBearingTo then
-		  system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
-		  system.playNumber(RTH.gpsBearingTo, 0)
-		  system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
-	       end
-	    elseif not circling and annSeq == 2 then
-	       if RTH.gpsDistance then
-		  if RTH.settings.distUnits == 1 then --m
-		     system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
-		     system.playNumber(RTH.gpsDistance, 0)
-		     system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
-		  else
-		     system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
-		     system.playNumber(RTH.gpsDistance * 3.2808, 0)
-		     system.playFile(prefix() .. pathApp .. "Audio/feet.wav", AUDIO_QUEUE)
+	 if now > announceTime then --and not system.isPlayback() then
+	    if not circling then
+	       if annSeq == 1 then
+		  if RTH.gpsBearingTo then
+		     system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
+		     system.playNumber(RTH.gpsBearingTo, 0)
+		     system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
+		  end
+	       elseif annSeq == 2 then
+		  if RTH.gpsDistance then
+		     if RTH.settings.distUnits == 1 then --m
+			system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
+			system.playNumber(RTH.gpsDistance, 0)
+			system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+		     else
+			system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
+			system.playNumber(RTH.gpsDistance * 3.2808, 0)
+			system.playFile(prefix() .. pathApp .. "Audio/feet.wav", AUDIO_QUEUE)
+		     end
+		  end
+	       elseif annSeq == 3 then
+		  if RTH.altitude then
+		     if RTH.settings.distUnits == 1 then --m
+			system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
+			system.playNumber(RTH.altitude, 0)
+			system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+		     else
+			system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
+			system.playNumber(RTH.altitude * 3.2808, 0)
+			system.playFile(prefix() .. pathApp .. "Audio/feet.wav", AUDIO_QUEUE)
+		     end
 		  end
 	       end
-	    elseif not circling and annSeq == 3 then
-	       if RTH.altitude then
-		  if RTH.settings.distUnits == 1 then --m
-		     system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
-		     system.playNumber(RTH.altitude, 0)
-		     system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
-		  else
-		     system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
-		     system.playNumber(RTH.altitude * 3.2808, 0)
-		     system.playFile(prefix() .. pathApp .. "Audio/feet.wav", AUDIO_QUEUE)
-		  end
-		  
+	       announceTime = now + config.annDelay
+	       annSeq = annSeq + 1
+	       if annSeq > config.annMax then  -- allow empty slots to space anns
+		  annSeq = 1
+		  system.stopPlayback() -- empty queue in case backed up messages
 	       end
-	    elseif circling and annSeq == 4 then
+	    else
 	       system.playFile(prefix() .. pathApp.."Audio/tooclose.wav", AUDIO_QUEUE)
+	       announceTime = now + config.annDelay * config.annMax
 	    end
-	    annSeq = annSeq + 1
-	    if annSeq > config.annMax then annSeq = 1 end -- allow empty slots to space out announcements
-	    announceTime = now + config.annDelay
 	 end
       end
    end
@@ -604,10 +611,10 @@ local function printTeleBig(w,h)
       return
    end
 
-   if not RTH.settings.onoff or RTH.settings.onoff < 0 then
-      lcd.drawText(5,  2, "Not enabled", FONT_NORMAL)
-      return
-   end
+   --if not RTH.settings.onoff or RTH.settings.onoff < 0 then
+   --   lcd.drawText(5,  2, "Not enabled", FONT_NORMAL)
+   --   return
+   --end
 
    local conv, un
 
@@ -939,7 +946,6 @@ local function init()
    circling = false
    
    RTH.gpsReads = 0
-   RTH.initPos = nil
    RTH.curPos = nil
    RTH.zeroPos = nil
 
