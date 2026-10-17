@@ -291,6 +291,7 @@ local function loop()
    if lastSwO == -1 and SwO == 1 then
       system.stopPlayback()
       system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_IMMEDIATE)
+      system.playBeep(0, 600, 200)
       circling = false
       annSeq = 1
       announceTime = now
@@ -317,13 +318,21 @@ local function loop()
 	       if circling then
 		  system.stopPlayback()
 		  system.playFile(prefix() .. pathApp .. "Audio/circterm.wav", AUDIO_IMMEDIATE)
+		  system.playBeep(2, 600, 200)
+		  announceTime = 0 -- force immed ann of bearing
 		  annSeq = 1
 	       end
 	       circling = false
 	    end
 	 end
 	 if RTH.gpsDistance then
-	    if (RTH.gpsDistance <= RTH.settings.circleMin) or circling then
+	    if (RTH.gpsDistance < RTH.settings.circleMin) or circling == true then
+	       if circling == false then -- start circling now
+		  system.stopPlayback()
+		  system.playFile(prefix() .. pathApp .. "Audio/begincircling.wav", AUDIO_IMMEDIATE)
+		  system.playBeep(1, 600, 200)
+		  announceTime = now + config.annDelay * config.annMax
+	       end
 	       circling = true
 	       system.setControl(RTH.settings.steerCtrl, -1, 1000, 1)
 	       system.setControl(RTH.settings.elevCtrl, -1, 1000, 1)
@@ -333,9 +342,8 @@ local function loop()
 	    end
 	 end
 	 validmix = true
-	 -- seems you can't make more than 2 number playbacks in a row without truncation
-	 -- work around using a time delay and checking system.isPlayback()
-	 if now > announceTime then --and not system.isPlayback() then
+
+	 if now > announceTime then
 	    if not circling then
 	       if annSeq == 1 then
 		  if RTH.gpsBearingTo then
@@ -347,7 +355,7 @@ local function loop()
 		  if RTH.gpsDistance then
 		     if RTH.settings.distUnits == 1 then --m
 			system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
-			system.playNumber(RTH.gpsDistance, 0)
+			system.playNumber(RTH.gpsDistance, 1)
 			system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
 		     else
 			system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
@@ -359,7 +367,7 @@ local function loop()
 		  if RTH.altitude then
 		     if RTH.settings.distUnits == 1 then --m
 			system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
-			system.playNumber(RTH.altitude, 0)
+			system.playNumber(RTH.altitude, 1)
 			system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
 		     else
 			system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
@@ -552,14 +560,6 @@ end
 local function destroy()
 end
 
-local function xytopixel(x, y, w, h)
-   
-   local xmin, xmax = -400, 400
-   local ymin, ymax = -400, 400
-   local ix = (w) * (x - xmin) / (xmax - xmin)
-   local iy = h - (h) * (y - ymin) / (ymax - ymin)
-   return ix,iy
-end
 
 local function printTeleMix(w,h)
 
@@ -839,37 +839,89 @@ local function printTeleAH()
 
 end
 
-local function printTele(w,h)
-   if not RTH.gpsBearingTo then return end
+local xmin, xmax = -600, 600
+local ymin, ymax = -300, 300
+
+local function xytopixel(x, y, ww, hh)
+
+   local w, h = 320, 160
+   local ix = w * (x - xmin) / (xmax - xmin)
+   local iy = h - h * (y - ymin) / (ymax - ymin)
+   return ix,iy
+end
+
+local function printTeleGPS(w,h)
+   if not RTH.gpsBearingTo then
+      lcd.drawText(5,5, "No GPS signal")
+      return
+   end
    --local tl = gps.newPoint(41.340733, -74.432382)
    --local x, y = gps.getLcdXY(RTH.curPos, tl, 14)
-   local x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
-   local y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))   
 
-   local ix, iy = xytopixel(x, y, w, h)
-   lcd.drawCircle(ix, iy, 10)
-   local ix0 , iy0 = xytopixel(0, 0, w, h)
+
+   local x, y, x1, y1, ix, iy, ix1, iy1
+
+   lcd.drawRectangle(0,0,319,159)
+   lcd.setColor(255,0,0)
+   for i = 0, 360, 5 do
+      x = RTH.settings.circleMin * math.sin(math.rad(i))
+      y = RTH.settings.circleMin * math.cos(math.rad(i))
+
+      x1 = RTH.settings.circleMin * math.sin(math.rad(i+5))
+      y1 = RTH.settings.circleMin * math.cos(math.rad(i+5))      
+      --print(w,h,ix,iy)
+      ix, iy = xytopixel(x, y, w, h)
+      ix1, iy1 = xytopixel(x1, y1, w, h)      
+      
+      lcd.drawLine(ix,iy, ix1, iy1)
+   end
    lcd.setColor(0,0,255)
-   lcd.drawCircle(ix0, iy0, 5)
-   lcd.drawText(20, 20, string.format("gpsDistance: %.2f", RTH.gpsDistance), FONT_MINI)
-   lcd.drawText(20, 40, string.format("gpsBearingTo: %.2f ", RTH.gpsBearingTo), FONT_MINI)
-   lcd.drawText(20, 60, string.format("gpsBearingFrom: %.2f ", RTH.gpsBearingFrom), FONT_MINI)
+   for i = 0, 360, 5 do
+      x = RTH.settings.circleMax * math.sin(math.rad(i))
+      y = RTH.settings.circleMax * math.cos(math.rad(i))
 
-   lcd.setColor(0,255,0)
+      x1 = RTH.settings.circleMax * math.sin(math.rad(i+5))
+      y1 = RTH.settings.circleMax * math.cos(math.rad(i+5))      
+      --print(w,h,ix,iy)
+      ix, iy = xytopixel(x, y, w, h)
+      ix1, iy1 = xytopixel(x1, y1, w, h)      
+      
+      lcd.drawLine(ix,iy, ix1, iy1)
+   end
+
+   lcd.setColor(0,0,0)
+   
+   x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
+   y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))
+   ix, iy = xytopixel(x, y, w, h)
+   if RTH.settings.onoff < 1 then
+      lcd.setColor(0,0,0)
+      else
+	 if circling then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
+      end
+   lcd.drawCircle(ix, iy, 5)
+   lcd.setColor(0,0,0)
+   local ix0 , iy0 = xytopixel(0, 0, w, h)
+   lcd.drawCircle(ix0, iy0, 2)
+   lcd.drawText(20, 20, string.format("[%d,%d,%d,%d]", xmin, xmax, ymin, ymax), FONT_MINI)
+   lcd.drawText(20, 40, string.format("gpsDistance: %.2f", RTH.gpsDistance), FONT_MINI)
+   lcd.drawText(20, 60, string.format("gpsBearingTo: %.2f ", RTH.gpsBearingTo), FONT_MINI)
+   lcd.drawText(20, 80, string.format("gpsBearingFrom: %.2f ", RTH.gpsBearingFrom), FONT_MINI)
+
    if RTH.gpsHeading then
       local ixh, iyh = ix + 20 * math.sin(math.rad(RTH.gpsHeading)),
 	 iy - 20 * math.cos(math.rad(RTH.gpsHeading))
       lcd.drawLine(ix, iy, ixh, iyh)
-      lcd.drawText(20, 80, string.format("gpsHeading: %.2f ", RTH.gpsHeading or 0), FONT_MINI)   
+      lcd.drawText(20, 100, string.format("gpsHeading: %.2f ", RTH.gpsHeading or 0), FONT_MINI)   
 
    end
 
-   lcd.setColor(255,0,0)
    if RTH.gpsHeading and RTH.gpsBearingFrom then
       local steer = RTH.settings.steer --(-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
-      lcd.drawText(20, 100, string.format("Steer: %.2f ", steer), FONT_MINI)
+      lcd.drawText(20, 120, string.format("Steer: %.2f ", steer), FONT_MINI)
       local ixs, iys = ix + 20 * math.sin(math.rad(steer)), iy - 20 * math.cos(math.rad(steer)) 
-      lcd.drawLine(ix, iy, ixs, iys)
+      --lcd.drawLine(ix, iy, ixs, iys)
+      --[[
       local normSteer = steer / 180.0
       lcd.drawRectangle(60,120,200,30)
       --normSteer = system.getInputs("P4")
@@ -880,6 +932,7 @@ local function printTele(w,h)
 	 local ns = math.floor(100*(1+normSteer))
 	 lcd.drawFilledRectangle(60 + ns,120, math.floor(100-ns+0.5), 30)	 
       end
+      --]]
    end
 end
 
@@ -915,7 +968,7 @@ local function init()
       ts = 2
    end
    
-   system.registerTelemetry(1, "RScu Mix", ts, printTeleMix)
+   system.registerTelemetry(1, "RScu Map North Up", 4, printTeleGPS)
    system.registerTelemetry(2, "Rscu Status", ts, printTeleBig)
 
    RTH.settings = {}
@@ -941,6 +994,7 @@ local function init()
    RTH.settings.distUnits = system.pLoad("RTHdistUnits", 1) -- meters is default
    
    RTH.settings.circleMin = system.pLoad("circleMin", 100)
+   print("circleMin", RTH.settings.circleMin)
    RTH.settings.circleMax = system.pLoad("circleMax", 130)
 
    circling = false
@@ -956,7 +1010,8 @@ local function init()
    end
 
    RTH.settings.steer = 0
-
+   RTH.settings.onoff = -1
+   
    if RTH.settings.steerCtrl then
       print(appName ..": Steering registered to control "..RTH.settings.steerCtrl)
       system.setControl(RTH.settings.steerCtrl, RTH.settings.steer, 0)
