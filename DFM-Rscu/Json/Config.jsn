@@ -1,8 +1,6 @@
 {
-    "annMax":7,
-    "annDelay":1000,
-    "minDist":50,
-    "minAlt":15,
+    "annMax":8,
+    "annDelay":3000,
     "Amix": {
 	"points": [
 	    {

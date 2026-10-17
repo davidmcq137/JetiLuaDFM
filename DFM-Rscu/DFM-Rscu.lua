@@ -20,6 +20,9 @@ local RTH = {}
 local config = {}
 local MIN_DISTANCE
 local MIN_ALTITUDE
+local circling
+local armed = false
+local everEnabled = false
 
 RTH.sensorLalist = {"..."}
 RTH.sensorLslist = {"..."}
@@ -146,8 +149,7 @@ end
 
 local lastSec
 local announceTime
-local lastonoff = -1
-local ttt = 0
+local lastSwO = -1
 local annSeq = 1
 
 local function loop()
@@ -155,7 +157,8 @@ local function loop()
    local sensor
    local MINHDGDIST = 2
    local MINGPSREADS= 9
-   local info, onoff
+   local info
+   local SwO
    local altnow
    
    if not lastSec then lastSec = now end
@@ -257,52 +260,87 @@ local function loop()
    if RTH.settings.onoffSw then
       info = system.getSwitchInfo(RTH.settings.onoffSw)
       if info then
-	 onoff = info.value
+	 SwO = info.value
       else
-	 onoff = -1
+	 SwO = -1
       end
+   else
+      SwO = -1
+   end
+
+   --[[
+   -- when switch is turned on, arm rescue mode .. but don't enable yet
+   if not armed and lastSwO == -1 and SwO == 1 then
+      system.playFile(prefix() .. pathApp .. "Audio/rtharmed.wav", AUDIO_QUEUE)
+      armed = true
+      --circling = false
+      --announceTime = now
+   end
+
+   lastSwO = SwO
+
+   -- if armed and we pass beyond circleMax, then enable
+   if not everEnabled and armed and ((RTH.gpsDistance or 0) > RTH.settings.circleMax) then
+      circling = false
+      announceTime = now
+      system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_QUEUE)
+      everEnabled = true
    end
    
-   RTH.settings.onoff = onoff
+   if everEnabled then
+      RTH.settings.onoff = SwO
+   else
+      RTH.settings.onoff = -1
+   end
+   --]]
    
-   if lastonoff == -1 and onoff == 1 then
+   if lastSwO == -1 and SwO == 1 then
       system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_QUEUE)
+      circling = false
       announceTime = now
    end
 
-   lastonoff = onoff
-   
-   -- if on, compute and set steering control
-   -- and make announcements when scheduled
+   lastSwO = SwO
+
+   RTH.settings.onoff = SwO
+
+   -- if enabled, compute and set steering and elev controls
+   -- and make announcements
 
    RTH.settings.steer = 0
    RTH.settings.elev = 0
    local validmix = false
-   if onoff == 1 then
+   if RTH.settings.onoff > 0 then
       if RTH.gpsHeading and RTH.gpsBearingFrom then
 	 RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
       end
       if RTH.settings.steerCtrl and RTH.settings.steer then
 	 local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
-	 if (RTH.gpsDistance and (RTH.gpsDistance > MIN_DISTANCE)) or
-	    (RTH.altitude and (RTH.altitude > MIN_ALTITUDE)) then
+	 if RTH.gpsDistance and (RTH.gpsDistance >= RTH.settings.circleMax) then
+	    if circling then
+	       system.playFile(prefix() .. pathApp .. "Audio/circterm.wav", AUDIO_QUEUE)
+	    end
+	    circling = false
+	 end
+	 if RTH.gpsDistance and ((RTH.gpsDistance <= RTH.settings.circleMin) or circling) then
+	    circling = true
+	    system.setControl(RTH.settings.steerCtrl, -1, 1000, 1)
+	    system.setControl(RTH.settings.elevCtrl, -1, 1000, 1)
+	 else
 	    system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 1000, 1)
 	    system.setControl(RTH.settings.elevCtrl, mixOut(config.Emix,ns), 1000, 1)
-	 else
-	    system.setControl(RTH.settings.steerCtrl, -1, 1000, 1)
-	    system.setControl(RTH.settings.elevCtrl, -1, 1000, 1)	    
 	 end
 	 validmix = true
 	 -- seems you can't make more than 2 number playbacks in a row without truncation
 	 -- work around using a time delay and checking system.isPlayback()
 	 if now >= announceTime and not system.isPlayback() then
-	    if annSeq == 1 then
-	       if RTH.gpsBearingFrom then
+	    if not circling and annSeq == 1 then
+	       if RTH.gpsBearingTo then
 		  system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
-		  system.playNumber(RTH.gpsBearingFrom, 0)
+		  system.playNumber(RTH.gpsBearingTo, 0)
 		  system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
 	       end
-	    elseif annSeq == 2 then
+	    elseif not circling and annSeq == 2 then
 	       if RTH.gpsDistance then
 		  if RTH.settings.distUnits == 1 then --m
 		     system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
@@ -313,9 +351,8 @@ local function loop()
 		     system.playNumber(RTH.gpsDistance * 3.2808, 0)
 		     system.playFile(prefix() .. pathApp .. "Audio/feet.wav", AUDIO_QUEUE)
 		  end
-		  
 	       end
-	    elseif annSeq == 3 then
+	    elseif not circling and annSeq == 3 then
 	       if RTH.altitude then
 		  if RTH.settings.distUnits == 1 then --m
 		     system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
@@ -328,12 +365,8 @@ local function loop()
 		  end
 		  
 	       end
-	    elseif annSeq == 4 then
-	       if RTH.gpsDistance and RTH.altitude then
-		  if RTH.gpsDistance <= MIN_DISTANCE or RTH.altitude <= MIN_ALTITUDE then
-		     system.playFile(prefix() .. pathApp.."Audio/tooclose.wav", AUDIO_QUEUE)
-		  end
-	       end
+	    elseif circling and annSeq == 4 then
+	       system.playFile(prefix() .. pathApp.."Audio/tooclose.wav", AUDIO_QUEUE)
 	    end
 	    annSeq = annSeq + 1
 	    if annSeq > config.annMax then annSeq = 1 end -- allow empty slots to space out announcements
@@ -352,6 +385,11 @@ local function initForm()
 
    local latsel = 0
    local lngsel = 0
+   local altsel = 0
+   local hdgsel = 0
+   local rollsel = 0
+   local pitchsel = 0
+
    for k = 1, #RTH.gpsLalist do
       if (RTH.gpsIdlist[k] == RTH.settings.latId) and
 	 (RTH.gpsPalist[k] == RTH.settings.latPa) then
@@ -362,33 +400,20 @@ local function initForm()
 	 lngsel = k
       end	 
    end
-   
-   local altsel = 0
+
    for k = 1, #RTH.sensorLalist do
       if (RTH.sensorIdlist[k] == RTH.settings.altId) and
 	 (RTH.sensorPalist[k] == RTH.settings.altPa) then
 	 altsel = k
       end
-   end
-   
-   local hdgsel = 0
-   for k = 1, #RTH.sensorLalist do
       if (RTH.sensorIdlist[k] == RTH.settings.hdgId) and
 	 (RTH.sensorPalist[k] == RTH.settings.hdgPa) then
 	 hdgsel = k
       end
-   end
-
-   local rollsel = 0
-   for k = 1, #RTH.sensorLalist do
       if (RTH.sensorIdlist[k] == RTH.settings.rollId) and
 	 (RTH.sensorPalist[k] == RTH.settings.rollPa) then
 	 rollsel = k
       end
-   end
-   
-   local pitchsel = 0
-   for k = 1, #RTH.sensorLalist do
       if (RTH.sensorIdlist[k] == RTH.settings.pitchId) and
 	 (RTH.sensorPalist[k] == RTH.settings.pitchPa) then
 	 pitchsel = k
@@ -447,7 +472,8 @@ local function initForm()
 			   system.pSave("RTHaltPa", RTH.settings.altPa)			   
 			   return end),
 		     {width=155, font=FONT_NORMAL, alignRight=false})
-   
+
+   --[[
    form.addRow(2)
    form.addLabel({label="Roll Sensor", font=FONT_NORMAL})
    form.addSelectbox(RTH.sensorLalist, rollsel, true,
@@ -469,7 +495,8 @@ local function initForm()
 			   system.pSave("RTHpitchPa", RTH.settings.pitchPa)			   
 			   return end),
 		     {width=155, font=FONT_NORMAL, alignRight=false})
-
+   --]]
+   
    form.addRow(2)
    form.addLabel({label="Distance units", font=FONT_NORMAL})
    form.addSelectbox({"m", "ft"}, RTH.settings.distUnits, true,
@@ -480,9 +507,24 @@ local function initForm()
 		     {width=155, font=FONT_NORMAL, alignRight=false})
 
 
+   form.addRow(2)
+   form.addLabel({label="Start Circling Distance (m)", font=FONT_NORMAL})
+   form.addIntbox(RTH.settings.circleMin, 0, 10000, 100, 0, 1,
+		  (function(x)
+			RTH.settings.circleMin = x
+			system.pSave("circleMin", x)
+			return end),
+		  {width=155, font=FONT_NORMAL, algignRight=false})
+   
+   form.addRow(2)
+   form.addLabel({label="Resume Steering Distance (m)", font=FONT_NORMAL})
+   form.addIntbox(RTH.settings.circleMax, 0, 10000, 100, 0, 1,
+		  (function(x)
+			RTH.settings.circleMax = x
+			system.pSave("circleMax", x)
+			return end),
+		  {width=155, font=FONT_NORMAL, algignRight=false})
 end
-
-
 
 local function drawShape(col, row, shape, rotation)
  sinShape = math.sin(rotation)
@@ -524,20 +566,23 @@ local function printTeleMix(w,h)
 
    local function yp(val)
       return 90  - (y0 + yl * (val - min) / (max - min))
-   end   
+   end
+
+   local function drawX(xp, yp, d)
+      lcd.drawLine(xp - d, yp + d, xp + d, yp - d)
+      lcd.drawLine(xp - d, yp - d, xp + d, yp + d)
+   end
+   
    if not RTH.settings.steerCtrl or not RTH.settings.steer then
       lcd.drawText(5, 2, "No steering value", FONT_NORMAL)
       return
    end
 
-   local ns = system.getInputs("P1") -- RTH.settings.steer / 180.0
+   local ns = RTH.settings.steer / 180.0
    local am = mixOut(config.Amix, ns)
    local em = mixOut(config.Emix, ns)
 
    for i=2,#config.Amix.points,1 do
-      --print(i, config.Amix.points[i-1].x , config.Amix.points[i-1].y,
-      --xp(config.Amix.points[i-1].x), yp(config.Amix.points[i-1].y))
-
       lcd.drawLine(xp(config.Amix.points[i-1].x), yp(config.Amix.points[i-1].y),
 		   xp(config.Amix.points[i].x), yp(config.Amix.points[i].y))
       lcd.drawLine(xp(config.Emix.points[i-1].x), yp(config.Emix.points[i-1].y),
@@ -546,25 +591,35 @@ local function printTeleMix(w,h)
       lcd.setColor(0,0,255)
       lcd.drawCircle(xp(ns * 100), yp(am * 100), 4)
       lcd.setColor(255,0,0)
-      lcd.drawCircle(xp(ns * 100), yp(em * 100), 3)      
+      drawX(xp(ns * 100), yp(em * 100), 4)      
       lcd.setColor(0,0,0)
    end
    
 end
 
 local function printTeleBig(w,h)
+   
    if not RTH.gpsBearingTo then
       lcd.drawText(5,  2, "No GPS signal", FONT_NORMAL)
       return
    end
-   local conv = 1
-   local un = "m"
+
+   if not RTH.settings.onoff or RTH.settings.onoff < 0 then
+      lcd.drawText(5,  2, "Not enabled", FONT_NORMAL)
+      return
+   end
+
+   local conv, un
+
    if RTH.settings.distUnits ~= 1 then -- ft
       conv = 3.2808
       un = "ft"
+   else
+      conv = 1
+      un = "m"
    end
          
-   lcd.drawText(5, 2, string.format("Bearing: %.0f°", RTH.gpsBearingFrom or 0), FONT_NORMAL)
+   lcd.drawText(5,  2, string.format("Bearing: %.0f°", RTH.gpsBearingTo or 0), FONT_NORMAL)
    lcd.drawText(5, 20, string.format("Distance: %.0f"..un, conv*(RTH.gpsDistance or 0), FONT_NORMAL))
    lcd.drawText(5, 38, string.format("Altitude: %.1f"..un, conv*(RTH.altitude or 0), FONT_NORMAL))
    lcd.drawText(5, 54, string.format("Heading: %.0f°", RTH.gpsHeading or 0), FONT_NORMAL)   
@@ -775,10 +830,6 @@ local function printTeleAH()
    
    lcd.resetClipping()
 
-   --lcd.setColor(255,255,255)
-   --drawTextCenter(widget.xL, widget.yL, widget.label, edit.fcode[fL])
-   --drawTextCenter(0, 0, "wl", FONT_MINI)
-   
 end
 
 local function printTele(w,h)
@@ -823,9 +874,6 @@ local function printTele(w,h)
 	 lcd.drawFilledRectangle(60 + ns,120, math.floor(100-ns+0.5), 30)	 
       end
    end
-   
-   
-   
 end
 
 local function logfileCB(idx)
@@ -885,6 +933,11 @@ local function init()
    RTH.settings.onoffSw = system.pLoad("RTHonoffSw")
    RTH.settings.distUnits = system.pLoad("RTHdistUnits", 1) -- meters is default
    
+   RTH.settings.circleMin = system.pLoad("circleMin", 100)
+   RTH.settings.circleMax = system.pLoad("circleMax", 130)
+
+   circling = false
+   
    RTH.gpsReads = 0
    RTH.initPos = nil
    RTH.curPos = nil
@@ -939,8 +992,8 @@ local function init()
 
    --print("config", json.encode(config))
 
-   MIN_DISTANCE = config.minDist
-   MIN_ALTITUDE = config.minAlt
+   --MIN_DISTANCE = config.minDist
+   --MIN_ALTITUDE = config.minAlt
 
    --print(MIN_DISTANCE, MIN_ALTITUDE, config.annMax, config.annDelay)
 
