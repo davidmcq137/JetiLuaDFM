@@ -120,6 +120,7 @@ local switchSeq
 local geo = {}
 local fieldnames = {}
 local fieldIdx
+local persistXP, persistYP, persistHH
 
 local function rotateXY(x, y, rotation)
    local sinShape, cosShape
@@ -462,7 +463,11 @@ function emulator_getSensors()
    if not fg then print("Info: No GPS file " .. text) else
       GPSparms=json.decode(fg)
       coslat0 = math.cos(math.rad(GPSparms.lat0))
-      --print("GPS Config: "..text)
+      print("GPS Config: "..text)
+      print("xp, yp, heading", GPSparms.xp, GPSparms.yp, GPSparms.heading)
+      persistXP = GPSparms.xp
+      persistYP = GPSparms.yp
+      persistHH = GPSparms.heading
       --print("fg:", fg)
       --print("lat0:", GPSparms.lat0)
       --print("lon0:", GPSparms.lon0)
@@ -583,7 +588,11 @@ function emulator_getSensorByID(ID, Param)
 	 end
 	 env.dt = deltaT[uid]
 	 lastT[uid] = env.t
-   
+
+	 env.xp = persistXP
+	 env.yp = persistYP
+	 env.heading = persistHH
+	 
 	 --if GPSparms and GPSparms.startTime then
 	    --env.t = env.t + GPSparms.startTime
 	 --end
@@ -613,7 +622,7 @@ function emulator_getSensorByID(ID, Param)
 	    if GPSparms.xString and GPSparms.xString ~= "" then
 	       chunk, err = load("return "..GPSparms.xString,"","t",env)
 	       if err then
-		  print("sensorEmulator: lua functionString load error, returning 0 - "..err)
+		  print("sensorEmulator: lua functionString load error xString, returning 0 - "..err)
 		  result = 0
 	       else
 		  if chunk then
@@ -627,12 +636,13 @@ function emulator_getSensorByID(ID, Param)
 		  end
 	       end
 	       xCart = result
+	       persistXP = xCart
 	    end
 
 	    if GPSparms.yString and GPSparms.yString ~= "" then
 	       chunk, err = load("return "..GPSparms.yString,"","t",env)
 	       if err then
-		  print("sensorEmulator: lua functionString load error, returning 0 - "..err)
+		  print("sensorEmulator: lua functionString load error yString, returning 0 - "..err)
 		  result = 0
 	       else
 		  if chunk then
@@ -647,8 +657,30 @@ function emulator_getSensorByID(ID, Param)
 		  end
 	       end
 	       yCart = result
+	       persistYP = yCart
 	    end
 
+	    if GPSparms.hString and GPSparms.hString ~= "" then
+	       chunk, err = load("return "..GPSparms.hString,"","t",env)
+	       if err then
+		  print("sensorEmulator: lua functionString load error hString, returning 0 - "..err)
+		  result = 0
+	       else
+		  if chunk then
+		     status, result = pcall(chunk)
+		     result = result or 0
+		     if not status then
+			print("Bad status - result:", result)
+			print("GPSparms.hString: ", GPSparms.hString)
+		     end
+		  else
+		     result = 0 
+		  end
+	       end
+	       persistHH = result
+	    end
+
+	    --print("@", persistXP, persistYP, persistHH)
 	    --print("xCart, yCart:", xCart, yCart)
 	    
 	    -- at this point, we have the xCart and yCart (Cartesian)

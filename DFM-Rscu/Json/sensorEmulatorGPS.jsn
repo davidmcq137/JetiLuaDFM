@@ -2,10 +2,16 @@
     "lat0": 41.340050,
     "lon0": -74.430933,
     "rE":6378137,
-    "trueDir": 76,
+    "trueDir": 0,
     "startTime": 30,
-    "yString":"P7(50,450)*math.cos(math.pi/(2*3))*math.cos(0.5*((-t/6) + (math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1))) - P7(25,225)*math.cos((math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1)) + 1*P7(50/6, 450/6) + 0*t + 000",
+    "xp":0,
+    "yp":0,
+    "heading":10,
+    "hString":"heading + O1(-4,4)",
+    "xString":"xp + 2 * math.sin(math.rad(heading))",
+    "yString":"yp + 2 * math.cos(math.rad(heading))",
+    "yyString":"P7(50,450)*math.cos(math.pi/(2*3))*math.cos(0.5*((-t/6) + (math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1))) - P7(25,225)*math.cos((math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1)) + 1*P7(50/6, 450/6) + 0*t + 000",
     
-    "xString":"P6(50,700)*math.cos(math.pi/(2*3))*math.sin(0.5*((-t/6) + (math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1))) - P6(25,350)*math.sin((math.pi/3) *(2*math.floor((-3*t/6)/(2*math.pi))+1)) + 0*t"
+    "xxString":"P6(50,700)*math.cos(math.pi/(2*3))*math.sin(0.5*((-t/6) + (math.pi/3)*(2*math.floor((-3*t/6)/(2*math.pi))+1))) - P6(25,350)*math.sin((math.pi/3) *(2*math.floor((-3*t/6)/(2*math.pi))+1)) + 0*t"
 
 }
