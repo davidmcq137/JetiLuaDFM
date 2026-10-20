@@ -234,7 +234,7 @@ local function loop()
 	 RTH.gpsReads = RTH.gpsReads + 1
       end
       if RTH.gpsReads > MINGPSREADS and not RTH.zeroPos then
-	 system.messageBox("DFM-Rscu: GPS and Alt zero set")
+	 system.messageBox(appName..": GPS and Alt zero set")
 	 print("DFM-Rscu: GPS and Alt zero set")
 	 RTH.zeroPos = RTH.curPos
 	 if altnow then
@@ -276,7 +276,7 @@ local function loop()
       system.stopPlayback()
       if RTH.gpsDistance and RTH.gpsDistance > RTH.settings.circleMin * CMULT then
 	 system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_IMMEDIATE)
-	 system.messageBox("Rescue enabled")
+	 system.messageBox(appName..": Rescue enabled")
 	 system.playBeep(0, 600, 200)
 	 circling = false
 	 annSeq = 1
@@ -288,7 +288,7 @@ local function loop()
 	 RTH.settings.onoff = SwO
       else
 	 system.playFile(prefix() .. pathApp .. "Audio/rthnotenabled.wav", AUDIO_IMMEDIATE)
-	 system.messageBox("Rescue NOT enabled. Too close")
+	 system.messageBox(appName ..": Rescue NOT enabled. Too close")
 	 system.playBeep(4, 600, 200)
       end
    end
@@ -332,7 +332,7 @@ local function loop()
 		  system.stopPlayback()
 		  system.playFile(prefix() .. pathApp .. "Audio/turninginbound.wav", AUDIO_IMMEDIATE)
 		  system.playBeep(2, 600, 200)
-		  system.messageBox("DFM-Rscu: Turning inbound")
+		  system.messageBox(appName..": Turning inbound")
 		  announceTime = 0 -- force immed ann of bearing
 		  annSeq = 1
 	       end
@@ -345,7 +345,7 @@ local function loop()
 		  system.stopPlayback()
 		  system.playFile(prefix() .. pathApp .. "Audio/turningoutbound.wav", AUDIO_IMMEDIATE)
 		  system.playBeep(1, 600, 200)
-		  system.messageBox("DFM-Rscu: Turning outbound")
+		  system.messageBox(appName ..": Turning outbound")
 		  announceTime = now + config.annDelay * config.annMax
 	       end
 	       circling = true
@@ -901,7 +901,7 @@ local function printTeleGPS(w,h)
 
    local x, y, x1, y1, ix, iy, ix1, iy1
 
-   lcd.drawRectangle(0,0,319,159)
+   --lcd.drawRectangle(0,0,319,159)
    lcd.setColor(255,0,0)
    for i = 0, 360, 5 do
       x = RTH.settings.circleMin * math.sin(math.rad(i))
@@ -941,7 +941,8 @@ local function printTeleGPS(w,h)
       if circling then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
    end
 
-   lcd.drawCircle(ix, iy, 5)
+   drawShape(ix,iy, config.Glider, math.rad(RTH.gpsHeading or 0)) 
+   --lcd.drawCircle(ix, iy, 5)
 
    local dist
    if iPindex > 1 then
@@ -976,7 +977,7 @@ local function printTeleGPS(w,h)
    if RTH.gpsHeading then
       local ixh, iyh = ix + 20 * math.sin(math.rad(RTH.gpsHeading)),
 	 iy - 20 * math.cos(math.rad(RTH.gpsHeading))
-      lcd.drawLine(ix, iy, ixh, iyh)
+      --lcd.drawLine(ix, iy, ixh, iyh)
       lcd.drawText(20, 100, string.format("gpsHeading: %.2f ", RTH.gpsHeading or 0), FONT_MINI)   
 
    end
@@ -1070,7 +1071,7 @@ local function init()
 
    RTH.settings.steerCtrl = nil
    for i=1,10,1 do
-      RTH.settings.steerCtrl = system.registerControl(i, "RTH Steering", "RTS")
+      RTH.settings.steerCtrl = system.registerControl(i, "Rscu Steering", "RTS")
       if RTH.settings.steerCtrl then break end
    end
 
@@ -1088,7 +1089,7 @@ local function init()
    RTH.settings.elevCtrl = nil
    for i=1,10,1 do
       if i ~= RTH.settings.steerCtrl then
-	 RTH.settings.elevCtrl = system.registerControl(i, "RTH Elevator", "RTE")
+	 RTH.settings.elevCtrl = system.registerControl(i, "Rscu Elevator", "RTE")
 	 if RTH.settings.elevCtrl then break end
       end
    end
@@ -1118,4 +1119,4 @@ local function init()
 
 end
    
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.04", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.09", name=appName}
