@@ -237,7 +237,6 @@ local function loop()
 	 system.messageBox("DFM-Rscu: GPS and Alt zero set")
 	 print("DFM-Rscu: GPS and Alt zero set")
 	 RTH.zeroPos = RTH.curPos
-	 RTH.aimPos = gps.getDestination(RTH.zeroPos, 50, 10) 
 	 if altnow then
 	    if emflag ~= 0 then
 	       RTH.var.startTakeoffAlt = 0
@@ -248,8 +247,6 @@ local function loop()
 	 end
       end
       if RTH.curPos and RTH.zeroPos then
-	 --RTH.gpsBearingFrom = gps.getBearing(RTH.curPos, RTH.aimPos)
-	 --RTH.gpsBearingTo = gps.getBearing(RTH.aimPos, RTH.curPos)
 	 RTH.gpsBearingFrom = gps.getBearing(RTH.curPos, RTH.zeroPos)
 	 RTH.gpsBearingTo = gps.getBearing(RTH.zeroPos, RTH.curPos)
 	 RTH.gpsDistance = gps.getDistance(RTH.curPos, RTH.zeroPos)
@@ -277,16 +274,27 @@ local function loop()
    
    if lastSwO == -1 and SwO == 1 then
       system.stopPlayback()
-      system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_IMMEDIATE)
-      system.playBeep(0, 600, 200)
-      circling = false
-      annSeq = 1
-      announceTime = now
+      if RTH.gpsDistance and RTH.gpsDistance > RTH.settings.circleMin * CMULT then
+	 system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_IMMEDIATE)
+	 system.messageBox("Rescue enabled")
+	 system.playBeep(0, 600, 200)
+	 circling = false
+	 annSeq = 1
+	 announceTime = now
+	 --set aim point on the bearing to the current a/c position, and twice the circleMax dist
+	 RTH.aimPosOutbound = gps.getDestination(RTH.zeroPos,
+						 RTH.settings.circleMin * CMULT * 2,
+						 RTH.gpsBearingTo) 
+	 RTH.settings.onoff = SwO
+      else
+	 system.playFile(prefix() .. pathApp .. "Audio/rthnotenabled.wav", AUDIO_IMMEDIATE)
+	 system.messageBox("Rescue NOT enabled. Too close")
+	 system.playBeep(4, 600, 200)
+      end
    end
 
    lastSwO = SwO
 
-   RTH.settings.onoff = SwO
 
    -- if enabled, compute and set steering and elev controls
    -- and make announcements
@@ -299,8 +307,11 @@ local function loop()
       if RTH.gpsHeading and RTH.gpsBearingFrom and RTH.gpsBearingTo then
 	 if not circling then
 	    RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
+	    --RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingFromAim + 180) % 360 - 180	    
 	 else
-	    RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingTo + 180) % 360 - 180
+	    RTH.gpsBearingOutbound = gps.getBearing(RTH.curPos, RTH.aimPosOutbound)
+	    RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingOutbound + 180) % 360 - 180
+	    --RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingToAim + 180) % 360 - 180
 	 end
       end
 

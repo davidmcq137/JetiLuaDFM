@@ -6,7 +6,7 @@
     "startTime": 30,
     "xp":0,
     "yp":0,
-    "heading":10,
+    "heading":145,
     "hString":"heading + O1(-4,4)",
     "xString":"xp + 2 * math.sin(math.rad(heading))",
     "yString":"yp + 2 * math.cos(math.rad(heading))",
