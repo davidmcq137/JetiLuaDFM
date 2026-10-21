@@ -167,6 +167,7 @@ local function loop()
    local sensor
    local MINHDGDIST = 3
    local MINGPSREADS= 9
+   local MINANNDIST = 5
    local info
    local SwO, SwC
    local altnow
@@ -287,9 +288,13 @@ local function loop()
       system.stopPlayback()
       system.messageBox(appName .. ": Mixer calibration OFF")
       system.playFile(prefix().. pathApp .. "Audio/mixercaldone.wav", AUDIO_IMMEDIATE)
-      RTH.settings.maxElevGain = 100 * ( system.getInputs("P2"))
-      system.pSave("maxElevGain", RTH.settings.maxElevGain)				       
-      system.playNumber(RTH.settings.maxElevGain, 0, "%")
+      local si = system.getSwitchInfo(RTH.settings.elevInput)
+      --print("si", si.label, si.value, si.proportional, si.assigned, si.mode)
+      if si.proportional and si.assigned then
+	 RTH.settings.maxElevGain = 100 * ( si.value)
+	 system.pSave("maxElevGain", RTH.settings.maxElevGain)				       
+	 system.playNumber(RTH.settings.maxElevGain, 0, "%")
+      end
    end
 
    lastSwC = SwC
@@ -318,7 +323,8 @@ local function loop()
 	 --set aim point on the bearing to the current a/c position, and twice the circleMax dist
 	 RTH.aimPosOutbound = gps.getDestination(RTH.zeroPos,
 						 RTH.settings.circleMin * CMULT * 2,
-						 RTH.gpsBearingTo) 
+						 RTH.gpsBearingTo)
+
 	 RTH.settings.onoff = SwO
       else
 	 system.playFile(prefix() .. pathApp .. "Audio/rthnotenabled.wav", AUDIO_IMMEDIATE)
@@ -351,11 +357,14 @@ local function loop()
       if RTH.gpsHeading and RTH.gpsBearingFrom and RTH.gpsBearingTo then
 	 if not circling then
 	    RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
-	    --RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingFromAim + 180) % 360 - 180	    
 	 else
-	    RTH.gpsBearingOutbound = gps.getBearing(RTH.curPos, RTH.aimPosOutbound)
-	    RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingOutbound + 180) % 360 - 180
-	    --RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingToAim + 180) % 360 - 180
+	    if RTH.settings.circStrat == 1 then
+	       RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingTo + 180) % 360 - 180
+	    else
+	       RTH.gpsBearingOutbound = gps.getBearing(RTH.curPos, RTH.aimPosOutbound)
+	       RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingOutbound + 180) % 360 - 180
+	    end
+	    
 	 end
       end
 
@@ -401,7 +410,7 @@ local function loop()
 	 end
 
 	 if now > announceTime then
-	    if RTH.gpsDistance and RTH.gpsDistance > RTH.settings.circleMin then 
+	    if RTH.gpsDistance and RTH.gpsDistance > MINANNDIST then 
 	       if annSeq == 1 then
 		  if RTH.gpsBearingTo then
 		     system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
@@ -475,7 +484,8 @@ local function initForm(subform)
    local pitchsel = 0
    
    activeSf = subform
-   
+
+   --[[
    if subform == 2 then
       form.addRow(1)
       form.setFocusedRow(1)
@@ -484,6 +494,7 @@ local function initForm(subform)
 	       if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end	       	             form.reinit(1) end), {label="<< Zero controls and return"})
       return
    end
+   --]]
    
    for k = 1, #RTH.gpsLalist do
       if (RTH.gpsIdlist[k] == RTH.settings.latId) and
@@ -648,12 +659,24 @@ local function initForm(subform)
 			system.pSave("circleMin", x)
 			return end),
 		  {width=155, font=FONT_NORMAL, algignRight=false})
+   
+   form.addRow(2)
+   form.addLabel({label="Circling behavior", font=FONT_NORMAL})
+   form.addSelectbox({"petals", "racetrack"}, RTH.settings.circStrat, true,
+		     (function(i)
+			   RTH.settings.circStrat = i
+			   system.pSave("RTHcircStrat", RTH.settings.circStrat)
+			   return end),
+		     {width=155, font=FONT_NORMAL, alignRight=false})
 
+   --[[
    form.addRow(1)
    form.addLink((function()
 	    if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, -1, 0) end
 	    if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, -1, 0) end
 	    form.reinit(2) end), {label="Setup: Mix controls to max >>"})
+   --]]
+   
    
    --[[
    form.addRow(2)
@@ -1154,6 +1177,7 @@ local function init()
    RTH.settings.elevInput = system.pLoad("elevInput")
    
    RTH.settings.distUnits = system.pLoad("RTHdistUnits", 1) -- meters is default
+   RTH.settings.circStrat = system.pLoad("RTHcirStrat", 1)
    
    RTH.settings.circleMin = system.pLoad("circleMin", 150)
    RTH.settings.maxElevGain = system.pLoad("maxElevGain", 0)
@@ -1216,4 +1240,4 @@ local function init()
 
 end
    
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.09", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.1", name=appName}
