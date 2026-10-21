@@ -19,6 +19,7 @@ local pathApp = "Apps/"..appName.."/"
 local RTH = {}
 local config = {}
 local circling
+local calibrating
 --local armed = false
 --local everEnabled = false
 local lastSec
@@ -164,10 +165,10 @@ end
 local function loop()
    local now
    local sensor
-   local MINHDGDIST = 2
+   local MINHDGDIST = 3
    local MINGPSREADS= 9
    local info
-   local SwO
+   local SwO, SwC
    local altnow
 
    now = system.getTimeCounter()
@@ -225,6 +226,7 @@ local function loop()
 	 if not RTH.lastPos then RTH.lastPos = RTH.curPos end
 	 if gps.getDistance(RTH.curPos, RTH.lastPos) > MINHDGDIST then 
 	    compHdg = gps.getBearing(RTH.lastPos, RTH.curPos)
+	    --print(gps.getDistance(RTH.curPos, RTH.lastPos), compHdg)
 	    RTH.lastPos = RTH.curPos
 	 end
       end
@@ -260,6 +262,38 @@ local function loop()
       end
    end
 
+   -- read the switch for mixer calibration
+   if RTH.settings.calSw then
+      info = system.getSwitchInfo(RTH.settings.calSw)
+      if info then
+	 SwC = info.value
+      else
+	 SwC = -1
+      end
+   else
+      SwC = -1
+   end
+   
+
+   if lastSwC == -1 and SwC == 1 then 
+      calibrating = true
+      system.stopPlayback()
+      system.messageBox(appName .. ": Mixer calibration active")
+      system.playFile(prefix().. pathApp .. "Audio/mixercalactive.wav", AUDIO_IMMEDIATE)
+   end
+
+   if lastSwC == 1 and SwC == -1 and calibrating == true then -- just turned off
+      calibrating = false
+      system.stopPlayback()
+      system.messageBox(appName .. ": Mixer calibration OFF")
+      system.playFile(prefix().. pathApp .. "Audio/mixercaldone.wav", AUDIO_IMMEDIATE)
+      RTH.settings.maxElevGain = 100 * ( system.getInputs("P2"))
+      system.pSave("maxElevGain", RTH.settings.maxElevGain)				       
+      system.playNumber(RTH.settings.maxElevGain, 0, "%")
+   end
+
+   lastSwC = SwC
+
    -- read the switch for RTH steering on/off
    if RTH.settings.onoffSw then
       info = system.getSwitchInfo(RTH.settings.onoffSw)
@@ -271,7 +305,7 @@ local function loop()
    else
       SwO = -1
    end
-   
+
    if lastSwO == -1 and SwO == 1 then
       system.stopPlayback()
       if RTH.gpsDistance and RTH.gpsDistance > RTH.settings.circleMin * CMULT then
@@ -295,15 +329,25 @@ local function loop()
 
    lastSwO = SwO
 
-
    -- if enabled, compute and set steering and elev controls
    -- and make announcements
 
    RTH.settings.steer = 0
    RTH.settings.elev = 0
    local validmix = false
+
    --local s1,s2,s3
-   if RTH.settings.onoff > 0 then
+
+   if calibrating then
+      --print("calibrating", mixOut(config.Amix,-1))
+      system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,-1), 1000, 1)
+      system.setControl(RTH.settings.elevCtrl, mixOut(config.Emix,0), 1000, 1)
+      --if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, -1, 0) end
+      --if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, -1, 0) end
+      validmix = true
+   end
+   
+   if (RTH.settings.onoff > 0) and not calibrating then
       if RTH.gpsHeading and RTH.gpsBearingFrom and RTH.gpsBearingTo then
 	 if not circling then
 	    RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
@@ -351,7 +395,8 @@ local function loop()
 	       circling = true
 	    end
 	    system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 1000, 1)
-	    system.setControl(RTH.settings.elevCtrl, mixOut(config.Emix,ns), 1000, 1)
+	    system.setControl(RTH.settings.elevCtrl,
+			      RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns), 1000, 1)
 	    validmix = true
 	 end
 
@@ -476,8 +521,46 @@ local function initForm(subform)
    end
    
    form.addRow(2)
-   form.addLabel({label="RTH on/off switch", width=280})
-   form.addInputbox(RTH.settings.onoffSw, true, onoffChanged, {alignRight=true})
+   form.addLabel({label="Rescue mode switch", width=155})
+   form.addInputbox(RTH.settings.onoffSw, true, onoffChanged, {alignRight=false})
+   
+   local function calChanged(value)
+      RTH.settings.calSw = value
+      system.pSave("RTHcalSw", RTH.settings.calSw)
+   end
+
+   form.addRow(2)
+   form.addLabel({label="Mixer calibration switch", width=165})
+   form.addInputbox(RTH.settings.calSw, true, calChanged,
+		    {width=155, font=FONT_NORMAL, alignRight=false})
+
+   local function ecChanged(value)
+      local si = system.getSwitchInfo(value)
+      --print("si", si.label, si.value, si.proportional, si.assigned, si.mode)
+      if not si.proportional then
+	 system.messageBox("Elevator control must be proportional")
+	 RTH.settings.elevInput = nil
+	 form.reinit(1)
+      else
+	 RTH.settings.elevInput = value
+	 system.pSave("elevInput", value)
+      end
+   end
+   
+   form.addRow(2)
+   form.addLabel({label="Elevator control", width=180})   
+   form.addInputbox(RTH.settings.elevInput, true, ecChanged,
+		    {width=155, font=FONT_NORMAL, alignRight=false})
+   
+   local function egChanged(value)
+      RTH.settings.maxElevGain = value
+      system.pSave("maxElevGain", value)
+   end
+   
+   form.addRow(2)
+   form.addLabel({label="Elevator mix percentage", width=180})   
+   form.addIntbox(RTH.settings.maxElevGain, -100, 100, 0, 0, 1, egChanged,
+		  {width=155, font=FONT_NORMAL, alignRight=false})
    
    form.addRow(2)
    form.addLabel({label="GPS Lat Sensor", font=FONT_NORMAL})
@@ -606,7 +689,7 @@ end
 
 local function printTeleMix()
 
-   local x0,y0 = 15, 5
+   local x0,y0 = 220, 5
    local xl, yl = 1.23*80, 80
    local min, max = -100, 100
    
@@ -615,7 +698,7 @@ local function printTeleMix()
    end
 
    local function yp(val)
-      return 90  - (y0 + yl * (val - min) / (max - min))
+      return 130  - (y0 + yl * (val - min) / (max - min))
    end
 
    local function drawX(xxp, yyp, d)
@@ -630,13 +713,17 @@ local function printTeleMix()
 
    local ns = RTH.settings.steer / 180.0
    local am = mixOut(config.Amix, ns)
-   local em = mixOut(config.Emix, ns)
+   local em = RTH.settings.maxElevGain / 100 * mixOut(config.Emix, ns)
 
    for i=2,#config.Amix.points,1 do
+      lcd.setColor(0,0,255)
       lcd.drawLine(xp(config.Amix.points[i-1].x), yp(config.Amix.points[i-1].y),
 		   xp(config.Amix.points[i].x), yp(config.Amix.points[i].y))
-      lcd.drawLine(xp(config.Emix.points[i-1].x), yp(config.Emix.points[i-1].y),
-		   xp(config.Emix.points[i].x), yp(config.Emix.points[i].y))
+      lcd.setColor(255,0,0)
+      lcd.drawLine(xp(config.Emix.points[i-1].x),
+		   yp(RTH.settings.maxElevGain / 100 * config.Emix.points[i-1].y),
+		   xp(config.Emix.points[i].x),
+		   yp(RTH.settings.maxElevGain / 100 * config.Emix.points[i].y))
 
       lcd.setColor(0,0,255)
       lcd.drawCircle(xp(ns * 100), yp(am * 100), 4)
@@ -899,6 +986,7 @@ local function printTeleGPS(w,h)
       return
    end
 
+   printTeleMix(w,h)
    local x, y, x1, y1, ix, iy, ix1, iy1
 
    --lcd.drawRectangle(0,0,319,159)
@@ -970,21 +1058,21 @@ local function printTeleGPS(w,h)
    local ix0 , iy0 = xytopixel(0, 0, w, h)
    lcd.drawCircle(ix0, iy0, 2)
    lcd.drawText(20, 20, string.format("[%d,%d,%d,%d]", xmin, xmax, ymin, ymax), FONT_MINI)
-   lcd.drawText(20, 40, string.format("gpsDistance: %.2f", RTH.gpsDistance), FONT_MINI)
-   lcd.drawText(20, 60, string.format("gpsBearingTo: %.2f ", RTH.gpsBearingTo), FONT_MINI)
-   lcd.drawText(20, 80, string.format("gpsBearingFrom: %.2f ", RTH.gpsBearingFrom), FONT_MINI)
+   lcd.drawText(20, 40, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
+   lcd.drawText(20, 60, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
+   lcd.drawText(20, 80, string.format("BrgFrom: %d", RTH.gpsBearingFrom), FONT_MINI)
 
    if RTH.gpsHeading then
       local ixh, iyh = ix + 20 * math.sin(math.rad(RTH.gpsHeading)),
 	 iy - 20 * math.cos(math.rad(RTH.gpsHeading))
       --lcd.drawLine(ix, iy, ixh, iyh)
-      lcd.drawText(20, 100, string.format("gpsHeading: %.2f ", RTH.gpsHeading or 0), FONT_MINI)   
+      lcd.drawText(20, 100, string.format("Hdg: %d", RTH.gpsHeading or 0), FONT_MINI)   
 
    end
 
    if RTH.gpsHeading and RTH.gpsBearingFrom then
       local steer = RTH.settings.steer --(-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
-      lcd.drawText(20, 120, string.format("Steer: %.2f ", steer), FONT_MINI)
+      lcd.drawText(20, 120, string.format("Steer: %d ", steer), FONT_MINI)
       --local ixs, iys = ix + 20 * math.sin(math.rad(steer)), iy - 20 * math.cos(math.rad(steer)) 
       --lcd.drawLine(ix, iy, ixs, iys)
       --[[
@@ -1000,6 +1088,10 @@ local function printTeleGPS(w,h)
       end
       --]]
    end
+   if RTH.altitude then
+      lcd.drawText(20, 140, string.format("Alt: %d ", RTH.altitude), FONT_MINI)
+   end
+   
 end
 
 local function logfileCB(idx)
@@ -1058,12 +1150,17 @@ local function init()
    RTH.settings.pitchPa = system.pLoad("RTHpitchPa", 0)      
 
    RTH.settings.onoffSw = system.pLoad("RTHonoffSw")
+   RTH.settings.calSw = system.pLoad("RTHcalSw")
+   RTH.settings.elevInput = system.pLoad("elevInput")
+   
    RTH.settings.distUnits = system.pLoad("RTHdistUnits", 1) -- meters is default
    
    RTH.settings.circleMin = system.pLoad("circleMin", 150)
+   RTH.settings.maxElevGain = system.pLoad("maxElevGain", 0)
    --RTH.settings.circleMax = system.pLoad("circleMax", 130)
 
    circling = false
+   calibrating = false
    
    RTH.gpsReads = 0
    RTH.curPos = nil
@@ -1095,7 +1192,7 @@ local function init()
    end
 
    RTH.settings.elev = 0
-
+   
    if RTH.settings.elevCtrl then
       print(appName ..": Elevator registered to control "..RTH.settings.elevCtrl)
       system.setControl(RTH.settings.elevCtrl, RTH.settings.elev, 0)

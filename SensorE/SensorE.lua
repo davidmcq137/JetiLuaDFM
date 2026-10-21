@@ -698,13 +698,28 @@ function emulator_getSensorByID(ID, Param)
 	    end
 	    
 	    -- these will be lat and lon in radians
+
+	    -- try avoiding single precision issues using the gps functions
+	    
+	    local gp0 = gps.newPoint(GPSparms.lat0, GPSparms.lon0)
+	    local dd0 = math.sqrt(xCart^2 + yCart^2)
+	    local aa0 = math.deg(math.atan(xCart, yCart))
+	    local bb0 = (aa0 + 360) % 360
+	    local gp1 = gps.getDestination(gp0, dd0, bb0)
+	    local nlat, nlon = gps.getValue(gp1)
+	    
 	    lat = yCart/GPSparms.rE + math.rad(GPSparms.lat0)
 	    lon = xCart/(GPSparms.rE * coslat0) + math.rad(GPSparms.lon0)
+	    
+	    --print(dd0, bb0, math.deg(lat), math.deg(lon), nlat, nlon, math.deg(lat)-nlat, math.deg(lon)-nlon)
 	    
 	    -- now convert to degrees
 	    lat = math.deg(lat)
 	    lon = math.deg(lon)
-	    
+
+	    --lat = nlat -- math.deg(lat)
+	    --lon = nlon -- math.deg(lon)
+
 	    -- note sign, work with positive values, put sign back later
 	    if lat > 0 then latDecimals = 4 else
 	       latDecimals = 2
