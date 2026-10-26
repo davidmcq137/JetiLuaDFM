@@ -33,9 +33,7 @@ local ixP = {}
 local iyP = {}
 
 local steerMode = {petals=1,racetrack=2,leftright=3}
-local steerStr = {"petals", "racetrack","leftright"}
 local turnMode = {left=1,right=2,random=3}
-local turnStr = {"left", "right", "random"}
 local magVal = {0.5, 1, 2, 4, 8}
 local magIdx
 
@@ -88,6 +86,15 @@ local homeShape = {
 --]]
 
 local emflag
+
+local function inv(t)
+   local rt = {}
+   if not t then return rt end
+   for k,v in pairs(t) do
+      rt[v] = k
+   end
+   return rt
+end
 
 local function drawX(xxp, yyp, d)
    lcd.drawLine(xxp - d, yyp + d, xxp + d, yyp - d)
@@ -391,7 +398,7 @@ local function loop()
 	 flyingToA = true
 	 annSeq = 1
 	 announceTime = now
-	 turnTime = now
+	 --turnTime = now -- not working as intended due to turnon delay .. think more!
 	 --set aim point on the bearing to the current a/c position, and twice the circleMax dist
 	 RTH.aimPosOutbound = gps.getDestination(RTH.zeroPos,
 						 RTH.settings.circleMin * CMULT * 2,
@@ -829,7 +836,7 @@ local function initForm(subform)
    
    form.addRow(2)
    form.addLabel({label="Circling behavior", font=FONT_NORMAL})
-   form.addSelectbox(steerStr,
+   form.addSelectbox(inv(steerMode),
       RTH.settings.circStrat, true,
       (function(i)
 	    RTH.settings.circStrat = i
@@ -839,7 +846,7 @@ local function initForm(subform)
    
    form.addRow(2)
    form.addLabel({label="Perferred turn", font=FONT_NORMAL, width=155})
-   form.addSelectbox(turnStr,
+   form.addSelectbox(inv(turnMode),
       RTH.settings.turnDir, true,
       (function(i)
 	    RTH.settings.turnDir = i
@@ -1316,8 +1323,8 @@ local function printTeleGPS(w,h)
    
    lcd.drawText(40, 15, string.format("[%d,%d,%d,%d]   steer: %s  turn: %s",
 				      xmin, xmax, ymin, ymax,
-				      steerStr[RTH.settings.circStrat],
-				      turnStr[RTH.settings.turnDir]), FONT_MINI)
+				      inv(steerMode)[RTH.settings.circStrat],
+				      inv(turnMode)[RTH.settings.turnDir]), FONT_MINI)
 
    lcd.drawText(60, 145, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
    lcd.drawText(190, 145, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
@@ -1394,15 +1401,8 @@ local function setMag(idx)
    iPindex = 1
 end
 
---[[
-local steerMode = {petals=1,racetrack=2}
-local steerStr = {"petals", "racetrack"}
-local turnMode = {left=1,right=2,random=3}
-local turnStr = {"left", "right", "random"}
-
---]]
 local function keyPressGPS(key)
-   print("key", key)
+   --print("key", key)
    if key == KEY_1 then
       magIdx = magIdx + 1
       if magIdx > #magVal then magIdx = #magVal end
@@ -1413,11 +1413,11 @@ local function keyPressGPS(key)
       setMag(magIdx)
    elseif key == KEY_3 then
       RTH.settings.circStrat = RTH.settings.circStrat + 1
-      if RTH.settings.circStrat > #steerStr then RTH.settings.circStrat = 1 end
+      if RTH.settings.circStrat > #inv(steerMode) then RTH.settings.circStrat = 1 end
       system.pSave("RTHcircStrat", RTH.settings.circStrat)
    elseif key == KEY_4 then
       RTH.settings.turnDir = RTH.settings.turnDir + 1
-      if RTH.settings.turnDir > #turnStr then RTH.settings.turnDir = 1 end
+      if RTH.settings.turnDir > #inv(turnMode) then RTH.settings.turnDir = 1 end
       system.pSave("RTHturnDir", RTH.settings.turnDir)
       --else -- key5
    end
@@ -1497,10 +1497,8 @@ local function init()
    RTH.zeroPos = nil
 
    RTH.settings.steerCtrl = nil
-   for i=1,10,1 do
-      RTH.settings.steerCtrl = system.registerControl(i, "Rscu Steering", "RTS")
-      if RTH.settings.steerCtrl then break end
-   end
+   local iRTS = 3
+   RTH.settings.steerCtrl = system.registerControl(iRTS, "Rscu Steering", "RTS")
 
    RTH.settings.steer = 0
    RTH.settings.onoff = -1
@@ -1514,12 +1512,8 @@ local function init()
    end
 
    RTH.settings.elevCtrl = nil
-   for i=1,10,1 do
-      if i ~= RTH.settings.steerCtrl then
-	 RTH.settings.elevCtrl = system.registerControl(i, "Rscu Elevator", "RTE")
-	 if RTH.settings.elevCtrl then break end
-      end
-   end
+   local iRTE = 4
+   RTH.settings.elevCtrl = system.registerControl(iRTE, "Rscu Elevator", "RTE")
 
    --[[
    testLatControl = system.registerControl(10, "Latency", "LAT")
@@ -1554,12 +1548,8 @@ local function init()
    
    config = json.decode(str)
 
-   --playNumberCompass(47)
-   
-   --declareGlobal("foo", 137)
-   --dumpGlobalVars()
    --system.setProperty("NativeDraw", 1)
    --print("get", system.getProperty("NativeDraw"))
 end
    
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.1", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.2", name=appName}
