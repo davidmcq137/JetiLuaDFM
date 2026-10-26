@@ -463,11 +463,13 @@ function emulator_getSensors()
    if not fg then print("Info: No GPS file " .. text) else
       GPSparms=json.decode(fg)
       coslat0 = math.cos(math.rad(GPSparms.lat0))
-      print("GPS Config: "..text)
-      print("xp, yp, heading", GPSparms.xp, GPSparms.yp, GPSparms.heading)
+      --print("GPS Config: "..text)
+      --print("xp, yp, heading", GPSparms.xp, GPSparms.yp, GPSparms.heading)
       persistXP = GPSparms.xp
       persistYP = GPSparms.yp
       persistHH = GPSparms.heading
+      --print("persistXP", persistXP)
+      --print("persistYP", persistYP)      
       --print("fg:", fg)
       --print("lat0:", GPSparms.lat0)
       --print("lon0:", GPSparms.lon0)
@@ -502,6 +504,8 @@ end
 local lastT = {}
 local deltaT = {}
 
+local savePoint
+
 function emulator_getPosition(sensID, parmLat, parmLng)
 
    local sensor
@@ -535,8 +539,11 @@ function emulator_getPosition(sensID, parmLat, parmLng)
       return nil
    end
 
-   return gps.newPoint(latitude, longitude)
-   
+   if savePoint then
+      return savePoint
+   else
+      return gps.newPoint(latitude, longitude)
+   end
 end
 
 function emulator_getSensorByID(ID, Param)
@@ -592,6 +599,7 @@ function emulator_getSensorByID(ID, Param)
 	 env.xp = persistXP
 	 env.yp = persistYP
 	 env.heading = persistHH
+
 	 
 	 --if GPSparms and GPSparms.startTime then
 	    --env.t = env.t + GPSparms.startTime
@@ -659,6 +667,7 @@ function emulator_getSensorByID(ID, Param)
 	       yCart = result
 	       persistYP = yCart
 	    end
+	    --print("xCart, yCart", xCart, yCart)
 
 	    if GPSparms.hString and GPSparms.hString ~= "" then
 	       chunk, err = load("return "..GPSparms.hString,"","t",env)
@@ -707,11 +716,23 @@ function emulator_getSensorByID(ID, Param)
 	    local bb0 = (aa0 + 360) % 360
 	    local gp1 = gps.getDestination(gp0, dd0, bb0)
 	    local nlat, nlon = gps.getValue(gp1)
+	    local slat, slon
+	    if gps.getString then
+	       slat, slon = gps.getString(gp1)
+	    elseif gps.getStrig then
+	       slat, slon = gps.getStrig(gp1)
+	    else
+	       slat, slon = "0.0", "0.0"
+	    end
+
+	    savePoint = gp1
 	    
 	    lat = yCart/GPSparms.rE + math.rad(GPSparms.lat0)
 	    lon = xCart/(GPSparms.rE * coslat0) + math.rad(GPSparms.lon0)
 	    
 	    --print(dd0, bb0, math.deg(lat), math.deg(lon), nlat, nlon, math.deg(lat)-nlat, math.deg(lon)-nlon)
+
+	    --print(slat, slon)
 	    
 	    -- now convert to degrees
 	    lat = math.deg(lat)
@@ -730,10 +751,25 @@ function emulator_getSensorByID(ID, Param)
 	       lonDecimals = 3
 	       lon = -1 * lon
 	    end
+	    
+	    --print("getString", slat, slon)
 
-	    latDeg, latFrac = math.modf(lat)
-	    lonDeg, lonFrac = math.modf(lon)
+	    latDeg = math.abs(tonumber(string.match(slat, "(.*)%.")))
+	    lonDeg = math.abs(tonumber(string.match(slon, "(.*)%.")))
 
+	    latFrac = tonumber("."..string.match(slat, "%.(.*)"))
+	    lonFrac = tonumber("."..string.match(slon, "%.(.*)"))
+
+	    --print(latDeg, latFrac, lonDeg, lonFrac)
+	    
+	    local latDegS, latFracS = math.modf(lat)
+	    local lonDegS, lonFracS = math.modf(lon)
+
+	    --print(latFrac - latFracS, lonFrac - lonFracS)
+
+	    --latDeg, latFrac = math.modf(lat)
+	    --lonDeg, lonFrac = math.modf(lon)	    
+	    
 	    latMin = latFrac * 60
 	    lonMin = lonFrac * 60
 

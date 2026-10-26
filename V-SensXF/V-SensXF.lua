@@ -274,7 +274,9 @@ end
 local function regControl(num, name)
    local ctl = "V"..string.format("%02d", num)
    local idx = system.registerControl(num, "V-SensXF " .. name, ctl)
-   if idx then print("V-SensXF: Control "..ctl .. " Registered to " .. idx) end
+   if idx then print("V-SensXF: Control "..ctl .. " Registered to " .. idx) else
+      print("V-SensXF could not register", num, name, ctl)
+   end
    return idx
 end
 
@@ -319,6 +321,7 @@ end
 local function unregC()
    for k in ipairs(resultIdx) do
       if k <= luaCtlMax and resultIdx[k] ~= 0 then
+	 print("unreg", k, resultIdx[k])
 	 system.unregisterControl(resultIdx[k])
       end
    end
@@ -525,7 +528,7 @@ local function initForm(formID)
      form.addLink((function() form.reinit(5); form.waitForRelease() end),
 	{label=lang.GPSPt})
 
-     print("initForm", V_Ann)
+     --print("initForm", V_Ann)
      if V_Ann then
 	form.addRow(1)
 	form.addLink((function() form.reinit(100); form.waitForRelease() end),
@@ -1302,15 +1305,17 @@ local function init()
 	 regT(resultTele[k])
       end
    end
+
+   print("luaCtlMax", luaCtlMax)
    
    for k=1,luaCtlMax do
-      system.unregisterControl(k)
+      --print("unreg", k, system.unregisterControl(k))
    end
    
    local mc = #controlResult
-   --print("#controlResult:", #controlResult)
+   print("#controlResult:", #controlResult)
    for k=1,mc,1 do 
-      --print("@", k)
+      print("@", k)
       regC(k)
    end
 
@@ -1332,7 +1337,7 @@ local function init()
 
    --V_Ann = nil -- I guess this is to make sure the anns don't work
 
-   collectgarbage()
+   --collectgarbage()
    
    setLanguage()
 

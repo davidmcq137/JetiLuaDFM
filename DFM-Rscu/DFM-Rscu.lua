@@ -18,7 +18,7 @@ local appName = "DFM-Rscu"
 local pathApp = "Apps/"..appName.."/"
 local RTH = {}
 local config = {}
-local circling
+local flyingOutbound
 local calibrating
 --local armed = false
 --local everEnabled = false
@@ -31,6 +31,26 @@ local iPindex = 1
 local iPMAX = 200
 local ixP = {}
 local iyP = {}
+
+local steerMode = {petals=1,racetrack=2,leftright=3}
+local steerStr = {"petals", "racetrack","leftright"}
+local turnMode = {left=1,right=2,random=3}
+local turnStr = {"left", "right", "random"}
+local magVal = {0.5, 1, 2, 4, 8}
+local magIdx
+
+local rescueOnTime
+local rescueOnDelay
+local holdTurn
+
+--[[
+local testLatControl
+local testLatTime
+local testLatOut
+local testLatMin
+local testLatMax
+local testLatRun
+--]]
 
 RTH.sensorLalist = {"..."}
 RTH.sensorLslist = {"..."}
@@ -58,13 +78,28 @@ local rollVal, pitchVal = 0,0
 local renShape = lcd.renderer()
 local ren = lcd.renderer()
 
+--[[
 local homeShape = {
  { 0, -15},
  {-12, 12},
  { 0, 6},
  { 12, 12}
 }
+--]]
+
 local emflag
+
+local function drawX(xxp, yyp, d)
+   lcd.drawLine(xxp - d, yyp + d, xxp + d, yyp - d)
+   lcd.drawLine(xxp - d, yyp - d, xxp + d, yyp + d)
+end
+
+local function playNumberCompass(val)
+   local ns = string.format("%03d", math.floor(val))
+   for digit in string.gmatch(ns, "%d") do
+      system.playNumber(tonumber(digit), 0)
+   end
+end
 
 local function playNumberInt(val)
    system.playNumber(math.floor(val + 0.5), 0)
@@ -162,6 +197,10 @@ local function encdp(dp, val)
 end
 --]]
 
+local nsHoldVal
+local nsHoldTime
+local turnTime
+
 local function loop()
    local now
    local sensor
@@ -171,14 +210,14 @@ local function loop()
    local info
    local SwO, SwC
    local altnow
-
+   
    now = system.getTimeCounter()
    if not lastSec then lastSec = now end
    if not announceTime then announceTime = now end
-   
-   if emflag ~= 0 and system.getTimeCounter() < 0 then
-      print("system.getTimeCounter() wrapped. Restart emulator")
-   end
+
+   --if emflag ~= 0 and system.getTimeCounter() < 0 then
+   --   print("system.getTimeCounter() wrapped. Restart emulator", system.getTimeCounter())
+   --end
 
    sensor = system.getSensorByID(RTH.settings.altId, RTH.settings.altPa)
    if sensor and sensor.valid then
@@ -199,6 +238,38 @@ local function loop()
       RTH.altitude = altnow - RTH.var.startTakeoffAlt
    end
 
+   --[[
+   
+   -- using alt to read voltmeter from Assist RX digi out .. reads 0 ot 3.3v
+   --print("altnow, testLatOut", altnow, testLatOut)
+   local dt
+   if altnow then
+      if altnow > 0.5 and testLatOut > 0 then
+	 testLatOut = -1
+	 system.setControl(testLatControl, testLatOut, 0)
+	 dt = now - testLatTime
+	 print("match > 1.5", dt, testLatMin, testLatMax, testLatRun)
+	 testLatTime = now
+	 if not testLatMin then testLatMin = dt testLatMax = dt testLatRun = dt end
+	 if dt < testLatMin then testLatMin = dt end
+	 if dt > testLatMax then testLatMax = dt end
+	 testLatRun = testLatRun + (dt - testLatRun)/100
+      elseif altnow < 0.5 and testLatOut < 0 then
+	 testLatOut = 1
+	 system.setControl(testLatControl, testLatOut, 0)
+	 dt = now - testLatTime
+	 if not testLatMin then testLatMin = dt testLatMax = dt testLatRun = dt end
+	 print("match < 1.5", dt)
+	 testLatTime = now
+	 if dt < testLatMin then testLatMin = dt end
+	 if dt > testLatMax then testLatMax = dt end
+	 testLatRun = testLatRun + (dt - testLatRun)/100 
+      end
+   end
+   
+
+   --]]
+   
    -- read heading here if GPS sensor has one
    local hdg
    
@@ -274,7 +345,6 @@ local function loop()
    else
       SwC = -1
    end
-   
 
    if lastSwC == -1 and SwC == 1 then 
       calibrating = true
@@ -286,12 +356,12 @@ local function loop()
    if lastSwC == 1 and SwC == -1 and calibrating == true then -- just turned off
       calibrating = false
       system.stopPlayback()
-      system.messageBox(appName .. ": Mixer calibration OFF")
+      system.messageBox(appName .. ": Mixer calibration captured")
       system.playFile(prefix().. pathApp .. "Audio/mixercaldone.wav", AUDIO_IMMEDIATE)
       local si = system.getSwitchInfo(RTH.settings.elevInput)
       --print("si", si.label, si.value, si.proportional, si.assigned, si.mode)
-      if si.proportional and si.assigned then
-	 RTH.settings.maxElevGain = 100 * ( si.value)
+      if si and si.proportional and si.assigned then
+	 RTH.settings.maxElevGain = -100 * ( si.value)
 	 system.pSave("maxElevGain", RTH.settings.maxElevGain)				       
 	 system.playNumber(RTH.settings.maxElevGain, 0, "%")
       end
@@ -317,15 +387,26 @@ local function loop()
 	 system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_IMMEDIATE)
 	 system.messageBox(appName..": Rescue enabled")
 	 system.playBeep(0, 600, 200)
-	 circling = false
+	 flyingOutbound = false
+	 flyingToA = true
 	 annSeq = 1
 	 announceTime = now
+	 turnTime = now
 	 --set aim point on the bearing to the current a/c position, and twice the circleMax dist
 	 RTH.aimPosOutbound = gps.getDestination(RTH.zeroPos,
 						 RTH.settings.circleMin * CMULT * 2,
 						 RTH.gpsBearingTo)
 
+	 RTH.aimPos0 = gps.getDestination(RTH.zeroPos,
+						 RTH.settings.circleMin * CMULT,
+						 RTH.gpsBearingTo)
+
+	 RTH.aimPosA = gps.getDestination(RTH.aimPos0, RTH.settings.circleMin * CMULT,
+					  RTH.gpsBearingTo + 90)
+	 RTH.aimPosB = gps.getDestination(RTH.aimPos0, RTH.settings.circleMin * CMULT,
+					  RTH.gpsBearingTo - 90)					  
 	 RTH.settings.onoff = SwO
+	 rescueOnTime = now
       else
 	 system.playFile(prefix() .. pathApp .. "Audio/rthnotenabled.wav", AUDIO_IMMEDIATE)
 	 system.messageBox(appName ..": Rescue NOT enabled. Too close")
@@ -333,6 +414,15 @@ local function loop()
       end
    end
 
+   if lastSwO == 1 and SwO == -1 then
+      system.playFile(prefix() .. pathApp .. "Audio/rescuemodeoff.wav", AUDIO_IMMEDIATE)
+      system.messageBox(appName..": Rescue off")
+      system.playBeep(3, 600, 200)
+      flyingOutbound = false
+      flyingToA = true
+      RTH.settings.onoff = SwO
+   end
+   
    lastSwO = SwO
 
    -- if enabled, compute and set steering and elev controls
@@ -352,21 +442,12 @@ local function loop()
       --if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, -1, 0) end
       validmix = true
    end
+
+   if not rescueOnTime then rescueOnTime = now end --just in case
    
-   if (RTH.settings.onoff > 0) and not calibrating then
-      if RTH.gpsHeading and RTH.gpsBearingFrom and RTH.gpsBearingTo then
-	 if not circling then
-	    RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
-	 else
-	    if RTH.settings.circStrat == 1 then
-	       RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingTo + 180) % 360 - 180
-	    else
-	       RTH.gpsBearingOutbound = gps.getBearing(RTH.curPos, RTH.aimPosOutbound)
-	       RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingOutbound + 180) % 360 - 180
-	    end
-	    
-	 end
-      end
+   if (RTH.settings.onoff > 0) and
+      (now > (rescueOnTime + 1000*rescueOnDelay)) and
+      (not calibrating) then
 
       --[[
       if RTH.gpsHeading and RTH.gpsBearingFrom and RTH.gpsBearingTo then
@@ -378,43 +459,124 @@ local function loop()
       --]]
 
       if RTH.settings.steerCtrl and RTH.settings.steer then
-	 local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
+
 	 if RTH.gpsDistance then
-	    if RTH.gpsDistance >= RTH.settings.circleMin * CMULT then
-	       if circling then
-		  system.stopPlayback()
-		  system.playFile(prefix() .. pathApp .. "Audio/turninginbound.wav", AUDIO_IMMEDIATE)
-		  system.playBeep(2, 600, 200)
-		  system.messageBox(appName..": Turning inbound")
-		  announceTime = 0 -- force immed ann of bearing
-		  annSeq = 1
+
+	    if (RTH.settings.circStrat ~= steerMode.leftright) then
+	       if RTH.gpsDistance >= RTH.settings.circleMin * CMULT then
+		  if flyingOutbound then
+		     system.stopPlayback()
+		     system.playFile(prefix() .. pathApp .. "Audio/turninginbound.wav", AUDIO_IMMEDIATE)
+		     system.playBeep(2, 600, 200)
+		     system.messageBox(appName..": Turning inbound")
+		     announceTime = now + 2500 -- short delay then announce dist etc
+		     turnTime = now		  
+		     --annSeq = 1
+		  end
+		  flyingOutbound = false
 	       end
-	       circling = false
-	    end
-	 end
-	 if RTH.gpsDistance then
-	    if (RTH.gpsDistance < RTH.settings.circleMin) or circling == true then
-	       if circling == false then -- start circling now
-		  system.stopPlayback()
-		  system.playFile(prefix() .. pathApp .. "Audio/turningoutbound.wav", AUDIO_IMMEDIATE)
-		  system.playBeep(1, 600, 200)
-		  system.messageBox(appName ..": Turning outbound")
-		  announceTime = now + config.annDelay * config.annMax
+	       
+	       if (RTH.gpsDistance < RTH.settings.circleMin) then -- or flyingOutbound == true then
+		  if flyingOutbound == false then
+		     system.stopPlayback()
+		     system.playFile(prefix() .. pathApp .. "Audio/turningoutbound.wav", AUDIO_IMMEDIATE)
+		     system.playBeep(1, 600, 200)
+		     system.messageBox(appName ..": Turning outbound")
+		     announceTime = now + 2500 -- short delay then announce dist etc
+		     turnTime = now
+		  end
+		  flyingOutbound = true
 	       end
-	       circling = true
+	       
+	       if RTH.gpsHeading and RTH.gpsBearingFrom and RTH.gpsBearingTo then
+		  if not flyingOutbound then
+		     RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
+		  else
+		     if RTH.settings.circStrat == steerMode.petals then
+			RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingTo + 180) % 360 - 180
+		     else
+			RTH.gpsBearingOutbound = gps.getBearing(RTH.curPos, RTH.aimPosOutbound)
+			RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingOutbound + 180) % 360 - 180
+		     end
+		  end
+	       end
+	    else -- left/right mode
+	       if flyingToA then
+		  if gps.getDistance(RTH.curPos, RTH.aimPosA) < RTH.settings.circleMin * 0.4 then
+		     system.stopPlayback()
+		     system.playFile(prefix() .. pathApp .. "Audio/turningaround.wav", AUDIO_IMMEDIATE)
+		     system.playBeep(2, 600, 200)
+		     system.messageBox(appName..": Turning around")
+		     announceTime = now + 2500 -- short delay then announce dist etc
+		     turnTime = now		  
+		     flyingToA = false
+		  end
+	       else -- flying to B
+		  if gps.getDistance(RTH.curPos, RTH.aimPosB) < RTH.settings.circleMin * 0.4 then
+		     system.stopPlayback()
+		     system.playFile(prefix() .. pathApp .. "Audio/turningaround.wav", AUDIO_IMMEDIATE)
+		     system.playBeep(2, 600, 200)
+		     system.messageBox(appName..": Turning around")
+		     announceTime = now + 2500 -- short delay then announce dist etc
+		     turnTime = now		  
+		     flyingToA = true
+		  end
+	       end
+
+	       if RTH.gpsHeading and RTH.gpsBearingFrom and RTH.gpsBearingTo then
+		  if flyingToA then
+		     RTH.gpsBearingToA = gps.getBearing(RTH.curPos, RTH.aimPosA)
+		     RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingToA + 180) % 360 - 180
+		  else
+		     RTH.gpsBearingToB = gps.getBearing(RTH.curPos, RTH.aimPosB)
+		     RTH.settings.steer = (-RTH.gpsHeading + RTH.gpsBearingToB + 180) % 360 - 180
+		  end
+	       end
 	    end
+	    
+
+	    local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
+
+	    --hold initial hard turn after turning in or out for 5 secs
+	    --so turn does not flipflop
+
+	    if not nsHoldTime then nsHoldTime = 0 end
+	    
+	    if (RTH.settings.turnDir ~= turnMode.random) and ((turnTime or 0) == now) then
+	       if RTH.settings.turnDir == turnMode.left then
+		  nsHoldVal = -1 --was ns (could be random) .. left
+	       else
+		  nsHoldVal = 1 -- right
+	       end
+	       nsHoldTime = now + holdTurn * 1000
+	       --print("set hold", now, now + holdTurn, now < nsHoldTime)
+	    end
+
+	    if RTH.settings.turnDir == turnMode.random then nsHoldTime = 0 end
+	    
+	    if (nsHoldTime ~= 0) and (now < nsHoldTime) then
+	       --print("holding", ns, now, nsHoldTime)
+	       ns = nsHoldVal
+	       RTH.settings.steer = ns * 180
+	    else
+	       nsHoldTime = 0
+	    end
+	    
 	    system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 1000, 1)
 	    system.setControl(RTH.settings.elevCtrl,
 			      RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns), 1000, 1)
 	    validmix = true
 	 end
 
-	 if now > announceTime then
+	 --print(now, announceTime, now - announceTime)
+	 
+	 if now > announceTime  then
 	    if RTH.gpsDistance and RTH.gpsDistance > MINANNDIST then 
 	       if annSeq == 1 then
 		  if RTH.gpsBearingTo then
 		     system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
-		     playNumberInt(RTH.gpsBearingTo)
+		     --playNumberInt(RTH.gpsBearingTo)
+		     playNumberCompass(RTH.gpsBearingTo)
 		     system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
 		  end
 	       elseif annSeq == 2 then
@@ -448,7 +610,7 @@ local function loop()
 		  annSeq = 1
 		  system.stopPlayback() -- empty queue in case backed up messages
 	       end
-	    else
+	    --else
 	       --system.playFile(prefix() .. pathApp.."Audio/flyingoutbound.wav", AUDIO_QUEUE)
 	       --announceTime = now + config.annDelay * config.annMax
 	    end
@@ -490,8 +652,13 @@ local function initForm(subform)
       form.addRow(1)
       form.setFocusedRow(1)
       form.addLink((function()
-	       if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, 0, 0) end
-	       if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end	       	             form.reinit(1) end), {label="<< Zero controls and return"})
+	       if RTH.settings.steerCtrl then 
+		  system.setControl(RTH.settings.steerCtrl, 0, 0) 
+               end
+	       if RTH.settings.elevCtrl then 
+                  system.setControl(RTH.settings.elevCtrl, 0, 0) 
+               end
+	       form.reinit(1) end), {label="<< Zero controls and return"})
       return
    end
    --]]
@@ -532,7 +699,7 @@ local function initForm(subform)
    end
    
    form.addRow(2)
-   form.addLabel({label="Rescue mode switch", width=155})
+   form.addLabel({label="Rescue mode switch", width=155, font=FONT_NORMAL})
    form.addInputbox(RTH.settings.onoffSw, true, onoffChanged, {alignRight=false})
    
    local function calChanged(value)
@@ -541,7 +708,7 @@ local function initForm(subform)
    end
 
    form.addRow(2)
-   form.addLabel({label="Mixer calibration switch", width=165})
+   form.addLabel({label="Mixer calibration switch", width=175, font=FONT_NORMAL})
    form.addInputbox(RTH.settings.calSw, true, calChanged,
 		    {width=155, font=FONT_NORMAL, alignRight=false})
 
@@ -559,7 +726,7 @@ local function initForm(subform)
    end
    
    form.addRow(2)
-   form.addLabel({label="Elevator control", width=180})   
+   form.addLabel({label="Elevator control", width=180, font=FONT_NORMAL})   
    form.addInputbox(RTH.settings.elevInput, true, ecChanged,
 		    {width=155, font=FONT_NORMAL, alignRight=false})
    
@@ -569,7 +736,7 @@ local function initForm(subform)
    end
    
    form.addRow(2)
-   form.addLabel({label="Elevator mix percentage", width=180})   
+   form.addLabel({label="Elevator mix percentage", font=FONT_NORMAL})   
    form.addIntbox(RTH.settings.maxElevGain, -100, 100, 0, 0, 1, egChanged,
 		  {width=155, font=FONT_NORMAL, alignRight=false})
    
@@ -652,7 +819,7 @@ local function initForm(subform)
 
 
    form.addRow(2)
-   form.addLabel({label="Start Circling Distance (m)", font=FONT_NORMAL})
+   form.addLabel({label="Min Circling Dist (m)", font=FONT_NORMAL})
    form.addIntbox(RTH.settings.circleMin, 0, 10000, 100, 0, 1,
 		  (function(x)
 			RTH.settings.circleMin = x
@@ -662,12 +829,41 @@ local function initForm(subform)
    
    form.addRow(2)
    form.addLabel({label="Circling behavior", font=FONT_NORMAL})
-   form.addSelectbox({"petals", "racetrack"}, RTH.settings.circStrat, true,
-		     (function(i)
-			   RTH.settings.circStrat = i
-			   system.pSave("RTHcircStrat", RTH.settings.circStrat)
-			   return end),
-		     {width=155, font=FONT_NORMAL, alignRight=false})
+   form.addSelectbox(steerStr,
+      RTH.settings.circStrat, true,
+      (function(i)
+	    RTH.settings.circStrat = i
+	    system.pSave("RTHcircStrat", RTH.settings.circStrat)
+	    return end),
+      {width=155, font=FONT_NORMAL, alignRight=false})
+   
+   form.addRow(2)
+   form.addLabel({label="Perferred turn", font=FONT_NORMAL, width=155})
+   form.addSelectbox(turnStr,
+      RTH.settings.turnDir, true,
+      (function(i)
+	    RTH.settings.turnDir = i
+	    system.pSave("RTHturnDir", RTH.settings.turnDir)
+	    return end),
+      {width=155, font=FONT_NORMAL, alignRight=false})
+
+   form.addRow(2)
+   form.addLabel({label="Rescue On Delay (s)", font=FONT_NORMAL})
+   form.addIntbox(rescueOnDelay, 0, 10, 3, 0, 1,
+		  (function(x)
+			rescueOnDelay = x
+			system.pSave("rescueOnDelay", x)
+			return end),
+		  {width=155, font=FONT_NORMAL, algignRight=false})
+   
+   form.addRow(2)
+   form.addLabel({label="Init turn hold time (s)", font=FONT_NORMAL})
+   form.addIntbox(holdTurn, 0, 10, 3, 0, 1,
+		  (function(x)
+			holdTurn = x
+			system.pSave("holdTurn", x)
+			return end),
+		  {width=155, font=FONT_NORMAL, algignRight=false})
 
    --[[
    form.addRow(1)
@@ -724,10 +920,6 @@ local function printTeleMix()
       return 130  - (y0 + yl * (val - min) / (max - min))
    end
 
-   local function drawX(xxp, yyp, d)
-      lcd.drawLine(xxp - d, yyp + d, xxp + d, yyp - d)
-      lcd.drawLine(xxp - d, yyp - d, xxp + d, yyp + d)
-   end
    
    if not RTH.settings.steerCtrl or not RTH.settings.steer then
       lcd.drawText(5, 2, "No steering value", FONT_NORMAL)
@@ -757,6 +949,7 @@ local function printTeleMix()
    
 end
 
+--[[
 local function printTeleBig()
    
    if not RTH.gpsBearingTo then
@@ -805,6 +998,7 @@ local function printTeleBig()
    end
    
 end
+--]]
 
 local function printTeleAH()
    
@@ -813,9 +1007,10 @@ local function printTeleAH()
 
       local XH,YH,X1,X2,X3,Y1,Y2,Y3,X4,Y4
       local pp, pps
-      local XHS = 18 * radAH / 70
-      local  XHL = 40 * radAH / 70
-      local  scale = scl * radAH / 70
+      local xxx = 70
+      local XHS = 18 * radAH / xxx
+      local  XHL = 40 * radAH / xxx
+      local  scale = scl * radAH / xxx
       
       local sinRoll = math.sin(math.rad(-roll))
       local cosRoll = math.cos(math.rad(-roll))
@@ -859,9 +1054,9 @@ local function printTeleAH()
 	    
 	    if (XH == XHS) then
 	       HP.drawHP1345A(rr, X0 + radAH + X3, Y0 + radAH + Y3, pps, scale,
-			      math.rad(roll), 1);
+			      math.rad(roll), 2);
 	       HP.drawHP1345A(rr, X0 + radAH + X4, Y0 + radAH + Y4, pps, scale,
-			      math.rad(roll), 1);
+			      math.rad(roll), 2);
 	    end
 	 end
 	 i = i + 15
@@ -881,8 +1076,8 @@ local function printTeleAH()
    local pitch = pitchVal or 0 -- system.getInputs("P2") * 90 -- pitchVal or 0 
    local roll = rollVal or 0 --system.getInputs("P3") * 180 -- rollVal or 0
    --183
-   local rowAH = 130 / 2 - 20; --widget.width / 2 - 20;
-   local radAH = 130 / 2 - 20; --widget.width / 2 - 20;
+   local rowAH = 150 / 2 - 20; --widget.width / 2 - 20;
+   local radAH = 150 / 2 - 20; --widget.width / 2 - 20;
    local pitchR = radAH / 25;
 
    local tanRoll
@@ -938,8 +1133,8 @@ local function printTeleAH()
    
    -- define clipping region 
    --X0 160 Y0 79
-   X0 = 80 - radAH --widget.x0 - radAH
-   Y0 = 50 - radAH --widget.y0 - radAH
+   X0 = 50 - radAH --widget.x0 - radAH
+   Y0 = 90 - radAH --widget.y0 - radAH
    lcd.setClipping(X0, Y0, 2 * radAH, 2 * radAH)
    X0 = 0
    Y0 = 0
@@ -986,14 +1181,14 @@ local function printTeleAH()
    lcd.drawLine(X0 + radAH + 0.7 * radAH, Y0 + radAH, X0 + radAH + 0.2 * radAH, Y0 + radAH);
    lcd.drawLine(X0 + radAH + 0.2 * radAH, Y0 + radAH,
 		X0 + radAH + 0.2 * radAH, Y0 + radAH + radAH / 10);
-   drawPitch(ren, roll, pitch, pitchR, radAH, X0, Y0, 0.4);
+   drawPitch(ren, roll, pitch, pitchR, radAH, X0, Y0, 0.5);
    
    lcd.resetClipping()
 
 end
 
-local xmin, xmax = -800, 800
-local ymin, ymax = -400, 400
+local xmin, xmax, ymin, ymax
+
 
 local function xytopixel(x, y)
 
@@ -1009,6 +1204,10 @@ local function printTeleGPS(w,h)
       return
    end
 
+   --print("w,h", w,h)
+   
+   printTeleAH(w,h)
+   
    printTeleMix(w,h)
    local x, y, x1, y1, ix, iy, ix1, iy1
 
@@ -1038,18 +1237,52 @@ local function printTeleGPS(w,h)
       ix, iy = xytopixel(x, y, w, h)
       ix1, iy1 = xytopixel(x1, y1, w, h)      
       
-      lcd.drawLine(ix,iy, ix1, iy1)
+      lcd.drawLine(ix, iy, ix1, iy1)
    end
 
    lcd.setColor(0,0,0)
+
+
+   if (RTH.settings.circStrat == steerMode.racetrack or RTH.settings.circStrat == steerMode.leftright) 
+      and RTH.aimPosOutbound and RTH.zeroPos then
+      local bb
+      local dd
+
+      bb = gps.getBearing(RTH.zeroPos, RTH.aimPosOutbound)
+      dd = gps.getDistance(RTH.zeroPos, RTH.aimPosOutbound)
+      x = dd * math.sin(math.rad(bb))
+      y = dd * math.cos(math.rad(bb))
+      ix, iy = xytopixel(x, y, w, h)
+      drawX(ix, iy, 3)
+      lcd.drawCircle(ix, iy, 4)
+
+      bb = gps.getBearing(RTH.zeroPos, RTH.aimPosA)
+      dd = gps.getDistance(RTH.zeroPos, RTH.aimPosA)
+      x = dd * math.sin(math.rad(bb))
+      y = dd * math.cos(math.rad(bb))
+      ix, iy = xytopixel(x, y, w, h)
+      drawX(ix, iy, 3)
+      lcd.drawCircle(ix, iy, 4)
+
+
+      bb = gps.getBearing(RTH.zeroPos, RTH.aimPosB)
+      dd = gps.getDistance(RTH.zeroPos, RTH.aimPosB)
+      x = dd * math.sin(math.rad(bb))
+      y = dd * math.cos(math.rad(bb))
+      ix, iy = xytopixel(x, y, w, h)
+      drawX(ix, iy, 3)
+      lcd.drawCircle(ix, iy, 4)
+      
+   end
    
    x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
    y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))
+   --print("x,y", x, y)
    ix, iy = xytopixel(x, y, w, h)
    if RTH.settings.onoff < 1 then
       lcd.setColor(0,0,0)
    else
-      if circling then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
+      if flyingOutbound then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
    end
 
    drawShape(ix,iy, config.Glider, math.rad(RTH.gpsHeading or 0)) 
@@ -1080,19 +1313,30 @@ local function printTeleGPS(w,h)
    lcd.setColor(0,0,0)
    local ix0 , iy0 = xytopixel(0, 0, w, h)
    lcd.drawCircle(ix0, iy0, 2)
-   lcd.drawText(20, 20, string.format("[%d,%d,%d,%d]", xmin, xmax, ymin, ymax), FONT_MINI)
+   
+   lcd.drawText(40, 15, string.format("[%d,%d,%d,%d]   steer: %s  turn: %s",
+				      xmin, xmax, ymin, ymax,
+				      steerStr[RTH.settings.circStrat],
+				      turnStr[RTH.settings.turnDir]), FONT_MINI)
+
+   lcd.drawText(60, 145, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
+   lcd.drawText(190, 145, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
+
+   --lcd.drawText(0,0,string.format("CPU: %d", system.getCPU()), FONT_MINI)
+   
+   --[[
    lcd.drawText(20, 40, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
    lcd.drawText(20, 60, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
    lcd.drawText(20, 80, string.format("BrgFrom: %d", RTH.gpsBearingFrom), FONT_MINI)
-
+   
    if RTH.gpsHeading then
-      local ixh, iyh = ix + 20 * math.sin(math.rad(RTH.gpsHeading)),
-	 iy - 20 * math.cos(math.rad(RTH.gpsHeading))
+      --local ixh, iyh = ix + 20 * math.sin(math.rad(RTH.gpsHeading)),
+      --iy - 20 * math.cos(math.rad(RTH.gpsHeading))
       --lcd.drawLine(ix, iy, ixh, iyh)
       lcd.drawText(20, 100, string.format("Hdg: %d", RTH.gpsHeading or 0), FONT_MINI)   
 
    end
-
+      
    if RTH.gpsHeading and RTH.gpsBearingFrom then
       local steer = RTH.settings.steer --(-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
       lcd.drawText(20, 120, string.format("Steer: %d ", steer), FONT_MINI)
@@ -1110,11 +1354,16 @@ local function printTeleGPS(w,h)
 	 lcd.drawFilledRectangle(60 + ns,120, math.floor(100-ns+0.5), 30)	 
       end
       --]]
-   end
+--end
+   --]]
+
+--[[
    if RTH.altitude then
-      lcd.drawText(20, 140, string.format("Alt: %d ", RTH.altitude), FONT_MINI)
+   lcd.drawText(20, 140, string.format("Alt: %d ", RTH.altitude), FONT_MINI)
    end
-   
+--]]
+
+   --lcd.drawNumber(20,160, RTH.settings.onoff or -999)
 end
 
 local function logfileCB(idx)
@@ -1134,6 +1383,46 @@ local function logfileCB(idx)
    end
 end
 
+local function setMag(idx)
+   if idx < 1 or idx > #magVal then return end
+   xmax = 2 * magVal[idx] * math.floor(RTH.settings.circleMin * CMULT + 0.5)
+   xmin = -xmax
+   ymax = magVal[idx] * math.floor(RTH.settings.circleMin * CMULT + 0.5)
+   ymin = -ymax
+   ixP = {}
+   iyP = {}
+   iPindex = 1
+end
+
+--[[
+local steerMode = {petals=1,racetrack=2}
+local steerStr = {"petals", "racetrack"}
+local turnMode = {left=1,right=2,random=3}
+local turnStr = {"left", "right", "random"}
+
+--]]
+local function keyPressGPS(key)
+   print("key", key)
+   if key == KEY_1 then
+      magIdx = magIdx + 1
+      if magIdx > #magVal then magIdx = #magVal end
+      setMag(magIdx)
+   elseif key == KEY_2 then
+      magIdx = magIdx - 1
+      if magIdx < 1 then magIdx = 1 end
+      setMag(magIdx)
+   elseif key == KEY_3 then
+      RTH.settings.circStrat = RTH.settings.circStrat + 1
+      if RTH.settings.circStrat > #steerStr then RTH.settings.circStrat = 1 end
+      system.pSave("RTHcircStrat", RTH.settings.circStrat)
+   elseif key == KEY_4 then
+      RTH.settings.turnDir = RTH.settings.turnDir + 1
+      if RTH.settings.turnDir > #turnStr then RTH.settings.turnDir = 1 end
+      system.pSave("RTHturnDir", RTH.settings.turnDir)
+      --else -- key5
+   end
+end
+
 
 local function init()
 
@@ -1150,7 +1439,19 @@ local function init()
       ts = 2
    end
    
-   system.registerTelemetry(1, "RScu Map North Up", 4, printTeleGPS)
+   system.registerTelemetry(1, "RScu Map North Up", 4, printTeleGPS, keyPressGPS)
+   
+   if system.setTelemetryButton then
+      print("setting Button")
+      system.setTelemetryButton(1, 1, "-", 1)
+      system.setTelemetryButton(1, 2, "+", 1)
+      system.setTelemetryButton(1, 3, "Steer", 1)
+      system.setTelemetryButton(1, 4, "Turn", 1)
+      --system.setTelemetryButton(1, 5, "5", 1)      
+   else
+      print("not setting Button")
+   end
+   
    system.registerTelemetry(2, "Rscu AH", ts, printTeleAH)
 
    RTH.settings = {}
@@ -1177,14 +1478,19 @@ local function init()
    RTH.settings.elevInput = system.pLoad("elevInput")
    
    RTH.settings.distUnits = system.pLoad("RTHdistUnits", 1) -- meters is default
-   RTH.settings.circStrat = system.pLoad("RTHcirStrat", 1)
+   RTH.settings.circStrat = system.pLoad("RTHcircStrat", steerMode.petals) -- "petals" default
+   RTH.settings.turnDir = system.pLoad("RTHturnDir", turnMode.left)   -- "left" default
    
    RTH.settings.circleMin = system.pLoad("circleMin", 150)
    RTH.settings.maxElevGain = system.pLoad("maxElevGain", 0)
-   --RTH.settings.circleMax = system.pLoad("circleMax", 130)
+   rescueOnDelay = system.pLoad("rescueOnDelay", 3)
+   holdTurn = system.pLoad("holdTurn", 5)
 
-   circling = false
+   flyingOutbound = false
    calibrating = false
+
+   magIdx = 3
+   setMag(magIdx)
    
    RTH.gpsReads = 0
    RTH.curPos = nil
@@ -1215,6 +1521,16 @@ local function init()
       end
    end
 
+   --[[
+   testLatControl = system.registerControl(10, "Latency", "LAT")
+   print("testLatControl", testLatControl)
+   testLatOut = 1
+   if not system.setControl(testLatControl, testLatOut, 0) then
+      print("set control failed")
+   end
+   testLatTime = system.getTimeCounter()
+   --]]
+   
    RTH.settings.elev = 0
    
    if RTH.settings.elevCtrl then
@@ -1238,6 +1554,12 @@ local function init()
    
    config = json.decode(str)
 
+   --playNumberCompass(47)
+   
+   --declareGlobal("foo", 137)
+   --dumpGlobalVars()
+   --system.setProperty("NativeDraw", 1)
+   --print("get", system.getProperty("NativeDraw"))
 end
    
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.1", name=appName}

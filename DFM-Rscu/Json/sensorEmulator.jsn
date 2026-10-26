@@ -69,7 +69,7 @@
      "decimals":1,
      "type":1,
      "sensorName":"",
-     "luaExp":"P3(-90,90)",
+     "luaExp":"O1(-30,30)",
      "label": "Roll",
      "unit": "rad"
     },
@@ -78,7 +78,7 @@
      "decimals":1,
      "type":1,
      "sensorName":"",
-     "luaExp":"P2(-180,180)",     
+     "luaExp":"-O2(-5,5)",     
      "label": "Pitch",
      "unit": "rad"
     },
