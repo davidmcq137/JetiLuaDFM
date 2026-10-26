@@ -91,3 +91,6 @@ DFM-HUDBuild/Images/inst*.jsn
 DFM-HUDBuild/Images/availInstrumentsMaster.js0
 DFM-HUDBuild/Images/availInstrumentsMaster.js1
 DFM-HUDBuild/Images/instrESP.h
+DFM-Rscu/*.jpg
+DFM-Rscu/*.jpeg
+DFM-Rscu/*.png
