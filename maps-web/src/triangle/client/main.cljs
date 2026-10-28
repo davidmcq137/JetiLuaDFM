@@ -1032,8 +1032,8 @@
   (let [map-ent (d/entity db ::map)]
     [:.hflex
      [:form
-      [:input {:style {:width "14em"}
-               :on-change #(do
+      [:input.coords-input
+              {:on-change #(do
                              (reset! formdata (.-value (.-target %)) )
                              (println "Formdata" @formdata (parse-coords @formdata))
                              (when-let [{:keys [lat lng error]} (parse-coords @formdata)]
@@ -1162,7 +1162,6 @@
   (if (= ::place-triangle-center (:map/marker-complete-action (d/entity db ::map)))
     [:span "Click on the map to place the midpoint of the triangle base leg."]
     [:input {:type "button"
-             :style {:width "10em"} 
              :value "Add triangle"
              :on-click #(async/put! bus [::triangle-placement-start])}]))
 
@@ -1171,18 +1170,15 @@
     [:span "Click on the map to place the center of the runway"]
     [:input {:type "button"
              :value "Add runway"
-             :style {:width "10em"} 
              :on-click #(async/put! bus [::runway-placement-start])}]))
 
 (rum/defc add-noflys-helper [db bus]
   [:<>
    [:input {:type "button"
             :value "Start drawing no-fly circle"
-            :style {:width "15em"}
             :on-click #(async/put! bus [::nofly-circle-placement-start])}]
    [:input {:type "button"
             :value "Start drawing no-fly polygon"
-            :style {:width "15em"}
             :on-click #(async/put! bus [::nofly-polygon-placement-start])}]])
 
 (rum/defc field-info-header [f bus]
@@ -1195,9 +1191,9 @@
                                                     (some-> f :field/clipbox :zone/center-lng)]))} "(+)"])
    
    [:span (:field/name f)]
-   [:span {:style {:width "1em"}} " "]
+   [:span.spacer " "]
    "(" [:span (:field/short-name f)] ")"
-   [:span {:style {:width "1em"}} " "]
+   [:span.spacer " "]
    [:a {:href "#" :on-click #(async/put! bus [::field-edit-start (:db/id f)])}
     "(edit)"]
    [:a {:href "#" :on-click #(async/put! bus [::delete-field (:db/id f)])}
@@ -1249,10 +1245,9 @@
     (clipbox-heading-slider c bus)
     ;; todo Make this "Boundary - Hide/show"
     (if hidden
-      [:button {:style {:width "10em"} :on-click #(async/put! bus [::show-zone (:db/id c)])} "Show boundary"]
-      [:button {:style {:width "14em"} :on-click #(async/put! bus [::hide-zone (:db/id c)])} "Hide boundary rectangle"])
+      [:button {:on-click #(async/put! bus [::show-zone (:db/id c)])} "Show boundary"]
+      [:button {:on-click #(async/put! bus [::hide-zone (:db/id c)])} "Hide boundary rectangle"])
     [:input {:type "button"
-             :style {:width "10em"} 
              :value "Edit clipboxes "   ; Document this as showing the other zoom levels
              :on-click #(async/put! bus [::show-modal :clipbox-modal])}]]])
 
@@ -1282,7 +1277,7 @@
 (rum/defc field-info-collapse [f bus]
   (if (:state/_current-field f)
     (field-info f bus)
-    [:span {:style {:background-color "tomato"}}
+    [:span.field-collapsed
      (field-info-header f bus)]))
 
 
@@ -1474,7 +1469,7 @@
     [:fieldset
      [:legend "Preview screen size"]
      (for [{:keys [label width height]} screen-variants]
-       [:label {:key label :style {:display "block"}}
+       [:label.radio-row {:key label}
         [:input {:type "radio"
                  :name "preview-screen-size"
                  :checked (and (= width image-width-px) (= height image-height-px))
@@ -1490,7 +1485,7 @@
        #_(field-info f bus)
        (field-info-collapse f bus)])
     
-    [:div.vflex {:style {:width "14em" :margin "auto"}}
+    [:div.vflex.sidebar-actions
      #_ [:input {:type "button"
                  :value "Show JSON"
                  :on-click #(async/put! bus [::show-modal :json-data])}]
@@ -1503,9 +1498,8 @@
                            (send-github-releases-request! bus)
                            #_(send-dynamic-repo-request! (make-dynamic-repo-request db))
                            (async/put! bus [::show-modal :repo-request]))}]
-     [:input 
+     [:input.danger-button
       {:type "button" :value "Clear all fields"
-       :style     {:background-color "#773030"} 
        :on-click (fn [ev]
                    (swap! gmaps-force-render inc)
                    (.setItem js/window.localStorage localstorage-db-key nil)
@@ -1603,10 +1597,9 @@
                :on-click #(async/put! bus [::align-centers ])}]]
      
      (for [c (sorted-clipboxes current-field)]
-       [:div.hflex {:key (:db/id c)
-                    :style {:margin-top "10px"}}
+       [:div.hflex.clipbox-row {:key (:db/id c)}
         (zone-image-preview c bus)
-        [:div {:style {:margin-left "10px"}}
+        [:div.clipbox-controls
          [:fieldset.vflex.clipbox-edit-form
           [:legend (str "Zoom " (:clipbox/preview-zoom c))]
           (let [e (:db/id c)
@@ -1614,10 +1607,10 @@
                      (staticmap-meters-per-pixel (:clipbox/preview-zoom c)
                                                  (:zone/center-lat c)))]
             [:div
-             [:button {:style {:width "4em"} :on-click #(async/put! bus [::move-clipbox e d 0])} "Up"]
-             [:button {:style {:width "4em"} :on-click #(async/put! bus [::move-clipbox e d 180])} "Down"]
-             [:button {:style {:width "4em"} :on-click #(async/put! bus [::move-clipbox e d 270])} "Left"]
-             [:button {:style {:width "4em"} :on-click #(async/put! bus [::move-clipbox e d 90])} "Right"]])]]])]))
+             [:button.nudge-button {:on-click #(async/put! bus [::move-clipbox e d 0])} "Up"]
+             [:button.nudge-button {:on-click #(async/put! bus [::move-clipbox e d 180])} "Down"]
+             [:button.nudge-button {:on-click #(async/put! bus [::move-clipbox e d 270])} "Left"]
+             [:button.nudge-button {:on-click #(async/put! bus [::move-clipbox e d 90])} "Right"]])]]])]))
 
 (def gmaps-force-render (atom 0))
 (rum/defc thinger < rum/reactive [bus]
