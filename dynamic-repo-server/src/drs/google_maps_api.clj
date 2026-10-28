@@ -8,6 +8,8 @@
            [java.awt.geom AffineTransform]
            [java.awt.image BufferedImage]))
 
+(def maps-api-key (atom (System/getenv "GOOGLE_MAPS_API_KEY")))
+
 (defn get-elevation*
   [lat lng]
   ;; https://maps.googleapis.com/maps/api/elevation/json
@@ -17,11 +19,12 @@
       (client/get
        {:as :byte-array
         :query-params {:locations (str lat "," lng)
-                       :key (System/getenv "GOOGLE_MAPS_API_KEY")}})
+                       :key @maps-api-key}})
       :body
       io/input-stream
       io/reader
       json/parse-stream))
+
 
 (defn get-elevation
   [lat lng]
@@ -32,13 +35,35 @@
       (some? more)       (throw (ex-info "Multiple results" {:r r :more more}))
       :else              r)))
 
-
 (defn get-image
   [params]
   (client/get
    "https://maps.googleapis.com/maps/api/staticmap"
    {:as :byte-array
-    :query-params (assoc params :key (System/getenv "GOOGLE_MAPS_API_KEY"))}))
+    :query-params (assoc params :key @maps-api-key)}))
+
+(def tile-cache-max-entries 32)
+
+(defonce tile-cache
+  (proxy [java.util.LinkedHashMap] [16 (float 0.75) true]
+    (removeEldestEntry [_]
+      (> (.size ^java.util.Map this) tile-cache-max-entries))))
+
+(defn get-image-cached
+  [params]
+  (let [^java.util.Map cache tile-cache
+        d (locking cache
+            (or (.get cache params)
+                (let [d (delay (:body (get-image params)))]
+                  (.put cache params d)
+                  d)))]
+    (try
+      @d
+      (catch Exception e
+        (locking cache
+          (when (identical? d (.get cache params))
+            (.remove cache params)))
+        (throw e)))))
 
 
 (defn meters-per-pixel
@@ -57,8 +82,7 @@
                     :size "640x640"
                     ;; :scale 2
                     }
-                   (get-image)
-                   :body
+                   (get-image-cached)
                    (io/input-stream)
                    (ImageIO/read))
         out (ByteArrayOutputStream.)]
