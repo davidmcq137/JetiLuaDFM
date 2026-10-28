@@ -325,7 +325,7 @@
        "version"     "1"}]}))
 
 (defn app-json-next!
-  [yoururl base-app dynamic-files]
+  [yoururl base-app dynamic-files app-json-overrides]
   (let [base "compiled-apps"
         files (->> (into [{"app" base-app}] dynamic-files)
                    (mapv #(future (process-file-spec %)))
@@ -336,7 +336,7 @@
         app-json-data (->> manifest-file
                            (io/reader)
                            (json/parse-stream))]
-    (assoc app-json-data
+    (assoc (merge app-json-data app-json-overrides)
            "files" files
            "description" {"en" (str yoururl "/app/" base-app "/" base-app "/" base-app ".html" )}
            "previewIcon" (str yoururl "/common/DFM.png"))))
@@ -383,8 +383,8 @@
         yoururl (no-https yoururl)
         
         apps-json {:applications
-                   (for [{:strs [base-app dynamic-files]} apps]
-                     (app-json-next! yoururl base-app dynamic-files))}]
+                   (for [{:strs [base-app dynamic-files app-json]} apps]
+                     (app-json-next! yoururl base-app dynamic-files app-json))}]
     
     (swap! dynamic-repo-cache assoc [:token token]
            (-> apps-json
@@ -407,10 +407,10 @@
             :gone)))))
 
 (defn do-dynamic-repo-zip
-  [{:keys [route-params]}]
+  [{:keys [route-params query-params]}]
   (let [{:keys [token]} route-params
         {:strs [applications]} (json/parse-stream (io/reader (get @dynamic-repo-cache [:token token])))
-        [{:strs [files]} & more] applications
+        {:strs [files]} (nth applications (Integer/parseInt (get query-params "app" "0")))
         contents (mapv (fn [{:strs [destination hash]}]
                          [destination (cas-bytes hash)])
                        files)]

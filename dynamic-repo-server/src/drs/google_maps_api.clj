@@ -42,7 +42,7 @@
    {:as :byte-array
     :query-params (assoc params :key @maps-api-key)}))
 
-(def tile-cache-max-entries 32)
+(def tile-cache-max-entries 128)
 
 (defonce tile-cache
   (proxy [java.util.LinkedHashMap] [16 (float 0.75) true]

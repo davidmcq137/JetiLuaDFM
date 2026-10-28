@@ -1298,38 +1298,52 @@
                                   (fn [fe] (load-db-from-edn-string (.. fe -target -result))))
                             (.readAsText rdr file))))}])
 
+(def screen-variants
+  [{:label "Standard"
+    :name "DFM-Maps - GPS Maps"
+    :hw [678 679 680 652 653 3857 3858]
+    :width 320
+    :height 160}
+   {:label "Large screen"
+    :name "DFM-Maps - GPS Maps (large screen)"
+    :hw [3866 3867]
+    :width 458
+    :height 343}])
+
 (defn make-dynamic-repo-request [db]
   ;; apps json?
   (let [origin js/window.location.origin
-        state (d/entity db ::state)
-        {:state/keys [image-width-px image-height-px]} state]
+        fields-json (into {}
+                          (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
+                            [short-name (json-data-for-field field)]))]
     (clj->js
      {:yoururl origin
-      :apps [{:base-app "DFM-Maps"
-              :dynamic-files 
-              (into
-               [{:destination "Apps/DFM-Maps/Maps/Fields.jsn"
-                 :json-data (into {}
-                                  (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
-                                    [short-name (json-data-for-field field)]))}
-                {:destination "Apps/DFM-Maps/Maps/Config.jsn"
-                 :json-data {"image_width_px" image-width-px
-                             "image-height_px" image-height-px}}]
-               (for [{:field/keys [name short-name clipbox runway triangle noflys]} (qes-by db :field/name)
-                     c clipbox]
-                 (let [i (:clipbox/preview-zoom c)]
-                   {:destination (str "Apps/DFM-Maps/Maps/" short-name "/" i ".png")
-                    :url (str (.-origin (.-location js/window))
-                              "/staticmap?"
-                              (zone-image-query-params c
-                                                       image-width-px
-                                                       image-height-px))})))}
+      :apps (conj
+             (vec
+              (for [{:keys [name hw width height]} screen-variants]
+                {:base-app "DFM-Maps"
+                 :app-json {"hw" hw
+                            "name" {"en" name}}
+                 :dynamic-files
+                 (into
+                  [{:destination "Apps/DFM-Maps/Maps/Fields.jsn"
+                    :json-data fields-json}
+                   {:destination "Apps/DFM-Maps/Maps/Config.jsn"
+                    :json-data {"image_width_px" width
+                                "image-height_px" height}}]
+                  (for [{:field/keys [name short-name clipbox runway triangle noflys]} (qes-by db :field/name)
+                        c clipbox]
+                    (let [i (:clipbox/preview-zoom c)]
+                      {:destination (str "Apps/DFM-Maps/Maps/" short-name "/" i ".png")
+                       :url (str (.-origin (.-location js/window))
+                                 "/staticmap?"
+                                 (zone-image-query-params c width height))})))}))
              {:base-app "DFM-GPS"
               :dynamic-files 
               (into [{:app "DFM-GPS" :prefix "Apps/"}]
                     (for [f (qes-by db :field/name)]
                       {:destination (str "Apps/DFM-GPS/FF_" (:field/short-name f) ".jsn")
-                       :json-data (simple-json-data-for-field f)}))}]})))
+                       :json-data (simple-json-data-for-field f)}))})})))
 
 (defn send-dynamic-repo-request! [json-data]
   (let [xhr (XhrIo.)]
@@ -1454,39 +1468,18 @@
      (.getFullYear d)
      ".edn")))
 
-(rum/defcs image-size-edit-form < (rum/local nil ::st)
-  [{::keys [st]} bus]
-  (let [{:keys [editing s-width s-height]} @st
-        {:state/keys [image-width-px image-height-px]} (d/entity @conn ::state)
-        v-width (or s-width (str image-width-px))
-        v-height (or s-height (str image-height-px))
-        {:keys [valid error]} (let [p-width (js/parseInt v-width)
-                                    p-height (js/parseInt v-height)]
-                                (cond
-                                  (js/isNaN p-width) {:error "width"}
-                                  (js/isNaN p-height) {:error "height"}
-                                  :else {:valid [p-width p-height]}))]
-    (if-not editing
-      [:input {:type "button"
-               :value (str "Generated image size"
-                           " [" image-width-px "x" image-height-px "]")
-               :on-click #(swap! st assoc :editing true)}]
-      [:div.vflex {}
-       (when editing
-         [:fieldset
-          [:legend "Set custom size"]
-          [:p {} "Do not change image size"]
-          [:label "Width" [:input {:value v-width :on-change #(swap! st assoc :s-width (.-value (.-target %)))}]]
-          [:label "Height" [:input {:value v-height :on-change #(swap! st assoc :s-height (.-value (.-target %)))}]]
-          (if-let [[nw nh] valid]
-            [:input {:type "button"
-                     :value "Save"
-                     :on-click #(do (swap! st dissoc :editing)
-                                    (async/put! bus [::set-image-size nw nh]))}]
-            [:span {} "Invalid " (str error)])
-          [:input {:type "button"
-                   :value "Cancel"
-                   :on-click #(reset! st {})}]])])))
+(rum/defc image-size-edit-form
+  [bus]
+  (let [{:state/keys [image-width-px image-height-px]} (d/entity @conn ::state)]
+    [:fieldset
+     [:legend "Preview screen size"]
+     (for [{:keys [label width height]} screen-variants]
+       [:label {:key label :style {:display "block"}}
+        [:input {:type "radio"
+                 :name "preview-screen-size"
+                 :checked (and (= width image-width-px) (= height image-height-px))
+                 :on-change #(async/put! bus [::set-image-size width height])}]
+        (str label " (" width "x" height ")")])]))
 
 (rum/defc sidebar-form [db bus]
   [:.sidebar-left
@@ -1691,12 +1684,13 @@
       [:div
        [:p "This is your temporary JETI repository.  Use it soon since it won't live forever!"]
        [:code jj]
-       [:p
-        "If you prefer manual installation, you can also "
-        [:a {:download (str "DFM-Maps " (get-or-create-token!) ".zip")
-             :href (str "/repo/" (get-or-create-token!) ".zip")}
-         "download a zip archive"]
-        "."]])
+       [:p "If you prefer manual installation, you can also download a zip archive:"]
+       [:ul
+        (for [[i {:keys [label width height]}] (map-indexed vector screen-variants)]
+          [:li {:key i}
+           [:a {:download (str "DFM-Maps " (get-or-create-token!) " " width "x" height ".zip")
+                :href (str "/repo/" (get-or-create-token!) ".zip?app=" i)}
+            (str label " (" width "x" height ")")]])]])
     [:div {} "Creating repository..."]))
 
 (rum/defc root-component < rum/reactive [conn bus]
