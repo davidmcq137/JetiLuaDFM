@@ -1149,7 +1149,7 @@ local function pngLoad(j)
    pfn = Field.images[j].file
    --print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j], pfn)
    if (fieldPNG[j]==nil) then
-      --print("@@@@ pngLoad doing lcd.loadImage", pfn)
+      print("@@@@ pngLoad doing lcd.loadImage", pfn)
     fieldPNG[j] = lcd.loadImage(pfn)
     --collectgarbage()
  end
@@ -2879,7 +2879,7 @@ local function prtForm(wwx, whx)
    end
 
    
-   if newTransmitter and Screen.image_width_px == Screen.legacy_width_px then
+   if newTransmitter and (Screen.image_width_px == Screen.legacy_width_px) then
       lcd.setClipping(0,0,310,175) -- needed for 24-II
    end
    
@@ -3047,7 +3047,7 @@ local function dirPrint(xw, xh, kk)
 
    if not xtable or not ytable then return end
 
-   if newTransmitter and Screen.image_width_px == Screen.legacy_width_px then
+   if newTransmitter and (Screen.image_width_px == Screen.legacy_width_px) then
       lcd.setClipping(0,0,320,160) -- needed for 24-II in compat mode
    end
    
@@ -3675,7 +3675,7 @@ local function mapPrint(wWid, wHgt)
       graphScale(xtable[#xtable], ytable[#ytable])
    end
 
-   if newTransmitter and Screen.image_width_px == Screen.legacy_width_px then
+   if newTransmitter and (Screen.image_width_px == Screen.legacy_width_px) then
       lcd.setClipping(0,0,windowWidth+1,windowHeight+1) -- needed for 24-II in compat mode
    end
    
@@ -4742,8 +4742,6 @@ local function init()
    end
    
    --print("Screen w,h:", Screen.image_width_px, Screen.image_height_px)
-
-   
    -- for k,v in pairs(system.getTxTelemetry()) do
    --    print(k,v)
    -- end
@@ -4780,6 +4778,17 @@ local function init()
 	 print(appInfo.Name .. ": DC/DS Native Draw Mode")
       end
    end
+
+   print (newTransmitter, Screen.image_width_px, Screen.legacy_width_px)
+   if newTransmitter and Screen.image_width_px == Screen.legacy_width_px then
+      form.question("Low-res Maps", "DFM-Maps", "Warning", 3000, true, 0)
+      print(appInfo.Name .. ": Load new maps for full screen")	 
+   end
+   
+
+   print(string.format(appInfo.Name..": using screen %d x %d",
+		       Screen.image_width_px, Screen.image_height_px))
+   
 end
 
 return {init=init, loop=loop, author="DFM", version="9.0", name=appInfo.Name, destroy=destroy}
