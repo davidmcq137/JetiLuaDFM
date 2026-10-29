@@ -1149,7 +1149,7 @@ local function pngLoad(j)
    pfn = Field.images[j].file
    --print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j], pfn)
    if (fieldPNG[j]==nil) then
-      print("@@@@ pngLoad doing lcd.loadImage", pfn)
+      --print("@@@@ pngLoad doing lcd.loadImage", pfn)
     fieldPNG[j] = lcd.loadImage(pfn)
     --collectgarbage()
  end
@@ -4779,14 +4779,13 @@ local function init()
       end
    end
 
-   print (newTransmitter, Screen.image_width_px, Screen.legacy_width_px)
    if newTransmitter and Screen.image_width_px == Screen.legacy_width_px then
       form.question("Low-res Maps", "DFM-Maps", "Warning", 3000, true, 0)
       print(appInfo.Name .. ": Load new maps for full screen")	 
    end
    
 
-   print(string.format(appInfo.Name..": using screen %d x %d",
+   print(string.format(appInfo.Name..": using %d x %d px maps",
 		       Screen.image_width_px, Screen.image_height_px))
    
 end
