@@ -1032,8 +1032,8 @@
   (let [map-ent (d/entity db ::map)]
     [:.hflex
      [:form
-      [:input {:style {:width "14em"}
-               :on-change #(do
+      [:input.coords-input
+              {:on-change #(do
                              (reset! formdata (.-value (.-target %)) )
                              (println "Formdata" @formdata (parse-coords @formdata))
                              (when-let [{:keys [lat lng error]} (parse-coords @formdata)]
@@ -1162,7 +1162,6 @@
   (if (= ::place-triangle-center (:map/marker-complete-action (d/entity db ::map)))
     [:span "Click on the map to place the midpoint of the triangle base leg."]
     [:input {:type "button"
-             :style {:width "10em"} 
              :value "Add triangle"
              :on-click #(async/put! bus [::triangle-placement-start])}]))
 
@@ -1171,18 +1170,15 @@
     [:span "Click on the map to place the center of the runway"]
     [:input {:type "button"
              :value "Add runway"
-             :style {:width "10em"} 
              :on-click #(async/put! bus [::runway-placement-start])}]))
 
 (rum/defc add-noflys-helper [db bus]
   [:<>
    [:input {:type "button"
             :value "Start drawing no-fly circle"
-            :style {:width "15em"}
             :on-click #(async/put! bus [::nofly-circle-placement-start])}]
    [:input {:type "button"
             :value "Start drawing no-fly polygon"
-            :style {:width "15em"}
             :on-click #(async/put! bus [::nofly-polygon-placement-start])}]])
 
 (rum/defc field-info-header [f bus]
@@ -1195,9 +1191,9 @@
                                                     (some-> f :field/clipbox :zone/center-lng)]))} "(+)"])
    
    [:span (:field/name f)]
-   [:span {:style {:width "1em"}} " "]
+   [:span.spacer " "]
    "(" [:span (:field/short-name f)] ")"
-   [:span {:style {:width "1em"}} " "]
+   [:span.spacer " "]
    [:a {:href "#" :on-click #(async/put! bus [::field-edit-start (:db/id f)])}
     "(edit)"]
    [:a {:href "#" :on-click #(async/put! bus [::delete-field (:db/id f)])}
@@ -1249,10 +1245,9 @@
     (clipbox-heading-slider c bus)
     ;; todo Make this "Boundary - Hide/show"
     (if hidden
-      [:button {:style {:width "10em"} :on-click #(async/put! bus [::show-zone (:db/id c)])} "Show boundary"]
-      [:button {:style {:width "14em"} :on-click #(async/put! bus [::hide-zone (:db/id c)])} "Hide boundary rectangle"])
+      [:button {:on-click #(async/put! bus [::show-zone (:db/id c)])} "Show boundary"]
+      [:button {:on-click #(async/put! bus [::hide-zone (:db/id c)])} "Hide boundary rectangle"])
     [:input {:type "button"
-             :style {:width "10em"} 
              :value "Edit clipboxes "   ; Document this as showing the other zoom levels
              :on-click #(async/put! bus [::show-modal :clipbox-modal])}]]])
 
@@ -1282,7 +1277,7 @@
 (rum/defc field-info-collapse [f bus]
   (if (:state/_current-field f)
     (field-info f bus)
-    [:span {:style {:background-color "tomato"}}
+    [:span.field-collapsed
      (field-info-header f bus)]))
 
 
@@ -1298,38 +1293,52 @@
                                   (fn [fe] (load-db-from-edn-string (.. fe -target -result))))
                             (.readAsText rdr file))))}])
 
+(def screen-variants
+  [{:label "Standard"
+    :name "DFM-Maps - GPS Maps"
+    :hw [678 679 680 652 653 3857 3858]
+    :width 320
+    :height 160}
+   {:label "Large screen"
+    :name "DFM-Maps - GPS Maps (large screen)"
+    :hw [3866 3867]
+    :width 458
+    :height 343}])
+
 (defn make-dynamic-repo-request [db]
   ;; apps json?
   (let [origin js/window.location.origin
-        state (d/entity db ::state)
-        {:state/keys [image-width-px image-height-px]} state]
+        fields-json (into {}
+                          (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
+                            [short-name (json-data-for-field field)]))]
     (clj->js
      {:yoururl origin
-      :apps [{:base-app "DFM-Maps"
-              :dynamic-files 
-              (into
-               [{:destination "Apps/DFM-Maps/Maps/Fields.jsn"
-                 :json-data (into {}
-                                  (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
-                                    [short-name (json-data-for-field field)]))}
-                {:destination "Apps/DFM-Maps/Maps/Config.jsn"
-                 :json-data {"image_width_px" image-width-px
-                             "image-height_px" image-height-px}}]
-               (for [{:field/keys [name short-name clipbox runway triangle noflys]} (qes-by db :field/name)
-                     c clipbox]
-                 (let [i (:clipbox/preview-zoom c)]
-                   {:destination (str "Apps/DFM-Maps/Maps/" short-name "/" i ".png")
-                    :url (str (.-origin (.-location js/window))
-                              "/staticmap?"
-                              (zone-image-query-params c
-                                                       image-width-px
-                                                       image-height-px))})))}
+      :apps (conj
+             (vec
+              (for [{:keys [name hw width height]} screen-variants]
+                {:base-app "DFM-Maps"
+                 :app-json {"hw" hw
+                            "name" {"en" name}}
+                 :dynamic-files
+                 (into
+                  [{:destination "Apps/DFM-Maps/Maps/Fields.jsn"
+                    :json-data fields-json}
+                   {:destination "Apps/DFM-Maps/Maps/Config.jsn"
+                    :json-data {"image_width_px" width
+                                "image-height_px" height}}]
+                  (for [{:field/keys [name short-name clipbox runway triangle noflys]} (qes-by db :field/name)
+                        c clipbox]
+                    (let [i (:clipbox/preview-zoom c)]
+                      {:destination (str "Apps/DFM-Maps/Maps/" short-name "/" i ".png")
+                       :url (str (.-origin (.-location js/window))
+                                 "/staticmap?"
+                                 (zone-image-query-params c width height))})))}))
              {:base-app "DFM-GPS"
               :dynamic-files 
               (into [{:app "DFM-GPS" :prefix "Apps/"}]
                     (for [f (qes-by db :field/name)]
                       {:destination (str "Apps/DFM-GPS/FF_" (:field/short-name f) ".jsn")
-                       :json-data (simple-json-data-for-field f)}))}]})))
+                       :json-data (simple-json-data-for-field f)}))})})))
 
 (defn send-dynamic-repo-request! [json-data]
   (let [xhr (XhrIo.)]
@@ -1454,39 +1463,18 @@
      (.getFullYear d)
      ".edn")))
 
-(rum/defcs image-size-edit-form < (rum/local nil ::st)
-  [{::keys [st]} bus]
-  (let [{:keys [editing s-width s-height]} @st
-        {:state/keys [image-width-px image-height-px]} (d/entity @conn ::state)
-        v-width (or s-width (str image-width-px))
-        v-height (or s-height (str image-height-px))
-        {:keys [valid error]} (let [p-width (js/parseInt v-width)
-                                    p-height (js/parseInt v-height)]
-                                (cond
-                                  (js/isNaN p-width) {:error "width"}
-                                  (js/isNaN p-height) {:error "height"}
-                                  :else {:valid [p-width p-height]}))]
-    (if-not editing
-      [:input {:type "button"
-               :value (str "Generated image size"
-                           " [" image-width-px "x" image-height-px "]")
-               :on-click #(swap! st assoc :editing true)}]
-      [:div.vflex {}
-       (when editing
-         [:fieldset
-          [:legend "Set custom size"]
-          [:p {} "Do not change image size"]
-          [:label "Width" [:input {:value v-width :on-change #(swap! st assoc :s-width (.-value (.-target %)))}]]
-          [:label "Height" [:input {:value v-height :on-change #(swap! st assoc :s-height (.-value (.-target %)))}]]
-          (if-let [[nw nh] valid]
-            [:input {:type "button"
-                     :value "Save"
-                     :on-click #(do (swap! st dissoc :editing)
-                                    (async/put! bus [::set-image-size nw nh]))}]
-            [:span {} "Invalid " (str error)])
-          [:input {:type "button"
-                   :value "Cancel"
-                   :on-click #(reset! st {})}]])])))
+(rum/defc image-size-edit-form
+  [bus]
+  (let [{:state/keys [image-width-px image-height-px]} (d/entity @conn ::state)]
+    [:fieldset
+     [:legend "Preview screen size"]
+     (for [{:keys [label width height]} screen-variants]
+       [:label.radio-row {:key label}
+        [:input {:type "radio"
+                 :name "preview-screen-size"
+                 :checked (and (= width image-width-px) (= height image-height-px))
+                 :on-change #(async/put! bus [::set-image-size width height])}]
+        (str label " (" width "x" height ")")])]))
 
 (rum/defc sidebar-form [db bus]
   [:.sidebar-left
@@ -1497,7 +1485,7 @@
        #_(field-info f bus)
        (field-info-collapse f bus)])
     
-    [:div.vflex {:style {:width "14em" :margin "auto"}}
+    [:div.vflex.sidebar-actions
      #_ [:input {:type "button"
                  :value "Show JSON"
                  :on-click #(async/put! bus [::show-modal :json-data])}]
@@ -1510,9 +1498,8 @@
                            (send-github-releases-request! bus)
                            #_(send-dynamic-repo-request! (make-dynamic-repo-request db))
                            (async/put! bus [::show-modal :repo-request]))}]
-     [:input 
+     [:input.danger-button
       {:type "button" :value "Clear all fields"
-       :style     {:background-color "#773030"} 
        :on-click (fn [ev]
                    (swap! gmaps-force-render inc)
                    (.setItem js/window.localStorage localstorage-db-key nil)
@@ -1610,10 +1597,9 @@
                :on-click #(async/put! bus [::align-centers ])}]]
      
      (for [c (sorted-clipboxes current-field)]
-       [:div.hflex {:key (:db/id c)
-                    :style {:margin-top "10px"}}
+       [:div.hflex.clipbox-row {:key (:db/id c)}
         (zone-image-preview c bus)
-        [:div {:style {:margin-left "10px"}}
+        [:div.clipbox-controls
          [:fieldset.vflex.clipbox-edit-form
           [:legend (str "Zoom " (:clipbox/preview-zoom c))]
           (let [e (:db/id c)
@@ -1621,10 +1607,10 @@
                      (staticmap-meters-per-pixel (:clipbox/preview-zoom c)
                                                  (:zone/center-lat c)))]
             [:div
-             [:button {:style {:width "4em"} :on-click #(async/put! bus [::move-clipbox e d 0])} "Up"]
-             [:button {:style {:width "4em"} :on-click #(async/put! bus [::move-clipbox e d 180])} "Down"]
-             [:button {:style {:width "4em"} :on-click #(async/put! bus [::move-clipbox e d 270])} "Left"]
-             [:button {:style {:width "4em"} :on-click #(async/put! bus [::move-clipbox e d 90])} "Right"]])]]])]))
+             [:button.nudge-button {:on-click #(async/put! bus [::move-clipbox e d 0])} "Up"]
+             [:button.nudge-button {:on-click #(async/put! bus [::move-clipbox e d 180])} "Down"]
+             [:button.nudge-button {:on-click #(async/put! bus [::move-clipbox e d 270])} "Left"]
+             [:button.nudge-button {:on-click #(async/put! bus [::move-clipbox e d 90])} "Right"]])]]])]))
 
 (def gmaps-force-render (atom 0))
 (rum/defc thinger < rum/reactive [bus]
@@ -1691,12 +1677,13 @@
       [:div
        [:p "This is your temporary JETI repository.  Use it soon since it won't live forever!"]
        [:code jj]
-       [:p
-        "If you prefer manual installation, you can also "
-        [:a {:download (str "DFM-Maps " (get-or-create-token!) ".zip")
-             :href (str "/repo/" (get-or-create-token!) ".zip")}
-         "download a zip archive"]
-        "."]])
+       [:p "If you prefer manual installation, you can also download a zip archive:"]
+       [:ul
+        (for [[i {:keys [label width height]}] (map-indexed vector screen-variants)]
+          [:li {:key i}
+           [:a {:download (str "DFM-Maps " (get-or-create-token!) " " width "x" height ".zip")
+                :href (str "/repo/" (get-or-create-token!) ".zip?app=" i)}
+            (str label " (" width "x" height ")")]])]])
     [:div {} "Creating repository..."]))
 
 (rum/defc root-component < rum/reactive [conn bus]

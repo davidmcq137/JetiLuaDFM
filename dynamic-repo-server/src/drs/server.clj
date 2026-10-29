@@ -69,16 +69,6 @@
                 [:script {:type "text/javascript" :src "/maps/js/main.js"}]]))})
 
 
-(def static-file-root (atom  "resources/"))
-
-(defn add-content-type
-  [response requested-path]
-  (let [dot (string/last-index-of requested-path ".")
-        mime (get {".js" "text/javascript"
-                   ".css" "text/css"}
-                  (and dot (subs requested-path dot)))]
-    (cond-> response mime (ring-resp/content-type mime))))
-
 (defn gzip-bytes
   [bs]
   (let [out (ByteArrayOutputStream.)]
@@ -134,16 +124,11 @@
          e)))
    jd))
 
-(defn cached-url-fetch
+(defn fetch-url
   [url]
-  (let [k [:url url] ]
-    (if-let [cache (get @dynamic-repo-cache k)]
-      cache
-      (let [{:keys [status body]} (try (client/get url {:as :byte-array})
-                                       (catch Exception e
-                                         (throw (ex-info "Cannot fetch url " {:url url} e))))]
-        (swap! dynamic-repo-cache assoc k body)
-        body))))
+  (try (:body (client/get url {:as :byte-array}))
+       (catch Exception e
+         (throw (ex-info "Cannot fetch url " {:url url} e)))))
 
 (defn stream->bytes
   [in]
@@ -255,17 +240,6 @@
                                        :frameborder 0}]))
                          ]])]]]))})
 
-(defn cached-proxy
-  [url]
-  (let [body (cached-url-fetch url)
-        hash-val (sha1hex body)]
-    (swap! dynamic-repo-cache assoc [:sha1 hash-val]
-           (with-open [baos (ByteArrayOutputStream.)]
-             (io/copy body baos)
-             (.toByteArray baos)))
-    {:size (count body)
-     :hash hash-val}))
-
 (defn process-file-spec
   [{:strs [url data data-base64 json-data zip-url prefix app] :as obj}]
   (or
@@ -300,12 +274,9 @@
                    :hash hash))]))
    
    (when url
-     (let [body (cached-url-fetch url)
+     (let [body (fetch-url url)
            hash-val (sha1hex body)]
-       (swap! dynamic-repo-cache assoc [:sha1 hash-val]
-              (with-open [baos (ByteArrayOutputStream.)]
-                (io/copy body baos)
-                (.toByteArray baos)))
+       (swap! dynamic-repo-cache assoc [:source hash-val] url)
        [(-> obj
             (dissoc "url")
             (assoc
@@ -353,32 +324,8 @@
        "releaseDate" "Fri 15 Jan 2021 09:01:54 +0000"
        "version"     "1"}]}))
 
-(defn create-app-json!
-  [yoururl dynamic-files]
-  (let [files (->> dynamic-files
-                   (mapv #(future (process-file-spec %)))
-                   (mapcat deref)
-                   (map (partial add-cas-url yoururl)))
-        [manifest-file?] (->> files
-                              (filter #(string/ends-with? (get % :destination "") "/App.json")))
-        
-        _ (when-not manifest-file?
-            (throw (ex-info "No app.json" {:files files})))
-        
-        app-json-data (->> (get @dynamic-repo-cache [:sha1 (:hash manifest-file?)])
-                           (io/reader)
-                           (json/parse-stream)
-                           (walk/postwalk
-                            (fn [e]
-                              (if-not (and (string? e) (string/starts-with? e "https://"))
-                                e
-                                (str yoururl "/cas?sha1=" (:hash (cached-proxy e)))))))]
-    (assoc app-json-data
-           :files files
-           :description {:en (str yoururl "/app/" )})))
-
 (defn app-json-next!
-  [yoururl base-app dynamic-files]
+  [yoururl base-app dynamic-files app-json-overrides]
   (let [base "compiled-apps"
         files (->> (into [{"app" base-app}] dynamic-files)
                    (mapv #(future (process-file-spec %)))
@@ -389,7 +336,7 @@
         app-json-data (->> manifest-file
                            (io/reader)
                            (json/parse-stream))]
-    (assoc app-json-data
+    (assoc (merge app-json-data app-json-overrides)
            "files" files
            "description" {"en" (str yoururl "/app/" base-app "/" base-app "/" base-app ".html" )}
            "previewIcon" (str yoururl "/common/DFM.png"))))
@@ -436,8 +383,8 @@
         yoururl (no-https yoururl)
         
         apps-json {:applications
-                   (for [{:strs [base-app dynamic-files]} apps]
-                     (app-json-next! yoururl base-app dynamic-files))}]
+                   (for [{:strs [base-app dynamic-files app-json]} apps]
+                     (app-json-next! yoururl base-app dynamic-files app-json))}]
     
     (swap! dynamic-repo-cache assoc [:token token]
            (-> apps-json
@@ -450,23 +397,39 @@
             {"repo_url"
              (str yoururl "/repo/" token "/Apps.json") })}))
 
+(defn cas-bytes
+  [hash]
+  (or (get @dynamic-repo-cache [:sha1 hash])
+      (when-let [url (get @dynamic-repo-cache [:source hash])]
+        (let [bs (try (fetch-url url) (catch Exception _ nil))]
+          (if (and bs (= hash (sha1hex bs)))
+            bs
+            :gone)))))
+
 (defn do-dynamic-repo-zip
-  [{:keys [route-params]}]
+  [{:keys [route-params query-params]}]
   (let [{:keys [token]} route-params
         {:strs [applications]} (json/parse-stream (io/reader (get @dynamic-repo-cache [:token token])))
-        [{:strs [files]} & more] applications]
-    {:status 200
-     :body (with-open [baos (ByteArrayOutputStream.)]
-             (with-open  [zip-out (ZipOutputStream. baos)]
-               (doseq [{:strs [destination hash]} files]
-                 (.putNextEntry zip-out (ZipEntry. destination))
-                 (io/copy (get @dynamic-repo-cache [:sha1 hash]) zip-out)))
-             (.toByteArray baos))}))
+        {:strs [files]} (nth applications (Integer/parseInt (get query-params "app" "0")))
+        contents (mapv (fn [{:strs [destination hash]}]
+                         [destination (cas-bytes hash)])
+                       files)]
+    (if-not (every? (comp bytes? second) contents)
+      {:status 410}
+      {:status 200
+       :body (with-open [baos (ByteArrayOutputStream.)]
+               (with-open  [zip-out (ZipOutputStream. baos)]
+                 (doseq [[destination bs] contents]
+                   (.putNextEntry zip-out (ZipEntry. destination))
+                   (io/copy bs zip-out)))
+               (.toByteArray baos))})))
 
 (defn do-cas
-  [{:keys [query-params query-string body] :as req}]
-  (when-let [bs (get @dynamic-repo-cache [:sha1 (get query-params "sha1")]) ]
-    {:status 200 :body bs}))
+  [{:keys [query-params]}]
+  (let [r (cas-bytes (get query-params "sha1"))]
+    (cond
+      (bytes? r)  {:status 200 :body r}
+      (= :gone r) {:status 410})))
 
 (defn do-repo
   [token]
@@ -485,47 +448,6 @@
        (if ( < x -180)
          (+ 360 x)
          x)))))
-
-#_(defn handler
-  [{:keys [uri] :as req}]
-  (let [u (string/lower-case uri) ]
-    (println "Handler" u)
-    (cond
-      (= "/" uri)            (landing-page req)
-      (= "/create-maps" uri) (maps-app req)
-      (= "/gauges" uri)      (gauge-app req)
-      
-      (string/includes? u "..") {:status 402}
-      (#{"/js/main.js" "/app.css"} u)
-      (let [sfp (str "static" uri)]
-        (some-> (or (ring-resp/resource-response sfp)
-                    (ring-resp/file-response (str @static-file-root sfp)))
-                (add-content-type u)
-                (update :headers assoc "Cache-Control" "no-cache" )))
-      
-      (string/starts-with? u "/gauge")
-      (some-> (or (ring-resp/resource-response uri)
-                  (ring-resp/file-response (str @static-file-root uri)))
-              (add-content-type u)
-              (update :headers assoc "Cache-Control" "no-cache" ))
-      
-      (string/starts-with? u "/staticmap")
-      (get-static-map req)
-      
-      (string/starts-with? u "/dynamic-repo-zip")
-      (do-dynamic-repo-zip req)
-      
-      (string/starts-with? u "/dynamic-repo-v2")
-      (do-dynamic-repo-v2 req)
-
-      
-      (string/starts-with? u "/cas")
-      (do-cas req)
-
-      :else
-      (when-let [[[_ token]] (re-seq #".*/(.*)/Apps.json" uri)]
-        (println 'Token token)
-        (do-repo token)))))
 
 (defn do-token-repo
   [{:keys [route-params]}]
