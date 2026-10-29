@@ -73,7 +73,7 @@ RTH.convertVal = {{1,0}, {3.28084,0}, {2.23694,0} , {3.6,0}, {1.8,32}, {.001,0}}
 RTH.convertUnits = {"-", "ft", "mph", "km/h", "°F", "-"}
 local rollVal, pitchVal = 0,0
 
-local renShape = lcd.renderer()
+local renShape
 --local ren = lcd.renderer()
 
 --local barShape = {
@@ -1472,6 +1472,7 @@ end
 
 local function init()
 
+   renShape   = lcd.renderer()
    readSensors(RTH)
    
    system.registerForm(1, MENU_APPS, "DFM-Rscu", initForm, keyPress, printForm)
