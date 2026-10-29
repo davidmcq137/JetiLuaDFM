@@ -71,16 +71,16 @@
      "sensorName":"",
      "luaExp":"O1(-30,30)",
      "label": "Roll",
-     "unit": "rad"
+     "unit": "deg"
     },
     {"id":139,
      "param":3,
      "decimals":1,
      "type":1,
      "sensorName":"",
-     "luaExp":"-O2(-5,5)",     
+     "luaExp":"-O2(-30,30)",     
      "label": "Pitch",
-     "unit": "rad"
+     "unit": "deg"
     },
     {"id":139,
      "param":4,

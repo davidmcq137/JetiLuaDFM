@@ -418,7 +418,7 @@ function emulator_getSensors()
    fg = io.readall(text)
 
    if not fg then
-      print("Cannot read " .. text)
+      print("SensorE: Cannot read " .. text)
       SEjsn.configDir = "Apps"
    else
       SEjsn=json.decode(fg)
@@ -431,8 +431,8 @@ function emulator_getSensors()
    
    text = SEjsn.configDir .. "/sensorEmulator.jsn"
    fg = io.readall(text)
-   if not fg then print("Cannot read " .. text) else
-      print("Sensor config: "..text)
+   if not fg then print("SensorE: Cannot read " .. text) else
+      print("SensorE: Sensor config: "..text)
       --print("JSON text[1-80]: ", string.sub(fg, 1, 80))
       sensorTbl=json.decode(fg)
       initStr = sensorTbl[1].initString
@@ -440,14 +440,14 @@ function emulator_getSensors()
 	 --print("initStr", initStr)
 	 chunk, err = load(initStr,"initString","t",env)
 	 if err then
-	    print("sensorEmulator: lua functionString load error, returning 0 - "..err)
+	    print("SensorE: lua functionString load error, returning 0 - "..err)
 	    result = 0
 	 else
 	    if chunk then
 	       status, result = pcall(chunk)
 	       result = result or 0
 	       if not status then
-		  print("Bad status - result:", result)
+		  print("SensorE: Bad status - result:", result)
 	       end
 	    else
 	       result = 0 
@@ -630,14 +630,14 @@ function emulator_getSensorByID(ID, Param)
 	    if GPSparms.xString and GPSparms.xString ~= "" then
 	       chunk, err = load("return "..GPSparms.xString,"","t",env)
 	       if err then
-		  print("sensorEmulator: lua functionString load error xString, returning 0 - "..err)
+		  print("SensorE: lua functionString load error xString, returning 0 - "..err)
 		  result = 0
 	       else
 		  if chunk then
 		     status, result = pcall(chunk)
 		     result = result or 0
 		     if not status then
-			print("Bad status - result:", result)
+			print("SensorE: Bad status - result:", result)
 		     end
 		  else
 		     result = 0 
@@ -650,15 +650,15 @@ function emulator_getSensorByID(ID, Param)
 	    if GPSparms.yString and GPSparms.yString ~= "" then
 	       chunk, err = load("return "..GPSparms.yString,"","t",env)
 	       if err then
-		  print("sensorEmulator: lua functionString load error yString, returning 0 - "..err)
+		  print("SensorE: lua functionString load error yString, returning 0 - "..err)
 		  result = 0
 	       else
 		  if chunk then
 		     status, result = pcall(chunk)
 		     result = result or 0
 		     if not status then
-			print("Bad status - result:", result)
-			print("GPSparms.yString: ", GPSparms.yString)
+			print("SensorE: Bad status - result:", result)
+			print("SensorE: GPSparms.yString: ", GPSparms.yString)
 		     end
 		  else
 		     result = 0 
@@ -672,15 +672,15 @@ function emulator_getSensorByID(ID, Param)
 	    if GPSparms.hString and GPSparms.hString ~= "" then
 	       chunk, err = load("return "..GPSparms.hString,"","t",env)
 	       if err then
-		  print("sensorEmulator: lua functionString load error hString, returning 0 - "..err)
+		  print("SensorE: lua functionString load error hString, returning 0 - "..err)
 		  result = 0
 	       else
 		  if chunk then
 		     status, result = pcall(chunk)
 		     result = result or 0
 		     if not status then
-			print("Bad status - result:", result)
-			print("GPSparms.hString: ", GPSparms.hString)
+			print("SensorE: Bad status - result:", result)
+			print("SensorE: GPSparms.hString: ", GPSparms.hString)
 		     end
 		  else
 		     result = 0 
@@ -787,7 +787,7 @@ function emulator_getSensorByID(ID, Param)
 	 --
 	 if v.funcString then
 	    v.luaExp = v.funcString
-	    print("funcString changed to luaExp - please update jsn file")
+	    print("SensorE: funcString changed to luaExp - please update jsn file")
 	 end
 
 	 funcResult = nil
@@ -797,14 +797,14 @@ function emulator_getSensorByID(ID, Param)
 	    chunk, err = load(v.luaFunc,"luaFunc: "..uid,"t",env)
 	    
 	    if err then
-	       print("sensorEmulator: luaFunc load error, returning 0 - "..err)
+	       print("SensorE: luaFunc load error, returning 0 - "..err)
 	       funcResult = 0
 	    else
 	       if chunk then
 		  status, funcResult = pcall(chunk)
 		  if not status then
-		     print("Bad status - result:", funcResult)
-		     print("in luaFunc: "..(v.luaFunc or "nil"))
+		     print("SensorE: Bad status - result:", funcResult)
+		     print("SensorE: in luaFunc: "..(v.luaFunc or "nil"))
 		     funcResult = nil
 		  end
 	       end
@@ -816,15 +816,15 @@ function emulator_getSensorByID(ID, Param)
 	    chunk, err = load("return "..v.luaExp,"luaExp: "..uid,"t",env)
 
 	    if err then
-	       print("sensorEmulator: lua load error, returning 0 - "..err)
+	       print("SensorE: lua load error, returning 0 - "..err)
 	       expResult = 0
 	    else	
        
 	       if chunk then
 		  status, expResult = pcall(chunk)
 		  if not status then
-		     print("Bad status - result:", expResult)
-		     print("in luaExp: "..(v.luaExp or "nil"))
+		     print("SensorE: Bad status - result:", expResult)
+		     print("SensorE: in luaExp: "..(v.luaExp or "nil"))
 		     expResult = nil
 		  end
 	       end
@@ -848,8 +848,8 @@ function emulator_getSensorByID(ID, Param)
 	 end
 
 	 if expResult and funcResult then
-	    print("Warning -- Got return values from both luaFunc and luaExp")
-	    print("Using luaExp result from "..v.luaExp)
+	    print("SensorE: Warning -- Got return values from both luaFunc and luaExp")
+	    print("SensorE: Using luaExp result from "..v.luaExp)
 	 end
 	 
 	 -- now that luaExp/luaFunc is applied, we can compute new min and max
@@ -877,7 +877,7 @@ function emulator_getSensorByID(ID, Param)
 	       returnTbl.valGPS = lonVal
 	       returnTbl.decimals = lonDecimals
 	    else
-	       print("SHOULD NOT BE HERE!")
+	       print("SensorE: SHOULD NOT BE HERE!")
 	    end
 
 	 end
@@ -1043,17 +1043,17 @@ local function init()
 	 end
       end
    else
-      print("Info: Cannot open Apps/SensorFields.jsn")
+      print("SensorE: Info - Cannot open Apps/SensorFields.jsn")
    end
    
    if not fg then
-      print("Info: SensorFields.jsn not decoded - creating default")
+      print("SensorE: Info - SensorFields.jsn not decoded - creating default")
       geo.fields={}
       geo.fields[1] =  {lat=39.147398, long=-77.337639,runway={}}
       geo.fields[1].runway.trueDir=347.5
       fieldnames[1] = "DCRC Walt Good Field"
    else
-      print("SensorFields.jsn decoded")
+      print("SensorE: SensorFields.jsn decoded")
    end
 
    system.registerTelemetry(1, appName.." Sensors", 4, telePrint)

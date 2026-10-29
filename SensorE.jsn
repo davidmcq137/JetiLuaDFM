@@ -1,4 +1,5 @@
 {
+    "configDir4":"Apps/DFM-Maps/JSON",
     "configDir":"Apps/DFM-Rscu/Json",
     "configDir1":"Apps/DFM-HUD/Json",
     "configDir2":"Apps/DFM-InsP"

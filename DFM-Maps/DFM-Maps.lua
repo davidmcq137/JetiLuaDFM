@@ -56,6 +56,7 @@ appInfo.Maps = "DFM-Maps"
 appInfo.menuTitle = "GPS Maps"
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
 appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
+appInfo.Config = "Apps/" .. appInfo.Maps .. "/Maps/Config.jsn"
 appInfo.SaveData = true
 
 local latitude
@@ -230,6 +231,9 @@ auxSensors.satQuality = 0
 local lang
 local locale
 local newTransmitter = false
+local Screen = {}
+Screen.legacy_width_px = 320
+Screen.dcds24_width_px = 458
 
 local function rotateXY(xx, yy, rotation)
    local sinShape, cosShape
@@ -765,7 +769,7 @@ local function xminImg(iM)
    if Field and Field.imageWidth then
       return -0.50 * Field.imageWidth[iM]
    else
-      return -150 -- 17 mag image is about 300m wide
+      return -150 -- 17 mag image is about 300m wide at 320 screen width
    end
    
 end
@@ -780,32 +784,37 @@ end
 
 local function yminImg(iM)
    if form.getActiveForm() then
-      if Field and Field.imageWidth then
-	 return -0.50 * Field.imageWidth[iM] / 1.8 -- 1.8 empirically determined
+      if Field and Field.imageHeight then
+	 --return -0.50 * Field.imageWidth[iM] / 1.8 -- 1.8 empirically determined
+	 return -0.50 * Field.imageHeight[iM] * 1.1 -- 1.1 empirically determined
       else
-	 return -75
+	 --return -75
+	 return -150 * Screen.image_height_px / Screen.image_width_px
       end
    else
-      if Field.imageWidth then
-	 return -0.50 * Field.imageWidth[iM] / 2.0
+      if Field.imageHeight then
+	 --return -0.50 * Field.imageWidth[iM] / 2.0
+	 return -0.50 * Field.imageHeight[iM]	 
       else
-	 return -75
+	 return -150 * Screen.image_height_px / Screen.image_width_px
       end
    end
 end
 
 local function ymaxImg(iM)
    if form.getActiveForm() then
-      if Field and Field.imageWidth then
-	 return 0.50 * Field.imageWidth[iM] / 1.8
+      if Field and Field.imageHeight then
+	 --return 0.50 * Field.imageWidth[iM] / 1.8
+	 return 0.50 * Field.imageHeight[iM] * 1.1
       else
-	 return 75
+	 return 150 * Screen.image_height_px / Screen.image_width_px
       end
    else
-      if Field and Field.imageWidth then
-	 return 0.50 * Field.imageWidth[iM] / 2.0
+      if Field and Field.imageHeight then
+	 --return 0.50 * Field.imageWidth[iM] / 2.0
+	 return 0.50 * Field.imageHeight[iM]	 
       else
-	 return 75
+	 return 150 * Screen.image_height_px / Screen.image_width_px
       end
    end
 end
@@ -939,12 +948,14 @@ local function setField(sname)
 
    Field = Fields[sname]
    Field.imageWidth = {}
+   Field.imageHeight = {}
    Field.lat = Field.images[1].center.lat
    Field.lng = Field.images[1].center.lng
    fieldPNG={}
 
    for k,v in ipairs(Field.images) do
-      Field.imageWidth[k] = math.floor(v.meters_per_pixel * 320 + 0.5)
+      Field.imageWidth[k] = math.floor(v.meters_per_pixel * Screen.image_width_px + 0.5)
+      Field.imageHeight[k] = math.floor(v.meters_per_pixel * Screen.image_height_px + 0.5)      
    end
 
    ------------------------------------------------------------
@@ -2123,7 +2134,7 @@ local function drawTriRace(windowWidth, windowHeight)
    setColor("Label", variables.triColorMode)
    
    if raceParam.titleText then
-      lcd.drawText((320 - lcd.getTextWidth(FONT_BOLD, raceParam.titleText))/2, 0,
+      lcd.drawText((Screen.image_width_px - lcd.getTextWidth(FONT_BOLD, raceParam.titleText))/2, 0,
 	 raceParam.titleText, FONT_BOLD)
    end
 
@@ -2132,7 +2143,7 @@ local function drawTriRace(windowWidth, windowHeight)
    end
    
    if raceParam.subtitleText then
-      lcd.drawText((320 - lcd.getTextWidth(FONT_MINI, raceParam.subtitleText))/2, 17,
+      lcd.drawText((Screen.image_width_px - lcd.getTextWidth(FONT_MINI, raceParam.subtitleText))/2, 17,
 	 raceParam.subtitleText, FONT_MINI)
    end
 
@@ -2859,7 +2870,7 @@ local function prtForm(wwx, whx)
    local windowWidth = 310
    local windowHeight = 175
    
-   if newTransmitter then
+   if newTransmitter and Screen.image_width_px == 320 then
       lcd.setClipping(0,0,310,175) -- needed for 24-II
    end
    
@@ -2892,8 +2903,8 @@ local function prtForm(wwx, whx)
       else 
          formRenderer:reset()
       end
-      if newTransmitter then
-	 lcd.drawImage(-5+2,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
+      if newTransmitter and Screen.image_width_px == 320 then
+      	 lcd.drawImage(-5+2,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
       else
 	 lcd.drawImage(-5,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
       end
@@ -2970,8 +2981,8 @@ local function prtForm(wwx, whx)
 	 end
       end
       lcd.setColor(255,255,255)
-      lcd.drawFilledRectangle(0, 166, 320,20)
-      lcd.drawFilledRectangle(0, 0, 320,8)      
+      lcd.drawFilledRectangle(0, Screen.image_height_px + 6, Screen.image_width_px,20)
+      lcd.drawFilledRectangle(0, 0, Screen.image_width_px,8)      
       setColor("Map", "Image")
    end
 end
@@ -2987,12 +2998,12 @@ local function dirPrint(xw, xh, kk)
    local xf = 0.40 -- center X is at 1-xf of width
    local yf = 0.65 -- center Y is at 1-yf of height
    local xmin, xmax=(-1+xf)*sC, xf*sC
-   local xt = 320*(1-xf/2) -- X center of text location on rhs of screen
+   local xt = Screen.image_width_px * (1-xf/2) -- X center of text location on rhs of screen
    local ymin, ymax=(-1+yf)*sC/2, yf*sC/2
    local xrange = xmax - xmin
    local yrange = ymax - ymin
-   local ww = 320
-   local wh = 160
+   local ww = Screen.image_width_px
+   local wh = Screen.image_height_px
    if (dirPrintRenderer==nil) then 
       dirPrintRenderer = lcd.renderer()
    else
@@ -3026,8 +3037,8 @@ local function dirPrint(xw, xh, kk)
 
    if not xtable or not ytable then return end
 
-   if newTransmitter then
-      lcd.setClipping(0,0,320,160) -- needed for 24-II
+   if newTransmitter and Screen.image_width_px == 320 then
+      lcd.setClipping(0,0,320,160) -- needed for 24-II in compat mode
    end
    
    --lcd.setColor(255,0,0)
@@ -3035,7 +3046,7 @@ local function dirPrint(xw, xh, kk)
    
    if variables.triColorMode == "Dark" then
       setColor("Background", "Image")
-      lcd.drawFilledRectangle(0,0,320,160)      
+      lcd.drawFilledRectangle(0,0,Screen.image_width_px,Screen.image_height_px)      
    end
 
    if variables.triColorMode == "Image" then
@@ -3636,8 +3647,8 @@ local function mapPrint(wWid, wHgt)
       graphScale(xtable[#xtable], ytable[#ytable])
    end
 
-   if newTransmitter then
-      lcd.setClipping(0,0,windowWidth+1,windowHeight+1) -- needed for 24-II
+   if newTransmitter and Screen.image_width_px == 320 then
+      lcd.setClipping(0,0,windowWidth+1,windowHeight+1) -- needed for 24-II in compat mode
    end
    
    
@@ -3674,13 +3685,13 @@ local function mapPrint(wWid, wHgt)
    if fieldPNG[currentImage] then
       if variables.triEnabled and (variables.triColorMode ~= "Image") then
 	 setColor("Background", variables.triColorMode)
-      	 lcd.drawFilledRectangle(0,0,320,160)
+      	 lcd.drawFilledRectangle(0,0,Screen.image_width_px,Screen.image_height_px)
       else
       	 lcd.drawImage(0,0,fieldPNG[currentImage])
       end
    else
       setColor("Label", "Light")
-      lcd.drawText((320 - lcd.getTextWidth(FONT_BIG, lang.noGPSfix))/2, 60,
+      lcd.drawText((Screen.image_width_px - lcd.getTextWidth(FONT_BIG, lang.noGPSfix))/2, 60,
 	 lang.noGPSfix, FONT_BIG)
    end
    
@@ -3997,12 +4008,12 @@ end
 local function distDiag()
    local hw,hh
    if Field and Field.images and currentImage then
-      hw = Field.images[#Field.images].meters_per_pixel * 160
-      hh = hw / 2.0
+      hw = Field.images[#Field.images].meters_per_pixel * Screen.image_width_px/2
+      hh = Field.images[#Field.images].meters_per_pixel * Screen.image_height_px/2 --hw / 2.0
       --print("distDiag:" ,math.sqrt(hw*hw + hh*hh))
       return math.sqrt(hw*hw + hh*hh)
    else
-      return 2300.0
+      return 2300.0 -- hmm not sure how to adjust for new TX size
    end
 end
 
@@ -4673,6 +4684,22 @@ local function init()
       return
    end
 
+
+   -- read Config.jsn to see what screen size the map files are for. If no Config file
+   -- assume legacy 320x160
+   
+   if not emFlag then fn = "/" ..appInfo.Config else fn = appInfo.Config end
+
+   fp = io.readall(fn)
+
+   if fp then -- Config.jsn file with screen info exists
+      Screen = json.decode(fp)
+   else
+      Screen = {image_width_px=320, image_height_px=160}
+   end
+
+   print("Screen w,h:", Screen.image_width_px, Screen.image_height_px)
+
    -- for k,v in pairs(system.getTxTelemetry()) do
    --    print(k,v)
    -- end
@@ -4687,10 +4714,28 @@ local function init()
       checkBox[k.."Switch"] = system.getInputsVal(switchItems[k]) == 1
    end
 
+   
    newTransmitter = (string.find(select(1, system.getDeviceType()), "24 II"))
 
+   --check if we loaded the larger maps for an old transmitter .. not ok
+   --loading legacy maps with new transmitter is ok .. will run in compatibility mode
+
+   if (not newTransmitter) and (image_width_px ~= Screen.legacy_width_px) then
+      print(appInfo.Name .. ": Incompatible maps loaded for this TX")
+      system.messageBox(appInfo.Name.. ": Incompatible maps loaded for this TX")
+   end
+
+   if newTransmitter and image_width_px == Screen.dcds24_width_px then
+      system.setProperty("NativeDraw", 1)
+      if system.getProperty("NativeDraw") ~= 1 then
+	 print(appInfo.Name .. ": Cannot enter Native Draw")
+	 system.messageBox(appInfo.Name .. ": Cannot enter Native Draw")	 
+      else
+	 print(appInfo.Name .. ": DC/DS Native Draw Mode")
+      end
+   end
 end
 
-return {init=init, loop=loop, author="DFM", version="8.14", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="9.0", name=appInfo.Name, destroy=destroy}
 
 

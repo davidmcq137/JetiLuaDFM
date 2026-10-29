@@ -74,7 +74,15 @@ RTH.convertUnits = {"-", "ft", "mph", "km/h", "°F", "-"}
 local rollVal, pitchVal = 0,0
 
 local renShape = lcd.renderer()
-local ren = lcd.renderer()
+--local ren = lcd.renderer()
+
+--local barShape = {
+--   {-40,-2},
+--   {-40,2},
+--   {40, 2},
+--   {40, -2}
+--}
+
 
 --[[
 local homeShape = {
@@ -568,7 +576,7 @@ local function loop()
 	    else
 	       nsHoldTime = 0
 	    end
-	    
+	    --print(ns, now, nsHoldTime)
 	    system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 1000, 1)
 	    system.setControl(RTH.settings.elevCtrl,
 			      RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns), 1000, 1)
@@ -906,6 +914,19 @@ local function drawShape(col, row, shape, rotation)
    renShape:renderPolygon()
 end
 
+local function drawLine(col, row, shape, rotation, lw)
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   renShape:reset()
+   for _, point in pairs(shape) do
+      renShape:addPoint(
+	 col + (point[1] * cosShape - point[2] * sinShape + 0.5),
+	 row + (point[1] * sinShape + point[2] * cosShape + 0.5)
+      )
+   end
+   renShape:renderPolyline(lw)
+end
+
 local function printForm()
 end
 
@@ -933,6 +954,7 @@ local function printTeleMix()
       return
    end
 
+   --print("steer", RTH.settings.steer)
    local ns = RTH.settings.steer / 180.0
    local am = mixOut(config.Amix, ns)
    local em = RTH.settings.maxElevGain / 100 * mixOut(config.Emix, ns)
@@ -1008,6 +1030,38 @@ end
 --]]
 
 local function printTeleAH()
+
+   --local xc = 50
+   --local dx = 40
+
+   local hLineShape = {
+      {-40,0},
+      {40,0}
+   }
+
+   local vLineShape = {
+      {-40,-30},
+      {-40, 30}
+   }
+
+   local hDashShape = {
+      {-40, 0},
+      {-30, 0}
+   }
+   local pitch = pitchVal or 0 -- system.getInputs("P2") * 90 -- pitchVal or 0 
+   local roll = rollVal or 0 --system.getInputs("P3") * 180 -- rollVal or 0
+
+   --print(roll)
+   --print(pitch)
+   drawLine(50, 85, hLineShape, math.rad(roll), 2)
+   drawLine(50, 85, hLineShape, 0, 1)
+   drawLine(50, 85, vLineShape, 0, 1)
+   drawLine(50, 85 -pitch/2, hDashShape, 0, 2)
+   
+end
+
+--[[
+local function printTeleAHFancy()
    
    local HP = require 'DFM-Rscu/hp1345a'
    local function drawPitch(rr, roll, pitch, pitchR, radAH, X0, Y0, scl)
@@ -1070,15 +1124,6 @@ local function printTeleAH()
       until i >= 45 + delta
    end
 
-   --[[
-      function artHorizon is based on code in the Jeti Artificial Horizon App
-      
-      Copyright (c) 2016 JETI
-      Copyright (c) 2015 dandys.
-      Copyright (c) 2014 Marco Ricci.
-      
-      Use here conforms with the license terms
-   --]]
    
    local pitch = pitchVal or 0 -- system.getInputs("P2") * 90 -- pitchVal or 0 
    local roll = rollVal or 0 --system.getInputs("P3") * 180 -- rollVal or 0
@@ -1193,6 +1238,7 @@ local function printTeleAH()
    lcd.resetClipping()
 
 end
+--]]
 
 local xmin, xmax, ymin, ymax
 
@@ -1434,10 +1480,9 @@ local function init()
    device, emflag = system.getDeviceType() 
    print("Device", device, "emflag", emflag)
 
-   local ts = 4
-   if device == "JETI DS-24 II" or device == "JETI DC-24 II" then
-      ts = 2
-   end
+--   if device == "JETI DS-24 II" or device == "JETI DC-24 II" then
+--     do something different on new tx?      
+--   end
    
    system.registerTelemetry(1, "RScu Map North Up", 4, printTeleGPS, keyPressGPS)
    
@@ -1452,7 +1497,7 @@ local function init()
       print("not setting Button")
    end
    
-   system.registerTelemetry(2, "Rscu AH", ts, printTeleAH)
+   --system.registerTelemetry(2, "Rscu AH", ts, printTeleAH)
 
    RTH.settings = {}
    RTH.settings.latId = system.pLoad("RTHlatId", 0)
