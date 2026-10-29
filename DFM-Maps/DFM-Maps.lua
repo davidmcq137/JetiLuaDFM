@@ -232,8 +232,6 @@ local lang
 local locale
 local newTransmitter = false
 local Screen = {}
-Screen.legacy_width_px = 320
-Screen.dcds24_width_px = 458
 
 local function rotateXY(xx, yy, rotation)
    local sinShape, cosShape
@@ -1149,9 +1147,9 @@ local function pngLoad(j)
    end
    
    pfn = Field.images[j].file
-   print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j], pfn)
+   --print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j], pfn)
    if (fieldPNG[j]==nil) then
-      print("@@@@ pngLoad doing lcd.loadImage", pfn)
+      --print("@@@@ pngLoad doing lcd.loadImage", pfn)
     fieldPNG[j] = lcd.loadImage(pfn)
     --collectgarbage()
  end
@@ -1316,7 +1314,7 @@ local function keyForm(key)
    end
    
    if key == KEY_2 or key == KEY_3 or key == KEY_4 then
-      print("$$$$$$$$$$$$ key:", key, KEY_2, KEY_3, KEY_4)
+      --print("$$$$$$$$$$$$ key:", key, KEY_2, KEY_3, KEY_4)
 
       if key == KEY_3 or key == KEY_4 then
 	 if key == KEY_3 then inc = -1 else inc = 1 end
@@ -1415,7 +1413,7 @@ local function keyForm(key)
 	 end
       end
    end
-   print("$$$$$$$$$$ keyForm returning", key)
+   --print("$$$$$$$$$$ keyForm returning", key)
 end
 
 local function browseFieldClicked(i)
@@ -2867,10 +2865,21 @@ local formRenderer
 local function prtForm(wwx, whx)
 
    --print("wwx, whx", wwx, whx)
-   local windowWidth = 310
-   local windowHeight = 175
+
+   local windowWidth -- = 310
+   local windowHeight -- = 175
+
+
+   if Screen.window_width_px == Screen.legacy_width_px then
+      windowWidth = Screen.legacy_width_px - 10 --310
+      windowHeight = Screen.legacy_height_px + 15 --175
+   else
+      windowWidth = Screen.dcds24_width_px - 13
+      windowHeight = Screen.dcds24_height_px + 14
+   end
+
    
-   if newTransmitter and Screen.image_width_px == 320 then
+   if newTransmitter and Screen.image_width_px == Screen.legacy_width_px then
       lcd.setClipping(0,0,310,175) -- needed for 24-II
    end
    
@@ -2903,7 +2912,7 @@ local function prtForm(wwx, whx)
       else 
          formRenderer:reset()
       end
-      if newTransmitter and Screen.image_width_px == 320 then
+      if newTransmitter and Screen.image_width_px == Screen.legacy_width_px then
       	 lcd.drawImage(-5+2,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
       else
 	 lcd.drawImage(-5,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
@@ -2993,6 +3002,7 @@ local savedRy={}
 local circFitCache={}
 
 local dirPrintRenderer
+
 local function dirPrint(xw, xh, kk)
    local sC = variables.triLength * variables.triViewScale / 100 -- scale factor for this tele window
    local xf = 0.40 -- center X is at 1-xf of width
@@ -3037,7 +3047,7 @@ local function dirPrint(xw, xh, kk)
 
    if not xtable or not ytable then return end
 
-   if newTransmitter and Screen.image_width_px == 320 then
+   if newTransmitter and Screen.image_width_px == Screen.legacy_width_px then
       lcd.setClipping(0,0,320,160) -- needed for 24-II in compat mode
    end
    
@@ -3172,61 +3182,77 @@ local function dirPrint(xw, xh, kk)
       end      
    end
    
-   lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6+4, "N", FONT_MINI)
-   drawShape(20, 12+4, shapes.arrow, math.rad(-heading-variables.rotationAngle))
-   lcd.drawCircle(20, 12+4, 7)
+   --[[
+   lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2,
+		12 - lcd.getTextHeight(FONT_MINI, "N") / 2,
+		"N", FONT_MINI)
+   drawShape(20, 12, shapes.arrow, math.rad(-1*variables.rotationAngle))
+   lcd.drawCircle(20, 12, 9)
    
-   if not pylon or not pylon[3] then return end
+--]]
+   
+
+
+   lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2,
+		12 + 4 - lcd.getTextHeight(FONT_MINI, "N") / 2,
+		"N", FONT_MINI)
+   drawShape(20, 12+4, shapes.arrow, math.rad(-heading-variables.rotationAngle))
+   lcd.drawCircle(20, 12+4, 9)
    
    dirPrintRenderer:reset()
 
-   -- draw the triangle
+   if not pylon or not pylon[3] then
+      lcd.drawText(40, 60, lang.noTri, FONT_BIG)
+      --return
+   else
+      -- draw the triangle
    
-   setColor("Triangle", triColorMode)
-   for j = 1, #pylon + 1 do
-      rap(pylon[m3(j)].x, pylon[m3(j)].y)
-   end
-   dirPrintRenderer:renderPolyline(2, 0.7)
-
-   --draw the startline
-
-   setColor("StartLine", triColorMode)
-   if #pylon == 3 and pylon.start then
-      dirPrintRenderer:reset()
-      rap(pylon[2].x, pylon[2].y)
-      rap(pylon.start.x, pylon.start.y)
-      --lcd.setColor(0,0,255)
-      dirPrintRenderer:renderPolyline(2,0.7)
-   end
-
-   -- draw the line to the next aim point
-   setColor("AimPt", triColorMode)
-   if raceParam.racing then
-      --lcd.setColor(250,177,216)
-      dirPrintRenderer:reset()
-      rap(xx,yy)
-      rap(pylon[m3(nextPylon)].xt, pylon[m3(nextPylon)].yt)
-      dirPrintRenderer:renderPolyline(2, 0.7)
-   end
-
-   -- draw the turning zones
-   setColor("TurnZone", triColorMode)
-   for j = 1, #pylon do
-      dirPrintRenderer:reset()
-      rap(pylon[j].x, pylon[j].y)
-      rap(pylon[j].zxl, pylon[j].zyl)
-      rap(pylon[j].zxr, pylon[j].zyr)
-      rap(pylon[j].x, pylon[j].y)
-      --lcd.setColor(240,115,0)
-      local alpha
-      if raceParam.racing and m3(nextPylon) == j then
-	 alpha = 0.9
-      else
-	 alpha = 0.4
+      setColor("Triangle", triColorMode)
+      for j = 1, #pylon + 1 do
+	 rap(pylon[m3(j)].x, pylon[m3(j)].y)
       end
-      dirPrintRenderer:renderPolygon(alpha)
+      dirPrintRenderer:renderPolyline(2, 0.7)
+      
+      --draw the startline
+      
+      setColor("StartLine", triColorMode)
+      if #pylon == 3 and pylon.start then
+	 dirPrintRenderer:reset()
+	 rap(pylon[2].x, pylon[2].y)
+	 rap(pylon.start.x, pylon.start.y)
+	 --lcd.setColor(0,0,255)
+	 dirPrintRenderer:renderPolyline(2,0.7)
+      end
+      
+      -- draw the line to the next aim point
+      setColor("AimPt", triColorMode)
+      if raceParam.racing then
+	 --lcd.setColor(250,177,216)
+	 dirPrintRenderer:reset()
+	 rap(xx,yy)
+	 rap(pylon[m3(nextPylon)].xt, pylon[m3(nextPylon)].yt)
+	 dirPrintRenderer:renderPolyline(2, 0.7)
+      end
+      
+      -- draw the turning zones
+      setColor("TurnZone", triColorMode)
+      for j = 1, #pylon do
+	 dirPrintRenderer:reset()
+	 rap(pylon[j].x, pylon[j].y)
+	 rap(pylon[j].zxl, pylon[j].zyl)
+	 rap(pylon[j].zxr, pylon[j].zyr)
+	 rap(pylon[j].x, pylon[j].y)
+	 --lcd.setColor(240,115,0)
+	 local alpha
+	 if raceParam.racing and m3(nextPylon) == j then
+	    alpha = 0.9
+	 else
+	    alpha = 0.4
+	 end
+	 dirPrintRenderer:renderPolygon(alpha)
+      end
    end
-
+   
    ------------------------------------------------------------
 
    -- now draw the history/ribbon
@@ -3288,6 +3314,8 @@ local function dirPrint(xw, xh, kk)
    -- draw the airplane icon
    setColor("Label", triColorMode)
    --lcd.setColor(0,0,255)
+
+   --print("@@@@drawShape")
    
    drawShape(toXPixel(0, xmin, xrange, ww),
    	     toYPixel(0, ymin, yrange, wh),
@@ -3526,8 +3554,8 @@ local function recalcDone()
       xPHist[i], yPHist[i] = rotateXY(rE*(lngHist[i]-lng0)*coslat0/rad,
 				      rE*(latHist[i]-lat0)/rad,
 				      math.rad(variables.rotationAngle))
-      xPHist[i] = toXPixel(xPHist[i], map.Xmin, map.Xrange, 319)
-      yPHist[i] = toYPixel(yPHist[i], map.Ymin, map.Yrange, 159)
+      xPHist[i] = toXPixel(xPHist[i], map.Xmin, map.Xrange, Screen.image_width_px-1)
+      yPHist[i] = toYPixel(yPHist[i], map.Ymin, map.Yrange, Screen.image_height_px-1)
    end
    recalcCount = i
    if recalcCount >= #latHist then
@@ -3616,8 +3644,8 @@ local panic = false
 local mapPrintRenderer
 local function mapPrint(wWid, wHgt)
 
-   local windowWidth = 319
-   local windowHeight = 159
+   local windowWidth = Screen.image_width_px - 1 --319
+   local windowHeight = Screen.image_height_px - 1 -- 159
 
    local swp
    local offset
@@ -3647,7 +3675,7 @@ local function mapPrint(wWid, wHgt)
       graphScale(xtable[#xtable], ytable[#ytable])
    end
 
-   if newTransmitter and Screen.image_width_px == 320 then
+   if newTransmitter and Screen.image_width_px == Screen.legacy_width_px then
       lcd.setClipping(0,0,windowWidth+1,windowHeight+1) -- needed for 24-II in compat mode
    end
    
@@ -3708,9 +3736,11 @@ local function mapPrint(wWid, wHgt)
    -- 		  toYPixel(0, map.Ymin, map.Yrange, windowHeight),
    -- 		  4)
 
-   lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2, 6, "N", FONT_MINI)
+   lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2,
+		12 - lcd.getTextHeight(FONT_MINI, "N") / 2,
+		"N", FONT_MINI)
    drawShape(20, 12, shapes.arrow, math.rad(-1*variables.rotationAngle))
-   lcd.drawCircle(20, 12, 7)
+   lcd.drawCircle(20, 12, 9)
 
    if variables.ribbonColorSource ~= 1 and ribbon.currentValue then
       lcd.drawText(18, 140, string.format("%s: " .. ribbon.currentFormat,
@@ -3962,6 +3992,11 @@ local function mapPrint(wWid, wHgt)
 	    setColor("Map", "Image")
 	 end
       end
+
+
+      --code to draw a circle at x,y=0,0
+      --lcd.drawCircle(toXPixel(0, map.Xmin, map.Xrange, windowWidth),
+		     --toYPixel(0, map.Ymin, map.Yrange, windowHeight), 10)
       
       drawShape(toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 		toYPixel(ytable[#xtable], map.Ymin, map.Yrange, windowHeight) + 0,
@@ -4365,8 +4400,8 @@ local function loop()
 	    table.remove(rgbHist, 1)
 	 end
 	 metrics.xPCount = metrics.xPCount + 1
-	 table.insert(xPHist, toXPixel(x, map.Xmin, map.Xrange, 319))
-	 table.insert(yPHist, toYPixel(y, map.Ymin, map.Yrange, 159))
+	 table.insert(xPHist, toXPixel(x, map.Xmin, map.Xrange, Screen.image_width_px-1))
+	 table.insert(yPHist, toYPixel(y, map.Ymin, map.Yrange, Screen.image_height_px-1))
 
 	 xHistLast = x
 	 yHistLast = y
@@ -4694,12 +4729,21 @@ local function init()
 
    if fp then -- Config.jsn file with screen info exists
       Screen = json.decode(fp)
-   else
-      Screen = {image_width_px=320, image_height_px=160}
    end
 
-   print("Screen w,h:", Screen.image_width_px, Screen.image_height_px)
+   Screen.legacy_width_px = 320
+   Screen.legacy_height_px = 160
+   Screen.dcds24_width_px = 458
+   Screen.dcds24_height_px = 343
 
+   if not fp then
+      Screen.image_width_px = Screen.legacy_width_px
+      Screen.image_height_px = Screen.legacy_height_px
+   end
+   
+   --print("Screen w,h:", Screen.image_width_px, Screen.image_height_px)
+
+   
    -- for k,v in pairs(system.getTxTelemetry()) do
    --    print(k,v)
    -- end
@@ -4720,12 +4764,14 @@ local function init()
    --check if we loaded the larger maps for an old transmitter .. not ok
    --loading legacy maps with new transmitter is ok .. will run in compatibility mode
 
-   if (not newTransmitter) and (image_width_px ~= Screen.legacy_width_px) then
-      print(appInfo.Name .. ": Incompatible maps loaded for this TX")
-      system.messageBox(appInfo.Name.. ": Incompatible maps loaded for this TX")
+
+   if (not newTransmitter) and (Screen.image_width_px ~= Screen.legacy_width_px) then
+      print(appInfo.Name .. ": Incompatible maps loaded for this TX", 10)
+      --system.messageBox(appInfo.Name.. ": Incompatible maps")
+      form.question("Incompatible maps", "DFM-Maps", "Error", 0, true, 0)
    end
 
-   if newTransmitter and image_width_px == Screen.dcds24_width_px then
+   if newTransmitter and Screen.image_width_px == Screen.dcds24_width_px then
       system.setProperty("NativeDraw", 1)
       if system.getProperty("NativeDraw") ~= 1 then
 	 print(appInfo.Name .. ": Cannot enter Native Draw")
