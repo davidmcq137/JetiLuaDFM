@@ -121,6 +121,7 @@ local geo = {}
 local fieldnames = {}
 local fieldIdx
 local persistXP, persistYP, persistHH
+local persistZP, persistPP
 
 local function rotateXY(x, y, rotation)
    local sinShape, cosShape
@@ -465,9 +466,11 @@ function emulator_getSensors()
       coslat0 = math.cos(math.rad(GPSparms.lat0))
       --print("GPS Config: "..text)
       --print("xp, yp, heading", GPSparms.xp, GPSparms.yp, GPSparms.heading)
-      persistXP = GPSparms.xp
-      persistYP = GPSparms.yp
-      persistHH = GPSparms.heading
+      persistXP = GPSparms.xp or 0
+      persistYP = GPSparms.yp or 0
+      persistHH = GPSparms.heading or 0
+      persistZP = GPSparms.zp or 0
+      persistPP = GPSparms.pitch or 0
       --print("persistXP", persistXP)
       --print("persistYP", persistYP)      
       --print("fg:", fg)
@@ -596,10 +599,11 @@ function emulator_getSensorByID(ID, Param)
 	 env.dt = deltaT[uid]
 	 lastT[uid] = env.t
 
-	 env.xp = persistXP
-	 env.yp = persistYP
-	 env.heading = persistHH
-
+	 env.xp = persistXP or 0
+	 env.yp = persistYP or 0
+	 env.heading = persistHH or 0
+	 env.zp = persistZP or 0
+	 env.pitch = persistPP or 0
 	 
 	 --if GPSparms and GPSparms.startTime then
 	    --env.t = env.t + GPSparms.startTime
@@ -689,6 +693,47 @@ function emulator_getSensorByID(ID, Param)
 	       persistHH = result
 	    end
 
+	    if GPSparms.pString and GPSparms.pString ~= "" then
+	       chunk, err = load("return "..GPSparms.pString,"","t",env)
+	       if err then
+		  print("SensorE: lua functionString load error pString, returning 0 - "..err)
+		  result = 0
+	       else
+		  if chunk then
+		     status, result = pcall(chunk)
+		     result = result or 0
+		     if not status then
+			print("SensorE: Bad status - result:", result)
+			print("SensorE: GPSparms.pString: ", GPSparms.pString)
+		     end
+		  else
+		     result = 0 
+		  end
+	       end
+	       persistPP = result
+	    end
+
+	    if GPSparms.zString and GPSparms.zString ~= "" then
+	       chunk, err = load("return "..GPSparms.zString,"","t",env)
+	       if err then
+		  print("SensorE: lua functionString load error zString, returning 0 - "..err)
+		  result = 0
+	       else
+		  if chunk then
+		     status, result = pcall(chunk)
+		     result = result or 0
+		     if not status then
+			print("SensorE: Bad status - result:", result)
+			print("SensorE: GPSparms.zString: ", GPSparms.hString)
+		     end
+		  else
+		     result = 0 
+		  end
+	       end
+	       persistZP = result
+	    end
+
+	    --print("@", persistZP, env.zp, persistPP, env.pitch)	    
 	    --print("@", persistXP, persistYP, persistHH)
 	    --print("xCart, yCart:", xCart, yCart)
 	    
@@ -812,7 +857,7 @@ function emulator_getSensorByID(ID, Param)
 	 end
 
 	 if v.luaExp and v.luaExp ~= "" then
-	    
+	    --print("luaExp, env.zp", v.luaExp, env.zp)
 	    chunk, err = load("return "..v.luaExp,"luaExp: "..uid,"t",env)
 
 	    if err then
@@ -822,6 +867,7 @@ function emulator_getSensorByID(ID, Param)
        
 	       if chunk then
 		  status, expResult = pcall(chunk)
+		  --print("expResult", expResult)
 		  if not status then
 		     print("SensorE: Bad status - result:", expResult)
 		     print("SensorE: in luaExp: "..(v.luaExp or "nil"))
@@ -839,12 +885,14 @@ function emulator_getSensorByID(ID, Param)
 	 -- but warn user if they try to return values from both .. if they do that we take the
 	 -- luaFunc return value as the result
 
-	 if expResult then -- take luaExp result if exists
-	    returnTbl.value = expResult
-	 elseif funcResult then -- if not fall back on luaFunc result if it exists
-	    returnTbl.value = funcResult
-	 else
-	    returnTbl.value = 0 -- if no result return 0
+	 if returnTbl.type ~= 9 then
+	    if expResult then -- take luaExp result if exists
+	       returnTbl.value = expResult
+	    elseif funcResult then -- if not fall back on luaFunc result if it exists
+	       returnTbl.value = funcResult
+	    else
+	       returnTbl.value = 0 -- if no result return 0
+	    end
 	 end
 
 	 if expResult and funcResult then
@@ -889,6 +937,7 @@ function emulator_getSensorByID(ID, Param)
 	    end
 	    sensorCache[k][kk] = vv
 	 end
+	 --print("returnTbl.value", returnTbl.id, returnTbl.param, returnTbl.type, returnTbl.value)
 	 return returnTbl
       end
    end

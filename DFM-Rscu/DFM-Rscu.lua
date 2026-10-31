@@ -28,7 +28,7 @@ local lastSwO = -1
 local annSeq = 1
 local CMULT = 1.33 --circleMax = CMULT * circleMin
 local iPindex = 1
-local iPMAX = 200
+local iPMAX = 100
 local ixP = {}
 local iyP = {}
 
@@ -40,6 +40,7 @@ local magIdx
 local rescueOnTime
 local rescueOnDelay
 local holdTurn
+local eleDelay
 
 --[[
 local testLatControl
@@ -473,6 +474,8 @@ local function loop()
       end
       --]]
 
+      local holdZero = 1
+      
       if RTH.settings.steerCtrl and RTH.settings.steer then
 
 	 if RTH.gpsDistance then
@@ -499,6 +502,8 @@ local function loop()
 		     system.messageBox(appName ..": Turning outbound")
 		     announceTime = now + 2500 -- short delay then announce dist etc
 		     turnTime = now
+		     --holdZero = 0.1
+		     --turnTime = now - 1; nsHoldTime = 0 -- no delay on turn outbound
 		  end
 		  flyingOutbound = true
 	       end
@@ -523,6 +528,7 @@ local function loop()
 		     system.playBeep(2, 600, 200)
 		     system.messageBox(appName..": Turning around")
 		     announceTime = now + 2500 -- short delay then announce dist etc
+		     --turnTime = now - 1; nsHoldTime = 0 -- no delay on turn
 		     turnTime = now		  
 		     flyingToA = false
 		  end
@@ -533,6 +539,7 @@ local function loop()
 		     system.playBeep(2, 600, 200)
 		     system.messageBox(appName..": Turning around")
 		     announceTime = now + 2500 -- short delay then announce dist etc
+		     --turnTime = now - 1; nsHoldTime = 0 -- no delay on turn
 		     turnTime = now		  
 		     flyingToA = true
 		  end
@@ -548,7 +555,6 @@ local function loop()
 		  end
 	       end
 	    end
-	    
 
 	    local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
 
@@ -560,26 +566,29 @@ local function loop()
 	    if (RTH.settings.turnDir ~= turnMode.random) and ((turnTime or 0) == now) then
 	       if RTH.settings.turnDir == turnMode.left then
 		  nsHoldVal = -1 --was ns (could be random) .. left
+		  --print("hold -1")
 	       else
 		  nsHoldVal = 1 -- right
+		  --print("hold 1")
 	       end
-	       nsHoldTime = now + holdTurn * 1000
+	       nsHoldTime = now + holdZero * holdTurn * 1000
 	       --print("set hold", now, now + holdTurn, now < nsHoldTime)
 	    end
 
 	    if RTH.settings.turnDir == turnMode.random then nsHoldTime = 0 end
 	    
-	    if (nsHoldTime ~= 0) and (now < nsHoldTime) then
-	       --print("holding", ns, now, nsHoldTime)
+	    if (nsHoldTime ~= 0) and (now <= nsHoldTime) then
+	       --print("holding", ns, nsHoldVal, now, nsHoldTime)
 	       ns = nsHoldVal
 	       RTH.settings.steer = ns * 180
 	    else
 	       nsHoldTime = 0
 	    end
+	    if holdZero ~= 1 then print("ns " .. ns) end
 	    --print(ns, now, nsHoldTime)
 	    system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 1000, 1)
 	    system.setControl(RTH.settings.elevCtrl,
-			      RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns), 1000, 1)
+			      RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns), eleDelay*1000, 1)
 	    validmix = true
 	 end
 
@@ -880,6 +889,15 @@ local function initForm(subform)
 			return end),
 		  {width=155, font=FONT_NORMAL, algignRight=false})
 
+   form.addRow(2)
+   form.addLabel({label="Elev control delay (s)", font=FONT_NORMAL})
+   form.addIntbox(eleDelay, 0, 20, 2, 0, 1,
+		  (function(x)
+			eleDelay = x
+			system.pSave("eleDelay", x)
+			return end),
+		  {width=155, font=FONT_NORMAL, algignRight=false})
+
    --[[
    form.addRow(1)
    form.addLink((function()
@@ -928,9 +946,11 @@ local function drawLine(col, row, shape, rotation, lw)
 end
 
 local function printForm()
+
 end
 
 local function destroy()
+
 end
 
 
@@ -947,7 +967,6 @@ local function printTeleMix()
    local function yp(val)
       return 130  - (y0 + yl * (val - min) / (max - min))
    end
-
    
    if not RTH.settings.steerCtrl or not RTH.settings.steer then
       lcd.drawText(5, 2, "No steering value", FONT_NORMAL)
@@ -975,59 +994,7 @@ local function printTeleMix()
       drawX(xp(ns * 100), yp(em * 100), 4)      
       lcd.setColor(0,0,0)
    end
-   
 end
-
---[[
-local function printTeleBig()
-   
-   if not RTH.gpsBearingTo then
-      lcd.drawText(5,  2, "No GPS signal", FONT_NORMAL)
-      return
-   end
-
-   --if not RTH.settings.onoff or RTH.settings.onoff < 0 then
-   --   lcd.drawText(5,  2, "Not enabled", FONT_NORMAL)
-   --   return
-   --end
-
-   local conv, un
-
-   if RTH.settings.distUnits ~= 1 then -- ft
-      conv = 3.2808
-      un = "ft"
-   else
-      conv = 1
-      un = "m"
-   end
-         
-   lcd.drawText(5,  2, string.format("Bearing: %.0f°", RTH.gpsBearingTo or 0), FONT_NORMAL)
-   lcd.drawText(5, 20, string.format("Distance: %.0f"..un, conv*(RTH.gpsDistance or 0), FONT_NORMAL))
-   lcd.drawText(5, 38, string.format("Altitude: %.1f"..un, conv*(RTH.altitude or 0), FONT_NORMAL))
-   lcd.drawText(5, 54, string.format("Heading: %.0f°", RTH.gpsHeading or 0), FONT_NORMAL)   
-
-   if RTH.gpsHeading and RTH.gpsBearingFrom then
-      local steer = RTH.settings.steer
-      local normSteer = steer / 180.0
-      --normSteer = system.getInputs("P4")
-      --print(normSteer)
-      lcd.drawRectangle(20,75,120,20)
-      if RTH.settings.onoff == 1 then lcd.setColor(255,0,0) else lcd.setColor(0,0,0) end
-      lcd.drawFilledRectangle(79, 75, 2, 20)
-      if normSteer >= 0 then
-	 lcd.drawFilledRectangle(80,75, 60*normSteer, 20)
-      else
-	 local ns = math.floor(60*(1+normSteer))
-	 lcd.drawFilledRectangle(20 + ns,75, 60-ns, 20)	 
-      end
-   end
-   if RTH.gpsHeading then
-      lcd.setColor(0,0,255)
-      drawShape(120,20, homeShape, math.rad(RTH.gpsHeading)) 
-   end
-   
-end
---]]
 
 local function printTeleAH()
 
@@ -1252,52 +1219,34 @@ local function xytopixel(x, y)
 end
 
 local function printTeleGPS(w,h)
+
    if not RTH.gpsBearingTo then
       lcd.drawText(5,5, "No GPS signal")
       return
    end
 
-   --print("w,h", w,h)
-   
    printTeleAH(w,h)
-   
    printTeleMix(w,h)
-   local x, y, x1, y1, ix, iy, ix1, iy1
 
-   --lcd.drawRectangle(0,0,319,159)
+   local x, y, x1, y1, ix, iy, ix0, iy0
+
    lcd.setColor(255,0,0)
-   for i = 0, 360, 5 do
-      x = RTH.settings.circleMin * math.sin(math.rad(i))
-      y = RTH.settings.circleMin * math.cos(math.rad(i))
 
-      x1 = RTH.settings.circleMin * math.sin(math.rad(i+5))
-      y1 = RTH.settings.circleMin * math.cos(math.rad(i+5))      
-      --print(w,h,ix,iy)
-      ix, iy = xytopixel(x, y, w, h)
-      ix1, iy1 = xytopixel(x1, y1, w, h)      
-
-      --lcd.drawCircle(ix, iy, 1)
-      lcd.drawLine(ix,iy, ix1, iy1)
-   end
+   x = RTH.settings.circleMin * math.sin(math.rad(0))
+   y = RTH.settings.circleMin * math.cos(math.rad(0))
+   
+   ix, iy = xytopixel(x, y, w, h)
+   ix0, iy0 = xytopixel(0, 0, w, h)
+   local rc = math.sqrt((ix-ix0)^2 + (iy-iy0)^2)
+   lcd.drawCircle(ix0, iy0, rc)
    lcd.setColor(0,0,255)
-   for i = 0, 360, 5 do
-      x = RTH.settings.circleMin * CMULT * math.sin(math.rad(i))
-      y = RTH.settings.circleMin * CMULT * math.cos(math.rad(i))
-
-      x1 = RTH.settings.circleMin * CMULT * math.sin(math.rad(i+5))
-      y1 = RTH.settings.circleMin * CMULT * math.cos(math.rad(i+5))      
-      --print(w,h,ix,iy)
-      ix, iy = xytopixel(x, y, w, h)
-      ix1, iy1 = xytopixel(x1, y1, w, h)      
-      
-      lcd.drawLine(ix, iy, ix1, iy1)
-   end
-
+   lcd.drawCircle(ix0, iy0, rc * CMULT)
+   
    lcd.setColor(0,0,0)
 
 
    if (RTH.settings.circStrat == steerMode.racetrack or RTH.settings.circStrat == steerMode.leftright) 
-      and RTH.aimPosOutbound and RTH.zeroPos then
+      and RTH.aimPosOutbound and RTH.zeroPos and RTH.aimPosA and RTH.aimPosB then
       local bb
       local dd
 
@@ -1327,10 +1276,12 @@ local function printTeleGPS(w,h)
       lcd.drawCircle(ix, iy, 4)
       
    end
+
+   if not RTH.gpsHeading or not RTH.gpsDistance or not RTH.gpsBearingTo then return end
    
    x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
    y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))
-   --print("x,y", x, y)
+
    ix, iy = xytopixel(x, y, w, h)
    if RTH.settings.onoff < 1 then
       lcd.setColor(0,0,0)
@@ -1339,7 +1290,6 @@ local function printTeleGPS(w,h)
    end
 
    drawShape(ix,iy, config.Glider, math.rad(RTH.gpsHeading or 0)) 
-   --lcd.drawCircle(ix, iy, 5)
 
    local dist
    if iPindex > 1 then
@@ -1347,7 +1297,6 @@ local function printTeleGPS(w,h)
    end
 
    if not dist or dist > 4 then --4m min point spacing
-      --print("iPindex", iPindex)
       ixP[iPindex] = ix
       iyP[iPindex] = iy
       if iPindex < iPMAX then
@@ -1372,51 +1321,11 @@ local function printTeleGPS(w,h)
 				      inv(steerMode)[RTH.settings.circStrat],
 				      inv(turnMode)[RTH.settings.turnDir]), FONT_MINI)
 
-   lcd.drawText(60, 145, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
-   lcd.drawText(190, 145, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
+   lcd.drawText(70, 145, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
+   lcd.drawText(220, 145, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
 
-   --lcd.drawText(0,0,string.format("CPU: %d", system.getCPU()), FONT_MINI)
+   lcd.drawText(0, 145, string.format("CPU %d%%", system.getCPU()), FONT_MINI)
    
-   --[[
-   lcd.drawText(20, 40, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
-   lcd.drawText(20, 60, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
-   lcd.drawText(20, 80, string.format("BrgFrom: %d", RTH.gpsBearingFrom), FONT_MINI)
-   
-   if RTH.gpsHeading then
-      --local ixh, iyh = ix + 20 * math.sin(math.rad(RTH.gpsHeading)),
-      --iy - 20 * math.cos(math.rad(RTH.gpsHeading))
-      --lcd.drawLine(ix, iy, ixh, iyh)
-      lcd.drawText(20, 100, string.format("Hdg: %d", RTH.gpsHeading or 0), FONT_MINI)   
-
-   end
-      
-   if RTH.gpsHeading and RTH.gpsBearingFrom then
-      local steer = RTH.settings.steer --(-RTH.gpsHeading + RTH.gpsBearingFrom + 180) % 360 - 180
-      lcd.drawText(20, 120, string.format("Steer: %d ", steer), FONT_MINI)
-      --local ixs, iys = ix + 20 * math.sin(math.rad(steer)), iy - 20 * math.cos(math.rad(steer)) 
-      --lcd.drawLine(ix, iy, ixs, iys)
-      --[[
-      local normSteer = steer / 180.0
-      lcd.drawRectangle(60,120,200,30)
-      --normSteer = system.getInputs("P4")
-      lcd.drawFilledRectangle(159, 120, 2, 30) 
-      if normSteer >= 0 then
-	 lcd.drawFilledRectangle(160,120, 100*normSteer, 30)
-      else
-	 local ns = math.floor(100*(1+normSteer))
-	 lcd.drawFilledRectangle(60 + ns,120, math.floor(100-ns+0.5), 30)	 
-      end
-      --]]
---end
-   --]]
-
---[[
-   if RTH.altitude then
-   lcd.drawText(20, 140, string.format("Alt: %d ", RTH.altitude), FONT_MINI)
-   end
---]]
-
-   --lcd.drawNumber(20,160, RTH.settings.onoff or -999)
 end
 
 local function logfileCB(idx)
@@ -1531,6 +1440,7 @@ local function init()
    RTH.settings.maxElevGain = system.pLoad("maxElevGain", 0)
    rescueOnDelay = system.pLoad("rescueOnDelay", 3)
    holdTurn = system.pLoad("holdTurn", 5)
+   eleDelay = system.pLoad("eleDelay", 2)
 
    flyingOutbound = false
    calibrating = false

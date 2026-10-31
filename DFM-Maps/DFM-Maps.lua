@@ -1358,7 +1358,7 @@ local function keyForm(key)
       end
    end
    if key == KEY_1 or key == KEY_5 or key == KEY_ESC then
-      print("1/5/E", key, savedSubform)
+      --print("1/5/E", key, savedSubform)
       if savedSubform == 9 or savedSubform == 10 then
 	 form.preventDefault()
 	 if savedSubform == 10 then
@@ -4729,6 +4729,9 @@ local function init()
 
    if fp then -- Config.jsn file with screen info exists
       Screen = json.decode(fp)
+      if not Screen.image_height_px then
+	 Screen.image_height_px = Screen.image-height_px -- until RFM fixes typo
+      end
    end
 
    Screen.legacy_width_px = 320
@@ -4761,8 +4764,8 @@ local function init()
 
    --check if we loaded the larger maps for an old transmitter .. not ok
    --loading legacy maps with new transmitter is ok .. will run in compatibility mode
-
-
+   --use form.question since system.messageBox gets overwritten
+   
    if (not newTransmitter) and (Screen.image_width_px ~= Screen.legacy_width_px) then
       print(appInfo.Name .. ": Incompatible maps loaded for this TX", 10)
       --system.messageBox(appInfo.Name.. ": Incompatible maps")
@@ -4775,7 +4778,7 @@ local function init()
 	 print(appInfo.Name .. ": Cannot enter Native Draw")
 	 system.messageBox(appInfo.Name .. ": Cannot enter Native Draw")	 
       else
-	 print(appInfo.Name .. ": DC/DS Native Draw Mode")
+	 print(appInfo.Name .. ": DC/DS 24 Native Draw Mode")
       end
    end
 
