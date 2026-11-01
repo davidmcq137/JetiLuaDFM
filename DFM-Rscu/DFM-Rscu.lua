@@ -217,7 +217,7 @@ local nsHoldVal
 local nsHoldTime
 local turnTime
 
-local function loop()
+local function loopP()
    local now
    local sensor
    local MINHDGDIST = 3
@@ -649,6 +649,17 @@ local function loop()
 
 end
 
+
+local errCnt = 0
+local function loop()
+   local s,e = pcall(loopP)
+   if not s then
+      print(appName..": Loop error - "..e)
+      errCnt = errCnt + 1
+      if errCnt > 5 then exit() end
+   end
+end
+
 local activeSf
 
 local function keyPress(key)
@@ -1023,7 +1034,7 @@ local function printTeleAH()
    drawLine(50, 85, hLineShape, math.rad(roll), 2)
    drawLine(50, 85, hLineShape, 0, 1)
    drawLine(50, 85, vLineShape, 0, 1)
-   drawLine(50, 85 -pitch/2, hDashShape, 0, 2)
+   drawLine(50, 85 - pitch, hDashShape, 0, 2)
    
 end
 
@@ -1218,7 +1229,7 @@ local function xytopixel(x, y)
    return ix,iy
 end
 
-local function printTeleGPS(w,h)
+local function printTeleGPSP(w,h)
 
    if not RTH.gpsBearingTo then
       lcd.drawText(5,5, "No GPS signal")
@@ -1326,6 +1337,16 @@ local function printTeleGPS(w,h)
 
    lcd.drawText(0, 145, string.format("CPU %d%%", system.getCPU()), FONT_MINI)
    
+end
+
+local errCntT = 0
+local function printTeleGPS(w,h)
+   local s,e = pcall(printTeleGPSP, w, h)
+   if not s then
+      print(appName..": Tele error - "..e)
+      errCntT = errCntT + 1
+      if errCntT > 5 then exit() end
+   end
 end
 
 local function logfileCB(idx)

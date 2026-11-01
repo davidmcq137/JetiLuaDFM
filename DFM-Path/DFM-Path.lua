@@ -19,6 +19,8 @@ local pathApp = "Apps/"..appName.."/"
 local RTH = {}
 local config = {}
 local Path = {}
+Path.gps = {}
+Path.alt = {}
 local pathIndex
 local flyIndex
 local flyingOutbound
@@ -31,9 +33,11 @@ local lastSwO = -1
 local annSeq = 1
 local CMULT = 1.33 --circleMax = CMULT * circleMin
 local iPindex = 1
-local iPMAX = 200
+local iPMAX = 120
 local ixP = {}
 local iyP = {}
+local inRange = 30 -- meters to target gps point to consider arrived
+local xmin, xmax, ymin, ymax
 
 local steerMode = {petals=1,racetrack=2,leftright=3}
 local turnMode = {left=1,right=2,random=3}
@@ -43,6 +47,7 @@ local magIdx
 local rescueOnTime
 local rescueOnDelay
 local holdTurn
+local pGain
 
 --[[
 local testLatControl
@@ -253,20 +258,12 @@ local function loop()
 	 else
 	    RTH.var.startTakeoffAlt = altnow
 	 end
+	 --print("altnow, RTH.var.startTakeoffAlt", altnow, RTH.var.startTakeoffAlt)
       end
-      RTH.Altitude = altnow -- - RTH.var.startTakeoffAlt
-      --print("RTH.altitude", RTH.altitude)
+      RTH.altitude = altnow - RTH.var.startTakeoffAlt
+
    end
 
-   if RTH.Altitude then
-      local rawsig = RTH.Altitude - 100 * (system.getInputs("P4")+1)
-      rawsig = rawsig * 1
-      local errsig = rawsig * 0.1
-      if errsig > 1 then errsig = 1 end
-      if errsig < -1 then errsig = -1 end
-      --print(RTH.settings.elevCtrl, rawsig, errsig)
-      system.setControl(RTH.settings.elevCtrl, errsig, 1000, 1)
-   end
    
 
    -- read heading here if GPS sensor has one
@@ -349,9 +346,20 @@ local function loop()
       calibrating = true
       if not pathIndex then pathIndex = 0 end
       pathIndex = pathIndex + 1
-      Path[pathIndex] = RTH.curPos
-      system.messageBox(string.format("Captured Point %d", pathIndex))
-      --system.playFile(prefix().. pathApp .. "Audio/mixercalactive.wav", AUDIO_IMMEDIATE)
+      Path.gps[pathIndex] = RTH.curPos
+      Path.alt[pathIndex] = RTH.altitude
+      altSetPoint = RTH.altitude
+      
+      system.messageBox(string.format("Captured Point %d - Alitude %d ", pathIndex, RTH.altitude or 0))
+
+      system.playFile(prefix() .. pathApp .. "Audio/pointnumber.wav", AUDIO_QUEUE)
+      playNumberInt(pathIndex)
+
+      if RTH.altitude then
+	 system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)      
+	 playNumberInt(RTH.altitude)
+	 system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)      	 
+      end
       rescueOnTime = now
    end
 
@@ -374,15 +382,20 @@ local function loop()
 
    if lastSwO == -1 and SwO == 1 then
       if pathIndex and pathIndex > 0 then
-	 print("flyIndex = 1")
 	 flyIndex = 1
+	 system.playFile(prefix() .. pathApp .. "Audio/steeringtopoint.wav", AUDIO_QUEUE)
+	 playNumberInt(flyIndex)
+	 --compute bearing to next point
+	 local gb = gps.getBearing(RTH.curPos, Path.gps[flyIndex])
+	 system.playFile(prefix() .. pathApp .. "Audio/course.wav", AUDIO_QUEUE)
+	 playNumberCompass(gb)
+	 system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
       end
       RTH.settings.onoff = SwO
    end
 
    if lastSwO == 1 and SwO == -1 then
       flyIndex = 0
-      print("flyIndex = 0")
       RTH.settings.onoff = SwO
    end
    
@@ -390,27 +403,54 @@ local function loop()
 
    RTH.settings.steer = 0
    RTH.settings.elev = 0
+   
    local validmix = false
-
+   
    if RTH.settings.onoff and flyIndex and RTH.settings.onoff > 0 and flyIndex > 0 then
 
-      RTH.bearingTo = gps.getBearing(RTH.curPos, Path[flyIndex])
+      -- First, regulate altitude
+      
+      altSetPoint = Path.alt[flyIndex]
+      
+      if RTH.altitude and altSetPoint then
+	 local rawsig = RTH.altitude - altSetPoint
+	 local errsig = rawsig * (pGain or 0)
+	 if errsig > 1 then errsig = 1 end
+	 if errsig < -1 then errsig = -1 end
+	 system.setControl(RTH.settings.elevCtrl, errsig, 1000, 1)
+      else
+	 system.setControl(RTH.settings.elevCtrl, 0, 1000, 1)
+      end
+
+      -- Now steer
+      
+      RTH.bearingTo = gps.getBearing(RTH.curPos, Path.gps[flyIndex])
+      RTH.distanceTo = gps.getDistance(RTH.curPos, Path.gps[flyIndex])
       RTH.settings.steer = (-RTH.gpsHeading + RTH.bearingTo + 180) % 360 - 180
       
       local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
       
       system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 1000, 1)
-      --system.setControl(RTH.settings.elevCtrl,
-      --RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns), 1000, 1)
       validmix = true
 
-      -- check if at next point now .. and if so advance
-      print(flyIndex, #Path, gps.getDistance(RTH.curPos, Path[flyIndex]), RTH.settings.circleMin*0.4)
+      -- Check if at next point now .. and if so advance
+      --print(flyIndex, #Path, gps.getDistance(RTH.curPos, Path[flyIndex]), RTH.settings.circleMin*0.4)
       
-      if gps.getDistance(RTH.curPos, Path[flyIndex]) < RTH.settings.circleMin * 0.2 then
-	 system.messageBox("Moving to next point")
+      if RTH.distanceTo < inRange then
+	 local fCurrent = flyIndex
 	 flyIndex = flyIndex + 1
-	 if flyIndex > #Path then flyIndex = 1 end
+	 if flyIndex > #Path.gps then flyIndex = 1 end
+
+	 if fCurrent ~= flyIndex then -- they are equal when there is only one point 
+	    system.messageBox(string.format("Steering to point %d", flyIndex))
+	    system.playFile(prefix() .. pathApp .. "Audio/steeringtopoint.wav", AUDIO_QUEUE)
+	    playNumberInt(flyIndex)
+	    --compute bearing to next point
+	    local gb = gps.getBearing(Path.gps[fCurrent], Path.gps[flyIndex])
+	    system.playFile(prefix() .. pathApp .. "Audio/course.wav", AUDIO_QUEUE)
+	    playNumberCompass(gb)
+	    system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
+	 end
       end
       
    end
@@ -492,6 +532,8 @@ local function initForm(subform)
    form.addInputbox(RTH.settings.calSw, true, calChanged,
 		    {width=155, font=FONT_NORMAL, alignRight=false})
 
+   
+   --[[
    local function ecChanged(value)
       local si = system.getSwitchInfo(value)
       --print("si", si.label, si.value, si.proportional, si.assigned, si.mode)
@@ -519,6 +561,8 @@ local function initForm(subform)
    form.addLabel({label="Elevator mix percentage", font=FONT_NORMAL})   
    form.addIntbox(RTH.settings.maxElevGain, -100, 100, 0, 0, 1, egChanged,
 		  {width=155, font=FONT_NORMAL, alignRight=false})
+   
+   --]]
    
    form.addRow(2)
    form.addLabel({label="GPS Lat Sensor", font=FONT_NORMAL})
@@ -597,73 +641,62 @@ local function initForm(subform)
 			   return end),
 		     {width=155, font=FONT_NORMAL, alignRight=false})
 
-
    form.addRow(2)
-   form.addLabel({label="Min Circling Dist (m)", font=FONT_NORMAL})
-   form.addIntbox(RTH.settings.circleMin, 0, 10000, 100, 0, 1,
+   form.addLabel({label="Alt Loop pGain", font=FONT_NORMAL})
+   form.addIntbox(pGain*1000, -1000, 1000, 100, 3, 1,
 		  (function(x)
-			RTH.settings.circleMin = x
-			system.pSave("circleMin", x)
-			return end),
-		  {width=155, font=FONT_NORMAL, algignRight=false})
-   
-   form.addRow(2)
-   form.addLabel({label="Circling behavior", font=FONT_NORMAL})
-   form.addSelectbox(inv(steerMode),
-      RTH.settings.circStrat, true,
-      (function(i)
-	    RTH.settings.circStrat = i
-	    system.pSave("RTHcircStrat", RTH.settings.circStrat)
-	    return end),
-      {width=155, font=FONT_NORMAL, alignRight=false})
-   
-   form.addRow(2)
-   form.addLabel({label="Perferred turn", font=FONT_NORMAL, width=155})
-   form.addSelectbox(inv(turnMode),
-      RTH.settings.turnDir, true,
-      (function(i)
-	    RTH.settings.turnDir = i
-	    system.pSave("RTHturnDir", RTH.settings.turnDir)
-	    return end),
-      {width=155, font=FONT_NORMAL, alignRight=false})
-
-   form.addRow(2)
-   form.addLabel({label="Rescue On Delay (s)", font=FONT_NORMAL})
-   form.addIntbox(rescueOnDelay, 0, 10, 3, 0, 1,
-		  (function(x)
-			rescueOnDelay = x
-			system.pSave("rescueOnDelay", x)
-			return end),
-		  {width=155, font=FONT_NORMAL, algignRight=false})
-   
-   form.addRow(2)
-   form.addLabel({label="Init turn hold time (s)", font=FONT_NORMAL})
-   form.addIntbox(holdTurn, 0, 10, 3, 0, 1,
-		  (function(x)
-			holdTurn = x
-			system.pSave("holdTurn", x)
+			pGain = x / 1000.0
+			system.pSave("pGain", pGain * 1000)
 			return end),
 		  {width=155, font=FONT_NORMAL, algignRight=false})
 
-   --[[
    form.addRow(1)
-   form.addLink((function()
-	    if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, -1, 0) end
-	    if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, -1, 0) end
-	    form.reinit(2) end), {label="Setup: Mix controls to max >>"})
-   --]]
+   form.addLink((
+	 function()
+	    local SPath = {}
+	    local lats, lngs
+	    SPath.gps = {}
+	    SPath.alt = {}
+	    -- have to create string representation .. can't serialize gpsPoints
+	    for i,v in ipairs(Path.gps) do
+	       lats, lngs = gps.getString(Path.gps[i])
+	       SPath.gps[i] = {}
+	       SPath.gps[i].lat = lats
+	       SPath.gps[i].lng = lngs
+	       SPath.alt[i] = Path.alt[i]
+	    end
+	    local str = json.encode(SPath)
+	    local f = io.open(prefix()..pathApp.."Json/Path.jsn", "w")
+	    if f then
+	       io.write(f, str, "\n")
+	       io.close(f)
+	       system.messageBox("Path file saved")
+	    end
+	 end), {label="Save Path >>", font=FONT_NORMAL})
+
+   -- Should think about if enable has to be off to read a file of GPS points?
    
-   
-   --[[
-   form.addRow(2)
-   form.addLabel({label="Resume Steering Distance (m)", font=FONT_NORMAL})
-   form.addIntbox(RTH.settings.circleMax, 0, 10000, 100, 0, 1,
-		  (function(x)
-			RTH.settings.circleMax = x
-			system.pSave("circleMax", x)
-			return end),
-		  {width=155, font=FONT_NORMAL, algignRight=false})
-   --]]
+   form.addRow(1)
+   form.addLink((
+	 function()
+	    local str = io.readall(prefix()..pathApp.."Json/Path.jsn", "r")
+	    if not str then system.messageBox("No file read") end
+	    if str then
+	       Path = {}
+	       Path.gps = {}
+	       Path.alt = {}
+	       flyIndex = 0
+	       pathIndex = 0
+	       local SPath = json.decode(str)
+	       for i,v in ipairs(SPath.gps) do
+		  --Path.gps[i] = gps.newPoint(SPath.gps[i].lat, SPath.gps[i].lng)
+		  Path.gps[i] = gps.newPoint(v.lat, v.lng)		  
+		  Path.alt[i] = SPath.alt[i]
+	       end
+	       pathIndex = #Path.gps
+	       system.messageBox(string.format("Path file read, %d points", pathIndex))
+	    end
+	 end), {label="Load saved Path >>", font=FONT_NORMAL})
 end
 
 local function drawShape(col, row, shape, rotation)
@@ -823,11 +856,10 @@ local function printTeleAH()
    drawLine(50, 85, hLineShape, math.rad(roll), 2)
    drawLine(50, 85, hLineShape, 0, 1)
    drawLine(50, 85, vLineShape, 0, 1)
-   drawLine(50, 85 -pitch/2, hDashShape, 0, 2)
+   drawLine(50, 85 -pitch, hDashShape, 0, 2)
    
 end
 
-local xmin, xmax, ymin, ymax
 
 local function xytopixel(x, y)
 
@@ -854,13 +886,18 @@ local function printTeleGPS(w,h)
    if pathIndex and pathIndex > 0 then
       local bb, dd
       for i=1, pathIndex, 1 do
-	 bb = gps.getBearing(RTH.zeroPos, Path[i])
-	 dd = gps.getDistance(RTH.zeroPos, Path[i])
+	 bb = gps.getBearing(RTH.zeroPos, Path.gps[i])
+	 dd = gps.getDistance(RTH.zeroPos, Path.gps[i])
 	 x = dd * math.sin(math.rad(bb))
 	 y = dd * math.cos(math.rad(bb))
 	 ix, iy = xytopixel(x, y, w, h)
-	 drawX(ix, iy, 3)
-	 lcd.drawCircle(ix, iy, 4)
+	 local ss = string.format("%d", i)
+	 local ww = lcd.getTextWidth(FONT_MINI, ss)
+	 local hh = lcd.getTextHeight(FONT_MINI, ss)
+	 lcd.drawNumber(ix - ww/2, iy - hh/2, i, FONT_MINI)
+	 --drawX(ix, iy, 3)
+	 local rr = 320 * inRange / (xmax - xmin) 
+	 lcd.drawCircle(ix, iy, rr)
       end
    end
    
@@ -899,16 +936,25 @@ local function printTeleGPS(w,h)
    
    lcd.setColor(0,0,0)
    local ix0 , iy0 = xytopixel(0, 0, w, h)
-   lcd.drawCircle(ix0, iy0, 2)
+   --lcd.drawCircle(ix0, iy0, 2)
    
-   lcd.drawText(40, 15, string.format("[%d,%d,%d,%d]   steer: %s  turn: %s",
-				      xmin, xmax, ymin, ymax,
-				      inv(steerMode)[RTH.settings.circStrat],
-				      inv(turnMode)[RTH.settings.turnDir]), FONT_MINI)
+   lcd.drawText(10, 15, string.format("[%d,%d,%d,%d]", xmin, xmax, ymin, ymax), FONT_MINI)
+   if flyIndex and flyIndex > 0 and RTH.bearingTo then
+      lcd.drawText(150, 15, string.format("Steering %03d° to point %d dist %d",
+					  RTH.bearingTo or 0,
+					  flyIndex or 0,
+					  RTH.distanceTo or 0), FONT_MINI)
+   end
+   
 
-   lcd.drawText(60, 145, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
-   lcd.drawText(190, 145, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
-   lcd.drawText(0, 145, string.format("Alt: %.1f", RTH.Altitude or 0), FONT_MINI)
+   --lcd.drawText(60, 145, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
+   --lcd.drawText(190, 145, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
+   local pp = math.floor((pitchVal or 0) * 100 + 0.5) / 100
+   if pitchVal == -0.0 then pitchVal = 0 end
+   local as
+   if altSetPoint then as = string.format("%.1f", altSetPoint) else as = "---" end
+   lcd.drawText(10, 145, string.format("Alt: %.1f  Alt Set %s  Pitch %.1f°",
+				      RTH.altitude or 0, as, pitchVal or 0), FONT_MINI)
    
 end
 
@@ -951,13 +997,17 @@ local function keyPressGPS(key)
       if magIdx < 1 then magIdx = 1 end
       setMag(magIdx)
    elseif key == KEY_3 then
-      RTH.settings.circStrat = RTH.settings.circStrat + 1
-      if RTH.settings.circStrat > #inv(steerMode) then RTH.settings.circStrat = 1 end
-      system.pSave("RTHcircStrat", RTH.settings.circStrat)
+      iPindex = 1
+      ixP = {}
+      iyP = {}
    elseif key == KEY_4 then
-      RTH.settings.turnDir = RTH.settings.turnDir + 1
-      if RTH.settings.turnDir > #inv(turnMode) then RTH.settings.turnDir = 1 end
-      system.pSave("RTHturnDir", RTH.settings.turnDir)
+      Path = {}
+      Path.gps = {}
+      Path.alt = {}
+      system.setControl(RTH.settings.elevCtrl, 0, 0, 1)      
+      flyIndex = 0
+      pathIndex = 0
+      altSetPoint = RTH.altitude
       --else -- key5
    end
 end
@@ -978,14 +1028,13 @@ local function init()
 --     do something different on new tx?      
 --   end
    
-   system.registerTelemetry(1, "Path", 4, printTeleGPS, keyPressGPS)
+   system.registerTelemetry(1, "Flight Path", 4, printTeleGPS, keyPressGPS)
    
    if system.setTelemetryButton then
-      print("setting Button")
       system.setTelemetryButton(1, 1, "-", 1)
       system.setTelemetryButton(1, 2, "+", 1)
-      system.setTelemetryButton(1, 3, "Steer", 1)
-      system.setTelemetryButton(1, 4, "Turn", 1)
+      system.setTelemetryButton(1, 3, "Erase", 1)
+      system.setTelemetryButton(1, 4, "Reset", 1)
       --system.setTelemetryButton(1, 5, "5", 1)      
    else
       print("not setting Button")
@@ -1022,7 +1071,8 @@ local function init()
    RTH.settings.maxElevGain = system.pLoad("maxElevGain", 0)
    rescueOnDelay = system.pLoad("rescueOnDelay", 3)
    holdTurn = system.pLoad("holdTurn", 5)
-
+   pGain = system.pLoad("pGain", 100) / 1000
+   
    flyingOutbound = false
    calibrating = false
 
