@@ -849,9 +849,9 @@
                                                                         [:db/add zone-eid :zone/hidden false]])]
                               (attach-zone! (d/entity db-after zone-eid)))))
 
-(def apps-request-result (atom nil))
+(def apps-request-result (atom {}))
 (register-sub ::close-modal (fn [[_]]
-                              (reset! apps-request-result nil)
+                              (reset! apps-request-result {})
                               (d/transact! conn [{:db/ident ::state
                                                   :state/modal false}])))
 
@@ -1295,17 +1295,22 @@
 
 (def screen-variants
   [{:label "Standard"
+    :token-suffix ""
     :name "DFM-Maps - GPS Maps"
     :hw [678 679 680 652 653 3857 3858]
     :width 320
     :height 160}
    {:label "Large screen"
+    :token-suffix "-L"
     :name "DFM-Maps - GPS Maps (large screen)"
     :hw [3866 3867]
     :width 458
     :height 343}])
 
-(defn make-dynamic-repo-request [db]
+(defn variant-token [{:keys [token-suffix]}]
+  (str (get-or-create-token!) token-suffix))
+
+(defn make-dynamic-repo-request [db {:keys [name hw width height]}]
   ;; apps json?
   (let [origin js/window.location.origin
         fields-json (into {}
@@ -1313,10 +1318,7 @@
                             [short-name (json-data-for-field field)]))]
     (clj->js
      {:yoururl origin
-      :apps (conj
-             (vec
-              (for [{:keys [name hw width height]} screen-variants]
-                {:base-app "DFM-Maps"
+      :apps [{:base-app "DFM-Maps"
                  :app-json {"hw" hw
                             "name" {"en" name}}
                  :dynamic-files
@@ -1325,31 +1327,32 @@
                     :json-data fields-json}
                    {:destination "Apps/DFM-Maps/Maps/Config.jsn"
                     :json-data {"image_width_px" width
-                                "image-height_px" height}}]
+                                "image_height_px" height}}]
                   (for [{:field/keys [name short-name clipbox runway triangle noflys]} (qes-by db :field/name)
                         c clipbox]
                     (let [i (:clipbox/preview-zoom c)]
                       {:destination (str "Apps/DFM-Maps/Maps/" short-name "/" i ".png")
                        :url (str (.-origin (.-location js/window))
                                  "/staticmap?"
-                                 (zone-image-query-params c width height))})))}))
+                                 (zone-image-query-params c width height))})))}
              {:base-app "DFM-GPS"
               :dynamic-files 
               (into [{:app "DFM-GPS" :prefix "Apps/"}]
                     (for [f (qes-by db :field/name)]
                       {:destination (str "Apps/DFM-GPS/FF_" (:field/short-name f) ".jsn")
-                       :json-data (simple-json-data-for-field f)}))})})))
+                       :json-data (simple-json-data-for-field f)}))}]})))
 
-(defn send-dynamic-repo-request! [json-data]
-  (let [xhr (XhrIo.)]
-    (.listen xhr EventType/COMPLETE
-             (fn [_]
-               (println "complete")
-               (reset! apps-request-result (.getResponseJson xhr))))
-    (.send xhr (str "/dynamic-repo-v3?token=" (get-or-create-token!))
-           "POST"
-           (.stringify js/JSON json-data nil 2)
-           #js {"Content-Type" "application/json;charset=UTF-8"})))
+(defn send-dynamic-repo-request! [db]
+  (doseq [[i variant] (map-indexed vector screen-variants)]
+    (let [xhr (XhrIo.)]
+      (.listen xhr EventType/COMPLETE
+               (fn [_]
+                 (println "complete" (:label variant))
+                 (swap! apps-request-result assoc i (.getResponseJson xhr))))
+      (.send xhr (str "/dynamic-repo-v3?token=" (variant-token variant))
+             "POST"
+             (.stringify js/JSON (make-dynamic-repo-request db variant) nil 2)
+             #js {"Content-Type" "application/json;charset=UTF-8"}))))
 
 
 (defn send-github-releases-request!
@@ -1360,18 +1363,18 @@
     (.send xhr "https://api.github.com/repos/davidmcq137/JetiLuaDFM/releases")))
 
 (register-sub ::change-git-ref (fn [[_ new-ref]]
-                                 (reset! apps-request-result nil)
+                                 (reset! apps-request-result {})
                                  (d/transact! conn [{:db/ident ::state
                                                      :state/dynamic-repo-git-ref new-ref}])
-                                 (send-dynamic-repo-request! (make-dynamic-repo-request @conn))))
+                                 (send-dynamic-repo-request! @conn)))
 
 (register-sub ::select-github-release
               (fn [[_ new-release-id]]
                 (println "Select release" (pr-str new-release-id))
-                (reset! apps-request-result nil) 
+                (reset! apps-request-result {}) 
                 (d/transact! conn [{:db/ident ::state
                                     :state/selected-release [:release/id new-release-id]}])
-                (send-dynamic-repo-request! (make-dynamic-repo-request @conn))))
+                (send-dynamic-repo-request! @conn)))
 
 (register-sub ::github-releases-fetched
               (fn [[_ json]]
@@ -1413,7 +1416,7 @@
                    (:tx-data (d/with @conn txdata)))
                   
                   (d/transact! conn txdata)
-                  (send-dynamic-repo-request! (make-dynamic-repo-request @conn)))))
+                  (send-dynamic-repo-request! @conn))))
 
 (register-sub ::set-show-prereleases
               (fn [[_ show?]]
@@ -1496,7 +1499,7 @@
               :value "Create JETI repository"
               :on-click #(do
                            (send-github-releases-request! bus)
-                           #_(send-dynamic-repo-request! (make-dynamic-repo-request db))
+                           #_(send-dynamic-repo-request! db)
                            (async/put! bus [::show-modal :repo-request]))}]
      [:input.danger-button
       {:type "button" :value "Clear all fields"
@@ -1671,20 +1674,21 @@
 
 
 (rum/defc apps-request-view < rum/reactive
-  [json-data db bus]
-  (if-let [r (rum/react apps-request-result)]
-    (let [jj (aget r "repo_url")]
+  [db bus]
+  (let [rs (rum/react apps-request-result)]
+    (if (= (count rs) (count screen-variants))
       [:div
-       [:p "This is your temporary JETI repository.  Use it soon since it won't live forever!"]
-       [:code jj]
-       [:p "If you prefer manual installation, you can also download a zip archive:"]
+       [:p "These are your temporary JETI repositories.  Use the one matching your transmitter's screen, and use it soon since it won't live forever!"]
        [:ul
-        (for [[i {:keys [label width height]}] (map-indexed vector screen-variants)]
+        (for [[i {:keys [label width height] :as variant}] (map-indexed vector screen-variants)]
           [:li {:key i}
-           [:a {:download (str "DFM-Maps " (get-or-create-token!) " " width "x" height ".zip")
-                :href (str "/repo/" (get-or-create-token!) ".zip?app=" i)}
-            (str label " (" width "x" height ")")]])]])
-    [:div {} "Creating repository..."]))
+           [:p (str label " (" width "x" height ")")]
+           [:code (aget (get rs i) "repo_url")]
+           [:p
+            [:a {:download (str "DFM-Maps " (variant-token variant) " " width "x" height ".zip")
+                 :href (str "/repo/" (variant-token variant) ".zip?app=0")}
+             "Download zip archive for manual installation"]]])]]
+      [:div {} "Creating repositories..."])))
 
 (rum/defc root-component < rum/reactive [conn bus]
   (let [db (rum/react conn)
@@ -1701,7 +1705,7 @@
          (case modal
            ;; :json-data [:pre (.stringify js/JSON (make-json-data db) nil 2)] 
            :image-request  "Image request lol"
-           :repo-request (apps-request-view (make-dynamic-repo-request db) db bus)
+           :repo-request (apps-request-view db bus)
            :clipbox-modal (clipbox-modal db bus))
          [:button {:on-click #(async/put! bus [::close-modal])} "Close"]]])
     
