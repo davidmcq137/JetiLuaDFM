@@ -38,7 +38,9 @@ local ixP = {}
 local iyP = {}
 local inRange = 30 -- meters to target gps point to consider arrived
 local xmin, xmax, ymin, ymax
-
+local origGet
+local manAltSetLastVal
+local manAltSetLastTime
 local steerMode = {petals=1,racetrack=2,leftright=3}
 local turnMode = {left=1,right=2,random=3}
 local magVal = {0.5, 1, 2, 4, 8}
@@ -206,6 +208,15 @@ local function readSensors(tt)
 	 end
       end
    end
+   --[[
+   table.insert(tt.sensorLalist, "P8 0-100")
+   table.insert(tt.sensorLslist, "")	    
+   table.insert(tt.sensorIdlist, 1) --sensor.id)
+   table.insert(tt.sensorPalist, 8) --sensor.param)
+   table.insert(tt.sensorUnlist, "m") --sensor.unit)
+   table.insert(tt.sensorDplist, 0) --sensor.decimals)
+   table.insert(tt.sensorTylist, 100) --sensor.type)
+   --]]
 end
 
 --[[
@@ -264,8 +275,6 @@ local function loop()
 
    end
 
-   
-
    -- read heading here if GPS sensor has one
    local hdg
    
@@ -286,6 +295,27 @@ local function loop()
      pitchVal = sensor.value
    end
 
+   local manAltSet
+
+   -- If manual alt setting is enabled, read it and announce once after change when stable
+   -- Assume 0-100% is 0-100m
+   
+   local info = system.getSwitchInfo(RTH.settings.altInput)
+   if info and info.assigned and info.proportional and string.find(info.mode, "C") then
+      manAltSet = info.value * 100
+      if manAltSetLastVal and manAltSet == manAltSetLastVal then
+	 if manAltSetLastTime and now > manAltSetLastTime + 1000 then
+	    system.playFile(prefix() .. pathApp .. "Audio/altitudeset.wav", AUDIO_QUEUE)      
+	    playNumberInt(manAltSet)
+	    system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)      	 
+	    manAltSetLastTime = nil
+	 end
+      else
+	 manAltSetLastVal = manAltSet
+	 manAltSetLastTime = now
+      end
+   end
+   
    local gs = RTH.settings
    local compHdg
    if gs.latId ~= 0 and gs.latPa ~= 0 and gs.lngId ~= 0 and gs.lngPa ~= 0 then
@@ -304,14 +334,15 @@ local function loop()
 	 RTH.gpsReads = RTH.gpsReads + 1
       end
       if RTH.gpsReads > MINGPSREADS and not RTH.zeroPos then
-	 system.messageBox(appName..": GPS and Alt zero set")
-	 print("GPS and Alt zero set")
 	 RTH.zeroPos = RTH.curPos
 	 if altnow then
 	    if emflag ~= 0 then
 	       RTH.var.startTakeoffAlt = 0
+	       print("GPS zero set, Alt zero not set")
 	    else
 	       RTH.var.startTakeoffAlt = altnow
+	       system.messageBox(appName..": GPS and Alt zero set")
+	       print("GPS and Alt zero set")
 	    end
 	    
 	 end
@@ -410,7 +441,11 @@ local function loop()
 
       -- First, regulate altitude
       
-      altSetPoint = Path.alt[flyIndex]
+      if manAltSet then
+	 altSetPoint = manAltSet
+      else
+	 altSetPoint = Path.alt[flyIndex]
+      end
       
       if RTH.altitude and altSetPoint then
 	 local rawsig = RTH.altitude - altSetPoint
@@ -430,7 +465,7 @@ local function loop()
       
       local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
       
-      system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 1000, 1)
+      system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 100, 1)
       validmix = true
 
       -- Check if at next point now .. and if so advance
@@ -533,25 +568,24 @@ local function initForm(subform)
 		    {width=155, font=FONT_NORMAL, alignRight=false})
 
    
-   --[[
-   local function ecChanged(value)
+   local function acChanged(value)
       local si = system.getSwitchInfo(value)
       --print("si", si.label, si.value, si.proportional, si.assigned, si.mode)
-      if not si.proportional then
-	 system.messageBox("Elevator control must be proportional")
-	 RTH.settings.elevInput = nil
+      if not si.proportional or not string.find(si.mode, "C") then
+	 system.messageBox("Control must be 0-100% proportional")
+	 RTH.settings.altInput = nil
 	 form.reinit(1)
       else
-	 RTH.settings.elevInput = value
-	 system.pSave("elevInput", value)
+	 RTH.settings.altInput = value
+	 system.pSave("altInput", value)
       end
    end
    
    form.addRow(2)
-   form.addLabel({label="Elevator control", width=180, font=FONT_NORMAL})   
-   form.addInputbox(RTH.settings.elevInput, true, ecChanged,
+   form.addLabel({label="Man alt setpoint (0-100m)", width=180, font=FONT_NORMAL})   
+   form.addInputbox(RTH.settings.altInput, true, acChanged,
 		    {width=155, font=FONT_NORMAL, alignRight=false})
-   
+   --[[
    local function egChanged(value)
       RTH.settings.maxElevGain = value
       system.pSave("maxElevGain", value)
@@ -699,16 +733,50 @@ local function initForm(subform)
 	 end), {label="Load saved Path >>", font=FONT_NORMAL})
 end
 
+local dsc = 1.5
+
 local function drawShape(col, row, shape, rotation)
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
+   local sinShape = math.sin(rotation)
+   local cosShape = math.cos(rotation)
    renShape:reset()
    for _, point in pairs(shape) do
       renShape:addPoint(
-	 col + (point[1] * cosShape - point[2] * sinShape + 0.5),
-	 row + (point[1] * sinShape + point[2] * cosShape + 0.5)
+	 col + (dsc*point[1] * cosShape - dsc*point[2] * sinShape + 0.5),
+	 row + (dsc*point[1] * sinShape + dsc*point[2] * cosShape + 0.5)
       )
    end
+   renShape:renderPolygon()
+end
+
+local function drawSideShape(col, row, shape, backshape, backhgt, azimuth, pitch)
+   local cosA = math.cos(azimuth + math.pi/2)
+   local sinShape = math.sin(-pitch)
+   local cosShape = math.cos(-pitch)   
+
+   renShape:reset()
+   local cc, rr
+   -- glider back about 2 px wide, tail 7 px long, atan(2/7) is about 9 degrees
+   -- but empirically 11 looks nicer when animated
+   if math.abs((math.deg(azimuth)%180 - 180)) < 11 or math.abs((math.deg(azimuth)%180)) < 11 then
+      --print(math.deg(azimuth))
+      for _, point in pairs(backshape) do
+	 --print(cosA * backhgt)
+	 renShape:addPoint(col + dsc*point[1] + cosA * backhgt,
+			   row - dsc*point[2] + math.sin(pitch)*backhgt)
+      end
+   else
+      for _, point in pairs(shape) do
+	 cc = (dsc*point[1] * cosShape + dsc*point[2] * sinShape + 0.5)
+	 rr = (dsc*point[1] * sinShape - dsc*point[2] * cosShape + 0.5) 
+	 cc = -cc * cosA
+	 rr = rr
+	 renShape:addPoint(
+	    col + cc,
+	    row + rr
+	 )
+      end
+   end
+   
    renShape:renderPolygon()
 end
 
@@ -911,7 +979,7 @@ local function printTeleGPS(w,h)
       if flyingOutbound then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
    end
 
-   drawShape(ix,iy, config.Glider, math.rad(RTH.gpsHeading or 0)) 
+   drawShape(ix,iy, config.GliderTop, math.rad(RTH.gpsHeading or 0)) 
 
    local dist
    if iPindex > 1 then
@@ -927,7 +995,13 @@ local function printTeleGPS(w,h)
 	 iPindex = 1
       end
    end
+   local pp = math.floor((pitchVal or 0) * 100 + 0.5) / 100
+   if pitchVal == -0.0 then pitchVal = 0 end
    
+   ix, iy = xytopixel(x, xmin + 35 + RTH.altitude, w, h)
+   drawSideShape(ix, iy, config.GliderSide, config.GliderBack, 7, math.rad(RTH.gpsHeading or 0), math.rad(pitchVal))
+   --lcd.drawCircle(ix, iy, 4)
+
    lcd.setColor(0,0,0)
 
    for i=1, #ixP, 1 do
@@ -949,8 +1023,7 @@ local function printTeleGPS(w,h)
 
    --lcd.drawText(60, 145, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
    --lcd.drawText(190, 145, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
-   local pp = math.floor((pitchVal or 0) * 100 + 0.5) / 100
-   if pitchVal == -0.0 then pitchVal = 0 end
+
    local as
    if altSetPoint then as = string.format("%.1f", altSetPoint) else as = "---" end
    lcd.drawText(10, 145, string.format("Alt: %.1f  Alt Set %s  Pitch %.1f°",
@@ -1012,6 +1085,9 @@ local function keyPressGPS(key)
    end
 end
 
+--local function getSensorByID(id, pa)
+--   return origGet(id, pa)
+--end
 
 local function init()
 
@@ -1061,7 +1137,7 @@ local function init()
 
    RTH.settings.onoffSw = system.pLoad("RTHonoffSw")
    RTH.settings.calSw = system.pLoad("RTHcalSw")
-   RTH.settings.elevInput = system.pLoad("elevInput")
+   RTH.settings.altInput = system.pLoad("altInput")
    
    RTH.settings.distUnits = system.pLoad("RTHdistUnits", 1) -- meters is default
    RTH.settings.circStrat = system.pLoad("RTHcircStrat", steerMode.petals) -- "petals" default
@@ -1137,6 +1213,10 @@ local function init()
 
    --system.setProperty("NativeDraw", 1)
    --print("get", system.getProperty("NativeDraw"))
+
+   --origGet = system.getSensorByID
+   --system.getSensorByID = getSensorByID
+   
 end
    
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.2", name=appName}
