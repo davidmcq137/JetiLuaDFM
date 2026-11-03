@@ -48,6 +48,7 @@
    Version 0.87 08/02/23 - Fix possible null on sensorVal in seq textbox 
    Version 0.88 09/27/23 - Add lua f(x) ext for Kingtech, Projet
    Version 0.89 10/27/23 - more f(x) extensions
+   Version 0.90 11/03/26 - support for larger screen on 24-II devices
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -89,6 +90,7 @@ local switches = {}
 local stateSw = {}
 
 local units = {}
+local Screen = {}
 
 units.typeList =  {
    temp   = {"°C","°F"},
@@ -164,6 +166,7 @@ lua.txTel = {}
 lua.completePass = false
 
 local subForm = 0
+local aDir = "Apps/DFM-InsP/"
 local pDir = "Apps/DFM-InsP/Panels"
 local bDir = "Apps/DFM-InsP/Backgrounds"
 local fDir = "Apps/DFM-InsP/Functions"
@@ -2881,11 +2884,11 @@ local function printForm(ww0,hh0,tWin)
 	 lcd.drawImage(0, 0, backI)
       else
 	 lcd.setColor(backI.r, backI.g, backI.b)
-	 lcd.drawFilledRectangle(0,0,319,158)
+	 lcd.drawFilledRectangle(0,0, Screen.image_width_px - 1, Screen.image_height_px - 2) --319,158)
       end
    else
       lcd.setColor(0,0,0)
-      lcd.drawFilledRectangle(0,0,319,158)
+      lcd.drawFilledRectangle(0, 0, Screen.image_width_px - 1, Screen.image_height_px - 2) --319,158)
    end
 
    if instI then
@@ -2897,7 +2900,8 @@ local function printForm(ww0,hh0,tWin)
 
    lcd.setColor(255,255,255)
    if not ip or #ip == 0 then
-      drawTextCenter(160, 60, "Window " .. tWin .. ": No inst panel assigned", FONT_BOLD)
+      drawTextCenter(Screen.image_width_px / 2, Screen.image_height_px * 0.4,
+		     "Window " .. tWin .. ": No inst panel assigned", FONT_BOLD)
       return
    end
    
@@ -4285,7 +4289,7 @@ local function printForm(ww0,hh0,tWin)
 		  mm = (intTic - timeTic * i) // 60
 		  ss = intTic - timeTic * i - mm * 60
 		  str = string.format("%d:%02d", mm, ss)
-		  lcd.setClipping(widget.boxXL, 0, widget.boxW, 160)
+		  lcd.setClipping(widget.boxXL, 0, widget.boxW, Screen.image_height_px) --,160)
 		  drawTextCenter(xx, widget.vertYB + hh - 6,
 				 str, FONT_MINI)
 		  lcd.drawLine(xx, widget.vertYB, xx, widget.vertYB + ticL)
@@ -4422,9 +4426,9 @@ local function prtForm(w,h)
 	 dispSave = InsP.settings.window1Panel
       end
       InsP.settings.window1Panel = InsP.settings.selectedPanel
-      printForm(318,159,1)
+      printForm(Screen.image_width_px - 2, Screen.image_height_px - 1) --318,159,1)
       lcd.setColor(180,180,180)
-      lcd.drawFilledRectangle(0, 158, 318, 20)
+      lcd.drawFilledRectangle(0,Screen.image_height_px - 2,Screen.image_width_px - 2, 20) --158, 318, 20)
       lcd.setColor(0,0,0)
       local ipeg = ip[edit.gauge]
       if not ipeg then return end
@@ -5052,6 +5056,26 @@ local function init(icode)
 		       #lua.extmods, #lua.modext))
 
    print("DFM-InsP: version " .. InsPVersion)
+
+   --Read Config.jsn to see what size images were loaded from Jeti Studio
+
+   fn = prefix()..aDir.."Config.jsn"  --aDir = "Apps/DFM-InsP/"
+   file = io.readall(fn)
+   if file then
+      Screen = json.decode(file)
+   end
+
+   Screen.legacy_width_px = 320
+   Screen.legacy_height_px = 160
+   Screen.dcds24_width_px = 458
+   Screen.dcds24_height_px = 343
+   Screen.dcds24ii = (string.find(select(1, system.getDeviceType()), "24 II"))
+
+   --If Config.jsn not available, assume legacy screen otherwise it comes from the file
+   if not file then
+      Screen.image_width_px = Screen.legacy_width_px
+      Screen.image_height_px = Screen.legacy_height_px
+   end
    
 end
 

@@ -24,13 +24,13 @@ Path.alt = {}
 local pathIndex
 local flyIndex
 local flyingOutbound
-local calibrating
+--local calibrating
 --local armed = false
 --local everEnabled = false
 local lastSec
 local announceTime
 local lastSwO = -1
-local annSeq = 1
+--local annSeq = 1
 local CMULT = 1.33 --circleMax = CMULT * circleMin
 local iPindex = 1
 local iPMAX = 120
@@ -38,7 +38,7 @@ local ixP = {}
 local iyP = {}
 local inRange = 30 -- meters to target gps point to consider arrived
 local xmin, xmax, ymin, ymax
-local origGet
+--local origGet
 local manAltSetLastVal
 local manAltSetLastTime
 local steerMode = {petals=1,racetrack=2,leftright=3}
@@ -46,9 +46,9 @@ local turnMode = {left=1,right=2,random=3}
 local magVal = {0.5, 1, 2, 4, 8}
 local magIdx
 
-local rescueOnTime
-local rescueOnDelay
-local holdTurn
+--local rescueOnTime
+--local rescueOnDelay
+--local holdTurn
 local pGain
 
 --[[
@@ -84,27 +84,9 @@ RTH.convertUnits = {"-", "ft", "mph", "km/h", "°F", "-"}
 local rollVal, pitchVal = 0,0
 
 local renShape
---local ren = lcd.renderer()
-
---local barShape = {
---   {-40,-2},
---   {-40,2},
---   {40, 2},
---   {40, -2}
---}
-
-
---[[
-local homeShape = {
- { 0, -15},
- {-12, 12},
- { 0, 6},
- { 12, 12}
-}
---]]
-
 local emflag
 
+--[[
 local function inv(t)
    local rt = {}
    if not t then return rt end
@@ -113,6 +95,7 @@ local function inv(t)
    end
    return rt
 end
+--]]
 
 local function drawX(xxp, yyp, d)
    lcd.drawLine(xxp - d, yyp + d, xxp + d, yyp - d)
@@ -231,16 +214,16 @@ local function encdp(dp, val)
 end
 --]]
 
-local nsHoldVal
-local nsHoldTime
-local turnTime
+--local nsHoldVal
+--local nsHoldTime
+--local turnTime
 
 local function loop()
    local now
    local sensor
    local MINHDGDIST = 3
    local MINGPSREADS= 9
-   local MINANNDIST = 5
+   --local MINANNDIST = 5
    local info
    local SwO, SwC
    local altnow
@@ -300,7 +283,7 @@ local function loop()
    -- If manual alt setting is enabled, read it and announce once after change when stable
    -- Assume 0-100% is 0-100m
    
-   local info = system.getSwitchInfo(RTH.settings.altInput)
+   info = system.getSwitchInfo(RTH.settings.altInput)
    if info and info.assigned and info.proportional and string.find(info.mode, "C") then
       manAltSet = info.value * 100
       if manAltSetLastVal and manAltSet == manAltSetLastVal then
@@ -374,7 +357,7 @@ local function loop()
    end
 
    if lastSwC == -1 and SwC == 1 then
-      calibrating = true
+      --calibrating = true
       if not pathIndex then pathIndex = 0 end
       pathIndex = pathIndex + 1
       Path.gps[pathIndex] = RTH.curPos
@@ -391,11 +374,11 @@ local function loop()
 	 playNumberInt(RTH.altitude)
 	 system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)      	 
       end
-      rescueOnTime = now
+      --rescueOnTime = now
    end
 
-   if lastSwC == 1 and SwC == -1 and calibrating == true then -- just turned off
-   end
+   --if lastSwC == 1 and SwC == -1 and calibrating == true then -- just turned off
+   --end
 
    lastSwC = SwC
 
@@ -435,16 +418,19 @@ local function loop()
    RTH.settings.steer = 0
    RTH.settings.elev = 0
    
-   local validmix = false
+   local validmixA = false
+   local validmixE = false
    
-   if RTH.settings.onoff and flyIndex and RTH.settings.onoff > 0 and flyIndex > 0 then
+   local eleSet
+   local ailSet
 
-      -- First, regulate altitude
+   if manAltSet then altSetPoint = manAltSet end
       
-      if manAltSet then
-	 altSetPoint = manAltSet
-      else
+   if RTH.settings.onoff and RTH.settings.onoff > 0 then
+      if flyIndex and flyIndex > 0 and not manAltSet then
 	 altSetPoint = Path.alt[flyIndex]
+      else
+	 altSetPoint = manAltSet
       end
       
       if RTH.altitude and altSetPoint then
@@ -452,10 +438,16 @@ local function loop()
 	 local errsig = rawsig * (pGain or 0)
 	 if errsig > 1 then errsig = 1 end
 	 if errsig < -1 then errsig = -1 end
-	 system.setControl(RTH.settings.elevCtrl, errsig, 1000, 1)
+	 eleSet = errsig
+	 --system.setControl(RTH.settings.elevCtrl, errsig, 1000, 1)
       else
-	 system.setControl(RTH.settings.elevCtrl, 0, 1000, 1)
+	 eleSet = 0
+	 --system.setControl(RTH.settings.elevCtrl, 0, 1000, 1)
       end
+      validmixE = true
+   end
+   
+   if RTH.settings.onoff and flyIndex and RTH.settings.onoff > 0 and flyIndex > 0 then
 
       -- Now steer
       
@@ -465,11 +457,14 @@ local function loop()
       
       local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
       
-      system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 100, 1)
-      validmix = true
-
+      ailSet = mixOut(config.Amix,ns)
+      eleSet = eleSet + RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns)
+      --print("eleSet", eleSet)
+      
+      validmixA = true
+      validmixE = true
+      
       -- Check if at next point now .. and if so advance
-      --print(flyIndex, #Path, gps.getDistance(RTH.curPos, Path[flyIndex]), RTH.settings.circleMin*0.4)
       
       if RTH.distanceTo < inRange then
 	 local fCurrent = flyIndex
@@ -489,11 +484,21 @@ local function loop()
       end
       
    end
-   --if for any reason mix was not done, set mix control to 0
-   if not validmix then
+
+   --If for any reason mix was not done, set mix controls to 0
+
+   if not validmixA then
       if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, 0, 0) end
+   else
+      if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, ailSet, 100, 1) end
    end
 
+   if not validmixE then
+      if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end
+   else
+      if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, eleSet, 100, 1) end
+   end
+   
 end
 
 local activeSf
@@ -585,7 +590,7 @@ local function initForm(subform)
    form.addLabel({label="Man alt setpoint (0-100m)", width=180, font=FONT_NORMAL})   
    form.addInputbox(RTH.settings.altInput, true, acChanged,
 		    {width=155, font=FONT_NORMAL, alignRight=false})
-   --[[
+
    local function egChanged(value)
       RTH.settings.maxElevGain = value
       system.pSave("maxElevGain", value)
@@ -595,8 +600,6 @@ local function initForm(subform)
    form.addLabel({label="Elevator mix percentage", font=FONT_NORMAL})   
    form.addIntbox(RTH.settings.maxElevGain, -100, 100, 0, 0, 1, egChanged,
 		  {width=155, font=FONT_NORMAL, alignRight=false})
-   
-   --]]
    
    form.addRow(2)
    form.addLabel({label="GPS Lat Sensor", font=FONT_NORMAL})
@@ -693,7 +696,7 @@ local function initForm(subform)
 	    SPath.alt = {}
 	    -- have to create string representation .. can't serialize gpsPoints
 	    for i,v in ipairs(Path.gps) do
-	       lats, lngs = gps.getString(Path.gps[i])
+	       lats, lngs = gps.getString(v) --Path.gps[i])
 	       SPath.gps[i] = {}
 	       SPath.gps[i].lat = lats
 	       SPath.gps[i].lng = lngs
@@ -733,9 +736,9 @@ local function initForm(subform)
 	 end), {label="Load saved Path >>", font=FONT_NORMAL})
 end
 
-local dsc = 1.5
 
 local function drawShape(col, row, shape, rotation)
+   local dsc = 1.5
    local sinShape = math.sin(rotation)
    local cosShape = math.cos(rotation)
    renShape:reset()
@@ -749,6 +752,7 @@ local function drawShape(col, row, shape, rotation)
 end
 
 local function drawSideShape(col, row, shape, backshape, backhgt, azimuth, pitch)
+   local dsc = 1.5
    local cosA = math.cos(azimuth + math.pi/2)
    local sinShape = math.sin(-pitch)
    local cosShape = math.cos(-pitch)   
@@ -756,11 +760,10 @@ local function drawSideShape(col, row, shape, backshape, backhgt, azimuth, pitch
    renShape:reset()
    local cc, rr
    -- glider back about 2 px wide, tail 7 px long, atan(2/7) is about 9 degrees
-   -- but empirically 11 looks nicer when animated
-   if math.abs((math.deg(azimuth)%180 - 180)) < 11 or math.abs((math.deg(azimuth)%180)) < 11 then
-      --print(math.deg(azimuth))
+   -- but empirically 10-11 looks nicer when animated, use backhgt*1.5 as approximation
+   if math.abs((math.deg(azimuth)%180 - 180)) < backhgt * 1.5 or
+      math.abs((math.deg(azimuth)%180)) < backhgt * 1.5 then
       for _, point in pairs(backshape) do
-	 --print(cosA * backhgt)
 	 renShape:addPoint(col + dsc*point[1] + cosA * backhgt,
 			   row - dsc*point[2] + math.sin(pitch)*backhgt)
       end
@@ -995,7 +998,7 @@ local function printTeleGPS(w,h)
 	 iPindex = 1
       end
    end
-   local pp = math.floor((pitchVal or 0) * 100 + 0.5) / 100
+   --local pp = math.floor((pitchVal or 0) * 100 + 0.5) / 100
    if pitchVal == -0.0 then pitchVal = 0 end
    
    ix, iy = xytopixel(x, xmin + 35 + RTH.altitude, w, h)
@@ -1009,7 +1012,7 @@ local function printTeleGPS(w,h)
    end
    
    lcd.setColor(0,0,0)
-   local ix0 , iy0 = xytopixel(0, 0, w, h)
+   --local ix0 , iy0 = xytopixel(0, 0, w, h)
    --lcd.drawCircle(ix0, iy0, 2)
    
    lcd.drawText(10, 15, string.format("[%d,%d,%d,%d]", xmin, xmax, ymin, ymax), FONT_MINI)
@@ -1025,12 +1028,22 @@ local function printTeleGPS(w,h)
    --lcd.drawText(190, 145, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
 
    local as
-   if altSetPoint then as = string.format("%.1f", altSetPoint) else as = "---" end
-   lcd.drawText(10, 145, string.format("Alt: %.1f  Alt Set %s  Pitch %.1f°",
-				      RTH.altitude or 0, as, pitchVal or 0), FONT_MINI)
+   if altSetPoint then as = string.format("%.1fm", altSetPoint) else as = "---" end
+   local st = system.getServos()
+   local eleS = 0
+   for _, sv in pairs(st) do
+      if sv.id == 267 then
+	 eleS = sv.value * 100
+	 break
+      end
+   end
+   
+   lcd.drawText(10, 145, string.format("Alt: %.1fm  Alt Setpoint %s  Pitch %.1f°  Elev Servo %d%%",
+				       RTH.altitude or 0, as, pitchVal or 0, eleS), FONT_MINI)
    
 end
 
+--[[
 local function logfileCB(idx)
    if idx == 1 then
       return RTH.gpsBearingFrom or 0
@@ -1047,6 +1060,7 @@ local function logfileCB(idx)
       return -999
    end
 end
+--]]
 
 local function setMag(idx)
    if idx < 1 or idx > #magVal then return end
@@ -1145,12 +1159,12 @@ local function init()
    
    RTH.settings.circleMin = system.pLoad("circleMin", 150)
    RTH.settings.maxElevGain = system.pLoad("maxElevGain", 0)
-   rescueOnDelay = system.pLoad("rescueOnDelay", 3)
-   holdTurn = system.pLoad("holdTurn", 5)
+   --rescueOnDelay = system.pLoad("rescueOnDelay", 3)
+   --holdTurn = system.pLoad("holdTurn", 5)
    pGain = system.pLoad("pGain", 100) / 1000
    
    flyingOutbound = false
-   calibrating = false
+   --calibrating = false
 
    magIdx = 3
    setMag(magIdx)
@@ -1174,9 +1188,6 @@ local function init()
       system.messageBox(appName .. ": Could not register steer control")
    end
 
-   RTH.settings.elevCtrl = nil
-   local iRTE = 4
-   RTH.settings.elevCtrl = system.registerControl(iRTE, "Path Elevator", "RTE")
 
    --[[
    testLatControl = system.registerControl(10, "Latency", "LAT")
@@ -1188,6 +1199,9 @@ local function init()
    testLatTime = system.getTimeCounter()
    --]]
    
+   RTH.settings.elevCtrl = nil
+   local iRTE = 4
+   RTH.settings.elevCtrl = system.registerControl(iRTE, "Path Elevator", "RTE")
    RTH.settings.elev = 0
    
    if RTH.settings.elevCtrl then
@@ -1198,11 +1212,11 @@ local function init()
       system.messageBox(appName .. ": Could not register elevator control")
    end
    
-   system.registerLogVariable("RTHBrgFrom", "°", logfileCB)
-   system.registerLogVariable("RTHBrgTo",   "°", logfileCB)
-   system.registerLogVariable("RTHDst",     "m", logfileCB)
-   system.registerLogVariable("RTHHdg",     "°", logfileCB)
-   system.registerLogVariable("RTHStr",     "%", logfileCB)
+   --system.registerLogVariable("RTHBrgFrom", "°", logfileCB)
+   --system.registerLogVariable("RTHBrgTo",   "°", logfileCB)
+   --system.registerLogVariable("RTHDst",     "m", logfileCB)
+   --system.registerLogVariable("RTHHdg",     "°", logfileCB)
+   --system.registerLogVariable("RTHStr",     "%", logfileCB)
 			      
    local str = io.readall(prefix() .. pathApp.."Json/Config.jsn")
    if not str then
