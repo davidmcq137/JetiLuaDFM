@@ -1001,7 +1001,7 @@ local function printTeleGPS(w,h)
    --local pp = math.floor((pitchVal or 0) * 100 + 0.5) / 100
    if pitchVal == -0.0 then pitchVal = 0 end
    
-   ix, iy = xytopixel(x, xmin + 35 + RTH.altitude, w, h)
+   ix, iy = xytopixel(x, xmin + 35 + RTH.altitude*3, w, h)
    drawSideShape(ix, iy, config.GliderSide, config.GliderBack, 7, math.rad(RTH.gpsHeading or 0), math.rad(pitchVal))
    --lcd.drawCircle(ix, iy, 4)
 

@@ -649,14 +649,14 @@ local function loopP()
 
 end
 
-
 local errCnt = 0
 local function loop()
    local s,e = pcall(loopP)
    if not s then
-      print(appName..": Loop error - "..e)
       errCnt = errCnt + 1
-      if errCnt > 5 then exit() end
+      if errCnt < 5 then 
+	 print(appName..": Loop error - "..e)
+      end
    end
 end
 
@@ -1343,9 +1343,10 @@ local errCntT = 0
 local function printTeleGPS(w,h)
    local s,e = pcall(printTeleGPSP, w, h)
    if not s then
-      print(appName..": Tele error - "..e)
       errCntT = errCntT + 1
-      if errCntT > 5 then exit() end
+      if errCntT < 5 then 
+	 print(appName..": Tele error - "..e)
+      end
    end
 end
 
