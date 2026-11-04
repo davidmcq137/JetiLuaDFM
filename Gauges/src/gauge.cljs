@@ -29,8 +29,34 @@
     2
     1))
 
-(def screen-width 318)
-(def screen-height 159)
+(def screen-variants
+  [{:label "Standard"
+    :name "DFM-InsP"
+    :hw [678 679 680 652 653 3857 3858 3866 3867]
+    :width 320
+    :height 160}
+   {:label "Large screen"
+    :name "DFM-InsP (large screen)"
+    :hw [3866 3867]
+    :width 458
+    :height 343}])
+
+(defn panel-size
+  [{:keys [width height]}]
+  [(- width 2) (- height 1)])
+
+(defn panel-screen-variant
+  [panel]
+  (get screen-variants (:screen-variant panel 0) (first screen-variants)))
+
+(defn selected-screen-variant
+  [dbval]
+  (panel-screen-variant (get (:panels dbval) (:selected-panel dbval))))
+
+(defn screen->variant-index
+  [{:strs [width height]}]
+  (first (keep-indexed (fn [i v] (when (= [width height] (panel-size v)) i))
+                       screen-variants)))
 
 (defn shape->bbox
   [{:strs [radius x0 y0 width height] :as sh}]
@@ -552,6 +578,7 @@
   < rum/reactive
   [da i]
   (let [d   (rum/react da)
+        [screen-width screen-height] (panel-size (selected-screen-variant (rum/react db)))
         x0  (get (:params d) "x0")
         y0  (get (:params d) "y0")
         val (get (:params d) "value")]
@@ -656,6 +683,8 @@
                    (js/Date. (apply max tstamps)))]
     (clj->js {:panel rendered
               :doc-md (get panel :doc-md)
+              :screen (let [[w h] (panel-size (panel-screen-variant panel))]
+                        {:width w :height h})
               :timestamp (.toISOString mod-date)})))
 
 (defn download-json!
@@ -692,10 +721,11 @@
       (string/replace #"\$body\$" (md/md->html body))))
 
 (defn make-dynamic-repo-request*
-  [w h]
+  [panels]
   (js/Promise.all
    (into-array
-    (for [[panel-name panel] (:panels @db)]
+    (for [[panel-name panel] panels
+          :let [[w h] (panel-size (panel-screen-variant panel))]]
       (.then (render-panel panel w h)
              (fn [{:keys [image data]}]
                (.then (blob->base64 image)
@@ -715,13 +745,28 @@
                              (clj->js))))))))))
 
 (defn make-dynamic-repo-request
-  [w h]
-  (-> (make-dynamic-repo-request* w h)
-      (.then (fn [filesets]
+  []
+  (-> (let [panels (:panels @db)
+            [standard large] screen-variants
+            builds (cond-> [[standard (filter (fn [[_ p]] (zero? (:screen-variant p 0))) panels)]]
+                     (some (fn [[_ p]] (pos? (:screen-variant p 0))) panels)
+                     (conj [large panels]))]
+        (js/Promise.all
+         (into-array
+          (for [[{:keys [name hw width height]} ps] builds]
+            (.then (make-dynamic-repo-request* ps)
+                 (fn [filesets]
+                   {:base-app "DFM-InsP"
+                    :app-json {"hw" hw
+                               "name" {"en" name}}
+                    :dynamic-files (into [{:destination "Apps/DFM-InsP/Config.jsn"
+                                           :json-data {"image_width_px" width
+                                                       "image_height_px" height}}]
+                                         cat filesets)}))))))
+      (.then (fn [apps]
                (clj->js
                 {:yoururl js/window.location.origin
-                 :apps [{:base-app "DFM-InsP"
-                         :dynamic-files (into [] cat filesets)}]})))))
+                 :apps (vec apps)})))))
 
 
 (def localstorage-db-key "gauges-db")
@@ -788,10 +833,11 @@
 
 (defn load-panel!
   [panel-name panel-data-clj]
-  (let [{:strs [panel doc-md]} (normalize-panel* panel-data-clj)]
+  (let [{:strs [panel doc-md screen]} (normalize-panel* panel-data-clj)]
     (swap! db #(-> %
                    (assoc-in [:panels panel-name]
                              {:doc-md doc-md
+                              :screen-variant (or (screen->variant-index screen) 0)
                               :gauges (zipmap (range)
                                               (map render-gauge* panel))})
                    (assoc :selected-panel panel-name)))))
@@ -842,7 +888,7 @@
               :value "Create app source"
               :class "dynamic-repo-button"
               :onClick (fn [ev]
-                         (-> (make-dynamic-repo-request w h)
+                         (-> (make-dynamic-repo-request)
                              (.then dynamic-repo/send-dynamic-repo-request!)))}]]
     
     [:p "You can also manually download this panel's configuration data:"]
@@ -1090,14 +1136,44 @@
 
 
 
+(defn convert-panel-to-large
+  [dbval panel-name new-name]
+  (let [[sw sh] (panel-size (first screen-variants))
+        [lw lh] (panel-size (second screen-variants))
+        sx (/ lw sw)
+        sy (/ lh sh)
+        scale-gauge (fn [{:keys [params] :as g}]
+                      (cond-> (+modtime g)
+                        (get params "x0") (assoc-in [:params "x0"] (js/Math.round (* sx (get params "x0"))))
+                        (get params "y0") (assoc-in [:params "y0"] (js/Math.round (* sy (get params "y0"))))))]
+    (-> dbval
+        (assoc-in [:panels new-name]
+                  (-> (get-in dbval [:panels panel-name])
+                      (assoc :screen-variant 1)
+                      (update :gauges (fn [gs]
+                                        (into {} (for [[k g] gs] [k (scale-gauge g)]))))))
+        (assoc :selected-panel new-name))))
+
+(rum/defc panel-screen-info
+  [panels selected-panel]
+  (when-let [panel (get panels selected-panel)]
+    (let [{:keys [label width height]} (panel-screen-variant panel)]
+      [:div {}
+       (str "Screen: " label " (" width "x" height ")")
+       (when (zero? (:screen-variant panel 0))
+         [:input {:type "button"
+                  :value "Convert to large screen"
+                  :style {:margin-left "2ex"}
+                  :onClick #(let [new-name (get-panel-unique-name (str selected-panel " (large)"))]
+                              (swap! db convert-panel-to-large selected-panel new-name))}])])))
+
 (rum/defc root
   < rum/reactive
   []
   (let [cref (rum/create-ref)
-        w screen-width
-        h screen-height
         ;; {:keys [gauges panels align-divs background-image] :as gdb} (rum/react db)
-        {:keys [panels selected-panel align-divs]} (rum/react db)
+        {:keys [panels selected-panel align-divs] :as dbval} (rum/react db)
+        [w h] (panel-size (selected-screen-variant dbval))
         {:keys [gauges background-image]} (get panels selected-panel)]
     [:div.container
      
@@ -1165,6 +1241,8 @@
          [:option {:value "none"} "none"]
          (for [i [2 3 4 5 6 7 8]]
            [:option {:key i :value (str i)} (str i)])]]
+       
+       (panel-screen-info panels selected-panel)
        
        (panel-doc panels selected-panel)]]
      
