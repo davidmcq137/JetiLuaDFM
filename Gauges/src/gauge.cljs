@@ -33,8 +33,8 @@
   [{:label "Standard"
     :name "DFM-InsP"
     :hw [678 679 680 652 653 3857 3858 3866 3867]
-    :width 318
-    :height 159}
+    :width 320
+    :height 160}
    {:label "Large screen"
     :name "DFM-InsP (large screen)"
     :hw [3866 3867]
