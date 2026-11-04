@@ -13,7 +13,7 @@ body {
 
 .container {
     display: grid;
-    grid-template-columns: 1fr min-content minmax(0, 1fr);
+    grid-template-columns: 1fr min-content minmax(min-content, 1fr);
     /* grid-template-columns: 10% min-content minmax(40%, 1fr); */
     gap: 5ex;
 

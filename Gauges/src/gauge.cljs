@@ -1164,7 +1164,7 @@
          [:input {:type "button"
                   :value "Convert to large screen"
                   :style {:margin-left "2ex"}
-                  :onClick #(let [new-name (get-panel-unique-name (str selected-panel " (large)"))]
+                  :onClick #(let [new-name (get-panel-unique-name (str selected-panel "L"))]
                               (swap! db convert-panel-to-large selected-panel new-name))}])])))
 
 (rum/defc root
