@@ -5,6 +5,7 @@
    [ring.util.response :as ring-resp]
    [clojure.walk :as walk]
    [ring.middleware.params :as ring-params]
+   [ring.util.codec :as codec]
    [ring.middleware.content-type :refer (wrap-content-type)]
    [ring.middleware.not-modified :refer (wrap-not-modified)]
    [clojure.java.io :as io]
@@ -126,7 +127,10 @@
 
 (defn fetch-url
   [url]
-  (try (:body (client/get url {:as :byte-array}))
+  (try (let [uri (java.net.URI. url)]
+         (if (= "/staticmap" (.getPath uri))
+           (image-for-request {:query-params (codec/form-decode (.getRawQuery uri) "UTF-8")})
+           (:body (client/get url {:as :byte-array}))))
        (catch Exception e
          (throw (ex-info "Cannot fetch url " {:url url} e)))))
 
