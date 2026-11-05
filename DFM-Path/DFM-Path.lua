@@ -45,6 +45,7 @@ local steerMode = {petals=1,racetrack=2,leftright=3}
 local turnMode = {left=1,right=2,random=3}
 local magVal = {0.5, 1, 2, 4, 8}
 local magIdx
+local DCDS24II
 
 --local rescueOnTime
 --local rescueOnDelay
@@ -321,11 +322,11 @@ local function loop()
 	 if altnow then
 	    if emflag ~= 0 then
 	       RTH.var.startTakeoffAlt = 0
-	       print("GPS zero set, Alt zero not set")
+	       print("DFM-Path: GPS zero set, Alt zero not set (emulator)")
 	    else
 	       RTH.var.startTakeoffAlt = altnow
 	       system.messageBox(appName..": GPS and Alt zero set")
-	       print("GPS and Alt zero set")
+	       --print("GPS and Alt zero set")
 	    end
 	    
 	 end
@@ -472,7 +473,7 @@ local function loop()
 	 if flyIndex > #Path.gps then flyIndex = 1 end
 
 	 if fCurrent ~= flyIndex then -- they are equal when there is only one point 
-	    system.messageBox(string.format("Steering to point %d", flyIndex))
+	    system.messageBox(string.format(appName .. ": Steering to point %d", flyIndex))
 	    system.playFile(prefix() .. pathApp .. "Audio/steeringtopoint.wav", AUDIO_QUEUE)
 	    playNumberInt(flyIndex)
 	    --compute bearing to next point
@@ -1000,11 +1001,14 @@ local function printTeleGPS(w,h)
    end
    --local pp = math.floor((pitchVal or 0) * 100 + 0.5) / 100
    if pitchVal == -0.0 then pitchVal = 0 end
-   
-   ix, iy = xytopixel(x, xmin + 35 + RTH.altitude*3, w, h)
-   drawSideShape(ix, iy, config.GliderSide, config.GliderBack, 7, math.rad(RTH.gpsHeading or 0), math.rad(pitchVal))
-   --lcd.drawCircle(ix, iy, 4)
 
+   if DCDS24II then
+      ix, iy = xytopixel(x, xmin + 35 + RTH.altitude*3, w, h)
+      drawSideShape(ix, iy, config.GliderSide, config.GliderBack, 7,
+		    math.rad(RTH.gpsHeading or 0), math.rad(pitchVal))
+      --lcd.drawCircle(ix, iy, 4)
+   end
+   
    lcd.setColor(0,0,0)
 
    for i=1, #ixP, 1 do
@@ -1112,7 +1116,7 @@ local function init()
    
    local device
    device, emflag = system.getDeviceType() 
-   print("Device", device, "emflag", emflag)
+   --print("Device", device, "emflag", emflag)
 
 --   if device == "JETI DS-24 II" or device == "JETI DC-24 II" then
 --     do something different on new tx?      
@@ -1224,6 +1228,8 @@ local function init()
    end
    
    config = json.decode(str)
+
+   DCDS24II = (string.find(select(1, system.getDeviceType()), "24 II"))
 
    --system.setProperty("NativeDraw", 1)
    --print("get", system.getProperty("NativeDraw"))

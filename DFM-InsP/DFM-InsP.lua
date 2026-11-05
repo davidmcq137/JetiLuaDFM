@@ -569,7 +569,7 @@ local function setToPanel(iisp)
    local fn
    local isp = iisp
 
-   print("setToPanel", iisp)
+   --print("setToPanel", iisp)
    
    if isp < 1 then isp = 1 end
    if isp > #InsP.panels then isp = #InsP.panels end
@@ -2836,22 +2836,26 @@ local function printForm(ww0,hh0,tWin)
       end
       if lastPanel1 ~= isp1 then
 	 pv = InsP.panelImages[isp1].instImage
-	 print("win 1 loading panel " .. isp1 .. " " .. pv)
+	 --print("win 1 loading panel " .. isp1 .. " " .. pv)
 	 if pv then
 	    instImg1 = lcd.loadImage(pDir .. "/"..pv..".png")
 	    if instImg1 then
-	       print("instImg1 w,h", instImg1.width, instImg1.height)
+	       --print("instImg1 w,h", instImg1.width, instImg1.height)
 	       InsP.panelImages[isp1].width = instImg1.width
 	       InsP.panelImages[isp1].height = instImg1.height
-	    end
+	       if math.abs(instImg1.width - Screen.dcds24ii_width_px) < 10 and
+		  (not Screen.dcds24ii) then
+		  system.messageBox(appName .. ": Incompatible panel image "..tWin)
+	       end
+      	    end
 	 else
 	    --print("pv was nil")
 	    instImg1 = nil
 	 end
-	 print("instImg1, pv, lastPanel1", instImg1, pv, lastPanel1)
+	 --print("instImg1, pv, lastPanel1", instImg1, pv, lastPanel1)
 	 
 	 bv = InsP.panelImages[isp1].backImage
-	 if bv then
+	 if bv and bv ~= "..." then
 	    --print("bv", bv, string.match(bv, "rgb%("))
 	    if string.match(bv, "rgb%(") then
 	       backImg1 = {}
@@ -2860,7 +2864,10 @@ local function printForm(ww0,hh0,tWin)
 	    else
 	       backImg1 =  lcd.loadImage(bDir .. "/"..bv..".png")
 	       if backImg1 then
-		  print("backImg1 w,h", backImg1.width, instImg1.height)
+		  if math.abs(backImg1.width - InsP.panelImages[isp1].width) > 10 then
+		     system.messageBox("Panel and backgnd images not compatible (1)")
+		  end
+		  --print("backImg1 w,h", backImg1.width, instImg1.height)
 	       end
 	    end
 	 else
@@ -2885,21 +2892,29 @@ local function printForm(ww0,hh0,tWin)
 	 if pv then
 	    instImg2 = lcd.loadImage(pDir .. "/"..pv..".png")
 	    if instImg2 then
-	       print("instImg2 w,h", instImg2.width, instImg2.height)
+	       --print("instImg2 w,h", instImg2.width, instImg2.height)
 	       InsP.panelImages[isp2].width = instImg2.width
 	       InsP.panelImages[isp2].height = instImg2.height
+	       if math.abs(instImg2.width - Screen.dcds24ii_width_px) < 10 and (not Screen.dcds24ii) then
+		  system.messageBox(appName .. ": Incompatible panel image "..tWin)
+	       end
 	    end
 	 else
 	    instImg2 = nil
 	 end
 	 bv = InsP.panelImages[isp2].backImage
-	 if bv then
+	 if bv and bv ~= "..." then
 	    if string.match(bv, "rgb%(") then
 	       backImg2 = {}
 	       backImg2.r, backImg2.g, backImg2.b = string.match(bv, "(%d+),(%d+),(%d+)")
 	    else
+	       --print("bv2", bv)
 	       backImg2 =  lcd.loadImage(bDir .. "/"..bv..".png")
-	       if backImg2 then print("backImg2 w,h", backImg2.width, instImg2.height) end
+	       if backImg2 and math.abs(backImg2.width - InsP.panelImages[isp2].width) > 10 then
+		  system.messageBox("Panel and backgnd images not compatible (2)")
+		  print("@", backImg2.width, InsP.panelImages[isp2].width)
+	       end
+	       --if backImg2 then print("backImg2 w,h", backImg2.width, instImg2.height) end
 	    end
 	 else
 	    backImg2 = nil
@@ -2928,26 +2943,27 @@ local function printForm(ww0,hh0,tWin)
    --[[
    Screen.legacy_width_px = 320
    Screen.legacy_height_px = 160
-   Screen.dcds24_width_px = 458
-   Screen.dcds24_height_px = 343
+   Screen.dcds24ii_width_px = 458
+   Screen.dcds24ii_height_px = 343
    --]]
    
    if instI then
       -- use the math.abs approach in case image sizes are a few pixels off
       -- only change drawing mode if we need to
-      if math.abs(instI.width - Screen.dcds24_width_px) < 10 and Screen.dcds24ii and nd == 0 then
-	 print("Set Native")
+      if math.abs(instI.width - Screen.dcds24ii_width_px) < 10 and Screen.dcds24ii and nd == 0 then
+	 --print("DFM-InsP: Set NativeDraw")
 	 system.setProperty("NativeDraw", 1)
-	 Screen.image_width_px = Screen.dcds24_width_px
-	 Screen.image_height_px = Screen.dcds24_height_px
+	 Screen.image_width_px = Screen.dcds24ii_width_px
+	 Screen.image_height_px = Screen.dcds24ii_height_px
       end
 
       if math.abs(instI.width - Screen.legacy_width_px) < 10 and nd == 1 then
-	 print("Set Compatibility")
+	 --print("DFM-InsP: Set Compatibility Draw")
 	 system.setProperty("NativeDraw", 0)
 	 Screen.image_width_px = Screen.legacy_width_px
 	 Screen.image_height_px = Screen.legacy_height_px
       end
+
       lcd.drawImage(0, 0, instI)
    else
       lcd.setColor(255,255,255)
@@ -4989,7 +5005,7 @@ local function init(icode)
    
    readSensors(InsP)
 
-   system.registerForm(1, MENU_APPS, "Instrument Panel", initForm, keyForm, prtForm)
+   system.registerForm(1, MENU_APPS, "DFM-InsP", initForm, keyForm, prtForm)
    system.registerTelemetry(1, "DFM-InsP-1", 4,
 			    (function(w,h) return printForm(w,h,1) end) )
    system.registerTelemetry(2, "DFM-InsP-2 ", 4,
@@ -5016,7 +5032,7 @@ local function init(icode)
 
    lua.funcmods = {}
    local ifunc = 0
-   print("functions path", path)
+   --print("functions path", path)
    if dir(path) then
       --print("path: "..path)
       for name, _, _ in dir(path) do
@@ -5066,7 +5082,7 @@ local function init(icode)
    local modname = {}
    local imod = 0
 
-   print("extensions path", path)
+   --print("extensions path", path)
    
    if dir(path) then
       for name, _, _ in dir(path) do
@@ -5127,36 +5143,46 @@ local function init(icode)
    print("DFM-InsP: version " .. InsPVersion)
 
    --Read Config.jsn to see what size images were loaded from Jeti Studio
-
+   --[[
    fn = prefix()..pDir.."/Config.jsn"
    file = io.readall(fn)
    if file then
       Screen = json.decode(file)
-      print("decoded Config.jsn")
+      --print("decoded Config.jsn")
    else
       print("no Config.jsn")
    end
+   --]]
 
    Screen.legacy_width_px = 320
    Screen.legacy_height_px = 160
-   Screen.dcds24_width_px = 458
-   Screen.dcds24_height_px = 343
+   Screen.dcds24ii_width_px = 458
+   Screen.dcds24ii_height_px = 343
    Screen.dcds24ii = (string.find(select(1, system.getDeviceType()), "24 II"))
 
+   if not Screen.dcds2ii then
+      Screen.image_width_px = Screen.legacy_width_px
+      Screen.image_height_px = Screen.legacy_height_px
+   else
+      Screen.image_width_px = Screen.dcds24ii_width_px
+      Screen.image_height_px = Screen.dcds24ii_height_px      
+   end
+   
    --If Config.jsn not available, assume legacy screen otherwise it comes from the file
+   --[[
    if not file then
       Screen.image_width_px = Screen.legacy_width_px
       Screen.image_height_px = Screen.legacy_height_px
    end
 
    if (not Screen.dcds24ii) and (Screen.image_width_px ~= Screen.legacy_width_px) then
-      print(appInfo.Name .. ": Incompatible maps loaded for this TX", 10)
+      print(appName .. ": Incompatible maps loaded for this TX", 10)
       --system.messageBox(appInfo.Name.. ": Incompatible maps")
       form.question("Incompatible maps", appName, "Error", 0, true, 0)
    end
 
    Screen.NativeDraw = false
-   if Screen.dcds24ii and Screen.image_width_px == Screen.dcds24_width_px then
+   if Screen.dcds24ii and Screen.image_width_px == Screen.dcds24ii_width_px then
       system.setProperty("NativeDraw", 1)
       if system.getProperty("NativeDraw") ~= 1 then
 	 print(appName .. ": Cannot enter Native Draw")
@@ -5175,7 +5201,7 @@ local function init(icode)
 
    print(string.format(appName .. ": using %d x %d px panels",
 		       Screen.image_width_px, Screen.image_height_px))
-
+   --]]
 end
 
 local extaddr = {addret=addret, panelChanged=panelChanged, newpanel=newpanel}
