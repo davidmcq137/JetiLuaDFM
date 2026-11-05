@@ -55,7 +55,7 @@
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.89
+local InsPVersion = 0.90
 
 local LE
 
@@ -166,6 +166,7 @@ lua.txTel = {}
 lua.completePass = false
 
 local subForm = 0
+local appName = "DFM-InsP"
 local aDir = "Apps/DFM-InsP/"
 local pDir = "Apps/DFM-InsP/Panels"
 local bDir = "Apps/DFM-InsP/Backgrounds"
@@ -568,7 +569,7 @@ local function setToPanel(iisp)
    local fn
    local isp = iisp
 
-   --print("setToPanel", iisp)
+   print("setToPanel", iisp)
    
    if isp < 1 then isp = 1 end
    if isp > #InsP.panels then isp = #InsP.panels end
@@ -1655,20 +1656,22 @@ local function initForm(sf)
    elseif sf == formN.inputs then
 
       local ip = InsP.panels[InsP.settings.selectedPanel]
-      --print("ip", ip, #ip, InsP.settings.selectedPanel)
+      print("ip #ip InsP.settings.selectedPanel", ip, #ip, InsP.settings.selectedPanel)
+      
+      if not ip or #ip == 0 then
+	 form.addRow(1)
+	 form.addLabel({label="No panel defined or selected"})
+	 form.addRow(1)
+	 form.addLabel({label="Use F2 in main menu to select a panel"})
+	 form.setFocusedRow(1)
+	 return
+      end
+
       form.setTitle("Data for panel " ..
 		       InsP.panelImages[InsP.settings.selectedPanel].instImage)
 
       form.setButton(1, ":edit", ENABLED)
       
-      if not ip or #ip == 0 then
-	 form.addRow(1)
-	 form.addLabel({label="No instrument panel defined"})
-	 form.addRow(1)
-	 form.addLabel({label="Use Panels>> to select a panel"})
-	 form.setFocusedRow(1)
-	 return
-      end
       
       for i, widget in ipairs(ip) do
 	 form.addRow(3)
@@ -1770,8 +1773,23 @@ local function initForm(sf)
    elseif sf == formN.editgauge then -- edit item on sensor menu
       local ig = savedRow3
       local isp = InsP.settings.selectedPanel
+      --print("isp, InsP.panels[isp]", isp, InsP.panels[isp])
       local ip = InsP.panels[isp]
-      local lbl = ip[ig].label or "Widget"..ig
+      --print("ip, #ip, ig", ip,#ip, ig)
+
+      if ig > #ip then -- this should not really be happening .. hack for now
+	 form.reinit(1)
+	 return
+      end
+
+      local lbl
+      if #ip ~= 0 then
+	 lbl = ip[ig].label or "Widget"..ig
+      else
+	 lbl = "Widget" .. ig
+      end
+
+      
       local pnl = InsP.panelImages[isp].instImage
       local widget = ip[ig]
 
@@ -2818,14 +2836,19 @@ local function printForm(ww0,hh0,tWin)
       end
       if lastPanel1 ~= isp1 then
 	 pv = InsP.panelImages[isp1].instImage
-	 --print("win 1 loading panel " .. isp1 .. " " .. pv)
+	 print("win 1 loading panel " .. isp1 .. " " .. pv)
 	 if pv then
 	    instImg1 = lcd.loadImage(pDir .. "/"..pv..".png")
+	    if instImg1 then
+	       print("instImg1 w,h", instImg1.width, instImg1.height)
+	       InsP.panelImages[isp1].width = instImg1.width
+	       InsP.panelImages[isp1].height = instImg1.height
+	    end
 	 else
 	    --print("pv was nil")
 	    instImg1 = nil
 	 end
-	 --print("instImg1, pv, lastPanel1", instImg1, pv, lastPanel1)
+	 print("instImg1, pv, lastPanel1", instImg1, pv, lastPanel1)
 	 
 	 bv = InsP.panelImages[isp1].backImage
 	 if bv then
@@ -2836,6 +2859,9 @@ local function printForm(ww0,hh0,tWin)
 	       --print("backImg1 to {}", backImg1.r, backImg1.g, backImg1.b)
 	    else
 	       backImg1 =  lcd.loadImage(bDir .. "/"..bv..".png")
+	       if backImg1 then
+		  print("backImg1 w,h", backImg1.width, instImg1.height)
+	       end
 	    end
 	 else
 	    backImg1 = nil
@@ -2858,6 +2884,11 @@ local function printForm(ww0,hh0,tWin)
 	 --print("win 2 loading panel " .. isp2 .. " " ..pv)
 	 if pv then
 	    instImg2 = lcd.loadImage(pDir .. "/"..pv..".png")
+	    if instImg2 then
+	       print("instImg2 w,h", instImg2.width, instImg2.height)
+	       InsP.panelImages[isp2].width = instImg2.width
+	       InsP.panelImages[isp2].height = instImg2.height
+	    end
 	 else
 	    instImg2 = nil
 	 end
@@ -2868,6 +2899,7 @@ local function printForm(ww0,hh0,tWin)
 	       backImg2.r, backImg2.g, backImg2.b = string.match(bv, "(%d+),(%d+),(%d+)")
 	    else
 	       backImg2 =  lcd.loadImage(bDir .. "/"..bv..".png")
+	       if backImg2 then print("backImg2 w,h", backImg2.width, instImg2.height) end
 	    end
 	 else
 	    backImg2 = nil
@@ -2891,17 +2923,45 @@ local function printForm(ww0,hh0,tWin)
       lcd.drawFilledRectangle(0, 0, Screen.image_width_px - 1, Screen.image_height_px - 2) --319,158)
    end
 
+   local nd = system.getProperty("NativeDraw") -- returns 0 for Compat, 1 for NativeDraw
+
+   --[[
+   Screen.legacy_width_px = 320
+   Screen.legacy_height_px = 160
+   Screen.dcds24_width_px = 458
+   Screen.dcds24_height_px = 343
+   --]]
+   
    if instI then
+      -- use the math.abs approach in case image sizes are a few pixels off
+      -- only change drawing mode if we need to
+      if math.abs(instI.width - Screen.dcds24_width_px) < 10 and Screen.dcds24ii and nd == 0 then
+	 print("Set Native")
+	 system.setProperty("NativeDraw", 1)
+	 Screen.image_width_px = Screen.dcds24_width_px
+	 Screen.image_height_px = Screen.dcds24_height_px
+      end
+
+      if math.abs(instI.width - Screen.legacy_width_px) < 10 and nd == 1 then
+	 print("Set Compatibility")
+	 system.setProperty("NativeDraw", 0)
+	 Screen.image_width_px = Screen.legacy_width_px
+	 Screen.image_height_px = Screen.legacy_height_px
+      end
       lcd.drawImage(0, 0, instI)
    else
       lcd.setColor(255,255,255)
-      lcd.drawText(100, 70, "No Panel Image", FONT_BOLD)
+      drawTextCenter(Screen.image_width_px / 2, Screen.image_height_px * 0.4 - 40,
+		     "No Panel Image", FONT_BOLD)
    end
 
    lcd.setColor(255,255,255)
    if not ip or #ip == 0 then
       drawTextCenter(Screen.image_width_px / 2, Screen.image_height_px * 0.4,
-		     "Window " .. tWin .. ": No inst panel assigned", FONT_BOLD)
+		     "Window " .. (tWin or 0) .. ": No inst panel selected", FONT_BOLD)
+      drawTextCenter(Screen.image_width_px / 2, Screen.image_height_px * 0.4 + 20,
+		     "Use F2 on Main Menu to Select", FONT_BOLD)
+      --print("tWin, isp1, isp2", tWin, isp1, isp2)
       return
    end
    
@@ -2911,6 +2971,8 @@ local function printForm(ww0,hh0,tWin)
    local pitchVal
    local textVal
    local modret
+
+   local tC = 255
    
    for idxW, widget in ipairs(ip) do
 
@@ -3276,6 +3338,7 @@ local function printForm(ww0,hh0,tWin)
 	    end
 
 	    lcd.setColor(255,255,255)
+	    --lcd.setColor(255,255,0)
 	    if widget.fV ~= "None" then
 	       drawTextCenter(widget.xV, widget.yV, string.format("%s", val), edit.fcode[widget.fV])
 	    end
@@ -3859,7 +3922,7 @@ local function printForm(ww0,hh0,tWin)
 	       lcd.drawRectangle(widget.x0 - 3 * barW/2, widget.y0 - 10, barW, 20)
 	    end
 	    
-	    lcd.setColor(255,255,255)
+	    lcd.setColor(255,255, tC)
 	    local str = string.format("%d", math.floor(val + 0.5))
 	    --local dy = lcd.getTextHeight(edit.fcode[fV]) / 2 + 1
 	    if (wH == "left") then
@@ -4426,9 +4489,10 @@ local function prtForm(w,h)
 	 dispSave = InsP.settings.window1Panel
       end
       InsP.settings.window1Panel = InsP.settings.selectedPanel
-      printForm(Screen.image_width_px - 2, Screen.image_height_px - 1) --318,159,1)
+      printForm(Screen.image_width_px - 2, Screen.image_height_px - 1,1) --318,159,1)
       lcd.setColor(180,180,180)
-      lcd.drawFilledRectangle(0,Screen.image_height_px - 2,Screen.image_width_px - 2, 20) --158, 318, 20)
+      lcd.drawFilledRectangle(0,Screen.image_height_px - 2,Screen.image_width_px-1,
+			      h - Screen.image_height_px) --158, 318, 20)
       lcd.setColor(0,0,0)
       local ipeg = ip[edit.gauge]
       if not ipeg then return end
@@ -4489,10 +4553,15 @@ local function prtForm(w,h)
       if ff then fn = string.format("D: %d F: ", dd) else fn = ""; ff = "" end
       if ss then fn = "Spacing: "; ff=ss end
       if mm then fn = ""; ff = mm end
-      
-      lcd.drawText(10, 157,
-		   string.format("Widget %d Type: %s  [%d,%d]  %s %s",
-				 edit.gauge, typ, xx, yy, fn, ff))
+
+      local sss = string.format("Widget %d Type: %s  [%d,%d]  %s %s",
+				edit.gauge, typ, xx, yy, fn, ff)
+      lcd.setColor(255,255,255)
+      --lcd.drawFilledRectangle(10, Screen.image_height_px, lcd.getTextWidth(FONT_NORMAL, sss),
+			--lcd.getTextHeight(FONT_NORMAL, sss))
+      lcd.setColor(0,0,0)
+      lcd.drawText(10, Screen.image_height_px - 2, sss, FONT_NORMAL)
+
       lcd.setColor(180,180,180)
       lcd.drawLine(0, yy, w, yy)
       lcd.drawLine(xx, 0, xx, h)      
@@ -5059,10 +5128,13 @@ local function init(icode)
 
    --Read Config.jsn to see what size images were loaded from Jeti Studio
 
-   fn = prefix()..aDir.."Config.jsn"  --aDir = "Apps/DFM-InsP/"
+   fn = prefix()..pDir.."/Config.jsn"
    file = io.readall(fn)
    if file then
       Screen = json.decode(file)
+      print("decoded Config.jsn")
+   else
+      print("no Config.jsn")
    end
 
    Screen.legacy_width_px = 320
@@ -5076,7 +5148,34 @@ local function init(icode)
       Screen.image_width_px = Screen.legacy_width_px
       Screen.image_height_px = Screen.legacy_height_px
    end
+
+   if (not Screen.dcds24ii) and (Screen.image_width_px ~= Screen.legacy_width_px) then
+      print(appInfo.Name .. ": Incompatible maps loaded for this TX", 10)
+      --system.messageBox(appInfo.Name.. ": Incompatible maps")
+      form.question("Incompatible maps", appName, "Error", 0, true, 0)
+   end
+
+   Screen.NativeDraw = false
+   if Screen.dcds24ii and Screen.image_width_px == Screen.dcds24_width_px then
+      system.setProperty("NativeDraw", 1)
+      if system.getProperty("NativeDraw") ~= 1 then
+	 print(appName .. ": Cannot enter Native Draw")
+	 system.messageBox(appInfo.Name .. ": Cannot enter Native Draw")	 
+      else
+	 print(appName .. ": DC/DS 24 Native Draw Mode")
+	 Screen.NativeDraw = true
+      end
+   end
+
+   if Screen.dcds24ii and Screen.image_width_px == Screen.legacy_width_px then
+      form.question("Low-res Panels Images", appName, "Warning", 3000, true, 0)
+      print(appName .. ": Load new Panels for full screen")	 
+   end
    
+
+   print(string.format(appName .. ": using %d x %d px panels",
+		       Screen.image_width_px, Screen.image_height_px))
+
 end
 
 local extaddr = {addret=addret, panelChanged=panelChanged, newpanel=newpanel}
