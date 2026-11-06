@@ -27,15 +27,19 @@
 
    We use a simple equirectangular projection of the map to the screen.
 
-   Developed on DS-24, only tested on DS-24
+   Developed on DS-24, only tested on DS-24 and the DS-24II emulator
 
    ---------------------------------------------------------------------------------------
    Released under MIT license by DFM 2021
    ---------------------------------------------------------------------------------------
+
+   History:
+
+   05-Nov-2026 Added support for dc/ds 24 II larger screens
    
    Thoughts for future releases:
 
-   0) IGC file CRC computation is disable for now. The initial lump of header
+   0) IGC file CRC computation is disabled for now. The initial lump of header
    messages were taking CPU usage past 100% and killing the app. We need to have
    a FIFO that drains on a periodic basis or some other way to level out the
    load since other writes to the IGC file are 1/sec

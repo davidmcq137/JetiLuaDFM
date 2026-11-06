@@ -1041,9 +1041,11 @@ local function printTeleGPS(w,h)
 	 break
       end
    end
-   
-   lcd.drawText(10, 145, string.format("Alt: %.1fm  Alt Setpoint %s  Pitch %.1f°  Elev Servo %d%%",
-				       RTH.altitude or 0, as, pitchVal or 0, eleS), FONT_MINI)
+
+   local cpu = system.getCPU()
+   lcd.drawText(10, 145, string.format(
+		   "Alt: %.1fm  Alt Set %s  Pitch %+.1f°  Ele Servo %+d%%  CPU %d%%",
+		   RTH.altitude or 0, as, pitchVal or 0, eleS, cpu), FONT_MINI)
    
 end
 
