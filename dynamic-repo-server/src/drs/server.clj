@@ -556,7 +556,4 @@
 
 (comment
   (start-dev))
-(let [a (atom {})]
-  (swap! a (constantly 4))
-  @a
-  )
+
