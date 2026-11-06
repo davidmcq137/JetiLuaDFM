@@ -8,12 +8,20 @@
    [clojure.walk :as walk]
    [rum.core :as rum]
    [markdown.core :as md]
+   ["react-dom" :as react-dom]
    [dynamic-repo]))
 
 
 (def static-input-data [])
 
 (defonce db (atom {}))
+
+(defn swapdb!
+  [f & args]
+  (let [result (volatile! nil)]
+    (react-dom/unstable_batchedUpdates
+     #(vreset! result (apply swap! db f args)))
+    @result))
 
 (def config-json (js->clj (js/JSON.parse (rc/inline "gauges/config.json"))))
 
@@ -452,6 +460,8 @@
                      :step step
                      :value val
                      :onChange (fn [^js ev]
+
+
                                  (update-gauge* da assoc-in 
                                                 ["colorvals" i "val"]
                                                 (js/parseFloat (.-value (.-target ev)))))}])))
@@ -540,7 +550,12 @@
              fs?
              (get gauge-editor-map fs?))]
     (when-not fs
-      (throw (ex-info (str "Don't know about " fs?) {:t t})))
+      (throw (ex-info (str "Don't know about gauge type " (pr-str t)
+                           (when (string? fs?)
+                             (str " (unresolved alias of " (pr-str fs?) ")"))
+                           ". Known types: "
+                           (string/join ", " (sort (keys gauge-editor-map))))
+                      {:t t :alias fs?})))
     fs))
 
 (rum/defc gauge-field
@@ -623,7 +638,7 @@
         :value   "Duplicate"
 
         :onClick (fn []
-                   (swap! db update-in
+                   (swapdb! update-in
                           [:panels (:selected-panel @db) :gauges]
                           (fn [gs] (assoc gs (count gs) d))))}]
       [:input
@@ -779,7 +794,7 @@
         (fn [j]
           (if-not (map? j)
             j
-            (dissoc j :bitmap))))
+            (dissoc j :bitmap :editing))))
        (pr-str)))
 
 (defn save-to-localstorage!
@@ -789,7 +804,7 @@
 
 (defn restore-db!
   [saved-db]
-  (reset! db
+  (swapdb! constantly
           (update saved-db :panels
                   (fn [ps]
                     (into {}
@@ -834,7 +849,7 @@
 (defn load-panel!
   [panel-name panel-data-clj]
   (let [{:strs [panel doc-md screen]} (normalize-panel* panel-data-clj)]
-    (swap! db #(-> %
+    (swapdb! #(-> %
                    (assoc-in [:panels panel-name]
                              {:doc-md doc-md
                               :screen-variant (or (screen->variant-index screen) 0)
@@ -871,12 +886,12 @@
      [:li [:input {:type "file"
                    :onChange (fn [ev]
                                (when-let [f (first (.-files (.-target ev)))]
-                                 (swap! db assoc-in
+                                 (swapdb! assoc-in
                                         [:panels (:selected-panel @db) :background-image]
                                         (js/URL.createObjectURL f))))}]]
      [:li [:input {:type "button"
                    :value "Clear"
-                   :onClick #(swap! db update-in
+                   :onClick #(swapdb! update-in
                                     [:panels (:selected-panel @db)]
                                     dissoc :background-image)}]]]]
    [:div [:h4 "Download"]
@@ -918,13 +933,13 @@
                        (.catch (fn [e] (js/console.error "Mde" e)))
                        (.then (fn [fr] (.text fr)))
                        (.then (fn [r]
-                                (swap! db assoc-in [:panels panel-name :doc-md] r)
+                                (swapdb! assoc-in [:panels panel-name :doc-md] r)
                                 (prn "Assocd"
                                      [:panels panel-name :doc-md])))))))))
 
 (defn new-gauge!
   [new-gauge-type]
-  (swap! db update-in
+  (swapdb! update-in
          [:panels (:selected-panel @db) :gauges]
          (fn [gs]
            (assoc gs
@@ -981,7 +996,7 @@
        :value "Save this panel as:"
        :onClick (fn []
                   (let [uname (get-panel-unique-name panel-name)]
-                   (swap! db
+                   (swapdb!
                           #(-> %
                                (update :panels assoc uname (get ps sel))
                                (assoc :selected-panel uname)))))}]
@@ -1022,7 +1037,7 @@
                 :disabled taken?
                 :onClick (fn [ev]
                            (set-collapse! true)
-                           (swap! db do-panel-rename old-name new-name))}]
+                           (swapdb! do-panel-rename old-name new-name))}]
        [:input {:type "button"
                 :value "Cancel"
                 :onClick #(set-collapse! true)}]])))
@@ -1057,7 +1072,7 @@
          :value "Really delete"
          :onClick (fn [ev]
                     (set-collapse! true)
-                    (swap! db do-panel-delete panel-name))}]
+                    (swapdb! do-panel-delete panel-name))}]
        [:input {:type "button"
                 :value "Cancel"
                 :onClick #(set-collapse! true)}]])))
@@ -1078,7 +1093,7 @@
                            :type "button"
                            :value panel-name
                            :disabled (= sel panel-name)
-                           :onClick #(swap! db assoc :selected-panel panel-name)}]))])
+                           :onClick #(swapdb! assoc :selected-panel panel-name)}]))])
    
    (panel-list-controls sel ps)])
 
@@ -1122,7 +1137,7 @@
          :value md-text
          :onChange (fn [^js ev]
                      (let [v (.-value (.-target ev))]
-                       (swap! db assoc-in [:panels selected-panel :doc-md] v)
+                       (swapdb! assoc-in [:panels selected-panel :doc-md] v)
                        ))}]
        [:div {:dangerouslySetInnerHTML {:__html (md/md->html md-text)}}])
      [:div {}
@@ -1165,7 +1180,7 @@
                   :value "Convert to large screen"
                   :style {:margin-left "2ex"}
                   :onClick #(let [new-name (get-panel-unique-name (str selected-panel "L"))]
-                              (swap! db convert-panel-to-large selected-panel new-name))}])])))
+                              (swapdb! convert-panel-to-large selected-panel new-name))}])])))
 
 (rum/defc root
   < rum/reactive
@@ -1234,7 +1249,7 @@
                   :style {:margin-left "2ex"}
                   :onChange (fn [ev]
                               (let [s (.-value (.-target ev))]
-                                (swap! db assoc :align-divs
+                                (swapdb! assoc :align-divs
                                        (case s
                                          "none" nil
                                          s))))}
