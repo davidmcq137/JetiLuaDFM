@@ -1,6 +1,6 @@
 {
-    "configDir":"Apps/DFM-Path/Json",
-    "configDir4":"Apps/DFM-Maps/JSON",
+    "configDir5":"Apps/DFM-Path/Json",
+    "configDir":"Apps/DFM-Maps/JSON",
     "configDir3":"Apps/DFM-Rscu/Json",
     "configDir1":"Apps/DFM-HUD/Json",
     "configDir2":"Apps/DFM-InsP"

@@ -1181,6 +1181,7 @@ local function pngLoad(j)
    
 end
 
+
 local function graphScaleRst(i)
    if not currentImage then return end
    currentImage = i
@@ -1194,6 +1195,20 @@ local function graphScaleRst(i)
    path.xmax = map.Xmax
    path.ymin = map.Ymin
    path.ymax = map.Ymax
+end
+
+local function graphScaleModify(key)
+
+   if not currentImage then return end
+   local di
+
+   if key == KEY_1 then di = 1 elseif key == KEY_2 then di = -1 end
+   
+   currentImage = math.max(math.min(currentImage+di, maxImage), 1)
+   pngLoad(currentImage)
+   graphScaleRst(currentImage)
+   recalcPixels =  true
+   recalcCount = 0
 end
 
 local function triRot(ao)
@@ -3604,6 +3619,8 @@ local function graphScale(xx, yy)
    -- check each image scale .. maxs and mins are precomputed
    -- starting from most zoomed in image (the first one), stop
    -- when the path fits within the window or at max image size
+
+   local oldImage = currentImage
    
    if currentImage then
       if path.xmin < xminImg(currentImage) or
@@ -3614,7 +3631,7 @@ local function graphScale(xx, yy)
 	 currentImage = math.min(currentImage+1, maxImage)
       end
 
-      if not fieldPNG[currentImage] then
+      if not fieldPNG[currentImage] or currentImage ~= oldImage then
 	 pngLoad(currentImage)
 	 graphScaleRst(currentImage)
 	 recalcPixels =  true
@@ -3622,8 +3639,11 @@ local function graphScale(xx, yy)
       end
    else
       --print("** graphScale else clause **")
+
       -- if no image then just scale to keep the path on the map
       -- round Xrange to nearest 60 m, Yrange to nearest 30 m maintain 2:1 aspect ratio
+      -- do we need to do something different on the 24II???
+      
       map.Xrange = math.floor((path.xmax-path.xmin)/60 + .5) * 60
       map.Yrange = math.floor((path.ymax-path.ymin)/30 + .5) * 30
       
@@ -4550,6 +4570,59 @@ local function loop()
    end
 end
 
+--[[
+      checkBoxAdd(lang.annNoFly, "noFlyWarningEnabled")
+      
+      checkBoxAdd(lang.shakeNoFly, "noFlyShakeEnabled")
+--]]
+
+local function setMapButtons()
+   if not system.setTelemetryButton then return end
+   system.setTelemetryButton(1, 1, "-", 1)
+   system.setTelemetryButton(1, 2, "+", 1)
+   --system.setTelemetryButton(1, 3, "NoFly", 1)
+   if checkBox.noflyEnabled then
+      system.setTelemetryButton(1, 3, "NoFly", 2)
+      if checkBox.noFlyWarningEnabled then
+	 system.setTelemetryButton(1, 4, "NFAnn", 2)
+      else
+	 system.setTelemetryButton(1, 4, "NFAnn", 0)
+      end
+      if checkBox.noFlyShakeEnabled then
+	 system.setTelemetryButton(1, 5, "NFShk", 2)
+      else
+	 system.setTelemetryButton(1, 5, "NFShk", 0)
+      end
+   else
+      system.setTelemetryButton(1, 3, "NoFly", 0)   
+      system.setTelemetryButton(1, 4, "NFAnn", 3)
+      system.setTelemetryButton(1, 5, "NFShk", 3)
+   end
+end
+
+
+local function keyPressMap(key)
+   local on = " on"
+   local off = " off"
+   local state
+   if key == KEY_1 or key == KEY_2 then -- "-" or "+"
+      graphScaleModify(key)
+   elseif key == KEY_3 then
+      checkBox.noflyEnabled = not checkBox.noflyEnabled
+      state = checkBox.noflyEnabled and on or off
+      --system.messageBox(appInfo.Name..": NoFly Zones"..state)
+   elseif key == KEY_4 then
+      checkBox.noFlyWarningEnabled = not checkBox.noFlyWarningEnabled
+      state = checkBox.noFlyWarningEnabled and on or off
+      --system.messageBox(appInfo.Name..": NoFly Warning"..state)
+   elseif key == KEY_5 then 
+      checkBox.noFlyShakeEnabled = not checkBox.noFlyShakeEnabled
+      state = checkBox.noFlyShakeEnabled and on or off
+      --system.messageBox(appInfo.Name..": NoFly Stick Shake"..state)
+   end
+   setMapButtons()
+end
+
 local function init()
 
    --local emptySw = system.getSwitchInfo(system.createSwitch("??", ""))
@@ -4692,8 +4765,13 @@ local function init()
    setLanguage()
    
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
-   system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, mapPrint, {"MV1", "MV2", "MV3", "MV4"})
-   system.registerTelemetry(2, appInfo.Name.." "..lang.triView, 4, dirPrint, {"TV1", "TV2", "TV3", "TV4"})   
+   --system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, mapPrint, {"MV1", "MV2", "MV3", "MV4"})
+   system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, mapPrint, keyPressMap)
+   system.registerTelemetry(2, appInfo.Name.." "..lang.triView, 4, dirPrint, {"TV1", "TV2", "TV3", "TV4"})
+
+   if system.setTelemetryButton then
+      setMapButtons()
+   end
    
    emFlag = (select(2,system.getDeviceType()) == 1)
 
