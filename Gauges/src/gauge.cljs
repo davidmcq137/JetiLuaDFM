@@ -804,16 +804,17 @@
 
 (defn restore-db!
   [saved-db]
-  (swapdb! constantly
-          (update saved-db :panels
-                  (fn [ps]
-                    (into {}
-                          (for [[pk p] ps]
-                            [pk (update p :gauges
-                                        (fn [gs]
-                                          (into {}
-                                                (for [[gk g] gs]
-                                                  [gk (merge g (render-gauge* (:params g)))]))))]))))))
+  (swapdb!
+   (constantly
+    (update saved-db :panels
+            (fn [ps]
+              (into {}
+                    (for [[pk p] ps]
+                      [pk (update p :gauges
+                                  (fn [gs]
+                                    (into {}
+                                          (for [[gk g] gs]
+                                            [gk (merge g (render-gauge* (:params g)))]))))])))))))
 
 (defn load-from-localstorage!
   []
@@ -849,13 +850,15 @@
 (defn load-panel!
   [panel-name panel-data-clj]
   (let [{:strs [panel doc-md screen]} (normalize-panel* panel-data-clj)]
-    (swapdb! #(-> %
-                   (assoc-in [:panels panel-name]
-                             {:doc-md doc-md
-                              :screen-variant (or (screen->variant-index screen) 0)
-                              :gauges (zipmap (range)
-                                              (map render-gauge* panel))})
-                   (assoc :selected-panel panel-name)))))
+    (swapdb!
+     (fn [db]
+       (-> db
+           (assoc-in [:panels panel-name]
+                     {:doc-md doc-md
+                      :screen-variant (or (screen->variant-index screen) 0)
+                      :gauges (zipmap (range)
+                                      (map render-gauge* panel))})
+           (assoc :selected-panel panel-name))))))
 
 (rum/defc loader
   []
