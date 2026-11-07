@@ -1334,13 +1334,7 @@
                       {:destination (str "Apps/DFM-Maps/Maps/" short-name "/" i ".png")
                        :url (str (.-origin (.-location js/window))
                                  "/staticmap?"
-                                 (zone-image-query-params c width height))})))}
-             {:base-app "DFM-GPS"
-              :dynamic-files 
-              (into [{:app "DFM-GPS" :prefix "Apps/"}]
-                    (for [f (qes-by db :field/name)]
-                      {:destination (str "Apps/DFM-GPS/FF_" (:field/short-name f) ".jsn")
-                       :json-data (simple-json-data-for-field f)}))}]})))
+                                 (zone-image-query-params c width height))})))}]})))
 
 (defn send-dynamic-repo-request! [db]
   (doseq [[i variant] (map-indexed vector screen-variants)]
