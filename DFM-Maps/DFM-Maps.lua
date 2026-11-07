@@ -147,6 +147,8 @@ metrics.currMaxCPU = 0
 metrics.loopCPU = 0
 metrics.loopCPUMax = 0
 metrics.loopCPUAvg = 0
+metrics.ndcound = 0	       
+metrics.maxTeleCPU  = 0
 
 local gotInitPos = false
 local annTextSeq = 1
@@ -1153,7 +1155,7 @@ local function pngLoad(j, force)
    pfn = Field.images[j].file
    --print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j], pfn)
    if (fieldPNG[j]==nil or force) then
-      print("@@@@ pngLoad doing lcd.loadImage", pfn)
+      --print("@@@@ pngLoad doing lcd.loadImage", pfn)
     fieldPNG[j] = lcd.loadImage(pfn)
     --collectgarbage()
  end
@@ -1913,13 +1915,13 @@ end
 local function toXPixel(coord, min, range, width)
    local pix
    pix = (coord - min)/range * width
-   return pix --math.min(math.max(pix, 0), width)
+   return math.floor(pix+0.5) --math.min(math.max(pix, 0), width)
 end
 
 local function toYPixel(coord, min, range, height)
    local pix
    pix = height-(coord - min)/range * height
-   return pix --math.min(math.max(pix, 0), height)
+   return math.floor(pix + 0.5) --math.min(math.max(pix, 0), height)
 end
 
 local function fslope(xx, yy)
@@ -3820,8 +3822,10 @@ local function mapPrint(wWid, wHgt)
       local ii = variables.ribbonColorSource
 
       --print("nd", system.getProperty("NativeDraw"))
-      
-      if system.getProperty("NativeDraw") == 0 then
+
+      local xOver = 200
+
+      if system.getProperty("NativeDraw") == 0  or variables.histMax <= xOver then
 	 for i=2 + offset, (recalcPixels and recalcCount or #xPHist) do
 	    kk = i
 	    --AA--ren:addPoint(xPHist[i], yPHist[i])
@@ -3866,19 +3870,50 @@ local function mapPrint(wWid, wHgt)
 			 toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 			 toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))		      
 	 end
-      else -- NativeDraw
-	 local hs = #xPHist
+      end
+      
+      if system.getProperty("NativeDraw") == 1  and variables.histMax > xOver then
+	 --if metrics.xPCount % 100 == 0 then print("xPCount", metrics.xPCount) end
+	 local hs = #xtable
 	 local FR = Field.renderer
-	 local xp,yp
+	 local xp,yp,xph,yph
 	 --print("hs", hs)
+	 local xth0, yth0, xth1, yth1
 	 if hs > 1 and xtable and #xtable > 0 then
 	    FR:reset()
-	    FR:addPoint(xPHist[hs-1], yPHist[hs-1])
-	    FR:addPoint(xPHist[hs], yPHist[hs])
+	    xth0, yth0, xth1, yth1 = xtable[hs], ytable[hs], xtable[hs-1], ytable[hs-1]
+	    xp = toXPixel(xth1, map.Xmin, map.Xrange, windowWidth)
+	    yp = toYPixel(yth1, map.Ymin, map.Yrange, windowHeight)
+	    if variables.lastX and variables.lastImage and variables.lastImage == currentImage then
+	       FR:addPoint(variables.lastX, variables.lastY)
+	    else
+	       FR:addPoint(xp, yp)
+	    end
+	    xph = toXPixel(xth0, map.Xmin, map.Xrange, windowWidth)
+	    yph = toYPixel(yth0, map.Ymin, map.Yrange, windowHeight)
+	    FR:addPoint(xph, yph)
+	    variables.lastX = xph
+	    variables.lastY = yph
+	    variables.lastImage = currentImage
+	    --[[
+	    if metrics.lastX then
+	       if xp ~= metrics.lastX then print("x mismatch", hs,#xPHist, xp, metrics.lastX) end
+	       if yp ~= metrics.lastY then print("y mismatch", hs,#yPHist, yp, metrics.lastY) end
+	    else
+	       print("no mismatch", #xPHist)
+	    end
+	    metrics.lastX = xph
+	    metrics.lastY = yph
+	    --]]
+
 	    xp = toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth)
 	    yp = toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight)
-	    if xp ~= xPHist[hs] or yp ~= yPHist[hs] then
-	       lcd.drawLine(xPHist[hs], yPHist[hs], xp, yp)
+	    if xp ~= xph or yp ~= yph then
+	       mapPrintRenderer:reset()
+	       mapPrintRenderer:addPoint(xph, yph)
+	       mapPrintRenderer:addPoint(xp, yp)
+	       mapPrintRenderer:renderPolyline(2)
+	       --lcd.drawLine(xPHist[hs], yPHist[hs], xp, yp)
 	       --FR:addPoint(xp, yp) -- problematic since it draws permanent segments to interim points
 	    end
 	    if variables.ribbonColorSource ~= 1 then
@@ -3890,7 +3925,9 @@ local function mapPrint(wWid, wHgt)
 		  setColor("Map", "Image")
 	       end
 	    end
-	    FR:renderPolyline(1)
+	    FR:renderPolyline(2)
+
+	    
 	 end
       end
       
@@ -4098,6 +4135,13 @@ local function mapPrint(wWid, wHgt)
    if metrics.currMaxCPU >= variables.maxCPU then
       variables.histMax = #xPHist -- no more points .. cpu nearing cutoff
    end
+
+   if metrics.currMaxCPU > metrics.maxTeleCPU then metrics.maxTeleCPU = metrics.currMaxCPU end
+   lcd.drawText(10,Screen.image_height_px - 30,
+		string.format("CPU: %d%% Max: %d%%", metrics.currMaxCPU, metrics.maxTeleCPU), FONT_MINI)
+   
+   lcd.drawText(10,Screen.image_height_px - 50,
+		string.format("P: %d", metrics.xPCount), FONT_MINI)
    
 end
 
@@ -4401,9 +4445,24 @@ local function loop()
       initField()
    end
 
+   
+   local zeroPos = gps.newPoint(lat0, lng0)
+   local curPos = gps.getPosition(telem.Latitude.SeId, telem.Latitude.SePa, telem.Longitude.SePa)
+   local curDist = gps.getDistance(zeroPos, curPos)
+   local curBear = gps.getBearing(zeroPos, curPos)
+      --curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
+   local curX = curDist * math.cos(math.rad(curBear+270)) -- why not same angle X and Y??
+   local curY = curDist * math.sin(math.rad(curBear+90))
+
    x = rE * (longitude - lng0) * coslat0 / rad
    y = rE * (latitude - lat0) / rad
 
+
+   --print(x-curX, y-curY)
+
+   x = curX
+   y = curY
+   
    --[[
    --print("x,y:", x,y)
 
@@ -4776,7 +4835,8 @@ local function init()
    variables.triHeightFactor   = jLoad(variables, "triHeightScale", 100)
    variables.lastMatchField    = jLoad(variables, "lastMatchField", "")
    variables.maxTriAlt         = jLoad(variables, "maxTriAlt", 500)
-   
+   variables.lastX             = nil
+   variables.lastY             = nil
    --------------------------------------------------------------------------------
 
    for i, j in ipairs(telem) do
