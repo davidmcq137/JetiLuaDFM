@@ -79,16 +79,25 @@
 
 (defonce all-client-states (atom {}))
 
+(def ^:const image-threads 8)
+(def ^:const apps-threads 4)
+
+(defonce image-pool (java.util.concurrent.Executors/newFixedThreadPool image-threads))
+
 (defn image-for-request
   [{:keys [query-params]}]
-  (let [{:strs [lat lng heading zoom out-width out-height]} query-params]
-    (gmaps/get-rotated-small-image
-     {:lat (Double/parseDouble lat)
-      :lng (Double/parseDouble lng)
-      :heading (Double/parseDouble heading)
-      :zoom (Double/parseDouble zoom)
-      :out-width (Integer/parseInt out-width)
-      :out-height (Integer/parseInt out-height)})))
+  (let [{:strs [lat lng heading zoom out-width out-height]} query-params
+        params {:lat (Double/parseDouble lat)
+                :lng (Double/parseDouble lng)
+                :heading (Double/parseDouble heading)
+                :zoom (Double/parseDouble zoom)
+                :out-width (Integer/parseInt out-width)
+                :out-height (Integer/parseInt out-height)}]
+    (try
+      (.get (.submit ^java.util.concurrent.ExecutorService image-pool
+                     ^Callable #(gmaps/get-rotated-small-image params)))
+      (catch java.util.concurrent.ExecutionException e
+        (throw (.getCause e))))))
 
 (defn get-static-map
   [{:keys [query-params query-string] :as req}]
@@ -332,9 +341,12 @@
   [yoururl base-app dynamic-files app-json-overrides]
   (let [base "compiled-apps"
         files (->> (into [{"app" base-app}] dynamic-files)
-                   (mapv #(future (process-file-spec %)))
-                   (mapcat deref)
-                   (map (partial add-cas-url yoururl)))
+                   (partition-all apps-threads)
+                   (mapcat (fn [batch]
+                             (->> batch
+                                  (mapv #(future (process-file-spec %)))
+                                  (mapcat deref))))
+                   (mapv (partial add-cas-url yoururl)))
         manifest-file (io/resource (str base "/" base-app "/App.json"))
         
         app-json-data (->> manifest-file
@@ -414,19 +426,22 @@
   [{:keys [route-params query-params]}]
   (let [{:keys [token]} route-params
         {:strs [applications]} (json/parse-stream (io/reader (get @dynamic-repo-cache [:token token])))
-        {:strs [files]} (nth applications (Integer/parseInt (get query-params "app" "0")))
-        contents (mapv (fn [{:strs [destination hash]}]
-                         [destination (cas-bytes hash)])
-                       files)]
-    (if-not (every? (comp bytes? second) contents)
-      {:status 410}
+        {:strs [files]} (nth applications (Integer/parseInt (get query-params "app" "0")))]
+    (try
       {:status 200
        :body (with-open [baos (ByteArrayOutputStream.)]
-               (with-open  [zip-out (ZipOutputStream. baos)]
-                 (doseq [[destination bs] contents]
-                   (.putNextEntry zip-out (ZipEntry. destination))
-                   (io/copy bs zip-out)))
-               (.toByteArray baos))})))
+               (with-open [zip-out (ZipOutputStream. baos)]
+                 (doseq [{:strs [destination hash]} files]
+                   (let [bs (cas-bytes hash)]
+                     (when-not (bytes? bs)
+                       (throw (ex-info "File gone" {::gone destination})))
+                     (.putNextEntry zip-out (ZipEntry. ^String destination))
+                     (io/copy bs zip-out))))
+               (.toByteArray baos))}
+      (catch clojure.lang.ExceptionInfo e
+        (if (::gone (ex-data e))
+          {:status 410}
+          (throw e))))))
 
 (defn do-cas
   [{:keys [query-params]}]
