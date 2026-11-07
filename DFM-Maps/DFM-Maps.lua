@@ -1142,7 +1142,7 @@ local function airplaneIconChanged(value)
    jSave(variables, "airplaneIcon", value)
 end
 
-local function pngLoad(j)
+local function pngLoad(j, force)
    local pfn
 
    if not Field or not Field.images then
@@ -1152,8 +1152,8 @@ local function pngLoad(j)
    
    pfn = Field.images[j].file
    --print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j], pfn)
-   if (fieldPNG[j]==nil) then
-      --print("@@@@ pngLoad doing lcd.loadImage", pfn)
+   if (fieldPNG[j]==nil or force) then
+      print("@@@@ pngLoad doing lcd.loadImage", pfn)
     fieldPNG[j] = lcd.loadImage(pfn)
     --collectgarbage()
  end
@@ -1168,6 +1168,11 @@ local function pngLoad(j)
    
    Field.lat = Field.images[j].center.lat
    Field.lng = Field.images[j].center.lng
+   if system.getProperty("NativeDraw") == 1 then
+      Field.renderer = lcd.renderer(fieldPNG[j])
+   else
+      Field.renderer = nil
+   end
    lat0 = Field.lat
    lng0 = Field.lng
    coslat0 = math.cos(math.rad(lat0))
@@ -3814,51 +3819,83 @@ local function mapPrint(wWid, wHgt)
       local kk
       local ii = variables.ribbonColorSource
 
-      for i=2 + offset, (recalcPixels and recalcCount or #xPHist) do
-	 kk = i
-	 --AA--ren:addPoint(xPHist[i], yPHist[i])
-	 ----[[
-	 if ii ~= 1 then
-	    if (rgb.last ~= rgbHist[i].rgb) then
-	       lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
-	       rgb.last = rgbHist[i].rgb
+      --print("nd", system.getProperty("NativeDraw"))
+      
+      if system.getProperty("NativeDraw") == 0 then
+	 for i=2 + offset, (recalcPixels and recalcCount or #xPHist) do
+	    kk = i
+	    --AA--ren:addPoint(xPHist[i], yPHist[i])
+	    ----[[
+	    if ii ~= 1 then
+	       if (rgb.last ~= rgbHist[i].rgb) then
+		  lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
+		  rgb.last = rgbHist[i].rgb
+	       end
+	    else -- solid/monochrome ribbon
+	       if variables.triEnabled then
+		  setColor("Map", variables.triColorMode)
+	       else
+		  setColor("Map", "Image")
+	       end
+	       --lcd.setColor(140,140,80)
 	    end
-	 else -- solid/monochrome ribbon
-	    if variables.triEnabled then
-	       setColor("Map", variables.triColorMode)
-	    else
-	       setColor("Map", "Image")
+	    
+	    --]]
+	    --lcd.drawCircle(xPHist[i], yPHist[i], 2)
+	    
+	    lcd.drawLine(xPHist[i-1], yPHist[i-1], xPHist[i], yPHist[i])
+	    
+	    if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
+	       if system.getCPU() >= variables.maxCPU then
+		  print(appInfo.Name .. ": CPU panic", #xPHist, system.getCPU(), variables.maxCPU)
+		  panic = true
+		  break
+	       end
+	       --AA--ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0) 
+	       if i ~= (recalcPixels and recalcCount or #xPHist) then
+		  --AA--ren:reset()
+		  --AA--ren:addPoint(xPHist[i], yPHist[i])
+	       end
 	    end
-	    --lcd.setColor(140,140,80)
 	 end
 	 
-	 --]]
-	 --lcd.drawCircle(xPHist[i], yPHist[i], 2)
-	 
-	 lcd.drawLine(xPHist[i-1], yPHist[i-1], xPHist[i], yPHist[i])
-	 
-	 if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
-	    if system.getCPU() >= variables.maxCPU then
-	       print(appInfo.Name .. ": CPU panic", #xPHist, system.getCPU(), variables.maxCPU)
-	       panic = true
-	       break
+	 if variables.histMax > 0 and #xPHist > 0 and #xtable > 0 and kk then
+	    --AA--ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
+	    --AA--      toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))
+	    lcd.drawLine(xPHist[kk], yPHist[kk],
+			 toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
+			 toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))		      
+	 end
+      else -- NativeDraw
+	 local hs = #xPHist
+	 local FR = Field.renderer
+	 local xp,yp
+	 --print("hs", hs)
+	 if hs > 1 and xtable and #xtable > 0 then
+	    FR:reset()
+	    FR:addPoint(xPHist[hs-1], yPHist[hs-1])
+	    FR:addPoint(xPHist[hs], yPHist[hs])
+	    xp = toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth)
+	    yp = toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight)
+	    if xp ~= xPHist[hs] or yp ~= yPHist[hs] then
+	       lcd.drawLine(xPHist[hs], yPHist[hs], xp, yp)
+	       --FR:addPoint(xp, yp) -- problematic since it draws permanent segments to interim points
 	    end
-	    --AA--ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0) 
-	    if i ~= (recalcPixels and recalcCount or #xPHist) then
-	       --AA--ren:reset()
-	       --AA--ren:addPoint(xPHist[i], yPHist[i])
+	    if variables.ribbonColorSource ~= 1 then
+	       lcd.setColor(rgbHist[hs-1].r, rgbHist[hs-1].g, rgbHist[hs-1].b)
+	    else -- solid/monochrome ribbon
+	       if variables.triEnabled then
+		  setColor("Map", variables.triColorMode)
+	       else
+		  setColor("Map", "Image")
+	       end
 	    end
+	    FR:renderPolyline(1)
 	 end
       end
       
-      if variables.histMax > 0 and #xPHist > 0 and #xtable > 0 and kk then
-	 --AA--ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
-		 --AA--      toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))
-	 lcd.drawLine(xPHist[kk], yPHist[kk],
-		      toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
-		      toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))		      
-      end
       --setColorMain()
+
       if variables.triEnabled then
 	 setColor("Map", variables.triColorMode)
       else
@@ -4605,6 +4642,7 @@ local function keyPressMap(key)
    local on = " on"
    local off = " off"
    local state
+   --print("keyPressMap", key, KEY_ENTER)
    if key == KEY_1 or key == KEY_2 then -- "-" or "+"
       graphScaleModify(key)
    elseif key == KEY_3 then
@@ -4619,6 +4657,8 @@ local function keyPressMap(key)
       checkBox.noFlyShakeEnabled = not checkBox.noFlyShakeEnabled
       state = checkBox.noFlyShakeEnabled and on or off
       --system.messageBox(appInfo.Name..": NoFly Stick Shake"..state)
+   elseif key == KEY_ENTER then
+      pngLoad(currentImage, true)
    end
    setMapButtons()
 end
