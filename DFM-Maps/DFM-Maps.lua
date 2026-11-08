@@ -3918,16 +3918,16 @@ local function mapPrint(wWid, wHgt)
 	       local renimg = false
 	       
 	       local hs = #latHist
+	       
 	       xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
-	       xth1, yth1 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs-1], lngHist[hs-1]))      
-	       
-	       xp = txp(xth1, cI, windowWidth)
-	       yp = typ(yth1, cI, windowHeight)
-	       
 	       xph = txp(xth0, cI, windowWidth)
 	       yph = typ(yth0, cI, windowHeight)
 	       
 	       if metrics.xPCount ~= metrics.xPCountLastDraw then
+		  --only need xp and yp if drawing on image, need xph and yph each time
+		  xth1, yth1 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs-1], lngHist[hs-1]))
+		  xp = txp(xth1, cI, windowWidth)
+		  yp = typ(yth1, cI, windowHeight)
 		  FR:reset()
 		  FR:addPoint(xp, yp)
 		  FR:addPoint(xph, yph)
@@ -3936,15 +3936,14 @@ local function mapPrint(wWid, wHgt)
 	       end
 	    	       
 	       local renlast = false
-	       if latitude and longitude then
+	       if latitude and longitude and cI == currentImage then
 		  local xcc, ycc = gps2xy(Field.centerGPS[cI], gps.newPoint(latitude, longitude))
 		  local xpc = txp(xcc, cI, windowWidth)
 		  local ypc = typ(ycc, cI, windowHeight)
-		  if cI == currentImage and (math.abs(xpc - xph) > 0 or math.abs(ypc - yph) > 0) then
+		  if xpc ~= xph or ypc ~= yph then
 		     mapPrintRenderer:reset()
 		     mapPrintRenderer:addPoint(xpc, ypc)
 		     mapPrintRenderer:addPoint(xph, yph)
-		     --lcd.drawLine(xpc, ypc, xph, yph)
 		     renlast = true
 		  end
 	       end
