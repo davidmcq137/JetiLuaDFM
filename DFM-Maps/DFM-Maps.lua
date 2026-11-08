@@ -3909,14 +3909,14 @@ local function mapPrint(wWid, wHgt)
 	 if not metrics.xPCountLastDraw then metrics.xPCountLastDraw = 0 end
 	 
 	 if latHist and #latHist > 1 and
+	    metrics.xPCount < metrics.xPCountLast + variables.histMax then
+
 	    -- if the lat/lng history table overwrote while we were not on screen,
 	    -- skip one iteration to get a current and history point up to date
-	    metrics.xPCount < metrics.xPCountLast + variables.histMax then
-	    --xth0, yth0, xth1, yth1 = xtable[hs], ytable[hs], xtable[hs-1], ytable[hs-1]
+
 	    local anydraw = false
 	    for cI, FR in ipairs(Field.renderer) do
 	       local renimg = false
-	       
 	       local hs = #latHist
 	       
 	       xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
@@ -4177,11 +4177,13 @@ local function mapPrint(wWid, wHgt)
 		string.format("CPU: %3d%% Max: %3d%%", metrics.currMaxCPU, metrics.maxTeleCPU), FONT_MINI)
    
    lcd.drawText(10,Screen.image_height_px - 50,
-		string.format("P: %d", metrics.xPCount), FONT_MINI)
+   		string.format("P: %d D: %.1fkm", metrics.xPCount, (metrics.distTrav or 0)/1000),
+		FONT_MINI)
    if Field.images and currentImage and currentImage > 0 then
       lcd.drawText(Screen.image_width_px -75, Screen.image_height_px - 30,
 		   "Mag: " .. Field.images[currentImage].mag,
 		   FONT_MINI)
+      --lcd.drawNumber(10,50,metrics.distTrav)
    end
    
    
