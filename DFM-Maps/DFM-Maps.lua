@@ -149,6 +149,7 @@ metrics.loopCPUMax = 0
 metrics.loopCPUAvg = 0
 metrics.ndcound = 0	       
 metrics.maxTeleCPU  = 0
+metrics.remCountLast = 0
 
 local gotInitPos = false
 local annTextSeq = 1
@@ -1163,6 +1164,7 @@ local function pngLoad(j, force)
       print(appInfo.Name .. ": Failed to load image", j, pfn)
       return
    else
+      Field.images[j].mag = string.match(Field.images[currentImage].file, ".*%/(.-)%.png")
       --print("image width, height", pfn, fieldPNG[j].width, fieldPNG[j].height)
    end
 
@@ -1170,10 +1172,13 @@ local function pngLoad(j, force)
    
    Field.lat = Field.images[j].center.lat
    Field.lng = Field.images[j].center.lng
+   if not Field.centerGPS then Field.centerGPS = {} end
+   Field.centerGPS[j] = gps.newPoint(Field.lat, Field.lng)
+   if not Field.renderer then Field.renderer = {} end
    if system.getProperty("NativeDraw") == 1 then
-      Field.renderer = lcd.renderer(fieldPNG[j])
+      Field.renderer[j] = lcd.renderer(fieldPNG[j])
    else
-      Field.renderer = nil
+      Field.renderer[j] = nil
    end
    lat0 = Field.lat
    lng0 = Field.lng
@@ -1188,20 +1193,21 @@ local function pngLoad(j, force)
    
 end
 
-
-local function graphScaleRst(i)
+local function graphScaleRst(i, nerf)
    if not currentImage then return end
-   currentImage = i
-   map.Xmin = xminImg(currentImage)
-   map.Xmax = xmaxImg(currentImage)
-   map.Ymin = yminImg(currentImage)
-   map.Ymax = ymaxImg(currentImage)
+   if not nerf then currentImage = i end
+   map.Xmin = xminImg(i)
+   map.Xmax = xmaxImg(i)
+   map.Ymin = yminImg(i)
+   map.Ymax = ymaxImg(i)
    map.Xrange = map.Xmax - map.Xmin
    map.Yrange = map.Ymax - map.Ymin
-   path.xmin = map.Xmin
-   path.xmax = map.Xmax
-   path.ymin = map.Ymin
-   path.ymax = map.Ymax
+   if not nerf then
+      path.xmin = map.Xmin
+      path.xmax = map.Xmax
+      path.ymin = map.Ymin
+      path.ymax = map.Ymax
+   end
 end
 
 local function graphScaleModify(key)
@@ -1347,11 +1353,11 @@ local function keyForm(key)
 	 browse.Idx = browse.Idx + inc
 	 browse.Idx = math.max(math.min(browse.Idx, #Fields[browse.FieldName].images), 1)
 	 currentImage = browse.Idx
-	 print("call pngLoad", currentImage)
+	 --print("call pngLoad", currentImage)
 	 pngLoad(currentImage)
-	 print("call graphScaleRst", currentImage)
+	 --print("call graphScaleRst", currentImage)
 	 graphScaleRst(currentImage)
-	 print("call triRot")
+	 --print("call triRot")
 	 triRot(0) -- rotate and translate triangle to pylons
       else -- KEY_2
 	 print("key2, savedSubform", savedSubform)
@@ -3823,7 +3829,7 @@ local function mapPrint(wWid, wHgt)
 
       --print("nd", system.getProperty("NativeDraw"))
 
-      local xOver = 200
+      local xOver = 100
 
       if system.getProperty("NativeDraw") == 0  or variables.histMax <= xOver then
 	 for i=2 + offset, (recalcPixels and recalcCount or #xPHist) do
@@ -3871,64 +3877,84 @@ local function mapPrint(wWid, wHgt)
 			 toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))		      
 	 end
       end
-      
+
+      local function txp(xxx,i,w)
+	 local pix
+	 pix = w*(xxx - xminImg(i)) / (xmaxImg(i) - xminImg(i))
+	 return math.floor(pix+0.5)
+      end
+
+      local function typ(yyy,i,h)
+	 local pix
+	 pix = h - (h*(yyy - yminImg(i)) / (ymaxImg(i) - yminImg(i)))
+	 return math.floor(pix+0.5)
+      end
+
+      local function gps2xy(gps0, gps1)
+	 local curDis = gps.getDistance(gps0, gps1)
+	 local curBrg = gps.getBearing(gps0, gps1)
+	 local curX = curDis * math.cos(math.rad(curBrg+270)) -- why not same angle X and Y??
+	 local curY = curDis * math.sin(math.rad(curBrg+90))
+	 curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
+	 return curX, curY
+      end
+
       if system.getProperty("NativeDraw") == 1  and variables.histMax > xOver then
 	 --if metrics.xPCount % 100 == 0 then print("xPCount", metrics.xPCount) end
-	 local hs = #xtable
-	 local FR = Field.renderer
 	 local xp,yp,xph,yph
-	 --print("hs", hs)
+	 
 	 local xth0, yth0, xth1, yth1
-	 if hs > 1 and xtable and #xtable > 0 then
-	    FR:reset()
-	    xth0, yth0, xth1, yth1 = xtable[hs], ytable[hs], xtable[hs-1], ytable[hs-1]
-	    xp = toXPixel(xth1, map.Xmin, map.Xrange, windowWidth)
-	    yp = toYPixel(yth1, map.Ymin, map.Yrange, windowHeight)
-	    if variables.lastX and variables.lastImage and variables.lastImage == currentImage then
-	       FR:addPoint(variables.lastX, variables.lastY)
-	    else
+	 local xp, yp, xph, yph
+	 
+	 if latHist and #latHist > 1 and
+	    -- if the lat/lng history table overwrote while we were not on screen,
+	    -- skip one iteration to get a current and history point up to date
+	    metrics.xPCount < metrics.xPCountLast + variables.histMax  then
+	    --xth0, yth0, xth1, yth1 = xtable[hs], ytable[hs], xtable[hs-1], ytable[hs-1]
+	    for cI, FR in ipairs(Field.renderer) do
+
+	       FR:reset()
+
+	       local hs = #latHist
+	       xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
+	       xth1, yth1 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs-1], lngHist[hs-1]))      
+
+	       xp = txp(xth1, cI, windowWidth)
+	       yp = typ(yth1, cI, windowHeight)
 	       FR:addPoint(xp, yp)
-	    end
-	    xph = toXPixel(xth0, map.Xmin, map.Xrange, windowWidth)
-	    yph = toYPixel(yth0, map.Ymin, map.Yrange, windowHeight)
-	    FR:addPoint(xph, yph)
-	    variables.lastX = xph
-	    variables.lastY = yph
-	    variables.lastImage = currentImage
-	    --[[
-	    if metrics.lastX then
-	       if xp ~= metrics.lastX then print("x mismatch", hs,#xPHist, xp, metrics.lastX) end
-	       if yp ~= metrics.lastY then print("y mismatch", hs,#yPHist, yp, metrics.lastY) end
-	    else
-	       print("no mismatch", #xPHist)
-	    end
-	    metrics.lastX = xph
-	    metrics.lastY = yph
-	    --]]
+	       
+	       xph = txp(xth0, cI, windowWidth)
+	       yph = typ(yth0, cI, windowHeight)
+	       FR:addPoint(xph, yph)
 
-	    xp = toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth)
-	    yp = toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight)
-	    if xp ~= xph or yp ~= yph then
-	       mapPrintRenderer:reset()
-	       mapPrintRenderer:addPoint(xph, yph)
-	       mapPrintRenderer:addPoint(xp, yp)
-	       mapPrintRenderer:renderPolyline(2)
-	       --lcd.drawLine(xPHist[hs], yPHist[hs], xp, yp)
-	       --FR:addPoint(xp, yp) -- problematic since it draws permanent segments to interim points
-	    end
-	    if variables.ribbonColorSource ~= 1 then
-	       lcd.setColor(rgbHist[hs-1].r, rgbHist[hs-1].g, rgbHist[hs-1].b)
-	    else -- solid/monochrome ribbon
-	       if variables.triEnabled then
-		  setColor("Map", variables.triColorMode)
-	       else
-		  setColor("Map", "Image")
+	       local renlast = false
+	       if latitude and longitude then
+		  local xcc, ycc = gps2xy(Field.centerGPS[cI], gps.newPoint(latitude, longitude))
+		  local xpc = txp(xcc, cI, windowWidth)
+		  local ypc = typ(ycc, cI, windowHeight)
+		  if cI == currentImage and (math.abs(xpc - xph) > 5 or math.abs(ypc - yph) > 5) then
+		     mapPrintRenderer:reset()
+		     mapPrintRenderer:addPoint(xpc, ypc)
+		     mapPrintRenderer:addPoint(xph, yph)
+		     renlast = true
+		     --lcd.drawLine(xpc, ypc, xph, yph)
+		  end
 	       end
-	    end
-	    FR:renderPolyline(2)
 
-	    
+	       if variables.ribbonColorSource ~= 1 then
+		  lcd.setColor(rgbHist[hs-1].r, rgbHist[hs-1].g, rgbHist[hs-1].b)
+	       else -- solid/monochrome ribbon
+		  if variables.triEnabled then
+		     setColor("Map", variables.triColorMode)
+		  else
+		     setColor("Map", "Image")
+		  end
+	       end
+	       if renlast then mapPrintRenderer:renderPolyline(1) end
+	       FR:renderPolyline(1)
+	    end
 	 end
+	 metrics.xPCountLast = metrics.xPCount
       end
       
       --setColorMain()
@@ -4142,7 +4168,15 @@ local function mapPrint(wWid, wHgt)
    
    lcd.drawText(10,Screen.image_height_px - 50,
 		string.format("P: %d", metrics.xPCount), FONT_MINI)
+   if Field.images and currentImage and currentImage > 0 then
+      lcd.drawText(Screen.image_width_px -75, Screen.image_height_px - 30,
+		   "Mag: " .. Field.images[currentImage].mag,
+		   FONT_MINI)
+   end
    
+   
+
+   --pfn = Field.images[j].file			     
 end
 
 local function distDiag()
@@ -4438,6 +4472,7 @@ local function loop()
    -- initField will reset if we are
 
    if newpos and not gotInitPos then
+      --print("new lat0,lng0")
       lng0 = longitude     
       lat0 = latitude      
       coslat0 = math.cos(math.rad(lat0)) 
@@ -4473,7 +4508,7 @@ local function loop()
    --]]
    
    x, y = rotateXY(x, y, math.rad(variables.rotationAngle))
-   
+
    --defend against silly points .. sometimes they come from the RCT GPS
    --hopefully this is larger than any field (mag 14 is about 2500m wide)
    
@@ -4520,6 +4555,8 @@ local function loop()
 	    table.remove(rgbHist, 1)
 	 end
 	 metrics.xPCount = metrics.xPCount + 1
+	 --if metrics.xPCount % variables.histMax == 0 then print("xPCount", metrics.xPCount) end
+	 
 	 table.insert(xPHist, toXPixel(x, map.Xmin, map.Xrange, Screen.image_width_px-1))
 	 table.insert(yPHist, toYPixel(y, map.Ymin, map.Yrange, Screen.image_height_px-1))
 
@@ -4835,8 +4872,7 @@ local function init()
    variables.triHeightFactor   = jLoad(variables, "triHeightScale", 100)
    variables.lastMatchField    = jLoad(variables, "lastMatchField", "")
    variables.maxTriAlt         = jLoad(variables, "maxTriAlt", 500)
-   variables.lastX             = nil
-   variables.lastY             = nil
+
    --------------------------------------------------------------------------------
 
    for i, j in ipairs(telem) do
@@ -4858,6 +4894,7 @@ local function init()
    metrics.lastLoopTime = system.getTimeCounter()
    metrics.loopTimeAvg = 0
    metrics.xPCount = 0
+   metrics.xPCountLast = 0
    metrics.dirPCount = 0
    metrics.mapPCount = 0
    metrics.lastxPCount = 0
@@ -4889,7 +4926,7 @@ local function init()
    if not emFlag then fn = "/" .. appInfo.Fields else fn = appInfo.Fields end
 
    fp = io.readall(fn)
-   
+
    if fp then
       Fields = json.decode(fp)
       if not Fields then
@@ -4900,7 +4937,6 @@ local function init()
       print(appInfo.Name .. ": Cannot open ", fn)
       return
    end
-
 
    -- read Config.jsn to see what screen size the map files are for. If no Config file
    -- assume legacy 320x160
