@@ -3905,42 +3905,50 @@ local function mapPrint(wWid, wHgt)
 	 
 	 local xth0, yth0, xth1, yth1
 	 local xp, yp, xph, yph
+
+	 if not metrics.xPCountLastDraw then metrics.xPCountLastDraw = 0 end
 	 
 	 if latHist and #latHist > 1 and
 	    -- if the lat/lng history table overwrote while we were not on screen,
 	    -- skip one iteration to get a current and history point up to date
-	    metrics.xPCount < metrics.xPCountLast + variables.histMax  then
+	    metrics.xPCount < metrics.xPCountLast + variables.histMax then
 	    --xth0, yth0, xth1, yth1 = xtable[hs], ytable[hs], xtable[hs-1], ytable[hs-1]
+	    local anydraw = false
 	    for cI, FR in ipairs(Field.renderer) do
-
-	       FR:reset()
-
+	       local renimg = false
+	       
 	       local hs = #latHist
 	       xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
 	       xth1, yth1 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs-1], lngHist[hs-1]))      
-
+	       
 	       xp = txp(xth1, cI, windowWidth)
 	       yp = typ(yth1, cI, windowHeight)
-	       FR:addPoint(xp, yp)
 	       
 	       xph = txp(xth0, cI, windowWidth)
 	       yph = typ(yth0, cI, windowHeight)
-	       FR:addPoint(xph, yph)
-
+	       
+	       if metrics.xPCount ~= metrics.xPCountLastDraw then
+		  FR:reset()
+		  FR:addPoint(xp, yp)
+		  FR:addPoint(xph, yph)
+		  renimg = true
+		  anydraw = true
+	       end
+	    	       
 	       local renlast = false
 	       if latitude and longitude then
 		  local xcc, ycc = gps2xy(Field.centerGPS[cI], gps.newPoint(latitude, longitude))
 		  local xpc = txp(xcc, cI, windowWidth)
 		  local ypc = typ(ycc, cI, windowHeight)
-		  if cI == currentImage and (math.abs(xpc - xph) > 5 or math.abs(ypc - yph) > 5) then
+		  if cI == currentImage and (math.abs(xpc - xph) > 0 or math.abs(ypc - yph) > 0) then
 		     mapPrintRenderer:reset()
 		     mapPrintRenderer:addPoint(xpc, ypc)
 		     mapPrintRenderer:addPoint(xph, yph)
-		     renlast = true
 		     --lcd.drawLine(xpc, ypc, xph, yph)
+		     renlast = true
 		  end
 	       end
-
+	       
 	       if variables.ribbonColorSource ~= 1 then
 		  lcd.setColor(rgbHist[hs-1].r, rgbHist[hs-1].g, rgbHist[hs-1].b)
 	       else -- solid/monochrome ribbon
@@ -3950,9 +3958,12 @@ local function mapPrint(wWid, wHgt)
 		     setColor("Map", "Image")
 		  end
 	       end
-	       if renlast then mapPrintRenderer:renderPolyline(1) end
-	       FR:renderPolyline(1)
+	       
+	       if renimg then FR:renderPolyline(2) end
+	       if renlast then mapPrintRenderer:renderPolyline(2) end
+	       
 	    end
+	    if anydraw then metrics.xPCountLastDraw = metrics.xPCount end
 	 end
 	 metrics.xPCountLast = metrics.xPCount
       end
@@ -4164,7 +4175,7 @@ local function mapPrint(wWid, wHgt)
 
    if metrics.currMaxCPU > metrics.maxTeleCPU then metrics.maxTeleCPU = metrics.currMaxCPU end
    lcd.drawText(10,Screen.image_height_px - 30,
-		string.format("CPU: %d%% Max: %d%%", metrics.currMaxCPU, metrics.maxTeleCPU), FONT_MINI)
+		string.format("CPU: %3d%% Max: %3d%%", metrics.currMaxCPU, metrics.maxTeleCPU), FONT_MINI)
    
    lcd.drawText(10,Screen.image_height_px - 50,
 		string.format("P: %d", metrics.xPCount), FONT_MINI)
