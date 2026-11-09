@@ -56,8 +56,8 @@
 
 local appInfo={}
 appInfo.Name = "DFM-Maps"
-appInfo.Maps = "DFM-Maps"
-appInfo.menuTitle = "GPS Maps"
+appInfo.Maps = appInfo.Name
+appInfo.menuTitle = appInfo.Name
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
 appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
 appInfo.Config = "Apps/" .. appInfo.Maps .. "/Maps/Config.jsn"
@@ -83,7 +83,7 @@ local rE = 6378137
 local rad = 180/math.pi
 local relBearing
 local nextPylon=0
-local arcFile
+--local arcFile
 local lapAltitude
 local distance
 local x, y
@@ -285,6 +285,7 @@ local function IGC(cmd, str)
       return lg
    end
 
+   --[[
    local function to1char(num)
       if num < 10 then
 	 return tostring(num)
@@ -294,10 +295,11 @@ local function IGC(cmd, str)
 	 return nil
       end
    end
-
+   --]]
+   
    local function hms(dti)
       local dt
-      local tt, ss, mm, ss, hh, mm
+      local tt, ss, hh, mm
       -- emulator getDateTime() does not work correctly, fake it using system timer
       if emFlag then
 	 tt = system.getTimeCounter() - raceParam.runningStartTime
@@ -320,14 +322,14 @@ local function IGC(cmd, str)
    end
    
    local function dmy(dti)
-      local dt, str
+      local dt, strx
       if not dti then
 	 dt = system.getDateTime()
-	 str = string.format("%02d%02d%02d", dt.day, dt.mon, dt.year % 100)      	 
+	 strx = string.format("%02d%02d%02d", dt.day, dt.mon, dt.year % 100)      	 
       else
-	 str = string.format("%02d%02d%02d", dti.day, dti.mon, dti.year % 100)      	 	 
+	 strx = string.format("%02d%02d%02d", dti.day, dti.mon, dti.year % 100)      	 	 
       end
-      return str
+      return strx
    end
 
    local function ll2dms(ll)
@@ -355,7 +357,7 @@ local function IGC(cmd, str)
 
    --following code adapted from
    --https://github.com/cloudwu/skynet/blob/master/lualib/skynet/db/redis/crc16.lua
-
+--[[
    local XMODEMCRC16Lookup = {
       0x0000,0x1021,0x2042,0x3063,0x4084,0x50a5,0x60c6,0x70e7,
       0x8108,0x9129,0xa14a,0xb16b,0xc18c,0xd1ad,0xe1ce,0xf1ef,
@@ -390,11 +392,12 @@ local function IGC(cmd, str)
       0xef1f,0xff3e,0xcf5d,0xdf7c,0xaf9b,0xbfba,0x8fd9,0x9ff8,
       0x6e17,0x7e36,0x4e55,0x5e74,0x2e93,0x3eb2,0x0ed1,0x1ef0
    }
-   
+--]]   
    local function crc16init()
       raceParam.crc16 = {0,0,0,0,0,0}
    end
-   
+
+   --[[
    local function crc16add(str)
       -- compute a crc16 for columns 1-10, 11-20, 21-30, 31-40, 41-50, 51-60
       --print("in crc16add", str)
@@ -415,7 +418,7 @@ local function IGC(cmd, str)
       end
       --print("crc16add return, CPU:", system.getCPU())
    end
-
+   --]]
    local function crc16final()
       local crc = raceParam.crc16
       local r = string.format("%04X", crc[1])
@@ -425,12 +428,13 @@ local function IGC(cmd, str)
       return r
    end
 
-   local function IGCw(str)
+   local function IGCw(strx)
       if raceParam.IGCFile then
 	 --print("IGCw <" .. str .. ">")
 	 --print(system.getCPU())
-	 --crc16add(str)
-	 local iow = io.write(raceParam.IGCFile, str .."\r\n")
+	 --crc16add(strx)
+	 --local iow = io.write(raceParam.IGCFile, str .."\r\n")
+	 io.write(raceParam.IGCFile, strx .."\r\n")
       end
    end
    
@@ -447,7 +451,7 @@ local function IGC(cmd, str)
    
    if cmd == "Open" then
 
-      updatingCRC = false
+      --updatingCRC = false
       
       -- work from TX system date for now, should be UTC later
       -- filename format is YMDCXXXF.IGC
@@ -553,14 +557,13 @@ local function IGC(cmd, str)
    elseif cmd == "Lrecord" then
       IGCw("L"..hms()..str)
       IGCb()
-   else
    end
    
 end
 
 local function setLanguage()
 
-   local obj
+   --local obj
    local fp
    local transFile
 
@@ -675,11 +678,14 @@ local function destroy()
       IGC("Close")
    end
    if appInfo.SaveData then
+      jLoadFinal(jFilename(), variables)
+      --[[
       if jLoadFinal(jFilename(), variables) then
 	 --print("jLoad successful write")
       else
 	 --print("jLoad failed write")
       end
+      --]]
    end
    --print("destroy done")
 end
@@ -694,7 +700,7 @@ local function readSensors()
    jt = io.readall(appInfo.Dir.."JSON/paramGPS.jsn")
    paramGPS = json.decode(jt)
    
-   for i, sensor in ipairs(sensors) do
+   for _, sensor in ipairs(sensors) do
       --print("for loop:", i, sensor.sensorName, sensor.label, sensor.param, sensor.type)
       if (sensor.label ~= "") then
 	 if sensor.param == 0 then -- it's a label
@@ -711,7 +717,7 @@ local function readSensors()
 	    table.insert(GPSsensorIdlist, sensor.id)
 	    table.insert(GPSsensorPalist, sensor.param)
 	    table.insert(GPSsensorNalist, sensName)
-	 elseif sensor.type == 5 then -- date - ignore
+	 --elseif sensor.type == 5 then -- date - ignore
 	 else -- regular numeric sensor
 	    table.insert(sensorLalist, sensor.label)
 	    seSeq = #sensorLalist
@@ -1005,9 +1011,11 @@ local function setField(sname)
    end
 end
 
+--[[
 local function triReset()
    pylon = {}
 end
+--]]
 
 local function sensorChanged(value, str, isGPS)
 
@@ -1073,13 +1081,13 @@ local function switchNameChanged(value, name, swname)
 		     variables[swname .."SwitchDir"])
    checkBox[swname .."Switch"] = system.getInputsVal(switchItems[swname]) == 1
 end
-
+--[[
 local function triLengthChanged(value)
    variables.triLength = value
    jSave(variables, "triLength", value)
    pylon = {}
 end
-
+--]]
 local function raceTimeChanged(value)
    variables.raceTime = value
    jSave(variables, "raceTime", value)
@@ -1094,13 +1102,13 @@ local function maxAltChanged(value)
    variables.maxAlt = value
    jSave(variables, "maxAlt", value)
 end
-
+--[[
 local function aimoffChanged(value)
    variables.aimoff = value
    jSave(variables, "aimoff", value)
    pylon={}
 end
-
+--]]
 local function flightStartAltChanged(value)
    variables.flightStartAlt = value
    jSave(variables, "flightStartAlt", value)
@@ -1645,9 +1653,9 @@ local function initForm(subform)
 	 {label = lang.backMain,font=FONT_BOLD})
 
       form.setFocusedRow(1)
-
+      --[[
    elseif subform == 4 then
-      --[[  now is done with the browser menu
+      -- now is done with the browser menu
       savedRow = subform-1
       
       form.addRow(2)
@@ -2185,44 +2193,45 @@ local function drawTriRace(windowWidth, windowHeight)
 	 swt = system.getInputsVal(switchItems.throttle)
 	 if swt then
 	    if swt == 1 then
-	       lcd.drawImage(5,80, dotImage.red)
+	       lcd.drawImage(5,Screen.image_height_px - 80, dotImage.red)
 	    else
-	       lcd.drawImage(5,80, dotImage.green)
+	       lcd.drawImage(5,Screen.image_height_px - 80, dotImage.green)
 	    end
 	 end
       end
    else
       if raceParam.usedThrottle == true then
-	 lcd.drawImage(5,80, dotImage.red)
+	 lcd.drawImage(5,Screen.image_height_px - 80, dotImage.red)
       else
 	 if switchItems.throttle then
-	    lcd.drawImage(5,80, dotImage.green)
+	    lcd.drawImage(5,Screen.image_height_px - 80, dotImage.green)
 	 end
       end
    end
    
    if raceParam.flightStarted ~= 0 then
-      lcd.drawImage(5, 100, dotImage.green)
+      lcd.drawImage(5, Screen.image_height_px - 60, dotImage.green)
    else
-      lcd.drawImage(5,100, dotImage.red)
+      lcd.drawImage(5,Screen.image_height_px - 60, dotImage.red)
    end
 
    if raceParam.startArmed then
       if raceParam.racing then
-	 lcd.drawImage(25, 100, dotImage.blue)
+	 lcd.drawImage(25, Screen.image_height_px - 60, dotImage.blue)
       else
-	 lcd.drawImage(25, 100, dotImage.green)
+	 lcd.drawImage(25, Screen.image_height_px - 60, dotImage.green)
       end
    else
-      if switchItems.start  then lcd.drawImage(25, 100, dotImage.red) end
+      if switchItems.start  then lcd.drawImage(25, Screen.image_height_px - 60, dotImage.red) end
    end
    
-   lcd.drawText(5, 120, lang.Alt ..": ".. math.floor(altitude), FONT_MINI)
-   lcd.drawText(5, 130, lang.Spd..": "..math.floor(speed), FONT_MINI)
+   lcd.drawText(5, Screen.image_height_px - 40, lang.Alt ..": ".. math.floor(altitude), FONT_MINI)
+   lcd.drawText(5, Screen.image_height_px - 30, lang.Spd..": "..math.floor(speed), FONT_MINI)
 
    if metrics.index then
-      local tlen = (variables.triLength * 2 * (1 + math.sqrt(2)))
-      lcd.drawText(260, 140, string.format("Index: %03d", metrics.index), FONT_MINI)
+      --local tlen = (variables.triLength * 2 * (1 + math.sqrt(2)))
+      lcd.drawText(Screen.image_width_px - 60, Screen.image_height_px - 20,
+		   string.format("Index: %03d", metrics.index), FONT_MINI)
    end
 		
    local ll
@@ -2234,18 +2243,18 @@ local function drawTriRace(windowWidth, windowHeight)
    if swa and swa == 1 then
       if raceParam.racing then
 	 ll=lcd.getTextWidth(FONT_NORMAL, variables.annText)
-	 lcd.drawText(310-ll, 115, variables.annText, FONT_NORMAL)
+	 lcd.drawText((Screen.image_width_px - 10) - ll, 115, variables.annText, FONT_NORMAL)
 	 lcd.drawText(
-	    310-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
+	    (Screen.image_width_px - 10)-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
 	       lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(1,annTextSeq)) -
 	       lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(annTextSeq, annTextSeq))/2, 
 	    129, "^", FONT_MINI)      
       else
 	 
 	 ll=lcd.getTextWidth(FONT_NORMAL, variables.preText)
-	 lcd.drawText(310-ll, 115, variables.preText, FONT_NORMAL)
+	 lcd.drawText((Screen.image_width_px - 10), 115, variables.preText, FONT_NORMAL)
 	    lcd.drawText(
-	       310-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
+	       (Screen.image_width_px - 10) - lcd.getTextWidth(FONT_MINI, "^")/2 +
 		  lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(1,preTextSeq)) -
 		  lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(preTextSeq, preTextSeq))/2, 
 	       129, "^", FONT_MINI)      
@@ -2894,7 +2903,8 @@ local function isNoFlyP(nn,p)
 end
 
 local formRenderer
-local function prtForm(wwx, whx)
+
+local function prtForm() --wwx, whx)
 
    --print("wwx, whx", wwx, whx)
 
@@ -2918,7 +2928,7 @@ local function prtForm(wwx, whx)
    --print("**", windowWidth, windowHeight)
    setColor("Map", "Image")
 
-   for k,v in pairs(switchItems) do
+   for k,_ in pairs(switchItems) do
       if checkBoxSubform[k] == savedSubform then
 	 checkBox[k.."Switch"] = system.getInputsVal(switchItems[k]) == 1
 	 --print(k, checkBoxIndex[k.."Switch"], checkBox[k.."Switch"])
@@ -2945,7 +2955,7 @@ local function prtForm(wwx, whx)
          formRenderer:reset()
       end
       if newTransmitter and Screen.image_width_px == Screen.legacy_width_px then
-      	 lcd.drawImage(-5+2,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
+	 lcd.drawImage(-5+2,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
       else
 	 lcd.drawImage(-5,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
       end
@@ -3035,7 +3045,7 @@ local circFitCache={}
 
 local dirPrintRenderer
 
-local function dirPrint(xw, xh, kk)
+local function dirPrint(_, _, kk)
    local sC = variables.triLength * variables.triViewScale / 100 -- scale factor for this tele window
    local xf = 0.40 -- center X is at 1-xf of width
    local yf = 0.65 -- center Y is at 1-yf of height
@@ -3151,11 +3161,14 @@ local function dirPrint(xw, xh, kk)
    local function circFit(k)
       -- tradeoff to use jth point .. closer to real time but noisier when still
       -- very close to current point
+      j=k-1
+      --[[
       if true then --latHist[k] == latitude and lngHist[k] == lngHist[k] then
 	 j=k-1
       else
 	 j=k
       end
+      --]]
       local x1 = ll2RX(j-1)
       local x12 = x1*x1
       local y1 = ll2RY(j-1)
@@ -3187,9 +3200,9 @@ local function dirPrint(xw, xh, kk)
       return cx, cy, r, A
    end
 
-   local function rap(x,y,d) -- rap for "ren:addPoint"
-      local dx = xx - x
-      local dy = yy - y
+   local function rap(xxx,yyy,d) -- rap for "ren:addPoint"
+      local dx = xx - xxx
+      local dy = yy - yyy
       local rx, ry = rotateXY(dx, dy, math.rad(hh))
       rx, ry = toXPixel(rx, xmin, xrange, ww), toYPixel(ry, ymin, yrange, wh)
       dirPrintRenderer:addPoint(rx, ry)
@@ -3199,9 +3212,9 @@ local function dirPrint(xw, xh, kk)
       return rx, ry
    end
 
-   local function rapN(x,y,d) -- N for NoDraw
-      local dx = xx - x
-      local dy = yy - y
+   local function rapN(xxx,yyy,_) -- N for NoDraw
+      local dx = xx - xxx
+      local dy = yy - yyy
       local rx, ry = rotateXY(dx, dy, math.rad(hh))
       rx, ry = toXPixel(rx, xmin, xrange, ww), toYPixel(ry, ymin, yrange, wh)
       return rx, ry
@@ -3298,9 +3311,9 @@ local function dirPrint(xw, xh, kk)
    --print("@@@@@@@@@@@@switchItems.point, swp, #xPHist", switchItems.point, swp, #xPHist)
    
    if ( (not switchItems.point) or (swp and swp == 1) ) and (#xPHist > 0) then
-      local kk
-      local jj
-      local ii = variables.ribbonColorSource
+      --local kk
+      --local jj
+      --local ii = variables.ribbonColorSource
       local xrr, yrr
       local maxPts = variables.triHistMax
       local iend = #xPHist
@@ -3348,15 +3361,15 @@ local function dirPrint(xw, xh, kk)
    --lcd.setColor(0,0,255)
 
    --print("@@@@drawShape")
-   
-   drawShape(toXPixel(0, xmin, xrange, ww),
-   	     toYPixel(0, ymin, yrange, wh),
-   	     shapes.airplaneIcon, 0)
 
+   drawShape(toXPixel(0, xmin, xrange, ww),
+	     toYPixel(0, ymin, yrange, wh),
+	     shapes.airplaneIcon, 0)
+   
    -- draw the projected flight path
    -- optimization needed: only call circFit when new hist point available otherwise cache
-
-   local xx, cy, r, A
+   
+   local cy, r, A --,xx
    local recomp
    local t0, t1, tn
    local dt
@@ -3369,7 +3382,8 @@ local function dirPrint(xw, xh, kk)
 	 circFitCache.lastLat = latHist[#latHist]
 	 circFitCache.lastLng = lngHist[#lngHist]
       else
-	 cx,cy, r, A = circFitCache.cx, circFitCache.cy, circFitCache.r, circFitCache.A
+	 --cx,cy, r, A = circFitCache.cx, circFitCache.cy, circFitCache.r, circFitCache.A
+	 cx,cy, r = circFitCache.cx, circFitCache.cy, circFitCache.r
       end
       if cx then
 	 if recomp then
@@ -3398,10 +3412,10 @@ local function dirPrint(xw, xh, kk)
 		   cy + r * math.cos(tn + 2.5*(i-1)*(dt)/9))
 	    end
 	    dirPrintRenderer:renderPolyline(3,0.7)
-	 else
+	 --else
 	    --print(r, k)
 	 end
-      else
+      --else
 	 --print("circFit2 failed")
       end
    end
@@ -3447,14 +3461,16 @@ local function dirPrint(xw, xh, kk)
    end
    
    if variables.ribbonColorSource ~= 1 and ribbon.currentValue then
-      lcd.drawText(18, 130, string.format("%s: " .. ribbon.currentFormat,
-					 colorSelect[variables.ribbonColorSource],
-					 ribbon.currentValue), FONT_MINI)
+      lcd.drawText(18, Screen.image_height_px - 30, --130,
+		   string.format("%s: " .. ribbon.currentFormat,
+				 colorSelect[variables.ribbonColorSource],
+				 ribbon.currentValue), FONT_MINI)
       lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
-      lcd.drawFilledRectangle(6,133,8,8)
+      lcd.drawFilledRectangle(6,Screen.image_height_px - 27,8,8)
       if metrics.index then
 	 setColor("Label", triColorMode)
-	 lcd.drawText(5, 145, string.format("Index: %03d", metrics.index), FONT_MINI)	 
+	 lcd.drawText(5, Screen.image_height_px -15, string.format("Index: %03d", metrics.index),
+		      FONT_MINI)	 
       end
       
    end
@@ -3679,7 +3695,7 @@ end
 local panic = false
 
 local mapPrintRenderer
-local function mapPrint(wWid, wHgt)
+local function mapPrint() --wWid, wHgt)
 
    local windowWidth = Screen.image_width_px - 1 --319
    local windowHeight = Screen.image_height_px - 1 -- 159
@@ -3736,9 +3752,9 @@ local function mapPrint(wWid, wHgt)
    if fieldPNG[currentImage] then
       if variables.triEnabled and (variables.triColorMode ~= "Image") then
 	 setColor("Background", variables.triColorMode)
-      	 lcd.drawFilledRectangle(0,0,320,160)
+	 lcd.drawFilledRectangle(0,0,320,160)
       else
-      	 lcd.drawImage(0,0,fieldPNG[currentImage])
+	 lcd.drawImage(0,0,fieldPNG[currentImage])
       end
    else
       setColor("Label", "Light")
@@ -3750,9 +3766,9 @@ local function mapPrint(wWid, wHgt)
    if fieldPNG[currentImage] then
       if variables.triEnabled and (variables.triColorMode ~= "Image") then
 	 setColor("Background", variables.triColorMode)
-      	 lcd.drawFilledRectangle(0,0,Screen.image_width_px,Screen.image_height_px)
+	 lcd.drawFilledRectangle(0,0,Screen.image_width_px,Screen.image_height_px)
       else
-      	 lcd.drawImage(0,0,fieldPNG[currentImage])
+	 lcd.drawImage(0,0,fieldPNG[currentImage])
       end
    else
       setColor("Label", "Light")
@@ -3780,11 +3796,12 @@ local function mapPrint(wWid, wHgt)
    lcd.drawCircle(20, 12, 9)
 
    if variables.ribbonColorSource ~= 1 and ribbon.currentValue then
-      lcd.drawText(18, 140, string.format("%s: " .. ribbon.currentFormat,
-					 colorSelect[variables.ribbonColorSource],
-					 ribbon.currentValue), FONT_MINI)
+      lcd.drawText(Screen.image_width_px/2 - 20, Screen.image_height_px - 30, --140,
+		   string.format("%s: " .. ribbon.currentFormat,
+				 colorSelect[variables.ribbonColorSource],
+				 ribbon.currentValue), FONT_MINI)
       lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
-      lcd.drawFilledRectangle(6,143,8,8)
+      lcd.drawFilledRectangle(Screen.image_width_px/2 - 32,Screen.image_height_px - 22, 8, 8)--143,8,8)
    end
 
    if switchItems.point then
@@ -3862,10 +3879,12 @@ local function mapPrint(wWid, wHgt)
 		  break
 	       end
 	       --AA--ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0) 
+	       --[[
 	       if i ~= (recalcPixels and recalcCount or #xPHist) then
 		  --AA--ren:reset()
 		  --AA--ren:addPoint(xPHist[i], yPHist[i])
 	       end
+	       --]]
 	    end
 	 end
 	 
@@ -3900,8 +3919,6 @@ local function mapPrint(wWid, wHgt)
       end
 
       if system.getProperty("NativeDraw") == 1  and variables.histMax > xOver then
-	 --if metrics.xPCount % 100 == 0 then print("xPCount", metrics.xPCount) end
-	 local xp,yp,xph,yph
 	 
 	 local xth0, yth0, xth1, yth1
 	 local xp, yp, xph, yph
@@ -3909,7 +3926,7 @@ local function mapPrint(wWid, wHgt)
 	 if not metrics.xPCountLastDraw then metrics.xPCountLastDraw = 0 end
 	 
 	 if latHist and #latHist > 1 and
-	    metrics.xPCount < metrics.xPCountLast + variables.histMax then
+	    metrics.xPCount < metrics.xPCountLast + 2 then --variables.histMax then
 
 	    -- if the lat/lng history table overwrote while we were not on screen,
 	    -- skip one iteration to get a current and history point up to date
@@ -4173,19 +4190,26 @@ local function mapPrint(wWid, wHgt)
    end
 
    if metrics.currMaxCPU > metrics.maxTeleCPU then metrics.maxTeleCPU = metrics.currMaxCPU end
-   lcd.drawText(10,Screen.image_height_px - 30,
-		string.format("CPU: %3d%% Max: %3d%%", metrics.currMaxCPU, metrics.maxTeleCPU), FONT_MINI)
-   
-   lcd.drawText(10,Screen.image_height_px - 50,
-   		string.format("P: %d D: %.1fkm", metrics.xPCount, (metrics.distTrav or 0)/1000),
-		FONT_MINI)
-   if Field.images and currentImage and currentImage > 0 then
-      lcd.drawText(Screen.image_width_px -75, Screen.image_height_px - 30,
-		   "Mag: " .. Field.images[currentImage].mag,
+
+   if newTransmitter then
+      lcd.drawText(10,Screen.image_height_px - 30,
+		   string.format("CPU: %3d%% Max: %3d%%", metrics.currMaxCPU, metrics.maxTeleCPU),
 		   FONT_MINI)
-      --lcd.drawNumber(10,50,metrics.distTrav)
+      
+      lcd.drawText(10,Screen.image_height_px - 50,
+		   string.format("P: %d D: %.1fkm", metrics.xPCount, (metrics.distTrav or 0)/1000),
+		   FONT_MINI)
+      if Field.images and currentImage and currentImage > 0 then
+	 lcd.drawText(Screen.image_width_px - 110, Screen.image_height_px - 50,
+		      "Mag: " .. Field.images[currentImage].mag,
+		      FONT_MINI)
+	 --lcd.drawNumber(10,50,metrics.distTrav)
+	 
+      end
+      lcd.drawText(Screen.image_width_px - 110, Screen.image_height_px - 30,
+		   string.format("Width: %dm", (map.Xrange or 0)),
+		   FONT_MINI)
    end
-   
    
 
    --pfn = Field.images[j].file			     
@@ -4244,7 +4268,8 @@ local function loop()
    --metrics.dirPDelta = metrics.loopCount - metrics.dirPCount
    --metrics.mapPDelta = metrics.loopCount - metrics.mapPCount
 
-   --print("lC, mapP, dirP, dPD, mPD", metrics.loopCount, metrics.dirPCount, metrics.mapPCount, metrics.dirPDelta, metrics.mapPDelta)
+   --print("lC, mapP, dirP, dPD, mPD", metrics.loopCount, metrics.dirPCount,
+   --metrics.mapPCount, metrics.dirPDelta, metrics.mapPDelta)
       
    -- don't loop menu is up on screen
    if form.getActiveForm() then return end
@@ -4293,11 +4318,12 @@ local function loop()
 
    sensor = system.getSensorByID(telem.Longitude.SeId, telem.Longitude.SePa)
 
-   ---[[
+   --[[
    local sign, minstr, latstr, lngstr
    --]]
    
-   --print("####DFM-Maps: sensor.valid, sensor.valGPS", sensor.valid, sensor.valGPS, telem.Longitude.SeId, telem.Longitude.SePa)
+   --print("####DFM-Maps: sensor.valid, sensor.valGPS",
+   --sensor.valid, sensor.valGPS, telem.Longitude.SeId, telem.Longitude.SePa)
 
    if(sensor and sensor.valid and sensor.valGPS) then
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
@@ -4617,7 +4643,7 @@ local function loop()
 	    ribbon.currentFormat = "%.2f"	    
 	 elseif variables.ribbonColorSource == 14 then -- P4
 	    jj = gradientIndex((1+system.getInputs("P4"))*50, 0,   100,  #rgb)	   
- 	 elseif variables.ribbonColorSource == 15 then -- Distance
+	 elseif variables.ribbonColorSource == 15 then -- Distance
 	    jj = gradientIndex(distHome(), 0, distDiag(),  #rgb)
 	    ribbon.currentFormat = "%.1f"
 	 elseif variables.ribbonColorSource == 16 then -- Radial
@@ -4680,7 +4706,7 @@ local function loop()
 	 --]]
 	   compcrs = select(2,fslope(table.move(xtable, #xtable-lineAvgPts+1, #xtable, 1, {}),
 				     table.move(ytable, #ytable-lineAvgPts+1, #ytable, 1, {})))
-      else
+      --else
 	 --if emFlag then print("<=0.5 manhat", mhD) end
       end
    else
@@ -4747,23 +4773,23 @@ end
 
 
 local function keyPressMap(key)
-   local on = " on"
-   local off = " off"
-   local state
+   --local on = " on"
+   --local off = " off"
+   --local state
    --print("keyPressMap", key, KEY_ENTER)
    if key == KEY_1 or key == KEY_2 then -- "-" or "+"
       graphScaleModify(key)
    elseif key == KEY_3 then
       checkBox.noflyEnabled = not checkBox.noflyEnabled
-      state = checkBox.noflyEnabled and on or off
+      --state = checkBox.noflyEnabled and on or off
       --system.messageBox(appInfo.Name..": NoFly Zones"..state)
    elseif key == KEY_4 then
       checkBox.noFlyWarningEnabled = not checkBox.noFlyWarningEnabled
-      state = checkBox.noFlyWarningEnabled and on or off
+      --state = checkBox.noFlyWarningEnabled and on or off
       --system.messageBox(appInfo.Name..": NoFly Warning"..state)
    elseif key == KEY_5 then 
       checkBox.noFlyShakeEnabled = not checkBox.noFlyShakeEnabled
-      state = checkBox.noFlyShakeEnabled and on or off
+      --state = checkBox.noFlyShakeEnabled and on or off
       --system.messageBox(appInfo.Name..": NoFly Stick Shake"..state)
    elseif key == KEY_ENTER then
       pngLoad(currentImage, true)
@@ -4887,7 +4913,7 @@ local function init()
 
    --------------------------------------------------------------------------------
 
-   for i, j in ipairs(telem) do
+   for _, j in ipairs(telem) do
       telem[j].Se   = jLoad(variables, "telem_"..j.."_Se", 0)
       telem[j].SeId = tonumber("0X" .. jLoad(variables, "telem_"..j.."_SeId", 0))
       telem[j].SePa = jLoad(variables, "telem_"..j.."_SePa", 0)
@@ -4955,13 +4981,15 @@ local function init()
    
    if not emFlag then fn = "/" ..appInfo.Config else fn = appInfo.Config end
 
-   fp = io.readall(fn)
+   local fpC = io.readall(fn)
 
-   if fp then -- Config.jsn file with screen info exists
-      Screen = json.decode(fp)
+   if fpC then -- Config.jsn file with screen info exists
+      Screen = json.decode(fpC)
       if not Screen.image_height_px then
-	 Screen.image_height_px = Screen.image-height_px -- until RFM fixes typo
+	 print(appInfo.name .. ": Did not decode config json")
       end
+   else
+      print(appInfo.name..": Cannot open "..fn)
    end
 
    Screen.legacy_width_px = 320
@@ -4969,7 +4997,7 @@ local function init()
    Screen.dcds24_width_px = 458
    Screen.dcds24_height_px = 343
 
-   if not fp then
+   if not Screen.image_width_px then
       Screen.image_width_px = Screen.legacy_width_px
       Screen.image_height_px = Screen.legacy_height_px
    end
@@ -4983,7 +5011,7 @@ local function init()
    
    switchItems = {point = 0, start = 0, triA = 0, throttle = 0, color = 0, noFly = 0}
    
-   for k,v in pairs(switchItems) do
+   for k,_ in pairs(switchItems) do
       switchItems[k] = createSw(shapes.switchNames[variables[k.."SwitchName"]],
 				variables[k.."SwitchDir"])
       checkBox[k.."Switch"] = system.getInputsVal(switchItems[k]) == 1
