@@ -237,6 +237,14 @@ local function loop()
    --   print("system.getTimeCounter() wrapped. Restart emulator", system.getTimeCounter())
    --end
 
+   --[[
+   if MapsAimPoint then
+      for i,v in ipairs(MapsAimPoint) do
+	 print(i, v.x, v.y)
+      end
+   end
+   --]]
+   
    sensor = system.getSensorByID(RTH.settings.altId, RTH.settings.altPa)
    --print("Sensor", RTH.settings.altId, RTH.settings.altPa, sensor.value)
    if sensor and sensor.valid then
@@ -1238,7 +1246,17 @@ local function init()
 
    --origGet = system.getSensorByID
    --system.getSensorByID = getSensorByID
-   
+
+   --if dumpGlobalVars then dumpGlobalVars() end
+
+   BDLatA = 41.340133
+   BDLngA = -74.430933
+   BDLatB = 41.339622
+   BDLngB = -74.430819
+   BDA = gps.newPoint(BDLatA, BDLngA)
+   BDB = gps.newPoint(BDLatB, BDLngB)
+   print(gps.getDistance(BDA, BDB), gps.getBearing(BDA, BDB))
+
 end
    
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.2", name=appName}

@@ -2158,6 +2158,13 @@ local function drawTriRace(windowWidth, windowHeight)
       if raceParam.racing and j > 0 and j == m3(nextPylon) then
 	 setColor("AimPt", variables.triColorMode)
       end
+
+      if MapsAimPoint then
+	 if not MapsAimPoint[j] then MapsAimPoint[j] = {} end
+	 MapsAimPoint[j].x = pylon[j].xt
+	 MapsAimPoint[j].y = pylon[j].yt
+      end
+      
       lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
 		     4)
@@ -5063,13 +5070,19 @@ local function init()
       form.question("Low-res Maps", "DFM-Maps", "Warning", 3000, true, 0)
       print(appInfo.Name .. ": Load new maps for full screen")	 
    end
-   
 
+   --[[
+   if declareGlobal then
+      declareGlobal("MapsAimPoint", {})
+      dumpGlobalVars()
+   end
+   --]]
+   
    print(string.format(appInfo.Name..": using %d x %d px maps",
 		       Screen.image_width_px, Screen.image_height_px))
    
 end
 
-return {init=init, loop=loop, author="DFM", version="9.0", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=loop, author="DFM", version="10.0", name=appInfo.Name, destroy=destroy}
 
 
