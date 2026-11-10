@@ -154,7 +154,7 @@ metrics.remCountLast = 0
 local gotInitPos = false
 local annTextSeq = 1
 local preTextSeq = 1
-local lastgetTime = 0
+local lastgetTime
 local inZone = {}
 local ribbon = {}
 ribbon.currentFormat = "%.f"
@@ -1368,7 +1368,7 @@ local function keyForm(key)
 	 --print("call triRot")
 	 triRot(0) -- rotate and translate triangle to pylons
       else -- KEY_2
-	 print("key2, savedSubform", savedSubform)
+	 --print("key2, savedSubform", savedSubform)
 	 if savedSubform == 7 then
 	    if not browse.OriginalFieldName then
 	       --print("setting orig:", browse.OriginalFieldName, Field.shortname, activeField)
@@ -2193,44 +2193,48 @@ local function drawTriRace(windowWidth, windowHeight)
 	 swt = system.getInputsVal(switchItems.throttle)
 	 if swt then
 	    if swt == 1 then
-	       lcd.drawImage(5,Screen.image_height_px - 80, dotImage.red)
+	       lcd.drawImage(5,Screen.image_height_px - 110, dotImage.red)
 	    else
-	       lcd.drawImage(5,Screen.image_height_px - 80, dotImage.green)
+	       lcd.drawImage(5,Screen.image_height_px - 110, dotImage.green)
 	    end
 	 end
       end
    else
       if raceParam.usedThrottle == true then
-	 lcd.drawImage(5,Screen.image_height_px - 80, dotImage.red)
+	 lcd.drawImage(5,Screen.image_height_px - 110, dotImage.red)
       else
 	 if switchItems.throttle then
-	    lcd.drawImage(5,Screen.image_height_px - 80, dotImage.green)
+	    lcd.drawImage(5,Screen.image_height_px - 110, dotImage.green)
 	 end
       end
    end
    
    if raceParam.flightStarted ~= 0 then
-      lcd.drawImage(5, Screen.image_height_px - 60, dotImage.green)
+      lcd.drawImage(5, Screen.image_height_px - 90, dotImage.green)
    else
-      lcd.drawImage(5,Screen.image_height_px - 60, dotImage.red)
+      lcd.drawImage(5,Screen.image_height_px - 90, dotImage.red)
    end
 
    if raceParam.startArmed then
       if raceParam.racing then
-	 lcd.drawImage(25, Screen.image_height_px - 60, dotImage.blue)
+	 lcd.drawImage(25, Screen.image_height_px - 90, dotImage.blue)
       else
-	 lcd.drawImage(25, Screen.image_height_px - 60, dotImage.green)
+	 lcd.drawImage(25, Screen.image_height_px - 90, dotImage.green)
       end
    else
-      if switchItems.start  then lcd.drawImage(25, Screen.image_height_px - 60, dotImage.red) end
+      if switchItems.start  then lcd.drawImage(25, Screen.image_height_px - 90, dotImage.red) end
    end
    
-   lcd.drawText(5, Screen.image_height_px - 40, lang.Alt ..": ".. math.floor(altitude), FONT_MINI)
-   lcd.drawText(5, Screen.image_height_px - 30, lang.Spd..": "..math.floor(speed), FONT_MINI)
+   lcd.drawText(5, Screen.image_height_px - 70, lang.Alt ..": ".. math.floor(altitude), FONT_MINI)
+   lcd.drawText(5, Screen.image_height_px - 55, lang.Spd..": "..math.floor(speed), FONT_MINI)
+
+   local xo = 110
 
    if metrics.index then
       --local tlen = (variables.triLength * 2 * (1 + math.sqrt(2)))
-      lcd.drawText(Screen.image_width_px - 60, Screen.image_height_px - 20,
+      --print("#", Screen.image_width_px, Screen.legacy_width_px)
+      if Screen.image_width_px == Screen.legacy_width_px then xo = 60 end
+      lcd.drawText(Screen.image_width_px - xo, Screen.image_height_px - 55,
 		   string.format("Index: %03d", metrics.index), FONT_MINI)
    end
 		
@@ -2242,22 +2246,26 @@ local function drawTriRace(windowWidth, windowHeight)
    end
    if swa and swa == 1 then
       if raceParam.racing then
-	 ll=lcd.getTextWidth(FONT_NORMAL, variables.annText)
-	 lcd.drawText((Screen.image_width_px - 10) - ll, 115, variables.annText, FONT_NORMAL)
+	 ll=lcd.getTextWidth(FONT_NORMAL, variables.annText) + 15
+	 lcd.drawText((Screen.image_width_px - ll), Screen.image_height_px - 80, --115,
+	    variables.annText, FONT_NORMAL)
 	 lcd.drawText(
-	    (Screen.image_width_px - 10)-ll - lcd.getTextWidth(FONT_MINI, "^")/2 +
-	       lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(1,annTextSeq)) -
-	       lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(annTextSeq, annTextSeq))/2, 
-	    129, "^", FONT_MINI)      
+	    (Screen.image_width_px - ll) - lcd.getTextWidth(FONT_MINI, "^")/2 +
+	    lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(1,annTextSeq)) -
+	    lcd.getTextWidth(FONT_NORMAL, variables.annText:sub(annTextSeq, annTextSeq))/2, 
+	    Screen.image_height_px - 66, --129,
+	    "^", FONT_MINI)      
       else
 	 
-	 ll=lcd.getTextWidth(FONT_NORMAL, variables.preText)
-	 lcd.drawText((Screen.image_width_px - 10), 115, variables.preText, FONT_NORMAL)
-	    lcd.drawText(
-	       (Screen.image_width_px - 10) - lcd.getTextWidth(FONT_MINI, "^")/2 +
-		  lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(1,preTextSeq)) -
-		  lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(preTextSeq, preTextSeq))/2, 
-	       129, "^", FONT_MINI)      
+	 ll=lcd.getTextWidth(FONT_NORMAL, variables.preText) + 15
+	 lcd.drawText((Screen.image_width_px - ll), Screen.image_height_px - 80, --115,
+	    variables.preText, FONT_NORMAL)
+	 lcd.drawText(
+	    (Screen.image_width_px - ll) - lcd.getTextWidth(FONT_MINI, "^")/2 +
+	    lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(1,preTextSeq)) -
+	    lcd.getTextWidth(FONT_NORMAL, variables.preText:sub(preTextSeq, preTextSeq))/2, 
+	    Screen.image_height_px - 66, --129,
+	    "^", FONT_MINI)      
       end
    end
 end
@@ -2678,6 +2686,9 @@ local function calcTriRace()
    -- instead of lastgetTime + 1000 we will empirically determine a number that allows for the
    -- inherent delays in the callback model to make a 1/sec step time
    
+   --print("now-lastgetTime", now, lastgetTime, now - lastgetTime)
+   if not lastgetTime  then lastgetTime = now end
+   
    if (now >= (lastgetTime + 850)) then -- once a sec
       --print(now-lastgetTime)
       lastgetTime = now
@@ -2689,6 +2700,7 @@ local function calcTriRace()
 	    annTextSeq = annTextSeq + 1	 if annTextSeq > #variables.annText then
 	       annTextSeq = 1
 					 end
+	    --print("annTextSeq", annTextSeq)
 	    sChar = variables.annText:sub(annTextSeq,annTextSeq)
 	 else
 	    preTextSeq = preTextSeq + 1
@@ -2912,7 +2924,7 @@ local function prtForm() --wwx, whx)
    local windowHeight -- = 175
 
 
-   if Screen.window_width_px == Screen.legacy_width_px then
+   if Screen.image_width_px == Screen.legacy_width_px then
       windowWidth = Screen.legacy_width_px - 10 --310
       windowHeight = Screen.legacy_height_px + 15 --175
    else
@@ -2925,7 +2937,6 @@ local function prtForm() --wwx, whx)
       lcd.setClipping(0,0,310,175) -- needed for 24-II
    end
    
-   --print("**", windowWidth, windowHeight)
    setColor("Map", "Image")
 
    for k,_ in pairs(switchItems) do
@@ -2954,8 +2965,9 @@ local function prtForm() --wwx, whx)
       else 
          formRenderer:reset()
       end
-      if newTransmitter and Screen.image_width_px == Screen.legacy_width_px then
-	 lcd.drawImage(-5+2,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
+      --print("currentImage, xrange", currentImage, map.Xrange)
+      if newTransmitter and Screen.image_width_px ~= Screen.legacy_width_px then
+	 lcd.drawImage(-5,4,fieldPNG[currentImage],255)
       else
 	 lcd.drawImage(-5,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
       end
@@ -2963,9 +2975,13 @@ local function prtForm() --wwx, whx)
 	 setColor("Label", "Image")
 	 lcd.drawText(10,10, Field.images[currentImage].file, FONT_NORMAL)	 
 	 --maybe should center this instead of fixed X position
-	 lcd.drawText(70,145,(browse.dispText or ""), FONT_NORMAL)	 
+	 --print("browse.dispText", browse.dispText)
+	 -- 0.22 to put text over the relevant button (empirical)
+	 lcd.drawText(Screen.image_width_px * 0.22,Screen.image_height_px - 25,
+		      (browse.dispText or ""), FONT_NORMAL)	 
 	 --lcd.setClipping(0,15,310,160)
 
+	 --print("currentImage, xrange", currentImage, map.Xrange)
 	 setColor("Runway", "Image")
 	 if #rwy == 4 then
 	    formRenderer:reset()
@@ -3801,7 +3817,7 @@ local function mapPrint() --wWid, wHgt)
 				 colorSelect[variables.ribbonColorSource],
 				 ribbon.currentValue), FONT_MINI)
       lcd.setColor(rgb[ribbon.currentBin].r, rgb[ribbon.currentBin].g, rgb[ribbon.currentBin].b)
-      lcd.drawFilledRectangle(Screen.image_width_px/2 - 32,Screen.image_height_px - 22, 8, 8)--143,8,8)
+      lcd.drawFilledRectangle(Screen.image_width_px/2 - 32,Screen.image_height_px - 26, 8, 8)--143,8,8)
    end
 
    if switchItems.point then
@@ -3848,7 +3864,9 @@ local function mapPrint() --wWid, wHgt)
 
       local xOver = 100
 
-      if system.getProperty("NativeDraw") == 0  or variables.histMax <= xOver then
+      local spnd = system.getProperty("NativeDraw")
+
+      if not spnd or (spnd == 0)  or ((spnd == 1) and (variables.histMax <= xOver)) then
 	 for i=2 + offset, (recalcPixels and recalcCount or #xPHist) do
 	    kk = i
 	    --AA--ren:addPoint(xPHist[i], yPHist[i])
@@ -3869,7 +3887,7 @@ local function mapPrint() --wWid, wHgt)
 	    
 	    --]]
 	    --lcd.drawCircle(xPHist[i], yPHist[i], 2)
-	    
+	    --print("line", xPHist[i-1], yPHist[i-1])
 	    lcd.drawLine(xPHist[i-1], yPHist[i-1], xPHist[i], yPHist[i])
 	    
 	    if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
@@ -4191,22 +4209,23 @@ local function mapPrint() --wWid, wHgt)
 
    if metrics.currMaxCPU > metrics.maxTeleCPU then metrics.maxTeleCPU = metrics.currMaxCPU end
 
-   if newTransmitter then
-      lcd.drawText(10,Screen.image_height_px - 30,
+   if newTransmitter and Screen.image_width_px ~= Screen.legacy_width_px then
+      setColor("Map", "Image")
+      lcd.drawText(5,Screen.image_height_px - 25,
 		   string.format("CPU: %3d%% Max: %3d%%", metrics.currMaxCPU, metrics.maxTeleCPU),
 		   FONT_MINI)
       
-      lcd.drawText(10,Screen.image_height_px - 50,
+      lcd.drawText(5,Screen.image_height_px - 40,
 		   string.format("P: %d D: %.1fkm", metrics.xPCount, (metrics.distTrav or 0)/1000),
 		   FONT_MINI)
       if Field.images and currentImage and currentImage > 0 then
-	 lcd.drawText(Screen.image_width_px - 110, Screen.image_height_px - 50,
+	 lcd.drawText(Screen.image_width_px - 110, Screen.image_height_px - 40,
 		      "Mag: " .. Field.images[currentImage].mag,
 		      FONT_MINI)
 	 --lcd.drawNumber(10,50,metrics.distTrav)
 	 
       end
-      lcd.drawText(Screen.image_width_px - 110, Screen.image_height_px - 30,
+      lcd.drawText(Screen.image_width_px - 110, Screen.image_height_px - 25,
 		   string.format("Width: %dm", (map.Xrange or 0)),
 		   FONT_MINI)
    end
