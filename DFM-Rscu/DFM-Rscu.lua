@@ -28,13 +28,18 @@ local lastSwO = -1
 local annSeq = 1
 local CMULT = 1.33 --circleMax = CMULT * circleMin
 local iPindex = 1
-local iPMAX = 100
+local iPMAX
 local ixP = {}
 local iyP = {}
+local Screen = {}
+local xmin = {}
+local xmax = {}
+local ymin = {}
+local ymax = {}
 
 local steerMode = {petals=1,racetrack=2,leftright=3}
 local turnMode = {left=1,right=2,random=3}
-local magVal = {0.5, 1, 2, 4, 8}
+local magVal = {1, 2, 4, 8, 16, 32}
 local magIdx
 
 local rescueOnTime
@@ -73,6 +78,8 @@ RTH.convertStr = {"None", "m to ft", "m/s to mph", "m/s to km/h", "°C to °F", 
 RTH.convertVal = {{1,0}, {3.28084,0}, {2.23694,0} , {3.6,0}, {1.8,32}, {.001,0}}
 RTH.convertUnits = {"-", "ft", "mph", "km/h", "°F", "-"}
 local rollVal, pitchVal = 0,0
+local ixL = {}
+local iyL = {}
 
 local renShape
 --local ren = lcd.renderer()
@@ -146,6 +153,16 @@ local function mixOut(mix, val)
    end
    
    return 0 -- should not happen
+end
+
+local function xytopixel(x, y, imag)
+   local i = magIdx
+   if imag then i = imag end
+   --if imag then print("imag", imag) end
+   local w, h = Screen.width, Screen.height --320, 160
+   local ix = w * (x - xmin[i]) / (xmax[i] - xmin[i])
+   local iy = h - h * (y - ymin[i]) / (ymax[i] - ymin[i])
+   return ix,iy
 end
 
 --[[
@@ -647,6 +664,56 @@ local function loopP()
       if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end
    end
 
+   --[[
+   if RTH.gpsBearingTo and RTH.gpsDistance then
+
+      local x, y, ix, iy
+      
+      x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
+      y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))
+      
+      ix, iy = xytopixel(x, y)
+      
+      local dist
+      if iPindex > 1 then
+	 dist = math.sqrt((ix - ixP[iPindex-1])^2 + (iy - iyP[iPindex-1])^2)
+      end
+      
+      local newpoint = false
+      
+      if not dist or dist > 5 then -- dist in pixels
+	 newpoint =  true
+	 ixP[iPindex] = ix
+	 iyP[iPindex] = iy
+	 if iPindex < iPMAX then
+	    iPindex = iPindex + 1
+	 else
+	    iPindex = 1
+	 end
+      end
+      
+      if RTH.renderer then
+	 if newpoint then
+	    for i,_ in ipairs(magVal) do
+	       local RR = RTH.renderer[i]
+	       RR:reset()
+	       ix, iy = xytopixel(x, y, i)
+	       if ixL[i] then
+		  RR:addPoint(ixL[i], iyL[i])
+		  RR:addPoint(ix, iy)
+		  print("$", i, ix, iy)
+		  RR:renderPolyline(2)
+	       end
+	       ixL[i] = ix
+	       iyL[i] = iy
+	    end
+	 end
+      end
+   end
+   
+   --]]
+
+
 end
 
 local errCnt = 0
@@ -670,6 +737,7 @@ local function keyPress(key)
       if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end      
    end
 end
+
 
 local function initForm(subform)
 
@@ -930,14 +998,14 @@ local function initForm(subform)
    --]]
 end
 
-local function drawShape(col, row, shape, rotation)
+local function drawShape(col, row, shape, rotation, mag)
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
    renShape:reset()
    for _, point in pairs(shape) do
       renShape:addPoint(
-	 col + (point[1] * cosShape - point[2] * sinShape + 0.5),
-	 row + (point[1] * sinShape + point[2] * cosShape + 0.5)
+	 col + mag*(point[1] * cosShape - point[2] * sinShape + 0.5),
+	 row + mag*(point[1] * sinShape + point[2] * cosShape + 0.5)
       )
    end
    renShape:renderPolygon()
@@ -967,7 +1035,7 @@ end
 
 local function printTeleMix()
 
-   local x0,y0 = 220, 5
+   local x0,y0 = Screen.width - 100, 5
    local xl, yl = 1.23*80, 80
    local min, max = -100, 100
    
@@ -1218,16 +1286,8 @@ local function printTeleAHFancy()
 end
 --]]
 
-local xmin, xmax, ymin, ymax
 
-
-local function xytopixel(x, y)
-
-   local w, h = 320, 160
-   local ix = w * (x - xmin) / (xmax - xmin)
-   local iy = h - h * (y - ymin) / (ymax - ymin)
-   return ix,iy
-end
+local count = 0
 
 local function printTeleGPSP(w,h)
 
@@ -1239,21 +1299,33 @@ local function printTeleGPSP(w,h)
    printTeleAH(w,h)
    printTeleMix(w,h)
 
-   local x, y, x1, y1, ix, iy, ix0, iy0
+   local x, y, ix, iy, ix0, iy0
 
    lcd.setColor(255,0,0)
 
    x = RTH.settings.circleMin * math.sin(math.rad(0))
    y = RTH.settings.circleMin * math.cos(math.rad(0))
    
-   ix, iy = xytopixel(x, y, w, h)
-   ix0, iy0 = xytopixel(0, 0, w, h)
+   ix, iy = xytopixel(x, y)
+   ix0, iy0 = xytopixel(0, 0)
    local rc = math.sqrt((ix-ix0)^2 + (iy-iy0)^2)
    lcd.drawCircle(ix0, iy0, rc)
    lcd.setColor(0,0,255)
    lcd.drawCircle(ix0, iy0, rc * CMULT)
    
    lcd.setColor(0,0,0)
+
+   --[[
+   for i=1,360,3 do
+      x = 150 * math.sin(math.rad(i))
+      y = 150 * math.cos(math.rad(i))
+      x1 = 150 * math.sin(math.rad(i+3))
+      y1 = 150 * math.cos(math.rad(i+3))      
+      ix, iy = xytopixel(x,y)
+      ix0, iy0 = xytopixel(x1,y1)
+      lcd.drawLine(ix, iy, ix0, iy0)
+   end
+   --]]
 
 
    if (RTH.settings.circStrat == steerMode.racetrack or RTH.settings.circStrat == steerMode.leftright) 
@@ -1265,7 +1337,7 @@ local function printTeleGPSP(w,h)
       dd = gps.getDistance(RTH.zeroPos, RTH.aimPosOutbound)
       x = dd * math.sin(math.rad(bb))
       y = dd * math.cos(math.rad(bb))
-      ix, iy = xytopixel(x, y, w, h)
+      ix, iy = xytopixel(x, y)
       drawX(ix, iy, 3)
       lcd.drawCircle(ix, iy, 4)
 
@@ -1273,7 +1345,7 @@ local function printTeleGPSP(w,h)
       dd = gps.getDistance(RTH.zeroPos, RTH.aimPosA)
       x = dd * math.sin(math.rad(bb))
       y = dd * math.cos(math.rad(bb))
-      ix, iy = xytopixel(x, y, w, h)
+      ix, iy = xytopixel(x, y)
       drawX(ix, iy, 3)
       lcd.drawCircle(ix, iy, 4)
 
@@ -1282,7 +1354,7 @@ local function printTeleGPSP(w,h)
       dd = gps.getDistance(RTH.zeroPos, RTH.aimPosB)
       x = dd * math.sin(math.rad(bb))
       y = dd * math.cos(math.rad(bb))
-      ix, iy = xytopixel(x, y, w, h)
+      ix, iy = xytopixel(x, y)
       drawX(ix, iy, 3)
       lcd.drawCircle(ix, iy, 4)
       
@@ -1290,24 +1362,27 @@ local function printTeleGPSP(w,h)
 
    if not RTH.gpsHeading or not RTH.gpsDistance or not RTH.gpsBearingTo then return end
    
-   x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
-   y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))
-
-   ix, iy = xytopixel(x, y, w, h)
    if RTH.settings.onoff < 1 then
-      lcd.setColor(0,0,0)
+      lcd.setColor(0,255,0)
    else
       if flyingOutbound then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
    end
 
-   drawShape(ix,iy, config.Glider, math.rad(RTH.gpsHeading or 0)) 
+   ---[[
+   x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
+   y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))
+
+   ix, iy = xytopixel(x, y)
 
    local dist
    if iPindex > 1 then
       dist = math.sqrt((ix - ixP[iPindex-1])^2 + (iy - iyP[iPindex-1])^2)
    end
 
-   if not dist or dist > 4 then --4m min point spacing
+   local newpoint = false
+   
+   if not dist or dist > 6 then -- dist in pixels
+      newpoint =  true
       ixP[iPindex] = ix
       iyP[iPindex] = iy
       if iPindex < iPMAX then
@@ -1317,31 +1392,70 @@ local function printTeleGPSP(w,h)
       end
    end
    
-   lcd.setColor(0,0,0)
+   if RTH.renderer then
+      if newpoint then
+	 count = count + 1
+	 --print(count)
+	 for i,_ in ipairs(magVal) do
+	    local RR = RTH.renderer[i]
+	    RR:reset()
+	    ix, iy = xytopixel(x, y, i)
+	    if ixL[i] then
+	       RR:addPoint(ixL[i], iyL[i])
+	       RR:addPoint(ix, iy)
+	       RR:renderPolyline(2)
+	    end
+	    ixL[i] = ix
+	    iyL[i] = iy
+	 end
+      end
+      lcd.drawImage(0,0,RTH.ribbon[magIdx])
+   else
+      for i=1, #ixP, 1 do
+	 lcd.drawCircle(ixP[i], iyP[i], 1)
+      end
+   end
+   --]]
 
-   for i=1, #ixP, 1 do
-      lcd.drawCircle(ixP[i], iyP[i], 1)
+   if RTH.renderer then
+      lcd.drawImage(0,0,RTH.ribbon[magIdx])
+   else
+      for i=1, #ixP, 1 do
+	 lcd.drawCircle(ixP[i], iyP[i], 1)
+      end
    end
    
+   x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
+   y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))
+   ix, iy = xytopixel(x, y)
+
+   drawShape(ix,iy, config.Glider, math.rad(RTH.gpsHeading or 0),1.8) 
+
    lcd.setColor(0,0,0)
-   local ix0 , iy0 = xytopixel(0, 0, w, h)
+   ix0 , iy0 = xytopixel(0, 0)
    lcd.drawCircle(ix0, iy0, 2)
    
    lcd.drawText(40, 15, string.format("[%d,%d,%d,%d]   steer: %s  turn: %s",
-				      xmin, xmax, ymin, ymax,
+				      math.floor(xmin[magIdx] + 0.5),
+				      math.floor(xmax[magIdx] + 0.5),
+				      math.floor(ymin[magIdx] + 0.5),
+				      math.floor(ymax[magIdx] + 0.5),
 				      inv(steerMode)[RTH.settings.circStrat],
 				      inv(turnMode)[RTH.settings.turnDir]), FONT_MINI)
 
-   lcd.drawText(70, 145, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
-   lcd.drawText(220, 145, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
+   lcd.drawText(70, Screen.height - 25,
+		string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
+   lcd.drawText(Screen.width - 100, Screen.height - 25,
+		string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
 
-   lcd.drawText(0, 145, string.format("CPU %d%%", system.getCPU()), FONT_MINI)
+   lcd.drawText(0, Screen.height - 25, string.format("CPU %d%%", system.getCPU()), FONT_MINI)
    
 end
 
 local errCntT = 0
-local function printTeleGPS(w,h)
-   local s,e = pcall(printTeleGPSP, w, h)
+local function printTeleGPS()
+   --print("$", w,h)
+   local s,e = pcall(printTeleGPSP, Screen.width, Screen.height)
    if not s then
       errCntT = errCntT + 1
       if errCntT < 5 then 
@@ -1369,17 +1483,12 @@ end
 
 local function setMag(idx)
    if idx < 1 or idx > #magVal then return end
-   xmax = 2 * magVal[idx] * math.floor(RTH.settings.circleMin * CMULT + 0.5)
-   xmin = -xmax
-   ymax = magVal[idx] * math.floor(RTH.settings.circleMin * CMULT + 0.5)
-   ymin = -ymax
    ixP = {}
    iyP = {}
    iPindex = 1
 end
 
 local function keyPressGPS(key)
-   --print("key", key)
    if key == KEY_1 then
       magIdx = magIdx + 1
       if magIdx > #magVal then magIdx = #magVal end
@@ -1396,10 +1505,12 @@ local function keyPressGPS(key)
       RTH.settings.turnDir = RTH.settings.turnDir + 1
       if RTH.settings.turnDir > #inv(turnMode) then RTH.settings.turnDir = 1 end
       system.pSave("RTHturnDir", RTH.settings.turnDir)
-      --else -- key5
+   elseif key == KEY_5 then -- Erase ribbon
+      print("Erase ribbon")
+      RTH.ribbon[magIdx] = lcd.createImage(Screen.width, Screen.height)
+      RTH.renderer[magIdx] = lcd.renderer(RTH.ribbon[magIdx])
    end
 end
-
 
 local function init()
 
@@ -1410,7 +1521,7 @@ local function init()
    
    local device
    device, emflag = system.getDeviceType() 
-   print("Device", device, "emflag", emflag)
+   --print("Device", device, "emflag", emflag)
 
 --   if device == "JETI DS-24 II" or device == "JETI DC-24 II" then
 --     do something different on new tx?      
@@ -1419,11 +1530,13 @@ local function init()
    system.registerTelemetry(1, "RScu Map North Up", 4, printTeleGPS, keyPressGPS)
    
    if system.setTelemetryButton then
-      print("setting Button")
+      --print("setting Button")
       system.setTelemetryButton(1, 1, "-", 1)
       system.setTelemetryButton(1, 2, "+", 1)
       system.setTelemetryButton(1, 3, "Steer", 1)
       system.setTelemetryButton(1, 4, "Turn", 1)
+      system.setTelemetryButton(1, 5, "Erase", 1)
+      
       --system.setTelemetryButton(1, 5, "5", 1)      
    else
       print("not setting Button")
@@ -1467,8 +1580,6 @@ local function init()
    flyingOutbound = false
    calibrating = false
 
-   magIdx = 3
-   setMag(magIdx)
    
    RTH.gpsReads = 0
    RTH.curPos = nil
@@ -1528,6 +1639,43 @@ local function init()
 
    --system.setProperty("NativeDraw", 1)
    --print("get", system.getProperty("NativeDraw"))
+
+   system.setProperty("NativeDraw", 1)
+
+   if system.getProperty("NativeDraw") == 1 then
+      print(appName..": Using 24-II NativeDraw")
+      Screen.width = 458
+      Screen.height = 343
+      RTH.ribbon = {}
+      RTH.renderer = {}
+      for i,_ in ipairs(magVal) do
+	 RTH.ribbon[i] = lcd.createImage(Screen.width, Screen.height)
+	 if not RTH.ribbon[i] then
+	    print(appName..": Could not create ribbon image "..i)
+	 end
+	 if RTH.ribbon[i] then
+	    RTH.renderer[i] = lcd.renderer(RTH.ribbon[i])
+	 end
+	 if not RTH.renderer[i] then print(appName..": Could not create renderer "..i) end
+      end
+      iPMAX = 2
+   else
+      Screen.width = 320
+      Screen.height = 160
+      iPMAX = 100
+   end
+
+   magIdx = 1
+   setMag(magIdx)
+
+   -- Set screen sizes, start at +/- 500m (100m wide)
+   for i,_ in ipairs(magVal) do
+      xmax[i] = magVal[i] * 500
+      xmin[i] = -xmax[i]
+      ymax[i] = Screen.height / Screen.width * magVal[i] * 500
+      ymin[i] = -ymax[i]
+   end
+
 end
    
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.2", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.4", name=appName}
