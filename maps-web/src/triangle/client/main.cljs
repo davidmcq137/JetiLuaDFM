@@ -1296,13 +1296,13 @@
 (def screen-variants
   [{:label "Standard"
     :token-suffix ""
-    :name "DFM-Maps - GPS Maps"
+    :name "DFM-Maps"
     :hw [678 679 680 652 653 3857 3858]
     :width 320
     :height 160}
    {:label "Large screen"
     :token-suffix "-L"
-    :name "DFM-Maps - GPS Maps (large screen)"
+    :name "DFM-Maps (large screen)"
     :hw [3866 3867]
     :width 458
     :height 343}])

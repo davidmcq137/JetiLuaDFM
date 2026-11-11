@@ -839,7 +839,9 @@
                   (let [fr (doto (js/FileReader.)
                              (.readAsText f "utf-8"))]
                     (set! (.-onloadend fr)
-                          #(restore-db! (edn/read-string (.-result fr)))))))}])
+                          #(restore-db! (edn/read-string (.-result fr))))))
+                  ;; Clear so picking the same file again still fires onChange
+                  (set! (.-value (.-target ev)) ""))}])
 
 (defn normalize-panel*
   [pd]
@@ -878,7 +880,9 @@
                              (->> (.-result fr)
                                   (js/JSON.parse)
                                   (js->clj)
-                                  (load-panel! panel-name)))))))}]])
+                                  (load-panel! panel-name)))))
+                   ;; Clear so picking the same file again still fires onChange
+                   (set! (.-value (.-target ev)) "")))}]])
 
 
 (rum/defc app-controls
