@@ -17,6 +17,8 @@
 local appName = "DFM-Rscu"
 local pathApp = "Apps/"..appName.."/"
 local RTH = {}
+local buttonText =  {{"-","+","Steer","Turn","Erase"},{"Pt A","Pt B","","",""}}
+local buttonSet = 1
 local config = {}
 local flyingOutbound
 local calibrating
@@ -36,10 +38,15 @@ local xmin = {}
 local xmax = {}
 local ymin = {}
 local ymax = {}
+--local BDALat, BDALng, BDBLat, BDBLng, BDA, BDB, BDZ
+local fieldRotation
+local pointA
+local pointB
+local pointZ
 
 local steerMode = {petals=1,racetrack=2,leftright=3}
 local turnMode = {left=1,right=2,random=3}
-local magVal = {1, 2, 4, 8, 16, 32}
+local magVal = {1, 1.4, 2, 2.8, 4}
 local magIdx
 
 local rescueOnTime
@@ -80,6 +87,8 @@ RTH.convertUnits = {"-", "ft", "mph", "km/h", "°F", "-"}
 local rollVal, pitchVal = 0,0
 local ixL = {}
 local iyL = {}
+local xLast
+local yLast
 
 local renShape
 --local ren = lcd.renderer()
@@ -102,6 +111,13 @@ local homeShape = {
 --]]
 
 local emflag
+
+local function rotateXY(xx, yy, rotation)
+   local sinShape, cosShape
+   sinShape = math.sin(rotation)
+   cosShape = math.cos(rotation)
+   return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
+end
 
 local function inv(t)
    local rt = {}
@@ -999,8 +1015,8 @@ local function initForm(subform)
 end
 
 local function drawShape(col, row, shape, rotation, mag)
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
+   sinShape = math.sin(rotation - fieldRotation)
+   cosShape = math.cos(rotation - fieldRotation)
    renShape:reset()
    for _, point in pairs(shape) do
       renShape:addPoint(
@@ -1305,7 +1321,7 @@ local function printTeleGPSP(w,h)
 
    x = RTH.settings.circleMin * math.sin(math.rad(0))
    y = RTH.settings.circleMin * math.cos(math.rad(0))
-   
+      
    ix, iy = xytopixel(x, y)
    ix0, iy0 = xytopixel(0, 0)
    local rc = math.sqrt((ix-ix0)^2 + (iy-iy0)^2)
@@ -1327,36 +1343,57 @@ local function printTeleGPSP(w,h)
    end
    --]]
 
-
+   local function plotGPS(p1, p2)
+      local bb, dd, xx, yy, iix, iiy
+      bb = gps.getBearing(p1,p2)
+      dd = gps.getDistance(p1,p2)
+      xx = dd * math.sin(math.rad(bb))
+      yy = dd * math.cos(math.rad(bb))
+      x,y = rotateXY(x, y, fieldRotation)
+      iix, iiy = xytopixel(xx, yy)
+      drawX(iix, iiy, 3)
+      lcd.drawCircle(iix, iiy, 4)
+   end
+   
    if (RTH.settings.circStrat == steerMode.racetrack or RTH.settings.circStrat == steerMode.leftright) 
       and RTH.aimPosOutbound and RTH.zeroPos and RTH.aimPosA and RTH.aimPosB then
-      local bb
-      local dd
+      --local bb
+      --local dd
 
-      bb = gps.getBearing(RTH.zeroPos, RTH.aimPosOutbound)
-      dd = gps.getDistance(RTH.zeroPos, RTH.aimPosOutbound)
-      x = dd * math.sin(math.rad(bb))
-      y = dd * math.cos(math.rad(bb))
-      ix, iy = xytopixel(x, y)
-      drawX(ix, iy, 3)
-      lcd.drawCircle(ix, iy, 4)
+      plotGPS(RTH.zeroPos, RTH.aimPosOutbound)
+      
+      --bb = gps.getBearing(RTH.zeroPos, RTH.aimPosOutbound)
+      --dd = gps.getDistance(RTH.zeroPos, RTH.aimPosOutbound)
+      --x = dd * math.sin(math.rad(bb))
+      --y = dd * math.cos(math.rad(bb))
+      --x,y = rotateXY(x, y, fieldRotation)
+      --ix, iy = xytopixel(x, y)
+      --drawX(ix, iy, 3)
+      --lcd.drawCircle(ix, iy, 4)
 
-      bb = gps.getBearing(RTH.zeroPos, RTH.aimPosA)
-      dd = gps.getDistance(RTH.zeroPos, RTH.aimPosA)
-      x = dd * math.sin(math.rad(bb))
-      y = dd * math.cos(math.rad(bb))
-      ix, iy = xytopixel(x, y)
-      drawX(ix, iy, 3)
-      lcd.drawCircle(ix, iy, 4)
+      plotGPS(RTH.zeroPos, RTH.aimPosA)
+      --bb = gps.getBearing(RTH.zeroPos, RTH.aimPosA)
+      --dd = gps.getDistance(RTH.zeroPos, RTH.aimPosA)
+      --x = dd * math.sin(math.rad(bb))
+      --y = dd * math.cos(math.rad(bb))
+      --x,y = rotateXY(x, y, fieldRotation)
+      --ix, iy = xytopixel(x, y)
+      --drawX(ix, iy, 3)
+      --lcd.drawCircle(ix, iy, 4)
 
+      plotGPS(RTH.zeroPos, RTH.aimPosB)
+      --bb = gps.getBearing(RTH.zeroPos, RTH.aimPosB)
+      --dd = gps.getDistance(RTH.zeroPos, RTH.aimPosB)
+      --x = dd * math.sin(math.rad(bb))
+      --y = dd * math.cos(math.rad(bb))
+      --x,y = rotateXY(x, y, fieldRotation)
+      --ix, iy = xytopixel(x, y)
+      --drawX(ix, iy, 3)
+      --lcd.drawCircle(ix, iy, 4)
 
-      bb = gps.getBearing(RTH.zeroPos, RTH.aimPosB)
-      dd = gps.getDistance(RTH.zeroPos, RTH.aimPosB)
-      x = dd * math.sin(math.rad(bb))
-      y = dd * math.cos(math.rad(bb))
-      ix, iy = xytopixel(x, y)
-      drawX(ix, iy, 3)
-      lcd.drawCircle(ix, iy, 4)
+      plotGPS(RTH.zeroPos, pointA)
+      plotGPS(RTH.zeroPos, pointA)
+      plotGPS(RTH.zeroPos, pointZ)
       
    end
 
@@ -1369,19 +1406,26 @@ local function printTeleGPSP(w,h)
    end
 
    ---[[
+
    x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
    y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))
+   x,y = rotateXY(x, y, fieldRotation)
 
    ix, iy = xytopixel(x, y)
 
-   local dist
-   if iPindex > 1 then
-      dist = math.sqrt((ix - ixP[iPindex-1])^2 + (iy - iyP[iPindex-1])^2)
+   --local dist
+   --if iPindex > 1 then
+   --   dist = math.sqrt((ix - ixP[iPindex-1])^2 + (iy - iyP[iPindex-1])^2)
+   --end
+
+   local distXY
+   if xLast then
+      distXY = math.sqrt((x-xLast)^2 + (y-yLast)^2)
    end
 
    local newpoint = false
    
-   if not dist or dist > 6 then -- dist in pixels
+   if not distXY or distXY > 5 then -- distXY in meters
       newpoint =  true
       ixP[iPindex] = ix
       iyP[iPindex] = iy
@@ -1395,7 +1439,7 @@ local function printTeleGPSP(w,h)
    if RTH.renderer then
       if newpoint then
 	 count = count + 1
-	 --print(count)
+	 --print(count, distXY)
 	 for i,_ in ipairs(magVal) do
 	    local RR = RTH.renderer[i]
 	    RR:reset()
@@ -1408,6 +1452,8 @@ local function printTeleGPSP(w,h)
 	    ixL[i] = ix
 	    iyL[i] = iy
 	 end
+	 xLast = x
+	 yLast = y
       end
       lcd.drawImage(0,0,RTH.ribbon[magIdx])
    else
@@ -1427,6 +1473,7 @@ local function printTeleGPSP(w,h)
    
    x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
    y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))
+   x,y = rotateXY(x, y, fieldRotation)
    ix, iy = xytopixel(x, y)
 
    drawShape(ix,iy, config.Glider, math.rad(RTH.gpsHeading or 0),1.8) 
@@ -1435,7 +1482,7 @@ local function printTeleGPSP(w,h)
    ix0 , iy0 = xytopixel(0, 0)
    lcd.drawCircle(ix0, iy0, 2)
    
-   lcd.drawText(40, 15, string.format("[%d,%d,%d,%d]   steer: %s  turn: %s",
+   lcd.drawText(40, 5, string.format("[%d,%d,%d,%d]   steer: %s  turn: %s",
 				      math.floor(xmin[magIdx] + 0.5),
 				      math.floor(xmax[magIdx] + 0.5),
 				      math.floor(ymin[magIdx] + 0.5),
@@ -1446,7 +1493,7 @@ local function printTeleGPSP(w,h)
    lcd.drawText(70, Screen.height - 25,
 		string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
    lcd.drawText(Screen.width - 100, Screen.height - 25,
-		string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
+		string.format("BrgTo: %d", RTH.gpsBearingTo - math.deg(fieldRotation)), FONT_MINI)
 
    lcd.drawText(0, Screen.height - 25, string.format("CPU %d%%", system.getCPU()), FONT_MINI)
    
@@ -1489,26 +1536,90 @@ local function setMag(idx)
 end
 
 local function keyPressGPS(key)
-   if key == KEY_1 then
-      magIdx = magIdx + 1
-      if magIdx > #magVal then magIdx = #magVal end
-      setMag(magIdx)
-   elseif key == KEY_2 then
-      magIdx = magIdx - 1
-      if magIdx < 1 then magIdx = 1 end
-      setMag(magIdx)
-   elseif key == KEY_3 then
-      RTH.settings.circStrat = RTH.settings.circStrat + 1
-      if RTH.settings.circStrat > #inv(steerMode) then RTH.settings.circStrat = 1 end
-      system.pSave("RTHcircStrat", RTH.settings.circStrat)
-   elseif key == KEY_4 then
-      RTH.settings.turnDir = RTH.settings.turnDir + 1
-      if RTH.settings.turnDir > #inv(turnMode) then RTH.settings.turnDir = 1 end
-      system.pSave("RTHturnDir", RTH.settings.turnDir)
-   elseif key == KEY_5 then -- Erase ribbon
-      print("Erase ribbon")
-      RTH.ribbon[magIdx] = lcd.createImage(Screen.width, Screen.height)
-      RTH.renderer[magIdx] = lcd.renderer(RTH.ribbon[magIdx])
+   if key == KEY_ENTER then
+      if buttonSet == 1 then buttonSet = 2 elseif buttonSet == 2 then buttonSet = 1 end
+      for b=1,5,1 do
+	 --system.setTelemetryButton(1, 5, "Erase", 1)
+	 system.setTelemetryButton(1, b, buttonText[buttonSet][b], 1)
+      end
+      return
+   end
+
+   if buttonSet == 1 then      
+      if key == KEY_1 then
+	 magIdx = magIdx + 1
+	 if magIdx > #magVal then magIdx = #magVal end
+	 setMag(magIdx)
+      elseif key == KEY_2 then
+	 magIdx = magIdx - 1
+	 if magIdx < 1 then magIdx = 1 end
+	 setMag(magIdx)
+      elseif key == KEY_3 then
+	 RTH.settings.circStrat = RTH.settings.circStrat + 1
+	 if RTH.settings.circStrat > #inv(steerMode) then RTH.settings.circStrat = 1 end
+	 system.pSave("RTHcircStrat", RTH.settings.circStrat)
+      elseif key == KEY_4 then
+	 RTH.settings.turnDir = RTH.settings.turnDir + 1
+	 if RTH.settings.turnDir > #inv(turnMode) then RTH.settings.turnDir = 1 end
+	 system.pSave("RTHturnDir", RTH.settings.turnDir)
+      elseif key == KEY_5 then -- Erase ribbon
+	 print("Erase ribbon")
+	 RTH.ribbon[magIdx] = lcd.createImage(Screen.width, Screen.height)
+	 RTH.renderer[magIdx] = lcd.renderer(RTH.ribbon[magIdx])
+      end
+   else
+      if key == KEY_1 then -- Pt A
+	 if emflag == 1 then
+	    print("BDS Pt A")
+	    local BDALat = 41.339794
+	    local BDALng = -74.431617
+	    pointA = gps.newPoint(BDALat, BDALng)
+	 else
+	    if not RTH.curPos then
+	       system.messageBox(appName..": no current GPS position")
+	       return
+	    end
+	    pointA = RTH.curPos
+	 end
+      elseif key == KEY_2 then -- Pt B
+	 if emflag == 1 then
+	    print("BDS Pt B")
+	    local BDBLat = 41.339474
+	    local BDBLng = -74.431536
+	    pointB = gps.newPoint(BDBLat, BDBLng)
+	 else
+	    if not pointA then
+	       system.messageBox(appName..": enter Pt A first")
+	       return
+	    end
+	    if not RTH.curPos then
+	       system.messageBox(appName..": no current GPS position")
+	       return
+	    end
+	    if gps.getDistance(pointA, RTH.curPos) < 3 then
+	       system.messageBox(appName..": too close for Pt B")
+	       return
+	    end
+	    pointB = RTH.curPos
+	    fieldRotation = math.rad(gps.getBearing(pointA, pointB) - 90)
+	    print("fieldRotation", math.deg(fieldRotation))
+	    pointZ = gps.getDestination(pointA, 30, gps.getBearing(pointA, pointB) + 90)
+	    
+	    local bb = gps.getBearing(RTH.zeroPos, pointZ)
+	    local dd = gps.getDistance(RTH.zeroPos, pointZ)
+	    local xBottom = dd * math.sin(math.rad(bb))
+	    local yBottom = dd * math.cos(math.rad(bb))
+
+	    xBottom, yBottom = rotateXY(xBottom, yBottom, fieldRotation)
+
+	    for i,_ in ipairs(magVal) do
+	       xmin[i] = xBottom - magVal[i] * 500
+	       xmax[i] = xBottom + magVal[i] * 500
+	       ymin[i] = yBottom
+	       ymax[i] = yBottom + 2 * Screen.height / Screen.width * magVal[i] * 500
+	    end
+	 end
+      end
    end
 end
 
@@ -1528,14 +1639,21 @@ local function init()
 --   end
    
    system.registerTelemetry(1, "RScu Map North Up", 4, printTeleGPS, keyPressGPS)
+
+   --local buttonText =  {{"-","+","Steer","Turn","Erase"},{"Pt A","Pt B","","",""}}
    
    if system.setTelemetryButton then
       --print("setting Button")
-      system.setTelemetryButton(1, 1, "-", 1)
-      system.setTelemetryButton(1, 2, "+", 1)
-      system.setTelemetryButton(1, 3, "Steer", 1)
-      system.setTelemetryButton(1, 4, "Turn", 1)
-      system.setTelemetryButton(1, 5, "Erase", 1)
+      buttonSet = 1
+      for b=1,5,1 do
+	 system.setTelemetryButton(1, b, buttonText[buttonSet][b], 1)
+      end
+      
+      --system.setTelemetryButton(1, 1, "-", 1)
+      --system.setTelemetryButton(1, 2, "+", 1)
+      --system.setTelemetryButton(1, 3, "Steer", 1)
+      --system.setTelemetryButton(1, 4, "Turn", 1)
+      --system.setTelemetryButton(1, 5, "Erase", 1)
       
       --system.setTelemetryButton(1, 5, "5", 1)      
    else
@@ -1665,6 +1783,18 @@ local function init()
       iPMAX = 100
    end
 
+   fieldRotation = 0 --math.rad(gps.getBearing(BDA, BDB) - 90)
+
+   --[[
+   --print("fieldRotation", math.deg(fieldRotation))
+   BDZ = gps.getDestination(BDA, 30, gps.getBearing(BDA, BDB) + 90)
+   bb = gps.getBearing(BD0, BDZ)
+   dd = gps.getDistance(BD0, BDZ)
+   local xBottom = dd * math.sin(math.rad(bb))
+   yBottom = dd * math.cos(math.rad(bb))
+   xBottom, yBottom = rotateXY(xBottom, yBottom, fieldRotation)
+   yBottom = yBottom * 1
+   --]]
    magIdx = 1
    setMag(magIdx)
 
@@ -1672,10 +1802,9 @@ local function init()
    for i,_ in ipairs(magVal) do
       xmax[i] = magVal[i] * 500
       xmin[i] = -xmax[i]
-      ymax[i] = Screen.height / Screen.width * magVal[i] * 500
-      ymin[i] = -ymax[i]
+      ymin[i] = -Screen.height / Screen.width * magVal[i] * 500
+      ymax[i] = -ymin[i]
    end
-
 end
    
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.4", name=appName}

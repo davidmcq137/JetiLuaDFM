@@ -1257,6 +1257,19 @@ local function init()
    BDB = gps.newPoint(BDLatB, BDLngB)
    print(gps.getDistance(BDA, BDB), gps.getBearing(BDA, BDB))
 
+   print(math.floor(BDLatA*10000 + 0.5))
+   local s = string.format("R%06dN_%06dW.gps",
+			   math.floor(BDLatA*1000 + 0.5), -math.floor(BDLngA*1000 + 0.5))
+   print("s:", s)
+   BDLatA = 41.0
+   BDLngA = -74.0
+   BDLatB = 41.001
+   BDLngB = -74.001
+   BDA = gps.newPoint(BDLatA, BDLngA)
+   BDB = gps.newPoint(BDLatB, BDLngB)
+   print(gps.getDistance(BDA, BDB), gps.getBearing(BDA, BDB))
+
+
 end
    
 return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.2", name=appName}
