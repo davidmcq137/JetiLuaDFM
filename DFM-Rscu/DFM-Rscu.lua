@@ -1083,7 +1083,7 @@ local function initForm(subform)
 	       form.reinit(13) end), {label="Field Settings", font=FONT_NORMAL})
 
       if savedRow then
-	 print("setting FocusedRow", savedRow)
+	 --print("setting FocusedRow", savedRow)
 	 form.setFocusedRow(savedRow)
       end
 
@@ -1354,7 +1354,9 @@ local function drawLine(col, row, shape, rotation, lw)
 end
 
 local function printForm()
-
+   if pointsToRender > 2 then
+      lcd.drawText(10, Screen.height - 60, "Flight points cached: "..pointsToRender.."/100", FONT_NORMAL)
+   end
 end
 
 local function destroy()
@@ -1617,26 +1619,37 @@ end
 
 local function printTeleStatusP(w,h)
 
-   -- Note: w = 223 for 24-II, 151 for legacy color TXs
+   -- Note: for two-box size: w = 223, h = 252 for 24-II, w = 151, h = 69 for legacy color TXs
+   --           one-box size: w = 223, h =  55 for 24-II, w = 151, h = 24 for legacy color TXs
    
    if not RTH.gpsBearingTo then
       lcd.drawText(20, h/2, "No GPS Bearing")
       return
    end
 
-   lcd.drawText(21-lcd.getTextWidth(FONT_MINI, "N") / 2,
-		12 + 4 - lcd.getTextHeight(FONT_MINI, "N") / 2,
-		"N", FONT_MINI)
-   drawShape(20, 12+4, config.arrow, -fieldRotation, 1)
-   lcd.drawCircle(20, 12+4, 9)
+   local nd = system.getProperty("NativeDraw")
 
+   local font
+   if h <= 24 then font = FONT_MINI else font = FONT_NORMAL end
+
+   if h > 24 then
+      lcd.drawText(21-lcd.getTextWidth(FONT_MINI, "N") / 2,
+		   12 + 4 - lcd.getTextHeight(FONT_MINI, "N") / 2,
+		   "N", FONT_MINI)
+      
+      drawShape(20, 12+4, config.arrow, -fieldRotation, 1)
+      lcd.drawCircle(20, 12+4, 9)
+   end
+   
    local x00, y00
-   x00 = w > 200 and 20 or 10
-   y00 = w > 200 and 30 or 20
+   x00 = nd == 1 and 20 or 10
+   y00 = nd == 1 and 30 or 20
+
+   if h <= 24 then y00 = 15 end
    lcd.drawText(x00, h - y00,
 		string.format("Alt: %dm   Dist: %3dm",
 			      (RTH.altitude or 0), (RTH.gpsDistance or 0)),
-		FONT_NORMAL)
+		font)
 
    local rb = math.floor(RTH.gpsBearingTo - math.deg(fieldRotation) + 0.5)
    rb = rb + 0 -- kill -0
@@ -1649,27 +1662,33 @@ local function printTeleStatusP(w,h)
    end
 
    local x0
-   x0 = w > 200 and 18 or 18
+   x0 = nd == 1 and 18 or 18
    local y0
-   y0 = w > 200 and 18 or -2
+   y0 = nd == 1 and 18 or -2
 
+   if h <= 55 and nd == 1 then
+      y0 = -28
+   end
+
+   if h <= 24 then y0 = -12 end   
    local cc = math.abs(fieldRotation) < 1 and "T" or "R"
    lcd.drawText(w/2-x0, h/2 + y0, string.format("%.3d°"..cc,
-						(RTH.gpsBearingTo - math.deg(fieldRotation)+360)%360))
+		(RTH.gpsBearingTo - math.deg(fieldRotation)+360)%360),
+		font)
 
    if RTH.settings.onoff < 0 then
-      lcd.drawImage(w-30, 10, redCircle)
+      lcd.drawImage(w-30, 8, redCircle)
    else
-      lcd.drawImage(w-30, 10, greenCircle)
+      lcd.drawImage(w-30, 8, greenCircle)
    end
 
    local mag
    
    
-   mag = w > 200 and 1.5 or 0.6
+   mag = nd == 1 and 1.5 or 0.6
    lcd.setColor(0,0,255)
    local ofst
-   ofst = w > 200 and 25 or 15
+   ofst = nd == 1 and 25 or 15
 
    if math.abs(fieldRotation) < 1 then
       lcd.setColor(255,153,0)
@@ -1677,8 +1696,11 @@ local function printTeleStatusP(w,h)
       lcd.setColor(0,0,255)
    end
 
-   drawShape(w/2, h/2 - ofst, config.homeshape,
+   if h > 55 then
+      drawShape(w/2, h/2 - ofst, config.homeshape,
 		math.rad(RTH.gpsBearingTo) - fieldRotation, mag)
+   end
+   
 
    -- can render to image in this tele window or the full screen .. so long as one of them
    -- is on screen it keeps the image updated
@@ -1892,7 +1914,7 @@ local function init()
    device, emflag = system.getDeviceType() 
    
    system.registerTelemetry(1, "DFM-Rscu Map", 4, printTeleGPS, keyPressGPS)
-   system.registerTelemetry(2, "DFM-Rscu Status", 2, printTeleStatus)
+   system.registerTelemetry(2, "DFM-Rscu Status", 0, printTeleStatus)
    --local buttonText =  {{"-","+","Steer","Turn","Erase"},{"Pt A","Pt B","","",""}}
    
    if system.setTelemetryButton then
