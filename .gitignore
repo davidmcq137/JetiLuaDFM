@@ -94,5 +94,6 @@ DFM-HUDBuild/Images/instrESP.h
 DFM-Rscu/*.jpg
 DFM-Rscu/*.jpeg
 DFM-Rscu/*.png
+DFM-Rscu/Fields/*.gps
 DFM-Maps/Old_Maps
 

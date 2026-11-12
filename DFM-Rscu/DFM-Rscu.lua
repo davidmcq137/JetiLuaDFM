@@ -48,6 +48,8 @@ local drawRibbon
 local distAB
 local greenCircle, redCircle
 local pointsToRender = 0
+local Fields
+local savedRow = 1
 
 local steerMode = {petals=1,racetrack=2,leftright=3}
 local turnMode = {left=1,right=2,random=3}
@@ -130,46 +132,45 @@ local function rotateXY(xx, yy, rotation)
    return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
 end
 
-local function scanGPSFiles(cp)
-   if not cp then
-      return
-   end
-   local Fields = {}
-   local path = prefix() .. pathApp.."Fields"
-   local retZ, retA, retB
-   if dir(path) then
-      --print("dir(path) true for")
-      for name, _, _ in dir(path) do
-	 dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
-	 --print("name, dd, fn, ext", name, dd, fn, ext)
-	 if fn and ext then
-	    if string.lower(ext) == "gps" then
-	       ff = path .. "/" .. fn .. "." .. ext
-	       file = io.readall(ff)
-	       if file then
-		  local dc = json.decode(file)
-		  table.insert(Fields, dc)
+local function scanGPSFiles(cp, F)
+
+   if not cp then -- just scan and return table of fields
+      FF = {}
+      local path = prefix() .. pathApp.."Fields"
+      if dir(path) then
+	 --print("dir(path) true for")
+	 for name, _, _ in dir(path) do
+	    dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
+	    --print("name, dd, fn, ext", name, dd, fn, ext)
+	    if fn and ext then
+	       if string.lower(ext) == "gps" then
+		  ff = path .. "/" .. fn .. "." .. ext
+		  file = io.readall(ff)
+		  if file then
+		     local dc = json.decode(file)
+		     table.insert(FF, dc)
+		  end
 	       end
 	    end
 	 end
+      else
+	 print(appName..": Bad path to dir - "..path)      
       end
-   else
-      print(appName..": Bad path to dir - "..path)      
-   end
-   
-   local matchDist = 500 -- meters
-
-   for k,v in pairs(Fields) do
-      local tp = gps.newPoint(v.zeroPos[1], v.zeroPos[2])
-      local gd = gps.getDistance(cp, tp)
-      if gd < matchDist then
-	 --print("match", k, v.zeroPos[1], v.zeroPos[2], gd)
-	 retZ = gps.newPoint(v.zeroPos[1], v.zeroPos[2])
-	 retA = gps.newPoint(v.pointA[1], v.pointA[2])
-	 retB = gps.newPoint(v.pointB[1], v.pointB[2])
+      return FF
+   else -- look for a match to gps point cp
+      local matchDist = 500 -- meters
+      local retZ, retA, retB
+      for _,v in pairs(F) do
+	 local tp = gps.newPoint(v.zeroPos[1], v.zeroPos[2])
+	 local gd = gps.getDistance(cp, tp)
+	 if gd < matchDist then
+	    retZ = gps.newPoint(v.zeroPos[1], v.zeroPos[2])
+	    retA = gps.newPoint(v.pointA[1], v.pointA[2])
+	    retB = gps.newPoint(v.pointB[1], v.pointB[2])
+	 end
       end
+      return retZ, retA, retB
    end
-   return retZ, retA, retB
 end
 
 --Sample file name: R41339N74431W
@@ -224,7 +225,7 @@ local function setGPSField(zP, ptA, ptB)
    
    fieldRotation = math.rad(gps.getBearing(ptA, ptB) - 90)
          
-   --print("set fieldRotation", math.deg(fieldRotation))
+   system.messageBox(string.format("Field rotation set to %d°", math.deg(fieldRotation)))
    -- 60m is distance behind pilot to bottom of screen
    ptZ = gps.getDestination(ptA, 60, gps.getBearing(ptA, ptB) + 90)
    
@@ -241,7 +242,7 @@ local function setGPSField(zP, ptA, ptB)
       xmin[i] = xBottom - magVal[i] * initHalfWid
       xmax[i] = xBottom + magVal[i] * initHalfWid
       ymin[i] = yBottom - 80
-      ymax[i] = yBottom + 80 + 2 * Screen.height / Screen.width * magVal[i] * initHalfWid
+      ymax[i] = yBottom - 80 + 2 * Screen.height / Screen.width * magVal[i] * initHalfWid
    end
 
    --save this location to a file for next time. filename encodes position not using
@@ -250,8 +251,8 @@ local function setGPSField(zP, ptA, ptB)
    pointA = ptA
    pointB = ptB
    pointZ = ptZ
-   local gf = writeGPSFile(zP, ptA, ptB)
-   print("Saved gps file " .. gf)
+   writeGPSFile(zP, ptA, ptB)
+   
 end
 
 local function setMag(idx)
@@ -496,10 +497,10 @@ local function loopP()
       end
       if RTH.gpsReads > MINGPSREADS and not RTH.zeroPos then
 	 system.messageBox(appName..": GPS and Alt zero set")
-	 print("DFM-Rscu: GPS and Alt zero set")
+	 --print("DFM-Rscu: GPS and Alt zero set")
 	 RTH.zeroPos = RTH.curPos
 	 RTH.initPos = RTH.curPos
-	 local pz, pa, pb = scanGPSFiles(RTH.zeroPos)
+	 local pz, pa, pb = scanGPSFiles(RTH.zeroPos, Fields)
 	 --print("scanGPS ret", pz, pa, pb)
 	 if pz and pa and pb then setGPSField(pz, pa, pb) end
 	 if altnow then
@@ -583,7 +584,7 @@ local function loopP()
 	 announceTime = now
 	 --turnTime = now -- not working as intended due to turnon delay .. think more!
 	 --set aim point on the bearing to the current a/c position, and twice the circleMax dist
-	 print("setting aimPosOutbound")
+	 --print("setting aimPosOutbound")
 	 RTH.aimPosOutbound = gps.getDestination(RTH.zeroPos,
 						 RTH.settings.circleMin * CMULT * 2,
 						 RTH.gpsBearingTo)
@@ -600,7 +601,7 @@ local function loopP()
 	 rescueOnTime = now
       else
 	 system.playFile(prefix() .. pathApp .. "Audio/rthnotenabled.wav", AUDIO_IMMEDIATE)
-	 system.messageBox(appName ..": Rescue NOT enabled. Too close")
+	 --system.messageBox(appName ..": Rescue NOT enabled. Too close")
 	 system.playBeep(4, 600, 200)
       end
    end
@@ -661,7 +662,7 @@ local function loopP()
 		     system.stopPlayback()
 		     system.playFile(prefix() .. pathApp .. "Audio/turninginbound.wav", AUDIO_IMMEDIATE)
 		     system.playBeep(2, 600, 200)
-		     system.messageBox(appName..": Turning inbound")
+		     --system.messageBox(appName..": Turning inbound")
 		     announceTime = now + 2500 -- short delay then announce dist etc
 		     turnTime = now		  
 		     --annSeq = 1
@@ -674,7 +675,7 @@ local function loopP()
 		     system.stopPlayback()
 		     system.playFile(prefix() .. pathApp .. "Audio/turningoutbound.wav", AUDIO_IMMEDIATE)
 		     system.playBeep(1, 600, 200)
-		     system.messageBox(appName ..": Turning outbound")
+		     --system.messageBox(appName ..": Turning outbound")
 		     announceTime = now + 2500 -- short delay then announce dist etc
 		     turnTime = now
 		     --holdZero = 0.1
@@ -701,7 +702,7 @@ local function loopP()
 		     system.stopPlayback()
 		     system.playFile(prefix() .. pathApp .. "Audio/turningaround.wav", AUDIO_IMMEDIATE)
 		     system.playBeep(2, 600, 200)
-		     system.messageBox(appName..": Turning around")
+		     --system.messageBox(appName..": Turning around")
 		     announceTime = now + 2500 -- short delay then announce dist etc
 		     --turnTime = now - 1; nsHoldTime = 0 -- no delay on turn
 		     turnTime = now		  
@@ -712,7 +713,7 @@ local function loopP()
 		     system.stopPlayback()
 		     system.playFile(prefix() .. pathApp .. "Audio/turningaround.wav", AUDIO_IMMEDIATE)
 		     system.playBeep(2, 600, 200)
-		     system.messageBox(appName..": Turning around")
+		     --system.messageBox(appName..": Turning around")
 		     announceTime = now + 2500 -- short delay then announce dist etc
 		     --turnTime = now - 1; nsHoldTime = 0 -- no delay on turn
 		     turnTime = now		  
@@ -768,15 +769,19 @@ local function loopP()
 	 end
 
 	 --print(now, announceTime, now - announceTime)
-	 
+	 --RTH.gpsBearingTo - math.deg(fieldRotation)
 	 if now > announceTime  then
 	    if RTH.gpsDistance and RTH.gpsDistance > MINANNDIST then 
 	       if annSeq == 1 then
 		  if RTH.gpsBearingTo then
 		     system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
 		     --playNumberInt(RTH.gpsBearingTo)
-		     playNumberCompass(RTH.gpsBearingTo)
-		     system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
+		     playNumberCompass(((RTH.gpsBearingTo - math.deg(fieldRotation)+360)%360))
+		     if math.abs(fieldRotation) < 1 then
+			system.playFile(prefix() .. pathApp .. "Audio/degreestrue.wav", AUDIO_QUEUE)
+		     else
+			system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
+		     end
 		  end
 	       elseif annSeq == 2 then
 		  if RTH.gpsDistance then
@@ -852,7 +857,7 @@ local function loopP()
 	    iPindex = 1
 	 end
       end
-      
+      local ptr = pointsToRender
       if RTH.renderer then
 	 if newpoint and pointsToRender < 100 then
 	    for i,_ in ipairs(magVal) do
@@ -860,17 +865,22 @@ local function loopP()
 	       if pointsToRender == 0 then RR:reset() end
 	       ix, iy = xytopixel(x, y, i)
 	       if ixL[i] then
-		  RR:addPoint(ixL[i], iyL[i])
+		  if pointsToRender == 0 then
+		     RR:addPoint(ixL[i], iyL[i])
+		  end
 		  RR:addPoint(ix, iy)
 		  --RR:renderPolyline(2) -- only in tele function
 	       end
 	       ixL[i] = ix
 	       iyL[i] = iy
 	    end
-	    pointsToRender = pointsToRender + 2
+	    pointsToRender = pointsToRender + 1
 	    --xLast = x
 	    --yLast = y
-	    if pointsToRender > 2 then print("pointsToRender", pointsToRender) end
+	    --if pointsToRender > 2 then print("pointsToRender", pointsToRender) end
+	 end
+	 if pointsToRender == 100 and ptr == 99 then
+	    system.messageBox(appName..": Flight path pts being dropped")
 	 end
 	 if pointsToRender >= 100 then
 	    for i,_ in ipairs(magVal) do
@@ -1021,70 +1031,15 @@ local function initForm(subform)
    
    activeSf = subform
 
-   --[[
-   if subform == 2 then
-      form.addRow(1)
-      form.setFocusedRow(1)
-      form.addLink((function()
-	       if RTH.settings.steerCtrl then 
-		  system.setControl(RTH.settings.steerCtrl, 0, 0) 
-               end
-	       if RTH.settings.elevCtrl then 
-                  system.setControl(RTH.settings.elevCtrl, 0, 0) 
-               end
-	       form.reinit(1) end), {label="<< Zero controls and return"})
-      return
-   end
-   --]]
-   
-   for k = 1, #RTH.gpsLalist do
-      if (RTH.gpsIdlist[k] == RTH.settings.latId) and
-	 (RTH.gpsPalist[k] == RTH.settings.latPa) then
-	 latsel = k
-      end
-      if (RTH.gpsIdlist[k] == RTH.settings.lngId) and
-	 (RTH.gpsPalist[k] == RTH.settings.lngPa) then
-	 lngsel = k
-      end	 
-   end
-
-   for k = 1, #RTH.sensorLalist do
-      if (RTH.sensorIdlist[k] == RTH.settings.altId) and
-	 (RTH.sensorPalist[k] == RTH.settings.altPa) then
-	 altsel = k
-      end
-      if (RTH.sensorIdlist[k] == RTH.settings.hdgId) and
-	 (RTH.sensorPalist[k] == RTH.settings.hdgPa) then
-	 hdgsel = k
-      end
-      if (RTH.sensorIdlist[k] == RTH.settings.rollId) and
-	 (RTH.sensorPalist[k] == RTH.settings.rollPa) then
-	 rollsel = k
-      end
-      if (RTH.sensorIdlist[k] == RTH.settings.pitchId) and
-	 (RTH.sensorPalist[k] == RTH.settings.pitchPa) then
-	 pitchsel = k
-      end
-   end
-
    local function onoffChanged(value)
       RTH.settings.onoffSw = value
       system.pSave("RTHonoffSw", RTH.settings.onoffSw)
    end
-   
-   form.addRow(2)
-   form.addLabel({label="Rescue mode switch", width=155, font=FONT_NORMAL})
-   form.addInputbox(RTH.settings.onoffSw, true, onoffChanged, {alignRight=false})
-   
+
    local function calChanged(value)
       RTH.settings.calSw = value
       system.pSave("RTHcalSw", RTH.settings.calSw)
    end
-
-   form.addRow(2)
-   form.addLabel({label="Mixer calibration switch", width=175, font=FONT_NORMAL})
-   form.addInputbox(RTH.settings.calSw, true, calChanged,
-		    {width=155, font=FONT_NORMAL, alignRight=false})
 
    local function ecChanged(value)
       local si = system.getSwitchInfo(value)
@@ -1098,180 +1053,277 @@ local function initForm(subform)
 	 system.pSave("elevInput", value)
       end
    end
-   
-   form.addRow(2)
-   form.addLabel({label="Elevator control", width=180, font=FONT_NORMAL})   
-   form.addInputbox(RTH.settings.elevInput, true, ecChanged,
-		    {width=155, font=FONT_NORMAL, alignRight=false})
-   
+
    local function egChanged(value)
       RTH.settings.maxElevGain = value
       system.pSave("maxElevGain", value)
    end
    
-   form.addRow(2)
-   form.addLabel({label="Elevator mix percentage", font=FONT_NORMAL})   
-   form.addIntbox(RTH.settings.maxElevGain, -100, 100, 0, 0, 1, egChanged,
-		  {width=155, font=FONT_NORMAL, alignRight=false})
-   
-   form.addRow(2)
-   form.addLabel({label="GPS Lat Sensor", font=FONT_NORMAL})
-   form.addSelectbox(RTH.gpsLalist, latsel, true,
-		     (function(i)
-			   RTH.settings.latId = RTH.gpsIdlist[i]
-			   RTH.settings.latPa = RTH.gpsPalist[i]
-			   system.pSave("RTHlatId", RTH.settings.latId)
-			   system.pSave("RTHlatPa", RTH.settings.latPa)
-			   return end),
+   if subform == 1 then
+
+      form.addRow(1)
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       print("savedRow", savedRow)
+	       form.reinit(10) end), {label="App Settings", font=FONT_NORMAL})
+      
+      form.addRow(1)
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       form.reinit(11) end), {label="Rescue Settings", font=FONT_NORMAL})
+      
+      form.addRow(1)
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()
+	       form.reinit(12) end), {label="Telemetry Sensors", font=FONT_NORMAL})
+      
+      form.addRow(1)
+      form.addLink((function()
+	       savedRow = form.getFocusedRow()	       
+	       form.reinit(13) end), {label="Field Settings", font=FONT_NORMAL})
+
+      if savedRow then
+	 print("setting FocusedRow", savedRow)
+	 form.setFocusedRow(savedRow)
+      end
+
+   elseif subform == 10 then
+
+      form.addRow(2)
+      form.addLabel({label="Rescue mode switch", width=155, font=FONT_NORMAL})
+      form.addInputbox(RTH.settings.onoffSw, true, onoffChanged, {alignRight=false})
+      
+      form.addRow(2)
+      form.addLabel({label="Mixer calibration switch", width=175, font=FONT_NORMAL})
+      form.addInputbox(RTH.settings.calSw, true, calChanged,
+		       {width=155, font=FONT_NORMAL, alignRight=false})
+      
+      
+      form.addRow(2)
+      form.addLabel({label="Elevator control", width=180, font=FONT_NORMAL})   
+      form.addInputbox(RTH.settings.elevInput, true, ecChanged,
+		       {width=155, font=FONT_NORMAL, alignRight=false})
+      
+      
+      form.addRow(2)
+      form.addLabel({label="Elevator mix percentage", font=FONT_NORMAL})   
+      form.addIntbox(RTH.settings.maxElevGain, -100, 100, 0, 0, 1, egChanged,
 		     {width=155, font=FONT_NORMAL, alignRight=false})
-   
-   form.addRow(2)
-   form.addLabel({label="GPS Lng Sensor", font=FONT_NORMAL})
-   form.addSelectbox(RTH.gpsLalist, lngsel, true,
-		     (function(i)
-			   RTH.settings.lngId = RTH.gpsIdlist[i]
-			   RTH.settings.lngPa = RTH.gpsPalist[i]			      
-			   system.pSave("RTHlngId", RTH.settings.lngId)
-			   system.pSave("RTHlngPa", RTH.settings.lngPa)
+      
+      form.addRow(2)
+      form.addLabel({label="Distance units", font=FONT_NORMAL})
+      form.addSelectbox({"m", "ft"}, RTH.settings.distUnits, true,
+	 (function(i)
+	       RTH.settings.distUnits = i
+	       system.pSave("RTHdistUnits", RTH.settings.distUnits)
+	       return end),
+	 {width=155, font=FONT_NORMAL, alignRight=false})
+      
+      form.addRow(1)
+      form.addLink((function()
+	       form.reinit(1) end), {label="<<<Back to main menu", font=FONT_NORMAL})
+      
+
+   elseif subform == 11 then
+      form.addRow(2)
+      form.addLabel({label="Circling behavior", font=FONT_NORMAL})
+      form.addSelectbox(inv(steerMode),
+			RTH.settings.circStrat, true,
+			(function(i)
+			      RTH.settings.circStrat = i
+			      system.pSave("RTHcircStrat", RTH.settings.circStrat)
+			      return end),
+			{width=155, font=FONT_NORMAL, alignRight=false})
+      
+      form.addRow(2)
+      form.addLabel({label="Perferred turn", font=FONT_NORMAL, width=155})
+      form.addSelectbox(inv(turnMode),
+			RTH.settings.turnDir, true,
+			(function(i)
+			      RTH.settings.turnDir = i
+			      system.pSave("RTHturnDir", RTH.settings.turnDir)
+			      return end),
+			{width=155, font=FONT_NORMAL, alignRight=false})
+      
+      form.addRow(2)
+      form.addLabel({label="Rescue On Delay (s)", font=FONT_NORMAL})
+      form.addIntbox(rescueOnDelay, 0, 10, 3, 0, 1,
+		     (function(x)
+			   rescueOnDelay = x
+			   system.pSave("rescueOnDelay", x)
 			   return end),
-		     {width=155, font=FONT_NORMAL, alignRight=false})
-   
-   form.addRow(2)
-   form.addLabel({label="Heading Sensor", font=FONT_NORMAL})
-   form.addSelectbox(RTH.sensorLalist, hdgsel, true,
-		     (function(i)
-			   RTH.settings.hdgId = RTH.sensorIdlist[i]
-			   RTH.settings.hdgPa = RTH.sensorPalist[i]
-			   system.pSave("RTHhdgId", RTH.settings.hdgId)
-			   system.pSave("RTHhdgPa", RTH.settings.hdgPa)			   
+		     {width=155, font=FONT_NORMAL, algignRight=false})
+      
+      form.addRow(2)
+      form.addLabel({label="Init turn hold time (s)", font=FONT_NORMAL})
+      form.addIntbox(holdTurn, 0, 10, 3, 0, 1,
+		     (function(x)
+			   holdTurn = x
+			   system.pSave("holdTurn", x)
 			   return end),
-		     {width=155, font=FONT_NORMAL, alignRight=false})
-
-   form.addRow(2)
-   form.addLabel({label="Altitude Sensor", font=FONT_NORMAL})
-   form.addSelectbox(RTH.sensorLalist, altsel, true,
-		     (function(i)
-			   RTH.settings.altId = RTH.sensorIdlist[i]
-			   RTH.settings.altPa = RTH.sensorPalist[i]
-			   system.pSave("RTHaltId", RTH.settings.altId)
-			   system.pSave("RTHaltPa", RTH.settings.altPa)			   
+		     {width=155, font=FONT_NORMAL, algignRight=false})
+      
+      form.addRow(2)
+      form.addLabel({label="Elev control delay (s)", font=FONT_NORMAL})
+      form.addIntbox(eleDelay, 0, 20, 2, 0, 1,
+		     (function(x)
+			   eleDelay = x
+			   system.pSave("eleDelay", x)
 			   return end),
-		     {width=155, font=FONT_NORMAL, alignRight=false})
+		     {width=155, font=FONT_NORMAL, algignRight=false})
 
-   ---[[
-   form.addRow(2)
-   form.addLabel({label="Roll Sensor", font=FONT_NORMAL})
-   form.addSelectbox(RTH.sensorLalist, rollsel, true,
-		     (function(i)
-			   RTH.settings.rollId = RTH.sensorIdlist[i]
-			   RTH.settings.rollPa = RTH.sensorPalist[i]
-			   system.pSave("RTHrollId", RTH.settings.rollId)
-			   system.pSave("RTHrollPa", RTH.settings.rollPa)			   
+      form.addRow(1)
+      form.addLink((function()
+	       form.reinit(1) end), {label="<<<Back to main menu", font=FONT_NORMAL})
+      
+   elseif subform == 12 then
+      
+      for k = 1, #RTH.gpsLalist do
+	 if (RTH.gpsIdlist[k] == RTH.settings.latId) and
+	    (RTH.gpsPalist[k] == RTH.settings.latPa) then
+	    latsel = k
+	 end
+	 if (RTH.gpsIdlist[k] == RTH.settings.lngId) and
+	    (RTH.gpsPalist[k] == RTH.settings.lngPa) then
+	    lngsel = k
+	 end	 
+      end
+      
+      for k = 1, #RTH.sensorLalist do
+	 if (RTH.sensorIdlist[k] == RTH.settings.altId) and
+	    (RTH.sensorPalist[k] == RTH.settings.altPa) then
+	    altsel = k
+	 end
+	 if (RTH.sensorIdlist[k] == RTH.settings.hdgId) and
+	    (RTH.sensorPalist[k] == RTH.settings.hdgPa) then
+	    hdgsel = k
+	 end
+	 if (RTH.sensorIdlist[k] == RTH.settings.rollId) and
+	    (RTH.sensorPalist[k] == RTH.settings.rollPa) then
+	    rollsel = k
+	 end
+	 if (RTH.sensorIdlist[k] == RTH.settings.pitchId) and
+	    (RTH.sensorPalist[k] == RTH.settings.pitchPa) then
+	    pitchsel = k
+	 end
+      end
+      
+      form.addRow(2)
+      form.addLabel({label="GPS Lat Sensor", font=FONT_NORMAL})
+      form.addSelectbox(RTH.gpsLalist, latsel, true,
+			(function(i)
+			      RTH.settings.latId = RTH.gpsIdlist[i]
+			      RTH.settings.latPa = RTH.gpsPalist[i]
+			      system.pSave("RTHlatId", RTH.settings.latId)
+			      system.pSave("RTHlatPa", RTH.settings.latPa)
+			      return end),
+			{width=155, font=FONT_NORMAL, alignRight=false})
+      
+      form.addRow(2)
+      form.addLabel({label="GPS Lng Sensor", font=FONT_NORMAL})
+      form.addSelectbox(RTH.gpsLalist, lngsel, true,
+			(function(i)
+			      RTH.settings.lngId = RTH.gpsIdlist[i]
+			      RTH.settings.lngPa = RTH.gpsPalist[i]			      
+			      system.pSave("RTHlngId", RTH.settings.lngId)
+			      system.pSave("RTHlngPa", RTH.settings.lngPa)
+			      return end),
+			{width=155, font=FONT_NORMAL, alignRight=false})
+      
+      form.addRow(2)
+      form.addLabel({label="Heading Sensor", font=FONT_NORMAL})
+      form.addSelectbox(RTH.sensorLalist, hdgsel, true,
+			(function(i)
+			      RTH.settings.hdgId = RTH.sensorIdlist[i]
+			      RTH.settings.hdgPa = RTH.sensorPalist[i]
+			      system.pSave("RTHhdgId", RTH.settings.hdgId)
+			      system.pSave("RTHhdgPa", RTH.settings.hdgPa)			   
+			      return end),
+			{width=155, font=FONT_NORMAL, alignRight=false})
+      
+      form.addRow(2)
+      form.addLabel({label="Altitude Sensor", font=FONT_NORMAL})
+      form.addSelectbox(RTH.sensorLalist, altsel, true,
+			(function(i)
+			      RTH.settings.altId = RTH.sensorIdlist[i]
+			      RTH.settings.altPa = RTH.sensorPalist[i]
+			      system.pSave("RTHaltId", RTH.settings.altId)
+			      system.pSave("RTHaltPa", RTH.settings.altPa)			   
+			      return end),
+			{width=155, font=FONT_NORMAL, alignRight=false})
+      
+      form.addRow(2)
+      form.addLabel({label="Roll Sensor", font=FONT_NORMAL})
+      form.addSelectbox(RTH.sensorLalist, rollsel, true,
+			(function(i)
+			      RTH.settings.rollId = RTH.sensorIdlist[i]
+			      RTH.settings.rollPa = RTH.sensorPalist[i]
+			      system.pSave("RTHrollId", RTH.settings.rollId)
+			      system.pSave("RTHrollPa", RTH.settings.rollPa)			   
+			      return end),
+			{width=155, font=FONT_NORMAL, alignRight=false})
+      
+      form.addRow(2)
+      form.addLabel({label="Pitch Sensor", font=FONT_NORMAL})
+      form.addSelectbox(RTH.sensorLalist, pitchsel, true,
+			(function(i)
+			      RTH.settings.pitchId = RTH.sensorIdlist[i]
+			      RTH.settings.pitchPa = RTH.sensorPalist[i]
+			      system.pSave("RTHpitchId", RTH.settings.pitchId)
+			      system.pSave("RTHpitchPa", RTH.settings.pitchPa)			   
+			      return end),
+			{width=155, font=FONT_NORMAL, alignRight=false})
+      
+      form.addRow(1)
+      form.addLink((function()
+	       form.reinit(1) end), {label="<<<Back to main menu", font=FONT_NORMAL})
+
+   elseif subform == 13 then
+      form.addRow(2)
+      form.addLabel({label="Min Circling Dist (m)", font=FONT_NORMAL})
+      form.addIntbox(RTH.settings.circleMin, 0, 10000, 100, 0, 1,
+		     (function(x)
+			   RTH.settings.circleMin = x
+			   system.pSave("circleMin", x)
 			   return end),
-		     {width=155, font=FONT_NORMAL, alignRight=false})
-
-   form.addRow(2)
-   form.addLabel({label="Pitch Sensor", font=FONT_NORMAL})
-   form.addSelectbox(RTH.sensorLalist, pitchsel, true,
-		     (function(i)
-			   RTH.settings.pitchId = RTH.sensorIdlist[i]
-			   RTH.settings.pitchPa = RTH.sensorPalist[i]
-			   system.pSave("RTHpitchId", RTH.settings.pitchId)
-			   system.pSave("RTHpitchPa", RTH.settings.pitchPa)			   
+		     {width=155, font=FONT_NORMAL, algignRight=false})
+      
+      form.addRow(2)
+      form.addLabel({label="Map zoom level", font=FONT_NORMAL})
+      form.addIntbox(magIdx, 1, #magVal, 1, 0, 1,
+		     (function(x)
+			   magIdx = x
+			   system.pSave("magIdx", magIdx)
 			   return end),
-		     {width=155, font=FONT_NORMAL, alignRight=false})
-   --]]
+		     {width=155, font=FONT_NORMAL, algignRight=false})
+      
+      form.addRow(1)
+      form.addLink((function()
+	       local save = buttonSet
+	       buttonSet = 2
+	       keyPressGPS(KEY_1)
+	       buttonSet = save
+	       form.reinit(1) end), {label="Set Point A", font=FONT_NORMAL})
+      
+      form.addRow(1)
+      form.addLink((function()
+	       local save = buttonSet
+	       buttonSet = 2
+	       keyPressGPS(KEY_2)
+	       buttonSet = save
+	       form.reinit(1) end), {label="Set Point B", font=FONT_NORMAL})
+      
+      form.addRow(1)
+      form.addLink((function()
+	       form.reinit(1) end), {label="<<<Back to main menu", font=FONT_NORMAL})
+   end
    
-   form.addRow(2)
-   form.addLabel({label="Distance units", font=FONT_NORMAL})
-   form.addSelectbox({"m", "ft"}, RTH.settings.distUnits, true,
-		     (function(i)
-			   RTH.settings.distUnits = i
-			   system.pSave("RTHdistUnits", RTH.settings.distUnits)
-			   return end),
-		     {width=155, font=FONT_NORMAL, alignRight=false})
-
-
-   form.addRow(2)
-   form.addLabel({label="Min Circling Dist (m)", font=FONT_NORMAL})
-   form.addIntbox(RTH.settings.circleMin, 0, 10000, 100, 0, 1,
-		  (function(x)
-			RTH.settings.circleMin = x
-			system.pSave("circleMin", x)
-			return end),
-		  {width=155, font=FONT_NORMAL, algignRight=false})
    
-   form.addRow(2)
-   form.addLabel({label="Circling behavior", font=FONT_NORMAL})
-   form.addSelectbox(inv(steerMode),
-      RTH.settings.circStrat, true,
-      (function(i)
-	    RTH.settings.circStrat = i
-	    system.pSave("RTHcircStrat", RTH.settings.circStrat)
-	    return end),
-      {width=155, font=FONT_NORMAL, alignRight=false})
+
+
    
-   form.addRow(2)
-   form.addLabel({label="Perferred turn", font=FONT_NORMAL, width=155})
-   form.addSelectbox(inv(turnMode),
-      RTH.settings.turnDir, true,
-      (function(i)
-	    RTH.settings.turnDir = i
-	    system.pSave("RTHturnDir", RTH.settings.turnDir)
-	    return end),
-      {width=155, font=FONT_NORMAL, alignRight=false})
 
-   form.addRow(2)
-   form.addLabel({label="Rescue On Delay (s)", font=FONT_NORMAL})
-   form.addIntbox(rescueOnDelay, 0, 10, 3, 0, 1,
-		  (function(x)
-			rescueOnDelay = x
-			system.pSave("rescueOnDelay", x)
-			return end),
-		  {width=155, font=FONT_NORMAL, algignRight=false})
-   
-   form.addRow(2)
-   form.addLabel({label="Init turn hold time (s)", font=FONT_NORMAL})
-   form.addIntbox(holdTurn, 0, 10, 3, 0, 1,
-		  (function(x)
-			holdTurn = x
-			system.pSave("holdTurn", x)
-			return end),
-		  {width=155, font=FONT_NORMAL, algignRight=false})
 
-   form.addRow(2)
-   form.addLabel({label="Elev control delay (s)", font=FONT_NORMAL})
-   form.addIntbox(eleDelay, 0, 20, 2, 0, 1,
-		  (function(x)
-			eleDelay = x
-			system.pSave("eleDelay", x)
-			return end),
-		  {width=155, font=FONT_NORMAL, algignRight=false})
-
-   form.addRow(2)
-   form.addLabel({label="Map zoom level", font=FONT_NORMAL})
-   form.addIntbox(magIdx, 1, #magVal, 1, 0, 1,
-		  (function(x)
-			magIdx = x
-			system.pSave("magIdx", magIdx)
-			return end),
-		  {width=155, font=FONT_NORMAL, algignRight=false})
-
-   form.addRow(1)
-   form.addLink((function()
-	    local save = buttonSet
-	    buttonSet = 2
-	    keyPressGPS(KEY_1)
-	    buttonSet = save
-	    form.reinit(1) end), {label="Set Point A"})
-   
-   form.addRow(1)
-   form.addLink((function()
-	    local save = buttonSet
-	    buttonSet = 2
-	    keyPressGPS(KEY_2)
-	    buttonSet = save
-	    form.reinit(1) end), {label="Set Point B"})
 
 end
 
@@ -1597,11 +1649,13 @@ local function printTeleStatusP(w,h)
    end
 
    local x0
-   x0 = w > 200 and 25 or 18
+   x0 = w > 200 and 18 or 18
    local y0
    y0 = w > 200 and 18 or -2
-   
-   lcd.drawText(w/2-x0, h/2 + y0, string.format("%.3d°", RTH.gpsBearingTo - math.deg(fieldRotation)))
+
+   local cc = math.abs(fieldRotation) < 1 and "T" or "R"
+   lcd.drawText(w/2-x0, h/2 + y0, string.format("%.3d°"..cc,
+						(RTH.gpsBearingTo - math.deg(fieldRotation)+360)%360))
 
    if RTH.settings.onoff < 0 then
       lcd.drawImage(w-30, 10, redCircle)
@@ -1616,6 +1670,12 @@ local function printTeleStatusP(w,h)
    lcd.setColor(0,0,255)
    local ofst
    ofst = w > 200 and 25 or 15
+
+   if math.abs(fieldRotation) < 1 then
+      lcd.setColor(255,153,0)
+   else
+      lcd.setColor(0,0,255)
+   end
 
    drawShape(w/2, h/2 - ofst, config.homeshape,
 		math.rad(RTH.gpsBearingTo) - fieldRotation, mag)
@@ -1665,12 +1725,8 @@ local function printTeleGPSP(w,h)
 
    lcd.setColor(255,0,0)
 
-   x = RTH.settings.circleMin * math.sin(math.rad(0))
-   y = RTH.settings.circleMin * math.cos(math.rad(0))
-
-   ix, iy = xytopixel(x, y)
    ix0, iy0 = xytopixel(0, 0)
-   local rc = math.sqrt((ix-ix0)^2 + (iy-iy0)^2)
+   rc = Screen.width * RTH.settings.circleMin / (xmax[magIdx] - xmin[magIdx])
    lcd.drawCircle(ix0, iy0, rc)
    lcd.setColor(0,0,255)
    lcd.drawCircle(ix0, iy0, rc * CMULT)
@@ -1705,36 +1761,6 @@ local function printTeleGPSP(w,h)
    end
 
    if not RTH.gpsHeading or not RTH.gpsDistance or not RTH.gpsBearingTo then return end
-
-   ---[[
-
-   --x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
-   --y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))
-   --x,y = rotateXY(x, y, fieldRotation)
-
-   --ix, iy = xytopixel(x, y)
-
-   --local distXY
-   --if xLast then
-   --   distXY = math.sqrt((x-xLast)^2 + (y-yLast)^2)
-   --end
-
-   --local newpoint = false
-   
-   --if not distXY or distXY > 5 then -- distXY in meters
-   --   newpoint =  true
-   --   ixP[iPindex] = ix
-   --   iyP[iPindex] = iy
-   --   if iPindex < iPMAX then
-   --	 iPindex = iPindex + 1
-   --    else
-   --	 iPindex = 1
-   --    end
-   --end
-
-   --if RTH.gpsDistance > 50 then
-   --   drawRibbon = true
-   --end
    
    drawRibbon = true
 
@@ -1798,8 +1824,11 @@ local function printTeleGPSP(w,h)
 
    lcd.drawText(70, Screen.height - 25,
 		string.format("D: %dm", RTH.gpsDistance), FONT_MINI)
+   local cc = math.abs(fieldRotation) < 1 and "T" or "R"
    lcd.drawText(Screen.width - 100, Screen.height - 25,
-		string.format("B: %.3d°", RTH.gpsBearingTo - math.deg(fieldRotation)), FONT_MINI)
+		string.format("B: %.3d°"..cc,
+			      (RTH.gpsBearingTo - math.deg(fieldRotation)+360) % 360),
+		FONT_MINI)
 
    lcd.drawText(0, Screen.height - 25, string.format("CPU %d%%", system.getCPU()), FONT_MINI)
 
@@ -1809,8 +1838,13 @@ local function printTeleGPSP(w,h)
    drawShape(20, 12+4, config.arrow, -fieldRotation, 1)
    lcd.drawCircle(20, 12+4, 9)
 
-   if RTH.renderer and pointB then
-      lcd.setColor(0,0,255)
+   if RTH.renderer then -- only display on 24-II, not enought space on smaller screen
+      if math.abs(fieldRotation) < 1 then
+	 lcd.setColor(255,153,0)
+      else
+	 lcd.setColor(0,0,255)
+      end
+      
       drawShape(Screen.width - 60, Screen.height - 60, config.homeshape,
 		math.rad(RTH.gpsBearingTo) - fieldRotation,0.8)
    end
@@ -1997,18 +2031,7 @@ local function init()
       iPMAX = 100
    end
 
-   fieldRotation = 0 --math.rad(gps.getBearing(BDA, BDB) - 90)
-
-   --[[
-   --print("fieldRotation", math.deg(fieldRotation))
-   BDZ = gps.getDestination(BDA, 30, gps.getBearing(BDA, BDB) + 90)
-   bb = gps.getBearing(BD0, BDZ)
-   dd = gps.getDistance(BD0, BDZ)
-   local xBottom = dd * math.sin(math.rad(bb))
-   yBottom = dd * math.cos(math.rad(bb))
-   xBottom, yBottom = rotateXY(xBottom, yBottom, fieldRotation)
-   yBottom = yBottom * 1
-   --]]
+   fieldRotation = 0
 
    setMag(magIdx)
 
@@ -2020,6 +2043,7 @@ local function init()
       ymax[i] = -ymin[i]
    end
 
+   Fields = scanGPSFiles()
    drawRibbon = true
    
 end
