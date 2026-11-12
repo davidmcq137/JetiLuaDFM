@@ -2973,11 +2973,17 @@ local function prtForm() --wwx, whx)
          formRenderer:reset()
       end
       --print("currentImage, xrange", currentImage, map.Xrange)
-      if newTransmitter and Screen.image_width_px ~= Screen.legacy_width_px then
-	 lcd.drawImage(-5,4,fieldPNG[currentImage],255)
+      if not fieldPNG[currentImage] then
+	 print("fieldPNG nil: currentImage",
+	       currentImage, #fieldPNG, newTransmitter, Screen.image_width_px)
       else
-	 lcd.drawImage(-5,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
+	 if newTransmitter and Screen.image_width_px ~= Screen.legacy_width_px then
+	    lcd.drawImage(-5,4,fieldPNG[currentImage],255)
+	 else
+	    lcd.drawImage(-5,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
+	 end
       end
+      
       if Field then
 	 setColor("Label", "Image")
 	 lcd.drawText(10,10, Field.images[currentImage].file, FONT_NORMAL)	 
