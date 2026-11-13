@@ -761,27 +761,23 @@
 
 (defn make-dynamic-repo-request
   []
-  (-> (let [panels (:panels @db)
-            [standard large] screen-variants
-            builds (cond-> [[standard (filter (fn [[_ p]] (zero? (:screen-variant p 0))) panels)]]
-                     (some (fn [[_ p]] (pos? (:screen-variant p 0))) panels)
-                     (conj [large panels]))]
-        (js/Promise.all
-         (into-array
-          (for [[{:keys [name hw width height]} ps] builds]
-            (.then (make-dynamic-repo-request* ps)
-                 (fn [filesets]
-                   {:base-app "DFM-InsP"
-                    :app-json {"hw" hw
-                               "name" {"en" name}}
-                    :dynamic-files (into [{:destination "Apps/DFM-InsP/Config.jsn"
-                                           :json-data {"image_width_px" width
-                                                       "image_height_px" height}}]
-                                         cat filesets)}))))))
-      (.then (fn [apps]
-               (clj->js
-                {:yoururl js/window.location.origin
-                 :apps (vec apps)})))))
+  (let [panels (:panels @db)
+        [standard large] screen-variants
+        {:keys [name hw width height]}
+        (if (some (fn [[_ p]] (pos? (:screen-variant p 0))) panels)
+          large
+          standard)]
+    (.then (make-dynamic-repo-request* panels)
+           (fn [filesets]
+             (clj->js
+              {:yoururl js/window.location.origin
+               :apps [{:base-app "DFM-InsP"
+                       :app-json {"hw" hw
+                                  "name" {"en" name}}
+                       :dynamic-files (into [{:destination "Apps/DFM-InsP/Config.jsn"
+                                              :json-data {"image_width_px" width
+                                                          "image_height_px" height}}]
+                                            cat filesets)}]})))))
 
 
 (def localstorage-db-key "gauges-db")
