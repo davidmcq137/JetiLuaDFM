@@ -849,9 +849,9 @@
                                                                         [:db/add zone-eid :zone/hidden false]])]
                               (attach-zone! (d/entity db-after zone-eid)))))
 
-(def apps-request-result (atom {}))
+(def apps-request-result (atom nil))
 (register-sub ::close-modal (fn [[_]]
-                              (reset! apps-request-result {})
+                              (reset! apps-request-result nil)
                               (d/transact! conn [{:db/ident ::state
                                                   :state/modal false}])))
 
@@ -1293,60 +1293,68 @@
                                   (fn [fe] (load-db-from-edn-string (.. fe -target -result))))
                             (.readAsText rdr file))))}])
 
+;; All variants go into one repo (one token) as separate apps with the same
+;; name, disjoint hw lists, and distinct version strings (base version from the
+;; server's built App.json + :version-suffix).
+(def app-name "DFM-Maps")
+
 (def screen-variants
   [{:label "Standard"
-    :token-suffix ""
-    :name "DFM-Maps"
+    :version-suffix ""
     :hw [678 679 680 652 653 3857 3858]
     :width 320
     :height 160}
    {:label "Large screen"
-    :token-suffix "-L"
-    :name "DFM-Maps (large screen)"
+    :version-suffix "-L"
     :hw [3866 3867]
     :width 458
     :height 343}])
 
-(defn variant-token [{:keys [token-suffix]}]
-  (str (get-or-create-token!) token-suffix))
-
-(defn make-dynamic-repo-request [db {:keys [name hw width height]}]
-  ;; apps json?
-  (let [origin js/window.location.origin
-        fields-json (into {}
+(defn make-app-request [db base-app-json {:keys [version-suffix hw width height]}]
+  (let [fields-json (into {}
                           (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
                             [short-name (json-data-for-field field)]))]
-    (clj->js
-     {:yoururl origin
-      :apps [{:base-app "DFM-Maps"
-                 :app-json {"hw" hw
-                            "name" {"en" name}}
-                 :dynamic-files
-                 (into
-                  [{:destination "Apps/DFM-Maps/Maps/Fields.jsn"
-                    :json-data fields-json}
-                   {:destination "Apps/DFM-Maps/Maps/Config.jsn"
-                    :json-data {"image_width_px" width
-                                "image_height_px" height}}]
-                  (for [{:field/keys [name short-name clipbox runway triangle noflys]} (qes-by db :field/name)
-                        c clipbox]
-                    (let [i (:clipbox/preview-zoom c)]
-                      {:destination (str "Apps/DFM-Maps/Maps/" short-name "/" i ".png")
-                       :url (str (.-origin (.-location js/window))
-                                 "/staticmap?"
-                                 (zone-image-query-params c width height))})))}]})))
+    {:base-app "DFM-Maps"
+     :app-json {"hw" hw
+                "name" {"en" app-name}
+                "version" (str (get base-app-json "version") version-suffix)}
+     :dynamic-files
+     (into
+      [{:destination "Apps/DFM-Maps/Maps/Fields.jsn"
+        :json-data fields-json}
+       {:destination "Apps/DFM-Maps/Maps/Config.jsn"
+        :json-data {"image_width_px" width
+                    "image_height_px" height}}]
+      (for [{:field/keys [short-name clipbox]} (qes-by db :field/name)
+            c clipbox]
+        (let [i (:clipbox/preview-zoom c)]
+          {:destination (str "Apps/DFM-Maps/Maps/" short-name "/" i ".png")
+           :url (str (.-origin (.-location js/window))
+                     "/staticmap?"
+                     (zone-image-query-params c width height))})))}))
+
+(defn make-dynamic-repo-request [db base-app-json]
+  (clj->js
+   {:yoururl js/window.location.origin
+    :apps (mapv #(make-app-request db base-app-json %) screen-variants)}))
 
 (defn send-dynamic-repo-request! [db]
-  (doseq [[i variant] (map-indexed vector screen-variants)]
-    (let [xhr (XhrIo.)]
-      (.listen xhr EventType/COMPLETE
-               (fn [_]
-                 (println "complete" (:label variant))
-                 (swap! apps-request-result assoc i (.getResponseJson xhr))))
-      (.send xhr (str "/dynamic-repo-v3?token=" (variant-token variant))
-             "POST"
-             (.stringify js/JSON (make-dynamic-repo-request db variant) nil 2)
-             #js {"Content-Type" "application/json;charset=UTF-8"}))))
+  ;; Fetch the server's built App.json first so we can derive per-variant
+  ;; versions from the real release version.
+  (let [meta-xhr (XhrIo.)]
+    (.listen meta-xhr EventType/COMPLETE
+             (fn [_]
+               (let [base-app-json (js->clj (.getResponseJson meta-xhr))
+                     xhr (XhrIo.)]
+                 (.listen xhr EventType/COMPLETE
+                          (fn [_]
+                            (println "complete" (pr-str (map :label screen-variants)))
+                            (reset! apps-request-result (.getResponseJson xhr))))
+                 (.send xhr (str "/dynamic-repo-v3?token=" (get-or-create-token!))
+                        "POST"
+                        (.stringify js/JSON (make-dynamic-repo-request db base-app-json) nil 2)
+                        #js {"Content-Type" "application/json;charset=UTF-8"}))))
+    (.send meta-xhr "/app/DFM-Maps/DFM-Maps/App.json")))
 
 
 (defn send-github-releases-request!
@@ -1357,7 +1365,7 @@
     (.send xhr "https://api.github.com/repos/davidmcq137/JetiLuaDFM/releases")))
 
 (register-sub ::change-git-ref (fn [[_ new-ref]]
-                                 (reset! apps-request-result {})
+                                 (reset! apps-request-result nil)
                                  (d/transact! conn [{:db/ident ::state
                                                      :state/dynamic-repo-git-ref new-ref}])
                                  (send-dynamic-repo-request! @conn)))
@@ -1365,7 +1373,7 @@
 (register-sub ::select-github-release
               (fn [[_ new-release-id]]
                 (println "Select release" (pr-str new-release-id))
-                (reset! apps-request-result {}) 
+                (reset! apps-request-result nil) 
                 (d/transact! conn [{:db/ident ::state
                                     :state/selected-release [:release/id new-release-id]}])
                 (send-dynamic-repo-request! @conn)))
@@ -1669,20 +1677,19 @@
 
 (rum/defc apps-request-view < rum/reactive
   [db bus]
-  (let [rs (rum/react apps-request-result)]
-    (if (= (count rs) (count screen-variants))
+  (if-let [r (rum/react apps-request-result)]
+    (let [token (get-or-create-token!)]
       [:div
-       [:p "These are your temporary JETI repositories.  Use the one matching your transmitter's screen, and use it soon since it won't live forever!"]
+       [:p "This is your temporary JETI repository.  It works for all transmitter screen sizes; use it soon since it won't live forever!"]
+       [:code (aget r "repo_url")]
+       [:p "Or download a zip archive for manual installation:"]
        [:ul
-        (for [[i {:keys [label width height] :as variant}] (map-indexed vector screen-variants)]
+        (for [[i {:keys [label width height]}] (map-indexed vector screen-variants)]
           [:li {:key i}
-           [:p (str label " (" width "x" height ")")]
-           [:code (aget (get rs i) "repo_url")]
-           [:p
-            [:a {:download (str "DFM-Maps " (variant-token variant) " " width "x" height ".zip")
-                 :href (str "/repo/" (variant-token variant) ".zip?app=0")}
-             "Download zip archive for manual installation"]]])]]
-      [:div {} "Creating repositories..."])))
+           [:a {:download (str "DFM-Maps " token " " width "x" height ".zip")
+                :href (str "/repo/" token ".zip?app=" i)}
+            (str label " (" width "x" height ")")]])]])
+    [:div {} "Creating repository..."]))
 
 (rum/defc root-component < rum/reactive [conn bus]
   (let [db (rum/react conn)
