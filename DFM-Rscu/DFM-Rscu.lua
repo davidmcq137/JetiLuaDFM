@@ -135,7 +135,8 @@ end
 local function scanGPSFiles(cp, F)
 
    if not cp then -- just scan and return table of fields
-      FF = {}
+      local FF = {}
+      local file, fn, ext, dd, ff
       local path = prefix() .. pathApp.."Fields"
       if dir(path) then
 	 --print("dir(path) true for")
@@ -345,7 +346,10 @@ local function readSensors(tt)
    local sensorLbl = "***"
    local l1, l2, l3
    local GPStype = 9
-   
+
+   local sn = {lat = "Latitude", lng = "Longitude", hdg = "Heading", alt = "Altitude",
+	       roll = "Roll", pitch = "Pitch"}
+
    local sensors = system.getSensors()
    for _, sensor in ipairs(sensors) do
       if (sensor.label ~= "") then
@@ -353,8 +357,15 @@ local function readSensors(tt)
 	    l1 = string.gsub(sensorLbl, "%W", "")
 	    l2 = string.gsub(sensor.label, "%W", "")
 	    l3 = string.gsub(sensor.unit, "%W", "")
+	    if emflag == 1 then
+	       for k,v in pairs(sn) do
+		  if l2 == v then
+		     RTH.settings[k.."Id"] = sensor.id
+		     RTH.settings[k.."Pa"] = sensor.param
+		  end
+	       end
+	    end
 	    if sensor.type ~= GPStype then
-	       --print("GPS", sensor.id, sensor.param)
 	       table.insert(tt.sensorLalist, l1 .. "_" .. l2 .. " [" .. l3 .. "]")
 	       table.insert(tt.sensorLslist, sensor.label)	    
 	       table.insert(tt.sensorIdlist, sensor.id)
@@ -510,6 +521,11 @@ local function loopP()
 	       RTH.var.startTakeoffAlt = altnow
 	    end
 	 end
+	 if RscuCircleCenter then
+	    RscuCircleCenter = RTH.zeroPos
+	    RscuCircleInner = RTH.settings.circleMin
+	    RscuCircleOuter = RTH.settings.circleMin * CMULT
+	 end
       end
       if RTH.curPos and RTH.zeroPos then
 	 RTH.gpsBearingFrom = gps.getBearing(RTH.curPos, RTH.zeroPos)
@@ -576,7 +592,7 @@ local function loopP()
       system.stopPlayback()
       if RTH.gpsDistance and RTH.gpsDistance > RTH.settings.circleMin * CMULT then
 	 system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_IMMEDIATE)
-	 system.messageBox(appName..": Rescue enabled")
+	 --system.messageBox(appName..": Rescue enabled")
 	 system.playBeep(0, 600, 200)
 	 flyingOutbound = false
 	 flyingToA = true
@@ -608,7 +624,7 @@ local function loopP()
 
    if lastSwO == 1 and SwO == -1 then
       system.playFile(prefix() .. pathApp .. "Audio/rescuemodeoff.wav", AUDIO_IMMEDIATE)
-      system.messageBox(appName..": Rescue off")
+      --system.messageBox(appName..": Rescue off")
       system.playBeep(3, 600, 200)
       flyingOutbound = false
       flyingToA = true
@@ -1022,12 +1038,6 @@ end
 
 local function initForm(subform)
 
-   local latsel = 0
-   local lngsel = 0
-   local altsel = 0
-   local hdgsel = 0
-   local rollsel = 0
-   local pitchsel = 0
    
    activeSf = subform
 
@@ -1064,7 +1074,6 @@ local function initForm(subform)
       form.addRow(1)
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
-	       print("savedRow", savedRow)
 	       form.reinit(10) end), {label="App Settings", font=FONT_NORMAL})
       
       form.addRow(1)
@@ -1178,6 +1187,13 @@ local function initForm(subform)
       
    elseif subform == 12 then
       
+      local latsel = 0
+      local lngsel = 0
+      local altsel = 0
+      local hdgsel = 0
+      local rollsel = 0
+      local pitchsel = 0
+
       for k = 1, #RTH.gpsLalist do
 	 if (RTH.gpsIdlist[k] == RTH.settings.latId) and
 	    (RTH.gpsPalist[k] == RTH.settings.latPa) then
@@ -1207,7 +1223,7 @@ local function initForm(subform)
 	    pitchsel = k
 	 end
       end
-      
+
       form.addRow(2)
       form.addLabel({label="GPS Lat Sensor", font=FONT_NORMAL})
       form.addSelectbox(RTH.gpsLalist, latsel, true,
@@ -1285,6 +1301,10 @@ local function initForm(subform)
 		     (function(x)
 			   RTH.settings.circleMin = x
 			   system.pSave("circleMin", x)
+			   if RscuCircleInner then
+			      RscuCircleInner = x
+			      RscuCircleOuter = x * CMULT
+			   end
 			   return end),
 		     {width=155, font=FONT_NORMAL, algignRight=false})
       
@@ -1906,7 +1926,6 @@ end
 local function init()
 
    renShape   = lcd.renderer()
-   readSensors(RTH)
    
    system.registerForm(1, MENU_APPS, "DFM-Rscu", initForm, keyPress, printForm)
    
@@ -1926,10 +1945,10 @@ local function init()
    else
       print(appName..": Cannot set Tele Buttons")
    end
-   
-
 
    RTH.settings = {}
+   
+
    RTH.settings.latId = system.pLoad("RTHlatId", 0)
    RTH.settings.latPa = system.pLoad("RTHlatPa", 0)
 
@@ -1958,6 +1977,9 @@ local function init()
    
    RTH.settings.circleMin = system.pLoad("circleMin", 150)
    RTH.settings.maxElevGain = system.pLoad("maxElevGain", 0)
+
+   readSensors(RTH)
+
    rescueOnDelay = system.pLoad("rescueOnDelay", 3)
    holdTurn = system.pLoad("holdTurn", 5)
    eleDelay = system.pLoad("eleDelay", 2)
@@ -2067,6 +2089,16 @@ local function init()
 
    Fields = scanGPSFiles()
    drawRibbon = true
+
+   if declareGlobal then
+      print("setting globals")
+      declareGlobal("RscuCircleCenter", 0)
+      declareGlobal("RscuCircleInner", RTH.settings.circleMin)
+      declareGlobal("RscuCircleOuter", RTH.settings.circleMin * CMULT)
+      declareGlobal("RscuAimPoint", 0)
+      dumpGlobalVars()
+   end
+
    
 end
    

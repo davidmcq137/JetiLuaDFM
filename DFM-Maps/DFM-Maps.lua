@@ -1165,9 +1165,9 @@ local function pngLoad(j, force)
    --print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j], pfn)
    if (fieldPNG[j]==nil or force) then
       --print("@@@@ pngLoad doing lcd.loadImage", pfn)
-    fieldPNG[j] = lcd.loadImage(pfn)
-    --collectgarbage()
- end
+      fieldPNG[j] = lcd.loadImage(pfn)
+      --collectgarbage()
+   end
    if not fieldPNG[j] then
       print(appInfo.Name .. ": Failed to load image", j, pfn)
       return
@@ -1175,7 +1175,7 @@ local function pngLoad(j, force)
       Field.images[j].mag = string.match(Field.images[currentImage].file, ".*%/(.-)%.png")
       --print("image width, height", pfn, fieldPNG[j].width, fieldPNG[j].height)
    end
-
+   
    -- get here if image file opened successfully
    
    Field.lat = Field.images[j].center.lat
@@ -3726,6 +3726,15 @@ local panic = false
 local mapPrintRenderer
 local function mapPrint() --wWid, wHgt)
 
+   local function gps2xy(gps0, gps1)
+      local curDis = gps.getDistance(gps0, gps1)
+      local curBrg = gps.getBearing(gps0, gps1)
+      local curX = curDis * math.cos(math.rad(curBrg+270)) -- why not same angle X and Y??
+      local curY = curDis * math.sin(math.rad(curBrg+90))
+      curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
+      return curX, curY
+   end
+   
    local windowWidth = Screen.image_width_px - 1 --319
    local windowHeight = Screen.image_height_px - 1 -- 159
 
@@ -3940,14 +3949,6 @@ local function mapPrint() --wWid, wHgt)
 	 return math.floor(pix+0.5)
       end
 
-      local function gps2xy(gps0, gps1)
-	 local curDis = gps.getDistance(gps0, gps1)
-	 local curBrg = gps.getBearing(gps0, gps1)
-	 local curX = curDis * math.cos(math.rad(curBrg+270)) -- why not same angle X and Y??
-	 local curY = curDis * math.sin(math.rad(curBrg+90))
-	 curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
-	 return curX, curY
-      end
 
       if system.getProperty("NativeDraw") == 1  and variables.histMax > xOver then
 	 
@@ -4242,8 +4243,20 @@ local function mapPrint() --wWid, wHgt)
 		   string.format("Width: %dm", (map.Xrange or 0)),
 		   FONT_MINI)
    end
-   
 
+   if RscuCircleCenter then
+      if Field.centerGPS then
+	 local xrcc, yrcc = gps2xy(Field.centerGPS[currentImage], RscuCircleCenter)
+	 local ixrcc = toXPixel(xrcc, map.Xmin, map.Xrange, windowWidth)
+	 local iyrcc = toYPixel(yrcc, map.Ymin, map.Yrange, windowHeight)
+	 local idrcc = RscuCircleInner
+	 local odrcc = RscuCircleOuter
+	 local ri = Screen.image_width_px * RscuCircleInner / (xmaxImg(currentImage) - xminImg(currentImage))
+	 local ro = Screen.image_width_px * RscuCircleOuter / (xmaxImg(currentImage) - xminImg(currentImage))
+	 lcd.drawCircle(ixrcc, iyrcc, ri)
+	 lcd.drawCircle(ixrcc, iyrcc, ro)
+      end
+   end
    --pfn = Field.images[j].file			     
 end
 
