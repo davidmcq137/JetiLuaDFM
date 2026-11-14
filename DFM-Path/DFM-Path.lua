@@ -235,6 +235,8 @@ local function loop()
       print("got a triangle")
       if not pathIndex then pathIndex = 0 end
       local pp
+      local aimoff
+      if DFM_Maps_AimOff then aimoff = DFM_Maps_AimOff else aimoff = 20 end
       if pathIndex == 0 then
 	 print("doing the loop")
 	 for i=1,3,1 do
@@ -247,15 +249,17 @@ local function loop()
 	 Path.gps[2] = Path.gps[1]
 	 Path.gps[1] = pp
 	 local ds, dp, bs, bp, ps, pd
-	 local aimoff = 30
 	 local ap = {}
+	 --compute the aim points for flying the triangle
+	 --compute midpoint of each side, then draw line to perp vertex
+	 --and extend past by aimoff
 	 for i = 1,3,1 do
 	    ds = gps.getDistance(Path.gps[i], Path.gps[ns(i+1)])
-	    bs = gps.getBearing(Path.gps[i], Path.gps[ns(i+1)])
-	    ps = gps.getDestination(Path.gps[i], ds/2, bs)
+	    bs = gps.getBearing(Path.gps[i], Path.gps[ns(i+1)]) 
+	    ps = gps.getDestination(Path.gps[i], ds/2, bs) --midpoint
 	    dp = gps.getDistance(ps, Path.gps[ns(i+2)])
-	    bp = gps.getBearing(ps, Path.gps[ns(i+2)])
-	    pd = gps.getDestination(ps, dp + aimoff, bp)
+	    bp = gps.getBearing(ps, Path.gps[ns(i+2)]) --brg midpoint to perp vertex
+	    pd = gps.getDestination(ps, dp + aimoff, bp) -- past perp vertex by aimoff
 	    ap[ns(i+2)] = pd
 	 end
 	 for i=1,3,1 do

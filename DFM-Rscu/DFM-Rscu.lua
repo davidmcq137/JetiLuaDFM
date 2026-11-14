@@ -1076,12 +1076,12 @@ local function initForm(subform)
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       form.reinit(10) end), {label="App Settings", font=FONT_NORMAL})
-      
+      --[[
       form.addRow(1)
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       form.reinit(11) end), {label="Rescue Settings", font=FONT_NORMAL})
-      
+      --]]
       form.addRow(1)
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
@@ -1135,6 +1135,8 @@ local function initForm(subform)
       
 
    elseif subform == 11 then
+
+      --[[
       form.addRow(2)
       form.addLabel({label="Circling behavior", font=FONT_NORMAL})
       form.addSelectbox(inv(steerMode),
@@ -1144,7 +1146,7 @@ local function initForm(subform)
 			      system.pSave("RTHcircStrat", RTH.settings.circStrat)
 			      return end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
-      
+      --]]
       form.addRow(2)
       form.addLabel({label="Perferred turn", font=FONT_NORMAL, width=155})
       form.addSelectbox(inv(turnMode),
@@ -1154,7 +1156,8 @@ local function initForm(subform)
 			      system.pSave("RTHturnDir", RTH.settings.turnDir)
 			      return end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
-      
+
+      --[[
       form.addRow(2)
       form.addLabel({label="Rescue On Delay (s)", font=FONT_NORMAL})
       form.addIntbox(rescueOnDelay, 0, 10, 3, 0, 1,
@@ -1181,6 +1184,7 @@ local function initForm(subform)
 			   system.pSave("eleDelay", x)
 			   return end),
 		     {width=155, font=FONT_NORMAL, algignRight=false})
+      --]]
 
       form.addRow(1)
       form.addLink((function()
@@ -1247,6 +1251,7 @@ local function initForm(subform)
 			      return end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
       
+      --[[
       form.addRow(2)
       form.addLabel({label="Heading Sensor", font=FONT_NORMAL})
       form.addSelectbox(RTH.sensorLalist, hdgsel, true,
@@ -1257,6 +1262,7 @@ local function initForm(subform)
 			      system.pSave("RTHhdgPa", RTH.settings.hdgPa)			   
 			      return end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
+      --]]
       
       form.addRow(2)
       form.addLabel({label="Altitude Sensor", font=FONT_NORMAL})
@@ -1268,7 +1274,7 @@ local function initForm(subform)
 			      system.pSave("RTHaltPa", RTH.settings.altPa)			   
 			      return end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
-      
+      --[[
       form.addRow(2)
       form.addLabel({label="Roll Sensor", font=FONT_NORMAL})
       form.addSelectbox(RTH.sensorLalist, rollsel, true,
@@ -1290,7 +1296,7 @@ local function initForm(subform)
 			      system.pSave("RTHpitchPa", RTH.settings.pitchPa)			   
 			      return end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
-      
+      --]]
       form.addRow(1)
       form.addLink((function()
 	       form.reinit(1) end), {label="<<<Back to main menu", font=FONT_NORMAL})
@@ -1338,14 +1344,6 @@ local function initForm(subform)
       form.addLink((function()
 	       form.reinit(1) end), {label="<<<Back to main menu", font=FONT_NORMAL})
    end
-   
-   
-
-
-   
-
-
-
 end
 
 local function drawShape(col, row, shape, rotation, mag)
@@ -1379,7 +1377,7 @@ local function printForm()
    if pointsToRender > 2 then
       lcd.drawText(10, Screen.height - 3*h, "Flight points cached: "..pointsToRender.."/100", FONT_MINI)
    end
-   if activeSf == 13 then
+   if activeSf == 13 then 
       if RTH.curPos then
 	 local lt, lg = gps.getValue(RTH.curPos)
 	 lcd.drawText(10, Screen.height - 8*h, string.format("Current: (%.5f°,%.5f°)", lt, lg), FONT_MINI)
@@ -2001,8 +1999,8 @@ local function init()
    RTH.settings.elevInput = system.pLoad("elevInput")
    
    RTH.settings.distUnits = system.pLoad("RTHdistUnits", 1) -- meters is default
-   RTH.settings.circStrat = system.pLoad("RTHcircStrat", steerMode.petals) -- "petals" default
-   RTH.settings.turnDir = system.pLoad("RTHturnDir", turnMode.left)   -- "left" default
+   RTH.settings.circStrat = system.pLoad("RTHcircStrat", steerMode.racetrack)
+   RTH.settings.turnDir = system.pLoad("RTHturnDir", turnMode.random)
    
    RTH.settings.circleMin = system.pLoad("circleMin", 150)
    RTH.settings.maxElevGain = system.pLoad("maxElevGain", 0)
@@ -2010,8 +2008,8 @@ local function init()
    readSensors(RTH)
 
    rescueOnDelay = system.pLoad("rescueOnDelay", 3)
-   holdTurn = system.pLoad("holdTurn", 5)
-   eleDelay = system.pLoad("eleDelay", 2)
+   holdTurn = system.pLoad("holdTurn", 4)
+   eleDelay = system.pLoad("eleDelay", 1)
    magIdx = system.pLoad("magIdx", 1)
    
    flyingOutbound = false
