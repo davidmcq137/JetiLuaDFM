@@ -1303,7 +1303,10 @@ local function initForm(subform)
 
    elseif subform == 13 then
       form.addRow(2)
-      form.addLabel({label="Min Circling Dist (m)", font=FONT_NORMAL})
+      local font
+      if Screen.width == 320 then font = FONT_MINI else font = FONT_NORMAL end
+      
+      form.addLabel({label="Min Circling Dist (m)", font=font})
       form.addIntbox(RTH.settings.circleMin, 0, 10000, 100, 0, 1,
 		     (function(x)
 			   RTH.settings.circleMin = x
@@ -1314,7 +1317,8 @@ local function initForm(subform)
 			   end
 			   return end),
 		     {width=155, font=FONT_NORMAL, algignRight=false})
-      
+
+      --[[
       form.addRow(2)
       form.addLabel({label="Map zoom level", font=FONT_NORMAL})
       form.addIntbox(magIdx, 1, #magVal, 1, 0, 1,
@@ -1323,14 +1327,14 @@ local function initForm(subform)
 			   system.pSave("magIdx", magIdx)
 			   return end),
 		     {width=155, font=FONT_NORMAL, algignRight=false})
-      
+      --]]
       form.addRow(1)
       form.addLink((function()
 	       local save = buttonSet
 	       buttonSet = 2
 	       keyPressGPS(KEY_1)
 	       buttonSet = save
-	       form.reinit(1) end), {label="Set Point A", font=FONT_NORMAL})
+	       form.reinit(1) end), {label="Set Point A", font=font})
       
       form.addRow(1)
       form.addLink((function()
@@ -1338,11 +1342,11 @@ local function initForm(subform)
 	       buttonSet = 2
 	       keyPressGPS(KEY_2)
 	       buttonSet = save
-	       form.reinit(1) end), {label="Set Point B", font=FONT_NORMAL})
+	       form.reinit(1) end), {label="Set Point B", font=font})
       
       form.addRow(1)
       form.addLink((function()
-	       form.reinit(1) end), {label="<<<Back to main menu", font=FONT_NORMAL})
+	       form.reinit(1) end), {label="<<<Back to main menu", font=font})
    end
 end
 
