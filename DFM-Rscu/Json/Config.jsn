@@ -1,6 +1,7 @@
 {
     "annMax":6,
     "annDelay":4000,
+    "fullScreenTele":1,
     "arrow":[
         [-3, -9],
         [0, -15],

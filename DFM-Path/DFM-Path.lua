@@ -232,13 +232,11 @@ local function loop()
    local function ns(i) return (i-1)%3 + 1 end
    
    if DFM_Maps_Field and DFM_Maps_Field ~= 0 and not gotTriangle then
-      print("got a triangle")
       if not pathIndex then pathIndex = 0 end
       local pp
       local aimoff
-      if DFM_Maps_AimOff then aimoff = DFM_Maps_AimOff else aimoff = 20 end
+      if DFM_Maps_MapsAimPoint then aimoff = DFM_Maps_MapAimPoint else aimoff = 20 end
       if pathIndex == 0 then
-	 print("doing the loop")
 	 for i=1,3,1 do
 	    pathIndex = pathIndex + 1
 	    Path.gps[pathIndex] = gps.newPoint(DFM_Maps_Field.triangle.path[i].lat,
@@ -266,7 +264,8 @@ local function loop()
 	    Path.gps[i] = ap[i]
 	 end
       end
-      print("Captured the triangle")
+      print(appName..": Captured triangle path from DFM-Maps")
+      system.messageBox(appName..": Captured triangle path")
       gotTriangle = true
    end
    
@@ -274,18 +273,6 @@ local function loop()
    if not lastSec then lastSec = now end
    if not announceTime then announceTime = now end
 
-   --if emflag ~= 0 and system.getTimeCounter() < 0 then
-   --   print("system.getTimeCounter() wrapped. Restart emulator", system.getTimeCounter())
-   --end
-
-   --[[
-   if MapsAimPoint then
-      for i,v in ipairs(MapsAimPoint) do
-	 print(i, v.x, v.y)
-      end
-   end
-   --]]
-   
    sensor = system.getSensorByID(RTH.settings.altId, RTH.settings.altPa)
    --print("Sensor", RTH.settings.altId, RTH.settings.altPa, sensor.value)
    if sensor and sensor.valid then
@@ -1173,7 +1160,7 @@ local function init()
 --     do something different on new tx?      
 --   end
    
-   system.registerTelemetry(1, "Flight Path", 4, printTeleGPS, keyPressGPS)
+   system.registerTelemetry(1, "DFM-Path Flight Path Map", 4, printTeleGPS, keyPressGPS)
    
    if system.setTelemetryButton then
       system.setTelemetryButton(1, 1, "-", 1)

@@ -54,6 +54,12 @@
 
 --]]
 
+--luacheck: globals declareGlobal
+--luacheck: globals DFM_Maps_MapsAimPoint
+--luacheck: globals DFM_Rscu_CircleCenter
+--luacheck: globals DFM_Rscu_CircleInner
+--luacheck: globals DFM_Rscu_CircleOuter
+
 local appInfo={}
 appInfo.Name = "DFM-Maps"
 appInfo.Maps = appInfo.Name
@@ -87,6 +93,7 @@ local nextPylon=0
 local lapAltitude
 local distance
 local x, y
+local xOver = 100
 
 -- presistent and global variables for loop()
 
@@ -2164,10 +2171,10 @@ local function drawTriRace(windowWidth, windowHeight)
 	 setColor("AimPt", variables.triColorMode)
       end
 
-      if MapsAimPoint then
-	 if not MapsAimPoint[j] then MapsAimPoint[j] = {} end
-	 MapsAimPoint[j].x = pylon[j].xt
-	 MapsAimPoint[j].y = pylon[j].yt
+      if DFM_Maps_MapsAimPoint then
+	 if not DFM_Maps_MapsAimPoint[j] then DFM_Maps_MapsAimPoint[j] = {} end
+	 DFM_Maps_MapsAimPoint[j].x = pylon[j].xt
+	 DFM_Maps_MapsAimPoint[j].y = pylon[j].yt
       end
       
       lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
@@ -3877,33 +3884,22 @@ local function mapPrint() --wWid, wHgt)
       end
 
       if #rgbHist == 0 then
-	 print("#0")
+	 print("DFM-Maps: #rgbHist=0, returning")
 	 return
       end
       
       rgb.last = -1 --rgbHist[1+(offset or 0)].rgb
 
-      -- only paint as many points as have been re-calculated if we are redoing the pixels
-      -- because of a recent zoom change
-      
-      --AA--ren:reset()
-      --AA--for i=1 + offset, (recalcPixels and recalcCount or #xPHist) do
-
       local kk
-      local ii = variables.ribbonColorSource
-
-      --print("nd", system.getProperty("NativeDraw"))
-
-      local xOver = 100
 
       local spnd = system.getProperty("NativeDraw")
 
       if not spnd or (spnd == 0)  or ((spnd == 1) and (variables.histMax <= xOver)) then
+	 -- only paint as many points as have been re-calculated if we are redoing the pixels
+	 -- because of a recent zoom change
 	 for i=2 + offset, (recalcPixels and recalcCount or #xPHist) do
 	    kk = i
-	    --AA--ren:addPoint(xPHist[i], yPHist[i])
-	    ----[[
-	    if ii ~= 1 then
+	    if variables.ribbonColorSource ~= 1 then
 	       if (rgb.last ~= rgbHist[i].rgb) then
 		  lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
 		  rgb.last = rgbHist[i].rgb
@@ -3916,10 +3912,6 @@ local function mapPrint() --wWid, wHgt)
 	       end
 	       --lcd.setColor(140,140,80)
 	    end
-	    
-	    --]]
-	    --lcd.drawCircle(xPHist[i], yPHist[i], 2)
-	    --print("line", xPHist[i-1], yPHist[i-1])
 	    lcd.drawLine(xPHist[i-1], yPHist[i-1], xPHist[i], yPHist[i])
 	    
 	    if i & 0X7F == 0 then -- fast mod 128 (127 = 0X7F)
@@ -3928,19 +3920,10 @@ local function mapPrint() --wWid, wHgt)
 		  panic = true
 		  break
 	       end
-	       --AA--ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0) 
-	       --[[
-	       if i ~= (recalcPixels and recalcCount or #xPHist) then
-		  --AA--ren:reset()
-		  --AA--ren:addPoint(xPHist[i], yPHist[i])
-	       end
-	       --]]
 	    end
 	 end
 	 
 	 if variables.histMax > 0 and #xPHist > 0 and #xtable > 0 and kk then
-	    --AA--ren:addPoint( toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
-	    --AA--      toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))
 	    lcd.drawLine(xPHist[kk], yPHist[kk],
 			 toXPixel(xtable[#xtable], map.Xmin, map.Xrange, windowWidth),
 			 toYPixel(ytable[#ytable], map.Ymin, map.Yrange, windowHeight))		      
@@ -4260,8 +4243,8 @@ local function mapPrint() --wWid, wHgt)
 	 local xrcc, yrcc = gps2xy(Field.centerGPS[currentImage], DFM_Rscu_CircleCenter)
 	 local ixrcc = toXPixel(xrcc, map.Xmin, map.Xrange, windowWidth)
 	 local iyrcc = toYPixel(yrcc, map.Ymin, map.Yrange, windowHeight)
-	 local idrcc = DFM_Rscu_CircleInner
-	 local odrcc = DFM_Rscu_CircleOuter
+	 --local idrcc = DFM_Rscu_CircleInner
+	 --local odrcc = DFM_Rscu_CircleOuter
 	 local ri = Screen.image_width_px * DFM_Rscu_CircleInner / (xmaxImg(currentImage) - xminImg(currentImage))
 	 local ro = Screen.image_width_px * DFM_Rscu_CircleOuter / (xmaxImg(currentImage) - xminImg(currentImage))
 	 lcd.drawCircle(ixrcc, iyrcc, ri)

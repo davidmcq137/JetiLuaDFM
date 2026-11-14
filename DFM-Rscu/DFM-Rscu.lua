@@ -14,6 +14,12 @@
 
 --]]
 
+--luacheck: globals declareGlobal
+--luacheck: globals dumpGlobalVars
+--luacheck: globals DFM_Rscu_CircleCenter
+--luacheck: globals DFM_Rscu_CircleInner
+--luacheck: globals DFM_Rscu_CircleOuter
+
 local appName = "DFM-Rscu"
 local pathApp = "Apps/"..appName.."/"
 local RTH = {}
@@ -930,7 +936,7 @@ local function loop()
 end
 
 
-local function keyPress(key)
+local function keyPress() --(key)
    --if activeSf ~= 2 then return end
    --form.preventDefault()
    ---if key == KEY_ESC or key == KEY_5 then
@@ -957,11 +963,11 @@ local function keyPressGPS(key)
 	 magIdx = magIdx - 1
 	 if magIdx < 1 then magIdx = 1 end
 	 setMag(magIdx)
-      elseif key == KEY_3 then
+      --elseif key == KEY_3 then
 	 --RTH.settings.circStrat = RTH.settings.circStrat + 1
 	 --if RTH.settings.circStrat > #inv(steerMode) then RTH.settings.circStrat = 1 end
 	 --system.pSave("RTHcircStrat", RTH.settings.circStrat)
-      elseif key == KEY_4 then
+      --elseif key == KEY_4 then
 	 --RTH.settings.turnDir = RTH.settings.turnDir + 1
 	 --if RTH.settings.turnDir > #inv(turnMode) then RTH.settings.turnDir = 1 end
 	 --system.pSave("RTHturnDir", RTH.settings.turnDir)
@@ -1191,14 +1197,9 @@ local function initForm(subform)
 	       form.reinit(1) end), {label="<<<Back to main menu", font=FONT_NORMAL})
       
    elseif subform == 12 then
-      
+
       local latsel = 0
       local lngsel = 0
-      local altsel = 0
-      local hdgsel = 0
-      local rollsel = 0
-      local pitchsel = 0
-
       for k = 1, #RTH.gpsLalist do
 	 if (RTH.gpsIdlist[k] == RTH.settings.latId) and
 	    (RTH.gpsPalist[k] == RTH.settings.latPa) then
@@ -1209,12 +1210,19 @@ local function initForm(subform)
 	    lngsel = k
 	 end	 
       end
-      
+
+      --[[
+      local altsel = 0
+      local hdgsel = 0      
+      local rollsel = 0
+      --]]
+      pitchsel = 0
       for k = 1, #RTH.sensorLalist do
 	 if (RTH.sensorIdlist[k] == RTH.settings.altId) and
 	    (RTH.sensorPalist[k] == RTH.settings.altPa) then
 	    altsel = k
 	 end
+	 --[[
 	 if (RTH.sensorIdlist[k] == RTH.settings.hdgId) and
 	    (RTH.sensorPalist[k] == RTH.settings.hdgPa) then
 	    hdgsel = k
@@ -1227,6 +1235,7 @@ local function initForm(subform)
 	    (RTH.sensorPalist[k] == RTH.settings.pitchPa) then
 	    pitchsel = k
 	 end
+	 --]]
       end
 
       form.addRow(2)
@@ -1311,7 +1320,7 @@ local function initForm(subform)
 		     (function(x)
 			   RTH.settings.circleMin = x
 			   system.pSave("circleMin", x)
-			   if DFM_Rscu_CircleInner then
+			   if DFM_Rscu_CircleInner and DFM_Rscu_CircleOuter then
 			      DFM_Rscu_CircleInner = x
 			      DFM_Rscu_CircleOuter = x * CMULT
 			   end
@@ -1956,10 +1965,16 @@ local function logfileCB(idx)
    end
 end
 
-
-
 local function init()
 
+   config = {fullScreenTele = 0}
+   
+   local str = io.readall(prefix() .. pathApp.."Json/Config.jsn")
+   if not str then
+      print("DFM-Rscu: cannot read Config.jsn")
+   end
+   
+   config = json.decode(str)
    renShape   = lcd.renderer()
    
    system.registerForm(1, MENU_APPS, "DFM-Rscu", initForm, keyPress, printForm)
@@ -1967,21 +1982,21 @@ local function init()
    local device
    device, emflag = system.getDeviceType() 
    
-   system.registerTelemetry(1, "DFM-Rscu Map", 4, printTeleGPS, keyPressGPS)
-   system.registerTelemetry(2, "DFM-Rscu Status", 0, printTeleStatus)
-   
-   if system.setTelemetryButton then
+   system.registerTelemetry(1, "DFM-Rscu Status", 0, printTeleStatus)
 
-      buttonSet = 1
-      for b=1,5,1 do
-	 system.setTelemetryButton(1, b, buttonText[buttonSet][b], 1)
+   if config.fullScreenTele ~= 0 then
+      system.registerTelemetry(2, "DFM-Rscu Map", 4, printTeleGPS, keyPressGPS)
+      if system.setTelemetryButton then
+	 buttonSet = 1
+	 for b=1,5,1 do
+	    system.setTelemetryButton(1, b, buttonText[buttonSet][b], 1)
+	 end
+      else
+	 print(appName..": Cannot set Tele Buttons")
       end
-   else
-      print(appName..": Cannot set Tele Buttons")
    end
-
-   RTH.settings = {}
    
+   RTH.settings = {}
 
    RTH.settings.latId = system.pLoad("RTHlatId", 0)
    RTH.settings.latPa = system.pLoad("RTHlatPa", 0)
@@ -2074,12 +2089,6 @@ local function init()
    greenCircle = lcd.loadImage(prefix() .. pathApp .. "Images/small_green_circle.png")
    redCircle = lcd.loadImage(prefix() .. pathApp .. "Images/small_red_circle.png")
 
-   local str = io.readall(prefix() .. pathApp.."Json/Config.jsn")
-   if not str then
-      print("DFM-Rscu: cannot read Config.jsn")
-   end
-   
-   config = json.decode(str)
 
    --system.setProperty("NativeDraw", 1)
    --print("get", system.getProperty("NativeDraw"))
