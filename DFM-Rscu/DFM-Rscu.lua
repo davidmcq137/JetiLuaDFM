@@ -1701,7 +1701,7 @@ local function printTeleStatusP(w,h)
    --           one-box size: w = 223, h =  55 for 24-II, w = 151, h = 24 for legacy color TXs
    
    if not RTH.gpsBearingTo then
-      lcd.drawText(20, h/2, "No GPS Bearing")
+      lcd.drawText(20, h/2-10, "No GPS Bearing")
       return
    end
 

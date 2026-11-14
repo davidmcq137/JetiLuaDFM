@@ -959,6 +959,7 @@ local function setColor(type, mode)
    else
       cc = colors[mode][type]
    end
+   --print("setting color", cc.r, cc.g, cc.b)
    lcd.setColor(cc.r, cc.g, cc.b)
 end
 
@@ -3995,6 +3996,8 @@ local function mapPrint() --wWid, wHgt)
 		  lcd.setColor(rgbHist[hs-1].r, rgbHist[hs-1].g, rgbHist[hs-1].b)
 	       else -- solid/monochrome ribbon
 		  if variables.triEnabled then
+		     print("variables.triEnabled", variables.triEnabled)
+		     print("variables.triColorMode", variables.triColorMode)
 		     setColor("Map", variables.triColorMode)
 		  else
 		     setColor("Map", "Image")
