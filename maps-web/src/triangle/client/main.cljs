@@ -1299,12 +1299,14 @@
 (def app-name "DFM-Maps")
 
 (def screen-variants
-  [{:label "Standard"
+  [{:name "DFM-Maps"
+    :label "Standard"
     :version-suffix ""
     :hw [678 679 680 652 653 3857 3858]
     :width 320
     :height 160}
-   {:label "Large screen"
+   {:name "DFM-Maps (Large screen)"
+    :label "Large screen"
     :version-suffix "-L"
     :hw [3866 3867]
     :width 458
