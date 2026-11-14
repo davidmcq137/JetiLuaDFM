@@ -1297,7 +1297,7 @@ local function initForm(subform)
 			      system.pSave("RTHaltPa", RTH.settings.altPa)			   
 			      return end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
-      --[[
+      ---[[
       form.addRow(2)
       form.addLabel({label="Roll Sensor", font=FONT_NORMAL})
       form.addSelectbox(RTH.sensorLalist, rollsel, true,
