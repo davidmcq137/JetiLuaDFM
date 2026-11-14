@@ -1293,10 +1293,9 @@
                                   (fn [fe] (load-db-from-edn-string (.. fe -target -result))))
                             (.readAsText rdr file))))}])
 
-;; All variants go into one repo (one token) as separate apps with the same
-;; name, disjoint hw lists, and distinct version strings (base version from the
-;; server's built App.json + :version-suffix).
-(def app-name "DFM-Maps")
+;; All variants go into one repo (one token) as separate apps with their own
+;; :name (name.en), disjoint hw lists, and distinct version strings (base
+;; version from the server's built App.json + :version-suffix).
 
 (def screen-variants
   [{:name "DFM-Maps"
@@ -1313,14 +1312,14 @@
     :height 343
     :rename {"Apps/DFM-Maps.lua" "Apps/DFM-MapsL.lua"}}])
 
-(defn make-app-request [db base-app-json {:keys [version-suffix hw width height rename]}]
+(defn make-app-request [db base-app-json {:keys [name version-suffix hw width height rename]}]
   (let [fields-json (into {}
                           (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
                             [short-name (json-data-for-field field)]))]
     {:base-app "DFM-Maps"
      :rename rename
      :app-json {"hw" hw
-                "name" {"en" app-name}
+                "name" {"en" name}
                 "version" (str (get base-app-json "version") version-suffix)}
      :dynamic-files
      (into
