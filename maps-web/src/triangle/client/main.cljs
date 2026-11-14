@@ -1308,13 +1308,15 @@
     :version-suffix "-L"
     :hw [3866 3867]
     :width 458
-    :height 343}])
+    :height 343
+    :rename {"Apps/DFM-Maps.lua" "Apps/DFM-MapsL.lua"}}])
 
-(defn make-app-request [db base-app-json {:keys [version-suffix hw width height]}]
+(defn make-app-request [db base-app-json {:keys [version-suffix hw width height rename]}]
   (let [fields-json (into {}
                           (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
                             [short-name (json-data-for-field field)]))]
     {:base-app "DFM-Maps"
+     :rename rename
      :app-json {"hw" hw
                 "name" {"en" app-name}
                 "version" (str (get base-app-json "version") version-suffix)}

@@ -338,14 +338,18 @@
        "version"     "1"}]}))
 
 (defn app-json-next!
-  [yoururl base-app dynamic-files app-json-overrides]
+  "rename: {original-destination new-destination} for base-app files."
+  [yoururl base-app dynamic-files app-json-overrides rename]
   (let [base "compiled-apps"
-        files (->> (into [{"app" base-app}] dynamic-files)
+        effective-name (fn [n] (get rename n n))
+        files (->> dynamic-files
                    (partition-all apps-threads)
                    (mapcat (fn [batch]
                              (->> batch
                                   (mapv #(future (process-file-spec %)))
                                   (mapcat deref))))
+                   (concat (for [f (process-file-spec {"app" base-app})]
+                             (update f :destination effective-name)))
                    (mapv (partial add-cas-url yoururl)))
         manifest-file (io/resource (str base "/" base-app "/App.json"))
         
@@ -399,8 +403,8 @@
         yoururl (no-https yoururl)
         
         apps-json {:applications
-                   (for [{:strs [base-app dynamic-files app-json]} apps]
-                     (app-json-next! yoururl base-app dynamic-files app-json))}]
+                   (for [{:strs [base-app dynamic-files app-json rename]} apps]
+                     (app-json-next! yoururl base-app dynamic-files app-json rename))}]
     
     (swap! dynamic-repo-cache assoc [:token token]
            (-> apps-json
