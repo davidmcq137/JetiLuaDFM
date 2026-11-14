@@ -3930,6 +3930,7 @@ local function mapPrint() --wWid, wHgt)
 	 end
       end
 
+      ---[[
       local function txp(xxx,i,w)
 	 local pix
 	 pix = w*(xxx - xminImg(i)) / (xmaxImg(i) - xminImg(i))
@@ -4009,16 +4010,13 @@ local function mapPrint() --wWid, wHgt)
 	 metrics.xPCountLast = metrics.xPCount
       end
       
-      --setColorMain()
-
       if variables.triEnabled then
 	 setColor("Map", variables.triColorMode)
       else
 	 setColor("Map", "Image")
       end
-      --AA--ren:renderPolyline(variables.ribbonWidth,variables.ribbonAlpha/10.0)
-      ------------------------------
    end
+   --]]
 
    
    if variables.triEnabled then

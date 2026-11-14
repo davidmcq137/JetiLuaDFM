@@ -67,6 +67,7 @@ local rescueOnTime
 local rescueOnDelay
 local holdTurn
 local eleDelay
+local ailDelay
 
 --[[
 local testLatControl
@@ -786,9 +787,9 @@ local function loopP()
 	    end
 	    if holdZero ~= 1 then print("ns " .. ns) end
 	    --print(ns, now, nsHoldTime)
-	    system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), 1000, 1)
+	    system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), ailDelay, 1)
 	    system.setControl(RTH.settings.elevCtrl,
-			      RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns), eleDelay*1000, 1)
+			      RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns), eleDelay, 1)
 	    validmix = true
 	 end
 
@@ -1082,7 +1083,7 @@ local function initForm(subform)
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
 	       form.reinit(10) end), {label="App Settings", font=FONT_NORMAL})
-      --[[
+      ---[[
       form.addRow(1)
       form.addLink((function()
 	       savedRow = form.getFocusedRow()
@@ -1181,17 +1182,27 @@ local function initForm(subform)
 			   system.pSave("holdTurn", x)
 			   return end),
 		     {width=155, font=FONT_NORMAL, algignRight=false})
+
+      --]]
       
       form.addRow(2)
-      form.addLabel({label="Elev control delay (s)", font=FONT_NORMAL})
-      form.addIntbox(eleDelay, 0, 20, 2, 0, 1,
+      form.addLabel({label="Elev ctl delay/avg (ms)", font=FONT_NORMAL})
+      form.addIntbox(eleDelay, 0, 20000, 2, 0, 1,
 		     (function(x)
 			   eleDelay = x
 			   system.pSave("eleDelay", x)
 			   return end),
 		     {width=155, font=FONT_NORMAL, algignRight=false})
-      --]]
 
+      form.addRow(2)
+      form.addLabel({label="Ail ctl delay/avg (ms)", font=FONT_NORMAL})
+      form.addIntbox(eleDelay, 0, 20000, 2, 0, 1,
+		     (function(x)
+			   eleDelay = x
+			   system.pSave("ailDelay", x)
+			   return end),
+		     {width=155, font=FONT_NORMAL, algignRight=false})
+      
       form.addRow(1)
       form.addLink((function()
 	       form.reinit(1) end), {label="<<<Back to main menu", font=FONT_NORMAL})
@@ -1212,11 +1223,12 @@ local function initForm(subform)
       end
 
       --[[
-      local altsel = 0
       local hdgsel = 0      
-      local rollsel = 0
       --]]
-      pitchsel = 0
+      local rollsel = 0
+      local pitchsel = 0
+
+      local altsel = 0
       for k = 1, #RTH.sensorLalist do
 	 if (RTH.sensorIdlist[k] == RTH.settings.altId) and
 	    (RTH.sensorPalist[k] == RTH.settings.altPa) then
@@ -1227,6 +1239,8 @@ local function initForm(subform)
 	    (RTH.sensorPalist[k] == RTH.settings.hdgPa) then
 	    hdgsel = k
 	 end
+	 --]]
+	 ---[[
 	 if (RTH.sensorIdlist[k] == RTH.settings.rollId) and
 	    (RTH.sensorPalist[k] == RTH.settings.rollPa) then
 	    rollsel = k
@@ -2031,7 +2045,8 @@ local function init()
 
    rescueOnDelay = system.pLoad("rescueOnDelay", 3)
    holdTurn = system.pLoad("holdTurn", 4)
-   eleDelay = system.pLoad("eleDelay", 1)
+   eleDelay = system.pLoad("eleDelay", 1000)
+   ailDelay = system.pLoad("ailDelay", 1000)
    magIdx = system.pLoad("magIdx", 1)
    
    flyingOutbound = false
