@@ -50,6 +50,7 @@ local greenCircle, redCircle
 local pointsToRender = 0
 local Fields
 local savedRow = 1
+local activeSf
 
 local steerMode = {petals=1,racetrack=2,leftright=3}
 local turnMode = {left=1,right=2,random=3}
@@ -199,6 +200,7 @@ end
 --]]
 
 local function writeGPSFile(field0, ptA, ptB)
+   if not field0 or not ptA or not ptB then return end
    local lat,lng = gps.getValue(field0)
    local ns, ew
    if lat >= 0 then ns = "N" else ns = "S" end
@@ -521,10 +523,10 @@ local function loopP()
 	       RTH.var.startTakeoffAlt = altnow
 	    end
 	 end
-	 if RscuCircleCenter then
-	    RscuCircleCenter = RTH.zeroPos
-	    RscuCircleInner = RTH.settings.circleMin
-	    RscuCircleOuter = RTH.settings.circleMin * CMULT
+	 if DFM_Rscu_CircleCenter then
+	    DFM_Rscu_CircleCenter = RTH.zeroPos
+	    DFM_Rscu_CircleInner = RTH.settings.circleMin
+	    DFM_Rscu_CircleOuter = RTH.settings.circleMin * CMULT
 	 end
       end
       if RTH.curPos and RTH.zeroPos then
@@ -927,15 +929,14 @@ local function loop()
    end
 end
 
-local activeSf
 
 local function keyPress(key)
-   if activeSf ~= 2 then return end
-   form.preventDefault()
-   if key == KEY_ESC or key == KEY_5 then
-      if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, 0, 0) end
-      if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end      
-   end
+   --if activeSf ~= 2 then return end
+   --form.preventDefault()
+   ---if key == KEY_ESC or key == KEY_5 then
+   --  if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, 0, 0) end
+   -- if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end      
+   --end
 end
 
 local function keyPressGPS(key)
@@ -1301,9 +1302,9 @@ local function initForm(subform)
 		     (function(x)
 			   RTH.settings.circleMin = x
 			   system.pSave("circleMin", x)
-			   if RscuCircleInner then
-			      RscuCircleInner = x
-			      RscuCircleOuter = x * CMULT
+			   if DFM_Rscu_CircleInner then
+			      DFM_Rscu_CircleInner = x
+			      DFM_Rscu_CircleOuter = x * CMULT
 			   end
 			   return end),
 		     {width=155, font=FONT_NORMAL, algignRight=false})
@@ -1374,8 +1375,36 @@ local function drawLine(col, row, shape, rotation, lw)
 end
 
 local function printForm()
+   local h = lcd.getTextHeight(FONT_MINI)
    if pointsToRender > 2 then
-      lcd.drawText(10, Screen.height - 60, "Flight points cached: "..pointsToRender.."/100", FONT_NORMAL)
+      lcd.drawText(10, Screen.height - 3*h, "Flight points cached: "..pointsToRender.."/100", FONT_MINI)
+   end
+   if activeSf == 13 then
+      if RTH.curPos then
+	 local lt, lg = gps.getValue(RTH.curPos)
+	 lcd.drawText(10, Screen.height - 8*h, string.format("Current: (%.5f°,%.5f°)", lt, lg), FONT_MINI)
+      end
+      if pointA then
+	 local lt, lg = gps.getValue(pointA)
+	 lcd.drawText(10, Screen.height - 7*h, string.format("Point A:  (%.5f°,%.5f°)", lt, lg), FONT_MINI)
+      else
+	 lcd.drawText(10, Screen.height - 7*h, "Point A not set", FONT_MINI)	 
+      end
+      if pointB then
+	 local lt, lg = gps.getValue(pointB) 
+	 lcd.drawText(10, Screen.height - 6*h, string.format("Point B:  (%.5f°,%.5f°)", lt, lg), FONT_MINI)
+      else
+	 lcd.drawText(10, Screen.height - 6*h, "Point B not set", FONT_MINI)
+      end
+      if pointA and RTH.curPos then
+	 local pp
+	 if pointB then pp = pointB else pp = RTH.curPos end
+	 local dd = gps.getDistance(pointA, pp)
+	 local bb = gps.getBearing(pointA, pp)
+	 lcd.drawText(10, Screen.height - 5*h,
+		      string.format("A->B  %.1fm %d°  Field rotation %.1f°", dd, bb, bb - 90),
+		      FONT_MINI)
+      end
    end
 end
 
@@ -1399,7 +1428,7 @@ local function printTeleMix()
    end
    
    if not RTH.settings.steerCtrl or not RTH.settings.steer then
-      lcd.drawText(5, 2, "No steering value", FONT_NORMAL)
+      lcd.drawText(5, 20, "No steering Control", FONT_NORMAL)
       return
    end
 
@@ -2091,11 +2120,10 @@ local function init()
    drawRibbon = true
 
    if declareGlobal then
-      print("setting globals")
-      declareGlobal("RscuCircleCenter", 0)
-      declareGlobal("RscuCircleInner", RTH.settings.circleMin)
-      declareGlobal("RscuCircleOuter", RTH.settings.circleMin * CMULT)
-      declareGlobal("RscuAimPoint", 0)
+      print("DFM-Rscu setting globals")
+      declareGlobal("DFM_Rscu_CircleCenter", 0)
+      declareGlobal("DFM_Rscu_CircleInner", RTH.settings.circleMin)
+      declareGlobal("DFM_Rscu_CircleOuter", RTH.settings.circleMin * CMULT)
       dumpGlobalVars()
    end
 

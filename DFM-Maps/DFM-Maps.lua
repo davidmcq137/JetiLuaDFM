@@ -958,6 +958,11 @@ end
 local function setField(sname)
 
    Field = Fields[sname]
+   print("setField", sname, DFM_Maps_Field, type(Field))
+   if DFM_Maps_Field then
+      print("setting DFM_Maps_Field")
+      DFM_Maps_Field = Field
+   end
    Field.imageWidth = {}
    Field.imageHeight = {}
    Field.lat = Field.images[1].center.lat
@@ -983,7 +988,7 @@ local function setField(sname)
       variables.triOffsetY  = triT.dy or 0
       if Field.triangle then
 	 variables.triLength   = triT.L  or Field.triangle.size
-	 variables.aimoff      = triT.O  or Field.triangle.size / 20
+	 variables.aimoff      = triT.O  or Field.triangle.size / 5
       end
       variables.triRotation = triT.r  or 0
    else
@@ -991,7 +996,7 @@ local function setField(sname)
       variables.triOffsetY  = 0
       if Field.triangle then
 	 variables.triLength   = Field.triangle.size
-	 variables.aimoff      = Field.triangle.size / 20
+	 variables.aimoff      = Field.triangle.size / 5
       end
       variables.triRotation = 0
    end
@@ -2976,6 +2981,7 @@ local function prtForm() --wwx, whx)
       if not fieldPNG[currentImage] then
 	 print("fieldPNG nil: currentImage",
 	       currentImage, #fieldPNG, newTransmitter, Screen.image_width_px)
+	 lcd.drawText(10, Screen.image_height_px/2, "Image not available")
       else
 	 if newTransmitter and Screen.image_width_px ~= Screen.legacy_width_px then
 	    lcd.drawImage(-5,4,fieldPNG[currentImage],255)
@@ -3806,7 +3812,11 @@ local function mapPrint() --wWid, wHgt)
 	 setColor("Background", variables.triColorMode)
 	 lcd.drawFilledRectangle(0,0,Screen.image_width_px,Screen.image_height_px)
       else
-	 lcd.drawImage(0,0,fieldPNG[currentImage])
+	 if fieldPNG[currentImage] then
+	    lcd.drawImage(0,0,fieldPNG[currentImage])
+	 else
+	    lcd.drawText(10, Screen.image_height_px/2, "Image not available")
+	 end
       end
    else
       setColor("Label", "Light")
@@ -4244,15 +4254,16 @@ local function mapPrint() --wWid, wHgt)
 		   FONT_MINI)
    end
 
-   if RscuCircleCenter then
+   if DFM_Rscu_CircleCenter then
       if Field.centerGPS then
-	 local xrcc, yrcc = gps2xy(Field.centerGPS[currentImage], RscuCircleCenter)
+	 --print(DFM_Rscu_CircleCenter)
+	 local xrcc, yrcc = gps2xy(Field.centerGPS[currentImage], DFM_Rscu_CircleCenter)
 	 local ixrcc = toXPixel(xrcc, map.Xmin, map.Xrange, windowWidth)
 	 local iyrcc = toYPixel(yrcc, map.Ymin, map.Yrange, windowHeight)
-	 local idrcc = RscuCircleInner
-	 local odrcc = RscuCircleOuter
-	 local ri = Screen.image_width_px * RscuCircleInner / (xmaxImg(currentImage) - xminImg(currentImage))
-	 local ro = Screen.image_width_px * RscuCircleOuter / (xmaxImg(currentImage) - xminImg(currentImage))
+	 local idrcc = DFM_Rscu_CircleInner
+	 local odrcc = DFM_Rscu_CircleOuter
+	 local ri = Screen.image_width_px * DFM_Rscu_CircleInner / (xmaxImg(currentImage) - xminImg(currentImage))
+	 local ro = Screen.image_width_px * DFM_Rscu_CircleOuter / (xmaxImg(currentImage) - xminImg(currentImage))
 	 lcd.drawCircle(ixrcc, iyrcc, ri)
 	 lcd.drawCircle(ixrcc, iyrcc, ro)
       end
@@ -5090,15 +5101,14 @@ local function init()
       print(appInfo.Name .. ": Load new maps for full screen")	 
    end
 
-   --[[
-   if declareGlobal then
-      declareGlobal("MapsAimPoint", {})
-      dumpGlobalVars()
-   end
-   --]]
-   
    print(string.format(appInfo.Name..": using %d x %d px maps",
 		       Screen.image_width_px, Screen.image_height_px))
+   
+   if declareGlobal then
+      print("DFM-Maps setting globals")
+      declareGlobal("DFM_Maps_Field", 0)
+      declareGlobal("DFM_Maps_AimOff", variables.aimoff)
+   end
    
 end
 

@@ -15,9 +15,9 @@
      "decimals":1,
      "type":1,
      "sensorName":"",
-     "label": "XXX",
-     "luaExp":"P1(10)",
-     "unit": "V"
+     "label": "zpAlt",
+     "luaExp":"zp",
+     "unit": "m"
     },
     {"id":139,
      "param":2,

@@ -36,7 +36,7 @@ local iPindex = 1
 local iPMAX = 120
 local ixP = {}
 local iyP = {}
-local inRange = 30 -- meters to target gps point to consider arrived
+local inRange = 20 -- meters to target gps point to consider arrived
 local xmin, xmax, ymin, ymax
 --local origGet
 local manAltSetLastVal
@@ -218,6 +218,7 @@ end
 --local nsHoldVal
 --local nsHoldTime
 --local turnTime
+local gotTriangle
 
 local function loop()
    local now
@@ -228,6 +229,42 @@ local function loop()
    local info
    local SwO, SwC
    local altnow
+   local function ns(i) return (i-1)%3 + 1 end
+   
+   if DFM_Maps_Field ~= 0 and not gotTriangle then
+      print("got a triangle")
+      if not pathIndex then pathIndex = 0 end
+      local pp
+      if pathIndex == 0 then
+	 print("doing the loop")
+	 for i=1,3,1 do
+	    pathIndex = pathIndex + 1
+	    Path.gps[pathIndex] = gps.newPoint(DFM_Maps_Field.triangle.path[i].lat,
+					       DFM_Maps_Field.triangle.path[i].lng)
+	    Path.alt[pathIndex] = 100--RTH.altitude 
+	 end
+	 pp = Path.gps[2]
+	 Path.gps[2] = Path.gps[1]
+	 Path.gps[1] = pp
+	 local ds, dp, bs, bp, ps, pd
+	 local aimoff = 30
+	 local ap = {}
+	 for i = 1,3,1 do
+	    ds = gps.getDistance(Path.gps[i], Path.gps[ns(i+1)])
+	    bs = gps.getBearing(Path.gps[i], Path.gps[ns(i+1)])
+	    ps = gps.getDestination(Path.gps[i], ds/2, bs)
+	    dp = gps.getDistance(ps, Path.gps[ns(i+2)])
+	    bp = gps.getBearing(ps, Path.gps[ns(i+2)])
+	    pd = gps.getDestination(ps, dp + aimoff, bp)
+	    ap[ns(i+2)] = pd
+	 end
+	 for i=1,3,1 do
+	    Path.gps[i] = ap[i]
+	 end
+      end
+      print("Captured the triangle")
+      gotTriangle = true
+   end
    
    now = system.getTimeCounter()
    if not lastSec then lastSec = now end
@@ -1188,8 +1225,8 @@ local function init()
    RTH.zeroPos = nil
 
    RTH.settings.steerCtrl = nil
-   local iRTS = 3
-   RTH.settings.steerCtrl = system.registerControl(iRTS, "Path Steering", "RTS")
+   local iRTS = 8
+   RTH.settings.steerCtrl = system.registerControl(iRTS, "Path Steering", "PTS")
 
    RTH.settings.steer = 0
    RTH.settings.onoff = -1
@@ -1214,8 +1251,8 @@ local function init()
    --]]
    
    RTH.settings.elevCtrl = nil
-   local iRTE = 4
-   RTH.settings.elevCtrl = system.registerControl(iRTE, "Path Elevator", "RTE")
+   local iRTE = 9
+   RTH.settings.elevCtrl = system.registerControl(iRTE, "Path Elevator", "PTE")
    RTH.settings.elev = 0
    
    if RTH.settings.elevCtrl then
@@ -1249,6 +1286,7 @@ local function init()
 
    --if dumpGlobalVars then dumpGlobalVars() end
 
+   --[[
    BDLatA = 41.340133
    BDLngA = -74.430933
    BDLatB = 41.339622
@@ -1268,7 +1306,7 @@ local function init()
    BDA = gps.newPoint(BDLatA, BDLngA)
    BDB = gps.newPoint(BDLatB, BDLngB)
    print(gps.getDistance(BDA, BDB), gps.getBearing(BDA, BDB))
-
+   --]]
 
 end
    
