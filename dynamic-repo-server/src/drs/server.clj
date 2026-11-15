@@ -325,21 +325,28 @@
   (delay
     {"applications"
      [{"author"      "DFM"
-       "description" {"en" "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/emptyRepo.html"}
+       "description" {"en" "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/beta/emptyRepo.html"}
        "files"       [{"destination" "Apps/dummy.lua"
-                       "url" "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/doesnotexist.lua"
+                       "url" "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/beta/doesnotexist.lua"
                        "size" 0
                        "hash" "da39a3ee5e6b4b0d3255bfef95601890afd80709"}]
        "hw"          [678 679 680]
        "id"          0
        "name"        {"en" "DFM-Maps - GPS Maps [expired]"}
-       "previewIcon" "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/master/DFM.png"
+       "previewIcon" "https://raw.githubusercontent.com/davidmcq137/JetiLuaDFM/beta/DFM.png"
        "releaseDate" "Fri 15 Jan 2021 09:01:54 +0000"
        "version"     "1"}]}))
 
+(defn description-html-url
+  "description-html: file name within the base-app dir; defaults to <base-app>.html."
+  [yoururl base-app description-html]
+  (str yoururl "/app/" base-app "/" base-app "/"
+       (or (not-empty description-html) (str base-app ".html"))))
+
 (defn app-json-next!
-  "rename: {original-destination new-destination} for base-app files."
-  [yoururl base-app dynamic-files app-json-overrides rename]
+  "rename: {original-destination new-destination} for base-app files.
+  description-html: optional html file name (in the base-app dir) for the description."
+  [yoururl base-app dynamic-files app-json-overrides rename description-html]
   (let [base "compiled-apps"
         effective-name (fn [n] (get rename n n))
         files (->> dynamic-files
@@ -358,7 +365,7 @@
                            (json/parse-stream))]
     (assoc (merge app-json-data app-json-overrides)
            "files" files
-           "description" {"en" (str yoururl "/app/" base-app "/" base-app "/" base-app ".html" )}
+           "description" {"en" (description-html-url yoururl base-app description-html)}
            "previewIcon" (str yoururl "/common/DFM.png"))))
 
 (defn static-app-json
@@ -403,8 +410,8 @@
         yoururl (no-https yoururl)
         
         apps-json {:applications
-                   (for [{:strs [base-app dynamic-files app-json rename]} apps]
-                     (app-json-next! yoururl base-app dynamic-files app-json rename))}]
+                   (for [{:strs [base-app dynamic-files app-json rename description-html]} apps]
+                     (app-json-next! yoururl base-app dynamic-files app-json rename description-html))}]
     
     (swap! dynamic-repo-cache assoc [:token token]
            (-> apps-json
