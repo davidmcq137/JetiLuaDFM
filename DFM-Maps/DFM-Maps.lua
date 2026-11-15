@@ -955,7 +955,7 @@ end
 local function setColor(type, mode)
    local cc
    if type == "Map" and mode == "Image" and not fieldPNG[currentImage] then
-      cc = colors["Light"]["Map"]
+      cc = colors["Image"]["Map"] -- was "Light" .. Harry's issue .. changed to "Image"
    else
       cc = colors[mode][type]
    end
