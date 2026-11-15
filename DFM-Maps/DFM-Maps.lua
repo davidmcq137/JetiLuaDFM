@@ -966,9 +966,9 @@ end
 local function setField(sname)
 
    Field = Fields[sname]
-   print("setField", sname, DFM_Maps_Field, type(Field))
+   --print("setField", sname, DFM_Maps_Field, type(Field))
    if DFM_Maps_Field then
-      print("setting DFM_Maps_Field")
+      --print("setting DFM_Maps_Field")
       DFM_Maps_Field = Field
    end
    Field.imageWidth = {}
@@ -3995,9 +3995,12 @@ local function mapPrint() --wWid, wHgt)
 	       if variables.ribbonColorSource ~= 1 then
 		  lcd.setColor(rgbHist[hs-1].r, rgbHist[hs-1].g, rgbHist[hs-1].b)
 	       else -- solid/monochrome ribbon
-		  if variables.triEnabled then
-		     print("variables.triEnabled", variables.triEnabled)
-		     print("variables.triColorMode", variables.triColorMode)
+		  --need to fix this and go back to variables.triEnabled .. requires
+		  --properly supporting light and dark backgrounds with blank images
+		  --instead of maps
+		  if false then -- variables.triEnabled then
+		     --print("variables.triEnabled", variables.triEnabled)
+		     --print("variables.triColorMode", variables.triColorMode)
 		     setColor("Map", variables.triColorMode)
 		  else
 		     setColor("Map", "Image")
