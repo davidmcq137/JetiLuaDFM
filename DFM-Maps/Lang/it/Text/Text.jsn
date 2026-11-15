@@ -89,5 +89,6 @@
   "selectAltimeter": "Selez Sensore Alt Barometrico",
   "maxTriAlt": "Quota massima di Gara",
   "TEKVario": "Selez Sensore Variometro TEK",
-  "Thr": "Thr"
+  "Thr": "Thr",
+  "fullRaceWin":"Full screen race window"    
 }

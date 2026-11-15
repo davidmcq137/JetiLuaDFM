@@ -85,5 +85,6 @@
     "selectAltimeter":"Vyber senzor relativní výšky",
     "maxTriAlt":"Maximální výška úlohy",
     "TEKVario":"Vyber senzor TEK Vário",
-    "Thr":"Plyn"
+    "Thr":"Plyn",
+    "fullRaceWin":"Full screen race window"
 }

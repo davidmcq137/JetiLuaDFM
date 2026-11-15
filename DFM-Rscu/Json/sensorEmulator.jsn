@@ -5,7 +5,7 @@
      "decimals": 1,
      "type": 1,
      "sensorName": "Sine",
-     "luaFunc":"return 50*(1 + sin(t/30))",
+     "luaFunc":"return P5(0,300)",
      "label": "Altitude",
      "unit": "m"
     },
@@ -36,6 +36,15 @@
      "luaExp":"-O2(-30,30)",     
      "label": "Pitch",
      "unit": "deg"
+    },
+    {"id":139,
+     "param":4,
+     "decimals":1,
+     "type":1,
+     "sensorName":"",
+     "luaExp":"P6(0,100)",     
+     "label": "GPS Speed",
+     "unit": "m/s"
     },
 
     {"id":3,"param":0,"sensorName":"MGPS", "label":"MGPS"},

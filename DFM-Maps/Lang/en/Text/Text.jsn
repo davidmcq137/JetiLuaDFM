@@ -86,5 +86,6 @@
     "maxTriAlt":"Maximum Race Altitude",
     "TEKVario":"Select TEK Vario Sensor",
     "Thr":"Thr",
-    "noTri":"No Triangles"
+    "noTri":"No Triangles",
+    "fullRaceWin":"Full screen race window"
 }

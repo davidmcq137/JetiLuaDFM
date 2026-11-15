@@ -85,5 +85,6 @@
     "selectAltimeter":"Wähle baro. Höhensensor",
     "maxTriAlt":"max. Wettbewerbshöhe",
     "TEKVario":"Wähle TEK Vario Sensor",
-    "Thr":"Mot."
+    "Thr":"Mot.",
+    "fullRaceWin":"Full screen race window"
 }

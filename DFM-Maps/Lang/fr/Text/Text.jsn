@@ -84,5 +84,6 @@
     "selectVario":"Select Vario Senseur",
     "selectAltimeter":"Select Baro Altimeter Senseur",
     "maxTriAlt":"Altitude Course Maximun",
-    "TEKVario":"Select TEK Vario Senseur"
+    "TEKVario":"Select TEK Vario Senseur",
+    "fullRaceWin":"Full screen race window"
 }

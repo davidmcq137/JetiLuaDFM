@@ -964,33 +964,56 @@ local function setColor(type, mode)
 end
 
 local function setField(sname)
-
+   
    Field = Fields[sname]
    --print("setField", sname, DFM_Maps_Field, type(Field))
    if DFM_Maps_Field then
       --print("setting DFM_Maps_Field")
       DFM_Maps_Field = Field
    end
+   
    Field.imageWidth = {}
    Field.imageHeight = {}
    Field.lat = Field.images[1].center.lat
    Field.lng = Field.images[1].center.lng
+   
    fieldPNG={}
-
+   Field.renderer = {}
+   Field.centerGPS = {}
+   
+   --try to pre-load all map images. hopefully does not crash due to cpu limits on 24-II
+   for i=1, #Field.images, 1 do
+      Field.images[i].mag = string.match(Field.images[i].file, ".*%/(.-)%.png")
+      fieldPNG[i] = lcd.loadImage(Field.images[i].file)
+      print("@@@@ pngLoad doing lcd.loadImage", Field.images[i].file)
+      if not fieldPNG[i] then
+	 print(appInfo.Name .. ": Failed to load image", i, Field.images[currentImage].file)
+      else
+	 if system.getProperty("NativeDraw") == 1 then
+	    Field.renderer[i] = lcd.renderer(fieldPNG[i])
+	 else
+	    Field.renderer[i] = nil
+	 end
+      end
+      Field.lat = Field.images[i].center.lat
+      Field.lng = Field.images[i].center.lng
+      Field.centerGPS[i] = gps.newPoint(Field.lat, Field.lng)
+   end
+   
    for k,v in ipairs(Field.images) do
       Field.imageWidth[k] = math.floor(v.meters_per_pixel * Screen.image_width_px + 0.5)
       Field.imageHeight[k] = math.floor(v.meters_per_pixel * Screen.image_height_px + 0.5)      
    end
-
+   
    ------------------------------------------------------------
    local triT
-
+   
    local tfn = kFilename()
-
+   
    local jsn = io.readall(tfn)
    
    if jsn then triT = json.decode(jsn) end
-
+   
    if triT then
       variables.triOffsetX  = triT.dx or 0
       variables.triOffsetY  = triT.dy or 0
@@ -1008,7 +1031,7 @@ local function setField(sname)
       end
       variables.triRotation = 0
    end
-
+   
    lng0 = Field.lng -- reset to origin to coords in jsn file
    lat0  = Field.lat
    coslat0 = math.cos(math.rad(lat0))
@@ -1022,9 +1045,10 @@ local function setField(sname)
    else
       setColor("Map", "Image")
    end
+   
 end
 
---[[
+   --[[
 local function triReset()
    pylon = {}
 end
@@ -1177,7 +1201,7 @@ local function pngLoad(j, force)
    pfn = Field.images[j].file
    --print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j], pfn)
    if (fieldPNG[j]==nil or force) then
-      --print("@@@@ pngLoad doing lcd.loadImage", pfn)
+      print("@@@@ pngLoad doing lcd.loadImage", pfn)
       fieldPNG[j] = lcd.loadImage(pfn)
       --collectgarbage()
    end
@@ -1186,21 +1210,24 @@ local function pngLoad(j, force)
       return
    else
       Field.images[j].mag = string.match(Field.images[currentImage].file, ".*%/(.-)%.png")
-      --print("image width, height", pfn, fieldPNG[j].width, fieldPNG[j].height)
+      --print("image width, height, mag",
+      --    pfn, fieldPNG[j].width, fieldPNG[j].height, Field.images[j].mag)
    end
    
    -- get here if image file opened successfully
    
    Field.lat = Field.images[j].center.lat
    Field.lng = Field.images[j].center.lng
-   if not Field.centerGPS then Field.centerGPS = {} end
+
+   --if not Field.centerGPS then Field.centerGPS = {} end
    Field.centerGPS[j] = gps.newPoint(Field.lat, Field.lng)
-   if not Field.renderer then Field.renderer = {} end
-   if system.getProperty("NativeDraw") == 1 then
-      Field.renderer[j] = lcd.renderer(fieldPNG[j])
-   else
-      Field.renderer[j] = nil
-   end
+   --if not Field.renderer then Field.renderer = {} end
+   --if system.getProperty("NativeDraw") == 1 then
+   --   Field.renderer[j] = lcd.renderer(fieldPNG[j])
+   --else
+   --   Field.renderer[j] = nil
+   --end
+   
    lat0 = Field.lat
    lng0 = Field.lng
    coslat0 = math.cos(math.rad(lat0))
@@ -1776,6 +1803,8 @@ local function initForm(subform)
       checkBoxAdd(lang.recordIGC, "recordIGC")
       
       form.addLink(clearData, {label = lang.clearAll})
+      
+      checkBoxAdd(lang.fullRaceWin, "fullRaceWin")
       
       form.addLink((function() form.reinit(1) end),
 	 {label = lang.backMain, font=FONT_BOLD})
@@ -3086,6 +3115,7 @@ local savedRx={}
 local savedRy={}
 local circFitCache={}
 
+
 local dirPrintRenderer
 
 local function dirPrint(_, _, kk)
@@ -3659,7 +3689,7 @@ local function recalcDone()
 end
 
 local function graphScale(xx, yy)
-
+   
    if not xx or not yy then return end
    
    if not map.Xmax then
@@ -3686,12 +3716,12 @@ local function graphScale(xx, yy)
       --print("path.ymin:", map.Ymin, xx, yy, Field.name)
       path.ymin = yy
    end
-
+   
    -- if we have an image then scale factor comes from the image
    -- check each image scale .. maxs and mins are precomputed
    -- starting from most zoomed in image (the first one), stop
    -- when the path fits within the window or at max image size
-
+   
    local oldImage = currentImage
    
    if currentImage then
@@ -3702,7 +3732,7 @@ local function graphScale(xx, yy)
       then
 	 currentImage = math.min(currentImage+1, maxImage)
       end
-
+      
       if not fieldPNG[currentImage] or currentImage ~= oldImage then
 	 pngLoad(currentImage)
 	 graphScaleRst(currentImage)
@@ -3711,7 +3741,7 @@ local function graphScale(xx, yy)
       end
    else
       --print("** graphScale else clause **")
-
+      
       -- if no image then just scale to keep the path on the map
       -- round Xrange to nearest 60 m, Yrange to nearest 30 m maintain 2:1 aspect ratio
       -- do we need to do something different on the 24II???
@@ -3735,10 +3765,280 @@ local function graphScale(xx, yy)
    
 end
 
-local panic = false
-
 local mapPrintRenderer
+
+local function renderRibbon(winSize)
+
+   if not Field.pointsToRender then Field.pointsToRender = 0 end
+
+   local windowWidth = Screen.image_width_px - 1
+   local windowHeight = Screen.image_height_px - 1
+
+   if (mapPrintRenderer == nil) then
+      mapPrintRenderer = lcd.renderer()
+   else
+      mapPrintRenderer:reset()
+   end
+   
+   local function gps2xy(gps0, gps1)
+      local curDis = gps.getDistance(gps0, gps1)
+      local curBrg = gps.getBearing(gps0, gps1)
+      local curX = curDis * math.cos(math.rad(curBrg+270)) -- why not same angle X and Y??
+      local curY = curDis * math.sin(math.rad(curBrg+90))
+      curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
+      return curX, curY
+   end
+   
+   local function txp(xxx,i,w)
+      local pix	
+      pix = w*(xxx - xminImg(i)) / (xmaxImg(i) - xminImg(i))
+      return math.floor(pix+0.5)
+   end
+   
+   local function typ(yyy,i,h)
+      local pix
+      pix = h - (h*(yyy - yminImg(i)) / (ymaxImg(i) - yminImg(i)))
+      return math.floor(pix+0.5)
+   end
+   
+   local xth0, yth0--, xth1, yth1
+   local xph, yph
+   
+   --local anydraw = false
+   
+   local hs = #latHist
+
+   print("render", Field.pointsToRender)
+   
+   if Field.pointsToRender > 0 then
+      for _, FR in ipairs(Field.renderer) do
+	 --local renimg = false
+	 
+	 if hs > 1 then
+	    
+	    --xth1, yth1 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs-1], lngHist[hs-1]))
+	    --xp = txp(xth1, cI, windowWidth)
+	    --yp = typ(yth1, cI, windowHeight)
+
+	    renimg = true
+	    --anydraw = true
+	    
+	    --local renlast = false
+	    
+	    
+	    ---[[
+	    if variables.ribbonColorSource ~= 1 then
+	       lcd.setColor(rgbHist[hs-1].r, rgbHist[hs-1].g, rgbHist[hs-1].b)
+	    else -- solid/monochrome ribbon
+	       --need to fix this and go back to variables.triEnabled .. requires
+	       --properly supporting light and dark backgrounds with blank images
+	       --instead of maps
+	       if false == true then -- variables.triEnabled then
+		  --print("variables.triEnabled", variables.triEnabled)
+		  --print("variables.triColorMode", variables.triColorMode)
+		  setColor("Map", variables.triColorMode)
+	       else
+		  setColor("Map", "Image")
+	       end
+	    end
+	    --]]
+	    
+	    if renimg then
+	       FR:renderPolyline(2)
+	       FR:reset()
+	    end
+	 end
+      end
+   end
+
+   --if Field.pointsToRender < Field.ptrLast then
+      --print("=====> Resetting!")
+   --   FR:reset()
+   --   Field.pointsToRender = 0
+   --end
+
+-- check if we wrapped from 100 back to 0 .. if so Field.ptrLast will be 99
+-- leaving a gap rather than connecting
+-- unrelated points
+
+   if winSize == "Full" and Field.ptrLast and Field.ptrLast < 99 then
+      local cI = currentImage
+      xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
+      xph = txp(xth0, cI, windowWidth)
+      yph = typ(yth0, cI, windowHeight)
+      if latitude and longitude then
+	 local xcc, ycc = gps2xy(Field.centerGPS[cI], gps.newPoint(latitude, longitude))
+	 local xpc = txp(xcc, cI, windowWidth)
+	 local ypc = typ(ycc, cI, windowHeight)
+	 if true then --xpc ~= xph or ypc ~= yph then
+	    mapPrintRenderer:reset()
+	    mapPrintRenderer:addPoint(xph, yph)
+	    mapPrintRenderer:addPoint(xpc, ypc)
+	    mapPrintRenderer:renderPolyline(2)
+	 end
+      end
+   end
+   
+
+   Field.pointsToRender = 0
+   
+   
+   --if anydraw then
+   --Field.pointsToRender = Fields.pointsToRender + 1
+   --metrics.xPCountLastDraw = metrics.xPCount
+   --end
+   
+   --metrics.xPCountLast = metrics.xPCount
+   
+   --if variables.triEnabled then
+   --   setColor("Map", variables.triColorMode)
+   --else
+   --   setColor("Map", "Image")
+   --end
+
+end
+
+local function updateRibbon()
+   
+   if not Field.renderer then
+      return
+   end
+   
+   local windowWidth = Screen.image_width_px - 1
+   local windowHeight = Screen.image_height_px - 1
+
+   --if (mapPrintRenderer == nil) then
+   --   mapPrintRenderer = lcd.renderer()
+   --else
+   --   mapPrintRenderer:reset()
+   --end
+   
+   local function gps2xy(gps0, gps1)
+      local curDis = gps.getDistance(gps0, gps1)
+      local curBrg = gps.getBearing(gps0, gps1)
+      local curX = curDis * math.cos(math.rad(curBrg+270)) -- why not same angle X and Y??
+      local curY = curDis * math.sin(math.rad(curBrg+90))
+      curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
+      return curX, curY
+   end
+   
+   local function txp(xxx,i,w)
+      local pix	
+      pix = w*(xxx - xminImg(i)) / (xmaxImg(i) - xminImg(i))
+      return math.floor(pix+0.5)
+   end
+   
+   local function typ(yyy,i,h)
+      local pix
+      pix = h - (h*(yyy - yminImg(i)) / (ymaxImg(i) - yminImg(i)))
+      return math.floor(pix+0.5)
+   end
+   
+   --if system.getProperty("NativeDraw") == 1  and variables.histMax > xOver then
+   if not Field.pointsToRender then Field.pointsToRender = 0 end
+   if not Field.ptrLast then Field.ptrLast = 0 end
+   
+   local ptr = Field.pointsToRender
+   
+   if Field.pointsToRender < 100 then
+      local xth0, yth0, xth1, yth1
+      local xp, yp, xph, yph
+      
+      if not metrics.xPCountLastDraw then metrics.xPCountLastDraw = 0 end
+      
+      if latHist and #latHist > 1 and
+	 metrics.xPCount < metrics.xPCountLast + 2 then --variables.histMax then
+	 
+	 -- if the lat/lng history table overwrote while we were not on screen,
+	 -- skip one iteration to get a current and history point up to date
+	 
+	 local anydraw = false
+	 for cI, FR in ipairs(Field.renderer) do
+	    --local renimg = false
+	    local hs = #latHist
+	    
+	    xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
+	    xph = txp(xth0, cI, windowWidth)
+	    yph = typ(yth0, cI, windowHeight)
+	    
+	    if metrics.xPCount ~= metrics.xPCountLastDraw then
+	       --only need xp and yp if drawing on image, need xph and yph each time
+	       xth1, yth1 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs-1], lngHist[hs-1]))
+	       xp = txp(xth1, cI, windowWidth)
+	       yp = typ(yth1, cI, windowHeight)
+	       print(Field.pointsToRender, Field.ptrLast)
+	       if not Field.pointsToRender or Field.pointsToRender == 0 then
+		  FR:addPoint(xp, yp)
+	       end
+	       FR:addPoint(xph, yph)
+	       --renimg = true
+	       anydraw = true
+	    end
+	    
+	    --local renlast = false
+	    --[[
+	    if latitude and longitude and cI == currentImage then
+	       local xcc, ycc = gps2xy(Field.centerGPS[cI], gps.newPoint(latitude, longitude))
+	       local xpc = txp(xcc, cI, windowWidth)
+	       local ypc = typ(ycc, cI, windowHeight)
+	       if xpc ~= xph or ypc ~= yph then
+		  mapPrintRenderer:reset()
+		  mapPrintRenderer:addPoint(xpc, ypc)
+		  mapPrintRenderer:addPoint(xph, yph)
+		  renlast = true
+	       end
+	    end
+	    --]]
+
+	    --[[
+	    if variables.ribbonColorSource ~= 1 then
+	       lcd.setColor(rgbHist[hs-1].r, rgbHist[hs-1].g, rgbHist[hs-1].b)
+	    else -- solid/monochrome ribbon
+	       --need to fix this and go back to variables.triEnabled .. requires
+	       --properly supporting light and dark backgrounds with blank images
+	       --instead of maps
+	       if false == true then -- variables.triEnabled then
+		  --print("variables.triEnabled", variables.triEnabled)
+		  --print("variables.triColorMode", variables.triColorMode)
+		  setColor("Map", variables.triColorMode)
+	       else
+		  setColor("Map", "Image")
+	       end
+	    end
+	    --]]
+	    
+	    --if renimg then FR:renderPolyline(2) end
+	    --if renlast then mapPrintRenderer:renderPolyline(2) end
+	    
+	 end
+	 if anydraw then
+	    Field.ptrLast = Field.pointsToRender
+	    Field.pointsToRender = Field.pointsToRender + 1
+	    if Field.pointsToRender == 100 and ptr == 99 then
+	       system.messageBox(appInfo.Name..": Flight path pts being dropped")
+	    end
+	    
+	    metrics.xPCountLastDraw = metrics.xPCount
+	 end
+      end
+      metrics.xPCountLast = metrics.xPCount
+   end
+
+   --if variables.triEnabled then
+   --   setColor("Map", variables.triColorMode)
+   --else
+   --   setColor("Map", "Image")
+   --end
+end
+
+local panic = false
 local function mapPrint() --wWid, wHgt)
+   
+   if (mapPrintRenderer == nil) then
+      mapPrintRenderer = lcd.renderer()
+   else
+      mapPrintRenderer:reset()
+   end
 
    local function gps2xy(gps0, gps1)
       local curDis = gps.getDistance(gps0, gps1)
@@ -3751,29 +4051,27 @@ local function mapPrint() --wWid, wHgt)
    
    local windowWidth = Screen.image_width_px - 1 --319
    local windowHeight = Screen.image_height_px - 1 -- 159
-
+   
    local swp
    local offset
-   if (mapPrintRenderer == nil) then
-      mapPrintRenderer = lcd.renderer()
-   else
-      mapPrintRenderer:reset()
-   end
 
+   -- if (mapPrintRenderer == nil) then
+   --    mapPrintRenderer = lcd.renderer()
+   -- else
+   --    mapPrintRenderer:reset()
+   -- end
+   
    --metrics.mapPCount = metrics.mapPCount + 1
-   --[[
-   local deltaC
-   deltaC = metrics.xPCount - metrics.lastxPCount 
-   if  deltaC > 0 then
-      --print("metrics.xPCount, metrics.lastxPCount", metrics.xPCount, metrics.lastxPCount)
-      metrics.lastxPCount = metrics.xPCount
-   end
-   --]]
 
-   if not emFlag then
-      if form.getActiveForm() then
-	 return
-      end
+   -- local deltaC
+   -- deltaC = metrics.xPCount - metrics.lastxPCount 
+   -- if  deltaC > 0 then
+   --    --print("metrics.xPCount, metrics.lastxPCount", metrics.xPCount, metrics.lastxPCount)
+   --    metrics.lastxPCount = metrics.xPCount
+   -- end
+   
+   if not emFlag and form.getActiveForm() then
+      return
    end
    
    if recalcDone() then
@@ -3931,9 +4229,14 @@ local function mapPrint() --wWid, wHgt)
 	 end
       end
 
-      ---[[
+      
+      if system.getProperty("NativeDraw") == 1 and  variables.histMax > xOver then
+	 renderRibbon("Full")
+      end
+      
+      --[[
       local function txp(xxx,i,w)
-	 local pix
+	 local pix	
 	 pix = w*(xxx - xminImg(i)) / (xmaxImg(i) - xminImg(i))
 	 return math.floor(pix+0.5)
       end
@@ -4021,8 +4324,8 @@ local function mapPrint() --wWid, wHgt)
       else
 	 setColor("Map", "Image")
       end
+      --]]
    end
-   --]]
 
    
    if variables.triEnabled then
@@ -4256,6 +4559,24 @@ local function mapPrint() --wWid, wHgt)
       end
    end
    --pfn = Field.images[j].file			     
+end
+
+
+local function mapPrintSmall()
+   --local ww = Screen.image_width_px
+   --local wh = Screen.image_height_px
+
+   if recalcDone() then
+      graphScale(xtable[#xtable], ytable[#ytable])
+   end
+
+   if Field and Field.images and currentImage and currentImage > 0 and
+      Field.images[currentImage].mag  and Field.shortname then
+      mag = Field.images[currentImage].mag
+      lcd.drawText(10,10, string.format(Field.shortname .." Mag: %d", mag))
+   end
+
+   renderRibbon("Small")
 end
 
 local function distDiag()
@@ -4782,6 +5103,11 @@ local function loop()
 	 heading = 0
       end
    end
+
+   if system.getProperty("NativeDraw") == 1  and variables.histMax > xOver then
+      updateRibbon()
+   end
+
 end
 
 --[[
@@ -4834,8 +5160,8 @@ local function keyPressMap(key)
       checkBox.noFlyShakeEnabled = not checkBox.noFlyShakeEnabled
       --state = checkBox.noFlyShakeEnabled and on or off
       --system.messageBox(appInfo.Name..": NoFly Stick Shake"..state)
-   elseif key == KEY_ENTER then
-      pngLoad(currentImage, true)
+   --elseif key == KEY_ENTER then -- t
+      --pngLoad(currentImage, true)
    end
    setMapButtons()
 end
@@ -4968,6 +5294,7 @@ local function init()
    checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", true)   
    checkBox.absModeGPS = jLoad(variables, "absAltGPS", false)
    checkBox.recordIGC = jLoad(variables, "recordIGC", false)
+   checkBox.fullRaceWin = jLoad(variables, "fullRaceWin", false)
    
    shapes.airplaneIcon = shapes[shapes.airplaneIcons[variables.airplaneIcon]]
 
@@ -4983,9 +5310,14 @@ local function init()
    setLanguage()
    
    system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
-   --system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, mapPrint, {"MV1", "MV2", "MV3", "MV4"})
    system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, mapPrint, keyPressMap)
-   system.registerTelemetry(2, appInfo.Name.." "..lang.triView, 4, dirPrint, {"TV1", "TV2", "TV3", "TV4"})
+
+   if checkBox.fullRaceWin then
+      system.registerTelemetry(2, appInfo.Name..""..lang.triView, 4, dirPrint)
+   else
+      system.registerTelemetry(2, appInfo.Name.." ".."Status", 1, mapPrintSmall)
+   end
+   
 
    if system.setTelemetryButton then
       setMapButtons()
