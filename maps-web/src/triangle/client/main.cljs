@@ -1304,20 +1304,22 @@
     :hw [678 679 680 652 653 3857 3858]
     :width 320
     :height 160}
-   {:name "DFM-Maps (Large screen)"
+   {:name "DFM-Maps (DC/DS 24-II)"
     :label "Large screen"
     :version-suffix "-L"
     :hw [3866 3867]
     :width 458
     :height 343
-    :rename {"Apps/DFM-Maps.lua" "Apps/DFM-MapsL.lua"}}])
+    :rename {"Apps/DFM-Maps.lua" "Apps/DFM-MapsL.lua"}
+    :description-html "DFM-MapsL.html"}])
 
-(defn make-app-request [db base-app-json {:keys [name version-suffix hw width height rename]}]
+(defn make-app-request [db base-app-json {:keys [name version-suffix hw width height rename description-html]}]
   (let [fields-json (into {}
                           (for [{:field/keys [short-name] :as field} (qes-by db :field/name)]
                             [short-name (json-data-for-field field)]))]
     {:base-app "DFM-Maps"
      :rename rename
+     :description-html description-html
      :app-json {"hw" hw
                 "name" {"en" name}
                 "version" (str (get base-app-json "version") version-suffix)}
