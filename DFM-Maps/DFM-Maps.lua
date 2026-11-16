@@ -85,15 +85,16 @@ local tekvario=0
 local binomC = {} -- array of binomial coefficients for Bezier
 local lng0, lat0, coslat0
 -- rE is radius of earth in m (WGS84)
-local rE = 6378137
-local rad = 180/math.pi
+local const = {}
+const.rE = 6378137
+const.rad = 180/math.pi
 local relBearing
 local nextPylon=0
 --local arcFile
 local lapAltitude
 local distance
 local x, y
-local xOver = 100
+const.xOver = 100
 
 -- presistent and global variables for loop()
 
@@ -120,7 +121,7 @@ local variables = {}
 
 local xtable = {}
 local ytable = {}
-local MAXTABLE = 5
+const.MAXTABLE = 5
 local map={}
 
 local path={}
@@ -274,7 +275,7 @@ local function IGC(cmd, str)
 	 xx, yy = tri.center.x + variables.triOffsetX, tri.center.y + variables.triOffsetY
       end
       tx, ty = rotateXY(xx, yy, -math.rad(variables.rotationAngle))
-      lt = lat0 + (ty * rad) / (rE)
+      lt = lat0 + (ty * const.rad) / (const.rE)
       return lt
    end
    
@@ -288,7 +289,7 @@ local function IGC(cmd, str)
 	 xx, yy = tri.center.x + variables.triOffsetX, tri.center.y + variables.triOffsetY
       end
       tx, ty = rotateXY(xx, yy, -math.rad(variables.rotationAngle))
-      lg = lng0 + (tx * rad) / (rE * coslat0)
+      lg = lng0 + (tx * const.rad) / (const.rE * coslat0)
       return lg
    end
 
@@ -450,9 +451,11 @@ local function IGC(cmd, str)
    local function IGCb()
       --print("IGCb altitude", altitude)
       IGCw("B".. hms() .. IGClat(latitude) .. IGClng(longitude) ..
-	      "A"   .. string.format("%05d", altimeter) .. string.format("%05d", altitude) ..
-	      "00"  .. string.format("%03d", SpeedGPS) .. "000" ..
-	      "000" .. string.format("%05d", vario) .. string.format("%05d", tekvario)
+	   "A"   .. string.format("%05d", math.floor(altimeter+0.5)) ..
+	   string.format("%05d", math.floor(altitude + 0.5)) ..
+	   "00"  .. string.format("%03d", math.floor(SpeedGPS+0.5)) .. "000" ..
+	   "000" .. string.format("%05d", math.floor(vario+0.5)) ..
+	   string.format("%05d", math.floor(tekvario+0.5))
       )
    end
    
@@ -475,7 +478,7 @@ local function IGC(cmd, str)
       
       local fname
       for i=1, 35, 1 do
-	 fname = yy .. "-" .. dd .. "-" .. mm .. "-XDM-" .. sn .. "-" ..string.format("%02d", i) .. ".igc"
+	 fname = yy .. "-" .. mm .. "-" .. dd .. "-XDM-" .. sn .. "-" ..string.format("%02d", i) .. ".igc"
 	 --print("fname: " .. fname)
 	 local fr = io.open(appInfo.Dir .. "IGC/" .. fname, "r")
 	 --print("fname, fr", fname, fr)
@@ -552,7 +555,7 @@ local function IGC(cmd, str)
    elseif cmd == "Close"   then
       --print("Close - raceParam.IGCFile:", raceParam.IGCFile)
       if raceParam.IGCFile then
-	 IGCw("G" .. crc16final() .. "\r\n")
+	 IGCw("G" .. crc16final())
 	 io.close(raceParam.IGCFile)
       end
       raceParam.IGCFile = nil
@@ -684,6 +687,8 @@ local function destroy()
       --print("Closing IGC")
       IGC("Close")
    end
+   -- hack/special case.. don't save a "too small" histMax
+   if variables.histMaxSet then variables.histMax = variables.histMaxSet end
    if appInfo.SaveData then
       jLoadFinal(jFilename(), variables)
       --[[
@@ -869,8 +874,8 @@ local function ll2xy(lat, lng, lat00, lng00, csl00)
    if not lng00 then ln0 = lng0 else ln0 = lng00 end
    if not csl00 then cl0 = coslat0 else cl0 = csl00 end
    
-   tx, ty = rotateXY(rE*(lng-ln0)*cl0/rad,
-		     rE*(lat-lt0)/rad,
+   tx, ty = rotateXY(const.rE*(lng-ln0)*cl0/const.rad,
+		     const.rE*(lat-lt0)/const.rad,
 		     math.rad(variables.rotationAngle))
    return {x=tx, y=ty}
 end
@@ -952,23 +957,24 @@ local function nfz2XY()
    end
 end
 
-local function setColor(type, mode)
+local function setColor(type, mode, readonly)
    local cc
    if type == "Map" and mode == "Image" and not fieldPNG[currentImage] then
       cc = colors["Image"]["Map"] -- was "Light" .. Harry's issue .. changed to "Image"
    else
       cc = colors[mode][type]
    end
-   --print("setting color", cc.r, cc.g, cc.b)
-   lcd.setColor(cc.r, cc.g, cc.b)
+   if not readonly then
+      lcd.setColor(cc.r, cc.g, cc.b)
+   end
+
+   return cc.r, cc.g, cc.b
 end
 
 local function setField(sname)
    
    Field = Fields[sname]
-   --print("setField", sname, DFM_Maps_Field, type(Field))
    if DFM_Maps_Field then
-      --print("setting DFM_Maps_Field")
       DFM_Maps_Field = Field
    end
    
@@ -982,22 +988,36 @@ local function setField(sname)
    Field.centerGPS = {}
    
    --try to pre-load all map images. hopefully does not crash due to cpu limits on 24-II
+
    for i=1, #Field.images, 1 do
       Field.images[i].mag = string.match(Field.images[i].file, ".*%/(.-)%.png")
-      fieldPNG[i] = lcd.loadImage(Field.images[i].file)
-      print("@@@@ pngLoad doing lcd.loadImage", Field.images[i].file)
+      if variables.triEnabled and variables.triColorMode == "Image" then
+	 fieldPNG[i] = lcd.loadImage(Field.images[i].file)
+      else
+	 if lcd.createImage then
+	    fieldPNG[i] = lcd.createImage(Screen.image_width_px, Screen.image_height_px)
+	 end
+      end
+
       if not fieldPNG[i] then
-	 print(appInfo.Name .. ": Failed to load image", i, Field.images[currentImage].file)
+	 print(appInfo.Name .. ": Failed to load image", i, Field.images[i].file)
       else
 	 if system.getProperty("NativeDraw") == 1 then
 	    Field.renderer[i] = lcd.renderer(fieldPNG[i])
+	    if variables.triEnabled and variables.triColorMode ~= "Image" then
+	       local x=0
+	       Field.renderer[i]:reset()
+	       Field.renderer[i]:addPoint(x,x)
+	       Field.renderer[i]:addPoint(Screen.image_width_px-x,x)	       
+	       Field.renderer[i]:addPoint(Screen.image_width_px-x, Screen.image_height_px-x)
+	       Field.renderer[i]:addPoint(x,Screen.image_height_px-x)
+	       Field.needBackground = true
+	    end
 	 else
 	    Field.renderer[i] = nil
 	 end
       end
-      Field.lat = Field.images[i].center.lat
-      Field.lng = Field.images[i].center.lng
-      Field.centerGPS[i] = gps.newPoint(Field.lat, Field.lng)
+      Field.centerGPS[i] = gps.newPoint(Field.images[i].center.lat, Field.images[i].center.lng)
    end
    
    for k,v in ipairs(Field.images) do
@@ -1166,7 +1186,7 @@ local function annTextChanged(value)
       variables.annText = value
       jSave(variables, "annText", value)
    end
-   form.reinit(7)
+   --form.reinit(7)
 end
 
 local function preTextChanged(value)
@@ -1174,13 +1194,14 @@ local function preTextChanged(value)
       variables.preText = value
       jSave(variables, "preText", value)
    end
-   form.reinit(8)
+   --form.reinit(8)
 end
 
 local function triColorModeChanged(value)
    local t = {"Light", "Dark", "Image"}
    variables.triColorMode = t[value]
    jSave(variables, "triColorMode", t[value])
+   system.messageBox(appInfo.Name..": Restart app for new screen mode")
 end
 
 local function airplaneIconChanged(value)
@@ -1209,7 +1230,7 @@ local function pngLoad(j, force)
       print(appInfo.Name .. ": Failed to load image", j, pfn)
       return
    else
-      Field.images[j].mag = string.match(Field.images[currentImage].file, ".*%/(.-)%.png")
+      Field.images[j].mag = string.match(Field.images[j].file, ".*%/(.-)%.png")
       --print("image width, height, mag",
       --    pfn, fieldPNG[j].width, fieldPNG[j].height, Field.images[j].mag)
    end
@@ -1461,8 +1482,7 @@ local function keyForm(key)
 	       local tfn = kFilename()
 	       --print("Saving", tfn)
 	       local tft = io.open(tfn, "w")
-	       if tft then io.write(tft, json.encode(triT), "\n") end
-	       io.close(tft)
+	       if tft then io.write(tft, json.encode(triT), "\n") io.close(tft) end
 	    end
 	    
 	    if not browse.OriginalFieldName then
@@ -1741,7 +1761,8 @@ local function initForm(subform)
       form.addRow(2)
       form.addLabel({label=lang.histPoints, width=220})
       form.addIntbox(variables.histMax, 0, 600, 300, 0, 10,
-		     (function(z) return variableChanged(z, "histMax") end) )
+		     (function(z) variables.histMaxSet = z return variableChanged(z, "histMax")
+                     end) )
       
       form.addRow(2)
       form.addLabel({label=lang.histDist, width=220})
@@ -1931,8 +1952,8 @@ local function drawShape(col, row, shape, rotation)
    local sinShape, cosShape
    if (drawShapeRenderer == nil) then
       drawShapeRenderer = lcd.renderer()
-   else 
-      drawShapeRenderer:reset()
+   --else 
+   --   drawShapeRenderer:reset()
    end
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
@@ -2023,7 +2044,7 @@ local function binom(n, k)
    if k > n then return nil end  -- error .. let caller die
    if k > n/2 then k = n - k end -- because (n k) = (n n-k) by symmetry
 
-   if (n == MAXTABLE-1) and binomC[k] then return binomC[k] end
+   if (n == const.MAXTABLE-1) and binomC[k] then return binomC[k] end
 
    local numer, denom = 1, 1
 
@@ -2032,7 +2053,7 @@ local function binom(n, k)
       denom = denom * i
    end
 
-   if n == MAXTABLE-1 then
+   if n == const.MAXTABLE-1 then
       binomC[k] = numer / denom
       return binomC[k]
    else
@@ -2079,8 +2100,8 @@ local function drawBezier(windowWidth, windowHeight, yoff)
 
    if (bezierRenderer == nil) then
       bezierRenderer = lcd.renderer()
-   else
-      bezierRenderer:reset()
+   --else
+     -- bezierRenderer:reset()
    end
        
    -- draw Bezier curve points computed in computeBezier()
@@ -2129,8 +2150,8 @@ local function drawTriRace(windowWidth, windowHeight)
 
    if (triRaceRenderer == nil) then
       triRaceRenderer = lcd.renderer()
-   else
-      triRaceRenderer:reset()
+   --else
+    --  triRaceRenderer:reset()
    end
    
    if not variables.triEnabled then return end
@@ -2284,7 +2305,7 @@ local function drawTriRace(windowWidth, windowHeight)
       --print("#", Screen.image_width_px, Screen.legacy_width_px)
       if Screen.image_width_px == Screen.legacy_width_px then xo = 60 end
       lcd.drawText(Screen.image_width_px - xo, Screen.image_height_px - 55,
-		   string.format("Index: %03d", metrics.index), FONT_MINI)
+		   string.format("Index: %03d", math.floor(metrics.index+0.5)), FONT_MINI)
    end
 		
    local ll
@@ -2335,7 +2356,7 @@ local function calcTriRace()
       end
    end
 
-   if altitude > variables.maxTriAlt then
+   if altitude > variables.maxTriAlt and raceParam.racing then
       raceParam.exceedMaxAlt = true
    end
    
@@ -2597,7 +2618,7 @@ local function calcTriRace()
 	    metrics.index = 100 * metrics.lapDist / perim
 	    IGC("Erecord", "TPC")
 	    IGC("Lrecord", "LSTARTSTARTTPC")
-	    IGC("Lrecord", string.format("Index: %d", metrics.index))
+	    IGC("Lrecord", string.format("Index: %d", math.floor(metrics.index+0.5)))
 	 end
       end
       
@@ -2628,8 +2649,8 @@ local function calcTriRace()
 	 raceParam.lapStartTime = system.getTimeCounter()
 	 raceParam.lapsComplete = 0
 	 raceParam.rawScore = 0
-	 raceParam.usedythrottle = false
-	 raceParam.maxTriAlt = false
+	 raceParam.usedThrottle = false
+	 raceParam.exceedMaxAlt = false
 	 metrics.distTrav = 0
 	 metrics.lapDist = nil
 	 metrics.index = nil
@@ -2789,7 +2810,7 @@ local function calcTriRace()
 	    else
 	       system.playBeep(0, 1200, 200)		  
 	    end
-	 elseif sChar == "D" or sChar == "d" and raceParam.racing then
+	 elseif (sChar == "D" or sChar == "d") and raceParam.racing then
 	    if sChar == "D" then
 	       playFile("distance.wav", AUDIO_QUEUE)
 	       playNumber(distance, 0)
@@ -2815,7 +2836,7 @@ local function calcTriRace()
 		  playNumber(perpD, 0)
 	       end
 	    end
-	 elseif sChar == "T" or sChar == "t" and raceParam.racing then
+	 elseif (sChar == "T" or sChar == "t") and raceParam.racing then
 	    if speed ~= 0 then
 	       playFile("time.wav", AUDIO_QUEUE)
 	       playNumber(distance/speed, 1)	  
@@ -3205,28 +3226,28 @@ local function dirPrint(_, _, kk)
    
    local function ll2RX(ih)
       local xrr, yrr
-      xrr, yrr = rE*(lngHist[ih]-lng0)*coslat0/rad, rE*(latHist[ih]-lat0)/rad
+      xrr, yrr = const.rE*(lngHist[ih]-lng0)*coslat0/const.rad, const.rE*(latHist[ih]-lat0)/const.rad
       xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
       return xrr
    end
 
    local function ll2RY(ih)
       local xrr, yrr
-      xrr, yrr = rE*(lngHist[ih]-lng0)*coslat0/rad, rE*(latHist[ih]-lat0)/rad
+      xrr, yrr = const.rE*(lngHist[ih]-lng0)*coslat0/const.rad, const.rE*(latHist[ih]-lat0)/const.rad
       xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
       return yrr
    end   
 
    local function ll2RXr(lat, lng)
       local xrr, yrr
-      xrr, yrr = rE*(lng-lng0)*coslat0/rad, rE*(lat-lat0)/rad
+      xrr, yrr = const.rE*(lng-lng0)*coslat0/const.rad, const.rE*(lat-lat0)/const.rad
       xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
       return xrr
    end
 
    local function ll2RYr(lat,lng)
       local xrr, yrr
-      xrr, yrr = rE*(lng-lng0)*coslat0/rad, rE*(lat-lat0)/rad
+      xrr, yrr = const.rE*(lng-lng0)*coslat0/const.rad, const.rE*(lat-lat0)/const.rad
       xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
       return yrr
    end   
@@ -3234,7 +3255,7 @@ local function dirPrint(_, _, kk)
    local function circFit(k)
       -- tradeoff to use jth point .. closer to real time but noisier when still
       -- very close to current point
-      j=k-1
+      local j=k-1
       --[[
       if true then --latHist[k] == latitude and lngHist[k] == lngHist[k] then
 	 j=k-1
@@ -3442,7 +3463,7 @@ local function dirPrint(_, _, kk)
    -- draw the projected flight path
    -- optimization needed: only call circFit when new hist point available otherwise cache
    
-   local cy, r, A --,xx
+   local cx, cy, r, A --,xx
    local recomp
    local t0, t1, tn
    local dt
@@ -3542,7 +3563,8 @@ local function dirPrint(_, _, kk)
       lcd.drawFilledRectangle(6,Screen.image_height_px - 27,8,8)
       if metrics.index then
 	 setColor("Label", triColorMode)
-	 lcd.drawText(5, Screen.image_height_px -15, string.format("Index: %03d", metrics.index),
+	 lcd.drawText(5, Screen.image_height_px -15,
+		      string.format("Index: %03d", math.floor(metrics.index+0.5)),
 		      FONT_MINI)	 
       end
       
@@ -3637,7 +3659,8 @@ local function checkNoFly(xt, yt, future, warnIn)
    
    if noFlyF ~= noFlyHist.LastF and future then
       if noFlyF then
-	 if not noFly and warn then -- only warn of future nfz if not already in nfz
+	 -- was if not noFly ... Claude suggested change to noFlyHist.Last
+	 if not noFlyHist.Last and warn then -- only warn of future nfz if not already in nfz
 	    playFile("no_fly_ahead.wav", AUDIO_IMMEDIATE)
 	    --system.vibration(false, 3) -- left stick, 2x short pulse
 	 end
@@ -3672,8 +3695,8 @@ local function recalcDone()
 	 recalcCount = 0
 	 return true
       end
-      xPHist[i], yPHist[i] = rotateXY(rE*(lngHist[i]-lng0)*coslat0/rad,
-				      rE*(latHist[i]-lat0)/rad,
+      xPHist[i], yPHist[i] = rotateXY(const.rE*(lngHist[i]-lng0)*coslat0/const.rad,
+				      const.rE*(latHist[i]-lat0)/const.rad,
 				      math.rad(variables.rotationAngle))
       xPHist[i] = toXPixel(xPHist[i], map.Xmin, map.Xrange, Screen.image_width_px-1)
       yPHist[i] = toYPixel(yPHist[i], map.Ymin, map.Yrange, Screen.image_height_px-1)
@@ -3765,6 +3788,27 @@ local function graphScale(xx, yy)
    
 end
 
+local function gps2xy(gps0, gps1)
+   local curDis = gps.getDistance(gps0, gps1)
+   local curBrg = gps.getBearing(gps0, gps1)
+   local curX = curDis * math.cos(math.rad(curBrg+270)) -- why not same angle X and Y??
+   local curY = curDis * math.sin(math.rad(curBrg+90))
+   curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
+   return curX, curY
+end
+
+local function txp(xxx,i,w)
+   local pix	
+   pix = w*(xxx - xminImg(i)) / (xmaxImg(i) - xminImg(i))
+   return math.floor(pix+0.5)
+end
+
+local function typ(yyy,i,h)
+   local pix
+   pix = h - (h*(yyy - yminImg(i)) / (ymaxImg(i) - yminImg(i)))
+   return math.floor(pix+0.5)
+end
+
 local mapPrintRenderer
 
 local function renderRibbon(winSize)
@@ -3780,122 +3824,79 @@ local function renderRibbon(winSize)
       mapPrintRenderer:reset()
    end
    
-   local function gps2xy(gps0, gps1)
-      local curDis = gps.getDistance(gps0, gps1)
-      local curBrg = gps.getBearing(gps0, gps1)
-      local curX = curDis * math.cos(math.rad(curBrg+270)) -- why not same angle X and Y??
-      local curY = curDis * math.sin(math.rad(curBrg+90))
-      curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
-      return curX, curY
+   local function getrgb(c)
+      if not c then return end
+      return (c >> 16) & 0XFF, (c >> 8) & 0XFF, c & 0XFF
    end
-   
-   local function txp(xxx,i,w)
-      local pix	
-      pix = w*(xxx - xminImg(i)) / (xmaxImg(i) - xminImg(i))
-      return math.floor(pix+0.5)
-   end
-   
-   local function typ(yyy,i,h)
-      local pix
-      pix = h - (h*(yyy - yminImg(i)) / (ymaxImg(i) - yminImg(i)))
-      return math.floor(pix+0.5)
-   end
-   
-   local xth0, yth0--, xth1, yth1
-   local xph, yph
-   
-   --local anydraw = false
-   
-   local hs = #latHist
 
-   print("render", Field.pointsToRender)
+   local ll
    
-   if Field.pointsToRender > 0 then
-      for _, FR in ipairs(Field.renderer) do
-	 --local renimg = false
-	 
-	 if hs > 1 then
-	    
-	    --xth1, yth1 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs-1], lngHist[hs-1]))
-	    --xp = txp(xth1, cI, windowWidth)
-	    --yp = typ(yth1, cI, windowHeight)
+   if Field.addPoint and Field.addPoint[1] and #Field.addPoint[1] > 1 and Field.pointsToRender > 0 then 
+      
+      ll = #Field.addPoint[currentImage]
 
-	    renimg = true
-	    --anydraw = true
-	    
-	    --local renlast = false
-	    
-	    
-	    ---[[
-	    if variables.ribbonColorSource ~= 1 then
-	       lcd.setColor(rgbHist[hs-1].r, rgbHist[hs-1].g, rgbHist[hs-1].b)
-	    else -- solid/monochrome ribbon
-	       --need to fix this and go back to variables.triEnabled .. requires
-	       --properly supporting light and dark backgrounds with blank images
-	       --instead of maps
-	       if false == true then -- variables.triEnabled then
-		  --print("variables.triEnabled", variables.triEnabled)
-		  --print("variables.triColorMode", variables.triColorMode)
-		  setColor("Map", variables.triColorMode)
-	       else
-		  setColor("Map", "Image")
+      Field.lastX = nil
+      Field.lastY = nil
+      Field.lastC = nil
+      Field.lastI = nil
+      
+      local curColor = Field.addPoint[1][2].color
+      if curColor then
+	 lcd.setColor(getrgb(curColor))
+      end
+      
+      for cI, FR in ipairs(Field.renderer) do
+	 FR:reset()
+	 for k,v in ipairs(Field.addPoint[cI]) do
+	    FR:addPoint(v.xp, v.yp)
+	    if k > 2 and v.color ~= curColor then
+	       curColor = v.color
+	       if curColor then
+		  lcd.setColor(getrgb(curColor))
 	       end
-	    end
-	    --]]
-	    
-	    if renimg then
 	       FR:renderPolyline(2)
 	       FR:reset()
+	       -- need to repeat point .. last point was old color
+	       -- this point (same x,y) is first point in new color
+	       FR:addPoint(v.xp, v.yp) 
 	    end
 	 end
+	 FR:renderPolyline(2)
       end
+      Field.lastX = Field.addPoint[currentImage][ll].xp
+      Field.lastY = Field.addPoint[currentImage][ll].yp
+      Field.lastC = Field.addPoint[currentImage][ll].color
+      Field.lastI = Field.addPoint[currentImage][ll].image
+      Field.addPoint = {}
+      Field.pointsToRender = 0
    end
 
-   --if Field.pointsToRender < Field.ptrLast then
-      --print("=====> Resetting!")
-   --   FR:reset()
-   --   Field.pointsToRender = 0
-   --end
+   --local hs = #latHist
 
--- check if we wrapped from 100 back to 0 .. if so Field.ptrLast will be 99
--- leaving a gap rather than connecting
--- unrelated points
-
-   if winSize == "Full" and Field.ptrLast and Field.ptrLast < 99 then
+   if variables.ribbonColorSource ~= 1 then
+      if Field.lastC then lcd.setColor(getrgb(Field.lastC)) end
+   else -- solid/monochrome ribbon
+      if variables.triEnabled then
+	 setColor("Map", variables.triColorMode)
+      else
+	 setColor("Map", "Image")
+      end
+   end
+      
+   if winSize == "Full" and Field.lastX and Field.lastY and
+      Field.lastI and Field.lastI == currentImage and Field.ptrLast and
+      Field.ptrLast < 99 then
       local cI = currentImage
-      xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
-      xph = txp(xth0, cI, windowWidth)
-      yph = typ(yth0, cI, windowHeight)
       if latitude and longitude then
 	 local xcc, ycc = gps2xy(Field.centerGPS[cI], gps.newPoint(latitude, longitude))
 	 local xpc = txp(xcc, cI, windowWidth)
 	 local ypc = typ(ycc, cI, windowHeight)
-	 if true then --xpc ~= xph or ypc ~= yph then
-	    mapPrintRenderer:reset()
-	    mapPrintRenderer:addPoint(xph, yph)
-	    mapPrintRenderer:addPoint(xpc, ypc)
-	    mapPrintRenderer:renderPolyline(2)
-	 end
+	 mapPrintRenderer:reset()
+	 mapPrintRenderer:addPoint(Field.lastX, Field.lastY)
+	 mapPrintRenderer:addPoint(xpc, ypc)
+	 mapPrintRenderer:renderPolyline(2)
       end
    end
-   
-
-   Field.pointsToRender = 0
-   
-   
-   --if anydraw then
-   --Field.pointsToRender = Fields.pointsToRender + 1
-   --metrics.xPCountLastDraw = metrics.xPCount
-   --end
-   
-   --metrics.xPCountLast = metrics.xPCount
-   
-   --if variables.triEnabled then
-   --   setColor("Map", variables.triColorMode)
-   --else
-   --   setColor("Map", "Image")
-   --end
-
 end
 
 local function updateRibbon()
@@ -3907,36 +3908,9 @@ local function updateRibbon()
    local windowWidth = Screen.image_width_px - 1
    local windowHeight = Screen.image_height_px - 1
 
-   --if (mapPrintRenderer == nil) then
-   --   mapPrintRenderer = lcd.renderer()
-   --else
-   --   mapPrintRenderer:reset()
-   --end
-   
-   local function gps2xy(gps0, gps1)
-      local curDis = gps.getDistance(gps0, gps1)
-      local curBrg = gps.getBearing(gps0, gps1)
-      local curX = curDis * math.cos(math.rad(curBrg+270)) -- why not same angle X and Y??
-      local curY = curDis * math.sin(math.rad(curBrg+90))
-      curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
-      return curX, curY
-   end
-   
-   local function txp(xxx,i,w)
-      local pix	
-      pix = w*(xxx - xminImg(i)) / (xmaxImg(i) - xminImg(i))
-      return math.floor(pix+0.5)
-   end
-   
-   local function typ(yyy,i,h)
-      local pix
-      pix = h - (h*(yyy - yminImg(i)) / (ymaxImg(i) - yminImg(i)))
-      return math.floor(pix+0.5)
-   end
-   
-   --if system.getProperty("NativeDraw") == 1  and variables.histMax > xOver then
    if not Field.pointsToRender then Field.pointsToRender = 0 end
    if not Field.ptrLast then Field.ptrLast = 0 end
+   if not Field.addPoint then Field.addPoint = {} end
    
    local ptr = Field.pointsToRender
    
@@ -3951,84 +3925,65 @@ local function updateRibbon()
 	 
 	 -- if the lat/lng history table overwrote while we were not on screen,
 	 -- skip one iteration to get a current and history point up to date
+
+	 -- need to fix this and go back to variables.triEnabled .. requires
+	 -- properly supporting light and dark backgrounds with blank images
+	 -- instead of maps for the renderer
 	 
 	 local anydraw = false
-	 for cI, FR in ipairs(Field.renderer) do
-	    --local renimg = false
-	    local hs = #latHist
-	    
-	    xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
-	    xph = txp(xth0, cI, windowWidth)
-	    yph = typ(yth0, cI, windowHeight)
-	    
+	 local r, g, b
+	 local color
+	 local hs = #latHist
+
+	 if hs > 1 then
+	    if variables.ribbonColorSource ~= 1 then
+	       r = rgbHist[hs-1].r
+	       g = rgbHist[hs-1].g
+	       b = rgbHist[hs-1].b
+	    else -- solid/monochrome ribbon
+	       if variables.triEnabled then
+		  r,g,b = setColor("Map", variables.triColorMode, true)
+	       else
+		  r,g,b = setColor("Map", "Image", true)
+	       end
+	    end
+	 end
+	 
+	 -- Pack rgb into one word to make rendering color changes easier
+	 color = ((r & 0XFF) << 16) | ((g & 0XFF) << 8) | (b & 0XFF) 
+	 
+	 for cI, _ in ipairs(Field.renderer) do
 	    if metrics.xPCount ~= metrics.xPCountLastDraw then
-	       --only need xp and yp if drawing on image, need xph and yph each time
+	       xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
+	       xph = txp(xth0, cI, windowWidth)
+	       yph = typ(yth0, cI, windowHeight)
 	       xth1, yth1 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs-1], lngHist[hs-1]))
 	       xp = txp(xth1, cI, windowWidth)
 	       yp = typ(yth1, cI, windowHeight)
-	       print(Field.pointsToRender, Field.ptrLast)
-	       if not Field.pointsToRender or Field.pointsToRender == 0 then
-		  FR:addPoint(xp, yp)
+	       if not Field.addPoint[cI] then Field.addPoint[cI] = {} end
+	       -- Don't need color or image # for point 1
+	       if Field.pointsToRender == 0 then
+		  Field.addPoint[cI] = {}
+		  Field.addPoint[cI][#Field.addPoint[cI] + 1] = {xp=xp, yp=yp} 
 	       end
-	       FR:addPoint(xph, yph)
-	       --renimg = true
+	       Field.addPoint[cI][#Field.addPoint[cI] + 1] =
+		  {xp=xph, yp=yph, color=color, image=cI}
 	       anydraw = true
 	    end
-	    
-	    --local renlast = false
-	    --[[
-	    if latitude and longitude and cI == currentImage then
-	       local xcc, ycc = gps2xy(Field.centerGPS[cI], gps.newPoint(latitude, longitude))
-	       local xpc = txp(xcc, cI, windowWidth)
-	       local ypc = typ(ycc, cI, windowHeight)
-	       if xpc ~= xph or ypc ~= yph then
-		  mapPrintRenderer:reset()
-		  mapPrintRenderer:addPoint(xpc, ypc)
-		  mapPrintRenderer:addPoint(xph, yph)
-		  renlast = true
-	       end
-	    end
-	    --]]
-
-	    --[[
-	    if variables.ribbonColorSource ~= 1 then
-	       lcd.setColor(rgbHist[hs-1].r, rgbHist[hs-1].g, rgbHist[hs-1].b)
-	    else -- solid/monochrome ribbon
-	       --need to fix this and go back to variables.triEnabled .. requires
-	       --properly supporting light and dark backgrounds with blank images
-	       --instead of maps
-	       if false == true then -- variables.triEnabled then
-		  --print("variables.triEnabled", variables.triEnabled)
-		  --print("variables.triColorMode", variables.triColorMode)
-		  setColor("Map", variables.triColorMode)
-	       else
-		  setColor("Map", "Image")
-	       end
-	    end
-	    --]]
-	    
-	    --if renimg then FR:renderPolyline(2) end
-	    --if renlast then mapPrintRenderer:renderPolyline(2) end
-	    
 	 end
+
 	 if anydraw then
 	    Field.ptrLast = Field.pointsToRender
 	    Field.pointsToRender = Field.pointsToRender + 1
 	    if Field.pointsToRender == 100 and ptr == 99 then
 	       system.messageBox(appInfo.Name..": Flight path pts being dropped")
+	       print(appInfo.Name..": Flight path pts being dropped")
 	    end
-	    
 	    metrics.xPCountLastDraw = metrics.xPCount
 	 end
       end
       metrics.xPCountLast = metrics.xPCount
    end
-
-   --if variables.triEnabled then
-   --   setColor("Map", variables.triColorMode)
-   --else
-   --   setColor("Map", "Image")
-   --end
 end
 
 local panic = false
@@ -4039,37 +3994,13 @@ local function mapPrint() --wWid, wHgt)
    else
       mapPrintRenderer:reset()
    end
-
-   local function gps2xy(gps0, gps1)
-      local curDis = gps.getDistance(gps0, gps1)
-      local curBrg = gps.getBearing(gps0, gps1)
-      local curX = curDis * math.cos(math.rad(curBrg+270)) -- why not same angle X and Y??
-      local curY = curDis * math.sin(math.rad(curBrg+90))
-      curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
-      return curX, curY
-   end
-   
    local windowWidth = Screen.image_width_px - 1 --319
    local windowHeight = Screen.image_height_px - 1 -- 159
+   local spnd = system.getProperty("NativeDraw")
    
    local swp
    local offset
 
-   -- if (mapPrintRenderer == nil) then
-   --    mapPrintRenderer = lcd.renderer()
-   -- else
-   --    mapPrintRenderer:reset()
-   -- end
-   
-   --metrics.mapPCount = metrics.mapPCount + 1
-
-   -- local deltaC
-   -- deltaC = metrics.xPCount - metrics.lastxPCount 
-   -- if  deltaC > 0 then
-   --    --print("metrics.xPCount, metrics.lastxPCount", metrics.xPCount, metrics.lastxPCount)
-   --    metrics.lastxPCount = metrics.xPCount
-   -- end
-   
    if not emFlag and form.getActiveForm() then
       return
    end
@@ -4081,7 +4012,6 @@ local function mapPrint() --wWid, wHgt)
    if newTransmitter and (Screen.image_width_px == Screen.legacy_width_px) then
       lcd.setClipping(0,0,windowWidth+1,windowHeight+1) -- needed for 24-II in compat mode
    end
-   
    
    --[[
       -- started to separate no GPS from no map .. user sugggestion to show icon in motion or timer
@@ -4114,9 +4044,21 @@ local function mapPrint() --wWid, wHgt)
    --]]
 
    if fieldPNG[currentImage] then
+
       if variables.triEnabled and (variables.triColorMode ~= "Image") then
-	 setColor("Background", variables.triColorMode)
-	 lcd.drawFilledRectangle(0,0,Screen.image_width_px,Screen.image_height_px)
+	 if ( (variables.histMax <= const.xOver) or (spnd ~= 1) )  then 
+	    setColor("Background", variables.triColorMode)
+	    lcd.drawFilledRectangle(0,0,Screen.image_width_px,Screen.image_height_px)
+	 else
+	    if Field.needBackground then
+	       for _, FR in ipairs(Field.renderer) do
+		  setColor("Background", variables.triColorMode)
+		  FR:renderPolygon()
+	       end
+	       Field.needBackground = false
+	    end
+	    lcd.drawImage(0,0,fieldPNG[currentImage])
+	 end
       else
 	 if fieldPNG[currentImage] then
 	    lcd.drawImage(0,0,fieldPNG[currentImage])
@@ -4137,11 +4079,6 @@ local function mapPrint() --wWid, wHgt)
    else
       setColor("Map", "Image")
    end
-
-   -- draw circle at 0,0 (for debugging)
-   -- lcd.drawCircle(toXPixel(0, map.Xmin, map.Xrange, windowWidth),
-   -- 		  toYPixel(0, map.Ymin, map.Yrange, windowHeight),
-   -- 		  4)
 
    lcd.drawText(20-lcd.getTextWidth(FONT_MINI, "N") / 2,
 		12 - lcd.getTextHeight(FONT_MINI, "N") / 2,
@@ -4191,9 +4128,8 @@ local function mapPrint() --wWid, wHgt)
 
       local kk
 
-      local spnd = system.getProperty("NativeDraw")
 
-      if not spnd or (spnd == 0)  or ((spnd == 1) and (variables.histMax <= xOver)) then
+      if not spnd or (spnd == 0)  or ((spnd == 1) and (variables.histMax <= const.xOver)) then
 	 -- only paint as many points as have been re-calculated if we are redoing the pixels
 	 -- because of a recent zoom change
 	 for i=2 + offset, (recalcPixels and recalcCount or #xPHist) do
@@ -4230,103 +4166,10 @@ local function mapPrint() --wWid, wHgt)
       end
 
       
-      if system.getProperty("NativeDraw") == 1 and  variables.histMax > xOver then
+      if system.getProperty("NativeDraw") == 1 and  variables.histMax > const.xOver then
 	 renderRibbon("Full")
       end
-      
-      --[[
-      local function txp(xxx,i,w)
-	 local pix	
-	 pix = w*(xxx - xminImg(i)) / (xmaxImg(i) - xminImg(i))
-	 return math.floor(pix+0.5)
-      end
-
-      local function typ(yyy,i,h)
-	 local pix
-	 pix = h - (h*(yyy - yminImg(i)) / (ymaxImg(i) - yminImg(i)))
-	 return math.floor(pix+0.5)
-      end
-
-
-      if system.getProperty("NativeDraw") == 1  and variables.histMax > xOver then
-	 
-	 local xth0, yth0, xth1, yth1
-	 local xp, yp, xph, yph
-
-	 if not metrics.xPCountLastDraw then metrics.xPCountLastDraw = 0 end
-	 
-	 if latHist and #latHist > 1 and
-	    metrics.xPCount < metrics.xPCountLast + 2 then --variables.histMax then
-
-	    -- if the lat/lng history table overwrote while we were not on screen,
-	    -- skip one iteration to get a current and history point up to date
-
-	    local anydraw = false
-	    for cI, FR in ipairs(Field.renderer) do
-	       local renimg = false
-	       local hs = #latHist
-	       
-	       xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
-	       xph = txp(xth0, cI, windowWidth)
-	       yph = typ(yth0, cI, windowHeight)
-	       
-	       if metrics.xPCount ~= metrics.xPCountLastDraw then
-		  --only need xp and yp if drawing on image, need xph and yph each time
-		  xth1, yth1 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs-1], lngHist[hs-1]))
-		  xp = txp(xth1, cI, windowWidth)
-		  yp = typ(yth1, cI, windowHeight)
-		  FR:reset()
-		  FR:addPoint(xp, yp)
-		  FR:addPoint(xph, yph)
-		  renimg = true
-		  anydraw = true
-	       end
-	    	       
-	       local renlast = false
-	       if latitude and longitude and cI == currentImage then
-		  local xcc, ycc = gps2xy(Field.centerGPS[cI], gps.newPoint(latitude, longitude))
-		  local xpc = txp(xcc, cI, windowWidth)
-		  local ypc = typ(ycc, cI, windowHeight)
-		  if xpc ~= xph or ypc ~= yph then
-		     mapPrintRenderer:reset()
-		     mapPrintRenderer:addPoint(xpc, ypc)
-		     mapPrintRenderer:addPoint(xph, yph)
-		     renlast = true
-		  end
-	       end
-	       
-	       if variables.ribbonColorSource ~= 1 then
-		  lcd.setColor(rgbHist[hs-1].r, rgbHist[hs-1].g, rgbHist[hs-1].b)
-	       else -- solid/monochrome ribbon
-		  --need to fix this and go back to variables.triEnabled .. requires
-		  --properly supporting light and dark backgrounds with blank images
-		  --instead of maps
-		  if false then -- variables.triEnabled then
-		     --print("variables.triEnabled", variables.triEnabled)
-		     --print("variables.triColorMode", variables.triColorMode)
-		     setColor("Map", variables.triColorMode)
-		  else
-		     setColor("Map", "Image")
-		  end
-	       end
-	       
-	       if renimg then FR:renderPolyline(2) end
-	       if renlast then mapPrintRenderer:renderPolyline(2) end
-	       
-	    end
-	    if anydraw then metrics.xPCountLastDraw = metrics.xPCount end
-	 end
-	 metrics.xPCountLast = metrics.xPCount
-      end
-      
-      if variables.triEnabled then
-	 setColor("Map", variables.triColorMode)
-      else
-	 setColor("Map", "Image")
-      end
-      --]]
    end
-
    
    if variables.triEnabled then
       setColor("Runway", variables.triColorMode)
@@ -4524,7 +4367,7 @@ local function mapPrint() --wWid, wHgt)
    if metrics.currMaxCPU > metrics.maxTeleCPU then metrics.maxTeleCPU = metrics.currMaxCPU end
 
    if newTransmitter and Screen.image_width_px ~= Screen.legacy_width_px then
-      setColor("Map", "Image")
+      setColor("Label", variables.triColorMode)
       lcd.drawText(5,Screen.image_height_px - 25,
 		   string.format("CPU: %3d%% Max: %3d%%", metrics.currMaxCPU, metrics.maxTeleCPU),
 		   FONT_MINI)
@@ -4572,8 +4415,8 @@ local function mapPrintSmall()
 
    if Field and Field.images and currentImage and currentImage > 0 and
       Field.images[currentImage].mag  and Field.shortname then
-      mag = Field.images[currentImage].mag
-      lcd.drawText(10,10, string.format(Field.shortname .." Mag: %d", mag))
+      local mag = Field.images[currentImage].mag
+      lcd.drawText(10,10, string.format("%s Mag: %s", Field.shortname, mag))
    end
 
    renderRibbon("Small")
@@ -4594,7 +4437,7 @@ end
 local function distHome()
    local xy0, xy1
    local lat00, lng00, coslatM
-
+   local latM, lngM
    -- compute x,y coords from the center of the most zoomed in image (Fields.images[1])
    -- the compute distance from that point in the frame of the least zoomed in (largest) image
    
@@ -4642,10 +4485,10 @@ local function loop()
       calcTriRace()
    end
 
-   if metrics.loopCount & 63 == 1 then -- about every 1.5 secs
-      metrics.memory = collectgarbage("count")
-      collectgarbage()
-   end
+   --if metrics.loopCount & 63 == 1 then -- about every 1.5 secs
+   --   metrics.memory = collectgarbage("count")
+   --   collectgarbage()
+   --end
    
    metrics.loopTime = system.getTimeCounter() - metrics.lastLoopTime
    metrics.lastLoopTime = system.getTimeCounter()
@@ -4891,8 +4734,8 @@ local function loop()
    local curX = curDist * math.cos(math.rad(curBear+270)) -- why not same angle X and Y??
    local curY = curDist * math.sin(math.rad(curBear+90))
 
-   x = rE * (longitude - lng0) * coslat0 / rad
-   y = rE * (latitude - lat0) / rad
+   x = const.rE * (longitude - lng0) * coslat0 / const.rad
+   y = const.rE * (latitude - lat0) / const.rad
 
 
    --print(x-curX, y-curY)
@@ -5034,7 +4877,7 @@ local function loop()
 	 lastHistTime = system.getTimeCounter()
       end
 
-   if #xtable+1 > MAXTABLE then
+   if #xtable+1 > const.MAXTABLE then
       table.remove(xtable, 1)
       table.remove(ytable, 1)
       --print("deltax,y:", xtable[#xtable] - x, ytable[#ytable] - y)
@@ -5091,7 +4934,7 @@ local function loop()
    end
 
    if variables.histMax == 0 then
-      computeBezier(MAXTABLE+3)
+      computeBezier(const.MAXTABLE+3)
    end
    
    if hasCourseGPS and courseGPS then
@@ -5104,7 +4947,7 @@ local function loop()
       end
    end
 
-   if system.getProperty("NativeDraw") == 1  and variables.histMax > xOver then
+   if system.getProperty("NativeDraw") == 1  and variables.histMax > const.xOver then
       updateRibbon()
    end
 
@@ -5225,21 +5068,12 @@ local function init()
    dotImage.green = lcd.loadImage(appInfo.Dir.."/JSON/small_green_circle.png")   
    dotImage.red = lcd.loadImage(appInfo.Dir.."/JSON/small_red_circle.png")
 
-   --setColorMain()  -- if a map is present it will change color scheme later
-   if variables.triEnabled then
-      setColor("Map", variables.triColorMode)
-   else
-      setColor("Map", "Image")
-   end
-   
-   graphInit(currentImage)  -- ok that currentImage is not yet defined
-
-   
    variables = jLoadInit(jFilename())
    
    variables.rotationAngle     = jLoad(variables, "rotationAngle",   0)
    variables.histSample        = jLoad(variables, "histSample",   1000)
    variables.histMax           = jLoad(variables, "histMax",         0)
+   variables.histMaxSet        = jLoad(variables, "histMaxSet", variables.histMax)
    variables.maxCPU            = jLoad(variables, "maxCPU",         80)
    variables.maxSpeed          = jLoad(variables, "maxSpeed",      100)
    variables.maxAlt            = jLoad(variables, "maxAlt",        200)
@@ -5276,7 +5110,7 @@ local function init()
    variables.airplaneIcon      = jLoad(variables, "airplaneIcon", 1)
    variables.triHistMax        = jLoad(variables, "triHistMax", 20)
    variables.triViewScale      = jLoad(variables, "triViewScale", 300)
-   variables.triHeightFactor   = jLoad(variables, "triHeightScale", 100)
+   variables.triHeightScale    = jLoad(variables, "triHeightScale", 100)
    variables.lastMatchField    = jLoad(variables, "lastMatchField", "")
    variables.maxTriAlt         = jLoad(variables, "maxTriAlt", 500)
 
@@ -5292,7 +5126,7 @@ local function init()
    checkBox.noflyEnabled = jLoad(variables, "noflyEnabled", true)
    checkBox.noFlyWarningEnabled = jLoad(variables, "noFlyWarningEnabled", true)   
    checkBox.noFlyShakeEnabled = jLoad(variables, "noFlyShakeEnabled", true)   
-   checkBox.absModeGPS = jLoad(variables, "absAltGPS", false)
+   checkBox.absAltGPS = jLoad(variables, "absAltGPS", false)
    checkBox.recordIGC = jLoad(variables, "recordIGC", false)
    checkBox.fullRaceWin = jLoad(variables, "fullRaceWin", false)
    
@@ -5313,11 +5147,19 @@ local function init()
    system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, mapPrint, keyPressMap)
 
    if checkBox.fullRaceWin then
-      system.registerTelemetry(2, appInfo.Name..""..lang.triView, 4, dirPrint)
+      system.registerTelemetry(2, appInfo.Name.." "..lang.triView, 4, dirPrint)
    else
       system.registerTelemetry(2, appInfo.Name.." ".."Status", 1, mapPrintSmall)
    end
    
+   --setColorMain()  -- if a map is present it will change color scheme later
+   if variables.triEnabled then
+      setColor("Map", variables.triColorMode)
+   else
+      setColor("Map", "Image")
+   end
+   
+   graphInit(currentImage)  -- ok that currentImage is not yet defined
 
    if system.setTelemetryButton then
       setMapButtons()
@@ -5359,12 +5201,12 @@ local function init()
    local fpC = io.readall(fn)
 
    if fpC then -- Config.jsn file with screen info exists
-      Screen = json.decode(fpC)
-      if not Screen.image_height_px then
-	 print(appInfo.name .. ": Did not decode config json")
+      Screen = json.decode(fpC) or {}
+      if not Screen or not Screen.image_height_px then
+	 print(appInfo.Name .. ": Did not decode config json")
       end
    else
-      print(appInfo.name..": Cannot open "..fn)
+      print(appInfo.Name..": Cannot open "..fn)
    end
 
    Screen.legacy_width_px = 320

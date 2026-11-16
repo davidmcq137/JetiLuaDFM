@@ -1996,11 +1996,12 @@ local function init()
    local device
    device, emflag = system.getDeviceType() 
    
-   system.registerTelemetry(1, "DFM-Rscu Status", 0, printTeleStatus)
+   system.registerTelemetry(2, "DFM-Rscu Status", 0, printTeleStatus)
 
    if config.fullScreenTele ~= 0 then
-      system.registerTelemetry(2, "DFM-Rscu Map", 4, printTeleGPS, keyPressGPS)
+      system.registerTelemetry(1, "DFM-Rscu Map", 4, printTeleGPS, keyPressGPS)
       if system.setTelemetryButton then
+	 print(appName..": Setting tele buttons")
 	 buttonSet = 1
 	 for b=1,5,1 do
 	    system.setTelemetryButton(1, b, buttonText[buttonSet][b], 1)
