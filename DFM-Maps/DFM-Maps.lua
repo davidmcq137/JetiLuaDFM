@@ -89,6 +89,7 @@ local const = {}
 const.rE = 6378137
 const.rad = 180/math.pi
 const.ribbonPts = 20
+const.imageWait = 1
 const.xOver = 100
 local relBearing
 local nextPylon=0
@@ -972,6 +973,34 @@ local function setColor(type, mode, readonly)
    return cc.r, cc.g, cc.b
 end
 
+local function readField(F, i)
+
+   --reads images (if needed) and creates renderers if on 24-II
+
+   if fieldPNG[i] then return end
+   
+   if not fieldPNG[i] and variables.triEnabled and
+      variables.triColorMode ~= "Image" and lcd.createImage then
+      fieldPNG[i] = lcd.createImage(Screen.image_width_px, Screen.image_height_px)
+   else
+      fieldPNG[i] = lcd.loadImage(F.images[i].file)
+   end
+   
+   if not fieldPNG[i] then
+      print(appInfo.Name .. ": Failed to load image", i, F.images[i].file)
+   else
+      if system.getProperty("NativeDraw") == 1 then
+	 if not F.renderer[i] then F.renderer[i] = lcd.renderer(fieldPNG[i]) end
+	 if variables.triEnabled and variables.triColorMode ~= "Image" then
+	    F.needBackground = F.needBackground or {}
+	    F.needBackground[i] = true
+	 end
+      else
+	 F.renderer[i] = nil
+      end
+   end
+end
+
 local function setField(sname)
    
    Field = Fields[sname]
@@ -988,37 +1017,26 @@ local function setField(sname)
    Field.renderer = {}
    Field.centerGPS = {}
    
-   --try to pre-load all map images. hopefully does not crash due to cpu limits on 24-II
-
-   for i=1, #Field.images, 1 do
-
+   local maxPreload = 1
+   maxPreload = math.min(maxPreload, #Field.images)
+   
+   Field.addPoint = {}
+   for i=1, maxPreload, 1 do
+      readField(Field, i)
+   end
+   for i in ipairs(Field.images) do
       Field.images[i].mag = string.match(Field.images[i].file, ".*%/(.-)%.png")
-
-      if variables.triEnabled and variables.triColorMode ~= "Image" and lcd.createImage then
-	 fieldPNG[i] = lcd.createImage(Screen.image_width_px, Screen.image_height_px)
-      else
-	 fieldPNG[i] = lcd.loadImage(Field.images[i].file)
-      end
-
-      if not fieldPNG[i] then
-	 print(appInfo.Name .. ": Failed to load image", i, Field.images[i].file)
-      else
-	 if system.getProperty("NativeDraw") == 1 then
-	    Field.renderer[i] = lcd.renderer(fieldPNG[i])
-	    if variables.triEnabled and variables.triColorMode ~= "Image" then
-	       Field.needBackground = true
-	    end
-	 else
-	    Field.renderer[i] = nil
-	 end
-      end
       Field.centerGPS[i] = gps.newPoint(Field.images[i].center.lat, Field.images[i].center.lng)
+      Field.addPoint[i] = {}
    end
    
    for k,v in ipairs(Field.images) do
       Field.imageWidth[k] = math.floor(v.meters_per_pixel * Screen.image_width_px + 0.5)
       Field.imageHeight[k] = math.floor(v.meters_per_pixel * Screen.image_height_px + 0.5)      
    end
+
+   Field.imagesToRead = #Field.images - maxPreload
+   Field.imagesReadTime = system.getTimeCounter() + const.imageWait * 1000
    
    ------------------------------------------------------------
    local triT
@@ -1069,44 +1087,49 @@ local function triReset()
 end
 --]]
 
+local function pngLoad(j, readonly)
 
-local function pngLoad(j, force)
-   local pfn
+
+   --print("calling pngLoad", j)
+   --local pfn
 
    if not Field or not Field.images then
       print(appInfo.Name .. " pngLoad - Field or Field.images not defined")
       return
    end
-   
+
+   readField(Field, j)
+
+   --[[
    pfn = Field.images[j].file
-   --print("************************DFM-Maps: j, fieldPNG[j]", j, fieldPNG[j], pfn)
-   if (fieldPNG[j]==nil or force) then
+   if fieldPNG[j]==nil then
       print("@@@@ pngLoad doing lcd.loadImage", pfn)
       fieldPNG[j] = lcd.loadImage(pfn)
-      --collectgarbage()
    end
    if not fieldPNG[j] then
       print(appInfo.Name .. ": Failed to load image", j, pfn)
       return
-   else
-      Field.images[j].mag = string.match(Field.images[j].file, ".*%/(.-)%.png")
-      --print("image width, height, mag",
-      --    pfn, fieldPNG[j].width, fieldPNG[j].height, Field.images[j].mag)
    end
    
    -- get here if image file opened successfully
+
+   if not Field.renderer then Field.renderer = {} end
+   if system.getProperty("NativeDraw") == 1 then
+      Field.renderer[j] = lcd.renderer(fieldPNG[j])
+   else
+      Field.renderer[j] = nil
+   end
+   --]]
    
+   Field.images[j].mag = string.match(Field.images[j].file, ".*%/(.-)%.png")
+
+   if readonly then return end
+      
    Field.lat = Field.images[j].center.lat
    Field.lng = Field.images[j].center.lng
 
-   --if not Field.centerGPS then Field.centerGPS = {} end
+   if not Field.centerGPS then Field.centerGPS = {} end
    Field.centerGPS[j] = gps.newPoint(Field.lat, Field.lng)
-   --if not Field.renderer then Field.renderer = {} end
-   --if system.getProperty("NativeDraw") == 1 then
-   --   Field.renderer[j] = lcd.renderer(fieldPNG[j])
-   --else
-   --   Field.renderer[j] = nil
-   --end
    
    lat0 = Field.lat
    lng0 = Field.lng
@@ -3834,43 +3857,51 @@ function ribbon.prepare()
       return (c >> 16) & 0XFF, (c >> 8) & 0XFF, c & 0XFF
    end
 
-   local ll
+   --local ll
 
-      
+   if not Field.addPoint then Field.addPoint = {}  end
+
    if Field.addPoint and Field.addPoint[1] and #Field.addPoint[1] > 1 and Field.pointsToRender > 0 then 
       
       local ci = currentImage or 1
-      ll = #Field.addPoint[ci]
-
+      --print("ci", ci, #Field.addPoint)
+      
       Field.lastX = nil
       Field.lastY = nil
       Field.lastC = nil
       Field.lastI = nil
       
       -- Claude rewrote the loop below to this:
-      local lastseq
+      --local lastseq
 
-      for cI, FR in ipairs(Field.renderer) do
+      --print("prepare, #Field.renderer", #Field.renderer)
+      --for cI, FR in ipairs(Field.renderer) do
+      for cI = 1, #Field.images do
+	 local FR = Field.renderer[cI]
 	 local pts = Field.addPoint[cI]
-	 local curColor = pts[2] and pts[2].color
-	 if curColor then lcd.setColor(getrgb(curColor)) end
-	 FR:reset()
-	 for k,v in ipairs(pts) do
-	    if k > 2 and v.color ~= curColor then
-	       FR:addPoint(v.xp, v.yp) -- close old string
-	       FR:renderPolyline(2) -- draw in old color
-	       FR:reset()
-	       FR:addPoint(v.xp, v.yp)
-	       curColor = v.color
-	       lcd.setColor(getrgb(curColor))
-	    else
-	       FR:addPoint(v.xp, v.yp)
+	 if FR and pts then
+	    local curColor = pts[2] and pts[2].color
+	    if curColor then lcd.setColor(getrgb(curColor)) end
+	    FR:reset()
+	    for k,v in ipairs(pts) do
+	       if k > 2 and v.color ~= curColor then
+		  FR:addPoint(v.xp, v.yp) -- close old string
+		  FR:renderPolyline(2) -- draw in old color
+		  FR:reset()
+		  FR:addPoint(v.xp, v.yp)
+		  curColor = v.color
+		  lcd.setColor(getrgb(curColor))
+	       else
+		  FR:addPoint(v.xp, v.yp)
+	       end
 	    end
+	    FR:renderPolyline(2)
 	 end
-	 FR:renderPolyline(2)
       end
-      local last = Field.addPoint[ci][ll]
-      Field.lastX, Field.lastY, Field.lastC, Field.lastI = last.xp, last.yp, last.color, last.image
+      local last = Field.addPoint[ci] and Field.addPoint[ci][#Field.addPoint[ci]]
+      if last then
+	 Field.lastX, Field.lastY, Field.lastC, Field.lastI = last.xp, last.yp, last.color, last.image
+      end
       Field.addPoint = {}
       Field.pointsToRender = 0
    end
@@ -3961,22 +3992,26 @@ local function updateRibbon()
 	    end
 	    -- Pack rgb into one word to make rendering color changes easier
 	    local color = ((r & 0XFF) << 16) | ((g & 0XFF) << 8) | (b & 0XFF) 
-	    for cI, _ in ipairs(Field.renderer) do
-	       xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
-	       xph = txp(xth0, cI, windowWidth)
-	       yph = typ(yth0, cI, windowHeight)
-	       xth1, yth1 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs-1], lngHist[hs-1]))
-	       xp = txp(xth1, cI, windowWidth)
-	       yp = typ(yth1, cI, windowHeight)
-	       if not Field.addPoint[cI] then Field.addPoint[cI] = {} end
-	       -- Don't need color or image # for point 1
-	       if Field.pointsToRender == 0 then
-		  Field.addPoint[cI] = {}
-		  Field.addPoint[cI][#Field.addPoint[cI] + 1] = {xp=xp, yp=yp} 
+	    for cI = 1, #Field.images do
+	       --for cI, _ in ipairs(Field.renderer) do
+	       local FR = Field.renderer[cI]
+	       if FR then
+		  xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
+		  xph = txp(xth0, cI, windowWidth)
+		  yph = typ(yth0, cI, windowHeight)
+		  xth1, yth1 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs-1], lngHist[hs-1]))
+		  xp = txp(xth1, cI, windowWidth)
+		  yp = typ(yth1, cI, windowHeight)
+		  if not Field.addPoint[cI] then Field.addPoint[cI] = {} end
+		  -- Don't need color or image # for point 1
+		  if Field.pointsToRender == 0 then
+		     Field.addPoint[cI] = {}
+		     Field.addPoint[cI][#Field.addPoint[cI] + 1] = {xp=xp, yp=yp} 
+		  end
+		  Field.addPoint[cI][#Field.addPoint[cI] + 1] =
+		     {xp=xph, yp=yph, color=color, image=cI, seq=metrics.xPCount}
+		  anydraw = true
 	       end
-	       Field.addPoint[cI][#Field.addPoint[cI] + 1] =
-		  {xp=xph, yp=yph, color=color, image=cI, seq=metrics.xPCount}
-	       anydraw = true
 	    end
 	 end
 	 
@@ -4052,7 +4087,8 @@ local function mapPrint() --wWid, wHgt)
    --]]
 
    if system.getProperty("NativeDraw") == 1 and  variables.histMax > const.xOver then
-      ribbon.prepare("Full")
+      --print("call r.p")
+      ribbon.prepare()
    end
    
    if fieldPNG[currentImage] then
@@ -4062,15 +4098,19 @@ local function mapPrint() --wWid, wHgt)
 	    lcd.drawFilledRectangle(0,0,Screen.image_width_px,Screen.image_height_px)
 	 else
 	    if Field.needBackground then
-	       for _, FR in ipairs(Field.renderer) do
-		  local w, h = Screen.image_width_px, Screen.image_height_px
-		  setColor("Background", variables.triColorMode)
-		  FR:reset()
-		  FR:addPoint(0,0); FR:addPoint(w,0); FR:addPoint(w,h); FR:addPoint(0,h)
-		  FR:renderPolygon()
-		  FR:reset()
+	       --for _, FR in ipairs(Field.renderer) do
+	       local w, h = Screen.image_width_px, Screen.image_height_px
+	       setColor("Background", variables.triColorMode)
+	       for i, need in pairs(Field.needBackground) do
+		  local FR = Field.renderer[i]
+		  if need and FR then
+		     FR:reset()
+		     FR:addPoint(0,0); FR:addPoint(w,0); FR:addPoint(w,h); FR:addPoint(0,h)
+		     FR:renderPolygon()
+		     FR:reset()
+		  end
 	       end
-	       Field.needBackground = false
+	       Field.needBackground = nil
 	    end
 	    lcd.drawImage(0,0,fieldPNG[currentImage])
 	 end
@@ -4118,7 +4158,6 @@ local function mapPrint() --wWid, wHgt)
       swp = system.getInputsVal(switchItems.point)
    end
 
-   --print("@@@ switchItems.point, swp, #xPHist", switchItems.point, swp, #xPHist)
    if ( (not switchItems.point) or (swp and swp == 1) ) and (#xPHist > 0) then
 
       --check if we need to panic .. xPHist got too big while we were off screen
@@ -4960,9 +4999,18 @@ local function loop()
    end
 
    if system.getProperty("NativeDraw") == 1  and variables.histMax > const.xOver then
+      local now = system.getTimeCounter()
+      if Field.imagesToRead > 0 and now > Field.imagesReadTime then
+	 local im = #Field.images - Field.imagesToRead + 1
+	 if im <= #Field.images then
+	    print("Lazy loader calling pngLoad image", im)
+	    pngLoad(im, true)
+	    Field.imagesToRead = Field.imagesToRead - 1
+	    Field.imagesReadTime = now + const.imageWait * 1000
+	 end
+      end
       updateRibbon()
    end
-
 end
 
 --[[
@@ -5282,6 +5330,10 @@ local function init()
       declareGlobal("DFM_Maps_Field", 0)
       declareGlobal("DFM_Maps_AimOff", variables.aimoff)
    end
+
+   local p7i = math.floor((system.getInputs("P7") + 1) * 5)
+   print("Image load delay "..(p7i + 1).." s")
+   const.imageWait = p7i
    
 end
 

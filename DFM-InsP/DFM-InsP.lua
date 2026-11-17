@@ -49,6 +49,7 @@
    Version 0.88 09/27/23 - Add lua f(x) ext for Kingtech, Projet
    Version 0.89 10/27/23 - more f(x) extensions
    Version 0.90 11/03/26 - support for larger screen on 24-II devices
+   Version 0.90 11/17/26 - more changes for bugs and reliability from Claude code review
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -316,6 +317,18 @@ local function convertDispUnits(widget, sensor)
    return sensorVal
 end
 
+local function getSensorValue(SeId, SePa)
+   if not SeId or not SePa or SeId == 0 then return nil end
+   local s
+   if system.getSensorValueByID then
+      s = system.getSensorValueByID(SeId, SePa)
+   else
+      s = system.getSensorByID(SeId, SePa)
+   end
+   if s and s.valid then return s.value end
+   return nil
+end
+
 local function getSensorByID(SeId, SePa)
    if not SeId or not SePa then return nil end
    --print("SeId, SePa", SeId, SePa)
@@ -580,13 +593,13 @@ local function setToPanel(iisp)
       fn = pDir .. "/"..InsP.settings.panels[isp]..".json"
       print("DFM-InsP: <setToPanel> reading " .. fn)
       local file = io.readall(fn)
-      local decode = json.decode(file)
-      if decode.panel then
+      local decode = file and json.decode(file)
+      if decode and decode.panel then
 	 InsP.panels[isp] = decode.panel
 	 InsP.panelImages[isp].timestamp = decode.timestamp
-	 print("DFM-InsP: New json format " .. decode.timestamp)	 
+	 print("DFM-InsP: New json format " .. tostring(decode.timestamp))
       else
-	 InsP.panels[isp] = decode
+	 InsP.panels[isp] = decode or {}
 	 print("DFM-InsP: Old json format - no timestamp")	 
       end
    end
@@ -743,8 +756,8 @@ local function setVariables()
 	 --InsP.variables[i].value = lua.env[name]
 	 local id = InsP.sensorIdlist[var.sensor]
 	 local pa = InsP.sensorPalist[var.sensor]
-	 local sensor = getSensorByID(id, pa)
-	 if sensor and sensor.value then InsP.variables[i].value = sensor.value end
+	 local v = getSensorValue(id, pa)
+	 if v then InsP.variables[i].value = v end
       elseif InsP.variables[i].source == "Lua" then
 	 InsP.variables[i].value = evaluateLua("E", InsP.variables[i].luastring[1])
 	 if type(InsP.variables[i].value) ~= "number" then
@@ -1454,13 +1467,13 @@ local function panelChanged(val, sp)
       --print("panelChanged reading fn sp pv", fn, sp, pv)
       local file = io.readall(fn)
 
-      decodedfile =  json.decode(file)
-      if decodedfile.panel then
+      decodedfile =  file and json.decode(file)
+      if decodedfile and decodedfile.panel then
 	 InsP.panels[sp] = decodedfile.panel
 	 InsP.panelImages[sp].timestamp = decodedfile.timestamp
-	 print("DFM-InsP: new json format " .. decodedfile.timestamp)
+	 print("DFM-InsP: new json format " .. tostring(decodedfile.timestamp))
       else
-	 InsP.panels[sp] = decodedfile
+	 InsP.panels[sp] = decodedfile or {}
 	 print("DFM-InsP: old json format - no timestamp")
       end
       InsP.panelImages[sp].instImage = pv
@@ -2770,7 +2783,7 @@ local function loop()
       lua.txTelLastUpdate = system.getTimeCounter()
    end
    
-   local sens, SeId, SePa
+   local v, SeId, SePa
 
    -- throttle the update rate of tele sensors by moving the upper loop index up and
    -- down to determine how many updates are done per Hollywood call
@@ -2788,10 +2801,9 @@ local function loop()
       if lua.index <= #InsP.sensorLalist then
 	 SeId = InsP.sensorIdlist[lua.index]
 	 SePa = InsP.sensorPalist[lua.index]
-	 sens = getSensorByID(SeId, SePa)
-	 if sens and sens.valid then
-	    --print("InsP.sensorLalist[lua.index]", InsP.sensorLalist[lua.index], sens.value)
-	    lua.env[InsP.sensorLalist[lua.index]] = sens.value
+	 v = getSensorValue(SeId, SePa)
+	 if v then
+	    lua.env[InsP.sensorLalist[lua.index]] = v
 	 end
       else
 	 lua.index = 1
@@ -2808,9 +2820,8 @@ local foo
 
 local function printForm(_,_,tWin) --ww0,hh0,tWin)
 
-   local ctl, ctlmin, ctlmax
+   local ctl
    local rot, rotmin, rotmax
-   local factor
    local sensor
 
    local ip, pv, bv
@@ -3054,6 +3065,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
       
       ctl = nil
       rot = nil
+      rotmin, rotmax = nil, nil
       local minarc = -0.75 * math.pi
       local maxarc =  0.75 * math.pi
 
@@ -3068,22 +3080,29 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 
       if sensorVal then
 	 if widget.min and widget.max then
+	    if widget.min == widget.max then widget.max = widget.min + 1 end -- should not happen!
 	    ctl = math.min(math.max((sensorVal - widget.min) / (widget.max - widget.min), 0), 1)
 	    rot = minarc * (1-ctl) + maxarc * (ctl)
 	    --print(ctl, math.deg(rot))
 	 end
 	 if widget.min and widget.max and widget.minval then
-	    ctlmin = math.min(math.max((widget.minval - widget.min) / (widget.max - widget.min), 0), 1)
+	    local ctlmin = math.min(math.max((widget.minval - widget.min) /
+				       (widget.max - widget.min), 0), 1)
 	    rotmin = minarc * (1-ctlmin) + maxarc * (ctlmin) end
 	 if widget.min and widget.max and widget.maxval then
-	    ctlmax = math.min(math.max((widget.maxval - widget.min) / (widget.max - widget.min), 0), 1)
+	    local ctlmax = math.min(math.max((widget.maxval - widget.min) /
+				       (widget.max - widget.min), 0), 1)
 	    rotmax = minarc * (1-ctlmax) + maxarc * (ctlmax)
 	 end
       end
 
 
       if widget.type == "roundNeedleGauge" or widget.type == "roundArcGauge" or
-      widget.type == "virtualGauge" then
+	 widget.type == "virtualGauge" then
+
+	 local gro = widget.ro or 0.87 * (widget.radius or 58)
+	 local gf  = 0.90 * gro / 58
+	 local gx, gy = widget.xPL or widget.x0, widget.yPL or widget.y0
 
 	 if sensorVal and widget.maxWarn and widget.minWarn then
 	    local hiwarn = false
@@ -3101,8 +3120,8 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       ren:reset()
 	       for th = 0, 2 * math.pi, 2 * math.pi / 20 do
 		  ren:addPoint(
-		     widget.x0 + 0.85 * widget.gaugeRadius * math.sin(th),
-		     widget.y0 + 0.85 * widget.gaugeRadius * math.cos(th)
+		     gx + 0.85 * (widget.gaugeRadius or widget.radius) * math.sin(th),
+		     gy + 0.85 * (widget.gaugeRadius or widget.radius) * math.cos(th)
 		  ) 
 	       end
 	       if hiwarn then
@@ -3118,12 +3137,10 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 
 	 local val
 
-	 --if true then -- ctl then
-	 --factor = 0.90 * (widget.radius - 8) / 58
 	 if widget.type == "roundNeedleGauge" or widget.type == "roundArcGauge" then
 	    local ro = widget.ro or 0.87 * widget.radius
 	    local ri = widget.ri or 0.85 * widget.radius
-	    factor = 0.90 * ro / 58
+	    local factor = 0.90 * ro / 58
 	    if widget.type ~= "roundArcGauge" then
 	       if not widget.TS then widget.TS = ri - 1.8 * (ro - ri) end
 	       --local rt = widget.TS
@@ -3221,32 +3238,48 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       end
 	    end
 	 elseif widget.type == "virtualGauge" then
-
+	    ---- Claude wrote this to cache needle shape-----------------
+	    ---- and guard against rot and factor being un-initialized
 	    if not widget.xPL then
-	       widget.xPL = widget.x0
-	       widget.yPL = widget.y0
+	       widget.xPL, widget.yPL = widget.x0, widget.y0
 	    end
-
-	    if widget.needle then
-	       local shp = {}
-	       for ii,v in ipairs(widget.needle) do
-		  shp[ii] = {v.x, v.y}
-	       end
-	       drawShape(widget.xPL, widget.yPL, shp, factor, rot + math.pi)
+	    local vro = widget.ro or 0.87 * (widget.radius or 58)
+	    local vf = 0.90 * vro / 58                   -- its own scale, not the last gauge's
+	    if widget.needle and rot then
+	       drawShapeXY(widget.xPL, widget.yPL, widget.needle, vf, rot + math.pi)
 	    end
+	    ------------------------------------------------------------
 	 end
 
+	 --[[
+	 if not widget.xPL then
+	    widget.xPL = widget.x0
+	    widget.yPL = widget.y0
+	 end
+	 
+	 if widget.needle then
+	    local shp = {}
+	    for ii,v in ipairs(widget.needle) do
+	       shp[ii] = {v.x, v.y}
+	    end
+	    drawShape(widget.xPL, widget.yPL, shp, factor, rot + math.pi)
+	 end
+	 --]]
+
 	 lcd.setColor(255,255,255)
+
+
 	 if rotmin and widget.showMM == "true" then
 	    --print("rotmin")
-	    drawShape(widget.x0, widget.y0, rectangle, factor, rotmin + math.pi, 0,
-		      widget.ro+10, 255,255,255)
+	    --defend against widget.ro being nil
+	    drawShape(gx, gy, rectangle, gf, rotmin + math.pi, 0,
+		      gro+10, 255,255,255)
 	 end
 	 
 	 if rotmax and widget.showMM == "true" then
 	    --print("rotmax")
-	    drawShape(widget.x0, widget.y0, rectangle, factor, rotmax + math.pi, 0,
-		      widget.ro+10, 255,255,255)
+	    drawShape(gx, gy, rectangle, gf, rotmax + math.pi, 0,
+		      gro+10, 255,255,255)
 	 end
 	 lcd.setColor(255,255,255)
 
@@ -3439,7 +3472,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	    if widget.subdivs > 0 and (ii - 1) % widget.subdivs == 0 then
 	       lcd.drawFilledRectangle(px - xc - 1, py - yc, 2, ph)
 	    end
-	    if ii == #widget.rects and ii % widget.subdivs == 0 then
+	    if widget.subdivs > 0 and ii == #widget.rects and ii % widget.subdivs == 0 then
 	       lcd.drawFilledRectangle(widget.x0 + widget.barW//2 - xc - 2, p.y - yc, 2, ph)
 	    end
 	 end
@@ -3519,7 +3552,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       --print("#", ii,  p.y - yc, ph, widget.divs, ph / widget.divs)
 	       lcd.drawFilledRectangle(px - xc, py - yc + p.h, pw, 2)
 	    end
-	    if ii == #widget.rects and ii % widget.subdivs == 0 then
+	    if widget.subdivs > 0 and ii == #widget.rects and ii % widget.subdivs == 0 then
 	       --print("#", ii,  p.y - yc, ph / widget.divs)
 	       --lcd.setColor(255,0,0)
 	       lcd.drawFilledRectangle(px - xc, p.y - yc + 1, pw, 2)
@@ -3950,7 +3983,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	    end
 	 end
 
-	 local step = widget.step;
+	 local step = widget.step or 1;
 	 local delta = val % step;
 	 local xp, yp, yv 
 	 local nums = widget.numbers; -- # of numbers shown in tape
@@ -4677,10 +4710,10 @@ end
 
 local function luaLogCB(idx)
    --setVariables() -- now called from loop()
-   ret, dp = 0, 2
+   local ret, dp = 0, 2
    for _,v in ipairs(InsP.variables) do
       if idx and v.logID and v.logID == idx then
-	 ret = v.value
+	 ret = v.value or 0
 	 break
       end
    end

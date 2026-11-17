@@ -2154,7 +2154,7 @@ local function init()
       declareGlobal("DFM_Rscu_CircleCenter", 0)
       declareGlobal("DFM_Rscu_CircleInner", RTH.settings.circleMin)
       declareGlobal("DFM_Rscu_CircleOuter", RTH.settings.circleMin * CMULT)
-      dumpGlobalVars()
+      --dumpGlobalVars()
    end
 
    
