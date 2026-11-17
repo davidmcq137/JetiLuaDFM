@@ -1730,12 +1730,12 @@ local function printTeleStatusP(w,h)
 		font)
 
    local rb = math.floor(RTH.gpsBearingTo - math.deg(fieldRotation) + 0.5)
-   rb = rb + 0 -- kill -0
-   if rb == 0 then
+   rb = (rb + 360) % 360
+   if rb == 0 or rb == 180 then
       lcd.setColor(0,0,0)
-   elseif rb > 0 then
+   elseif rb > 0 and rb < 180 then
       lcd.setColor(34,139,34)
-   elseif rb < 0 then
+   elseif rb > 180 and rb < 360 then
       lcd.setColor(255,0,0)
    end
 

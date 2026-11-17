@@ -88,13 +88,14 @@ local lng0, lat0, coslat0
 local const = {}
 const.rE = 6378137
 const.rad = 180/math.pi
+const.ribbonPts = 20
+const.xOver = 100
 local relBearing
 local nextPylon=0
 --local arcFile
 local lapAltitude
 local distance
 local x, y
-const.xOver = 100
 
 -- presistent and global variables for loop()
 
@@ -990,13 +991,13 @@ local function setField(sname)
    --try to pre-load all map images. hopefully does not crash due to cpu limits on 24-II
 
    for i=1, #Field.images, 1 do
+
       Field.images[i].mag = string.match(Field.images[i].file, ".*%/(.-)%.png")
-      if variables.triEnabled and variables.triColorMode == "Image" then
-	 fieldPNG[i] = lcd.loadImage(Field.images[i].file)
+
+      if variables.triEnabled and variables.triColorMode ~= "Image" and lcd.createImage then
+	 fieldPNG[i] = lcd.createImage(Screen.image_width_px, Screen.image_height_px)
       else
-	 if lcd.createImage then
-	    fieldPNG[i] = lcd.createImage(Screen.image_width_px, Screen.image_height_px)
-	 end
+	 fieldPNG[i] = lcd.loadImage(Field.images[i].file)
       end
 
       if not fieldPNG[i] then
@@ -1005,12 +1006,6 @@ local function setField(sname)
 	 if system.getProperty("NativeDraw") == 1 then
 	    Field.renderer[i] = lcd.renderer(fieldPNG[i])
 	    if variables.triEnabled and variables.triColorMode ~= "Image" then
-	       local x=0
-	       Field.renderer[i]:reset()
-	       Field.renderer[i]:addPoint(x,x)
-	       Field.renderer[i]:addPoint(Screen.image_width_px-x,x)	       
-	       Field.renderer[i]:addPoint(Screen.image_width_px-x, Screen.image_height_px-x)
-	       Field.renderer[i]:addPoint(x,Screen.image_height_px-x)
 	       Field.needBackground = true
 	    end
 	 else
@@ -1074,142 +1069,6 @@ local function triReset()
 end
 --]]
 
-local function sensorChanged(value, str, isGPS)
-
-   telem[str].Se = value
-
-   if isGPS then
-      telem[str].SeId = GPSsensorIdlist[telem[str].Se]
-      telem[str].SePa = GPSsensorPalist[telem[str].Se]
-   else
-      telem[str].SeId = sensorIdlist[telem[str].Se]
-      telem[str].SePa = sensorPalist[telem[str].Se]
-   end
-   
-   if (telem[str].SeId == "...") then
-      telem[str].SeId = 0
-      telem[str].SePa = 0 
-   end
-
-   jSave(variables, "telem_"..str.."_Se", value)
-   jSave(variables, "telem_"..str.."_SeId", string.format("%0X", telem[str].SeId))
-   jSave(variables, "telem_"..str.."_SePa", telem[str].SePa)
-   
-end
-
-local function variableChanged(value, var, fcn)
-   variables[var] = value
-   jSave(variables, var, value)
-   if fcn then fcn() end
-end
-
-local function validAnn(val, str)
-   if string.find(str, val) then
-      system.messageBox("Invalid Character(s)")
-      return false
-   else
-      return true
-   end
-end
-
-local function checkBoxClicked(value, box)
-   checkBox[box] = not value
-   jSave(variables, box, not value)
-   form.setValue(checkBoxIndex[box], checkBox[box])
-end
-
-local function switchNameChanged(value, name, swname)
-
-   if name and shapes.switchNames[value] == "..." then
-      jSave(variables, swname.."SwitchName", value)
-      jSave(variables, swname.."SwitchDir", value)
-      switchItems[swname] = nil
-      checkBox[swname.."Switch"] = false
-      return
-   end
-
-   if name then
-      jSave(variables, swname .. "SwitchName", value)
-   else
-      jSave(variables, swname .. "SwitchDir", value)
-   end
-	 
-   switchItems[swname] = createSw(shapes.switchNames[variables[swname .. "SwitchName"]],
-		     variables[swname .."SwitchDir"])
-   checkBox[swname .."Switch"] = system.getInputsVal(switchItems[swname]) == 1
-end
---[[
-local function triLengthChanged(value)
-   variables.triLength = value
-   jSave(variables, "triLength", value)
-   pylon = {}
-end
---]]
-local function raceTimeChanged(value)
-   variables.raceTime = value
-   jSave(variables, "raceTime", value)
-end
-
-local function maxSpeedChanged(value)
-   variables.maxSpeed = value
-   jSave(variables, "maxSpeed", value)
-end
-
-local function maxAltChanged(value)
-   variables.maxAlt = value
-   jSave(variables, "maxAlt", value)
-end
---[[
-local function aimoffChanged(value)
-   variables.aimoff = value
-   jSave(variables, "aimoff", value)
-   pylon={}
-end
---]]
-local function flightStartAltChanged(value)
-   variables.flightStartAlt = value
-   jSave(variables, "flightStartAlt", value)
-end
-
-local function flightStartSpdChanged(value)
-   variables.flightStartSpd = value
-   jSave(variables, "flightStartSpd", value)
-end
-
-local function elevChanged(value)
-   variables.elev = value
-   jSave(variables, "elev", value)
-end
-
-local function annTextChanged(value)
-   if validAnn("[^cCdDpPtTaAsS%-]", value) then
-      variables.annText = value
-      jSave(variables, "annText", value)
-   end
-   --form.reinit(7)
-end
-
-local function preTextChanged(value)
-   if validAnn("[^aAsS%-]", value) then
-      variables.preText = value
-      jSave(variables, "preText", value)
-   end
-   --form.reinit(8)
-end
-
-local function triColorModeChanged(value)
-   local t = {"Light", "Dark", "Image"}
-   variables.triColorMode = t[value]
-   jSave(variables, "triColorMode", t[value])
-   system.messageBox(appInfo.Name..": Restart app for new screen mode")
-end
-
-local function airplaneIconChanged(value)
-   variables.airplaneIcon = value
-   --print("value, airplaneIcons[value]:", value, shapes.airplaneIcons[value])
-   shapes.airplaneIcon = shapes[shapes.airplaneIcons[value]]
-   jSave(variables, "airplaneIcon", value)
-end
 
 local function pngLoad(j, force)
    local pfn
@@ -1460,11 +1319,15 @@ local function keyForm(key)
    end
    if key == KEY_1 or key == KEY_5 or key == KEY_ESC then
       --print("1/5/E", key, savedSubform)
-      if savedSubform == 9 or savedSubform == 10 then
+      if savedSubform == 8 then
 	 form.preventDefault()
-	 if savedSubform == 10 then
-	    browse.MapDisplayed = false
-	 end
+	 form.reinit(1)
+      elseif savedSubform == 9 then
+	 form.preventDefault()
+	 form.reinit(1)
+      elseif savedSubform == 10 then
+	 form.preventDefault()
+	 browse.MapDisplayed = false
 	 if key == KEY_1 then
 	    --print("reinit 9")
 	    form.reinit(7)
@@ -1516,58 +1379,199 @@ local function keyForm(key)
    --print("$$$$$$$$$$ keyForm returning", key)
 end
 
-local function browseFieldClicked(i)
-   browse.Idx = i
-   browse.FieldName = browse.List[i]
-end
-
-local function clearData()
-   if form.question("Clear all data?",
-		    "Press Yes to clear, timeout is No",
-		    "Restart App after pressing Yes",
-		    6000, false, 0) == 1 then
-      io.remove(jFilename())
-      io.remove(kFilename())
-      appInfo.SaveData = false
-   end
-end
-
-local function checkBoxAdd(lab, box)
-   
-   form.addRow(2)
-   form.addLabel({label=lab, width=270})
-   if not checkBox[box] then checkBox[box] = variables[box] end
-   checkBoxIndex[box] =
-      form.addCheckbox(checkBox[box],
-		       (function(z) return checkBoxClicked(z, box) end) )
-end
-
-local function selectFieldClicked(value)
-   lat0 = Fields[browse.List[value]].images[1].center.lat
-   lng0 = Fields[browse.List[value]].images[1].center.lng
-   coslat0 = math.cos(math.rad(lat0))
-   gotInitPos = true
-   variables.lastMatchField = Fields[browse.List[value]].shortname
-   initField(Fields[browse.List[value]].shortname)
-end
-
-local function switchAdd(lbl, swname, sf)
-   form.addRow(5)
-   form.addLabel({label=lbl, width=80})
-   form.addSelectbox(shapes.switchNames, variables[swname .. "SwitchName"], true,
-		     (function(z) return switchNameChanged(z, true, swname) end),
-		     {width=60})
-   form.addLabel({label=lang.UpMidDown, width=94})
-   form.addSelectbox({lang.UpL,lang.MidL,lang.DnL}, variables[swname .. "SwitchDir"], true,
-      (function(z) return switchNameChanged(z, false, swname) end), {width=50})
-   checkBoxIndex[swname .."Switch"] = form.addCheckbox(checkBox[swname.."Switch"],
-						       nil, {width=15})
-   checkBoxSubform[swname] = sf
-end
-
 -- Draw the main form (Application inteface)
 
 local function initForm(subform)
+
+   local function sensorChanged(value, str, isGPS)
+
+      telem[str].Se = value
+
+      if isGPS then
+	 telem[str].SeId = GPSsensorIdlist[telem[str].Se]
+	 telem[str].SePa = GPSsensorPalist[telem[str].Se]
+      else
+	 telem[str].SeId = sensorIdlist[telem[str].Se]
+	 telem[str].SePa = sensorPalist[telem[str].Se]
+      end
+      
+      if (telem[str].SeId == "...") then
+	 telem[str].SeId = 0
+	 telem[str].SePa = 0 
+      end
+
+      jSave(variables, "telem_"..str.."_Se", value)
+      jSave(variables, "telem_"..str.."_SeId", string.format("%0X", telem[str].SeId))
+      jSave(variables, "telem_"..str.."_SePa", telem[str].SePa)
+      
+   end
+
+   local function variableChanged(value, var, fcn)
+      variables[var] = value
+      jSave(variables, var, value)
+      if fcn then fcn() end
+   end
+
+   local function validAnn(val, str)
+      if string.find(str, val) then
+	 system.messageBox("Invalid Character(s)")
+	 return false
+      else
+	 return true
+      end
+   end
+
+   local function checkBoxClicked(value, box)
+      checkBox[box] = not value
+      jSave(variables, box, not value)
+      form.setValue(checkBoxIndex[box], checkBox[box])
+   end
+
+   local function switchNameChanged(value, name, swname)
+
+      if name and shapes.switchNames[value] == "..." then
+	 jSave(variables, swname.."SwitchName", value)
+	 jSave(variables, swname.."SwitchDir", value)
+	 switchItems[swname] = nil
+	 checkBox[swname.."Switch"] = false
+	 return
+      end
+
+      if name then
+	 jSave(variables, swname .. "SwitchName", value)
+      else
+	 jSave(variables, swname .. "SwitchDir", value)
+      end
+      
+      switchItems[swname] = createSw(shapes.switchNames[variables[swname .. "SwitchName"]],
+				     variables[swname .."SwitchDir"])
+      checkBox[swname .."Switch"] = system.getInputsVal(switchItems[swname]) == 1
+   end
+   --[[
+      local function triLengthChanged(value)
+      variables.triLength = value
+      jSave(variables, "triLength", value)
+      pylon = {}
+      end
+   --]]
+   local function raceTimeChanged(value)
+      variables.raceTime = value
+      jSave(variables, "raceTime", value)
+   end
+
+   local function maxSpeedChanged(value)
+      variables.maxSpeed = value
+      jSave(variables, "maxSpeed", value)
+   end
+
+   local function maxAltChanged(value)
+      variables.maxAlt = value
+      jSave(variables, "maxAlt", value)
+   end
+   --[[
+      local function aimoffChanged(value)
+      variables.aimoff = value
+      jSave(variables, "aimoff", value)
+      pylon={}
+      end
+   --]]
+   local function flightStartAltChanged(value)
+      variables.flightStartAlt = value
+      jSave(variables, "flightStartAlt", value)
+   end
+
+   local function flightStartSpdChanged(value)
+      variables.flightStartSpd = value
+      jSave(variables, "flightStartSpd", value)
+   end
+
+   local function elevChanged(value)
+      variables.elev = value
+      jSave(variables, "elev", value)
+   end
+
+   local function annTextChanged(value)
+      if validAnn("[^cCdDpPtTaAsS%-]", value) then
+	 variables.annText = value
+	 jSave(variables, "annText", value)
+      end
+      --form.reinit(7)
+   end
+
+   local function preTextChanged(value)
+      if validAnn("[^aAsS%-]", value) then
+	 variables.preText = value
+	 jSave(variables, "preText", value)
+      end
+      --form.reinit(8)
+   end
+
+   local function triColorModeChanged(value)
+      local t = {"Light", "Dark", "Image"}
+      variables.triColorMode = t[value]
+      jSave(variables, "triColorMode", t[value])
+      system.messageBox(appInfo.Name..": Restart app for new screen mode")
+   end
+
+   local function airplaneIconChanged(value)
+      variables.airplaneIcon = value
+      --print("value, airplaneIcons[value]:", value, shapes.airplaneIcons[value])
+      shapes.airplaneIcon = shapes[shapes.airplaneIcons[value]]
+      jSave(variables, "airplaneIcon", value)
+   end
+   ------------------------------------------------------------
+   
+------------------------------------------------------------
+   local function browseFieldClicked(i)
+      browse.Idx = i
+      browse.FieldName = browse.List[i]
+   end
+
+   local function clearData()
+      if form.question("Clear all data?",
+		       "Press Yes to clear, timeout is No",
+		       "Restart App after pressing Yes",
+		       6000, false, 0) == 1 then
+	 io.remove(jFilename())
+	 io.remove(kFilename())
+	 appInfo.SaveData = false
+      end
+   end
+
+   local function checkBoxAdd(lab, box)
+      
+      form.addRow(2)
+      form.addLabel({label=lab, width=270})
+      if not checkBox[box] then checkBox[box] = variables[box] end
+      checkBoxIndex[box] =
+	 form.addCheckbox(checkBox[box],
+			  (function(z) return checkBoxClicked(z, box) end) )
+   end
+
+   local function selectFieldClicked(value)
+      lat0 = Fields[browse.List[value]].images[1].center.lat
+      lng0 = Fields[browse.List[value]].images[1].center.lng
+      coslat0 = math.cos(math.rad(lat0))
+      gotInitPos = true
+      variables.lastMatchField = Fields[browse.List[value]].shortname
+      initField(Fields[browse.List[value]].shortname)
+   end
+
+   local function switchAdd(lbl, swname, sf)
+      form.addRow(5)
+      form.addLabel({label=lbl, width=80})
+      form.addSelectbox(shapes.switchNames, variables[swname .. "SwitchName"], true,
+			(function(z) return switchNameChanged(z, true, swname) end),
+			{width=60})
+      form.addLabel({label=lang.UpMidDown, width=94})
+      form.addSelectbox({lang.UpL,lang.MidL,lang.DnL}, variables[swname .. "SwitchDir"], true,
+	 (function(z) return switchNameChanged(z, false, swname) end), {width=50})
+      checkBoxIndex[swname .."Switch"] = form.addCheckbox(checkBox[swname.."Switch"],
+							  nil, {width=15})
+      checkBoxSubform[swname] = sf
+   end
+
+------------------------------------------------------------
 
    if tonumber(system.getVersion()) < 5.0 then
       form.addRow(1)
@@ -1713,6 +1717,7 @@ local function initForm(subform)
 	 {label = lang.backMain,font=FONT_BOLD})
 
       form.setFocusedRow(1)
+      
       --[[
    elseif subform == 4 then
       -- now is done with the browser menu
@@ -3811,12 +3816,12 @@ end
 
 local mapPrintRenderer
 
-local function renderRibbon(winSize)
+function ribbon.prepare()
 
    if not Field.pointsToRender then Field.pointsToRender = 0 end
 
-   local windowWidth = Screen.image_width_px - 1
-   local windowHeight = Screen.image_height_px - 1
+   --local windowWidth = Screen.image_width_px - 1
+   --local windowHeight = Screen.image_height_px - 1
 
    if (mapPrintRenderer == nil) then
       mapPrintRenderer = lcd.renderer()
@@ -3830,48 +3835,58 @@ local function renderRibbon(winSize)
    end
 
    local ll
-   
+
+      
    if Field.addPoint and Field.addPoint[1] and #Field.addPoint[1] > 1 and Field.pointsToRender > 0 then 
       
-      ll = #Field.addPoint[currentImage]
+      local ci = currentImage or 1
+      ll = #Field.addPoint[ci]
 
       Field.lastX = nil
       Field.lastY = nil
       Field.lastC = nil
       Field.lastI = nil
       
-      local curColor = Field.addPoint[1][2].color
-      if curColor then
-	 lcd.setColor(getrgb(curColor))
-      end
-      
+      -- Claude rewrote the loop below to this:
+      local lastseq
+
       for cI, FR in ipairs(Field.renderer) do
+	 local pts = Field.addPoint[cI]
+	 local curColor = pts[2] and pts[2].color
+	 if curColor then lcd.setColor(getrgb(curColor)) end
 	 FR:reset()
-	 for k,v in ipairs(Field.addPoint[cI]) do
-	    FR:addPoint(v.xp, v.yp)
+	 for k,v in ipairs(pts) do
 	    if k > 2 and v.color ~= curColor then
-	       curColor = v.color
-	       if curColor then
-		  lcd.setColor(getrgb(curColor))
-	       end
-	       FR:renderPolyline(2)
+	       FR:addPoint(v.xp, v.yp) -- close old string
+	       FR:renderPolyline(2) -- draw in old color
 	       FR:reset()
-	       -- need to repeat point .. last point was old color
-	       -- this point (same x,y) is first point in new color
-	       FR:addPoint(v.xp, v.yp) 
+	       FR:addPoint(v.xp, v.yp)
+	       curColor = v.color
+	       lcd.setColor(getrgb(curColor))
+	    else
+	       FR:addPoint(v.xp, v.yp)
 	    end
 	 end
 	 FR:renderPolyline(2)
       end
-      Field.lastX = Field.addPoint[currentImage][ll].xp
-      Field.lastY = Field.addPoint[currentImage][ll].yp
-      Field.lastC = Field.addPoint[currentImage][ll].color
-      Field.lastI = Field.addPoint[currentImage][ll].image
+      local last = Field.addPoint[ci][ll]
+      Field.lastX, Field.lastY, Field.lastC, Field.lastI = last.xp, last.yp, last.color, last.image
       Field.addPoint = {}
       Field.pointsToRender = 0
    end
+end
 
-   --local hs = #latHist
+----------------------------------------------------------------   
+
+function ribbon.drawLive(winSize)
+   
+   local function getrgb(c)
+      if not c then return end
+      return (c >> 16) & 0XFF, (c >> 8) & 0XFF, c & 0XFF
+   end
+
+   local windowWidth = Screen.image_width_px - 1
+   local windowHeight = Screen.image_height_px - 1
 
    if variables.ribbonColorSource ~= 1 then
       if Field.lastC then lcd.setColor(getrgb(Field.lastC)) end
@@ -3885,7 +3900,8 @@ local function renderRibbon(winSize)
       
    if winSize == "Full" and Field.lastX and Field.lastY and
       Field.lastI and Field.lastI == currentImage and Field.ptrLast and
-      Field.ptrLast < 99 then
+      Field.ptrLast < const.ribbonPts - 1 then
+      --print("drawLive Field.ptrLast", Field.ptrLast)
       local cI = currentImage
       if latitude and longitude then
 	 local xcc, ycc = gps2xy(Field.centerGPS[cI], gps.newPoint(latitude, longitude))
@@ -3914,7 +3930,7 @@ local function updateRibbon()
    
    local ptr = Field.pointsToRender
    
-   if Field.pointsToRender < 100 then
+   if Field.pointsToRender < const.ribbonPts then
       local xth0, yth0, xth1, yth1
       local xp, yp, xph, yph
       
@@ -3932,28 +3948,20 @@ local function updateRibbon()
 	 
 	 local anydraw = false
 	 local r, g, b
-	 local color
 	 local hs = #latHist
 
-	 if hs > 1 then
-	    if variables.ribbonColorSource ~= 1 then
-	       r = rgbHist[hs-1].r
-	       g = rgbHist[hs-1].g
-	       b = rgbHist[hs-1].b
-	    else -- solid/monochrome ribbon
-	       if variables.triEnabled then
-		  r,g,b = setColor("Map", variables.triColorMode, true)
-	       else
-		  r,g,b = setColor("Map", "Image", true)
-	       end
+	 if metrics.xPCount ~= metrics.xPCountLastDraw then
+	    local c = rgbHist[hs-1]
+	    if variables.ribbonColorSource ~= 1 and c then
+	       r,g,b  = c.r, c.g, c.b
+	    elseif variables.triEnabled then
+	       r,g,b = setColor("Map", variables.triColorMode, true)
+	    else
+	       r,g,b = setColor("Map", "Image", true)
 	    end
-	 end
-	 
-	 -- Pack rgb into one word to make rendering color changes easier
-	 color = ((r & 0XFF) << 16) | ((g & 0XFF) << 8) | (b & 0XFF) 
-	 
-	 for cI, _ in ipairs(Field.renderer) do
-	    if metrics.xPCount ~= metrics.xPCountLastDraw then
+	    -- Pack rgb into one word to make rendering color changes easier
+	    local color = ((r & 0XFF) << 16) | ((g & 0XFF) << 8) | (b & 0XFF) 
+	    for cI, _ in ipairs(Field.renderer) do
 	       xth0, yth0 = gps2xy(Field.centerGPS[cI], gps.newPoint(latHist[hs], lngHist[hs]))
 	       xph = txp(xth0, cI, windowWidth)
 	       yph = typ(yth0, cI, windowHeight)
@@ -3967,15 +3975,15 @@ local function updateRibbon()
 		  Field.addPoint[cI][#Field.addPoint[cI] + 1] = {xp=xp, yp=yp} 
 	       end
 	       Field.addPoint[cI][#Field.addPoint[cI] + 1] =
-		  {xp=xph, yp=yph, color=color, image=cI}
+		  {xp=xph, yp=yph, color=color, image=cI, seq=metrics.xPCount}
 	       anydraw = true
 	    end
 	 end
-
+	 
 	 if anydraw then
 	    Field.ptrLast = Field.pointsToRender
 	    Field.pointsToRender = Field.pointsToRender + 1
-	    if Field.pointsToRender == 100 and ptr == 99 then
+	    if Field.pointsToRender == const.ribbonPts and ptr == const.ribbonPts - 1 then
 	       system.messageBox(appInfo.Name..": Flight path pts being dropped")
 	       print(appInfo.Name..": Flight path pts being dropped")
 	    end
@@ -4043,8 +4051,11 @@ local function mapPrint() --wWid, wHgt)
    end
    --]]
 
+   if system.getProperty("NativeDraw") == 1 and  variables.histMax > const.xOver then
+      ribbon.prepare("Full")
+   end
+   
    if fieldPNG[currentImage] then
-
       if variables.triEnabled and (variables.triColorMode ~= "Image") then
 	 if ( (variables.histMax <= const.xOver) or (spnd ~= 1) )  then 
 	    setColor("Background", variables.triColorMode)
@@ -4052,8 +4063,12 @@ local function mapPrint() --wWid, wHgt)
 	 else
 	    if Field.needBackground then
 	       for _, FR in ipairs(Field.renderer) do
+		  local w, h = Screen.image_width_px, Screen.image_height_px
 		  setColor("Background", variables.triColorMode)
+		  FR:reset()
+		  FR:addPoint(0,0); FR:addPoint(w,0); FR:addPoint(w,h); FR:addPoint(0,h)
 		  FR:renderPolygon()
+		  FR:reset()
 	       end
 	       Field.needBackground = false
 	    end
@@ -4070,6 +4085,10 @@ local function mapPrint() --wWid, wHgt)
       setColor("Label", "Light")
       lcd.drawText((Screen.image_width_px - lcd.getTextWidth(FONT_BIG, lang.noGPSfix))/2, 60,
 	 lang.noGPSfix, FONT_BIG)
+   end
+
+   if system.getProperty("NativeDraw") == 1 and  variables.histMax > const.xOver then
+      ribbon.drawLive("Full")
    end
    
    -- in case the draw functions left color set to their specific values
@@ -4166,9 +4185,6 @@ local function mapPrint() --wWid, wHgt)
       end
 
       
-      if system.getProperty("NativeDraw") == 1 and  variables.histMax > const.xOver then
-	 renderRibbon("Full")
-      end
    end
    
    if variables.triEnabled then
@@ -4406,20 +4422,16 @@ end
 
 
 local function mapPrintSmall()
-   --local ww = Screen.image_width_px
-   --local wh = Screen.image_height_px
-
    if recalcDone() then
       graphScale(xtable[#xtable], ytable[#ytable])
    end
-
    if Field and Field.images and currentImage and currentImage > 0 and
       Field.images[currentImage].mag  and Field.shortname then
       local mag = Field.images[currentImage].mag
       lcd.drawText(10,10, string.format("%s Mag: %s", Field.shortname, mag))
    end
-
-   renderRibbon("Small")
+   ribbon.prepare()
+   ribbon.drawLive("Small")
 end
 
 local function distDiag()
