@@ -1034,13 +1034,19 @@ local function setColor(type, mode, readonly)
    return cc.r, cc.g, cc.b
 end
 
-local function readField(F, i)
+local function readField(F, i, forBrowser)
 
    --reads images (if needed) and creates renderers if on 24-II
+   --forBrowser: the map browser always wants the real map photo, even when the
+   --triangle color mode replaces it with a plain background in flight. It also
+   --skips the per-image renderer (only the flight view's ribbon uses it, and
+   --creating one for a 24-II-sized image is expensive). Safe to share fieldPNG:
+   --the browser starts from an empty fieldPNG (setField) and browseRestore()
+   --wipes it again on the way out
 
    if fieldPNG[i] then return end
    
-   if not fieldPNG[i] and variables.triEnabled and
+   if not forBrowser and variables.triEnabled and
       variables.triColorMode ~= "Image" and lcd.createImage then
       fieldPNG[i] = lcd.createImage(Screen.image_width_px, Screen.image_height_px)
    else
@@ -1051,8 +1057,8 @@ local function readField(F, i)
       print(appInfo.Name .. ": Failed to load image", i, F.images[i].file)
    else
       if system.getProperty("NativeDraw") == 1 then
-	 if not F.renderer[i] then F.renderer[i] = lcd.renderer(fieldPNG[i]) end
-	 if variables.triEnabled and variables.triColorMode ~= "Image" then
+	 if not F.renderer[i] and not forBrowser then F.renderer[i] = lcd.renderer(fieldPNG[i]) end
+	 if not forBrowser and variables.triEnabled and variables.triColorMode ~= "Image" then
 	    F.needBackground = F.needBackground or {}
 	    F.needBackground[i] = true
 	 end
@@ -1062,7 +1068,10 @@ local function readField(F, i)
    end
 end
 
-local function setField(sname)
+local function setField(sname, noImages)
+
+   -- noImages: set up the field geometry without decoding any image. The map
+   -- browser uses this so the expensive PNG decode happens in a later callback
    
    Field = Fields[sname]
    if DFM_Maps_Field then
@@ -1078,7 +1087,7 @@ local function setField(sname)
    Field.renderer = {}
    Field.centerGPS = {}
    
-   local maxPreload = 1
+   local maxPreload = noImages and 0 or 1
    maxPreload = math.min(maxPreload, #Field.images)
    
    Field.addPoint = {}
@@ -1153,7 +1162,7 @@ local function triReset()
 end
 --]]
 
-local function pngLoad(j, readonly)
+local function pngLoad(j, readonly, forBrowser)
 
 
    --print("calling pngLoad", j)
@@ -1164,7 +1173,7 @@ local function pngLoad(j, readonly)
       return
    end
 
-   readField(Field, j)
+   readField(Field, j, forBrowser)
 
    --[[
    pfn = Field.images[j].file
@@ -1354,6 +1363,61 @@ local function initField(fn)
    end
 end
 
+local function browseRestore()
+
+   -- Leave the map browser: save any triangle edits and put the original field
+   -- back. Called from every way out of the browser (button 5/ESC on the map,
+   -- the "back to main" link on the field selector, and closing the form) so
+   -- the app never keeps flying with the browsed field selected
+
+   if not browse.active then return end
+   browse.active = false
+   browse.MapDisplayed = false
+   browse.pendingImage = nil
+   browse.pendingDrawn = nil
+
+   -- Save the potential changes to the triangle in a file named by both the field
+   -- AND the model so the re-reading only happens with the same combination of
+   -- model and field
+   -- finally, only save if the field just browsed is the active field
+
+   if Field.shortname and Field.shortname == browse.OriginalFieldName then
+      local triT = {dx=variables.triOffsetX, dy=variables.triOffsetY,
+		    r=variables.triRotation, L = variables.triLength,
+		    O = variables.aimoff}
+      local tfn = kFilename()
+      --print("Saving", tfn)
+      local tft = io.open(tfn, "w")
+      if tft then io.write(tft, json.encode(triT), "\n") io.close(tft) end
+   end
+   
+   if not browse.OriginalFieldName then
+      Field = {}
+   else
+      -- no image decode: fieldPNG is wiped just below anyway and
+      -- initField() reloads the images on the next GPS fix
+      setField(browse.OriginalFieldName, true)
+      activeField = Field.shortname
+      maxImage = #Field.images	       
+   end
+   rwy = {}
+   nfc = {}
+   nfp = {}
+   tri = {}
+   currentImage = nil
+   fieldPNG={}
+   gotInitPos = false
+   xPHist = {}
+   yPHist = {}
+   latHist = {}
+   lngHist = {}
+   rgbHist = {}
+end
+
+local function closeForm()
+   browseRestore()
+end
+
 local function keyForm(key)
    local inc
    --print("key:", key, KEY_UP, KEY_DOWN)
@@ -1397,12 +1461,9 @@ local function keyForm(key)
 	    browse.Idx = browse.Idx + inc
 	    browse.Idx = math.max(math.min(browse.Idx, #Fields[browse.FieldName].images), 1)
 	    currentImage = browse.Idx
-	    --print("call pngLoad", currentImage)
-	    pngLoad(currentImage)
-	    --print("call graphScaleRst", currentImage)
-	    graphScaleRst(currentImage)
-	    --print("call triRot")
-	    triRot(0) -- rotate and translate triangle to pylons
+	    -- decoding a 24-II image here can blow the CPU limit for this key
+	    -- callback; prtForm loads it on a later frame (see browse.pendingImage)
+	    browse.pendingImage = currentImage
 	 end
       else -- KEY_2
 	 --print("key2, savedSubform", savedSubform)
@@ -1413,15 +1474,17 @@ local function keyForm(key)
 	    browse.OriginalFieldName = activeField
 	    if browse.FieldName then
 	       --print("setField to", browse.FieldName)
-	       setField(browse.FieldName)
+	       -- geometry only here: the image decode (and everything after it) is
+	       -- deferred to prtForm so this key callback stays under the CPU limit
+	       setField(browse.FieldName, true)
 	       currentImage = 1
 	       browse.Idx = 1
-	       pngLoad(currentImage)
 	       graphInit(currentImage)
-	       graphScaleRst(currentImage)
-	       triRot(0)
+	       browse.pendingImage = currentImage
+	       browse.pendingDrawn = nil
 	    end
 	    browse.MapDisplayed = true
+	    browse.active = true
 	    form.reinit(10)
 	 elseif savedSubform == 10 then
 	    browse.opTableIdx = browse.opTableIdx + 1
@@ -1445,47 +1508,14 @@ local function keyForm(key)
       elseif savedSubform == 10 then
 	 form.preventDefault()
 	 browse.MapDisplayed = false
+	 browse.pendingImage = nil
+	 browse.pendingDrawn = nil
 	 if key == KEY_1 then
 	    --print("reinit 9")
 	    form.reinit(7)
 	 else
 	    
-	    -- Save the potential changes to the triangle in a file named by both the field
-	    -- AND the model so the re-reading only happens with the same combination of
-	    -- model and field
-	    -- finally, only save if the field just browsed is the active field
-
-	    if Field.shortname == browse.OriginalFieldName then
-	       local triT = {dx=variables.triOffsetX, dy=variables.triOffsetY,
-			     r=variables.triRotation, L = variables.triLength,
-			     O = variables.aimoff}
-	       local tfn = kFilename()
-	       --print("Saving", tfn)
-	       local tft = io.open(tfn, "w")
-	       if tft then io.write(tft, json.encode(triT), "\n") io.close(tft) end
-	    end
-	    
-	    if not browse.OriginalFieldName then
-	       Field = {}
-	    else
-	       Field = browse.OriginalFieldName
-	       setField(Field)
-	       activeField = Field.shortname
-	       maxImage = #Field.images	       
-	    end
-	    rwy = {}
-	    nfc = {}
-	    nfp = {}
-	    tri = {}
-	    currentImage = nil
-	    fieldPNG={}
-	    --browse.OriginalFieldName = nil
-	    gotInitPos = false
-	    xPHist = {}
-	    yPHist = {}
-	    latHist = {}
-	    lngHist = {}
-	    rgbHist = {}
+	    browseRestore()
 	    form.reinit(1)
 	    savedRow = 6
 	    browse.Idx = 1
@@ -1703,6 +1733,9 @@ local function initForm(subform)
    end
    
    savedSubform = subform
+
+   -- e.g. "back to main" from the field selector after browsing another field
+   if subform ~= 7 and subform ~= 10 then browseRestore() end
    
    if subform == 1 then
       form.setTitle(lang.formTitle)
@@ -3159,6 +3192,24 @@ local function prtForm() --wwx, whx)
    elseif savedSubform == 10 then
       if not browse.MapDisplayed then return end
       if #browse.List < 1 then return end
+      -- deferred image load (see keyForm). First frame just shows the message,
+      -- the next one does the decode, the one after that draws the map. Keeps
+      -- the PNG decode out of both the key callback and the drawing callback
+      if browse.pendingImage then
+	 setColor("Label", "Light")
+	 lcd.drawText(10, Screen.image_height_px/2, "Loading map...", FONT_NORMAL)
+	 if browse.pendingDrawn then
+	    local im = browse.pendingImage
+	    browse.pendingImage = nil
+	    browse.pendingDrawn = nil
+	    pngLoad(im, nil, true)
+	    graphScaleRst(im)
+	    triRot(0) -- rotate and translate triangle to pylons
+	 else
+	    browse.pendingDrawn = true
+	 end
+	 return
+      end
       if (formRenderer==nil) then 
                formRenderer = lcd.renderer()
       else 
@@ -5239,7 +5290,7 @@ local function init()
    
    setLanguage()
    
-   system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm)
+   system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm, closeForm)
    system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, mapPrint, keyPressMap)
 
    if checkBox.fullRaceWin then
