@@ -55,6 +55,8 @@
 --]]
 
 --luacheck: globals declareGlobal
+--luacheck: globals DFM_Maps_Field
+--luacheck: globals DFM_Maps_AimOff
 --luacheck: globals DFM_Rscu_CircleCenter
 --luacheck: globals DFM_Rscu_CircleInner
 --luacheck: globals DFM_Rscu_CircleOuter
@@ -140,8 +142,8 @@ local Fields = {}
 local activeField
 local xPHist={}
 local yPHist={}
-local xHistLast=0
-local yHistLast = 0
+local xHistLast -- nil until the first history point is recorded
+local yHistLast
 local latHist={}
 local lngHist={}
 local rgbHist={}
@@ -227,6 +229,14 @@ raceParam.flightLandTime=0
 raceParam.usedThrottle = false
 raceParam.exceedMaxAlt = false
 
+-- race state used by calcTriRace, also reset on a manual field change
+local lastsws
+local lastdetS1 = -1
+local inZoneLast = {}
+
+-- dirPrint projected-path cache (in x,y relative to lat0, lng0)
+local circFitCache={}
+
 local fieldPNG={}
 local maxImage
 local currentImage
@@ -262,6 +272,14 @@ local function rotateXY(xx, yy, rotation)
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
    return (xx * cosShape - yy * sinShape), (xx * sinShape + yy * cosShape)
+end
+
+-- x,y (m) of gps1 relative to gps0, rotated to the map orientation
+local function gps2xy(gps0, gps1)
+   local d = gps.getDistance(gps0, gps1)
+   local b = math.rad(gps.getBearing(gps0, gps1))
+   -- bearing is clockwise from north: x (east) = d sin(b), y (north) = d cos(b)
+   return rotateXY(d * math.sin(b), d * math.cos(b), math.rad(variables.rotationAngle))
 end
 
 local function IGC(cmd, str)
@@ -580,6 +598,35 @@ local function IGC(cmd, str)
    
 end
 
+-- end any race in progress and clear race tracking state (e.g. on a manual field change)
+local function raceReset()
+   if raceParam.IGCFile then IGC("Close") end
+   raceParam.IGCAutoOpened = nil -- let the new field auto-open an IGC file
+   raceParam.racing = false
+   raceParam.startArmed = false
+   raceParam.startToggled = false
+   raceParam.raceFinished = false
+   raceParam.lapsComplete = 0
+   raceParam.titleText = nil
+   raceParam.subtitleText = nil
+   raceParam.lapTimeText = nil
+   nextPylon = 0
+   inZoneLast = {}
+   lastdetS1 = -1
+   metrics.index = nil
+   metrics.distTrav = 0
+end
+
+-- clear position state that is relative to the map origin (lat0, lng0), for use when
+-- the field changes. A zoom (same field, new origin) translates instead, see pngLoad()
+local function resetPosState()
+   xtable = {}
+   ytable = {}
+   xHistLast, yHistLast = nil, nil
+   compcrs = nil
+   circFitCache = {}
+end
+
 local function setLanguage()
 
    --local obj
@@ -653,6 +700,10 @@ local function jLoadInit(fn)
    fj = io.readall(fn)
    config = jsonDecode(fj, fn)
    if not config then
+      -- power lost between remove and rename in jLoadFinal? try the temp copy
+      config = jsonDecode(io.readall(fn .. ".tmp"), fn .. ".tmp")
+   end
+   if not config then
       print("Did not read jLoad file "..fn)
       config = {}
    end
@@ -661,16 +712,21 @@ local function jLoadInit(fn)
 end
 
 local function jLoadFinal(fn, config)
-   local ff
-   ff = io.open(fn, "w")
+   -- write to a temp file first so a power loss mid-write can't truncate the
+   -- settings file. jLoadInit falls back to the temp file if needed
+   local tmp = fn .. ".tmp"
+   local ff = io.open(tmp, "w")
    if not ff then
       return false
    end
-   if not io.write(ff, json.encode(config)) then
+   local ok = io.write(ff, json.encode(config))
+   io.close(ff)
+   if not ok then
+      io.remove(tmp)
       return false
    end
-   io.close(ff)
-   return true
+   io.remove(fn) -- rename may not overwrite an existing file
+   return io.rename(tmp, fn) == true
 end
 
 local function jLoad(config, var, def)
@@ -1069,7 +1125,12 @@ local function setField(sname)
       end
       variables.triRotation = 0
    end
-   
+
+   -- share the aim point offset with other apps (e.g. DFM-Path)
+   if DFM_Maps_AimOff then DFM_Maps_AimOff = variables.aimoff end
+
+   resetPosState() -- new field, new origin: old x,y positions no longer apply
+
    lng0 = Field.lng -- reset to origin to coords in jsn file
    lat0  = Field.lat
    coslat0 = math.cos(math.rad(lat0))
@@ -1129,24 +1190,47 @@ local function pngLoad(j, readonly)
    Field.images[j].mag = string.match(Field.images[j].file, ".*%/(.-)%.png")
 
    if readonly then return end
-      
+
    Field.lat = Field.images[j].center.lat
    Field.lng = Field.images[j].center.lng
 
    if not Field.centerGPS then Field.centerGPS = {} end
    Field.centerGPS[j] = gps.newPoint(Field.lat, Field.lng)
-   
+
+   local oldLat0, oldLng0 = lat0, lng0
+
    lat0 = Field.lat
    lng0 = Field.lng
    coslat0 = math.cos(math.rad(lat0))
+
+   -- each image has its own center so the origin moves when we zoom. Shift the
+   -- position state into the new origin instead of discarding it, so heading, course
+   -- and race tracking carry on uninterrupted
+   if oldLat0 and oldLng0 and (oldLat0 ~= lat0 or oldLng0 ~= lng0) then
+      local dx, dy = gps2xy(gps.newPoint(oldLat0, oldLng0), gps.newPoint(lat0, lng0))
+      for i = 1, #xtable do
+	 xtable[i] = xtable[i] - dx
+	 ytable[i] = ytable[i] - dy
+      end
+      if xtable.xf and ytable.yf then
+	 xtable.xf = xtable.xf - dx
+	 ytable.yf = ytable.yf - dy
+      end
+      if xHistLast and yHistLast then
+	 xHistLast = xHistLast - dx
+	 yHistLast = yHistLast - dy
+      end
+      if x and y then
+	 x = x - dx
+	 y = y - dy
+      end
+      circFitCache = {}
+   end
+
    rwy2XY()
    tri2XY()
    nfz2XY()
-   xtable={}
-   ytable={}
-   xHistLast=0
-   yHistLast = 0
-   
+
 end
 
 local function graphScaleRst(i, nerf)
@@ -1292,7 +1376,8 @@ local function keyForm(key)
 	 --print("variables.aimoff", variables.aimoff)
 	 variables.aimoff = variables.aimoff - inc
 	 browse.dispText = string.format("O %4d", variables.aimoff)
-	 jSave(variables, "aimoff", variables.aimoff)	 
+	 jSave(variables, "aimoff", variables.aimoff)
+	 if DFM_Maps_AimOff then DFM_Maps_AimOff = variables.aimoff end
       else -- L (length)
 	 variables.triLength = variables.triLength + -5*inc
 	 browse.dispText = string.format("L %4d", variables.triLength)
@@ -1322,10 +1407,10 @@ local function keyForm(key)
       else -- KEY_2
 	 --print("key2, savedSubform", savedSubform)
 	 if savedSubform == 7 then
-	    if not browse.OriginalFieldName then
-	       --print("setting orig:", browse.OriginalFieldName, Field.shortname, activeField)
-	       browse.OriginalFieldName = activeField
-	    end
+	    -- remember the active field each time we enter the browser so we return
+	    -- to (and save triangle edits for) the current field, not a stale one.
+	    -- activeField does not change while browsing
+	    browse.OriginalFieldName = activeField
 	    if browse.FieldName then
 	       --print("setField to", browse.FieldName)
 	       setField(browse.FieldName)
@@ -1588,7 +1673,11 @@ local function initForm(subform)
       coslat0 = math.cos(math.rad(lat0))
       gotInitPos = true
       variables.lastMatchField = Fields[browse.List[value]].shortname
+      raceReset() -- any race in progress was on the old field
       initField(Fields[browse.List[value]].shortname)
+      -- history is kept as lat/lng; recompute its pixels for the new map
+      recalcPixels = true
+      recalcCount = 0
    end
 
    local function switchAdd(lbl, swname, sf)
@@ -2183,10 +2272,6 @@ local function perpDist(x0, y0, np)
    if det >= 0 then return pd else return -pd end
 end
 
-local lastsws
-local lastdetS1 = -1
-local inZoneLast = {}
-
 local triRaceRenderer
 local function drawTriRace(windowWidth, windowHeight)
 
@@ -2450,11 +2535,15 @@ local function calcTriRace()
 	 pylon[j].zxr = zx + pylon[j].x
 	 pylon[j].zyr = zy + pylon[j].y
 	 pylon.finished = true
-	 inZoneLast[j] = false
+	 -- pylons are recomputed after every zoom; keep the turn zone state so we
+	 -- don't re-announce a zone we are already in
+	 if inZoneLast[j] == nil then inZoneLast[j] = false end
       end
-      -- tri and pylon are recomputed each time we zoom .. make sure we only open once
-      if not raceParam.IGCFile then
+      -- tri and pylon are recomputed each time we zoom .. only auto-open the IGC file
+      -- once per session. After a race closes it, re-arming the start reopens it
+      if not raceParam.IGCFile and not raceParam.IGCAutoOpened then
 	 IGC("Open")
+	 if raceParam.IGCFile then raceParam.IGCAutoOpened = true end
       end
       
    end
@@ -2507,7 +2596,11 @@ local function calcTriRace()
    end
 
    if code < 1 or code > 6 then
-      print(appInfo.Name .. ": code out of range")
+      -- only on a degenerate (on-the-line) point .. report once, not every loop
+      if not metrics.codeRangeReported then
+	 print(appInfo.Name .. ": code out of range")
+	 metrics.codeRangeReported = true
+      end
       return
    end
 
@@ -3168,9 +3261,6 @@ local function prtForm() --wwx, whx)
 end
 
 
-local circFitCache={}
-
-
 local dirPrintRenderer
 
 local function dirPrint(_, _, kk)
@@ -3664,7 +3754,8 @@ local function checkNoFly(xt, yt, future, warnIn)
    if noFlyF ~= noFlyHist.LastF and future then
       if noFlyF then
 	 -- was if not noFly ... Claude suggested change to noFlyHist.Last
-	 if not noFlyHist.Last and warn then -- only warn of future nfz if not already in nfz
+	 -- only warn of future nfz if not already in nfz
+	 if not noFlyHist.Last and checkBox.noFlyWarningEnabled and warn then
 	    playFile("no_fly_ahead.wav", AUDIO_IMMEDIATE)
 	    --system.vibration(false, 3) -- left stick, 2x short pulse
 	 end
@@ -3790,15 +3881,6 @@ local function graphScale(xx, yy)
       map.Ymax = path.ymax + (map.Yrange - (path.ymax-path.ymin))/2
    end
    
-end
-
-local function gps2xy(gps0, gps1)
-   local curDis = gps.getDistance(gps0, gps1)
-   local curBrg = gps.getBearing(gps0, gps1)
-   local curX = curDis * math.cos(math.rad(curBrg+270)) -- why not same angle X and Y??
-   local curY = curDis * math.sin(math.rad(curBrg+90))
-   curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
-   return curX, curY
 end
 
 local function txp(xxx,i,w)
@@ -4752,14 +4834,9 @@ local function loop()
    -- values from the last new position
 
    if newpos or (#xtable == 0) then
-      local zeroPos = gps.newPoint(lat0, lng0)
       local curPos = gps.getPosition(telem.Latitude.SeId, telem.Latitude.SePa,
 				     telem.Longitude.SePa)
-      local curDist = gps.getDistance(zeroPos, curPos)
-      local curBear = math.rad(gps.getBearing(zeroPos, curPos))
-      -- bearing is clockwise from north: x (east) = d sin(b), y (north) = d cos(b)
-      x, y = rotateXY(curDist * math.sin(curBear), curDist * math.cos(curBear),
-		      math.rad(variables.rotationAngle))
+      x, y = gps2xy(gps.newPoint(lat0, lng0), curPos)
    end
 
    --defend against silly points .. sometimes they come from the RCT GPS
@@ -4799,7 +4876,8 @@ local function loop()
 
       if variables.histMax > 0 and
 	 (system.getTimeCounter() - lastHistTime > variables.histSample) and
-         (math.abs(x-xHistLast) + math.abs(y - yHistLast) > variables.histDistance) then 
+         (not xHistLast or
+	  (math.abs(x-xHistLast) + math.abs(y - yHistLast) > variables.histDistance)) then
 	 if #xPHist+1 > variables.histMax then
 	    table.remove(xPHist, 1)
 	    table.remove(yPHist, 1)

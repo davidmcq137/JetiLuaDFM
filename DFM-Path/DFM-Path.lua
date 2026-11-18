@@ -23,14 +23,10 @@ Path.gps = {}
 Path.alt = {}
 local pathIndex
 local flyIndex
+local altSetPoint -- altitude (m) the elevator loop holds
 local flyingOutbound
---local calibrating
---local armed = false
---local everEnabled = false
 local lastSec
 local announceTime
-local lastSwO = -1
---local annSeq = 1
 local CMULT = 1.33 --circleMax = CMULT * circleMin
 local iPindex = 1
 local iPMAX = 120
@@ -38,7 +34,6 @@ local ixP = {}
 local iyP = {}
 local inRange = 20 -- meters to target gps point to consider arrived
 local xmin, xmax, ymin, ymax
---local origGet
 local manAltSetLastVal
 local manAltSetLastTime
 local steerMode = {petals=1,racetrack=2,leftright=3}
@@ -47,19 +42,8 @@ local magVal = {0.5, 1, 2, 4, 8}
 local magIdx
 local DCDS24II
 
---local rescueOnTime
---local rescueOnDelay
---local holdTurn
 local pGain
 
---[[
-local testLatControl
-local testLatTime
-local testLatOut
-local testLatMin
-local testLatMax
-local testLatRun
---]]
 
 RTH.sensorLalist = {"..."}
 RTH.sensorLslist = {"..."}
@@ -87,16 +71,6 @@ local rollVal, pitchVal = 0,0
 local renShape
 local emflag
 
---[[
-local function inv(t)
-   local rt = {}
-   if not t then return rt end
-   for k,v in pairs(t) do
-      rt[v] = k
-   end
-   return rt
-end
---]]
 
 local function drawX(xxp, yyp, d)
    lcd.drawLine(xxp - d, yyp + d, xxp + d, yyp - d)
@@ -141,26 +115,6 @@ local function mixOut(mix, val)
    return 0 -- should not happen
 end
 
---[[
-local function drawTextCenter(x, y, strIn, font)
-   local str
-   if not strIn then str = "---" else str = strIn end
-   local w = lcd.getTextWidth(font, str)
-   local h = lcd.getTextHeight(font, str)
-   lcd.drawText(x - w/2, y - h/2, str, font)
-end
-
-local function ms(ival)
-   local val
-   if not ival then val = 0 else val = ival / 1000 end
-   local sign
-   if val > 0 then sign = "+" elseif val < 0 then sign = "-" else sign = " " end
-   local aval = math.abs(val)
-   local mins = aval // 60
-   local secs = math.floor(aval - mins * 60)
-   return mins, secs, sign
-end
---]]
 
 local function readSensors(tt)
    local sensorLbl = "***"
@@ -192,56 +146,40 @@ local function readSensors(tt)
 	 end
       end
    end
-   --[[
-   table.insert(tt.sensorLalist, "P8 0-100")
-   table.insert(tt.sensorLslist, "")	    
-   table.insert(tt.sensorIdlist, 1) --sensor.id)
-   table.insert(tt.sensorPalist, 8) --sensor.param)
-   table.insert(tt.sensorUnlist, "m") --sensor.unit)
-   table.insert(tt.sensorDplist, 0) --sensor.decimals)
-   table.insert(tt.sensorTylist, 100) --sensor.type)
-   --]]
 end
 
---[[
-local function encdp(dp, val)
-   if dp == 2 then
-      return string.format("%.2f", val)
-   elseif dp == 1 then
-      return string.format("%.1f", val)
-   else
-      return string.format("%.0f", val)
-   end
-end
---]]
 
---local nsHoldVal
---local nsHoldTime
---local turnTime
 local gotTriangle
+local lastSwC_on = false
+local lastSwO_on = false
+local errCnt = 0
 
-local function loop()
+local function loopP()
    local now
    local sensor
    local MINHDGDIST = 3
    local MINGPSREADS= 9
-   --local MINANNDIST = 5
    local info
    local SwO, SwC
    local altnow
    local function ns(i) return (i-1)%3 + 1 end
    
-   if DFM_Maps_Field and DFM_Maps_Field ~= 0 and not gotTriangle then
+   -- DFM-Maps fields do not always have a triangle defined
+   if DFM_Maps_Field and DFM_Maps_Field ~= 0 and DFM_Maps_Field.triangle and
+      DFM_Maps_Field.triangle.path and not gotTriangle then
       if not pathIndex then pathIndex = 0 end
       local pp
       local aimoff
-      if DFM_Maps_MapsAimPoint then aimoff = DFM_Maps_MapsAimPoint else aimoff = 20 end
+      -- aim point offset (m) shared by DFM-Maps, default 20m if Maps not running
+      if type(DFM_Maps_AimOff) == "number" then aimoff = DFM_Maps_AimOff else aimoff = 20 end
       if pathIndex == 0 then
 	 for i=1,3,1 do
 	    pathIndex = pathIndex + 1
 	    Path.gps[pathIndex] = gps.newPoint(DFM_Maps_Field.triangle.path[i].lat,
 					       DFM_Maps_Field.triangle.path[i].lng)
-	    Path.alt[pathIndex] = 100--RTH.altitude 
+	    -- no altitude yet: picked up on the ground, so fill in the flying altitude
+	    -- when steering is switched on (see SwO below)
+	    Path.alt[pathIndex] = nil
 	 end
 	 pp = Path.gps[2]
 	 Path.gps[2] = Path.gps[1]
@@ -263,9 +201,13 @@ local function loop()
 	 for i=1,3,1 do
 	    Path.gps[i] = ap[i]
 	 end
+	 print(appName..": Captured triangle path from DFM-Maps")
+	 system.messageBox(appName..": Captured triangle path")
+      else
+	 -- points were already captured or loaded .. keep them, don't overwrite
+	 print(appName..": DFM-Maps triangle not used - path already has "..pathIndex.." points")
+	 system.messageBox(appName..": Triangle not used - path has points")
       end
-      print(appName..": Captured triangle path from DFM-Maps")
-      system.messageBox(appName..": Captured triangle path")
       gotTriangle = true
    end
    
@@ -321,7 +263,8 @@ local function loop()
    -- Assume 0-100% is 0-100m
    
    info = system.getSwitchInfo(RTH.settings.altInput)
-   if info and info.assigned and info.proportional and string.find(info.mode, "C") then
+   if info and info.assigned and info.proportional and info.mode and
+      string.find(info.mode, "C") then
       manAltSet = info.value * 100
       if manAltSetLastVal and manAltSet == manAltSetLastVal then
 	 if manAltSetLastTime and now > manAltSetLastTime + 1000 then
@@ -339,7 +282,21 @@ local function loop()
    local gs = RTH.settings
    local compHdg
    if gs.latId ~= 0 and gs.latPa ~= 0 and gs.lngId ~= 0 and gs.lngPa ~= 0 then
+      local hadPos = RTH.curPos ~= nil
       RTH.curPos = gps.getPosition(gs.latId, gs.latPa, gs.lngPa)
+      -- in case getPosition does not return nil if the sensor is lost, check directly
+      local sg = system.getSensorValueByID(gs.latId, gs.latPa)
+      if not sg or not sg.valid then RTH.curPos = nil end
+      if not RTH.curPos then
+	 -- GPS lost: clear derived values so the display shows "No GPS signal"
+	 -- instead of a frozen position, and the heading is recomputed on recovery
+	 if hadPos then system.messageBox(appName .. ": GPS signal lost") end
+	 RTH.lastPos = nil
+	 RTH.gpsHeading = nil
+	 RTH.gpsBearingFrom = nil
+	 RTH.gpsBearingTo = nil
+	 RTH.gpsDistance = nil
+      end
       if RTH.curPos then
 	 if not RTH.lastPos then RTH.lastPos = RTH.curPos end
 	 if gps.getDistance(RTH.curPos, RTH.lastPos) > MINHDGDIST then 
@@ -382,26 +339,25 @@ local function loop()
    end
 
    -- read the switch for mixer calibration
+   -- getInputsVal returns the switch as evaluated by the TX (honors active position,
+   -- inversion etc.) .. getSwitchInfo().value is the raw control position
    if RTH.settings.calSw then
-      info = system.getSwitchInfo(RTH.settings.calSw)
-      if info then
-	 SwC = info.value
-      else
-	 SwC = -1
-      end
+      SwC = system.getInputsVal(RTH.settings.calSw) or -1
    else
       SwC = -1
    end
+   local SwC_on = SwC > 0.5
 
-   if lastSwC == -1 and SwC == 1 then
-      --calibrating = true
+   if SwC_on and not lastSwC_on and not RTH.curPos then
+      system.messageBox(appName .. ": No GPS fix - point not captured")
+   elseif SwC_on and not lastSwC_on then
       if not pathIndex then pathIndex = 0 end
       pathIndex = pathIndex + 1
       Path.gps[pathIndex] = RTH.curPos
       Path.alt[pathIndex] = RTH.altitude
       altSetPoint = RTH.altitude
       
-      system.messageBox(string.format("Captured Point %d - Alitude %d ", pathIndex, RTH.altitude or 0))
+      system.messageBox(string.format("Captured Point %d - Altitude %d ", pathIndex, RTH.altitude or 0))
 
       system.playFile(prefix() .. pathApp .. "Audio/pointnumber.wav", AUDIO_QUEUE)
       playNumberInt(pathIndex)
@@ -411,46 +367,46 @@ local function loop()
 	 playNumberInt(RTH.altitude)
 	 system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)      	 
       end
-      --rescueOnTime = now
    end
 
-   --if lastSwC == 1 and SwC == -1 and calibrating == true then -- just turned off
-   --end
 
-   lastSwC = SwC
+   lastSwC_on = SwC_on
 
-   -- read the switch for RTH steering on/off
+   -- read the switch for path steering on/off
    if RTH.settings.onoffSw then
-      info = system.getSwitchInfo(RTH.settings.onoffSw)
-      if info then
-	 SwO = info.value
-      else
-	 SwO = -1
-      end
+      SwO = system.getInputsVal(RTH.settings.onoffSw) or -1
    else
       SwO = -1
    end
+   local SwO_on = SwO > 0.5
 
-   if lastSwO == -1 and SwO == 1 then
+   if SwO_on and not lastSwO_on then
       if pathIndex and pathIndex > 0 then
 	 flyIndex = 1
+	 -- points without an altitude (the DFM-Maps triangle) hold the altitude at
+	 -- switch-on. With no altitude sensor they stay nil and altitude hold is off
+	 for i = 1, pathIndex do
+	    if not Path.alt[i] then Path.alt[i] = RTH.altitude end
+	 end
 	 system.playFile(prefix() .. pathApp .. "Audio/steeringtopoint.wav", AUDIO_QUEUE)
 	 playNumberInt(flyIndex)
-	 --compute bearing to next point
-	 local gb = gps.getBearing(RTH.curPos, Path.gps[flyIndex])
-	 system.playFile(prefix() .. pathApp .. "Audio/course.wav", AUDIO_QUEUE)
-	 playNumberCompass(gb)
-	 system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
+	 --compute bearing to next point (needs a GPS fix and a valid path point)
+	 if RTH.curPos and Path.gps[flyIndex] then
+	    local gb = gps.getBearing(RTH.curPos, Path.gps[flyIndex])
+	    system.playFile(prefix() .. pathApp .. "Audio/course.wav", AUDIO_QUEUE)
+	    playNumberCompass(gb)
+	    system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
+	 end
       end
-      RTH.settings.onoff = SwO
+      RTH.settings.onoff = 1
    end
 
-   if lastSwO == 1 and SwO == -1 then
+   if lastSwO_on and not SwO_on then
       flyIndex = 0
-      RTH.settings.onoff = SwO
+      RTH.settings.onoff = -1
    end
-   
-   lastSwO = SwO
+
+   lastSwO_on = SwO_on
 
    RTH.settings.steer = 0
    RTH.settings.elev = 0
@@ -476,15 +432,16 @@ local function loop()
 	 if errsig > 1 then errsig = 1 end
 	 if errsig < -1 then errsig = -1 end
 	 eleSet = errsig
-	 --system.setControl(RTH.settings.elevCtrl, errsig, 1000, 1)
       else
 	 eleSet = 0
-	 --system.setControl(RTH.settings.elevCtrl, 0, 1000, 1)
       end
       validmixE = true
    end
    
-   if RTH.settings.onoff and flyIndex and RTH.settings.onoff > 0 and flyIndex > 0 then
+   -- steer only with a GPS fix, a heading, a valid target point and the mixer curves
+   if RTH.settings.onoff and flyIndex and RTH.settings.onoff > 0 and flyIndex > 0 and
+      RTH.curPos and RTH.gpsHeading and Path.gps[flyIndex] and
+      config.Amix and config.Emix then
 
       -- Now steer
       
@@ -492,10 +449,10 @@ local function loop()
       RTH.distanceTo = gps.getDistance(RTH.curPos, Path.gps[flyIndex])
       RTH.settings.steer = (-RTH.gpsHeading + RTH.bearingTo + 180) % 360 - 180
       
-      local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
+      local normSteer = RTH.settings.steer / 180 -- normalized to [-1..1]
       
-      ailSet = mixOut(config.Amix,ns)
-      eleSet = eleSet + RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns)
+      ailSet = mixOut(config.Amix, normSteer)
+      eleSet = eleSet + RTH.settings.maxElevGain / 100 * mixOut(config.Emix, normSteer)
       --print("eleSet", eleSet)
       
       validmixA = true
@@ -536,6 +493,21 @@ local function loop()
       if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, eleSet, 100, 1) end
    end
    
+end
+
+-- run the loop protected so an error can't kill the app and leave the steering and
+-- elevator controls at their last commanded values. On error, center them
+local function loop()
+   local s, e = pcall(loopP)
+   if not s then
+      if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, 0, 0) end
+      if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end
+      errCnt = errCnt + 1
+      if errCnt == 1 then system.messageBox(appName .. ": Loop error - controls centered") end
+      if errCnt <= 5 then
+	 print(appName .. ": Loop error - " .. tostring(e))
+      end
+   end
 end
 
 local activeSf
@@ -597,7 +569,7 @@ local function initForm(subform)
    
    form.addRow(2)
    form.addLabel({label="Path mode switch", width=155, font=FONT_NORMAL})
-   form.addInputbox(RTH.settings.onoffSw, true, onoffChanged, {alignRight=false})
+   form.addInputbox(RTH.settings.onoffSw, false, onoffChanged, {alignRight=false})
    
    local function calChanged(value)
       RTH.settings.calSw = value
@@ -606,16 +578,21 @@ local function initForm(subform)
 
    form.addRow(2)
    form.addLabel({label="Capture gps point switch", width=175, font=FONT_NORMAL})
-   form.addInputbox(RTH.settings.calSw, true, calChanged,
+   form.addInputbox(RTH.settings.calSw, false, calChanged,
 		    {width=155, font=FONT_NORMAL, alignRight=false})
 
    
    local function acChanged(value)
-      local si = system.getSwitchInfo(value)
+      local si = value and system.getSwitchInfo(value)
       --print("si", si.label, si.value, si.proportional, si.assigned, si.mode)
-      if not si.proportional or not string.find(si.mode, "C") then
+      if not si then -- control cleared
+	 RTH.settings.altInput = nil
+	 system.pSave("altInput", nil)
+      elseif not si.proportional or not si.mode or not string.find(si.mode, "C") then
+	 -- si.mode needs firmware 5.01+, without it we can't confirm 0-100%
 	 system.messageBox("Control must be 0-100% proportional")
 	 RTH.settings.altInput = nil
+	 system.pSave("altInput", nil) -- don't bring the rejected control back on restart
 	 form.reinit(1)
       else
 	 RTH.settings.altInput = value
@@ -717,12 +694,14 @@ local function initForm(subform)
 
    form.addRow(2)
    form.addLabel({label="Alt Loop pGain", font=FONT_NORMAL})
-   form.addIntbox(pGain*1000, -1000, 1000, 100, 3, 1,
+   -- pSave stores integers only, and JETI floats are single precision: save the
+   -- intbox integer itself, and round when showing it so 100 can't read as 99
+   form.addIntbox(math.floor(pGain*1000 + 0.5), -1000, 1000, 100, 3, 1,
 		  (function(x)
 			pGain = x / 1000.0
-			system.pSave("pGain", pGain * 1000)
+			system.pSave("pGain", x)
 			return end),
-		  {width=155, font=FONT_NORMAL, algignRight=false})
+		  {width=155, font=FONT_NORMAL, alignRight=false})
 
    form.addRow(1)
    form.addLink((
@@ -756,16 +735,29 @@ local function initForm(subform)
 	    local str = io.readall(prefix()..pathApp.."Json/Path.jsn", "r")
 	    if not str then system.messageBox("No file read") end
 	    if str then
+	       -- validate the whole file before replacing the current path
+	       local ok, SPath = pcall(json.decode, str)
+	       local valid = ok and type(SPath) == "table" and type(SPath.gps) == "table"
+	       if valid then
+		  for _,v in ipairs(SPath.gps) do
+		     if type(v) ~= "table" or not v.lat or not v.lng then
+			valid = false
+			break
+		     end
+		  end
+	       end
+	       if not valid then
+		  system.messageBox("Path file invalid - not loaded")
+		  return
+	       end
 	       Path = {}
 	       Path.gps = {}
 	       Path.alt = {}
 	       flyIndex = 0
 	       pathIndex = 0
-	       local SPath = json.decode(str)
 	       for i,v in ipairs(SPath.gps) do
-		  --Path.gps[i] = gps.newPoint(SPath.gps[i].lat, SPath.gps[i].lng)
-		  Path.gps[i] = gps.newPoint(v.lat, v.lng)		  
-		  Path.alt[i] = SPath.alt[i]
+		  Path.gps[i] = gps.newPoint(v.lat, v.lng)
+		  Path.alt[i] = SPath.alt and SPath.alt[i]
 	       end
 	       pathIndex = #Path.gps
 	       system.messageBox(string.format("Path file read, %d points", pathIndex))
@@ -821,8 +813,8 @@ local function drawSideShape(col, row, shape, backshape, backhgt, azimuth, pitch
 end
 
 local function drawLine(col, row, shape, rotation, lw)
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
+   local sinShape = math.sin(rotation)
+   local cosShape = math.cos(rotation)
    renShape:reset()
    for _, point in pairs(shape) do
       renShape:addPoint(
@@ -862,6 +854,11 @@ local function printTeleMix()
       return
    end
 
+   if not config.Amix or not config.Emix then
+      lcd.drawText(5, 2, "No mixer curves in Config.jsn", FONT_NORMAL)
+      return
+   end
+
    --print("steer", RTH.settings.steer)
    local ns = RTH.settings.steer / 180.0
    local am = mixOut(config.Amix, ns)
@@ -886,61 +883,9 @@ local function printTeleMix()
    
 end
 
---[[
-local function printTeleBig()
-   
-   if not RTH.gpsBearingTo then
-      lcd.drawText(5,  2, "No GPS signal", FONT_NORMAL)
-      return
-   end
-
-   --if not RTH.settings.onoff or RTH.settings.onoff < 0 then
-   --   lcd.drawText(5,  2, "Not enabled", FONT_NORMAL)
-   --   return
-   --end
-
-   local conv, un
-
-   if RTH.settings.distUnits ~= 1 then -- ft
-      conv = 3.2808
-      un = "ft"
-   else
-      conv = 1
-      un = "m"
-   end
-         
-   lcd.drawText(5,  2, string.format("Bearing: %.0f°", RTH.gpsBearingTo or 0), FONT_NORMAL)
-   lcd.drawText(5, 20, string.format("Distance: %.0f"..un, conv*(RTH.gpsDistance or 0), FONT_NORMAL))
-   lcd.drawText(5, 38, string.format("Altitude: %.1f"..un, conv*(RTH.altitude or 0), FONT_NORMAL))
-   lcd.drawText(5, 54, string.format("Heading: %.0f°", RTH.gpsHeading or 0), FONT_NORMAL)   
-
-   if RTH.gpsHeading and RTH.gpsBearingFrom then
-      local steer = RTH.settings.steer
-      local normSteer = steer / 180.0
-      --normSteer = system.getInputs("P4")
-      --print(normSteer)
-      lcd.drawRectangle(20,75,120,20)
-      if RTH.settings.onoff == 1 then lcd.setColor(255,0,0) else lcd.setColor(0,0,0) end
-      lcd.drawFilledRectangle(79, 75, 2, 20)
-      if normSteer >= 0 then
-	 lcd.drawFilledRectangle(80,75, 60*normSteer, 20)
-      else
-	 local ns = math.floor(60*(1+normSteer))
-	 lcd.drawFilledRectangle(20 + ns,75, 60-ns, 20)	 
-      end
-   end
-   if RTH.gpsHeading then
-      lcd.setColor(0,0,255)
-      drawShape(120,20, homeShape, math.rad(RTH.gpsHeading)) 
-   end
-   
-end
---]]
 
 local function printTeleAH()
 
-   --local xc = 50
-   --local dx = 40
 
    local hLineShape = {
       {-40,0},
@@ -969,9 +914,12 @@ local function printTeleAH()
 end
 
 
-local function xytopixel(x, y)
-
-   local w, h = 320, 160
+-- map x,y (m) to window pixels. Uses the window size passed in, but caps the height at
+-- 160: the TX full screen is 316x159, the emulator reports 320x260 with the bottom hidden,
+-- and the text drawn on this page assumes the 160 px layout
+local function xytopixel(x, y, ww, wh)
+   local w = ww or 320
+   local h = math.min(wh or 160, 160)
    local ix = w * (x - xmin) / (xmax - xmin)
    local iy = h - h * (y - ymin) / (ymax - ymin)
    return ix,iy
@@ -1003,8 +951,7 @@ local function printTeleGPS(w,h)
 	 local ww = lcd.getTextWidth(FONT_MINI, ss)
 	 local hh = lcd.getTextHeight(FONT_MINI, ss)
 	 lcd.drawNumber(ix - ww/2, iy - hh/2, i, FONT_MINI)
-	 --drawX(ix, iy, 3)
-	 local rr = 320 * inRange / (xmax - xmin) 
+	 local rr = (w or 320) * inRange / (xmax - xmin) -- same width as xytopixel
 	 lcd.drawCircle(ix, iy, rr)
       end
    end
@@ -1019,7 +966,11 @@ local function printTeleGPS(w,h)
       if flyingOutbound then lcd.setColor(255,0,0) else lcd.setColor(0,0,255) end
    end
 
-   drawShape(ix,iy, config.GliderTop, math.rad(RTH.gpsHeading or 0)) 
+   if config.GliderTop then
+      drawShape(ix,iy, config.GliderTop, math.rad(RTH.gpsHeading or 0))
+   else
+      lcd.drawCircle(ix, iy, 4)
+   end
 
    local dist
    if iPindex > 1 then
@@ -1035,14 +986,13 @@ local function printTeleGPS(w,h)
 	 iPindex = 1
       end
    end
-   --local pp = math.floor((pitchVal or 0) * 100 + 0.5) / 100
    if pitchVal == -0.0 then pitchVal = 0 end
 
-   if DCDS24II then
+   -- side view needs an altitude sensor and the side/back glider shapes
+   if DCDS24II and RTH.altitude and config.GliderSide and config.GliderBack then
       ix, iy = xytopixel(x, xmin + 35 + RTH.altitude*3, w, h)
       drawSideShape(ix, iy, config.GliderSide, config.GliderBack, 7,
 		    math.rad(RTH.gpsHeading or 0), math.rad(pitchVal))
-      --lcd.drawCircle(ix, iy, 4)
    end
    
    lcd.setColor(0,0,0)
@@ -1052,8 +1002,6 @@ local function printTeleGPS(w,h)
    end
    
    lcd.setColor(0,0,0)
-   --local ix0 , iy0 = xytopixel(0, 0, w, h)
-   --lcd.drawCircle(ix0, iy0, 2)
    
    lcd.drawText(10, 15, string.format("[%d,%d,%d,%d]", xmin, xmax, ymin, ymax), FONT_MINI)
    if flyIndex and flyIndex > 0 and RTH.bearingTo then
@@ -1064,15 +1012,13 @@ local function printTeleGPS(w,h)
    end
    
 
-   --lcd.drawText(60, 145, string.format("Dist: %d", RTH.gpsDistance), FONT_MINI)
-   --lcd.drawText(190, 145, string.format("BrgTo: %d", RTH.gpsBearingTo), FONT_MINI)
 
    local as
    if altSetPoint then as = string.format("%.1fm", altSetPoint) else as = "---" end
    local st = system.getServos()
    local eleS = 0
    for _, sv in pairs(st) do
-      if sv.id == 267 then
+      if sv.id == 267 then -- this is the Jeti ID for the primary elevator
 	 eleS = sv.value * 100
 	 break
       end
@@ -1085,24 +1031,6 @@ local function printTeleGPS(w,h)
    
 end
 
---[[
-local function logfileCB(idx)
-   if idx == 1 then
-      return RTH.gpsBearingFrom or 0
-   elseif idx == 2 then
-      return RTH.gpsBearingTo or 0      
-   elseif idx == 3 then
-      return 10 * (RTH.gpsDistance or 0), 1
-   elseif idx == 4 then
-      return RTH.gpsHeading or 0
-   elseif idx == 5 then
-      --print("##", RTH.settings.steer, RTH.settings.steer / 1.80)
-      return (RTH.settings.steer or 0) / 1.80
-   else
-      return -999
-   end
-end
---]]
 
 local function setMag(idx)
    if idx < 1 or idx > #magVal then return end
@@ -1133,17 +1061,16 @@ local function keyPressGPS(key)
       Path = {}
       Path.gps = {}
       Path.alt = {}
-      system.setControl(RTH.settings.elevCtrl, 0, 0, 1)      
+      if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0, 1) end
       flyIndex = 0
       pathIndex = 0
       altSetPoint = RTH.altitude
-      --else -- key5
+      -- leave the path empty (e.g. to capture your own points instead of the triangle):
+      -- don't pick up the DFM-Maps triangle after a reset
+      gotTriangle = true
    end
 end
 
---local function getSensorByID(id, pa)
---   return origGet(id, pa)
---end
 
 local function init()
 
@@ -1152,13 +1079,8 @@ local function init()
    
    system.registerForm(1, MENU_APPS, "DFM-Path", initForm, keyPress, printForm)
    
-   local device
-   device, emflag = system.getDeviceType() 
-   --print("Device", device, "emflag", emflag)
+   emflag = select(2, system.getDeviceType())
 
---   if device == "JETI DS-24 II" or device == "JETI DC-24 II" then
---     do something different on new tx?      
---   end
    
    system.registerTelemetry(1, "DFM-Path Flight Path Map", 4, printTeleGPS, keyPressGPS)
    
@@ -1167,7 +1089,6 @@ local function init()
       system.setTelemetryButton(1, 2, "+", 1)
       system.setTelemetryButton(1, 3, "Erase", 1)
       system.setTelemetryButton(1, 4, "Reset", 1)
-      --system.setTelemetryButton(1, 5, "5", 1)      
    else
       print("not setting Button")
    end
@@ -1201,12 +1122,9 @@ local function init()
    
    RTH.settings.circleMin = system.pLoad("circleMin", 150)
    RTH.settings.maxElevGain = system.pLoad("maxElevGain", 0)
-   --rescueOnDelay = system.pLoad("rescueOnDelay", 3)
-   --holdTurn = system.pLoad("holdTurn", 5)
    pGain = system.pLoad("pGain", 100) / 1000
    
    flyingOutbound = false
-   --calibrating = false
 
    magIdx = 3
    setMag(magIdx)
@@ -1231,15 +1149,6 @@ local function init()
    end
 
 
-   --[[
-   testLatControl = system.registerControl(10, "Latency", "LAT")
-   print("testLatControl", testLatControl)
-   testLatOut = 1
-   if not system.setControl(testLatControl, testLatOut, 0) then
-      print("set control failed")
-   end
-   testLatTime = system.getTimeCounter()
-   --]]
    
    RTH.settings.elevCtrl = nil
    local iRTE = 9
@@ -1254,50 +1163,29 @@ local function init()
       system.messageBox(appName .. ": Could not register elevator control")
    end
    
-   --system.registerLogVariable("RTHBrgFrom", "°", logfileCB)
-   --system.registerLogVariable("RTHBrgTo",   "°", logfileCB)
-   --system.registerLogVariable("RTHDst",     "m", logfileCB)
-   --system.registerLogVariable("RTHHdg",     "°", logfileCB)
-   --system.registerLogVariable("RTHStr",     "%", logfileCB)
 			      
    local str = io.readall(prefix() .. pathApp.."Json/Config.jsn")
    if not str then
       print("DFM-Path: cannot read Config.jsn")
    end
-   
-   config = json.decode(str)
+
+   -- json.decode throws on nil/malformed input .. don't let that stop init
+   local ok, dc = pcall(json.decode, str or "")
+   if ok and type(dc) == "table" then
+      config = dc
+   else
+      config = {}
+   end
+   if not (config.Amix and config.Amix.points and config.Emix and config.Emix.points) then
+      print("DFM-Path: missing Amix/Emix in Config.jsn - steering disabled")
+      system.messageBox(appName .. ": Missing parms Config.jsn - steering disabled")
+   end
 
    DCDS24II = (string.find(select(1, system.getDeviceType()), "24 II"))
 
-   --system.setProperty("NativeDraw", 1)
-   --print("get", system.getProperty("NativeDraw"))
 
-   --origGet = system.getSensorByID
-   --system.getSensorByID = getSensorByID
 
-   --if dumpGlobalVars then dumpGlobalVars() end
 
-   --[[
-   BDLatA = 41.340133
-   BDLngA = -74.430933
-   BDLatB = 41.339622
-   BDLngB = -74.430819
-   BDA = gps.newPoint(BDLatA, BDLngA)
-   BDB = gps.newPoint(BDLatB, BDLngB)
-   print(gps.getDistance(BDA, BDB), gps.getBearing(BDA, BDB))
-
-   print(math.floor(BDLatA*10000 + 0.5))
-   local s = string.format("R%06dN_%06dW.gps",
-			   math.floor(BDLatA*1000 + 0.5), -math.floor(BDLngA*1000 + 0.5))
-   print("s:", s)
-   BDLatA = 41.0
-   BDLngA = -74.0
-   BDLatB = 41.001
-   BDLngB = -74.001
-   BDA = gps.newPoint(BDLatA, BDLngA)
-   BDB = gps.newPoint(BDLatB, BDLngB)
-   print(gps.getDistance(BDA, BDB), gps.getBearing(BDA, BDB))
-   --]]
 
 end
    

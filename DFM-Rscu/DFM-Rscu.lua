@@ -2279,4 +2279,4 @@ local function init()
    
 end
    
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.5", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.6", name=appName}
