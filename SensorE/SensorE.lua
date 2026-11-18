@@ -231,6 +231,7 @@ local function fieldIdxChanged(value)
       GPSparms.lat0 = geo.fields[fieldIdx].lat
       GPSparms.lon0 = geo.fields[fieldIdx].long
       GPSparms.trueDir = geo.fields[fieldIdx].runway.trueDir
+      coslat0 = math.cos(math.rad(GPSparms.lat0))
    end
 end
 
@@ -380,7 +381,8 @@ function emulator_init()
 
 end
 function emulator_playBeep(rep, hz, len)
-   print(string.format("SensorE - playBeep: Repeat %d, Freq %d, Duration %d", rep, hz, len))
+   print(string.format("SensorE - playBeep: Repeat %s, Freq %s, Duration %s",
+		       tostring(rep), tostring(hz), tostring(len)))
 end
 
 function emulator_vibration(lr, prof)
@@ -458,7 +460,11 @@ function emulator_getSensors()
       print("SensorE: Cannot read " .. text)
       SEjsn.configDir = "Apps"
    else
-      SEjsn=json.decode(fg)
+      SEjsn=json.decode(fg) or {}
+   end
+   if not SEjsn.configDir then
+      print("SensorE: No configDir in Apps/SensorE.jsn - using Apps")
+      SEjsn.configDir = "Apps"
    end
 
    switchSeq = 1
@@ -497,8 +503,15 @@ function emulator_getSensors()
    
    text = SEjsn.configDir .. "/sensorEmulatorGPS.jsn"
    fg = io.readall(text)
-   if not fg then print("Info: No GPS file " .. text) else
-      GPSparms=json.decode(fg)
+   GPSparms = nil
+   if fg then
+      GPSparms = json.decode(fg)
+      if not GPSparms or not GPSparms.lat0 or not GPSparms.lon0 or not GPSparms.rE then
+	 print("SensorE: " .. text .. " not decoded or missing lat0/lon0/rE - GPS disabled")
+	 GPSparms = nil
+      end
+   end
+   if not GPSparms then print("Info: No GPS file " .. text) else
       coslat0 = math.cos(math.rad(GPSparms.lat0))
       --print("GPS Config: "..text)
       --print("xp, yp, heading", GPSparms.xp, GPSparms.yp, GPSparms.heading)
@@ -566,7 +579,7 @@ function emulator_getPosition(sensID, parmLat, parmLng)
    end
    
    --sensor = emulator_getSensorByID(sensID, parmLat)
-   sensor = system.getSensorByID(sensID, parmLat) -- this is not pointing to emulator_getSensorByID
+   sensor = system.getSensorByID(sensID, parmLat) -- this is now pointing to emulator_getSensorByID
    if sensor and sensor.valid and sensor.valGPS then
       minutes = (sensor.valGPS & 0xFFFF) * 0.001
       degs = (sensor.valGPS >> 16) & 0xFF
@@ -587,7 +600,6 @@ end
 
 function emulator_getSensorByID(ID, Param)
    local c
-   local chunk, err, status, result
    local expResult, funcResult
    local returnTbl
    local xCart, yCart
@@ -651,7 +663,8 @@ function emulator_getSensorByID(ID, Param)
 	 GPSdt = system.getTimeCounter() - lastGPScalc
 	 --print("%%%%%%%%%%%%%%Emulator: GPSparms, v.type, v.param, GPSdt", GPSparms, v.type, v.param, GPSdt)
 	 --print(system.getTimeCounter(), lastGPScalc)
-	 if GPSparms and v.type == 9 and (v.param == 2 or v.param == 3) and GPSdt > GPSMINMS then
+	 if GPSparms and v.type == 9 and (v.param == 2 or v.param == 3)
+	 and (not latVal or GPSdt > GPSMINMS) then
 	    if GPSparms.auxcontrol and #GPSparms.auxcontrol > 0 then
 	       for i = 1,#GPSparms.auxcontrol,1 do
 		  c = system.getInputs(GPSparms.auxcontrol[i]) -- e.g P6 = <-1..1>
@@ -666,8 +679,8 @@ function emulator_getSensorByID(ID, Param)
 
 	    -------------------
 	    
-	    xCart = gpsEval("xString", xCart); persistXP = xCart or persistXP
-	    yCart = gpsEval("yString", yCart); persistYP = yCart or persistYP
+	    xCart = gpsEval("xString", persistXP or 0); persistXP = xCart
+	    yCart = gpsEval("yString", persistYP or 0); persistYP = yCart
 	    persistHH = gpsEval("hString", persistHH)
 	    persistPP = gpsEval("pString", persistPP)
 	    persistZP = gpsEval("zString", persistZP)
@@ -726,7 +739,7 @@ function emulator_getSensorByID(ID, Param)
 	    --lon = nlon -- math.deg(lon)
 
 	    -- note sign, work with positive values, put sign back later
-	    if lat > 0 then latDecimals = 4 else
+	    if lat > 0 then latDecimals = 0 else
 	       latDecimals = 2
 	       lat = -1 * lat
 	    end
@@ -761,10 +774,10 @@ function emulator_getSensorByID(ID, Param)
 	    latVal = 0
 	    
 	    lonVal = lonDeg << 16
-	    lonVal = lonVal + 1000 * lonMin
+	    lonVal = lonVal + math.floor(1000 * lonMin + 0.5)
 
 	    latVal = latDeg << 16
-	    latVal = latVal + 1000 * latMin
+	    latVal = latVal + math.floor(1000 * latMin + 0.5)
 
 	    lastGPScalc = system.getTimeCounter()
 	 end
@@ -800,6 +813,13 @@ function emulator_getSensorByID(ID, Param)
 	       returnTbl.value = funcResult
 	    else
 	       returnTbl.value = 0 -- if no result return 0
+	    end
+	    -- coerce non-numeric results (e.g. boolean from "SA() > 0") so min/max
+	    -- comparisons below can't throw in the calling app
+	    if type(returnTbl.value) == "boolean" then
+	       returnTbl.value = returnTbl.value and 1 or 0
+	    elseif type(returnTbl.value) ~= "number" then
+	       returnTbl.value = tonumber(returnTbl.value) or 0
 	    end
 	 end
 
@@ -929,7 +949,11 @@ local function telePrint()
 	 ll = lcd.getTextWidth(font, text)
 	 lcd.drawText(cs + 12 - ll/2 + cs*col,  0+ss*sec, text, font)
 	 lcd.drawText(cs + cs*col, ls+ss*sec, "("..(sensorCache[k].unit or "")..")", font)
-	 if sensorCache[k].type == 5 then -- time or date
+	 if sensorCache[k].type == 5 and not (sensorCache[k].valHour or sensorCache[k].valYear) then
+	    lcd.drawText(cs+cs*col, ls*2+ss*sec, "--", font) -- date/time fields not emulated
+	 elseif sensorCache[k].type == 9 and not sensorCache[k].valGPS then
+	    lcd.drawText(cs+cs*col, ls*2+ss*sec, "--", font) -- no GPS fix computed yet
+	 elseif sensorCache[k].type == 5 then -- time or date
 	    if sensorCache[k].decimals == 0 then -- time
 	       text = string.format("%d:%02d:%02d", sensorCache[k].valHour,
 				  sensorCache[k].valMin, sensorCache[k].valSec)
@@ -994,16 +1018,18 @@ local function init()
    --print("SensorFields fg", fg)
    if fg then
       geo = json.decode(fg)
-      if geo then
+      if geo and geo.fields then
 	 for i = 1, #geo.fields do
 	    fieldnames[i] = geo.fields[i].name
 	 end
+      else
+	 geo = {}
       end
    else
       print("SensorE: Info - Cannot open Apps/SensorFields.jsn")
    end
-   
-   if not fg then
+
+   if not geo.fields then
       print("SensorE: Info - SensorFields.jsn not decoded - creating default")
       geo.fields={}
       geo.fields[1] =  {lat=39.147398, long=-77.337639,runway={}}
