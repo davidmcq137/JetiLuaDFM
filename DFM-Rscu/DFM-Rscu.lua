@@ -51,7 +51,6 @@ local fieldRotation
 local pointA
 local pointB
 local pointZ
-local drawRibbon
 local distAB
 local greenCircle, redCircle
 local pointsToRender = 0
@@ -70,7 +69,8 @@ local holdTurn
 local eleDelay
 local ailDelay
 local flyingToA
-
+local holdTele
+local holdTeleTime
 local const = {}
 const.ailControl = 3
 const.eleControl = 4
@@ -134,7 +134,6 @@ local homeShape = {
 --]]
 
 local emflag
-local sgDT
 local spND
 local ppA
 
@@ -247,20 +246,25 @@ local function writeGPSFile(field0, ptA, ptB)
    return ffn
 end
 
-local function clearRibbon()
-   ixP, iyP, iPindex = {}, {}, 1          -- dot trail (non-renderer screens)
-   ixL, iyL = {}, {}                      -- last ribbon point per zoom level
-   xLast, yLast = nil, nil
-   pointsToRender = 0
-   if RTH.renderer then
-      for i,_ in ipairs(magVal) do      
-	 RTH.ribbon[i] = nil
-	 RTH.renderer[i] = nil
-      end
-      collectgarbage()
-      for i,_ in ipairs(magVal) do
-         RTH.ribbon[i] = lcd.createImage(Screen.width, Screen.height)
-         if RTH.ribbon[i] then RTH.renderer[i] = lcd.renderer(RTH.ribbon[i]) end
+local function clearRibbon(mi)
+   if not mi then
+      ixP, iyP, iPindex = {}, {}, 1          -- dot trail (non-renderer screens)
+      ixL, iyL = {}, {}                      -- last ribbon point per zoom level
+      xLast, yLast = nil, nil
+      pointsToRender = 0
+   end
+   if RTH.renderer and config.fullScreenTele ~= 0 then
+      if not mi then --no arg passed .. reset them all here, then do lazy repop
+	 RTH.ribbon = {} --woof!
+	 RTH.renderer = {}
+	 collectgarbage()
+	 holdTele = #magVal -- holdTele display till all ribbons and images created in loop()
+	 holdTeleTime = system.getTimeCounter() + 1000 -- 1 sec ahead
+      else
+	 if mi >= 1 and mi <= #magVal then
+	    RTH.ribbon[mi] = lcd.createImage(Screen.width, Screen.height)
+	    if RTH.ribbon[mi] then RTH.renderer[mi] = lcd.renderer(RTH.ribbon[mi]) end
+	 end
       end
    end
 end
@@ -967,41 +971,53 @@ local function loopP()
 	    iPindex = 1
 	 end
       end
-      local ptr = pointsToRender
-      if RTH.renderer then
-	 if newpoint and pointsToRender < 100 then
-	    for i,_ in ipairs(magVal) do
-	       local RR = RTH.renderer[i]
-	       if pointsToRender == 0 then RR:reset() end
-	       ix, iy = xytopixel(x, y, i)
-	       if ixL[i] then
-		  if pointsToRender == 0 then
-		     RR:addPoint(ixL[i], iyL[i])
+
+      -- do lazy repop of ribbons and images after clear
+      -- no saving of points until done
+      
+      if holdTele > 0 then
+	 if now > holdTeleTime then
+	    clearRibbon(#magVal - holdTele + 1)
+	    holdTele = holdTele - 1
+	    if holdTele > 0 then holdTeleTime = now + 1000 end
+	 end
+      else
+	 local ptr = pointsToRender
+	 if RTH.renderer and config.fullScreenTele ~= 0 then
+	    if newpoint and pointsToRender < 100 then
+	       for i,_ in ipairs(magVal) do
+		  local RR = RTH.renderer[i]
+		  if pointsToRender == 0 and RR then RR:reset() end
+		  ix, iy = xytopixel(x, y, i)
+		  if ixL[i] then
+		     if pointsToRender == 0 and RR then
+			RR:addPoint(ixL[i], iyL[i])
+		     end
+		     if RR then RR:addPoint(ix, iy) end
+		     --RR:renderPolyline(2) -- only in tele function
 		  end
-		  RR:addPoint(ix, iy)
-		  --RR:renderPolyline(2) -- only in tele function
+		  ixL[i] = ix
+		  iyL[i] = iy
 	       end
-	       ixL[i] = ix
-	       iyL[i] = iy
+	       pointsToRender = pointsToRender + 1
+	       --xLast = x
+	       --yLast = y
+	       --if pointsToRender > 2 then print("pointsToRender", pointsToRender) end
 	    end
-	    pointsToRender = pointsToRender + 1
-	    --xLast = x
-	    --yLast = y
-	    --if pointsToRender > 2 then print("pointsToRender", pointsToRender) end
-	 end
-	 if pointsToRender == 100 and ptr == 99 then
-	    system.messageBox(appName..": Flight path pts being dropped")
-	 end
-	 if pointsToRender >= 100 then
-	    for i,_ in ipairs(magVal) do
-	       ixL[i] = nil
-	       xLast = nil
+	    if pointsToRender == 100 and ptr == 99 then
+	       system.messageBox(appName..": Flight path pts being dropped")
+	    end
+	    if pointsToRender >= 100 then
+	       for i,_ in ipairs(magVal) do
+		  ixL[i] = nil
+		  xLast = nil
+	       end
 	    end
 	 end
-      end
-      if newpoint then
-	 xLast = x
-	 yLast = y
+	 if newpoint then
+	    xLast = x
+	    yLast = y
+	 end
       end
    end
    
@@ -1891,15 +1907,14 @@ local function printTeleStatusP(w,h)
 
    lcd.setColor(0,0,255)
    if RTH.renderer then
-      if pointsToRender > 0 and drawRibbon then
+      if pointsToRender > 0 and holdTele == 0 then
 	 for i,_ in ipairs(magVal) do
 	    local RR = RTH.renderer[i]
-	    RR:renderPolyline(2)
+	    if RR then RR:renderPolyline(2) end
 	 end
 	 pointsToRender = 0
       end
    end
-
 end
 
 
@@ -1968,19 +1983,21 @@ local function printTeleGPSP(w,h)
 
    if not RTH.gpsHeading or not RTH.gpsDistance or not RTH.gpsBearingTo then return end
    
-   drawRibbon = true
-
    lcd.setColor(0,0,255)
    
-   if RTH.renderer then
-      if pointsToRender > 0 and drawRibbon then
-	 for i,_ in ipairs(magVal) do
-	    local RR = RTH.renderer[i]
-	    RR:renderPolyline(2)
+   if RTH.renderer and RTH.ribbon and config.fullScreenTele ~= 0 then
+      if holdTele == 0 then
+	 if pointsToRender > 0 then
+	    for i,_ in ipairs(magVal) do
+	       local RR = RTH.renderer[i]
+	       if RR then RR:renderPolyline(2) end
+	    end
+	    pointsToRender = 0
 	 end
-	 pointsToRender = 0
+	 if RTH.ribbon[magIdx] then lcd.drawImage(0,0,RTH.ribbon[magIdx]) end
+      else
+	 if redCircle then lcd.drawImage(w-30, 8, redCircle) end	 
       end
-      lcd.drawImage(0,0,RTH.ribbon[magIdx])
    else
       --print("not renderer", #ixP, ixP[1], iyP[1])
       for i=1, #ixP, 1 do
@@ -2091,7 +2108,7 @@ end
 
 local function init()
 
-   sgDT, emflag = system.getDeviceType()
+   emflag = select(2, system.getDeviceType())
 
    config = {fullScreenTele = 0}
 
@@ -2246,7 +2263,8 @@ local function init()
    end
 
    fieldRotation = 0
-
+   holdTele = 0
+   
    setMag(magIdx)
 
    -- Set screen sizes, start at +/- initHalfWid m .. see parallel code in keyPressGPS()
@@ -2258,7 +2276,6 @@ local function init()
    end
 
    Fields = scanGPSFiles()
-   drawRibbon = true
 
    if declareGlobal then
       print("DFM-Rscu setting globals")

@@ -5003,7 +5003,7 @@ local function loop()
       if Field.imagesToRead > 0 and now > Field.imagesReadTime then
 	 local im = #Field.images - Field.imagesToRead + 1
 	 if im <= #Field.images then
-	    print("Lazy loader calling pngLoad image", im)
+	    --print("Lazy loader calling pngLoad image", im)
 	    pngLoad(im, true)
 	    Field.imagesToRead = Field.imagesToRead - 1
 	    Field.imagesReadTime = now + const.imageWait * 1000
@@ -5331,9 +5331,7 @@ local function init()
       declareGlobal("DFM_Maps_AimOff", variables.aimoff)
    end
 
-   local p7i = math.floor((system.getInputs("P7") + 1) * 5)
-   print("Image load delay "..(p7i + 1).." s")
-   const.imageWait = p7i
+   const.imageWait = 2 -- time in s between re-reads of images and renderer creation
    
 end
 
