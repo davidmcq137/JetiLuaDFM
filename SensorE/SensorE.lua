@@ -317,6 +317,40 @@ local env = {
    swseq    = switchSequencer,
 }
 
+-- cache of compiled lua chunks, keyed by source text. All chunks share env{} so
+-- the compiled code depends only on the text. false marks a compile failure so
+-- we don't retry (and re-print the error) on every call
+
+local chunkCache = {}
+
+local function evalSrc(src, name)
+   local chunk = chunkCache[src]
+   if chunk == nil then
+      local err
+      chunk, err = load(src, name, "t", env)
+      if not chunk then
+	 print("SensorE: load error in " .. name .. " - " .. tostring(err))
+	 chunk = false
+      end
+      chunkCache[src] = chunk
+   end
+   if not chunk then return nil end
+   local status, result = pcall(chunk)
+   if not status then
+      print("SensorE: runtime error in " .. name .. " - " .. tostring(result))
+      return nil
+   end
+   return result
+end
+
+local function gpsEval(field, default)
+   local s = GPSparms[field]
+   if s and s ~= "" then
+      return evalSrc("return " .. s, field) or 0
+   end
+   return default
+end
+
 function emulator_init()
 
    local dev, emflag
@@ -397,7 +431,7 @@ function emulator_playNumber(val, dec, unit, lab)
       fs = "%f"
       rr = false
    end
-   if type(val) ~= "number" then print("SensorE - not a number: " .. val) end
+   if type(val) ~= "number" then print("SensorE - not a number: " .. tostring(val)) end
    if val and type(val) == "number" then
       vf = string.format(fs, val)
    else
@@ -414,7 +448,9 @@ function emulator_getSensors()
    local SEjsn={}
    local initStr
    local chunk, err, result, status
-   
+
+   chunkCache = {}
+
    text = "Apps/SensorE.jsn"
    fg = io.readall(text)
 
@@ -435,8 +471,8 @@ function emulator_getSensors()
    if not fg then print("SensorE: Cannot read " .. text) else
       print("SensorE: Sensor config: "..text)
       --print("JSON text[1-80]: ", string.sub(fg, 1, 80))
-      sensorTbl=json.decode(fg)
-      initStr = sensorTbl[1].initString
+      sensorTbl=json.decode(fg) or {}
+      initStr = sensorTbl[1] and sensorTbl[1].initString
       if initStr and initStr ~= "" then
 	 --print("initStr", initStr)
 	 chunk, err = load(initStr,"initString","t",env)
@@ -626,112 +662,15 @@ function emulator_getSensorByID(ID, Param)
 	    
 	    if GPSparms.lat0 then env.Lat0 = GPSparms.lat0 end
 	    if GPSparms.lon0 then env.Lon0 = GPSparms.lon0 end
-	    if GPSparms.lon0 then env.Lon0 = GPSparms.lon0 end
 	    if GPSparms.rE   then env.rE   = GPSparms.rE   end
 
 	    -------------------
 	    
-	    if GPSparms.xString and GPSparms.xString ~= "" then
-	       chunk, err = load("return "..GPSparms.xString,"","t",env)
-	       if err then
-		  print("SensorE: lua functionString load error xString, returning 0 - "..err)
-		  result = 0
-	       else
-		  if chunk then
-		     status, result = pcall(chunk)
-		     result = result or 0
-		     if not status then
-			print("SensorE: Bad status - result:", result)
-		     end
-		  else
-		     result = 0 
-		  end
-	       end
-	       xCart = result
-	       persistXP = xCart
-	    end
-
-	    if GPSparms.yString and GPSparms.yString ~= "" then
-	       chunk, err = load("return "..GPSparms.yString,"","t",env)
-	       if err then
-		  print("SensorE: lua functionString load error yString, returning 0 - "..err)
-		  result = 0
-	       else
-		  if chunk then
-		     status, result = pcall(chunk)
-		     result = result or 0
-		     if not status then
-			print("SensorE: Bad status - result:", result)
-			print("SensorE: GPSparms.yString: ", GPSparms.yString)
-		     end
-		  else
-		     result = 0 
-		  end
-	       end
-	       yCart = result
-	       persistYP = yCart
-	    end
-	    --print("xCart, yCart", xCart, yCart)
-
-	    if GPSparms.hString and GPSparms.hString ~= "" then
-	       chunk, err = load("return "..GPSparms.hString,"","t",env)
-	       if err then
-		  print("SensorE: lua functionString load error hString, returning 0 - "..err)
-		  result = 0
-	       else
-		  if chunk then
-		     status, result = pcall(chunk)
-		     result = result or 0
-		     if not status then
-			print("SensorE: Bad status - result:", result)
-			print("SensorE: GPSparms.hString: ", GPSparms.hString)
-		     end
-		  else
-		     result = 0 
-		  end
-	       end
-	       persistHH = result
-	    end
-
-	    if GPSparms.pString and GPSparms.pString ~= "" then
-	       chunk, err = load("return "..GPSparms.pString,"","t",env)
-	       if err then
-		  print("SensorE: lua functionString load error pString, returning 0 - "..err)
-		  result = 0
-	       else
-		  if chunk then
-		     status, result = pcall(chunk)
-		     result = result or 0
-		     if not status then
-			print("SensorE: Bad status - result:", result)
-			print("SensorE: GPSparms.pString: ", GPSparms.pString)
-		     end
-		  else
-		     result = 0 
-		  end
-	       end
-	       persistPP = result
-	    end
-
-	    if GPSparms.zString and GPSparms.zString ~= "" then
-	       chunk, err = load("return "..GPSparms.zString,"","t",env)
-	       if err then
-		  print("SensorE: lua functionString load error zString, returning 0 - "..err)
-		  result = 0
-	       else
-		  if chunk then
-		     status, result = pcall(chunk)
-		     result = result or 0
-		     if not status then
-			print("SensorE: Bad status - result:", result)
-			print("SensorE: GPSparms.zString: ", GPSparms.hString)
-		     end
-		  else
-		     result = 0 
-		  end
-	       end
-	       persistZP = result
-	    end
+	    xCart = gpsEval("xString", xCart); persistXP = xCart or persistXP
+	    yCart = gpsEval("yString", yCart); persistYP = yCart or persistYP
+	    persistHH = gpsEval("hString", persistHH)
+	    persistPP = gpsEval("pString", persistPP)
+	    persistZP = gpsEval("zString", persistZP)
 
 	    --print("@", persistZP, env.zp, persistPP, env.pitch)	    
 	    --print("@", persistXP, persistYP, persistHH)
@@ -839,42 +778,11 @@ function emulator_getSensorByID(ID, Param)
 	 expResult  = nil
 	 
 	 if v.luaFunc and v.luaFunc ~= "" then
-	    chunk, err = load(v.luaFunc,"luaFunc: "..uid,"t",env)
-	    
-	    if err then
-	       print("SensorE: luaFunc load error, returning 0 - "..err)
-	       funcResult = 0
-	    else
-	       if chunk then
-		  status, funcResult = pcall(chunk)
-		  if not status then
-		     print("SensorE: Bad status - result:", funcResult)
-		     print("SensorE: in luaFunc: "..(v.luaFunc or "nil"))
-		     funcResult = nil
-		  end
-	       end
-	    end
+	    funcResult = evalSrc(v.luaFunc, "luaFunc: " .. uid)
 	 end
 
 	 if v.luaExp and v.luaExp ~= "" then
-	    --print("luaExp, env.zp", v.luaExp, env.zp)
-	    chunk, err = load("return "..v.luaExp,"luaExp: "..uid,"t",env)
-
-	    if err then
-	       print("SensorE: lua load error, returning 0 - "..err)
-	       expResult = 0
-	    else	
-       
-	       if chunk then
-		  status, expResult = pcall(chunk)
-		  --print("expResult", expResult)
-		  if not status then
-		     print("SensorE: Bad status - result:", expResult)
-		     print("SensorE: in luaExp: "..(v.luaExp or "nil"))
-		     expResult = nil
-		  end
-	       end
-	    end
+	    expResult = evalSrc("return " .. v.luaExp, "luaExp: " .. uid)
 	 end
 
 	 -- typically we will get a value from luaExp since we concatenate the luaExp string
