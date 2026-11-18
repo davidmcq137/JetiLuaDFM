@@ -85,5 +85,6 @@
     "selectAltimeter":"Select Baro Altimeter Senseur",
     "maxTriAlt":"Altitude Course Maximun",
     "TEKVario":"Select TEK Vario Senseur",
-    "fullRaceWin":"Full screen race window"
+    "fullRaceWin":"Fenêtre de course plein écran",
+    "showRescueCircles":"Afficher les cercles DFM-Rscu"
 }

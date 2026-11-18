@@ -90,5 +90,6 @@
   "maxTriAlt": "Quota massima di Gara",
   "TEKVario": "Selez Sensore Variometro TEK",
   "Thr": "Thr",
-  "fullRaceWin":"Full screen race window"    
+  "fullRaceWin":"Finestra gara a schermo intero",
+  "showRescueCircles":"Mostra cerchi DFM-Rscu"
 }

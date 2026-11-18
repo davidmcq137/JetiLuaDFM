@@ -86,5 +86,6 @@
     "maxTriAlt":"max. Wettbewerbshöhe",
     "TEKVario":"Wähle TEK Vario Sensor",
     "Thr":"Mot.",
-    "fullRaceWin":"Full screen race window"
+    "fullRaceWin":"Rennfenster im Vollbild",
+    "showRescueCircles":"DFM-Rscu-Kreise anzeigen"
 }

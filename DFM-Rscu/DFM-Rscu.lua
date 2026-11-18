@@ -471,7 +471,6 @@ local function loopP()
    local MINHDGDIST = 3
    local MINGPSREADS= 50
    local MINANNDIST = 5
-   local info
    local SwO, SwC
    local altnow
    
@@ -624,13 +623,10 @@ local function loopP()
    end
 
    -- read the switch for mixer calibration
+   -- getInputsVal returns the switch as evaluated by the TX (honors active position,
+   -- inversion etc.) .. getSwitchInfo().value is the raw control position
    if RTH.settings.calSw then
-      info = system.getSwitchInfo(RTH.settings.calSw)
-      if info then
-	 SwC = info.value
-      else
-	 SwC = -1
-      end
+      SwC = system.getInputsVal(RTH.settings.calSw) or -1
    else
       SwC = -1
    end
@@ -667,12 +663,7 @@ local function loopP()
 
    -- read the switch for RTH steering on/off
    if RTH.settings.onoffSw then
-      info = system.getSwitchInfo(RTH.settings.onoffSw)
-      if info then
-	 SwO = info.value
-      else
-	 SwO = -1
-      end
+      SwO = system.getInputsVal(RTH.settings.onoffSw) or -1
    else
       SwO = -1
    end

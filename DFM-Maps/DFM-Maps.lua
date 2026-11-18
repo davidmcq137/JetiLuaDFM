@@ -55,7 +55,6 @@
 --]]
 
 --luacheck: globals declareGlobal
---luacheck: globals DFM_Maps_MapsAimPoint
 --luacheck: globals DFM_Rscu_CircleCenter
 --luacheck: globals DFM_Rscu_CircleInner
 --luacheck: globals DFM_Rscu_CircleOuter
@@ -74,7 +73,6 @@ local longitude
 local courseGPS = 0
 local GPSAlt = 0
 local heading = 0
-local lastHeading = 0
 local altitude = 0
 local speed = 0
 local SpeedGPS = 0
@@ -249,6 +247,15 @@ local lang
 local locale
 local newTransmitter = false
 local Screen = {}
+
+-- json.decode (cjson) throws on nil or malformed input; return nil instead
+local function jsonDecode(str, what)
+   if not str then return nil end
+   local ok, val = pcall(json.decode, str)
+   if ok then return val end
+   print(appInfo.Name .. ": JSON decode failed for " .. (what or "?") .. ": " .. tostring(val))
+   return nil
+end
 
 local function rotateXY(xx, yy, rotation)
    local sinShape, cosShape
@@ -603,7 +610,7 @@ local function setLanguage()
       end
    end
 
-   lang = json.decode(fp)
+   lang = jsonDecode(fp, transFile)
 
    if not lang then
       error("DFM-Maps: FATAL - Could not decode language file")
@@ -644,9 +651,7 @@ local function jLoadInit(fn)
    local fj
    local config
    fj = io.readall(fn)
-   if fj then
-      config = json.decode(fj)
-   end
+   config = jsonDecode(fj, fn)
    if not config then
       print("Did not read jLoad file "..fn)
       config = {}
@@ -712,7 +717,7 @@ local function readSensors()
    local sensName = ""
    
    jt = io.readall(appInfo.Dir.."JSON/paramGPS.jsn")
-   paramGPS = json.decode(jt)
+   paramGPS = jsonDecode(jt, "JSON/paramGPS.jsn")
    
    for _, sensor in ipairs(sensors) do
       --print("for loop:", i, sensor.sensorName, sensor.label, sensor.param, sensor.type)
@@ -1045,7 +1050,7 @@ local function setField(sname)
    
    local jsn = io.readall(tfn)
    
-   if jsn then triT = json.decode(jsn) end
+   triT = jsonDecode(jsn, tfn)
    
    if triT then
       variables.triOffsetX  = triT.dx or 0
@@ -1243,8 +1248,9 @@ local function initField(fn)
       local fg = io.readall("Apps/"..appInfo.Maps .."/JSON/"..
 			       string.gsub(system.getProperty("Model")..
 					      "_icon.jsn", " ", "_"))
-      if fg then
-	 shapes.airplaneIcon = json.decode(fg).icon
+      local icon = jsonDecode(fg, "model icon file")
+      if icon and icon.icon then
+	 shapes.airplaneIcon = icon.icon
       end
    end
    
@@ -1300,16 +1306,19 @@ local function keyForm(key)
       --print("$$$$$$$$$$$$ key:", key, KEY_2, KEY_3, KEY_4)
 
       if key == KEY_3 or key == KEY_4 then
-	 if key == KEY_3 then inc = -1 else inc = 1 end
-	 browse.Idx = browse.Idx + inc
-	 browse.Idx = math.max(math.min(browse.Idx, #Fields[browse.FieldName].images), 1)
-	 currentImage = browse.Idx
-	 --print("call pngLoad", currentImage)
-	 pngLoad(currentImage)
-	 --print("call graphScaleRst", currentImage)
-	 graphScaleRst(currentImage)
-	 --print("call triRot")
-	 triRot(0) -- rotate and translate triangle to pylons
+	 -- zoom keys only apply on the map browser screen with a field selected
+	 if savedSubform == 10 and browse.FieldName and Fields[browse.FieldName] then
+	    if key == KEY_3 then inc = -1 else inc = 1 end
+	    browse.Idx = browse.Idx + inc
+	    browse.Idx = math.max(math.min(browse.Idx, #Fields[browse.FieldName].images), 1)
+	    currentImage = browse.Idx
+	    --print("call pngLoad", currentImage)
+	    pngLoad(currentImage)
+	    --print("call graphScaleRst", currentImage)
+	    graphScaleRst(currentImage)
+	    --print("call triRot")
+	    triRot(0) -- rotate and translate triangle to pylons
+	 end
       else -- KEY_2
 	 --print("key2, savedSubform", savedSubform)
 	 if savedSubform == 7 then
@@ -1556,7 +1565,9 @@ local function initForm(subform)
 		       "Restart App after pressing Yes",
 		       6000, false, 0) == 1 then
 	 io.remove(jFilename())
-	 io.remove(kFilename())
+	 if Field and Field.shortname then -- no field-specific file if not at a field
+	    io.remove(kFilename())
+	 end
 	 appInfo.SaveData = false
       end
    end
@@ -1854,10 +1865,13 @@ local function initForm(subform)
       form.addLink(clearData, {label = lang.clearAll})
       
       checkBoxAdd(lang.fullRaceWin, "fullRaceWin")
+
+      checkBoxAdd(lang.showRescueCircles, "showRescueCircles")
       
       form.addLink((function() form.reinit(1) end),
 	 {label = lang.backMain, font=FONT_BOLD})
 
+      
       form.setFocusedRow(1)
 
       
@@ -2250,12 +2264,6 @@ local function drawTriRace(windowWidth, windowHeight)
 	 setColor("AimPt", variables.triColorMode)
       end
 
-      if DFM_Maps_MapsAimPoint then
-	 if not DFM_Maps_MapsAimPoint[j] then DFM_Maps_MapsAimPoint[j] = {} end
-	 DFM_Maps_MapsAimPoint[j].x = pylon[j].xt
-	 DFM_Maps_MapsAimPoint[j].y = pylon[j].yt
-      end
-      
       lcd.drawCircle(toXPixel(pylon[j].xt, map.Xmin, map.Xrange, windowWidth),
 		     toYPixel(pylon[j].yt, map.Ymin, map.Yrange, windowHeight),
 		     4)
@@ -2867,7 +2875,7 @@ local function calcTriRace()
 	 elseif (sChar == "T" or sChar == "t") and raceParam.racing then
 	    if speed ~= 0 then
 	       playFile("time.wav", AUDIO_QUEUE)
-	       playNumber(distance/speed, 1)	  
+	       playNumber(distance / (speed / 3.6), 1) -- speed is km/h, want secs	  
 	    end
 	 elseif sChar == "S" or sChar == "s" then
 	    playFile("speed.wav", AUDIO_QUEUE)
@@ -3160,8 +3168,6 @@ local function prtForm() --wwx, whx)
 end
 
 
-local savedRx={}
-local savedRy={}
 local circFitCache={}
 
 
@@ -3252,33 +3258,18 @@ local function dirPrint(_, _, kk)
    
    local xx, yy = xtable[#xtable], ytable[#ytable]
    
-   local function ll2RX(ih)
-      local xrr, yrr
-      xrr, yrr = const.rE*(lngHist[ih]-lng0)*coslat0/const.rad, const.rE*(latHist[ih]-lat0)/const.rad
-      xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
-      return xrr
+   -- lat/lng to rotated x,y (m) relative to lat0, lng0
+   local rotRad = math.rad(variables.rotationAngle)
+
+   local function ll2R(lat, lng)
+      return rotateXY(const.rE*(lng-lng0)*coslat0/const.rad,
+		      const.rE*(lat-lat0)/const.rad, rotRad)
    end
 
-   local function ll2RY(ih)
-      local xrr, yrr
-      xrr, yrr = const.rE*(lngHist[ih]-lng0)*coslat0/const.rad, const.rE*(latHist[ih]-lat0)/const.rad
-      xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
-      return yrr
-   end   
-
-   local function ll2RXr(lat, lng)
-      local xrr, yrr
-      xrr, yrr = const.rE*(lng-lng0)*coslat0/const.rad, const.rE*(lat-lat0)/const.rad
-      xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
-      return xrr
+   -- same, for history point ih
+   local function ll2RH(ih)
+      return ll2R(latHist[ih], lngHist[ih])
    end
-
-   local function ll2RYr(lat,lng)
-      local xrr, yrr
-      xrr, yrr = const.rE*(lng-lng0)*coslat0/const.rad, const.rE*(lat-lat0)/const.rad
-      xrr, yrr = rotateXY(xrr, yrr, math.rad(variables.rotationAngle))
-      return yrr
-   end   
 
    local function circFit(k)
       -- tradeoff to use jth point .. closer to real time but noisier when still
@@ -3291,18 +3282,13 @@ local function dirPrint(_, _, kk)
 	 j=k
       end
       --]]
-      local x1 = ll2RX(j-1)
+      local x1, y1 = ll2RH(j-1)
       local x12 = x1*x1
-      local y1 = ll2RY(j-1)
       local y12 = y1*y1
-      local x2 = ll2RX(j)
+      local x2, y2 = ll2RH(j)
       local x22 = x2*x2
-      local y2 = ll2RY(j)
       local y22 = y2*y2
-      --local x3 = ll2RX(j)
-      --local y3 = ll2RY(j)
-      local x3 = ll2RXr(latitude, longitude)
-      local y3 = ll2RYr(latitude, longitude)
+      local x3, y3 = ll2R(latitude, longitude)
       local x32 = x3*x3
       local y32 = y3*y3
       
@@ -3436,32 +3422,21 @@ local function dirPrint(_, _, kk)
       --local kk
       --local jj
       --local ii = variables.ribbonColorSource
-      local xrr, yrr
+      local px, py
       local maxPts = variables.triHistMax
       local iend = #xPHist
       local istart = math.max(iend-maxPts+1, 1)
-      local newH = (hh ~= lastHeading)
 
-      -- for each heading, pre-compute pixels for history ribbon
-      if newH then
-	 for i=istart, iend do
-	    xrr,yrr = ll2RX(i), ll2RY(i)
-	    savedRx[i], savedRy[i] = rapN(xrr, yrr, 2)
-	 end
-      end
       dirPrintRenderer:reset()
       rgb.last = -1
-      -- display the history ribbon from the cached points, handle color changes
+      -- display the history ribbon, handle color changes. Pixels depend on both the
+      -- current position and heading so they are recomputed every frame (only
+      -- triHistMax points, so cheap)
       for i=istart, iend do
-	 -- in case we get unlucky on heading change timing, we might need to compute
-	 -- some additional points from time to time. for speed just check savedRx
-	 if not savedRx[i] then
-	    xrr,yrr = ll2RX(i), ll2RY(i)
-	    savedRx[i], savedRy[i] = rapN(xrr, yrr, 2)
-	 end
+	 px, py = rapN(ll2RH(i))
 	 if rgbHist[i] ~= rgb.last then
 	    rgb.last = rgbHist[i]
-	    rapC(savedRx[i], savedRy[i], 2)
+	    rapC(px, py, 2)
 	    dirPrintRenderer:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
 	    dirPrintRenderer:reset()
 	    if variables.ribbonColorSource == 1 then
@@ -3470,13 +3445,12 @@ local function dirPrint(_, _, kk)
 	       lcd.setColor(rgbHist[i].r, rgbHist[i].g, rgbHist[i].b)
 	    end
 	 end
-	 rapC(savedRx[i], savedRy[i], 2)
+	 rapC(px, py, 2)
       end
       rap(xx,yy,2)
       dirPrintRenderer:renderPolyline(variables.ribbonWidth*3, variables.ribbonAlpha * 0.7)
-      
+
    end
-   lastHeading = hh
    
    -- draw the airplane icon
    setColor("Label", triColorMode)
@@ -3509,8 +3483,10 @@ local function dirPrint(_, _, kk)
       end
       if cx then
 	 if recomp then
-	    t1 = math.atan( (ll2RX(#latHist-1) - cx), (ll2RY(#latHist-1) - cy))
-	    t0 = math.atan( (ll2RX(#latHist) - cx), (ll2RY(#latHist) - cy))
+	    local hx1, hy1 = ll2RH(#latHist-1)
+	    local hx0, hy0 = ll2RH(#latHist)
+	    t1 = math.atan(hx1 - cx, hy1 - cy)
+	    t0 = math.atan(hx0 - cx, hy0 - cy)
 	    circFitCache.t1 = t1
 	    circFitCache.t0 = t0
 	 else
@@ -3519,8 +3495,8 @@ local function dirPrint(_, _, kk)
 	 end
 	 --can't cache tn since it varies with lat/long
 	 if latitude and longitude then
-	    tn = math.atan( (ll2RXr(latitude, longitude) - cx),
-	       (ll2RYr(latitude, longitude) - cy))
+	    local nx, ny = ll2R(latitude, longitude)
+	    tn = math.atan(nx - cx, ny - cy)
 	 else
 	    tn = 0
 	 end
@@ -4164,15 +4140,7 @@ local function mapPrint() --wWid, wHgt)
       --and we are about to get killed
       
       if panic then
-	 offset = #xPHist - 100 -- only draw last 200 points .. should be safe
-	 if offset < 0 then -- should not happen .. if so dump and start over
-	    print(appInfo.Name .. ": dumped history")
-	    xPHist={}
-	    yPHist={}
-	    latHist={}
-	    lngHist={}
-	    rgbHist={}
-	 end
+	 offset = math.max(#xPHist - 100, 0) -- only draw last 100 points .. should be safe
       else
 	 offset = 0
       end
@@ -4406,7 +4374,7 @@ local function mapPrint() --wWid, wHgt)
 	    end
 	 end
 	 -- only draw future if projected position more than 10m ahead (~10 mph for 2s)
-	 if speed * variables.futureMillis > 10000 and xtable.xf and ytable.yf then
+	 if (speed / 3.6) * (variables.futureMillis / 1000) > 10 and xtable.xf and ytable.yf then
 	    drawShape(toXPixel(xtable.xf, map.Xmin, map.Xrange, windowWidth),
 		      toYPixel(ytable.yf, map.Ymin, map.Yrange, windowHeight) + 0,
 		      shapes.delta, math.rad(heading))
@@ -4443,7 +4411,8 @@ local function mapPrint() --wWid, wHgt)
    end
 
    -- DFM-Rscu declares this global as 0 (truthy) until it has a real gps point
-   if DFM_Rscu_CircleCenter and type(DFM_Rscu_CircleCenter) ~= "number" then
+   if checkBox.showRescueCircles and DFM_Rscu_CircleCenter and
+      type(DFM_Rscu_CircleCenter) ~= "number" then
       if Field.centerGPS and Field.centerGPS[currentImage] then
 	 --print(DFM_Rscu_CircleCenter)
 	 local xrcc, yrcc = gps2xy(Field.centerGPS[currentImage], DFM_Rscu_CircleCenter)
@@ -4778,37 +4747,24 @@ local function loop()
    end
 
    
-   local zeroPos = gps.newPoint(lat0, lng0)
-   local curPos = gps.getPosition(telem.Latitude.SeId, telem.Latitude.SePa, telem.Longitude.SePa)
-   local curDist = gps.getDistance(zeroPos, curPos)
-   local curBear = gps.getBearing(zeroPos, curPos)
-      --curX, curY = rotateXY(curX, curY, math.rad(variables.rotationAngle))
-   local curX = curDist * math.cos(math.rad(curBear+270)) -- why not same angle X and Y??
-   local curY = curDist * math.sin(math.rad(curBear+90))
+   -- x,y (m) of the current position relative to lat0, lng0. Only needed when we will
+   -- use it below (new position, or seeding an empty xtable), otherwise x,y keep the
+   -- values from the last new position
 
-   x = const.rE * (longitude - lng0) * coslat0 / const.rad
-   y = const.rE * (latitude - lat0) / const.rad
-
-
-   --print(x-curX, y-curY)
-
-   x = curX
-   y = curY
-   
-   --[[
-   --print("x,y:", x,y)
-
-   if curX and curY then
-      print("curX, curY", curX, curY)
-      x,y = curX, curY
+   if newpos or (#xtable == 0) then
+      local zeroPos = gps.newPoint(lat0, lng0)
+      local curPos = gps.getPosition(telem.Latitude.SeId, telem.Latitude.SePa,
+				     telem.Longitude.SePa)
+      local curDist = gps.getDistance(zeroPos, curPos)
+      local curBear = math.rad(gps.getBearing(zeroPos, curPos))
+      -- bearing is clockwise from north: x (east) = d sin(b), y (north) = d cos(b)
+      x, y = rotateXY(curDist * math.sin(curBear), curDist * math.cos(curBear),
+		      math.rad(variables.rotationAngle))
    end
-   --]]
-   
-   x, y = rotateXY(x, y, math.rad(variables.rotationAngle))
 
    --defend against silly points .. sometimes they come from the RCT GPS
    --hopefully this is larger than any field (mag 14 is about 2500m wide)
-   
+
    if (math.abs(x) > 10000.) or (math.abs(y) > 10000.) or (math.abs(altitude) > 10000.) then
       --print("Bad point - discarded:", x,y,latitude,longitude,altitude)
       return
@@ -4973,9 +4929,10 @@ local function loop()
    end
    compcrsDeg = (compcrs or 0)*180/math.pi
 
-   xtable.xf = xtable[#xtable] - speed * (variables.futureMillis / 1000.0) *
+   -- speed is km/h, convert to m/s for the projected position
+   xtable.xf = xtable[#xtable] - (speed / 3.6) * (variables.futureMillis / 1000.0) *
 	 math.cos(math.rad(270-heading))
-      ytable.yf = ytable[#xtable] - speed * (variables.futureMillis / 1000.0) *
+      ytable.yf = ytable[#xtable] - (speed / 3.6) * (variables.futureMillis / 1000.0) *
 	 math.sin(math.rad(270-heading))
 
       checkNoFly(x, y, false, true)
@@ -5001,7 +4958,8 @@ local function loop()
 
    if system.getProperty("NativeDraw") == 1  and variables.histMax > const.xOver then
       local now = system.getTimeCounter()
-      if Field.imagesToRead > 0 and now > Field.imagesReadTime then
+      -- Field is {} when not at a known field
+      if (Field.imagesToRead or 0) > 0 and now > Field.imagesReadTime then
 	 local im = #Field.images - Field.imagesToRead + 1
 	 if im <= #Field.images then
 	    --print("Lazy loader calling pngLoad image", im)
@@ -5079,18 +5037,16 @@ local function init()
    
    local fg = io.readall(appInfo.Dir.."JSON/Shapes.jsn")
 
-   if fg then
-      shapes = json.decode(fg)
-   else
-      print(appInfo.Name .. ": Could not open "..appInfo.Dir.."JSON/Shapes.jsn")
+   shapes = jsonDecode(fg, appInfo.Dir.."JSON/Shapes.jsn")
+   if not shapes then
+      error(appInfo.Name .. ": FATAL - Could not read " .. appInfo.Dir .. "JSON/Shapes.jsn")
    end
 
    fg = io.readall(appInfo.Dir .."JSON/Colors.jsn")
 
-   if fg then
-      colors = json.decode(fg)
-   else
-      print(appInfo.Name .. ": Could not open" .. appInfo.Dir .. "JSON/Colors.jsn")
+   colors = jsonDecode(fg, appInfo.Dir.."JSON/Colors.jsn")
+   if not colors then
+      error(appInfo.Name .. ": FATAL - Could not read " .. appInfo.Dir .. "JSON/Colors.jsn")
    end
 
    --A nice 9-point and 10-point RGB gradient that looks good on top of the map
@@ -5190,6 +5146,7 @@ local function init()
    checkBox.absAltGPS = jLoad(variables, "absAltGPS", false)
    checkBox.recordIGC = jLoad(variables, "recordIGC", false)
    checkBox.fullRaceWin = jLoad(variables, "fullRaceWin", false)
+   checkBox.showRescueCircles = jLoad(variables, "showRescueCircles", false)
    
    shapes.airplaneIcon = shapes[shapes.airplaneIcons[variables.airplaneIcon]]
 
@@ -5244,14 +5201,13 @@ local function init()
    fp = io.readall(fn)
 
    if fp then
-      Fields = json.decode(fp)
+      Fields = jsonDecode(fp, fn)
       if not Fields then
-	 print(appInfo.Name .. ": Failed to decode " .. fn)
-	 return
+	 error(appInfo.Name .. ": FATAL - Failed to decode " .. fn)
       end
    else
       print(appInfo.Name .. ": Cannot open ", fn)
-      return
+      --return should be ok not to have a field set
    end
 
    -- read Config.jsn to see what screen size the map files are for. If no Config file
@@ -5262,7 +5218,7 @@ local function init()
    local fpC = io.readall(fn)
 
    if fpC then -- Config.jsn file with screen info exists
-      Screen = json.decode(fpC) or {}
+      Screen = jsonDecode(fpC, fn) or {}
       if not Screen or not Screen.image_height_px then
 	 print(appInfo.Name .. ": Did not decode config json")
       end

@@ -87,5 +87,6 @@
     "TEKVario":"Select TEK Vario Sensor",
     "Thr":"Thr",
     "noTri":"No Triangles",
-    "fullRaceWin":"Full screen race window"
+    "fullRaceWin":"Full screen race window",
+    "showRescueCircles":"Show DFM-Rscu Circles"
 }

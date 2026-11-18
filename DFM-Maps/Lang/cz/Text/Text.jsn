@@ -86,5 +86,6 @@
     "maxTriAlt":"Maximální výška úlohy",
     "TEKVario":"Vyber senzor TEK Vário",
     "Thr":"Plyn",
-    "fullRaceWin":"Full screen race window"
+    "fullRaceWin":"Závodní okno na celou obrazovku",
+    "showRescueCircles":"Zobrazit kruhy DFM-Rscu"
 }

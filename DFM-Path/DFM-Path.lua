@@ -235,7 +235,7 @@ local function loop()
       if not pathIndex then pathIndex = 0 end
       local pp
       local aimoff
-      if DFM_Maps_MapsAimPoint then aimoff = DFM_Maps_MapAimPoint else aimoff = 20 end
+      if DFM_Maps_MapsAimPoint then aimoff = DFM_Maps_MapsAimPoint else aimoff = 20 end
       if pathIndex == 0 then
 	 for i=1,3,1 do
 	    pathIndex = pathIndex + 1
