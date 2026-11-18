@@ -5195,7 +5195,7 @@ local function init(icode)
    Screen.dcds24ii_height_px = 343
    Screen.dcds24ii = (string.find(select(1, system.getDeviceType()), "24 II"))
 
-   if not Screen.dcds2ii then
+   if not Screen.dcds24ii then
       Screen.image_width_px = Screen.legacy_width_px
       Screen.image_height_px = Screen.legacy_height_px
    else

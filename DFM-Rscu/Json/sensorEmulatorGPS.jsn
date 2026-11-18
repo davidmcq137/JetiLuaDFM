@@ -7,7 +7,7 @@
     "xp":0,
     "yp":0,
     "zp":100,
-    "heading":90,
+    "heading":20,
     "pitch":0,
     "hString":"heading + O1(-8,8)",
     "pString":"-O2(-20,20) - 0*math.abs(O1(-4,4))",    

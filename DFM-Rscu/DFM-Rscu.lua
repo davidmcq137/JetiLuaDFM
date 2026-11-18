@@ -4,7 +4,7 @@
    DFM-Rscu "rescue/return to home" .. Conceived by Harry Curzon, coded by DFM. Initially 
    copied from DFM-HUD.lua as starting point
 
-   Requires transmitter firmware 4.22 or higher
+   Requires transmitter firmware 5.0 or higher
     
    Developed on DS-24, only tested on DS-24
 
@@ -32,7 +32,8 @@ local calibrating
 --local everEnabled = false
 local lastSec
 local announceTime
-local lastSwO = -1
+local lastSwO_on = false
+local lastSwC_on = false
 local annSeq = 1
 local CMULT = 1.33 --circleMax = CMULT * circleMin
 local iPindex = 1
@@ -68,6 +69,12 @@ local rescueOnDelay
 local holdTurn
 local eleDelay
 local ailDelay
+local flyingToA
+
+local const = {}
+const.ailControl = 3
+const.eleControl = 4
+
 
 --[[
 local testLatControl
@@ -104,6 +111,7 @@ local ixL = {}
 local iyL = {}
 local xLast
 local yLast
+local logret
 
 local renShape
 --local ren = lcd.renderer()
@@ -126,10 +134,13 @@ local homeShape = {
 --]]
 
 local emflag
+local sgDT
+local spND
+local ppA
 
 local function prefix()
    local pf
-   if (select(2, system.getDeviceType()) == 1) then pf = "" else pf = "/" end
+   if (emflag == 1) then pf = "" else pf = "/" end
    return pf
 end
 
@@ -141,23 +152,29 @@ local function rotateXY(xx, yy, rotation)
 end
 
 local function scanGPSFiles(cp, F)
-
+   
    if not cp then -- just scan and return table of fields
       local FF = {}
-      local file, fn, ext, dd, ff
+      local file, fn, ext, ff
       local path = prefix() .. pathApp.."Fields"
       if dir(path) then
 	 --print("dir(path) true for")
 	 for name, _, _ in dir(path) do
-	    dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
+	    _, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
 	    --print("name, dd, fn, ext", name, dd, fn, ext)
 	    if fn and ext then
 	       if string.lower(ext) == "gps" then
 		  ff = path .. "/" .. fn .. "." .. ext
 		  file = io.readall(ff)
-		  if file then
-		     local dc = json.decode(file)
-		     table.insert(FF, dc)
+		  if not file then
+		     print(appName..": gps file error ".. ff)
+		  else
+		     local ok,dc = pcall(json.decode, file)
+		     if ok and type(dc) == "table" and dc.zeroPos and dc.pointA and dc.pointB  then
+			table.insert(FF, dc)
+		     else
+			print(appName.." : bad gps file " .. ff)
+		     end
 		  end
 	       end
 	    end
@@ -212,8 +229,8 @@ local function writeGPSFile(field0, ptA, ptB)
    local ns, ew
    if lat >= 0 then ns = "N" else ns = "S" end
    if lng >= 0 then ew = "E" else ew = "W" end
-   lats = string.format("%4d"..ns, math.floor(math.abs(lat)*1000))
-   lngs = string.format("%4d"..ew, math.floor(math.abs(lng)*1000))
+   local lats = string.format("%04d"..ns, math.floor(math.abs(lat)*1000))
+   local lngs = string.format("%04d"..ew, math.floor(math.abs(lng)*1000))
    local fn = "R"..lats..lngs..".gps"
    local dat = {}
    dat.zeroPos = {lat, lng}
@@ -230,6 +247,24 @@ local function writeGPSFile(field0, ptA, ptB)
    return ffn
 end
 
+local function clearRibbon()
+   ixP, iyP, iPindex = {}, {}, 1          -- dot trail (non-renderer screens)
+   ixL, iyL = {}, {}                      -- last ribbon point per zoom level
+   xLast, yLast = nil, nil
+   pointsToRender = 0
+   if RTH.renderer then
+      for i,_ in ipairs(magVal) do      
+	 RTH.ribbon[i] = nil
+	 RTH.renderer[i] = nil
+      end
+      collectgarbage()
+      for i,_ in ipairs(magVal) do
+         RTH.ribbon[i] = lcd.createImage(Screen.width, Screen.height)
+         if RTH.ribbon[i] then RTH.renderer[i] = lcd.renderer(RTH.ribbon[i]) end
+      end
+   end
+end
+
 local function setGPSField(zP, ptA, ptB)
    if not zP or not ptA or not ptB then return end
    
@@ -237,7 +272,7 @@ local function setGPSField(zP, ptA, ptB)
          
    system.messageBox(string.format("Field rotation set to %d°", math.deg(fieldRotation)))
    -- 60m is distance behind pilot to bottom of screen
-   ptZ = gps.getDestination(ptA, 60, gps.getBearing(ptA, ptB) + 90)
+   local ptZ = gps.getDestination(ptA, 60, gps.getBearing(ptA, ptB) + 90)
    
    local bb = gps.getBearing(zP, ptZ)
    local dd = gps.getDistance(zP, ptZ)
@@ -255,6 +290,8 @@ local function setGPSField(zP, ptA, ptB)
       ymax[i] = yBottom - 80 + 2 * Screen.height / Screen.width * magVal[i] * initHalfWid
    end
 
+   clearRibbon()
+   
    --save this location to a file for next time. filename encodes position not using
    --too many digits of lat and lng ..so should not create too many copies
 
@@ -300,6 +337,7 @@ end
 
 
 local function mixOut(mix, val)
+   if not mix or not val then return 0 end
    local np = #mix.points
    local mg = mix.gain / 100
    if val <= mix.points[1].x / 100 then
@@ -356,6 +394,20 @@ local function readSensors(tt)
    local l1, l2, l3
    local GPStype = 9
 
+   tt.sensorLalist = {"..."}
+   tt.sensorLslist = {"..."}
+   tt.sensorIdlist = {0}
+   tt.sensorPalist = {0}
+   tt.sensorUnlist = {"-"}
+   tt.sensorDplist = {0}
+   tt.sensorTylist = {0}
+   
+   tt.gpsLalist = {"..."}
+   tt.gpsLslist = {"..."}
+   tt.gpsIdlist = {0}
+   tt.gpsPalist = {0}
+   
+   
    local sn = {lat = "Latitude", lng = "Longitude", hdg = "Heading", alt = "Altitude",
 	       roll = "Roll", pitch = "Pitch"}
 
@@ -369,8 +421,8 @@ local function readSensors(tt)
 	    if emflag == 1 then
 	       for k,v in pairs(sn) do
 		  if l2 == v then
-		     RTH.settings[k.."Id"] = sensor.id
-		     RTH.settings[k.."Pa"] = sensor.param
+		     tt.settings[k.."Id"] = sensor.id
+		     tt.settings[k.."Pa"] = sensor.param
 		  end
 	       end
 	    end
@@ -413,7 +465,7 @@ local function loopP()
    local now
    local sensor
    local MINHDGDIST = 3
-   local MINGPSREADS= 9
+   local MINGPSREADS= 50
    local MINANNDIST = 5
    local info
    local SwO, SwC
@@ -500,8 +552,12 @@ local function loopP()
 
    local gs = RTH.settings
    local compHdg
+   local oldCurPos = RTH.curPos
    if gs.latId ~= 0 and gs.latPa ~= 0 and gs.lngId ~= 0 and gs.lngPa ~= 0 then
       RTH.curPos = gps.getPosition(gs.latId, gs.latPa, gs.lngPa)
+      -- in case getPosition does not return nil if sensor lost, go direct:
+      local sg = system.getSensorValueByID(gs.latId, gs.latPa)
+      if not sg or not sg.valid then RTH.curPos = nil end
       if RTH.curPos then
 	 if not RTH.lastPos then RTH.lastPos = RTH.curPos end
 	 if gps.getDistance(RTH.curPos, RTH.lastPos) > MINHDGDIST then 
@@ -509,6 +565,15 @@ local function loopP()
 	    --print(gps.getDistance(RTH.curPos, RTH.lastPos), compHdg)
 	    RTH.lastPos = RTH.curPos
 	 end
+      else
+	 if oldCurPos and not RTH.curPos then
+	    system.stopPlayback(AUDIO_IMMEDIATE)
+	    system.messageBox(appName .. ": GPS signal lost")
+	    system.playFile(ppA.."GPSsignallost.wav", AUDIO_IMMEDIATE)
+	 end
+	 RTH.lastPos = nil
+	 compHdg = nil
+	 RTH.gpsHeading = nil
       end
       local lt, lg = 0, 0
       if RTH.curPos then lt, lg = gps.getValue(RTH.curPos) end
@@ -547,6 +612,10 @@ local function loopP()
 	       RTH.gpsHeading = compHdg
 	    end
 	 end
+      else
+	 RTH.gpsBearingFrom = nil
+	 RTH.gpsBearingTo = nil
+	 RTH.gpsDistance = nil
       end
    end
 
@@ -562,28 +631,35 @@ local function loopP()
       SwC = -1
    end
 
-   if lastSwC == -1 and SwC == 1 then 
-      calibrating = true
-      system.stopPlayback()
-      system.messageBox(appName .. ": Mixer calibration active")
-      system.playFile(prefix().. pathApp .. "Audio/mixercalactive.wav", AUDIO_IMMEDIATE)
+   local SwC_on = SwC > 0.5
+   
+   if SwC_on and not lastSwC_on then 
+      --system.stopPlayback()
+      if RTH.settings.elevInput then
+	 system.messageBox(appName .. ": Mixer calibration active")
+	 system.playFile(ppA .. "mixercalactive.wav", AUDIO_IMMEDIATE)
+	 calibrating = true
+      else
+	 system.messageBox(appName..": No elevator input set")
+      end
+      
    end
 
-   if lastSwC == 1 and SwC == -1 and calibrating == true then -- just turned off
+   if lastSwC_on and not SwC_on and calibrating == true and RTH.settings.elevInput then -- just turned off
       calibrating = false
-      system.stopPlayback()
+      --system.stopPlayback()
       system.messageBox(appName .. ": Mixer calibration captured")
-      system.playFile(prefix().. pathApp .. "Audio/mixercaldone.wav", AUDIO_IMMEDIATE)
+      system.playFile(ppA .. "mixercaldone.wav", AUDIO_IMMEDIATE)
       local si = system.getSwitchInfo(RTH.settings.elevInput)
       --print("si", si.label, si.value, si.proportional, si.assigned, si.mode)
       if si and si.proportional and si.assigned then
 	 RTH.settings.maxElevGain = -100 * ( si.value)
-	 system.pSave("maxElevGain", RTH.settings.maxElevGain)				       
+	 system.pSave("maxElevGain", math.floor(RTH.settings.maxElevGain + 0.5))
 	 system.playNumber(RTH.settings.maxElevGain, 0, "%")
       end
    end
 
-   lastSwC = SwC
+   lastSwC_on = SwC_on
 
    -- read the switch for RTH steering on/off
    if RTH.settings.onoffSw then
@@ -597,10 +673,18 @@ local function loopP()
       SwO = -1
    end
 
-   if lastSwO == -1 and SwO == 1 then
-      system.stopPlayback()
-      if RTH.gpsDistance and RTH.gpsDistance > RTH.settings.circleMin * CMULT then
-	 system.playFile(prefix() .. pathApp .. "Audio/rthenabled.wav", AUDIO_IMMEDIATE)
+   local SwO_on = SwO > 0.5
+   
+   if SwO_on and not lastSwO_on then
+      --system.stopPlayback()
+      local parmOK = true
+      if not config.Amix or not config.Emix then
+	 system.messageBox("DFM-Rscu: missing required parameters")
+	 parmOK = false
+      end
+      
+      if RTH.gpsDistance and RTH.gpsDistance > RTH.settings.circleMin * CMULT and parmOK then
+	 system.playFile(ppA .. "rthenabled.wav", AUDIO_IMMEDIATE)
 	 --system.messageBox(appName..": Rescue enabled")
 	 system.playBeep(0, 600, 200)
 	 flyingOutbound = false
@@ -625,14 +709,14 @@ local function loopP()
 	 RTH.settings.onoff = SwO
 	 rescueOnTime = now
       else
-	 system.playFile(prefix() .. pathApp .. "Audio/rthnotenabled.wav", AUDIO_IMMEDIATE)
+	 system.playFile(ppA .. "rthnotenabled.wav", AUDIO_IMMEDIATE)
 	 --system.messageBox(appName ..": Rescue NOT enabled. Too close")
 	 system.playBeep(4, 600, 200)
       end
    end
 
-   if lastSwO == 1 and SwO == -1 then
-      system.playFile(prefix() .. pathApp .. "Audio/rescuemodeoff.wav", AUDIO_IMMEDIATE)
+   if lastSwO_on and not SwO_on then
+      system.playFile(ppA .. "rescuemodeoff.wav", AUDIO_IMMEDIATE)
       --system.messageBox(appName..": Rescue off")
       system.playBeep(3, 600, 200)
       flyingOutbound = false
@@ -640,7 +724,7 @@ local function loopP()
       RTH.settings.onoff = SwO
    end
    
-   lastSwO = SwO
+   lastSwO_on = SwO_on
 
    -- if enabled, compute and set steering and elev controls
    -- and make announcements
@@ -652,12 +736,11 @@ local function loopP()
    --local s1,s2,s3
 
    if calibrating then
-      --print("calibrating", mixOut(config.Amix,-1))
-      system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,-1), 1000, 1)
-      system.setControl(RTH.settings.elevCtrl, mixOut(config.Emix,0), 1000, 1)
-      --if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, -1, 0) end
-      --if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, -1, 0) end
-      validmix = true
+      if RTH.settings.steerCtrl and RTH.settings.elevCtrl and config.Amix and config.Emix then
+	 system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,-1), 1000, 1)
+	 system.setControl(RTH.settings.elevCtrl, mixOut(config.Emix,0), 1000, 1)
+	 validmix = true
+      end
    end
 
    if not rescueOnTime then rescueOnTime = now end --just in case
@@ -684,8 +767,8 @@ local function loopP()
 	    if (RTH.settings.circStrat ~= steerMode.leftright) then
 	       if RTH.gpsDistance >= RTH.settings.circleMin * CMULT then
 		  if flyingOutbound then
-		     system.stopPlayback()
-		     system.playFile(prefix() .. pathApp .. "Audio/turninginbound.wav", AUDIO_IMMEDIATE)
+		     --system.stopPlayback()
+		     system.playFile(ppA .. "turninginbound.wav", AUDIO_IMMEDIATE)
 		     system.playBeep(2, 600, 200)
 		     --system.messageBox(appName..": Turning inbound")
 		     announceTime = now + 2500 -- short delay then announce dist etc
@@ -697,8 +780,8 @@ local function loopP()
 	       
 	       if (RTH.gpsDistance < RTH.settings.circleMin) then -- or flyingOutbound == true then
 		  if flyingOutbound == false then
-		     system.stopPlayback()
-		     system.playFile(prefix() .. pathApp .. "Audio/turningoutbound.wav", AUDIO_IMMEDIATE)
+		     --system.stopPlayback()
+		     system.playFile(ppA .. "turningoutbound.wav", AUDIO_IMMEDIATE)
 		     system.playBeep(1, 600, 200)
 		     --system.messageBox(appName ..": Turning outbound")
 		     announceTime = now + 2500 -- short delay then announce dist etc
@@ -724,8 +807,8 @@ local function loopP()
 	    else -- left/right mode
 	       if flyingToA then
 		  if gps.getDistance(RTH.curPos, RTH.aimPosA) < RTH.settings.circleMin * 0.4 then
-		     system.stopPlayback()
-		     system.playFile(prefix() .. pathApp .. "Audio/turningaround.wav", AUDIO_IMMEDIATE)
+		     --system.stopPlayback()
+		     system.playFile(ppA .. "turningaround.wav", AUDIO_IMMEDIATE)
 		     system.playBeep(2, 600, 200)
 		     --system.messageBox(appName..": Turning around")
 		     announceTime = now + 2500 -- short delay then announce dist etc
@@ -735,8 +818,8 @@ local function loopP()
 		  end
 	       else -- flying to B
 		  if gps.getDistance(RTH.curPos, RTH.aimPosB) < RTH.settings.circleMin * 0.4 then
-		     system.stopPlayback()
-		     system.playFile(prefix() .. pathApp .. "Audio/turningaround.wav", AUDIO_IMMEDIATE)
+		     --system.stopPlayback()
+		     system.playFile(ppA .. "turningaround.wav", AUDIO_IMMEDIATE)
 		     system.playBeep(2, 600, 200)
 		     --system.messageBox(appName..": Turning around")
 		     announceTime = now + 2500 -- short delay then announce dist etc
@@ -787,10 +870,12 @@ local function loopP()
 	    end
 	    if holdZero ~= 1 then print("ns " .. ns) end
 	    --print(ns, now, nsHoldTime)
-	    system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), ailDelay, 1)
-	    system.setControl(RTH.settings.elevCtrl,
-			      RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns), eleDelay, 1)
-	    validmix = true
+	    if RTH.settings.steerCtrl and RTH.settings.elevCtrl and config.Amix and config.Emix then
+	       system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), ailDelay, 1)
+	       system.setControl(RTH.settings.elevCtrl,
+				 RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns), eleDelay, 1)
+	       validmix = true
+	    end
 	 end
 
 	 --print(now, announceTime, now - announceTime)
@@ -799,37 +884,37 @@ local function loopP()
 	    if RTH.gpsDistance and RTH.gpsDistance > MINANNDIST then 
 	       if annSeq == 1 then
 		  if RTH.gpsBearingTo then
-		     system.playFile(prefix() .. pathApp .. "Audio/bearing.wav", AUDIO_QUEUE)
+		     system.playFile(ppA .. "bearing.wav", AUDIO_QUEUE)
 		     --playNumberInt(RTH.gpsBearingTo)
 		     playNumberCompass(((RTH.gpsBearingTo - math.deg(fieldRotation)+360)%360))
-		     if math.abs(fieldRotation) < 1 then
-			system.playFile(prefix() .. pathApp .. "Audio/degreestrue.wav", AUDIO_QUEUE)
+		     if math.abs(fieldRotation) < math.rad(0.5) then
+			system.playFile(ppA .. "degreestrue.wav", AUDIO_QUEUE)
 		     else
-			system.playFile(prefix() .. pathApp .. "Audio/degrees.wav", AUDIO_QUEUE)
+			system.playFile(ppA .. "degrees.wav", AUDIO_QUEUE)
 		     end
 		  end
 	       elseif annSeq == 2 then
 		  if RTH.gpsDistance then
 		     if RTH.settings.distUnits == 1 then --m
-			system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
+			system.playFile(ppA .. "distance.wav", AUDIO_QUEUE)
 			playNumberInt(RTH.gpsDistance)
-			system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+			system.playFile(ppA .. "meters.wav", AUDIO_QUEUE)
 		     else
-			system.playFile(prefix() .. pathApp .. "Audio/distance.wav", AUDIO_QUEUE)
+			system.playFile(ppA .. "distance.wav", AUDIO_QUEUE)
 			playNumberInt(RTH.gpsDistance * 3.2808)
-			system.playFile(prefix() .. pathApp .. "Audio/feet.wav", AUDIO_QUEUE)
+			system.playFile(ppA .. "feet.wav", AUDIO_QUEUE)
 		     end
 		  end
 	       elseif annSeq == 3 then
 		  if RTH.altitude then
 		     if RTH.settings.distUnits == 1 then --m
-			system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
+			system.playFile(ppA .. "altitude.wav", AUDIO_QUEUE)
 			playNumberInt(RTH.altitude)
-			system.playFile(prefix() .. pathApp .. "Audio/meters.wav", AUDIO_QUEUE)
+			system.playFile(ppA .. "meters.wav", AUDIO_QUEUE)
 		     else
-			system.playFile(prefix() .. pathApp .. "Audio/altitude.wav", AUDIO_QUEUE)
+			system.playFile(ppA .. "altitude.wav", AUDIO_QUEUE)
 			playNumberInt(RTH.altitude * 3.2808)
-			system.playFile(prefix() .. pathApp .. "Audio/feet.wav", AUDIO_QUEUE)
+			system.playFile(ppA .. "feet.wav", AUDIO_QUEUE)
 		     end
 		  end
 	       end
@@ -837,10 +922,10 @@ local function loopP()
 	       annSeq = annSeq + 1
 	       if annSeq > config.annMax then  -- allow empty slots to space anns
 		  annSeq = 1
-		  system.stopPlayback() -- empty queue in case backed up messages
+		  system.stopPlayback(AUDIO_IMMEDIATE) -- empty queue in case backed up messages
 	       end
 	    --else
-	       --system.playFile(prefix() .. pathApp.."Audio/flyingoutbound.wav", AUDIO_QUEUE)
+	       --system.playFile(ppA .. "flyingoutbound.wav", AUDIO_QUEUE)
 	       --announceTime = now + config.annDelay * config.annMax
 	    end
 	 end
@@ -869,7 +954,7 @@ local function loopP()
       end
 
       local newpoint = false
-
+      local dS
       if RTH.renderer then dS = 5 else dS = 20 end
       
       if (not distXY) or (distXY > dS) then -- distXY in meters
@@ -929,6 +1014,8 @@ local errCnt = 0
 local function loop()
    local s,e = pcall(loopP)
    if not s then
+      if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, 0, 0) end
+      if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end
       errCnt = errCnt + 1
       if errCnt < 5 then 
 	 print(appName..": Loop error - "..e)
@@ -947,7 +1034,7 @@ local function keyPress() --(key)
 end
 
 local function keyPressGPS(key)
-   if key == KEY_ENTER then
+   if key == KEY_ENTER and system.setTelemetryButton then
       if buttonSet == 1 then buttonSet = 2 elseif buttonSet == 2 then buttonSet = 1 end
       for b=1,5,1 do
 	 system.setTelemetryButton(1, b, buttonText[buttonSet][b], 1)
@@ -973,9 +1060,10 @@ local function keyPressGPS(key)
 	 --if RTH.settings.turnDir > #inv(turnMode) then RTH.settings.turnDir = 1 end
 	 --system.pSave("RTHturnDir", RTH.settings.turnDir)
       elseif key == KEY_5 then -- Erase ribbon
-	 print("Erase ribbon")
-	 RTH.ribbon[magIdx] = lcd.createImage(Screen.width, Screen.height)
-	 RTH.renderer[magIdx] = lcd.renderer(RTH.ribbon[magIdx])
+	 clearRibbon()
+	 --print("Erase ribbon")
+	 --RTH.ribbon[magIdx] = lcd.createImage(Screen.width, Screen.height)
+	 --RTH.renderer[magIdx] = lcd.renderer(RTH.ribbon[magIdx])
       end
    else
       if key == KEY_1 then -- Pt A
@@ -995,6 +1083,9 @@ local function keyPressGPS(key)
 	 pointB = nil
 	 pointZ = nil
 	 RTH.zeroPos = pointA
+	 if DFM_Rscu_CircleCenter then
+	    DFM_Rscu_CircleCenter = RTH.zeroPos
+	 end
 	 fieldRotation = 0
 	 for i,_ in ipairs(magVal) do
 	    xmin[i] = - magVal[i] * initHalfWid
@@ -1003,6 +1094,8 @@ local function keyPressGPS(key)
 	    ymax[i] = Screen.height / Screen.width * magVal[i] * initHalfWid
 	 end
 
+	 clearRibbon()
+	 
       elseif key == KEY_2 then -- Pt B
 	 if emflag == 1 then
 	    print("Emulator: BDS Pt B")
@@ -1019,15 +1112,18 @@ local function keyPressGPS(key)
 	       return
 	    end
 	    distAB = gps.getDistance(pointA, RTH.curPos)
-	    -- assume 5 m along rwy is enought to get a good rotation angle
+	    -- assume 5 m along rwy is enough to get a good rotation angle
 	    if distAB < 5 then
 	       system.messageBox(appName..": too close for Pt B")
 	       return
 	    end
 	    pointB = RTH.curPos
 	    RTH.zeroPos = pointA
+	    if DFM_Rscu_CircleCenter then
+	       DFM_Rscu_CircleCenter = RTH.zeroPos
+	    end
 	 end
-
+	 
 	 if not RTH.curPos then
 	    system.messageBox("No GPS data")
 	    return
@@ -1062,9 +1158,10 @@ local function initForm(subform)
    local function ecChanged(value)
       local si = system.getSwitchInfo(value)
       --print("si", si.label, si.value, si.proportional, si.assigned, si.mode)
-      if not si.proportional then
+      if not si or not si.proportional then
 	 system.messageBox("Elevator control must be proportional")
 	 RTH.settings.elevInput = nil
+	 system.pSave("elevInput", nil)
 	 form.reinit(1)
       else
 	 RTH.settings.elevInput = value
@@ -1091,6 +1188,7 @@ local function initForm(subform)
       --]]
       form.addRow(1)
       form.addLink((function()
+	       readSensors(RTH)
 	       savedRow = form.getFocusedRow()
 	       form.reinit(12) end), {label="Telemetry Sensors", font=FONT_NORMAL})
       
@@ -1108,13 +1206,12 @@ local function initForm(subform)
 
       form.addRow(2)
       form.addLabel({label="Rescue mode switch", width=155, font=FONT_NORMAL})
-      form.addInputbox(RTH.settings.onoffSw, true, onoffChanged, {alignRight=false})
+      form.addInputbox(RTH.settings.onoffSw, false, onoffChanged, {alignRight=false})
       
       form.addRow(2)
       form.addLabel({label="Mixer calibration switch", width=175, font=FONT_NORMAL})
-      form.addInputbox(RTH.settings.calSw, true, calChanged,
+      form.addInputbox(RTH.settings.calSw, false, calChanged,
 		       {width=155, font=FONT_NORMAL, alignRight=false})
-      
       
       form.addRow(2)
       form.addLabel({label="Elevator control", width=180, font=FONT_NORMAL})   
@@ -1155,7 +1252,7 @@ local function initForm(subform)
 			{width=155, font=FONT_NORMAL, alignRight=false})
       --]]
       form.addRow(2)
-      form.addLabel({label="Perferred turn", font=FONT_NORMAL, width=155})
+      form.addLabel({label="Preferred turn", font=FONT_NORMAL, width=155})
       form.addSelectbox(inv(turnMode),
 			RTH.settings.turnDir, true,
 			(function(i)
@@ -1172,7 +1269,7 @@ local function initForm(subform)
 			   rescueOnDelay = x
 			   system.pSave("rescueOnDelay", x)
 			   return end),
-		     {width=155, font=FONT_NORMAL, algignRight=false})
+		     {width=155, font=FONT_NORMAL, alignRight=false})
       
       form.addRow(2)
       form.addLabel({label="Init turn hold time (s)", font=FONT_NORMAL})
@@ -1181,7 +1278,7 @@ local function initForm(subform)
 			   holdTurn = x
 			   system.pSave("holdTurn", x)
 			   return end),
-		     {width=155, font=FONT_NORMAL, algignRight=false})
+		     {width=155, font=FONT_NORMAL, alignRight=false})
 
       --]]
       
@@ -1192,16 +1289,16 @@ local function initForm(subform)
 			   eleDelay = x
 			   system.pSave("eleDelay", x)
 			   return end),
-		     {width=155, font=FONT_NORMAL, algignRight=false})
+		     {width=155, font=FONT_NORMAL, alignRight=false})
 
       form.addRow(2)
       form.addLabel({label="Ail ctl delay/avg (ms)", font=FONT_NORMAL})
-      form.addIntbox(eleDelay, 0, 20000, 2, 0, 1,
+      form.addIntbox(ailDelay, 0, 20000, 2, 0, 1,
 		     (function(x)
-			   eleDelay = x
+			   ailDelay = x
 			   system.pSave("ailDelay", x)
 			   return end),
-		     {width=155, font=FONT_NORMAL, algignRight=false})
+		     {width=155, font=FONT_NORMAL, alignRight=false})
       
       form.addRow(1)
       form.addLink((function()
@@ -1339,7 +1436,7 @@ local function initForm(subform)
 			      DFM_Rscu_CircleOuter = x * CMULT
 			   end
 			   return end),
-		     {width=155, font=font, algignRight=false})
+		     {width=155, font=font, alignRight=false})
 
       --[[
       form.addRow(2)
@@ -1349,7 +1446,7 @@ local function initForm(subform)
 			   magIdx = x
 			   system.pSave("magIdx", magIdx)
 			   return end),
-		     {width=155, font=font, algignRight=false})
+		     {width=155, font=font, alignRight=false})
       --]]
       form.addRow(1)
       form.addLink((function()
@@ -1374,10 +1471,10 @@ local function initForm(subform)
 end
 
 local function drawShape(col, row, shape, rotation, mag)
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
+   local sinShape = math.sin(rotation)
+   local cosShape = math.cos(rotation)
    renShape:reset()
-   for _, point in pairs(shape) do
+   for _, point in ipairs(shape) do
       renShape:addPoint(
 	 col + mag*(point[1] * cosShape - point[2] * sinShape + 0.5),
 	 row + mag*(point[1] * sinShape + point[2] * cosShape + 0.5)
@@ -1387,10 +1484,10 @@ local function drawShape(col, row, shape, rotation, mag)
 end
 
 local function drawLine(col, row, shape, rotation, lw)
-   sinShape = math.sin(rotation)
-   cosShape = math.cos(rotation)
+   local sinShape = math.sin(rotation)
+   local cosShape = math.cos(rotation)
    renShape:reset()
-   for _, point in pairs(shape) do
+   for _, point in ipairs(shape) do
       renShape:addPoint(
 	 col + (point[1] * cosShape - point[2] * sinShape + 0.5),
 	 row + (point[1] * sinShape + point[2] * cosShape + 0.5)
@@ -1400,6 +1497,9 @@ local function drawLine(col, row, shape, rotation, lw)
 end
 
 local function printForm()
+
+   local font
+
    if Screen.width == 320 then font = FONT_MINI else font = FONT_NORMAL end
 
    local h = lcd.getTextHeight(font)
@@ -1438,12 +1538,20 @@ local function printForm()
 end
 
 local function destroy()
-
+   if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, 0, 0) end
+   if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end
+   system.unregisterControl(const.ailControl)
+   system.unregisterControl(const.eleControl)
 end
 
 
 local function printTeleMix()
 
+   if not config.Amix or not config.Emix then
+      lcd.drawText(5,20, "No Ail or Ele mix curves")
+      return
+   end
+   
    local x0,y0 = Screen.width - 100, 5
    local xl, yl = 1.23*80, 80
    local min, max = -100, 100
@@ -1466,22 +1574,24 @@ local function printTeleMix()
    local am = mixOut(config.Amix, ns)
    local em = RTH.settings.maxElevGain / 100 * mixOut(config.Emix, ns)
 
+   lcd.setColor(0,0,255)
+   lcd.drawCircle(xp(ns * 100), yp(am * 100), 4)
    for i=2,#config.Amix.points,1 do
-      lcd.setColor(0,0,255)
       lcd.drawLine(xp(config.Amix.points[i-1].x), yp(config.Amix.points[i-1].y),
 		   xp(config.Amix.points[i].x), yp(config.Amix.points[i].y))
+      lcd.setColor(0,0,255)
+   end
+
+   lcd.setColor(255,0,0)
+   drawX(xp(ns * 100), yp(em * 100), 4)
+   for i=2,#config.Emix.points,1 do
       lcd.setColor(255,0,0)
       lcd.drawLine(xp(config.Emix.points[i-1].x),
 		   yp(RTH.settings.maxElevGain / 100 * config.Emix.points[i-1].y),
 		   xp(config.Emix.points[i].x),
 		   yp(RTH.settings.maxElevGain / 100 * config.Emix.points[i].y))
-
-      lcd.setColor(0,0,255)
-      lcd.drawCircle(xp(ns * 100), yp(am * 100), 4)
-      lcd.setColor(255,0,0)
-      drawX(xp(ns * 100), yp(em * 100), 4)      
-      lcd.setColor(0,0,0)
    end
+
 end
 
 local function printTeleAH()
@@ -1705,8 +1815,6 @@ local function printTeleStatusP(w,h)
       return
    end
 
-   local nd = system.getProperty("NativeDraw")
-
    local font
    if h <= 24 then font = FONT_MINI else font = FONT_NORMAL end
 
@@ -1720,8 +1828,8 @@ local function printTeleStatusP(w,h)
    end
    
    local x00, y00
-   x00 = nd == 1 and 20 or 10
-   y00 = nd == 1 and 30 or 20
+   x00 = spND == 1 and 20 or 10
+   y00 = spND == 1 and 30 or 20
 
    if h <= 24 then y00 = 15 end
    lcd.drawText(x00, h - y00,
@@ -1740,35 +1848,34 @@ local function printTeleStatusP(w,h)
    end
 
    local x0
-   x0 = nd == 1 and 18 or 18
+   x0 = spND == 1 and 18 or 18
    local y0
-   y0 = nd == 1 and 18 or -2
+   y0 = spND == 1 and 18 or -2
 
-   if h <= 55 and nd == 1 then
+   if h <= 55 and spND == 1 then
       y0 = -28
    end
 
    if h <= 24 then y0 = -12 end   
-   local cc = math.abs(fieldRotation) < 1 and "T" or "R"
+   local cc = math.deg(math.abs(fieldRotation)) < 0.5 and "T" or "R"
    lcd.drawText(w/2-x0, h/2 + y0, string.format("%.3d°"..cc,
 		(RTH.gpsBearingTo - math.deg(fieldRotation)+360)%360),
 		font)
 
    if RTH.settings.onoff < 0 then
-      lcd.drawImage(w-30, 8, redCircle)
+      if redCircle then lcd.drawImage(w-30, 8, redCircle) end
    else
-      lcd.drawImage(w-30, 8, greenCircle)
+      if greenCircle then lcd.drawImage(w-30, 8, greenCircle) end
    end
 
    local mag
    
-   
-   mag = nd == 1 and 1.5 or 0.6
+   mag = spND == 1 and 1.5 or 0.6
    lcd.setColor(0,0,255)
    local ofst
-   ofst = nd == 1 and 25 or 15
+   ofst = spND == 1 and 25 or 15
 
-   if math.abs(fieldRotation) < 1 then
+   if math.deg(math.abs(fieldRotation)) < 0.5 then
       lcd.setColor(255,153,0)
    else
       lcd.setColor(0,0,255)
@@ -1778,7 +1885,6 @@ local function printTeleStatusP(w,h)
       drawShape(w/2, h/2 - ofst, config.homeshape,
 		math.rad(RTH.gpsBearingTo) - fieldRotation, mag)
    end
-   
 
    -- can render to image in this tele window or the full screen .. so long as one of them
    -- is on screen it keeps the image updated
@@ -1826,7 +1932,7 @@ local function printTeleGPSP(w,h)
    lcd.setColor(255,0,0)
 
    ix0, iy0 = xytopixel(0, 0)
-   rc = Screen.width * RTH.settings.circleMin / (xmax[magIdx] - xmin[magIdx])
+   local rc = Screen.width * RTH.settings.circleMin / (xmax[magIdx] - xmin[magIdx])
    lcd.drawCircle(ix0, iy0, rc)
    lcd.setColor(0,0,255)
    lcd.drawCircle(ix0, iy0, rc * CMULT)
@@ -1882,7 +1988,7 @@ local function printTeleGPSP(w,h)
       end
    end
 
-
+   --[[
    if RTH.renderer then
       lcd.drawImage(0,0,RTH.ribbon[magIdx])
    else
@@ -1892,6 +1998,7 @@ local function printTeleGPSP(w,h)
 	 lcd.drawCircle(ixP[i], iyP[i], 1)
       end
    end
+   --]]
    
    x = RTH.gpsDistance * math.sin(math.rad(RTH.gpsBearingTo))
    y = RTH.gpsDistance * math.cos(math.rad(RTH.gpsBearingTo))
@@ -1924,7 +2031,7 @@ local function printTeleGPSP(w,h)
 
    lcd.drawText(70, Screen.height - 25,
 		string.format("D: %dm", RTH.gpsDistance), FONT_MINI)
-   local cc = math.abs(fieldRotation) < 1 and "T" or "R"
+   local cc = math.deg(math.abs(fieldRotation)) < 0.5 and "T" or "R"
    lcd.drawText(Screen.width - 100, Screen.height - 25,
 		string.format("B: %.3d°"..cc,
 			      (RTH.gpsBearingTo - math.deg(fieldRotation)+360) % 360),
@@ -1938,8 +2045,8 @@ local function printTeleGPSP(w,h)
    drawShape(20, 12+4, config.arrow, -fieldRotation, 1)
    lcd.drawCircle(20, 12+4, 9)
 
-   if RTH.renderer then -- only display on 24-II, not enought space on smaller screen
-      if math.abs(fieldRotation) < 1 then
+   if RTH.renderer then -- only display on 24-II, not enough space on smaller screen
+      if math.deg(math.abs(fieldRotation)) < 0.5 then
 	 lcd.setColor(255,153,0)
       else
 	 lcd.setColor(0,0,255)
@@ -1962,18 +2069,21 @@ local function printTeleGPS()
    end
 end
 
-local function logfileCB(idx)
+local function logfileCB(jdx)
+   local idx
+   for i=1,#logret,1 do
+      if jdx == logret[i] then idx = i end
+   end
    if idx == 1 then
-      return RTH.gpsBearingFrom or 0
+      return math.floor((RTH.gpsBearingFrom or 0) + 0.5)
    elseif idx == 2 then
-      return RTH.gpsBearingTo or 0      
+      return math.floor((RTH.gpsBearingTo or 0) + 0.5)
    elseif idx == 3 then
-      return 10 * (RTH.gpsDistance or 0), 1
+      return math.floor(10 * (RTH.gpsDistance or 0) + 0.5), 1
    elseif idx == 4 then
-      return RTH.gpsHeading or 0
+      return math.floor((RTH.gpsHeading or 0) + 0.5)
    elseif idx == 5 then
-      --print("##", RTH.settings.steer, RTH.settings.steer / 1.80)
-      return (RTH.settings.steer or 0) / 1.80
+      return math.floor((RTH.settings.steer or 0)/1.8 + 0.5)
    else
       return -999
    end
@@ -1981,21 +2091,21 @@ end
 
 local function init()
 
+   sgDT, emflag = system.getDeviceType()
+
    config = {fullScreenTele = 0}
-   
-   local str = io.readall(prefix() .. pathApp.."Json/Config.jsn")
-   if not str then
-      print("DFM-Rscu: cannot read Config.jsn")
+
+   local ok, dc
+   ok, dc = pcall(json.decode, io.readall(prefix() .. pathApp.."Json/Config.jsn"))
+   if ok and type(dc) == "table" and dc.Amix and dc.Emix and dc.annMax and dc.annDelay then
+      config = dc
+   else
+      system.messageBox(appName..": Missing parms Config.jsn")
    end
-   
-   config = json.decode(str)
+
    renShape   = lcd.renderer()
    
    system.registerForm(1, MENU_APPS, "DFM-Rscu", initForm, keyPress, printForm)
-   
-   local device
-   device, emflag = system.getDeviceType() 
-   
    system.registerTelemetry(2, "DFM-Rscu Status", 0, printTeleStatus)
 
    if config.fullScreenTele ~= 0 then
@@ -2042,7 +2152,7 @@ local function init()
    RTH.settings.circleMin = system.pLoad("circleMin", 150)
    RTH.settings.maxElevGain = system.pLoad("maxElevGain", 0)
 
-   readSensors(RTH)
+   readSensors(RTH) -- moved to tele menu
 
    rescueOnDelay = system.pLoad("rescueOnDelay", 3)
    holdTurn = system.pLoad("holdTurn", 4)
@@ -2058,8 +2168,7 @@ local function init()
    RTH.zeroPos = nil
 
    RTH.settings.steerCtrl = nil
-   local iRTS = 3
-   RTH.settings.steerCtrl = system.registerControl(iRTS, "Rscu Steering", "RTS")
+   RTH.settings.steerCtrl = system.registerControl(const.ailControl, "Rscu Steering", "RTS")
 
    RTH.settings.steer = 0
    RTH.settings.onoff = -1
@@ -2073,8 +2182,7 @@ local function init()
    end
 
    RTH.settings.elevCtrl = nil
-   local iRTE = 4
-   RTH.settings.elevCtrl = system.registerControl(iRTE, "Rscu Elevator", "RTE")
+   RTH.settings.elevCtrl = system.registerControl(const.eleControl, "Rscu Elevator", "RTE")
 
    --[[
    testLatControl = system.registerControl(10, "Latency", "LAT")
@@ -2096,38 +2204,41 @@ local function init()
       system.messageBox(appName .. ": Could not register elevator control")
    end
    
-   system.registerLogVariable("RTHBrgFrom", "°", logfileCB)
-   system.registerLogVariable("RTHBrgTo",   "°", logfileCB)
-   system.registerLogVariable("RTHDst",     "m", logfileCB)
-   system.registerLogVariable("RTHHdg",     "°", logfileCB)
-   system.registerLogVariable("RTHStr",     "%", logfileCB)
+   logret = {}
+   logret[1] = system.registerLogVariable("RTHBrgFrom", "°", logfileCB)
+   logret[2] = system.registerLogVariable("RTHBrgTo",   "°", logfileCB)
+   logret[3] = system.registerLogVariable("RTHDst",     "m", logfileCB)
+   logret[4] = system.registerLogVariable("RTHHdg",     "°", logfileCB)
+   logret[5] = system.registerLogVariable("RTHStr",     "%", logfileCB)
 
    greenCircle = lcd.loadImage(prefix() .. pathApp .. "Images/small_green_circle.png")
    redCircle = lcd.loadImage(prefix() .. pathApp .. "Images/small_red_circle.png")
 
-
-   --system.setProperty("NativeDraw", 1)
-   --print("get", system.getProperty("NativeDraw"))
-
    system.setProperty("NativeDraw", 1)
-
-   if system.getProperty("NativeDraw") == 1 then
+   spND = system.getProperty("NativeDraw")
+   ppA = prefix().. pathApp .. "Audio/"
+   
+   if spND == 1 then
       print(appName..": Using 24-II NativeDraw")
       Screen.width = 458
       Screen.height = 343
-      RTH.ribbon = {}
-      RTH.renderer = {}
-      for i,_ in ipairs(magVal) do
-	 RTH.ribbon[i] = lcd.createImage(Screen.width, Screen.height)
-	 if not RTH.ribbon[i] then
-	    print(appName..": Could not create ribbon image "..i)
+      if config.fullScreenTele ~= 0 then
+	 RTH.ribbon = {}
+	 RTH.renderer = {}
+	 for i,_ in ipairs(magVal) do
+	    RTH.ribbon[i] = lcd.createImage(Screen.width, Screen.height)
+	    if not RTH.ribbon[i] then
+	       print(appName..": Could not create ribbon image "..i)
+	    end
+	    if RTH.ribbon[i] then
+	       RTH.renderer[i] = lcd.renderer(RTH.ribbon[i])
+	    end
+	    if not RTH.renderer[i] then print(appName..": Could not create renderer "..i) end
 	 end
-	 if RTH.ribbon[i] then
-	    RTH.renderer[i] = lcd.renderer(RTH.ribbon[i])
-	 end
-	 if not RTH.renderer[i] then print(appName..": Could not create renderer "..i) end
+	 iPMAX = 2
+      else
+	 iPMAX = 100
       end
-      iPMAX = 2
    else
       Screen.width = 320
       Screen.height = 160
