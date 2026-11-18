@@ -4442,8 +4442,9 @@ local function mapPrint() --wWid, wHgt)
 		   FONT_MINI)
    end
 
-   if DFM_Rscu_CircleCenter then
-      if Field.centerGPS then
+   -- DFM-Rscu declares this global as 0 (truthy) until it has a real gps point
+   if DFM_Rscu_CircleCenter and type(DFM_Rscu_CircleCenter) ~= "number" then
+      if Field.centerGPS and Field.centerGPS[currentImage] then
 	 --print(DFM_Rscu_CircleCenter)
 	 local xrcc, yrcc = gps2xy(Field.centerGPS[currentImage], DFM_Rscu_CircleCenter)
 	 local ixrcc = toXPixel(xrcc, map.Xmin, map.Xrange, windowWidth)
