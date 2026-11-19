@@ -1165,8 +1165,16 @@ local function initForm(subform)
    local function ecChanged(value)
       local si = system.getSwitchInfo(value)
       --print("si", si.label, si.value, si.proportional, si.assigned, si.mode)
+      -- must be plain proportional ("P"): calibration reads getSwitchInfo().value,
+      -- which is the evaluated value, so "PC" (0..100%) would scale it and
+      -- "PI" (inverted) would flip its sign
       if not si or not si.proportional then
 	 system.messageBox("Elevator control must be proportional")
+	 RTH.settings.elevInput = nil
+	 system.pSave("elevInput", nil)
+	 form.reinit(1)
+      elseif si.mode and si.mode ~= "P" then
+	 system.messageBox("Elevator control must be P, not " .. si.mode)
 	 RTH.settings.elevInput = nil
 	 system.pSave("elevInput", nil)
 	 form.reinit(1)
@@ -2170,6 +2178,21 @@ local function init()
    
    flyingOutbound = false
    calibrating = false
+
+   -- UIDriver test hooks (emulator only). system.UIDriver is nil on the TX,
+   -- so this costs nothing there
+   local uid = system.UIDriver
+   if uid then
+      uid.expose("rscu", function()
+	 local zl, zo
+	 if RTH.zeroPos then zl, zo = gps.getString(RTH.zeroPos) end
+	 return {zeroLat = zl, zeroLon = zo, dist = RTH.gpsDistance,
+		 circleMax = RTH.settings.circleMin * CMULT,
+		 maxElevGain = RTH.settings.maxElevGain, calibrating = calibrating,
+		 rescueOn = RTH.settings.onoff,
+		 configOK = (config.Amix and config.Emix) and true or false}
+      end)
+   end
    
    RTH.gpsReads = 0
    RTH.curPos = nil
