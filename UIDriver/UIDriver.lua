@@ -172,7 +172,8 @@
      {"waitMessage": "Restart app"}   messageBox text contains this
      {"waitAudio": "nofly"}       playFile name contains this
      {"waitNumber": 3}            playNumber value (within "tol", default
-                                  0.001); true for any; "unit"/"label" too
+                                  0.001); true for any; "min"/"max" for a
+                                  range; "unit"/"label" too
      {"waitVibration": "left"}    "left", "right" or true; "profile": 3
      {"waitBeep": true}           playBeep (or a string the text contains)
    Add "absent": true and "forMs": 3000 to require that none comes for
@@ -199,14 +200,30 @@
                                   lat or lon sensor is faulted, the
                                   target's gps.getPosition returns nil
      {"clearSensor": "Altitude"}  back to normal (true: all)
+     {"waitSensor": "Speed", "sensorName": "MGPS", "min": 15}  wait
+                                  until the sensor reads >= 15 (as the
+                                  target reads it, overrides included;
+                                  invalid counts as not yet). "max" for
+                                  <=, or "value" with "tol" (default 0.01);
+                                  "sensorName" is needed when several
+                                  sensors share the label; "as": "name"
+                                  keeps the value for "$name".
+                                  Works with SensorE, SensorL or real
+                                  sensors. Set "timeoutMs" for long waits
+     {"expectSensor": "Fuel remaining", "max": 50}  the same, checked once
      {"expectControl": 1, "value": 0.5}  what the target last passed to
                                   setControl (number or registered label;
-                                  "tol", default 0.01). No "value": just
+                                  "tol", default 0.01; or "min" (>=)
+                                  and/or "max" (<=)). None of them: just
                                   log it
      {"waitControl": "Flaps", "value": 1}  wait until it is
    setInput/setSensor count as actions for the waits. Overrides stay
    until cleared. The wrappers are re-applied from loop() if SensorE
    replaces the functions after UIDriver loads.
+
+   NUMBERS: expectState, waitSensor/expectSensor, waitControl/
+   expectControl and waitNumber all take "value" (+ "tol"), "min" (>=)
+   and "max" (<=); give both for a range. "$name" works in each.
 
    SENSORE: control the sensor emulator through system.SensorE (needs
    SensorE running; see its header). Its state is exposed as "sensorE":
@@ -1224,6 +1241,36 @@ local function deref(x)
    return x
 end
 
+-- numeric checks shared by the wait/expect steps: "value" (within
+-- "tol"), "min" (>=) and "max" (<=), any of them, "$name" allowed.
+-- Returns good (or nil, err for a bad step) and a "(want ...)" text
+local function numWant(v, s, defTol)
+   local conds, good = {}, true
+   local want = deref(s.value)
+   if type(want) ~= "number" then want = nil end   -- true etc. mean "any"
+   if want ~= nil then
+      local tol = s.tol or defTol
+      conds[#conds+1] = "= " .. tostring(want) .. " (tol " .. tostring(tol) .. ")"
+      good = good and math.abs(v - want) <= tol
+   end
+   for _, k in ipairs({"min", "max"}) do
+      if s[k] ~= nil then
+	 local lim = deref(s[k])
+	 if type(lim) ~= "number" then
+	    return nil, "\"" .. k .. "\" " .. tostring(s[k]) .. " isn't a number"
+	 end
+	 if k == "min" then
+	    conds[#conds+1] = ">= " .. tostring(lim)
+	    good = good and v + 0.0 >= lim + 0.0
+	 else
+	    conds[#conds+1] = "<= " .. tostring(lim)
+	    good = good and v + 0.0 <= lim + 0.0
+	 end
+      end
+   end
+   return good, #conds > 0 and (" (want " .. table.concat(conds, " and ") .. ")") or ""
+end
+
 H.remember = {ctx = "any", run = function(s)
 		 local ok, v = resolve(s.remember)
 		 if not ok then return false, v end
@@ -1245,8 +1292,8 @@ H.expectState = {ctx = "any", run = function(s)
 		       return not same(v, nv), s.expectState .. " = " .. tostring(v) ..
 			  ", must not be " .. tostring(nv)
 		    end
-		    s = {expectState = s.expectState, value = deref(s.value), min = s.min,
-			 max = s.max, tol = s.tol}
+		    s = {expectState = s.expectState, value = deref(s.value), min = deref(s.min),
+			 max = deref(s.max), tol = s.tol}
 		    local shown = s.expectState .. " = " .. tostring(v)
 		    if type(v) == "table" then   -- list its keys, to help write checks
 		       local keys = {}
@@ -1413,7 +1460,8 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "expectNoImage", "waitImage", "setInput", "clearInput",
 	       "setSensor", "clearSensor", "expectControl", "waitControl",
 	       "sensorPause", "sensorTime", "sensorStep", "sensorField",
-	       "sensorPosition", "sensorVars", "waitSensorTime", "restore"}
+	       "sensorPosition", "sensorVars", "waitSensorTime", "restore",
+	       "waitSensor", "expectSensor"}
 
 local function verbOf(s)
    for _, v in ipairs(VERBS) do
@@ -1925,8 +1973,11 @@ end
 local function annMatches(a, s, v)
    local want = s[v]
    if a.kind == "number" then
-      if type(want) == "number" and
-	 not (a.value and math.abs(a.value - want) <= (s.tol or 0.001)) then return false end
+      if type(want) == "number" or s.min ~= nil or s.max ~= nil then
+	 if not a.value then return false end
+	 local good = numWant(a.value, {value = want, min = s.min, max = s.max, tol = s.tol}, 0.001)
+	 if not good then return false end
+      end
       if s.unit and a.unit ~= s.unit then return false end
       if s.label and a.label ~= s.label then return false end
       return true
@@ -2170,7 +2221,7 @@ local function findSensors(s, field)
       if want == nil then return nil, "nothing remembered as " .. s[field] end
    end
    if s.id then
-      return {{key = idKey(s.id, s.param or 1),
+      return {{key = idKey(s.id, s.param or 1), id = s.id, param = s.param or 1,
 	       label = (type(want) == "string" and want) or idKey(s.id, s.param or 1)}}
    end
    if not system.getSensors then return nil, "system.getSensors isn't available" end
@@ -2182,7 +2233,8 @@ local function findSensors(s, field)
 	 labels[#labels+1] = tostring(e.label)
 	 if tostring(e.label):lower() == tostring(want):lower()
 	 and (not s.sensorName or e.sensorName == s.sensorName) then
-	    found[#found+1] = {key = idKey(e.id, e.param), label = tostring(e.label)}
+	    found[#found+1] = {key = idKey(e.id, e.param), label = tostring(e.label),
+			       id = e.id, param = e.param, sensorName = e.sensorName}
 	 end
       end
    end
@@ -2192,6 +2244,50 @@ local function findSensors(s, field)
    end
    return found
 end
+
+-- waitSensor / expectSensor: read a sensor as the target would (through
+-- getSensorByID, so setSensor overrides apply) and compare its value
+local function sensorCheck(s, field, waiting)
+   local found, err = findSensors(s, field)
+   if not found then
+      if waiting then return nil end      -- the sensor list may not be up yet
+      return false, err
+   end
+   if #found > 1 then
+      local names = {}
+      for _, f in ipairs(found) do names[#names+1] = tostring(f.sensorName or "?") end
+      return false, #found .. " sensors labelled '" .. tostring(s[field]) ..
+	 "'; add \"sensorName\" (one of " .. table.concat(names, ", ") .. ")"
+   end
+   local f = found[1]
+   local name = (f.sensorName and (tostring(f.sensorName) .. " ") or "") .. f.label
+   local ok, r = pcall(system.getSensorByID, f.id, f.param)
+   if not ok or type(r) ~= "table" then
+      if waiting then return nil end
+      return false, name .. ": no reading"
+   end
+   if not r.valid then
+      if waiting then s._last = name .. " invalid"; return nil end
+      return false, name .. " is invalid"
+   end
+   local v = tonumber(r.value)
+   if v == nil then
+      if waiting then return nil end
+      return false, name .. ": value " .. tostring(r.value)
+   end
+   s._last = name .. " = " .. tostring(v)
+   local pass, want = numWant(v, s, 0.01)
+   if pass == nil then return false, want end
+   if s.as then vars[s.as] = v end
+   local msg = name .. " = " .. tostring(v) .. want
+   if pass then return true, msg end
+   if waiting then return nil end
+   return false, msg
+end
+
+H.expectSensor = {ctx = "any", run = function(s) return sensorCheck(s, "expectSensor", false) end}
+H.waitSensor = {ctx = "any", run = function(s) return sensorCheck(s, "waitSensor", true) end,
+		onTimeout = function(s) return "; last " .. tostring(s._last or "no reading") end}
 
 H.setInput = {ctx = "any", run = function(s)
 		 local nm = tostring(s.setInput):upper()
@@ -2262,12 +2358,19 @@ local function controlCheck(s, v, waiting)
       if waiting then return end
       return false, "control " .. name .. " hasn't been set by the target"
    end
-   local want = deref(s.value)
-   if want == nil then return "ok", "control " .. name .. " = " .. tostring(c.value) end
-   local good = type(c.value) == "number" and math.abs(c.value - want) <= (s.tol or 0.01)
-   if good then return true, "control " .. name .. " = " .. tostring(c.value) end
+   if s.value == nil and s.min == nil and s.max == nil then
+      return "ok", "control " .. name .. " = " .. tostring(c.value)
+   end
+   if type(c.value) ~= "number" then
+      if waiting then return end
+      return false, "control " .. name .. " = " .. tostring(c.value) .. " (not a number)"
+   end
+   local good, want = numWant(c.value, s, 0.01)
+   if good == nil then return false, want end
+   local msg = "control " .. name .. " = " .. tostring(c.value) .. want
+   if good then return true, msg end
    if waiting then return end
-   return false, "control " .. name .. " = " .. tostring(c.value) .. ", expected " .. tostring(want)
+   return false, msg
 end
 
 H.expectControl = {ctx = "any", run = function(s) return controlCheck(s, "expectControl", false) end}
@@ -2568,9 +2671,36 @@ local function loadAppConfig()
    log("settings from " .. path)
 end
 
+-- the scripts in an app's UIDriver folder, sorted
+local function scriptsOf(id)
+   local list = {}
+   if not id or id == "" or not dir then return list end
+   pcall(function()
+      for name, kind in dir(appDir(id):sub(1, -2)) do
+	 if kind == "file" and name:match("%.jsn$") and name ~= "config.jsn" then
+	    list[#list+1] = name
+	 end
+      end
+   end)
+   table.sort(list)
+   return list
+end
+
 local function loadScript()
+   if cfg.script == "" then
+      -- e.g. play was chosen before the app had any scripts
+      local list = scriptsOf(cfg.target)
+      if #list == 1 then
+	 cfg.script = list[1]
+	 log("no script chosen; using the only one, " .. cfg.script)
+      else
+	 log("WARN no script chosen; pick one in UIDriver's menu" ..
+	     (#list > 0 and (" (have " .. table.concat(list, ", ") .. ")") or
+	      (" (none in " .. appDir(cfg.target) .. ")")))
+	 return
+      end
+   end
    local path = appDir(cfg.target) .. cfg.script
-   if cfg.script == "" then log("no script chosen"); return end
    local txt = io.readall(path)
    if not txt then log("can't read script " .. path); return end
    local sc = json.decode(txt)
@@ -2782,20 +2912,6 @@ local function appIds()
    for id, a in pairs(apps) do
       if a.registered and not SKIP[id] then list[#list+1] = id end
    end
-   table.sort(list)
-   return list
-end
-
-local function scriptsOf(id)
-   local list = {}
-   if not id or id == "" then return list end
-   local ok, err = pcall(function()
-      for name, kind in dir(appDir(id):sub(1, -2)) do
-	 if kind == "file" and name:match("%.jsn$") and name ~= "config.jsn" then
-	    list[#list+1] = name
-	 end
-      end
-   end)
    table.sort(list)
    return list
 end
