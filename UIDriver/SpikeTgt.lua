@@ -18,6 +18,10 @@ local st = {
 local selItems = {"A", "B", "C"}
 local chkIdx
 local uid      -- system.UIDriver test hooks; nil on the TX
+-- images for UIDriver's expectImage: the form shows red if Spike Chk is
+-- on, green if off; the telemetry window shows blue
+local dots = {}
+local DOTDIR = "Apps/DFM-Maps/JSON/"
 
 -- console + Apps/SpikeTgt.log (appended per line, so nothing is lost)
 local LOGFILE = "Apps/UIDriver/SpikeTgt.log"
@@ -104,6 +108,8 @@ local function prtForm(w, h)
    lcd.setColor(0, 0, 0)
    lcd.drawText(4, 3, l1, FONT_MINI)
    lcd.drawText(4, 15, l2, FONT_MINI)
+   local dot = st.chk and dots.red or dots.green
+   if dot then lcd.drawImage(160, 4, dot) end
 end
 
 local function closeForm() p("closeForm") end
@@ -114,6 +120,7 @@ local function telPrint(w, h)
 		FONT_NORMAL)
    lcd.drawText(4, 42, "keys:" .. st.telKeyLog, FONT_MINI)
    lcd.drawText(4, 56, "user buttons (setTelemetryButton): " .. st.telButtons, FONT_MINI)
+   if dots.blue then lcd.drawImage(260, 4, dots.blue) end
 end
 
 -- two groups of user buttons, switched with Enter as a "shift" key:
@@ -156,6 +163,12 @@ local function init()
    uid = system.UIDriver
    p("init: system.UIDriver is", tostring(uid))
    if uid then uid.expose("tgt", function() return st end) end
+   if lcd.loadImage then
+      for _, c in ipairs({"red", "green", "blue"}) do
+	 dots[c] = lcd.loadImage(DOTDIR .. "small_" .. c .. "_circle.png")
+      end
+      lcd.loadImage("Apps/UIDriver/no-such-image.png")  -- UIDriver should WARN
+   end
    system.registerForm(1, MENU_APPS, appName, initForm, keyForm, prtForm, closeForm)
    system.registerTelemetry(1, appName, 4, telPrint, telKey)
    -- user buttons T1..T5 (6.05, DS-24 II only); ESC on the full-screen

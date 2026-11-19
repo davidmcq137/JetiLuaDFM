@@ -5230,9 +5230,9 @@ local function init()
    end
    --]]
 
-   dotImage.blue = lcd.loadImage(appInfo.Dir.."/JSON/small_blue_circle.png")
-   dotImage.green = lcd.loadImage(appInfo.Dir.."/JSON/small_green_circle.png")   
-   dotImage.red = lcd.loadImage(appInfo.Dir.."/JSON/small_red_circle.png")
+   dotImage.blue = lcd.loadImage(appInfo.Dir.."JSON/small_blue_circle.png")
+   dotImage.green = lcd.loadImage(appInfo.Dir.."JSON/small_green_circle.png")   
+   dotImage.red = lcd.loadImage(appInfo.Dir.."JSON/small_red_circle.png")
 
    variables = jLoadInit(jFilename())
    

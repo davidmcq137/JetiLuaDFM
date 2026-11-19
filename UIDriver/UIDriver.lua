@@ -161,7 +161,14 @@
      {"dumpText": true}           log every text of the next frame with
                                   its x,y; handy for writing scripts
    The text can be "$name", a value saved by a remember step.
-   The recording versions of drawText/drawNumber are swapped in only
+     {"expectImage": "BDS458/17.png"}   images drawn with lcd.drawImage,
+     {"expectNoImage": "red_circle"}    named by the file lcd.loadImage
+     {"waitImage": "16.5.png"}          loaded them from; same options.
+                                  lcd.createImage ones are named
+                                  "created 480x320". dumpText lists the
+                                  images too. A failed load by the target
+                                  is logged as a WARN
+   The recording versions of drawText/drawNumber/drawImage are swapped in only
    around the target's print callback while a text step is waiting, so
    other apps' text isn't seen and the target pays nothing otherwise.
    An app that keeps its own copy (local drawText = lcd.drawText) can't
@@ -287,7 +294,10 @@ local ACTIONS = {set = true, link = true, key = true, button = true, telemKey = 
 local anns = {}            -- announcements: {kind, text, value, seq, used}
 local textArm              -- {key, at}: a text step wants the next frame of key
 local frameNo = 0          -- frames captured so far
-local frames = {}          -- key ("form", "telem1") -> {n, items = {text, x, y}}
+local frames = {}          -- key ("form", "telem1") -> {n, items = {kind, text, x, y}}
+-- image -> the file it was loaded from ("created WxH" for lcd.createImage);
+-- weak keys, so images the app drops are still freed
+local imageName = setmetatable({}, {__mode = "k"})
 
 local exposed = {}         -- name -> getter, from uid.expose
 local vars = {}            -- remembered values, for "$name" in expectState
@@ -978,7 +988,8 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "waitEvent", "confirm", "note", "waitTelem", "telemButton",
 	       "expectTelemButton", "remember", "waitMessage", "waitAudio",
 	       "waitNumber", "waitVibration", "waitBeep", "expectText",
-	       "expectNoText", "waitText", "dumpText"}
+	       "expectNoText", "waitText", "dumpText", "expectImage",
+	       "expectNoImage", "waitImage"}
 
 local function verbOf(s)
    for _, v in ipairs(VERBS) do
@@ -1105,19 +1116,26 @@ local function capturePrint(key, fn, w, h)
       return fn(w, h)
    end
    local items = {}
-   local dt, dn = lcd.drawText, lcd.drawNumber
+   local dt, dn, di = lcd.drawText, lcd.drawNumber, lcd.drawImage
    lcd.drawText = function(x, y, text, ...)
-      items[#items+1] = {text = tostring(text), x = x, y = y}
+      items[#items+1] = {kind = "text", text = tostring(text), x = x, y = y}
       return dt(x, y, text, ...)
    end
    if dn then
       lcd.drawNumber = function(x, y, num, ...)
-	 items[#items+1] = {text = tostring(math.tointeger(num) or num), x = x, y = y}
+	 items[#items+1] = {kind = "text", text = tostring(math.tointeger(num) or num), x = x, y = y}
 	 return dn(x, y, num, ...)
       end
    end
+   if di then
+      lcd.drawImage = function(x, y, img, ...)
+	 local name = img == nil and "nil image" or imageName[img] or "unknown image"
+	 items[#items+1] = {kind = "image", text = name, x = x, y = y}
+	 return di(x, y, img, ...)
+      end
+   end
    local ok, err = pcall(fn, w, h)
-   lcd.drawText, lcd.drawNumber = dt, dn
+   lcd.drawText, lcd.drawNumber, lcd.drawImage = dt, dn, di
    frameNo = frameNo + 1
    frames[key] = {n = frameNo, items = items}
    if not ok then error(err, 0) end
@@ -1166,19 +1184,23 @@ local function textMatches(it, s, want)
    return it.text:lower():find(want:lower(), 1, true) ~= nil
 end
 
-local function findText(f, s, want)
+local function findText(f, s, want, kind)
    for _, it in ipairs(f.items) do
-      if textMatches(it, s, want) then return it end
+      if it.kind == (kind or "text") and textMatches(it, s, want) then return it end
    end
 end
 
-local function screenList(f)
-   local t = {}
-   for i, it in ipairs(f.items) do
-      if i > 15 then t[#t+1] = "... " .. (#f.items - 15) .. " more"; break end
-      t[#t+1] = "'" .. it.text .. "'"
+local function screenList(f, kind)
+   kind = kind or "text"
+   local t, n = {}, 0
+   for _, it in ipairs(f.items) do
+      if it.kind == kind then
+	 n = n + 1
+	 if n <= 15 then t[#t+1] = "'" .. it.text .. "'" end
+      end
    end
-   return #t > 0 and table.concat(t, ", ") or "no text"
+   if n > 15 then t[#t+1] = "... " .. (n - 15) .. " more" end
+   return #t > 0 and table.concat(t, ", ") or ("no " .. kind)
 end
 
 local function textTimeout(s)
@@ -1190,50 +1212,55 @@ local function textTimeout(s)
    return "; on screen: " .. screenList(f)
 end
 
-H.expectText = {ctx = "any", onTimeout = textTimeout, run = function(s)
-		   local want, err = textWant(s, "expectText")
-		   if not want then return false, err end
-		   local f = frameFor(s)
-		   if not f then return end
-		   local it = findText(f, s, want)
-		   if it then
-		      return true, "'" .. it.text .. "' at " .. num(it.x) .. "," .. num(it.y)
-		   end
-		   return false, "'" .. tostring(want) .. "' not on " ..
-		      whereName(s._text.key) .. "; on screen: " .. screenList(f)
-end}
-
-H.expectNoText = {ctx = "any", onTimeout = textTimeout, run = function(s)
-		     local want, err = textWant(s, "expectNoText")
-		     if not want then return false, err end
-		     local f = frameFor(s)
-		     if not f then return end
-		     local it = findText(f, s, want)
-		     if it then
-			return false, "'" .. it.text .. "' is on " .. whereName(s._text.key) ..
-			   " at " .. num(it.x) .. "," .. num(it.y)
-		     end
-		     return true, "'" .. tostring(want) .. "' not on " .. whereName(s._text.key)
-end}
-
-H.waitText = {ctx = "any", onTimeout = textTimeout, run = function(s)
-		 local want, err = textWant(s, "waitText")
-		 if not want then return false, err end
-		 local f = frameFor(s)
-		 if not f then return end
-		 local it = findText(f, s, want)
-		 if it then
-		    return true, "'" .. it.text .. "' at " .. num(it.x) .. "," .. num(it.y)
-		 end
-end}
+-- expect / expectNo / wait steps for one kind of item ("text" or "image")
+local function screenSteps(kind, expectV, noV, waitV)
+   local function timeout(s)
+      local r = textTimeout(s)
+      if kind == "text" or r:sub(1, 13) ~= "; on screen: " then return r end
+      local f = frames[s._text.key]
+      return "; images on screen: " .. screenList(f, kind)
+   end
+   local function at(it) return "'" .. it.text .. "' at " .. num(it.x) .. "," .. num(it.y) end
+   H[expectV] = {ctx = "any", onTimeout = timeout, run = function(s)
+		    local want, err = textWant(s, expectV)
+		    if not want then return false, err end
+		    local f = frameFor(s)
+		    if not f then return end
+		    local it = findText(f, s, want, kind)
+		    if it then return true, at(it) end
+		    return false, "'" .. tostring(want) .. "' not on " ..
+		       whereName(s._text.key) .. "; on screen: " .. screenList(f, kind)
+   end}
+   H[noV] = {ctx = "any", onTimeout = timeout, run = function(s)
+		local want, err = textWant(s, noV)
+		if not want then return false, err end
+		local f = frameFor(s)
+		if not f then return end
+		local it = findText(f, s, want, kind)
+		if it then return false, at(it) .. " is on " .. whereName(s._text.key) end
+		return true, "'" .. tostring(want) .. "' not on " .. whereName(s._text.key)
+   end}
+   H[waitV] = {ctx = "any", onTimeout = timeout, run = function(s)
+		  local want, err = textWant(s, waitV)
+		  if not want then return false, err end
+		  local f = frameFor(s)
+		  if not f then return end
+		  local it = findText(f, s, want, kind)
+		  if it then return true, at(it) end
+   end}
+end
+screenSteps("text", "expectText", "expectNoText", "waitText")
+screenSteps("image", "expectImage", "expectNoImage", "waitImage")
 
 H.dumpText = {ctx = "any", onTimeout = textTimeout, run = function(s)
 		 local f = frameFor(s)
 		 if not f then return end
+		 local nt = 0
 		 for _, it in ipairs(f.items) do
-		    log(string.format("   text %6s,%-6s '%s'", num(it.x), num(it.y), it.text))
+		    if it.kind == "text" then nt = nt + 1 end
+		    log(string.format("   %-5s %6s,%-6s '%s'", it.kind, num(it.x), num(it.y), it.text))
 		 end
-		 return "ok", #f.items .. " texts on " .. whereName(s._text.key)
+		 return "ok", nt .. " texts, " .. (#f.items - nt) .. " images on " .. whereName(s._text.key)
 end}
 
 --------------------------------------------------------------------------------
@@ -1521,6 +1548,31 @@ for v, kind in pairs({waitMessage = "message", waitAudio = "audio",
    H[v] = annWait(v, kind)
 end
 
+-- remember which file each image came from, for expectImage. Called at
+-- chunk load, before any app's init() loads its images
+local function wrapImages()
+   if not lcd then return end
+   local load, create = lcd.loadImage, lcd.createImage
+   if load then
+      lcd.loadImage = function(path, ...)
+	 local img = load(path, ...)
+	 if img ~= nil then
+	    imageName[img] = tostring(path)
+	 elseif callerIsTarget() then
+	    log("WARN the target's lcd.loadImage failed: " .. tostring(path))
+	 end
+	 return img
+      end
+   end
+   if create then
+      lcd.createImage = function(w, h, ...)
+	 local img = create(w, h, ...)
+	 if img ~= nil then imageName[img] = "created " .. tostring(w) .. "x" .. tostring(h) end
+	 return img
+      end
+   end
+end
+
 local function install()
    orig.registerForm = system.registerForm
    orig.registerTelemetry = system.registerTelemetry
@@ -1585,6 +1637,7 @@ local function install()
 
    wrapForm()
    wrapAnnouncements()
+   wrapImages()
 end
 
 local function loadConfig()

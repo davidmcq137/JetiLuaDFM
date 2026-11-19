@@ -1,0 +1,20 @@
+{"steps": [
+  {"log": "image self-test: open SpikeTgt from the Applications menu"},
+  {"waitForm": true},
+  {"waitSub": 1},
+  {"dumpText": true},
+  {"expectImage": "green_circle"},
+  {"expectNoImage": "red_circle"},
+  {"set": "Spike Chk", "value": true},
+  {"waitImage": "red_circle", "region": [150, 0, 40, 30]},
+  {"expectNoImage": "green"},
+  {"set": "Spike Chk", "value": false},
+  {"waitImage": "green_circle"},
+  {"log": "the next step should FAIL, listing the images on the form"},
+  {"expectImage": "blue_circle"},
+  {"close": true},
+  {"log": "show the SpikeTgt telemetry window full screen (no ESC needed)"},
+  {"waitTelem": 1},
+  {"expectImage": "blue_circle", "win": 1},
+  {"dumpText": true, "win": 1}
+]}
