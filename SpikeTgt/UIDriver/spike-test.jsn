@@ -34,7 +34,7 @@
   {"key": "KEY_ESC"},
   {"waitClosed": true},
   {"log": "now show the SpikeTgt telemetry window on the main screen"},
-  {"telemKey": "KEY_2", "win": 1, "timeoutMs": 60000},
+  {"telemKey": "KEY_2", "win": 1, "timeout": "1m"},
   {"expectState": "tgt.telemKey", "value": "2"},
   {"log": "self-test finished"}
 ]}

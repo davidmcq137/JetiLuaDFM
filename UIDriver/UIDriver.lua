@@ -35,8 +35,9 @@
      *.jsn          scripts (any .jsn but config.jsn)
      config.jsn     optional settings for this app; a script can also
                     carry its own {"config": {...}}, which wins:
-       {"stepGapMs": 500,         -- pause after each step
-        "stepTimeoutMs": 10000,   -- default per-step timeout
+       {"stepGap": 500,           -- pause after each step
+        "stepTimeout": "10s",     -- default per-step timeout
+                                  -- (durations: see DURATIONS below)
         "stopOnFail": true,
         "overlay": true,          -- step counter: true = appended to the
                                   -- form title ("GPS Maps  [UID 12/55]"),
@@ -65,10 +66,10 @@
 
    SCRIPT: {"steps": [ ... ]}, each step one object
      {"waitForm": true}           wait until a human opens the target form
-                                  (no timeout unless "timeoutMs" is given)
+                                  (no timeout unless "timeout" is given)
      {"waitSub": 7}               wait until subform 7 is showing
      {"waitClosed": true}         wait until the form has closed
-     {"wait": 1000}               pause (ms)
+     {"wait": 1000}               pause: 1000 ms, or "2s", "1:30", ...
      {"set": "Race time (mins)", "value": 30}     intbox (raw integer)
      {"set": "Select Field to Browse", "value": "BDS"}  selectbox by text
      {"set": "Select Field to Browse", "value": 2}      ... or by index
@@ -148,13 +149,13 @@
                                   F2 = No. Meanwhile every key is kept from
                                   the target and can't close the form. With
                                   no form open, the box counts down for
-                                  "lookMs" (config "confirmLookMs", default
-                                  5000) before the form.question pop-up
+                                  "look" (config "confirmLook", default
+                                  "5s") before the form.question pop-up
      {"note": "Press ESC, then F1", "ms": 20000}   show instructions in
                                   the box on the target's form or telemetry
                                   window for ms (default 10000)
      {"waitTelem": 1}             wait until target telemetry window 1 is
-                                  showing (no timeout unless "timeoutMs")
+                                  showing (no timeout unless "timeout")
      {"cpuStart": true}           start tracking the target's peak CPU
      {"cpuCheck": 80}             stop tracking; FAIL if the peak was over
                                   80%. {"cpuCheck": true} only reports it
@@ -179,7 +180,7 @@
                                   range; "unit"/"label" too
      {"waitVibration": "left"}    "left", "right" or true; "profile": 3
      {"waitBeep": true}           playBeep (or a string the text contains)
-   Add "absent": true and "forMs": 3000 to require that none comes for
+   Add "absent": true and "for": "3s" to require that none comes for
    that long (a match is a FAIL). Text matches ignore case. A timeout
    lists what the app did announce. If SensorE loads after UIDriver,
    announcements made before the driver's first loop() can be missed.
@@ -212,7 +213,7 @@
                                   sensors share the label; "as": "name"
                                   keeps the value for "$name".
                                   Works with SensorE, SensorL or real
-                                  sensors. Set "timeoutMs" for long waits
+                                  sensors. Set "timeout" for long waits
      {"expectSensor": "Fuel remaining", "max": 50}  the same, checked once
      {"expectControl": 1, "value": 0.5}  what the target last passed to
                                   setControl (number or registered label;
@@ -245,7 +246,7 @@
                                   its GPS sensors)
      {"sensorTime": 30}           set SensorE's t (seconds)
      {"waitSensorTime": 40}       wait until t reaches 40 (set
-                                  "timeoutMs" if that's far off)
+                                  "timeout" if that's far off)
      {"sensorPosition": [120, -40]}  hold the GPS output at x, y from
                                   SensorE's origin, in its xString frame
                                   (false releases)
@@ -292,8 +293,16 @@
    Widgets are found by the label in their row (form.addLabel), or by
    the text of a link. Add "nth": 2 for the second widget with the same
    label, or use "#12" for component index 12. Any step can carry
-   "timeoutMs". If a label isn't found, the log lists the labels that
+   "timeout". If a label isn't found, the log lists the labels that
    are on the form.
+
+   DURATIONS ("timeout", "for", "look", "wait", and config "stepGap",
+   "stepTimeout", "confirmLook"): a number is ms; a string carries its
+   unit: "500ms", "90s", "7m", "1m30s", "1h", or minutes:seconds
+   "2:55", "4:34.6" (and "1:02:03" for h:mm:ss). The old keys
+   timeoutMs, forMs, lookMs, stepGapMs, stepTimeoutMs and confirmLookMs
+   still work and take ms. A misspelt timeout key (timeoutMS,
+   timeOut, ...) gets a WARN.
 
    APP HOOKS: let the app under test show its internals
    UIDriver publishes system.UIDriver when its chunk loads, in every
@@ -332,6 +341,7 @@
 --]]
 
 local appName = "UIDriver"
+
 local HOME = "Apps/UIDriver/"
 local SELFILE = HOME .. "selection.jsn"
 
@@ -464,6 +474,52 @@ local function now() return system.getTimeCounter() end
 local function whole(x)
    if math.type(x) == "integer" then return x end
    if math.type(x) == "float" and x % 1 == 0.0 then return math.tointeger(x) end
+end
+
+-- A duration in ms. Strings carry their unit: "500ms", "90s", "7m",
+-- "1m30s", "1h", or a clock time "2:55", "4:34.6", "1:02:03" (the
+-- part before each ":" times 60, plus what follows). A plain number
+-- (or a string of just a number) is ms. Returns nil and why if it's bad
+local UNIT_MS = {ms = 1, s = 1000, m = 60000, h = 3600000}
+local function durationMs(v)
+   local secs
+   if type(v) == "number" then
+      return math.floor(v + 0.5)
+   elseif type(v) ~= "string" then
+      return nil, "not a duration: " .. tostring(v)
+   end
+   local str = string.gsub(v, "%s", "")
+   if tonumber(str) then return math.floor(tonumber(str) + 0.5) end
+   if string.find(str, ":", 1, true) then
+      -- m:ss[.f] or h:mm:ss[.f]
+      secs = 0
+      for part in string.gmatch(str .. ":", "([^:]*):") do
+	 local n = tonumber(part)
+	 if not n or n < 0 then return nil, "bad time \"" .. v .. "\" (want m:ss or h:mm:ss)" end
+	 secs = secs * 60 + n
+      end
+      return math.floor(secs * 1000 + 0.5)
+   end
+   local ms, rest = 0, str
+   while rest ~= "" do
+      local num, unit, after = string.match(rest, "^(%d*%.?%d+)(%a+)(.*)$")
+      if not num or not UNIT_MS[unit] then
+	 return nil, "bad duration \"" .. v .. "\" (want e.g. \"500ms\", \"90s\", \"7m\", \"1m30s\" or \"2:55\")"
+      end
+      ms = ms + tonumber(num) * UNIT_MS[unit]
+      rest = after
+   end
+   return math.floor(ms + 0.5)
+end
+
+-- a duration for a log line: "250 ms", "90 s", "7 min", "4 min 34.6 s"
+local function fmtMs(ms)
+   if ms < 1000 then return ms .. " ms" end
+   local m, sec = ms // 60000, (ms % 60000) / 1000
+   local ss = sec % 1 == 0.0 and string.format("%d", sec) or string.format("%.1f", sec)
+   if m == 0 then return ss .. " s" end
+   if sec == 0.0 then return m .. " min" end
+   return m .. " min " .. ss .. " s"
 end
 
 -- a == b, but numbers of different kinds are compared as floats
@@ -1493,7 +1549,32 @@ local function flatten(list, out, errs)
 	    end
 	 end
 	 local v = verbOf(s)
-	 if not v then errs[#errs+1] = json.encode(s) end
+	 if not v then errs[#errs+1] = "unknown step: " .. json.encode(s) end
+	 -- durations: "timeout", "for", "look" and "wait" (a number is ms,
+	 -- a string carries its unit) become the ms keys used inside; the
+	 -- old timeoutMs, forMs and lookMs still work
+	 for _, d in ipairs({{"timeout", "timeoutMs"}, {"for", "forMs"},
+			     {"look", "lookMs"}, {"wait", "wait"}}) do
+	    local key, msKey = d[1], d[2]
+	    -- ("for" is also setInput's "target"/"all"; "wait" a verb only)
+	    if s[key] ~= nil and (key ~= "wait" or v == "wait")
+	    and (key ~= "for" or s.absent) then
+	       local ms, why = durationMs(s[key])
+	       if ms then
+		  s[msKey] = ms
+	       else
+		  errs[#errs+1] = "\"" .. key .. "\": " .. why .. ": " .. json.encode(s)
+	       end
+	    end
+	 end
+	 for k in pairs(s) do
+	    local lk = string.lower(k)
+	    if (string.find(lk, "^timeout") and k ~= "timeout" and k ~= "timeoutMs")
+	    or ((lk == "forms" or lk == "lookms") and k ~= "forMs" and k ~= "lookMs") then
+	       log("WARN step " .. #out + 1 .. ": unknown key \"" .. k ..
+		   "\" (use \"timeout\": \"90s\", \"2:55\", ...); ignored")
+	    end
+	 end
 	 if s.absent and not s.timeoutMs then
 	    s.timeoutMs = (s.forMs or 3000) + 5000
 	 end
@@ -1592,7 +1673,7 @@ local function runSteps(ctx, win)
 	    or h.ctx == "telem" and (" (needs target telemetry window " .. (s.win or 1) .. " showing)")
 	    or ""
 	 local extra = h.onTimeout and h.onTimeout(s) or ""
-	 report(s, false, "timed out after " .. limit .. " ms" .. need .. extra)
+	 report(s, false, "timed out after " .. fmtMs(limit) .. need .. extra)
       end
    end
 end
@@ -2022,7 +2103,7 @@ local function annWait(v, kind)
 		    return false, "unexpected " .. kind .. ": " .. a.text
 		 end
 		 if el >= forMs then
-		    return true, "no matching " .. kind .. " in " .. forMs .. " ms"
+		    return true, "no matching " .. kind .. " in " .. fmtMs(forMs)
 		 end
 		 return
 	      end
@@ -2700,7 +2781,15 @@ local function applySettings(c, where)
 	 log("WARN " .. where .. ": \"" .. k .. "\" is chosen in UIDriver's menu now; ignored")
       else
 	 if type(v) == "number" then v = whole(v) or v end  -- json gives floats
-	 cfg[k] = v
+	 local msKey = ({stepGap = "stepGapMs", stepTimeout = "stepTimeoutMs",
+			 confirmLook = "confirmLookMs"})[k]
+	 if msKey then
+	    local ms, why = durationMs(v)
+	    if ms then cfg[msKey] = ms
+	    else log("WARN " .. where .. ": \"" .. k .. "\": " .. why .. "; ignored") end
+	 else
+	    cfg[k] = v
+	 end
       end
    end
 end
@@ -2755,7 +2844,7 @@ local function loadScript()
    local errs = {}
    local out = flatten(sc.steps, {}, errs)
    if #errs > 0 then
-      for _, e in ipairs(errs) do log("unknown step: " .. e) end
+      for _, e in ipairs(errs) do log(e) end
       return
    end
    steps, si = out, 1

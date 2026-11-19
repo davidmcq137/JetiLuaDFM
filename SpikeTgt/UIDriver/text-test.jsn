@@ -19,5 +19,5 @@
   {"telemKey": "KEY_4"},
   {"waitText": "telemKey=8", "win": 1},
   {"log": "the next step should FAIL: the form isn't open, so it isn't drawn"},
-  {"expectText": "int=", "win": "form", "timeoutMs": 2000}
+  {"expectText": "int=", "win": "form", "timeout": "2s"}
 ]}
