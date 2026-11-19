@@ -44,7 +44,18 @@
 
 --]]
 
-if not sharedVar then sharedVar = {} end
+-- Apps whose values can be announced. Each one publishes a global table
+-- {label = {...}, value = {...}, unit = {...}, dp = {...}} (declareGlobal on
+-- 6.05+, see DFM-GRat). The names are the ones in the menu and in saved
+-- settings ("App.DFM-GRat.GlideRatio"); add a line here for a new app
+--luacheck: globals DFM_GRat DFM_Watt
+local SHARED_APPS = {"DFM-GRat", "DFM-Watt"}
+local function sharedTable(name)
+   local t
+   if name == "DFM-GRat" then t = DFM_GRat
+   elseif name == "DFM-Watt" then t = DFM_Watt end
+   if type(t) == "table" and type(t.label) == "table" then return t end
+end
 
 local appName = "Short/Long Switch"
 local SWTVersion= 0.6
@@ -83,6 +94,8 @@ local sensorIdlist = { "...", 0}
 local sensorPalist = { "...", 0}
 local sensorUnlist = { "...", ""}
 local sensorDplist = { "...", 0}
+
+local addAppValues   -- below; the menu calls it to pick up apps that started later
 
 local txTelem = {"txVoltage", "txBattPercent", "txCurrent", "txCapacity",
 		 "rx1Percent", "rx1Voltage", "rx2Percent", "rx2Voltage",
@@ -240,6 +253,7 @@ local function initForm(subform)
    
    if subform == 1 then
 
+      addAppValues()
       form.setTitle(appName..": Main")
       form.addRow(4)
 
@@ -458,40 +472,22 @@ local function pressAction(pC)
       value = txRSSI[teleSe[pC] - maxTxTele]
       unit = teleSeUn[pC]
       dp   = teleSeDp[pC]
-   elseif teleSe[pC] > maxRSSITele and teleSe[pC] <= maxAPPTele then
+   elseif teleSe[pC] > maxRSSITele then -- an app's value
 	 --print(teleSe[pC], sensorLslist[teleSe[pC]])
-	 local appname = string.match(sensorLslist[teleSe[pC]], "(.-)%.")
-	 local senname = string.match(sensorLslist[teleSe[pC]], "%.(.*)")
-	 --print("app", appname)
-	 --print("sensor", senname)
-
-	 --for k,v in pairs(sharedVar) do
-	 --   print("$", k,v)
-	 --   for kk,vv in pairs(v) do
-	 --      print(kk,vv)
-	 --   end
-	 --end
-	 --print("1", sharedVar[appname])
-	 --print("2", sharedVar[appname].value)
-	 --print("3", sharedVar[appname].value[1])	 
-
-	 local imatch = 0
-	 
-	 for k,v in pairs(sharedVar[appname].label) do
-	    --print("v, senname:", v, senname)
-	    if v == senname then
-	       imatch = k
-	       break
+	 -- by the saved name: the list position can change between runs
+	 local appname = string.match(teleSeLs[pC] or "", "(.-)%.")
+	 local senname = string.match(teleSeLs[pC] or "", "%.(.*)")
+	 local t = sharedTable(appname)
+	 if t then
+	    for k, v in ipairs(t.label) do
+	       if v == senname then
+		  value, unit, dp = t.value[k], t.unit[k], t.dp[k]
+		  break
+	       end
 	    end
+	 else
+	    print("DFM-SWT: " .. tostring(appname) .. " isn't sharing values (not running?)")
 	 end
-	 --print("imatch:", imatch)
-	 --print("val:",  sharedVar[appname].value[imatch])
-	 --print("unit:", sharedVar[appname].unit[imatch])
-	 --print("dp:",   sharedVar[appname].dp[imatch])	 
-
-	 value = sharedVar[appname].value[imatch]
-	 unit  = sharedVar[appname].unit[imatch]	 
-	 dp    = sharedVar[appname].dp[imatch]
 	 
    else   
       print("DFM-SWT: Nothing set on pressAction - pC = ", pC)
@@ -602,6 +598,29 @@ local function loop()
       end
       lastSwitchState = currSwitchState
    end
+end
+
+-- (re)list the shared app values after the RSSI entries
+addAppValues = function()
+   if not maxRSSITele then return end
+   for _, l in ipairs({sensorLalist, sensorLslist, sensorIdlist, sensorPalist,
+		       sensorUnlist, sensorDplist}) do
+      for i = #l, maxRSSITele + 1, -1 do l[i] = nil end
+   end
+   for _, name in ipairs(SHARED_APPS) do
+      local t = sharedTable(name)
+      if t then
+	 for i, lab in ipairs(t.label) do
+	    table.insert(sensorLalist, "App." .. name .. "." .. lab)
+	    table.insert(sensorLslist, name .. "." .. lab)
+	    table.insert(sensorIdlist, 0)
+	    table.insert(sensorPalist, 0)
+	    table.insert(sensorUnlist, t.unit[i])
+	    table.insert(sensorDplist, t.dp[i])
+	 end
+      end
+   end
+   maxAPPTele = #sensorLalist
 end
 
 local function init()
@@ -833,34 +852,7 @@ local function init()
 
    maxRSSITele = #sensorLalist
 
-   --print("SWT")
-   for k,v in pairs(sharedVar) do
-      --print(">", k,v)
-      for kk,vv in pairs(sharedVar[k]) do
-	 --print(">>",kk,vv)
-	 for kkk, vvv in pairs(sharedVar[k][kk]) do
-	    --print(">>>",kkk,vvv)
-	    if kk == "label" then
-	       --print("SWT " .. k .. "-" .. vvv .. " kkk: ".. kkk)
-	       --for k1,v1 in ipairs(teleSeLa) do
-		 -- print("tSL:, k,v:", k1, v1)
-	       --end
-	       table.insert(sensorLalist, "App."..k.."."..vvv)
-	       table.insert(sensorLslist, k.."."..vvv)
-	       table.insert(sensorIdlist, 0) -- maybe store indexes of app + sensor in Id and Pa?
-	       table.insert(sensorPalist, 0) -- so we don't have to string search them each time?
-	    elseif kk == "unit" then
-	       table.insert(sensorUnlist, vvv)
-	    elseif kk == "dp" then
-	       table.insert(sensorDplist, vvv)
-	    end
-	 end
-      end
-   end
-
-   maxAPPTele = #sensorLalist
-
-   
+   addAppValues()
 end
 
 return {init=init, loop=loop, author="DFM", version=tostring(SWTVersion),
