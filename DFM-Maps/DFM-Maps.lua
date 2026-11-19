@@ -136,7 +136,6 @@ local nfc = {}
 local nfp = {}
 local tri = {}
 local rwy = {}
-local maxpolyX = 0.0
 local Field = {}
 local Fields = {}
 local activeField
@@ -1005,10 +1004,6 @@ local function nfz2XY()
 		  if pp[k].y < pp.ymin then pp.ymin = pp[k].y end
 		  if pp[k].y > pp.ymax then pp.ymax = pp[k].y end	       	       
 	       end
-	       -- we know 0,0 is at center of the image ... need an "infinity x" point for the
-	       -- no fly region computation ... keep track of largest positive x ..
-	       -- later we will double it to make sure it is well past the no fly polygon
-	       if pp[#pp].x > maxpolyX then maxpolyX = pp[#pp].x end
 	    end
 	    -- compute bounding circle around the bounding rectangle
 	    pp.xc = (pp.xmin + pp.xmax) / 2.0
@@ -3024,61 +3019,6 @@ local function calcTriRace()
    end
 end
 
--- next set of function acknowledge
--- https://www.geeksforgeeks.org/how-to-check-if-a-given-point-lies-inside-a-polygon/
--- ported to lua D McQ 7/2020
-
-local function onSegment(p, q, r)
-   if (q.x <= math.max(p.x, r.x) and q.x >= math.min(p.x, r.x) and 
-            q.y <= math.max(p.y, r.y) and q.y >= math.min(p.y, r.y)) then
-      return true
-   else
-      return false
-   end
-end
-
--- To find orientation of ordered triplet (p, q, r). 
--- The function returns following values 
--- 0 --> p, q and r are colinear 
--- 1 --> Clockwise 
--- 2 --> Counterclockwise 
-local function orientation(p, q, r) 
-   local val
-   val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y)
-   if (val == 0) then return 0 end  -- colinear 
-   return val > 0 and 1 or 2
-end
-
--- The function that returns true if line segment 'p1q1' 
--- and 'p2q2' intersect. 
-local function doIntersect(p1, q1, p2, q2) 
-   -- Find the four orientations needed for general and 
-   -- special cases
-   local o1, o2, o3, o4
-   o1 = orientation(p1, q1, p2)
-   o2 = orientation(p1, q1, q2) 
-   o3 = orientation(p2, q2, p1) 
-   o4 = orientation(p2, q2, q1) 
-   
-   -- General case 
-   if (o1 ~= o2 and o3 ~= o4) then return true end
-   
-   -- Special Cases 
-   -- p1, q1 and p2 are colinear and p2 lies on segment p1q1 
-   if (o1 == 0 and onSegment(p1, p2, q1)) then return true end
-   
-   -- p1, q1 and p2 are colinear and q2 lies on segment p1q1 
-   if (o2 == 0 and onSegment(p1, q2, q1)) then return true end
-  
-   -- p2, q2 and p1 are colinear and p1 lies on segment p2q2 
-   if (o3 == 0 and onSegment(p2, p1, q2)) then return true end
-  
-   -- p2, q2 and q1 are colinear and q1 lies on segment p2q2 
-   if (o4 == 0 and onSegment(p2, q1, q2)) then return true end 
-  
-    return false -- Doesn't fall in any of the above cases 
-end
-
 local function isNoFlyC(nn, p)
    local d
    d = math.sqrt( (nn.x-p.x)^2 + (nn.y-p.y)^2)
@@ -3093,61 +3033,44 @@ local function isNoFlyC(nn, p)
    return false
 end
 
--- Returns true if the point p lies inside the polygon[] with n vertices 
+-- Returns true if the point p is in the no-fly area of polygon nn: inside
+-- the polygon for an "inside" zone, outside it for an "outside" zone.
+-- Crossing-number test (W. R. Franklin's PNPOLY): count the polygon edges
+-- crossed by a ray from p in the +x direction. An edge counts only if one
+-- end is above p.y and the other is not (the half-open rule), so a ray
+-- through a vertex counts it once. No equality tests, so it is safe with
+-- JETI's float compares. Replaces the ray/segment-intersection version
+-- (orientation, doIntersect, onSegment), which double counted vertices.
 
---local function isNoFlyP(pp, io, p)
---noFlyP = noFlyP or isNoFlyP(nfp[i].path, nfp[i].inside, txy)
+local function isNoFlyP(nn, p)
 
-local function isNoFlyP(nn,p) 
+   local isInside = false
+   local path = nn.path
+   local n = #path
 
-   local isInside
-   local next
-   local extreme
+   -- There must be at least 3 vertices in the polygon
 
-   -- There must be at least 3 vertices in polygon[]
+   if n < 3 then return false end
 
-   if (#nn.path < 3)  then return false end
+   -- outside the bounding circle means outside the polygon: skip the test
 
-   --first see if we are inside the bounding circle
-   --if so, isInside is false .. jump to end
-   --else run full algorithm
-
-   if ((p.x - nn.xc) * (p.x - nn.xc) + (p.y - nn.yc) * (p.y - nn.yc)) > nn.r2 then
-      isInside = false
-   else
-      --Create a point for line segment from p to infinite 
-      extreme = {x=2*maxpolyX, y=p.y}; 
-      
-      -- Count intersections of the above line with sides of polygon 
-      local count = 0
-      local i = 1
-      local n = #nn.path
-      
-      repeat
-	 next = i % n + 1
-	 if (doIntersect(nn.path[i], nn.path[next], p, extreme)) then 
-	    -- If the point 'p' is colinear with line segment 'i-next', 
-	    -- then check if it lies on segment. If it lies, return true, 
-	    -- otherwise false 
-	    if (orientation(nn.path[i], p, nn.path[next]) == 0) then 
-	       return onSegment(nn.path[i], p, nn.path[next])
-	    end
-	    count = count + 1 
+   if ((p.x - nn.xc) * (p.x - nn.xc) + (p.y - nn.yc) * (p.y - nn.yc)) <= nn.r2 then
+      local j = n
+      for i = 1, n do
+	 local a, b = path[i], path[j]
+	 if (a.y > p.y) ~= (b.y > p.y) and
+	 p.x < a.x + (p.y - a.y) * (b.x - a.x) / (b.y - a.y) then
+	    isInside = not isInside
 	 end
-	 
-	 i = next
-      until (i == 1)
-      
-      -- Point inside polygon: true if count is odd, false otherwise
-      isInside = (count % 2 == 1)
+	 j = i
+      end
    end
-   
+
    if nn.inside == true then
       return isInside
    else
       return not isInside
    end
-   
 end
 
 local formRenderer
