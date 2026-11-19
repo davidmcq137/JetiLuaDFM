@@ -5182,6 +5182,10 @@ local function init()
 	 return {currentImage = currentImage, activeField = activeField,
 		 savedSubform = savedSubform, imageFile = img and img.file}
       end)
+      uid.expose("noFly", function()
+	 return {inside = noFlyHist.Last, ahead = noFlyHist.LastF,
+		 polygons = #nfp, circles = #nfc}
+      end)
    end
    
    local fg = io.readall(appInfo.Dir.."JSON/Shapes.jsn")
