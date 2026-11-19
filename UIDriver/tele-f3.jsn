@@ -1,0 +1,21 @@
+{"steps": [
+  {"log": "F3 test: show the SpikeTgt telemetry window full screen (don't open the SpikeTgt form)"},
+  {"waitTelem": 1},
+
+  {"log": "STEP A: F3 with the SYSTEM buttons showing"},
+  {"note": "Get ready: if T1..T5 are showing, press ESC now so the SYSTEM buttons show. Then wait for STEP A", "ms": 12000},
+  {"expectState": "tgt.telKeyCount"},
+  {"note": "STEP A: press F3 ONCE (system buttons showing). If a menu opens, press ESC to come back here", "ms": 20000},
+  {"expectState": "tgt.telKeyCount"},
+  {"expectState": "tgt.telKeyLog"},
+
+  {"log": "STEP B: F3 with the user buttons T1..T5 showing"},
+  {"note": "Get ready: press ESC now so T1..T5 show. Then wait for STEP B", "ms": 12000},
+  {"expectState": "tgt.telKeyCount"},
+  {"note": "STEP B: press F3 ONCE (T1..T5 showing)", "ms": 15000},
+  {"expectState": "tgt.telKeyCount"},
+  {"expectState": "tgt.telKeyLog"},
+
+  {"note": "Done. Press ESC to put the system buttons back", "ms": 5000},
+  {"log": "F3 test finished"}
+]}

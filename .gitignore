@@ -97,3 +97,6 @@ DFM-Rscu/*.png
 DFM-Rscu/Fields/*.gps
 DFM-Maps/Old_Maps
 
+UIDriver/result.log
+UIDriver/recorded.jsn
+UIDriver/SpikeTgt.log

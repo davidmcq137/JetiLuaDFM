@@ -241,6 +241,10 @@ local fieldPNG={}
 local maxImage
 local currentImage
 
+-- UIDriver test hooks (emulator only). system.UIDriver is nil on the TX,
+-- so every "if uid then ... end" costs one nil test there
+local uid
+
 local dotImage = {}
 
 local emFlag
@@ -3205,6 +3209,10 @@ local function prtForm() --wwx, whx)
 	    pngLoad(im, nil, true)
 	    graphScaleRst(im)
 	    triRot(0) -- rotate and translate triangle to pylons
+	    if uid then
+	       uid.check(fieldPNG[im] ~= nil, "map image decoded")
+	       uid.event("imageLoaded", im)
+	    end
 	 else
 	    browse.pendingDrawn = true
 	 end
@@ -5163,6 +5171,17 @@ local function init()
 
    --print("DFM-Maps init()")
    lastHistTime = system.getTimeCounter()
+
+   uid = system.UIDriver
+   if uid then
+      uid.expose("browse", function() return browse end)
+      uid.expose("variables", function() return variables end)
+      uid.expose("checkBox", function() return checkBox end)
+      uid.expose("maps", function()
+	 return {currentImage = currentImage, activeField = activeField,
+		 savedSubform = savedSubform}
+      end)
+   end
    
    local fg = io.readall(appInfo.Dir.."JSON/Shapes.jsn")
 

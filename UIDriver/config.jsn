@@ -1,0 +1,10 @@
+{
+  "mode": "play",
+  "target": "DFM-Maps",
+  "script": "maps-smoke.jsn",
+  "stepGapMs": 500,
+  "stepTimeoutMs": 10000,
+  "stopOnFail": false,
+  "overlay": true,
+  "recordRotary": false
+}

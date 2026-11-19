@@ -1,0 +1,35 @@
+{"steps": [
+  {"log": "telemetry button test: show the SpikeTgt telemetry window full screen (don't open the SpikeTgt form)"},
+  {"waitTelem": 1},
+
+  {"log": "PART 1 (automatic): button states"},
+  {"expectTelemButton": "T1", "state": "enabled"},
+  {"expectTelemButton": "T3", "state": 1},
+  {"expectTelemButton": "T4", "state": "hidden"},
+  {"telemButton": "T4"},
+  {"telemButton": "T3"},
+  {"expectTelemButton": "T3", "state": "highlighted"},
+  {"expectTelemButton": "T4", "state": "enabled"},
+  {"telemButton": "T4"},
+  {"expectState": "tgt.telKeyLog"},
+  {"telemButton": "T3"},
+  {"expectTelemButton": "T3", "state": 1},
+  {"expectTelemButton": "T4", "state": "hidden"},
+
+  {"log": "PART 2 (automatic): Enter as a shift key between button groups"},
+  {"telemKey": "KEY_ENTER"},
+  {"expectTelemButton": 1, "text": "U1"},
+  {"telemButton": "U2"},
+  {"telemButton": "T3"},
+  {"telemKey": "KEY_ENTER"},
+  {"expectTelemButton": 1, "text": "T1"},
+  {"expectState": "tgt.telKeyLog"},
+
+  {"log": "PART 3 (you): does a REAL Enter reach the app while the user buttons show?"},
+  {"note": "PART 3: press ESC so T1..T5 show. Then press the rotary knob (Enter) ONCE. Do the labels change to U1..U5?", "ms": 25000},
+  {"expectTelemButton": 1},
+  {"expectState": "tgt.telKeyLog"},
+  {"note": "If they changed, press Enter once more to go back to T1..T5. Then press ESC for the system buttons", "ms": 15000},
+  {"expectTelemButton": 1},
+  {"log": "finished. Expected FAILs: step 7 (T4 hidden) and step 20 (T3 not in the U group)"}
+]}

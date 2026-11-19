@@ -1,0 +1,32 @@
+{"steps": [
+  {"log": "telemetry key test: show the SpikeTgt telemetry window full screen (don't open the SpikeTgt form)"},
+  {"waitTelem": 1},
+  {"expectState": "tgt.telButtons"},
+
+  {"log": "PART 1: which keys reach the telemetry key callback, and does ESC?"},
+  {"note": "PART 1: press ESC, then F1 F2 F3 F4 F5, then ESC again, then press the rotary knob (Enter) once", "ms": 40000},
+  {"expectState": "tgt.telKeyLog"},
+  {"expectState": "tgt.telKeyCount"},
+
+  {"log": "PART 2: does the key that answers a question leak into the telemetry callback?"},
+  {"note": "PART 2: press ESC so T1..T5 show. Then a question pops up: answer YES, then touch nothing", "ms": 15000},
+  {"expectState": "tgt.telKeyCount"},
+  {"confirm": "Answer YES, then touch nothing", "lookMs": 3000},
+  {"wait": 5000},
+  {"expectState": "tgt.telKeyCount"},
+  {"expectState": "tgt.telKeyLog"},
+
+  {"log": "PART 3: same with NO (the confirm step below will FAIL; that's expected)"},
+  {"note": "PART 3: T1..T5 should still show. A question pops up again: answer NO this time, then touch nothing", "ms": 10000},
+  {"expectState": "tgt.telKeyCount"},
+  {"confirm": "Answer NO, then touch nothing", "lookMs": 3000},
+  {"wait": 5000},
+  {"expectState": "tgt.telKeyCount"},
+  {"expectState": "tgt.telKeyLog"},
+
+  {"log": "PART 4: injected key, with no human key press"},
+  {"telemKey": "KEY_3", "win": 1},
+  {"expectState": "tgt.telKeyLog"},
+  {"note": "Done. Press ESC to put the system buttons back", "ms": 5000},
+  {"log": "telemetry key test finished"}
+]}
