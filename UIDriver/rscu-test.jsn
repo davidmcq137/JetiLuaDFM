@@ -8,6 +8,9 @@
   {"expectState": "rscu.zeroLat"},
   {"remember": "rscu.zeroLat", "as": "zl"},
   {"remember": "rscu.zeroLon", "as": "zo"},
+  {"log": "hold the model at home while the form is up: with no DFM-Rscu window showing, each new GPS point is buffered (max 100)"},
+  {"sensorPause": true},
+  {"sensorPosition": {"lat": "$zl", "lon": "$zo"}},
   {"expectState": "rscu.circleMax"},
 
   {"log": "switches off before assigning them, so nothing fires"},
@@ -61,7 +64,6 @@
   {"clearInput": "P2"},
 
   {"log": "rescue mode: 10 m from home is too close"},
-  {"sensorPause": true},
   {"sensorPosition": {"lat": "$zl", "lon": "$zo", "north": 10}},
   {"wait": 1500},
   {"expectState": "rscu.dist", "value": 10, "tol": 1},
