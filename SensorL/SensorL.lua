@@ -17,6 +17,17 @@ System routines replaced are:
       system.getSensorByID()
       system.getSensorValueByID()
       system.getTxTelemetry()
+      gps.getPosition(), and playFile, playNumber, vibration and
+      messageBox (which print to the console)
+
+The log is read in 8 KB chunks as the playback clock reaches each line.
+Every 10 s of log time a snapshot of all sensor values is kept, so
+going back (or forward to a part already read) is quick.
+
+Test driver API: system.SensorL (getState, pause, setTime), the same
+names as SensorE's; see "system.SensorL" below. UIDriver's
+sensorPause, sensorTime and waitSensorTime steps use it, and a target
+app's Apps/<App>/UIDriver/config.jsn "sensorLog" picks the log.
 
 Note as of 10/8/2021 .. no need for prior gymnastics on spreading out
 the init over the first calls to the app's loop() .. just the call to
@@ -163,14 +174,15 @@ local logItems={}
 local logTime0
 local sysTime0
 local config = {}
-local lastTimeBlock = 0
+local dataStart             -- file offset of the first data line
 local uniqueSensorNames={}
 
 --local logHeaderPos
 --local lastLogHeaderPos
 
-local sensorCache={}
-local activeSensors={}
+-- the telemetry window: sensors the apps read, then recently changing ones
+local readOrder, readSet = {}, {}   -- full sensor ids in the order first read
+local slots = {}                    -- full sensor id shown at each position
 --local selKeysStr
 
 --local startUpTime
@@ -297,6 +309,7 @@ local function readLogHeader()
 	 rlhDone = true
 	 logTime0 = logItems.timestamp
 	 sysTime0 = system.getTimeCounter()
+	 dataStart = lastHeaderPos
 	 io.seek(fd, lastHeaderPos)
 	 return rlhDone
       end
@@ -353,63 +366,199 @@ local function readLogHeader()
 end
 
 ------------------------------------------------------------
-local first = true
+-- Reading the log. The file is read in 8 KB chunks with io.read and
+-- split into lines here: one io.readline call per line was the slow part
+-- of fast-forwarding. Lines are applied one at a time, up to a log time.
 
-local function readLogTimeBlock()
+local CHUNK = 8192
+local rd = {buf = "", bi = 1, bufOff = 0, eof = false}
+local pend                  -- the next line, parsed but not applied: {cols, t}
+local logT = 0              -- log time (ms after the first data line) applied so far
+local done = false          -- the end of the log has been reached
+local tEnd                  -- log time of the last line, once reached
+local linesRead = 0
+local idCache = {}          -- device id text in the log -> id
 
-   local sn, sl, sf
-   
-   logItems.timestamp = logItems.cols[1]
-
-   -- read the time block (consecutive group of lines with same time stamp)
-   -- load the data into the results table logSensorByID
-   
-   repeat
-      logItems.deviceID = toID(logItems.cols[2])
-      if logItems.deviceID ~= 0 then -- if logItems.deviceID == 0 it's a message
-	 for i = 3, #logItems.cols, 4 do
-	    sf = sensorFullID(toID(logItems.cols[2]), tonumber(logItems.cols[i]))
-	    if logSensorByID[sf] then
-	       sn = logSensorByID[sf].sensorName
-	       sl = logSensorByID[sf].label
-	       if not config.selectedSensors or config.selectedSensors[sn.."_"..sl] then
-		  logSensorByID[sf].value = tonumber(logItems.cols[i+3])
-		  logSensorByID[sf].valGPS = tonumber(logItems.cols[i+3])		  
-		  logSensorByID[sf].decimals = tonumber(logItems.cols[i+2])
-		  logSensorByID[sf].type = tonumber(logItems.cols[i+1])
-		  logSensorByID[sf].max = logSensorByID[sf].max or logSensorByID[sf].value
-		  if logSensorByID[sf].value > logSensorByID[sf].max then
-		     logSensorByID[sf].max = logSensorByID[sf].value
-		  end
-		  logSensorByID[sf].min = logSensorByID[sf].min or logSensorByID[sf].value
-		  if logSensorByID[sf].value < logSensorByID[sf].min then
-		     logSensorByID[sf].min = logSensorByID[sf].value
-		  end
-		  logSensorByID[sf].lastUpdate = system.getTimeCounter()
-	       end
-	    end
+-- the next non-empty line and its file offset, or nil at the end
+local function nextLine()
+   while true do
+      local e = string.find(rd.buf, "\n", rd.bi, true)
+      if e then
+	 local off = rd.bufOff + rd.bi - 1
+	 local line = string.sub(rd.buf, rd.bi, e - 1)
+	 rd.bi = e + 1
+	 if string.sub(line, -1) == "\r" then line = string.sub(line, 1, -2) end
+	 if line ~= "" then return line, off end
+      elseif rd.eof then
+	 if rd.bi <= #rd.buf then          -- a last line with no newline
+	    local off = rd.bufOff + rd.bi - 1
+	    local line = string.sub(rd.buf, rd.bi)
+	    rd.bi = #rd.buf + 1
+	    return line, off
 	 end
-      else
-	 -- a message the transmitter showed during the logged flight
-	 print("SensorL - message in log: " .. tostring(logItems.cols[6]))
-	 fwMessageBox(logItems.cols[6], 2)
-      end
-
-      logItems.line = io.readline(fd, true)
-      --if first then print(logItems.line);first=false end
-      --print("logItems.line", logItems.line)
-      
-      if not logItems.line then
 	 return nil
+      else
+	 local more = io.read(fd, CHUNK)
+	 rd.bufOff = rd.bufOff + rd.bi - 1
+	 rd.buf = string.sub(rd.buf, rd.bi) .. (more or "")
+	 rd.bi = 1
+	 if not more or more == "" then rd.eof = true end
       end
+   end
+end
 
-      logItems.cols = split(logItems.line, ';')
+local messagesSkipped = 0
+local takeSnapshot           -- defined below
 
-      -- check for a new time block, if so dump vals and reset
-      if (logItems.cols[1] ~= logItems.timestamp) then 
-	 return logItems.timestamp
+-- apply one data line to the sensor values; quiet: don't show its message
+local function applyCols(cols, quiet, t)
+   local dev = idCache[cols[2]]
+   if not dev then dev = toID(cols[2]); idCache[cols[2]] = dev end
+   if dev == 0 then
+      -- a message the transmitter showed during the logged flight
+      if quiet then
+	 messagesSkipped = messagesSkipped + 1
+      else
+	 print("SensorL - message in log: " .. tostring(cols[6]))
+	 fwMessageBox(cols[6], 2)
       end
-   until false
+      return
+   end
+   for i = 3, #cols, 4 do
+      local ls = logSensorByID[sensorFullID(dev, tonumber(cols[i]))]
+      if ls and (not config.selectedSensors
+		 or config.selectedSensors[ls.sensorName .. "_" .. ls.label]) then
+	 local v = tonumber(cols[i+3])
+	 if v ~= ls.value then ls.changed = t end
+	 ls.value = v
+	 ls.valGPS = v
+	 ls.decimals = tonumber(cols[i+2])
+	 ls.type = tonumber(cols[i+1])
+	 if not ls.max or v > ls.max then ls.max = v end
+	 if not ls.min or v < ls.min then ls.min = v end
+      end
+   end
+end
+
+-- Snapshots: JETI logs a value only when it changes, so the file can't
+-- just be seeked into. Every SNAP_MS of log time the reader saves every
+-- sensor's state and the file offset of the next line; a jump goes to
+-- the nearest earlier snapshot and reads at most SNAP_MS from there.
+-- Each part of the log is read in full only once.
+local SNAP_MS = 10000
+local snaps = {}            -- [log time // SNAP_MS] = {logT, off, vals}
+
+-- called with pend = the next line, before it is applied
+takeSnapshot = function()
+   local k = pend.t // SNAP_MS
+   if snaps[k] then return end
+   local vals = {}
+   for _, ls in pairs(logSensorByID) do
+      if ls.value ~= nil then
+	 vals[#vals+1] = {ls, ls.value, ls.decimals, ls.type, ls.max, ls.min}
+      end
+   end
+   snaps[k] = {logT = logT, off = pend.off, vals = vals}
+end
+
+local function restoreSnapshot(sn)
+   for _, ls in pairs(logSensorByID) do
+      ls.value, ls.valGPS, ls.decimals, ls.type, ls.max, ls.min = nil, nil, nil, nil, nil, nil
+      ls.changed = nil
+   end
+   for _, v in ipairs(sn.vals) do
+      local ls = v[1]
+      ls.value, ls.valGPS, ls.decimals, ls.type, ls.max, ls.min = v[2], v[2], v[3], v[4], v[5], v[6]
+   end
+   io.seek(fd, sn.off)
+   rd = {buf = "", bi = 1, bufOff = sn.off, eof = false}
+   pend, logT, done = nil, sn.logT, false
+end
+
+-- the latest snapshot at or before log time t
+local function snapshotBefore(t)
+   for k = t // SNAP_MS, 0, -1 do
+      if snaps[k] then return snaps[k] end
+   end
+end
+
+-- apply lines up to log time target (ms). budgetMs: stop after that long
+-- (returns false); otherwise true when caught up or at the end
+local function readUpTo(target, quiet, budgetMs)
+   local t0 = budgetMs and system.getTimeCounter()
+   local n = 0
+   while true do
+      if not pend then
+	 local line, off = nextLine()
+	 if not line then
+	    if not done then
+	       done = true
+	       print(string.format("SensorL: end of the log at %d:%02d log time",
+				   logT // 60000, logT // 1000 % 60))
+	    end
+	    return true
+	 end
+	 local cols = split(line, ";")
+	 pend = {cols = cols, t = (tonumber(cols[1]) or 0) - logTime0, off = off}
+      end
+      if pend.t > target then return true end
+      takeSnapshot()
+      applyCols(pend.cols, quiet, pend.t)
+      logT = pend.t
+      pend = nil
+      n = n + 1
+      linesRead = linesRead + 1
+      if budgetMs and n % 50 == 0 and system.getTimeCounter() - t0 > budgetMs then
+	 return false
+      end
+   end
+end
+
+-- playback clock: log time = playBase + (now - wallBase) while playing
+local playBase, wallBase = 0, 0
+local seeking               -- {target, wall0, from, snap, lines0} while going to a time
+local SEEK_BUDGET = 100     -- ms of reading per call while fast-forwarding
+
+local paused = false
+
+local function clock()
+   if paused then return playBase end
+   return playBase + (system.getTimeCounter() - wallBase)
+end
+
+-- go to log time t (ms), forward or back. A snapshot is used when going
+-- back, or when one is further on than where the reader is now
+local function seekTo(t)
+   if t < 0 then t = 0 end
+   local from, snapT = logT, nil
+   local sn = snapshotBefore(t)
+   if t < logT or (sn and sn.logT > logT) then
+      if not sn then sn = {logT = 0, off = dataStart, vals = {}} end
+      restoreSnapshot(sn)
+      snapT = sn.logT
+   end
+   seeking = {target = t, wall0 = system.getTimeCounter(), from = from, snap = snapT,
+	      lines0 = linesRead}
+   messagesSkipped = 0
+end
+
+-- read whatever is due; called from the sensor functions and our loop()
+local function pump()
+   if not rlhDone or not fd or done then return end
+   if seeking then
+      if not readUpTo(seeking.target, true, SEEK_BUDGET) then return end
+      local ms = system.getTimeCounter() - seeking.wall0
+      local function mmss(t) return string.format("%d:%04.1f", t // 60000, (t % 60000) / 1000) end
+      print(string.format("SensorL: went from %s to %s log time (%s; read %d lines, %d messages skipped) in %d ms",
+			  mmss(seeking.from), mmss(logT),
+			  seeking.snap and ("from the " .. mmss(seeking.snap) .. " snapshot") or "reading on",
+			  linesRead - seeking.lines0, messagesSkipped, ms))
+      playBase, wallBase = seeking.target, system.getTimeCounter()
+      seeking = nil
+      if done and not tEnd then tEnd = logT end
+      return
+   end
+   readUpTo(clock(), false)
 end
 
 ------------------------------------------------------------
@@ -438,26 +587,40 @@ local function emulator_init()
 
    --print("config.fastForward:", config.fastForward)
    
+   -- a test driver (UIDriver) can choose the log
+   local drv = system.UIDriver
+   if type(drv) == "table" and type(drv.sensorLog) == "string" then
+      print("SensorL: log file from UIDriver: " .. drv.sensorLog)
+      config = config or {}
+      config.logFile = drv.sensorLog
+   end
    text = config.logFile
    fd = io.open(text, "r")
    if not fd then print("SensorL: Cannot read logfile: " .. text) return end
 
    --print("SensorL: Reading log header")
 
-   system.setProperty("CpuLimit", 1)
+   -- 0 turns the instruction limit off (the API doc: 1 = on, the
+   -- default). The old code set 1 here and 0 after the header, so the
+   -- limit has really been off ever since; it's left off on purpose for
+   -- reading the log, which is time-limited instead (SEEK_BUDGET)
+   system.setProperty("CpuLimit", 0)
    local rlb = false
    rlb = readLogHeader()
    repeat
       --print("tick")
    until rlb == true
-   
-   system.setProperty("CpuLimit", 0)
+   rd.bufOff = dataStart or 0
+   wallBase = system.getTimeCounter()
 
    --print("SensorL: Done reading log header")
    
    --dev, emflag = system.getDeviceType()
    
    print("SensorL: Using Log file: "..config.logFile)
+   -- "fastForward": seconds of log to skip at the start (0 or none: off)
+   local ff = tonumber(config.fastForward)
+   if rlhDone and ff and ff > 0 then seekTo(math.floor(ff * 1000)) end
    
    
 end
@@ -650,19 +813,11 @@ function emulator_getSensorValueByID(ID, Param)
    return emulator_getSensorByID(ID, Param)
 end
 
-local nwait = 0
-local lastwait = 0
-local ffOffset = 0
 
 function emulator_getSensorByID(ID, Param)
    
    local returnTbl
    local sf
-   local etS, etL
-   local ic
-   local timSd60
-   local min, sec
-   local timstr
    
    -- the sensor list is built by getSensors; build it if no app has
    -- called that yet
@@ -679,73 +834,10 @@ function emulator_getSensorByID(ID, Param)
       return nil
    end
    
-   -- log file still open? read log header done?
-   if fd and rlhDone then
-      -- only read the time block if it is time to do so...
-      etS = system.getTimeCounter() - sysTime0
-      etL = lastTimeBlock - logTime0
-      
-      --print("etS - etL", etS / 1000 - etL/1000)
-      
-      timSd60 = tonumber(etL)/(60000) -- to mins from ms
-      min, sec = math.modf(timSd60)
-      sec = sec * 60
-      timstr = string.format("%02d:%02.2f", min, sec)
-      
-      -- if the fastForward option is set in the jsn file then zoom ahead at max speed
-      -- the 100 is just plugged as an experiment to get smoother playback
-      
-      if ffOffset == 0 and config.fastForward and etL/1000 > config.fastForward then
-	 ffOffset = etL - etS
-	 --print("trigger: ffOffset=", ffOffset/1000, etS/1000, etL/1000)
-      end
-      
-      --print(etS/1000, etL/1000, config.fastForward, (etS + ffOffset) / 1000)
-      
-      -- read new time block, otherwise use stored data
-      if ffOffset ~= 0 and math.abs( (etS + ffOffset) - etL) > 1000 then
-	 print("time mismatch", etL/1000, etS/1000, ffOffset)
-      end
-      
-      local limit
-      
-      if etS + ffOffset >= etL or (config.fastForward and (etL/1000 <= config.fastForward)) then 
-	 --print("waited "..nwait .. " delay " .. (system.getTimeCounter() - lastwait))
-	 lastwait = system.getTimeCounter()
-	 nwait = 0
-	 ic = 0
-	 repeat
-	    ic =ic + 1
-	    if ic > 1 then
-	       --was warning
-	    end
-	    lastTimeBlock = readLogTimeBlock()
-	    if not lastTimeBlock then
-	       print("SensorL: done at time " .. timstr)
-	       io.close(fd)
-	       print('SensorL: Closing log replay file')
-	       fd = nil
-	       return nil
-	    end
-	    if config.fastForward then
-	       limit = math.floor(config.fastForward*1000)
-	    else
-	       limit = etS
-	    end
-	 until etL > limit or ic > 100
-	 --print(system.getCPU())
-      else
-	 nwait = nwait + 1
-      end
-   else
-      return nil
-   end
-   
-   -- if zooming ahead, don't bother to return a value
-   
-   if config.fastForward and etL then
-      if config.fastForward and etL/1000 <= config.fastForward then return nil end
-   end
+   -- read what's due; nothing while fast-forwarding or after the end
+   if not (fd and rlhDone) then return nil end
+   pump()
+   if seeking or done then return nil end
    
    -- create the return table
    
@@ -793,12 +885,9 @@ function emulator_getSensorByID(ID, Param)
 	 returnTbl.max        = logSensorByID[sf].max or 0
 	 returnTbl.min        = logSensorByID[sf].min or 0
 	 
-	 for kk,vv in pairs(returnTbl) do
-	    if not sensorCache[k] then
-	       table.insert(activeSensors, k)
-	       sensorCache[k]={}
-	    end
-	    sensorCache[k][kk] = vv
+	 if not readSet[sf] then
+	    readSet[sf] = true
+	    readOrder[#readOrder+1] = sf
 	 end
 	 egsIdCPU = system.getCPU()
 	 return returnTbl
@@ -937,83 +1026,147 @@ function emulator_getPosition(sensID, parmLat, parmLng)
    return gps.newPoint(gpsDegrees(lat, 2), gpsDegrees(lon, 3))  -- S, W negative
 end
 
-local function telePrint()
+-- Which sensors the window shows (8 at most): first the ones the apps
+-- have read, in the order they were first read; then SensorL.jsn's
+-- "showSensors" ("MGPS_Speed", ... as in selectedSensors); the other
+-- positions go to sensors whose value changed recently in the log.
+-- Receivers (Rx...) and times/dates are left out of those: they change
+-- all the time. A position is only taken over when its sensor hasn't
+-- changed for HOLD_MS of log time, so the window doesn't flicker
+local SLOTS, HOLD_MS = 8, 5000
+local showList              -- full ids from showSensors
+local dupLabel              -- [label] = true when several devices have it
 
-   local text
-   local ll
-   local col, sec
-   local k
-   local font=FONT_MINI
+local function busySensor(ls)
+   return ls.type == 5 or string.match(ls.sensorName or "", "^Rx") ~= nil
+end
+
+-- the label for the window, with the device in front when another
+-- device has the same label (A1, EGT, ...)
+local function shownLabel(ls)
+   if not dupLabel then
+      local seen = {}
+      dupLabel = {}
+      for _, l in pairs(logSensorByID) do
+	 if seen[l.label] and seen[l.label] ~= l.sensorName then dupLabel[l.label] = true end
+	 seen[l.label] = l.sensorName
+      end
+   end
+   local text = string.gsub(ls.label, "_", " ")
+   if dupLabel[ls.label] then
+      text = (string.match(ls.sensorName or "", "^(%S+)") or "?") .. " " .. text
+   end
+   return text
+end
+
+local function updateSlots()
+   local new, used = {}, {}
+   for _, sf in ipairs(readOrder) do
+      if #new < SLOTS then new[#new+1] = sf; used[sf] = true end
+   end
+   if not showList then
+      showList = {}
+      local want = config and config.showSensors
+      if type(want) == "table" then
+	 local byKey = {}
+	 for sf, ls in pairs(logSensorByID) do byKey[ls.sensorName .. "_" .. ls.label] = sf end
+	 for _, key in ipairs(want) do
+	    if byKey[key] then showList[#showList+1] = byKey[key]
+	    else print("SensorL: showSensors: no sensor " .. tostring(key) .. " in the log") end
+	 end
+      end
+   end
+   for _, sf in ipairs(showList) do
+      if #new < SLOTS and not used[sf] then new[#new+1] = sf; used[sf] = true end
+   end
+   local nPinned = #new
+   -- keep the previous changing sensors where they were
+   for i = nPinned + 1, SLOTS do
+      local sf = slots[i]
+      if sf and not used[sf] and logSensorByID[sf] and logSensorByID[sf].value ~= nil
+      and not busySensor(logSensorByID[sf]) then
+	 new[i] = sf; used[sf] = true
+      end
+   end
+   -- the most recently changed sensors not shown yet, newest first
+   local cands = {}
+   for sf, ls in pairs(logSensorByID) do
+      if not used[sf] and ls.changed and ls.value ~= nil and not busySensor(ls) then
+	 cands[#cands+1] = sf
+      end
+   end
+   table.sort(cands, function(a, b) return logSensorByID[a].changed > logSensorByID[b].changed end)
+   local c = 1
+   -- empty positions first
+   for i = nPinned + 1, SLOTS do
+      if not new[i] and cands[c] then new[i] = cands[c]; c = c + 1 end
+   end
+   -- then take over positions whose sensor has gone quiet, the quietest first
+   while cands[c] and logT - logSensorByID[cands[c]].changed < HOLD_MS do
+      local q, qt
+      for i = nPinned + 1, SLOTS do
+	 local ch = logSensorByID[new[i]].changed or -1
+	 if logT - ch >= HOLD_MS and (not qt or ch < qt) then q, qt = i, ch end
+      end
+      if not q then break end
+      new[q] = cands[c]; c = c + 1
+   end
+   slots = new
+end
+
+local function telePrint()
+   local font = FONT_MINI
    local ls = 15 -- line spacing
    local cs = 65 -- col spacing
    local ss = 80 -- section spacing
-   local deg, min
 
-   -- note: this code only works for "typical" sensors .. not GPS, time etc .. need
-   -- to at least protect against other types or implement them properly!
-   
+   if rlhDone then updateSlots() end
+
    -- arrange into a 4 col 2 row (max) table
-   
-   for kk=0, math.min(math.floor(#activeSensors/5), 1) do
+   for kk = 0, math.min((#slots - 1) // 4, 1) do
       lcd.drawText(5, ls+ss*kk,   "Unit", font)
       lcd.drawText(5, ls*2+ss*kk, "Val",  font)
       lcd.drawText(5, ls*3+ss*kk, "Max",  font)
       lcd.drawText(5, ls*4+ss*kk, "Min",  font)
    end
 
-   col=0
-   sec=0
-   for j=1,math.min(#activeSensors, 8),1 do
-      k = activeSensors[j]
-      if sensorCache[k] then
-	 text = string.format("%s", sensorCache[k].label)
-	 ll = lcd.getTextWidth(font, text)
-	 lcd.drawText(cs + 12 - ll/2 + cs*col,  0+ss*sec, text, font)
-	 if sensorCache[k].type == 5 then -- time or date
-	    if sensorCache[k].decimals == 0 then -- time
-	       text = string.format("%d:%02d:%02d", sensorCache[k].valHour,
-				  sensorCache[k].valMin, sensorCache[k].valSec)
-	    else -- date
-	       text = string.format("%d-%02d-%02d", sensorCache[k].valYear,
-				    sensorCache[k].valMonth, sensorCache[k].valDay)
-	    end
-	    lcd.drawText(cs+cs*col, ls*2+ss*sec, text, font)
-	 elseif sensorCache[k].type == 9 then -- gps
-	    min = (sensorCache[k].valGPS & 0xFFFF) * 0.001
-	    deg = (sensorCache[k].valGPS >> 16) & 0xFF
-	    if sensorCache[k].decimals == 3 or sensorCache[k].decimals == 2 then deg = -deg end
-	    lcd.drawText(cs+cs*col, ls*2+ss*sec, string.format("%.4f'",min), font)	    
-	 else -- other numeric
-	    lcd.drawText(cs + cs*col, ls*2+ss*sec,
-			 string.format("%3.1f", sensorCache[k].value or 0), font)
-	    lcd.drawText(cs + cs*col, ls*3+ss*sec,
-			 string.format("%3.1f", sensorCache[k].max or 0), font)
-	    lcd.drawText(cs + cs*col, ls*4+ss*sec,
-			 string.format("%3.1f", sensorCache[k].min or 0), font)
-	 end
-	 if sensorCache[k].type ~= 9 then
-	    if sensorCache[k].unit ~= " " then
-	       lcd.drawText(cs + cs*col, ls+ss*sec, "("..(sensorCache[k].unit or "")..")", font)
-	    end
+   for j = 1, #slots do
+      local sn = logSensorByID[slots[j]]
+      local col, sec = (j - 1) % 4, (j - 1) // 4
+      local x, y = cs + cs*col, ss*sec
+      local text = shownLabel(sn)
+      if readSet[slots[j]] then text = text .. "*" end   -- an app reads it
+      local ll = lcd.getTextWidth(font, text)
+      lcd.drawText(x + 12 - ll/2, y, text, font)
+      local v, typ, dec = sn.value or 0, sn.type or 1, sn.decimals or 0
+      if typ == 5 then -- time or date
+	 if dec == 0 then
+	    text = string.format("%d:%02d:%02d", (v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF)
 	 else
-	    lcd.drawText(cs + cs*col, ls+ss*sec, string.format("%d°", deg), font)
+	    text = string.format("%d-%02d-%02d", v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF)
 	 end
+	 lcd.drawText(x, ls*2+y, text, font)
+      elseif typ == 9 then -- gps: degrees on the unit line, minutes below
+	 local deg = (v >> 16) & 0xFF
+	 if dec == 3 or dec == 2 then deg = -deg end
+	 lcd.drawText(x, ls+y, string.format("%d°", deg), font)
+	 lcd.drawText(x, ls*2+y, string.format("%.4f'", (v & 0xFFFF) * 0.001), font)
+      else -- other numeric
+	 local scale = 10^dec
+	 lcd.drawText(x, ls*2+y, string.format("%3.1f", v / scale), font)
+	 lcd.drawText(x, ls*3+y, string.format("%3.1f", (sn.max or 0) / scale), font)
+	 lcd.drawText(x, ls*4+y, string.format("%3.1f", (sn.min or 0) / scale), font)
       end
-      col=col+1
-      if col > 3 then
-	 col = 0
-	 sec = sec + 1
+      if typ ~= 9 and sn.unit and sn.unit ~= " " then
+	 lcd.drawText(x, ls+y, "(" .. sn.unit .. ")", font)
       end
    end
 
-   if lastTimeBlock then -- will be nil when done
-      local etL = lastTimeBlock - logTime0
-      local timSd60 = tonumber(etL)/(60000) -- to mins from ms
-      local min, sec = math.modf(timSd60)
-      sec = sec * 60
-      local timstr = string.format("%02d:%05.2f", min, sec)
-      
-      lcd.drawText(180,148, string.format("Logfile time: " .. timstr), FONT_MINI)
+   if rlhDone then
+      local timstr = string.format("%02d:%05.2f", logT // 60000, (logT % 60000) / 1000)
+      if seeking then timstr = timstr .. " (fast-forward)"
+      elseif done then timstr = timstr .. " (end)" end
+      lcd.drawText(180,148, "Logfile time: " .. timstr, FONT_MINI)
       -- lcd.drawText(260,125, string.format("T: %02d", system.getCPU()), FONT_MINI)
       -- lcd.drawText(260,135, string.format("egs: %02d", egsCPU or 0), FONT_MINI)
       -- lcd.drawText(260,145, string.format("egsId: %02d", egsIdCPU or 0), FONT_MINI)
@@ -1045,6 +1198,52 @@ local function init()
    
 end
 
+--------------------------------------------------------------------------------
+-- system.SensorL: lets a test driver (UIDriver) control the replay, with
+-- the same names as system.SensorE. The functions return true, or false
+-- and a message. Times are seconds of log time after the first data line.
+--   getState()     {t, paused, seeking, target, done, tEnd, logFile}
+--                  t: log time applied so far; tEnd once the end is known
+--   pause(on)      freeze (true) or resume log time; sensors keep their
+--                  values (and stay valid) while paused
+--   setTime(sec)   go to that log time, forward or back. Sensors read as
+--                  absent until it gets there (getState().seeking);
+--                  a pause stays in force
+--------------------------------------------------------------------------------
+
+local SLapi = {version = 1}
+
+function SLapi.getState()
+   if done and not tEnd then tEnd = logT end
+   return {t = logT / 1000, paused = paused, seeking = seeking ~= nil,
+	   target = seeking and seeking.target / 1000 or nil,
+	   done = done, tEnd = tEnd and tEnd / 1000 or nil,
+	   logFile = config and config.logFile}
+end
+
+function SLapi.pause(on)
+   on = on and true or false
+   if on == paused then return true end
+   if on then
+      playBase = clock()     -- freeze where it is now
+   else
+      wallBase = system.getTimeCounter()   -- carry on from the frozen time
+   end
+   paused = on
+   return true
+end
+
+function SLapi.setTime(sec)
+   sec = tonumber(sec)
+   if not sec then return false, "setTime needs seconds" end
+   emulator_init()
+   if not rlhDone or not fd then return false, "no log loaded" end
+   seekTo(math.floor(sec * 1000))
+   return true
+end
+
+system.SensorL = SLapi
+
 -- message boxes from any app go to the console too, like playFile
 local function emulator_messageBox(msg, tmo, ...)
    print("SensorL - messageBox: " .. tostring(msg))
@@ -1064,7 +1263,12 @@ system.playNumber = emulator_playNumber
 system.vibration = emulator_vibration
 system.messageBox = emulator_messageBox
 
-return {init=init, loop=nil, author=appAuthor, version=appVersion, name=appName}
+-- keeps the log moving (and fast-forwarding) even if no app reads a sensor
+local function loop()
+   pump()
+end
+
+return {init=init, loop=loop, author=appAuthor, version=appVersion, name=appName}
 
 --[[
 
@@ -1080,15 +1284,23 @@ Note: If you choose to use selectedSensors, separate sensor name
 (e.g. MGPS) and label (e.g. Latitude) with underscore. Also replace
 any spaces in labels with underscores.
 
+Note: SensorL's telemetry window shows up to 8 sensors: those the apps
+read (marked *), then any listed in "showSensors" (same names as
+selectedSensors, in the order wanted), then ones whose value changed
+recently in the log (not receivers or times).
+
 Note: if you want the log file to zoom ahead to when the interesting
 part of the flight happens, specify a time in seconds to "fastForward"
 and it will fast forward thru that many seconds before it starts
-normal playback.
+normal playback (0 = off). While it fast-forwards, sensors read as
+absent and the log's messages aren't shown; the console then says how
+long it took.
 
 ---- Sample file Apps/SensorL/SensorL.jsn  ------
 {
 "logFile":"Log/20190926/16-56-45.log",
-"fastForward": 0
+"fastForward": 0,
+"showSensors": ["MGPS_Speed", "CTU_EGT"],
 "selectedSensors":
    {
    "MGPS_Latitude":      true,
