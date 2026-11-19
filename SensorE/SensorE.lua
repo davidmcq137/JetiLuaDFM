@@ -49,12 +49,22 @@
       setTime(sec)      set t; the GPS path is re-evaluated once
       setPosition(x, y) hold the GPS output at x, y (same units and frame
                          as xString/yString); setPosition(nil) releases
+      setPosition({lat=, lon=[, north=, east=]})  hold it at a lat/lon,
+                         optionally offset north/east in metres. Pass
+                         lat/lon as strings ("41.340050") for full
+                         precision; getState() then reports the matching
+                         x, y. getState also has latStr/lonStr
       setVars(tbl)      set any of xp, yp, heading, zp, pitch (the
                          persistent simulator state); the position is
                          re-encoded without stepping
       setField(f)       choose the GPS origin field by name or index, as
                          on SensorE's form
    The functions return true, or false and a message.
+   sensorEmulatorGPS.jsn can give the origin as strings too:
+      "lat0s": "41.340050", "lon0s": "-74.430933"
+   These are used instead of lat0/lon0 when both are present: json.decode
+   makes numbers float32 on JETI (0.2-0.3 m off), and gps.newPoint takes
+   strings at full precision. lat0/lon0 can then be left out.
    If system.UIDriver.sensorConfig is set (UIDriver's config.jsn
    "sensorConfig"), it is used as the configDir instead of SensorE.jsn's.
 
@@ -262,6 +272,7 @@ local function fieldIdxChanged(value)
    if GPSparms and geo then
       GPSparms.lat0 = geo.fields[fieldIdx].lat
       GPSparms.lon0 = geo.fields[fieldIdx].long
+      GPSparms.lat0s, GPSparms.lon0s = nil, nil   -- the field's numbers now
       GPSparms.trueDir = geo.fields[fieldIdx].runway.trueDir
       coslat0 = math.cos(math.rad(GPSparms.lat0))
    end
@@ -547,6 +558,17 @@ function emulator_getSensors()
    GPSparms = nil
    if fg then
       GPSparms = json.decode(fg)
+      -- "lat0s"/"lon0s": the origin as strings. json.decode gives float32
+      -- numbers on JETI, about 0.2-0.3 m off; gps.newPoint takes strings
+      -- at full precision. If both forms are given, the strings win
+      if GPSparms then
+	 if type(GPSparms.lat0s) ~= "string" or type(GPSparms.lon0s) ~= "string" then
+	    GPSparms.lat0s, GPSparms.lon0s = nil, nil
+	 else
+	    GPSparms.lat0 = GPSparms.lat0 or tonumber(GPSparms.lat0s)
+	    GPSparms.lon0 = GPSparms.lon0 or tonumber(GPSparms.lon0s)
+	 end
+      end
       if not GPSparms or not GPSparms.lat0 or not GPSparms.lon0 or not GPSparms.rE then
 	 print("SensorE: " .. text .. " not decoded or missing lat0/lon0/rE - GPS disabled")
 	 GPSparms = nil
@@ -639,36 +661,44 @@ function emulator_getPosition(sensID, parmLat, parmLng)
    end
 end
 
--- encode a position (x, y from the origin, before trueDir rotation) into
--- the latVal/lonVal sensor values and savePoint
-local function encodeXY(xCart, yCart)
-   local lat, lon
-   local latDeg, latFrac, latMin
-   local lonDeg, lonFrac, lonMin
-   lastX, lastY = xCart, yCart
-   -- at this point, we have the xCart and yCart (Cartesian)
-   -- values in preferred units (determined by rE) that are
-   -- offsets from the lat0, lon0 point and we have to create
-   -- the encoded values for GPS lat and GPS lon
-   -- solve x,y equations for lat and long
+-- the GPS origin: from the "lat0s"/"lon0s" strings if the config has them
+local function originPoint()
+   if GPSparms.lat0s and GPSparms.lon0s then
+      return gps.newPoint(GPSparms.lat0s, GPSparms.lon0s)
+   end
+   return gps.newPoint(GPSparms.lat0, GPSparms.lon0)
+end
 
+-- x, y from the origin (in the xString/yString frame, before the trueDir
+-- rotation; metres when rE is) to a GPS point
+local function pointFromXY(xCart, yCart)
    -- if true direction of runway is supplied, rotate x,y coords to be parallel
    -- to the runway .. else leave as-is
-
    if GPSparms.trueDir then
-      --print("GPSparms.trueDir:", GPSparms.trueDir)
       xCart, yCart = rotateXY(xCart, yCart, math.rad(360-GPSparms.trueDir))
    end
-	 
-   -- these will be lat and lon in radians
-
-   -- try avoiding single precision issues using the gps functions
-	 
-   local gp0 = gps.newPoint(GPSparms.lat0, GPSparms.lon0)
+   -- use the gps functions (double precision) to avoid single precision issues
+   local gp0 = originPoint()
    local dd0 = math.sqrt(xCart^2 + yCart^2)
    local aa0 = math.deg(math.atan(xCart, yCart))
    local bb0 = (aa0 + 360) % 360
-   local gp1 = gps.getDestination(gp0, dd0, bb0)
+   return gps.getDestination(gp0, dd0, bb0)
+end
+
+-- and back: a GPS point to x, y in that frame
+local function xyFromPoint(gp)
+   local gp0 = originPoint()
+   local d = gps.getDistance(gp0, gp)
+   local b = math.rad(gps.getBearing(gp0, gp))
+   local x, y = d * math.sin(b), d * math.cos(b)
+   if GPSparms.trueDir then x, y = rotateXY(x, y, math.rad(GPSparms.trueDir)) end
+   return x, y
+end
+
+-- encode a GPS point into the latVal/lonVal sensor values and savePoint
+local function encodePoint(gp1)
+   local latDeg, latFrac, latMin
+   local lonDeg, lonFrac, lonMin
    local nlat, nlon = gps.getValue(gp1)
    local slat, slon
    if gps.getString then
@@ -680,33 +710,10 @@ local function encodeXY(xCart, yCart)
    end
 
    savePoint = gp1
-	 
-   lat = yCart/GPSparms.rE + math.rad(GPSparms.lat0)
-   lon = xCart/(GPSparms.rE * coslat0) + math.rad(GPSparms.lon0)
-	 
-   --print(dd0, bb0, math.deg(lat), math.deg(lon), nlat, nlon, math.deg(lat)-nlat, math.deg(lon)-nlon)
 
-   --print(slat, slon)
-	 
-   -- now convert to degrees
-   lat = math.deg(lat)
-   lon = math.deg(lon)
-
-   --lat = nlat -- math.deg(lat)
-   --lon = nlon -- math.deg(lon)
-
-   -- note sign, work with positive values, put sign back later
-   if lat > 0 then latDecimals = 0 else
-      latDecimals = 2
-      lat = -1 * lat
-   end
-	 
-   if lon > 0 then lonDecimals = 1 else
-      lonDecimals = 3
-      lon = -1 * lon
-   end
-	 
-   --print("getString", slat, slon)
+   -- note sign, work with positive values (NESW coded in the decimals)
+   if nlat > 0 then latDecimals = 0 else latDecimals = 2 end
+   if nlon > 0 then lonDecimals = 1 else lonDecimals = 3 end
 
    latDeg = math.abs(tonumber(string.match(slat, "(.*)%.")))
    lonDeg = math.abs(tonumber(string.match(slon, "(.*)%.")))
@@ -714,27 +721,20 @@ local function encodeXY(xCart, yCart)
    latFrac = tonumber("."..string.match(slat, "%.(.*)"))
    lonFrac = tonumber("."..string.match(slon, "%.(.*)"))
 
-   --print(latDeg, latFrac, lonDeg, lonFrac)
-	 
-   local latDegS, latFracS = math.modf(lat)
-   local lonDegS, lonFracS = math.modf(lon)
-
-   --print(latFrac - latFracS, lonFrac - lonFracS)
-
-   --latDeg, latFrac = math.modf(lat)
-   --lonDeg, lonFrac = math.modf(lon)         
-	 
    latMin = latFrac * 60
    lonMin = lonFrac * 60
 
-   lonVal = 0
-   latVal = 0
-	 
    lonVal = lonDeg << 16
    lonVal = lonVal + math.floor(1000 * lonMin + 0.5)
 
    latVal = latDeg << 16
    latVal = latVal + math.floor(1000 * latMin + 0.5)
+end
+
+-- encode a position given as x, y (see pointFromXY)
+local function encodeXY(xCart, yCart)
+   lastX, lastY = xCart, yCart
+   encodePoint(pointFromXY(xCart, yCart))
 end
 
 function emulator_getSensorByID(ID, Param)
@@ -841,8 +841,13 @@ function emulator_getSensorByID(ID, Param)
 	    else
 	       xCart, yCart = persistXP or 0, persistYP or 0
 	    end
-	    if holdXY then xCart, yCart = holdXY.x, holdXY.y end
-	    encodeXY(xCart, yCart)
+	    if holdXY and holdXY.point then   -- held at a lat/lon
+	       lastX, lastY = holdXY.x, holdXY.y
+	       encodePoint(holdXY.point)
+	    else
+	       if holdXY then xCart, yCart = holdXY.x, holdXY.y end
+	       encodeXY(xCart, yCart)
+	    end
 	    lastGPScalc = system.getTimeCounter()
 	 end
 	 --
@@ -1126,10 +1131,15 @@ end
 local SEapi = {version = 1}
 
 function SEapi.getState()
-   local lat, lon
+   local lat, lon, latStr, lonStr
    if savePoint and gps and gps.getValue then lat, lon = gps.getValue(savePoint) end
+   if savePoint and gps and gps.getString then latStr, lonStr = gps.getString(savePoint) end
+   -- a held position is reported at once, before the next GPS read encodes it
+   local x, y = lastX, lastY
+   if holdXY then x, y = holdXY.x, holdXY.y end
    return {t = env.t, paused = paused, stepsPending = stepsPending,
-	   x = lastX, y = lastY, lat = lat, lon = lon, held = holdXY ~= nil,
+	   x = x, y = y, lat = lat, lon = lon, latStr = latStr, lonStr = lonStr,
+	   held = holdXY ~= nil,
 	   xp = persistXP, yp = persistYP, heading = persistHH, zp = persistZP,
 	   pitch = persistPP, configDir = configDirUsed,
 	   field = fieldIdx and fieldnames[fieldIdx], gps = GPSparms ~= nil}
@@ -1176,6 +1186,25 @@ end
 function SEapi.setPosition(x, y)
    if x == nil then
       holdXY = nil
+   elseif type(x) == "table" then
+      -- {lat =, lon = [, north =, east =]}: strings keep full precision
+      -- (gps.newPoint takes them); numbers from json are float32
+      local t = x
+      if t.lat == nil or t.lon == nil then return false, "setPosition needs lat and lon" end
+      if not GPSparms then
+	 return false, "no GPS config loaded yet (it loads on the first getSensors)"
+      end
+      local ok, gp = pcall(gps.newPoint, t.lat, t.lon)
+      if not ok or not gp then return false, "bad lat/lon: " .. tostring(t.lat) .. ", " .. tostring(t.lon) end
+      local n, e = tonumber(t.north or 0), tonumber(t.east or 0)
+      if not n or not e then return false, "north and east must be numbers (metres)" end
+      -- 0.0, not 0: on JETI a float compared with an integer is floored
+      if n ~= 0.0 or e ~= 0.0 then
+	 gp = gps.getDestination(gp, math.sqrt(n * n + e * e),
+				 (math.deg(math.atan(e, n)) + 360) % 360)
+      end
+      local hx, hy = xyFromPoint(gp)
+      holdXY = {point = gp, x = hx, y = hy}
    else
       x, y = tonumber(x), tonumber(y)
       if not x or not y then return false, "setPosition needs x and y (or nil)" end

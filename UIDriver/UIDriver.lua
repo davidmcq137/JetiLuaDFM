@@ -194,7 +194,16 @@
      {"waitSensorTime": 40}       wait until t reaches 40 (set
                                   "timeoutMs" if that's far off)
      {"sensorPosition": [120, -40]}  hold the GPS output at x, y from
-                                  the origin (false releases)
+                                  SensorE's origin, in its xString frame
+                                  (false releases)
+     {"sensorPosition": {"lat": "41.340050", "lon": "-74.430933",
+                         "north": -3, "east": 5}}  hold it at a lat/lon,
+                                  optionally offset in metres. Write
+                                  lat/lon as strings: json numbers are
+                                  float32 (about 0.5 m off). "$name"
+                                  works; sensorE.latStr/lonStr give the
+                                  current position as strings, and
+                                  sensorE.x/y the matching x, y
      {"sensorVars": {"xp": 0, "yp": -100, "heading": 90}}  set the
                                   simulator's xp, yp, heading, zp, pitch
      {"sensorField": "DCRC Walt Good Field"}  GPS origin field (or index)
@@ -1979,8 +1988,35 @@ H.sensorPosition = {ctx = "any", run = function(s)
 		       if p == false then
 			  return seCall("setPosition", "SensorE GPS position released", nil)
 		       end
+		       if type(p) == "table" and p.lat ~= nil then
+			  -- {lat, lon[, north, east]}; "$name" is a remembered value
+			  local t = {north = p.north, east = p.east}
+			  for _, k in ipairs({"lat", "lon"}) do
+			     local v = p[k]
+			     if type(v) == "string" and v:sub(1, 1) == "$" then
+				if vars[v:sub(2)] == nil then
+				   return false, "nothing remembered as " .. v
+				end
+				v = vars[v:sub(2)]
+			     end
+			     if type(v) == "number" then
+				log("WARN sensorPosition " .. k .. " is a number; json makes it " ..
+				    "float32 (about 0.5 m error). Write it as a string")
+			     end
+			     t[k] = v
+			  end
+			  local st, msg = seCall("setPosition", nil, t)
+			  if st == false then return st, msg end
+			  local g = seState() or {}
+			  return "ok", string.format("SensorE GPS held at %s, %s%s = x %s, y %s",
+						     tostring(t.lat), tostring(t.lon),
+						     (t.north or t.east) and string.format(
+							" + %s m N, %s m E", tostring(t.north or 0),
+							tostring(t.east or 0)) or "",
+						     tostring(g.x), tostring(g.y))
+		       end
 		       if type(p) ~= "table" or p[1] == nil or p[2] == nil then
-			  return false, "sensorPosition needs [x, y] or false"
+			  return false, "sensorPosition needs [x, y], {\"lat\": , \"lon\": } or false"
 		       end
 		       return seCall("setPosition", "SensorE GPS held at " .. tostring(p[1]) ..
 				     ", " .. tostring(p[2]), p[1], p[2])
