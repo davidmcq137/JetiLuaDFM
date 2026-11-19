@@ -160,6 +160,7 @@
      {"waitText": "Lap 2"}        PASS when a frame shows it; timeout FAIL
      {"dumpText": true}           log every text of the next frame with
                                   its x,y; handy for writing scripts
+   The text can be "$name", a value saved by a remember step.
    The recording versions of drawText/drawNumber are swapped in only
    around the target's print callback while a text step is waiting, so
    other apps' text isn't seen and the target pays nothing otherwise.
@@ -1140,6 +1141,20 @@ local function frameFor(s)
    if f and f.n > s._text.at then return f end
 end
 
+-- the text a step looks for; "$name" is a remembered value
+local function textWant(s, field)
+   local w = s[field]
+   if type(w) == "string" and w:sub(1, 1) == "$" then
+      if vars[w:sub(2)] == nil then
+	 return nil, "nothing remembered as " .. w .. " (needs a remember step first)"
+      end
+      return tostring(vars[w:sub(2)])
+   end
+   return w
+end
+
+local function num(v) return tostring(math.tointeger(v) or v) end
+
 local function textMatches(it, s, want)
    local r = s.region
    if type(r) == "table" then
@@ -1176,33 +1191,39 @@ local function textTimeout(s)
 end
 
 H.expectText = {ctx = "any", onTimeout = textTimeout, run = function(s)
+		   local want, err = textWant(s, "expectText")
+		   if not want then return false, err end
 		   local f = frameFor(s)
 		   if not f then return end
-		   local it = findText(f, s, s.expectText)
+		   local it = findText(f, s, want)
 		   if it then
-		      return true, "'" .. it.text .. "' at " .. tostring(it.x) .. "," .. tostring(it.y)
+		      return true, "'" .. it.text .. "' at " .. num(it.x) .. "," .. num(it.y)
 		   end
-		   return false, "'" .. tostring(s.expectText) .. "' not on " ..
+		   return false, "'" .. tostring(want) .. "' not on " ..
 		      whereName(s._text.key) .. "; on screen: " .. screenList(f)
 end}
 
 H.expectNoText = {ctx = "any", onTimeout = textTimeout, run = function(s)
+		     local want, err = textWant(s, "expectNoText")
+		     if not want then return false, err end
 		     local f = frameFor(s)
 		     if not f then return end
-		     local it = findText(f, s, s.expectNoText)
+		     local it = findText(f, s, want)
 		     if it then
 			return false, "'" .. it.text .. "' is on " .. whereName(s._text.key) ..
-			   " at " .. tostring(it.x) .. "," .. tostring(it.y)
+			   " at " .. num(it.x) .. "," .. num(it.y)
 		     end
-		     return true, "'" .. tostring(s.expectNoText) .. "' not on " .. whereName(s._text.key)
+		     return true, "'" .. tostring(want) .. "' not on " .. whereName(s._text.key)
 end}
 
 H.waitText = {ctx = "any", onTimeout = textTimeout, run = function(s)
+		 local want, err = textWant(s, "waitText")
+		 if not want then return false, err end
 		 local f = frameFor(s)
 		 if not f then return end
-		 local it = findText(f, s, s.waitText)
+		 local it = findText(f, s, want)
 		 if it then
-		    return true, "'" .. it.text .. "' at " .. tostring(it.x) .. "," .. tostring(it.y)
+		    return true, "'" .. it.text .. "' at " .. num(it.x) .. "," .. num(it.y)
 		 end
 end}
 
@@ -1210,7 +1231,7 @@ H.dumpText = {ctx = "any", onTimeout = textTimeout, run = function(s)
 		 local f = frameFor(s)
 		 if not f then return end
 		 for _, it in ipairs(f.items) do
-		    log(string.format("   text %4s,%-4s '%s'", tostring(it.x), tostring(it.y), it.text))
+		    log(string.format("   text %6s,%-6s '%s'", num(it.x), num(it.y), it.text))
 		 end
 		 return "ok", #f.items .. " texts on " .. whereName(s._text.key)
 end}

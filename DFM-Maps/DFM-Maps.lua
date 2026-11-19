@@ -5178,8 +5178,9 @@ local function init()
       uid.expose("variables", function() return variables end)
       uid.expose("checkBox", function() return checkBox end)
       uid.expose("maps", function()
+	 local img = Field and Field.images and currentImage and Field.images[currentImage]
 	 return {currentImage = currentImage, activeField = activeField,
-		 savedSubform = savedSubform}
+		 savedSubform = savedSubform, imageFile = img and img.file}
       end)
    end
    
