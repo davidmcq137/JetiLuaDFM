@@ -30,6 +30,17 @@ local function p(...)
 end
 do local f = io.open(LOGFILE, "w"); if f then io.close(f) end end
 
+-- one of each announcement, for UIDriver's waitMessage/waitAudio/...
+-- (pcall'd messageBox checks that UIDriver looks past C frames)
+local function announceAll(why)
+   p("announcing:", why)
+   pcall(system.messageBox, "SpikeTgt says " .. why, 2)
+   system.playFile("/Apps/DFM-Ctrl/Duration.wav", AUDIO_QUEUE)
+   system.playNumber(77, 0)
+   system.vibration(true, 2)
+   system.playBeep(1, 1000, 200)
+end
+
 local function initForm(sub)
    st.subform = sub
    if uid then uid.event("sub", sub) end
@@ -41,6 +52,7 @@ local function initForm(sub)
 		     function(v)
 			if uid then uid.check(v >= 0 and v <= 100, "intVal in 0..100") end
 			st.intVal = v; p("int cb", v)
+			if v == 77 then announceAll("int 77") end
 		     end)
 
       form.addRow(2)
@@ -129,6 +141,8 @@ local function telKey(key)
 	 st.group = (st.group or 1) == 1 and 2 or 1
 	 setTelButtons()
 	 p("shift: button group", st.group)
+      elseif key == KEY_2 and (st.group or 1) == 1 then
+	 announceAll("T2")
       elseif key == KEY_3 and (st.group or 1) == 1 then
 	 st.t3 = not st.t3
 	 setTelButtons()

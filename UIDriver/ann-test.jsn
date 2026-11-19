@@ -1,0 +1,21 @@
+{"steps": [
+  {"log": "announcement self-test: open SpikeTgt from the Applications menu"},
+  {"waitForm": true},
+  {"waitSub": 1},
+  {"set": "Spike Int", "value": 77},
+  {"waitMessage": "says int 77"},
+  {"waitAudio": "duration"},
+  {"waitNumber": 77},
+  {"waitVibration": "right", "profile": 2},
+  {"waitBeep": true},
+  {"set": "Spike Int", "value": 50},
+  {"waitAudio": "duration", "absent": true, "forMs": 2000},
+  {"close": true},
+  {"log": "show the SpikeTgt telemetry window full screen, then press ESC for the T1-T5 buttons"},
+  {"waitTelem": 1},
+  {"telemButton": "T2"},
+  {"waitBeep": true},
+  {"waitMessage": "says T2"},
+  {"waitVibration": "left", "timeoutMs": 2000},
+  {"log": "the last step should FAIL (it was the right stick), listing what was announced"}
+]}

@@ -35,8 +35,13 @@
                                   -- form title ("GPS Maps  [UID 12/55]"),
                                   -- "box" = white box at the top right,
                                   -- false = none
-        "recordRotary": false}    -- record KEY_UP/KEY_DOWN too (DFM-Maps'
+        "recordRotary": false,    -- record KEY_UP/KEY_DOWN too (DFM-Maps'
                                   -- map browser uses them)
+        "logAnnouncements": true, -- log the target's announcements
+        "suppressMessageBox": false,  -- true: log the target's message
+                                  -- boxes but don't show them
+        "recordAnnouncements": false} -- record mode: add a wait step for
+                                  -- each announcement
      result.log     play results (also echoed to the console as [UID])
      recorded.jsn   written in record mode; it's a playable script
 
@@ -85,12 +90,15 @@
                                   later {"expectState": "...", "value": "$nf"}
                                   checks it's back, or "notValue": "$nf"
                                   checks it changed
-     {"waitEvent": "imageLoaded"} wait for the app to report an event,
-                                  from the previous step onward (so an
-                                  event fired during a step's gap counts);
-                                  "value" to match its value, "anyTime":
-                                  true to accept an earlier one. Each
-                                  event satisfies only one waitEvent
+     {"waitEvent": "imageLoaded"} wait for the app to report an event
+                                  caused by the last action step (set,
+                                  link, key, button, telemKey,
+                                  telemButton, close): it counts events
+                                  since that action started, however many
+                                  waits come between. "value" to match its
+                                  value, "anyTime": true to accept an
+                                  earlier one. Each event satisfies only
+                                  one waitEvent
      {"confirm": "Did the map zoom in?"}   ask the tester yes/no with
                                   form.question; yes = PASS, no = FAIL.
                                   The text is wrapped onto the question's
@@ -122,6 +130,23 @@
        loop() and init() can't be measured. On the DS-24 II emulator the
        numbers aren't real runtime; only the TX tells you for sure.
      {"repeat": 5, "steps": [ ... ]}   repeat a block
+
+   ANNOUNCEMENTS: the target's calls to system.messageBox, playFile,
+   playNumber, vibration and playBeep are logged ("announce audio: ...")
+   and passed on, to SensorE's versions if it has replaced them. Calls
+   from other apps are ignored. Like waitEvent, the waits count what
+   happened since the last action step started (or "anyTime": true),
+   each announcement satisfies one wait, and they PASS when it comes:
+     {"waitMessage": "Restart app"}   messageBox text contains this
+     {"waitAudio": "nofly"}       playFile name contains this
+     {"waitNumber": 3}            playNumber value (within "tol", default
+                                  0.001); true for any; "unit"/"label" too
+     {"waitVibration": "left"}    "left", "right" or true; "profile": 3
+     {"waitBeep": true}           playBeep (or a string the text contains)
+   Add "absent": true and "forMs": 3000 to require that none comes for
+   that long (a match is a FAIL). Text matches ignore case. A timeout
+   lists what the app did announce. If SensorE loads after UIDriver,
+   announcements made before the driver's first loop() can be missed.
 
    Widgets are found by the label in their row (form.addLabel), or by
    the text of a link. Add "nth": 2 for the second widget with the same
@@ -170,6 +195,8 @@ local cfg = {
    mode = "off", target = "", script = "", stepGapMs = 500,
    stepTimeoutMs = 10000, stopOnFail = true, overlay = true,
    recordRotary = false, confirmWidth = 30, confirmLookMs = 5000,
+   logAnnouncements = true, suppressMessageBox = false,
+   recordAnnouncements = false,
 }
 
 --------------------------------------------------------------------------------
@@ -232,6 +259,13 @@ local recAfter = {}        -- steps to record after that callback's own step
 local steps, si, stepT0, nextAt
 local finished = false
 local counts = {pass = 0, fail = 0, ok = 0, checks = 0, checkFails = 0}
+
+-- events and announcements are numbered; waits count those after the
+-- last action step (set, link, key, ...) started
+local seq, actionSeq, actionMarked = 0, 0, nil
+local ACTIONS = {set = true, link = true, key = true, button = true, telemKey = true,
+		 telemButton = true, close = true}
+local anns = {}            -- announcements: {kind, text, value, seq, used}
 
 local exposed = {}         -- name -> getter, from uid.expose
 local vars = {}            -- remembered values, for "$name" in expectState
@@ -784,7 +818,7 @@ end}
 
 H.waitEvent = {ctx = "any", run = function(s)
 		  local e = events[s.waitEvent]
-		  if e and e.n > e.used and (s.anyTime or e.step >= si - 1)
+		  if e and e.n > e.used and (s.anyTime or e.seq > actionSeq)
 		  and (s.value == nil or e.value == s.value) then
 		     e.used = e.n
 		     return "ok", s.waitEvent .. " (value " .. tostring(e.value) .. ")"
@@ -920,7 +954,8 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "expectSub", "set", "link", "key", "button", "telemKey",
 	       "expect", "close", "cpuStart", "cpuCheck", "expectState",
 	       "waitEvent", "confirm", "note", "waitTelem", "telemButton",
-	       "expectTelemButton", "remember"}
+	       "expectTelemButton", "remember", "waitMessage", "waitAudio",
+	       "waitNumber", "waitVibration", "waitBeep"}
 
 local function verbOf(s)
    for _, v in ipairs(VERBS) do
@@ -940,6 +975,9 @@ local function flatten(list, out, errs)
 	 end
 	 local v = verbOf(s)
 	 if not v then errs[#errs+1] = json.encode(s) end
+	 if s.absent and not s.timeoutMs then
+	    s.timeoutMs = (s.forMs or 3000) + 5000
+	 end
 	 if v == "waitTelem" and not s.win then
 	    s.win = type(s.waitTelem) == "number" and s.waitTelem or 1
 	 end
@@ -997,6 +1035,11 @@ local function runSteps(ctx, win)
 
    if h.ctx == ctx or h.ctx == "any" then
       if h.ctx ~= "telem" or win == (s.win or 1) then
+	 -- mark where an action starts, so waits after it only count
+	 -- events/announcements it caused
+	 if ACTIONS[s._verb] and actionMarked ~= si then
+	    actionSeq, actionMarked = seq, si
+	 end
 	 running = true
 	 local ok, st, msg = pcall(h.run, s, t - stepT0, win)
 	 running = false
@@ -1015,7 +1058,8 @@ local function runSteps(ctx, win)
 	 local need = h.ctx == "form" and " (needs the target form open)"
 	    or h.ctx == "telem" and (" (needs target telemetry window " .. (s.win or 1) .. " showing)")
 	    or ""
-	 report(s, false, "timed out after " .. limit .. " ms" .. need)
+	 local extra = h.onTimeout and h.onTimeout(s) or ""
+	 report(s, false, "timed out after " .. limit .. " ms" .. need .. extra)
       end
    end
 end
@@ -1139,6 +1183,174 @@ end
 -- hooks, installed when the chunk loads
 --------------------------------------------------------------------------------
 
+-- Did the target's own file call the wrapper this is used in? Other apps
+-- call the same system functions. Level 1 is this function, 2 the
+-- wrapper, 3 its caller; C frames (pcall) are skipped
+local function callerIsTarget()
+   if not (debug and debug.getinfo) then return true end
+   for lvl = 3, 8 do
+      local info = debug.getinfo(lvl, "S")
+      if not info then return true end
+      if info.what ~= "C" then
+	 local src = info.source or ""
+	 if src == "" or src == "=?" then return true end  -- no debug info: assume target
+	 return src:find(cfg.target, 1, true) ~= nil
+      end
+   end
+   return true
+end
+
+--------------------------------------------------------------------------------
+-- announcements: messageBox, playFile, playNumber, vibration, playBeep
+--------------------------------------------------------------------------------
+
+local AUDIOTYPE = {}
+local function audioType(t)
+   if not next(AUDIOTYPE) then
+      for _, n in ipairs({"AUDIO_BACKGROUND", "AUDIO_IMMEDIATE", "AUDIO_QUEUE"}) do
+	 if _ENV[n] then AUDIOTYPE[_ENV[n]] = n end
+      end
+   end
+   return t == nil and "AUDIO_QUEUE" or AUDIOTYPE[t] or tostring(t)
+end
+
+-- what each call says: kind, text for the log, and fields the waits match
+local ANN = {
+   messageBox = function(msg, tmo)
+      msg = tostring(msg)
+      return {kind = "message", match = msg, text = msg}
+   end,
+   playFile = function(fn, typ)
+      fn = tostring(fn)
+      return {kind = "audio", match = fn, text = fn .. " (" .. audioType(typ) .. ")"}
+   end,
+   playNumber = function(v, dec, unit, label)
+      local text = tostring(v) .. (unit and (" " .. tostring(unit)) or "") ..
+	 (label and (" [" .. tostring(label) .. "]") or "")
+      return {kind = "number", value = tonumber(v), unit = unit, label = label,
+	      match = text, text = text .. ", " .. tostring(dec) .. " decimals"}
+   end,
+   vibration = function(right, prof)
+      local side = right and "right" or "left"
+      return {kind = "vibration", right = right and true or false, profile = prof,
+	      match = side, text = side .. " stick, profile " .. tostring(prof)}
+   end,
+   playBeep = function(rep, hz, len)
+      local text = string.format("%s repeats, %s Hz, %s ms",
+				 tostring(rep), tostring(hz), tostring(len))
+      return {kind = "beep", match = text, text = text}
+   end,
+}
+local KINDVERB = {message = "waitMessage", audio = "waitAudio", number = "waitNumber",
+		  vibration = "waitVibration", beep = "waitBeep"}
+local annWrapper = {}      -- name -> our current wrapper
+
+local function announced(a)
+   seq = seq + 1
+   a.seq = seq
+   anns[#anns+1] = a
+   if #anns > 200 then table.remove(anns, 1) end
+   if cfg.logAnnouncements then log("announce " .. a.kind .. ": " .. a.text) end
+   if recording and cfg.recordAnnouncements then
+      local st = {}
+      if a.kind == "audio" then st.waitAudio = a.match:match("([^/]+)$") or a.match
+      elseif a.kind == "number" then st.waitNumber = a.value or true
+      elseif a.kind == "vibration" then st.waitVibration = a.match; st.profile = a.profile
+      elseif a.kind == "message" then st.waitMessage = a.match
+      else st[KINDVERB[a.kind]] = true end
+      if cbDepth > 0 then recAfter[#recAfter+1] = st else recStep(st) end
+   end
+end
+
+-- Wrap whatever is in system.<name> now. SensorE replaces playFile,
+-- playNumber, vibration and playBeep when its chunk loads, which may be
+-- after this one, so the driver's loop() calls this again and wraps the
+-- replacement; calls still go on to it
+local function wrapAnnouncements()
+   for name, describe in pairs(ANN) do
+      local under = system[name]
+      if under and under ~= annWrapper[name] then
+	 if annWrapper[name] then
+	    log("system." .. name .. " was replaced by another app; wrapping the new one")
+	 end
+	 local w = function(...)
+	    if callerIsTarget() then
+	       local ok, a = pcall(describe, ...)
+	       if ok then announced(a) end
+	       if name == "messageBox" and cfg.suppressMessageBox then return end
+	    end
+	    return under(...)
+	 end
+	 annWrapper[name] = w
+	 system[name] = w
+      end
+   end
+end
+
+local function annMatches(a, s, v)
+   local want = s[v]
+   if a.kind == "number" then
+      if type(want) == "number" and
+	 not (a.value and math.abs(a.value - want) <= (s.tol or 0.001)) then return false end
+      if s.unit and a.unit ~= s.unit then return false end
+      if s.label and a.label ~= s.label then return false end
+      return true
+   end
+   if a.kind == "vibration" and s.profile and a.profile ~= s.profile then return false end
+   if type(want) == "string" then
+      return a.match:lower():find(want:lower(), 1, true) ~= nil
+   end
+   return true
+end
+
+local function findAnn(s, v, kind)
+   for _, a in ipairs(anns) do
+      if a.kind == kind and not a.used and (s.anyTime or a.seq > actionSeq)
+      and annMatches(a, s, v) then
+	 return a
+      end
+   end
+end
+
+local function annWait(v, kind)
+   return {ctx = "any",
+	   run = function(s, el)
+	      local a = findAnn(s, v, kind)
+	      if s.absent then
+		 local forMs = s.forMs or 3000
+		 if a then
+		    a.used = true
+		    return false, "unexpected " .. kind .. ": " .. a.text
+		 end
+		 if el >= forMs then
+		    return true, "no matching " .. kind .. " in " .. forMs .. " ms"
+		 end
+		 return
+	      end
+	      if a then
+		 a.used = true
+		 return true, kind .. ": " .. a.text
+	      end
+	   end,
+	   -- on a timeout, say what the app did announce
+	   onTimeout = function(s)
+	      local seen = {}
+	      for _, a in ipairs(anns) do
+		 if a.kind == kind and (s.anyTime or a.seq > actionSeq) then
+		    seen[#seen+1] = a.text .. (a.used and " (used)" or "")
+		 end
+	      end
+	      if #seen == 0 then return "; no " .. kind .. " since the last action" end
+	      return "; " .. kind .. " since the last action: " .. table.concat(seen, ", ")
+	   end}
+end
+
+for v, kind in pairs({waitMessage = "message", waitAudio = "audio",
+		      waitNumber = "number", waitVibration = "vibration",
+		      waitBeep = "beep"}) do
+   H[v] = annWait(v, kind)
+end
+
 local function install()
    orig.registerForm = system.registerForm
    orig.registerTelemetry = system.registerTelemetry
@@ -1192,15 +1404,8 @@ local function install()
    -- emulator's debug library says which file called
    if system.setTelemetryButton then
       orig.setTelemetryButton = system.setTelemetryButton
-      local function fromTarget()
-	 if not (debug and debug.getinfo) then return true end
-	 local info = debug.getinfo(3, "S")   -- 1 here, 2 the wrapper, 3 its caller
-	 local src = info and info.source or ""
-	 if src == "" or src == "=?" then return true end  -- no debug info: assume target
-	 return src:find(cfg.target, 1, true) ~= nil
-      end
       system.setTelemetryButton = function(win, n, text, state, ...)
-	 if fromTarget() then
+	 if callerIsTarget() then
 	    telButtons[win] = telButtons[win] or {}
 	    telButtons[win][n] = {text = text, state = state or 0}  -- API default: DISABLED
 	 end
@@ -1209,6 +1414,7 @@ local function install()
    end
 
    wrapForm()
+   wrapAnnouncements()
 end
 
 local function loadConfig()
@@ -1288,7 +1494,8 @@ end
 
 function api.event(name, value)
    local e = events[name] or {n = 0, used = 0}
-   e.n, e.value, e.step = e.n + 1, value, si or 0
+   seq = seq + 1
+   e.n, e.value, e.seq = e.n + 1, value, seq
    events[name] = e
    if cfg.logEvents then log("event " .. tostring(name) .. " " .. tostring(value)) end
 end
@@ -1337,6 +1544,7 @@ local function init()
 end
 
 local function loop()
+   if cfg.mode == "play" or cfg.mode == "record" then wrapAnnouncements() end
    runSteps("loop")
 end
 
