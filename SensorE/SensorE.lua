@@ -65,7 +65,7 @@
    These are used instead of lat0/lon0 when both are present: json.decode
    makes numbers float32 on JETI (0.2-0.3 m off), and gps.newPoint takes
    strings at full precision. lat0/lon0 can then be left out.
-   If system.UIDriver.sensorConfig is set (UIDriver's config.jsn
+   If system.UIDriver.sensorConfig is set (the target app's Apps/<App>/UIDriver/config.jsn
    "sensorConfig"), it is used as the configDir instead of SensorE.jsn's.
 
    Bug fixes:

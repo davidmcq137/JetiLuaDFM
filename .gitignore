@@ -97,9 +97,13 @@ DFM-Rscu/*.png
 DFM-Rscu/Fields/*.gps
 DFM-Maps/Old_Maps
 
+# UIDriver: run logs and recordings in each app's UIDriver folder (rename a
+# recording to keep it as a script), and the menu's saved choice
+*/UIDriver/result.log
 UIDriver/result.log
-UIDriver/recorded.jsn
-UIDriver/SpikeTgt.log
+*/UIDriver/rec-*.jsn
+UIDriver/selection.jsn
+SpikeTgt/SpikeTgt.log
 
 # DFM-Rscu field files: rewritten each time it sets home; not kept in git
 DFM-Rscu/Fields/*.gps

@@ -5,30 +5,37 @@
    HOW IT WORKS (the same idea as SensorE)
    When this file's chunk loads, it replaces system.registerForm,
    system.registerTelemetry and several form.* functions in the shared
-   tables. When the target app registers its form or telemetry windows,
-   UIDriver registers wrapped callbacks in their place. Script steps then
-   run inside the target's own print callbacks, so every form.* call
-   happens while the target's form is the active one. The emulator loads
-   every app's chunk before calling any init(), so the order of the apps
-   in the list doesn't matter.
+   tables. Every app that registers a form or telemetry window gets
+   wrapped callbacks in place of its own (except UIDriver, SensorE and
+   SensorL). For every app but the one chosen in UIDriver's menu the
+   wrappers just call the app's callbacks. For the chosen app (the
+   target) script steps run inside its own print callbacks, so every
+   form.* call happens while the target's form is the active one. The
+   emulator loads every app's chunk before calling any init(), so the
+   order of the apps in the list doesn't matter.
+
+   An app is named by its file: Apps/DFM-Maps.lua is "DFM-Maps", and its
+   UIDriver folder is Apps/DFM-Maps/UIDriver/. Calls from other files in
+   Apps/DFM-Maps/ count as DFM-Maps' too.
 
    INSTALL: like the other apps in this repo, the code lives in the app's
    folder and Apps/ has a symlink to it (top-level *.lua is gitignored):
      ln -s UIDriver/UIDriver.lua Apps/UIDriver.lua
-     ln -s UIDriver/SpikeTgt.lua Apps/SpikeTgt.lua   (self-test target)
+     ln -s SpikeTgt/SpikeTgt.lua Apps/SpikeTgt.lua   (self-test target)
 
-   FILES (in Apps/UIDriver/)
-     UIDriver.lua   this app
-     SpikeTgt.lua   a small form + telemetry app to self-test UIDriver
-                    against (spike-test.jsn, tele-*.jsn); logs to
-                    SpikeTgt.log here
-     config.jsn     what to do; read when the chunk loads, so restart
-                    the apps after changing it:
-       {"mode": "play",           -- "play", "record" or "off"
-        "target": "DFM-Maps",     -- registerForm label; telemetry windows
-                                  -- whose label starts with "<target> " match too
-        "script": "maps-smoke.jsn",
-        "stepGapMs": 500,         -- pause after each step
+   THE MENU (Applications > UIDriver): pick the App to drive (the apps
+   that registered a form or telemetry window), a Script from its
+   UIDriver folder, and the Mode (off, play or record). The choice is
+   applied when you leave the menu: a changed choice, or one whose run has
+   finished, starts a fresh run; otherwise the run carries on. Then open
+   the target's own menu as usual. The choice is saved in
+   Apps/UIDriver/selection.jsn and applied again when the apps next load.
+
+   FILES in each app's folder, Apps/<App>/UIDriver/:
+     *.jsn          scripts (any .jsn but config.jsn)
+     config.jsn     optional settings for this app; a script can also
+                    carry its own {"config": {...}}, which wins:
+       {"stepGapMs": 500,         -- pause after each step
         "stepTimeoutMs": 10000,   -- default per-step timeout
         "stopOnFail": true,
         "overlay": true,          -- step counter: true = appended to the
@@ -43,11 +50,15 @@
         "recordAnnouncements": false, -- record mode: add a wait step for
                                   -- each announcement
         "logControls": true,      -- log the target's setControl changes
+        "logEvents": false,       -- log every uid.event
         "sensorConfig": "Apps/DFM-Maps/JSON"}  -- optional: SensorE uses
-                                  -- this config dir instead of the one
-                                  -- in Apps/SensorE.jsn
-     result.log     play results (also echoed to the console as [UID])
-     recorded.jsn   written in record mode; it's a playable script
+                                  -- this config dir instead of the one in
+                                  -- Apps/SensorE.jsn. SensorE reads it once,
+                                  -- so after changing it restart the apps
+     result.log     the run's results (also echoed to the console as [UID])
+     rec-<date>-<time>.jsn   a recording; it's a playable script, so
+                    rename it to keep it (rec-*.jsn is gitignored)
+   Apps/UIDriver/result.log gets the log lines while no app is chosen.
 
    SCRIPT: {"steps": [ ... ]}, each step one object
      {"waitForm": true}           wait until a human opens the target form
@@ -225,7 +236,7 @@
                                   simulator's xp, yp, heading, zp, pitch
      {"sensorField": "DCRC Walt Good Field"}  GPS origin field (or index)
    SensorE loads its config on the first getSensors call; "sensorConfig"
-   in config.jsn picks the dir. setTime and setField need it loaded.
+   in the app's config.jsn picks the dir. setTime and setField need it loaded.
 
    TEXT ON SCREEN: what the target draws with lcd.drawText and
    lcd.drawNumber. Steps look at the next frame of the form, or of a
@@ -296,21 +307,36 @@
 --]]
 
 local appName = "UIDriver"
-local DIR = "Apps/UIDriver/"
+local HOME = "Apps/UIDriver/"
+local SELFILE = HOME .. "selection.jsn"
 
-local cfg = {
-   mode = "off", target = "", script = "", stepGapMs = 500,
+-- apps never offered or wrapped: the driver and the sensor emulators
+local SKIP = {UIDriver = true, SensorE = true, SensorL = true}
+
+-- settings; each run starts from these, then the app's config.jsn, then
+-- the script's "config"
+local DEFAULTS = {
+   stepGapMs = 500,
    stepTimeoutMs = 10000, stopOnFail = true, overlay = true,
    recordRotary = false, confirmWidth = 30, confirmLookMs = 5000,
    logAnnouncements = true, suppressMessageBox = false,
-   recordAnnouncements = false, logControls = true,
+   recordAnnouncements = false, logControls = true, logEvents = false,
 }
+local cfg = {mode = "off", target = "", script = ""}
+for k, v in pairs(DEFAULTS) do cfg[k] = v end
+
+-- the run is live: a target chosen and play or record mode
+local function active()
+   return cfg.target ~= "" and (cfg.mode == "play" or cfg.mode == "record")
+end
+
+local function appDir(id) return "Apps/" .. id .. "/UIDriver/" end
 
 --------------------------------------------------------------------------------
 -- logging
 --------------------------------------------------------------------------------
 
-local LOGFILE = DIR .. "result.log"
+local LOGFILE = HOME .. "result.log"   -- the target's own once one is chosen
 
 local function log(...)
    local t = {}
@@ -349,7 +375,15 @@ end
 --------------------------------------------------------------------------------
 
 local orig = {}            -- the real system/form functions
-local T = {tel = {}}       -- the target's real callbacks
+-- every wrapped app, by id: {id, label, registered, init, key, print,
+-- close, tel = {[win] = {print, key, label}}, title}; T is the target's
+local apps = {}
+local function getApp(id)
+   local a = apps[id]
+   if not a then a = {id = id, tel = {}}; apps[id] = a end
+   return a
+end
+local T = {tel = {}}       -- the target's record (a dummy while none is chosen)
 local comps, buttons = {}, {}
 local curSub, formOpen = nil, false
 local capSub               -- the subform being built (during capture)
@@ -359,6 +393,7 @@ local lastLabel
 local answers = {}         -- queued form.question answers (1/0)
 local titleShown           -- the title text last set, with the step counter
 local telButtons = {}      -- [win][n] = {text, state}, from setTelemetryButton
+local telButtonsOf = {}    -- app id -> its telButtons (kept for every app)
 
 local recording = false
 local rec = {}             -- recorded steps
@@ -438,17 +473,42 @@ local function cpuSample(src, v)
    cpuWin.n = cpuWin.n + 1
 end
 
-local function isTarget(label)
-   if type(label) ~= "string" or cfg.target == "" then return false end
-   return label == cfg.target or label:sub(1, #cfg.target + 1) == cfg.target .. " "
+-- which app a chunk belongs to: "Apps/DFM-Maps.lua" and
+-- "Apps/DFM-Maps/foo.lua" are both "DFM-Maps"
+local function appOfSource(src)
+   src = tostring(src or ""):gsub("\\", "/")
+   return src:match("Apps/([^/]+)%.lua$") or src:match("Apps/([^/]+)/")
+      or src:match("([^/]+)%.lua$") or src:match("([^/]+)%.lc$")
+end
+
+-- the app whose Lua code made the call that reached the wrapper this is
+-- used in: the first Lua frame from level 3 up (1 is this function, 2 the
+-- wrapper; C frames such as pcall are skipped), or from "from" when
+-- called through a helper. nil if it can't be told
+local function callerApp(from)
+   if not (debug and debug.getinfo) then return nil end
+   from = from or 3
+   for lvl = from, from + 5 do
+      local info = debug.getinfo(lvl, "S")
+      if not info then return nil end
+      if info.what ~= "C" then
+	 local src = info.source or ""
+	 if src == "" or src == "=?" then return nil end
+	 return appOfSource(src) or false
+      end
+   end
+   return nil
 end
 
 --------------------------------------------------------------------------------
 -- recording
 --------------------------------------------------------------------------------
 
+local recFile              -- this recording's file, in the target's UIDriver folder
+
 local function saveRec()
-   local f = io.open(DIR .. "recorded.jsn", "w")
+   if not recFile then return end
+   local f = io.open(recFile, "w")
    if f then
       io.write(f, json.encode({target = cfg.target, steps = rec}))
       io.close(f)
@@ -1762,6 +1822,7 @@ end
 -- call the same system functions. Level 1 is this function, 2 the
 -- wrapper, 3 its caller; C frames (pcall) are skipped
 local function callerIsTarget()
+   if not active() then return false end
    if not (debug and debug.getinfo) then return true end
    for lvl = 3, 8 do
       local info = debug.getinfo(lvl, "S")
@@ -1769,7 +1830,7 @@ local function callerIsTarget()
       if info.what ~= "C" then
 	 local src = info.source or ""
 	 if src == "" or src == "=?" then return true end  -- no debug info: assume target
-	 return src:find(cfg.target, 1, true) ~= nil
+	 return appOfSource(src) == cfg.target
       end
    end
    return true
@@ -1931,6 +1992,7 @@ end
 
 local sensorOv, nSensorOv = {}, 0  -- "id-param" -> {value, valid, label}
 local controls = {}                -- control number -> {label, value, at, logged}
+local controlsOf = {}              -- app id -> its controls (kept for every app)
 
 local function idKey(id, param)
    return tostring(whole(id) or id) .. "-" .. tostring(whole(param) or param)
@@ -2000,11 +2062,19 @@ local function control(n)
    return c
 end
 
+-- apps register controls in init, before a target is chosen, so every
+-- app's are kept
 local function registerControlWrapper(under)
    return function(n, label, short, ...)
-      if callerIsTarget() then
-	 control(n).label = label
-	 log("control " .. tostring(n) .. " registered: '" .. tostring(label) .. "'")
+      local id = callerApp()
+      if id then
+	 controlsOf[id] = controlsOf[id] or {}
+	 local cs = controlsOf[id]
+	 cs[n] = cs[n] or {}
+	 cs[n].label = label
+	 if id == cfg.target and active() then
+	    log("control " .. tostring(n) .. " registered: '" .. tostring(label) .. "'")
+	 end
       end
       return under(n, label, short, ...)
    end
@@ -2362,46 +2432,86 @@ local function wrapImages()
    end
 end
 
+-- the app a registerForm/registerTelemetry call came from; the label
+-- stands in if the emulator gives no debug info
+local function registeringApp(label)
+   local id = callerApp(4)   -- 3 is the registerForm/registerTelemetry wrapper
+   if id == nil then id = tostring(label) end
+   return id
+end
+
 local function install()
    orig.registerForm = system.registerForm
    orig.registerTelemetry = system.registerTelemetry
 
+   -- every app's form gets wrappers; they act only while it's the target
    system.registerForm = function(n, parent, label, i, k, p, c)
-      if not isTarget(label) or T.init then
+      local id = registeringApp(label)
+      if not id or SKIP[id] then
 	 return orig.registerForm(n, parent, label, i, k, p, c)
       end
       wrapForm()   -- in case form was nil when the chunk loaded
-      T.init, T.key, T.print, T.close = i, k, p, c
-      T.label = label              -- the title until the target sets one
-      log("hooked form '" .. label .. "'")
-      return orig.registerForm(n, parent, label, wInit, wKey, wPrint, wClose)
+      local app = getApp(id)
+      app.registered = true
+      app.init, app.key, app.print, app.close = i, k, p, c
+      app.label = label            -- the title until the target sets one
+      app.title = nil
+      if app == T and active() then log("hooked form '" .. tostring(label) .. "'") end
+      local function on() return app == T and active() end
+      return orig.registerForm(n, parent, label,
+	 function(sub)
+	    if on() then return wInit(sub) end
+	    if app.init then return app.init(sub) end
+	 end,
+	 function(key)
+	    if on() then return wKey(key) end
+	    if app.key then return app.key(key) end
+	 end,
+	 function(w, h)
+	    if on() then return wPrint(w, h) end
+	    if app.print then return app.print(w, h) end
+	 end,
+	 function()
+	    if on() then return wClose() end
+	    if app.close then return app.close() end
+	 end)
    end
 
    system.registerTelemetry = function(n, label, size, p, k)
-      if not isTarget(label) then
+      local id = registeringApp(label)
+      if not id or SKIP[id] then
 	 return orig.registerTelemetry(n, label, size, p, k)
       end
-      T.tel[n] = {print = p, key = k, label = label}
-      log("hooked telemetry window " .. n .. " '" .. label .. "'")
+      local app = getApp(id)
+      app.registered = true
+      app.tel[n] = {print = p, key = k, label = label}
+      if app == T and active() then
+	 log("hooked telemetry window " .. n .. " '" .. tostring(label) .. "'")
+      end
+      local function on() return app == T and active() end
       local wp = function(w, h)
+	 if not on() then
+	    if p then return p(w, h) end
+	    return
+	 end
 	 if p then capturePrint("telem" .. n, p, w, h) end
 	 cpuSample("telemetry " .. n .. " print", getCPU())
 	 runSteps("telem", n)
 	 drawBanner(w, h)
       end
       local wk = k and function(key)
-	 if recording and not injecting and key ~= KEY_RELEASED then
+	 if on() and recording and not injecting and key ~= KEY_RELEASED then
 	    -- record the button's label as it was when pressed (the
 	    -- callback may relabel it); a plain key if it has none
-	    local label
+	    local blabel
 	    for i = 1, 5 do
 	       if _ENV["KEY_" .. i] == key then
 		  local b = (telButtons[n] or {})[i]
-		  label = b and b.text
+		  blabel = b and b.text
 	       end
 	    end
 	    return recAround(k, function()
-				if label then return {telemButton = label, win = n} end
+				if blabel then return {telemButton = blabel, win = n} end
 				return {telemKey = keyName(key), win = n}
 			     end, key)
 	 end
@@ -2415,10 +2525,14 @@ local function install()
    -- emulator's debug library says which file called
    if system.setTelemetryButton then
       orig.setTelemetryButton = system.setTelemetryButton
+      -- kept for every app: apps set them in init, before a target is chosen
       system.setTelemetryButton = function(win, n, text, state, ...)
-	 if callerIsTarget() then
-	    telButtons[win] = telButtons[win] or {}
-	    telButtons[win][n] = {text = text, state = state or 0}  -- API default: DISABLED
+	 local id = callerApp()
+	 if id then
+	    local tb = telButtonsOf[id] or {}
+	    telButtonsOf[id] = tb
+	    tb[win] = tb[win] or {}
+	    tb[win][n] = {text = text, state = state or 0}  -- API default: DISABLED
 	 end
 	 return orig.setTelemetryButton(win, n, text, state, ...)
       end
@@ -2430,30 +2544,40 @@ local function install()
    wrapHooks()
 end
 
-local function loadConfig()
-   local txt = io.readall(DIR .. "config.jsn")
-   if not txt then
-      print("[UID] no " .. DIR .. "config.jsn; UIDriver is off")
-      return
-   end
-   local c = json.decode(txt)
-   if type(c) ~= "table" then
-      print("[UID] can't decode " .. DIR .. "config.jsn; UIDriver is off")
-      return
-   end
+-- settings from a config.jsn or a script's "config"; mode, target and
+-- script come only from the menu
+local function applySettings(c, where)
+   if type(c) ~= "table" then return end
    for k, v in pairs(c) do
-      if type(v) == "number" then v = whole(v) or v end  -- json gives floats
-      cfg[k] = v
+      if k == "mode" or k == "target" or k == "script" then
+	 log("WARN " .. where .. ": \"" .. k .. "\" is chosen in UIDriver's menu now; ignored")
+      else
+	 if type(v) == "number" then v = whole(v) or v end  -- json gives floats
+	 cfg[k] = v
+      end
    end
 end
 
+local function loadAppConfig()
+   local path = appDir(cfg.target) .. "config.jsn"
+   local txt = io.readall(path)
+   if not txt then return end
+   local c = json.decode(txt)
+   if type(c) ~= "table" then log("WARN can't decode " .. path .. "; using defaults"); return end
+   applySettings(c, path)
+   log("settings from " .. path)
+end
+
 local function loadScript()
-   local txt = io.readall(DIR .. cfg.script)
-   if not txt then log("can't read script " .. DIR .. cfg.script); return end
+   local path = appDir(cfg.target) .. cfg.script
+   if cfg.script == "" then log("no script chosen"); return end
+   local txt = io.readall(path)
+   if not txt then log("can't read script " .. path); return end
    local sc = json.decode(txt)
    if type(sc) ~= "table" or type(sc.steps) ~= "table" then
       log("script " .. cfg.script .. " has no \"steps\" list"); return
    end
+   if sc.config then applySettings(sc.config, cfg.script) end
    local errs = {}
    local out = flatten(sc.steps, {}, errs)
    if #errs > 0 then
@@ -2513,29 +2637,115 @@ function api.event(name, value)
    if cfg.logEvents then log("event " .. tostring(name) .. " " .. tostring(value)) end
 end
 
-local function start()
-   pcall(loadConfig)
-   local f = io.open(LOGFILE, "w")
-   if f then io.close(f) end
-   system.UIDriver = api          -- in every mode, so checks work by hand too
-   -- SensorE reads this when it loads its config (first getSensors)
-   if cfg.mode == "play" or cfg.mode == "record" then
-      api.sensorConfig = cfg.sensorConfig
+-- the menu's choice: {app, script, mode}, saved for the next start
+local function loadSelection()
+   local txt = io.readall(SELFILE)
+   local c = txt and json.decode(txt)
+   if type(c) ~= "table" then return end
+   cfg.target = type(c.app) == "string" and c.app or ""
+   cfg.script = type(c.script) == "string" and c.script or ""
+   cfg.mode = (c.mode == "play" or c.mode == "record") and c.mode or "off"
+end
+
+local function saveSelection()
+   local f = io.open(SELFILE, "w")
+   if f then
+      io.write(f, json.encode({app = cfg.target, script = cfg.script, mode = cfg.mode}))
+      io.close(f)
    end
+end
+
+-- forget everything from the last run
+local function resetRun()
+   comps, buttons = {}, {}
+   curSub, capSub = nil, nil
+   originals = {}
+   capturing, injecting, prevented = false, false, false
+   lastLabel, titleShown = nil, nil
+   answers = {}
+   recording, rec, recFile = false, {}, nil
+   cbDepth, recAfter = 0, {}
+   steps, si, stepT0, nextAt = nil, nil, nil, nil
+   finished, running = false, false
+   counts = {pass = 0, fail = 0, ok = 0, checks = 0, checkFails = 0}
+   seq, actionSeq, actionMarked = 0, 0, nil
+   anns, textArm, frameNo, frames = {}, nil, 0, {}
+   vars, events, checkSeen = {}, {}, {}
+   cpuWin = nil
+   inputs, nInputs = {}, 0
+   sensorOv, nSensorOv = {}, 0
+   confirmBanner, confirmAnswer = nil, nil
+end
+
+local function stamp()
+   local ok, d = pcall(system.getDateTime)
+   if ok and type(d) == "table" and d.year then
+      return string.format("%04d%02d%02d-%02d%02d%02d", d.year, d.mon, d.day,
+			   d.hour, d.min, d.sec)
+   end
+   return tostring(now())
+end
+
+-- start a run with what cfg.target/script/mode say (or stop, for "off")
+local function activate()
+   for k, v in pairs(DEFAULTS) do cfg[k] = v end
+   cfg.sensorConfig = nil
+   resetRun()
+   local id = cfg.target
+   T = id ~= "" and getApp(id) or {tel = {}}
+   -- the target's form may be open already; waitForm waits for it to reopen
+   formOpen = false
+   controlsOf[id] = controlsOf[id] or {}
+   controls = controlsOf[id]
+   telButtonsOf[id] = telButtonsOf[id] or {}
+   telButtons = telButtonsOf[id]
+   api.sensorConfig = nil
+   LOGFILE = id ~= "" and (appDir(id) .. "result.log") or (HOME .. "result.log")
+   local f = io.open(LOGFILE, "w")
+   if f then io.close(f)
+   elseif id ~= "" then
+      -- no UIDriver folder yet: make it (the console still gets the log)
+      if io.mkdir then pcall(io.mkdir, appDir(id):sub(1, -2)) end
+      f = io.open(LOGFILE, "w")
+      if f then io.close(f) end
+   end
+   if not active() then
+      log(appName .. " off" .. (id ~= "" and (" (app " .. id .. ")") or ""))
+      return
+   end
+   log(appName .. " mode=" .. cfg.mode .. " target=" .. id ..
+       (cfg.mode == "play" and (" script=" .. cfg.script) or ""))
+   loadAppConfig()
+   if cfg.mode == "play" then loadScript() end
+   -- SensorE reads this when it loads its config (first getSensors)
+   api.sensorConfig = cfg.sensorConfig
+   local se = system.SensorE
+   local ok, g = pcall(function() return se and se.getState and se.getState() end)
+   if cfg.sensorConfig and ok and type(g) == "table" and g.configDir
+   and g.configDir ~= cfg.sensorConfig then
+      log("WARN SensorE already loaded its config from " .. tostring(g.configDir) ..
+	  ", not " .. cfg.sensorConfig .. "; restart the apps to change it")
+   end
+   if cfg.mode == "record" then
+      recording = true
+      recFile = appDir(id) .. "rec-" .. stamp() .. ".jsn"
+      log("recording to " .. recFile)
+      recStep({waitForm = true})
+   end
+end
+
+local function start()
+   local f = io.open(HOME .. "result.log", "w")
+   if f then io.close(f) end
+   system.UIDriver = api          -- always, so checks work by hand too
    exposed.sensorE = function()
       local se = system.SensorE
       return type(se) == "table" and se.getState and se.getState() or nil
    end
-   if cfg.mode ~= "play" and cfg.mode ~= "record" then return end
-   log(appName .. " mode=" .. cfg.mode .. " target=" .. cfg.target)
+   pcall(loadSelection)
+   -- wrapped in every mode: the target can be chosen at any time
    install()
-   if cfg.mode == "play" then
-      loadScript()
-   else
-      recording = true
-      rec = {}
-      recStep({waitForm = true})
-   end
+   activate()
 end
 
 local okStart, errStart = pcall(start)
@@ -2560,13 +2770,116 @@ local function statusPrint(w, h)
    lcd.drawText(4, 14, line, FONT_NORMAL)
 end
 
+--------------------------------------------------------------------------------
+-- the menu: choose the app, script and mode; applied on leaving it
+--------------------------------------------------------------------------------
+
+local MODES = {"off", "play", "record"}
+local menu                 -- the choice being edited
+
+local function appIds()
+   local list = {}
+   for id, a in pairs(apps) do
+      if a.registered and not SKIP[id] then list[#list+1] = id end
+   end
+   table.sort(list)
+   return list
+end
+
+local function scriptsOf(id)
+   local list = {}
+   if not id or id == "" then return list end
+   local ok, err = pcall(function()
+      for name, kind in dir(appDir(id):sub(1, -2)) do
+	 if kind == "file" and name:match("%.jsn$") and name ~= "config.jsn" then
+	    list[#list+1] = name
+	 end
+      end
+   end)
+   table.sort(list)
+   return list
+end
+
+local function indexOf(list, v)
+   for i, x in ipairs(list) do if x == v then return i end end
+end
+
+local function runText()
+   if cfg.mode == "play" then
+      if not steps then return "play: no script loaded"
+      elseif finished then return string.format("finished: %dP %dF", counts.pass, counts.fail) end
+      return string.format("playing step %d/%d", si, #steps)
+   elseif cfg.mode == "record" then
+      return "recording: " .. #rec .. " steps"
+   end
+   return "off"
+end
+
+local function menuInit()
+   if not menu then
+      menu = {app = cfg.target, script = cfg.script, mode = cfg.mode}
+   end
+   menu.apps = appIds()
+   if not indexOf(menu.apps, menu.app) then menu.app = menu.apps[1] or "" end
+   menu.scripts = scriptsOf(menu.app)
+   if not indexOf(menu.scripts, menu.script) then menu.script = menu.scripts[1] or "" end
+
+   form.setTitle("UIDriver")
+   form.addRow(2)
+   form.addLabel({label = "App", width = 80})
+   if #menu.apps > 0 then
+      form.addSelectbox(menu.apps, indexOf(menu.apps, menu.app), true, function(v)
+	 menu.app = menu.apps[v]
+	 menu.script = nil
+	 form.reinit(1)
+      end, {width = 230})
+   else
+      form.addLabel({label = "(no apps registered)", width = 230})
+   end
+   form.addRow(2)
+   form.addLabel({label = "Script", width = 80})
+   if #menu.scripts > 0 then
+      form.addSelectbox(menu.scripts, indexOf(menu.scripts, menu.script), true, function(v)
+	 menu.script = menu.scripts[v]
+      end, {width = 230})
+   else
+      form.addLabel({label = "(none in " .. (menu.app ~= "" and menu.app or "?") .. "/UIDriver)",
+		     width = 230, font = FONT_MINI})
+   end
+   form.addRow(2)
+   form.addLabel({label = "Mode", width = 80})
+   form.addSelectbox(MODES, indexOf(MODES, menu.mode) or 1, true, function(v)
+      menu.mode = MODES[v]
+   end, {width = 230})
+   form.addRow(1)
+   form.addLabel({label = "Now: " .. (cfg.target ~= "" and cfg.target or "-") .. "  " ..
+		     runText(), font = FONT_MINI})
+   form.addRow(1)
+   form.addLabel({label = "Applied when you leave this menu", font = FONT_MINI})
+end
+
+-- a changed choice, or a finished (or unloaded) run, starts afresh
+local function menuClose()
+   local m = menu
+   menu = nil
+   if not m then return end
+   local changed = m.app ~= cfg.target or m.mode ~= cfg.mode
+      or (m.mode == "play" and m.script ~= cfg.script)
+   local stale = (cfg.mode == "play" and (finished or not steps))
+   if not (changed or stale) then return end
+   cfg.target, cfg.script, cfg.mode = m.app or "", m.script or "", m.mode
+   saveSelection()
+   activate()
+end
+
 local function init()
+   system.registerForm(1, MENU_APPS, appName, menuInit, nil, nil, menuClose)
    system.registerTelemetry(1, appName, 1, statusPrint)
 end
 
 local function loop()
-   if cfg.mode == "play" or cfg.mode == "record" then wrapAnnouncements(); wrapHooks() end
+   wrapAnnouncements(); wrapHooks()
    runSteps("loop")
 end
 
-return {init = init, loop = loop, author = "DFM", version = "0.1", name = appName}
+return {init = init, loop = loop, author = "DFM", version = "0.2", name = appName}

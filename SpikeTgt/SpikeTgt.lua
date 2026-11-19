@@ -23,8 +23,8 @@ local uid      -- system.UIDriver test hooks; nil on the TX
 local dots = {}
 local DOTDIR = "Apps/DFM-Maps/JSON/"
 
--- console + Apps/SpikeTgt.log (appended per line, so nothing is lost)
-local LOGFILE = "Apps/UIDriver/SpikeTgt.log"
+-- console + Apps/SpikeTgt/SpikeTgt.log (appended per line, so nothing is lost)
+local LOGFILE = "Apps/SpikeTgt/SpikeTgt.log"
 local function p(...)
    print("[TGT]", ...)
    local t = {}
@@ -241,7 +241,7 @@ local function init()
       for _, c in ipairs({"red", "green", "blue"}) do
 	 dots[c] = lcd.loadImage(DOTDIR .. "small_" .. c .. "_circle.png")
       end
-      lcd.loadImage("Apps/UIDriver/no-such-image.png")  -- UIDriver should WARN
+      lcd.loadImage("Apps/SpikeTgt/no-such-image.png")  -- UIDriver should WARN
    end
    system.registerForm(1, MENU_APPS, appName, initForm, keyForm, prtForm, closeForm)
    system.registerTelemetry(1, appName, 4, telPrint, telKey)
