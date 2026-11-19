@@ -107,3 +107,5 @@ SpikeTgt/SpikeTgt.log
 
 # DFM-Rscu field files: rewritten each time it sets home; not kept in git
 DFM-Rscu/Fields/*.gps
+# DFM-TimG: saved fuel state per model
+DFM-TimG/LF_*.jsn
