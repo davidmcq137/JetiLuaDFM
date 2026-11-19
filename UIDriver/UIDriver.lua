@@ -51,10 +51,13 @@
                                   -- each announcement
         "logControls": true,      -- log the target's setControl changes
         "logEvents": false,       -- log every uid.event
-        "sensorConfig": "Apps/DFM-Maps/JSON"}  -- optional: SensorE uses
+        "sensorConfig": "Apps/DFM-Maps/JSON",  -- optional: SensorE uses
                                   -- this config dir instead of the one in
                                   -- Apps/SensorE.jsn. SensorE reads it once,
                                   -- so after changing it restart the apps
+        "sensorLog": "Log/20190926/16-56-45.log"}  -- optional: the log
+                                  -- SensorL replays instead of SensorL.jsn's
+                                  -- (read once too)
      result.log     the run's results (also echoed to the console as [UID])
      rec-<date>-<time>.jsn   a recording; it's a playable script, so
                     rename it to keep it (rec-*.jsn is gitignored)
@@ -225,10 +228,15 @@
    expectControl and waitNumber all take "value" (+ "tol"), "min" (>=)
    and "max" (<=); give both for a range. "$name" works in each.
 
-   SENSORE: control the sensor emulator through system.SensorE (needs
-   SensorE running; see its header). Its state is exposed as "sensorE":
-   expectState "sensorE.t", "sensorE.x", "sensorE.heading", ... and a
-   FAIL line ends with SensorE's t, x and y.
+   SENSORE / SENSORL: control the sensor emulator through system.SensorE
+   (simulated flight) or system.SensorL (log replay); only one may run.
+   Their state is exposed as "sensorE" / "sensorL": expectState
+   "sensorE.t", "sensorE.x", "sensorL.t", "sensorL.done", ... and a FAIL
+   line ends with the emulator's t (and SensorE's x, y). sensorPause,
+   sensorTime and waitSensorTime work with either; for SensorL t is
+   seconds of log time after the first data line, and sensorTime waits
+   until SensorL has got there (forward or back). The other sensor*
+   steps need SensorE.
      {"sensorPause": true}        freeze time and the GPS simulator
                                   (false resumes)
      {"sensorStep": 10}           while paused: run 10 simulator steps of
@@ -1527,6 +1535,11 @@ local function report(s, st, msg)
 					    tostring(g.x and math.floor(g.x + 0.5)),
 					    tostring(g.y and math.floor(g.y + 0.5)))
       end
+   elseif st == false and system.SensorL and system.SensorL.getState then
+      local ok, g = pcall(system.SensorL.getState)
+      if ok and type(g) == "table" and g.t then
+	 msg = (msg or "") .. string.format("  [SensorL t=%.1f]", g.t)
+      end
    end
    log(string.format("%3d %-4s %-10s %s", si, tag, s._verb, msg or ""))
    s._text, textArm = nil, nil
@@ -2384,22 +2397,32 @@ H.waitControl = {ctx = "any", run = function(s) return controlCheck(s, "waitCont
 -- SensorE control, through system.SensorE
 --------------------------------------------------------------------------------
 
+-- the sensor emulator that's running: SensorE (simulated flight) or
+-- SensorL (log replay); both have getState, pause and setTime
 local function SE()
-   local se = system.SensorE
-   if type(se) ~= "table" then
-      return nil, "SensorE isn't running, or is too old (no system.SensorE)"
+   local se, sl = system.SensorE, system.SensorL
+   se = type(se) == "table" and se or nil
+   sl = type(sl) == "table" and sl or nil
+   if se and sl then
+      return nil, "both SensorE and SensorL are running; keep only one in the model's apps"
    end
-   return se
+   if se then return se, "SensorE" end
+   if sl then return sl, "SensorL" end
+   return nil, "no sensor emulator running (SensorE or SensorL)"
 end
 
--- run a SensorE API call; its true/false+message becomes the step's
+-- run a SensorE/SensorL API call; its true/false+message becomes the step's
 local function seCall(fname, okMsg, ...)
-   local se, err = SE()
-   if not se then return false, err end
+   local se, name = SE()
+   if not se then return false, name end
+   if type(se[fname]) ~= "function" then
+      return false, name .. " can't do that (no " .. fname .. "); it needs " ..
+	 (name == "SensorL" and "SensorE" or "SensorL")
+   end
    local ok, res, msg = pcall(se[fname], ...)
-   if not ok then return false, "SensorE " .. fname .. " error: " .. tostring(res) end
-   if res == false then return false, "SensorE: " .. tostring(msg) end
-   return "ok", okMsg
+   if not ok then return false, name .. " " .. fname .. " error: " .. tostring(res) end
+   if res == false then return false, name .. ": " .. tostring(msg) end
+   return "ok", okMsg and (name .. " " .. okMsg)
 end
 
 local function seState()
@@ -2411,13 +2434,29 @@ end
 
 H.sensorPause = {ctx = "any", run = function(s)
 		    local on = s.sensorPause ~= false
-		    return seCall("pause", on and "SensorE paused (time and GPS simulator)"
-				     or "SensorE running", on)
+		    return seCall("pause", on and "paused" or "running", on)
 end}
 
+-- SensorL takes a moment to get there (it reads the log up to that
+-- time), so the step waits until it has
 H.sensorTime = {ctx = "any", run = function(s)
-		   return seCall("setTime", "SensorE t = " .. tostring(s.sensorTime), s.sensorTime)
-end}
+		   if not s._asked then
+		      local st, msg = seCall("setTime", "t = " .. tostring(s.sensorTime), s.sensorTime)
+		      if st == false then return st, msg end
+		      s._asked = msg
+		   end
+		   local g = seState()
+		   if g and g.seeking then return end
+		   local msg = s._asked
+		   s._asked = nil
+		   if g and g.t then msg = msg .. string.format(" (now %.1f)", g.t) end
+		   return "ok", msg
+		end,
+		onTimeout = function(s)
+		   s._asked = nil
+		   local g = seState()
+		   return "; still going there, at t = " .. tostring(g and g.t)
+		end}
 
 -- ask for n simulator steps, then wait until SensorE has run them (it
 -- steps when the target reads its GPS sensors)
@@ -2443,14 +2482,14 @@ H.sensorStep = {ctx = "any", run = function(s)
 		end}
 
 H.sensorField = {ctx = "any", run = function(s)
-		    return seCall("setField", "SensorE GPS origin field " .. tostring(s.sensorField),
+		    return seCall("setField", "GPS origin field " .. tostring(s.sensorField),
 				  s.sensorField)
 end}
 
 H.sensorPosition = {ctx = "any", run = function(s)
 		       local p = s.sensorPosition
 		       if p == false then
-			  return seCall("setPosition", "SensorE GPS position released", nil)
+			  return seCall("setPosition", "GPS position released", nil)
 		       end
 		       if type(p) == "table" and p.lat ~= nil then
 			  -- {lat, lon[, north, east]}; "$name" is a remembered value
@@ -2482,7 +2521,7 @@ H.sensorPosition = {ctx = "any", run = function(s)
 		       if type(p) ~= "table" or p[1] == nil or p[2] == nil then
 			  return false, "sensorPosition needs [x, y], {\"lat\": , \"lon\": } or false"
 		       end
-		       return seCall("setPosition", "SensorE GPS held at " .. tostring(p[1]) ..
+		       return seCall("setPosition", "GPS held at " .. tostring(p[1]) ..
 				     ", " .. tostring(p[2]), p[1], p[2])
 end}
 
@@ -2493,20 +2532,25 @@ H.sensorVars = {ctx = "any", run = function(s)
 		   local parts = {}
 		   for k, v in pairs(s.sensorVars) do parts[#parts+1] = k .. "=" .. tostring(v) end
 		   table.sort(parts)
-		   return seCall("setVars", "SensorE " .. table.concat(parts, " "), s.sensorVars)
+		   return seCall("setVars", table.concat(parts, " "), s.sensorVars)
 end}
 
 H.waitSensorTime = {ctx = "any", run = function(s)
-		       local se, err = SE()
-		       if not se then return false, err end
+		       local se, name = SE()
+		       if not se then return false, name end
 		       local g = seState()
 		       if g and g.t and g.t >= s.waitSensorTime then
-			  return "ok", string.format("SensorE t = %.1f", g.t)
+			  return "ok", string.format("%s t = %.1f", name, g.t)
+		       end
+		       if g and g.done then
+			  return false, string.format("%s reached the end of the log at t = %.1f",
+						      name, g.t or 0)
 		       end
 		    end,
 		    onTimeout = function()
 		       local g = seState()
-		       return "; SensorE t = " .. tostring(g and g.t) ..
+		       local _, name = SE()
+		       return "; " .. tostring(name) .. " t = " .. tostring(g and g.t) ..
 			  (g and g.paused and " (paused)" or "")
 		    end}
 
@@ -2819,7 +2863,7 @@ end
 -- start a run with what cfg.target/script/mode say (or stop, for "off")
 local function activate()
    for k, v in pairs(DEFAULTS) do cfg[k] = v end
-   cfg.sensorConfig = nil
+   cfg.sensorConfig, cfg.sensorLog = nil, nil
    resetRun()
    local id = cfg.target
    T = id ~= "" and getApp(id) or {tel = {}}
@@ -2829,7 +2873,7 @@ local function activate()
    controls = controlsOf[id]
    telButtonsOf[id] = telButtonsOf[id] or {}
    telButtons = telButtonsOf[id]
-   api.sensorConfig = nil
+   api.sensorConfig, api.sensorLog = nil, nil
    LOGFILE = id ~= "" and (appDir(id) .. "result.log") or (HOME .. "result.log")
    local f = io.open(LOGFILE, "w")
    if f then io.close(f)
@@ -2847,14 +2891,23 @@ local function activate()
        (cfg.mode == "play" and (" script=" .. cfg.script) or ""))
    loadAppConfig()
    if cfg.mode == "play" then loadScript() end
-   -- SensorE reads this when it loads its config (first getSensors)
+   -- SensorE reads this when it loads its config (first getSensors),
+   -- SensorL its log
    api.sensorConfig = cfg.sensorConfig
+   api.sensorLog = cfg.sensorLog
    local se = system.SensorE
    local ok, g = pcall(function() return se and se.getState and se.getState() end)
    if cfg.sensorConfig and ok and type(g) == "table" and g.configDir
    and g.configDir ~= cfg.sensorConfig then
       log("WARN SensorE already loaded its config from " .. tostring(g.configDir) ..
 	  ", not " .. cfg.sensorConfig .. "; restart the apps to change it")
+   end
+   local sl = system.SensorL
+   local okL, gl = pcall(function() return sl and sl.getState and sl.getState() end)
+   if cfg.sensorLog and okL and type(gl) == "table" and gl.logFile
+   and gl.logFile ~= cfg.sensorLog then
+      log("WARN SensorL already opened " .. tostring(gl.logFile) ..
+	  ", not " .. cfg.sensorLog .. "; restart the apps to change it")
    end
    if cfg.mode == "record" then
       recording = true
@@ -2871,6 +2924,10 @@ local function start()
    exposed.sensorE = function()
       local se = system.SensorE
       return type(se) == "table" and se.getState and se.getState() or nil
+   end
+   exposed.sensorL = function()
+      local sl = system.SensorL
+      return type(sl) == "table" and sl.getState and sl.getState() or nil
    end
    pcall(loadSelection)
    -- wrapped in every mode: the target can be chosen at any time

@@ -1,5 +1,6 @@
 {"steps": [
-  {"log": "DFM-TimG with SensorL replaying Log/20190926/16-56-45.log (Georgia Jets). Needs SensorL, not SensorE. Open DFM-TimG's menu within about 2 minutes of starting the apps, before the replayed takeoff, and leave it open: the run takes about 12 minutes"},
+  {"log": "DFM-TimG with SensorL replaying the Georgia Jets log (config.jsn sensorLog). Needs SensorL, not SensorE. The replay is paused until the setup is done, so open DFM-TimG's menu whenever you like and leave it open: the run then takes about 13 minutes"},
+  {"sensorPause": true},
   {"waitForm": true},
   {"waitSub": 1},
 
@@ -18,8 +19,11 @@
   {"log": "nothing is announced while the gear is down"},
   {"waitAudio": "Sup_Tim", "absent": true, "forMs": 3000},
 
-  {"log": "wait for the takeoff roll in the log, then gear up"},
-  {"waitSensor": "Speed", "sensorName": "MGPS", "min": 15, "timeoutMs": 360000},
+  {"log": "go to just before the takeoff roll and resume, then gear up when it rolls"},
+  {"sensorTime": 150},
+  {"expectSensor": "Speed", "sensorName": "MGPS", "max": 10},
+  {"sensorPause": false},
+  {"waitSensor": "Speed", "sensorName": "MGPS", "min": 15, "timeoutMs": 60000},
   {"expectSensor": "Fuel remaining", "sensorName": "CTU", "min": 80, "as": "fuelAtGearUp"},
   {"setInput": "SA", "value": 1, "for": "target"},
   {"waitAudio": "Sup_Tim_Start", "timeoutMs": 5000},
@@ -43,6 +47,9 @@
   {"waitMessage": "Turbine shut down", "timeoutMs": 3000},
 
   {"log": "put TimG's settings back; the fuel sensor stays on CTU Fuel remaining (restore can't unselect a selectbox)"},
+  {"log": "if DFM-TimG's menu isn't open, open it now (waiting up to 10 minutes)"},
+  {"waitForm": true, "timeoutMs": 600000},
+  {"waitSub": 1},
   {"restore": "Select Retract Switch (gear up)"},
   {"restore": "Select Throttle Cutoff (off)"},
   {"restore": "Bingo fuel (secs before empty)"},
