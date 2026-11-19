@@ -45,6 +45,8 @@ local function announceAll(why)
    system.playBeep(1, 1000, 200)
 end
 
+local swItem               -- the "Spike Switch" inputbox's SwitchItem
+
 local function initForm(sub)
    st.subform = sub
    if uid then uid.event("sub", sub) end
@@ -73,6 +75,18 @@ local function initForm(sub)
 	    form.setValue(chkIdx, st.chk)
 	    p("chk cb", v, "->", st.chk)
       end)
+
+      -- an inputbox (switch assignment), for UIDriver's inputbox set/expect
+      if form.addInputbox then
+	 form.addRow(2)
+	 form.addLabel({label="Spike Switch"})
+	 form.addInputbox(swItem, true, function(v)
+	       swItem = v
+	       local info = v and system.getSwitchInfo and system.getSwitchInfo(v)
+	       p("switch cb", info and info.label, info and info.mode,
+		 info and info.activeOn, info and info.assigned)
+	 end)
+      end
 
       -- asks first, to test scripted form.question answers
       form.addLink(function()
@@ -195,6 +209,15 @@ local function loop()
    end
    st.p6, st.sa = system.getInputs("P6", "SA")
    if saItem then st.saVal = system.getInputsVal(saItem) end
+   -- the inputbox's switch: what getSwitchInfo says, and its value
+   st.swAssigned, st.swLabel, st.swMode, st.swVal = false, "none", nil, nil
+   if swItem and system.getSwitchInfo then
+      local info = system.getSwitchInfo(swItem)
+      if info and info.assigned ~= false then
+	 st.swAssigned, st.swLabel, st.swMode = true, info.label, info.mode
+	 st.swVal = system.getInputsVal(swItem)
+      end
+   end
    if sens then
       local v = system.getSensorByID(sens.id, sens.param)
       st.sensVal = v and v.value

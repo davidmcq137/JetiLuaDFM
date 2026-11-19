@@ -1,0 +1,44 @@
+{"steps": [
+  {"log": "inputbox self-test; open SpikeTgt's form. SensorE need not run"},
+  {"waitForm": true},
+  {"waitSub": 1},
+  {"expect": "Spike Switch", "value": false},
+  {"expectState": "tgt.swAssigned", "value": false},
+
+  {"log": "a two-position switch, default mode S activeOn 1"},
+  {"set": "Spike Switch", "value": "SA"},
+  {"expect": "Spike Switch", "value": "SA"},
+  {"wait": 300},
+  {"expectState": "tgt.swAssigned", "value": true},
+  {"log": "getSwitchInfo labels switches 'Sa' (the API doc says so); UIDriver ignores case"},
+  {"expectState": "tgt.swLabel", "value": "Sa"},
+  {"setInput": "SA", "value": 1},
+  {"expectState": "tgt.swVal", "value": 1},
+  {"setInput": "SA", "value": -1},
+  {"expectState": "tgt.swVal", "value": -1},
+
+  {"log": "active when SA is back (-1): getInputsVal gives the switch's result, not the position"},
+  {"set": "Spike Switch", "value": {"switch": "SA", "mode": "S", "activeOn": -1}},
+  {"expect": "Spike Switch", "value": {"switch": "SA", "mode": "S", "activeOn": -1}},
+  {"expectState": "tgt.swVal", "value": 1},
+  {"setInput": "SA", "value": 1},
+  {"expectState": "tgt.swVal", "value": -1},
+  {"clearInput": "SA"},
+
+  {"log": "a proportional control: P6 in a proportional inputbox defaults to mode P"},
+  {"set": "Spike Switch", "value": "P6"},
+  {"expect": "Spike Switch", "value": {"switch": "P6", "mode": "P"}},
+  {"setInput": "P6", "value": 0.5},
+  {"expectState": "tgt.swVal", "value": 0.5},
+  {"set": "Spike Switch", "value": {"switch": "P6", "mode": "PI"}},
+  {"expectState": "tgt.swVal", "value": -0.5},
+  {"clearInput": "P6"},
+
+  {"log": "unassign it"},
+  {"set": "Spike Switch", "value": false},
+  {"expect": "Spike Switch", "value": false},
+  {"expectState": "tgt.swAssigned", "value": false},
+
+  {"log": "the next step should FAIL: XX isn't a control"},
+  {"set": "Spike Switch", "value": "XX"}
+]}

@@ -60,6 +60,17 @@
      {"set": "Select Field to Browse", "value": 2}      ... or by index
      {"set": "Enable Triangle Racecourse", "value": true}   checkbox
      {"set": "Name", "value": "abc"}              textbox
+     {"set": "Start Switch", "value": "SA"}       inputbox: a control
+     {"set": "Start Switch", "value": {"switch": "SC", "mode": "S",
+                                       "activeOn": -1}}  with mode and
+                                  activeOn (createSwitch's modifiers:
+                                  S P I C E); defaults: P1..P10 in a
+                                  proportional inputbox "P", else "S",
+                                  activeOn 1. false unassigns it. expect
+                                  takes the same values (mode and
+                                  activeOn are checked only if given).
+                                  setInput on that control then makes
+                                  getInputsVal return the switch's result
      {"link": "Map Browser >>"}   click a link (follow with waitSub)
      {"key": "KEY_2"}             press and release a key in the form;
                                   KEY_5/KEY_ESC close the form unless the
@@ -273,7 +284,9 @@
    - The emulator's form.setValue on an intbox calls its callback when
      the value changes; selectbox and checkbox don't. UIDriver calls the
      callback itself only if setValue didn't, so it never runs twice.
-   - Inputboxes (switch assignment) aren't supported yet.
+   - An inputbox "set" passes the target's callback a SwitchItem made
+     with system.createSwitch (firmware 5.01), as the firmware does after
+     a human assigns a control; it doesn't use the firmware's dialog.
 --]]
 
 local appName = "UIDriver"
@@ -439,6 +452,103 @@ local function recStep(s)
    saveRec()
 end
 
+--------------------------------------------------------------------------------
+-- switch items (inputboxes, getInputsVal)
+--------------------------------------------------------------------------------
+
+local inputs, nInputs = {}, 0      -- "P6" -> {value, targetOnly}
+
+-- SwitchItem -> {name = "SA", mode = "S", activeOn = 1}, or false when it
+-- isn't assigned. Filled by our createSwitch wrapper (which knows activeOn)
+-- or from system.getSwitchInfo
+local switchSpecs = setmetatable({}, {__mode = "k"})
+
+local function switchInfo(sw)
+   if sw == nil or not system.getSwitchInfo then return nil end
+   local ok, info = pcall(system.getSwitchInfo, sw)
+   if ok and type(info) == "table" then return info end
+end
+
+local function itemSpec(sw)
+   if sw == nil then return nil end
+   local sp = switchSpecs[sw]
+   if sp == nil then
+      sp = false
+      local info = switchInfo(sw)
+      if info and info.label and info.assigned ~= false then
+	 sp = {name = tostring(info.label):upper(),
+	       mode = info.mode or (info.proportional and "P" or "S"),
+	       activeOn = info.activeOn}
+      end
+      switchSpecs[sw] = sp
+   end
+   return sp or nil
+end
+
+-- what getInputsVal returns for a switch item when its control is at raw.
+-- Measured in the emulator: S (or E) in the mode means switch evaluation,
+-- even with P ("PS" is what the firmware's dialog makes): 1 when active,
+-- else -1. A two/three-position switch (SA..SP) is active at its activeOn
+-- position; other controls when they reach activeOn. P alone passes the
+-- position through (I inverts, C maps it to 0..1)
+local function evalSwitch(sp, raw)
+   if raw == nil or not sp then return raw end
+   local m = (sp.mode or "S"):upper()
+   local inv = m:find("I") ~= nil
+   if m:find("P") and not m:find("S") and not m:find("E") then
+      local v = inv and -raw or raw
+      if m:find("C") then v = (v + 1) / 2 end
+      return v
+   end
+   local on = sp.activeOn or 1
+   local active
+   if sp.name:match("^S%a$") then
+      active = math.abs(raw - on) < 0.5
+   elseif on >= 0.0 then
+      active = raw >= on
+   else
+      active = raw <= on
+   end
+   if inv then active = not active end
+   return active and 1 or -1
+end
+
+-- an inputbox value from a script: "SA", {"switch": "SA", "mode": "S",
+-- "activeOn": 1} or false (unassigned). Defaults: mode "P" for P1..P10 in
+-- a proportional inputbox, else "S"; activeOn 1 for switch modes
+local function parseSwitch(v, prop)
+   if v == false or v == "" then return {name = ""} end
+   if type(v) == "string" then v = {switch = v} end
+   if type(v) ~= "table" or type(v.switch) ~= "string" then return nil end
+   local nm = v.switch:upper()
+   local mode = v.mode and tostring(v.mode):upper() or
+      ((prop and nm:match("^P%d+$")) and "P" or "S")
+   local on = v.activeOn
+   if on == nil then
+      on = (mode:find("P") and not mode:find("S") and not mode:find("E")) and 0 or 1
+   end
+   return {name = nm, mode = mode, activeOn = on}
+end
+
+local function describeSwitch(sw)
+   local sp = itemSpec(sw)
+   if not sp then return "unassigned" end
+   return string.format("%s mode %s activeOn %s", sp.name, tostring(sp.mode),
+			tostring(sp.activeOn))
+end
+
+-- a recorded step's value for a switch item (the short form when it is
+-- the default for that control)
+local function switchStepValue(sw, prop)
+   local sp = itemSpec(sw)
+   if not sp then return false end
+   local d = parseSwitch(sp.name, prop)
+   if sp.mode == d.mode and (sp.activeOn == nil or same(sp.activeOn, d.activeOn)) then
+      return sp.name
+   end
+   return {switch = sp.name, mode = sp.mode, activeOn = whole(sp.activeOn) or sp.activeOn}
+end
+
 -- run a human-driven target callback, then record its step. A subform
 -- change it causes (form.reinit can run initForm right away) is held
 -- back so its waitSub lands after the click; a form.question it raises
@@ -465,6 +575,8 @@ local function widgetStep(c, v)
       s = {set = c.label, value = c.value}
    elseif c.kind == "sel" then
       s = {set = c.label, value = (c.values and c.values[v]) or v}
+   elseif c.kind == "input" then
+      s = {set = c.label, value = switchStepValue(v, c.prop)}
    else
       s = {set = c.label, value = v}
    end
@@ -517,7 +629,7 @@ end
 local function wrapForm()
    if not form or orig.addRow then return end
    for _, n in ipairs({"addRow", "addLabel", "addIntbox", "addSelectbox",
-		       "addCheckbox", "addLink", "addTextbox", "setValue",
+		       "addCheckbox", "addLink", "addTextbox", "addInputbox", "setValue",
 		       "getValue", "setButton", "preventDefault", "question",
 		       "close", "setTitle"}) do
       orig[n] = form[n]
@@ -559,6 +671,15 @@ local function wrapForm()
       local idx = orig.addLink(wrapCb(c, cb), p)
       addComp(c, idx)
       return idx
+   end
+   if orig.addInputbox then
+      form.addInputbox = function(sw, prop, cb, p)
+	 if not capturing then return orig.addInputbox(sw, prop, cb, p) end
+	 local c = newComp("input", {value = sw, prop = prop and true or false})
+	 local idx = orig.addInputbox(sw, prop, wrapCb(c, cb), p)
+	 addComp(c, idx)
+	 return idx
+      end
    end
    form.addTextbox = function(txt, mx, cb, p)
       if not capturing then return orig.addTextbox(txt, mx, cb, p) end
@@ -694,6 +815,67 @@ local function setWidget(c, v)
       if not ok then return false, "target callback error: " .. tostring(err) end
       if c.value ~= v then return false, "target didn't toggle the checkbox" end
       return true, "checkbox -> " .. tostring(v)
+   elseif c.kind == "input" then
+      if not system.createSwitch then
+	 return false, "setting an inputbox needs system.createSwitch (firmware 5.01)"
+      end
+      local sp = parseSwitch(v, c.prop)
+      if not sp then
+	 return false, 'inputbox needs "SA", {"switch": "SA", "mode": "S", ' ..
+	    '"activeOn": 1} or false'
+      end
+      if sp.name ~= "" and not c.prop and sp.mode:find("P") and not sp.mode:find("S")
+      and not sp.mode:find("E") then
+	 log("WARN", c.label, "is switch-only; a human can't assign", sp.name,
+	     "proportionally")
+      end
+      local before = describeSwitch(c.value)
+      local okC, item = pcall(system.createSwitch, sp.name, sp.mode or "S", sp.activeOn or 0)
+      if not okC or item == nil then
+	 return false, "system.createSwitch failed: " .. tostring(item)
+      end
+      if sp.name ~= "" then
+	 local info = switchInfo(item)
+	 if info and info.assigned == false then
+	    return false, "the firmware doesn't know the control " .. sp.name
+	 end
+	 switchSpecs[item] = sp
+      else
+	 switchSpecs[item] = false
+      end
+      injecting, c.fired = true, false
+      -- the emulator may or may not take a SwitchItem in setValue; the
+      -- callback is what tells the target, as a human assignment would
+      pcall(orig.setValue, c.idx, item)
+      local ok, err = pcall(function()
+	    if not c.fired and c.wcb then c.wcb(item) end
+      end)
+      injecting = false
+      if not ok then return false, "target callback error: " .. tostring(err) end
+      c.value = item
+      local info = sp.name ~= "" and switchInfo(item)
+      local fw = ""
+      if info then
+	 fw = string.format(" (getSwitchInfo: label %s mode %s activeOn %s proportional %s)",
+			    tostring(info.label), tostring(info.mode),
+			    tostring(info.activeOn), tostring(info.proportional))
+      end
+      -- check our switch model against the firmware: with no setInput on
+      -- this control, getInputsVal is the real one
+      if sp.name ~= "" and nInputs == 0 and system.getInputs and system.getInputsVal then
+	 local okr, raw = pcall(system.getInputs, sp.name)
+	 local okv, real = pcall(system.getInputsVal, item)
+	 if okr and okv and raw ~= nil and real ~= nil then
+	    local pred = evalSwitch(sp, raw)
+	    fw = fw .. string.format(" [%s at %s: getInputsVal %s, model %s]", sp.name,
+				     tostring(raw), tostring(real), tostring(pred))
+	    if math.abs(pred - real) > 0.01 then
+	       log("WARN UIDriver's switch model differs from the firmware for",
+		   describeSwitch(item), "at", raw, ": firmware", real, "model", pred)
+	    end
+	 end
+      end
+      return true, before .. " -> " .. describeSwitch(item) .. fw
    else
       return false, "can't set a " .. c.kind
    end
@@ -855,6 +1037,29 @@ H.expect = {ctx = "form", run = function(s)
 	       local c, err = find(s.expect, s.nth)
 	       if not c then return false, err end
 	       local got
+	       if c.kind == "input" then
+		  local want = parseSwitch(s.value, c.prop)
+		  if not want then return false, "expect on an inputbox needs a switch value" end
+		  local sp = itemSpec(c.value)
+		  local desc = describeSwitch(c.value)
+		  if want.name == "" then
+		     return not sp, c.label .. " = " .. desc .. ", expected unassigned"
+		  end
+		  local okv = sp and sp.name == want.name
+		  if okv and type(s.value) == "table" then
+		     -- mode and activeOn are checked only when the script gives them
+		     if s.value.mode and sp.mode then
+			okv = sp.mode == tostring(s.value.mode):upper()
+		     end
+		     if okv and s.value.activeOn ~= nil and sp.activeOn ~= nil then
+			okv = same(sp.activeOn, s.value.activeOn)
+		     end
+		  end
+		  return okv and true or false, c.label .. " = " .. desc .. ", expected " ..
+		     (type(s.value) == "table" and (want.name .. " mode " .. want.mode ..
+						     " activeOn " .. tostring(want.activeOn))
+		      or want.name)
+	       end
 	       if c.kind == "chk" then got = c.value
 	       else
 		  got = orig.getValue(c.idx)
@@ -1660,8 +1865,6 @@ end
 -- scripted inputs, sensor overrides and faults, controls
 --------------------------------------------------------------------------------
 
-local inputs, nInputs = {}, 0      -- "P6" -> {value, targetOnly}
-local switchName = setmetatable({}, {__mode = "k"})  -- SwitchItem -> "SA" (false: unknown)
 local sensorOv, nSensorOv = {}, 0  -- "id-param" -> {value, valid, label}
 local controls = {}                -- control number -> {label, value, at, logged}
 
@@ -1669,22 +1872,6 @@ local function idKey(id, param)
    return tostring(whole(id) or id) .. "-" .. tostring(whole(param) or param)
 end
 
--- the control a SwitchItem reads, from system.getSwitchInfo; cached
-local function itemName(sw)
-   if sw == nil then return nil end
-   local nm = switchName[sw]
-   if nm == nil then
-      nm = false
-      if system.getSwitchInfo then
-	 local ok, info = pcall(system.getSwitchInfo, sw)
-	 if ok and type(info) == "table" and info.label and info.assigned ~= false then
-	    nm = tostring(info.label):upper()
-	 end
-      end
-      switchName[sw] = nm
-   end
-   return nm or nil
-end
 
 -- getInputs("P6", ...) and getInputsVal(item, ...): scripted values replace
 -- the real ones. With no setInput active they cost one test. SensorE's
@@ -1697,11 +1884,16 @@ local function inputsWrapper(under, byItem)
       local tgt
       for i = 1, n do
 	 local a = select(i, ...)
-	 local nm = byItem and itemName(a) or (a ~= nil and tostring(a):upper())
+	 local sp = byItem and itemSpec(a)
+	 local nm
+	 if byItem then nm = sp and sp.name else nm = a ~= nil and tostring(a):upper() end
 	 local o = nm and inputs[nm]
 	 if o then
 	    if o.targetOnly and tgt == nil then tgt = callerIsTarget() end
-	    if not o.targetOnly or tgt then vals[i] = o.value end
+	    if not o.targetOnly or tgt then
+	       -- a switch item gives the switch's result, not the raw position
+	       vals[i] = byItem and evalSwitch(sp, o.value) or o.value
+	    end
 	 end
       end
       return table.unpack(vals, 1, n)
@@ -1775,6 +1967,20 @@ local function setControlWrapper(under)
    end
 end
 
+-- system.createSwitch: remember each item's control, mode and activeOn
+-- (getSwitchInfo may not report activeOn)
+local function createSwitchWrapper(under)
+   return function(name, mods, on, ...)
+      local sw = under(name, mods, on, ...)
+      if sw ~= nil and type(name) == "string" then
+	 switchSpecs[sw] = name ~= "" and {name = name:upper(),
+					   mode = mods and tostring(mods):upper() or "S",
+					   activeOn = on or 0} or false
+      end
+      return sw
+   end
+end
+
 -- {table getter, function name, wrapper maker}; wrapped whatever is there,
 -- re-wrapped from loop() if another app (SensorE) replaces one later
 local HOOKS = {
@@ -1785,6 +1991,7 @@ local HOOKS = {
    {function() return gps end, "getPosition", positionWrapper},
    {function() return system end, "registerControl", registerControlWrapper},
    {function() return system end, "setControl", setControlWrapper},
+   {function() return system end, "createSwitch", createSwitchWrapper},
 }
 local hookWrapper = {}
 

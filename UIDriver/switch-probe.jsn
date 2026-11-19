@@ -1,0 +1,18 @@
+{"steps": [
+  {"log": "switch probe: compares UIDriver's switch model with getInputsVal at the switches' current positions. Run it with SA and SC in different positions; WARN lines show differences"},
+  {"waitForm": true},
+  {"waitSub": 1},
+  {"set": "Spike Switch", "value": {"switch": "SA", "mode": "PS", "activeOn": 1}},
+  {"set": "Spike Switch", "value": {"switch": "SA", "mode": "PS", "activeOn": -1}},
+  {"set": "Spike Switch", "value": {"switch": "SA", "mode": "S", "activeOn": 1}},
+  {"set": "Spike Switch", "value": {"switch": "SA", "mode": "S", "activeOn": -1}},
+  {"set": "Spike Switch", "value": {"switch": "SC", "mode": "PS", "activeOn": 1}},
+  {"set": "Spike Switch", "value": {"switch": "SC", "mode": "PS", "activeOn": 0}},
+  {"set": "Spike Switch", "value": {"switch": "SC", "mode": "PS", "activeOn": -1}},
+  {"set": "Spike Switch", "value": {"switch": "SC", "mode": "S", "activeOn": 0}},
+  {"set": "Spike Switch", "value": {"switch": "SA", "mode": "PSI", "activeOn": 1}},
+  {"set": "Spike Switch", "value": {"switch": "P6", "mode": "P"}},
+  {"set": "Spike Switch", "value": {"switch": "P6", "mode": "PC"}},
+  {"set": "Spike Switch", "value": {"switch": "P6", "mode": "PS", "activeOn": 0}},
+  {"set": "Spike Switch", "value": false}
+]}
