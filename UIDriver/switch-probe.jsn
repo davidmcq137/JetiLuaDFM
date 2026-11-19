@@ -14,5 +14,14 @@
   {"set": "Spike Switch", "value": {"switch": "P6", "mode": "P"}},
   {"set": "Spike Switch", "value": {"switch": "P6", "mode": "PC"}},
   {"set": "Spike Switch", "value": {"switch": "P6", "mode": "PS", "activeOn": 0}},
+  {"log": "logical switch L2: does getInputsVal read it? (each line shows getSwitchInfo's value and the real getInputsVal)"},
+  {"set": "Spike Switch", "value": {"switch": "L2", "mode": "PSE", "activeOn": 0}},
+  {"wait": 300},
+  {"expectState": "tgt.swVal"},
+  {"expectState": "tgt.swRaw"},
+  {"set": "Spike Switch", "value": {"switch": "L2", "mode": "S", "activeOn": 1}},
+  {"wait": 300},
+  {"expectState": "tgt.swVal"},
+  {"expectState": "tgt.swRaw"},
   {"set": "Spike Switch", "value": false}
 ]}

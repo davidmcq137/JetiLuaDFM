@@ -210,11 +210,12 @@ local function loop()
    st.p6, st.sa = system.getInputs("P6", "SA")
    if saItem then st.saVal = system.getInputsVal(saItem) end
    -- the inputbox's switch: what getSwitchInfo says, and its value
-   st.swAssigned, st.swLabel, st.swMode, st.swVal = false, "none", nil, nil
+   st.swAssigned, st.swLabel, st.swMode, st.swVal, st.swRaw = false, "none", nil, nil, nil
    if swItem and system.getSwitchInfo then
       local info = system.getSwitchInfo(swItem)
       if info and info.assigned ~= false then
 	 st.swAssigned, st.swLabel, st.swMode = true, info.label, info.mode
+	 st.swRaw = info.value     -- getSwitchInfo's value (evaluated, like getInputsVal)
 	 st.swVal = system.getInputsVal(swItem)
       end
    end

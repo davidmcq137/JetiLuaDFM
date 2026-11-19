@@ -32,6 +32,8 @@
   {"expectState": "tgt.swVal", "value": 0.5},
   {"set": "Spike Switch", "value": {"switch": "P6", "mode": "PI"}},
   {"expectState": "tgt.swVal", "value": -0.5},
+  {"log": "getSwitchInfo's value is evaluated like getInputsVal (inverted here), not the raw position"},
+  {"expectState": "tgt.swRaw", "value": -0.5},
   {"clearInput": "P6"},
 
   {"log": "unassign it"},
@@ -39,6 +41,13 @@
   {"expect": "Spike Switch", "value": false},
   {"expectState": "tgt.swAssigned", "value": false},
 
+  {"log": "restore: put Spike Int and Spike Switch back as they were when first seen"},
+  {"set": "Spike Int", "value": 42},
+  {"set": "Spike Switch", "value": "SB"},
+  {"restore": true},
+  {"expect": "Spike Int", "value": 10},
+  {"expect": "Spike Switch", "value": false},
+  {"restore": true},
   {"log": "the next step should FAIL: XX isn't a control"},
   {"set": "Spike Switch", "value": "XX"}
 ]}

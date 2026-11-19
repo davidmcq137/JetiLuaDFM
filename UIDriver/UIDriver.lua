@@ -71,6 +71,12 @@
                                   activeOn are checked only if given).
                                   setInput on that control then makes
                                   getInputsVal return the switch's result
+                                  (getSwitchInfo's .value too)
+     {"restore": true}            put this subform's widgets back to the
+                                  values they had when the driver first
+                                  saw them (through the target's callbacks,
+                                  so apps that pSave settings save them
+                                  again); or {"restore": "label"}
      {"link": "Map Browser >>"}   click a link (follow with waitSub)
      {"key": "KEY_2"}             press and release a key in the form;
                                   KEY_5/KEY_ESC close the form unless the
@@ -346,6 +352,8 @@ local orig = {}            -- the real system/form functions
 local T = {tel = {}}       -- the target's real callbacks
 local comps, buttons = {}, {}
 local curSub, formOpen = nil, false
+local capSub               -- the subform being built (during capture)
+local originals = {}       -- "sub|label|nth" -> {v = first value seen}, for restore
 local capturing, injecting, prevented = false, false, false
 local lastLabel
 local answers = {}         -- queued form.question answers (1/0)
@@ -366,6 +374,7 @@ local counts = {pass = 0, fail = 0, ok = 0, checks = 0, checkFails = 0}
 local seq, actionSeq, actionMarked = 0, 0, nil
 local ACTIONS = {set = true, link = true, key = true, button = true, telemKey = true,
 		 setInput = true, clearInput = true, setSensor = true, clearSensor = true,
+		 restore = true,
 		 sensorPause = true, sensorTime = true, sensorStep = true, sensorField = true,
 		 sensorPosition = true, sensorVars = true,
 		 telemButton = true, close = true}
@@ -577,6 +586,14 @@ local function widgetStep(c, v)
       s = {set = c.label, value = (c.values and c.values[v]) or v}
    elseif c.kind == "input" then
       s = {set = c.label, value = switchStepValue(v, c.prop)}
+      local info = switchInfo(v)
+      if info then
+	 log(string.format("inputbox '%s' assigned by hand; getSwitchInfo: label %s mode %s " ..
+			   "activeOn %s proportional %s assigned %s value %s", c.label,
+			   tostring(info.label), tostring(info.mode), tostring(info.activeOn),
+			   tostring(info.proportional), tostring(info.assigned),
+			   tostring(info.value)))
+      end
    else
       s = {set = c.label, value = v}
    end
@@ -605,6 +622,11 @@ local function addComp(c, idx)
    c.idx = idx
    if not c.label then c.label = "#" .. tostring(idx) end
    comps[#comps+1] = c
+   -- the first value seen for each widget, so "restore" can put it back
+   if c.kind ~= "link" then
+      c.key = tostring(capSub) .. "|" .. tostring(c.label) .. "|" .. tostring(c.nth)
+      if originals[c.key] == nil then originals[c.key] = {v = c.value} end
+   end
 end
 
 -- wraps a widget's callback: notes that it fired (so we never call it
@@ -856,13 +878,17 @@ local function setWidget(c, v)
       local info = sp.name ~= "" and switchInfo(item)
       local fw = ""
       if info then
-	 fw = string.format(" (getSwitchInfo: label %s mode %s activeOn %s proportional %s)",
+	 fw = string.format(" (getSwitchInfo: label %s mode %s activeOn %s proportional %s value %s)",
 			    tostring(info.label), tostring(info.mode),
-			    tostring(info.activeOn), tostring(info.proportional))
+			    tostring(info.activeOn), tostring(info.proportional),
+			    tostring(info.value))
       end
       -- check our switch model against the firmware: with no setInput on
-      -- this control, getInputsVal is the real one
-      if sp.name ~= "" and nInputs == 0 and system.getInputs and system.getInputsVal then
+      -- this control, getInputsVal is the real one. Not for logical
+      -- switches: getInputs("L2") is always 0 (measured), though
+      -- getInputsVal and getSwitchInfo read them
+      if sp.name ~= "" and not sp.name:match("^L%d+$") and nInputs == 0
+      and system.getInputs and system.getInputsVal then
 	 local okr, raw = pcall(system.getInputs, sp.name)
 	 local okv, real = pcall(system.getInputsVal, item)
 	 if okr and okv and raw ~= nil and real ~= nil then
@@ -928,6 +954,43 @@ H.set = {ctx = "form", run = function(s)
 	    if not c then return false, err end
 	    local st, msg = setWidget(c, s.value)
 	    return st, c.label .. ": " .. tostring(msg)
+end}
+
+-- put widgets on this subform back to the values they had when the
+-- driver first saw them (true: all of them; or one label)
+H.restore = {ctx = "form", run = function(s)
+		local done = {}
+		for _, c in ipairs(comps) do
+		   local o = c.key and originals[c.key]
+		   if o and (s.restore == true or s.restore == c.label)
+		   and c.kind ~= "link" and c.value ~= o.v then
+		      local okr, msg
+		      if c.kind == "input" then
+			 if not c.wcb then
+			    okr, msg = false, "no callback"
+			 else
+			    local before = describeSwitch(c.value)
+			    injecting, c.fired = true, false
+			    pcall(orig.setValue, c.idx, o.v)
+			    local ok, err = pcall(c.wcb, o.v)
+			    injecting = false
+			    c.value = o.v
+			    okr = ok
+			    msg = ok and (before .. " -> " .. describeSwitch(o.v))
+			       or ("target callback error: " .. tostring(err))
+			 end
+		      else
+			 okr, msg = setWidget(c, o.v)
+		      end
+		      done[#done+1] = c.label .. ": " .. tostring(msg)
+		      if not okr then return false, table.concat(done, "; ") end
+		   end
+		end
+		if #done == 0 then
+		   return true, (s.restore == true and "nothing to restore on this subform"
+				    or ("nothing to restore for " .. tostring(s.restore)))
+		end
+		return true, table.concat(done, "; ")
 end}
 
 H.link = {ctx = "form", run = function(s)
@@ -1290,7 +1353,7 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "expectNoImage", "waitImage", "setInput", "clearInput",
 	       "setSensor", "clearSensor", "expectControl", "waitControl",
 	       "sensorPause", "sensorTime", "sensorStep", "sensorField",
-	       "sensorPosition", "sensorVars", "waitSensorTime"}
+	       "sensorPosition", "sensorVars", "waitSensorTime", "restore"}
 
 local function verbOf(s)
    for _, v in ipairs(VERBS) do
@@ -1583,6 +1646,7 @@ local function wInit(sub)
    comps, buttons, lastLabel = {}, {}, nil
    titleShown = nil                -- a rebuilt form may have reset the title
    capturing = true
+   capSub = sub
    local ok, err = pcall(T.init, sub)
    capturing = false
    curSub, formOpen = sub, true
@@ -1967,6 +2031,25 @@ local function setControlWrapper(under)
    end
 end
 
+-- system.getSwitchInfo: while a script sets a control, .value follows it,
+-- so apps reading sticks this way can be driven too ("for": "target" limits
+-- it to the target's calls). Measured: .value is the evaluated value, like
+-- getInputsVal (P2 "P" 0.758 -> "PC" 0.879), not the raw position
+local function switchInfoWrapper(under)
+   return function(sw, ...)
+      local info = under(sw, ...)
+      if nInputs == 0 or type(info) ~= "table" or not info.label then return info end
+      local o = inputs[tostring(info.label):upper()]
+      if not o or (o.targetOnly and not callerIsTarget()) then return info end
+      local c = {}
+      for k, v in pairs(info) do c[k] = v end
+      c.value = evalSwitch({name = tostring(info.label):upper(),
+			    mode = info.mode or (info.proportional and "P" or "S"),
+			    activeOn = info.activeOn}, o.value)
+      return c
+   end
+end
+
 -- system.createSwitch: remember each item's control, mode and activeOn
 -- (getSwitchInfo may not report activeOn)
 local function createSwitchWrapper(under)
@@ -1992,6 +2075,7 @@ local HOOKS = {
    {function() return system end, "registerControl", registerControlWrapper},
    {function() return system end, "setControl", setControlWrapper},
    {function() return system end, "createSwitch", createSwitchWrapper},
+   {function() return system end, "getSwitchInfo", switchInfoWrapper},
 }
 local hookWrapper = {}
 
