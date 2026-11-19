@@ -148,6 +148,24 @@
    lists what the app did announce. If SensorE loads after UIDriver,
    announcements made before the driver's first loop() can be missed.
 
+   TEXT ON SCREEN: what the target draws with lcd.drawText and
+   lcd.drawNumber. Steps look at the next frame of the form, or of a
+   telemetry window with "win": 2 ("win": "form" for the form; default
+   the form if it's open, else telemetry window 1). Text matches ignore
+   case and match part of the text ("exact": true for all of it);
+   "region": [x, y, w, h] limits it to text drawn starting in that box.
+     {"expectText": "Loading"}    PASS if on the next frame, else FAIL
+                                  (the log lists what is on screen)
+     {"expectNoText": "Error"}    the reverse
+     {"waitText": "Lap 2"}        PASS when a frame shows it; timeout FAIL
+     {"dumpText": true}           log every text of the next frame with
+                                  its x,y; handy for writing scripts
+   The recording versions of drawText/drawNumber are swapped in only
+   around the target's print callback while a text step is waiting, so
+   other apps' text isn't seen and the target pays nothing otherwise.
+   An app that keeps its own copy (local drawText = lcd.drawText) can't
+   be seen.
+
    Widgets are found by the label in their row (form.addLabel), or by
    the text of a link. Add "nth": 2 for the second widget with the same
    label, or use "#12" for component index 12. Any step can carry
@@ -266,6 +284,9 @@ local seq, actionSeq, actionMarked = 0, 0, nil
 local ACTIONS = {set = true, link = true, key = true, button = true, telemKey = true,
 		 telemButton = true, close = true}
 local anns = {}            -- announcements: {kind, text, value, seq, used}
+local textArm              -- {key, at}: a text step wants the next frame of key
+local frameNo = 0          -- frames captured so far
+local frames = {}          -- key ("form", "telem1") -> {n, items = {text, x, y}}
 
 local exposed = {}         -- name -> getter, from uid.expose
 local vars = {}            -- remembered values, for "$name" in expectState
@@ -955,7 +976,8 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "expect", "close", "cpuStart", "cpuCheck", "expectState",
 	       "waitEvent", "confirm", "note", "waitTelem", "telemButton",
 	       "expectTelemButton", "remember", "waitMessage", "waitAudio",
-	       "waitNumber", "waitVibration", "waitBeep"}
+	       "waitNumber", "waitVibration", "waitBeep", "expectText",
+	       "expectNoText", "waitText", "dumpText"}
 
 local function verbOf(s)
    for _, v in ipairs(VERBS) do
@@ -1010,6 +1032,7 @@ local function report(s, st, msg)
    elseif st == false then tag = "FAIL"; counts.fail = counts.fail + 1
    else tag = "ok"; counts.ok = counts.ok + 1 end
    log(string.format("%3d %-4s %-10s %s", si, tag, s._verb, msg or ""))
+   s._text, textArm = nil, nil
    si, stepT0 = si + 1, nil
    nextAt = now() + (s._verb == "wait" and 0 or cfg.stepGapMs)
    if st == false and cfg.stopOnFail then
@@ -1066,6 +1089,132 @@ end
 
 --------------------------------------------------------------------------------
 -- wrapped target callbacks
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+-- text on screen: expectText, expectNoText, waitText, dumpText
+--------------------------------------------------------------------------------
+
+-- Run a target print callback. Only while a text step is waiting for
+-- this window are lcd.drawText/drawNumber swapped for recording ones,
+-- and they're put back as soon as the target's print returns; so only
+-- the target's own text is seen, and otherwise nothing is added
+local function capturePrint(key, fn, w, h)
+   if not (textArm and textArm.key == key and lcd and lcd.drawText) then
+      return fn(w, h)
+   end
+   local items = {}
+   local dt, dn = lcd.drawText, lcd.drawNumber
+   lcd.drawText = function(x, y, text, ...)
+      items[#items+1] = {text = tostring(text), x = x, y = y}
+      return dt(x, y, text, ...)
+   end
+   if dn then
+      lcd.drawNumber = function(x, y, num, ...)
+	 items[#items+1] = {text = tostring(math.tointeger(num) or num), x = x, y = y}
+	 return dn(x, y, num, ...)
+      end
+   end
+   local ok, err = pcall(fn, w, h)
+   lcd.drawText, lcd.drawNumber = dt, dn
+   frameNo = frameNo + 1
+   frames[key] = {n = frameNo, items = items}
+   if not ok then error(err, 0) end
+end
+
+local function textKey(s)
+   if s.win == "form" then return "form" end
+   if s.win then return "telem" .. tostring(s.win) end
+   return formOpen and "form" or "telem1"
+end
+
+local function whereName(key)
+   return key == "form" and "the form" or ("telemetry window " .. key:sub(6))
+end
+
+-- the latest frame of the step's window drawn after the step started
+local function frameFor(s)
+   if not s._text then s._text = {key = textKey(s), at = frameNo} end
+   textArm = s._text
+   local f = frames[s._text.key]
+   if f and f.n > s._text.at then return f end
+end
+
+local function textMatches(it, s, want)
+   local r = s.region
+   if type(r) == "table" then
+      if not (it.x and it.y and it.x >= r[1] and it.x < r[1] + r[3]
+	      and it.y >= r[2] and it.y < r[2] + r[4]) then return false end
+   end
+   want = tostring(want)
+   if s.exact then return it.text == want end
+   return it.text:lower():find(want:lower(), 1, true) ~= nil
+end
+
+local function findText(f, s, want)
+   for _, it in ipairs(f.items) do
+      if textMatches(it, s, want) then return it end
+   end
+end
+
+local function screenList(f)
+   local t = {}
+   for i, it in ipairs(f.items) do
+      if i > 15 then t[#t+1] = "... " .. (#f.items - 15) .. " more"; break end
+      t[#t+1] = "'" .. it.text .. "'"
+   end
+   return #t > 0 and table.concat(t, ", ") or "no text"
+end
+
+local function textTimeout(s)
+   local key = s._text and s._text.key or textKey(s)
+   local f = frames[key]
+   if not (f and s._text and f.n > s._text.at) then
+      return "; " .. whereName(key) .. " wasn't drawn (is it showing?)"
+   end
+   return "; on screen: " .. screenList(f)
+end
+
+H.expectText = {ctx = "any", onTimeout = textTimeout, run = function(s)
+		   local f = frameFor(s)
+		   if not f then return end
+		   local it = findText(f, s, s.expectText)
+		   if it then
+		      return true, "'" .. it.text .. "' at " .. tostring(it.x) .. "," .. tostring(it.y)
+		   end
+		   return false, "'" .. tostring(s.expectText) .. "' not on " ..
+		      whereName(s._text.key) .. "; on screen: " .. screenList(f)
+end}
+
+H.expectNoText = {ctx = "any", onTimeout = textTimeout, run = function(s)
+		     local f = frameFor(s)
+		     if not f then return end
+		     local it = findText(f, s, s.expectNoText)
+		     if it then
+			return false, "'" .. it.text .. "' is on " .. whereName(s._text.key) ..
+			   " at " .. tostring(it.x) .. "," .. tostring(it.y)
+		     end
+		     return true, "'" .. tostring(s.expectNoText) .. "' not on " .. whereName(s._text.key)
+end}
+
+H.waitText = {ctx = "any", onTimeout = textTimeout, run = function(s)
+		 local f = frameFor(s)
+		 if not f then return end
+		 local it = findText(f, s, s.waitText)
+		 if it then
+		    return true, "'" .. it.text .. "' at " .. tostring(it.x) .. "," .. tostring(it.y)
+		 end
+end}
+
+H.dumpText = {ctx = "any", onTimeout = textTimeout, run = function(s)
+		 local f = frameFor(s)
+		 if not f then return end
+		 for _, it in ipairs(f.items) do
+		    log(string.format("   text %4s,%-4s '%s'", tostring(it.x), tostring(it.y), it.text))
+		 end
+		 return "ok", #f.items .. " texts on " .. whereName(s._text.key)
+end}
+
 --------------------------------------------------------------------------------
 
 local function wInit(sub)
@@ -1166,7 +1315,7 @@ local function overlay(w)
 end
 
 local function wPrint(w, h)
-   if T.print then T.print(w, h) end
+   if T.print then capturePrint("form", T.print, w, h) end
    cpuSample("form print", getCPU())   -- before the driver adds its own work
    runSteps("form")
    drawBanner(w, h)
@@ -1373,7 +1522,7 @@ local function install()
       T.tel[n] = {print = p, key = k, label = label}
       log("hooked telemetry window " .. n .. " '" .. label .. "'")
       local wp = function(w, h)
-	 if p then p(w, h) end
+	 if p then capturePrint("telem" .. n, p, w, h) end
 	 cpuSample("telemetry " .. n .. " print", getCPU())
 	 runSteps("telem", n)
 	 drawBanner(w, h)

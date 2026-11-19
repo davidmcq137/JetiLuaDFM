@@ -1,0 +1,23 @@
+{"steps": [
+  {"log": "text self-test: open SpikeTgt from the Applications menu"},
+  {"waitForm": true},
+  {"waitSub": 1},
+  {"dumpText": true},
+  {"set": "Spike Int", "value": 42},
+  {"expectText": "int=42"},
+  {"expectNoText": "int=10 "},
+  {"expectText": "sel=", "region": [0, 0, 160, 14]},
+  {"key": "KEY_1"},
+  {"waitText": "lastKey=1 "},
+  {"log": "the next step should FAIL, listing what is on the form"},
+  {"expectText": "no such text"},
+  {"close": true},
+  {"log": "show the SpikeTgt telemetry window full screen (no ESC needed)"},
+  {"waitTelem": 1},
+  {"dumpText": true, "win": 1},
+  {"expectText": "SpikeTgt telemetry", "exact": true},
+  {"telemKey": "KEY_4"},
+  {"waitText": "telemKey=8", "win": 1},
+  {"log": "the next step should FAIL: the form isn't open, so it isn't drawn"},
+  {"expectText": "int=", "win": "form", "timeoutMs": 2000}
+]}
