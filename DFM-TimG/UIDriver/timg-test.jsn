@@ -1,0 +1,52 @@
+{"steps": [
+  {"log": "DFM-TimG with SensorL replaying Log/20190926/16-56-45.log (Georgia Jets). Needs SensorL, not SensorE. Open DFM-TimG's menu within about 2 minutes of starting the apps, before the replayed takeoff, and leave it open: the run takes about 12 minutes"},
+  {"waitForm": true},
+  {"waitSub": 1},
+
+  {"log": "setup: gear switch SA and throttle cutoff SB, both down/on; fuel sensor; bingo 300 s so a bingo warning comes before landing"},
+  {"setInput": "SA", "value": -1, "for": "target"},
+  {"setInput": "SB", "value": -1, "for": "target"},
+  {"set": "Select Fuel Sensor", "value": "CTU-> Fuel remaining"},
+  {"set": "Select Retract Switch (gear up)", "value": "SA"},
+  {"set": "Select Throttle Cutoff (off)", "value": "SB"},
+  {"set": "Bingo fuel (secs before empty)", "value": 300},
+  {"set": "Short Announcement", "value": false},
+  {"expect": "Select Fuel Sensor", "value": "CTU-> Fuel remaining"},
+  {"expect": "Select Retract Switch (gear up)", "value": "SA"},
+  {"expectSensor": "Fuel remaining", "sensorName": "CTU", "min": 80},
+
+  {"log": "nothing is announced while the gear is down"},
+  {"waitAudio": "Sup_Tim", "absent": true, "forMs": 3000},
+
+  {"log": "wait for the takeoff roll in the log, then gear up"},
+  {"waitSensor": "Speed", "sensorName": "MGPS", "min": 15, "timeoutMs": 360000},
+  {"expectSensor": "Fuel remaining", "sensorName": "CTU", "min": 80, "as": "fuelAtGearUp"},
+  {"setInput": "SA", "value": 1, "for": "target"},
+  {"waitAudio": "Sup_Tim_Start", "timeoutMs": 5000},
+
+  {"log": "first minute: Time Elapsed 1 min, then Fuel Remaining n %"},
+  {"waitAudio": "Sup_Tim_Tim", "timeoutMs": 70000},
+  {"waitNumber": 1, "unit": "min"},
+  {"waitAudio": "Sup_Tim_Fuel"},
+  {"waitNumber": true, "unit": "%"},
+
+  {"log": "below 50% fuel TimG fixes its burn rate and starts announcing flight time remaining"},
+  {"waitSensor": "Fuel remaining", "sensorName": "CTU", "max": 49.5, "timeoutMs": 600000},
+  {"waitAudio": "Fuel_flight_time_remaining", "timeoutMs": 70000},
+
+  {"log": "with bingo at 300 s the warning should come at about 36% fuel, before the landing at about 30%"},
+  {"waitAudio": "warning_bingo_fuel", "timeoutMs": 400000},
+  {"waitAudio": "warning_bingo_fuel", "absent": true, "forMs": 10000},
+
+  {"log": "throttle cutoff stops the timer"},
+  {"setInput": "SB", "value": 1, "for": "target"},
+  {"waitMessage": "Turbine shut down", "timeoutMs": 3000},
+
+  {"log": "put TimG's settings back; the fuel sensor stays on CTU Fuel remaining (restore can't unselect a selectbox)"},
+  {"restore": "Select Retract Switch (gear up)"},
+  {"restore": "Select Throttle Cutoff (off)"},
+  {"restore": "Bingo fuel (secs before empty)"},
+  {"restore": "Short Announcement"},
+  {"clearInput": true},
+  {"log": "done"}
+]}

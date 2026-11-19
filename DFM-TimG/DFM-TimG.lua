@@ -63,9 +63,9 @@
 
 --local trans11
 
-sharedVar["DFM-TimG"] = {}
-sharedVar["DFM-TimG"].elapsed = 0
-sharedVar["DFM-TimG"].remaining = 0
+--sharedVar["DFM-TimG"] = {}
+--sharedVar["DFM-TimG"].elapsed = 0
+--sharedVar["DFM-TimG"].remaining = 0
 
 local TimAnnVersion = "1.1"
 local gearSwitch
@@ -437,8 +437,8 @@ local function loop()
       bingoAnnounced = true
    end
 
-   sharedVar["DFM-TimG"].elapsed = runningTime or 0
-   sharedVar["DFM-TimG"].remaining = remainingTime or 0
+   --sharedVar["DFM-TimG"].elapsed = runningTime or 0
+   --sharedVar["DFM-TimG"].remaining = remainingTime or 0
    
    if system.getTimeCounter() - (emptyAnnouncedTime or 0) > 10000 then emptyAnnounced = false end
 
