@@ -342,6 +342,22 @@
 
 local appName = "UIDriver"
 
+-- Emulator only. On a transmitter UIDriver would wrap every app's
+-- functions and could feed a chosen app fake controls and sensors,
+-- which could move real servos through that app's setControl outputs;
+-- it's also large for the TX's memory. So on a TX it does nothing but
+-- say so
+do
+   local dev, emu = system.getDeviceType()
+   if emu ~= 1 then
+      return {init = function()
+		 print("UIDriver: runs only in the emulator; doing nothing on " .. tostring(dev))
+		 system.messageBox("UIDriver runs only in the emulator", 5)
+	      end,
+	      loop = nil, author = "DFM", version = "0.2", name = appName}
+   end
+end
+
 local HOME = "Apps/UIDriver/"
 local SELFILE = HOME .. "selection.jsn"
 

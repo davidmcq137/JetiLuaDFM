@@ -156,6 +156,19 @@ local appDir="Apps/" .. appShort .. "/"
 local appVersion="1.00"
 local appAuthor="DFM"
 
+-- Emulator only: on a transmitter it would replace the real sensors
+-- (and getTxTelemetry, getPosition, ...) with a log's, for every app
+do
+   local dev, emu = system.getDeviceType()
+   if emu ~= 1 then
+      return {init = function()
+		 print("SensorL: runs only in the emulator; doing nothing on " .. tostring(dev))
+		 system.messageBox("SensorL runs only in the emulator", 5)
+	      end,
+	      loop = nil, author = appAuthor, version = appVersion, name = appName}
+   end
+end
+
 -- the system.messageBox there was when this chunk loaded (the firmware's,
 -- or a test driver's wrapper of it)
 local fwMessageBox = system.messageBox
