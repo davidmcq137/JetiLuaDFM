@@ -42,7 +42,10 @@
                                   -- boxes but don't show them
         "recordAnnouncements": false, -- record mode: add a wait step for
                                   -- each announcement
-        "logControls": true}      -- log the target's setControl changes
+        "logControls": true,      -- log the target's setControl changes
+        "sensorConfig": "Apps/DFM-Maps/JSON"}  -- optional: SensorE uses
+                                  -- this config dir instead of the one
+                                  -- in Apps/SensorE.jsn
      result.log     play results (also echoed to the console as [UID])
      recorded.jsn   written in record mode; it's a playable script
 
@@ -176,6 +179,27 @@
    setInput/setSensor count as actions for the waits. Overrides stay
    until cleared. The wrappers are re-applied from loop() if SensorE
    replaces the functions after UIDriver loads.
+
+   SENSORE: control the sensor emulator through system.SensorE (needs
+   SensorE running; see its header). Its state is exposed as "sensorE":
+   expectState "sensorE.t", "sensorE.x", "sensorE.heading", ... and a
+   FAIL line ends with SensorE's t, x and y.
+     {"sensorPause": true}        freeze time and the GPS simulator
+                                  (false resumes)
+     {"sensorStep": 10}           while paused: run 10 simulator steps of
+                                  200 ms each, and wait until they've run
+                                  (SensorE steps when the target reads
+                                  its GPS sensors)
+     {"sensorTime": 30}           set SensorE's t (seconds)
+     {"waitSensorTime": 40}       wait until t reaches 40 (set
+                                  "timeoutMs" if that's far off)
+     {"sensorPosition": [120, -40]}  hold the GPS output at x, y from
+                                  the origin (false releases)
+     {"sensorVars": {"xp": 0, "yp": -100, "heading": 90}}  set the
+                                  simulator's xp, yp, heading, zp, pitch
+     {"sensorField": "DCRC Walt Good Field"}  GPS origin field (or index)
+   SensorE loads its config on the first getSensors call; "sensorConfig"
+   in config.jsn picks the dir. setTime and setField need it loaded.
 
    TEXT ON SCREEN: what the target draws with lcd.drawText and
    lcd.drawNumber. Steps look at the next frame of the form, or of a
@@ -320,6 +344,8 @@ local counts = {pass = 0, fail = 0, ok = 0, checks = 0, checkFails = 0}
 local seq, actionSeq, actionMarked = 0, 0, nil
 local ACTIONS = {set = true, link = true, key = true, button = true, telemKey = true,
 		 setInput = true, clearInput = true, setSensor = true, clearSensor = true,
+		 sensorPause = true, sensorTime = true, sensorStep = true, sensorField = true,
+		 sensorPosition = true, sensorVars = true,
 		 telemButton = true, close = true}
 local anns = {}            -- announcements: {kind, text, value, seq, used}
 local textArm              -- {key, at}: a text step wants the next frame of key
@@ -1048,7 +1074,9 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "waitNumber", "waitVibration", "waitBeep", "expectText",
 	       "expectNoText", "waitText", "dumpText", "expectImage",
 	       "expectNoImage", "waitImage", "setInput", "clearInput",
-	       "setSensor", "clearSensor", "expectControl", "waitControl"}
+	       "setSensor", "clearSensor", "expectControl", "waitControl",
+	       "sensorPause", "sensorTime", "sensorStep", "sensorField",
+	       "sensorPosition", "sensorVars", "waitSensorTime"}
 
 local function verbOf(s)
    for _, v in ipairs(VERBS) do
@@ -1065,6 +1093,11 @@ local function flatten(list, out, errs)
 	 -- edit hands the callback an integer, so pass whole numbers as ints
 	 for k, x in pairs(s) do
 	    if type(x) == "number" then s[k] = whole(x) or x end
+	    if type(x) == "table" then
+	       for k2, x2 in pairs(x) do
+		  if type(x2) == "number" then x[k2] = whole(x2) or x2 end
+	       end
+	    end
 	 end
 	 local v = verbOf(s)
 	 if not v then errs[#errs+1] = json.encode(s) end
@@ -1102,6 +1135,14 @@ local function report(s, st, msg)
    if st == true then tag = "PASS"; counts.pass = counts.pass + 1
    elseif st == false then tag = "FAIL"; counts.fail = counts.fail + 1
    else tag = "ok"; counts.ok = counts.ok + 1 end
+   if st == false and system.SensorE and system.SensorE.getState then
+      local ok, g = pcall(system.SensorE.getState)
+      if ok and type(g) == "table" and g.t then
+	 msg = (msg or "") .. string.format("  [SensorE t=%.1f x=%s y=%s]", g.t,
+					    tostring(g.x and math.floor(g.x + 0.5)),
+					    tostring(g.y and math.floor(g.y + 0.5)))
+      end
+   end
    log(string.format("%3d %-4s %-10s %s", si, tag, s._verb, msg or ""))
    s._text, textArm = nil, nil
    si, stepT0 = si + 1, nil
@@ -1866,6 +1907,109 @@ H.waitControl = {ctx = "any", run = function(s) return controlCheck(s, "waitCont
 		    return "; last value " .. tostring(c and c.value)
 		 end}
 
+--------------------------------------------------------------------------------
+-- SensorE control, through system.SensorE
+--------------------------------------------------------------------------------
+
+local function SE()
+   local se = system.SensorE
+   if type(se) ~= "table" then
+      return nil, "SensorE isn't running, or is too old (no system.SensorE)"
+   end
+   return se
+end
+
+-- run a SensorE API call; its true/false+message becomes the step's
+local function seCall(fname, okMsg, ...)
+   local se, err = SE()
+   if not se then return false, err end
+   local ok, res, msg = pcall(se[fname], ...)
+   if not ok then return false, "SensorE " .. fname .. " error: " .. tostring(res) end
+   if res == false then return false, "SensorE: " .. tostring(msg) end
+   return "ok", okMsg
+end
+
+local function seState()
+   local se = SE()
+   if not se then return nil end
+   local ok, g = pcall(se.getState)
+   return ok and g or nil
+end
+
+H.sensorPause = {ctx = "any", run = function(s)
+		    local on = s.sensorPause ~= false
+		    return seCall("pause", on and "SensorE paused (time and GPS simulator)"
+				     or "SensorE running", on)
+end}
+
+H.sensorTime = {ctx = "any", run = function(s)
+		   return seCall("setTime", "SensorE t = " .. tostring(s.sensorTime), s.sensorTime)
+end}
+
+-- ask for n simulator steps, then wait until SensorE has run them (it
+-- steps when the target reads its GPS sensors)
+H.sensorStep = {ctx = "any", run = function(s)
+		   if not s._asked then
+		      local st, msg = seCall("step", nil, s.sensorStep)
+		      if st == false then return st, msg end
+		      s._asked = true
+		      return
+		   end
+		   local g = seState()
+		   if g and g.stepsPending == 0 then
+		      s._asked = nil
+		      return "ok", tostring(s.sensorStep) .. " steps, now t=" ..
+			 string.format("%.1f", g.t or 0) .. " x=" .. tostring(g.x) .. " y=" .. tostring(g.y)
+		   end
+		end,
+		onTimeout = function(s)
+		   s._asked = nil
+		   local g = seState()
+		   return "; " .. tostring(g and g.stepsPending) ..
+		      " steps not run (SensorE steps when the target reads its GPS sensors)"
+		end}
+
+H.sensorField = {ctx = "any", run = function(s)
+		    return seCall("setField", "SensorE GPS origin field " .. tostring(s.sensorField),
+				  s.sensorField)
+end}
+
+H.sensorPosition = {ctx = "any", run = function(s)
+		       local p = s.sensorPosition
+		       if p == false then
+			  return seCall("setPosition", "SensorE GPS position released", nil)
+		       end
+		       if type(p) ~= "table" or p[1] == nil or p[2] == nil then
+			  return false, "sensorPosition needs [x, y] or false"
+		       end
+		       return seCall("setPosition", "SensorE GPS held at " .. tostring(p[1]) ..
+				     ", " .. tostring(p[2]), p[1], p[2])
+end}
+
+H.sensorVars = {ctx = "any", run = function(s)
+		   if type(s.sensorVars) ~= "table" then
+		      return false, "sensorVars needs an object, e.g. {\"xp\": 0, \"heading\": 90}"
+		   end
+		   local parts = {}
+		   for k, v in pairs(s.sensorVars) do parts[#parts+1] = k .. "=" .. tostring(v) end
+		   table.sort(parts)
+		   return seCall("setVars", "SensorE " .. table.concat(parts, " "), s.sensorVars)
+end}
+
+H.waitSensorTime = {ctx = "any", run = function(s)
+		       local se, err = SE()
+		       if not se then return false, err end
+		       local g = seState()
+		       if g and g.t and g.t >= s.waitSensorTime then
+			  return "ok", string.format("SensorE t = %.1f", g.t)
+		       end
+		    end,
+		    onTimeout = function()
+		       local g = seState()
+		       return "; SensorE t = " .. tostring(g and g.t) ..
+			  (g and g.paused and " (paused)" or "")
+		    end}
+
 -- remember which file each image came from, for expectImage. Called at
 -- chunk load, before any app's init() loads its images
 local function wrapImages()
@@ -2047,6 +2191,14 @@ local function start()
    local f = io.open(LOGFILE, "w")
    if f then io.close(f) end
    system.UIDriver = api          -- in every mode, so checks work by hand too
+   -- SensorE reads this when it loads its config (first getSensors)
+   if cfg.mode == "play" or cfg.mode == "record" then
+      api.sensorConfig = cfg.sensorConfig
+   end
+   exposed.sensorE = function()
+      local se = system.SensorE
+      return type(se) == "table" and se.getState and se.getState() or nil
+   end
    if cfg.mode ~= "play" and cfg.mode ~= "record" then return end
    log(appName .. " mode=" .. cfg.mode .. " target=" .. cfg.target)
    install()

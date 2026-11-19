@@ -6,5 +6,6 @@
   "stepTimeoutMs": 10000,
   "stopOnFail": false,
   "overlay": true,
-  "recordRotary": false
+  "recordRotary": false,
+  "sensorConfig": "Apps/DFM-Maps/JSON"
 }

@@ -35,6 +35,29 @@
    The capability to use lua code in the virtual sensors is inspired
    by Jeti's V-sensor.lua app
 
+   Test driver API (system.SensorE, used by UIDriver.lua). Nothing
+   changes unless these are called; holding switch SI still freezes
+   time as before.
+
+      getState()        {t, paused, stepsPending, x, y, lat, lon, held,
+                         xp, yp, heading, zp, pitch, configDir, field, gps}
+                         x, y: the last position before trueDir rotation
+      pause(on)         freeze (true) or resume time AND the GPS
+                         simulator (xString etc. stop stepping)
+      step(n)           while paused: run the GPS simulator n more steps,
+                         each one GPSMINMS (200 ms) of simulated time
+      setTime(sec)      set t; the GPS path is re-evaluated once
+      setPosition(x, y) hold the GPS output at x, y (same units and frame
+                         as xString/yString); setPosition(nil) releases
+      setVars(tbl)      set any of xp, yp, heading, zp, pitch (the
+                         persistent simulator state); the position is
+                         re-encoded without stepping
+      setField(f)       choose the GPS origin field by name or index, as
+                         on SensorE's form
+   The functions return true, or false and a message.
+   If system.UIDriver.sensorConfig is set (UIDriver's config.jsn
+   "sensorConfig"), it is used as the configDir instead of SensorE.jsn's.
+
    Bug fixes:
 
    01/14/2023 added check for valGPS to getPosition - Frank Scnreiber reported
@@ -122,6 +145,15 @@ local fieldnames = {}
 local fieldIdx
 local persistXP, persistYP, persistHH
 local persistZP, persistPP
+
+-- test driver control (system.SensorE)
+local paused = false       -- time and the GPS simulator are frozen
+local stepsPending = 0     -- simulator steps asked for while paused
+local forceGPS = false     -- re-encode the GPS position without stepping
+local evalGPS = false      -- re-evaluate the GPS strings once (after setTime)
+local holdXY               -- {x, y} from setPosition
+local lastX, lastY         -- last position before trueDir rotation
+local configDirUsed
 
 local function rotateXY(x, y, rotation)
    local sinShape, cosShape
@@ -467,6 +499,15 @@ function emulator_getSensors()
       SEjsn.configDir = "Apps"
    end
 
+   -- a test driver (UIDriver) can choose the config dir
+   local drv = system.UIDriver
+   if type(drv) == "table" and type(drv.sensorConfig) == "string"
+   and drv.sensorConfig ~= "" then
+      print("SensorE: configDir from UIDriver: " .. drv.sensorConfig)
+      SEjsn.configDir = drv.sensorConfig
+   end
+   configDirUsed = SEjsn.configDir
+
    switchSeq = 1
    for c in string.gmatch("ABCDEFGHIJ",".") do
       saveSwitch["S"..c] = system.getInputs("S"..c)
@@ -598,6 +639,104 @@ function emulator_getPosition(sensID, parmLat, parmLng)
    end
 end
 
+-- encode a position (x, y from the origin, before trueDir rotation) into
+-- the latVal/lonVal sensor values and savePoint
+local function encodeXY(xCart, yCart)
+   local lat, lon
+   local latDeg, latFrac, latMin
+   local lonDeg, lonFrac, lonMin
+   lastX, lastY = xCart, yCart
+   -- at this point, we have the xCart and yCart (Cartesian)
+   -- values in preferred units (determined by rE) that are
+   -- offsets from the lat0, lon0 point and we have to create
+   -- the encoded values for GPS lat and GPS lon
+   -- solve x,y equations for lat and long
+
+   -- if true direction of runway is supplied, rotate x,y coords to be parallel
+   -- to the runway .. else leave as-is
+
+   if GPSparms.trueDir then
+      --print("GPSparms.trueDir:", GPSparms.trueDir)
+      xCart, yCart = rotateXY(xCart, yCart, math.rad(360-GPSparms.trueDir))
+   end
+	 
+   -- these will be lat and lon in radians
+
+   -- try avoiding single precision issues using the gps functions
+	 
+   local gp0 = gps.newPoint(GPSparms.lat0, GPSparms.lon0)
+   local dd0 = math.sqrt(xCart^2 + yCart^2)
+   local aa0 = math.deg(math.atan(xCart, yCart))
+   local bb0 = (aa0 + 360) % 360
+   local gp1 = gps.getDestination(gp0, dd0, bb0)
+   local nlat, nlon = gps.getValue(gp1)
+   local slat, slon
+   if gps.getString then
+      slat, slon = gps.getString(gp1)
+   elseif gps.getStrig then
+      slat, slon = gps.getStrig(gp1)
+   else
+      slat, slon = "0.0", "0.0"
+   end
+
+   savePoint = gp1
+	 
+   lat = yCart/GPSparms.rE + math.rad(GPSparms.lat0)
+   lon = xCart/(GPSparms.rE * coslat0) + math.rad(GPSparms.lon0)
+	 
+   --print(dd0, bb0, math.deg(lat), math.deg(lon), nlat, nlon, math.deg(lat)-nlat, math.deg(lon)-nlon)
+
+   --print(slat, slon)
+	 
+   -- now convert to degrees
+   lat = math.deg(lat)
+   lon = math.deg(lon)
+
+   --lat = nlat -- math.deg(lat)
+   --lon = nlon -- math.deg(lon)
+
+   -- note sign, work with positive values, put sign back later
+   if lat > 0 then latDecimals = 0 else
+      latDecimals = 2
+      lat = -1 * lat
+   end
+	 
+   if lon > 0 then lonDecimals = 1 else
+      lonDecimals = 3
+      lon = -1 * lon
+   end
+	 
+   --print("getString", slat, slon)
+
+   latDeg = math.abs(tonumber(string.match(slat, "(.*)%.")))
+   lonDeg = math.abs(tonumber(string.match(slon, "(.*)%.")))
+
+   latFrac = tonumber("."..string.match(slat, "%.(.*)"))
+   lonFrac = tonumber("."..string.match(slon, "%.(.*)"))
+
+   --print(latDeg, latFrac, lonDeg, lonFrac)
+	 
+   local latDegS, latFracS = math.modf(lat)
+   local lonDegS, lonFracS = math.modf(lon)
+
+   --print(latFrac - latFracS, lonFrac - lonFracS)
+
+   --latDeg, latFrac = math.modf(lat)
+   --lonDeg, lonFrac = math.modf(lon)         
+	 
+   latMin = latFrac * 60
+   lonMin = lonFrac * 60
+
+   lonVal = 0
+   latVal = 0
+	 
+   lonVal = lonDeg << 16
+   lonVal = lonVal + math.floor(1000 * lonMin + 0.5)
+
+   latVal = latDeg << 16
+   latVal = latVal + math.floor(1000 * latMin + 0.5)
+end
+
 function emulator_getSensorByID(ID, Param)
    local c
    local expResult, funcResult
@@ -631,7 +770,7 @@ function emulator_getSensorByID(ID, Param)
 	 returnTbl.valid = true
 	 returnTbl.sensorName = v.sensorName
 	 uid = tostring(math.floor(ID)).."-"..tostring(math.floor(Param))
-	 if system.getInputs("SI") == 1 and env.t then -- set SI to 1 to hold time
+	 if (paused or system.getInputs("SI") == 1) and env.t then -- set SI to 1 to hold time
 	    timeW = system.getTimeCounter() - (env.t * 1000 + time0)
 	 else
 	    env.t = (system.getTimeCounter() - time0 - timeW)/1000
@@ -661,124 +800,49 @@ function emulator_getSensorByID(ID, Param)
 	 -- and evaluate the lua strings
 	 
 	 GPSdt = system.getTimeCounter() - lastGPScalc
-	 --print("%%%%%%%%%%%%%%Emulator: GPSparms, v.type, v.param, GPSdt", GPSparms, v.type, v.param, GPSdt)
-	 --print(system.getTimeCounter(), lastGPScalc)
-	 if GPSparms and v.type == 9 and (v.param == 2 or v.param == 3)
-	 and (not latVal or GPSdt > GPSMINMS) then
-	    if GPSparms.auxcontrol and #GPSparms.auxcontrol > 0 then
-	       for i = 1,#GPSparms.auxcontrol,1 do
-		  c = system.getInputs(GPSparms.auxcontrol[i]) -- e.g P6 = <-1..1>
-		  env[GPSparms.auxcontrol[i]] = c
-		  env[string.gsub(GPSparms.auxcontrol[i],"P","S")] = (1 + c) / 2
+	 -- When to step the GPS strings (xString etc.) and recompute the
+	 -- position: the first time, then every GPSMINMS ms; while paused
+	 -- (system.SensorE) only for each step() asked for. setTime
+	 -- re-evaluates once; setPosition/setVars/setField re-encode the
+	 -- position without stepping
+	 local gpsParam = GPSparms and v.type == 9 and (v.param == 2 or v.param == 3)
+	 local integrate = gpsParam and (not latVal or evalGPS
+					  or (paused and stepsPending > 0)
+					  or (not paused and GPSdt > GPSMINMS))
+	 if gpsParam and (integrate or forceGPS) then
+	    forceGPS = false
+	    if integrate then
+	       if paused and latVal and not evalGPS then
+		  -- one step is GPSMINMS of simulated time
+		  stepsPending = stepsPending - 1
+		  env.t = env.t + GPSMINMS / 1000
+		  timeW = system.getTimeCounter() - (env.t * 1000 + time0)
 	       end
-	    end
-	    
-	    if GPSparms.lat0 then env.Lat0 = GPSparms.lat0 end
-	    if GPSparms.lon0 then env.Lon0 = GPSparms.lon0 end
-	    if GPSparms.rE   then env.rE   = GPSparms.rE   end
+	       evalGPS = false
+	       if GPSparms.auxcontrol and #GPSparms.auxcontrol > 0 then
+		  for i = 1,#GPSparms.auxcontrol,1 do
+		     c = system.getInputs(GPSparms.auxcontrol[i]) -- e.g P6 = <-1..1>
+		     env[GPSparms.auxcontrol[i]] = c
+		     env[string.gsub(GPSparms.auxcontrol[i],"P","S")] = (1 + c) / 2
+		  end
+	       end
 
-	    -------------------
-	    
-	    xCart = gpsEval("xString", persistXP or 0); persistXP = xCart
-	    yCart = gpsEval("yString", persistYP or 0); persistYP = yCart
-	    persistHH = gpsEval("hString", persistHH)
-	    persistPP = gpsEval("pString", persistPP)
-	    persistZP = gpsEval("zString", persistZP)
+	       if GPSparms.lat0 then env.Lat0 = GPSparms.lat0 end
+	       if GPSparms.lon0 then env.Lon0 = GPSparms.lon0 end
+	       if GPSparms.rE   then env.rE   = GPSparms.rE   end
 
-	    --print("@", persistZP, env.zp, persistPP, env.pitch)	    
-	    --print("@", persistXP, persistYP, persistHH)
-	    --print("xCart, yCart:", xCart, yCart)
-	    
-	    -- at this point, we have the xCart and yCart (Cartesian)
-	    -- values in preferred units (determined by rE) that are
-	    -- offsets from the lat0, lon0 point and we have to create
-	    -- the encoded values for GPS lat and GPS lon
-	    -- solve x,y equations for lat and long
+	       -------------------
 
-	    -- if true direction of runway is supplied, rotate x,y coords to be parallel
-	    -- to the runway .. else leave as-is
-
-	    if GPSparms.trueDir then
-	       --print("GPSparms.trueDir:", GPSparms.trueDir)
-	       xCart, yCart = rotateXY(xCart, yCart, math.rad(360-GPSparms.trueDir))
-	    end
-	    
-	    -- these will be lat and lon in radians
-
-	    -- try avoiding single precision issues using the gps functions
-	    
-	    local gp0 = gps.newPoint(GPSparms.lat0, GPSparms.lon0)
-	    local dd0 = math.sqrt(xCart^2 + yCart^2)
-	    local aa0 = math.deg(math.atan(xCart, yCart))
-	    local bb0 = (aa0 + 360) % 360
-	    local gp1 = gps.getDestination(gp0, dd0, bb0)
-	    local nlat, nlon = gps.getValue(gp1)
-	    local slat, slon
-	    if gps.getString then
-	       slat, slon = gps.getString(gp1)
-	    elseif gps.getStrig then
-	       slat, slon = gps.getStrig(gp1)
+	       xCart = gpsEval("xString", persistXP or 0); persistXP = xCart
+	       yCart = gpsEval("yString", persistYP or 0); persistYP = yCart
+	       persistHH = gpsEval("hString", persistHH)
+	       persistPP = gpsEval("pString", persistPP)
+	       persistZP = gpsEval("zString", persistZP)
 	    else
-	       slat, slon = "0.0", "0.0"
+	       xCart, yCart = persistXP or 0, persistYP or 0
 	    end
-
-	    savePoint = gp1
-	    
-	    lat = yCart/GPSparms.rE + math.rad(GPSparms.lat0)
-	    lon = xCart/(GPSparms.rE * coslat0) + math.rad(GPSparms.lon0)
-	    
-	    --print(dd0, bb0, math.deg(lat), math.deg(lon), nlat, nlon, math.deg(lat)-nlat, math.deg(lon)-nlon)
-
-	    --print(slat, slon)
-	    
-	    -- now convert to degrees
-	    lat = math.deg(lat)
-	    lon = math.deg(lon)
-
-	    --lat = nlat -- math.deg(lat)
-	    --lon = nlon -- math.deg(lon)
-
-	    -- note sign, work with positive values, put sign back later
-	    if lat > 0 then latDecimals = 0 else
-	       latDecimals = 2
-	       lat = -1 * lat
-	    end
-	    
-	    if lon > 0 then lonDecimals = 1 else
-	       lonDecimals = 3
-	       lon = -1 * lon
-	    end
-	    
-	    --print("getString", slat, slon)
-
-	    latDeg = math.abs(tonumber(string.match(slat, "(.*)%.")))
-	    lonDeg = math.abs(tonumber(string.match(slon, "(.*)%.")))
-
-	    latFrac = tonumber("."..string.match(slat, "%.(.*)"))
-	    lonFrac = tonumber("."..string.match(slon, "%.(.*)"))
-
-	    --print(latDeg, latFrac, lonDeg, lonFrac)
-	    
-	    local latDegS, latFracS = math.modf(lat)
-	    local lonDegS, lonFracS = math.modf(lon)
-
-	    --print(latFrac - latFracS, lonFrac - lonFracS)
-
-	    --latDeg, latFrac = math.modf(lat)
-	    --lonDeg, lonFrac = math.modf(lon)	    
-	    
-	    latMin = latFrac * 60
-	    lonMin = lonFrac * 60
-
-	    lonVal = 0
-	    latVal = 0
-	    
-	    lonVal = lonDeg << 16
-	    lonVal = lonVal + math.floor(1000 * lonMin + 0.5)
-
-	    latVal = latDeg << 16
-	    latVal = latVal + math.floor(1000 * latMin + 0.5)
-
+	    if holdXY then xCart, yCart = holdXY.x, holdXY.y end
+	    encodeXY(xCart, yCart)
 	    lastGPScalc = system.getTimeCounter()
 	 end
 	 --
@@ -1053,6 +1117,114 @@ local function loop()
       --print("ERROR!!!!!") -- WTF??
    end
 end
+
+--------------------------------------------------------------------------------
+-- system.SensorE: lets a test driver (UIDriver) control the emulation.
+-- See the header. Nothing changes unless it is called
+--------------------------------------------------------------------------------
+
+local SEapi = {version = 1}
+
+function SEapi.getState()
+   local lat, lon
+   if savePoint and gps and gps.getValue then lat, lon = gps.getValue(savePoint) end
+   return {t = env.t, paused = paused, stepsPending = stepsPending,
+	   x = lastX, y = lastY, lat = lat, lon = lon, held = holdXY ~= nil,
+	   xp = persistXP, yp = persistYP, heading = persistHH, zp = persistZP,
+	   pitch = persistPP, configDir = configDirUsed,
+	   field = fieldIdx and fieldnames[fieldIdx], gps = GPSparms ~= nil}
+end
+
+function SEapi.pause(on)
+   on = on and true or false
+   if on == paused then return true end
+   local now = system.getTimeCounter()
+   if on then
+      -- freeze t where it is now, not at the last sensor read
+      if time0 and timeW and system.getInputs("SI") ~= 1 then
+	 env.t = (now - time0 - timeW) / 1000
+      end
+   else
+      stepsPending = 0
+      -- carry on from the frozen t
+      if time0 and env.t then timeW = now - (env.t * 1000 + time0) end
+   end
+   paused = on
+   return true
+end
+
+function SEapi.step(n)
+   if not paused then return false, "step only works while paused" end
+   n = math.floor(tonumber(n) or 1)
+   if n < 1 then return false, "step needs a count of 1 or more" end
+   stepsPending = stepsPending + n
+   return true
+end
+
+function SEapi.setTime(sec)
+   sec = tonumber(sec)
+   if not sec then return false, "setTime needs seconds" end
+   if not time0 then
+      return false, "no sensors read yet (the config loads on the first getSensors)"
+   end
+   env.t = sec
+   timeW = system.getTimeCounter() - (sec * 1000 + time0)
+   evalGPS = true
+   return true
+end
+
+function SEapi.setPosition(x, y)
+   if x == nil then
+      holdXY = nil
+   else
+      x, y = tonumber(x), tonumber(y)
+      if not x or not y then return false, "setPosition needs x and y (or nil)" end
+      holdXY = {x = x, y = y}
+   end
+   forceGPS = true
+   return true
+end
+
+function SEapi.setVars(tbl)
+   if type(tbl) ~= "table" then return false, "setVars needs a table" end
+   local known = {xp = true, yp = true, heading = true, zp = true, pitch = true}
+   for k, val in pairs(tbl) do
+      if not known[k] then
+	 return false, "unknown variable " .. tostring(k) .. " (xp, yp, heading, zp, pitch)"
+      end
+      if not tonumber(val) then return false, k .. " must be a number" end
+   end
+   for k, val in pairs(tbl) do
+      val = tonumber(val)
+      if k == "xp" then persistXP = val
+      elseif k == "yp" then persistYP = val
+      elseif k == "heading" then persistHH = val
+      elseif k == "zp" then persistZP = val
+      else persistPP = val end
+   end
+   forceGPS = true
+   return true
+end
+
+function SEapi.setField(which)
+   if not GPSparms then
+      return false, "no GPS config loaded yet (it loads on the first getSensors)"
+   end
+   local idx = tonumber(which)
+   if not idx then
+      for i, name in ipairs(fieldnames) do
+	 if name:lower() == tostring(which):lower() then idx = i end
+      end
+   end
+   if not idx or not geo.fields or not geo.fields[idx] then
+      return false, "no field " .. tostring(which) .. "; have " .. table.concat(fieldnames, ", ")
+   end
+   fieldIdxChanged(idx)
+   forceGPS = true
+   return true
+end
+
+system.SensorE = SEapi
 
 emulator_init()
 
