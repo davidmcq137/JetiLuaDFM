@@ -56,6 +56,7 @@
 
   {"log": "part 2: show the DFM-Maps Map View telemetry window full screen (no key presses needed)"},
   {"waitTelem": 1},
+  {"note": "Press ESC now so the map view's own buttons (- + NoFly NFAnn NFShk) show; the script can't switch them, only the firmware can. Then watch NoFly, NFAnn and NFShk change", "ms": 10000},
   {"expectTelemButton": "-", "state": "enabled"},
   {"expectTelemButton": "+", "state": "enabled"},
   {"expectTelemButton": "NoFly"},
