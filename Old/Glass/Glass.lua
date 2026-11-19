@@ -13,7 +13,9 @@
 
 --]]
 
-if not sharedVar then sharedVar = {} end
+-- sharedVar crashes on the current (6.05) JETI Lua; Glass is superseded
+-- by DFM-HUD, so the DFM-TimG values it read from there are just dropped
+--if not sharedVar then sharedVar = {} end
 
 local appName = "Glass"
 local pathApp = "Apps/"..appName.."/"
@@ -1095,12 +1097,12 @@ local function loop()
 		     elseif v.sensorPa == 12 then
 			sensor.value = minV + (maxV - minV) * (1 + system.getInputs("P4")) / 2
 			sensor.valid = true
-		     elseif v.sensorPa == 13 and sharedVar["DFM-TimG"] then -- remaining time
-			sensor.value = sharedVar["DFM-TimG"].remaining or 0
-			sensor.valid = true
-		     elseif v.sensorPa == 14 and sharedVar["DFM-TimG"] then -- elapsed time
-			sensor.value = sharedVar["DFM-TimG"].elapsed or 0
-			sensor.valid = true
+		     --elseif v.sensorPa == 13 and sharedVar["DFM-TimG"] then -- remaining time
+			--sensor.value = sharedVar["DFM-TimG"].remaining or 0
+			--sensor.valid = true
+		     --elseif v.sensorPa == 14 and sharedVar["DFM-TimG"] then -- elapsed time
+			--sensor.value = sharedVar["DFM-TimG"].elapsed or 0
+			--sensor.valid = true
 		     end
 		  else
 		     sensor = system.getSensorByID(v.sensorId, v.sensorPa)
