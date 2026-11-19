@@ -100,3 +100,6 @@ DFM-Maps/Old_Maps
 UIDriver/result.log
 UIDriver/recorded.jsn
 UIDriver/SpikeTgt.log
+
+# DFM-Rscu field files: rewritten each time it sets home; not kept in git
+DFM-Rscu/Fields/*.gps
