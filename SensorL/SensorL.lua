@@ -118,6 +118,9 @@ local sensorE_Global = {emulator_init=true, emulator_vibration=true, emulator_pl
 		  emulator_getPosition=true, emulator_getTxTelemetry=true,
 		  emulator_init=true}
 
+-- disabled: a _G metatable no longer works with JETI's current Lua
+-- (taken out of SensorE too)
+--[==[
 setmetatable(_G, {
 		__newindex = function (t, n, v)
 		   if not sensorE_Global[n] then
@@ -133,6 +136,7 @@ setmetatable(_G, {
 		   end
 		end,
 })
+--]==]
 
 
 local appShort="SensorL"
@@ -140,6 +144,10 @@ local appName="Sensor LogFile Emulator"
 local appDir="Apps/" .. appShort .. "/"
 local appVersion="1.00"
 local appAuthor="DFM"
+
+-- the system.messageBox there was when this chunk loaded (the firmware's,
+-- or a test driver's wrapper of it)
+local fwMessageBox = system.messageBox
 
 local sensorTbl={}
 
@@ -382,7 +390,9 @@ local function readLogTimeBlock()
 	    end
 	 end
       else
-	 system.messageBox(logItems.cols[6], 2)	 
+	 -- a message the transmitter showed during the logged flight
+	 print("SensorL - message in log: " .. tostring(logItems.cols[6]))
+	 fwMessageBox(logItems.cols[6], 2)
       end
 
       logItems.line = io.readline(fd, true)
@@ -404,9 +414,15 @@ end
 
 ------------------------------------------------------------
 
+local initTried = false
+
 local function emulator_init()
    
    local text, jfile
+   -- once only: called from init() and from the first sensor call, which
+   -- may come from another app's init() before ours
+   if initTried then return end
+   initTried = true
    local fg
    --local logSensorInfo
    --local savedLogFile
@@ -442,15 +458,6 @@ local function emulator_init()
    --dev, emflag = system.getDeviceType()
    
    print("SensorL: Using Log file: "..config.logFile)
-   
-   system.getSensors = emulator_getSensors
-   system.getSensorByID = emulator_getSensorByID
-   system.getSensorValueByID = emulator_getSensorValueByID
-   system.getTxTelemetry = emulator_getTxTelemetry
-   gps.getPosition = emulator_getPosition
-   system.playFile = emulator_playFile
-   system.playNumber = emulator_playNumber
-   system.vibration = emulator_vibration
    
    
 end
@@ -538,6 +545,8 @@ function emulator_getSensors()
    -- 		     ["RCT-GPS_Distance"]=4,
    -- 		     ["RCT-GPS_Latitude"]=9, ["RCT-GPS_Longitude"]=9}
 
+   emulator_init()
+   sensorTbl = {}   -- rebuilt on every call; it used to grow each time
    if not rlhDone then
       print("SensorL: Called getSensors before log header completely read")
       sensorTbl = {}
@@ -668,6 +677,9 @@ function emulator_getSensorByID(ID, Param)
    local min, sec
    local timstr
    
+   -- the sensor list is built by getSensors; build it if no app has
+   -- called that yet
+   if #sensorTbl == 0 then emulator_getSensors() end
    -- defend against bad inputs or invalid sensor
    if (not ID) or (not Param) then
       --print("not ID or not Param")
@@ -758,29 +770,16 @@ function emulator_getSensorByID(ID, Param)
 	 returnTbl.id         = ID
 	 returnTbl.param      = Param
 	 returnTbl.sensorName = logSensorByID[sf].sensorName
-	 returnTbl.label      = logSensorByID[sf].label
+	 returnTbl.label      = (string.gsub(logSensorByID[sf].label, "_", " "))  -- as getSensors gives it
 	 returnTbl.unit       = logSensorByID[sf].unit
 	 -- now get varying signals, be careful if not set yet
-	 if logSensorByID[sf].lastUpdate then -- ever updated?
-	    local dtt = system.getTimeCounter() - logSensorByID[sf].lastUpdate 
-	    if dtt > 2000 then
-	       --    print("sensor age over 2000 ms Name: "..
-	       -- 		logSensorByID[sf].sensorName.."-->"..logSensorByID[sf].label..
-	       -- 		"  "..dtt.." ms"
-	       --     )
-	       returnTbl.valid = false
-	    else
-	       returnTbl.valid   = true
-	    end
-	 else
-	    -- we have not seen this sensor yet .. note that we looked at it
-	    -- but return valid = false
-	    -- print("SensorL: Sensor not valid - Name: "..logSensorByID[sf].label..
-	    -- 	     "  ID: "..ID.."  Param: "..Param.."  Log File Time:  "
-	    -- 	     ..lastTimeBlock)
-	    logSensorByID[sf].lastUpdate = system.getTimeCounter()
-	    returnTbl.valid   = false
-	 end
+	 -- Valid from the sensor's first value in the log until the log
+	 -- ends. JETI logs a value only when it changes, so a gap in the log
+	 -- doesn't mean the sensor was offline (CTU fuel has gaps of up to
+	 -- 44 s in a normal flight); the old 2 s timeout made slow sensors
+	 -- flicker invalid. How a real dropout shows in a log isn't known
+	 -- yet, so dropouts aren't replayed
+	 returnTbl.valid = logSensorByID[sf].value ~= nil
 	 -- be defensive ..even if valid=false, set  values that won't cause error
 	 returnTbl.type       = logSensorByID[sf].type or 1
 	 returnTbl.decimals   = tonumber(logSensorByID[sf].decimals or 0)
@@ -1033,7 +1032,7 @@ local function telePrint()
       local timSd60 = tonumber(etL)/(60000) -- to mins from ms
       local min, sec = math.modf(timSd60)
       sec = sec * 60
-      local timstr = string.format("%02d:%02.2f", min, sec)
+      local timstr = string.format("%02d:%05.2f", min, sec)
       
       lcd.drawText(180,148, string.format("Logfile time: " .. timstr), FONT_MINI)
       -- lcd.drawText(260,125, string.format("T: %02d", system.getCPU()), FONT_MINI)
@@ -1066,6 +1065,25 @@ local function init()
    --print("after emulator_init")
    
 end
+
+-- message boxes from any app go to the console too, like playFile
+local function emulator_messageBox(msg, tmo, ...)
+   print("SensorL - messageBox: " .. tostring(msg))
+   return fwMessageBox(msg, tmo, ...)
+end
+
+-- replace the system functions when the chunk loads, as SensorE does, so
+-- apps whose init() runs before ours already get the log's sensors. The
+-- emulator loads every app's chunk before calling any init()
+system.getSensors = emulator_getSensors
+system.getSensorByID = emulator_getSensorByID
+system.getSensorValueByID = emulator_getSensorValueByID
+system.getTxTelemetry = emulator_getTxTelemetry
+gps.getPosition = emulator_getPosition
+system.playFile = emulator_playFile
+system.playNumber = emulator_playNumber
+system.vibration = emulator_vibration
+system.messageBox = emulator_messageBox
 
 return {init=init, loop=nil, author=appAuthor, version=appVersion, name=appName}
 
