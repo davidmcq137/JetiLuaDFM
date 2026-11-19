@@ -40,8 +40,9 @@
         "logAnnouncements": true, -- log the target's announcements
         "suppressMessageBox": false,  -- true: log the target's message
                                   -- boxes but don't show them
-        "recordAnnouncements": false} -- record mode: add a wait step for
+        "recordAnnouncements": false, -- record mode: add a wait step for
                                   -- each announcement
+        "logControls": true}      -- log the target's setControl changes
      result.log     play results (also echoed to the console as [UID])
      recorded.jsn   written in record mode; it's a playable script
 
@@ -148,6 +149,34 @@
    lists what the app did announce. If SensorE loads after UIDriver,
    announcements made before the driver's first loop() can be missed.
 
+   INPUTS, SENSORS AND CONTROLS
+     {"setInput": "P6", "value": 0.5}   getInputs("P6") returns 0.5, for
+                                  the target AND SensorE (so a script can
+                                  move SensorE's sliders and "fly");
+                                  "for": "target" to leave SensorE alone.
+                                  getInputsVal(item) is scripted by the
+                                  control the item reads (getSwitchInfo
+                                  label), and returns the value as given
+                                  (the item's inversion/activeOn aren't
+                                  applied)
+     {"clearInput": "P6"}         back to the real control (true: all)
+     {"setSensor": "Altitude", "value": 120}   the target's
+                                  getSensorByID/getSensorValueByID of that
+                                  sensor return 120 ("sensorName" to pick
+                                  one, or "id" and "param"; "$name" works)
+     {"setSensor": "Latitude", "valid": false}  a sensor fault; while the
+                                  lat or lon sensor is faulted, the
+                                  target's gps.getPosition returns nil
+     {"clearSensor": "Altitude"}  back to normal (true: all)
+     {"expectControl": 1, "value": 0.5}  what the target last passed to
+                                  setControl (number or registered label;
+                                  "tol", default 0.01). No "value": just
+                                  log it
+     {"waitControl": "Flaps", "value": 1}  wait until it is
+   setInput/setSensor count as actions for the waits. Overrides stay
+   until cleared. The wrappers are re-applied from loop() if SensorE
+   replaces the functions after UIDriver loads.
+
    TEXT ON SCREEN: what the target draws with lcd.drawText and
    lcd.drawNumber. Steps look at the next frame of the form, or of a
    telemetry window with "win": 2 ("win": "form" for the form; default
@@ -222,7 +251,7 @@ local cfg = {
    stepTimeoutMs = 10000, stopOnFail = true, overlay = true,
    recordRotary = false, confirmWidth = 30, confirmLookMs = 5000,
    logAnnouncements = true, suppressMessageBox = false,
-   recordAnnouncements = false,
+   recordAnnouncements = false, logControls = true,
 }
 
 --------------------------------------------------------------------------------
@@ -290,6 +319,7 @@ local counts = {pass = 0, fail = 0, ok = 0, checks = 0, checkFails = 0}
 -- last action step (set, link, key, ...) started
 local seq, actionSeq, actionMarked = 0, 0, nil
 local ACTIONS = {set = true, link = true, key = true, button = true, telemKey = true,
+		 setInput = true, clearInput = true, setSensor = true, clearSensor = true,
 		 telemButton = true, close = true}
 local anns = {}            -- announcements: {kind, text, value, seq, used}
 local textArm              -- {key, at}: a text step wants the next frame of key
@@ -305,6 +335,34 @@ local events = {}          -- name -> {n, value, step, used}, from uid.event
 local checkSeen = {}       -- failed check message -> times failed
 
 local function now() return system.getTimeCounter() end
+
+-- x as an integer if it is a whole number, else nil. Not math.tointeger
+-- alone: JETI's Lua is built with LUA_FLOORN2I = 1, so there
+-- math.tointeger(0.5) is 0, not nil
+--
+-- The same build also floors a float when comparing it with an integer:
+-- 0.5 == 0 and 2.7 == 2 are true there (float == float is exact). So
+-- whole numbers are tested float-to-float, and values are compared with
+-- same() below
+local function whole(x)
+   if math.type(x) == "integer" then return x end
+   if math.type(x) == "float" and x % 1 == 0.0 then return math.tointeger(x) end
+end
+
+-- a == b, but numbers of different kinds are compared as floats
+local function same(a, b)
+   local ta, tb = math.type(a), math.type(b)
+   if ta and tb and ta ~= tb then return a + 0.0 == b + 0.0 end
+   return a == b
+end
+
+-- whose function f is, for the log: "the firmware's" or "SensorE.lua's"
+local function owner(f)
+   local info = debug and debug.getinfo and debug.getinfo(f, "S")
+   if not info or info.what == "C" then return "the firmware's" end
+   local src = tostring(info.short_src or info.source or "?")
+   return (src:match("([^/\\]+)$") or src) .. "'s"
+end
 
 --------------------------------------------------------------------------------
 -- CPU tracking (between cpuStart and cpuCheck)
@@ -563,7 +621,7 @@ end
 
 local function toInt(v)
    if type(v) ~= "number" then return nil end
-   return math.tointeger(v) or math.floor(v + 0.5)
+   return whole(v) or math.floor(v + 0.5)
 end
 
 -- set a widget like a human edit: setValue, then the change callback
@@ -606,7 +664,7 @@ local function setWidget(c, v)
    end
 
    local before = orig.getValue(c.idx)
-   if before == want then return true, "already " .. tostring(want) end
+   if same(before, want) then return true, "already " .. tostring(want) end
    injecting, c.fired = true, false
    local ok, err = pcall(function()
 	 form.setValue(c.idx, want)
@@ -615,7 +673,7 @@ local function setWidget(c, v)
    injecting = false
    if not ok then return false, "target callback error: " .. tostring(err) end
    local got = orig.getValue(c.idx)
-   return got == want, string.format("%s -> %s (getValue %s)", tostring(before),
+   return same(got, want), string.format("%s -> %s (getValue %s)", tostring(before),
 				     tostring(want), tostring(got))
 end
 
@@ -769,7 +827,7 @@ H.expect = {ctx = "form", run = function(s)
 		     got = c.values and c.values[got]
 		  end
 	       end
-	       return got == s.value, string.format("%s = %s, expected %s", c.label,
+	       return same(got, s.value), string.format("%s = %s, expected %s", c.label,
 						    tostring(got), tostring(s.value))
 end}
 
@@ -791,7 +849,7 @@ local function resolve(path)
 	 return false, table.concat(parts, ".", 1, i - 1) .. " is " .. type(v) .. ", not a table"
       end
       local k = parts[i]
-      if v[k] == nil and tonumber(k) then k = math.tointeger(tonumber(k)) or tonumber(k) end
+      if v[k] == nil and tonumber(k) then k = whole(tonumber(k)) or tonumber(k) end
       v = v[k]
    end
    return true, v
@@ -821,7 +879,7 @@ H.expectState = {ctx = "any", run = function(s)
 		    if not ok then return false, v end
 		    if s.notValue ~= nil then
 		       local nv = deref(s.notValue)
-		       return v ~= nv, s.expectState .. " = " .. tostring(v) ..
+		       return not same(v, nv), s.expectState .. " = " .. tostring(v) ..
 			  ", must not be " .. tostring(nv)
 		    end
 		    s = {expectState = s.expectState, value = deref(s.value), min = s.min,
@@ -839,7 +897,7 @@ H.expectState = {ctx = "any", run = function(s)
 		       local good = (not s.min or v >= s.min) and (not s.max or v <= s.max)
 		       return good, shown .. ", range " .. tostring(s.min) .. ".." .. tostring(s.max)
 		    elseif s.value ~= nil then
-		       local good = v == s.value
+		       local good = same(v, s.value)
 		       if not good and s.tol and type(v) == "number" and type(s.value) == "number" then
 			  good = math.abs(v - s.value) <= s.tol
 		       end
@@ -851,7 +909,7 @@ end}
 H.waitEvent = {ctx = "any", run = function(s)
 		  local e = events[s.waitEvent]
 		  if e and e.n > e.used and (s.anyTime or e.seq > actionSeq)
-		  and (s.value == nil or e.value == s.value) then
+		  and (s.value == nil or same(e.value, s.value)) then
 		     e.used = e.n
 		     return "ok", s.waitEvent .. " (value " .. tostring(e.value) .. ")"
 		  end
@@ -989,7 +1047,8 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "expectTelemButton", "remember", "waitMessage", "waitAudio",
 	       "waitNumber", "waitVibration", "waitBeep", "expectText",
 	       "expectNoText", "waitText", "dumpText", "expectImage",
-	       "expectNoImage", "waitImage"}
+	       "expectNoImage", "waitImage", "setInput", "clearInput",
+	       "setSensor", "clearSensor", "expectControl", "waitControl"}
 
 local function verbOf(s)
    for _, v in ipairs(VERBS) do
@@ -1005,7 +1064,7 @@ local function flatten(list, out, errs)
 	 -- JETI's json.decode returns floats (42.0), on the TX too. A human
 	 -- edit hands the callback an integer, so pass whole numbers as ints
 	 for k, x in pairs(s) do
-	    if type(x) == "number" then s[k] = math.tointeger(x) or x end
+	    if type(x) == "number" then s[k] = whole(x) or x end
 	 end
 	 local v = verbOf(s)
 	 if not v then errs[#errs+1] = json.encode(s) end
@@ -1123,7 +1182,7 @@ local function capturePrint(key, fn, w, h)
    end
    if dn then
       lcd.drawNumber = function(x, y, num, ...)
-	 items[#items+1] = {kind = "text", text = tostring(math.tointeger(num) or num), x = x, y = y}
+	 items[#items+1] = {kind = "text", text = tostring(whole(num) or num), x = x, y = y}
 	 return dn(x, y, num, ...)
       end
    end
@@ -1171,7 +1230,7 @@ local function textWant(s, field)
    return w
 end
 
-local function num(v) return tostring(math.tointeger(v) or v) end
+local function num(v) return tostring(whole(v) or v) end
 
 local function textMatches(it, s, want)
    local r = s.region
@@ -1467,9 +1526,8 @@ local function wrapAnnouncements()
    for name, describe in pairs(ANN) do
       local under = system[name]
       if under and under ~= annWrapper[name] then
-	 if annWrapper[name] then
-	    log("system." .. name .. " was replaced by another app; wrapping the new one")
-	 end
+	 log((annWrapper[name] and "system." .. name .. " was replaced; wrapping " or
+	      "system." .. name .. ": wrapping ") .. owner(under) .. " version")
 	 local w = function(...)
 	    if callerIsTarget() then
 	       local ok, a = pcall(describe, ...)
@@ -1547,6 +1605,266 @@ for v, kind in pairs({waitMessage = "message", waitAudio = "audio",
 		      waitBeep = "beep"}) do
    H[v] = annWait(v, kind)
 end
+
+--------------------------------------------------------------------------------
+-- scripted inputs, sensor overrides and faults, controls
+--------------------------------------------------------------------------------
+
+local inputs, nInputs = {}, 0      -- "P6" -> {value, targetOnly}
+local switchName = setmetatable({}, {__mode = "k"})  -- SwitchItem -> "SA" (false: unknown)
+local sensorOv, nSensorOv = {}, 0  -- "id-param" -> {value, valid, label}
+local controls = {}                -- control number -> {label, value, at, logged}
+
+local function idKey(id, param)
+   return tostring(whole(id) or id) .. "-" .. tostring(whole(param) or param)
+end
+
+-- the control a SwitchItem reads, from system.getSwitchInfo; cached
+local function itemName(sw)
+   if sw == nil then return nil end
+   local nm = switchName[sw]
+   if nm == nil then
+      nm = false
+      if system.getSwitchInfo then
+	 local ok, info = pcall(system.getSwitchInfo, sw)
+	 if ok and type(info) == "table" and info.label and info.assigned ~= false then
+	    nm = tostring(info.label):upper()
+	 end
+      end
+      switchName[sw] = nm
+   end
+   return nm or nil
+end
+
+-- getInputs("P6", ...) and getInputsVal(item, ...): scripted values replace
+-- the real ones. With no setInput active they cost one test. SensorE's
+-- reads go through here too, so a script can move its sliders
+local function inputsWrapper(under, byItem)
+   return function(...)
+      if nInputs == 0 then return under(...) end
+      local n = select("#", ...)
+      local vals = table.pack(under(...))
+      local tgt
+      for i = 1, n do
+	 local a = select(i, ...)
+	 local nm = byItem and itemName(a) or (a ~= nil and tostring(a):upper())
+	 local o = nm and inputs[nm]
+	 if o then
+	    if o.targetOnly and tgt == nil then tgt = callerIsTarget() end
+	    if not o.targetOnly or tgt then vals[i] = o.value end
+	 end
+      end
+      return table.unpack(vals, 1, n)
+   end
+end
+
+-- getSensorByID / getSensorValueByID: overrides apply to the target's
+-- reads only; the entry is copied so the sensor's own table isn't changed
+local function sensorWrapper(under)
+   return function(id, param, ...)
+      local r = under(id, param, ...)
+      if nSensorOv == 0 or type(r) ~= "table" then return r end
+      local o = sensorOv[idKey(id, param)]
+      if not o or not callerIsTarget() then return r end
+      local c = {}
+      for k, v in pairs(r) do c[k] = v end
+      if o.value ~= nil then c.value = o.value end
+      if o.valid ~= nil then c.valid = o.valid end
+      return c
+   end
+end
+
+-- gps.getPosition: nil while the target's lat or lon sensor is faulted
+-- (SensorE's own version reads them as SensorE, so it isn't affected)
+local function positionWrapper(under)
+   return function(id, pLat, pLon, ...)
+      if nSensorOv > 0 then
+	 local a, b = sensorOv[idKey(id, pLat)], sensorOv[idKey(id, pLon)]
+	 if ((a and a.valid == false) or (b and b.valid == false)) and callerIsTarget() then
+	    return nil
+	 end
+      end
+      return under(id, pLat, pLon, ...)
+   end
+end
+
+local function control(n)
+   local c = controls[n]
+   if not c then c = {}; controls[n] = c end
+   return c
+end
+
+local function registerControlWrapper(under)
+   return function(n, label, short, ...)
+      if callerIsTarget() then
+	 control(n).label = label
+	 log("control " .. tostring(n) .. " registered: '" .. tostring(label) .. "'")
+      end
+      return under(n, label, short, ...)
+   end
+end
+
+-- setControl is often called every loop, so a change is logged at most
+-- once a second per control; the latest value is always kept
+local function setControlWrapper(under)
+   return function(n, value, delay, ...)
+      if callerIsTarget() then
+	 local c = control(n)
+	 local t = now()
+	 if value ~= c.value then
+	    c.value, c.at = value, t
+	    if cfg.logControls and (not c.logged or t - c.logged >= 1000) then
+	       c.logged = t
+	       log(string.format("control %s%s = %s (delay %s ms)", tostring(n),
+				 c.label and (" '" .. c.label .. "'") or "", tostring(value),
+				 tostring(delay)))
+	    end
+	 end
+      end
+      return under(n, value, delay, ...)
+   end
+end
+
+-- {table getter, function name, wrapper maker}; wrapped whatever is there,
+-- re-wrapped from loop() if another app (SensorE) replaces one later
+local HOOKS = {
+   {function() return system end, "getInputs", function(u) return inputsWrapper(u, false) end},
+   {function() return system end, "getInputsVal", function(u) return inputsWrapper(u, true) end},
+   {function() return system end, "getSensorByID", sensorWrapper},
+   {function() return system end, "getSensorValueByID", sensorWrapper},
+   {function() return gps end, "getPosition", positionWrapper},
+   {function() return system end, "registerControl", registerControlWrapper},
+   {function() return system end, "setControl", setControlWrapper},
+}
+local hookWrapper = {}
+
+local function wrapHooks()
+   for i, h in ipairs(HOOKS) do
+      local tbl = h[1]()
+      local under = tbl and tbl[h[2]]
+      if under and under ~= hookWrapper[i] then
+	 log((hookWrapper[i] and h[2] .. " was replaced; wrapping " or h[2] .. ": wrapping ") ..
+	     owner(under) .. " version")
+	 hookWrapper[i] = h[3](under)
+	 tbl[h[2]] = hookWrapper[i]
+      end
+   end
+end
+
+-- find sensors by label (and "sensorName") or "id"/"param"; "$name" works
+local function findSensors(s, field)
+   local want = s[field]
+   if type(want) == "string" and want:sub(1, 1) == "$" then
+      want = vars[want:sub(2)]
+      if want == nil then return nil, "nothing remembered as " .. s[field] end
+   end
+   if s.id then
+      return {{key = idKey(s.id, s.param or 1),
+	       label = (type(want) == "string" and want) or idKey(s.id, s.param or 1)}}
+   end
+   if not system.getSensors then return nil, "system.getSensors isn't available" end
+   local ok, list = pcall(system.getSensors)
+   if not ok or type(list) ~= "table" then return nil, "system.getSensors failed" end
+   local found, labels = {}, {}
+   for _, e in ipairs(list) do
+      if e.param and e.param ~= 0 then
+	 labels[#labels+1] = tostring(e.label)
+	 if tostring(e.label):lower() == tostring(want):lower()
+	 and (not s.sensorName or e.sensorName == s.sensorName) then
+	    found[#found+1] = {key = idKey(e.id, e.param), label = tostring(e.label)}
+	 end
+      end
+   end
+   if #found == 0 then
+      return nil, "no sensor labelled '" .. tostring(want) .. "'; have " ..
+	 (#labels > 0 and table.concat(labels, ", ") or "none")
+   end
+   return found
+end
+
+H.setInput = {ctx = "any", run = function(s)
+		 local nm = tostring(s.setInput):upper()
+		 local v = tonumber(s.value)
+		 if not v then return false, "setInput needs a number \"value\" (-1..1)" end
+		 if v < -1 or v > 1 then log("WARN setInput " .. nm .. " value " .. v .. " is outside -1..1") end
+		 if not inputs[nm] then nInputs = nInputs + 1 end
+		 inputs[nm] = {value = v, targetOnly = s["for"] == "target"}
+		 return "ok", nm .. " = " .. tostring(v) ..
+		    (s["for"] == "target" and " (target only)" or " (target and SensorE)")
+end}
+
+H.clearInput = {ctx = "any", run = function(s)
+		   if s.clearInput == true then
+		      inputs, nInputs = {}, 0
+		      return "ok", "all inputs back to the real controls"
+		   end
+		   local nm = tostring(s.clearInput):upper()
+		   if inputs[nm] then inputs[nm] = nil; nInputs = nInputs - 1 end
+		   return "ok", nm .. " back to the real control"
+end}
+
+H.setSensor = {ctx = "any", run = function(s)
+		  if s.value == nil and s.valid == nil then
+		     return false, "setSensor needs \"value\" and/or \"valid\""
+		  end
+		  local found, err = findSensors(s, "setSensor")
+		  if not found then return false, err end
+		  local names = {}
+		  for _, f in ipairs(found) do
+		     if not sensorOv[f.key] then nSensorOv = nSensorOv + 1 end
+		     sensorOv[f.key] = {value = s.value, valid = s.valid, label = f.label}
+		     names[#names+1] = f.label .. " (" .. f.key .. ")"
+		  end
+		  local what = {}
+		  if s.value ~= nil then what[#what+1] = "value " .. tostring(s.value) end
+		  if s.valid ~= nil then what[#what+1] = "valid " .. tostring(s.valid) end
+		  return "ok", table.concat(names, ", ") .. ": " .. table.concat(what, ", ")
+end}
+
+H.clearSensor = {ctx = "any", run = function(s)
+		    if s.clearSensor == true then
+		       sensorOv, nSensorOv = {}, 0
+		       return "ok", "all sensors back to normal"
+		    end
+		    local found, err = findSensors(s, "clearSensor")
+		    if not found then return false, err end
+		    for _, f in ipairs(found) do
+		       if sensorOv[f.key] then sensorOv[f.key] = nil; nSensorOv = nSensorOv - 1 end
+		    end
+		    return "ok", tostring(s.clearSensor) .. " back to normal"
+end}
+
+-- a control by number or registered label
+local function findControl(which)
+   if type(which) == "number" then return controls[which], tostring(which) end
+   for n, c in pairs(controls) do
+      if c.label and tostring(c.label):lower() == tostring(which):lower() then
+	 return c, tostring(n) .. " '" .. c.label .. "'"
+      end
+   end
+   return nil, "'" .. tostring(which) .. "'"
+end
+
+local function controlCheck(s, v, waiting)
+   local c, name = findControl(s[v])
+   if not c or c.value == nil then
+      if waiting then return end
+      return false, "control " .. name .. " hasn't been set by the target"
+   end
+   local want = deref(s.value)
+   if want == nil then return "ok", "control " .. name .. " = " .. tostring(c.value) end
+   local good = type(c.value) == "number" and math.abs(c.value - want) <= (s.tol or 0.01)
+   if good then return true, "control " .. name .. " = " .. tostring(c.value) end
+   if waiting then return end
+   return false, "control " .. name .. " = " .. tostring(c.value) .. ", expected " .. tostring(want)
+end
+
+H.expectControl = {ctx = "any", run = function(s) return controlCheck(s, "expectControl", false) end}
+H.waitControl = {ctx = "any", run = function(s) return controlCheck(s, "waitControl", true) end,
+		 onTimeout = function(s)
+		    local c = findControl(s.waitControl)
+		    return "; last value " .. tostring(c and c.value)
+		 end}
 
 -- remember which file each image came from, for expectImage. Called at
 -- chunk load, before any app's init() loads its images
@@ -1638,6 +1956,7 @@ local function install()
    wrapForm()
    wrapAnnouncements()
    wrapImages()
+   wrapHooks()
 end
 
 local function loadConfig()
@@ -1652,7 +1971,7 @@ local function loadConfig()
       return
    end
    for k, v in pairs(c) do
-      if type(v) == "number" then v = math.tointeger(v) or v end  -- json gives floats
+      if type(v) == "number" then v = whole(v) or v end  -- json gives floats
       cfg[k] = v
    end
 end
@@ -1767,7 +2086,7 @@ local function init()
 end
 
 local function loop()
-   if cfg.mode == "play" or cfg.mode == "record" then wrapAnnouncements() end
+   if cfg.mode == "play" or cfg.mode == "record" then wrapAnnouncements(); wrapHooks() end
    runSteps("loop")
 end
 

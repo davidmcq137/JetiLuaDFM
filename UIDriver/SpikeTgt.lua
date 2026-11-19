@@ -121,6 +121,10 @@ local function telPrint(w, h)
    lcd.drawText(4, 42, "keys:" .. st.telKeyLog, FONT_MINI)
    lcd.drawText(4, 56, "user buttons (setTelemetryButton): " .. st.telButtons, FONT_MINI)
    if dots.blue then lcd.drawImage(260, 4, dots.blue) end
+   lcd.drawText(4, 70, string.format("P6=%s SA=%s item=%s %s=%s valid=%s gpsNil=%s",
+				     tostring(st.p6), tostring(st.sa), tostring(st.saVal),
+				     tostring(st.sensLabel), tostring(st.sensVal),
+				     tostring(st.sensValid), tostring(st.posNil)), FONT_MINI)
 end
 
 -- two groups of user buttons, switched with Enter as a "shift" key:
@@ -158,11 +162,57 @@ local function telKey(key)
    end
 end
 
+-- inputs, sensors and a control, for UIDriver's setInput/setSensor/
+-- expectControl: loop() reads P6 and SA (getInputs, and getInputsVal
+-- through a SwitchItem if createSwitch exists), the first numeric sensor
+-- (Altitude if there is one) and the GPS position, and outputs P6 on
+-- control 1 "SpikeCtl"
+local saItem, sens, gpsSens
+
+local function findSensors()
+   if not system.getSensors then return end
+   local ok, list = pcall(system.getSensors)
+   if not ok or type(list) ~= "table" then return end
+   local lat, lon
+   for _, e in ipairs(list) do
+      if e.param and e.param ~= 0 then
+	 if e.type == 9 and e.label == "Latitude" then lat = e
+	 elseif e.type == 9 and e.label == "Longitude" then lon = e
+	 elseif e.type ~= 9 and e.type ~= 5 and (not sens or e.label == "Altitude") then sens = e end
+      end
+   end
+   if lat and lon and lat.id == lon.id then
+      gpsSens = {id = lat.id, lat = lat.param, lon = lon.param}
+   end
+   st.sensLabel = sens and sens.label or "none"
+   p("sensor:", st.sensLabel, "gps:", gpsSens and "yes" or "no")
+end
+
+local function loop()
+   if sens == nil and gpsSens == nil and not st.searched then
+      st.searched = true
+      findSensors()
+   end
+   st.p6, st.sa = system.getInputs("P6", "SA")
+   if saItem then st.saVal = system.getInputsVal(saItem) end
+   if sens then
+      local v = system.getSensorByID(sens.id, sens.param)
+      st.sensVal = v and v.value
+      st.sensValid = v and v.valid
+   end
+   if gpsSens and gps and gps.getPosition then
+      st.posNil = gps.getPosition(gpsSens.id, gpsSens.lat, gpsSens.lon) == nil
+   end
+   if st.ctl and st.p6 then system.setControl(1, st.p6, 0) end
+end
+
 local function init()
    p("init: registerForm is", tostring(system.registerForm))
    uid = system.UIDriver
    p("init: system.UIDriver is", tostring(uid))
    if uid then uid.expose("tgt", function() return st end) end
+   if system.createSwitch then saItem = system.createSwitch("SA", "S", 1) end
+   st.ctl = system.registerControl and system.registerControl(1, "SpikeCtl", "SpC")
    if lcd.loadImage then
       for _, c in ipairs({"red", "green", "blue"}) do
 	 dots[c] = lcd.loadImage(DOTDIR .. "small_" .. c .. "_circle.png")
@@ -182,4 +232,4 @@ local function init()
    p("setTelemetryButton available:", st.telButtons)
 end
 
-return {init=init, loop=nil, author="DFM", version="0.1", name=appName}
+return {init=init, loop=loop, author="DFM", version="0.1", name=appName}
