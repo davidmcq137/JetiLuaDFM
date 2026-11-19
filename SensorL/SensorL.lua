@@ -463,8 +463,14 @@ local function emulator_init()
 end
 
 
+-- the replacements for the system functions; local, so SensorL can't
+-- clash with SensorE's globals of the same names (declared ahead because
+-- some call others defined further down)
+local emulator_vibration, emulator_playFile, emulator_playNumber, emulator_getSensors,
+   emulator_getSensorValueByID, emulator_getSensorByID, emulator_getTxTelemetry, emulator_getPosition
+
 function emulator_vibration(lr, prof)
-   local lrText
+   local lrText, i
    local profText = {"Long Pulse", "Short Pulse", "2x Short Pulse", "3x Short Pulse", "Other"}
    if lr then lrText = "Right" else lrText = "Left" end
    if prof < 1 or prof > 5 then
@@ -512,25 +518,6 @@ function emulator_playNumber(val, dec, unit, lab)
    return rr
 end
 
-
-alreadyCalled=false
-annDone=false
-
-function emulatorSensorsReady(fcn)
-   if emFlag ~= 1 then return true end
-   if alreadyCalled then return true end
-   if not rlhDone then
-      if not annDone then
-	 print("SensorL: Waiting for emulated sensors")
-	 annDone=true
-      end
-      return false
-   else
-      print("SensorL: Emulator ready")
-      if fcn then fcn() end
-      alreadyCalled=true
-   end
-end
 
 function emulator_getSensors()
 
@@ -588,7 +575,7 @@ function emulator_getSensors()
 
       -- changed .. for now set type to 1, correct later when we know it
       
-      styp = 1 --sensorType[v] or 1 -- type 9 for gps, 5 for date/time, 1 for general
+      local styp = 1 --sensorType[v] or 1 -- type 9 for gps, 5 for date/time, 1 for general
       if type(vv) ~= "table"  then
 	 print("SensorL: sensor not found in log header: "..v)
 	 ll=nil
@@ -925,37 +912,29 @@ function emulator_getTxTelemetry()
 
 end
 
+-- JETI GPS value -> exact decimal degrees as a string. The log has whole
+-- degrees in bits 16-23 and thousandths of a minute in bits 0-15 (about
+-- 1.85 m), and the hemisphere in "decimals" (0..3 = N, E, S, W). The
+-- digits are worked out in integers and passed to gps.newPoint as a
+-- string: degs + minutes/60 in Lua's float32 added up to 0.5 m of error
+local function gpsDegrees(sensor, negDecimals)
+   local v = sensor.valGPS
+   local deg = (v >> 16) & 0xFF
+   local mth = v & 0xFFFF                -- thousandths of a minute
+   deg = deg + mth // 60000              -- (never in a good log)
+   mth = mth % 60000
+   -- mth / 60000 degrees in units of 1e-7 degree, rounded
+   local frac = (mth * 1000 + 3) // 6
+   local sign = (sensor.decimals == negDecimals) and "-" or ""
+   return string.format("%s%d.%07d", sign, deg, frac)
+end
+
 function emulator_getPosition(sensID, parmLat, parmLng)
-
-   local sensor
-   local minutes, degs, latitude, longitude
-   
-   sensor = emulator_getSensorByID(sensID, parmLng)
-   if sensor and sensor.valid then
-      minutes = (sensor.valGPS & 0xFFFF) * 0.001
-      degs = (sensor.valGPS >> 16) & 0xFF
-      longitude = degs + minutes/60
-      if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
-	 longitude = longitude * -1
-      end      
-   else
-      return nil
-   end
-   
-   sensor = emulator_getSensorByID(sensID, parmLat)
-   if sensor and sensor.valid then
-      minutes = (sensor.valGPS & 0xFFFF) * 0.001
-      degs = (sensor.valGPS >> 16) & 0xFF
-      latitude = degs + minutes/60
-      if sensor.decimals == 2 then -- "South" .. make it negative (NESW coded in decimal places as 0,1,2,3)
-	 latitude = latitude * -1
-      end      
-   else
-      return nil
-   end
-
-   return gps.newPoint(latitude, longitude)
-   
+   local lon = emulator_getSensorByID(sensID, parmLng)
+   if not (lon and lon.valid and lon.valGPS) then return nil end
+   local lat = emulator_getSensorByID(sensID, parmLat)
+   if not (lat and lat.valid and lat.valGPS) then return nil end
+   return gps.newPoint(gpsDegrees(lat, 2), gpsDegrees(lon, 3))  -- S, W negative
 end
 
 local function telePrint()
