@@ -13,13 +13,16 @@
 
 -- Globals to share
 
-if not sharedVar then sharedVar = {} end
-
-sharedVar["DFM-GRat"]       = {}
-sharedVar["DFM-GRat"].label = {}
-sharedVar["DFM-GRat"].value = {}
-sharedVar["DFM-GRat"].unit  = {}
-sharedVar["DFM-GRat"].dp    = {}
+-- Values shared with other apps (e.g. DFM-HUD), in the same shape as the
+-- old sharedVar["DFM-GRat"]: label, value, unit and dp (decimal places)
+-- lists. init() makes this table the global DFM_GRat: a superglobal with
+-- declareGlobal (DC/DS-24 II 6.05+), else a plain global (older firmware
+-- has no sandbox, so other apps see it too). Other apps read
+-- DFM_GRat.value[1] etc. The global holds this same table (tested in the
+-- emulator, 2026-11-19), so changes made here through the local are
+-- seen everywhere
+--luacheck: globals declareGlobal DFM_GRat
+local shared = {label = {"GlideRatio"}, value = {0.0}, unit = {""}, dp = {0}}
 
 -- Locals for application
 
@@ -170,14 +173,14 @@ local function loop()
 	 else
 	    glideRatio = speed / vario
 	 end
-	 sharedVar["DFM-GRat"].value[1] = glideRatio
+	 shared.value[1] = glideRatio
       else
 	 glideRatio = maxRatio -- not sure best thing to do here - set to large #,don't announce
-	 sharedVar["DFM-GRat"].value[1] = maxRatio
+	 shared.value[1] = maxRatio
 	 return
       end
    else
-      sharedVar["DFM-GRat"].value[1] = 0.0
+      shared.value[1] = 0.0
       return
    end
    
@@ -244,10 +247,11 @@ local function init()
    system.registerForm(1, MENU_APPS, "Glide Ratio Announcer", initForm)
    system.registerTelemetry(1, "Glide Ratio", 0, teleWindow)
 
-   table.insert(sharedVar["DFM-GRat"].label, "GlideRatio")
-   table.insert(sharedVar["DFM-GRat"].value, 0.0)
-   table.insert(sharedVar["DFM-GRat"].unit, "")
-   table.insert(sharedVar["DFM-GRat"].dp, 0)
+   if declareGlobal then
+      declareGlobal("DFM_GRat", shared)
+   else
+      DFM_GRat = shared    -- older firmware: no sandbox, so a plain global is shared
+   end
 
 end
 

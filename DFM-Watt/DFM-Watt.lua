@@ -13,13 +13,17 @@
 
 --]]
 
-if not sharedVar then sharedVar = {} end
-
-sharedVar["DFM-Watt"]       = {}
-sharedVar["DFM-Watt"].label = {}
-sharedVar["DFM-Watt"].value = {}
-sharedVar["DFM-Watt"].unit  = {}
-sharedVar["DFM-Watt"].dp    = {}
+-- Values shared with other apps (e.g. DFM-HUD), in the same shape as the
+-- old sharedVar["DFM-Watt"]: label, value, unit and dp (decimal places)
+-- lists. init() makes this table the global DFM_Watt: a superglobal with
+-- declareGlobal (DC/DS-24 II 6.05+), else a plain global (older firmware
+-- has no sandbox, so other apps see it too). Other apps read
+-- DFM_Watt.value[1] etc. The global holds this same table (tested in the
+-- emulator, 2026-11-19), so changes made here through the local are
+-- seen everywhere
+--luacheck: globals declareGlobal DFM_Watt
+local shared = {label = {"BattWatts", "MaxBattWatts"}, value = {0.0, 0.0},
+		 unit = {"W", "W"}, dp = {0, 0}}
 
 -- Locals for application
 
@@ -188,31 +192,31 @@ local function loop()
       -- do we want to switch to kW like we do in the tele window? let's try it .. it's cute
 
       if battWatts < 1000 then
-	 sharedVar["DFM-Watt"].value[1] = battWatts
-	 sharedVar["DFM-Watt"].unit[1] = "W"
-	 sharedVar["DFM-Watt"].dp[1] = 0
+	 shared.value[1] = battWatts
+	 shared.unit[1] = "W"
+	 shared.dp[1] = 0
       else
-	 sharedVar["DFM-Watt"].value[1] = battWatts / 1000.0
-	 sharedVar["DFM-Watt"].unit[1] = "kW"
+	 shared.value[1] = battWatts / 1000.0
+	 shared.unit[1] = "kW"
 	 if battWatts < 10000 then
-	    sharedVar["DFM-Watt"].dp[1] = 2
+	    shared.dp[1] = 2
 	 else
-	    sharedVar["DFM-Watt"].dp[1] = 1
+	    shared.dp[1] = 1
 	 end
       end
 
       
       if battWattsMax < 1000 then
-	 sharedVar["DFM-Watt"].value[2] = battWattsMax
-	 sharedVar["DFM-Watt"].unit[2] = "W"
-	 sharedVar["DFM-Watt"].dp[2] = 0
+	 shared.value[2] = battWattsMax
+	 shared.unit[2] = "W"
+	 shared.dp[2] = 0
       else
-	 sharedVar["DFM-Watt"].value[2] = battWattsMax / 1000.0
-	 sharedVar["DFM-Watt"].unit[2] = "kW"
+	 shared.value[2] = battWattsMax / 1000.0
+	 shared.unit[2] = "kW"
 	 if battWattsMax < 10000 then
-	    sharedVar["DFM-Watt"].dp[2] = 2
+	    shared.dp[2] = 2
 	 else
-	    sharedVar["DFM-Watt"].dp[2] = 1
+	    shared.dp[2] = 1
 	 end
       end
       
@@ -292,30 +296,13 @@ local function init()
    system.registerForm(1, MENU_APPS, "Watts Announcer", initForm)
    system.registerTelemetry(1, "Battery Power", 0, teleWindow)
    
-   table.insert(sharedVar["DFM-Watt"].label, "BattWatts")
-   table.insert(sharedVar["DFM-Watt"].label, "MaxBattWatts")
-   
-   table.insert(sharedVar["DFM-Watt"].value, 1.23)
-   table.insert(sharedVar["DFM-Watt"].value, 2.34)
-
-   table.insert(sharedVar["DFM-Watt"].unit, "W")
-   table.insert(sharedVar["DFM-Watt"].unit, "W")
-
-   table.insert(sharedVar["DFM-Watt"].dp, 0)
-   table.insert(sharedVar["DFM-Watt"].dp, 0)
-      
-   --[[
-   print("Watt")
-   for k,v in pairs(sharedVar) do
-      print(">", k,v)
-      for kk,vv in pairs(sharedVar[k]) do
-	 print(">>",kk,vv)
-	 for kkk, vvv in pairs(sharedVar[k][kk]) do
-	    print(">>>",kkk,vvv)
-	 end
-      end
+   if declareGlobal then
+      declareGlobal("DFM_Watt", shared)
+   else
+      DFM_Watt = shared    -- older firmware: no sandbox, so a plain global is shared
    end
-   --]]
+      
+   --if dumpGlobalVars then dumpGlobalVars() end
 end
 
 return {init=init, loop=loop, author="DFM", version=tostring(wattVersion),
