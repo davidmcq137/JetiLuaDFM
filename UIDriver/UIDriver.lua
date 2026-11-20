@@ -222,6 +222,8 @@
                                   and/or "max" (<=)). None of them: just
                                   log it
      {"waitControl": "Flaps", "value": 1}  wait until it is
+   Any setControl value outside -1..1 from the target (setControl's range)
+   is a FAIL, charged to the step that was running, once per control.
    setInput/setSensor count as actions for the waits. Overrides stay
    until cleared. The wrappers are re-applied from loop() if SensorE
    replaces the functions after UIDriver loads.
@@ -2259,6 +2261,19 @@ local function setControlWrapper(under)
 				 c.label and (" '" .. c.label .. "'") or "", tostring(value),
 				 tostring(delay)))
 	    end
+	 end
+	 -- setControl takes -1..1 (JETI API). The small margin allows float32
+	 -- sums like 0.6 + 0.4 = 1.0000001. A FAIL charged to the running step
+	 -- (or a message box with no script playing), once per control a run
+	 if type(value) == "number" and (value > 1.000001 or value < -1.000001)
+	 and system.UIDriver then
+	    local msg = string.format("control %s%s set outside -1..1, setControl's range",
+				      tostring(n), c.label and (" '" .. c.label .. "'") or "")
+	    if not checkSeen[msg] then
+	       log(string.format("control %s%s = %s: out of range", tostring(n),
+				 c.label and (" '" .. c.label .. "'") or "", tostring(value)))
+	    end
+	    system.UIDriver.check(false, msg)
 	 end
       end
       return under(n, value, delay, ...)
