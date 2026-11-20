@@ -62,6 +62,9 @@
                                   -- SensorL replays instead of SensorL.jsn's
                                   -- (read once too)
      result.log     the run's results (also echoed to the console as [UID])
+     result.prev.log  the run before, kept when a new run starts (unless
+                    that one did next to nothing: under 5 steps, no FAIL,
+                    no summary, as when the apps reload and restart it)
      rec-<date>-<time>.jsn   a recording; it's a playable script, so
                     rename it to keep it (rec-*.jsn is gitignored)
    Apps/UIDriver/result.log gets the log lines while no app is chosen.
@@ -71,6 +74,19 @@
                                   (no timeout unless "timeout" is given)
      {"waitSub": 7}               wait until subform 7 is showing
      {"waitClosed": true}         wait until the form has closed
+                                  (the way to have the tester close it)
+                                  A run STOPS if the tester leaves the
+                                  menu (presses ESC/KEY_5 in it, or the
+                                  form closes and no form.close() asked
+                                  for it, as when going to a full-screen
+                                  telemetry window) unless a waitClosed,
+                                  note or waitForm step is waiting.
+                                  Leaving resets the app's menu (Maps
+                                  goes back to subform 1 on ESC in the
+                                  browser, without closing), so the
+                                  steps after it would run against the
+                                  wrong screen: during a script's menu
+                                  part, stay in the menu
      {"wait": 1000}               pause: 1000 ms, or "2s", "1:30", ...
                                   (any length: the step timeout doesn't apply)
      {"set": "Race time (mins)", "value": 30}     intbox (raw integer)
@@ -278,6 +294,10 @@
    the form if it's open, else telemetry window 1). Text matches ignore
    case and match part of the text ("exact": true for all of it);
    "region": [x, y, w, h] limits it to text drawn starting in that box.
+   x,y are what the app passed, fractions and all (centred text often
+   lands on .5; the firmware floors it to a pixel). Leave a few pixels
+   of margin round a region: text within a pixel of an edge can fall
+   either side, and fonts differ a little between radios.
      {"expectText": "Loading"}    PASS if on the next frame, else FAIL
                                   (the log lists what is on screen)
      {"expectNoText": "Error"}    the reverse
@@ -446,6 +466,7 @@ end
 local T = {tel = {}}       -- the target's record (a dummy while none is chosen)
 local comps, buttons = {}, {}
 local curSub, formOpen = nil, false
+local closeExpected = false  -- Lua called form.close: the next close isn't the tester's
 local capSub               -- the subform being built (during capture)
 local originals = {}       -- "sub|label|nth" -> {v = first value seen}, for restore
 local capturing, injecting, prevented = false, false, false
@@ -462,6 +483,8 @@ local recAfter = {}        -- steps to record after that callback's own step
 
 local steps, si, stepT0, nextAt
 local finished = false
+local menuClosedAt         -- the step at which the tester closed the menu (run stopped)
+local stopNote             -- why, for a box on the form when the tester comes back
 local counts = {pass = 0, fail = 0, ok = 0, checks = 0, checkFails = 0}
 
 -- events and announcements are numbered; waits count those after the
@@ -904,6 +927,14 @@ local function wrapForm()
    form.preventDefault = function(...)
       prevented = true
       return orig.preventDefault(...)
+   end
+   -- a close asked for by Lua (a close step, the firmware default after
+   -- an injected ESC, or the app itself) is not the tester leaving
+   if orig.close then
+      form.close = function(...)
+	 closeExpected = true
+	 return orig.close(...)
+      end
    end
    form.question = function(bold, ...)
       if #answers > 0 then
@@ -1643,7 +1674,7 @@ end
 -- step machine
 --------------------------------------------------------------------------------
 
-local function finish(why)
+local function finish(why, box)
    finished = true
    local bad = counts.fail > 0
    local bar = bad and "#####" or "===="
@@ -1657,7 +1688,7 @@ local function finish(why)
       log("   check failed " .. n .. "x: " .. msg)
    end
    -- and say it on the emulator screen too
-   local box = bad and string.format("UIDriver: %d FAIL (see log)", counts.fail)
+   box = box or bad and string.format("UIDriver: %d FAIL (see log)", counts.fail)
       or string.format("UIDriver: all %d PASS", counts.pass)
    pcall(system.messageBox, box, 5)
 end
@@ -1699,6 +1730,34 @@ local function report(s, st, msg)
 end
 
 local running = false      -- a step is in progress (it may be blocked in a question)
+
+-- steps during which the tester may leave the menu (or is asked to)
+local MAYLEAVE = {waitClosed = true, note = true, waitForm = true}
+
+-- The tester left the menu (ESC, or a full-screen telemetry window)
+-- while the script still needed it. The target resets its menu when that
+-- happens (DFM-Maps goes back to subform 1 on ESC in the map browser,
+-- without closing), so the remaining steps would run against the wrong
+-- screen: stop the run
+local function testerLeft(what)
+   if cfg.mode ~= "play" or not steps or finished then return end
+   local s = steps[si]
+   if not s or MAYLEAVE[s._verb] then return end
+   menuClosedAt = si
+   confirmBanner, confirmAnswer = nil, nil
+   -- the title has room for "[UID STOPPED 15]" only: the reason goes in
+   -- a box on the form, shown for 10 s once the form is drawn again
+   stopNote = {stop = true, lines = wrap("UIDriver STOPPED at step " .. si ..
+      ": you " .. what .. ", which resets it. Start the run again, and stay" ..
+      " in the menu until the script closes it.", 40)}
+   local msg = "the tester " .. what .. " during step " .. si .. " (" .. s._verb .. ")"
+   log(string.format("%s %3d %-10s %s", FAILMARK, si, s._verb, msg))
+   counts.fail = counts.fail + 1
+   failList[#failList+1] = string.format("step %d %s: %s", si, s._verb, msg)
+   finish("STOPPED: " .. msg .. ", not the script. Leaving the menu resets it," ..
+	  " so the run can't go on. Start it again, and stay in the menu during its menu part",
+	  "UIDriver STOPPED: you left the menu (step " .. si .. ")")
+end
 
 local function runSteps(ctx, win)
    -- form.question blocks, and meanwhile the emulator keeps calling loop()
@@ -1917,6 +1976,7 @@ local function wInit(sub)
    local ok, err = pcall(T.init, sub)
    capturing = false
    curSub, formOpen = sub, true
+   closeExpected = false           -- a form.close() with no form open is stale
    local list = {}
    for _, c in ipairs(comps) do list[#list+1] = c.kind .. ":'" .. tostring(c.label) .. "'" end
    log("subform " .. tostring(sub) .. ": " .. table.concat(list, ", "))
@@ -1936,6 +1996,9 @@ local function wKey(key)
       elseif key == KEY_2 then confirmAnswer = 0 end
       return
    end
+   if isCloseKey(key) and not injecting then
+      testerLeft("pressed " .. keyName(key) .. " in the " .. cfg.target .. " menu")
+   end
    if not T.key then return end
    if injecting then return T.key(key) end
    prevented = false
@@ -1951,13 +2014,19 @@ local function wKey(key)
    return r
 end
 
-local function drawBanner(w, h)
+local function drawBanner(w, h, onForm)
    local b = confirmBanner
+   if not b and onForm and stopNote then
+      stopNote.at = stopNote.at or now() + 10000
+      if now() < stopNote.at then b = stopNote else stopNote = nil end
+   end
    if not b then return end
    local lines = {}
    for i = 1, math.min(#b.lines, 5) do lines[#lines+1] = b.lines[i] end
    if b.keys then
       lines[#lines+1] = "F1 = Yes      F2 = No"
+   elseif b.stop then
+      lines[#lines+1] = "(closes in " .. math.max(0, (b.at - now()) // 1000 + 1) .. " s)"
    elseif b.note then
       lines[#lines+1] = "(continues in " .. math.max(0, (b.at - now()) // 1000 + 1) .. " s)"
    else
@@ -1985,6 +2054,7 @@ local function drawBanner(w, h)
 end
 
 local function statusTag()
+   if menuClosedAt then return "UID STOPPED " .. menuClosedAt end
    if cfg.mode == "play" and steps then
       return finished and string.format("UID %dP %dF", counts.pass, counts.fail)
 	 or string.format("UID %d/%d", math.min(si, #steps), #steps)
@@ -2014,6 +2084,7 @@ local function telemStatus(w)
    if not tag then return end
    local txt = "UIDriver " .. (cfg.script ~= "" and (cfg.script .. " ") or "")
       .. tag:gsub("^UID ", "")
+   if menuClosedAt then txt = txt .. " (you left the menu)" end
    local lh = lcd.getTextHeight and lcd.getTextHeight(FONT_MINI) or 12
    local tw = lcd.getTextWidth and lcd.getTextWidth(FONT_MINI, txt) or 6 * #txt
    local bw = math.min(tw + 10, w - 16)
@@ -2038,13 +2109,19 @@ local function wPrint(w, h)
    if T.print then capturePrint("form", T.print, w, h) end
    cpuSample("form print", getCPU())   -- before the driver adds its own work
    runSteps("form")
-   drawBanner(w, h)
+   drawBanner(w, h, true)
    if cfg.overlay == "box" then overlay(w)
    elseif cfg.overlay then updateTitle() end
 end
 
 local function wClose()
+   local wasOpen = formOpen
    formOpen = false
+   local expected = closeExpected
+   closeExpected = false
+   if wasOpen and not expected then
+      testerLeft("closed the " .. cfg.target .. " menu")
+   end
    if T.close then return T.close() end
 end
 
@@ -3065,6 +3142,7 @@ local function resetRun()
    inputs, nInputs = {}, 0
    sensorOv, nSensorOv = {}, 0
    confirmBanner, confirmAnswer = nil, nil
+   menuClosedAt, closeExpected, stopNote = nil, false, nil
 end
 
 local function stamp()
@@ -3074,6 +3152,24 @@ local function stamp()
 			   d.hour, d.min, d.sec)
    end
    return tostring(now())
+end
+
+-- file helpers (in one table: the main chunk is at Lua's 200-local limit)
+local files = {}
+
+-- a new run is about to empty the log at path: keep the run before as
+-- result.prev.log, unless it barely started (a restart when the apps
+-- reload), which would push out a real run kept earlier
+function files.keepPrevLog(path)
+   local old = io.readall(path)
+   if not old or old == "" then return end
+   local nSteps = 0
+   for _ in old:gmatch("\n *%d+ ") do nSteps = nSteps + 1 end
+   local real = nSteps >= 5 or old:find("FAIL #####", 1, true)
+      or old:find("\n==== ", 1, true) or old:find("\n##### ", 1, true)
+   if not real then return end
+   local f = io.open((path:gsub("result%.log$", "result.prev.log")), "w")
+   if f then io.write(f, old); io.close(f) end
 end
 
 -- start a run with what cfg.target/script/mode say (or stop, for "off")
@@ -3091,6 +3187,7 @@ local function activate()
    telButtons = telButtonsOf[id]
    api.sensorConfig, api.sensorLog = nil, nil
    LOGFILE = id ~= "" and (appDir(id) .. "result.log") or (HOME .. "result.log")
+   files.keepPrevLog(LOGFILE)
    local f = io.open(LOGFILE, "w")
    if f then io.close(f)
    elseif id ~= "" then
@@ -3134,6 +3231,7 @@ local function activate()
 end
 
 local function start()
+   files.keepPrevLog(HOME .. "result.log")
    local f = io.open(HOME .. "result.log", "w")
    if f then io.close(f) end
    system.UIDriver = api          -- always, so checks work by hand too

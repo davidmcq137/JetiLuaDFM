@@ -101,6 +101,8 @@ DFM-Maps/Old_Maps
 # recording to keep it as a script), and the menu's saved choice
 */UIDriver/result.log
 UIDriver/result.log
+*/UIDriver/result.prev.log
+UIDriver/result.prev.log
 */UIDriver/rec-*.jsn
 UIDriver/selection.jsn
 SpikeTgt/SpikeTgt.log
