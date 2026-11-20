@@ -110,3 +110,4 @@ SpikeTgt/SpikeTgt.log
 DFM-Rscu/Fields/*.gps
 # DFM-TimG: saved fuel state per model
 DFM-TimG/LF_*.jsn
+DFM-InsP/prof.log

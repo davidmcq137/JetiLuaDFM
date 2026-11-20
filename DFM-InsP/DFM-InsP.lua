@@ -56,7 +56,7 @@
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.91
+local InsPVersion = 0.92
 
 local LE
 
@@ -199,8 +199,10 @@ local loopCPU = 0
 -- per-callback ms/call, the slowest call, and the highest system.getCPU()
 -- seen, then each stage's average ms/call and its slowest single call (an
 -- image decode happens in one frame only, so its average hides it; the
--- slowest frame is what the TX kills). Set prof.on = false to turn it off
-local prof = {on = true, sum = {}, n = {}, max = {}, tot = {}, cnt = {}, cpu = {},
+-- slowest frame is what the TX kills). Set prof.on = false to turn it off.
+-- Each report is also appended to prof.file, opened and closed every time so
+-- a run the TX kills keeps every report written before the kill
+local prof = {on = true, file = "Apps/DFM-InsP/prof.log", sum = {}, n = {}, max = {}, tot = {}, cnt = {}, cpu = {},
 	      top = {}, order = {}}
 
 function prof.start(cb)
@@ -226,21 +228,47 @@ function prof.mark(tag)
    prof.last = now
 end
 
+-- print a line and keep it for the file
+function prof.out(lines, s)
+   print(s)
+   lines[#lines + 1] = s
+end
+
+function prof.save(lines)
+   local fp = io.open(prof.file, "a")
+   if not fp then return end
+   io.write(fp, table.concat(lines, "\n"), "\n")
+   io.close(fp)
+end
+
+-- once, from init: a line in the file to mark the start of each run
+function prof.begin(version)
+   if not prof.on then return end
+   local tx = system.getDeviceType and system.getDeviceType() or "?"
+   local d = system.getDateTime and system.getDateTime()
+   local when = d and string.format("%04d-%02d-%02d %02d:%02d:%02d", d.year, d.mon, d.day,
+				    d.hour, d.min, d.sec) or ""
+   prof.save({"", string.format("==== DFM-InsP %s profile start on %s, %s",
+				tostring(version), tostring(tx), when)})
+end
+
 function prof.report()
+   local lines = {}
    local cbs = {}
    for cb in pairs(prof.cnt) do cbs[#cbs + 1] = cb end
    table.sort(cbs)
    for _, cb in ipairs(cbs) do
       local n = prof.cnt[cb]
-      print(string.format("InsP prof %s: %d calls, %.1f ms avg, %d ms max, getCPU max %d",
+      prof.out(lines, string.format("InsP prof %s: %d calls, %.1f ms avg, %d ms max, getCPU max %d",
 			  cb, n, prof.tot[cb] / n, prof.top[cb], prof.cpu[cb] or -1))
       for _, k in ipairs(prof.order) do
 	 if k:sub(1, #cb + 1) == cb .. " " and prof.sum[k] > 0 then
-	    print(string.format("   %-20s %5.1f avg %4d max  x%.1f", k:sub(#cb + 2),
+	    prof.out(lines, string.format("   %-20s %5.1f avg %4d max  x%.1f", k:sub(#cb + 2),
 				prof.sum[k] / n, prof.max[k], prof.n[k] / n))
 	 end
       end
    end
+   prof.save(lines)
    prof.sum, prof.n, prof.max, prof.order = {}, {}, {}, {}
    prof.tot, prof.cnt, prof.cpu, prof.top = {}, {}, {}, {}
 end
@@ -5213,6 +5241,7 @@ local function init(icode)
 			    prof.wrap("window 2", function(w,h) return printForm(w,h,2) end) )   
 
    appStartTime = system.getTimeCounter()
+   prof.begin(InsPVersion)
 
    LE = require 'DFM-InsP/luaEdit'
 
