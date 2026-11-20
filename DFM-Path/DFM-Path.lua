@@ -453,6 +453,11 @@ local function loopP()
       
       ailSet = mixOut(config.Amix, normSteer)
       eleSet = eleSet + RTH.settings.maxElevGain / 100 * mixOut(config.Emix, normSteer)
+      -- setControl takes -1..1: the turn elevator is added after the altitude
+      -- term's own limit, so limit the sum (and the steering, in case a mix
+      -- gain is over 100%)
+      eleSet = math.max(-1, math.min(1, eleSet))
+      ailSet = math.max(-1, math.min(1, ailSet))
       --print("eleSet", eleSet)
       
       validmixA = true
