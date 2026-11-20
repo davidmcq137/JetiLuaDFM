@@ -1,7 +1,7 @@
 {"steps": [
   {"log": "SensorE API self-test; needs SensorE and SpikeTgt running, no form"},
   {"wait": 1500},
-  {"expectState": "sensorE.configDir", "value": "Apps/DFM-Maps/JSON"},
+  {"expectState": "sensorE.configDir", "value": "Apps/DFM-Maps/SensorE"},
   {"expectState": "sensorE.gps", "value": true},
   {"sensorPause": true},
   {"remember": "sensorE.t", "as": "t0"},

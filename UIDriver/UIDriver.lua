@@ -54,10 +54,15 @@
                                   -- each announcement
         "logControls": true,      -- log the target's setControl changes
         "logEvents": false,       -- log every uid.event
-        "sensorConfig": "Apps/DFM-Maps/JSON",  -- optional: SensorE uses
-                                  -- this config dir instead of the one in
-                                  -- Apps/SensorE.jsn. SensorE reads it once,
-                                  -- so after changing it restart the apps
+        "sensorConfig": "DFM-Rscu",  -- optional: the SensorE config
+                                  -- to use. Without it, the app's own
+                                  -- Apps/<App>/SensorE (if it has one),
+                                  -- else Apps/SensorE.jsn's. "DFM-Rscu" =
+                                  -- Apps/DFM-Rscu/SensorE, "DFM-Rscu/maps"
+                                  -- its maps variant, or any path from
+                                  -- the emulator root ("Apps/..."). SensorE
+                                  -- reads it when the apps load, so after
+                                  -- changing it restart the apps
         "sensorLog": "Log/20190926/16-56-45.log"}  -- optional: the log
                                   -- SensorL replays instead of SensorL.jsn's
                                   -- (read once too)
@@ -285,8 +290,9 @@
      {"sensorVars": {"xp": 0, "yp": -100, "heading": 90}}  set the
                                   simulator's xp, yp, heading, zp, pitch
      {"sensorField": "DCRC Walt Good Field"}  GPS origin field (or index)
-   SensorE loads its config on the first getSensors call; "sensorConfig"
-   in the app's config.jsn picks the dir. setTime and setField need it loaded.
+   SensorE loads its config when the apps load (each getSensors call):
+   the app's own Apps/<App>/SensorE, or config.jsn's "sensorConfig"
+   (see config.jsn under FILES). setTime and setField need it loaded.
 
    TEXT ON SCREEN: what the target draws with lcd.drawText and
    lcd.drawNumber. Steps look at the next frame of the form, or of a
@@ -3157,6 +3163,29 @@ end
 -- file helpers (in one table: the main chunk is at Lua's 200-local limit)
 local files = {}
 
+-- SensorE config dirs, read the way SensorE reads them: "DFM-Rscu" is
+-- Apps/DFM-Rscu/SensorE, "DFM-Rscu/maps" Apps/DFM-Rscu/SensorE/maps, and a
+-- path from the emulator root ("Apps/...") stays as it is
+function files.sensorPath(d)
+   if d == "Apps" or d:find("^Apps/") or d:find("^/") then return d end
+   local app, sub = d:match("^([^/]+)/?(.*)$")
+   if not app then return d end
+   return "Apps/" .. app .. "/SensorE" .. (sub ~= "" and ("/" .. sub) or "")
+end
+
+-- the config SensorE should use for app id: its config.jsn "sensorConfig",
+-- else the app's own Apps/<id>/SensorE if it has one; nil leaves it to
+-- Apps/SensorE.jsn
+function files.sensorDirOf(id, explicit)
+   if type(explicit) == "string" and explicit ~= "" then return files.sensorPath(explicit) end
+   if id and id ~= "" then
+      local d = "Apps/" .. id .. "/SensorE"
+      if io.readall(d .. "/sensorEmulator.jsn") or io.readall(d .. "/sensorEmulatorGPS.jsn") then
+	 return d
+      end
+   end
+end
+
 -- a new run is about to empty the log at path: keep the run before as
 -- result.prev.log, unless it barely started (a restart when the apps
 -- reload), which would push out a real run kept earlier
@@ -3206,14 +3235,19 @@ local function activate()
    if cfg.mode == "play" then loadScript() end
    -- SensorE reads this when it loads its config (first getSensors),
    -- SensorL its log
-   api.sensorConfig = cfg.sensorConfig
+   local sdir = files.sensorDirOf(id, cfg.sensorConfig)
+   api.sensorConfig = sdir
    api.sensorLog = cfg.sensorLog
+   if sdir then
+      log("SensorE config: " .. sdir .. (cfg.sensorConfig and " (config.jsn sensorConfig)"
+				       or " (the app's own)"))
+   end
    local se = system.SensorE
    local ok, g = pcall(function() return se and se.getState and se.getState() end)
-   if cfg.sensorConfig and ok and type(g) == "table" and g.configDir
-   and g.configDir ~= cfg.sensorConfig then
+   if sdir and ok and type(g) == "table" and g.configDir
+   and g.configDir ~= sdir then
       log("WARN SensorE already loaded its config from " .. tostring(g.configDir) ..
-	  ", not " .. cfg.sensorConfig .. "; restart the apps to change it")
+	  ", not " .. sdir .. "; restart the apps to change it")
    end
    local sl = system.SensorL
    local okL, gl = pcall(function() return sl and sl.getState and sl.getState() end)
@@ -3318,10 +3352,10 @@ local function sensorText(id)
    local ok, g = pcall(function() return se and se.getState and se.getState() end)
    local loaded = ok and type(g) == "table" and g.configDir or nil
    local sej = readJsn("Apps/SensorE.jsn") or {}
-   local want = sej.configDir or "Apps"
-   local ac = id and id ~= "" and readJsn(appDir(id) .. "config.jsn")
-   if ac and type(ac.sensorConfig) == "string" and ac.sensorConfig ~= "" then
-      want = ac.sensorConfig
+   local want = files.sensorPath(type(sej.configDir) == "string" and sej.configDir or "Apps")
+   if menu and menu.mode ~= "off" then
+      local ac = id and id ~= "" and readJsn(appDir(id) .. "config.jsn")
+      want = files.sensorDirOf(id, ac and ac.sensorConfig) or want
    end
    -- returns the line and an optional second line (too long for one)
    if not loaded then

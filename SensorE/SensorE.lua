@@ -65,8 +65,21 @@
    These are used instead of lat0/lon0 when both are present: json.decode
    makes numbers float32 on JETI (0.2-0.3 m off), and gps.newPoint takes
    strings at full precision. lat0/lon0 can then be left out.
-   If system.UIDriver.sensorConfig is set (the target app's Apps/<App>/UIDriver/config.jsn
-   "sensorConfig"), it is used as the configDir instead of SensorE.jsn's.
+   If system.UIDriver.sensorConfig is set, it is used as the configDir
+   instead of SensorE.jsn's. UIDriver sets it to the target app's
+   config.jsn "sensorConfig", or else to Apps/<App>/SensorE when the app
+   has one.
+
+   Where the config lives: each app keeps its own in Apps/<App>/SensorE/
+   (sensorEmulator.jsn, sensorEmulatorGPS.jsn), next to its UIDriver/
+   folder. A variant is a subfolder holding only the files that differ,
+   e.g. Apps/DFM-Rscu/SensorE/maps/sensorEmulatorGPS.jsn: a file missing
+   from a subfolder of a SensorE folder is read from that SensorE folder.
+   A configDir (SensorE.jsn's or UIDriver's) is either a path from the
+   emulator root ("Apps/DFM-Rscu/SensorE/maps", "Apps", any folder) or
+   short: "DFM-Rscu" means Apps/DFM-Rscu/SensorE and "DFM-Rscu/maps"
+   Apps/DFM-Rscu/SensorE/maps. So DFM-Maps can fly with Rscu's flight
+   simulation: "sensorConfig": "DFM-Rscu" in DFM-Maps/UIDriver/config.jsn.
 
    Bug fixes:
 
@@ -487,6 +500,30 @@ function emulator_playNumber(val, dec, unit, lab)
    return rr
 end
 
+-- "DFM-Rscu" -> Apps/DFM-Rscu/SensorE, "DFM-Rscu/maps" -> .../SensorE/maps;
+-- a path from the emulator root ("Apps/...") is used as it is
+local function configPath(d)
+   if d == "Apps" or d:find("^Apps/") or d:find("^/") then return d end
+   local app, sub = d:match("^([^/]+)/?(.*)$")
+   if not app then return d end
+   return "Apps/" .. app .. "/SensorE" .. (sub ~= "" and ("/" .. sub) or "")
+end
+
+-- read dir/name; a variant folder (.../SensorE/<variant>) without the file
+-- uses its SensorE folder's
+local function readConfig(dir, name)
+   local path = dir .. "/" .. name
+   local fg = io.readall(path)
+   if fg then return fg, path end
+   local base = dir:match("^(.*/SensorE)/[^/]+$")
+   if base then
+      local p2 = base .. "/" .. name
+      fg = io.readall(p2)
+      if fg then return fg, p2 end
+   end
+   return nil, path
+end
+
 function emulator_getSensors()
 
    local fg, text
@@ -517,6 +554,7 @@ function emulator_getSensors()
       print("SensorE: configDir from UIDriver: " .. drv.sensorConfig)
       SEjsn.configDir = drv.sensorConfig
    end
+   SEjsn.configDir = configPath(SEjsn.configDir)
    configDirUsed = SEjsn.configDir
 
    switchSeq = 1
@@ -524,8 +562,7 @@ function emulator_getSensors()
       saveSwitch["S"..c] = system.getInputs("S"..c)
    end
    
-   text = SEjsn.configDir .. "/sensorEmulator.jsn"
-   fg = io.readall(text)
+   fg, text = readConfig(SEjsn.configDir, "sensorEmulator.jsn")
    if not fg then print("SensorE: Cannot read " .. text) else
       print("SensorE: Sensor config: "..text)
       --print("JSON text[1-80]: ", string.sub(fg, 1, 80))
@@ -553,8 +590,7 @@ function emulator_getSensors()
       end
    end
    
-   text = SEjsn.configDir .. "/sensorEmulatorGPS.jsn"
-   fg = io.readall(text)
+   fg, text = readConfig(SEjsn.configDir, "sensorEmulatorGPS.jsn")
    GPSparms = nil
    if fg then
       GPSparms = json.decode(fg)
@@ -575,6 +611,7 @@ function emulator_getSensors()
       end
    end
    if not GPSparms then print("Info: No GPS file " .. text) else
+      print("SensorE: GPS config: " .. text)
       coslat0 = math.cos(math.rad(GPSparms.lat0))
       --print("GPS Config: "..text)
       --print("xp, yp, heading", GPSparms.xp, GPSparms.yp, GPSparms.heading)

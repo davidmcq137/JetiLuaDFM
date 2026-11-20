@@ -1,5 +1,5 @@
 {"steps": [
-  {"log": "inputs/sensors/controls self-test; needs no form. SensorE should use Apps/DFM-Maps/JSON (Altitude = P5(0,200))"},
+  {"log": "inputs/sensors/controls self-test; needs no form. SensorE should use Apps/DFM-Maps/SensorE (Altitude = P5(0,200))"},
   {"wait": 1500},
   {"remember": "tgt.sensLabel", "as": "sens"},
   {"setInput": "P6", "value": 0.5},

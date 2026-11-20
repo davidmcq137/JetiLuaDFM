@@ -1,4 +1,4 @@
 {
-  "sensorConfig": "Apps/DFM-Maps/JSON",
+  "sensorConfig": "DFM-Maps",
   "stopOnFail": false
 }

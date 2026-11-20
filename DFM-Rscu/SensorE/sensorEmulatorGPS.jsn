@@ -1,0 +1,17 @@
+{
+    "lat0": 41.340050,
+    "lon0": -74.430933,
+    "rE":6378137,
+    "trueDir": 78.88,
+    "startTime": 30,
+    "xp":0,
+    "yp":0,
+    "zp":100,
+    "heading":20,
+    "pitch":0,
+    "hString":"heading + O1(-8,8)",
+    "pString":"-O2(-20,20) - 0*math.abs(O1(-4,4))",    
+    "xString":"xp + P4(0,6) * math.sin(math.rad(heading))",
+    "yString":"yp + P4(0,6) * math.cos(math.rad(heading))",
+    "zString":"zp + 3 * math.tan(math.rad(pitch))"
+}

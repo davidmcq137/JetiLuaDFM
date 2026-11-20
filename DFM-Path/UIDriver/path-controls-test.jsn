@@ -1,5 +1,5 @@
 {"steps": [
-  {"log": "DFM-Path steering and elevator outputs (setControl) on the saved path (Json/Path.jsn, 7 points; point 1 at 100 m). Needs SensorE with DFM-Rscu's config (Apps/DFM-Rscu/Json; altitude from zpAlt, which the script overrides). The model is held at set positions south of point 1; the heading comes from the last move of more than 3 m. Positive steering = turn right. Open DFM-Path from the Applications menu and leave it open"},
+  {"log": "DFM-Path steering and elevator outputs (setControl) on the saved path (Json/Path.jsn, 7 points; point 1 at 100 m). Needs SensorE with its own config (Apps/DFM-Path/SensorE, a copy of DFM-Rscu's; altitude from zpAlt, which the script overrides). The model is held at set positions south of point 1; the heading comes from the last move of more than 3 m. Positive steering = turn right. Open DFM-Path from the Applications menu and leave it open"},
   {"waitForm": true},
   {"waitSub": 1},
   {"wait": 2000},

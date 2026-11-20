@@ -1,5 +1,5 @@
 {"steps": [
-  {"log": "DFM-Rscu test: inputboxes, mixer calibration, rescue on/off. Needs SensorE (config Apps/DFM-Rscu/Json) with DFM-Rscu's lat/lon sensors set. Open DFM-Rscu from the Applications menu"},
+  {"log": "DFM-Rscu test: inputboxes, mixer calibration, rescue on/off. Needs SensorE (config Apps/DFM-Rscu/SensorE) with DFM-Rscu's lat/lon sensors set. Open DFM-Rscu from the Applications menu"},
   {"waitForm": true},
   {"waitSub": 1},
   {"wait": 3000},

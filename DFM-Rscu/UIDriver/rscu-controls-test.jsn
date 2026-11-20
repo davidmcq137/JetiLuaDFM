@@ -1,6 +1,6 @@
 {"config": {"stepGap": 200},
  "steps": [
-  {"log": "DFM-Rscu steering and elevator outputs (setControl) during a rescue. Needs SensorE (config Apps/DFM-Rscu/Json). The model is held at set positions north/east of home; DFM-Rscu has no heading sensor here, so its heading comes from the last move of more than 3 m. Positive steering = turn right. Open DFM-Rscu from the Applications menu and leave it open"},
+  {"log": "DFM-Rscu steering and elevator outputs (setControl) during a rescue. Needs SensorE (config Apps/DFM-Rscu/SensorE). The model is held at set positions north/east of home; DFM-Rscu has no heading sensor here, so its heading comes from the last move of more than 3 m. Positive steering = turn right. Open DFM-Rscu from the Applications menu and leave it open"},
   {"waitForm": true},
   {"waitSub": 1},
   {"wait": 3000},
