@@ -244,6 +244,12 @@ local inZoneLast = {}
 local circFitCache={}
 
 local fieldPNG={}
+-- set when fieldPNG is emptied. The dropped images are only freed when Lua's
+-- garbage collector runs, and it sees each one as a small userdata, not the
+-- ~0.5 MB bitmap behind it, so they pile up: entering and leaving the map
+-- browser a few times made lcd.loadImage fail (maps-smoke, 2026-11-20).
+-- loop() runs one full collection, in a cycle of its own
+local imagesDropped = false
 local maxImage
 local currentImage
 
@@ -1090,6 +1096,7 @@ local function setField(sname, noImages)
    Field.lng = Field.images[1].center.lng
    
    fieldPNG={}
+   imagesDropped = true
    Field.renderer = {}
    Field.centerGPS = {}
    
@@ -1412,6 +1419,7 @@ local function browseRestore()
    tri = {}
    currentImage = nil
    fieldPNG={}
+   imagesDropped = true
    gotInitPos = false
    xPHist = {}
    yPHist = {}
@@ -4576,6 +4584,14 @@ end
 ------------------------------------------------------------
 
 local function loop()
+
+   if imagesDropped then
+      -- free the map images setField/browseRestore let go of (see fieldPNG),
+      -- alone in this cycle: a full collection costs CPU
+      imagesDropped = false
+      collectgarbage()
+      return
+   end
 
    local minutes, degs
    local sensor
