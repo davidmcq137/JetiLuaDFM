@@ -482,6 +482,10 @@ local exposed = {}         -- name -> getter, from uid.expose
 local vars = {}            -- remembered values, for "$name" in expectState
 local events = {}          -- name -> {n, value, step, used}, from uid.event
 local checkSeen = {}       -- failed check message -> times failed
+local failList = {}        -- this run's failed steps, repeated in the summary
+-- FAIL lines are easy to miss as the console scrolls (it has no colours),
+-- so they carry a wide marker; "FAIL" stays in them for grep
+local FAILMARK = "##### FAIL #####"
 
 local function now() return system.getTimeCounter() end
 
@@ -1637,13 +1641,21 @@ end
 
 local function finish(why)
    finished = true
-   log(string.format("==== %s: %d steps run, %d PASS, %d FAIL, %d ok; " ..
-			"app checks: %d passed, %d failed ====",
-		     why, si - 1, counts.pass, counts.fail, counts.ok,
-		     counts.checks, counts.checkFails))
+   local bad = counts.fail > 0
+   local bar = bad and "#####" or "===="
+   log(string.format("%s %s: %d steps run, %d PASS, %d FAIL, %d ok; " ..
+			"app checks: %d passed, %d failed %s",
+		     bar, why, si - 1, counts.pass, counts.fail, counts.ok,
+		     counts.checks, counts.checkFails, bar))
+   -- repeat the failures at the end, where the console stops scrolling
+   for _, f in ipairs(failList) do log("   FAILED " .. f) end
    for msg, n in pairs(checkSeen) do
       log("   check failed " .. n .. "x: " .. msg)
    end
+   -- and say it on the emulator screen too
+   local box = bad and string.format("UIDriver: %d FAIL (see log)", counts.fail)
+      or string.format("UIDriver: all %d PASS", counts.pass)
+   pcall(system.messageBox, box, 5)
 end
 
 local function report(s, st, msg)
@@ -1664,7 +1676,14 @@ local function report(s, st, msg)
 	 msg = (msg or "") .. string.format("  [SensorL t=%.1f]", g.t)
       end
    end
-   log(string.format("%3d %-4s %-10s %s", si, tag, s._verb, msg or ""))
+   if st == false then
+      log(string.format("%s %3d %-10s %s", FAILMARK, si, s._verb, msg or ""))
+      local short = tostring(msg or "")
+      if #short > 100 then short = short:sub(1, 97) .. "..." end
+      failList[#failList+1] = string.format("step %d %s: %s", si, s._verb, short)
+   else
+      log(string.format("%3d %-4s %-10s %s", si, tag, s._verb, msg or ""))
+   end
    s._text, textArm = nil, nil
    si, stepT0 = si + 1, nil
    nextAt = now() + (s._verb == "wait" and 0 or cfg.stepGapMs)
@@ -2959,7 +2978,7 @@ function api.check(cond, msg)
 					     steps[si] and steps[si]._verb or "?")
       or "no script playing"
    local tb = debug and debug.traceback and debug.traceback("", 2) or ""
-   log("CHECK FAIL " .. where .. ": " .. msg .. tb)
+   log(FAILMARK .. " CHECK " .. where .. ": " .. msg .. tb)
    if playing() then
       if cfg.stopOnFail then finish("STOPPED on app check failure") end
    else
@@ -3009,7 +3028,7 @@ local function resetRun()
    counts = {pass = 0, fail = 0, ok = 0, checks = 0, checkFails = 0}
    seq, actionSeq, actionMarked = 0, 0, nil
    anns, textArm, frameNo, frames = {}, nil, 0, {}
-   vars, events, checkSeen = {}, {}, {}
+   vars, events, checkSeen, failList = {}, {}, {}, {}
    cpuWin = nil
    inputs, nInputs = {}, 0
    sensorOv, nSensorOv = {}, 0
