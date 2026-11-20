@@ -90,6 +90,13 @@ const.rE = 6378137
 const.rad = 180/math.pi
 const.ribbonPts = 20
 const.imageWait = 1
+-- map browser zoom keys: decode the chosen level only once the keys have been
+-- still for zoomSettle ms, and at most once every zoomGap ms. Holding or
+-- mashing the zoom keys used to decode every 2-3 frames and the TX killed the
+-- app (Lua 27000 us against a 10000 us limit). Levels already decoded are
+-- shown at once
+const.zoomSettle = 350
+const.zoomGap = 1000
 const.xOver = 100
 local relBearing
 local nextPylon=0
@@ -1463,6 +1470,9 @@ local function keyForm(key)
 	    -- decoding a 24-II image here can blow the CPU limit for this key
 	    -- callback; prtForm loads it on a later frame (see browse.pendingImage)
 	    browse.pendingImage = currentImage
+	    browse.lastZoomKey = system.getTimeCounter()
+	    -- a held zoom key is one press: no repeats until it is released
+	    form.waitForRelease()
 	 end
       else -- KEY_2
 	 --print("key2, savedSubform", savedSubform)
@@ -1481,6 +1491,7 @@ local function keyForm(key)
 	       graphInit(currentImage)
 	       browse.pendingImage = currentImage
 	       browse.pendingDrawn = nil
+	       browse.decodes = 0
 	    end
 	    browse.MapDisplayed = true
 	    browse.active = true
@@ -3119,27 +3130,46 @@ local function prtForm() --wwx, whx)
    elseif savedSubform == 10 then
       if not browse.MapDisplayed then return end
       if #browse.List < 1 then return end
-      -- deferred image load (see keyForm). First frame just shows the message,
-      -- the next one does the decode, the one after that draws the map. Keeps
-      -- the PNG decode out of both the key callback and the drawing callback
+      -- deferred image load (see keyForm). The key callback only picks the
+      -- level; the decode happens here, never in the key callback or in the
+      -- same frame that first shows "loading". A level not yet decoded waits
+      -- until the zoom keys have been still for const.zoomSettle ms and the
+      -- last decode was at least const.zoomGap ms ago, so holding or mashing
+      -- the keys costs one decode, for the level the pilot stops on. A level
+      -- already in fieldPNG costs nothing and is shown at once
       if browse.pendingImage then
-	 setColor("Label", "Light")
-	 lcd.drawText(10, Screen.image_height_px/2, "Loading map...", FONT_NORMAL)
-	 if browse.pendingDrawn then
-	    local im = browse.pendingImage
+	 local im = browse.pendingImage
+	 local now = system.getTimeCounter()
+	 local cached = fieldPNG[im] ~= nil
+	 if cached or
+	    (browse.pendingDrawn and
+	     now - (browse.lastZoomKey or 0) >= const.zoomSettle and
+	     now - (browse.lastDecode or 0) >= const.zoomGap) then
 	    browse.pendingImage = nil
 	    browse.pendingDrawn = nil
 	    pngLoad(im, nil, true)
 	    graphScaleRst(im)
 	    triRot(0) -- rotate and translate triangle to pylons
+	    if not cached then
+	       browse.lastDecode = system.getTimeCounter()
+	       browse.decodes = (browse.decodes or 0) + 1 -- for UIDriver tests
+	    end
 	    if uid then
 	       uid.check(fieldPNG[im] ~= nil, "map image decoded")
 	       uid.event("imageLoaded", im)
 	    end
+	    -- a fresh decode has used this frame's time: draw it next frame
+	    if not cached then return end
 	 else
+	    local nIm = Fields[browse.FieldName] and
+	       #Fields[browse.FieldName].images or 0
+	    setColor("Label", "Light")
+	    lcd.drawText(10, Screen.image_height_px/2,
+			 string.format("Zoom %d/%d  loading map...", im, nIm),
+			 FONT_NORMAL)
 	    browse.pendingDrawn = true
+	    return
 	 end
-	 return
       end
       if (formRenderer==nil) then 
                formRenderer = lcd.renderer()
