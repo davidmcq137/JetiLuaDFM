@@ -2355,18 +2355,37 @@ local function findSensors(s, field)
    if not system.getSensors then return nil, "system.getSensors isn't available" end
    local ok, list = pcall(system.getSensors)
    if not ok or type(list) ~= "table" then return nil, "system.getSensors failed" end
-   local found, labels = {}, {}
+   -- the device name: the firmware gives it on every entry, but SensorE's
+   -- configs may give it only on the device's param 0 entry (sensorName ""
+   -- on its values), so fall back to that entry's sensorName or label
+   local devName = {}
+   for _, e in ipairs(list) do
+      if e.param == 0 and e.id then
+	 local nm = (e.sensorName and e.sensorName ~= "") and e.sensorName or e.label
+	 if nm and nm ~= "" then devName[e.id] = tostring(nm) end
+      end
+   end
+   local found, labels, sameLabel = {}, {}, {}
    for _, e in ipairs(list) do
       if e.param and e.param ~= 0 then
-	 labels[#labels+1] = tostring(e.label)
-	 if tostring(e.label):lower() == tostring(want):lower()
-	 and (not s.sensorName or e.sensorName == s.sensorName) then
-	    found[#found+1] = {key = idKey(e.id, e.param), label = tostring(e.label),
-			       id = e.id, param = e.param, sensorName = e.sensorName}
+	 local dev = (e.sensorName and e.sensorName ~= "") and tostring(e.sensorName)
+	    or devName[e.id] or ""
+	 labels[#labels+1] = (dev ~= "" and (dev .. " ") or "") .. tostring(e.label)
+	 if tostring(e.label):lower() == tostring(want):lower() then
+	    if not s.sensorName or dev:lower() == tostring(s.sensorName):lower() then
+	       found[#found+1] = {key = idKey(e.id, e.param), label = tostring(e.label),
+				  id = e.id, param = e.param, sensorName = dev}
+	    else
+	       sameLabel[#sameLabel+1] = dev ~= "" and dev or "(no device name)"
+	    end
 	 end
       end
    end
    if #found == 0 then
+      if #sameLabel > 0 then
+	 return nil, "no '" .. tostring(want) .. "' on sensor '" .. tostring(s.sensorName) ..
+	    "'; it is on " .. table.concat(sameLabel, ", ")
+      end
       return nil, "no sensor labelled '" .. tostring(want) .. "'; have " ..
 	 (#labels > 0 and table.concat(labels, ", ") or "none")
    end
