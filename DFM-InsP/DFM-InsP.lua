@@ -1044,44 +1044,32 @@ local function keyForm(key)
 	    end
 	 end
 
-	 local name1
-	 --print("#InsP.panels", #InsP.panels)
-	 --print("InsP.settings.window1Panel", InsP.settings.window1Panel)
-	 if InsP.settings.window1Panel > 0 and InsP.settings.window1Panel <= #InsP.panels then
-	    name1 = InsP.panelImages[InsP.settings.window1Panel].instImage
-	 end
-	 --print("name1 " .. tostring(name1))
-	 
-	 local name2
-	 --print("InsP.settings.window2Panel", InsP.settings.window2Panel)
-	 if InsP.settings.window2Panel > 0 and InsP.settings.window2Panel <= #InsP.panels then
-	    name2 = InsP.panelImages[InsP.settings.window2Panel].instImage
-	 end
-	 --print("name2 ".. tostring(name2))
-	 
 	 table.remove(InsP.panels, row)
 	 table.remove(InsP.panelImages, row)
 
-	 if row == is.window1Panel then
+	 -- the windows and the selected panel hold panel numbers: a panel after
+	 -- the deleted one moved up one place. (Finding them again by image name
+	 -- picked the wrong one when two panels shared an image, or were "---")
+	 if is.window1Panel == row then
 	    system.messageBox("Window 1 Panel deleted")
 	    is.window1Panel = 1
+	 elseif is.window1Panel > row then
+	    is.window1Panel = is.window1Panel - 1
 	 end
-	 if row == is.window2Panel then
+	 if is.window2Panel == row then -- window 2 off (0) stays off
 	    system.messageBox("Window 2 Panel deleted")
 	    is.window2Panel = math.min(#InsP.panels, 2)
+	 elseif is.window2Panel > row then
+	    is.window2Panel = is.window2Panel - 1
 	 end
+	 lastPanel1, lastPanel2 = 0, 0 -- same number may now be a different panel
 
-	 for i,p in ipairs(InsP.panelImages) do
-	    if p.instImage == name1 then InsP.settings.window1Panel = i end
-	    if p.instImage == name2 then InsP.settings.window2Panel = i end	    
-	 end
-
-	 if not name1 then InsP.settings.window1Panel = 1 end
-	 if not name2 then InsP.settings.window2Panel = math.min(#InsP.panels, 2) end
-	 
 	 if row == is.selectedPanel then
 	    --system.messageBox("Selected Panel deleted")
 	    is.selectedPanel = 1
+	 elseif is.selectedPanel > row then
+	    -- the panel being edited moved up one place
+	    is.selectedPanel = is.selectedPanel - 1
 	 end
 	 
 	 if #InsP.panels < 1 then
@@ -1335,11 +1323,23 @@ local function keyForm(key)
 	 form.setFocusedRow(#stateSw + 1)
 	 form.reinit(formN.editlinks)
       elseif key == KEY_2 then
-	 local fr = form.getFocusedRow()
-	 if fr - 1 > 0 then
-	    stateSw[fr-1].switch = nil
-	    switches["stateSwitch"..(fr-1)] = nil
-	    table.remove(stateSw, fr - 1)
+	 -- each entry's switch is saved under "stateSwitch"..position (switches,
+	 -- switchInfo with seqIdx, pSave) and init restores it by seqIdx, so
+	 -- after removing entry k the keys of entries k+1..n move down one
+	 local k = form.getFocusedRow() - 1
+	 if k > 0 and k <= #stateSw then
+	    local n = #stateSw
+	    local si = InsP.settings.switchInfo
+	    table.remove(stateSw, k)
+	    for j = k, n do -- j = k overwrites the deleted key, j = n clears the last
+	       local old, new = "stateSwitch" .. (j + 1), "stateSwitch" .. j
+	       switches[new] = switches[old] -- nil past the end
+	       si[new] = si[old]
+	       if si[new] then
+		  si[new].seqIdx = j
+		  system.pSave(new, switches[new])
+	       end
+	    end
 	 end
 	 form.reinit(formN.editlinks)
       end
@@ -1459,6 +1459,19 @@ local function panelChanged(val, sp)
    local pv = InsP.settings.panels[val]
 
    --print("panelChanged val, sp", val, sp)
+
+   -- a panel's image name is its identity (the website's png/json pair; the
+   -- sequencer and soft switches refer to panels by it), so two panels may
+   -- not use the same image. "---" (val 1, no panel yet) may repeat
+   if val ~= 1 then
+      for j, p in ipairs(InsP.panelImages) do
+	 if j ~= sp and p.instImage == pv then
+	    system.messageBox(pv .. " is already panel " .. j)
+	    form.reinit(formN.panels) -- the selectbox shows the old image again
+	    return
+	 end
+      end
+   end
    
    if val ~= 1 then
       --ii = InsP.panelImages[sp].instImage
@@ -1488,10 +1501,12 @@ local function panelChanged(val, sp)
 	 InsP.settings.window2Panel = sp
       end
    else
-      if (InsP.settings.window1Panel or 0) == val then
+      -- the windows hold panel numbers: compare with the panel cleared (sp),
+      -- not the selectbox item (val is always 1, "---", here)
+      if (InsP.settings.window1Panel or 0) == sp then
 	 InsP.settings.window1Panel = 1
       end
-      if (InsP.settings.window2Panel or 0) == val then
+      if (InsP.settings.window2Panel or 0) == sp then
 	 InsP.settings.window2Panel = 0
       end
       --instImg = nil
@@ -2818,6 +2833,15 @@ end
 
 local foo
 
+local function blankLoading()
+   -- while a window changes panel, its panel PNG is decoded in one frame and
+   -- its background PNG in the next, and nothing else is drawn in those two
+   -- frames. Both decodes plus the full panel draw in one callback went over
+   -- the TX's CPU limit (opening the panel editor, a 458x343 24-II image)
+   lcd.setColor(0,0,0)
+   lcd.drawFilledRectangle(0, 0, Screen.image_width_px - 1, Screen.image_height_px - 2)
+end
+
 local function printForm(_,_,tWin) --ww0,hh0,tWin)
 
    local ctl
@@ -2848,7 +2872,8 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	 InsP.settings.window1Panel = 1
 	 isp1 = 1
       end
-      if lastPanel1 ~= isp1 then
+      if lastPanel1 ~= isp1 and lastPanel1 ~= -isp1 then
+	 -- frame 1 of 2: the panel image (-isp1 = background still to load)
 	 pv = InsP.panelImages[isp1].instImage
 	 --print("win 1 loading panel " .. isp1 .. " " .. pv)
 	 if pv then
@@ -2868,6 +2893,11 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	 end
 	 --print("instImg1, pv, lastPanel1", instImg1, pv, lastPanel1)
 	 
+	 lastPanel1 = -isp1
+	 return blankLoading()
+      end
+      if lastPanel1 == -isp1 then
+	 -- frame 2 of 2: the background image; the panel is drawn from frame 3
 	 bv = InsP.panelImages[isp1].backImage
 	 if bv and bv ~= "..." then
 	    --print("bv", bv, string.match(bv, "rgb%("))
@@ -2888,6 +2918,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	    backImg1 = nil
 	 end
 	 lastPanel1 = isp1
+	 return blankLoading()
       end
       ip = InsP.panels[isp1]
       instI = instImg1
@@ -2900,7 +2931,8 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	 InsP.settings.window2Panel = 1
 	 isp2 = 1
       end
-      if lastPanel2 ~= isp2 then
+      if lastPanel2 ~= isp2 and lastPanel2 ~= -isp2 then
+	 -- frame 1 of 2: the panel image (-isp2 = background still to load)
 	 pv = InsP.panelImages[isp2].instImage
 	 --print("win 2 loading panel " .. isp2 .. " " ..pv)
 	 if pv then
@@ -2916,6 +2948,11 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	 else
 	    instImg2 = nil
 	 end
+	 lastPanel2 = -isp2
+	 return blankLoading()
+      end
+      if lastPanel2 == -isp2 then
+	 -- frame 2 of 2: the background image; the panel is drawn from frame 3
 	 bv = InsP.panelImages[isp2].backImage
 	 if bv and bv ~= "..." then
 	    if string.match(bv, "rgb%(") then
@@ -2934,6 +2971,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	    backImg2 = nil
 	 end
 	 lastPanel2 = isp2
+	 return blankLoading()
       end
       ip = InsP.panels[isp2]
       instI = instImg2
@@ -4720,6 +4758,16 @@ local function luaLogCB(idx)
    return math.floor(ret * 100 +  0.5), dp
 end
 
+local function closeForm()
+   -- the panel editor borrows window 1 to draw the panel it edits (prtForm);
+   -- the exit key puts it back, and so does closing the form any other way
+   if dispSave ~= 0 then
+      InsP.settings.window1Panel = dispSave
+      dispSave = 0
+      lastPanel1 = 0
+   end
+end
+
 local function init(icode)
 
    local decoded
@@ -4855,10 +4903,35 @@ local function init(icode)
    InsP.settings.fileBD = ff
    InsP.settings.writeBD = true
    
+   -- older setups may have two panels on one image (the app allowed it):
+   -- say so once, but leave the pilot's setup as it is
+   local seenImage, dups = {}, {}
+   for i, p in ipairs(InsP.panelImages) do
+      local n = p.instImage
+      if n and n ~= "---" then
+	 if seenImage[n] then
+	    dups[#dups+1] = string.format("panels %d and %d (%s)", seenImage[n], i, n)
+	 else
+	    seenImage[n] = i
+	 end
+      end
+   end
+   if #dups > 0 then
+      print("DFM-InsP: same image on " .. table.concat(dups, ", ") ..
+	       "; the sequencer and soft switches can't tell them apart")
+      system.messageBox("DFM-InsP: two panels use the same image (see console)")
+   end
+
+   -- window 1 always starts on panel 1 (the sequencer moves it in flight);
+   -- window 2 keeps the pilot's Win 2 choice, 0 = off, if it is still valid
    InsP.settings.window1Panel = 1
-   if not InsP.settings.window2Panel then InsP.settings.window2Panel = 0 end
-   if #InsP.panels > 1 then
+   local w2 = tonumber(InsP.settings.window2Panel)
+   if w2 and w2 % 1 == 0.0 and w2 >= 0 and w2 <= #InsP.panels then
+      InsP.settings.window2Panel = math.floor(w2) -- json gives a float
+   elseif #InsP.panels > 1 then
       InsP.settings.window2Panel = 2
+   else
+      InsP.settings.window2Panel = 0
    end
    
    if not InsP.settings.selectedPanel then InsP.settings.selectedPanel = 1 end
@@ -5040,7 +5113,7 @@ local function init(icode)
    
    readSensors(InsP)
 
-   system.registerForm(1, MENU_APPS, "DFM-InsP", initForm, keyForm, prtForm)
+   system.registerForm(1, MENU_APPS, "DFM-InsP", initForm, keyForm, prtForm, closeForm)
    system.registerTelemetry(1, "DFM-InsP-1", 4,
 			    (function(w,h) return printForm(w,h,1) end) )
    system.registerTelemetry(2, "DFM-InsP-2 ", 4,
