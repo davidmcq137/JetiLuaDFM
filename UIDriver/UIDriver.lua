@@ -74,6 +74,9 @@
      {"set": "Race time (mins)", "value": 30}     intbox (raw integer)
      {"set": "Select Field to Browse", "value": "BDS"}  selectbox by text
      {"set": "Select Field to Browse", "value": 2}      ... or by index
+                                  (text must match an item exactly; if it
+                                  matches none the log lists the items, if
+                                  it matches several it FAILs: use the index)
      {"set": "Enable Triangle Racecourse", "value": true}   checkbox
      {"set": "Name", "value": "abc"}              textbox
      {"set": "Start Switch", "value": "SA"}       inputbox: a control
@@ -977,8 +980,28 @@ local function setWidget(c, v)
       end
    elseif c.kind == "sel" then
       if type(v) == "string" then
-	 for i, s in ipairs(c.values or {}) do if s == v then want = i end end
-	 if not want then return false, "selectbox has no item '" .. v .. "'" end
+	 local hits = {}
+	 for i, s in ipairs(c.values or {}) do if s == v then hits[#hits+1] = i end end
+	 if #hits == 0 then
+	    -- list the items (quoted, as a script must write them) so the
+	    -- right text can be copied from the log
+	    local items = {}
+	    for i, s in ipairs(c.values or {}) do
+	       if i > 30 then items[#items+1] = "..."; break end
+	       items[#items+1] = "'" .. tostring(s) .. "'"
+	    end
+	    return false, "selectbox has no item '" .. v .. "'; it has " ..
+	       (#items > 0 and table.concat(items, ", ") or "no items")
+	 end
+	 if #hits > 1 then
+	    -- label-only sensor lists can repeat a name (two devices with an
+	    -- "Altitude"): don't guess, make the script pick by index
+	    local idx = {}
+	    for _, i in ipairs(hits) do idx[#idx+1] = tostring(i) end
+	    return false, "selectbox item '" .. v .. "' is ambiguous: items " ..
+	       table.concat(idx, " and ") .. "; give \"value\" as the index instead"
+	 end
+	 want = hits[1]
       else
 	 want = toInt(v)
 	 if not want or want < 1 or want > #(c.values or {}) then
