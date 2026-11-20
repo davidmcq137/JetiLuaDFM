@@ -300,9 +300,10 @@
    the text of a link. Add "nth": 2 for the second widget with the same
    label, or use "#12" for component index 12. Any step can carry
    "timeout". If a label isn't found, the log lists the labels that
-   are on the form.
+   are on the form. Any step can also carry "gap", the pause after it
+   in place of config "stepGap" (e.g. "gap": 100 for quick key presses).
 
-   DURATIONS ("timeout", "for", "look", "wait", and config "stepGap",
+   DURATIONS ("timeout", "for", "look", "wait", "gap", and config "stepGap",
    "stepTimeout", "confirmLook"): a number is ms; a string carries its
    unit: "500ms", "90s", "7m", "1m30s", "1h", or minutes:seconds
    "2:55", "4:34.6" (and "1:02:03" for h:mm:ss). The old keys
@@ -1600,7 +1601,8 @@ local function flatten(list, out, errs)
 	 -- a string carries its unit) become the ms keys used inside; the
 	 -- old timeoutMs, forMs and lookMs still work
 	 for _, d in ipairs({{"timeout", "timeoutMs"}, {"for", "forMs"},
-			     {"look", "lookMs"}, {"wait", "wait"}}) do
+			     {"look", "lookMs"}, {"wait", "wait"},
+			     {"gap", "gapMs"}}) do
 	    local key, msKey = d[1], d[2]
 	    -- ("for" is also setInput's "target"/"all"; "wait" a verb only)
 	    if s[key] ~= nil and (key ~= "wait" or v == "wait")
@@ -1686,7 +1688,7 @@ local function report(s, st, msg)
    end
    s._text, textArm = nil, nil
    si, stepT0 = si + 1, nil
-   nextAt = now() + (s._verb == "wait" and 0 or cfg.stepGapMs)
+   nextAt = now() + (s._verb == "wait" and 0 or s.gapMs or cfg.stepGapMs)
    if st == false and cfg.stopOnFail then
       finish("STOPPED on failure")
    elseif si > #steps then
@@ -1960,13 +1962,21 @@ local function drawBanner(w, h)
       local secs = math.max(0, (b.at - now()) // 1000 + 1)
       lines[#lines+1] = "Look now - question in " .. secs .. " s"
    end
-   local lh = 12
+   -- size the box to the text: FONT_MINI is taller than 12 px on the
+   -- DS-24 II, and a full-width box runs past the map image
+   local lh = lcd.getTextHeight and lcd.getTextHeight(FONT_MINI) or 12
+   local tw = 0
+   for _, l in ipairs(lines) do
+      tw = math.max(tw, lcd.getTextWidth and lcd.getTextWidth(FONT_MINI, l) or 6 * #l)
+   end
+   local bw = math.min(tw + 10, w - 16)
    local bh = #lines * lh + 4
-   local y = b.top and 18 or (h - bh - 2)
+   -- 35 px clear of the bottom edge, which the F-key labels can cover
+   local y = b.top and 18 or math.max(18, h - bh - 37)
    lcd.setColor(255, 255, 255)
-   lcd.drawFilledRectangle(2, y, w - 4, bh)
+   lcd.drawFilledRectangle(2, y, bw, bh)
    lcd.setColor(0, 0, 0)
-   lcd.drawRectangle(2, y, w - 4, bh)
+   lcd.drawRectangle(2, y, bw, bh)
    for i, l in ipairs(lines) do
       lcd.drawText(6, y + 2 + (i - 1) * lh, l, FONT_MINI)
    end
