@@ -1,0 +1,72 @@
+# appset.txt - the app links at the top of Apps/ and groups of them; see appset
+#
+# group NAME  apps...   (app = link name without .lua/.lc)
+group always   UIDriver SensorE SensorL
+group maps     DFM-Maps
+group insp     DFM-InsP
+group rescue   DFM-Rscu DFM-Path
+group hud      DFM-HUD
+group timers   DFM-TimG DFM-TimV
+group glob     GlobR GlobW
+group current  DFM-Maps DFM-InsP DFM-Rscu DFM-Path DFM-TimG
+group spike    SpikeTgt
+group misc     arctest arctest2 Dumper font hp1345a jtest polytest ren render sw test testnd v y
+
+# link NAME  TARGET    (target relative to Apps/)
+link  arctest.lua      misclua/arctest.lua
+link  CTUAutoT.lua     CTUAutoT/CTUAutoT.lua
+link  CTU-DFM.lua      CTU-DFM/CTU-DFM.lua
+link  DFM-Amix.lua     DFM-Amix/DFM-Amix.lua
+link  DFM-Auto.lua     DFM-Auto/DFM-Auto.lua
+link  DFM-Batt.lua     DFM-Batt/DFM-Batt.lua
+link  DFM-Chute.lua    DFM-Chute/DFM-Chute.lua
+link  DFM-Crow.lua     DFM-Crow/DFM-Crow.lua
+link  DFM-Ctrl.lua     DFM-Ctrl/DFM-Ctrl.lua
+link  DFM-Dial.lua     DFM-Dial/DFM-Dial.lua
+link  DFM-F3B.lua      DFM-F3B/DFM-F3B.lua
+link  DFM-F3Gb.lua     DFM-F3Gb/DFM-F3Gb.lua
+link  DFM-F3G.lua      DFM-F3G/DFM-F3G.lua
+link  DFM-F3X.lua      DFM-F3X/DFM-F3X.lua
+link  DFM-FltE.lua     DFM-FltE/DFM-FltE.lua
+link  DFM-GPS.lua      DFM-GPS/DFM-GPS.lua
+link  DFM-GRat.lua     DFM-GRat/DFM-GRat.lua
+link  DFM-HUD.lua      DFM-HUD/DFM-HUD.lua
+link  DFM-InsP.lua     DFM-InsP/DFM-InsP.lua
+link  DFM-Maps.lua     DFM-Maps/DFM-Maps.lua
+link  DFM-Path.lua     DFM-Path/DFM-Path.lua
+link  DFM-Pong.lua     DFM-Pong/DFM-Pong.lua
+link  DFM-RMon.lua     DFM-RMon/DFM-RMon.lua
+link  DFM-Rscu.lua     DFM-Rscu/DFM-Rscu.lua
+link  DFM-Smoke.lua    DFM-Smoke/DFM-Smoke.lua
+link  DFM-SpdA.lua     DFM-SpdA/DFM-SpdA.lua
+link  DFM-SWT.lua      DFM-SWT/DFM-SWT.lua
+link  DFM-TCA.lua      DFM-TCA/DFM-TCA.lua
+link  DFM-Temp.lua     DFM-Temp/DFM-Temp.lua
+link  DFM-TimG.lua     DFM-TimG/DFM-TimG.lua
+link  DFM-TimV.lua     DFM-TimV/DFM-TimV.lua
+link  DFM-TriM.lua     DFM-TriM/DFM-TriM.lua
+link  DFM-TriR.lua     DFM-TriR/DFM-TriR.lua
+link  DFM-Watt.lua     DFM-Watt/DFM-Watt.lua
+link  Dumper.lua       misclua/Dumper.lua
+link  font.lua         misclua/font.lua
+link  GlobR.lua        GlobTest/GlobR.lua
+link  GlobW.lua        GlobTest/GlobW.lua
+link  hp1345a.lua      misclua/hp1345a.lua
+link  J-Sensor.lua     J-Sensor/J-Sensor.lua
+link  polytest.lua     misclua/polytest.lua
+link  SB-Temp.lua      digitechSBT/SB-Temp.lua
+link  SensorE.lua      SensorE/SensorE.lua
+link  SensorL.lua      SensorL/SensorL.lua
+link  SpikeTgt.lua     SpikeTgt/SpikeTgt.lua
+link  sw.lua           misclua/sw.lua
+link  T-Wizard.lua     T-Wizard/T-Wizard.lua
+link  UIDriver.lua     UIDriver/UIDriver.lua
+link  V-SensXF.lua     V-SensXF/V-SensXF.lua
+link  y.lua            misclua/y.lua
+link  arctest2.lua     misclua/arctest2.lua
+link  jtest.lua        misclua/jtest.lua
+link  render.lua       misclua/render.lua
+link  ren.lua          misclua/ren.lua
+link  test.lua         misclua/test.lua
+link  testnd.lua       misclua/testnd.lua
+link  v.lua            misclua/v.lua

@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+# appset - choose which apps the JETI emulator offers when you press "+".
+#
+# The emulator lists the .lua/.lc files at the top of Apps/. Each app lives
+# in its own folder, so the top level holds only symlinks into the folders
+# (DFM-Maps.lua -> DFM-Maps/DFM-Maps.lua). appset.txt, kept in git, records
+# every link and names groups of apps; appset makes the links for the groups
+# you choose and removes the others, so the "+" list stays short.
+#
+# Apps loaded in a model are never unlinked. The emulator reads a model's
+# apps from disk when it starts or reloads them; an app whose link is gone
+# shows as ??N/A?? in User Applications, and when it is linked again and the
+# apps reloaded (F2 on the emulator menu) it comes back in its old slot BUT
+# WITH ITS SETTINGS CLEARED. A model (Emulator/Model/*.jsn) records its apps
+# only as "appID", the CRC-16/KERMIT of the link name (DFM-TimG.lua = 50961),
+# so appset reads every model and keeps those links, saying which model uses
+# them. To unlink one, remove the app from those models first.
+#
+#   appset                   show what is linked now, and the groups
+#   appset maps insp         link only these groups/apps (plus "always")
+#   appset add DFM-Batt      link these too, keeping the rest
+#   appset all               link everything (also after a fresh clone:
+#                            git does not keep the top-level links)
+#   appset save              add links made by hand to appset.txt
+#   appset check             list entries whose target file is missing
+#
+# Names are groups from appset.txt or apps (link name without .lua/.lc).
+# appset only ever creates or removes symlinks listed in appset.txt; it
+# never touches a plain file or a link's target.
+#
+# appset.txt:
+#   link  DFM-Maps.lua  DFM-Maps/DFM-Maps.lua    (target relative to Apps/)
+#   group maps  DFM-Maps DFM-HUD
+#   group always  UIDriver SensorE SensorL       (linked every time)
+
+set -u
+APPS=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+LIST="$APPS/appset.txt"
+cd "$APPS" || exit 1
+
+declare -A TARGET GROUP
+LINKS=()
+die() { echo "appset: $*" >&2; exit 1; }
+
+load() {
+   [ -f "$LIST" ] || die "no $LIST"
+   local kind a b rest
+   while read -r kind a rest; do
+      case "$kind" in
+	 link)  read -r b _ <<< "$rest"
+		[ -n "$a" ] && [ -n "$b" ] || die "bad line: link $a $rest"
+		TARGET[$a]=$b; LINKS+=("$a") ;;
+	 group) GROUP[$a]=$rest ;;
+	 ""|\#*) ;;
+	 *) die "bad line in appset.txt: $kind $a $rest" ;;
+      esac
+   done < "$LIST"
+}
+
+# app name (DFM-Maps) or link name (DFM-Maps.lua) -> link names
+linksOf() {
+   local n=$1 l found=
+   for l in "${LINKS[@]}"; do
+      if [ "$l" = "$n" ] || [ "${l%.*}" = "$n" ]; then echo "$l"; found=1; fi
+   done
+   [ -n "$found" ]
+}
+
+# expand groups and apps into link names; fails on an unknown name
+want() {
+   local n a
+   for n in "$@"; do
+      if [ -n "${GROUP[$n]+x}" ]; then
+	 for a in ${GROUP[$n]}; do linksOf "$a" || die "group $n: unknown app $a"; done
+      else
+	 linksOf "$n" || die "unknown group or app: $n (see: appset)"
+      fi
+   done
+}
+
+linkOne() {
+   local l=$1 t=${TARGET[$1]}
+   if [ ! -e "$t" ]; then echo "  missing target, not linked: $l -> $t"; return; fi
+   if [ -L "$l" ]; then
+      [ "$(readlink "$l")" = "$t" ] && return
+      rm "$l"
+   elif [ -e "$l" ]; then
+      echo "  $l is a plain file, left alone"; return
+   fi
+   ln -s "$t" "$l" && echo "  + $l"
+}
+
+# link name -> the models (by name) that have it loaded
+declare -A INUSE
+scanModels() {
+   local name models
+   while IFS=$'\t' read -r name models; do
+      [ -n "$name" ] && INUSE[$name]=$models
+   done < <(python3 - "$APPS/../Model" "${LINKS[@]}" <<'PY'
+import json, os, sys
+mdir, names = sys.argv[1], sys.argv[2:]
+def kermit(s):                       # CRC-16/KERMIT: the emulator's appID
+    crc = 0
+    for b in s.encode():
+        crc ^= b
+        for _ in range(8):
+            crc = (crc >> 1) ^ 0x8408 if crc & 1 else crc >> 1
+    return crc
+ids = {kermit(n): n for n in names}
+used = {}
+for f in sorted(os.listdir(mdir)) if os.path.isdir(mdir) else []:
+    if not f.endswith(".jsn"): continue
+    if os.path.getsize(os.path.join(mdir, f)) == 0: continue   # empty: no apps
+    try:
+        d = json.load(open(os.path.join(mdir, f), encoding="utf-8", errors="replace"))
+    except Exception as e:
+        print("appset: can't read model %s (%s)" % (f, e), file=sys.stderr); continue
+    model = (d.get("Global") or {}).get("Name") or f
+    for e in d.get("Lua") or []:
+        n = ids.get(e.get("appID")) if isinstance(e, dict) else None
+        if n: used.setdefault(n, []).append(str(model))
+for n, ms in used.items():
+    print(n + "\t" + ", ".join(ms))
+PY
+)
+}
+
+unlinkOne() {
+   [ -L "$1" ] || return 0
+   if [ -n "${INUSE[$1]+x}" ]; then
+      echo "  kept $1: loaded in model ${INUSE[$1]}"
+      return 0
+   fi
+   rm "$1" && echo "  - $1"
+}
+
+show() {
+   local l on=() off=() g
+   for l in "${LINKS[@]}"; do
+      if [ -L "$l" ]; then on+=("${l}"); else off+=("${l}"); fi
+   done
+   echo "linked (${#on[@]}): ${on[*]:-none}"
+   echo "not linked: ${#off[@]} of ${#LINKS[@]}"
+   echo "groups:"
+   for g in $(printf '%s\n' "${!GROUP[@]}" | sort); do
+      printf '  %-10s %s\n' "$g" "${GROUP[$g]}"
+   done
+   local extra=()
+   for l in *.lua *.lc; do
+      [ -L "$l" ] && [ -z "${TARGET[$l]+x}" ] && extra+=("$l")
+   done
+   [ ${#extra[@]} -gt 0 ] && echo "links not in appset.txt (appset save adds them): ${extra[*]}"
+   return 0
+}
+
+save() {
+   local l t n=0
+   for l in *.lua *.lc; do
+      [ -L "$l" ] || continue
+      [ -n "${TARGET[$l]+x}" ] && continue
+      t=$(realpath -m --relative-to="$APPS" "$(readlink -f "$l")")
+      printf 'link  %-16s %s\n' "$l" "$t" >> "$LIST"
+      echo "  added $l -> $t"; n=$((n + 1))
+   done
+   echo "$n link(s) added to appset.txt"
+}
+
+load
+case "${1:-}" in
+   "") show ;;
+   all) for l in "${LINKS[@]}"; do linkOne "$l"; done ;;
+   save) save ;;
+   check)
+      for l in "${LINKS[@]}"; do
+	 [ -e "${TARGET[$l]}" ] || echo "  missing: $l -> ${TARGET[$l]}"
+      done ;;
+   add)
+      shift; [ $# -gt 0 ] || die "add what?"
+      sel=$(want "$@") || exit 1
+      for l in $sel; do linkOne "$l"; done ;;
+   *)
+      sel=$(want "$@" ${GROUP[always]+always}) || exit 1
+      scanModels
+      declare -A keep
+      for l in $sel; do keep[$l]=1; done
+      for l in "${LINKS[@]}"; do
+	 if [ -n "${keep[$l]+x}" ]; then linkOne "$l"; else unlinkOne "$l"; fi
+      done ;;
+esac
