@@ -2190,7 +2190,16 @@ local function init()
 		 circleMax = RTH.settings.circleMin * CMULT,
 		 maxElevGain = RTH.settings.maxElevGain, calibrating = calibrating,
 		 rescueOn = RTH.settings.onoff,
-		 configOK = (config.Amix and config.Emix) and true or false}
+		 configOK = (config.Amix and config.Emix) and true or false,
+		 heading = RTH.gpsHeading, steer = RTH.settings.steer,
+		 outbound = flyingOutbound, circStrat = RTH.settings.circStrat,
+		 turnDir = RTH.settings.turnDir, rescueOnDelay = rescueOnDelay,
+		 holdTurn = holdTurn,
+		 -- what line 870 would send to the elevator now, and its inputs
+		 elevCalc = RTH.settings.maxElevGain / 100 *
+		    mixOut(config.Emix, (RTH.settings.steer or 0) / 180),
+		 validElev = (RTH.settings.elevCtrl and config.Emix and
+				 RTH.settings.maxElevGain) and true or false}
       end)
    end
    
