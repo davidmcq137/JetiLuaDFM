@@ -42,7 +42,9 @@
         "overlay": true,          -- step counter: true = appended to the
                                   -- form title ("GPS Maps  [UID 12/55]"),
                                   -- "box" = white box at the top right,
-                                  -- false = none
+                                  -- false = none. Unless false, a
+                                  -- full-screen telemetry window also
+                                  -- shows it in a box at the top centre
         "recordRotary": false,    -- record KEY_UP/KEY_DOWN too (DFM-Maps'
                                   -- map browser uses them)
         "logAnnouncements": true, -- log the target's announcements
@@ -2004,6 +2006,25 @@ local function updateTitle()
    end
 end
 
+-- on a full-screen telemetry window (registerTelemetry size 4) there is no
+-- title bar to carry the step counter, so show it in a small white box at
+-- the top centre: "UIDriver maps-smoke.jsn 41/110"
+local function telemStatus(w)
+   local tag = statusTag()
+   if not tag then return end
+   local txt = "UIDriver " .. (cfg.script ~= "" and (cfg.script .. " ") or "")
+      .. tag:gsub("^UID ", "")
+   local lh = lcd.getTextHeight and lcd.getTextHeight(FONT_MINI) or 12
+   local tw = lcd.getTextWidth and lcd.getTextWidth(FONT_MINI, txt) or 6 * #txt
+   local bw = math.min(tw + 10, w - 16)
+   local x = math.floor((w - bw) / 2)
+   lcd.setColor(255, 255, 255)
+   lcd.drawFilledRectangle(x, 1, bw, lh + 2)
+   lcd.setColor(0, 0, 0)
+   lcd.drawRectangle(x, 1, bw, lh + 2)
+   lcd.drawText(x + 5, 2, txt, FONT_MINI)
+end
+
 local function overlay(w)
    local txt = statusTag()
    if not txt then return end
@@ -2830,6 +2851,7 @@ local function install()
 	 if p then capturePrint("telem" .. n, p, w, h) end
 	 cpuSample("telemetry " .. n .. " print", getCPU())
 	 runSteps("telem", n)
+	 if size == 4 and cfg.overlay then telemStatus(w) end
 	 drawBanner(w, h)
       end
       local wk = k and function(key)
