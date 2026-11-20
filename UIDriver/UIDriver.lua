@@ -30,6 +30,12 @@
    finished, starts a fresh run; otherwise the run carries on. Then open
    the target's own menu as usual. The choice is saved in
    Apps/UIDriver/selection.jsn and applied again when the apps next load.
+   SensorE picks the app's SensorE config: "default" (its own
+   Apps/<App>/SensorE, else Apps/SensorE.jsn's) or any app's SensorE
+   folder or variant on the card ("DFM-Rscu", "DFM-Rscu/maps"). Leaving
+   the menu writes it to the app's UIDriver/config.jsn as "sensorConfig"
+   (other settings left as they are); SensorE reads it when the apps
+   load, so restart them. "SensorE loaded" shows what SensorE is using.
 
    FILES in each app's folder, Apps/<App>/UIDriver/:
      *.jsn          scripts (any .jsn but config.jsn)
@@ -3186,6 +3192,62 @@ function files.sensorDirOf(id, explicit)
    end
 end
 
+-- every SensorE config on the card, by short name: each app folder with a
+-- SensorE/ folder ("DFM-Rscu"), then its subfolders ("DFM-Rscu/maps")
+function files.sensorChoices()
+   local list = {}
+   if not dir then return list end
+   local function folders(path)
+      local out = {}
+      pcall(function()
+	 for name, kind in dir(path) do
+	    if kind == "folder" and name:sub(1, 1) ~= "." then out[#out+1] = name end
+	 end
+      end)
+      table.sort(out)
+      return out
+   end
+   for _, app in ipairs(folders("Apps")) do
+      local se = "Apps/" .. app .. "/SensorE"
+      if io.readall(se .. "/sensorEmulator.jsn") or io.readall(se .. "/sensorEmulatorGPS.jsn") then
+	 list[#list+1] = app
+	 for _, v in ipairs(folders(se)) do list[#list+1] = app .. "/" .. v end
+      end
+   end
+   return list
+end
+
+-- set (or with nil remove) "sensorConfig" in app id's UIDriver/config.jsn.
+-- The text is edited in place, so the file's other settings and layout
+-- stay as they are; returns true, or false and why
+function files.setSensorConfig(id, value)
+   local path = appDir(id) .. "config.jsn"
+   local txt = io.readall(path) or "{\n}\n"
+   local new
+   local entry = '"sensorConfig"%s*:%s*"[^"]*"'
+   if value == nil then
+      -- the line and its comma (before or after it)
+      new = txt:gsub('[ \t]*' .. entry .. '%s*,?[ \t]*\r?\n?', '', 1)
+      new = new:gsub(',(%s*})', '%1')
+   elseif txt:find(entry) then
+      new = txt:gsub(entry, function() return '"sensorConfig": "' .. value .. '"' end, 1)
+   else
+      local rest = txt:match("^%s*{%s*(.?)")
+      if rest == nil then return false, path .. " isn't a JSON object" end
+      local comma = rest ~= "}" and "," or ""
+      new = txt:gsub("^(%s*{)", function(open)
+	 return open .. '\n  "sensorConfig": "' .. value .. '"' .. comma
+      end, 1)
+   end
+   local ok, t = pcall(json.decode, new)
+   if not ok or type(t) ~= "table" then return false, "the edit wouldn't be valid JSON; " .. path .. " unchanged" end
+   if io.mkdir then pcall(io.mkdir, appDir(id):sub(1, -2)) end
+   local f = io.open(path, "w")
+   if not f then return false, "can't write " .. path end
+   io.write(f, new); io.close(f)
+   return true
+end
+
 -- a new run is about to empty the log at path: keep the run before as
 -- result.prev.log, unless it barely started (a restart when the apps
 -- reload), which would push out a real run kept earlier
@@ -3359,11 +3421,11 @@ local function sensorText(id)
    end
    -- returns the line and an optional second line (too long for one)
    if not loaded then
-      return "SensorE: " .. want, "(not loaded yet)"
+      return "SensorE loaded: none yet", "(" .. want .. " once the apps load)"
    elseif loaded == want then
-      return "SensorE: " .. loaded
+      return "SensorE loaded: " .. loaded
    end
-   return "SensorE: " .. loaded, "(restart apps to use " .. want .. ")"
+   return "SensorE loaded: " .. loaded, "(restart apps to use " .. want .. ")"
 end
 
 local function menuInit()
@@ -3402,6 +3464,35 @@ local function menuInit()
    form.addSelectbox(MODES, indexOf(MODES, menu.mode) or 1, true, function(v)
       menu.mode = MODES[v]
    end, {width = 230})
+   -- the SensorE config for this app: "default" is no "sensorConfig" in its
+   -- config.jsn (its own SensorE folder, else Apps/SensorE.jsn's)
+   if menu.app ~= "" then
+      local ac = readJsn(appDir(menu.app) .. "config.jsn") or {}
+      local cur = type(ac.sensorConfig) == "string" and ac.sensorConfig ~= "" and ac.sensorConfig or nil
+      if menu.sensorApp ~= menu.app then
+	 menu.sensorApp, menu.sensor = menu.app, cur
+      end
+      local names = files.sensorChoices()
+      local own = indexOf(names, menu.app)
+      local labels = {"default (" .. (own and menu.app or "SensorE.jsn") .. ")"}
+      local values = {false}
+      local sel = 1
+      local want = menu.sensor and files.sensorPath(menu.sensor)
+      for _, n in ipairs(names) do
+	 labels[#labels+1], values[#values+1] = n, n
+	 if want and files.sensorPath(n) == want then sel = #labels end
+      end
+      if want and sel == 1 then          -- a path the list doesn't have
+	 labels[#labels+1], values[#values+1] = menu.sensor, menu.sensor
+	 sel = #labels
+      end
+      form.addRow(2)
+      form.addLabel({label = "SensorE", width = 80})
+      form.addSelectbox(labels, sel, true, function(v)
+	 menu.sensor = values[v] or nil
+      end, {width = 230})
+      menu.sensorWas = cur
+   end
    form.addRow(1)
    form.addLabel({label = "Now: " .. (cfg.target ~= "" and cfg.target or "-") .. "  " ..
 		     runText(), font = FONT_MINI})
@@ -3421,6 +3512,17 @@ local function menuClose()
    local m = menu
    menu = nil
    if not m then return end
+   if m.sensorApp and m.sensorApp == m.app and m.sensor ~= m.sensorWas then
+      local ok, why = files.setSensorConfig(m.app, m.sensor)
+      if ok then
+	 log("SensorE config for " .. m.app .. " set to " .. (m.sensor or "default") ..
+	     " (" .. appDir(m.app) .. "config.jsn); restart the apps to use it")
+	 pcall(system.messageBox, "SensorE: " .. (m.sensor or "default") ..
+	       " - restart the apps to use it", 4)
+      else
+	 log("WARN SensorE config not changed: " .. tostring(why))
+      end
+   end
    local changed = m.app ~= cfg.target or m.mode ~= cfg.mode
       or (m.mode == "play" and m.script ~= cfg.script)
    local stale = (cfg.mode == "play" and (finished or not steps))
