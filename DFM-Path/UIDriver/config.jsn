@@ -1,0 +1,4 @@
+{
+  "sensorConfig": "Apps/DFM-Rscu/Json",
+  "stopOnFail": false
+}

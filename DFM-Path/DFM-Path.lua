@@ -1168,7 +1168,19 @@ local function init()
       system.messageBox(appName .. ": Could not register elevator control")
    end
    
-			      
+
+   -- UIDriver test hooks (emulator only). system.UIDriver is nil on the TX,
+   -- so this costs nothing there
+   local uid = system.UIDriver
+   if uid then
+      uid.expose("path", function()
+	 return {flyIndex = flyIndex, nPoints = #Path.gps, altitude = RTH.altitude,
+		 altSet = altSetPoint, heading = RTH.gpsHeading, steer = RTH.settings.steer,
+		 pGain = pGain, maxElevGain = RTH.settings.maxElevGain,
+		 onoff = RTH.settings.onoff, hasPos = RTH.curPos ~= nil}
+      end)
+   end
+
    local str = io.readall(prefix() .. pathApp.."Json/Config.jsn")
    if not str then
       print("DFM-Path: cannot read Config.jsn")
