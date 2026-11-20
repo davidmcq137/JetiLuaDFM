@@ -98,6 +98,7 @@ local serialBytesSent = 0
 local serialFileName
 local lastRead = 0
 local resetGlasses
+local bwCount = 0
 
 local initTime
 local LOOPTIME = 100
@@ -502,7 +503,9 @@ local function serialWriteDirect(port, packedStr)
    --print("$$$:" .. str)
    cc, err = serial.write(sidSerial, packedStr)
    if not cc then
-      print("DFM-HUD: serial write error " .. err)
+      if bwCount < 5 then
+	 print("DFM-HUD: serial write error " .. err)
+      end
    else
       --print("cc:", cc)
       serialBytesSent = serialBytesSent + cc
@@ -3223,7 +3226,12 @@ local function loop()
       --local bw = serialWriteDirect(sidSerial, encodeBuf(bufCfg..imgCfg..fntCfg)) -- read config
       local bw = serialWriteDirect(sidSerial, encodeBuf(bufCfg)) -- read config
       if not bw then
-	 print("DFM-HUD: cannot write config query")
+	 bwCount = bwCount + 1
+	 if bwCount < 5 then
+	    print("DFM-HUD: cannot write config query")
+	 end
+      else
+	 bwCount = 0 
       end
       
       jsonHoldTime = unow + 1000
