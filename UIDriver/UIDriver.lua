@@ -3172,6 +3172,36 @@ local function runText()
    return "off"
 end
 
+-- where SensorE gets its config, for the menu: the directory it actually
+-- loaded (once SensorE has read it), else Apps/SensorE.jsn's "configDir". An
+-- app's UIDriver/config.jsn "sensorConfig" overrides SensorE.jsn, but SensorE
+-- reads it only when it loads, so a different one needs the apps restarted
+local function readJsn(path)
+   local txt = io.readall(path)
+   if not txt then return nil end
+   local ok, t = pcall(json.decode, txt)
+   if ok and type(t) == "table" then return t end
+end
+
+local function sensorText(id)
+   local se = system.SensorE
+   local ok, g = pcall(function() return se and se.getState and se.getState() end)
+   local loaded = ok and type(g) == "table" and g.configDir or nil
+   local sej = readJsn("Apps/SensorE.jsn") or {}
+   local want = sej.configDir or "Apps"
+   local ac = id and id ~= "" and readJsn(appDir(id) .. "config.jsn")
+   if ac and type(ac.sensorConfig) == "string" and ac.sensorConfig ~= "" then
+      want = ac.sensorConfig
+   end
+   -- returns the line and an optional second line (too long for one)
+   if not loaded then
+      return "SensorE: " .. want, "(not loaded yet)"
+   elseif loaded == want then
+      return "SensorE: " .. loaded
+   end
+   return "SensorE: " .. loaded, "(restart apps to use " .. want .. ")"
+end
+
 local function menuInit()
    if not menu then
       menu = {app = cfg.target, script = cfg.script, mode = cfg.mode}
@@ -3211,8 +3241,15 @@ local function menuInit()
    form.addRow(1)
    form.addLabel({label = "Now: " .. (cfg.target ~= "" and cfg.target or "-") .. "  " ..
 		     runText(), font = FONT_MINI})
+   local se1, se2 = sensorText(menu.app)
    form.addRow(1)
-   form.addLabel({label = "Applied when you leave this menu", font = FONT_MINI})
+   form.addLabel({label = se1, font = FONT_MINI})
+   if se2 then
+      form.addRow(1)
+      form.addLabel({label = "    " .. se2, font = FONT_MINI})
+   end
+   form.addRow(1)
+   form.addLabel({label = "Changes take effect when you leave this menu", font = FONT_MINI})
 end
 
 -- a changed choice, or a finished (or unloaded) run, starts afresh
