@@ -56,7 +56,7 @@
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.90
+local InsPVersion = 0.91
 
 local LE
 
@@ -192,6 +192,86 @@ local swtCI ={}
 
 local appStartTime
 local loopCPU = 0
+
+-- CPU profile, for finding what keeps InsP over the TX's 100% Lua budget
+-- (10 ms per callback). Each registered callback is timed, and marks inside
+-- printForm split the time by stage and widget type. Every 5 s it prints
+-- per-callback ms/call, the slowest call, and the highest system.getCPU()
+-- seen, then each stage's average ms/call and its slowest single call (an
+-- image decode happens in one frame only, so its average hides it; the
+-- slowest frame is what the TX kills). Set prof.on = false to turn it off
+local prof = {on = true, sum = {}, n = {}, max = {}, tot = {}, cnt = {}, cpu = {},
+	      top = {}, order = {}}
+
+function prof.start(cb)
+   if not prof.on then return end
+   prof.cb = cb
+   prof.t0 = system.getTimeCounter()
+   prof.last = prof.t0
+end
+
+function prof.mark(tag)
+   local cb = prof.cb
+   if not cb then return end
+   local now = system.getTimeCounter()
+   local k = cb .. " " .. tag
+   if not prof.sum[k] then
+      prof.sum[k], prof.n[k], prof.max[k] = 0, 0, 0
+      prof.order[#prof.order + 1] = k
+   end
+   local dt = now - prof.last
+   prof.sum[k] = prof.sum[k] + dt
+   if dt > prof.max[k] then prof.max[k] = dt end
+   prof.n[k] = prof.n[k] + 1
+   prof.last = now
+end
+
+function prof.report()
+   local cbs = {}
+   for cb in pairs(prof.cnt) do cbs[#cbs + 1] = cb end
+   table.sort(cbs)
+   for _, cb in ipairs(cbs) do
+      local n = prof.cnt[cb]
+      print(string.format("InsP prof %s: %d calls, %.1f ms avg, %d ms max, getCPU max %d",
+			  cb, n, prof.tot[cb] / n, prof.top[cb], prof.cpu[cb] or -1))
+      for _, k in ipairs(prof.order) do
+	 if k:sub(1, #cb + 1) == cb .. " " and prof.sum[k] > 0 then
+	    print(string.format("   %-20s %5.1f avg %4d max  x%.1f", k:sub(#cb + 2),
+				prof.sum[k] / n, prof.max[k], prof.n[k] / n))
+	 end
+      end
+   end
+   prof.sum, prof.n, prof.max, prof.order = {}, {}, {}, {}
+   prof.tot, prof.cnt, prof.cpu, prof.top = {}, {}, {}, {}
+end
+
+function prof.stop()
+   local cb = prof.cb
+   if not cb then return end
+   prof.mark("other")
+   local now = prof.last
+   prof.cnt[cb] = (prof.cnt[cb] or 0) + 1
+   prof.tot[cb] = (prof.tot[cb] or 0) + now - prof.t0
+   if now - prof.t0 > (prof.top[cb] or -1) then prof.top[cb] = now - prof.t0 end
+   local c = system.getCPU()
+   if c > (prof.cpu[cb] or -1) then prof.cpu[cb] = c end
+   prof.cb = nil
+   prof.next = prof.next or now + 5000
+   if now >= prof.next then
+      prof.next = now + 5000
+      prof.report()
+   end
+end
+
+-- wrap a callback so its time is counted under the name cb
+function prof.wrap(cb, f)
+   return function(...)
+      if not prof.on then return f(...) end
+      prof.start(cb)
+      f(...)
+      prof.stop()
+   end
+end
 --local editText
 local editWidget
 local editWidgetType
@@ -2604,6 +2684,7 @@ local function loop()
    local swr, swp, swt
 
    setVariables()
+   prof.mark("setVariables")
    
    -- see if sequencer has triggered a change
 
@@ -2894,6 +2975,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	 --print("instImg1, pv, lastPanel1", instImg1, pv, lastPanel1)
 	 
 	 lastPanel1 = -isp1
+	 prof.mark("load panel png")
 	 return blankLoading()
       end
       if lastPanel1 == -isp1 then
@@ -2918,6 +3000,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	    backImg1 = nil
 	 end
 	 lastPanel1 = isp1
+	 prof.mark("load backgnd png")
 	 return blankLoading()
       end
       ip = InsP.panels[isp1]
@@ -2949,6 +3032,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	    instImg2 = nil
 	 end
 	 lastPanel2 = -isp2
+	 prof.mark("load panel png")
 	 return blankLoading()
       end
       if lastPanel2 == -isp2 then
@@ -2971,6 +3055,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	    backImg2 = nil
 	 end
 	 lastPanel2 = isp2
+	 prof.mark("load backgnd png")
 	 return blankLoading()
       end
       ip = InsP.panels[isp2]
@@ -2978,6 +3063,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
       backI = backImg2
    end
    
+   prof.mark("setup")
    if backI  then
       if backI.width then
 	 lcd.drawImage(0, 0, backI)
@@ -2989,8 +3075,10 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
       lcd.setColor(0,0,0)
       lcd.drawFilledRectangle(0, 0, Screen.image_width_px - 1, Screen.image_height_px - 2) --319,158)
    end
+   prof.mark("background")
 
    local nd = system.getProperty("NativeDraw") -- returns 0 for Compat, 1 for NativeDraw
+   prof.mark("getProperty")
 
    --[[
    Screen.legacy_width_px = 320
@@ -3022,6 +3110,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
       drawTextCenter(Screen.image_width_px / 2, Screen.image_height_px * 0.4 - 40,
 		     "No Panel Image", FONT_BOLD)
    end
+   prof.mark("panel image")
 
    lcd.setColor(255,255,255)
    if not ip or #ip == 0 then
@@ -4541,6 +4630,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	 --ctx.fillStyle = traceColor;
 	 drawFilledBezel(widget.boxXL + labelOffset + hh/2, widget.boxYL - hh/2 - 1, hh - 4, hh - 4, 3)
       end
+      prof.mark(widget.type or "?")
    end
    ---[[
    lcd.setColor(255,255,255)
@@ -4579,6 +4669,7 @@ local function prtForm(w,h)
       end
       InsP.settings.window1Panel = InsP.settings.selectedPanel
       printForm(Screen.image_width_px - 2, Screen.image_height_px - 1,1) --318,159,1)
+      prof.mark("after panel")
       lcd.setColor(180,180,180)
       lcd.drawFilledRectangle(0,Screen.image_height_px - 2,Screen.image_width_px-1,
 			      h - Screen.image_height_px) --158, 318, 20)
@@ -4654,6 +4745,7 @@ local function prtForm(w,h)
       lcd.setColor(180,180,180)
       lcd.drawLine(0, yy, w, yy)
       lcd.drawLine(xx, 0, xx, h)      
+      prof.mark("editor extras")
    end
 end
 
@@ -5113,11 +5205,12 @@ local function init(icode)
    
    readSensors(InsP)
 
-   system.registerForm(1, MENU_APPS, "DFM-InsP", initForm, keyForm, prtForm, closeForm)
+   system.registerForm(1, MENU_APPS, "DFM-InsP", initForm, keyForm,
+		       prof.wrap("menu", prtForm), closeForm)
    system.registerTelemetry(1, "DFM-InsP-1", 4,
-			    (function(w,h) return printForm(w,h,1) end) )
+			    prof.wrap("window 1", function(w,h) return printForm(w,h,1) end) )
    system.registerTelemetry(2, "DFM-InsP-2 ", 4,
-			    (function(w,h) return printForm(w,h,2) end) )   
+			    prof.wrap("window 2", function(w,h) return printForm(w,h,2) end) )   
 
    appStartTime = system.getTimeCounter()
 
@@ -5314,5 +5407,5 @@ end
 
 local extaddr = {addret=addret, panelChanged=panelChanged, newpanel=newpanel}
 
-return {init=init, loop=loop, author="DFM", version=InsPVersion, name="DFM-InsP",
+return {init=init, loop=prof.wrap("loop", loop), author="DFM", version=InsPVersion, name="DFM-InsP",
 	destroy=destroy, extaddr=extaddr}
