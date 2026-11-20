@@ -107,6 +107,12 @@ local savedSerial = {}
 local savedSerialReset = {}
 local teleSerial = {}
 local teleSerialReset = {}
+-- the telemetry window's copy of the glasses: each widget's last update.
+-- A widget is sent only when its value changes, and the glasses keep what
+-- they last drew, so the window keeps it too (else it falls back to the
+-- page's reset frame and shows the value from when the page was set up)
+local teleWidget = {}
+local teleWidgetPage
 local sendIndex = 0
 local splashScreen
 local pos3D = {}
@@ -522,6 +528,7 @@ local function writeInst()
    savedSerialReset = {}
    teleSerial = {}
    teleSerialReset = {}
+   teleWidget = {}
    sendIndex = 0
 end
 
@@ -3147,10 +3154,19 @@ local function loop()
       local fmt = Glass.page[pageNumberTele][1].fmtNumber
       local numInsts = #cfgimg.config[fmt]
 
+      if pageNumberTele ~= teleWidgetPage then -- other widgets now
+	 teleWidget = {}
+	 teleWidgetPage = pageNumberTele
+      end
+
       sendIndex = sendIndex + 1
       if sendIndex <= numInsts then
 	 if not form.getActiveForm() then
+	    local n0 = #savedSerial
 	    sendAL(sendIndex, pageNumberTele)
+	    if #savedSerial > n0 then -- this widget sent an update
+	       teleWidget[sendIndex] = {table.unpack(savedSerial, n0 + 1)}
+	    end
 	 end
       end
 
@@ -3176,8 +3192,10 @@ local function loop()
 	    end
 	 end
 	 --print("#savedSerialReset", #savedSerialReset)
-	 for k,v in ipairs(savedSerial) do
-	    teleSerial[k] = v
+	 for g = 1, numInsts do
+	    for _, v in ipairs(teleWidget[g] or {}) do teleSerial[#teleSerial + 1] = v end
+	 end
+	 for _,v in ipairs(savedSerial) do
 	    if sendJson then
 	       cc, err = serial.write(sidSerial, v)
 	       if not cc then
@@ -3277,6 +3295,7 @@ local function loop()
 	 savedSerialReset = {}
 	 teleSerial = {}
 	 teleSerialReset = {}
+	 teleWidget = {}
 	 sendState = state.ALMOST
 	 --writeInst()
 	 serialWriteDirect(sidSerial, encodeBuf(bufDsp))
@@ -4296,6 +4315,7 @@ local function keyPressed(key)
 	    gaugeNumber = 1
 	    teleSerial = {}
 	    teleSerialReset = {}
+	    teleWidget = {}
 	    form.reinit(10)
 	 else
 	    system.messageBox("DFM-HUD: No pages defined")
