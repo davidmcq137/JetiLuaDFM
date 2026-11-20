@@ -1121,7 +1121,7 @@ H.restore = {ctx = "form", run = function(s)
 		for _, c in ipairs(comps) do
 		   local o = c.key and originals[c.key]
 		   if o and (s.restore == true or s.restore == c.label)
-		   and c.kind ~= "link" and c.value ~= o.v then
+		   and c.kind ~= "link" and not same(c.value, o.v) then
 		      local okr, msg
 		      if c.kind == "input" then
 			 if not c.wcb then
@@ -2249,7 +2249,9 @@ local function setControlWrapper(under)
       if callerIsTarget() then
 	 local c = control(n)
 	 local t = now()
-	 if value ~= c.value then
+	 -- same(), not ~=: JETI's Lua floors a float compared with an
+	 -- integer, so 0.4 ~= 0 is false there and the change was lost
+	 if not same(value, c.value) then
 	    c.value, c.at = value, t
 	    if cfg.logControls and (not c.logged or t - c.logged >= 1000) then
 	       c.logged = t
