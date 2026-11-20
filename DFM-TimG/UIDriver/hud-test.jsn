@@ -1,0 +1,55 @@
+{"steps": [
+  {"log": "DFM-HUD reading DFM-TimG's shared times (the DFM_TimG global). Run DFM-TimG, DFM-HUD and SensorL (Georgia Jets log, config.jsn sensorLog); UIDriver drives DFM-TimG. HUD's values are checked through its 'hudTimG' hook, which reads DFM_TimG the way HUD's TG_Remaining/TG_Elapsed gauges do, so no HUD gauge setup is needed. Open DFM-TimG's menu and leave it open: about 6 minutes"},
+  {"sensorPause": true},
+  {"waitForm": true},
+  {"waitSub": 1},
+
+  {"log": "setup: gear switch SA and throttle cutoff SB, both down/on; fuel sensor"},
+  {"setInput": "SA", "value": -1, "for": "target"},
+  {"setInput": "SB", "value": -1, "for": "target"},
+  {"set": "Select Fuel Sensor", "value": "CTU-> Fuel remaining"},
+  {"set": "Select Retract Switch (gear up)", "value": "SA"},
+  {"set": "Select Throttle Cutoff (off)", "value": "SB"},
+  {"set": "Short Announcement", "value": false},
+
+  {"log": "HUD sees TimG's table before the flight: both times 0 (FAIL 'nothing exposed' = HUD not running; nil = HUD can't see DFM_TimG)"},
+  {"expectState": "hudTimG.elapsed", "value": 0},
+  {"expectState": "hudTimG.remaining", "value": 0},
+
+  {"log": "go to just before the takeoff roll, resume, gear up when it rolls"},
+  {"sensorTime": 150},
+  {"sensorPause": false},
+  {"waitSensor": "Speed", "sensorName": "MGPS", "min": 15, "timeout": "1m"},
+  {"setInput": "SA", "value": 1, "for": "target"},
+  {"waitAudio": "Sup_Tim_Start", "timeout": "5s"},
+
+  {"log": "elapsed time counts up in HUD"},
+  {"wait": "30s"},
+  {"expectState": "hudTimG.elapsed", "min": 27, "max": 35},
+  {"wait": "30s"},
+  {"expectState": "hudTimG.elapsed", "min": 57, "max": 65},
+  {"expectState": "hudTimG.remaining", "value": 0},
+
+  {"log": "below 50% fuel TimG estimates the time remaining, and HUD sees it"},
+  {"waitSensor": "Fuel remaining", "sensorName": "CTU", "max": 49.5, "timeout": "10m"},
+  {"wait": "2s"},
+  {"expectState": "hudTimG.remaining", "min": 60, "max": 1800},
+  {"remember": "hudTimG.remaining", "as": "rem1"},
+  {"wait": "30s"},
+  {"expectState": "hudTimG.remaining", "notValue": "$rem1"},
+  {"expectState": "hudTimG.elapsed"},
+
+  {"log": "throttle cutoff ends the flight"},
+  {"setInput": "SB", "value": 1, "for": "target"},
+  {"waitMessage": "Turbine shut down", "timeout": "3s"},
+
+  {"log": "put TimG's settings back; if its menu isn't open, open it now (waiting up to 10 minutes)"},
+  {"waitForm": true, "timeout": "10m"},
+  {"waitSub": 1},
+  {"restore": "Select Retract Switch (gear up)"},
+  {"restore": "Select Throttle Cutoff (off)"},
+  {"restore": "Short Announcement"},
+  {"clearInput": true},
+  {"sensorPause": true},
+  {"log": "done"}
+]}

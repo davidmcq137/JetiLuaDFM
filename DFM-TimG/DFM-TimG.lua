@@ -63,9 +63,13 @@
 
 --local trans11
 
---sharedVar["DFM-TimG"] = {}
---sharedVar["DFM-TimG"].elapsed = 0
---sharedVar["DFM-TimG"].remaining = 0
+-- Shared with other apps (DFM-HUD shows them): elapsed and remaining
+-- flight time in seconds. init() makes this table the global DFM_TimG,
+-- a superglobal with declareGlobal (DC/DS-24 II 6.05+), else a plain
+-- global; the global holds this same table, so other apps see the
+-- changes made here (see DFM-GRat)
+--luacheck: globals declareGlobal DFM_TimG
+local shared = {elapsed = 0, remaining = 0}
 
 local TimAnnVersion = "1.1"
 local gearSwitch
@@ -437,8 +441,8 @@ local function loop()
       bingoAnnounced = true
    end
 
-   --sharedVar["DFM-TimG"].elapsed = runningTime or 0
-   --sharedVar["DFM-TimG"].remaining = remainingTime or 0
+   shared.elapsed = runningTime or 0
+   shared.remaining = remainingTime or 0
    
    if system.getTimeCounter() - (emptyAnnouncedTime or 0) > 10000 then emptyAnnounced = false end
 
@@ -558,6 +562,12 @@ local function init()
 
    readSensors()
    setLanguage()
+
+   if declareGlobal then
+      declareGlobal("DFM_TimG", shared)
+   else
+      DFM_TimG = shared    -- older firmware: no sandbox, so a plain global is shared
+   end
 
 end
 --------------------------------------------------------------------------------

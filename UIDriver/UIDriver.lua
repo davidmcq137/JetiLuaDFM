@@ -70,6 +70,7 @@
      {"waitSub": 7}               wait until subform 7 is showing
      {"waitClosed": true}         wait until the form has closed
      {"wait": 1000}               pause: 1000 ms, or "2s", "1:30", ...
+                                  (any length: the step timeout doesn't apply)
      {"set": "Race time (mins)", "value": 30}     intbox (raw integer)
      {"set": "Select Field to Browse", "value": "BDS"}  selectbox by text
      {"set": "Select Field to Browse", "value": 2}      ... or by index
@@ -1682,7 +1683,7 @@ local function runSteps(ctx, win)
    if ctx == "loop" then
       local limit = s.timeoutMs
 	 or ((s._verb == "waitForm" or s._verb == "confirm" or s._verb == "note"
-	      or s._verb == "waitTelem") and 0)
+	      or s._verb == "waitTelem" or s._verb == "wait") and 0)
 	 or cfg.stepTimeoutMs
       if limit > 0 and t - stepT0 > limit then
 	 local need = h.ctx == "form" and " (needs the target form open)"

@@ -13,7 +13,17 @@
 
 --]]
 
-if not sharedVar then sharedVar = {} end
+-- DFM-TimG shares its elapsed and remaining flight time as the global
+-- table DFM_TimG (nil when TimG isn't running)
+--luacheck: globals DFM_TimG
+
+-- TimG's remaining (pa 13) or elapsed (pa 14) time in seconds, or nil
+-- without TimG
+local function timgValue(pa)
+   if type(DFM_TimG) ~= "table" then return nil end
+   if pa == 13 then return DFM_TimG.remaining or 0 end
+   return DFM_TimG.elapsed or 0
+end
 
 local appName = "DFM-HUD"
 local appHex = "44464D2D485544" -- "DFM-HUD" in hex
@@ -3052,11 +3062,8 @@ local function loop()
 	       elseif v.sensorPa == 12 then
 		  sensor.value = minV + (maxV - minV) * (1 + system.getInputs("P4")) / 2
 		  sensor.valid = true
-	       elseif v.sensorPa == 13 and sharedVar["DFM-TimG"] then -- remaining time
-		  sensor.value = sharedVar["DFM-TimG"].remaining or 0
-		  sensor.valid = true
-	       elseif v.sensorPa == 14 and sharedVar["DFM-TimG"] then -- elapsed time
-		  sensor.value = sharedVar["DFM-TimG"].elapsed or 0
+	       elseif (v.sensorPa == 13 or v.sensorPa == 14) and timgValue(v.sensorPa) then
+		  sensor.value = timgValue(v.sensorPa) -- TimG remaining/elapsed time
 		  sensor.valid = true
 	       end
 	    else
@@ -4910,6 +4917,14 @@ end
 local function init()
 
    local fn
+
+   -- for UIDriver tests (nil on the TX): what HUD reads from DFM-TimG
+   local uid = system.UIDriver
+   if uid then
+      uid.expose("hudTimG", function()
+		    return {remaining = timgValue(13), elapsed = timgValue(14)}
+      end)
+   end
 
    Glass.var.statusAL = {}
    --Glass.var.statusAL.Conf = 1 -- this is the required version of the glasses config
