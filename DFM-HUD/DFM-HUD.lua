@@ -2688,7 +2688,7 @@ local function loop()
 						  Glass.settings.lngPa)
 	 if Glass.var.startTakeoff then
 	    --print(Glass.var.startTakeoff)
-	    local s1, s2 = gps.getStrig(Glass.var.startTakeoff)
+	    local s1, s2 = (gps.getString or gps.getStrig)(Glass.var.startTakeoff)
 	    print("Start takeoff:", s1, s2, Glass.var.startTakeoffAlt)
 	 end
       end
@@ -2704,7 +2704,7 @@ local function loop()
 					    Glass.settings.lngPa)
 	 if Glass.var.gearUp then
 	    --print(Glass.var.gearUp)
-	    local s1, s2 = gps.getStrig(Glass.var.gearUp)
+	    local s1, s2 = (gps.getString or gps.getStrig)(Glass.var.gearUp)
 	    print("Gear up:", s1, s2)
 	 end
       end

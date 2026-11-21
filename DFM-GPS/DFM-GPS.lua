@@ -64,7 +64,7 @@ local function keyForm(key)
       if key == KEY_1 then
 	 if mapV.initPos then
 	    mapV.zeroPos = mapV.curPos
-	    mapV.settings.zeroLatString, mapV.settings.zeroLngString = gps.getStrig(mapV.zeroPos)
+	    mapV.settings.zeroLatString, mapV.settings.zeroLngString = (gps.getString or gps.getStrig)(mapV.zeroPos)
 	    if not mapV.monoTx then DR.recalcXY(mapV) end
 	    mapV.gpsCalA = true
 	    mapV.needCalcXY = true
@@ -265,7 +265,7 @@ local function printTele()
       lcd.drawText(210,120, text)
       if mapV.initPos then
 	 if mapV.curPos then
-	    text, text2 = gps.getStrig(mapV.curPos)
+	    text, text2 = (gps.getString or gps.getStrig)(mapV.curPos)
 	 else
 	    text, text2 = "---", "---"
 	 end

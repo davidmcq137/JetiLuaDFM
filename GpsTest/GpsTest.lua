@@ -28,6 +28,9 @@ local outFile = "Apps/GpsTest/gpstest.out"
 local fh
 local nOut, nErr = 0, 0
 
+-- DS-24 firmware 5.08 spells it gps.getStrig; emulator 6.06 has gps.getString
+local getStr = gps.getString or gps.getStrig
+
 local function out(...)
    local t = {...}
    for i = 1, #t do t[i] = tostring(t[i]) end
@@ -132,7 +135,7 @@ local function runTests()
 	 else
 	    dp = gps.getDestination(a, t[4], t[5])
 	 end
-	 local la, lo = gps.getString(dp)
+	 local la, lo = getStr(dp)
 	 out("X", n, t[2], t[3], t[4], t[5], t[6] or "", t[7] or "", la, lo)
       end)
    end
@@ -163,7 +166,7 @@ local function runTests()
 	 local p = gps.newPoint(c[4], c[5])
 	 local x, y = gps.getLcdXY(p, tl, c[6])
 	 local back = gps.getLL(x, y, tl, c[6])
-	 local bla, blo = gps.getString(back)
+	 local bla, blo = getStr(back)
 	 out("L", c[1], c[2], c[3], c[4], c[5], c[6], num(x), num(y), bla, blo)
       end)
    end
@@ -173,7 +176,8 @@ local function init()
    fh = io.open(outFile, "w")
    if not fh then print(appName .. ": could not open " .. outFile) end
    out("#", appName, "1.0", system.getVersion and system.getVersion() or "?",
-       system.getDeviceType and system.getDeviceType() or "?")
+       system.getDeviceType and system.getDeviceType() or "?",
+       "getString=" .. type(gps.getString), "getStrig=" .. type(gps.getStrig))
    runTests()
    if fh then io.close(fh) end
    print(string.format("%s: %d lines, %d errors, written to %s", appName, nOut, nErr, outFile))

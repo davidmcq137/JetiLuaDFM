@@ -145,7 +145,7 @@ local function keyForm(key)
       if key == KEY_1 then
 	 if mapV.initPos then
 	    mapV.zeroPos = mapV.curPos
-	    settings.zeroLatString, settings.zeroLngString = gps.getStrig(mapV.zeroPos)
+	    settings.zeroLatString, settings.zeroLngString = (gps.getString or gps.getStrig)(mapV.zeroPos)
 	    DR.clearPos(xp, yp, mapV, settings, rotateXY)
 	    mapV.gpsCalA = true
 	    mapV.needCalcXY = true
@@ -363,7 +363,7 @@ local function printTele()
       text = string.format("Rot: %s  G: %d", text, mapV.gpsReads)
       lcd.drawText(210,120, text)
       if mapV.initPos then
-	 text, text2 = gps.getStrig(mapV.curPos)
+	 text, text2 = (gps.getString or gps.getStrig)(mapV.curPos)
 	 lcd.drawText(0,120,"[" .. text .. "," .. text2 .. "]")
       else
 	 lcd.drawText(10,120,"-No GPS-")   

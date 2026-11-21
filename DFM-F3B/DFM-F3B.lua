@@ -69,7 +69,7 @@ local function keyForm(key)
    if key == KEY_1 then
       zeroPos = curPos
       if zeroPos then
-	 zeroLatString, zeroLngString = gps.getStrig(zeroPos)
+	 zeroLatString, zeroLngString = (gps.getString or gps.getStrig)(zeroPos)
       else
 	 system.messageBox("No Current Position")
       end
@@ -322,7 +322,7 @@ local function formTele()
    local ss
    local lt, lg
    if curPos then
-      lt, lg = gps.getStrig(curPos)
+      lt, lg = (gps.getString or gps.getStrig)(curPos)
       ss = "["..lt .. ","..lg.."]"
    else
       ss = ""

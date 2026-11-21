@@ -36,7 +36,7 @@ function M.printTele(w,h,F3X)
    text = string.format("Rotate: %d°  X Scale: %.5f", math.deg(F3X.gpsP.rotA or 0), F3X.gpsScale)
    lcd.drawText(0,100, text)
    if F3X.gpsP.curPos then
-      text, text2 = gps.getStrig(F3X.gpsP.curPos)
+      text, text2 = (gps.getString or gps.getStrig)(F3X.gpsP.curPos)
       lcd.drawText(0,120,"[" .. text .. "," .. text2 .. "]")
    else
       lcd.drawText(10,120,"-No GPS-")   
@@ -62,7 +62,7 @@ function M.keyForm(key, F3X, loopV, resetFlight)
       if key == KEY_1 then
 	 F3X.gpsP.zeroPos = F3X.gpsP.curPos
 	 if F3X.gpsP.zeroPos then
-	    F3X.gpsP.zeroLatStr, F3X.gpsP.zeroLngStr = gps.getStrig(F3X.gpsP.zeroPos)
+	    F3X.gpsP.zeroLatStr, F3X.gpsP.zeroLngStr = (gps.getString or gps.getStrig)(F3X.gpsP.zeroPos)
 	    system.pSave("zeroLatString", F3X.gpsP.zeroLatStr)
 	    system.pSave("zeroLngString", F3X.gpsP.zeroLngStr)
 	 else
