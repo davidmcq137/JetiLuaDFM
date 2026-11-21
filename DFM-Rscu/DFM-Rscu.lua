@@ -112,6 +112,8 @@ local iyL = {}
 local xLast
 local yLast
 local logret
+local logEC = 0
+local logAC = 0
 
 local renShape
 --local ren = lcd.renderer()
@@ -866,6 +868,9 @@ local function loopP()
 	    if holdZero ~= 1 then print("ns " .. ns) end
 	    --print(ns, now, nsHoldTime)
 	    if RTH.settings.steerCtrl and RTH.settings.elevCtrl and config.Amix and config.Emix then
+	       logEC = RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns)
+	       logAC = mixOut(config.Amix, ns)
+	       --print("A,E", mixOut(config.Amix, ns), mixOut(config.Emix, ns)) 
 	       system.setControl(RTH.settings.steerCtrl, mixOut(config.Amix,ns), ailDelay, 1)
 	       system.setControl(RTH.settings.elevCtrl,
 				 RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns), eleDelay, 1)
@@ -930,6 +935,8 @@ local function loopP()
    if not validmix then
       if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, 0, 0) end
       if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end
+      logEC = 0
+      logAC = 0
    end
 
    ---[[
@@ -1469,7 +1476,7 @@ local function initForm(subform)
 	       buttonSet = 2
 	       keyPressGPS(KEY_1)
 	       buttonSet = save
-	       form.reinit(1) end), {label="Set Point A", font=font})
+	       form.reinit(13) end), {label="Set Point A", font=font})
       
       form.addRow(1)
       form.addLink((function()
@@ -1477,7 +1484,7 @@ local function initForm(subform)
 	       buttonSet = 2
 	       keyPressGPS(KEY_2)
 	       buttonSet = save
-	       form.reinit(1) end), {label="Set Point B", font=font})
+	       form.reinit(13) end), {label="Set Point B", font=font})
       
       form.addRow(1)
       form.addLink((function()
@@ -2086,20 +2093,33 @@ local function printTeleGPS()
 end
 
 local function logfileCB(jdx)
+   --print("logfileCB", jdx)
    local idx
    for i=1,#logret,1 do
       if jdx == logret[i] then idx = i end
    end
+   --print("idx", idx)
    if idx == 1 then
+      --print("log gpsBearingFrom", math.floor((RTH.gpsBearingFrom or 0) + 0.5))
       return math.floor((RTH.gpsBearingFrom or 0) + 0.5)
    elseif idx == 2 then
+      --print("log gpsBearingTo", math.floor((RTH.gpsBearingTo or 0) + 0.5))
       return math.floor((RTH.gpsBearingTo or 0) + 0.5)
    elseif idx == 3 then
+      --print("log gpsDistance", math.floor(10 * (RTH.gpsDistance or 0) + 0.5))
       return math.floor(10 * (RTH.gpsDistance or 0) + 0.5), 1
    elseif idx == 4 then
+      --print("log gpsHeading", math.floor((RTH.gpsHeading or 0) + 0.5))
       return math.floor((RTH.gpsHeading or 0) + 0.5)
    elseif idx == 5 then
+      --print("log steering", math.floor((RTH.settings.steer or 0) / 1.8 + 0.5))      
       return math.floor((RTH.settings.steer or 0)/1.8 + 0.5)
+   elseif idx == 6 then
+      --print("log AC", math.floor(logAC * 100 + 0.5)
+      return math.floor(logAC * 100 + 0.5)
+   elseif idx == 7 then
+      --print("log EC", math.floor(logEC * 100 + 0.5)
+      return math.floor(logEC * 100 + 0.5)
    else
       return -999
    end
@@ -2250,6 +2270,8 @@ local function init()
    logret[3] = system.registerLogVariable("RTHDst",     "m", logfileCB)
    logret[4] = system.registerLogVariable("RTHHdg",     "°", logfileCB)
    logret[5] = system.registerLogVariable("RTHStr",     "%", logfileCB)
+   logret[6] = system.registerLogVariable("AilMix",     "",  logfileCB)
+   logret[7] = system.registerLogVariable("EleMix",     "",  logfileCB)   
 
    greenCircle = lcd.loadImage(prefix() .. pathApp .. "Images/small_green_circle.png")
    redCircle = lcd.loadImage(prefix() .. pathApp .. "Images/small_red_circle.png")
