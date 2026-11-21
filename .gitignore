@@ -113,3 +113,6 @@ DFM-Rscu/Fields/*.gps
 DFM-TimG/LF_*.jsn
 DFM-InsP/prof.log
 DFM-Maps/prof.log
+
+# FakeFW: the C helper is built by FakeFW/build.sh
+FakeFW/fakefw_c.so

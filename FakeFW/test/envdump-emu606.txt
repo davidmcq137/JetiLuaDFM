@@ -1,0 +1,369 @@
+version 6.06
+device JETI DS-24 II 1
+_VERSION Lua 5.3
+getTime integer 848588224 848588250
+getTimeCounter integer 489930752
+getDateTime day 1
+getDateTime dst false
+getDateTime hour 12
+getDateTime min 22
+getDateTime mon 3
+getDateTime sec 30
+getDateTime year 2012
+os.time 1795291050
+maxinteger 2147483647
+globals 111 true
+G assert function
+G AUDIO_BACKGROUND integer 1
+G AUDIO_IMMEDIATE integer 2
+G AUDIO_QUEUE integer 3
+G collectgarbage function
+G COLOR_ACTIVE integer 2
+G COLOR_ACTIVE_TEXT integer 3
+G COLOR_ALERT integer 8
+G COLOR_ALERT_TEXT integer 9
+G COLOR_BATTERY integer 15
+G COLOR_BG integer 0
+G COLOR_BG_TEXT integer 1
+G COLOR_BUTTON integer 12
+G COLOR_BUTTON_TEXT integer 13
+G COLOR_DISABLED integer 6
+G COLOR_DISABLED_TEXT integer 7
+G COLOR_HEADER integer 14
+G COLOR_HIGHLIGHTED integer 10
+G COLOR_HIGHLIGHTED_TEXT integer 11
+G COLOR_INACTIVE integer 4
+G COLOR_INACTIVE_TEXT integer 5
+G coroutine table
+M coroutine.create function
+M coroutine.isyieldable function
+M coroutine.resume function
+M coroutine.running function
+M coroutine.status function
+M coroutine.wrap function
+M coroutine.yield function
+G debug table
+M debug.debug function
+M debug.gethook function
+M debug.getinfo function
+M debug.getlocal function
+M debug.getmetatable function
+M debug.getregistry function
+M debug.getupvalue function
+M debug.getuservalue function
+M debug.sethook function
+M debug.setlocal function
+M debug.setmetatable function
+M debug.setupvalue function
+M debug.setuservalue function
+M debug.traceback function
+M debug.upvalueid function
+M debug.upvaluejoin function
+G declareGlobal function
+G dir function
+G DISABLED integer 0
+G dofile function
+G dumpGlobalVars function
+G ENABLED integer 1
+G error function
+G FONT_AND integer 32768
+G FONT_BIG integer 24
+G FONT_BOLD integer 22
+G FONT_GRAYED integer 4096
+G FONT_MAXI integer 25
+G FONT_MINI integer 23
+G FONT_NORMAL integer 21
+G FONT_OR integer 16384
+G FONT_REVERSED integer 2048
+G FONT_XOR integer 8192
+G form table
+M form.addAudioFilebox function
+M form.addCheckbox function
+M form.addIcon function
+M form.addInputbox function
+M form.addIntbox function
+M form.addLabel function
+M form.addLink function
+M form.addRow function
+M form.addSelectbox function
+M form.addSpacer function
+M form.addTextbox function
+M form.close function
+M form.getActiveForm function
+M form.getButton function
+M form.getFocusedRow function
+M form.getValue function
+M form.preventDefault function
+M form.question function
+M form.reinit function
+M form.setButton function
+M form.setFocusedRow function
+M form.setProperties function
+M form.setTitle function
+M form.setValue function
+M form.waitForRelease function
+G _G table
+G getmetatable function
+G globals table
+M globals.1 nil
+M globals.10 nil
+M globals.2 nil
+M globals.3 nil
+M globals.4 nil
+M globals.5 nil
+M globals.6 nil
+M globals.7 nil
+M globals.8 nil
+M globals.9 nil
+G globalVarList table
+M globalVarList.cnt integer 0
+G gpio table
+M gpio.mode function
+M gpio.read function
+M gpio.write function
+G gps table
+M gps.getBearing function
+M gps.getDestination function
+M gps.getDistance function
+M gps.getLcdXY function
+M gps.getLL function
+M gps.getPosition function
+M gps.getString function
+M gps.getValue function
+M gps.m2px function
+M gps.newPoint function
+M gps.offset function
+M gps.px2m function
+G HIGHLIGHTED integer 2
+G io table
+M io.close function
+M io.mkdir function
+M io.open function
+M io.read function
+M io.readall function
+M io.readline function
+M io.remove function
+M io.rename function
+M io.seek function
+M io.write function
+G ipairs function
+G json table
+M json.decode function
+M json.encode function
+G KEY_1 integer 1
+G KEY_2 integer 2
+G KEY_3 integer 4
+G KEY_4 integer 8
+G KEY_5 integer 16
+G KEY_DOWN integer 256
+G KEY_ENTER integer 64
+G KEY_ESC integer 32
+G KEY_MENU integer 128
+G KEY_RELEASED integer -2.14748365e+09
+G KEY_UP integer 512
+G lcd table
+M lcd.createImage function
+M lcd.drawArc function
+M lcd.drawCircle function
+M lcd.drawEllipse function
+M lcd.drawFilledRectangle function
+M lcd.drawImage function
+M lcd.drawLine function
+M lcd.drawNumber function
+M lcd.drawPoint function
+M lcd.drawRectangle function
+M lcd.drawText function
+M lcd.getBgColor function
+M lcd.getColor function
+M lcd.getFgColor function
+M lcd.getTextHeight function
+M lcd.getTextWidth function
+M lcd.height integer 480
+M lcd.loadImage function
+M lcd.renderer function
+M lcd.resetClipping function
+M lcd.setClipping function
+M lcd.setColor function
+M lcd.width integer 480
+G load function
+G loadfile function
+G math table
+M math.abs function
+M math.acos function
+M math.asin function
+M math.atan function
+M math.ceil function
+M math.cos function
+M math.deg function
+M math.exp function
+M math.floor function
+M math.fmod function
+M math.huge float inf
+M math.log function
+M math.max function
+M math.maxinteger integer 2.14748365e+09
+M math.min function
+M math.mininteger integer -2.14748365e+09
+M math.modf function
+M math.pi float 3.14159274
+M math.rad function
+M math.random function
+M math.randomseed function
+M math.sin function
+M math.sqrt function
+M math.tan function
+M math.tointeger function
+M math.type function
+M math.ult function
+G MENU_ADVANCED integer 3
+G MENU_APPS integer 5
+G MENU_FINE integer 2
+G MENU_GAMES integer 7
+G MENU_MAIN integer 1
+G MENU_NONE integer 0
+G MENU_SYSTEM integer 6
+G MENU_TELEMETRY integer 4
+G MODEL integer 2
+G next function
+G os table
+M os.clock function
+M os.date function
+M os.difftime function
+M os.execute function
+M os.exit function
+M os.getenv function
+M os.remove function
+M os.rename function
+M os.setlocale function
+M os.time function
+M os.tmpname function
+G package table
+G pairs function
+G pcall function
+G print function
+G rawequal function
+G rawget function
+G rawlen function
+G rawset function
+G require function
+G scriptID integer 1
+G select function
+G serial table
+M serial.deinit function
+M serial.getPorts function
+M serial.init function
+M serial.onRead function
+M serial.setBaudrate function
+M serial.write function
+G setmetatable function
+G SOUND_AUTOTRIM integer 6
+G SOUND_BKUP integer 9
+G SOUND_BOUND integer 1
+G SOUND_INACT integer 7
+G SOUND_LOWSIGNAL integer 3
+G SOUND_LOWTXVOLT integer 2
+G SOUND_RANGETEST integer 5
+G SOUND_RXRESET integer 10
+G SOUND_START integer 0
+G SOUND_TELEMLOSS integer 11
+G string table
+M string.byte function
+M string.char function
+M string.dump function
+M string.find function
+M string.format function
+M string.gmatch function
+M string.gsub function
+M string.len function
+M string.lower function
+M string.match function
+M string.pack function
+M string.packsize function
+M string.rep function
+M string.reverse function
+M string.sub function
+M string.unpack function
+M string.upper function
+G system table
+M system.crc function
+M system.createSwitch function
+M system.getCPU function
+M system.getDateTime function
+M system.getDeviceInfo function
+M system.getDevices function
+M system.getDeviceType function
+M system.getIMU function
+M system.getInputs function
+M system.getInputsVal function
+M system.getLocale function
+M system.getProperty function
+M system.getRawIMU function
+M system.getSensorByID function
+M system.getSensors function
+M system.getSensorValueByID function
+M system.getSerialCode function
+M system.getServos function
+M system.getSwitchInfo function
+M system.getTime function
+M system.getTimeCounter function
+M system.getTxTelemetry function
+M system.getUserName function
+M system.getVersion function
+M system.isPlayback function
+M system.messageBox function
+M system.openExternal function
+M system.playBeep function
+M system.playFile function
+M system.playNumber function
+M system.playSystemSound function
+M system.pLoad function
+M system.pSave function
+M system.registerControl function
+M system.registerForm function
+M system.registerLogVariable function
+M system.registerTelemetry function
+M system.setControl function
+M system.setProperty function
+M system.setTelemetryButton function
+M system.setVario function
+M system.stopPlayback function
+M system.unregisterControl function
+M system.unregisterForm function
+M system.unregisterLogVariable function
+M system.unregisterTelemetry function
+M system.vibration function
+G SYSTEM integer 1
+G table table
+M table.concat function
+M table.insert function
+M table.move function
+M table.pack function
+M table.remove function
+M table.sort function
+M table.unpack function
+G timer table
+M timer.create function
+M timer.delete function
+M timer.getByID function
+M timer.getByName function
+M timer.getName function
+M timer.getRawTime function
+M timer.getRoundCount function
+M timer.getType function
+M timer.isRunning function
+M timer.restart function
+M timer.start function
+M timer.stop function
+G tonumber function
+G tostring function
+G type function
+G utf8 table
+M utf8.char function
+M utf8.charpattern string
+M utf8.codepoint function
+M utf8.codes function
+M utf8.len function
+M utf8.offset function
+G _VERSION string
+G xpcall function
+package.path ./Apps/?.lc;./Apps/?/init.lc;./Apps/?.lc2;./Apps/?/init.lc2;./Apps/?.lua;./Apps/?/init.lua;./Apps/lib/?.lua;./Apps/lib/?/init.lua;
