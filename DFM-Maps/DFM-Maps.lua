@@ -1874,7 +1874,8 @@ local function initForm(subform)
    if subform ~= 7 and subform ~= 10 then browseRestore() end
    
    if subform == 1 then
-      form.setTitle(lang.formTitle)
+      -- the full version: the TX's app list only shows its first 7 characters
+      form.setTitle(appInfo.Name .. " " .. appInfo.version)
       
       form.addLink((function() form.reinit(2) end),
 	 {label = lang.teleMenu})
