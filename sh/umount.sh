@@ -19,37 +19,61 @@ jeti_umount() {
         return 1
     fi
 
-    lsblk -o NAME,SIZE,MODEL,MOUNTPOINT "$disk"
-    parts=$(lsblk -lnpo NAME,MOUNTPOINT "$disk" | awk 'NF == 2 {print $1}')
-    if [ -z "$parts" ]; then
+    # every mount of every partition: a partition can be mounted more than
+    # once (the desktop's /media/$USER/... and sh/ds16.sh's /media/ds16),
+    # and lsblk shows only one of them
+    parts=$(lsblk -lnpo NAME "$disk" | tail -n +2)
+    mounts() {
+        for p in $parts; do
+            findmnt -rno SOURCE,TARGET | awk -v p="$p" '$1 == p'
+        done
+    }
+    lsblk -o NAME,SIZE,MODEL "$disk"
+    if [ -z "$(mounts)" ]; then
         echo "$disk is not mounted: safe to unplug"
         return 0
     fi
+    echo "Mounted:"
+    mounts | sed 's/^/    /'
 
-    printf "Press enter to unmount %s or ^C to abort: " "$(echo $parts)"
+    printf "Press enter to unmount all of them or ^C to abort: "
     read -r _ || return 1
 
     # leave the TX, or this shell keeps it busy (works only when sourced)
     cd ~/JS || return 1
 
-    # udisksctl needs no sudo for removable drives
-    for p in $parts; do
-        if ! udisksctl unmount -b "$p"; then
-            echo "$p is still in use by:"
-            fuser -vm "$p"
-            echo "If one of those is this shell, run it as: . ~/JS/sh/umount.sh"
-            return 1
+    # udisksctl needs no sudo for the desktop's mounts; a mount made with
+    # sudo mount (sh/ds16.sh) may need sudo umount
+    local n src tgt
+    n=0
+    while [ -n "$(mounts)" ] && [ $n -lt 10 ]; do
+        n=$((n + 1))
+        set -- $(mounts | head -n 1)
+        src=$1 tgt=$2
+        if ! udisksctl unmount -b "$src" 2>/dev/null; then
+            echo "Unmounting $tgt with sudo"
+            if ! sudo umount "$tgt"; then
+                echo "$tgt is still in use by:"
+                fuser -vm "$tgt"
+                echo "If one of those is this shell, run it as: . ~/JS/sh/umount.sh"
+                return 1
+            fi
         fi
     done
+    if [ -n "$(mounts)" ]; then
+        echo "NOT safe to unplug, still mounted:"
+        mounts | sed 's/^/    /'
+        return 1
+    fi
 
     # power the drive down, like "safely remove" in a file manager
     if udisksctl power-off -b "$disk"; then
         echo "Done: safe to unplug"
     else
-        echo "Unmounted, but power-off failed: still safe to unplug"
+        echo "Power-off failed, but nothing is mounted: safe to unplug"
         return 1
     fi
 }
 
 jeti_umount
-unset -f jeti_umount
+unset -f jeti_umount mounts

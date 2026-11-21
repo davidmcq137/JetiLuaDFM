@@ -18,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DUMPS = {  # profile -> dump file
     "emu-ds24ii-606": "fontdump-emu606.txt",
     "ds24-508": "fontdump-ds24-508.txt",
+    "ds16-506": "fontdump-ds16-506.txt",
 }
 
 

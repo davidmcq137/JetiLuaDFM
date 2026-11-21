@@ -1,0 +1,275 @@
+version 5.06
+device JETI DS-16 0
+_VERSION Lua 5.3
+getTime integer 599170752 599170773
+getTimeCounter integer 2360385
+getDateTime day 26
+getDateTime dst false
+getDateTime hour 20
+getDateTime min 19
+getDateTime mon 12
+getDateTime sec 33
+getDateTime year 2018
+maxinteger 2147483647
+globals 31 true
+G _G table
+G _VERSION string
+G assert function
+G collectgarbage function
+G dir function
+G dofile function
+G error function
+G getmetatable function
+G io table
+M io.close function
+M io.mkdir function
+M io.open function
+M io.read function
+M io.readall function
+M io.readline function
+M io.remove function
+M io.rename function
+M io.seek function
+M io.write function
+G ipairs function
+G load function
+G loadfile function
+G next function
+G package table
+G pairs function
+G pcall function
+G print function
+G rawequal function
+G rawget function
+G rawlen function
+G rawset function
+G require function
+G select function
+G setmetatable function
+G string table
+M string.byte function
+M string.char function
+M string.dump function
+M string.find function
+M string.format function
+M string.gmatch function
+M string.gsub function
+M string.len function
+M string.lower function
+M string.match function
+M string.pack function
+M string.packsize function
+M string.rep function
+M string.reverse function
+M string.sub function
+M string.unpack function
+M string.upper function
+G table table
+M table.concat function
+M table.insert function
+M table.move function
+M table.pack function
+M table.remove function
+M table.sort function
+M table.unpack function
+G tonumber function
+G tostring function
+G type function
+G utf8 table
+M utf8.char function
+M utf8.charpattern string
+M utf8.codepoint function
+M utf8.codes function
+M utf8.len function
+M utf8.offset function
+G xpcall function
+package.path /Apps/?.lc;/Apps/?/init.lc;/Apps/?.lc2;/Apps/?/init.lc2;/Apps/?.lua;/Apps/?/init.lua;/Apps/lib/?.lua;/Apps/lib/?/init.lua;
+check math rotable rotable nil env==G true mt nil
+check plain nil nil nil
+check member lightfunction nil nil same true
+P AUDIO_BACKGROUND integer 1
+P AUDIO_IMMEDIATE integer 2
+P AUDIO_QUEUE integer 3
+P DISABLED integer 0
+P ENABLED integer 1
+P FONT_AND integer 128
+P FONT_BIG integer 2
+P FONT_BOLD integer 1
+P FONT_GRAYED integer 16
+P FONT_MAXI integer 4
+P FONT_MINI integer 3
+P FONT_NORMAL integer 0
+P FONT_OR integer 64
+P FONT_REVERSED integer 8
+P FONT_XOR integer 32
+P HIGHLIGHTED integer 2
+P KEY_1 integer 1
+P KEY_2 integer 2
+P KEY_3 integer 4
+P KEY_4 integer 8
+P KEY_5 integer 16
+P KEY_DOWN integer 512
+P KEY_ENTER integer 64
+P KEY_ESC integer 32
+P KEY_MENU integer 128
+P KEY_RELEASED integer -2.14748365e+09
+P KEY_UP integer 256
+P MENU_ADVANCED integer 3
+P MENU_APPS integer 5
+P MENU_FINE integer 2
+P MENU_GAMES integer 7
+P MENU_MAIN integer 1
+P MENU_NONE integer 0
+P MENU_SYSTEM integer 6
+P MENU_TELEMETRY integer 4
+P MODEL integer 2
+P SOUND_AUTOTRIM integer 6
+P SOUND_BKUP integer 9
+P SOUND_BOUND integer 1
+P SOUND_INACT integer 7
+P SOUND_LOWSIGNAL integer 3
+P SOUND_LOWTXVOLT integer 2
+P SOUND_RANGETEST integer 5
+P SOUND_RXRESET integer 10
+P SOUND_START integer 0
+P SOUND_TELEMLOSS integer 11
+P SYSTEM integer 1
+P form rotable
+P gps rotable
+P json rotable
+P lcd rotable
+P math rotable
+P system rotable
+PM form.addAudioFilebox lightfunction
+PM form.addCheckbox lightfunction
+PM form.addIcon lightfunction
+PM form.addInputbox lightfunction
+PM form.addIntbox lightfunction
+PM form.addLabel lightfunction
+PM form.addLink lightfunction
+PM form.addRow lightfunction
+PM form.addSelectbox lightfunction
+PM form.addSpacer lightfunction
+PM form.addTextbox lightfunction
+PM form.close lightfunction
+PM form.getActiveForm lightfunction
+PM form.getButton lightfunction
+PM form.getFocusedRow lightfunction
+PM form.getValue lightfunction
+PM form.preventDefault lightfunction
+PM form.question lightfunction
+PM form.reinit lightfunction
+PM form.setButton lightfunction
+PM form.setFocusedRow lightfunction
+PM form.setProperties lightfunction
+PM form.setTitle lightfunction
+PM form.setValue lightfunction
+PM form.waitForRelease lightfunction
+PM gps.getBearing lightfunction
+PM gps.getDestination lightfunction
+PM gps.getDistance lightfunction
+PM gps.getLL lightfunction
+PM gps.getLcdXY lightfunction
+PM gps.getPosition lightfunction
+PM gps.getStrig lightfunction
+PM gps.getValue lightfunction
+PM gps.m2px lightfunction
+PM gps.newPoint lightfunction
+PM gps.offset lightfunction
+PM gps.px2m lightfunction
+PM json.decode lightfunction
+PM json.encode lightfunction
+PM lcd.createImage lightfunction
+PM lcd.drawCircle lightfunction
+PM lcd.drawEllipse lightfunction
+PM lcd.drawFilledRectangle lightfunction
+PM lcd.drawImage lightfunction
+PM lcd.drawLine lightfunction
+PM lcd.drawNumber lightfunction
+PM lcd.drawPoint lightfunction
+PM lcd.drawRectangle lightfunction
+PM lcd.drawText lightfunction
+PM lcd.getBgColor lightfunction
+PM lcd.getFgColor lightfunction
+PM lcd.getTextHeight lightfunction
+PM lcd.getTextWidth lightfunction
+PM lcd.height integer 240
+PM lcd.loadImage lightfunction
+PM lcd.resetClipping lightfunction
+PM lcd.setClipping lightfunction
+PM lcd.setColor lightfunction
+PM lcd.width integer 320
+PM math.abs lightfunction
+PM math.acos lightfunction
+PM math.asin lightfunction
+PM math.atan lightfunction
+PM math.ceil lightfunction
+PM math.cos lightfunction
+PM math.deg lightfunction
+PM math.exp lightfunction
+PM math.floor lightfunction
+PM math.fmod lightfunction
+PM math.huge float inf
+PM math.log lightfunction
+PM math.max lightfunction
+PM math.maxinteger integer 2.14748365e+09
+PM math.min lightfunction
+PM math.mininteger integer -2.14748365e+09
+PM math.modf lightfunction
+PM math.pi float 3.14159274
+PM math.rad lightfunction
+PM math.random lightfunction
+PM math.randomseed lightfunction
+PM math.sin lightfunction
+PM math.sqrt lightfunction
+PM math.tan lightfunction
+PM math.tointeger lightfunction
+PM math.type lightfunction
+PM math.ult lightfunction
+PM system.crc lightfunction
+PM system.createSwitch lightfunction
+PM system.getCPU lightfunction
+PM system.getDateTime lightfunction
+PM system.getDeviceInfo lightfunction
+PM system.getDeviceType lightfunction
+PM system.getDevices lightfunction
+PM system.getIMU lightfunction
+PM system.getInputs lightfunction
+PM system.getInputsVal lightfunction
+PM system.getLocale lightfunction
+PM system.getProperty lightfunction
+PM system.getRawIMU lightfunction
+PM system.getSensorByID lightfunction
+PM system.getSensorValueByID lightfunction
+PM system.getSensors lightfunction
+PM system.getSerialCode lightfunction
+PM system.getServos lightfunction
+PM system.getSwitchInfo lightfunction
+PM system.getTime lightfunction
+PM system.getTimeCounter lightfunction
+PM system.getTxTelemetry lightfunction
+PM system.getUserName lightfunction
+PM system.getVersion lightfunction
+PM system.isPlayback lightfunction
+PM system.messageBox lightfunction
+PM system.openExternal lightfunction
+PM system.pLoad lightfunction
+PM system.pSave lightfunction
+PM system.playBeep lightfunction
+PM system.playFile lightfunction
+PM system.playNumber lightfunction
+PM system.playSystemSound lightfunction
+PM system.registerControl lightfunction
+PM system.registerForm lightfunction
+PM system.registerLogVariable lightfunction
+PM system.registerTelemetry lightfunction
+PM system.setControl lightfunction
+PM system.setProperty lightfunction
+PM system.setVario lightfunction
+PM system.stopPlayback lightfunction
+PM system.unregisterControl lightfunction
+PM system.unregisterForm lightfunction
+PM system.unregisterTelemetry lightfunction
+PM system.vibration lightfunction
+probe read 342 byIndex 84 byLoad 0 G 110 M 232 Mfound 171 MbyLoad 131 new 184
+probed 184

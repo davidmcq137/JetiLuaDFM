@@ -99,9 +99,24 @@ local function doLatin(name)
    out(table.unpack(r))
 end
 
+-- write the lines collected so far, one io.write per line, and start a new
+-- batch: 1.2 built the whole file (~10 KB) in one string at the end, and
+-- the mono DS-16 (5.06) wrote an empty file
+local nLines = 0
+local function flush(mode)
+   local fh = io.open(outFile, mode)
+   if not fh then print("FontDump: could not open " .. outFile); return false end
+   for i = 1, #lines do io.write(fh, lines[i], "\n") end
+   io.close(fh)
+   nLines = nLines + #lines
+   lines = {}
+   return true
+end
+
 local function init()
    local dev = system.getDeviceType()
-   out("#", "FontDump", "1.2", system.getVersion(), dev)
+   out("#", "FontDump", "1.3", system.getVersion(), dev)
+   if not flush("w") then done = true end
 end
 
 local function loop()
@@ -112,20 +127,17 @@ local function loop()
    local fi = (step + 2) // 3
    if FONTS[fi] then
       local part = (step - 1) % 3
-      if part == 0 then doFont(FONTS[fi])
-      elseif part == 1 then doRepeats(FONTS[fi])
-      else doLatin(FONTS[fi]) end
+      local ok, err = pcall(function()
+	 if part == 0 then doFont(FONTS[fi])
+	 elseif part == 1 then doRepeats(FONTS[fi])
+	 else doLatin(FONTS[fi]) end
+      end)
+      if not ok then out("ERR", FONTS[fi], "part " .. part, (tostring(err):gsub(",", ";"))) end
+      if not flush("a") then done = true end
       return
    end
-   local fh = io.open(outFile, "w")
-   if fh then
-      io.write(fh, table.concat(lines, "\n"), "\n")
-      io.close(fh)
-      print("FontDump: written " .. outFile .. " (" .. #lines .. " lines)")
-   else
-      print("FontDump: could not open " .. outFile)
-   end
+   print("FontDump: written " .. outFile .. " (" .. nLines .. " lines)")
    done = true
 end
 
-return {init = init, loop = loop, author = "DFM", version = "1.2", name = "FontDump"}
+return {init = init, loop = loop, author = "DFM", version = "1.3", name = "FontDump"}

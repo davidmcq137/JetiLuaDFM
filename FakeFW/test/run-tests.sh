@@ -3,7 +3,8 @@
 #   Apps/FakeFW/test/run-tests.sh [path-to-JETI-like-lua]
 # (default ~/lua-5.3.1-Jeti-typefix/src/lua; in CI, fazzone/lua_jeti with
 # ltm-typefix.patch). Build FakeFW/fakefw_c.so first (FakeFW/build.sh).
-# Tests: GpsTest, EnvDump and FontDump on the emulator and DS-24 5.08 profiles
+# Tests: GpsTest on the emulator and DS-24 5.08 profiles, EnvDump and FontDump
+# on those and the DS-16 5.06 profile,
 # against the measured outputs, and the DFM-TimG UIDriver scripts (SensorL replays
 # Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing).
 # Exit code: the number of failed tests.
@@ -48,16 +49,17 @@ fi
 if [ -f $OUT.keep ]; then mv $OUT.keep $OUT; else rm -f $OUT; fi
 
 # EnvDump: what an app sees (globals, libraries, constants) against the
-# real dumps; the clock lines differ, and the emulator's internal
+# real dumps; the clock lines differ, EnvDump 1.5+ adds check and probe
+# lines, and the emulator's internal
 # globals/globalVarList tables aren't modelled
 [ -e Apps/EnvDump.lua ] || ln -s EnvDump/EnvDump.lua Apps/EnvDump.lua
 EOUT=Apps/EnvDump/envdump.out
 [ -f $EOUT ] && cp $EOUT $EOUT.keep
-SKIP='^getTime\|^getDateTime\|^os.time\|^globals \|globals\.\|^G globals \|globalVarList'
-for pr in "emu-ds24ii-606 envdump-emu606" "ds24-508 envdump-ds24-508"; do
+SKIP='^check \|^probe \|^getTime\|^getDateTime\|^os.time\|^globals \|globals\.\|^G globals \|globalVarList'
+for pr in "emu-ds24ii-606 envdump-emu606" "ds24-508 envdump-ds24-508" "ds16-506 envdump-ds16-506"; do
    set -- $pr
    rm -f $EOUT
-   "$LUA" Apps/FakeFW/fakefw.lua -p $1 EnvDump > /dev/null
+   "$LUA" Apps/FakeFW/fakefw.lua -p $1 -t 2 EnvDump > /dev/null
    grep -v "$SKIP" $EOUT > $TMP/got 2>/dev/null; grep -v "$SKIP" $T/$2.txt > $TMP/want
    if cmp -s $TMP/got $TMP/want; then
       ok "EnvDump $1 = $2.txt"
@@ -72,14 +74,16 @@ if [ -f $EOUT.keep ]; then mv $EOUT.keep $EOUT; else rm -f $EOUT; fi
 [ -e Apps/FontDump.lua ] || ln -s FontDump/FontDump.lua Apps/FontDump.lua
 FOUT=Apps/FontDump/fontdump.out
 [ -f $FOUT ] && cp $FOUT $FOUT.keep
-for pr in "emu-ds24ii-606 fontdump-emu606" "ds24-508 fontdump-ds24-508"; do
+for pr in "emu-ds24ii-606 fontdump-emu606" "ds24-508 fontdump-ds24-508" "ds16-506 fontdump-ds16-506"; do
    set -- $pr
    rm -f $FOUT
    "$LUA" Apps/FakeFW/fakefw.lua -p $1 -t 1 FontDump > /dev/null
-   if cmp -s $FOUT $T/$2.txt; then
+   # the header line carries FontDump's version
+   tail -n +2 $FOUT > $TMP/got 2>/dev/null; tail -n +2 $T/$2.txt > $TMP/want
+   if cmp -s $TMP/got $TMP/want; then
       ok "FontDump $1 = $2.txt"
    else
-      bad "FontDump $1"; LC_ALL=C diff -a $FOUT $T/$2.txt | head -20
+      bad "FontDump $1"; LC_ALL=C diff -a $TMP/got $TMP/want | head -20
    fi
 done
 if [ -f $FOUT.keep ]; then mv $FOUT.keep $FOUT; else rm -f $FOUT; fi

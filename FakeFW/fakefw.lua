@@ -118,6 +118,33 @@ FW.profiles = {
       remove = {"COLOR_", "timer", "system.setTelemetryButton", "lcd.drawArc",
 		"lcd.getColor"},
    },
+   -- a mono DS-16 on 5.06 (pilot's TX, EnvDump 1.7 and FontDump 1.3,
+   -- 2026-11-21): as the DS-24 on 5.08 without gpio, serial, lcd.renderer
+   -- and system.unregisterLogVariable, its own font, and ROM libraries
+   -- (rom: the globals pairs(_G) lists; see makeEnv)
+   ["ds16-506"] = {
+      device = "JETI DS-16", version = "5.06", emulator = 0,
+      lcdW = 320, lcdH = 240,
+      form = {316, 240},                                     -- (?)
+      tele = {{150, 32}, {150, 68}, {316, 159}, {316, 159}}, -- (?) as DS-24
+      gpsName = "getStrig", declareGlobal = false, offscreen = false,
+      imageSwapRB = false, hide = {debug = true, os = true, coroutine = true},
+      collate = "C",                                         -- (?) as DS-24
+      packagePath = "/Apps/?.lc;/Apps/?/init.lc;/Apps/?.lc2;/Apps/?/init.lc2;" ..
+	 "/Apps/?.lua;/Apps/?/init.lua;/Apps/lib/?.lua;/Apps/lib/?/init.lua;",
+      const = {FONT_NORMAL = 0, FONT_BOLD = 1, FONT_BIG = 2, FONT_MINI = 3,
+	       FONT_MAXI = 4, FONT_REVERSED = 8, FONT_GRAYED = 16, FONT_XOR = 32,
+	       FONT_OR = 64, FONT_AND = 128, KEY_UP = 256, KEY_DOWN = 512},
+      fontMask = 7, fonts = "ds16-506",
+      remove = {"COLOR_", "timer", "system.setTelemetryButton", "lcd.drawArc",
+		"lcd.getColor", "gpio", "serial", "lcd.renderer",
+		"system.unregisterLogVariable"},
+      rom = {"_G", "_VERSION", "assert", "collectgarbage", "dir", "dofile",
+	     "error", "getmetatable", "io", "ipairs", "load", "loadfile", "next",
+	     "package", "pairs", "pcall", "print", "rawequal", "rawget", "rawlen",
+	     "rawset", "require", "select", "setmetatable", "string", "table",
+	     "tonumber", "tostring", "type", "utf8", "xpcall"},
+   },
 }
 
 -- timing and cost defaults, per profile unless overridden in setup
@@ -911,6 +938,47 @@ local function buildBase()
    end
 end
 
+-- 5.06 (DS-16): the libraries and constants live in ROM tables. pairs(_G)
+-- lists only the globals in P.rom; the rest are found by name (__index).
+-- type() of a ROM library is "rotable" and of its functions
+-- "lightfunction", and pairs() of a ROM library is an error. Not modelled:
+-- on the TX lib[name] with a name in a variable is nil, only lib.name
+-- written in the code works (EnvDump 1.7 "check member").
+local function romEnv(env)
+   local visible, hidden, romLib, romFn = {}, {}, {}, {}
+   for _, k in ipairs(P.rom) do visible[k] = true end
+   for k, v in pairs(env) do
+      if not visible[k] then
+	 hidden[k] = v
+	 if type(v) == "table" then
+	    romLib[v] = true
+	    for _, f in pairs(v) do if type(f) == "function" then romFn[f] = true end end
+	 end
+      end
+   end
+   for k in pairs(hidden) do env[k] = nil end
+   local mt = getmetatable(env)
+   local old = mt.__index
+   mt.__index = function(t, k)
+      local v = hidden[k]
+      if v ~= nil then return v end
+      return old(t, k)
+   end
+   local rtype, rpairs, rnext = type, pairs, next
+   env.type = function(v)
+      if romLib[v] then return "rotable" end
+      if romFn[v] then return "lightfunction" end
+      return rtype(v)
+   end
+   local function check(t)
+      if romLib[t] then
+	 error("bad argument #1 to 'for iterator' (table expected, got rotable)", 3)
+      end
+   end
+   env.pairs = function(t) check(t); return rpairs(t) end
+   env.next = function(t, k) check(t); return rnext(t, k) end
+end
+
 local function makeEnv(app)
    if not P.declareGlobal and sharedEnv then return sharedEnv end
    -- the base globals are copied in, so pairs(_G) lists them as on the
@@ -927,6 +995,7 @@ local function makeEnv(app)
    })
    env._G = env
    if P.declareGlobal then env.scriptID = app.index end
+   if P.rom then romEnv(env) end
    local function lf(p, mode, e) return hostLoadfile(p, mode or "bt", e or env) end
    env.loadfile = lf
    env.load = function(s, name, mode, e) return hostLoad(s, name, mode or "bt", e or env) end

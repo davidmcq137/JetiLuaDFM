@@ -1,0 +1,342 @@
+G AUDIO_BACKGROUND
+G AUDIO_IMMEDIATE
+G AUDIO_QUEUE
+G COLOR_ACTIVE
+G COLOR_ACTIVE_TEXT
+G COLOR_ALERT
+G COLOR_ALERT_TEXT
+G COLOR_BATTERY
+G COLOR_BG
+G COLOR_BG_TEXT
+G COLOR_BUTTON
+G COLOR_BUTTON_TEXT
+G COLOR_DISABLED
+G COLOR_DISABLED_TEXT
+G COLOR_HEADER
+G COLOR_HIGHLIGHTED
+G COLOR_HIGHLIGHTED_TEXT
+G COLOR_INACTIVE
+G COLOR_INACTIVE_TEXT
+G DISABLED
+G ENABLED
+G FONT_AND
+G FONT_BIG
+G FONT_BOLD
+G FONT_GRAYED
+G FONT_MAXI
+G FONT_MINI
+G FONT_NORMAL
+G FONT_OR
+G FONT_REVERSED
+G FONT_XOR
+G HIGHLIGHTED
+G KEY_1
+G KEY_2
+G KEY_3
+G KEY_4
+G KEY_5
+G KEY_DOWN
+G KEY_ENTER
+G KEY_ESC
+G KEY_MENU
+G KEY_RELEASED
+G KEY_UP
+G MENU_ADVANCED
+G MENU_APPS
+G MENU_FINE
+G MENU_GAMES
+G MENU_MAIN
+G MENU_NONE
+G MENU_SYSTEM
+G MENU_TELEMETRY
+G MODEL
+G SOUND_AUTOTRIM
+G SOUND_BKUP
+G SOUND_BOUND
+G SOUND_INACT
+G SOUND_LOWSIGNAL
+G SOUND_LOWTXVOLT
+G SOUND_RANGETEST
+G SOUND_RXRESET
+G SOUND_START
+G SOUND_TELEMLOSS
+G SYSTEM
+G _G
+G _VERSION
+G assert
+G bit32
+G collectgarbage
+G coroutine
+G debug
+G declareGlobal
+G dir
+G dofile
+G dumpGlobalVars
+G error
+G form
+G getmetatable
+G gpio
+G gps
+G io
+G ipairs
+G json
+G lcd
+G load
+G loadfile
+G math
+G next
+G os
+G package
+G pairs
+G pcall
+G print
+G rawequal
+G rawget
+G rawlen
+G rawset
+G require
+G scriptID
+G select
+G serial
+G setmetatable
+G string
+G system
+G table
+G timer
+G tonumber
+G tostring
+G type
+G utf8
+G xpcall
+M coroutine create
+M coroutine isyieldable
+M coroutine resume
+M coroutine running
+M coroutine status
+M coroutine wrap
+M coroutine yield
+M debug debug
+M debug gethook
+M debug getinfo
+M debug getlocal
+M debug getmetatable
+M debug getregistry
+M debug getupvalue
+M debug getuservalue
+M debug sethook
+M debug setlocal
+M debug setmetatable
+M debug setupvalue
+M debug setuservalue
+M debug traceback
+M debug upvalueid
+M debug upvaluejoin
+M form addAudioFilebox
+M form addCheckbox
+M form addIcon
+M form addInputbox
+M form addIntbox
+M form addLabel
+M form addLink
+M form addRow
+M form addSelectbox
+M form addSpacer
+M form addTextbox
+M form close
+M form getActiveForm
+M form getButton
+M form getFocusedRow
+M form getValue
+M form preventDefault
+M form question
+M form reinit
+M form setButton
+M form setFocusedRow
+M form setProperties
+M form setTitle
+M form setValue
+M form waitForRelease
+M gpio mode
+M gpio read
+M gpio write
+M gps getBearing
+M gps getDestination
+M gps getDistance
+M gps getLL
+M gps getLcdXY
+M gps getPosition
+M gps getStrig
+M gps getString
+M gps getValue
+M gps m2px
+M gps newPoint
+M gps offset
+M gps px2m
+M io close
+M io mkdir
+M io open
+M io read
+M io readall
+M io readline
+M io remove
+M io rename
+M io seek
+M io write
+M json decode
+M json encode
+M lcd createImage
+M lcd drawArc
+M lcd drawCircle
+M lcd drawEllipse
+M lcd drawFilledRectangle
+M lcd drawImage
+M lcd drawLine
+M lcd drawNumber
+M lcd drawPoint
+M lcd drawRectangle
+M lcd drawText
+M lcd getBgColor
+M lcd getColor
+M lcd getFgColor
+M lcd getTextHeight
+M lcd getTextWidth
+M lcd height
+M lcd loadImage
+M lcd renderer
+M lcd resetClipping
+M lcd setClipping
+M lcd setColor
+M lcd width
+M math abs
+M math acos
+M math asin
+M math atan
+M math ceil
+M math cos
+M math deg
+M math exp
+M math floor
+M math fmod
+M math huge
+M math log
+M math max
+M math maxinteger
+M math min
+M math mininteger
+M math modf
+M math pi
+M math rad
+M math random
+M math randomseed
+M math sin
+M math sqrt
+M math tan
+M math tointeger
+M math type
+M math ult
+M os clock
+M os date
+M os difftime
+M os execute
+M os exit
+M os getenv
+M os remove
+M os rename
+M os setlocale
+M os time
+M os tmpname
+M serial deinit
+M serial getPorts
+M serial init
+M serial onRead
+M serial setBaudrate
+M serial write
+M string byte
+M string char
+M string dump
+M string find
+M string format
+M string gmatch
+M string gsub
+M string len
+M string lower
+M string match
+M string pack
+M string packsize
+M string rep
+M string reverse
+M string sub
+M string unpack
+M string upper
+M system crc
+M system createSwitch
+M system getCPU
+M system getDateTime
+M system getDeviceInfo
+M system getDeviceType
+M system getDevices
+M system getIMU
+M system getInputs
+M system getInputsVal
+M system getLocale
+M system getProperty
+M system getRawIMU
+M system getSensorByID
+M system getSensorValueByID
+M system getSensors
+M system getSerialCode
+M system getServos
+M system getSwitchInfo
+M system getTime
+M system getTimeCounter
+M system getTxTelemetry
+M system getUserName
+M system getVersion
+M system isPlayback
+M system messageBox
+M system openExternal
+M system pLoad
+M system pSave
+M system playBeep
+M system playFile
+M system playNumber
+M system playSystemSound
+M system registerControl
+M system registerForm
+M system registerLogVariable
+M system registerTelemetry
+M system setControl
+M system setProperty
+M system setTelemetryButton
+M system setVario
+M system stopPlayback
+M system unregisterControl
+M system unregisterForm
+M system unregisterLogVariable
+M system unregisterTelemetry
+M system vibration
+M table concat
+M table insert
+M table move
+M table pack
+M table remove
+M table sort
+M table unpack
+M timer create
+M timer delete
+M timer getByID
+M timer getByName
+M timer getName
+M timer getRawTime
+M timer getRoundCount
+M timer getType
+M timer isRunning
+M timer restart
+M timer start
+M timer stop
+M utf8 char
+M utf8 charpattern
+M utf8 codepoint
+M utf8 codes
+M utf8 len
+M utf8 offset
