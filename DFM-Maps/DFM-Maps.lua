@@ -66,7 +66,8 @@ appInfo.Name = "DFM-Maps"
 appInfo.Maps = appInfo.Name
 appInfo.menuTitle = appInfo.Name
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
-appInfo.version = "10.0"
+-- bump the suffix (month, day, letter) for each build sent to a tester
+appInfo.version = "10.0.1120a"
 appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
 appInfo.Config = "Apps/" .. appInfo.Maps .. "/Maps/Config.jsn"
 appInfo.SaveData = true
@@ -4052,7 +4053,8 @@ function ribbon.prepare()
 
    if not Field.addPoint then Field.addPoint = {}  end
 
-   if Field.addPoint and Field.addPoint[1] and #Field.addPoint[1] > 1 and Field.pointsToRender > 0 then 
+   -- any image may hold the queue: zoom level 1 can fail to load while others succeed
+   if Field.pointsToRender > 0 then
       
       local ci = currentImage or 1
       --print("ci", ci, #Field.addPoint)
@@ -4070,7 +4072,7 @@ function ribbon.prepare()
       for cI = 1, #Field.images do
 	 local FR = Field.renderer[cI]
 	 local pts = Field.addPoint[cI]
-	 if FR and pts then
+	 if FR and pts and #pts > 1 then
 	    local curColor = pts[2] and pts[2].color
 	    if curColor then lcd.setColor(getrgb(curColor)) end
 	    FR:reset()
