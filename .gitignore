@@ -116,3 +116,6 @@ DFM-Maps/prof.log
 
 # FakeFW: the C helper is built by FakeFW/build.sh
 FakeFW/fakefw_c.so
+
+# FakeFW test data is committed, whatever its file names (M-*.jsn ...)
+!FakeFW/fixtures/**

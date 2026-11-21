@@ -170,6 +170,9 @@
                                   one waitEvent
      {"confirm": "Did the map zoom in?"}   ask the tester yes/no with
                                   form.question; yes = PASS, no = FAIL.
+                                  In an unattended run (FakeFW sets
+                                  "unattended": true in selection.jsn) it's
+                                  logged as SKIP and counted as skipped.
                                   The text is wrapped onto the question's
                                   two normal-size lines ("confirmWidth" in
                                   config.jsn, default 30 chars each, so
@@ -497,7 +500,7 @@ local steps, si, stepT0, nextAt
 local finished = false
 local menuClosedAt         -- the step at which the tester closed the menu (run stopped)
 local stopNote             -- why, for a box on the form when the tester comes back
-local counts = {pass = 0, fail = 0, ok = 0, checks = 0, checkFails = 0}
+local counts = {pass = 0, fail = 0, ok = 0, skip = 0, checks = 0, checkFails = 0}
 
 -- events and announcements are numbered; waits count those after the
 -- last action step (set, link, key, ...) started
@@ -1505,6 +1508,10 @@ local confirmBanner
 local confirmAnswer        -- set by wKey while a keyed confirm waits: 1 or 0
 
 H.confirm = {ctx = "loop", run = function(s, el)
+		-- an unattended run (selection.jsn "unattended"): nobody to ask
+		if cfg.unattended then
+		   return "skip", "unattended run, nobody to answer: " .. s.confirm
+		end
 		-- form open: no form.question at all. It covers the form, and the
 		-- key that answers it can also reach the form (F5 closed it).
 		-- Show the question in a box and take the answer from F1/F2;
@@ -1690,9 +1697,10 @@ local function finish(why, box)
    finished = true
    local bad = counts.fail > 0
    local bar = bad and "#####" or "===="
-   log(string.format("%s %s: %d steps run, %d PASS, %d FAIL, %d ok; " ..
+   log(string.format("%s %s: %d steps run, %d PASS, %d FAIL, %d ok%s; " ..
 			"app checks: %d passed, %d failed %s",
 		     bar, why, si - 1, counts.pass, counts.fail, counts.ok,
+		     counts.skip > 0 and (", " .. counts.skip .. " skipped") or "",
 		     counts.checks, counts.checkFails, bar))
    -- repeat the failures at the end, where the console stops scrolling
    for _, f in ipairs(failList) do log("   FAILED " .. f) end
@@ -1709,6 +1717,7 @@ local function report(s, st, msg)
    local tag
    if st == true then tag = "PASS"; counts.pass = counts.pass + 1
    elseif st == false then tag = "FAIL"; counts.fail = counts.fail + 1
+   elseif st == "skip" then tag = "SKIP"; counts.skip = counts.skip + 1
    else tag = "ok"; counts.ok = counts.ok + 1 end
    if st == false and system.SensorE and system.SensorE.getState then
       local ok, g = pcall(system.SensorE.getState)
@@ -3124,6 +3133,9 @@ local function loadSelection()
    cfg.target = type(c.app) == "string" and c.app or ""
    cfg.script = type(c.script) == "string" and c.script or ""
    cfg.mode = (c.mode == "play" or c.mode == "record") and c.mode or "off"
+   -- set by an unattended runner (FakeFW), never by the menu: nobody is
+   -- there to answer a confirm, so those steps are skipped, not passed
+   cfg.unattended = c.unattended == true
 end
 
 local function saveSelection()
@@ -3146,7 +3158,7 @@ local function resetRun()
    cbDepth, recAfter = 0, {}
    steps, si, stepT0, nextAt = nil, nil, nil, nil
    finished, running = false, false
-   counts = {pass = 0, fail = 0, ok = 0, checks = 0, checkFails = 0}
+   counts = {pass = 0, fail = 0, ok = 0, skip = 0, checks = 0, checkFails = 0}
    seq, actionSeq, actionMarked = 0, 0, nil
    anns, textArm, frameNo, frames = {}, nil, 0, {}
    vars, events, checkSeen, failList = {}, {}, {}, {}

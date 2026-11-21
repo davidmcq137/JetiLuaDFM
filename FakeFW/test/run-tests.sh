@@ -5,8 +5,9 @@
 # ltm-typefix.patch). Build FakeFW/fakefw_c.so first (FakeFW/build.sh).
 # Tests: GpsTest on the emulator and DS-24 5.08 profiles, EnvDump and FontDump
 # on those and the DS-16 5.06 profile,
-# against the measured outputs, and the DFM-TimG UIDriver scripts (SensorL replays
-# Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing).
+# against the measured outputs, the DFM-TimG UIDriver scripts (SensorL replays
+# Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing), and
+# DFM-Maps' scripts on the maps-bds458 fixture (FakeFW/fakefw-uid.lua).
 # Exit code: the number of failed tests.
 LUA=${1:-$HOME/lua-5.3.1-Jeti-typefix/src/lua}
 T=Apps/FakeFW/test
@@ -21,7 +22,7 @@ bad() { echo "FAIL: $1"; fails=$((fails + 1)); }
 "$LUA" -e 'print("collation en_US.UTF-8: " .. (os.setlocale("en_US.UTF-8", "collate") and "available" or "MISSING, string order may differ from the emulator"))'
 
 # the top-level app files are gitignored symlinks to the app folders
-for a in GpsTest UIDriver SensorL DFM-TimG; do
+for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-Maps; do
    [ -e Apps/$a.lua ] || ln -s $a/$a.lua Apps/$a.lua
 done
 if [ ! -f Log/20190926/16-56-45.log ]; then
@@ -93,6 +94,20 @@ for s in timg-test hud-test; do
       ok "DFM-TimG $s: $(grep '^==== DONE' $TMP/$s)"
    else
       bad "DFM-TimG $s"; grep -v '^\[UID\]' $TMP/$s | tail -30
+   fi
+done
+
+# DFM-Maps' UIDriver scripts through the file layers (nothing is read from
+# or written to the working data): the field data in maps-bds458, settings
+# from a preset listed before it (none = Maps' init defaults, as on a first
+# start); confirm steps are skipped, as nobody is there to answer them
+for t in "nofly-test maps-bds458" "maps-smoke maps-tri,maps-bds458"; do
+   set -- $t
+   if "$LUA" Apps/FakeFW/fakefw-uid.lua --app DFM-Maps --script $1.jsn \
+	--fixture $2 --model FakeFW > $TMP/$1 2>&1; then
+      ok "DFM-Maps $1 ($2): $(grep '^==== DONE' $TMP/$1)"
+   else
+      bad "DFM-Maps $1 ($2)"; grep -v '^\[UID\]' $TMP/$1 | tail -30
    fi
 done
 

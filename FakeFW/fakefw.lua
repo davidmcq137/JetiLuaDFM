@@ -436,12 +436,118 @@ local function sd(p)
 end
 FW.sdPath = sd
 
+-- With a fixture (FW.setup{fixture = ...}, or {sandbox = true} for the
+-- layers without one) app file access goes through
+-- three layers, so a test never sees or changes the pilot's working data:
+--   1. the run folder (a temp folder): everything the run writes, read first
+--   2. the fixture(s), FakeFW/fixtures/<name>/, laid out like the SD card
+--   3. the Emulator folder, but under Apps/ only files git doesn't ignore
+--      (code, Lang, audio, App.json; not M-*.jsn, maps, logs ...), so a
+--      test sees the same files here as in CI
+-- Without a fixture, files are read and written in place, as before.
+local FS = {}            -- run, fixtures, visible, visDirs, deleted, trace, keep
+
+-- "./Apps/X/../Y//z" -> "Apps/Y/z"
+local function norm(p)
+   p = sd(p):gsub("\\", "/")
+   local parts = {}
+   for seg in p:gmatch("[^/]+") do
+      if seg == ".." then parts[#parts] = nil
+      elseif seg ~= "." then parts[#parts + 1] = seg end
+   end
+   return table.concat(parts, "/")
+end
+
+-- a file, not a folder: "path/." opens only for a folder
+local function isFile(path)
+   local f = rio.open(path, "rb")
+   if not f then return false end
+   f:close()
+   local d = rio.open(path .. "/.", "rb")
+   if d then d:close(); return false end
+   return true
+end
+
+local function shq(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+
+-- not gitignored (or outside Apps/, e.g. Log/ for SensorL)
+local function visible(rel)
+   if not FS.visible then return true end
+   if rel:sub(1, 5) ~= "Apps/" then return true end
+   return FS.visible[rel:sub(6)] or false
+end
+local function visibleDir(rel)
+   if not FS.visible then return true end
+   if rel == "Apps" or rel:sub(1, 5) ~= "Apps/" then return true end
+   return FS.visDirs[rel:sub(6)] or false
+end
+
+local function trace(what, rel, where)
+   if FS.trace then out("[FW] file " .. what .. " " .. rel .. " (" .. where .. ")") end
+end
+
+-- the file to read for an app path, or nil
+local function readPath(p)
+   if not FS.run then return sd(p) end
+   local rel = norm(p)
+   if FS.deleted[rel] then trace("read", rel, "deleted"); return nil end
+   local r = FS.run .. "/" .. rel
+   if isFile(r) then trace("read", rel, "run"); return r end
+   for _, fx in ipairs(FS.fixtures) do
+      local f = fx.dir .. "/" .. rel
+      if isFile(f) then trace("read", rel, "fixture " .. fx.name); return f end
+   end
+   if visible(rel) and isFile(rel) then trace("read", rel, "apps"); return rel end
+   trace("read", rel, isFile(rel) and "hidden" or "missing")
+   return nil
+end
+
+local madeDirs = {}
+local function mkdirp(d)
+   if madeDirs[d] then return end
+   ros.execute("mkdir -p " .. shq(d))
+   madeDirs[d] = true
+end
+
+-- the file to write for an app path (always in the run folder)
+local function writePath(p)
+   if not FS.run then return sd(p) end
+   local rel = norm(p)
+   FS.deleted[rel] = nil
+   local w = FS.run .. "/" .. rel
+   mkdirp(w:match("^(.*)/[^/]*$"))
+   trace("write", rel, "run")
+   return w, rel
+end
+
+local function copyFile(from, to)
+   local f = rio.open(from, "rb"); if not f then return false end
+   local s = f:read("a"); f:close()
+   local g = rio.open(to, "wb"); if not g then return false end
+   g:write(s); g:close()
+   return true
+end
+
 local jio = {
-   open = function(p, m) return rio.open(sd(p), m or "r") end,
+   open = function(p, m)
+      m = m or "r"
+      if not FS.run then return rio.open(sd(p), m) end
+      if m:find("[wa+]") then
+	 local r = (m:find("[a+]") and not m:find("w")) and readPath(p)
+	 local w = writePath(p)
+	 if r and r ~= w then copyFile(r, w) end   -- append/update a lower file
+	 return rio.open(w, m)
+      end
+      local r = readPath(p)
+      if not r then return nil end
+      return rio.open(r, m)
+   end,
    close = function(f) return f:close() end,
    read = function(f, n) return f:read(n) or "" end,
    readall = function(p)
-      local f = rio.open(sd(p), "rb"); if not f then return nil end
+      local r = readPath(p)
+      if not r then return nil end
+      local f = rio.open(r, "rb"); if not f then return nil end
       local s = f:read("a"); f:close(); return s
    end,
    readline = function(f, skipEOL)
@@ -458,25 +564,115 @@ local jio = {
       if mode == nil then return f:seek("set", off) and 0 or 1 end
       return f:seek(mode, off)
    end,
-   rename = function(a, b) return ros.rename(sd(a), sd(b)) end,
-   remove = function(p) return ros.remove(sd(p)) end,
-   mkdir = function(p) return ros.execute("mkdir -p '" .. sd(p):gsub("'", "") .. "'") and true or nil end,
+   rename = function(a, b)
+      if not FS.run then return ros.rename(sd(a), sd(b)) end
+      local r = readPath(a)
+      if not r then return nil end
+      local w = writePath(b)
+      if not copyFile(r, w) then return nil end
+      ros.remove(FS.run .. "/" .. norm(a))
+      FS.deleted[norm(a)] = true
+      return true
+   end,
+   remove = function(p)
+      if not FS.run then return ros.remove(sd(p)) end
+      local existed = readPath(p) ~= nil
+      ros.remove(FS.run .. "/" .. norm(p))
+      FS.deleted[norm(p)] = true
+      return existed or nil
+   end,
+   mkdir = function(p)
+      if not FS.run then return ros.execute("mkdir -p " .. shq(sd(p))) and true or nil end
+      mkdirp(FS.run .. "/" .. norm(p))
+      return true
+   end,
 }
 
-local function jdir(p)
-   local h = rio.popen("find '" .. sd(p):gsub("'", "") .. "' -mindepth 1 -maxdepth 1 -printf '%f\\t%y\\t%s\\n' 2>/dev/null | sort")
-   local items = {}
+-- one folder's entries: name -> {type, size}
+local function listDir(path, into, keep)
+   local h = rio.popen("find " .. shq(path) .. " -mindepth 1 -maxdepth 1 -printf '%f\\t%y\\t%s\\n' 2>/dev/null")
    for l in h:lines() do
       local n, ty, sz = l:match("^(.-)\t(%a)\t(%d+)$")
-      if n then items[#items + 1] = {n, ty == "d" and "folder" or "file", ty == "d" and 0 or tonumber(sz)} end
+      if n and not into[n] and (not keep or keep(n, ty == "d")) then
+	 into[n] = {ty == "d" and "folder" or "file", ty == "d" and 0 or tonumber(sz)}
+      end
    end
    h:close()
+end
+
+local function jdir(p)
+   local entries = {}
+   if not FS.run then
+      listDir(sd(p), entries)
+   else
+      local rel = norm(p)
+      local function notDeleted(n) return not FS.deleted[rel .. "/" .. n] end
+      listDir(FS.run .. "/" .. rel, entries, notDeleted)
+      for _, fx in ipairs(FS.fixtures) do listDir(fx.dir .. "/" .. rel, entries, notDeleted) end
+      listDir(rel, entries, function(n, isDir)
+	 local q = rel .. "/" .. n
+	 return notDeleted(n) and (isDir and visibleDir(q) or not isDir and visible(q))
+      end)
+   end
+   local names = {}
+   for n in pairs(entries) do names[#names + 1] = n end
+   table.sort(names)
    local i = 0
    return function()
       i = i + 1
-      local it = items[i]
-      if it then return it[1], it[2], it[3] end
+      local n = names[i]
+      if n then return n, entries[n][1], entries[n][2] end
    end
+end
+
+-- for runners: read and write app files through the same layers
+function FW.readFile(p)
+   local r = readPath(p)
+   if not r then return nil end
+   local f = rio.open(r, "rb"); if not f then return nil end
+   local s = f:read("a"); f:close(); return s
+end
+function FW.writeFile(p, s)
+   local f = assert(jio.open(p, "wb")); f:write(s); f:close()
+end
+function FW.runDir() return FS.run end
+
+-- start the layers: a run folder, the fixtures, the visible-file list
+local function startFS(opts)
+   FS = {fixtures = {}, deleted = {}, trace = opts.trace, keep = opts.keep}
+   if not opts.fixture and not opts.sandbox then return end
+   local list = type(opts.fixture) == "table" and opts.fixture or {opts.fixture}
+   for _, name in ipairs(list) do
+      local dir = HERE .. "fixtures/" .. name
+      local h = rio.popen("test -d " .. shq(dir) .. " && echo ok")
+      local ok = h:read("l"); h:close()
+      if ok ~= "ok" then error("FakeFW: no fixture " .. dir) end
+      FS.fixtures[#FS.fixtures + 1] = {name = name, dir = dir}
+   end
+   local h = rio.popen("mktemp -d -t fakefw-run-XXXXXX")
+   FS.run = h:read("l"); h:close()
+   assert(FS.run and FS.run ~= "", "FakeFW: mktemp failed")
+   -- what git doesn't ignore under Apps/ (tracked, or new and not ignored)
+   local g = rio.popen("git -C Apps ls-files --cached --others --exclude-standard 2>/dev/null")
+   local vis, dirs, n = {}, {}, 0
+   for l in g:lines() do
+      vis[l] = true; n = n + 1
+      local d = l:match("^(.*)/[^/]*$")
+      while d and not dirs[d] do dirs[d] = true; d = d:match("^(.*)/[^/]*$") end
+   end
+   g:close()
+   if n > 0 then FS.visible, FS.visDirs = vis, dirs
+   else out("[FW] git ls-files gave nothing: the Apps folder is not hidden") end
+   out("[FW] run folder " .. FS.run .. ", fixture " ..
+       (#list > 0 and table.concat(list, ", ") or "none"))
+end
+
+-- remove the run folder unless asked to keep it
+function FW.cleanup()
+   if not FS.run then return end
+   if FS.keep then out("[FW] run folder kept: " .. FS.run)
+   else ros.execute("rm -rf " .. shq(FS.run)) end
+   FS.run = nil
 end
 
 -- image size from a PNG or JPEG header (0, 0 if unknown)
@@ -996,7 +1192,11 @@ local function makeEnv(app)
    env._G = env
    if P.declareGlobal then env.scriptID = app.index end
    if P.rom then romEnv(env) end
-   local function lf(p, mode, e) return hostLoadfile(p, mode or "bt", e or env) end
+   local function lf(p, mode, e)
+      local r = readPath(p)
+      if not r then return nil, "cannot open " .. tostring(p) end
+      return hostLoadfile(r, mode or "bt", e or env)
+   end
    env.loadfile = lf
    env.load = function(s, name, mode, e) return hostLoad(s, name, mode or "bt", e or env) end
    env.dofile = function(p) local f = assert(lf(p)); return f() end
@@ -1004,7 +1204,11 @@ local function makeEnv(app)
    local loaded = {}
    env.require = function(name)
       if loaded[name] ~= nil then return loaded[name] end
-      local path = package.searchpath(name, APPPATH)
+      local path
+      for tpl in APPPATH:gmatch("[^;]+") do
+	 local c = tpl:gsub("%?", (name:gsub("%.", "/")))
+	 if readPath(c) then path = c; break end
+      end
       if not path then error("module '" .. name .. "' not found", 2) end
       local f = assert(lf(path))
       local r = f(name)
@@ -1042,6 +1246,8 @@ function FW.setup(opts)
    if not ros.setlocale(P.collate, "collate") then
       fwlog("can't set collation " .. P.collate .. "; string order may differ from the device")
    end
+   if opts.model then props.Model = opts.model end
+   startFS(opts)
    buildBase()
    return P
 end
@@ -1155,6 +1361,7 @@ function FW.finish()
    for _, f in ipairs(failures) do out("[FW] failure: " .. f) end
    local code = (#errors > 0 or #failures > 0) and 1 or 0
    out(fmt("[FW] RESULT: %s (%d app errors, %d failures)", code == 0 and "PASS" or "FAIL", #errors, #failures))
+   FW.cleanup()
    return code
 end
 
