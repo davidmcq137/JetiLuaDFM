@@ -21,6 +21,15 @@
 --luacheck: globals DFM_Rscu_CircleOuter
 
 local appName = "DFM-Rscu"
+
+-- The DS-24 II firmware swaps red and blue when a renderer draws into an
+-- image (found with DFM-Maps, Harry 2026-11-21: yellow came out cyan); the
+-- emulator draws it right. A real TX has no debug library and the emulator
+-- has one, so the ribbon colour is swapped on a real TX only
+local swapRB = (debug == nil)
+local function setRibbonColor(r, g, b)
+   if swapRB then lcd.setColor(b, g, r) else lcd.setColor(r, g, b) end
+end
 local pathApp = "Apps/"..appName.."/"
 local RTH = {}
 local buttonText =  {{"-","+","","","Erase"},{"Pt A","Pt B","","",""}}
@@ -1914,10 +1923,12 @@ local function printTeleStatusP(w,h)
    lcd.setColor(0,0,255)
    if RTH.renderer then
       if pointsToRender > 0 and holdTele == 0 then
+	 setRibbonColor(0,0,255)   -- into the ribbon images
 	 for i,_ in ipairs(magVal) do
 	    local RR = RTH.renderer[i]
 	    if RR then RR:renderPolyline(2) end
 	 end
+	 lcd.setColor(0,0,255)
 	 pointsToRender = 0
       end
    end
@@ -1994,10 +2005,12 @@ local function printTeleGPSP(w,h)
    if RTH.renderer and RTH.ribbon and config.fullScreenTele ~= 0 then
       if holdTele == 0 then
 	 if pointsToRender > 0 then
+	    setRibbonColor(0,0,255)   -- into the ribbon images
 	    for i,_ in ipairs(magVal) do
 	       local RR = RTH.renderer[i]
 	       if RR then RR:renderPolyline(2) end
 	    end
+	    lcd.setColor(0,0,255)
 	    pointsToRender = 0
 	 end
 	 if RTH.ribbon[magIdx] then lcd.drawImage(0,0,RTH.ribbon[magIdx]) end
