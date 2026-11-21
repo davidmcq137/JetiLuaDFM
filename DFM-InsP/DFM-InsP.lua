@@ -56,7 +56,7 @@
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.92
+local InsPVersion = 0.93
 
 local LE
 
@@ -2942,6 +2942,62 @@ end
 
 local foo
 
+-- A panel or background image can come in four quarters, kept in a folder
+-- named after it: Panels/TurbineL/UL.png, UR.png, LL.png, LR.png next to
+-- Panels/TurbineL.png (a folder, so the Panels and Backgrounds scans skip
+-- them). Each quarter is decoded in a frame of its own, so no frame decodes
+-- more than a quarter of an image, and drawQuads draws them at their
+-- offsets. Without the folder, the whole <name>.png is decoded in one frame.
+-- An experiment (2026-11-20): on the emulator a 456x342 panel decodes in
+-- ~11 ms whole and ~4 ms a quarter, against the TX's 10 ms budget at 100%
+local quadLoad = {QUADS = {"UL", "UR", "LL", "LR"}}
+
+-- one frame's loading of image <dir>/<name> for slot key (e.g. "panel1"):
+-- returns the image (nil if it can't be loaded) and true when done, or
+-- nil, false while quarters remain; the third value names it for the profile
+function quadLoad.step(key, dir, name, what)
+   local ql = quadLoad[key]
+   local whole = dir .. "/" .. name .. ".png"
+   if ql and ql.name == name and ql.whole then -- a quarter was missing
+      quadLoad[key] = nil
+      return lcd.loadImage(whole), true, "load " .. what .. " png"
+   end
+   if not ql or ql.name ~= name then
+      local fp = io.open(dir .. "/" .. name .. "/UL.png", "r")
+      if not fp then
+	 quadLoad[key] = nil
+	 return lcd.loadImage(whole), true, "load " .. what .. " png"
+      end
+      io.close(fp)
+      ql = {name = name, q = {}}
+      quadLoad[key] = ql
+   end
+   local k = #ql.q + 1
+   local qf = dir .. "/" .. name .. "/" .. quadLoad.QUADS[k] .. ".png"
+   local img = lcd.loadImage(qf)
+   if not img then
+      print(appName .. ": can't load " .. qf .. ", loading " .. whole)
+      quadLoad[key] = {name = name, whole = true} -- next frame
+      return nil, false, "load " .. what .. " quarter"
+   end
+   ql.q[k] = img
+   if k < 4 then return nil, false, "load " .. what .. " quarter" end
+   quadLoad[key] = nil
+   local q = ql.q
+   return {quads = q, width = q[1].width + q[2].width, height = q[1].height + q[3].height},
+      true, "load " .. what .. " quarter"
+end
+
+local function drawQuads(img)
+   local q = img.quads
+   if not q then return lcd.drawImage(0, 0, img) end
+   local w, h = q[1].width, q[1].height
+   lcd.drawImage(0, 0, q[1])
+   lcd.drawImage(w, 0, q[2])
+   lcd.drawImage(0, h, q[3])
+   lcd.drawImage(w, h, q[4])
+end
+
 local function blankLoading()
    -- while a window changes panel, its panel PNG is decoded in one frame and
    -- its background PNG in the next, and nothing else is drawn in those two
@@ -2952,6 +3008,8 @@ local function blankLoading()
 end
 
 local function printForm(_,_,tWin) --ww0,hh0,tWin)
+
+   local backLoaded -- what the background frame decoded, for the profile
 
    local ctl
    local rot, rotmin, rotmax
@@ -2982,11 +3040,15 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	 isp1 = 1
       end
       if lastPanel1 ~= isp1 and lastPanel1 ~= -isp1 then
-	 -- frame 1 of 2: the panel image (-isp1 = background still to load)
+	 -- frame 1 of 2 (1-4 for a panel in quarters): the panel image
+	 -- (-isp1 = background still to load)
 	 pv = InsP.panelImages[isp1].instImage
 	 --print("win 1 loading panel " .. isp1 .. " " .. pv)
 	 if pv then
-	    instImg1 = lcd.loadImage(pDir .. "/"..pv..".png")
+	    local img, done, what = quadLoad.step("panel1", pDir, pv, "panel")
+	    prof.mark(what)
+	    if not done then return blankLoading() end -- more quarters to load
+	    instImg1 = img
 	    if instImg1 then
 	       --print("instImg1 w,h", instImg1.width, instImg1.height)
 	       InsP.panelImages[isp1].width = instImg1.width
@@ -3003,11 +3065,11 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	 --print("instImg1, pv, lastPanel1", instImg1, pv, lastPanel1)
 	 
 	 lastPanel1 = -isp1
-	 prof.mark("load panel png")
 	 return blankLoading()
       end
       if lastPanel1 == -isp1 then
-	 -- frame 2 of 2: the background image; the panel is drawn from frame 3
+	 -- frame 2 of 2 (5-8 for a background in quarters): the background
+	 -- image; the panel is drawn from the frame after
 	 bv = InsP.panelImages[isp1].backImage
 	 if bv and bv ~= "..." then
 	    --print("bv", bv, string.match(bv, "rgb%("))
@@ -3016,7 +3078,13 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       backImg1.r, backImg1.g, backImg1.b = string.match(bv, "(%d+),(%d+),(%d+)")
 	       --print("backImg1 to {}", backImg1.r, backImg1.g, backImg1.b)
 	    else
-	       backImg1 =  lcd.loadImage(bDir .. "/"..bv..".png")
+	       local img, done, what = quadLoad.step("back1", bDir, bv, "backgnd")
+	       if not done then -- more quarters to load
+		  prof.mark(what)
+		  return blankLoading()
+	       end
+	       backLoaded = what
+	       backImg1 = img
 	       if backImg1 then
 		  if math.abs(backImg1.width - InsP.panelImages[isp1].width) > 10 then
 		     system.messageBox("Panel and backgnd images not compatible (1)")
@@ -3028,7 +3096,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	    backImg1 = nil
 	 end
 	 lastPanel1 = isp1
-	 prof.mark("load backgnd png")
+	 prof.mark(backLoaded or "load backgnd png")
 	 return blankLoading()
       end
       ip = InsP.panels[isp1]
@@ -3043,11 +3111,15 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	 isp2 = 1
       end
       if lastPanel2 ~= isp2 and lastPanel2 ~= -isp2 then
-	 -- frame 1 of 2: the panel image (-isp2 = background still to load)
+	 -- frame 1 of 2 (1-4 for a panel in quarters): the panel image
+	 -- (-isp2 = background still to load)
 	 pv = InsP.panelImages[isp2].instImage
 	 --print("win 2 loading panel " .. isp2 .. " " ..pv)
 	 if pv then
-	    instImg2 = lcd.loadImage(pDir .. "/"..pv..".png")
+	    local img, done, what = quadLoad.step("panel2", pDir, pv, "panel")
+	    prof.mark(what)
+	    if not done then return blankLoading() end -- more quarters to load
+	    instImg2 = img
 	    if instImg2 then
 	       --print("instImg2 w,h", instImg2.width, instImg2.height)
 	       InsP.panelImages[isp2].width = instImg2.width
@@ -3060,11 +3132,11 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	    instImg2 = nil
 	 end
 	 lastPanel2 = -isp2
-	 prof.mark("load panel png")
 	 return blankLoading()
       end
       if lastPanel2 == -isp2 then
-	 -- frame 2 of 2: the background image; the panel is drawn from frame 3
+	 -- frame 2 of 2 (5-8 for a background in quarters): the background
+	 -- image; the panel is drawn from the frame after
 	 bv = InsP.panelImages[isp2].backImage
 	 if bv and bv ~= "..." then
 	    if string.match(bv, "rgb%(") then
@@ -3072,7 +3144,13 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       backImg2.r, backImg2.g, backImg2.b = string.match(bv, "(%d+),(%d+),(%d+)")
 	    else
 	       --print("bv2", bv)
-	       backImg2 =  lcd.loadImage(bDir .. "/"..bv..".png")
+	       local img, done, what = quadLoad.step("back2", bDir, bv, "backgnd")
+	       if not done then -- more quarters to load
+		  prof.mark(what)
+		  return blankLoading()
+	       end
+	       backLoaded = what
+	       backImg2 = img
 	       if backImg2 and math.abs(backImg2.width - InsP.panelImages[isp2].width) > 10 then
 		  system.messageBox("Panel and backgnd images not compatible (2)")
 		  print("@", backImg2.width, InsP.panelImages[isp2].width)
@@ -3083,7 +3161,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	    backImg2 = nil
 	 end
 	 lastPanel2 = isp2
-	 prof.mark("load backgnd png")
+	 prof.mark(backLoaded or "load backgnd png")
 	 return blankLoading()
       end
       ip = InsP.panels[isp2]
@@ -3094,7 +3172,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
    prof.mark("setup")
    if backI  then
       if backI.width then
-	 lcd.drawImage(0, 0, backI)
+	 drawQuads(backI)
       else
 	 lcd.setColor(backI.r, backI.g, backI.b)
 	 lcd.drawFilledRectangle(0,0, Screen.image_width_px - 1, Screen.image_height_px - 2) --319,158)
@@ -3132,7 +3210,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	 Screen.image_height_px = Screen.legacy_height_px
       end
 
-      lcd.drawImage(0, 0, instI)
+      drawQuads(instI)
    else
       lcd.setColor(255,255,255)
       drawTextCenter(Screen.image_width_px / 2, Screen.image_height_px * 0.4 - 40,
