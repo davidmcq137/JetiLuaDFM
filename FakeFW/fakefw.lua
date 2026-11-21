@@ -43,6 +43,7 @@
 --]]
 
 local FW = {}
+local base = {}              -- what every app environment starts from
 
 -- host libraries, kept before any app can see or change anything
 local rio, ros, rdebug, rstring, rmath, rtable = io, os, debug, string, math, table
@@ -80,6 +81,8 @@ FW.profiles = {
       gpsName = "getString", declareGlobal = true, offscreen = true,
       imageSwapRB = false, hide = {},
       collate = "en_US.UTF-8",    -- string < is case-insensitive there
+      packagePath = "./Apps/?.lc;./Apps/?/init.lc;./Apps/?.lc2;./Apps/?/init.lc2;" ..
+	 "./Apps/?.lua;./Apps/?/init.lua;./Apps/lib/?.lua;./Apps/lib/?/init.lua;",
    },
    -- real DS-24 II on 6.06: no debug/os/coroutine; images swap red/blue
    ["ds24ii-606"] = {
@@ -89,9 +92,13 @@ FW.profiles = {
       tele = {{150, 32}, {150, 68}, {316, 159}, {316, 159}}, -- small (?)
       gpsName = "getString", declareGlobal = true, offscreen = true,
       imageSwapRB = true, hide = {debug = true, os = true, coroutine = true},
-      collate = "C",                                         -- (?)
+      collate = "C",                                         -- (?) as DS-24 5.08
+      packagePath = "/Apps/?.lc;/Apps/?/init.lc;/Apps/?.lc2;/Apps/?/init.lc2;" ..
+	 "/Apps/?.lua;/Apps/?/init.lua;/Apps/lib/?.lua;/Apps/lib/?/init.lua;", -- (?)
    },
-   -- real DS-24 on 5.08 (GpsTest header: getStrig only, no debug/os)
+   -- real DS-24 on 5.08: EnvDump on the pilot's DS-24, 2026-11-21
+   -- (FakeFW/test/envdump-ds24-508.txt). Fonts and KEY_UP/KEY_DOWN differ
+   -- from 6.06, and the 6.x additions are missing
    ["ds24-508"] = {
       device = "JETI DS-24", version = "5.08", emulator = 0,
       lcdW = 320, lcdH = 240,
@@ -99,7 +106,16 @@ FW.profiles = {
       tele = {{150, 32}, {150, 68}, {316, 159}, {316, 159}}, -- small (?)
       gpsName = "getStrig", declareGlobal = false, offscreen = false,
       imageSwapRB = false, hide = {debug = true, os = true, coroutine = true},
-      collate = "C",                                         -- (?)
+      collate = "C",
+      packagePath = "/Apps/?.lc;/Apps/?/init.lc;/Apps/?.lc2;/Apps/?/init.lc2;" ..
+	 "/Apps/?.lua;/Apps/?/init.lua;/Apps/lib/?.lua;/Apps/lib/?/init.lua;",
+      const = {FONT_NORMAL = 0, FONT_BOLD = 1, FONT_BIG = 2, FONT_MINI = 3,
+	       FONT_MAXI = 4, FONT_REVERSED = 8, FONT_GRAYED = 16, FONT_XOR = 32,
+	       FONT_OR = 64, FONT_AND = 128, KEY_UP = 256, KEY_DOWN = 512},
+      fontMask = 7,
+      fontH = {[0] = 18, [1] = 18, [2] = 22, [3] = 13, [4] = 40}, -- (?)
+      remove = {"COLOR_", "timer", "system.setTelemetryButton", "lcd.drawArc",
+		"lcd.getColor"},
    },
 }
 
@@ -142,7 +158,9 @@ local CONST = {
    SOUND_RANGETEST = 5, SOUND_AUTOTRIM = 6, SOUND_INACT = 7, SOUND_BKUP = 9,
    SOUND_RXRESET = 10, SOUND_TELEMLOSS = 11,
 }
--- font heights: emulator (community notes: NORMAL 18, BIG 22, MINI 13, MAXI 40)
+-- font heights by font code (the code & fontMask; the rest are style
+-- flags): emulator, community notes (NORMAL 18, BIG 22, MINI 13, MAXI 40).
+-- A profile can give its own fontH and fontMask.
 local FONT_H = {[21] = 18, [22] = 18, [23] = 13, [24] = 22, [25] = 40}
 
 --------------------------------------------------------------------------------
@@ -458,10 +476,13 @@ local lcd = {
 function lcd.drawText(x, y, text, font)
    if FW.onDrawText then FW.onDrawText(x, y, text, font) end
 end
-function lcd.getTextHeight(font) return FONT_H[(font or 21) & 0xFF] or 18 end
+local function fontHeight(font)
+   local code = (font or base.FONT_NORMAL) & (P.fontMask or 0xFF)
+   return (P.fontH or FONT_H)[code] or 18
+end
+function lcd.getTextHeight(font) return fontHeight(font) end
 function lcd.getTextWidth(font, text)
-   local h = FONT_H[(font or 21) & 0xFF] or 18
-   return floor(#tostring(text) * h * 0.5)
+   return floor(#tostring(text) * fontHeight(font) * 0.5)
 end
 function lcd.loadImage(p)
    local s = jio.readall(p)
@@ -765,7 +786,8 @@ for k, v in pairs(C.gps) do gps[k] = v end
 -- getPosition from a GPS sensor's valGPS: degrees << 16 | minutes * 1000;
 -- decimals is the hemisphere (0..3 = N, E, S, W), as SensorE decodes it
 function gps.getPosition(id, pLat, pLon)
-   local a, b = system.getSensorByID(id, pLat), system.getSensorByID(id, pLon)
+   -- through the app-visible system table, which SensorE/SensorL replace into
+   local a, b = base.system.getSensorByID(id, pLat), base.system.getSensorByID(id, pLon)
    if not (a and b and a.valid and b.valid and a.valGPS and b.valGPS) then return nil end
    local function deg(s, neg)
       local d = ((s.valGPS >> 16) & 0xFF) + (s.valGPS & 0xFFFF) * 0.001 / 60
@@ -793,7 +815,6 @@ local STD = {"assert", "collectgarbage", "error", "getmetatable", "ipairs", "nex
    "setmetatable", "tonumber", "tostring", "type", "xpcall", "_VERSION"}
 local STDLIB = {"string", "table", "math", "utf8", "coroutine", "debug", "os", "package"}
 
-local base = {}
 local APPPATH = "./Apps/?.lc;./Apps/?/init.lc;./Apps/?.lc2;./Apps/?/init.lc2;" ..
    "./Apps/?.lua;./Apps/?/init.lua;./Apps/lib/?.lua;./Apps/lib/?/init.lua;"
 
@@ -811,16 +832,27 @@ local function buildBase()
    if base.package then
       local pk = {}
       for k, v in pairs(package) do pk[k] = v end
-      pk.path = APPPATH
+      pk.path = P.packagePath
       base.package = pk
    end
    for k, v in pairs(CONST) do base[k] = v end
-   base.system, base.form, base.lcd, base.json = system, form, lcd, json
+   for k, v in pairs(P.const or {}) do base[k] = v end
+   -- the libraries are copies, so a profile can leave members out
+   local function copy(t) local c = {}; for k, v in pairs(t) do c[k] = v end; return c end
+   base.system, base.form, base.lcd, base.json = copy(system), copy(form), copy(lcd), json
    base.io, base.dir, base.timer, base.gpio, base.serial = jio, jdir, timer, gpio, serial
-   lcd.width, lcd.height = P.lcdW, P.lcdH
-   base.gps = gps
-   gps.getString, gps.getStrig = nil, nil
-   gps[P.gpsName] = C.gps.getString
+   base.lcd.width, base.lcd.height = P.lcdW, P.lcdH
+   base.gps = copy(gps)
+   base.gps.getString = nil
+   base.gps[P.gpsName] = C.gps.getString
+   -- remove: "NAME" a global, "lib.member", "PREFIX_" every global starting so
+   for _, r in ipairs(P.remove or {}) do
+      local lib, mem = r:match("^(%w+)%.(%w+)$")
+      if lib then base[lib][mem] = nil
+      elseif r:sub(-1) == "_" then
+	 for k in pairs(CONST) do if k:sub(1, #r) == r then base[k] = nil end end
+      else base[r] = nil end
+   end
    if P.declareGlobal then
       base.declareGlobal = function(name, v)
 	 if v == nil then v = false end
@@ -848,7 +880,7 @@ local function makeEnv(app)
       end,
    })
    env._G = env
-   env.scriptID = app.index
+   if P.declareGlobal then env.scriptID = app.index end
    local function lf(p, mode, e) return hostLoadfile(p, mode or "bt", e or env) end
    env.loadfile = lf
    env.load = function(s, name, mode, e) return hostLoad(s, name, mode or "bt", e or env) end

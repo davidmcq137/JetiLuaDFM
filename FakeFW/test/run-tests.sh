@@ -3,8 +3,8 @@
 #   Apps/FakeFW/test/run-tests.sh [path-to-JETI-like-lua]
 # (default ~/lua-5.3.1-Jeti-typefix/src/lua; in CI, fazzone/lua_jeti with
 # ltm-typefix.patch). Build FakeFW/fakefw_c.so first (FakeFW/build.sh).
-# Tests: GpsTest on the emulator and DS-24 5.08 profiles against the
-# measured outputs, and the DFM-TimG UIDriver scripts (SensorL replays
+# Tests: GpsTest and EnvDump on the emulator and DS-24 5.08 profiles
+# against the measured outputs, and the DFM-TimG UIDriver scripts (SensorL replays
 # Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing).
 # Exit code: the number of failed tests.
 LUA=${1:-$HOME/lua-5.3.1-Jeti-typefix/src/lua}
@@ -46,6 +46,26 @@ else
    bad "GpsTest ds24-508"; diff $TMP/got $TMP/want | head -20
 fi
 if [ -f $OUT.keep ]; then mv $OUT.keep $OUT; else rm -f $OUT; fi
+
+# EnvDump: what an app sees (globals, libraries, constants) against the
+# real dumps; the clock lines differ, and the emulator's internal
+# globals/globalVarList tables aren't modelled
+[ -e Apps/EnvDump.lua ] || ln -s EnvDump/EnvDump.lua Apps/EnvDump.lua
+EOUT=Apps/EnvDump/envdump.out
+[ -f $EOUT ] && cp $EOUT $EOUT.keep
+SKIP='^getTime\|^getDateTime\|^os.time\|^globals \|globals\.\|^G globals \|globalVarList'
+for pr in "emu-ds24ii-606 envdump-emu606" "ds24-508 envdump-ds24-508"; do
+   set -- $pr
+   rm -f $EOUT
+   "$LUA" Apps/FakeFW/fakefw.lua -p $1 EnvDump > /dev/null
+   grep -v "$SKIP" $EOUT > $TMP/got 2>/dev/null; grep -v "$SKIP" $T/$2.txt > $TMP/want
+   if cmp -s $TMP/got $TMP/want; then
+      ok "EnvDump $1 = $2.txt"
+   else
+      bad "EnvDump $1"; diff $TMP/got $TMP/want | head -20
+   fi
+done
+if [ -f $EOUT.keep ]; then mv $EOUT.keep $EOUT; else rm -f $EOUT; fi
 
 for s in timg-test hud-test; do
    if "$LUA" Apps/FakeFW/fakefw-timg.lua $s.jsn > $TMP/$s 2>&1; then
