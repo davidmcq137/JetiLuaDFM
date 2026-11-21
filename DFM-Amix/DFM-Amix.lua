@@ -814,7 +814,7 @@ end
 local function init()
 
    local devType, emFlag
-   local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI-DS-14"}
+   local monoDev = {"JETI DC-16", "JETI DS-16", "JETI DC-14", "JETI DS-14"}
    local ff
    local iStart
    local gen2Dev = {"JETI DC-16 II", "JETI DS-16 II", "JETI DC-14 II", "JETI DS-14 II"}

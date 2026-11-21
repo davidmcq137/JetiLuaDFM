@@ -156,10 +156,25 @@ end
 
 local function drawShape(col, row, shape, rotation, clr)
    local sinShape, cosShape
-   local ren = lcd.renderer()
+   local ren = lcd.renderer and lcd.renderer()
 
    sinShape = math.sin(rotation)
    cosShape = math.cos(rotation)
+   if not ren then
+      -- no lcd.renderer on this TX: draw the outline with lines instead
+      local px, py = {}, {}
+      for i, point in ipairs(shape) do
+	 px[i] = col + (point[1] * cosShape - point[2] * sinShape + 0.5)
+	 py[i] = row + (point[1] * sinShape + point[2] * cosShape + 0.5)
+      end
+      lcd.setColor(clr.r,clr.g,clr.b)
+      for i = 1, #px do
+	 local j = i % #px + 1
+	 lcd.drawLine(px[i], py[i], px[j], py[j])
+      end
+      setTextColor()
+      return
+   end
    ren:reset()
    for index, point in pairs(shape) do
       ren:addPoint(

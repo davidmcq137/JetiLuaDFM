@@ -717,7 +717,8 @@ local function initForm(subform)
 	    SPath.alt = {}
 	    -- have to create string representation .. can't serialize gpsPoints
 	    for i,v in ipairs(Path.gps) do
-	       lats, lngs = gps.getString(v) --Path.gps[i])
+	       -- firmware 5.08 and older spell it gps.getStrig
+	       lats, lngs = (gps.getString or gps.getStrig)(v)
 	       SPath.gps[i] = {}
 	       SPath.gps[i].lat = lats
 	       SPath.gps[i].lng = lngs
