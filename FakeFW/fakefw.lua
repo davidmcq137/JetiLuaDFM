@@ -81,6 +81,7 @@ FW.profiles = {
       gpsName = "getString", declareGlobal = true, offscreen = true,
       imageSwapRB = false, hide = {},
       collate = "en_US.UTF-8",    -- string < is case-insensitive there
+      fonts = "emu-ds24ii-606",
       packagePath = "./Apps/?.lc;./Apps/?/init.lc;./Apps/?.lc2;./Apps/?/init.lc2;" ..
 	 "./Apps/?.lua;./Apps/?/init.lua;./Apps/lib/?.lua;./Apps/lib/?/init.lua;",
    },
@@ -93,6 +94,7 @@ FW.profiles = {
       gpsName = "getString", declareGlobal = true, offscreen = true,
       imageSwapRB = true, hide = {debug = true, os = true, coroutine = true},
       collate = "C",                                         -- (?) as DS-24 5.08
+      fonts = "emu-ds24ii-606",                              -- (?) until a TX FontDump
       packagePath = "/Apps/?.lc;/Apps/?/init.lc;/Apps/?.lc2;/Apps/?/init.lc2;" ..
 	 "/Apps/?.lua;/Apps/?/init.lua;/Apps/lib/?.lua;/Apps/lib/?/init.lua;", -- (?)
    },
@@ -112,8 +114,7 @@ FW.profiles = {
       const = {FONT_NORMAL = 0, FONT_BOLD = 1, FONT_BIG = 2, FONT_MINI = 3,
 	       FONT_MAXI = 4, FONT_REVERSED = 8, FONT_GRAYED = 16, FONT_XOR = 32,
 	       FONT_OR = 64, FONT_AND = 128, KEY_UP = 256, KEY_DOWN = 512},
-      fontMask = 7,
-      fontH = {[0] = 18, [1] = 18, [2] = 22, [3] = 13, [4] = 40}, -- (?)
+      fontMask = 7, fonts = "ds24-508",
       remove = {"COLOR_", "timer", "system.setTelemetryButton", "lcd.drawArc",
 		"lcd.getColor"},
    },
@@ -158,10 +159,12 @@ local CONST = {
    SOUND_RANGETEST = 5, SOUND_AUTOTRIM = 6, SOUND_INACT = 7, SOUND_BKUP = 9,
    SOUND_RXRESET = 10, SOUND_TELEMLOSS = 11,
 }
--- font heights by font code (the code & fontMask; the rest are style
--- flags): emulator, community notes (NORMAL 18, BIG 22, MINI 13, MAXI 40).
--- A profile can give its own fontH and fontMask.
-local FONT_H = {[21] = 18, [22] = 18, [23] = 13, [24] = 22, [25] = 40}
+-- text metrics: FakeFW/fonts.lua, generated from FontDump runs by
+-- FakeFW/test/fontfit.py; a profile names its table (P.fonts). A font code
+-- is the base font in the low bits (code & fontMask) plus style flags,
+-- which don't change the width
+local FONTS = dofile(HERE .. "fonts.lua")
+local FONTNAMES = {"FONT_NORMAL", "FONT_BOLD", "FONT_MINI", "FONT_BIG", "FONT_MAXI"}
 
 --------------------------------------------------------------------------------
 -- state
@@ -485,13 +488,47 @@ local lcd = {
 function lcd.drawText(x, y, text, font)
    if FW.onDrawText then FW.onDrawText(x, y, text, font) end
 end
-local function fontHeight(font)
+local function fontTable(font)
+   local t = FONTS[P.fonts]
    local code = (font or base.FONT_NORMAL) & (P.fontMask or 0xFF)
-   return (P.fontH or FONT_H)[code] or 18
+   for _, n in ipairs(FONTNAMES) do
+      if base[n] == code then return t, n end
+   end
+   return t, "FONT_NORMAL"
 end
-function lcd.getTextHeight(font) return fontHeight(font) end
+function lcd.getTextHeight(font)
+   local t, n = fontTable(font)
+   return t.h[n]
+end
+-- floor(sum of native glyph advances / scale), then the cap. Glyphs:
+-- ASCII and (where FontDump measured it) U+00A0..U+00FF from the table;
+-- the degree sign always has its own width; anything else gets the width
+-- of "o". A byte that isn't valid UTF-8 (sensor units' lone 0xB0) is
+-- handled as measured: "stop" (emulator 6.06) counts only the text before
+-- it; otherwise each byte is one Latin-1 glyph
 function lcd.getTextWidth(font, text)
-   return floor(#tostring(text) * fontHeight(font) * 0.5)
+   local t, n = fontTable(font)
+   local w, lat = t.w[n], t.lat and t.lat[n]
+   local o, deg = w[("o"):byte() - 31], t.deg[n]
+   local function glyph(c)
+      if c >= 32 and c <= 126 then return w[c - 31] end
+      if c == 0xB0 then return deg end
+      if lat and c >= 0xA0 and c <= 0xFF then return lat[c - 0x9F] end
+      return o
+   end
+   text = tostring(text)
+   local len, bad = utf8.len(text)
+   local sum = 0
+   if len then
+      for _, c in utf8.codes(text) do sum = sum + glyph(c) end
+   elseif t.badByte == "stop" then
+      for _, c in utf8.codes(text:sub(1, bad - 1)) do sum = sum + glyph(c) end
+   else
+      for i = 1, #text do sum = sum + glyph(text:byte(i)) end
+   end
+   local r = floor(sum / t.scale + 1e-6)
+   if t.cap and r > t.cap then r = t.cap end
+   return r
 end
 function lcd.loadImage(p)
    local s = jio.readall(p)

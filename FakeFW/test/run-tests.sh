@@ -3,7 +3,7 @@
 #   Apps/FakeFW/test/run-tests.sh [path-to-JETI-like-lua]
 # (default ~/lua-5.3.1-Jeti-typefix/src/lua; in CI, fazzone/lua_jeti with
 # ltm-typefix.patch). Build FakeFW/fakefw_c.so first (FakeFW/build.sh).
-# Tests: GpsTest and EnvDump on the emulator and DS-24 5.08 profiles
+# Tests: GpsTest, EnvDump and FontDump on the emulator and DS-24 5.08 profiles
 # against the measured outputs, and the DFM-TimG UIDriver scripts (SensorL replays
 # Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing).
 # Exit code: the number of failed tests.
@@ -66,6 +66,23 @@ for pr in "emu-ds24ii-606 envdump-emu606" "ds24-508 envdump-ds24-508"; do
    fi
 done
 if [ -f $EOUT.keep ]; then mv $EOUT.keep $EOUT; else rm -f $EOUT; fi
+
+# FontDump: text metrics against the real dumps, every line (FontDump 1.2
+# measures Latin-1 too)
+[ -e Apps/FontDump.lua ] || ln -s FontDump/FontDump.lua Apps/FontDump.lua
+FOUT=Apps/FontDump/fontdump.out
+[ -f $FOUT ] && cp $FOUT $FOUT.keep
+for pr in "emu-ds24ii-606 fontdump-emu606" "ds24-508 fontdump-ds24-508"; do
+   set -- $pr
+   rm -f $FOUT
+   "$LUA" Apps/FakeFW/fakefw.lua -p $1 -t 1 FontDump > /dev/null
+   if cmp -s $FOUT $T/$2.txt; then
+      ok "FontDump $1 = $2.txt"
+   else
+      bad "FontDump $1"; LC_ALL=C diff -a $FOUT $T/$2.txt | head -20
+   fi
+done
+if [ -f $FOUT.keep ]; then mv $FOUT.keep $FOUT; else rm -f $FOUT; fi
 
 for s in timg-test hud-test; do
    if "$LUA" Apps/FakeFW/fakefw-timg.lua $s.jsn > $TMP/$s 2>&1; then
