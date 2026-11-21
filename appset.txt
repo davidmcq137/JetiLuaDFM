@@ -10,6 +10,7 @@ group timers   DFM-TimG DFM-TimV
 group glob     GlobR GlobW
 group current  DFM-Maps DFM-InsP DFM-Rscu DFM-Path DFM-TimG
 group spike    SpikeTgt
+group configtests  GpsTest ImgTest EnvDump FontDump
 group misc     arctest arctest2 Dumper font hp1345a jtest polytest ren render sw test testnd v y
 
 # link NAME  TARGET    (target relative to Apps/)
@@ -48,10 +49,14 @@ link  DFM-TriM.lua     DFM-TriM/DFM-TriM.lua
 link  DFM-TriR.lua     DFM-TriR/DFM-TriR.lua
 link  DFM-Watt.lua     DFM-Watt/DFM-Watt.lua
 link  Dumper.lua       misclua/Dumper.lua
+link  EnvDump.lua      EnvDump/EnvDump.lua
 link  font.lua         misclua/font.lua
+link  FontDump.lua     FontDump/FontDump.lua
 link  GlobR.lua        GlobTest/GlobR.lua
 link  GlobW.lua        GlobTest/GlobW.lua
+link  GpsTest.lua      GpsTest/GpsTest.lua
 link  hp1345a.lua      misclua/hp1345a.lua
+link  ImgTest.lua      ImgTest/ImgTest.lua
 link  J-Sensor.lua     J-Sensor/J-Sensor.lua
 link  polytest.lua     misclua/polytest.lua
 link  SB-Temp.lua      digitechSBT/SB-Temp.lua
