@@ -4976,7 +4976,9 @@ local function loop()
       lat0 = latitude      
       coslat0 = math.cos(math.rad(lat0)) 
       gotInitPos = true
+      prof.mark("loop before field")
       initField()
+      prof.mark("first field image")
    end
 
    
@@ -5192,7 +5194,9 @@ local function loop()
 	 local im = #Field.images - Field.imagesToRead + 1
 	 if im <= #Field.images then
 	    --print("Lazy loader calling pngLoad image", im)
+	    prof.mark("loop before lazy")
 	    pngLoad(im, true)
+	    prof.mark("lazy image load")
 	    Field.imagesToRead = Field.imagesToRead - 1
 	    Field.imagesReadTime = now + const.imageWait * 1000
 	 end
