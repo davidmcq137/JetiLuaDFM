@@ -56,7 +56,8 @@ local function try(name, f)
    end
 end
 
--- distance and bearing pairs: name, lat1, lng1, lat2, lng2 [, alt]
+-- distance and bearing pairs: name, lat1, lng1, lat2, lng2 [, alt1 [, alt2]]
+-- (alt2 defaults to alt1)
 local pairs_ = {
    {"eq_1N",      "0", "0", "1", "0"},
    {"eq_1E",      "0", "0", "0", "1"},
@@ -76,6 +77,10 @@ local pairs_ = {
    {"41_10cm_N",  "41", "-73", "41.0000009", "-73"},
    {"field_diag", "41.3421", "-74.0021", "41.3437", "-73.9983"},
    {"alt_10km",   "45", "0", "46", "0", "10000"},
+   -- different altitudes: which point's altitude does getDistance use?
+   {"alt_10k_0",  "45", "0", "46", "0", "10000", "0"},
+   {"alt_0_10k",  "45", "0", "46", "0", "0", "10000"},
+   {"alt_10k_30k", "45", "0", "46", "0", "10000", "30000"},
 }
 
 -- destination tests: name, lat, lng, distance, bearing, altarg, ptalt
@@ -103,11 +108,11 @@ local function runTests()
       local n = p[1]
       try("D " .. n, function()
 	 local a = newPt(p[2], p[3], p[6])
-	 local b = newPt(p[4], p[5], p[6])
+	 local b = newPt(p[4], p[5], p[7] or p[6])
 	 local d = gps.getDistance(a, b)
 	 local b12 = gps.getBearing(a, b)
 	 local b21 = gps.getBearing(b, a)
-	 out("D", n, p[2], p[3], p[6] or 0, p[4], p[5], p[6] or 0, num(d), num(b12), num(b21))
+	 out("D", n, p[2], p[3], p[6] or 0, p[4], p[5], p[7] or p[6] or 0, num(d), num(b12), num(b21))
       end)
       try("A " .. n, function()
 	 local a = gps.newPoint(p[2], p[3])

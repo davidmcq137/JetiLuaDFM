@@ -160,6 +160,18 @@ def main():
         print(line)
         brg_rows.append((n, lat1, lng1, lat2, lng2, b12, b21))
 
+    print("\n== altitude pairs (altitude implied by the distance at R = 6378137)")
+    print(f"{'test':14}{'alt1':>9}{'alt2':>9}{'implied':>11}  matches")
+    for r in rows:
+        if r[0] != "D" or (float(r[4]) == 0 and float(r[7]) == 0):
+            continue
+        lat1, lng1, a1, lat2, lng2, a2 = map(float, r[2:8])
+        imp = float(r[8]) / central(lat1, lng1, lat2, lng2) - WGS_A
+        rules = {"alt1": a1, "alt2": a2, "mean": (a1 + a2) / 2, "max": max(a1, a2),
+                 "min": min(a1, a2), "none": 0.0}
+        hit = [k for k, v in rules.items() if abs(imp - v) < 5]
+        print(f"{r[1]:14}{a1:9.0f}{a2:9.0f}{imp:11.1f}  {', '.join(hit) or 'none of alt1/alt2/mean/max/min'}")
+
     print("\n== bearings (JETI minus candidate, degrees; b21 is the reverse bearing)")
     print(f"{'test':14}{'b12':>10}{'gc':>9}{'rhumb':>9}{'flat':>9}{'b21':>10}{'gc':>9}{'rhumb':>9}")
     for n, lat1, lng1, lat2, lng2, b12, b21 in brg_rows:
