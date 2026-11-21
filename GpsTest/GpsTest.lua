@@ -177,7 +177,8 @@ local function init()
    if not fh then print(appName .. ": could not open " .. outFile) end
    out("#", appName, "1.0", system.getVersion and system.getVersion() or "?",
        system.getDeviceType and system.getDeviceType() or "?",
-       "getString=" .. type(gps.getString), "getStrig=" .. type(gps.getStrig))
+       "getString=" .. type(gps.getString), "getStrig=" .. type(gps.getStrig),
+       "debug=" .. type(debug), "os=" .. type(os))
    runTests()
    if fh then io.close(fh) end
    print(string.format("%s: %d lines, %d errors, written to %s", appName, nOut, nErr, outFile))

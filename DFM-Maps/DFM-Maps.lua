@@ -67,7 +67,10 @@ appInfo.Maps = appInfo.Name
 appInfo.menuTitle = appInfo.Name
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
 -- bump the suffix (month, day, letter) for each build sent to a tester
-appInfo.version = "10.0.1120a"
+appInfo.version = "10.0.1121a"
+-- a real TX has no debug library; the emulator has one. The TX swaps red and
+-- blue in renderer drawing into images (see ribbon.prepare)
+appInfo.swapRB = (debug == nil)
 appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
 appInfo.Config = "Apps/" .. appInfo.Maps .. "/Maps/Config.jsn"
 appInfo.SaveData = true
@@ -328,6 +331,9 @@ function prof.report()
 	 end
       end
    end
+   -- Lua heap size, to see whether memory grows over a flight
+   -- (Harry 2026-11-21: "Lua disabled!" after long flights)
+   prof.out(lines, string.format("Maps prof mem: Lua %d KB", math.floor(collectgarbage("count"))))
    prof.save(lines)
    prof.sum, prof.n, prof.max, prof.order = {}, {}, {}, {}
    prof.tot, prof.cnt, prof.cpu, prof.top = {}, {}, {}, {}
@@ -4044,8 +4050,14 @@ function ribbon.prepare()
       mapPrintRenderer:reset()
    end
    
+   -- The DS-24 II firmware swaps red and blue when a renderer draws into an
+   -- image (Harry 2026-11-21: the yellow ribbon came out cyan, 0,253,253);
+   -- the emulator draws it right. So swap them here, on a real TX only
    local function getrgb(c)
       if not c then return end
+      if appInfo.swapRB then
+	 return c & 0XFF, (c >> 8) & 0XFF, (c >> 16) & 0XFF
+      end
       return (c >> 16) & 0XFF, (c >> 8) & 0XFF, c & 0XFF
    end
 
