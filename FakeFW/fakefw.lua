@@ -397,12 +397,21 @@ end
 -- io and dir (JETI's simplified io; paths relative to the Emulator folder)
 --------------------------------------------------------------------------------
 
+-- the Emulator folder stands in for the SD card: an absolute path (what
+-- apps use on a TX, e.g. "/Apps/X/...") is taken from there
+local function sd(p)
+   p = tostring(p)
+   if p:sub(1, 1) == "/" then return "." .. p end
+   return p
+end
+FW.sdPath = sd
+
 local jio = {
-   open = function(p, m) return rio.open(p, m or "r") end,
+   open = function(p, m) return rio.open(sd(p), m or "r") end,
    close = function(f) return f:close() end,
    read = function(f, n) return f:read(n) or "" end,
    readall = function(p)
-      local f = rio.open(p, "rb"); if not f then return nil end
+      local f = rio.open(sd(p), "rb"); if not f then return nil end
       local s = f:read("a"); f:close(); return s
    end,
    readline = function(f, skipEOL)
@@ -419,13 +428,13 @@ local jio = {
       if mode == nil then return f:seek("set", off) and 0 or 1 end
       return f:seek(mode, off)
    end,
-   rename = function(a, b) return ros.rename(a, b) end,
-   remove = function(p) return ros.remove(p) end,
-   mkdir = function(p) return ros.execute("mkdir -p '" .. p:gsub("'", "") .. "'") and true or nil end,
+   rename = function(a, b) return ros.rename(sd(a), sd(b)) end,
+   remove = function(p) return ros.remove(sd(p)) end,
+   mkdir = function(p) return ros.execute("mkdir -p '" .. sd(p):gsub("'", "") .. "'") and true or nil end,
 }
 
 local function jdir(p)
-   local h = rio.popen("find '" .. p:gsub("'", "") .. "' -mindepth 1 -maxdepth 1 -printf '%f\\t%y\\t%s\\n' 2>/dev/null | sort")
+   local h = rio.popen("find '" .. sd(p):gsub("'", "") .. "' -mindepth 1 -maxdepth 1 -printf '%f\\t%y\\t%s\\n' 2>/dev/null | sort")
    local items = {}
    for l in h:lines() do
       local n, ty, sz = l:match("^(.-)\t(%a)\t(%d+)$")
