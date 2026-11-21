@@ -15,6 +15,10 @@ trap 'rm -rf "$TMP"' EXIT
 ok() { echo "PASS: $1"; }
 bad() { echo "FAIL: $1"; fails=$((fails + 1)); }
 
+# the emulator profile sorts strings with en_US.UTF-8 collation, as the
+# emulator does; say whether this machine has it (a warning, not a failure)
+"$LUA" -e 'print("collation en_US.UTF-8: " .. (os.setlocale("en_US.UTF-8", "collate") and "available" or "MISSING, string order may differ from the emulator"))'
+
 # the top-level app files are gitignored symlinks to the app folders
 for a in GpsTest UIDriver SensorL DFM-TimG; do
    [ -e Apps/$a.lua ] || ln -s $a/$a.lua Apps/$a.lua
