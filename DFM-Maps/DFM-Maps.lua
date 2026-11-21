@@ -66,6 +66,7 @@ appInfo.Name = "DFM-Maps"
 appInfo.Maps = appInfo.Name
 appInfo.menuTitle = appInfo.Name
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
+appInfo.version = "10.0"
 appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
 appInfo.Config = "Apps/" .. appInfo.Maps .. "/Maps/Config.jsn"
 appInfo.SaveData = true
@@ -250,6 +251,116 @@ local fieldPNG={}
 -- browser a few times made lcd.loadImage fail (maps-smoke, 2026-11-20).
 -- loop() runs one full collection, in a cycle of its own
 local imagesDropped = false
+
+-- CPU profile (the same as DFM-InsP's), for finding what takes Maps over the
+-- TX's 100% Lua budget (10 ms per callback). Each registered callback is timed,
+-- and marks inside mapPrint and prtForm split the time by stage. Every 5 s it prints
+-- per-callback ms/call, the slowest call, and the highest system.getCPU()
+-- seen, then each stage's average ms/call and its slowest single call (an
+-- image decode happens in one frame only, so its average hides it; the
+-- slowest frame is what the TX kills). Set prof.on = false to turn it off.
+-- Each report is also appended to prof.file, opened and closed every time so
+-- a run the TX kills keeps every report written before the kill
+local prof = {on = true, file = appInfo.Dir .. "prof.log", sum = {}, n = {}, max = {}, tot = {}, cnt = {}, cpu = {},
+	      top = {}, order = {}}
+
+function prof.start(cb)
+   if not prof.on then return end
+   prof.cb = cb
+   prof.t0 = system.getTimeCounter()
+   prof.last = prof.t0
+end
+
+function prof.mark(tag)
+   local cb = prof.cb
+   if not cb then return end
+   local now = system.getTimeCounter()
+   local k = cb .. " " .. tag
+   if not prof.sum[k] then
+      prof.sum[k], prof.n[k], prof.max[k] = 0, 0, 0
+      prof.order[#prof.order + 1] = k
+   end
+   local dt = now - prof.last
+   prof.sum[k] = prof.sum[k] + dt
+   if dt > prof.max[k] then prof.max[k] = dt end
+   prof.n[k] = prof.n[k] + 1
+   prof.last = now
+end
+
+-- print a line and keep it for the file
+function prof.out(lines, s)
+   print(s)
+   lines[#lines + 1] = s
+end
+
+function prof.save(lines)
+   local fp = io.open(prof.file, "a")
+   if not fp then return end
+   io.write(fp, table.concat(lines, "\n"), "\n")
+   io.close(fp)
+end
+
+-- once, from init: a line in the file to mark the start of each run
+function prof.begin(version)
+   if not prof.on then return end
+   local tx = system.getDeviceType and system.getDeviceType() or "?"
+   local d = system.getDateTime and system.getDateTime()
+   local when = d and string.format("%04d-%02d-%02d %02d:%02d:%02d", d.year, d.mon, d.day,
+				    d.hour, d.min, d.sec) or ""
+   prof.save({"", string.format("==== DFM-Maps %s profile start on %s, %s",
+				tostring(version), tostring(tx), when)})
+end
+
+function prof.report()
+   local lines = {}
+   local cbs = {}
+   for cb in pairs(prof.cnt) do cbs[#cbs + 1] = cb end
+   table.sort(cbs)
+   for _, cb in ipairs(cbs) do
+      local n = prof.cnt[cb]
+      prof.out(lines, string.format("Maps prof %s: %d calls, %.1f ms avg, %d ms max, getCPU max %d",
+			  cb, n, prof.tot[cb] / n, prof.top[cb], prof.cpu[cb] or -1))
+      for _, k in ipairs(prof.order) do
+	 if k:sub(1, #cb + 1) == cb .. " " and prof.sum[k] > 0 then
+	    prof.out(lines, string.format("   %-20s %5.1f avg %4d max  x%.1f", k:sub(#cb + 2),
+				prof.sum[k] / n, prof.max[k], prof.n[k] / n))
+	 end
+      end
+   end
+   prof.save(lines)
+   prof.sum, prof.n, prof.max, prof.order = {}, {}, {}, {}
+   prof.tot, prof.cnt, prof.cpu, prof.top = {}, {}, {}, {}
+end
+
+function prof.stop()
+   local cb = prof.cb
+   if not cb then return end
+   prof.mark("other")
+   local now = prof.last
+   prof.cnt[cb] = (prof.cnt[cb] or 0) + 1
+   prof.tot[cb] = (prof.tot[cb] or 0) + now - prof.t0
+   if now - prof.t0 > (prof.top[cb] or -1) then prof.top[cb] = now - prof.t0 end
+   local c = system.getCPU()
+   if c > (prof.cpu[cb] or -1) then prof.cpu[cb] = c end
+   prof.cb = nil
+   prof.next = prof.next or now + 5000
+   if now >= prof.next then
+      prof.next = now + 5000
+      prof.report()
+   end
+end
+
+-- wrap a callback so its time is counted under the name cb; its return
+-- values are passed on (UIDriver uses a key callback's)
+function prof.wrap(cb, f)
+   return function(...)
+      if not prof.on then return f(...) end
+      prof.start(cb)
+      local r1, r2, r3 = f(...)
+      prof.stop()
+      return r1, r2, r3
+   end
+end
 local maxImage
 local currentImage
 
@@ -3156,6 +3267,7 @@ local function prtForm() --wwx, whx)
 	    browse.pendingImage = nil
 	    browse.pendingDrawn = nil
 	    pngLoad(im, nil, true)
+	    prof.mark(cached and "browser cached" or "browser decode")
 	    graphScaleRst(im)
 	    triRot(0) -- rotate and translate triangle to pylons
 	    if not cached then
@@ -3196,6 +3308,7 @@ local function prtForm() --wwx, whx)
 	    lcd.drawImage(-5,8,fieldPNG[currentImage],255)-- -5 and 8 (175-160??) empirical? (ugg)
 	 end
       end
+      prof.mark("browser image")
       
       if Field then
 	 setColor("Label", "Image")
@@ -4125,10 +4238,12 @@ local function mapPrint() --wWid, wHgt)
    if not emFlag and form.getActiveForm() then
       return
    end
+   prof.mark("setup")
    
    if recalcDone() then
       graphScale(xtable[#xtable], ytable[#ytable])
    end
+   prof.mark("graphScale")
 
    if newTransmitter and (Screen.image_width_px == Screen.legacy_width_px) then
       lcd.setClipping(0,0,windowWidth+1,windowHeight+1) -- needed for 24-II in compat mode
@@ -4205,9 +4320,11 @@ local function mapPrint() --wWid, wHgt)
 	 lang.noGPSfix, FONT_BIG)
    end
 
+   prof.mark("map image")
    if system.getProperty("NativeDraw") == 1 and  variables.histMax > const.xOver then
       ribbon.drawLive("Full")
    end
+   prof.mark("ribbon")
    
    -- in case the draw functions left color set to their specific values
 
@@ -4296,6 +4413,7 @@ local function mapPrint() --wWid, wHgt)
       
    end
    
+   prof.mark("north arrow, path")
    if variables.triEnabled then
       setColor("Runway", variables.triColorMode)
    else
@@ -4311,6 +4429,7 @@ local function mapPrint() --wWid, wHgt)
       mapPrintRenderer:renderPolyline(2,0.7)
    end
    
+   prof.mark("runway")
    -- draw the polygon no fly zones if defined
    if checkBox.noflyEnabled then
       for i = 1, #nfp, 1 do
@@ -4404,7 +4523,9 @@ local function mapPrint() --wWid, wHgt)
       setColor("Map", "Image")
    end
    
+   prof.mark("no-fly zones")
    drawTriRace(windowWidth, windowHeight)
+   prof.mark("tri race")
 
    if #xtable > 0 then
 
@@ -4484,6 +4605,7 @@ local function mapPrint() --wWid, wHgt)
       end      
    end
 
+   prof.mark("track, aircraft")
    metrics.currMaxCPU = system.getCPU()
    if metrics.currMaxCPU >= variables.maxCPU then
       variables.histMax = #xPHist -- no more points .. cpu nearing cutoff
@@ -4590,6 +4712,7 @@ local function loop()
       -- alone in this cycle: a full collection costs CPU
       imagesDropped = false
       collectgarbage()
+      prof.mark("collectgarbage")
       return
    end
 
@@ -5283,13 +5406,16 @@ local function init()
    
    setLanguage()
    
-   system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm, keyForm, prtForm, closeForm)
-   system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, mapPrint, keyPressMap)
+   prof.begin(appInfo.version)
+   system.registerForm(1, MENU_APPS, appInfo.menuTitle, initForm,
+		       prof.wrap("menu keys", keyForm), prof.wrap("menu", prtForm), closeForm)
+   system.registerTelemetry(1, appInfo.Name.." "..lang.mapView, 4, prof.wrap("map view", mapPrint),
+			    prof.wrap("map keys", keyPressMap))
 
    if checkBox.fullRaceWin then
-      system.registerTelemetry(2, appInfo.Name.." "..lang.triView, 4, dirPrint)
+      system.registerTelemetry(2, appInfo.Name.." "..lang.triView, 4, prof.wrap("tri view", dirPrint))
    else
-      system.registerTelemetry(2, appInfo.Name.." ".."Status", 1, mapPrintSmall)
+      system.registerTelemetry(2, appInfo.Name.." ".."Status", 1, prof.wrap("status", mapPrintSmall))
    end
    
    --setColorMain()  -- if a map is present it will change color scheme later
@@ -5414,6 +5540,6 @@ local function init()
    
 end
 
-return {init=init, loop=loop, author="DFM", version="10.0", name=appInfo.Name, destroy=destroy}
+return {init=init, loop=prof.wrap("loop", loop), author="DFM", version=appInfo.version, name=appInfo.Name, destroy=destroy}
 
 
