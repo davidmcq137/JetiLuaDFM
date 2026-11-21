@@ -21,6 +21,8 @@
 --luacheck: globals DFM_Rscu_CircleOuter
 
 local appName = "DFM-Rscu"
+-- bump the suffix (month, day, letter) for each build sent to a tester
+local appVersion = "0.6.1121a"
 
 -- The DS-24 II firmware swaps red and blue when a renderer draws into an
 -- image (found with DFM-Maps, Harry 2026-11-21: yellow came out cyan); the
@@ -1206,6 +1208,8 @@ local function initForm(subform)
    end
    
    if subform == 1 then
+      -- the full version: the TX's app list only shows its first 7 characters
+      form.setTitle(appName .. " " .. appVersion)
 
       form.addRow(1)
       form.addLink((function()
@@ -2346,4 +2350,4 @@ local function init()
    
 end
    
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.6", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version=appVersion, name=appName}
