@@ -1,5 +1,5 @@
 --[[
-   PolyLimit 2.0: the renderer's point limits, for JETI (Radek)
+   PolyLimit 2.1: the renderer's point limits, for JETI (Radek)
 
    One renderer call has room for 256 points; past that it fails without
    an error. Measured on the emulator (6.06), the same direct and
@@ -38,14 +38,14 @@
 --]]
 
 local appName = "PolyLimit"
-local version = "2.0"
+local version = "2.1"
 
 -- {addPoint calls, kind}: the left one of each pair is within the limit
 local SHAPES = {
    {256, "polygon"}, {512, "polygon"},
    {128, "arc"},     {200, "arc"},
 }
-local R = 62     -- radius, px
+local R = 62     -- radius, px: at most this, smaller if the window is short
 local WIDTH = 2  -- polyline width
 
 local img        -- window 2's image, made on its first draw
@@ -54,8 +54,10 @@ local directRen
 -- the shapes' centres: two rows of two, {x, y, points, kind}
 local function centres(w, h)
    local cs = {}
-   local y1 = 70 + 18 + R
-   local y2 = y1 + 2 * R + 30
+   -- the text takes 58 px, each row a label (18) and a circle; keep 6 px spare
+   R = math.min(62, (h - 58 - 2 * 18 - 6) // 4)
+   local y1 = 58 + 18 + R
+   local y2 = y1 + R + 18 + R
    for i, s in ipairs(SHAPES) do
       local x = (i % 2 == 1) and w // 4 or 3 * w // 4
       cs[i] = {x, i <= 2 and y1 or y2, s[1], s[2]}
