@@ -50,13 +50,15 @@
    Version 0.89 10/27/23 - more f(x) extensions
    Version 0.90 11/03/26 - support for larger screen on 24-II devices
    Version 0.90 11/17/26 - more changes for bugs and reliability from Claude code review
+   Version 0.95 11/22/26 - sequencer follows panel deletes and image changes; a new
+                           entry's To is "+"; a missing To panel no longer blanks window 1
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.94
+local InsPVersion = 0.95
 
 local LE
 
@@ -737,6 +739,51 @@ local function getPanelNumber(name)
    return num
 end
 
+-- remove sequencer entry k. Each entry's switch is saved under
+-- "stateSwitch"..position (switches, switchInfo with seqIdx, pSave) and
+-- init restores it by seqIdx, so the keys of entries k+1..n move down one
+local function seqRemove(k)
+   local n = #stateSw
+   if k < 1 or k > n then return end
+   local si = InsP.settings.switchInfo
+   table.remove(stateSw, k)
+   for j = k, n do -- j = k overwrites the deleted key, j = n clears the last
+      local old, new = "stateSwitch" .. (j + 1), "stateSwitch" .. j
+      switches[new] = switches[old] -- nil past the end
+      si[new] = si[old]
+      if si[new] then
+	 si[new].seqIdx = j
+	 system.pSave(new, switches[new])
+      end
+   end
+end
+
+-- the sequencer names panels by their image (From, To), so when a panel's
+-- image changes the entries naming the old one follow it (newName), and
+-- when the panel is deleted or cleared to "---" (no newName) they are
+-- removed. Before, they kept naming a panel that was gone: the editor
+-- showed them as "*" and "+", and in flight such a To blanked window 1
+local function seqPanelChanged(old, newName)
+   if not old or old == "---" or old == newName then return end
+   local gone = 0
+   for k = #stateSw, 1, -1 do
+      local s = stateSw[k]
+      if s.from == old or s.to == old then
+	 if newName then
+	    if s.from == old then s.from = newName end
+	    if s.to == old then s.to = newName end
+	 else
+	    seqRemove(k)
+	    gone = gone + 1
+	 end
+      end
+   end
+   if gone > 0 then
+      system.messageBox(string.format("Removed %d sequencer entr%s for %s",
+				      gone, gone == 1 and "y" or "ies", old))
+   end
+end
+
 local function accEnv(arg, typ)
    if type(arg) == "string" then
       local ivar = 0
@@ -1152,6 +1199,7 @@ local function keyForm(key)
 	    end
 	 end
 
+	 seqPanelChanged(InsP.panelImages[row].instImage)
 	 table.remove(InsP.panels, row)
 	 table.remove(InsP.panelImages, row)
 
@@ -1242,9 +1290,13 @@ local function keyForm(key)
       if keyExit(key) then
 	 form.preventDefault()
 	 form.reinit(1)
-	 InsP.settings.window1Panel = dispSave
-	 dispSave = 0 -- ready for next time
-	 lastPanel1 = 0 -- force re-read
+	 -- dispSave is 0 if the editor never drew a frame (it borrows window 1
+	 -- in prtForm); 0 would blank window 1. closeForm checks the same way
+	 if dispSave ~= 0 then
+	    InsP.settings.window1Panel = dispSave
+	    dispSave = 0 -- ready for next time
+	    lastPanel1 = 0 -- force re-read
+	 end
 	 return
       end
 
@@ -1427,28 +1479,16 @@ local function keyForm(key)
 	 return
       end
       if key == KEY_1 then
-	 table.insert(stateSw, {switch=nil, dir=1, from="*", to="*", lastSw=0})
+	 -- To "+" (next panel) is what the screen shows for a new entry; it
+	 -- was "*", which in flight was looked up as a panel name
+	 table.insert(stateSw, {switch=nil, dir=1, from="*", to="+", lastSw=0})
 	 form.setFocusedRow(#stateSw + 1)
 	 form.reinit(formN.editlinks)
       elseif key == KEY_2 then
 	 -- each entry's switch is saved under "stateSwitch"..position (switches,
 	 -- switchInfo with seqIdx, pSave) and init restores it by seqIdx, so
 	 -- after removing entry k the keys of entries k+1..n move down one
-	 local k = form.getFocusedRow() - 1
-	 if k > 0 and k <= #stateSw then
-	    local n = #stateSw
-	    local si = InsP.settings.switchInfo
-	    table.remove(stateSw, k)
-	    for j = k, n do -- j = k overwrites the deleted key, j = n clears the last
-	       local old, new = "stateSwitch" .. (j + 1), "stateSwitch" .. j
-	       switches[new] = switches[old] -- nil past the end
-	       si[new] = si[old]
-	       if si[new] then
-		  si[new].seqIdx = j
-		  system.pSave(new, switches[new])
-	       end
-	    end
-	 end
+	 seqRemove(form.getFocusedRow() - 1)
 	 form.reinit(formN.editlinks)
       end
    end
@@ -1597,6 +1637,7 @@ local function panelChanged(val, sp)
 	 InsP.panels[sp] = decodedfile or {}
 	 print("DFM-InsP: old json format - no timestamp")
       end
+      seqPanelChanged(InsP.panelImages[sp].instImage, pv)
       InsP.panelImages[sp].instImage = pv
       -- force reload of panels
       lastPanel1 = 0
@@ -1619,6 +1660,7 @@ local function panelChanged(val, sp)
       end
       --instImg = nil
       --InsP.panelImages[sp].instImage = nil
+      seqPanelChanged(InsP.panelImages[sp].instImage)
       InsP.panels[sp] = {}
       InsP.panelImages[sp].instImage = "---"
       InsP.panelImages[sp].backImage = "---"
@@ -2717,17 +2759,24 @@ local function loop()
    -- see if sequencer has triggered a change
 
    local w1 = InsP.settings.window1Panel
+   local w1img = InsP.panelImages[w1] and InsP.panelImages[w1].instImage
    for i in ipairs(stateSw) do
       swt = system.getInputsVal(stateSw[i].switch)
       if not stateSw[i].lastSw then stateSw[i].lastSw = swt end
       if swt and stateSw[i] and stateSw[i].lastSw ~= 0 and (swt ~= stateSw[i].lastSw) then
 	 -- "pos" is index 1 and "neg" is index 2
 	 if (swt == 1 and stateSw[i].dir == 1) or (swt == -1 and stateSw[i].dir == 2) then
-	    if stateSw[i].from == "*" or stateSw[i].from ==  InsP.panelImages[w1].instImage then
-	       if stateSw[i].to ~= "+" then
-		  system.messageBox("Window 1 switching to: " .. stateSw[i].to)
-		  InsP.settings.window1Panel = getPanelNumber(stateSw[i].to)
-	       else 
+	    if stateSw[i].from == "*" or stateSw[i].from == w1img then
+	       local to = stateSw[i].to
+	       local tp = to ~= "+" and getPanelNumber(to) or 0
+	       if to ~= "+" and tp == 0 then
+		  -- no panel has that image (any more): leave window 1 alone,
+		  -- rather than set it to panel 0 and blank it
+		  print("DFM-InsP: sequencer entry " .. i .. ": no panel " .. tostring(to))
+	       elseif to ~= "+" then
+		  system.messageBox("Window 1 switching to: " .. to)
+		  InsP.settings.window1Panel = tp
+	       else
 		  InsP.settings.window1Panel = InsP.settings.window1Panel + 1
 		  if InsP.settings.window1Panel > #InsP.panels then
 		     InsP.settings.window1Panel = 1
@@ -5120,6 +5169,25 @@ local function init(icode)
       system.messageBox("DFM-InsP: two panels use the same image (see console)")
    end
 
+   -- sequencer entries: a new entry's To used to be "*", which the screen
+   -- shows as "+" (next panel), so make it "+". Entries left naming a
+   -- panel that was deleted or given another image (before 0.95) never
+   -- fire, or now leave window 1 alone; say so once, so the pilot can
+   -- fix or delete them in Edit Links
+   local stale = {}
+   for k, s in ipairs(stateSw) do
+      if s.to == "*" then s.to = "+" end
+      for _, nm in ipairs({s.from, s.to}) do
+	 if nm ~= "*" and nm ~= "+" and not seenImage[nm] then
+	    stale[#stale+1] = string.format("entry %d: %s", k, tostring(nm))
+	 end
+      end
+   end
+   if #stale > 0 then
+      print("DFM-InsP: sequencer names panels that are gone: " .. table.concat(stale, ", "))
+      system.messageBox("DFM-InsP: sequencer names missing panels (see console)")
+   end
+
    -- window 1 always starts on panel 1 (the sequencer moves it in flight);
    -- window 2 keeps the pilot's Win 2 choice, 0 = off, if it is still valid
    InsP.settings.window1Panel = 1
@@ -5132,7 +5200,11 @@ local function init(icode)
       InsP.settings.window2Panel = 0
    end
    
-   if not InsP.settings.selectedPanel then InsP.settings.selectedPanel = 1 end
+   -- the panel being edited: 1 if unset or past the end (an edited or
+   -- damaged file), since the menus index panelImages with it
+   local sel = tonumber(InsP.settings.selectedPanel)
+   if not sel or sel % 1 ~= 0.0 or sel < 1 or sel > #InsP.panels then sel = 1 end
+   InsP.settings.selectedPanel = math.floor(sel)
 
    --print("InsP.settings.units", InsP.settings.units)
    

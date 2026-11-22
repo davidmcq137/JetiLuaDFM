@@ -1,6 +1,6 @@
 {"config": {"stepGap": 200},
  "steps": [
-  {"log": "Sequencer entry whose To panel was deleted (review finding 1). Fixture insp-aaa: panel 1 TurbineL, panel 2 ---. Make panels TurbineL, GlassCockpitL, GlassCockpitLL; a sequencer entry SA up: TurbineL -> GlassCockpitLL; delete GlassCockpitLL; fire SA with window 1 on TurbineL. Window 1 must still draw a panel. FAILS until the sequencer follows panel deletes"},
+  {"log": "Sequencer entry whose To panel was deleted (review finding 1). Fixture insp-aaa: panel 1 TurbineL, panel 2 ---. Make panels TurbineL, GlassCockpitL, GlassCockpitLL; a sequencer entry SA up: TurbineL -> GlassCockpitLL; delete GlassCockpitLL; fire SA with window 1 on TurbineL. Since 0.95 the delete removes the entry (with a message), so SA does nothing and window 1 stays on TurbineL. Before, the entry kept naming the deleted panel and SA blanked window 1"},
   {"waitForm": true},
   {"waitSub": 1},
 
@@ -38,6 +38,7 @@
   {"waitSub": 106},
   {"focus": 4},
   {"key": "KEY_4"},
+  {"waitMessage": "Removed 1 sequencer entry for GlassCockpitLL"},
   {"waitSub": 106},
   {"expect": "#6", "value": "TurbineL"},
   {"expect": "#10", "value": "GlassCockpitL"},
@@ -45,12 +46,10 @@
   {"key": "KEY_ESC"},
   {"waitSub": 1},
 
-  {"log": "what the sequencer screen shows for the entry now"},
+  {"log": "the entry is gone: the fixture's 2 entries were entry 1 (now SA, deleted) and entry 2, so 1 is left"},
   {"link": "Edit Links >>"},
   {"waitSub": 105},
-  {"expect": "#5", "value": "TurbineL"},
-  {"log": "To now shows '+' (next panel), but in flight the entry still names the deleted panel"},
-  {"expect": "#6", "value": "+"},
+  {"expectNoText": "GlassCockpitLL"},
   {"key": "KEY_ESC"},
   {"waitSub": 1},
   {"key": "KEY_ESC"},
@@ -62,6 +61,7 @@
   {"expectImage": "TurbineL", "win": 1},
   {"setInput": "SA", "value": 1},
   {"wait": 1500},
-  {"log": "window 1 must still draw a panel image (it goes blank when the entry names a deleted panel)"},
-  {"expectImage": ".png", "win": 1}
+  {"waitMessage": "switching to", "absent": true, "for": "1s", "anyTime": true},
+  {"log": "window 1 is still on TurbineL"},
+  {"expectImage": "TurbineL", "win": 1}
  ]}

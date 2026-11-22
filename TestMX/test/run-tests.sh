@@ -9,7 +9,7 @@
 # Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing), and
 # DFM-Maps' scripts on the maps-bds458 (emulator) and maps-bds320 (ds24-508)
 # fixtures (TestMX/testmx-uid.lua), DFM-HUD with fake Engo glasses, and
-# DFM-SWT's press counting with a real model file, and DFM-Rscu/DFM-Path
+# DFM-SWT's press counting with a real model file, DFM-InsP's sequencer, and DFM-Rscu/DFM-Path
 # rescue and path steering on their own SensorE configs.
 # Exit code: the number of failed tests.
 LUA=${1:-$HOME/lua-5.3.1-Jeti-typefix/src/lua}
@@ -28,7 +28,7 @@ bad() { echo "FAIL: $1"; fails=$((fails + 1)); }
 # made here are removed at the end, so the emulator's list (appset) stays
 # as it was
 made=""
-for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps DFM-SWT DFM-Rscu DFM-Path; do
+for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps DFM-SWT DFM-Rscu DFM-Path DFM-InsP; do
    if [ ! -e Apps/$a.lua ]; then ln -s $a/$a.lua Apps/$a.lua && made="$made Apps/$a.lua"; fi
 done
 trap 'for l in $made; do [ -L "$l" ] && rm "$l"; done' EXIT
@@ -167,6 +167,19 @@ rp() {
 rp DFM-Rscu rscu-test
 rp DFM-Rscu rscu-controls-test
 rp DFM-Path path-controls-test
+
+# DFM-InsP's sequencer after panel edits, on the insp-aaa fixture (settings
+# with 2 panels and 2 old sequencer entries naming panels that are gone)
+ip() {
+   if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-InsP --script $1.jsn \
+	--fixture insp-aaa --model TestMX > $TMP/$1 2>&1; then
+      ok "DFM-InsP $1: $(grep '^==== DONE' $TMP/$1)"
+   else
+      bad "DFM-InsP $1"; grep -v '^\[UID\]' $TMP/$1 | tail -30
+   fi
+}
+ip seq-stale-target
+ip seq-new-entry
 
 echo "TestMitter tests: $fails failed"
 exit $fails
