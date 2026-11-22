@@ -783,8 +783,9 @@ local function seqPanelChanged(old, newName)
       end
    end
    if gone > 0 then
-      system.messageBox(string.format("Removed %d sequencer entr%s for %s",
-				      gone, gone == 1 and "y" or "ies", old))
+      print(string.format("DFM-InsP: removed %d sequencer entr%s for %s",
+			  gone, gone == 1 and "y" or "ies", old))
+      system.messageBox(string.format("Sequencer: %d removed", gone))
    end
 end
 
@@ -5176,7 +5177,7 @@ local function init(icode)
    if #dups > 0 then
       print("DFM-InsP: same image on " .. table.concat(dups, ", ") ..
 	       "; the sequencer and soft switches can't tell them apart")
-      system.messageBox("DFM-InsP: two panels use the same image (see console)")
+      system.messageBox("2 panels share an image")
    end
 
    -- sequencer entries: a new entry's To used to be "*", which the screen
@@ -5195,7 +5196,8 @@ local function init(icode)
    end
    if #stale > 0 then
       print("DFM-InsP: sequencer names panels that are gone: " .. table.concat(stale, ", "))
-      system.messageBox("DFM-InsP: sequencer names missing panels (see console)")
+      -- message boxes must stay short: about 26 characters fit a DS-24
+      system.messageBox("Sequencer: see Lua console")
    end
 
    -- window 1 always starts on panel 1 (the sequencer moves it in flight);

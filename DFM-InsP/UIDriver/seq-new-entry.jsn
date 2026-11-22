@@ -1,7 +1,7 @@
 {"config": {"stepGap": 200, "stopOnFail": false},
  "steps": [
   {"log": "A new sequencer entry's default To (review finding 5). Edit Links F1 adds an entry; the screen shows To as '+' (next panel). Before 0.95 it was stored as '*', which in flight was looked up as a panel name, not found, and window 1 went blank. Now it is '+': SB moves window 1 to the next panel with an image. In fixture insp-aaa panel 2 is '---' (no image), which '+' skips since 0.95.1122b, so window 1 comes back round to TurbineL. Also checks the startup warning: the fixture's two old entries name CBHarryDial and ChartRecorder, which are not panels"},
-  {"waitMessage": "sequencer names missing panels", "anyTime": true},
+  {"waitMessage": "Sequencer: see Lua console", "anyTime": true},
   {"waitForm": true},
   {"waitSub": 1},
   {"link": "Edit Links >>"},

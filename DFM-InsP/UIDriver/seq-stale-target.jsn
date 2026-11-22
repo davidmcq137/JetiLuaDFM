@@ -38,7 +38,7 @@
   {"waitSub": 106},
   {"focus": 4},
   {"key": "KEY_4"},
-  {"waitMessage": "Removed 1 sequencer entry for GlassCockpitLL"},
+  {"waitMessage": "Sequencer: 1 removed"},
   {"waitSub": 106},
   {"expect": "#6", "value": "TurbineL"},
   {"expect": "#10", "value": "GlassCockpitL"},
