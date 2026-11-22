@@ -27,7 +27,7 @@
 --]]
 
 local smokeName    = "Smoke Controller"
-local smokeVersion = "1.0"
+local smokeVersion = "1.1"
 local smokeAuthor  = "DFM"
 
 local modelProps
@@ -491,7 +491,7 @@ local function loop()
 	    loopChar = string.sub(smokeDutyCycle.List[smokeDutyCycleIdx], loopIdx, loopIdx)
 	 else
 	    telemReading = 0
-	    telemReadingLast = 0
+	    telemReadingLast = nil -- no reading (not 0: the clock can start negative)
 	    smokeDutyCycleIdx = 1
 	    loopChar = '-' -- make sure smoke off if no sensor
 	 end
@@ -666,7 +666,7 @@ local function smokeCBseq()
       text = string.format("Duty Cycle: %d", 10 * math.floor(smokeDutyCycleIdx-1))
       lcd.drawText(x0, y0+4,text, FONT_MINI)
       if telemReadingRaw then
-	 if (system.getTimeCounter() - telemReadingLast) < 2000 then
+	 if telemReadingLast and (system.getTimeCounter() - telemReadingLast) < 2000 then
 	    text = string.format("%3.1f %s", telemReadingRaw, telemReadingUnit)
 	 else
 	    text = '---'
@@ -842,12 +842,12 @@ local function init()
       smokeDutyCycleIdx = 0
    end
    
-   lastTime = 0
+   lastTime = system.getTimeCounter() -- not 0: the clock can start negative
    runStep = 0
    persistOn = false
    telemReading = 0
    telemReadingRaw = 0   
-   telemReadingLast = 0
+   telemReadingLast = nil -- nil until the first one (the clock can start negative)
    currentEGT = 0
    smokeState = 0
    sensorLbl = "***" -- to debug Gary's issue on the Havoc

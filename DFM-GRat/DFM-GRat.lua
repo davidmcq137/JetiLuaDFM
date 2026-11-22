@@ -26,7 +26,7 @@ local shared = {label = {"GlideRatio"}, value = {0.0}, unit = {""}, dp = {0}}
 
 -- Locals for application
 
-local GRatVersion= 0.2
+local GRatVersion= 0.3
 
 local sensorLalist = { "..." }
 local sensorIdlist = { "..." }
@@ -186,7 +186,7 @@ local function loop()
    
    --print(spdSensor.value, speed, vario, glideRatio)
    
-   if glideRatio and swa == 1 and (system.getTimeCounter() - lastAnnTime > 2000) then
+   if glideRatio and swa == 1 and (not lastAnnTime or system.getTimeCounter() - lastAnnTime > 2000) then
       lastAnnTime = now
       roundRat = rndInt(glideRatio)
       if (shortAnn) then
@@ -241,7 +241,7 @@ local function init()
    shortAnn = (shortAnn == "true") -- convert back to boolean here
    imperial = (imperial == "true")
    
-   lastAnnTime = 0
+   lastAnnTime = nil -- nil until the first one (the clock can start negative)
    
    system.registerLogVariable("GlideRatio", "", glideLog)
    system.registerForm(1, MENU_APPS, "Glide Ratio Announcer", initForm)

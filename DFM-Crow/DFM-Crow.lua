@@ -43,7 +43,7 @@
 
 --]]
 
-local crowVersion= 1.7
+local crowVersion= 1.8
 local appShort="DFM-Crow"
 local appDir = "Apps/"..appShort.."/"
 
@@ -55,7 +55,7 @@ local fmCtrl
 local elevCtrl
 local autoCtrl
 local resetCtrl
-local autoAnnounce = 0
+local autoAnnounce -- nil until the first one (the clock can start negative)
 local autoCrowRate
 local luaControlMax = 0.50
 
@@ -520,7 +520,7 @@ local function loop()
       end
 
       if autoCtrl and elevCtrl and swa == 1 then
-	 if system.getTimeCounter() - autoAnnounce > 1500 then
+	 if not autoAnnounce or system.getTimeCounter() - autoAnnounce > 1500 then
 	    system.playFile("/" .. appDir .. locale .. "-auto_crow.wav", AUDIO_QUEUE)
 	    autoAnnounce = system.getTimeCounter() + 1500
 	    --system.pSave("trimCurveY", trimCurveY)

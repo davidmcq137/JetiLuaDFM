@@ -58,7 +58,7 @@ local function sharedTable(name)
 end
 
 local appName = "Short/Long Switch"
-local SWTVersion= 0.6
+local SWTVersion= 0.7
 local currSwitchState
 local lastSwitchState
 local switch
@@ -583,7 +583,9 @@ local function loop()
 	 lastUpTime = now
       end
       if currSwitchState == -1 then
-	 if now - lastUpTime < t1 then
+	 -- lastUpTime 0 = no up since the last reset: a long press (the clock
+	 -- can start negative, so "now - 0 < t1" could be true)
+	 if lastUpTime ~= 0 and now - lastUpTime < t1 then
 	    pressCount = pressCount + 1
 	    lastUpTime = now
 	 else

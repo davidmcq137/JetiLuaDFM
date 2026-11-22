@@ -451,8 +451,9 @@ function Ann.loop()
       swe = system.getInputsVal(annEnableSw[k])
       if swe and swe == 1 and type(result[j]) == "number" then
 	 if not annLastResult[k] then annLastResult[k] = result[j] end
-	 if not annLastTime[k] then annLastTime[k] = 0 end
-	 if not annNextTime[k] then annNextTime[k] = 0 end
+	 -- -math.huge, not 0, for "never": the clock can start negative
+	 if not annLastTime[k] then annLastTime[k] = -math.huge end
+	 if not annNextTime[k] then annNextTime[k] = -math.huge end
 	 local rj = result[j]
 	 if annType[k] == 1 or annType[k] == 2 then -- Periodic or Auto
 	    if annType[k] == 2 then -- Auto

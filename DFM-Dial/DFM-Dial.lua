@@ -6,10 +6,13 @@
 --]]
 
 --local trans11
-local DialVersion = "1.12"
+local DialVersion = "1.13"
 
 local runningTime = 0
 local startTime = 0
+-- when each chart last took a sample; nil until the first one. Not in
+-- tele (which is saved), and not 0: the clock can start negative
+local chartLast = {{}, {}}
 local remainingTime
 local subForm = 0
 local emFlag
@@ -1041,7 +1044,7 @@ local function loop()
 	       if sensor.unit == "V" and sensor.value > 1 and startTime == 0 then
 		  startTime = system.getTimeCounter()
 	       end
-	       if startTime > 0 and timeNow - startTime > 1000 then -- wait 1 sec
+	       if startTime ~= 0 and timeNow - startTime > 1000 then -- 0 = not yet (a time can be negative) -- wait 1 sec
 		  sensor.valid = true
 	       else
 		  sensor.valid = false
@@ -1059,9 +1062,9 @@ local function loop()
 	    if sensor and sensor.valid then
 	       value = sensor.value
 	       tele[i].sensorValue[j] = value
-	       if timeNow >= tele[i].sensorChartLast[j] + tele[i].sensorChartTime[j] then
+	       if not chartLast[i][j] or timeNow >= chartLast[i][j] + tele[i].sensorChartTime[j] then
 		  sample = true
-		  tele[i].sensorChartLast[j] = timeNow
+		  chartLast[i][j] = timeNow
 	       end 
 	       if sample and tele[i].sensorStyle[j] == 4 then
 		  if tele[i].sensorSample[j] and #tele[i].sensorSample[j] + 1 > MAXSAMPLE then

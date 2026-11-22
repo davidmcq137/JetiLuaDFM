@@ -55,7 +55,7 @@ local aboveVref_ever = false
 local stall_warn=false
 local airspeedAlive = false
 local nextAnnTC = 0
-local lastAnnTC = 0
+local lastAnnTC -- nil until the first one (the clock can start negative)
 local lastAnnSpd = 0
 local calSpd
 local sgTC
@@ -316,10 +316,10 @@ local function loop()
       -- multiplier is scaled by spdInter, over range of 0.5 to 10 (20:1)
       deltaSA = math.min(math.max(math.abs((spd-lastAnnSpd) / spdInter), 0.5), 10)
       
-      nextAnnTC = lastAnnTC + math.min(VrefCall * 1000 * 10 / deltaSA, annMaxTime * 1000) 
+      nextAnnTC = (lastAnnTC or -math.huge) + math.min(VrefCall * 1000 * 10 / deltaSA, annMaxTime * 1000) 
 
       if (spd <= VrefSpd) or (swc and swc == 1) then -- override if below Vref or cont ann is on
-	 nextAnnTC = lastAnnTC + VrefCall * 1000 -- at and below Vref .. ann every VrefCall secs
+	 nextAnnTC = (lastAnnTC or -math.huge) + VrefCall * 1000 -- at and below Vref .. ann every VrefCall secs
       end
 
       sgTC = system.getTimeCounter()
@@ -424,7 +424,7 @@ end
 
 --------------------------------------------------------------------------------
 
-SpdAnnVersion = "2.1"
+SpdAnnVersion = "2.2"
 setLanguage()
 
 collectgarbage()

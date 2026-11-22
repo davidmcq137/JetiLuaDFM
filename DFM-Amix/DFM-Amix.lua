@@ -63,7 +63,7 @@
 
 --]]
 
-local amixVersion = 1.4
+local amixVersion = 1.5
 local appShort="DFM-Amix"
 local appDir = "Apps/"..appShort.."/"
 
@@ -77,7 +77,7 @@ local elevCtrl
 local ailCtrl
 local autoEleCtrl
 local autoAilCtrl
-local autoAnnounce = 0
+local autoAnnounce -- nil until the first one (the clock can start negative)
 local autoCrowRate
 local luaControlMax = 0.50
 
@@ -577,7 +577,7 @@ local function loop()
       end
 
       if (autoAilCtrl or autoEleCtrl) and (elevCtrl or ailCtrl) and ( (swaA == 1) or (swaE == 1) ) then
-	 if system.getTimeCounter() - autoAnnounce > 1500 then
+	 if not autoAnnounce or system.getTimeCounter() - autoAnnounce > 1500 then
 	    system.playFile("/" .. appDir .. locale .. "-auto_mix.wav", AUDIO_QUEUE)
 	    autoAnnounce = system.getTimeCounter() + 1500
 	 end

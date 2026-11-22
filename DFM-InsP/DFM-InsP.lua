@@ -56,7 +56,7 @@
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.93
+local InsPVersion = 0.94
 
 local LE
 
@@ -162,7 +162,7 @@ local lua = {}
 --lua.chunk = {}
 -- lua.env was here
 lua.index = 0
-lua.txTelLastUpdate = 0
+lua.txTelLastUpdate = nil -- nil until the first one (the clock can start negative)
 lua.txTel = {}
 lua.completePass = false
 
@@ -2902,7 +2902,7 @@ local function loop()
 
    -- keep txTel values up to date every 200 ms
    
-   if system.getTimeCounter() - lua.txTelLastUpdate > 200 then
+   if not lua.txTelLastUpdate or system.getTimeCounter() - lua.txTelLastUpdate > 200 then
       lua.txTel = system.getTxTelemetry()
       lua.txTelLastUpdate = system.getTimeCounter()
    end
