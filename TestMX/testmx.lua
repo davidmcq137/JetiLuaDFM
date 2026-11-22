@@ -970,7 +970,22 @@ system.pSave = function(k, v)
    app.saved[k] = v
 end
 
-system.messageBox = function(m, t) fwlog("messageBox: " .. tostring(m)) end
+-- a message box is one centred line, clipped at both ends when too long:
+-- about 26 characters fit a DS-24 (320 px), 42 a DS-24 II. An app ships
+-- to every TX, so longer ones are reported (not failed) on any profile
+FW.maxMessage = 26
+FW.longMessages = {}
+system.messageBox = function(m, t)
+   m = tostring(m)
+   fwlog("messageBox: " .. m)
+   if #m > FW.maxMessage and not FW.longMessages[m] then
+      local app = currentApp()
+      FW.longMessages[m] = (app and app.name or "?")
+      FW.longMessages[#FW.longMessages + 1] = m
+      fwlog("WARN messageBox is " .. #m .. " characters, over " .. FW.maxMessage ..
+	    " (clipped on a DS-24): " .. m)
+   end
+end
 system.playFile = function(f, t) fwlog("playFile " .. tostring(f)) end
 system.playNumber = function(v, d) fwlog("playNumber " .. tostring(v)) end
 system.playBeep = function(r, h, l) fwlog("playBeep") end
@@ -1494,6 +1509,10 @@ function FW.finish()
       out(string.format("[FW] serial %s (null device): %d bytes written", port, n))
    end
    out("[FW] cost model not calibrated against a TX yet; CPU overruns are reported, not failed")
+   for _, m in ipairs(FW.longMessages) do
+      out(fmt("[FW] warning: %s messageBox over %d characters (%d): %s",
+	      FW.longMessages[m], FW.maxMessage, #m, m))
+   end
    for _, e in ipairs(errors) do out("[FW] app error: " .. e) end
    for _, f in ipairs(failures) do out("[FW] failure: " .. f) end
    local code = (#errors > 0 or #failures > 0) and 1 or 0

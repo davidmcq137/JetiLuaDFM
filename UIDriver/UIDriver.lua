@@ -56,6 +56,13 @@
         "logAnnouncements": true, -- log the target's announcements
         "suppressMessageBox": false,  -- true: log the target's message
                                   -- boxes but don't show them
+        "maxMessage": 26,         -- a target messageBox longer than this
+                                  -- gets a WARN (once per text): the box
+                                  -- is one centred line, clipped at both
+                                  -- ends; ~26 characters fit a DS-24,
+                                  -- ~42 a DS-24 II. 0 = no check
+        "messageTooLong": "warn", -- or "fail": a FAIL charged to the
+                                  -- running step, like a failed check
         "recordAnnouncements": false, -- record mode: add a wait step for
                                   -- each announcement
         "logControls": true,      -- log the target's setControl changes
@@ -430,6 +437,7 @@ local DEFAULTS = {
    stepTimeoutMs = 10000, stopOnFail = true, overlay = true,
    recordRotary = false, confirmWidth = 30, confirmLookMs = 5000,
    logAnnouncements = true, suppressMessageBox = false,
+   maxMessage = 26, messageTooLong = "warn",
    recordAnnouncements = false, logControls = true, logEvents = false,
 }
 local cfg = {mode = "off", target = "", script = ""}
@@ -1756,7 +1764,7 @@ local function finish(why, box)
    -- repeat the failures at the end, where the console stops scrolling
    for _, f in ipairs(failList) do log("   FAILED " .. f) end
    for msg, n in pairs(checkSeen) do
-      log("   check failed " .. n .. "x: " .. msg)
+      if n > 0 then log("   check failed " .. n .. "x: " .. msg) end -- 0: a WARN only
    end
    -- and say it on the emulator screen too
    box = box or bad and string.format("UIDriver: %d FAIL (see log)", counts.fail)
@@ -2278,7 +2286,20 @@ local KINDVERB = {message = "waitMessage", audio = "waitAudio", number = "waitNu
 		  vibration = "waitVibration", beep = "waitBeep"}
 local annWrapper = {}      -- name -> our current wrapper
 
+
 local function announced(a)
+   -- a message box is one centred line, clipped at both ends when too
+   -- long; about 26 characters fit a DS-24 (320 px), 42 a DS-24 II
+   local mx = tonumber(cfg.maxMessage)
+   if a.kind == "message" and mx and mx > 0 and #a.text > mx and not checkSeen["long " .. a.text] then
+      -- (no new locals here: the main chunk is at Lua's limit of 200)
+      checkSeen["long " .. a.text] = 0
+      local msg = string.format("messageBox is %d characters, over maxMessage %d: %s",
+				#a.text, mx, a.text)
+      if cfg.messageTooLong == "fail" and system.UIDriver then
+	 system.UIDriver.check(false, msg)
+      else log("WARN " .. msg) end
+   end
    seq = seq + 1
    a.seq = seq
    anns[#anns+1] = a
@@ -3187,6 +3208,7 @@ function api.check(cond, msg)
    end
    return false
 end
+
 
 function api.event(name, value)
    local e = events[name] or {n = 0, used = 0}

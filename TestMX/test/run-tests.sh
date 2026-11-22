@@ -31,7 +31,8 @@ made=""
 for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps DFM-SWT DFM-Rscu DFM-Path DFM-InsP; do
    if [ ! -e Apps/$a.lua ]; then ln -s $a/$a.lua Apps/$a.lua && made="$made Apps/$a.lua"; fi
 done
-trap 'for l in $made; do [ -L "$l" ] && rm "$l"; done' EXIT
+# (one trap for both: a second "trap ... EXIT" would replace the first)
+trap 'for l in $made; do [ -L "$l" ] && rm "$l"; done; rm -rf "$TMP"' EXIT
 if [ ! -f Log/20190926/16-56-45.log ]; then
    mkdir -p Log/20190926
    gunzip -c $T/16-56-45.log.gz > Log/20190926/16-56-45.log
@@ -180,6 +181,9 @@ ip() {
 }
 ip seq-stale-target
 ip seq-new-entry
+
+# warnings that don't fail a test: message boxes too long for a DS-24
+grep -h '^\[FW\] warning:' $TMP/* 2>/dev/null | sort -u | sed 's/^\[FW\] warning: /WARN: /'
 
 echo "TestMitter tests: $fails failed"
 exit $fails
