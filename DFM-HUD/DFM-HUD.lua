@@ -4937,6 +4937,11 @@ local function init()
    
    sendState = state.DISCONNECTED
    jsonHoldTime = system.getTimeCounter()-- + 10 * WAIT_TIME
+   -- start the battery poll and gauge send timers from the clock, not 0:
+   -- the emulator's getTimeCounter() often starts negative, and then
+   -- "now > 0 + ..." never came true (no battery polls, no gauges)
+   oncePerSecond = system.getTimeCounter()
+   lastSend = system.getTimeCounter()
 
    modelName = string.gsub(system.getProperty("Model"), " ", "_")
 
@@ -5251,4 +5256,4 @@ local function init()
    
 end
    
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.01", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.02", name=appName}

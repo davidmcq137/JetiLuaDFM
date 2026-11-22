@@ -24,7 +24,12 @@
    (copy the result log there), --also A[,B] (more apps, loaded and
    started after the target, e.g. --also DFM-HUD), --controls P5=-0.5,SA=-1
    (stick, slider and switch positions -1..1; unset ones read 0),
-   --target-first (start the target before the sensor app and UIDriver).
+   --target-first (start the target before the sensor app and UIDriver),
+   --no-form (don't open the target's form: for apps that work only from
+   their telemetry windows, like DFM-HUD sending gauges), --serial
+   PORT=DEVICE (attach FakeFW/devices/DEVICE.lua to that serial port, e.g.
+   --serial ttyUSB0=engo; its state is exposed to UIDriver as DEVICE, so a
+   script can check "engo.counts.x05").
    Exit code 0 only when the script ends DONE with 0 FAIL and no app errored.
 --]]
 
@@ -58,6 +63,13 @@ while i <= #arg do
       end
       i = i + 1
    elseif a == "--target-first" then o.targetFirst = true
+   elseif a == "--no-form" then o.noForm = true
+   elseif a == "--serial" then
+      local port, dev = v:match("^([^=]+)=(.+)$")
+      if not port then io.stderr:write("fakefw-uid: --serial PORT=DEVICE\n"); os.exit(2) end
+      o.serial = o.serial or {}
+      o.serial[#o.serial + 1] = {port = port, dev = dev}
+      i = i + 1
    elseif a == "--keep" then o.keep = true
    elseif a == "--trace" then o.trace = true
    else io.stderr:write("fakefw-uid: unknown option " .. a .. "\n"); os.exit(2) end
@@ -76,6 +88,13 @@ local ok, code = pcall(function()
    FW.writeFile("Apps/UIDriver/selection.jsn", string.format(
       '{"app":"%s","script":"%s","mode":"play","unattended":true}', o.app, o.script))
    if o.controls then FW.controls = o.controls end
+   local devices = {}
+   for _, sd in ipairs(o.serial or {}) do
+      local m = dofile("Apps/FakeFW/devices/" .. sd.dev .. ".lua")
+      local dev = m.new{}
+      FW.serialDevice(sd.port, dev)
+      devices[#devices + 1] = {name = sd.dev, port = sd.port, dev = dev}
+   end
    local names, init = {"UIDriver"}, {}
    if o.sensor ~= "none" then names[#names + 1] = o.sensor; init[#init + 1] = o.sensor end
    names[#names + 1] = o.app
@@ -84,10 +103,16 @@ local ok, code = pcall(function()
    for _, a in ipairs(o.also or {}) do names[#names + 1] = a; init[#init + 1] = a end
    FW.load(names)
    FW.initApps(init)
+   if #devices > 0 then
+      local uid = FW.app("UIDriver").env.system.UIDriver
+      for _, d in ipairs(devices) do
+	 if uid and uid.expose and d.dev.state then uid.expose(d.name, d.dev.state) end
+      end
+   end
 
    local opened = false
    FW.onFrame(function(now)
-      if not opened and now >= 1000 then
+      if not opened and not o.noForm and now >= 1000 then
 	 opened = true
 	 if not FW.openForm(o.form or o.app) then FW.fail("can't open the form of " .. (o.form or o.app)) end
       end
@@ -101,6 +126,9 @@ local ok, code = pcall(function()
       done = s:match("[=#]+ DONE:[^\n]*") or s:match("[=#]+ STOPPED[^\n]*")
       return done ~= nil
    end)
+   for _, d in ipairs(devices) do
+      if d.dev.summary then print(string.format("[FW] %s on %s: %s", d.name, d.port, d.dev.summary())) end
+   end
    local s = FW.readFile(RESULT) or ""
    if o.out then local f = assert(io.open(o.out, "wb")); f:write(s); f:close() end
    for l in s:gmatch("[^\n]+") do

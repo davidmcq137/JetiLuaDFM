@@ -8,7 +8,7 @@
 # against the measured outputs, the DFM-TimG UIDriver scripts with DFM-HUD (SensorL replays
 # Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing), and
 # DFM-Maps' scripts on the maps-bds458 (emulator) and maps-bds320 (ds24-508)
-# fixtures (FakeFW/fakefw-uid.lua).
+# fixtures (FakeFW/fakefw-uid.lua), and DFM-HUD with fake Engo glasses.
 # Exit code: the number of failed tests.
 LUA=${1:-$HOME/lua-5.3.1-Jeti-typefix/src/lua}
 T=Apps/FakeFW/test
@@ -119,6 +119,20 @@ for t in "nofly-test maps-bds458 emu-ds24ii-606" "maps-smoke maps-tri,maps-bds45
       ok "DFM-Maps $1 ($2, $3): $(grep '^==== DONE' $TMP/$1-$3)"
    else
       bad "DFM-Maps $1 ($2, $3)"; grep -v '^\[UID\]' $TMP/$1-$3 | tail -30
+   fi
+done
+
+# DFM-HUD against FakeFW's fake Engo glasses (FakeFW/devices/engo.lua):
+# config upload, select, battery polls and gauge frames. HUD opens ttyUSB0
+# in the emulator and COM1 on a TX; its form stays closed (no gauges are
+# sent while a form is open); model Abc has the gauges (Json/GG_Abc.jsn)
+for t in "emu-ds24ii-606 ttyUSB0" "ds24ii-606 COM1"; do
+   set -- $t
+   if "$LUA" Apps/FakeFW/fakefw-uid.lua --app DFM-HUD --script engo-test.jsn --model Abc \
+	--no-form --serial $2=engo -p $1 > $TMP/engo-$1 2>&1; then
+      ok "DFM-HUD engo-test ($1): $(grep '^==== DONE' $TMP/engo-$1)"
+   else
+      bad "DFM-HUD engo-test ($1)"; grep -v '^\[UID\]' $TMP/engo-$1 | tail -30
    fi
 done
 

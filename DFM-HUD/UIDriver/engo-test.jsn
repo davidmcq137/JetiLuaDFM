@@ -1,0 +1,23 @@
+{"steps": [
+  {"log": "DFM-HUD with FakeFW's fake Engo glasses (FakeFW/devices/engo.lua) on its serial port: the config upload, select, then battery polls and gauge frames. FakeFW only: run with fakefw-uid.lua --app DFM-HUD --script engo-test.jsn --model Abc --no-form --serial ttyUSB0=engo (GG_Abc.jsn has the gauges). HUD's form stays closed: it sends no gauges while a form is open"},
+  {"expectState": "engo.connected", "value": true},
+
+  {"log": "the glasses list only their system config, so HUD uploads config-fonts-images.txt and writes config DFM-HUD version 8 (Json/config-version.jsn)"},
+  {"waitMessage": "Transfer complete", "anyTime": true, "timeout": "40s"},
+  {"expectState": "engo.lastWrite", "value": "DFM-HUD v8"},
+  {"expectState": "engo.configs.DFM-HUD", "value": 8},
+
+  {"log": "then it selects its config and polls the battery once a second: the Status window shows the level and the green check"},
+  {"waitText": "85%", "win": 2, "timeout": "20s"},
+  {"expectState": "engo.current", "value": "DFM-HUD"},
+  {"expectImage": "greencheck.png", "win": 2},
+  {"expectNoImage": "redcross.png", "win": 2},
+
+  {"log": "gauges flow for a while; every frame HUD wrote was well formed"},
+  {"wait": "10s"},
+  {"expectState": "engo.counts.x05", "min": 8},
+  {"expectState": "engo.frames", "min": 300},
+  {"expectState": "engo.bad", "value": 0},
+  {"expectState": "engo.junk", "value": 0},
+  {"log": "engo test finished"}
+]}

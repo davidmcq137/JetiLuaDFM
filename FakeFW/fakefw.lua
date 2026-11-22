@@ -1081,26 +1081,70 @@ local gpio = stubs("mode read write")
 -- serial as a null device: any port opens, writes are accepted (the
 -- byte count comes back) and thrown away, nothing is ever read. So an app
 -- like DFM-HUD runs as if its device were plugged in. FW.serialBytes
--- counts what was written, per port name
+-- counts what was written, per port name.
+-- A device model can be attached to a port name before the apps start:
+--   FW.serialDevice("ttyUSB0", dev)
+-- dev.write(bytes) sees each write; dev.attach(api) is called once, with
+-- api.send(bytes) (queued for the app's onRead callback, delivered at the
+-- start of the next frame, as the TX does from its own loop), api.now()
+-- (virtual ms) and api.log(text). dev.frame(now), if present, runs every
+-- frame (timed replies, disconnects ...)
 local serial = {}
-local serialPorts = {}
+local serialPorts = {}     -- handle -> {name, app, onRead, rx = {...}}
+local serialDevs = {}      -- port name -> device model
 FW.serialBytes = {}
+function FW.serialDevice(name, dev)
+   serialDevs[name] = dev
+   dev.attach({
+      send = function(bytes)
+	 for _, p in pairs(serialPorts) do
+	    if p.name == name then p.rx[#p.rx + 1] = bytes end
+	 end
+      end,
+      now = function() return now end,
+      log = function(t) fwlog(name .. ": " .. tostring(t)) end,
+   })
+end
 function serial.getPorts() return {} end
 function serial.init(port)
    local h = #serialPorts + 1
-   serialPorts[h] = tostring(port)
-   FW.serialBytes[serialPorts[h]] = FW.serialBytes[serialPorts[h]] or 0
-   return h, serialPorts[h]
+   serialPorts[h] = {name = tostring(port), app = currentApp(), rx = {}}
+   FW.serialBytes[serialPorts[h].name] = FW.serialBytes[serialPorts[h].name] or 0
+   return h, serialPorts[h].name
 end
-function serial.deinit(h) return serialPorts[h] ~= nil end
+function serial.deinit(h)
+   local ok = serialPorts[h] ~= nil
+   serialPorts[h] = nil
+   return ok
+end
 function serial.setBaudrate(h) return serialPorts[h] ~= nil end
-function serial.onRead(h) return serialPorts[h] ~= nil end
+function serial.onRead(h, f)
+   local p = serialPorts[h]
+   if not p then return false, "port not open" end
+   p.onRead = f
+   return true
+end
 function serial.write(h, s)
-   local name = serialPorts[h]
-   if not name then return nil, "port not open" end
+   local p = serialPorts[h]
+   if not p then return nil, "port not open" end
    s = tostring(s or "")
-   FW.serialBytes[name] = FW.serialBytes[name] + #s
+   FW.serialBytes[p.name] = FW.serialBytes[p.name] + #s
+   local dev = serialDevs[p.name]
+   if dev and dev.write then dev.write(s) end
    return #s
+end
+-- once a frame: device timers, then what devices sent, to onRead
+local function serialFrame()
+   for _, dev in pairs(serialDevs) do
+      if dev.frame then dev.frame(now) end
+   end
+   for _, p in pairs(serialPorts) do
+      if #p.rx > 0 then
+	 local data = table.concat(p.rx)
+	 p.rx = {}
+	 if p.onRead and p.app then call(p.app, "onRead", p.onRead, data) end
+      end
+   end
 end
 
 --------------------------------------------------------------------------------
@@ -1343,6 +1387,7 @@ function runFrame()
    now, frac = start, 0.0
    frameEnd = start + P.loopMs + jitter()
    for _, f in ipairs(frameHooks) do f(now) end
+   serialFrame()
    for _, app in ipairs(apps) do
       if app.t and app.t.loop then call(app, "loop", app.t.loop) end
    end
