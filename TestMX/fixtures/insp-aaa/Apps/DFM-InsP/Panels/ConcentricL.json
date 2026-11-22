@@ -1,0 +1,500 @@
+{
+  "panel": [
+    {
+      "tickFont": "Mini",
+      "yL": 233.2,
+      "min": 0,
+      "spectrum": [
+        "red",
+        "orange",
+        "yellow",
+        "green"
+      ],
+      "ro": 68,
+      "xL": 229,
+      "y0": 172,
+      "label": "Label",
+      "max": 100,
+      "radius": 90,
+      "TS": 80.93360000000001,
+      "x0": 229,
+      "majdivs": 5,
+      "divs": 25,
+      "labelFont": "None",
+      "subdivs": 5,
+      "tickLabels": [
+        {
+          "rt": 80.93360000000001,
+          "ca": -0.7071067811865477,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        },
+        {
+          "rt": 80.93360000000001,
+          "ca": -0.9876883405951377,
+          "sa": -0.15643446504023098,
+          "dp": 0
+        },
+        {
+          "rt": 80.93360000000001,
+          "ca": -0.4539904997395467,
+          "sa": -0.8910065241883679,
+          "dp": 0
+        },
+        {
+          "rt": 80.93360000000001,
+          "ca": 0.4539904997395468,
+          "sa": -0.8910065241883678,
+          "dp": 0
+        },
+        {
+          "rt": 80.93360000000001,
+          "ca": 0.9876883405951378,
+          "sa": -0.15643446504023087,
+          "dp": 0
+        },
+        {
+          "rt": 80.93360000000001,
+          "ca": 0.7071067811865476,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        }
+      ],
+      "value": 85,
+      "tickSpace": -126,
+      "xV": 229,
+      "ri": 57.8,
+      "readoutPosY": 0,
+      "needleColor": "white",
+      "labelBoxColor": "transparent",
+      "type": "roundNeedleGauge",
+      "readoutPosX": 0,
+      "yV": 212.8,
+      "gaugeRadius": 68,
+      "valDigits": 0,
+      "valueFont": "None",
+      "labelPosX": 0,
+      "labelColor": "white",
+      "arcWidth": 15,
+      "needleType": "none",
+      "labelPosY": 0,
+      "faceVis": "on",
+      "scaleVis": "on"
+    },
+    {
+      "tickFont": "Mini",
+      "yL": 204.7,
+      "min": 0,
+      "spectrum": [
+        "red",
+        "orange",
+        "yellow",
+        "green"
+      ],
+      "ro": 43,
+      "xL": 229,
+      "y0": 172,
+      "hLB": 16,
+      "rgbInnerFillColor": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "label": "Inner",
+      "max": 200,
+      "radius": 65,
+      "TS": 24.93999999999999,
+      "x0": 229,
+      "majdivs": 5,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "divs": 50,
+      "yLB": 195.7,
+      "labelFont": "Bold",
+      "subdivs": 10,
+      "rgbLabelBoxColor": {
+        "r": 176,
+        "g": 176,
+        "b": 176,
+        "t": "false"
+      },
+      "tickLabels": [
+        {
+          "rt": 24.93999999999999,
+          "ca": -0.7071067811865477,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        },
+        {
+          "rt": 24.93999999999999,
+          "ca": -0.9876883405951377,
+          "sa": -0.15643446504023098,
+          "dp": 0
+        },
+        {
+          "rt": 24.93999999999999,
+          "ca": -0.4539904997395467,
+          "sa": -0.8910065241883679,
+          "dp": 0
+        },
+        {
+          "rt": 24.93999999999999,
+          "ca": 0.4539904997395468,
+          "sa": -0.8910065241883678,
+          "dp": 0
+        },
+        {
+          "rt": 24.93999999999999,
+          "ca": 0.9876883405951378,
+          "sa": -0.15643446504023087,
+          "dp": 0
+        },
+        {
+          "rt": 24.93999999999999,
+          "ca": 0.7071067811865476,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        }
+      ],
+      "tickDigits": "Auto",
+      "value": 60,
+      "wLB": 77,
+      "tickSpace": 100,
+      "xV": 229,
+      "ri": 36.55,
+      "readoutPosY": 0,
+      "needleColor": "red",
+      "labelBoxColor": "#b0b0b0",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -3.44,
+          "y": 22.62
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 3.44,
+          "y": 22.62
+        }
+      ],
+      "readoutPosX": 0,
+      "rLB": 4,
+      "yV": 197.8,
+      "inner": [
+        {
+          "x": -2.22,
+          "y": 22.62
+        },
+        {
+          "x": -1,
+          "y": 48
+        },
+        {
+          "x": 1,
+          "y": 48
+        },
+        {
+          "x": 2.22,
+          "y": 22.62
+        }
+      ],
+      "gaugeRadius": 43,
+      "valDigits": 0,
+      "xLB": 190.5,
+      "valueFont": "None",
+      "needleTrim": 39,
+      "labelPosX": 0,
+      "labelColor": "red",
+      "arcWidth": 15,
+      "needleType": "needleTrim",
+      "labelPosY": -6,
+      "faceVis": "off",
+      "scaleVis": "on"
+    },
+    {
+      "tickFont": "None",
+      "TXspectrum": [
+        {
+          "v": 0,
+          "r": 0,
+          "g": 128,
+          "b": 0
+        },
+        {
+          "v": 11.11111111111111,
+          "r": 85,
+          "g": 170,
+          "b": 0
+        },
+        {
+          "v": 22.22222222222222,
+          "r": 170,
+          "g": 213,
+          "b": 0
+        },
+        {
+          "v": 33.333333333333336,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "v": 44.44444444444444,
+          "r": 255,
+          "g": 225,
+          "b": 0
+        },
+        {
+          "v": 55.55555555555556,
+          "r": 255,
+          "g": 195,
+          "b": 0
+        },
+        {
+          "v": 66.66666666666667,
+          "r": 255,
+          "g": 165,
+          "b": 0
+        },
+        {
+          "v": 77.77777777777777,
+          "r": 255,
+          "g": 110,
+          "b": 0
+        },
+        {
+          "v": 88.88888888888889,
+          "r": 255,
+          "g": 55,
+          "b": 0
+        },
+        {
+          "v": 100,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        }
+      ],
+      "yL": 222.2,
+      "min": 0,
+      "spectrum": [
+        "green",
+        "yellow",
+        "orange",
+        "red"
+      ],
+      "ro": 56,
+      "xL": 229,
+      "y0": 172,
+      "hLB": 16,
+      "label": "  Arc  ",
+      "xLV": 198.2,
+      "max": 100,
+      "radius": 78,
+      "x0": 229,
+      "majdivs": 0,
+      "rgbLabelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "divs": 10,
+      "yLB": 213.2,
+      "labelFont": "Bold",
+      "subdivs": 0,
+      "rgbLabelBoxColor": {
+        "r": 176,
+        "g": 176,
+        "b": 176,
+        "t": "false"
+      },
+      "tickLabels": [],
+      "tickDigits": "Auto",
+      "value": 84,
+      "wLB": 77,
+      "tickSpace": 100,
+      "xRV": 259.8,
+      "xV": 229,
+      "ri": 44.800000000000004,
+      "readoutPosY": 0,
+      "labelBoxColor": "#b0b0b0",
+      "yRV": 223.52,
+      "type": "roundArcGauge",
+      "readoutPosX": 0,
+      "rLB": 4,
+      "yV": 172,
+      "yLV": 223.52,
+      "gaugeRadius": 56,
+      "valDigits": 0,
+      "xLB": 190.5,
+      "valueFont": "Big",
+      "labelPosX": 0,
+      "labelColor": "black",
+      "arcWidth": 20,
+      "labelPosY": 11,
+      "faceVis": "off",
+      "scaleVis": "off"
+    },
+    {
+      "tickFont": "Mini",
+      "yL": 239.2,
+      "min": 0,
+      "spectrum": [
+        "red",
+        "orange",
+        "yellow",
+        "green"
+      ],
+      "ro": 68,
+      "xL": 229,
+      "y0": 172,
+      "hLB": 16,
+      "rgbInnerFillColor": {
+        "r": 0,
+        "g": 0,
+        "b": 255,
+        "t": "false"
+      },
+      "label": " Outer ",
+      "max": 100,
+      "radius": 90,
+      "TS": 80.93360000000001,
+      "x0": 229,
+      "majdivs": 5,
+      "rgbLabelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 255,
+        "t": "false"
+      },
+      "divs": 25,
+      "yLB": 230.2,
+      "labelFont": "Bold",
+      "subdivs": 5,
+      "rgbLabelBoxColor": {
+        "r": 176,
+        "g": 176,
+        "b": 176,
+        "t": "false"
+      },
+      "tickLabels": [
+        {
+          "rt": 80.93360000000001,
+          "ca": -0.7071067811865477,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        },
+        {
+          "rt": 80.93360000000001,
+          "ca": -0.9876883405951377,
+          "sa": -0.15643446504023098,
+          "dp": 0
+        },
+        {
+          "rt": 80.93360000000001,
+          "ca": -0.4539904997395467,
+          "sa": -0.8910065241883679,
+          "dp": 0
+        },
+        {
+          "rt": 80.93360000000001,
+          "ca": 0.4539904997395468,
+          "sa": -0.8910065241883678,
+          "dp": 0
+        },
+        {
+          "rt": 80.93360000000001,
+          "ca": 0.9876883405951378,
+          "sa": -0.15643446504023087,
+          "dp": 0
+        },
+        {
+          "rt": 80.93360000000001,
+          "ca": 0.7071067811865476,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        }
+      ],
+      "tickDigits": "Auto",
+      "value": 72,
+      "wLB": 77,
+      "tickSpace": -126,
+      "xV": 229,
+      "ri": 57.8,
+      "readoutPosY": 0,
+      "needleColor": "blue",
+      "labelBoxColor": "#b0b0b0",
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -3.88,
+          "y": 16.24
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 3.88,
+          "y": 16.24
+        }
+      ],
+      "readoutPosX": 0,
+      "rLB": 4,
+      "yV": 212.8,
+      "inner": [
+        {
+          "x": -2.4400000000000004,
+          "y": 16.24
+        },
+        {
+          "x": -1,
+          "y": 48
+        },
+        {
+          "x": 1,
+          "y": 48
+        },
+        {
+          "x": 2.4400000000000004,
+          "y": 16.24
+        }
+      ],
+      "gaugeRadius": 68,
+      "valDigits": 0,
+      "xLB": 190.5,
+      "valueFont": "None",
+      "needleTrim": 28,
+      "labelPosX": 0,
+      "labelColor": "blue",
+      "arcWidth": 15,
+      "needleType": "needleTrim",
+      "labelPosY": 6,
+      "faceVis": "off",
+      "scaleVis": "off"
+    }
+  ],
+  "doc-md": "This widget was inspired by the work that Guenter07 has shown on the German Jeti\nforum. His gauges are hand-drawn and very very nice! We did this to show how you\ncan stack many gauges of multiple types to create some really visually\ninteresting displays.\n",
+  "screen": {
+    "width": 456,
+    "height": 342
+  },
+  "timestamp": "2026-11-22T13:02:08.866Z"
+}

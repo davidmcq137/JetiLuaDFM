@@ -173,7 +173,7 @@ rp DFM-Path path-controls-test
 # with 2 panels and 2 old sequencer entries naming panels that are gone)
 ip() {
    if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-InsP --script $1.jsn \
-	--fixture insp-aaa --model TestMX > $TMP/$1 2>&1; then
+	--fixture ${2:-insp-aaa} --model TestMX > $TMP/$1 2>&1; then
       ok "DFM-InsP $1: $(grep '^==== DONE' $TMP/$1)"
    else
       bad "DFM-InsP $1"; grep -v '^\[UID\]' $TMP/$1 | tail -30
@@ -181,6 +181,9 @@ ip() {
 }
 ip seq-stale-target
 ip seq-new-entry
+ip seq-image-change
+ip panel-list
+ip bad-settings insp-bad,insp-aaa
 
 # warnings that don't fail a test: message boxes too long for a DS-24
 grep -h '^\[FW\] warning:' $TMP/* 2>/dev/null | sort -u | sed 's/^\[FW\] warning: /WARN: /'

@@ -62,7 +62,7 @@
 -- major.minor.MMDD plus a letter for each build that day, as DFM-Maps does.
 -- The TX's app list shows only the first 7 characters ("0.95.11"), so the
 -- Settings title shows all of it
-local InsPVersion = "0.95.1122c"
+local InsPVersion = "0.95.1122d"
 
 local LE
 
@@ -5042,6 +5042,16 @@ local function init(icode)
    local decoded
    local mn
    local file
+
+   -- UIDriver tests only (nil on a TX): scripts check the panel list, the
+   -- windows and the sequencer with expectState "insp.settings.window1Panel",
+   -- "insp.panelImages.2.instImage", "seq.1.to", "count.panels"
+   if system.UIDriver then
+      system.UIDriver.expose("insp", function() return InsP end)
+      system.UIDriver.expose("seq", function() return stateSw end)
+      system.UIDriver.expose("count", function()
+	 return {panels = #InsP.panelImages, seq = #stateSw} end)
+   end
 
    local backColors = {
       {colorname="grey",        red=128, green=128, blue=128},

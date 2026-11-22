@@ -114,6 +114,10 @@
                                   (text must match an item exactly; if it
                                   matches none the log lists the items, if
                                   it matches several it FAILs: use the index)
+     {"set": "Panel", "value": "X", "noReadback": true}  the app may
+                                  refuse X and put the old value back: PASS
+                                  unless the callback errors; check with
+                                  expect after a waitSub
      {"set": "Enable Triangle Racecourse", "value": true}   checkbox
      {"set": "Name", "value": "abc"}              textbox
      {"set": "Start Switch", "value": "SA"}       inputbox: a control
@@ -1225,6 +1229,12 @@ H.set = {ctx = "form", run = function(s)
 	    local c, err = find(s.set, s.nth)
 	    if not c then return false, err end
 	    local st, msg = setWidget(c, s.value)
+	    -- noReadback: the app may refuse the value and put the old one
+	    -- back (now or at its form.reinit), so only a callback error
+	    -- fails; check the result with expect after a waitSub
+	    if s.noReadback and not st and tostring(msg):find("(getValue", 1, true) then
+	       return "ok", c.label .. ": " .. tostring(msg) .. " (noReadback)"
+	    end
 	    return st, c.label .. ": " .. tostring(msg)
 end}
 
