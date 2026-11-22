@@ -39,7 +39,7 @@ do local f = io.open(LOGFILE, "w"); if f then io.close(f) end end
 local function announceAll(why)
    p("announcing:", why)
    pcall(system.messageBox, "SpikeTgt says " .. why, 2)
-   system.playFile("/Apps/DFM-Ctrl/Duration.wav", AUDIO_QUEUE)
+   system.playFile("/Apps/SpikeTgt/Duration.wav", AUDIO_QUEUE)
    system.playNumber(77, 0)
    system.vibration(true, 2)
    system.playBeep(1, 1000, 200)
