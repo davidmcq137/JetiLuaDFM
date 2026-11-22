@@ -19,6 +19,7 @@ DUMPS = {  # profile -> dump file
     "emu-ds24ii-606": "fontdump-emu606.txt",
     "ds24-508": "fontdump-ds24-508.txt",
     "ds16-506": "fontdump-ds16-506.txt",
+    "ds24ii-606": "fontdump-ds24ii-606.txt",
 }
 
 
@@ -102,14 +103,24 @@ def fit(p):
         if f == "FONT_NORMAL" and s == "23\udcb0C":
             w23 = math.floor((nat[f][ord("2") - 32] + nat[f][ord("3") - 32]) / k + 1e-9)
             bad = "stop" if w == w23 else "latin1"
-    # the degree sign: the native width that gives both "°" and "°C"
+    # the degree sign: the native width that gives every measured string
+    # made of ASCII and "°" ("°", "°C", "23°C" ...). On the DS-24 II
+    # FONT_MINI "°" and "°C" alone allow two widths; "23°C" decides
     deg = {}
     for f in W:
-        d1 = [w for ff, w, s in S if ff == f and s == "\u00b0"][0]
-        dc = [w for ff, w, s in S if ff == f and s == "\u00b0C"][0]
-        c = nat[f][ord("C") - 32]
-        cands = [a for a in range(0, 100)
-                 if math.floor(a / k + 1e-9) == d1 and math.floor((a + c) / k + 1e-9) == dc]
+        strs = [(w, s) for ff, w, s in S if ff == f and "\u00b0" in s
+                and all(c == "\u00b0" or 32 <= ord(c) < 127 for c in s)]
+
+        def fits(a):
+            for w, s in strs:
+                tot = sum(a if c == "\u00b0" else nat[f][ord(c) - 32] for c in s)
+                pred = math.floor(tot / k + 1e-9)
+                if capped:
+                    pred = min(pred, cap)
+                if pred != w:
+                    return False
+            return True
+        cands = [a for a in range(0, 100) if fits(a)]
         assert len(cands) == 1, (p, f, "degree", cands)
         deg[f] = cands[0]
     if lat:

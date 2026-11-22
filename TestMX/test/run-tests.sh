@@ -65,7 +65,7 @@ if [ -f $OUT.keep ]; then mv $OUT.keep $OUT; else rm -f $OUT; fi
 EOUT=Apps/EnvDump/envdump.out
 [ -f $EOUT ] && cp $EOUT $EOUT.keep
 SKIP='^check \|^probe \|^getTime\|^getDateTime\|^os.time\|^globals \|globals\.\|^G globals \|globalVarList'
-for pr in "emu-ds24ii-606 envdump-emu606" "ds24-508 envdump-ds24-508" "ds16-506 envdump-ds16-506"; do
+for pr in "emu-ds24ii-606 envdump-emu606" "ds24ii-606 envdump-ds24ii-606" "ds24-508 envdump-ds24-508" "ds16-506 envdump-ds16-506"; do
    set -- $pr
    rm -f $EOUT
    "$LUA" Apps/TestMX/testmx.lua -p $1 -t 2 EnvDump > /dev/null
@@ -83,7 +83,7 @@ if [ -f $EOUT.keep ]; then mv $EOUT.keep $EOUT; else rm -f $EOUT; fi
 [ -e Apps/FontDump.lua ] || ln -s FontDump/FontDump.lua Apps/FontDump.lua
 FOUT=Apps/FontDump/fontdump.out
 [ -f $FOUT ] && cp $FOUT $FOUT.keep
-for pr in "emu-ds24ii-606 fontdump-emu606" "ds24-508 fontdump-ds24-508" "ds16-506 fontdump-ds16-506"; do
+for pr in "emu-ds24ii-606 fontdump-emu606" "ds24ii-606 fontdump-ds24ii-606" "ds24-508 fontdump-ds24-508" "ds16-506 fontdump-ds16-506"; do
    set -- $pr
    rm -f $FOUT
    "$LUA" Apps/TestMX/testmx.lua -p $1 -t 1 FontDump > /dev/null

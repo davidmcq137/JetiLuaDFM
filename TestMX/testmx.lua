@@ -89,18 +89,23 @@ FW.profiles = {
       packagePath = "./Apps/?.lc;./Apps/?/init.lc;./Apps/?.lc2;./Apps/?/init.lc2;" ..
 	 "./Apps/?.lua;./Apps/?/init.lua;./Apps/lib/?.lua;./Apps/lib/?/init.lua;",
    },
-   -- real DS-24 II on 6.06: no debug/os/coroutine; images swap red/blue
+   -- real DS-24 II on 6.06: EnvDump and FontDump on Harry's TX, 2026-11-22
+   -- (TestMX/test/envdump-ds24ii-606.txt, fontdump-ds24ii-606.txt): no
+   -- debug/os/coroutine, its own fonts (FONT_NORMAL 8 .. FONT_MAXI 12, 17 px
+   -- high where the emulator's is 16); images swap red/blue
    ["ds24ii-606"] = {
       device = "JETI DS-24 II", version = "6.06", emulator = 0,
-      lcdW = 480, lcdH = 480,                                -- (?)
+      lcdW = 480, lcdH = 480,
       form = {316, 240},                                     -- (?)
       tele = {{150, 32}, {150, 68}, {316, 159}, {316, 159}}, -- small (?)
       gpsName = "getString", declareGlobal = true, offscreen = true,
       imageSwapRB = true, hide = {debug = true, os = true, coroutine = true},
       collate = "C",                                         -- (?) as DS-24 5.08
-      fonts = "emu-ds24ii-606",                              -- (?) until a TX FontDump
+      const = {FONT_NORMAL = 8, FONT_BOLD = 9, FONT_MINI = 10, FONT_BIG = 11,
+	       FONT_MAXI = 12},
+      fonts = "ds24ii-606",
       packagePath = "/Apps/?.lc;/Apps/?/init.lc;/Apps/?.lc2;/Apps/?/init.lc2;" ..
-	 "/Apps/?.lua;/Apps/?/init.lua;/Apps/lib/?.lua;/Apps/lib/?/init.lua;", -- (?)
+	 "/Apps/?.lua;/Apps/?/init.lua;/Apps/lib/?.lua;/Apps/lib/?/init.lua;",
    },
    -- real DS-24 on 5.08: EnvDump on the pilot's DS-24, 2026-11-21
    -- (TestMX/test/envdump-ds24-508.txt). Fonts and KEY_UP/KEY_DOWN differ
