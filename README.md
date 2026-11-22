@@ -5,21 +5,20 @@ I've built for the Jeti RC systems. Some of them have been prepared
 for distribution via a custom website, or via the Jeti Studio
 Transmitter wizard.
 
-For our GPS Maps App, please go to www.jetiluadfm.app and it will have
-instructions for how to set up maps for your field(s), and configure
-Jeti Studio to download all required content to your TX. You will also
-find links to Youtube training videos done by Harry Curzon.
+For our Maps App or Instrument Panel app, please go to www.jetiluadfm.app and it
+will have instructions for how to set up maps for your field(s), and configure
+Jeti Studio to download all required content to your TX. You will also find
+links to Youtube training videos done by Harry Curzon.
 
-Some of the other apps are hosted by digitech in the Netherlands
-(thank you Sandor!). To get these apps, open Jeti studio and open
-File/Configuration and add this line to the existing Jeti repository:
+For apps that do not have pilot-specific contents, we host them on the same
+website. The line to add to Jeti Studio's Configuration pulldown is:
 
-http://www.jetimodel.nl/DFMHC/Apps.json
+http://www.jetiluadfm.app/staticrepo/DFMHC/Apps.json
 
 The DFMHC apps are a collaboration with Harry Curzon. There are some
 other apps that can be accessed if you add a second line:
 
-http://www.jetimodel.nl/DFM/Apps.json
+http://www.jetiluadfm.app/staticrepo/DFM/Apps.json
 
 These apps are less well vetted and tested but you are welcome to use them.
 
@@ -51,3 +50,4 @@ into the app folders (`DFM-Maps.lua -> DFM-Maps/DFM-Maps.lua`). Use
 Have fun .. please feel free to raise any issues here.
 
 Dave McQ
+
