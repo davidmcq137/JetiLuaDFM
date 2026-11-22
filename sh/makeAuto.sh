@@ -1,5 +1,5 @@
 set -e
 set -x
-rm -f DFM-Auto.zip
-zip -ru DFM-Auto.zip DFM-Auto.lua DFM-Auto
+rm -f zip/DFM-Auto.zip
+zip -ru zip/DFM-Auto.zip DFM-Auto.lua DFM-Auto
 

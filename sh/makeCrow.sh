@@ -1,6 +1,6 @@
 set -e
 set -x
-rm -f DFM-Crow.zip
-zip -ru DFM-Crow.zip DFM-Crow.lc DFM-Crow
-zip -ru DFMHC.zip DFM-Crow.lc DFM-Crow
+rm -f zip/DFM-Crow.zip
+zip -ru zip/DFM-Crow.zip DFM-Crow.lc DFM-Crow
+zip -ru zip/DFMHC.zip DFM-Crow.lc DFM-Crow
 

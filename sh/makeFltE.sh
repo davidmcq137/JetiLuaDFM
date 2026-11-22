@@ -1,10 +1,10 @@
 set -e
 set -x
-rm -f DFM-FltE.zip
-zip -ru DFM-FltE.zip DFM-FltE.lua DFM-FltE
+rm -f zip/DFM-FltE.zip
+zip -ru zip/DFM-FltE.zip DFM-FltE.lua DFM-FltE
 cd ~/JSE
-rm -f DOCS.zip
-zip -ru DOCS.zip DOCS
+rm -f zip/DOCS.zip
+zip -ru zip/DOCS.zip DOCS
 cd ~/JS
 cp -rv ~/JSE/DOCS.zip .
 

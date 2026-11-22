@@ -1,8 +1,8 @@
 set -e
 set -x
-rm -f DFM-TriM.zip
-zip -ru DFM-TriM.zip DFM-TriM.lua DFM-TriM
-zip -ru DFM.zip DFM-TriM.lua DFM-TriM
+rm -f zip/DFM-TriM.zip
+zip -ru zip/DFM-TriM.zip DFM-TriM.lua DFM-TriM
+zip -ru zip/DFM.zip DFM-TriM.lua DFM-TriM
 
 
 

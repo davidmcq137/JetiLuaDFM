@@ -1,4 +1,4 @@
 set -e
 set -x
-rm -f FontDump.zip
-zip -ru FontDump.zip FontDump.lua FontDump -x '*.out'
+rm -f zip/FontDump.zip
+zip -ru zip/FontDump.zip FontDump.lua FontDump -x '*.out'

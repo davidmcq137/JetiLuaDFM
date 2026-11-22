@@ -11,6 +11,6 @@ set -x
 /home/davidmcq/lua-5.3.1-Jeti/src/luac -s -o DFM-GPS/genSettingsCmd.lc DFM-GPS/genSettingsCmd.lua
 /home/davidmcq/lua-5.3.1-Jeti/src/luac -s -o DFM-GPS/selTeleCmd.lc DFM-GPS/selTeleCmd.lua
 /home/davidmcq/lua-5.3.1-Jeti/src/luac -s -o DFM-GPS/selFieldCmd.lc DFM-GPS/selFieldCmd.lua
-rm -f DFM-GPS.zip
-zip -ru DFM-GPS.zip DFM-GPS.lua DFM-GPSm.lc DFM-GPS
+rm -f zip/DFM-GPS.zip
+zip -ru zip/DFM-GPS.zip DFM-GPS.lua DFM-GPSm.lc DFM-GPS
 

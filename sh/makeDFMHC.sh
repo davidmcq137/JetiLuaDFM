@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 set -x
-rm -f DFMHC.zip
+rm -f zip/DFMHC.zip
 cd ~/JS
 sh sh/makeCrow.sh
 sh sh/makeSWT.sh
@@ -33,7 +33,7 @@ read -p "New lua/lc files generated. Press enter after saving Apps.json file fro
 set -x
 cd ~
 #
-zip -ru ~/JS/DFMHC.zip Apps.json
+zip -ru ~/JS/zip/DFMHC.zip Apps.json
 #
 for f in DFM-Batt/BD_*.jxx; do
     mv -- "$f" "${f%.jxx}.jsn"

@@ -1,8 +1,8 @@
 set -e
 set -x
-rm -f DFM-Watt.zip
-zip -ru DFM-Watt.zip DFM-Watt/DFM-Watt.lua DFM-Watt
-zip -ru DFMHC.zip DFM-Watt/DFM-Watt.lua DFM-Watt
+rm -f zip/DFM-Watt.zip
+zip -ru zip/DFM-Watt.zip DFM-Watt/DFM-Watt.lua DFM-Watt
+zip -ru zip/DFMHC.zip DFM-Watt/DFM-Watt.lua DFM-Watt
 
 
 

@@ -1,8 +1,8 @@
 set -e
 set -x
-rm -f DFM.zip
+rm -f zip/DFM.zip
 cd ~
-zip -ru ~/JS/DFM.zip Apps.json
+zip -ru ~/JS/zip/DFM.zip Apps.json
 cd ~/JS
 sh sh/makeChute.sh
 sh sh/makeSpdA.sh

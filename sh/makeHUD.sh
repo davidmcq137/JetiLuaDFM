@@ -1,7 +1,7 @@
 set -e
 set -x
-rm -f DFM-HUD.zip
-zip -ru DFM-HUD.zip DFM-HUD.lua DFM-HUD
+rm -f zip/DFM-HUD.zip
+zip -ru zip/DFM-HUD.zip DFM-HUD.lua DFM-HUD
 
 
 
