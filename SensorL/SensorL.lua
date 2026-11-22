@@ -160,7 +160,8 @@ local appAuthor="DFM"
 -- (and getTxTelemetry, getPosition, ...) with a log's, for every app
 do
    local dev, emu = system.getDeviceType()
-   if emu ~= 1 then
+   -- FakeFW (system.FakeFW) plays a TX with no real sensors: run there too
+   if emu ~= 1 and not system.FakeFW then
       return {init = function()
 		 print("SensorL: runs only in the emulator; doing nothing on " .. tostring(dev))
 		 system.messageBox("SensorL runs only in the emulator", 5)

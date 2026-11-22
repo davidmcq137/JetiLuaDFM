@@ -7,7 +7,8 @@
 # on those and the DS-16 5.06 profile,
 # against the measured outputs, the DFM-TimG UIDriver scripts (SensorL replays
 # Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing), and
-# DFM-Maps' scripts on the maps-bds458 fixture (FakeFW/fakefw-uid.lua).
+# DFM-Maps' scripts on the maps-bds458 (emulator) and maps-bds320 (ds24-508)
+# fixtures (FakeFW/fakefw-uid.lua).
 # Exit code: the number of failed tests.
 LUA=${1:-$HOME/lua-5.3.1-Jeti-typefix/src/lua}
 T=Apps/FakeFW/test
@@ -98,16 +99,19 @@ for s in timg-test hud-test; do
 done
 
 # DFM-Maps' UIDriver scripts through the file layers (nothing is read from
-# or written to the working data): the field data in maps-bds458, settings
-# from a preset listed before it (none = Maps' init defaults, as on a first
-# start); confirm steps are skipped, as nobody is there to answer them
-for t in "nofly-test maps-bds458" "maps-smoke maps-tri,maps-bds458"; do
+# or written to the working data): the field data in maps-bds458 (DS-24 II)
+# or maps-bds320 (DS-24, older TXs), settings from a preset listed before it
+# (none = Maps' init defaults, as on a first start); confirm steps are
+# skipped, as nobody is there to answer them. On ds24-508 the telemetry
+# button steps are skipped too (fw 5.08 has no setTelemetryButton)
+for t in "nofly-test maps-bds458 emu-ds24ii-606" "maps-smoke maps-tri,maps-bds458 emu-ds24ii-606" \
+	 "nofly-test maps-bds320 ds24-508" "maps-smoke maps-tri,maps-bds320 ds24-508"; do
    set -- $t
    if "$LUA" Apps/FakeFW/fakefw-uid.lua --app DFM-Maps --script $1.jsn \
-	--fixture $2 --model FakeFW > $TMP/$1 2>&1; then
-      ok "DFM-Maps $1 ($2): $(grep '^==== DONE' $TMP/$1)"
+	--fixture $2 --model FakeFW -p $3 > $TMP/$1-$3 2>&1; then
+      ok "DFM-Maps $1 ($2, $3): $(grep '^==== DONE' $TMP/$1-$3)"
    else
-      bad "DFM-Maps $1 ($2)"; grep -v '^\[UID\]' $TMP/$1 | tail -30
+      bad "DFM-Maps $1 ($2, $3)"; grep -v '^\[UID\]' $TMP/$1-$3 | tail -30
    fi
 done
 

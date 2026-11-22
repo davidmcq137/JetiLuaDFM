@@ -415,7 +415,8 @@ function emulator_init()
    lastGPScalc = system.getTimeCounter()
    dev, emflag = system.getDeviceType()
    
-   if emflag == 1 then      
+   -- emulator only; FakeFW (system.FakeFW) plays a TX with no real sensors
+   if emflag == 1 or system.FakeFW then      
       --print("Before -- Emulator_init: system.getSensorByID", system.getSensorByID)
       --print("Before -- Emulator_init: emulator_getSensorByID", emulator_getSensorByID)      
       system.getSensors = emulator_getSensors
@@ -1118,7 +1119,8 @@ local function init()
 
    --]]
    
-   os.setlocale("C") -- required in Germany so commas don't get changed in json
+   -- required in Germany so commas don't get changed in json; a TX has no os
+   if os and os.setlocale then os.setlocale("C") end
    fieldIdx = 0
    fg = io.readall("Apps/SensorFields.jsn")
    --print("SensorFields fg", fg)

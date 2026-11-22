@@ -1114,6 +1114,9 @@ local function buildBase()
    -- the libraries are copies, so a profile can leave members out
    local function copy(t) local c = {}; for k, v in pairs(t) do c[k] = v end; return c end
    base.system, base.form, base.lcd, base.json = copy(system), copy(form), copy(lcd), json
+   -- system.FakeFW: true only here, for test tools (UIDriver runs on a TX
+   -- profile). In a metatable, so pairs() and EnvDump don't list it
+   setmetatable(base.system, {__index = {FakeFW = true}})
    base.io, base.dir, base.timer, base.gpio, base.serial = jio, jdir, timer, gpio, serial
    base.lcd.width, base.lcd.height = P.lcdW, P.lcdH
    base.gps = copy(gps)

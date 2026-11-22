@@ -5359,7 +5359,9 @@ local function init()
       uid.expose("maps", function()
 	 local img = Field and Field.images and currentImage and Field.images[currentImage]
 	 return {currentImage = currentImage, activeField = activeField,
-		 savedSubform = savedSubform, imageFile = img and img.file}
+		 savedSubform = savedSubform, imageFile = img and img.file,
+		 imageWidth = Screen.image_width_px,
+		 telemButtons = system.setTelemetryButton ~= nil}
       end)
       uid.expose("noFly", function()
 	 return {inside = noFlyHist.Last, ahead = noFlyHist.LastF,

@@ -153,8 +153,15 @@
      {"log": "text"}              write a line to the log
      {"expectState": "browse.Idx", "value": 2}   check app internals
                                   (see APP HOOKS); "min"/"max" for a
-                                  range, "tol" for float tolerance, or no
+                                  range, "tol" for float tolerance,
+                                  "oneOf": [a, b] for any of several, or no
                                   value at all to just log it
+     "onlyIf": {"state": "maps.imageWidth", "value": 458}   on any step:
+                                  run it only when that app state matches
+                                  ("value" or "oneOf"); otherwise it's
+                                  logged as SKIP with the reason. For
+                                  checks that only apply to some TXs or
+                                  map sizes
      {"remember": "checkBox.noflyEnabled", "as": "nf"}   save a value;
                                   later {"expectState": "...", "value": "$nf"}
                                   checks it's back, or "notValue": "$nf"
@@ -390,10 +397,10 @@ local appName = "UIDriver"
 -- functions and could feed a chosen app fake controls and sensors,
 -- which could move real servos through that app's setControl outputs;
 -- it's also large for the TX's memory. So on a TX it does nothing but
--- say so
+-- say so. FakeFW (system.FakeFW) plays a TX with no servos, so it runs there
 do
    local dev, emu = system.getDeviceType()
-   if emu ~= 1 then
+   if emu ~= 1 and not system.FakeFW then
       return {init = function()
 		 print("UIDriver: runs only in the emulator; doing nothing on " .. tostring(dev))
 		 system.messageBox("UIDriver runs only in the emulator", 5)
@@ -1451,6 +1458,15 @@ H.expectState = {ctx = "any", run = function(s)
 		       return not same(v, nv), s.expectState .. " = " .. tostring(v) ..
 			  ", must not be " .. tostring(nv)
 		    end
+		    if type(s.oneOf) == "table" then
+		       local shown = s.expectState .. " = " .. tostring(v) .. ", one of"
+		       for _, x in ipairs(s.oneOf) do
+			  x = deref(x)
+			  shown = shown .. " " .. tostring(x)
+			  if same(v, x) then return true, shown end
+		       end
+		       return false, shown
+		    end
 		    s = {expectState = s.expectState, value = deref(s.value), min = deref(s.min),
 			 max = deref(s.max), tol = s.tol}
 		    local shown = s.expectState .. " = " .. tostring(v)
@@ -1798,6 +1814,20 @@ local function runSteps(ctx, win)
 	 -- events/announcements it caused
 	 if ACTIONS[s._verb] and actionMarked ~= si then
 	    actionSeq, actionMarked = seq, si
+	 end
+	 -- a step for some setups only: SKIP it when the app state differs
+	 if type(s.onlyIf) == "table" and type(s.onlyIf.state) == "string" then
+	    local c = s.onlyIf
+	    local okR, v = resolve(c.state)
+	    local want = type(c.oneOf) == "table" and c.oneOf or {c.value}
+	    local match = false
+	    for _, x in ipairs(want) do if okR and same(v, deref(x)) then match = true end end
+	    if not match then
+	       local wanted = {}
+	       for i, x in ipairs(want) do wanted[i] = tostring(deref(x)) end
+	       return report(s, "skip", "onlyIf " .. c.state .. " = " .. tostring(okR and v or "?") ..
+			     ", not " .. table.concat(wanted, " or "))
+	    end
 	 end
 	 running = true
 	 local ok, st, msg = pcall(h.run, s, t - stepT0, win)
@@ -2885,10 +2915,16 @@ local function wrapImages()
 end
 
 -- the app a registerForm/registerTelemetry call came from; the label
--- stands in if the emulator gives no debug info
+-- stands in if there's no debug info (a TX, or FakeFW on a TX profile):
+-- a label that is the target's name, or starts with it and a space
+-- ("DFM-Maps Map View"), counts as the target's
 local function registeringApp(label)
    local id = callerApp(4)   -- 3 is the registerForm/registerTelemetry wrapper
-   if id == nil then id = tostring(label) end
+   if id == nil then
+      id = tostring(label)
+      local t = cfg.target or ""
+      if t ~= "" and (id == t or id:sub(1, #t + 1) == t .. " ") then id = t end
+   end
    return id
 end
 
