@@ -1078,7 +1078,30 @@ local function stubs(names)
 end
 local timer = stubs("create delete getByID getByName getName getRawTime getRoundCount getType isRunning restart start stop")
 local gpio = stubs("mode read write")
-local serial = stubs("init deinit getPorts onRead setBaudrate write")
+-- serial as a null device: any port opens, writes are accepted (the
+-- byte count comes back) and thrown away, nothing is ever read. So an app
+-- like DFM-HUD runs as if its device were plugged in. FW.serialBytes
+-- counts what was written, per port name
+local serial = {}
+local serialPorts = {}
+FW.serialBytes = {}
+function serial.getPorts() return {} end
+function serial.init(port)
+   local h = #serialPorts + 1
+   serialPorts[h] = tostring(port)
+   FW.serialBytes[serialPorts[h]] = FW.serialBytes[serialPorts[h]] or 0
+   return h, serialPorts[h]
+end
+function serial.deinit(h) return serialPorts[h] ~= nil end
+function serial.setBaudrate(h) return serialPorts[h] ~= nil end
+function serial.onRead(h) return serialPorts[h] ~= nil end
+function serial.write(h, s)
+   local name = serialPorts[h]
+   if not name then return nil, "port not open" end
+   s = tostring(s or "")
+   FW.serialBytes[name] = FW.serialBytes[name] + #s
+   return #s
+end
 
 --------------------------------------------------------------------------------
 -- app environments
@@ -1375,6 +1398,9 @@ function FW.finish()
    for _, k in ipairs(keys) do
       local c = cpu[k]
       out(fmt("[FW] %-28s %7d %8.2f %8.3f %6d", k, c.calls, c.max, c.total / c.calls, c.over))
+   end
+   for port, n in pairs(FW.serialBytes) do
+      out(string.format("[FW] serial %s (null device): %d bytes written", port, n))
    end
    out("[FW] cost model not calibrated against a TX yet; CPU overruns are reported, not failed")
    for _, e in ipairs(errors) do out("[FW] app error: " .. e) end

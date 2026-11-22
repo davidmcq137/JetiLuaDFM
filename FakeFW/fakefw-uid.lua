@@ -21,7 +21,10 @@
    --form <label pattern> (default the app), --minutes n (TX time, default 20),
    --model <name> (system.getProperty("Model")), --seed n, --keep (keep and
    print the run folder), --trace (log every file access), --out <file>
-   (copy the result log there).
+   (copy the result log there), --also A[,B] (more apps, loaded and
+   started after the target, e.g. --also DFM-HUD), --controls P5=-0.5,SA=-1
+   (stick, slider and switch positions -1..1; unset ones read 0),
+   --target-first (start the target before the sensor app and UIDriver).
    Exit code 0 only when the script ends DONE with 0 FAIL and no app errored.
 --]]
 
@@ -44,6 +47,17 @@ while i <= #arg do
    elseif a == "--minutes" then o.minutes = tonumber(v); i = i + 1
    elseif a == "--seed" then o.seed = math.tointeger(tonumber(v)); i = i + 1
    elseif a == "--out" then o.out = v; i = i + 1
+   elseif a == "--also" then
+      o.also = {}
+      for f in v:gmatch("[^,]+") do o.also[#o.also + 1] = f end
+      i = i + 1
+   elseif a == "--controls" then
+      o.controls = {}
+      for k, x in v:gmatch("([^,=]+)=([^,]+)") do
+	 o.controls[k] = tonumber(x) or error("--controls: " .. k .. "=" .. x .. " is not a number")
+      end
+      i = i + 1
+   elseif a == "--target-first" then o.targetFirst = true
    elseif a == "--keep" then o.keep = true
    elseif a == "--trace" then o.trace = true
    else io.stderr:write("fakefw-uid: unknown option " .. a .. "\n"); os.exit(2) end
@@ -61,10 +75,13 @@ local ok, code = pcall(function()
 	    model = o.model, keep = o.keep, trace = o.trace}
    FW.writeFile("Apps/UIDriver/selection.jsn", string.format(
       '{"app":"%s","script":"%s","mode":"play","unattended":true}', o.app, o.script))
+   if o.controls then FW.controls = o.controls end
    local names, init = {"UIDriver"}, {}
    if o.sensor ~= "none" then names[#names + 1] = o.sensor; init[#init + 1] = o.sensor end
    names[#names + 1] = o.app
-   init[#init + 1] = "UIDriver"; init[#init + 1] = o.app
+   init[#init + 1] = "UIDriver"
+   if o.targetFirst then table.insert(init, 1, o.app) else init[#init + 1] = o.app end
+   for _, a in ipairs(o.also or {}) do names[#names + 1] = a; init[#init + 1] = a end
    FW.load(names)
    FW.initApps(init)
 

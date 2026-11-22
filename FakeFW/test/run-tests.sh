@@ -5,7 +5,7 @@
 # ltm-typefix.patch). Build FakeFW/fakefw_c.so first (FakeFW/build.sh).
 # Tests: GpsTest on the emulator and DS-24 5.08 profiles, EnvDump and FontDump
 # on those and the DS-16 5.06 profile,
-# against the measured outputs, the DFM-TimG UIDriver scripts (SensorL replays
+# against the measured outputs, the DFM-TimG UIDriver scripts with DFM-HUD (SensorL replays
 # Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing), and
 # DFM-Maps' scripts on the maps-bds458 (emulator) and maps-bds320 (ds24-508)
 # fixtures (FakeFW/fakefw-uid.lua).
@@ -23,7 +23,7 @@ bad() { echo "FAIL: $1"; fails=$((fails + 1)); }
 "$LUA" -e 'print("collation en_US.UTF-8: " .. (os.setlocale("en_US.UTF-8", "collate") and "available" or "MISSING, string order may differ from the emulator"))'
 
 # the top-level app files are gitignored symlinks to the app folders
-for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-Maps; do
+for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps; do
    [ -e Apps/$a.lua ] || ln -s $a/$a.lua Apps/$a.lua
 done
 if [ ! -f Log/20190926/16-56-45.log ]; then
@@ -90,8 +90,15 @@ for pr in "emu-ds24ii-606 fontdump-emu606" "ds24-508 fontdump-ds24-508" "ds16-50
 done
 if [ -f $FOUT.keep ]; then mv $FOUT.keep $FOUT; else rm -f $FOUT; fi
 
-for s in timg-test hud-test; do
-   if "$LUA" Apps/FakeFW/fakefw-timg.lua $s.jsn > $TMP/$s 2>&1; then
+# DFM-TimG's scripts: SensorL replays the Georgia Jets log, the sliders
+# sit where the TimG test model has them, and TimG starts first (the init
+# order that once broke SensorL). hud-test runs the real DFM-HUD, which
+# reads TimG's DFM_TimG global; its serial port is FakeFW's null device
+for t in "timg-test -" "hud-test DFM-HUD"; do
+   set -- $t
+   s=$1; also=""; [ "$2" = - ] || also="--also $2"
+   if "$LUA" Apps/FakeFW/fakefw-uid.lua --app DFM-TimG --script $1.jsn --sensor SensorL \
+	$also --controls P5=-0.5,P6=0.1,SA=-1 --target-first --form Geriatric > $TMP/$s 2>&1; then
       ok "DFM-TimG $s: $(grep '^==== DONE' $TMP/$s)"
    else
       bad "DFM-TimG $s"; grep -v '^\[UID\]' $TMP/$s | tail -30
