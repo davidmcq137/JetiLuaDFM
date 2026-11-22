@@ -10,7 +10,8 @@ copies each app's folder whole: test data in an app folder would ship.
 
 Kinds:
 - field data, made from the working data by a script of the same name
-  (maps-bds458.sh): the map set and images, no settings
+  (maps-bds.sh 458 or 320 makes maps-bds458 or maps-bds320): the map
+  set and images, no settings
 - settings presets, written by hand, holding only the settings a test
   needs (maps-tri: {"triEnabled": true}); Maps fills in the rest from its
   init defaults. List them first: --fixture maps-tri,maps-bds458
