@@ -783,16 +783,24 @@ local active                 -- {app, n, f = registration, comps, ...}
 local closeReq, prevented = false, false
 local questionOpen = false
 
+-- component indexes as the emulator returns them (UIDriver listing,
+-- 2026-11-22): every add* call takes the next one, rows and spacers too,
+-- counting from 0 (addRow, addLabel, addLink = 0, 1, 2; then 3, 4, 5)
 local function add(c)
    if not active then return nil end
-   local cs = active.comps
-   cs[#cs + 1] = c
-   return #cs
+   local idx = active.nextIdx
+   active.comps[idx] = c
+   active.nextIdx = idx + 1
+   return idx
 end
 
 local form = {}
-function form.addRow() if active then active.rows = active.rows + 1 end end
-function form.addSpacer() end
+function form.addRow()
+   if not active then return nil end
+   active.rows = active.rows + 1
+   return add({kind = "row"})
+end
+function form.addSpacer(w, h, p) return add({kind = "spacer", p = p}) end
 function form.addLabel(p) return add({kind = "label", p = p}) end
 function form.addIcon(i, p) return add({kind = "icon", p = p}) end
 function form.addLink(cb, p) return add({kind = "link", cb = cb, p = p}) end
@@ -852,7 +860,7 @@ function form.close() closeReq = true end
 -- reinit runs initForm right away, as the emulator can (UIDriver notes)
 function form.reinit(sub)
    if not active then return end
-   active.comps, active.rows, active.sub = {}, 0, sub or 1
+   active.comps, active.nextIdx, active.rows, active.sub = {}, 0, 0, sub or 1
    call(active.app, "initForm", active.f.init, active.sub)
 end
 
@@ -878,7 +886,7 @@ function FW.openForm(which, sub)
    for _, app in ipairs(apps) do
       for n, f in pairs(app.forms) do
 	 if app.name == which or (f.label or ""):find(which) then
-	    active = {app = app, n = n, f = f, comps = {}, rows = 0, sub = sub or 1,
+	    active = {app = app, n = n, f = f, comps = {}, nextIdx = 0, rows = 0, sub = sub or 1,
 		      buttons = {}, focused = 1}
 	    call(app, "initForm", f.init, active.sub)
 	    call(app, "keyForm", f.key, CONST.KEY_RELEASED)   -- measured

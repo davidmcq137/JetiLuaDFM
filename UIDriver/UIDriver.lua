@@ -983,6 +983,14 @@ local function wrapForm()
    end
 end
 
+-- how a component is listed: kind, then its "#idx" when it has no label of
+-- its own, so a script can address it ("sel#7:'     1  '")
+local function compName(c)
+   local lbl = tostring(c.label)
+   if lbl == "#" .. tostring(c.idx) then return c.kind .. ":'" .. lbl .. "'" end
+   return c.kind .. "#" .. tostring(c.idx) .. ":'" .. lbl .. "'"
+end
+
 -- find a component by "#idx", label (+nth), or case-insensitive label
 local function find(label, nth, kind)
    nth = nth or 1
@@ -1008,7 +1016,7 @@ local function find(label, nth, kind)
    c = scan(function(c) return norm(c.label) == want end)
    if c then return c end
    local have = {}
-   for _, o in ipairs(comps) do have[#have+1] = o.kind .. ":'" .. tostring(o.label) .. "'" end
+   for _, o in ipairs(comps) do have[#have+1] = compName(o) end
    return nil, "no " .. (kind or "widget") .. " '" .. tostring(label) ..
       "' on subform " .. tostring(curSub) .. "; have " .. table.concat(have, ", ")
 end
@@ -2056,7 +2064,7 @@ local function wInit(sub)
    curSub, formOpen = sub, true
    closeExpected = false           -- a form.close() with no form open is stale
    local list = {}
-   for _, c in ipairs(comps) do list[#list+1] = c.kind .. ":'" .. tostring(c.label) .. "'" end
+   for _, c in ipairs(comps) do list[#list+1] = compName(c) end
    log("subform " .. tostring(sub) .. ": " .. table.concat(list, ", "))
    if recording then
       if cbDepth > 0 then recAfter[#recAfter+1] = {waitSub = sub}
