@@ -9,7 +9,8 @@
 # Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing), and
 # DFM-Maps' scripts on the maps-bds458 (emulator) and maps-bds320 (ds24-508)
 # fixtures (TestMX/testmx-uid.lua), DFM-HUD with fake Engo glasses, and
-# DFM-SWT's press counting with a real model file.
+# DFM-SWT's press counting with a real model file, and DFM-Rscu/DFM-Path
+# rescue and path steering on their own SensorE configs.
 # Exit code: the number of failed tests.
 LUA=${1:-$HOME/lua-5.3.1-Jeti-typefix/src/lua}
 T=Apps/TestMX/test
@@ -23,10 +24,14 @@ bad() { echo "FAIL: $1"; fails=$((fails + 1)); }
 # emulator does; say whether this machine has it (a warning, not a failure)
 "$LUA" -e 'print("collation en_US.UTF-8: " .. (os.setlocale("en_US.UTF-8", "collate") and "available" or "MISSING, string order may differ from the emulator"))'
 
-# the top-level app files are gitignored symlinks to the app folders
-for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps DFM-SWT; do
-   [ -e Apps/$a.lua ] || ln -s $a/$a.lua Apps/$a.lua
+# the top-level app files are gitignored symlinks to the app folders. Links
+# made here are removed at the end, so the emulator's list (appset) stays
+# as it was
+made=""
+for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps DFM-SWT DFM-Rscu DFM-Path; do
+   if [ ! -e Apps/$a.lua ]; then ln -s $a/$a.lua Apps/$a.lua && made="$made Apps/$a.lua"; fi
 done
+trap 'for l in $made; do [ -L "$l" ] && rm "$l"; done' EXIT
 if [ ! -f Log/20190926/16-56-45.log ]; then
    mkdir -p Log/20190926
    gunzip -c $T/16-56-45.log.gz > Log/20190926/16-56-45.log
@@ -148,6 +153,20 @@ if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-SWT --script swt-presses.jsn --se
 else
    bad "DFM-SWT swt-presses"; grep -v '^\[UID\]' $TMP/swt | tail -30
 fi
+
+# DFM-Rscu and DFM-Path on their own SensorE configs (Apps/<App>/SensorE).
+# Emulator profile only: in the emulator Rscu picks its GPS sensors by label
+# (Latitude, Longitude ...), so the scripts need no saved settings
+rp() {
+   if "$LUA" Apps/TestMX/testmx-uid.lua --app $1 --script $2.jsn > $TMP/$2 2>&1; then
+      ok "$1 $2: $(grep '^==== DONE' $TMP/$2)"
+   else
+      bad "$1 $2"; grep -v '^\[UID\]' $TMP/$2 | tail -30
+   fi
+}
+rp DFM-Rscu rscu-test
+rp DFM-Rscu rscu-controls-test
+rp DFM-Path path-controls-test
 
 echo "TestMitter tests: $fails failed"
 exit $fails

@@ -1012,19 +1012,50 @@ system.createSwitch = function(name, mode, on)
 	      assigned = known, mode = mode, activeOn = (on or 0) + 0.0,
 	      proportional = mode:find("P") ~= nil}})
 end
+-- a switch item's value, as measured in the emulator (UIDriver's evalSwitch
+-- has the same rules): S or E in the mode means switch evaluation, even
+-- with P ("PS"): 1 when active, else -1. A two/three-position switch
+-- (SA..SP) is active at its activeOn position, other controls when they
+-- reach activeOn. P alone passes the position through; I inverts it and C
+-- maps it to 0..1
+local function itemValue(m)
+   local raw = FW.controls[m.sw] or 0
+   local mode = m.mode:upper()
+   local inv = mode:find("I") ~= nil
+   if mode:find("P") and not mode:find("S") and not mode:find("E") then
+      local v = inv and -raw or raw
+      if mode:find("C") then v = (v + 1) / 2 end
+      return v
+   end
+   local on, active = m.on or 0
+   if m.sw:match("^S%a$") then
+      active = math.abs(raw - on) < 0.5
+   elseif on >= 0 then
+      active = raw >= on
+   else
+      active = raw <= on
+   end
+   if inv then active = not active end
+   return active and 1 or -1
+end
+
+-- getSwitchInfo: a fresh table each call, with "value" the item's current
+-- value (what getInputsVal returns): DFM-Path reads a PC control's 0..1
+-- from it
 system.getSwitchInfo = function(sw)
    local m = sw and getmetatable(sw)
-   return m and m.info
+   if not (m and m.info) then return nil end
+   local t = {}
+   for k, v in pairs(m.info) do t[k] = v end
+   if m.info.assigned then t.value = itemValue(m) end
+   return t
 end
 system.getInputsVal = function(...)
    local r, n = {}, select("#", ...)
    for i = 1, n do
       local sw = select(i, ...)
       local m = sw and getmetatable(sw)
-      if m and m.info and m.info.assigned then
-	 local raw = FW.controls[m.sw] or 0
-	 if m.mode:find("P") then r[i] = raw else r[i] = (math.abs(raw - m.on) < 0.5) and 1 or -1 end
-      end
+      if m and m.info and m.info.assigned then r[i] = itemValue(m) end
    end
    return unpack(r, 1, n)
 end

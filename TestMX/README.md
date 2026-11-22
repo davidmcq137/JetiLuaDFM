@@ -586,7 +586,7 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
 
 ## 7. The current suite
 
-`TestMX/test/run-tests.sh` runs 17 tests in about 12 s:
+`TestMX/test/run-tests.sh` runs 20 tests in about 20 s:
 
 | Test | Checks |
 |---|---|
@@ -597,3 +597,5 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
 | DFM-Maps `nofly-test`, `maps-smoke` | no-fly zones, announcements, stick shake, map view and triangle, on the 458 maps (emulator profile) and the 320 maps (DS-24 5.08) |
 | DFM-HUD `engo-test` on `emu-ds24ii-606` and `ds24ii-606` | glasses handshake, config upload, battery polls and well-formed gauge frames, against the fake Engo glasses |
 | DFM-SWT `swt-presses` on `emu-ds24ii-606` | 1 press, 2 presses and a long press each pulse their control, with the negative clock and a real model file |
+| DFM-Rscu `rscu-test`, `rscu-controls-test` on `emu-ds24ii-606` | inputboxes, mixer calibration, rescue on/off; steering and elevator outputs during a rescue |
+| DFM-Path `path-controls-test` on `emu-ds24ii-606` | steering and elevator on the saved path, the altitude loop and a 0-100% manual altitude control |
