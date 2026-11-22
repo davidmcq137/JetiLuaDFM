@@ -8,7 +8,7 @@
 --local trans11
 -- major.minor.MMDDx: a new letter for each pushed build, as Maps, InsP,
 -- Rscu, Path and TimG do; the full version shows in the setup menu
-local DialVersion = "1.14.1122a"
+local DialVersion = "1.14.1122b"
 
 -- a message box shows one line of about 26 characters on a DS-24: keep
 -- them short, start with the app's name, and print the details
@@ -518,25 +518,17 @@ local function dialPrint(w,h,win)
 	 else
 	    ovld = false
 	 end
-	 if val and tele[win].sensorMinWarn[i] then
-	    if type(tele[win].sensorMinWarn[i]) == "number" then -- look for "arith with userdata" bug
-	       --print(win,i)
-	       wmin = tele[win].sensorMinWarn[i] * tele[win].sensorMinMult[i]
-	    else
-	       --print("not number type min", win, i)
-	       wmin = val
-	    end
-	    if val < wmin then ovld = true end
+	 -- the warnings in the same units as min and max (times the
+	 -- multiplier), or nil for none; the marks on the dial use these too
+	 wmin, wmax = nil, nil
+	 if type(tele[win].sensorMinWarn[i]) == "number" then
+	    wmin = tele[win].sensorMinWarn[i] * tele[win].sensorMinMult[i]
 	 end
-	 if val and tele[win].sensorMaxWarn[i] then
-	    if type(tele[win].sensorMaxWarn[i]) == "number" then
-	       wmax = tele[win].sensorMaxWarn[i] * tele[win].sensorMaxMult[i]
-	    else
-	       --print("not number type max", win, i)
-	       wmax = val
-	    end
-	    if val > wmax then ovld = true end
+	 if type(tele[win].sensorMaxWarn[i]) == "number" then
+	    wmax = tele[win].sensorMaxWarn[i] * tele[win].sensorMaxMult[i]
 	 end
+	 if val and wmin and val < wmin then ovld = true end
+	 if val and wmax and val > wmax then ovld = true end
 	 if val then
 	    ratio = (val-min)/(max-min)
 	 else
@@ -661,15 +653,13 @@ local function dialPrint(w,h,win)
 	    drawBackArc(xz, yz, a0, aR, rI, rO, sg, 1)
 	    drawArc(theta, xz, yz, a0, aR, rI, rO, sg, 1)
 	    drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i],
-		       tele[win].sensorMaxWarn[i], tele[win].sensorMinWarn[i],
-		       max, min, xz, yz, a0, aR, rI, rO)
+		       wmax, wmin, max, min, xz, yz, a0, aR, rI, rO)
 	 elseif tele[win].sensorStyle[i] == 2 then --Dial
 	    drawBackArc(xz, yz, a0, aR, rI, rO, sg, 1)
 	    lcd.setColor(lcd.getFgColor())
 	    drawShape(xz,yz, np, theta - math.pi - aR/2)
 	    drawMaxMin(tele[win].sensorVmax[i], tele[win].sensorVmin[i],
-		       tele[win].sensorMaxWarn[i], tele[win].sensorMinWarn[i],
-		       max, min, xz, yz, a0, aR, rI, rO)
+		       wmax, wmin, max, min, xz, yz, a0, aR, rI, rO)
 	 elseif tele[win].sensorStyle[i] == 3 then --HBar
 	    local v1, v2, v3
 	    v1 = ( (tele[win].sensorVmin[i] or 0) - min)/(max-min)*100
