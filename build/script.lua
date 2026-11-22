@@ -107,19 +107,22 @@ local function build_app(app)
             output_dir,
             json_filename)))
 
-   -- Produce the zip
+   -- Produce the zip. Every app has SensorE/ (emulator sensor configs) and
+   -- UIDriver/ (test scripts and logs): they are for testing, not for the
+   -- TX, so they stay out of the zip
    os_execute(string.format("mkdir -p %s", output_dir))
    zip_name = string.format('%s-v%s.zip', app, info.version)
    assert(
       os_execute(
          string.format(
-            'cd %s && zip -r %s %s %s %s',
+            "cd %s && zip -r %s %s %s %s -x '%s/SensorE/*' '%s/UIDriver/*'",
             output_dir,
             --&&
             zip_name,
             lua_artifact,
             json_filename,
-            app)))
+            app,
+            app, app)))
 
    return {
       app = app,
