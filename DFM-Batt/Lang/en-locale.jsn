@@ -8,7 +8,7 @@
 	"battery":"Battery",
 	"cap":"Cap",
 	"warn":"W",
-	"battAlready":"Battery already selected",
+	"battAlready":"already selected",
 	"exitWithout":"Exit without selecting a battery?",
 	"noBatteryModel":"No battery group selected for model",
 	"noBatteryGroups":"No battery groups",
@@ -21,7 +21,7 @@
 	"cyc":"Cyc",
 	"noConfigBatt":"No configured batteries in Group",
 	"warnClear":"Warning: Cleared selected battery",
-	"removeSel":"Removed selected group",
+	"removeSel":"group removed",
 	"modelBattGrp":"Model Battery Group",
 	"battGrpSetup":"Battery Group Setup",
 	"warnings":"Warnings",
@@ -29,14 +29,14 @@
 	"modGrpSel":"Model Group Selection",
 	"noBattDef":"No Battery Groups defined",
 	"mahsensor":"Battery mAh sensor",
-	"battClear":"Battery selection cleared",
+	"battClear":"selection cleared",
 	"reSel":"Re-select battery",
-	"restart":"Model settings cleared - restart App",
+	"restart":"cleared, restart app",
 	"clearAll":"Clear all model settings",
 	"ays":"Are you sure?",
 	"delBattEnt":"Delete battery group entries?",
 	"also":"(also deletes selected group for this model)",
-	"restart2":"Battery groups cleared - restart App",
+	"restart2":"groups gone, restart",
 	"clearG":"Clear battery groups",
 	"clr":"Clr",
 	"warn1":"Warn 1",
@@ -54,8 +54,8 @@
 	"right":"Right",
 	"cycles":"Cycles",
 	"selFltBatt":"Select Flight Battery",
-	"noModelData":"No model data read: initializing",
-	"initTable":"Initializing global battery table"
+	"noModelData":"no model data",
+	"initTable":"new battery table"
     }
 }
 

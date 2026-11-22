@@ -269,6 +269,8 @@ end
 
 -- run when the outermost callback returns (form.reinit's initForm)
 local afterTop
+-- parent-0 forms to open (system.registerForm)
+local openReq = {}
 
 -- call an app callback with cost accounting; an error kills the app
 local function call(app, what, f, ...)
@@ -803,6 +805,7 @@ afterTop = function()
       active.pendingSub = nil
       doReinit(sub)
    end
+   if not active and #openReq > 0 and FW.openRequested then FW.openRequested() end
 end
 
 local runFrame                -- forward
@@ -822,20 +825,41 @@ function form.question(bold, l1, l2)
    return answer
 end
 
--- open a registered form by label (Lua pattern) or app name
+local function openRec(app, n, f, sub)
+   active = {app = app, n = n, f = f, comps = {}, nextIdx = 0, rows = 0, sub = sub or 1,
+	     buttons = {}, focused = 1}
+   call(app, "initForm", f.init, active.sub)
+   call(app, "keyForm", f.key, CONST.KEY_RELEASED)   -- measured
+end
+
+-- open a registered form by label (Lua pattern) or app name. By app
+-- name it is the app's menu form: the lowest number not on parent 0
 function FW.openForm(which, sub)
    for _, app in ipairs(apps) do
-      for n, f in pairs(app.forms) do
-	 if app.name == which or (f.label or ""):find(which) then
-	    active = {app = app, n = n, f = f, comps = {}, nextIdx = 0, rows = 0, sub = sub or 1,
-		      buttons = {}, focused = 1}
-	    call(app, "initForm", f.init, active.sub)
-	    call(app, "keyForm", f.key, CONST.KEY_RELEASED)   -- measured
+      local ns = {}
+      for n in pairs(app.forms) do ns[#ns + 1] = n end
+      table.sort(ns)
+      for _, n in ipairs(ns) do
+	 local f = app.forms[n]
+	 if (app.name == which and f.parent ~= 0) or (f.label or ""):find(which) then
+	    openRec(app, n, f, sub)
 	    return true
 	 end
       end
    end
    return false, "no form " .. tostring(which)
+end
+
+-- parent-0 forms waiting to open (see system.registerForm)
+function FW.openRequested()
+   while not active and #openReq > 0 do
+      local r = table.remove(openReq, 1)
+      local f = r.app.forms[r.n]
+      if f and not r.app.dead then
+	 fwlog("opening " .. r.app.name .. " form " .. r.n .. " '" .. tostring(f.label) .. "'")
+	 openRec(r.app, r.n, f, 1)
+      end
+   end
 end
 function FW.activeForm() return active end
 
@@ -935,10 +959,19 @@ system.stopPlayback = noop
 system.vibration = function(r, p) fwlog("vibration " .. tostring(r) .. " " .. tostring(p)) end
 system.setVario = noop
 
+-- parent 0: "the form has to be shown immediately" (API doc). Registered
+-- at init it doesn't open (the emulator, UIDriver spike 2026-11-18); from
+-- loop or another callback (DFM-Batt, when the RX appears) it opens after
+-- that callback returns, or when the open form closes
 system.registerForm = function(n, parent, label, init, key, prt, close)
    local app = currentApp()
    if not app then return nil end
    app.forms[n] = {label = label, parent = parent, init = init, key = key, print = prt, close = close}
+   local rec = stack[#stack]
+   if parent == 0 and rec and rec.what ~= "init" then
+      openReq[#openReq + 1] = {app = app, n = n}
+      fwlog(app.name .. " registered form " .. n .. " '" .. tostring(label) .. "' with parent 0: opens now")
+   end
    return n
 end
 system.unregisterForm = function(n)

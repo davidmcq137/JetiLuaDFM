@@ -1,0 +1,39 @@
+{
+"config": {
+"stepGap": 200,
+"stopOnFail": false
+},
+"steps": [
+{
+"log": "Another model deleted group 'Glow' (fixture batt-moved): this model saved group 2 'Elec', which is now group 1 ('Jet' is 2). 2.6 finds it by name"
+},
+{
+"waitForm": true
+},
+{
+"waitSub": 1
+},
+{
+"link": "Model Battery Group>>"
+},
+{
+"waitSub": 2
+},
+{
+"expect": "#1",
+"value": "Elec"
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 1
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitClosed": true
+}
+]
+}

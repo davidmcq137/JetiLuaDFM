@@ -568,6 +568,12 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
   `form.reinit(13)` and then tests `subForm == 13` for the same key, and
   one F3 opens subform 13 on the TX.
 
+- A form registered with parent 0 ("show immediately") opens by itself
+  when it is registered from loop or another callback (DFM-Batt's battery
+  choice, when the RX appears), after that callback returns, or when the
+  open form closes. Registered at init it doesn't open (the emulator).
+  `FW.openForm(app)` opens the app's menu form, not a parent-0 one.
+
 ### 6.5 JSON
 
 JETI's `json` is Lua CJSON, and TestMitter uses the same library, so these
@@ -613,7 +619,7 @@ hold in both (checked by JsonProbe against the emulator):
 
 ## 7. The current suite
 
-`TestMX/test/run-tests.sh` runs 30 tests:
+`TestMX/test/run-tests.sh` runs 38 tests:
 
 | Test | Checks |
 |---|---|
@@ -628,4 +634,5 @@ hold in both (checked by JsonProbe against the emulator):
 | DFM-Rscu `rscu-test`, `rscu-controls-test` on `emu-ds24ii-606` | inputboxes, mixer calibration, rescue on/off; steering and elevator outputs during a rescue |
 | DFM-Path `path-controls-test` on `emu-ds24ii-606` | steering and elevator on the saved path, the altitude loop and a 0-100% manual altitude control |
 | DFM-Dial `warn-roundtrip`, `upgrade-113` | "no warning" saves as `false`, never `null` (1.14), across two restarts (`restartApp`); a 1.13 file with `[null,5]` (fixture `dial-113`) loads, runs and is saved clean |
+| DFM-Batt `flight`, `f1-model-group`, `hidden-pack`, `clr-pack`, `double-select`, `delete-group`, `upgrade-25`, `group-moved` | a whole flight with SensorE's IBP (the battery choice opens when the RX appears: a parent-0 form), one test per bug fixed in 2.6, and 2.5 files (fixtures `batt-25`, `batt-moved`) loading with every pack and cycle count kept |
 | DFM-InsP `seq-stale-target`, `seq-new-entry`, `seq-image-change`, `panel-list`, `bad-settings` | the panel sequencer, panel numbering through adds and deletes, image changes, and a bad settings file |

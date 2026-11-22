@@ -1,0 +1,122 @@
+{
+"config": {
+"stepGap": 200,
+"stopOnFail": false
+},
+"steps": [
+{
+"log": "A group's pack list (subform 7): F1 'Clr' resets the focused pack (Cap, W1, W2, Cyc to 0). It clears the cycle count, so it asks first: No keeps the pack, Yes clears it. Before 2.6 Clr did nothing"
+},
+{
+"waitForm": true
+},
+{
+"waitSub": 1
+},
+{
+"link": "Battery Group Setup>>"
+},
+{
+"waitSub": 4
+},
+{
+"key": "KEY_2"
+},
+{
+"waitSub": 4
+},
+{
+"set": "#2",
+"value": "Elec"
+},
+{
+"focus": 1
+},
+{
+"key": "KEY_3"
+},
+{
+"waitSub": 7
+},
+{
+"key": "KEY_2"
+},
+{
+"waitSub": 7
+},
+{
+"set": "#7",
+"value": 500
+},
+{
+"set": "#8",
+"value": 50
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 4
+},
+{
+"focus": 1
+},
+{
+"key": "KEY_3"
+},
+{
+"waitSub": 7
+},
+{
+"focus": 2
+},
+{
+"answer": false
+},
+{
+"button": "Clr"
+},
+{
+"waitSub": 7
+},
+{
+"expect": "#7",
+"value": 500
+},
+{
+"answer": true
+},
+{
+"button": "Clr"
+},
+{
+"waitSub": 7
+},
+{
+"expect": "#7",
+"value": 0
+},
+{
+"expect": "#8",
+"value": 0
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 4
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 1
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitClosed": true
+}
+]
+}

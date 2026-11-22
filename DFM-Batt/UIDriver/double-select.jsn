@@ -1,0 +1,164 @@
+{
+"config": {
+"stepGap": 200,
+"stopOnFail": false
+},
+"steps": [
+{
+"log": "Packs 1 and 2 added with +Batt (F3), then Enter on row 1: each pack is announced once. Before 2.6 the 'already selected' test kept only the last pack's result, so pack 1 was added again (announced twice, 2 cycles)"
+},
+{
+"waitForm": true
+},
+{
+"waitSub": 1
+},
+{
+"link": "Battery Group Setup>>"
+},
+{
+"waitSub": 4
+},
+{
+"key": "KEY_2"
+},
+{
+"waitSub": 4
+},
+{
+"set": "#2",
+"value": "Elec"
+},
+{
+"focus": 1
+},
+{
+"key": "KEY_3"
+},
+{
+"waitSub": 7
+},
+{
+"key": "KEY_2"
+},
+{
+"waitSub": 7
+},
+{
+"key": "KEY_2"
+},
+{
+"waitSub": 7
+},
+{
+"set": "#7",
+"value": 500
+},
+{
+"set": "#8",
+"value": 50
+},
+{
+"set": "#13",
+"value": 500
+},
+{
+"set": "#14",
+"value": 50
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 4
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 1
+},
+{
+"link": "Settings>>"
+},
+{
+"waitSub": 3
+},
+{
+"set": "Battery mAh sensor",
+"value": "IBP 2S LiFe-> Capacity"
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 1
+},
+{
+"link": "Model Battery Group>>"
+},
+{
+"waitSub": 2
+},
+{
+"set": "#1",
+"value": "Elec"
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 1
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitClosed": true
+},
+{
+"setInput": "P1",
+"value": -1
+},
+{
+"setInput": "SA",
+"value": 1
+},
+{
+"waitForm": true,
+"timeout": "5s"
+},
+{
+"focus": 1
+},
+{
+"key": "KEY_3"
+},
+{
+"focus": 2
+},
+{
+"key": "KEY_3"
+},
+{
+"focus": 1
+},
+{
+"key": "KEY_ENTER"
+},
+{
+"waitNumber": 1
+},
+{
+"waitNumber": 2
+},
+{
+"waitNumber": 1,
+"absent": true,
+"for": "2s"
+},
+{
+"waitClosed": true
+}
+]
+}

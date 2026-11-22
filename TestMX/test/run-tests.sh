@@ -28,7 +28,7 @@ bad() { echo "FAIL: $1"; fails=$((fails + 1)); }
 # made here are removed at the end, so the emulator's list (appset) stays
 # as it was
 made=""
-for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps DFM-SWT DFM-Rscu DFM-Path DFM-InsP DFM-Dial; do
+for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps DFM-SWT DFM-Rscu DFM-Path DFM-InsP DFM-Dial DFM-Batt; do
    if [ ! -e Apps/$a.lua ]; then ln -s $a/$a.lua Apps/$a.lua && made="$made Apps/$a.lua"; fi
 done
 # (one trap for both: a second "trap ... EXIT" would replace the first)
@@ -199,6 +199,22 @@ rd() {
 }
 rd warn-roundtrip
 rd upgrade-113 "--fixture dial-113"
+
+# DFM-Batt (2.6): a whole flight (setup, the battery choice opening when the
+# RX appears, SensorE's IBP draining the pack, both warnings, the cycle count
+# kept over a restart), one test per bug fixed in 2.6, and upgrades from 2.5
+# files (fixtures batt-25: cycle histories and a group wiped to 0; batt-moved:
+# a group moved up by a deletion, found by name)
+rb() {
+   if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-Batt --script $1.jsn --model TestMX $2 > $TMP/$1 2>&1; then
+      ok "DFM-Batt $1: $(grep '^==== DONE' $TMP/$1)"
+   else
+      bad "DFM-Batt $1"; grep -v '^\[UID\]' $TMP/$1 | tail -30
+   fi
+}
+for t in flight f1-model-group hidden-pack clr-pack double-select delete-group; do rb $t; done
+rb upgrade-25 "--fixture batt-25"
+rb group-moved "--fixture batt-moved"
 
 # DFM-InsP's sequencer after panel edits, on the insp-aaa fixture (settings
 # with 2 panels and 2 old sequencer entries naming panels that are gone)

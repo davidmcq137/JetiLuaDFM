@@ -1,0 +1,98 @@
+{
+"config": {
+"stepGap": 200,
+"stopOnFail": false
+},
+"steps": [
+{
+"log": "Upgrading from 2.5 (fixture batt-25): BD_Global.jsn holds packs with long cycle histories and a group wiped to 0 by the old F1 bug; the model file has no group name. 2.6 must keep every pack and count, repair the 0 to an empty group, remember pack 2, and save the group name"
+},
+{
+"expectFile": "Apps/DFM-Batt/BD_Global.jsn",
+"contains": "],0,["
+},
+{
+"waitForm": true
+},
+{
+"waitSub": 1
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitClosed": true
+},
+{
+"setInput": "P1",
+"value": -1
+},
+{
+"setInput": "SA",
+"value": 1
+},
+{
+"waitForm": true,
+"timeout": "5s"
+},
+{
+"log": "the choice opens on pack 2, the one used last"
+},
+{
+"key": "KEY_ENTER"
+},
+{
+"waitAudio": "selected_battery"
+},
+{
+"waitNumber": 2
+},
+{
+"waitClosed": true
+},
+{
+"waitTelem": 1
+},
+{
+"wait": 2000
+},
+{
+"restartApp": "DFM-Batt"
+},
+{
+"wait": 500
+},
+{
+"expectFile": "Apps/DFM-Batt/BD_Global.jsn",
+"contains": "\"cyc\":57"
+},
+{
+"expectFile": "Apps/DFM-Batt/BD_Global.jsn",
+"contains": "\"cyc\":113"
+},
+{
+"expectFile": "Apps/DFM-Batt/BD_Global.jsn",
+"contains": "\"cyc\":9"
+},
+{
+"expectFile": "Apps/DFM-Batt/BD_Global.jsn",
+"contains": "\"cap\":2200"
+},
+{
+"expectFile": "Apps/DFM-Batt/BD_Global.jsn",
+"contains": "\"Name\":[\"Jet packs\",\"Group 2\",\"Glider\"]"
+},
+{
+"expectFile": "Apps/DFM-Batt/BD_Global.jsn",
+"contains": "],{},["
+},
+{
+"expectFile": "Apps/DFM-Batt/BD_TestMX.jsn",
+"contains": "\"lastGroupName\":\"Jet packs\""
+},
+{
+"expectFile": "Apps/DFM-Batt/BD_TestMX.jsn",
+"contains": "\"lastBattery\":2"
+}
+]
+}

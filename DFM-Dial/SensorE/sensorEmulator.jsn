@@ -5,7 +5,7 @@
      "CapTotal={500,2500,2500,3500}; 
       CapLeft={500,2500, 2500,3500}; 
       Current={0,0,0,0}; 
-      A123=require('A123')"
+      A123=require('DFM-Dial.SensorE.A123')"
     },
     {"id":168,
      "param": 4,

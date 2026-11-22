@@ -6,13 +6,25 @@
    handle global groups, and for a time was called DFM-BatG .. now this one is DFM-Batt
 
    Version 2.4 21-Apr-2023 Increase max mAh on packs to 32767 from 9999 per HC request
+   Version 2.6.1122a 22-Nov-2026 (found by the UIDriver tests in DFM-Batt/UIDriver):
+     - the default Warn 2 sound played Lang<locale>/... (a "/" missing)
+     - F1/F2 on Model Battery Group wiped or added groups (code for another screen)
+     - the battery choice hides packs with Cap 0, and picked the pack by row
+     - Clr on a group's pack list did nothing (now asks, then resets the pack)
+     - Enter after +Batt could add a pack twice (2 cycles, announced twice)
+     - deleting a group moved this model to the next one; each model now also
+       saves its group's name, and finds the group by name at startup, so
+       other models follow a deleted group too. BD_Global.jsn is unchanged
+     - both warnings re-arm when a battery is chosen
+     - short message boxes ("Batt: ..."), the date version scheme
 
    ----------------------------------------------------------------------
    
 --]]
 
 --local trans11
-local BattVersion = "2.5"
+-- major.minor.MMDDx: a new letter for each pushed build
+local BattVersion = "2.6.1122a"
 
 local subForm = 0
 local emFlag
@@ -45,6 +57,10 @@ local lastmAh = 0
 local savedRow
 
 local locale, lang
+
+-- a message box shows one line of about 26 characters on a DS-24: keep
+-- them short, start with the app's name, and print the details
+local function appMsg(s, t) system.messageBox("Batt: " .. s, t) end
 
 local function setLanguage()
    locale=system.getLocale()
@@ -211,38 +227,46 @@ local function timePrint()
 end
 
 --local ikk
-local selBatt = {}
+local selBatt = {}   -- the chosen packs (pack numbers, not rows); [1] is the primary
+local rowBatt = {}   -- the battery choice's rows: the pack shown on each row
+                     -- (packs with Cap 0 are not shown, so rows and packs differ)
+
+local function isSelected(i)
+   for j=1,#selBatt do
+      if selBatt[j] == i then return true end
+   end
+   return false
+end
 
 local function key0(key)
    local row = form.getFocusedRow()
+   local batt = rowBatt[row]
    if key == KEY_3 then
-      for j=1,#selBatt do
-	 if selBatt[j] == row then
-	    system.messageBox(lang.battAlready)
+      if batt then
+	 if isSelected(batt) then
+	    appMsg(lang.battAlready)
 	    form.reinit(2)
 	    return
 	 end
+	 table.insert(selBatt, batt)
       end
-      table.insert(selBatt, row)
       form.reinit(2)
    end
 
    if key == KEY_5 or key == KEY_ENTER then
       form.preventDefault()
       selectedBattery = 0
-      if selectedGroup > 0 and row >= 1 and row <= #Battery[selectedGroup]  then
+      if selectedGroup > 0 and batt then
 	 -- don't double-select an already-selected battery
-	 local skip
-	 for j=1,#selBatt do
-	    if selBatt[j] == row then skip = true else skip = false end
-	 end
-	 if not skip then
-	    table.insert(selBatt, row)
+	 if not isSelected(batt) then
+	    table.insert(selBatt, batt)
 	 end
 	 selectedBattery = selBatt[1]
       end
       
       if selectedBattery > 0 then
+	 -- a new pack: both warnings can sound again
+	 warnAnn, warn2Ann, lastmAh = false, false, 0
 	 for j=1, #selBatt do
 	    Battery[selectedGroup][selBatt[j]].cyc =
 	       Battery[selectedGroup][selBatt[j]].cyc + 1
@@ -283,6 +307,7 @@ local function initForm0()
    local prefix
       
    if not selBatt then selBatt = {} end
+   rowBatt = {}
    
    if #Battery > 0 and selectedGroup < 1 then
       form.addRow(1)
@@ -298,6 +323,7 @@ local function initForm0()
       for i=1,#Battery[selectedGroup],1 do
 	 if Battery[selectedGroup][i].cap ~= 0 then
 	    row = row + 1
+	    rowBatt[row] = i
 	    if i == lastBattery then
 	       focusRow = row
 	    end
@@ -334,7 +360,9 @@ local function initForm0()
    end
    --]]
    if selBatt and #selBatt > 0 then
-      focusRow = selBatt[#selBatt] 
+      for r, i in pairs(rowBatt) do
+	 if i == selBatt[#selBatt] then focusRow = r end
+      end
    end
    form.setFocusedRow(focusRow)
 end
@@ -396,21 +424,9 @@ end
 
 local function keyForm(key)
    local row = form.getFocusedRow()
-   if subForm == 2 and key == KEY_1 and row >= 1 and row <= #Battery then
-      Battery[row] = 0
-      if row == selectedGroup then
-	 selectedGroup = 0
-	 seenRX = false
-	 system.messageBox(lang.warnClear)
-      end
-      form.reinit(2)
-   end
+   -- (subform 2 had F1 "Battery[row] = 0" and F2 "add a 0" here, from the
+   -- old per-model DFM-Batt: they wiped groups in BD_Global.jsn. 2.6 removed them)
 
-   if subForm == 2 and key == KEY_2 then
-      Battery[#Battery + 1] = 0
-      form.reinit(2)
-   end
-   
    if subForm == 2 and keyExit(key)  then
       form.preventDefault()
       form.reinit(1)
@@ -442,8 +458,10 @@ local function keyForm(key)
       table.remove(Battery, row)
       table.remove(BatteryGroupName, row)
       if row == selectedGroup then
-	 system.messageBox(lang.removeSel)
+	 appMsg(lang.removeSel)
 	 selectedGroup = 0
+      elseif row < selectedGroup then
+	 selectedGroup = selectedGroup - 1   -- the same group, one place up
       end
       form.reinit(4)
    end
@@ -466,6 +484,16 @@ local function keyForm(key)
    if subForm == 7 and keyExit(key) then
       form.preventDefault()
       form.reinit(4)
+   end
+
+   -- Clr: row 1 is the column titles, so pack i is on row i + 1. It clears
+   -- the pack's cycle count (its history), so ask first
+   if subForm == 7 and key == KEY_1 and row >= 2 and row - 1 <= #Battery[savedRow] then
+      if form.question(lang.ays, string.format(lang.batt .. " %d: " .. lang.clr, row - 1),
+		       nil, 0, false, 5) == 1 then
+	 resetBattery(savedRow, row - 1)
+      end
+      form.reinit(7)
    end
 
    if subForm == 7 and key == KEY_2 then
@@ -524,7 +552,7 @@ local function initForm(sf)
 
       form.addRow(2)
       form.addLink((function()
-	       system.messageBox(lang.battClear)
+	       appMsg(lang.battClear)
 	       selectedGroup = 0
 	       seenRX = false
 	       form.reinit(3)
@@ -537,7 +565,7 @@ local function initForm(sf)
 	       writeBD = false
 	       selectedGroup = 0
 	       --seenRX = false
-	       system.messageBox(lang.restart)
+	       appMsg(lang.restart)
 	       form.reinit(3)
 		   end),
 	 {label=lang.clearAll, width=220})
@@ -555,7 +583,7 @@ local function initForm(sf)
 		  writeBD = false
 		  selectedGroup = 0
 		  wcDelete("Apps/DFM-Batt", "BD_", "jsn")
-		  system.messageBox(lang.restart2)
+		  appMsg(lang.restart2)
 		  form.reinit(3)
 	       end
 		   end),
@@ -671,6 +699,9 @@ local function writeBattery()
    local saveBatt = {}
    
    saveBatt.lastGroup = selectedGroup
+   -- 2.6: the name too, so the model finds its group after another group
+   -- is deleted (older versions ignore it)
+   saveBatt.lastGroupName = BatteryGroupName[selectedGroup]
    saveBatt.lastBattery = selectedBattery   
    saveBatt.battmAhSe = battmAhSe
    saveBatt.battmAhSeId = string.format("0X%x", battmAhSeId)
@@ -720,7 +751,7 @@ local function loop()
    and sensor and sensor.valid then
       battmAh = sensor.value
       if not battmAh then battmAh = 0 end
-      if battmAh < lastmAh then warnAnn = false end -- mui can reset to 0 after current flows
+      if battmAh < lastmAh then warnAnn, warn2Ann = false, false end -- mui can reset to 0 after current flows
       lastmAh = battmAh
       local battPct = 100 * (Battery[selectedGroup][selectedBattery].cap - battmAh) /
 	 Battery[selectedGroup][selectedBattery].cap
@@ -744,7 +775,7 @@ local function loop()
          and not warn2Ann then
 	    warn2Ann = true
 	    if warn2Sound == "..." then
-	       system.playFile('/Apps/DFM-Batt/Lang'..locale..'/low_battery_land_now.wav', AUDIO_IMMEDIATE)
+	       system.playFile('/Apps/DFM-Batt/Lang/'..locale..'/low_battery_land_now.wav', AUDIO_IMMEDIATE)
 	    else
 	       system.playFile(warn2Sound, AUDIO_IMMEDIATE)
 	    end
@@ -776,7 +807,8 @@ local function init()
    if emFlag == 1 then pf = "" else pf = "/" end
 
    if emFlag == 1 and system.getInputs("SA") ~= 1 then
-      system.messageBox("Emulator: Set SA to 1 to run init dialog")
+      appMsg("emulator: set SA=1")
+      print("DFM-Batt: emulator: set SA to 1 to open the battery choice")
    end
    
    mn = string.gsub(system.getProperty("Model"), " ", "_")
@@ -799,8 +831,8 @@ local function init()
       stickToShake2 = decoded.stickToShake2 or 1
       shakePattern2 = decoded.shakePattern2 or 1
    else
-      system.messageBox(lang.noModelData)
-      print("No Model data read: initializing")      
+      appMsg(lang.noModelData)
+      print("DFM-Batt: no data for this model in " .. fileBD .. ": initializing")      
       battmAhSe = 0
       battmAhSeId = 0
       battmAhSePa = 0
@@ -817,18 +849,34 @@ local function init()
    lastGroup = lastGroup
    
    fileBDG = pf .. "Apps/DFM-Batt/BD_Global.jsn"
-   file = io.readall(fileBDG)
 
    local temp
+   local lastGroupName = file and decoded and decoded.lastGroupName
    
+   file = io.readall(fileBDG)
    if file then
       temp = json.decode(file)
       Battery = temp.Array
       BatteryGroupName = temp.Name
    else
-      system.messageBox(lang.initTable)
-      print("Initializing global battery table")
+      appMsg(lang.initTable)
+      print("DFM-Batt: no " .. fileBDG .. ": initializing the global battery table")
       Battery = {}
+   end
+
+   -- repair, keeping every pack: a group that isn't a table (a 0 written
+   -- by the F1 key on Model Battery Group before 2.6) becomes an empty
+   -- group, and a group with no name gets the default one
+   if type(Battery) ~= "table" then Battery = {} end
+   if type(BatteryGroupName) ~= "table" then BatteryGroupName = {} end
+   for i = 1, #Battery do
+      if type(Battery[i]) ~= "table" then
+	 print("DFM-Batt: group " .. i .. " was " .. tostring(Battery[i]) .. ": now empty")
+	 Battery[i] = {}
+      end
+      if type(BatteryGroupName[i]) ~= "string" then
+	 BatteryGroupName[i] = string.format(lang.group .. " %d", i)
+      end
    end
 
    if not warnSound then warnSound = "..." end
@@ -836,6 +884,21 @@ local function init()
    
    selectedBattery = 0
    if not selectedGroup then selectedGroup = 0 end
+
+   -- the model's group by name (2.6). Same number, same name: keep it (two
+   -- groups can share a name). Otherwise the first group with that name: a
+   -- group before it was deleted. No group with that name (renamed): the
+   -- number, as before 2.6
+   if type(lastGroupName) == "string" and BatteryGroupName[selectedGroup] ~= lastGroupName then
+      for i = 1, #Battery do
+	 if BatteryGroupName[i] == lastGroupName then
+	    print("DFM-Batt: group '" .. lastGroupName .. "' is now number " .. i ..
+		  " (was " .. tostring(selectedGroup) .. ")")
+	    selectedGroup = i
+	    break
+	 end
+      end
+   end
    
    system.registerForm(1, MENU_APPS, lang.appname, initForm, keyForm)
    system.registerTelemetry(1, lang.appname, 2, timePrint)

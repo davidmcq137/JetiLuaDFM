@@ -1,0 +1,155 @@
+{
+"config": {
+"stepGap": 200,
+"stopOnFail": false
+},
+"steps": [
+{
+"log": "F1 and F2 on 'Model Battery Group' (subform 2) do nothing. Before 2.6 F1 set Battery[row] = 0, wiping the focused group in BD_Global.jsn for every model, and F2 appended a 0"
+},
+{
+"waitForm": true
+},
+{
+"waitSub": 1
+},
+{
+"link": "Battery Group Setup>>"
+},
+{
+"waitSub": 4
+},
+{
+"key": "KEY_2"
+},
+{
+"waitSub": 4
+},
+{
+"set": "#2",
+"value": "Glow"
+},
+{
+"focus": 1
+},
+{
+"key": "KEY_3"
+},
+{
+"waitSub": 7
+},
+{
+"key": "KEY_2"
+},
+{
+"waitSub": 7
+},
+{
+"set": "#7",
+"value": 500
+},
+{
+"set": "#8",
+"value": 50
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 4
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 1
+},
+{
+"link": "Settings>>"
+},
+{
+"waitSub": 3
+},
+{
+"set": "Battery mAh sensor",
+"value": "IBP 2S LiFe-> Capacity"
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 1
+},
+{
+"link": "Model Battery Group>>"
+},
+{
+"waitSub": 2
+},
+{
+"set": "#1",
+"value": "Glow"
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 1
+},
+{
+"link": "Model Battery Group>>"
+},
+{
+"waitSub": 2
+},
+{
+"focus": 1
+},
+{
+"key": "KEY_1"
+},
+{
+"waitSub": 2
+},
+{
+"key": "KEY_2"
+},
+{
+"waitSub": 2
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitSub": 1
+},
+{
+"key": "KEY_ESC"
+},
+{
+"waitClosed": true
+},
+{
+"waitTelem": 1
+},
+{
+"wait": 2000
+},
+{
+"restartApp": "DFM-Batt"
+},
+{
+"wait": 500
+},
+{
+"expectFile": "Apps/DFM-Batt/BD_Global.jsn",
+"contains": "\"Array\":[0",
+"absent": true
+},
+{
+"expectFile": "Apps/DFM-Batt/BD_Global.jsn",
+"contains": ",0]",
+"absent": true
+}
+]
+}

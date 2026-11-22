@@ -3053,25 +3053,41 @@ local function install()
       wrapForm()   -- in case form was nil when the chunk loaded
       local app = getApp(id)
       app.registered = true
-      app.init, app.key, app.print, app.close = i, k, p, c
-      app.label = label            -- the title until the target sets one
-      app.title = nil
+      -- an app can have several forms (DFM-Batt: its menu, and a parent-0
+      -- form registered from loop when the RX appears). Each keeps its
+      -- own callbacks; app.init/key/print/close are the ones of the form
+      -- whose callback ran last, so a second registerForm doesn't take
+      -- over the first form's
+      local f = {init = i, key = k, print = p, close = c, label = label}
+      local function use()
+	 if app.cur ~= f then
+	    app.cur = f
+	    app.init, app.key, app.print, app.close = f.init, f.key, f.print, f.close
+	    app.label = f.label      -- the title until the target sets one
+	    app.title = nil
+	 end
+      end
+      if not app.cur then use() end
       if app == T and active() then log("hooked form '" .. tostring(label) .. "'") end
       local function on() return app == T and active() end
       return orig.registerForm(n, parent, label,
 	 function(sub)
+	    use()
 	    if on() then return wInit(sub) end
 	    if app.init then return app.init(sub) end
 	 end,
 	 function(key)
+	    use()
 	    if on() then return wKey(key) end
 	    if app.key then return app.key(key) end
 	 end,
 	 function(w, h)
+	    use()
 	    if on() then return wPrint(w, h) end
 	    if app.print then return app.print(w, h) end
 	 end,
 	 function()
+	    use()
 	    if on() then return wClose() end
 	    if app.close then return app.close() end
 	 end)
