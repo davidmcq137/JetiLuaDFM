@@ -62,7 +62,7 @@
 -- major.minor.MMDD plus a letter for each build that day, as DFM-Maps does.
 -- The TX's app list shows only the first 7 characters ("0.95.11"), so the
 -- Settings title shows all of it
-local InsPVersion = "0.95.1122b"
+local InsPVersion = "0.95.1122c"
 
 local LE
 
