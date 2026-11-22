@@ -1,12 +1,16 @@
 --[[
-   ColorSwap 2.0: two renderer problems on the DS-24 II, for JETI (Radek)
+   ColorSwap 2.1: two renderer problems on the DS-24 II, for JETI (Radek)
 
-   1. A polyline of more than 131 points draws wrong. One renderer, 132 or
-      more addPoint calls, one renderPolyline: instead of the line it draws
-      a filled shape, and gives no error. Measured on the emulator (6.06)
-      with ColorSwap 1.3-1.5: 131 points is fine and 132 fails, at line
-      widths 1, 2 and 4 alike, so the limit is on the number of points,
-      not on the line width. Direct and off-screen rendering fail the same.
+   1. A polyline of too many points draws wrong. One renderer, more than
+      about 128 addPoint calls, one renderPolyline: instead of the line it
+      draws a filled shape, and gives no error. On this spiral it shows
+      from 132 points: 131 looks right and 132 fails (emulator 6.06,
+      ColorSwap 1.3-1.5), at line widths 1, 2 and 4 alike. Direct and
+      off-screen rendering fail the same. The limit itself is about 128:
+      a renderer call holds 256 points, and a polyline's outline needs
+      about two per point. A small overrun can be invisible, so where it
+      shows depends on the shape. See PolyLimit, which also shows that
+      renderPolygon keeps the first 256 points and drops the rest.
    2. Off-screen rendering may swap red and blue (seen on the DS-24 II).
 
    Both windows are full screen (size 5) in native drawing mode
@@ -22,7 +26,8 @@
      flight path, then shown with lcd.drawImage.
 
    Expected: in both windows the left spiral is a red line and the right
-   one a filled red shape.
+   one a filled red shape. (131 is slightly over the true limit, but on
+   this spiral the overrun can't be seen until 132.)
 
    Colours: both windows have R G B boxes drawn straight to the screen
    (lcd.drawFilledRectangle). Window 2 also has the same boxes rendered
@@ -35,9 +40,9 @@
 --]]
 
 local appName = "ColorSwap"
-local version = "2.0"
+local version = "2.1"
 
-local GOOD, BAD = 131, 132 -- the last good point count and the first bad one
+local GOOD, BAD = 131, 132 -- the last count that looks right on this spiral, the first wrong
 local WIDTH = 2
 local T_END, TURN_S, R_MAX = 60, 10, 105
 local COLORS = {{255, 0, 0, "R"}, {0, 255, 0, "G"}, {0, 0, 255, "B"}}
