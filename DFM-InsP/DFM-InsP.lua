@@ -51,7 +51,8 @@
    Version 0.90 11/03/26 - support for larger screen on 24-II devices
    Version 0.90 11/17/26 - more changes for bugs and reliability from Claude code review
    Version 0.95 11/22/26 - sequencer follows panel deletes and image changes; a new
-                           entry's To is "+"; a missing To panel no longer blanks window 1
+                           entry's To is "+"; a missing To panel no longer blanks window 1;
+                           "+" and the rotate switch skip panels with no image (---)
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -61,7 +62,7 @@
 -- major.minor.MMDD plus a letter for each build that day, as DFM-Maps does.
 -- The TX's app list shows only the first 7 characters ("0.95.11"), so the
 -- Settings title shows all of it
-local InsPVersion = "0.95.1122a"
+local InsPVersion = "0.95.1122b"
 
 local LE
 
@@ -785,6 +786,21 @@ local function seqPanelChanged(old, newName)
       system.messageBox(string.format("Removed %d sequencer entr%s for %s",
 				      gone, gone == 1 and "y" or "ies", old))
    end
+end
+
+-- the next panel after p that has an image, wrapping round past the last;
+-- p itself if no other panel has one. A "---" panel (added, no image
+-- chosen yet, or cleared) only shows "No Panel Image", so the sequencer's
+-- "+" and the rotate switch step over it
+local function nextPanel(p)
+   local n = #InsP.panelImages
+   for k = 1, n do
+      local q = ((p or 0) + k - 1) % n + 1
+      local im = InsP.panelImages[q].instImage
+      if im and im ~= "---" then return q end
+   end
+   if p and p >= 1 and p <= n then return p end
+   return 1
 end
 
 local function accEnv(arg, typ)
@@ -2780,10 +2796,7 @@ local function loop()
 		  system.messageBox("Window 1 switching to: " .. to)
 		  InsP.settings.window1Panel = tp
 	       else
-		  InsP.settings.window1Panel = InsP.settings.window1Panel + 1
-		  if InsP.settings.window1Panel > #InsP.panels then
-		     InsP.settings.window1Panel = 1
-		  end
+		  InsP.settings.window1Panel = nextPanel(InsP.settings.window1Panel)
 		  system.messageBox("Window 1 incrementing to " ..
 				       InsP.panelImages[InsP.settings.window1Panel].instImage)
 	       end
@@ -2807,15 +2820,9 @@ local function loop()
    if swp and swp == 1 and swpLast ~= 1 then
       local is = InsP.settings
       if dispWindow == 1 then
-	 is.window1Panel = is.window1Panel + 1
-	 if is.window1Panel > #InsP.panels then
-	    is.window1Panel = 1
-	 end
+	 is.window1Panel = nextPanel(is.window1Panel)
       elseif dispWindow == 2 then
-	 is.window2Panel = is.window2Panel + 1
-	 if is.window2Panel > #InsP.panels then
-	    is.window2Panel = 1
-	 end
+	 is.window2Panel = nextPanel(is.window2Panel)
       end
    end
    swpLast = swp
