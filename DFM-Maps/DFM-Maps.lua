@@ -67,7 +67,7 @@ appInfo.Maps = appInfo.Name
 appInfo.menuTitle = appInfo.Name
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
 -- bump the suffix (month, day, letter) for each build sent to a tester
-appInfo.version = "10.0.1121b"
+appInfo.version = "10.0.1122a"
 -- a real TX has no debug library; the emulator has one. The TX swaps red and
 -- blue in renderer drawing into images (see ribbon.prepare)
 appInfo.swapRB = (debug == nil)
@@ -778,7 +778,7 @@ local function setLanguage()
    --print("DFM-Maps: locale " .. locale)
 
    if not fp then
-      system.messageBox("DFM-Maps: No Tranlation for locale " .. locale)
+      system.messageBox("No translation: " .. locale)
       print("DFM-Maps: No Tranlation for locale " .. locale)      
       -- try for English if no locale support
       locale = "en"
@@ -1533,7 +1533,8 @@ local function initField(fn)
    end
    
    if Field and Field.name then
-      system.messageBox("Current location: " .. Field.name, 2)
+      print("DFM-Maps: current location: " .. Field.name)
+      system.messageBox("Field: " .. Field.name, 2)
       activeField = Field.shortname
 
       maxImage = #Field.images
@@ -1841,7 +1842,7 @@ local function initForm(subform)
       local t = {"Light", "Dark", "Image"}
       variables.triColorMode = t[value]
       jSave(variables, "triColorMode", t[value])
-      system.messageBox(appInfo.Name..": Restart app for new screen mode")
+      system.messageBox("Restart app: screen mode")
    end
 
    local function airplaneIconChanged(value)
@@ -4293,7 +4294,7 @@ local function updateRibbon()
 	    Field.ptrLast = Field.pointsToRender
 	    Field.pointsToRender = Field.pointsToRender + 1
 	    if Field.pointsToRender == const.ribbonPts and ptr == const.ribbonPts - 1 then
-	       system.messageBox(appInfo.Name..": Flight path pts being dropped")
+	       system.messageBox("Path points dropped")
 	       print(appInfo.Name..": Flight path pts being dropped")
 	    end
 	    metrics.xPCountLastDraw = metrics.xPCount
@@ -5607,7 +5608,7 @@ local function init()
       system.setProperty("NativeDraw", 1)
       if system.getProperty("NativeDraw") ~= 1 then
 	 print(appInfo.Name .. ": Cannot enter Native Draw")
-	 system.messageBox(appInfo.Name .. ": Cannot enter Native Draw")	 
+	 system.messageBox("Cannot enter Native Draw")	 
       else
 	 print(appInfo.Name .. ": DC/DS 24 Native Draw Mode")
       end

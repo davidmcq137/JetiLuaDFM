@@ -27,7 +27,7 @@
 
   {"log": "Elevator control must be plain P: SA, PC and PI are rejected"},
   {"set": "Elevator control", "value": {"switch": "SA", "mode": "S", "activeOn": 1}},
-  {"waitMessage": "must be proportional"},
+  {"waitMessage": "must be P (prop.)"},
   {"waitSub": 1},
   {"link": "App Settings"},
   {"waitSub": 10},

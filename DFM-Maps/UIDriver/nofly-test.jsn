@@ -2,7 +2,7 @@
   {"log": "DFM-Maps no-fly test: field BDS458 or BDS320 (the same field, 458 or 320 px maps), polygon 1. Needs SensorE running with the DFM-Maps config; open DFM-Maps from the Applications menu"},
   {"waitForm": true},
   {"waitSub": 1},
-  {"waitMessage": "Current location", "anyTime": true},
+  {"waitMessage": "Field: ", "anyTime": true},
   {"expectState": "maps.activeField", "oneOf": ["BDS458", "BDS320"]},
   {"expectState": "noFly.polygons", "value": 2},
 

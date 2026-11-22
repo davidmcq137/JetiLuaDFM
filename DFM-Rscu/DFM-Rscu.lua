@@ -22,7 +22,7 @@
 
 local appName = "DFM-Rscu"
 -- bump the suffix (month, day, letter) for each build sent to a tester
-local appVersion = "0.6.1121a"
+local appVersion = "0.6.1122a"
 
 -- The DS-24 II firmware swaps red and blue when a renderer draws into an
 -- image (found with DFM-Maps, Harry 2026-11-21: yellow came out cyan); the
@@ -584,7 +584,7 @@ local function loopP()
       else
 	 if oldCurPos and not RTH.curPos then
 	    system.stopPlayback(AUDIO_IMMEDIATE)
-	    system.messageBox(appName .. ": GPS signal lost")
+	    system.messageBox("GPS signal lost")
 	    system.playFile(ppA.."GPSsignallost.wav", AUDIO_IMMEDIATE)
 	 end
 	 RTH.lastPos = nil
@@ -597,7 +597,7 @@ local function loopP()
 	 RTH.gpsReads = RTH.gpsReads + 1
       end
       if RTH.gpsReads > MINGPSREADS and not RTH.zeroPos then
-	 system.messageBox(appName..": GPS and Alt zero set")
+	 system.messageBox("GPS and Alt zero set")
 	 --print("DFM-Rscu: GPS and Alt zero set")
 	 RTH.zeroPos = RTH.curPos
 	 RTH.initPos = RTH.curPos
@@ -649,11 +649,11 @@ local function loopP()
    if SwC_on and not lastSwC_on then 
       --system.stopPlayback()
       if RTH.settings.elevInput then
-	 system.messageBox(appName .. ": Mixer calibration active")
+	 system.messageBox("Mixer calibration active")
 	 system.playFile(ppA .. "mixercalactive.wav", AUDIO_IMMEDIATE)
 	 calibrating = true
       else
-	 system.messageBox(appName..": No elevator input set")
+	 system.messageBox("No elevator input set")
       end
       
    end
@@ -661,7 +661,7 @@ local function loopP()
    if lastSwC_on and not SwC_on and calibrating == true and RTH.settings.elevInput then -- just turned off
       calibrating = false
       --system.stopPlayback()
-      system.messageBox(appName .. ": Mixer calibration captured")
+      system.messageBox("Mixer calibration captured")
       system.playFile(ppA .. "mixercaldone.wav", AUDIO_IMMEDIATE)
       local si = system.getSwitchInfo(RTH.settings.elevInput)
       --print("si", si.label, si.value, si.proportional, si.assigned, si.mode)
@@ -687,7 +687,7 @@ local function loopP()
       --system.stopPlayback()
       local parmOK = true
       if not config.Amix or not config.Emix then
-	 system.messageBox("DFM-Rscu: missing required parameters")
+	 system.messageBox("Missing parameters")
 	 parmOK = false
       end
       
@@ -1014,7 +1014,7 @@ local function loopP()
 	       --if pointsToRender > 2 then print("pointsToRender", pointsToRender) end
 	    end
 	    if pointsToRender == 100 and ptr == 99 then
-	       system.messageBox(appName..": Flight path pts being dropped")
+	       system.messageBox("Path points dropped")
 	    end
 	    if pointsToRender >= 100 then
 	       for i,_ in ipairs(magVal) do
@@ -1099,7 +1099,7 @@ local function keyPressGPS(key)
 	    pointA = gps.newPoint(BDALat, BDALng)
 	 else
 	    if not RTH.curPos then
-	       system.messageBox(appName..": no current GPS position")
+	       system.messageBox("No current GPS position")
 	       return
 	    end
 	    pointA = RTH.curPos
@@ -1129,17 +1129,17 @@ local function keyPressGPS(key)
 	    pointB = gps.newPoint(BDBLat, BDBLng)
 	 else
 	    if not pointA then
-	       system.messageBox(appName..": enter Pt A first")
+	       system.messageBox("Enter Pt A first")
 	       return
 	    end
 	    if not RTH.curPos then
-	       system.messageBox(appName..": no current GPS position")
+	       system.messageBox("No current GPS position")
 	       return
 	    end
 	    distAB = gps.getDistance(pointA, RTH.curPos)
 	    -- assume 5 m along rwy is enough to get a good rotation angle
 	    if distAB < 5 then
-	       system.messageBox(appName..": too close for Pt B")
+	       system.messageBox("Too close for Pt B")
 	       return
 	    end
 	    pointB = RTH.curPos
@@ -1187,12 +1187,12 @@ local function initForm(subform)
       -- which is the evaluated value, so "PC" (0..100%) would scale it and
       -- "PI" (inverted) would flip its sign
       if not si or not si.proportional then
-	 system.messageBox("Elevator control must be proportional")
+	 system.messageBox("Elevator must be P (prop.)")
 	 RTH.settings.elevInput = nil
 	 system.pSave("elevInput", nil)
 	 form.reinit(1)
       elseif si.mode and si.mode ~= "P" then
-	 system.messageBox("Elevator control must be P, not " .. si.mode)
+	 system.messageBox("Elevator must be P, not " .. si.mode)
 	 RTH.settings.elevInput = nil
 	 system.pSave("elevInput", nil)
 	 form.reinit(1)
@@ -2153,7 +2153,7 @@ local function init()
    if ok and type(dc) == "table" and dc.Amix and dc.Emix and dc.annMax and dc.annDelay then
       config = dc
    else
-      system.messageBox(appName..": Missing parms Config.jsn")
+      system.messageBox("Config.jsn: missing parms")
    end
 
    renShape   = lcd.renderer()
@@ -2255,7 +2255,7 @@ local function init()
       system.setControl(RTH.settings.steerCtrl, RTH.settings.steer, 0)
    else
       print(appName .. ": Could not register steer control")
-      system.messageBox(appName .. ": Could not register steer control")
+      system.messageBox("Can't register steering")
    end
 
    RTH.settings.elevCtrl = nil
@@ -2278,7 +2278,7 @@ local function init()
       system.setControl(RTH.settings.elevCtrl, RTH.settings.elev, 0)
    else
       print(appName .. ": Could not register elevator control")
-      system.messageBox(appName .. ": Could not register elevator control")
+      system.messageBox("Can't register elevator")
    end
    
    logret = {}

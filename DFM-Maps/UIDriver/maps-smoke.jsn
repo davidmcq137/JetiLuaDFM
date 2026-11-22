@@ -3,7 +3,7 @@
   {"waitForm": true},
   {"waitSub": 1},
   {"expectState": "maps"},
-  {"waitMessage": "Current location", "anyTime": true},
+  {"waitMessage": "Field: ", "anyTime": true},
 
   {"link": "Telemetry Sensors >>"},
   {"waitSub": 2},

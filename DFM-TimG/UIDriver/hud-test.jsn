@@ -41,7 +41,7 @@
 
   {"log": "throttle cutoff ends the flight"},
   {"setInput": "SB", "value": 1, "for": "target"},
-  {"waitMessage": "Turbine shut down", "timeout": "3s"},
+  {"waitMessage": "Turbine off", "timeout": "3s"},
 
   {"log": "put TimG's settings back; if its menu isn't open, open it now (waiting up to 10 minutes)"},
   {"waitForm": true, "timeout": "10m"},

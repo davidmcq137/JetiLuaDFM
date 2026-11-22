@@ -477,7 +477,7 @@ local function loop()
       local turbineState = system.getInputsVal(thrControl)
       if (turbineState and turbineState > 0) then -- turbine is off .. stop timer
 	 startTime = nil
-	 system.messageBox("Turbine shut down, timer stopped")
+	 system.messageBox("Turbine off, timer stopped")
 	 writeFuelState()
       end
    end
