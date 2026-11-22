@@ -1,6 +1,6 @@
 {"config": {"stepGap": 200, "stopOnFail": false},
  "steps": [
-  {"log": "Dial's min/max warnings across a restart. Each window's warnings are arrays of 4 where nil means 'no warning'. A warning on dial 2 only makes {nil, 5.0}, which JETI's json (Lua CJSON) saves as [null,5]; on reading back the null is a lightuserdata, truthy, and arithmetic on it is an error. Window 1 gets two dials, a max warning on dial 2 only, then Dial is restarted (destroy saves, init reads) and both sensors are driven past their limits"},
+  {"log": "Dial's min/max warnings across a restart. Up to 1.13 'no warning' was nil, so a warning on dial 2 only made {nil, 5.0}, which JETI's json (Lua CJSON) saves as [null,5]; on reading back the null is a lightuserdata, truthy, and arithmetic on it is an error. Since 1.14 'no warning' is false, saved as false. Window 1 gets two dials, a max warning on dial 2 only, then Dial is restarted (destroy saves, init reads) and both sensors are driven past their limits"},
   {"waitForm": true},
   {"waitSub": 1},
   {"set": "1", "value": "Full Screen (2)"},
@@ -20,10 +20,11 @@
   {"key": "KEY_ESC"},
   {"waitClosed": true},
 
-  {"log": "restart: destroy writes DD_DialTest.jsn, init reads it back. The file shows the hole as null; Dial's repair at init (DFM-Dial.lua:1186) prints 'fix max 1 1 userdata'"},
+  {"log": "restart: destroy writes DD_TestMX.jsn, init reads it back: [false,5] and no null anywhere"},
   {"restartApp": "DFM-Dial"},
   {"wait": 500},
-  {"expectFile": "Apps/DFM-Dial/DD_DialTest.jsn", "contains": "\"sensorMaxWarn\":[null,5]"},
+  {"expectFile": "Apps/DFM-Dial/DD_TestMX.jsn", "contains": "\"sensorMaxWarn\":[false,5,false,false]"},
+  {"expectFile": "Apps/DFM-Dial/DD_TestMX.jsn", "contains": "null", "absent": true},
 
   {"log": "in flight: SOC (no warning) and Pack (warning at 5) both over range"},
   {"setSensor": "SOC P5", "value": 50},
@@ -31,10 +32,11 @@
   {"waitTelem": 1},
   {"wait": 3000},
 
-  {"log": "a second restart: Dial's repair at init turned the userdata back into nil, so the hole is saved as null again; Dial must still start and run without an error"},
+  {"log": "a second restart: still [false,5], no null"},
   {"restartApp": "DFM-Dial"},
   {"wait": 500},
-  {"expectFile": "Apps/DFM-Dial/DD_DialTest.jsn", "contains": "\"sensorMaxWarn\":[null,5]"},
+  {"expectFile": "Apps/DFM-Dial/DD_TestMX.jsn", "contains": "\"sensorMaxWarn\":[false,5,false,false]"},
+  {"expectFile": "Apps/DFM-Dial/DD_TestMX.jsn", "contains": "null", "absent": true},
   {"waitTelem": 1},
   {"wait": 3000}
  ]}

@@ -186,14 +186,19 @@ rp DFM-Rscu rscu-test
 rp DFM-Rscu rscu-controls-test
 rp DFM-Path path-controls-test
 
-# DFM-Dial: min/max warnings across restarts ("restartApp"). A warning on one
-# dial only saves as [null,5] (Lua CJSON); Dial must read it back and run.
-# The model name picks the file, Apps/DFM-Dial/DD_DialTest.jsn
-if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-Dial --script warn-roundtrip.jsn --model DialTest > $TMP/dial 2>&1; then
-   ok "DFM-Dial warn-roundtrip: $(grep '^==== DONE' $TMP/dial)"
-else
-   bad "DFM-Dial warn-roundtrip"; grep -v '^\[UID\]' $TMP/dial | tail -30
-fi
+# DFM-Dial: min/max warnings across restarts ("restartApp"). Since 1.14 "no
+# warning" is false, so a warning on one dial only saves as [false,5], not
+# [null,5] (Lua CJSON); upgrade-113 starts from a 1.13 file holding [null,5]
+# (fixture dial-113). The model name picks the file, DD_TestMX.jsn
+rd() {
+   if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-Dial --script $1.jsn --model TestMX $2 > $TMP/$1 2>&1; then
+      ok "DFM-Dial $1: $(grep '^==== DONE' $TMP/$1)"
+   else
+      bad "DFM-Dial $1"; grep -v '^\[UID\]' $TMP/$1 | tail -30
+   fi
+}
+rd warn-roundtrip
+rd upgrade-113 "--fixture dial-113"
 
 # DFM-InsP's sequencer after panel edits, on the insp-aaa fixture (settings
 # with 2 panels and 2 old sequencer entries naming panels that are gone)

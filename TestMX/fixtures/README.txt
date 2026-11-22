@@ -15,6 +15,9 @@ Kinds:
 - settings presets, written by hand, holding only the settings a test
   needs (maps-tri: {"triEnabled": true}); Maps fills in the rest from its
   init defaults. List them first: --fixture maps-tri,maps-bds458
+- old files, written by an earlier version of an app, to test that a new
+  version still reads them (dial-113: DFM-Dial 1.13 settings with
+  [null,5] warnings)
 
 To find what an app reads: run it with an empty fixture and --trace;
 "hidden" lines are working files it wanted.

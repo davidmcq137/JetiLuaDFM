@@ -1,0 +1,23 @@
+{"config": {"stepGap": 200, "stopOnFail": false},
+ "steps": [
+  {"log": "A settings file from Dial 1.13 or before (fixture dial-113, written by 1.13 in this test's first version): window 1 has two dials, a max warning on dial 2 only, saved as [null,5], and {} where no dial has a warning. 1.14 must read it, turn every non-number into false, run with both sensors past their limits, and save it without a null"},
+  {"expectFile": "Apps/DFM-Dial/DD_TestMX.jsn", "contains": "\"sensorMaxWarn\":[null,5]"},
+  {"waitForm": true},
+  {"key": "KEY_ESC"},
+  {"waitClosed": true},
+
+  {"log": "in flight on the old file: SOC (no warning) and Pack (warning at 5) both over range"},
+  {"setSensor": "SOC P5", "value": 50},
+  {"setSensor": "Pack P8", "value": 8},
+  {"waitTelem": 1},
+  {"wait": 3000},
+
+  {"log": "restart: destroy saves the repaired arrays"},
+  {"restartApp": "DFM-Dial"},
+  {"wait": 500},
+  {"expectFile": "Apps/DFM-Dial/DD_TestMX.jsn", "contains": "\"sensorMaxWarn\":[false,5,false,false]"},
+  {"expectFile": "Apps/DFM-Dial/DD_TestMX.jsn", "contains": "\"sensorMinWarn\":[false,false,false,false]"},
+  {"expectFile": "Apps/DFM-Dial/DD_TestMX.jsn", "contains": "null", "absent": true},
+  {"waitTelem": 1},
+  {"wait": 3000}
+ ]}

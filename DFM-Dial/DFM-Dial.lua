@@ -6,7 +6,13 @@
 --]]
 
 --local trans11
-local DialVersion = "1.13"
+-- major.minor.MMDDx: a new letter for each pushed build, as Maps, InsP,
+-- Rscu, Path and TimG do; the full version shows in the setup menu
+local DialVersion = "1.14.1122a"
+
+-- a message box shows one line of about 26 characters on a DS-24: keep
+-- them short, start with the app's name, and print the details
+local function appMsg(s, t) system.messageBox("Dial: " .. s, t) end
 
 local runningTime = 0
 local startTime = 0
@@ -788,7 +794,8 @@ local function keyForm(key)
       if ans == 1 then
 	 writeBD = false
 	 wcDelete("Apps/DFM-Dial", "DD_", "jsn")
-	 system.messageBox("Saved data cleared - Restart App")
+	 appMsg("cleared, restart app")
+	 print("DFM-Dial: saved data cleared - restart the app")
       end
    end
    
@@ -891,6 +898,8 @@ local function initForm(sf)
 	 form.addSelectbox(teleSelect, tele[i].screen, true,
 			   (function(x) return teleWinChanged(x,i) end), {width=260, alignRight=false})	 
       end
+      form.addRow(1)
+      form.addLabel({label="DFM - v." .. DialVersion .. " ", font=FONT_MINI, alignRight=true})
       if savedRow then form.setFocusedRow(savedRow) end
       savedRow = 1
    elseif sf == 13 then
@@ -979,8 +988,8 @@ local function initForm(sf)
       
       form.addRow(2)
       form.addLink((function()
-	       tele[savedRow].sensorMinWarn[savedRow2] = nil
-	       tele[savedRow].sensorMaxWarn[savedRow2] = nil
+	       tele[savedRow].sensorMinWarn[savedRow2] = false -- not nil: see init
+	       tele[savedRow].sensorMaxWarn[savedRow2] = false
 	       mmAdd = true
 		   end), {label="Reset min/max warnings>>", width=220})
       
@@ -1122,11 +1131,11 @@ local function init()
 
    if not file or tele[1].jsnVersion ~= jsnVersion then
       if not file then
-	 system.messageBox("No Model data read: initializing")
-	 print("No Model data read: initializing")
+	 appMsg("no saved data")
+	 print("DFM-Dial: no data for this model in " .. fileBD .. ": initializing")
       else
-	 system.messageBox("Old data format: re-initializing")
-	 print("Old data format: re-initializing")
+	 appMsg("old data, reset")
+	 print("DFM-Dial: old data format in " .. fileBD .. ": re-initializing")
       end
       
       --
@@ -1167,12 +1176,18 @@ local function init()
 	    tele[i].sensorChartSmooth[j] = 1
 	    tele[i].sensorMinWarnDone[j] = false
 	    tele[i].sensorMaxWarnDone[j] = false
+	    tele[i].sensorMinWarn[j] = false -- no warning (not nil: see below)
+	    tele[i].sensorMaxWarn[j] = false
 	 end
       end
    end
    
-   -- clear out the items we don't want to remember from last run
-   -- and repair any userdata nulls in sensorMin/MaxWarn (json encode/decode issue)
+   -- clear out the items we don't want to remember from last run.
+   -- "No warning" is false, never nil: json (Lua CJSON) saves a nil inside
+   -- an array as null ({nil, 5} -> [null,5]), and null reads back as a
+   -- userdata, which is truthy, and arithmetic on it is an error. Files
+   -- from 1.13 and before can still hold null (or {} for no warnings at
+   -- all): anything that isn't a number becomes false
    
    for i=1,2,1 do
       for j=1,4,1 do
@@ -1184,12 +1199,10 @@ local function init()
 	 tele[i].sensorMaxWarnDone[j] = false
 	 tele[i].sensorSample[j] = {}
 	 if type(tele[i].sensorMinWarn[j]) ~= "number" then
-	    print("fix min", i, j, type(tele[i].sensorMinWarn[j]))
-	    tele[i].sensorMinWarn[j] = nil
+	    tele[i].sensorMinWarn[j] = false
 	 end
 	 if type(tele[i].sensorMaxWarn[j]) ~= "number" then
-	    print("fix max", i, j, type(tele[i].sensorMaxWarn[j]))
-	    tele[i].sensorMaxWarn[j] = nil
+	    tele[i].sensorMaxWarn[j] = false
 	 end	 
       end
    end

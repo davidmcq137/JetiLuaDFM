@@ -613,7 +613,7 @@ hold in both (checked by JsonProbe against the emulator):
 
 ## 7. The current suite
 
-`TestMX/test/run-tests.sh` runs 29 tests:
+`TestMX/test/run-tests.sh` runs 30 tests:
 
 | Test | Checks |
 |---|---|
@@ -627,5 +627,5 @@ hold in both (checked by JsonProbe against the emulator):
 | DFM-SWT `swt-presses` on `emu-ds24ii-606` | 1 press, 2 presses and a long press each pulse their control, with the negative clock and a real model file |
 | DFM-Rscu `rscu-test`, `rscu-controls-test` on `emu-ds24ii-606` | inputboxes, mixer calibration, rescue on/off; steering and elevator outputs during a rescue |
 | DFM-Path `path-controls-test` on `emu-ds24ii-606` | steering and elevator on the saved path, the altitude loop and a 0-100% manual altitude control |
-| DFM-Dial `warn-roundtrip` | a max warning on one dial saves as `[null,5]`; across two restarts (`restartApp`) Dial reads it back and runs without an error |
+| DFM-Dial `warn-roundtrip`, `upgrade-113` | "no warning" saves as `false`, never `null` (1.14), across two restarts (`restartApp`); a 1.13 file with `[null,5]` (fixture `dial-113`) loads, runs and is saved clean |
 | DFM-InsP `seq-stale-target`, `seq-new-entry`, `seq-image-change`, `panel-list`, `bad-settings` | the panel sequencer, panel numbering through adds and deletes, image changes, and a bad settings file |
