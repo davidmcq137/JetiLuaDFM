@@ -71,6 +71,11 @@ appInfo.version = "10.0.1122a"
 -- a real TX has no debug library; the emulator has one. The TX swaps red and
 -- blue in renderer drawing into images (see ribbon.prepare)
 appInfo.swapRB = (debug == nil)
+
+-- message boxes: the app's short name first, since several apps may be
+-- running; one centred line, clipped at both ends when too long, so keep
+-- the whole text to 26 characters (fits a DS-24), details to print()
+local function appMsg(s, t) system.messageBox("Maps: " .. s, t) end
 appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
 appInfo.Config = "Apps/" .. appInfo.Maps .. "/Maps/Config.jsn"
 appInfo.SaveData = true
@@ -778,7 +783,7 @@ local function setLanguage()
    --print("DFM-Maps: locale " .. locale)
 
    if not fp then
-      system.messageBox("No translation: " .. locale)
+      appMsg("no language " .. locale)
       print("DFM-Maps: No Tranlation for locale " .. locale)      
       -- try for English if no locale support
       locale = "en"
@@ -1534,7 +1539,7 @@ local function initField(fn)
    
    if Field and Field.name then
       print("DFM-Maps: current location: " .. Field.name)
-      system.messageBox("Field: " .. Field.name, 2)
+      appMsg(Field.name, 2)
       activeField = Field.shortname
 
       maxImage = #Field.images
@@ -1746,7 +1751,7 @@ local function initForm(subform)
 
    local function validAnn(val, str)
       if string.find(str, val) then
-	 system.messageBox("Invalid Character(s)")
+	 appMsg("invalid character")
 	 return false
       else
 	 return true
@@ -1842,7 +1847,7 @@ local function initForm(subform)
       local t = {"Light", "Dark", "Image"}
       variables.triColorMode = t[value]
       jSave(variables, "triColorMode", t[value])
-      system.messageBox("Restart app: screen mode")
+      appMsg("restart for screen")
    end
 
    local function airplaneIconChanged(value)
@@ -1873,7 +1878,7 @@ local function initForm(subform)
    -- back to Fields.jsn's triangle at this field, for every model
    local function clearTri()
       if not (Field and Field.shortname) then
-	 system.messageBox("No field selected", 3)
+	 appMsg("no field selected", 3)
 	 return
       end
       if form.question("Clear triangle edits for " .. Field.shortname .. "?",
@@ -4294,7 +4299,7 @@ local function updateRibbon()
 	    Field.ptrLast = Field.pointsToRender
 	    Field.pointsToRender = Field.pointsToRender + 1
 	    if Field.pointsToRender == const.ribbonPts and ptr == const.ribbonPts - 1 then
-	       system.messageBox("Path points dropped")
+	       appMsg("path pts dropped")
 	       print(appInfo.Name..": Flight path pts being dropped")
 	    end
 	    metrics.xPCountLastDraw = metrics.xPCount
@@ -5608,7 +5613,7 @@ local function init()
       system.setProperty("NativeDraw", 1)
       if system.getProperty("NativeDraw") ~= 1 then
 	 print(appInfo.Name .. ": Cannot enter Native Draw")
-	 system.messageBox("Cannot enter Native Draw")	 
+	 appMsg("no Native Draw")	 
       else
 	 print(appInfo.Name .. ": DC/DS 24 Native Draw Mode")
       end

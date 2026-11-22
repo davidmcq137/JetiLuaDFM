@@ -20,7 +20,7 @@
 
   {"log": "load the saved path (Save Path is never pressed)"},
   {"link": "Load saved Path >>"},
-  {"waitMessage": "Path file read, 7 points"},
+  {"waitMessage": "Path: file read, 7 pts"},
   {"expectState": "path.nPoints", "value": 7},
 
   {"log": "200 m south of point 1, flying north straight at it, at its 100 m"},
@@ -98,7 +98,7 @@
 
   {"log": "within 20 m of point 1: on to point 2, whose altitude is 50 m"},
   {"sensorPosition": {"lat": "41.34061691", "lon": "-74.42942578", "north": -10}},
-  {"waitMessage": "Steering to point 2", "timeout": "3s"},
+  {"waitMessage": "Path: steering to pt 2", "timeout": "3s"},
   {"expectState": "path.flyIndex", "value": 2},
   {"expectState": "path.altSet", "value": 50},
 

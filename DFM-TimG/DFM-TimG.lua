@@ -72,6 +72,11 @@
 local shared = {elapsed = 0, remaining = 0}
 
 local TimAnnVersion = "1.1"
+
+-- message boxes: the app's short name first, since several apps may be
+-- running; one centred line, clipped at both ends when too long, so keep
+-- the whole text to 26 characters (fits a DS-24), details to print()
+local function appMsg(s, t) system.messageBox("TimG: " .. s, t) end
 local gearSwitch
 local thrControl
 
@@ -477,7 +482,7 @@ local function loop()
       local turbineState = system.getInputsVal(thrControl)
       if (turbineState and turbineState > 0) then -- turbine is off .. stop timer
 	 startTime = nil
-	 system.messageBox("Turbine off, timer stopped")
+	 appMsg("turbine off, stopped")
 	 writeFuelState()
       end
    end

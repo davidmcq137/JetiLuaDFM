@@ -96,6 +96,11 @@ local dataSources = {"Sensor", "Control", "Lua"} --, "Extension"}
 local switches = {}
 local stateSw = {}
 
+-- message boxes: the app's short name first, since several apps may be
+-- running; one centred line, clipped at both ends when too long, so keep
+-- the whole text to 26 characters (fits a DS-24), details to print()
+local function appMsg(s, t) system.messageBox("InsP: " .. s, t) end
+
 local units = {}
 local Screen = {}
 
@@ -785,7 +790,7 @@ local function seqPanelChanged(old, newName)
    if gone > 0 then
       print(string.format("DFM-InsP: removed %d sequencer entr%s for %s",
 			  gone, gone == 1 and "y" or "ies", old))
-      system.messageBox(string.format("Sequencer: %d removed", gone))
+      appMsg(string.format("%d seq. removed", gone))
    end
 end
 
@@ -1227,13 +1232,13 @@ local function keyForm(key)
 	 -- the deleted one moved up one place. (Finding them again by image name
 	 -- picked the wrong one when two panels shared an image, or were "---")
 	 if is.window1Panel == row then
-	    system.messageBox("Window 1 Panel deleted")
+	    appMsg("W1 panel deleted")
 	    is.window1Panel = 1
 	 elseif is.window1Panel > row then
 	    is.window1Panel = is.window1Panel - 1
 	 end
 	 if is.window2Panel == row then -- window 2 off (0) stays off
-	    system.messageBox("Window 2 Panel deleted")
+	    appMsg("W2 panel deleted")
 	    is.window2Panel = math.min(#InsP.panels, 2)
 	 elseif is.window2Panel > row then
 	    is.window2Panel = is.window2Panel - 1
@@ -1635,7 +1640,7 @@ local function panelChanged(val, sp)
       for j, p in ipairs(InsP.panelImages) do
 	 if j ~= sp and p.instImage == pv then
 	    print("DFM-InsP: " .. pv .. " is already panel " .. j)
-	    system.messageBox("Image used by panel " .. j)
+	    appMsg("image is panel " .. j)
 	    form.reinit(formN.panels) -- the selectbox shows the old image again
 	    return
 	 end
@@ -1736,7 +1741,7 @@ local function changedSwitch(val, switchName, j, wid)
 	 end
 	 InsP.settings.switchInfo[switchName].mode = swInfo.mode
       else
-	 system.messageBox("Keep switch on to assign")
+	 appMsg("hold switch on")
 	 if switches[switchName] then
 	    form.setValue(swtCI[switchName], switches[switchName])
 	 else
@@ -1928,7 +1933,7 @@ local function initForm(sf)
       if ans == 1 then
 	 io.remove(InsP.settings.fileBD)
 	 InsP.settings.writeBD = false
-	 system.messageBox("Data deleted: restart app")
+	 appMsg("deleted, restart")
       end
       form.reinit(1)
    elseif sf == formN.settings then
@@ -2795,11 +2800,11 @@ local function loop()
 		  -- rather than set it to panel 0 and blank it
 		  print("DFM-InsP: sequencer entry " .. i .. ": no panel " .. tostring(to))
 	       elseif to ~= "+" then
-		  system.messageBox("Window 1: " .. to)
+		  system.messageBox("InsP W1: " .. to)
 		  InsP.settings.window1Panel = tp
 	       else
 		  InsP.settings.window1Panel = nextPanel(InsP.settings.window1Panel)
-		  system.messageBox("Window 1: " ..
+		  system.messageBox("InsP W1: " ..
 				       InsP.panelImages[InsP.settings.window1Panel].instImage)
 	       end
 	    end
@@ -3117,7 +3122,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       if math.abs(instImg1.width - Screen.dcds24ii_width_px) < 10 and
 		  (not Screen.dcds24ii) then
 		  print("DFM-InsP: window " .. tWin .. " panel image is for a DS-24 II")
-		  system.messageBox("Win " .. tWin .. ": panel is for 24-II")
+		  appMsg("W" .. tWin .. " panel is 24-II")
 	       end
 	    end
 	 else
@@ -3151,7 +3156,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 		  if math.abs(backImg1.width - InsP.panelImages[isp1].width) > 10 then
 		     print("DFM-InsP: window 1 background width " .. backImg1.width ..
 			   ", panel " .. InsP.panelImages[isp1].width)
-		     system.messageBox("Win 1: background size?")
+		     appMsg("W1 backgnd size?")
 		  end
 		  --print("backImg1 w,h", backImg1.width, instImg1.height)
 	       end
@@ -3190,7 +3195,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       InsP.panelImages[isp2].height = instImg2.height
 	       if math.abs(instImg2.width - Screen.dcds24ii_width_px) < 10 and (not Screen.dcds24ii) then
 		  print("DFM-InsP: window " .. tWin .. " panel image is for a DS-24 II")
-		  system.messageBox("Win " .. tWin .. ": panel is for 24-II")
+		  appMsg("W" .. tWin .. " panel is 24-II")
 	       end
 	    end
 	 else
@@ -3217,7 +3222,7 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       backLoaded = what
 	       backImg2 = img
 	       if backImg2 and math.abs(backImg2.width - InsP.panelImages[isp2].width) > 10 then
-		  system.messageBox("Win 2: background size?")
+		  appMsg("W2 backgnd size?")
 		  print("DFM-InsP: window 2 background width " .. backImg2.width ..
 			", panel " .. InsP.panelImages[isp2].width)
 	       end
@@ -5183,7 +5188,7 @@ local function init(icode)
    if #dups > 0 then
       print("DFM-InsP: same image on " .. table.concat(dups, ", ") ..
 	       "; the sequencer and soft switches can't tell them apart")
-      system.messageBox("2 panels share an image")
+      appMsg("2 panels, 1 image")
    end
 
    -- sequencer entries: a new entry's To used to be "*", which the screen
@@ -5203,7 +5208,7 @@ local function init(icode)
    if #stale > 0 then
       print("DFM-InsP: sequencer names panels that are gone: " .. table.concat(stale, ", "))
       -- message boxes must stay short: about 26 characters fit a DS-24
-      system.messageBox("Sequencer: see Lua console")
+      appMsg("seq. see console")
    end
 
    -- window 1 always starts on panel 1 (the sequencer moves it in flight);
@@ -5290,7 +5295,7 @@ local function init(icode)
 	 end
       end
    else
-      system.messageBox("No Panels folder")
+      appMsg("no Panels folder")
       print("DFM-InsP: bad path to dir - "..path)      
    end
 
@@ -5306,7 +5311,7 @@ local function init(icode)
    if w1 == 0 then
       --print("$", w1II, w1, InsP.settings.window1Panel)
       print("DFM-InsP: no Panels files for panel 1 (" .. tostring(w1II) .. ")")
-      system.messageBox("Panel 1 files missing")
+      appMsg("no panel 1 files")
    end
    
    
@@ -5377,7 +5382,7 @@ local function init(icode)
    end
 
    if lostSw ~= "" then
-      system.messageBox("Reassign switches: console")
+      appMsg("reassign switches")
       print("Please reassign "..lostSw)
    end
 
@@ -5585,7 +5590,7 @@ local function init(icode)
       system.setProperty("NativeDraw", 1)
       if system.getProperty("NativeDraw") ~= 1 then
 	 print(appName .. ": Cannot enter Native Draw")
-	 system.messageBox("Cannot enter Native Draw")	 
+	 appMsg("no Native Draw")	 
       else
 	 print(appName .. ": DC/DS 24 Native Draw Mode")
 	 Screen.NativeDraw = true

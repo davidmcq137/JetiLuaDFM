@@ -15,6 +15,11 @@
 --]]
 
 local appName = "DFM-Path"
+
+-- message boxes: the app's short name first, since several apps may be
+-- running; one centred line, clipped at both ends when too long, so keep
+-- the whole text to 26 characters (fits a DS-24), details to print()
+local function appMsg(s, t) system.messageBox("Path: " .. s, t) end
 local pathApp = "Apps/"..appName.."/"
 local RTH = {}
 local config = {}
@@ -202,11 +207,11 @@ local function loopP()
 	    Path.gps[i] = ap[i]
 	 end
 	 print(appName..": Captured triangle path from DFM-Maps")
-	 system.messageBox("Triangle path captured")
+	 appMsg("triangle captured")
       else
 	 -- points were already captured or loaded .. keep them, don't overwrite
 	 print(appName..": DFM-Maps triangle not used - path already has "..pathIndex.." points")
-	 system.messageBox("Triangle unused: has path")
+	 appMsg("tri unused, has pts")
       end
       gotTriangle = true
    end
@@ -290,7 +295,7 @@ local function loopP()
       if not RTH.curPos then
 	 -- GPS lost: clear derived values so the display shows "No GPS signal"
 	 -- instead of a frozen position, and the heading is recomputed on recovery
-	 if hadPos then system.messageBox("GPS signal lost") end
+	 if hadPos then appMsg("GPS signal lost") end
 	 RTH.lastPos = nil
 	 RTH.gpsHeading = nil
 	 RTH.gpsBearingFrom = nil
@@ -318,7 +323,7 @@ local function loopP()
 	       print("DFM-Path: GPS zero set, Alt zero not set (emulator)")
 	    else
 	       RTH.var.startTakeoffAlt = altnow
-	       system.messageBox("GPS and Alt zero set")
+	       appMsg("GPS, Alt zero set")
 	       --print("GPS and Alt zero set")
 	    end
 	    
@@ -349,7 +354,7 @@ local function loopP()
    local SwC_on = SwC > 0.5
 
    if SwC_on and not lastSwC_on and not RTH.curPos then
-      system.messageBox("No GPS fix: no point")
+      appMsg("no GPS, no point")
    elseif SwC_on and not lastSwC_on then
       if not pathIndex then pathIndex = 0 end
       pathIndex = pathIndex + 1
@@ -357,7 +362,7 @@ local function loopP()
       Path.alt[pathIndex] = RTH.altitude
       altSetPoint = RTH.altitude
       
-      system.messageBox(string.format("Point %d, altitude %d", pathIndex, RTH.altitude or 0))
+      appMsg(string.format("pt %d alt %d", pathIndex, RTH.altitude or 0))
 
       system.playFile(prefix() .. pathApp .. "Audio/pointnumber.wav", AUDIO_QUEUE)
       playNumberInt(pathIndex)
@@ -471,7 +476,7 @@ local function loopP()
 	 if flyIndex > #Path.gps then flyIndex = 1 end
 
 	 if fCurrent ~= flyIndex then -- they are equal when there is only one point 
-	    system.messageBox(string.format("Steering to point %d", flyIndex))
+	    appMsg(string.format("steering to pt %d", flyIndex))
 	    system.playFile(prefix() .. pathApp .. "Audio/steeringtopoint.wav", AUDIO_QUEUE)
 	    playNumberInt(flyIndex)
 	    --compute bearing to next point
@@ -508,7 +513,7 @@ local function loop()
       if RTH.settings.steerCtrl then system.setControl(RTH.settings.steerCtrl, 0, 0) end
       if RTH.settings.elevCtrl then system.setControl(RTH.settings.elevCtrl, 0, 0) end
       errCnt = errCnt + 1
-      if errCnt == 1 then system.messageBox("Error: controls centered") end
+      if errCnt == 1 then appMsg("error, centered") end
       if errCnt <= 5 then
 	 print(appName .. ": Loop error - " .. tostring(e))
       end
@@ -595,7 +600,7 @@ local function initForm(subform)
 	 system.pSave("altInput", nil)
       elseif not si.proportional or not si.mode or not string.find(si.mode, "C") then
 	 -- si.mode needs firmware 5.01+, without it we can't confirm 0-100%
-	 system.messageBox("Control must be 0-100% P")
+	 appMsg("control 0-100% P")
 	 RTH.settings.altInput = nil
 	 system.pSave("altInput", nil) -- don't bring the rejected control back on restart
 	 form.reinit(1)
@@ -729,7 +734,7 @@ local function initForm(subform)
 	    if f then
 	       io.write(f, str, "\n")
 	       io.close(f)
-	       system.messageBox("Path file saved")
+	       appMsg("file saved")
 	    end
 	 end), {label="Save Path >>", font=FONT_NORMAL})
 
@@ -739,7 +744,7 @@ local function initForm(subform)
    form.addLink((
 	 function()
 	    local str = io.readall(prefix()..pathApp.."Json/Path.jsn", "r")
-	    if not str then system.messageBox("No file read") end
+	    if not str then appMsg("no file read") end
 	    if str then
 	       -- validate the whole file before replacing the current path
 	       local ok, SPath = pcall(json.decode, str)
@@ -753,7 +758,7 @@ local function initForm(subform)
 		  end
 	       end
 	       if not valid then
-		  system.messageBox("Path file invalid")
+		  appMsg("file invalid")
 		  return
 	       end
 	       Path = {}
@@ -766,7 +771,7 @@ local function initForm(subform)
 		  Path.alt[i] = SPath.alt and SPath.alt[i]
 	       end
 	       pathIndex = #Path.gps
-	       system.messageBox(string.format("Path file read, %d points", pathIndex))
+	       appMsg(string.format("file read, %d pts", pathIndex))
 	    end
 	 end), {label="Load saved Path >>", font=FONT_NORMAL})
 end
@@ -1151,7 +1156,7 @@ local function init()
       system.setControl(RTH.settings.steerCtrl, RTH.settings.steer, 0)
    else
       print(appName .. ": Could not register steer control")
-      system.messageBox("Can't register steering")
+      appMsg("no steer control")
    end
 
 
@@ -1166,7 +1171,7 @@ local function init()
       system.setControl(RTH.settings.elevCtrl, RTH.settings.elev, 0)
    else
       print(appName .. ": Could not register elevator control")
-      system.messageBox("Can't register elevator")
+      appMsg("no elev control")
    end
    
 
@@ -1197,7 +1202,7 @@ local function init()
    if not (config.Amix and config.Amix.points and config.Emix and config.Emix.points) then
       print("DFM-Path: missing Amix/Emix in Config.jsn - steering disabled")
       print(appName .. ": missing parameters in Config.jsn - steering disabled")
-      system.messageBox("Config.jsn: no steering")
+      appMsg("Config.jsn, no steer")
    end
 
    DCDS24II = (string.find(select(1, system.getDeviceType()), "24 II"))

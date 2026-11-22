@@ -24,6 +24,11 @@ local appName = "DFM-Rscu"
 -- bump the suffix (month, day, letter) for each build sent to a tester
 local appVersion = "0.6.1122a"
 
+-- message boxes: the app's short name first, since several apps may be
+-- running; one centred line, clipped at both ends when too long, so keep
+-- the whole text to 26 characters (fits a DS-24), details to print()
+local function appMsg(s, t) system.messageBox("Rscu: " .. s, t) end
+
 -- The DS-24 II firmware swaps red and blue when a renderer draws into an
 -- image (found with DFM-Maps, Harry 2026-11-21: yellow came out cyan); the
 -- emulator draws it right. A real TX has no debug library and the emulator
@@ -287,7 +292,7 @@ local function setGPSField(zP, ptA, ptB)
    
    fieldRotation = math.rad(gps.getBearing(ptA, ptB) - 90)
          
-   system.messageBox(string.format("Field rotation set to %d°", math.deg(fieldRotation)))
+   appMsg(string.format("field rotation %d°", math.deg(fieldRotation)))
    -- 60m is distance behind pilot to bottom of screen
    local ptZ = gps.getDestination(ptA, 60, gps.getBearing(ptA, ptB) + 90)
    
@@ -584,7 +589,7 @@ local function loopP()
       else
 	 if oldCurPos and not RTH.curPos then
 	    system.stopPlayback(AUDIO_IMMEDIATE)
-	    system.messageBox("GPS signal lost")
+	    appMsg("GPS signal lost")
 	    system.playFile(ppA.."GPSsignallost.wav", AUDIO_IMMEDIATE)
 	 end
 	 RTH.lastPos = nil
@@ -597,7 +602,7 @@ local function loopP()
 	 RTH.gpsReads = RTH.gpsReads + 1
       end
       if RTH.gpsReads > MINGPSREADS and not RTH.zeroPos then
-	 system.messageBox("GPS and Alt zero set")
+	 appMsg("GPS, Alt zero set")
 	 --print("DFM-Rscu: GPS and Alt zero set")
 	 RTH.zeroPos = RTH.curPos
 	 RTH.initPos = RTH.curPos
@@ -649,11 +654,11 @@ local function loopP()
    if SwC_on and not lastSwC_on then 
       --system.stopPlayback()
       if RTH.settings.elevInput then
-	 system.messageBox("Mixer calibration active")
+	 appMsg("mixer cal active")
 	 system.playFile(ppA .. "mixercalactive.wav", AUDIO_IMMEDIATE)
 	 calibrating = true
       else
-	 system.messageBox("No elevator input set")
+	 appMsg("no elevator input")
       end
       
    end
@@ -661,7 +666,7 @@ local function loopP()
    if lastSwC_on and not SwC_on and calibrating == true and RTH.settings.elevInput then -- just turned off
       calibrating = false
       --system.stopPlayback()
-      system.messageBox("Mixer calibration captured")
+      appMsg("mixer cal captured")
       system.playFile(ppA .. "mixercaldone.wav", AUDIO_IMMEDIATE)
       local si = system.getSwitchInfo(RTH.settings.elevInput)
       --print("si", si.label, si.value, si.proportional, si.assigned, si.mode)
@@ -687,7 +692,7 @@ local function loopP()
       --system.stopPlayback()
       local parmOK = true
       if not config.Amix or not config.Emix then
-	 system.messageBox("Missing parameters")
+	 appMsg("missing parameters")
 	 parmOK = false
       end
       
@@ -1014,7 +1019,7 @@ local function loopP()
 	       --if pointsToRender > 2 then print("pointsToRender", pointsToRender) end
 	    end
 	    if pointsToRender == 100 and ptr == 99 then
-	       system.messageBox("Path points dropped")
+	       appMsg("path pts dropped")
 	    end
 	    if pointsToRender >= 100 then
 	       for i,_ in ipairs(magVal) do
@@ -1099,7 +1104,7 @@ local function keyPressGPS(key)
 	    pointA = gps.newPoint(BDALat, BDALng)
 	 else
 	    if not RTH.curPos then
-	       system.messageBox("No current GPS position")
+	       appMsg("no GPS position")
 	       return
 	    end
 	    pointA = RTH.curPos
@@ -1129,17 +1134,17 @@ local function keyPressGPS(key)
 	    pointB = gps.newPoint(BDBLat, BDBLng)
 	 else
 	    if not pointA then
-	       system.messageBox("Enter Pt A first")
+	       appMsg("enter Pt A first")
 	       return
 	    end
 	    if not RTH.curPos then
-	       system.messageBox("No current GPS position")
+	       appMsg("no GPS position")
 	       return
 	    end
 	    distAB = gps.getDistance(pointA, RTH.curPos)
 	    -- assume 5 m along rwy is enough to get a good rotation angle
 	    if distAB < 5 then
-	       system.messageBox("Too close for Pt B")
+	       appMsg("too close for Pt B")
 	       return
 	    end
 	    pointB = RTH.curPos
@@ -1150,12 +1155,12 @@ local function keyPressGPS(key)
 	 end
 	 
 	 if not RTH.curPos then
-	    system.messageBox("No GPS data")
+	    appMsg("no GPS data")
 	    return
 	 end
 
 	 if not pointA then
-	    system.messageBox("Enter Pt A first")
+	    appMsg("enter Pt A first")
 	    return
 	 end
 
@@ -1187,12 +1192,12 @@ local function initForm(subform)
       -- which is the evaluated value, so "PC" (0..100%) would scale it and
       -- "PI" (inverted) would flip its sign
       if not si or not si.proportional then
-	 system.messageBox("Elevator must be P (prop.)")
+	 appMsg("elevator must be P")
 	 RTH.settings.elevInput = nil
 	 system.pSave("elevInput", nil)
 	 form.reinit(1)
       elseif si.mode and si.mode ~= "P" then
-	 system.messageBox("Elevator must be P, not " .. si.mode)
+	 appMsg("elev P, not " .. si.mode)
 	 RTH.settings.elevInput = nil
 	 system.pSave("elevInput", nil)
 	 form.reinit(1)
@@ -2153,7 +2158,7 @@ local function init()
    if ok and type(dc) == "table" and dc.Amix and dc.Emix and dc.annMax and dc.annDelay then
       config = dc
    else
-      system.messageBox("Config.jsn: missing parms")
+      appMsg("Config.jsn parms?")
    end
 
    renShape   = lcd.renderer()
@@ -2255,7 +2260,7 @@ local function init()
       system.setControl(RTH.settings.steerCtrl, RTH.settings.steer, 0)
    else
       print(appName .. ": Could not register steer control")
-      system.messageBox("Can't register steering")
+      appMsg("no steer control")
    end
 
    RTH.settings.elevCtrl = nil
@@ -2278,7 +2283,7 @@ local function init()
       system.setControl(RTH.settings.elevCtrl, RTH.settings.elev, 0)
    else
       print(appName .. ": Could not register elevator control")
-      system.messageBox("Can't register elevator")
+      appMsg("no elev control")
    end
    
    logret = {}

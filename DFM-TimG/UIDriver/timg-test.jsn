@@ -44,7 +44,7 @@
 
   {"log": "throttle cutoff stops the timer"},
   {"setInput": "SB", "value": 1, "for": "target"},
-  {"waitMessage": "Turbine off", "timeout": "3s"},
+  {"waitMessage": "TimG: turbine off", "timeout": "3s"},
 
   {"log": "put TimG's settings back; the fuel sensor stays on CTU Fuel remaining (restore can't unselect a selectbox)"},
   {"log": "if DFM-TimG's menu isn't open, open it now (waiting up to 10 minutes)"},

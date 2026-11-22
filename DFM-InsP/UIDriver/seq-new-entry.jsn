@@ -1,7 +1,7 @@
 {"config": {"stepGap": 200, "stopOnFail": false},
  "steps": [
   {"log": "A new sequencer entry's default To (review finding 5). Edit Links F1 adds an entry; the screen shows To as '+' (next panel). Before 0.95 it was stored as '*', which in flight was looked up as a panel name, not found, and window 1 went blank. Now it is '+': SB moves window 1 to the next panel with an image. In fixture insp-aaa panel 2 is '---' (no image), which '+' skips since 0.95.1122b, so window 1 comes back round to TurbineL. Also checks the startup warning: the fixture's two old entries name CBHarryDial and ChartRecorder, which are not panels"},
-  {"waitMessage": "Sequencer: see Lua console", "anyTime": true},
+  {"waitMessage": "InsP: seq. see console", "anyTime": true},
   {"waitForm": true},
   {"waitSub": 1},
   {"link": "Edit Links >>"},
@@ -14,7 +14,7 @@
   {"log": "assign SB, held at its active position, and leave From, To and the trigger (+) as they are"},
   {"setInput": "SB", "value": 1},
   {"set": "#13", "value": "SB"},
-  {"waitMessage": "Keep switch on", "absent": true, "for": "1s"},
+  {"waitMessage": "InsP: hold switch on", "absent": true, "for": "1s"},
   {"setInput": "SB", "value": -1},
   {"expect": "#14", "value": "+"},
   {"key": "KEY_ESC"},
@@ -28,7 +28,7 @@
   {"expectImage": "TurbineL", "win": 1},
   {"setInput": "SB", "value": 1},
   {"wait": 1500},
-  {"waitMessage": "Window 1: *", "absent": true, "for": "1s", "anyTime": true},
-  {"waitMessage": "Window 1: TurbineL", "anyTime": true},
+  {"waitMessage": "InsP W1: *", "absent": true, "for": "1s", "anyTime": true},
+  {"waitMessage": "InsP W1: TurbineL", "anyTime": true},
   {"expectImage": "TurbineL", "win": 1}
  ]}
