@@ -1,0 +1,97 @@
+{
+  "panel": [
+    {
+      "yL": 274,
+      "width": 228,
+      "rgbSkyColor": {
+        "r": 0,
+        "g": 0,
+        "b": 255,
+        "t": "false"
+      },
+      "xL": 229,
+      "height": 200,
+      "y0": 170,
+      "label": "",
+      "x0": 229,
+      "labelFont": "Mini",
+      "value": 0,
+      "rgbLandColor": {
+        "r": 210,
+        "g": 105,
+        "b": 30,
+        "t": "false"
+      },
+      "type": "artHorizon",
+      "landColor": "chocolate",
+      "roll": 15,
+      "labelPos": -4,
+      "skyColor": "blue",
+      "pitch": 6
+    },
+    {
+      "yL": 256,
+      "min": 0,
+      "width": 159,
+      "backColor": "black",
+      "valuePos": "Side",
+      "xL": 423,
+      "height": 200,
+      "y0": 161,
+      "tapeFont": "Mini",
+      "label": "Altitude",
+      "max": 500,
+      "x0": 423,
+      "labelFont": "Mini",
+      "value": 98,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "xV": 356,
+      "type": "verticalTape",
+      "numbers": 6,
+      "yV": 161.64,
+      "handed": "right",
+      "valueFont": "Normal",
+      "step": 10
+    },
+    {
+      "yL": 256,
+      "min": 0,
+      "width": 159,
+      "backColor": "black",
+      "valuePos": "Side",
+      "xL": 36,
+      "height": 200,
+      "y0": 161,
+      "tapeFont": "Mini",
+      "label": "Airspeed",
+      "max": 200,
+      "x0": 36,
+      "labelFont": "Mini",
+      "value": 46,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "xV": 103,
+      "type": "verticalTape",
+      "numbers": 6,
+      "yV": 161.64,
+      "handed": "left",
+      "valueFont": "Normal",
+      "step": 10
+    }
+  ],
+  "doc-md": "For pilots with a Jeti Assist receiver, this panel demonstrates the use of the\nartifical horizon widget as well as the vertical tape widgets. We liked the look\nof it so much that we put it on our gauges coffee mug!\n",
+  "screen": {
+    "width": 456,
+    "height": 342
+  },
+  "timestamp": "2026-11-04T17:08:02.175Z"
+}

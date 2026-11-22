@@ -1,0 +1,829 @@
+{
+  "panel": [
+    {
+      "min": 0,
+      "width": 50,
+      "backColor": "transparent",
+      "lightColor": "red",
+      "height": 50,
+      "y0": 224,
+      "label": "Red",
+      "max": 1,
+      "radius": 6,
+      "x0": 172,
+      "labelFont": "None",
+      "rgbBezelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "value": 0.95,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "type": "panelLight",
+      "rgbLightColor": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "bezelColor": "transparent"
+    },
+    {
+      "min": 0,
+      "width": 50,
+      "backColor": "transparent",
+      "lightColor": "green",
+      "height": 50,
+      "y0": 224,
+      "label": "Green",
+      "max": 1,
+      "radius": 6,
+      "x0": 287,
+      "labelFont": "None",
+      "rgbBezelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "value": 1,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "type": "panelLight",
+      "rgbLightColor": {
+        "r": 0,
+        "g": 128,
+        "b": 0,
+        "t": "false"
+      },
+      "bezelColor": "transparent"
+    },
+    {
+      "yL": 319.25,
+      "width": 130,
+      "backColor": "yellowgreen",
+      "xL": 351,
+      "height": 50,
+      "y0": 297,
+      "label": "Turbine Status",
+      "x0": 351,
+      "tBoxHgt": 25,
+      "labelFont": "None",
+      "value": 0,
+      "tBoxWid": 130,
+      "xV": 351,
+      "text": [
+        "Use Xicoy extension"
+      ],
+      "textFont": "Mini",
+      "type": "sequencedTextBox",
+      "yV": 297
+    },
+    {
+      "tickFont": "None",
+      "yL": 308.5,
+      "min": 0,
+      "width": 200,
+      "backColor": "transparent",
+      "hbarLabels": [
+        {
+          "x": 46.5,
+          "y": 279.5
+        },
+        {
+          "x": 87.75,
+          "y": 279.5
+        },
+        {
+          "x": 129,
+          "y": 279.5
+        },
+        {
+          "x": 170.25,
+          "y": 279.5
+        },
+        {
+          "x": 211.5,
+          "y": 279.5
+        }
+      ],
+      "xL": 129,
+      "height": 70,
+      "colorvals": [
+        {
+          "color": "red",
+          "val": 10
+        },
+        {
+          "color": "yellow",
+          "val": 25
+        },
+        {
+          "color": "blue",
+          "val": 100
+        }
+      ],
+      "y0": 297,
+      "label": "Fuel Remaining",
+      "max": 100,
+      "x0": 129,
+      "majdivs": 4,
+      "divs": 16,
+      "labelFont": "Mini",
+      "subdivs": 4,
+      "tickDigits": 0,
+      "rgbBezelColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "value": 96,
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "true"
+      },
+      "rects": [
+        {
+          "x": 46.5,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        },
+        {
+          "x": 56.8125,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 255,
+          "g": 0,
+          "b": 0
+        },
+        {
+          "x": 67.125,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "x": 77.4375,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 255,
+          "g": 255,
+          "b": 0
+        },
+        {
+          "x": 87.75,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "x": 98.0625,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "x": 108.375,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "x": 118.6875,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "x": 129,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "x": 139.3125,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "x": 149.625,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "x": 159.9375,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "x": 170.25,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "x": 180.5625,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "x": 190.875,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        },
+        {
+          "x": 201.1875,
+          "y": 288.25,
+          "w": 10.3125,
+          "h": 17.5,
+          "r": 0,
+          "g": 0,
+          "b": 255
+        }
+      ],
+      "type": "horizontalBar",
+      "barH": 17.5,
+      "barW": 165,
+      "bezelColor": "transparent",
+      "labelPosY": -6
+    },
+    {
+      "tickFont": "Bold",
+      "yL": 214.10000000000002,
+      "min": 0,
+      "spectrum": [
+        "blue"
+      ],
+      "ro": 89,
+      "xL": 111,
+      "y0": 134,
+      "rgbInnerFillColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "label": "RPM/1000",
+      "max": 120,
+      "radius": 111,
+      "TS": 51.619999999999976,
+      "x0": 111,
+      "majdivs": 6,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "divs": 24,
+      "labelFont": "Bold",
+      "subdivs": 4,
+      "tickLabels": [
+        {
+          "rt": 51.619999999999976,
+          "ca": -0.7071067811865477,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        },
+        {
+          "rt": 51.619999999999976,
+          "ca": -1,
+          "sa": -1.2246467991473532e-16,
+          "dp": 0
+        },
+        {
+          "rt": 51.619999999999976,
+          "ca": -0.7071067811865475,
+          "sa": -0.7071067811865476,
+          "dp": 0
+        },
+        {
+          "rt": 51.619999999999976,
+          "ca": 6.123233995736766e-17,
+          "sa": -1,
+          "dp": 0
+        },
+        {
+          "rt": 51.619999999999976,
+          "ca": 0.7071067811865476,
+          "sa": -0.7071067811865475,
+          "dp": 0
+        },
+        {
+          "rt": 51.619999999999976,
+          "ca": 1,
+          "sa": 0,
+          "dp": 0
+        },
+        {
+          "rt": 51.619999999999976,
+          "ca": 0.7071067811865476,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        }
+      ],
+      "tickDigits": "Auto",
+      "value": 37.2,
+      "xV": 111,
+      "ri": 75.64999999999999,
+      "start": -135,
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "yV": 187.4,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 89,
+      "valDigits": 0,
+      "valueFont": "Mini",
+      "end": 135
+    },
+    {
+      "tickFont": "Bold",
+      "yL": 181.6,
+      "min": 0,
+      "spectrum": [
+        "blue",
+        "springgreen",
+        "yellow",
+        "red"
+      ],
+      "ro": 54,
+      "xL": 366,
+      "y0": 133,
+      "rgbInnerFillColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "label": "EGT °C",
+      "max": 1000,
+      "radius": 76,
+      "TS": 31.319999999999993,
+      "x0": 366,
+      "majdivs": 5,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "divs": 20,
+      "labelFont": "Bold",
+      "subdivs": 4,
+      "tickLabels": [
+        {
+          "rt": 31.319999999999993,
+          "ca": -0.7071067811865477,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        },
+        {
+          "rt": 31.319999999999993,
+          "ca": -0.9876883405951377,
+          "sa": -0.15643446504023098,
+          "dp": 0
+        },
+        {
+          "rt": 31.319999999999993,
+          "ca": -0.4539904997395467,
+          "sa": -0.8910065241883679,
+          "dp": 0
+        },
+        {
+          "rt": 31.319999999999993,
+          "ca": 0.4539904997395468,
+          "sa": -0.8910065241883678,
+          "dp": 0
+        },
+        {
+          "rt": 31.319999999999993,
+          "ca": 0.9876883405951378,
+          "sa": -0.15643446504023087,
+          "dp": 0
+        },
+        {
+          "rt": 31.319999999999993,
+          "ca": 0.7071067811865476,
+          "sa": 0.7071067811865475,
+          "dp": 0
+        }
+      ],
+      "tickDigits": "Auto",
+      "value": 480,
+      "xV": 366,
+      "ri": 45.9,
+      "start": -135,
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "yV": 165.4,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 54,
+      "valDigits": 0,
+      "valueFont": "Mini",
+      "end": 135
+    },
+    {
+      "tickFont": "Mini",
+      "yL": 93.2,
+      "min": 0,
+      "spectrum": [
+        "red",
+        "yellow",
+        "springgreen"
+      ],
+      "ro": 18,
+      "xL": 229,
+      "y0": 77,
+      "rgbInnerFillColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "label": "Batt",
+      "max": 10,
+      "radius": 40,
+      "x0": 229,
+      "majdivs": 0,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "divs": 10,
+      "labelFont": "Mini",
+      "subdivs": 0,
+      "tickLabels": [],
+      "tickDigits": "Auto",
+      "value": 1.1,
+      "xV": 229,
+      "ri": 15.299999999999999,
+      "start": -135,
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "yV": 87.8,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 18,
+      "valDigits": 1,
+      "valueFont": "None",
+      "end": 135
+    },
+    {
+      "tickFont": "Mini",
+      "yL": 212.2,
+      "min": 0,
+      "spectrum": [
+        "red",
+        "yellow",
+        "springgreen"
+      ],
+      "ro": 18,
+      "xL": 229,
+      "y0": 196,
+      "rgbInnerFillColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "label": "Pump",
+      "max": 10,
+      "radius": 40,
+      "x0": 229,
+      "majdivs": 0,
+      "rgbLabelColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "divs": 10,
+      "labelFont": "Mini",
+      "subdivs": 0,
+      "tickLabels": [],
+      "tickDigits": "Auto",
+      "value": 5,
+      "xV": 229,
+      "ri": 15.299999999999999,
+      "start": -135,
+      "type": "roundNeedleGauge",
+      "needle": [
+        {
+          "x": -1,
+          "y": 0
+        },
+        {
+          "x": -2,
+          "y": 1
+        },
+        {
+          "x": -4,
+          "y": 4
+        },
+        {
+          "x": -1,
+          "y": 58
+        },
+        {
+          "x": 1,
+          "y": 58
+        },
+        {
+          "x": 4,
+          "y": 4
+        },
+        {
+          "x": 2,
+          "y": 1
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "yV": 206.8,
+      "inner": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": -3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 45
+        },
+        {
+          "x": 3,
+          "y": 3
+        },
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "gaugeRadius": 18,
+      "valDigits": 1,
+      "valueFont": "None",
+      "end": 135
+    },
+    {
+      "xBorder": 4,
+      "width": 200,
+      "height": 50,
+      "y0": 17,
+      "label": "",
+      "x0": 229,
+      "rgbTextColor": {
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "t": "false"
+      },
+      "rgbBackColor": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "t": "false"
+      },
+      "text": [
+        "Turbine Dashboard"
+      ],
+      "textColor": "white",
+      "textFont": "Mini",
+      "type": "rawText",
+      "yBorder": 2
+    }
+  ],
+  "doc-md": "This panel shows how we might collect all the critical operational data for a\nturbine engine on one panel. It also shows how to use panel lights as\nindicators, and how to use a sequenced text box, possibly with a lua f(x)\nextension. This was one of our early test panels.\n",
+  "screen": {
+    "width": 456,
+    "height": 342
+  },
+  "timestamp": "2026-11-04T14:33:35.796Z"
+}

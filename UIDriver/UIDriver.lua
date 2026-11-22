@@ -132,6 +132,12 @@
                                   target calls form.preventDefault, as
                                   the firmware does
      {"button": "Show"}           press the F key whose label is "Show"
+     {"focus": 3}                 move the focus to form row 3 (row 1 is
+                                  the first form.addRow, label-only rows
+                                  count), with form.setFocusedRow, for
+                                  keys that act on form.getFocusedRow
+                                  (DFM-InsP's panel list). Set it right
+                                  before the key: a reinit may move it
      {"telemKey": "KEY_3", "win": 1}   key into target telemetry window
                                   1 (only while that window is showing)
      {"telemButton": "NoFly", "win": 1}   press a telemetry user button
@@ -892,7 +898,12 @@ local function wrapForm()
    end
    form.addSelectbox = function(vals, cur, en, cb, p)
       if not capturing then return orig.addSelectbox(vals, cur, en, cb, p) end
-      local c = newComp("sel", {value = cur, values = vals})
+      -- a copy: the firmware reads the items when the box is made, and an
+      -- app may change the table afterwards (DFM-InsP's sequencer rows
+      -- reuse one table for From and To)
+      local copy = {}
+      for i, v in ipairs(vals or {}) do copy[i] = v end
+      local c = newComp("sel", {value = cur, values = copy})
       local idx = orig.addSelectbox(vals, cur, en, wrapCb(c, cb), p)
       addComp(c, idx)
       return idx
@@ -1261,6 +1272,20 @@ H.button = {ctx = "form", run = function(s)
 	       local have = {}
 	       for n = 1, 5 do if buttons[n] then have[#have+1] = n .. "='" .. buttons[n] .. "'" end end
 	       return false, "no F key labelled '" .. s.button .. "'; have " .. table.concat(have, ", ")
+end}
+
+-- move the form's focus to a row (row 1 is the first form.addRow), as
+-- turning the knob would; apps whose keys act on form.getFocusedRow need it
+H.focus = {ctx = "form", run = function(s)
+	      local r = tonumber(s.focus)
+	      if not r or r < 1 or r % 1 ~= 0.0 then
+		 return false, "focus needs a row number, got " .. tostring(s.focus)
+	      end
+	      r = math.floor(r)
+	      local ok, e = pcall(form.setFocusedRow, r)
+	      if not ok then return false, "form.setFocusedRow error: " .. tostring(e) end
+	      local got = form.getFocusedRow()
+	      return got == r, "focused row " .. tostring(got) .. (got == r and "" or (", wanted " .. r))
 end}
 
 local function injectTelKey(win, code)
@@ -1642,7 +1667,7 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "setSensor", "clearSensor", "expectControl", "waitControl",
 	       "sensorPause", "sensorTime", "sensorStep", "sensorField",
 	       "sensorPosition", "sensorVars", "waitSensorTime", "restore",
-	       "waitSensor", "expectSensor"}
+	       "waitSensor", "expectSensor", "focus"}
 
 local function verbOf(s)
    for _, v in ipairs(VERBS) do

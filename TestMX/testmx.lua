@@ -799,8 +799,11 @@ function form.addLink(cb, p) return add({kind = "link", cb = cb, p = p}) end
 function form.addIntbox(v, mn, mx, d, dec, st, cb, p)
    return add({kind = "int", v = v, mn = mn, mx = mx, cb = cb, p = p})
 end
+-- the items are copied, as the firmware reads them when the box is made
 function form.addSelectbox(vals, cur, en, cb, p)
-   return add({kind = "sel", vals = vals, v = cur, cb = cb, p = p})
+   local copy = {}
+   for i, v in ipairs(vals or {}) do copy[i] = v end
+   return add({kind = "sel", vals = copy, v = cur, cb = cb, p = p})
 end
 function form.addCheckbox(c, cb, p) return add({kind = "chk", v = c, cb = cb, p = p}) end
 function form.addTextbox(t, mx, cb, p) return add({kind = "text", v = t, cb = cb, p = p}) end
