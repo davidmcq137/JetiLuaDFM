@@ -1324,6 +1324,10 @@ function FW.setup(opts)
       fwlog("can't set collation " .. P.collate .. "; string order may differ from the device")
    end
    if opts.model then props.Model = opts.model end
+   -- getProperty("ModelFile"): the model's file in Model/ ("0001Aaa.jsn"),
+   -- which apps like DFM-SWT read. Model/ is outside Apps/, so it's read in
+   -- place, or from a fixture that has Model/<file>
+   if opts.modelFile then props.ModelFile = opts.modelFile end
    startFS(opts)
    buildBase()
    return P

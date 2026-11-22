@@ -8,7 +8,8 @@
 # against the measured outputs, the DFM-TimG UIDriver scripts with DFM-HUD (SensorL replays
 # Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing), and
 # DFM-Maps' scripts on the maps-bds458 (emulator) and maps-bds320 (ds24-508)
-# fixtures (FakeFW/fakefw-uid.lua), and DFM-HUD with fake Engo glasses.
+# fixtures (FakeFW/fakefw-uid.lua), DFM-HUD with fake Engo glasses, and
+# DFM-SWT's press counting with a real model file.
 # Exit code: the number of failed tests.
 LUA=${1:-$HOME/lua-5.3.1-Jeti-typefix/src/lua}
 T=Apps/FakeFW/test
@@ -23,7 +24,7 @@ bad() { echo "FAIL: $1"; fails=$((fails + 1)); }
 "$LUA" -e 'print("collation en_US.UTF-8: " .. (os.setlocale("en_US.UTF-8", "collate") and "available" or "MISSING, string order may differ from the emulator"))'
 
 # the top-level app files are gitignored symlinks to the app folders
-for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps; do
+for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps DFM-SWT; do
    [ -e Apps/$a.lua ] || ln -s $a/$a.lua Apps/$a.lua
 done
 if [ ! -f Log/20190926/16-56-45.log ]; then
@@ -135,6 +136,18 @@ for t in "emu-ds24ii-606 ttyUSB0" "ds24ii-606 COM1"; do
       bad "DFM-HUD engo-test ($1)"; grep -v '^\[UID\]' $TMP/engo-$1 | tail -30
    fi
 done
+
+# DFM-SWT's press counting (1 press, 2 presses, a long press) on switch SA.
+# SWT reads the model file at init: a real one (0004Ultr.jsn, 57 KB) from
+# the model-ultr fixture. Emulator profile only: the clock starts negative
+# there (SWT 0.6 counted the long press as a short one), and on a TX
+# profile UIDriver can't tell SWT's form ("Short/Long Switch") is SWT's
+if "$LUA" Apps/FakeFW/fakefw-uid.lua --app DFM-SWT --script swt-presses.jsn --sensor none \
+     --fixture model-ultr --model-file 0004Ultr.jsn > $TMP/swt 2>&1; then
+   ok "DFM-SWT swt-presses: $(grep '^==== DONE' $TMP/swt)"
+else
+   bad "DFM-SWT swt-presses"; grep -v '^\[UID\]' $TMP/swt | tail -30
+fi
 
 echo "FakeFW tests: $fails failed"
 exit $fails

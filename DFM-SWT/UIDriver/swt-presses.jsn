@@ -1,0 +1,36 @@
+{"config": {"logControls": true},
+ "steps": [
+  {"log": "DFM-SWT press counting: short presses and a long press on switch SA. SWT reads the model file (Model/<ModelFile>) at init: FakeFW gets it from the model-ultr fixture (--fixture model-ultr --model-file 0004Ultr.jsn); in the emulator any model will do. Open DFM-SWT from the Applications menu"},
+  {"waitForm": true},
+
+  {"log": "SA as the switch; 1 press and 2 presses and the long press each pulse a control (<Function>, item 2)"},
+  {"setInput": "SA", "value": -1},
+  {"set": "Switch", "value": "SA"},
+  {"set": "1 Press - Sensor", "value": 2},
+  {"set": "2 Press - Sensor", "value": 2},
+  {"set": "L Press - Sensor", "value": 2},
+  {"close": true},
+  {"wait": "1500ms"},
+
+  {"log": "one short press: up, down within t1 (300 ms), then nothing for t2 (600 ms) -> Press 1"},
+  {"setInput": "SA", "value": 1, "gap": 100},
+  {"setInput": "SA", "value": -1},
+  {"waitControl": "Press 1", "value": 1, "timeout": "2s"},
+  {"wait": "1s"},
+
+  {"log": "two short presses -> Press 2"},
+  {"setInput": "SA", "value": 1, "gap": 100},
+  {"setInput": "SA", "value": -1, "gap": 100},
+  {"setInput": "SA", "value": 1, "gap": 100},
+  {"setInput": "SA", "value": -1},
+  {"waitControl": "Press 2", "value": 1, "timeout": "2s"},
+  {"wait": "1s"},
+
+  {"log": "a long press: up, held past t2, then down -> Press L (with the clock starting negative, SWT 0.6 counted this as one short press)"},
+  {"setInput": "SA", "value": 1},
+  {"wait": "1500ms"},
+  {"log": "the long press acts on the release and pulses for only 100 ms: no gap before the wait"},
+  {"setInput": "SA", "value": -1, "gap": 0},
+  {"waitControl": "Press L", "value": 1, "timeout": "2s"},
+  {"log": "swt-presses finished"}
+]}

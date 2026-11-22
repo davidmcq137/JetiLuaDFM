@@ -19,7 +19,8 @@
    presets first, then the field data).
    Options: -p profile (default emu-ds24ii-606), --sensor SensorE|SensorL|none,
    --form <label pattern> (default the app), --minutes n (TX time, default 20),
-   --model <name> (system.getProperty("Model")), --seed n, --keep (keep and
+   --model <name> (system.getProperty("Model")), --model-file <file>
+   (getProperty("ModelFile"), a file in Model/ or a fixture's Model/), --seed n, --keep (keep and
    print the run folder), --trace (log every file access), --out <file>
    (copy the result log there), --also A[,B] (more apps, loaded and
    started after the target, e.g. --also DFM-HUD), --controls P5=-0.5,SA=-1
@@ -47,6 +48,7 @@ while i <= #arg do
       for f in v:gmatch("[^,]+") do o.fixture[#o.fixture + 1] = f end
       i = i + 1
    elseif a == "--model" then o.model = v; i = i + 1
+   elseif a == "--model-file" then o.modelFile = v; i = i + 1
    elseif a == "--sensor" then o.sensor = v; i = i + 1
    elseif a == "--form" then o.form = v; i = i + 1
    elseif a == "--minutes" then o.minutes = tonumber(v); i = i + 1
@@ -84,7 +86,7 @@ local RESULT = "Apps/" .. o.app .. "/UIDriver/result.log"
 
 local ok, code = pcall(function()
    FW.setup{profile = o.profile, seed = o.seed, fixture = o.fixture, sandbox = true,
-	    model = o.model, keep = o.keep, trace = o.trace}
+	    model = o.model, modelFile = o.modelFile, keep = o.keep, trace = o.trace}
    FW.writeFile("Apps/UIDriver/selection.jsn", string.format(
       '{"app":"%s","script":"%s","mode":"play","unattended":true}', o.app, o.script))
    if o.controls then FW.controls = o.controls end

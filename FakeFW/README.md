@@ -334,6 +334,11 @@ TX profiles report "not the emulator" to `getDeviceType()`. UIDriver,
 SensorE and SensorL check `system.FakeFW`, which FakeFW sets, so they
 still run on TX profiles.
 
+A TX profile has no `debug` library, so UIDriver can only tell which app
+a form belongs to from its label: the label must be the app's name, or
+start with it and a space ("DFM-Maps Map View"). DFM-SWT's form is
+"Short/Long Switch", so SWT can only be driven on the emulator profile.
+
 A test that matters on both TX generations should run on both, as the
 Maps tests do (`maps-bds458` on `emu-ds24ii-606`, `maps-bds320` on
 `ds24-508`). Expect some steps to need `onlyIf` (see 3.4).
@@ -353,6 +358,11 @@ Maps tests do (`maps-bds458` on `emu-ds24ii-606`, `maps-bds320` on
   TimG's shared times.
 - `--controls` sets sticks, sliders and switches (-1..1; unset ones read 0).
 - `--target-first` starts the target before the sensor app and UIDriver.
+- `--model-file 0004Ultr.jsn` sets `getProperty("ModelFile")`, for apps
+  that read the TX's model file (DFM-SWT does, at init). FakeFW finds
+  `Model/<file>` in a fixture first (`--fixture model-ultr` has
+  `Model/0004Ultr.jsn`, a real 57 KB model), else in the emulator's
+  `Model/` folder, which CI doesn't have.
 - `--form <label>` names the form to open when the label differs from
   the app name; `--no-form` opens none. An app that does its work only
   while its form is closed (DFM-HUD sending gauges) needs `--no-form`.
@@ -570,7 +580,7 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
 
 ## 7. The current suite
 
-`FakeFW/test/run-tests.sh` runs 16 tests in about 12 s:
+`FakeFW/test/run-tests.sh` runs 17 tests in about 12 s:
 
 | Test | Checks |
 |---|---|
@@ -580,3 +590,4 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
 | DFM-TimG `timg-test`, `hud-test` | timer logic on the Georgia Jets log (SensorL); `hud-test` with the real DFM-HUD reading TimG's times |
 | DFM-Maps `nofly-test`, `maps-smoke` | no-fly zones, announcements, stick shake, map view and triangle, on the 458 maps (emulator profile) and the 320 maps (DS-24 5.08) |
 | DFM-HUD `engo-test` on `emu-ds24ii-606` and `ds24ii-606` | glasses handshake, config upload, battery polls and well-formed gauge frames, against the fake Engo glasses |
+| DFM-SWT `swt-presses` on `emu-ds24ii-606` | 1 press, 2 presses and a long press each pulse their control, with the negative clock and a real model file |
