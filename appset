@@ -32,6 +32,8 @@
 #   link  DFM-Maps.lua  DFM-Maps/DFM-Maps.lua    (target relative to Apps/)
 #   group maps  DFM-Maps DFM-HUD
 #   group always  UIDriver SensorE SensorL       (linked every time)
+#   group nosettings  EnvDump FontDump  (save no settings, so appset unlinks
+#                                        them even when a model loads them)
 
 set -u
 APPS=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
@@ -143,6 +145,10 @@ PY
 
 unlinkOne() {
    [ -L "$1" ] || return 0
+   if [ -n "${INUSE[$1]+x}" ] && [ -n "${NOSET[$1]+x}" ]; then
+      rm "$1" && echo "  - $1 (loaded in model ${INUSE[$1]}, but it saves no settings)"
+      return 0
+   fi
    if [ -n "${INUSE[$1]+x}" ]; then
       echo "  kept $1: loaded in model ${INUSE[$1]}"
       return 0
@@ -204,6 +210,10 @@ case "${1:-}" in
    *)
       sel=$(want "$@" ${GROUP[always]+always}) || exit 1
       scanModels
+      declare -A NOSET
+      if [ -n "${GROUP[nosettings]+x}" ]; then
+	 for l in $(want nosettings); do NOSET[$l]=1; done
+      fi
       declare -A keep
       for l in $sel; do keep[$l]=1; done
       for l in "${LINKS[@]}"; do

@@ -11,6 +11,8 @@ group glob     GlobR GlobW
 group current  DFM-Maps DFM-InsP DFM-Rscu DFM-Path DFM-TimG
 group spike    SpikeTgt
 group configtests  GpsTest ImgTest EnvDump FontDump
+# apps that save no settings (no pSave): unlinked even when a model loads them
+group nosettings   GpsTest ImgTest EnvDump FontDump
 group misc     arctest arctest2 Dumper font hp1345a jtest polytest ren render sw test testnd v y
 
 # link NAME  TARGET    (target relative to Apps/)
