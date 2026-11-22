@@ -67,7 +67,7 @@ appInfo.Maps = appInfo.Name
 appInfo.menuTitle = appInfo.Name
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
 -- bump the suffix (month, day, letter) for each build sent to a tester
-appInfo.version = "10.0.1121a"
+appInfo.version = "10.0.1121b"
 -- a real TX has no debug library; the emulator has one. The TX swaps red and
 -- blue in renderer drawing into images (see ribbon.prepare)
 appInfo.swapRB = (debug == nil)
@@ -118,7 +118,7 @@ local compcrs
 local compcrsDeg = 0
 local lineAvgPts = 4  -- number of points to linear fit to compute course
 local numGPSreads = 0
-local newPosTime = 0
+local newPosTime -- nil until the first position (the clock can be negative)
 local hasCourseGPS
 local lastHistTime=0
 
@@ -818,10 +818,12 @@ local function gradientIndex(inval, min, max, bins, mod)
    return bin
 end
 
-local function kFilename()
+-- the old per-model-and-field triangle file (before FieldEdits.jsn), read
+-- only to import from: MF-<model>.jsn-<field>.jsn
+local function oldMFname(field)
    return appInfo.Dir .. "MF-" ..
       string.gsub(system.getProperty("Model")..".jsn", " ", "_") ..
-      "-" .. Field.shortname .. ".jsn"
+      "-" .. field .. ".jsn"
 end
 
 local function jFilename()
@@ -863,6 +865,69 @@ local function jLoadFinal(fn, config)
    return io.rename(tmp, fn) == true
 end
 
+-- Triangle edits from the map browser (offset X/Y, rotation R, length L,
+-- aim-off O) belong to the field, not the model: every model flown there
+-- shares them. They live in one file, FieldEdits.jsn, keyed by the field's
+-- short name; Fields.jsn (the pilot's download) is never changed. An entry
+-- {} means "as in Fields.jsn" (after Clear triangle edits).
+-- Up to 10.0.1121 they were per model AND field, in MF-<model>.jsn-<field>.jsn.
+-- A field with no entry is imported once from those: this model's file,
+-- else the first other model's by name. The old files are left in place.
+local function feFilename() return appInfo.Dir .. "FieldEdits.jsn" end
+
+local function feLoadAll()
+   local fn = feFilename()
+   local t = jsonDecode(io.readall(fn), fn)
+   if not t then t = jsonDecode(io.readall(fn .. ".tmp"), fn .. ".tmp") end
+   return type(t) == "table" and t or {}
+end
+
+local function feSave(field, e)
+   local t = feLoadAll()
+   t[field] = e
+   if not jLoadFinal(feFilename(), t) then
+      print(appInfo.Name .. ": could not write " .. feFilename())
+   end
+end
+
+local function feImport(field)
+   local fn = oldMFname(field)
+   local t = jsonDecode(io.readall(fn), fn)
+   if type(t) ~= "table" then
+      -- another model's: MF-<model>.jsn-<field>.jsn, first by name
+      local tail, found = ".jsn-" .. field .. ".jsn", {}
+      pcall(function()
+	 for name in dir(appInfo.Dir) do
+	    if name:sub(1, 3) == "MF-" and #name > #tail + 3 and
+	       name:sub(-#tail) == tail then found[#found + 1] = name end
+	 end
+      end)
+      table.sort(found)
+      if found[1] then
+	 fn = appInfo.Dir .. found[1]
+	 t = jsonDecode(io.readall(fn), fn)
+      end
+   end
+   if type(t) ~= "table" then return nil end
+   -- the oldest files have L as a string ("250") and no O
+   return {dx = tonumber(t.dx), dy = tonumber(t.dy), r = tonumber(t.r),
+	   L = tonumber(t.L), O = tonumber(t.O)}, fn
+end
+
+-- set the triangle variables from a field's edits (nil or {}: Fields.jsn's)
+local function applyEdits(e)
+   e = e or {}
+   variables.triOffsetX  = tonumber(e.dx) or 0
+   variables.triOffsetY  = tonumber(e.dy) or 0
+   variables.triRotation = tonumber(e.r)  or 0
+   if Field.triangle then
+      variables.triLength = tonumber(e.L) or Field.triangle.size
+      variables.aimoff    = tonumber(e.O) or Field.triangle.size / 5
+   end
+   -- share the aim point offset with other apps (e.g. DFM-Path)
+   if DFM_Maps_AimOff then DFM_Maps_AimOff = variables.aimoff end
+end
+
 local function jLoad(config, var, def)
                                    
    if not config then return nil end
@@ -887,6 +952,10 @@ local function destroy()
    -- hack/special case.. don't save a "too small" histMax
    if variables.histMaxSet then variables.histMax = variables.histMaxSet end
    if appInfo.SaveData then
+      -- the triangle edits are the field's (FieldEdits.jsn), not the model's
+      for _, k in ipairs({"triOffsetX", "triOffsetY", "triRotation", "triLength", "aimoff"}) do
+	 variables[k] = nil
+      end
       jLoadFinal(jFilename(), variables)
       --[[
       if jLoadFinal(jFilename(), variables) then
@@ -1240,34 +1309,19 @@ local function setField(sname, noImages)
    Field.imagesReadTime = system.getTimeCounter() + const.imageWait * 1000
    
    ------------------------------------------------------------
-   local triT
-   
-   local tfn = kFilename()
-   
-   local jsn = io.readall(tfn)
-   
-   triT = jsonDecode(jsn, tfn)
-   
-   if triT then
-      variables.triOffsetX  = triT.dx or 0
-      variables.triOffsetY  = triT.dy or 0
-      if Field.triangle then
-	 variables.triLength   = triT.L  or Field.triangle.size
-	 variables.aimoff      = triT.O  or Field.triangle.size / 5
+   -- the field's triangle edits (FieldEdits.jsn), imported once from the
+   -- old per-model MF- files if it has none yet
+   local edits = feLoadAll()[Field.shortname]
+   if type(edits) ~= "table" then
+      local from
+      edits, from = feImport(Field.shortname)
+      if edits then
+	 print(appInfo.Name .. ": triangle edits for " .. Field.shortname ..
+		  " imported from " .. from)
+	 feSave(Field.shortname, edits)
       end
-      variables.triRotation = triT.r  or 0
-   else
-      variables.triOffsetX  = 0
-      variables.triOffsetY  = 0
-      if Field.triangle then
-	 variables.triLength   = Field.triangle.size
-	 variables.aimoff      = Field.triangle.size / 5
-      end
-      variables.triRotation = 0
    end
-
-   -- share the aim point offset with other apps (e.g. DFM-Path)
-   if DFM_Maps_AimOff then DFM_Maps_AimOff = variables.aimoff end
+   applyEdits(edits)
 
    resetPosState() -- new field, new origin: old x,y positions no longer apply
 
@@ -1507,19 +1561,13 @@ local function browseRestore()
    browse.pendingImage = nil
    browse.pendingDrawn = nil
 
-   -- Save the potential changes to the triangle in a file named by both the field
-   -- AND the model so the re-reading only happens with the same combination of
-   -- model and field
-   -- finally, only save if the field just browsed is the active field
+   -- save the triangle edits for the field (all models share them), only
+   -- if the field just browsed is the active field
 
    if Field.shortname and Field.shortname == browse.OriginalFieldName then
-      local triT = {dx=variables.triOffsetX, dy=variables.triOffsetY,
-		    r=variables.triRotation, L = variables.triLength,
-		    O = variables.aimoff}
-      local tfn = kFilename()
-      --print("Saving", tfn)
-      local tft = io.open(tfn, "w")
-      if tft then io.write(tft, json.encode(triT), "\n") io.close(tft) end
+      feSave(Field.shortname, {dx=variables.triOffsetX, dy=variables.triOffsetY,
+			       r=variables.triRotation, L = variables.triLength,
+			       O = variables.aimoff})
    end
    
    if not browse.OriginalFieldName then
@@ -1810,16 +1858,30 @@ local function initForm(subform)
       browse.FieldName = browse.List[i]
    end
 
+   -- this model's settings only; the fields' triangle edits are shared
    local function clearData()
-      if form.question("Clear all data?",
+      if form.question("Clear data for " .. system.getProperty("Model") .. "?",
 		       "Press Yes to clear, timeout is No",
 		       "Restart App after pressing Yes",
 		       6000, false, 0) == 1 then
 	 io.remove(jFilename())
-	 if Field and Field.shortname then -- no field-specific file if not at a field
-	    io.remove(kFilename())
-	 end
 	 appInfo.SaveData = false
+      end
+   end
+
+   -- back to Fields.jsn's triangle at this field, for every model
+   local function clearTri()
+      if not (Field and Field.shortname) then
+	 system.messageBox("No field selected", 3)
+	 return
+      end
+      if form.question("Clear triangle edits for " .. Field.shortname .. "?",
+		       "All models at this field",
+		       "Press Yes to clear, timeout is No",
+		       6000, false, 0) == 1 then
+	 feSave(Field.shortname, {})   -- {}: don't import the old files again
+	 applyEdits(nil)
+	 if Field.triangle then triRot(0) end
       end
    end
 
@@ -2122,6 +2184,8 @@ local function initForm(subform)
       checkBoxAdd(lang.recordIGC, "recordIGC")
       
       form.addLink(clearData, {label = lang.clearAll})
+
+      form.addLink(clearTri, {label = lang.clearTri})
       
       checkBoxAdd(lang.fullRaceWin, "fullRaceWin")
 
@@ -3268,10 +3332,12 @@ local function prtForm() --wwx, whx)
 	 local im = browse.pendingImage
 	 local now = system.getTimeCounter()
 	 local cached = fieldPNG[im] ~= nil
+	 -- no key or decode yet counts as long ago: getTimeCounter() can be
+	 -- negative on the emulator, so never compare against 0
 	 if cached or
 	    (browse.pendingDrawn and
-	     now - (browse.lastZoomKey or 0) >= const.zoomSettle and
-	     now - (browse.lastDecode or 0) >= const.zoomGap) then
+	     (not browse.lastZoomKey or now - browse.lastZoomKey >= const.zoomSettle) and
+	     (not browse.lastDecode or now - browse.lastDecode >= const.zoomGap)) then
 	    browse.pendingImage = nil
 	    browse.pendingDrawn = nil
 	    pngLoad(im, nil, true)
@@ -3812,8 +3878,10 @@ end
 local noFlyHist = {}
 noFlyHist.Last = false
 noFlyHist.LastF = false
-noFlyHist.LastTime = 0
-noFlyHist.LastFTime = 0
+-- nil until the first result: getTimeCounter() can be negative on the
+-- emulator, so a 0 here would look like "less than 1 s ago"
+noFlyHist.LastTime = nil
+noFlyHist.LastFTime = nil
 noFlyHist.LastX = 0.0
 noFlyHist.LastY = 0.0
 noFlyHist.LastFX = 0.0
@@ -3840,12 +3908,12 @@ local function checkNoFly(xt, yt, future, warnIn)
    -- if we have a result within 1 sec and 1 meter, return the prior cached value
 
    if not future then
-      if (system.getTimeCounter() - noFlyHist.LastTime) < 1000
+      if noFlyHist.LastTime and (system.getTimeCounter() - noFlyHist.LastTime) < 1000
       and math.abs(xt - noFlyHist.LastX) < 1 and math.abs(yt - noFlyHist.LastY) < 1 then
 	 return noFlyHist.Last
       end
    else
-      if (system.getTimeCounter() - noFlyHist.LastFTime) < 1000
+      if noFlyHist.LastFTime and (system.getTimeCounter() - noFlyHist.LastFTime) < 1000
       and math.abs(xt - noFlyHist.LastFX) < 1 and math.abs(yt - noFlyHist.LastFY) < 1 then
 	 return noFlyHist.LastF
       end
@@ -4971,7 +5039,7 @@ local function loop()
    end
    
    if (latitude == lastlat and longitude == lastlng) or
-   (math.abs(system.getTimeCounter()) < newPosTime) then
+   (newPosTime and system.getTimeCounter() - newPosTime < 0) then
 	 countNoNewPos = countNoNewPos + 1
 	 newpos = false
    else
@@ -5361,14 +5429,16 @@ local function init()
    variables.elev              = jLoad(variables, "elev",            0)
    variables.histDistance      = jLoad(variables, "histDistance",    3)
    variables.raceTime          = jLoad(variables, "raceTime",       30)
-   variables.aimoff            = jLoad(variables, "aimoff",         20)
+   -- until a field loads its triangle edits (FieldEdits.jsn); older
+   -- settings files still hold the last field's, which are ignored
+   variables.aimoff            = 20
    variables.flightStartSpd    = jLoad(variables, "flightStartSpd", 20)
    variables.flightStartAlt    = jLoad(variables, "flightStartAlt", 20)
    variables.futureMillis      = jLoad(variables, "futureMillis", 2000)
-   variables.triRotation       = jLoad(variables, "triRotation",     0)
-   variables.triOffsetX        = jLoad(variables, "triOffsetX",      0)
-   variables.triOffsetY        = jLoad(variables, "triOffsetY",      0)
-   variables.triLength         = jLoad(variables, "triLength",     250)
+   variables.triRotation       = 0
+   variables.triOffsetX        = 0
+   variables.triOffsetY        = 0
+   variables.triLength         = 250
    variables.ribbonWidth       = jLoad(variables, "ribbonWidth",     1)
    variables.ribbonAlpha       = jLoad(variables, "ribbonAlpha",   1.0)
    variables.switchesSet       = jLoad(variables, "switchesSet")

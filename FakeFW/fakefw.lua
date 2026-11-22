@@ -82,6 +82,10 @@ FW.profiles = {
       imageSwapRB = false, hide = {},
       collate = "en_US.UTF-8",    -- string < is case-insensitive there
       fonts = "emu-ds24ii-606",
+      -- the emulator's getTimeCounter() often starts negative (the TX's
+      -- starts small and positive): only differences are safe, never a
+      -- compare against 0 or "or 0"
+      counterStart = -1000000000,
       packagePath = "./Apps/?.lc;./Apps/?/init.lc;./Apps/?.lc2;./Apps/?/init.lc2;" ..
 	 "./Apps/?.lua;./Apps/?/init.lua;./Apps/lib/?.lua;./Apps/lib/?/init.lua;",
    },
@@ -201,6 +205,7 @@ local P                      -- the active profile (with timing merged in)
 local apps, appByName = {}, {}
 local stack = {}             -- callback records, innermost last
 local now, frac = 0, 0.0     -- virtual ms (integer) and the fraction carried
+local counter0 = 0           -- getTimeCounter() at now = 0 (profile counterStart)
 local frameEnd = 0           -- virtual time the current frame's work may run to
 local wall0                  -- wall ms at start (paced mode)
 local failures, errors = {}, {}
@@ -905,7 +910,7 @@ end
 --------------------------------------------------------------------------------
 
 local system = {}
-system.getTimeCounter = function() return now end
+system.getTimeCounter = function() return counter0 + now end
 system.getTime = getTime
 system.getDateTime = getDateTime
 system.getCPU = function()
@@ -1240,7 +1245,9 @@ function FW.setup(opts)
    math.randomseed(opts.seed or 1)
    local sd = opts.startDate or {year = 2026, mon = 11, day = 21, hour = 12, min = 0, sec = 0}
    startSec2000 = days2000(sd.year, sd.mon, sd.day) * 86400 + sd.hour * 3600 + sd.min * 60 + sd.sec
-   now, frac, frameEnd = opts.counterStart or 0, 0.0, 0
+   -- the virtual clock starts at 0; apps see it from counterStart
+   now, frac, frameEnd = 0, 0.0, 0
+   counter0 = opts.counterStart or P.counterStart or 0
    wall0 = C.ms()
    FW.paced = opts.paced or false
    if not ros.setlocale(P.collate, "collate") then
@@ -1346,7 +1353,17 @@ function FW.run(ms, untilf)
 end
 
 -- the report; returns the exit code (0 ok, 1 errors or failures)
+-- the apps' destroy, as the TX calls it when the model changes or the app
+-- is removed (apps save their settings there); FW.finish calls it when the
+-- file layers are on, so it can't write the working data
+function FW.destroyApps()
+   for _, app in ipairs(apps) do
+      if app.t then call(app, "destroy", app.t.destroy) end
+   end
+end
+
 function FW.finish()
+   if FS.run then FW.destroyApps() end
    out(fmt("[FW] ---- FakeFW report: profile %s, T=%d ms, multiplier %d%% ----", P.name, now, P.mult))
    local keys = {}
    for k in pairs(cpu) do keys[#keys + 1] = k end
