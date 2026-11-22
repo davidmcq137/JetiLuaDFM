@@ -15,6 +15,9 @@
 --]]
 
 local appName = "DFM-Path"
+-- major.minor.MMDD plus a letter for each build pushed that day (as Maps,
+-- Rscu, InsP). The TX's app list shows 7 characters; the menu title all
+local appVersion = "0.2.1122a"
 
 -- message boxes: the app's short name first, since several apps may be
 -- running; one centred line, clipped at both ends when too long, so keep
@@ -541,6 +544,7 @@ local function initForm(subform)
    local pitchsel = 0
    
    activeSf = subform
+   form.setTitle(appName .. " " .. appVersion)
    
    for k = 1, #RTH.gpsLalist do
       if (RTH.gpsIdlist[k] == RTH.settings.latId) and
@@ -1213,4 +1217,4 @@ local function init()
 
 end
    
-return {init=init, loop=loop, author="DFM", destroy=destroy, version="0.2", name=appName}
+return {init=init, loop=loop, author="DFM", destroy=destroy, version=appVersion, name=appName}

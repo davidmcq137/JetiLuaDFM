@@ -71,7 +71,9 @@
 --luacheck: globals declareGlobal DFM_TimG
 local shared = {elapsed = 0, remaining = 0}
 
-local TimAnnVersion = "1.1"
+-- major.minor.MMDD plus a letter for each build pushed that day (as Maps,
+-- Rscu, InsP); the menu shows it in full ("DFM - v.1.1.1122a")
+local TimAnnVersion = "1.1.1122a"
 
 -- message boxes: the app's short name first, since several apps may be
 -- running; one centred line, clipped at both ends when too long, so keep
