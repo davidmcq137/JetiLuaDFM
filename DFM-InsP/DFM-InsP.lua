@@ -58,7 +58,10 @@
    --------------------------------------------------------------------------------
 --]]
 
-local InsPVersion = 0.95
+-- major.minor.MMDD plus a letter for each build that day, as DFM-Maps does.
+-- The TX's app list shows only the first 7 characters ("0.95.11"), so the
+-- Settings title shows all of it
+local InsPVersion = "0.95.1122a"
 
 local LE
 
@@ -1912,7 +1915,7 @@ local function initForm(sf)
       form.reinit(1)
    elseif sf == formN.settings then
       
-      form.setTitle("Settings for all Panels ")
+      form.setTitle("DFM-InsP " .. InsPVersion)
 
       form.addRow(2)
       form.addLabel({label="Switch to reset min/max markers", width=240})
