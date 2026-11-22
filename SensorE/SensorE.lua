@@ -16,8 +16,8 @@
    configDir to be Apps which puts the config file in the directory
    with all the lua apps.
 
-   If Apps/SensorE.jsn does not exist, we will try to read
-   Apps/SensorEmulator.jsn
+   If Apps/SensorE.jsn does not exist, or has no configDir, SensorE uses
+   its own sample config in Apps/SensorE/SensorE/ (configDir "SensorE")
 
    Start this app first, and then when subsequent apps are started they
    will have their system telemetry routines redirected to the
@@ -67,8 +67,9 @@
    strings at full precision. lat0/lon0 can then be left out.
    If system.UIDriver.sensorConfig is set, it is used as the configDir
    instead of SensorE.jsn's. UIDriver sets it to the target app's
-   config.jsn "sensorConfig", or else to Apps/<App>/SensorE when the app
-   has one.
+   config.jsn "sensorConfig", else to Apps/<App>/SensorE when that has a
+   config, else to SensorE's own Apps/SensorE/SensorE. Only SensorE run
+   without UIDriver (an app opened by hand) uses SensorE.jsn's configDir.
 
    Where the config lives: each app keeps its own in Apps/<App>/SensorE/
    (sensorEmulator.jsn, sensorEmulatorGPS.jsn), next to its UIDriver/
@@ -538,14 +539,14 @@ function emulator_getSensors()
    fg = io.readall(text)
 
    if not fg then
-      print("SensorE: Cannot read " .. text)
-      SEjsn.configDir = "Apps"
+      print("SensorE: Cannot read " .. text .. " - using SensorE's own config")
+      SEjsn.configDir = "SensorE"
    else
       SEjsn=json.decode(fg) or {}
    end
    if not SEjsn.configDir then
-      print("SensorE: No configDir in Apps/SensorE.jsn - using Apps")
-      SEjsn.configDir = "Apps"
+      print("SensorE: No configDir in Apps/SensorE.jsn - using SensorE's own config")
+      SEjsn.configDir = "SensorE"
    end
 
    -- a test driver (UIDriver) can choose the config dir

@@ -31,7 +31,7 @@
    the target's own menu as usual. The choice is saved in
    Apps/UIDriver/selection.jsn and applied again when the apps next load.
    SensorE picks the app's SensorE config: "default" (its own
-   Apps/<App>/SensorE, else Apps/SensorE.jsn's) or any app's SensorE
+   Apps/<App>/SensorE, else SensorE's own Apps/SensorE/SensorE) or any app's SensorE
    folder or variant on the card ("DFM-Rscu", "DFM-Rscu/maps"). Leaving
    the menu writes it to the app's UIDriver/config.jsn as "sensorConfig"
    (other settings left as they are); SensorE reads it when the apps
@@ -62,8 +62,9 @@
         "logEvents": false,       -- log every uid.event
         "sensorConfig": "DFM-Rscu",  -- optional: the SensorE config
                                   -- to use. Without it, the app's own
-                                  -- Apps/<App>/SensorE (if it has one),
-                                  -- else Apps/SensorE.jsn's. "DFM-Rscu" =
+                                  -- Apps/<App>/SensorE (if it has a
+                                  -- config), else SensorE's own
+                                  -- Apps/SensorE/SensorE. "DFM-Rscu" =
                                   -- Apps/DFM-Rscu/SensorE, "DFM-Rscu/maps"
                                   -- its maps variant, or any path from
                                   -- the emulator root ("Apps/..."). SensorE
@@ -307,7 +308,8 @@
                                   simulator's xp, yp, heading, zp, pitch
      {"sensorField": "DCRC Walt Good Field"}  GPS origin field (or index)
    SensorE loads its config when the apps load (each getSensors call):
-   the app's own Apps/<App>/SensorE, or config.jsn's "sensorConfig"
+   config.jsn's "sensorConfig", else the app's own Apps/<App>/SensorE,
+   else SensorE's own Apps/SensorE/SensorE
    (see config.jsn under FILES). setTime and setField need it loaded.
 
    TEXT ON SCREEN: what the target draws with lcd.drawText and
@@ -3228,16 +3230,19 @@ function files.sensorPath(d)
 end
 
 -- the config SensorE should use for app id: its config.jsn "sensorConfig",
--- else the app's own Apps/<id>/SensorE if it has one; nil leaves it to
--- Apps/SensorE.jsn
+-- else the app's own Apps/<id>/SensorE if it has a config (the folder is
+-- in every app, often empty), else SensorE's own Apps/SensorE/SensorE.
+-- nil (neither has one) leaves it to Apps/SensorE.jsn
 function files.sensorDirOf(id, explicit)
    if type(explicit) == "string" and explicit ~= "" then return files.sensorPath(explicit) end
+   local function hasConfig(d)
+      return io.readall(d .. "/sensorEmulator.jsn") or io.readall(d .. "/sensorEmulatorGPS.jsn")
+   end
    if id and id ~= "" then
       local d = "Apps/" .. id .. "/SensorE"
-      if io.readall(d .. "/sensorEmulator.jsn") or io.readall(d .. "/sensorEmulatorGPS.jsn") then
-	 return d
-      end
+      if hasConfig(d) then return d end
    end
+   if hasConfig("Apps/SensorE/SensorE") then return "Apps/SensorE/SensorE" end
 end
 
 -- every SensorE config on the card, by short name: each app folder with a
@@ -3350,7 +3355,8 @@ local function activate()
    api.sensorLog = cfg.sensorLog
    if sdir then
       log("SensorE config: " .. sdir .. (cfg.sensorConfig and " (config.jsn sensorConfig)"
-				       or " (the app's own)"))
+	  or sdir == "Apps/SensorE/SensorE" and " (SensorE's own: the app has none)"
+	  or " (the app's own)"))
    end
    local se = system.SensorE
    local ok, g = pcall(function() return se and se.getState and se.getState() end)
@@ -3462,7 +3468,7 @@ local function sensorText(id)
    local ok, g = pcall(function() return se and se.getState and se.getState() end)
    local loaded = ok and type(g) == "table" and g.configDir or nil
    local sej = readJsn("Apps/SensorE.jsn") or {}
-   local want = files.sensorPath(type(sej.configDir) == "string" and sej.configDir or "Apps")
+   local want = files.sensorPath(type(sej.configDir) == "string" and sej.configDir or "SensorE")
    if menu and menu.mode ~= "off" then
       local ac = id and id ~= "" and readJsn(appDir(id) .. "config.jsn")
       want = files.sensorDirOf(id, ac and ac.sensorConfig) or want
