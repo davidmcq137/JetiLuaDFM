@@ -10,9 +10,9 @@ group timers   DFM-TimG DFM-TimV
 group glob     GlobR GlobW
 group current  DFM-Maps DFM-InsP DFM-Rscu DFM-Path DFM-TimG
 group spike    SpikeTgt
-group configtests  GpsTest ImgTest EnvDump FontDump ColorSwap ImgBudget PolyLimit
+group configtests  GpsTest ImgTest EnvDump FontDump ColorSwap ImgBudget PolyLimit JsonProbe
 # apps that save no settings (no pSave): unlinked even when a model loads them
-group nosettings   GpsTest ImgTest EnvDump FontDump ColorSwap PolyLimit
+group nosettings   GpsTest ImgTest EnvDump FontDump ColorSwap PolyLimit JsonProbe
 group misc     arctest arctest2 Dumper font hp1345a jtest polytest ren render sw test testnd v y
 
 # link NAME  TARGET    (target relative to Apps/)
@@ -83,6 +83,7 @@ link  ImgTest.lua      ImgTest/ImgTest.lua
 link  ColorSwap.lua    ColorSwap/ColorSwap.lua
 link  ImgBudget.lua    ImgBudget/ImgBudget.lua
 link  PolyLimit.lua    PolyLimit/PolyLimit.lua
+link  JsonProbe.lua    JsonProbe/JsonProbe.lua
 link  J-Sensor         AppsNotShipped/J-Sensor
 link  J-Sensor.lua     J-Sensor/J-Sensor.lua
 link  polytest.lua     misclua/polytest.lua

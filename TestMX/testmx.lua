@@ -267,6 +267,9 @@ local function currentApp()
    return rec and rec.app
 end
 
+-- run when the outermost callback returns (form.reinit's initForm)
+local afterTop
+
 -- call an app callback with cost accounting; an error kills the app
 local function call(app, what, f, ...)
    if not f or app.dead then return end
@@ -276,6 +279,7 @@ local function call(app, what, f, ...)
    local r = pack(xpcall(f, traceback, ...))
    stack[#stack] = nil
    if #stack == 0 then sethook() end
+   if #stack == 0 and afterTop then afterTop() end
    local key = app.name .. " " .. what:gsub(" .*", "")
    local c = cpu[key]
    if not c then c = {calls = 0, max = 0, over = 0, total = 0}; cpu[key] = c end
@@ -332,105 +336,23 @@ local function getDateTime()
 end
 
 --------------------------------------------------------------------------------
--- json (JETI's decode returns floats for all numbers)
+-- json: the real Lua CJSON 2.1.0 (TestMX/cjson), built into testmx_c.so.
+-- JETI's json is based on it, and the emulator behaves exactly like it with
+-- the default settings (JsonProbe/jsonprobe-emu606.txt): arrays with holes
+-- are padded with null ({[2] = 5} -> [null,5]), an empty table encodes as
+-- {}, null decodes to a lightuserdata that stays in its slot, numbers
+-- decode as floats, numeric object keys stay strings, and NULL is invalid.
 --------------------------------------------------------------------------------
 
-local json = {}
-local ESC = {['"'] = '\\"', ['\\'] = '\\\\', ['\b'] = '\\b', ['\f'] = '\\f',
-	     ['\n'] = '\\n', ['\r'] = '\\r', ['\t'] = '\\t'}
-local function jstr(s)
-   return '"' .. s:gsub('[%c"\\]', function(c) return ESC[c] or fmt("\\u%04x", c:byte()) end) .. '"'
-end
-function json.encode(v)
-   local t = type(v)
-   if t == "table" then
-      local n = #v
-      if n > 0 or next(v) == nil then
-	 local o = {}
-	 for i = 1, n do o[i] = json.encode(v[i]) end
-	 return "[" .. table.concat(o, ",") .. "]"
-      end
-      local o, keys = {}, {}
-      for k in pairs(v) do keys[#keys + 1] = tostring(k) end
-      table.sort(keys)
-      for _, k in ipairs(keys) do
-	 local x = v[k]
-	 if x == nil then x = v[tonumber(k)] end
-	 o[#o + 1] = jstr(k) .. ":" .. json.encode(x)
-      end
-      return "{" .. table.concat(o, ",") .. "}"
-   elseif t == "string" then return jstr(v)
-   elseif t == "number" then
-      if math.type(v) == "integer" then return tostring(v) end
-      if v ~= v or v == math.huge or v == -math.huge then return "null" end
-      if v == floor(v) then return fmt("%d", v) end
-      return fmt("%.7g", v)
-   elseif t == "boolean" then return tostring(v)
-   else return "null" end
-end
-function json.decode(s)
-   if type(s) ~= "string" then return nil end
-   local i = 1
-   local function ws() i = s:find("[^ \t\r\n]", i) or #s + 1 end
-   local function err() error("json.decode: bad json at " .. i, 0) end
-   local val
-   local function str()
-      local o, j = {}, i + 1
-      while true do
-	 local c = s:sub(j, j)
-	 if c == "" then err() end
-	 if c == '"' then i = j + 1; return table.concat(o) end
-	 if c == "\\" then
-	    local e = s:sub(j + 1, j + 1)
-	    if e == "u" then
-	       local cp = tonumber(s:sub(j + 2, j + 5), 16) or err()
-	       o[#o + 1] = utf8.char(cp); j = j + 6
-	    else
-	       o[#o + 1] = ({b = "\b", f = "\f", n = "\n", r = "\r", t = "\t"})[e] or e
-	       j = j + 2
-	    end
-	 else
-	    o[#o + 1] = c; j = j + 1
-	 end
-      end
+local json
+do
+   local open, err = package.loadlib(HERE .. "testmx_c.so", "luaopen_cjson")
+   if not open then
+      error("TestMitter: testmx_c.so has no Lua CJSON (run TestMX/build.sh): " .. tostring(err))
    end
-   function val()
-      ws()
-      local c = s:sub(i, i)
-      if c == "{" then
-	 local o = {}; i = i + 1; ws()
-	 if s:sub(i, i) == "}" then i = i + 1; return o end
-	 while true do
-	    ws(); if s:sub(i, i) ~= '"' then err() end
-	    local k = str(); ws()
-	    if s:sub(i, i) ~= ":" then err() end
-	    i = i + 1
-	    o[k] = val(); ws()
-	    local d = s:sub(i, i); i = i + 1
-	    if d == "}" then return o end
-	    if d ~= "," then err() end
-	 end
-      elseif c == "[" then
-	 local o = {}; i = i + 1; ws()
-	 if s:sub(i, i) == "]" then i = i + 1; return o end
-	 while true do
-	    o[#o + 1] = val(); ws()
-	    local d = s:sub(i, i); i = i + 1
-	    if d == "]" then return o end
-	    if d ~= "," then err() end
-	 end
-      elseif c == '"' then return str()
-      elseif s:sub(i, i + 3) == "true" then i = i + 4; return true
-      elseif s:sub(i, i + 4) == "false" then i = i + 5; return false
-      elseif s:sub(i, i + 3) == "null" then i = i + 4; return nil
-      else
-	 local j = s:find("[^%-%d%.eE+]", i) or #s + 1
-	 local n = tonumber(s:sub(i, j - 1)) or err()
-	 i = j
-	 return n + 0.0
-      end
-   end
-   return val()
+   local cj = open()
+   -- JETI exposes encode and decode only
+   json = {encode = cj.encode, decode = cj.decode}
 end
 
 --------------------------------------------------------------------------------
@@ -862,11 +784,25 @@ function form.getActiveForm()
    return nil
 end
 function form.close() closeReq = true end
--- reinit runs initForm right away, as the emulator can (UIDriver notes)
-function form.reinit(sub)
-   if not active then return end
+-- reinit: the firmware runs initForm(sub) after the callback that asked
+-- for it returns, not inside it. DFM-Dial's keyForm calls form.reinit(13)
+-- and then tests subForm == 13 for the same key; on the TX one F3 opens
+-- subform 13, not 103 (the pilot, 2026-11-22). Several reinits in one
+-- callback: the last one wins
+local function doReinit(sub)
    active.comps, active.nextIdx, active.rows, active.sub = {}, 0, 0, sub or 1
    call(active.app, "initForm", active.f.init, active.sub)
+end
+function form.reinit(sub)
+   if not active then return end
+   if currentApp() then active.pendingSub = sub or 1 else doReinit(sub) end
+end
+afterTop = function()
+   while active and active.pendingSub do
+      local sub = active.pendingSub
+      active.pendingSub = nil
+      doReinit(sub)
+   end
 end
 
 local runFrame                -- forward
@@ -1245,7 +1181,8 @@ local function buildBase()
    base.system, base.form, base.lcd, base.json = copy(system), copy(form), copy(lcd), json
    -- system.TestMX: true only here, for test tools (UIDriver runs on a TX
    -- profile). In a metatable, so pairs() and EnvDump don't list it
-   setmetatable(base.system, {__index = {TestMX = true}})
+   setmetatable(base.system, {__index = {TestMX = true,
+					   TestMXrestartApp = function(n) return FW.requestRestart(n) end}})
    base.io, base.dir, base.timer, base.gpio, base.serial = jio, jdir, timer, gpio, serial
    base.lcd.width, base.lcd.height = P.lcdW, P.lcdH
    base.gps = copy(gps)
@@ -1396,30 +1333,60 @@ function FW.setup(opts)
 end
 function FW.profile() return P end
 
+-- load an app's chunk into app (a new one, or one being restarted)
+local function loadChunk(app)
+   local name = app.name
+   app.env = makeEnv(app)
+   local path
+   for _, ext in ipairs({".lua", ".lc"}) do
+      local f = rio.open("Apps/" .. name .. ext)
+      if f then f:close(); path = "Apps/" .. name .. ext; break end
+   end
+   if not path then error("TestMitter: no Apps/" .. name .. ".lua or .lc") end
+   local chunk, err = hostLoadfile(path, "bt", app.env)
+   if not chunk then error("TestMitter: " .. err) end
+   app.t = call(app, "load", chunk)
+   if type(app.t) ~= "table" then
+      if not app.dead then
+	 app.dead = true
+	 errors[#errors + 1] = name .. ": did not return an app table"
+	 fwlog(name .. " did not return an app table")
+      end
+   end
+end
+
 -- load apps by name (Apps/<name>.lua or .lc) in this order
 function FW.load(names)
    for _, name in ipairs(names) do
       local app = {name = name, index = #apps + 1, forms = {}, tels = {}, saved = {}}
-      app.env = makeEnv(app)
-      local path
-      for _, ext in ipairs({".lua", ".lc"}) do
-	 local f = rio.open("Apps/" .. name .. ext)
-	 if f then f:close(); path = "Apps/" .. name .. ext; break end
-      end
-      if not path then error("TestMitter: no Apps/" .. name .. ".lua or .lc") end
-      local chunk, err = hostLoadfile(path, "bt", app.env)
-      if not chunk then error("TestMitter: " .. err) end
       apps[#apps + 1] = app
       appByName[name] = app
-      app.t = call(app, "load", chunk)
-      if type(app.t) ~= "table" then
-	 if not app.dead then
-	    app.dead = true
-	    errors[#errors + 1] = name .. ": did not return an app table"
-	    fwlog(name .. " did not return an app table")
-	 end
-      end
+      loadChunk(app)
    end
+end
+
+-- restart an app as the TX does when you change model and back: destroy
+-- (where apps save), its form closed and its forms and windows dropped,
+-- the file loaded fresh, init. Files written in the run and its pSave
+-- values stay, as the SD card and the model file do. Requested from a
+-- callback (system.TestMXrestartApp, for UIDriver), it happens at the start
+-- of the next frame, outside any app's callback
+local restartReq = {}
+function FW.restartApp(name)
+   local app = appByName[name]
+   if not app then return false end
+   if active and active.app == app then closeActive() end
+   if app.t and not app.dead then call(app, "destroy", app.t.destroy) end
+   app.forms, app.tels, app.dead, app.t = {}, {}, nil, nil
+   loadChunk(app)
+   if app.t then call(app, "init", app.t.init, 0) end
+   fwlog(name .. " restarted")
+   return true
+end
+function FW.requestRestart(name)
+   if not appByName[name] then return false end
+   restartReq[#restartReq + 1] = name
+   return true
 end
 function FW.app(name) return appByName[name] end
 function FW.apps() return apps end
@@ -1452,6 +1419,7 @@ function runFrame()
    local start = frameEnd > now and frameEnd or now
    now, frac = start, 0.0
    frameEnd = start + P.loopMs + jitter()
+   while #restartReq > 0 do FW.restartApp(table.remove(restartReq, 1)) end
    for _, f in ipairs(frameHooks) do f(now) end
    serialFrame()
    for _, app in ipairs(apps) do

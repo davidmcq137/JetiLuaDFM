@@ -92,8 +92,9 @@ are skipped under TestMitter and counted as *skipped*, never passed.
    ```sh
    sh TestMX/build.sh            # makes TestMX/testmx_c.so (gitignored)
    ```
-   It supplies GPS maths in doubles (as the TX does), the wall clock and
-   sleep.
+   It supplies GPS maths in doubles (as the TX does), the wall clock,
+   sleep, and `json`: the real Lua CJSON 2.1.0 (`TestMX/cjson`), which
+   JETI's library is based on. Rebuild after pulling this change.
 3. **App links.** Apps load from `Apps/<App>.lua`, a gitignored link to
    the app's folder. `run-tests.sh` makes the ones it needs; for others:
    ```sh
@@ -559,7 +560,33 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
 - `string.format("%d", 2.7)` is fine on the TX (it floors); it isn't a
   crash.
 
-### 6.4 Running tests
+### 6.4 Forms
+
+- `form.reinit(n)` runs `initForm(n)` only after the callback that called
+  it returns. Code after the `reinit` in the same callback still sees the
+  old subform. DFM-Dial relies on this: its `keyForm` calls
+  `form.reinit(13)` and then tests `subForm == 13` for the same key, and
+  one F3 opens subform 13 on the TX.
+
+### 6.5 JSON
+
+JETI's `json` is Lua CJSON, and TestMitter uses the same library, so these
+hold in both (checked by JsonProbe against the emulator):
+
+- An array with holes is padded with `null`: `{nil, 5}` and `{[2] = 5}`
+  both encode as `[null,5]`. On reading back, the `null` is a
+  **lightuserdata**: truthy, and arithmetic on it is an error. Don't save
+  arrays that use `nil` for "not set"; use `false` or a sentinel number,
+  or check `type(x) == "number"` after decoding.
+- An empty table encodes as `{}`, not `[]`.
+- Numeric object keys come back as strings (`{"2":5}` gives `t["2"]`).
+- `NULL` (capitals) is not valid JSON; `json.decode` raises an error. Use
+  `pcall(json.decode, s)` for files a pilot or an old version might have
+  written.
+- `json.decode(nil)` is an error too, e.g. after `io.readall` of a missing
+  file.
+
+### 6.6 Running tests
 
 - **Never run a script against the working data.** Use `testmx-uid.lua`
   (always sandboxed), not your own unsandboxed driver; Maps rewrote a
@@ -586,16 +613,19 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
 
 ## 7. The current suite
 
-`TestMX/test/run-tests.sh` runs 20 tests in about 20 s:
+`TestMX/test/run-tests.sh` runs 29 tests:
 
 | Test | Checks |
 |---|---|
 | GpsTest on `emu-ds24ii-606` and `ds24-508` | GPS maths match the emulator's and the DS-24's output line for line |
-| EnvDump on three profiles | the environment an app sees matches the measured one (constants, libraries, sizes) |
-| FontDump on three profiles | text sizes match the measured fonts |
+| EnvDump on four profiles | the environment an app sees matches the measured one (constants, libraries, sizes) |
+| FontDump on four profiles | text sizes match the measured fonts |
+| JsonProbe on `emu-ds24ii-606` | `json.encode`/`decode` match the emulator's (Lua CJSON) case by case |
 | DFM-TimG `timg-test`, `hud-test` | timer logic on the Georgia Jets log (SensorL); `hud-test` with the real DFM-HUD reading TimG's times |
 | DFM-Maps `nofly-test`, `maps-smoke` | no-fly zones, announcements, stick shake, map view and triangle, on the 458 maps (emulator profile) and the 320 maps (DS-24 5.08) |
 | DFM-HUD `engo-test` on `emu-ds24ii-606` and `ds24ii-606` | glasses handshake, config upload, battery polls and well-formed gauge frames, against the fake Engo glasses |
 | DFM-SWT `swt-presses` on `emu-ds24ii-606` | 1 press, 2 presses and a long press each pulse their control, with the negative clock and a real model file |
 | DFM-Rscu `rscu-test`, `rscu-controls-test` on `emu-ds24ii-606` | inputboxes, mixer calibration, rescue on/off; steering and elevator outputs during a rescue |
 | DFM-Path `path-controls-test` on `emu-ds24ii-606` | steering and elevator on the saved path, the altitude loop and a 0-100% manual altitude control |
+| DFM-Dial `warn-roundtrip` | a max warning on one dial saves as `[null,5]`; across two restarts (`restartApp`) Dial reads it back and runs without an error |
+| DFM-InsP `seq-stale-target`, `seq-new-entry`, `seq-image-change`, `panel-list`, `bad-settings` | the panel sequencer, panel numbering through adds and deletes, image changes, and a bad settings file |

@@ -4,7 +4,7 @@
 # (default ~/lua-5.3.1-Jeti-typefix/src/lua; in CI, fazzone/lua_jeti with
 # ltm-typefix.patch). Build TestMX/testmx_c.so first (TestMX/build.sh).
 # Tests: GpsTest on the emulator and DS-24 5.08 profiles, EnvDump and FontDump
-# on those and the DS-16 5.06 profile,
+# on those and the DS-16 5.06 profile, JsonProbe against the emulator's json,
 # against the measured outputs, the DFM-TimG UIDriver scripts with DFM-HUD (SensorL replays
 # Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing), and
 # DFM-Maps' scripts on the maps-bds458 (emulator) and maps-bds320 (ds24-508)
@@ -28,7 +28,7 @@ bad() { echo "FAIL: $1"; fails=$((fails + 1)); }
 # made here are removed at the end, so the emulator's list (appset) stays
 # as it was
 made=""
-for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps DFM-SWT DFM-Rscu DFM-Path DFM-InsP; do
+for a in GpsTest UIDriver SensorL SensorE DFM-TimG DFM-HUD DFM-Maps DFM-SWT DFM-Rscu DFM-Path DFM-InsP DFM-Dial; do
    if [ ! -e Apps/$a.lua ]; then ln -s $a/$a.lua Apps/$a.lua && made="$made Apps/$a.lua"; fi
 done
 # (one trap for both: a second "trap ... EXIT" would replace the first)
@@ -96,6 +96,23 @@ for pr in "emu-ds24ii-606 fontdump-emu606" "ds24ii-606 fontdump-ds24ii-606" "ds2
    fi
 done
 if [ -f $FOUT.keep ]; then mv $FOUT.keep $FOUT; else rm -f $FOUT; fi
+
+# JsonProbe: TestMitter's json (the real Lua CJSON, TestMX/cjson) against
+# the emulator's, every case after the header line
+if [ ! -e Apps/JsonProbe.lua ]; then
+   ln -s JsonProbe/JsonProbe.lua Apps/JsonProbe.lua && made="$made Apps/JsonProbe.lua"
+fi
+JOUT=Apps/JsonProbe/jsonprobe.out
+[ -f $JOUT ] && cp $JOUT $JOUT.keep
+rm -f $JOUT
+"$LUA" Apps/TestMX/testmx.lua -t 1 JsonProbe > /dev/null
+sed 1d $JOUT > $TMP/got 2>/dev/null; sed 1d Apps/JsonProbe/jsonprobe-emu606.txt > $TMP/want
+if cmp -s $TMP/got $TMP/want; then
+   ok "JsonProbe emu-ds24ii-606 = jsonprobe-emu606.txt"
+else
+   bad "JsonProbe emu-ds24ii-606"; diff $TMP/got $TMP/want | head -20
+fi
+if [ -f $JOUT.keep ]; then mv $JOUT.keep $JOUT; else rm -f $JOUT; fi
 
 # DFM-TimG's scripts: SensorL replays the Georgia Jets log, the sliders
 # sit where the TimG test model has them, and TimG starts first (the init
@@ -168,6 +185,15 @@ rp() {
 rp DFM-Rscu rscu-test
 rp DFM-Rscu rscu-controls-test
 rp DFM-Path path-controls-test
+
+# DFM-Dial: min/max warnings across restarts ("restartApp"). A warning on one
+# dial only saves as [null,5] (Lua CJSON); Dial must read it back and run.
+# The model name picks the file, Apps/DFM-Dial/DD_DialTest.jsn
+if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-Dial --script warn-roundtrip.jsn --model DialTest > $TMP/dial 2>&1; then
+   ok "DFM-Dial warn-roundtrip: $(grep '^==== DONE' $TMP/dial)"
+else
+   bad "DFM-Dial warn-roundtrip"; grep -v '^\[UID\]' $TMP/dial | tail -30
+fi
 
 # DFM-InsP's sequencer after panel edits, on the insp-aaa fixture (settings
 # with 2 panels and 2 old sequencer entries naming panels that are gone)

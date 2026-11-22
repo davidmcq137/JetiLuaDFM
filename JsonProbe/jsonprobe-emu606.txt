@@ -1,0 +1,29 @@
+#,JsonProbe,1.0,6.06,JETI DS-24 II
+E,full,[1.5,2.5,3.5,4.5]
+E,empty,{}
+E,nil,5,[null,5]
+E,1,nil,3,[1,null,3]
+E,1,2,3,nil,[1,2,3]
+E,[2]=5 only,[null,5]
+E,[4]=7 only,[null,null,null,7]
+E,4 then [2]=nil,[1,null,3,4]
+E,4 then [4]=nil,[1,2,3]
+E,4 then [1..3]=nil,[null,null,null,4]
+E,nested,{"tele":[{"w":[null,5]},{"w":{}}]}
+E,int,[3]
+E,bool,[true,false]
+E,mixed keys,{"1":1,"x":2}
+E,string key 2,{"2":5}
+D,[null,5],{[number 1]=userdata userdata: (nil) [number 2]=float 5.0} #2
+D,[NULL,5],ERROR,Expected value but found invalid token at character 2
+D,[Null,5],ERROR,Expected value but found invalid token at character 2
+D,{"a":null},{[string a]=userdata userdata: (nil)} #0
+D,{"2":5},{[string 2]=float 5.0} #0
+D,[1,2,3],{[number 1]=float 1.0 [number 2]=float 2.0 [number 3]=float 3.0} #3
+D,[],{} #0
+D,{},{} #0
+D,roundtrip [2]=5,{[string w]={[number 1]=userdata userdata: (nil) [number 2]=float 5.0} #2} #0
+D,roundtrip nil,5,{[string w]={[number 1]=userdata userdata: (nil) [number 2]=float 5.0} #2} #0
+D,roundtrip 4 then [2]=nil,{[string w]={[number 1]=float 1.0 [number 2]=userdata userdata: (nil) [number 3]=float 3.0 [number 4]=float 4.0} #4} #0
+N,json.null,nil,nil
+DONE

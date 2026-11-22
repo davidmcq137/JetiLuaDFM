@@ -6,5 +6,7 @@
 set -e
 LUASRC=${1:-$HOME/lua-5.3.1-Jeti-typefix/src}
 HERE=$(cd "$(dirname "$0")" && pwd)
-gcc -O2 -Wall -shared -fPIC -I"$LUASRC" -o "$HERE/testmx_c.so" "$HERE/testmx_c.c" -lm
+# cjson/: Lua CJSON 2.1.0, JETI's json library (TestMX/cjson/README.md)
+gcc -O2 -Wall -shared -fPIC -I"$LUASRC" -I"$HERE/cjson" -o "$HERE/testmx_c.so" \
+    "$HERE/testmx_c.c" "$HERE/cjson/lua_cjson.c" "$HERE/cjson/strbuf.c" "$HERE/cjson/fpconv.c" -lm
 echo "built $HERE/testmx_c.so against $LUASRC"

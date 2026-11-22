@@ -217,6 +217,17 @@
                                   window for ms (default 10000)
      {"waitTelem": 1}             wait until target telemetry window 1 is
                                   showing (no timeout unless "timeout")
+     {"restartApp": "DFM-Dial"}   restart an app as the TX does when you
+                                  change model and back: destroy (where
+                                  apps save), then load and init again;
+                                  files and pSave values stay. TestMitter
+                                  only; SKIP on the emulator and the TX
+     {"expectFile": "Apps/DFM-Dial/DD_TestModel.jsn",
+      "contains": "[null"}        PASS if the file contains the text
+                                  ("absent": true for must NOT contain;
+                                  no "contains" = the file must exist).
+                                  Plain text, not a pattern. The path is
+                                  tried as given, then with a leading "/"
      {"cpuStart": true}           start tracking the target's peak CPU
      {"cpuCheck": 80}             stop tracking; FAIL if the peak was over
                                   80%. {"cpuCheck": true} only reports it
@@ -1216,6 +1227,40 @@ H.wait       = {ctx = "any", run = function(s, el)
 		   if el >= s.wait then return "ok" end
 end}
 H.log        = {ctx = "any", run = function(s) return "ok", s.log end}
+
+-- restartApp: TestMitter restarts the app at the start of the next frame
+H.restartApp = {ctx = "any", run = function(s)
+		   if not system.TestMX then
+		      return "skip", "restartApp needs TestMitter: " .. tostring(s.restartApp)
+		   end
+		   if not s._asked then
+		      s._asked = true
+		      if not system.TestMXrestartApp(s.restartApp) then
+			 return false, "no app " .. tostring(s.restartApp) .. " to restart"
+		      end
+		      return nil
+		   end
+		   return "ok", tostring(s.restartApp) .. " restarted"
+end}
+
+-- expectFile: what an app saved
+H.expectFile = {ctx = "any", run = function(s)
+		   local p = s.expectFile
+		   local txt = io.readall(p)
+		   if not txt then
+		      p = "/" .. p
+		      txt = io.readall(p)
+		   end
+		   if not txt then return false, "no file " .. s.expectFile end
+		   if s.contains == nil then return true, s.expectFile .. " exists" end
+		   local found = txt:find(s.contains, 1, true) ~= nil
+		   local what = (s.absent and "doesn't contain " or "contains ") .. s.contains
+		   if found == not s.absent then return true, s.expectFile .. " " .. what end
+		   local at = txt:find(s.contains, 1, true)
+		   local show = at and txt:sub(math.max(1, at - 40), at + #s.contains + 40) or txt:sub(1, 120)
+		   return false, s.expectFile .. " should " .. (s.absent and "not contain " or "contain ") ..
+		      s.contains .. "; has: " .. show
+end}
 H.answer     = {ctx = "any", run = function(s)
 		   answers[#answers+1] = s.answer and 1 or 0
 		   return "ok", "next question will be answered " .. (s.answer and "yes" or "no")
@@ -1693,7 +1738,8 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "setSensor", "clearSensor", "expectControl", "waitControl",
 	       "sensorPause", "sensorTime", "sensorStep", "sensorField",
 	       "sensorPosition", "sensorVars", "waitSensorTime", "restore",
-	       "waitSensor", "expectSensor", "focus"}
+	       "waitSensor", "expectSensor", "focus", "restartApp",
+	       "expectFile"}
 
 local function verbOf(s)
    for _, v in ipairs(VERBS) do
