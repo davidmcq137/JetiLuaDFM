@@ -1634,7 +1634,8 @@ local function panelChanged(val, sp)
    if val ~= 1 then
       for j, p in ipairs(InsP.panelImages) do
 	 if j ~= sp and p.instImage == pv then
-	    system.messageBox(pv .. " is already panel " .. j)
+	    print("DFM-InsP: " .. pv .. " is already panel " .. j)
+	    system.messageBox("Image used by panel " .. j)
 	    form.reinit(formN.panels) -- the selectbox shows the old image again
 	    return
 	 end
@@ -1735,7 +1736,7 @@ local function changedSwitch(val, switchName, j, wid)
 	 end
 	 InsP.settings.switchInfo[switchName].mode = swInfo.mode
       else
-	 system.messageBox("Error - do not move switch when assigning")
+	 system.messageBox("Keep switch on to assign")
 	 if switches[switchName] then
 	    form.setValue(swtCI[switchName], switches[switchName])
 	 else
@@ -1927,7 +1928,7 @@ local function initForm(sf)
       if ans == 1 then
 	 io.remove(InsP.settings.fileBD)
 	 InsP.settings.writeBD = false
-	 system.messageBox("All data deleted .. Restart App")
+	 system.messageBox("Data deleted: restart app")
       end
       form.reinit(1)
    elseif sf == formN.settings then
@@ -2794,11 +2795,11 @@ local function loop()
 		  -- rather than set it to panel 0 and blank it
 		  print("DFM-InsP: sequencer entry " .. i .. ": no panel " .. tostring(to))
 	       elseif to ~= "+" then
-		  system.messageBox("Window 1 switching to: " .. to)
+		  system.messageBox("Window 1: " .. to)
 		  InsP.settings.window1Panel = tp
 	       else
 		  InsP.settings.window1Panel = nextPanel(InsP.settings.window1Panel)
-		  system.messageBox("Window 1 incrementing to " ..
+		  system.messageBox("Window 1: " ..
 				       InsP.panelImages[InsP.settings.window1Panel].instImage)
 	       end
 	    end
@@ -3115,7 +3116,8 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       InsP.panelImages[isp1].height = instImg1.height
 	       if math.abs(instImg1.width - Screen.dcds24ii_width_px) < 10 and
 		  (not Screen.dcds24ii) then
-		  system.messageBox(appName .. ": Incompatible panel image "..tWin)
+		  print("DFM-InsP: window " .. tWin .. " panel image is for a DS-24 II")
+		  system.messageBox("Win " .. tWin .. ": panel is for 24-II")
 	       end
 	    end
 	 else
@@ -3147,7 +3149,9 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       backImg1 = img
 	       if backImg1 then
 		  if math.abs(backImg1.width - InsP.panelImages[isp1].width) > 10 then
-		     system.messageBox("Panel and backgnd images not compatible (1)")
+		     print("DFM-InsP: window 1 background width " .. backImg1.width ..
+			   ", panel " .. InsP.panelImages[isp1].width)
+		     system.messageBox("Win 1: background size?")
 		  end
 		  --print("backImg1 w,h", backImg1.width, instImg1.height)
 	       end
@@ -3185,7 +3189,8 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       InsP.panelImages[isp2].width = instImg2.width
 	       InsP.panelImages[isp2].height = instImg2.height
 	       if math.abs(instImg2.width - Screen.dcds24ii_width_px) < 10 and (not Screen.dcds24ii) then
-		  system.messageBox(appName .. ": Incompatible panel image "..tWin)
+		  print("DFM-InsP: window " .. tWin .. " panel image is for a DS-24 II")
+		  system.messageBox("Win " .. tWin .. ": panel is for 24-II")
 	       end
 	    end
 	 else
@@ -3212,8 +3217,9 @@ local function printForm(_,_,tWin) --ww0,hh0,tWin)
 	       backLoaded = what
 	       backImg2 = img
 	       if backImg2 and math.abs(backImg2.width - InsP.panelImages[isp2].width) > 10 then
-		  system.messageBox("Panel and backgnd images not compatible (2)")
-		  print("@", backImg2.width, InsP.panelImages[isp2].width)
+		  system.messageBox("Win 2: background size?")
+		  print("DFM-InsP: window 2 background width " .. backImg2.width ..
+			", panel " .. InsP.panelImages[isp2].width)
 	       end
 	       --if backImg2 then print("backImg2 w,h", backImg2.width, instImg2.height) end
 	    end
@@ -5284,7 +5290,7 @@ local function init(icode)
 	 end
       end
    else
-      system.messageBox("DFM-InsP: No panels directory")
+      system.messageBox("No Panels folder")
       print("DFM-InsP: bad path to dir - "..path)      
    end
 
@@ -5299,7 +5305,8 @@ local function init(icode)
 
    if w1 == 0 then
       --print("$", w1II, w1, InsP.settings.window1Panel)
-      system.messageBox("DFM-InsP: Missing files for Panel 1")
+      print("DFM-InsP: no Panels files for panel 1 (" .. tostring(w1II) .. ")")
+      system.messageBox("Panel 1 files missing")
    end
    
    
@@ -5370,7 +5377,7 @@ local function init(icode)
    end
 
    if lostSw ~= "" then
-      system.messageBox("See lua console to reassign switches")
+      system.messageBox("Reassign switches: console")
       print("Please reassign "..lostSw)
    end
 
@@ -5578,7 +5585,7 @@ local function init(icode)
       system.setProperty("NativeDraw", 1)
       if system.getProperty("NativeDraw") ~= 1 then
 	 print(appName .. ": Cannot enter Native Draw")
-	 system.messageBox(appInfo.Name .. ": Cannot enter Native Draw")	 
+	 system.messageBox("Cannot enter Native Draw")	 
       else
 	 print(appName .. ": DC/DS 24 Native Draw Mode")
 	 Screen.NativeDraw = true

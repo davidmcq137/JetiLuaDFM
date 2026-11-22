@@ -23,7 +23,7 @@
   {"log": "InsP wants the switch held at its active position while assigning it"},
   {"setInput": "SA", "value": 1},
   {"set": "#3", "value": "SA"},
-  {"waitMessage": "do not move switch", "absent": true, "for": "1s"},
+  {"waitMessage": "Keep switch on", "absent": true, "for": "1s"},
   {"setInput": "SA", "value": -1},
   {"set": "#4", "value": "+"},
   {"set": "#5", "value": "TurbineL"},
@@ -61,7 +61,7 @@
   {"expectImage": "TurbineL", "win": 1},
   {"setInput": "SA", "value": 1},
   {"wait": 1500},
-  {"waitMessage": "switching to", "absent": true, "for": "1s", "anyTime": true},
+  {"waitMessage": "Window 1:", "absent": true, "for": "1s", "anyTime": true},
   {"log": "window 1 is still on TurbineL"},
   {"expectImage": "TurbineL", "win": 1}
  ]}

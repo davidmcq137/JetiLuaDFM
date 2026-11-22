@@ -14,7 +14,7 @@
   {"log": "assign SB, held at its active position, and leave From, To and the trigger (+) as they are"},
   {"setInput": "SB", "value": 1},
   {"set": "#13", "value": "SB"},
-  {"waitMessage": "do not move switch", "absent": true, "for": "1s"},
+  {"waitMessage": "Keep switch on", "absent": true, "for": "1s"},
   {"setInput": "SB", "value": -1},
   {"expect": "#14", "value": "+"},
   {"key": "KEY_ESC"},
@@ -28,7 +28,7 @@
   {"expectImage": "TurbineL", "win": 1},
   {"setInput": "SB", "value": 1},
   {"wait": 1500},
-  {"waitMessage": "switching to: *", "absent": true, "for": "1s", "anyTime": true},
-  {"waitMessage": "Window 1 incrementing to TurbineL", "anyTime": true},
+  {"waitMessage": "Window 1: *", "absent": true, "for": "1s", "anyTime": true},
+  {"waitMessage": "Window 1: TurbineL", "anyTime": true},
   {"expectImage": "TurbineL", "win": 1}
  ]}
