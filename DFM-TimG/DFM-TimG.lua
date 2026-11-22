@@ -84,7 +84,9 @@ local runningTime = 0
 local runningTime50 
 local nextAnnTime = 0
 local forceAnn = false
-local startTime = 0
+-- nil: not started, or stopped by a turbine shutdown. Not 0: the
+-- emulator's getTimeCounter() can be negative, so 0 isn't "never"
+local startTime
 local fuelPct = 0
 local fuelMax
 local fuelQty
@@ -400,7 +402,7 @@ local function loop()
    local sensor = system.getSensorByID(FuelSeId, FuelSePa)
    local tim = system.getTimeCounter() / 1000
 
-   if startTime > 0 then
+   if startTime then
       runningTime = tim-startTime
    end
 
@@ -422,7 +424,7 @@ local function loop()
       end
    end
 
-   if fuelPct < 50 and startTime > 0 and fuelPctGearUp then
+   if fuelPct < 50 and startTime and fuelPctGearUp then
       if not fuelPct50 then
 	 fuelPct50 = fuelPct
 	 runningTime50 = runningTime
@@ -444,7 +446,9 @@ local function loop()
    shared.elapsed = runningTime or 0
    shared.remaining = remainingTime or 0
    
-   if system.getTimeCounter() - (emptyAnnouncedTime or 0) > 10000 then emptyAnnounced = false end
+   if not emptyAnnouncedTime or system.getTimeCounter() - emptyAnnouncedTime > 10000 then
+      emptyAnnounced = false
+   end
 
    if remainingTime and remainingTime <= 0 and not emptyAnnounced then
       system.playFile('/Apps/DFM-TimG/warning_fuel_empty.wav', AUDIO_IMMEDIATE)
@@ -460,7 +464,7 @@ local function loop()
    if (swi and swi ~= oldswi) then
       oldswi = swi
       -- when the gear retracted first time, startup
-      if (swi == 1 and startTime == 0) then 
+      if (swi == 1 and not startTime) then 
 	 startTime = system.getTimeCounter() / 1000.0 
 	 fuelPctGearUp = fuelPct
 	 nextAnnTime = startTime + 60
@@ -468,21 +472,21 @@ local function loop()
       end
    end
    
-   if (startTime > 0) then
+   if (startTime) then
       runningTime = tim - startTime
       local turbineState = system.getInputsVal(thrControl)
       if (turbineState and turbineState > 0) then -- turbine is off .. stop timer
-	 startTime = 0
+	 startTime = nil
 	 system.messageBox("Turbine shut down, timer stopped")
 	 writeFuelState()
       end
    end
 
    -- now see if the next interval is passed
-   -- startTime is also used for state info ... it's zero if timer has never started or has
+   -- startTime is also used for state info ... it's nil if timer has never started or has
    -- been stopped by shutting down turbine
     
-   if (startTime > 0 and tim >= nextAnnTime) or forceAnn then -- we are running and it's time to announce
+   if (startTime and tim >= nextAnnTime) or forceAnn then -- we are running and it's time to announce
 
       if not forceAnn then
 	 nextAnnTime = nextAnnTime + 60                -- schedule next ann 60 seconds in future
@@ -511,7 +515,7 @@ local function loop()
 	 system.playNumber(fuelPct, 0, '%')
       end
 
-      if fuelPct < 50 and startTime > 0 and fuelPctGearUp then
+      if fuelPct < 50 and startTime and fuelPctGearUp then
 	 minTime = remainingTime / 60
 	 modMin, remMin = math.modf(minTime)
 	 remMin = remMin * 60
