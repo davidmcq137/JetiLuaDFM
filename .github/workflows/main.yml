@@ -1,5 +1,5 @@
 name: CI
-# One job: build the JETI-like Lua, run the FakeFW tests, and only on beta
+# One job: build the JETI-like Lua, run the TestMitter tests, and only on beta
 # and master build the apps and the server jar and deploy to Heroku staging.
 # A failing test stops the job before anything is deployed, so staging keeps
 # the last good build. Pushes to dev and pull requests run only the tests.
@@ -25,27 +25,27 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq sox libreadline-dev
-      - name: Build lua itself, and fakefw_c.so
+      - name: Build lua itself, and testmx_c.so
         shell: bash
         run: |
           set -ex
           cd lua_jeti
-          # type() names fix (FakeFW/test/ltm-typefix.patch); skipped once
+          # type() names fix (TestMX/test/ltm-typefix.patch); skipped once
           # lua_jeti has it. It doesn't change the compiled apps.
-          if patch -p1 -N --dry-run < ../FakeFW/test/ltm-typefix.patch > /dev/null 2>&1; then
-            patch -p1 -N < ../FakeFW/test/ltm-typefix.patch
+          if patch -p1 -N --dry-run < ../TestMX/test/ltm-typefix.patch > /dev/null 2>&1; then
+            patch -p1 -N < ../TestMX/test/ltm-typefix.patch
           fi
           make -j4 linux
           cd ..
-          FakeFW/build.sh "$GITHUB_WORKSPACE/lua_jeti/src"
-      - name: FakeFW tests
+          TestMX/build.sh "$GITHUB_WORKSPACE/lua_jeti/src"
+      - name: TestMitter tests
         shell: bash
         run: |
           # the tests run from an Emulator folder with the apps in Apps
           mkdir -p "$RUNNER_TEMP/Emulator"
           ln -s "$GITHUB_WORKSPACE" "$RUNNER_TEMP/Emulator/Apps"
           cd "$RUNNER_TEMP/Emulator"
-          Apps/FakeFW/test/run-tests.sh "$GITHUB_WORKSPACE/lua_jeti/src/lua"
+          Apps/TestMX/test/run-tests.sh "$GITHUB_WORKSPACE/lua_jeti/src/lua"
 
       # ---- release build and deploy: beta and master only ----
       - name: install heroku cli

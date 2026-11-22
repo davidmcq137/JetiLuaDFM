@@ -1,19 +1,19 @@
 --[[
-   fakefw-uid: play an app's UIDriver script under FakeFW, unattended
+   testmx-uid: play an app's UIDriver script under TestMitter, unattended
 
    Loads UIDriver, a sensor app (SensorE by default) and the target app,
    opens the target's form at 1 s (the "human" of waitForm), and plays the
    script until UIDriver logs DONE or STOPPED. confirm steps are skipped
    (selection.jsn "unattended"), never passed: nobody is there to look.
 
-   The run uses FakeFW's file layers: what it writes goes to a temp run
-   folder, it reads a fixture (FakeFW/fixtures/<name>/, laid out like the
+   The run uses TestMitter's file layers: what it writes goes to a temp run
+   folder, it reads a fixture (TestMX/fixtures/<name>/, laid out like the
    SD card) and the files git doesn't ignore, so the pilot's working data
    (M-*.jsn, maps, logs, selection.jsn ...) is neither seen nor changed.
 
    Run from the parent of Apps (the Emulator folder):
-     ~/lua-5.3.1-Jeti-typefix/src/lua Apps/FakeFW/fakefw-uid.lua \
-        --app DFM-Maps --script maps-smoke.jsn --fixture maps-bds458 --model FakeFW
+     ~/lua-5.3.1-Jeti-typefix/src/lua Apps/TestMX/testmx-uid.lua \
+        --app DFM-Maps --script maps-smoke.jsn --fixture maps-bds458 --model TestMX
    --fixture takes several, comma-separated, e.g. maps-tri,maps-bds458: a
    file in an earlier one hides the same file in a later one (settings
    presets first, then the field data).
@@ -28,13 +28,13 @@
    --target-first (start the target before the sensor app and UIDriver),
    --no-form (don't open the target's form: for apps that work only from
    their telemetry windows, like DFM-HUD sending gauges), --serial
-   PORT=DEVICE (attach FakeFW/devices/DEVICE.lua to that serial port, e.g.
+   PORT=DEVICE (attach TestMX/devices/DEVICE.lua to that serial port, e.g.
    --serial ttyUSB0=engo; its state is exposed to UIDriver as DEVICE, so a
    script can check "engo.counts.x05").
    Exit code 0 only when the script ends DONE with 0 FAIL and no app errored.
 --]]
 
-local FW = dofile("Apps/FakeFW/fakefw.lua")
+local FW = dofile("Apps/TestMX/testmx.lua")
 
 local o = {profile = "emu-ds24ii-606", sensor = "SensorE", minutes = 20, seed = 1}
 local i = 1
@@ -68,17 +68,17 @@ while i <= #arg do
    elseif a == "--no-form" then o.noForm = true
    elseif a == "--serial" then
       local port, dev = v:match("^([^=]+)=(.+)$")
-      if not port then io.stderr:write("fakefw-uid: --serial PORT=DEVICE\n"); os.exit(2) end
+      if not port then io.stderr:write("testmx-uid: --serial PORT=DEVICE\n"); os.exit(2) end
       o.serial = o.serial or {}
       o.serial[#o.serial + 1] = {port = port, dev = dev}
       i = i + 1
    elseif a == "--keep" then o.keep = true
    elseif a == "--trace" then o.trace = true
-   else io.stderr:write("fakefw-uid: unknown option " .. a .. "\n"); os.exit(2) end
+   else io.stderr:write("testmx-uid: unknown option " .. a .. "\n"); os.exit(2) end
    i = i + 1
 end
 if not o.app or not o.script then
-   io.stderr:write("usage: fakefw-uid.lua --app App --script script.jsn [--fixture name] [--model name] ...\n")
+   io.stderr:write("usage: testmx-uid.lua --app App --script script.jsn [--fixture name] [--model name] ...\n")
    os.exit(2)
 end
 
@@ -92,7 +92,7 @@ local ok, code = pcall(function()
    if o.controls then FW.controls = o.controls end
    local devices = {}
    for _, sd in ipairs(o.serial or {}) do
-      local m = dofile("Apps/FakeFW/devices/" .. sd.dev .. ".lua")
+      local m = dofile("Apps/TestMX/devices/" .. sd.dev .. ".lua")
       local dev = m.new{}
       FW.serialDevice(sd.port, dev)
       devices[#devices + 1] = {name = sd.dev, port = sd.port, dev = dev}
@@ -147,5 +147,5 @@ local ok, code = pcall(function()
    return FW.finish()
 end)
 
-if not ok then FW.cleanup(); print("fakefw-uid: " .. tostring(code)); os.exit(1) end
+if not ok then FW.cleanup(); print("testmx-uid: " .. tostring(code)); os.exit(1) end
 os.exit(code)

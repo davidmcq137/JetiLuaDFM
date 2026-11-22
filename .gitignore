@@ -116,11 +116,11 @@ DFM-TimG/LF_*.jsn
 DFM-InsP/prof.log
 DFM-Maps/prof.log
 
-# FakeFW: the C helper is built by FakeFW/build.sh
-FakeFW/fakefw_c.so
+# TestMitter: the C helper is built by TestMX/build.sh
+TestMX/testmx_c.so
 
-# FakeFW test data is committed, whatever its file names (M-*.jsn ...)
-!FakeFW/fixtures/**
+# TestMitter test data is committed, whatever its file names (M-*.jsn ...)
+!TestMX/fixtures/**
 
 # appset's folder links into AppsNotShipped/ (see appset.txt)
 /misclua

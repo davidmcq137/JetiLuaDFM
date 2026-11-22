@@ -1,11 +1,11 @@
-FakeFW fixtures: test data for FakeFW runs, kept out of the working data.
+TestMitter fixtures: test data for TestMitter runs, kept out of the working data.
 
 Each folder is laid out like a TX's SD card (Apps/<App>/...) and uses the
-model name FakeFW (M-FakeFW.jsn, MF-FakeFW.jsn-<field>.jsn), so a run never
-needs the pilot's own files. FakeFW reads a run's files from its temp run
+model name TestMX (M-TestMX.jsn, MF-TestMX.jsn-<field>.jsn), so a run never
+needs the pilot's own files. TestMitter reads a run's files from its temp run
 folder, then the fixtures in the order given (the first one that has a
 file wins), then the Apps files git doesn't ignore; gitignored working
-data is hidden. Everything lives under FakeFW/ because the release build
+data is hidden. Everything lives under TestMX/ because the release build
 copies each app's folder whole: test data in an app folder would ship.
 
 Kinds:

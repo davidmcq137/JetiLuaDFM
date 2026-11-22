@@ -1,6 +1,6 @@
 {"config": {"logControls": true},
  "steps": [
-  {"log": "DFM-SWT press counting: short presses and a long press on switch SA. SWT reads the model file (Model/<ModelFile>) at init: FakeFW gets it from the model-ultr fixture (--fixture model-ultr --model-file 0004Ultr.jsn); in the emulator any model will do. Open DFM-SWT from the Applications menu"},
+  {"log": "DFM-SWT press counting: short presses and a long press on switch SA. SWT reads the model file (Model/<ModelFile>) at init: TestMitter gets it from the model-ultr fixture (--fixture model-ultr --model-file 0004Ultr.jsn); in the emulator any model will do. Open DFM-SWT from the Applications menu"},
   {"waitForm": true},
 
   {"log": "SA as the switch; 1 press and 2 presses and the long press each pulse a control (<Function>, item 2)"},

@@ -177,7 +177,7 @@
                                   one waitEvent
      {"confirm": "Did the map zoom in?"}   ask the tester yes/no with
                                   form.question; yes = PASS, no = FAIL.
-                                  In an unattended run (FakeFW sets
+                                  In an unattended run (TestMitter sets
                                   "unattended": true in selection.jsn) it's
                                   logged as SKIP and counted as skipped.
                                   The text is wrapped onto the question's
@@ -397,10 +397,10 @@ local appName = "UIDriver"
 -- functions and could feed a chosen app fake controls and sensors,
 -- which could move real servos through that app's setControl outputs;
 -- it's also large for the TX's memory. So on a TX it does nothing but
--- say so. FakeFW (system.FakeFW) plays a TX with no servos, so it runs there
+-- say so. TestMitter (system.TestMX) plays a TX with no servos, so it runs there
 do
    local dev, emu = system.getDeviceType()
-   if emu ~= 1 and not system.FakeFW then
+   if emu ~= 1 and not system.TestMX then
       return {init = function()
 		 print("UIDriver: runs only in the emulator; doing nothing on " .. tostring(dev))
 		 system.messageBox("UIDriver runs only in the emulator", 5)
@@ -2915,7 +2915,7 @@ local function wrapImages()
 end
 
 -- the app a registerForm/registerTelemetry call came from; the label
--- stands in if there's no debug info (a TX, or FakeFW on a TX profile):
+-- stands in if there's no debug info (a TX, or TestMitter on a TX profile):
 -- a label that is the target's name, or starts with it and a space
 -- ("DFM-Maps Map View"), counts as the target's
 local function registeringApp(label)
@@ -3169,7 +3169,7 @@ local function loadSelection()
    cfg.target = type(c.app) == "string" and c.app or ""
    cfg.script = type(c.script) == "string" and c.script or ""
    cfg.mode = (c.mode == "play" or c.mode == "record") and c.mode or "off"
-   -- set by an unattended runner (FakeFW), never by the menu: nobody is
+   -- set by an unattended runner (TestMitter), never by the menu: nobody is
    -- there to answer a confirm, so those steps are skipped, not passed
    cfg.unattended = c.unattended == true
 end

@@ -4,7 +4,7 @@ looks up by name, because older firmware (DS-16 on 5.06) keeps them in ROM
 tables that pairs() doesn't list. The names are the ones the emulator 6.06
 and a DS-24 on 5.08 enumerate, plus a few library names.
 
-usage: python3 -I FakeFW/test/envprobe.py   (from Apps)
+usage: python3 -I TestMX/test/envprobe.py   (from Apps)
 
 Format, one per line: "G name" (all of them first), then "M lib member"
 grouped by library.

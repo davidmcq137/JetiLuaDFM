@@ -415,8 +415,8 @@ function emulator_init()
    lastGPScalc = system.getTimeCounter()
    dev, emflag = system.getDeviceType()
    
-   -- emulator only; FakeFW (system.FakeFW) plays a TX with no real sensors
-   if emflag == 1 or system.FakeFW then      
+   -- emulator only; TestMitter (system.TestMX) plays a TX with no real sensors
+   if emflag == 1 or system.TestMX then      
       --print("Before -- Emulator_init: system.getSensorByID", system.getSensorByID)
       --print("Before -- Emulator_init: emulator_getSensorByID", emulator_getSensorByID)      
       system.getSensors = emulator_getSensors

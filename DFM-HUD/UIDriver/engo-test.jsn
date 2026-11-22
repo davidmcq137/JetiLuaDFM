@@ -1,5 +1,5 @@
 {"steps": [
-  {"log": "DFM-HUD with FakeFW's fake Engo glasses (FakeFW/devices/engo.lua) on its serial port: the config upload, select, then battery polls and gauge frames. FakeFW only: run with fakefw-uid.lua --app DFM-HUD --script engo-test.jsn --model Abc --no-form --serial ttyUSB0=engo (GG_Abc.jsn has the gauges). HUD's form stays closed: it sends no gauges while a form is open"},
+  {"log": "DFM-HUD with TestMitter's fake Engo glasses (TestMX/devices/engo.lua) on its serial port: the config upload, select, then battery polls and gauge frames. TestMitter only: run with testmx-uid.lua --app DFM-HUD --script engo-test.jsn --model Abc --no-form --serial ttyUSB0=engo (GG_Abc.jsn has the gauges). HUD's form stays closed: it sends no gauges while a form is open"},
   {"expectState": "engo.connected", "value": true},
 
   {"log": "the glasses list only their system config, so HUD uploads config-fonts-images.txt and writes config DFM-HUD version 8 (Json/config-version.jsn)"},

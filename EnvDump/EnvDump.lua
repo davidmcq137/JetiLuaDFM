@@ -1,17 +1,17 @@
 --[[
-   EnvDump: write what a JETI Lua app can see, for FakeFW's device profiles
+   EnvDump: write what a JETI Lua app can see, for TestMitter's device profiles
 
    In init: the firmware version and device, getTime/getDateTime/
    getTimeCounter (to pin down the getTime epoch), then every global that
    pairs(_G) lists, sorted by name: numbers with their value and math.type,
    tables with each member (numbers with values), so the constants (KEY_*,
-   MENU_*, FONT_*, ...) and the visible libraries can be copied into FakeFW.
+   MENU_*, FONT_*, ...) and the visible libraries can be copied into TestMitter.
 
    Older firmware (DS-16 on 5.06) keeps the libraries and constants in ROM
    tables ("rotable") that pairs() doesn't list, and pairs() of one is an
    error that pcall doesn't catch. So EnvDump also looks up by name the
    globals and library members listed in EnvDump/probe.txt (the names seen
-   on the emulator 6.06 and a DS-24 on 5.08; FakeFW/test/envprobe.py makes
+   on the emulator 6.06 and a DS-24 on 5.08; TestMX/test/envprobe.py makes
    it), and writes the ones pairs() missed as P (global) and PM (member)
    lines. Where pairs() sees everything there are none. A name _G[name]
    doesn't give is tried as compiled code too (load("return " .. name)),

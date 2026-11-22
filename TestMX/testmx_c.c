@@ -1,5 +1,5 @@
 /*
-   fakefw_c: C helpers for FakeFW (the fake JETI firmware)
+   testmx_c: C helpers for TestMitter (the fake JETI firmware)
 
    - gps: the JETI gps library, measured with GpsTest on emulator 6.06 and
      a DS-24 on firmware 5.08 (identical results). GpsPoints hold doubles;
@@ -11,8 +11,8 @@
    - ms():        monotonic wall clock, ms since the module loaded
    - sleep(ms):   sleep that many ms (paced mode)
 
-   Build with FakeFW/build.sh against the JETI-like Lua headers, and run
-   with that Lua: package.loadlib("Apps/FakeFW/fakefw_c.so", "luaopen_fakefw_c")
+   Build with TestMX/build.sh against the JETI-like Lua headers, and run
+   with that Lua: package.loadlib("Apps/TestMX/testmx_c.so", "luaopen_testmx_c")
 */
 
 #define _POSIX_C_SOURCE 200809L
@@ -229,7 +229,7 @@ static const luaL_Reg gpsfuncs[] = {
    {"m2px", l_m2px}, {"px2m", l_px2m}, {NULL, NULL}
 };
 
-int luaopen_fakefw_c(lua_State *L) {
+int luaopen_testmx_c(lua_State *L) {
    clock_gettime(CLOCK_MONOTONIC, &t0);
    luaL_newmetatable(L, GPS_META);
    lua_pop(L, 1);

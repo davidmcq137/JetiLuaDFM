@@ -1,20 +1,26 @@
-# Testing JETI Lua apps: UIDriver, SensorE/SensorL and FakeFW
+# Testing JETI Lua apps: UIDriver, SensorE/SensorL and TestMitter
 
 This is the how-to for the test tools in this repo. It explains how the
 pieces fit together, how to run the tests, and how to write new ones. The
 complete reference for each tool stays in the comment at the top of its
-source file; this guide links there rather than repeating it:
+source file; this guide links there rather than repeating it.
+
+TestMitter is a fake transmitter: a JETI firmware written in Lua that runs
+apps off the TX. In file names and code it is TestMX (`TestMX/testmx.lua`,
+`system.TestMX`). Until 2026-11-22 it was called FakeFW.
+
+The reference for each tool:
 
 | Reference | Where |
 |---|---|
 | UIDriver: every script step, config.jsn, app hooks | header of [`UIDriver/UIDriver.lua`](../UIDriver/UIDriver.lua) |
-| FakeFW: command line, module API, what is modelled | header of [`FakeFW/fakefw.lua`](fakefw.lua) |
-| The unattended runner and its options | header of [`FakeFW/fakefw-uid.lua`](fakefw-uid.lua) |
-| Fixtures (test data) | [`FakeFW/fixtures/README.txt`](fixtures/README.txt) |
-| Fake Engo glasses (DFM-HUD's serial port) | header of [`FakeFW/devices/engo.lua`](devices/engo.lua) |
+| TestMitter: command line, module API, what is modelled | header of [`TestMX/testmx.lua`](testmx.lua) |
+| The unattended runner and its options | header of [`TestMX/testmx-uid.lua`](testmx-uid.lua) |
+| Fixtures (test data) | [`TestMX/fixtures/README.txt`](fixtures/README.txt) |
+| Fake Engo glasses (DFM-HUD's serial port) | header of [`TestMX/devices/engo.lua`](devices/engo.lua) |
 | SensorE (simulated sensors and flight) | [`SensorE/SensorE.txt`](../SensorE/SensorE.txt) |
 | SensorL (log replay) | [`SensorL/README.txt`](../SensorL/README.txt) |
-| The test suite, with working examples | [`FakeFW/test/run-tests.sh`](test/run-tests.sh) |
+| The test suite, with working examples | [`TestMX/test/run-tests.sh`](test/run-tests.sh) |
 
 Paths below are relative to the emulator's `Apps/` folder
 (`~/.config/JETI-Studio/Emulator/Apps`, the repo root) unless they start
@@ -38,7 +44,7 @@ with `Apps/`, which means they're run from the parent folder.
 
  all of it runs inside either
    - the JETI Studio emulator (dc-sim2), by hand, in real time, or
-   - FakeFW, a fake firmware: unattended, faster than real time, in CI
+   - TestMitter, a fake firmware: unattended, faster than real time, in CI
 ```
 
 - **UIDriver** is a Lua app that drives another app (the *target*) from a
@@ -47,14 +53,14 @@ with `Apps/`, which means they're run from the parent folder.
   links, press telemetry buttons, answer questions, move controls, fake
   sensor values and faults, and check what the app draws, announces and
   exposes. Results go to `Apps/<App>/UIDriver/result.log`. It runs only
-  in the emulator or under FakeFW; on a real TX it does nothing.
+  in the emulator or under TestMitter; on a real TX it does nothing.
 - **SensorE** replaces the sensor API with simulated sensors, including
   a GPS flight simulator. Its configs live in `Apps/<App>/SensorE/`.
   Scripts can pause it, step it, move the GPS position and set its time.
 - **SensorL** replaces the sensor API with a recorded flight log (for
   example `Log/20190926/16-56-45.log`). Only one of SensorE and SensorL
   can run at a time.
-- **FakeFW** is a fake DC/DS firmware written in Lua. It loads apps,
+- **TestMitter** is a fake DC/DS firmware written in Lua. It loads apps,
   runs them with a virtual clock (much faster than real time), plays a
   chosen TX (a *device profile*), keeps tests away from the pilot's
   working files, and reports CPU use. It runs under a JETI-like desktop
@@ -65,12 +71,12 @@ with `Apps/`, which means they're run from the parent folder.
 | You want to... | Use |
 |---|---|
 | watch it, or check things only a person can judge ("did the map zoom in?") | the emulator, by hand |
-| run a script unattended, quickly, on every push | FakeFW (`fakefw-uid.lua`) |
-| check behaviour on a TX you don't have (DS-24 fw 5.08, DS-16) | FakeFW with that profile |
+| run a script unattended, quickly, on every push | TestMitter (`testmx-uid.lua`) |
+| check behaviour on a TX you don't have (DS-24 fw 5.08, DS-16) | TestMitter with that profile |
 | find out what a real TX does | neither: run EnvDump, FontDump or GpsTest on the TX |
 
 The same script runs in both places. Steps that need a person (`confirm`)
-are skipped under FakeFW and counted as *skipped*, never passed.
+are skipped under TestMitter and counted as *skipped*, never passed.
 
 ---
 
@@ -78,13 +84,13 @@ are skipped under FakeFW and counted as *skipped*, never passed.
 
 ### 2.1 One-time setup
 
-1. **The JETI-like Lua.** FakeFW needs Lua 5.3.1 built with `LUA_32BITS`
+1. **The JETI-like Lua.** TestMitter needs Lua 5.3.1 built with `LUA_32BITS`
    and `LUA_FLOORN2I`, with the `type()` fix:
    `~/lua-5.3.1-Jeti-typefix/src/lua`. (CI builds `fazzone/lua_jeti` with
-   `FakeFW/test/ltm-typefix.patch` instead.)
+   `TestMX/test/ltm-typefix.patch` instead.)
 2. **The C helper.** Build it once, and again whenever that Lua changes:
    ```sh
-   sh FakeFW/build.sh            # makes FakeFW/fakefw_c.so (gitignored)
+   sh TestMX/build.sh            # makes TestMX/testmx_c.so (gitignored)
    ```
    It supplies GPS maths in doubles (as the TX does), the wall clock and
    sleep.
@@ -100,7 +106,7 @@ From the emulator folder (the parent of `Apps/`):
 
 ```sh
 cd ~/.config/JETI-Studio/Emulator
-Apps/FakeFW/test/run-tests.sh            # optional argument: path to a lua
+Apps/TestMX/test/run-tests.sh            # optional argument: path to a lua
 ```
 
 Each test prints `PASS:` or `FAIL:`. The exit code is the number of
@@ -108,17 +114,17 @@ failures. CI (`.github/workflows/main.yml`) runs the same script on every
 push to dev, beta and master, and on pull requests. A push to beta or
 master deploys only if the tests pass.
 
-### 2.3 Run one script under FakeFW
+### 2.3 Run one script under TestMitter
 
 ```sh
 cd ~/.config/JETI-Studio/Emulator
-~/lua-5.3.1-Jeti-typefix/src/lua Apps/FakeFW/fakefw-uid.lua \
+~/lua-5.3.1-Jeti-typefix/src/lua Apps/TestMX/testmx-uid.lua \
     --app DFM-Maps --script nofly-test.jsn \
-    --fixture maps-bds458 --model FakeFW
+    --fixture maps-bds458 --model TestMX
 ```
 
 The console shows every log line (`[UID] ...`), then the
-`==== DONE: n steps run, n PASS, n FAIL ... ====` line, then FakeFW's
+`==== DONE: n steps run, n PASS, n FAIL ... ====` line, then TestMitter's
 report (CPU per callback, serial traffic, `RESULT: PASS/FAIL`). The exit
 code is 0 only if the script finished with no FAIL and no app raised an
 error. Add `--keep` to keep the run folder (and print where it is), or
@@ -155,7 +161,7 @@ Apps/<App>/
     config.jsn        optional settings for this app's scripts
     result.log        written by each run (gitignored)
   SensorE/            this app's SensorE configs (optional; variants in subfolders)
-FakeFW/
+TestMX/
   fixtures/<name>/    test data, laid out like the SD card (see 3.5)
   test/run-tests.sh   add the new test here so CI runs it
 ```
@@ -183,7 +189,7 @@ does:
 - `log` writes a line to the result log. Use it to explain each part of
   the test: it's the only commentary a JSON script can have.
 - `waitForm` waits for the target's menu to open. In the emulator you
-  open it; under FakeFW the runner opens it at 1 s.
+  open it; under TestMitter the runner opens it at 1 s.
 - `waitSub` waits for a subform; `waitMessage` waits for a
   `system.messageBox`. `anyTime` accepts one that came before this step.
 - `expectState` reads the app's internals through a hook the app exposes
@@ -277,7 +283,7 @@ announcement must be skipped with it.
 
 ### 3.5 Test data: fixtures and settings presets
 
-Under `fakefw-uid.lua` an app never sees the pilot's working files
+Under `testmx-uid.lua` an app never sees the pilot's working files
 (`M-*.jsn` settings, maps, logs, `selection.jsn`). Reads come from three
 *layers*, first match wins:
 
@@ -289,19 +295,19 @@ Under `fakefw-uid.lua` an app never sees the pilot's working files
 Writes always go to the run folder, so a test can't change the working
 data. CI sees exactly the same files, because it has only what git has.
 
-There are two kinds of fixture, each in `FakeFW/fixtures/<name>/`, laid
+There are two kinds of fixture, each in `TestMX/fixtures/<name>/`, laid
 out like the SD card (`Apps/DFM-Maps/...`):
 
 - **Field data**, made from the working data by a script:
-  `sh FakeFW/fixtures/maps-bds.sh 458` makes `maps-bds458` (the Black
+  `sh TestMX/fixtures/maps-bds.sh 458` makes `maps-bds458` (the Black
   Dirt field with the 458 px maps), and `... 320` makes `maps-bds320`.
   Field data only, no settings.
 - **Settings presets**, written by hand, holding only the settings the
-  test needs. `maps-tri/Apps/DFM-Maps/M-FakeFW.jsn` is just
+  test needs. `maps-tri/Apps/DFM-Maps/M-TestMX.jsn` is just
   `{"triEnabled": true}`; the app's init defaults fill in the rest.
 
 Stack them, preset first: `--fixture maps-tri,maps-bds458`. Fixtures use
-the model name `FakeFW` (`--model FakeFW`), never the pilot's own.
+the model name `TestMX` (`--model TestMX`), never the pilot's own.
 
 **To find out what an app needs**, run it with `--trace` and no fixture.
 Every file access is logged as `run`, `fixture`, `apps`, `hidden` or
@@ -310,8 +316,8 @@ are what a fixture has to supply.
 
 ### 3.6 Choosing a TX: device profiles
 
-`-p <profile>` picks the TX FakeFW plays. List them with
-`lua Apps/FakeFW/fakefw.lua -p list`:
+`-p <profile>` picks the TX TestMitter plays. List them with
+`lua Apps/TestMX/testmx.lua -p list`:
 
 | Profile | Plays | Source of the numbers |
 |---|---|---|
@@ -331,7 +337,7 @@ A profile sets:
 - string collation, `package.path`, and where the clock starts.
 
 TX profiles report "not the emulator" to `getDeviceType()`. UIDriver,
-SensorE and SensorL check `system.FakeFW`, which FakeFW sets, so they
+SensorE and SensorL check `system.TestMX`, which TestMitter sets, so they
 still run on TX profiles.
 
 A TX profile has no `debug` library, so UIDriver can only tell which app
@@ -346,7 +352,7 @@ Maps tests do (`maps-bds458` on `emu-ds24ii-606`, `maps-bds320` on
 ### 3.7 More than one app, controls and sensors
 
 ```sh
-... fakefw-uid.lua --app DFM-TimG --script hud-test.jsn --sensor SensorL \
+... testmx-uid.lua --app DFM-TimG --script hud-test.jsn --sensor SensorL \
     --also DFM-HUD --controls P5=-0.5,P6=0.1,SA=-1 --target-first --form Geriatric
 ```
 
@@ -359,7 +365,7 @@ Maps tests do (`maps-bds458` on `emu-ds24ii-606`, `maps-bds320` on
 - `--controls` sets sticks, sliders and switches (-1..1; unset ones read 0).
 - `--target-first` starts the target before the sensor app and UIDriver.
 - `--model-file 0004Ultr.jsn` sets `getProperty("ModelFile")`, for apps
-  that read the TX's model file (DFM-SWT does, at init). FakeFW finds
+  that read the TX's model file (DFM-SWT does, at init). TestMitter finds
   `Model/<file>` in a fixture first (`--fixture model-ultr` has
   `Model/0004Ultr.jsn`, a real 57 KB model), else in the emulator's
   `Model/` folder, which CI doesn't have.
@@ -369,7 +375,7 @@ Maps tests do (`maps-bds458` on `emu-ds24ii-606`, `maps-bds320` on
 
 ### 3.8 Faking hardware on a serial port
 
-`--serial PORT=DEVICE` attaches `FakeFW/devices/DEVICE.lua` to a serial
+`--serial PORT=DEVICE` attaches `TestMX/devices/DEVICE.lua` to a serial
 port. Without one, every port is a *null device*: it opens, accepts
 writes and throws them away, and nothing is ever read, so an app runs as
 if its hardware were plugged in. The run report shows the bytes written
@@ -396,11 +402,11 @@ A new device is a Lua module with `new(options)` returning a table with
 `attach(api)`, `write(bytes)`, and optionally `frame(now)`, `state()` and
 `summary()`. `api.send(bytes)` queues bytes for the app's `serial.onRead`
 callback; they're delivered at the start of the next frame. See the
-header of `fakefw.lua` (`FW.serialDevice`) and `devices/engo.lua`.
+header of `testmx.lua` (`FW.serialDevice`) and `devices/engo.lua`.
 
 ### 3.9 Adding the test to CI
 
-Add a block to `FakeFW/test/run-tests.sh`, following the existing ones:
+Add a block to `TestMX/test/run-tests.sh`, following the existing ones:
 run the runner, call `ok` with the DONE line on success, and on failure
 call `bad` and show the tail of the output. Run the suite locally, then
 push to dev and check the run with `gh run list --branch dev` and
@@ -446,17 +452,17 @@ step FAILed, any app check failed, or the script didn't finish.
 
 ---
 
-## 5. FakeFW reference
+## 5. TestMitter reference
 
 ### 5.1 Two ways to run it
 
-- **`fakefw-uid.lua`** runs a UIDriver script: sandboxed, with fixtures,
+- **`testmx-uid.lua`** runs a UIDriver script: sandboxed, with fixtures,
   pass/fail. This is the one to use for tests. Options: see its header,
   and section 3 above.
-- **`fakefw.lua` directly** loads apps, runs their init, then runs them
+- **`testmx.lua` directly** loads apps, runs their init, then runs them
   for `-t` seconds and prints the report:
   ```sh
-  ~/lua-5.3.1-Jeti-typefix/src/lua Apps/FakeFW/fakefw.lua -p ds24-508 -t 2 EnvDump
+  ~/lua-5.3.1-Jeti-typefix/src/lua Apps/TestMX/testmx.lua -p ds24-508 -t 2 EnvDump
   ```
   This runs **without** file layers: apps read and write the real files.
   That's fine for tools like EnvDump, GpsTest and FontDump, which write
@@ -464,11 +470,11 @@ step FAILed, any app check failed, or the script didn't finish.
 
 ### 5.2 Writing your own driver
 
-For something a script can't do, use FakeFW as a module (see
-`fakefw-uid.lua` for a complete example):
+For something a script can't do, use TestMitter as a module (see
+`testmx-uid.lua` for a complete example):
 
 ```lua
-local FW = dofile("Apps/FakeFW/fakefw.lua")
+local FW = dofile("Apps/TestMX/testmx.lua")
 FW.setup{profile = "ds24-508", seed = 1, sandbox = true, fixture = {"maps-bds320"}}
 FW.controls = {P5 = -0.5}
 FW.load{"SensorE", "DFM-Maps"}
@@ -485,7 +491,7 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
 
 ### 5.3 Time and CPU
 
-- **The virtual clock.** FakeFW owns the clock. A frame comes every
+- **The virtual clock.** TestMitter owns the clock. A frame comes every
   20–30 ms (loop period plus jitter), and forms and telemetry windows are
   redrawn every 40 ms (a guess, not measured on a TX yet). `getTimeCounter`, `getTime` and `getDateTime` all
   read the same clock, and time moves forward while Lua runs (by counting
@@ -543,7 +549,7 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
 
 ### 6.3 Numbers
 
-- Numbers are 32-bit floats on the TX and under FakeFW. JSON numbers
+- Numbers are 32-bit floats on the TX and under TestMitter. JSON numbers
   decode as floats too: a latitude in JSON is about 0.3 m off. Keep
   coordinates as strings and pass them to `gps.newPoint`; scripts do the
   same in `sensorPosition`.
@@ -555,7 +561,7 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
 
 ### 6.4 Running tests
 
-- **Never run a script against the working data.** Use `fakefw-uid.lua`
+- **Never run a script against the working data.** Use `testmx-uid.lua`
   (always sandboxed), not your own unsandboxed driver; Maps rewrote a
   pilot settings file that way once. In the emulator, use a test model,
   not the pilot's.
@@ -571,7 +577,7 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
   (`local drawText = lcd.drawText`) can't be seen by text steps.
 - **Some apps stop working while their form is open** (DFM-Maps does no
   GPS or no-fly work, DFM-HUD sends no gauges). Close the form
-  (`KEY_ESC` + `waitClosed`), or run FakeFW with `--no-form`.
+  (`KEY_ESC` + `waitClosed`), or run TestMitter with `--no-form`.
 - **Each announcement satisfies only one wait.** A `waitAudio` counts
   announcements since the last action step started, unless
   `"anyTime": true`.
@@ -580,7 +586,7 @@ Other calls include `FW.openForm(label)`, `FW.key(code)`,
 
 ## 7. The current suite
 
-`FakeFW/test/run-tests.sh` runs 17 tests in about 12 s:
+`TestMX/test/run-tests.sh` runs 17 tests in about 12 s:
 
 | Test | Checks |
 |---|---|

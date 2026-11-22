@@ -1,11 +1,11 @@
 --[[
-   FakeFW: a fake JETI DC/DS firmware, so Lua apps (and UIDriver scripts)
+   TestMitter: a fake JETI DC/DS firmware, so Lua apps (and UIDriver scripts)
    run off-target, faster than real time, e.g. in GitHub Actions.
 
    Run with the JETI-like desktop Lua (LUA_32BITS, LUA_FLOORN2I, type()
    fixed) from the parent of Apps, as the emulator does:
      cd ~/.config/JETI-Studio/Emulator
-     ~/lua-5.3.1-Jeti-typefix/src/lua Apps/FakeFW/fakefw.lua [options] App ...
+     ~/lua-5.3.1-Jeti-typefix/src/lua Apps/TestMX/testmx.lua [options] App ...
    Options:
      -p <profile>   device profile (default emu-ds24ii-606); -p list lists them
      -t <seconds>   run time after init (default 0: init only, then one frame)
@@ -15,16 +15,16 @@
    Apps load from Apps/<App>.lua (or .lc). The exit code is 0 when no app
    raised an error and no driver called FW.fail, else 1.
 
-   As a module: local FW = dofile("Apps/FakeFW/fakefw.lua"), then
+   As a module: local FW = dofile("Apps/TestMX/testmx.lua"), then
    FW.setup{profile=..., seed=...}; FW.load{"A", "B"}; FW.initApps();
    FW.run(ms); FW.finish() (prints the report and returns the exit code).
    Hooks for drivers: FW.onFrame(f), FW.onDrawText, FW.onQuestion,
    FW.onPrint; FW.openForm(label), FW.key(code), FW.controls, FW.sensors.
 
-   Needs FakeFW/fakefw_c.so (FakeFW/build.sh) for gps (doubles, as on the
+   Needs TestMX/testmx_c.so (TestMX/build.sh) for gps (doubles, as on the
    TX) and the wall clock.
 
-   What is modelled (see the FakeFW API inventory doc for the evidence):
+   What is modelled (see the TestMitter API inventory doc for the evidence):
    - Device profiles: version, device name, emulator flag, screen and
      window sizes, gps.getString (6.06) vs gps.getStrig (5.08),
      declareGlobal (6.05+ DS-24 II), off-screen rendering (DS-24 II fw 6),
@@ -56,9 +56,9 @@ local HERE = (debug.getinfo(1, "S").source:match("^@(.*/)") or "./")
 
 local C
 do
-   local open, err = package.loadlib(HERE .. "fakefw_c.so", "luaopen_fakefw_c")
+   local open, err = package.loadlib(HERE .. "testmx_c.so", "luaopen_testmx_c")
    if not open then
-      error("FakeFW: can't load " .. HERE .. "fakefw_c.so (run FakeFW/build.sh): " .. tostring(err))
+      error("TestMitter: can't load " .. HERE .. "testmx_c.so (run TestMX/build.sh): " .. tostring(err))
    end
    C = open()
 end
@@ -103,7 +103,7 @@ FW.profiles = {
 	 "/Apps/?.lua;/Apps/?/init.lua;/Apps/lib/?.lua;/Apps/lib/?/init.lua;", -- (?)
    },
    -- real DS-24 on 5.08: EnvDump on the pilot's DS-24, 2026-11-21
-   -- (FakeFW/test/envdump-ds24-508.txt). Fonts and KEY_UP/KEY_DOWN differ
+   -- (TestMX/test/envdump-ds24-508.txt). Fonts and KEY_UP/KEY_DOWN differ
    -- from 6.06, and the 6.x additions are missing
    ["ds24-508"] = {
       device = "JETI DS-24", version = "5.08", emulator = 0,
@@ -190,8 +190,8 @@ local CONST = {
    SOUND_RANGETEST = 5, SOUND_AUTOTRIM = 6, SOUND_INACT = 7, SOUND_BKUP = 9,
    SOUND_RXRESET = 10, SOUND_TELEMLOSS = 11,
 }
--- text metrics: FakeFW/fonts.lua, generated from FontDump runs by
--- FakeFW/test/fontfit.py; a profile names its table (P.fonts). A font code
+-- text metrics: TestMX/fonts.lua, generated from FontDump runs by
+-- TestMX/test/fontfit.py; a profile names its table (P.fonts). A font code
 -- is the base font in the low bits (code & fontMask) plus style flags,
 -- which don't change the width
 local FONTS = dofile(HERE .. "fonts.lua")
@@ -445,7 +445,7 @@ FW.sdPath = sd
 -- layers without one) app file access goes through
 -- three layers, so a test never sees or changes the pilot's working data:
 --   1. the run folder (a temp folder): everything the run writes, read first
---   2. the fixture(s), FakeFW/fixtures/<name>/, laid out like the SD card
+--   2. the fixture(s), TestMX/fixtures/<name>/, laid out like the SD card
 --   3. the Emulator folder, but under Apps/ only files git doesn't ignore
 --      (code, Lang, audio, App.json; not M-*.jsn, maps, logs ...), so a
 --      test sees the same files here as in CI
@@ -651,12 +651,12 @@ local function startFS(opts)
       local dir = HERE .. "fixtures/" .. name
       local h = rio.popen("test -d " .. shq(dir) .. " && echo ok")
       local ok = h:read("l"); h:close()
-      if ok ~= "ok" then error("FakeFW: no fixture " .. dir) end
+      if ok ~= "ok" then error("TestMitter: no fixture " .. dir) end
       FS.fixtures[#FS.fixtures + 1] = {name = name, dir = dir}
    end
-   local h = rio.popen("mktemp -d -t fakefw-run-XXXXXX")
+   local h = rio.popen("mktemp -d -t testmx-run-XXXXXX")
    FS.run = h:read("l"); h:close()
-   assert(FS.run and FS.run ~= "", "FakeFW: mktemp failed")
+   assert(FS.run and FS.run ~= "", "TestMitter: mktemp failed")
    -- what git doesn't ignore under Apps/ (tracked, or new and not ignored)
    local g = rio.popen("git -C Apps ls-files --cached --others --exclude-standard 2>/dev/null")
    local vis, dirs, n = {}, {}, 0
@@ -923,7 +923,7 @@ system.getVersion = function() return P.version end
 system.getDeviceType = function() return P.device, P.emulator end
 system.getLocale = function() return "en" end
 system.getUserName = function() return "" end
-system.getSerialCode = function() return "FAKEFW" end
+system.getSerialCode = function() return "TESTMX" end
 system.getTxTelemetry = function() return FW.txTelemetry end
 system.getIMU = function() return 0, 0, 0 end
 system.getRawIMU = function() return 0, 0, 0, 0, 0, 0 end
@@ -1181,9 +1181,9 @@ local function buildBase()
    -- the libraries are copies, so a profile can leave members out
    local function copy(t) local c = {}; for k, v in pairs(t) do c[k] = v end; return c end
    base.system, base.form, base.lcd, base.json = copy(system), copy(form), copy(lcd), json
-   -- system.FakeFW: true only here, for test tools (UIDriver runs on a TX
+   -- system.TestMX: true only here, for test tools (UIDriver runs on a TX
    -- profile). In a metatable, so pairs() and EnvDump don't list it
-   setmetatable(base.system, {__index = {FakeFW = true}})
+   setmetatable(base.system, {__index = {TestMX = true}})
    base.io, base.dir, base.timer, base.gpio, base.serial = jio, jdir, timer, gpio, serial
    base.lcd.width, base.lcd.height = P.lcdW, P.lcdH
    base.gps = copy(gps)
@@ -1304,7 +1304,7 @@ end
 function FW.setup(opts)
    opts = opts or {}
    local prof = FW.profiles[opts.profile or "emu-ds24ii-606"]
-   if not prof then error("FakeFW: no profile " .. tostring(opts.profile)) end
+   if not prof then error("TestMitter: no profile " .. tostring(opts.profile)) end
    P = {name = opts.profile or "emu-ds24ii-606"}
    for k, v in pairs(prof) do P[k] = v end
    for k, v in pairs(TIMING) do P[k] = v end
@@ -1344,9 +1344,9 @@ function FW.load(names)
 	 local f = rio.open("Apps/" .. name .. ext)
 	 if f then f:close(); path = "Apps/" .. name .. ext; break end
       end
-      if not path then error("FakeFW: no Apps/" .. name .. ".lua or .lc") end
+      if not path then error("TestMitter: no Apps/" .. name .. ".lua or .lc") end
       local chunk, err = hostLoadfile(path, "bt", app.env)
-      if not chunk then error("FakeFW: " .. err) end
+      if not chunk then error("TestMitter: " .. err) end
       apps[#apps + 1] = app
       appByName[name] = app
       app.t = call(app, "load", chunk)
@@ -1439,7 +1439,7 @@ end
 
 function FW.finish()
    if FS.run then FW.destroyApps() end
-   out(fmt("[FW] ---- FakeFW report: profile %s, T=%d ms, multiplier %d%% ----", P.name, now, P.mult))
+   out(fmt("[FW] ---- TestMitter report: profile %s, T=%d ms, multiplier %d%% ----", P.name, now, P.mult))
    local keys = {}
    for k in pairs(cpu) do keys[#keys + 1] = k end
    table.sort(keys)
@@ -1482,7 +1482,7 @@ local function main(argv)
       return 0
    end
    if #names == 0 then
-      hostPrint("usage: lua Apps/FakeFW/fakefw.lua [-p profile] [-t seconds] [--paced] [--seed n] [--mult pct] App ...")
+      hostPrint("usage: lua Apps/TestMX/testmx.lua [-p profile] [-t seconds] [--paced] [--seed n] [--mult pct] App ...")
       return 2
    end
    FW.setup(opts)
@@ -1492,7 +1492,7 @@ local function main(argv)
    return FW.finish()
 end
 
-if arg and arg[0] and arg[0]:match("fakefw%.lua$") then
+if arg and arg[0] and arg[0]:match("testmx%.lua$") then
    ros.exit(main(arg))
 end
 

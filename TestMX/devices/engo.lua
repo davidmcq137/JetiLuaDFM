@@ -1,5 +1,5 @@
 --[[
-   engo: FakeFW device model for DFM-HUD's serial port, standing for
+   engo: TestMitter device model for DFM-HUD's serial port, standing for
    Russell's ESP32 bridge (~/rfmEngoESP: src/main.cpp, include/snooper.h)
    and the ActiveLook (Engo) glasses behind it.
 
@@ -19,7 +19,7 @@
    FF A2 00 06 <code> AA: control values 1..6 from the glasses, 0x0a when
    the glasses disconnect, 0x0f on a touch.
 
-   Use:  local engo = dofile("Apps/FakeFW/devices/engo.lua")
+   Use:  local engo = dofile("Apps/TestMX/devices/engo.lua")
          local dev = engo.new{battery = 80, configs = {...}}
          FW.serialDevice("ttyUSB0", dev)
    Options: battery (0..100, default 85), configs (list of {name, version,

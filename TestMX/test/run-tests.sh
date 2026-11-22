@@ -1,18 +1,18 @@
 #!/bin/sh
-# FakeFW acceptance tests. Run from the parent of Apps (the Emulator folder):
-#   Apps/FakeFW/test/run-tests.sh [path-to-JETI-like-lua]
+# TestMitter acceptance tests. Run from the parent of Apps (the Emulator folder):
+#   Apps/TestMX/test/run-tests.sh [path-to-JETI-like-lua]
 # (default ~/lua-5.3.1-Jeti-typefix/src/lua; in CI, fazzone/lua_jeti with
-# ltm-typefix.patch). Build FakeFW/fakefw_c.so first (FakeFW/build.sh).
+# ltm-typefix.patch). Build TestMX/testmx_c.so first (TestMX/build.sh).
 # Tests: GpsTest on the emulator and DS-24 5.08 profiles, EnvDump and FontDump
 # on those and the DS-16 5.06 profile,
 # against the measured outputs, the DFM-TimG UIDriver scripts with DFM-HUD (SensorL replays
 # Log/20190926/16-56-45.log, unpacked from 16-56-45.log.gz if missing), and
 # DFM-Maps' scripts on the maps-bds458 (emulator) and maps-bds320 (ds24-508)
-# fixtures (FakeFW/fakefw-uid.lua), DFM-HUD with fake Engo glasses, and
+# fixtures (TestMX/testmx-uid.lua), DFM-HUD with fake Engo glasses, and
 # DFM-SWT's press counting with a real model file.
 # Exit code: the number of failed tests.
 LUA=${1:-$HOME/lua-5.3.1-Jeti-typefix/src/lua}
-T=Apps/FakeFW/test
+T=Apps/TestMX/test
 fails=0
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -35,13 +35,13 @@ fi
 # GpsTest writes Apps/GpsTest/gpstest.out; keep any existing one
 OUT=Apps/GpsTest/gpstest.out
 [ -f $OUT ] && cp $OUT $OUT.keep
-if "$LUA" Apps/FakeFW/fakefw.lua GpsTest > /dev/null && cmp -s $OUT $T/gpstest-emu606.txt; then
+if "$LUA" Apps/TestMX/testmx.lua GpsTest > /dev/null && cmp -s $OUT $T/gpstest-emu606.txt; then
    ok "GpsTest emu-ds24ii-606 = emulator 6.06"
 else
    bad "GpsTest emu-ds24ii-606"; diff $OUT $T/gpstest-emu606.txt | head -20
 fi
 # the 5.08 file was written by an older GpsTest with a shorter header
-if "$LUA" Apps/FakeFW/fakefw.lua -p ds24-508 GpsTest > /dev/null; then
+if "$LUA" Apps/TestMX/testmx.lua -p ds24-508 GpsTest > /dev/null; then
    tail -n +2 $OUT > $TMP/got; tail -n +2 $T/gpstest-ds24-508.txt > $TMP/want
 fi
 if cmp -s $TMP/got $TMP/want; then
@@ -62,7 +62,7 @@ SKIP='^check \|^probe \|^getTime\|^getDateTime\|^os.time\|^globals \|globals\.\|
 for pr in "emu-ds24ii-606 envdump-emu606" "ds24-508 envdump-ds24-508" "ds16-506 envdump-ds16-506"; do
    set -- $pr
    rm -f $EOUT
-   "$LUA" Apps/FakeFW/fakefw.lua -p $1 -t 2 EnvDump > /dev/null
+   "$LUA" Apps/TestMX/testmx.lua -p $1 -t 2 EnvDump > /dev/null
    grep -v "$SKIP" $EOUT > $TMP/got 2>/dev/null; grep -v "$SKIP" $T/$2.txt > $TMP/want
    if cmp -s $TMP/got $TMP/want; then
       ok "EnvDump $1 = $2.txt"
@@ -80,7 +80,7 @@ FOUT=Apps/FontDump/fontdump.out
 for pr in "emu-ds24ii-606 fontdump-emu606" "ds24-508 fontdump-ds24-508" "ds16-506 fontdump-ds16-506"; do
    set -- $pr
    rm -f $FOUT
-   "$LUA" Apps/FakeFW/fakefw.lua -p $1 -t 1 FontDump > /dev/null
+   "$LUA" Apps/TestMX/testmx.lua -p $1 -t 1 FontDump > /dev/null
    # the header line carries FontDump's version
    tail -n +2 $FOUT > $TMP/got 2>/dev/null; tail -n +2 $T/$2.txt > $TMP/want
    if cmp -s $TMP/got $TMP/want; then
@@ -94,11 +94,11 @@ if [ -f $FOUT.keep ]; then mv $FOUT.keep $FOUT; else rm -f $FOUT; fi
 # DFM-TimG's scripts: SensorL replays the Georgia Jets log, the sliders
 # sit where the TimG test model has them, and TimG starts first (the init
 # order that once broke SensorL). hud-test runs the real DFM-HUD, which
-# reads TimG's DFM_TimG global; its serial port is FakeFW's null device
+# reads TimG's DFM_TimG global; its serial port is TestMitter's null device
 for t in "timg-test -" "hud-test DFM-HUD"; do
    set -- $t
    s=$1; also=""; [ "$2" = - ] || also="--also $2"
-   if "$LUA" Apps/FakeFW/fakefw-uid.lua --app DFM-TimG --script $1.jsn --sensor SensorL \
+   if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-TimG --script $1.jsn --sensor SensorL \
 	$also --controls P5=-0.5,P6=0.1,SA=-1 --target-first --form Geriatric > $TMP/$s 2>&1; then
       ok "DFM-TimG $s: $(grep '^==== DONE' $TMP/$s)"
    else
@@ -115,21 +115,21 @@ done
 for t in "nofly-test maps-bds458 emu-ds24ii-606" "maps-smoke maps-tri,maps-bds458 emu-ds24ii-606" \
 	 "nofly-test maps-bds320 ds24-508" "maps-smoke maps-tri,maps-bds320 ds24-508"; do
    set -- $t
-   if "$LUA" Apps/FakeFW/fakefw-uid.lua --app DFM-Maps --script $1.jsn \
-	--fixture $2 --model FakeFW -p $3 > $TMP/$1-$3 2>&1; then
+   if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-Maps --script $1.jsn \
+	--fixture $2 --model TestMX -p $3 > $TMP/$1-$3 2>&1; then
       ok "DFM-Maps $1 ($2, $3): $(grep '^==== DONE' $TMP/$1-$3)"
    else
       bad "DFM-Maps $1 ($2, $3)"; grep -v '^\[UID\]' $TMP/$1-$3 | tail -30
    fi
 done
 
-# DFM-HUD against FakeFW's fake Engo glasses (FakeFW/devices/engo.lua):
+# DFM-HUD against TestMitter's fake Engo glasses (TestMX/devices/engo.lua):
 # config upload, select, battery polls and gauge frames. HUD opens ttyUSB0
 # in the emulator and COM1 on a TX; its form stays closed (no gauges are
 # sent while a form is open); model Abc has the gauges (Json/GG_Abc.jsn)
 for t in "emu-ds24ii-606 ttyUSB0" "ds24ii-606 COM1"; do
    set -- $t
-   if "$LUA" Apps/FakeFW/fakefw-uid.lua --app DFM-HUD --script engo-test.jsn --model Abc \
+   if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-HUD --script engo-test.jsn --model Abc \
 	--no-form --serial $2=engo -p $1 > $TMP/engo-$1 2>&1; then
       ok "DFM-HUD engo-test ($1): $(grep '^==== DONE' $TMP/engo-$1)"
    else
@@ -142,12 +142,12 @@ done
 # the model-ultr fixture. Emulator profile only: the clock starts negative
 # there (SWT 0.6 counted the long press as a short one), and on a TX
 # profile UIDriver can't tell SWT's form ("Short/Long Switch") is SWT's
-if "$LUA" Apps/FakeFW/fakefw-uid.lua --app DFM-SWT --script swt-presses.jsn --sensor none \
+if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-SWT --script swt-presses.jsn --sensor none \
      --fixture model-ultr --model-file 0004Ultr.jsn > $TMP/swt 2>&1; then
    ok "DFM-SWT swt-presses: $(grep '^==== DONE' $TMP/swt)"
 else
    bad "DFM-SWT swt-presses"; grep -v '^\[UID\]' $TMP/swt | tail -30
 fi
 
-echo "FakeFW tests: $fails failed"
+echo "TestMitter tests: $fails failed"
 exit $fails

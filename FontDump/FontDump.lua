@@ -1,5 +1,5 @@
 --[[
-   FontDump: text metrics of every JETI font, for FakeFW's device profiles
+   FontDump: text metrics of every JETI font, for TestMitter's device profiles
    and for comparing the DS-24 (I) and DS-24 II fonts
 
    Writes Apps/FontDump/fontdump.out, one line per result (comma separated):
