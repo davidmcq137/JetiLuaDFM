@@ -1,0 +1,39 @@
+{"config": {"stepGap": 200, "stopOnFail": false},
+ "steps": [
+  {"log": "Settings > Clear battery groups (fixture batt-26). It asks first: No must change nothing. Yes deletes the battery table and, as the question says, this model's group choice; the restart it asks for must not write them back. The other model's file (its sensor and sounds) is not part of what the question offers to delete"},
+  {"waitForm": true},
+  {"waitSub": 1},
+  {"link": "Settings>>"},
+  {"waitSub": 3},
+
+  {"log": "No: nothing deleted"},
+  {"answer": false},
+  {"link": "Clear battery groups"},
+  {"waitSub": 3},
+  {"expectFile": "Apps/DFM-Batt/BD_Global.jsn", "path": "Array.1.1.cyc", "value": 40},
+  {"expectFile": "Apps/DFM-Batt/BD_TestMX.jsn", "path": "lastGroup", "value": 1},
+  {"expectFile": "Apps/DFM-Batt/BD_Other.jsn", "path": "lastGroup", "value": 2},
+
+  {"log": "Yes: the table and this model's file go"},
+  {"answer": true},
+  {"link": "Clear battery groups"},
+  {"waitSub": 3},
+  {"key": "KEY_ESC"},
+  {"waitSub": 1},
+  {"key": "KEY_ESC"},
+  {"waitClosed": true},
+  {"expectFile": "Apps/DFM-Batt/BD_Global.jsn", "absent": true},
+  {"expectFile": "Apps/DFM-Batt/BD_TestMX.jsn", "absent": true},
+
+  {"log": "restart: neither is written back; the other model keeps its file"},
+  {"restartApp": "DFM-Batt"},
+  {"wait": 500},
+  {"expectFile": "Apps/DFM-Batt/BD_Global.jsn", "absent": true},
+  {"expectFile": "Apps/DFM-Batt/BD_TestMX.jsn", "absent": true},
+  {"expectFile": "Apps/DFM-Batt/BD_Other.jsn", "path": "battmAhSePa", "value": 6},
+
+  {"log": "the next stop saves an empty table"},
+  {"restartApp": "DFM-Batt"},
+  {"wait": 500},
+  {"expectFile": "Apps/DFM-Batt/BD_Global.jsn", "path": "Array", "count": 0}
+ ]}

@@ -215,6 +215,10 @@ rb() {
 for t in flight f1-model-group hidden-pack clr-pack double-select delete-group; do rb $t; done
 rb upgrade-25 "--fixture batt-25"
 rb group-moved "--fixture batt-moved"
+# a pilot's day on batt-26 (two groups with cycle histories, two models):
+# flights with the TX off and on between, two models sharing the table,
+# and the Settings links (re-select, clear the model, clear the groups)
+for t in many-flights two-models reselect clear-all clear-groups; do rb $t "--fixture batt-26"; done
 
 # DFM-InsP's sequencer after panel edits, on the insp-aaa fixture (settings
 # with 2 panels and 2 old sequencer entries naming panels that are gone)

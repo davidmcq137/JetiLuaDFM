@@ -1215,7 +1215,8 @@ local function buildBase()
    -- system.TestMX: true only here, for test tools (UIDriver runs on a TX
    -- profile). In a metatable, so pairs() and EnvDump don't list it
    setmetatable(base.system, {__index = {TestMX = true,
-					   TestMXrestartApp = function(n) return FW.requestRestart(n) end}})
+					   TestMXrestartApp = function(n, m) return FW.requestRestart(n, m) end,
+					   TestMXopenForm = function(w) return FW.requestOpen(w) end}})
    base.io, base.dir, base.timer, base.gpio, base.serial = jio, jdir, timer, gpio, serial
    base.lcd.width, base.lcd.height = P.lcdW, P.lcdH
    base.gps = copy(gps)
@@ -1403,22 +1404,34 @@ end
 -- the file loaded fresh, init. Files written in the run and its pSave
 -- values stay, as the SD card and the model file do. Requested from a
 -- callback (system.TestMXrestartApp, for UIDriver), it happens at the start
--- of the next frame, outside any app's callback
+-- of the next frame, outside any app's callback. With model, the model
+-- changes between destroy and init (getProperty("Model")), as when the
+-- pilot picks another model that runs the same app; only this app is
+-- restarted, the others run on
 local restartReq = {}
-function FW.restartApp(name)
+function FW.restartApp(name, model)
    local app = appByName[name]
    if not app then return false end
    if active and active.app == app then closeActive() end
    if app.t and not app.dead then call(app, "destroy", app.t.destroy) end
+   if model then props.Model = model; fwlog("model is now " .. model) end
    app.forms, app.tels, app.dead, app.t = {}, {}, nil, nil
    loadChunk(app)
    if app.t then call(app, "init", app.t.init, 0) end
    fwlog(name .. " restarted")
    return true
 end
-function FW.requestRestart(name)
+function FW.requestRestart(name, model)
    if not appByName[name] then return false end
-   restartReq[#restartReq + 1] = name
+   restartReq[#restartReq + 1] = {name, model}
+   return true
+end
+-- open a form from a callback (system.TestMXopenForm, for UIDriver's
+-- openForm step: the pilot opening the app's menu): at the start of the
+-- next frame, if no form is open then
+local openFormReq = {}
+function FW.requestOpen(which)
+   openFormReq[#openFormReq + 1] = which
    return true
 end
 function FW.app(name) return appByName[name] end
@@ -1452,7 +1465,12 @@ function runFrame()
    local start = frameEnd > now and frameEnd or now
    now, frac = start, 0.0
    frameEnd = start + P.loopMs + jitter()
-   while #restartReq > 0 do FW.restartApp(table.remove(restartReq, 1)) end
+   while #restartReq > 0 do local r = table.remove(restartReq, 1); FW.restartApp(r[1], r[2]) end
+   while #openFormReq > 0 do
+      local w = table.remove(openFormReq, 1)
+      if active then fwlog("openForm " .. tostring(w) .. ": a form is open already")
+      elseif not FW.openForm(w) then fwlog("openForm: no form " .. tostring(w)) end
+   end
    for _, f in ipairs(frameHooks) do f(now) end
    serialFrame()
    for _, app in ipairs(apps) do

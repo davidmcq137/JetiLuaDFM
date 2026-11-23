@@ -166,6 +166,7 @@
                                   presses as telemButton by label
      {"answer": true}             answer the next form.question (yes/no)
      {"expect": "Race time (mins)", "value": 30}  check a widget's value
+     {"expect": "#1", "contains": "Cap 500"}  check a widget's label text
      {"expectSub": 10}            check which subform is showing
      {"close": true}              form.close(), then wait for it to close
      {"log": "text"}              write a line to the log
@@ -221,11 +222,22 @@
                                   change model and back: destroy (where
                                   apps save), then load and init again;
                                   files and pSave values stay. TestMitter
-                                  only; SKIP on the emulator and the TX
+                                  only; SKIP on the emulator and the TX.
+                                  "model": "B" changes the model between
+                                  destroy and init (getProperty("Model"))
+     {"openForm": "DFM-Batt"}     open the app's menu form (or a form by
+                                  label) as the pilot would; follow it with
+                                  waitForm. TestMitter only; SKIP elsewhere
      {"expectFile": "Apps/DFM-Dial/DD_TestModel.jsn",
       "contains": "[null"}        PASS if the file contains the text
                                   ("absent": true for must NOT contain;
-                                  no "contains" = the file must exist).
+                                  no "contains" = the file must exist;
+                                  "absent" alone = it must not).
+                                  "path": "Array.2.1.cyc", "value": 9
+                                  checks one value of a JSON file
+                                  (numbers index arrays); "count": 2
+                                  instead of "value" checks a table's
+                                  length
                                   Plain text, not a pattern. The path is
                                   tried as given, then with a leading "/"
      {"cpuStart": true}           start tracking the target's peak CPU
@@ -910,6 +922,12 @@ local function wrapForm()
    form.addLabel = function(p, ...)
       local idx = orig.addLabel(p, ...)
       if capturing and p and p.label and p.label ~= "" then lastLabel = p.label end
+      -- label-only widgets, index -> text, kept beside the widgets (out of
+      -- locals: the main chunk is at Lua's limit of 200)
+      if capturing and p and idx then
+	 comps.labels = comps.labels or {}
+	 comps.labels[idx] = p.label
+      end
       return idx
    end
    form.addIntbox = function(v, mn, mx, def, dec, step, cb, p)
@@ -1235,12 +1253,27 @@ H.restartApp = {ctx = "any", run = function(s)
 		   end
 		   if not s._asked then
 		      s._asked = true
-		      if not system.TestMXrestartApp(s.restartApp) then
+		      if not system.TestMXrestartApp(s.restartApp, s.model) then
 			 return false, "no app " .. tostring(s.restartApp) .. " to restart"
 		      end
 		      return nil
 		   end
-		   return "ok", tostring(s.restartApp) .. " restarted"
+		   return "ok", tostring(s.restartApp) .. " restarted" ..
+		      (s.model and (" on model " .. s.model) or "")
+end}
+
+-- openForm: TestMitter opens a form at the start of the next frame (the
+-- pilot opening the app's menu); by app name it is the app's menu form
+H.openForm = {ctx = "any", run = function(s)
+		 if not system.TestMX then
+		    return "skip", "openForm needs TestMitter: " .. tostring(s.openForm)
+		 end
+		 if not s._asked then
+		    s._asked = true
+		    system.TestMXopenForm(s.openForm)
+		    return nil
+		 end
+		 return "ok", "asked to open " .. tostring(s.openForm)
 end}
 
 -- expectFile: what an app saved
@@ -1251,7 +1284,30 @@ H.expectFile = {ctx = "any", run = function(s)
 		      p = "/" .. p
 		      txt = io.readall(p)
 		   end
+		   if s.contains == nil and s.absent then
+		      return not txt, s.expectFile .. (txt and " exists, should not" or " doesn't exist")
+		   end
 		   if not txt then return false, "no file " .. s.expectFile end
+		   if s.path then
+		      -- a value in a JSON file: "Array.2.1.cyc" (numbers index arrays);
+		      -- "value" compared with ==, or "count" for the length of a table
+		      local ok, v = pcall(json.decode, txt)
+		      if not ok or v == nil then return false, s.expectFile .. " isn't JSON" end
+		      for k in tostring(s.path):gmatch("[^%.]+") do
+			 if type(v) ~= "table" then
+			    return false, s.expectFile .. " " .. s.path .. ": no " .. k
+			 end
+			 local n = tonumber(k)
+			 if n then v = v[math.tointeger(n)] else v = v[k] end
+		      end
+		      if s.count ~= nil then
+			 local n = type(v) == "table" and #v or nil
+			 return n == s.count, s.expectFile .. " " .. s.path .. " has " ..
+			    tostring(n) .. " entries, expected " .. tostring(s.count)
+		      end
+		      return v == s.value, s.expectFile .. " " .. s.path .. " is " ..
+			 tostring(v) .. ", expected " .. tostring(s.value)
+		   end
 		   if s.contains == nil then return true, s.expectFile .. " exists" end
 		   local found = txt:find(s.contains, 1, true) ~= nil
 		   local what = (s.absent and "doesn't contain " or "contains ") .. s.contains
@@ -1439,6 +1495,14 @@ end}
 
 H.expect = {ctx = "form", run = function(s)
 	       local c, err = find(s.expect, s.nth)
+	       if s.contains then   -- the widget's label text (a label row, a link)
+		  local n = tostring(s.expect):match("^#(%d+)$")
+		  local l = n and comps.labels and comps.labels[tonumber(n)] or (c and c.label)
+		  if l == nil then return false, err end
+		  l = tostring(l)
+		  return l:find(s.contains, 1, true) ~= nil,
+		     string.format("%s: '%s', expected it to contain '%s'", s.expect, l, s.contains)
+	       end
 	       if not c then return false, err end
 	       local got
 	       if c.kind == "input" then
@@ -1738,7 +1802,7 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "setSensor", "clearSensor", "expectControl", "waitControl",
 	       "sensorPause", "sensorTime", "sensorStep", "sensorField",
 	       "sensorPosition", "sensorVars", "waitSensorTime", "restore",
-	       "waitSensor", "expectSensor", "focus", "restartApp",
+	       "waitSensor", "expectSensor", "focus", "restartApp", "openForm",
 	       "expectFile"}
 
 local function verbOf(s)

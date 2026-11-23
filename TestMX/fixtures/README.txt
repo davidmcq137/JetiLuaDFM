@@ -19,6 +19,8 @@ Kinds:
   version still reads them (dial-113: DFM-Dial 1.13 settings with
   [null,5] warnings; batt-25: DFM-Batt 2.5 files with cycle histories
   and a group wiped to 0; batt-moved: a model whose group moved up)
+- a pilot's data, for a day's flying: batt-26 (DFM-Batt 2.6 files: groups
+  Field and Glider with cycle histories, models TestMX and Other)
 
 To find what an app reads: run it with an empty fixture and --trace;
 "hidden" lines are working files it wanted.

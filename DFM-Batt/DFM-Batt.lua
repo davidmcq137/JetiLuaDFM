@@ -17,6 +17,11 @@
        other models follow a deleted group too. BD_Global.jsn is unchanged
      - both warnings re-arm when a battery is chosen
      - short message boxes ("Batt: ..."), the date version scheme
+   Version 2.6.1122b 22-Nov-2026:
+     - Re-select battery cleared the model's group, so no pack could be
+       chosen and the group was lost; now it clears only the chosen pack(s)
+     - Clear battery groups deleted every model's BD_<model>.jsn; now only
+       BD_Global.jsn and this model's file
 
    ----------------------------------------------------------------------
    
@@ -24,7 +29,7 @@
 
 --local trans11
 -- major.minor.MMDDx: a new letter for each pushed build
-local BattVersion = "2.6.1122a"
+local BattVersion = "2.6.1122b"
 
 local subForm = 0
 local emFlag
@@ -106,30 +111,6 @@ local function resetBattery(sr, i)
    Battery[sr][i].cyc = 0
    Battery[sr][i].warn = 0
    Battery[sr][i].warn2 = 0
-end
-
-local function wcDelete(pathIn, pre, typ)
-
-   local dd, fn, ext
-   local path
-
-   if select(2, system.getDeviceType()) ~= 1 then
-      path = "/" .. pathIn
-   else
-      path = pathIn
-   end      
-
-   for name, _, _ in dir(path) do
-      dd, fn, ext = string.match(name, "(.-)([^/]-)%.([^/]+)$")
-      if fn and ext then
-	 if string.lower(ext) == string.lower(typ) and string.find(fn, pre) == 1 then
-	    local ff = path .. "/" .. fn .. "." .. ext
-	    if not io.remove(ff) then
-	       print("failed to delete " .. ff)
-	    end
-	 end
-      end
-   end
 end
 
 local function drawRectGaugeAbs(oxc, oyc, w, h, min, max, val, str, rgb)
@@ -552,8 +533,10 @@ local function initForm(sf)
 
       form.addRow(2)
       form.addLink((function()
+	       -- the chosen pack(s) only: the model keeps its group
 	       appMsg(lang.battClear)
-	       selectedGroup = 0
+	       selectedBattery = 0
+	       selBatt = {}
 	       seenRX = false
 	       form.reinit(3)
 		   end),
@@ -582,7 +565,10 @@ local function initForm(sf)
 		  writeBDG = false
 		  writeBD = false
 		  selectedGroup = 0
-		  wcDelete("Apps/DFM-Batt", "BD_", "jsn")
+		  -- the table and this model's file; other models keep
+		  -- their sensor and sound settings
+		  io.remove(fileBDG)
+		  io.remove(fileBD)
 		  appMsg(lang.restart2)
 		  form.reinit(3)
 	       end
