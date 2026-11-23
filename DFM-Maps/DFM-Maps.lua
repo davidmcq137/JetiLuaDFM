@@ -67,7 +67,7 @@ appInfo.Maps = appInfo.Name
 appInfo.menuTitle = appInfo.Name
 appInfo.Dir  = "Apps/" .. appInfo.Name .. "/"
 -- bump the suffix (month, day, letter) for each build sent to a tester
-appInfo.version = "10.0.1122a"
+appInfo.version = "10.0.1123a"
 -- a real TX has no debug library; the emulator has one. The TX swaps red and
 -- blue in renderer drawing into images (see ribbon.prepare)
 appInfo.swapRB = (debug == nil)
@@ -5598,6 +5598,35 @@ local function init()
 
    
    newTransmitter = (string.find(select(1, system.getDeviceType()), "24 II"))
+
+   -- DS-24 II: since fw 6.05 each Lua callback's time counts against a CPU
+   -- budget, and loading map images needs more than the default. An app
+   -- can't read the setting, so tell the pilot once: State.jsn remembers
+   -- the OK. The download ships State.jsn with cpuNotice 0, so a reinstall
+   -- shows it again; raise the 1 below when the wording changes. Not on
+   -- the emulator (no CPU limit there), so the repo's State.jsn stays 0
+   if newTransmitter and emFlag then
+      print(appInfo.Name .. ": emulator: Lua performance notice skipped")
+   elseif newTransmitter then
+      local fn = appInfo.Dir .. "State.jsn"
+      local st = jsonDecode(io.readall(fn), fn)
+      if type(st) ~= "table" then st = {} end
+      if (tonumber(st.cpuNotice) or 0) < 1 then
+	 -- TEXT TO COME (the pilot's wording); onlyInfo: an OK button only
+	 if form.question("Maps must run with Lua performance at 300%",
+			  "Set it in the Lua settings",
+			  "OK: this is not shown again",
+			  0, true, 0) == 1 then
+	    st.cpuNotice = 1
+	    local f = io.open(fn, "w")
+	    if f then
+	       io.write(f, json.encode(st))
+	       io.close(f)
+	    end
+	    print(appInfo.Name .. ": CPU notice acknowledged, saved in " .. fn)
+	 end
+      end
+   end
 
    --check if we loaded the larger maps for an old transmitter .. not ok
    --loading legacy maps with new transmitter is ok .. will run in compatibility mode
