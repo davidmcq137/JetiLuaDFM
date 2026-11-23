@@ -26,7 +26,7 @@
 --]]
 
 local appName = "DFM-BLE"
-local appVersion = "0.3"
+local appVersion = "0.4"
 
 local HEAD, FOOT = 0xEE, 0xBB
 local CMD_RESET, CMD_MODEL, CMD_DESCRIBE, CMD_VALUES = 0x20, 0x21, 0x22, 0x23
@@ -115,7 +115,9 @@ local function rawValue(s)
       if dec % 2 == 1 then
 	 local yy = s.valYear
 	 if yy >= 2000 then yy = yy - 2000 end
-	 return (yy << 16) | (s.valMonth << 8) | s.valDay, dec
+	 -- day at the top, year at the bottom: what JETI Studio Mobile reads
+	 -- (the EX spec text says the reverse; tested 2026-11-22)
+	 return (s.valDay << 16) | (s.valMonth << 8) | yy, dec
       end
       return (s.valHour << 16) | (s.valMin << 8) | s.valSec, dec
    end
@@ -339,7 +341,7 @@ local function valueText(v)
    if not raw then return "--" end
    if v.lastType == 5 then
       local a, b, c = (raw >> 16) & 0x1F, (raw >> 8) & 0xFF, raw & 0xFF
-      if dec % 2 == 1 then return string.format("%02d-%02d-%02d", a, b, c) end
+      if dec % 2 == 1 then return string.format("20%02d-%02d-%02d", c, b, a) end
       return string.format("%02d:%02d:%02d", a, b, c)
    elseif v.lastType == 9 then
       local nesw = {"N", "E", "S", "W"}
