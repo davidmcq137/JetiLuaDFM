@@ -136,7 +136,8 @@ done
 # skipped, as nobody is there to answer them. On ds24-508 the telemetry
 # button steps are skipped too (fw 5.08 has no setTelemetryButton)
 for t in "nofly-test maps-bds458 emu-ds24ii-606" "maps-smoke maps-tri,maps-bds458 emu-ds24ii-606" \
-	 "nofly-test maps-bds320 ds24-508" "maps-smoke maps-tri,maps-bds320 ds24-508"; do
+	 "nofly-test maps-bds320 ds24-508" "maps-smoke maps-tri,maps-bds320 ds24-508" \
+	 "maps-incompat maps-tri,maps-bds458 ds24-508"; do
    set -- $t
    if "$LUA" Apps/TestMX/testmx-uid.lua --app DFM-Maps --script $1.jsn \
 	--fixture $2 --model TestMX -p $3 > $TMP/$1-$3 2>&1; then

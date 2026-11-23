@@ -1,0 +1,13 @@
+{"steps": [
+  {"log": "DS-24 II maps (458 px) on a DS-24 (I): Maps shows 'Incompatible maps' in its menu and telemetry windows and does nothing else; no blocking question. Run with fixture maps-tri,maps-bds458 and profile ds24-508"},
+  {"expectState": "appInfo.incompatible", "value": true},
+  {"waitForm": true},
+  {"key": "KEY_ESC"},
+  {"waitClosed": true},
+  {"waitTelem": 1},
+  {"expectText": "Incompatible maps", "win": 1},
+  {"expectText": "for a DS-24 II", "win": 1},
+  {"expectText": "Incompatible maps", "win": 2},
+  {"wait": 3000},
+  {"expectText": "Download the maps", "win": 1}
+ ]}

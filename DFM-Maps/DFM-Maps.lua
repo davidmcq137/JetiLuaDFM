@@ -76,6 +76,24 @@ appInfo.swapRB = (debug == nil)
 -- running; one centred line, clipped at both ends when too long, so keep
 -- the whole text to 26 characters (fits a DS-24), details to print()
 local function appMsg(s, t) system.messageBox("Maps: " .. s, t) end
+
+-- DS-24 II maps (458 px) on a DS-24 or older TX: every screen would draw
+-- wrong, so Maps only shows this, in its menu and telemetry windows, and
+-- its loop does nothing (init sets appInfo.incompatible)
+appInfo.incompatLines = {"Incompatible maps", "These maps are for a DS-24 II",
+			 "Download the maps for this TX"}
+local function incompatMsg(w, h)
+   w, h = w or 320, h or 160
+   local lines = appInfo.incompatLines
+   if h < 40 then lines = {lines[1]} end -- the small telemetry window
+   local fh = lcd.getTextHeight(FONT_NORMAL)
+   local y = (h - #lines * fh) / 2
+   for i, t in ipairs(lines) do
+      local f = i == 1 and FONT_BOLD or FONT_NORMAL
+      lcd.drawText((w - lcd.getTextWidth(f, t)) / 2, y, t, f)
+      y = y + fh
+   end
+end
 appInfo.Fields = "Apps/" .. appInfo.Maps .. "/Maps/Fields.jsn"
 appInfo.Config = "Apps/" .. appInfo.Maps .. "/Maps/Config.jsn"
 appInfo.SaveData = true
@@ -1606,6 +1624,7 @@ end
 
 local function keyForm(key)
    local inc
+   if appInfo.incompatible then return end
    --print("key:", key, KEY_UP, KEY_DOWN)
    if (key == KEY_UP or key == KEY_DOWN) and savedSubform == 10 and
    browse.FieldName == browse.OriginalFieldName then
@@ -1719,6 +1738,14 @@ end
 -- Draw the main form (Application inteface)
 
 local function initForm(subform)
+
+   if appInfo.incompatible then
+      for i, t in ipairs(appInfo.incompatLines) do
+	 form.addRow(1)
+	 form.addLabel({label = t, font = i == 1 and FONT_BOLD or FONT_NORMAL})
+      end
+      return
+   end
 
    local function sensorChanged(value, str, isGPS)
 
@@ -3284,6 +3311,7 @@ end
 local formRenderer
 
 local function prtForm() --wwx, whx)
+   if appInfo.incompatible then return end
 
    --print("wwx, whx", wwx, whx)
 
@@ -3476,7 +3504,8 @@ end
 
 local dirPrintRenderer
 
-local function dirPrint(_, _, kk)
+local function dirPrint(dw, dh, kk)
+   if appInfo.incompatible then return incompatMsg(dw, dh) end
    local sC = variables.triLength * variables.triViewScale / 100 -- scale factor for this tele window
    local xf = 0.40 -- center X is at 1-xf of width
    local yf = 0.65 -- center Y is at 1-yf of height
@@ -4310,7 +4339,8 @@ local function updateRibbon()
 end
 
 local panic = false
-local function mapPrint() --wWid, wHgt)
+local function mapPrint(...) --wWid, wHgt)
+   if appInfo.incompatible then return incompatMsg(...) end
    
    if (mapPrintRenderer == nil) then
       mapPrintRenderer = lcd.renderer()
@@ -4743,7 +4773,8 @@ local function mapPrint() --wWid, wHgt)
 end
 
 
-local function mapPrintSmall()
+local function mapPrintSmall(...)
+   if appInfo.incompatible then return incompatMsg(...) end
    if recalcDone() then
       graphScale(xtable[#xtable], ytable[#ytable])
    end
@@ -4795,6 +4826,7 @@ end
 ------------------------------------------------------------
 
 local function loop()
+   if appInfo.incompatible then return end
 
    if imagesDropped then
       -- free the map images setField/browseRestore let go of (see fieldPNG),
@@ -5326,6 +5358,7 @@ end
 
 
 local function keyPressMap(key)
+   if appInfo.incompatible then return end
    --local on = " on"
    --local off = " off"
    --local state
@@ -5360,6 +5393,7 @@ local function init()
    uid = system.UIDriver
    if uid then
       uid.expose("browse", function() return browse end)
+      uid.expose("appInfo", function() return appInfo end)
       uid.expose("variables", function() return variables end)
       uid.expose("checkBox", function() return checkBox end)
       uid.expose("maps", function()
@@ -5639,9 +5673,12 @@ local function init()
    --use form.question since system.messageBox gets overwritten
    
    if (not newTransmitter) and (Screen.image_width_px ~= Screen.legacy_width_px) then
-      print(appInfo.Name .. ": Incompatible maps loaded for this TX", 10)
-      --system.messageBox(appInfo.Name.. ": Incompatible maps")
-      form.question("Incompatible maps", "DFM-Maps", "Error", 0, true, 0)
+      -- no blocking question: the menu and telemetry windows say it, and
+      -- the loop does nothing (see incompatMsg)
+      print(string.format("%s: incompatible maps: %d px maps need a DS-24 II; " ..
+			     "download the maps for this TX", appInfo.Name,
+			  Screen.image_width_px))
+      appInfo.incompatible = true
    end
 
    if newTransmitter and Screen.image_width_px == Screen.dcds24_width_px then
