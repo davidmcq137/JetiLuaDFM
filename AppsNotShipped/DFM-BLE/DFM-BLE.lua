@@ -26,7 +26,7 @@
 --]]
 
 local appName = "DFM-BLE"
-local appVersion = "0.1"
+local appVersion = "0.2"
 
 local HEAD, FOOT = 0xEE, 0xBB
 local CMD_RESET, CMD_MODEL, CMD_DESCRIBE, CMD_VALUES = 0x20, 0x21, 0x22, 0x23
@@ -38,7 +38,7 @@ local ST_LINK_ERROR, ST_STARTED = 0x23, 0x24
 local BAUD = 115200
 local SEND_MS = 200         -- values, about JETI's sensor update rate
 local DESCRIBE_MS = 10000   -- labels again, so a rebooted ESP32 recovers
-local RESCAN_EMPTY_MS = 2000 -- look for sensors more often while there are none
+local RESCAN_EMPTY_MS = 5000 -- look for sensors again while there are none
 local ESP_TIMEOUT_MS = 12000 -- no heartbeat for this long: ESP32 not answering
 local MAX_VALUES = 32       -- per sensor, the size of the ESP32's table
 local MAX_LABEL, MAX_UNIT = 31, 7
@@ -50,7 +50,8 @@ local sensors = {}    -- {id=, name=, values={{param=, label=, unit=, dec=, type
 local sensorKey = ""  -- the sensor list as a string, to notice changes
 local nValues = 0
 local needReset = true
-local lastSend, lastDescribe
+local rescanWanted = true -- read the sensor list on the next loop
+local lastSend, lastDescribe, lastScan
 
 local esp = {seen = nil, phone = ST_NO_PHONE, errors = 0, starts = 0}
 local stats = {sent = 0, writeErrors = 0, valuesPerSec = 0}
@@ -103,17 +104,18 @@ end
 
 -- The raw integer and decimals the EX protocol carries for one reading
 local function rawValue(s)
+   -- a whole number: under SensorE (json.decode) decimals arrive as 1.0
+   local dec = math.floor(s.decimals or 0)
    if s.type == 9 then -- GPS: the coded value; decimals = N/S/E/W bits
-      return s.valGPS, s.decimals
+      return s.valGPS, dec
    elseif s.type == 5 then -- time or date; decimals bit 0 = date
-      if s.decimals % 2 == 1 then
+      if dec % 2 == 1 then
 	 local yy = s.valYear
 	 if yy >= 2000 then yy = yy - 2000 end
-	 return (yy << 16) | (s.valMonth << 8) | s.valDay, s.decimals
+	 return (yy << 16) | (s.valMonth << 8) | s.valDay, dec
       end
-      return (s.valHour << 16) | (s.valMin << 8) | s.valSec, s.decimals
+      return (s.valHour << 16) | (s.valMin << 8) | s.valSec, dec
    end
-   local dec = s.decimals or 0
    if dec > 3 then dec = 3 end -- EX carries at most 3 decimals
    return round(s.value * 10 ^ dec), dec
 end
@@ -136,7 +138,7 @@ local function readSensors()
 	    e.name = s.label
 	 elseif #e.values < MAX_VALUES then
 	    e.values[#e.values + 1] = {param = s.param, label = s.label,
-				       unit = s.unit, dec = s.decimals,
+				       unit = s.unit, dec = math.floor(s.decimals or 0),
 				       type = s.type}
 	    keys[#keys + 1] = s.id .. ":" .. s.param .. ":" .. s.label
 	    count = count + 1
@@ -172,12 +174,14 @@ local function sendValues()
       local parts, n = {}, 0
       for _, v in ipairs(e.values) do
 	 local s = system.getSensorByID(e.id, v.param)
+	 v.lastRaw = nil -- what was sent, for the values page
 	 if s and s.valid then
 	    local raw, dec = rawValue(s)
 	    raw = math.tointeger(raw)
 	    if raw then
 	       n = n + 1
 	       parts[n] = string.pack("<BBi4", v.param, dec & 0xFF, raw)
+	       v.lastRaw, v.lastDec, v.lastType = raw, dec, s.type
 	    end
 	 end
       end
@@ -301,7 +305,90 @@ end
 --------------------------------------------------------------------------------
 -- menu
 
-local function initForm()
+local formPage = 1
+local valueTop = 1 -- first row shown on the values page
+
+-- A value as it was sent, for the values page
+local function valueText(v)
+   local raw, dec = v.lastRaw, v.lastDec or 0
+   if not raw then return "--" end
+   if v.lastType == 5 then
+      local a, b, c = (raw >> 16) & 0x1F, (raw >> 8) & 0xFF, raw & 0xFF
+      if dec % 2 == 1 then return string.format("%02d-%02d-%02d", a, b, c) end
+      return string.format("%02d:%02d:%02d", a, b, c)
+   elseif v.lastType == 9 then
+      local nesw = {"N", "E", "S", "W"}
+      return string.format("%d\194\176 %.3f' %s", (raw >> 16) & 0xFF,
+			   (raw & 0xFFFF) * 0.001, nesw[(dec & 3) + 1])
+   end
+   local unit = (v.unit and v.unit ~= "") and (" " .. v.unit) or ""
+   if dec == 0 then return string.format("%d", raw) .. unit end
+   return string.format("%." .. dec .. "f", raw / 10 ^ dec) .. unit
+end
+
+-- Rows for the values page: a heading per sensor, then its values
+local function valueRows()
+   local rows = {}
+   for _, e in ipairs(sensors) do
+      rows[#rows + 1] = {head = (e.name ~= "" and e.name or "(no name)")}
+      for _, v in ipairs(e.values) do
+	 rows[#rows + 1] = {label = v.label, text = valueText(v)}
+      end
+   end
+   return rows
+end
+
+local function printForm(w, h)
+   if formPage ~= 2 then return end
+   local rows = valueRows()
+   if #rows == 0 then
+      lcd.drawText(4, 4, "No sensors yet", FONT_NORMAL)
+      return
+   end
+   local fh = lcd.getTextHeight(FONT_NORMAL)
+   local fit = h // fh
+   if valueTop > #rows - fit + 1 then valueTop = math.max(1, #rows - fit + 1) end
+   for i = 0, fit - 1 do
+      local r = rows[valueTop + i]
+      if not r then break end
+      local y = i * fh
+      if r.head then
+	 lcd.drawText(4, y, r.head, FONT_BOLD)
+      else
+	 lcd.drawText(16, y, r.label, FONT_NORMAL)
+	 lcd.drawText(w - 4 - lcd.getTextWidth(FONT_NORMAL, r.text), y, r.text,
+		      FONT_NORMAL)
+      end
+   end
+end
+
+local function keyForm(key)
+   if formPage ~= 2 then return end
+   if key == KEY_ESC or key == KEY_5 then
+      form.preventDefault()
+      form.reinit(1)
+   elseif key == KEY_UP then
+      valueTop = math.max(1, valueTop - 1)
+   elseif key == KEY_DOWN then
+      valueTop = valueTop + 1
+   end
+end
+
+local function initForm(sub)
+   formPage = sub or 1
+   if formPage == 2 then
+      form.setTitle("Values sent")
+      form.setButton(5, "Back", ENABLED)
+      return
+   end
+   rescanWanted = true -- opening the menu also picks up new sensors
+
+   form.addRow(1)
+   form.addLink(function()
+	 valueTop = 1
+	 form.reinit(2)
+   end, {label = "Values sent >>"})
+
    if emulator then
       local ports = serial.getPorts() or {}
       local idx = 1
@@ -376,10 +463,14 @@ local function loop()
    endPulses(now)
    if not sid then return end
 
-   local describeDue = now - lastDescribe >= DESCRIBE_MS or
-      (#sensors == 0 and now - lastDescribe >= RESCAN_EMPTY_MS)
-   if needReset or describeDue then
+   -- system.getSensors() only when needed: under SensorE in the emulator
+   -- every call reloads SensorE's config (and prints its start-up lines)
+   if rescanWanted or (#sensors == 0 and now - lastScan >= RESCAN_EMPTY_MS) then
       readSensors()
+      rescanWanted, lastScan = false, now
+   end
+
+   if needReset or now - lastDescribe >= DESCRIBE_MS then
       if needReset then
 	 sendReset()
 	 needReset = false
@@ -406,6 +497,7 @@ local function init()
    local now = system.getTimeCounter()
    -- relative to the clock, never to 0: the emulator's counter can start negative
    lastSend, lastDescribe, valueCountStart = now, now - DESCRIBE_MS, now
+   lastScan = now - RESCAN_EMPTY_MS
 
    gpio.mode(5, "out-pp")
    gpio.mode(6, "out-pp")
@@ -416,7 +508,7 @@ local function init()
 
    openPort(choosePort())
 
-   system.registerForm(1, MENU_APPS, appName, initForm)
+   system.registerForm(1, MENU_APPS, appName, initForm, keyForm, printForm)
    system.registerTelemetry(1, appName, 0, printTele)
 end
 
