@@ -267,9 +267,11 @@ end
 
 --------------------------------------------------------------------------------
 -- GPIO lines to the ESP32 board (as in DFM-HUD)
---   6 -> ESP32 D2 = reboot, 5 -> ESP32 D0 = OTA: a 500 ms high pulse
+--   6 -> ESP32 D0 = reboot, 5 -> ESP32 D2 = OTA: a 500 ms high pulse
 --   7 -> board power: a 500 ms low pulse cycles it
--- As DFM-HUD, known to work with the HUD board; dfmBleESP matches it.
+-- Pins as DFM-HUD uses them with the HUD board. DFM-HUD's comment names
+-- D2 for reboot, but the working HUD firmware restarts on D0 and starts
+-- OTA on D2, so that comment has the pin names swapped.
 
 local function pulse(pin, level)
    gpio.write(pin, level)
