@@ -26,7 +26,7 @@
 --]]
 
 local appName = "DFM-BLE"
-local appVersion = "0.2"
+local appVersion = "0.3"
 
 local HEAD, FOOT = 0xEE, 0xBB
 local CMD_RESET, CMD_MODEL, CMD_DESCRIBE, CMD_VALUES = 0x20, 0x21, 0x22, 0x23
@@ -74,6 +74,9 @@ local function send(str)
       stats.sent = stats.sent + cc
    else
       stats.writeErrors = stats.writeErrors + 1
+      if stats.writeErrors == 1 then
+	 print(appName .. ": serial write failed: " .. tostring(select(2, serial.write(sid, ""))))
+      end
    end
 end
 
@@ -262,10 +265,9 @@ end
 
 --------------------------------------------------------------------------------
 -- GPIO lines to the ESP32 board (as in DFM-HUD)
---   5 -> ESP32 D0, 6 -> ESP32 D2: a 500 ms high pulse
+--   6 -> ESP32 D2 = reboot, 5 -> ESP32 D0 = OTA: a 500 ms high pulse
 --   7 -> board power: a 500 ms low pulse cycles it
--- Open question: DFM-HUD's comments say 5 = OTA and 6 = reboot, but the
--- ESP32 code restarts on D0 and starts OTA on D2. Check the board wiring.
+-- As DFM-HUD, known to work with the HUD board; dfmBleESP matches it.
 
 local function pulse(pin, level)
    gpio.write(pin, level)
@@ -306,6 +308,29 @@ end
 -- menu
 
 local formPage = 1
+local statusIds -- label ids of the live status rows while the menu is open
+local lastStatus = 0
+
+local function serialOutText()
+   return string.format("%d bytes, %d errors", stats.sent, stats.writeErrors)
+end
+local function sendingText()
+   return string.format("%d sensors, %d values", #sensors, nValues)
+end
+-- filled in below, once espText and phoneText exist
+local statusRows
+
+local function updateStatus(now)
+   if not statusIds or now - lastStatus < 500 then return end
+   lastStatus = now
+   for i, r in ipairs(statusRows) do
+      form.setProperties(statusIds[i], {label = r[2]()})
+   end
+end
+
+local function closeForm()
+   statusIds = nil
+end
 local valueTop = 1 -- first row shown on the values page
 
 -- A value as it was sent, for the values page
@@ -374,8 +399,12 @@ local function keyForm(key)
    end
 end
 
+statusRows = {{"ESP32", espText}, {"Phone", phoneText},
+	      {"Serial out", serialOutText}, {"Sending", sendingText}}
+
 local function initForm(sub)
    formPage = sub or 1
+   statusIds = nil
    if formPage == 2 then
       form.setTitle("Values sent")
       form.setButton(5, "Back", ENABLED)
@@ -401,18 +430,12 @@ local function initForm(sub)
       end)
    end
 
-   form.addRow(2)
-   form.addLabel({label = "ESP32"})
-   form.addLabel({label = espText(), alignRight = true})
-
-   form.addRow(2)
-   form.addLabel({label = "Phone"})
-   form.addLabel({label = phoneText(), alignRight = true})
-
-   form.addRow(2)
-   form.addLabel({label = "Sending"})
-   form.addLabel({label = string.format("%d sensors, %d values", #sensors, nValues),
-		  alignRight = true})
+   statusIds = {}
+   for i, r in ipairs(statusRows) do
+      form.addRow(2)
+      form.addLabel({label = r[1]})
+      statusIds[i] = form.addLabel({label = r[2](), alignRight = true})
+   end
 
    form.addRow(1)
    form.addLink(function()
@@ -461,6 +484,7 @@ end
 local function loop()
    local now = system.getTimeCounter()
    endPulses(now)
+   updateStatus(now)
    if not sid then return end
 
    -- system.getSensors() only when needed: under SensorE in the emulator
@@ -508,7 +532,8 @@ local function init()
 
    openPort(choosePort())
 
-   system.registerForm(1, MENU_APPS, appName, initForm, keyForm, printForm)
+   system.registerForm(1, MENU_APPS, appName, initForm, keyForm, printForm,
+		       closeForm)
    system.registerTelemetry(1, appName, 0, printTele)
 end
 
