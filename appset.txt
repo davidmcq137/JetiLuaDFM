@@ -6,6 +6,7 @@ group maps     DFM-Maps
 group insp     DFM-InsP
 group rescue   DFM-Rscu DFM-Path
 group hud      DFM-HUD
+group ble      DFM-BLE
 group timers   DFM-TimG DFM-TimV
 group glob     GlobR GlobW
 group current  DFM-Maps DFM-InsP DFM-Rscu DFM-Path DFM-TimG
@@ -50,6 +51,8 @@ link  DFM-GPS          AppsNotShipped/DFM-GPS
 link  DFM-GPS.lua      DFM-GPS/DFM-GPS.lua
 link  DFM-GRat.lua     DFM-GRat/DFM-GRat.lua
 link  DFM-HUD.lua      DFM-HUD/DFM-HUD.lua
+link  DFM-BLE          AppsNotShipped/DFM-BLE
+link  DFM-BLE.lua      DFM-BLE/DFM-BLE.lua
 link  DFM-InsP.lua     DFM-InsP/DFM-InsP.lua
 link  DFM-Maps.lua     DFM-Maps/DFM-Maps.lua
 link  DFM-Path.lua     DFM-Path/DFM-Path.lua

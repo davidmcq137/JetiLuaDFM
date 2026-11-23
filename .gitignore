@@ -126,6 +126,7 @@ TestMX/testmx_c.so
 /misclua
 /CTUAutoT
 /DFM-Auto
+/DFM-BLE
 /DFM-Chute
 /DFM-Ctrl
 /DFM-F3B
