@@ -5612,10 +5612,16 @@ local function init()
       local st = jsonDecode(io.readall(fn), fn)
       if type(st) ~= "table" then st = {} end
       if (tonumber(st.cpuNotice) or 0) < 1 then
-	 -- TEXT TO COME (the pilot's wording); onlyInfo: an OK button only
-	 if form.question("Maps must run with Lua performance at 300%",
-			  "Set it in the Lua settings",
-			  "OK: this is not shown again",
+	 -- the other two Lua runtime settings are factory defaults, so the
+	 -- box names only the multiplier; the console has all three
+	 print(appInfo.Name .. ": Lua console, F1, Lua runtime setting: " ..
+		  "Time limit multiplier 300%, Measure Fullscreen telemetry No, " ..
+		  "Use fixed time budget Yes")
+	 -- onlyInfo: an OK button only. The emulator draws textLine1 (bold)
+	 -- at the top, textLine2 under it, and boldText last, in large bold
+	 if form.question("Maps needs Lua time limit 300%",
+			  "Lua console, F1: Time limit multiplier",
+			  "This message is not shown again",
 			  0, true, 0) == 1 then
 	    st.cpuNotice = 1
 	    local f = io.open(fn, "w")
