@@ -5619,7 +5619,7 @@ local function init()
 		  "Use fixed time budget Yes")
 	 -- onlyInfo: an OK button only. The emulator draws textLine1 (bold)
 	 -- at the top, textLine2 under it, and boldText last, in large bold
-	 if form.question("Maps needs Lua time limit 300%",
+	 if form.question("Maps needs Lua time limit mult. 300%",
 			  "Lua console, F1: Time limit multiplier",
 			  "This message is not shown again",
 			  0, true, 0) == 1 then
