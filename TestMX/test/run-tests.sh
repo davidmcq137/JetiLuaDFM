@@ -1,8 +1,8 @@
 #!/bin/sh
 # TestMitter acceptance tests. Run from the parent of Apps (the Emulator folder):
 #   Apps/TestMX/test/run-tests.sh [path-to-JETI-like-lua]
-# (default ~/lua-5.3.1-Jeti-typefix/src/lua; in CI, fazzone/lua_jeti with
-# ltm-typefix.patch). Build TestMX/testmx_c.so first (TestMX/build.sh).
+# (default ~/lua-5.3.1-Jeti-typefix/src/lua; in CI, davidmcq137/lua_jeti,
+# Russell's fazzone/lua_jeti with the type() names fix). Build TestMX/testmx_c.so first (TestMX/build.sh).
 # Tests: GpsTest on the emulator and DS-24 5.08 profiles, EnvDump and FontDump
 # on those and the DS-16 5.06 profile, JsonProbe against the emulator's json,
 # against the measured outputs, the DFM-TimG UIDriver scripts with DFM-HUD (SensorL replays

@@ -18,7 +18,9 @@ jobs:
       - name: Checkout lua_jeti repo
         uses: actions/checkout@v4
         with:
-          repository: fazzone/lua_jeti
+          # Russell's fazzone/lua_jeti with the type() names fix in ltm.c
+          # (his OK, 2026-11-22)
+          repository: davidmcq137/lua_jeti
           path: lua_jeti
       - name: apt deps
         shell: bash
@@ -30,11 +32,6 @@ jobs:
         run: |
           set -ex
           cd lua_jeti
-          # type() names fix (TestMX/test/ltm-typefix.patch); skipped once
-          # lua_jeti has it. It doesn't change the compiled apps.
-          if patch -p1 -N --dry-run < ../TestMX/test/ltm-typefix.patch > /dev/null 2>&1; then
-            patch -p1 -N < ../TestMX/test/ltm-typefix.patch
-          fi
           make -j4 linux
           cd ..
           TestMX/build.sh "$GITHUB_WORKSPACE/lua_jeti/src"

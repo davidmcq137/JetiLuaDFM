@@ -86,8 +86,8 @@ are skipped under TestMitter and counted as *skipped*, never passed.
 
 1. **The JETI-like Lua.** TestMitter needs Lua 5.3.1 built with `LUA_32BITS`
    and `LUA_FLOORN2I`, with the `type()` fix:
-   `~/lua-5.3.1-Jeti-typefix/src/lua`. (CI builds `fazzone/lua_jeti` with
-   `TestMX/test/ltm-typefix.patch` instead.)
+   `~/lua-5.3.1-Jeti-typefix/src/lua`. (CI builds `davidmcq137/lua_jeti`, a fork
+   of Russell's `fazzone/lua_jeti` with that fix in `src/ltm.c`.)
 2. **The C helper.** Build it once, and again whenever that Lua changes:
    ```sh
    sh TestMX/build.sh            # makes TestMX/testmx_c.so (gitignored)
