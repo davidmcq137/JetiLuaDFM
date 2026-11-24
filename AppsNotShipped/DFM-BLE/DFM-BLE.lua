@@ -8,7 +8,11 @@
    Every sensor value the TX knows about is sent, like a DS-24 II does.
 
    Serial frames (see dfmBleESP lib/DfmLink/src/DfmLink.h):
-     0xEE cmd 0x00 len payload 0xBB      len = whole frame, numbers little-endian
+     0xEE cmd fmt len payload [crc16] 0xBB
+       len = the whole frame, numbers little-endian. fmt 0x20 = a CRC-16
+       (system.crc, CRC-16/KERMIT) of 0xEE..payload follows, low byte first.
+       Sent when the TX has system.crc (firmware 5.04 on) and it passes a
+       self-check at start; otherwise fmt 0x00 and no CRC.
      0x20 Reset     version
      0x21 Model     "model_name;model_file"
      0x22 Describe  id(i4) param type dec labelLen label unitLen unit
@@ -26,11 +30,12 @@
 --]]
 
 local appName = "DFM-BLE"
-local appVersion = "0.4"
+local appVersion = "0.5"
 
 local HEAD, FOOT = 0xEE, 0xBB
 local CMD_RESET, CMD_MODEL, CMD_DESCRIBE, CMD_VALUES = 0x20, 0x21, 0x22, 0x23
 local PROTOCOL_VERSION = 1
+local FMT_CRC = 0x20
 
 local ST_CONNECTED, ST_NO_PHONE, ST_RECEIVING = 0x20, 0x21, 0x22
 local ST_LINK_ERROR, ST_STARTED = 0x23, 0x24
@@ -44,6 +49,7 @@ local MAX_VALUES = 32       -- per sensor, the size of the ESP32's table
 local MAX_LABEL, MAX_UNIT = 31, 7
 
 local emulator = false
+local useCrc = false  -- set in init by checkCrc()
 local sid             -- serial port id, nil when closed
 local portName
 local sensors = {}    -- {id=, name=, values={{param=, label=, unit=, dec=, type=}}}
@@ -63,8 +69,22 @@ local gpioTimer = {}  -- pin -> time to end its pulse
 --------------------------------------------------------------------------------
 -- frames
 
+-- system.crc runs in the firmware, so a CRC on every frame costs almost
+-- nothing from the Lua time budget (a CRC loop in Lua would not).
+local function checkCrc()
+   if not system.crc then return false end
+   local ok, c = pcall(system.crc, "123456789", 0, "crc16")
+   -- 0x2189 is CRC-16/KERMIT's check value, which the ESP32 computes
+   return ok and c == 0x2189
+end
+
 local function frame(cmd, payload)
-   return string.char(HEAD, cmd, 0x00, #payload + 5) .. payload .. string.char(FOOT)
+   if not useCrc then
+      return string.char(HEAD, cmd, 0x00, #payload + 5) .. payload .. string.char(FOOT)
+   end
+   local body = string.char(HEAD, cmd, FMT_CRC, #payload + 7) .. payload
+   local c = system.crc(body, 0, "crc16")
+   return body .. string.char(c & 0xFF, (c >> 8) & 0xFF, FOOT)
 end
 
 local function send(str)
@@ -316,7 +336,8 @@ local statusIds -- label ids of the live status rows while the menu is open
 local lastStatus = 0
 
 local function serialOutText()
-   return string.format("%d bytes, %d errors", stats.sent, stats.writeErrors)
+   return string.format("%d bytes, %d errors%s", stats.sent, stats.writeErrors,
+			useCrc and ", CRC" or "")
 end
 local function sendingText()
    return string.format("%d sensors, %d values", #sensors, nValues)
@@ -521,6 +542,9 @@ end
 local function init()
    local _, emflag = system.getDeviceType()
    emulator = emflag ~= 0
+   useCrc = checkCrc()
+   print(appName .. " " .. appVersion .. ": serial CRC " ..
+	    (useCrc and "on" or "off (no system.crc, or it failed the check)"))
 
    local now = system.getTimeCounter()
    -- relative to the clock, never to 0: the emulator's counter can start negative
