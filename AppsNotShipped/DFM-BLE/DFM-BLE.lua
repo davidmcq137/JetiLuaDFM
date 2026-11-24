@@ -11,8 +11,9 @@
      0xEE cmd fmt len payload [crc16] 0xBB
        len = the whole frame, numbers little-endian. fmt 0x20 = a CRC-16
        (system.crc, CRC-16/KERMIT) of 0xEE..payload follows, low byte first.
-       Sent when the TX has system.crc (firmware 5.04 on) and it passes a
-       self-check at start; otherwise fmt 0x00 and no CRC.
+       Made by system.crc when the TX has it (firmware 5.04 on), else by a
+       table-driven CRC in Lua; either must pass a self-check at start, or
+       frames go out with fmt 0x00 and no CRC.
      0x20 Reset     version
      0x21 Model     "model_name;model_file"
      0x22 Describe  id(i4) param type dec labelLen label unitLen unit
@@ -30,7 +31,7 @@
 --]]
 
 local appName = "DFM-BLE"
-local appVersion = "0.5"
+local appVersion = "0.6"
 
 local HEAD, FOOT = 0xEE, 0xBB
 local CMD_RESET, CMD_MODEL, CMD_DESCRIBE, CMD_VALUES = 0x20, 0x21, 0x22, 0x23
@@ -49,7 +50,8 @@ local MAX_VALUES = 32       -- per sensor, the size of the ESP32's table
 local MAX_LABEL, MAX_UNIT = 31, 7
 
 local emulator = false
-local useCrc = false  -- set in init by checkCrc()
+local crcFn          -- function(data) -> CRC-16, or nil for no CRC; set in init
+local crcSource = ""  -- "system.crc" or "Lua", for the console and status
 local sid             -- serial port id, nil when closed
 local portName
 local sensors = {}    -- {id=, name=, values={{param=, label=, unit=, dec=, type=}}}
@@ -69,21 +71,54 @@ local gpioTimer = {}  -- pin -> time to end its pulse
 --------------------------------------------------------------------------------
 -- frames
 
--- system.crc runs in the firmware, so a CRC on every frame costs almost
--- nothing from the Lua time budget (a CRC loop in Lua would not).
-local function checkCrc()
-   if not system.crc then return false end
-   local ok, c = pcall(system.crc, "123456789", 0, "crc16")
-   -- 0x2189 is CRC-16/KERMIT's check value, which the ESP32 computes
+-- CRC-16/KERMIT (polynomial 0x1021 reflected, init 0). system.crc runs in
+-- the firmware, so it costs almost nothing from the Lua time budget. Older
+-- TXs get a table-driven version in Lua: one lookup per byte, and frames
+-- are short (a Values frame is 30-60 bytes). A bit-by-bit loop would cost
+-- 8 times as much; that kind of CRC is what pushed DFM-Maps' IGC CRC over
+-- its limit.
+local crcTable
+
+local function luaCrc16(data)
+   if not crcTable then
+      crcTable = {}
+      for i = 0, 255 do
+	 local c = i
+	 for _ = 1, 8 do
+	    if c & 1 == 1 then c = (c >> 1) ~ 0x8408 else c = c >> 1 end
+	 end
+	 crcTable[i + 1] = c
+      end
+   end
+   local c = 0
+   for i = 1, #data do
+      c = (c >> 8) ~ crcTable[((c ~ data:byte(i)) & 0xFF) + 1]
+   end
+   return c
+end
+
+local function sysCrc16(data)
+   return system.crc(data, 0, "crc16")
+end
+
+-- 0x2189 is CRC-16/KERMIT's check value, which the ESP32 computes too.
+local function crcWorks(fn)
+   local ok, c = pcall(fn, "123456789")
    return ok and c == 0x2189
 end
 
+local function chooseCrc()
+   if system.crc and crcWorks(sysCrc16) then return sysCrc16, "system.crc" end
+   if crcWorks(luaCrc16) then return luaCrc16, "Lua" end
+   return nil, ""
+end
+
 local function frame(cmd, payload)
-   if not useCrc then
+   if not crcFn then
       return string.char(HEAD, cmd, 0x00, #payload + 5) .. payload .. string.char(FOOT)
    end
    local body = string.char(HEAD, cmd, FMT_CRC, #payload + 7) .. payload
-   local c = system.crc(body, 0, "crc16")
+   local c = crcFn(body)
    return body .. string.char(c & 0xFF, (c >> 8) & 0xFF, FOOT)
 end
 
@@ -337,7 +372,7 @@ local lastStatus = 0
 
 local function serialOutText()
    return string.format("%d bytes, %d errors%s", stats.sent, stats.writeErrors,
-			useCrc and ", CRC" or "")
+			crcFn and ", CRC" or "")
 end
 local function sendingText()
    return string.format("%d sensors, %d values", #sensors, nValues)
@@ -542,9 +577,9 @@ end
 local function init()
    local _, emflag = system.getDeviceType()
    emulator = emflag ~= 0
-   useCrc = checkCrc()
+   crcFn, crcSource = chooseCrc()
    print(appName .. " " .. appVersion .. ": serial CRC " ..
-	    (useCrc and "on" or "off (no system.crc, or it failed the check)"))
+	    (crcFn and ("on (" .. crcSource .. ")") or "off (failed its self-check)"))
 
    local now = system.getTimeCounter()
    -- relative to the clock, never to 0: the emulator's counter can start negative
