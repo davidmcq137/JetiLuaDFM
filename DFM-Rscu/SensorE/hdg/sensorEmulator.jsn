@@ -69,7 +69,7 @@
      "decimals":0,
      "type":1,
      "sensorName":"MGPS",
-     "luaExp":"heading % 360",
+     "luaExp":"(heading + trueDir) % 360",
      "label":"Heading",
      "unit":"deg"
     }

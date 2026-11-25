@@ -582,6 +582,22 @@ local function startFS(opts)
       local ok = h:read("l"); h:close()
       if ok ~= "ok" then error("TestMitter: no fixture " .. dir) end
       FS.fixtures[#FS.fixtures + 1] = {name = name, dir = dir}
+      -- mixes.jsn: the model's free mixes from Lua controls to servo
+      -- outputs, e.g. {"O1": {"control": 3, "percent": 100}} for DFM-Rscu's
+      -- steering mixed into the aileron (O1) at 100%. The first fixture
+      -- that has the file wins
+      local mf = rio.open(dir .. "/mixes.jsn", "r")
+      if mf and not FW.mixes then
+	 local txt = mf:read("a")
+	 local okj, m = pcall(json.decode, txt)
+	 if not okj or type(m) ~= "table" then error("TestMitter: bad " .. dir .. "/mixes.jsn") end
+	 FW.mixes = m
+	 for o, x in pairs(m) do
+	    out(string.format("[FW] free mix: Lua control %s -> %s at %s%%", tostring(x.control),
+			      o, tostring(x.percent or 100)))
+	 end
+      end
+      if mf then mf:close() end
    end
    local h = rio.popen("mktemp -d -t testmx-run-XXXXXX")
    FS.run = h:read("l"); h:close()
@@ -998,10 +1014,26 @@ FW.luaControls = ctrls
 system.registerLogVariable = function(label, unit, f) return 1 end
 system.unregisterLogVariable = noop
 
--- sticks and switches from FW.controls (unset ones read 0)
+-- sticks and switches from FW.controls (unset ones read 0). A servo
+-- output ("O1"...) not set there follows the fixture's free mixes
+-- (FW.mixes, from mixes.jsn): the Lua control's last setControl value
+-- times the percentage, clipped to -1..1. So a SensorE config can close
+-- the loop the way the emulator does with a free mix, e.g. hString
+-- "heading + O1(-8,8)" turns the model with DFM-Rscu's steering
+local function inputValue(name)
+   local v = FW.controls[name]
+   if v == nil and FW.mixes and FW.mixes[name] then
+      local m = FW.mixes[name]
+      local c = ctrls[tonumber(m.control)]
+      if c then
+	 v = math.max(-1, math.min(1, (c.v or 0) * (m.percent or 100) / 100))
+      end
+   end
+   return v or 0
+end
 system.getInputs = function(...)
    local r, n = {}, select("#", ...)
-   for i = 1, n do r[i] = FW.controls[select(i, ...)] or 0 end
+   for i = 1, n do r[i] = inputValue(select(i, ...)) end
    return unpack(r, 1, n)
 end
 system.createSwitch = function(name, mode, on)

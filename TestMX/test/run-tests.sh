@@ -188,6 +188,8 @@ rp DFM-Rscu rscu-controls-test
 # heading from a GPS course sensor: SensorE variant DFM-Rscu/hdg, chosen by
 # the rscu-hdg fixture's Apps/DFM-Rscu/UIDriver/config.jsn
 rp DFM-Rscu rscu-hdg-sensor rscu-hdg
+# steering home at 2.7 m/s on the EX GPS grid: computed heading vs sensor
+rp DFM-Rscu rscu-slow-leg rscu-slow
 rp DFM-Path path-controls-test
 
 # DFM-Dial: min/max warnings across restarts ("restartApp"). Since 1.14 "no

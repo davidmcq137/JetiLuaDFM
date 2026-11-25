@@ -181,6 +181,15 @@
                                   logged as SKIP with the reason. For
                                   checks that only apply to some TXs or
                                   map sizes
+     {"sampleState": "rscu.steer", "for": "20s", "as": "st"}  read a
+                                  number every loop for that long and log
+                                  n, min, max, spread (max - min), the
+                                  number of changes and the biggest jump
+                                  between two reads; "angle": true takes
+                                  differences mod 360. Optional checks
+                                  "maxSpread" and "maxJump". With "as",
+                                  remembers $st_spread, $st_jump,
+                                  $st_changes, $st_min, $st_max, $st_mean
      {"remember": "checkBox.noflyEnabled", "as": "nf"}   save a value;
                                   later {"expectState": "...", "value": "$nf"}
                                   checks it's back, or "notValue": "$nf"
@@ -1607,6 +1616,64 @@ H.remember = {ctx = "any", run = function(s)
 		 return "ok", "$" .. as .. " = " .. s.remember .. " = " .. tostring(v)
 end}
 
+H.sampleState = {ctx = "any", run = function(s, el)
+		    -- the difference b - a, mod 360 into -180..180 for angles
+		    local function sampleDiff(a, b, angle)
+		       local d = b - a
+		       if angle then d = (d + 180) % 360 - 180 end
+		       return d
+		    end
+		    local ok, v = resolve(s.sampleState)
+		    if not ok then return false, v end
+		    v = tonumber(v)
+		    local m = s._smp
+		    if not m then
+		       m = {n = 0, changes = 0, jump = 0, sum = 0}
+		       s._smp = m
+		    end
+		    if v then
+		       if m.n == 0 then
+			  m.first, m.lo, m.hi = v, 0, 0
+		       else
+			  local d = sampleDiff(m.last, v, s.angle)
+			  if d ~= 0 then m.changes = m.changes + 1 end
+			  if math.abs(d) > m.jump then m.jump = math.abs(d) end
+			  -- min and max as offsets from the first read (so angles
+			  -- that cross 0/360 still give a sensible spread)
+			  local o = sampleDiff(m.first, v, s.angle)
+			  if o < m.lo then m.lo = o end
+			  if o > m.hi then m.hi = o end
+		       end
+		       m.n = m.n + 1
+		       m.sum = m.sum + sampleDiff(m.first, v, s.angle)
+		       m.last = v
+		    end
+		    if el < (s.forMs or 10000) then return end
+		    if m.n == 0 then return false, s.sampleState .. ": no numbers in " .. fmtMs(s.forMs or 10000) end
+		    local function fix(x)
+		       if s.angle then return (x % 360) end
+		       return x
+		    end
+		    local r = {min = fix(m.first + m.lo), max = fix(m.first + m.hi),
+			       spread = m.hi - m.lo, jump = m.jump, changes = m.changes,
+			       mean = fix(m.first + m.sum / m.n)}
+		    if s.as then
+		       for k, x in pairs(r) do vars[s.as .. "_" .. k] = x end
+		    end
+		    local shown = string.format("%s: %d reads, min %.4g max %.4g mean %.4g spread %.4g, %d changes, biggest jump %.4g",
+						s.sampleState, m.n, r.min, r.max, r.mean, r.spread, r.changes, r.jump)
+		    local pass = "ok"
+		    for _, c in ipairs({{"maxSpread", "spread"}, {"maxJump", "jump"}}) do
+		       local lim = deref(s[c[1]])
+		       if lim ~= nil then
+			  if pass == "ok" then pass = true end
+			  if r[c[2]] > tonumber(lim) then pass = false end
+			  shown = shown .. ", " .. c[2] .. " must be <= " .. tostring(lim)
+		       end
+		    end
+		    return pass, shown
+end}
+
 H.expectState = {ctx = "any", run = function(s)
 		    for _, x in ipairs({s.value, s.notValue}) do
 		       if type(x) == "string" and x:sub(1, 1) == "$" and vars[x:sub(2)] == nil then
@@ -1803,7 +1870,7 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "sensorPause", "sensorTime", "sensorStep", "sensorField",
 	       "sensorPosition", "sensorVars", "waitSensorTime", "restore",
 	       "waitSensor", "expectSensor", "focus", "restartApp", "openForm",
-	       "expectFile"}
+	       "expectFile", "sampleState"}
 
 local function verbOf(s)
    for _, v in ipairs(VERBS) do
@@ -1837,7 +1904,7 @@ local function flatten(list, out, errs)
 	    local key, msKey = d[1], d[2]
 	    -- ("for" is also setInput's "target"/"all"; "wait" a verb only)
 	    if s[key] ~= nil and (key ~= "wait" or v == "wait")
-	    and (key ~= "for" or s.absent) then
+	    and (key ~= "for" or s.absent or v == "sampleState") then
 	       local ms, why = durationMs(s[key])
 	       if ms then
 		  s[msKey] = ms
@@ -1856,6 +1923,9 @@ local function flatten(list, out, errs)
 	 end
 	 if s.absent and not s.timeoutMs then
 	    s.timeoutMs = (s.forMs or 3000) + 5000
+	 end
+	 if v == "sampleState" and not s.timeoutMs then
+	    s.timeoutMs = (s.forMs or 10000) + 5000
 	 end
 	 if v == "waitTelem" and not s.win then
 	    s.win = type(s.waitTelem) == "number" and s.waitTelem or 1

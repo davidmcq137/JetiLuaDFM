@@ -65,11 +65,12 @@
    These are used instead of lat0/lon0 when both are present: json.decode
    makes numbers float32 on JETI (0.2-0.3 m off), and gps.newPoint takes
    strings at full precision. lat0/lon0 can then be left out.
-   "exPrecision": true in sensorEmulatorGPS.jsn makes gps.getPosition
-   return what a TX gets from a real EX GPS sensor: the position on the
-   0.001-minute grid of the sensor value (about 1.9 m N-S, 1.4 m E-W at
-   41 N), instead of the simulator's exact point. getState's lat/lon and
-   latStr/lonStr stay the exact (simulated) position.
+   gps.getPosition returns what a TX gets from a real EX GPS sensor: the
+   position on the 0.001-minute grid of the sensor value (about 1.9 m
+   N-S, 1.4 m E-W at 41 N), so flight paths drawn from it are as jagged
+   as on a TX. "exPrecision": false in sensorEmulatorGPS.jsn gives the
+   simulator's exact point instead. getState's lat/lon and latStr/lonStr
+   are always the exact (simulated) position.
    If system.UIDriver.sensorConfig is set, it is used as the configDir
    instead of SensorE.jsn's. UIDriver sets it to the target app's
    config.jsn "sensorConfig", else to Apps/<App>/SensorE when that has a
@@ -712,10 +713,11 @@ function emulator_getPosition(sensID, parmLat, parmLng)
       return nil
    end
 
-   -- "exPrecision": true in the GPS config: the position a TX gets from a
-   -- real EX GPS sensor, on the 0.001-minute grid of its value (about 1.9
-   -- m N-S, 1.4 m E-W at 41 N). Otherwise the simulator's exact point
-   if GPSparms and GPSparms.exPrecision then
+   -- the position a TX gets from a real EX GPS sensor: on the 0.001-minute
+   -- grid of its value (about 1.9 m N-S, 1.4 m E-W at 41 N), warts and
+   -- all. "exPrecision": false in the GPS config gives the simulator's
+   -- exact point instead
+   if not (GPSparms and GPSparms.exPrecision == false) then
       return gps.newPoint(latStr, lonStr)
    elseif savePoint then
       return savePoint
@@ -852,6 +854,9 @@ function emulator_getSensorByID(ID, Param)
 	 env.xp = persistXP or 0
 	 env.yp = persistYP or 0
 	 env.heading = persistHH or 0
+	 -- the frame rotation, so a sensor can report the true course over
+	 -- ground: (heading + trueDir) % 360 (pointFromXY rotates by it)
+	 env.trueDir = GPSparms and GPSparms.trueDir or 0
 	 env.zp = persistZP or 0
 	 env.pitch = persistPP or 0
 	 
