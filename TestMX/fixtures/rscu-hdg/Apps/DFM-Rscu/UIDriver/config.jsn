@@ -1,0 +1,4 @@
+{
+  "stopOnFail": false,
+  "sensorConfig": "DFM-Rscu/hdg"
+}

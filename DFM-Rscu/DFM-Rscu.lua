@@ -22,7 +22,7 @@
 
 local appName = "DFM-Rscu"
 -- bump the suffix (month, day, letter) for each build sent to a tester
-local appVersion = "0.6.1122a"
+local appVersion = "0.6.1125a"
 
 -- message boxes: the app's short name first, since several apps may be
 -- running; one centred line, clipped at both ends when too long, so keep
@@ -1359,9 +1359,7 @@ local function initForm(subform)
 	 end	 
       end
 
-      --[[
-      local hdgsel = 0      
-      --]]
+      local hdgsel = 0
       local rollsel = 0
       local pitchsel = 0
 
@@ -1371,12 +1369,10 @@ local function initForm(subform)
 	    (RTH.sensorPalist[k] == RTH.settings.altPa) then
 	    altsel = k
 	 end
-	 --[[
 	 if (RTH.sensorIdlist[k] == RTH.settings.hdgId) and
 	    (RTH.sensorPalist[k] == RTH.settings.hdgPa) then
 	    hdgsel = k
 	 end
-	 --]]
 	 ---[[
 	 if (RTH.sensorIdlist[k] == RTH.settings.rollId) and
 	    (RTH.sensorPalist[k] == RTH.settings.rollPa) then
@@ -1411,7 +1407,9 @@ local function initForm(subform)
 			      return end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
       
-      --[[
+      -- optional: the GPS receiver's course over ground, if it sends one.
+      -- Without it Rscu computes the heading from GPS points 3 m apart,
+      -- which is coarse at low ground speed (EX positions are 0.001' steps)
       form.addRow(2)
       form.addLabel({label="Heading Sensor", font=FONT_NORMAL})
       form.addSelectbox(RTH.sensorLalist, hdgsel, true,
@@ -1422,7 +1420,6 @@ local function initForm(subform)
 			      system.pSave("RTHhdgPa", RTH.settings.hdgPa)			   
 			      return end),
 			{width=155, font=FONT_NORMAL, alignRight=false})
-      --]]
       
       form.addRow(2)
       form.addLabel({label="Altitude Sensor", font=FONT_NORMAL})

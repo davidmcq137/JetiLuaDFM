@@ -177,7 +177,7 @@ fi
 # Emulator profile only: in the emulator Rscu picks its GPS sensors by label
 # (Latitude, Longitude ...), so the scripts need no saved settings
 rp() {
-   if "$LUA" Apps/TestMX/testmx-uid.lua --app $1 --script $2.jsn > $TMP/$2 2>&1; then
+   if "$LUA" Apps/TestMX/testmx-uid.lua --app $1 --script $2.jsn ${3:+--fixture $3} > $TMP/$2 2>&1; then
       ok "$1 $2: $(grep '^==== DONE' $TMP/$2)"
    else
       bad "$1 $2"; grep -v '^\[UID\]' $TMP/$2 | tail -30
@@ -185,6 +185,9 @@ rp() {
 }
 rp DFM-Rscu rscu-test
 rp DFM-Rscu rscu-controls-test
+# heading from a GPS course sensor: SensorE variant DFM-Rscu/hdg, chosen by
+# the rscu-hdg fixture's Apps/DFM-Rscu/UIDriver/config.jsn
+rp DFM-Rscu rscu-hdg-sensor rscu-hdg
 rp DFM-Path path-controls-test
 
 # DFM-Dial: min/max warnings across restarts ("restartApp"). Since 1.14 "no
