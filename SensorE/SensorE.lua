@@ -65,6 +65,11 @@
    These are used instead of lat0/lon0 when both are present: json.decode
    makes numbers float32 on JETI (0.2-0.3 m off), and gps.newPoint takes
    strings at full precision. lat0/lon0 can then be left out.
+   "exPrecision": true in sensorEmulatorGPS.jsn makes gps.getPosition
+   return what a TX gets from a real EX GPS sensor: the position on the
+   0.001-minute grid of the sensor value (about 1.9 m N-S, 1.4 m E-W at
+   41 N), instead of the simulator's exact point. getState's lat/lon and
+   latStr/lonStr stay the exact (simulated) position.
    If system.UIDriver.sensorConfig is set, it is used as the configDir
    instead of SensorE.jsn's. UIDriver sets it to the target app's
    config.jsn "sensorConfig", else to Apps/<App>/SensorE when that has a
@@ -660,10 +665,22 @@ local deltaT = {}
 
 local savePoint
 
+-- an EX GPS value (degrees << 16 | minutes * 1000) as a decimal-degree
+-- string, for gps.newPoint: 0.001 minute = 1/60000 degree = n * 5000 // 3
+-- in units of 1e-8 degree (under 2^31 for n <= 59999, so it is fine with
+-- 32-bit integers), exact to about 1 mm. Doing degs + minutes/60 in Lua
+-- would go through float32 instead: about 0.4 m off
+local function exDegrees(valGPS, negative)
+   local n = valGPS & 0xFFFF
+   return string.format("%s%d.%08d", negative and "-" or "", (valGPS >> 16) & 0xFF,
+			n * 5000 // 3)
+end
+
 function emulator_getPosition(sensID, parmLat, parmLng)
 
    local sensor
    local minutes, degs, latitude, longitude
+   local lonStr, latStr
 
    --print("****SensorE getPosition", emulator_getSensorByID, system.getSensorByID)
    
@@ -676,6 +693,7 @@ function emulator_getPosition(sensID, parmLat, parmLng)
       if sensor.decimals == 3 then -- "West" .. make it negative (NESW coded in decimal places as 0,1,2,3)
 	 longitude = longitude * -1
       end      
+      lonStr = exDegrees(sensor.valGPS, sensor.decimals == 3)
    else
       return nil
    end
@@ -689,11 +707,17 @@ function emulator_getPosition(sensID, parmLat, parmLng)
       if sensor.decimals == 2 then -- "South" .. make it negative (NESW coded in decimal places as 0,1,2,3)
 	 latitude = latitude * -1
       end      
+      latStr = exDegrees(sensor.valGPS, sensor.decimals == 2)
    else
       return nil
    end
 
-   if savePoint then
+   -- "exPrecision": true in the GPS config: the position a TX gets from a
+   -- real EX GPS sensor, on the 0.001-minute grid of its value (about 1.9
+   -- m N-S, 1.4 m E-W at 41 N). Otherwise the simulator's exact point
+   if GPSparms and GPSparms.exPrecision then
+      return gps.newPoint(latStr, lonStr)
+   elseif savePoint then
       return savePoint
    else
       return gps.newPoint(latitude, longitude)
