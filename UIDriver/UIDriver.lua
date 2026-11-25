@@ -189,7 +189,12 @@
                                   differences mod 360. Optional checks
                                   "maxSpread" and "maxJump". With "as",
                                   remembers $st_spread, $st_jump,
-                                  $st_changes, $st_min, $st_max, $st_mean
+                                  $st_changes, $st_min, $st_max, $st_mean.
+                                  "trace": 500 logs "TRACE name t value"
+                                  every 500 ms
+     {"setState": "rscuHdg.mode", "value": 2}  write into a table the app
+                                  exposes (the getter must return the live
+                                  table): for test-only knobs
      {"remember": "checkBox.noflyEnabled", "as": "nf"}   save a value;
                                   later {"expectState": "...", "value": "$nf"}
                                   checks it's back, or "notValue": "$nf"
@@ -1616,6 +1621,19 @@ H.remember = {ctx = "any", run = function(s)
 		 return "ok", "$" .. as .. " = " .. s.remember .. " = " .. tostring(v)
 end}
 
+H.setState = {ctx = "any", run = function(s)
+		 local path = tostring(s.setState)
+		 local parent, key = path:match("^(.+)%.([^%.]+)$")
+		 if not parent then return false, "setState needs name.key: " .. path end
+		 local ok, t = resolve(parent)
+		 if not ok then return false, t end
+		 if type(t) ~= "table" then return false, parent .. " is not a table" end
+		 local v = deref(s.value)
+		 local before = t[key]
+		 t[key] = v
+		 return "ok", path .. ": " .. tostring(before) .. " -> " .. tostring(v)
+end}
+
 H.sampleState = {ctx = "any", run = function(s, el)
 		    -- the difference b - a, mod 360 into -180..180 for angles
 		    local function sampleDiff(a, b, angle)
@@ -1647,6 +1665,11 @@ H.sampleState = {ctx = "any", run = function(s, el)
 		       m.n = m.n + 1
 		       m.sum = m.sum + sampleDiff(m.first, v, s.angle)
 		       m.last = v
+		       -- "trace": ms, log the value that often (for plotting)
+		       if s.trace and (not m.traceAt or el >= m.traceAt) then
+			  m.traceAt = el + tonumber(s.trace)
+			  log(string.format("TRACE %s %.3f %.4f", s.as or s.sampleState, el / 1000, v))
+		       end
 		    end
 		    if el < (s.forMs or 10000) then return end
 		    if m.n == 0 then return false, s.sampleState .. ": no numbers in " .. fmtMs(s.forMs or 10000) end
@@ -1870,7 +1893,7 @@ local VERBS = {"waitForm", "waitSub", "waitClosed", "wait", "log", "answer",
 	       "sensorPause", "sensorTime", "sensorStep", "sensorField",
 	       "sensorPosition", "sensorVars", "waitSensorTime", "restore",
 	       "waitSensor", "expectSensor", "focus", "restartApp", "openForm",
-	       "expectFile", "sampleState"}
+	       "expectFile", "sampleState", "setState"}
 
 local function verbOf(s)
    for _, v in ipairs(VERBS) do

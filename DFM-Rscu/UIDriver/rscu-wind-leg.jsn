@@ -1,0 +1,312 @@
+{
+ "config": {
+  "stepGap": 200
+ },
+ "steps": [
+  {
+   "log": "DFM-Rscu 0.6.1125b steering home into a strong wind (fixture rscu-wind: about 14 m/s airspeed into 11.3 m/s of wind, 2.7 m/s over the ground, like Harry's flight of 2026-11-25), computed heading. Into the wind the course turns about 5x faster than the nose, so the steering is too strong: with the old settings the model weaves. 'Heading from GPS' = Fit 6 m and 'Cruise speed' = 50 km/h (steering reduced below that ground speed) must hold it steady"
+  },
+  {
+   "waitForm": true
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "expectState": "rscu.zeroLat"
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "link": "App Settings"
+  },
+  {
+   "waitSub": 10
+  },
+  {
+   "set": "Rescue mode switch",
+   "value": "SA"
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Telemetry Sensors"
+  },
+  {
+   "waitSub": 12
+  },
+  {
+   "set": "Heading Sensor",
+   "value": "..."
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Rescue Settings"
+  },
+  {
+   "waitSub": 11
+  },
+  {
+   "expect": "Heading from GPS",
+   "value": "Points 3 m"
+  },
+  {
+   "expect": "Cruise speed (km/h)",
+   "value": 0
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "key": "KEY_ESC"
+  },
+  {
+   "waitClosed": true
+  },
+  {
+   "log": "run 1, old behaviour (Points 3 m, cruise speed 0 = off): logged, not checked (it weaves, +-40 deg in the 2026-11-25 experiment)"
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 25000
+  },
+  {
+   "log": "knock the model 60 deg off course, give it 8 s, then trace its heading for 12 s"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "wait": 8000
+  },
+  {
+   "sampleState": "sensorE.heading",
+   "angle": true,
+   "for": "12s",
+   "as": "old",
+   "trace": 1000
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "log": "run 2: Fit 6 m, cruise speed 50 km/h; the heading sensor stays un-assigned (opening the form on the emulator re-picks it by label, so un-assign it again)"
+  },
+  {
+   "openForm": "DFM-Rscu"
+  },
+  {
+   "waitForm": true
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Rescue Settings"
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Telemetry Sensors"
+  },
+  {
+   "waitSub": 12
+  },
+  {
+   "set": "Heading Sensor",
+   "value": "..."
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Rescue Settings"
+  },
+  {
+   "waitSub": 11
+  },
+  {
+   "set": "Heading from GPS",
+   "value": "Fit 6 m"
+  },
+  {
+   "expect": "Heading from GPS",
+   "value": "Fit 6 m"
+  },
+  {
+   "set": "Cruise speed (km/h)",
+   "value": 50
+  },
+  {
+   "expect": "Cruise speed (km/h)",
+   "value": 50
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "key": "KEY_ESC"
+  },
+  {
+   "waitClosed": true
+  },
+  {
+   "expectState": "rscuHdg.mode",
+   "value": 2
+  },
+  {
+   "expectState": "rscuHdg.vref",
+   "value": 13.889,
+   "tol": 0.01
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 25000
+  },
+  {
+   "log": "knock the model 60 deg off course, give it 8 s, then trace its heading for 12 s"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "wait": 8000
+  },
+  {
+   "sampleState": "sensorE.heading",
+   "angle": true,
+   "for": "12s",
+   "as": "new",
+   "trace": 1000,
+   "maxSpread": 10
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "log": "put the settings back"
+  },
+  {
+   "openForm": "DFM-Rscu"
+  },
+  {
+   "waitForm": true
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Rescue Settings"
+  },
+  {
+   "waitSub": 11
+  },
+  {
+   "restore": "Heading from GPS"
+  },
+  {
+   "restore": "Cruise speed (km/h)"
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "App Settings"
+  },
+  {
+   "waitSub": 10
+  },
+  {
+   "restore": "Rescue mode switch"
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "key": "KEY_ESC"
+  },
+  {
+   "waitClosed": true
+  },
+  {
+   "clearInput": true
+  }
+ ]
+}

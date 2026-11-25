@@ -22,7 +22,7 @@
 
 local appName = "DFM-Rscu"
 -- bump the suffix (month, day, letter) for each build sent to a tester
-local appVersion = "0.6.1125a"
+local appVersion = "0.6.1125b"
 
 -- message boxes: the app's short name first, since several apps may be
 -- running; one centred line, clipped at both ends when too long, so keep
@@ -483,6 +483,82 @@ local nsHoldVal
 local nsHoldTime
 local turnTime
 
+-- The heading computed from GPS points (when no heading sensor is used).
+-- EX GPS positions come in 0.001-minute steps (about 1.9 m N-S, 1.4 m E-W
+-- here), so two points only a few metres apart give a coarse heading.
+-- mode 0: the bearing between points MINHDGDIST (3 m) apart, as before
+-- mode 1: every HDGSAMPLEMS, the bearing from the newest earlier point at
+--         least dist metres back (a sliding baseline)
+-- mode 2: every HDGSAMPLEMS, a least-squares fit of x(t), y(t) over the
+--         points back to the first one at least dist metres away
+-- Neither looks back more than maxMs: if no point that old is dist away
+-- (slow, or turning tightly) the oldest one in maxMs is used if it is at
+-- least MINHDGDIST (3 m) away, else the heading is kept. So the baseline
+-- is dist metres, or what the model flies in maxMs if that is less.
+-- Points are kept as x, y metres from the first one, for HDGKEEPMS at most
+-- vref (m/s, 0 = off): below this ground speed the steering is scaled
+-- down by groundspeed / vref (not below 0.15). Into a strong wind the
+-- course over ground turns airspeed / groundspeed times faster than the
+-- nose, so the steering loop's gain goes up by that much; vref near the
+-- model's airspeed cancels it. The ground speed is from the same points
+-- (over the last 2 s)
+local hdgCfg = {mode = 0, dist = 10, maxMs = 3000, vref = 0}
+local hdgHist = {}
+local HDGSAMPLEMS = 200
+local HDGKEEPMS = 10000
+
+local function histHeading(curPos, now)
+   local h = hdgHist
+   if not h.origin then h.origin = curPos end
+   if h.lastT and now - h.lastT < HDGSAMPLEMS then return nil end
+   h.lastT = now
+   local d = gps.getDistance(h.origin, curPos)
+   local b = math.rad(gps.getBearing(h.origin, curPos))
+   local x, y = d * math.sin(b), d * math.cos(b)
+   h[#h + 1] = {x = x, y = y, t = now}
+   while #h > 1 and now - h[1].t > HDGKEEPMS do table.remove(h, 1) end
+   -- ground speed over about 2 s
+   for i = 1, #h - 1 do
+      if now - h[i].t <= 2000 then
+	 local dt = (now - h[i].t) / 1000
+	 if dt >= 1 then
+	    h.speed = math.sqrt((x - h[i].x)^2 + (y - h[i].y)^2) / dt
+	 end
+	 break
+      end
+   end
+   if hdgCfg.mode == 0 then return nil end
+   -- the newest point at least dist metres back, within maxMs
+   local k, oldest
+   for i = #h - 1, 1, -1 do
+      if now - h[i].t > hdgCfg.maxMs then break end
+      oldest = i
+      local dx, dy = x - h[i].x, y - h[i].y
+      if dx * dx + dy * dy >= hdgCfg.dist * hdgCfg.dist then k = i; break end
+   end
+   if not k and oldest then
+      local dx, dy = x - h[oldest].x, y - h[oldest].y
+      if dx * dx + dy * dy >= 9 then k = oldest end
+   end
+   if not k then return nil end
+   if hdgCfg.mode == 1 then
+      return math.deg(math.atan(x - h[k].x, y - h[k].y)) % 360
+   end
+   -- least squares: slopes of x and y against t (seconds from now)
+   local n, st, sx, sy, stt, stx, sty = 0, 0, 0, 0, 0, 0, 0
+   for i = k, #h do
+      local t = (h[i].t - now) / 1000
+      local px, py = h[i].x - x, h[i].y - y
+      n = n + 1
+      st, sx, sy = st + t, sx + px, sy + py
+      stt, stx, sty = stt + t * t, stx + t * px, sty + t * py
+   end
+   local den = n * stt - st * st
+   if n < 3 or den <= 0 then return nil end
+   local vx, vy = (n * stx - st * sx) / den, (n * sty - st * sy) / den
+   return math.deg(math.atan(vx, vy)) % 360
+end
+
 local function loopP()
    local now
    local sensor
@@ -580,11 +656,16 @@ local function loopP()
       local sg = system.getSensorValueByID(gs.latId, gs.latPa)
       if not sg or not sg.valid then RTH.curPos = nil end
       if RTH.curPos then
-	 if not RTH.lastPos then RTH.lastPos = RTH.curPos end
-	 if gps.getDistance(RTH.curPos, RTH.lastPos) > MINHDGDIST then 
-	    compHdg = gps.getBearing(RTH.lastPos, RTH.curPos)
-	    --print(gps.getDistance(RTH.curPos, RTH.lastPos), compHdg)
-	    RTH.lastPos = RTH.curPos
+	 local hh = histHeading(RTH.curPos, now)
+	 if hdgCfg.mode ~= 0 then
+	    compHdg = hh
+	 else
+	    if not RTH.lastPos then RTH.lastPos = RTH.curPos end
+	    if gps.getDistance(RTH.curPos, RTH.lastPos) > MINHDGDIST then 
+	       compHdg = gps.getBearing(RTH.lastPos, RTH.curPos)
+	       --print(gps.getDistance(RTH.curPos, RTH.lastPos), compHdg)
+	       RTH.lastPos = RTH.curPos
+	    end
 	 end
       else
 	 if oldCurPos and not RTH.curPos then
@@ -593,6 +674,7 @@ local function loopP()
 	    system.playFile(ppA.."GPSsignallost.wav", AUDIO_IMMEDIATE)
 	 end
 	 RTH.lastPos = nil
+	 hdgHist = {}
 	 compHdg = nil
 	 RTH.gpsHeading = nil
       end
@@ -854,6 +936,11 @@ local function loopP()
 	    end
 
 	    local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
+
+	    -- less steering at low ground speed (see hdgCfg)
+	    if hdgCfg.vref > 0 and hdgHist.speed and hdgHist.speed < hdgCfg.vref then
+	       ns = ns * math.max(0.15, hdgHist.speed / hdgCfg.vref)
+	    end
 
 	    --hold initial hard turn after turning in or out for 5 secs
 	    --so turn does not flipflop
@@ -1322,6 +1409,30 @@ local function initForm(subform)
 
       --]]
       
+      form.addRow(2)
+      form.addLabel({label="Heading from GPS", font=FONT_NORMAL, width=155})
+      form.addSelectbox({"Points 3 m", "Fit 6 m"}, hdgCfg.mode == 2 and 2 or 1, true,
+			(function(i)
+			      hdgCfg.mode = i == 2 and 2 or 0
+			      system.pSave("hdgMethod", i)
+			      return end),
+			{width=155, font=FONT_NORMAL, alignRight=false})
+
+      -- cruise speed: kept in km/h, shown in mph with distance units ft;
+      -- 0 = off (full steering at any ground speed)
+      local mph = RTH.settings.distUnits == 2
+      local kmh = math.floor(hdgCfg.vref * 3.6 + 0.5)
+      form.addRow(2)
+      form.addLabel({label = mph and "Cruise speed (mph)" or "Cruise speed (km/h)",
+		     font=FONT_NORMAL, width=180})
+      form.addIntbox(mph and math.floor(kmh / 1.609344 + 0.5) or kmh, 0, 500, 0, 0, 1,
+		     (function(x)
+			   local k = mph and math.floor(x * 1.609344 + 0.5) or x
+			   hdgCfg.vref = k / 3.6
+			   system.pSave("cruiseKmh", k)
+			   return end),
+		     {width=135, font=FONT_NORMAL, alignRight=false})
+
       form.addRow(2)
       form.addLabel({label="Elev ctl delay/avg (ms)", font=FONT_NORMAL})
       form.addIntbox(eleDelay, 0, 20000, 2, 0, 1,
@@ -2214,6 +2325,12 @@ local function init()
    eleDelay = system.pLoad("eleDelay", 1000)
    ailDelay = system.pLoad("ailDelay", 1000)
    magIdx = system.pLoad("magIdx", 1)
+   -- heading from GPS points (menu "Heading from GPS"): 1 = points 3 m
+   -- apart, as before; 2 = fit over 6 m. Cruise speed in km/h (0 = off)
+   -- sets vref, below which the steering is reduced (see hdgCfg)
+   hdgCfg.mode = system.pLoad("hdgMethod", 1) == 2 and 2 or 0
+   hdgCfg.dist = 6
+   hdgCfg.vref = system.pLoad("cruiseKmh", 0) / 3.6
    
    flyingOutbound = false
    calibrating = false
@@ -2222,6 +2339,8 @@ local function init()
    -- so this costs nothing there
    local uid = system.UIDriver
    if uid then
+      uid.expose("rscuHdg", function() return hdgCfg end)
+      uid.expose("rscuHist", function() return {speed = hdgHist.speed, n = #hdgHist} end)
       uid.expose("rscu", function()
 	 local zl, zo
 	 if RTH.zeroPos then zl, zo = gps.getString(RTH.zeroPos) end

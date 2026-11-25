@@ -1,0 +1,592 @@
+{
+ "config": {
+  "stepGap": 200
+ },
+ "steps": [
+  {
+   "log": "Rscu computed-heading methods at 2.7 m/s on the EX grid (fixture rscu-slow). Per configuration: steady-leg steering jitter, then the model is knocked 60 deg off course and its true heading is traced while Rscu brings it back. Not in the suite: an experiment (about 1 min per configuration)"
+  },
+  {
+   "waitForm": true
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "expectState": "rscu.zeroLat"
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "link": "App Settings"
+  },
+  {
+   "waitSub": 10
+  },
+  {
+   "set": "Rescue mode switch",
+   "value": "SA"
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Telemetry Sensors"
+  },
+  {
+   "waitSub": 12
+  },
+  {
+   "set": "Heading Sensor",
+   "value": "..."
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "key": "KEY_ESC"
+  },
+  {
+   "waitClosed": true
+  },
+  {
+   "setState": "rscuHdg.mode",
+   "value": 0
+  },
+  {
+   "setState": "rscuHdg.dist",
+   "value": 3
+  },
+  {
+   "setState": "rscuHdg.vref",
+   "value": 14
+  },
+  {
+   "log": "=== m0d3v14"
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 25000
+  },
+  {
+   "expectState": "rscuHist.speed"
+  },
+  {
+   "sampleState": "rscu.steer",
+   "for": "15s",
+   "as": "m0d3v14_steer"
+  },
+  {
+   "sampleState": "rscu.heading",
+   "angle": true,
+   "for": "5s",
+   "as": "m0d3v14_hdg"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "sampleState": "sensorE.heading",
+   "angle": true,
+   "for": "25s",
+   "as": "m0d3v14_kick",
+   "trace": 500
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "setState": "rscuHdg.mode",
+   "value": 1
+  },
+  {
+   "setState": "rscuHdg.dist",
+   "value": 10
+  },
+  {
+   "setState": "rscuHdg.vref",
+   "value": 14
+  },
+  {
+   "log": "=== m1d10v14"
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 25000
+  },
+  {
+   "expectState": "rscuHist.speed"
+  },
+  {
+   "sampleState": "rscu.steer",
+   "for": "15s",
+   "as": "m1d10v14_steer"
+  },
+  {
+   "sampleState": "rscu.heading",
+   "angle": true,
+   "for": "5s",
+   "as": "m1d10v14_hdg"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "sampleState": "sensorE.heading",
+   "angle": true,
+   "for": "25s",
+   "as": "m1d10v14_kick",
+   "trace": 500
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "setState": "rscuHdg.mode",
+   "value": 2
+  },
+  {
+   "setState": "rscuHdg.dist",
+   "value": 6
+  },
+  {
+   "setState": "rscuHdg.vref",
+   "value": 14
+  },
+  {
+   "log": "=== m2d6v14"
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 25000
+  },
+  {
+   "expectState": "rscuHist.speed"
+  },
+  {
+   "sampleState": "rscu.steer",
+   "for": "15s",
+   "as": "m2d6v14_steer"
+  },
+  {
+   "sampleState": "rscu.heading",
+   "angle": true,
+   "for": "5s",
+   "as": "m2d6v14_hdg"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "sampleState": "sensorE.heading",
+   "angle": true,
+   "for": "25s",
+   "as": "m2d6v14_kick",
+   "trace": 500
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "setState": "rscuHdg.mode",
+   "value": 2
+  },
+  {
+   "setState": "rscuHdg.dist",
+   "value": 10
+  },
+  {
+   "setState": "rscuHdg.vref",
+   "value": 14
+  },
+  {
+   "log": "=== m2d10v14"
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 25000
+  },
+  {
+   "expectState": "rscuHist.speed"
+  },
+  {
+   "sampleState": "rscu.steer",
+   "for": "15s",
+   "as": "m2d10v14_steer"
+  },
+  {
+   "sampleState": "rscu.heading",
+   "angle": true,
+   "for": "5s",
+   "as": "m2d10v14_hdg"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "sampleState": "sensorE.heading",
+   "angle": true,
+   "for": "25s",
+   "as": "m2d10v14_kick",
+   "trace": 500
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "setState": "rscuHdg.mode",
+   "value": 2
+  },
+  {
+   "setState": "rscuHdg.dist",
+   "value": 15
+  },
+  {
+   "setState": "rscuHdg.vref",
+   "value": 14
+  },
+  {
+   "log": "=== m2d15v14"
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 25000
+  },
+  {
+   "expectState": "rscuHist.speed"
+  },
+  {
+   "sampleState": "rscu.steer",
+   "for": "15s",
+   "as": "m2d15v14_steer"
+  },
+  {
+   "sampleState": "rscu.heading",
+   "angle": true,
+   "for": "5s",
+   "as": "m2d15v14_hdg"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "sampleState": "sensorE.heading",
+   "angle": true,
+   "for": "25s",
+   "as": "m2d15v14_kick",
+   "trace": 500
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "setState": "rscuHdg.mode",
+   "value": 0
+  },
+  {
+   "setState": "rscuHdg.vref",
+   "value": 14
+  },
+  {
+   "openForm": "DFM-Rscu"
+  },
+  {
+   "waitForm": true
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Telemetry Sensors"
+  },
+  {
+   "waitSub": 12
+  },
+  {
+   "set": "Heading Sensor",
+   "value": "MGPS_Heading [deg]"
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "key": "KEY_ESC"
+  },
+  {
+   "waitClosed": true
+  },
+  {
+   "log": "=== sensorv14"
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 25000
+  },
+  {
+   "expectState": "rscuHist.speed"
+  },
+  {
+   "sampleState": "rscu.steer",
+   "for": "15s",
+   "as": "sensorv14_steer"
+  },
+  {
+   "sampleState": "rscu.heading",
+   "angle": true,
+   "for": "5s",
+   "as": "sensorv14_hdg"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "sampleState": "sensorE.heading",
+   "angle": true,
+   "for": "25s",
+   "as": "sensorv14_kick",
+   "trace": 500
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "setState": "rscuHdg.vref",
+   "value": 0
+  },
+  {
+   "log": "=== sensorv0"
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 25000
+  },
+  {
+   "expectState": "rscuHist.speed"
+  },
+  {
+   "sampleState": "rscu.steer",
+   "for": "15s",
+   "as": "sensorv0_steer"
+  },
+  {
+   "sampleState": "rscu.heading",
+   "angle": true,
+   "for": "5s",
+   "as": "sensorv0_hdg"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "sampleState": "sensorE.heading",
+   "angle": true,
+   "for": "25s",
+   "as": "sensorv0_kick",
+   "trace": 500
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "openForm": "DFM-Rscu"
+  },
+  {
+   "waitForm": true
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "App Settings"
+  },
+  {
+   "waitSub": 10
+  },
+  {
+   "restore": "Rescue mode switch"
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "key": "KEY_ESC"
+  },
+  {
+   "waitClosed": true
+  },
+  {
+   "clearInput": true
+  }
+ ]
+}

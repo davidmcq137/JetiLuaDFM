@@ -174,6 +174,7 @@ local geo = {}
 local fieldnames = {}
 local fieldIdx
 local persistXP, persistYP, persistHH
+local persistCRS            -- course over ground of the last GPS step
 local persistZP, persistPP
 
 -- test driver control (system.SensorE)
@@ -857,6 +858,8 @@ function emulator_getSensorByID(ID, Param)
 	 -- the frame rotation, so a sensor can report the true course over
 	 -- ground: (heading + trueDir) % 360 (pointFromXY rotates by it)
 	 env.trueDir = GPSparms and GPSparms.trueDir or 0
+	 -- the true course over ground of the last simulator step (see above)
+	 env.course = persistCRS or env.trueDir
 	 env.zp = persistZP or 0
 	 env.pitch = persistPP or 0
 	 
@@ -901,8 +904,15 @@ function emulator_getSensorByID(ID, Param)
 
 	       -------------------
 
+	       local x0, y0 = persistXP or 0, persistYP or 0
 	       xCart = gpsEval("xString", persistXP or 0); persistXP = xCart
 	       yCart = gpsEval("yString", persistYP or 0); persistYP = yCart
+	       -- course over ground of this step (true, i.e. + trueDir), what a
+	       -- GPS receiver reports as its course; kept while not moving
+	       if xCart ~= x0 or yCart ~= y0 then
+		  persistCRS = (math.deg(math.atan(xCart - x0, yCart - y0)) +
+				   (GPSparms.trueDir or 0)) % 360
+	       end
 	       persistHH = gpsEval("hString", persistHH)
 	       persistPP = gpsEval("pString", persistPP)
 	       persistZP = gpsEval("zString", persistZP)

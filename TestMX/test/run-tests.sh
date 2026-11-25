@@ -190,6 +190,8 @@ rp DFM-Rscu rscu-controls-test
 rp DFM-Rscu rscu-hdg-sensor rscu-hdg
 # steering home at 2.7 m/s on the EX GPS grid: computed heading vs sensor
 rp DFM-Rscu rscu-slow-leg rscu-slow
+# into a strong wind (Harry 2026-11-25): Fit 6 m + cruise speed must hold course
+rp DFM-Rscu rscu-wind-leg rscu-wind
 rp DFM-Path path-controls-test
 
 # DFM-Dial: min/max warnings across restarts ("restartApp"). Since 1.14 "no
