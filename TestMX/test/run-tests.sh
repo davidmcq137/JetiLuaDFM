@@ -243,6 +243,8 @@ ip seq-new-entry
 ip seq-image-change
 ip panel-list
 ip bad-settings insp-bad,insp-aaa
+# Lua variables from sensors in the default units (km/h airspeed, m/s vario)
+ip var-units insp-units,insp-aaa
 
 # warnings that don't fail a test: message boxes too long for a DS-24
 grep -h '^\[FW\] warning:' $TMP/* 2>/dev/null | sort -u | sed 's/^\[FW\] warning: /WARN: /'

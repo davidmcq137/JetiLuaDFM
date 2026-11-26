@@ -53,6 +53,11 @@
    Version 0.95 11/22/26 - sequencer follows panel deletes and image changes; a new
                            entry's To is "+"; a missing To panel no longer blanks window 1;
                            "+" and the rotate switch skip panels with no image (---)
+   Version 0.95 11/26/26 - Lua variables from a sensor are in your default units, like
+                           gauges (S1 / 3.6 style fixes must be removed); a sensor
+                           variable follows its sensor if the sensor list changes;
+                           mph conversion fixed (was 1.4% off); a variable that is
+                           NaN/inf (x / 0) no longer stops the settings being saved
 
    *** Don't forget to go update DFM-InsP.html with the new version number ***
 
@@ -62,7 +67,7 @@
 -- major.minor.MMDD plus a letter for each build that day, as DFM-Maps does.
 -- The TX's app list shows only the first 7 characters ("0.95.11"), so the
 -- Settings title shows all of it
-local InsPVersion = "0.95.1122d"
+local InsPVersion = "0.95.1126a"
 
 local LE
 
@@ -124,7 +129,7 @@ units.toNative = {
    temp = {["°C"]=0, ["°F"]=0}, -- these are special cased in the conversions
    dist = {m=1,   ft=0.3048,  km=1000,  ["mi."] = 1609.34 , ["yd."] = 0.9144},
    speed = {["m/s"]=1, ["ft./s"]=0.3048, ["km/h"] = 0.2778, kmh = 0.2778,
-      ["kt."] = 0.51444, ["mph"] = 0.4407 },
+      ["kt."] = 0.51444, ["mph"] = 0.44704 }, -- mph was 0.4407 (1.4% off) before 0.95.1126a
    volume = {ml=1, l=1000, hl = 100000, floz=29.5735, gal=3785.41},
    flow = {["ml/m"] = 1, ["l/m"] = 1000, ["oz/m"] = 29.5735, gpm=3785.41}
 }
@@ -436,6 +441,21 @@ local function convertDispUnits(widget, sensor)
    return sensorVal
 end
 
+-- a value in unit u converted to the pilot's default units
+-- (InsP.settings.units) within its units group (units.type); °C/°F special
+-- cased. Returns value, unit; values in other units come back unchanged
+local function convertValue(value, u)
+   local typ = units.type[u]
+   if not typ or not InsP.settings.units then return value, u end
+   local want = InsP.settings.units[typ]
+   if not want or u == want then return value, u end
+   if typ == "temp" then
+      if u == "°F" then return 5/9 * (value - 32), "°C" end
+      return 9/5 * value + 32, "°F"
+   end
+   return value * units.toNative[typ][u] / units.toNative[typ][want], want
+end
+
 local function getSensorValue(SeId, SePa)
    if not SeId or not SePa or SeId == 0 then return nil end
    local s
@@ -446,6 +466,28 @@ local function getSensorValue(SeId, SePa)
    end
    if s and s.valid then return s.value end
    return nil
+end
+
+-- each sensor's unit, read once (getSensorValueByID has no unit), for
+-- converting Lua variables; keyed "SeId:SePa"
+local sensorUnit = {}
+
+-- a sensor's value in the pilot's default units, as gauges show it, or
+-- nil while invalid: the cheap getSensorValueByID read, plus the unit
+-- looked up once
+local function getSensorValueConv(SeId, SePa)
+   local v = getSensorValue(SeId, SePa)
+   if not v then return nil end
+   local key = SeId .. ":" .. SePa
+   local u = sensorUnit[key]
+   if not u then
+      local s = system.getSensorByID(SeId, SePa)
+      u = s and s.unit or ""
+      -- the TX may send ° as one byte (Latin-1): make it UTF-8 like units.type
+      if string.byte(u, 1) == 176 then u = string.char(194) .. u end
+      sensorUnit[key] = u
+   end
+   return (convertValue(v, u))
 end
 
 local function getSensorByID(SeId, SePa)
@@ -464,44 +506,8 @@ local function getSensorByID(SeId, SePa)
       --print("sensor in",
       --sensor.label, sensor.value, sensor.unit, units.type[sensor.unit])
 
-      local function convertUnits(sens)
-	 local typ = units.type[sens.unit]      
-	 if typ then
-	    for k,_ in pairs(units.typeList) do
-	       -- special case temp since it's not a simple propo
-	       if k == "temp" and typ == "temp" then 
-		  if sens.unit ~= InsP.settings.units[k] then
-		     if sens.unit == "°F" then -- convert to °C
-			sens.value = 5/9 * (sens.value - 32)
-			sens.unit = "°C"
-		     else  -- convert to °F
-			sens.value = 9/5 * sens.value + 32
-			sens.unit = "°F"
-		     end
-		  end
-	       elseif k == typ then
-		  if sens.unit ~= InsP.settings.units[k] then
-		     sens.value = sens.value * units.toNative[k][sens.unit]
-		     --print(k, InsP.settings.units[k])
-		     --[[
-		     if not InsP.settings.units[k] then
-			for kk,vv in pairs(InsP.settings.units) do
-			   print("@", kk,vv)
-			end
-		     end
-		     --]]
-		     sens.value = sens.value / units.toNative[k][InsP.settings.units[k]]
-		     --print("converting units", sens.label, sens.unit, InsP.settings.units[k])
-		     sens.unit = InsP.settings.units[k]
-		  end
-	       end
-	    end
-	 end
-	 return
-      end
-
       if sensor and sensor.value and sensor.unit then 
-	 convertUnits(sensor)
+	 sensor.value, sensor.unit = convertValue(sensor.value, sensor.unit)
       end
       --print("sensor out", sens.value, sens.unit)
       return sensor
@@ -934,9 +940,16 @@ local function setVariables()
       if InsP.variables[i].source == "Sensor" then
 	 --local name = InsP.sensorLalist[var.sensor]
 	 --InsP.variables[i].value = lua.env[name]
-	 local id = InsP.sensorIdlist[var.sensor]
-	 local pa = InsP.sensorPalist[var.sensor]
-	 local v = getSensorValue(id, pa)
+	 -- by the sensor's id and param (as gauges do), so the variable
+	 -- follows its sensor if the sensor list changes; the list index
+	 -- only for variables saved without them
+	 local id, pa = var.SeId, var.SePa
+	 if not id or id == 0 then
+	    id = InsP.sensorIdlist[var.sensor]
+	    pa = InsP.sensorPalist[var.sensor]
+	 end
+	 -- in the pilot's default units, like gauges (docs: Units)
+	 local v = getSensorValueConv(id, pa)
 	 if v then InsP.variables[i].value = v end
       elseif InsP.variables[i].source == "Lua" then
 	 InsP.variables[i].value = evaluateLua("E", InsP.variables[i].luastring[1])
@@ -2410,6 +2423,17 @@ local function initForm(sf)
 
       for i in ipairs(InsP.variables) do
 
+	 -- the selectbox shows the list entry for the saved sensor id/param
+	 local vr = InsP.variables[i]
+	 if vr.SeId and vr.SeId ~= 0 then
+	    for k = 1, #InsP.sensorIdlist do
+	       if InsP.sensorIdlist[k] == vr.SeId and InsP.sensorPalist[k] == vr.SePa then
+		  vr.sensor = k
+		  break
+	       end
+	    end
+	 end
+
 	 form.addRow(4)
 	 
 	 form.addTextbox(InsP.variables[i].name, 63,
@@ -2991,7 +3015,7 @@ local function loop()
       if lua.index <= #InsP.sensorLalist then
 	 SeId = InsP.sensorIdlist[lua.index]
 	 SePa = InsP.sensorPalist[lua.index]
-	 v = getSensorValue(SeId, SePa)
+	 v = getSensorValueConv(SeId, SePa)
 	 if v then
 	    lua.env[InsP.sensorLalist[lua.index]] = v
 	 end
@@ -4968,6 +4992,15 @@ local function destroy(icode)
       if save.variables then
 	 for i,v in ipairs(save.variables) do
 	    if v.SeId then save.variables[i].SeId = string.format("0X%X", v.SeId) end
+	    -- json.encode refuses NaN and inf (e.g. a ratio while the divisor
+	    -- reads 0); these are run-time values anyway (min/max/avg are reset
+	    -- on load), so drop any that aren't finite
+	    for _, k in ipairs({"value", "min", "max", "avg", "sum"}) do
+	       local x = v[k]
+	       if type(x) == "number" and (x ~= x or x == math.huge or x == -math.huge) then
+		  v[k] = nil
+	       end
+	    end
 	 end
       end
       
@@ -4978,15 +5011,22 @@ local function destroy(icode)
 	    if k == "backgrounds" then save.settings.backgrounds = {} end	       
 	 end
       end
+      -- encode first: opening the file for writing empties it, so a failed
+      -- encode would leave the pilot with an empty settings file
+      local okE, text = pcall(json.encode, save)
+      if not okE then
+	 print("DFM-InsP: settings not saved: " .. tostring(text))
+	 return
+      end
       fp = io.open(InsP.settings.fileBD, "w")
       if fp then
 	 if icode ~= -1 then
 	    print("Writing", InsP.settings.fileBD)
-	    io.write(fp, json.encode(save), "\n")
+	    io.write(fp, text, "\n")
 	 else
 	    print("Test Environment - Writing", InsP.settings.fileBD)
 	    io.output(fp)
-	    io.write(json.encode(save), "\n")
+	    io.write(text, "\n")
 	 end
 	 io.close(fp)
       end
