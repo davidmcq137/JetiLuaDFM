@@ -95,3 +95,73 @@ applies.
 - `Docs/en-units.md` already describes the fixed behaviour. Check
   `Docs/en-luavariables.md` for anything that suggests converting by
   hand.
+
+---
+
+# Follow-ups (added 2026-11-26, after 0.95.1126a)
+
+0.95.1126a did the units change above, and fixed mph (0.44704). Two
+smaller items are left, to decide in the Linux session.
+
+## 1. The other rounded unit factors
+
+| Unit | Table now | Exact |
+|---|---|---|
+| km/h, kmh | 0.2778 | 1/3.6 = 0.277778 (0.01% off) |
+| kt. | 0.51444 | 1852/3600 = 0.514444 |
+| mi. | 1609.34 | 1609.344 |
+
+Small, but free to fix. The iOS app (dfmBleApp `Telemetry/Units.swift`)
+uses the exact values.
+
+## 2. The running average in seconds (proposal)
+
+**Now, on the TX:** a Lua variable's avgtype 2 is
+`var.avg = (var.value - var.avg) / var.avgnumber + var.avg` in
+`setVariables`, once per update of that variable. How long N updates
+take depends on how often the variable is updated: `setVariables` does
+`doPerLoop` = 6 variables per loop, so with more variables each one
+updates less often, and the loop rate varies with CPU load
+(en-editlua.md hedges: "20-30 times per second"). So the same N smooths
+over different times on different models, and changes when a pilot
+adds variables.
+
+**In the iOS app:** the running average is set in seconds and uses the
+real time between updates, so a setting means the same at any update
+rate:
+
+```
+avg += (value - avg) * (1 - exp(-dt / seconds))
+```
+
+For dt much smaller than `seconds`, that's the TX's formula with
+N = seconds / dt. It starts at the first value and restarts at a reset,
+as on the TX.
+
+**The proposal: the same on the TX,** so a setting means the same on
+both and stops depending on the number of variables:
+
+```lua
+local now = system.getTimeCounter()               -- ms
+local dt = (now - (var.avgT or now)) / 1000
+if var.avgSeconds and var.avgSeconds > 0 then
+   var.avg = var.avg + (var.value - var.avg) * (1 - math.exp(-dt / var.avgSeconds))
+end
+var.avgT = now
+```
+
+- Reset `avgT` with the average (the min/max reset switch, start-up).
+- **Settings:** the "More" menu's N becomes seconds (0.1 to 60 in the
+  iOS app). Existing models' `avgnumber` is a count of updates:
+  convert once on load (seconds = N / 25 is close to the help's 20-30
+  per second), or keep `avgnumber` working and add `avgSeconds`. Either
+  way, mention it in the release notes, as with the units change.
+- **Docs:** en-editlua.md's "a value of 30 for N will give
+  approximately a 1s averaging time" becomes a time in seconds.
+- **Test:** with TestMX, a variable stepping 0 to 10 should reach
+  10 * (1 - e^-1) = 6.32 one `seconds` after the step, whatever
+  `doPerLoop` and the number of variables. The iOS app has the same
+  test (dfmBleAppTests `PilotVariableTests.runningAverage`).
+
+The user's view: the approach is reasonable; decide in the Linux
+session whether to make the change.
