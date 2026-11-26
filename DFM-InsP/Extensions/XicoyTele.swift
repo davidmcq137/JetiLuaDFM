@@ -1,13 +1,15 @@
-// XicoyTele.swift: the Swift port of XicoyTele.lua, for the iOS app.
+// XicoyTele.swift: the Swift port of XicoyTele.lua, for the iOS app
+// (dfmBleApp), which can't load Lua extensions from the repository.
 //
-// Master copy: JetiLuaDFM, DFM-InsP/Extensions/XicoyTele.swift. The iOS
-// app (dfmBleApp) keeps a copy; change this one and sync the copy
-// (dfmBleApp tools/sync-insp-swift.sh). Self-contained: Foundation only.
+// Master copy: JetiLuaDFM, DFM-InsP/Extensions/XicoyTele.swift. The iOS app
+// keeps a copy; change this one, then sync the copy with dfmBleApp's
+// tools/sync-insp-swift.sh. Self-contained: Foundation only.
 
 import Foundation
 
-/// XicoyTele.lua: a Xicoy ECU's status code as text ("Running" ...). The
-/// sound file names there are for spoken alerts; the iOS app has no audio.
+/// XicoyTele.lua: an ECU's status code as text, for a text box. (Sound
+/// file names some of these tables have are for spoken alerts; the iOS
+/// app has no audio.)
 nonisolated enum XicoyTele {
     static let messages: [Int: String] = [
         0: "High Temp",
@@ -50,11 +52,11 @@ nonisolated enum XicoyTele {
         255: "ECU Offline",
     ]
 
-    /// The message for a status code. Like the Lua, only a whole number
-    /// with a message gives text; otherwise (the Lua returns a plain
-    /// string, which DFM-InsP ignores) nothing.
+    /// M.text(): the message for a status code, as the text box's text;
+    /// nil where DFM-InsP would show the box's own text.
     static func text(_ v: Double?) -> [String]? {
-        guard let v, v == v.rounded(), let m = messages[Int(v)] else { return nil }
+        // Otherwise the Lua returns a plain string, which DFM-InsP ignores.
+        guard let v, v == v.rounded(), abs(v) < 1e15, let m = messages[Int(v)] else { return nil }
         return [m]
     }
 }
