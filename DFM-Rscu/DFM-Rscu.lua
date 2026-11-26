@@ -22,7 +22,7 @@
 
 local appName = "DFM-Rscu"
 -- bump the suffix (month, day, letter) for each build sent to a tester
-local appVersion = "0.6.1125b"
+local appVersion = "0.6.1126a"
 
 -- message boxes: the app's short name first, since several apps may be
 -- running; one centred line, clipped at both ends when too long, so keep
@@ -503,6 +503,43 @@ local turnTime
 -- model's airspeed cancels it. The ground speed is from the same points
 -- (over the last 2 s)
 local hdgCfg = {mode = 0, dist = 10, maxMs = 3000, vref = 0}
+
+-- Steering (menu "Steering"): 1 = bank angle (from 0.6.1126a), 2 = the
+-- Amix/Emix curves as before, with the cruise speed scaling above.
+-- The Assist receiver holds a bank angle proportional to the aileron
+-- (about 23 deg at full aileron on Harry's Cularis, 2026-11-26 logs), and
+-- the course over ground turns at g * tan(bank) / groundspeed whatever the
+-- wind. So for a course error err the bank law asks for the bank that
+-- turns the course at err / STEERTAU per second:
+--    tan(bank) = groundspeed * rad(err) / (STEERTAU * g)
+-- Into the wind (low groundspeed) that is a gentle bank, downwind a steep
+-- one. The Amix curve gave full aileron for any error over 36 deg, and
+-- with about 2 s from aileron to bank and the GPS course about 0.6 s late
+-- the course swung +-70 deg into the wind. maxBank (menu "Bank at full
+-- aileron") is the Assist's bank at full aileron. The elevator follows
+-- the load factor: maxElevGain (calibrated at full bank) times
+-- (1/cos(bank) - 1) / (1/cos(maxBank) - 1)
+local steerCfg = {law = 1, maxBank = 23}
+local STEERTAU = 4       -- s
+local STEERMINVG = 3     -- m/s, the groundspeed used when slower or unknown
+
+-- the bank law (see steerCfg): aileron -1..1 for a course error of
+-- steer degrees at groundspeed vg m/s
+local function bankAileron(steer, vg)
+   vg = math.max(vg or 0, STEERMINVG)
+   local bank = math.deg(math.atan(vg * math.rad(steer) / (STEERTAU * 9.81)))
+   return math.max(-1, math.min(1, bank / steerCfg.maxBank))
+end
+
+-- the up elevator for that aileron: the calibrated gain at full bank,
+-- scaled by the extra load factor
+local function bankElevator(ail)
+   local mb = math.rad(steerCfg.maxBank)
+   local full = 1 / math.cos(mb) - 1
+   if full <= 0 then return 0 end
+   local k = (1 / math.cos(ail * mb) - 1) / full
+   return -RTH.settings.maxElevGain / 100 * k
+end
 local hdgHist = {}
 local HDGSAMPLEMS = 200
 local HDGKEEPMS = 10000
@@ -937,8 +974,8 @@ local function loopP()
 
 	    local ns = RTH.settings.steer / 180 -- normalized to [-1..1]
 
-	    -- less steering at low ground speed (see hdgCfg)
-	    if hdgCfg.vref > 0 and hdgHist.speed and hdgHist.speed < hdgCfg.vref then
+	    -- less steering at low ground speed (see hdgCfg), curve law only
+	    if steerCfg.law == 2 and hdgCfg.vref > 0 and hdgHist.speed and hdgHist.speed < hdgCfg.vref then
 	       ns = ns * math.max(0.15, hdgHist.speed / hdgCfg.vref)
 	    end
 
@@ -970,7 +1007,19 @@ local function loopP()
 	    end
 	    if holdZero ~= 1 then print("ns " .. ns) end
 	    --print(ns, now, nsHoldTime)
-	    if RTH.settings.steerCtrl and RTH.settings.elevCtrl and config.Amix and config.Emix then
+	    if steerCfg.law == 1 and RTH.settings.steerCtrl and RTH.settings.elevCtrl then
+	       local ail
+	       if nsHoldTime ~= 0 then
+		  ail = ns -- the turn hold: full aileron
+	       else
+		  ail = bankAileron(RTH.settings.steer, hdgHist.speed)
+	       end
+	       logAC = ail
+	       logEC = bankElevator(ail)
+	       system.setControl(RTH.settings.steerCtrl, logAC, ailDelay, 1)
+	       system.setControl(RTH.settings.elevCtrl, logEC, eleDelay, 1)
+	       validmix = true
+	    elseif RTH.settings.steerCtrl and RTH.settings.elevCtrl and config.Amix and config.Emix then
 	       logEC = RTH.settings.maxElevGain / 100 * mixOut(config.Emix,ns)
 	       logAC = mixOut(config.Amix, ns)
 	       --print("A,E", mixOut(config.Amix, ns), mixOut(config.Emix, ns)) 
@@ -1409,6 +1458,26 @@ local function initForm(subform)
 
       --]]
       
+      -- steering law (see steerCfg); the cruise speed below only applies
+      -- to the curves
+      form.addRow(2)
+      form.addLabel({label="Steering", font=FONT_NORMAL, width=155})
+      form.addSelectbox({"Bank angle", "Curves"}, steerCfg.law, true,
+			(function(i)
+			      steerCfg.law = i == 2 and 2 or 1
+			      system.pSave("steerLaw", steerCfg.law)
+			      return end),
+			{width=155, font=FONT_NORMAL, alignRight=false})
+
+      form.addRow(2)
+      form.addLabel({label="Bank at full ail (deg)", font=FONT_NORMAL, width=180})
+      form.addIntbox(steerCfg.maxBank, 5, 60, 23, 0, 1,
+		     (function(x)
+			   steerCfg.maxBank = x
+			   system.pSave("maxBank", x)
+			   return end),
+		     {width=135, font=FONT_NORMAL, alignRight=false})
+
       form.addRow(2)
       form.addLabel({label="Heading from GPS", font=FONT_NORMAL, width=155})
       form.addSelectbox({"Points 3 m", "Fit 6 m"}, hdgCfg.mode == 2 and 2 or 1, true,
@@ -2322,8 +2391,11 @@ local function init()
 
    rescueOnDelay = system.pLoad("rescueOnDelay", 3)
    holdTurn = system.pLoad("holdTurn", 4)
-   eleDelay = system.pLoad("eleDelay", 1000)
-   ailDelay = system.pLoad("ailDelay", 1000)
+   -- 100 ms: a little smoothing of the servo commands, but far less lag
+   -- than the old 1000 (with the Assist's own lag, about 2 s from command
+   -- to bank on Harry's 2026-11-26 flights)
+   eleDelay = system.pLoad("eleDelay", 100)
+   ailDelay = system.pLoad("ailDelay", 100)
    magIdx = system.pLoad("magIdx", 1)
    -- heading from GPS points (menu "Heading from GPS"): 1 = points 3 m
    -- apart, as before; 2 = fit over 6 m. Cruise speed in km/h (0 = off)
@@ -2331,6 +2403,8 @@ local function init()
    hdgCfg.mode = system.pLoad("hdgMethod", 1) == 2 and 2 or 0
    hdgCfg.dist = 6
    hdgCfg.vref = system.pLoad("cruiseKmh", 0) / 3.6
+   steerCfg.law = system.pLoad("steerLaw", 1) == 2 and 2 or 1
+   steerCfg.maxBank = system.pLoad("maxBank", 23)
    
    flyingOutbound = false
    calibrating = false
@@ -2340,6 +2414,10 @@ local function init()
    local uid = system.UIDriver
    if uid then
       uid.expose("rscuHdg", function() return hdgCfg end)
+      uid.expose("rscuSteer", function()
+	 return {law = steerCfg.law, maxBank = steerCfg.maxBank, ailDelay = ailDelay,
+		 ail = logAC, elev = logEC}
+      end)
       uid.expose("rscuHist", function() return {speed = hdgHist.speed, n = #hdgHist} end)
       uid.expose("rscu", function()
 	 local zl, zo
@@ -2354,7 +2432,9 @@ local function init()
 		 turnDir = RTH.settings.turnDir, rescueOnDelay = rescueOnDelay,
 		 holdTurn = holdTurn,
 		 -- what line 870 would send to the elevator now, and its inputs
-		 elevCalc = RTH.settings.maxElevGain / 100 *
+		 elevCalc = steerCfg.law == 1 and
+		    bankElevator(bankAileron(RTH.settings.steer or 0, hdgHist.speed)) or
+		    RTH.settings.maxElevGain / 100 *
 		    mixOut(config.Emix, (RTH.settings.steer or 0) / 180),
 		 validElev = (RTH.settings.elevCtrl and config.Emix and
 				 RTH.settings.maxElevGain) and true or false}

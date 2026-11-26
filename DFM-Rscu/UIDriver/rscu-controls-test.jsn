@@ -40,6 +40,9 @@
   {"waitSub": 11},
   {"set": "Preferred turn", "value": "right"},
   {"expect": "Preferred turn", "value": "right"},
+  {"log": "these outputs are the Amix/Emix curves: steering law Curves (the bank-angle law is tested in rscu-assist-leg)"},
+  {"set": "Steering", "value": "Curves"},
+  {"expect": "Steering", "value": "Curves"},
 
   {"log": "rescue off: both outputs 0"},
   {"wait": 500},
@@ -117,6 +120,7 @@
 
   {"log": "put your settings back (Elevator control last: if it was unassigned, DFM-Rscu shows its message)"},
   {"restore": "Preferred turn"},
+  {"restore": "Steering"},
   {"link": "<<<Back to main menu"},
   {"waitSub": 1},
   {"link": "App Settings"},

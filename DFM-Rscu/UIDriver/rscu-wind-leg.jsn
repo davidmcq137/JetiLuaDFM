@@ -4,7 +4,7 @@
  },
  "steps": [
   {
-   "log": "DFM-Rscu 0.6.1125b steering home into a strong wind (fixture rscu-wind: about 14 m/s airspeed into 11.3 m/s of wind, 2.7 m/s over the ground, like Harry's flight of 2026-11-25), computed heading. Into the wind the course turns about 5x faster than the nose, so the steering is too strong: with the old settings the model weaves. 'Heading from GPS' = Fit 6 m and 'Cruise speed' = 50 km/h (steering reduced below that ground speed) must hold it steady"
+   "log": "DFM-Rscu 0.6.1125b steering home into a strong wind (fixture rscu-wind: about 14 m/s airspeed into 11.3 m/s of wind, 2.7 m/s over the ground, like Harry's flight of 2026-11-25), computed heading. Into the wind the course turns about 5x faster than the nose, so the steering is too strong: with the old settings the model weaves. 'Heading from GPS' = Fit 6 m and 'Cruise speed' = 50 km/h (steering reduced below that ground speed) must hold it steady. Steering law Curves throughout (this is the 1125b fix; the bank-angle law is tested in rscu-assist-leg)"
   },
   {
    "waitForm": true
@@ -67,6 +67,10 @@
   {
    "expect": "Cruise speed (km/h)",
    "value": 0
+  },
+  {
+   "set": "Steering",
+   "value": "Curves"
   },
   {
    "link": "<<<Back to main menu"
@@ -240,12 +244,14 @@
    "wait": 8000
   },
   {
+   "log": "logged, not checked since 0.6.1126a: TestMitter now applies Rscu's setControl smoothing, and with even 100-300 ms of it the 1125b fix weaves (spread about 17 deg), as Harry found on 2026-11-26. rscu-assist-leg tests the bank-angle law that replaces it"
+  },
+  {
    "sampleState": "sensorE.heading",
    "angle": true,
    "for": "12s",
    "as": "new",
-   "trace": 1000,
-   "maxSpread": 10
+   "trace": 1000
   },
   {
    "setInput": "SA",
@@ -277,6 +283,9 @@
   },
   {
    "restore": "Cruise speed (km/h)"
+  },
+  {
+   "restore": "Steering"
   },
   {
    "link": "<<<Back to main menu"

@@ -1,0 +1,20 @@
+{
+    "lat0": 41.34005,
+    "lon0": -74.430933,
+    "lat0s": "41.340050",
+    "lon0s": "-74.430933",
+    "rE": 6378137,
+    "trueDir": 78.88,
+    "startTime": 30,
+    "xp": 0,
+    "yp": 0,
+    "zp": 100,
+    "heading": 20,
+    "pitch": 0,
+    "hString": "heading + 0.2 * math.deg(9.81 * math.tan(math.rad(pitch)) / 14)",
+    "pString": "pitch + (O1(-23,23) - pitch) * 0.2835",
+    "xString": "xp + 0.2 * 14 * math.sin(math.rad(heading))",
+    "yString": "yp + 0.2 * (14 * math.cos(math.rad(heading)) + 8)",
+    "zString": "zp",
+    "latencyMs": 600
+}

@@ -1006,9 +1006,39 @@ system.unregisterTelemetry = function(n)
 end
 system.setTelemetryButton = noop
 
+-- Lua controls with setControl's transition (delayms, smoothType):
+-- type 0 ramps linearly from the current value to the new one over
+-- delayms; type 1 is a first-order low-pass with a time constant of
+-- delayms. The type-1 time constant is from Harry's DFM-Rscu logs
+-- (2026-11-26): with "Ail ctl delay" 1000 ms his Assist's bank fits best
+-- with a 1.0 s low-pass on the commanded aileron. A control's v is
+-- brought up to date whenever it is read (controlValue) or set
 local ctrls = {}
+local function controlValue(c)
+   local t = FW.now()
+   local dt = t - (c.t or t)
+   c.t = t
+   if not c.tgt or c.tgt == c.v then return c.v end
+   if (c.d or 0) <= 0 then
+      c.v = c.tgt
+   elseif c.smooth == 1 then
+      c.v = c.v + (c.tgt - c.v) * (1 - math.exp(-dt / c.d))
+   else
+      local f = (t - c.t0) / c.d
+      c.v = f >= 1 and c.tgt or c.v0 + (c.tgt - c.v0) * f
+   end
+   return c.v
+end
 system.registerControl = function(n, label, sw) ctrls[n] = {label = label, sw = sw, v = 0}; return n end
-system.setControl = function(n, v, d) if ctrls[n] then ctrls[n].v = v end; return true end
+system.setControl = function(n, v, d, s)
+   local c = ctrls[n]
+   if not c then return nil end
+   controlValue(c)
+   if v ~= c.tgt then c.v0, c.t0 = c.v, FW.now() end
+   c.tgt, c.d, c.smooth = v, d or 0, s or 0
+   if c.d <= 0 then c.v = v end
+   return true
+end
 system.unregisterControl = function(n) ctrls[n] = nil end
 FW.luaControls = ctrls
 system.registerLogVariable = function(label, unit, f) return 1 end
@@ -1026,7 +1056,7 @@ local function inputValue(name)
       local m = FW.mixes[name]
       local c = ctrls[tonumber(m.control)]
       if c then
-	 v = math.max(-1, math.min(1, (c.v or 0) * (m.percent or 100) / 100))
+	 v = math.max(-1, math.min(1, controlValue(c) * (m.percent or 100) / 100))
       end
    end
    return v or 0

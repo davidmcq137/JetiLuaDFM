@@ -40,7 +40,10 @@
    time as before.
 
       getState()        {t, paused, stepsPending, x, y, lat, lon, held,
-                         xp, yp, heading, zp, pitch, configDir, field, gps}
+                         xp, yp, heading, zp, pitch, course, configDir,
+                         field, gps}; course is the true course over
+                         ground of the last step (undelayed, see latencyMs
+                         in the GPS config)
                          x, y: the last position before trueDir rotation
       pause(on)         freeze (true) or resume time AND the GPS
                          simulator (xString etc. stop stepping)
@@ -175,6 +178,12 @@ local fieldnames = {}
 local fieldIdx
 local persistXP, persistYP, persistHH
 local persistCRS            -- course over ground of the last GPS step
+-- "latencyMs" in the GPS config: the sensor reports the position and
+-- course of that long ago (in GPS steps of GPSMINMS), like a real GPS
+-- and its telemetry. Harry's logs (2026-11-26) put his GPS-Log course
+-- about 0.5 s behind his receiver's roll angle
+local gpsQueue = {}
+local pubCRS                -- the course the sensor reports (delayed)
 local persistZP, persistPP
 
 -- test driver control (system.SensorE)
@@ -859,7 +868,7 @@ function emulator_getSensorByID(ID, Param)
 	 -- ground: (heading + trueDir) % 360 (pointFromXY rotates by it)
 	 env.trueDir = GPSparms and GPSparms.trueDir or 0
 	 -- the true course over ground of the last simulator step (see above)
-	 env.course = persistCRS or env.trueDir
+	 env.course = pubCRS or persistCRS or env.trueDir
 	 env.zp = persistZP or 0
 	 env.pitch = persistPP or 0
 	 
@@ -923,7 +932,21 @@ function emulator_getSensorByID(ID, Param)
 	       lastX, lastY = holdXY.x, holdXY.y
 	       encodePoint(holdXY.point)
 	    else
-	       if holdXY then xCart, yCart = holdXY.x, holdXY.y end
+	       if holdXY then
+		  xCart, yCart = holdXY.x, holdXY.y
+		  gpsQueue = {}
+		  pubCRS = nil
+	       else
+		  local n = math.floor((GPSparms.latencyMs or 0) / GPSMINMS + 0.5)
+		  if n > 0 then
+		     if integrate then
+			gpsQueue[#gpsQueue + 1] = {x = xCart, y = yCart, crs = persistCRS}
+			while #gpsQueue > n + 1 do table.remove(gpsQueue, 1) end
+		     end
+		     local q = gpsQueue[1]
+		     if q then xCart, yCart, pubCRS = q.x, q.y, q.crs end
+		  end
+	       end
 	       encodeXY(xCart, yCart)
 	    end
 	    lastGPScalc = system.getTimeCounter()
@@ -1220,7 +1243,7 @@ function SEapi.getState()
 	   x = x, y = y, lat = lat, lon = lon, latStr = latStr, lonStr = lonStr,
 	   held = holdXY ~= nil,
 	   xp = persistXP, yp = persistYP, heading = persistHH, zp = persistZP,
-	   pitch = persistPP, configDir = configDirUsed,
+	   pitch = persistPP, course = persistCRS, configDir = configDirUsed,
 	   field = fieldIdx and fieldnames[fieldIdx], gps = GPSparms ~= nil}
 end
 
@@ -1310,6 +1333,8 @@ function SEapi.setVars(tbl)
       elseif k == "zp" then persistZP = val
       else persistPP = val end
    end
+   -- a moved model has no GPS history (see latencyMs)
+   if tbl.xp or tbl.yp then gpsQueue = {}; pubCRS = nil end
    forceGPS = true
    return true
 end

@@ -1,0 +1,401 @@
+{
+ "config": {
+  "stepGap": 200
+ },
+ "steps": [
+  {
+   "log": "DFM-Rscu 0.6.1126a steering home into the wind with a JETI Assist receiver (fixture rscu-assist, SensorE DFM-Rscu/assist): 14 m/s airspeed into 8 m/s of wind, 6 m/s over the ground, like Harry's flights of 2026-11-26. The Assist is modelled from his logs: bank follows 23 deg x aileron through a 0.6 s lag, the course turns at g tan(bank)/V, and the GPS (position and the MGPS Heading course) is 600 ms late. TestMitter applies Rscu's setControl smoothing. Run 1 is Harry's setup (Curves, aileron delay 1000 ms): logged, it weaves. Runs 2 and 3 are the bank-angle law with the new 100 ms delay, with the heading sensor and with Fit 6 m: they must hold course"
+  },
+  {
+   "waitForm": true
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "expectState": "rscu.zeroLat"
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "link": "App Settings"
+  },
+  {
+   "waitSub": 10
+  },
+  {
+   "set": "Rescue mode switch",
+   "value": "SA"
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Rescue Settings"
+  },
+  {
+   "waitSub": 11
+  },
+  {
+   "expect": "Steering",
+   "value": "Bank angle"
+  },
+  {
+   "expect": "Bank at full ail (deg)",
+   "value": 23
+  },
+  {
+   "expect": "Ail ctl delay/avg (ms)",
+   "value": 100
+  },
+  {
+   "expect": "Elev ctl delay/avg (ms)",
+   "value": 100
+  },
+  {
+   "set": "Steering",
+   "value": "Curves"
+  },
+  {
+   "set": "Ail ctl delay/avg (ms)",
+   "value": 1000
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "key": "KEY_ESC"
+  },
+  {
+   "waitClosed": true
+  },
+  {
+   "expectState": "rscuSteer.law",
+   "value": 2
+  },
+  {
+   "expectState": "rscuSteer.ailDelay",
+   "value": 1000
+  },
+  {
+   "log": "run 1, Harry's 2026-11-26 setup: Curves, heading sensor, aileron delay 1000 ms (logged, not checked)"
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0,
+    "pitch": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 30000
+  },
+  {
+   "log": "knock the model 60 deg off course, give it 15 s, then trace its course for 10 s"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "wait": 15000
+  },
+  {
+   "log": "the course over ground (what Harry's GPS-Log Heading shows); into the wind it swings about Va/Vg = 2.3 times as far as the nose"
+  },
+  {
+   "sampleState": "sensorE.course",
+   "angle": true,
+   "for": "10s",
+   "as": "curves",
+   "trace": 1000
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "log": "run 2: bank-angle law, aileron delay 100 ms, heading sensor"
+  },
+  {
+   "openForm": "DFM-Rscu"
+  },
+  {
+   "waitForm": true
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Rescue Settings"
+  },
+  {
+   "waitSub": 11
+  },
+  {
+   "set": "Steering",
+   "value": "Bank angle"
+  },
+  {
+   "set": "Ail ctl delay/avg (ms)",
+   "value": 100
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "key": "KEY_ESC"
+  },
+  {
+   "waitClosed": true
+  },
+  {
+   "expectState": "rscuSteer.law",
+   "value": 1
+  },
+  {
+   "expectState": "rscuSteer.ailDelay",
+   "value": 100
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0,
+    "pitch": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 30000
+  },
+  {
+   "log": "knock the model 60 deg off course, give it 15 s, then trace its course for 10 s"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "wait": 15000
+  },
+  {
+   "log": "the course over ground (what Harry's GPS-Log Heading shows); into the wind it swings about Va/Vg = 2.3 times as far as the nose"
+  },
+  {
+   "sampleState": "sensorE.course",
+   "angle": true,
+   "for": "10s",
+   "as": "bank_sensor",
+   "trace": 1000,
+   "maxSpread": 6
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "log": "run 3: bank-angle law, no heading sensor, Fit 6 m (the heading sensor is re-picked by label when the form opens, so un-assign it on the way out)"
+  },
+  {
+   "openForm": "DFM-Rscu"
+  },
+  {
+   "waitForm": true
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Rescue Settings"
+  },
+  {
+   "waitSub": 11
+  },
+  {
+   "set": "Heading from GPS",
+   "value": "Fit 6 m"
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Telemetry Sensors"
+  },
+  {
+   "waitSub": 12
+  },
+  {
+   "set": "Heading Sensor",
+   "value": "..."
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "key": "KEY_ESC"
+  },
+  {
+   "waitClosed": true
+  },
+  {
+   "expectState": "rscuHdg.mode",
+   "value": 2
+  },
+  {
+   "sensorVars": {
+    "xp": 0,
+    "yp": 1000,
+    "heading": 0,
+    "pitch": 0
+   }
+  },
+  {
+   "wait": 3000
+  },
+  {
+   "setInput": "SA",
+   "value": 1
+  },
+  {
+   "waitAudio": "rthenabled"
+  },
+  {
+   "wait": 30000
+  },
+  {
+   "log": "knock the model 60 deg off course, give it 15 s, then trace its course for 10 s"
+  },
+  {
+   "sensorVars": {
+    "heading": 240
+   }
+  },
+  {
+   "wait": 15000
+  },
+  {
+   "log": "the course over ground (what Harry's GPS-Log Heading shows); into the wind it swings about Va/Vg = 2.3 times as far as the nose"
+  },
+  {
+   "sampleState": "sensorE.course",
+   "angle": true,
+   "for": "10s",
+   "as": "bank_fit6",
+   "trace": 1000,
+   "maxSpread": 6
+  },
+  {
+   "setInput": "SA",
+   "value": -1
+  },
+  {
+   "waitAudio": "rescuemodeoff"
+  },
+  {
+   "log": "put the settings back"
+  },
+  {
+   "openForm": "DFM-Rscu"
+  },
+  {
+   "waitForm": true
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "Rescue Settings"
+  },
+  {
+   "waitSub": 11
+  },
+  {
+   "restore": "Steering"
+  },
+  {
+   "restore": "Ail ctl delay/avg (ms)"
+  },
+  {
+   "restore": "Heading from GPS"
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "link": "App Settings"
+  },
+  {
+   "waitSub": 10
+  },
+  {
+   "restore": "Rescue mode switch"
+  },
+  {
+   "link": "<<<Back to main menu"
+  },
+  {
+   "waitSub": 1
+  },
+  {
+   "key": "KEY_ESC"
+  },
+  {
+   "waitClosed": true
+  },
+  {
+   "clearInput": true
+  }
+ ]
+}
