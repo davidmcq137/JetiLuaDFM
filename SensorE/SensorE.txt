@@ -87,6 +87,14 @@
    variables, functions and any "require" statements to bring in
    external content.
 
+   The same first block can carry "quiet": true to turn off SensorE's
+   routine console lines while you debug another app: the config file
+   names, the SensorFields notes, and the log of playFile, playNumber,
+   playBeep and vibration calls. Errors and warnings still print. It is
+   off by default. For example:
+
+    {"id":3, "param":0, "sensorName":"MGPS", "label":"MGPS", "quiet":true},
+
    To get access to the analog sliders (P1-P8) use the function Pn
    where n = 1 to 8. The function takes two arguments a1 and a2, for
    example P1(10,200). P1 will return values from 10 to 200 as the

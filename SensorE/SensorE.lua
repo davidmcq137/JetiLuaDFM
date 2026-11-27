@@ -454,8 +454,19 @@ function emulator_init()
    --print("system.getSensors", system.getSensors)
 
 end
+-- "quiet": true on the first entry of sensorEmulator.jsn (where
+-- initString goes) turns off SensorE's routine console lines: config file
+-- names, SensorFields notes, and the playFile / playNumber / playBeep /
+-- vibration log. Errors and warnings still print. Off by default.
+local quiet = false
+local initNotes = {} -- init's lines, held until the config says quiet or not
+
+local function info(...)
+   if not quiet then print(...) end
+end
+
 function emulator_playBeep(rep, hz, len)
-   print(string.format("SensorE - playBeep: Repeat %s, Freq %s, Duration %s",
+   info(string.format("SensorE - playBeep: Repeat %s, Freq %s, Duration %s",
 		       tostring(rep), tostring(hz), tostring(len)))
 end
 
@@ -476,7 +487,7 @@ function emulator_vibration(lr, prof)
    else
       i = prof
    end
-   print(string.format("SensorE - vibration: %s" .. " stick - Profile: %s", lrText, profText[i]))
+   info(string.format("SensorE - vibration: %s" .. " stick - Profile: %s", lrText, profText[i]))
 end
 
 function emulator_playFile(fn, typ)
@@ -490,7 +501,7 @@ function emulator_playFile(fn, typ)
    else
       ss = "Type Unknown: " .. (typ or "-nil-")
    end
-   print(string.format("SensorE - playFile: <%s> type: %s", fn, ss))
+   info(string.format("SensorE - playFile: <%s> type: %s", fn, ss))
 end
 
 function emulator_playNumber(val, dec, unit, lab)
@@ -513,7 +524,7 @@ function emulator_playNumber(val, dec, unit, lab)
    else
       vf = "(nil)"
    end
-   print(string.format
+   info(string.format
 	 ("SensorE - playNumber: %s unit: %s label: %s", vf, unit, lab))
    return rr
 end
@@ -569,7 +580,7 @@ function emulator_getSensors()
    local drv = system.UIDriver
    if type(drv) == "table" and type(drv.sensorConfig) == "string"
    and drv.sensorConfig ~= "" then
-      print("SensorE: configDir from UIDriver: " .. drv.sensorConfig)
+      info("SensorE: configDir from UIDriver: " .. drv.sensorConfig)
       SEjsn.configDir = drv.sensorConfig
    end
    SEjsn.configDir = configPath(SEjsn.configDir)
@@ -582,9 +593,12 @@ function emulator_getSensors()
    
    fg, text = readConfig(SEjsn.configDir, "sensorEmulator.jsn")
    if not fg then print("SensorE: Cannot read " .. text) else
-      print("SensorE: Sensor config: "..text)
       --print("JSON text[1-80]: ", string.sub(fg, 1, 80))
       sensorTbl=json.decode(fg) or {}
+      quiet = type(sensorTbl[1]) == "table" and sensorTbl[1].quiet == true
+      for _, line in ipairs(initNotes) do info(line) end
+      initNotes = {}
+      info("SensorE: Sensor config: "..text)
       initStr = sensorTbl[1] and sensorTbl[1].initString
       if initStr and initStr ~= "" then
 	 --print("initStr", initStr)
@@ -628,8 +642,8 @@ function emulator_getSensors()
 	 GPSparms = nil
       end
    end
-   if not GPSparms then print("Info: No GPS file " .. text) else
-      print("SensorE: GPS config: " .. text)
+   if not GPSparms then info("Info: No GPS file " .. text) else
+      info("SensorE: GPS config: " .. text)
       coslat0 = math.cos(math.rad(GPSparms.lat0))
       --print("GPS Config: "..text)
       --print("xp, yp, heading", GPSparms.xp, GPSparms.yp, GPSparms.heading)
@@ -1197,17 +1211,17 @@ local function init()
 	 geo = {}
       end
    else
-      print("SensorE: Info - Cannot open Apps/SensorFields.jsn")
+      initNotes[#initNotes + 1] = "SensorE: Info - Cannot open Apps/SensorFields.jsn"
    end
 
    if not geo.fields then
-      print("SensorE: Info - SensorFields.jsn not decoded - creating default")
+      initNotes[#initNotes + 1] = "SensorE: Info - SensorFields.jsn not decoded - creating default"
       geo.fields={}
       geo.fields[1] =  {lat=39.147398, long=-77.337639,runway={}}
       geo.fields[1].runway.trueDir=347.5
       fieldnames[1] = "DCRC Walt Good Field"
    else
-      print("SensorE: SensorFields.jsn decoded")
+      initNotes[#initNotes + 1] = "SensorE: SensorFields.jsn decoded"
    end
 
    system.registerTelemetry(1, appName.." Sensors", 4, telePrint)

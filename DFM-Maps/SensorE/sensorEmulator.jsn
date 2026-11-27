@@ -1,5 +1,5 @@
 [
-    {"id":3,"param":0,"sensorName":"MGPS", "label":"MGPS"},
+    {"id":3,"param":0,"sensorName":"MGPS", "label":"MGPS", "quiet":true},
     {"id":3,
      "param":2,
      "decimals":0,
