@@ -33,6 +33,8 @@
      0.8  those sensors move from EX 0xA400:1-2 to 0xA41F:0xDF01-0xDF02
      0.9  the TX's own timers 1-10 as a third sensor, 0xA41F:0xDF03
           (timer library, firmware 6.05 on, DC/DS-24 II only)
+     0.10 TXs without the timer library (DS-24 I, older firmware) get two
+          timers of DFM-BLE's own, on the same sensor
 
    -----------------------------------------------------------------------------
    Released under MIT license by DFM 2026
@@ -41,7 +43,7 @@
 --]]
 
 local appName = "DFM-BLE"
-local appVersion = "0.9"
+local appVersion = "0.10"
 
 local HEAD, FOOT = 0xEE, 0xBB
 local CMD_RESET, CMD_MODEL, CMD_DESCRIBE, CMD_VALUES = 0x20, 0x21, 0x22, 0x23
@@ -82,6 +84,11 @@ local CTL_PIDS = {[string.pack("<I4", CTL_PROP_ID)] = true,
 		  [string.pack("<I4", CTL_TIMER_ID)] = true}
 local N_TIMER = 10              -- native timers are ids 1-10 (11-20 are Lua's)
 local TIMER_TYPE, TIMER_DEC = 4, 1 -- int22, tenths of a second
+-- Without the timer library, DFM-BLE keeps timers of its own (as DFM-HUD
+-- did) and sends them on the same sensor as params 1-2, so the iOS app
+-- can't tell the difference. Set OWN_TIMERS_TEST to use them on a 24 II.
+local N_OWN = 2
+local OWN_TIMERS_TEST = false
 local N_PROP, N_SWITCH = 8, 8
 local CTL_TYPE, CTL_DEC = 1, 1 -- int14 with one decimal: -100.0 to 100.0 %
 
@@ -98,6 +105,10 @@ local ctlOn = true    -- send the TX controls
 local ctlSwitches = {} -- [i] = SwitchItem from the menu's switch box i, or nil
 local timerEntry      -- the "TX timers" sensor, or nil if there are none
 local timerKey = ""   -- its timers and labels as a string, to notice changes
+-- DFM-BLE's own timers: on, start (s), down, run and reset switches (saved),
+-- and elapsed (ms, held while stopped), since (clock when it last started
+-- running, nil while stopped)
+local ownTimers = {}
 local needReset = true
 local rescanWanted = true -- read the sensor list on the next loop
 local lastSend, lastDescribe, lastScan
@@ -252,12 +263,64 @@ local function addControls(list, keys)
    return N_PROP + #sw.values
 end
 
+local function hasTimerLib()
+   return timer and timer.getByID and not OWN_TIMERS_TEST
+end
+
+-- A switch box is on when its reading is above the middle. A timer with
+-- no run switch always runs, as the TX's own timers do.
+local function switchOn(item, default)
+   if not item then return default end
+   local v = system.getInputsVal(item)
+   return v ~= nil and v > 0
+end
+
+-- Runs DFM-BLE's own timers: called every loop, so a switch flip counts at
+-- once. Reset works while running too (it starts counting again from the
+-- start time).
+local function updateOwnTimers(now)
+   for _, t in ipairs(ownTimers) do
+      if t.on then
+	 local run = switchOn(t.runSw, true)
+	 if run and not t.since then
+	    t.since = now
+	 elseif not run and t.since then
+	    t.elapsed, t.since = t.elapsed + (now - t.since), nil
+	 end
+	 if switchOn(t.resetSw, false) then
+	    t.elapsed = 0
+	    if t.since then t.since = now end
+	 end
+      end
+   end
+end
+
+-- An own timer's time now in ms: counting down it goes negative past zero,
+-- as the TX's timers do
+local function ownTime(t, now)
+   local e = t.elapsed + (t.since and (now - t.since) or 0)
+   if t.down then return t.start * 1000 - e end
+   return t.start * 1000 + e
+end
+
 -- Looks for the TX's timers (on the Describe cycle, so a new or renamed
 -- timer shows up within 10 s). Swaps the "TX timers" sensor in the list
 -- and returns true if anything changed.
 local function scanTimers()
    local entry, keys = nil, {}
-   if ctlOn and timer and timer.getByID then
+   if ctlOn and not hasTimerLib() then
+      entry = {id = CTL_TIMER_ID, pid = string.pack("<I4", CTL_TIMER_ID),
+	       name = "TX timers", values = {}, ctl = "timer"}
+      for n, t in ipairs(ownTimers) do
+	 if t.on then
+	    entry.values[#entry.values + 1] = {param = n, label = "T" .. n, unit = "s",
+					       dec = TIMER_DEC, type = TIMER_TYPE,
+					       own = t}
+	    keys[#keys + 1] = n .. ":own"
+	 end
+      end
+      if #entry.values == 0 then entry = nil end
+   elseif ctlOn and timer and timer.getByID then
       entry = {id = CTL_TIMER_ID, pid = string.pack("<I4", CTL_TIMER_ID),
 	       name = "TX timers", values = {}, ctl = "timer"}
       for n = 1, N_TIMER do
@@ -286,7 +349,7 @@ local function scanTimers()
       nValues = nValues + #entry.values
       for _, v in ipairs(entry.values) do
 	 print(string.format("%s: timer %d \"%s\" (%s)", appName, v.param, v.label,
-			     tostring(timer.getType(v.handle))))
+			     v.own and "DFM-BLE's own" or tostring(timer.getType(v.handle))))
       end
    end
    return true
@@ -351,7 +414,7 @@ local function ctlRaw(x)
    return round(x * 1000), CTL_DEC, CTL_TYPE
 end
 
-local function sendValues()
+local function sendValues(now)
    local props -- P1-P8, read once per round
    for _, e in ipairs(sensors) do
       local parts, n = {}, 0
@@ -365,6 +428,8 @@ local function sendValues()
 	    -- the item from the menu now, in case it changed since the scan
 	    local item = ctlSwitches[v.param]
 	    raw, dec, typ = ctlRaw(item and system.getInputsVal(item))
+	 elseif e.ctl == "timer" and v.own then
+	    raw, dec, typ = round(ownTime(v.own, now) / 100), TIMER_DEC, TIMER_TYPE
 	 elseif e.ctl == "timer" then
 	    -- The API doc says "T", milliseconds without a lap id, but the
 	    -- 6.06 emulator returns "R" with milliseconds (2026-11-26), so
@@ -556,16 +621,33 @@ local function valueText(v)
    return string.format("%." .. dec .. "f", raw / 10 ^ dec) .. unit
 end
 
--- Rows for the values page: a heading per sensor, then its values
+-- Rows for the values page: a heading per sensor, then its values.
+-- DFM-BLE's own sensors (TX controls, switches, timers) first, as the iOS
+-- app lists them.
 local function valueRows()
    local rows = {}
-   for _, e in ipairs(sensors) do
+   local function add(e)
       rows[#rows + 1] = {head = (e.name ~= "" and e.name or "(no name)")}
       for _, v in ipairs(e.values) do
 	 rows[#rows + 1] = {label = v.label, text = valueText(v)}
       end
    end
+   for _, e in ipairs(sensors) do if e.ctl then add(e) end end
+   for _, e in ipairs(sensors) do if not e.ctl then add(e) end end
    return rows
+end
+
+local SCROLL_W = 4 -- the scroll bar at the right edge
+
+-- A scroll bar when the rows don't all fit: the thumb's size and place
+-- show how much of the list is on screen
+local function drawScrollBar(w, h, top, fit, total)
+   if total <= fit then return end
+   local x = w - SCROLL_W
+   lcd.drawRectangle(x, 0, SCROLL_W, h)
+   local th = math.max(8, h * fit // total)
+   local ty = (h - th) * (top - 1) // (total - fit)
+   lcd.drawFilledRectangle(x, ty, SCROLL_W, th)
 end
 
 local function printForm(w, h)
@@ -578,6 +660,7 @@ local function printForm(w, h)
    local fh = lcd.getTextHeight(FONT_NORMAL)
    local fit = h // fh
    if valueTop > #rows - fit + 1 then valueTop = math.max(1, #rows - fit + 1) end
+   drawScrollBar(w, h, valueTop, fit, #rows)
    for i = 0, fit - 1 do
       local r = rows[valueTop + i]
       if not r then break end
@@ -586,7 +669,7 @@ local function printForm(w, h)
 	 lcd.drawText(4, y, r.head, FONT_BOLD)
       else
 	 lcd.drawText(16, y, r.label, FONT_NORMAL)
-	 lcd.drawText(w - 4 - lcd.getTextWidth(FONT_NORMAL, r.text), y, r.text,
+	 lcd.drawText(w - 4 - SCROLL_W - lcd.getTextWidth(FONT_NORMAL, r.text), y, r.text,
 		      FONT_NORMAL)
       end
    end
@@ -596,7 +679,7 @@ local function keyForm(key)
    if formPage == 1 then return end
    if key == KEY_ESC or key == KEY_5 then
       form.preventDefault()
-      form.reinit(1)
+      form.reinit(formPage == 4 and 3 or 1) -- Timers is under TX controls
    elseif key == KEY_UP then
       valueTop = math.max(1, valueTop - 1)
    elseif key == KEY_DOWN then
@@ -636,6 +719,60 @@ local function initForm(sub)
 	       ctlSwitches[i] = item
 	       system.pSave("ctlSw" .. i, item)
 	       rescanWanted = true
+	 end)
+      end
+      if not hasTimerLib() then
+	 form.addRow(1)
+	 form.addLink(function() form.reinit(4) end, {label = "Timers >>"})
+      end
+      return
+   end
+   if formPage == 4 then
+      form.setTitle("Timers")
+      form.setButton(5, "Back", ENABLED)
+      form.addRow(1)
+      form.addLabel({label = "This TX has no timers for Lua: DFM-BLE's own",
+		     font = FONT_MINI})
+      for n, t in ipairs(ownTimers) do
+	 local function save(key, value) system.pSave("tm" .. n .. key, value) end
+	 form.addRow(2)
+	 form.addLabel({label = "Timer " .. n, font = FONT_BOLD, width = 220})
+	 local box
+	 box = form.addCheckbox(t.on, function(value)
+	       t.on = not value
+	       form.setValue(box, t.on)
+	       save("On", t.on and 1 or 0)
+	       needReset = true -- describe the change at once
+	 end)
+	 form.addRow(5)
+	 form.addLabel({label = "Start", width = 80})
+	 form.addIntbox(t.start // 60, 0, 99, 0, 0, 1, function(v)
+	       t.start = v * 60 + t.start % 60
+	       save("Start", t.start)
+	 end, {width = 70})
+	 form.addLabel({label = "min", width = 40})
+	 form.addIntbox(t.start % 60, 0, 59, 0, 0, 1, function(v)
+	       t.start = t.start - t.start % 60 + v
+	       save("Start", t.start)
+	 end, {width = 70})
+	 form.addLabel({label = "s", width = 30})
+	 form.addRow(2)
+	 form.addLabel({label = "Counts"})
+	 form.addSelectbox({"up", "down"}, t.down and 2 or 1, false, function(i)
+	       t.down = i == 2
+	       save("Down", t.down and 1 or 0)
+	 end)
+	 form.addRow(2)
+	 form.addLabel({label = "Run switch (none: always)"})
+	 form.addInputbox(t.runSw, true, function(item)
+	       t.runSw = item
+	       save("Run", item)
+	 end)
+	 form.addRow(2)
+	 form.addLabel({label = "Reset switch"})
+	 form.addInputbox(t.resetSw, true, function(item)
+	       t.resetSw = item
+	       save("Reset", item)
 	 end)
       end
       return
@@ -719,6 +856,7 @@ local function loop()
    local now = system.getTimeCounter()
    endPulses(now)
    updateStatus(now)
+   updateOwnTimers(now)
    if not sid then return end
 
    -- system.getSensors() only when needed: under SensorE in the emulator
@@ -741,7 +879,7 @@ local function loop()
 
    if now - lastSend >= SEND_MS then
       lastSend = now
-      sendValues()
+      sendValues(now)
    end
 
    if now - valueCountStart >= 1000 then
@@ -756,6 +894,12 @@ local function init()
    crcFn, crcSource = chooseCrc()
    ctlOn = system.pLoad("ctlOn", 1) == 1
    for i = 1, N_SWITCH do ctlSwitches[i] = system.pLoad("ctlSw" .. i) end
+   for n = 1, N_OWN do
+      local function load(key, default) return system.pLoad("tm" .. n .. key, default) end
+      ownTimers[n] = {on = load("On", 0) == 1, start = load("Start", 0),
+		      down = load("Down", 0) == 1, runSw = load("Run"),
+		      resetSw = load("Reset"), elapsed = 0}
+   end
    print(appName .. " " .. appVersion .. ": serial CRC " ..
 	    (crcFn and ("on (" .. crcSource .. ")") or "off (failed its self-check)"))
 
