@@ -26,6 +26,12 @@
 
    Derived from DFM-HUD (serial set-up, sensor list, GPIO control).
 
+   History:
+     0.5  CRC-16 on serial frames via system.crc
+     0.6  CRC-16 in Lua when the TX has no (working) system.crc
+     0.7  TX controls (P1-P8) and up to 8 switches sent as two EX sensors
+     0.8  those sensors move from EX 0xA400:1-2 to 0xA41F:0xDF01-0xDF02
+
    -----------------------------------------------------------------------------
    Released under MIT license by DFM 2026
    -----------------------------------------------------------------------------
@@ -33,7 +39,7 @@
 --]]
 
 local appName = "DFM-BLE"
-local appVersion = "0.7"
+local appVersion = "0.8"
 
 local HEAD, FOOT = 0xEE, 0xBB
 local CMD_RESET, CMD_MODEL, CMD_DESCRIBE, CMD_VALUES = 0x20, 0x21, 0x22, 0x23
@@ -51,16 +57,23 @@ local ESP_TIMEOUT_MS = 12000 -- no heartbeat for this long: ESP32 not answering
 local MAX_VALUES = 32       -- per sensor, the size of the ESP32's table
 local MAX_LABEL, MAX_UNIT = 31, 7
 
--- TX controls: two sensors with our EX manufacturer id 0xA400 (our range is
--- 0xA400-0xA41F; Lua's real sensor ids never use it). The ESP32 splits the
--- id into manufacturer (low 16 bits) and device (high 16 bits).
---   device 1 "TX controls": P1-P8 as params 1-8
---   device 2 "TX switches": the switches picked in the menu, box i = param i
---   device 3: kept for timers, later
+-- TX controls: two sensors of our own. Sensor id = device << 16 |
+-- manufacturer; the ESP32 splits it that way. 0xA400-0xA41F is the EX
+-- spec's range for ALL third-party makers, so it isn't ours alone: we use
+-- its top, 0xA41F, with devices 0xDF.. ("DF" for DFM), which no one is
+-- likely to pick. If JETI assigns DFM a manufacturer id, only these
+-- constants change (and the iOS app's).
+--   0xDF01 "TX controls": P1-P8 as params 1-8
+--   0xDF02 "TX switches": the switches picked in the menu, box i = param i
+--   0xDF03: kept for timers, later
 -- The params are fixed (P3 is always param 3, even when P2 is missing)
 -- because the iOS app links its variables by sensor + param. EX value ids
 -- above 15 need an escape that is untested, so each sensor stays below 16.
-local CTL_PROP_ID, CTL_SWITCH_ID = 0x0001A400, 0x0002A400
+-- On the TX (32-bit integers) these are negative; they still pack to the
+-- right 4 bytes, 1F A4 01 DF and 1F A4 02 DF.
+local CTL_PROP_ID, CTL_SWITCH_ID = 0xDF01A41F, 0xDF02A41F
+local CTL_PIDS = {[string.pack("<I4", CTL_PROP_ID)] = true,
+		  [string.pack("<I4", CTL_SWITCH_ID)] = true}
 local N_PROP, N_SWITCH = 8, 8
 local CTL_TYPE, CTL_DEC = 1, 1 -- int14 with one decimal: -100.0 to 100.0 %
 
@@ -233,7 +246,8 @@ local function readSensors()
    local list, byId, keys, count = {}, {}, {}, 0
    for _, s in ipairs(system.getSensors()) do
       local pid = packId(s.id)
-      if pid then
+      -- a real sensor with one of our ids is dropped: ours win
+      if pid and not CTL_PIDS[pid] then
 	 local e = byId[s.id]
 	 if not e then
 	    e = {id = s.id, pid = pid, name = "", values = {}}
