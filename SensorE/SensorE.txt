@@ -212,6 +212,22 @@
    the units.  Specify the earth radius in the correct local units
    (e.g. ft, meters).
 
+   With a GPS config, luaExp also has these variables for the GPS path:
+   xp, yp, zp (the position, from xString, yString, zString), heading
+   and pitch (from hString and pString: the model's attitude, not its
+   track), trueDir (the config's rotation of the x/y frame to true
+   north) and course. course is the true course over ground, in
+   degrees: the direction of the last simulator step plus trueDir,
+   delayed with the position if the GPS config has latencyMs, and held
+   while the model doesn't move (trueDir before the first move). It is
+   what a GPS receiver reports, so a GPS course value should use it:
+
+     {"id":3, "param":10, "decimals":0, "type":1, "sensorName":"MGPS",
+      "label":"Course", "unit":"", "luaExp":"course"}
+
+   (Older configs sent a fixed "180" here, so apps that draw the
+   aircraft from the course pointed it the wrong way.)
+
    At present, several less common table entries (see source code) are
    not implemented e.g. date and time. Easy to add if desired, format
    of date and time values can be observed in SensorL.lua.

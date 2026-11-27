@@ -59,7 +59,7 @@
      "sensorName":"MGPS",
      "label":"Course",
      "unit":"",
-     "luaExp":"180"
+     "luaExp":"course"
     },    
     {"id":1,"param":0,"sensorName":"MVario", "label":"MVario"},
     {"id":1,"param":1,

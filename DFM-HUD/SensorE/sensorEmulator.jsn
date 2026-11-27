@@ -199,6 +199,6 @@
      "sensorName":"MGPS",
      "label":"Course",
      "unit":"",
-     "luaExp":"180"
+     "luaExp":"course"
     }
 ]
