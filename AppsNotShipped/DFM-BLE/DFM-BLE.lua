@@ -31,6 +31,8 @@
      0.6  CRC-16 in Lua when the TX has no (working) system.crc
      0.7  TX controls (P1-P8) and up to 8 switches sent as two EX sensors
      0.8  those sensors move from EX 0xA400:1-2 to 0xA41F:0xDF01-0xDF02
+     0.9  the TX's own timers 1-10 as a third sensor, 0xA41F:0xDF03
+          (timer library, firmware 6.05 on, DC/DS-24 II only)
 
    -----------------------------------------------------------------------------
    Released under MIT license by DFM 2026
@@ -39,7 +41,7 @@
 --]]
 
 local appName = "DFM-BLE"
-local appVersion = "0.8"
+local appVersion = "0.9"
 
 local HEAD, FOOT = 0xEE, 0xBB
 local CMD_RESET, CMD_MODEL, CMD_DESCRIBE, CMD_VALUES = 0x20, 0x21, 0x22, 0x23
@@ -65,15 +67,21 @@ local MAX_LABEL, MAX_UNIT = 31, 7
 -- constants change (and the iOS app's).
 --   0xDF01 "TX controls": P1-P8 as params 1-8
 --   0xDF02 "TX switches": the switches picked in the menu, box i = param i
---   0xDF03: kept for timers, later
+--   0xDF03 "TX timers": the TX's timers 1-10, param = timer number, in
+--          seconds with 1 decimal (int22, signed). Read only, with JETI's
+--          timer library (6.05 on, DC/DS-24 II only; absent elsewhere).
 -- The params are fixed (P3 is always param 3, even when P2 is missing)
 -- because the iOS app links its variables by sensor + param. EX value ids
 -- above 15 need an escape that is untested, so each sensor stays below 16.
 -- On the TX (32-bit integers) these are negative; they still pack to the
 -- right 4 bytes, 1F A4 01 DF and 1F A4 02 DF.
 local CTL_PROP_ID, CTL_SWITCH_ID = 0xDF01A41F, 0xDF02A41F
+local CTL_TIMER_ID = 0xDF03A41F
 local CTL_PIDS = {[string.pack("<I4", CTL_PROP_ID)] = true,
-		  [string.pack("<I4", CTL_SWITCH_ID)] = true}
+		  [string.pack("<I4", CTL_SWITCH_ID)] = true,
+		  [string.pack("<I4", CTL_TIMER_ID)] = true}
+local N_TIMER = 10              -- native timers are ids 1-10 (11-20 are Lua's)
+local TIMER_TYPE, TIMER_DEC = 4, 1 -- int22, tenths of a second
 local N_PROP, N_SWITCH = 8, 8
 local CTL_TYPE, CTL_DEC = 1, 1 -- int14 with one decimal: -100.0 to 100.0 %
 
@@ -88,6 +96,8 @@ local nValues = 0
 local nReal = 0       -- real sensors (not TX controls), to rescan while none
 local ctlOn = true    -- send the TX controls
 local ctlSwitches = {} -- [i] = SwitchItem from the menu's switch box i, or nil
+local timerEntry      -- the "TX timers" sensor, or nil if there are none
+local timerKey = ""   -- its timers and labels as a string, to notice changes
 local needReset = true
 local rescanWanted = true -- read the sensor list on the next loop
 local lastSend, lastDescribe, lastScan
@@ -242,6 +252,46 @@ local function addControls(list, keys)
    return N_PROP + #sw.values
 end
 
+-- Looks for the TX's timers (on the Describe cycle, so a new or renamed
+-- timer shows up within 10 s). Swaps the "TX timers" sensor in the list
+-- and returns true if anything changed.
+local function scanTimers()
+   local entry, keys = nil, {}
+   if ctlOn and timer and timer.getByID then
+      entry = {id = CTL_TIMER_ID, pid = string.pack("<I4", CTL_TIMER_ID),
+	       name = "TX timers", values = {}, ctl = "timer"}
+      for n = 1, N_TIMER do
+	 local h = timer.getByID(n)
+	 if h then
+	    local name = timer.getName(h) or ""
+	    local label = "T" .. n
+	    if name ~= "" and name ~= label then label = label .. " " .. name end
+	    entry.values[#entry.values + 1] = {param = n, label = label, unit = "s",
+					       dec = TIMER_DEC, type = TIMER_TYPE,
+					       handle = h}
+	    keys[#keys + 1] = n .. ":" .. label
+	 end
+      end
+      if #entry.values == 0 then entry = nil end
+   end
+   local key = table.concat(keys, ",")
+   if key == timerKey then return false end
+   for i = #sensors, 1, -1 do
+      if sensors[i].ctl == "timer" then table.remove(sensors, i) end
+   end
+   if timerEntry then nValues = nValues - #timerEntry.values end
+   timerEntry, timerKey = entry, key
+   if entry then
+      sensors[#sensors + 1] = entry
+      nValues = nValues + #entry.values
+      for _, v in ipairs(entry.values) do
+	 print(string.format("%s: timer %d \"%s\" (%s)", appName, v.param, v.label,
+			     tostring(timer.getType(v.handle))))
+      end
+   end
+   return true
+end
+
 local function readSensors()
    local list, byId, keys, count = {}, {}, {}, 0
    for _, s in ipairs(system.getSensors()) do
@@ -267,6 +317,10 @@ local function readSensors()
    end
    nReal = #list
    count = count + addControls(list, keys)
+   if timerEntry then
+      list[#list + 1] = timerEntry
+      count = count + #timerEntry.values
+   end
    local key = table.concat(keys, ",")
    if key ~= sensorKey then
       sensors, sensorKey, nValues = list, key, count
@@ -311,6 +365,16 @@ local function sendValues()
 	    -- the item from the menu now, in case it changed since the scan
 	    local item = ctlSwitches[v.param]
 	    raw, dec, typ = ctlRaw(item and system.getInputsVal(item))
+	 elseif e.ctl == "timer" then
+	    -- The API doc says "T", milliseconds without a lap id, but the
+	    -- 6.06 emulator returns "R" with milliseconds (2026-11-26), so
+	    -- either is taken as the time now in ms. It is the time the TX
+	    -- shows: a count-down gives the time left, and goes negative
+	    -- past zero; a stopped timer holds its time.
+	    local kind, ms = timer.getRawTime(v.handle)
+	    if (kind == "T" or kind == "R") and ms then
+	       raw, dec, typ = round(ms / 100), TIMER_DEC, TIMER_TYPE
+	    end
 	 else
 	    local s = system.getSensorByID(e.id, v.param)
 	    if s and s.valid then
@@ -664,7 +728,9 @@ local function loop()
       rescanWanted, lastScan = false, now
    end
 
-   if needReset or now - lastDescribe >= DESCRIBE_MS then
+   local describeDue = needReset or now - lastDescribe >= DESCRIBE_MS
+   if describeDue and scanTimers() then needReset = true end
+   if describeDue then
       if needReset then
 	 sendReset()
 	 needReset = false
