@@ -288,7 +288,7 @@ local imagesDropped = false
 -- slowest frame is what the TX kills). Set prof.on = false to turn it off.
 -- Each report is also appended to prof.file, opened and closed every time so
 -- a run the TX kills keeps every report written before the kill
-local prof = {on = true, file = appInfo.Dir .. "prof.log", sum = {}, n = {}, max = {}, tot = {}, cnt = {}, cpu = {},
+local prof = {on = false, file = appInfo.Dir .. "prof.log", sum = {}, n = {}, max = {}, tot = {}, cnt = {}, cpu = {},
 	      top = {}, order = {}}
 
 function prof.start(cb)

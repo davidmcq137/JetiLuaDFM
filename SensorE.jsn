@@ -1,7 +1,7 @@
 {
     "configDir5":"DFM-Path",
-    "configDir4":"DFM-Maps",
-    "configDir":"DFM-Rscu",
+    "configDir": "DFM-Maps",
+    "configDir3":"DFM-Rscu",
     "configDir1":"DFM-HUD",
     "configDir2":"DFM-InsP"
 }
