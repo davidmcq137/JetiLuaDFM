@@ -60,6 +60,5 @@ user has linked any so far.
 ## Later: our own manufacturer ID
 
 The user will ask JETI to assign DFM an EX manufacturer ID. When it
-comes, both sides change their constants once more (and JAFO keeps
-accepting 0xA41F:0xDF0x for a release, so old DFM-BLE copies still list
-first).
+comes, both sides switch their constants to it, with no transition (only
+the user runs DFM-BLE so far).
