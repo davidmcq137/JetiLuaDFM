@@ -20,6 +20,8 @@
      P,name,lat,lng,zoom,px,py,mx,my               (px2m of px,py pixels)
      L,name,tllat,tllng,lat,lng,zoom,x,y,backlat,backlng (getLcdXY, getLL)
      ERR,name,message
+
+   Coded by Claude Code with guidance from D. McQueeney
 --]]
 
 local appName = "GpsTest"

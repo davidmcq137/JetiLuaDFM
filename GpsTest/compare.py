@@ -10,6 +10,8 @@ rhumb line and flat-earth bearing; destinations with the spherical formula
 at several radii, with and without altitude added; the Mercator calls with
 Web Mercator at 256 px tiles, R = 6378137 m. A summary at the end gives the
 RMS relative error of each candidate.
+
+Coded by Claude Code with guidance from D. McQueeney
 """
 import math
 import sys

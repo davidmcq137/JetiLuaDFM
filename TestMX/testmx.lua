@@ -40,6 +40,8 @@
      10 ms x multiplier; getCPU reports it; overruns are listed, nothing is
      killed. The instruction rate and image costs are NOT calibrated
      against a TX yet (Harry's prof.log and ImgTest runs are the plan).
+
+   Coded by Claude Code with guidance from D. McQueeney
 --]]
 
 local FW = {}

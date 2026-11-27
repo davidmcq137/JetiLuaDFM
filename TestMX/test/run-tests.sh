@@ -12,6 +12,8 @@
 # DFM-SWT's press counting with a real model file, DFM-InsP's sequencer, and DFM-Rscu/DFM-Path
 # rescue and path steering on their own SensorE configs.
 # Exit code: the number of failed tests.
+#
+# Coded by Claude Code with guidance from D. McQueeney
 LUA=${1:-$HOME/lua-5.3.1-Jeti-typefix/src/lua}
 T=Apps/TestMX/test
 fails=0

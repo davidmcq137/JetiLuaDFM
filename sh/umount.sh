@@ -8,6 +8,8 @@
 #
 # Because it may be sourced, it must not use "set -e" or "exit":
 # either would close your shell.
+#
+# Coded by Claude Code with guidance from D. McQueeney
 
 jeti_umount() {
     local disk parts p

@@ -29,6 +29,8 @@
    touch = true} or {at = ms, connect = true}), replyMs (delay from the
    command to its reply, default 30).
    dev.state() returns what the device saw, for UIDriver checks and reports.
+
+   Coded by Claude Code with guidance from D. McQueeney
 --]]
 
 local M = {}

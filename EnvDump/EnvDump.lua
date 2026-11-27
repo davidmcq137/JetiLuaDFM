@@ -32,6 +32,8 @@
    On a TX: unzip EnvDump.zip into the TX's Apps folder, add EnvDump in
    Applications (any model), wait a few seconds for "EnvDump: written" on
    the console, then copy Apps/EnvDump/envdump.out back.
+
+   Coded by Claude Code with guidance from D. McQueeney
 --]]
 
 local outFile = "Apps/EnvDump/envdump.out"

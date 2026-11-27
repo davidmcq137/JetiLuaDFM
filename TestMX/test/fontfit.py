@@ -10,6 +10,8 @@ which every repeated-character width (R lines) and single width (W lines)
 is consistent. The degree sign, used in many apps, is solved from the "°"
 and "°C" strings (it comes out unique on both devices). Other non-ASCII
 glyphs aren't measured one by one; TestMitter uses the width of "o".
+
+Coded by Claude Code with guidance from D. McQueeney
 """
 import math
 import os

@@ -2,6 +2,8 @@
    UIDriver.lua -- drive another app's forms and telemetry keys from a
    script, as if a human were pressing the keys. Emulator use only.
 
+   Coded by Claude Code with guidance from D. McQueeney
+
    HOW IT WORKS (the same idea as SensorE)
    When this file's chunk loads, it replaces system.registerForm,
    system.registerTelemetry and several form.* functions in the shared

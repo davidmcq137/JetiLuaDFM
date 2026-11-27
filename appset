@@ -34,6 +34,8 @@
 #   group always  UIDriver SensorE SensorL       (linked every time)
 #   group nosettings  EnvDump FontDump  (save no settings, so appset unlinks
 #                                        them even when a model loads them)
+#
+# Coded by Claude Code with guidance from D. McQueeney
 
 set -u
 APPS=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")

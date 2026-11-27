@@ -32,6 +32,8 @@
    --serial ttyUSB0=engo; its state is exposed to UIDriver as DEVICE, so a
    script can check "engo.counts.x05").
    Exit code 0 only when the script ends DONE with 0 FAIL and no app errored.
+
+   Coded by Claude Code with guidance from D. McQueeney
 --]]
 
 local FW = dofile("Apps/TestMX/testmx.lua")

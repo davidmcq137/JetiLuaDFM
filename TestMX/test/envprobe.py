@@ -8,6 +8,8 @@ usage: python3 -I TestMX/test/envprobe.py   (from Apps)
 
 Format, one per line: "G name" (all of them first), then "M lib member"
 grouped by library.
+
+Coded by Claude Code with guidance from D. McQueeney
 """
 import collections
 import os

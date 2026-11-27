@@ -13,6 +13,8 @@
 
    Build with TestMX/build.sh against the JETI-like Lua headers, and run
    with that Lua: package.loadlib("Apps/TestMX/testmx_c.so", "luaopen_testmx_c")
+
+   Coded by Claude Code with guidance from D. McQueeney
 */
 
 #define _POSIX_C_SOURCE 200809L

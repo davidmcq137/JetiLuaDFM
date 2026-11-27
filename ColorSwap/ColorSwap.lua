@@ -37,6 +37,8 @@
 
    The spiral: t from 0 to 60 over the points, radius R_MAX * t / 60,
    angle 2 * pi * t / 10 (6 turns): x = r * cos(angle), y = r * sin(angle).
+
+   Coded by Claude Code with guidance from D. McQueeney
 --]]
 
 local appName = "ColorSwap"

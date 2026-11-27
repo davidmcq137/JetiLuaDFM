@@ -24,6 +24,8 @@
    256-colour and RGBA; ppal/prgba the whole TurbineL panel (456x342);
    bgpal/bgrgb a full-size carbon-fibre background (456x342) as 256-colour
    and RGB.
+
+   Coded by Claude Code with guidance from D. McQueeney
 --]]
 
 local appName = "ImgTest"

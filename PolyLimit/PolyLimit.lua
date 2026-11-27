@@ -35,6 +35,8 @@
    History (PolyLimit 1.0-1.3, emulator 6.06): circles of 130-133 points
    and polygons of 256-270 points looked right, because a few lost points
    of a circle change it by under a pixel.
+
+   Coded by Claude Code with guidance from D. McQueeney
 --]]
 
 local appName = "PolyLimit"

@@ -13,6 +13,8 @@
      E,case,<json.encode result>          (or E,case,ERROR,<message>)
      D,case,<what json.decode returned>   (or D,case,ERROR,<message>)
      DONE
+
+   Coded by Claude Code with guidance from D. McQueeney
 --]]
 
 local appName = "JsonProbe"

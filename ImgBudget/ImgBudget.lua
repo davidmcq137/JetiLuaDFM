@@ -38,6 +38,8 @@
      L,round,name,ms,getCPU,w,h        it finished
      I,k,name,ms,ok                    init load k of N
      IT,N,loaded,total ms,getCPU       init as a whole
+
+   Coded by Claude Code with guidance from D. McQueeney
 --]]
 
 local appName = "ImgBudget"

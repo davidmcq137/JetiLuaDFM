@@ -26,6 +26,8 @@
    On a TX: unzip FontDump.zip into the TX's Apps folder, add FontDump in
    Applications, wait for "FontDump: written" on the console (a few
    seconds), then copy Apps/FontDump/fontdump.out back.
+
+   Coded by Claude Code with guidance from D. McQueeney
 --]]
 
 local outFile = "Apps/FontDump/fontdump.out"
