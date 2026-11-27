@@ -6,6 +6,8 @@
    shows it as if it came from a DS-24 II.
 
    Every sensor value the TX knows about is sent, like a DS-24 II does.
+   The TX's own controls go out too, as two sensors of our own (see
+   "TX controls" below), because a DS-24 II's BLE sends only sensors.
 
    Serial frames (see dfmBleESP lib/DfmLink/src/DfmLink.h):
      0xEE cmd fmt len payload [crc16] 0xBB
@@ -31,7 +33,7 @@
 --]]
 
 local appName = "DFM-BLE"
-local appVersion = "0.6"
+local appVersion = "0.7"
 
 local HEAD, FOOT = 0xEE, 0xBB
 local CMD_RESET, CMD_MODEL, CMD_DESCRIBE, CMD_VALUES = 0x20, 0x21, 0x22, 0x23
@@ -49,6 +51,19 @@ local ESP_TIMEOUT_MS = 12000 -- no heartbeat for this long: ESP32 not answering
 local MAX_VALUES = 32       -- per sensor, the size of the ESP32's table
 local MAX_LABEL, MAX_UNIT = 31, 7
 
+-- TX controls: two sensors with our EX manufacturer id 0xA400 (our range is
+-- 0xA400-0xA41F; Lua's real sensor ids never use it). The ESP32 splits the
+-- id into manufacturer (low 16 bits) and device (high 16 bits).
+--   device 1 "TX controls": P1-P8 as params 1-8
+--   device 2 "TX switches": the switches picked in the menu, box i = param i
+--   device 3: kept for timers, later
+-- The params are fixed (P3 is always param 3, even when P2 is missing)
+-- because the iOS app links its variables by sensor + param. EX value ids
+-- above 15 need an escape that is untested, so each sensor stays below 16.
+local CTL_PROP_ID, CTL_SWITCH_ID = 0x0001A400, 0x0002A400
+local N_PROP, N_SWITCH = 8, 8
+local CTL_TYPE, CTL_DEC = 1, 1 -- int14 with one decimal: -100.0 to 100.0 %
+
 local emulator = false
 local crcFn          -- function(data) -> CRC-16, or nil for no CRC; set in init
 local crcSource = ""  -- "system.crc" or "Lua", for the console and status
@@ -57,6 +72,9 @@ local portName
 local sensors = {}    -- {id=, name=, values={{param=, label=, unit=, dec=, type=}}}
 local sensorKey = ""  -- the sensor list as a string, to notice changes
 local nValues = 0
+local nReal = 0       -- real sensors (not TX controls), to rescan while none
+local ctlOn = true    -- send the TX controls
+local ctlSwitches = {} -- [i] = SwitchItem from the menu's switch box i, or nil
 local needReset = true
 local rescanWanted = true -- read the sensor list on the next loop
 local lastSend, lastDescribe, lastScan
@@ -183,6 +201,34 @@ end
 --------------------------------------------------------------------------------
 -- sensors
 
+-- Adds the TX controls sensors to the list; returns how many values
+local function addControls(list, keys)
+   if not ctlOn then return 0 end
+   local prop = {id = CTL_PROP_ID, pid = string.pack("<I4", CTL_PROP_ID),
+		 name = "TX controls", values = {}, ctl = "prop"}
+   for i = 1, N_PROP do
+      prop.values[i] = {param = i, label = "P" .. i, unit = "%", dec = CTL_DEC,
+			type = CTL_TYPE}
+   end
+   list[#list + 1] = prop
+   keys[#keys + 1] = "ctl"
+   local sw = {id = CTL_SWITCH_ID, pid = string.pack("<I4", CTL_SWITCH_ID),
+	       name = "TX switches", values = {}, ctl = "switch"}
+   for i = 1, N_SWITCH do
+      local item = ctlSwitches[i]
+      local info = item and system.getSwitchInfo(item)
+      -- unassigned boxes are left out; the others keep their param
+      if info and info.assigned then
+	 local label = (info.label and info.label ~= "") and info.label or ("Sw" .. i)
+	 sw.values[#sw.values + 1] = {param = i, label = label, unit = "%",
+				      dec = CTL_DEC, type = CTL_TYPE}
+	 keys[#keys + 1] = "sw" .. i .. ":" .. label
+      end
+   end
+   if #sw.values > 0 then list[#list + 1] = sw end
+   return N_PROP + #sw.values
+end
+
 local function readSensors()
    local list, byId, keys, count = {}, {}, {}, 0
    for _, s in ipairs(system.getSensors()) do
@@ -205,6 +251,8 @@ local function readSensors()
 	 end
       end
    end
+   nReal = #list
+   count = count + addControls(list, keys)
    local key = table.concat(keys, ",")
    if key ~= sensorKey then
       sensors, sensorKey, nValues = list, key, count
@@ -229,20 +277,39 @@ local function sendDescribes()
    end
 end
 
+-- A TX control's reading (-1 to 1) as raw, decimals and type, or nil
+local function ctlRaw(x)
+   if not x then return nil end
+   return round(x * 1000), CTL_DEC, CTL_TYPE
+end
+
 local function sendValues()
+   local props -- P1-P8, read once per round
    for _, e in ipairs(sensors) do
       local parts, n = {}, 0
       for _, v in ipairs(e.values) do
-	 local s = system.getSensorByID(e.id, v.param)
-	 v.lastRaw = nil -- what was sent, for the values page
-	 if s and s.valid then
-	    local raw, dec = rawValue(s)
-	    raw = math.tointeger(raw)
-	    if raw then
-	       n = n + 1
-	       parts[n] = string.pack("<BBi4", v.param, dec & 0xFF, raw)
-	       v.lastRaw, v.lastDec, v.lastType = raw, dec, s.type
+	 local raw, dec, typ
+	 if e.ctl == "prop" then
+	    props = props or {system.getInputs("P1", "P2", "P3", "P4",
+					       "P5", "P6", "P7", "P8")}
+	    raw, dec, typ = ctlRaw(props[v.param])
+	 elseif e.ctl == "switch" then
+	    -- the item from the menu now, in case it changed since the scan
+	    local item = ctlSwitches[v.param]
+	    raw, dec, typ = ctlRaw(item and system.getInputsVal(item))
+	 else
+	    local s = system.getSensorByID(e.id, v.param)
+	    if s and s.valid then
+	       raw, dec = rawValue(s)
+	       typ = s.type
 	    end
+	 end
+	 v.lastRaw = nil -- what was sent, for the values page
+	 raw = raw and math.tointeger(raw)
+	 if raw then
+	    n = n + 1
+	    parts[n] = string.pack("<BBi4", v.param, dec & 0xFF, raw)
+	    v.lastRaw, v.lastDec, v.lastType = raw, dec, typ
 	 end
       end
       if n > 0 then
@@ -448,7 +515,7 @@ local function printForm(w, h)
 end
 
 local function keyForm(key)
-   if formPage ~= 2 then return end
+   if formPage == 1 then return end
    if key == KEY_ESC or key == KEY_5 then
       form.preventDefault()
       form.reinit(1)
@@ -470,6 +537,32 @@ local function initForm(sub)
       form.setButton(5, "Back", ENABLED)
       return
    end
+   if formPage == 3 then
+      form.setTitle("TX controls")
+      form.setButton(5, "Back", ENABLED)
+      form.addRow(2)
+      form.addLabel({label = "Send TX controls", width = 220})
+      local box
+      box = form.addCheckbox(ctlOn, function(value)
+	    ctlOn = not value
+	    form.setValue(box, ctlOn)
+	    system.pSave("ctlOn", ctlOn and 1 or 0)
+	    rescanWanted = true
+      end)
+      form.addRow(1)
+      form.addLabel({label = "Sends P1-P8, plus these switches:", font = FONT_MINI})
+      for i = 1, N_SWITCH do
+	 form.addRow(2)
+	 form.addLabel({label = "Switch " .. i})
+	 form.addInputbox(ctlSwitches[i], true, function(item)
+	       ctlSwitches[i] = item
+	       system.pSave("ctlSw" .. i, item)
+	       rescanWanted = true
+	 end)
+      end
+      return
+   end
+   form.setTitle(appName) -- the sub-pages change it
    rescanWanted = true -- opening the menu also picks up new sensors
 
    form.addRow(1)
@@ -477,6 +570,9 @@ local function initForm(sub)
 	 valueTop = 1
 	 form.reinit(2)
    end, {label = "Values sent >>"})
+
+   form.addRow(1)
+   form.addLink(function() form.reinit(3) end, {label = "TX controls >>"})
 
    if emulator then
       local ports = serial.getPorts() or {}
@@ -549,7 +645,7 @@ local function loop()
 
    -- system.getSensors() only when needed: under SensorE in the emulator
    -- every call reloads SensorE's config (and prints its start-up lines)
-   if rescanWanted or (#sensors == 0 and now - lastScan >= RESCAN_EMPTY_MS) then
+   if rescanWanted or (nReal == 0 and now - lastScan >= RESCAN_EMPTY_MS) then
       readSensors()
       rescanWanted, lastScan = false, now
    end
@@ -578,6 +674,8 @@ local function init()
    local _, emflag = system.getDeviceType()
    emulator = emflag ~= 0
    crcFn, crcSource = chooseCrc()
+   ctlOn = system.pLoad("ctlOn", 1) == 1
+   for i = 1, N_SWITCH do ctlSwitches[i] = system.pLoad("ctlSw" .. i) end
    print(appName .. " " .. appVersion .. ": serial CRC " ..
 	    (crcFn and ("on (" .. crcSource .. ")") or "off (failed its self-check)"))
 
