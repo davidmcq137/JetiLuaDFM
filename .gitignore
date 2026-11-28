@@ -6,6 +6,7 @@
 *.out
 *.zip
 *.lux
+/zip
 DS/
 ~DS/
 AppsNotShipped/DFM-LSO/*.png
